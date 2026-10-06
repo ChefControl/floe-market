@@ -1,16 +1,21 @@
 import {
-  BoxGeometry, BufferGeometry, CanvasTexture, Color, ConeGeometry, CylinderGeometry, DirectionalLight, Fog,
-  HemisphereLight, Material, Mesh, MeshLambertMaterial, PCFSoftShadowMap, PerspectiveCamera, Scene,
-  SphereGeometry, TorusGeometry, WebGLRenderer,
+  BoxGeometry, BufferGeometry, CanvasTexture, Color, ColorManagement, ConeGeometry, CylinderGeometry, DirectionalLight,
+  Fog, HemisphereLight, LinearSRGBColorSpace, Material, Mesh, MeshLambertMaterial, PCFShadowMap, PerspectiveCamera,
+  Scene, SphereGeometry, TorusGeometry, WebGLRenderer,
 } from 'three';
 import { V } from './util';
 
 // ---------- renderer / scene ----------
+// The art was tuned for three.js' pre-r152 color pipeline: hex colors and canvas textures used as-is,
+// no sRGB output encoding. Keep it that way. This must run before any Color is created.
+ColorManagement.enabled = false;
+
 export const canvas = document.getElementById('game') as HTMLCanvasElement;
 export const renderer = new WebGLRenderer({ canvas, antialias: true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+renderer.outputColorSpace = LinearSRGBColorSpace;
 renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = PCFSoftShadowMap;
+renderer.shadowMap.type = PCFShadowMap;
 
 export const scene = new Scene();
 scene.background = new Color(0xCFEAF5);
@@ -35,8 +40,10 @@ function resize() {
 window.addEventListener('resize', resize);
 resize();
 
-scene.add(new HemisphereLight(0xEAF7FF, 0xA9BCCB, 0.78));
-export const sun = new DirectionalLight(0xFFFFFF, 0.62);
+// Intensities are scaled by PI to match the legacy lighting mode (removed in r165), which multiplied
+// hemisphere and directional light by PI.
+scene.add(new HemisphereLight(0xEAF7FF, 0xA9BCCB, 0.78 * Math.PI));
+export const sun = new DirectionalLight(0xFFFFFF, 0.62 * Math.PI);
 sun.castShadow = true;
 sun.shadow.mapSize.set(1024, 1024);
 Object.assign(sun.shadow.camera, { left: -14, right: 14, top: 14, bottom: -14, near: 1, far: 50 });

@@ -31,7 +31,7 @@ Progress saves automatically to `localStorage`. Use the **Restart** button (tap 
 
 ## Development
 
-TypeScript + [three.js r128](https://threejs.org/), bundled with [Vite](https://vite.dev/). All textures are drawn at runtime on canvas; the Baloo 2 font comes from Google Fonts.
+TypeScript + [three.js r186](https://threejs.org/), bundled with [Vite](https://vite.dev/). All textures are drawn at runtime on canvas; the Baloo 2 font comes from Google Fonts.
 
 | Command | What it does |
 | --- | --- |
