@@ -1,0 +1,62 @@
+// DOM overlay: cash/carry HUD, toasts, tile tips and floating "+$" text.
+import { player } from './player';
+import { camera } from './render';
+import { V } from './util';
+import { wallet } from './wallet';
+
+const $ = (id: string) => document.getElementById(id)!;
+
+const cashN = $('cashN'), cashEl = $('cash');
+const carryN = $('carryN'), carryEl = $('carry');
+let shownMoney = -1, shownCarry = '';
+
+export function hud(dt: number) {
+  if (shownMoney !== wallet.money) {
+    shownMoney = wallet.money;
+    cashN.textContent = wallet.money.toLocaleString('en-US');
+  }
+  const cs = player.back.n + '/' + player.back.cap;
+  if (cs !== shownCarry) {
+    shownCarry = cs;
+    carryN.textContent = cs;
+    carryEl.classList.toggle('full', player.back.n >= player.back.cap);
+  }
+  if (wallet.bumpT > 0) { wallet.bumpT -= dt; cashEl.classList.add('bump'); }
+  else cashEl.classList.remove('bump');
+}
+
+const toastEl = $('toast');
+let toastT: ReturnType<typeof setTimeout> | undefined;
+export function toast(m: string) {
+  toastEl.textContent = m;
+  toastEl.classList.add('on');
+  clearTimeout(toastT);
+  toastT = setTimeout(() => toastEl.classList.remove('on'), 1700);
+}
+
+interface TipContent { name: string; desc: string }
+const tipEl = $('tip');
+let tipFor: TipContent | null = null;
+export function setTip(t: TipContent | null) {
+  if (t === tipFor) return;
+  tipFor = t;
+  if (t) {
+    tipEl.innerHTML = '<b></b><span></span>';
+    tipEl.firstChild!.textContent = t.name;
+    tipEl.lastChild!.textContent = t.desc;
+    tipEl.classList.add('on');
+  } else tipEl.classList.remove('on');
+}
+
+/** Floating text that rises from a world position. */
+export function popText(txt: string, wp: { x: number; y?: number; z: number }) {
+  const v = V(wp.x, (wp.y || 0) + 1.2, wp.z).project(camera);
+  if (v.z > 1) return;
+  const el = document.createElement('div');
+  el.className = 'pop';
+  el.textContent = txt;
+  el.style.left = ((v.x + 1) / 2 * window.innerWidth) + 'px';
+  el.style.top = ((1 - v.y) / 2 * window.innerHeight) + 'px';
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 950);
+}

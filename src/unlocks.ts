@@ -1,0 +1,149 @@
+// Purchasable upgrades: pay-in tiles on the deck and the machines they build.
+import { BoxGeometry, Group, Mesh, MeshBasicMaterial, Object3D, PlaneGeometry, Vector3 } from 'three';
+import { C2 } from './counters';
+import { decal, drawTile, type Decal } from './decals';
+import { tryCatch } from './fishing';
+import { player } from './player';
+import { G, mesh, scene } from './render';
+import { hireRunner } from './runner';
+import { toast } from './ui';
+import { FY, V } from './util';
+import { gapLogs } from './world';
+
+export type UnlockId = 'pack' | 'turret' | 'runner' | 'boots' | 'sled' | 'net';
+interface Unlock {
+  id: UnlockId;
+  cost: number;
+  x: number;
+  z: number;
+  icon: string;
+  name: string;
+  desc: string;
+}
+export interface Tile extends Unlock {
+  paid: number;
+  done: boolean;
+  d: Decal;
+}
+
+const UNLOCKS: Unlock[] = [
+  { id: 'pack', cost: 25, x: -1.3, z: 6.0, icon: '🎒', name: 'Bigger arms', desc: 'Carry 14 steaks at once' },
+  { id: 'turret', cost: 60, x: -6.0, z: -3.3, icon: '🎯', name: 'Auto harpoon', desc: 'Keeps catching fish while you are away' },
+  { id: 'runner', cost: 120, x: -4.0, z: 3.6, icon: '🏃', name: 'Hire a runner', desc: 'Carries steaks to your counters' },
+  { id: 'boots', cost: 150, x: -6.0, z: 6.2, icon: '🥾', name: 'Snow boots', desc: 'Walk faster' },
+  { id: 'sled', cost: 220, x: 6.55, z: -1.0, icon: '🛷', name: 'Sled window', desc: 'Snowmobiles buy in bulk at $6 a steak' },
+  { id: 'net', cost: 320, x: -1.9, z: -4.4, icon: '🕸️', name: 'Ice net', desc: 'Hauls in fish nonstop' },
+];
+
+export const tiles: Tile[] = UNLOCKS.map(u => {
+  const state = { ...u, paid: 0, done: false };
+  const t = Object.assign(state, { d: decal(2.0, (c, w, h) => drawTile(c, w, h, state)) });
+  t.d.mesh.position.set(t.x, FY + 0.012, t.z);
+  t.d.mesh.visible = false;
+  return t;
+});
+
+export function redrawTile(t: Tile) {
+  drawTile(t.d.ctx, 256, 256, t);
+  t.d.tex.needsUpdate = true;
+}
+// Tiles drawn before the web font loaded fall back to a system font; redraw once it's ready.
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => tiles.forEach(redrawTile));
+
+/** At most two unpaid tiles are offered at a time, in order. */
+export function visibleTiles() {
+  const v = tiles.filter(t => !t.done).slice(0, 2);
+  tiles.forEach(t => { t.d.mesh.visible = v.includes(t); });
+  return v;
+}
+
+// ---------- pop-in animation ----------
+const pops: { o: Object3D; t: number }[] = [];
+function popIn(o: Object3D) {
+  o.scale.setScalar(0.01);
+  pops.push({ o, t: 0 });
+}
+export function updPops(dt: number) {
+  for (let i = pops.length - 1; i >= 0; i--) {
+    const p = pops[i]; p.t += dt;
+    const k = Math.min(1, p.t / 0.45);
+    // easeOutBack
+    const c1 = 1.70158, c3 = c1 + 1;
+    const s = 1 + c3 * Math.pow(k - 1, 3) + c1 * Math.pow(k - 1, 2);
+    p.o.scale.setScalar(Math.max(0.01, s));
+    if (k >= 1) { p.o.scale.setScalar(1); pops.splice(i, 1); }
+  }
+}
+
+// ---------- machines ----------
+let turret: { g: Group; head: Group; t: number } | null = null;
+let net: { g: Group; t: number; src: Vector3 } | null = null;
+
+function buildTurret() {
+  const g = new Group(); g.position.set(-6.9, FY, -5.9);
+  const base = mesh(G.cyl, 0x3C4C58, 0, 0.15, 0, true); base.scale.set(0.45, 0.3, 0.45); g.add(base);
+  const head = new Group(); head.position.y = 0.55; g.add(head);
+  head.add(mesh(new BoxGeometry(0.26, 0.26, 1.0), 0xFF6B4A, 0, 0, 0.3, true));
+  head.add(mesh(new BoxGeometry(0.06, 0.06, 0.5), 0xF2C14E, 0, 0, 0.95));
+  scene.add(g);
+  return { g, head, t: 1 };
+}
+
+function buildNet() {
+  const g = new Group(); g.position.set(-1.2, 0, -10.8);
+  for (const s of [-1, 1]) {
+    const p = mesh(G.cyl, 0xFF6B4A, s * 1.7, 0.7, 0, true); p.scale.set(0.09, 1.6, 0.09); g.add(p);
+  }
+  const bar = mesh(G.cyl, 0xFF6B4A, 0, 1.5, 0, true); bar.scale.set(0.07, 3.4, 0.07); bar.rotation.z = Math.PI / 2; g.add(bar);
+  const webbing = new Mesh(
+    new PlaneGeometry(3.4, 1.4, 10, 5),
+    new MeshBasicMaterial({ color: 0xFFFFFF, wireframe: true, transparent: true, opacity: .8 }),
+  );
+  webbing.position.y = 0.8; g.add(webbing);
+  for (let i = 0; i < 6; i++) {
+    const b = mesh(G.sphere, 0xF2C14E, -1.5 + i * 0.6, 0.05, 0.35); b.scale.setScalar(0.12); g.add(b);
+  }
+  scene.add(g);
+  return { g, t: 0.5, src: V(-1.2, 0.3, -10.8) };
+}
+
+/** Applies an upgrade's effect. `silent` skips animations and toasts (used when loading a save). */
+export function applyUnlock(id: UnlockId, silent = false) {
+  const t = tiles.find(x => x.id === id)!;
+  t.done = true; t.d.mesh.visible = false;
+  if (id === 'pack') player.back.cap = 14;
+  if (id === 'turret') { turret = buildTurret(); if (!silent) popIn(turret.g); }
+  if (id === 'runner') { const r = hireRunner(); if (!silent) popIn(r.g); }
+  if (id === 'boots') player.speed = 5.8;
+  if (id === 'sled') {
+    C2.enabled = true;
+    gapLogs.forEach(l => l.visible = false);
+    C2.meshes.forEach(m => { m.visible = true; if (!silent && m.geometry.type === 'BoxGeometry') popIn(m); });
+  }
+  if (id === 'net') { net = buildNet(); if (!silent) popIn(net.g); }
+  if (!silent) {
+    toast(t.name + ' unlocked');
+    if (tiles.every(x => x.done)) setTimeout(() => toast('Floe Market is fully built'), 1800);
+  }
+}
+
+export function updAuto(dt: number) {
+  if (turret) {
+    const tr = turret;
+    tr.t -= dt;
+    if (tr.t <= 0) {
+      const src = V(tr.g.position.x, FY + 0.6, tr.g.position.z);
+      const f = tryCatch(() => src, 'turret');
+      tr.t = f ? 2.0 : 0.5;
+      if (f) tr.head.rotation.y = Math.atan2(f.g.position.x - src.x, f.g.position.z - src.z);
+    }
+  }
+  if (net) {
+    const n = net;
+    n.t -= dt;
+    if (n.t <= 0) {
+      const f = tryCatch(() => n.src, 'net');
+      n.t = f ? 0.75 : 0.4;
+    }
+  }
+}
