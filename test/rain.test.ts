@@ -192,7 +192,7 @@ describe('her house', () => {
       await loadGame();
       const { SONG } = await import('../src/rain');
       const a = $('rainSong') as HTMLAnchorElement;
-      expect(a.href).toBe(`https://www.youtube.com/watch?v=${SONG.id}`);
+      expect(a.href).toBe(`https://www.youtube.com/watch?v=${SONG.id}&t=${SONG.start}s`);
       expect(a.target).toBe('_blank');
     });
   });

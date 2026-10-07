@@ -194,7 +194,7 @@ function updCrying(dt: number) {
 
 // ---------- the song ----------
 /** "מאוהב בגשם" by Ofer Levy (live at Caesarea, 2011), and the second in the video where "מול ביתך עומד בגשם נרטב" begins. */
-export const SONG = { id: 'OQE1efu22BM', start: 0 };
+export const SONG = { id: 'OQE1efu22BM', start: 107 }; // 1:47
 const song = new Song({
   id: SONG.id, start: SONG.start, vol: 60, fadeIn: 2, fadeOut: RAIN_OUT,
   muteKey: 'floe-market-rain-muted', muteBtn: document.getElementById('rainMute') as HTMLButtonElement,
