@@ -1,4 +1,5 @@
 import './errors'; // must stay first: catches errors thrown while the other modules build the scene
+import { initCloud } from './cloud';
 import { tick } from './game';
 import { dismissIntro } from './input';
 import { player } from './player';
@@ -10,6 +11,7 @@ import { hud } from './ui';
 // ---------- save / restart ----------
 if (load()) dismissIntro();
 startAutosave();
+initCloud();
 
 const restartBtn = document.getElementById('restart')!;
 let armT: ReturnType<typeof setTimeout> | undefined;

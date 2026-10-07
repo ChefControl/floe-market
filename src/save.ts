@@ -1,5 +1,6 @@
-// Progress persistence, per device for now. Saves are versioned so game updates never reset progress,
-// and a second tab can't overwrite newer progress with an older copy of the game.
+// Progress persistence on the device (cloud.ts syncs it with an account, for players who sign in). Saves are
+// versioned so game updates never reset progress, and a second tab can't overwrite newer progress with an older
+// copy of the game.
 import { C1, repriceFish, SLED, TAKEOUT, type Counter } from './counters';
 import { MODS, mods, type ModId } from './economy';
 import { steaksInProgress } from './fishing';
@@ -56,7 +57,7 @@ export interface SaveData {
   field: number;
 }
 
-/** The one place that touches device storage; account-backed saves would hook in here later. */
+/** The one place that touches device storage. */
 export const deviceStore = {
   read(key = SAVE_KEY) {
     try { return localStorage.getItem(key); } catch { return null; }
@@ -271,6 +272,13 @@ export function startAutosave() {
   // Claim the save right away: the tab opened most recently is the one the player is looking at,
   // so any older tab steps aside now rather than whenever its own timer fires.
   save();
+}
+
+/** Puts another save in this one's place (a game loaded from the cloud), to be played after a reload. Blocks saves so
+ * nothing on the way out writes over it. */
+export function replaceSave(raw: string) {
+  stale = true;
+  deviceStore.write(raw);
 }
 
 /** Erases progress for good (the Restart button). Blocks saves so nothing on the way out writes it back. */
