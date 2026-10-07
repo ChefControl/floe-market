@@ -61,6 +61,8 @@ const westLogs: Mesh[] = [];
 export const BELT_Z = -3.3;
 /** Where the walkway to the sushi restaurant leaves the deck. */
 export const WEST_GATE = { z0: 1.5, z1: 3.5 };
+/** The path to her house leaves the deck through a gap in the east fence along this line. */
+export const HOUSE_PATH_Z = 6.05;
 function log(x: number, z: number, list?: Mesh[]) {
   const h = rand(.78, .98);
   const l = mesh(G.log, 0xB0724A, x, FY + h / 2 - 0.05, z, true);
@@ -73,6 +75,7 @@ for (let x = -7.35; x <= 7.9; x += 0.5) {
   log(x, 7.85);
 }
 for (let z = -6.2; z < 7.6; z += 0.5) {
+  if (Math.abs(z - HOUSE_PATH_Z) < 0.5) continue;
   const inGap = z > -2.3 && z < 0.3;
   log(7.85, z, inGap ? gapLogs : undefined);
 }
@@ -96,7 +99,7 @@ for (let z = -44; z < 44; z += 2.2) {
 
 // ---------- trees and snow ----------
 const TIERS: [r: number, h: number, y: number][] = [[0.75, 0.9, 0.75], [0.58, 0.8, 1.3], [0.4, 0.7, 1.8]];
-function makeTree(s: number) {
+export function makeTree(s: number) {
   const g = new Group();
   const trunk = mesh(G.cyl, 0x7A5236, 0, 0.25 * s, 0, true);
   trunk.scale.set(.12 * s, .5 * s, .12 * s); g.add(trunk);
@@ -108,12 +111,13 @@ function makeTree(s: number) {
   });
   return g;
 }
-/** Keeps trees off the deck, road, customer paths, the sushi restaurant's lot and water. */
+/** Keeps trees off the deck, road, customer paths, the sushi restaurant's lot, the path to her house, and water. */
 function treeOK(x: number, z: number) {
   if (x > -8.8 && x < 8.8 && z > -7.2 && z < 8.8) return false;
   if (x > -24.5 && x < -8 && z > -6.5 && z < 6.5) return false;
   if (x > -19.5 && x < -14.5 && z > 4 && z < 30) return false;
   if (x > 8.2 && x < 11.2) return false;
+  if (x > 8.2 && z > HOUSE_PATH_Z - 4 && z < HOUSE_PATH_Z + 4.5) return false;
   if (x > -5 && x < 8.6 && z > 8.4 && z < 20) return false;
   if (x < 7.8 && z < -6.2) return false;
   return true;

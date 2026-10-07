@@ -42,7 +42,8 @@ resize();
 
 // Intensities are scaled by PI to match the legacy lighting mode (removed in r165), which multiplied
 // hemisphere and directional light by PI.
-scene.add(new HemisphereLight(0xEAF7FF, 0xA9BCCB, 0.78 * Math.PI));
+export const hemi = new HemisphereLight(0xEAF7FF, 0xA9BCCB, 0.78 * Math.PI);
+scene.add(hemi);
 export const sun = new DirectionalLight(0xFFFFFF, 0.62 * Math.PI);
 sun.castShadow = true;
 sun.shadow.mapSize.set(1024, 1024);

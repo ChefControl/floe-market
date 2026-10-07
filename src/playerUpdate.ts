@@ -6,6 +6,7 @@ import { fly } from './holder';
 import { billValue, newBill } from './items';
 import { inputVec } from './input';
 import { player } from './player';
+import { HOUSE_AREAS } from './rain';
 import { scene } from './render';
 import { save } from './save';
 import { AREAS, collide, kitchen, KITCHEN_DROP, register, REGISTER, sushi } from './restaurant';
@@ -17,7 +18,7 @@ import { addMoney, wallet } from './wallet';
 import type { Holder } from './holder';
 
 interface Area { x0: number; x1: number; z0: number; z1: number }
-/** The market deck; the sushi restaurant's walkway and dining room join it once built. */
+/** The market deck and the path to her house; the sushi restaurant's walkway and dining room join them once built. */
 const DECK: Area = { x0: -7.4, x1: 7.4, z0: -6.25, z1: 7.3 };
 
 /** Moves `p` to the nearest point inside any of the walkable areas. */
@@ -50,7 +51,7 @@ export function updPlayer(dt: number) {
     player.h += d * Math.min(1, dt * 14);
     player.moving = true;
   } else player.moving = false;
-  keepOnFloor(p, sushi.built ? [DECK, ...AREAS] : [DECK]);
+  keepOnFloor(p, sushi.built ? [DECK, ...HOUSE_AREAS, ...AREAS] : [DECK, ...HOUSE_AREAS]);
   collide(p);
   // chopper block collision
   if (p.x > CHOP.x - 1.0 && p.x < CHOP.x + 1.0 && p.z < CHOP.z + 0.8) {
