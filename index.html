@@ -10,6 +10,24 @@
 <meta name="theme-color" content="#CFEAF5">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<script>
+// GitHub Pages lets browsers keep this page for 10 minutes, and each deploy removes the last one's files. A copy of the
+// page from before a deploy asks for a game script that's gone, and nothing starts: reload once to fetch the new page.
+// errors.ts does the same when the missing file is Firebase's. At most once a minute, so a site that's down doesn't
+// reload forever; the game's own error box can't help here, since it's in the script that didn't load.
+addEventListener('error', function (e) {
+  if (!e.target || e.target.tagName !== 'SCRIPT') return;
+  try {
+    if (Date.now() - Number(sessionStorage.getItem('floe-market-reload')) < 60000) throw 0;
+    sessionStorage.setItem('floe-market-reload', String(Date.now()));
+  } catch (_) {
+    var box = document.getElementById('err');
+    if (box) { box.style.display = 'block'; box.textContent = "The game didn't load. Check your connection, then refresh the page."; }
+    return;
+  }
+  location.reload();
+}, true);
+</script>
 <meta name="apple-mobile-web-app-title" content="Floe Market">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
