@@ -15,9 +15,9 @@ npm run dev
 - **Fish:** stand on the 🎣 pad to hook fish; they get chopped into fish slices automatically
 - **Sell fish (stage 1):** pick slices up from the pile, drop them on the counter's 🐟 pad, and walk over the cash to collect it. Walk-in customers pay $4 a slice; once the sled window is built, snowmobiles buy 4–8 at a time at $6
 - **Upgrade:** stand on a price tile to pay into it. Some tiles also need a star rating (see below). The chip under the rating shows the stage and how many of its upgrades are built
-- **Upgrade circle:** each stage has a 📈 circle (by the counter in stage 1, by the kitchen line in stage 2). Stand on it to open the stage's repeatable upgrades and tap one to buy its next level: a better product (prices), marketing (customers) or the crew (speed). The list in the top left shows every modifier in play as a percentage, including how much your rating brings customers in
+- **Upgrade circle:** each stage has a 📈 circle (by the counter in stage 1, by the kitchen line in stage 2). Stand on it to open the stage's repeatable upgrades and tap one to buy its next level: a better product (prices), marketing (customers) or the crew (speed). The list in the top left shows every modifier in play as a percentage, including how much your rating brings customers in. Every level shows in the world too (see [Economy](#economy))
 - **Stage up:** with all seven market upgrades built, a gold 🏯 tile appears in the middle of the dock: Open Floe Sushi, $12,000. Paying it off plays the stage-up: the counters and the south fence come down, the restaurant, its garden and the terraces go up, and day turns to dusk. Cash, rating and upgrades carry over; the counters' leftover fish and cash move to the restaurant, the roulette table moves up the dock, and Korki's statue moves to the garden
-- **Rice (stage 2):** buy bags at the rice stall on the dock ($5 each; if you can't pay, the stall takes a fish slice for a bag instead), or grow it on the terraces west of the restaurant: it ripens (green to gold) in about 16 seconds, and you wade through it to harvest, or take bags off the farmer's stack on the path
+- **Rice (stage 2):** buy bags at the rice stall on the dock ($5 each; if you can't pay, or your arms are full of fish the kitchen has no room for, the stall takes a fish slice for a bag instead), or grow it on the terraces west of the restaurant: it ripens (green to gold) in about 16 seconds, and you wade through it to harvest, or take bags off the farmer's stack on the path
 - **Make sushi:** drop fish slices on the 🐟 pad and rice on the 🍚 pad at the kitchen line facing the dock. Your arms carry both at once. The cooks there toss them to a chef inside the bar, who makes a plate (a bag of rice makes two) and puts it on the belt circling them. Once the takeout kiosk is open, the chefs also pack boxes for it, keeping a few ready
 - **Sell sushi:** diners in top hats come up the garden path and through the red gate, sit at the bar, take plates as they pass, and pay $30 a plate at the register by the gate when they leave. Snowmobiles buy 3–6 boxes at a time at the kiosk on the road ($35 a box); their cash lands just inside the east wall
 - **Rating:** customers only wait so long. Each one leaves a 1–5★ review when they go, based on how long they waited; someone who gives up leaves 1★ and pays only for what they got. The rating in the HUD is the average of the last 20 reviews (a new game starts at ★3.0). A better rating also brings customers in faster: ×0.6 at ★1, ×1.4 at ★5
@@ -33,14 +33,22 @@ The money curve follows idle games ([the math of idle games](https://www.gamedev
   | --- | --- | --- | --- | --- |
   | Better product | 🐟 Fine fillets | 🍣 Chef's specials | Prices +25% | ×1.6 a level, no limit |
   | Marketing | 📣 Posters, flyers, radio, social media, ... TV ad | 📣 Menu boards, lantern signs, ... world famous | Customers +20%, longer queues | ×1.75 a level, 8 levels |
-  | Crew | 💪 Crew training: fishing and chopping | 🧑‍🍳 Kitchen crew: chefs, farm workers, rice growing | Speed +15% | ×1.75 a level, 8 levels |
+  | Crew | 💪 Crew training: fishing and chopping | 🧑‍🍳 Kitchen crew: chefs, the runner, farm workers, rice growing | Speed +15% | ×1.75 a level, 8 levels |
 
-  They start at $40, $60 and $80 in stage 1 and $500, $800 and $1,000 in stage 2.
+  They start at $40, $60 and $80 in stage 1 and $500, $800 and $1,000 in stage 2. Each level shows in the world:
+
+  | | Stage 1 | Stage 2 |
+  | --- | --- | --- |
+  | Better product | The price board over the walk-up counter shows the new price, and a star a level | A wooden menu tag over the kitchen line, a new dish on each |
+  | Marketing | Each campaign for real, spread round the market: posters on the fence, a promoter handing out flyers down the customers' path, a radio playing the jingle and a giant phone with the market's post collecting likes (at either end of the dock), a billboard and a newspaper box across the road, a food blogger taking photos and a TV playing the market's commercial out in the snow | Spread round the restaurant: a chalk menu board in the front garden, big paper lanterns on the front eaves, a phone on a ring light filming the bar, a food critic at a table holding up five stars, a magazine rack by the entrance, a TV camera filming the chefs, the gourmet guide's stars over a pedestal by the register, and flags from all over the world across the room |
+  | Crew | The player's headband, coloured like a judo belt: white, yellow, orange, green, blue, purple, brown, black | The chefs' and cooks' toques grow taller |
+
+  Fishing speed (crew training) still counts in stage 2, but it isn't in the list there: the dock catches more fish than the kitchen gets through, so carrying fish in (the runner) is what can hold the kitchen back, and the kitchen crew speeds that up.
 - **One-off upgrades** roughly double in price each time and add capacity: machines, workers, chefs, seats, terraces.
 - **Tiers.** Each stage ends on an expensive capstone. The gold tile costs about five minutes of a well-run market's income, so you start stage 2 almost broke, and stage 2's prices and sale values are about ten times stage 1's.
-- **No dead ends.** Fishing is always free, and the rice stall takes a fish slice for a bag when you're short of cash, so there's always a way to make sushi and money again. The runner (bought in stage 1) keeps the fish tray stocked, the farmer's stack can be carried in by hand before there's a rice porter, and the chefs only pack a few takeout boxes ahead, so plates keep coming for diners. Rice keeps up with a fast kitchen: a bag makes two plates, and the kitchen crew speeds up the farmer and the rice porter too.
+- **No dead ends.** Fishing is always free, and the rice stall takes a fish slice for a bag when you're short of cash or your arms are full of fish the kitchen can't take, so there's always a way to make sushi and money again. The runner (bought in stage 1) keeps the fish tray stocked, the farmer's stack can be carried in by hand before there's a rice porter, and the chefs only pack a few takeout boxes ahead, so plates keep coming for diners. Fish and rice keep up with a fast kitchen: a bag of rice makes two plates, and the kitchen crew speeds up the runner, the farmer and the rice porter too.
 
-On a simulated run by a bot that plays like a reasonable player (see [Development](#development)), stage 1 takes about 13 minutes, with income growing from about $200 to $10,000 a minute; stage 2's upgrades are all bought about 30 minutes later, with income growing from about $1,600 to over $300,000 a minute. Better products then carry on for as long as you like.
+On a simulated run by a bot that plays like a reasonable player (see [Development](#development)), stage 1 takes about 13 minutes, with income growing from about $200 to $10,000 a minute; stage 2's upgrades are all bought about 28 minutes later, with income growing from about $1,600 to over $250,000 a minute, and to over $700,000 an hour into the game. Better products then carry on for as long as you like.
 
 ## Unlocks
 
@@ -129,6 +137,8 @@ TypeScript + [three.js r186](https://threejs.org/), bundled with [Vite](https://
 | `src/counters.ts` | The walk-up fish counter, sled window and takeout kiosk, and their customers (patience, reviews) |
 | `src/economy.ts` | Sale prices, and the repeatable upgrades (price, marketing, crew) and what they multiply |
 | `src/shop.ts` | The upgrade circles and their panel, and the modifier list in the HUD |
+| `src/looks.ts` | What each upgrade level looks like: price board, menu tags, headband, toques, and putting up the campaigns |
+| `src/ads.ts` | The marketing campaigns, built for real (TV commercial, radio, lanterns, food critic, ...) and animated |
 | `src/rating.ts` | Reviews and the market rating |
 | `src/bubble.ts` | Order bubbles with patience rings, and mood faces |
 | `src/restaurant.ts` | The sushi bar: kitchen line and cooks, chefs, the plate belt, diners, register |
@@ -142,6 +152,7 @@ TypeScript + [three.js r186](https://threejs.org/), bundled with [Vite](https://
 | `src/singer.ts` | The singer's look, swapped onto the player in the rain |
 | `src/youtube.ts` | Songs played through YouTube's embedded player: one API load, fades, mute buttons |
 | `src/holder.ts` | Item stacks and arcing item flights |
+| `src/pop.ts` | The pop-in animation for new things |
 | `src/characters.ts` | People and sleds, walking |
 | `src/decals.ts` | Deck markings (pads, drop zones, price tiles) |
 | `src/items.ts` | Fish slice, rice, plate, box and bill meshes |

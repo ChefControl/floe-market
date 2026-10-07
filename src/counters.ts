@@ -12,7 +12,7 @@ import { addBillValue, newBill } from './items';
 import { addReview, demand, starsFor } from './rating';
 import { canvasTex, mesh, scene, type CanvasTex } from './render';
 import { popStars, popText } from './ui';
-import { FY, pick, rand, randi, V } from './util';
+import { FY, pick, rand, randi, V, type XZ } from './util';
 import { gapLogs, ROAD1_X, ROAD2_X } from './world';
 
 export interface Customer {
@@ -106,7 +106,8 @@ export const C1 = makeCounter({
     const j = i % 6;
     return V(3 + ((j % 3) - 1) * 0.45, FY + 0.94 + Math.floor(i / 6) * 0.085, 7.95 + (Math.floor(j / 3) - 0.5) * 0.42);
   },
-  slot: i => V(3 + i * 0.95, 0, 9.3),
+  // along the fence, then round the corner and down the path, so a long queue stays clear of the road
+  slot: i => (i <= 5 ? V(3 + i * 0.95, 0, 9.3) : V(7.75, 0, 9.3 + (i - 5) * 0.95)),
   spawn: () => V(6.5, 0, 18),
   exit: () => [V(2.2, 0, 10.8), V(-3, 0, 19)],
 }, 48);
@@ -237,6 +238,9 @@ function depart(C: Counter, c: Customer, stars?: number) {
   c.path = C.exit(); leaving.push(c);
 }
 
+/** The heading from one spot to another: queuers face the one ahead of them. */
+const facing = (from: XZ, to: XZ) => Math.atan2(to.x - from.x, to.z - from.z);
+
 export function updCounter(C: Counter, dt: number) {
   if (!C.enabled) return;
   C.spawnT -= dt;
@@ -247,7 +251,7 @@ export function updCounter(C: Counter, dt: number) {
   }
   C.queue.forEach((c, i) => {
     c.arrived = moveEnt(c, C.slot(i), dt);
-    if (c.arrived) { c.h = i === 0 || C.isSled ? C.faceH : -Math.PI / 2; c.queued = true; }
+    if (c.arrived) { c.h = i === 0 || C.isSled ? C.faceH : facing(C.slot(i), C.slot(i - 1)); c.queued = true; }
     if (c.queued) c.wait += dt;
     const left = 1 - c.wait / C.patience;
     c.bubble.visible = i === 0 && c.arrived && c.got < c.want;

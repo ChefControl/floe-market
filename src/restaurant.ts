@@ -29,7 +29,7 @@ const BAR_IN = 0.7, BAR_OUT = 1.95, BAR_H = 0.85, BELT_HALF = 0.22;
 /** Where diners sit, and where their empty plates stack, as distances from the bar's centre line. */
 const SEAT_R = 2.45, LEDGE_R = 1.7;
 /** The kitchen line along the north side, facing the dock: fish on its east half, rice on the west half. */
-const KITCHEN = { x: 0, z: 2.6, w: 12, d: 1.0, h: 0.8 };
+export const KITCHEN = { x: 0, z: 2.6, w: 12, d: 1.0, h: 0.8 };
 export const FISH_DROP = V(2.6, FY, 1.05);
 export const RICE_DROP = V(-2.6, FY, 1.05);
 /** Where diners' bills land, by the gate; the register desk is behind it. */

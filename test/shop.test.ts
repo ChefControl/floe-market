@@ -51,6 +51,9 @@ describe('the upgrade circle', () => {
     expect($('toast').textContent).toBe('Marketing: TV ad');
     C1.patience = 1e9;
     g.runUntil(() => C1.queue.length === 14, 40);
+    // the long queue turns the corner rather than running out across the road
+    g.runUntil(() => C1.queue.every(c => c.arrived), 20);
+    expect(Math.max(...C1.queue.map(c => c.g.position.x))).toBeLessThan(8);
   });
 
   it('crew training makes fishing and chopping faster', async () => {
@@ -80,6 +83,16 @@ describe('the upgrade circle', () => {
     expect(rowsText()[1]).toBe('📣Marketing · World famousCustomers +330% · fully upgradedMax');
   });
 
+  it('the kitchen crew speeds up the runner too, once the restaurant is open', async () => {
+    const g = await loadGame({ tiles: bought('runner'), money: 1e9 });
+    for (let i = 0; i < 8; i++) g.shop.buyMod('crew');
+    g.run(0.05);
+    expect(g.runner.runner!.speed).toBe(3.3); // not in the market
+    g.unlocks.applyUnlock('sushi', true);
+    g.run(0.05);
+    expect(g.runner.runner!.speed).toBeCloseTo(6.6); // twice as fast, at most
+  });
+
   it('the kitchen crew makes chefs and rice faster', async () => {
     const g = await loadGame({ tiles: bought('sushi', 'paddy'), money: 1e9, fish: 1, rice: 1 });
     for (let i = 0; i < 8; i++) g.shop.buyMod('crew');
@@ -106,12 +119,12 @@ describe('the modifier overview', () => {
     expect($('mods').children[3].lastElementChild!.className).toBe('down');
   });
 
-  it('in stage 2, counts the premium menu in prices and keeps the fishing crew', async () => {
+  it("in stage 2, counts the premium menu in prices, and leaves out fishing, which the kitchen can't outpace", async () => {
     const g = await loadGame({ tiles: bought('sushi', 'premium'), money: 1e9 });
     g.shop.buyMod('training');
     g.run(0.05);
     expect([...$('mods').children].map(r => r.textContent)).toEqual([
-      '🍣Prices+60%', '📣Customers+0%', '🧑‍🍳Kitchen+0%', '💪Fishing+15%', '★Reputation+0%',
+      '🍣Prices+60%', '📣Customers+0%', '🧑‍🍳Kitchen+0%', '★Reputation+0%',
     ]);
   });
 

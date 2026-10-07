@@ -51,7 +51,7 @@ export const MODS: Mod[] = [
     levels: ['Menu boards', 'Lantern signs', 'Social media', 'Food critic', 'Magazine', 'Cooking show', 'Gourmet guide', 'World famous'],
     per: 1.2, cost: 800, step: 1.75, max: 8,
   },
-  { id: 'crew', stage: 2, kind: 'speed', icon: '🧑‍🍳', name: 'Kitchen crew', what: 'Chefs work faster, and rice grows faster', per: 1.15, cost: 1000, step: 1.75, max: 8 },
+  { id: 'crew', stage: 2, kind: 'speed', icon: '🧑‍🍳', name: 'Kitchen crew', what: 'Chefs, the runner and the farm work faster', per: 1.15, cost: 1000, step: 1.75, max: 8 },
 ];
 export const MOD = Object.fromEntries(MODS.map(m => [m.id, m])) as Record<ModId, Mod>;
 

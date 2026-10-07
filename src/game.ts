@@ -7,6 +7,7 @@ import { updRoof } from './hall';
 import { updChopper, updFish, updHooks } from './fishing';
 import { updFlights } from './holder';
 import { updKorki } from './korki';
+import { updLooks } from './looks';
 import { updPlayer } from './playerUpdate';
 import { updHouse } from './rain';
 import { updRestaurant } from './restaurant';
@@ -14,8 +15,9 @@ import { updRice } from './rice';
 import { updRunner } from './runner';
 import { updShop } from './shop';
 import { player } from './player';
+import { updPops } from './pop';
 import { staging, updStage } from './stage';
-import { updAuto, updPops, updStars } from './unlocks';
+import { updAuto, updStars } from './unlocks';
 import { updFloes } from './world';
 
 let time = 0;
@@ -43,5 +45,6 @@ export function tick(dt: number) {
   updFarm(dt);
   updStage(dt);
   updShop();
+  updLooks(dt);
   updRoof(dt, player.g.position, staging());
 }

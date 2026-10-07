@@ -83,10 +83,7 @@ let shown = '';
 function modifiers(): [icon: string, label: string, k: number][] {
   const rep: [string, string, number] = ['★', 'Reputation', demand()];
   if (stage.n === 1) return [['🐟', 'Prices', boost('fillets')], ['📣', 'Customers', boost('marketing')], ['💪', 'Speed', boost('training')], rep];
-  return [
-    ['🍣', 'Prices', sushiBoost()], ['📣', 'Customers', boost('promo')], ['🧑‍🍳', 'Kitchen', boost('crew')],
-    ['💪', 'Fishing', boost('training')], rep,
-  ];
+  return [['🍣', 'Prices', sushiBoost()], ['📣', 'Customers', boost('promo')], ['🧑‍🍳', 'Kitchen', boost('crew')], rep];
 }
 function renderOverview() {
   const list = modifiers(), key = list.map(r => r.join()).join('|');

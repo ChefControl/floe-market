@@ -8,6 +8,7 @@ import { farmPieces, showFarm, springLamp } from './farm';
 import { glowMats, hallPieces, lamps, showHall } from './hall';
 import { korkiStatue, moveKorki } from './korki';
 import { stage } from './layout';
+import { marketLooks } from './looks';
 import { fog, hemi, scene, sky, sun, sunOff } from './render';
 import { houseStage2 } from './rain';
 import { furniture, handOver, openRestaurant } from './restaurant';
@@ -118,7 +119,7 @@ export function enterStage2(silent: boolean, onMove = () => {}) {
   const move = () => { moveCasino(-2.2); moveKorki(); onMove(); };
   const outs: [Object3D, Axis][] = [
     ...[...C1.meshes, ...SLED.meshes].filter(m => m.visible).map((m): [Object3D, Axis] => [m, 'all']),
-    [stage1Only.fence, 'y'], [stage1Only.road, 'x'], [stage1Only.trees, 'y'],
+    [marketLooks, 'y'], [stage1Only.fence, 'y'], [stage1Only.road, 'x'], [stage1Only.trees, 'y'],
     ...movers.map((o): [Object3D, Axis] => [o, 'all']),
   ];
   const swap = () => { swapDecks(); closeGap(); houseStage2(); };

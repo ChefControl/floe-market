@@ -2,6 +2,7 @@
 // lowest, and in stage 2 to the fish tray on the restaurant's kitchen line.
 import { animPerson, moveEnt, Person, type Walker } from './characters';
 import { C1, COUNTERS, SLED } from './counters';
+import { boost } from './economy';
 import { carrySlot, Holder } from './holder';
 import { scene } from './render';
 import { FISH_DROP, fishTray, sushi } from './restaurant';
@@ -46,9 +47,14 @@ export function hireRunner(): Runner {
   return r;
 }
 
+/** Once the restaurant's open, the runner is part of the kitchen crew, and its upgrade speeds them up (up to twice). */
+const pace = () => (sushi.built ? Math.min(2, boost('crew')) : 1);
+
 export function updRunner(dt: number) {
   const r = runner;
   if (!r) return;
+  const k = pace();
+  r.speed = 3.3 * k;
   // A counter closing under them (the stage-up) sends them on to the kitchen line.
   if (r.target && r.target !== TRAY && sushi.built) {
     r.target = TRAY;
@@ -59,7 +65,7 @@ export function updRunner(dt: number) {
   } else if (r.state === 'load') {
     r.h = Math.PI; r.t -= dt; r.wait += dt;
     if (r.t <= 0 && r.back.hasRoom() && pile.items.length) {
-      r.t = 0.08; r.back.receive(pile.take()!, 0.25, 0.7); r.wait = 0;
+      r.t = 0.08 / k; r.back.receive(pile.take()!, 0.25, 0.7); r.wait = 0;
     }
     if (!r.back.hasRoom() || (r.back.n > 0 && r.wait > 1.2 && !pile.items.length)) {
       r.target = pickTarget(); r.state = 'toTarget';
@@ -70,7 +76,7 @@ export function updRunner(dt: number) {
     const tg = r.target!;
     r.h = tg.h; r.t -= dt;
     if (r.t <= 0 && r.back.items.length && tg.stock.hasRoom()) {
-      r.t = 0.08; tg.stock.receive(r.back.take()!, 0.25, 0.8);
+      r.t = 0.08 / k; tg.stock.receive(r.back.take()!, 0.25, 0.8);
     }
     if (r.back.n === 0) r.state = 'toPile';
   }

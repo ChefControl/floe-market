@@ -19,6 +19,21 @@ describe('no way to get stuck', () => {
     g.runUntil(() => g.cashAt({ cash: g.restaurant.register }) > 0, 90); // plates sold
   });
 
+  it('arms full of fish the kitchen has no room for, with cash: the stall still swaps fish for rice', async () => {
+    const g = await loadGame({ tiles: bought('pack', 'sushi'), back: 14, fish: 48, money: 100 });
+    g.placePlayer(g.rice.STALL.x, g.rice.STALL.z);
+    g.run(2.5);
+    expect(g.player.back.count('rice')).toBe(14);
+    expect(g.wallet.money).toBe(100); // a swap, not a sale
+  });
+
+  it("doesn't swap fish the kitchen could still take: you buy rice with room in your arms", async () => {
+    const g = await loadGame({ tiles: bought('pack', 'sushi'), back: 14, money: 100 });
+    g.placePlayer(g.rice.STALL.x, g.rice.STALL.z);
+    g.run(1);
+    expect(g.player.back.count('fish')).toBe(14); // go and drop them off first
+  });
+
   it("pays while there's the cash for a bag, and trades fish after that", async () => {
     const g = await loadGame({ tiles: bought('sushi'), back: 3, money: 5 });
     g.placePlayer(g.rice.STALL.x, g.rice.STALL.z);

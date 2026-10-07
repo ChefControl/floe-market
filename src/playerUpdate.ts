@@ -30,7 +30,7 @@ const drops = (): Drop[] => sushi.built
   : COUNTERS.filter(C => C.enabled && C.dropPos).map(C => ({ pos: C.dropPos!, r: 1.0, stock: C.stock, kind: 'fish' }));
 
 const STATION_TIPS: { pos: XZ; r: number; tip: TipContent }[] = [
-  { pos: STALL, r: 0.8, tip: { name: 'Rice stall', desc: `$${RICE_PRICE} a bag, or a fish slice if you're short of cash. The chefs need a bag of rice and a fish slice for each plate` } },
+  { pos: STALL, r: 0.8, tip: { name: 'Rice stall', desc: `$${RICE_PRICE} a bag. Short of cash, or arms full of fish the kitchen has no room for? A fish slice for a bag` } },
   { pos: FISH_DROP, r: 0.65, tip: { name: 'Fish for the chefs', desc: 'Drop fish slices here' } },
   { pos: RICE_DROP, r: 0.65, tip: { name: 'Rice for the chefs', desc: 'Drop bags of rice here' } },
 ];
@@ -79,11 +79,14 @@ export function updPlayer(dt: number) {
       player.back.receive(pile.take()!, 0.22, 0.7);
     }
   }
-  // buy rice at the stall; short of cash, it takes a fish slice for a bag, so there's always a way to make sushi
+  // Buy rice at the stall. It also takes a fish slice for a bag when you can't pay, or when your arms are full
+  // of fish the kitchen has no room for, so there's always a way to get rice and make sushi.
   if (stallOpen() && d2xz(p, STALL) < 0.8 * 0.8) {
     while (player.tPick <= 0) {
-      const pay = wallet.money >= RICE_PRICE, swap = !pay && player.back.count('fish') > 0;
-      if (!(pay || swap) || !(swap || player.back.hasRoom())) break;
+      const pay = wallet.money >= RICE_PRICE && player.back.hasRoom();
+      const stuck = wallet.money < RICE_PRICE || (!player.back.hasRoom() && !fishTray.hasRoom());
+      const swap = !pay && stuck && player.back.count('fish') > 0;
+      if (!pay && !swap) break;
       player.tPick += 0.1;
       if (pay) wallet.money -= RICE_PRICE;
       else {
