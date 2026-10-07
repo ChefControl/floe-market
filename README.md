@@ -165,6 +165,8 @@ TypeScript + [three.js r186](https://threejs.org/), bundled with [Vite](https://
 
 `.github/workflows/deploy.yml` runs the tests on every pull request and push. On `main`, it builds and deploys to GitHub Pages only if they pass.
 
+Each deploy removes the last one's files, and GitHub Pages lets browsers keep the page for 10 minutes. A page kept from before a deploy, or a tab left open across one, would ask for files that are gone: the game wouldn't start, or Firebase wouldn't load. So the page reloads once to fetch the new version (an inline script in `index.html` for the game's script, `src/errors.ts` for Firebase), at most once a minute in case the site is actually down.
+
 `overrides` in `package.json` lifts Firestore's `@grpc/grpc-js` (pinned to 1.9.x, which has known vulnerabilities) to a patched release. Only Firestore's Node.js build uses it, so the game in the browser is the same either way. Drop the override once `@firebase/firestore` depends on 1.13.6 or later.
 
 ### Tests
@@ -218,5 +220,5 @@ TypeScript + [three.js r186](https://threejs.org/), bundled with [Vite](https://
 | `src/cloud.ts` | Cloud saves: the sign-in button, syncing with the account, asking which game to keep |
 | `src/firebase.ts` / `src/cloud.config.ts` | Cloud saves on Firebase (Google sign-in, Firestore), loaded on demand / the Firebase project's config |
 | `src/wallet.ts` | Money |
-| `src/errors.ts` | On-screen error reporting |
+| `src/errors.ts` | On-screen error reporting, and reloading once when a deploy removed a file the page needs |
 | `src/util.ts` | Math/random helpers |
