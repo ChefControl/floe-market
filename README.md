@@ -138,6 +138,8 @@ TypeScript + [three.js r186](https://threejs.org/), bundled with [Vite](https://
 
 `.github/workflows/deploy.yml` runs the tests on every pull request and push. On `main`, it builds and deploys to GitHub Pages only if they pass.
 
+`overrides` in `package.json` lifts Firestore's `@grpc/grpc-js` (pinned to 1.9.x, which has known vulnerabilities) to a patched release. Only Firestore's Node.js build uses it, so the game in the browser is the same either way. Drop the override once `@firebase/firestore` depends on 1.13.6 or later.
+
 ### Tests
 
 [Vitest](https://vitest.dev/) in jsdom. `test/setup.ts` stubs the two things jsdom lacks (the WebGL renderer and 2D canvas drawing) and seeds `Math.random`; everything else, three.js included, runs for real. `loadGame()` in `test/helpers.ts` loads a fresh copy of the whole game, optionally from a save, and steps it with `tick()`, so most tests read as "set up a situation, run a few seconds, check the outcome".
