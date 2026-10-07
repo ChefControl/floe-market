@@ -29,9 +29,9 @@ The route and payback numbers come from one-off scripts kept outside the repo; t
 
 ## Stage 1: Fish Market
 
-**What it's about:** learning the loop by hand (catch, carry, sell, collect) and then handing it over: machines catch, runners carry, snowmobiles buy in bulk. About 12 minutes to the gold tile.
+**What it's about:** learning the loop by hand (catch, carry, sell, collect) and then handing it over: machines catch, runners carry, drivers buy in bulk. About 12 minutes to the gold tile.
 
-**The bottleneck it should rotate through:** your hands (catching and carrying) → customers (marketing) → carrying (runners) → how much each customer buys (the sled window) → and round again at higher prices.
+**The bottleneck it should rotate through:** your hands (catching and carrying) → customers (marketing) → carrying (runners) → how much each customer buys (the drive-up window) → and round again at higher prices.
 
 **Principles for this stage**
 - The first purchases come fast: the first tile within a minute, a tile every 1 to 2 minutes after that.
@@ -47,7 +47,7 @@ The route and payback numbers come from one-off scripts kept outside the repo; t
 | 🎰 Roulette table | $150 | | A side game | no gain | 2:50 | Exempt |
 | 🏃 Hire a runner | $300 | ★3.5 | Free your hands from carrying | no gain | 4:07 | Automation: judge by playing |
 | 🥾 Snow boots | $500 | | Walk faster | no gain | 5:24 | Convenience: judge by playing |
-| 🛷 Sled window | $900 | ★3.8 | Bigger customers | 18 s | 7:10 | Good |
+| 🚗 Drive-up window | $900 | ★3.8 | Bigger customers | 18 s | 7:10 | Good |
 | 🏃 Second runner | $1,200 | ★3.9 | More carrying | 1.3 min | 7:49 | Good |
 | 🥅 Ice net | $1,600 | ★4.0 | Fish nonstop | 1.4 min | 8:14 | Good |
 | 🏃 Third runner | $3,500 | ★4.2 | More carrying | no gain | 9:44 | **Off:** expensive, adds nothing, and raises the gate to open the restaurant to ★4.2 |

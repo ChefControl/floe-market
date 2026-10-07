@@ -11,7 +11,7 @@ it('swaps the parka for the singer and back, arms set wider for his build', () =
   const wear = singerLook(p);
   const own = [...p.children.slice(0, before), ...p.arms.map(a => a.children[0])]
     .filter(c => c instanceof Mesh && [G.body, G.hood, G.hoodBack, G.head, G.arm].includes(c.geometry));
-  const look = [...p.children.slice(before), ...p.arms.flatMap(a => a.children.slice(1))];
+  const look = [...p.children.slice(before), ...p.arms.flatMap(a => a.children.slice(1))].filter(c => !c.userData.outfit);
   expect(own).toHaveLength(6);
   expect(look.length).toBeGreaterThan(10);
   expect(look.some(o => o.visible)).toBe(false);

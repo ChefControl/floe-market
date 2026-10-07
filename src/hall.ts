@@ -8,7 +8,7 @@ import {
 import { EAST_DOOR, FARM_DOOR, GATE_W, HALL_BOX } from './layout';
 import { bake, canvasTex, FONT, G, mat, mesh, rr, scene, type Part } from './render';
 import { FY, rand, type XZ } from './util';
-import { planks } from './world';
+import { planks, TREE_MATS } from './world';
 
 const { x0: X0, x1: X1, z0: Z0, z1: Z1 } = HALL_BOX;
 const MID = (Z0 + Z1) / 2;
@@ -205,14 +205,14 @@ const garden = piece(0, GARDEN_Z);
     stones.push({ geo: G.cyl, at: [rand(-0.3, 0.3), 0.04, Z1 + 1.4 + i * 0.95 - GARDEN_Z], rot: [0, rand(0, 3), 0], scale: [rand(.42, .55), 0.08, rand(.38, .5)] });
   }
   garden.add(mesh(bake(stones), 0xB9C2C9, 0, 0, 0, true));
-  // little snowy pines in the corners
+  // little pines in the corners, dressed for the season like the big ones
   const pines: Part[] = [], snow: Part[] = [];
   for (const [x, z] of [[-7.6, 20.0], [7.4, 19.6], [-8.4, 16.8], [8.6, 17.0]]) {
     pines.push({ geo: G.cone, at: [x, 0.55, z - GARDEN_Z], scale: [0.55, 1.1, 0.55] });
     snow.push({ geo: G.cone, at: [x, 0.85, z - GARDEN_Z], scale: [0.34, 0.5, 0.34] });
   }
-  garden.add(mesh(bake(pines), 0x2E6E5E, 0, 0, 0, true));
-  garden.add(mesh(bake(snow), 0xFFFFFF));
+  garden.add(mesh(bake(pines), TREE_MATS[1], 0, 0, 0, true));
+  garden.add(mesh(bake(snow), TREE_MATS[3]));
 }
 
 // ---------- the takeout kiosk's booth (its counter is the takeout window's, in counters.ts) ----------

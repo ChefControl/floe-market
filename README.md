@@ -13,14 +13,24 @@ npm run dev
 
 - **Move:** drag anywhere (touch or mouse) for a virtual joystick, or use WASD / arrow keys
 - **Fish:** stand on the 🎣 pad to hook fish; they get chopped into fish slices automatically
-- **Sell fish (stage 1):** pick slices up from the pile, drop them on the counter's 🐟 pad, and walk over the cash to collect it. Walk-in customers pay $4 a slice; once the sled window is built, snowmobiles buy 4–8 at a time at $6
+- **Sell fish (stage 1):** pick slices up from the pile, drop them on the counter's 🐟 pad, and walk over the cash to collect it. Walk-in customers pay $4 a slice; once the drive-up window is built, drivers on the road buy 4–8 at a time at $6
 - **Upgrade:** stand on a price tile to pay into it. Some tiles also need a star rating (see below). The chip under the rating shows the stage and how many of its upgrades are built
 - **Upgrade circle:** each stage has a 📈 circle (by the counter in stage 1, by the kitchen line in stage 2). Stand on it to open the stage's repeatable upgrades and tap one to buy its next level: a better product (prices), marketing (customers) or the crew (speed). The list in the top left shows every modifier in play as a percentage, including how much your rating brings customers in; tap the stage chip to fold it away or back (on phones it starts folded, so the HUD leaves the game in view). Every level shows in the world too (see [Economy](#economy))
 - **Stage up:** with all nine market upgrades built, a gold 🏯 tile appears in the middle of the dock: Open Floe Sushi, $12,000. Paying it off plays the stage-up: the counters and the south fence come down, the restaurant, its garden and the terraces go up, and day turns to dusk. Cash, rating and upgrades carry over; the counters' leftover fish and cash move to the restaurant, the roulette table moves up the dock, and Korki's statue moves to the garden
 - **Rice (stage 2):** it grows on the terraces west of the restaurant, out through the farm door. The restaurant opens with a small patch of six clumps by the door, which ripens (green to gold) in 15 seconds: just enough for the first customers at a five-star rating, and no faster with upgrades, so more customers need the rest of the terrace, where rice ripens in 16 seconds and the kitchen crew speeds it up. Wade through ripe rice to harvest it, or take bags off the farmer's stack on the path. Fish the kitchen has no room for go back to the pile as you harvest, to make room in your arms
 - **Make sushi:** drop fish slices on the 🐟 pad and rice on the 🍚 pad at the kitchen line facing the dock. Your arms carry both at once. The cooks there toss them to a chef inside the bar, who makes a plate (a bag of rice makes two) and puts it on the belt circling them. Once the takeout kiosk is open, the chefs also pack boxes for it, keeping a few ready
-- **Sell sushi:** diners in top hats come up the garden path and through the red gate, sit at the bar, take plates as they pass, and pay $30 a plate at the register by the gate when they leave. Snowmobiles buy 3–6 boxes at a time at the kiosk on the road ($35 a box); their cash lands just inside the east wall
+- **Sell sushi:** diners in top hats come up the garden path and through the red gate, sit at the bar, take plates as they pass, and pay $30 a plate at the register by the gate when they leave. Drivers buy 3–6 boxes at a time at the kiosk on the road ($35 a box); their cash lands just inside the east wall
 - **Rating:** customers only wait so long. Each one leaves a 1–5★ review when they go, based on how long they waited; someone who gives up leaves 1★ and pays only for what they got. The rating in the HUD is the average of the last 20 reviews (a new game starts at ★3.0). A better rating also brings customers in faster: ×0.6 at ★1, ×1.4 at ★5
+- **Seasons:** winter, spring, summer and autumn come round every three minutes of play, and the chip under your carry count shows which it is and how long is left. A new season changes the scenery over a few seconds and everyone's clothes at once:
+
+  | | Scenery | What falls | Clothes |
+  | --- | --- | --- | --- |
+  | ❄️ Winter | Snow on the ground, the pines and the roofs; ice floes in the bay | Snow | Parkas with fur-trimmed hoods; diners and farmers add a scarf |
+  | 🌸 Spring | Fresh grass, blossom on the pines, green bushes, earth paths; the floes start to melt | Petals | Light jackets and baseball caps |
+  | ☀️ Summer | Deep green grass and a bright sky; no ice left | Nothing | Short sleeves, shorts and sunglasses |
+  | 🍂 Autumn | Dry grass, pines turned red and orange with gold tips; the floes come back | Leaves | Woolly hats with a bobble, and scarves |
+
+  The sky changes with them, by day in stage 1 and at dusk in stage 2. The drivers come by snowmobile in winter and by car the rest of the year (the same vehicle, on wheels instead of skis). Chefs keep their whites all year, and the rain at her house clears whatever is falling. A new game starts in winter, the way the market always looked
 - **Gamble:** once the roulette table is built, stand on its 🎰 pad to bet on red/black, odd/even, 1–18/19–36 (pays ×2) or a single number (pays ×36)
 
 ## Economy
@@ -65,7 +75,7 @@ Whenever a new upgrade comes on offer, a message says what it is, and while its 
 | 🎰 Roulette table | $150 | | Bet your cash on a European wheel |
 | 🏃 Hire a runner | $300 | ★3.5 | Carries fish from the pile to whichever counter is lowest (in stage 2, to the kitchen line) |
 | 🥾 Snow boots | $500 | | Walk faster |
-| 🛷 Sled window | $900 | ★3.8 | Opens a window in the east fence where snowmobiles buy fish in bulk, for half as much again |
+| 🚗 Drive-up window | $900 | ★3.8 | Opens a window in the east fence where drivers buy fish in bulk, for half as much again |
 | 🏃 Second runner | $1,200 | ★3.9, a runner | Another runner, at the first one's tile |
 | 🥅 Ice net | $1,600 | ★4.0 | Hauls in fish nonstop |
 | 🏃 Third runner | $3,500 | ★4.2, a second runner | A third runner. All three work side by side, and in stage 2 they all carry fish to the kitchen line |
@@ -79,7 +89,7 @@ Whenever a new upgrade comes on offer, a message says what it is, and while its 
 | 🔪 Second chef | $3,000 | ★3.6 | Another chef at the bar. Out from the start of stage 2, by the bar's east end |
 | 🪑 More seats | $5,000 | ★3.8 | Eight more seats at the bar (18 in all) |
 | 🧑‍🌾 Hire a farmer | $6,000 | ★3.9, 🌾 | Harvests the terraces onto a stack on the path |
-| 🥡 Takeout kiosk | $8,000 | ★4.0 | Snowmobiles on the road buy boxes of sushi; the chefs pack them |
+| 🥡 Takeout kiosk | $8,000 | ★4.0 | Drivers on the road buy boxes of sushi; the chefs pack them |
 | 🧺 Rice porter | $12,000 | ★4.1, 🌾 | Carries rice from that stack, 12 bags at a time, in through the farm door to the kitchen line |
 | 🌱 Second terrace | $18,000 | ★4.2, 🌾 | Plants the middle terrace |
 | 🔪 Third chef | $25,000 | ★4.3, a second chef | A third chef at the bar. Out once there's a second chef |
@@ -92,11 +102,11 @@ Far out past the road, a path leaves the market (through the east fence in stage
 
 🛴 **Korki's golden statue** ($10) is on offer from the start, outside the queue: a gold NAMI Klima One on a pedestal, in memory of Korki. Stand on its pad to read his story; stay a few seconds and his song ("Car Alarm (extended reprise)" by pat's soundhouse, via YouTube) fades in quietly, and fades out when you leave.
 
-Market customers and diners order 1–3 and give up after 40 seconds of waiting (for diners, 40 seconds in total between plates). Snowmobiles wait 55 seconds.
+Market customers and diners order 1–3 and give up after 40 seconds of waiting (for diners, 40 seconds in total between plates). Drivers wait 55 seconds.
 
 ### Saving
 
-Progress saves automatically on the device, including your reviews and everything along the supply chain (the pile, the counters, the kitchen line, plates on the belt, workers' loads, the terraces' stack): every few seconds, whenever the page is hidden or closed, and after each upgrade. Cash, fish and rice that are mid-air are counted, as are diners' unpaid bills, so closing the tab at any moment loses nothing.
+Progress saves automatically on the device, including your reviews, the season and everything along the supply chain (the pile, the counters, the kitchen line, plates on the belt, workers' loads, the terraces' stack): every few seconds, whenever the page is hidden or closed, and after each upgrade. Cash, fish and rice that are mid-air are counted, as are diners' unpaid bills, so closing the tab at any moment loses nothing.
 
 - **One tab at a time.** If the game is opened in a second tab, the older tab stops saving and says so, so it can't overwrite newer progress.
 - **Updates don't reset progress.** Saves carry a format version and older saves are migrated on load, keeping cash, rating and upgrades. Saves from before the two stages stay in stage 1, except those that had both the old restaurant west of the dock and every market upgrade: they go straight to stage 2, keeping the restaurant's upgrades, with the old kitchen's fish and the counters' leftovers on the kitchen line and the cash at the register. Everyone else gets back what they spent on the old restaurant, its cash and its unsold plates. A save that can't be read is kept under `floe-market-backup` instead of being overwritten.
@@ -159,12 +169,12 @@ TypeScript + [three.js r186](https://threejs.org/), bundled with [Vite](https://
 | `src/render.ts` | Renderer, scene, camera, lights, shared materials/geometry, canvas helpers |
 | `src/world.ts` | Static scenery: water, the dock (both stages'), fences, roads, trees |
 | `src/layout.ts` | The current stage, where people can walk in each, and the ground height (terraces, bridge, garden) |
-| `src/stage.ts` | The stage-up show (banner, camera pull-back, pieces in and out) and stage 2's dusk lighting |
+| `src/stage.ts` | The stage-up show (banner, camera pull-back, pieces in and out), and the light: each season's sky, by day and at stage 2's dusk |
 | `src/hall.ts` | The Floe Sushi building: floor, roof ring (fading when it would hide the player), walls, lanterns, gate, garden, kiosk booth |
 | `src/farm.ts` | The terraces, hillside and hot spring, farmhouse and water wheel, drying racks, channel, path and bridge |
 | `src/stations.ts` | Fishing pad, chopping block, fish pile |
 | `src/fishing.ts` | Fish, hooking, chopping into slices |
-| `src/counters.ts` | The walk-up fish counter, sled window and takeout kiosk, and their customers (patience, reviews) |
+| `src/counters.ts` | The walk-up fish counter, drive-up window and takeout kiosk, and their customers (patience, reviews) |
 | `src/economy.ts` | Sale prices, and the repeatable upgrades (price, marketing, crew) and what they multiply |
 | `src/shop.ts` | The upgrade circles and their panel, and the modifier list in the HUD |
 | `src/looks.ts` | What each upgrade level looks like: price board, menu tags, headband, toques, and putting up the campaigns |
@@ -184,7 +194,8 @@ TypeScript + [three.js r186](https://threejs.org/), bundled with [Vite](https://
 | `src/youtube.ts` | Songs played through YouTube's embedded player: one API load, fades, mute buttons |
 | `src/holder.ts` | Item stacks and arcing item flights |
 | `src/pop.ts` | The pop-in animation for new things |
-| `src/characters.ts` | People and sleds, walking |
+| `src/characters.ts` | People and sleds, walking, and everyone's clothes for each season |
+| `src/season.ts` | The seasons: their clock, the scenery's colours for each, what falls from the sky, and the season chip |
 | `src/decals.ts` | Deck markings (pads, drop zones, price tiles) |
 | `src/items.ts` | Fish slice, rice, plate, box and bill meshes |
 | `src/input.ts` | Virtual joystick and keyboard |

@@ -10,6 +10,7 @@ import { decal, drawPad } from './decals';
 import { player } from './player';
 import { HALL_BOX, HOUSE_PATH_Z, YARD } from './layout';
 import { G, hemi, mat, mesh, scene, sky, sun } from './render';
+import { PAL, seasonal } from './season';
 import { singerLook } from './singer';
 import { popText } from './ui';
 import { d2xz, FY } from './util';
@@ -24,6 +25,10 @@ const FRONT = HOUSE.x - HOUSE.w / 2;
 export const RAIN_PAD = { x: 21.6, z: HOUSE_PATH_Z, r: 0.95 };
 // The front yard (behind a low picket fence with a gate where the path comes in) and the path are in layout.ts.
 
+/** The path (packed snow in winter, earth the rest of the year), her lawn, and the snow on her roof. */
+const pathMat = seasonal(PAL.path), lawnMat = seasonal(PAL.lawn);
+const roofMat = seasonal([0xF7FAFC, 0xB0574F, 0xB0574F, 0xB0574F]);
+
 /**
  * Packed-snow path from `x0` to the yard, level with the deck, with a zebra crossing where it meets the road at
  * `roadX`. Stage 1's starts at the deck's east fence and crosses the first road; stage 2's starts at the
@@ -33,7 +38,7 @@ function path(x0: number, roadX: number) {
   const g = new Group(); scene.add(g);
   const road = { x0: roadX - 1.05, x1: roadX + 1.05 }, x1 = YARD.x0 - 0.3;
   for (const [a, b] of [[x0, road.x0], [road.x1, x1]]) {
-    g.add(mesh(new BoxGeometry(b - a, FY + 0.02, 1.1), 0xE2EAF0, (a + b) / 2, (FY + 0.02) / 2 - 0.02, HOUSE_PATH_Z));
+    g.add(mesh(new BoxGeometry(b - a, FY + 0.02, 1.1), pathMat, (a + b) / 2, (FY + 0.02) / 2 - 0.02, HOUSE_PATH_Z));
   }
   g.add(mesh(new BoxGeometry(road.x1 - road.x0, FY + 0.02, 1.3), 0x6B7785, roadX, (FY + 0.02) / 2 - 0.02, HOUSE_PATH_Z));
   for (let x = road.x0 + 0.2; x < road.x1 - 0.1; x += 0.42) {
@@ -52,8 +57,8 @@ export function houseStage2() {
 
 // ---------- the house and the yard ----------
 function build() {
-  // The yard: a snowy patch, level with the path.
-  scene.add(mesh(new BoxGeometry(FRONT - YARD.x0 + 0.6, FY + 0.02, YARD.z1 - YARD.z0 + 1.1), 0xEEF3F6,
+  // The yard: a snowy patch (a lawn out of winter), level with the path.
+  scene.add(mesh(new BoxGeometry(FRONT - YARD.x0 + 0.6, FY + 0.02, YARD.z1 - YARD.z0 + 1.1), lawnMat,
     (YARD.x0 - 0.6 + FRONT) / 2, (FY + 0.02) / 2 - 0.02, HOUSE_PATH_Z));
 
   // Low picket fence around the yard, open where the path comes in.
@@ -66,14 +71,14 @@ function build() {
   }
   for (const z of [fz0, fz1]) scene.add(mesh(new BoxGeometry(FRONT - fx, 0.06, 0.05), 0xFFFFFF, (fx + FRONT) / 2, FY + 0.42, z));
 
-  // The house: rose walls, a snowy gable roof, a red door, and her windows, lit.
+  // The house: rose walls, a gable roof (snowy in winter), a red door, and her windows, lit.
   const { x, z, w, d, h } = HOUSE;
   scene.add(mesh(new BoxGeometry(w, h, d), 0xE7B3AC, x, FY + h / 2, z, true));
   const gable = new Shape();
   gable.moveTo(-w / 2 - 0.35, 0); gable.lineTo(0, 1.6); gable.lineTo(w / 2 + 0.35, 0); gable.closePath();
   const roofGeo = new ExtrudeGeometry(gable, { depth: d + 0.5, bevelEnabled: false });
   roofGeo.translate(0, 0, -(d + 0.5) / 2);
-  scene.add(mesh(roofGeo, [mat(0xE7B3AC), mat(0xF7FAFC)], x, FY + h, z, true));
+  scene.add(mesh(roofGeo, [mat(0xE7B3AC), roofMat], x, FY + h, z, true));
   scene.add(mesh(new BoxGeometry(w + 0.75, 0.12, d + 0.55), 0x8E4B45, x, FY + h + 0.02, z, true));
   scene.add(mesh(new BoxGeometry(0.5, 1.1, 0.5), 0x9C5A50, x + 0.8, FY + h + 1.1, z - 1.4, true));
   scene.add(mesh(new BoxGeometry(0.08, 1.75, 0.95), 0x8E2B2B, FRONT - 0.03, FY + 0.88, z));
