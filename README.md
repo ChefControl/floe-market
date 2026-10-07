@@ -28,7 +28,7 @@ npm run dev
 | 🥾 Snow boots | $150 | Walk faster |
 | 🛷 Sled window | $220 | Snowmobiles buy in bulk at $6 a steak |
 | 🕸️ Ice net | $320 | Hauls in fish nonstop |
-| 🛴 Korki's golden statue | $10 | A gold NAMI Klima One on a pedestal, in memory of Korki. Stand on its pad to read his story. On offer from the start |
+| 🛴 Korki's golden statue | $10 | A gold NAMI Klima One on a pedestal, in memory of Korki. Stand on its pad to read his story; stay a few seconds and his song ("Car Alarm (extended reprise)" by pat's soundhouse, via YouTube) fades in quietly, and fades out when you leave. On offer from the start |
 
 ### Saving
 

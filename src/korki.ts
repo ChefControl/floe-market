@@ -1,5 +1,5 @@
 // Korki's golden statue: a memorial to a NAMI Klima One, bought on a $10 tile.
-// Standing on its pad opens the memoir panel; walking off closes it.
+// Standing on its pad opens the memoir panel; walking off closes it. Lingering there fades in his song.
 import {
   BoxGeometry, BufferGeometry, CylinderGeometry, ExtrudeGeometry, Group, Material, Mesh, MeshPhongMaterial, Shape, TorusGeometry,
 } from 'three';
@@ -221,8 +221,75 @@ export function enableKorki() {
   return statue;
 }
 
-/** Shows the memoir while the player stands on the pad. */
-export function updKorki() {
+// ---------- music ----------
+/** "Car Alarm (extended reprise)" by pat's soundhouse, played through YouTube's embedded player. */
+const SONG = 'jcutNFPwXPE';
+/** Seconds on the pad before the song starts. */
+const LINGER = 3;
+/** Song volume (YouTube's 0-100 scale): kept low, it's background. */
+const MAX_VOL = 15;
+/** Seconds for a full fade in / fade out. */
+const FADE_IN = 6, FADE_OUT = 4;
+
+interface YTPlayer {
+  playVideo(): void;
+  pauseVideo(): void;
+  setVolume(v: number): void;
+}
+interface YTApi {
+  Player: new (el: HTMLElement, opts: object) => unknown;
+}
+declare global {
+  interface Window {
+    YT?: YTApi;
+    onYouTubeIframeAPIReady?: () => void;
+  }
+}
+
+let song: YTPlayer | null = null;
+let songLoading = false;
+let playing = false;
+/** Seconds the player has been on the pad. */
+let stood = 0;
+let vol = 0, sentVol = -1;
+
+/** Loads YouTube's player API (only once someone lingers) and an invisible player for the song. */
+function loadSong() {
+  songLoading = true;
+  const host = document.createElement('div');
+  host.setAttribute('aria-hidden', 'true');
+  // Off-screen rather than display:none, which some browsers treat as "don't play".
+  host.style.cssText = 'position:fixed;left:-10px;top:-10px;width:1px;height:1px;overflow:hidden;opacity:0;pointer-events:none';
+  const el = document.createElement('div');
+  host.appendChild(el);
+  document.body.appendChild(host);
+  const make = () => new window.YT!.Player(el, {
+    videoId: SONG, width: 1, height: 1,
+    playerVars: { autoplay: 0, controls: 0, loop: 1, playlist: SONG, playsinline: 1 },
+    events: { onReady: (e: { target: YTPlayer }) => { song = e.target; song.setVolume(0); } },
+  });
+  if (window.YT?.Player) { make(); return; }
+  window.onYouTubeIframeAPIReady = make;
+  const s = document.createElement('script');
+  s.src = 'https://www.youtube.com/iframe_api';
+  document.head.appendChild(s);
+}
+
+/** Fades the song in after lingering on the pad, and out (then pauses it) after leaving. */
+function updSong(onPad: boolean, dt: number) {
+  stood = onPad ? stood + dt : 0;
+  const want = stood >= LINGER;
+  if (want && !songLoading) loadSong();
+  if (!song) return;
+  vol = want ? Math.min(MAX_VOL, vol + MAX_VOL / FADE_IN * dt) : Math.max(0, vol - MAX_VOL / FADE_OUT * dt);
+  if (vol > 0 && !playing) { song.playVideo(); playing = true; }
+  const v = Math.round(vol);
+  if (v !== sentVol) { song.setVolume(v); sentVol = v; }
+  if (vol === 0 && playing) { song.pauseVideo(); playing = false; }
+}
+
+/** Shows the memoir while the player stands on the pad, and plays his song if they stay. */
+export function updKorki(dt: number) {
   if (!statue) return;
   const near = d2xz(player.g.position, KORKI) < 0.95 * 0.95;
   if (near !== open) {
@@ -230,4 +297,5 @@ export function updKorki() {
     panel.hidden = !open;
     if (open) panel.scrollTop = 0;
   }
+  updSong(near, dt);
 }

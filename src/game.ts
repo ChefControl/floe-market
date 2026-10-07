@@ -16,7 +16,7 @@ export function tick(dt: number) {
   time += dt;
   updPlayer(dt);
   updCasino(dt);
-  updKorki();
+  updKorki(dt);
   updAuto(dt);
   updFish(dt, time);
   updHooks(dt);
