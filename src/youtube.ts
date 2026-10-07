@@ -92,6 +92,10 @@ export type SongStatus = 'ok' | 'muted' | 'tap' | 'unavailable' | 'offline';
 /** Seconds to wait for YouTube to start before asking for a tap, and for its player to load before giving up on it. */
 const START_WAIT = 2, LOAD_WAIT = 6;
 
+const songs: Song[] = [];
+/** Whether the game wants a song now (the player's at her house or Korki's statue): the music makes room for it. */
+export const songWanted = () => songs.some(s => s.wanted);
+
 /** A song the game fades in while it's wanted, and fades out (then pauses) when it isn't. */
 export class Song {
   private yt: YTPlayer | null = null;
@@ -111,6 +115,7 @@ export class Song {
   muted = IOS;
 
   constructor(private readonly o: SongSpec) {
+    songs.push(this);
     try {
       const m = localStorage.getItem(o.muteKey);
       if (m !== null) this.muted = m === '1';
@@ -122,6 +127,8 @@ export class Song {
     window.addEventListener('pointerdown', retry, true);
     window.addEventListener('keydown', retry, true);
   }
+
+  get wanted() { return this.want; }
 
   /** Asked to play, but YouTube hasn't started it. */
   private stalled() {

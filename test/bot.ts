@@ -15,7 +15,10 @@ export function play(g: Game, seconds: number, dt = 0.05) {
   const p = player.g.position;
   const bought: Purchase[] = [], samples: Sample[] = [];
   let t = 0, earned = 0, lastMoney = wallet.money, nextSample = 0;
-  let plan: { path: P[]; until: () => boolean; maxT: number } | null = null;
+  let plan: { path: P[]; until: () => boolean; maxT: number; buy?: boolean } | null = null;
+  /** Holding E, to buy the tile it's standing on. */
+  let holding = false;
+  const hold = (on: boolean) => { if (on !== holding) { holding = on; g.press('e', on ? 'keydown' : 'keyup'); } };
 
   /** Adds money earned (not spent) to the running total. */
   const track = () => {
@@ -88,8 +91,8 @@ export function play(g: Game, seconds: number, dt = 0.05) {
   }
   /** The latest plans, for debugging. */
   const trace: string[] = [];
-  function go(to: P, until: () => boolean, maxT = 30) {
-    plan = { path: route(to), until, maxT: t + maxT };
+  function go(to: P, until: () => boolean, maxT = 30, buy = false) {
+    plan = { path: route(to), until, maxT: t + maxT, buy };
     trace.push(`${mmss(t)} → ${to.x.toFixed(1)},${to.z.toFixed(1)} via ${plan.path.length - 1}`);
     if (trace.length > 12) trace.shift();
   }
@@ -101,7 +104,8 @@ export function play(g: Game, seconds: number, dt = 0.05) {
       if (d < Math.max(0.05, s)) { if (pl.path.length > 1 || d < 0.05) pl.path.shift(); p.x = w.x; p.z = w.z; }
       else { p.x += dx / d * s; p.z += dz / d * s; player.h = Math.atan2(dx, dz); }
     }
-    if (pl.until() || t > pl.maxT) plan = null;
+    hold(!!pl.buy && !pl.path.length);
+    if (pl.until() || t > pl.maxT) { plan = null; hold(false); }
   }
 
   // ---------- what to do next ----------
@@ -132,7 +136,7 @@ export function play(g: Game, seconds: number, dt = 0.05) {
     }
     if (tile && wallet.money >= tile.cost - tile.paid) {
       const was = tile.paid;
-      go(tile, () => tile.done || tile.paid < was, 25);
+      go(tile, () => tile.done || tile.paid < was, 25, true);
       return;
     }
     const target = Math.min(tile ? tile.cost - tile.paid : Infinity, modCost) - wallet.money;

@@ -1,5 +1,5 @@
 // Her house past the road: the path out to it, and the rain, tears and song in the circle out front.
-import { Mesh, type Color, type MeshLambertMaterial } from 'three';
+import { LineSegments, Mesh, type Color, type MeshLambertMaterial } from 'three';
 import { describe, expect, it, vi } from 'vitest';
 import { bought, loadGame } from './helpers';
 
@@ -117,6 +117,20 @@ describe('her house', () => {
     expect(rain.rainK).toBe(0);
     expect(bg().equals(sky)).toBe(true);
     expect(g.render.hemi.intensity).toBeCloseTo(0.78 * Math.PI);
+  });
+
+  it('lets the rain fall where it is: it stays put as the player walks about in it', async () => {
+    const { g, toPad } = await house();
+    toPad();
+    g.run(1);
+    const rain = g.render.scene.children.find(o => o instanceof LineSegments)!;
+    const xs = () => Array.from((rain.geometry.attributes.position.array as Float32Array).filter((_, i) => i % 6 === 0));
+    const before = xs();
+    g.placePlayer(g.player.g.position.x - 0.5, g.player.g.position.z);
+    g.run(1 / 60);
+    const after = xs(), moved = after.filter((x, i) => Math.abs(x - before[i]) > 1e-4).length;
+    expect(rain.position.x).toBe(0);
+    expect(moved / after.length).toBeLessThan(0.05); // only those that wrapped round to the far side
   });
 
   it('leaves the hands alone while carrying steaks', async () => {
@@ -278,5 +292,50 @@ describe('her house', () => {
       expect(a.href).toBe(`https://www.youtube.com/watch?v=${SONG.id}&t=${SONG.start}s`);
       expect(a.target).toBe('_blank');
     });
+  });
+});
+
+describe('the crossing', () => {
+  it('stops drivers for the player in the road; kept waiting, they beep, then lean on the horn and get cross', async () => {
+    const g = await loadGame({ tiles: bought('sled') });
+    const { SLED } = g.counters;
+    const { moodMat } = await import('../src/bubble');
+    const { HOUSE_PATH_Z } = await import('../src/layout');
+    const { ROAD1_X } = g.world;
+    g.placePlayer(ROAD1_X, HOUSE_PATH_Z); // on the zebra crossing
+    g.runUntil(() => SLED.queue[0]?.held > 0);
+    const c = SLED.queue[0];
+    expect(c.g.position.z).toBeGreaterThan(HOUSE_PATH_Z + 0.3); // stopped short, coming up from the south
+    g.run(1.5);
+    expect(c.mood.visible).toBe(true);
+    g.run(1.5);
+    expect(c.mood.material).toBe(moodMat('angry'));
+    // one behind waits behind it
+    g.runUntil(() => SLED.queue[1]?.stopped === true, 20);
+    expect(SLED.queue[1].g.position.z - c.g.position.z).toBeGreaterThan(2);
+    expect(SLED.queue[1].held).toBe(0); // it's the one in front that's held up by the player
+    // off the road: on they go, the face gone
+    g.placePlayer(7.5, HOUSE_PATH_Z);
+    g.run(0.1);
+    expect(c.held).toBe(0);
+    expect(c.mood.visible).toBe(false);
+    g.runUntil(() => c.arrived);
+  });
+
+  it('holds up drivers on their way home too', async () => {
+    const g = await loadGame({ tiles: bought('sushi', 'kiosk') });
+    const { TAKEOUT } = g.counters;
+    const { HOUSE_PATH_Z } = await import('../src/layout');
+    for (let i = 0; i < 12; i++) TAKEOUT.stock.put(g.items.newBox(30, false));
+    g.runUntil(() => TAKEOUT.queue[0]?.got > 0, 40);
+    const c = TAKEOUT.queue[0];
+    g.placePlayer(g.world.ROAD2_X, HOUSE_PATH_Z + 0.4);
+    g.runUntil(() => !TAKEOUT.queue.includes(c) && c.held > 0, 30);
+    expect(c.g.position.z).toBeLessThan(HOUSE_PATH_Z); // heading south, stopped short of the player
+    g.run(3);
+    expect(c.mood.visible).toBe(true);
+    g.placePlayer(10, HOUSE_PATH_Z);
+    g.run(0.1);
+    expect(c.mood.visible).toBe(false);
   });
 });

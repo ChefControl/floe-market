@@ -65,8 +65,8 @@ describe('sled window', () => {
 });
 
 describe('runner', () => {
-  it('works side by side with the others, each in their own shirt', async () => {
-    const g = await loadGame({ tiles: bought('runner', 'runner2', 'runner3', 'sushi'), pile: 30 });
+  it('works side by side with the others at the market, each in their own shirt', async () => {
+    const g = await loadGame({ tiles: bought('runner', 'runner2', 'runner3'), pile: 30 });
     const rs = g.runner.runners;
     expect(rs).toHaveLength(3);
     const shirt = (r: (typeof rs)[number]) => ((r.g.arms[0].children[0] as Mesh).material as MeshLambertMaterial).color.getHex();
@@ -74,6 +74,11 @@ describe('runner', () => {
     g.runUntil(() => rs.every(r => r.state === 'unload'), 20);
     const xs = rs.map(r => r.g.position.x);
     expect(Math.min(...xs.slice(1).map(x => Math.abs(x - xs[0])))).toBeGreaterThan(0.6); // not on top of each other
+  });
+
+  it('keeps the kitchen line stocked with two of them in the restaurant', async () => {
+    const g = await loadGame({ tiles: bought('runner', 'runner2', 'runner3', 'sushi'), pile: 30 });
+    expect(g.runner.runners).toHaveLength(2);
     g.runUntil(() => g.restaurant.fishTray.n >= 24, 20);
   });
 
