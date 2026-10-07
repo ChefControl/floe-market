@@ -7,6 +7,7 @@ import { player } from './player';
 import { updPointers } from './pointers';
 import { camera, camK, fog, OFF, renderer, scene, sun, sunOff } from './render';
 import { isStale, load, startAutosave, wipeSave } from './save';
+import { initScores } from './scores';
 import './settings';
 import { view } from './stage';
 import { hud, keepInSight } from './ui';
@@ -16,6 +17,7 @@ load();
 startAutosave();
 initCloud();
 initHint();
+initScores();
 
 const restartBtn = document.getElementById('restart')!, restartText = document.getElementById('restartText')!;
 let armT: ReturnType<typeof setTimeout> | undefined;

@@ -10,6 +10,24 @@
 <meta name="theme-color" content="#CFEAF5">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<script>
+// GitHub Pages lets browsers keep this page for 10 minutes, and each deploy removes the last one's files. A copy of the
+// page from before a deploy asks for a game script that's gone, and nothing starts: reload once to fetch the new page.
+// errors.ts does the same when the missing file is Firebase's. At most once a minute, so a site that's down doesn't
+// reload forever; the game's own error box can't help here, since it's in the script that didn't load.
+addEventListener('error', function (e) {
+  if (!e.target || e.target.tagName !== 'SCRIPT') return;
+  try {
+    if (Date.now() - Number(sessionStorage.getItem('floe-market-reload')) < 60000) throw 0;
+    sessionStorage.setItem('floe-market-reload', String(Date.now()));
+  } catch (_) {
+    var box = document.getElementById('err');
+    if (box) { box.style.display = 'block'; box.textContent = "The game didn't load. Check your connection, then refresh the page."; }
+    return;
+  }
+  location.reload();
+}, true);
+</script>
 <meta name="apple-mobile-web-app-title" content="Floe Market">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -201,6 +219,40 @@ body{
 #cloudPick button b{ font-size:17px; font-weight:800; }
 #cloudPick button:focus-visible{ outline:3px solid var(--coral); outline-offset:2px; }
 #settings #restart.armed{ background:var(--hot); color:#fff; }
+/* the scoreboard: a round 🏆 button, and a card over the dimmed game listing the top players */
+#board{
+  width:44px; height:44px; padding:0; border:0; border-radius:50%; display:grid; place-items:center; flex:none;
+  background:var(--pill); color:var(--pill-ink); box-shadow:0 3px 0 var(--shade); font-size:22px; line-height:1; cursor:pointer;
+}
+#board[hidden]{ display:none; }
+#board[aria-expanded="true"]{ background:#FFC34A; }
+#board:focus-visible{ outline:3px solid var(--coral); outline-offset:2px; }
+#scores{ position:fixed; inset:0; z-index:8; display:grid; place-items:center; background:rgba(23,48,66,.55); }
+#scores[hidden]{ display:none; }
+#scores .card{
+  position:relative; background:var(--pill); color:var(--pill-ink); padding:18px 18px 16px; border-radius:24px; width:min(92vw,420px);
+  max-height:min(86vh,640px); display:flex; flex-direction:column; box-shadow:0 4px 0 var(--shade);
+}
+#scores h2{ margin:0 0 10px; font-size:24px; font-weight:800; text-align:center; }
+#scoresClose{
+  position:absolute; right:12px; top:12px; width:36px; height:36px; border:0; border-radius:50%; background:var(--chip);
+  color:inherit; font-size:18px; line-height:1; cursor:pointer;
+}
+#scoresList{ list-style:none; margin:0; padding:0; overflow-y:auto; touch-action:pan-y; }
+#scoresList li{ display:flex; align-items:center; gap:8px; padding:6px 10px; border-radius:12px; font-size:16px; font-weight:600; }
+#scoresList li:nth-child(odd){ background:var(--chip); }
+#scoresList li.me{ box-shadow:inset 0 0 0 2px var(--gold); }
+#scoresList .rank{ width:24px; flex:none; text-align:right; font-weight:800; opacity:.7; }
+#scoresList li:nth-child(1) .rank, #scoresList li:nth-child(2) .rank, #scoresList li:nth-child(3) .rank{ color:var(--gold); opacity:1; }
+#scoresList .name{ flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+#scoresList .stage{ flex:none; font-size:13px; font-weight:800; padding:1px 8px; border-radius:999px; background:#4A90C2; color:#fff; }
+#scoresList .stage[data-stage="2"]{ background:var(--hot); }
+#scoresList .best{ flex:none; min-width:76px; text-align:right; font-weight:800; color:var(--up); font-variant-numeric:tabular-nums; }
+#scoresMe{ margin:10px 0 0; text-align:center; font-weight:600; }
+#scoresMe:empty{ display:none; }
+#scoresJoin{ margin:10px auto 0; font:800 15px "Baloo 2","Trebuchet MS",system-ui,sans-serif; background:var(--go); color:#fff; border:0; border-radius:999px; padding:6px 16px; cursor:pointer; }
+#scoresJoin[hidden]{ display:none; }
+#scoresClose:focus-visible, #scoresJoin:focus-visible{ outline:3px solid var(--coral); outline-offset:2px; }
 
 /* The bottom of the screen: the tip for where the player stands, and the buying reminder stacked just above it, so a
    long tip pushes the reminder up instead of running under it. */
@@ -401,6 +453,7 @@ body{
   #corner{ right:max(10px, env(safe-area-inset-right,0px)); top:calc(env(safe-area-inset-top,0px) + 10px); }
   #settings{ right:max(10px, env(safe-area-inset-right,0px)); top:calc(env(safe-area-inset-top,0px) + 62px); max-height:calc(100% - 76px); overflow-y:auto; touch-action:pan-y; }
   #hint{ font-size:17px; }
+  #board{ width:40px; height:40px; font-size:20px; }
   #toast{ top:calc(env(safe-area-inset-top,0px) + 108px); font-size:19px; padding:7px 16px; }
 }
 /* Phones on their side: the upgrade and casino panels go down the right-hand side, and the view slides over to
@@ -444,6 +497,7 @@ body{
   <div id="mods" class="pill" role="group" aria-label="Modifiers"></div>
 </div>
 <div id="corner">
+  <button id="board" type="button" aria-label="Scoreboard" aria-expanded="false" aria-controls="scores" hidden><span aria-hidden="true">🏆</span></button>
   <button id="gear" type="button" aria-label="Settings" aria-expanded="false" aria-controls="settings"><span aria-hidden="true">⚙️</span><i aria-hidden="true"></i></button>
 </div>
 <section id="settings" class="pill" aria-label="Settings" hidden>
@@ -462,6 +516,13 @@ body{
   <p id="cloudAsk">This device and your account have different games. Which one do you want to keep? The other one will be replaced.</p>
   <button type="button" data-keep="device"><b>Keep this device's game</b><span id="cloudHere"></span></button>
   <button type="button" data-keep="cloud"><b>Keep the cloud's game</b><span id="cloudThere"></span></button>
+</div></div>
+<div id="scores" role="dialog" aria-modal="true" aria-labelledby="scoresTitle" hidden><div class="card">
+  <h2 id="scoresTitle">Scoreboard</h2>
+  <button type="button" id="scoresClose" aria-label="Close the scoreboard"><span aria-hidden="true">✕</span></button>
+  <ol id="scoresList" aria-label="Most cash held at once"></ol>
+  <p id="scoresMe" role="status"></p>
+  <button type="button" id="scoresJoin" hidden>Sign in to join</button>
 </div></div>
 <div id="pointers" aria-hidden="true"></div>
 <div id="toast" role="status" aria-live="polite" aria-atomic="true"></div>

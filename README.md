@@ -168,6 +168,15 @@ Progress saves automatically on the device, including your reviews, the season a
 
 The free quota (50,000 reads and 20,000 writes a day) covers about 150 hours of play a day. Each player online reads once and writes at most once every 30 seconds.
 
+### Scoreboard
+
+The 🏆 button (top right) lists the 20 players who have held the most cash at once, and the furthest stage each has reached. It shows once cloud saves are set up.
+
+- **Getting on it:** sign in. Your best goes up as your game syncs, and only ever goes up: spending doesn't lower it, and neither does a Restart.
+- **Names:** players show by the full name on their Google account, never an email. Your row is picked out; if you're not in the top 20 your own best shows under the list. Not signed in, it shows this game's best and a button to sign in.
+- **Data:** one Firestore document per player, `scores/{your account id}`, with that name, the best and the stage. Anyone can read the scoreboard; only you can write your own entry (`firestore.rules`). A project set up before the scoreboard needs `firestore.rules` pasted and published again, or the scoreboard says it can't load.
+- **Quota:** opening the scoreboard reads up to 20 documents. A signed-in player writes their entry at most once per sync, and only when their best or stage changed.
+
 ## Development
 
 TypeScript + [three.js r186](https://threejs.org/), bundled with [Vite](https://vite.dev/). All textures are drawn at runtime on canvas; the Baloo 2 font comes from Google Fonts.
@@ -186,6 +195,8 @@ TypeScript + [three.js r186](https://threejs.org/), bundled with [Vite](https://
 [docs/balance.md](docs/balance.md) sets out the principles the game is balanced by, stage by stage, the numbers that show when something is off, and where each upgrade stands.
 
 `.github/workflows/deploy.yml` runs the tests on every pull request and push. On `main`, it builds and deploys to GitHub Pages only if they pass.
+
+Each deploy removes the last one's files, and GitHub Pages lets browsers keep the page for 10 minutes. A page kept from before a deploy, or a tab left open across one, would ask for files that are gone: the game wouldn't start, or Firebase wouldn't load. So the page reloads once to fetch the new version (an inline script in `index.html` for the game's script, `src/errors.ts` for Firebase), at most once a minute in case the site is actually down.
 
 `overrides` in `package.json` lifts Firestore's `@grpc/grpc-js` (pinned to 1.9.x, which has known vulnerabilities) to a patched release. Only Firestore's Node.js build uses it, so the game in the browser is the same either way. Drop the override once `@firebase/firestore` depends on 1.13.6 or later.
 
@@ -246,5 +257,5 @@ TypeScript + [three.js r186](https://threejs.org/), bundled with [Vite](https://
 | `src/cloud.ts` | Cloud saves: the sign-in button, syncing with the account, asking which game to keep |
 | `src/firebase.ts` / `src/cloud.config.ts` | Cloud saves on Firebase (Google sign-in, Firestore), loaded on demand / the Firebase project's config |
 | `src/wallet.ts` | Money |
-| `src/errors.ts` | On-screen error reporting |
+| `src/errors.ts` | On-screen error reporting, and reloading once when a deploy removed a file the page needs |
 | `src/util.ts` | Math/random helpers |
