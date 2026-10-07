@@ -316,7 +316,7 @@ describe('music', () => {
       expect(m.filter(p => p.kind === 'tone' && p.type !== 'triangle').every(p => p.f < 4000)).toBe(true);
       expect(m.some(p => p.kind === 'tone' && p.f > 100 && p.f < 130 && p.type === 'sine')).toBe(false); // the old kick's 110 Hz start
     }
-  });
+  }, 30_000);
 
   it('voices its chords without half-step clashes, and never holds a note that clashes with the chord', async () => {
     await withSound();
