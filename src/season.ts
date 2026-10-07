@@ -1,17 +1,17 @@
-// The seasons: winter, spring, summer and autumn, three minutes of play each, round and round. A new season blends
+// The seasons: winter, spring, summer and autumn, five minutes of play each, round and round. A new season blends
 // the scenery's colours over a few seconds (snow melts into grass, the pines' snow turns to blossom, leaves or gold,
 // the ice floes melt and come back), changes what falls from the sky (snow, petals, leaves), and changes what
 // everyone wears (characters.ts). The sky's colours for each season are with the rest of the light, in stage.ts.
 import {
   AdditiveBlending, BufferAttribute, BufferGeometry, Color, MeshLambertMaterial, NormalBlending, Points, PointsMaterial,
 } from 'three';
-import { canvasTex, scene } from './render';
-import type { XZ } from './util';
+import { camera, canvasTex, scene } from './render';
+import { FY, type XZ } from './util';
 
 export type Season = 'winter' | 'spring' | 'summer' | 'fall';
 export const SEASONS: Season[] = ['winter', 'spring', 'summer', 'fall'];
 /** Seconds of play a season lasts, and how long the scenery takes to change into the next one. */
-export const SEASON_LEN = 180, BLEND = 6;
+export const SEASON_LEN = 300, BLEND = 6;
 
 /** Which season it is (an index into SEASONS), how far into it, and how far the scenery has blended into it. */
 export const season = { i: 0, t: 0, k: 1, from: 0 };
@@ -76,11 +76,14 @@ function paint() {
 }
 
 // ---------- what falls from the sky ----------
-/** Flakes fill a box this many metres either side of the player, up to TOP high. */
-const SPREAD = 14, TOP = 10, FLAKES = 700;
+/**
+ * Flakes fill a box this many metres either side of the player, up to TOP high. They stay put in the world as the
+ * player walks (only falling and drifting): a flake that ends up more than SPREAD behind comes back in ahead.
+ */
+const SPREAD = 16, TOP = 10, FLAKES = 900;
 /** Per season: how many of the flakes fall, their colour, size, how fast they fall and how much they drift. */
 const SKY: Record<Season, { n: number; c: number; size: number; fall: number; sway: number }> = {
-  winter: { n: 700, c: 0xFFFFFF, size: 0.16, fall: 1.4, sway: 0.5 },
+  winter: { n: 900, c: 0xFFFFFF, size: 0.16, fall: 1.4, sway: 0.5 },
   spring: { n: 160, c: 0xFFB7D3, size: 0.17, fall: 0.9, sway: 1.2 },
   summer: { n: 0, c: 0xFFFFFF, size: 0.1, fall: 1, sway: 0 },
   fall: { n: 180, c: 0xE0812E, size: 0.2, fall: 1.1, sway: 1.4 },
@@ -105,9 +108,19 @@ export const weather = new Points(flakeGeo, flakeMat);
 weather.frustumCulled = false;
 scene.add(weather);
 let time = 0;
+/** Wraps an offset from the player into the box round them. */
+const wrap = (v: number) => v - 2 * SPREAD * Math.floor((v + SPREAD) / (2 * SPREAD));
+
+// ---------- shelter ----------
+/** A building's footprint, nothing falling inside it below `top`, while `on` (it's built). */
+export interface Shelter { x0: number; x1: number; z0: number; z1: number; top: number; on: () => boolean }
+const shelters: Shelter[] = [];
+/** Keeps snow, petals and leaves out of a building: they stop at its roof. */
+export const shelter = (s: Shelter) => { shelters.push(s); };
+const over = (r: Shelter, x: number, z: number) => x > r.x0 && x < r.x1 && z > r.z0 && z < r.z1;
 
 /**
- * Moves what's falling round the player (`at`). Through a change of season the old season's flakes thin out, then
+ * Moves what's falling round the player (`at`), keeping it out of buildings. Through a change of season the old season's flakes thin out, then
  * the new one's come in. `clear` (0–1) takes them away, for the rain at her house.
  */
 function updWeather(dt: number, at: XZ, clear: number) {
@@ -120,16 +133,27 @@ function updWeather(dt: number, at: XZ, clear: number) {
   flakeMat.color.setHex(s.c);
   flakeMat.size = s.size;
   flakeMat.blending = s.c === 0xFFFFFF ? AdditiveBlending : NormalBlending;
-  weather.position.set(at.x, 0, at.z);
+  const roofs = shelters.filter(r => r.on());
+  // With the player indoors, the camera looks in through the faded roof: flakes in the air between it and the floor
+  // would look like they're falling inside, so those go too.
+  const indoors = roofs.find(r => over(r, at.x, at.z)), c = camera.position;
   flakeGeo.setDrawRange(0, s.n);
   for (let i = 0; i < s.n; i++) {
     let y = flakes[i * 3 + 1] - s.fall * dt * (0.7 + (i % 7) * 0.08);
     if (y < 0) y += TOP;
     flakes[i * 3 + 1] = y;
     const ph = time * 1.3 + i;
-    flakePos[i * 3] = flakes[i * 3] + Math.sin(ph) * s.sway;
-    flakePos[i * 3 + 1] = y;
-    flakePos[i * 3 + 2] = flakes[i * 3 + 2] + Math.cos(ph * 0.8) * s.sway * 0.6;
+    const x = at.x + wrap(flakes[i * 3] + Math.sin(ph) * s.sway - at.x);
+    const z = at.z + wrap(flakes[i * 3 + 2] + Math.cos(ph * 0.8) * s.sway * 0.6 - at.z);
+    // under a roof: down out of sight, below the ground
+    let inside = roofs.some(r => y < r.top && over(r, x, z));
+    if (indoors && !inside && c.y > y) {
+      const t = (c.y - FY) / (c.y - y); // where the camera's line of sight through the flake meets the floor
+      inside = over(indoors, c.x + (x - c.x) * t, c.z + (z - c.z) * t);
+    }
+    flakePos[i * 3] = x;
+    flakePos[i * 3 + 1] = inside ? -5 : y;
+    flakePos[i * 3 + 2] = z;
   }
   flakeGeo.attributes.position.needsUpdate = true;
 }

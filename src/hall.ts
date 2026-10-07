@@ -8,6 +8,7 @@ import {
 import { EAST_DOOR, FARM_DOOR, GATE_W, HALL_BOX } from './layout';
 import { bake, canvasTex, FONT, G, mat, mesh, rr, scene, type Part } from './render';
 import { FY, rand, type XZ } from './util';
+import { shelter } from './season';
 import { planks, TREE_MATS } from './world';
 
 const { x0: X0, x1: X1, z0: Z0, z1: Z1 } = HALL_BOX;
@@ -229,6 +230,10 @@ const kiosk = piece(11.4, KIOSK.z);
   const sign = new Mesh(new PlaneGeometry(1.9, 0.5), new MeshBasicMaterial({ map: signTex(256, 72, '#C0392B', 'Takeout', 40) }));
   sign.rotation.y = Math.PI / 2; put(kiosk, sign, 12.75, FY + 2.25, KIOSK.z);
 }
+
+// No snow (or petals, or leaves) inside the restaurant, its courtyard included, or under the kiosk's roof.
+shelter({ x0: X0 - 0.6, x1: X1 + 0.6, z0: Z0 - 0.6, z1: Z1 + 0.6, top: FY + 4.3, on: () => roof.visible });
+shelter({ x0: 9.9, x1: 12.9, z0: KIOSK.z - 2.6, z1: KIOSK.z + 2.6, top: FY + 2.8, on: () => kiosk.visible });
 
 /** The building, for the stage-up: shown, then popped in one by one. Lamps light up separately. */
 export const hallPieces = [floor, frame, walls, roof, gate, garden];

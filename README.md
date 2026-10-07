@@ -21,7 +21,7 @@ npm run dev
 - **Make sushi:** drop fish slices on the 🐟 pad and rice on the 🍚 pad at the kitchen line facing the dock. Your arms carry both at once. The cooks there toss them to a chef inside the bar, who makes a plate (a bag of rice makes two) and puts it on the belt circling them. Once the takeout kiosk is open, the chefs also pack boxes for it, keeping a few ready
 - **Sell sushi:** diners in top hats come up the garden path and through the red gate, sit at the bar, take plates as they pass, and pay $30 a plate at the register by the gate when they leave. Drivers buy 3–6 boxes at a time at the kiosk on the road ($35 a box); their cash lands just inside the east wall
 - **Rating:** customers only wait so long. Each one leaves a 1–5★ review when they go, based on how long they waited; someone who gives up leaves 1★ and pays only for what they got. The rating in the HUD is the average of the last 20 reviews (a new game starts at ★3.0). A better rating also brings customers in faster: ×0.6 at ★1, ×1.4 at ★5
-- **Seasons:** winter, spring, summer and autumn come round every three minutes of play, and the chip under your carry count shows which it is and how long is left. A new season changes the scenery over a few seconds and everyone's clothes at once:
+- **Seasons:** winter, spring, summer and autumn come round every five minutes of play, and the chip under your carry count shows which it is and how long is left. A new season changes the scenery over a few seconds and everyone's clothes at once:
 
   | | Scenery | What falls | Clothes |
   | --- | --- | --- | --- |
@@ -30,7 +30,7 @@ npm run dev
   | ☀️ Summer | Deep green grass and a bright sky; no ice left | Nothing | Short sleeves, shorts and sunglasses |
   | 🍂 Autumn | Dry grass, pines turned red and orange with gold tips; the floes come back | Leaves | Woolly hats with a bobble, and scarves |
 
-  The sky changes with them, by day in stage 1 and at dusk in stage 2. The drivers come by snowmobile in winter and by car the rest of the year (the same vehicle, on wheels instead of skis). Chefs keep their whites all year, and the rain at her house clears whatever is falling. A new game starts in winter, the way the market always looked
+  The sky changes with them, by day in stage 1 and at dusk in stage 2. The drivers come by snowmobile in winter and by car the rest of the year (the same vehicle, on wheels instead of skis). Chefs keep their whites all year. Nothing falls inside buildings, and the rain at her house clears whatever is falling. A new game starts in winter, the way the market always looked
 - **Gamble:** once the roulette table is built, stand on its 🎰 pad to bet on red/black, odd/even, 1–18/19–36 (pays ×2) or a single number (pays ×36)
 
 ## Economy

@@ -9,7 +9,7 @@ import {
 } from 'three';
 import { CHANNEL_X, FARM_DOOR, HALL_BOX, PATH_X, TERRACE_Z, TERRACES } from './layout';
 import { bake, canvasTex, G, mesh, scene, type Part } from './render';
-import { PAL, seasonal } from './season';
+import { PAL, seasonal, shelter } from './season';
 import { FY, rand } from './util';
 import { treeGroup } from './world';
 
@@ -117,6 +117,7 @@ let wheel: Group;
   }
   wheel.rotation.y = Math.PI / 2;
 }
+shelter({ x0: HOUSE.x - 2.2, x1: HOUSE.x + 2.2, z0: HOUSE.z - 1.7, z1: HOUSE.z + 1.7, top: 3.8, on: () => house.visible });
 const racks = piece(-14.5, 8.8);
 {
   const wood: Part[] = [], sheaves: Part[] = [];

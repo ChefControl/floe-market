@@ -10,7 +10,7 @@ import { decal, drawPad } from './decals';
 import { player } from './player';
 import { HALL_BOX, HOUSE_PATH_Z, YARD } from './layout';
 import { G, hemi, mat, mesh, scene, sky, sun } from './render';
-import { PAL, seasonal } from './season';
+import { PAL, seasonal, shelter } from './season';
 import { singerLook } from './singer';
 import { popText } from './ui';
 import { d2xz, FY } from './util';
@@ -113,6 +113,7 @@ function build() {
   scene.add(treeGroup([[30.5, HOUSE_PATH_Z - 3.8, 1.2, 0], [31.2, HOUSE_PATH_Z + 3.2, 1, 0], [24.5, HOUSE_PATH_Z + 5.2, 0.9, 0]]));
 }
 build();
+shelter({ x0: FRONT - 0.4, x1: FRONT + HOUSE.w + 0.4, z0: HOUSE.z - HOUSE.d / 2 - 0.3, z1: HOUSE.z + HOUSE.d / 2 + 0.3, top: FY + HOUSE.h + 1.6, on: () => true });
 
 const pad = decal(1.9, (c, w, h) => drawPad(c, w, h, '💔'));
 pad.mesh.position.set(RAIN_PAD.x, FY + 0.01, RAIN_PAD.z);
