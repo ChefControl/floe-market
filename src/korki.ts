@@ -7,6 +7,7 @@ import { decal, drawPad } from './decals';
 import { player } from './player';
 import { CAM_YAW, canvasTex, FONT, mat, mesh, rr, scene } from './render';
 import { d2xz, FY } from './util';
+import { Song } from './youtube';
 
 /**
  * Statue centre, out on the snow past the bottom fence where no one walks, and its heading:
@@ -223,104 +224,18 @@ export function enableKorki() {
 }
 
 // ---------- music ----------
-/** "Car Alarm (extended reprise)" by pat's soundhouse, played through YouTube's embedded player. */
-const SONG = 'jcutNFPwXPE';
 /** Seconds on the pad before the song starts. */
 const LINGER = 3;
-/** Song volume (YouTube's 0-100 scale): kept low, it's background. */
-const MAX_VOL = 10;
 /**
- * Seconds for a full fade in / fade out. The fade out is shorter than LINGER, so stepping back on
- * the pad always lets the song fade all the way out before it fades in again from silence.
+ * "Car Alarm (extended reprise)" by pat's soundhouse: kept low, it's background. The fade out is shorter than
+ * LINGER, so stepping back on the pad always lets the song fade all the way out before it fades in again from silence.
  */
-const FADE_IN = 6, FADE_OUT = 2.5;
-/** Per-device mute choice for the song (a convenience, so it lives outside the save). */
-const MUTE_KEY = 'floe-market-korki-muted';
-/** iPhone and iPad ignore volume changes from web pages, so the song can't fade there: it starts muted. */
-const IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (/Mac/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
-
-interface YTPlayer {
-  playVideo(): void;
-  pauseVideo(): void;
-  setVolume(v: number): void;
-}
-interface YTApi {
-  Player: new (el: HTMLElement, opts: object) => unknown;
-}
-declare global {
-  interface Window {
-    YT?: YTApi;
-    onYouTubeIframeAPIReady?: () => void;
-  }
-}
-
-let song: YTPlayer | null = null;
-let songLoading = false;
-let playing = false;
+const song = new Song({
+  id: 'jcutNFPwXPE', vol: 10, fadeIn: 6, fadeOut: 2.5, loop: true,
+  muteKey: 'floe-market-korki-muted', muteBtn: document.getElementById('korkiMute') as HTMLButtonElement,
+});
 /** Seconds the player has been on the pad. */
 let stood = 0;
-let vol = 0, sentVol = -1;
-let muted = IOS;
-try {
-  const m = localStorage.getItem(MUTE_KEY);
-  if (m !== null) muted = m === '1';
-} catch { /* storage unavailable: keep the default */ }
-
-const muteBtn = document.getElementById('korkiMute') as HTMLButtonElement;
-function showMute() {
-  muteBtn.textContent = muted ? '🔇' : '🔊';
-  muteBtn.setAttribute('aria-pressed', String(muted));
-}
-showMute();
-muteBtn.addEventListener('click', () => {
-  muted = !muted;
-  showMute();
-  try { localStorage.setItem(MUTE_KEY, muted ? '1' : '0'); } catch { /* storage unavailable */ }
-  if (!song) return;
-  if (muted) {
-    // Silence right away rather than fading: that's what a mute button is for.
-    vol = 0; sentVol = 0; song.setVolume(0);
-    if (playing) { song.pauseVideo(); playing = false; }
-  } else if (stood >= LINGER && !playing) {
-    // Start inside the tap: iPhone only lets sound start from one.
-    song.playVideo(); playing = true;
-  }
-});
-
-/** Loads YouTube's player API (only once someone lingers) and an invisible player for the song. */
-function loadSong() {
-  songLoading = true;
-  const host = document.createElement('div');
-  host.setAttribute('aria-hidden', 'true');
-  // Off-screen rather than display:none, which some browsers treat as "don't play".
-  host.style.cssText = 'position:fixed;left:-10px;top:-10px;width:1px;height:1px;overflow:hidden;opacity:0;pointer-events:none';
-  const el = document.createElement('div');
-  host.appendChild(el);
-  document.body.appendChild(host);
-  const make = () => new window.YT!.Player(el, {
-    videoId: SONG, width: 1, height: 1,
-    playerVars: { autoplay: 0, controls: 0, loop: 1, playlist: SONG, playsinline: 1 },
-    events: { onReady: (e: { target: YTPlayer }) => { song = e.target; song.setVolume(0); } },
-  });
-  if (window.YT?.Player) { make(); return; }
-  window.onYouTubeIframeAPIReady = make;
-  const s = document.createElement('script');
-  s.src = 'https://www.youtube.com/iframe_api';
-  document.head.appendChild(s);
-}
-
-/** Fades the song in after lingering on the pad (unless muted), and out (then pauses it) after leaving. */
-function updSong(onPad: boolean, dt: number) {
-  stood = onPad ? stood + dt : 0;
-  const want = stood >= LINGER && !muted;
-  if (want && !songLoading) loadSong();
-  if (!song) return;
-  vol = want ? Math.min(MAX_VOL, vol + MAX_VOL / FADE_IN * dt) : Math.max(0, vol - MAX_VOL / FADE_OUT * dt);
-  if (vol > 0 && !playing) { song.playVideo(); playing = true; }
-  const v = Math.round(vol);
-  if (v !== sentVol) { song.setVolume(v); sentVol = v; }
-  if (vol === 0 && playing) { song.pauseVideo(); playing = false; }
-}
 
 /** Shows the memoir while the player stands on the pad, and plays his song if they stay. */
 export function updKorki(dt: number) {
@@ -331,5 +246,6 @@ export function updKorki(dt: number) {
     panel.hidden = !open;
     if (open) memo.scrollTop = 0;
   }
-  updSong(near, dt);
+  stood = near ? stood + dt : 0;
+  song.update(stood >= LINGER, dt);
 }
