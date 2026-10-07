@@ -14,6 +14,7 @@ import {
 } from './restaurant';
 import { field, fieldStack, riceInField } from './rice';
 import { runnersLoad } from './runner';
+import { season, SEASON_LEN, SEASONS, setSeason } from './season';
 import { pile } from './stations';
 import { applyUnlock, redrawTile, tiles, updStars } from './unlocks';
 import { wallet } from './wallet';
@@ -56,6 +57,9 @@ export interface SaveData {
   tcash: number;
   /** Bags of rice harvested and not yet in the rice pot. */
   field: number;
+  /** The season (0 winter, 1 spring, 2 summer, 3 autumn), and how many seconds into it. */
+  season: number;
+  seasonT: number;
 }
 
 /** The one place that touches device storage. */
@@ -103,6 +107,8 @@ export function migrate(raw: unknown): SaveData {
     savedAt: num(s.savedAt),
     reviews: (Array.isArray(s.reviews) ? s.reviews : []).map(Number).filter(r => r >= 1 && r <= 5).map(Math.round).slice(-WINDOW),
     pile: num(s.pile), back: num(s.back), mods: modLevels,
+    // saves from before the seasons start in winter, the way the game always looked
+    season: num(s.season) % SEASONS.length, seasonT: Math.min(num(s.seasonT), SEASON_LEN - 1),
   };
   if (num(s.v) >= 4) {
     return {
@@ -192,6 +198,8 @@ export function save() {
     boxes: onCounter(TAKEOUT),
     tcash: cashSum(TAKEOUT.cash),
     field: riceInField(),
+    season: season.i,
+    seasonT: Math.floor(season.t),
   };
   const raw = JSON.stringify(data);
   if (deviceStore.write(raw)) lastSeen = raw;
@@ -225,6 +233,7 @@ export function load() {
   }
   if (!s) { tiles.forEach(redrawTile); return false; }
   wallet.money = s.money;
+  setSeason(s.season, s.seasonT, true);
   s.reviews.forEach(addReview);
   // In the game's order, so the stage-up is in place before stage 2's upgrades.
   for (const t of tiles) {

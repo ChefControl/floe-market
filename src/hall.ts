@@ -8,7 +8,8 @@ import {
 import { EAST_DOOR, FARM_DOOR, GATE_W, HALL_BOX } from './layout';
 import { bake, canvasTex, FONT, G, mat, mesh, rr, scene, type Part } from './render';
 import { FY, rand, type XZ } from './util';
-import { planks } from './world';
+import { shelter } from './season';
+import { planks, TREE_MATS } from './world';
 
 const { x0: X0, x1: X1, z0: Z0, z1: Z1 } = HALL_BOX;
 const MID = (Z0 + Z1) / 2;
@@ -208,14 +209,14 @@ const garden = piece(0, GARDEN_Z);
     stones.push({ geo: G.cyl, at: [rand(-0.3, 0.3), 0.04, Z1 + 1.4 + i * 0.95 - GARDEN_Z], rot: [0, rand(0, 3), 0], scale: [rand(.42, .55), 0.08, rand(.38, .5)] });
   }
   garden.add(mesh(bake(stones), 0xB9C2C9, 0, 0, 0, true));
-  // little snowy pines in the corners
+  // little pines in the corners, dressed for the season like the big ones
   const pines: Part[] = [], snow: Part[] = [];
   for (const [x, z] of [[-8.4, 22.9], [8.6, 21.9], [-8.4, 16.8], [8.6, 17.0]]) {
     pines.push({ geo: G.cone, at: [x, 0.55, z - GARDEN_Z], scale: [0.55, 1.1, 0.55] });
     snow.push({ geo: G.cone, at: [x, 0.85, z - GARDEN_Z], scale: [0.34, 0.5, 0.34] });
   }
-  garden.add(mesh(bake(pines), 0x2E6E5E, 0, 0, 0, true));
-  garden.add(mesh(bake(snow), 0xFFFFFF));
+  garden.add(mesh(bake(pines), TREE_MATS[1], 0, 0, 0, true));
+  garden.add(mesh(bake(snow), TREE_MATS[3]));
 }
 
 // ---------- the takeout kiosk's booth (its counter is the takeout window's, in counters.ts) ----------
@@ -233,6 +234,10 @@ const kiosk = piece(11.4, KIOSK.z);
   const sign = new Mesh(new PlaneGeometry(1.9, 0.5), new MeshBasicMaterial({ map: signTex(256, 72, '#C0392B', 'Takeout', 40) }));
   sign.rotation.y = Math.PI / 2; put(kiosk, sign, 12.75, FY + 2.25, KIOSK.z);
 }
+
+// No snow (or petals, or leaves) inside the restaurant, its courtyard included, or under the kiosk's roof.
+shelter({ x0: X0 - 0.6, x1: X1 + 0.6, z0: Z0 - 0.6, z1: Z1 + 0.6, top: FY + 4.3, on: () => roof.visible });
+shelter({ x0: 9.9, x1: 12.9, z0: KIOSK.z - 2.6, z1: KIOSK.z + 2.6, top: FY + 2.8, on: () => kiosk.visible });
 
 /** The building, for the stage-up: shown, then popped in one by one. Lamps light up separately. */
 export const hallPieces = [floor, frame, walls, roof, gate, garden];

@@ -1,10 +1,12 @@
 // Static scenery: ground, water, the dock, fences, roads, trees. Some of it belongs to one stage only: stage 2
 // shrinks the dock to its north half, takes down the south fence and moves the road east of the restaurant.
 import {
-  BoxGeometry, Group, Mesh, MeshBasicMaterial, MeshLambertMaterial, PlaneGeometry, RepeatWrapping, type Object3D,
+  BoxGeometry, Group, type Material, Mesh, MeshBasicMaterial, MeshLambertMaterial, PlaneGeometry, RepeatWrapping,
+  type Object3D,
 } from 'three';
 import { HOUSE_PATH_Z } from './layout';
 import { bake, canvasTex, G, mat, mesh, scene, type Part } from './render';
+import { amount, onBlend, PAL, seasonal } from './season';
 import { FY, rand } from './util';
 
 // ---------- textures ----------
@@ -28,7 +30,8 @@ const waterTex = canvasTex(4, 256, (c, w, h) => {
 });
 
 // ---------- ground and water ----------
-const ground = mesh(new PlaneGeometry(220, 220), 0xF3F8FB);
+// Snow in winter, grass the rest of the year (season.ts).
+const ground = mesh(new PlaneGeometry(220, 220), seasonal(PAL.ground));
 ground.rotation.x = -Math.PI / 2; ground.position.y = -0.02; scene.add(ground);
 
 // The bay runs from far west of the farm to just past the dock's east edge; the roads stay on land.
@@ -40,13 +43,19 @@ foam.rotation.x = -Math.PI / 2; foam.position.set(-21.8, 0.02, -6.62); scene.add
 const sideFoam = new Mesh(new PlaneGeometry(0.35, 34), foamMat);
 sideFoam.rotation.x = -Math.PI / 2; sideFoam.position.set(7.45, 0.02, -23.5); scene.add(sideFoam);
 
-const floes: { m: Mesh; ph: number }[] = [];
+const floes: { m: Mesh; ph: number; sx: number; sz: number }[] = [];
 for (let i = 0; i < 9; i++) {
   const m = mesh(G.cyl, 0xFFFFFF, rand(-20, 5), 0.03, rand(-30, -16));
   m.scale.set(rand(.5, 1.4), 0.12, rand(.4, 1.1));
   scene.add(m);
-  floes.push({ m, ph: rand(0, 6) });
+  floes.push({ m, ph: rand(0, 6), sx: m.scale.x, sz: m.scale.z });
 }
+/** How big the ice floes are through the year: they melt away by summer and start to form again in autumn. */
+export const FLOE_SIZE: [number, number, number, number] = [1, 0.5, 0, 0.3];
+onBlend(() => {
+  const k = amount(FLOE_SIZE);
+  for (const f of floes) { f.m.scale.x = f.sx * k; f.m.scale.z = f.sz * k; f.m.visible = k > 0.01; }
+});
 export function updFloes(time: number) {
   for (const f of floes) f.m.position.y = 0.03 + Math.sin(time * 1.3 + f.ph) * 0.03;
 }
@@ -114,7 +123,13 @@ road2.visible = false;
 // Trees are baked into a few big meshes per stage (one per material), which is far cheaper to draw than
 // hundreds of little ones. Each group sits at ground level, so scaling it vertically grows or sinks its trees.
 const TIERS: [r: number, h: number, y: number][] = [[0.75, 0.9, 0.75], [0.58, 0.8, 1.3], [0.4, 0.7, 1.8]];
-const TREE_MATS = [0x7A5236, 0x2E6E5E, 0x3B8270, 0xFFFFFF];
+/**
+ * Trunks, the needles' two shades, the snow on them and the snow mounds. The needles turn in autumn, the snow turns
+ * to blossom in spring, leaves in summer and gold in autumn, and the mounds are bushes out of winter.
+ */
+export const TREE_MATS: Material[] = [
+  mat(0x7A5236), seasonal(PAL.pine), seasonal(PAL.pine2), seasonal(PAL.drift), seasonal(PAL.bush),
+];
 type Batch = Part[][];
 const newBatch = (): Batch => TREE_MATS.map(() => []);
 
@@ -126,7 +141,7 @@ function addTree(b: Batch, x: number, z: number, s: number, r = rand(0, 6)) {
   });
 }
 function addMound(b: Batch, x: number, z: number) {
-  b[3].push({ geo: G.sphere, at: [x, 0, z], scale: [rand(.6, 1.6), rand(.25, .5), rand(.6, 1.4)] });
+  b[4].push({ geo: G.sphere, at: [x, 0, z], scale: [rand(.6, 1.6), rand(.25, .5), rand(.6, 1.4)] });
 }
 function batchGroup(b: Batch) {
   const g = new Group();

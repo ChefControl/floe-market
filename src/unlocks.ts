@@ -74,7 +74,7 @@ const UNLOCKS: Unlock[] = [
   { id: 'roulette', cost: 150, x: -4.3, z: 0.6, icon: '🎰', name: 'Roulette table', desc: 'Bet your cash on the wheel', stage: 1 },
   { id: 'runner', cost: 300, x: -4.0, z: 3.6, icon: '🏃', name: 'Hire a runner', desc: 'Carries fish from the pile to your counters', stars: 3.5, stage: 1 },
   { id: 'boots', cost: 500, x: -6.0, z: 6.2, icon: '🥾', name: 'Snow boots', desc: 'Walk faster', stage: 1 },
-  { id: 'sled', cost: 900, x: 6.55, z: -1.0, icon: '🛷', name: 'Sled window', desc: 'Snowmobiles buy fish in bulk, for half as much again', stars: 3.8, stage: 1 },
+  { id: 'sled', cost: 900, x: 6.55, z: -1.0, icon: '🚗', name: 'Drive-up window', desc: 'Drivers on the road buy fish in bulk, for half as much again', stars: 3.8, stage: 1 },
   { id: 'runner2', cost: 1200, x: -4.0, z: 3.6, icon: '🏃', name: 'Second runner', desc: 'Another runner carrying fish to your counters', stars: 3.9, needs: 'runner', stage: 1 },
   { id: 'net', cost: 1600, x: -1.9, z: -4.4, icon: '🥅', name: 'Ice net', desc: 'Hauls in fish nonstop', stars: 4.0, stage: 1 },
   { id: 'runner3', cost: 3500, x: -4.0, z: 3.6, icon: '🏃', name: 'Third runner', desc: 'A third runner carrying fish to your counters', stars: 4.2, needs: 'runner2', stage: 1 },
@@ -89,7 +89,7 @@ const UNLOCKS: Unlock[] = [
   { id: 'chef3', cost: 25000, x: 8.0, z: 11.8, icon: '🔪', name: 'Third chef', desc: 'A third chef at the bar', stars: 4.3, needs: 'chef', shown: true, stage: 2 },
   { id: 'tables2', cost: 32000, x: -2.6, z: 21.2, y: 0.02, icon: '⛱️', name: 'More garden tables', desc: 'Four more tables west of the path, and a second waiter', stars: 4.3, needs: 'tables', stage: 2 },
   { id: 'plot3', cost: 40000, ...onTerrace(2), icon: '🌱', name: 'Third terrace', desc: 'Rice right up to the hot spring, for a full garden', stars: 4.4, needs: 'plot2', stage: 2 },
-  { id: 'kiosk', cost: 50000, x: 8.2, z: 3.6, icon: '🥡', name: 'Takeout kiosk', desc: 'Snowmobiles on the road buy boxes of sushi with the rice to spare; the chefs pack them', stars: 4.4, stage: 2 },
+  { id: 'kiosk', cost: 50000, x: 8.2, z: 3.6, icon: '🥡', name: 'Takeout kiosk', desc: 'Drivers on the road buy boxes of sushi with the rice to spare; the chefs pack them', stars: 4.4, stage: 2 },
   { id: 'premium', cost: 60000, x: -6.2, z: 13.6, icon: '🏮', name: 'Premium menu', desc: 'Everything sells for 60% more', stars: 4.5, stage: 2 },
   { id: 'korki', cost: 10, x: KORKI.x, z: KORKI.z, icon: '🛴', name: "Korki's golden statue", desc: 'In memory of a good scooter', stage: 1, always: true, everywhere: true },
 ];

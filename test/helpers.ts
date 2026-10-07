@@ -21,6 +21,8 @@ export interface SaveFixture {
   tcash?: number;
   field?: number;
   mods?: Record<string, number>;
+  season?: number;
+  seasonT?: number;
 }
 
 /** Tiles entries for already-bought upgrades. */

@@ -47,9 +47,9 @@ The bottleneck is the biggest share. A tile that doesn't touch it adds little, h
 
 ## Stage 1: Fish Market
 
-**What it's about:** learning the loop by hand (catch, carry, sell, collect) and then handing it over: machines catch, runners carry, snowmobiles buy in bulk. About 12 minutes to the gold tile.
+**What it's about:** learning the loop by hand (catch, carry, sell, collect) and then handing it over: machines catch, runners carry, drivers buy in bulk. About 12 minutes to the gold tile.
 
-**The bottleneck it should rotate through:** your hands (catching and carrying) → customers (marketing) → carrying (runners) → how much each customer buys (the sled window) → and round again at higher prices.
+**The bottleneck it should rotate through:** your hands (catching and carrying) → customers (marketing) → carrying (runners) → how much each customer buys (the drive-up window) → and round again at higher prices.
 
 **Principles for this stage**
 - The first purchases come fast: the first tile within a minute, a tile every 1 to 2 minutes after that.
@@ -65,7 +65,7 @@ The bottleneck is the biggest share. A tile that doesn't touch it adds little, h
 | 🎰 Roulette table | $150 | | A side game | no gain | 2:50 | Exempt |
 | 🏃 Hire a runner | $300 | ★3.5 | Free your hands from carrying | no gain | 4:07 | Automation: judge by playing. Carrying isn't the limit when it comes |
 | 🥾 Snow boots | $500 | | Walk faster | no gain | 5:24 | Convenience: judge by playing |
-| 🛷 Sled window | $900 | ★3.8 | Bigger customers | 18 s | 7:10 | Good |
+| 🚗 Drive-up window | $900 | ★3.8 | Bigger customers | 18 s | 7:10 | Good |
 | 🏃 Second runner | $1,200 | ★3.9 | More carrying | 1.3 min | 7:49 | Good |
 | 🥅 Ice net | $1,600 | ★4.0 | Fish nonstop | 1.4 min | 8:14 | Good |
 | 🏃 Third runner | $3,500 | ★4.2 | More carrying | no gain | 9:44 | **Off:** carrying is already 0% when it comes, and it raises the gate to open the restaurant to ★4.2 |
@@ -80,12 +80,12 @@ Pacing is healthy: the bot buys a tile every 25 seconds to 2¼ minutes, and open
 | 🎒 Bigger arms | Carrying, 46% | $319/min |
 | 🎯 Auto harpoon | Customers: fish waits on the counter 31% of the time | $734/min |
 | 🎰 Roulette, 🏃 runner, 🥾 boots | Customers, 31% (unchanged) | $1,109 to $1,748/min |
-| 🛷 Sled window | Carrying, 27%: the snowmobiles buy 4 to 8 at a time | $5,489/min |
+| 🚗 Drive-up window | Carrying, 27%: the drivers buy 4 to 8 at a time | $5,489/min |
 | 🏃 Second runner | Customers 24%, carrying down to 10% | $7,073/min |
 | 🥅 Ice net | Customers 27%, carrying 0% | $12,402/min |
 | 🏃 Third runner | Customers 27% (unchanged) | $24,556/min |
 
-Income keeps rising mostly from the repeatable upgrades. The bottleneck turns over twice, as it should: carrying, then customers, then carrying again once the sled window opens, then customers. Three tiles land while customers are the limit and so add nothing to income: the first runner and the boots (both about freeing your hands, so judge them by playing), and the Third runner, which comes after the second runner and the net have already taken carrying to 0%. Catching is never the limit. Without repeatable upgrades, customers are the limit at every point from the harpoon on (65 to 81% of the time).
+Income keeps rising mostly from the repeatable upgrades. The bottleneck turns over twice, as it should: carrying, then customers, then carrying again once the drive-up window opens, then customers. Three tiles land while customers are the limit and so add nothing to income: the first runner and the boots (both about freeing your hands, so judge them by playing), and the Third runner, which comes after the second runner and the net have already taken carrying to 0%. Catching is never the limit. Without repeatable upgrades, customers are the limit at every point from the harpoon on (65 to 81% of the time).
 
 ## The stage-up: Open Floe Sushi ($12,000)
 

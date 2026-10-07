@@ -9,6 +9,7 @@ import {
 } from 'three';
 import { CHANNEL_X, FARM_DOOR, HALL_BOX, PATH_X, TERRACE_Z, TERRACES } from './layout';
 import { bake, canvasTex, G, mesh, scene, type Part } from './render';
+import { PAL, seasonal, shelter } from './season';
 import { FY, rand } from './util';
 import { treeGroup } from './world';
 
@@ -59,7 +60,7 @@ export const springLamp = new PointLight(0xFFB46A, 0, 12, 1.4);
 springLamp.position.set(SPRING.x, HILL.y + 1.6, SPRING.z);
 {
   const cx = hill.position.x, cz = hill.position.z;
-  put(hill, mesh(new BoxGeometry(HILL.x1 - HILL.x0, HILL.y, HILL.z1 - HILL.z0), 0xF1F6F9, 0, 0, 0, true), cx, HILL.y / 2, cz);
+  put(hill, mesh(new BoxGeometry(HILL.x1 - HILL.x0, HILL.y, HILL.z1 - HILL.z0), seasonal(PAL.lawn), 0, 0, 0, true), cx, HILL.y / 2, cz);
   put(hill, mesh(new BoxGeometry(0.25, HILL.y + 0.1, HILL.z1 - HILL.z0 + 0.2), 0xA9B3BA, 0, 0, 0, true), HILL.x1, (HILL.y + 0.1) / 2, cz);
   // the spring: a steaming pool in a ring of rocks
   const rocks: Part[] = [];
@@ -102,10 +103,10 @@ let wheel: Group;
   for (const [x, z] of [[-2.1, -1.5], [2.1, -1.5], [-2.1, 1.5], [2.1, 1.5]]) posts.push({ geo: G.box, at: at(x, 0.95, z), scale: [0.18, 1.9, 0.18] });
   posts.push({ geo: G.box, at: at(0.8, 0.65, -1.52), scale: [0.9, 1.3, 0.06] });
   house.add(mesh(bake(posts), 0x5B3A26, 0, 0, 0, true));
-  // a steep thatched roof, just wider than the house, with snow on its peak
+  // a steep thatched roof, just wider than the house, with snow on its peak in winter
   const thatch = mesh(new CylinderGeometry(0, 3.0, 1.9, 4), 0xB8894A, 0, 2.85, 0, true);
   thatch.rotation.y = Math.PI / 4; thatch.scale.set(1.05, 1, 0.8); house.add(thatch);
-  const cap = mesh(new CylinderGeometry(0, 1.5, 0.95, 4), 0xFFFFFF, 0, 3.33, 0);
+  const cap = mesh(new CylinderGeometry(0, 1.5, 0.95, 4), seasonal([0xFFFFFF, 0xB8894A, 0xB8894A, 0xB8894A]), 0, 3.33, 0);
   cap.rotation.y = Math.PI / 4; cap.scale.set(1.05, 1, 0.8); house.add(cap);
   wheel = new Group(); wheel.position.set(2.7, 1.05, -0.4); house.add(wheel);
   wheel.add(mesh(new TorusGeometry(1.0, 0.07, 6, 20), 0x6B4A2E, 0, 0, 0, true));
@@ -116,6 +117,7 @@ let wheel: Group;
   }
   wheel.rotation.y = Math.PI / 2;
 }
+shelter({ x0: HOUSE.x - 2.2, x1: HOUSE.x + 2.2, z0: HOUSE.z - 1.7, z1: HOUSE.z + 1.7, top: 3.8, on: () => house.visible });
 const racks = piece(-14.5, 8.8);
 {
   const wood: Part[] = [], sheaves: Part[] = [];

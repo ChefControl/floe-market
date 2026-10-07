@@ -11,6 +11,7 @@ import { stage } from './layout';
 import { marketLooks } from './looks';
 import { fog, hemi, scene, sky, sun, sunOff } from './render';
 import { houseStage2 } from './rain';
+import { mix, onBlend, type Swatch } from './season';
 import { furniture, handOver, openRestaurant } from './restaurant';
 import { plantPatch } from './rice';
 import { banner, confetti, toast } from './ui';
@@ -18,33 +19,43 @@ import { V } from './util';
 import { closeGap, stage1Only, stage2Only, swapDecks } from './world';
 
 // ---------- light ----------
+// The sky changes with the seasons too: each colour is given for winter, spring, summer and autumn (season.ts).
 const DAY = {
-  bg: new Color(0xCFEAF5), sky: new Color(0xEAF7FF), grd: new Color(0xA9BCCB), hemi: 0.78,
-  sun: new Color(0xFFFFFF), sunI: 0.62, off: V(-5, 14, 7), glow: 0.12,
+  bg: [0xCFEAF5, 0xD2EEF0, 0xB4DFF6, 0xE4DECB] as Swatch, sky: [0xEAF7FF, 0xF2FBEF, 0xFFFBEA, 0xFFF1DC] as Swatch,
+  grd: [0xA9BCCB, 0xA8C49C, 0xA2BE8A, 0xB8A585] as Swatch, sun: [0xFFFFFF, 0xFFFDF2, 0xFFF6DE, 0xFFEACB] as Swatch,
+  hemi: 0.78, sunI: 0.62, off: V(-5, 14, 7), glow: 0.12,
 };
 const DUSK = {
-  bg: new Color(0xE6C3C6), sky: new Color(0xFFE4CC), grd: new Color(0x9C9FCB), hemi: 0.72,
-  sun: new Color(0xFFBE86), sunI: 0.6, off: V(-14, 11, 6), glow: 1.0,
+  bg: [0xE6C3C6, 0xEBC5D2, 0xF0C8A6, 0xE2B6A2] as Swatch, sky: [0xFFE4CC, 0xFFE6DC, 0xFFE2BC, 0xFFDABE] as Swatch,
+  grd: [0x9C9FCB, 0xA0A8BC, 0xA49E9C, 0xA2929C] as Swatch, sun: [0xFFBE86, 0xFFC69C, 0xFFB46E, 0xFFA864] as Swatch,
+  hemi: 0.72, sunI: 0.6, off: V(-14, 11, 6), glow: 1.0,
 };
 const lerp = (a: number, b: number, k: number) => a + (b - a) * k;
+const dayC = new Color(), duskC = new Color();
+/** Mixes a sky colour for the season and the time of day `k` into `out`. */
+const tone = (day: Swatch, dusk: Swatch, k: number, out: Color) => out.lerpColors(mix(day, dayC), mix(dusk, duskC), k);
+/** How far it is from day to dusk. */
+let mood = 0;
 
 /** Blends the light from day (0) to stage 2's dusk (1): warmer, lower sun, lanterns and lamps on. */
 function setMood(k: number) {
+  mood = k;
   // the clear-weather sky the rain at her house greys out from
-  sky.bg.lerpColors(DAY.bg, DUSK.bg, k);
+  tone(DAY.bg, DUSK.bg, k, sky.bg);
   sky.hemi = lerp(DAY.hemi, DUSK.hemi, k) * Math.PI;
   sky.sun = lerp(DAY.sunI, DUSK.sunI, k) * Math.PI;
   (scene.background as Color).copy(sky.bg);
   fog.color.copy(sky.bg);
-  hemi.color.lerpColors(DAY.sky, DUSK.sky, k);
-  hemi.groundColor.lerpColors(DAY.grd, DUSK.grd, k);
+  tone(DAY.sky, DUSK.sky, k, hemi.color);
+  tone(DAY.grd, DUSK.grd, k, hemi.groundColor);
   hemi.intensity = sky.hemi;
-  sun.color.lerpColors(DAY.sun, DUSK.sun, k);
+  tone(DAY.sun, DUSK.sun, k, sun.color);
   sun.intensity = sky.sun;
   sunOff.lerpVectors(DAY.off, DUSK.off, k);
   glowMats.forEach(m => { m.emissiveIntensity = lerp(DAY.glow, DUSK.glow, k); });
   [...lamps, springLamp].forEach(l => { l.intensity = 9 * k; });
 }
+onBlend(() => setMood(mood));
 
 // ---------- camera ----------
 /** How far the camera sits back (1 = stage 1), and how much it looks at `focus` instead of the player. */

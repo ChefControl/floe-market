@@ -113,6 +113,22 @@ describe('characters', () => {
     expect(driver.arms[0].rotation.x).toBe(-1.1);
   });
 
+  it('runs a sled on skis in winter and on wheels the rest of the year', async () => {
+    const { scene } = await import('../src/render');
+    const { setSeason } = await import('../src/season');
+    const sled = makeSled(0xff0000, 0x00ff00);
+    scene.add(sled);
+    const skis = sled.children.filter(c => c.userData.seasons?.includes('winter'));
+    const wheels = sled.children.filter(c => c.userData.seasons?.includes('summer'));
+    expect([skis.length, wheels.length]).toEqual([2, 4]);
+    expect(skis.every(s => s.visible) && wheels.every(w => !w.visible)).toBe(true);
+    setSeason(2);
+    expect(skis.every(s => !s.visible) && wheels.every(w => w.visible)).toBe(true);
+    setSeason(0);
+    expect(skis.every(s => s.visible) && wheels.every(w => !w.visible)).toBe(true);
+    scene.remove(sled);
+  });
+
   it('stacks carried items in front of the carrier', () => {
     const e = { g: new Person(0), h: 0 };
     const s0 = carrySlot(e, 0), s1 = carrySlot(e, 1);
