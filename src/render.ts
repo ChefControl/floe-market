@@ -1,8 +1,9 @@
 import {
   BoxGeometry, BufferGeometry, CanvasTexture, Color, ColorManagement, ConeGeometry, CylinderGeometry, DirectionalLight,
-  Fog, HemisphereLight, LinearSRGBColorSpace, Material, Mesh, MeshLambertMaterial, PCFShadowMap, PerspectiveCamera,
-  Scene, SphereGeometry, TorusGeometry, WebGLRenderer,
+  Euler, Fog, HemisphereLight, LinearSRGBColorSpace, Material, Matrix4, Mesh, MeshLambertMaterial, PCFShadowMap,
+  PerspectiveCamera, Quaternion, Scene, SphereGeometry, TorusGeometry, Vector3, WebGLRenderer,
 } from 'three';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { V } from './util';
 
 // ---------- renderer / scene ----------
@@ -19,7 +20,8 @@ renderer.shadowMap.type = PCFShadowMap;
 
 export const scene = new Scene();
 scene.background = new Color(0xCFEAF5);
-scene.fog = new Fog(0xCFEAF5, 34, 70);
+export const fog = new Fog(0xCFEAF5, 34, 70);
+scene.fog = fog;
 
 export const camera = new PerspectiveCamera(40, 1, 0.1, 200);
 /** Camera offset from the player. */
@@ -42,9 +44,13 @@ resize();
 
 // Intensities are scaled by PI to match the legacy lighting mode (removed in r165), which multiplied
 // hemisphere and directional light by PI.
+/** The sky colour and light levels in clear weather (stage 2 turns them to dusk; the rain greys them out). */
+export const sky = { bg: new Color(0xCFEAF5), hemi: 0.78 * Math.PI, sun: 0.62 * Math.PI };
 export const hemi = new HemisphereLight(0xEAF7FF, 0xA9BCCB, 0.78 * Math.PI);
 scene.add(hemi);
 export const sun = new DirectionalLight(0xFFFFFF, 0.62 * Math.PI);
+/** Where the sun sits relative to what the camera looks at. */
+export const sunOff = V(-5, 14, 7);
 sun.castShadow = true;
 sun.shadow.mapSize.set(1024, 1024);
 Object.assign(sun.shadow.camera, { left: -14, right: 14, top: 14, bottom: -14, near: 1, far: 50 });
@@ -101,6 +107,23 @@ export function rr(c: CanvasRenderingContext2D, x: number, y: number, w: number,
 }
 
 export const FONT = '"Baloo 2","Trebuchet MS",system-ui,sans-serif';
+
+/** One copy of a shape for `bake`: where it goes, and optionally its rotation (Euler XYZ) and scale. */
+export interface Part {
+  geo: BufferGeometry;
+  at: [x: number, y: number, z: number];
+  rot?: [x: number, y: number, z: number];
+  scale?: [x: number, y: number, z: number];
+}
+const tmpM = new Matrix4(), tmpQ = new Quaternion(), tmpE = new Euler(), tmpP = new Vector3(), tmpS = new Vector3();
+/** Bakes many copies of simple shapes into one geometry, so a whole batch of props draws as one mesh. */
+export function bake(parts: Part[]) {
+  return mergeGeometries(parts.map(p => {
+    tmpQ.setFromEuler(tmpE.set(...(p.rot ?? [0, 0, 0])));
+    tmpM.compose(tmpP.set(...p.at), tmpQ, tmpS.set(...(p.scale ?? [1, 1, 1])));
+    return p.geo.clone().applyMatrix4(tmpM);
+  }))!;
+}
 
 // shared geometry
 export const G = {

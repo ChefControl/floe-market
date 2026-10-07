@@ -11,14 +11,16 @@ import { Song } from './youtube';
 
 /**
  * Statue centre, out on the snow past the bottom fence where no one walks, and its heading:
- * turned a little so the camera sees the side and a bit of the front.
+ * turned a little so the camera sees the side and a bit of the front. Stage 2 moves it to the restaurant's garden.
  */
-export const STATUE = { x: -3.7, z: 10.3, h: CAM_YAW - 0.35 };
+export const STATUE = { x: -3.7, y: FY, z: 10.3, h: CAM_YAW - 0.35 };
 /**
  * Where the player stands to read the memoir (and where the $10 tile sits until it's bought):
- * on the deck just inside the fence, clear of every upgrade tile.
+ * on the deck just inside the fence, clear of every upgrade tile. In stage 2, on the garden path beside it.
  */
-export const KORKI = { x: -3.7, z: 6.75 };
+export const KORKI = { x: -3.7, y: FY, z: 6.75 };
+/** The statue's and pad's spots in the restaurant's front garden (stage 2). */
+export const GARDEN_SPOT = { statue: { x: -6.6, z: 18.7 }, pad: { x: -5.0, z: 17.3 } };
 
 // ---------- materials ----------
 const gold = new MeshPhongMaterial({ color: 0xC99A22, specular: 0xFFE8A0, shininess: 90, emissive: 0x140C00 });
@@ -192,7 +194,7 @@ const plaque = canvasTex(512, 128, (c, w, h) => {
 
 function buildStatue() {
   const g = new Group();
-  g.position.set(STATUE.x, FY, STATUE.z);
+  g.position.set(STATUE.x, STATUE.y, STATUE.z);
   g.rotation.y = STATUE.h;
   g.add(mesh(new BoxGeometry(1.9, 0.18, 0.95), 0xD3DCE2, 0, 0.09, 0, true));
   g.add(mesh(new BoxGeometry(1.7, 0.32, 0.8), 0xEEF2F5, 0, 0.34, 0, true));
@@ -208,13 +210,24 @@ function buildStatue() {
 
 // ---------- state ----------
 const pad = decal(1.9, (c, w, h) => drawPad(c, w, h, '🛴'));
-pad.mesh.position.set(KORKI.x, FY + 0.01, KORKI.z);
+pad.mesh.position.set(KORKI.x, KORKI.y + 0.01, KORKI.z);
 pad.mesh.visible = false;
 
 const panel = document.getElementById('korki')!;
 const memo = panel.querySelector('.memo')!;
 let statue: Group | null = null;
 let open = false;
+
+/** The statue, once it's built. */
+export const korkiStatue = () => statue;
+
+/** Moves the statue and its pad to the restaurant's garden (stage 2). */
+export function moveKorki() {
+  Object.assign(STATUE, GARDEN_SPOT.statue, { y: 0 });
+  Object.assign(KORKI, GARDEN_SPOT.pad, { y: 0.02 });
+  pad.mesh.position.set(KORKI.x, KORKI.y + 0.01, KORKI.z);
+  statue?.position.set(STATUE.x, STATUE.y, STATUE.z);
+}
 
 /** The 'korki' unlock: raises the statue and its pad. Returns the statue for the pop-in. */
 export function enableKorki() {

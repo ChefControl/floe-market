@@ -1,17 +1,19 @@
-// Her house, far out past the road, at the end of a path from the market's east fence. Standing in the circle out
+// Her house, far out past the road, at the end of a path from the market's east fence (in stage 2, from the
+// restaurant's east door). Standing in the circle out
 // front makes it rain: the sky goes grey, the player turns into the singer, Ofer Levy, and cries facing her window,
 // and his "מאוהב בגשם" plays from the line "מול ביתך עומד בגשם נרטב". Walking off lets the rain stop and the song fade out.
 import {
-  BoxGeometry, BufferAttribute, BufferGeometry, Color, ExtrudeGeometry, LineBasicMaterial, LineSegments, Mesh,
+  BoxGeometry, BufferAttribute, BufferGeometry, Color, ExtrudeGeometry, Group, LineBasicMaterial, LineSegments, Mesh,
   MeshBasicMaterial, MeshLambertMaterial, Shape, SphereGeometry,
 } from 'three';
 import { decal, drawPad } from './decals';
 import { player } from './player';
-import { G, hemi, mat, mesh, scene, sun } from './render';
+import { HALL_BOX, HOUSE_PATH_Z, YARD } from './layout';
+import { G, hemi, mat, mesh, scene, sky, sun } from './render';
 import { singerLook } from './singer';
 import { popText } from './ui';
 import { d2xz, FY } from './util';
-import { HOUSE_PATH_Z, makeTree } from './world';
+import { ROAD1_X, ROAD2_X, treeGroup } from './world';
 import { Song, type SongStatus } from './youtube';
 
 // ---------- layout ----------
@@ -20,26 +22,36 @@ const HOUSE = { x: 26.4, z: HOUSE_PATH_Z, w: 4, d: 5.6, h: 2.5 };
 const FRONT = HOUSE.x - HOUSE.w / 2;
 /** The circle out front, where the player stands in the rain. */
 export const RAIN_PAD = { x: 21.6, z: HOUSE_PATH_Z, r: 0.95 };
-/** Front yard, behind a low picket fence with a gate where the path comes in. */
-const YARD = { x0: 19.2, x1: FRONT - 0.7, z0: HOUSE_PATH_Z - 2.3, z1: HOUSE_PATH_Z + 2.3 };
-/** Where the player can walk: the path from the deck's east edge (crossing the road), and the front yard. */
-export const HOUSE_AREAS = [
-  { x0: 7.3, x1: YARD.x0 + 0.3, z0: HOUSE_PATH_Z - 0.25, z1: HOUSE_PATH_Z + 0.25 },
-  YARD,
-];
-const ROAD = { x0: 8.55, x1: 10.65 };
+// The front yard (behind a low picket fence with a gate where the path comes in) and the path are in layout.ts.
 
-// ---------- the path, the house and the yard ----------
+/**
+ * Packed-snow path from `x0` to the yard, level with the deck, with a zebra crossing where it meets the road at
+ * `roadX`. Stage 1's starts at the deck's east fence and crosses the first road; stage 2's starts at the
+ * restaurant's east door and crosses the road past the takeout kiosk.
+ */
+function path(x0: number, roadX: number) {
+  const g = new Group(); scene.add(g);
+  const road = { x0: roadX - 1.05, x1: roadX + 1.05 }, x1 = YARD.x0 - 0.3;
+  for (const [a, b] of [[x0, road.x0], [road.x1, x1]]) {
+    g.add(mesh(new BoxGeometry(b - a, FY + 0.02, 1.1), 0xE2EAF0, (a + b) / 2, (FY + 0.02) / 2 - 0.02, HOUSE_PATH_Z));
+  }
+  g.add(mesh(new BoxGeometry(road.x1 - road.x0, FY + 0.02, 1.3), 0x6B7785, roadX, (FY + 0.02) / 2 - 0.02, HOUSE_PATH_Z));
+  for (let x = road.x0 + 0.2; x < road.x1 - 0.1; x += 0.42) {
+    g.add(mesh(new BoxGeometry(0.22, 0.01, 1.2), 0xF2F5F7, x + 0.11, FY + 0.005, HOUSE_PATH_Z));
+  }
+  return g;
+}
+const path1 = path(7.85, ROAD1_X), path2 = path(HALL_BOX.x1 + 0.15, ROAD2_X);
+path2.visible = false;
+
+/** Stage 2 moves the path's start to the restaurant's east door and its crossing to the new road. */
+export function houseStage2() {
+  path1.visible = false;
+  path2.visible = true;
+}
+
+// ---------- the house and the yard ----------
 function build() {
-  // Packed-snow path, level with the deck, and a zebra crossing where it meets the road.
-  const pathX0 = 7.85, pathX1 = YARD.x0 - 0.3;
-  for (const [x0, x1] of [[pathX0, ROAD.x0], [ROAD.x1, pathX1]]) {
-    scene.add(mesh(new BoxGeometry(x1 - x0, FY + 0.02, 1.1), 0xE2EAF0, (x0 + x1) / 2, (FY + 0.02) / 2 - 0.02, HOUSE_PATH_Z));
-  }
-  scene.add(mesh(new BoxGeometry(ROAD.x1 - ROAD.x0, FY + 0.02, 1.3), 0x6B7785, (ROAD.x0 + ROAD.x1) / 2, (FY + 0.02) / 2 - 0.02, HOUSE_PATH_Z));
-  for (let x = ROAD.x0 + 0.2; x < ROAD.x1 - 0.1; x += 0.42) {
-    scene.add(mesh(new BoxGeometry(0.22, 0.01, 1.2), 0xF2F5F7, x + 0.11, FY + 0.005, HOUSE_PATH_Z));
-  }
   // The yard: a snowy patch, level with the path.
   scene.add(mesh(new BoxGeometry(FRONT - YARD.x0 + 0.6, FY + 0.02, YARD.z1 - YARD.z0 + 1.1), 0xEEF3F6,
     (YARD.x0 - 0.6 + FRONT) / 2, (FY + 0.02) / 2 - 0.02, HOUSE_PATH_Z));
@@ -93,9 +105,7 @@ function build() {
   const post = mesh(G.cyl, 0x7A5236, mx, FY + 0.4, mz, true); post.scale.set(0.05, 0.8, 0.05); scene.add(post);
   scene.add(mesh(new BoxGeometry(0.42, 0.26, 0.24), 0xD8394B, mx, FY + 0.9, mz, true));
   // A few trees round the back.
-  for (const [tx, tz, s] of [[30.5, HOUSE_PATH_Z - 3.8, 1.2], [31.2, HOUSE_PATH_Z + 3.2, 1], [24.5, HOUSE_PATH_Z + 5.2, 0.9]]) {
-    const t = makeTree(s); t.position.set(tx, 0, tz); scene.add(t);
-  }
+  scene.add(treeGroup([[30.5, HOUSE_PATH_Z - 3.8, 1.2, 0], [31.2, HOUSE_PATH_Z + 3.2, 1, 0], [24.5, HOUSE_PATH_Z + 5.2, 0.9, 0]]));
 }
 build();
 
@@ -123,19 +133,18 @@ rain.frustumCulled = false;
 rain.visible = false;
 scene.add(rain);
 
-/** The sky and the light, clear and in the rain. */
-const sky = (scene.background as Color).clone(), storm = new Color(0x5E6B77);
-const HEMI = hemi.intensity, SUN = sun.intensity;
+/** The sky in the rain; the clear sky (day, or stage 2's dusk) is `sky` in render.ts. */
+const storm = new Color(0x5E6B77);
 
 /** How hard it's raining, 0 (clear) to 1. */
 export let rainK = 0;
 
 function updRain(dt: number, on: boolean) {
   rainK = on ? Math.min(1, rainK + dt / RAIN_IN) : Math.max(0, rainK - dt / RAIN_OUT);
-  (scene.background as Color).lerpColors(sky, storm, rainK);
-  scene.fog!.color.lerpColors(sky, storm, rainK);
-  hemi.intensity = HEMI * (1 - 0.45 * rainK);
-  sun.intensity = SUN * (1 - 0.8 * rainK);
+  (scene.background as Color).lerpColors(sky.bg, storm, rainK);
+  scene.fog!.color.lerpColors(sky.bg, storm, rainK);
+  hemi.intensity = sky.hemi * (1 - 0.45 * rainK);
+  sun.intensity = sky.sun * (1 - 0.8 * rainK);
   rain.visible = rainK > 0;
   if (!rain.visible) return;
   rainMat.opacity = 0.75 * rainK;

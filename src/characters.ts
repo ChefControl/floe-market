@@ -1,19 +1,24 @@
-import { BoxGeometry, BufferGeometry, Group, MeshLambertMaterial, Object3D } from 'three';
-import { G, mesh } from './render';
+import { BoxGeometry, BufferGeometry, Group, type Mesh, MeshLambertMaterial, Object3D, TorusGeometry } from 'three';
+import { G, mat, mesh } from './render';
 import type { XZ } from './util';
 
 export const PARKAS = [0xF2B33D, 0x7A6FF0, 0x3FA37C, 0xE85D75, 0x5B8DEF, 0xF08A4B, 0x9B5DE5, 0x2EC4B6];
 /** Suit colours for the sushi bar's well-dressed diners. */
 export const SUITS = [0x22303C, 0x3B3F6B, 0x5A2E3A, 0x2F4A44, 0x4A4F57];
 
-/** Everyday parka, a diner's suit and top hat, or a sushi chef's whites. */
-export type Look = 'parka' | 'fancy' | 'chef';
+/** Everyday parka, a diner's suit and top hat, a sushi chef's whites, or a farmer's straw hat. */
+export type Look = 'parka' | 'fancy' | 'chef' | 'farmer';
 
 /** A walker with swinging limbs. */
 export class Person extends Group {
   readonly legs: Group[] = [];
   readonly arms: Group[] = [];
   phase = 0;
+  /** A chef's toque: its band, which grows taller, and the puff on top. */
+  private toqueBand?: Mesh;
+  private toquePuff?: Mesh;
+  /** A headband, once one's been tied on. */
+  band?: Group;
 
   constructor(color: number, look: Look = 'parka') {
     super();
@@ -30,6 +35,9 @@ export class Person extends Group {
     for (const s of [-1, 1]) this.add(mesh(G.eye, 0x1B2733, s * 0.07, 1.06, 0.24));
     if (look === 'fancy') this.dressUp();
     if (look === 'chef') this.chefWhites();
+    if (look === 'farmer') {
+      const hat = mesh(G.cone, 0xE3C26B, 0, 1.27, 0.03, true); hat.scale.set(0.36, 0.17, 0.36); this.add(hat);
+    }
   }
 
   /** Top hat, white shirt front and a red bow tie. */
@@ -46,11 +54,38 @@ export class Person extends Group {
 
   /** Puffy chef's hat and a red neckerchief. */
   private chefWhites() {
-    const band = mesh(G.cyl, 0xFFFFFF, 0, 1.22, 0.03, true); band.scale.set(0.19, 0.12, 0.19); this.add(band);
-    const puff = mesh(G.sphere, 0xFFFFFF, 0, 1.36, 0.03, true); puff.scale.set(0.25, 0.16, 0.25); this.add(puff);
+    this.toqueBand = mesh(G.cyl, 0xFFFFFF, 0, 0, 0.03, true); this.toqueBand.scale.set(0.19, 1, 0.19); this.add(this.toqueBand);
+    this.toquePuff = mesh(G.sphere, 0xFFFFFF, 0, 0, 0.03, true); this.toquePuff.scale.set(0.25, 0.16, 0.25); this.add(this.toquePuff);
+    this.toque(0);
     const scarf = mesh(G.hood, 0xE5484D, 0, 0.88, 0.02); scarf.rotation.x = Math.PI / 2; scarf.scale.setScalar(1.15); this.add(scarf);
   }
+
+  /** Makes a chef's toque taller, the way head chefs' are: `level` 0 is the everyday one. */
+  toque(level: number) {
+    if (!this.toqueBand || !this.toquePuff) return;
+    const h = 0.12 + level * 0.06;
+    this.toqueBand.scale.y = h; this.toqueBand.position.y = 1.16 + h / 2;
+    this.toquePuff.position.y = 1.16 + h + 0.08;
+  }
+
+  /** Ties a headband round the hood in `color`, with its two ends trailing behind; null takes it off. */
+  headband(color: number | null) {
+    if (color === null) { if (this.band) this.band.visible = false; return; }
+    if (!this.band) {
+      this.band = new Group(); this.band.position.set(0, 1.1, 0.0);
+      const ring = mesh(BAND, color); ring.rotation.x = Math.PI / 2; this.band.add(ring);
+      for (const s of [-1, 1]) {
+        const end = mesh(G.box, color, s * 0.06, -0.08, -0.27); end.scale.set(0.06, 0.16, 0.025); end.rotation.z = s * 0.35;
+        this.band.add(end);
+      }
+      this.add(this.band);
+    }
+    this.band.visible = true;
+    this.band.traverse(o => { if ('material' in o) (o as Mesh).material = mat(color); });
+  }
 }
+
+const BAND = new TorusGeometry(0.24, 0.035, 6, 18);
 
 export function animPerson(p: Person, moving: boolean, dt: number, carrying: boolean) {
   if (moving) p.phase += dt * 11; else p.phase = 0;

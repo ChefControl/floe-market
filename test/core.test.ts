@@ -60,6 +60,18 @@ describe('Holder', () => {
   });
 });
 
+describe('mixed stacks', () => {
+  it('takes and counts items of one kind out of a mixed stack', () => {
+    const h = new Holder(i => V(0, i, 0), 5);
+    const kinds = ['fish', 'rice', 'fish'].map(kind => { const m = new Mesh(); m.userData.kind = kind; h.put(m); return m; });
+    expect(h.count('fish')).toBe(2);
+    expect(h.takeKind('rice')).toBe(kinds[1]);
+    expect(h.takeKind('rice')).toBeNull();
+    expect(h.takeKind('fish')).toBe(kinds[2]);
+    expect(h.count('fish')).toBe(1);
+  });
+});
+
 describe('fly', () => {
   it('arcs above the straight line, then lands on the target', () => {
     const m = new Mesh(), done = vi.fn();

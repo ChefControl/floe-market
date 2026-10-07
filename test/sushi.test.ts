@@ -1,234 +1,134 @@
-// The sushi restaurant: going on sale, the lever and conveyor, chefs, diners, its upgrades, and saving it.
+// Floe Sushi (stage 2): the kitchen line, chefs making plates from fish and rice, diners, the register, and its
+// upgrades.
 import { describe, expect, it, vi } from 'vitest';
-import { bought, loadGame } from './helpers';
+import { bought, loadGame, type SaveFixture } from './helpers';
 
-const MARKET = ['pack', 'turret', 'roulette', 'runner', 'boots', 'sled', 'net'];
-const KEY = 'floe-market-v1';
-const stored = () => JSON.parse(localStorage.getItem(KEY)!);
-type Game = Awaited<ReturnType<typeof loadGame>>;
-const offered = (g: Game) => g.unlocks.visibleTiles().map(t => t.id);
-const near = (g: Game) => () => g.util.V(-4.5, 1, -5.2);
-const fill = (g: Game, h: { put: (m: import('three').Mesh) => void }, n: number) => {
-  for (let i = 0; i < n; i++) h.put(g.items.newSteak());
-};
-/** A restaurant game with no walk-in customers, so the only reviews are the diners'. */
-async function dinersOnly(save: Parameters<typeof loadGame>[0]) {
-  const g = await loadGame(save);
-  g.counters.C1.maxQ = 0;
+/** A stage 2 game; the takeout kiosk is kept out of the way unless a test wants it. */
+async function open(save: SaveFixture = {}) {
+  const g = await loadGame({ tiles: bought('sushi'), ...save });
+  g.counters.TAKEOUT.stock.cap = 0;
+  g.counters.TAKEOUT.maxQ = 0;
   return g;
 }
 
 describe('opening the restaurant', () => {
-  it("goes on sale once the market is fully built (Korki's statue isn't needed), and its upgrades once it opens", async () => {
-    const g = await loadGame({ tiles: bought(...MARKET.slice(0, -1)) });
-    expect(offered(g)).toEqual(['net', 'korki']);
-    g.unlocks.applyUnlock('net');
-    expect(offered(g)).toEqual(['sushi', 'korki']);
+  it('replaces the counters: their queue pays up and leaves, their steaks and cash move over, the stall opens', async () => {
+    const g = await loadGame({ tiles: bought('sled'), c1: 3, c1c: 12, c2: 2, c2c: 6 });
+    const { C1, SLED } = g.counters, { sushi, ricePot, register, STARTER_RICE, sushiStock } = g.restaurant;
+    g.runUntil(() => (C1.queue[0]?.hands.n ?? 0) > 0);
+    const c = C1.queue[0];
+    expect(sushi.built).toBe(false);
+    expect(g.rice.stallOpen()).toBe(false);
     g.unlocks.applyUnlock('sushi');
-    expect(offered(g)).toEqual(['seats', 'chef', 'korki']);
-  });
-
-  it('opens a gate in the fence to walk through', async () => {
-    const g = await loadGame();
-    g.placePlayer(-7, 2.5);
-    g.press('a');
-    g.run(2);
-    expect(g.player.g.position.x).toBeCloseTo(-7.4); // fence still closed
-    g.unlocks.applyUnlock('sushi');
-    g.placePlayer(-7.4, 2.5);
-    g.run(3);
-    g.press('a', 'keyup');
-    expect(g.player.g.position.x).toBeLessThan(-12);
-    expect(g.player.g.position.z).toBeCloseTo(4.6); // along the dining room's front rail
-  });
-
-  it('keeps the player out of the bar and the kitchen counter', async () => {
-    const g = await loadGame({ tiles: bought('sushi') });
-    const p = g.player.g.position;
-    const at = (x: number, z: number) => { g.placePlayer(x, z); g.run(0.02); return [p.x, p.z]; };
-    expect(at(-17, 0.3)[1]).toBeCloseTo(2.35); // dead centre: out the front
-    expect(at(-17, 1.5)[1]).toBeCloseTo(2.35);
-    expect(at(-20, 0.3)[0]).toBeCloseTo(-21.25);
-    expect(at(-12, -3.5)[1]).toBeCloseTo(-2.6);
-    expect(at(-13.4, -4.4)[0]).toBeCloseTo(-13.6);
+    expect([C1.enabled, SLED.enabled]).toEqual([false, false]);
+    expect(C1.queue).toHaveLength(0);
+    expect(sushi.built).toBe(true);
+    expect(g.rice.stallOpen()).toBe(true);
+    expect(sushi.seats).toHaveLength(10);
+    expect(sushi.chefs).toHaveLength(1);
+    expect(sushi.cooks).toHaveLength(2);
+    expect(ricePot.n).toBe(STARTER_RICE); // a delivery of rice, on its way
+    g.run(2.5);
+    const ss = sushiStock(), boxes = g.counters.TAKEOUT.stock.n;
+    expect(ss.fish + ss.plates + boxes).toBe(3 - c.got + 2); // everything left on the counters, as fish or made up
+    expect(g.cashAt({ cash: register })).toBe(12 + 6 + c.got * 4); // the queue paid for what it held
+    expect(g.rating.reviews).toHaveLength(0); // closing up isn't the customers' fault
+    expect([C1.stock.n, C1.cash.n, SLED.stock.n, SLED.cash.n]).toEqual([0, 0, 0, 0]);
   });
 });
 
-describe('lever and conveyor', () => {
-  it('switches route when the player steps on a lever pad', async () => {
-    const g = await loadGame({ tiles: bought('sushi') });
-    const { belt, steakTo } = g.conveyor;
-    expect(belt.mode).toBe('market');
-    expect(steakTo()).toBe('pile');
-    g.placePlayer(-0.8, -2.1);
-    g.run(0.05);
-    expect(belt.mode).toBe('sushi');
-    expect(document.getElementById('toast')!.textContent).toBe('Steaks → Sushi bar');
-    expect(steakTo()).toBe('belt');
-    g.placePlayer(-1.9, -2.1);
-    g.run(0.05);
-    expect(belt.mode).toBe('split');
-    expect([steakTo(), steakTo(), steakTo(), steakTo()]).toEqual(['belt', 'pile', 'belt', 'pile']);
-  });
-
-  it('sends steaks the other way when one side is full', async () => {
-    const g = await loadGame({ tiles: bought('sushi') });
-    const { steakTo, setRoute, loadBelt, BELT_CAP } = g.conveyor;
-    const { pile } = g.stations, { kitchen } = g.restaurant;
-    setRoute('split');
-    fill(g, pile, pile.cap);
-    expect([steakTo(), steakTo()]).toEqual(['belt', 'belt']);
-    fill(g, kitchen, kitchen.cap);
-    loadBelt(BELT_CAP);
-    expect([steakTo(), steakTo()]).toEqual(['belt', 'pile']); // both full: keep alternating
-    pile.take();
-    setRoute('sushi');
-    expect(steakTo()).toBe('pile');
-  });
-
-  it('only hooks fish there is room for, wherever the lever points', async () => {
-    const g = await loadGame({ tiles: bought('sushi'), pile: 54 });
-    const { setRoute, roomFor } = g.conveyor;
-    expect(g.fishing.tryCatch(near(g), 'player')).toBeNull();
-    setRoute('sushi');
-    expect(g.fishing.tryCatch(near(g), 'player')).not.toBeNull();
-    setRoute('split');
-    expect(roomFor(3, 0)).toBe(true);
-  });
-
-  it('carries steaks along the conveyor into the kitchen', async () => {
-    const g = await loadGame({ tiles: bought('sushi'), lever: 'sushi' });
-    const { belt } = g.conveyor, { kitchen, sushi } = g.restaurant;
-    sushi.chefs[0].state = 'fetch'; // keep the chef busy so the steaks stay in the kitchen
-    g.fishing.tryCatch(near(g), 'player');
-    g.runUntil(() => belt.items.length === 3);
-    expect(g.stations.pile.n).toBe(0);
-    g.runUntil(() => kitchen.items.length === 3, 15);
-    expect(belt.items).toHaveLength(0);
-  });
-
-  it('backs up when the kitchen is full', async () => {
-    const g = await loadGame({ tiles: bought('sushi'), lever: 'sushi', k: 38 });
-    const { belt, BELT_LEN } = g.conveyor;
-    g.restaurant.sushi.chefs[0].state = 'fetch';
-    expect(g.restaurant.kitchen.n).toBe(36);
-    g.run(2);
-    expect(belt.items.map(i => i.s)).toEqual([BELT_LEN, BELT_LEN - 0.42]);
+describe('the kitchen', () => {
+  it('a cook tosses a fish slice and a bag of rice to the chef, who makes plates and puts them on the belt', async () => {
+    const g = await open({ fish: 3, rice: 1 });
+    const { sushi, fishTray, ricePot } = g.restaurant;
+    sushi.spawnT = Infinity;
+    g.run(0.1);
+    expect(sushi.cooks.some(c => c.t > 0)).toBe(true);
+    g.runUntil(() => sushi.slots.some(Boolean), 10);
+    g.run(5);
+    expect(sushi.slots.filter(Boolean)).toHaveLength(2); // a bag of rice makes two plates, then it's out
+    expect(sushi.slots.find(Boolean)!.userData.value).toBe(30);
+    expect([fishTray.n, ricePot.n, sushi.portions]).toEqual([1, 0, 0]);
+    expect(sushi.chefs[0].state).toBe('idle');
+    expect(sushi.cooks[0].g.arms[1].rotation.x).toBeCloseTo(-0.9);
   });
 });
 
-describe('the sushi bar', () => {
-  it('a chef slices steaks into plates and puts them on the belt', async () => {
-    const g = await loadGame({ tiles: bought('sushi'), k: 2 });
-    const { sushi, kitchen } = g.restaurant;
-    g.runUntil(() => sushi.slots.filter(Boolean).length === 2, 10);
-    expect(kitchen.n).toBe(0);
-    expect(sushi.slots.find(Boolean)!.userData.value).toBe(12);
-  });
-
-  it('takes steaks dropped off by hand', async () => {
-    const g = await loadGame({ tiles: bought('sushi'), back: 5 });
-    const { kitchen, sushi, KITCHEN_DROP } = g.restaurant;
-    sushi.chefs[0].state = 'fetch';
-    g.placePlayer(KITCHEN_DROP.x, KITCHEN_DROP.z);
-    g.run(1);
-    expect(kitchen.n).toBe(5);
-    expect(g.player.back.n).toBe(0);
-  });
-
-  it('diners take plates as they pass, eat, pay at the register, review and go home', async () => {
-    const g = await dinersOnly({ tiles: bought('sushi'), kp: 18 });
+describe('diners', () => {
+  it('come in through the gate, take plates as they pass, eat, pay at the register, review and go home', async () => {
+    const g = await open({ plates: 30 });
     const { sushi, register, REGISTER } = g.restaurant;
     g.runUntil(() => sushi.diners.length > 0);
     const d = sushi.diners[0];
+    expect(d.g.position.z).toBeGreaterThan(30); // out on the street
+    g.runUntil(() => d.state === 'wait', 30);
+    expect(d.g.position.y).toBeGreaterThan(0.3); // up on a stool
     g.runUntil(() => d.state === 'eat', 30);
     expect(d.bubble.visible).toBe(false);
     g.runUntil(() => d.state === 'leave', 30);
-    const total = d.want * 12;
+    const total = d.want * 30;
     expect(g.rating.reviews[0]).toBe(5);
     expect(d.stack).toHaveLength(0);
     g.runUntil(() => g.cashAt({ cash: register }) >= total);
     g.placePlayer(REGISTER.x, REGISTER.z);
     g.run(1);
     expect(g.wallet.money).toBeGreaterThanOrEqual(total);
-    g.runUntil(() => !sushi.diners.includes(d), 30);
+    g.runUntil(() => !sushi.diners.includes(d), 40);
     expect(d.g.parent).toBeNull();
   });
 
   it('a diner left waiting gives up with 1★, paying for what they ate', async () => {
-    const g = await dinersOnly({ tiles: bought('sushi'), kp: 1 });
+    const g = await open({ plates: 1 });
     const { sushi, register } = g.restaurant;
     g.runUntil(() => sushi.diners.length > 0);
     sushi.diners[0].want = 4;
-    g.runUntil(() => g.rating.reviews.length > 0, 60);
+    sushi.spawnT = Infinity; // just the one, so the plate is theirs
+    g.runUntil(() => g.rating.reviews.length > 0, 70);
     expect(g.rating.reviews[0]).toBe(1);
-    g.runUntil(() => g.cashAt({ cash: register }) === 12);
-    g.runUntil(() => g.rating.reviews.length > 2, 60); // the others ate nothing and leave without paying
+    g.runUntil(() => g.cashAt({ cash: register }) === 30);
+    sushi.spawnT = 0;
+    g.runUntil(() => g.rating.reviews.length > 2, 120); // the next ones eat nothing and leave without paying
     g.run(2);
-    expect(g.cashAt({ cash: register })).toBe(12);
+    expect(g.cashAt({ cash: register })).toBe(30);
   });
 
-  it('folds bills into the top one when the register is full', async () => {
-    const g = await loadGame({ tiles: bought('sushi'), kp: 18, rc: 12 });
-    const { sushi, register } = g.restaurant;
+  it('fold bills into the top one when the register is full', async () => {
+    const g = await open({ plates: 30, cash: 30 });
+    const { register } = g.restaurant;
     register.cap = register.items.length;
-    g.runUntil(() => g.cashAt({ cash: register }) > 12, 60);
+    g.runUntil(() => g.cashAt({ cash: register }) > 30, 60);
     expect(register.items).toHaveLength(1);
-    expect(sushi.diners.length).toBeGreaterThan(0);
   });
 });
 
 describe('restaurant upgrades', () => {
-  it('adds seats, a second chef and the premium menu', async () => {
-    const g = await loadGame({ tiles: bought('sushi'), k: 1 });
-    const { sushi } = g.restaurant;
-    vi.useFakeTimers();
+  it('more seats, more chefs and the premium menu', async () => {
+    const g = await loadGame({ tiles: bought('sushi', 'kiosk'), fish: 2, rice: 2 });
+    const { sushi } = g.restaurant, { TAKEOUT } = g.counters;
+    sushi.spawnT = Infinity;
+    TAKEOUT.maxQ = 0;
     g.unlocks.applyUnlock('seats');
-    expect(sushi.seats).toHaveLength(10);
+    expect(sushi.seats).toHaveLength(18);
     g.unlocks.applyUnlock('chef');
-    expect(sushi.chefs).toHaveLength(2);
+    g.unlocks.applyUnlock('chef3');
+    expect(sushi.chefs).toHaveLength(3);
+    expect(new Set(sushi.chefs.map(c => c.q)).size).toBe(3); // each puts plates on its own stretch of belt
     g.unlocks.applyUnlock('premium');
-    vi.advanceTimersByTime(1800);
-    expect(document.getElementById('toast')!.textContent).toBe('Floe Sushi is fully built');
-    g.runUntil(() => sushi.slots.some(Boolean), 10);
-    expect(sushi.slots.find(Boolean)!.userData.value).toBe(20);
-  });
-});
-
-describe('saving the restaurant', () => {
-  it('round-trips the rating, lever, stock and register, and cleans up bad values', async () => {
-    const g1 = await loadGame({ tiles: bought('sushi'), lever: 'split', k: 5, kp: 4, rc: 30, reviews: [5, 4, '3', 9, null] });
-    expect(g1.rating.reviews).toEqual([5, 4, 3]);
-    expect(g1.conveyor.belt.mode).toBe('split');
-    g1.saveMod.save();
-    expect(stored()).toMatchObject({ v: 3, lever: 'split', k: 5, kp: 4, rc: 30, reviews: [5, 4, 3] });
-    const g2 = await loadGame(localStorage.getItem(KEY)!);
-    expect(g2.restaurant.kitchen.n).toBe(5);
-    expect(g2.restaurant.sushi.slots.filter(Boolean)).toHaveLength(4);
-    expect(g2.cashAt({ cash: g2.restaurant.register })).toBe(30);
-    expect(g2.saveMod.migrate({ lever: 'sideways' }).lever).toBe('market');
+    expect(TAKEOUT.price).toBe(56);
+    g.runUntil(() => sushi.slots.some(Boolean) && TAKEOUT.stock.items.length > 0, 15);
+    expect(sushi.slots.find(Boolean)!.userData.value).toBe(48);
+    expect(TAKEOUT.stock.items[0].userData.value).toBe(56);
   });
 
-  it('turns plates that no longer fit on the belt back into steaks', async () => {
-    const g = await loadGame({ tiles: bought('sushi'), kp: 20 });
-    expect(g.restaurant.sushi.slots.every(Boolean)).toBe(true);
-    expect(g.restaurant.kitchen.n).toBe(2);
-  });
-
-  it("counts sushi in the making: fish reeled in for it, the chef's steak", async () => {
-    const g = await loadGame({ tiles: bought('sushi'), lever: 'sushi', k: 1 });
-    g.run(0.1); // the chef picks up the steak
-    g.fishing.tryCatch(near(g), 'turret');
-    g.saveMod.save();
-    expect(stored()).toMatchObject({ k: 4, pile: 0 });
-  });
-
-  it("loses nothing mid-meal: diners' plates and unpaid bills are saved", async () => {
-    const g = await loadGame({ tiles: bought('sushi'), kp: 18 });
+  it('diners find their way to the extra seats, round either end of the bar', async () => {
+    const g = await open({ tiles: bought('sushi', 'seats'), plates: 30 });
     const { sushi } = g.restaurant;
-    g.runUntil(() => sushi.diners.some(d => d.bill.length > 0 && d.plate), 60);
-    g.saveMod.save();
-    const s = stored();
-    expect(s.kp + s.rc / 12).toBe(18);
+    const extra = sushi.seats.slice(10);
+    vi.spyOn(Math, 'random').mockReturnValue(0.999); // always pick the last free seat
+    const reached = new Set<unknown>();
+    g.runUntil(() => {
+      for (const s of extra) if (s.diner && s.diner.state !== 'walk' && s.diner.g.position.distanceTo(s.pos) < 0.01) reached.add(s);
+      return reached.size === extra.length;
+    }, 120);
   });
 });

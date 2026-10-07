@@ -24,5 +24,5 @@ export const player: Player = {
   onTile: null, tileStand: 0,
   back: new Holder(i => carrySlot(player, i), 6),
 };
-player.g.position.set(-1.5, FY, 0.5);
+player.g.position.set(-1.5, FY, -2.0);
 scene.add(player.g);

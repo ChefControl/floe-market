@@ -1,4 +1,4 @@
-// Fixed work stations on the deck: fishing pad, chopping block, steak pile.
+// Fixed work stations on the deck: fishing pad, chopping block, fish pile.
 import { BoxGeometry } from 'three';
 import { decal, drawPad } from './decals';
 import { Holder } from './holder';

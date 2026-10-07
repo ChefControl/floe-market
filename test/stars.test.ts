@@ -37,8 +37,11 @@ describe('rating', () => {
 });
 
 describe('patience', () => {
+  /** The sled window, which (unlike the walk-up counter) gets its first customer within seconds. */
+  const sledWindow = (c2: number) => loadGame({ tiles: bought('sled'), c2 });
+
   it('a customer served straight away leaves a 5★ review', async () => {
-    const g = await loadGame({ c1: 10 });
+    const g = await sledWindow(10);
     g.runUntil(() => g.rating.reviews.length > 0);
     expect(g.rating.reviews[0]).toBe(5);
   });
@@ -51,45 +54,44 @@ describe('patience', () => {
   });
 
   it('drains the ring on the order bubble while a customer waits', async () => {
-    const g = await loadGame();
-    const { C1 } = g.counters;
-    g.runUntil(() => C1.queue[0]?.arrived === true);
-    const c = C1.queue[0], first = c.drawn;
+    const g = await sledWindow(0);
+    const { SLED } = g.counters;
+    g.runUntil(() => SLED.queue[0]?.arrived === true);
+    const c = SLED.queue[0], first = c.drawn;
     g.run(5);
     expect(c.drawn).toBeLessThan(first);
   });
 
   it('a customer who waits too long gives up, pays for what they got and leaves 1★', async () => {
-    const g = await loadGame({ c1: 1 });
-    const { C1 } = g.counters;
-    C1.patience = 3;
-    g.runUntil(() => C1.queue.length > 0);
-    const c = C1.queue[0];
-    c.want = 3;
+    const g = await sledWindow(1);
+    const { SLED } = g.counters;
+    SLED.patience = 3;
+    g.runUntil(() => SLED.queue.length > 0);
+    const c = SLED.queue[0];
     g.runUntil(() => g.rating.reviews.length > 0, 10);
     expect(g.rating.reviews[0]).toBe(1);
     expect(c.got).toBe(1);
-    expect(C1.queue).not.toContain(c);
-    g.runUntil(() => C1.cash.items.length > 0);
-    expect(g.cashAt(C1)).toBe(C1.price);
+    expect(SLED.queue).not.toContain(c);
+    g.runUntil(() => SLED.cash.items.length > 0);
+    expect(g.cashAt(SLED)).toBe(SLED.price);
     // later customers got nothing, so they leave without paying
-    g.runUntil(() => g.rating.reviews.length > 1, 15);
+    g.runUntil(() => g.rating.reviews.length > 1, 20);
     g.run(1);
-    expect(g.cashAt(C1)).toBe(C1.price);
+    expect(g.cashAt(SLED)).toBe(SLED.price);
   });
 
   it('shows a face over impatient customers further back in the queue', async () => {
-    const g = await loadGame();
-    const { C1 } = g.counters;
-    C1.patience = 4;
-    g.runUntil(() => C1.queue.length > 0);
-    C1.queue[0].wait = -100; // the front customer never runs out
-    g.runUntil(() => C1.queue[1]?.queued === true);
-    const back = C1.queue[1];
+    const g = await sledWindow(0);
+    const { SLED } = g.counters;
+    SLED.patience = 4;
+    g.runUntil(() => SLED.queue.length > 0);
+    SLED.queue[0].wait = -100; // the front customer never runs out
+    g.runUntil(() => SLED.queue[1]?.queued === true);
+    const back = SLED.queue[1];
     g.runUntil(() => back.mood.visible, 5);
     const meh = back.mood.material;
     g.runUntil(() => back.mood.material !== meh, 5);
-    expect(C1.queue[0].mood.visible).toBe(false);
+    expect(SLED.queue[0].mood.visible).toBe(false);
   });
 });
 
@@ -104,7 +106,7 @@ describe('upgrades that need stars', () => {
     g.run(1.5);
     expect(g.wallet.money).toBe(500);
     expect(runner.paid).toBe(0);
-    expect($('tip').textContent).toBe('Hire a runnerNeeds a ★3.5 rating (now ★3.0) · $120');
+    expect($('tip').textContent).toBe('Hire a runnerNeeds a ★3.5 rating (now ★3.0) · $300');
   });
 
   it('opens a tile for good once the rating reaches it', async () => {
@@ -120,7 +122,7 @@ describe('upgrades that need stars', () => {
     g.run(0.05);
     expect(g.unlocks.locked(runner)).toBe(false);
     g.placePlayer(runner.x, runner.z);
-    g.run(1.5);
+    g.run(2.5);
     expect(runner.done).toBe(true);
   });
 
@@ -133,6 +135,6 @@ describe('upgrades that need stars', () => {
     const g2 = await loadGame(localStorage.getItem('floe-market-v1')!);
     expect(g2.rating.rating()).toBe(2);
     expect(g2.unlocks.locked(g2.unlocks.tiles.find(t => t.id === 'runner')!)).toBe(false);
-    expect(g2.unlocks.locked(g2.unlocks.tiles.find(t => t.id === 'sushi')!)).toBe(true);
+    expect(g2.unlocks.locked(g2.unlocks.tiles.find(t => t.id === 'premium')!)).toBe(true);
   });
 });
