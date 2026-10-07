@@ -2,7 +2,7 @@
 // line facing the dock; the prep cooks there toss one of each to a chef standing inside the bar, who makes a
 // plate and puts it on the belt circling them. Well-dressed diners come in through the front gate, sit at the
 // bar, take plates as they pass, and pay at the register on the way out. Chefs also pack boxes for the takeout
-// kiosk.
+// kiosk. Diners at the garden tables (garden.ts) get their plates from a waiter instead.
 import {
   BoxGeometry, CylinderGeometry, ExtrudeGeometry, Group, Mesh, MeshPhongMaterial, Shape, ShapeGeometry, Sprite,
   SpriteMaterial, type Object3D, type Path, type Vector3,
@@ -11,6 +11,7 @@ import { drawBubble, patienceStep } from './bubble';
 import { animPerson, moveEnt, Person, SUITS, type Walker } from './characters';
 import { TAKEOUT } from './counters';
 import { decal, drawDrop } from './decals';
+import { newFish } from './fishModel';
 import { boost, PREMIUM, priced, SUSHI_PRICE } from './economy';
 import { fly, Holder } from './holder';
 import { addBillValue, billValue, newBill, newBox, newPlate, newRice } from './items';
@@ -35,7 +36,8 @@ export const RICE_DROP = V(-2.6, FY, 1.05);
 /** Where diners' bills land, by the gate; the register desk is behind it. */
 export const REGISTER = V(6.0, 0, 13.7);
 const DESK = { x: 7.6, z: 14.3, w: 1.2, d: 0.6 };
-const STREET = V(0.5, 0, 34), GARDEN = V(0.4, 0, 18.6), GATE = V(0.2, 0, 15.6), ENTRANCE = V(0, 0, 14.0);
+const STREET = V(0.5, 0, 34);
+export const GARDEN = V(0.4, 0, 18.6), GATE = V(0.2, 0, 15.6), ENTRANCE = V(0, 0, 14.0);
 const HOME = [V(-0.4, 0, 18.6), V(-0.6, 0, 34)];
 /** Plate slots around the belt, and seconds for the belt to move one slot along. */
 export const SLOTS = 30;
@@ -66,7 +68,7 @@ function barPoint(s: number) {
 }
 
 /** Index of the slot position nearest a point. */
-function slotNear(p: XZ) {
+export function slotNear(p: XZ) {
   let best = 0, bd = Infinity;
   for (let q = 0; q < SLOTS; q++) {
     const d = d2xz(barPoint(q * SP), p);
@@ -77,8 +79,13 @@ function slotNear(p: XZ) {
 
 const axisX = (x: number) => Math.min(BAR.x + BAR.L, Math.max(BAR.x - BAR.L, x));
 
+/** Where a waiter stands at one end of the bar (side -1 is west), just clear of the counter, and the belt slot there. */
+export function barEnd(side: -1 | 1) {
+  return { at: V(BAR.x + side * (BAR.L + BAR_OUT + 0.45), 0, BAR.z), q: slotNear({ x: BAR.x + side * (BAR.L + BAR.R), z: BAR.z }) };
+}
+
 // ---------- state ----------
-interface Seat {
+export interface Seat {
   /** Where the diner sits (y raised onto the stool). */
   pos: Vector3;
   h: number;
@@ -86,9 +93,11 @@ interface Seat {
   q: number;
   /** Spot on the counter where the diner's plates stack up. */
   ledge: Vector3;
-  /** Walking route from the entrance. */
+  /** Walking route from the entrance (from the garden path, for a garden table). */
   via: Vector3[];
   diner: Diner | null;
+  /** At a garden table: a waiter brings the plates instead of the belt. */
+  garden?: boolean;
 }
 
 interface Chef {
@@ -120,6 +129,9 @@ export interface Diner extends Walker {
   plate: Mesh | null;
   /** Empty plates stacked on the counter. */
   stack: Mesh[];
+  /** Plates a waiter has set down, not started yet, and how many more a waiter is on the way with. */
+  served: Mesh[];
+  coming: number;
   bubble: Sprite;
   bt: CanvasTex;
   drawn: number;
@@ -174,8 +186,9 @@ export const sushiBoost = () => boost('specials') * (sushi.premium ? PREMIUM : 1
 export const platePrice = () => priced(SUSHI_PRICE.plate, sushiBoost());
 /** Updates the takeout boxes' price to match. */
 export const repriceSushi = () => { TAKEOUT.price = priced(SUSHI_PRICE.box, sushiBoost()); };
-const slotAt = (q: number) => (((q - sushi.offset) % SLOTS) + SLOTS) % SLOTS;
-function slotPos(j: number) {
+/** Which belt slot is passing position `q` right now. */
+export const slotAt = (q: number) => (((q - sushi.offset) % SLOTS) + SLOTS) % SLOTS;
+export function slotPos(j: number) {
   const p = barPoint((j + sushi.offset + sushi.t / STEP) * SP);
   p.y = FY + BAR_H + 0.03;
   return p;
@@ -227,8 +240,8 @@ const kitchen = group(KITCHEN.x, KITCHEN.z);
     kitchen.add(mesh(new CylinderGeometry(0.4, 0.4, 0.06, 18), 0x5B6B78, x, FY + KITCHEN.h + 0.55, 0));
   }
   kitchen.add(mesh(new BoxGeometry(1.5, 0.05, 0.6), 0xE9D9C0, 4.9, FY + KITCHEN.h + 0.05, 0, true));
-  const tuna = mesh(G.sphere, 0x355C9E, 4.9, FY + KITCHEN.h + 0.2, 0, true); tuna.scale.set(0.62, 0.18, 0.2); kitchen.add(tuna);
-  const tail = mesh(G.tail, 0x2B4C86, 4.2, FY + KITCHEN.h + 0.2, 0); tail.rotation.z = Math.PI / 2; tail.scale.z = 0.3; kitchen.add(tail);
+  // lying on its side on the board
+  const tuna = newFish().g; tuna.position.set(5.0, FY + KITCHEN.h + 0.2, 0); tuna.rotation.x = Math.PI / 2; kitchen.add(tuna);
 }
 
 /** The register desk. */
@@ -248,7 +261,9 @@ function stool(x: number, z: number) {
 // ---------- seats ----------
 /** Stools along both sides of the bar; the restaurant opens with the middle ten. */
 const SEAT_X = [-4.2, -3.15, -2.1, -1.05, 0, 1.05, 2.1, 3.15, 4.2];
-const AISLE = 7.4, NORTH_WALK = 5.3, SOUTH_WALK = 12.9;
+const AISLE = 7.4, NORTH_WALK = 5.3;
+/** The walkway between the bar's south seats and the entrance. */
+export const SOUTH_WALK = 12.9;
 type SeatSpec = [x: number, side: -1 | 1];
 const rows = (xs: number[]): SeatSpec[] => xs.flatMap((x): SeatSpec[] => [[x, 1], [x, -1]]);
 const FIRST_SEATS = rows(SEAT_X.slice(2, 7));
@@ -369,8 +384,8 @@ function spawnDiner() {
   g.add(sp);
   const d: Diner = {
     g, h: Math.PI, speed: 2.4, moving: false, seat, state: 'walk', want, bill: [], wait: 0, t: 0,
-    path: [GARDEN.clone(), GATE.clone(), ENTRANCE.clone(), ...seat.via.map(v => v.clone()), V(seat.pos.x, 0, seat.pos.z)],
-    plate: null, stack: [], bubble: sp, bt, drawn: -1,
+    path: [GARDEN.clone(), ...(seat.garden ? [] : [GATE.clone(), ENTRANCE.clone()]), ...seat.via.map(v => v.clone()), V(seat.pos.x, 0, seat.pos.z)],
+    plate: null, stack: [], served: [], coming: 0, bubble: sp, bt, drawn: -1,
   };
   seat.diner = d;
   sushi.diners.push(d);
@@ -383,7 +398,7 @@ function sit(d: Diner) {
   d.g.position.copy(d.seat.pos); d.h = d.seat.h;
 }
 
-function take(d: Diner, p: Mesh) {
+export function take(d: Diner, p: Mesh) {
   d.plate = p; d.state = 'eat'; d.t = EAT;
   const i = d.stack.length;
   fly(p, () => ledgeAt(d, i), 0.35, 0.5);
@@ -422,7 +437,8 @@ function leave(d: Diner, stars: number) {
   addReview(stars); popStars(stars, d.g.position);
   d.stack.forEach(p => scene.remove(p));
   d.stack = []; d.bill = [];
-  d.path = [...d.seat.via].reverse().map(v => v.clone()).concat([ENTRANCE.clone(), GATE.clone(), ...HOME.map(v => v.clone())]);
+  const out = d.seat.garden ? [] : [ENTRANCE.clone(), GATE.clone()];
+  d.path = [...d.seat.via].reverse().map(v => v.clone()).concat([...out, ...HOME.map(v => v.clone())]);
 }
 
 function updDiner(d: Diner, dt: number) {
@@ -438,6 +454,7 @@ function updDiner(d: Diner, dt: number) {
     }
     return;
   }
+  if (d.state === 'wait' && d.served.length) take(d, d.served.shift()!);
   if (d.state === 'wait') {
     d.wait += dt;
     if (d.wait >= PATIENCE) { leave(d, 1); return; }
@@ -464,7 +481,7 @@ function updDiner(d: Diner, dt: number) {
 function stepBelt() {
   sushi.offset = (sushi.offset + 1) % SLOTS;
   for (const d of sushi.diners) {
-    if (d.state !== 'wait') continue;
+    if (d.state !== 'wait' || d.seat.garden) continue;
     const j = slotAt(d.seat.q), p = sushi.slots[j];
     if (p && !p.userData.flying) { sushi.slots[j] = null; take(d, p); }
   }
@@ -545,7 +562,8 @@ export function sushiStock() {
   return {
     fish: fishTray.n + parts.filter(m => m.userData.kind === 'fish').length,
     rice: ricePot.n + parts.filter(m => m.userData.kind === 'rice').length,
-    plates: sushi.slots.filter(Boolean).length + sushi.chefs.filter(c => c.plate).length + sushi.diners.filter(d => d.plate).length,
+    plates: sushi.slots.filter(Boolean).length + sushi.chefs.filter(c => c.plate).length +
+      sushi.diners.reduce((n, d) => n + (d.plate ? 1 : 0) + d.served.length, 0),
     cash: register.all().reduce((s, b) => s + billValue(b), 0) + sushi.diners.reduce((s, d) => s + d.bill.reduce((a, v) => a + v, 0), 0),
   };
 }

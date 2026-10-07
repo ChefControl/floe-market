@@ -2,6 +2,7 @@
 import { animPerson } from './characters';
 import { COUNTERS } from './counters';
 import { tryCatch } from './fishing';
+import { collideGarden } from './garden';
 import { fly, type Holder } from './holder';
 import { billValue, newBill, type Kind } from './items';
 import { boost } from './economy';
@@ -53,6 +54,7 @@ export function updPlayer(dt: number) {
   } else player.moving = false;
   keepOnFloor(p, walkable());
   collide(p);
+  collideGarden(p);
   if (stage.n === 2 && korkiStatue()) pushOutOfBox(p, STATUE.x, STATUE.z, 1.25, 0.8);
   // chopper block collision
   if (p.x > CHOP.x - 1.0 && p.x < CHOP.x + 1.0 && p.z < CHOP.z + 0.8) {

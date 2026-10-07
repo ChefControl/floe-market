@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { UnlockId } from '../src/unlocks';
 import { bought, loadGame, MARKET } from './helpers';
 
-const STAGE2: UnlockId[] = ['paddy', 'chef', 'seats', 'farmer', 'kiosk', 'porter', 'plot2', 'chef3', 'plot3', 'premium'];
+const STAGE2: UnlockId[] = ['paddy', 'seats', 'chef', 'farmer', 'porter', 'plot2', 'tables', 'chef3', 'tables2', 'plot3', 'kiosk', 'premium'];
 const offer = (g: Awaited<ReturnType<typeof loadGame>>) => g.unlocks.visibleTiles().map(t => t.id);
 const $ = (id: string) => document.getElementById(id)!;
 
@@ -29,7 +29,7 @@ describe('what is on offer', () => {
   it("stage 2's upgrades once the restaurant is open; the terraces' own once the first is planted", async () => {
     const g = await loadGame({ tiles: bought(...MARKET, 'sushi') });
     // the chefs are out from the start, outside the two at a time, the third once there's a second
-    expect(offer(g)).toEqual(['paddy', 'chef', 'seats', 'korki']);
+    expect(offer(g)).toEqual(['paddy', 'seats', 'chef', 'korki']);
     g.unlocks.applyUnlock('chef');
     expect(offer(g)).toEqual(['paddy', 'seats', 'chef3', 'korki']);
     g.unlocks.applyUnlock('paddy');
@@ -65,7 +65,7 @@ describe('stage progress', () => {
     expect($('stageCount').textContent).toBe('Floe Sushi ready');
     expect($('stage').classList.contains('ready')).toBe(true);
     g.unlocks.applyUnlock('sushi', true);
-    expect([$('stageNum').textContent, $('stageName').textContent, $('stageCount').textContent]).toEqual(['2', 'Floe Sushi', '0/10']);
+    expect([$('stageNum').textContent, $('stageName').textContent, $('stageCount').textContent]).toEqual(['2', 'Floe Sushi', '0/12']);
     expect($('stage').classList.contains('s2')).toBe(true);
     STAGE2.forEach(id => g.unlocks.applyUnlock(id, true));
     expect($('stageCount').textContent).toBe('Complete');

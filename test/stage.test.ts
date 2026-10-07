@@ -35,7 +35,7 @@ describe('the stage-up', () => {
     expect(g.hall.hallPieces.every(p => p.visible && p.scale.x === 1)).toBe(true);
     expect(statue.visible && statue.scale.x === 1).toBe(true);
     expect(g.hall.lamps[0].intensity).toBeCloseTo(9);
-    expect(g.unlocks.visibleTiles().map(t => t.id)).toEqual(['paddy', 'chef', 'seats']);
+    expect(g.unlocks.visibleTiles().map(t => t.id)).toEqual(['paddy', 'seats', 'chef']);
   });
 
   it('moves fast for players who prefer less motion', async () => {

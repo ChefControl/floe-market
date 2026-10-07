@@ -102,6 +102,6 @@ describe('new upgrades', () => {
     g.unlocks.applyUnlock('sushi', true);
     g.run(0.1);
     g.unlocks.visibleTiles();
-    expect($('toast').textContent).toBe('New upgrades: Rice terrace, Second chef, More seats');
+    expect($('toast').textContent).toBe('New upgrades: Rice terrace, More seats, Second chef');
   });
 });

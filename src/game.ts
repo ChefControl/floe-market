@@ -3,6 +3,7 @@
 import { updCasino } from './casino';
 import { COUNTERS, postCustomers, updCounter, updLeaving } from './counters';
 import { updFarm } from './farm';
+import { updGarden } from './garden';
 import { updRoof } from './hall';
 import { updChopper, updFish, updHooks } from './fishing';
 import { updFlights } from './holder';
@@ -37,6 +38,7 @@ export function tick(dt: number) {
   updRunners(dt);
   updRice(dt);
   updRestaurant(dt);
+  updGarden(dt);
   COUNTERS.forEach(C => updCounter(C, dt));
   updLeaving(dt);
   postCustomers(dt);

@@ -1,19 +1,20 @@
 // Purchasable upgrades: pay-in tiles and what they build. Stage 1 has the fish market's seven upgrades, then the
 // gold tile that opens Floe Sushi (stage 2), which has upgrades of its own.
-import { BoxGeometry, Group, Mesh, MeshBasicMaterial, Object3D, PlaneGeometry, Vector3 } from 'three';
+import type { Group, Object3D, Vector3 } from 'three';
 import { enableCasino } from './casino';
 import { openSled, openTakeout } from './counters';
 import { decal, drawTile, type Decal } from './decals';
 import { boost } from './economy';
 import { tryCatch } from './fishing';
+import { addTables } from './garden';
 import { enableKorki, KORKI } from './korki';
 import { PATH_X, stage, TERRACES } from './layout';
+import { buildNet, buildTurret } from './machines';
 import { player } from './player';
 import { pointAt } from './pointers';
 import { popIn } from './pop';
 import { rating } from './rating';
 import { showKiosk } from './hall';
-import { G, mesh, scene } from './render';
 import { addSeats, hireChef, setPremium } from './restaurant';
 import { hireFarmer, hireRicePorter, plantTerrace } from './rice';
 import { hireRunner } from './runner';
@@ -23,7 +24,8 @@ import { FY, V } from './util';
 
 export type UnlockId =
   | 'pack' | 'turret' | 'roulette' | 'runner' | 'boots' | 'sled' | 'runner2' | 'net' | 'runner3' | 'sushi'
-  | 'paddy' | 'seats' | 'farmer' | 'chef' | 'kiosk' | 'porter' | 'plot2' | 'chef3' | 'plot3' | 'premium' | 'korki';
+  | 'paddy' | 'seats' | 'chef' | 'farmer' | 'porter' | 'plot2' | 'tables' | 'chef3' | 'tables2' | 'plot3' | 'kiosk'
+  | 'premium' | 'korki';
 interface Unlock {
   id: UnlockId;
   cost: number;
@@ -78,14 +80,16 @@ const UNLOCKS: Unlock[] = [
   { id: 'runner3', cost: 3500, x: -4.0, z: 3.6, icon: '🏃', name: 'Third runner', desc: 'A third runner carrying fish to your counters', stars: 4.2, needs: 'runner2', stage: 1 },
   { id: 'sushi', cost: 12000, x: -1.6, z: 1.4, icon: '🏯', name: 'Open Floe Sushi', desc: 'Stage 2: rebuild the market as a sushi restaurant, with rice terraces to the west', stage: 1, gold: true },
   { id: 'paddy', cost: 800, ...onTerrace(0), z: -1.4 /* north of the starting patch */, icon: '🌾', name: 'Rice terrace', desc: 'Plant the rest of the bottom terrace round your patch: three times the rice', stage: 2 },
+  { id: 'seats', cost: 2500, x: -8.0, z: 9.0, icon: '🪑', name: 'More seats', desc: 'Eight more seats at the bar', stars: 3.6, stage: 2 },
   { id: 'chef', cost: 3000, x: 8.0, z: 9.0, icon: '🔪', name: 'Second chef', desc: 'Another chef at the bar', stars: 3.6, shown: true, stage: 2 },
-  { id: 'seats', cost: 5000, x: -8.0, z: 9.0, icon: '🪑', name: 'More seats', desc: 'Eight more seats at the bar', stars: 3.8, stage: 2 },
   { id: 'farmer', cost: 6000, x: PX, z: -2.6, y: 0.06, icon: '🧑‍🌾', name: 'Hire a farmer', desc: 'Harvests the terraces onto a stack on the path', stars: 3.9, needs: 'paddy', stage: 2 },
-  { id: 'kiosk', cost: 8000, x: 8.2, z: 3.6, icon: '🥡', name: 'Takeout kiosk', desc: 'Drivers on the road buy boxes of sushi; the chefs pack them', stars: 4.0, stage: 2 },
   { id: 'porter', cost: 12000, x: -8.2, z: 5.0, icon: '🧺', name: 'Rice porter', desc: 'Carries harvested rice in to the kitchen line', stars: 4.1, needs: 'paddy', stage: 2 },
-  { id: 'plot2', cost: 18000, ...onTerrace(1), icon: '🌱', name: 'Second terrace', desc: 'Twice the rice', stars: 4.2, needs: 'paddy', stage: 2 },
+  { id: 'plot2', cost: 15000, ...onTerrace(1), icon: '🌱', name: 'Second terrace', desc: 'Plant the middle terrace: rice for more diners', stars: 4.1, needs: 'paddy', stage: 2 },
+  { id: 'tables', cost: 20000, x: 6.2, z: 17.7, y: 0.02, icon: '⛱️', name: 'Garden tables', desc: 'Four tables in the front garden, and a waiter to serve them', stars: 4.2, stage: 2 },
   { id: 'chef3', cost: 25000, x: 8.0, z: 11.8, icon: '🔪', name: 'Third chef', desc: 'A third chef at the bar', stars: 4.3, needs: 'chef', shown: true, stage: 2 },
-  { id: 'plot3', cost: 35000, ...onTerrace(2), icon: '🌱', name: 'Third terrace', desc: 'Rice right up to the hot spring', stars: 4.4, needs: 'plot2', stage: 2 },
+  { id: 'tables2', cost: 32000, x: -2.6, z: 21.2, y: 0.02, icon: '⛱️', name: 'More garden tables', desc: 'Four more tables west of the path, and a second waiter', stars: 4.3, needs: 'tables', stage: 2 },
+  { id: 'plot3', cost: 40000, ...onTerrace(2), icon: '🌱', name: 'Third terrace', desc: 'Rice right up to the hot spring, for a full garden', stars: 4.4, needs: 'plot2', stage: 2 },
+  { id: 'kiosk', cost: 50000, x: 8.2, z: 3.6, icon: '🥡', name: 'Takeout kiosk', desc: 'Drivers on the road buy boxes of sushi with the rice to spare; the chefs pack them', stars: 4.4, stage: 2 },
   { id: 'premium', cost: 60000, x: -6.2, z: 13.6, icon: '🏮', name: 'Premium menu', desc: 'Everything sells for 60% more', stars: 4.5, stage: 2 },
   { id: 'korki', cost: 10, x: KORKI.x, z: KORKI.z, icon: '🛴', name: "Korki's golden statue", desc: 'In memory of a good scooter', stage: 1, always: true, everywhere: true },
 ];
@@ -176,34 +180,6 @@ export function updStars(silent = false) {
 let turret: { g: Group; head: Group; t: number } | null = null;
 let net: { g: Group; t: number; src: Vector3 } | null = null;
 
-function buildTurret() {
-  const g = new Group(); g.position.set(-6.9, FY, -5.9);
-  const base = mesh(G.cyl, 0x3C4C58, 0, 0.15, 0, true); base.scale.set(0.45, 0.3, 0.45); g.add(base);
-  const head = new Group(); head.position.y = 0.55; g.add(head);
-  head.add(mesh(new BoxGeometry(0.26, 0.26, 1.0), 0xFF6B4A, 0, 0, 0.3, true));
-  head.add(mesh(new BoxGeometry(0.06, 0.06, 0.5), 0xF2C14E, 0, 0, 0.95));
-  scene.add(g);
-  return { g, head, t: 1 };
-}
-
-function buildNet() {
-  const g = new Group(); g.position.set(-1.2, 0, -10.8);
-  for (const s of [-1, 1]) {
-    const p = mesh(G.cyl, 0xFF6B4A, s * 1.7, 0.7, 0, true); p.scale.set(0.09, 1.6, 0.09); g.add(p);
-  }
-  const bar = mesh(G.cyl, 0xFF6B4A, 0, 1.5, 0, true); bar.scale.set(0.07, 3.4, 0.07); bar.rotation.z = Math.PI / 2; g.add(bar);
-  const webbing = new Mesh(
-    new PlaneGeometry(3.4, 1.4, 10, 5),
-    new MeshBasicMaterial({ color: 0xFFFFFF, wireframe: true, transparent: true, opacity: .8 }),
-  );
-  webbing.position.y = 0.8; g.add(webbing);
-  for (let i = 0; i < 6; i++) {
-    const b = mesh(G.sphere, 0xF2C14E, -1.5 + i * 0.6, 0.05, 0.35); b.scale.setScalar(0.12); g.add(b);
-  }
-  scene.add(g);
-  return { g, t: 0.5, src: V(-1.2, 0.3, -10.8) };
-}
-
 /** Korki's tile follows the statue's spot to the garden in stage 2, if it's still for sale. */
 function moveKorkiTile() {
   const t = tiles.find(x => x.id === 'korki')!;
@@ -217,12 +193,12 @@ export function applyUnlock(id: UnlockId, silent = false) {
   t.done = true; t.d.mesh.visible = false;
   const pop = (...os: Object3D[]) => { if (!silent) os.forEach(popIn); };
   if (id === 'pack') player.back.cap = 14;
-  if (id === 'turret') { turret = buildTurret(); pop(turret.g); }
+  if (id === 'turret') { turret = { ...buildTurret(), t: 1 }; pop(turret.g); }
   if (id === 'roulette') pop(enableCasino());
   if (id === 'runner' || id === 'runner2' || id === 'runner3') pop(hireRunner().g);
   if (id === 'boots') player.speed = 5.8;
   if (id === 'sled') pop(...openSled());
-  if (id === 'net') { net = buildNet(); pop(net.g); }
+  if (id === 'net') { net = { ...buildNet(), t: 0.5 }; pop(net.g); }
   if (id === 'sushi') enterStage2(silent, moveKorkiTile);
   if (id === 'paddy') pop(...plantTerrace(0));
   if (id === 'plot2') pop(...plantTerrace(1));
@@ -232,6 +208,8 @@ export function applyUnlock(id: UnlockId, silent = false) {
   if (id === 'seats') pop(...addSeats());
   if (id === 'chef' || id === 'chef3') pop(hireChef());
   if (id === 'kiosk') pop(...showKiosk(), ...openTakeout());
+  if (id === 'tables') pop(...addTables(0));
+  if (id === 'tables2') pop(...addTables(1));
   if (id === 'premium') setPremium();
   if (id === 'korki') pop(enableKorki());
   showProgress();

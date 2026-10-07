@@ -39,7 +39,7 @@ export const EAST_DOOR = { z0: HOUSE_PATH_Z - 0.6, z1: HOUSE_PATH_Z + 0.6 };
 const DOCK2 = area(-7.4, 7.4, -6.25, 1.9);
 const HALL = area(HALL_BOX.x0 + 0.4, HALL_BOX.x1 - 0.4, 1.8, HALL_BOX.z1 - 0.4);
 const GATEWAY = area(-GATE_W + 0.4, GATE_W - 0.4, 14.8, 16.6);
-const GARDEN = area(-8.6, 8.6, 16.2, 20.4, 0.02);
+const GARDEN = area(-8.6, 8.6, 16.2, 22.6, 0.02);
 const BRIDGE = area(PATH_X.x0, HALL.x0 + 0.2, FARM_DOOR.z0 + 0.3, FARM_DOOR.z1 - 0.3);
 const PATH = area(PATH_X.x0, PATH_X.x1, TERRACE_Z.z0 - 0.4, TERRACE_Z.z1 + 1.2, 0.06);
 // Each terrace's walkable area runs right up to the next one's, so you can step from one to the other; only the

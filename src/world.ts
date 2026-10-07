@@ -174,7 +174,7 @@ function treeOK1(x: number, z: number) {
 function treeOK2(x: number, z: number) {
   if (x > -8.8 && x < 8.8 && z > -7.2 && z < 2) return false;
   if (housePath(x, z)) return false;
-  if (x > -11.6 && x < 13.2 && z > 0.5 && z < 21.6) return false;
+  if (x > -11.6 && x < 13.2 && z > 0.5 && z < 23.4) return false;
   if (x > 12.6 && x < 15.6) return false;
   if (x > -3 && x < 3 && z > 20 && z < 46) return false;
   if (x > -40 && x < -10.2 && z > -7 && z < 13.4) return false;
