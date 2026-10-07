@@ -323,7 +323,7 @@ describe('the scoreboard', () => {
     return { ...started, s };
   }
   const others = () => {
-    fake.scores.set('u7', { uid: 'u7', name: 'Mia K.', best: 52_000, stage: 2 });
+    fake.scores.set('u7', { uid: 'u7', name: 'Mia Kowalski', best: 52_000, stage: 2 });
     fake.scores.set('u8', { uid: 'u8', name: 'Ola', best: 900, stage: 1 });
   };
 
@@ -333,10 +333,10 @@ describe('the scoreboard', () => {
     expect($('board').hidden).toBe(true);
   });
 
-  it('a signed-in player goes on it as the game syncs: first name and initial, best cash and stage', async () => {
+  it('a signed-in player goes on it as the game syncs: full name, best cash and stage', async () => {
     const { g, c } = await board({ money: 300, tiles: bought(...MARKET, 'sushi') });
     $('cloud').click();
-    await vi.waitFor(() => expect(fake.scores.get('u1')).toEqual({ uid: 'u1', name: 'Pat S.', best: 300, stage: 2 }));
+    await vi.waitFor(() => expect(fake.scores.get('u1')).toEqual({ uid: 'u1', name: 'Pat Smith', best: 300, stage: 2 }));
     // spending doesn't lower it; nothing new, nothing written
     g.wallet.money = 40; g.saveMod.save();
     await c.sync();
@@ -359,7 +359,7 @@ describe('the scoreboard', () => {
     expect($('board').getAttribute('aria-expanded')).toBe('true');
     expect(document.activeElement).toBe($('scoresClose'));
     await vi.waitFor(() => expect(rows()).toEqual([
-      '1Mia K.Stage 2$52,000', '2Pat S. (you)Stage 1$5,000', '3OlaStage 1$900',
+      '1Mia KowalskiStage 2$52,000', '2Pat Smith (you)Stage 1$5,000', '3OlaStage 1$900',
     ]));
     expect($('scoresList').children[1].classList.contains('me')).toBe(true);
     expect($('scoresMe').textContent).toBe('');
@@ -388,7 +388,7 @@ describe('the scoreboard', () => {
     const { g } = await board({ money: 2500 });
     g.wallet.money = 100; // spent since
     $('board').click();
-    await vi.waitFor(() => expect(rows()).toEqual(['1Mia K.Stage 2$52,000', '2OlaStage 1$900']));
+    await vi.waitFor(() => expect(rows()).toEqual(['1Mia KowalskiStage 2$52,000', '2OlaStage 1$900']));
     expect($('scoresMe').textContent).toBe('Your best: $2,500 · Stage 1');
     expect($('scoresJoin').hidden).toBe(false);
     $('scoresJoin').click();
@@ -419,13 +419,15 @@ describe('the scoreboard', () => {
     expect($('scoresList').hasAttribute('aria-busy')).toBe(false);
   });
 
-  it('shows first names and an initial, never an email', async () => {
+  it('shows full names, never an email', async () => {
     const { c } = await start();
-    expect(c.publicName('Pat Smith')).toBe('Pat S.');
-    expect(c.publicName('  Ana  de la cruz ')).toBe('Ana C.');
+    expect(c.publicName('Pat Smith')).toBe('Pat Smith');
+    expect(c.publicName('  Ana  de la cruz ')).toBe('Ana de la cruz');
     expect(c.publicName('Sam')).toBe('Sam');
     expect(c.publicName('pat@example.com')).toBe('A player');
     expect(c.publicName(' ')).toBe('A player');
-    expect(c.publicName('Bartholomewbartholomew Q')).toBe('Bartholomewbarth Q.');
+    const long = c.publicName('Bartholomew ' + 'Q'.repeat(60));
+    expect(long).toHaveLength(c.NAME_MAX);
+    expect(long.endsWith('…')).toBe(true);
   });
 });

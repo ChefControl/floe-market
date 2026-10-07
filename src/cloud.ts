@@ -146,12 +146,13 @@ async function push(b: CloudBackend, u: CloudUser, raw: string) {
 }
 
 // ---------- the scoreboard ----------
-/** How a player shows on the scoreboard, which everyone can see: first name and last initial, never an email. */
+/** Longest name the scoreboard keeps (firestore.rules checks it too). */
+export const NAME_MAX = 40;
+/** How a player shows on the scoreboard, which everyone can see: their full name, never an email. */
 export function publicName(name: string) {
-  const words = name.trim().split(/\s+/).filter(Boolean);
-  if (!words.length || name.includes('@')) return 'A player';
-  const first = words[0].slice(0, 16);
-  return words.length > 1 ? `${first} ${words[words.length - 1][0].toUpperCase()}.` : first;
+  const full = name.trim().replace(/\s+/g, ' ');
+  if (!full || full.includes('@')) return 'A player';
+  return full.length > NAME_MAX ? full.slice(0, NAME_MAX - 1).trimEnd() + '…' : full;
 }
 
 /** What this device last put on the scoreboard, so it only writes again when something changed. */

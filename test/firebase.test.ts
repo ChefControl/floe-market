@@ -65,21 +65,21 @@ describe('the Firebase backend', () => {
   it('keeps the scoreboard in scores/{uid}, never lowering a best a player already had', async () => {
     const { createBackend } = await import('../src/firebase');
     const b = createBackend();
-    await b.postScore({ uid: 'u1', name: 'Pat S.', best: 500, stage: 1 });
-    sdk.score = { name: 'Pat S.', best: 9000, stage: 2 }; // before a Restart
-    await b.postScore({ uid: 'u1', name: 'Pat S.', best: 700, stage: 1 });
+    await b.postScore({ uid: 'u1', name: 'Pat Smith', best: 500, stage: 1 });
+    sdk.score = { name: 'Pat Smith', best: 9000, stage: 2 }; // before a Restart
+    await b.postScore({ uid: 'u1', name: 'Pat Smith', best: 700, stage: 1 });
     expect(sdk.set).toEqual([
-      [{ path: 'scores/u1' }, { name: 'Pat S.', best: 500, stage: 1, updated: 'server-time' }],
-      [{ path: 'scores/u1' }, { name: 'Pat S.', best: 9000, stage: 2, updated: 'server-time' }],
+      [{ path: 'scores/u1' }, { name: 'Pat Smith', best: 500, stage: 1, updated: 'server-time' }],
+      [{ path: 'scores/u1' }, { name: 'Pat Smith', best: 9000, stage: 2, updated: 'server-time' }],
     ]);
   });
 
   it('reads the top of the scoreboard, best first', async () => {
     const fs = await import('firebase/firestore');
     const { createBackend } = await import('../src/firebase');
-    sdk.scores = [{ id: 'u2', data: { name: 'Sam', best: 800, stage: 2 } }, { id: 'u1', data: { name: 'Pat S.', best: 90, stage: 1 } }];
+    sdk.scores = [{ id: 'u2', data: { name: 'Sam', best: 800, stage: 2 } }, { id: 'u1', data: { name: 'Pat Smith', best: 90, stage: 1 } }];
     expect(await createBackend().topScores(20)).toEqual([
-      { uid: 'u2', name: 'Sam', best: 800, stage: 2 }, { uid: 'u1', name: 'Pat S.', best: 90, stage: 1 },
+      { uid: 'u2', name: 'Sam', best: 800, stage: 2 }, { uid: 'u1', name: 'Pat Smith', best: 90, stage: 1 },
     ]);
     expect(fs.query).toHaveBeenCalledWith({ col: 'scores' }, { orderBy: ['best', 'desc'] }, { limit: 20 });
   });
