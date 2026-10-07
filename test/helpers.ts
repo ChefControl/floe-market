@@ -25,8 +25,8 @@ export interface SaveFixture {
 
 /** Tiles entries for already-bought upgrades. */
 export const bought = (...ids: string[]) => ids.map(id => ({ id, paid: 999, done: true }));
-/** Stage 1's seven market upgrades. */
-export const MARKET = ['pack', 'turret', 'roulette', 'runner', 'boots', 'sled', 'net'];
+/** Stage 1's nine market upgrades, in order. */
+export const MARKET = ['pack', 'turret', 'roulette', 'runner', 'boots', 'sled', 'runner2', 'net', 'runner3'];
 
 /**
  * Loads a fresh copy of the whole game (new module instances, fresh DOM), optionally from a save.

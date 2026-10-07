@@ -9,6 +9,7 @@ import { tryCatch } from './fishing';
 import { enableKorki, KORKI } from './korki';
 import { PATH_X, stage, TERRACES } from './layout';
 import { player } from './player';
+import { pointAt } from './pointers';
 import { popIn } from './pop';
 import { rating } from './rating';
 import { showKiosk } from './hall';
@@ -21,7 +22,7 @@ import { showStage, toast, type TipContent } from './ui';
 import { FY, V } from './util';
 
 export type UnlockId =
-  | 'pack' | 'turret' | 'roulette' | 'runner' | 'boots' | 'sled' | 'net' | 'sushi'
+  | 'pack' | 'turret' | 'roulette' | 'runner' | 'boots' | 'sled' | 'runner2' | 'net' | 'runner3' | 'sushi'
   | 'paddy' | 'seats' | 'farmer' | 'chef' | 'kiosk' | 'porter' | 'plot2' | 'chef3' | 'plot3' | 'premium' | 'korki';
 interface Unlock {
   id: UnlockId;
@@ -38,6 +39,9 @@ interface Unlock {
   needs?: UnlockId;
   /** On offer all through its stage, outside the two-at-a-time queue (and not counted toward the stage). */
   always?: boolean;
+  /** Out from the start of its stage (once what it needs is bought), outside the two-at-a-time queue, showing the
+   *  rating it needs until it's reached. It counts toward the stage. */
+  shown?: boolean;
   /** On offer in every stage (Korki's statue). */
   everywhere?: boolean;
   /** The gold tile that opens stage 2: bigger, and offered once the rest of stage 1 is built. */
@@ -69,16 +73,18 @@ const UNLOCKS: Unlock[] = [
   { id: 'runner', cost: 300, x: -4.0, z: 3.6, icon: '🏃', name: 'Hire a runner', desc: 'Carries fish from the pile to your counters', stars: 3.5, stage: 1 },
   { id: 'boots', cost: 500, x: -6.0, z: 6.2, icon: '🥾', name: 'Snow boots', desc: 'Walk faster', stage: 1 },
   { id: 'sled', cost: 900, x: 6.55, z: -1.0, icon: '🛷', name: 'Sled window', desc: 'Snowmobiles buy fish in bulk, for half as much again', stars: 3.8, stage: 1 },
+  { id: 'runner2', cost: 1200, x: -4.0, z: 3.6, icon: '🏃', name: 'Second runner', desc: 'Another runner carrying fish to your counters', stars: 3.9, needs: 'runner', stage: 1 },
   { id: 'net', cost: 1600, x: -1.9, z: -4.4, icon: '🥅', name: 'Ice net', desc: 'Hauls in fish nonstop', stars: 4.0, stage: 1 },
+  { id: 'runner3', cost: 3500, x: -4.0, z: 3.6, icon: '🏃', name: 'Third runner', desc: 'A third runner carrying fish to your counters', stars: 4.2, needs: 'runner2', stage: 1 },
   { id: 'sushi', cost: 12000, x: -1.6, z: 1.4, icon: '🏯', name: 'Open Floe Sushi', desc: 'Stage 2: rebuild the market as a sushi restaurant, with rice terraces to the west', stage: 1, gold: true },
-  { id: 'paddy', cost: 1500, ...onTerrace(0), icon: '🌾', name: 'Rice terrace', desc: 'Plant rice on the bottom terrace. Wade through it to harvest', stage: 2 },
-  { id: 'chef', cost: 3000, x: 8.0, z: 9.0, icon: '🔪', name: 'Second chef', desc: 'Another chef at the bar', stars: 3.6, stage: 2 },
+  { id: 'paddy', cost: 800, ...onTerrace(0), z: -1.4 /* north of the starting patch */, icon: '🌾', name: 'Rice terrace', desc: 'Plant the rest of the bottom terrace round your patch: three times the rice', stage: 2 },
+  { id: 'chef', cost: 3000, x: 8.0, z: 9.0, icon: '🔪', name: 'Second chef', desc: 'Another chef at the bar', stars: 3.6, shown: true, stage: 2 },
   { id: 'seats', cost: 5000, x: -8.0, z: 9.0, icon: '🪑', name: 'More seats', desc: 'Eight more seats at the bar', stars: 3.8, stage: 2 },
   { id: 'farmer', cost: 6000, x: PX, z: -2.6, y: 0.06, icon: '🧑‍🌾', name: 'Hire a farmer', desc: 'Harvests the terraces onto a stack on the path', stars: 3.9, needs: 'paddy', stage: 2 },
   { id: 'kiosk', cost: 8000, x: 8.2, z: 3.6, icon: '🥡', name: 'Takeout kiosk', desc: 'Snowmobiles on the road buy boxes of sushi; the chefs pack them', stars: 4.0, stage: 2 },
   { id: 'porter', cost: 12000, x: -8.2, z: 5.0, icon: '🧺', name: 'Rice porter', desc: 'Carries harvested rice in to the kitchen line', stars: 4.1, needs: 'paddy', stage: 2 },
   { id: 'plot2', cost: 18000, ...onTerrace(1), icon: '🌱', name: 'Second terrace', desc: 'Twice the rice', stars: 4.2, needs: 'paddy', stage: 2 },
-  { id: 'chef3', cost: 25000, x: 8.0, z: 11.8, icon: '🔪', name: 'Third chef', desc: 'A third chef at the bar', stars: 4.3, stage: 2 },
+  { id: 'chef3', cost: 25000, x: 8.0, z: 11.8, icon: '🔪', name: 'Third chef', desc: 'A third chef at the bar', stars: 4.3, needs: 'chef', shown: true, stage: 2 },
   { id: 'plot3', cost: 35000, ...onTerrace(2), icon: '🌱', name: 'Third terrace', desc: 'Rice right up to the hot spring', stars: 4.4, needs: 'plot2', stage: 2 },
   { id: 'premium', cost: 60000, x: -6.2, z: 13.6, icon: '🏮', name: 'Premium menu', desc: 'Everything sells for 60% more', stars: 4.5, stage: 2 },
   { id: 'korki', cost: 10, x: KORKI.x, z: KORKI.z, icon: '🛴', name: "Korki's golden statue", desc: 'In memory of a good scooter', stage: 1, always: true, everywhere: true },
@@ -122,12 +128,25 @@ function offered(t: Tile) {
 /** Upgrades on offer all through the current stage (or every stage), once the stage-up's show is over. */
 const always = (t: Tile) => t.always && (t.everywhere || (t.stage === stage.n && !(t.stage === 2 && staging())));
 
-/** At most two unpaid upgrades are offered at a time, in order, plus any that are always on offer. */
+/** The tiles on offer last time, to spot new ones; null before the first look (at a fresh start or a loaded save). */
+let before: Set<Tile> | null = null;
+
+/** At most two unpaid upgrades are offered at a time, in order, plus any that are always on offer or shown. */
 export function visibleTiles() {
-  const next = tiles.filter(t => !t.done && !t.always && offered(t)).slice(0, 2);
-  const v = tiles.filter(t => !t.done && (always(t) || next.includes(t)));
+  const next = tiles.filter(t => !t.done && !t.always && !t.shown && offered(t)).slice(0, 2);
+  const v = tiles.filter(t => !t.done && (always(t) || (t.shown && offered(t)) || next.includes(t)));
   tiles.forEach(t => { t.d.mesh.visible = v.includes(t); });
+  if (before) announce(v.filter(t => !before!.has(t)));
+  before = new Set(v);
   return v;
+}
+
+/** Says what's newly on offer, and points the way to it until the player has seen it. */
+function announce(fresh: Tile[]) {
+  for (const t of fresh) pointAt({ x: t.x, y: t.y ?? FY, z: t.z }, t.icon, () => t.d.mesh.visible);
+  // the gold tile has its own message ("Floe Sushi is ready to open")
+  const named = fresh.filter(t => !t.gold).map(t => t.name);
+  if (named.length) toast(named.length === 1 ? `New upgrade: ${named[0]}` : `New upgrades: ${named.join(', ')}`);
 }
 
 /** Updates the stage chip. */
@@ -200,7 +219,7 @@ export function applyUnlock(id: UnlockId, silent = false) {
   if (id === 'pack') player.back.cap = 14;
   if (id === 'turret') { turret = buildTurret(); pop(turret.g); }
   if (id === 'roulette') pop(enableCasino());
-  if (id === 'runner') pop(hireRunner().g);
+  if (id === 'runner' || id === 'runner2' || id === 'runner3') pop(hireRunner().g);
   if (id === 'boots') player.speed = 5.8;
   if (id === 'sled') pop(...openSled());
   if (id === 'net') { net = buildNet(); pop(net.g); }
@@ -219,7 +238,7 @@ export function applyUnlock(id: UnlockId, silent = false) {
   if (silent || t.gold) return;
   toast(t.name + ' unlocked');
   if (t.always || !goal(t.stage).every(x => x.done)) return;
-  setTimeout(() => toast(t.stage === 1 ? 'Floe Sushi is ready to open' : 'Floe Sushi is fully built'), 1800);
+  toast(t.stage === 1 ? 'Floe Sushi is ready to open' : 'Floe Sushi is fully built');
 }
 
 export function updAuto(dt: number) {

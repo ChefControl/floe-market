@@ -192,7 +192,7 @@ async function tap() {
     if (!backend && readLink()?.on) { await connect(); return; }
     const b = backend ?? await connect();
     await b.signIn();
-  } catch (e) { toast(signInError(e)); }
+  } catch (e) { toast(signInError(e), 'cloud'); }
 }
 
 async function signOut() {

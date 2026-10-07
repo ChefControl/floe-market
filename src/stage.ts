@@ -12,8 +12,8 @@ import { marketLooks } from './looks';
 import { fog, hemi, scene, sky, sun, sunOff } from './render';
 import { houseStage2 } from './rain';
 import { furniture, handOver, openRestaurant } from './restaurant';
-import { openStall } from './rice';
-import { banner, confetti } from './ui';
+import { plantPatch } from './rice';
+import { banner, confetti, toast } from './ui';
 import { V } from './util';
 import { closeGap, stage1Only, stage2Only, swapDecks } from './world';
 
@@ -104,7 +104,7 @@ function widenShadows() {
 
 /**
  * The gold 'sushi' tile: stage 2. The stage 1 counters close (their customers pay up and go home), and the
- * restaurant, rice stall and farm open. `silent` (loading a save) skips the show. `onMove` runs
+ * restaurant and farm open, with a patch of rice planted. `silent` (loading a save) skips the show. `onMove` runs
  * when the roulette table and Korki's statue move to their new spots.
  */
 export function enterStage2(silent: boolean, onMove = () => {}) {
@@ -113,7 +113,7 @@ export function enterStage2(silent: boolean, onMove = () => {}) {
   showHall(); showFarm();
   widenShadows();
   const staff = openRestaurant(silent);
-  const stall = openStall();
+  const patch = plantPatch();
   // The roulette table and Korki's statue go out with the old stage and come back in their new spots.
   const movers = [casinoTable(), korkiStatue()].filter((o): o is Group => o !== null);
   const move = () => { moveCasino(-2.2); moveKorki(); onMove(); };
@@ -139,9 +139,10 @@ export function enterStage2(silent: boolean, onMove = () => {}) {
   const ins: [Object3D, Axis, number][] = [
     ...[floor, ...furniture, ...shell.slice(0, 3)].map((o): [Object3D, Axis, number] => [o, 'all', 0.12]),
     ...staff.map((o): [Object3D, Axis, number] => [o, 'all', 0.04]),
-    ...[...shell.slice(3), stall].map((o): [Object3D, Axis, number] => [o, 'all', 0.1]),
+    ...shell.slice(3).map((o): [Object3D, Axis, number] => [o, 'all', 0.1]),
     [stage2Only.road, 'x', 0.1],
     ...farmPieces.map((o): [Object3D, Axis, number] => [o, 'all', 0.14]),
+    ...patch.map((o): [Object3D, Axis, number] => [o, 'all', 0.05]),
     [stage2Only.trees, 'y', 0],
   ];
   let t0 = 1.5;
@@ -164,7 +165,7 @@ export function enterStage2(silent: boolean, onMove = () => {}) {
       },
       { t: 1.7, run: () => banner(null) },
       { t: 2.2, run: () => { banner('Stage 2', 'Floe Sushi'); confetti(); } },
-      { t: 5.4, run: () => banner(null) },
+      { t: 5.4, run: () => { banner(null); toast('Rice grows on the terrace, out the west door'); } },
     ],
   };
   updStage(0);

@@ -42,7 +42,11 @@ export const SLOTS = 30;
 const STEP = 1.0;
 const PERIM = 4 * BAR.L + 2 * Math.PI * BAR.R;
 const SP = PERIM / SLOTS;
-const SLICE = 0.8, EAT = 1.5, SPAWN_EVERY = 3.5;
+const SLICE = 0.8, EAT = 1.5;
+/** Seconds between diners coming in, before the rating and marketing bring them faster. */
+export const SPAWN_EVERY = 3.5;
+/** A bag of rice makes this many plates. */
+export const PLATES_PER_BAG = 2;
 /** Seconds a seated diner waits for plates, in total, before giving up. */
 export const PATIENCE = 40;
 /** Rice delivered with the restaurant, so the first plates can be made before there's money for more. */
@@ -314,7 +318,7 @@ function updChef(c: Chef, dt: number) {
   if (c.state === 'idle' && fishTray.items.length && (sushi.portions || ricePot.items.length)) {
     // a bag of rice makes two plates: the cooks only toss a new one when the open bag is used up
     c.parts = [fishTray.take()!];
-    if (!sushi.portions) { c.parts.push(ricePot.take()!); sushi.portions = 2; }
+    if (!sushi.portions) { c.parts.push(ricePot.take()!); sushi.portions = PLATES_PER_BAG; }
     sushi.portions--;
     c.landed = 0; c.state = 'fetch';
     sushi.cooks.forEach(k => { k.t = 0.35; });

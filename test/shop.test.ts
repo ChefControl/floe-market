@@ -87,10 +87,10 @@ describe('the upgrade circle', () => {
     const g = await loadGame({ tiles: bought('runner'), money: 1e9 });
     for (let i = 0; i < 8; i++) g.shop.buyMod('crew');
     g.run(0.05);
-    expect(g.runner.runner!.speed).toBe(3.3); // not in the market
+    expect(g.runner.runners[0].speed).toBe(3.3); // not in the market
     g.unlocks.applyUnlock('sushi', true);
     g.run(0.05);
-    expect(g.runner.runner!.speed).toBeCloseTo(6.6); // twice as fast, at most
+    expect(g.runner.runners[0].speed).toBeCloseTo(6.6); // twice as fast, at most
   });
 
   it('the kitchen crew makes chefs and rice faster', async () => {

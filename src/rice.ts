@@ -1,63 +1,36 @@
-// Rice for the sushi (stage 2). At first it's bought by the bag at the stall on the dock and carried to the
-// kitchen line by hand. Later it grows on the terraces west of the restaurant: the player harvests it by wading
-// through, then a farmer does, and a rice porter carries it in through the farm door.
-import { BoxGeometry, Group, Mesh, MeshLambertMaterial, type Vector3 } from 'three';
+// Rice for the sushi (stage 2). The restaurant opens with a small patch of it on the bottom terrace, west of the
+// restaurant, which the player harvests by wading through and carries to the kitchen line. Later the whole terrace
+// is planted, then the ones above it, a farmer harvests them, and a rice porter carries it in through the farm door.
+import { BoxGeometry, Group, Mesh, type Vector3 } from 'three';
 import { animPerson, moveEnt, Person, type Walker } from './characters';
-import { decal, drawPad } from './decals';
 import { carrySlot, Holder } from './holder';
 import { newRice } from './items';
 import { FARM_DOOR, groundY, HALL_BOX, PATH_X, TERRACE_Z, TERRACES } from './layout';
 import { boost } from './economy';
-import { bake, canvasTex, G, mat, mesh, scene, type Part } from './render';
-import { RICE_DROP, ricePot } from './restaurant';
-import { d2xz, FY, rand, V, type XZ } from './util';
-
-export { RICE_PRICE } from './economy';
-
-// ---------- stall ----------
-/** Where the player stands to buy rice. */
-export const STALL = V(5.5, FY, -4.3);
-/** The stall's table, for collisions. */
-export const STALL_BOX = { x: 6.7, z: -5.4, hx: 0.8, hz: 0.5 };
-/** Where bought bags fly from. */
-export const STALL_TOP = V(STALL_BOX.x, FY + 0.95, STALL_BOX.z);
-
-const stallPad = decal(1.6, (c, w, h) => drawPad(c, w, h, '🍚'));
-stallPad.mesh.position.set(STALL.x, FY + 0.01, STALL.z);
-stallPad.mesh.visible = false;
-/** The stall opens with the restaurant. */
-const stall = new Group();
-stall.visible = false;
-scene.add(stall);
-export const stallOpen = () => stall.visible;
-{
-  const { x, z } = STALL_BOX;
-  stall.add(mesh(new BoxGeometry(1.6, 0.8, 1.0), 0x9C6644, x, FY + 0.4, z, true));
-  for (let i = 0; i < 6; i++) {
-    const s = newRice(); s.position.set(x + (i % 3 - 1) * 0.36, FY + 0.84 + Math.floor(i / 3) * 0.085, z + 0.1); stall.add(s);
-  }
-  for (const [px, pz] of [[-0.75, -0.45], [0.75, -0.45], [-0.75, 0.45], [0.75, 0.45]]) {
-    const post = mesh(G.cyl, 0x6B4A2E, x + px, FY + 0.95, z + pz, true); post.scale.set(0.05, 1.9, 0.05); stall.add(post);
-  }
-  const stripes = canvasTex(64, 64, (c, w, h) => {
-    for (let i = 0; i < 4; i++) { c.fillStyle = i % 2 ? '#FFFFFF' : '#D8394B'; c.fillRect(i * w / 4, 0, w / 4, h); }
-  });
-  const awning = mesh(new BoxGeometry(1.9, 0.06, 1.3), [mat(0xD8394B), mat(0xD8394B), new MeshLambertMaterial({ map: stripes.tex }), mat(0xD8394B), mat(0xD8394B), mat(0xD8394B)], x, FY + 1.92, z, true);
-  awning.rotation.x = 0.12;
-  stall.add(awning);
-}
-
-/** Opens the rice stall (with the restaurant). Returns it for the pop-in. */
-export function openStall() {
-  stall.visible = true;
-  stallPad.mesh.visible = true;
-  return stall;
-}
+import { bake, G, mat, mesh, scene, type Part } from './render';
+import { PLATES_PER_BAG, RICE_DROP, ricePot, SPAWN_EVERY } from './restaurant';
+import { d2xz, rand, V, type XZ } from './util';
 
 // ---------- terraces ----------
-/** Seconds from sprout to ripe. */
+/** Seconds from sprout to ripe on a planted terrace (the kitchen crew upgrade speeds it up). */
 const GROW = 16;
 const CELL = 1.3, COLS = 3, ROWS = 6;
+/** Where clump (row, column) of terrace `i` grows. Rows run north to south, columns west to east. */
+function spot(i: number, r: number, k: number) {
+  const t = TERRACES[i], cx = (t.x0 + t.x1) / 2, cz = (TERRACE_Z.z0 + TERRACE_Z.z1) / 2;
+  return { x: cx + (k - 1) * CELL, z: cz + (r - (ROWS - 1) / 2) * CELL, y: t.top };
+}
+/** The patch the restaurant opens with: the bottom terrace's six clumps nearest the path and the farm door. */
+const PATCH = [3, 4, 5].flatMap(r => [1, 2].map(k => spot(0, r, k)));
+/** The middle of the patch. */
+export const PATCH_AT = { x: (PATCH[0].x + PATCH[1].x) / 2, z: PATCH[2].z };
+/**
+ * Seconds for the patch to ripen. Its six bags make twelve plates: just what the first customers eat in that time
+ * with a five-star rating (which brings them in 1.4 times as fast), one every SPAWN_EVERY / 1.4 seconds, eating two
+ * plates each on average. It doesn't speed up with upgrades, so it keeps up with the restaurant as it opens and no
+ * more: more customers need the rest of the terrace.
+ */
+const PATCH_GROW = PATCH.length * PLATES_PER_BAG / (2 * 1.4 / SPAWN_EVERY);
 /** Where harvested bags are stacked for the rice porter: on the path, north of the bridge. */
 const PX = (PATH_X.x0 + PATH_X.x1) / 2;
 const STACK = { x: PX, z: -0.6, y: 0.06 };
@@ -74,6 +47,8 @@ interface Cell {
   heads: Mesh;
   /** A farmer is on the way to harvest it. */
   taken: boolean;
+  /** Part of the starting patch, growing at its own fixed pace until the terrace is planted. */
+  fixed: boolean;
 }
 
 /** Planted terraces (by index) and their rice. */
@@ -105,32 +80,43 @@ function setGrowth(c: Cell, grow: number) {
   c.heads.visible = ripe(c);
 }
 
-function plant(x: number, z: number, y: number, grow: number) {
+function plant({ x, z, y }: { x: number; z: number; y: number }, grow: number, fixed = false) {
   const g = new Group(); g.position.set(x, y, z); g.rotation.y = rand(0, 6);
   const stalks = mesh(stalksGeo, green, 0, 0, 0, true), heads = mesh(headsGeo, grain);
   g.add(stalks, heads);
   scene.add(g);
-  const c: Cell = { x, z, grow: 0, g, stalks, heads, taken: false };
+  const c: Cell = { x, z, grow: 0, g, stalks, heads, taken: false, fixed };
   setGrowth(c, grow);
   field.cells.push(c);
   return g;
 }
 
+/** Plants the starting patch (with the restaurant). Returns the clumps for the pop-in. */
+export function plantPatch() {
+  field.built = true;
+  return PATCH.map((at, i) => plant(at, (i % 4) / 4, true));
+}
+
 /**
- * Plants a terrace (the 'paddy', 'plot2' and 'plot3' unlocks): a 3×6 patch of rice at staggered growth.
- * Returns the clumps for the pop-in.
+ * Plants a terrace (the 'paddy', 'plot2' and 'plot3' unlocks): a 3×6 patch of rice at staggered growth. On the
+ * bottom terrace that's the rest of it round the starting patch, which then grows with the rest. Returns the
+ * clumps for the pop-in.
  */
 export function plantTerrace(i: number) {
   field.built = true;
   field.planted.push(i);
-  pallet.visible = true;
-  const t = TERRACES[i], cx = (t.x0 + t.x1) / 2, cz = (TERRACE_Z.z0 + TERRACE_Z.z1) / 2;
   const out: Group[] = [];
   for (let r = 0; r < ROWS; r++) for (let k = 0; k < COLS; k++) {
-    out.push(plant(cx + (k - 1) * CELL, cz + (r - (ROWS - 1) / 2) * CELL, t.top, ((r * COLS + k) % 4) / 4));
+    const at = spot(i, r, k), had = field.cells.find(c => c.x === at.x && c.z === at.z);
+    if (had) had.fixed = false;
+    else out.push(plant(at, ((r * COLS + k) % 4) / 4));
   }
   return out;
 }
+
+/** Ripe rice the player can reach from `p`. */
+const reachable = (p: XZ, c: Cell) => ripe(c) && !c.taken && d2xz(p, c) <= 0.9 * 0.9;
+export const ripeNear = (p: XZ) => field.cells.some(c => reachable(p, c));
 
 let harvestT = 0;
 /** The player harvests ripe rice within reach into their arms. */
@@ -138,7 +124,7 @@ export function harvestNear(p: XZ, arms: Holder, dt: number) {
   harvestT -= dt;
   for (const c of field.cells) {
     if (harvestT > 0 || !arms.hasRoom()) break;
-    if (!ripe(c) || c.taken || d2xz(p, c) > 0.9 * 0.9) continue;
+    if (!reachable(p, c)) continue;
     harvest(c, arms);
     harvestT = 0.12;
   }
@@ -168,6 +154,7 @@ export const FARM_HOME = V(PX, 0, TERRACE_Z.z1 + 0.8);
 export function hireFarmer() {
   const g = new Person(0x7A9E3B, 'farmer');
   g.position.copy(FARM_HOME); scene.add(g);
+  pallet.visible = true; // the farmer stacks what they harvest on it
   farmer = { g, h: 0, speed: 2.6, moving: false, state: 'seek', t: 0, cell: null };
   ground(farmer);
   return g;
@@ -259,7 +246,7 @@ function updPorter(p: Porter, dt: number) {
 
 export function updRice(dt: number) {
   const g = boost('crew'); // the kitchen crew tends the terraces too
-  for (const c of field.cells) if (!ripe(c)) setGrowth(c, c.grow + dt * g / GROW);
+  for (const c of field.cells) if (!ripe(c)) setGrowth(c, c.grow + dt * (c.fixed ? 1 / PATCH_GROW : g / GROW));
   if (farmer) updFarmer(farmer, dt);
   if (porter) updPorter(porter, dt);
 }

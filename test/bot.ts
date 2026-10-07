@@ -166,10 +166,12 @@ export function play(g: Game, seconds: number, dt = 0.05) {
   function decide2() {
     const r = g.restaurant, rice = g.rice;
     const fish = player.back.count('fish'), bags = player.back.count('rice'), room = player.back.cap - player.back.n;
-    // broke, with no rice coming: trade fish for it before anything else
-    const noRice = !r.ricePot.n && !bags && !rice.fieldStack.items.length && !rice.field.cells.some(c => c.grow >= 1);
-    if (noRice && wallet.money < rice.RICE_PRICE) {
-      if (fish) go(rice.STALL, () => !player.back.count('fish'), 25); else fishFrom();
+    // out in the field with room for more: harvest the rest of what's ripe before carrying it in
+    const ripeHere = rice.field.cells.filter(c => c.grow >= 1 && !c.taken)
+      .sort((a, b) => (a.x - p.x) ** 2 + (a.z - p.z) ** 2 - ((b.x - p.x) ** 2 + (b.z - p.z) ** 2));
+    if (inFarm(p) && room && ripeHere.length && r.ricePot.hasRoom()) {
+      const c = ripeHere[0];
+      go({ x: c.x, z: c.z }, () => !player.back.hasRoom() || c.grow < 1, 10);
       return;
     }
     if (fish && r.fishTray.hasRoom()) { go(r.FISH_DROP, () => !player.back.count('fish') || !r.fishTray.hasRoom(), 25); return; }
@@ -182,13 +184,13 @@ export function play(g: Game, seconds: number, dt = 0.05) {
         go(rice.STACK_AT, () => !player.back.hasRoom() || !rice.fieldStack.items.length, 25);
         return;
       }
-      if (room && ripe.length >= enough && (wallet.money < room * rice.RICE_PRICE * 3 || ripe.length >= room)) {
+      // fish the kitchen can't take go back to the pile at the rice, making room for it
+      const stuck = fish > 0 && !r.fishTray.hasRoom();
+      if ((room || stuck) && ripe.length && (ripe.length >= enough || !r.ricePot.n)) {
         const c = ripe[0];
         go({ x: c.x, z: c.z }, () => !player.back.hasRoom() || c.grow < 1, 20);
         return;
       }
-      if (room && wallet.money >= rice.RICE_PRICE) { go(rice.STALL, () => !player.back.hasRoom() || wallet.money < rice.RICE_PRICE, 20); return; }
-      if (fish) { go(rice.STALL, () => !player.back.count('fish'), 20); return; } // short of cash: trade fish for rice
     }
     // the runner keeps the fish tray stocked; only help out when it's running low
     if (r.fishTray.cap - r.fishTray.n >= Math.min(8, room) && room) fishFrom();

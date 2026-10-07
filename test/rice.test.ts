@@ -5,11 +5,12 @@ import { bought, loadGame } from './helpers';
 const ripen = (g: Awaited<ReturnType<typeof loadGame>>) => g.run(16.1);
 
 describe('terraces', () => {
-  it('are bare until planted, one at a time', async () => {
+  it('start as a small patch by the farm door, and are planted one at a time', async () => {
     const g = await loadGame({ tiles: bought('sushi') });
     const { field } = g.rice;
-    expect(field.cells).toHaveLength(0);
-    g.unlocks.applyUnlock('paddy');
+    expect(field.cells).toHaveLength(6);
+    expect(field.cells.every(c => c.x > -15 && c.z > 1)).toBe(true); // the bottom terrace's corner nearest the door
+    g.unlocks.applyUnlock('paddy'); // the rest of the bottom terrace, round the patch
     expect(field.cells).toHaveLength(18);
     expect(field.cells.every(c => c.g.position.y === g.layout.TERRACES[0].top)).toBe(true);
     g.unlocks.applyUnlock('plot2');
@@ -29,6 +30,24 @@ describe('terraces', () => {
     g.run(0.5);
     expect(g.player.back.count('rice')).toBeGreaterThan(0);
     expect(c.grow).toBeLessThan(1); // replanted
+  });
+});
+
+describe('the starting patch', () => {
+  it('grows just fast enough for the first customers, and no faster with upgrades', async () => {
+    const g = await loadGame({ tiles: bought('sushi'), mods: { crew: 8 } });
+    const { field } = g.rice, { SPAWN_EVERY, PLATES_PER_BAG } = g.restaurant;
+    // six bags of two plates each, ripening as fast as diners eat them at five stars: one every 3.5s / 1.4, two plates each
+    const grow = field.cells.length * PLATES_PER_BAG / (2 * 1.4 / SPAWN_EVERY);
+    expect(grow).toBeCloseTo(15);
+    const c = field.cells[0];
+    c.grow = 0;
+    g.run(1);
+    expect(c.grow).toBeCloseTo(1 / grow, 2); // even with the kitchen crew fully upgraded
+    g.unlocks.applyUnlock('paddy');
+    c.grow = 0;
+    g.run(1);
+    expect(c.grow).toBeCloseTo(g.economy.boost('crew') / 16, 2); // planted with the rest of the terrace, it grows with it
   });
 });
 

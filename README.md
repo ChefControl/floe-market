@@ -16,8 +16,8 @@ npm run dev
 - **Sell fish (stage 1):** pick slices up from the pile, drop them on the counter's 🐟 pad, and walk over the cash to collect it. Walk-in customers pay $4 a slice; once the sled window is built, snowmobiles buy 4–8 at a time at $6
 - **Upgrade:** stand on a price tile to pay into it. Some tiles also need a star rating (see below). The chip under the rating shows the stage and how many of its upgrades are built
 - **Upgrade circle:** each stage has a 📈 circle (by the counter in stage 1, by the kitchen line in stage 2). Stand on it to open the stage's repeatable upgrades and tap one to buy its next level: a better product (prices), marketing (customers) or the crew (speed). The list in the top left shows every modifier in play as a percentage, including how much your rating brings customers in; tap the stage chip to fold it away or back (on phones it starts folded, so the HUD leaves the game in view). Every level shows in the world too (see [Economy](#economy))
-- **Stage up:** with all seven market upgrades built, a gold 🏯 tile appears in the middle of the dock: Open Floe Sushi, $12,000. Paying it off plays the stage-up: the counters and the south fence come down, the restaurant, its garden and the terraces go up, and day turns to dusk. Cash, rating and upgrades carry over; the counters' leftover fish and cash move to the restaurant, the roulette table moves up the dock, and Korki's statue moves to the garden
-- **Rice (stage 2):** buy bags at the rice stall on the dock ($5 each; if you can't pay, or your arms are full of fish the kitchen has no room for, the stall takes a fish slice for a bag instead), or grow it on the terraces west of the restaurant: it ripens (green to gold) in about 16 seconds, and you wade through it to harvest, or take bags off the farmer's stack on the path
+- **Stage up:** with all nine market upgrades built, a gold 🏯 tile appears in the middle of the dock: Open Floe Sushi, $12,000. Paying it off plays the stage-up: the counters and the south fence come down, the restaurant, its garden and the terraces go up, and day turns to dusk. Cash, rating and upgrades carry over; the counters' leftover fish and cash move to the restaurant, the roulette table moves up the dock, and Korki's statue moves to the garden
+- **Rice (stage 2):** it grows on the terraces west of the restaurant, out through the farm door. The restaurant opens with a small patch of six clumps by the door, which ripens (green to gold) in 15 seconds: just enough for the first customers at a five-star rating, and no faster with upgrades, so more customers need the rest of the terrace, where rice ripens in 16 seconds and the kitchen crew speeds it up. Wade through ripe rice to harvest it, or take bags off the farmer's stack on the path. Fish the kitchen has no room for go back to the pile as you harvest, to make room in your arms
 - **Make sushi:** drop fish slices on the 🐟 pad and rice on the 🍚 pad at the kitchen line facing the dock. Your arms carry both at once. The cooks there toss them to a chef inside the bar, who makes a plate (a bag of rice makes two) and puts it on the belt circling them. Once the takeout kiosk is open, the chefs also pack boxes for it, keeping a few ready
 - **Sell sushi:** diners in top hats come up the garden path and through the red gate, sit at the bar, take plates as they pass, and pay $30 a plate at the register by the gate when they leave. Snowmobiles buy 3–6 boxes at a time at the kiosk on the road ($35 a box); their cash lands just inside the east wall
 - **Rating:** customers only wait so long. Each one leaves a 1–5★ review when they go, based on how long they waited; someone who gives up leaves 1★ and pays only for what they got. The rating in the HUD is the average of the last 20 reviews (a new game starts at ★3.0). A better rating also brings customers in faster: ×0.6 at ★1, ×1.4 at ★5
@@ -33,7 +33,7 @@ The money curve follows idle games ([the math of idle games](https://www.gamedev
   | --- | --- | --- | --- | --- |
   | Better product | 🐟 Fine fillets | 🍣 Chef's specials | Prices +25% | ×1.6 a level, no limit |
   | Marketing | 📣 Posters, flyers, radio, social media, ... TV ad | 📣 Menu boards, lantern signs, ... world famous | Customers +20%, longer queues | ×1.75 a level, 8 levels |
-  | Crew | 💪 Crew training: fishing and chopping | 🧑‍🍳 Kitchen crew: chefs, the runner, farm workers, rice growing | Speed +15% | ×1.75 a level, 8 levels |
+  | Crew | 💪 Crew training: fishing and chopping | 🧑‍🍳 Kitchen crew: chefs, the runners, farm workers, rice growing (not the starting patch) | Speed +15% | ×1.75 a level, 8 levels |
 
   They start at $40, $60 and $80 in stage 1 and $500, $800 and $1,000 in stage 2. Each level shows in the world:
 
@@ -43,16 +43,18 @@ The money curve follows idle games ([the math of idle games](https://www.gamedev
   | Marketing | Each campaign for real, spread round the market: posters on the fence, a promoter handing out flyers down the customers' path, a radio playing the jingle and a giant phone with the market's post collecting likes (at either end of the dock), a billboard and a newspaper box across the road, a food blogger taking photos and a TV playing the market's commercial out in the snow | Spread round the restaurant: a chalk menu board in the front garden, big paper lanterns on the front eaves, a phone on a ring light filming the bar, a food critic at a table holding up five stars, a magazine rack by the entrance, a TV camera filming the chefs, the gourmet guide's stars over a pedestal by the register, and flags from all over the world across the room |
   | Crew | The player's headband, coloured like a judo belt: white, yellow, orange, green, blue, purple, brown, black | The chefs' and cooks' toques grow taller |
 
-  Fishing speed (crew training) still counts in stage 2, but it isn't in the list there: the dock catches more fish than the kitchen gets through, so carrying fish in (the runner) is what can hold the kitchen back, and the kitchen crew speeds that up.
+  Fishing speed (crew training) still counts in stage 2, but it isn't in the list there: the dock catches more fish than the kitchen gets through, so carrying fish in (the runners) is what can hold the kitchen back, and the kitchen crew speeds that up.
 - **One-off upgrades** roughly double in price each time and add capacity: machines, workers, chefs, seats, terraces.
 - **Tiers.** Each stage ends on an expensive capstone. The gold tile costs about five minutes of a well-run market's income, so you start stage 2 almost broke, and stage 2's prices and sale values are about ten times stage 1's.
-- **No dead ends.** Fishing is always free, and the rice stall takes a fish slice for a bag when you're short of cash or your arms are full of fish the kitchen can't take, so there's always a way to make sushi and money again. The runner (bought in stage 1) keeps the fish tray stocked, the farmer's stack can be carried in by hand before there's a rice porter, and the chefs only pack a few takeout boxes ahead, so plates keep coming for diners. Fish and rice keep up with a fast kitchen: a bag of rice makes two plates, and the kitchen crew speeds up the runner, the farmer and the rice porter too.
+- **No dead ends.** Fishing and rice are always free, and fish the kitchen can't take go back to the pile as you harvest rice, so arms full of fish never stop you making sushi and money again. The runners (bought in stage 1) keep the fish tray stocked, the farmer's stack can be carried in by hand before there's a rice porter, and the chefs only pack a few takeout boxes ahead, so plates keep coming for diners. Fish and rice keep up with a fast kitchen: a bag of rice makes two plates, and the kitchen crew speeds up the runners, the farmer and the rice porter too.
 
 On a simulated run by a bot that plays like a reasonable player (see [Development](#development)), stage 1 takes about 13 minutes, with income growing from about $200 to $10,000 a minute; stage 2's upgrades are all bought about 28 minutes later, with income growing from about $1,600 to over $250,000 a minute, and to over $700,000 an hour into the game. Better products then carry on for as long as you like.
 
 ## Unlocks
 
-Two upgrades of the current stage are on offer at a time, in this order. A tile with a star requirement shows the rating it needs (🔒 ★3.5) instead of its price until your rating reaches it. Once reached, it stays open even if the rating drops later.
+Two upgrades of the current stage are on offer at a time, in this order, plus the chefs, which are out all through stage 2. A tile with a star requirement shows the rating it needs (🔒 ★3.5) instead of its price until your rating reaches it. Once reached, it stays open even if the rating drops later. A tile only takes money once you stop on it, not while you walk across.
+
+Whenever a new upgrade comes on offer, a message says what it is, and while its tile is off-screen an arrow at the edge of the screen points the way to it, until you've had it in view for a moment.
 
 **Stage 1: Fish Market**
 
@@ -64,21 +66,23 @@ Two upgrades of the current stage are on offer at a time, in this order. A tile 
 | 🏃 Hire a runner | $300 | ★3.5 | Carries fish from the pile to whichever counter is lowest (in stage 2, to the kitchen line) |
 | 🥾 Snow boots | $500 | | Walk faster |
 | 🛷 Sled window | $900 | ★3.8 | Opens a window in the east fence where snowmobiles buy fish in bulk, for half as much again |
+| 🏃 Second runner | $1,200 | ★3.9, a runner | Another runner, at the first one's tile |
 | 🥅 Ice net | $1,600 | ★4.0 | Hauls in fish nonstop |
-| 🏯 Open Floe Sushi | $12,000 | all of the above | Stage 2: the restaurant with ten seats, a chef and two cooks, the rice stall and the (bare) terraces |
+| 🏃 Third runner | $3,500 | ★4.2, a second runner | A third runner. All three work side by side, and in stage 2 they all carry fish to the kitchen line |
+| 🏯 Open Floe Sushi | $12,000 | all of the above | Stage 2: the restaurant with ten seats, a chef and two cooks, and a small patch of rice on the bottom terrace |
 
 **Stage 2: Floe Sushi**
 
 | Upgrade | Cost | Needs | Effect |
 | --- | --- | --- | --- |
-| 🌾 Rice terrace | $1,500 | | Plants the bottom terrace (18 clumps of rice) |
-| 🔪 Second chef | $3,000 | ★3.6 | Another chef at the bar |
+| 🌾 Rice terrace | $800 | | Plants the rest of the bottom terrace round the starting patch (18 clumps of rice in all) |
+| 🔪 Second chef | $3,000 | ★3.6 | Another chef at the bar. Out from the start of stage 2, by the bar's east end |
 | 🪑 More seats | $5,000 | ★3.8 | Eight more seats at the bar (18 in all) |
 | 🧑‍🌾 Hire a farmer | $6,000 | ★3.9, 🌾 | Harvests the terraces onto a stack on the path |
 | 🥡 Takeout kiosk | $8,000 | ★4.0 | Snowmobiles on the road buy boxes of sushi; the chefs pack them |
 | 🧺 Rice porter | $12,000 | ★4.1, 🌾 | Carries rice from that stack, 12 bags at a time, in through the farm door to the kitchen line |
 | 🌱 Second terrace | $18,000 | ★4.2, 🌾 | Plants the middle terrace |
-| 🔪 Third chef | $25,000 | ★4.3 | A third chef at the bar |
+| 🔪 Third chef | $25,000 | ★4.3, a second chef | A third chef at the bar. Out once there's a second chef |
 | 🌱 Third terrace | $35,000 | ★4.4, second terrace | Plants the top terrace, by the hot spring |
 | 🏮 Premium menu | $60,000 | ★4.5 | Everything sells for 60% more |
 
@@ -136,6 +140,8 @@ TypeScript + [three.js r186](https://threejs.org/), bundled with [Vite](https://
 
 `SIM=1 SIM_MINUTES=60 SIM_OUT=sim.txt npx vitest run test/balance.sim.test.ts` has a bot (`test/bot.ts`) play a fresh game for an hour of game time, in a few seconds, and writes when it bought each upgrade and how its money and earnings grew minute by minute. Use it to check the balance after changing prices; `test/softlock.test.ts` also uses the bot to check a whole game never stalls.
 
+[docs/balance.md](docs/balance.md) sets out the principles the game is balanced by, stage by stage, the numbers that show when something is off, and where each upgrade stands.
+
 `.github/workflows/deploy.yml` runs the tests on every pull request and push. On `main`, it builds and deploys to GitHub Pages only if they pass.
 
 `overrides` in `package.json` lifts Firestore's `@grpc/grpc-js` (pinned to 1.9.x, which has known vulnerabilities) to a patched release. Only Firestore's Node.js build uses it, so the game in the browser is the same either way. Drop the override once `@firebase/firestore` depends on 1.13.6 or later.
@@ -166,9 +172,10 @@ TypeScript + [three.js r186](https://threejs.org/), bundled with [Vite](https://
 | `src/rating.ts` | Reviews and the market rating |
 | `src/bubble.ts` | Order bubbles with patience rings, and mood faces |
 | `src/restaurant.ts` | The sushi bar: kitchen line and cooks, chefs, the plate belt, diners, register |
-| `src/rice.ts` | Rice stall, planting the terraces, the farmer and the rice porter |
+| `src/rice.ts` | The starting rice patch, planting the terraces, the farmer and the rice porter |
 | `src/player.ts` / `src/playerUpdate.ts` | Player entity / per-frame player logic |
-| `src/runner.ts` | Runner AI |
+| `src/runner.ts` | Runner AI, for all three runners |
+| `src/pointers.ts` | Arrows at the edge of the screen pointing the way to new upgrade tiles |
 | `src/unlocks.ts` | Upgrade tiles for both stages and the machines they build |
 | `src/roulette.ts` / `src/casino.ts` | Roulette rules / the table and its betting panel |
 | `src/korki.ts` | Korki's golden statue (a NAMI Klima One) and its memoir panel |

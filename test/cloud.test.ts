@@ -115,7 +115,7 @@ describe('cloud saves', () => {
     await vi.waitFor(() => expect($('cloudPick').hidden).toBe(false));
     expect(document.activeElement).toBe($('cloudPick').querySelector('button')); // a dialog: focus goes there
     expect($('cloudHere').textContent).toBe('Stage 1 · $250 · 1 upgrades · played just now');
-    expect($('cloudThere').textContent).toBe('Stage 2 · $9,000 · 8 upgrades · played just now');
+    expect($('cloudThere').textContent).toBe('Stage 2 · $9,000 · 10 upgrades · played just now');
     ($('cloudPick').querySelector('[data-keep="device"]') as HTMLElement).click();
     await vi.waitFor(() => expect(fake.store.get('u1')?.data).toBe(local()));
     expect($('cloudPick').hidden).toBe(true);
