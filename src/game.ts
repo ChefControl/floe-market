@@ -9,14 +9,16 @@ import { updFlights } from './holder';
 import { updKorki } from './korki';
 import { updLooks } from './looks';
 import { updPlayer } from './playerUpdate';
-import { updHouse } from './rain';
+import { rainK, updHouse } from './rain';
 import { updRestaurant } from './restaurant';
 import { updRice } from './rice';
 import { updRunners } from './runner';
+import { current, SEASON_INFO, updSeason } from './season';
 import { updShop } from './shop';
 import { player } from './player';
 import { updPops } from './pop';
 import { staging, updStage } from './stage';
+import { toast } from './ui';
 import { updAuto, updStars } from './unlocks';
 import { updFloes } from './world';
 
@@ -42,6 +44,7 @@ export function tick(dt: number) {
   updFlights(dt);
   updPops(dt);
   updFloes(time);
+  if (updSeason(dt, player.g.position, rainK)) toast(SEASON_INFO[current()].news, 'season');
   updFarm(dt);
   updStage(dt);
   updShop();

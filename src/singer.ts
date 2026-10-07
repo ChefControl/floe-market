@@ -40,8 +40,9 @@ export function singerLook(p: Person) {
     return m;
   };
 
+  // (the hood and the rest of the season's clothes come off with p.disguised)
   for (const c of p.children) {
-    if (c instanceof Mesh && [G.body, G.hood, G.hoodBack, G.head].includes(c.geometry)) own.push(c);
+    if (c instanceof Mesh && [G.body, G.head].includes(c.geometry)) own.push(c);
   }
   add(mesh(G.head, SKIN, 0, HEAD.y, HEAD.z));
 
@@ -91,6 +92,8 @@ export function singerLook(p: Person) {
   return (on: boolean) => {
     for (const o of own) o.visible = !on;
     for (const o of look) o.visible = on;
+    p.disguised = on;
+    p.wear();
     p.arms.forEach((a, i) => { a.position.x = armX[i] * (on ? BUILD : 1); });
   };
 }

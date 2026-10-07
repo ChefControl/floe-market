@@ -45,7 +45,7 @@ export const MODS: Mod[] = [
   { id: 'training', stage: 1, kind: 'speed', icon: '💪', name: 'Crew training', what: 'Fishing and chopping go faster', per: 1.15, cost: 80, step: 1.75, max: 8 },
   { id: 'specials', stage: 2, kind: 'price', icon: '🍣', name: "Chef's specials", what: 'Sushi sells for more', per: 1.25, cost: 500, step: 1.6 },
   {
-    id: 'promo', stage: 2, kind: 'customers', icon: '📣', name: 'Marketing', what: 'More diners and snowmobiles',
+    id: 'promo', stage: 2, kind: 'customers', icon: '📣', name: 'Marketing', what: 'More diners and drivers',
     levels: ['Menu boards', 'Lantern signs', 'Social media', 'Food critic', 'Magazine', 'Cooking show', 'Gourmet guide', 'World famous'],
     per: 1.2, cost: 800, step: 1.75, max: 8,
   },

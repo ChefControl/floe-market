@@ -134,7 +134,7 @@ export const SLED = makeCounter({
 place(SLED,
   mesh(new BoxGeometry(0.9, 0.9, 2.2), 0xE8F1F6, WIN1.x, FY + 0.45, WIN1.z, true),
   mesh(new BoxGeometry(1.0, 0.08, 2.3), 0xF2B33D, WIN1.x, FY + 0.9, WIN1.z, true),
-  dropPad(SLED.dropPos!, '🛷'),
+  dropPad(SLED.dropPos!, '🚗'),
 );
 
 /**
