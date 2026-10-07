@@ -4,6 +4,7 @@ import { updCasino } from './casino';
 import { C1, C2, postCustomers, updCounter, updLeaving } from './counters';
 import { updChopper, updFish, updHooks } from './fishing';
 import { updFlights } from './holder';
+import { updKorki } from './korki';
 import { updPlayer } from './playerUpdate';
 import { updRunner } from './runner';
 import { updAuto, updPops } from './unlocks';
@@ -15,6 +16,7 @@ export function tick(dt: number) {
   time += dt;
   updPlayer(dt);
   updCasino(dt);
+  updKorki();
   updAuto(dt);
   updFish(dt, time);
   updHooks(dt);

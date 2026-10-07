@@ -28,6 +28,7 @@ npm run dev
 | 🥾 Snow boots | $150 | Walk faster |
 | 🛷 Sled window | $220 | Snowmobiles buy in bulk at $6 a steak |
 | 🕸️ Ice net | $320 | Hauls in fish nonstop |
+| 🛴 Korki's golden statue | $10 | A gold NAMI Klima One on a pedestal, in memory of Korki. Stand on its pad to read his story. On offer from the start |
 
 ### Saving
 
@@ -72,6 +73,7 @@ TypeScript + [three.js r186](https://threejs.org/), bundled with [Vite](https://
 | `src/runner.ts` | Hired helper AI |
 | `src/unlocks.ts` | Upgrade tiles and the machines they build |
 | `src/roulette.ts` / `src/casino.ts` | Roulette rules / the table and its betting panel |
+| `src/korki.ts` | Korki's golden statue (a NAMI Klima One) and its memoir panel |
 | `src/holder.ts` | Item stacks and arcing item flights |
 | `src/characters.ts` | People and sleds, walking |
 | `src/decals.ts` | Deck markings (pads, drop zones, price tiles) |
