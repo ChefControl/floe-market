@@ -4,6 +4,7 @@ import { enableCasino } from './casino';
 import { C2 } from './counters';
 import { decal, drawTile, type Decal } from './decals';
 import { tryCatch } from './fishing';
+import { enableKorki, KORKI } from './korki';
 import { player } from './player';
 import { G, mesh, scene } from './render';
 import { hireRunner } from './runner';
@@ -11,7 +12,7 @@ import { toast } from './ui';
 import { FY, V } from './util';
 import { gapLogs } from './world';
 
-export type UnlockId = 'pack' | 'turret' | 'roulette' | 'runner' | 'boots' | 'sled' | 'net';
+export type UnlockId = 'pack' | 'turret' | 'roulette' | 'runner' | 'boots' | 'sled' | 'net' | 'korki';
 interface Unlock {
   id: UnlockId;
   cost: number;
@@ -20,6 +21,8 @@ interface Unlock {
   icon: string;
   name: string;
   desc: string;
+  /** Offered from the start, outside the two-at-a-time queue. */
+  always?: boolean;
 }
 export interface Tile extends Unlock {
   paid: number;
@@ -35,6 +38,7 @@ const UNLOCKS: Unlock[] = [
   { id: 'boots', cost: 150, x: -6.0, z: 6.2, icon: '🥾', name: 'Snow boots', desc: 'Walk faster' },
   { id: 'sled', cost: 220, x: 6.55, z: -1.0, icon: '🛷', name: 'Sled window', desc: 'Snowmobiles buy in bulk at $6 a steak' },
   { id: 'net', cost: 320, x: -1.9, z: -4.4, icon: '🕸️', name: 'Ice net', desc: 'Hauls in fish nonstop' },
+  { id: 'korki', cost: 10, x: KORKI.x, z: KORKI.z, icon: '🛴', name: "Korki's golden statue", desc: 'In memory of a good scooter', always: true },
 ];
 
 export const tiles: Tile[] = UNLOCKS.map(u => {
@@ -52,9 +56,10 @@ export function redrawTile(t: Tile) {
 // Tiles drawn before the web font loaded fall back to a system font; redraw once it's ready.
 if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => tiles.forEach(redrawTile));
 
-/** At most two unpaid tiles are offered at a time, in order. */
+/** At most two unpaid upgrades are offered at a time, in order, plus any that are always on offer. */
 export function visibleTiles() {
-  const v = tiles.filter(t => !t.done).slice(0, 2);
+  const next = tiles.filter(t => !t.done && !t.always).slice(0, 2);
+  const v = tiles.filter(t => !t.done && (t.always || next.includes(t)));
   tiles.forEach(t => { t.d.mesh.visible = v.includes(t); });
   return v;
 }
@@ -124,6 +129,7 @@ export function applyUnlock(id: UnlockId, silent = false) {
     C2.meshes.forEach(m => { m.visible = true; if (!silent && m.geometry.type === 'BoxGeometry') popIn(m); });
   }
   if (id === 'net') { net = buildNet(); if (!silent) popIn(net.g); }
+  if (id === 'korki') { const g = enableKorki(); if (!silent) popIn(g); }
   if (!silent) {
     toast(t.name + ' unlocked');
     if (tiles.every(x => x.done)) setTimeout(() => toast('Floe Market is fully built'), 1800);

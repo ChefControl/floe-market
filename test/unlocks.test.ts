@@ -3,10 +3,12 @@ import { describe, expect, it, vi } from 'vitest';
 import { bought, loadGame } from './helpers';
 
 describe('unlocks', () => {
-  it('offers the next two unpaid upgrades in order', async () => {
+  it('offers the next two unpaid upgrades in order, plus the statue', async () => {
     const g = await loadGame();
-    expect(g.unlocks.visibleTiles().map(t => t.id)).toEqual(['pack', 'turret']);
+    expect(g.unlocks.visibleTiles().map(t => t.id)).toEqual(['pack', 'turret', 'korki']);
     g.unlocks.applyUnlock('pack');
+    expect(g.unlocks.visibleTiles().map(t => t.id)).toEqual(['turret', 'roulette', 'korki']);
+    g.unlocks.applyUnlock('korki');
     expect(g.unlocks.visibleTiles().map(t => t.id)).toEqual(['turret', 'roulette']);
   });
 
@@ -49,7 +51,7 @@ describe('unlocks', () => {
   });
 
   it('announces unlocks, and when everything is built', async () => {
-    const g = await loadGame({ tiles: bought('pack', 'turret', 'roulette', 'runner', 'boots', 'sled') });
+    const g = await loadGame({ tiles: bought('pack', 'turret', 'roulette', 'runner', 'boots', 'sled', 'korki') });
     vi.useFakeTimers();
     const toast = document.getElementById('toast')!;
     g.unlocks.applyUnlock('net');

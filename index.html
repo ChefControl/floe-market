@@ -144,6 +144,20 @@ body{
 #history .pocket{ width:20px; height:20px; border-radius:50%; display:grid; place-items:center; font-size:11px; font-weight:800; color:#fff; }
 .pocket.red{ background:#D8394B; } .pocket.black{ background:#22303C; } .pocket.green{ background:#2E9E49; }
 
+#korki{
+  position:fixed; left:50%; top:calc(env(safe-area-inset-top,0px) + 118px); transform:translateX(-50%);
+  z-index:4; width:min(94vw,480px); max-height:min(40vh,400px); overflow-y:auto; box-sizing:border-box;
+  touch-action:pan-y; -webkit-overflow-scrolling:touch; user-select:text; -webkit-user-select:text;
+  background:var(--pill); color:var(--pill-ink); border-radius:24px; padding:16px 20px 18px;
+  box-shadow:0 4px 0 var(--shade), inset 0 0 0 3px #E3A92B;
+}
+#korki[hidden]{ display:none; }
+#korki h2{ margin:0; font-size:30px; font-weight:800; line-height:1; color:#C98F1B; }
+#korki .sub{ margin:2px 0 10px; font-size:14px; font-weight:600; opacity:.75; }
+#korki p{ margin:0 0 9px; font-size:16px; font-weight:600; line-height:1.35; }
+#korki .sign{ margin:12px 0 0; font-weight:800; }
+#korki .song{ margin:10px 0 0; font-size:13px; opacity:.7; }
+
 #err{ position:fixed; left:12px; right:12px; bottom:calc(env(safe-area-inset-bottom,0px) + 12px); z-index:9; color:#fff; background:#B3261E; border-radius:12px; padding:10px 14px; font:600 15px system-ui,sans-serif; display:none; }
 </style>
 </head>
@@ -184,6 +198,15 @@ body{
     <div id="history" aria-label="Recent results"></div>
   </div>
 </div>
+<section id="korki" hidden aria-label="Korki">
+  <h2>Korki</h2>
+  <p class="sub">NAMI Klima One · 5,000 km · Tel Aviv</p>
+  <p>You were never just a scooter. You were Korki.</p>
+  <p>Together we rode 5,000 kilometers, an eighth of the way around the earth, one Tel Aviv street at a time. Your brakes never let me down, and when I opened the throttle you made the whole city feel small.</p>
+  <p>Then someone took you, never knowing your name. So here you stand, in gold, where nobody can take you. Thank you for every kilometer.</p>
+  <p class="sign">Love,<br>Oran</p>
+  <p class="song">♪ Stay a while: Car Alarm (extended reprise), by pat’s soundhouse</p>
+</section>
 <div id="stick"><div id="knob"></div></div>
 <div id="err"></div>
 
