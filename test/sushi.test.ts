@@ -19,13 +19,13 @@ async function dinersOnly(save: Parameters<typeof loadGame>[0]) {
 }
 
 describe('opening the restaurant', () => {
-  it('goes on sale once the market is fully built, and its upgrades once it opens', async () => {
+  it("goes on sale once the market is fully built (Korki's statue isn't needed), and its upgrades once it opens", async () => {
     const g = await loadGame({ tiles: bought(...MARKET.slice(0, -1)) });
-    expect(offered(g)).toEqual(['net']);
+    expect(offered(g)).toEqual(['net', 'korki']);
     g.unlocks.applyUnlock('net');
-    expect(offered(g)).toEqual(['sushi']);
+    expect(offered(g)).toEqual(['sushi', 'korki']);
     g.unlocks.applyUnlock('sushi');
-    expect(offered(g)).toEqual(['seats', 'chef']);
+    expect(offered(g)).toEqual(['seats', 'chef', 'korki']);
   });
 
   it('opens a gate in the fence to walk through', async () => {

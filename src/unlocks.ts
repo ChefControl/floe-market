@@ -5,6 +5,7 @@ import { buildConveyor } from './conveyor';
 import { C2 } from './counters';
 import { decal, drawTile, type Decal } from './decals';
 import { tryCatch } from './fishing';
+import { enableKorki, KORKI } from './korki';
 import { player } from './player';
 import { rating } from './rating';
 import { G, mesh, scene } from './render';
@@ -16,7 +17,7 @@ import { gapLogs, openWestGaps } from './world';
 
 export type UnlockId =
   | 'pack' | 'turret' | 'roulette' | 'runner' | 'boots' | 'sled' | 'net'
-  | 'sushi' | 'seats' | 'chef' | 'premium';
+  | 'sushi' | 'seats' | 'chef' | 'premium' | 'korki';
 interface Unlock {
   id: UnlockId;
   cost: number;
@@ -29,6 +30,8 @@ interface Unlock {
   stars?: number;
   /** The market's own upgrades, or the sushi restaurant and its upgrades. */
   zone: 'market' | 'sushi';
+  /** Offered from the start, outside the two-at-a-time queue (and not needed for the market to count as built). */
+  always?: boolean;
 }
 export interface Tile extends Unlock {
   paid: number;
@@ -52,6 +55,7 @@ const UNLOCKS: Unlock[] = [
   { id: 'seats', cost: 900, x: -21.4, z: -3.7, icon: '🪑', name: 'More seats', desc: 'Four more seats round the bar', stars: 4.3, zone: 'sushi' },
   { id: 'chef', cost: 1500, x: -19.0, z: -3.7, icon: '🔪', name: 'Second chef', desc: 'Twice the sushi', stars: 4.4, zone: 'sushi' },
   { id: 'premium', cost: 2500, x: -16.6, z: -3.7, icon: '🏮', name: 'Premium menu', desc: 'New plates sell for $20', stars: 4.6, zone: 'sushi' },
+  { id: 'korki', cost: 10, x: KORKI.x, z: KORKI.z, icon: '🛴', name: "Korki's golden statue", desc: 'In memory of a good scooter', zone: 'market', always: true },
 ];
 
 export const locked = (t: Tile) => !!t.stars && !t.open;
@@ -78,14 +82,15 @@ export function redrawTile(t: Tile) {
 // Tiles drawn before the web font loaded fall back to a system font; redraw once it's ready.
 if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => tiles.forEach(redrawTile));
 
-const zoneBuilt = (zone: Unlock['zone']) => tiles.every(t => t.zone !== zone || t.done);
+const zoneBuilt = (zone: Unlock['zone']) => tiles.every(t => t.zone !== zone || t.always || t.done);
 const isDone = (id: UnlockId) => tiles.some(t => t.id === id && t.done);
 /** The restaurant goes on sale once the market is fully built; its own upgrades once it's open. */
 const offered = (t: Tile) => t.zone === 'market' || (t.id === 'sushi' ? zoneBuilt('market') : isDone('sushi'));
 
-/** At most two unpaid tiles are offered at a time, in order. */
+/** At most two unpaid upgrades are offered at a time, in order, plus any that are always on offer. */
 export function visibleTiles() {
-  const v = tiles.filter(t => !t.done && offered(t)).slice(0, 2);
+  const next = tiles.filter(t => !t.done && !t.always && offered(t)).slice(0, 2);
+  const v = tiles.filter(t => !t.done && (t.always || next.includes(t)));
   tiles.forEach(t => { t.d.mesh.visible = v.includes(t); });
   return v;
 }
@@ -179,9 +184,10 @@ export function applyUnlock(id: UnlockId, silent = false) {
   if (id === 'seats') { const stools = addSeats(); if (!silent) stools.forEach(popIn); }
   if (id === 'chef') { const c = hireChef(); if (!silent) popIn(c); }
   if (id === 'premium') setPremium();
+  if (id === 'korki') { const g = enableKorki(); if (!silent) popIn(g); }
   if (!silent) {
     toast(t.name + ' unlocked');
-    if (zoneBuilt(t.zone)) {
+    if (!t.always && zoneBuilt(t.zone)) {
       setTimeout(() => toast(t.zone === 'market' ? 'Floe Market is fully built' : 'Floe Sushi is fully built'), 1800);
     }
   }
