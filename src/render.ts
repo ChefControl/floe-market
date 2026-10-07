@@ -42,6 +42,16 @@ function resize() {
 window.addEventListener('resize', resize);
 resize();
 
+/** Slides what the camera shows by (x, y) screen pixels: the scene moves left by x and up by y. */
+export function slideView(x: number, y: number) {
+  if (Math.abs(x) < 0.5 && Math.abs(y) < 0.5) {
+    if (camera.view?.enabled) camera.clearViewOffset();
+    return;
+  }
+  const w = window.innerWidth, h = window.innerHeight;
+  camera.setViewOffset(w, h, x, y, w, h);
+}
+
 // Intensities are scaled by PI to match the legacy lighting mode (removed in r165), which multiplied
 // hemisphere and directional light by PI.
 /** The sky colour and light levels in clear weather (stage 2 turns them to dusk; the rain greys them out). */

@@ -142,6 +142,7 @@ function markStale() {
   if (stale) return;
   stale = true;
   document.getElementById('stale')?.removeAttribute('hidden');
+  document.querySelector<HTMLElement>('#stale button')?.focus(); // it's a dialog: keyboards and screen readers go there
 }
 
 /** Asks the browser not to evict our storage when space runs low. Some browsers ask the player. */
