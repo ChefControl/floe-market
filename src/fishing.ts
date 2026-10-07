@@ -75,7 +75,10 @@ interface Hook {
 let incomingFish = 0;
 const hooks: Hook[] = [];
 
-function projectedPile() { return pile.n + incomingFish * 3; }
+/** Steaks still on their way: fish being reeled in or chopped. */
+export function steaksInProgress() { return incomingFish * 3; }
+
+function projectedPile() { return pile.n + steaksInProgress(); }
 
 /**
  * Hooks the nearest free fish in range and reels it to the chopping block.

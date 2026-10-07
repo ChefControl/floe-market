@@ -4,6 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
 <title>Floe Market</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#CFEAF5">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Floe Market">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&display=swap" rel="stylesheet">
@@ -16,14 +23,15 @@
   --coral:#FF6B4A;
   --bg:#CFEAF5;
   --shade:rgba(23,48,66,.22);
+  --chip:rgba(23,48,66,.09);
   box-sizing:border-box;
   padding-top:env(safe-area-inset-top,0px);
   padding-bottom:env(safe-area-inset-bottom,0px);
 }
 @media (prefers-color-scheme: dark){
-  :root:not([data-theme="light"]){ --pill:rgba(16,36,50,.92); --pill-ink:#EAF6FB; --bg:#0F2230; --shade:rgba(0,0,0,.4); }
+  :root:not([data-theme="light"]){ --pill:rgba(16,36,50,.92); --pill-ink:#EAF6FB; --bg:#0F2230; --shade:rgba(0,0,0,.4); --chip:rgba(255,255,255,.12); }
 }
-:root[data-theme="dark"]{ --pill:rgba(16,36,50,.92); --pill-ink:#EAF6FB; --bg:#0F2230; --shade:rgba(0,0,0,.4); }
+:root[data-theme="dark"]{ --pill:rgba(16,36,50,.92); --pill-ink:#EAF6FB; --bg:#0F2230; --shade:rgba(0,0,0,.4); --chip:rgba(255,255,255,.12); }
 html{ scroll-padding-top:env(safe-area-inset-top,0px); height:100%; }
 html,body{ margin:0; height:100%; overflow:hidden; background:var(--bg); }
 body{
@@ -86,6 +94,14 @@ body{
 #intro h1{ margin:0; font-size:clamp(54px,15vw,96px); font-weight:800; line-height:.9; letter-spacing:-1px; }
 #intro h1 span{ display:block; font-size:.42em; letter-spacing:0; color:#FFB39F; }
 #intro p{ margin:18px 0 0; font-size:20px; font-weight:600; }
+#intro p.small{ margin-top:4px; font-size:15px; opacity:.85; }
+
+#stale{ position:fixed; inset:0; z-index:8; display:grid; place-items:center; background:rgba(23,48,66,.55); }
+#stale[hidden]{ display:none; }
+#stale .card{ text-align:center; background:var(--pill); color:var(--pill-ink); padding:22px 26px; border-radius:24px; max-width:min(86vw,360px); box-shadow:0 4px 0 var(--shade); }
+#stale p{ margin:0 0 14px; font-size:19px; font-weight:600; }
+#stale button{ font:800 18px "Baloo 2","Trebuchet MS",system-ui,sans-serif; background:var(--coral); color:#fff; border:0; border-radius:999px; padding:8px 22px; cursor:pointer; box-shadow:0 3px 0 rgba(150,45,25,.45); }
+#stale button:focus-visible{ outline:3px solid var(--pill-ink); outline-offset:2px; }
 
 #stick{
   position:fixed; width:110px; height:110px; margin:-55px 0 0 -55px; border-radius:50%;
@@ -102,6 +118,32 @@ body{
 @keyframes rise{ to{ transform:translate(-50%,-180%); opacity:0; } }
 @media (prefers-reduced-motion: reduce){ .pop{ animation-duration:.01s; } #cash{ transition:none; } }
 
+#casino{
+  position:fixed; left:50%; bottom:calc(env(safe-area-inset-bottom,0px) + 14px); transform:translateX(-50%);
+  z-index:4; width:min(94vw,540px); box-sizing:border-box; display:flex; gap:14px; align-items:center;
+  background:var(--pill); color:var(--pill-ink); border-radius:24px; padding:12px 14px; box-shadow:0 4px 0 var(--shade);
+}
+#casino[hidden]{ display:none; }
+#wheel{ width:clamp(104px,30vw,150px); height:auto; aspect-ratio:1; flex:none; }
+#casino .side{ flex:1; min-width:0; display:flex; flex-direction:column; gap:7px; }
+#casinoMsg{ margin:0; font-size:17px; font-weight:800; line-height:1.15; }
+#casino .chips{ display:flex; flex-wrap:wrap; gap:5px; }
+#casino button{ font:700 14px "Baloo 2","Trebuchet MS",system-ui,sans-serif; color:inherit; border:0; border-radius:999px; cursor:pointer; }
+#casino .chips button, #numPick button{ background:var(--chip); padding:3px 10px; line-height:1.2; }
+#casino .chips button[aria-pressed="true"]{ background:var(--pill-ink); color:var(--pill); }
+#casino .chips .red{ color:#D8394B; }
+#casino .chips .red[aria-pressed="true"]{ background:#D8394B; color:#fff; }
+#casino button:disabled{ opacity:.4; cursor:default; }
+#casino button:focus-visible{ outline:3px solid var(--coral); outline-offset:1px; }
+#numPick{ display:flex; align-items:center; gap:8px; font-weight:800; font-size:17px; }
+#numPick[hidden]{ display:none; }
+#numPick button{ width:30px; padding:2px 0; font-size:17px; }
+#numVal{ min-width:24px; text-align:center; }
+#spin{ background:var(--coral) !important; color:#fff !important; padding:7px 12px; font-size:15px !important; box-shadow:0 3px 0 rgba(150,45,25,.45); }
+#history{ display:flex; gap:4px; flex-wrap:wrap; min-height:20px; }
+#history .pocket{ width:20px; height:20px; border-radius:50%; display:grid; place-items:center; font-size:11px; font-weight:800; color:#fff; }
+.pocket.red{ background:#D8394B; } .pocket.black{ background:#22303C; } .pocket.green{ background:#2E9E49; }
+
 #err{ position:fixed; left:12px; right:12px; bottom:calc(env(safe-area-inset-bottom,0px) + 12px); z-index:9; color:#fff; background:#B3261E; border-radius:12px; padding:10px 14px; font:600 15px system-ui,sans-serif; display:none; }
 </style>
 </head>
@@ -115,7 +157,33 @@ body{
 <button id="restart" type="button">Restart</button>
 <div id="toast"></div>
 <div id="tip" class="pill"></div>
-<div id="intro"><div class="card"><h1>Floe<span>Market</span></h1><p>Drag anywhere to walk</p></div></div>
+<div id="intro"><div class="card"><h1>Floe<span>Market</span></h1><p>Drag anywhere to walk</p><p class="small">Progress saves automatically on this device</p></div></div>
+<div id="stale" hidden><div class="card"><p>Floe Market is open in another tab, so this one stopped saving.</p><button type="button">Play here instead</button></div></div>
+<div id="casino" hidden>
+  <canvas id="wheel" width="240" height="240" aria-label="Roulette wheel"></canvas>
+  <div class="side">
+    <p id="casinoMsg" aria-live="polite"></p>
+    <div class="chips" id="betKinds" aria-label="Bet">
+      <button type="button" data-bet="red" class="red">Red</button>
+      <button type="button" data-bet="black">Black</button>
+      <button type="button" data-bet="odd">Odd</button>
+      <button type="button" data-bet="even">Even</button>
+      <button type="button" data-bet="low">1–18</button>
+      <button type="button" data-bet="high">19–36</button>
+      <button type="button" data-bet="number">Number</button>
+    </div>
+    <div id="numPick" hidden><button type="button" data-step="-1" aria-label="Lower number">−</button><span id="numVal"></span><button type="button" data-step="1" aria-label="Higher number">+</button></div>
+    <div class="chips" id="stakes" aria-label="Stake">
+      <button type="button" data-stake="5">$5</button>
+      <button type="button" data-stake="25">$25</button>
+      <button type="button" data-stake="100">$100</button>
+      <button type="button" data-stake="500">$500</button>
+      <button type="button" data-stake="all">All in</button>
+    </div>
+    <button type="button" id="spin"></button>
+    <div id="history" aria-label="Recent results"></div>
+  </div>
+</div>
 <div id="stick"><div id="knob"></div></div>
 <div id="err"></div>
 

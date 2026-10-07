@@ -20,12 +20,13 @@ export function fly(m: Object3D, toFn: () => Vector3, dur: number, arc: number, 
 }
 
 export function updFlights(dt: number) {
-  for (let i = flights.length - 1; i >= 0; i--) {
+  // Forward, so flights that finish on the same frame land in launch order (and in their reserved slots).
+  for (let i = 0; i < flights.length; i++) {
     const f = flights[i]; f.t += dt;
     const k = Math.min(1, f.t / f.dur), e = k < .5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
     f.m.position.lerpVectors(f.from, f.toFn(), e);
     f.m.position.y += f.arc * 4 * k * (1 - k);
-    if (k >= 1) { flights.splice(i, 1); if (f.done) f.done(); }
+    if (k >= 1) { flights.splice(i--, 1); if (f.done) f.done(); }
   }
 }
 
@@ -36,7 +37,7 @@ export type Slot = (i: number) => Vector3;
 export class Holder {
   items: Mesh[] = [];
   /** Items currently flying in; they already count toward capacity. */
-  incoming = 0;
+  inbound: Mesh[] = [];
   slot: Slot;
   cap: number;
 
@@ -45,14 +46,17 @@ export class Holder {
     this.cap = cap;
   }
 
-  get n() { return this.items.length + this.incoming; }
+  get incoming() { return this.inbound.length; }
+  get n() { return this.items.length + this.inbound.length; }
   hasRoom() { return this.n < this.cap; }
+  /** Everything held, including items still flying in. */
+  all() { return this.items.concat(this.inbound); }
 
   receive(m: Mesh, dur = 0.3, arc = 0.9, cb?: (m: Mesh) => void) {
-    const idx = this.n; this.incoming++;
+    const idx = this.n; this.inbound.push(m);
     if (!m.parent) scene.add(m);
     fly(m, () => this.slot(idx), dur, arc, () => {
-      this.incoming--; this.items.push(m);
+      this.inbound.splice(this.inbound.indexOf(m), 1); this.items.push(m);
       m.position.copy(this.slot(this.items.length - 1));
       if (cb) cb(m);
     });

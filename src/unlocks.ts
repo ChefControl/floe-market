@@ -1,5 +1,6 @@
 // Purchasable upgrades: pay-in tiles on the deck and the machines they build.
 import { BoxGeometry, Group, Mesh, MeshBasicMaterial, Object3D, PlaneGeometry, Vector3 } from 'three';
+import { enableCasino } from './casino';
 import { C2 } from './counters';
 import { decal, drawTile, type Decal } from './decals';
 import { tryCatch } from './fishing';
@@ -10,7 +11,7 @@ import { toast } from './ui';
 import { FY, V } from './util';
 import { gapLogs } from './world';
 
-export type UnlockId = 'pack' | 'turret' | 'runner' | 'boots' | 'sled' | 'net';
+export type UnlockId = 'pack' | 'turret' | 'roulette' | 'runner' | 'boots' | 'sled' | 'net';
 interface Unlock {
   id: UnlockId;
   cost: number;
@@ -29,6 +30,7 @@ export interface Tile extends Unlock {
 const UNLOCKS: Unlock[] = [
   { id: 'pack', cost: 25, x: -1.3, z: 6.0, icon: '🎒', name: 'Bigger arms', desc: 'Carry 14 steaks at once' },
   { id: 'turret', cost: 60, x: -6.0, z: -3.3, icon: '🎯', name: 'Auto harpoon', desc: 'Keeps catching fish while you are away' },
+  { id: 'roulette', cost: 80, x: -4.3, z: 0.6, icon: '🎰', name: 'Roulette table', desc: 'Bet your cash on the wheel' },
   { id: 'runner', cost: 120, x: -4.0, z: 3.6, icon: '🏃', name: 'Hire a runner', desc: 'Carries steaks to your counters' },
   { id: 'boots', cost: 150, x: -6.0, z: 6.2, icon: '🥾', name: 'Snow boots', desc: 'Walk faster' },
   { id: 'sled', cost: 220, x: 6.55, z: -1.0, icon: '🛷', name: 'Sled window', desc: 'Snowmobiles buy in bulk at $6 a steak' },
@@ -113,6 +115,7 @@ export function applyUnlock(id: UnlockId, silent = false) {
   t.done = true; t.d.mesh.visible = false;
   if (id === 'pack') player.back.cap = 14;
   if (id === 'turret') { turret = buildTurret(); if (!silent) popIn(turret.g); }
+  if (id === 'roulette') { const g = enableCasino(); if (!silent) popIn(g); }
   if (id === 'runner') { const r = hireRunner(); if (!silent) popIn(r.g); }
   if (id === 'boots') player.speed = 5.8;
   if (id === 'sled') {
