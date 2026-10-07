@@ -5,16 +5,30 @@ import { bought, loadGame } from './helpers';
 
 const $ = (id: string) => document.getElementById(id)!;
 
-/** Stand-in for YouTube's player API that records what the game asks of each player. */
-function fakeYouTube() {
-  const log = { ids: [] as string[], vars: [] as Record<string, unknown>[], play: 0, pause: 0, seek: [] as number[], vol: [] as number[] };
+interface FakeEvents {
+  onReady: (e: { target: unknown }) => void;
+  onStateChange: (e: { data: number }) => void;
+  onError: (e: { data: number }) => void;
+}
+
+/**
+ * Stand-in for YouTube's player API that records what the game asks of each player. With `starts`, playVideo()
+ * reports the player as playing, as YouTube does when the browser lets it; without, it stays silent, and the test
+ * can play YouTube's part through `events`.
+ */
+function fakeYouTube(starts = false) {
+  const log = {
+    ids: [] as string[], vars: [] as Record<string, unknown>[], play: 0, pause: 0, seek: [] as number[], vol: [] as number[],
+    events: null as FakeEvents | null,
+  };
   class Player {
-    constructor(_el: HTMLElement, o: { videoId: string; playerVars: Record<string, unknown>; events: { onReady: (e: { target: Player }) => void } }) {
+    constructor(_el: HTMLElement, o: { videoId: string; playerVars: Record<string, unknown>; events: FakeEvents }) {
       log.ids.push(o.videoId);
       log.vars.push(o.playerVars);
+      log.events = o.events;
       o.events.onReady({ target: this });
     }
-    playVideo() { log.play++; }
+    playVideo() { log.play++; if (starts) log.events!.onStateChange({ data: 1 }); }
     pauseVideo() { log.pause++; }
     seekTo(s: number) { log.seek.push(s); }
     setVolume(v: number) { log.vol.push(v); }
@@ -160,6 +174,75 @@ describe('her house', () => {
       expect(log.play).toBe(1);
       btn.click();
       expect(log.play).toBe(2);
+    });
+
+    it('says nothing on the banner while the song plays', async () => {
+      fakeYouTube(true);
+      const { g, toPad } = await house();
+      toPad();
+      g.run(5);
+      expect($('rainHint').hidden).toBe(true);
+    });
+
+    it("asks for a tap when the browser won't start it, and starts it on that tap", async () => {
+      const log = fakeYouTube();
+      const { g, rain, toPad } = await house();
+      toPad();
+      g.run(1.5);
+      expect(log.play).toBe(1);
+      expect($('rainHint').hidden).toBe(true); // give YouTube a moment first
+      g.run(1);
+      expect($('rainHint').hidden).toBe(false);
+      expect($('rainHint').textContent).toBe('Tap anywhere to hear the song');
+      window.dispatchEvent(new Event('pointerdown'));
+      expect(log.play).toBe(2);
+      log.events!.onStateChange({ data: 3 }); // buffering, then playing
+      g.run(0.1);
+      expect($('rainHint').hidden).toBe(true);
+      log.events!.onStateChange({ data: 1 });
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'a' }));
+      expect(log.play).toBe(2); // already playing: taps leave it alone
+      g.placePlayer(15, rain.RAIN_PAD.z);
+      g.run(0.1);
+      expect($('rain').hidden).toBe(true);
+    });
+
+    it("says so when YouTube won't play the video outside YouTube", async () => {
+      const log = fakeYouTube();
+      const { g, toPad } = await house();
+      toPad();
+      g.run(0.5);
+      log.events!.onError({ data: 150 });
+      g.run(0.1);
+      expect($('rainHint').textContent).toBe("YouTube won't play this song here. Tap its name to listen on YouTube");
+      window.dispatchEvent(new Event('pointerdown'));
+      expect(log.play).toBe(1); // no point retrying
+    });
+
+    it("says so when YouTube's player doesn't load", async () => {
+      const { g, toPad } = await house();
+      toPad();
+      g.run(5);
+      expect($('rainHint').hidden).toBe(true);
+      g.run(1.5);
+      expect($('rainHint').textContent).toBe("Couldn't load YouTube's player. Check your connection, or allow YouTube in your ad blocker");
+      const log = fakeYouTube();
+      window.onYouTubeIframeAPIReady!(); // it turns up after all
+      g.run(0.1);
+      expect(log.play).toBe(1);
+      expect($('rainHint').hidden).toBe(true);
+    });
+
+    it('points at the mute button while muted', async () => {
+      fakeYouTube();
+      const { g, toPad } = await house();
+      ($('rainMute') as HTMLButtonElement).click();
+      toPad();
+      g.run(0.1);
+      expect($('rainHint').textContent).toBe('Tap 🔇 to hear the song');
+      ($('rainMute') as HTMLButtonElement).click();
+      g.run(0.1);
+      expect($('rainHint').hidden).toBe(true);
     });
 
     it('starts muted on iPhone, where it cannot be faded', async () => {

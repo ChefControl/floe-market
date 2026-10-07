@@ -174,7 +174,11 @@ body{
 #rain{
   position:fixed; left:50%; top:calc(env(safe-area-inset-top,0px) + 118px); transform:translateX(-50%);
   z-index:4; font-size:17px; padding:4px 16px 4px 4px; white-space:nowrap; box-shadow:0 3px 0 var(--shade), inset 0 0 0 3px #7D8995;
+  flex-wrap:wrap; justify-content:center; row-gap:4px; width:max-content; max-width:min(92vw,400px); box-sizing:border-box;
 }
+#rain:has(#rainHint:not([hidden])){ border-radius:22px; padding:6px 14px 8px 6px; }
+#rainHint{ flex-basis:100%; text-align:center; white-space:normal; font-size:14px; font-weight:600; line-height:1.25; }
+#rainHint[hidden]{ display:none; }
 #rain[hidden]{ display:none; }
 #rainMute{ width:34px; height:34px; border:0; border-radius:50%; background:var(--chip); color:inherit; font-size:17px; line-height:1; cursor:pointer; }
 #rainMute:focus-visible{ outline:3px solid #7D8995; outline-offset:2px; }
@@ -237,6 +241,7 @@ body{
 <div id="rain" class="pill" hidden>
   <button type="button" id="rainMute" aria-label="Mute the song"></button>
   <a id="rainSong" href="https://www.youtube.com/watch?v=OQE1efu22BM&amp;t=107s" target="_blank" rel="noopener" lang="he" dir="rtl">♪ מאוהב בגשם · עופר לוי</a>
+  <span id="rainHint" role="status" hidden></span>
 </div>
 <div id="stick"><div id="knob"></div></div>
 <div id="err"></div>
