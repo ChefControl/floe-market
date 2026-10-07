@@ -82,10 +82,10 @@ describe("Korki's statue", () => {
       g.run(3);
       const mid = log.vol[log.vol.length - 1];
       expect(mid).toBeGreaterThan(3);
-      expect(mid).toBeLessThan(15);
+      expect(mid).toBeLessThan(10);
       g.run(4);
-      expect(log.vol[log.vol.length - 1]).toBe(15);
-      expect(Math.max(...log.vol)).toBe(15);
+      expect(log.vol[log.vol.length - 1]).toBe(10);
+      expect(Math.max(...log.vol)).toBe(10);
     });
 
     it('fades out and pauses after walking away, and comes back next visit', async () => {
@@ -93,10 +93,10 @@ describe("Korki's statue", () => {
       const g = await onPad();
       g.run(12);
       g.placePlayer(0, 0);
-      g.run(2);
-      expect(log.vol[log.vol.length - 1]).toBeGreaterThan(5);
+      g.run(1);
+      expect(log.vol[log.vol.length - 1]).toBeGreaterThan(3);
       expect(log.pause).toBe(0);
-      g.run(2.5);
+      g.run(1.6);
       expect(log.vol[log.vol.length - 1]).toBe(0);
       expect(log.pause).toBe(1);
       const { KORKI } = await import('../src/korki');

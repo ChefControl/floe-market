@@ -227,9 +227,9 @@ const SONG = 'jcutNFPwXPE';
 /** Seconds on the pad before the song starts. */
 const LINGER = 3;
 /** Song volume (YouTube's 0-100 scale): kept low, it's background. */
-const MAX_VOL = 15;
+const MAX_VOL = 10;
 /** Seconds for a full fade in / fade out. */
-const FADE_IN = 6, FADE_OUT = 4;
+const FADE_IN = 6, FADE_OUT = 2.5;
 
 interface YTPlayer {
   playVideo(): void;
