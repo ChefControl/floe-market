@@ -9,7 +9,7 @@ const stored = () => localStorage.getItem('floe-market-v1') ?? '';
 it('boots from a save, renders, autosaves and restarts', async () => {
   const g = await loadGame({ money: 7 }, { main: true });
   expect($('intro').classList.contains('gone')).toBe(true);
-  expect(stored()).toContain('"v":3'); // claims the save at once, so older tabs step aside
+  expect(stored()).toContain('"v":4'); // claims the save at once, so older tabs step aside
 
   // render loop
   const render = vi.spyOn(g.render.renderer, 'render');

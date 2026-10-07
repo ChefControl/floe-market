@@ -1,8 +1,9 @@
-// DOM overlay: cash/carry/rating HUD, toasts, tile tips and floating "+$" text.
+// DOM overlay: cash/carry/rating HUD, the stage chip, toasts, tile tips, floating "+$" text, and the stage-up's
+// banner and confetti.
 import { player } from './player';
 import { rating } from './rating';
 import { camera } from './render';
-import { V } from './util';
+import { pick, rand, V } from './util';
 import { wallet } from './wallet';
 
 const $ = (id: string) => document.getElementById(id)!;
@@ -30,6 +31,57 @@ export function hud(dt: number) {
   }
   if (wallet.bumpT > 0) { wallet.bumpT -= dt; cashEl.classList.add('bump'); }
   else cashEl.classList.remove('bump');
+  if (bits.length) drawConfetti(dt);
+}
+
+// ---------- stage ----------
+const stageEl = $('stage'), stageNum = $('stageNum'), stageName = $('stageName'), stageBar = $('stageBar'), stageCount = $('stageCount');
+/** The stage chip: which stage, and how many of its upgrades are built. */
+export function showStage(n: 1 | 2, done: number, total: number) {
+  stageEl.classList.toggle('s2', n === 2);
+  stageNum.textContent = String(n);
+  stageName.textContent = n === 1 ? 'Fish Market' : 'Floe Sushi';
+  stageBar.style.width = Math.round(done / total * 100) + '%';
+  stageCount.textContent = done < total ? `${done}/${total}` : n === 1 ? 'Floe Sushi ready' : 'Complete';
+  stageEl.classList.toggle('ready', done >= total);
+}
+
+const bannerEl = $('banner');
+/** The big centred banner for the stage-up; `null` hides it. */
+export function banner(kicker: string | null, title = '') {
+  if (kicker === null) { bannerEl.classList.remove('on'); return; }
+  bannerEl.querySelector('.k')!.textContent = kicker;
+  bannerEl.querySelector('.t')!.textContent = title;
+  bannerEl.classList.add('on');
+}
+
+const confettiEl = $('confetti') as HTMLCanvasElement, cctx = confettiEl.getContext('2d')!;
+const COLORS = ['#FFC34A', '#FF6B4A', '#49C25B', '#5B8DEF', '#FFFFFF', '#E0392B'];
+interface Bit { x: number; y: number; vx: number; vy: number; r: number; c: string; a: number; va: number }
+let bits: Bit[] = [];
+/** A burst of confetti from the middle of the screen (none for players who'd rather not have motion). */
+export function confetti() {
+  if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+  const k = Math.min(window.devicePixelRatio || 1, 2);
+  const w = confettiEl.width = window.innerWidth * k, h = confettiEl.height = window.innerHeight * k;
+  for (let i = 0; i < 160; i++) {
+    bits.push({
+      x: w / 2 + rand(-w * .2, w * .2), y: h * .45, vx: rand(-1, 1) * w * .5, vy: rand(-1.2, -.4) * h,
+      r: rand(4, 9) * k, c: pick(COLORS), a: rand(0, 6), va: rand(-8, 8),
+    });
+  }
+}
+function drawConfetti(dt: number) {
+  const w = confettiEl.width, h = confettiEl.height;
+  cctx.clearRect(0, 0, w, h);
+  for (const p of bits) {
+    p.vy += h * 1.1 * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= 0.99; p.a += p.va * dt;
+    cctx.save(); cctx.translate(p.x, p.y); cctx.rotate(p.a);
+    cctx.fillStyle = p.c; cctx.fillRect(-p.r, -p.r / 2, p.r * 2, p.r);
+    cctx.restore();
+  }
+  bits = bits.filter(p => p.y < h + 40);
+  if (!bits.length) cctx.clearRect(0, 0, w, h);
 }
 
 const toastEl = $('toast');

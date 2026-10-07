@@ -10,14 +10,16 @@ import { d2xz, FY } from './util';
 
 /**
  * Statue centre, out on the snow past the bottom fence where no one walks, and its heading:
- * turned a little so the camera sees the side and a bit of the front.
+ * turned a little so the camera sees the side and a bit of the front. Stage 2 moves it to the restaurant's garden.
  */
-export const STATUE = { x: -3.7, z: 10.3, h: CAM_YAW - 0.35 };
+export const STATUE = { x: -3.7, y: FY, z: 10.3, h: CAM_YAW - 0.35 };
 /**
  * Where the player stands to read the memoir (and where the $10 tile sits until it's bought):
- * on the deck just inside the fence, clear of every upgrade tile.
+ * on the deck just inside the fence, clear of every upgrade tile. In stage 2, on the garden path beside it.
  */
-export const KORKI = { x: -3.7, z: 6.75 };
+export const KORKI = { x: -3.7, y: FY, z: 6.75 };
+/** The statue's and pad's spots in the restaurant's front garden (stage 2). */
+export const GARDEN_SPOT = { statue: { x: -6.6, z: 18.7 }, pad: { x: -5.0, z: 17.3 } };
 
 // ---------- materials ----------
 const gold = new MeshPhongMaterial({ color: 0xC99A22, specular: 0xFFE8A0, shininess: 90, emissive: 0x140C00 });
@@ -191,7 +193,7 @@ const plaque = canvasTex(512, 128, (c, w, h) => {
 
 function buildStatue() {
   const g = new Group();
-  g.position.set(STATUE.x, FY, STATUE.z);
+  g.position.set(STATUE.x, STATUE.y, STATUE.z);
   g.rotation.y = STATUE.h;
   g.add(mesh(new BoxGeometry(1.9, 0.18, 0.95), 0xD3DCE2, 0, 0.09, 0, true));
   g.add(mesh(new BoxGeometry(1.7, 0.32, 0.8), 0xEEF2F5, 0, 0.34, 0, true));
@@ -207,12 +209,24 @@ function buildStatue() {
 
 // ---------- state ----------
 const pad = decal(1.9, (c, w, h) => drawPad(c, w, h, '🛴'));
-pad.mesh.position.set(KORKI.x, FY + 0.01, KORKI.z);
+pad.mesh.position.set(KORKI.x, KORKI.y + 0.01, KORKI.z);
 pad.mesh.visible = false;
 
 const panel = document.getElementById('korki')!;
+const memo = panel.querySelector('.memo')!;
 let statue: Group | null = null;
 let open = false;
+
+/** The statue, once it's built. */
+export const korkiStatue = () => statue;
+
+/** Moves the statue and its pad to the restaurant's garden (stage 2). */
+export function moveKorki() {
+  Object.assign(STATUE, GARDEN_SPOT.statue, { y: 0 });
+  Object.assign(KORKI, GARDEN_SPOT.pad, { y: 0.02 });
+  pad.mesh.position.set(KORKI.x, KORKI.y + 0.01, KORKI.z);
+  statue?.position.set(STATUE.x, STATUE.y, STATUE.z);
+}
 
 /** The 'korki' unlock: raises the statue and its pad. Returns the statue for the pop-in. */
 export function enableKorki() {
@@ -228,8 +242,15 @@ const SONG = 'jcutNFPwXPE';
 const LINGER = 3;
 /** Song volume (YouTube's 0-100 scale): kept low, it's background. */
 const MAX_VOL = 10;
-/** Seconds for a full fade in / fade out. */
+/**
+ * Seconds for a full fade in / fade out. The fade out is shorter than LINGER, so stepping back on
+ * the pad always lets the song fade all the way out before it fades in again from silence.
+ */
 const FADE_IN = 6, FADE_OUT = 2.5;
+/** Per-device mute choice for the song (a convenience, so it lives outside the save). */
+const MUTE_KEY = 'floe-market-korki-muted';
+/** iPhone and iPad ignore volume changes from web pages, so the song can't fade there: it starts muted. */
+const IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (/Mac/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
 
 interface YTPlayer {
   playVideo(): void;
@@ -252,6 +273,32 @@ let playing = false;
 /** Seconds the player has been on the pad. */
 let stood = 0;
 let vol = 0, sentVol = -1;
+let muted = IOS;
+try {
+  const m = localStorage.getItem(MUTE_KEY);
+  if (m !== null) muted = m === '1';
+} catch { /* storage unavailable: keep the default */ }
+
+const muteBtn = document.getElementById('korkiMute') as HTMLButtonElement;
+function showMute() {
+  muteBtn.textContent = muted ? '🔇' : '🔊';
+  muteBtn.setAttribute('aria-pressed', String(muted));
+}
+showMute();
+muteBtn.addEventListener('click', () => {
+  muted = !muted;
+  showMute();
+  try { localStorage.setItem(MUTE_KEY, muted ? '1' : '0'); } catch { /* storage unavailable */ }
+  if (!song) return;
+  if (muted) {
+    // Silence right away rather than fading: that's what a mute button is for.
+    vol = 0; sentVol = 0; song.setVolume(0);
+    if (playing) { song.pauseVideo(); playing = false; }
+  } else if (stood >= LINGER && !playing) {
+    // Start inside the tap: iPhone only lets sound start from one.
+    song.playVideo(); playing = true;
+  }
+});
 
 /** Loads YouTube's player API (only once someone lingers) and an invisible player for the song. */
 function loadSong() {
@@ -275,10 +322,10 @@ function loadSong() {
   document.head.appendChild(s);
 }
 
-/** Fades the song in after lingering on the pad, and out (then pauses it) after leaving. */
+/** Fades the song in after lingering on the pad (unless muted), and out (then pauses it) after leaving. */
 function updSong(onPad: boolean, dt: number) {
   stood = onPad ? stood + dt : 0;
-  const want = stood >= LINGER;
+  const want = stood >= LINGER && !muted;
   if (want && !songLoading) loadSong();
   if (!song) return;
   vol = want ? Math.min(MAX_VOL, vol + MAX_VOL / FADE_IN * dt) : Math.max(0, vol - MAX_VOL / FADE_OUT * dt);
@@ -295,7 +342,7 @@ export function updKorki(dt: number) {
   if (near !== open) {
     open = near;
     panel.hidden = !open;
-    if (open) panel.scrollTop = 0;
+    if (open) memo.scrollTop = 0;
   }
   updSong(near, dt);
 }

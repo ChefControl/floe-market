@@ -2,8 +2,9 @@ import './errors'; // must stay first: catches errors thrown while the other mod
 import { tick } from './game';
 import { dismissIntro } from './input';
 import { player } from './player';
-import { camera, camK, OFF, renderer, scene, sun } from './render';
+import { camera, camK, fog, OFF, renderer, scene, sun, sunOff } from './render';
 import { isStale, load, startAutosave, wipeSave } from './save';
+import { view } from './stage';
 import { hud } from './ui';
 
 // ---------- save / restart ----------
@@ -30,7 +31,7 @@ restartBtn.addEventListener('click', () => {
 });
 
 // ---------- loop ----------
-const camTarget = player.g.position.clone();
+const camTarget = player.g.position.clone(), look = camTarget.clone();
 let last = performance.now();
 
 function frame(now: number) {
@@ -38,11 +39,15 @@ function frame(now: number) {
   last = now;
   if (!isStale()) tick(dt);
 
+  // Follow the player; the stage-up pulls back to look over the whole map for a moment.
   camTarget.lerp(player.g.position, Math.min(1, dt * 6));
-  camera.position.set(camTarget.x + OFF.x * camK, camTarget.y + OFF.y * camK, camTarget.z + OFF.z * camK);
-  camera.lookAt(camTarget.x, camTarget.y + 0.4, camTarget.z);
-  sun.position.set(camTarget.x - 5, camTarget.y + 14, camTarget.z + 7);
-  sun.target.position.copy(camTarget);
+  look.copy(camTarget).lerp(view.focus, view.k);
+  const k = camK * view.zoom;
+  camera.position.set(look.x + OFF.x * k, look.y + OFF.y * k, look.z + OFF.z * k);
+  camera.lookAt(look.x, look.y + 0.4, look.z);
+  fog.near = 34 * view.zoom; fog.far = 70 * view.zoom;
+  sun.position.copy(look).add(sunOff);
+  sun.target.position.copy(look);
 
   hud(dt);
   renderer.render(scene, camera);

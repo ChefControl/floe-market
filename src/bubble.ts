@@ -3,12 +3,23 @@
 import { Sprite, SpriteMaterial } from 'three';
 import { canvasTex, FONT, rr } from './render';
 
-export type OrderIcon = 'steak' | 'sushi';
+export type OrderIcon = 'fish' | 'sushi' | 'box';
 
-function steakIcon(c: CanvasRenderingContext2D) {
-  c.fillStyle = '#D8394B'; c.beginPath(); c.arc(44, 58, 21, 0, 7); c.fill();
-  c.strokeStyle = '#F6D0D0'; c.lineWidth = 4; c.beginPath(); c.arc(44, 58, 16, 0.4, 5); c.stroke();
-  c.fillStyle = '#FFF4E6'; c.beginPath(); c.arc(50, 51, 5, 0, 7); c.fill();
+/** A blue fish with a yellow fin, like the ones in the water. */
+function fishIcon(c: CanvasRenderingContext2D) {
+  c.fillStyle = '#355C9E';
+  c.beginPath(); c.moveTo(24, 58); c.lineTo(10, 46); c.lineTo(10, 70); c.closePath(); c.fill();
+  c.beginPath(); c.ellipse(42, 58, 22, 12, 0, 0, 7); c.fill();
+  c.fillStyle = '#E3EAF0'; c.beginPath(); c.ellipse(44, 62, 17, 6, 0, 0, Math.PI); c.fill();
+  c.fillStyle = '#F2C14E'; c.beginPath(); c.moveTo(36, 47); c.lineTo(46, 38); c.lineTo(50, 47); c.closePath(); c.fill();
+  c.fillStyle = '#fff'; c.beginPath(); c.arc(55, 55, 3.5, 0, 7); c.fill();
+  c.fillStyle = '#1B2733'; c.beginPath(); c.arc(56, 55, 1.8, 0, 7); c.fill();
+}
+
+/** Takeout box: black with a red lid band. */
+function boxIcon(c: CanvasRenderingContext2D) {
+  c.fillStyle = '#22262B'; rr(c, 20, 44, 48, 30, 6); c.fill();
+  c.fillStyle = '#C0392B'; rr(c, 18, 40, 52, 10, 4); c.fill();
 }
 
 function sushiIcon(c: CanvasRenderingContext2D) {
@@ -34,7 +45,7 @@ export function drawBubble(c: CanvasRenderingContext2D, w: number, h: number, n:
     c.strokeStyle = moodColor(left);
     c.beginPath(); c.arc(64, 58, 46, -Math.PI / 2, -Math.PI / 2 + left * Math.PI * 2); c.stroke();
   }
-  if (icon === 'sushi') sushiIcon(c); else steakIcon(c);
+  if (icon === 'fish') fishIcon(c); else if (icon === 'sushi') sushiIcon(c); else boxIcon(c);
   c.fillStyle = '#173042'; c.font = '800 36px ' + FONT; c.textAlign = 'center'; c.textBaseline = 'middle';
   c.fillText('×' + n, 84, 60);
 }

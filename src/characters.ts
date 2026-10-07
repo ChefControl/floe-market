@@ -6,8 +6,8 @@ export const PARKAS = [0xF2B33D, 0x7A6FF0, 0x3FA37C, 0xE85D75, 0x5B8DEF, 0xF08A4
 /** Suit colours for the sushi bar's well-dressed diners. */
 export const SUITS = [0x22303C, 0x3B3F6B, 0x5A2E3A, 0x2F4A44, 0x4A4F57];
 
-/** Everyday parka, a diner's suit and top hat, or a sushi chef's whites. */
-export type Look = 'parka' | 'fancy' | 'chef';
+/** Everyday parka, a diner's suit and top hat, a sushi chef's whites, or a farmer's straw hat. */
+export type Look = 'parka' | 'fancy' | 'chef' | 'farmer';
 
 /** A walker with swinging limbs. */
 export class Person extends Group {
@@ -30,6 +30,9 @@ export class Person extends Group {
     for (const s of [-1, 1]) this.add(mesh(G.eye, 0x1B2733, s * 0.07, 1.06, 0.24));
     if (look === 'fancy') this.dressUp();
     if (look === 'chef') this.chefWhites();
+    if (look === 'farmer') {
+      const hat = mesh(G.cone, 0xE3C26B, 0, 1.27, 0.03, true); hat.scale.set(0.36, 0.17, 0.36); this.add(hat);
+    }
   }
 
   /** Top hat, white shirt front and a red bow tie. */

@@ -1,4 +1,4 @@
-// Stacks of steaks/bills, and the arcing flights that move items between them.
+// Stacks of items (fish, rice, boxes, bills), and the arcing flights that move items between them.
 import { Mesh, Object3D, Vector3 } from 'three';
 import { scene } from './render';
 import { fwd, V } from './util';
@@ -69,6 +69,19 @@ export class Holder {
   }
 
   take() { return this.items.pop() || null; }
+
+  /** Takes the top-most landed item of a kind, out of a mixed stack. */
+  takeKind(kind: string) {
+    for (let i = this.items.length - 1; i >= 0; i--) {
+      if (this.items[i].userData.kind === kind) return this.items.splice(i, 1)[0];
+    }
+    return null;
+  }
+
+  /** How many landed items there are of a kind. */
+  count(kind: string) {
+    return this.items.filter(m => m.userData.kind === kind).length;
+  }
 
   layout(rotY?: number) {
     for (let i = 0; i < this.items.length; i++) {

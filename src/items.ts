@@ -20,8 +20,43 @@ const billTop = canvasTex(128, 80, (c, w, h) => {
 const billSide = mat(0x3FAE52);
 const billMats = [billSide, billSide, new MeshLambertMaterial({ map: billTop.tex }), billSide, billSide, billSide];
 
+/** What a carried or stocked item is, so mixed stacks can be sorted at drop-offs. */
+export type Kind = 'fish' | 'rice' | 'box';
+export const kindOf = (m: Object3D): Kind | undefined => m.userData.kind;
+
+/** A fish slice (drawn as a salmon steak), as it comes off the chopping block. */
 export function newSteak() {
-  return mesh(G.steak, steakMats);
+  const m = mesh(G.steak, steakMats);
+  m.userData.kind = 'fish';
+  return m;
+}
+
+const sackTop = canvasTex(64, 64, c => {
+  c.fillStyle = '#F1E8D2'; c.fillRect(0, 0, 64, 64);
+  c.fillStyle = '#C0392B'; c.fillRect(0, 26, 64, 12);
+  c.fillStyle = '#FFFDF5'; c.font = 'bold 22px sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
+  c.fillText('米', 32, 33);
+});
+const sackSide = mat(0xE6DBC0);
+const sackMats = [sackSide, sackSide, new MeshLambertMaterial({ map: sackTop.tex }), sackSide, sackSide, sackSide];
+const sackGeo = new BoxGeometry(0.3, 0.08, 0.24);
+
+/** A bag of rice: enough for one plate. */
+export function newRice() {
+  const m = mesh(sackGeo, sackMats, 0, 0, 0, true);
+  m.userData.kind = 'rice';
+  return m;
+}
+
+const boxGeo = new BoxGeometry(0.34, 0.08, 0.26), lidGeo = new BoxGeometry(0.35, 0.025, 0.27);
+
+/** A takeout box of sushi; `value` is its price. */
+export function newBox(value: number, premium: boolean) {
+  const m = mesh(boxGeo, 0x22262B, 0, 0, 0, true);
+  m.add(mesh(lidGeo, premium ? 0xF2C14E : 0xC0392B, 0, 0.045, 0));
+  m.userData.kind = 'box';
+  m.userData.value = value;
+  return m;
 }
 
 export function newBill(v: number) {

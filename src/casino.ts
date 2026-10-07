@@ -174,6 +174,16 @@ function settle() {
   drawPanelWheel();
 }
 
+/** The table, once it's built. */
+export const casinoTable = () => table?.g ?? null;
+
+/** Moves the table and its pad along the dock (stage 2 has less of it). */
+export function moveCasino(dz: number) {
+  CASINO.z += dz; TABLE.z += dz;
+  pad.mesh.position.z = CASINO.z;
+  if (table) table.g.position.z = TABLE.z;
+}
+
 /** The 'roulette' unlock: puts the table and its pad on the deck. Returns the table for the pop-in. */
 export function enableCasino() {
   enabled = true;

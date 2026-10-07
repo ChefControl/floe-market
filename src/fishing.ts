@@ -1,6 +1,6 @@
-// Fish swimming in the water, hooking them, and chopping them into steaks.
+// Fish swimming in the water, hooking them, and chopping them into slices.
 import { Group, Mesh, Vector3 } from 'three';
-import { roomFor, sendToBelt, steakTo } from './conveyor';
+import { boost } from './economy';
 import { newSteak } from './items';
 import { G, mesh, scene } from './render';
 import { BLADE_Y, blade, chopTop, pile } from './stations';
@@ -72,7 +72,7 @@ interface Hook {
   start: Vector3 | null;
 }
 
-/** Fish hooked but not yet chopped; each will become 3 steaks. */
+/** Fish hooked but not yet chopped; each will become 3 slices. */
 let incomingFish = 0;
 const hooks: Hook[] = [];
 
@@ -84,7 +84,7 @@ export function steaksInProgress() { return incomingFish * 3; }
  * `origin` is re-read every frame so the rope follows a moving fisher.
  */
 export function tryCatch(origin: () => Vector3, src: CatchSource): Fish | null {
-  if (!roomFor(3, steaksInProgress())) return null;
+  if (pile.n + steaksInProgress() + 3 > pile.cap) return null;
   const from = origin();
   let best: Fish | null = null, bd = 1e9;
   for (const f of fish) {
@@ -144,11 +144,10 @@ export function updChopper(dt: number) {
     chopper.t += dt;
     blade.position.y = BLADE_Y - Math.abs(Math.sin(chopper.t * 26)) * 0.32;
     c.g.position.copy(chopTop); c.g.scale.setScalar(Math.max(0.3, 1 - chopper.t * 1.4));
-    if (chopper.t >= 0.42) {
+    if (chopper.t >= 0.42 / boost('training')) {
       for (let s = 0; s < 3; s++) {
         const m = newSteak(); m.position.copy(chopTop);
-        if (steakTo() === 'belt') sendToBelt(m, 0.32 + s * 0.06);
-        else pile.receive(m, 0.32 + s * 0.06, 1.1);
+        pile.receive(m, 0.32 + s * 0.06, 1.1);
       }
       incomingFish--; c.state = 'gone'; c.re = rand(1, 3); c.g.visible = false; chopper.cur = null;
     }
