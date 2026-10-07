@@ -30,6 +30,8 @@ export interface SaveData {
   /** When it was written (ms since epoch). */
   savedAt: number;
   money: number;
+  /** The most cash this game has held at once. */
+  best: number;
   /** Upgrades: paid in so far, bought, and whether the star requirement was met. */
   tiles: { id: string; paid: number; done: boolean; open: boolean }[];
   /** Levels bought of the repeatable upgrades (price, marketing, crew), by id. */
@@ -112,7 +114,7 @@ export function migrate(raw: unknown): SaveData {
   };
   if (num(s.v) >= 4) {
     return {
-      ...base, money: num(s.money), tiles: tileList, backRice: num(s.backRice),
+      ...base, money: num(s.money), best: Math.max(num(s.best), num(s.money)), tiles: tileList, backRice: num(s.backRice),
       c1: num(s.c1), c1c: num(s.c1c), c2: num(s.c2), c2c: num(s.c2c),
       fish: num(s.fish), rice: num(s.rice), plates: num(s.plates), cash: num(s.cash),
       boxes: num(s.boxes), tcash: num(s.tcash), field: num(s.field),
@@ -126,16 +128,16 @@ export function migrate(raw: unknown): SaveData {
   const k = num(s.k), kp = num(s.kp), rc = num(s.rc);
   const empty = { backRice: 0, c1: 0, c1c: 0, c2: 0, c2c: 0, fish: 0, rice: 0, plates: 0, cash: 0, boxes: 0, tcash: 0, field: 0 };
   if (done('sushi') && MARKET.every(done)) {
+    const money = num(s.money) + tileList.filter(t => oldSushi(t) && !t.done).reduce((a, t) => a + t.paid, 0);
     return {
-      ...base, ...empty,
-      money: num(s.money) + tileList.filter(t => oldSushi(t) && !t.done).reduce((a, t) => a + t.paid, 0),
+      ...base, ...empty, money, best: money,
       tiles: tileList.filter(t => !oldSushi(t) || t.done),
       fish: k + num(s.c1) + num(s.c2), rice: STARTER_RICE, plates: kp, cash: rc + num(s.c1c) + num(s.c2c),
     };
   }
+  const money = num(s.money) + tileList.filter(oldSushi).reduce((a, t) => a + t.paid, 0) + rc + kp * OLD_PLATE;
   return {
-    ...base, ...empty,
-    money: num(s.money) + tileList.filter(oldSushi).reduce((a, t) => a + t.paid, 0) + rc + kp * OLD_PLATE,
+    ...base, ...empty, money, best: money,
     tiles: tileList.filter(t => !oldSushi(t)),
     pile: base.pile + k,
     c1: num(s.c1), c1c: num(s.c1c), c2: num(s.c2), c2c: num(s.c2c),
@@ -182,6 +184,7 @@ export function save() {
     v: VERSION,
     savedAt: Date.now(),
     money: wallet.money + wallet.inFlight,
+    best: Math.max(wallet.best, wallet.money + wallet.inFlight),
     tiles: tiles.map(t => ({ id: t.id, paid: t.paid, done: t.done, open: t.open })),
     mods: { ...mods },
     reviews: [...reviews],
@@ -233,6 +236,7 @@ export function load() {
   }
   if (!s) { tiles.forEach(redrawTile); return false; }
   wallet.money = s.money;
+  wallet.best = s.best;
   setSeason(s.season, s.seasonT, true);
   s.reviews.forEach(addReview);
   // In the game's order, so the stage-up is in place before stage 2's upgrades.
