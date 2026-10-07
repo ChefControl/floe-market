@@ -1,4 +1,4 @@
-// The upgrade circles: repeatable upgrades for prices, customers (marketing) and speed (the crew), and the
+// The upgrade squares: repeatable upgrades for prices, customers (marketing) and speed (the crew), and the
 // overview of every modifier in the HUD.
 import { describe, expect, it } from 'vitest';
 import { bought, loadGame } from './helpers';
@@ -6,7 +6,18 @@ import { bought, loadGame } from './helpers';
 const $ = (id: string) => document.getElementById(id)!;
 const rowsText = () => [...$('shopRows').children].map(r => r.textContent);
 
-describe('the upgrade circle', () => {
+describe('the upgrade square', () => {
+  it('opens from anywhere on the square, its corners too, and is drawn square with the world', async () => {
+    const g = await loadGame({ money: 50 });
+    const [at] = g.shop.SHOPS;
+    g.placePlayer(at.x + 0.85, at.z - 0.85); // outside a circle that size, inside the square
+    g.run(0.05);
+    expect($('shop').hidden).toBe(false);
+    g.placePlayer(at.x + 1.1, at.z);
+    g.run(0.05);
+    expect($('shop').hidden).toBe(true);
+  });
+
   it("opens this stage's upgrades while the player stands on it", async () => {
     const g = await loadGame({ money: 50 });
     const [at] = g.shop.SHOPS;

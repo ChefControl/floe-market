@@ -8,7 +8,7 @@ import { boost } from './economy';
 import { tryCatch } from './fishing';
 import { addTables } from './garden';
 import { enableKorki, KORKI } from './korki';
-import { PATH_X, stage, TERRACES } from './layout';
+import { stage, TERRACES } from './layout';
 import { buildNet, buildTurret } from './machines';
 import { player } from './player';
 import { pointAt } from './pointers';
@@ -18,6 +18,7 @@ import { showKiosk } from './hall';
 import { addSeats, hireChef, setPremium } from './restaurant';
 import { hireFarmer, hireRicePorter, plantTerrace } from './rice';
 import { hireRunner } from './runner';
+import { chime, unlock } from './sfx';
 import { enterStage2, staging } from './stage';
 import { showStage, toast, type TipContent } from './ui';
 import { FY, V } from './util';
@@ -63,11 +64,10 @@ export interface Tile extends Unlock {
   half: number;
 }
 
-const PX = (PATH_X.x0 + PATH_X.x1) / 2;
 const onTerrace = (i: number) => ({ x: (TERRACES[i].x0 + TERRACES[i].x1) / 2, z: 0.8, y: TERRACES[i].top + 0.08 });
 
 // The price list. Upgrades roughly double in price each time, and stage 2 starts about ten times higher than
-// stage 1 (see economy.ts; the repeatable price, marketing and crew upgrades are in the upgrade circles, shop.ts).
+// stage 1 (see economy.ts; the repeatable price, marketing and crew upgrades are on the upgrade squares, shop.ts).
 const UNLOCKS: Unlock[] = [
   { id: 'pack', cost: 30, x: -1.3, z: 6.0, icon: '🎒', name: 'Bigger arms', desc: 'Carry 14 things at once', stage: 1 },
   { id: 'turret', cost: 90, x: -6.0, z: -3.3, icon: '🎯', name: 'Auto harpoon', desc: 'Keeps catching fish while you are away', stage: 1 },
@@ -82,7 +82,9 @@ const UNLOCKS: Unlock[] = [
   { id: 'paddy', cost: 800, ...onTerrace(0), z: -1.4 /* north of the starting patch */, icon: '🌾', name: 'Rice terrace', desc: 'Plant the rest of the bottom terrace round your patch: three times the rice', stage: 2 },
   { id: 'seats', cost: 2500, x: -8.0, z: 9.0, icon: '🪑', name: 'More seats', desc: 'Eight more seats at the bar', stars: 3.6, stage: 2 },
   { id: 'chef', cost: 3000, x: 8.0, z: 9.0, icon: '🔪', name: 'Second chef', desc: 'Another chef at the bar', stars: 3.6, shown: true, stage: 2 },
-  { id: 'farmer', cost: 6000, x: PX, z: -2.6, y: 0.06, icon: '🧑‍🌾', name: 'Hire a farmer', desc: 'Harvests the terraces onto a stack on the path', stars: 3.9, needs: 'paddy', stage: 2 },
+  // out on the deck by the west end of the kitchen line, where rice comes in from the farm door: in the open (the
+  // restaurant's west wall and roof hide the farm path from most of the room) and passed on every trip for rice
+  { id: 'farmer', cost: 6000, x: -6.4, z: 0.6, icon: '🧑‍🌾', name: 'Hire a farmer', desc: 'Harvests the terraces onto a stack on the path', stars: 3.9, needs: 'paddy', stage: 2 },
   { id: 'porter', cost: 12000, x: -8.2, z: 5.0, icon: '🧺', name: 'Rice porter', desc: 'Carries harvested rice in to the kitchen line', stars: 4.1, needs: 'paddy', stage: 2 },
   { id: 'plot2', cost: 15000, ...onTerrace(1), icon: '🌱', name: 'Second terrace', desc: 'Plant the middle terrace: rice for more diners', stars: 4.1, needs: 'paddy', stage: 2 },
   { id: 'tables', cost: 20000, x: 6.2, z: 17.7, y: 0.02, icon: '⛱️', name: 'Garden tables', desc: 'Four tables in the front garden, and a waiter to serve them', stars: 4.2, stage: 2 },
@@ -150,7 +152,13 @@ function announce(fresh: Tile[]) {
   for (const t of fresh) pointAt({ x: t.x, y: t.y ?? FY, z: t.z }, t.icon, () => t.d.mesh.visible);
   // the gold tile has its own message ("Floe Sushi is ready to open")
   const named = fresh.filter(t => !t.gold).map(t => t.name);
-  if (named.length) toast(named.length === 1 ? `New upgrade: ${named[0]}` : `New upgrades: ${named.join(', ')}`);
+  if (named.length) { toast(named.length === 1 ? `New upgrade: ${named[0]}` : `New upgrades: ${named.join(', ')}`); chime(); }
+}
+
+/** How much of this stage's upgrades are bought, 0 to 1 (the music brings in more parts as it grows). */
+export function stageProgress() {
+  const g = goal(stage.n);
+  return g.filter(t => t.done).length / g.length;
 }
 
 /** Updates the stage chip. */
@@ -170,7 +178,7 @@ export function updStars(silent = false) {
     if (locked(t) && r >= t.stars!) {
       t.open = true;
       redrawTile(t);
-      if (!silent && t.d.mesh.visible) toast(`★${t.stars!.toFixed(1)} reached: ${t.name} for sale`);
+      if (!silent && t.d.mesh.visible) { toast(`★${t.stars!.toFixed(1)} reached: ${t.name} for sale`); chime(); }
     }
     t.tip = tipOf(t);
   }
@@ -215,6 +223,7 @@ export function applyUnlock(id: UnlockId, silent = false) {
   showProgress();
   if (silent || t.gold) return;
   toast(t.name + ' unlocked');
+  unlock();
   if (t.always || !goal(t.stage).every(x => x.done)) return;
   toast(t.stage === 1 ? 'Floe Sushi is ready to open' : 'Floe Sushi is fully built');
 }

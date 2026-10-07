@@ -138,29 +138,60 @@ body{
   position:fixed; right:max(12px, env(safe-area-inset-right,0px)); top:calc(env(safe-area-inset-top,0px) + 14px); z-index:3;
   display:flex; gap:8px; align-items:center;
 }
-#restart, #cloud{
-  font:600 15px "Baloo 2","Trebuchet MS",system-ui,sans-serif;
-  background:var(--pill); color:var(--pill-ink); border:0; border-radius:999px; padding:6px 14px;
-  box-shadow:0 3px 0 var(--shade); cursor:pointer;
+/* the settings gear, and the cloud's state on it while its menu is closed */
+#gear{
+  position:relative; width:44px; height:44px; padding:0; border:0; border-radius:50%; display:grid; place-items:center;
+  background:var(--pill); color:var(--pill-ink); box-shadow:0 3px 0 var(--shade); font-size:23px; line-height:1; cursor:pointer;
+  transition:transform .3s;
 }
-#cloud{ display:inline-flex; align-items:center; gap:6px; }
-#cloud[hidden]{ display:none; }
-#cloud .ic{ font-size:16px; }
-#cloud i{ width:8px; height:8px; border-radius:50%; background:transparent; }
+#gear[aria-expanded="true"]{ transform:rotate(60deg); }
+#gear:focus-visible{ outline:3px solid var(--coral); outline-offset:2px; }
+#gear i{ position:absolute; right:2px; top:2px; width:11px; height:11px; border-radius:50%; box-shadow:0 0 0 2px var(--pill); display:none; }
+#gear[data-cloud="saved"] i{ display:block; background:var(--cash); }
+#gear[data-cloud="syncing"] i, #gear[data-cloud="idle"] i{ display:block; background:#F2B33D; }
+#gear[data-cloud="offline"] i{ display:block; background:#9AA4AC; }
+#gear.ping{ animation:ping .6s ease-out 2; }
+@keyframes ping{ 40%{ transform:scale(1.28); box-shadow:0 3px 0 var(--shade), 0 0 0 6px rgba(255,195,74,.6); } }
+#settings{
+  position:fixed; right:max(12px, env(safe-area-inset-right,0px)); top:calc(env(safe-area-inset-top,0px) + 68px); z-index:4;
+  display:flex; flex-direction:column; align-items:stretch; gap:6px; padding:10px; border-radius:20px;
+  width:min(88vw,290px); font-weight:600;
+}
+#settings[hidden]{ display:none; }
+#settings > button{
+  display:flex; align-items:center; gap:10px; width:100%; min-height:40px; padding:6px 12px; border:0; border-radius:14px;
+  background:var(--chip); color:var(--pill-ink); font:700 16px "Baloo 2","Trebuchet MS",system-ui,sans-serif; text-align:left; cursor:pointer;
+}
+#settings > button[hidden]{ display:none; }
+#settings .ic{ width:24px; text-align:center; font-size:18px; }
+#settings button:focus-visible{ outline:3px solid var(--coral); outline-offset:2px; }
+/* the Sound category, opening into a mute button and a 1-10 slider for each kind of sound, sized for fingers */
+#soundCat .chev{ margin:0 4px 4px auto; width:9px; height:9px; border-right:2.5px solid currentColor; border-bottom:2.5px solid currentColor; transform:rotate(45deg); transition:transform .2s; }
+#soundCat[aria-expanded="true"] .chev{ transform:translateY(4px) rotate(-135deg); }
+#soundPanel{ display:flex; flex-direction:column; gap:8px; padding:8px 10px 10px; border-radius:14px; background:var(--chip); }
+#soundPanel[hidden]{ display:none; }
+.vol{ display:grid; grid-template-columns:44px 1fr auto; align-items:center; column-gap:10px; row-gap:2px; }
+.vol .mute{ grid-row:1 / span 2; width:44px; height:44px; padding:0; border:0; border-radius:50%; background:var(--pill); color:var(--pill-ink); font-size:20px; line-height:1; cursor:pointer; box-shadow:0 2px 0 var(--shade); }
+.vol label{ font:700 15px "Baloo 2","Trebuchet MS",system-ui,sans-serif; }
+.vol output{ font:800 16px "Baloo 2","Trebuchet MS",system-ui,sans-serif; font-variant-numeric:tabular-nums; min-width:2ch; text-align:right; }
+.vol input{ grid-column:2 / span 2; width:100%; height:32px; margin:0; background:transparent; cursor:pointer; touch-action:none; -webkit-appearance:none; appearance:none; }
+.vol input::-webkit-slider-runnable-track{ height:8px; border-radius:999px; background:linear-gradient(to right, var(--coral) var(--fill,66%), rgba(127,140,150,.35) var(--fill,66%)); }
+.vol input::-webkit-slider-thumb{ -webkit-appearance:none; appearance:none; width:28px; height:28px; margin-top:-10px; border-radius:50%; background:#fff; border:3px solid var(--coral); box-shadow:0 2px 4px rgba(0,0,0,.25); }
+.vol input::-moz-range-track{ height:8px; border-radius:999px; background:rgba(127,140,150,.35); }
+.vol input::-moz-range-progress{ height:8px; border-radius:999px; background:var(--coral); }
+.vol input::-moz-range-thumb{ width:22px; height:22px; border-radius:50%; background:#fff; border:3px solid var(--coral); box-shadow:0 2px 4px rgba(0,0,0,.25); }
+.vol input:focus-visible{ outline:3px solid var(--coral); outline-offset:3px; border-radius:999px; }
+.vol.muted label, .vol.muted output, .vol.muted input{ opacity:.45; }
+#cloud i{ margin-left:auto; width:9px; height:9px; border-radius:50%; background:transparent; }
 #cloud[data-state="saved"] i{ background:var(--cash); }
 #cloud[data-state="syncing"] i, #cloud[data-state="idle"] i{ background:#F2B33D; }
 #cloud[data-state="offline"] i{ background:#9AA4AC; }
 #cloud[data-state="out"] .wide{ display:inline; }
 #cloud .wide{ display:none; }
-#cloud:focus-visible, #cloudMenu button:focus-visible{ outline:3px solid var(--coral); outline-offset:2px; }
-#cloudMenu{
-  position:fixed; right:max(12px, env(safe-area-inset-right,0px)); top:calc(env(safe-area-inset-top,0px) + 58px); z-index:4;
-  flex-direction:column; align-items:flex-end; gap:4px; padding:10px 14px; border-radius:16px; max-width:min(86vw,300px);
-  font-weight:600; font-size:15px; line-height:1.25; text-align:right;
-}
+#cloudMenu{ display:flex; flex-direction:column; align-items:flex-start; gap:4px; padding:0 12px 4px; font-size:14px; line-height:1.25; }
 #cloudMenu[hidden]{ display:none; }
 #cloudMenu b{ font-weight:800; }
-#cloudMenu button{ margin-top:6px; font:800 15px "Baloo 2","Trebuchet MS",system-ui,sans-serif; background:var(--chip); color:var(--pill-ink); border:0; border-radius:999px; padding:4px 14px; cursor:pointer; }
+#cloudMenu button{ margin-top:4px; font:800 15px "Baloo 2","Trebuchet MS",system-ui,sans-serif; background:var(--chip); color:var(--pill-ink); border:0; border-radius:999px; padding:4px 14px; cursor:pointer; }
 #cloudPick{ position:fixed; inset:0; z-index:8; display:grid; place-items:center; background:rgba(23,48,66,.55); }
 #cloudPick[hidden]{ display:none; }
 #cloudPick .card{ background:var(--pill); color:var(--pill-ink); padding:20px 22px; border-radius:24px; max-width:min(90vw,400px); box-shadow:0 4px 0 var(--shade); text-align:center; }
@@ -169,12 +200,38 @@ body{
   font:600 14px "Baloo 2","Trebuchet MS",system-ui,sans-serif; background:var(--chip); color:var(--pill-ink); }
 #cloudPick button b{ font-size:17px; font-weight:800; }
 #cloudPick button:focus-visible{ outline:3px solid var(--coral); outline-offset:2px; }
-#restart.armed{ background:var(--hot); color:#fff; }
-#restart:focus-visible{ outline:3px solid var(--coral); outline-offset:2px; }
+#settings #restart.armed{ background:var(--hot); color:#fff; }
 
+/* The bottom of the screen: the tip for where the player stands, and the buying reminder stacked just above it, so a
+   long tip pushes the reminder up instead of running under it. */
+#prompts{
+  position:fixed; left:50%; bottom:calc(env(safe-area-inset-bottom,0px) + 26px); transform:translateX(-50%); z-index:3; pointer-events:none;
+  display:flex; flex-direction:column; align-items:center; gap:10px; width:max-content; max-width:min(86vw,420px);
+}
+/* buying: the reminder after standing on a tile a while, and the Buy button on touch screens (moved up above the tip) */
+#buyHint{ padding:8px 16px; font-size:17px; font-weight:700; gap:8px; white-space:nowrap; pointer-events:none; }
+#buyHint[hidden]{ display:none; }
+#buyHint.touch{ position:fixed; z-index:3; right:max(16px, env(safe-area-inset-right,0px)); bottom:calc(env(safe-area-inset-bottom,0px) + 196px); }
+#buyHint kbd{
+  display:inline-grid; place-items:center; min-width:30px; height:30px; padding:0 6px; border-radius:7px; background:var(--hot); color:#fff;
+  box-shadow:0 3px 0 rgba(150,45,25,.45); font:800 17px "Baloo 2","Trebuchet MS",system-ui,sans-serif; animation:keytap 1.2s infinite;
+}
+@keyframes keytap{ 0%,35%{ transform:translateY(3px); box-shadow:none; } 45%,100%{ transform:none; } }
+#buy{
+  position:fixed; right:max(16px, env(safe-area-inset-right,0px)); bottom:calc(env(safe-area-inset-bottom,0px) + 100px); z-index:4;
+  width:84px; height:84px; border:0; border-radius:50%; background:var(--hot); color:#fff; cursor:pointer;
+  display:grid; place-items:center; align-content:center; font:800 18px/1 "Baloo 2","Trebuchet MS",system-ui,sans-serif;
+  box-shadow:0 4px 0 rgba(150,45,25,.45); touch-action:none; -webkit-user-select:none; user-select:none;
+}
+#buy[hidden]{ display:none; }
+#buy span{ font-size:26px; }
+#buy.down{ transform:translateY(3px); box-shadow:0 1px 0 rgba(150,45,25,.45); }
+#buy:focus-visible{ outline:3px solid var(--pill-ink); outline-offset:3px; }
+@media (prefers-reduced-motion: reduce){ #buyHint kbd{ animation:none; } }
+#hint small.buyline{ margin-top:6px; }
+#hint small kbd{ display:inline-grid; place-items:center; min-width:20px; height:20px; padding:0 4px; border-radius:5px; background:var(--chip); box-shadow:0 2px 0 var(--shade); font:800 13px "Baloo 2","Trebuchet MS",system-ui,sans-serif; }
 #tip{
-  position:fixed; left:50%; bottom:calc(env(safe-area-inset-bottom,0px) + 26px); transform:translateX(-50%);
-  z-index:3; pointer-events:none; text-align:center; max-width:min(86vw,420px);
+  text-align:center; max-width:100%;
   font-size:17px; font-weight:600; padding:8px 18px; border-radius:16px;
   flex-direction:column; gap:2px; line-height:1.2;
   opacity:0; transition:opacity .15s;
@@ -209,16 +266,32 @@ body{
 @keyframes nudge{ 50%{ transform:scale(1.15); } }
 @media (prefers-reduced-motion: reduce){ .ptr span{ animation:none; } }
 
-#intro{
-  position:fixed; inset:0; z-index:5; display:grid; place-items:center; pointer-events:none;
-  transition:opacity .35s;
+/* How to walk: shown once, below the player, then off into the settings gear (hint.ts). */
+#hint{
+  position:fixed; left:50%; bottom:calc(env(safe-area-inset-bottom,0px) + 16%); z-index:3; pointer-events:none;
+  transform:translateX(-50%); transform-origin:center; display:flex; align-items:center; gap:14px;
+  padding:12px 20px 12px 14px; border-radius:24px; font-weight:800; font-size:19px; line-height:1.15;
+  transition:transform .65s cubic-bezier(.5,0,.75,0), opacity .65s ease-in;
 }
-#intro.gone{ opacity:0; }
-#intro .card{ text-align:center; color:#fff; text-shadow:0 3px 0 rgba(23,48,66,.55); background:rgba(23,48,66,.55); padding:26px 34px 22px; border-radius:32px; }
-#intro h1{ margin:0; font-size:clamp(54px,15vw,96px); font-weight:800; line-height:.9; letter-spacing:-1px; }
-#intro h1 span{ display:block; font-size:.42em; letter-spacing:0; color:#FFB39F; }
-#intro p{ margin:18px 0 0; font-size:20px; font-weight:600; }
-#intro p.small{ margin-top:4px; font-size:15px; opacity:.85; }
+#hint[hidden]{ display:none; }
+#hint p{ margin:0; max-width:220px; }
+#hint b{ white-space:nowrap; }
+#hint small{ display:block; margin-top:2px; font-size:14px; font-weight:600; opacity:.8; }
+#hint .art{ position:relative; flex:none; width:64px; height:64px; }
+/* touch: a finger drags the joystick round */
+#hint .ring{ position:absolute; inset:6px; border-radius:50%; border:3px solid rgba(23,48,66,.25); background:rgba(23,48,66,.06); }
+#hint .stick{ position:absolute; left:50%; top:50%; width:22px; height:22px; margin:-11px 0 0 -11px; border-radius:50%; background:var(--coral); box-shadow:0 2px 0 rgba(150,45,25,.45); animation:drag 2.4s ease-in-out infinite; }
+#hint .stick::after{ content:"👆"; position:absolute; left:6px; top:8px; font-size:24px; }
+@keyframes drag{ 0%,100%{ transform:translate(0,-15px); } 25%{ transform:translate(15px,0); } 50%{ transform:translate(0,15px); } 75%{ transform:translate(-15px,0); } }
+/* keys: W A S D, pressed in turn */
+#hint .keys{ position:absolute; inset:0; display:grid; grid-template-columns:repeat(3,20px); grid-template-rows:repeat(2,20px); gap:3px; place-content:center; }
+#hint kbd{ display:grid; place-items:center; border-radius:5px; background:var(--chip); box-shadow:0 2px 0 var(--shade); font:800 12px "Baloo 2","Trebuchet MS",system-ui,sans-serif; animation:press 2.4s infinite; }
+#hint kbd:nth-child(1){ grid-area:1 / 2; }
+#hint kbd:nth-child(2){ grid-area:2 / 1; animation-delay:1.8s; }
+#hint kbd:nth-child(3){ grid-area:2 / 2; animation-delay:1.2s; }
+#hint kbd:nth-child(4){ grid-area:2 / 3; animation-delay:.6s; }
+@keyframes press{ 0%,20%{ background:var(--coral); color:#fff; transform:translateY(2px); box-shadow:none; } 25%,100%{ background:var(--chip); color:inherit; transform:none; } }
+@media (prefers-reduced-motion: reduce){ #hint{ transition:opacity .3s; } #hint .stick, #hint kbd{ animation:none; } }
 
 #stale{ position:fixed; inset:0; z-index:8; display:grid; place-items:center; background:rgba(23,48,66,.55); }
 #stale[hidden]{ display:none; }
@@ -325,15 +398,9 @@ body{
   #stage .bar{ width:40px; }
   #stageName, #seasonName{ position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
   #mods{ min-width:0; font-size:13px; padding:5px 10px 5px 6px; }
-  #corner{ right:max(10px, env(safe-area-inset-right,0px)); top:calc(env(safe-area-inset-top,0px) + 10px); flex-direction:column; align-items:flex-end; gap:6px; }
-  #restart, #cloud{ min-height:40px; min-width:40px; padding:4px 12px; justify-content:center; }
-  /* Restart, and the account once signed in, show as icons; screen readers still get their names */
-  #restart:not(.armed){ font-size:0; padding:0; }
-  #restart:not(.armed)::before{ content:"↺"; content:"↺" / ""; font-size:22px; line-height:1; }
-  #cloud:not([data-state="out"]){ padding:4px 10px; }
-  #cloud:not([data-state="out"]) #cloudName{ position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
-  #cloud[data-state="out"] .wide{ display:none; }
-  #cloudMenu{ top:calc(env(safe-area-inset-top,0px) + 106px); right:max(10px, env(safe-area-inset-right,0px)); }
+  #corner{ right:max(10px, env(safe-area-inset-right,0px)); top:calc(env(safe-area-inset-top,0px) + 10px); }
+  #settings{ right:max(10px, env(safe-area-inset-right,0px)); top:calc(env(safe-area-inset-top,0px) + 62px); max-height:calc(100% - 76px); overflow-y:auto; touch-action:pan-y; }
+  #hint{ font-size:17px; }
   #toast{ top:calc(env(safe-area-inset-top,0px) + 108px); font-size:19px; padding:7px 16px; }
 }
 /* Phones on their side: the upgrade and casino panels go down the right-hand side, and the view slides over to
@@ -346,7 +413,8 @@ body{
   #shop{ width:min(46vw,400px); }
   #casino{ width:min(60vw,520px); padding:10px 12px; gap:12px; }
   #wheel{ width:clamp(96px,17vw,130px); }
-  #tip{ bottom:max(12px, env(safe-area-inset-bottom,0px)); font-size:15px; padding:6px 14px; }
+  #prompts{ bottom:max(12px, env(safe-area-inset-bottom,0px)); }
+  #tip{ font-size:15px; padding:6px 14px; }
   #tip b{ font-size:17px; }
 }
 /* fingers need bigger targets than a mouse */
@@ -354,7 +422,7 @@ body{
   #casino .chips button{ min-height:34px; padding:4px 12px; }
   #numPick button{ width:40px; min-height:34px; }
   #cloudMenu button{ min-height:38px; }
-  #restart, #cloud{ min-height:40px; }
+  #settings > button{ min-height:44px; }
   #rainMute{ width:40px; height:40px; }
   #korkiMute{ width:42px; height:42px; }
 }
@@ -376,10 +444,20 @@ body{
   <div id="mods" class="pill" role="group" aria-label="Modifiers"></div>
 </div>
 <div id="corner">
-  <button id="cloud" type="button" hidden><span class="ic" aria-hidden="true">☁️</span><span id="cloudName">Sign in</span><span class="wide" aria-hidden="true"> with Google</span><i aria-hidden="true"></i></button>
-  <button id="restart" type="button">Restart</button>
+  <button id="gear" type="button" aria-label="Settings" aria-expanded="false" aria-controls="settings"><span aria-hidden="true">⚙️</span><i aria-hidden="true"></i></button>
 </div>
-<div id="cloudMenu" class="pill" hidden><b id="cloudWho"></b><span id="cloudStatus"></span><button type="button" id="cloudOut">Sign out</button></div>
+<section id="settings" class="pill" aria-label="Settings" hidden>
+  <button id="cloud" type="button" hidden><span class="ic" aria-hidden="true">☁️</span><span><span id="cloudName">Sign in</span><span class="wide" aria-hidden="true"> with Google</span></span><i aria-hidden="true"></i></button>
+  <div id="cloudMenu" hidden><b id="cloudWho"></b><span id="cloudStatus"></span><button type="button" id="cloudOut">Sign out</button></div>
+  <button id="soundCat" type="button" aria-expanded="false" aria-controls="soundPanel"><span class="ic" aria-hidden="true">🔊</span>Sound<i class="chev" aria-hidden="true"></i></button>
+  <div id="soundPanel" role="group" aria-label="Sound" hidden>
+    <div class="vol"><button type="button" class="mute" id="muteSfx" aria-pressed="false" aria-label="Mute effects"></button><label for="volSfx">Effects</label><output id="volSfxN" for="volSfx">7</output><input type="range" id="volSfx" min="1" max="10" step="1" value="7"></div>
+    <div class="vol"><button type="button" class="mute" id="muteAmb" aria-pressed="false" aria-label="Mute ambience"></button><label for="volAmb">Ambience</label><output id="volAmbN" for="volAmb">7</output><input type="range" id="volAmb" min="1" max="10" step="1" value="7"></div>
+    <div class="vol"><button type="button" class="mute" id="muteMusic" aria-pressed="false" aria-label="Mute music"></button><label for="volMusic">Music</label><output id="volMusicN" for="volMusic">7</output><input type="range" id="volMusic" min="1" max="10" step="1" value="7"></div>
+  </div>
+  <button id="controls" type="button"><span class="ic" aria-hidden="true">🕹️</span>Controls</button>
+  <button id="restart" type="button"><span class="ic" aria-hidden="true">↺</span><span id="restartText">Restart</span></button>
+</section>
 <div id="cloudPick" role="dialog" aria-modal="true" aria-labelledby="cloudAsk" hidden><div class="card">
   <p id="cloudAsk">This device and your account have different games. Which one do you want to keep? The other one will be replaced.</p>
   <button type="button" data-keep="device"><b>Keep this device's game</b><span id="cloudHere"></span></button>
@@ -389,8 +467,12 @@ body{
 <div id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
 <canvas id="confetti" aria-hidden="true"></canvas>
 <div id="banner" aria-live="polite"><div class="card"><div class="k"></div><div class="t"></div></div></div>
-<div id="tip" class="pill" aria-live="polite"></div>
-<div id="intro"><div class="card"><h1>Floe<span>Market</span></h1><p>Drag anywhere to walk</p><p class="small">Catch fish, sell it at the market, then open a sushi restaurant</p><p class="small">Progress saves automatically on this device</p></div></div>
+<div id="prompts">
+  <div id="buyHint" class="pill" role="status" hidden></div>
+  <div id="tip" class="pill" aria-live="polite"></div>
+</div>
+<button id="buy" type="button" hidden><span aria-hidden="true">🛒</span>Buy</button>
+<div id="hint" class="pill" role="status" hidden><div class="art" aria-hidden="true"></div><p></p></div>
 <div id="stale" role="alertdialog" aria-modal="true" aria-labelledby="staleWhy" hidden><div class="card"><p id="staleWhy">Floe Market is open in another tab, so this one stopped saving.</p><button type="button">Play here instead</button></div></div>
 <section id="shop" hidden aria-label="Upgrades"><h2 id="shopTitle"></h2><div id="shopRows"></div></section>
 <div id="casino" hidden>

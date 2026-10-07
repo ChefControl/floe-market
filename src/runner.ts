@@ -1,9 +1,11 @@
 // The hired runners (the 'runner', 'runner2' and 'runner3' unlocks): they ferry fish slices from the pile to
-// whichever stage 1 counter is lowest, and in stage 2 to the fish tray on the restaurant's kitchen line.
+// whichever stage 1 counter is lowest, and in stage 2 to the fish tray on the restaurant's kitchen line. The
+// restaurant only needs two of them: a third goes at the stage-up.
 import { animPerson, moveEnt, Person, type Walker } from './characters';
 import { C1, COUNTERS, SLED } from './counters';
 import { boost } from './economy';
 import { carrySlot, Holder } from './holder';
+import { newSteak } from './items';
 import { scene } from './render';
 import { FISH_DROP, fishTray, sushi } from './restaurant';
 import { PILE_STAND, pile } from './stations';
@@ -54,6 +56,25 @@ export function hireRunner(): Runner {
   scene.add(r.g);
   runners.push(r);
   return r;
+}
+
+/** How many runners the restaurant keeps: two keep its kitchen line in fish. */
+export const KITCHEN_RUNNERS = 2;
+/**
+ * The stage-up: runners past the restaurant's two hand their fish back to the pile and go. Returns them, to shrink
+ * away with the market.
+ */
+export function retireRunners(): Person[] {
+  const gone = runners.splice(KITCHEN_RUNNERS);
+  for (const r of gone) {
+    for (const m of r.back.all()) {
+      scene.remove(m);
+      if (pile.hasRoom()) pile.put(newSteak());
+    }
+    r.back.items.length = 0;
+    r.back.inbound.length = 0;
+  }
+  return gone.map(r => r.g);
 }
 
 /** Fish slices the runners are carrying. */

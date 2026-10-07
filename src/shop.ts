@@ -1,23 +1,26 @@
-// The upgrade circle: each stage has one, and standing on it opens a panel of that stage's repeatable upgrades:
+// The upgrade square: each stage has one, and standing on it opens a panel of that stage's repeatable upgrades:
 // a better product (prices), marketing (customers) and the crew (speed). The HUD's top left lists every modifier
 // in play, as a percentage.
 import { repriceFish } from './counters';
-import { decal, drawPad } from './decals';
+import { decal, drawMenu } from './decals';
 import { boost, MOD, modCost, MODS, mods, type ModId } from './economy';
 import { stage } from './layout';
 import { player } from './player';
 import { demand } from './rating';
 import { repriceSushi, sushiBoost } from './restaurant';
 import { save } from './save';
+import { levelUp } from './sfx';
 import { staging } from './stage';
 import { toast } from './ui';
-import { d2xz, FY } from './util';
+import { FY } from './util';
 import { wallet } from './wallet';
 
-/** Where each stage's circle is: by the walk-up counter, and in the restaurant's aisle by the kitchen line. */
+/** Where each stage's square is: by the walk-up counter, and in the restaurant's aisle by the kitchen line. */
 export const SHOPS = [{ x: 0.9, z: 5.4 }, { x: -3.6, z: 5.0 }];
+/** Half the square's side. */
+const HALF = 0.95;
 const pads = SHOPS.map(at => {
-  const d = decal(1.9, (c, w, h) => drawPad(c, w, h, '📈'));
+  const d = decal(HALF * 2, (c, w, h) => drawMenu(c, w, h, '📈', 'Upgrade'));
   d.mesh.position.set(at.x, FY + 0.01, at.z);
   return d;
 });
@@ -28,7 +31,7 @@ const money = (v: number) => '$' + v.toLocaleString('en-US');
 const pct = (k: number) => (k >= 1 ? '+' : '−') + Math.round(Math.abs(k - 1) * 100) + '%';
 const EFFECT = { price: 'Prices', customers: 'Customers', speed: 'Speed' } as const;
 
-/** This stage's circle, once it's in place (stage 2's after the stage-up's show). */
+/** This stage's square, once it's in place (stage 2's after the stage-up's show). */
 const active = () => (stage.n === 2 && staging() ? -1 : stage.n - 1);
 
 /** What a level of an upgrade is called: the marketing campaign, or just its level. */
@@ -45,6 +48,7 @@ export function buyMod(id: ModId) {
   mods[id]++;
   repriceFish(); repriceSushi();
   toast(`${MOD[id].name}: ${levelName(id, mods[id])}`, 'shop');
+  levelUp();
   shown = '';
   save();
   return true;
@@ -106,7 +110,7 @@ let open = false, money0 = -1;
 export function updShop() {
   const a = active();
   pads.forEach((d, i) => { d.mesh.visible = i === a; });
-  const near = a >= 0 && d2xz(player.g.position, SHOPS[a]) < 0.95 * 0.95;
+  const p = player.g.position, near = a >= 0 && Math.abs(p.x - SHOPS[a].x) < HALF && Math.abs(p.z - SHOPS[a].z) < HALF;
   if (near !== open) {
     open = near;
     panel.hidden = !open;

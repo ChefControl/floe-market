@@ -1,30 +1,33 @@
 import './errors'; // must stay first: catches errors thrown while the other modules build the scene
 import { initCloud } from './cloud';
 import { tick } from './game';
-import { dismissIntro } from './input';
+import { initHint, updHint } from './hint';
+import { inputVec } from './input';
 import { player } from './player';
 import { updPointers } from './pointers';
 import { camera, camK, fog, OFF, renderer, scene, sun, sunOff } from './render';
 import { isStale, load, startAutosave, wipeSave } from './save';
+import './settings';
 import { view } from './stage';
 import { hud, keepInSight } from './ui';
 
 // ---------- save / restart ----------
-if (load()) dismissIntro();
+load();
 startAutosave();
 initCloud();
+initHint();
 
-const restartBtn = document.getElementById('restart')!;
+const restartBtn = document.getElementById('restart')!, restartText = document.getElementById('restartText')!;
 let armT: ReturnType<typeof setTimeout> | undefined;
 let armedAt = 0;
 restartBtn.addEventListener('click', () => {
   // First tap arms the button; a second, deliberate tap within 2.5s erases the save.
   if (!restartBtn.classList.contains('armed')) {
     restartBtn.classList.add('armed');
-    restartBtn.textContent = 'Tap again to erase progress';
+    restartText.textContent = 'Tap again to erase progress';
     armedAt = performance.now();
     clearTimeout(armT);
-    armT = setTimeout(() => { restartBtn.classList.remove('armed'); restartBtn.textContent = 'Restart'; }, 2500);
+    armT = setTimeout(() => { restartBtn.classList.remove('armed'); restartText.textContent = 'Restart'; }, 2500);
     return;
   }
   // Both taps of a double-tap land within a few hundred ms; that shouldn't erase everything.
@@ -53,6 +56,7 @@ function frame(now: number) {
   sun.target.position.copy(look);
 
   keepInSight(dt);
+  updHint(dt, !!inputVec());
   updPointers(dt);
   hud(dt);
   renderer.render(scene, camera);

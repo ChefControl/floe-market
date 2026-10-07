@@ -1,10 +1,12 @@
 // Roulette table: an unlockable station where the player bets cash on a European wheel.
 // Standing on its pad opens the betting panel; walking off closes it (settling any spin in progress).
 import { BoxGeometry, ConeGeometry, CylinderGeometry, Group, Mesh, MeshLambertMaterial } from 'three';
+import { every } from './audio';
 import { decal, drawPad } from './decals';
 import { player } from './player';
 import { canvasTex, FONT, mat, mesh, scene } from './render';
 import { colorOf, multiplier, payout, spinWheel, WHEEL, type Bet, type EvenBet } from './roulette';
+import { lose, tick, win } from './sfx';
 import { popText } from './ui';
 import { d2xz, FY } from './util';
 import { addMoney, wallet } from './wallet';
@@ -72,6 +74,8 @@ let pickedNumber = 17;
 let angle = 0;
 interface Spin { t: number; from: number; to: number; result: number; win: number; bet: Bet }
 let spin: Spin | null = null;
+/** The pocket the ball was last over, for its clicks. */
+let lastPocket = 0;
 const history: number[] = [];
 
 // ---------- panel ----------
@@ -158,7 +162,7 @@ function settle() {
   spin = null;
   angle = mod(s.to, TAU);
   wallet.inFlight -= s.win;
-  if (s.win > 0) { addMoney(s.win); popText('+' + money(s.win), TABLE); }
+  if (s.win > 0) { addMoney(s.win); popText('+' + money(s.win), TABLE); win(); } else lose();
   history.unshift(s.result);
   history.length = Math.min(history.length, 10);
   historyEl.replaceChildren(...history.map(n => {
@@ -208,6 +212,10 @@ export function updCasino(dt: number) {
     spin.t += dt;
     const k = Math.min(1, spin.t / SPIN_TIME);
     angle = spin.from + (spin.to - spin.from) * (1 - Math.pow(1 - k, 3));
+    // the ball clatters past the pockets, slower and slower
+    const pocket = Math.floor((5 * TAU * Math.pow(1 - k, 3) + angle) / SEG);
+    if (pocket !== lastPocket && every('pocket', 0.035)) tick();
+    lastPocket = pocket;
     if (k >= 1) settle(); else drawPanelWheel();
   }
   table!.face.rotation.y = -angle;

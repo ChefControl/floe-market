@@ -1,5 +1,5 @@
 // Player movement and every station interaction.
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { bought, loadGame } from './helpers';
 
 describe('movement', () => {
@@ -104,7 +104,7 @@ describe('stations', () => {
     expect(at(-5.0, 9.0)[0]).toBeCloseTo(-6.45); // round its end
     expect(at(0, 2.4)[1]).toBeCloseTo(1.8); // kitchen line: out the shallow side
     expect(at(-6.1, 2.6)[0]).toBeCloseTo(-6.3);
-    expect(at(7.6, 14.0)[1]).toBeCloseTo(13.7); // the register desk
+    expect(at(6.5, 14.0)[1]).toBeCloseTo(13.7); // the register desk
   });
 
   it('walks out through the gate to the garden, but not through the walls', async () => {
@@ -146,14 +146,22 @@ describe('stations', () => {
     expect(g.player.g.position.z).toBeCloseTo(STATUE.z + 0.8);
   });
 
-  it('shows the upgrade tip and pays into the tile after a short stand', async () => {
+  it('shows the upgrade tip, and pays into the tile while E is held on it', async () => {
     const g = await loadGame({ money: 35 });
     const tip = document.getElementById('tip')!;
     g.placePlayer(-1.5, 6.4);
-    g.run(0.2);
+    g.run(2);
     expect(tip.classList.contains('on')).toBe(true);
     expect(tip.textContent).toContain('Bigger arms');
-    expect(g.wallet.money).toBe(35);
+    expect(g.wallet.money).toBe(35); // standing alone buys nothing
+    g.press('e');
+    g.run(0.3);
+    g.press('e', 'keyup');
+    const part = g.wallet.money;
+    expect(part).toBeLessThan(35); // part paid
+    g.run(1);
+    expect(g.wallet.money).toBe(part); // let go: it stops
+    g.press('e');
     g.run(1.5);
     expect(g.wallet.money).toBe(5);
     expect(g.player.back.cap).toBe(14);
@@ -169,5 +177,64 @@ describe('stations', () => {
     g.runUntil(() => p.x > -0.2, 2); // across the 2m tile at walking speed
     g.press('d', 'keyup');
     expect(g.wallet.money).toBe(35);
+  });
+});
+
+describe('buying', () => {
+  const $ = (id: string) => document.getElementById(id)!;
+  const PACK = { x: -1.5, z: 6.4 };
+
+  it('lays the tiles square with the world, not turned to the camera', async () => {
+    const g = await loadGame();
+    expect(g.unlocks.tiles.every(t => t.d.mesh.rotation.z === 0 && t.d.mesh.rotation.x === -Math.PI / 2)).toBe(true);
+  });
+
+  it('reminds the player how to buy after two seconds on a tile, until they do', async () => {
+    const g = await loadGame({ money: 35 });
+    g.placePlayer(PACK.x, PACK.z);
+    g.run(1.9);
+    expect($('buyHint').hidden).toBe(true);
+    g.run(0.2);
+    expect($('buyHint').hidden).toBe(false);
+    expect($('buyHint').textContent).toBe('Hold E to buy this');
+    g.press('e');
+    g.run(0.05);
+    expect($('buyHint').hidden).toBe(true);
+    g.press('e', 'keyup');
+    g.placePlayer(0, -3);
+    g.run(5);
+    expect($('buyHint').hidden).toBe(true);
+    expect($('buy').hidden).toBe(true); // a computer has E: no button
+  });
+
+  it('gives a touch screen a Buy button to hold while on a tile', async () => {
+    vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue('Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) Mobile/15E148');
+    const g = await loadGame({ money: 35 });
+    const buy = $('buy');
+    expect(buy.hidden).toBe(true);
+    g.placePlayer(PACK.x, PACK.z);
+    g.run(0.1);
+    expect(buy.hidden).toBe(false);
+    expect($('buyHint').textContent).toBe('Hold Buy to buy this');
+    buy.dispatchEvent(new Event('pointerdown'));
+    expect(buy.classList.contains('down')).toBe(true);
+    g.run(0.3);
+    const part = g.wallet.money;
+    expect(part).toBeLessThan(35);
+    buy.dispatchEvent(new Event('pointerup'));
+    g.run(0.5);
+    expect(g.wallet.money).toBe(part); // let go: it stops
+    // walking off with it held lets go too
+    buy.dispatchEvent(new Event('pointerdown'));
+    g.placePlayer(0, -3);
+    g.run(0.1);
+    expect(buy.hidden).toBe(true);
+    expect(buy.classList.contains('down')).toBe(false);
+    g.placePlayer(PACK.x, PACK.z);
+    g.run(0.5);
+    expect(g.wallet.money).toBe(part);
+    const menu = new Event('contextmenu', { cancelable: true });
+    buy.dispatchEvent(menu);
+    expect(menu.defaultPrevented).toBe(true); // a long press doesn't bring up the browser's menu
   });
 });
