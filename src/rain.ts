@@ -1,5 +1,5 @@
 // Her house, far out past the road, at the end of a path from the market's east fence. Standing in the circle out
-// front makes it rain: the sky goes grey, the player cries facing her window, and "בגשם נרטב" plays from the line
+// front makes it rain: the sky goes grey, the player turns into the singer and cries facing her window, and "בגשם נרטב" plays from the line
 // "מול ביתך עומד בגשם נרטב". Walking off lets the rain stop and the song fade out.
 import {
   BoxGeometry, BufferAttribute, BufferGeometry, Color, ExtrudeGeometry, LineBasicMaterial, LineSegments, Mesh,
@@ -8,6 +8,7 @@ import {
 import { decal, drawPad } from './decals';
 import { player } from './player';
 import { G, hemi, mat, mesh, scene, sun } from './render';
+import { singerLook } from './singer';
 import { popText } from './ui';
 import { d2xz, FY } from './util';
 import { HOUSE_PATH_Z, makeTree } from './world';
@@ -165,6 +166,8 @@ const tears = [0, 1, 2, 3].map(i => {
 const TEAR = 0.8;
 let cryT = 0, sobT = 0;
 export let crying = false;
+/** In the rain he becomes the singer: black hair and stubble, black shirt, gold chain. */
+const dressAsSinger = singerLook(player.g);
 
 function updCrying(dt: number) {
   for (const t of tears) t.m.visible = crying;
@@ -204,6 +207,7 @@ export function updHouse(dt: number) {
   if (on !== crying) {
     crying = on;
     panel.hidden = !on;
+    dressAsSinger(on);
     cryT = 0; sobT = 0.6;
   }
   updRain(dt, on);

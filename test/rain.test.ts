@@ -1,5 +1,5 @@
 // Her house past the road: the path out to it, and the rain, tears and song in the circle out front.
-import type { Color } from 'three';
+import { Mesh, type Color, type MeshLambertMaterial } from 'three';
 import { describe, expect, it, vi } from 'vitest';
 import { bought, loadGame } from './helpers';
 
@@ -58,6 +58,12 @@ describe('her house', () => {
     const bg = () => g.render.scene.background as Color;
     const sky = bg().clone();
     const tears = g.player.g.children.filter(c => !c.visible && c.scale.y === 1.6);
+    /** Colour of the shirt or parka the player is wearing. */
+    const top = () => {
+      const m = g.player.g.children.find(c => c.visible && c instanceof Mesh && c.geometry === g.render.G.body) as Mesh;
+      return (m.material as MeshLambertMaterial).color.getHex();
+    };
+    expect(top()).toBe(0xFF6B4A);
     expect(tears).toHaveLength(4);
     expect($('rain').hidden).toBe(true);
     g.run(1);
@@ -74,6 +80,7 @@ describe('her house', () => {
     expect(rain.rainK).toBeGreaterThan(0.3);
     expect(rain.rainK).toBeLessThan(0.5);
     expect(tears.every(t => t.visible)).toBe(true);
+    expect(top()).toBe(0x18181D); // dressed as the singer
     expect(document.querySelector('.pop')!.textContent).toBe('😢');
     g.run(2);
     expect(rain.rainK).toBe(1);
@@ -89,6 +96,7 @@ describe('her house', () => {
     expect(rain.crying).toBe(false);
     expect($('rain').hidden).toBe(true);
     expect(tears.some(t => t.visible)).toBe(false);
+    expect(top()).toBe(0xFF6B4A);
     expect(g.player.g.arms[0].rotation.z).toBe(0);
     expect(rain.rainK).toBeGreaterThan(0.5);
     g.run(3);

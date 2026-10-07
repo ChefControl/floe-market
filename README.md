@@ -35,7 +35,7 @@ Two market upgrades are on offer at a time, in this order. A tile with a star re
 
 ### Her house
 
-Far out past the road, a path leaves the deck through the east fence, crosses the road at a zebra crossing and ends at a little rose-coloured house with its windows lit. Stand in the 💔 circle in front of it and it starts to rain: the sky goes grey, you turn to face her window and cry, and "בגשם נרטב" by Avi Bitter (via YouTube) plays from the line "מול ביתך עומד בגשם נרטב". Walk away and the rain clears and the song fades out; come back and it starts again from the same line. The 🔊 button on the song's banner mutes it (it starts muted on iPhone and iPad, where web pages can't fade sound). It's there from the start, free.
+Far out past the road, a path leaves the deck through the east fence, crosses the road at a zebra crossing and ends at a little rose-coloured house with its windows lit. Stand in the 💔 circle in front of it and it starts to rain: the sky goes grey, you turn into the singer (black hair, stubble, black shirt open at the collar, gold chain), face her window and cry, and "בגשם נרטב" by Avi Bitter (via YouTube) plays from the line "מול ביתך עומד בגשם נרטב". Walk away and the rain clears and the song fades out; come back and it starts again from the same line. The 🔊 button on the song's banner mutes it (it starts muted on iPhone and iPad, where web pages can't fade sound). It's there from the start, free.
 
 ### Floe Sushi
 
@@ -100,6 +100,7 @@ TypeScript + [three.js r186](https://threejs.org/), bundled with [Vite](https://
 | `src/roulette.ts` / `src/casino.ts` | Roulette rules / the table and its betting panel |
 | `src/korki.ts` | Korki's golden statue (a NAMI Klima One) and its memoir panel |
 | `src/rain.ts` | Her house, the path to it, and the rain, tears and song in the circle out front |
+| `src/singer.ts` | The singer's look, swapped onto the player in the rain |
 | `src/youtube.ts` | Songs played through YouTube's embedded player: one API load, fades, mute buttons |
 | `src/holder.ts` | Item stacks and arcing item flights |
 | `src/characters.ts` | People and sleds, walking |
