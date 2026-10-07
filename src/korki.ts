@@ -211,6 +211,7 @@ pad.mesh.position.set(KORKI.x, FY + 0.01, KORKI.z);
 pad.mesh.visible = false;
 
 const panel = document.getElementById('korki')!;
+const memo = panel.querySelector('.memo')!;
 let statue: Group | null = null;
 let open = false;
 
@@ -228,8 +229,15 @@ const SONG = 'jcutNFPwXPE';
 const LINGER = 3;
 /** Song volume (YouTube's 0-100 scale): kept low, it's background. */
 const MAX_VOL = 10;
-/** Seconds for a full fade in / fade out. */
+/**
+ * Seconds for a full fade in / fade out. The fade out is shorter than LINGER, so stepping back on
+ * the pad always lets the song fade all the way out before it fades in again from silence.
+ */
 const FADE_IN = 6, FADE_OUT = 2.5;
+/** Per-device mute choice for the song (a convenience, so it lives outside the save). */
+const MUTE_KEY = 'floe-market-korki-muted';
+/** iPhone and iPad ignore volume changes from web pages, so the song can't fade there: it starts muted. */
+const IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (/Mac/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
 
 interface YTPlayer {
   playVideo(): void;
@@ -252,6 +260,32 @@ let playing = false;
 /** Seconds the player has been on the pad. */
 let stood = 0;
 let vol = 0, sentVol = -1;
+let muted = IOS;
+try {
+  const m = localStorage.getItem(MUTE_KEY);
+  if (m !== null) muted = m === '1';
+} catch { /* storage unavailable: keep the default */ }
+
+const muteBtn = document.getElementById('korkiMute') as HTMLButtonElement;
+function showMute() {
+  muteBtn.textContent = muted ? '🔇' : '🔊';
+  muteBtn.setAttribute('aria-pressed', String(muted));
+}
+showMute();
+muteBtn.addEventListener('click', () => {
+  muted = !muted;
+  showMute();
+  try { localStorage.setItem(MUTE_KEY, muted ? '1' : '0'); } catch { /* storage unavailable */ }
+  if (!song) return;
+  if (muted) {
+    // Silence right away rather than fading: that's what a mute button is for.
+    vol = 0; sentVol = 0; song.setVolume(0);
+    if (playing) { song.pauseVideo(); playing = false; }
+  } else if (stood >= LINGER && !playing) {
+    // Start inside the tap: iPhone only lets sound start from one.
+    song.playVideo(); playing = true;
+  }
+});
 
 /** Loads YouTube's player API (only once someone lingers) and an invisible player for the song. */
 function loadSong() {
@@ -275,10 +309,10 @@ function loadSong() {
   document.head.appendChild(s);
 }
 
-/** Fades the song in after lingering on the pad, and out (then pauses it) after leaving. */
+/** Fades the song in after lingering on the pad (unless muted), and out (then pauses it) after leaving. */
 function updSong(onPad: boolean, dt: number) {
   stood = onPad ? stood + dt : 0;
-  const want = stood >= LINGER;
+  const want = stood >= LINGER && !muted;
   if (want && !songLoading) loadSong();
   if (!song) return;
   vol = want ? Math.min(MAX_VOL, vol + MAX_VOL / FADE_IN * dt) : Math.max(0, vol - MAX_VOL / FADE_OUT * dt);
@@ -295,7 +329,7 @@ export function updKorki(dt: number) {
   if (near !== open) {
     open = near;
     panel.hidden = !open;
-    if (open) panel.scrollTop = 0;
+    if (open) memo.scrollTop = 0;
   }
   updSong(near, dt);
 }
