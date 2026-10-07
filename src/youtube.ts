@@ -1,5 +1,7 @@
 // Songs played through YouTube's embedded player: an invisible player per song, faded in and out by the game,
 // with a per-device mute button. YouTube's player API is loaded once, the first time any song is wanted.
+// Browsers may refuse to start sound that a tap didn't start, and a video's owner can forbid playing it outside
+// YouTube, so each song watches whether YouTube really started it and reports what's stopping it.
 
 interface YTPlayer {
   playVideo(): void;
@@ -23,8 +25,19 @@ const IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (/Mac/.test(navigator.
 /** Players waiting for YouTube's API to arrive. */
 const waiting: (() => void)[] = [];
 
-/** Makes an invisible player for `videoId` and hands it to `ready` once it can play. */
-function makePlayer(videoId: string, playerVars: object, ready: (p: YTPlayer) => void) {
+/** YouTube's player states that mean the song is (about to be) heard. */
+const PLAYING = 1, BUFFERING = 3;
+
+interface PlayerEvents {
+  ready: (p: YTPlayer) => void;
+  /** YouTube's player state changed (-1 unstarted, 0 ended, 1 playing, 2 paused, 3 buffering, 5 cued). */
+  state: (s: number) => void;
+  /** YouTube won't play the video: 2 bad id, 5 HTML5 error, 100 removed, 101/150 not allowed outside YouTube. */
+  error: (code: number) => void;
+}
+
+/** Makes an invisible player for `videoId`. */
+function makePlayer(videoId: string, playerVars: object, on: PlayerEvents) {
   const host = document.createElement('div');
   host.setAttribute('aria-hidden', 'true');
   // Off-screen rather than display:none, which some browsers treat as "don't play".
@@ -35,7 +48,11 @@ function makePlayer(videoId: string, playerVars: object, ready: (p: YTPlayer) =>
   const make = () => new window.YT!.Player(el, {
     videoId, width: 1, height: 1,
     playerVars: { autoplay: 0, controls: 0, playsinline: 1, ...playerVars },
-    events: { onReady: (e: { target: YTPlayer }) => ready(e.target) },
+    events: {
+      onReady: (e: { target: YTPlayer }) => on.ready(e.target),
+      onStateChange: (e: { data: number }) => on.state(e.data),
+      onError: (e: { data: number }) => on.error(e.data),
+    },
   });
   if (window.YT?.Player) { make(); return; }
   if (!waiting.length) {
@@ -62,7 +79,18 @@ export interface SongSpec {
   /** localStorage key for the per-device mute choice (a convenience, so it lives outside the save). */
   muteKey: string;
   muteBtn: HTMLButtonElement;
+  /** Told whenever what's keeping the song from being heard changes. */
+  onStatus?: (s: SongStatus) => void;
 }
+
+/**
+ * What's keeping a wanted song from being heard: nothing ('ok'), the mute button ('muted'), the browser waiting for
+ * a tap before it allows sound ('tap'), YouTube refusing to play the video here ('unavailable'), or YouTube's player
+ * not loading at all, say with no connection or an ad blocker ('offline'). Always 'ok' while the song isn't wanted.
+ */
+export type SongStatus = 'ok' | 'muted' | 'tap' | 'unavailable' | 'offline';
+/** Seconds to wait for YouTube to start before asking for a tap, and for its player to load before giving up on it. */
+const START_WAIT = 2, LOAD_WAIT = 6;
 
 /** A song the game fades in while it's wanted, and fades out (then pauses) when it isn't. */
 export class Song {
@@ -73,6 +101,13 @@ export class Song {
   private want = false;
   private vol = 0;
   private sentVol = -1;
+  /** YouTube's latest player state. */
+  private ytState = -1;
+  /** Seconds the game has been asking YouTube to play without it starting, and waiting for its player to load. */
+  private waitT = 0;
+  private loadT = 0;
+  private failed = false;
+  status: SongStatus = 'ok';
   muted = IOS;
 
   constructor(private readonly o: SongSpec) {
@@ -82,6 +117,21 @@ export class Song {
     } catch { /* storage unavailable: keep the default */ }
     this.showMute();
     o.muteBtn.addEventListener('click', () => this.toggleMute());
+    // A song the browser wouldn't start on its own starts on the next tap or key press: those let sound start.
+    const retry = () => { if (this.stalled()) this.yt!.playVideo(); };
+    window.addEventListener('pointerdown', retry, true);
+    window.addEventListener('keydown', retry, true);
+  }
+
+  /** Asked to play, but YouTube hasn't started it. */
+  private stalled() {
+    return this.playing && !this.failed && this.ytState !== PLAYING && this.ytState !== BUFFERING;
+  }
+
+  private setStatus(s: SongStatus) {
+    if (s === this.status) return;
+    this.status = s;
+    this.o.onStatus?.(s);
   }
 
   private showMute() {
@@ -114,7 +164,11 @@ export class Song {
     this.loading = true;
     const { id, start, loop } = this.o;
     const vars = { ...(start !== undefined && { start }), ...(loop && { loop: 1, playlist: id }) };
-    makePlayer(id, vars, p => { this.yt = p; p.setVolume(0); });
+    makePlayer(id, vars, {
+      ready: p => { this.yt = p; p.setVolume(0); },
+      state: st => { this.ytState = st; },
+      error: () => { this.failed = true; },
+    });
   }
 
   /** Call every frame with whether the song should be heard. */
@@ -122,6 +176,12 @@ export class Song {
     this.want = want;
     const on = want && !this.muted;
     if (on && !this.loading) this.load();
+    this.waitT = this.stalled() ? this.waitT + dt : 0;
+    if (on && !this.yt) this.loadT += dt;
+    this.setStatus(
+      !want ? 'ok' : this.failed ? 'unavailable' : this.muted ? 'muted'
+        : !this.yt && this.loadT > LOAD_WAIT ? 'offline' : this.waitT > START_WAIT ? 'tap' : 'ok',
+    );
     const yt = this.yt;
     if (!yt) return;
     const { vol: max, fadeIn, fadeOut } = this.o;

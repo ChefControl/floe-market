@@ -12,7 +12,7 @@ import { singerLook } from './singer';
 import { popText } from './ui';
 import { d2xz, FY } from './util';
 import { HOUSE_PATH_Z, makeTree } from './world';
-import { Song } from './youtube';
+import { Song, type SongStatus } from './youtube';
 
 // ---------- layout ----------
 /** Her house: front wall faces west, toward the market. */
@@ -195,11 +195,21 @@ function updCrying(dt: number) {
 // ---------- the song ----------
 /** "מאוהב בגשם" by Ofer Levy (live at Caesarea, 2011), and the second in the video where "מול ביתך עומד בגשם נרטב" begins. */
 export const SONG = { id: 'OQE1efu22BM', start: 107 }; // 1:47
+const panel = document.getElementById('rain')!;
+const hint = document.getElementById('rainHint')!;
+/** What the banner says when the song can't be heard, by what's stopping it. */
+const HINTS: Record<SongStatus, string> = {
+  ok: '',
+  muted: 'Tap 🔇 to hear the song',
+  tap: 'Tap anywhere to hear the song',
+  unavailable: "YouTube won't play this song here. Tap its name to listen on YouTube",
+  offline: "Couldn't load YouTube's player. Check your connection, or allow YouTube in your ad blocker",
+};
 const song = new Song({
   id: SONG.id, start: SONG.start, vol: 60, fadeIn: 2, fadeOut: RAIN_OUT,
   muteKey: 'floe-market-rain-muted', muteBtn: document.getElementById('rainMute') as HTMLButtonElement,
+  onStatus: s => { hint.textContent = HINTS[s]; hint.hidden = s === 'ok'; },
 });
-const panel = document.getElementById('rain')!;
 
 /** Rain, tears and the song while the player stands in the circle in front of her house. */
 export function updHouse(dt: number) {
