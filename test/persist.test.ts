@@ -10,7 +10,7 @@ describe('saving progress', () => {
     const tiles = [...bought('pack', 'sled'), { id: 'turret', paid: 20, done: false }];
     const g1 = await loadGame({ money: 50, tiles, pile: 5, back: 4, c1: 3, c2: 2, c1c: 12, c2c: 18 });
     g1.saveMod.save();
-    expect(stored().v).toBe(2);
+    expect(stored().v).toBe(3);
 
     const g2 = await loadGame(localStorage.getItem(KEY)!);
     expect(g2.wallet.money).toBe(50);
@@ -49,7 +49,7 @@ describe('loading', () => {
   it('upgrades and sanitises older saves', async () => {
     const { saveMod } = await loadGame();
     const s = saveMod.migrate({ money: '12', tiles: [{ id: 'pack', paid: 25, done: true }, null], pile: -3 });
-    expect(s).toMatchObject({ v: 2, money: 12, pile: 0, back: 0, tiles: [{ id: 'pack', paid: 25, done: true }] });
+    expect(s).toMatchObject({ v: 3, money: 12, pile: 0, back: 0, tiles: [{ id: 'pack', paid: 25, done: true, open: false }] });
     expect(() => saveMod.migrate('nope')).toThrow();
     expect(() => saveMod.migrate([])).toThrow();
   });
@@ -58,7 +58,7 @@ describe('loading', () => {
     const g = await loadGame('{broken');
     expect(localStorage.getItem('floe-market-backup')).toBe('{broken');
     g.saveMod.save();
-    expect(stored().v).toBe(2);
+    expect(stored().v).toBe(3);
     expect(localStorage.getItem('floe-market-backup')).toBe('{broken');
   });
 

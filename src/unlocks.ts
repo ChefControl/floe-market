@@ -1,17 +1,22 @@
 // Purchasable upgrades: pay-in tiles on the deck and the machines they build.
 import { BoxGeometry, Group, Mesh, MeshBasicMaterial, Object3D, PlaneGeometry, Vector3 } from 'three';
 import { enableCasino } from './casino';
+import { buildConveyor } from './conveyor';
 import { C2 } from './counters';
 import { decal, drawTile, type Decal } from './decals';
 import { tryCatch } from './fishing';
 import { player } from './player';
+import { rating } from './rating';
 import { G, mesh, scene } from './render';
+import { addSeats, hireChef, openRestaurant, setPremium } from './restaurant';
 import { hireRunner } from './runner';
-import { toast } from './ui';
+import { toast, type TipContent } from './ui';
 import { FY, V } from './util';
-import { gapLogs } from './world';
+import { gapLogs, openWestGaps } from './world';
 
-export type UnlockId = 'pack' | 'turret' | 'roulette' | 'runner' | 'boots' | 'sled' | 'net';
+export type UnlockId =
+  | 'pack' | 'turret' | 'roulette' | 'runner' | 'boots' | 'sled' | 'net'
+  | 'sushi' | 'seats' | 'chef' | 'premium';
 interface Unlock {
   id: UnlockId;
   cost: number;
@@ -20,26 +25,47 @@ interface Unlock {
   icon: string;
   name: string;
   desc: string;
+  /** Market rating needed before the tile takes money. */
+  stars?: number;
+  /** The market's own upgrades, or the sushi restaurant and its upgrades. */
+  zone: 'market' | 'sushi';
 }
 export interface Tile extends Unlock {
   paid: number;
   done: boolean;
+  /** The star requirement has been met. It stays met even if the rating drops later. */
+  open: boolean;
   d: Decal;
+  /** What the tip shows while the player stands on the tile. */
+  tip: TipContent;
 }
 
 const UNLOCKS: Unlock[] = [
-  { id: 'pack', cost: 25, x: -1.3, z: 6.0, icon: '🎒', name: 'Bigger arms', desc: 'Carry 14 steaks at once' },
-  { id: 'turret', cost: 60, x: -6.0, z: -3.3, icon: '🎯', name: 'Auto harpoon', desc: 'Keeps catching fish while you are away' },
-  { id: 'roulette', cost: 80, x: -4.3, z: 0.6, icon: '🎰', name: 'Roulette table', desc: 'Bet your cash on the wheel' },
-  { id: 'runner', cost: 120, x: -4.0, z: 3.6, icon: '🏃', name: 'Hire a runner', desc: 'Carries steaks to your counters' },
-  { id: 'boots', cost: 150, x: -6.0, z: 6.2, icon: '🥾', name: 'Snow boots', desc: 'Walk faster' },
-  { id: 'sled', cost: 220, x: 6.55, z: -1.0, icon: '🛷', name: 'Sled window', desc: 'Snowmobiles buy in bulk at $6 a steak' },
-  { id: 'net', cost: 320, x: -1.9, z: -4.4, icon: '🕸️', name: 'Ice net', desc: 'Hauls in fish nonstop' },
+  { id: 'pack', cost: 25, x: -1.3, z: 6.0, icon: '🎒', name: 'Bigger arms', desc: 'Carry 14 steaks at once', zone: 'market' },
+  { id: 'turret', cost: 60, x: -6.0, z: -3.3, icon: '🎯', name: 'Auto harpoon', desc: 'Keeps catching fish while you are away', zone: 'market' },
+  { id: 'roulette', cost: 80, x: -4.3, z: 0.6, icon: '🎰', name: 'Roulette table', desc: 'Bet your cash on the wheel', zone: 'market' },
+  { id: 'runner', cost: 120, x: -4.0, z: 3.6, icon: '🏃', name: 'Hire a runner', desc: 'Carries steaks to your counters', stars: 3.5, zone: 'market' },
+  { id: 'boots', cost: 150, x: -6.0, z: 6.2, icon: '🥾', name: 'Snow boots', desc: 'Walk faster', zone: 'market' },
+  { id: 'sled', cost: 220, x: 6.55, z: -1.0, icon: '🛷', name: 'Sled window', desc: 'Snowmobiles buy in bulk at $6 a steak', stars: 3.8, zone: 'market' },
+  { id: 'net', cost: 320, x: -1.9, z: -4.4, icon: '🕸️', name: 'Ice net', desc: 'Hauls in fish nonstop', stars: 4.0, zone: 'market' },
+  { id: 'sushi', cost: 1200, x: -6.3, z: 2.5, icon: '🍣', name: 'Sushi restaurant', desc: 'Fancy diners pay $12 a plate. Send it steaks with the lever', stars: 4.2, zone: 'sushi' },
+  { id: 'seats', cost: 900, x: -21.4, z: -3.7, icon: '🪑', name: 'More seats', desc: 'Four more seats round the bar', stars: 4.3, zone: 'sushi' },
+  { id: 'chef', cost: 1500, x: -19.0, z: -3.7, icon: '🔪', name: 'Second chef', desc: 'Twice the sushi', stars: 4.4, zone: 'sushi' },
+  { id: 'premium', cost: 2500, x: -16.6, z: -3.7, icon: '🏮', name: 'Premium menu', desc: 'New plates sell for $20', stars: 4.6, zone: 'sushi' },
 ];
 
+export const locked = (t: Tile) => !!t.stars && !t.open;
+const money = (v: number) => '$' + v.toLocaleString('en-US');
+function tipOf(t: Tile): TipContent {
+  return locked(t)
+    ? { name: t.name, desc: `Needs a ★${t.stars!.toFixed(1)} rating (now ★${rating().toFixed(1)}) · ${money(t.cost)}` }
+    : t;
+}
+
 export const tiles: Tile[] = UNLOCKS.map(u => {
-  const state = { ...u, paid: 0, done: false };
-  const t = Object.assign(state, { d: decal(2.0, (c, w, h) => drawTile(c, w, h, state)) });
+  const state = { ...u, paid: 0, done: false, open: false };
+  const t: Tile = Object.assign(state, { d: decal(2.0, (c, w, h) => drawTile(c, w, h, state)), tip: u });
+  t.tip = tipOf(t);
   t.d.mesh.position.set(t.x, FY + 0.012, t.z);
   t.d.mesh.visible = false;
   return t;
@@ -52,11 +78,32 @@ export function redrawTile(t: Tile) {
 // Tiles drawn before the web font loaded fall back to a system font; redraw once it's ready.
 if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => tiles.forEach(redrawTile));
 
+const zoneBuilt = (zone: Unlock['zone']) => tiles.every(t => t.zone !== zone || t.done);
+const isDone = (id: UnlockId) => tiles.some(t => t.id === id && t.done);
+/** The restaurant goes on sale once the market is fully built; its own upgrades once it's open. */
+const offered = (t: Tile) => t.zone === 'market' || (t.id === 'sushi' ? zoneBuilt('market') : isDone('sushi'));
+
 /** At most two unpaid tiles are offered at a time, in order. */
 export function visibleTiles() {
-  const v = tiles.filter(t => !t.done).slice(0, 2);
+  const v = tiles.filter(t => !t.done && offered(t)).slice(0, 2);
   tiles.forEach(t => { t.d.mesh.visible = v.includes(t); });
   return v;
+}
+
+let shownRating = -1;
+/** Opens star-locked tiles once the rating reaches them, and keeps locked tiles' tips current. */
+export function updStars(silent = false) {
+  const r = rating();
+  if (r === shownRating) return;
+  shownRating = r;
+  for (const t of tiles) {
+    if (locked(t) && r >= t.stars!) {
+      t.open = true;
+      redrawTile(t);
+      if (!silent && t.d.mesh.visible) toast(`★${t.stars!.toFixed(1)} reached: ${t.name} for sale`);
+    }
+    t.tip = tipOf(t);
+  }
 }
 
 // ---------- pop-in animation ----------
@@ -124,9 +171,19 @@ export function applyUnlock(id: UnlockId, silent = false) {
     C2.meshes.forEach(m => { m.visible = true; if (!silent && m.geometry.type === 'BoxGeometry') popIn(m); });
   }
   if (id === 'net') { net = buildNet(); if (!silent) popIn(net.g); }
+  if (id === 'sushi') {
+    const built = [...openRestaurant(), buildConveyor()];
+    openWestGaps();
+    if (!silent) built.forEach(popIn);
+  }
+  if (id === 'seats') { const stools = addSeats(); if (!silent) stools.forEach(popIn); }
+  if (id === 'chef') { const c = hireChef(); if (!silent) popIn(c); }
+  if (id === 'premium') setPremium();
   if (!silent) {
     toast(t.name + ' unlocked');
-    if (tiles.every(x => x.done)) setTimeout(() => toast('Floe Market is fully built'), 1800);
+    if (zoneBuilt(t.zone)) {
+      setTimeout(() => toast(t.zone === 'market' ? 'Floe Market is fully built' : 'Floe Sushi is fully built'), 1800);
+    }
   }
 }
 

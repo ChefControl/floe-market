@@ -1,6 +1,6 @@
 # Floe Market
 
-A cozy 3D idle/tycoon game for the browser. Catch fish from the ice, chop them into steaks, stock your counters, and collect cash from hungry customers — then spend it to grow your market.
+A cozy 3D idle/tycoon game for the browser. Catch fish from the ice, chop them into steaks, stock your counters, and collect cash from hungry customers — then spend it to grow your market, and later open a conveyor-belt sushi restaurant next door.
 
 ## Play
 
@@ -14,24 +14,41 @@ npm run dev
 - **Move:** drag anywhere (touch or mouse) for a virtual joystick, or use WASD / arrow keys
 - **Fish:** stand on the 🎣 pad to hook fish; they get chopped into steaks automatically
 - **Sell:** pick up steaks from the pile, drop them on a counter's 🥩 pad, and walk over the cash to collect it
-- **Upgrade:** stand on a price tile to pay into it
+- **Upgrade:** stand on a price tile to pay into it. Some tiles also need a star rating (see below)
+- **Rating:** customers only wait so long. Each one leaves a 1–5★ review when they go, based on how long they waited; someone who gives up leaves 1★ and pays only for what they got. The rating in the HUD is the average of the last 20 reviews (a new market starts at ★3.0). A better rating also brings customers in faster: ×0.6 at ★1, ×1.4 at ★5
 - **Gamble:** once the roulette table is built, stand on its 🎰 pad to bet on red/black, odd/even, 1–18/19–36 (pays ×2) or a single number (pays ×36)
 
 ## Unlocks
 
-| Upgrade | Cost | Effect |
-| --- | --- | --- |
-| 🎒 Bigger arms | $25 | Carry 14 steaks at once |
-| 🎯 Auto harpoon | $60 | Catches fish while you're away |
-| 🎰 Roulette table | $80 | Bet your cash on a European wheel |
-| 🏃 Hire a runner | $120 | Carries steaks to your counters |
-| 🥾 Snow boots | $150 | Walk faster |
-| 🛷 Sled window | $220 | Snowmobiles buy in bulk at $6 a steak |
-| 🕸️ Ice net | $320 | Hauls in fish nonstop |
+Two market upgrades are on offer at a time, in this order. A tile with a star requirement shows the rating it needs (🔒 ★3.5) instead of its price until your rating reaches it. Once reached, it stays open even if the rating drops later.
+
+| Upgrade | Cost | Needs | Effect |
+| --- | --- | --- | --- |
+| 🎒 Bigger arms | $25 | | Carry 14 steaks at once |
+| 🎯 Auto harpoon | $60 | | Catches fish while you're away |
+| 🎰 Roulette table | $80 | | Bet your cash on a European wheel |
+| 🏃 Hire a runner | $120 | ★3.5 | Carries steaks to your counters |
+| 🥾 Snow boots | $150 | | Walk faster |
+| 🛷 Sled window | $220 | ★3.8 | Snowmobiles buy in bulk at $6 a steak |
+| 🕸️ Ice net | $320 | ★4.0 | Hauls in fish nonstop |
+
+### Floe Sushi
+
+Once every market upgrade is bought, a 🍣 tile by the west fence puts the sushi restaurant up for sale. Buying it opens a gate to a walkway and builds:
+
+- **A conveyor and a lever.** A conveyor runs from the chopping block to the restaurant's kitchen. Stepping on one of the three pads beside the lever sends fresh steaks to 🥩 the market's pile, ⚖️ both sides (half each), or 🍣 the sushi kitchen. When one side is full, steaks go to the other. You can also carry steaks over and drop them on the kitchen's 🥩 pad yourself.
+- **A conveyor-belt sushi bar.** The chef slices each steak into a plate of sushi and puts it on the belt circling the bar. Diners in top hats take a seat, pick plates off the belt as they pass, and leave once they've eaten their order (2–4 plates). They pay $12 a plate at the register by the walkway, where you collect the cash. They review the place like any customer, and give up after 30 seconds of waiting for plates.
+
+| Upgrade | Cost | Needs | Effect |
+| --- | --- | --- | --- |
+| 🍣 Sushi restaurant | $1,200 | ★4.2 | Opens the restaurant: 6 seats, one chef, the conveyor and the lever |
+| 🪑 More seats | $900 | ★4.3 | Four more seats round the ends of the bar |
+| 🔪 Second chef | $1,500 | ★4.4 | Twice the sushi |
+| 🏮 Premium menu | $2,500 | ★4.6 | New plates sell for $20 |
 
 ### Saving
 
-Progress saves automatically on the device: every few seconds, whenever the page is hidden or closed, and after each upgrade. Cash and steaks that are mid-air are counted, so closing the tab at any moment loses nothing.
+Progress saves automatically on the device, including your reviews, the lever's position and everything in the restaurant: every few seconds, whenever the page is hidden or closed, and after each upgrade. Cash and steaks that are mid-air are counted, so closing the tab at any moment loses nothing.
 
 - **One tab at a time.** If the game is opened in a second tab, the older tab stops saving and says so, so it can't overwrite newer progress.
 - **Updates don't reset progress.** Saves carry a format version and older saves are migrated on load. A save that can't be read is kept under `floe-market-backup` instead of being overwritten.
@@ -67,7 +84,11 @@ TypeScript + [three.js r186](https://threejs.org/), bundled with [Vite](https://
 | `src/world.ts` | Static scenery: water, deck, fences, road, trees |
 | `src/stations.ts` | Fishing pad, chopping block, steak pile |
 | `src/fishing.ts` | Fish, hooking, chopping into steaks |
-| `src/counters.ts` | Sales counters and customers |
+| `src/counters.ts` | Sales counters and customers (patience, reviews) |
+| `src/rating.ts` | Reviews and the market rating |
+| `src/bubble.ts` | Order bubbles with patience rings, and mood faces |
+| `src/conveyor.ts` | The lever and the conveyor to the sushi kitchen |
+| `src/restaurant.ts` | Floe Sushi: building, chefs, the plate belt, diners |
 | `src/player.ts` / `src/playerUpdate.ts` | Player entity / per-frame player logic |
 | `src/runner.ts` | Hired helper AI |
 | `src/unlocks.ts` | Upgrade tiles and the machines they build |

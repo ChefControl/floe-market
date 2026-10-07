@@ -55,13 +55,19 @@ for (let x = -7.5; x <= 7.5; x += 2.5) {
 // ---------- fences ----------
 /** Fence logs that get removed when the sled window opens. */
 export const gapLogs: Mesh[] = [];
+/** West fence, which opens for the walkway and the conveyor once the sushi restaurant is built. */
+const westLogs: Mesh[] = [];
+/** The conveyor to the sushi kitchen runs along this line. */
+export const BELT_Z = -3.3;
+/** Where the walkway to the sushi restaurant leaves the deck. */
+export const WEST_GATE = { z0: 1.5, z1: 3.5 };
 function log(x: number, z: number, list?: Mesh[]) {
   const h = rand(.78, .98);
   const l = mesh(G.log, 0xB0724A, x, FY + h / 2 - 0.05, z, true);
   l.scale.y = h; scene.add(l);
   if (list) list.push(l);
 }
-for (let z = -6.2; z <= 8; z += 0.5) log(-7.85, z);
+for (let z = -6.2; z <= 8; z += 0.5) log(-7.85, z, westLogs);
 for (let x = -7.35; x <= 7.9; x += 0.5) {
   if (x > 1.7 && x < 4.3) continue;
   log(x, 7.85);
@@ -69,6 +75,14 @@ for (let x = -7.35; x <= 7.9; x += 0.5) {
 for (let z = -6.2; z < 7.6; z += 0.5) {
   const inGap = z > -2.3 && z < 0.3;
   log(7.85, z, inGap ? gapLogs : undefined);
+}
+
+/** Opens the west fence for the restaurant walkway and the conveyor. */
+export function openWestGaps() {
+  for (const l of westLogs) {
+    const z = l.position.z;
+    if ((z > WEST_GATE.z0 && z < WEST_GATE.z1) || Math.abs(z - BELT_Z) < 0.6) l.visible = false;
+  }
 }
 
 // ---------- road ----------
@@ -94,9 +108,11 @@ function makeTree(s: number) {
   });
   return g;
 }
-/** Keeps trees off the deck, road, customer path and water. */
+/** Keeps trees off the deck, road, customer paths, the sushi restaurant's lot and water. */
 function treeOK(x: number, z: number) {
   if (x > -8.8 && x < 8.8 && z > -7.2 && z < 8.8) return false;
+  if (x > -24.5 && x < -8 && z > -6.5 && z < 6.5) return false;
+  if (x > -19.5 && x < -14.5 && z > 4 && z < 30) return false;
   if (x > 8.2 && x < 11.2) return false;
   if (x > -5 && x < 8.6 && z > 8.4 && z < 20) return false;
   if (x < 7.8 && z < -6.2) return false;

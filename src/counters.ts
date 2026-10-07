@@ -1,11 +1,13 @@
 // Sales counters and the customers who queue at them.
 import { BoxGeometry, Group, Mesh, Sprite, SpriteMaterial, Vector3 } from 'three';
+import { drawBubble, moodMat, newMoodSprite, patienceStep } from './bubble';
 import { animPerson, makeSled, moveEnt, PARKAS, Person } from './characters';
 import { decal, drawDrop } from './decals';
 import { carrySlot, Holder, type Slot } from './holder';
 import { addBillValue, newBill } from './items';
-import { canvasTex, FONT, mesh, scene, type CanvasTex } from './render';
-import { popText } from './ui';
+import { addReview, demand, starsFor } from './rating';
+import { canvasTex, mesh, scene, type CanvasTex } from './render';
+import { popStars, popText } from './ui';
 import { FY, pick, rand, randi, V } from './util';
 
 export interface Customer {
@@ -17,9 +19,17 @@ export interface Customer {
   isSled: boolean;
   moving: boolean;
   arrived: boolean;
+  /** Has reached the queue; patience runs from then until served. */
+  queued: boolean;
+  /** Seconds spent waiting in the queue. */
+  wait: number;
   payT: number;
   bubble: Sprite;
   bt: CanvasTex;
+  /** What the bubble was last drawn with (items left and patience step), to skip needless redraws. */
+  drawn: number;
+  /** Face shown over customers further back once they're getting impatient. */
+  mood: Sprite;
   /** Remaining exit waypoints once served. */
   path: Vector3[];
   hands: Holder;
@@ -31,6 +41,8 @@ interface CounterSpec {
   price: number;
   maxQ: number;
   spawnEvery: number;
+  /** Seconds a customer will wait in the queue before giving up. */
+  patience: number;
   want: [min: number, max: number];
   enabled?: boolean;
   isSled?: boolean;
@@ -70,7 +82,7 @@ function makeCounter(o: CounterSpec): Counter {
 }
 
 export const C1 = makeCounter({
-  name: 'walk', price: 4, maxQ: 6, spawnEvery: 2.4, want: [1, 3],
+  name: 'walk', price: 4, maxQ: 6, spawnEvery: 2.4, patience: 40, want: [1, 3],
   dropPos: V(3, FY, 6.65), cashPos: V(5.3, 0, 6.55), faceH: Math.PI,
   stockSlot: i => {
     const j = i % 6;
@@ -88,7 +100,7 @@ C1.meshes.forEach(m => scene.add(m));
 decal(1.9, (c, w, h) => drawDrop(c, w, h, '🥩')).mesh.position.set(C1.dropPos.x, FY + 0.01, C1.dropPos.z);
 
 export const C2 = makeCounter({
-  name: 'sled', price: 6, maxQ: 3, spawnEvery: 7, want: [4, 8], enabled: false, isSled: true,
+  name: 'sled', price: 6, maxQ: 3, spawnEvery: 7, patience: 55, want: [4, 8], enabled: false, isSled: true,
   dropPos: V(6.55, FY, -1), cashPos: V(6.55, 0, 1.25), faceH: Math.PI,
   stockSlot: i => {
     const j = i % 6;
@@ -110,17 +122,6 @@ C2.meshes.forEach(m => { if (m !== c2Drop.mesh) scene.add(m); m.visible = false;
 export const COUNTERS = [C1, C2];
 
 // ---------- customers ----------
-function drawBubble(c: CanvasRenderingContext2D, w: number, h: number, n: number) {
-  c.clearRect(0, 0, w, h);
-  c.fillStyle = '#fff'; c.beginPath(); c.arc(64, 58, 52, 0, 7); c.fill();
-  c.beginPath(); c.moveTo(52, 104); c.lineTo(64, 124); c.lineTo(76, 104); c.fill();
-  c.fillStyle = '#D8394B'; c.beginPath(); c.arc(46, 56, 22, 0, 7); c.fill();
-  c.strokeStyle = '#F6D0D0'; c.lineWidth = 4; c.beginPath(); c.arc(46, 56, 17, 0.4, 5); c.stroke();
-  c.fillStyle = '#FFF4E6'; c.beginPath(); c.arc(52, 49, 5, 0, 7); c.fill();
-  c.fillStyle = '#173042'; c.font = '800 40px ' + FONT; c.textAlign = 'center'; c.textBaseline = 'middle';
-  c.fillText('×' + n, 88, 60);
-}
-
 const leaving: Customer[] = [];
 
 function spawnCustomer(C: Counter) {
@@ -128,13 +129,15 @@ function spawnCustomer(C: Counter) {
   const g = isSled ? makeSled(pick(PARKAS), pick(PARKAS)) : new Person(pick(PARKAS));
   g.position.copy(C.spawn()); scene.add(g);
   const want = randi(C.want[0], C.want[1]);
-  const bt = canvasTex(128, 128, (c, w, h) => drawBubble(c, w, h, want));
+  const bt = canvasTex(128, 128, (c, w, h) => drawBubble(c, w, h, want, 1, 'steak'));
   const sp = new Sprite(new SpriteMaterial({ map: bt.tex, depthTest: false }));
   sp.scale.set(0.8, 0.8, 1); sp.position.set(0, isSled ? 2.0 : 1.75, 0); sp.renderOrder = 5; sp.visible = false;
   g.add(sp);
+  const mood = newMoodSprite(isSled ? 1.75 : 1.55);
+  g.add(mood);
   const c: Customer = {
     g, want, got: 0, h: isSled ? Math.PI : -Math.PI / 2, speed: isSled ? 5 : 2.4, isSled,
-    moving: false, arrived: false, payT: 0, bubble: sp, bt, path: [],
+    moving: false, arrived: false, queued: false, wait: 0, payT: 0, bubble: sp, bt, drawn: -1, mood, path: [],
     hands: new Holder(isSled
       ? i => { const p = g.position; const j = i % 2; return V(p.x + (j - 0.5) * 0.34, 0.66 + Math.floor(i / 2) * 0.085, p.z + 0.52); }
       : i => carrySlot(c, i), 12),
@@ -142,18 +145,62 @@ function spawnCustomer(C: Counter) {
   C.queue.push(c);
 }
 
+/** Redraws the order bubble when the count or the patience ring has changed. */
+function showOrder(c: Customer, left: number) {
+  const key = (c.want - c.got) * 100 + patienceStep(left);
+  if (key === c.drawn) return;
+  c.drawn = key;
+  drawBubble(c.bt.ctx, 128, 128, c.want - c.got, left, 'steak');
+  c.bt.tex.needsUpdate = true;
+}
+
+/** Bills for `n` steaks fly from the customer onto the counter's cash stack. */
+function pay(C: Counter, c: Customer, n: number) {
+  const from = c.g.position.clone(); from.y = 1;
+  for (let i = 0; i < n; i++) {
+    const b = newBill(C.price); b.position.copy(from);
+    if (C.cash.hasRoom()) C.cash.receive(b, 0.35 + i * 0.04, 1.0);
+    else {
+      // Cash stack is full: fold the value into the top bill instead.
+      const top = C.cash.items[C.cash.items.length - 1];
+      if (top) addBillValue(top, C.price); else C.cash.receive(b, 0.35, 1.0);
+    }
+  }
+  popText('+$' + (n * C.price), C.cashPos);
+}
+
+function depart(C: Counter, c: Customer, stars: number) {
+  addReview(stars); popStars(stars, c.g.position);
+  c.bubble.visible = false; c.mood.visible = false;
+  c.path = C.exit(); leaving.push(c);
+}
+
 export function updCounter(C: Counter, dt: number) {
   if (!C.enabled) return;
   C.spawnT -= dt;
   if (C.spawnT <= 0 && C.queue.length < C.maxQ) {
-    C.spawnT = C.spawnEvery * rand(.7, 1.3);
+    C.spawnT = C.spawnEvery * rand(.7, 1.3) / demand();
     spawnCustomer(C);
   }
   C.queue.forEach((c, i) => {
     c.arrived = moveEnt(c, C.slot(i), dt);
-    if (c.arrived) c.h = i === 0 ? C.faceH : (C.isSled ? Math.PI : -Math.PI / 2);
+    if (c.arrived) { c.h = i === 0 ? C.faceH : (C.isSled ? Math.PI : -Math.PI / 2); c.queued = true; }
+    if (c.queued) c.wait += dt;
+    const left = 1 - c.wait / C.patience;
     c.bubble.visible = i === 0 && c.arrived && c.got < c.want;
+    if (c.bubble.visible) showOrder(c, left);
+    c.mood.visible = i > 0 && c.queued && left < 0.5;
+    if (c.mood.visible) c.mood.material = moodMat(left < 0.25 ? 'angry' : 'meh');
   });
+  // Out of patience: leave without the rest of the order, paying only for what they got.
+  for (let i = C.queue.length - 1; i >= 0; i--) {
+    const c = C.queue[i];
+    if (c.wait >= C.patience && c.got < c.want && c.hands.incoming === 0) {
+      C.queue.splice(i, 1);
+      if (c.got) pay(C, c, c.got);
+      depart(C, c, 1);
+    }
+  }
   const f = C.queue[0];
   if (f && f.arrived && f.got < f.want) {
     C.serveT -= dt;
@@ -161,25 +208,14 @@ export function updCounter(C: Counter, dt: number) {
       C.serveT = 0.16;
       f.hands.receive(C.stock.take()!, 0.3, 0.6);
       f.got++;
-      drawBubble(f.bt.ctx, 128, 128, f.want - f.got);
-      f.bt.tex.needsUpdate = true;
     }
   }
   if (f && f.got >= f.want && f.hands.incoming === 0) {
     f.payT += dt;
     if (f.payT > 0.2) {
-      const from = f.g.position.clone(); from.y = 1;
-      for (let i = 0; i < f.want; i++) {
-        const b = newBill(C.price); b.position.copy(from);
-        if (C.cash.hasRoom()) C.cash.receive(b, 0.35 + i * 0.04, 1.0);
-        else {
-          // Cash stack is full: fold the value into the top bill instead.
-          const top = C.cash.items[C.cash.items.length - 1];
-          if (top) addBillValue(top, C.price); else C.cash.receive(b, 0.35, 1.0);
-        }
-      }
-      popText('+$' + (f.want * C.price), C.cashPos);
-      C.queue.shift(); f.bubble.visible = false; f.path = C.exit(); leaving.push(f);
+      pay(C, f, f.want);
+      C.queue.shift();
+      depart(C, f, starsFor(1 - f.wait / C.patience));
     }
   }
 }

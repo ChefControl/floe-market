@@ -11,6 +11,11 @@ export interface SaveFixture {
   c1c?: number;
   c2?: number;
   c2c?: number;
+  reviews?: unknown[];
+  lever?: string;
+  k?: number;
+  kp?: number;
+  rc?: number;
 }
 
 /** Tiles entries for already-bought upgrades. */
@@ -35,12 +40,14 @@ export async function loadGame(save?: SaveFixture | string, opts: { main?: boole
     vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => { frame = cb; return 1; });
     await import('../src/main');
   }
-  const [game, saveMod, playerMod, stations, counters, fishing, runner, unlocks, walletMod, ui, input, render, items, util] =
+  const [game, saveMod, playerMod, stations, counters, fishing, runner, unlocks, walletMod, ui, input, render, items, util,
+    rating, conveyor, restaurant, world] =
     await Promise.all([
       import('../src/game'), import('../src/save'), import('../src/player'), import('../src/stations'),
       import('../src/counters'), import('../src/fishing'), import('../src/runner'), import('../src/unlocks'),
       import('../src/wallet'), import('../src/ui'), import('../src/input'), import('../src/render'),
       import('../src/items'), import('../src/util'),
+      import('../src/rating'), import('../src/conveyor'), import('../src/restaurant'), import('../src/world'),
     ]);
   if (!opts.main) saveMod.load();
 
@@ -68,9 +75,13 @@ export async function loadGame(save?: SaveFixture | string, opts: { main?: boole
     return e;
   };
 
+  /** Sets the rating by filling the review window with `stars`. */
+  const rate = (stars: number) => { for (let i = 0; i < rating.WINDOW; i++) rating.addReview(stars); };
+
   return {
     game, saveMod, stations, counters, fishing, runner, unlocks, ui, input, render, items, util,
+    rating, conveyor, restaurant, world,
     player, wallet, frame: () => frame,
-    run, runUntil, placePlayer, cashAt, press,
+    run, runUntil, placePlayer, cashAt, press, rate,
   };
 }

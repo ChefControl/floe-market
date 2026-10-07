@@ -1,4 +1,4 @@
-import { MeshLambertMaterial, Object3D } from 'three';
+import { BoxGeometry, CylinderGeometry, MeshLambertMaterial, Object3D } from 'three';
 import { canvasTex, G, mat, mesh } from './render';
 import { rand } from './util';
 
@@ -34,3 +34,20 @@ export function newBill(v: number) {
 /** Cash value carried by a bill mesh. */
 export const billValue = (b: Object3D): number => b.userData.value;
 export const addBillValue = (b: Object3D, v: number) => { b.userData.value += v; };
+
+const plateGeo = new CylinderGeometry(0.2, 0.16, 0.035, 16);
+const riceGeo = new BoxGeometry(0.09, 0.055, 0.15), fishGeo = new BoxGeometry(0.1, 0.025, 0.17);
+const SALMON = 0xFF8A5C, TUNA = 0xD8394B;
+
+/** A sushi plate: two salmon nigiri, or three on a gold plate from the premium menu. `value` is its price. */
+export function newPlate(value: number, premium: boolean) {
+  const p = mesh(plateGeo, premium ? 0xF2C14E : 0xF4F7FA, 0, 0, 0, true);
+  const tops = premium ? [TUNA, SALMON, TUNA] : [SALMON, SALMON];
+  tops.forEach((c, i) => {
+    const r = mesh(riceGeo, 0xFFFDF5, (i - (tops.length - 1) / 2) * 0.11, 0.045, 0);
+    r.add(mesh(fishGeo, c, 0, 0.04, 0));
+    p.add(r);
+  });
+  p.userData.value = value;
+  return p;
+}
