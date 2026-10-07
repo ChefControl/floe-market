@@ -97,7 +97,29 @@ Progress saves automatically on the device, including your reviews and everythin
 - **One tab at a time.** If the game is opened in a second tab, the older tab stops saving and says so, so it can't overwrite newer progress.
 - **Updates don't reset progress.** Saves carry a format version and older saves are migrated on load, keeping cash, rating and upgrades. Saves from before the two stages stay in stage 1, except those that had both the old restaurant west of the dock and every market upgrade: they go straight to stage 2, keeping the restaurant's upgrades, with the old kitchen's fish and the counters' leftovers on the kitchen line and the cash at the register. Everyone else gets back what they spent on the old restaurant, its cash and its unsold plates. A save that can't be read is kept under `floe-market-backup` instead of being overwritten.
 - **Storage that sticks.** The game asks the browser to keep its storage (`navigator.storage.persist()`). On iPhone, Safari clears website data after 7 days without a visit; adding the game to the Home Screen avoids that (note that the Home Screen app keeps its own separate save).
-- **Restart** (top right) erases progress after a second, deliberate tap; a quick double-tap is ignored.
+- **Restart** (top right) erases progress after a second, deliberate tap; a quick double-tap is ignored. Signed in, it starts the cloud save over too.
+
+### Cloud saves
+
+**Sign in with Google** (top right) and your game follows you to any device or browser, including the iPhone Home Screen app. Playing without signing in works exactly as before.
+
+- **Syncing:** signed in, the game syncs with your account every 30 seconds and whenever the page is hidden. Open it on another device and you carry on where you left off. The page reloads once to load the newer game, and says "Loaded your game from the cloud".
+- **Each sync** compares this device and the account with how they were at the last sync. If only one has moved on, it wins.
+  - Both have progress the other hasn't seen? This happens the first time you sign in on a device that already has its own game, or after playing on two devices offline. The game asks which one to keep, showing each one's stage, cash, upgrades and when it was last played.
+- **Offline:** the button says so, and the game keeps saving on the device until it can reach the cloud again.
+- **Signing out** keeps the game on the device.
+- **Saves are private:** each one is one Firestore document, `saves/{your account id}`, which only you can read or write (`firestore.rules`).
+- **Download:** Firebase is a separate download (about 150 kB compressed). It's fetched a few seconds after the game starts, or straight away on a device that's signed in, so the sign-in window opens the moment you tap.
+
+**Setting it up** (free Spark plan, no billing needed; the sign-in button stays hidden until this is done). Menu names are as of October 2026:
+
+1. In the [Firebase console](https://console.firebase.google.com/), create a project. Google Analytics isn't needed.
+2. **Security, Authentication, Sign-in method:** enable Google. It asks for a support email.
+3. **Security, Authentication, Settings, Authorized domains:** add `chefcontrol.github.io` (GitHub Pages), and `localhost` to test with `npm run dev`. Projects created since April 2025 don't include `localhost` by default.
+4. **Databases & Storage, Firestore:** create a database in the **Standard** edition (the one with the free quota), in production mode, in a location near your players. Then paste `firestore.rules` into its Rules tab and publish.
+5. **Project Overview:** add a Web app (the `</>` icon), and copy its `apiKey`, `authDomain`, `projectId` and `appId` into `src/cloud.config.ts`. Firebase's docs say these can go in public code. Keep the API key limited to Firebase's APIs, which is how Firebase creates it; the security rules are what protect the saves.
+
+The free quota (50,000 reads and 20,000 writes a day) covers about 150 hours of play a day. Each player online reads once and writes at most once every 30 seconds.
 
 ## Development
 
@@ -159,6 +181,8 @@ TypeScript + [three.js r186](https://threejs.org/), bundled with [Vite](https://
 | `src/input.ts` | Virtual joystick and keyboard |
 | `src/ui.ts` | HUD and stage chip, toasts, tips, floating text, the stage-up banner and confetti |
 | `src/save.ts` | Per-device save/load, migration, autosave, one-tab-at-a-time guard |
+| `src/cloud.ts` | Cloud saves: the sign-in button, syncing with the account, asking which game to keep |
+| `src/firebase.ts` / `src/cloud.config.ts` | Cloud saves on Firebase (Google sign-in, Firestore), loaded on demand / the Firebase project's config |
 | `src/wallet.ts` | Money |
 | `src/errors.ts` | On-screen error reporting |
 | `src/util.ts` | Math/random helpers |
