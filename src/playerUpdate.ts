@@ -65,8 +65,9 @@ export function updPlayer(dt: number) {
       player.tCash -= dt;
       while (player.tCash <= 0 && C.cash.items.length) {
         player.tCash += 0.025;
-        const b = C.cash.take()!;
-        fly(b, () => V(p.x, FY + 0.9, p.z), 0.22, 0.6, () => { scene.remove(b); addMoney(billValue(b)); });
+        const b = C.cash.take()!, v = billValue(b);
+        wallet.inFlight += v;
+        fly(b, () => V(p.x, FY + 0.9, p.z), 0.22, 0.6, () => { scene.remove(b); wallet.inFlight -= v; addMoney(v); });
       }
       if (player.tCash < 0) player.tCash = 0;
     }

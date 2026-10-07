@@ -1,0 +1,110 @@
+// Building blocks: math helpers, item stacks/flights, walking characters.
+import { Mesh } from 'three';
+import { describe, expect, it, vi } from 'vitest';
+import { animPerson, makeSled, moveEnt, Person } from '../src/characters';
+import { carrySlot, fly, Holder, updFlights } from '../src/holder';
+import { scene } from '../src/render';
+import { d2xz, fwd, pick, rand, randi, V } from '../src/util';
+
+const settle = () => { for (let i = 0; i < 120; i++) updFlights(1 / 60); };
+
+describe('util', () => {
+  it('keeps random helpers in range', () => {
+    for (let i = 0; i < 100; i++) {
+      const r = rand(2, 5);
+      expect(r).toBeGreaterThanOrEqual(2);
+      expect(r).toBeLessThan(5);
+      expect([1, 2, 3]).toContain(randi(1, 3));
+    }
+    expect(['a', 'b']).toContain(pick(['a', 'b']));
+  });
+
+  it('measures and points on the ground plane', () => {
+    expect(d2xz({ x: 0, z: 0 }, { x: 3, z: 4 })).toBe(25);
+    const f = fwd(Math.PI / 2);
+    expect(f.x).toBeCloseTo(1);
+    expect(f.z).toBeCloseTo(0);
+  });
+});
+
+describe('Holder', () => {
+  it('counts in-flight items toward capacity and lands them in order', () => {
+    const h = new Holder(i => V(i, 0, 0), 2);
+    const a = new Mesh(), b = new Mesh(), landed = vi.fn();
+    h.receive(a, 0.3, 0.9, landed);
+    h.receive(b);
+    expect(h.n).toBe(2);
+    expect(h.hasRoom()).toBe(false);
+    expect(h.items).toHaveLength(0);
+    settle();
+    expect(h.items).toEqual([a, b]);
+    expect(h.incoming).toBe(0);
+    expect(b.position.x).toBe(1);
+    expect(landed).toHaveBeenCalledWith(a);
+    expect(a.parent).toBe(scene);
+  });
+
+  it('puts, takes, lays out and clears items', () => {
+    const h = new Holder(i => V(0, i, 0), 5);
+    const a = new Mesh(), b = new Mesh();
+    h.put(a); h.put(b);
+    b.position.set(9, 9, 9);
+    h.layout(1.5);
+    expect(b.position.y).toBe(1);
+    expect(b.rotation.y).toBe(1.5);
+    expect(h.take()).toBe(b);
+    h.clear();
+    expect(h.items).toHaveLength(0);
+    expect(a.parent).toBeNull();
+    expect(h.take()).toBeNull();
+  });
+});
+
+describe('fly', () => {
+  it('arcs above the straight line, then lands on the target', () => {
+    const m = new Mesh(), done = vi.fn();
+    fly(m, () => V(10, 0, 0), 1, 2, done);
+    updFlights(0.5);
+    expect(m.position.x).toBeCloseTo(5);
+    expect(m.position.y).toBeCloseTo(2);
+    updFlights(0.5);
+    expect(m.position.toArray()).toEqual([10, 0, 0]);
+    expect(done).toHaveBeenCalledOnce();
+  });
+});
+
+describe('characters', () => {
+  it('walks toward a target at its speed and reports arrival', () => {
+    const e = { g: new Person(0xff0000), h: 0, speed: 1, moving: false };
+    expect(moveEnt(e, { x: 3, z: 4 }, 1)).toBe(false);
+    expect(e.g.position.length()).toBeCloseTo(1);
+    expect(e.h).toBeCloseTo(Math.atan2(3, 4));
+    expect(e.moving).toBe(true);
+    expect(moveEnt(e, { x: 3, z: 4 }, 10)).toBe(false);
+    expect(moveEnt(e, { x: 3, z: 4 }, 1)).toBe(true);
+    expect(e.moving).toBe(false);
+  });
+
+  it('swings limbs while walking and holds arms out while carrying', () => {
+    const p = new Person(0xff0000);
+    animPerson(p, true, 0.1, false);
+    expect(p.legs[0].rotation.x).toBeCloseTo(-p.legs[1].rotation.x);
+    expect(p.legs[0].rotation.x).not.toBe(0);
+    animPerson(p, false, 0.1, true);
+    expect(p.phase).toBe(0);
+    expect(p.arms[0].rotation.x).toBe(-1.25);
+  });
+
+  it('builds a sled with a driver', () => {
+    const sled = makeSled(0xff0000, 0x00ff00);
+    const driver = sled.children.find(c => c instanceof Person) as Person;
+    expect(driver.arms[0].rotation.x).toBe(-1.1);
+  });
+
+  it('stacks carried items in front of the carrier', () => {
+    const e = { g: new Person(0), h: 0 };
+    const s0 = carrySlot(e, 0), s1 = carrySlot(e, 1);
+    expect(s0.z).toBeCloseTo(0.42);
+    expect(s1.y).toBeGreaterThan(s0.y);
+  });
+});
