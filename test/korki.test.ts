@@ -14,7 +14,7 @@ describe("Korki's statue", () => {
     g.runUntil(() => tile.done, 5);
     expect(g.wallet.money).toBe(5);
     expect($('toast').textContent).toBe("Korki's golden statue unlocked");
-    expect(JSON.parse(localStorage.getItem('floe-market-v1')!).tiles).toContainEqual({ id: 'korki', paid: 10, done: true });
+    expect(JSON.parse(localStorage.getItem('floe-market-v1')!).tiles).toContainEqual({ id: 'korki', paid: 10, done: true, open: false });
   });
 
   it('shows the memoir while the player stands on the pad', async () => {

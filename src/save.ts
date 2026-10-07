@@ -1,26 +1,30 @@
 // Progress persistence, per device for now. Saves are versioned so game updates never reset progress,
 // and a second tab can't overwrite newer progress with an older copy of the game.
-import { C1, C2, type Counter } from './counters';
+import { belt, loadBelt, ROUTES, setRoute, type Route } from './conveyor';
+import { C1, C2 } from './counters';
 import { steaksInProgress } from './fishing';
+import type { Holder } from './holder';
 import { addBillValue, billValue, newBill, newSteak } from './items';
 import { player } from './player';
+import { addReview, reviews, WINDOW } from './rating';
+import { kitchen, loadPlates, PLATE_PRICE, register, sushi, sushiStock } from './restaurant';
 import { runner } from './runner';
 import { pile } from './stations';
-import { applyUnlock, redrawTile, tiles } from './unlocks';
+import { applyUnlock, redrawTile, tiles, updStars } from './unlocks';
 import { wallet } from './wallet';
 
 /** Storage key. The name is historical; the format version lives in the data (`v`). */
 export const SAVE_KEY = 'floe-market-v1';
 /** An unreadable save is copied here before starting over, so it can still be recovered by hand. */
 export const BACKUP_KEY = 'floe-market-backup';
-const VERSION = 2;
+const VERSION = 3;
 
 export interface SaveData {
   v: number;
   /** When it was written (ms since epoch). */
   savedAt: number;
   money: number;
-  tiles: { id: string; paid: number; done: boolean }[];
+  tiles: { id: string; paid: number; done: boolean; open: boolean }[];
   /** Steak counts on the pile, in the player's arms and on each counter. */
   pile: number;
   back: number;
@@ -29,6 +33,16 @@ export interface SaveData {
   /** Uncollected cash at each counter. */
   c1c: number;
   c2c: number;
+  /** Latest customer reviews (1–5★), oldest first. */
+  reviews: number[];
+  /** Where the lever sends fresh steaks. */
+  lever: Route;
+  /** Steaks bound for sushi: in the kitchen, on the conveyor, or on a chef's board. */
+  k: number;
+  /** Sushi plates made and not yet eaten. */
+  kp: number;
+  /** Uncollected cash at the sushi register. */
+  rc: number;
 }
 
 /** The one place that touches device storage; account-backed saves would hook in here later. */
@@ -50,19 +64,23 @@ const num = (v: unknown) => Math.max(0, Math.floor(Number(v))) || 0;
 /** Brings a save from any version up to the current format. Throws if it isn't a save at all. */
 export function migrate(raw: unknown): SaveData {
   if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) throw new Error('not a save');
-  // v1 had no version or timestamp; otherwise the same fields.
+  // v1 had no version or timestamp; v2 had no ratings or sushi restaurant. Otherwise the same fields.
   const s = raw as Record<string, unknown>;
   const savedTiles = Array.isArray(s.tiles) ? s.tiles : [];
+  const savedReviews = Array.isArray(s.reviews) ? s.reviews : [];
   return {
     v: VERSION,
     savedAt: num(s.savedAt),
     money: num(s.money),
     tiles: savedTiles
       .filter((t): t is Record<string, unknown> => typeof t === 'object' && t !== null)
-      .map(t => ({ id: String(t.id), paid: num(t.paid), done: t.done === true })),
+      .map(t => ({ id: String(t.id), paid: num(t.paid), done: t.done === true, open: t.open === true })),
     pile: num(s.pile), back: num(s.back),
     c1: num(s.c1), c2: num(s.c2),
     c1c: num(s.c1c), c2c: num(s.c2c),
+    reviews: savedReviews.map(Number).filter(r => r >= 1 && r <= 5).map(Math.round).slice(-WINDOW),
+    lever: ROUTES.includes(s.lever as Route) ? s.lever as Route : 'market',
+    k: num(s.k), kp: num(s.kp), rc: num(s.rc),
   };
 }
 
@@ -88,39 +106,46 @@ function requestPersistentStorage() {
 }
 
 // ---------- save / load ----------
-const cashSum = (C: Counter) => C.cash.all().reduce((s, b) => s + billValue(b), 0);
+const cashSum = (cash: Holder) => cash.all().reduce((s, b) => s + billValue(b), 0);
 /** Steaks customers are holding but haven't paid for yet go back on the counter. */
-const unpaid = (C: Counter) => C.queue.reduce((s, c) => s + c.hands.n, 0);
+const unpaid = (C: typeof C1) => C.queue.reduce((s, c) => s + c.hands.n, 0);
 
 export function save() {
   if (stale) return;
   if (deviceStore.read() !== lastSeen) { markStale(); return; }
-  // Count everything mid-air too (flying bills and steaks, fish being reeled in, the runner's load),
-  // so closing the page at any moment loses nothing.
+  // Count everything mid-air too (flying bills and steaks, fish being reeled in, the runner's load,
+  // the conveyor), so closing the page at any moment loses nothing.
+  const reeling = steaksInProgress(), toSushi = belt.built && belt.mode === 'sushi' ? reeling : 0;
+  const ss = sushiStock();
   const data: SaveData = {
     v: VERSION,
     savedAt: Date.now(),
     money: wallet.money + wallet.inFlight,
-    tiles: tiles.map(t => ({ id: t.id, paid: t.paid, done: t.done })),
-    pile: Math.min(pile.cap, pile.n + steaksInProgress() + (runner ? runner.back.n : 0)),
+    tiles: tiles.map(t => ({ id: t.id, paid: t.paid, done: t.done, open: t.open })),
+    pile: Math.min(pile.cap, pile.n + reeling - toSushi + (runner ? runner.back.n : 0)),
     back: player.back.n,
     c1: C1.stock.n + unpaid(C1), c2: C2.stock.n + unpaid(C2),
-    c1c: cashSum(C1), c2c: cashSum(C2),
+    c1c: cashSum(C1.cash), c2c: cashSum(C2.cash),
+    reviews: [...reviews],
+    lever: belt.mode,
+    k: ss.steaks + belt.items.length + belt.incoming + toSushi,
+    kp: ss.plates,
+    rc: ss.cash,
   };
   const raw = JSON.stringify(data);
   if (deviceStore.write(raw)) lastSeen = raw;
   if (!askedPersist && tiles.some(t => t.paid > 0)) requestPersistentStorage();
 }
 
-/** Rebuilds a cash stack worth `sum`, capped at 60 bills (extra value goes on the top bill). */
-function fillCash(C: Counter, sum: number) {
+/** Rebuilds a cash stack worth `sum` in bills of `unit`, capped at 60 bills (extra value goes on the top bill). */
+function fillCash(cash: Holder, unit: number, sum: number) {
   let left = sum;
-  while (left > 0 && C.cash.items.length < 60) {
-    const v = Math.min(C.price, left);
-    C.cash.put(newBill(v));
+  while (left > 0 && cash.items.length < 60) {
+    const v = Math.min(unit, left);
+    cash.put(newBill(v));
     left -= v;
   }
-  if (left > 0 && C.cash.items.length) addBillValue(C.cash.items[C.cash.items.length - 1], left);
+  if (left > 0 && cash.items.length) addBillValue(cash.items[cash.items.length - 1], left);
 }
 
 /** Restores saved progress; returns false when starting fresh. */
@@ -133,19 +158,30 @@ export function load() {
   }
   if (!s) { tiles.forEach(redrawTile); return false; }
   wallet.money = s.money;
+  s.reviews.forEach(addReview);
   for (const o of s.tiles) {
     const t = tiles.find(x => x.id === o.id);
     if (!t) continue;
     t.paid = o.paid;
+    t.open = o.open;
     if (o.done) applyUnlock(t.id, true);
   }
+  setRoute(s.lever);
+  updStars(true);
   tiles.forEach(redrawTile);
   for (let i = 0; i < Math.min(s.pile, pile.cap); i++) pile.put(newSteak());
   for (let i = 0; i < Math.min(s.back, player.back.cap); i++) player.back.put(newSteak());
   for (let i = 0; i < Math.min(s.c1, C1.stock.cap); i++) C1.stock.put(newSteak());
   if (C2.enabled) for (let i = 0; i < Math.min(s.c2, C2.stock.cap); i++) C2.stock.put(newSteak());
-  fillCash(C1, s.c1c);
-  if (C2.enabled) fillCash(C2, s.c2c);
+  fillCash(C1.cash, C1.price, s.c1c);
+  if (C2.enabled) fillCash(C2.cash, C2.price, s.c2c);
+  if (sushi.built) {
+    // Plates that don't fit on the belt go back to the kitchen as steaks; what the kitchen can't hold rides the belt.
+    const k = s.k + loadPlates(s.kp), inKitchen = Math.min(k, kitchen.cap);
+    for (let i = 0; i < inKitchen; i++) kitchen.put(newSteak());
+    loadBelt(k - inKitchen);
+    fillCash(register, PLATE_PRICE.standard, s.rc);
+  }
   return true;
 }
 

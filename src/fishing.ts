@@ -1,5 +1,6 @@
 // Fish swimming in the water, hooking them, and chopping them into steaks.
 import { Group, Mesh, Vector3 } from 'three';
+import { roomFor, sendToBelt, steakTo } from './conveyor';
 import { newSteak } from './items';
 import { G, mesh, scene } from './render';
 import { BLADE_Y, blade, chopTop, pile } from './stations';
@@ -78,14 +79,12 @@ const hooks: Hook[] = [];
 /** Steaks still on their way: fish being reeled in or chopped. */
 export function steaksInProgress() { return incomingFish * 3; }
 
-function projectedPile() { return pile.n + steaksInProgress(); }
-
 /**
  * Hooks the nearest free fish in range and reels it to the chopping block.
  * `origin` is re-read every frame so the rope follows a moving fisher.
  */
 export function tryCatch(origin: () => Vector3, src: CatchSource): Fish | null {
-  if (projectedPile() + 3 > pile.cap) return null;
+  if (!roomFor(3, steaksInProgress())) return null;
   const from = origin();
   let best: Fish | null = null, bd = 1e9;
   for (const f of fish) {
@@ -148,7 +147,8 @@ export function updChopper(dt: number) {
     if (chopper.t >= 0.42) {
       for (let s = 0; s < 3; s++) {
         const m = newSteak(); m.position.copy(chopTop);
-        pile.receive(m, 0.32 + s * 0.06, 1.1);
+        if (steakTo() === 'belt') sendToBelt(m, 0.32 + s * 0.06);
+        else pile.receive(m, 0.32 + s * 0.06, 1.1);
       }
       incomingFish--; c.state = 'gone'; c.re = rand(1, 3); c.g.visible = false; chopper.cur = null;
     }

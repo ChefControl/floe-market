@@ -1,16 +1,21 @@
-import { BoxGeometry, Group, MeshLambertMaterial, Object3D } from 'three';
+import { BoxGeometry, BufferGeometry, Group, MeshLambertMaterial, Object3D } from 'three';
 import { G, mesh } from './render';
 import type { XZ } from './util';
 
 export const PARKAS = [0xF2B33D, 0x7A6FF0, 0x3FA37C, 0xE85D75, 0x5B8DEF, 0xF08A4B, 0x9B5DE5, 0x2EC4B6];
+/** Suit colours for the sushi bar's well-dressed diners. */
+export const SUITS = [0x22303C, 0x3B3F6B, 0x5A2E3A, 0x2F4A44, 0x4A4F57];
 
-/** A parka-wearing walker with swinging limbs. */
+/** Everyday parka, a diner's suit and top hat, or a sushi chef's whites. */
+export type Look = 'parka' | 'fancy' | 'chef';
+
+/** A walker with swinging limbs. */
 export class Person extends Group {
   readonly legs: Group[] = [];
   readonly arms: Group[] = [];
   phase = 0;
 
-  constructor(color: number) {
+  constructor(color: number, look: Look = 'parka') {
     super();
     for (const s of [-1, 1]) {
       const p = new Group(); p.position.set(s * 0.1, 0.3, 0);
@@ -19,10 +24,31 @@ export class Person extends Group {
       a.add(mesh(G.arm, color, 0, -0.15, 0, true)); this.add(a); this.arms.push(a);
     }
     this.add(mesh(G.body, color, 0, 0.6, 0, true));
-    this.add(mesh(G.hoodBack, color, 0, 1.03, -0.04, true));
+    if (look === 'parka') this.add(mesh(G.hoodBack, color, 0, 1.03, -0.04, true));
     this.add(mesh(G.head, 0xF3C9A4, 0, 1.03, 0.05));
-    this.add(mesh(G.hood, 0xF8FAFC, 0, 1.03, 0.1));
+    if (look === 'parka') this.add(mesh(G.hood, 0xF8FAFC, 0, 1.03, 0.1));
     for (const s of [-1, 1]) this.add(mesh(G.eye, 0x1B2733, s * 0.07, 1.06, 0.24));
+    if (look === 'fancy') this.dressUp();
+    if (look === 'chef') this.chefWhites();
+  }
+
+  /** Top hat, white shirt front and a red bow tie. */
+  private dressUp() {
+    const part = (geo: BufferGeometry, c: number, x: number, y: number, z: number, sx: number, sy: number, sz: number) => {
+      const m = mesh(geo, c, x, y, z, true); m.scale.set(sx, sy, sz); this.add(m); return m;
+    };
+    part(G.cyl, 0x1B2430, 0, 1.2, 0.03, 0.26, 0.03, 0.26);
+    part(G.cyl, 0x1B2430, 0, 1.36, 0.03, 0.16, 0.3, 0.16);
+    part(G.cyl, 0xC0392B, 0, 1.25, 0.03, 0.165, 0.05, 0.165);
+    part(G.box, 0xFFFFFF, 0, 0.74, 0.24, 0.14, 0.26, 0.02);
+    for (const s of [-1, 1]) part(G.cone, 0xC0392B, s * 0.05, 0.86, 0.25, 0.05, 0.07, 0.03).rotation.z = s * Math.PI / 2;
+  }
+
+  /** Puffy chef's hat and a red neckerchief. */
+  private chefWhites() {
+    const band = mesh(G.cyl, 0xFFFFFF, 0, 1.22, 0.03, true); band.scale.set(0.19, 0.12, 0.19); this.add(band);
+    const puff = mesh(G.sphere, 0xFFFFFF, 0, 1.36, 0.03, true); puff.scale.set(0.25, 0.16, 0.25); this.add(puff);
+    const scarf = mesh(G.hood, 0xE5484D, 0, 0.88, 0.02); scarf.rotation.x = Math.PI / 2; scarf.scale.setScalar(1.15); this.add(scarf);
   }
 }
 
