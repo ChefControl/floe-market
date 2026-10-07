@@ -93,13 +93,13 @@ describe('the upgrade circle', () => {
     expect(g.runner.runners[0].speed).toBeCloseTo(6.6); // twice as fast, at most
   });
 
-  it('the kitchen crew makes chefs and rice faster', async () => {
+  it('the kitchen crew makes the chefs faster, but not the rice: more of that takes more terraces', async () => {
     const g = await loadGame({ tiles: bought('sushi', 'paddy'), money: 1e9, fish: 1, rice: 1 });
     for (let i = 0; i < 8; i++) g.shop.buyMod('crew');
     g.restaurant.sushi.spawnT = Infinity;
     g.runUntil(() => g.restaurant.sushi.slots.some(Boolean), 1.2);
     g.run(16 / 1.15 ** 8 + 0.1);
-    expect(g.rice.field.cells.every(c => c.grow >= 1)).toBe(true);
+    expect(g.rice.field.cells.every(c => c.grow >= 1)).toBe(false);
   });
 });
 

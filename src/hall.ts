@@ -16,6 +16,9 @@ const MID = (Z0 + Z1) / 2;
 export const KIOSK = { x: 12.2, z: 2.8 };
 
 /** A group at (x, z) that pops in about its own centre; `put` places things in it by world position. */
+/** The stone kerb the walls stand on: how high it is, and where its outside face is on the east side. */
+const KERB_H = 0.36, KERB_X = HALL_BOX.x1 + 0.15;
+
 function piece(x: number, z: number) {
   const g = new Group(); g.position.set(x, 0, z); g.visible = false; scene.add(g);
   return g;
@@ -85,7 +88,7 @@ const floor = piece(0, MID);
   put(floor, new Mesh(new BoxGeometry(X1 - X0, 0.3, Z1 - Z0), [side, side, top, side, side, side]), 0, 0, MID).receiveShadow = true;
   // a raised stone kerb round three sides, open at the gate and the farm door; walls stand on it
   const kerb: Part[] = [];
-  const k = (w: number, d: number, x: number, z: number) => kerb.push({ geo: G.box, at: [x, 0.18, z - MID], scale: [w, 0.36, d] });
+  const k = (w: number, d: number, x: number, z: number) => kerb.push({ geo: G.box, at: [x, KERB_H / 2, z - MID], scale: [w, KERB_H, d] });
   const fw = X1 + 0.15 - GATE_W;
   k(fw, 0.3, -(GATE_W + fw / 2), Z1); k(fw, 0.3, GATE_W + fw / 2, Z1);
   k(0.3, FARM_DOOR.z0 - Z0, X0, (Z0 + FARM_DOOR.z0) / 2); k(0.3, Z1 - FARM_DOOR.z1, X0, (FARM_DOOR.z1 + Z1) / 2);
@@ -207,7 +210,7 @@ const garden = piece(0, GARDEN_Z);
   garden.add(mesh(bake(stones), 0xB9C2C9, 0, 0, 0, true));
   // little snowy pines in the corners
   const pines: Part[] = [], snow: Part[] = [];
-  for (const [x, z] of [[-7.6, 20.0], [7.4, 19.6], [-8.4, 16.8], [8.6, 17.0]]) {
+  for (const [x, z] of [[-8.4, 22.9], [8.6, 21.9], [-8.4, 16.8], [8.6, 17.0]]) {
     pines.push({ geo: G.cone, at: [x, 0.55, z - GARDEN_Z], scale: [0.55, 1.1, 0.55] });
     snow.push({ geo: G.cone, at: [x, 0.85, z - GARDEN_Z], scale: [0.34, 0.5, 0.34] });
   }
@@ -218,7 +221,8 @@ const garden = piece(0, GARDEN_Z);
 // ---------- the takeout kiosk's booth (its counter is the takeout window's, in counters.ts) ----------
 const kiosk = piece(11.4, KIOSK.z);
 {
-  put(kiosk, mesh(new BoxGeometry(2.8, 0.3, 4.8), 0x7A4A30, 0, 0, 0, true), 11.4, 0, KIOSK.z);
+  // its floor meets the restaurant's stone kerb flush, at the kerb's height
+  put(kiosk, mesh(new BoxGeometry(12.8 - KERB_X, KERB_H, 4.8), 0x7A4A30, 0, 0, 0, true), (12.8 + KERB_X) / 2, KERB_H / 2, KIOSK.z);
   const m = roofMat.clone(); m.transparent = true;
   const r = mesh(new BoxGeometry(3.0, 0.12, 5.2), m, 0, 0, 0, true); r.rotation.z = -0.25;
   put(kiosk, r, 11.4, FY + 2.7, KIOSK.z);

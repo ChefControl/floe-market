@@ -4,6 +4,7 @@
 import { C1, repriceFish, SLED, TAKEOUT, type Counter } from './counters';
 import { MODS, mods, type ModId } from './economy';
 import { steaksInProgress } from './fishing';
+import { waiterPlates } from './garden';
 import type { Holder } from './holder';
 import { addBillValue, billValue, kindOf, newBill, newBox, newRice, newSteak } from './items';
 import { player } from './player';
@@ -185,7 +186,7 @@ export function save() {
     c2: onCounter(SLED), c2c: SLED.enabled ? cashSum(SLED.cash) : 0,
     fish: ss.fish + left.steaks,
     rice: ss.rice,
-    plates: ss.plates,
+    plates: ss.plates + waiterPlates(),
     cash: ss.cash + left.cash,
     // Boxes customers are holding but haven't paid for yet go back on the counter.
     boxes: onCounter(TAKEOUT),

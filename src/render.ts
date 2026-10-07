@@ -15,6 +15,8 @@ export const canvas = document.getElementById('game') as HTMLCanvasElement;
 export const renderer = new WebGLRenderer({ canvas, antialias: true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
 renderer.outputColorSpace = LinearSRGBColorSpace;
+// the fish on the chopping block is cut with a clipping plane (fishing.ts)
+renderer.localClippingEnabled = true;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = PCFShadowMap;
 

@@ -12,8 +12,11 @@ import { PLATES_PER_BAG, RICE_DROP, ricePot, SPAWN_EVERY } from './restaurant';
 import { d2xz, rand, V, type XZ } from './util';
 
 // ---------- terraces ----------
-/** Seconds from sprout to ripe on a planted terrace (the kitchen crew upgrade speeds it up). */
-const GROW = 16;
+/**
+ * Seconds from sprout to ripe on a planted terrace. A terrace (18 clumps) grows 0.6 bags a second: a bit less than the
+ * diners at 18 seats with two chefs eat, so each step of the restaurant (more seats, another chef) needs another terrace.
+ */
+const GROW = 30;
 const CELL = 1.3, COLS = 3, ROWS = 6;
 /** Where clump (row, column) of terrace `i` grows. Rows run north to south, columns west to east. */
 function spot(i: number, r: number, k: number) {
@@ -245,8 +248,8 @@ function updPorter(p: Porter, dt: number) {
 }
 
 export function updRice(dt: number) {
-  const g = boost('crew'); // the kitchen crew tends the terraces too
-  for (const c of field.cells) if (!ripe(c)) setGrowth(c, c.grow + dt * (c.fixed ? 1 / PATCH_GROW : g / GROW));
+  // Each terrace grows a set amount: planting more of them is how the restaurant gets more rice.
+  for (const c of field.cells) if (!ripe(c)) setGrowth(c, c.grow + dt / (c.fixed ? PATCH_GROW : GROW));
   if (farmer) updFarmer(farmer, dt);
   if (porter) updPorter(porter, dt);
 }

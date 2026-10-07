@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import { bought, loadGame } from './helpers';
 
-const ripen = (g: Awaited<ReturnType<typeof loadGame>>) => g.run(16.1);
+const ripen = (g: Awaited<ReturnType<typeof loadGame>>) => g.run(30.1);
 
 describe('terraces', () => {
   it('start as a small patch by the farm door, and are planted one at a time', async () => {
@@ -34,7 +34,7 @@ describe('terraces', () => {
 });
 
 describe('the starting patch', () => {
-  it('grows just fast enough for the first customers, and no faster with upgrades', async () => {
+  it('grows just fast enough for the first customers, and terraces at a set pace, upgrades or not', async () => {
     const g = await loadGame({ tiles: bought('sushi'), mods: { crew: 8 } });
     const { field } = g.rice, { SPAWN_EVERY, PLATES_PER_BAG } = g.restaurant;
     // six bags of two plates each, ripening as fast as diners eat them at five stars: one every 3.5s / 1.4, two plates each
@@ -47,7 +47,7 @@ describe('the starting patch', () => {
     g.unlocks.applyUnlock('paddy');
     c.grow = 0;
     g.run(1);
-    expect(c.grow).toBeCloseTo(g.economy.boost('crew') / 16, 2); // planted with the rest of the terrace, it grows with it
+    expect(c.grow).toBeCloseTo(1 / 30, 2); // planted with the rest of the terrace, it grows with it
   });
 });
 
@@ -62,7 +62,7 @@ describe('farmer', () => {
   it('works the upper terraces too, standing on them', async () => {
     const g = await loadGame({ tiles: bought('sushi', 'paddy', 'plot2', 'farmer') });
     const f = g.rice.farmer!;
-    g.rice.field.cells.slice(0, 18).forEach(c => { c.grow = 0; });
+    g.rice.field.cells.slice(0, 18).forEach(c => { c.grow = -2; }); // the bottom terrace won't be ripe for a while
     ripen(g);
     g.runUntil(() => f.state === 'cut', 20);
     expect(f.g.position.y).toBeCloseTo(g.layout.TERRACES[1].top);

@@ -17,9 +17,9 @@ npm run dev
 - **Upgrade:** stand on a price tile to pay into it. Some tiles also need a star rating (see below). The chip under the rating shows the stage and how many of its upgrades are built
 - **Upgrade circle:** each stage has a 📈 circle (by the counter in stage 1, by the kitchen line in stage 2). Stand on it to open the stage's repeatable upgrades and tap one to buy its next level: a better product (prices), marketing (customers) or the crew (speed). The list in the top left shows every modifier in play as a percentage, including how much your rating brings customers in; tap the stage chip to fold it away or back (on phones it starts folded, so the HUD leaves the game in view). Every level shows in the world too (see [Economy](#economy))
 - **Stage up:** with all nine market upgrades built, a gold 🏯 tile appears in the middle of the dock: Open Floe Sushi, $12,000. Paying it off plays the stage-up: the counters and the south fence come down, the restaurant, its garden and the terraces go up, and day turns to dusk. Cash, rating and upgrades carry over; the counters' leftover fish and cash move to the restaurant, the roulette table moves up the dock, and Korki's statue moves to the garden
-- **Rice (stage 2):** it grows on the terraces west of the restaurant, out through the farm door. The restaurant opens with a small patch of six clumps by the door, which ripens (green to gold) in 15 seconds: just enough for the first customers at a five-star rating, and no faster with upgrades, so more customers need the rest of the terrace, where rice ripens in 16 seconds and the kitchen crew speeds it up. Wade through ripe rice to harvest it, or take bags off the farmer's stack on the path. Fish the kitchen has no room for go back to the pile as you harvest, to make room in your arms
+- **Rice (stage 2):** it grows on the terraces west of the restaurant, out through the farm door. The restaurant opens with a small patch of six clumps by the door, which ripens (green to gold) in 15 seconds: just enough for the first customers at a five-star rating, and no faster with upgrades, so more customers need the rest of the terrace. Each planted terrace grows a set amount, ripening in 30 seconds, a little less than the next step of the restaurant (more seats, another chef) eats; upgrades don't speed it up, so planting more terraces is how the restaurant grows. Wade through ripe rice to harvest it, or take bags off the farmer's stack on the path. Fish the kitchen has no room for go back to the pile as you harvest, to make room in your arms
 - **Make sushi:** drop fish slices on the 🐟 pad and rice on the 🍚 pad at the kitchen line facing the dock. Your arms carry both at once. The cooks there toss them to a chef inside the bar, who makes a plate (a bag of rice makes two) and puts it on the belt circling them. Once the takeout kiosk is open, the chefs also pack boxes for it, keeping a few ready
-- **Sell sushi:** diners in top hats come up the garden path and through the red gate, sit at the bar, take plates as they pass, and pay $30 a plate at the register by the gate when they leave. Snowmobiles buy 3–6 boxes at a time at the kiosk on the road ($35 a box); their cash lands just inside the east wall
+- **Sell sushi:** diners in top hats come up the garden path and through the red gate, sit at the bar, take plates as they pass, and pay $30 a plate at the register by the gate when they leave. Once there are garden tables, some sit out under the red parasols instead, and a waiter picks their plates off the end of the bar and carries them out, several tables a trip. Snowmobiles buy 3–6 boxes at a time at the kiosk on the road ($35 a box); their cash lands just inside the east wall
 - **Rating:** customers only wait so long. Each one leaves a 1–5★ review when they go, based on how long they waited; someone who gives up leaves 1★ and pays only for what they got. The rating in the HUD is the average of the last 20 reviews (a new game starts at ★3.0). A better rating also brings customers in faster: ×0.6 at ★1, ×1.4 at ★5
 - **Gamble:** once the roulette table is built, stand on its 🎰 pad to bet on red/black, odd/even, 1–18/19–36 (pays ×2) or a single number (pays ×36)
 
@@ -33,7 +33,7 @@ The money curve follows idle games ([the math of idle games](https://www.gamedev
   | --- | --- | --- | --- | --- |
   | Better product | 🐟 Fine fillets | 🍣 Chef's specials | Prices +25% | ×1.6 a level, no limit |
   | Marketing | 📣 Posters, flyers, radio, social media, ... TV ad | 📣 Menu boards, lantern signs, ... world famous | Customers +20%, longer queues | ×1.75 a level, 8 levels |
-  | Crew | 💪 Crew training: fishing and chopping | 🧑‍🍳 Kitchen crew: chefs, the runners, farm workers, rice growing (not the starting patch) | Speed +15% | ×1.75 a level, 8 levels |
+  | Crew | 💪 Crew training: fishing and chopping | 🧑‍🍳 Kitchen crew: chefs, the runners, farm workers, waiters (not how fast rice grows) | Speed +15% | ×1.75 a level, 8 levels |
 
   They start at $40, $60 and $80 in stage 1 and $500, $800 and $1,000 in stage 2. Each level shows in the world:
 
@@ -76,14 +76,16 @@ Whenever a new upgrade comes on offer, a message says what it is, and while its 
 | Upgrade | Cost | Needs | Effect |
 | --- | --- | --- | --- |
 | 🌾 Rice terrace | $800 | | Plants the rest of the bottom terrace round the starting patch (18 clumps of rice in all) |
+| 🪑 More seats | $2,500 | ★3.6 | Eight more seats at the bar (18 in all) |
 | 🔪 Second chef | $3,000 | ★3.6 | Another chef at the bar. Out from the start of stage 2, by the bar's east end |
-| 🪑 More seats | $5,000 | ★3.8 | Eight more seats at the bar (18 in all) |
 | 🧑‍🌾 Hire a farmer | $6,000 | ★3.9, 🌾 | Harvests the terraces onto a stack on the path |
-| 🥡 Takeout kiosk | $8,000 | ★4.0 | Snowmobiles on the road buy boxes of sushi; the chefs pack them |
 | 🧺 Rice porter | $12,000 | ★4.1, 🌾 | Carries rice from that stack, 12 bags at a time, in through the farm door to the kitchen line |
-| 🌱 Second terrace | $18,000 | ★4.2, 🌾 | Plants the middle terrace |
+| 🌱 Second terrace | $15,000 | ★4.1, 🌾 | Plants the middle terrace: rice for more diners |
+| ⛱️ Garden tables | $20,000 | ★4.2 | Four tables under red parasols east of the garden path (8 seats), and a waiter who carries their plates out from the end of the bar |
 | 🔪 Third chef | $25,000 | ★4.3, a second chef | A third chef at the bar. Out once there's a second chef |
-| 🌱 Third terrace | $35,000 | ★4.4, second terrace | Plants the top terrace, by the hot spring |
+| ⛱️ More garden tables | $32,000 | ★4.3, garden tables | Four more tables west of the path, and a second waiter, at the bar's other end |
+| 🌱 Third terrace | $40,000 | ★4.4, second terrace | Plants the top terrace, by the hot spring: rice for a full garden |
+| 🥡 Takeout kiosk | $50,000 | ★4.4 | Snowmobiles on the road buy boxes of sushi with the rice to spare; the chefs pack them |
 | 🏮 Premium menu | $60,000 | ★4.5 | Everything sells for 60% more |
 
 ### Her house
@@ -162,8 +164,10 @@ TypeScript + [three.js r186](https://threejs.org/), bundled with [Vite](https://
 | `src/stage.ts` | The stage-up show (banner, camera pull-back, pieces in and out) and stage 2's dusk lighting |
 | `src/hall.ts` | The Floe Sushi building: floor, roof ring (fading when it would hide the player), walls, lanterns, gate, garden, kiosk booth |
 | `src/farm.ts` | The terraces, hillside and hot spring, farmhouse and water wheel, drying racks, channel, path and bridge |
-| `src/stations.ts` | Fishing pad, chopping block, fish pile |
-| `src/fishing.ts` | Fish, hooking, chopping into slices |
+| `src/stations.ts` | Fishing pad, chopping block and cleaver, fish pile |
+| `src/fishing.ts` | Fish swimming, hooking, chopping into slices (three cuts, the fish clipped at each) |
+| `src/fishModel.ts` | The whole fish's model, shared by the water and the kitchen |
+| `src/machines.ts` | The auto harpoon's and the ice net's models |
 | `src/counters.ts` | The walk-up fish counter, sled window and takeout kiosk, and their customers (patience, reviews) |
 | `src/economy.ts` | Sale prices, and the repeatable upgrades (price, marketing, crew) and what they multiply |
 | `src/shop.ts` | The upgrade circles and their panel, and the modifier list in the HUD |
@@ -172,6 +176,7 @@ TypeScript + [three.js r186](https://threejs.org/), bundled with [Vite](https://
 | `src/rating.ts` | Reviews and the market rating |
 | `src/bubble.ts` | Order bubbles with patience rings, and mood faces |
 | `src/restaurant.ts` | The sushi bar: kitchen line and cooks, chefs, the plate belt, diners, register |
+| `src/garden.ts` | The garden tables and their waiters |
 | `src/rice.ts` | The starting rice patch, planting the terraces, the farmer and the rice porter |
 | `src/player.ts` / `src/playerUpdate.ts` | Player entity / per-frame player logic |
 | `src/runner.ts` | Runner AI, for all three runners |
