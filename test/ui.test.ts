@@ -19,6 +19,53 @@ describe('HUD', () => {
     expect($('cash').classList.contains('bump')).toBe(false);
   });
 
+  it('folds the modifiers away under the stage chip, and starts them folded on phones', async () => {
+    await loadGame(); // jsdom has no matchMedia: a big screen
+    const open = () => [$('mods').hidden, $('stage').getAttribute('aria-expanded')];
+    expect(open()).toEqual([false, 'true']);
+    $('stage').click();
+    expect(open()).toEqual([true, 'false']);
+    $('stage').click();
+    expect(open()).toEqual([false, 'true']);
+
+    const phone = Object.assign(new EventTarget(), { matches: true });
+    vi.stubGlobal('matchMedia', () => phone);
+    await loadGame();
+    expect(open()).toEqual([true, 'false']);
+    phone.matches = false; // turned into a bigger screen: the modifiers follow it
+    phone.dispatchEvent(new Event('change'));
+    expect(open()).toEqual([false, 'true']);
+    $('stage').click(); // once the player has picked, they stay as picked
+    phone.matches = true;
+    phone.dispatchEvent(new Event('change'));
+    phone.matches = false;
+    phone.dispatchEvent(new Event('change'));
+    expect(open()).toEqual([true, 'false']);
+  });
+
+  it('slides the view so an open panel never covers the player', async () => {
+    const g = await loadGame(); // a 1024x768 window
+    const cam = g.render.camera, shop = $('shop');
+    const settle = () => { for (let i = 0; i < 60; i++) g.ui.keepInSight(0.05); };
+    settle();
+    expect(cam.view?.enabled ?? false).toBe(false); // nothing open: the view stays put
+    shop.hidden = false;
+    const at = vi.spyOn(shop, 'getBoundingClientRect').mockReturnValue({ left: 480, top: 300 } as DOMRect);
+    settle(); // down the right-hand side: slides left until the player's clear of it
+    expect([cam.view!.offsetX, cam.view!.offsetY]).toEqual([expect.closeTo(1024 / 2 + 50 - 480), 0]);
+    at.mockReturnValue({ left: 200, top: 400 } as DOMRect);
+    settle(); // along the bottom: slides up
+    expect([cam.view!.offsetX, cam.view!.offsetY]).toEqual([expect.closeTo(0), expect.closeTo(768 / 2 + 70 - 400)]);
+    at.mockReturnValue({ left: 200, top: 600 } as DOMRect);
+    settle(); // low enough already
+    expect(cam.view?.enabled).toBe(false);
+    at.mockReturnValue({ left: 480, top: 300 } as DOMRect);
+    settle();
+    shop.hidden = true;
+    settle(); // closed: back to the middle
+    expect(cam.view?.enabled).toBe(false);
+  });
+
   it('shows toasts briefly', async () => {
     const g = await loadGame();
     vi.useFakeTimers();

@@ -2,7 +2,7 @@
 // banner and confetti.
 import { player } from './player';
 import { rating } from './rating';
-import { camera } from './render';
+import { camera, slideView } from './render';
 import { pick, rand, V } from './util';
 import { wallet } from './wallet';
 
@@ -44,6 +44,38 @@ export function showStage(n: 1 | 2, done: number, total: number) {
   stageBar.style.width = Math.round(done / total * 100) + '%';
   stageCount.textContent = done < total ? `${done}/${total}` : n === 1 ? 'Floe Sushi ready' : 'Complete';
   stageEl.classList.toggle('ready', done >= total);
+}
+
+// The stage chip opens and closes the modifiers under it. They start closed on phone-sized screens (index.html's
+// media query), where they'd cover the game, and follow the screen size until the player taps the chip.
+const modsEl = $('mods'), phone = window.matchMedia?.('(max-width: 720px), (max-height: 500px)');
+let modsPicked = false;
+function showMods(open: boolean) {
+  modsEl.hidden = !open;
+  stageEl.setAttribute('aria-expanded', String(open));
+}
+showMods(!phone?.matches);
+// (Safari before 14 has no addEventListener on a media query)
+phone?.addEventListener?.('change', () => { if (!modsPicked) showMods(!phone.matches); });
+stageEl.addEventListener('click', () => { modsPicked = true; showMods(modsEl.hidden !== false); });
+
+// ---------- keeping the player in sight ----------
+const panels = [$('shop'), $('casino')];
+const slid = { x: 0, y: 0 };
+/** Slides the view so an open panel doesn't cover the player: sideways for a panel down the right-hand side (a phone
+ *  held sideways), up for one along the bottom of a short screen. Eases there and back. */
+export function keepInSight(dt: number) {
+  const w = window.innerWidth, h = window.innerHeight, open = panels.find(p => !p.hidden);
+  let x = 0, y = 0;
+  if (open) {
+    const r = open.getBoundingClientRect();
+    if (r.left > w * 0.25) x = Math.max(0, w / 2 + 50 - r.left);
+    else y = Math.max(0, h / 2 + 70 - r.top);
+  }
+  const k = Math.min(1, dt * 8);
+  slid.x += (x - slid.x) * k;
+  slid.y += (y - slid.y) * k;
+  slideView(slid.x, slid.y);
 }
 
 const bannerEl = $('banner');

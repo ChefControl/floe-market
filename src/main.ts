@@ -6,7 +6,7 @@ import { player } from './player';
 import { camera, camK, fog, OFF, renderer, scene, sun, sunOff } from './render';
 import { isStale, load, startAutosave, wipeSave } from './save';
 import { view } from './stage';
-import { hud } from './ui';
+import { hud, keepInSight } from './ui';
 
 // ---------- save / restart ----------
 if (load()) dismissIntro();
@@ -51,6 +51,7 @@ function frame(now: number) {
   sun.position.copy(look).add(sunOff);
   sun.target.position.copy(look);
 
+  keepInSight(dt);
   hud(dt);
   renderer.render(scene, camera);
   requestAnimationFrame(frame);

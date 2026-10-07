@@ -38,6 +38,7 @@ it('boots from a save, renders, autosaves and restarts', async () => {
   // another tab saving takes over: this one stops saving and says so
   window.dispatchEvent(new StorageEvent('storage', { key: 'floe-market-v1', newValue: 'other tab' }));
   expect($('stale').hidden).toBe(false);
+  expect(document.activeElement).toBe(document.querySelector('#stale button')); // it's a dialog: focus goes there
 
   // restart: first tap arms, it disarms after 2.5s; a double-tap is ignored, a deliberate second tap erases
   vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'performance'] });

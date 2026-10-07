@@ -165,6 +165,7 @@ function pick(here: Facts, there: Facts) {
   $('cloudHere').textContent = describe(here);
   $('cloudThere').textContent = describe(there);
   chooser.hidden = false;
+  chooser.querySelector('button')!.focus();
   return new Promise<'device' | 'cloud'>(resolve => {
     chooser.onclick = e => {
       const keep = (e.target as HTMLElement).closest<HTMLElement>('[data-keep]')?.dataset.keep;
