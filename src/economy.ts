@@ -10,8 +10,6 @@ export const FISH_PRICE = { walk: 4, sled: 6 };
 export const SUSHI_PRICE = { plate: 30, box: 35 };
 /** The premium menu's multiplier on sushi prices. */
 export const PREMIUM = 1.6;
-/** A bag of rice at the stall. */
-export const RICE_PRICE = 5;
 
 export type ModId = 'fillets' | 'marketing' | 'training' | 'specials' | 'promo' | 'crew';
 export interface Mod {
@@ -51,7 +49,7 @@ export const MODS: Mod[] = [
     levels: ['Menu boards', 'Lantern signs', 'Social media', 'Food critic', 'Magazine', 'Cooking show', 'Gourmet guide', 'World famous'],
     per: 1.2, cost: 800, step: 1.75, max: 8,
   },
-  { id: 'crew', stage: 2, kind: 'speed', icon: '🧑‍🍳', name: 'Kitchen crew', what: 'Chefs, the runner and the farm work faster', per: 1.15, cost: 1000, step: 1.75, max: 8 },
+  { id: 'crew', stage: 2, kind: 'speed', icon: '🧑‍🍳', name: 'Kitchen crew', what: 'Chefs, the runners and the farm work faster', per: 1.15, cost: 1000, step: 1.75, max: 8 },
 ];
 export const MOD = Object.fromEntries(MODS.map(m => [m.id, m])) as Record<ModId, Mod>;
 

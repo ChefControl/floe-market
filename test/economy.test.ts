@@ -1,4 +1,5 @@
 // The fish side of the chain (fish -> slices -> counters or the chefs), the runner, the sled window and the takeout kiosk.
+import type { Mesh, MeshLambertMaterial } from 'three';
 import { describe, expect, it } from 'vitest';
 import { bought, loadGame, MARKET } from './helpers';
 
@@ -64,6 +65,18 @@ describe('sled window', () => {
 });
 
 describe('runner', () => {
+  it('works side by side with the others, each in their own shirt', async () => {
+    const g = await loadGame({ tiles: bought('runner', 'runner2', 'runner3', 'sushi'), pile: 30 });
+    const rs = g.runner.runners;
+    expect(rs).toHaveLength(3);
+    const shirt = (r: (typeof rs)[number]) => ((r.g.arms[0].children[0] as Mesh).material as MeshLambertMaterial).color.getHex();
+    expect(new Set(rs.map(shirt)).size).toBe(3);
+    g.runUntil(() => rs.every(r => r.state === 'unload'), 20);
+    const xs = rs.map(r => r.g.position.x);
+    expect(Math.min(...xs.slice(1).map(x => Math.abs(x - xs[0])))).toBeGreaterThan(0.6); // not on top of each other
+    g.runUntil(() => g.restaurant.fishTray.n >= 24, 20);
+  });
+
   it('stocks whichever counter is lowest', async () => {
     const g = await loadGame({ tiles: bought('sled'), pile: 6, c1: 20 });
     const { C1, SLED } = g.counters;
@@ -74,7 +87,7 @@ describe('runner', () => {
 
   it('heads for the kitchen line instead when the counters close under it', async () => {
     const g = await loadGame({ tiles: bought(...MARKET), pile: 8 });
-    const r = g.runner.runner!;
+    const r = g.runner.runners[0];
     g.runUntil(() => r.state === 'unload', 20);
     g.unlocks.applyUnlock('sushi');
     g.run(0.05);

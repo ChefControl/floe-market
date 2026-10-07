@@ -44,7 +44,7 @@ export function buyMod(id: ModId) {
   wallet.money -= cost;
   mods[id]++;
   repriceFish(); repriceSushi();
-  toast(`${MOD[id].name}: ${levelName(id, mods[id])}`);
+  toast(`${MOD[id].name}: ${levelName(id, mods[id])}`, 'shop');
   shown = '';
   save();
   return true;

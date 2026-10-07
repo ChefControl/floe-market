@@ -12,18 +12,18 @@ async function open(save: SaveFixture = {}) {
 }
 
 describe('opening the restaurant', () => {
-  it('replaces the counters: their queue pays up and leaves, their steaks and cash move over, the stall opens', async () => {
+  it('replaces the counters: their queue pays up and leaves, their steaks and cash move over, rice is planted', async () => {
     const g = await loadGame({ tiles: bought('sled'), c1: 3, c1c: 12, c2: 2, c2c: 6 });
     const { C1, SLED } = g.counters, { sushi, ricePot, register, STARTER_RICE, sushiStock } = g.restaurant;
     g.runUntil(() => (C1.queue[0]?.hands.n ?? 0) > 0);
     const c = C1.queue[0];
     expect(sushi.built).toBe(false);
-    expect(g.rice.stallOpen()).toBe(false);
+    expect(g.rice.field.cells).toHaveLength(0);
     g.unlocks.applyUnlock('sushi');
     expect([C1.enabled, SLED.enabled]).toEqual([false, false]);
     expect(C1.queue).toHaveLength(0);
     expect(sushi.built).toBe(true);
-    expect(g.rice.stallOpen()).toBe(true);
+    expect(g.rice.field.cells).toHaveLength(6); // the starting patch
     expect(sushi.seats).toHaveLength(10);
     expect(sushi.chefs).toHaveLength(1);
     expect(sushi.cooks).toHaveLength(2);

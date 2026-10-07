@@ -180,6 +180,24 @@ body{
 }
 #toast.on{ opacity:1; transform:translate(-50%,0); }
 
+/* arrows at the edge of the screen pointing the way to new upgrade tiles (pointers.ts) */
+#pointers{ position:fixed; inset:0; z-index:3; pointer-events:none; }
+.ptr{
+  position:absolute; left:0; top:0; width:44px; height:44px; margin:-22px 0 0 -22px; border-radius:50%;
+  display:grid; place-items:center; font-size:22px; line-height:1;
+  background:var(--pill); box-shadow:0 3px 0 var(--shade), 0 0 0 3px #FFC34A;
+}
+.ptr[hidden]{ display:none; }
+.ptr span{ animation:nudge 1s ease-in-out infinite; }
+/* a gold triangle on the rim of the circle, turned to point the way */
+.ptr i{ position:absolute; inset:0; }
+.ptr i::after{
+  content:""; position:absolute; left:calc(100% + 2px); top:50%; margin-top:-8px;
+  border:8px solid transparent; border-left:11px solid #FFC34A; border-right:0;
+}
+@keyframes nudge{ 50%{ transform:scale(1.15); } }
+@media (prefers-reduced-motion: reduce){ .ptr span{ animation:none; } }
+
 #intro{
   position:fixed; inset:0; z-index:5; display:grid; place-items:center; pointer-events:none;
   transition:opacity .35s;
@@ -353,6 +371,7 @@ body{
   <button type="button" data-keep="device"><b>Keep this device's game</b><span id="cloudHere"></span></button>
   <button type="button" data-keep="cloud"><b>Keep the cloud's game</b><span id="cloudThere"></span></button>
 </div></div>
+<div id="pointers" aria-hidden="true"></div>
 <div id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
 <canvas id="confetti" aria-hidden="true"></canvas>
 <div id="banner" aria-live="polite"><div class="card"><div class="k"></div><div class="t"></div></div></div>

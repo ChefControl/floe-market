@@ -75,6 +75,26 @@ describe('HUD', () => {
     expect($('toast').classList.contains('on')).toBe(false);
   });
 
+  it('takes turns showing messages, and lets one replace the last of its kind', async () => {
+    const g = await loadGame();
+    vi.useFakeTimers();
+    const el = $('toast');
+    g.ui.toast('one');
+    g.ui.toast('two');
+    g.ui.toast('two'); // already waiting
+    expect(el.textContent).toBe('one');
+    vi.advanceTimersByTime(1950);
+    expect(el.textContent).toBe('two');
+    g.ui.toast('Fine fillets: level 1', 'shop');
+    g.ui.toast('Fine fillets: level 2', 'shop'); // waiting: replaced
+    vi.advanceTimersByTime(1950);
+    expect(el.textContent).toBe('Fine fillets: level 2');
+    g.ui.toast('Fine fillets: level 3', 'shop'); // showing: replaced at once
+    expect(el.textContent).toBe('Fine fillets: level 3');
+    vi.advanceTimersByTime(1950);
+    expect(el.classList.contains('on')).toBe(false);
+  });
+
   it('floats text over points in front of the camera only', async () => {
     const g = await loadGame();
     vi.useFakeTimers();

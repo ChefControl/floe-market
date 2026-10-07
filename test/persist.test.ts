@@ -79,7 +79,7 @@ describe('saving progress', () => {
       g.saveMod.save();
       return stored();
     };
-    expect(await after({ tiles: bought('sushi', 'runner'), pile: 3 }, g => g.runner.runner!.back.items.length === 3)).toMatchObject({ pile: 3 });
+    expect(await after({ tiles: bought('sushi', 'runner'), pile: 3 }, g => g.runner.runners[0].back.items.length === 3)).toMatchObject({ pile: 3 });
     expect(await after({ tiles: bought('sushi', 'paddy', 'porter'), field: 2 }, g => g.rice.porter!.back.items.length === 2)).toMatchObject({ field: 2 });
     expect(await after({ tiles: bought('sushi'), fish: 1, rice: 1 }, g => g.restaurant.sushi.chefs[0].state === 'slice')).toMatchObject({ fish: 1, rice: 1 });
     expect(await after({ tiles: bought('sushi', 'kiosk'), boxes: 5 }, g => (g.counters.TAKEOUT.queue[0]?.hands.n ?? 0) > 0)).toMatchObject({ boxes: 5 });
@@ -131,6 +131,17 @@ describe('loading', () => {
       plates: 7, cash: 24 + 12 + 18, boxes: 0, tcash: 0, field: 0, reviews: [5, 5],
     });
     expect(s.tiles.map(t => t.id)).toEqual([...MARKET, 'sushi', 'seats']);
+  });
+
+  it('gives the market\'s later runners to saves that had finished the market before', async () => {
+    const { saveMod } = await loadGame();
+    const OLD_MARKET = ['pack', 'turret', 'roulette', 'runner', 'boots', 'sled', 'net'];
+    const ids = (tiles: { id: string }[]) => saveMod.migrate({ v: 4, tiles }).tiles.filter(t => t.done).map(t => t.id);
+    expect(ids(bought(...OLD_MARKET, 'sushi', 'paddy'))).toEqual([...OLD_MARKET, 'sushi', 'paddy', 'runner2', 'runner3']);
+    // half paid for the third runner already: it's free now
+    expect(ids([...bought(...OLD_MARKET, 'runner2', 'sushi'), { id: 'runner3', paid: 900, done: false }]))
+      .toEqual([...OLD_MARKET, 'runner2', 'sushi', 'runner3']);
+    expect(ids(bought('pack', 'runner'))).toEqual(['pack', 'runner']); // still in the market: they're for sale
   });
 
   it('keeps everyone else in stage 1, refunding the old restaurant, its cash and its plates', async () => {

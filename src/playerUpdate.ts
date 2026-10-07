@@ -3,7 +3,7 @@ import { animPerson } from './characters';
 import { COUNTERS } from './counters';
 import { tryCatch } from './fishing';
 import { fly, type Holder } from './holder';
-import { billValue, newBill, newRice, type Kind } from './items';
+import { billValue, newBill, type Kind } from './items';
 import { boost } from './economy';
 import { inputVec } from './input';
 import { korkiStatue, STATUE } from './korki';
@@ -11,7 +11,7 @@ import { groundY, keepOnFloor, pushOutOfBox, stage, walkable } from './layout';
 import { player } from './player';
 import { scene } from './render';
 import { collide, FISH_DROP, fishTray, register, REGISTER, RICE_DROP, ricePot, sushi } from './restaurant';
-import { field, fieldStack, harvestNear, RICE_PRICE, STACK_AT, STALL, STALL_BOX, STALL_TOP, stallOpen } from './rice';
+import { field, fieldStack, harvestNear, PATCH_AT, ripeNear, STACK_AT } from './rice';
 import { save } from './save';
 import { CHOP, PAD, PILE, pile } from './stations';
 import { setTip, type TipContent } from './ui';
@@ -30,7 +30,7 @@ const drops = (): Drop[] => sushi.built
   : COUNTERS.filter(C => C.enabled && C.dropPos).map(C => ({ pos: C.dropPos!, r: 1.0, stock: C.stock, kind: 'fish' }));
 
 const STATION_TIPS: { pos: XZ; r: number; tip: TipContent }[] = [
-  { pos: STALL, r: 0.8, tip: { name: 'Rice stall', desc: `$${RICE_PRICE} a bag. Short of cash, or arms full of fish the kitchen has no room for? A fish slice for a bag` } },
+  { pos: PATCH_AT, r: 1.6, tip: { name: 'Rice', desc: 'Wade through gold, ripe rice to harvest it, then carry it to the 🍚 pad at the kitchen line' } },
   { pos: FISH_DROP, r: 0.65, tip: { name: 'Fish for the chefs', desc: 'Drop fish slices here' } },
   { pos: RICE_DROP, r: 0.65, tip: { name: 'Rice for the chefs', desc: 'Drop bags of rice here' } },
 ];
@@ -53,7 +53,6 @@ export function updPlayer(dt: number) {
   } else player.moving = false;
   keepOnFloor(p, walkable());
   collide(p);
-  if (stallOpen()) pushOutOfBox(p, STALL_BOX.x, STALL_BOX.z, STALL_BOX.hx + 0.3, STALL_BOX.hz + 0.3);
   if (stage.n === 2 && korkiStatue()) pushOutOfBox(p, STATUE.x, STATUE.z, 1.25, 0.8);
   // chopper block collision
   if (p.x > CHOP.x - 1.0 && p.x < CHOP.x + 1.0 && p.z < CHOP.z + 0.8) {
@@ -79,24 +78,6 @@ export function updPlayer(dt: number) {
       player.back.receive(pile.take()!, 0.22, 0.7);
     }
   }
-  // Buy rice at the stall. It also takes a fish slice for a bag when you can't pay, or when your arms are full
-  // of fish the kitchen has no room for, so there's always a way to get rice and make sushi.
-  if (stallOpen() && d2xz(p, STALL) < 0.8 * 0.8) {
-    while (player.tPick <= 0) {
-      const pay = wallet.money >= RICE_PRICE && player.back.hasRoom();
-      const stuck = wallet.money < RICE_PRICE || (!player.back.hasRoom() && !fishTray.hasRoom());
-      const swap = !pay && stuck && player.back.count('fish') > 0;
-      if (!pay && !swap) break;
-      player.tPick += 0.1;
-      if (pay) wallet.money -= RICE_PRICE;
-      else {
-        const f = player.back.takeKind('fish')!;
-        fly(f, () => STALL_TOP, 0.25, 0.8, () => scene.remove(f));
-      }
-      const r = newRice(); r.position.copy(STALL_TOP);
-      player.back.receive(r, 0.25, 0.8);
-    }
-  }
   // take bags off the farmer's stack on the path
   if (field.built && d2xz(p, STACK_AT) < 0.9 * 0.9) {
     while (player.tPick <= 0 && player.back.hasRoom() && fieldStack.items.length) {
@@ -105,8 +86,16 @@ export function updPlayer(dt: number) {
     }
   }
   if (player.tPick < 0) player.tPick = 0;
-  // harvest the terraces
-  if (field.built) harvestNear(p, player.back, dt);
+  // harvest the terraces. Fish the kitchen has no room for go back to the pile as you wade into ripe rice, to make
+  // room for it: arms full of fish it can't cook without rice would otherwise be stuck for good.
+  if (field.built) {
+    if (!fishTray.hasRoom() && player.back.count('fish') && ripeNear(p)) {
+      const f = player.back.takeKind('fish')!;
+      if (pile.hasRoom()) pile.receive(f, 0.6, 3);
+      else scene.remove(f);
+    }
+    harvestNear(p, player.back, dt);
+  }
 
   // drop fish at the counters, or fish and rice off for the chefs
   player.tDrop -= dt;
@@ -146,11 +135,14 @@ export function updPlayer(dt: number) {
 }
 
 /** Drains money into the tile after a short stand delay; applies the unlock when paid off. */
+/** Seconds on a tile before it takes money: longer than walking across one, so only stopping on it pays. */
+const STAND = 0.6;
+
 function payInto(on: Tile, dt: number) {
   const p = player.g.position;
   player.tileStand += dt; player.tPay -= dt;
   let paidNow = false;
-  while (player.tileStand > 0.3 && wallet.money > 0 && player.tPay <= 0 && !on.done) {
+  while (player.tileStand > STAND && wallet.money > 0 && player.tPay <= 0 && !on.done) {
     player.tPay += 0.03; paidNow = true;
     const chunk = Math.min(Math.max(1, Math.ceil(on.cost / 45)), wallet.money, on.cost - on.paid);
     wallet.money -= chunk; on.paid += chunk;

@@ -118,11 +118,32 @@ function drawConfetti(dt: number) {
 
 const toastEl = $('toast');
 let toastT: ReturnType<typeof setTimeout> | undefined;
-export function toast(m: string) {
-  toastEl.textContent = m;
+/** Messages waiting their turn, and the `key` of the one showing. */
+const waiting: { m: string; key?: string }[] = [];
+let busy = false, showing: string | undefined;
+function nextToast() {
+  const n = waiting.shift();
+  busy = !!n;
+  if (!n) return;
+  showing = n.key;
+  toastEl.textContent = n.m;
   toastEl.classList.add('on');
+  holdToast();
+}
+function holdToast() {
   clearTimeout(toastT);
-  toastT = setTimeout(() => toastEl.classList.remove('on'), 1700);
+  toastT = setTimeout(() => { toastEl.classList.remove('on'); toastT = setTimeout(nextToast, 250); }, 1700);
+}
+/**
+ * Shows a message for a moment. Messages take turns, so none is missed. One with the same `key` as the message
+ * showing or waiting replaces it instead (buying the same kind of upgrade several times in a row).
+ */
+export function toast(m: string, key?: string) {
+  if (key && key === showing && toastEl.classList.contains('on')) { toastEl.textContent = m; holdToast(); return; }
+  const same = waiting.find(w => (key ? w.key === key : w.m === m));
+  if (same) { same.m = m; return; }
+  waiting.push({ m, key });
+  if (!busy) nextToast();
 }
 
 export interface TipContent { name: string; desc: string }

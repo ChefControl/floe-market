@@ -85,17 +85,18 @@ describe('stations', () => {
     expect(register.items).toHaveLength(0);
   });
 
-  it('buys rice at the stall while there is money and room', async () => {
-    const g = await loadGame({ tiles: bought('sushi'), money: 16 });
-    const { STALL, RICE_PRICE } = g.rice;
-    g.placePlayer(STALL.x, STALL.z);
+  it('harvests the rice patch the restaurant opens with, for free', async () => {
+    const g = await loadGame({ tiles: bought('sushi') });
+    const { PATCH_AT } = g.rice;
+    g.run(15.1); // ripe
+    g.placePlayer(PATCH_AT.x, PATCH_AT.z);
     g.run(1);
-    expect(g.player.back.items.map(g.items.kindOf)).toEqual(['rice', 'rice', 'rice']);
-    expect(g.wallet.money).toBe(16 - 3 * RICE_PRICE);
-    expect(document.getElementById('tip')!.textContent).toContain('Rice stall');
+    expect(g.player.back.count('rice')).toBeGreaterThan(1);
+    expect(g.wallet.money).toBe(0);
+    expect(document.getElementById('tip')!.textContent).toContain('Wade through');
   });
 
-  it('is kept out of the bar, the kitchen line, the register desk and the stall', async () => {
+  it('is kept out of the bar, the kitchen line and the register desk', async () => {
     const g = await loadGame({ tiles: bought('sushi') });
     const p = g.player.g.position;
     const at = (x: number, z: number) => { g.placePlayer(x, z); g.run(0.02); return [p.x, p.z]; };
@@ -104,7 +105,6 @@ describe('stations', () => {
     expect(at(0, 2.4)[1]).toBeCloseTo(1.8); // kitchen line: out the shallow side
     expect(at(-6.1, 2.6)[0]).toBeCloseTo(-6.3);
     expect(at(7.6, 14.0)[1]).toBeCloseTo(13.7); // the register desk
-    expect(at(6.7, -5.0)[1]).toBeCloseTo(-4.6); // the rice stall
   });
 
   it('walks out through the gate to the garden, but not through the walls', async () => {
@@ -159,5 +159,15 @@ describe('stations', () => {
     expect(g.player.back.cap).toBe(14);
     expect(tip.classList.contains('on')).toBe(false);
     expect(localStorage.getItem('floe-market-v1')).toContain('"done":true');
+  });
+
+  it("doesn't take money from someone just walking across a tile", async () => {
+    const g = await loadGame({ money: 35 });
+    const p = g.player.g.position;
+    g.placePlayer(-2.4, 6.0);
+    g.press('d');
+    g.runUntil(() => p.x > -0.2, 2); // across the 2m tile at walking speed
+    g.press('d', 'keyup');
+    expect(g.wallet.money).toBe(35);
   });
 });

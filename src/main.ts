@@ -3,6 +3,7 @@ import { initCloud } from './cloud';
 import { tick } from './game';
 import { dismissIntro } from './input';
 import { player } from './player';
+import { updPointers } from './pointers';
 import { camera, camK, fog, OFF, renderer, scene, sun, sunOff } from './render';
 import { isStale, load, startAutosave, wipeSave } from './save';
 import { view } from './stage';
@@ -52,6 +53,7 @@ function frame(now: number) {
   sun.target.position.copy(look);
 
   keepInSight(dt);
+  updPointers(dt);
   hud(dt);
   renderer.render(scene, camera);
   requestAnimationFrame(frame);

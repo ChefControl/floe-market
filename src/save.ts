@@ -12,7 +12,7 @@ import {
   fishTray, loadPlates, platePrice, register, repriceSushi, ricePot, STARTER_RICE, sushi, sushiStock,
 } from './restaurant';
 import { field, fieldStack, riceInField } from './rice';
-import { runner } from './runner';
+import { runnersLoad } from './runner';
 import { pile } from './stations';
 import { applyUnlock, redrawTile, tiles, updStars } from './unlocks';
 import { wallet } from './wallet';
@@ -72,6 +72,8 @@ export const deviceStore = {
 
 /** The market's upgrades, and v3's restaurant and its upgrades, for migrating old saves. */
 const MARKET = ['pack', 'turret', 'roulette', 'runner', 'boots', 'sled', 'net'];
+/** The market's upgrades added since then. Saves that had finished the market before get them free. */
+const LATER = ['runner2', 'runner3'];
 const OLD_SUSHI = ['sushi', 'seats', 'chef', 'premium'];
 /** What v3's restaurant charged for a plate. */
 const OLD_PLATE = 12;
@@ -83,9 +85,12 @@ const num = (v: unknown) => Math.max(0, Math.floor(Number(v))) || 0;
 export function migrate(raw: unknown): SaveData {
   if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) throw new Error('not a save');
   const s = raw as Record<string, unknown>;
-  const tileList = (Array.isArray(s.tiles) ? s.tiles : [])
+  const listed = (Array.isArray(s.tiles) ? s.tiles : [])
     .filter((t): t is Record<string, unknown> => typeof t === 'object' && t !== null)
     .map(t => ({ id: String(t.id), paid: num(t.paid), done: t.done === true, open: t.open === true }));
+  const done = (id: string) => listed.some(t => t.id === id && t.done);
+  const gifts = done('sushi') && MARKET.every(done) ? LATER.filter(id => !done(id)) : [];
+  const tileList = [...listed.filter(t => !gifts.includes(t.id)), ...gifts.map(id => ({ id, paid: 0, done: true, open: true }))];
   const saved = (typeof s.mods === 'object' && s.mods ? s.mods : {}) as Record<string, unknown>;
   const modLevels: Partial<Record<ModId, number>> = {};
   // test builds had the price upgrades as tiles with levels
@@ -110,7 +115,6 @@ export function migrate(raw: unknown): SaveData {
   // had that restaurant and every market upgrade go straight to stage 2 and keep its upgrades: the old kitchen's
   // steaks and the counters' leftovers become fish for the chefs, and the cash moves to the register. Everyone
   // else stays in stage 1 and gets back what they spent on the old restaurant, its cash and its unsold plates.
-  const done = (id: string) => tileList.some(t => t.id === id && t.done);
   const oldSushi = (t: { id: string }) => OLD_SUSHI.includes(t.id);
   const k = num(s.k), kp = num(s.kp), rc = num(s.rc);
   const empty = { backRice: 0, c1: 0, c1c: 0, c2: 0, c2c: 0, fish: 0, rice: 0, plates: 0, cash: 0, boxes: 0, tcash: 0, field: 0 };
@@ -174,7 +178,7 @@ export function save() {
     tiles: tiles.map(t => ({ id: t.id, paid: t.paid, done: t.done, open: t.open })),
     mods: { ...mods },
     reviews: [...reviews],
-    pile: Math.min(pile.cap, pile.n + steaksInProgress() + (runner ? runner.back.n : 0)),
+    pile: Math.min(pile.cap, pile.n + steaksInProgress() + runnersLoad()),
     back: carried.length - rice,
     backRice: rice,
     c1: onCounter(C1), c1c: C1.enabled ? cashSum(C1.cash) : 0,

@@ -3,44 +3,44 @@ import { describe, expect, it } from 'vitest';
 import { play } from './bot';
 import { bought, loadGame } from './helpers';
 
+/** Walks the player through the rice patch, clump by clump. */
+function wade(g: Awaited<ReturnType<typeof loadGame>>) {
+  for (const c of g.rice.field.cells) { g.placePlayer(c.x, c.z); g.run(0.3); }
+}
+
 describe('no way to get stuck', () => {
-  it('broke, no rice anywhere, arms full of fish the tray has no room for: the stall takes fish for rice', async () => {
+  it('no rice anywhere, arms full of fish the tray has no room for: wading into ripe rice sends fish back to the pile', async () => {
     const g = await loadGame({ tiles: bought('pack', 'sushi'), back: 14, fish: 48 });
-    const { STALL } = g.rice, { RICE_DROP, ricePot } = g.restaurant;
+    const { RICE_DROP, ricePot } = g.restaurant, { pile } = g.stations;
     expect(g.wallet.money).toBe(0);
-    g.placePlayer(STALL.x, STALL.z);
-    g.run(2.5);
-    expect(g.player.back.count('rice')).toBe(14);
-    expect(g.player.back.count('fish')).toBe(0);
+    g.run(15.1); // the patch ripens
+    wade(g);
+    const bags = g.player.back.count('rice');
+    expect(bags).toBe(6);
+    expect(g.player.back.count('fish')).toBe(8); // a slice the kitchen couldn't take for each bag...
+    g.run(1);
+    expect(pile.n).toBe(6); // ...is back on the pile
     g.placePlayer(RICE_DROP.x, RICE_DROP.z);
     g.run(1);
-    expect(g.player.back.n).toBe(0);
-    expect(ricePot.n + g.restaurant.sushiStock().plates).toBeGreaterThan(10); // and the chefs are already on it
+    expect(g.player.back.count('rice')).toBe(0);
+    expect(ricePot.n + g.restaurant.sushiStock().plates).toBeGreaterThan(bags - 2); // and the chefs are already on it
     g.runUntil(() => g.cashAt({ cash: g.restaurant.register }) > 0, 90); // plates sold
   });
 
-  it('arms full of fish the kitchen has no room for, with cash: the stall still swaps fish for rice', async () => {
-    const g = await loadGame({ tiles: bought('pack', 'sushi'), back: 14, fish: 48, money: 100 });
-    g.placePlayer(g.rice.STALL.x, g.rice.STALL.z);
-    g.run(2.5);
-    expect(g.player.back.count('rice')).toBe(14);
-    expect(g.wallet.money).toBe(100); // a swap, not a sale
+  it('throws away fish the kitchen and the pile have no room for', async () => {
+    const g = await loadGame({ tiles: bought('pack', 'sushi'), back: 14, fish: 48, pile: 60 });
+    g.run(15.1);
+    wade(g);
+    expect(g.player.back.count('rice')).toBe(6);
+    expect(g.stations.pile.n).toBe(g.stations.pile.cap);
   });
 
-  it("doesn't swap fish the kitchen could still take: you buy rice with room in your arms", async () => {
-    const g = await loadGame({ tiles: bought('pack', 'sushi'), back: 14, money: 100 });
-    g.placePlayer(g.rice.STALL.x, g.rice.STALL.z);
-    g.run(1);
-    expect(g.player.back.count('fish')).toBe(14); // go and drop them off first
-  });
-
-  it("pays while there's the cash for a bag, and trades fish after that", async () => {
-    const g = await loadGame({ tiles: bought('sushi'), back: 3, money: 5 });
-    g.placePlayer(g.rice.STALL.x, g.rice.STALL.z);
-    g.run(1);
-    expect(g.player.back.count('rice')).toBe(4); // one bought, three traded
-    expect(g.player.back.count('fish')).toBe(0);
-    expect(g.wallet.money).toBe(0);
+  it("keeps fish the kitchen could still take: harvesting fills the room in your arms", async () => {
+    const g = await loadGame({ tiles: bought('pack', 'sushi'), back: 10 });
+    g.run(15.1);
+    wade(g);
+    expect(g.player.back.count('fish')).toBe(10); // go and drop them off
+    expect(g.player.back.count('rice')).toBe(4);
   });
 
   it("can take bags off the farmer's stack before there's a rice porter", async () => {

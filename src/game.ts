@@ -12,7 +12,7 @@ import { updPlayer } from './playerUpdate';
 import { updHouse } from './rain';
 import { updRestaurant } from './restaurant';
 import { updRice } from './rice';
-import { updRunner } from './runner';
+import { updRunners } from './runner';
 import { updShop } from './shop';
 import { player } from './player';
 import { updPops } from './pop';
@@ -32,7 +32,7 @@ export function tick(dt: number) {
   updFish(dt, time);
   updHooks(dt);
   updChopper(dt);
-  updRunner(dt);
+  updRunners(dt);
   updRice(dt);
   updRestaurant(dt);
   COUNTERS.forEach(C => updCounter(C, dt));
