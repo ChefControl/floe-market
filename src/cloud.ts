@@ -3,7 +3,8 @@
 // the page is hidden. A sync compares both sides with how they were at the last sync: if only one has moved on,
 // it wins; if both have (two devices played since), the player picks which game to keep. Firebase itself
 // (firebase.ts) is only fetched while cloud saves are on: at once for a signed-in device, otherwise a few seconds
-// after the game starts, so the sign-in window can open the moment the button is tapped.
+// after the game starts, so the sign-in window can open the moment the button is tapped. Signed-in players also put
+// their best on the scoreboard (scores.ts).
 import { firebaseConfig } from './cloud.config';
 import { deviceStore, isStale, replaceSave, type SaveData } from './save';
 import { toast } from './ui';
@@ -11,6 +12,8 @@ import { toast } from './ui';
 export interface CloudUser { uid: string; name: string }
 /** A save as the cloud keeps it: save.ts's JSON, and when it was made. */
 export interface CloudSave { data: string; savedAt: number }
+/** A player on the scoreboard: the most cash they've held at once, in any game, and the furthest stage reached. */
+export interface Score { uid: string; name: string; best: number; stage: 1 | 2 }
 /** What cloud saves need from the service behind them: firebase.ts, or a fake one in the tests. */
 export interface CloudBackend {
   onUser(cb: (u: CloudUser | null) => void): void;
@@ -18,6 +21,10 @@ export interface CloudBackend {
   signOut(): Promise<void>;
   read(uid: string): Promise<CloudSave | null>;
   write(uid: string, s: CloudSave): Promise<void>;
+  /** Puts a player's score on the scoreboard, keeping their best and furthest stage if those were higher before. */
+  postScore(s: Score): Promise<void>;
+  /** The scoreboard's top `n`, best first. */
+  topScores(n: number): Promise<Score[]>;
 }
 
 /** This device's link to an account: whose, whether it's signed in, and both sides as they were at the last sync. */
@@ -53,7 +60,7 @@ function digest(raw: string) {
 }
 
 /** What the player would recognise a save by. */
-interface Facts { stage: number; money: number; upgrades: number; savedAt: number; progress: boolean }
+interface Facts { stage: 1 | 2; money: number; best: number; upgrades: number; savedAt: number; progress: boolean }
 function facts(raw: string): Facts {
   let s: Partial<SaveData> = {};
   try { s = JSON.parse(raw) as Partial<SaveData>; } catch { /* unreadable: nothing worth keeping */ }
@@ -61,6 +68,7 @@ function facts(raw: string): Facts {
   return {
     stage: tiles.some(t => t.id === 'sushi' && t.done) ? 2 : 1,
     money,
+    best: Math.max(s.best ?? 0, money),
     upgrades: tiles.filter(t => t.done).length + Object.values(s.mods ?? {}).reduce((a, n) => a + (n ?? 0), 0),
     savedAt: s.savedAt ?? 0,
     progress: money > 0 || tiles.some(t => t.paid > 0),
@@ -79,7 +87,8 @@ const describe = (f: Facts) =>
 // ---------- the service ----------
 let backend: CloudBackend | null = null;
 let loading: Promise<CloudBackend> | null = null;
-function connect() {
+/** Fetches Firebase (once), for syncing and the scoreboard. */
+export function connect() {
   loading ??= import('./firebase').then(m => {
     const b = m.createBackend();
     b.onUser(u => { void onUser(u); });
@@ -122,6 +131,7 @@ export async function sync(ask = true) {
       else await push(b, u, deviceStore.read() ?? raw);
     }
     cloud.state = 'saved'; cloud.syncedAt = Date.now();
+    await postScore().catch(() => { /* the scoreboard can wait for the next sync */ });
   } catch {
     cloud.state = 'offline';
   } finally {
@@ -133,6 +143,29 @@ async function push(b: CloudBackend, u: CloudUser, raw: string) {
   const savedAt = facts(raw).savedAt || Date.now();
   await b.write(u.uid, { data: raw, savedAt });
   writeLink({ uid: u.uid, on: true, base: savedAt, sum: digest(raw) });
+}
+
+// ---------- the scoreboard ----------
+/** How a player shows on the scoreboard, which everyone can see: first name and last initial, never an email. */
+export function publicName(name: string) {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  if (!words.length || name.includes('@')) return 'A player';
+  const first = words[0].slice(0, 16);
+  return words.length > 1 ? `${first} ${words[words.length - 1][0].toUpperCase()}.` : first;
+}
+
+/** What this device last put on the scoreboard, so it only writes again when something changed. */
+let posted = '';
+/** Puts this device's game on the scoreboard, for a signed-in player. */
+export async function postScore() {
+  const u = cloud.user, b = backend, raw = deviceStore.read();
+  if (!u || !b || raw === null) return;
+  const f = facts(raw);
+  const s: Score = { uid: u.uid, name: publicName(u.name), best: f.best, stage: f.stage };
+  const key = JSON.stringify(s);
+  if (key === posted) return;
+  await b.postScore(s);
+  posted = key;
 }
 
 /** Swaps this device's game for the account's, and restarts the page to play it. */

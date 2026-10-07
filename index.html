@@ -169,6 +169,40 @@ body{
   font:600 14px "Baloo 2","Trebuchet MS",system-ui,sans-serif; background:var(--chip); color:var(--pill-ink); }
 #cloudPick button b{ font-size:17px; font-weight:800; }
 #cloudPick button:focus-visible{ outline:3px solid var(--coral); outline-offset:2px; }
+/* the scoreboard: a round 🏆 button, and a card over the dimmed game listing the top players */
+#board{
+  width:44px; height:44px; padding:0; border:0; border-radius:50%; display:grid; place-items:center; flex:none;
+  background:var(--pill); color:var(--pill-ink); box-shadow:0 3px 0 var(--shade); font-size:22px; line-height:1; cursor:pointer;
+}
+#board[hidden]{ display:none; }
+#board[aria-expanded="true"]{ background:#FFC34A; }
+#board:focus-visible{ outline:3px solid var(--coral); outline-offset:2px; }
+#scores{ position:fixed; inset:0; z-index:8; display:grid; place-items:center; background:rgba(23,48,66,.55); }
+#scores[hidden]{ display:none; }
+#scores .card{
+  position:relative; background:var(--pill); color:var(--pill-ink); padding:18px 18px 16px; border-radius:24px; width:min(92vw,420px);
+  max-height:min(86vh,640px); display:flex; flex-direction:column; box-shadow:0 4px 0 var(--shade);
+}
+#scores h2{ margin:0 0 10px; font-size:24px; font-weight:800; text-align:center; }
+#scoresClose{
+  position:absolute; right:12px; top:12px; width:36px; height:36px; border:0; border-radius:50%; background:var(--chip);
+  color:inherit; font-size:18px; line-height:1; cursor:pointer;
+}
+#scoresList{ list-style:none; margin:0; padding:0; overflow-y:auto; touch-action:pan-y; }
+#scoresList li{ display:flex; align-items:center; gap:8px; padding:6px 10px; border-radius:12px; font-size:16px; font-weight:600; }
+#scoresList li:nth-child(odd){ background:var(--chip); }
+#scoresList li.me{ box-shadow:inset 0 0 0 2px var(--gold); }
+#scoresList .rank{ width:24px; flex:none; text-align:right; font-weight:800; opacity:.7; }
+#scoresList li:nth-child(1) .rank, #scoresList li:nth-child(2) .rank, #scoresList li:nth-child(3) .rank{ color:var(--gold); opacity:1; }
+#scoresList .name{ flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+#scoresList .stage{ flex:none; font-size:13px; font-weight:800; padding:1px 8px; border-radius:999px; background:#4A90C2; color:#fff; }
+#scoresList .stage[data-stage="2"]{ background:var(--hot); }
+#scoresList .best{ flex:none; min-width:76px; text-align:right; font-weight:800; color:var(--up); font-variant-numeric:tabular-nums; }
+#scoresMe{ margin:10px 0 0; text-align:center; font-weight:600; }
+#scoresMe:empty{ display:none; }
+#scoresJoin{ margin:10px auto 0; font:800 15px "Baloo 2","Trebuchet MS",system-ui,sans-serif; background:var(--go); color:#fff; border:0; border-radius:999px; padding:6px 16px; cursor:pointer; }
+#scoresJoin[hidden]{ display:none; }
+#scoresClose:focus-visible, #scoresJoin:focus-visible{ outline:3px solid var(--coral); outline-offset:2px; }
 #restart.armed{ background:var(--hot); color:#fff; }
 #restart:focus-visible{ outline:3px solid var(--coral); outline-offset:2px; }
 
@@ -327,6 +361,7 @@ body{
   #mods{ min-width:0; font-size:13px; padding:5px 10px 5px 6px; }
   #corner{ right:max(10px, env(safe-area-inset-right,0px)); top:calc(env(safe-area-inset-top,0px) + 10px); flex-direction:column; align-items:flex-end; gap:6px; }
   #restart, #cloud{ min-height:40px; min-width:40px; padding:4px 12px; justify-content:center; }
+  #board{ width:40px; height:40px; font-size:20px; }
   /* Restart, and the account once signed in, show as icons; screen readers still get their names */
   #restart:not(.armed){ font-size:0; padding:0; }
   #restart:not(.armed)::before{ content:"↺"; content:"↺" / ""; font-size:22px; line-height:1; }
@@ -376,6 +411,7 @@ body{
   <div id="mods" class="pill" role="group" aria-label="Modifiers"></div>
 </div>
 <div id="corner">
+  <button id="board" type="button" aria-label="Scoreboard" aria-expanded="false" aria-controls="scores" hidden><span aria-hidden="true">🏆</span></button>
   <button id="cloud" type="button" hidden><span class="ic" aria-hidden="true">☁️</span><span id="cloudName">Sign in</span><span class="wide" aria-hidden="true"> with Google</span><i aria-hidden="true"></i></button>
   <button id="restart" type="button">Restart</button>
 </div>
@@ -384,6 +420,13 @@ body{
   <p id="cloudAsk">This device and your account have different games. Which one do you want to keep? The other one will be replaced.</p>
   <button type="button" data-keep="device"><b>Keep this device's game</b><span id="cloudHere"></span></button>
   <button type="button" data-keep="cloud"><b>Keep the cloud's game</b><span id="cloudThere"></span></button>
+</div></div>
+<div id="scores" role="dialog" aria-modal="true" aria-labelledby="scoresTitle" hidden><div class="card">
+  <h2 id="scoresTitle">Scoreboard</h2>
+  <button type="button" id="scoresClose" aria-label="Close the scoreboard"><span aria-hidden="true">✕</span></button>
+  <ol id="scoresList" aria-label="Most cash held at once"></ol>
+  <p id="scoresMe" role="status"></p>
+  <button type="button" id="scoresJoin" hidden>Sign in to join</button>
 </div></div>
 <div id="pointers" aria-hidden="true"></div>
 <div id="toast" role="status" aria-live="polite" aria-atomic="true"></div>

@@ -5,10 +5,14 @@ import { bought, loadGame, MARKET, type SaveFixture } from './helpers';
 
 const h = vi.hoisted(() => {
   type User = { uid: string; name: string } | null;
+  type Score = { uid: string; name: string; best: number; stage: 1 | 2 };
   const fake = {
     signedIn: false,
     user: { uid: 'u1', name: 'Pat Smith' },
     store: new Map<string, { data: string; savedAt: number }>(),
+    scores: new Map<string, Score>(),
+    scoreWrites: 0,
+    boardDown: false,
     reads: 0,
     writes: 0,
     offline: false,
@@ -24,6 +28,16 @@ const h = vi.hoisted(() => {
     async write(uid: string, s: { data: string; savedAt: number }) {
       if (fake.offline) throw new Error('offline');
       fake.writes++; fake.store.set(uid, { ...s });
+    },
+    async postScore(s: Score) {
+      if (fake.offline) throw new Error('offline');
+      fake.scoreWrites++;
+      const was = fake.scores.get(s.uid);
+      fake.scores.set(s.uid, { ...s, best: Math.max(s.best, was?.best ?? 0), stage: Math.max(s.stage, was?.stage ?? 1) as 1 | 2 });
+    },
+    async topScores(n: number) {
+      if (fake.offline || fake.boardDown) throw new Error('offline');
+      return [...fake.scores.values()].sort((a, b) => b.best - a.best).slice(0, n);
     },
   };
   const config = { apiKey: 'test-key', authDomain: 'test', projectId: 'test', appId: 'test' };
@@ -66,8 +80,11 @@ const signIn = async (c: Awaited<ReturnType<typeof start>>['c']) => {
 };
 
 beforeEach(() => {
-  Object.assign(fake, { signedIn: false, reads: 0, writes: 0, offline: false, brokenStart: false, signInError: null, cb: null });
+  Object.assign(fake, {
+    signedIn: false, reads: 0, writes: 0, scoreWrites: 0, offline: false, boardDown: false, brokenStart: false, signInError: null, cb: null,
+  });
   fake.store.clear();
+  fake.scores.clear();
   h.config.apiKey = 'test-key';
 });
 
@@ -292,5 +309,123 @@ describe('cloud saves', () => {
     expect(fake.cb).toBeNull();
     await vi.advanceTimersByTimeAsync(4000);
     await vi.waitFor(() => expect(fake.cb).not.toBeNull());
+  });
+});
+
+describe('the scoreboard', () => {
+  const rows = () => [...$('scoresList').children].map(li => li.textContent);
+  /** The game and the cloud module, with the scoreboard button wired up. */
+  async function board(save?: SaveFixture) {
+    const started = await start(save);
+    const s = await import('../src/scores');
+    started.c.initCloud();
+    s.initScores();
+    return { ...started, s };
+  }
+  const others = () => {
+    fake.scores.set('u7', { uid: 'u7', name: 'Mia K.', best: 52_000, stage: 2 });
+    fake.scores.set('u8', { uid: 'u8', name: 'Ola', best: 900, stage: 1 });
+  };
+
+  it("stays out of sight until there's a Firebase project to keep it in", async () => {
+    h.config.apiKey = '';
+    await board();
+    expect($('board').hidden).toBe(true);
+  });
+
+  it('a signed-in player goes on it as the game syncs: first name and initial, best cash and stage', async () => {
+    const { g, c } = await board({ money: 300, tiles: bought(...MARKET, 'sushi') });
+    $('cloud').click();
+    await vi.waitFor(() => expect(fake.scores.get('u1')).toEqual({ uid: 'u1', name: 'Pat S.', best: 300, stage: 2 }));
+    // spending doesn't lower it; nothing new, nothing written
+    g.wallet.money = 40; g.saveMod.save();
+    await c.sync();
+    expect(fake.scoreWrites).toBe(1);
+    expect(fake.scores.get('u1')!.best).toBe(300);
+    // a new best is
+    const { addMoney } = await import('../src/wallet');
+    addMoney(1000); g.saveMod.save();
+    await c.sync();
+    expect(fake.scores.get('u1')!.best).toBe(1040);
+  });
+
+  it('lists the top players, best first, with the player picked out', async () => {
+    others();
+    const { c } = await board({ money: 5000 });
+    $('cloud').click();
+    await vi.waitFor(() => expect(c.cloud.state).toBe('saved'));
+    $('board').click();
+    expect($('scores').hidden).toBe(false);
+    expect($('board').getAttribute('aria-expanded')).toBe('true');
+    expect(document.activeElement).toBe($('scoresClose'));
+    await vi.waitFor(() => expect(rows()).toEqual([
+      '1Mia K.Stage 2$52,000', '2Pat S. (you)Stage 1$5,000', '3OlaStage 1$900',
+    ]));
+    expect($('scoresList').children[1].classList.contains('me')).toBe(true);
+    expect($('scoresMe').textContent).toBe('');
+    expect($('scoresJoin').hidden).toBe(true);
+    $('scoresClose').click();
+    expect($('scores').hidden).toBe(true);
+    expect(document.activeElement).toBe($('board'));
+  });
+
+  it("closes with Escape, a tap beside it, or the 🏆 button again", async () => {
+    const { s } = await board();
+    s.openScores();
+    $('scoresClose').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    expect($('scores').hidden).toBe(true);
+    s.openScores();
+    $('scores').querySelector('.card')!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    expect($('scores').hidden).toBe(false); // on the card: stays open
+    $('scores').click();
+    expect($('scores').hidden).toBe(true);
+    $('board').click(); $('board').click();
+    expect($('scores').hidden).toBe(true);
+  });
+
+  it("shows a player who isn't signed in their own best, and a way to join", async () => {
+    others();
+    const { g } = await board({ money: 2500 });
+    g.wallet.money = 100; // spent since
+    $('board').click();
+    await vi.waitFor(() => expect(rows()).toEqual(['1Mia K.Stage 2$52,000', '2OlaStage 1$900']));
+    expect($('scoresMe').textContent).toBe('Your best: $2,500 · Stage 1');
+    expect($('scoresJoin').hidden).toBe(false);
+    $('scoresJoin').click();
+    expect($('scores').hidden).toBe(true);
+    await vi.waitFor(() => expect(fake.scores.get('u1')?.best).toBe(2500));
+  });
+
+  it("shows a signed-in player who isn't in the top their own line", async () => {
+    others();
+    const { c } = await board({ money: 10 });
+    $('cloud').click();
+    await vi.waitFor(() => expect(c.cloud.state).toBe('saved'));
+    const sc = await import('../src/scores');
+    for (let i = 0; i < sc.TOP; i++) fake.scores.set(`x${i}`, { uid: `x${i}`, name: `P${i}`, best: 1000 + i, stage: 1 });
+    $('board').click();
+    await vi.waitFor(() => expect(rows()).toHaveLength(sc.TOP));
+    expect($('scoresMe').textContent).toBe('You: $10 · Stage 1');
+  });
+
+  it("says so when it's empty, or can't be reached", async () => {
+    const { s } = await board();
+    s.openScores();
+    await vi.waitFor(() => expect($('scoresMe').textContent).toBe('Nobody on the scoreboard yet.'));
+    s.closeScores();
+    fake.boardDown = true;
+    s.openScores();
+    await vi.waitFor(() => expect($('scoresMe').textContent).toBe("Can't load the scoreboard right now."));
+    expect($('scoresList').hasAttribute('aria-busy')).toBe(false);
+  });
+
+  it('shows first names and an initial, never an email', async () => {
+    const { c } = await start();
+    expect(c.publicName('Pat Smith')).toBe('Pat S.');
+    expect(c.publicName('  Ana  de la cruz ')).toBe('Ana C.');
+    expect(c.publicName('Sam')).toBe('Sam');
+    expect(c.publicName('pat@example.com')).toBe('A player');
+    expect(c.publicName(' ')).toBe('A player');
+    expect(c.publicName('Bartholomewbartholomew Q')).toBe('Bartholomewbarth Q.');
   });
 });

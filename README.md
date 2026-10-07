@@ -137,6 +137,15 @@ Progress saves automatically on the device, including your reviews, the season a
 
 The free quota (50,000 reads and 20,000 writes a day) covers about 150 hours of play a day. Each player online reads once and writes at most once every 30 seconds.
 
+### Scoreboard
+
+The 🏆 button (top right) lists the 20 players who have held the most cash at once, and the furthest stage each has reached. It shows once cloud saves are set up.
+
+- **Getting on it:** sign in. Your best goes up as your game syncs, and only ever goes up: spending doesn't lower it, and neither does a Restart.
+- **Names:** players show by first name and last initial ("Pat S."), never an email. Your row is picked out; if you're not in the top 20 your own best shows under the list. Not signed in, it shows this game's best and a button to sign in.
+- **Data:** one Firestore document per player, `scores/{your account id}`, with that name, the best and the stage. Anyone can read the scoreboard; only you can write your own entry (`firestore.rules`). A project set up before the scoreboard needs `firestore.rules` pasted and published again, or the scoreboard says it can't load.
+- **Quota:** opening the scoreboard reads up to 20 documents. A signed-in player writes their entry at most once per sync, and only when their best or stage changed.
+
 ## Development
 
 TypeScript + [three.js r186](https://threejs.org/), bundled with [Vite](https://vite.dev/). All textures are drawn at runtime on canvas; the Baloo 2 font comes from Google Fonts.
