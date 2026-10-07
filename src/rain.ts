@@ -1,6 +1,6 @@
 // Her house, far out past the road, at the end of a path from the market's east fence. Standing in the circle out
-// front makes it rain: the sky goes grey, the player turns into the singer and cries facing her window, and "בגשם נרטב" plays from the line
-// "מול ביתך עומד בגשם נרטב". Walking off lets the rain stop and the song fade out.
+// front makes it rain: the sky goes grey, the player turns into the singer, Ofer Levy, and cries facing her window,
+// and his "מאוהב בגשם" plays from the line "מול ביתך עומד בגשם נרטב". Walking off lets the rain stop and the song fade out.
 import {
   BoxGeometry, BufferAttribute, BufferGeometry, Color, ExtrudeGeometry, LineBasicMaterial, LineSegments, Mesh,
   MeshBasicMaterial, MeshLambertMaterial, Shape, SphereGeometry,
@@ -193,8 +193,8 @@ function updCrying(dt: number) {
 }
 
 // ---------- the song ----------
-/** "בגשם נרטב" on YouTube, and the second in the video where "מול ביתך עומד בגשם נרטב" begins. */
-export const SONG = { id: 'TODO_VIDEO_ID', start: 0 };
+/** "מאוהב בגשם" by Ofer Levy (live at Caesarea, 2011), and the second in the video where "מול ביתך עומד בגשם נרטב" begins. */
+export const SONG = { id: 'OQE1efu22BM', start: 0 };
 const song = new Song({
   id: SONG.id, start: SONG.start, vol: 60, fadeIn: 2, fadeOut: RAIN_OUT,
   muteKey: 'floe-market-rain-muted', muteBtn: document.getElementById('rainMute') as HTMLButtonElement,

@@ -16,7 +16,7 @@ it('swaps the parka for the singer and back, arms set wider for his build', () =
   expect(look.length).toBeGreaterThan(10);
   expect(look.some(o => o.visible)).toBe(false);
   wear(true);
-  expect(p.arms.map(a => a.position.x)).toEqual([-0.3 * 1.15, 0.3 * 1.15]);
+  expect(p.arms.map(a => a.position.x)).toEqual([-0.3 * 1.1, 0.3 * 1.1]);
   expect(own.some(o => o.visible)).toBe(false);
   expect(look.every(o => o.visible)).toBe(true);
   wear(false);

@@ -35,7 +35,7 @@ Two market upgrades are on offer at a time, in this order. A tile with a star re
 
 ### Her house
 
-Far out past the road, a path leaves the deck through the east fence, crosses the road at a zebra crossing and ends at a little rose-coloured house with its windows lit. Stand in the 💔 circle in front of it and it starts to rain: the sky goes grey, you turn into the singer (big curly black hair, a black short-sleeved shirt with a studded open collar, silver chains and a bracelet), face her window and cry, and "בגשם נרטב" by Avi Bitter (via YouTube) plays from the line "מול ביתך עומד בגשם נרטב". Walk away and the rain clears and the song fades out; come back and it starts again from the same line. The 🔊 button on the song's banner mutes it (it starts muted on iPhone and iPad, where web pages can't fade sound). It's there from the start, free.
+Far out past the road, a path leaves the deck through the east fence, crosses the road at a zebra crossing and ends at a little rose-coloured house with its windows lit. Stand in the 💔 circle in front of it and it starts to rain: the sky goes grey, you turn into the singer, Ofer Levy (navy cap, short grey beard, olive field jacket over a white T-shirt, gold chain and watch), face her window and cry, and his "מאוהב בגשם" (live at Caesarea, via YouTube) plays from the line "מול ביתך עומד בגשם נרטב". Walk away and the rain clears and the song fades out; come back and it starts again from the same line. The 🔊 button on the song's banner mutes it (it starts muted on iPhone and iPad, where web pages can't fade sound). It's there from the start, free.
 
 ### Floe Sushi
 
