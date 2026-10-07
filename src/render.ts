@@ -44,6 +44,8 @@ resize();
 
 // Intensities are scaled by PI to match the legacy lighting mode (removed in r165), which multiplied
 // hemisphere and directional light by PI.
+/** The sky colour and light levels in clear weather (stage 2 turns them to dusk; the rain greys them out). */
+export const sky = { bg: new Color(0xCFEAF5), hemi: 0.78 * Math.PI, sun: 0.62 * Math.PI };
 export const hemi = new HemisphereLight(0xEAF7FF, 0xA9BCCB, 0.78 * Math.PI);
 scene.add(hemi);
 export const sun = new DirectionalLight(0xFFFFFF, 0.62 * Math.PI);

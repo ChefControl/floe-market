@@ -5,13 +5,15 @@ import {
   BoxGeometry, DoubleSide, Group, Mesh, MeshBasicMaterial, MeshLambertMaterial, PlaneGeometry, PointLight, RepeatWrapping,
   type Object3D,
 } from 'three';
-import { FARM_DOOR, GATE_W, HALL_BOX } from './layout';
+import { EAST_DOOR, FARM_DOOR, GATE_W, HALL_BOX } from './layout';
 import { bake, canvasTex, FONT, G, mat, mesh, rr, scene, type Part } from './render';
 import { FY, rand, type XZ } from './util';
 import { planks } from './world';
 
 const { x0: X0, x1: X1, z0: Z0, z1: Z1 } = HALL_BOX;
 const MID = (Z0 + Z1) / 2;
+/** The takeout kiosk, outside the east wall at its north end, clear of the path to her house. */
+export const KIOSK = { x: 12.2, z: 2.8 };
 
 /** A group at (x, z) that pops in about its own centre; `put` places things in it by world position. */
 function piece(x: number, z: number) {
@@ -87,7 +89,7 @@ const floor = piece(0, MID);
   const fw = X1 + 0.15 - GATE_W;
   k(fw, 0.3, -(GATE_W + fw / 2), Z1); k(fw, 0.3, GATE_W + fw / 2, Z1);
   k(0.3, FARM_DOOR.z0 - Z0, X0, (Z0 + FARM_DOOR.z0) / 2); k(0.3, Z1 - FARM_DOOR.z1, X0, (FARM_DOOR.z1 + Z1) / 2);
-  k(0.3, Z1 - Z0, X1, MID);
+  k(0.3, EAST_DOOR.z0 - Z0, X1, (Z0 + EAST_DOOR.z0) / 2); k(0.3, Z1 - EAST_DOOR.z1, X1, (EAST_DOOR.z1 + Z1) / 2);
   // the north side meets the dock, so it only has kerb (and wall) beyond the dock's fences
   for (const s of [-1, 1]) k(X1 + 0.15 - 7.85, 0.3, s * (7.85 + X1 + 0.15) / 2, Z0);
   floor.add(mesh(bake(kerb), 0x9AA4AC, 0, 0, 0, true));
@@ -153,8 +155,10 @@ const walls = piece(0, MID);
   wall(0.18, 3.0, FARM_DOOR.z0 - Z0, X0, (Z0 + FARM_DOOR.z0) / 2);
   wall(0.18, 3.0, Z1 - FARM_DOOR.z1, X0, (FARM_DOOR.z1 + Z1) / 2);
   for (const s of [-1, 1]) wall(X1 - 7.9, 0.75, 0.18, s * (7.9 + X1) / 2, Z0);
-  wall(0.18, 0.75, 4.0 - Z0, X1, (Z0 + 4.0) / 2);
-  wall(0.18, 0.75, Z1 - 8.0, X1, (8.0 + Z1) / 2);
+  // the east wall: open to the takeout kiosk at its north end, and a door for the path to her house
+  const win = KIOSK.z + 1.8;
+  wall(0.18, 0.75, EAST_DOOR.z0 - win, X1, (win + EAST_DOOR.z0) / 2);
+  wall(0.18, 0.75, Z1 - EAST_DOOR.z1, X1, (EAST_DOOR.z1 + Z1) / 2);
   const fw = X1 - GATE_W - 0.4;
   for (const s of [-1, 1]) wall(fw, 0.65, 0.18, s * (GATE_W + 0.4 + fw / 2), Z1);
   // the farm door's frame
@@ -212,7 +216,6 @@ const garden = piece(0, GARDEN_Z);
 }
 
 // ---------- the takeout kiosk's booth (its counter is the takeout window's, in counters.ts) ----------
-export const KIOSK = { x: 12.2, z: 6.0 };
 const kiosk = piece(11.4, KIOSK.z);
 {
   put(kiosk, mesh(new BoxGeometry(2.8, 0.3, 4.8), 0x7A4A30, 0, 0, 0, true), 11.4, 0, KIOSK.z);

@@ -74,6 +74,10 @@ Two upgrades of the current stage are on offer at a time, in this order. A tile 
 | 🌱 Third terrace | $35,000 | ★4.4, second terrace | Plants the top terrace, by the hot spring |
 | 🏮 Premium menu | $60,000 | ★4.5 | Everything sells for 60% more |
 
+### Her house
+
+Far out past the road, a path leaves the market (through the east fence in stage 1, and through a door in the restaurant's east wall in stage 2), crosses the road at a zebra crossing and ends at a little rose-coloured house with its windows lit. Stand in the 💔 circle in front of it and it starts to rain: the sky goes grey, you turn into the singer, Ofer Levy (navy cap, short grey beard, olive field jacket over a white T-shirt, gold chain and watch), face her window and cry, and his "מאוהב בגשם" (live at Caesarea, via YouTube) plays from the line "מול ביתך עומד בגשם נרטב". Walk away and the rain clears and the song fades out; come back and it starts again from the same line. The 🔊 button on the song's banner mutes it (it starts muted on iPhone and iPad, where web pages can't fade sound). It's there from the start, free.
+
 🛴 **Korki's golden statue** ($10) is on offer from the start, outside the queue: a gold NAMI Klima One on a pedestal, in memory of Korki. Stand on its pad to read his story; stay a few seconds and his song ("Car Alarm (extended reprise)" by pat's soundhouse, via YouTube) fades in quietly, and fades out when you leave.
 
 Market customers and diners order 1–3 and give up after 40 seconds of waiting (for diners, 40 seconds in total between plates). Snowmobiles wait 55 seconds.
@@ -134,6 +138,9 @@ TypeScript + [three.js r186](https://threejs.org/), bundled with [Vite](https://
 | `src/unlocks.ts` | Upgrade tiles for both stages and the machines they build |
 | `src/roulette.ts` / `src/casino.ts` | Roulette rules / the table and its betting panel |
 | `src/korki.ts` | Korki's golden statue (a NAMI Klima One) and its memoir panel |
+| `src/rain.ts` | Her house, the path to it, and the rain, tears and song in the circle out front |
+| `src/singer.ts` | The singer's look, swapped onto the player in the rain |
+| `src/youtube.ts` | Songs played through YouTube's embedded player: one API load, fades, mute buttons |
 | `src/holder.ts` | Item stacks and arcing item flights |
 | `src/characters.ts` | People and sleds, walking |
 | `src/decals.ts` | Deck markings (pads, drop zones, price tiles) |

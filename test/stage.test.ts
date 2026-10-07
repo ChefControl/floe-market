@@ -1,5 +1,6 @@
 // The stage-up from the fish market to Floe Sushi: the show when the gold tile is bought, and the stage 2 world
 // a saved game loads straight into.
+import { Color } from 'three';
 import { describe, expect, it, vi } from 'vitest';
 import { bought, loadGame, MARKET } from './helpers';
 
@@ -56,6 +57,25 @@ describe('a stage 2 save', () => {
     expect(g.farm.farmPieces.every(p => p.visible)).toBe(true);
     expect(g.hall.glowMats[0].emissiveIntensity).toBe(1);
     expect(g.casino.CASINO.z).toBeCloseTo(-1.6);
+  });
+
+  it("leads out to her house through a door in the east wall, and rains over the dusk, then clears back to it", async () => {
+    const g = await loadGame({ tiles: bought('sushi') });
+    const { RAIN_PAD } = await import('../src/rain');
+    const p = g.player.g.position, bg = g.render.scene.background as Color, dusk = bg.clone();
+    expect(dusk.equals(new Color(0xCFEAF5))).toBe(false);
+    g.placePlayer(10.0, RAIN_PAD.z);
+    g.run(0.05);
+    expect(p.x).toBeCloseTo(10.0); // in the doorway
+    g.placePlayer(10.0, 4.5);
+    g.run(0.05);
+    expect(p.x).toBeCloseTo(9.6); // the wall beside it
+    g.placePlayer(RAIN_PAD.x, RAIN_PAD.z);
+    g.run(3);
+    expect(bg.equals(dusk)).toBe(false);
+    g.placePlayer(15, RAIN_PAD.z);
+    g.run(4);
+    expect(bg.equals(dusk)).toBe(true);
   });
 
   it('fades the roof slopes that would hide the player, and shows them again', async () => {

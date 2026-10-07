@@ -28,6 +28,14 @@ export const TERRACE_Z = { z0: -3.4, z1: 5.0 };
 export const PATH_X = { x0: -12.3, x1: -11.1 };
 export const CHANNEL_X = -10.65;
 
+// ---------- her house ----------
+/** The path to her house runs east along this line, from the market, across the road, to her front yard. */
+export const HOUSE_PATH_Z = 6.05;
+/** Her front yard, inside its picket fence. */
+export const YARD = area(19.2, 23.7, HOUSE_PATH_Z - 2.3, HOUSE_PATH_Z + 2.3);
+/** The door in the restaurant's east wall that the path leaves by in stage 2. */
+export const EAST_DOOR = { z0: HOUSE_PATH_Z - 0.6, z1: HOUSE_PATH_Z + 0.6 };
+
 const DOCK2 = area(-7.4, 7.4, -6.25, 1.9);
 const HALL = area(HALL_BOX.x0 + 0.4, HALL_BOX.x1 - 0.4, 1.8, HALL_BOX.z1 - 0.4);
 const GATEWAY = area(-GATE_W + 0.4, GATE_W - 0.4, 14.8, 16.6);
@@ -39,17 +47,21 @@ const PATH = area(PATH_X.x0, PATH_X.x1, TERRACE_Z.z0 - 0.4, TERRACE_Z.z1 + 1.2, 
 const FIELDS = TERRACES.map((t, i) =>
   area(t.x0 + (i === TERRACES.length - 1 ? 0.2 : 0), t.x1, TERRACE_Z.z0 + 0.2, TERRACE_Z.z1 - 0.2, t.top));
 
+/** The path to her house: from a gap in the deck's east fence, or (stage 2) the restaurant's east door. */
+const housePath = () => area(stage.n === 1 ? 7.3 : HALL.x1 - 0.2, YARD.x0 + 0.3, HOUSE_PATH_Z - 0.25, HOUSE_PATH_Z + 0.25);
+
 /** Where the player can walk in the current stage. Earlier areas win where they overlap. */
 export const walkable = (): Area[] =>
-  stage.n === 1 ? [DECK] : [DOCK2, HALL, GATEWAY, GARDEN, BRIDGE, PATH, ...FIELDS];
+  stage.n === 1 ? [DECK, housePath(), YARD] : [DOCK2, HALL, GATEWAY, GARDEN, BRIDGE, PATH, ...FIELDS, housePath(), YARD];
 
 const inside = (a: Area, p: XZ) => p.x >= a.x0 && p.x <= a.x1 && p.z >= a.z0 && p.z <= a.z1;
 
 /** Height of the ground people stand on at `p`: the deck and restaurant floor, terraces, or the snow. */
 export function groundY(p: XZ) {
-  if (stage.n === 1) return inside(DECK, p) ? FY : 0;
+  const house = inside(housePath(), p) || inside(YARD, p);
+  if (stage.n === 1) return inside(DECK, p) || house ? FY : 0;
   for (const a of FIELDS) if (inside(a, p)) return a.y;
-  if (inHall(p) || inside(DOCK2, p) || inside(BRIDGE, p)) return FY;
+  if (inHall(p) || inside(DOCK2, p) || inside(BRIDGE, p) || house) return FY;
   return inside(PATH, p) ? PATH.y : 0;
 }
 

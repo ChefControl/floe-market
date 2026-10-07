@@ -8,7 +8,8 @@ import { farmPieces, showFarm, springLamp } from './farm';
 import { glowMats, hallPieces, lamps, showHall } from './hall';
 import { korkiStatue, moveKorki } from './korki';
 import { stage } from './layout';
-import { fog, hemi, scene, sun, sunOff } from './render';
+import { fog, hemi, scene, sky, sun, sunOff } from './render';
+import { houseStage2 } from './rain';
 import { furniture, handOver, openRestaurant } from './restaurant';
 import { openStall } from './rice';
 import { banner, confetti } from './ui';
@@ -28,13 +29,17 @@ const lerp = (a: number, b: number, k: number) => a + (b - a) * k;
 
 /** Blends the light from day (0) to stage 2's dusk (1): warmer, lower sun, lanterns and lamps on. */
 function setMood(k: number) {
-  (scene.background as Color).lerpColors(DAY.bg, DUSK.bg, k);
-  fog.color.lerpColors(DAY.bg, DUSK.bg, k);
+  // the clear-weather sky the rain at her house greys out from
+  sky.bg.lerpColors(DAY.bg, DUSK.bg, k);
+  sky.hemi = lerp(DAY.hemi, DUSK.hemi, k) * Math.PI;
+  sky.sun = lerp(DAY.sunI, DUSK.sunI, k) * Math.PI;
+  (scene.background as Color).copy(sky.bg);
+  fog.color.copy(sky.bg);
   hemi.color.lerpColors(DAY.sky, DUSK.sky, k);
   hemi.groundColor.lerpColors(DAY.grd, DUSK.grd, k);
-  hemi.intensity = lerp(DAY.hemi, DUSK.hemi, k) * Math.PI;
+  hemi.intensity = sky.hemi;
   sun.color.lerpColors(DAY.sun, DUSK.sun, k);
-  sun.intensity = lerp(DAY.sunI, DUSK.sunI, k) * Math.PI;
+  sun.intensity = sky.sun;
   sunOff.lerpVectors(DAY.off, DUSK.off, k);
   glowMats.forEach(m => { m.emissiveIntensity = lerp(DAY.glow, DUSK.glow, k); });
   [...lamps, springLamp].forEach(l => { l.intensity = 9 * k; });
@@ -116,7 +121,7 @@ export function enterStage2(silent: boolean, onMove = () => {}) {
     [stage1Only.fence, 'y'], [stage1Only.road, 'x'], [stage1Only.trees, 'y'],
     ...movers.map((o): [Object3D, Axis] => [o, 'all']),
   ];
-  const swap = () => { swapDecks(); closeGap(); };
+  const swap = () => { swapDecks(); closeGap(); houseStage2(); };
   stage2Only.road.visible = true; stage2Only.trees.visible = true;
   if (silent) {
     outs.forEach(([o]) => { o.visible = false; });

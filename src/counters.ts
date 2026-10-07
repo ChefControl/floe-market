@@ -136,18 +136,21 @@ place(SLED,
   dropPad(SLED.dropPos!, '🛷'),
 );
 
-/** Stage 2's takeout kiosk, out by the road east of the restaurant; its cash lands just inside the east wall. */
+/**
+ * Stage 2's takeout kiosk, out by the road east of the restaurant; its cash lands just inside the east wall.
+ * Snowmobiles come down the road from the north and queue back up it, clear of the crossing to her house.
+ */
 export const TAKEOUT = makeCounter({
   price: SUSHI_PRICE.box, maxQ: 3, spawnEvery: 7, patience: 55, want: [3, 6], enabled: false, isSled: true, icon: 'box',
   crowd: 'promo', qPer: 0.5,
-  cashPos: V(8.9, 0, KIOSK.z), faceH: Math.PI,
+  cashPos: V(8.9, 0, KIOSK.z), faceH: 0,
   stockSlot: i => {
     const j = i % 6;
     return V(KIOSK.x + ((j % 2) - 0.5) * 0.4, FY + 0.94 + Math.floor(i / 6) * 0.105, KIOSK.z + (Math.floor(j / 2) - 1) * 0.42);
   },
-  slot: i => V(ROAD2_X, 0, KIOSK.z + 0.4 + i * 2.5),
-  spawn: () => V(ROAD2_X, 0, 44),
-  exit: () => [V(ROAD2_X, 0, -48)],
+  slot: i => V(ROAD2_X, 0, KIOSK.z - 0.4 - i * 2.5),
+  spawn: () => V(ROAD2_X, 0, -48),
+  exit: () => [V(ROAD2_X, 0, 48)],
 }, 24);
 place(TAKEOUT,
   mesh(new BoxGeometry(0.8, 0.9, 3.6), 0xE8F1F6, KIOSK.x, FY + 0.45, KIOSK.z, true),
@@ -193,10 +196,11 @@ function spawnCustomer(C: Counter) {
   const mood = newMoodSprite(isSled ? 1.75 : 1.55);
   g.add(mood);
   const c: Customer = {
-    g, want, got: 0, h: isSled ? Math.PI : -Math.PI / 2, speed: isSled ? 5 : 2.4, isSled,
+    g, want, got: 0, h: isSled ? C.faceH : -Math.PI / 2, speed: isSled ? 5 : 2.4, isSled,
     moving: false, arrived: false, queued: false, wait: 0, payT: 0, bubble: sp, bt, drawn: -1, mood, path: [],
     hands: new Holder(isSled
-      ? i => { const p = g.position; const j = i % 2; return V(p.x + (j - 0.5) * 0.36, 0.66 + Math.floor(i / 2) * 0.105, p.z + 0.52); }
+      // on the seat behind the driver, whichever way the sled is facing
+      ? i => { const p = g.position, j = i % 2; return V(p.x + (j - 0.5) * 0.36, 0.66 + Math.floor(i / 2) * 0.105, p.z - Math.cos(c.h) * 0.52); }
       : i => carrySlot(c, i), 12),
   };
   C.queue.push(c);
@@ -243,7 +247,7 @@ export function updCounter(C: Counter, dt: number) {
   }
   C.queue.forEach((c, i) => {
     c.arrived = moveEnt(c, C.slot(i), dt);
-    if (c.arrived) { c.h = i === 0 ? C.faceH : (C.isSled ? Math.PI : -Math.PI / 2); c.queued = true; }
+    if (c.arrived) { c.h = i === 0 || C.isSled ? C.faceH : -Math.PI / 2; c.queued = true; }
     if (c.queued) c.wait += dt;
     const left = 1 - c.wait / C.patience;
     c.bubble.visible = i === 0 && c.arrived && c.got < c.want;

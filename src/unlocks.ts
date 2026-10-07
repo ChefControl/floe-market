@@ -74,7 +74,7 @@ const UNLOCKS: Unlock[] = [
   { id: 'chef', cost: 3000, x: 8.0, z: 9.0, icon: '🔪', name: 'Second chef', desc: 'Another chef at the bar', stars: 3.6, stage: 2 },
   { id: 'seats', cost: 5000, x: -8.0, z: 9.0, icon: '🪑', name: 'More seats', desc: 'Eight more seats at the bar', stars: 3.8, stage: 2 },
   { id: 'farmer', cost: 6000, x: PX, z: -2.6, y: 0.06, icon: '🧑‍🌾', name: 'Hire a farmer', desc: 'Harvests the terraces onto a stack on the path', stars: 3.9, needs: 'paddy', stage: 2 },
-  { id: 'kiosk', cost: 8000, x: 8.0, z: 6.2, icon: '🥡', name: 'Takeout kiosk', desc: 'Snowmobiles on the road buy boxes of sushi; the chefs pack them', stars: 4.0, stage: 2 },
+  { id: 'kiosk', cost: 8000, x: 8.2, z: 3.6, icon: '🥡', name: 'Takeout kiosk', desc: 'Snowmobiles on the road buy boxes of sushi; the chefs pack them', stars: 4.0, stage: 2 },
   { id: 'porter', cost: 12000, x: -8.2, z: 5.0, icon: '🧺', name: 'Rice porter', desc: 'Carries harvested rice in to the kitchen line', stars: 4.1, needs: 'paddy', stage: 2 },
   { id: 'plot2', cost: 18000, ...onTerrace(1), icon: '🌱', name: 'Second terrace', desc: 'Twice the rice', stars: 4.2, needs: 'paddy', stage: 2 },
   { id: 'chef3', cost: 25000, x: 8.0, z: 11.8, icon: '🔪', name: 'Third chef', desc: 'A third chef at the bar', stars: 4.3, stage: 2 },

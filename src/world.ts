@@ -3,6 +3,7 @@
 import {
   BoxGeometry, Group, Mesh, MeshBasicMaterial, MeshLambertMaterial, PlaneGeometry, RepeatWrapping, type Object3D,
 } from 'three';
+import { HOUSE_PATH_Z } from './layout';
 import { bake, canvasTex, G, mat, mesh, scene, type Part } from './render';
 import { FY, rand } from './util';
 
@@ -85,6 +86,7 @@ for (let x = -7.35; x <= 7.9; x += 0.5) {
   log(x, 7.85, fence1);
 }
 for (let z = -6.2; z < 7.6; z += 0.5) {
+  if (Math.abs(z - HOUSE_PATH_Z) < 0.5) continue; // the gap for the path to her house
   const l = log(7.85, z, z > 1.3 ? fence1 : undefined);
   if (z > -2.3 && z < 0.3) gapLogs.push(l);
 }
@@ -116,8 +118,7 @@ const TREE_MATS = [0x7A5236, 0x2E6E5E, 0x3B8270, 0xFFFFFF];
 type Batch = Part[][];
 const newBatch = (): Batch => TREE_MATS.map(() => []);
 
-function addTree(b: Batch, x: number, z: number, s: number) {
-  const r = rand(0, 6);
+function addTree(b: Batch, x: number, z: number, s: number, r = rand(0, 6)) {
   b[0].push({ geo: G.cyl, at: [x, 0.25 * s, z], scale: [.12 * s, .5 * s, .12 * s] });
   TIERS.forEach(([rad, h, y], i) => {
     b[1 + i % 2].push({ geo: G.cone, at: [x, y * s, z], rot: [0, r, 0], scale: [rad * s, h * s, rad * s] });
@@ -137,23 +138,27 @@ function batchGroup(b: Batch) {
   return g;
 }
 
-/** Snowy pines at the given spots (x, z, size), baked into one group. */
-export function treeGroup(spots: [x: number, z: number, s: number][]) {
+/** Snowy pines at the given spots (x, z, size, and optionally which way they're turned), baked into one group. */
+export function treeGroup(spots: [x: number, z: number, s: number, r?: number][]) {
   const b = newBatch();
-  for (const [x, z, s] of spots) addTree(b, x, z, s);
+  for (const [x, z, s, r] of spots) addTree(b, x, z, s, r);
   return batchGroup(b);
 }
 
+/** Neither stage has trees on the path to her house or round her yard. */
+const housePath = (x: number, z: number) => x > 8.2 && z > HOUSE_PATH_Z - 4 && z < HOUSE_PATH_Z + 4.5;
 /** Stage 1 keeps trees off the deck, the road, the customers' path and the water. */
 function treeOK1(x: number, z: number) {
   if (x > -8.8 && x < 8.8 && z > -7.2 && z < 8.8) return false;
   if (x > 8.2 && x < 11.2) return false;
+  if (housePath(x, z)) return false;
   if (x > -5 && x < 8.6 && z > 8.4 && z < 20) return false;
   return z > -6.2;
 }
 /** Stage 2 also keeps them off the restaurant, its garden, the kiosk's road, the diners' path and the farm. */
 function treeOK2(x: number, z: number) {
   if (x > -8.8 && x < 8.8 && z > -7.2 && z < 2) return false;
+  if (housePath(x, z)) return false;
   if (x > -11.6 && x < 13.2 && z > 0.5 && z < 21.6) return false;
   if (x > 12.6 && x < 15.6) return false;
   if (x > -3 && x < 3 && z > 20 && z < 46) return false;

@@ -82,10 +82,12 @@ describe('diners', () => {
     const { sushi, register } = g.restaurant;
     g.runUntil(() => sushi.diners.length > 0);
     sushi.diners[0].want = 4;
+    sushi.spawnT = Infinity; // just the one, so the plate is theirs
     g.runUntil(() => g.rating.reviews.length > 0, 70);
     expect(g.rating.reviews[0]).toBe(1);
     g.runUntil(() => g.cashAt({ cash: register }) === 30);
-    g.runUntil(() => g.rating.reviews.length > 2, 60); // the others ate nothing and leave without paying
+    sushi.spawnT = 0;
+    g.runUntil(() => g.rating.reviews.length > 2, 120); // the next ones eat nothing and leave without paying
     g.run(2);
     expect(g.cashAt({ cash: register })).toBe(30);
   });
