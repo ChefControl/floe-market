@@ -209,7 +209,7 @@ describe('sound', () => {
     expect(await reload('not json')).toEqual({ level: { sfx: 7, amb: 7, music: 7 }, mute: { sfx: false, amb: false, music: false } });
   });
 
-  it('sets each kind of sound from 1 to 10, 7 being the mix, and plays a coin to judge the effects by', async () => {
+  it('sets each kind of sound from 0 to 10, 7 being the mix, and plays a coin to judge the effects by', async () => {
     const { audio, since } = await withSound();
     await import('../src/settings');
     const slide = (id: string, v: number) => {
@@ -222,7 +222,7 @@ describe('sound', () => {
     expect(slide('volSfx', 4).length).toBeGreaterThan(0); // a coin to hear the new level by
     expect($('volSfxN').textContent).toBe('4');
     expect(audio.buses.sfx.gain.value).toBeCloseTo(0.24 / 2); // three steps down: half
-    expect(($('volSfx') as HTMLInputElement).style.getPropertyValue('--fill')).toBe(`${3 / 9 * 100}%`);
+    expect(($('volSfx') as HTMLInputElement).style.getPropertyValue('--fill')).toBe('40%');
     expect(slide('volSfx', 3)).toHaveLength(0); // not a coin for every step
     slide('volAmb', 10);
     expect(audio.buses.amb.gain.value).toBeCloseTo(0.063 * 2); // the top: twice the mix
@@ -231,6 +231,22 @@ describe('sound', () => {
     slide('volMusic', 5);
     expect(audio.prefs.mute.music).toBe(false);
     expect(audio.prefs.level).toEqual({ sfx: 3, amb: 10, music: 5 });
+    // muting puts the slider at 0, and unmuting brings back the level from before
+    const vol = (id: string) => [($(id) as HTMLInputElement).value, $(id + 'N').textContent];
+    $('muteMusic').click();
+    expect(vol('volMusic')).toEqual(['0', '0']);
+    expect(($('volMusic') as HTMLInputElement).style.getPropertyValue('--fill')).toBe('0%');
+    $('muteMusic').click();
+    expect(vol('volMusic')).toEqual(['5', '5']);
+    // sliding to 0 mutes, keeping the level to come back to; no coin at 0
+    expect(slide('volSfx', 0)).toHaveLength(0);
+    expect(audio.prefs.mute.sfx).toBe(true);
+    expect($('muteSfx').textContent).toBe('🔇');
+    expect(audio.buses.sfx.gain.value).toBe(0);
+    expect(audio.prefs.level.sfx).toBe(3);
+    $('muteSfx').click();
+    expect(vol('volSfx')).toEqual(['3', '3']);
+    expect(audio.prefs.mute.sfx).toBe(false);
     audio.setLevel('sfx', 25);
     expect(audio.prefs.level.sfx).toBe(10);
     expect(audio.gainOf(1)).toBeCloseTo(0.25);
