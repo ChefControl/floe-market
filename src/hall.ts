@@ -122,7 +122,10 @@ const frame = piece(0, MID);
  * Roof slopes, each with the stretch of ground where standing would put it between the player and the camera
  * (which looks in from the south-east, high up). They fade out while the player is there.
  */
-const slabs: { s: Mesh; m: MeshLambertMaterial; near: (p: XZ) => boolean }[] = [];
+type Slab = { s: Mesh; m: MeshLambertMaterial; near: (p: XZ) => boolean };
+const slabs: Slab[] = [];
+/** The roof's corner tips, and the two slopes each one joins. */
+const tips: { t: Mesh; m: MeshLambertMaterial; of: [Slab, Slab] }[] = [];
 const roof = piece(0, MID);
 {
   // Tiled slopes round an open courtyard; the south and east ones are narrow.
@@ -136,11 +139,14 @@ const roof = piece(0, MID);
   slab(22.6, 1.7, 0, Z1 + 0.55, 0.42, 0, p => p.z > 10 && p.x > -13);
   slab(3.0, 16.6, X0 + 0.1, MID, 0, 0.42, p => p.x < -6.5 && p.z > -1 && p.z < 18);
   slab(1.7, 16.6, X1 + 0.55, MID, 0, -0.42, p => p.x > 6 && p.z > -1 && p.z < 18);
-  const tips: Part[] = [];
-  for (const [x, z] of [[X0 - 1.1, Z0 - 1.1], [X1 + 1.1, Z0 - 1.1], [X0 - 1.1, Z1 + 1.1], [X1 + 1.1, Z1 + 1.1]]) {
-    tips.push({ geo: G.cone, at: [x, FY + 3.55, z - MID], rot: [0, 0, (x < 0 ? 1 : -1) * 0.7], scale: [0.16, 0.5, 0.16] });
+  // upturned tips on the corners, each fading with the slopes it joins (north 0, south 1, west 2, east 3)
+  for (const [x, z, a, b] of [[X0 - 1.1, Z0 - 1.1, 0, 2], [X1 + 1.1, Z0 - 1.1, 0, 3], [X0 - 1.1, Z1 + 1.1, 1, 2], [X1 + 1.1, Z1 + 1.1, 1, 3]]) {
+    const m = new MeshLambertMaterial({ color: 0x2B333B, transparent: true });
+    const t = mesh(G.cone, m, 0, 0, 0, true);
+    t.rotation.z = (x < 0 ? 1 : -1) * 0.7; t.scale.set(0.16, 0.5, 0.16);
+    put(roof, t, x, FY + 3.55, z);
+    tips.push({ t, m, of: [slabs[a], slabs[b]] });
   }
-  roof.add(mesh(bake(tips), 0x2B333B, 0, 0, 0, true));
   // lanterns hung from the beams, red and cream in turn
   const at: [number, number, number, number, boolean][] = [];
   let i = 0;
@@ -255,6 +261,10 @@ export function updRoof(dt: number, p: XZ, all: boolean) {
     const want = !all && s.near(p) ? 0.12 : 1;
     s.m.opacity += (want - s.m.opacity) * Math.min(1, dt * 8);
     s.m.depthWrite = s.s.castShadow = s.m.opacity > 0.95;
+  }
+  for (const t of tips) {
+    t.m.opacity = Math.min(t.of[0].m.opacity, t.of[1].m.opacity);
+    t.m.depthWrite = t.t.castShadow = t.m.opacity > 0.95;
   }
 }
 
