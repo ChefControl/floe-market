@@ -21,6 +21,8 @@ import { Song, type SongStatus } from './youtube';
 /** Her house: front wall faces west, toward the market. */
 const HOUSE = { x: 26.4, z: HOUSE_PATH_Z, w: 4, d: 5.6, h: 2.5 };
 const FRONT = HOUSE.x - HOUSE.w / 2;
+/** Where her lawn starts, west of the fence; and the deck's east edge, where stage 1's path starts. */
+const LAWN_X0 = YARD.x0 - 0.6, DECK_X1 = 8;
 /** The circle out front, where the player stands in the rain. */
 export const RAIN_PAD = { x: 21.6, z: HOUSE_PATH_Z, r: 0.95 };
 // The front yard (behind a low picket fence with a gate where the path comes in) and the path are in layout.ts.
@@ -31,12 +33,13 @@ const roofMat = seasonal([0xF7FAFC, 0xB0574F, 0xB0574F, 0xB0574F]);
 
 /**
  * Packed-snow path from `x0` to the yard, level with the deck, with a zebra crossing where it meets the road at
- * `roadX`. Stage 1's starts at the deck's east fence and crosses the first road; stage 2's starts at the
- * restaurant's east door and crosses the road past the takeout kiosk.
+ * `roadX`. Stage 1's starts at the deck's east edge and crosses the first road; stage 2's starts at the
+ * restaurant's east door and crosses the road past the takeout kiosk. It stops where her lawn starts: level with
+ * it, the two would flicker where they overlapped.
  */
 function path(x0: number, roadX: number) {
   const g = new Group(); scene.add(g);
-  const road = { x0: roadX - 1.05, x1: roadX + 1.05 }, x1 = YARD.x0 - 0.3;
+  const road = { x0: roadX - 1.05, x1: roadX + 1.05 }, x1 = LAWN_X0;
   for (const [a, b] of [[x0, road.x0], [road.x1, x1]]) {
     g.add(mesh(new BoxGeometry(b - a, FY + 0.02, 1.1), pathMat, (a + b) / 2, (FY + 0.02) / 2 - 0.02, HOUSE_PATH_Z));
   }
@@ -46,7 +49,7 @@ function path(x0: number, roadX: number) {
   }
   return g;
 }
-const path1 = path(7.85, ROAD1_X), path2 = path(HALL_BOX.x1 + 0.15, ROAD2_X);
+const path1 = path(DECK_X1, ROAD1_X), path2 = path(HALL_BOX.x1 + 0.15, ROAD2_X);
 path2.visible = false;
 
 /** Stage 2 moves the path's start to the restaurant's east door and its crossing to the new road. */
@@ -58,8 +61,8 @@ export function houseStage2() {
 // ---------- the house and the yard ----------
 function build() {
   // The yard: a snowy patch (a lawn out of winter), level with the path.
-  scene.add(mesh(new BoxGeometry(FRONT - YARD.x0 + 0.6, FY + 0.02, YARD.z1 - YARD.z0 + 1.1), lawnMat,
-    (YARD.x0 - 0.6 + FRONT) / 2, (FY + 0.02) / 2 - 0.02, HOUSE_PATH_Z));
+  scene.add(mesh(new BoxGeometry(FRONT - LAWN_X0, FY + 0.02, YARD.z1 - YARD.z0 + 1.1), lawnMat,
+    (LAWN_X0 + FRONT) / 2, (FY + 0.02) / 2 - 0.02, HOUSE_PATH_Z));
 
   // Low picket fence around the yard, open where the path comes in.
   const fx = YARD.x0 - 0.45, fz0 = YARD.z0 - 0.45, fz1 = YARD.z1 + 0.45;
@@ -87,13 +90,13 @@ function build() {
   for (const wz of [z - 1.65, z + 1.65]) {
     scene.add(mesh(new BoxGeometry(0.06, 0.95, 1.05), 0xFFFFFF, FRONT - 0.03, FY + 1.35, wz));
     scene.add(mesh(new BoxGeometry(0.07, 0.8, 0.9), glow, FRONT - 0.04, FY + 1.35, wz));
-    scene.add(mesh(new BoxGeometry(0.08, 0.8, 0.05), 0xFFFFFF, FRONT - 0.05, FY + 1.35, wz));
+    scene.add(mesh(new BoxGeometry(0.08, 0.82, 0.05), 0xFFFFFF, FRONT - 0.05, FY + 1.35, wz));
   }
   // Her bedroom window, on the side that faces the market's camera, so it's always in view.
   for (const wx of [x - 0.85, x + 0.85]) {
     scene.add(mesh(new BoxGeometry(1.05, 0.95, 0.06), 0xFFFFFF, wx, FY + 1.35, z + d / 2 + 0.03));
     scene.add(mesh(new BoxGeometry(0.9, 0.8, 0.07), glow, wx, FY + 1.35, z + d / 2 + 0.04));
-    scene.add(mesh(new BoxGeometry(0.05, 0.8, 0.08), 0xFFFFFF, wx, FY + 1.35, z + d / 2 + 0.05));
+    scene.add(mesh(new BoxGeometry(0.05, 0.82, 0.08), 0xFFFFFF, wx, FY + 1.35, z + d / 2 + 0.05));
   }
   const attic = mesh(G.cyl, glow, x, FY + h + 0.55, z + d / 2 + 0.26);
   attic.rotation.x = Math.PI / 2; attic.scale.set(0.32, 0.06, 0.32);
