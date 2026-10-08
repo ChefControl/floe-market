@@ -57,7 +57,7 @@ export const MODS: Mod[] = [
   {
     id: 'fertilizer', stage: 2, kind: 'growth', shed: true, icon: '🌿', name: 'Rice fertilizer', what: 'Rice ripens faster on the terraces',
     levels: ['Compost', 'Fish meal', 'Spring minerals'],
-    per: 1.2, cost: 20000, step: 2, max: 3,
+    per: 1.5, cost: 20000, step: 2, max: 3,
   },
 ];
 export const MOD = Object.fromEntries(MODS.map(m => [m.id, m])) as Record<ModId, Mod>;
