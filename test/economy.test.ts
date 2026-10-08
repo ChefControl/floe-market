@@ -1,5 +1,4 @@
 // The fish side of the chain (fish -> slices -> counters or the chefs), the runner, the sled window and the takeout kiosk.
-import type { Mesh, MeshLambertMaterial } from 'three';
 import { describe, expect, it } from 'vitest';
 import { bought, loadGame, MARKET } from './helpers';
 
@@ -69,8 +68,7 @@ describe('runner', () => {
     const g = await loadGame({ tiles: bought('runner', 'runner2', 'runner3'), pile: 30 });
     const rs = g.runner.runners;
     expect(rs).toHaveLength(3);
-    const shirt = (r: (typeof rs)[number]) => ((r.g.arms[0].children[0] as Mesh).material as MeshLambertMaterial).color.getHex();
-    expect(new Set(rs.map(shirt)).size).toBe(3);
+    expect(new Set(rs.map(r => r.g.color)).size).toBe(3);
     g.runUntil(() => rs.every(r => r.state === 'unload'), 20);
     const xs = rs.map(r => r.g.position.x);
     expect(Math.min(...xs.slice(1).map(x => Math.abs(x - xs[0])))).toBeGreaterThan(0.6); // not on top of each other

@@ -73,6 +73,17 @@ describe('presents for her', () => {
     expect(await height(5000)).toBe(top);
   });
 
+  it("doesn't rebuild a full pile for presents that only get counted", async () => {
+    const { g, presents } = await atHerDoor({ presents: 2000 });
+    const geos = () => g.render.scene.children.filter(o => o.type === 'Group').flatMap(o => o.children.map(m => (m as Mesh).geometry));
+    const before = geos();
+    presents.givePresents(3);
+    expect(presents.presents.n).toBe(2003);
+    const after = geos();
+    expect(after.length).toBe(before.length);
+    expect(after.every((geo, i) => geo === before[i])).toBe(true); // the same meshes, not baked again
+  });
+
   it('remembers the pile and what was paid toward the next one, in either stage', async () => {
     const { g, presents } = await atHerDoor({ presents: 7, presentPaid: 30, tiles: bought(...MARKET, 'sushi') });
     expect(g.layout.stage.n).toBe(2);

@@ -1,9 +1,9 @@
 // Building blocks: math helpers, item stacks/flights, walking characters.
-import { Mesh } from 'three';
+import { Mesh, type Object3D } from 'three';
 import { describe, expect, it, vi } from 'vitest';
 import { animPerson, makeSled, moveEnt, Person } from '../src/characters';
 import { carrySlot, fly, Holder, updFlights } from '../src/holder';
-import { scene } from '../src/render';
+import { painted, scene } from '../src/render';
 import { d2xz, fwd, pick, rand, randi, V } from '../src/util';
 
 const settle = () => { for (let i = 0; i < 120; i++) updFlights(1 / 60); };
@@ -105,6 +105,48 @@ describe('characters', () => {
     animPerson(p, false, 0.1, true);
     expect(p.phase).toBe(0);
     expect(p.arms[0].rotation.x).toBe(-1.25);
+  });
+
+  it('draws a person in six meshes, shared with anyone dressed the same, and redresses them with the season', async () => {
+    const { setSeason } = await import('../src/season');
+    const a = new Person(0x123456), b = new Person(0x123456, 'fancy');
+    scene.add(a, b);
+    const drawn = (p: Person) => {
+      const out: Mesh[] = [];
+      p.traverse(o => { if (o instanceof Mesh && o.visible) out.push(o); });
+      return out;
+    };
+    expect(drawn(a)).toHaveLength(6);
+    expect(drawn(a).every(m => m.material === painted)).toBe(true);
+    // the body casts a shadow; the head and eyes never have
+    const [shell, trim] = drawn(a).filter(m => m.parent === a);
+    expect([shell.castShadow, trim.castShadow]).toEqual([true, false]);
+    expect(new Person(0x123456).children.filter(c => c instanceof Mesh).map(m => (m as Mesh).geometry))
+      .toEqual([shell.geometry, trim.geometry]);
+    const winter = shell.geometry;
+    setSeason(2);
+    expect(shell.geometry).not.toBe(winter);
+    expect(a.worn().some(w => w.seasons?.includes('summer'))).toBe(true);
+    expect(drawn(b)).toHaveLength(6); // a suit has nothing seasonal in summer, but still a body
+    setSeason(0);
+    expect(shell.geometry).toBe(winter);
+    scene.remove(a, b);
+  });
+
+  it('draws each stacked item in one call, and shares a sled\'s geometry with every other', async () => {
+    const { newBill, newRice, newSteak } = await import('../src/items');
+    for (const m of [newBill(1), newRice(), newSteak()]) {
+      expect(Array.isArray(m.material)).toBe(false);
+      expect(m.geometry.groups).toHaveLength(0);
+    }
+    /** The sled's own geometry (its driver's is shared by whoever dresses alike). */
+    const geos = (g: Object3D) => {
+      const s = new Set();
+      for (const c of g.children) if (!(c instanceof Person)) c.traverse(o => { if (o instanceof Mesh) s.add(o.geometry); });
+      return s;
+    };
+    const one = geos(makeSled(1, 2)), two = geos(makeSled(3, 4));
+    expect([...two].every(g => one.has(g))).toBe(true);
   });
 
   it('builds a sled with a driver', () => {

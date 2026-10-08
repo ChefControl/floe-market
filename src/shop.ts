@@ -96,9 +96,23 @@ function renderRows(q: Square) {
     return b;
   }));
 }
+/** Which square's rows are built, at which levels. */
+let built = '';
+/**
+ * Keeps the rows current without rebuilding them while the money ticks over, which would be most frames (and a button
+ * replaced mid-tap loses its click): only a new level, or another square, rebuilds them.
+ */
+function syncRows(q: Square) {
+  const key = q.title + MODS.map(m => mods[m.id]).join();
+  if (key !== built) { built = key; renderRows(q); return; }
+  for (const b of rows.children as HTMLCollectionOf<HTMLButtonElement>) {
+    const cost = modCost(b.dataset.mod as ModId), off = cost === null || wallet.money < cost;
+    if (b.disabled !== off) b.disabled = off;
+  }
+}
 rows.addEventListener('click', e => {
   const b = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-mod]');
-  if (b && !b.disabled && on && buyMod(b.dataset.mod as ModId)) renderRows(on);
+  if (b && !b.disabled && on && buyMod(b.dataset.mod as ModId)) syncRows(on);
 });
 
 // ---------- overview ----------
@@ -142,7 +156,8 @@ export function updShop() {
     on = here;
     panel.hidden = !on;
     money0 = -1;
+    built = '';
   }
-  if (on && wallet.money !== money0) { money0 = wallet.money; renderRows(on); }
+  if (on && wallet.money !== money0) { money0 = wallet.money; syncRows(on); }
   renderOverview();
 }

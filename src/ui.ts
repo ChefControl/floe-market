@@ -95,6 +95,7 @@ let bits: Bit[] = [];
 export function confetti() {
   if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
   const k = Math.min(window.devicePixelRatio || 1, 2);
+  confettiEl.hidden = false;
   const w = confettiEl.width = window.innerWidth * k, h = confettiEl.height = window.innerHeight * k;
   for (let i = 0; i < 160; i++) {
     bits.push({
@@ -113,7 +114,8 @@ function drawConfetti(dt: number) {
     cctx.restore();
   }
   bits = bits.filter(p => p.y < h + 40);
-  if (!bits.length) cctx.clearRect(0, 0, w, h);
+  // Once it's all fallen, the canvas goes away: a full-screen layer over the game costs a phone even when empty.
+  if (!bits.length) { confettiEl.width = confettiEl.height = 0; confettiEl.hidden = true; }
 }
 
 const toastEl = $('toast');

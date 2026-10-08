@@ -248,6 +248,8 @@ export function initCloud() {
   if (readLink()?.on) connect().catch(() => { cloud.state = 'offline'; render(); });
   else setTimeout(() => { connect().catch(() => {}); }, 4000);
   setInterval(() => {
+    // nothing changes while the page is hidden (it synced on the way out), so don't spend a cloud read on it
+    if (document.hidden) return;
     // a signed-in device that started offline fetches Firebase once it can
     if (!backend && readLink()?.on) connect().catch(() => {});
     else void sync();

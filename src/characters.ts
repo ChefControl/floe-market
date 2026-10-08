@@ -1,5 +1,5 @@
 import { BoxGeometry, BufferGeometry, CylinderGeometry, Group, type Mesh, MeshLambertMaterial, Object3D, SphereGeometry, TorusGeometry } from 'three';
-import { G, mat, mesh, scene } from './render';
+import { bakePainted, G, mat, mesh, painted, type Part, scene } from './render';
 import { current, onSeason, type Season } from './season';
 import type { XZ } from './util';
 
@@ -28,6 +28,30 @@ const shinGeo = new BoxGeometry(0.136, 0.125, 0.156);
 const scarfGeo = new TorusGeometry(0.19, 0.065, 6, 14);
 const headbandGeo = new TorusGeometry(0.195, 0.022, 6, 18);
 
+/** One piece of a person: a shape in one colour, placed on the body or on an arm or leg's pivot. */
+export interface Piece extends Part {
+  c: number;
+  cast: boolean;
+  /** Clothes: worn in these seasons only, and not under a disguise. */
+  seasons?: Season[];
+  /** The person's own body and head, which a disguise replaces. */
+  own?: boolean;
+}
+
+// People are drawn baked: everything on the body in two meshes (what casts a shadow, and what doesn't: the head, eyes
+// and hood never have), and each arm and leg in one, so a person costs 6 draw calls rather than 14 or more. The bakes
+// are shared by everyone wearing the same thing. There are at most a few hundred different ones (the everyday
+// spring clothes mix 5 hair colours with 6 caps), so they're kept rather than freed.
+const bakes = new Map<string, BufferGeometry>();
+const NOTHING = new BufferGeometry();
+function baked(pieces: Piece[]) {
+  if (!pieces.length) return NOTHING;
+  const key = pieces.map(p => `${p.geo.id},${p.c},${p.at},${p.rot ?? ''},${p.scale ?? ''}`).join(';');
+  let g = bakes.get(key);
+  if (!g) { g = bakePainted(pieces); bakes.set(key, g); }
+  return g;
+}
+
 /** A walker with swinging limbs. */
 export class Person extends Group {
   readonly legs: Group[] = [];
@@ -38,32 +62,40 @@ export class Person extends Group {
   private toquePuff?: Mesh;
   /** A headband, once one's been tied on. */
   band?: Group;
-  /** Clothes for the seasons, and which seasons each is worn in. */
-  private outfit: { o: Object3D; in: Season[] }[] = [];
-  /** Wearing someone else's look (the singer's), over everything seasonal. */
+  /** Wearing someone else's look (the singer's), over everything seasonal and in place of their own body and head. */
   disguised = false;
+  /** Everything on the body, and on each limb (arms, then legs). */
+  private pieces: Piece[] = [];
+  private limbPieces: Piece[][] = [[], [], [], []];
+  /** The body's two meshes, and the arms' and legs' (the first thing on each pivot). */
+  private shell = mesh(NOTHING, painted, 0, 0, 0, true);
+  private trim = mesh(NOTHING, painted);
+  private limbs: Mesh[] = [];
 
-  constructor(color: number, look: Look = 'parka') {
+  /** `color` is the shirt, parka or suit. */
+  constructor(readonly color: number, look: Look = 'parka') {
     super();
     for (const s of [-1, 1]) {
       const p = new Group(); p.position.set(s * 0.1, 0.3, 0);
-      p.add(mesh(G.leg, 0x2C3A47, 0, -0.15, 0, true)); this.add(p); this.legs.push(p);
+      this.add(p); this.legs.push(p);
       const a = new Group(); a.position.set(s * 0.3, 0.82, 0.02);
-      a.add(mesh(G.arm, color, 0, -0.15, 0, true)); this.add(a); this.arms.push(a);
+      this.add(a); this.arms.push(a);
     }
-    this.add(mesh(G.body, color, 0, 0.6, 0, true));
-    this.add(mesh(G.head, SKIN, 0, 1.03, 0.05));
-    for (const s of [-1, 1]) this.add(mesh(G.eye, 0x1B2733, s * 0.07, 1.06, 0.24));
+    for (const l of [...this.arms, ...this.legs]) { const m = mesh(NOTHING, painted, 0, 0, 0, true); l.add(m); this.limbs.push(m); }
+    this.add(this.shell, this.trim);
+    this.arms.forEach((_, i) => this.limbPieces[i].push({ geo: G.arm, c: color, at: [0, -0.15, 0], cast: true }));
+    this.legs.forEach((_, i) => this.limbPieces[2 + i].push({ geo: G.leg, c: 0x2C3A47, at: [0, -0.15, 0], cast: true }));
+    this.put({ geo: G.body, c: color, at: [0, 0.6, 0], cast: true, own: true });
+    this.put({ geo: G.head, c: SKIN, at: [0, 1.03, 0.05], cast: false, own: true });
+    for (const s of [-1, 1]) this.put({ geo: G.eye, c: 0x1B2733, at: [s * 0.07, 1.06, 0.24], cast: false });
     if (look === 'fancy') this.dressUp();
     if (look === 'waiter') this.serverClothes();
     if (look === 'chef') this.chefWhites();
-    if (look === 'farmer') {
-      const hat = mesh(G.cone, 0xE3C26B, 0, 1.27, 0.03, true); hat.scale.set(0.36, 0.17, 0.36); this.add(hat);
-    }
+    if (look === 'farmer') this.put({ geo: G.cone, c: 0xE3C26B, at: [0, 1.27, 0.03], scale: [0.36, 0.17, 0.36], cast: true });
     const n = dressed++;
     if (look === 'parka') {
-      this.part(['winter'], G.hoodBack, color, 0, 1.03, -0.04);
-      this.part(['winter'], G.hood, 0xF8FAFC, 0, 1.03, 0.1).castShadow = false;
+      this.part(['winter'], G.hoodBack, color, [0, 1.03, -0.04]);
+      this.put({ geo: G.hood, c: 0xF8FAFC, at: [0, 1.03, 0.1], cast: false, seasons: ['winter'] });
       this.everyday(n);
     }
     // a scarf for the cold, over the suit or the farmer's shirt
@@ -71,13 +103,14 @@ export class Person extends Group {
     this.wear();
   }
 
-  /** A piece of clothing worn in `seasons` only, on `parent` (the body, an arm or a leg). */
-  private part(seasons: Season[], geo: BufferGeometry, c: number, x: number, y: number, z: number, parent: Object3D = this) {
-    const m = mesh(geo, c, x, y, z, true);
-    m.userData.outfit = true;
-    parent.add(m);
-    this.outfit.push({ o: m, in: seasons });
-    return m;
+  /** Adds a piece to the body, or to limb `limb` (0–1 the arms, 2–3 the legs). */
+  private put(p: Piece, limb?: number) {
+    (limb === undefined ? this.pieces : this.limbPieces[limb]).push(p);
+  }
+
+  /** A piece of clothing (which casts a shadow) worn in `seasons` only. */
+  private part(seasons: Season[], geo: BufferGeometry, c: number, at: Piece['at'], more: Partial<Piece> = {}, limb?: number) {
+    this.put({ geo, c, at, cast: true, seasons, ...more }, limb);
   }
 
   /**
@@ -85,45 +118,54 @@ export class Person extends Group {
    * sunglasses, in autumn a woolly hat with a bobble and a scarf. (Winter's parka hood is built with the body.)
    */
   private everyday(n: number) {
-    this.part(['spring', 'summer'], hairGeo, HAIR[n % HAIR.length], 0, 1.03, 0.05).rotation.x = -0.35;
+    this.part(['spring', 'summer'], hairGeo, HAIR[n % HAIR.length], [0, 1.03, 0.05], { rot: [-0.35, 0, 0] });
     const cap = CAPS[n % CAPS.length];
-    this.part(['spring'], capGeo, cap, 0, 1.045, 0.04).rotation.x = -0.15;
-    this.part(['spring'], brimGeo, cap, 0, 1.14, 0.265).rotation.x = -0.4;
-    for (const s of [-1, 1]) this.part(['summer'], lensGeo, 0x1B2430, s * 0.07, 1.075, 0.262).rotation.y = s * 0.3;
-    this.part(['summer'], G.box, 0x1B2430, 0, 1.085, 0.272).scale.set(0.05, 0.014, 0.014);
-    for (const a of this.arms) this.part(['summer'], forearmGeo, SKIN, 0, -0.245, 0, a);
-    for (const l of this.legs) this.part(['summer'], shinGeo, SKIN, 0, -0.19, 0, l);
+    this.part(['spring'], capGeo, cap, [0, 1.045, 0.04], { rot: [-0.15, 0, 0] });
+    this.part(['spring'], brimGeo, cap, [0, 1.14, 0.265], { rot: [-0.4, 0, 0] });
+    for (const s of [-1, 1]) this.part(['summer'], lensGeo, 0x1B2430, [s * 0.07, 1.075, 0.262], { rot: [0, s * 0.3, 0] });
+    this.part(['summer'], G.box, 0x1B2430, [0, 1.085, 0.272], { scale: [0.05, 0.014, 0.014] });
+    for (const i of [0, 1]) this.part(['summer'], forearmGeo, SKIN, [0, -0.245, 0], {}, i);
+    for (const i of [2, 3]) this.part(['summer'], shinGeo, SKIN, [0, -0.19, 0], {}, i);
     const knit = KNITS[(n + 2) % KNITS.length];
-    this.part(['fall'], beanieGeo, knit, 0, 1.05, 0.04).rotation.x = -0.2;
-    this.part(['fall'], cuffGeo, knit, 0, 1.1, 0.05).rotation.x = Math.PI / 2 - 0.2;
-    this.part(['fall'], G.sphere, 0xF4F1EA, 0, 1.28, 0.0).scale.setScalar(0.065);
+    this.part(['fall'], beanieGeo, knit, [0, 1.05, 0.04], { rot: [-0.2, 0, 0] });
+    this.part(['fall'], cuffGeo, knit, [0, 1.1, 0.05], { rot: [Math.PI / 2 - 0.2, 0, 0] });
+    this.part(['fall'], G.sphere, 0xF4F1EA, [0, 1.28, 0.0], { scale: [0.065, 0.065, 0.065] });
     this.scarf(['fall'], KNITS[(n + 4) % KNITS.length]);
   }
 
   /** A knitted scarf round the neck, one end hanging down the front. */
   private scarf(seasons: Season[], c: number) {
-    const ring = this.part(seasons, scarfGeo, c, 0, 0.9, 0.01);
-    ring.rotation.x = Math.PI / 2; ring.scale.setScalar(1.12);
-    const end = this.part(seasons, G.box, c, 0.08, 0.72, 0.26);
-    end.scale.set(0.08, 0.24, 0.03); end.rotation.set(-0.13, 0, 0.08);
+    this.part(seasons, scarfGeo, c, [0, 0.9, 0.01], { rot: [Math.PI / 2, 0, 0], scale: [1.12, 1.12, 1.12] });
+    this.part(seasons, G.box, c, [0.08, 0.72, 0.26], { rot: [-0.13, 0, 0.08], scale: [0.08, 0.24, 0.03] });
   }
 
-  /** Puts on the clothes for the season (none of them while disguised). */
+  /** Puts on the clothes for the season (none of them while disguised), and bakes what's worn. */
   wear() {
+    const worn = this.worn();
+    const body = worn.filter(p => this.pieces.includes(p));
+    this.shell.geometry = baked(body.filter(p => p.cast));
+    this.trim.geometry = baked(body.filter(p => !p.cast));
+    this.shell.visible = this.shell.geometry !== NOTHING;
+    this.trim.visible = this.trim.geometry !== NOTHING;
+    this.limbs.forEach((m, i) => { m.geometry = baked(this.limbPieces[i].filter(p => worn.includes(p))); });
+  }
+
+  /** The pieces being worn now, on the body and the limbs. */
+  worn() {
     const s = current();
-    for (const w of this.outfit) w.o.visible = !this.disguised && w.in.includes(s);
+    return [...this.pieces, ...this.limbPieces.flat()]
+      .filter(p => !(this.disguised && (p.own || p.seasons)) && (!p.seasons || p.seasons.includes(s)));
   }
 
   /** Top hat, white shirt front and a red bow tie. */
   private dressUp() {
-    const part = (geo: BufferGeometry, c: number, x: number, y: number, z: number, sx: number, sy: number, sz: number) => {
-      const m = mesh(geo, c, x, y, z, true); m.scale.set(sx, sy, sz); this.add(m); return m;
-    };
-    part(G.cyl, 0x1B2430, 0, 1.2, 0.03, 0.26, 0.03, 0.26);
-    part(G.cyl, 0x1B2430, 0, 1.36, 0.03, 0.16, 0.3, 0.16);
-    part(G.cyl, 0xC0392B, 0, 1.25, 0.03, 0.165, 0.05, 0.165);
-    part(G.box, 0xFFFFFF, 0, 0.74, 0.24, 0.14, 0.26, 0.02);
-    for (const s of [-1, 1]) part(G.cone, 0xC0392B, s * 0.05, 0.86, 0.25, 0.05, 0.07, 0.03).rotation.z = s * Math.PI / 2;
+    const part = (geo: BufferGeometry, c: number, at: Piece['at'], scale: Piece['scale'], rot?: Piece['rot']) =>
+      this.put({ geo, c, at, scale, rot, cast: true });
+    part(G.cyl, 0x1B2430, [0, 1.2, 0.03], [0.26, 0.03, 0.26]);
+    part(G.cyl, 0x1B2430, [0, 1.36, 0.03], [0.16, 0.3, 0.16]);
+    part(G.cyl, 0xC0392B, [0, 1.25, 0.03], [0.165, 0.05, 0.165]);
+    part(G.box, 0xFFFFFF, [0, 0.74, 0.24], [0.14, 0.26, 0.02]);
+    for (const s of [-1, 1]) part(G.cone, 0xC0392B, [s * 0.05, 0.86, 0.25], [0.05, 0.07, 0.03], [0, 0, s * Math.PI / 2]);
   }
 
   /**
@@ -131,15 +173,14 @@ export class Person extends Group {
    * headband over dark hair.
    */
   private serverClothes() {
-    const part = (geo: BufferGeometry, c: number, x: number, y: number, z: number, sx: number, sy: number, sz: number) => {
-      const m = mesh(geo, c, x, y, z, true); m.scale.set(sx, sy, sz); this.add(m); return m;
-    };
-    for (const s of [-1, 1]) part(G.box, 0xF4F1EA, s * 0.055, 0.8, 0.235, 0.05, 0.24, 0.02).rotation.set(-0.35, 0, s * 0.5);
-    part(G.cyl, 0xC0392B, 0, 0.44, 0, 0.29, 0.1, 0.29);
-    part(G.box, 0xF4F1EA, 0, 0.27, 0.3, 0.34, 0.34, 0.02).rotation.x = 0.12;
-    const hair = mesh(hairGeo, 0x1E1B1A, 0, 1.03, 0.05, true); hair.rotation.x = -0.35; this.add(hair);
-    const band = mesh(headbandGeo, 0xFFFFFF, 0, 1.11, 0.03); band.rotation.x = Math.PI / 2 - 0.25; this.add(band);
-    for (const s of [-1, 1]) part(G.box, 0xFFFFFF, s * 0.04, 1.02, -0.2, 0.04, 0.12, 0.015).rotation.z = s * 0.35;
+    const part = (geo: BufferGeometry, c: number, at: Piece['at'], scale: Piece['scale'], rot?: Piece['rot']) =>
+      this.put({ geo, c, at, scale, rot, cast: true });
+    for (const s of [-1, 1]) part(G.box, 0xF4F1EA, [s * 0.055, 0.8, 0.235], [0.05, 0.24, 0.02], [-0.35, 0, s * 0.5]);
+    part(G.cyl, 0xC0392B, [0, 0.44, 0], [0.29, 0.1, 0.29]);
+    part(G.box, 0xF4F1EA, [0, 0.27, 0.3], [0.34, 0.34, 0.02], [0.12, 0, 0]);
+    this.put({ geo: hairGeo, c: 0x1E1B1A, at: [0, 1.03, 0.05], rot: [-0.35, 0, 0], cast: true });
+    this.put({ geo: headbandGeo, c: 0xFFFFFF, at: [0, 1.11, 0.03], rot: [Math.PI / 2 - 0.25, 0, 0], cast: false });
+    for (const s of [-1, 1]) part(G.box, 0xFFFFFF, [s * 0.04, 1.02, -0.2], [0.04, 0.12, 0.015], [0, 0, s * 0.35]);
   }
 
   /** Puffy chef's hat and a red neckerchief. */
@@ -147,7 +188,7 @@ export class Person extends Group {
     this.toqueBand = mesh(G.cyl, 0xFFFFFF, 0, 0, 0.03, true); this.toqueBand.scale.set(0.19, 1, 0.19); this.add(this.toqueBand);
     this.toquePuff = mesh(G.sphere, 0xFFFFFF, 0, 0, 0.03, true); this.toquePuff.scale.set(0.25, 0.16, 0.25); this.add(this.toquePuff);
     this.toque(0);
-    const scarf = mesh(G.hood, 0xE5484D, 0, 0.88, 0.02); scarf.rotation.x = Math.PI / 2; scarf.scale.setScalar(1.15); this.add(scarf);
+    this.put({ geo: G.hood, c: 0xE5484D, at: [0, 0.88, 0.02], rot: [Math.PI / 2, 0, 0], scale: [1.15, 1.15, 1.15], cast: false });
   }
 
   /** Makes a chef's toque taller, the way head chefs' are: `level` 0 is the everyday one. */
@@ -201,6 +242,9 @@ export function animPerson(p: Person, moving: boolean, dt: number, carrying: boo
 const glass = new MeshLambertMaterial({ color: 0xBDEBFA, transparent: true, opacity: .65 });
 const SKI = new BoxGeometry(0.1, 0.06, 2.1);
 const TYRE = new CylinderGeometry(0.17, 0.17, 0.12, 14), HUB = new CylinderGeometry(0.08, 0.08, 0.13, 10);
+// shared by every sled: one built per sled stayed on the GPU after it drove off
+const HULL = new BoxGeometry(0.9, 0.38, 1.5), NOSE = new BoxGeometry(0.86, 0.24, 0.5);
+const SCREEN = new BoxGeometry(0.78, 0.36, 0.05), SEAT = new BoxGeometry(0.82, 0.08, 0.62);
 const OUT_OF_WINTER: Season[] = ['spring', 'summer', 'fall'];
 /**
  * A snowmobile and its driver. Out of winter it runs on four wheels instead of its skis: a little car, in effect,
@@ -208,8 +252,8 @@ const OUT_OF_WINTER: Season[] = ['spring', 'summer', 'fall'];
  */
 export function makeSled(color: number, driverColor: number) {
   const g = new Group();
-  g.add(mesh(new BoxGeometry(0.9, 0.38, 1.5), color, 0, 0.34, 0, true));
-  g.add(mesh(new BoxGeometry(0.86, 0.24, 0.5), color, 0, 0.28, 0.95, true));
+  g.add(mesh(HULL, color, 0, 0.34, 0, true));
+  g.add(mesh(NOSE, color, 0, 0.28, 0.95, true));
   for (const s of [-1, 1]) g.add(onlyIn(mesh(SKI, 0x2C3A47, s * 0.38, 0.05, 0.15), ['winter']));
   for (const s of [-1, 1]) {
     for (const z of [-0.5, 0.85]) {
@@ -218,8 +262,8 @@ export function makeSled(color: number, driverColor: number) {
       g.add(onlyIn(w, OUT_OF_WINTER));
     }
   }
-  const ws = mesh(new BoxGeometry(0.78, 0.36, 0.05), glass, 0, 0.68, 0.62); ws.rotation.x = -0.45; g.add(ws);
-  g.add(mesh(new BoxGeometry(0.82, 0.08, 0.62), 0x5B4636, 0, 0.56, -0.52));
+  const ws = mesh(SCREEN, glass, 0, 0.68, 0.62); ws.rotation.x = -0.45; g.add(ws);
+  g.add(mesh(SEAT, 0x5B4636, 0, 0.56, -0.52));
   const d = new Person(driverColor); d.scale.setScalar(0.85); d.position.set(0, 0.28, 0.1);
   d.arms.forEach(a => a.rotation.x = -1.1);
   g.add(d);
