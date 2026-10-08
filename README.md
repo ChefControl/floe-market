@@ -19,7 +19,7 @@ npm run dev
 - **Stage up:** with all nine market upgrades built, a gold 🏯 tile appears in the middle of the dock: Open Floe Sushi, $12,000. Paying it off plays the stage-up: the counters and the south fence come down, the restaurant, its garden and the terraces go up, and day turns to dusk. Cash, rating and upgrades carry over; the counters' leftover fish and cash move to the restaurant, the roulette table moves up the dock, and Korki's statue moves to the garden
 - **Rice (stage 2):** it grows on the terraces west of the restaurant, out through the farm door. The restaurant opens with a small patch of six clumps by the door, which ripens (green to gold) in 15 seconds: just enough for the first customers at a five-star rating, and no faster with upgrades, so more customers need the rest of the terrace. Each planted terrace grows a set amount, ripening in 30 seconds, a little less than the next step of the restaurant (more seats, another chef) eats; upgrades don't speed it up, so planting more terraces is how the restaurant grows. Wade through ripe rice to harvest it, or take bags off the farmer's stack on the path. Fish the kitchen has no room for go back to the pile as you harvest, to make room in your arms
 - **Make sushi:** drop fish slices on the 🐟 pad and rice on the 🍚 pad at the kitchen line facing the dock. Your arms carry both at once. The cooks there toss them to a chef inside the bar, who makes a plate (a bag of rice makes two) and puts it on the belt circling them. Once the takeout kiosk is open, the chefs also pack boxes for it, keeping a few ready
-- **Sell sushi:** diners in top hats come up the garden path and through the red gate, sit at the bar, take plates as they pass, and pay $30 a plate at the register by the gate when they leave. Once there are garden tables, some sit out under the red parasols instead, and a waiter picks their plates off the end of the bar and carries them out, several tables a trip. Drivers buy 3–6 boxes at a time at the kiosk on the road ($35 a box); their cash lands just inside the east wall
+- **Sell sushi:** diners in top hats come up the garden path and through the red gate, sit at the bar, take plates as they pass, and pay $30 a plate at the register by the gate when they leave. Once there are garden tables, some sit out under the red parasols instead: the chefs put their plates on a serving counter by the gate, and a waiter carries them over on a tray, up to four at a time. Waiters never take plates off the belt, and they're only for show: a garden diner stops waiting once their plate is made. Drivers buy 3–6 boxes at a time at the kiosk on the road ($35 a box); their cash lands just inside the east wall
 - **Rating:** customers only wait so long. Each one leaves a 1–5★ review when they go, based on how long they waited; someone who gives up leaves 1★ and pays only for what they got. The rating in the HUD is the average of the last 20 reviews (a new game starts at ★3.0). A better rating also brings customers in faster: ×0.6 at ★1, ×1.4 at ★5
 - **Seasons:** winter, spring, summer and autumn come round every five minutes of play, and the chip under your carry count shows which it is and how long is left. A new season changes the scenery over a few seconds and everyone's clothes at once:
 
@@ -30,7 +30,7 @@ npm run dev
   | ☀️ Summer | Deep green grass and a bright sky; no ice left | Nothing | Short sleeves, shorts and sunglasses |
   | 🍂 Autumn | Dry grass, pines turned red and orange with gold tips; the floes come back | Leaves | Woolly hats with a bobble, and scarves |
 
-  The sky changes with them, by day in stage 1 and at dusk in stage 2. The drivers come by snowmobile in winter and by car the rest of the year (the same vehicle, on wheels instead of skis). Chefs keep their whites all year, and waiters their blacks. Nothing falls inside buildings, and the rain at her house clears whatever is falling. A new game starts in winter, the way the market always looked
+  The sky changes with them, by day in stage 1 and at dusk in stage 2. The drivers come by snowmobile in winter and by car the rest of the year (the same vehicle, on wheels instead of skis). Chefs keep their whites all year, and waiters their indigo jackets and white headbands. Nothing falls inside buildings, and the rain at her house clears whatever is falling. A new game starts in winter, the way the market always looked
 - **Gamble:** once the roulette table is built, stand on its 🎰 pad to bet on red/black, odd/even, 1–18/19–36 (pays ×2) or a single number (pays ×36)
 
 ## Economy
@@ -91,9 +91,9 @@ Whenever a new upgrade comes on offer, a message says what it is, and while its 
 | 🧑‍🌾 Hire a farmer | $6,000 | ★3.9, 🌾 | Harvests the terraces onto a stack on the path |
 | 🧺 Rice porter | $12,000 | ★4.1, 🌾 | Carries rice from that stack, 12 bags at a time, in through the farm door to the kitchen line |
 | 🌱 Second terrace | $15,000 | ★4.1, 🌾 | Plants the middle terrace: rice for more diners |
-| ⛱️ Garden tables | $20,000 | ★4.2 | Four tables under red parasols east of the garden path (8 seats), and a waiter who carries their plates out from the end of the bar |
+| ⛱️ Garden tables | $20,000 | ★4.2 | Four tables under red parasols east of the garden path (8 seats), a serving counter by the gate for their plates, and a waiter who carries them over |
 | 🔪 Third chef | $25,000 | ★4.3, a second chef | A third chef at the bar. Out once there's a second chef |
-| ⛱️ More garden tables | $32,000 | ★4.3, garden tables | Four more tables west of the path, and a second waiter, at the bar's other end |
+| ⛱️ More garden tables | $32,000 | ★4.3, garden tables | Four more tables west of the path, and a second waiter at the serving counter |
 | 🌱 Third terrace | $40,000 | ★4.4, second terrace | Plants the top terrace, by the hot spring: rice for a full garden |
 | 🥡 Takeout kiosk | $50,000 | ★4.4 | Drivers on the road buy boxes of sushi with the rice to spare; the chefs pack them |
 | 🏮 Premium menu | $60,000 | ★4.5 | Everything sells for 60% more |
@@ -197,7 +197,7 @@ Each deploy removes the last one's files, and GitHub Pages lets browsers keep th
 | `src/rating.ts` | Reviews and the market rating |
 | `src/bubble.ts` | Order bubbles with patience rings, and mood faces |
 | `src/restaurant.ts` | The sushi bar: kitchen line and cooks, chefs, the plate belt, diners, register |
-| `src/garden.ts` | The garden tables and their waiters |
+| `src/garden.ts` | The garden tables, the serving counter by the gate, and the waiters who carry plates from it |
 | `src/rice.ts` | The starting rice patch, planting the terraces, the farmer and the rice porter |
 | `src/player.ts` / `src/playerUpdate.ts` | Player entity / per-frame player logic |
 | `src/runner.ts` | Runner AI, for all three runners |
