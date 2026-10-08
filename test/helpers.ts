@@ -54,7 +54,7 @@ export async function loadGame(save?: SaveFixture | string, opts: { main?: boole
     await import('../src/main');
   }
   const [game, saveMod, playerMod, stations, counters, fishing, runner, unlocks, walletMod, ui, input, render, items, util,
-    rating, rice, restaurant, world, layout, stage, hall, farm, korki, casino, shop, economy, looks] =
+    rating, rice, restaurant, world, layout, stage, hall, farm, korki, casino, shop, economy, looks, shed] =
     await Promise.all([
       import('../src/game'), import('../src/save'), import('../src/player'), import('../src/stations'),
       import('../src/counters'), import('../src/fishing'), import('../src/runner'), import('../src/unlocks'),
@@ -63,7 +63,7 @@ export async function loadGame(save?: SaveFixture | string, opts: { main?: boole
       import('../src/rating'), import('../src/rice'), import('../src/restaurant'), import('../src/world'),
       import('../src/layout'), import('../src/stage'), import('../src/hall'), import('../src/farm'),
       import('../src/korki'), import('../src/casino'), import('../src/shop'), import('../src/economy'),
-      import('../src/looks'),
+      import('../src/looks'), import('../src/shed'),
     ]);
   if (!opts.main) saveMod.load();
 
@@ -96,7 +96,7 @@ export async function loadGame(save?: SaveFixture | string, opts: { main?: boole
 
   return {
     game, saveMod, stations, counters, fishing, runner, unlocks, ui, input, render, items, util,
-    rating, rice, restaurant, world, layout, stage, hall, farm, korki, casino, shop, economy, looks,
+    rating, rice, restaurant, world, layout, stage, hall, farm, korki, casino, shop, economy, looks, shed,
     player, wallet, frame: () => frame,
     run, runUntil, placePlayer, cashAt, press, rate,
   };

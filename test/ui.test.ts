@@ -271,7 +271,7 @@ describe('settings', () => {
     expect($('soundPanel').hidden).toBe(false);
     expect($('soundCat').getAttribute('aria-expanded')).toBe('true');
     expect([...$('soundPanel').querySelectorAll('label')].map(l => l.textContent)).toEqual(['Effects', 'Ambience', 'Music']);
-    expect([...$('soundPanel').querySelectorAll('input')].map(i => [(i as HTMLInputElement).min, (i as HTMLInputElement).max])).toEqual([['1', '10'], ['1', '10'], ['1', '10']]);
+    expect([...$('soundPanel').querySelectorAll('input')].map(i => [(i as HTMLInputElement).min, (i as HTMLInputElement).max])).toEqual([['0', '10'], ['0', '10'], ['0', '10']]);
     $('soundCat').click();
     expect($('soundPanel').hidden).toBe(true);
   });

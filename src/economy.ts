@@ -11,11 +11,13 @@ export const SUSHI_PRICE = { plate: 30, box: 35 };
 /** The premium menu's multiplier on sushi prices. */
 export const PREMIUM = 1.6;
 
-export type ModId = 'fillets' | 'marketing' | 'training' | 'specials' | 'promo' | 'crew';
+export type ModId = 'fillets' | 'marketing' | 'training' | 'specials' | 'promo' | 'crew' | 'fertilizer';
 export interface Mod {
   id: ModId;
   stage: 1 | 2;
-  kind: 'price' | 'customers' | 'speed';
+  kind: 'price' | 'customers' | 'speed' | 'growth';
+  /** Bought at the fertilizer shed by the water wheel (shed.ts) rather than the upgrade square. */
+  shed?: boolean;
   icon: string;
   name: string;
   /** What a level does, in a few words. */
@@ -50,11 +52,18 @@ export const MODS: Mod[] = [
     per: 1.2, cost: 800, step: 1.75, max: 8,
   },
   { id: 'crew', stage: 2, kind: 'speed', icon: '🧑‍🍳', name: 'Kitchen crew', what: 'Chefs, the runners and the farm work faster', per: 1.15, cost: 1000, step: 1.75, max: 8 },
+  // Once all three terraces are planted there's nowhere left to grow more rice, and the takeout kiosk eats into it:
+  // the fertilizer shed (open with the kiosk) makes the terraces ripen faster instead.
+  {
+    id: 'fertilizer', stage: 2, kind: 'growth', shed: true, icon: '🌿', name: 'Rice fertilizer', what: 'Rice ripens faster on the terraces',
+    levels: ['Compost', 'Fish meal', 'Spring minerals'],
+    per: 1.5, cost: 20000, step: 2, max: 3,
+  },
 ];
 export const MOD = Object.fromEntries(MODS.map(m => [m.id, m])) as Record<ModId, Mod>;
 
 /** Levels bought of each. */
-export const mods: Record<ModId, number> = { fillets: 0, marketing: 0, training: 0, specials: 0, promo: 0, crew: 0 };
+export const mods: Record<ModId, number> = { fillets: 0, marketing: 0, training: 0, specials: 0, promo: 0, crew: 0, fertilizer: 0 };
 
 /** How much an upgrade multiplies its effect by now (1 before the first level). */
 export const boost = (id: ModId) => MOD[id].per ** mods[id];

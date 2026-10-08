@@ -138,12 +138,13 @@ export function updPlayer(dt: number) {
     if (Math.abs(p.x - t.x) < t.half && Math.abs(p.z - t.z) < t.half) { on = t; break; }
   }
   player.onTile = on;
-  // the present tile at her house is never done: each $100 leaves another present at her door
+  // The present tile at her house is never done, and needs no holding: standing on it, each $100 leaves another
+  // present at her door.
   const gift = !on && onPresentTile(p);
   setTip(on ? on.tip : gift ? PRESENT.tip : (sushi.built && STATION_TIPS.find(s => d2xz(p, s.pos) < s.r * s.r)?.tip) || null);
-  const forSale = gift || (!!on && !locked(on) && !on.done);
+  const forSale = !!on && !locked(on) && !on.done;
   updBuy(forSale, dt);
-  if (gift && buyHeld()) payInto(PRESENT, dt, redrawPresentTile, () => { PRESENT.paid = 0; givePresents(); save(); });
+  if (gift) payInto(PRESENT, dt, redrawPresentTile, () => { PRESENT.paid = 0; givePresents(); save(); });
   else if (forSale && buyHeld()) {
     const t = on!;
     payInto(t, dt, () => redrawTile(t), () => { applyUnlock(t.id); player.onTile = null; setTip(null); save(); });
