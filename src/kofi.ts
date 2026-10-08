@@ -1,5 +1,5 @@
 // "Buy me a coffee" in the settings, for players who'd like to support the game on Ko-fi, and a one-time nudge towards
-// it: after 20 minutes of play on this device, a toast says where it is and the gear pulses. Players who find it first
+// it: after 10 minutes of play on this device, a toast says where it is and the gear pulses. Players who find it first
 // never get the nudge. The minutes played are a per-device convenience, so they live outside the save.
 // The settings row opens Ko-fi in a pop-up window of its own, so nobody is taken out of their game (a new tab where
 // pop-ups are blocked, or on phones).
@@ -8,7 +8,7 @@ import { toast } from './ui';
 
 const KEY = 'floe-market-kofi';
 /** Seconds of play before the nudge. */
-export const NUDGE_AFTER = 20 * 60;
+export const NUDGE_AFTER = 10 * 60;
 /** How big the Ko-fi window opens, where the browser makes pop-up windows. */
 const WIN_W = 520, WIN_H = 760;
 

@@ -302,14 +302,14 @@ describe('Ko-fi', () => {
     a.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
   });
 
-  it('nudges once after 20 minutes of play, kept across visits, and not over a banner or the open menu', async () => {
+  it('nudges once after 10 minutes of play, kept across visits, and not over a banner or the open menu', async () => {
     await loadGame();
-    localStorage.setItem('floe-market-kofi', String(19 * 60)); // played 19 minutes on an earlier visit
+    localStorage.setItem('floe-market-kofi', String(9 * 60)); // played 9 minutes on an earlier visit
     const kofi = await import('../src/kofi');
     vi.useFakeTimers();
     for (let i = 0; i < 59 * 20; i++) kofi.updKofi(0.05);
     expect($('toast').classList.contains('on')).toBe(false);
-    expect(Number(localStorage.getItem('floe-market-kofi'))).toBeGreaterThan(19 * 60 + 45); // saved as it goes
+    expect(Number(localStorage.getItem('floe-market-kofi'))).toBeGreaterThan(9 * 60 + 45); // saved as it goes
     $('settings').hidden = false; // waits while the menu is open
     kofi.updKofi(2);
     expect($('toast').classList.contains('on')).toBe(false);
