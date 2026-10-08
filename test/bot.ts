@@ -60,11 +60,15 @@ export function play(g: Game, seconds: number, dt = 0.05) {
     let here: P = { x: p.x, z: p.z };
     const side = (q: P) => (q.x < 0 ? -1 : 1);
     const farmFrom = inFarm(here), farmTo = inFarm(to);
+    // the fertilizer shed's deck is reached from the south end of the path
+    const PATH_END = { x: -11.7, z: 6.0 }, yard = (q: P) => inFarm(q) && q.z > 5.5;
+    if (yard(here) && !yard(to)) { out.push(PATH_END); here = PATH_END; }
     if (farmFrom && !farmTo) { out.push(DOOR_OUT, DOOR_IN); here = DOOR_IN; }
     if (!farmFrom && farmTo) {
       if (inS(here)) out.push({ x: -6.9, z: 4.2 }); else out.push({ x: -6.9, z: 1.6 }, { x: -6.9, z: 3.2 });
       out.push(DOOR_IN, DOOR_OUT);
     }
+    if (yard(to) && !yard(here)) out.push(PATH_END);
     const garden = (q: P) => q.z > 15.5;
     if (garden(to) && !garden(here)) {
       if (!inS(here)) out.push({ x: 6.9, z: 1.6 }, { x: 6.9, z: 4.2 });
@@ -122,7 +126,7 @@ export function play(g: Game, seconds: number, dt = 0.05) {
   };
   const nextTile = () => g.unlocks.visibleTiles().filter(x => !g.unlocks.locked(x)).sort((a, b) => (a.cost - a.paid) - (b.cost - b.paid))[0];
   /** The cheapest repeatable upgrade of this stage that isn't fully upgraded. */
-  const nextMod = () => g.economy.MODS.filter(m => m.stage === g.layout.stage.n && g.economy.modCost(m.id) !== null)
+  const nextMod = () => g.economy.MODS.filter(m => m.stage === g.layout.stage.n && g.economy.modCost(m.id) !== null && g.shop.modOffered(m.id))
     .sort((a, b) => g.economy.modCost(a.id)! - g.economy.modCost(b.id)!)[0];
 
   function decide() {
@@ -130,7 +134,7 @@ export function play(g: Game, seconds: number, dt = 0.05) {
     const cash = cashSpots(), uncollected = cash.reduce((s, c) => s + c.v, 0);
     const modCost = mod ? g.economy.modCost(mod.id)! : Infinity;
     if (mod && wallet.money >= modCost && (!tile || modCost < tile.cost - tile.paid)) {
-      const at = g.shop.SHOPS[g.layout.stage.n - 1], lv = g.economy.mods[mod.id];
+      const at = mod.shed ? g.shed.SHED_AT : g.shop.SHOPS[g.layout.stage.n - 1], lv = g.economy.mods[mod.id];
       go(at, () => near(at, 0.6) && (g.shop.buyMod(mod.id) || true) || g.economy.mods[mod.id] > lv, 25);
       return;
     }
