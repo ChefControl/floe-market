@@ -17,8 +17,9 @@ npm run dev
 - **Sell fish (stage 1):** pick slices up from the pile, drop them on the counter's 🐟 pad, and walk over the cash to collect it. Walk-in customers pay $4 a slice; once the drive-up window is built, drivers on the road buy 4–8 at a time at $6
 - **Upgrade:** stand on a price tile (the squares) and hold **E** to pay into it; on a touch screen, a **Buy** button comes up to hold instead. Stand on one for 2 seconds without buying and a reminder says how. Squares are for buying (the tiles, and the Upgrade squares' menus) and circles for doing something (fishing, dropping things off, the roulette table). The tiles lie square with the world, with their icon and price turned to face the camera. Some tiles also need a star rating (see below). The chip under the rating shows the stage and how many of its upgrades are built
 - **Upgrade square:** each stage has a 📈 Upgrade square (by the counter in stage 1, by the kitchen line in stage 2). Stand on it to open the stage's repeatable upgrades and tap one to buy its next level: a better product (prices), marketing (customers) or the crew (speed). The list in the top left shows every modifier in play as a percentage, including how much your rating brings customers in; tap the stage chip to fold it away or back (on phones it starts folded, so the HUD leaves the game in view). Every level shows in the world too (see [Economy](#economy))
+- **Fertilizer shed (stage 2):** once the takeout kiosk opens, a little thatched storehouse like the farmhouse goes up on a plank deck off the south end of the farm path, by the water wheel, with a green noren over its door and a lantern that glows at dusk. Stand on its 🌿 square to buy rice fertilizer: compost, then fish meal, then spring minerals, each making the terraces ripen 20% faster ($20,000, $40,000 and $80,000). A labelled sack of each one bought lies on a pallet beside the shed, and the HUD's list shows it as Rice growth
 - **Stage up:** with all nine market upgrades built, a gold 🏯 tile appears in the middle of the dock: Open Floe Sushi, $12,000. Paying it off plays the stage-up: the counters and the south fence come down, the restaurant, its garden and the terraces go up, and day turns to dusk. Cash, rating and upgrades carry over; the counters' leftover fish and cash move to the restaurant, the roulette table moves up the dock, and Korki's statue moves to the garden
-- **Rice (stage 2):** it grows on the terraces west of the restaurant, out through the farm door. The restaurant opens with a small patch of six clumps by the door, which ripens (green to gold) in 15 seconds: just enough for the first customers at a five-star rating, and no faster with upgrades, so more customers need the rest of the terrace. Each planted terrace grows a set amount, ripening in 30 seconds, a little less than the next step of the restaurant (more seats, another chef) eats; upgrades don't speed it up, so planting more terraces is how the restaurant grows. Wade through ripe rice to harvest it, or take bags off the farmer's stack on the path. Fish the kitchen has no room for go back to the pile as you harvest, to make room in your arms
+- **Rice (stage 2):** it grows on the terraces west of the restaurant, out through the farm door. The restaurant opens with a small patch of six clumps by the door, which ripens (green to gold) in 15 seconds: just enough for the first customers at a five-star rating, and no faster with upgrades, so more customers need the rest of the terrace. Each planted terrace grows a set amount, ripening in 30 seconds, a little less than the next step of the restaurant (more seats, another chef) eats; upgrades don't speed it up, so planting more terraces is how the restaurant grows, until all three are planted and the fertilizer shed opens. Wade through ripe rice to harvest it, or take bags off the farmer's stack on the path. Fish the kitchen has no room for go back to the pile as you harvest, to make room in your arms
 - **Make sushi:** drop fish slices on the 🐟 pad and rice on the 🍚 pad at the kitchen line facing the dock. Your arms carry both at once. The cooks there toss them to a chef inside the bar, who makes a plate (a bag of rice makes two) and puts it on the belt circling them. Once the takeout kiosk is open, the chefs also pack boxes for it, keeping a few ready
 - **Sell sushi:** diners in top hats come up the garden path and through the red gate, sit at the bar, take plates as they pass, and pay $30 a plate at the register by the gate when they leave. Once there are garden tables, some sit out under the red parasols instead: the chefs put their plates on a serving counter by the gate, and a waiter carries them over on a tray, up to four at a time. Waiters never take plates off the belt, and they're only for show: a garden diner stops waiting once their plate is made. Drivers buy 3–6 boxes at a time at the kiosk on the road ($35 a box); their cash lands just inside the east wall
 - **Rating:** customers only wait so long. Each one leaves a 1–5★ review when they go, based on how long they waited; someone who gives up leaves 1★ and pays only for what they got. The rating in the HUD is the average of the last 20 reviews (a new game starts at ★3.0). A better rating also brings customers in faster: ×0.6 at ★1, ×1.4 at ★5
@@ -68,28 +69,30 @@ Everything you hear is made in the browser as it plays (Web Audio), so the game 
 
 The money curve follows idle games ([the math of idle games](https://www.gamedeveloper.com/design/the-math-of-idle-games-part-i)): prices grow exponentially, and so does income, a little more slowly, so each purchase takes a bit longer than the last.
 
-- **Repeatable upgrades**, three a stage, at the stage's upgrade square:
+- **Repeatable upgrades**, three a stage, at the stage's upgrade square, and rice fertilizer at the fertilizer shed in stage 2:
 
   | | Stage 1 | Stage 2 | Each level | Price |
   | --- | --- | --- | --- | --- |
   | Better product | 🐟 Fine fillets | 🍣 Chef's specials | Prices +25% | ×1.6 a level, no limit |
   | Marketing | 📣 Posters, flyers, radio, social media, ... TV ad | 📣 Menu boards, lantern signs, ... world famous | Customers +20%, longer queues | ×1.75 a level, 8 levels |
   | Crew | 💪 Crew training: fishing and chopping | 🧑‍🍳 Kitchen crew: chefs, the runners, farm workers, waiters (not how fast rice grows) | Speed +15% | ×1.75 a level, 8 levels |
+  | Fertilizer | | 🌿 Rice fertilizer: compost, fish meal, spring minerals (from the takeout kiosk on) | Rice growth +20% | ×2 a level, 3 levels |
 
-  They start at $40, $60 and $80 in stage 1 and $500, $800 and $1,000 in stage 2. Each level shows in the world:
+  They start at $40, $60 and $80 in stage 1 and $500, $800 and $1,000 in stage 2, and fertilizer at $20,000. Each level shows in the world:
 
   | | Stage 1 | Stage 2 |
   | --- | --- | --- |
   | Better product | The price board over the walk-up counter shows the new price, and a star a level | A wooden menu tag over the kitchen line, a new dish on each |
   | Marketing | Each campaign for real, spread round the market: posters on the fence, a promoter handing out flyers down the customers' path, a radio playing the jingle and a giant phone with the market's post collecting likes (at either end of the dock), a billboard and a newspaper box across the road, a food blogger taking photos and a TV playing the market's commercial out in the snow | Spread round the restaurant: a chalk menu board in the front garden, big paper lanterns on the front eaves, a phone on a ring light filming the bar, a food critic at a table holding up five stars, a magazine rack by the entrance, a TV camera filming the chefs, the gourmet guide's stars over a pedestal by the register, and flags from all over the world across the room |
   | Crew | The player's headband, coloured like a judo belt: white, yellow, orange, green, blue, purple, brown, black (it comes off when the restaurant opens) | The chefs' and cooks' toques grow taller |
+  | Fertilizer | | A labelled sack of each kind on a pallet beside the fertilizer shed |
 
   Fishing speed (crew training) still counts in stage 2, but it isn't in the list there: the dock catches more fish than the kitchen gets through, so carrying fish in (the runners) is what can hold the kitchen back, and the kitchen crew speeds that up.
 - **One-off upgrades** roughly double in price each time and add capacity: machines, workers, chefs, seats, terraces.
 - **Tiers.** Each stage ends on an expensive capstone. The gold tile costs about five minutes of a well-run market's income, so you start stage 2 almost broke, and stage 2's prices and sale values are about ten times stage 1's.
-- **No dead ends.** Fishing and rice are always free, and fish the kitchen can't take go back to the pile as you harvest rice, so arms full of fish never stop you making sushi and money again. The runners (bought in stage 1) keep the fish tray stocked, the farmer's stack can be carried in by hand before there's a rice porter, and the chefs only pack a few takeout boxes ahead, so plates keep coming for diners. Fish and rice keep up with a fast kitchen: a bag of rice makes two plates, and the kitchen crew speeds up the runners, the farmer and the rice porter too.
+- **No dead ends.** Fishing and rice are always free, and fish the kitchen can't take go back to the pile as you harvest rice, so arms full of fish never stop you making sushi and money again. The runners (bought in stage 1) keep the fish tray stocked, the farmer's stack can be carried in by hand before there's a rice porter, and the chefs only pack a few takeout boxes ahead, so plates keep coming for diners. Fish and rice keep up with a fast kitchen: a bag of rice makes two plates, the kitchen crew speeds up the runners, the farmer and the rice porter too, and once the terraces are full, fertilizer makes them grow faster (the farmer sweeps the ripe clumps either side of the one they came for, so they keep up).
 
-On a simulated run by a bot that plays like a reasonable player (see [Development](#development)), stage 1 takes about 13 minutes, with income growing from about $200 to $10,000 a minute; stage 2's upgrades are all bought about 28 minutes later, with income growing from about $1,600 to over $250,000 a minute, and to over $700,000 an hour into the game. Better products then carry on for as long as you like.
+On a simulated run by a bot that plays like a reasonable player (see [Development](#development)), stage 1 takes about 13 minutes, with income growing from about $200 to $10,000 a minute; stage 2's upgrades, fertilizer included, are all bought about 41 minutes later, with income growing from about $1,000 to over $250,000 a minute, and to about $700,000 an hour into the game. Better products then carry on for as long as you like.
 
 ## Unlocks
 
@@ -119,14 +122,14 @@ Whenever a new upgrade comes on offer, a message says what it is, and while its 
 | 🌾 Rice terrace | $800 | | Plants the rest of the bottom terrace round the starting patch (18 clumps of rice in all) |
 | 🪑 More seats | $2,500 | ★3.6 | Eight more seats at the bar (18 in all) |
 | 🔪 Second chef | $3,000 | ★3.6 | Another chef at the bar. Out from the start of stage 2, by the bar's east end |
-| 🧑‍🌾 Hire a farmer | $6,000 | ★3.9, 🌾 | Harvests the terraces onto a stack on the path |
-| 🧺 Rice porter | $12,000 | ★4.1, 🌾 | Carries rice from that stack, 12 bags at a time, in through the farm door to the kitchen line |
+| 🧑‍🌾 Hire a farmer | $6,000 | ★3.9, 🌾 | Harvests the terraces onto a stack on the path, sweeping the ripe clumps either side in the same cut |
+| 🧺 Rice porter | $12,000 | ★4.1, 🌾 | Carries rice from that stack, 18 bags at a time, in through the farm door to the kitchen line |
 | 🌱 Second terrace | $15,000 | ★4.1, 🌾 | Plants the middle terrace: rice for more diners |
 | ⛱️ Garden tables | $20,000 | ★4.2 | Four tables under red parasols east of the garden path (8 seats), a serving counter by the gate for their plates, and a waiter who carries them over |
 | 🔪 Third chef | $25,000 | ★4.3, a second chef | A third chef at the bar. Out once there's a second chef |
 | ⛱️ More garden tables | $32,000 | ★4.3, garden tables | Four more tables west of the path, and a second waiter at the serving counter |
 | 🌱 Third terrace | $40,000 | ★4.4, second terrace | Plants the top terrace, by the hot spring: rice for a full garden |
-| 🥡 Takeout kiosk | $50,000 | ★4.4 | Drivers on the road buy boxes of sushi with the rice to spare; the chefs pack them |
+| 🥡 Takeout kiosk | $50,000 | ★4.4 | Drivers on the road buy boxes of sushi with the rice to spare; the chefs pack them. The fertilizer shed opens with it |
 | 🏮 Premium menu | $60,000 | ★4.5 | Everything sells for 60% more |
 
 ### Her house
@@ -222,14 +225,15 @@ Each deploy removes the last one's files, and GitHub Pages lets browsers keep th
 | `src/machines.ts` | The auto harpoon's and the ice net's models |
 | `src/counters.ts` | The walk-up fish counter, drive-up window and takeout kiosk, and their customers (patience, reviews) |
 | `src/economy.ts` | Sale prices, and the repeatable upgrades (price, marketing, crew) and what they multiply |
-| `src/shop.ts` | The upgrade squares and their panel, and the modifier list in the HUD |
-| `src/looks.ts` | What each upgrade level looks like: price board, menu tags, headband, toques, and putting up the campaigns |
+| `src/shop.ts` | The upgrade squares (and the fertilizer shed's) and their panel, and the modifier list in the HUD |
+| `src/looks.ts` | What each upgrade level looks like: price board, menu tags, headband, toques, fertilizer sacks, and putting up the campaigns |
 | `src/ads.ts` | The marketing campaigns, built for real (TV commercial, radio, lanterns, food critic, ...) and animated |
 | `src/rating.ts` | Reviews and the market rating |
 | `src/bubble.ts` | Order bubbles with patience rings, and mood faces |
 | `src/restaurant.ts` | The sushi bar: kitchen line and cooks, chefs, the plate belt, diners, register |
 | `src/garden.ts` | The garden tables, the serving counter by the gate, and the waiters who carry plates from it |
 | `src/rice.ts` | The starting rice patch, planting the terraces, the farmer and the rice porter |
+| `src/shed.ts` | The fertilizer shed by the water wheel: its deck, the storehouse, its props and its sacks |
 | `src/player.ts` / `src/playerUpdate.ts` | Player entity / per-frame player logic |
 | `src/runner.ts` | Runner AI, for all three runners |
 | `src/pointers.ts` | Arrows at the edge of the screen pointing the way to new upgrade tiles |

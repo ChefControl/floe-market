@@ -1,15 +1,17 @@
 // The upgrade square: each stage has one, and standing on it opens a panel of that stage's repeatable upgrades:
-// a better product (prices), marketing (customers) and the crew (speed). The HUD's top left lists every modifier
-// in play, as a percentage.
+// a better product (prices), marketing (customers) and the crew (speed). Stage 2 also gets a fertilizer shed by the
+// water wheel (shed.ts) once the takeout kiosk opens, whose square sells rice fertilizer the same way. The HUD's top
+// left lists every modifier in play, as a percentage.
 import { repriceFish } from './counters';
 import { decal, drawMenu } from './decals';
 import { boost, MOD, modCost, MODS, mods, type ModId } from './economy';
-import { stage } from './layout';
+import { SHED_YARD, shedYard, stage } from './layout';
 import { player } from './player';
 import { demand } from './rating';
 import { repriceSushi, sushiBoost } from './restaurant';
 import { save } from './save';
 import { levelUp } from './sfx';
+import { SHED_AT } from './shed';
 import { staging } from './stage';
 import { toast } from './ui';
 import { FY } from './util';
@@ -19,20 +21,39 @@ import { wallet } from './wallet';
 export const SHOPS = [{ x: 0.9, z: 5.4 }, { x: -3.6, z: 5.0 }];
 /** Half the square's side. */
 const HALF = 0.95;
-const pads = SHOPS.map(at => {
-  const d = decal(HALF * 2, (c, w, h) => drawMenu(c, w, h, '📈', 'Upgrade'));
-  d.mesh.position.set(at.x, FY + 0.01, at.z);
+
+interface Square {
+  x: number;
+  z: number;
+  stage: 1 | 2;
+  /** The panel's title. */
+  title: string;
+  /** The fertilizer shed's square, which sells only what's bought there (and the upgrade squares, everything else). */
+  shed: boolean;
+}
+const SQUARES: Square[] = [
+  { ...SHOPS[0], stage: 1, title: 'Market upgrades', shed: false },
+  { ...SHOPS[1], stage: 2, title: 'Restaurant upgrades', shed: false },
+  { ...SHED_AT, stage: 2, title: 'Fertilizer shed', shed: true },
+];
+const pads = SQUARES.map(q => {
+  const d = decal(HALF * 2, (c, w, h) => q.shed ? drawMenu(c, w, h, '🌿', 'Fertilizer') : drawMenu(c, w, h, '📈', 'Upgrade'));
+  d.mesh.position.set(q.x, (q.shed ? SHED_YARD.y : FY) + 0.01, q.z);
   return d;
 });
+
+/** Whether a square is in place: its stage's (stage 2's after the stage-up's show), and the shed's once it's open. */
+const active = (q: Square) => q.stage === stage.n && !(stage.n === 2 && staging()) && (!q.shed || shedYard.open);
+/** The square whose panel is open, if any. */
+let on: Square | null = null;
+/** Whether an upgrade can be bought yet: fertilizer once the shed is open. */
+export const modOffered = (id: ModId) => !MOD[id].shed || shedYard.open;
 
 const $ = (id: string) => document.getElementById(id)!;
 const panel = $('shop'), title = $('shopTitle'), rows = $('shopRows');
 const money = (v: number) => '$' + v.toLocaleString('en-US');
 const pct = (k: number) => (k >= 1 ? '+' : '−') + Math.round(Math.abs(k - 1) * 100) + '%';
-const EFFECT = { price: 'Prices', customers: 'Customers', speed: 'Speed' } as const;
-
-/** This stage's square, once it's in place (stage 2's after the stage-up's show). */
-const active = () => (stage.n === 2 && staging() ? -1 : stage.n - 1);
+const EFFECT = { price: 'Prices', customers: 'Customers', speed: 'Speed', growth: 'Rice growth' } as const;
 
 /** What a level of an upgrade is called: the marketing campaign, or just its level. */
 function levelName(id: ModId, n: number) {
@@ -43,7 +64,7 @@ function levelName(id: ModId, n: number) {
 /** Buys the next level of an upgrade, if there's money for it. Returns whether it did. */
 export function buyMod(id: ModId) {
   const cost = modCost(id);
-  if (cost === null || wallet.money < cost) return false;
+  if (cost === null || wallet.money < cost || !modOffered(id)) return false;
   wallet.money -= cost;
   mods[id]++;
   repriceFish(); repriceSushi();
@@ -55,11 +76,11 @@ export function buyMod(id: ModId) {
 }
 
 // ---------- panel ----------
-/** One row per upgrade: what the next level does, and its price on a button. */
-function renderRows() {
-  const n = stage.n;
-  title.textContent = n === 1 ? 'Market upgrades' : 'Restaurant upgrades';
-  rows.replaceChildren(...MODS.filter(m => m.stage === n).map(m => {
+/** One row per upgrade sold on square `q`: what the next level does, and its price on a button. */
+function renderRows(q: Square) {
+  const n = q.stage;
+  title.textContent = q.title;
+  rows.replaceChildren(...MODS.filter(m => m.stage === n && !!m.shed === q.shed).map(m => {
     const cost = modCost(m.id), now = boost(m.id), lv = mods[m.id];
     const b = document.createElement('button');
     b.type = 'button'; b.className = 'mod'; b.dataset.mod = m.id;
@@ -77,7 +98,7 @@ function renderRows() {
 }
 rows.addEventListener('click', e => {
   const b = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-mod]');
-  if (b && !b.disabled && buyMod(b.dataset.mod as ModId)) renderRows();
+  if (b && !b.disabled && on && buyMod(b.dataset.mod as ModId)) renderRows(on);
 });
 
 // ---------- overview ----------
@@ -87,7 +108,9 @@ let shown = '';
 function modifiers(): [icon: string, label: string, k: number][] {
   const rep: [string, string, number] = ['★', 'Reputation', demand()];
   if (stage.n === 1) return [['🐟', 'Prices', boost('fillets')], ['📣', 'Customers', boost('marketing')], ['💪', 'Speed', boost('training')], rep];
-  return [['🍣', 'Prices', sushiBoost()], ['📣', 'Customers', boost('promo')], ['🧑‍🍳', 'Kitchen', boost('crew')], rep];
+  const out: [string, string, number][] = [['🍣', 'Prices', sushiBoost()], ['📣', 'Customers', boost('promo')], ['🧑‍🍳', 'Kitchen', boost('crew')]];
+  if (shedYard.open) out.push(['🌿', 'Rice growth', boost('fertilizer')]);
+  return [...out, rep];
 }
 function renderOverview() {
   const list = modifiers(), key = list.map(r => r.join()).join('|');
@@ -105,17 +128,21 @@ function renderOverview() {
   }));
 }
 
-let open = false, money0 = -1;
-/** Opens the panel while the player stands on the stage's circle, and keeps it and the overview current. */
+let money0 = -1;
+/** Opens the panel while the player stands on a square that's in place, and keeps it and the overview current. */
 export function updShop() {
-  const a = active();
-  pads.forEach((d, i) => { d.mesh.visible = i === a; });
-  const p = player.g.position, near = a >= 0 && Math.abs(p.x - SHOPS[a].x) < HALF && Math.abs(p.z - SHOPS[a].z) < HALF;
-  if (near !== open) {
-    open = near;
-    panel.hidden = !open;
+  const p = player.g.position;
+  let here: Square | null = null;
+  SQUARES.forEach((q, i) => {
+    const live = active(q);
+    pads[i].mesh.visible = live;
+    if (live && Math.abs(p.x - q.x) < HALF && Math.abs(p.z - q.z) < HALF) here = q;
+  });
+  if (here !== on) {
+    on = here;
+    panel.hidden = !on;
     money0 = -1;
   }
-  if (open && wallet.money !== money0) { money0 = wallet.money; renderRows(); }
+  if (on && wallet.money !== money0) { money0 = wallet.money; renderRows(on); }
   renderOverview();
 }
