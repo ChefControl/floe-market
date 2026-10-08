@@ -1,5 +1,5 @@
 // What things sell for, and how that grows. The economy follows idle games: upgrade prices grow exponentially
-// (see the price list in unlocks.ts), and each stage has three repeatable upgrades, bought at its upgrade circle
+// (see the price list in unlocks.ts), and each stage has three repeatable upgrades, bought at its upgrade square
 // (shop.ts): sale prices, how many customers come, and how fast things are made. Income grows exponentially too, but
 // a little slower than prices, so each purchase takes a bit longer than the last until the stage's next big
 // unlock. Each stage ends on an expensive capstone that takes most of your savings, and the next starts again

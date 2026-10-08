@@ -119,8 +119,13 @@ const pad = decal(1.9, (c, w, h) => drawPad(c, w, h, '💔'));
 pad.mesh.position.set(RAIN_PAD.x, FY + 0.01, RAIN_PAD.z);
 
 // ---------- rain ----------
-/** Raindrops fill a box this many metres either side of the player, up to TOP high. */
+/**
+ * Raindrops fill a box this many metres either side of the player, up to TOP high. They stay put in the world as the
+ * player walks (only falling): a drop that ends up more than SPREAD behind comes back in ahead.
+ */
 const SPREAD = 15, TOP = 12, FALL = 13, DROP = 0.6, DROPS = 1800;
+/** Wraps an offset from the player into the box round them. */
+const wrap = (v: number) => v - 2 * SPREAD * Math.floor((v + SPREAD) / (2 * SPREAD));
 /** Seconds for the rain to set in, and to clear once the player walks off. */
 const RAIN_IN = 2.5, RAIN_OUT = 3;
 const drops = new Float32Array(DROPS * 3);
@@ -154,12 +159,12 @@ function updRain(dt: number, on: boolean) {
   rain.visible = rainK > 0;
   if (!rain.visible) return;
   rainMat.opacity = 0.75 * rainK;
-  rain.position.set(player.g.position.x, 0, player.g.position.z);
+  const p = player.g.position;
   for (let i = 0; i < DROPS; i++) {
     let y = drops[i * 3 + 1] - FALL * dt;
     if (y < 0) y += TOP;
     drops[i * 3 + 1] = y;
-    const x = drops[i * 3], z = drops[i * 3 + 2], j = i * 6;
+    const x = p.x + wrap(drops[i * 3] - p.x), z = p.z + wrap(drops[i * 3 + 2] - p.z), j = i * 6;
     rainPos[j] = x; rainPos[j + 1] = y; rainPos[j + 2] = z;
     rainPos[j + 3] = x + 0.06; rainPos[j + 4] = y + DROP; rainPos[j + 5] = z + 0.03;
   }

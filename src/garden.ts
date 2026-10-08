@@ -9,6 +9,7 @@ import { fly, Holder } from './holder';
 import { groundY, pushOutOfBox } from './layout';
 import { G, mesh, scene } from './render';
 import { owed, PASS, servingPass, sushi, take, type Diner } from './restaurant';
+import { clink } from './sfx';
 import { fwd, V } from './util';
 
 /** The garden's ground height. */
@@ -175,7 +176,7 @@ function updWaiter(w: Waiter, dt: number) {
           d.coming--;
           // straight to a diner who's waiting; next to one who's still eating
           if (d.state === 'wait' && !d.served.length) take(d, p);
-          else { d.served.push(p); fly(p, () => d.seat.ledge, 0.3 + i * 0.08, 0.5); }
+          else { d.served.push(p); fly(p, () => d.seat.ledge, 0.3 + i * 0.08, 0.5, () => clink(d.seat.ledge)); }
         });
         if (!w.path.some(x => x.d)) w.path = home(w, stop.at); // last table: head back
       }

@@ -11,13 +11,14 @@ import {
 import { drawBubble, patienceStep } from './bubble';
 import { animPerson, moveEnt, Person, SUITS, type Walker } from './characters';
 import { TAKEOUT } from './counters';
-import { decal, drawDrop } from './decals';
+import { decal, drawPad } from './decals';
 import { newFish } from './fishModel';
 import { boost, PREMIUM, priced, SUSHI_PRICE } from './economy';
 import { fly, Holder } from './holder';
 import { addBillValue, billValue, newBill, newBox, newPlate, newRice } from './items';
 import { inHall, pushOutOfBox } from './layout';
 import { addReview, demand, starsFor } from './rating';
+import { clink, review, till } from './sfx';
 import { canvasTex, G, mat, mesh, scene, type CanvasTex } from './render';
 import { pile } from './stations';
 import { popStars, popText } from './ui';
@@ -35,8 +36,9 @@ export const KITCHEN = { x: 0, z: 2.6, w: 12, d: 1.0, h: 0.8 };
 export const FISH_DROP = V(2.6, FY, 1.05);
 export const RICE_DROP = V(-2.6, FY, 1.05);
 /** Where diners' bills land, by the gate; the register desk is behind it. */
-export const REGISTER = V(6.0, 0, 13.7);
-const DESK = { x: 7.6, z: 14.3, w: 1.2, d: 0.6 };
+// Between two of the south wall's posts, so that neither they nor the beam over them hides the cash from the camera.
+export const REGISTER = V(5.0, 0, 13.7);
+const DESK = { x: 6.5, z: 14.3, w: 1.2, d: 0.6 };
 const STREET = V(0.5, 0, 34);
 const GARDEN = V(0.4, 0, 18.6), GATE = V(0.2, 0, 15.6), ENTRANCE = V(0, 0, 14.0);
 const HOME = [V(-0.4, 0, 18.6), V(-0.6, 0, 34)];
@@ -178,7 +180,7 @@ export const register = new Holder(i => {
 }, 90);
 
 const pads = [
-  decal(1.3, (c, w, h) => drawDrop(c, w, h, '🐟')), decal(1.3, (c, w, h) => drawDrop(c, w, h, '🍚')),
+  decal(1.3, (c, w, h) => drawPad(c, w, h, '🐟')), decal(1.3, (c, w, h) => drawPad(c, w, h, '🍚')),
 ];
 pads.forEach((d, i) => {
   const at = i ? RICE_DROP : FISH_DROP;
@@ -354,7 +356,7 @@ function gardenOrder(share: boolean) {
 /** Sends a chef's plate out to the serving counter for diner `d`. */
 function toPass(c: Chef, p: Mesh, d: Diner) {
   d.coming++; p.userData.diner = d;
-  servingPass.receive(p, 1.0, 2.6);
+  servingPass.receive(p, 1.0, 2.6, m => clink(m.position));
   c.plate = null; c.state = 'idle';
 }
 
@@ -396,7 +398,7 @@ function updChef(c: Chef, dt: number) {
       const p = c.plate!;
       c.plate = null; c.state = 'idle';
       sushi.slots[j] = p; p.userData.flying = true;
-      fly(p, () => slotPos(j), 0.3, 0.5, () => { p.userData.flying = false; });
+      fly(p, () => slotPos(j), 0.3, 0.5, () => { p.userData.flying = false; clink(p.position); });
     }
   }
   c.g.arms[1].rotation.x = c.state === 'slice' ? -0.9 - Math.abs(Math.sin(c.t * 18)) * 0.7 : -0.9;
@@ -460,13 +462,14 @@ function payBills(values: number[], from: Vector3) {
     }
   });
   popText('+$' + values.reduce((a, v) => a + v, 0), REGISTER);
+  till(REGISTER);
 }
 
 /** Pays for what was eaten, reviews the place and heads home. */
 function leave(d: Diner, stars: number) {
   d.state = 'leave'; d.seat.diner = null; d.bubble.visible = false;
   if (d.bill.length) payBills(d.bill, d.g.position);
-  addReview(stars); popStars(stars, d.g.position);
+  addReview(stars); popStars(stars, d.g.position); review(stars, d.g.position);
   d.stack.forEach(p => scene.remove(p));
   d.stack = []; d.bill = [];
   const out = d.seat.garden ? [] : [ENTRANCE.clone(), GATE.clone()];

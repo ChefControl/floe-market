@@ -138,12 +138,141 @@ describe('controls', () => {
     expect(g.input.inputVec()).toBeNull(); // opposite keys cancel
   });
 
-  it('dismisses the intro on first input', async () => {
+});
+
+describe('how to walk', () => {
+  const IPHONE = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148';
+  const MAC = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15';
+
+  it('tells touch screens from computers by the user agent', async () => {
     await loadGame();
+    const { isTouch } = await import('../src/hint');
+    expect(isTouch(IPHONE, 5)).toBe(true);
+    expect(isTouch('Mozilla/5.0 (Linux; Android 14; Pixel 8) Mobile Safari', 5)).toBe(true);
+    expect(isTouch(MAC, 5)).toBe(true); // an iPad, which says it's a Mac
+    expect(isTouch(MAC, 0)).toBe(false);
+    expect(isTouch('Mozilla/5.0 (Windows NT 10.0; Win64; x64)', 0)).toBe(false);
+    expect(isTouch()).toBe(false); // jsdom
+  });
+
+  it('shows once on a first game, then shrinks away into the settings gear once the player has walked a little', async () => {
+    await loadGame();
+    const hint = await import('../src/hint');
     vi.useFakeTimers();
-    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'x' }));
-    expect($('intro').classList.contains('gone')).toBe(true);
-    vi.advanceTimersByTime(400);
-    expect(document.getElementById('intro')).toBeNull();
+    hint.initHint();
+    expect($('hint').hidden).toBe(false);
+    expect($('hint').textContent).toContain('WASD');
+    hint.updHint(5, false);
+    expect($('hint').hidden).toBe(false); // waits for the player to walk
+    hint.updHint(0.7, true); hint.updHint(0.7, true);
+    expect($('hint').style.opacity).toBe('0');
+    expect($('hint').style.transform).toContain('scale(0.1)');
+    hint.updHint(1, true); // already going
+    vi.advanceTimersByTime(650);
+    expect($('hint').hidden).toBe(true);
+    expect($('gear').classList.contains('ping')).toBe(true);
+    vi.advanceTimersByTime(1300);
+    expect($('gear').classList.contains('ping')).toBe(false);
+    expect(localStorage.getItem('floe-market-hint')).toBe('1');
+    // not again on this device
+    $('hint').hidden = true;
+    hint.initHint();
+    expect($('hint').hidden).toBe(true);
+  });
+
+  it('shows the joystick on a phone', async () => {
+    vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue(IPHONE);
+    await loadGame();
+    (await import('../src/hint')).initHint();
+    expect($('hint').textContent).toBe('Drag anywhere to walkTo buy, stand on a tile and hold Buy');
+    expect($('hint').querySelector('.stick')).not.toBeNull();
+  });
+
+  it('comes back from the settings, out of the gear, and goes again after a while', async () => {
+    await loadGame();
+    await import('../src/settings');
+    const hint = await import('../src/hint');
+    localStorage.setItem('floe-market-hint', '1');
+    vi.useFakeTimers();
+    $('gear').click();
+    $('controls').click();
+    expect($('settings').hidden).toBe(true);
+    expect($('hint').hidden).toBe(false);
+    hint.updHint(8.5, false);
+    vi.advanceTimersByTime(650);
+    expect($('hint').hidden).toBe(true);
+  });
+
+  it('just fades, without flying about, for players who prefer less motion', async () => {
+    vi.stubGlobal('matchMedia', (q: string) => ({ matches: q.includes('reduce'), addEventListener() {} }));
+    await loadGame();
+    const hint = await import('../src/hint');
+    vi.useFakeTimers();
+    hint.showHint(true);
+    expect($('hint').style.transform).toBe('');
+    hint.updHint(6, true);
+    expect($('hint').style.transform).toBe('');
+    expect($('hint').style.opacity).toBe('0');
+  });
+
+  it('copes with storage being unavailable', async () => {
+    await loadGame();
+    const hint = await import('../src/hint');
+    vi.useFakeTimers();
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => { throw new Error('blocked'); });
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('blocked'); });
+    hint.initHint();
+    expect($('hint').hidden).toBe(false);
+    hint.updHint(6, true);
+    vi.advanceTimersByTime(650);
+    expect($('hint').hidden).toBe(true);
+  });
+});
+
+describe('settings', () => {
+  it("leaves the arrow keys to a slider that has the focus, instead of walking", async () => {
+    const g = await loadGame();
+    await import('../src/settings');
+    const slider = $('volMusic');
+    const e = new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true });
+    slider.dispatchEvent(e);
+    expect(e.defaultPrevented).toBe(false);
+    expect(g.input.inputVec()).toBeNull();
+  });
+
+  it('opens behind the gear, and closes again with the gear, a tap elsewhere or Escape', async () => {
+    await loadGame();
+    await import('../src/settings');
+    const open = () => [$('settings').hidden, $('gear').getAttribute('aria-expanded')];
+    expect(open()).toEqual([true, 'false']);
+    $('gear').click();
+    expect(open()).toEqual([false, 'true']);
+    $('gear').click();
+    expect(open()).toEqual([true, 'false']);
+    $('gear').click();
+    $('soundCat').dispatchEvent(new Event('pointerdown', { bubbles: true }));
+    expect(open()).toEqual([false, 'true']); // a tap inside leaves it open
+    $('game').dispatchEvent(new Event('pointerdown', { bubbles: true }));
+    expect(open()).toEqual([true, 'false']);
+    $('gear').click();
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    expect(open()).toEqual([true, 'false']);
+    expect(document.activeElement).toBe($('gear'));
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })); // closed already: nothing
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'a' }));
+    expect(open()).toEqual([true, 'false']);
+  });
+
+  it('opens the Sound row into the effects, the ambience and the music', async () => {
+    await loadGame();
+    await import('../src/settings');
+    expect($('soundPanel').hidden).toBe(true);
+    $('soundCat').click();
+    expect($('soundPanel').hidden).toBe(false);
+    expect($('soundCat').getAttribute('aria-expanded')).toBe('true');
+    expect([...$('soundPanel').querySelectorAll('label')].map(l => l.textContent)).toEqual(['Effects', 'Ambience', 'Music']);
+    expect([...$('soundPanel').querySelectorAll('input')].map(i => [(i as HTMLInputElement).min, (i as HTMLInputElement).max])).toEqual([['1', '10'], ['1', '10'], ['1', '10']]);
+    $('soundCat').click();
+    expect($('soundPanel').hidden).toBe(true);
   });
 });

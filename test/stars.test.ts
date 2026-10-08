@@ -122,6 +122,7 @@ describe('upgrades that need stars', () => {
     g.run(0.05);
     expect(g.unlocks.locked(runner)).toBe(false);
     g.placePlayer(runner.x, runner.z);
+    g.press('e');
     g.run(2.5);
     expect(runner.done).toBe(true);
   });

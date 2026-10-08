@@ -108,17 +108,27 @@ let wheel: Group;
   thatch.rotation.y = Math.PI / 4; thatch.scale.set(1.05, 1, 0.8); house.add(thatch);
   const cap = mesh(new CylinderGeometry(0, 1.5, 0.95, 4), seasonal([0xFFFFFF, 0xB8894A, 0xB8894A, 0xB8894A]), 0, 3.33, 0);
   cap.rotation.y = Math.PI / 4; cap.scale.set(1.05, 1, 0.8); house.add(cap);
-  wheel = new Group(); wheel.position.set(2.7, 1.05, -0.4); house.add(wheel);
+  // The water wheel stands in the stream where it leaves the house (the stream runs east from under it, to the
+  // channel), its axle on a post either side, and turns with the water: paddles standing out from the rim, spokes
+  // and a hub.
+  wheel = new Group(); wheel.position.set(3.3, 1.05, -0.4); house.add(wheel);
   wheel.add(mesh(new TorusGeometry(1.0, 0.07, 6, 20), 0x6B4A2E, 0, 0, 0, true));
   for (let i = 0; i < 8; i++) {
     const a = i / 8 * Math.PI * 2;
-    const p = mesh(new BoxGeometry(0.1, 0.5, 0.4), 0x7A5A3A, Math.cos(a), Math.sin(a), 0, true);
+    const p = mesh(new BoxGeometry(0.5, 0.08, 0.42), 0x7A5A3A, Math.cos(a) * 1.02, Math.sin(a) * 1.02, 0, true);
     p.rotation.z = a; wheel.add(p);
+    if (i < 4) { const s = mesh(G.box, 0x6B4A2E, 0, 0, 0, true); s.scale.set(2, 0.07, 0.07); s.rotation.z = a; wheel.add(s); }
   }
-  wheel.rotation.y = Math.PI / 2;
+  const hub = mesh(new CylinderGeometry(0.16, 0.16, 0.5, 10), 0x5B3A26, 0, 0, 0, true); hub.rotation.x = Math.PI / 2; wheel.add(hub);
+  const axle = mesh(new CylinderGeometry(0.06, 0.06, 1.0, 8), 0x3C2A1C, 3.3, 1.05, -0.4); axle.rotation.x = Math.PI / 2; house.add(axle);
+  for (const s of [-1, 1]) {
+    const post = mesh(G.box, 0x5B3A26, 3.3, 0.55, -0.4 + s * 0.45, true);
+    post.scale.set(0.12, 1.1, 0.12); house.add(post);
+  }
 }
 shelter({ x0: HOUSE.x - 2.2, x1: HOUSE.x + 2.2, z0: HOUSE.z - 1.7, z1: HOUSE.z + 1.7, top: 3.8, on: () => house.visible });
-const racks = piece(-14.5, 8.8);
+// the drying racks, south of the stream and clear of the water wheel
+const racks = piece(-14.5, 12.4);
 {
   const wood: Part[] = [], sheaves: Part[] = [];
   for (const z of [-1.4, 0, 1.4]) {
@@ -172,7 +182,7 @@ export function showFarm() {
 /** Turns the water wheel and lets steam rise off the spring. */
 export function updFarm(dt: number) {
   if (!hill.visible) return;
-  wheel.rotation.x += dt * 0.8;
+  wheel.rotation.z += dt * 0.8; // its bottom moves east, with the stream
   for (const p of steam) {
     p.t = (p.t + dt) % 3.2;
     const k = p.t / 3.2, s = p.s;

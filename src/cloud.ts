@@ -187,6 +187,8 @@ function render() {
   const away = !u && cloud.state === 'offline' && !!readLink()?.on;
   $('cloudName').textContent = u ? u.name.split(' ')[0] : away ? 'Offline' : 'Sign in';
   btn.dataset.state = u || away ? cloud.state : 'out';
+  // the cloud's state shows on the settings gear too, while its menu is closed
+  $('gear').dataset.cloud = btn.dataset.state;
   btn.setAttribute('aria-label', u ? `Cloud saves: signed in as ${u.name}` : 'Sign in with Google to save to the cloud');
   $('cloudWho').textContent = u ? `Signed in as ${u.name}` : '';
   $('cloudStatus').textContent = cloud.state === 'offline' ? "Can't reach the cloud right now. Your game is still saved on this device."

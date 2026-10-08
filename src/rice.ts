@@ -9,6 +9,7 @@ import { FARM_DOOR, groundY, HALL_BOX, PATH_X, TERRACE_Z, TERRACES } from './lay
 import { boost } from './economy';
 import { bake, G, mat, mesh, scene, type Part } from './render';
 import { PLATES_PER_BAG, RICE_DROP, ricePot, SPAWN_EVERY } from './restaurant';
+import { swish } from './sfx';
 import { d2xz, rand, V, type XZ } from './util';
 
 // ---------- terraces ----------
@@ -136,6 +137,7 @@ export function harvestNear(p: XZ, arms: Holder, dt: number) {
 
 function harvest(c: Cell, to: Holder) {
   setGrowth(c, 0);
+  swish(c);
   const s = newRice(); s.position.set(c.x, c.g.position.y + 0.4, c.z);
   to.receive(s, 0.3, 0.8);
 }
