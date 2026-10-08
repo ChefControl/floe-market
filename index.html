@@ -176,13 +176,16 @@ body{
   width:min(88vw,290px); font-weight:600;
 }
 #settings[hidden]{ display:none; }
-#settings > button{
+#settings > button, #settings > a{
   display:flex; align-items:center; gap:10px; width:100%; min-height:40px; padding:6px 12px; border:0; border-radius:14px;
   background:var(--chip); color:var(--pill-ink); font:700 16px "Baloo 2","Trebuchet MS",system-ui,sans-serif; text-align:left; cursor:pointer;
 }
 #settings > button[hidden]{ display:none; }
 #settings .ic{ width:24px; text-align:center; font-size:18px; }
-#settings button:focus-visible{ outline:3px solid var(--coral); outline-offset:2px; }
+#settings button:focus-visible, #settings > a:focus-visible{ outline:3px solid var(--coral); outline-offset:2px; }
+/* the Ko-fi link, to buy the maker a coffee: a settings row like the others, opening Ko-fi in a window of its own (kofi.ts) */
+#kofi{ box-sizing:border-box; text-decoration:none; }
+#kofi i{ margin-left:auto; font-style:normal; opacity:.6; }
 /* the Sound category, opening into a mute button and a 0-10 slider for each kind of sound, sized for fingers */
 #soundCat .chev{ margin:0 4px 4px auto; width:9px; height:9px; border-right:2.5px solid currentColor; border-bottom:2.5px solid currentColor; transform:rotate(45deg); transition:transform .2s; }
 #soundCat[aria-expanded="true"] .chev{ transform:translateY(4px) rotate(-135deg); }
@@ -485,7 +488,7 @@ body{
   #casino .chips button{ min-height:34px; padding:4px 12px; }
   #numPick button{ width:40px; min-height:34px; }
   #cloudMenu button{ min-height:38px; }
-  #settings > button{ min-height:44px; }
+  #settings > button, #settings > a{ min-height:44px; }
   #rainMute{ width:40px; height:40px; }
   #korkiMute{ width:42px; height:42px; }
 }
@@ -527,6 +530,7 @@ body{
     <div class="vol"><button type="button" class="mute" id="muteMusic" aria-pressed="false" aria-label="Mute music"></button><label for="volMusic">Music</label><output id="volMusicN" for="volMusic">7</output><input type="range" id="volMusic" min="0" max="10" step="1" value="7"></div>
   </div>
   <button id="controls" type="button"><span class="ic" aria-hidden="true">🕹️</span>Controls</button>
+  <a id="kofi" href="https://ko-fi.com/chefcontrol" target="_blank" rel="noopener"><span class="ic" aria-hidden="true">☕</span>Buy me a coffee<i aria-hidden="true">↗</i></a>
   <button id="restart" type="button"><span class="ic" aria-hidden="true">↺</span><span id="restartText">Restart</span></button>
 </section>
 <div id="cloudPick" role="dialog" aria-modal="true" aria-labelledby="cloudAsk" hidden><div class="card">

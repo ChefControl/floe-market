@@ -120,8 +120,8 @@ function drawConfetti(dt: number) {
 
 const toastEl = $('toast');
 let toastT: ReturnType<typeof setTimeout> | undefined;
-/** Messages waiting their turn, and the `key` of the one showing. */
-const waiting: { m: string; key?: string }[] = [];
+/** Messages waiting their turn (with how long each stays up, in ms), and the `key` of the one showing. */
+const waiting: { m: string; key?: string; ms: number }[] = [];
 let busy = false, showing: string | undefined;
 function nextToast() {
   const n = waiting.shift();
@@ -130,21 +130,22 @@ function nextToast() {
   showing = n.key;
   toastEl.textContent = n.m;
   toastEl.classList.add('on');
-  holdToast();
+  holdToast(n.ms);
 }
-function holdToast() {
+function holdToast(ms = 1700) {
   clearTimeout(toastT);
-  toastT = setTimeout(() => { toastEl.classList.remove('on'); toastT = setTimeout(nextToast, 250); }, 1700);
+  toastT = setTimeout(() => { toastEl.classList.remove('on'); toastT = setTimeout(nextToast, 250); }, ms);
 }
 /**
  * Shows a message for a moment. Messages take turns, so none is missed. One with the same `key` as the message
- * showing or waiting replaces it instead (buying the same kind of upgrade several times in a row).
+ * showing or waiting replaces it instead (buying the same kind of upgrade several times in a row). A longer one can
+ * stay up for `ms`.
  */
-export function toast(m: string, key?: string) {
+export function toast(m: string, key?: string, ms = 1700) {
   if (key && key === showing && toastEl.classList.contains('on')) { toastEl.textContent = m; holdToast(); return; }
   const same = waiting.find(w => (key ? w.key === key : w.m === m));
   if (same) { same.m = m; return; }
-  waiting.push({ m, key });
+  waiting.push({ m, key, ms });
   if (!busy) nextToast();
 }
 
