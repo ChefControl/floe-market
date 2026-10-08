@@ -11,6 +11,7 @@ import { buyHeld, inputVec } from './input';
 import { korkiStatue, STATUE } from './korki';
 import { groundY, keepOnFloor, pushOutOfBox, stage, walkable } from './layout';
 import { player } from './player';
+import { collidePresents, givePresents, onPresentTile, PRESENT, redrawPresentTile } from './presents';
 import { scene } from './render';
 import { collide, FISH_DROP, fishTray, register, REGISTER, RICE_DROP, ricePot, sushi } from './restaurant';
 import { field, fieldStack, harvestNear, PATCH_AT, ripeNear, STACK_AT } from './rice';
@@ -23,6 +24,8 @@ import { applyUnlock, locked, redrawTile, visibleTiles, type Tile } from './unlo
 import { d2xz, FY, V, type XZ } from './util';
 import { addMoney, wallet } from './wallet';
 
+/** Anything bought by holding buy on it: an upgrade tile, or the present tile at her house. */
+interface Payable { x: number; y?: number; z: number; cost: number; paid: number; done?: boolean }
 interface Drop { pos: XZ; r: number; stock: Holder; kind: Kind }
 /** Where carried things are dropped off: fish at the open counters in stage 1, fish and rice for the chefs in stage 2. */
 const CHEF_DROPS: Drop[] = [
@@ -58,6 +61,7 @@ export function updPlayer(dt: number) {
   keepOnFloor(p, walkable());
   collide(p);
   collideGarden(p);
+  collidePresents(p);
   if (stage.n === 2 && korkiStatue()) pushOutOfBox(p, STATUE.x, STATUE.z, 1.25, 0.8);
   // chopper block collision
   if (p.x > CHOP.x - 1.0 && p.x < CHOP.x + 1.0 && p.z < CHOP.z + 0.8) {
@@ -134,10 +138,16 @@ export function updPlayer(dt: number) {
     if (Math.abs(p.x - t.x) < t.half && Math.abs(p.z - t.z) < t.half) { on = t; break; }
   }
   player.onTile = on;
-  setTip(on ? on.tip : (sushi.built && STATION_TIPS.find(s => d2xz(p, s.pos) < s.r * s.r)?.tip) || null);
-  const forSale = !!on && !locked(on) && !on.done;
+  // the present tile at her house is never done: each $100 leaves another present at her door
+  const gift = !on && onPresentTile(p);
+  setTip(on ? on.tip : gift ? PRESENT.tip : (sushi.built && STATION_TIPS.find(s => d2xz(p, s.pos) < s.r * s.r)?.tip) || null);
+  const forSale = gift || (!!on && !locked(on) && !on.done);
   updBuy(forSale, dt);
-  if (forSale && buyHeld()) payInto(on!, dt);
+  if (gift && buyHeld()) payInto(PRESENT, dt, redrawPresentTile, () => { PRESENT.paid = 0; givePresents(); save(); });
+  else if (forSale && buyHeld()) {
+    const t = on!;
+    payInto(t, dt, () => redrawTile(t), () => { applyUnlock(t.id); player.onTile = null; setTip(null); save(); });
+  }
 
   player.g.rotation.y = player.h;
   animPerson(player.g, player.moving, dt, player.back.n > 0);
@@ -153,8 +163,8 @@ function footsteps() {
   stepsTaken = n;
 }
 
-/** Drains money into the tile while the player holds buy on it; applies the unlock when paid off. */
-function payInto(on: Tile, dt: number) {
+/** Drains money into a tile while the player holds buy on it; `paidOff` runs when it's paid off. */
+function payInto(on: Payable, dt: number, redraw: () => void, paidOff: () => void) {
   const p = player.g.position;
   player.tPay -= dt;
   let paidNow = false;
@@ -167,8 +177,8 @@ function payInto(on: Tile, dt: number) {
       const b = newBill(0); b.position.set(p.x, p.y + 0.75, p.z); scene.add(b);
       fly(b, () => V(on.x, (on.y ?? FY) + 0.05, on.z), 0.22, 0.6, () => scene.remove(b));
     }
-    if (on.paid >= on.cost) { applyUnlock(on.id); player.onTile = null; setTip(null); save(); }
+    if (on.paid >= on.cost) paidOff();
   }
   if (player.tPay < 0) player.tPay = 0;
-  if (paidNow && !on.done) redrawTile(on);
+  if (paidNow && !on.done) redraw();
 }

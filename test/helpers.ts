@@ -23,6 +23,8 @@ export interface SaveFixture {
   mods?: Record<string, number>;
   season?: number;
   seasonT?: number;
+  presents?: number;
+  presentPaid?: number;
 }
 
 /** Tiles entries for already-bought upgrades. */

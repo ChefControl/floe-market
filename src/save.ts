@@ -8,6 +8,7 @@ import { waiterPlates } from './garden';
 import type { Holder } from './holder';
 import { addBillValue, billValue, kindOf, newBill, newBox, newRice, newSteak } from './items';
 import { player } from './player';
+import { givePresents, PRESENT, presents, redrawPresentTile } from './presents';
 import { addReview, reviews, WINDOW } from './rating';
 import {
   fishTray, loadPlates, platePrice, register, repriceSushi, ricePot, STARTER_RICE, sushi, sushiStock,
@@ -62,6 +63,9 @@ export interface SaveData {
   /** The season (0 winter, 1 spring, 2 summer, 3 autumn), and how many seconds into it. */
   season: number;
   seasonT: number;
+  /** Presents left at her door, and what's been paid toward the next one. */
+  presents: number;
+  presentPaid: number;
 }
 
 /** The one place that touches device storage. */
@@ -111,6 +115,7 @@ export function migrate(raw: unknown): SaveData {
     pile: num(s.pile), back: num(s.back), mods: modLevels,
     // saves from before the seasons start in winter, the way the game always looked
     season: num(s.season) % SEASONS.length, seasonT: Math.min(num(s.seasonT), SEASON_LEN - 1),
+    presents: num(s.presents), presentPaid: Math.min(num(s.presentPaid), PRESENT.cost - 1),
   };
   if (num(s.v) >= 4) {
     return {
@@ -203,10 +208,12 @@ export function save() {
     field: riceInField(),
     season: season.i,
     seasonT: Math.floor(season.t),
+    presents: presents.n,
+    presentPaid: PRESENT.paid,
   };
   const raw = JSON.stringify(data);
   if (deviceStore.write(raw)) lastSeen = raw;
-  if (!askedPersist && tiles.some(t => t.paid > 0)) requestPersistentStorage();
+  if (!askedPersist && (tiles.some(t => t.paid > 0) || presents.n > 0)) requestPersistentStorage();
 }
 
 /** Rebuilds a cash stack worth `sum` in bills of `unit`, capped at 60 bills (extra value goes on the top bill). */
@@ -238,6 +245,9 @@ export function load() {
   wallet.money = s.money;
   wallet.best = s.best;
   setSeason(s.season, s.seasonT, true);
+  givePresents(s.presents, true);
+  PRESENT.paid = s.presentPaid;
+  redrawPresentTile();
   s.reviews.forEach(addReview);
   // In the game's order, so the stage-up is in place before stage 2's upgrades.
   for (const t of tiles) {
