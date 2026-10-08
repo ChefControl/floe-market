@@ -3,6 +3,7 @@ import { initCloud } from './cloud';
 import { tick } from './game';
 import { initHint, updHint } from './hint';
 import { inputVec } from './input';
+import { updKofi } from './kofi';
 import { player } from './player';
 import { updPointers } from './pointers';
 import { camera, camK, fog, OFF, renderer, scene, sun, sunOff } from './render';
@@ -45,7 +46,7 @@ let last = performance.now();
 function frame(now: number) {
   const dt = Math.min(0.05, (now - last) / 1000);
   last = now;
-  if (!isStale()) tick(dt);
+  if (!isStale()) { tick(dt); updKofi(dt); }
 
   // Follow the player; the stage-up pulls back to look over the whole map for a moment.
   camTarget.lerp(player.g.position, Math.min(1, dt * 6));
