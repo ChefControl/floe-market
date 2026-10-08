@@ -53,7 +53,7 @@ Everything you hear is made in the browser as it plays (Web Audio), so the game 
   | 🍂 Autumn | C minor | 82 BPM slow swing | Reed | Brushes, soft kick |
 
   Parts come in as the restaurant is built: chords, bass and the tune to start, then drums and a walking bass, then busier piano and the tune answering itself, then a second voice.
-  - **Both stages:** each tune plays twice, and every fifth verse rests the tune. The music fades away under the songs at her house and Korki's statue, in the rain, and through the stage-up's fanfare. A chiptune set is saved for a future stage ([docs/music-ideas.md](docs/music-ideas.md))
+  - **Both stages:** each tune plays twice, and every fifth verse rests the tune. The music fades away under the songs at her house and Korki's statue, in the rain, and through the stage-up's fanfare. A chiptune set and a gloopy sumo-ring set are saved for future stages ([docs/music-ideas.md](docs/music-ideas.md))
 - **Easy on the ear**, following what's known about which sounds people find pleasant:
   - Consonant notes: effects on the major pentatonic, and two-note effects a fifth or a fourth apart (simple frequency ratios).
   - No half steps in the piano's chords, where they'd sound rough and muddy that low.
