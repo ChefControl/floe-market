@@ -44,7 +44,7 @@ function cashSpots() {
 }
 
 export function updPlayer(dt: number) {
-  const p = player.g.position, mv = inputVec();
+  const p = player.g.position, mv = player.frozen ? null : inputVec();
   if (mv) {
     p.x += mv.x * player.speed * dt; p.z += mv.z * player.speed * dt;
     const target = Math.atan2(mv.x, mv.z);

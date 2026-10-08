@@ -1,18 +1,25 @@
 import './errors'; // must stay first: catches errors thrown while the other modules build the scene
 import { initCloud } from './cloud';
+import { DEMO, startDemo } from './demo';
 import { tick } from './game';
 import { dismissIntro } from './input';
+import { drawOffer, offerCam } from './offer';
 import { player } from './player';
 import { updPointers } from './pointers';
 import { camera, camK, fog, OFF, renderer, scene, sun, sunOff } from './render';
 import { isStale, load, startAutosave, wipeSave } from './save';
 import { view } from './stage';
 import { hud, keepInSight } from './ui';
+import { V } from './util';
 
 // ---------- save / restart ----------
-if (load()) dismissIntro();
-startAutosave();
-initCloud();
+// The demo build (VITE_FUGU_DEMO=1) starts from a game that's one bill short of meeting Mr. Fugu, and keeps nothing.
+if (DEMO) startDemo();
+else {
+  if (load()) dismissIntro();
+  startAutosave();
+  initCloud();
+}
 
 const restartBtn = document.getElementById('restart')!;
 let armT: ReturnType<typeof setTimeout> | undefined;
@@ -34,7 +41,8 @@ restartBtn.addEventListener('click', () => {
 });
 
 // ---------- loop ----------
-const camTarget = player.g.position.clone(), look = camTarget.clone();
+const camTarget = player.g.position.clone(), look = camTarget.clone(), aim = look.clone();
+const smooth = (k: number) => k * k * (3 - 2 * k);
 let last = performance.now();
 
 function frame(now: number) {
@@ -47,7 +55,16 @@ function frame(now: number) {
   look.copy(camTarget).lerp(view.focus, view.k);
   const k = camK * view.zoom;
   camera.position.set(look.x + OFF.x * k, look.y + OFF.y * k, look.z + OFF.z * k);
-  camera.lookAt(look.x, look.y + 0.4, look.z);
+  aim.set(look.x, look.y + 0.4, look.z);
+  // Mr. Fugu's offer cuts to its own view of the hatch, and eases back to the player afterwards.
+  drawOffer();
+  if (offerCam.k > 0) {
+    const b = smooth(offerCam.k), s = offerCam.shake * 0.25;
+    camera.position.lerp(offerCam.pos, b);
+    aim.lerp(offerCam.look, b);
+    if (s) camera.position.add(V((Math.random() - 0.5) * s, (Math.random() - 0.5) * s, 0));
+  }
+  camera.lookAt(aim);
   fog.near = 34 * view.zoom; fog.far = 70 * view.zoom;
   sun.position.copy(look).add(sunOff);
   sun.target.position.copy(look);

@@ -9,6 +9,7 @@ import { updChopper, updFish, updHooks } from './fishing';
 import { updFlights } from './holder';
 import { updKorki } from './korki';
 import { updLooks } from './looks';
+import { updOffer } from './offer';
 import { updPlayer } from './playerUpdate';
 import { rainK, updHouse } from './rain';
 import { updRestaurant } from './restaurant';
@@ -52,4 +53,5 @@ export function tick(dt: number) {
   updShop();
   updLooks(dt);
   updRoof(dt, player.g.position, staging());
+  updOffer(dt);
 }

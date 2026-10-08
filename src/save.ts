@@ -3,6 +3,7 @@
 // copy of the game.
 import { C1, repriceFish, SLED, TAKEOUT, type Counter } from './counters';
 import { MODS, mods, type ModId } from './economy';
+import { loadOffer, offer } from './offer';
 import { steaksInProgress } from './fishing';
 import { waiterPlates } from './garden';
 import type { Holder } from './holder';
@@ -60,6 +61,8 @@ export interface SaveData {
   /** The season (0 winter, 1 spring, 2 summer, 3 autumn), and how many seconds into it. */
   season: number;
   seasonT: number;
+  /** Mr. Fugu's offer: 0 not met yet, 1 turned down for now, 2 in. */
+  fugu: number;
 }
 
 /** The one place that touches device storage. */
@@ -109,6 +112,7 @@ export function migrate(raw: unknown): SaveData {
     pile: num(s.pile), back: num(s.back), mods: modLevels,
     // saves from before the seasons start in winter, the way the game always looked
     season: num(s.season) % SEASONS.length, seasonT: Math.min(num(s.seasonT), SEASON_LEN - 1),
+    fugu: Math.min(num(s.fugu), 2),
   };
   if (num(s.v) >= 4) {
     return {
@@ -200,6 +204,7 @@ export function save() {
     field: riceInField(),
     season: season.i,
     seasonT: Math.floor(season.t),
+    fugu: offer.answer,
   };
   const raw = JSON.stringify(data);
   if (deviceStore.write(raw)) lastSeen = raw;
@@ -270,6 +275,7 @@ export function load() {
     wallet.money += s.tcash;
   }
   if (field.built) fill(fieldStack, s.field + riceLeft, newRice);
+  loadOffer(s.fugu);
   return true;
 }
 

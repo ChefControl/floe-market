@@ -121,6 +121,8 @@ const isDone = (id: UnlockId) => tiles.some(t => t.id === id && t.done);
 /** A stage's own upgrades: what its progress chip counts. */
 const goal = (n: 1 | 2) => tiles.filter(t => t.stage === n && !t.always && !t.gold);
 const built = (n: 1 | 2) => goal(n).every(t => t.done);
+/** All of a stage's own upgrades are built. */
+export const stageBuilt = built;
 
 function offered(t: Tile) {
   if (t.gold) return built(1);
