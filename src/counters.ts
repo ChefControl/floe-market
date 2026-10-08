@@ -15,6 +15,7 @@ import { honk, review, till } from './sfx';
 import { canvasTex, mesh, scene, type CanvasTex } from './render';
 import { popStars, popText } from './ui';
 import { FY, pick, rand, randi, V, type XZ } from './util';
+import { crowd } from './wardrobe';
 import { gapLogs, ROAD1_X, ROAD2_X } from './world';
 
 export interface Customer {
@@ -192,7 +193,7 @@ const leaving: Customer[] = [];
 
 function spawnCustomer(C: Counter) {
   const isSled = C.isSled;
-  const g = isSled ? makeSled(pick(PARKAS), pick(PARKAS)) : new Person(pick(PARKAS));
+  const g = isSled ? makeSled(pick(PARKAS), pick(PARKAS), crowd()) : new Person(pick(PARKAS), 'parka', crowd());
   g.position.copy(C.spawn()); scene.add(g);
   const want = randi(C.want[0], C.want[1]);
   const bt = canvasTex(128, 128, (c, w, h) => drawBubble(c, w, h, want, 1, C.icon));

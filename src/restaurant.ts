@@ -23,6 +23,7 @@ import { canvasTex, G, mat, mesh, scene, type CanvasTex } from './render';
 import { pile } from './stations';
 import { popStars, popText } from './ui';
 import { d2xz, FY, pick, rand, randi, V, type XZ } from './util';
+import { crowd, DRESSES } from './wardrobe';
 
 // ---------- layout ----------
 /** The bar is a stadium (two straights joined by half circles); R is the radius of the plate belt's centre line. */
@@ -409,7 +410,8 @@ function spawnDiner() {
   const free = sushi.seats.filter(s => !s.diner);
   if (!free.length) return;
   const seat = pick(free);
-  const g = new Person(pick(SUITS), 'fancy');
+  const who = crowd();
+  const g = new Person(pick(who.woman ? DRESSES : SUITS), 'fancy', who);
   g.position.copy(STREET); scene.add(g);
   const want = randi(1, 3);
   const bt = canvasTex(128, 128, (c, w, h) => drawBubble(c, w, h, want, 1, 'sushi'));
