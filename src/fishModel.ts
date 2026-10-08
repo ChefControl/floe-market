@@ -2,9 +2,10 @@
 // both ends, dark blue on the back fading to a silver belly, with a forked tail, fins and eyes. The geometry is built
 // once and shared. The nose points along +x.
 import {
-  BufferAttribute, Color, DoubleSide, Group, LatheGeometry, MathUtils, Mesh, MeshLambertMaterial, Shape, ShapeGeometry,
-  SphereGeometry, Vector2,
+  BufferAttribute, type BufferGeometry, Color, DoubleSide, Group, LatheGeometry, MathUtils, Mesh, MeshLambertMaterial,
+  Shape, ShapeGeometry, SphereGeometry, Vector2,
 } from 'three';
+import { bake, bakePainted, painted } from './render';
 
 const BACK = 0x2B4C86, BELLY = 0xDCE6EE, FIN = 0x23406F, GOLD = 0xF2C14E;
 
@@ -43,10 +44,31 @@ const eyeGeo = new SphereGeometry(0.035, 10, 8), pupilGeo = new SphereGeometry(0
 export const bodyMat = new MeshLambertMaterial({ vertexColors: true });
 const finMat = new MeshLambertMaterial({ color: FIN, side: DoubleSide });
 const goldMat = new MeshLambertMaterial({ color: GOLD, side: DoubleSide });
-const eyeMat = new MeshLambertMaterial({ color: 0xF4F6F8 }), pupilMat = new MeshLambertMaterial({ color: 0x111820 });
 
 /** Length of a whole fish, nose to tail tip. */
 export const FISH_LEN = 0.63 + 0.62 + 0.22;
+
+/** `geo` mirrored top to bottom, its triangles turned round so they face the way they did (as a scale.y of -1 draws). */
+function upsideDown<T extends BufferGeometry>(geo: T) {
+  const g = geo.clone().scale(1, -1, 1), ix = g.index!;
+  for (let i = 0; i < ix.count; i += 3) { const b = ix.getX(i + 1); ix.setX(i + 1, ix.getX(i + 2)); ix.setX(i + 2, b); }
+  return g;
+}
+const finletDown = upsideDown(finletGeo);
+const finsMat = new MeshLambertMaterial({ vertexColors: true, side: DoubleSide });
+
+// Everything but the body and tail is baked, a mesh for each stretch of the fish the cleaver cuts off in one go
+// (fishing.ts hides what's behind each cut by its x): the back pair of finlets; the front pair and the dorsal fin;
+// the pectoral fins; and the eyes. So a fish is 6 meshes rather than 13.
+const BACK_FINLETS = bake([{ geo: finletGeo, at: [0, 0.11, 0] }, { geo: finletDown, at: [0, -0.11, 0] }]);
+const FRONT_FINS = bakePainted([
+  { geo: finletGeo, c: GOLD, at: [0, 0.11, 0] }, { geo: finletDown, c: GOLD, at: [0, -0.11, 0] },
+  { geo: dorsalGeo, c: FIN, at: [0.32, 0.19, 0] },
+]);
+const PECTORALS = bake([-1, 1].map(s => ({ geo: pectoralGeo, at: [0, -0.02, s * 0.16], rot: [s * 0.5, 0, 0] })));
+const EYES = bakePainted([-1, 1].flatMap(s => [
+  { geo: eyeGeo, c: 0xF4F6F8, at: [0, 0.05, s * 0.1] }, { geo: pupilGeo, c: 0x111820, at: [0.015, 0.05, s * 0.125] },
+]));
 
 /** A new whole fish: the group, its body (for clipping when it's chopped) and its tail (to wiggle as it swims). */
 export function newFish() {
@@ -54,15 +76,7 @@ export function newFish() {
   const b = new Mesh(body, bodyMat); g.add(b);
   const tail = new Group(); tail.position.x = -0.6; g.add(tail);
   tail.add(new Mesh(tailGeo, finMat));
-  const dorsal = new Mesh(dorsalGeo, finMat); dorsal.position.set(0.02, 0.19, 0); g.add(dorsal);
-  // the little yellow finlets along the back and belly towards the tail, as on a tuna
-  for (const [x, up] of [[-0.3, 1], [-0.4, 1], [-0.3, -1], [-0.4, -1]] as const) {
-    const f = new Mesh(finletGeo, goldMat); f.position.set(x, up * 0.11, 0); f.scale.y = up; g.add(f);
-  }
-  for (const s of [-1, 1]) {
-    const p = new Mesh(pectoralGeo, finMat); p.position.set(0.28, -0.02, s * 0.16); p.rotation.x = s * 0.5; g.add(p);
-    const eye = new Mesh(eyeGeo, eyeMat); eye.position.set(0.47, 0.05, s * 0.1); g.add(eye);
-    const pupil = new Mesh(pupilGeo, pupilMat); pupil.position.set(0.485, 0.05, s * 0.125); g.add(pupil);
-  }
+  const parts = [[BACK_FINLETS, goldMat, -0.4], [FRONT_FINS, finsMat, -0.3], [PECTORALS, finMat, 0.28], [EYES, painted, 0.47]] as const;
+  for (const [geo, m, x] of parts) { const part = new Mesh(geo, m); part.position.x = x; g.add(part); }
   return { g, body: b, tail };
 }

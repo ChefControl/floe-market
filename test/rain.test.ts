@@ -74,8 +74,10 @@ describe('her house', () => {
     const tears = g.player.g.children.filter(c => !c.visible && c.scale.y === 1.6);
     /** Colour of the shirt or parka the player is wearing. */
     const top = () => {
-      const m = g.player.g.children.find(c => c.visible && c instanceof Mesh && c.geometry === g.render.G.body) as Mesh;
-      return (m.material as MeshLambertMaterial).color.getHex();
+      const own = g.player.g.worn().find(w => w.geo === g.render.G.body);
+      const jacket = g.player.g.children.find(c => c.visible && c instanceof Mesh && c.geometry === g.render.G.body) as Mesh | undefined;
+      expect(!own !== !jacket).toBe(true); // one or the other, never both
+      return own ? own.c : (jacket!.material as MeshLambertMaterial).color.getHex();
     };
     expect(top()).toBe(0xFF6B4A);
     expect(tears).toHaveLength(4);

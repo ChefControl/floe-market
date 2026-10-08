@@ -1,5 +1,5 @@
 // The singer's look: worn over a Person in place of their own clothes, and taken off again.
-import { Mesh } from 'three';
+import type { BufferGeometry } from 'three';
 import { expect, it } from 'vitest';
 import { Person } from '../src/characters';
 import { G } from '../src/render';
@@ -9,18 +9,21 @@ it('swaps the parka for the singer and back, arms set wider for his build', () =
   const p = new Person(0xFF6B4A);
   const before = p.children.length;
   const wear = singerLook(p);
-  const own = [...p.children.slice(0, before), ...p.arms.map(a => a.children[0])]
-    .filter(c => c instanceof Mesh && [G.body, G.hood, G.hoodBack, G.head, G.arm].includes(c.geometry));
-  const look = [...p.children.slice(before), ...p.arms.flatMap(a => a.children.slice(1))].filter(c => !c.userData.outfit);
-  expect(own).toHaveLength(6);
+  /** Their own body, head and hood (baked into the person, so read from what they're wearing). */
+  const own = () => p.worn().filter(w => ([G.body, G.hood, G.hoodBack, G.head] as BufferGeometry[]).includes(w.geo));
+  const sleeves = p.arms.map(a => a.children[0]);
+  const look = [...p.children.slice(before), ...p.arms.flatMap(a => a.children.slice(1))];
+  expect(own()).toHaveLength(4);
   expect(look.length).toBeGreaterThan(10);
   expect(look.some(o => o.visible)).toBe(false);
   wear(true);
   expect(p.arms.map(a => a.position.x)).toEqual([-0.3 * 1.1, 0.3 * 1.1]);
-  expect(own.some(o => o.visible)).toBe(false);
+  expect(own()).toHaveLength(0);
+  expect(sleeves.some(o => o.visible)).toBe(false);
   expect(look.every(o => o.visible)).toBe(true);
   wear(false);
   expect(p.arms.map(a => a.position.x)).toEqual([-0.3, 0.3]);
-  expect(own.every(o => o.visible)).toBe(true);
+  expect(own()).toHaveLength(4);
+  expect(sleeves.every(o => o.visible)).toBe(true);
   expect(look.some(o => o.visible)).toBe(false);
 });

@@ -9,7 +9,7 @@ import {
 import { decal, drawPad } from './decals';
 import { player } from './player';
 import { HALL_BOX, HOUSE_PATH_Z, YARD } from './layout';
-import { G, hemi, mat, mesh, scene, sky, sun } from './render';
+import { bake, G, hemi, mat, mesh, type Part, scene, sky, sun } from './render';
 import { PAL, seasonal, shelter } from './season';
 import { singerLook } from './singer';
 import { popText } from './ui';
@@ -66,13 +66,16 @@ function build() {
 
   // Low picket fence around the yard, open where the path comes in.
   const fx = YARD.x0 - 0.45, fz0 = YARD.z0 - 0.45, fz1 = YARD.z1 + 0.45;
-  const picket = (x: number, z: number) => scene.add(mesh(new BoxGeometry(0.08, 0.6, 0.08), 0xFFFFFF, x, FY + 0.3, z, true));
+  // baked: the pickets (which cast shadows) in one mesh, the rails (which don't) in another
+  const pickets: Part[] = [], rails: Part[] = [], picketGeo = new BoxGeometry(0.08, 0.6, 0.08);
+  const picket = (x: number, z: number) => pickets.push({ geo: picketGeo, at: [x, FY + 0.3, z] });
   for (let z = fz0; z <= fz1 + 0.01; z += 0.35) if (Math.abs(z - HOUSE_PATH_Z) > 0.6) picket(fx, z);
   for (let x = fx + 0.35; x < FRONT; x += 0.35) { picket(x, fz0); picket(x, fz1); }
   for (const [z0, z1] of [[fz0, HOUSE_PATH_Z - 0.6], [HOUSE_PATH_Z + 0.6, fz1]]) {
-    scene.add(mesh(new BoxGeometry(0.05, 0.06, z1 - z0), 0xFFFFFF, fx, FY + 0.42, (z0 + z1) / 2));
+    rails.push({ geo: new BoxGeometry(0.05, 0.06, z1 - z0), at: [fx, FY + 0.42, (z0 + z1) / 2] });
   }
-  for (const z of [fz0, fz1]) scene.add(mesh(new BoxGeometry(FRONT - fx, 0.06, 0.05), 0xFFFFFF, (fx + FRONT) / 2, FY + 0.42, z));
+  for (const z of [fz0, fz1]) rails.push({ geo: new BoxGeometry(FRONT - fx, 0.06, 0.05), at: [(fx + FRONT) / 2, FY + 0.42, z] });
+  scene.add(mesh(bake(pickets), 0xFFFFFF, 0, 0, 0, true), mesh(bake(rails), 0xFFFFFF));
 
   // The house: rose walls, a gable roof (snowy in winter), a red door, and her windows, lit.
   const { x, z, w, d, h } = HOUSE;

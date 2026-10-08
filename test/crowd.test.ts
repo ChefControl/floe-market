@@ -1,13 +1,16 @@
 // The crowd: walk-up customers, drivers and diners each mix a man's or a woman's wardrobe, so no two look alike.
-import { Mesh, type MeshLambertMaterial, type Object3D, type SphereGeometry } from 'three';
+import type { SphereGeometry } from 'three';
+import type { Person, Piece } from '../src/characters';
 import { describe, expect, it, vi } from 'vitest';
 import { bought, loadGame } from './helpers';
 
 const wardrobe = () => import('../src/wardrobe');
 const characters = () => import('../src/characters');
-/** What a person's showing of their seasonal clothes, hair and the like. */
-const worn = (o: Object3D) => o.children.filter(c => c.userData.outfit && c.visible);
-const hex = (o: Object3D) => ((o as Mesh).material as MeshLambertMaterial).color.getHex();
+/** What a person's showing of their seasonal clothes, hair and the like (baked into them, so read from what they wear). */
+const worn = (p: Person) => p.worn().filter(w => w.seasons);
+const hex = (w: Piece) => w.c;
+/** The colour of the piece of `p` in `geo` (the head, a leg, the body). */
+const colourOf = (p: Person, geo: unknown) => p.worn().find(w => w.geo === geo)!.c;
 /** How someone looks at a glance. */
 const look = (s: import('../src/wardrobe').Style) => [s.woman, s.skin, s.hair, s.cut, s.face, s.glasses, s.legs, s.skirt].join();
 
@@ -52,14 +55,13 @@ describe('the crowd', () => {
     while (!(st.woman && st.skirt !== null && st.cut === 'long' && st.winter === 'bobble')) st = crowd();
     const p = new Person(0x5B8DEF, 'parka', st);
     g.render.scene.add(p);
-    const head = p.children.find(c => c instanceof Mesh && c.geometry === g.render.G.head)!;
-    expect(hex(head)).toBe(st.skin);
-    expect(hex(p.legs[0].children[0])).toBe(st.legs);
+    expect(colourOf(p, g.render.G.head)).toBe(st.skin);
+    expect(colourOf(p, g.render.G.leg)).toBe(st.legs);
     expect(p.scale.x).toBeCloseTo(st.height);
-    const skirt = () => worn(p).filter(c => hex(c) === st.skirt && (c as Mesh).geometry.type === 'CylinderGeometry');
+    const skirt = () => worn(p).filter(c => hex(c) === st.skirt && c.geo.type === 'CylinderGeometry');
     const hair = () => worn(p).filter(c => hex(c) === st.hair);
     // winter: no hood, a woolly hat, and her long hair hanging down below it
-    expect(p.children.some(c => (c as Mesh).geometry === g.render.G.hood && c.visible)).toBe(false);
+    expect(p.worn().some(c => c.geo === g.render.G.hood)).toBe(false);
     expect(hair()).toHaveLength(1);
     expect(skirt()).toHaveLength(0);
     setSeason(1);
@@ -83,7 +85,7 @@ describe('the crowd', () => {
     g.render.scene.add(p);
     const frames = () => worn(p).filter(c => hex(c) === st.glasses);
     const beard = () => worn(p).filter(c => hex(c) === st.hair
-      && ((c as Mesh).geometry === g.render.G.box || ((c as Mesh).geometry as SphereGeometry).parameters.phiLength === 2.6));
+      && (c.geo === g.render.G.box || (c.geo as SphereGeometry).parameters.phiLength === 2.6));
     for (const season of [0, 1, 3]) {
       setSeason(season);
       expect(frames()).toHaveLength(3);
@@ -100,8 +102,8 @@ describe('the crowd', () => {
     const people = Array.from({ length: 20 }, crowd);
     const woman = people.find(p => p.woman)!, man = people.find(p => !p.woman)!;
     const her = new Person(DRESSES[0], 'fancy', woman), him = new Person(SUITS[0], 'fancy', man);
-    const pearls = (p: Object3D) => p.children.some(c => (c as Mesh).geometry?.type === 'TorusGeometry' && hex(c) === 0xF8F4EC);
-    const shirt = (p: Object3D) => p.children.some(c => (c as Mesh).geometry?.type === 'BoxGeometry' && hex(c) === 0xFFFFFF);
+    const pearls = (p: Person) => p.worn().some(c => c.geo.type === 'TorusGeometry' && hex(c) === 0xF8F4EC);
+    const shirt = (p: Person) => p.worn().some(c => c.geo.type === 'BoxGeometry' && hex(c) === 0xFFFFFF);
     expect(pearls(her) && !shirt(her)).toBe(true);
     expect(shirt(him) && !pearls(him)).toBe(true);
   });
@@ -114,8 +116,7 @@ describe('the crowd', () => {
     const { DRESSES } = await wardrobe();
     expect(new Set(sushi.diners.map(d => d.g.style.woman)).size).toBe(2);
     for (const d of sushi.diners) {
-      const body = d.g.children.find(c => (c as Mesh).geometry === g.render.G.body)!;
-      expect(d.g.style.woman ? DRESSES : SUITS).toContain(hex(body));
+      expect(d.g.style.woman ? DRESSES : SUITS).toContain(colourOf(d.g, g.render.G.body));
     }
     const { TAKEOUT } = g.counters;
     g.runUntil(() => TAKEOUT.queue.length > 0, 60);

@@ -2,7 +2,6 @@
 // shrinks the dock to its north half, takes down the south fence and moves the road east of the restaurant.
 import {
   BoxGeometry, Group, type Material, Mesh, MeshBasicMaterial, MeshLambertMaterial, PlaneGeometry, RepeatWrapping,
-  type Object3D,
 } from 'three';
 import { HOUSE_PATH_Z } from './layout';
 import { bake, canvasTex, G, mat, mesh, scene, type Part } from './render';
@@ -83,34 +82,40 @@ export const gapLogs: Mesh[] = [];
 /** Fence south of the restaurant's line: gone in stage 2. Logs stand on the deck, so the group shrinks into it. */
 const fence1 = new Group();
 scene.add(fence1);
-function log(x: number, z: number, into: Object3D = scene) {
+// The logs that stay put are baked into one mesh for the whole fence and one for fence1 (two draw calls, not ~80).
+const logs: Part[] = [], logs1: Part[] = [];
+function log(x: number, z: number, into: Part[] | null) {
   const h = rand(.78, .98);
-  const l = mesh(G.log, 0xB0724A, x, FY + h / 2 - 0.05, z, true);
-  l.scale.y = h; into.add(l);
+  const at: Part['at'] = [x, FY + h / 2 - 0.05, z];
+  if (into) { into.push({ geo: G.log, at, scale: [1, h, 1] }); return null; }
+  const l = mesh(G.log, 0xB0724A, ...at, true);
+  l.scale.y = h; scene.add(l);
   return l;
 }
-for (let z = -6.2; z <= 8; z += 0.5) log(-7.85, z, z > 1.3 ? fence1 : undefined);
+for (let z = -6.2; z <= 8; z += 0.5) log(-7.85, z, z > 1.3 ? logs1 : logs);
 for (let x = -7.35; x <= 7.9; x += 0.5) {
   if (x > 1.7 && x < 4.3) continue;
-  log(x, 7.85, fence1);
+  log(x, 7.85, logs1);
 }
 for (let z = -6.2; z < 7.6; z += 0.5) {
   if (Math.abs(z - HOUSE_PATH_Z) < 0.5) continue; // the gap for the path to her house
-  const l = log(7.85, z, z > 1.3 ? fence1 : undefined);
-  if (z > -2.3 && z < 0.3) gapLogs.push(l);
+  const gap = z > -2.3 && z < 0.3;
+  const l = log(7.85, z, gap ? null : z > 1.3 ? logs1 : logs);
+  if (l) gapLogs.push(l);
 }
+scene.add(mesh(bake(logs), 0xB0724A, 0, 0, 0, true));
+fence1.add(mesh(bake(logs1), 0xB0724A, 0, 0, 0, true));
 
 // ---------- roads ----------
+const dashGeo = new PlaneGeometry(0.12, 0.9), dashMat = new MeshBasicMaterial({ color: 0xE8EEF2 });
 /** A road running north-south at `x`, with its centre line. Grouped at its own x so it can pop in sideways. */
 function road(x: number) {
   const g = new Group(); g.position.x = x; scene.add(g);
   const r = mesh(new PlaneGeometry(2.1, 130), 0x6B7785);
   r.rotation.x = -Math.PI / 2; g.add(r);
-  const dashGeo = new PlaneGeometry(0.12, 0.9), dashMat = new MeshBasicMaterial({ color: 0xE8EEF2 });
-  for (let z = -64; z < 64; z += 2.2) {
-    const d = new Mesh(dashGeo, dashMat);
-    d.rotation.x = -Math.PI / 2; d.position.set(0, 0.01, z); g.add(d);
-  }
+  const dashes: Part[] = [];
+  for (let z = -64; z < 64; z += 2.2) dashes.push({ geo: dashGeo, at: [0, 0.01, z], rot: [-Math.PI / 2, 0, 0] });
+  g.add(new Mesh(bake(dashes), dashMat));
   return g;
 }
 /** The road past the sled window, and in stage 2 the one past the takeout kiosk, east of the restaurant. */

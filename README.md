@@ -11,6 +11,7 @@ npm install
 npm run dev
 ```
 
+- **Loading:** a loading screen shows the game's scripts coming in, megabytes so far out of the total (about 1.3 MB, or 380 kB over the wire compressed: there are no image or sound files to fetch), then stays up while the world is built, until the first frame is drawn
 - **Move:** drag anywhere (touch or mouse) for a virtual joystick, or use WASD / arrow keys. The first time on a device, a small card below the player shows how, and how to buy (a finger on the joystick on phones and tablets, the keys on a computer, going by the browser's user agent); once you've walked a little it shrinks away into the ⚙️ settings gear, where **Controls** brings it back
 - **Settings (⚙️, top right):** sign in for cloud saves; **Sound**, which opens into the effects, the ambience and the music, each with a mute button and a volume from 1 to 10 (7 is the game's mix; each step is about 2 dB), remembered on the device; Controls; **Buy me a coffee**, which opens the game's [Ko-fi page](https://ko-fi.com/chefcontrol) in a pop-up window of its own (a new tab where pop-ups are blocked), so the game stays put; and Restart. While the menu is closed, a dot on the gear shows the cloud's state. After 10 minutes of play on a device, a toast says once where Buy me a coffee is and the gear pulses, unless the player has already found it
 - **Fish:** stand on the 🎣 pad to hook fish; they get chopped into fish slices automatically
@@ -161,7 +162,7 @@ Progress saves automatically on the device, including your reviews, the season a
 - **Offline:** the button says so, and the game keeps saving on the device until it can reach the cloud again.
 - **Signing out** keeps the game on the device.
 - **Saves are private:** each one is one Firestore document, `saves/{your account id}`, which only you can read or write (`firestore.rules`).
-- **Download:** Firebase is a separate download (about 150 kB compressed). It's fetched a few seconds after the game starts, or straight away on a device that's signed in, so the sign-in window opens the moment you tap.
+- **Download:** Firebase is a separate script (about 160 kB compressed). The loading screen fetches it with the game's own; it starts a few seconds after the game does, or straight away on a device that's signed in, so the sign-in window opens the moment you tap.
 
 **Setting it up** (free Spark plan, no billing needed; the sign-in button stays hidden until this is done). Menu names are as of October 2026:
 
@@ -201,7 +202,7 @@ TypeScript + [three.js r186](https://threejs.org/), bundled with [Vite](https://
 
 `.github/workflows/deploy.yml` runs the tests on every pull request and push. On `main`, it builds and deploys to GitHub Pages only if they pass.
 
-Each deploy removes the last one's files, and GitHub Pages lets browsers keep the page for 10 minutes. A page kept from before a deploy, or a tab left open across one, would ask for files that are gone: the game wouldn't start, or Firebase wouldn't load. So the page reloads once to fetch the new version (an inline script in `index.html` for the game's script, `src/errors.ts` for Firebase), at most once a minute in case the site is actually down.
+Each deploy removes the last one's files, and GitHub Pages lets browsers keep the page for 10 minutes. A page kept from before a deploy, or a tab left open across one, would ask for files that are gone: the game wouldn't start, or Firebase wouldn't load. So the page reloads once to fetch the new version (an inline script in `index.html` for the game's script, which the loading screen adds even when its own fetch fails, so it's still seen to fail; `src/errors.ts` for Firebase), at most once a minute in case the site is actually down.
 
 `overrides` in `package.json` lifts Firestore's `@grpc/grpc-js` (pinned to 1.9.x, which has known vulnerabilities) to a patched release. Only Firestore's Node.js build uses it, so the game in the browser is the same either way. Drop the override once `@firebase/firestore` depends on 1.13.6 or later.
 
@@ -213,7 +214,7 @@ Each deploy removes the last one's files, and GitHub Pages lets browsers keep th
 
 | File | Contents |
 | --- | --- |
-| `src/main.ts` | Entry point: boot, restart button, camera and render loop |
+| `src/main.ts` | Entry point: boot, restart button, camera and render loop; takes the loading screen away on the first frame |
 | `src/game.ts` | `tick()`: one simulation step for the whole world |
 | `src/render.ts` | Renderer, scene, camera, lights, shared materials/geometry, canvas helpers |
 | `src/world.ts` | Static scenery: water, the dock (both stages'), fences, roads, trees |
@@ -261,7 +262,7 @@ Each deploy removes the last one's files, and GitHub Pages lets browsers keep th
 | `src/ui.ts` | HUD and stage chip (which folds the modifier list), toasts, tips, floating text, the stage-up banner and confetti, and sliding the view so an open panel never covers the player |
 | `src/save.ts` | Per-device save/load, migration, autosave, one-tab-at-a-time guard |
 | `src/cloud.ts` | Cloud saves: the sign-in button, syncing with the account, asking which game to keep |
-| `src/firebase.ts` / `src/cloud.config.ts` | Cloud saves on Firebase (Google sign-in, Firestore), loaded on demand / the Firebase project's config |
+| `src/firebase.ts` / `src/cloud.config.ts` | Cloud saves on Firebase (Google sign-in, Firestore), downloaded on the loading screen and started a few seconds in / the Firebase project's config |
 | `src/wallet.ts` | Money |
 | `src/errors.ts` | On-screen error reporting, and reloading once when a deploy removed a file the page needs |
 | `src/util.ts` | Math/random helpers |

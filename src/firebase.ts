@@ -1,6 +1,6 @@
 // Cloud saves on Firebase: Google sign-in, and each player's save as one Firestore document, saves/{uid}. The
 // scoreboard is one more document per player, scores/{uid}, which anyone can read.
-// cloud.ts loads this only once cloud saves are in use, so players who never sign in don't download it.
+// The loading screen downloads this with the game (index.html); cloud.ts starts it only once cloud saves are in use.
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, onAuthStateChanged, signInWithPopup, signOut } from 'firebase/auth';
 import {

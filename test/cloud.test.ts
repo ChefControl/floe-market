@@ -268,6 +268,20 @@ describe('cloud saves', () => {
     Object.defineProperty(document, 'hidden', { configurable: true, get: () => false });
   });
 
+  it('leaves the cloud alone while the page stays hidden, and syncs again once it is back', async () => {
+    vi.useFakeTimers();
+    const { c } = await start({ money: 120 });
+    await signIn(c);
+    await vi.waitFor(() => expect(fake.writes).toBe(1));
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => true });
+    const reads = fake.reads;
+    await vi.advanceTimersByTimeAsync(c.SYNC_EVERY * 1000 * 3);
+    expect(fake.reads).toBe(reads);
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => false });
+    await vi.advanceTimersByTimeAsync(c.SYNC_EVERY * 1000);
+    expect(fake.reads).toBeGreaterThan(reads);
+  });
+
   it("a tab that's handed the game to another tab leaves the cloud alone", async () => {
     const { g, c } = await start({ money: 120 });
     await signIn(c);

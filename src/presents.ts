@@ -126,8 +126,10 @@ export function givePresents(n = 1, silent = false) {
     if (g) gifts.push(g);
     else { presents.n += n - k - 1; break; } // the pile's full: the rest are only counted
   }
+  const folding = !!newest;
   if (newest) { scene.remove(newest); newest.children.forEach(m => (m as Mesh).geometry.dispose()); newest = null; }
-  if (silent || !added) rebuild(gifts.length);
+  // a full pile only needs baking again to fold the last one to pop in back into it
+  if (silent || !added) { if (silent || folding) rebuild(gifts.length); }
   else {
     // the newest is its own group, at its base so it grows up out of the pile
     rebuild(gifts.length - 1);

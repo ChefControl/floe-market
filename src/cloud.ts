@@ -2,8 +2,8 @@
 // the save stays on this device (save.ts). Signed in, the save syncs with the account every half minute and when
 // the page is hidden. A sync compares both sides with how they were at the last sync: if only one has moved on,
 // it wins; if both have (two devices played since), the player picks which game to keep. Firebase itself
-// (firebase.ts) is only fetched while cloud saves are on: at once for a signed-in device, otherwise a few seconds
-// after the game starts, so the sign-in window can open the moment the button is tapped. Signed-in players also put
+// (firebase.ts, downloaded by the loading screen) is only started while cloud saves are on: at once for a signed-in
+// device, otherwise a few seconds after the game starts, so the sign-in window can open the moment the button is tapped. Signed-in players also put
 // their best on the scoreboard (scores.ts).
 import { firebaseConfig } from './cloud.config';
 import { deviceStore, isStale, replaceSave, type SaveData } from './save';
@@ -248,6 +248,8 @@ export function initCloud() {
   if (readLink()?.on) connect().catch(() => { cloud.state = 'offline'; render(); });
   else setTimeout(() => { connect().catch(() => {}); }, 4000);
   setInterval(() => {
+    // nothing changes while the page is hidden (it synced on the way out), so don't spend a cloud read on it
+    if (document.hidden) return;
     // a signed-in device that started offline fetches Firebase once it can
     if (!backend && readLink()?.on) connect().catch(() => {});
     else void sync();
