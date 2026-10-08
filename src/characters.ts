@@ -2,20 +2,17 @@ import { BoxGeometry, BufferGeometry, CylinderGeometry, Group, type Mesh, MeshLa
 import { G, mat, mesh, scene } from './render';
 import { current, onSeason, type Season } from './season';
 import type { XZ } from './util';
+import { KNITS, plain, type Style } from './wardrobe';
 
 export const PARKAS = [0xF2B33D, 0x7A6FF0, 0x3FA37C, 0xE85D75, 0x5B8DEF, 0xF08A4B, 0x9B5DE5, 0x2EC4B6];
-/** Suit colours for the sushi bar's well-dressed diners. */
+/** Suit colours for the sushi bar's well-dressed diners (the women wear DRESSES, wardrobe.ts). */
 export const SUITS = [0x22303C, 0x3B3F6B, 0x5A2E3A, 0x2F4A44, 0x4A4F57];
 
-/** Everyday clothes (a parka in winter), a diner's suit and top hat, a sushi chef's whites, a farmer's straw hat, or a server's indigo. */
+/** Everyday clothes (a parka in winter), a diner's evening clothes, a sushi chef's whites, a farmer's straw hat, or a server's indigo. */
 export type Look = 'parka' | 'fancy' | 'chef' | 'farmer' | 'waiter';
 
 // ---------- seasonal clothes ----------
-const SKIN = 0xF3C9A4;
-/** Hair, spring caps and autumn knits, handed out in turn so a crowd looks mixed (no Math.random: see rain.ts). */
-const HAIR = [0x3B2A20, 0x6B4A2E, 0x1E1B1A, 0xC99A5B, 0x8A4B2A];
-const CAPS = [0xF4A6B8, 0x9AD3E8, 0xF6E27A, 0xB7E4A8, 0xFFFFFF, 0xC9B6F2];
-const KNITS = [0xC0392B, 0xE8A33D, 0x2E7D6B, 0x6A4C93, 0x3A6EA5, 0xD9775B];
+const ALL: Season[] = ['winter', 'spring', 'summer', 'fall'];
 let dressed = 0;
 const hairGeo = new SphereGeometry(0.216, 14, 8, 0, Math.PI * 2, 0, Math.PI * 0.46);
 const capGeo = new SphereGeometry(0.217, 14, 8, 0, Math.PI * 2, 0, Math.PI * 0.4);
@@ -27,6 +24,20 @@ const forearmGeo = new BoxGeometry(0.106, 0.17, 0.126);
 const shinGeo = new BoxGeometry(0.136, 0.125, 0.156);
 const scarfGeo = new TorusGeometry(0.19, 0.065, 6, 14);
 const headbandGeo = new TorusGeometry(0.195, 0.022, 6, 18);
+// The crowd's hair, hats and the like (wardrobe.ts). The head is a 0.2 sphere at (0, 1.03, 0.05); +z is the face.
+const curlsGeo = new SphereGeometry(0.245, 9, 6, 0, Math.PI * 2, 0, Math.PI * 0.5);
+const bobGeo = new SphereGeometry(0.226, 14, 8, 0, Math.PI * 2, 0, Math.PI * 0.62);
+/** Bald on top: hair round the sides and back. */
+const fringeGeo = new SphereGeometry(0.212, 14, 6, Math.PI / 2 + 1, Math.PI * 2 - 2, Math.PI * 0.42, Math.PI * 0.18);
+const beardGeo = new SphereGeometry(0.209, 14, 8, Math.PI / 2 - 1.3, 2.6, Math.PI * 0.52, Math.PI * 0.32);
+const rimGeo = new TorusGeometry(0.036, 0.008, 4, 12);
+/** A hairband over the top of the head, ear to ear. */
+const aliceGeo = new TorusGeometry(0.224, 0.018, 6, 16, Math.PI);
+const domeGeo = new SphereGeometry(0.2, 14, 7, 0, Math.PI * 2, 0, Math.PI / 2);
+const skirtGeo = new CylinderGeometry(0.29, 0.37, 0.28, 14);
+const pearlsGeo = new TorusGeometry(0.2, 0.02, 6, 20);
+/** A trapper hat's turned-up fur. */
+const furGeo = new TorusGeometry(0.212, 0.05, 6, 18);
 
 /** A walker with swinging limbs. */
 export class Person extends Group {
@@ -42,32 +53,36 @@ export class Person extends Group {
   private outfit: { o: Object3D; in: Season[] }[] = [];
   /** Wearing someone else's look (the singer's), over everything seasonal. */
   disguised = false;
+  /** Who they are: a mix of a man's or a woman's wardrobe for the crowd, or the plain look everyone else has. */
+  readonly style: Style;
 
-  constructor(color: number, look: Look = 'parka') {
+  /** `style` mixes a crowd member up (wardrobe.ts crowd()); without one they get the plain look. */
+  constructor(color: number, look: Look = 'parka', style?: Style) {
     super();
+    const n = dressed++;
+    const st = this.style = style ?? plain(n);
+    // women are a little slimmer, their arms a little closer in
+    const slim = st.woman ? 0.9 : 1;
     for (const s of [-1, 1]) {
       const p = new Group(); p.position.set(s * 0.1, 0.3, 0);
-      p.add(mesh(G.leg, 0x2C3A47, 0, -0.15, 0, true)); this.add(p); this.legs.push(p);
-      const a = new Group(); a.position.set(s * 0.3, 0.82, 0.02);
+      p.add(mesh(G.leg, st.legs, 0, -0.15, 0, true)); this.add(p); this.legs.push(p);
+      const a = new Group(); a.position.set(s * (st.woman ? 0.28 : 0.3), 0.82, 0.02);
       a.add(mesh(G.arm, color, 0, -0.15, 0, true)); this.add(a); this.arms.push(a);
     }
-    this.add(mesh(G.body, color, 0, 0.6, 0, true));
-    this.add(mesh(G.head, SKIN, 0, 1.03, 0.05));
+    const body = mesh(G.body, color, 0, 0.6, 0, true); body.scale.set(slim, 1, slim); this.add(body);
+    this.add(mesh(G.head, st.skin, 0, 1.03, 0.05));
     for (const s of [-1, 1]) this.add(mesh(G.eye, 0x1B2733, s * 0.07, 1.06, 0.24));
-    if (look === 'fancy') this.dressUp();
+    if (look === 'fancy') this.dressUp(st, color, !!style);
     if (look === 'waiter') this.serverClothes();
     if (look === 'chef') this.chefWhites();
     if (look === 'farmer') {
       const hat = mesh(G.cone, 0xE3C26B, 0, 1.27, 0.03, true); hat.scale.set(0.36, 0.17, 0.36); this.add(hat);
     }
-    const n = dressed++;
-    if (look === 'parka') {
-      this.part(['winter'], G.hoodBack, color, 0, 1.03, -0.04);
-      this.part(['winter'], G.hood, 0xF8FAFC, 0, 1.03, 0.1).castShadow = false;
-      this.everyday(n);
-    }
+    if (look === 'parka') this.everyday(st, color);
+    if (style) this.features(st, look === 'parka' && st.summer === 'shades');
     // a scarf for the cold, over the suit or the farmer's shirt
     if (look === 'fancy' || look === 'farmer') this.scarf(['winter', 'fall'], look === 'fancy' ? 0xF4EBDD : KNITS[n % KNITS.length]);
+    this.scale.setScalar(st.height);
     this.wear();
   }
 
@@ -81,23 +96,110 @@ export class Person extends Group {
   }
 
   /**
-   * Everyday clothes out of winter: hair showing, and in spring a baseball cap, in summer short sleeves, shorts and
-   * sunglasses, in autumn a woolly hat with a bobble and a scarf. (Winter's parka hood is built with the body.)
+   * Hair in the style's cut: what covers the head in the `top` seasons (when no hat or hood hides it), and what hangs
+   * down below a hat (long hair, a ponytail) in the `hang` ones.
    */
-  private everyday(n: number) {
-    this.part(['spring', 'summer'], hairGeo, HAIR[n % HAIR.length], 0, 1.03, 0.05).rotation.x = -0.35;
-    const cap = CAPS[n % CAPS.length];
-    this.part(['spring'], capGeo, cap, 0, 1.045, 0.04).rotation.x = -0.15;
-    this.part(['spring'], brimGeo, cap, 0, 1.14, 0.265).rotation.x = -0.4;
-    for (const s of [-1, 1]) this.part(['summer'], lensGeo, 0x1B2430, s * 0.07, 1.075, 0.262).rotation.y = s * 0.3;
-    this.part(['summer'], G.box, 0x1B2430, 0, 1.085, 0.272).scale.set(0.05, 0.014, 0.014);
-    for (const a of this.arms) this.part(['summer'], forearmGeo, SKIN, 0, -0.245, 0, a);
-    for (const l of this.legs) this.part(['summer'], shinGeo, SKIN, 0, -0.19, 0, l);
-    const knit = KNITS[(n + 2) % KNITS.length];
-    this.part(['fall'], beanieGeo, knit, 0, 1.05, 0.04).rotation.x = -0.2;
-    this.part(['fall'], cuffGeo, knit, 0, 1.1, 0.05).rotation.x = Math.PI / 2 - 0.2;
-    this.part(['fall'], G.sphere, 0xF4F1EA, 0, 1.28, 0.0).scale.setScalar(0.065);
-    this.scarf(['fall'], KNITS[(n + 4) % KNITS.length]);
+  private hairdo(st: Style, top: Season[], hang: Season[]) {
+    const c = st.hair;
+    if (st.cut === 'bald') { this.part(top, fringeGeo, c, 0, 1.03, 0.05); return; }
+    if (st.cut === 'curly') { this.part(top, curlsGeo, c, 0, 1.04, 0.04).rotation.x = -0.3; return; }
+    if (st.cut === 'bob') { this.part(top, bobGeo, c, 0, 1.03, 0.04).rotation.x = -0.6; return; }
+    this.part(top, hairGeo, c, 0, 1.03, 0.05).rotation.x = -0.35;
+    if (st.cut === 'quiff') {
+      const q = this.part(top, G.sphere, c, 0.03, 1.215, 0.15); q.scale.set(0.12, 0.055, 0.09); q.rotation.z = -0.2;
+    }
+    if (st.cut === 'bun') this.part(top, G.sphere, c, 0, 1.2, -0.12).scale.setScalar(0.085);
+    if (st.cut === 'long') {
+      const l = this.part(hang, G.sphere, c, 0, 0.93, -0.09); l.scale.set(0.215, 0.21, 0.12); l.rotation.x = 0.15;
+    }
+    if (st.cut === 'ponytail') {
+      const t = this.part(hang, G.sphere, c, 0, 0.94, -0.2); t.scale.set(0.06, 0.15, 0.06); t.rotation.x = 0.4;
+      this.part(hang, G.sphere, c, 0, 1.07, -0.17).scale.setScalar(0.05);
+    }
+  }
+
+  /** The crowd's year-round looks: a moustache, a beard or earrings, and glasses (sunglasses stand in when `shades`). */
+  private features(st: Style, shades: boolean) {
+    const c = st.hair;
+    if (st.face === 'mustache' || st.face === 'beard' || st.face === 'goatee') {
+      this.part(ALL, G.box, c, 0, 0.985, 0.243).scale.set(0.13, 0.032, 0.035);
+    }
+    if (st.face === 'beard') this.part(ALL, beardGeo, c, 0, 1.03, 0.05);
+    if (st.face === 'goatee') this.part(ALL, G.box, c, 0, 0.895, 0.2).scale.set(0.07, 0.07, 0.04);
+    if (st.face === 'earrings') for (const s of [-1, 1]) this.part(ALL, G.sphere, 0xE8C25A, s * 0.2, 0.96, 0.06).scale.setScalar(0.024);
+    if (st.glasses !== null) {
+      const seasons = shades ? ALL.filter(s => s !== 'summer') : ALL;
+      for (const s of [-1, 1]) this.part(seasons, rimGeo, st.glasses, s * 0.07, 1.06, 0.262);
+      this.part(seasons, G.box, st.glasses, 0, 1.068, 0.268).scale.set(0.06, 0.012, 0.012);
+    }
+  }
+
+  /** A straw hat for the summer, a wide-brimmed sun hat or a little one, with a band in `ribbon`; tipped back off the face. */
+  private strawHat(wide: boolean, ribbon: number) {
+    const r = wide ? 0.33 : 0.26;
+    const brim = this.part(['summer'], G.cyl, 0xE8CF8A, 0, 1.17, 0.02); brim.scale.set(r, 0.02, r);
+    const crown = this.part(['summer'], G.cyl, 0xE8CF8A, 0, 1.25, 0); crown.scale.set(0.18, 0.15, 0.18);
+    const band = this.part(['summer'], G.cyl, ribbon, 0, 1.2, 0.006); band.scale.set(0.185, 0.045, 0.185);
+    for (const o of [brim, crown, band]) o.rotation.x = -0.25;
+  }
+
+  /** A woolly hat with a turned-up cuff and a bobble. */
+  private bobble(seasons: Season[], c: number) {
+    this.part(seasons, beanieGeo, c, 0, 1.05, 0.04).rotation.x = -0.2;
+    this.part(seasons, cuffGeo, c, 0, 1.1, 0.05).rotation.x = Math.PI / 2 - 0.2;
+    this.part(seasons, G.sphere, 0xF4F1EA, 0, 1.28, 0.0).scale.setScalar(0.065);
+  }
+
+  /**
+   * Everyday clothes. In winter a parka in `color` with its fur-trimmed hood up, or the hood down under a woolly hat,
+   * earmuffs or a trapper hat, and a scarf; then hair showing, and in spring a baseball cap or a hairband, in summer
+   * short sleeves, shorts (or a skirt) and sunglasses or a straw hat, in autumn a woolly hat with a bobble, a beret or
+   * a flat cap, and a scarf. A skirt is worn in spring too.
+   */
+  private everyday(st: Style, color: number) {
+    const w = st.winter;
+    if (w === 'hood') {
+      this.part(['winter'], G.hoodBack, color, 0, 1.03, -0.04);
+      this.part(['winter'], G.hood, st.fur, 0, 1.03, 0.1).castShadow = false;
+    }
+    if (w === 'earmuffs') {
+      this.part(['winter'], aliceGeo, 0x3A3A3A, 0, 1.03, 0.05).scale.setScalar(1.02);
+      for (const s of [-1, 1]) this.part(['winter'], G.sphere, st.winterC, s * 0.215, 1.0, 0.05).scale.set(0.05, 0.085, 0.085);
+    }
+    if (w === 'trapper') {
+      const t = this.part(['winter'], domeGeo, st.winterC, 0, 1.06, 0.03); t.scale.set(1.15, 0.85, 1.15); t.rotation.x = -0.15;
+      const brim = this.part(['winter'], furGeo, st.fur, 0, 1.11, 0.04); brim.rotation.x = Math.PI / 2 - 0.2;
+      for (const s of [-1, 1]) {
+        const f = this.part(['winter'], G.box, st.fur, s * 0.215, 0.98, 0.04); f.scale.set(0.05, 0.17, 0.17); f.rotation.z = s * 0.1;
+      }
+    }
+    const bareHead = w === 'earmuffs' ? ['winter'] as Season[] : [];
+    const out = w === 'hood' ? [] : ['winter'] as Season[];
+    this.hairdo(st, ['spring', 'summer', ...bareHead], ['spring', 'summer', 'fall', ...out]);
+    if (st.spring === 'cap') {
+      this.part(['spring'], capGeo, st.springC, 0, 1.045, 0.04).rotation.x = -0.15;
+      this.part(['spring'], brimGeo, st.springC, 0, 1.14, 0.265).rotation.x = -0.4;
+    }
+    if (st.spring === 'band') this.part(['spring'], aliceGeo, st.springC, 0, 1.035, 0.07).rotation.x = -0.35;
+    if (st.summer === 'shades') {
+      for (const s of [-1, 1]) this.part(['summer'], lensGeo, 0x1B2430, s * 0.07, 1.075, 0.262).rotation.y = s * 0.3;
+      this.part(['summer'], G.box, 0x1B2430, 0, 1.085, 0.272).scale.set(0.05, 0.014, 0.014);
+    } else this.strawHat(st.summer === 'sunhat', st.summerC);
+    for (const a of this.arms) this.part(['summer'], forearmGeo, st.skin, 0, -0.245, 0, a);
+    for (const l of this.legs) this.part(['summer'], shinGeo, st.skin, 0, -0.19, 0, l);
+    if (st.skirt !== null) this.part(['spring', 'summer'], skirtGeo, st.skirt, 0, 0.33, 0);
+    const knit = st.fallC;
+    if (w === 'bobble') this.bobble(['winter'], st.winterC);
+    if (st.fall === 'bobble') this.bobble(['fall'], knit);
+    if (st.fall === 'beret') {
+      const b = this.part(['fall'], G.sphere, knit, 0.03, 1.19, 0.02); b.scale.set(0.245, 0.075, 0.245); b.rotation.z = 0.2;
+      this.part(['fall'], G.sphere, knit, 0.06, 1.27, 0.02).scale.setScalar(0.025);
+    }
+    if (st.fall === 'flatcap') {
+      const c = this.part(['fall'], domeGeo, knit, 0, 1.1, 0.04); c.scale.set(1.08, 0.55, 1.12); c.rotation.x = 0.12;
+      this.part(['fall'], brimGeo, knit, 0, 1.13, 0.255).rotation.x = -0.15;
+    }
+    this.scarf(['fall', ...out], st.scarfC);
   }
 
   /** A knitted scarf round the neck, one end hanging down the front. */
@@ -114,16 +216,49 @@ export class Person extends Group {
     for (const w of this.outfit) w.o.visible = !this.disguised && w.in.includes(s);
   }
 
-  /** Top hat, white shirt front and a red bow tie. */
-  private dressUp() {
+  /**
+   * Dressed for the evening. Men: a white shirt front and a bow tie or a tie, under a top hat, a bowler or none.
+   * Women: a dress in `color` that flares into a skirt, pearls, and a wide-brimmed hat, a pillbox or none.
+   * The crowd's diners (`hair`) have their hair done too.
+   */
+  private dressUp(st: Style, color: number, hair: boolean) {
     const part = (geo: BufferGeometry, c: number, x: number, y: number, z: number, sx: number, sy: number, sz: number) => {
       const m = mesh(geo, c, x, y, z, true); m.scale.set(sx, sy, sz); this.add(m); return m;
     };
-    part(G.cyl, 0x1B2430, 0, 1.2, 0.03, 0.26, 0.03, 0.26);
-    part(G.cyl, 0x1B2430, 0, 1.36, 0.03, 0.16, 0.3, 0.16);
-    part(G.cyl, 0xC0392B, 0, 1.25, 0.03, 0.165, 0.05, 0.165);
+    if (hair) this.hairdo(st, ALL, ALL);
+    const h = st.hatC;
+    if (st.hat === 'top') {
+      part(G.cyl, h, 0, 1.2, 0.03, 0.26, 0.03, 0.26);
+      part(G.cyl, h, 0, 1.36, 0.03, 0.16, 0.3, 0.16);
+      part(G.cyl, 0xC0392B, 0, 1.25, 0.03, 0.165, 0.05, 0.165);
+    }
+    if (st.hat === 'bowler') {
+      part(G.cyl, h, 0, 1.17, 0.04, 0.25, 0.02, 0.25);
+      part(domeGeo, h, 0, 1.17, 0.04, 0.95, 0.85, 0.95);
+    }
+    if (st.hat === 'brim') {
+      // tipped back, so the camera above still sees her face
+      for (const p of [
+        part(G.cyl, h, 0, 1.18, 0.02, 0.34, 0.02, 0.34),
+        part(domeGeo, h, 0, 1.18, 0.02, 0.9, 0.7, 0.9),
+        part(G.cyl, st.neckC, 0, 1.2, 0.02, 0.182, 0.04, 0.182),
+      ]) p.rotation.x = -0.3;
+      part(G.sphere, 0xF4F1EA, 0.15, 1.24, -0.04, 0.05, 0.05, 0.05);
+    }
+    if (st.hat === 'pillbox') {
+      part(G.cyl, h, 0.07, 1.215, 0.06, 0.11, 0.08, 0.11).rotation.z = -0.3;
+      part(G.cone, 0xF4F1EA, 0.13, 1.3, 0.02, 0.025, 0.14, 0.025).rotation.z = -0.6;
+    }
+    if (st.woman) {
+      part(skirtGeo, color, 0, 0.33, 0, 1, 1, 1);
+      part(pearlsGeo, 0xF8F4EC, 0, 0.91, 0.03, 1, 1, 1).rotation.x = Math.PI / 2;
+      return;
+    }
     part(G.box, 0xFFFFFF, 0, 0.74, 0.24, 0.14, 0.26, 0.02);
-    for (const s of [-1, 1]) part(G.cone, 0xC0392B, s * 0.05, 0.86, 0.25, 0.05, 0.07, 0.03).rotation.z = s * Math.PI / 2;
+    if (st.neck === 'tie') {
+      part(G.box, st.neckC, 0, 0.72, 0.255, 0.055, 0.22, 0.02).rotation.x = -0.12;
+      part(G.box, st.neckC, 0, 0.855, 0.245, 0.06, 0.05, 0.03);
+    } else for (const s of [-1, 1]) part(G.cone, st.neckC, s * 0.05, 0.86, 0.25, 0.05, 0.07, 0.03).rotation.z = s * Math.PI / 2;
   }
 
   /**
@@ -203,10 +338,10 @@ const SKI = new BoxGeometry(0.1, 0.06, 2.1);
 const TYRE = new CylinderGeometry(0.17, 0.17, 0.12, 14), HUB = new CylinderGeometry(0.08, 0.08, 0.13, 10);
 const OUT_OF_WINTER: Season[] = ['spring', 'summer', 'fall'];
 /**
- * A snowmobile and its driver. Out of winter it runs on four wheels instead of its skis: a little car, in effect,
+ * A snowmobile and its driver (dressed in `style`, or plainly). Out of winter it runs on four wheels instead of its skis: a little car, in effect,
  * still called a snowmobile in the code.
  */
-export function makeSled(color: number, driverColor: number) {
+export function makeSled(color: number, driverColor: number, style?: Style) {
   const g = new Group();
   g.add(mesh(new BoxGeometry(0.9, 0.38, 1.5), color, 0, 0.34, 0, true));
   g.add(mesh(new BoxGeometry(0.86, 0.24, 0.5), color, 0, 0.28, 0.95, true));
@@ -220,7 +355,7 @@ export function makeSled(color: number, driverColor: number) {
   }
   const ws = mesh(new BoxGeometry(0.78, 0.36, 0.05), glass, 0, 0.68, 0.62); ws.rotation.x = -0.45; g.add(ws);
   g.add(mesh(new BoxGeometry(0.82, 0.08, 0.62), 0x5B4636, 0, 0.56, -0.52));
-  const d = new Person(driverColor); d.scale.setScalar(0.85); d.position.set(0, 0.28, 0.1);
+  const d = new Person(driverColor, 'parka', style); d.scale.setScalar(0.85 * d.style.height); d.position.set(0, 0.28, 0.1);
   d.arms.forEach(a => a.rotation.x = -1.1);
   g.add(d);
   return g;
