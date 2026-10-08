@@ -101,6 +101,20 @@ describe('saving progress', () => {
     expect([fishTray.n, ricePot.n]).toEqual([2, 2]);
   });
 
+  it('remembers the most cash the game has held at once, for the scoreboard', async () => {
+    const g1 = await loadGame({ money: 50 });
+    const { addMoney } = await import('../src/wallet');
+    addMoney(100);
+    g1.wallet.money = 20; // spent on an upgrade
+    g1.saveMod.save();
+    expect(stored()).toMatchObject({ money: 20, best: 150 });
+    const g2 = await loadGame(localStorage.getItem(KEY)!);
+    expect(g2.wallet.best).toBe(150);
+    // saves from before the scoreboard start from the cash they have
+    expect(g2.saveMod.migrate({ v: 4, money: 12 }).best).toBe(12);
+    expect(g2.saveMod.migrate({ v: 2, money: 30 }).best).toBe(30);
+  });
+
   it('pays out takeout cash if the window is gone', async () => {
     const g = await loadGame({ money: 1, tcash: 9 });
     expect(g.wallet.money).toBe(10);

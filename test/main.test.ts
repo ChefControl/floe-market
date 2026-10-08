@@ -8,7 +8,7 @@ const stored = () => localStorage.getItem('floe-market-v1') ?? '';
 
 it('boots from a save, renders, autosaves and restarts', async () => {
   const g = await loadGame({ money: 7 }, { main: true });
-  expect($('intro').classList.contains('gone')).toBe(true);
+  expect($('hint').hidden).toBe(false); // how to walk, the first time on this device
   expect(stored()).toContain('"v":4'); // claims the save at once, so older tabs step aside
 
   // render loop
@@ -44,9 +44,9 @@ it('boots from a save, renders, autosaves and restarts', async () => {
   vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'performance'] });
   const btn = $('restart');
   btn.click();
-  expect(btn.textContent).toBe('Tap again to erase progress');
+  expect($('restartText').textContent).toBe('Tap again to erase progress');
   vi.advanceTimersByTime(2500);
-  expect(btn.textContent).toBe('Restart');
+  expect($('restartText').textContent).toBe('Restart');
   btn.click();
   btn.click();
   expect(stored()).not.toBe('');

@@ -11,6 +11,7 @@ describe("Korki's statue", () => {
     const tile = g.unlocks.tiles.find(t => t.id === 'korki')!;
     expect(tile.cost).toBe(10);
     g.placePlayer(KORKI.x, KORKI.z);
+    g.press('e');
     g.runUntil(() => tile.done, 5);
     expect(g.wallet.money).toBe(5);
     expect($('toast').textContent).toBe("Korki's golden statue unlocked");

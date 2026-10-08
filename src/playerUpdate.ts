@@ -1,4 +1,5 @@
 // Per-frame player logic: movement plus every station interaction.
+import { updBuy } from './buy';
 import { animPerson } from './characters';
 import { COUNTERS } from './counters';
 import { tryCatch } from './fishing';
@@ -6,7 +7,7 @@ import { collideGarden } from './garden';
 import { fly, type Holder } from './holder';
 import { billValue, newBill, type Kind } from './items';
 import { boost } from './economy';
-import { inputVec } from './input';
+import { buyHeld, inputVec } from './input';
 import { korkiStatue, STATUE } from './korki';
 import { groundY, keepOnFloor, pushOutOfBox, stage, walkable } from './layout';
 import { player } from './player';
@@ -14,6 +15,8 @@ import { scene } from './render';
 import { collide, FISH_DROP, fishTray, register, REGISTER, RICE_DROP, ricePot, sushi } from './restaurant';
 import { field, fieldStack, harvestNear, PATCH_AT, ripeNear, STACK_AT } from './rice';
 import { save } from './save';
+import { current } from './season';
+import { coin, pay, pick, put, step } from './sfx';
 import { CHOP, PAD, PILE, pile } from './stations';
 import { setTip, type TipContent } from './ui';
 import { applyUnlock, locked, redrawTile, visibleTiles, type Tile } from './unlocks';
@@ -78,6 +81,7 @@ export function updPlayer(dt: number) {
     while (player.tPick <= 0 && player.back.hasRoom() && pile.items.length) {
       player.tPick += 0.06;
       player.back.receive(pile.take()!, 0.22, 0.7);
+      pick();
     }
   }
   // take bags off the farmer's stack on the path
@@ -85,6 +89,7 @@ export function updPlayer(dt: number) {
     while (player.tPick <= 0 && player.back.hasRoom() && fieldStack.items.length) {
       player.tPick += 0.06;
       player.back.receive(fieldStack.take()!, 0.22, 0.7);
+      pick();
     }
   }
   if (player.tPick < 0) player.tPick = 0;
@@ -106,6 +111,7 @@ export function updPlayer(dt: number) {
     while (player.tDrop <= 0 && s.stock.hasRoom() && player.back.count(s.kind)) {
       player.tDrop += 0.06;
       s.stock.receive(player.back.takeKind(s.kind)!, 0.25, 0.8);
+      put();
     }
   }
   if (player.tDrop < 0) player.tDrop = 0;
@@ -117,7 +123,7 @@ export function updPlayer(dt: number) {
       player.tCash += 0.025;
       const b = s.cash.take()!, v = billValue(b);
       wallet.inFlight += v;
-      fly(b, () => V(p.x, p.y + 0.75, p.z), 0.22, 0.6, () => { scene.remove(b); wallet.inFlight -= v; addMoney(v); });
+      fly(b, () => V(p.x, p.y + 0.75, p.z), 0.22, 0.6, () => { scene.remove(b); wallet.inFlight -= v; addMoney(v); coin(); });
     }
     if (player.tCash < 0) player.tCash = 0;
   }
@@ -127,27 +133,36 @@ export function updPlayer(dt: number) {
   for (const t of visibleTiles()) {
     if (Math.abs(p.x - t.x) < t.half && Math.abs(p.z - t.z) < t.half) { on = t; break; }
   }
-  if (on !== player.onTile) { player.onTile = on; player.tileStand = 0; }
+  player.onTile = on;
   setTip(on ? on.tip : (sushi.built && STATION_TIPS.find(s => d2xz(p, s.pos) < s.r * s.r)?.tip) || null);
-  if (on && !locked(on)) payInto(on, dt);
+  const forSale = !!on && !locked(on) && !on.done;
+  updBuy(forSale, dt);
+  if (forSale && buyHeld()) payInto(on!, dt);
 
   player.g.rotation.y = player.h;
   animPerson(player.g, player.moving, dt, player.back.n > 0);
+  footsteps();
   player.back.layout(player.h);
 }
 
-/** Drains money into the tile after a short stand delay; applies the unlock when paid off. */
-/** Seconds on a tile before it takes money: longer than walking across one, so only stopping on it pays. */
-const STAND = 0.6;
+/** A footstep each time a foot comes down: on boards (at deck height), or on the ground in its season. */
+let stepsTaken = 0;
+function footsteps() {
+  const n = player.moving ? Math.floor(player.g.phase / Math.PI) : 0;
+  if (n > stepsTaken) step(Math.abs(player.g.position.y - FY) < 0.05 ? 'wood' : current());
+  stepsTaken = n;
+}
 
+/** Drains money into the tile while the player holds buy on it; applies the unlock when paid off. */
 function payInto(on: Tile, dt: number) {
   const p = player.g.position;
-  player.tileStand += dt; player.tPay -= dt;
+  player.tPay -= dt;
   let paidNow = false;
-  while (player.tileStand > STAND && wallet.money > 0 && player.tPay <= 0 && !on.done) {
+  while (wallet.money > 0 && player.tPay <= 0 && !on.done) {
     player.tPay += 0.03; paidNow = true;
     const chunk = Math.min(Math.max(1, Math.ceil(on.cost / 45)), wallet.money, on.cost - on.paid);
     wallet.money -= chunk; on.paid += chunk;
+    pay(on.paid / on.cost);
     if (Math.random() < 0.5) {
       const b = newBill(0); b.position.set(p.x, p.y + 0.75, p.z); scene.add(b);
       fly(b, () => V(on.x, (on.y ?? FY) + 0.05, on.z), 0.22, 0.6, () => scene.remove(b));

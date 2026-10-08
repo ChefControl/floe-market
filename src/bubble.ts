@@ -35,6 +35,15 @@ export const moodColor = (left: number) => left > 0.6 ? '#49C25B' : left > 0.35 
 /** Patience in 5% steps, so a bubble is only redrawn when its ring visibly changes. */
 export const patienceStep = (left: number) => Math.ceil(Math.max(0, left) * 20);
 
+/** Each icon, and the box it's drawn in: x, y, width, height. */
+const ICONS: Record<OrderIcon, { draw: (c: CanvasRenderingContext2D) => void; box: [number, number, number, number] }> = {
+  fish: { draw: fishIcon, box: [10, 38, 54, 32] },
+  sushi: { draw: sushiIcon, box: [22, 44, 44, 30] },
+  box: { draw: boxIcon, box: [18, 40, 52, 34] },
+};
+/** How big the icon is drawn, the space between it and the count, and the widest the pair may be inside the ring. */
+const ICON_K = 0.8, GAP = 6, ROOM = 72;
+
 export function drawBubble(c: CanvasRenderingContext2D, w: number, h: number, n: number, left: number, icon: OrderIcon) {
   c.clearRect(0, 0, w, h);
   c.fillStyle = '#fff'; c.beginPath(); c.arc(64, 58, 52, 0, 7); c.fill();
@@ -45,9 +54,20 @@ export function drawBubble(c: CanvasRenderingContext2D, w: number, h: number, n:
     c.strokeStyle = moodColor(left);
     c.beginPath(); c.arc(64, 58, 46, -Math.PI / 2, -Math.PI / 2 + left * Math.PI * 2); c.stroke();
   }
-  if (icon === 'fish') fishIcon(c); else if (icon === 'sushi') sushiIcon(c); else boxIcon(c);
-  c.fillStyle = '#173042'; c.font = '800 36px ' + FONT; c.textAlign = 'center'; c.textBaseline = 'middle';
-  c.fillText('×' + n, 84, 60);
+  // The icon and the count side by side, centred in the ring as a pair, both on its middle line, and shrunk
+  // together if a long count would push them into the ring.
+  const { draw, box: [bx, by, bw, bh] } = ICONS[icon];
+  const label = '×' + n;
+  c.font = '800 34px ' + FONT; c.textAlign = 'left'; c.textBaseline = 'alphabetic';
+  const m = c.measureText(label);
+  const iw = bw * ICON_K, tw = m.actualBoundingBoxLeft + m.actualBoundingBoxRight;
+  const pair = iw + GAP + tw, k = Math.min(1, ROOM / pair);
+  c.save();
+  c.translate(64 - pair * k / 2, 58); c.scale(k, k);
+  c.save(); c.scale(ICON_K, ICON_K); c.translate(-bx, -(by + bh / 2)); draw(c); c.restore();
+  c.fillStyle = '#173042';
+  c.fillText(label, iw + GAP + m.actualBoundingBoxLeft, (m.actualBoundingBoxAscent - m.actualBoundingBoxDescent) / 2);
+  c.restore();
 }
 
 export type Mood = 'meh' | 'angry';

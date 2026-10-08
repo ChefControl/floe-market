@@ -4,20 +4,11 @@ import { V } from './util';
 
 const stick = document.getElementById('stick')!;
 const knob = document.getElementById('knob')!;
-const intro = document.getElementById('intro')!;
 
 const joy = { id: null as number | null, sx: 0, sy: 0, x: 0, y: 0 };
 const keys: Record<string, boolean> = {};
 
-export function dismissIntro() {
-  if (!intro.classList.contains('gone')) {
-    intro.classList.add('gone');
-    setTimeout(() => intro.remove(), 400);
-  }
-}
-
 canvas.addEventListener('pointerdown', e => {
-  dismissIntro();
   joy.id = e.pointerId; joy.sx = e.clientX; joy.sy = e.clientY; joy.x = joy.y = 0;
   stick.style.left = e.clientX + 'px'; stick.style.top = e.clientY + 'px';
   stick.style.display = 'block'; knob.style.transform = '';
@@ -38,12 +29,20 @@ function endJoy(e: PointerEvent) {
 }
 canvas.addEventListener('pointerup', endJoy);
 canvas.addEventListener('pointercancel', endJoy);
+/** Keys typed into a control (the volume sliders) are for it, not for walking. */
+const forControl = (e: KeyboardEvent) => !!(e.target as Element | null)?.closest?.('input, select, textarea');
 window.addEventListener('keydown', e => {
+  if (forControl(e)) return;
   keys[e.key.toLowerCase()] = true;
   if (e.key.startsWith('Arrow')) e.preventDefault();
-  dismissIntro();
 });
 window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+
+/** The Buy button (on a touch screen) held down. */
+let buyButton = false;
+export const holdBuyButton = (on: boolean) => { buyButton = on; };
+/** Buying: E held, or the Buy button. */
+export const buyHeld = () => !!keys['e'] || buyButton;
 
 // Screen-relative directions projected onto the ground, so "up" walks away from the camera.
 const camF = V(-OFF.x, 0, -OFF.z).normalize(), camR = V(-camF.z, 0, camF.x);

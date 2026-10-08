@@ -60,6 +60,21 @@ describe('upgrade looks', () => {
     expect(beltColor(g)).toBe(0x1E1E1E);
   });
 
+  it('takes the headband off when the restaurant opens', async () => {
+    const g = await loadGame({ money: 1e9, mods: { training: 3 } });
+    g.run(0.05);
+    expect(g.player.g.band?.visible).toBe(true);
+    g.layout.stage.n = 2;
+    g.run(0.05);
+    expect(g.player.g.band?.visible).toBe(false);
+  });
+
+  it('has no headband in a stage 2 game, whatever crew training was bought', async () => {
+    const g = await loadGame({ tiles: bought('sushi'), mods: { training: 8 } });
+    g.run(0.05);
+    expect(g.player.g.band?.visible ?? false).toBe(false);
+  });
+
   it("hangs a menu tag over the kitchen line for each of the chef's specials", async () => {
     const g = await loadGame({ tiles: bought('sushi'), money: 1e9 });
     g.run(0.05);
@@ -97,7 +112,7 @@ describe('upgrade looks', () => {
     expect(shown(ads)).toBe(4);
     expect(ads[3].scale.x).toBe(1);
     expect(shown(g.looks.tags)).toBe(5);
-    expect(beltColor(g)).toBe(g.looks.BELTS[2]);
+    expect(g.player.g.band?.visible ?? false).toBe(false); // the market's headband stays with the market
     const top = hatTop(g);
     g.run(0.5);
     expect(hatTop(g)).toBe(top); // already at full height, not still growing

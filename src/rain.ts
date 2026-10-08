@@ -105,10 +105,10 @@ function build() {
   const pole = mesh(G.cyl, 0x2C3A47, lx, FY + 1.3, lz, true); pole.scale.set(0.06, 2.6, 0.06); scene.add(pole);
   scene.add(mesh(new BoxGeometry(0.08, 0.06, 0.5), 0x2C3A47, lx, FY + 2.6, lz + 0.22));
   const bulb = mesh(G.sphere, glow, lx, FY + 2.5, lz + 0.45); bulb.scale.set(0.13, 0.1, 0.13); scene.add(bulb);
-  // Her red mailbox by the gate, outside the fence.
-  const mx = fx - 0.4, mz = HOUSE_PATH_Z + 0.9;
-  const post = mesh(G.cyl, 0x7A5236, mx, FY + 0.4, mz, true); post.scale.set(0.05, 0.8, 0.05); scene.add(post);
-  scene.add(mesh(new BoxGeometry(0.42, 0.26, 0.24), 0xD8394B, mx, FY + 0.9, mz, true));
+  // Her red mailbox by the gate, out on the grass well clear of the fence, its door facing the path.
+  const mx = fx - 0.95, mz = HOUSE_PATH_Z + 0.95;
+  const post = mesh(G.cyl, 0x7A5236, mx, (FY + 0.8) / 2, mz, true); post.scale.set(0.05, FY + 0.8, 0.05); scene.add(post);
+  scene.add(mesh(new BoxGeometry(0.24, 0.26, 0.42), 0xD8394B, mx, FY + 0.9, mz, true));
   // A few trees round the back.
   scene.add(treeGroup([[30.5, HOUSE_PATH_Z - 3.8, 1.2, 0], [31.2, HOUSE_PATH_Z + 3.2, 1, 0], [24.5, HOUSE_PATH_Z + 5.2, 0.9, 0]]));
 }
@@ -119,8 +119,13 @@ const pad = decal(1.9, (c, w, h) => drawPad(c, w, h, '💔'));
 pad.mesh.position.set(RAIN_PAD.x, FY + 0.01, RAIN_PAD.z);
 
 // ---------- rain ----------
-/** Raindrops fill a box this many metres either side of the player, up to TOP high. */
+/**
+ * Raindrops fill a box this many metres either side of the player, up to TOP high. They stay put in the world as the
+ * player walks (only falling): a drop that ends up more than SPREAD behind comes back in ahead.
+ */
 const SPREAD = 15, TOP = 12, FALL = 13, DROP = 0.6, DROPS = 1800;
+/** Wraps an offset from the player into the box round them. */
+const wrap = (v: number) => v - 2 * SPREAD * Math.floor((v + SPREAD) / (2 * SPREAD));
 /** Seconds for the rain to set in, and to clear once the player walks off. */
 const RAIN_IN = 2.5, RAIN_OUT = 3;
 const drops = new Float32Array(DROPS * 3);
@@ -154,12 +159,12 @@ function updRain(dt: number, on: boolean) {
   rain.visible = rainK > 0;
   if (!rain.visible) return;
   rainMat.opacity = 0.75 * rainK;
-  rain.position.set(player.g.position.x, 0, player.g.position.z);
+  const p = player.g.position;
   for (let i = 0; i < DROPS; i++) {
     let y = drops[i * 3 + 1] - FALL * dt;
     if (y < 0) y += TOP;
     drops[i * 3 + 1] = y;
-    const x = drops[i * 3], z = drops[i * 3 + 2], j = i * 6;
+    const x = p.x + wrap(drops[i * 3] - p.x), z = p.z + wrap(drops[i * 3 + 2] - p.z), j = i * 6;
     rainPos[j] = x; rainPos[j + 1] = y; rainPos[j + 2] = z;
     rainPos[j + 3] = x + 0.06; rainPos[j + 4] = y + DROP; rainPos[j + 5] = z + 0.03;
   }

@@ -4,12 +4,14 @@
 import { BoxGeometry, Group, Mesh, Sprite, SpriteMaterial, Vector3 } from 'three';
 import { drawBubble, moodMat, newMoodSprite, patienceStep, type OrderIcon } from './bubble';
 import { animPerson, makeSled, moveEnt, PARKAS, Person } from './characters';
-import { decal, drawDrop } from './decals';
+import { decal, drawPad } from './decals';
 import { boost, FISH_PRICE, mods, priced, SUSHI_PRICE, type ModId } from './economy';
 import { KIOSK } from './hall';
 import { carrySlot, Holder, type Slot } from './holder';
 import { addBillValue, newBill } from './items';
+import { player } from './player';
 import { addReview, demand, starsFor } from './rating';
+import { honk, review, till } from './sfx';
 import { canvasTex, mesh, scene, type CanvasTex } from './render';
 import { popStars, popText } from './ui';
 import { FY, pick, rand, randi, V, type XZ } from './util';
@@ -38,6 +40,9 @@ export interface Customer {
   /** Remaining exit waypoints once served. */
   path: Vector3[];
   hands: Holder;
+  /** A driver's seconds held up by the player in the road ahead, and whether it's stopped this frame (for anyone behind). */
+  held: number;
+  stopped: boolean;
 }
 
 interface CounterSpec {
@@ -92,7 +97,7 @@ function place(C: Counter, ...ms: Mesh[]) {
   for (const m of ms) { if (!m.parent) scene.add(m); m.visible = C.enabled; C.meshes.push(m); }
 }
 function dropPad(at: Vector3, icon: string) {
-  const d = decal(1.9, (c, w, h) => drawDrop(c, w, h, icon));
+  const d = decal(1.9, (c, w, h) => drawPad(c, w, h, icon));
   d.mesh.position.set(at.x, FY + 0.01, at.z);
   return d.mesh;
 }
@@ -198,7 +203,7 @@ function spawnCustomer(C: Counter) {
   g.add(mood);
   const c: Customer = {
     g, want, got: 0, h: isSled ? C.faceH : -Math.PI / 2, speed: isSled ? 5 : 2.4, isSled,
-    moving: false, arrived: false, queued: false, wait: 0, payT: 0, bubble: sp, bt, drawn: -1, mood, path: [],
+    moving: false, arrived: false, queued: false, wait: 0, payT: 0, bubble: sp, bt, drawn: -1, mood, path: [], held: 0, stopped: false,
     hands: new Holder(isSled
       // on the seat behind the driver, whichever way the sled is facing
       ? i => { const p = g.position, j = i % 2; return V(p.x + (j - 0.5) * 0.36, 0.66 + Math.floor(i / 2) * 0.105, p.z - Math.cos(c.h) * 0.52); }
@@ -229,13 +234,51 @@ function pay(C: Counter, c: Customer) {
       if (top) addBillValue(top, v); else C.cash.receive(b, 0.35, 1.0);
     }
   });
-  if (values.length) popText('+$' + values.reduce((a, v) => a + v, 0), C.cashPos);
+  if (values.length) { popText('+$' + values.reduce((a, v) => a + v, 0), C.cashPos); till(C.cashPos); }
 }
 
 function depart(C: Counter, c: Customer, stars?: number) {
-  if (stars !== undefined) { addReview(stars); popStars(stars, c.g.position); }
+  if (stars !== undefined) { addReview(stars); popStars(stars, c.g.position); review(stars, c.g.position); }
   c.bubble.visible = false; c.mood.visible = false;
   c.path = C.exit(); leaving.push(c);
+}
+
+// ---------- on the road ----------
+/** A driver sees this far up the road, and the road's this wide either side of a driver. */
+const AHEAD = 4.2, LANE = 1.3;
+/** Whether `o` is in the road ahead of `c`, driving towards `tgt`, within `reach`. */
+function ahead(c: Customer, tgt: XZ, o: XZ, reach: number) {
+  const p = c.g.position, dx = tgt.x - p.x, dz = tgt.z - p.z, d = Math.hypot(dx, dz);
+  const ox = o.x - p.x, oz = o.z - p.z, along = (ox * dx + oz * dz) / d;
+  return along > 0.3 && along < reach && Math.abs(ox * dz - oz * dx) / d < LANE;
+}
+/** Every driver on the road: queuing, or on the way home. */
+const drivers = () => leaving.concat(...COUNTERS.map(C => C.queue)).filter(c => c.isSled);
+
+/**
+ * Moves a customer towards `tgt`; returns true once there. Drivers stop for the player in the road ahead (on the
+ * zebra crossing to her house, or anywhere else), and behind a driver who's stopped. Kept waiting by the player, a
+ * driver beeps, then leans on the horn with an angry face, again and again, until the road's clear.
+ */
+function drive(c: Customer, tgt: XZ, dt: number) {
+  const going = c.isSled && Math.hypot(tgt.x - c.g.position.x, tgt.z - c.g.position.z) > 0.06;
+  const byPlayer = going && ahead(c, tgt, player.g.position, AHEAD);
+  c.stopped = byPlayer || (going && drivers().some(o => o !== c && o.stopped && ahead(c, tgt, o.g.position, 2.8)));
+  if (!byPlayer) {
+    if (c.held) c.mood.visible = false;
+    c.held = 0;
+  } else {
+    const was = c.held;
+    c.held += dt;
+    if (was < 0.6 && c.held >= 0.6) honk(c.g.position);
+    // past 2.5 seconds, a long angry blast every 2.2
+    const blasts = (t: number) => (t < 2.5 ? 0 : 1 + Math.floor((t - 2.5) / 2.2));
+    if (blasts(c.held) > blasts(was)) honk(c.g.position, true);
+    c.mood.visible = c.held > 1.2;
+    if (c.mood.visible) c.mood.material = moodMat(c.held > 2.5 ? 'angry' : 'meh');
+  }
+  if (c.stopped) { c.moving = false; return false; }
+  return moveEnt(c, tgt, dt);
 }
 
 /** The heading from one spot to another: queuers face the one ahead of them. */
@@ -250,12 +293,13 @@ export function updCounter(C: Counter, dt: number) {
     spawnCustomer(C);
   }
   C.queue.forEach((c, i) => {
-    c.arrived = moveEnt(c, C.slot(i), dt);
+    c.arrived = drive(c, C.slot(i), dt);
     if (c.arrived) { c.h = i === 0 || C.isSled ? C.faceH : facing(C.slot(i), C.slot(i - 1)); c.queued = true; }
     if (c.queued) c.wait += dt;
     const left = 1 - c.wait / C.patience;
     c.bubble.visible = i === 0 && c.arrived && c.got < c.want;
     if (c.bubble.visible) showOrder(C, c, left);
+    if (c.held) return; // held up on the road: drive() shows how they feel about it
     c.mood.visible = i > 0 && c.queued && left < 0.5;
     if (c.mood.visible) c.mood.material = moodMat(left < 0.25 ? 'angry' : 'meh');
   });
@@ -309,7 +353,7 @@ export function marketLeftovers() {
 export function updLeaving(dt: number) {
   for (let i = leaving.length - 1; i >= 0; i--) {
     const c = leaving[i];
-    if (moveEnt(c, c.path[0], dt)) c.path.shift();
+    if (drive(c, c.path[0], dt)) c.path.shift();
     if (!c.path.length) {
       scene.remove(c.g); c.hands.clear(); c.bt.tex.dispose(); c.bubble.material.dispose();
       leaving.splice(i, 1);

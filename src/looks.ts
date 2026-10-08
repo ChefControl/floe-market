@@ -1,7 +1,7 @@
 // What the repeatable upgrades (shop.ts) look like in the world: every level bought shows somewhere.
 //   Fine fillets: the price board over the walk-up counter shows the new price, and gains a star.
 //   Marketing: each campaign for real (ads.ts): posters, a radio, a billboard, a TV commercial, lanterns, a food critic...
-//   Crew training: the player's headband, coloured like a judo belt, from white to black.
+//   Crew training: the player's headband, coloured like a judo belt, from white to black (stage 1 only).
 //   Chef's specials: a wooden menu tag over the kitchen line for each, a new dish on every one.
 //   Kitchen crew: the chefs' and cooks' toques grow taller.
 import { BoxGeometry, Group, MeshLambertMaterial, type Object3D } from 'three';
@@ -112,8 +112,10 @@ export function updLooks(dt: number) {
   showFirst(tags, mods.specials, quiet);
   if (mods.specials > 0 && !rail.visible) { rail.visible = true; if (!quiet) popIn(rail); }
   restaurantLooks.visible = stage.n === 2;
-  if (mods.training !== belt) {
-    belt = mods.training;
+  // The headband is the market's crew training: it comes off when the restaurant opens.
+  const wear = stage.n === 1 ? mods.training : 0;
+  if (wear !== belt) {
+    belt = wear;
     player.g.headband(belt ? BELTS[Math.min(belt, BELTS.length) - 1] : null);
     if (belt && !quiet) popIn(player.g.band!);
   }

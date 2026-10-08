@@ -2,12 +2,15 @@ import './errors'; // must stay first: catches errors thrown while the other mod
 import { initCloud } from './cloud';
 import { DEMO, startDemo } from './demo';
 import { tick } from './game';
-import { dismissIntro } from './input';
+import { initHint, updHint } from './hint';
+import { inputVec } from './input';
 import { drawOffer, offerCam } from './offer';
 import { player } from './player';
 import { updPointers } from './pointers';
 import { camera, camK, fog, OFF, renderer, scene, sun, sunOff } from './render';
 import { isStale, load, startAutosave, wipeSave } from './save';
+import { initScores } from './scores';
+import './settings';
 import { view } from './stage';
 import { hud, keepInSight } from './ui';
 import { V } from './util';
@@ -16,22 +19,24 @@ import { V } from './util';
 // The demo build (VITE_FUGU_DEMO=1) starts from a game that's one bill short of meeting Mr. Fugu, and keeps nothing.
 if (DEMO) startDemo();
 else {
-  if (load()) dismissIntro();
+  load();
   startAutosave();
   initCloud();
+  initHint();
+  initScores();
 }
 
-const restartBtn = document.getElementById('restart')!;
+const restartBtn = document.getElementById('restart')!, restartText = document.getElementById('restartText')!;
 let armT: ReturnType<typeof setTimeout> | undefined;
 let armedAt = 0;
 restartBtn.addEventListener('click', () => {
   // First tap arms the button; a second, deliberate tap within 2.5s erases the save.
   if (!restartBtn.classList.contains('armed')) {
     restartBtn.classList.add('armed');
-    restartBtn.textContent = 'Tap again to erase progress';
+    restartText.textContent = 'Tap again to erase progress';
     armedAt = performance.now();
     clearTimeout(armT);
-    armT = setTimeout(() => { restartBtn.classList.remove('armed'); restartBtn.textContent = 'Restart'; }, 2500);
+    armT = setTimeout(() => { restartBtn.classList.remove('armed'); restartText.textContent = 'Restart'; }, 2500);
     return;
   }
   // Both taps of a double-tap land within a few hundred ms; that shouldn't erase everything.
@@ -46,7 +51,7 @@ const smooth = (k: number) => k * k * (3 - 2 * k);
 let last = performance.now();
 
 function frame(now: number) {
-  const dt = Math.min(0.05, (now - last) / 1000);
+  const dt = Math.max(0, Math.min(0.05, (now - last) / 1000)); // a first frame can be stamped before boot
   last = now;
   if (!isStale()) tick(dt);
 
@@ -70,6 +75,7 @@ function frame(now: number) {
   sun.target.position.copy(look);
 
   keepInSight(dt);
+  updHint(dt, !!inputVec());
   updPointers(dt);
   hud(dt);
   renderer.render(scene, camera);

@@ -14,6 +14,8 @@ import { houseStage2 } from './rain';
 import { mix, onBlend, type Swatch } from './season';
 import { furniture, handOver, openRestaurant } from './restaurant';
 import { plantPatch } from './rice';
+import { retireRunners } from './runner';
+import { fanfare } from './sfx';
 import { banner, confetti, toast } from './ui';
 import { V } from './util';
 import { closeGap, stage1Only, stage2Only, swapDecks } from './world';
@@ -128,7 +130,10 @@ export function enterStage2(silent: boolean, onMove = () => {}) {
   // The roulette table and Korki's statue go out with the old stage and come back in their new spots.
   const movers = [casinoTable(), korkiStatue()].filter((o): o is Group => o !== null);
   const move = () => { moveCasino(-2.2); moveKorki(); onMove(); };
+  // the restaurant keeps two of the market's runners; any more go with the market
+  const retired = retireRunners();
   const outs: [Object3D, Axis][] = [
+    ...retired.map((o): [Object3D, Axis] => [o, 'all']),
     ...[...C1.meshes, ...SLED.meshes].filter(m => m.visible).map((m): [Object3D, Axis] => [m, 'all']),
     [marketLooks, 'y'], [stage1Only.fence, 'y'], [stage1Only.road, 'x'], [stage1Only.trees, 'y'],
     ...movers.map((o): [Object3D, Axis] => [o, 'all']),
@@ -165,7 +170,7 @@ export function enterStage2(silent: boolean, onMove = () => {}) {
   fx = {
     t: 0, anims,
     cues: [
-      { t: 0, run: () => { banner('Stage 1 complete', 'Fish Market'); confetti(); } },
+      { t: 0, run: () => { banner('Stage 1 complete', 'Fish Market'); confetti(); fanfare(1); } },
       { t: 1.0, run: () => handOver(marketLeftovers()) },
       {
         t: 1.4, run: () => {
@@ -175,7 +180,7 @@ export function enterStage2(silent: boolean, onMove = () => {}) {
         },
       },
       { t: 1.7, run: () => banner(null) },
-      { t: 2.2, run: () => { banner('Stage 2', 'Floe Sushi'); confetti(); } },
+      { t: 2.2, run: () => { banner('Stage 2', 'Floe Sushi'); confetti(); fanfare(2); } },
       { t: 5.4, run: () => { banner(null); toast('Rice grows on the terrace, out the west door'); } },
     ],
   };

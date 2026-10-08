@@ -7,13 +7,38 @@ import { bought, loadGame, MARKET } from './helpers';
 const $ = (id: string) => document.getElementById(id)!;
 
 describe('the stage-up', () => {
+  it('keeps two of the market\'s three runners for the restaurant: the third hands its fish back and goes', async () => {
+    const g = await loadGame({ tiles: bought(...MARKET), money: 12000 });
+    const { runners } = g.runner;
+    expect(runners).toHaveLength(3);
+    const third = runners[2];
+    for (let i = 0; i < 3; i++) third.back.put(g.items.newSteak());
+    const pile = g.stations.pile.n;
+    const gold = g.unlocks.tiles.find(t => t.id === 'sushi')!;
+    g.placePlayer(gold.x, gold.z);
+    g.press('e');
+    g.runUntil(() => g.layout.stage.n === 2, 5);
+    g.press('e', 'keyup');
+    expect(runners).toHaveLength(2);
+    expect(g.stations.pile.n).toBe(pile + 3); // nothing lost
+    g.run(4);
+    expect(third.g.visible).toBe(false); // gone with the market
+  });
+
+  it('loads a restaurant with two runners, whatever the market had', async () => {
+    const g = await loadGame({ tiles: bought(...MARKET, 'sushi') });
+    expect(g.runner.runners).toHaveLength(2);
+  });
+
   it('plays when the gold tile is paid off: banner, camera pull-back, the old counters out and the restaurant in', async () => {
     const g = await loadGame({ tiles: bought(...MARKET, 'korki'), money: 12000, c1: 4, c1c: 12 });
     const { staging, view, STAGE2_ZOOM } = g.stage, { stage1Only, stage2Only } = g.world;
     const gold = g.unlocks.tiles.find(t => t.id === 'sushi')!;
     const statue = g.korki.korkiStatue()!;
     g.placePlayer(gold.x, gold.z);
+    g.press('e');
     g.runUntil(() => g.layout.stage.n === 2, 5);
+    g.press('e', 'keyup');
     expect(staging()).toBe(true);
     expect($('banner').classList.contains('on')).toBe(true);
     expect($('banner').textContent).toBe('Stage 1 completeFish Market');

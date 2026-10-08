@@ -1,9 +1,9 @@
 // The demo build of Mr. Fugu's offer (VITE_FUGU_DEMO=1): Floe Sushi fully built, the cash $100 short of a million and
 // the player at the register, where the last diners' bills are waiting. Nothing is kept, so every visit starts over.
-import { dismissIntro } from './input';
 import { player } from './player';
 import { REGISTER } from './restaurant';
 import { deviceStore, load } from './save';
+import { toast } from './ui';
 import { tiles } from './unlocks';
 import { FY } from './util';
 
@@ -19,10 +19,5 @@ export function startDemo() {
   }));
   load();
   player.g.position.set(REGISTER.x - 1.6, FY, REGISTER.z - 1.4);
-  const card = document.querySelector('#intro .card');
-  if (card) {
-    card.innerHTML = '<h1>Floe<span>Market</span></h1><p></p><p class="small"></p>';
-    card.children[1].textContent = 'Walk over the cash at the register, then follow the ❗';
-    card.children[2].textContent = 'Every upgrade is built and the till is $100 short of a million';
-  } else dismissIntro();
+  toast('Walk over the cash at the register, then follow the ❗');
 }

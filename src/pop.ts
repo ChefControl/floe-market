@@ -1,9 +1,11 @@
 // The pop-in: something new grows in with a little overshoot, like a bought upgrade's machine or a new ad board.
 import type { Object3D } from 'three';
+import { pop } from './sfx';
 
 const pops: { o: Object3D; t: number }[] = [];
 
 export function popIn(o: Object3D) {
+  pop();
   o.scale.setScalar(0.01);
   pops.push({ o, t: 0 });
 }

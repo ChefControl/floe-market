@@ -11,15 +11,16 @@ npm install
 npm run dev
 ```
 
-- **Move:** drag anywhere (touch or mouse) for a virtual joystick, or use WASD / arrow keys
+- **Move:** drag anywhere (touch or mouse) for a virtual joystick, or use WASD / arrow keys. The first time on a device, a small card below the player shows how, and how to buy (a finger on the joystick on phones and tablets, the keys on a computer, going by the browser's user agent); once you've walked a little it shrinks away into the ⚙️ settings gear, where **Controls** brings it back
+- **Settings (⚙️, top right):** sign in for cloud saves; **Sound**, which opens into the effects, the ambience and the music, each with a mute button and a volume from 1 to 10 (7 is the game's mix; each step is about 2 dB), remembered on the device; Controls; and Restart. While the menu is closed, a dot on the gear shows the cloud's state
 - **Fish:** stand on the 🎣 pad to hook fish; they get chopped into fish slices automatically
 - **Sell fish (stage 1):** pick slices up from the pile, drop them on the counter's 🐟 pad, and walk over the cash to collect it. Walk-in customers pay $4 a slice; once the drive-up window is built, drivers on the road buy 4–8 at a time at $6
-- **Upgrade:** stand on a price tile to pay into it. Some tiles also need a star rating (see below). The chip under the rating shows the stage and how many of its upgrades are built
-- **Upgrade circle:** each stage has a 📈 circle (by the counter in stage 1, by the kitchen line in stage 2). Stand on it to open the stage's repeatable upgrades and tap one to buy its next level: a better product (prices), marketing (customers) or the crew (speed). The list in the top left shows every modifier in play as a percentage, including how much your rating brings customers in; tap the stage chip to fold it away or back (on phones it starts folded, so the HUD leaves the game in view). Every level shows in the world too (see [Economy](#economy))
+- **Upgrade:** stand on a price tile (the squares) and hold **E** to pay into it; on a touch screen, a **Buy** button comes up to hold instead. Stand on one for 2 seconds without buying and a reminder says how. Squares are for buying (the tiles, and the Upgrade squares' menus) and circles for doing something (fishing, dropping things off, the roulette table). The tiles lie square with the world, with their icon and price turned to face the camera. Some tiles also need a star rating (see below). The chip under the rating shows the stage and how many of its upgrades are built
+- **Upgrade square:** each stage has a 📈 Upgrade square (by the counter in stage 1, by the kitchen line in stage 2). Stand on it to open the stage's repeatable upgrades and tap one to buy its next level: a better product (prices), marketing (customers) or the crew (speed). The list in the top left shows every modifier in play as a percentage, including how much your rating brings customers in; tap the stage chip to fold it away or back (on phones it starts folded, so the HUD leaves the game in view). Every level shows in the world too (see [Economy](#economy))
 - **Stage up:** with all nine market upgrades built, a gold 🏯 tile appears in the middle of the dock: Open Floe Sushi, $12,000. Paying it off plays the stage-up: the counters and the south fence come down, the restaurant, its garden and the terraces go up, and day turns to dusk. Cash, rating and upgrades carry over; the counters' leftover fish and cash move to the restaurant, the roulette table moves up the dock, and Korki's statue moves to the garden
 - **Rice (stage 2):** it grows on the terraces west of the restaurant, out through the farm door. The restaurant opens with a small patch of six clumps by the door, which ripens (green to gold) in 15 seconds: just enough for the first customers at a five-star rating, and no faster with upgrades, so more customers need the rest of the terrace. Each planted terrace grows a set amount, ripening in 30 seconds, a little less than the next step of the restaurant (more seats, another chef) eats; upgrades don't speed it up, so planting more terraces is how the restaurant grows. Wade through ripe rice to harvest it, or take bags off the farmer's stack on the path. Fish the kitchen has no room for go back to the pile as you harvest, to make room in your arms
 - **Make sushi:** drop fish slices on the 🐟 pad and rice on the 🍚 pad at the kitchen line facing the dock. Your arms carry both at once. The cooks there toss them to a chef inside the bar, who makes a plate (a bag of rice makes two) and puts it on the belt circling them. Once the takeout kiosk is open, the chefs also pack boxes for it, keeping a few ready
-- **Sell sushi:** diners in top hats come up the garden path and through the red gate, sit at the bar, take plates as they pass, and pay $30 a plate at the register by the gate when they leave. Once there are garden tables, some sit out under the red parasols instead, and a waiter picks their plates off the end of the bar and carries them out, several tables a trip. Drivers buy 3–6 boxes at a time at the kiosk on the road ($35 a box); their cash lands just inside the east wall
+- **Sell sushi:** diners in top hats come up the garden path and through the red gate, sit at the bar, take plates as they pass, and pay $30 a plate at the register by the gate when they leave. Once there are garden tables, some sit out under the red parasols instead: the chefs put their plates on a serving counter by the gate, and a waiter carries them over on a tray, up to four at a time. Waiters never take plates off the belt, and they're only for show: a garden diner stops waiting once their plate is made. Drivers buy 3–6 boxes at a time at the kiosk on the road ($35 a box); their cash lands just inside the east wall
 - **Rating:** customers only wait so long. Each one leaves a 1–5★ review when they go, based on how long they waited; someone who gives up leaves 1★ and pays only for what they got. The rating in the HUD is the average of the last 20 reviews (a new game starts at ★3.0). A better rating also brings customers in faster: ×0.6 at ★1, ×1.4 at ★5
 - **Seasons:** winter, spring, summer and autumn come round every five minutes of play, and the chip under your carry count shows which it is and how long is left. A new season changes the scenery over a few seconds and everyone's clothes at once:
 
@@ -30,14 +31,44 @@ npm run dev
   | ☀️ Summer | Deep green grass and a bright sky; no ice left | Nothing | Short sleeves, shorts and sunglasses |
   | 🍂 Autumn | Dry grass, pines turned red and orange with gold tips; the floes come back | Leaves | Woolly hats with a bobble, and scarves |
 
-  The sky changes with them, by day in stage 1 and at dusk in stage 2. The drivers come by snowmobile in winter and by car the rest of the year (the same vehicle, on wheels instead of skis). Chefs keep their whites all year, and waiters their blacks. Nothing falls inside buildings, and the rain at her house clears whatever is falling. A new game starts in winter, the way the market always looked
+  The sky changes with them, by day in stage 1 and at dusk in stage 2. The drivers come by snowmobile in winter and by car the rest of the year (the same vehicle, on wheels instead of skis). Chefs keep their whites all year, and waiters their indigo jackets and white headbands. Nothing falls inside buildings, and the rain at her house clears whatever is falling. A new game starts in winter, the way the market always looked
 - **Gamble:** once the roulette table is built, stand on its 🎰 pad to bet on red/black, odd/even, 1–18/19–36 (pays ×2) or a single number (pays ×36)
+- **Mind the road:** drivers stop for you on the road ahead of them, at the zebra crossing to her house or anywhere else, and the ones behind wait in line. Keep them waiting and they beep, then lean on the horn with an angry face until you're out of the way
+
+### Sound
+
+Everything you hear is made in the browser as it plays (Web Audio), so the game downloads no sound files; it starts with your first tap or key press, as browsers require, and sleeps while the page is hidden.
+
+- **Effects:** soft, rounded, toy-like sounds for the low-poly world. Your footsteps on boards, snow, grass or leaves; the line whipping out, the splash and the cleaver's three cuts; blips that climb the scale as you pick things up and step down as you put them down; coins; money draining into a tile and a run up the marimba when it's bought; a bell for news; reviews from a happy little tune (five stars) to a sad bonk (one); roulette clicks; car horns. Sounds out in the world come from their side of the screen and fade with distance. Every pitched effect is on the major pentatonic of the music's key, so they ring along with the music
+- **Ambience:** the sea and its gulls (loudest on the dock), wind (strongest in winter), birdsong in spring and summer, cicadas in summer, crickets at stage 2's dusk, the rain at her house, and the murmur of diners in the restaurant
+- **Music,** made up as it plays, and different for each stage. Hearing the step up between them is part of the reward:
+  - **Stage 1, the market:** a kalimba (thumb piano) and a hand drum, small and handmade, in D minor at 92 BPM. To start, the kalimba picks out half a pattern. The rest of the pattern, a frame drum, a shaker, a tune and a bass line join as the market grows.
+  - **Stage 2, the restaurant:** a jazz café band, with electric piano in sevenths and ninths, a bass, drums and a lead. Each season has its own key, feel and lead:
+
+  | | Key | Feel | Lead | Drums |
+  | --- | --- | --- | --- | --- |
+  | ❄️ Winter | D major | 84 BPM ballad swing | Celesta | Brushes, sleigh bells |
+  | 🌸 Spring | F major | 92 BPM bossa nova | Flute | Cross-stick clave, shaker, soft kick |
+  | ☀️ Summer | G major | 96 BPM swing | Vibraphone | Ride cymbal |
+  | 🍂 Autumn | C minor | 82 BPM slow swing | Reed | Brushes, soft kick |
+
+  Parts come in as the restaurant is built: chords, bass and the tune to start, then drums and a walking bass, then busier piano and the tune answering itself, then a second voice.
+  - **Both stages:** each tune plays twice, and every fifth verse rests the tune. The music fades away under the songs at her house and Korki's statue, in the rain, and through the stage-up's fanfare. A chiptune set and a gloopy sumo-ring set are saved for future stages ([docs/music-ideas.md](docs/music-ideas.md))
+- **Easy on the ear**, following what's known about which sounds people find pleasant:
+  - Consonant notes: effects on the major pentatonic, and two-note effects a fifth or a fourth apart (simple frequency ratios).
+  - No half steps in the piano's chords, where they'd sound rough and muddy that low.
+  - No held clashing notes in the tune (the jazz "avoid note"); they're only allowed as quick passing notes.
+  - Harmonic overtones for anything heard a lot. Bells, with their out-of-tune overtones, are kept for one-off news.
+  - Every sound turned down by up to half around 3 kHz, where the ear is most sensitive. Coin and pick-up runs go round within their octave instead of climbing into the shrill.
+  - Sounds that repeat a lot (footsteps in snow, roulette clicks) kept out of the sharpest band.
+  - Only slow wobbles (gentle detune and tremolo), never fast buzzy ones.
+  - Unhurried tempos of 82 to 96 BPM.
 
 ## Economy
 
 The money curve follows idle games ([the math of idle games](https://www.gamedeveloper.com/design/the-math-of-idle-games-part-i)): prices grow exponentially, and so does income, a little more slowly, so each purchase takes a bit longer than the last.
 
-- **Repeatable upgrades**, three a stage, at the stage's upgrade circle:
+- **Repeatable upgrades**, three a stage, at the stage's upgrade square:
 
   | | Stage 1 | Stage 2 | Each level | Price |
   | --- | --- | --- | --- | --- |
@@ -51,7 +82,7 @@ The money curve follows idle games ([the math of idle games](https://www.gamedev
   | --- | --- | --- |
   | Better product | The price board over the walk-up counter shows the new price, and a star a level | A wooden menu tag over the kitchen line, a new dish on each |
   | Marketing | Each campaign for real, spread round the market: posters on the fence, a promoter handing out flyers down the customers' path, a radio playing the jingle and a giant phone with the market's post collecting likes (at either end of the dock), a billboard and a newspaper box across the road, a food blogger taking photos and a TV playing the market's commercial out in the snow | Spread round the restaurant: a chalk menu board in the front garden, big paper lanterns on the front eaves, a phone on a ring light filming the bar, a food critic at a table holding up five stars, a magazine rack by the entrance, a TV camera filming the chefs, the gourmet guide's stars over a pedestal by the register, and flags from all over the world across the room |
-  | Crew | The player's headband, coloured like a judo belt: white, yellow, orange, green, blue, purple, brown, black | The chefs' and cooks' toques grow taller |
+  | Crew | The player's headband, coloured like a judo belt: white, yellow, orange, green, blue, purple, brown, black (it comes off when the restaurant opens) | The chefs' and cooks' toques grow taller |
 
   Fishing speed (crew training) still counts in stage 2, but it isn't in the list there: the dock catches more fish than the kitchen gets through, so carrying fish in (the runners) is what can hold the kitchen back, and the kitchen crew speeds that up.
 - **One-off upgrades** roughly double in price each time and add capacity: machines, workers, chefs, seats, terraces.
@@ -78,7 +109,7 @@ Whenever a new upgrade comes on offer, a message says what it is, and while its 
 | 🚗 Drive-up window | $900 | ★3.8 | Opens a window in the east fence where drivers buy fish in bulk, for half as much again |
 | 🏃 Second runner | $1,200 | ★3.9, a runner | Another runner, at the first one's tile |
 | 🥅 Ice net | $1,600 | ★4.0 | Hauls in fish nonstop |
-| 🏃 Third runner | $3,500 | ★4.2, a second runner | A third runner. All three work side by side, and in stage 2 they all carry fish to the kitchen line |
+| 🏃 Third runner | $3,500 | ★4.2, a second runner | A third runner. All three work side by side at the market; the restaurant needs only two to keep its kitchen line in fish, so at the stage-up the third hands its fish back to the pile and goes |
 | 🏯 Open Floe Sushi | $12,000 | all of the above | Stage 2: the restaurant with ten seats, a chef and two cooks, and a small patch of rice on the bottom terrace |
 
 **Stage 2: Floe Sushi**
@@ -91,9 +122,9 @@ Whenever a new upgrade comes on offer, a message says what it is, and while its 
 | 🧑‍🌾 Hire a farmer | $6,000 | ★3.9, 🌾 | Harvests the terraces onto a stack on the path |
 | 🧺 Rice porter | $12,000 | ★4.1, 🌾 | Carries rice from that stack, 12 bags at a time, in through the farm door to the kitchen line |
 | 🌱 Second terrace | $15,000 | ★4.1, 🌾 | Plants the middle terrace: rice for more diners |
-| ⛱️ Garden tables | $20,000 | ★4.2 | Four tables under red parasols east of the garden path (8 seats), and a waiter who carries their plates out from the end of the bar |
+| ⛱️ Garden tables | $20,000 | ★4.2 | Four tables under red parasols east of the garden path (8 seats), a serving counter by the gate for their plates, and a waiter who carries them over |
 | 🔪 Third chef | $25,000 | ★4.3, a second chef | A third chef at the bar. Out once there's a second chef |
-| ⛱️ More garden tables | $32,000 | ★4.3, garden tables | Four more tables west of the path, and a second waiter, at the bar's other end |
+| ⛱️ More garden tables | $32,000 | ★4.3, garden tables | Four more tables west of the path, and a second waiter at the serving counter |
 | 🌱 Third terrace | $40,000 | ★4.4, second terrace | Plants the top terrace, by the hot spring: rice for a full garden |
 | 🥡 Takeout kiosk | $50,000 | ★4.4 | Drivers on the road buy boxes of sushi with the rice to spare; the chefs pack them |
 | 🏮 Premium menu | $60,000 | ★4.5 | Everything sells for 60% more |
@@ -113,11 +144,11 @@ Progress saves automatically on the device, including your reviews, the season a
 - **One tab at a time.** If the game is opened in a second tab, the older tab stops saving and says so, so it can't overwrite newer progress.
 - **Updates don't reset progress.** Saves carry a format version and older saves are migrated on load, keeping cash, rating and upgrades. Saves from before the two stages stay in stage 1, except those that had both the old restaurant west of the dock and every market upgrade: they go straight to stage 2, keeping the restaurant's upgrades, with the old kitchen's fish and the counters' leftovers on the kitchen line and the cash at the register. Everyone else gets back what they spent on the old restaurant, its cash and its unsold plates. A save that can't be read is kept under `floe-market-backup` instead of being overwritten.
 - **Storage that sticks.** The game asks the browser to keep its storage (`navigator.storage.persist()`). On iPhone, Safari clears website data after 7 days without a visit; adding the game to the Home Screen avoids that (note that the Home Screen app keeps its own separate save).
-- **Restart** (top right) erases progress after a second, deliberate tap; a quick double-tap is ignored. Signed in, it starts the cloud save over too.
+- **Restart** (in the ⚙️ settings) erases progress after a second, deliberate tap; a quick double-tap is ignored. Signed in, it starts the cloud save over too.
 
 ### Cloud saves
 
-**Sign in with Google** (top right) and your game follows you to any device or browser, including the iPhone Home Screen app. Playing without signing in works exactly as before.
+**Sign in with Google** (in the ⚙️ settings) and your game follows you to any device or browser, including the iPhone Home Screen app. Playing without signing in works exactly as before.
 
 - **Syncing:** signed in, the game syncs with your account every 30 seconds and whenever the page is hidden. Open it on another device and you carry on where you left off. The page reloads once to load the newer game, and says "Loaded your game from the cloud".
 - **Each sync** compares this device and the account with how they were at the last sync. If only one has moved on, it wins.
@@ -137,6 +168,15 @@ Progress saves automatically on the device, including your reviews, the season a
 
 The free quota (50,000 reads and 20,000 writes a day) covers about 150 hours of play a day. Each player online reads once and writes at most once every 30 seconds.
 
+### Scoreboard
+
+The 🏆 button (top right) lists the 20 players who have held the most cash at once, and the furthest stage each has reached. It shows once cloud saves are set up.
+
+- **Getting on it:** sign in. Your best goes up as your game syncs, and only ever goes up: spending doesn't lower it, and neither does a Restart.
+- **Names:** players show by the full name on their Google account, never an email. Your row is picked out; if you're not in the top 20 your own best shows under the list. Not signed in, it shows this game's best and a button to sign in.
+- **Data:** one Firestore document per player, `scores/{your account id}`, with that name, the best and the stage. Anyone can read the scoreboard; only you can write your own entry (`firestore.rules`). A project set up before the scoreboard needs `firestore.rules` pasted and published again, or the scoreboard says it can't load.
+- **Quota:** opening the scoreboard reads up to 20 documents. A signed-in player writes their entry at most once per sync, and only when their best or stage changed.
+
 ## Development
 
 TypeScript + [three.js r186](https://threejs.org/), bundled with [Vite](https://vite.dev/). All textures are drawn at runtime on canvas; the Baloo 2 font comes from Google Fonts.
@@ -155,6 +195,8 @@ TypeScript + [three.js r186](https://threejs.org/), bundled with [Vite](https://
 [docs/balance.md](docs/balance.md) sets out the principles the game is balanced by, stage by stage, the numbers that show when something is off, and where each upgrade stands.
 
 `.github/workflows/deploy.yml` runs the tests on every pull request and push. On `main`, it builds and deploys to GitHub Pages only if they pass.
+
+Each deploy removes the last one's files, and GitHub Pages lets browsers keep the page for 10 minutes. A page kept from before a deploy, or a tab left open across one, would ask for files that are gone: the game wouldn't start, or Firebase wouldn't load. So the page reloads once to fetch the new version (an inline script in `index.html` for the game's script, `src/errors.ts` for Firebase), at most once a minute in case the site is actually down.
 
 `overrides` in `package.json` lifts Firestore's `@grpc/grpc-js` (pinned to 1.9.x, which has known vulnerabilities) to a patched release. Only Firestore's Node.js build uses it, so the game in the browser is the same either way. Drop the override once `@firebase/firestore` depends on 1.13.6 or later.
 
@@ -180,13 +222,13 @@ TypeScript + [three.js r186](https://threejs.org/), bundled with [Vite](https://
 | `src/machines.ts` | The auto harpoon's and the ice net's models |
 | `src/counters.ts` | The walk-up fish counter, drive-up window and takeout kiosk, and their customers (patience, reviews) |
 | `src/economy.ts` | Sale prices, and the repeatable upgrades (price, marketing, crew) and what they multiply |
-| `src/shop.ts` | The upgrade circles and their panel, and the modifier list in the HUD |
+| `src/shop.ts` | The upgrade squares and their panel, and the modifier list in the HUD |
 | `src/looks.ts` | What each upgrade level looks like: price board, menu tags, headband, toques, and putting up the campaigns |
 | `src/ads.ts` | The marketing campaigns, built for real (TV commercial, radio, lanterns, food critic, ...) and animated |
 | `src/rating.ts` | Reviews and the market rating |
 | `src/bubble.ts` | Order bubbles with patience rings, and mood faces |
 | `src/restaurant.ts` | The sushi bar: kitchen line and cooks, chefs, the plate belt, diners, register |
-| `src/garden.ts` | The garden tables and their waiters |
+| `src/garden.ts` | The garden tables, the serving counter by the gate, and the waiters who carry plates from it |
 | `src/rice.ts` | The starting rice patch, planting the terraces, the farmer and the rice porter |
 | `src/player.ts` / `src/playerUpdate.ts` | Player entity / per-frame player logic |
 | `src/runner.ts` | Runner AI, for all three runners |
@@ -204,10 +246,16 @@ TypeScript + [three.js r186](https://threejs.org/), bundled with [Vite](https://
 | `src/decals.ts` | Deck markings (pads, drop zones, price tiles) |
 | `src/items.ts` | Fish slice, rice, plate, box and bill meshes |
 | `src/input.ts` | Virtual joystick and keyboard |
+| `src/hint.ts` | How to walk: shown once a device, by its user agent, then off into the settings gear |
+| `src/settings.ts` | The settings menu behind the gear: sign-in, sound and music switches, how to walk, Restart |
+| `src/audio.ts` | The sound engine: Web Audio voices (tones and filtered noise), buses, placing sounds in the world, the scale |
+| `src/sfx.ts` | Every sound effect, one function each |
+| `src/ambience.ts` | The sea, wind, birds, insects, rain and diners, following the player and the season |
+| `src/music.ts` | The music: a jazz café band a season, making tunes up as it plays, with parts that grow with the stage |
 | `src/ui.ts` | HUD and stage chip (which folds the modifier list), toasts, tips, floating text, the stage-up banner and confetti, and sliding the view so an open panel never covers the player |
 | `src/save.ts` | Per-device save/load, migration, autosave, one-tab-at-a-time guard |
 | `src/cloud.ts` | Cloud saves: the sign-in button, syncing with the account, asking which game to keep |
 | `src/firebase.ts` / `src/cloud.config.ts` | Cloud saves on Firebase (Google sign-in, Firestore), loaded on demand / the Firebase project's config |
 | `src/wallet.ts` | Money |
-| `src/errors.ts` | On-screen error reporting |
+| `src/errors.ts` | On-screen error reporting, and reloading once when a deploy removed a file the page needs |
 | `src/util.ts` | Math/random helpers |

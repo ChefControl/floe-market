@@ -4,6 +4,7 @@ import { boost } from './economy';
 import { bodyMat, newFish } from './fishModel';
 import { newSteak } from './items';
 import { G, mesh, scene } from './render';
+import { cast, chop, flop, splash } from './sfx';
 import { BLADE_HOME, BLADE_Y, blade, CHOP, chopTop, pile } from './stations';
 import { d2xz, rand, UP } from './util';
 
@@ -91,6 +92,7 @@ export function tryCatch(origin: () => Vector3, src: CatchSource): Fish | null {
   const rope = src === 'net' ? null : mesh(G.rope, 0xF2C14E);
   if (rope) scene.add(rope);
   hooks.push({ f: best, rope, origin, src, t: 0, start: null });
+  cast(from, src);
   return best;
 }
 
@@ -112,7 +114,7 @@ export function updHooks(dt: number) {
       if (k.rope) setRope(k.rope, from, from.clone().lerp(fp, k.t / reach));
       continue;
     }
-    if (!k.start) k.start = fp.clone();
+    if (!k.start) { k.start = fp.clone(); splash(fp); }
     const q = Math.min(1, (k.t - reach) / 0.6);
     fp.lerpVectors(k.start, chopTop, q); fp.y += 2.4 * 4 * q * (1 - q);
     k.f.g.rotation.z += dt * 12;
@@ -120,6 +122,7 @@ export function updHooks(dt: number) {
     if (q >= 1) {
       if (k.rope) scene.remove(k.rope);
       k.f.g.rotation.set(0, 0, 0); // lands across the block, waiting its turn
+      flop(chopTop);
       chopper.queue.push(k.f); hooks.splice(i, 1);
     }
   }
@@ -155,6 +158,7 @@ export function updChopper(dt: number) {
   c.g.position.copy(chopTop);
   if (chopper.cuts <= i && k >= 0.5) {
     chopper.cuts++;
+    chop(CHOP, i);
     cut.constant = -x;
     c.g.children.forEach(m => { if (m !== c.body) m.visible = m.position.x > CUTS[i]; });
     const m = newSteak(); m.position.set(x - 0.15, chopTop.y, CHOP.z);

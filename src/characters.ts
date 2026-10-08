@@ -7,7 +7,7 @@ export const PARKAS = [0xF2B33D, 0x7A6FF0, 0x3FA37C, 0xE85D75, 0x5B8DEF, 0xF08A4
 /** Suit colours for the sushi bar's well-dressed diners. */
 export const SUITS = [0x22303C, 0x3B3F6B, 0x5A2E3A, 0x2F4A44, 0x4A4F57];
 
-/** Everyday clothes (a parka in winter), a diner's suit and top hat, a sushi chef's whites, a farmer's straw hat, or a waiter's blacks. */
+/** Everyday clothes (a parka in winter), a diner's suit and top hat, a sushi chef's whites, a farmer's straw hat, or a server's indigo. */
 export type Look = 'parka' | 'fancy' | 'chef' | 'farmer' | 'waiter';
 
 // ---------- seasonal clothes ----------
@@ -26,6 +26,7 @@ const lensGeo = new BoxGeometry(0.085, 0.05, 0.02);
 const forearmGeo = new BoxGeometry(0.106, 0.17, 0.126);
 const shinGeo = new BoxGeometry(0.136, 0.125, 0.156);
 const scarfGeo = new TorusGeometry(0.19, 0.065, 6, 14);
+const headbandGeo = new TorusGeometry(0.195, 0.022, 6, 18);
 
 /** A walker with swinging limbs. */
 export class Person extends Group {
@@ -54,7 +55,7 @@ export class Person extends Group {
     this.add(mesh(G.head, SKIN, 0, 1.03, 0.05));
     for (const s of [-1, 1]) this.add(mesh(G.eye, 0x1B2733, s * 0.07, 1.06, 0.24));
     if (look === 'fancy') this.dressUp();
-    if (look === 'waiter') this.waiterBlacks();
+    if (look === 'waiter') this.serverClothes();
     if (look === 'chef') this.chefWhites();
     if (look === 'farmer') {
       const hat = mesh(G.cone, 0xE3C26B, 0, 1.27, 0.03, true); hat.scale.set(0.36, 0.17, 0.36); this.add(hat);
@@ -125,14 +126,20 @@ export class Person extends Group {
     for (const s of [-1, 1]) part(G.cone, 0xC0392B, s * 0.05, 0.86, 0.25, 0.05, 0.07, 0.03).rotation.z = s * Math.PI / 2;
   }
 
-  /** A white shirt front and a black bow tie under a dark waistcoat, and a black cap. */
-  private waiterBlacks() {
+  /**
+   * A tea-house server: an indigo jacket with a white crossed collar, a red sash, a white apron, and a white
+   * headband over dark hair.
+   */
+  private serverClothes() {
     const part = (geo: BufferGeometry, c: number, x: number, y: number, z: number, sx: number, sy: number, sz: number) => {
       const m = mesh(geo, c, x, y, z, true); m.scale.set(sx, sy, sz); this.add(m); return m;
     };
-    part(G.box, 0xFFFFFF, 0, 0.74, 0.24, 0.14, 0.26, 0.02);
-    for (const s of [-1, 1]) part(G.cone, 0x1B2430, s * 0.05, 0.86, 0.25, 0.05, 0.07, 0.03).rotation.z = s * Math.PI / 2;
-    part(G.cyl, 0x1B2430, 0, 1.24, 0.03, 0.24, 0.1, 0.24);
+    for (const s of [-1, 1]) part(G.box, 0xF4F1EA, s * 0.055, 0.8, 0.235, 0.05, 0.24, 0.02).rotation.set(-0.35, 0, s * 0.5);
+    part(G.cyl, 0xC0392B, 0, 0.44, 0, 0.29, 0.1, 0.29);
+    part(G.box, 0xF4F1EA, 0, 0.27, 0.3, 0.34, 0.34, 0.02).rotation.x = 0.12;
+    const hair = mesh(hairGeo, 0x1E1B1A, 0, 1.03, 0.05, true); hair.rotation.x = -0.35; this.add(hair);
+    const band = mesh(headbandGeo, 0xFFFFFF, 0, 1.11, 0.03); band.rotation.x = Math.PI / 2 - 0.25; this.add(band);
+    for (const s of [-1, 1]) part(G.box, 0xFFFFFF, s * 0.04, 1.02, -0.2, 0.04, 0.12, 0.015).rotation.z = s * 0.35;
   }
 
   /** Puffy chef's hat and a red neckerchief. */
