@@ -14,31 +14,33 @@ async function atHerDoor(save: Parameters<typeof loadGame>[0] = {}) {
 }
 
 describe('presents for her', () => {
-  it('costs $100, says what it does, and leaves a present at her door', async () => {
+  it('costs $100, says what it does, and leaves a present at her door just for standing there', async () => {
     const { g, presents } = await atHerDoor({ money: 150 });
     g.run(0.05);
     expect($('tip').textContent).toBe("A present for herMaybe she will take me back (she won't)");
-    g.press('e');
-    g.runUntil(() => presents.presents.n === 1, 5);
+    g.runUntil(() => presents.presents.n === 1, 5); // no E to hold
     expect($('toast').textContent).toBe('You left a present at her door');
     expect(saved()).toMatchObject({ presents: 1 });
     // the tile stays: there's always room for another
-    g.run(1);
+    g.run(3);
     expect(presents.PRESENT.paid).toBe(50);
     expect(g.wallet.money).toBe(0);
     expect(presents.presents.n).toBe(1);
+    // nothing to hold, so no Buy button and no reminder to hold it
+    expect($('buy').hidden).toBe(true);
+    expect($('buyHint').hidden).toBe(true);
   });
 
-  it('keeps taking presents while buy is held, and she never takes one in', async () => {
+  it('keeps taking presents while the player stands there, stops when they step off, and she never takes one in', async () => {
     const { g, presents } = await atHerDoor({ money: 300 });
-    g.press('e');
-    g.runUntil(() => presents.presents.n === 3, 10);
-    expect($('toast').textContent).toBe("The curtains moved. Then they didn't");
-    expect(g.wallet.money).toBe(0);
-    g.press('e', 'keyup');
+    g.runUntil(() => presents.presents.n === 2, 10);
+    expect($('toast').textContent).toBe("She didn't come to the door");
+    g.run(0.3);
     g.placePlayer(0, 0);
+    const paid = presents.PRESENT.paid, money = g.wallet.money;
+    expect(paid).toBeGreaterThan(0);
     g.run(10);
-    expect(presents.presents.n).toBe(3);
+    expect([presents.presents.n, presents.PRESENT.paid, g.wallet.money]).toEqual([2, paid, money]);
   });
 
   it('piles up by her door, and the player can\'t stand in the pile', async () => {
