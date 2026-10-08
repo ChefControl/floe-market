@@ -51,7 +51,7 @@ The money curve follows idle games ([the math of idle games](https://www.gamedev
   | --- | --- | --- |
   | Better product | The price board over the walk-up counter shows the new price, and a star a level | A wooden menu tag over the kitchen line, a new dish on each |
   | Marketing | Each campaign for real, spread round the market: posters on the fence, a promoter handing out flyers down the customers' path, a radio playing the jingle and a giant phone with the market's post collecting likes (at either end of the dock), a billboard and a newspaper box across the road, a food blogger taking photos and a TV playing the market's commercial out in the snow | Spread round the restaurant: a chalk menu board in the front garden, big paper lanterns on the front eaves, a phone on a ring light filming the bar, a food critic at a table holding up five stars, a magazine rack by the entrance, a TV camera filming the chefs, the gourmet guide's stars over a pedestal by the register, and flags from all over the world across the room |
-  | Crew | The player's headband, coloured like a judo belt: white, yellow, orange, green, blue, purple, brown, black | The chefs' and cooks' toques grow taller |
+  | Crew | The player's headband, coloured like a judo belt: white, yellow, orange, green, blue, purple, brown, black (it comes off when the restaurant opens) | The chefs' and cooks' toques grow taller |
 
   Fishing speed (crew training) still counts in stage 2, but it isn't in the list there: the dock catches more fish than the kitchen gets through, so carrying fish in (the runners) is what can hold the kitchen back, and the kitchen crew speeds that up.
 - **One-off upgrades** roughly double in price each time and add capacity: machines, workers, chefs, seats, terraces.
