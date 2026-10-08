@@ -62,6 +62,14 @@ function frame(now: number) {
   updPointers(dt);
   hud(dt);
   renderer.render(scene, camera);
+  if (loading) {
+    const el = loading;
+    el.classList.add('done');
+    setTimeout(() => el.remove(), 400); // once it has faded out
+    loading = null;
+  }
   requestAnimationFrame(frame);
 }
+/** The loading screen (index.html), until the first frame is drawn. */
+let loading = document.getElementById('loading');
 requestAnimationFrame(frame);

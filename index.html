@@ -432,6 +432,16 @@ body{
 #rain a{ color:inherit; text-decoration:underline; text-underline-offset:2px; }
 #rain a:focus-visible{ outline:3px solid #7D8995; outline-offset:2px; border-radius:4px; }
 
+/* The loading screen: the game's scripts coming in, counted in bytes, then the world being built. Gone on the first frame. */
+#loading{ position:fixed; inset:0; z-index:8; display:grid; place-items:center; align-content:center; gap:22px; background:var(--bg); color:var(--pill-ink); transition:opacity .4s; }
+#loading.done{ opacity:0; pointer-events:none; }
+#loading .title{ font-size:clamp(44px,12vw,84px); font-weight:800; line-height:.95; color:#FFC34A; text-shadow:0 4px 0 rgba(20,30,40,.35); text-align:center; }
+#loading .card{ width:min(78vw,340px); background:var(--pill); border-radius:24px; padding:16px 20px 12px; box-shadow:0 4px 0 var(--shade); display:grid; gap:8px; }
+#loading .track{ height:14px; border-radius:999px; background:var(--chip); overflow:hidden; }
+#loading .fill{ height:100%; background:var(--cash); border-radius:inherit; transform-origin:left; transform:scaleX(0); transition:transform .15s linear; }
+#loading .what{ display:flex; justify-content:space-between; gap:12px; font-size:16px; font-weight:600; font-variant-numeric:tabular-nums; }
+#loading .size{ font-weight:800; white-space:nowrap; }
+@media (prefers-reduced-motion: reduce){ #loading, #loading .fill{ transition:none; } }
 #err{ position:fixed; left:12px; right:12px; bottom:calc(env(safe-area-inset-bottom,0px) + 12px); z-index:9; color:#fff; background:#B3261E; border-radius:12px; padding:10px 14px; font:600 15px system-ui,sans-serif; display:none; }
 
 /* ---------- phones ----------
@@ -482,6 +492,13 @@ body{
 </style>
 </head>
 <body>
+<div id="loading">
+  <div class="title">Floe Market</div>
+  <div class="card">
+    <div class="track" role="progressbar" aria-label="Loading the game" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="fill"></div></div>
+    <div class="what" aria-live="polite"><span id="loadingWhat">Loading…</span><span class="size" id="loadingSize"></span></div>
+  </div>
+</div>
 <canvas id="game" aria-label="Floe Market game. Drag or use arrow keys to walk."></canvas>
 
 <div id="hud">
@@ -581,6 +598,49 @@ body{
 <div id="stick"><div id="knob"></div></div>
 <div id="err"></div>
 
+<script>
+// The loading screen. A build lists the game's scripts and their sizes in window.PRELOAD (see vite.config.ts): fetch
+// them all, counting the bytes in as they come, then start the game, which the browser now has in its cache. The
+// screen stays up while the game builds the world, and main.ts takes it away on the first frame. Without a list (the
+// dev server) the game starts by itself and this only says it's loading. If a fetch fails, the game's script tag
+// still goes in, so the reload-once handler at the top of the page sees it fail and fetches the new page.
+(function () {
+  var P = window.PRELOAD;
+  if (!P) return;
+  var bar = document.querySelector('#loading .track'), fill = document.querySelector('#loading .fill');
+  var what = document.getElementById('loadingWhat'), size = document.getElementById('loadingSize');
+  var total = 0, got = 0;
+  P.files.forEach(function (f) { total += f[1]; });
+  var mb = function (n) { return (n / 1e6).toFixed(2) + ' MB'; };
+  function show() {
+    var k = Math.min(1, got / total);
+    fill.style.transform = 'scaleX(' + k + ')';
+    bar.setAttribute('aria-valuenow', String(Math.round(k * 100)));
+    size.textContent = mb(Math.min(got, total)) + ' / ' + mb(total);
+  }
+  function load(f) {
+    return fetch(f[0]).then(function (res) {
+      if (!res.ok) throw new Error(res.status);
+      if (!res.body || !res.body.getReader) return res.arrayBuffer().then(function (b) { got += b.byteLength; show(); });
+      var r = res.body.getReader();
+      return r.read().then(function step(x) {
+        if (x.done) return;
+        got += x.value.length; show();
+        return r.read().then(step);
+      });
+    });
+  }
+  function start() {
+    got = total; show();
+    what.textContent = 'Building the world…';
+    var s = document.createElement('script');
+    s.type = 'module'; s.crossOrigin = ''; s.src = P.entry;
+    document.head.appendChild(s);
+  }
+  show();
+  Promise.all(P.files.map(load)).then(start, start);
+})();
+</script>
 <script type="module" src="/src/main.ts"></script>
 </body>
 </html>
