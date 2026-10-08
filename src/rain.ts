@@ -105,10 +105,10 @@ function build() {
   const pole = mesh(G.cyl, 0x2C3A47, lx, FY + 1.3, lz, true); pole.scale.set(0.06, 2.6, 0.06); scene.add(pole);
   scene.add(mesh(new BoxGeometry(0.08, 0.06, 0.5), 0x2C3A47, lx, FY + 2.6, lz + 0.22));
   const bulb = mesh(G.sphere, glow, lx, FY + 2.5, lz + 0.45); bulb.scale.set(0.13, 0.1, 0.13); scene.add(bulb);
-  // Her red mailbox by the gate, outside the fence.
-  const mx = fx - 0.4, mz = HOUSE_PATH_Z + 0.9;
-  const post = mesh(G.cyl, 0x7A5236, mx, FY + 0.4, mz, true); post.scale.set(0.05, 0.8, 0.05); scene.add(post);
-  scene.add(mesh(new BoxGeometry(0.42, 0.26, 0.24), 0xD8394B, mx, FY + 0.9, mz, true));
+  // Her red mailbox by the gate, out on the grass well clear of the fence, its door facing the path.
+  const mx = fx - 0.95, mz = HOUSE_PATH_Z + 0.95;
+  const post = mesh(G.cyl, 0x7A5236, mx, (FY + 0.8) / 2, mz, true); post.scale.set(0.05, FY + 0.8, 0.05); scene.add(post);
+  scene.add(mesh(new BoxGeometry(0.24, 0.26, 0.42), 0xD8394B, mx, FY + 0.9, mz, true));
   // A few trees round the back.
   scene.add(treeGroup([[30.5, HOUSE_PATH_Z - 3.8, 1.2, 0], [31.2, HOUSE_PATH_Z + 3.2, 1, 0], [24.5, HOUSE_PATH_Z + 5.2, 0.9, 0]]));
 }

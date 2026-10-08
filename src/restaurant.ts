@@ -2,7 +2,8 @@
 // line facing the dock; the prep cooks there toss one of each to a chef standing inside the bar, who makes a
 // plate and puts it on the belt circling them. Well-dressed diners come in through the front gate, sit at the
 // bar, take plates as they pass, and pay at the register on the way out. Chefs also pack boxes for the takeout
-// kiosk. Diners at the garden tables (garden.ts) get their plates from a waiter instead.
+// kiosk. Plates for diners at the garden tables go on a serving counter out front instead, and the waiters
+// (garden.ts) carry them over.
 import {
   BoxGeometry, CylinderGeometry, ExtrudeGeometry, Group, Mesh, MeshPhongMaterial, Shape, ShapeGeometry, Sprite,
   SpriteMaterial, type Object3D, type Path, type Vector3,
@@ -39,7 +40,7 @@ export const RICE_DROP = V(-2.6, FY, 1.05);
 export const REGISTER = V(5.0, 0, 13.7);
 const DESK = { x: 6.5, z: 14.3, w: 1.2, d: 0.6 };
 const STREET = V(0.5, 0, 34);
-export const GARDEN = V(0.4, 0, 18.6), GATE = V(0.2, 0, 15.6), ENTRANCE = V(0, 0, 14.0);
+const GARDEN = V(0.4, 0, 18.6), GATE = V(0.2, 0, 15.6), ENTRANCE = V(0, 0, 14.0);
 const HOME = [V(-0.4, 0, 18.6), V(-0.6, 0, 34)];
 /** Plate slots around the belt, and seconds for the belt to move one slot along. */
 export const SLOTS = 30;
@@ -81,10 +82,11 @@ export function slotNear(p: XZ) {
 
 const axisX = (x: number) => Math.min(BAR.x + BAR.L, Math.max(BAR.x - BAR.L, x));
 
-/** Where a waiter stands at one end of the bar (side -1 is west), just clear of the counter, and the belt slot there. */
-export function barEnd(side: -1 | 1) {
-  return { at: V(BAR.x + side * (BAR.L + BAR_OUT + 0.45), 0, BAR.z), q: slotNear({ x: BAR.x + side * (BAR.L + BAR.R), z: BAR.z }) };
-}
+/**
+ * The serving counter out in the garden, against the front wall east of the gate: the chefs put the garden tables'
+ * plates there, the way they pack boxes for the kiosk, and the waiters carry them over.
+ */
+export const PASS = { x: 5.2, z: 15.95, w: 1.7, d: 0.5, h: 0.9 };
 
 // ---------- state ----------
 export interface Seat {
@@ -131,7 +133,7 @@ export interface Diner extends Walker {
   plate: Mesh | null;
   /** Empty plates stacked on the counter. */
   stack: Mesh[];
-  /** Plates a waiter has set down, not started yet, and how many more a waiter is on the way with. */
+  /** Plates a waiter has set down, not started yet, and how many more are made for them and on the way. */
   served: Mesh[];
   coming: number;
   bubble: Sprite;
@@ -153,8 +155,9 @@ export const sushi = {
   cooks: [] as Cook[],
   diners: [] as Diner[],
   spawnT: 3,
-  /** Alternates plates and takeout boxes. */
+  /** Alternates plates and takeout boxes, and the belt and the serving counter. */
   flip: false,
+  passFlip: false,
   /** Plates' worth of rice left in the bag the chefs have open: a bag makes two. */
   portions: 0,
 };
@@ -169,6 +172,8 @@ export const ricePot = new Holder(i => {
   const j = i % 8;
   return V(RICE_DROP.x + ((j % 4) - 1.5) * 0.34, FY + KITCHEN.h + 0.04 + Math.floor(i / 8) * 0.085, KITCHEN.z + (Math.floor(j / 4) - 0.5) * 0.3);
 }, 48);
+/** Plates on the serving counter, five along it and stacking up, each for a diner at a garden table. */
+export const servingPass = new Holder(i => V(PASS.x + ((i % 5) - 2) * 0.34, 0.02 + PASS.h + 0.035 + Math.floor(i / 5) * 0.05, PASS.z), 15);
 export const register = new Holder(i => {
   const j = i % 6;
   return V(REGISTER.x + ((j % 2) - 0.5) * 0.44, FY + 0.03 + Math.floor(i / 6) * 0.065, REGISTER.z + (Math.floor(j / 2) - 1) * 0.28);
@@ -189,8 +194,8 @@ export const platePrice = () => priced(SUSHI_PRICE.plate, sushiBoost());
 /** Updates the takeout boxes' price to match. */
 export const repriceSushi = () => { TAKEOUT.price = priced(SUSHI_PRICE.box, sushiBoost()); };
 /** Which belt slot is passing position `q` right now. */
-export const slotAt = (q: number) => (((q - sushi.offset) % SLOTS) + SLOTS) % SLOTS;
-export function slotPos(j: number) {
+const slotAt = (q: number) => (((q - sushi.offset) % SLOTS) + SLOTS) % SLOTS;
+function slotPos(j: number) {
   const p = barPoint((j + sushi.offset + sushi.t / STEP) * SP);
   p.y = FY + BAR_H + 0.03;
   return p;
@@ -265,7 +270,7 @@ function stool(x: number, z: number) {
 const SEAT_X = [-4.2, -3.15, -2.1, -1.05, 0, 1.05, 2.1, 3.15, 4.2];
 const AISLE = 7.4, NORTH_WALK = 5.3;
 /** The walkway between the bar's south seats and the entrance. */
-export const SOUTH_WALK = 12.9;
+const SOUTH_WALK = 12.9;
 type SeatSpec = [x: number, side: -1 | 1];
 const rows = (xs: number[]): SeatSpec[] => xs.flatMap((x): SeatSpec[] => [[x, 1], [x, -1]]);
 const FIRST_SEATS = rows(SEAT_X.slice(2, 7));
@@ -330,6 +335,31 @@ function boxesWanted() {
   return TAKEOUT.queue.reduce((n, c) => n + c.want - c.got, 0) + 4 - TAKEOUT.stock.n;
 }
 
+const seated = (d: Diner) => d.state === 'wait' || d.state === 'eat';
+/** Plates a diner at a garden table still needs made: not eaten, not in front of them, not on their way. */
+export const owed = (d: Diner) => d.want - d.bill.length - (d.plate ? 1 : 0) - d.served.length - d.coming;
+
+/**
+ * The garden diner a plate a chef has made should go to, if any: whoever has waited longest with nothing on the way.
+ * When diners at the bar are short of plates too, the belt and the serving counter take turns (`share`); a plate
+ * that's waiting for room on the belt goes to the garden whenever anyone there needs one.
+ */
+function gardenOrder(share: boolean) {
+  if (!servingPass.hasRoom()) return null;
+  const want = sushi.diners.filter(d => d.seat.garden && seated(d) && owed(d) > 0);
+  if (!want.length) return null;
+  const barShort = sushi.diners.filter(d => !d.seat.garden && d.state === 'wait').length > sushi.slots.filter(Boolean).length;
+  if (share && barShort && !(sushi.passFlip = !sushi.passFlip)) return null;
+  return want.sort((a, b) => +(a.coming > 0) - +(b.coming > 0) || b.wait - a.wait)[0];
+}
+
+/** Sends a chef's plate out to the serving counter for diner `d`. */
+function toPass(c: Chef, p: Mesh, d: Diner) {
+  d.coming++; p.userData.diner = d;
+  servingPass.receive(p, 1.0, 2.6, m => clink(m.position));
+  c.plate = null; c.state = 'idle';
+}
+
 /** Gets a fish slice and a bag of rice tossed over when both are there, and slices them into a plate (or a box). */
 function updChef(c: Chef, dt: number) {
   if (c.state === 'idle' && fishTray.items.length && (sushi.portions || ricePot.items.length)) {
@@ -354,15 +384,17 @@ function updChef(c: Chef, dt: number) {
         TAKEOUT.stock.receive(b, 1.0, 2.6);
         c.state = 'idle';
       } else {
-        const p = newPlate(platePrice(), sushi.premium);
-        p.position.copy(c.board); scene.add(p);
-        c.plate = p; c.state = 'ready';
+        const p = newPlate(platePrice(), sushi.premium), d = gardenOrder(true);
+        p.position.copy(c.board);
+        if (d) toPass(c, p, d);
+        else { scene.add(p); c.plate = p; c.state = 'ready'; }
       }
     }
   } else if (c.state === 'ready') {
-    // Onto the belt as soon as the slot passing in front is free.
-    const j = slotAt(c.q);
-    if (!sushi.slots[j]) {
+    // Onto the belt as soon as the slot passing in front is free, or out to the garden if it's wanted there first.
+    const j = slotAt(c.q), d = gardenOrder(false);
+    if (d) toPass(c, c.plate!, d);
+    else if (!sushi.slots[j]) {
       const p = c.plate!;
       c.plate = null; c.state = 'idle';
       sushi.slots[j] = p; p.userData.flying = true;
@@ -459,7 +491,8 @@ function updDiner(d: Diner, dt: number) {
   }
   if (d.state === 'wait' && d.served.length) take(d, d.served.shift()!);
   if (d.state === 'wait') {
-    d.wait += dt;
+    // Once their plates are made, the wait's over as far as they're concerned: the waiter is only bringing them.
+    if (!d.coming) d.wait += dt;
     if (d.wait >= PATIENCE) { leave(d, 1); return; }
     const left = 1 - d.wait / PATIENCE, key = (d.want - d.bill.length) * 100 + patienceStep(left);
     if (key !== d.drawn) {
@@ -565,7 +598,7 @@ export function sushiStock() {
   return {
     fish: fishTray.n + parts.filter(m => m.userData.kind === 'fish').length,
     rice: ricePot.n + parts.filter(m => m.userData.kind === 'rice').length,
-    plates: sushi.slots.filter(Boolean).length + sushi.chefs.filter(c => c.plate).length +
+    plates: sushi.slots.filter(Boolean).length + sushi.chefs.filter(c => c.plate).length + servingPass.n +
       sushi.diners.reduce((n, d) => n + (d.plate ? 1 : 0) + d.served.length, 0),
     cash: register.all().reduce((s, b) => s + billValue(b), 0) + sushi.diners.reduce((s, d) => s + d.bill.reduce((a, v) => a + v, 0), 0),
   };

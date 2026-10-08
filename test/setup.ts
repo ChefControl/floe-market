@@ -24,7 +24,8 @@ vi.mock('three', async importOriginal => {
 // jsdom has no 2D canvas either. The game only draws into canvases, so a context that accepts anything will do.
 const noop = () => {};
 const gradient = () => ({ addColorStop: noop });
-const ctx2d = new Proxy({ createLinearGradient: gradient, createRadialGradient: gradient } as Record<PropertyKey, unknown>, {
+const metrics = () => ({ width: 0, actualBoundingBoxLeft: 0, actualBoundingBoxRight: 0, actualBoundingBoxAscent: 0, actualBoundingBoxDescent: 0 });
+const ctx2d = new Proxy({ createLinearGradient: gradient, createRadialGradient: gradient, measureText: metrics } as Record<PropertyKey, unknown>, {
   get: (t, k) => (k in t ? t[k] : noop),
   set: (t, k, v) => { t[k] = v; return true; },
 });
