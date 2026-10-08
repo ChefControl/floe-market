@@ -1,5 +1,6 @@
-// Presents for her: a $100 tile in her front yard, bought again and again. Each one is left by her door, and she
-// never takes them in, so they pile up against the front wall and spill out into the yard.
+// Presents for her: a $100 tile in her front yard, bought again and again just by standing on it (no holding E).
+// Each one is left by her door, and she never takes them in, so they pile up against the front wall and spill out
+// into the yard.
 import { BoxGeometry, Group, type Mesh } from 'three';
 import { decal, drawTile } from './decals';
 import { HOUSE_PATH_Z, pushOutOfBox } from './layout';
