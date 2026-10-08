@@ -94,10 +94,12 @@ describe('garden tables', () => {
 
   it('carries several plates a trip', async () => {
     const { g, garden } = await setup('tables', 'chef', 'chef3');
+    fillBar(g);
+    const diners = spawn(g, 6);
+    // everyone sits down before the kitchen gets anything, so the chefs' plates come out together
+    g.runUntil(() => diners.every(d => d.state === 'wait'), 30);
     g.restaurant.handOver({ steaks: [...Array(24)].map(() => g.items.newSteak()), bills: [] });
     for (let i = 0; i < 12; i++) g.restaurant.ricePot.put(g.items.newRice());
-    fillBar(g);
-    spawn(g, 6);
     const w = garden.waiters[0];
     g.runUntil(() => w.state === 'out', 30);
     expect(w.tray.n).toBeGreaterThan(1);
