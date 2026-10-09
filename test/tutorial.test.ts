@@ -77,7 +77,21 @@ describe('the tutorial', () => {
     g.press('e', 'keyup');
     g.run(0.1);
     expect(tut.learntLessons()).toEqual(['fish', 'pick', 'sell', 'cash', 'buy']);
-    expect(now()).toBe(null); // $15 left: nothing at the upgrade square for that yet
+
+    // then building something: Korki's statue, $10 of the $15 left
+    expect(now()).toBe('korki');
+    const statue = g.unlocks.tiles.find(t => t.id === 'korki')!;
+    draw();
+    expect(tut.guide.position.x).toBe(statue.x);
+    expect(said()).toBe("Build Korki's golden statue here / Stand on it and hold E");
+    g.placePlayer(statue.x, statue.z);
+    g.press('e');
+    g.runUntil(() => statue.done);
+    g.press('e', 'keyup');
+    g.run(0.1);
+    expect(tut.learntLessons()).toContain('korki');
+    expect(now()).toBe(null); // $5 left: nothing at the upgrade square for that yet
+    expect($('banner').classList.contains('on')).toBe(false);
 
     g.wallet.money = 40;
     g.run(0.1);
@@ -96,7 +110,8 @@ describe('the tutorial', () => {
     expect(tut.learntLessons()).toContain('shop');
     expect(JSON.parse(localStorage.getItem(KEY)!)).toContain('shop'); // kept on the device
     g.saveMod.save();
-    expect(JSON.parse(localStorage.getItem('floe-market-v1')!).learnt).toEqual(['fish', 'pick', 'sell', 'cash', 'buy', 'shop']);
+    expect(JSON.parse(localStorage.getItem('floe-market-v1')!).learnt).toEqual(['fish', 'pick', 'sell', 'cash', 'buy', 'korki', 'shop']);
+    expect($('banner').classList.contains('on')).toBe(true); // that's the basics: tutorial complete
   });
 
   it('points out a tile that needs a better rating, and the rating, until the player has read it', async () => {
@@ -132,7 +147,7 @@ describe('the tutorial', () => {
     expect(said()).toBe('Pick an upgrade / Tap one in the list to buy it');
     g.shop.buyMod('marketing');
     g.run(0.1);
-    expect(tut.learntLessons()).toEqual(['fish', 'pick', 'sell', 'cash', 'buy', 'shop']); // the rating's a tip for later
+    expect(tut.learntLessons()).toEqual(['fish', 'pick', 'sell', 'cash', 'buy', 'korki', 'shop']); // the rating's a tip for later
     expect($('banner').classList.contains('on')).toBe(true);
     expect($('banner').textContent).toBe('Well doneTutorial completeThe rest is up to you. Go make it big!');
     g.run(3);
@@ -147,7 +162,7 @@ describe('the tutorial', () => {
     expect(now()).toBe('stars');
     tut.lesson.viewed = 10;
     g.run(0.1);
-    expect(tut.learntLessons()).toHaveLength(7);
+    expect(tut.learntLessons()).toHaveLength(8);
     expect($('banner').classList.contains('on')).toBe(false);
   });
 
@@ -183,13 +198,17 @@ describe('the tutorial', () => {
   it("counts what a game from before the tutorial has done, and stays out of stage 2", async () => {
     const old = await setup({ tiles: bought('pack'), money: 100 });
     old.g.run(0.1);
-    expect(old.now()).toBe('shop'); // the loop and buying are known; the upgrade square isn't
+    expect(old.now()).toBe('shop'); // the loop, buying and building are known; the upgrade square isn't
+    // a game since keeps its own lessons: reloaded mid-tutorial, nothing still to come is skipped
+    const since = await setup({ tiles: bought('pack'), money: 100, learnt: ['fish', 'pick', 'sell', 'cash', 'buy'] });
+    since.g.run(0.1);
+    expect(since.now()).toBe('korki');
     const s2 = await setup({ tiles: bought(...MARKET, 'sushi'), money: 100000 });
     s2.g.run(0.1);
     expect(s2.now()).toBe(null);
     s2.draw();
     expect(s2.tut.guide.visible).toBe(false);
-    expect(s2.tut.learntLessons()).toEqual(['fish', 'pick', 'sell', 'cash', 'buy', 'shop', 'stars']);
+    expect(s2.tut.learntLessons()).toEqual(['fish', 'pick', 'sell', 'cash', 'buy', 'korki', 'shop', 'stars']);
     expect($('banner').classList.contains('on')).toBe(false); // nothing to celebrate: it was all known already
   });
 

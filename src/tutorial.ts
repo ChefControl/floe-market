@@ -2,11 +2,11 @@
 // where to go, with a ring on the ground under it and a bubble saying what to do there; while that's off-screen, the
 // bubble waits at the edge of the screen and points the way. First the market's loop, in order: fish on the 🎣 pad,
 // pick up the slices, drop them on the counter, collect the cash, and buy an upgrade once there's cash for one. Then,
-// as they come up, the 📈 Upgrade square and the star rating some tiles need.
+// as they come up, building Korki's golden statue, the 📈 Upgrade square and the star rating some tiles need.
 // Each idea is learnt by doing it (the rating by reading about it), and isn't shown to the same player again: what's
 // learnt is kept on the device, so Restart doesn't bring it back, and in the save, so it follows a signed-in player to
-// their other devices. A game from before the tutorial counts what it has done already. Learning the last of the basics
-// (everything up to the Upgrade square) brings up a banner saying the tutorial's complete, and that the rest is up to
+// their other devices. A save from before the tutorial counts what it has done already. Learning the last of the basics
+// (everything up to the statue and a level at the Upgrade square) brings up a banner saying the tutorial's complete, and that the rest is up to
 // the player; the rating, which only comes up after a few more upgrades, is a tip for later, outside the tutorial proper.
 import { Group, Mesh, MeshBasicMaterial, RingGeometry } from 'three';
 import { touchBuy } from './buy';
@@ -26,8 +26,8 @@ import { locked, onOffer, tiles } from './unlocks';
 import { d2xz, FY, type XZ } from './util';
 import { wallet } from './wallet';
 
-export type Lesson = 'fish' | 'pick' | 'sell' | 'cash' | 'buy' | 'shop' | 'stars';
-const LESSONS: Lesson[] = ['fish', 'pick', 'sell', 'cash', 'buy', 'shop', 'stars'];
+export type Lesson = 'fish' | 'pick' | 'sell' | 'cash' | 'buy' | 'korki' | 'shop' | 'stars';
+const LESSONS: Lesson[] = ['fish', 'pick', 'sell', 'cash', 'buy', 'korki', 'shop', 'stars'];
 /** Device storage for what's been learnt (the save keeps a copy too). */
 const KEY = 'floe-market-tutorial';
 /** Seconds a lesson that's learnt by reading stays in view first. */
@@ -66,6 +66,9 @@ function affordable() {
   return ok.sort((a, b) => a.cost - b.cost)[0] ?? null;
 }
 const firstLocked = () => onOffer().find(locked) ?? null;
+const statue = () => tiles.find(t => t.id === 'korki')!;
+/** How to buy, on this device: the Buy button on a touch screen, or E. */
+const hold = () => touchBuy() ? 'Stand on it and hold Buy' : 'Stand on it and hold E';
 /** Cash at the start of the cash lesson, to see it go up. */
 let cash0 = 0;
 
@@ -89,8 +92,15 @@ const STEPS: Step[] = [
   {
     id: 'buy', after: 'cash', stay: true,
     at: () => { const t = affordable(); return t ? { x: t.x, y: t.y ?? FY, z: t.z, r: t.half } : null; },
-    say: () => [`Buy ${affordable()?.name ?? 'an upgrade'} here`, touchBuy() ? 'Stand on it and hold Buy' : 'Stand on it and hold E'],
+    say: () => [`Buy ${affordable()?.name ?? 'an upgrade'} here`, hold()],
     done: () => tiles.some(t => t.paid > 0), known: played,
+  },
+  {
+    // building something, not just upgrading: Korki's golden statue, on offer from the start for $10
+    id: 'korki', after: 'buy', stay: true,
+    at: () => { const t = statue(); return !t.done && t.cost - t.paid <= wallet.money ? { x: t.x, y: t.y ?? FY, z: t.z, r: t.half } : null; },
+    say: () => ["Build Korki's golden statue here", hold()],
+    done: () => statue().done, known: () => played() || statue().done,
   },
   {
     // learnt by buying a level there, not just by looking: on the square, the bubble says how
@@ -112,8 +122,11 @@ const STEPS: Step[] = [
 const learnt = new Set<Lesson>();
 /** The lesson showing, and how long it's been in view. */
 export const lesson = { now: null as Step | null, viewed: 0 };
-/** What the device knows has been read in; and older games' lessons counted (on the first tick, after loading). */
-let fromDevice = false, started = false;
+/** What the device knows has been read in; a save from before the tutorial was loaded, whose lessons are to be counted
+ *  from what it has done (on the first tick, once it's all loaded); and that's been looked at. */
+let fromDevice = false, older = false, started = false;
+/** A save from before the tutorial (one with no lessons in it) has been loaded. */
+export function olderGame() { older = true; }
 
 function store() {
   try { localStorage.setItem(KEY, JSON.stringify([...learnt])); } catch { /* storage unavailable: the save still has it */ }
@@ -153,9 +166,10 @@ function complete() {
 /** Each tick: learns what's been done, and picks the lesson to show. */
 export function updTutorial(dt: number) {
   if (!started) {
-    // what an older game shows its player knows already
+    // what an older game shows its player knows already (a game since keeps its lessons, so a reload mid-tutorial
+    // doesn't skip what's still to come)
     started = true;
-    learn(STEPS.filter(s => s.known()).map(s => s.id));
+    learn(older ? STEPS.filter(s => s.known()).map(s => s.id) : []); // (and reads in the device's)
   }
   // (the stage-up has the banner to itself)
   if (cheer > 0 && (cheer -= dt) <= 0 && !staging()) banner(null);
