@@ -255,7 +255,6 @@ export function load() {
   PRESENT.paid = s.presentPaid;
   redrawPresentTile();
   s.reviews.forEach(addReview);
-  if (s.learnt) learn(s.learnt); else olderGame();
   // In the game's order, so the stage-up is in place before stage 2's upgrades.
   for (const t of tiles) {
     const o = s.tiles.find(x => x.id === t.id);
@@ -291,6 +290,8 @@ export function load() {
     wallet.money += s.tcash;
   }
   if (field.built) fill(fieldStack, s.field + riceLeft, newRice);
+  // the tutorial: this player's lessons, or for a save from before it, what it has done (now it's all in place)
+  if (s.learnt) learn(s.learnt); else olderGame();
   return true;
 }
 

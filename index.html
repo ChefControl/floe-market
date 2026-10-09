@@ -105,6 +105,16 @@ body{
 #stage.s2 .ic{ background:#B8452F; }
 #stage.s2 .bar i{ background:#E0392B; }
 /* the season, and how far into it: the bar fills up until the next one comes round */
+/* the tutorial's goal: what's being saved up for, by the cash (tutorial.ts); gold once there's enough */
+#goal{ font-size:15px; padding:3px 12px 3px 5px; gap:7px; font-weight:800; }
+#goal[hidden]{ display:none; }
+#goal .ic{ width:26px; height:26px; border-radius:50%; background:var(--chip); display:grid; place-items:center; font-size:15px; }
+#goal .bar{ width:40px; height:5px; border-radius:99px; background:var(--chip); overflow:hidden; }
+#goal .bar i{ display:block; height:100%; width:0; background:#49C25B; border-radius:99px; transition:width .4s; }
+#goal.ready{ box-shadow:0 3px 0 var(--shade), 0 0 0 3px #FFC34A; animation:nudge 1s ease-in-out 2; }
+#goal.ready .ic{ background:#FFC34A; }
+#goal.ready .bar i{ background:#FFC34A; }
+@media (prefers-reduced-motion: reduce){ #goal.ready{ animation:none; } }
 #season{ font-size:15px; padding:3px 12px 3px 5px; gap:7px; }
 #season .ic{ width:26px; height:26px; border-radius:50%; background:#BFE3F2; display:grid; place-items:center; font-size:15px; }
 #season .bar{ width:36px; height:5px; border-radius:99px; background:var(--chip); overflow:hidden; }
@@ -493,8 +503,8 @@ body{
   .hrow{ display:flex; align-items:center; gap:6px; }
   #cash{ font-size:21px; padding:3px 12px 3px 4px; gap:6px; }
   #cash .ic{ width:32px; height:24px; border-radius:6px; font-size:16px; box-shadow:inset 0 0 0 2px rgba(255,255,255,.35); }
-  #stars, #stage, #season{ font-size:15px; padding:4px 10px 4px 4px; gap:6px; }
-  #stars .ic, #stage .ic, #season .ic{ width:22px; height:22px; font-size:13px; }
+  #stars, #stage, #season, #goal{ font-size:15px; padding:4px 10px 4px 4px; gap:6px; }
+  #stars .ic, #stage .ic, #season .ic, #goal .ic{ width:22px; height:22px; font-size:13px; }
   #season{ padding:4px 8px 4px 4px; }
   #season .bar{ width:22px; }
   #stage .bar{ width:40px; }
@@ -550,6 +560,7 @@ body{
     <div id="stars" class="pill"><span class="ic" aria-hidden="true">★</span><span class="sr">Rating </span><span id="starsN">3.0</span></div>
     <button id="stage" class="pill" type="button" aria-expanded="true" aria-controls="mods"><span class="sr">Stage </span><span class="ic" id="stageNum">1</span><span id="stageName">Fish Market</span><span class="bar" aria-hidden="true"><i id="stageBar"></i></span><span id="stageCount">0/7</span><span class="chev" aria-hidden="true"></span></button>
   </div>
+  <div id="goal" class="pill" role="status" hidden><span class="ic" id="goalIc" aria-hidden="true"></span><span id="goalName"></span><span id="goalN"></span><span class="bar" aria-hidden="true"><i id="goalBar"></i></span></div>
   <div id="mods" class="pill" role="group" aria-label="Modifiers"></div>
 </div>
 <div id="corner">
