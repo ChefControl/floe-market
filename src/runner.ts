@@ -80,8 +80,11 @@ export function retireRunners(): Person[] {
 /** Fish slices the runners are carrying. */
 export const runnersLoad = () => runners.reduce((n, r) => n + r.back.n, 0);
 
-/** Once the restaurant's open, the runners are part of the kitchen crew, and its upgrade speeds them up (up to twice). */
-const pace = () => (sushi.built ? Math.min(2, boost('crew')) : 1);
+/**
+ * The crew upgrade speeds the runners up (up to twice): crew training at the market, then the kitchen crew once the
+ * restaurant's open, when they're part of it.
+ */
+const pace = () => Math.min(2, boost(sushi.built ? 'crew' : 'training'));
 
 export function updRunners(dt: number) {
   for (const r of runners) updRunner(r, dt);

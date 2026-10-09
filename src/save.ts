@@ -18,6 +18,7 @@ import { field, fieldStack, riceInField } from './rice';
 import { runnersLoad } from './runner';
 import { season, SEASON_LEN, SEASONS, setSeason } from './season';
 import { pile } from './stations';
+import { learn, learntLessons, olderGame } from './tutorial';
 import { applyUnlock, redrawTile, tiles, updStars } from './unlocks';
 import { wallet } from './wallet';
 
@@ -69,6 +70,9 @@ export interface SaveData {
   presentPaid: number;
   /** How the player looks (customize.ts). Older saves have none, and keep the device's. */
   look?: Choice;
+  /** What the tutorial has shown this player (tutorial.ts), so it isn't shown again on another device; null in a save
+   *  from before the tutorial, whose lessons are counted from what it has done. */
+  learnt: string[] | null;
 }
 
 /** The one place that touches device storage. */
@@ -120,6 +124,7 @@ export function migrate(raw: unknown): SaveData {
     season: num(s.season) % SEASONS.length, seasonT: Math.min(num(s.seasonT), SEASON_LEN - 1),
     presents: num(s.presents), presentPaid: Math.min(num(s.presentPaid), PRESENT.cost - 1),
     look: readLook(s.look) ?? undefined,
+    learnt: Array.isArray(s.learnt) ? s.learnt.map(String) : null,
   };
   if (num(s.v) >= 4) {
     return {
@@ -215,6 +220,7 @@ export function save() {
     presents: presents.n,
     presentPaid: PRESENT.paid,
     look: { ...choice },
+    learnt: learntLessons(),
   };
   const raw = JSON.stringify(data);
   if (deviceStore.write(raw)) lastSeen = raw;
@@ -290,6 +296,8 @@ export function load() {
     wallet.money += s.tcash;
   }
   if (field.built) fill(fieldStack, s.field + riceLeft, newRice);
+  // the tutorial: this player's lessons, or for a save from before it, what it has done (now it's all in place)
+  if (s.learnt) learn(s.learnt); else olderGame();
   return true;
 }
 

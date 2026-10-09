@@ -88,9 +88,6 @@ body{
 #cash.broke .ic{ background:var(--hot); }
 @keyframes broke{ 20%{ transform:translateX(-4px); } 40%{ transform:translateX(4px); } 60%{ transform:translateX(-3px); } 80%{ transform:translateX(2px); } }
 #cash .ic{ width:40px; height:28px; border-radius:7px; background:var(--cash); color:#fff; display:grid; place-items:center; font-size:20px; box-shadow:inset 0 0 0 3px rgba(255,255,255,.35); }
-#carry{ font-size:18px; padding:3px 12px 3px 5px; }
-#carry .ic{ width:26px; height:26px; border-radius:50%; background:#D8394B; box-shadow:inset 0 0 0 4px #F6C9C9; }
-#carry.full{ color:var(--down); }
 #stars{ font-size:18px; padding:3px 12px 3px 5px; }
 #stars .ic{ width:26px; height:26px; border-radius:50%; background:#F2B33D; color:#fff; display:grid; place-items:center; font-size:16px; }
 #stage{
@@ -108,6 +105,16 @@ body{
 #stage.s2 .ic{ background:#B8452F; }
 #stage.s2 .bar i{ background:#E0392B; }
 /* the season, and how far into it: the bar fills up until the next one comes round */
+/* the tutorial's goal: what's being saved up for, by the cash (tutorial.ts); gold once there's enough */
+#goal{ font-size:15px; padding:3px 12px 3px 5px; gap:7px; font-weight:800; }
+#goal[hidden]{ display:none; }
+#goal .ic{ width:26px; height:26px; border-radius:50%; background:var(--chip); display:grid; place-items:center; font-size:15px; }
+#goal .bar{ width:40px; height:5px; border-radius:99px; background:var(--chip); overflow:hidden; }
+#goal .bar i{ display:block; height:100%; width:0; background:#49C25B; border-radius:99px; transition:width .4s; }
+#goal.ready{ box-shadow:0 3px 0 var(--shade), 0 0 0 3px #FFC34A; animation:nudge 1s ease-in-out 2; }
+#goal.ready .ic{ background:#FFC34A; }
+#goal.ready .bar i{ background:#FFC34A; }
+@media (prefers-reduced-motion: reduce){ #goal.ready{ animation:none; } }
 #season{ font-size:15px; padding:3px 12px 3px 5px; gap:7px; }
 #season .ic{ width:26px; height:26px; border-radius:50%; background:#BFE3F2; display:grid; place-items:center; font-size:15px; }
 #season .bar{ width:36px; height:5px; border-radius:99px; background:var(--chip); overflow:hidden; }
@@ -179,10 +186,19 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
 #look .word[aria-checked="true"]{ background:var(--hot); color:#fff; }
 
 #banner{ position:fixed; inset:0; z-index:6; display:grid; place-items:center; pointer-events:none; }
-#banner .card{ text-align:center; color:#fff; text-shadow:0 4px 0 rgba(20,30,40,.45); transform:scale(.6); opacity:0; transition:transform .45s cubic-bezier(.2,1.4,.4,1), opacity .3s; }
+/* a dark outline round every letter (shadows on all sides), so it reads over snow and white decks alike */
+#banner .card{ text-align:center; color:#fff; transform:scale(.6); opacity:0; transition:transform .45s cubic-bezier(.2,1.4,.4,1), opacity .3s; }
+#banner .card > *{
+  --o:2px; --ink:#173042;
+  text-shadow:var(--o) 0 0 var(--ink), calc(-1 * var(--o)) 0 0 var(--ink), 0 var(--o) 0 var(--ink), 0 calc(-1 * var(--o)) 0 var(--ink),
+    var(--o) var(--o) 0 var(--ink), calc(-1 * var(--o)) var(--o) 0 var(--ink), var(--o) calc(-1 * var(--o)) 0 var(--ink),
+    calc(-1 * var(--o)) calc(-1 * var(--o)) 0 var(--ink), 0 calc(var(--o) + 4px) 0 rgba(20,30,40,.45);
+}
 #banner.on .card{ transform:scale(1); opacity:1; }
-#banner .k{ font-size:clamp(14px,3.6vw,20px); font-weight:800; letter-spacing:.3em; text-transform:uppercase; opacity:.92; }
-#banner .t{ font-size:clamp(46px,13vw,96px); font-weight:800; line-height:.95; color:#FFC34A; }
+#banner .k{ font-size:clamp(14px,3.6vw,20px); font-weight:800; letter-spacing:.3em; text-transform:uppercase; }
+#banner .card > .t{ --o:3px; font-size:clamp(46px,13vw,96px); font-weight:800; line-height:.95; color:#FFC34A; }
+#banner .s{ margin:12px auto 0; max-width:min(86vw,520px); font-size:clamp(18px,5vw,26px); font-weight:700; line-height:1.2; }
+#banner .s[hidden]{ display:none; }
 #confetti{ position:fixed; inset:0; width:100%; height:100%; z-index:6; pointer-events:none; }
 @media (prefers-reduced-motion: reduce){ #banner .card{ transition:none; } }
 
@@ -364,6 +380,33 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
 @keyframes nudge{ 50%{ transform:scale(1.15); } }
 @media (prefers-reduced-motion: reduce){ .ptr span{ animation:none; } }
 
+/* The tutorial's bubble over the gold arrow, or at the edge of the screen pointing the way to it (tutorial.ts). */
+#coach{
+  position:fixed; left:0; top:0; z-index:4; pointer-events:none; transform-origin:50% 100%;
+  max-width:min(240px, calc(100vw - 32px)); box-sizing:border-box; padding:7px 14px 8px; border-radius:16px;
+  flex-direction:column; align-items:center; gap:1px; text-align:center; line-height:1.15;
+  box-shadow:0 3px 0 var(--shade), 0 0 0 3px #FFC34A;
+}
+#coach[hidden]{ display:none; }
+#coach b{ display:block; font-size:18px; font-weight:800; }
+#coach small{ display:block; font-size:14px; font-weight:600; opacity:.8; }
+#coach small[hidden]{ display:none; }
+/* over the arrow: a tail pointing down at it */
+#coach::after{
+  content:""; position:absolute; left:50%; top:100%; margin:3px 0 0 -9px;
+  border:9px solid transparent; border-top:11px solid #FFC34A; border-bottom:0;
+}
+#coach.edge{ transform-origin:50% 50%; }
+#coach.edge::after{ display:none; }
+/* at the edge: a gold tail sticking out of the bubble's rim, turned to point the way */
+#coach .dir{ display:none; position:absolute; left:50%; top:50%; width:0; height:0; }
+#coach.edge .dir{ display:block; }
+#coach .dir::after{ content:""; position:absolute; left:1px; top:-7px; border:7px solid transparent; border-left:20px solid #FFC34A; border-right:0; }
+/* the rating, while the tutorial talks about it */
+#stars.teach{ animation:teach 1.2s ease-in-out infinite; }
+@keyframes teach{ 50%{ box-shadow:0 3px 0 var(--shade), 0 0 0 5px rgba(255,195,74,.75); transform:scale(1.08); } }
+@media (prefers-reduced-motion: reduce){ #stars.teach{ animation:none; box-shadow:0 3px 0 var(--shade), 0 0 0 4px #FFC34A; } }
+
 /* How to walk: shown once, below the player, then off into the settings gear (hint.ts). */
 #hint{
   position:fixed; left:50%; bottom:calc(env(safe-area-inset-bottom,0px) + 16%); z-index:3; pointer-events:none;
@@ -451,15 +494,17 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
   user-select:text; -webkit-user-select:text;
 }
 #korki[hidden]{ display:none; }
-#korki h2{ margin:0 44px 0 0; font-size:30px; font-weight:800; line-height:1; color:#C98F1B; }
+#korki h2{ margin:0 92px 0 0; font-size:30px; font-weight:800; line-height:1; color:#C98F1B; }
 #korki .sub{ margin:2px 0 10px; font-size:14px; font-weight:600; opacity:.75; }
 #korki p{ margin:0 0 9px; font-size:16px; font-weight:600; line-height:1.35; }
 #korki .sign{ margin:12px 0 0; font-weight:800; }
-#korkiMute{
-  position:absolute; z-index:1; top:12px; right:12px; width:38px; height:38px; border:0; border-radius:50%;
+#korki .btns{ position:absolute; z-index:1; top:12px; right:12px; display:flex; gap:8px; }
+#korki .btns button{
+  width:38px; height:38px; border:0; border-radius:50%;
   background:var(--chip); color:inherit; font-size:19px; line-height:1; cursor:pointer;
 }
-#korkiMute:focus-visible{ outline:3px solid #E3A92B; outline-offset:2px; }
+#korki .btns button:focus-visible{ outline:3px solid #E3A92B; outline-offset:2px; }
+#korkiClose{ font-weight:800; }
 #korki .song{ margin:10px 0 0; font-size:13px; opacity:.7; }
 #korki .song a{ color:inherit; text-decoration:underline; text-underline-offset:2px; }
 #korki .song a:focus-visible{ outline:3px solid #E3A92B; outline-offset:2px; border-radius:4px; }
@@ -498,11 +543,10 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
   .hrow{ display:flex; align-items:center; gap:6px; }
   #cash{ font-size:21px; padding:3px 12px 3px 4px; gap:6px; }
   #cash .ic{ width:32px; height:24px; border-radius:6px; font-size:16px; box-shadow:inset 0 0 0 2px rgba(255,255,255,.35); }
-  #carry, #stars, #stage, #season{ font-size:15px; padding:4px 10px 4px 4px; gap:6px; }
-  #carry .ic, #stars .ic, #stage .ic, #season .ic{ width:22px; height:22px; font-size:13px; }
+  #stars, #stage, #season, #goal{ font-size:15px; padding:4px 10px 4px 4px; gap:6px; }
+  #stars .ic, #stage .ic, #season .ic, #goal .ic{ width:22px; height:22px; font-size:13px; }
   #season{ padding:4px 8px 4px 4px; }
   #season .bar{ width:22px; }
-  #carry .ic{ box-shadow:inset 0 0 0 3px #F6C9C9; }
   #stage .bar{ width:40px; }
   #stageName, #seasonName{ position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
   #mods{ min-width:0; font-size:13px; padding:5px 10px 5px 6px; }
@@ -511,6 +555,12 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
   #hint{ font-size:17px; }
   #board{ width:40px; height:40px; font-size:20px; }
   #toast{ top:calc(env(safe-area-inset-top,0px) + 108px); font-size:19px; padding:7px 16px; }
+  #korki{ top:calc(env(safe-area-inset-top,0px) + 96px); max-height:min(30vh,260px); border-radius:20px; }
+  #korki .memo{ padding:12px 16px 14px; }
+  #korki h2{ font-size:24px; }
+  #korki .sub{ font-size:13px; margin-bottom:8px; }
+  #korki p{ font-size:14px; margin-bottom:7px; }
+  #korki .btns{ top:8px; right:8px; }
 }
 /* Phones on their side: the upgrade and casino panels go down the right-hand side, and the view slides over to
    keep the player in sight beside them (ui.ts). */
@@ -534,7 +584,7 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
   #settings > button, #settings > a{ min-height:44px; }
   #look .word{ min-height:40px; }
   #rainMute{ width:40px; height:40px; }
-  #korkiMute{ width:42px; height:42px; }
+  #korki .btns button{ width:42px; height:42px; }
 }
 </style>
 </head>
@@ -551,13 +601,13 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
 <div id="hud">
   <div class="hrow">
     <div id="cash" class="pill"><span class="ic">$</span><span id="cashN">0</span></div>
-    <div id="carry" class="pill"><span class="ic" aria-hidden="true"></span><span class="sr">Carrying </span><span id="carryN">0/6</span></div>
     <div id="season" class="pill" data-season="winter"><span class="ic" id="seasonIc" aria-hidden="true">❄️</span><span class="sr">Season: </span><span id="seasonName">Winter</span><span class="bar" aria-hidden="true"><i id="seasonBar"></i></span></div>
   </div>
   <div class="hrow">
     <div id="stars" class="pill"><span class="ic" aria-hidden="true">★</span><span class="sr">Rating </span><span id="starsN">3.0</span></div>
     <button id="stage" class="pill" type="button" aria-expanded="true" aria-controls="mods"><span class="sr">Stage </span><span class="ic" id="stageNum">1</span><span id="stageName">Fish Market</span><span class="bar" aria-hidden="true"><i id="stageBar"></i></span><span id="stageCount">0/7</span><span class="chev" aria-hidden="true"></span></button>
   </div>
+  <div id="goal" class="pill" role="status" hidden><span class="ic" id="goalIc" aria-hidden="true"></span><span id="goalName"></span><span id="goalN"></span><span class="bar" aria-hidden="true"><i id="goalBar"></i></span></div>
   <div id="mods" class="pill" role="group" aria-label="Modifiers"></div>
 </div>
 <div id="corner">
@@ -592,9 +642,10 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
   <button type="button" id="scoresJoin" hidden>Sign in to join</button>
 </div></div>
 <div id="pointers" aria-hidden="true"></div>
+<div id="coach" class="pill" role="status" hidden><i class="dir" aria-hidden="true"></i><b></b><small></small></div>
 <div id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
 <canvas id="confetti" aria-hidden="true" hidden></canvas>
-<div id="banner" aria-live="polite"><div class="card"><div class="k"></div><div class="t"></div></div></div>
+<div id="banner" aria-live="polite"><div class="card"><div class="k"></div><div class="t"></div><div class="s" hidden></div></div></div>
 <div id="prompts">
   <div id="buyHint" class="pill" role="status" hidden></div>
   <div id="tip" class="pill" aria-live="polite"></div>
@@ -634,7 +685,10 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
   </div>
 </div>
 <section id="korki" hidden aria-label="Korki">
-  <button type="button" id="korkiMute" aria-label="Mute Korki's song"></button>
+  <div class="btns">
+    <button type="button" id="korkiMute" aria-label="Mute Korki's song"></button>
+    <button type="button" id="korkiClose" aria-label="Close Korki's story">✕</button>
+  </div>
   <div class="memo">
   <h2>Korki</h2>
   <p class="sub">NAMI Klima One · 5,000 km · Tel Aviv</p>

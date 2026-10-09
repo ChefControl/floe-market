@@ -4,6 +4,7 @@
 // a little slower than prices, so each purchase takes a bit longer than the last until the stage's next big
 // unlock. Each stage ends on an expensive capstone that takes most of your savings, and the next starts again
 // from a few sales, with numbers about ten times bigger.
+import type { UnlockId } from './unlocks';
 
 /** Base prices: stage 1's fish (walk-up counter, sled window), stage 2's plates and takeout boxes. */
 export const FISH_PRICE = { walk: 4, sled: 6 };
@@ -18,6 +19,8 @@ export interface Mod {
   kind: 'price' | 'customers' | 'speed' | 'growth';
   /** Bought at the fertilizer shed by the water wheel (shed.ts) rather than the upgrade square. */
   shed?: boolean;
+  /** On sale only once this is bought: crew training needs a crew to train. */
+  needs?: UnlockId;
   icon: string;
   name: string;
   /** What a level does, in a few words. */
@@ -44,7 +47,7 @@ export const MODS: Mod[] = [
     levels: ['Posters', 'Flyers', 'Radio ad', 'Social media', 'Billboard', 'Food blogger', 'Newspaper', 'TV ad'],
     per: 1.2, cost: 60, step: 1.75, max: 8,
   },
-  { id: 'training', stage: 1, kind: 'speed', icon: '💪', name: 'Crew training', what: 'Fishing and chopping go faster', per: 1.15, cost: 80, step: 1.75, max: 8 },
+  { id: 'training', stage: 1, kind: 'speed', icon: '💪', name: 'Crew training', what: 'Fishing, chopping and the runners go faster', needs: 'runner', per: 1.15, cost: 80, step: 1.75, max: 8 },
   { id: 'specials', stage: 2, kind: 'price', icon: '🍣', name: "Chef's specials", what: 'Sushi sells for more', per: 1.25, cost: 500, step: 1.6 },
   {
     id: 'promo', stage: 2, kind: 'customers', icon: '📣', name: 'Marketing', what: 'More diners and drivers',
