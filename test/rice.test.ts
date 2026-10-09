@@ -68,6 +68,15 @@ describe('farmer', () => {
     expect(f.g.position.y).toBeCloseTo(g.layout.TERRACES[1].top);
   });
 
+  it('sweeps the ripe clumps either side of the one they came for in the same cut', async () => {
+    const g = await loadGame({ tiles: bought('sushi', 'paddy', 'farmer') });
+    const f = g.rice.farmer!;
+    ripen(g);
+    g.runUntil(() => f.state === 'cut', 20);
+    g.runUntil(() => f.state === 'seek', 2);
+    expect(g.rice.fieldStack.n).toBeGreaterThanOrEqual(2);
+  });
+
   it('waits by the last plant when the stack is full, and goes home when nothing is ripe', async () => {
     const g = await loadGame({ tiles: bought('sushi', 'paddy', 'farmer'), field: 40 });
     const f = g.rice.farmer!;
@@ -95,6 +104,13 @@ describe('rice porter', () => {
     g.runUntil(() => { indoors ||= g.layout.inHall(p.g.position); return ricePot.items.length === 3; }, 40);
     expect(indoors).toBe(true);
     g.runUntil(() => p.state === 'load', 40); // and heads back for more
+  });
+
+  it('carries up to 18 bags a trip', async () => {
+    const g = await loadGame({ tiles: bought('sushi', 'paddy', 'porter'), field: 30 });
+    const p = g.rice.porter!;
+    g.runUntil(() => p.state === 'toPot', 10);
+    expect(p.back.n).toBe(18);
   });
 
   it('waits with its load while the pot is full', async () => {

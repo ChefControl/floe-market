@@ -11,6 +11,9 @@ describe('HUD', () => {
     g.wallet.bumpT = 0.1;
     g.ui.hud(0.016);
     expect($('cashN').textContent).toBe('1,234');
+    g.wallet.money = 1_550_000;
+    g.ui.hud(0.016);
+    expect($('cashN').textContent).toBe('1.5M'); // short once it's big
     expect($('cash').classList.contains('bump')).toBe(true);
     expect($('carryN').textContent).toBe('6/6');
     expect($('carry').classList.contains('full')).toBe(true);
@@ -153,6 +156,7 @@ describe('how to walk', () => {
     expect(isTouch(MAC, 0)).toBe(false);
     expect(isTouch('Mozilla/5.0 (Windows NT 10.0; Win64; x64)', 0)).toBe(false);
     expect(isTouch()).toBe(false); // jsdom
+    expect(isTouch('Mozilla/5.0 (Windows NT 10.0; Win64; x64)', 10, true)).toBe(true); // a Windows tablet, finger first
   });
 
   it('shows once on a first game, then shrinks away into the settings gear once the player has walked a little', async () => {
@@ -271,8 +275,74 @@ describe('settings', () => {
     expect($('soundPanel').hidden).toBe(false);
     expect($('soundCat').getAttribute('aria-expanded')).toBe('true');
     expect([...$('soundPanel').querySelectorAll('label')].map(l => l.textContent)).toEqual(['Effects', 'Ambience', 'Music']);
-    expect([...$('soundPanel').querySelectorAll('input')].map(i => [(i as HTMLInputElement).min, (i as HTMLInputElement).max])).toEqual([['1', '10'], ['1', '10'], ['1', '10']]);
+    expect([...$('soundPanel').querySelectorAll('input')].map(i => [(i as HTMLInputElement).min, (i as HTMLInputElement).max])).toEqual([['0', '10'], ['0', '10'], ['0', '10']]);
     $('soundCat').click();
     expect($('soundPanel').hidden).toBe(true);
+  });
+});
+
+describe('Ko-fi', () => {
+  it('opens Ko-fi from the settings in a pop-up window of its own, leaving the game where it is', async () => {
+    await loadGame();
+    await import('../src/kofi');
+    const win = { opener: {} as unknown };
+    const open = vi.spyOn(window, 'open').mockReturnValue(win as Window);
+    $('gear').click();
+    const e = new MouseEvent('click', { bubbles: true, cancelable: true });
+    $('kofi').dispatchEvent(e);
+    expect(open).toHaveBeenCalledWith('https://ko-fi.com/chefcontrol', 'kofi', expect.stringContaining('popup=yes,width=520,height=760'));
+    expect(e.defaultPrevented).toBe(true); // the game's page stays put
+    expect(win.opener).toBeNull();
+    expect($('settings').hidden).toBe(true);
+  });
+
+  it('falls back to a new tab where pop-ups are blocked', async () => {
+    await loadGame();
+    await import('../src/kofi');
+    vi.spyOn(window, 'open').mockReturnValue(null);
+    const a = $('kofi') as HTMLAnchorElement;
+    expect([a.target, a.rel]).toEqual(['_blank', 'noopener']);
+    a.addEventListener('click', ev => { expect(ev.defaultPrevented).toBe(false); ev.preventDefault(); }); // jsdom can't open tabs
+    a.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+  });
+
+  it('nudges once after 10 minutes of play, kept across visits, and not over a banner or the open menu', async () => {
+    await loadGame();
+    localStorage.setItem('floe-market-kofi', String(9 * 60)); // played 9 minutes on an earlier visit
+    const kofi = await import('../src/kofi');
+    vi.useFakeTimers();
+    for (let i = 0; i < 59 * 20; i++) kofi.updKofi(0.05);
+    expect($('toast').classList.contains('on')).toBe(false);
+    expect(Number(localStorage.getItem('floe-market-kofi'))).toBeGreaterThan(9 * 60 + 45); // saved as it goes
+    $('settings').hidden = false; // waits while the menu is open
+    kofi.updKofi(2);
+    expect($('toast').classList.contains('on')).toBe(false);
+    $('settings').hidden = true;
+    $('banner').classList.add('on'); // and over a stage-up
+    kofi.updKofi(0.05);
+    expect($('toast').classList.contains('on')).toBe(false);
+    $('banner').classList.remove('on');
+    kofi.updKofi(0.05);
+    expect($('toast').textContent).toContain('Buy me a coffee');
+    expect($('gear').classList.contains('ping')).toBe(true);
+    vi.advanceTimersByTime(4900);
+    expect($('toast').classList.contains('on')).toBe(true); // up long enough to read
+    vi.advanceTimersByTime(200);
+    expect($('toast').classList.contains('on')).toBe(false);
+    expect(localStorage.getItem('floe-market-kofi')).toBe('-1');
+    kofi.updKofi(kofi.NUDGE_AFTER);
+    vi.advanceTimersByTime(300);
+    expect($('toast').classList.contains('on')).toBe(false); // only once
+  });
+
+  it("doesn't nudge players who found the link themselves, and copes with storage being unavailable", async () => {
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => { throw new Error('blocked'); });
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('blocked'); });
+    await loadGame();
+    const kofi = await import('../src/kofi');
+    vi.spyOn(window, 'open').mockReturnValue({} as Window);
+    $('kofi').click();
+    kofi.updKofi(kofi.NUDGE_AFTER + 1);
+    expect($('toast').classList.contains('on')).toBe(false);
   });
 });

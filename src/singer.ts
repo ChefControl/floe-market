@@ -40,10 +40,7 @@ export function singerLook(p: Person) {
     return m;
   };
 
-  // (the hood and the rest of the season's clothes come off with p.disguised)
-  for (const c of p.children) {
-    if (c instanceof Mesh && [G.body, G.head].includes(c.geometry)) own.push(c);
-  }
+  // (their body and head, the hood and the rest of the season's clothes come off with p.disguised)
   add(mesh(G.head, SKIN, 0, HEAD.y, HEAD.z));
 
   // The jacket: open over a white T-shirt, with a stand-up collar, a zip down each edge and two chest pockets.

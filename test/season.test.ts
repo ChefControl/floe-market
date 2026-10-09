@@ -1,6 +1,7 @@
 // The seasons: they come round every few minutes of play, recolour the scenery, change what falls from the sky and
 // what everyone wears, and are saved with the game.
-import { Mesh, type MeshLambertMaterial, type Object3D } from 'three';
+import { Mesh, type MeshLambertMaterial } from 'three';
+import type { Person } from '../src/characters';
 import { describe, expect, it } from 'vitest';
 import { bought, loadGame, MARKET } from './helpers';
 
@@ -12,9 +13,9 @@ const groundHex = (g: Game) => {
     && (c.geometry as unknown as { parameters: { width: number } }).parameters.width === 220) as Mesh;
   return (ground.material as MeshLambertMaterial).color.getHex();
 };
-/** The player's clothes for the season that are showing, by kind. */
-const worn = (o: Object3D) => o.children.filter(c => c.userData.outfit && c.visible);
-const hoodShowing = (g: Game) => g.player.g.children.some(c => c instanceof Mesh && c.geometry === g.render.G.hood && c.visible);
+/** The season's clothes someone is wearing, piece by piece (on the body, arms and legs). */
+const worn = (p: Person) => p.worn().filter(w => w.seasons);
+const hoodShowing = (g: Game) => g.player.g.worn().some(w => w.geo === g.render.G.hood);
 
 describe('seasons', () => {
   it('starts in winter, then comes round to spring, summer and autumn, and back to winter', async () => {
@@ -75,18 +76,17 @@ describe('seasons', () => {
     const diner = new Person(0x22303C, 'fancy');
     const chef = new Person(0xF4F6F8, 'chef');
     g.render.scene.add(p, diner, chef);
-    const kinds = () => worn(p).length + p.arms.flatMap(worn).length + p.legs.flatMap(worn).length;
     expect(worn(p)).toHaveLength(2); // the hood
     expect(worn(diner)).toHaveLength(2); // a scarf, in winter
     s.setSeason(1);
     expect(worn(p)).toHaveLength(3); // hair, a cap and its brim
     expect(worn(diner)).toHaveLength(0);
     s.setSeason(2);
-    expect(kinds()).toBe(1 + 3 + 2 + 2); // hair, sunglasses, bare forearms and shins
+    expect(worn(p)).toHaveLength(1 + 3 + 2 + 2); // hair, sunglasses, bare forearms and shins
     s.setSeason(3);
     expect(worn(p)).toHaveLength(5); // a woolly hat, its cuff and bobble, and a scarf
     expect(worn(diner)).toHaveLength(2);
-    expect(chef.children.some(c => c.userData.outfit)).toBe(false); // chefs wear whites all year
+    expect(worn(chef)).toHaveLength(0); // chefs wear whites all year
     // new people come dressed for the season
     expect(worn(new Person(0xF2B33D))).toHaveLength(5);
   });
@@ -97,7 +97,6 @@ describe('seasons', () => {
     g.placePlayer(21.6, g.layout.HOUSE_PATH_Z);
     g.run(0.1);
     expect(worn(g.player.g)).toHaveLength(0);
-    expect(g.player.g.arms.flatMap(worn)).toHaveLength(0);
     g.placePlayer(15, g.layout.HOUSE_PATH_Z);
     g.run(0.1);
     expect(worn(g.player.g).length).toBeGreaterThan(0);

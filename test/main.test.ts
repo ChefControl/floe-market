@@ -13,9 +13,12 @@ it('boots from a save, renders, autosaves and restarts', async () => {
 
   // render loop
   const render = vi.spyOn(g.render.renderer, 'render');
+  expect($('loading').classList.contains('done')).toBe(false); // up until the first frame is drawn
   g.frame()!(16);
+  expect($('loading').classList.contains('done')).toBe(true); // fading out
   g.frame()!(32);
   expect(render).toHaveBeenCalledTimes(2);
+  await vi.waitFor(() => expect(document.getElementById('loading')).toBeNull());
   expect($('cashN').textContent).toBe('7');
   expect(g.render.camera.position.y).toBeGreaterThan(10);
 

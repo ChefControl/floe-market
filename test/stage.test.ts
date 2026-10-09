@@ -52,6 +52,9 @@ describe('the stage-up', () => {
     expect($('banner').textContent).toBe('Stage 2Floe Sushi');
     expect(g.korki.STATUE.z).toBe(g.korki.GARDEN_SPOT.statue.z);
     g.ui.hud(0.016); // confetti falling
+    expect($('confetti').hidden).toBe(false);
+    for (let i = 0; i < 100 && !$('confetti').hidden; i++) g.ui.hud(0.05);
+    expect($('confetti').hidden).toBe(true); // all fallen: the canvas goes, so it isn't drawn over the game
     g.run(5);
     expect(staging()).toBe(false);
     expect($('banner').classList.contains('on')).toBe(false);

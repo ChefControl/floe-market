@@ -4,6 +4,7 @@
 //   Crew training: the player's headband, coloured like a judo belt, from white to black (stage 1 only).
 //   Chef's specials: a wooden menu tag over the kitchen line for each, a new dish on every one.
 //   Kitchen crew: the chefs' and cooks' toques grow taller.
+//   Rice fertilizer: a labelled sack of each kind on a pallet by the fertilizer shed (shed.ts).
 import { BoxGeometry, Group, MeshLambertMaterial, type Object3D } from 'three';
 import { type Ad, marketAds, restaurantAds, updAds } from './ads';
 import { C1 } from './counters';
@@ -12,6 +13,7 @@ import { stage } from './layout';
 import { player } from './player';
 import { popIn } from './pop';
 import { KITCHEN, sushi } from './restaurant';
+import { sacks } from './shed';
 import { canvasTex, FONT, G, mat, mesh, rr, scene } from './render';
 import { FY } from './util';
 
@@ -110,6 +112,7 @@ export function updLooks(dt: number) {
   showFirst(marketAds.map(groupOf), mods.marketing, quiet);
   showFirst(restaurantAds.map(groupOf), mods.promo, quiet);
   showFirst(tags, mods.specials, quiet);
+  showFirst(sacks, mods.fertilizer, quiet);
   if (mods.specials > 0 && !rail.visible) { rail.visible = true; if (!quiet) popIn(rail); }
   restaurantLooks.visible = stage.n === 2;
   // The headband is the market's crew training: it comes off when the restaurant opens.

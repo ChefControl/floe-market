@@ -3,7 +3,7 @@
 import { player } from './player';
 import { rating } from './rating';
 import { camera, slideView } from './render';
-import { pick, rand, V } from './util';
+import { amount, pick, rand, V } from './util';
 import { wallet } from './wallet';
 
 const $ = (id: string) => document.getElementById(id)!;
@@ -16,7 +16,7 @@ let shownMoney = -1, shownCarry = '', shownStars = '';
 export function hud(dt: number) {
   if (shownMoney !== wallet.money) {
     shownMoney = wallet.money;
-    cashN.textContent = wallet.money.toLocaleString('en-US');
+    cashN.textContent = amount(wallet.money);
   }
   const cs = player.back.n + '/' + player.back.cap;
   if (cs !== shownCarry) {
@@ -95,6 +95,7 @@ let bits: Bit[] = [];
 export function confetti() {
   if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
   const k = Math.min(window.devicePixelRatio || 1, 2);
+  confettiEl.hidden = false;
   const w = confettiEl.width = window.innerWidth * k, h = confettiEl.height = window.innerHeight * k;
   for (let i = 0; i < 160; i++) {
     bits.push({
@@ -113,13 +114,14 @@ function drawConfetti(dt: number) {
     cctx.restore();
   }
   bits = bits.filter(p => p.y < h + 40);
-  if (!bits.length) cctx.clearRect(0, 0, w, h);
+  // Once it's all fallen, the canvas goes away: a full-screen layer over the game costs a phone even when empty.
+  if (!bits.length) { confettiEl.width = confettiEl.height = 0; confettiEl.hidden = true; }
 }
 
 const toastEl = $('toast');
 let toastT: ReturnType<typeof setTimeout> | undefined;
-/** Messages waiting their turn, and the `key` of the one showing. */
-const waiting: { m: string; key?: string }[] = [];
+/** Messages waiting their turn (with how long each stays up, in ms), and the `key` of the one showing. */
+const waiting: { m: string; key?: string; ms: number }[] = [];
 let busy = false, showing: string | undefined;
 function nextToast() {
   const n = waiting.shift();
@@ -128,21 +130,22 @@ function nextToast() {
   showing = n.key;
   toastEl.textContent = n.m;
   toastEl.classList.add('on');
-  holdToast();
+  holdToast(n.ms);
 }
-function holdToast() {
+function holdToast(ms = 1700) {
   clearTimeout(toastT);
-  toastT = setTimeout(() => { toastEl.classList.remove('on'); toastT = setTimeout(nextToast, 250); }, 1700);
+  toastT = setTimeout(() => { toastEl.classList.remove('on'); toastT = setTimeout(nextToast, 250); }, ms);
 }
 /**
  * Shows a message for a moment. Messages take turns, so none is missed. One with the same `key` as the message
- * showing or waiting replaces it instead (buying the same kind of upgrade several times in a row).
+ * showing or waiting replaces it instead (buying the same kind of upgrade several times in a row). A longer one can
+ * stay up for `ms`.
  */
-export function toast(m: string, key?: string) {
+export function toast(m: string, key?: string, ms = 1700) {
   if (key && key === showing && toastEl.classList.contains('on')) { toastEl.textContent = m; holdToast(); return; }
   const same = waiting.find(w => (key ? w.key === key : w.m === m));
   if (same) { same.m = m; return; }
-  waiting.push({ m, key });
+  waiting.push({ m, key, ms });
   if (!busy) nextToast();
 }
 

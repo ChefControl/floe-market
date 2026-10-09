@@ -5,7 +5,7 @@ import {
   BoxGeometry, DoubleSide, Group, Mesh, MeshBasicMaterial, MeshLambertMaterial, PlaneGeometry, PointLight, RepeatWrapping,
   type Object3D,
 } from 'three';
-import { EAST_DOOR, FARM_DOOR, GATE_W, HALL_BOX } from './layout';
+import { EAST_DOOR, FARM_DOOR, GATE_W, HALL_BOX, KIOSK_BOOTH, kioskBooth } from './layout';
 import { bake, canvasTex, FONT, G, mat, mesh, rr, scene, type Part } from './render';
 import { FY, rand, type XZ } from './util';
 import { shelter } from './season';
@@ -13,13 +13,16 @@ import { planks, TREE_MATS } from './world';
 
 const { x0: X0, x1: X1, z0: Z0, z1: Z1 } = HALL_BOX;
 const MID = (Z0 + Z1) / 2;
-/** The takeout kiosk, outside the east wall at its north end, clear of the path to her house. */
-export const KIOSK = { x: 12.2, z: 2.8 };
+/**
+ * The takeout kiosk's counter, along the far side of its booth (off the east wall at its north end, clear of the path
+ * to her house), and how long it is: the booth's depth inside its kerbs.
+ */
+export const KIOSK = { x: 12.2, z: (KIOSK_BOOTH.z0 + KIOSK_BOOTH.z1) / 2, len: KIOSK_BOOTH.z1 - KIOSK_BOOTH.z0 - 0.3 };
+
+/** How high the stone kerb the walls stand on is. */
+const KERB_H = 0.36;
 
 /** A group at (x, z) that pops in about its own centre; `put` places things in it by world position. */
-/** The stone kerb the walls stand on: how high it is, and where its outside face is on the east side. */
-const KERB_H = 0.36, KERB_X = HALL_BOX.x1 + 0.15;
-
 function piece(x: number, z: number) {
   const g = new Group(); g.position.set(x, 0, z); g.visible = false; scene.add(g);
   return g;
@@ -82,18 +85,26 @@ function lanterns(g: Group, at: [x: number, y: number, z: number, s: number, red
 }
 
 // ---------- the building ----------
+/** Floorboards' tops, the same size whatever the floor's (5 by 4 over the restaurant's), and their sides. */
+const boards = (w: number, d: number) => new MeshLambertMaterial({ map: planks('#7A4A30', '#86533A', w * 5 / (X1 - X0), d * 4 / (Z1 - Z0)) });
+const BOARD_SIDE = mat(0x6B4130);
+/** A run of shoji wall `h` high in `g`, standing on the kerb. */
+function shojiWall(g: Group, w: number, h: number, d: number, x: number, z: number) {
+  const t = shoji.tex.clone(); t.wrapS = t.wrapT = RepeatWrapping; t.repeat.set(Math.max(w, d) / 2, h / 2.4); t.needsUpdate = true;
+  put(g, mesh(new BoxGeometry(w, h, d), new MeshLambertMaterial({ map: t }), 0, 0, 0, true), x, KERB_H + h / 2, z);
+}
+
 const floor = piece(0, MID);
 {
-  const top = new MeshLambertMaterial({ map: planks('#7A4A30', '#86533A', 5, 4) });
-  const side = mat(0x6B4130);
-  put(floor, new Mesh(new BoxGeometry(X1 - X0, 0.3, Z1 - Z0), [side, side, top, side, side, side]), 0, 0, MID).receiveShadow = true;
-  // a raised stone kerb round three sides, open at the gate and the farm door; walls stand on it
+  const side = BOARD_SIDE;
+  put(floor, new Mesh(new BoxGeometry(X1 - X0, 0.3, Z1 - Z0), [side, side, boards(X1 - X0, Z1 - Z0), side, side, side]), 0, 0, MID).receiveShadow = true;
+  // a raised stone kerb round three sides, open at the gate, the farm door and into the kiosk's booth; walls stand on it
   const kerb: Part[] = [];
   const k = (w: number, d: number, x: number, z: number) => kerb.push({ geo: G.box, at: [x, KERB_H / 2, z - MID], scale: [w, KERB_H, d] });
   const fw = X1 + 0.15 - GATE_W;
   k(fw, 0.3, -(GATE_W + fw / 2), Z1); k(fw, 0.3, GATE_W + fw / 2, Z1);
   k(0.3, FARM_DOOR.z0 - Z0, X0, (Z0 + FARM_DOOR.z0) / 2); k(0.3, Z1 - FARM_DOOR.z1, X0, (FARM_DOOR.z1 + Z1) / 2);
-  k(0.3, EAST_DOOR.z0 - Z0, X1, (Z0 + EAST_DOOR.z0) / 2); k(0.3, Z1 - EAST_DOOR.z1, X1, (EAST_DOOR.z1 + Z1) / 2);
+  k(0.3, EAST_DOOR.z0 - KIOSK_BOOTH.z1, X1, (KIOSK_BOOTH.z1 + EAST_DOOR.z0) / 2); k(0.3, Z1 - EAST_DOOR.z1, X1, (EAST_DOOR.z1 + Z1) / 2);
   // the north side meets the dock, so it only has kerb (and wall) beyond the dock's fences
   for (const s of [-1, 1]) k(X1 + 0.15 - 7.85, 0.3, s * (7.85 + X1 + 0.15) / 2, Z0);
   floor.add(mesh(bake(kerb), 0x9AA4AC, 0, 0, 0, true));
@@ -157,16 +168,13 @@ const roof = piece(0, MID);
 
 const walls = piece(0, MID);
 {
-  const wall = (w: number, h: number, d: number, x: number, z: number) => {
-    const t = shoji.tex.clone(); t.wrapS = t.wrapT = RepeatWrapping; t.repeat.set(Math.max(w, d) / 2, h / 2.4); t.needsUpdate = true;
-    put(walls, mesh(new BoxGeometry(w, h, d), new MeshLambertMaterial({ map: t }), 0, 0, 0, true), x, 0.36 + h / 2, z);
-  };
+  const wall = (w: number, h: number, d: number, x: number, z: number) => shojiWall(walls, w, h, d, x, z);
   // tall at the back (west), with the farm door; low elsewhere so the inside stays in view
   wall(0.18, 3.0, FARM_DOOR.z0 - Z0, X0, (Z0 + FARM_DOOR.z0) / 2);
   wall(0.18, 3.0, Z1 - FARM_DOOR.z1, X0, (FARM_DOOR.z1 + Z1) / 2);
   for (const s of [-1, 1]) wall(X1 - 7.9, 0.75, 0.18, s * (7.9 + X1) / 2, Z0);
-  // the east wall: open to the takeout kiosk at its north end, and a door for the path to her house
-  const win = KIOSK.z + 1.8;
+  // the east wall: open to the takeout kiosk's booth at its north end, and a door for the path to her house
+  const win = KIOSK_BOOTH.z1;
   wall(0.18, 0.75, EAST_DOOR.z0 - win, X1, (win + EAST_DOOR.z0) / 2);
   wall(0.18, 0.75, Z1 - EAST_DOOR.z1, X1, (EAST_DOOR.z1 + Z1) / 2);
   const fw = X1 - GATE_W - 0.4;
@@ -226,16 +234,26 @@ const garden = piece(0, GARDEN_Z);
 }
 
 // ---------- the takeout kiosk's booth (its counter is the takeout window's, in counters.ts) ----------
+const { x0: KX0, x1: KX1, z0: KZ0, z1: KZ1 } = KIOSK_BOOTH;
 const kiosk = piece(11.4, KIOSK.z);
 {
-  // its floor meets the restaurant's stone kerb flush, at the kerb's height
-  put(kiosk, mesh(new BoxGeometry(12.8 - KERB_X, KERB_H, 4.8), 0x7A4A30, 0, 0, 0, true), (12.8 + KERB_X) / 2, KERB_H / 2, KIOSK.z);
+  // the restaurant's floorboards carry on through the east wall, and its kerb and low wall carry on round the booth's
+  // north and south sides; the counter closes its far side
+  const side = BOARD_SIDE, w = KX1 - KX0, d = KZ1 - KZ0;
+  put(kiosk, new Mesh(new BoxGeometry(w, 0.3, d), [side, side, boards(w, d), side, side, side]), (KX0 + KX1) / 2, 0, KIOSK.z).receiveShadow = true;
+  const kerb: Part[] = [];
+  const kx0 = KX0 - 0.15; // round the corner of the east wall's kerb
+  for (const z of [KZ0, KZ1]) {
+    kerb.push({ geo: G.box, at: [(kx0 + KX1) / 2 - kiosk.position.x, KERB_H / 2, z - KIOSK.z], scale: [KX1 - kx0, KERB_H, 0.3] });
+    shojiWall(kiosk, KX1 - KX0 - 0.1, 0.75, 0.18, (KX0 + KX1 - 0.1) / 2, z);
+  }
+  kiosk.add(mesh(bake(kerb), 0x9AA4AC, 0, 0, 0, true));
   const m = roofMat.clone(); m.transparent = true;
-  const r = mesh(new BoxGeometry(3.0, 0.12, 5.2), m, 0, 0, 0, true); r.rotation.z = -0.25;
+  const r = mesh(new BoxGeometry(3.0, 0.12, d + 0.4), m, 0, 0, 0, true); r.rotation.z = -0.25;
   put(kiosk, r, 11.4, FY + 2.7, KIOSK.z);
   slabs.push({ s: r, m, near: p => p.x > 5.5 && p.z > 1 && p.z < 12 });
   const posts: Part[] = [];
-  for (const z of [-2.2, 2.2]) posts.push({ geo: G.cyl, at: [1.3, FY + 1.25, z], scale: [0.12, 2.5, 0.12] });
+  for (const z of [KZ0, KZ1]) posts.push({ geo: G.cyl, at: [1.3, FY + 1.25, z - KIOSK.z], scale: [0.12, 2.5, 0.12] });
   kiosk.add(mesh(bake(posts), 0x6B2E22, 0, 0, 0, true));
   const sign = new Mesh(new PlaneGeometry(1.9, 0.5), new MeshBasicMaterial({ map: signTex(256, 72, '#C0392B', 'Takeout', 40) }));
   sign.rotation.y = Math.PI / 2; put(kiosk, sign, 12.75, FY + 2.25, KIOSK.z);
@@ -243,14 +261,14 @@ const kiosk = piece(11.4, KIOSK.z);
 
 // No snow (or petals, or leaves) inside the restaurant, its courtyard included, or under the kiosk's roof.
 shelter({ x0: X0 - 0.6, x1: X1 + 0.6, z0: Z0 - 0.6, z1: Z1 + 0.6, top: FY + 4.3, on: () => roof.visible });
-shelter({ x0: 9.9, x1: 12.9, z0: KIOSK.z - 2.6, z1: KIOSK.z + 2.6, top: FY + 2.8, on: () => kiosk.visible });
+shelter({ x0: 9.9, x1: 12.9, z0: KZ0 - 0.2, z1: KZ1 + 0.2, top: FY + 2.8, on: () => kiosk.visible });
 
 /** The building, for the stage-up: shown, then popped in one by one. Lamps light up separately. */
 export const hallPieces = [floor, frame, walls, roof, gate, garden];
 
 /** The 'kiosk' unlock puts up the takeout kiosk's booth. Returns it for the pop-in. */
 export function showKiosk() {
-  kiosk.visible = true;
+  kiosk.visible = true; kioskBooth.open = true;
   return [kiosk];
 }
 

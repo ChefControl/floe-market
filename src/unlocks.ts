@@ -17,11 +17,12 @@ import { rating } from './rating';
 import { showKiosk } from './hall';
 import { addSeats, hireChef, setPremium } from './restaurant';
 import { hireFarmer, hireRicePorter, plantTerrace } from './rice';
+import { openShed } from './shed';
 import { hireRunner } from './runner';
 import { chime, unlock } from './sfx';
 import { enterStage2, staging } from './stage';
 import { showStage, toast, type TipContent } from './ui';
-import { FY, V } from './util';
+import { FY, price, V } from './util';
 
 export type UnlockId =
   | 'pack' | 'turret' | 'roulette' | 'runner' | 'boots' | 'sled' | 'runner2' | 'net' | 'runner3' | 'sushi'
@@ -97,9 +98,8 @@ const UNLOCKS: Unlock[] = [
 ];
 
 export const locked = (t: Tile) => !!t.stars && !t.open;
-const money = (v: number) => '$' + v.toLocaleString('en-US');
 function tipOf(t: Tile): TipContent {
-  return locked(t) ? { name: t.name, desc: `Needs a ★${t.stars!.toFixed(1)} rating (now ★${rating().toFixed(1)}) · ${money(t.cost)}` } : t;
+  return locked(t) ? { name: t.name, desc: `Needs a ★${t.stars!.toFixed(1)} rating (now ★${rating().toFixed(1)}) · ${price(t.cost)}` } : t;
 }
 
 export const tiles: Tile[] = UNLOCKS.map(u => {
@@ -217,7 +217,8 @@ export function applyUnlock(id: UnlockId, silent = false) {
   if (id === 'porter') pop(hireRicePorter());
   if (id === 'seats') pop(...addSeats());
   if (id === 'chef' || id === 'chef3') pop(hireChef());
-  if (id === 'kiosk') pop(...showKiosk(), ...openTakeout());
+  // the kiosk eats into the rice, so the fertilizer shed opens with it
+  if (id === 'kiosk') { pop(...showKiosk(), ...openTakeout()); pop(...openShed(silent)); }
   if (id === 'tables') pop(...addTables(0));
   if (id === 'tables2') pop(...addTables(1));
   if (id === 'premium') setPremium();
@@ -225,6 +226,7 @@ export function applyUnlock(id: UnlockId, silent = false) {
   showProgress();
   if (silent || t.gold) return;
   toast(t.name + ' unlocked');
+  if (id === 'kiosk') toast('New: the Fertilizer shed, by the water wheel');
   unlock();
   if (t.always || !goal(t.stage).every(x => x.done)) return;
   toast(t.stage === 1 ? 'Floe Sushi is ready to open' : 'Floe Sushi is fully built');

@@ -2,7 +2,7 @@
 
 What "balanced" means for Floe Market, stage by stage: the principles we tune by, the numbers that show when something is off, and where the game stands today. Balanced here doesn't mean even numbers. It means the pacing feels right and every purchase is worth something.
 
-The measurements below are from 7 October 2026: stage 1 with the price list merged in #11 (three runners), stage 2 with the garden tables, the slower terraces and the price list below. Re-measure after any price change and update them.
+The measurements below are from 7 October 2026 (the end-game rice and the bot's purchase times from 8 October): stage 1 with the price list merged in #11 (three runners), stage 2 with the garden tables, the slower terraces and the price list below. Re-measure after any price change and update them.
 
 ## The theme: each stage grows its raw ingredient
 
@@ -102,10 +102,11 @@ Income keeps rising mostly from the repeatable upgrades. The bottleneck turns ov
 
 **What it's about:** growing rice and a restaurant to serve it. Two supply chains (fish from the dock, rice from the terraces) feed the chefs; the runners already carry the fish, then a farmer and a porter take over the rice, while the restaurant grows from the bar out into the garden. About 40 minutes to the Premium menu.
 
-**The bottleneck it should rotate through:** rice and room for diners, taking turns. Each terrace grows a set amount, a little less than the next step of the restaurant eats, so rice runs short until the next terrace is planted; each step of the restaurant (more seats, another chef, garden tables) eats more than the terraces grow. Rice (the patch, then the first terrace) → seats → rice (carrying it in: farmer, porter) → rice (the second terrace) → seats (garden tables, and a waiter to serve them) → rice (the third terrace) → a second kind of customer for the surplus (the kiosk) → prices (the Premium menu).
+**The bottleneck it should rotate through:** rice and room for diners, taking turns. Each terrace grows a set amount, a little less than the next step of the restaurant eats, so rice runs short until the next terrace is planted; each step of the restaurant (more seats, another chef, garden tables) eats more than the terraces grow. Rice (the patch, then the first terrace) → seats → rice (carrying it in: farmer, porter) → rice (the second terrace) → seats (garden tables, and a waiter to serve them) → rice (the third terrace) → a second kind of customer for the surplus (the kiosk) → rice (fertilizer, since there's no fourth terrace) → prices (the Premium menu) → the chefs.
 
 **Principles for this stage**
-- Rice keeps up with the customers you have, and no more: the starting patch is sized for the first customers at a five-star rating, and each terrace grows 0.6 bags a second (ripening in 30 seconds), a bit less than 18 seats with two chefs eat. Upgrades don't speed rice up, so the next terrace is always worth planting.
+- Rice keeps up with the customers you have, and no more: the starting patch is sized for the first customers at a five-star rating, and each terrace grows 0.6 bags a second (ripening in 30 seconds), a bit less than 18 seats with two chefs eat. Upgrades don't speed rice up until the fertilizer shed opens with the kiosk, so the next terrace is always worth planting.
+- Once all three terraces are planted, fertilizer is the way to more rice: three levels of +50% (1.5, 2.25, then 3.4 times as fast). The first two already grow more than a fully crewed kitchen eats; the third is room to spare. The farmer (sweeping the clumps either side of the one they came for) and the rice porter (18 bags a trip, loading as fast as the crew works) carry all of it in.
 - Each big tile ($5,000 and up) should feel like a milestone: income visibly jumps, or a new part of the restaurant comes alive.
 - A shortage should cost a little rating, not most of it: rating requirements sit on the same tiles a struggling restaurant needs.
 
@@ -113,26 +114,29 @@ Income keeps rising mostly from the repeatable upgrades. The bottleneck turns ov
 
 | Tile | Price | Needs | Its job | Bought at (bot) | Income after (typical) | Main limit after |
 |---|---|---|---|---|---|---|
-| 🏯 Open Floe Sushi | $12,000 | the market | The restaurant, a chef, ten seats, the rice patch | 12:09 | $942/min | Customers, rice 15% |
-| 🌾 Rice terrace | $800 | | Rice for more diners | 12:22 | $1,971/min | Rice 29% |
-| 🪑 More seats | $2,500 | ★3.6 | Room for more diners | 20:47 | $2,380/min | Chefs 47%, rice 26% |
-| 🔪 Second chef | $3,000 | ★3.6 | Faster plates | 22:33 | $3,602/min | **Rice 50%**: chefs wait for rice 69% of the time |
-| 🧑‍🌾 Hire a farmer | $6,000 | ★3.9, 🌾 | Free your hands from harvesting | 31:23 | $7,865/min | Rice 37% |
-| 🧺 Rice porter | $12,000 | ★4.1, 🌾 | Free your hands from carrying rice | 36:07 | $12,136/min | Seats 42%, rice 11% |
-| 🌱 Second terrace | $15,000 | ★4.1, 🌾 | Rice for more diners | 39:37 | $17,184/min | Seats 44%, rice 0% |
-| ⛱️ Garden tables | $20,000 | ★4.2 | Eight seats outside, and a waiter | 41:49 | $22,131/min | The waiter |
-| 🔪 Third chef | $25,000 | ★4.3, 🔪 | Faster plates | 45:23 | $30,598/min | The waiter |
-| ⛱️ More garden tables | $32,000 | ★4.3, ⛱️ | Eight more seats outside, and a second waiter | 47:28 | $37,888/min | Chefs 47%, **rice 16%** |
-| 🌱 Third terrace | $40,000 | ★4.4, 🌱 | Rice for a full garden | 49:40 | $45,310/min | The waiters, rice 0% |
-| 🥡 Takeout kiosk | $50,000 | ★4.4 | A second kind of customer for the rice to spare | 51:44 | $69,703/min | Chefs 65%, rice 35% |
-| 🏮 Premium menu | $60,000 | ★4.5 | Everything sells for more | 53:50 | $278,455/min | Chefs, rice |
+| 🏯 Open Floe Sushi | $12,000 | the market | The restaurant, a chef, ten seats, the rice patch | 11:53 | $942/min | Customers, rice 15% |
+| 🌾 Rice terrace | $800 | | Rice for more diners | 12:05 | $1,971/min | Rice 29% |
+| 🪑 More seats | $2,500 | ★3.6 | Room for more diners | 20:49 | $2,380/min | Chefs 47%, rice 26% |
+| 🔪 Second chef | $3,000 | ★3.6 | Faster plates | 21:50 | $3,602/min | **Rice 50%**: chefs wait for rice 69% of the time |
+| 🧑‍🌾 Hire a farmer | $6,000 | ★3.9, 🌾 | Free your hands from harvesting | 30:27 | $7,865/min | Rice 37% |
+| 🧺 Rice porter | $12,000 | ★4.1, 🌾 | Free your hands from carrying rice | 35:30 | $12,136/min | Seats 42%, rice 11% |
+| 🌱 Second terrace | $15,000 | ★4.1, 🌾 | Rice for more diners | 38:53 | $17,184/min | Seats 44%, rice 0% |
+| ⛱️ Garden tables | $20,000 | ★4.2 | Eight seats outside, and a waiter | 41:11 | $22,131/min | The waiter |
+| 🔪 Third chef | $25,000 | ★4.3, 🔪 | Faster plates | 43:42 | $30,598/min | The waiter |
+| ⛱️ More garden tables | $32,000 | ★4.3, ⛱️ | Eight more seats outside, and a second waiter | 45:26 | $37,888/min | Chefs 47%, **rice 16%** |
+| 🌱 Third terrace | $40,000 | ★4.4, 🌱 | Rice for a full garden | 47:20 | $45,310/min | The waiters, rice 0% |
+| 🥡 Takeout kiosk | $50,000 | ★4.4 | A second kind of customer for the rice to spare; opens the fertilizer shed | 49:20 | $69,703/min | Chefs 65%, rice 35% |
+| 🌿 Fertilizer: compost, fish meal | $20,000, $40,000 | the kiosk | Rice ripens 1.5, then 2.25 times as fast | 49:43, 50:15 | | Rice, less each level |
+| 🏮 Premium menu | $60,000 | ★4.5 | Everything sells for more | 52:07 | $278,455/min | Chefs, rice |
+| 🌿 Fertilizer: spring minerals | $80,000 | | Rice ripens 3.4 times as fast | 52:44 | | **Chefs: rice 0%** |
 
-"Bought at" is from the balance sim. "Income after" and "main limit after" are five minutes of play right after each purchase, with the repeatable upgrades the bot typically has by then, so income also rises from those. "The waiter" means garden diners waiting while plates go round the bar: the waiters, not the kitchen, are what they wait on.
+"Bought at" is from the balance sim, re-run on 8 October 2026 after the fertilizer shed went in (with the farmer's sweep and the porter's bigger loads, the middle of stage 2 also comes about a minute and a half sooner). The "income after" and "main limit after" columns are still from 7 October, apart from the fertilizer's. "Income after" and "main limit after" are five minutes of play right after each purchase, with the repeatable upgrades the bot typically has by then, so income also rises from those. "The waiter" means garden diners waiting while plates go round the bar: the waiters, not the kitchen, are what they wait on.
 
 What it shows:
 - **Rice is the theme again.** It's the main limit through the early restaurant (up to half the time, with the chefs waiting for rice two thirds of it), and short again once the second row of garden tables comes in, which is what the third terrace fixes. The kiosk then takes the surplus, and rice runs short once more.
 - **The garden works, and the waiters set its pace.** Garden diners are served several tables a trip, but from the first garden tables on, the waiters are what they wait on most.
 - **Fish is never the limit** in stage 2: the market's runners bring more than the kitchen uses.
+- **The end game had a rice shortage, which fertilizer fixes.** With every upgrade bought and the kitchen crew maxed, the kitchen eats about 2.35 bags a second, against 1.8 from three planted terraces. Before the fertilizer shed, the chefs stood idle with no rice 39% of the time from the kiosk on, with about 19 diners waiting and the rating sliding to ★3.6–4.0, at about $875,000 a minute 77 minutes in. Fertilizer alone wasn't enough: the farmer (about 1.8 bags a second) and then the porter (about 2) became the limit, which the farmer's sweep and the porter's 18-bag loads fix. With +20% a level, the chefs were still short 12–15% of the time until the third level was in, so each level is now +50%: the chefs are out of rice 0% of the time from the second level on (about a minute after the kiosk), with the rating at ★4.6–5.0 and about $1.6 million a minute 77 minutes in. Without the fertilizer, the same farmer and porter still leave the chefs short 33–36% of the time.
 - **Stage 2 is long:** about 42 minutes, against 33 before the garden and the slower terraces. The bot buys the cheaper repeatable upgrades before each tile, which leaves two gaps of about 8 minutes between tiles (the terrace to More seats, the Second chef to the farmer), and the rating dips to ★2.6 to ★2.8 in the second, while rice is carried in by hand.
 
 ## Open work, in order

@@ -22,7 +22,8 @@ import { clink, review, till } from './sfx';
 import { canvasTex, G, mat, mesh, scene, type CanvasTex } from './render';
 import { pile } from './stations';
 import { popStars, popText } from './ui';
-import { d2xz, FY, pick, rand, randi, V, type XZ } from './util';
+import { d2xz, FY, money, pick, rand, randi, V, type XZ } from './util';
+import { crowd, DRESSES } from './wardrobe';
 
 // ---------- layout ----------
 /** The bar is a stadium (two straights joined by half circles); R is the radius of the plate belt's centre line. */
@@ -35,6 +36,8 @@ const SEAT_R = 2.45, LEDGE_R = 1.7;
 export const KITCHEN = { x: 0, z: 2.6, w: 12, d: 1.0, h: 0.8 };
 export const FISH_DROP = V(2.6, FY, 1.05);
 export const RICE_DROP = V(-2.6, FY, 1.05);
+/** How near the chefs' pads things are dropped off, as at the stage 1 counters: up to the kitchen line's front. */
+export const DROP_R = 1.0;
 /** Where diners' bills land, by the gate; the register desk is behind it. */
 // Between two of the south wall's posts, so that neither they nor the beam over them hides the cash from the camera.
 export const REGISTER = V(5.0, 0, 13.7);
@@ -180,7 +183,7 @@ export const register = new Holder(i => {
 }, 90);
 
 const pads = [
-  decal(1.3, (c, w, h) => drawPad(c, w, h, '🐟')), decal(1.3, (c, w, h) => drawPad(c, w, h, '🍚')),
+  decal(DROP_R * 2, (c, w, h) => drawPad(c, w, h, '🐟')), decal(DROP_R * 2, (c, w, h) => drawPad(c, w, h, '🍚')),
 ];
 pads.forEach((d, i) => {
   const at = i ? RICE_DROP : FISH_DROP;
@@ -409,7 +412,8 @@ function spawnDiner() {
   const free = sushi.seats.filter(s => !s.diner);
   if (!free.length) return;
   const seat = pick(free);
-  const g = new Person(pick(SUITS), 'fancy');
+  const who = crowd();
+  const g = new Person(pick(who.woman ? DRESSES : SUITS), 'fancy', who);
   g.position.copy(STREET); scene.add(g);
   const want = randi(1, 3);
   const bt = canvasTex(128, 128, (c, w, h) => drawBubble(c, w, h, want, 1, 'sushi'));
@@ -461,7 +465,7 @@ function payBills(values: number[], from: Vector3) {
       if (top) addBillValue(top, v); else register.receive(b, 0.6, 1.6);
     }
   });
-  popText('+$' + values.reduce((a, v) => a + v, 0), REGISTER);
+  popText('+' + money(values.reduce((a, v) => a + v, 0)), REGISTER);
   till(REGISTER);
 }
 

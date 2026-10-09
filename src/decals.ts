@@ -5,6 +5,7 @@
 // on boards, snow and grass alike.
 import { Mesh, MeshBasicMaterial, PlaneGeometry } from 'three';
 import { CAM_YAW, canvasTex, FONT, rr, scene, type CanvasTex, type Draw } from './render';
+import { price } from './util';
 
 export interface Decal extends CanvasTex {
   mesh: Mesh;
@@ -78,13 +79,6 @@ export function drawMenu(c: CanvasRenderingContext2D, w: number, h: number, icon
  * While its star requirement isn't met it's dimmed, with a lock and the rating it needs instead of the price.
  * The gold one starts stage 2.
  */
-/** A price short enough for a tile: $950, $9,500, $95k, $9.5M. */
-export function shortMoney(v: number) {
-  const k = (x: number, unit: string) => '$' + (x < 100 ? x.toFixed(1).replace(/\.0$/, '') : Math.round(x)) + unit;
-  if (v < 10_000) return '$' + v.toLocaleString('en-US');
-  return v < 1e6 ? k(v / 1e3, 'k') : k(v / 1e6, 'M');
-}
-
 export function drawTile(
   c: CanvasRenderingContext2D, w: number, h: number,
   u: { paid: number; cost: number; icon: string; stars?: number; open?: boolean; gold?: boolean },
@@ -107,7 +101,7 @@ export function drawTile(
     iconText(c, w, u.icon, h * 0.38, 74);
     c.globalAlpha = 1;
     if (locked) iconText(c, w, '🔒', h * 0.48, 54);
-    const t = locked ? '★' + u.stars!.toFixed(1) : shortMoney(Math.max(0, u.cost - u.paid));
+    const t = locked ? '★' + u.stars!.toFixed(1) : price(Math.max(0, u.cost - u.paid));
     c.font = '800 58px ' + FONT; c.lineJoin = 'round'; c.lineWidth = 12; c.strokeStyle = 'rgba(20,45,60,.9)';
     c.strokeText(t, w / 2, h * 0.76);
     c.fillStyle = locked ? '#FFD24A' : '#fff'; c.fillText(t, w / 2, h * 0.76);

@@ -2,7 +2,6 @@
 // shrinks the dock to its north half, takes down the south fence and moves the road east of the restaurant.
 import {
   BoxGeometry, Group, type Material, Mesh, MeshBasicMaterial, MeshLambertMaterial, PlaneGeometry, RepeatWrapping,
-  type Object3D,
 } from 'three';
 import { HOUSE_PATH_Z } from './layout';
 import { bake, canvasTex, G, mat, mesh, scene, type Part } from './render';
@@ -83,38 +82,46 @@ export const gapLogs: Mesh[] = [];
 /** Fence south of the restaurant's line: gone in stage 2. Logs stand on the deck, so the group shrinks into it. */
 const fence1 = new Group();
 scene.add(fence1);
-function log(x: number, z: number, into: Object3D = scene) {
+// The logs that stay put are baked into one mesh for the whole fence and one for fence1 (two draw calls, not ~80).
+const logs: Part[] = [], logs1: Part[] = [];
+function log(x: number, z: number, into: Part[] | null) {
   const h = rand(.78, .98);
-  const l = mesh(G.log, 0xB0724A, x, FY + h / 2 - 0.05, z, true);
-  l.scale.y = h; into.add(l);
+  const at: Part['at'] = [x, FY + h / 2 - 0.05, z];
+  if (into) { into.push({ geo: G.log, at, scale: [1, h, 1] }); return null; }
+  const l = mesh(G.log, 0xB0724A, ...at, true);
+  l.scale.y = h; scene.add(l);
   return l;
 }
-for (let z = -6.2; z <= 8; z += 0.5) log(-7.85, z, z > 1.3 ? fence1 : undefined);
+for (let z = -6.2; z <= 8; z += 0.5) log(-7.85, z, z > 1.3 ? logs1 : logs);
 for (let x = -7.35; x <= 7.9; x += 0.5) {
   if (x > 1.7 && x < 4.3) continue;
-  log(x, 7.85, fence1);
+  log(x, 7.85, logs1);
 }
 for (let z = -6.2; z < 7.6; z += 0.5) {
   if (Math.abs(z - HOUSE_PATH_Z) < 0.5) continue; // the gap for the path to her house
-  const l = log(7.85, z, z > 1.3 ? fence1 : undefined);
-  if (z > -2.3 && z < 0.3) gapLogs.push(l);
+  const gap = z > -2.3 && z < 0.3;
+  const l = log(7.85, z, gap ? null : z > 1.3 ? logs1 : logs);
+  if (l) gapLogs.push(l);
 }
+scene.add(mesh(bake(logs), 0xB0724A, 0, 0, 0, true));
+fence1.add(mesh(bake(logs1), 0xB0724A, 0, 0, 0, true));
 
 // ---------- roads ----------
+const dashGeo = new PlaneGeometry(0.12, 0.9), dashMat = new MeshBasicMaterial({ color: 0xE8EEF2 });
 /** A road running north-south at `x`, with its centre line. Grouped at its own x so it can pop in sideways. */
 function road(x: number) {
   const g = new Group(); g.position.x = x; scene.add(g);
-  const r = mesh(new PlaneGeometry(2.1, 130), 0x6B7785);
+  const r = mesh(new PlaneGeometry(ROAD_HALF * 2, 130), 0x6B7785);
   r.rotation.x = -Math.PI / 2; g.add(r);
-  const dashGeo = new PlaneGeometry(0.12, 0.9), dashMat = new MeshBasicMaterial({ color: 0xE8EEF2 });
-  for (let z = -64; z < 64; z += 2.2) {
-    const d = new Mesh(dashGeo, dashMat);
-    d.rotation.x = -Math.PI / 2; d.position.set(0, 0.01, z); g.add(d);
-  }
+  const dashes: Part[] = [];
+  for (let z = -64; z < 64; z += 2.2) dashes.push({ geo: dashGeo, at: [0, 0.01, z], rot: [-Math.PI / 2, 0, 0] });
+  g.add(new Mesh(bake(dashes), dashMat));
   return g;
 }
 /** The road past the sled window, and in stage 2 the one past the takeout kiosk, east of the restaurant. */
-export const ROAD1_X = 9.6, ROAD2_X = 14.0;
+export const ROAD1_X = 9.75, ROAD2_X = 14.2;
+/** How far a road runs either side of its centre line: a lane each way. */
+export const ROAD_HALF = 1.3;
 const road1 = road(ROAD1_X);
 const road2 = road(ROAD2_X);
 road2.visible = false;
@@ -165,7 +172,7 @@ const housePath = (x: number, z: number) => x > 8.2 && z > HOUSE_PATH_Z - 4 && z
 /** Stage 1 keeps trees off the deck, the road, the customers' path and the water. */
 function treeOK1(x: number, z: number) {
   if (x > -8.8 && x < 8.8 && z > -7.2 && z < 8.8) return false;
-  if (x > 8.2 && x < 11.2) return false;
+  if (x > 8.2 && x < 11.4) return false;
   if (housePath(x, z)) return false;
   if (x > -5 && x < 8.6 && z > 8.4 && z < 20) return false;
   return z > -6.2;
@@ -175,7 +182,7 @@ function treeOK2(x: number, z: number) {
   if (x > -8.8 && x < 8.8 && z > -7.2 && z < 2) return false;
   if (housePath(x, z)) return false;
   if (x > -11.6 && x < 13.2 && z > 0.5 && z < 23.4) return false;
-  if (x > 12.6 && x < 15.6) return false;
+  if (x > 12.6 && x < 15.8) return false;
   if (x > -3 && x < 3 && z > 20 && z < 46) return false;
   if (x > -40 && x < -10.2 && z > -7 && z < 13.4) return false;
   return z > -6.2;

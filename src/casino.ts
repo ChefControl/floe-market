@@ -8,7 +8,7 @@ import { canvasTex, FONT, mat, mesh, scene } from './render';
 import { colorOf, multiplier, payout, spinWheel, WHEEL, type Bet, type EvenBet } from './roulette';
 import { lose, tick, win } from './sfx';
 import { popText } from './ui';
-import { d2xz, FY } from './util';
+import { d2xz, FY, money } from './util';
 import { addMoney, wallet } from './wallet';
 
 /** Where the player stands to play. */
@@ -88,7 +88,6 @@ const WHEEL_PX = 240;
 const LABELS: Record<EvenBet, string> = { red: 'Red', black: 'Black', odd: 'Odd', even: 'Even', low: '1–18', high: '19–36' };
 const betLabel = (b: Bet) => b.kind === 'number' ? `number ${b.n}` : LABELS[b.kind];
 const stake = () => stakeChoice === 'all' ? wallet.money : stakeChoice;
-const money = (v: number) => '$' + v.toLocaleString('en-US');
 
 function drawPanelWheel() {
   if (!spin) drawWheel(wctx, WHEEL_PX, angle, history.length ? { a: -Math.PI / 2, r: 0.67 } : undefined);

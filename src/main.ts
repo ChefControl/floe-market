@@ -5,6 +5,7 @@ import { tick } from './game';
 import { initHint, updHint } from './hint';
 import { inputVec } from './input';
 import { drawOffer, offerCam } from './offer';
+import { updKofi } from './kofi';
 import { player } from './player';
 import { updPointers } from './pointers';
 import { camera, camK, fog, OFF, renderer, scene, sun, sunOff } from './render';
@@ -53,7 +54,7 @@ let last = performance.now();
 function frame(now: number) {
   const dt = Math.max(0, Math.min(0.05, (now - last) / 1000)); // a first frame can be stamped before boot
   last = now;
-  if (!isStale()) tick(dt);
+  if (!isStale()) { tick(dt); updKofi(dt); }
 
   // Follow the player; the stage-up pulls back to look over the whole map for a moment.
   camTarget.lerp(player.g.position, Math.min(1, dt * 6));
@@ -79,6 +80,14 @@ function frame(now: number) {
   updPointers(dt);
   hud(dt);
   renderer.render(scene, camera);
+  if (loading) {
+    const el = loading;
+    el.classList.add('done');
+    setTimeout(() => el.remove(), 400); // once it has faded out
+    loading = null;
+  }
   requestAnimationFrame(frame);
 }
+/** The loading screen (index.html), until the first frame is drawn. */
+let loading = document.getElementById('loading');
 requestAnimationFrame(frame);

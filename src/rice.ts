@@ -16,6 +16,7 @@ import { d2xz, rand, V, type XZ } from './util';
 /**
  * Seconds from sprout to ripe on a planted terrace. A terrace (18 clumps) grows 0.6 bags a second: a bit less than the
  * diners at 18 seats with two chefs eat, so each step of the restaurant (more seats, another chef) needs another terrace.
+ * Rice fertilizer, from the shed that opens with the takeout kiosk, makes it ripen faster.
  */
 const GROW = 30;
 const CELL = 1.3, COLS = 3, ROWS = 6;
@@ -156,6 +157,9 @@ export let farmer: Farmer | null = null;
 /** Where the farmer waits when nothing's ripe: the south end of the path. */
 export const FARM_HOME = V(PX, 0, TERRACE_Z.z1 + 0.8);
 
+/** How far the farmer's sickle reaches from where they stand: the clump they came for and its neighbours. */
+const SWEEP = 1.5;
+
 export function hireFarmer() {
   const g = new Person(0x7A9E3B, 'farmer');
   g.position.copy(FARM_HOME); scene.add(g);
@@ -186,6 +190,8 @@ function updFarmer(f: Farmer, dt: number) {
     if (f.t <= 0 && fieldStack.hasRoom()) {
       f.cell!.taken = false;
       harvest(f.cell!, fieldStack);
+      // one sweep of the sickle takes the ripe clumps round them too, so fertilized terraces don't outgrow the farmer
+      for (const c of field.cells) if (fieldStack.hasRoom() && ripe(c) && !c.taken && d2xz(f.g.position, c) <= SWEEP * SWEEP) harvest(c, fieldStack);
       f.cell = null; f.state = 'seek';
     }
   }
@@ -206,6 +212,8 @@ interface Porter extends Walker {
   path: Vector3[];
 }
 export let porter: Porter | null = null;
+/** Bags the porter carries a trip. */
+const PORTER_LOAD = 18;
 const STACK_STAND = V(STACK.x, 0, STACK.z - 0.85);
 const DOOR_Z = (FARM_DOOR.z0 + FARM_DOOR.z1) / 2;
 /** From the stack, over the bridge and in through the farm door, then round the kitchen line to the rice. */
@@ -216,7 +224,7 @@ export function hireRicePorter() {
   g.position.copy(STACK_STAND); scene.add(g);
   const p: Porter = {
     g, h: 0, speed: 3.3, moving: false, state: 'load', t: 0, wait: 0, path: [],
-    back: new Holder(i => carrySlot(p, i), 12),
+    back: new Holder(i => carrySlot(p, i), PORTER_LOAD),
   };
   porter = p;
   ground(p);
@@ -231,7 +239,7 @@ function updPorter(p: Porter, dt: number) {
   } else if (p.state === 'load') {
     p.h = 0; p.t -= dt; p.wait += dt;
     if (p.t <= 0 && p.back.hasRoom() && fieldStack.items.length) {
-      p.t = 0.08; p.back.receive(fieldStack.take()!, 0.25, 0.7); p.wait = 0;
+      p.t = 0.08 / boost('crew'); p.back.receive(fieldStack.take()!, 0.25, 0.7); p.wait = 0;
     }
     if (!p.back.hasRoom() || (p.back.n > 0 && p.wait > 1.2 && !fieldStack.items.length)) {
       p.state = 'toPot'; p.path = TO_POT.map(v => v.clone());
@@ -239,7 +247,7 @@ function updPorter(p: Porter, dt: number) {
   } else {
     p.h = 0; p.t -= dt;
     if (p.t <= 0 && p.back.items.length && ricePot.hasRoom()) {
-      p.t = 0.08; ricePot.receive(p.back.take()!, 0.25, 0.8);
+      p.t = 0.08 / boost('crew'); ricePot.receive(p.back.take()!, 0.25, 0.8);
     }
     if (p.back.n === 0) { p.state = 'toStack'; p.path = [...TO_POT].reverse().slice(1).concat([STACK_STAND]).map(v => v.clone()); }
   }
@@ -250,8 +258,10 @@ function updPorter(p: Porter, dt: number) {
 }
 
 export function updRice(dt: number) {
-  // Each terrace grows a set amount: planting more of them is how the restaurant gets more rice.
-  for (const c of field.cells) if (!ripe(c)) setGrowth(c, c.grow + dt / (c.fixed ? PATCH_GROW : GROW));
+  // Each terrace grows a set amount: planting more of them is how the restaurant gets more rice, until they're all
+  // planted and fertilizer is the way to more.
+  const fed = boost('fertilizer');
+  for (const c of field.cells) if (!ripe(c)) setGrowth(c, c.grow + dt * (c.fixed ? 1 / PATCH_GROW : fed / GROW));
   if (farmer) updFarmer(farmer, dt);
   if (porter) updPorter(porter, dt);
 }

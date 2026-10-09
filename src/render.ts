@@ -1,6 +1,6 @@
 import {
-  BoxGeometry, BufferGeometry, CanvasTexture, Color, ColorManagement, ConeGeometry, CylinderGeometry, DirectionalLight,
-  Euler, Fog, HemisphereLight, LinearSRGBColorSpace, Material, Matrix4, Mesh, MeshLambertMaterial, PCFShadowMap,
+  BoxGeometry, BufferAttribute, BufferGeometry, CanvasTexture, Color, ColorManagement, ConeGeometry, CylinderGeometry,
+  DirectionalLight, Euler, Fog, HemisphereLight, LinearSRGBColorSpace, Material, Matrix4, Mesh, MeshLambertMaterial, PCFShadowMap,
   PerspectiveCamera, Quaternion, Scene, SphereGeometry, TorusGeometry, Vector3, WebGLRenderer,
 } from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
@@ -136,6 +136,24 @@ export function bake(parts: Part[]) {
     return p.geo.clone().applyMatrix4(tmpM);
   }))!;
 }
+
+/**
+ * Draws vertex colours: with colour management off (see the top of this file), a vertex coloured `c` shades exactly
+ * like `mat(c)`, so differently coloured parts can be baked into one mesh and still look the same.
+ */
+export const painted = new MeshLambertMaterial({ vertexColors: true });
+const tmpC = new Color();
+/** Gives a geometry one colour, as a vertex colour (for `painted`). Returns it. */
+export function paint<T extends BufferGeometry>(geo: T, c: number) {
+  tmpC.setHex(c);
+  const n = geo.attributes.position.count, a = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) a.set([tmpC.r, tmpC.g, tmpC.b], i * 3);
+  geo.setAttribute('color', new BufferAttribute(a, 3));
+  return geo;
+}
+/** `bake` for parts of different colours, drawn with `painted`. */
+export const bakePainted = (parts: (Part & { c: number })[]) =>
+  bake(parts.map(p => ({ ...p, geo: paint(p.geo.clone(), p.c) })));
 
 // shared geometry
 export const G = {
