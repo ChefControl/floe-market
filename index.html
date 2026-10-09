@@ -652,10 +652,8 @@ body{
 (function () {
   var P = window.PRELOAD;
   if (!P) return;
-  // co-op's rooms (rooms.ts) only for players it's offered to, as remote.ts's coopOffered() says
-  var coop = /[?&](coop|join)(=|&|$)/.test(location.search);
-  try { coop = coop || localStorage.getItem('floe-coop') === '1'; } catch (e) { /* storage unavailable */ }
-  if (!coop) P.files = P.files.filter(function (f) { return !/\/rooms-[^/]*\.js$/.test(f[0]); });
+  // co-op's rooms (rooms.ts) are fetched once co-op is in use, not here (and co-op is switched off: see remote.ts)
+  P.files = P.files.filter(function (f) { return !/\/rooms-[^/]*\.js$/.test(f[0]); });
   var bar = document.querySelector('#loading .track'), fill = document.querySelector('#loading .fill');
   var what = document.getElementById('loadingWhat'), size = document.getElementById('loadingSize');
   var total = 0, got = 0;
