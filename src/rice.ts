@@ -123,16 +123,17 @@ export function plantTerrace(i: number) {
 const reachable = (p: XZ, c: Cell) => ripe(c) && !c.taken && d2xz(p, c) <= 0.9 * 0.9;
 export const ripeNear = (p: XZ) => field.cells.some(c => reachable(p, c));
 
-/** A player harvests ripe rice within reach into their arms; `who.tHarvest` is their own pace between clumps. */
-export function harvestNear(p: XZ, arms: Holder, dt: number, who: { tHarvest: number }) {
-  who.tHarvest -= dt;
+let harvestT = 0;
+/** The player harvests ripe rice within reach into their arms. */
+export function harvestNear(p: XZ, arms: Holder, dt: number) {
+  harvestT -= dt;
   for (const c of field.cells) {
-    if (who.tHarvest > 0 || !arms.hasRoom()) break;
+    if (harvestT > 0 || !arms.hasRoom()) break;
     if (!reachable(p, c)) continue;
     harvest(c, arms);
-    who.tHarvest = 0.12;
+    harvestT = 0.12;
   }
-  if (who.tHarvest < 0) who.tHarvest = 0;
+  if (harvestT < 0) harvestT = 0;
 }
 
 function harvest(c: Cell, to: Holder) {

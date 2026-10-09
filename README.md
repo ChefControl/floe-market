@@ -183,19 +183,6 @@ The 🏆 button (top right) lists the 20 players who have held the most cash at 
 - **Data:** one Firestore document per player, `scores/{your account id}`, with that name, the best and the stage. Anyone can read the scoreboard; only you can write your own entry (`firestore.rules`). A project set up before the scoreboard needs `firestore.rules` pasted and published again, or the scoreboard says it can't load.
 - **Quota:** opening the scoreboard reads up to 20 documents. A signed-in player writes their entry at most once per sync, and only when their best or stage changed.
 
-### Playing together
-
-Two players can play one game, each on their own phone. **It's switched off for now:** it has been tried on two phones and works, but nobody is offered it, and an invite link opens the player's own game. A build with `VITE_COOP=1` switches it on (`VITE_COOP=1 npm run dev`, or the same in front of `npm run build`). Then **Play together** shows in the ⚙️ settings once the game has been opened with `?coop` at the end of its address (from then on, on that device).
-
-- **Inviting:** tap Play together, then Invite a friend. You sign in with Google if you haven't, and get a link to share. Your friend opens it on their phone and signs in too, and they're in your game, in a blue parka. The card says who's playing with you.
-- **Your game, together:** your friend fishes, carries, collects cash and buys upgrades in your game, with your money. Their phone walks their player itself, so walking never waits on the internet. Upgrade levels at the upgrade squares and bets at the roulette table are made through your phone, where the money is.
-- **What's saved:** only your game, on your phone (and in your cloud save). What your friend is carrying is saved as still on the pile. Their own game isn't touched: it's there as it was when they open the game without the link. They don't earn anything of their own yet.
-- **Each phone's own:** the songs at her house and at Korki's statue, the weather and the roof fading around you play and show on each phone for its own player. Toasts, the stage-up, money rising off the counters and the sounds out in the world show and play on both.
-- **When someone goes:** if your friend closes the game, their player goes and what they carried goes back on the pile. If your phone goes quiet (asleep, or out of signal), theirs says it's waiting, and after 5 minutes their game ends. Stop playing together (on the card) ends it at once. A third player is turned away, and so are two phones on different versions of the game.
-- **Under the hood:** your phone runs the game. Ten times a second it sends what changed in the 3D scene (`src/mirror.ts`), about 1.4 kB each time, along with the money, upgrades and season, and what to show or play. Both phones build the scene the same way while loading, so only what changed since needs sending. The phones meet in a room in Firebase's Realtime Database, `rooms/{code}`; `database.rules.json` says who may write where. Opened with `?coop=tabs`, two tabs of one browser play together without signing in (for development).
-
-**Setting it up** (on top of cloud saves' setup): in the Firebase console, **Databases & Storage, Realtime Database:** create a database in a location near your players, in locked mode, then paste `database.rules.json` into its Rules tab and publish. Put its URL in `src/cloud.config.ts` as `databaseURL`. The free quota (10 GB downloaded a month) covers about 200 hours of playing together a month.
-
 ## Development
 
 TypeScript + [three.js r186](https://threejs.org/), bundled with [Vite](https://vite.dev/). All textures are drawn at runtime on canvas; the Baloo 2 font comes from Google Fonts.
@@ -228,7 +215,6 @@ Each deploy removes the last one's files, and GitHub Pages lets browsers keep th
 | File | Contents |
 | --- | --- |
 | `src/main.ts` | Entry point: boot, restart button, camera and render loop; takes the loading screen away on the first frame |
-| `src/boot.ts` | While the modules load, seeded luck and noted ids, so every device builds the same scene (co-op) |
 | `src/game.ts` | `tick()`: one simulation step for the whole world |
 | `src/render.ts` | Renderer, scene, camera, lights, shared materials/geometry, canvas helpers |
 | `src/world.ts` | Static scenery: water, the dock (both stages'), fences, roads, trees |
@@ -251,7 +237,7 @@ Each deploy removes the last one's files, and GitHub Pages lets browsers keep th
 | `src/garden.ts` | The garden tables, the serving counter by the gate, and the waiters who carry plates from it |
 | `src/rice.ts` | The starting rice patch, planting the terraces, the farmer and the rice porter |
 | `src/shed.ts` | The fertilizer shed by the water wheel: its deck, the storehouse, its props and its sacks |
-| `src/player.ts` / `src/playerUpdate.ts` | The players (yours, and a co-op friend's) / per-frame player logic: walking, and everything a player does where they stand |
+| `src/player.ts` / `src/playerUpdate.ts` | Player entity / per-frame player logic |
 | `src/runner.ts` | Runner AI, for all three runners |
 | `src/pointers.ts` | Arrows at the edge of the screen pointing the way to new upgrade tiles |
 | `src/unlocks.ts` | Upgrade tiles for both stages and the machines they build |
@@ -276,11 +262,6 @@ Each deploy removes the last one's files, and GitHub Pages lets browsers keep th
 | `src/ui.ts` | HUD and stage chip (which folds the modifier list), toasts, tips, floating text, the stage-up banner and confetti, and sliding the view so an open panel never covers the player |
 | `src/save.ts` | Per-device save/load, migration, autosave, one-tab-at-a-time guard |
 | `src/cloud.ts` | Cloud saves: the sign-in button, syncing with the account, asking which game to keep |
-| `src/coop.ts` | Playing together: the host's phone sending its game, a guest's phone showing it and walking its own player |
-| `src/mirror.ts` | Co-op's mirror of the 3D scene: what changed since last time, written down on the host's phone and applied on the guest's |
-| `src/together.ts` | Playing together on screen: the invite card, and joining from an invite |
-| `src/remote.ts` | Co-op's hooks into the rest of the game (what to relay to a guest, what a guest asks of the host), its on/off switch, and when it's offered |
-| `src/link.ts` / `src/rooms.ts` | The rooms co-op's phones meet in (in memory, between tabs) / on Firebase's Realtime Database, downloaded when co-op is in use |
 | `src/firebase.ts` / `src/cloud.config.ts` | Cloud saves on Firebase (Google sign-in, Firestore), downloaded on the loading screen and started a few seconds in / the Firebase project's config |
 | `src/wallet.ts` | Money |
 | `src/errors.ts` | On-screen error reporting, and reloading once when a deploy removed a file the page needs |

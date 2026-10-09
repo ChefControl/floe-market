@@ -1,6 +1,4 @@
-// Per-frame player logic: movement plus every station interaction, for this phone's player and a co-op guest's
-// (who moves on their own phone; everything they do happens here, on the host's).
-import type { Vector3 } from 'three';
+// Per-frame player logic: movement plus every station interaction.
 import { updBuy } from './buy';
 import { animPerson } from './characters';
 import { COUNTERS } from './counters';
@@ -12,7 +10,7 @@ import { boost } from './economy';
 import { buyHeld, inputVec } from './input';
 import { korkiStatue, STATUE } from './korki';
 import { groundY, keepOnFloor, pushOutOfBox, stage, walkable } from './layout';
-import { BOOP_SECS, player, players, type Player } from './player';
+import { BOOP_SECS, player } from './player';
 import { collidePresents, givePresents, onPresentTile, PRESENT, redrawPresentTile } from './presents';
 import { scene } from './render';
 import { collide, DROP_R, FISH_DROP, fishTray, register, REGISTER, RICE_DROP, ricePot, sushi } from './restaurant';
@@ -54,33 +52,22 @@ function cashSpots() {
   return s;
 }
 
-/** A player's own little sounds (picking up, putting down, coins, paying): on this phone, or on their own. */
-const SOUNDS = { pick, put, coin, pay };
-function sound(p: Player, name: keyof typeof SOUNDS, ...args: [number?]) {
-  if (p.remote) p.remote.tell(name, args);
-  else (SOUNDS[name] as (...a: unknown[]) => void)(...args);
-}
-
-/**
- * Walks a player by `mv` (a direction, or null to stand still), or carries on a boop's hop, and keeps them on the
- * ground and out of everything solid. A co-op guest's phone does this for its own player.
- */
-export function movePlayer(pl: Player, mv: Vector3 | null, dt: number) {
-  const p = pl.g.position, b = pl.booped;
+export function updPlayer(dt: number) {
+  const p = player.g.position, mv = inputVec(), b = player.booped;
   if (b) {
     // booped: a hop backwards, easing out, whatever's pressed
     b.t = Math.min(1, b.t + dt / BOOP_SECS);
     const k = 1 - (1 - b.t) ** 2;
     p.x = b.x0 + (b.x1 - b.x0) * k; p.z = b.z0 + (b.z1 - b.z0) * k;
-    pl.moving = false;
-    if (b.t >= 1) pl.booped = null;
+    player.moving = false;
+    if (b.t >= 1) player.booped = null;
   } else if (mv) {
-    p.x += mv.x * pl.speed * dt; p.z += mv.z * pl.speed * dt;
+    p.x += mv.x * player.speed * dt; p.z += mv.z * player.speed * dt;
     const target = Math.atan2(mv.x, mv.z);
-    let d = target - pl.h; d = Math.atan2(Math.sin(d), Math.cos(d));
-    pl.h += d * Math.min(1, dt * 14);
-    pl.moving = true;
-  } else pl.moving = false;
+    let d = target - player.h; d = Math.atan2(Math.sin(d), Math.cos(d));
+    player.h += d * Math.min(1, dt * 14);
+    player.moving = true;
+  } else player.moving = false;
   keepOnFloor(p, walkable());
   collide(p);
   collideGarden(p);
@@ -93,158 +80,117 @@ export function movePlayer(pl: Player, mv: Vector3 | null, dt: number) {
   }
   // step smoothly up and down terraces, bridges and the gate
   p.y += (groundY(p) - p.y) * Math.min(1, dt * 14);
-  if (pl.booped) p.y = groundY(p) + Math.sin(Math.PI * pl.booped.t) * 0.45;
-}
+  if (player.booped) p.y = groundY(p) + Math.sin(Math.PI * player.booped.t) * 0.45;
 
-/** A guest's player follows where their phone has them, easing over the gaps between its messages. */
-function follow(pl: Player, dt: number) {
-  const r = pl.remote!, p = pl.g.position, k = Math.min(1, dt * 12);
-  if (Math.hypot(r.at.x - p.x, r.at.z - p.z) > 3) p.set(r.at.x, r.at.y, r.at.z);
-  else { p.x += (r.at.x - p.x) * k; p.y += (r.at.y - p.y) * k; p.z += (r.at.z - p.z) * k; }
-  let d = r.h - pl.h; d = Math.atan2(Math.sin(d), Math.cos(d));
-  pl.h += d * k;
-  pl.moving = r.moving;
-  if (pl.booped && (pl.booped.t += dt / BOOP_SECS) >= 1) pl.booped = null;
-}
-
-/** The upgrade tile under a player, of those on offer. */
-export function tileUnder(p: XZ, offer: Tile[]) {
-  return offer.find(t => Math.abs(p.x - t.x) < t.half && Math.abs(p.z - t.z) < t.half) ?? null;
-}
-
-/** What the tip says for a player standing at `p` on tile `on` (or not): the tile, the present, or a station. */
-export function tipFor(p: XZ, on: Tile | null): TipContent | null {
-  return on ? on.tip : onPresentTile(p) ? PRESENT.tip : (sushi.built && STATION_TIPS.find(s => d2xz(p, s.pos) < s.r * s.r)?.tip) || null;
-}
-
-export function updPlayer(dt: number) {
-  movePlayer(player, inputVec(), dt);
-  for (const pl of players) if (pl.remote) follow(pl, dt);
-  const offer = visibleTiles();
-  for (const pl of players) interact(pl, dt, offer);
-  for (const pl of players) {
-    pl.g.rotation.y = pl.h;
-    animPerson(pl.g, pl.moving, dt, pl.back.n > 0);
-    pl.back.layout(pl.h);
-  }
-  footsteps();
-}
-
-/** Everything a player does where they stand: fishing, picking up, harvesting, dropping off, cash and buying. */
-function interact(pl: Player, dt: number, offer: Tile[]) {
-  const p = pl.g.position;
   // catch fish on the pad
   const onPad = d2xz(p, PAD) < PAD.r * PAD.r;
-  pl.tCatch -= dt;
-  if (onPad && pl.tCatch <= 0) {
+  player.tCatch -= dt;
+  if (onPad && player.tCatch <= 0) {
     const f = tryCatch(() => V(p.x, FY + 0.85, p.z), 'player');
-    if (f) {
-      pl.tCatch = 0.7 / boost('training');
-      // turn to the fish: a guest's own phone turns them, as it walks them
-      if (!pl.remote) pl.h = Math.atan2(f.g.position.x - p.x, f.g.position.z - p.z);
-    }
+    if (f) { player.tCatch = 0.7 / boost('training'); player.h = Math.atan2(f.g.position.x - p.x, f.g.position.z - p.z); }
   }
 
   // pick up fish slices
-  pl.tPick -= dt;
+  player.tPick -= dt;
   if (d2xz(p, PILE) < 1.45 * 1.45) {
-    while (pl.tPick <= 0 && pl.back.hasRoom() && pile.items.length) {
-      pl.tPick += 0.06;
-      pl.back.receive(pile.take()!, 0.22, 0.7);
-      sound(pl, 'pick');
+    while (player.tPick <= 0 && player.back.hasRoom() && pile.items.length) {
+      player.tPick += 0.06;
+      player.back.receive(pile.take()!, 0.22, 0.7);
+      pick();
     }
   }
   // take bags off the farmer's stack on the path
   if (field.built && d2xz(p, STACK_AT) < 0.9 * 0.9) {
-    while (pl.tPick <= 0 && pl.back.hasRoom() && fieldStack.items.length) {
-      pl.tPick += 0.06;
-      pl.back.receive(fieldStack.take()!, 0.22, 0.7);
-      sound(pl, 'pick');
+    while (player.tPick <= 0 && player.back.hasRoom() && fieldStack.items.length) {
+      player.tPick += 0.06;
+      player.back.receive(fieldStack.take()!, 0.22, 0.7);
+      pick();
     }
   }
-  if (pl.tPick < 0) pl.tPick = 0;
+  if (player.tPick < 0) player.tPick = 0;
   // harvest the terraces. Fish the kitchen has no room for go back to the pile as you wade into ripe rice, to make
   // room for it: arms full of fish it can't cook without rice would otherwise be stuck for good.
   if (field.built) {
-    if (!fishTray.hasRoom() && pl.back.count('fish') && ripeNear(p)) {
-      const f = pl.back.takeKind('fish')!;
+    if (!fishTray.hasRoom() && player.back.count('fish') && ripeNear(p)) {
+      const f = player.back.takeKind('fish')!;
       if (pile.hasRoom()) pile.receive(f, 0.6, 3);
       else scene.remove(f);
     }
-    harvestNear(p, pl.back, dt, pl);
+    harvestNear(p, player.back, dt);
   }
 
   // drop fish at the counters, or fish and rice off for the chefs
-  pl.tDrop -= dt;
+  player.tDrop -= dt;
   for (const s of drops()) {
     if (d2xz(p, s.pos) >= s.r * s.r) continue;
-    while (pl.tDrop <= 0 && s.stock.hasRoom() && pl.back.count(s.kind)) {
-      pl.tDrop += 0.06;
-      s.stock.receive(pl.back.takeKind(s.kind)!, 0.25, 0.8);
-      sound(pl, 'put');
+    while (player.tDrop <= 0 && s.stock.hasRoom() && player.back.count(s.kind)) {
+      player.tDrop += 0.06;
+      s.stock.receive(player.back.takeKind(s.kind)!, 0.25, 0.8);
+      put();
     }
   }
-  if (pl.tDrop < 0) pl.tDrop = 0;
+  if (player.tDrop < 0) player.tDrop = 0;
   // collect cash
   for (const s of cashSpots()) {
     if (d2xz(p, s.pos) >= 1.5 * 1.5) continue;
-    pl.tCash -= dt;
-    while (pl.tCash <= 0 && s.cash.items.length) {
-      pl.tCash += 0.025;
+    player.tCash -= dt;
+    while (player.tCash <= 0 && s.cash.items.length) {
+      player.tCash += 0.025;
       const b = s.cash.take()!, v = billValue(b);
       wallet.inFlight += v;
-      fly(b, () => V(p.x, p.y + 0.75, p.z), 0.22, 0.6, () => { scene.remove(b); wallet.inFlight -= v; addMoney(v); sound(pl, 'coin'); });
+      fly(b, () => V(p.x, p.y + 0.75, p.z), 0.22, 0.6, () => { scene.remove(b); wallet.inFlight -= v; addMoney(v); coin(); });
     }
-    if (pl.tCash < 0) pl.tCash = 0;
+    if (player.tCash < 0) player.tCash = 0;
   }
 
   // unlock tiles
-  const on = tileUnder(p, offer);
-  pl.onTile = on;
+  let on: Tile | null = null;
+  for (const t of visibleTiles()) {
+    if (Math.abs(p.x - t.x) < t.half && Math.abs(p.z - t.z) < t.half) { on = t; break; }
+  }
+  player.onTile = on;
   // The present tile at her house is never done, and needs no holding: standing on it, each $100 leaves another
   // present at her door.
   const gift = !on && onPresentTile(p);
+  setTip(on ? on.tip : gift ? PRESENT.tip : (sushi.built && STATION_TIPS.find(s => d2xz(p, s.pos) < s.r * s.r)?.tip) || null);
   const forSale = !!on && !locked(on) && !on.done;
-  // the tip and the Buy button are this phone's player's (a guest's phone shows its own)
-  if (!pl.remote) { setTip(tipFor(p, on)); updBuy(forSale, dt); }
-  const buying = pl.remote ? pl.remote.buy : buyHeld();
-  if (gift) payInto(pl, PRESENT, dt, redrawPresentTile, () => { PRESENT.paid = 0; givePresents(); save(); });
-  else if (forSale && buying) {
+  updBuy(forSale, dt);
+  if (gift) payInto(PRESENT, dt, redrawPresentTile, () => { PRESENT.paid = 0; givePresents(); save(); });
+  else if (forSale && buyHeld()) {
     const t = on!;
-    payInto(pl, t, dt, () => redrawTile(t), () => {
-      applyUnlock(t.id);
-      pl.onTile = null;
-      if (!pl.remote) setTip(null);
-      save();
-    });
+    payInto(t, dt, () => redrawTile(t), () => { applyUnlock(t.id); player.onTile = null; setTip(null); save(); });
   }
+
+  player.g.rotation.y = player.h;
+  animPerson(player.g, player.moving, dt, player.back.n > 0);
+  footsteps();
+  player.back.layout(player.h);
 }
 
 /** A footstep each time a foot comes down: on boards (at deck height), or on the ground in its season. */
 let stepsTaken = 0;
-/** This phone's player's footsteps (a guest's phone hears its own). */
-export function footsteps(pl = player) {
-  const n = pl.moving ? Math.floor(pl.g.phase / Math.PI) : 0;
-  if (n > stepsTaken) step(Math.abs(pl.g.position.y - FY) < 0.05 ? 'wood' : current());
+function footsteps() {
+  const n = player.moving ? Math.floor(player.g.phase / Math.PI) : 0;
+  if (n > stepsTaken) step(Math.abs(player.g.position.y - FY) < 0.05 ? 'wood' : current());
   stepsTaken = n;
 }
 
-/** Drains money into a tile while a player holds buy on it; `paidOff` runs when it's paid off. */
-function payInto(pl: Player, on: Payable, dt: number, redraw: () => void, paidOff: () => void) {
-  const p = pl.g.position;
-  pl.tPay -= dt;
+/** Drains money into a tile while the player holds buy on it; `paidOff` runs when it's paid off. */
+function payInto(on: Payable, dt: number, redraw: () => void, paidOff: () => void) {
+  const p = player.g.position;
+  player.tPay -= dt;
   let paidNow = false;
-  while (wallet.money > 0 && pl.tPay <= 0 && !on.done) {
-    pl.tPay += 0.03; paidNow = true;
+  while (wallet.money > 0 && player.tPay <= 0 && !on.done) {
+    player.tPay += 0.03; paidNow = true;
     const chunk = Math.min(Math.max(1, Math.ceil(on.cost / 45)), wallet.money, on.cost - on.paid);
     wallet.money -= chunk; on.paid += chunk;
-    sound(pl, 'pay', on.paid / on.cost);
+    pay(on.paid / on.cost);
     if (Math.random() < 0.5) {
       const b = newBill(0); b.position.set(p.x, p.y + 0.75, p.z); scene.add(b);
       fly(b, () => V(on.x, (on.y ?? FY) + 0.05, on.z), 0.22, 0.6, () => scene.remove(b));
     }
     if (on.paid >= on.cost) paidOff();
   }
-  if (pl.tPay < 0) pl.tPay = 0;
+  if (player.tPay < 0) player.tPay = 0;
   if (paidNow && !on.done) redraw();
 }

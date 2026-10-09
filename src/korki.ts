@@ -229,9 +229,6 @@ export function moveKorki() {
   statue?.position.set(STATUE.x, STATUE.y, STATUE.z);
 }
 
-/** On a co-op guest's phone: the statue stands in the host's game, which sends what it looks like (coop.ts). */
-export function korkiStands() { statue ??= new Group(); }
-
 /** The 'korki' unlock: raises the statue and its pad. Returns the statue for the pop-in. */
 export function enableKorki() {
   statue = buildStatue();

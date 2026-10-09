@@ -7,10 +7,9 @@ import { steaksInProgress } from './fishing';
 import { waiterPlates } from './garden';
 import type { Holder } from './holder';
 import { addBillValue, billValue, kindOf, newBill, newBox, newRice, newSteak } from './items';
-import { player, players } from './player';
+import { player } from './player';
 import { givePresents, PRESENT, presents, redrawPresentTile } from './presents';
 import { addReview, reviews, WINDOW } from './rating';
-import { coop } from './remote';
 import {
   fishTray, loadPlates, platePrice, register, repriceSushi, ricePot, STARTER_RICE, sushi, sushiStock,
 } from './restaurant';
@@ -178,15 +177,12 @@ const cashSum = (cash: Holder) => cash.all().reduce((s, b) => s + billValue(b), 
 const onCounter = (C: Counter) => C.enabled ? C.stock.n + C.queue.reduce((n, c) => n + c.hands.n, 0) : 0;
 
 export function save() {
-  if (stale || coop.role === 'guest') return;
+  if (stale) return;
   if (deviceStore.read() !== lastSeen) { markStale(); return; }
   // Count everything mid-air too (flying bills and slices, fish being reeled in, workers' loads, what the chefs
   // are holding, diners' plates), so closing the page at any moment loses nothing.
   const ss = sushiStock(), carried = player.back.all();
   const rice = carried.filter(m => kindOf(m) === 'rice').length;
-  // what a friend playing along (co-op) is carrying goes back where it came from: fish on the pile, rice on the stack
-  const theirs = players.filter(p => p !== player).flatMap(p => p.back.all());
-  const theirRice = theirs.filter(m => kindOf(m) === 'rice').length;
   // In stage 2, anything still on the closed stage 1 counters belongs to the restaurant.
   const left = sushi.built ? { steaks: C1.stock.n + SLED.stock.n, cash: cashSum(C1.cash) + cashSum(SLED.cash) } : { steaks: 0, cash: 0 };
   const data: SaveData = {
@@ -197,7 +193,7 @@ export function save() {
     tiles: tiles.map(t => ({ id: t.id, paid: t.paid, done: t.done, open: t.open })),
     mods: { ...mods },
     reviews: [...reviews],
-    pile: Math.min(pile.cap, pile.n + steaksInProgress() + runnersLoad() + theirs.length - theirRice),
+    pile: Math.min(pile.cap, pile.n + steaksInProgress() + runnersLoad()),
     back: carried.length - rice,
     backRice: rice,
     c1: onCounter(C1), c1c: C1.enabled ? cashSum(C1.cash) : 0,
@@ -209,7 +205,7 @@ export function save() {
     // Boxes customers are holding but haven't paid for yet go back on the counter.
     boxes: onCounter(TAKEOUT),
     tcash: cashSum(TAKEOUT.cash),
-    field: riceInField() + theirRice,
+    field: riceInField(),
     season: season.i,
     seasonT: Math.floor(season.t),
     presents: presents.n,

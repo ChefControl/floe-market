@@ -2,7 +2,6 @@
 // banner and confetti.
 import { player } from './player';
 import { rating } from './rating';
-import { coop } from './remote';
 import { camera, slideView } from './render';
 import { amount, pick, rand, V } from './util';
 import { wallet } from './wallet';
@@ -82,7 +81,6 @@ export function keepInSight(dt: number) {
 const bannerEl = $('banner');
 /** The big centred banner for the stage-up; `null` hides it. */
 export function banner(kicker: string | null, title = '') {
-  coop.relay?.('banner', [kicker, title]);
   if (kicker === null) { bannerEl.classList.remove('on'); return; }
   bannerEl.querySelector('.k')!.textContent = kicker;
   bannerEl.querySelector('.t')!.textContent = title;
@@ -95,7 +93,6 @@ interface Bit { x: number; y: number; vx: number; vy: number; r: number; c: stri
 let bits: Bit[] = [];
 /** A burst of confetti from the middle of the screen (none for players who'd rather not have motion). */
 export function confetti() {
-  coop.relay?.('confetti', []);
   if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
   const k = Math.min(window.devicePixelRatio || 1, 2);
   confettiEl.hidden = false;
@@ -145,8 +142,6 @@ function holdToast(ms = 1700) {
  * stay up for `ms`.
  */
 export function toast(m: string, key?: string, ms = 1700) {
-  // news for both players; the cloud's and co-op's own messages are each phone's
-  if (key !== 'cloud' && key !== 'coop') coop.relay?.('toast', [m, key, ms]);
   if (key && key === showing && toastEl.classList.contains('on')) { toastEl.textContent = m; holdToast(); return; }
   const same = waiting.find(w => (key ? w.key === key : w.m === m));
   if (same) { same.m = m; return; }
@@ -170,10 +165,6 @@ export function setTip(t: TipContent | null) {
 
 /** Floating text that rises from a world position. */
 export function popText(txt: string, wp: { x: number; y?: number; z: number }, cls?: string) {
-  coop.relay?.('pop', [txt, { x: wp.x, y: wp.y, z: wp.z }, cls]);
-  float(txt, wp, cls);
-}
-function float(txt: string, wp: { x: number; y?: number; z: number }, cls?: string) {
   const v = V(wp.x, (wp.y || 0) + 1.2, wp.z).project(camera);
   if (v.z > 1) return;
   const el = document.createElement('div');
@@ -187,6 +178,5 @@ function float(txt: string, wp: { x: number; y?: number; z: number }, cls?: stri
 
 /** A customer's review rising over their head: stars, or an angry face for a 1★. */
 export function popStars(stars: number, wp: { x: number; y?: number; z: number }) {
-  coop.relay?.('stars', [stars, { x: wp.x, y: wp.y, z: wp.z }]);
-  float(stars > 1 ? '★'.repeat(stars) : '😠', { x: wp.x, y: (wp.y || 0) + 0.6, z: wp.z }, 'review');
+  popText(stars > 1 ? '★'.repeat(stars) : '😠', { x: wp.x, y: (wp.y || 0) + 0.6, z: wp.z }, 'review');
 }
