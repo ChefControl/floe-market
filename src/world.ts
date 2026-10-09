@@ -3,7 +3,7 @@
 import {
   BoxGeometry, Group, type Material, Mesh, MeshBasicMaterial, MeshLambertMaterial, PlaneGeometry, RepeatWrapping,
 } from 'three';
-import { HOUSE_PATH_Z } from './layout';
+import { HOUSE_PATH_Z, JETTY_Z, PIER_X } from './layout';
 import { bake, canvasTex, G, mat, mesh, scene, type Part } from './render';
 import { amount, onBlend, PAL, seasonal } from './season';
 import { FY, rand } from './util';
@@ -79,6 +79,8 @@ for (let x = -7.5; x <= 7.5; x += 2.5) {
 // ---------- fences ----------
 /** Fence logs that get removed when the sled window opens. */
 export const gapLogs: Mesh[] = [];
+/** Fence logs in the west fence that make way for the casino boat's jetty. */
+export const jettyLogs: Mesh[] = [];
 /** Fence south of the restaurant's line: gone in stage 2. Logs stand on the deck, so the group shrinks into it. */
 const fence1 = new Group();
 scene.add(fence1);
@@ -92,7 +94,10 @@ function log(x: number, z: number, into: Part[] | null) {
   l.scale.y = h; scene.add(l);
   return l;
 }
-for (let z = -6.2; z <= 8; z += 0.5) log(-7.85, z, z > 1.3 ? logs1 : logs);
+for (let z = -6.2; z <= 8; z += 0.5) {
+  if (Math.abs(z - JETTY_Z) < 0.5) jettyLogs.push(log(-7.85, z, null)!);
+  else log(-7.85, z, z > 1.3 ? logs1 : logs);
+}
 for (let x = -7.35; x <= 7.9; x += 0.5) {
   if (x > 1.7 && x < 4.3) continue;
   log(x, 7.85, logs1);
@@ -169,9 +174,12 @@ export function treeGroup(spots: [x: number, z: number, s: number, r?: number][]
 
 /** Neither stage has trees on the path to her house or round her yard. */
 const housePath = (x: number, z: number) => x > 8.2 && z > HOUSE_PATH_Z - 4 && z < HOUSE_PATH_Z + 4.5;
+/** Neither stage has trees on the casino boat's jetty along the shore. */
+const jetty = (x: number, z: number) => x > PIER_X - 1.8 && x < -7 && z < JETTY_Z + 1.2;
 /** Stage 1 keeps trees off the deck, the road, the customers' path and the water. */
 function treeOK1(x: number, z: number) {
   if (x > -8.8 && x < 8.8 && z > -7.2 && z < 8.8) return false;
+  if (jetty(x, z)) return false;
   if (x > 8.2 && x < 11.4) return false;
   if (housePath(x, z)) return false;
   if (x > -5 && x < 8.6 && z > 8.4 && z < 20) return false;
@@ -180,6 +188,7 @@ function treeOK1(x: number, z: number) {
 /** Stage 2 also keeps them off the restaurant, its garden, the kiosk's road, the diners' path and the farm. */
 function treeOK2(x: number, z: number) {
   if (x > -8.8 && x < 8.8 && z > -7.2 && z < 2) return false;
+  if (jetty(x, z)) return false;
   if (housePath(x, z)) return false;
   if (x > -11.6 && x < 13.2 && z > 0.5 && z < 23.4) return false;
   if (x > 12.6 && x < 15.8) return false;
@@ -215,6 +224,9 @@ export function swapDecks() {
   deck1.visible = false;
   deck2.visible = true;
 }
+
+/** The casino boat's gap in the west fence, for its jetty. */
+export const openJettyGap = () => jettyLogs.forEach(l => { l.visible = false; });
 
 /** Back to a full fence on the east side: the sled window's gap closes in stage 2. */
 export const closeGap = () => gapLogs.forEach(l => { l.visible = true; });

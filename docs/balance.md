@@ -22,7 +22,7 @@ The other upgrades exist to carry, sell or use the stage's ingredient. When the 
 5. **Costs outrun income a little.** Prices grow a little faster than income, so each wait is a bit longer than the last, until the stage-up starts the climb again.
 6. **No dead ends, no trap purchases.** There's always a way to earn again, and the price-list order is the best order or close to it, so following the obvious path is never a mistake.
 
-The fun extras (the roulette table, Korki's statue) are exempt from 2 and 3.
+The fun extras (the casino boat and its games, Korki's statue) are exempt from 2 and 3. The bot doesn't buy the boat's slot machine or blackjack table.
 
 ## How we know something is off
 
@@ -63,7 +63,7 @@ The bottleneck is the biggest share. A tile that doesn't touch it adds little, h
 |---|---|---|---|---|---|---|
 | 🎒 Bigger arms | $30 | | Carry more per trip | 18 s | 0:31 | Good |
 | 🎯 Auto harpoon | $90 | | Catch while you're away | 30 s | 1:59 | Good |
-| 🎰 Roulette table | $150 | | A side game | no gain | 2:50 | Exempt |
+| 🛳️ Casino boat | $150 | | A side game | no gain | 2:50 | Exempt |
 | 🏃 Hire a runner | $300 | ★3.5 | Free your hands from carrying | no gain | 4:07 | Automation: judge by playing. Carrying isn't the limit when it comes |
 | 🥾 Snow boots | $500 | | Walk faster | no gain | 5:24 | Convenience: judge by playing |
 | 🚗 Drive-up window | $900 | ★3.8 | Bigger customers | 18 s | 7:10 | Good |
@@ -80,7 +80,7 @@ Pacing is healthy: the bot buys a tile every 25 seconds to 2¼ minutes, and open
 | (the start) | Carrying: customers wait at an empty counter 62% of the time | $153/min |
 | 🎒 Bigger arms | Carrying, 46% | $319/min |
 | 🎯 Auto harpoon | Customers: fish waits on the counter 31% of the time | $734/min |
-| 🎰 Roulette, 🏃 runner, 🥾 boots | Customers, 31% (unchanged) | $1,109 to $1,748/min |
+| 🛳️ Casino boat, 🏃 runner, 🥾 boots | Customers, 31% (unchanged) | $1,109 to $1,748/min |
 | 🚗 Drive-up window | Carrying, 27%: the drivers buy 4 to 8 at a time | $5,489/min |
 | 🏃 Second runner | Customers 24%, carrying down to 10% | $7,073/min |
 | 🥅 Ice net | Customers 27%, carrying 0% | $12,402/min |

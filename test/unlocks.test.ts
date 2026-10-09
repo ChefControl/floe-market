@@ -18,7 +18,7 @@ describe('what is on offer', () => {
   });
 
   it('the gold Floe Sushi tile only once the whole market is built, on its own', async () => {
-    const g = await loadGame({ tiles: bought(...MARKET.filter(id => id !== 'runner3')) });
+    const g = await loadGame({ tiles: bought(...MARKET.filter(id => id !== 'runner3'), 'slots', 'blackjack') });
     expect(offer(g)).toEqual(['runner3', 'korki']);
     g.unlocks.applyUnlock('runner3');
     expect(offer(g)).toEqual(['sushi', 'korki']);
@@ -27,7 +27,7 @@ describe('what is on offer', () => {
   });
 
   it("stage 2's upgrades once the restaurant is open; the terraces' own once the first is planted", async () => {
-    const g = await loadGame({ tiles: bought(...MARKET, 'sushi') });
+    const g = await loadGame({ tiles: bought(...MARKET, 'sushi', 'slots', 'blackjack') });
     // the chefs are out from the start, outside the two at a time, the third once there's a second
     expect(offer(g)).toEqual(['paddy', 'seats', 'chef', 'korki']);
     g.unlocks.applyUnlock('chef');
@@ -42,7 +42,7 @@ describe('what is on offer', () => {
   });
 
   it('the second and third runners after the first, at its spot', async () => {
-    const g = await loadGame({ tiles: bought('pack', 'turret', 'roulette', 'boots', 'sled', 'korki') });
+    const g = await loadGame({ tiles: bought('pack', 'turret', 'roulette', 'boots', 'sled', 'korki', 'slots', 'blackjack') });
     expect(offer(g)).toEqual(['runner', 'net']);
     g.unlocks.applyUnlock('runner');
     expect(offer(g)).toEqual(['runner2', 'net']);

@@ -52,7 +52,7 @@ phone?.addEventListener?.('change', () => { if (!modsPicked) showMods(!phone.mat
 stageEl.addEventListener('click', () => { modsPicked = true; showMods(modsEl.hidden !== false); });
 
 // ---------- keeping the player in sight ----------
-const panels = [$('shop'), $('casino')];
+const panels = [$('shop'), $('roulette'), $('blackjack'), $('slots')];
 const slid = { x: 0, y: 0 };
 /** Slides the view so an open panel doesn't cover the player: sideways for a panel down the right-hand side (a phone
  *  held sideways), up for one along the bottom of a short screen. Eases there and back. */

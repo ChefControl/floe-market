@@ -2,7 +2,6 @@
 // the whole map, the stage 1 counters and fences come down, the restaurant and the farm pop up piece by piece, and
 // day turns to dusk with the lanterns lit. Loading a stage 2 save sets all of that up at once.
 import { Color, type Group, type Object3D } from 'three';
-import { casinoTable, moveCasino } from './casino';
 import { C1, closeMarket, marketLeftovers, SLED } from './counters';
 import { farmPieces, showFarm, springLamp } from './farm';
 import { glowMats, hallPieces, lamps, showHall } from './hall';
@@ -118,7 +117,7 @@ function widenShadows() {
 /**
  * The gold 'sushi' tile: stage 2. The stage 1 counters close (their customers pay up and go home), and the
  * restaurant and farm open, with a patch of rice planted. `silent` (loading a save) skips the show. `onMove` runs
- * when the roulette table and Korki's statue move to their new spots.
+ * when Korki's statue moves to its new spot.
  */
 export function enterStage2(silent: boolean, onMove = () => {}) {
   stage.n = 2;
@@ -127,9 +126,9 @@ export function enterStage2(silent: boolean, onMove = () => {}) {
   widenShadows();
   const staff = openRestaurant(silent);
   const patch = plantPatch();
-  // The roulette table and Korki's statue go out with the old stage and come back in their new spots.
-  const movers = [casinoTable(), korkiStatue()].filter((o): o is Group => o !== null);
-  const move = () => { moveCasino(-2.2); moveKorki(); onMove(); };
+  // Korki's statue goes out with the old stage and comes back in its new spot.
+  const movers = [korkiStatue()].filter((o): o is Group => o !== null);
+  const move = () => { moveKorki(); onMove(); };
   // the restaurant keeps two of the market's runners; any more go with the market
   const retired = retireRunners();
   const outs: [Object3D, Axis][] = [

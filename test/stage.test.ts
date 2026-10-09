@@ -32,6 +32,7 @@ describe('the stage-up', () => {
 
   it('plays when the gold tile is paid off: banner, camera pull-back, the old counters out and the restaurant in', async () => {
     const g = await loadGame({ tiles: bought(...MARKET, 'korki'), money: 12000, c1: 4, c1c: 12 });
+    const boat = g.casino.casinoPieces();
     const { staging, view, STAGE2_ZOOM } = g.stage, { stage1Only, stage2Only } = g.world;
     const gold = g.unlocks.tiles.find(t => t.id === 'sushi')!;
     const statue = g.korki.korkiStatue()!;
@@ -42,7 +43,7 @@ describe('the stage-up', () => {
     expect(staging()).toBe(true);
     expect($('banner').classList.contains('on')).toBe(true);
     expect($('banner').textContent).toBe('Stage 1 completeFish Market');
-    expect(g.unlocks.visibleTiles()).toHaveLength(0); // stage 2's wait for the show
+    expect(g.unlocks.visibleTiles()).toHaveLength(0); // stage 2's, and the casino boat's games, wait for the show
     g.run(1.6);
     expect(stage1Only.fence.visible).toBe(false);
     expect(g.counters.C1.meshes.every(m => !m.visible)).toBe(true);
@@ -63,7 +64,9 @@ describe('the stage-up', () => {
     expect(g.hall.hallPieces.every(p => p.visible && p.scale.x === 1)).toBe(true);
     expect(statue.visible && statue.scale.x === 1).toBe(true);
     expect(g.hall.lamps[0].intensity).toBeCloseTo(9);
-    expect(g.unlocks.visibleTiles().map(t => t.id)).toEqual(['paddy', 'seats', 'chef']);
+    expect(g.unlocks.visibleTiles().map(t => t.id)).toEqual(['paddy', 'seats', 'chef', 'slots', 'blackjack']);
+    // the casino boat stays where it was all through
+    expect(boat.every(o => o.visible && o.scale.x === 1)).toBe(true);
   });
 
   it('moves fast for players who prefer less motion', async () => {
@@ -84,7 +87,7 @@ describe('a stage 2 save', () => {
     expect([stage1Only.fence.visible, stage1Only.road.visible, stage2Only.road.visible]).toEqual([false, false, true]);
     expect(g.farm.farmPieces.every(p => p.visible)).toBe(true);
     expect(g.hall.glowMats[0].emissiveIntensity).toBe(1);
-    expect(g.casino.CASINO.z).toBeCloseTo(-1.6);
+    expect(g.layout.casinoBoat.open).toBe(true);
   });
 
   it("leads out to her house through a door in the east wall, and rains over the dusk, then clears back to it", async () => {

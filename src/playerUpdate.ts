@@ -1,5 +1,6 @@
 // Per-frame player logic: movement plus every station interaction.
 import { updBuy } from './buy';
+import { collideCasino } from './casino';
 import { animPerson } from './characters';
 import { COUNTERS } from './counters';
 import { tryCatch } from './fishing';
@@ -72,6 +73,7 @@ export function updPlayer(dt: number) {
   collide(p);
   collideGarden(p);
   collidePresents(p);
+  collideCasino(p);
   if (stage.n === 2 && korkiStatue()) pushOutOfBox(p, STATUE.x, STATUE.z, 1.25, 0.8);
   // chopper block collision
   if (p.x > CHOP.x - 1.0 && p.x < CHOP.x + 1.0 && p.z < CHOP.z + 0.8) {
