@@ -334,6 +334,22 @@ describe('cloud saves', () => {
     coop.role = 'solo';
   });
 
+  it('keeps a host’s game while a friend plays in it, and takes the cloud’s once they’ve finished', async () => {
+    const theirs = await otherGame(9000);
+    const { c, reload } = await start();
+    const { coop } = await import('../src/remote');
+    coop.role = 'host';
+    await signIn(c);
+    await vi.waitFor(() => expect($('cloud').dataset.state).toBe('saved'));
+    fake.store.set('u1', { data: theirs, savedAt: 1000 });
+    await c.sync();
+    expect(c.cloud.state).toBe('idle');
+    expect(reload).not.toHaveBeenCalled();
+    coop.role = 'solo';
+    await c.sync();
+    expect(reload).toHaveBeenCalled();
+  });
+
   it("says so when signing in for co-op didn't work", async () => {
     const { c } = await start();
     fake.signInError = { code: 'auth/popup-blocked' };

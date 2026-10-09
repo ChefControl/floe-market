@@ -56,7 +56,7 @@ function openCard(open: boolean) {
 async function startHosting() {
   msg.textContent = 'Opening your game to a friend…';
   try {
-    const code = await host(await rooms());
+    const code = await host(rooms());
     link.value = inviteLink(code);
   } catch (e) {
     msg.textContent = why(e);

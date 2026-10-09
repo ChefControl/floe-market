@@ -131,6 +131,9 @@ export async function sync(ask = true) {
       if (moved || !remote) await push(b, u, raw);
     } else if (digest(remote.data) === sum) writeLink({ ...link, base: remote.savedAt, sum });
     else {
+      // Hosting a friend (co-op), the game can't be swapped for the cloud's: the reload would end theirs. It waits
+      // until they've finished playing together.
+      if (coop.role === 'host') { cloud.state = 'idle'; return; }
       const here = facts(raw), there = facts(remote.data);
       if (!moved || !here.progress) { adopt(link, remote); return; }
       if (!there.progress) await push(b, u, raw);
