@@ -79,7 +79,7 @@ The money curve follows idle games ([the math of idle games](https://www.gamedev
   | --- | --- | --- | --- | --- |
   | Better product | 🐟 Fine fillets | 🍣 Chef's specials | Prices +25% | ×1.6 a level, no limit |
   | Marketing | 📣 Posters, flyers, radio, social media, ... TV ad | 📣 Menu boards, lantern signs, ... world famous | Customers +20%, longer queues | ×1.75 a level, 8 levels |
-  | Crew | 💪 Crew training: fishing and chopping | 🧑‍🍳 Kitchen crew: chefs, the runners, farm workers, waiters (not how fast rice grows) | Speed +15% | ×1.75 a level, 8 levels |
+  | Crew | 💪 Crew training, once the first runner is hired: fishing, chopping and the runners (up to twice as fast) | 🧑‍🍳 Kitchen crew: chefs, the runners, farm workers, waiters (not how fast rice grows) | Speed +15% | ×1.75 a level, 8 levels |
   | Fertilizer | | 🌿 Rice fertilizer: compost, fish meal, spring minerals (from the takeout kiosk on) | Rice growth +50% | ×2 a level, 3 levels |
 
   They start at $40, $60 and $80 in stage 1 and $500, $800 and $1,000 in stage 2, and fertilizer at $20,000. Each level shows in the world:
@@ -127,7 +127,7 @@ Whenever a new upgrade comes on offer, a message says what it is, and while its 
 | 🪑 More seats | $2,500 | ★3.6 | Eight more seats at the bar (18 in all) |
 | 🔪 Second chef | $3,000 | ★3.6 | Another chef at the bar. Out from the start of stage 2, by the bar's east end |
 | 🧑‍🌾 Hire a farmer | $6,000 | ★3.9, 🌾 | Harvests the terraces onto a stack on the path, sweeping the ripe clumps either side in the same cut |
-| 🧺 Rice porter | $12,000 | ★4.1, 🌾 | Carries rice from that stack, 18 bags at a time, in through the farm door to the kitchen line |
+| 🧺 Rice porter | $12,000 | ★4.1, 🧑‍🌾 | Carries rice from that stack, 18 bags at a time, in through the farm door to the kitchen line |
 | 🌱 Second terrace | $15,000 | ★4.1, 🌾 | Plants the middle terrace: rice for more diners |
 | ⛱️ Garden tables | $20,000 | ★4.2 | Four tables under red parasols east of the garden path (8 seats), a serving counter by the gate for their plates, and a waiter who carries them over |
 | 🔪 Third chef | $25,000 | ★4.3, a second chef | A third chef at the bar. Out once there's a second chef |
@@ -140,7 +140,7 @@ Whenever a new upgrade comes on offer, a message says what it is, and while its 
 
 Far out past the road, a path leaves the market (through the east fence in stage 1, and through a door in the restaurant's east wall in stage 2), crosses the road at a zebra crossing and ends at a little rose-coloured house with its windows lit. Stand in the 💔 circle in front of it and it starts to rain: the sky goes grey, you turn into the singer, Ofer Levy (navy cap, short grey beard, olive field jacket over a white T-shirt, gold chain and watch), face her window and cry, and his "מאוהב בגשם" (live at Caesarea, via YouTube) plays from the line "מול ביתך עומד בגשם נרטב". Walk away and the rain clears and the song fades out; come back and it starts again from the same line. The 🔊 button on the song's banner mutes it (it starts muted on iPhone and iPad, where web pages can't fade sound). It's there from the start, free.
 
-🛴 **Korki's golden statue** ($10) is on offer from the start, outside the queue: a gold NAMI Klima One on a pedestal, in memory of Korki. Stand on its pad to read his story; stay a few seconds and his song ("Car Alarm (extended reprise)" by pat's soundhouse, via YouTube) fades in quietly, and fades out when you leave.
+🛴 **Korki's golden statue** ($10) is on offer from the start, outside the queue: a gold NAMI Klima One on a pedestal, in memory of Korki. Stand on its pad to read his story; stay a few seconds and his song ("Car Alarm (extended reprise)" by pat's soundhouse, via YouTube) fades in quietly, and fades out when you leave. The story's ✕ closes it while you stay on the pad, song and all; it's back the next time you step on. On phones the story is smaller, to leave the game in view.
 
 Market customers and diners order 1–3 and give up after 40 seconds of waiting (for diners, 40 seconds in total between plates). Drivers wait 55 seconds.
 

@@ -54,6 +54,7 @@ The bottleneck is the biggest share. A tile that doesn't touch it adds little, h
 **Principles for this stage**
 - The first purchases come fast: the first tile within a minute, a tile every 1 to 2 minutes after that.
 - Supply only pays once there's demand. Without marketing, customers are the limit and the market tops out at about $700 a minute, so runners and boots add nothing. Keep marketing affordable alongside them.
+- Crew training comes on sale with the first runner, the crew it trains, and speeds the runners up as well as fishing and chopping (up to twice as fast, like the kitchen crew in stage 2). The bot buys the runner about 45 seconds sooner with the cash that went on early training levels, and opens Floe Sushi at 11:33 rather than 12:06 (sim of 9 October 2026).
 - The rating requirements are soft gates: a well-run market passes them without noticing. The gold tile shouldn't need a higher rating than the hardest market tile did before (★4.0).
 
 **Where it stands**
@@ -119,7 +120,7 @@ Income keeps rising mostly from the repeatable upgrades. The bottleneck turns ov
 | 🪑 More seats | $2,500 | ★3.6 | Room for more diners | 20:49 | $2,380/min | Chefs 47%, rice 26% |
 | 🔪 Second chef | $3,000 | ★3.6 | Faster plates | 21:50 | $3,602/min | **Rice 50%**: chefs wait for rice 69% of the time |
 | 🧑‍🌾 Hire a farmer | $6,000 | ★3.9, 🌾 | Free your hands from harvesting | 30:27 | $7,865/min | Rice 37% |
-| 🧺 Rice porter | $12,000 | ★4.1, 🌾 | Free your hands from carrying rice | 35:30 | $12,136/min | Seats 42%, rice 11% |
+| 🧺 Rice porter | $12,000 | ★4.1, 🧑‍🌾 | Free your hands from carrying rice | 35:30 | $12,136/min | Seats 42%, rice 11% |
 | 🌱 Second terrace | $15,000 | ★4.1, 🌾 | Rice for more diners | 38:53 | $17,184/min | Seats 44%, rice 0% |
 | ⛱️ Garden tables | $20,000 | ★4.2 | Eight seats outside, and a waiter | 41:11 | $22,131/min | The waiter |
 | 🔪 Third chef | $25,000 | ★4.3, 🔪 | Faster plates | 43:42 | $30,598/min | The waiter |

@@ -20,7 +20,7 @@ import { player } from './player';
 import { onScreen } from './pointers';
 import { bakePainted, G, painted, scene } from './render';
 import { unlock } from './sfx';
-import { atSquare, SHOPS } from './shop';
+import { atSquare, modOffered, SHOPS } from './shop';
 import { staging } from './stage';
 import { PAD, pile, PILE } from './stations';
 import { banner, confetti, toast } from './ui';
@@ -107,7 +107,7 @@ const STEPS: Step[] = [
     // a level at the square: learnt by buying it, not just by looking; on the square, the bubble says how
     id: 'shop', after: 'buy', stay: true,
     goal: () => {
-      const need = Math.min(...MODS.filter(m => m.stage === 1).map(m => modCost(m.id) ?? Infinity));
+      const need = Math.min(...MODS.filter(m => m.stage === 1 && modOffered(m.id)).map(m => modCost(m.id) ?? Infinity));
       return { icon: '📈', name: 'Market upgrade', need, spot: at(SHOPS[0], 0.95) };
     },
     at: () => reached(STEPS.find(t => t.id === 'shop')!.goal!()),

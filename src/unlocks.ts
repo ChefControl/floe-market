@@ -86,7 +86,8 @@ const UNLOCKS: Unlock[] = [
   // out on the deck by the west end of the kitchen line, where rice comes in from the farm door: in the open (the
   // restaurant's west wall and roof hide the farm path from most of the room) and passed on every trip for rice
   { id: 'farmer', cost: 6000, x: -6.4, z: 0.6, icon: '🧑‍🌾', name: 'Hire a farmer', desc: 'Harvests the terraces onto a stack on the path', stars: 3.9, needs: 'paddy', stage: 2 },
-  { id: 'porter', cost: 12000, x: -8.2, z: 5.0, icon: '🧺', name: 'Rice porter', desc: 'Carries harvested rice in to the kitchen line', stars: 4.1, needs: 'paddy', stage: 2 },
+  // the porter carries from the farmer's stack, which only the farmer fills
+  { id: 'porter', cost: 12000, x: -8.2, z: 5.0, icon: '🧺', name: 'Rice porter', desc: 'Carries harvested rice in to the kitchen line', stars: 4.1, needs: 'farmer', stage: 2 },
   { id: 'plot2', cost: 15000, ...onTerrace(1), icon: '🌱', name: 'Second terrace', desc: 'Plant the middle terrace: rice for more diners', stars: 4.1, needs: 'paddy', stage: 2 },
   { id: 'tables', cost: 20000, x: 6.2, z: 17.7, y: 0.02, icon: '⛱️', name: 'Garden tables', desc: 'Four tables in the front garden, and a waiter to serve them', stars: 4.2, stage: 2 },
   { id: 'chef3', cost: 25000, x: 8.0, z: 11.8, icon: '🔪', name: 'Third chef', desc: 'A third chef at the bar', stars: 4.3, needs: 'chef', shown: true, stage: 2 },
@@ -119,7 +120,8 @@ export function redrawTile(t: Tile) {
 // Tiles drawn before the web font loaded fall back to a system font; redraw once it's ready.
 if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => tiles.forEach(redrawTile));
 
-const isDone = (id: UnlockId) => tiles.some(t => t.id === id && t.done);
+/** Whether an upgrade tile has been bought. */
+export const isDone = (id: UnlockId) => tiles.some(t => t.id === id && t.done);
 /** A stage's own upgrades: what its progress chip counts. */
 const goal = (n: 1 | 2) => tiles.filter(t => t.stage === n && !t.always && !t.gold);
 const built = (n: 1 | 2) => goal(n).every(t => t.done);
@@ -227,6 +229,7 @@ export function applyUnlock(id: UnlockId, silent = false) {
   if (silent || t.gold) return;
   toast(t.name + ' unlocked');
   if (id === 'kiosk') toast('New: the Fertilizer shed, by the water wheel');
+  if (id === 'runner') toast('New at the Upgrade square: Crew training');
   unlock();
   if (t.always || !goal(t.stage).every(x => x.done)) return;
   toast(t.stage === 1 ? 'Floe Sushi is ready to open' : 'Floe Sushi is fully built');
