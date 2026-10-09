@@ -57,6 +57,7 @@ const hill = piece((HILL.x0 + HILL.x1) / 2, (HILL.z0 + HILL.z1) / 2);
 const steam: { s: Sprite; t: number }[] = [];
 /** A warm glow over the spring at dusk. */
 export const springLamp = new PointLight(0xFFB46A, 0, 12, 1.4);
+springLamp.userData.net = 'local'; // co-op: each phone lights its own dusk
 springLamp.position.set(SPRING.x, HILL.y + 1.6, SPRING.z);
 {
   const cx = hill.position.x, cz = hill.position.z;
@@ -87,6 +88,7 @@ springLamp.position.set(SPRING.x, HILL.y + 1.6, SPRING.z);
   });
   for (let i = 0; i < 14; i++) {
     const s = new Sprite(new SpriteMaterial({ map: puff.tex, transparent: true, depthWrite: false, opacity: 0 }));
+    s.userData.net = 'local'; // co-op: each phone lets its own steam rise (updFarm)
     put(hill, s, SPRING.x, HILL.y, SPRING.z);
     steam.push({ s, t: i / 14 * 3.2 });
   }
@@ -112,6 +114,7 @@ let wheel: Group;
   // channel), its axle on a post either side, and turns with the water: paddles standing out from the rim, spokes
   // and a hub.
   wheel = new Group(); wheel.position.set(3.3, 1.05, -0.4); house.add(wheel);
+  wheel.userData.net = 'local'; // co-op: each phone turns its own
   wheel.add(mesh(new TorusGeometry(1.0, 0.07, 6, 20), 0x6B4A2E, 0, 0, 0, true));
   for (let i = 0; i < 8; i++) {
     const a = i / 8 * Math.PI * 2;

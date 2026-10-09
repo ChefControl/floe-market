@@ -32,8 +32,13 @@ function placeFish(f: Fish, far = false) {
 
 for (let i = 0; i < 16; i++) {
   const f: Fish = { ...newFish(), h: 0, sp: rand(.7, 1.3), state: 'swim', re: 0 };
+  f.tail.userData.net = 'local'; // co-op: each phone wiggles its own (wiggle)
   scene.add(f.g); placeFish(f); fish.push(f);
 }
+
+const wag = (f: Fish, time: number) => { f.tail.rotation.y = Math.sin(time * 12 + f.sp * 5) * 0.45; };
+/** The fish's tails, on a phone that doesn't run the fish (a co-op guest's): every one in sight swims. */
+export function wiggle(time: number) { for (const f of fish) if (f.g.visible) wag(f, time); }
 
 export function updFish(dt: number, time: number) {
   for (const f of fish) {
@@ -48,7 +53,7 @@ export function updFish(dt: number, time: number) {
       p.x += Math.cos(f.h) * f.sp * dt; p.z += Math.sin(f.h) * f.sp * dt;
       p.y = 0.04 + Math.sin(time * 3 + f.sp * 7) * 0.03;
       f.g.rotation.y = -f.h;
-      f.tail.rotation.y = Math.sin(time * 12 + f.sp * 5) * 0.45;
+      wag(f, time);
     } else if (f.state === 'gone') {
       f.re -= dt;
       if (f.re <= 0) placeFish(f, true);

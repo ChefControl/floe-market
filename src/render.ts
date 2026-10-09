@@ -4,6 +4,7 @@ import {
   PerspectiveCamera, Quaternion, Scene, SphereGeometry, TorusGeometry, Vector3, WebGLRenderer,
 } from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import './boot'; // before anything's built: the scene is built the same on every device (co-op)
 import { V } from './util';
 
 // ---------- renderer / scene ----------
@@ -69,6 +70,8 @@ Object.assign(sun.shadow.camera, { left: -14, right: 14, top: 14, bottom: -14, n
 sun.shadow.bias = -0.0006;
 scene.add(sun);
 scene.add(sun.target);
+// Co-op: each phone lights its own sky (the sun follows its own camera, and the rain greys out its own player's).
+hemi.userData.net = sun.userData.net = sun.target.userData.net = 'local';
 
 // ---------- materials / meshes ----------
 const matCache = new Map<number, MeshLambertMaterial>();

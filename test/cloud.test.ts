@@ -316,6 +316,37 @@ describe('cloud saves', () => {
     expect(fake.signedIn).toBe(true); // picked back up, without a second sign-in
   });
 
+  it('signs in for co-op when asked, and leaves a co-op guest’s own game alone', async () => {
+    const { c } = await start({ money: 120 });
+    c.initCloud();
+    expect(await c.signInNow()).toEqual(fake.user);
+    expect(await c.userKnown).toBeNull(); // nobody, when Firebase first said
+    await vi.waitFor(() => expect(fake.store.get('u1')).toBeDefined());
+    // already signed in: no second sign-in
+    expect(await c.signInNow()).toEqual(fake.user);
+    // playing a friend's game, this device's own isn't synced
+    const { coop } = await import('../src/remote');
+    coop.role = 'guest';
+    const writes = fake.writes;
+    localStorage.setItem(SAVE_KEY, local().replace('"money":120', '"money":121'));
+    await c.sync();
+    expect(fake.writes).toBe(writes);
+    coop.role = 'solo';
+  });
+
+  it("says so when signing in for co-op didn't work", async () => {
+    const { c } = await start();
+    fake.signInError = { code: 'auth/popup-blocked' };
+    await expect(c.signInNow()).rejects.toEqual({ code: 'auth/popup-blocked' });
+    fake.signInError = null;
+    vi.useFakeTimers();
+    const signIn = vi.spyOn(h.backend, 'signIn').mockResolvedValue();
+    const tried = c.signInNow().catch((e: Error) => e.message);
+    await vi.advanceTimersByTimeAsync(6000);
+    expect(await tried).toBe('signed-out');
+    signIn.mockRestore();
+  });
+
   it("fetches Firebase a few seconds into the game, so signing in doesn't wait for it", async () => {
     vi.useFakeTimers();
     const { c } = await start();

@@ -88,9 +88,14 @@ export class Person extends Group {
   private limbs: Mesh[] = [];
   /** Who they are: a mix of a man's or a woman's wardrobe for the crowd, or the plain look everyone else has. */
   readonly style: Style;
+  /**
+   * Everything the constructor built under them, in order. Co-op (mirror.ts) builds the same person on the guest's
+   * phone from their colour, look and style, and matches these up one for one.
+   */
+  readonly own: Object3D[] = [];
 
   /** `color` is the shirt, parka, suit or dress; `style` mixes a crowd member up (wardrobe.ts crowd()); without one they get the plain look. */
-  constructor(readonly color: number, look: Look = 'parka', style?: Style) {
+  constructor(readonly color: number, readonly look: Look = 'parka', style?: Style) {
     super();
     const n = dressed++;
     const st = this.style = style ?? plain(n);
@@ -120,6 +125,8 @@ export class Person extends Group {
     if (look === 'fancy' || look === 'farmer') this.scarf(['winter', 'fall'], look === 'fancy' ? 0xF4EBDD : KNITS[n % KNITS.length]);
     this.scale.setScalar(st.height);
     this.wear();
+    for (const m of [this.shell, this.trim, ...this.limbs]) m.userData.baked = true;
+    this.traverse(o => { if (o !== this) this.own.push(o); });
   }
 
   /**

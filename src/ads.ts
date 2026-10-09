@@ -487,6 +487,8 @@ function worldFlags(): Ad {
 
 /** In the order of the restaurant's campaigns (MOD.promo.levels). */
 export const restaurantAds: Ad[] = [menuBoard(), lanternSigns(), ringLight(), critic(), magazines(), cookingShow(), gourmetGuide(), worldFlags()];
+// Co-op: whether each campaign is up is sent to the guest's phone, which animates it itself (mirror.ts).
+for (const a of [...marketAds, ...restaurantAds]) a.g.userData.net = 'self';
 
 let time = 0;
 /** Animates the campaigns that are up. */

@@ -16,6 +16,7 @@ export const PRESENT = {
 };
 const tile = decal(PRESENT.half * 2, (c, w, h) => drawTile(c, w, h, PRESENT));
 tile.mesh.position.set(PRESENT.x, FY + 0.012, PRESENT.z);
+tile.tex.userData.local = true; // co-op: each phone draws it from what's been paid (coop.ts)
 
 export function redrawPresentTile() {
   drawTile(tile.ctx, 256, 256, PRESENT);
@@ -47,8 +48,8 @@ interface Gift { x: number; y: number; z: number; w: number; h: number; d: numbe
 export const presents = { n: 0 };
 const gifts: Gift[] = [];
 const heights = COLS.map(() => ROWS.map(() => 0));
-/** The ground the pile covers, for keeping the player out of it. */
-const covers = { x0: WALL, z0: Infinity, z1: -Infinity };
+/** The ground the pile covers, for keeping the player out of it (co-op sends it to the guest's phone too). */
+export const pileCover = { x0: WALL, z0: Infinity, z1: -Infinity };
 
 /** Where the `i`th present goes: the lowest spot, nearest where the pile started, so it grows as a mound. Null once
  *  it's up to the eaves everywhere. */
@@ -69,9 +70,9 @@ function nextGift(i: number): Gift | null {
     w, h, d, yaw: (f(0.7236068) - 0.5) * 0.9, wrap: WRAPS[i % WRAPS.length], ribbon: RIBBONS[(i * 2 + (i >> 2)) % RIBBONS.length],
   };
   heights[c][r] += h;
-  covers.x0 = Math.min(covers.x0, COLS[c] - CELL / 2);
-  covers.z0 = Math.min(covers.z0, ROWS[r] - CELL / 2);
-  covers.z1 = Math.max(covers.z1, ROWS[r] + CELL / 2);
+  pileCover.x0 = Math.min(pileCover.x0, COLS[c] - CELL / 2);
+  pileCover.z0 = Math.min(pileCover.z0, ROWS[r] - CELL / 2);
+  pileCover.z1 = Math.max(pileCover.z1, ROWS[r] + CELL / 2);
   return g;
 }
 
@@ -145,7 +146,7 @@ export function givePresents(n = 1, silent = false) {
 
 /** Keeps the player out of the pile. */
 export function collidePresents(p: XZ) {
-  if (!gifts.length) return;
-  const { x0, z0, z1 } = covers;
+  const { x0, z0, z1 } = pileCover;
+  if (z1 < z0) return; // no pile yet
   pushOutOfBox(p, (x0 + WALL) / 2, (z0 + z1) / 2, (WALL - x0) / 2 + 0.25, (z1 - z0) / 2 + 0.25);
 }

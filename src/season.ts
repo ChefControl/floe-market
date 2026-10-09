@@ -55,6 +55,7 @@ const swaps: (() => void)[] = [];
 /** A material whose colour changes with the seasons. */
 export function seasonal(c: Swatch) {
   const m = new MeshLambertMaterial({ color: c[season.i] });
+  m.userData.local = true; // co-op: each phone blends its own scenery (mirror.ts)
   looks.push({ m, c });
   return m;
 }
@@ -106,6 +107,7 @@ const dot = canvasTex(32, 32, (c, w, h) => {
 const flakeMat = new PointsMaterial({ map: dot.tex, transparent: true, depthWrite: false, opacity: 0, blending: NormalBlending });
 export const weather = new Points(flakeGeo, flakeMat);
 weather.frustumCulled = false;
+weather.userData.net = 'local'; // co-op: it falls round each phone's own player
 scene.add(weather);
 let time = 0;
 /** Wraps an offset from the player into the box round them. */

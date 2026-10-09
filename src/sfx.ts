@@ -3,8 +3,17 @@
 // boards underfoot, little bells for money and news, and filtered noise for water, snow and swishing rice. Sounds out
 // in the world (a customer paying, a driver's horn) are placed where they happen, and fade with distance.
 import { bell, between, deg, every, marimba, noise, pluck, streak, tone } from './audio';
+import { coop } from './remote';
 import type { Season } from './season';
 import type { XZ } from './util';
+
+/** Where a sound happens, as just the spot: it's often given as the thing itself (a customer, a rice plant). */
+const spot = (a: unknown) => a !== null && typeof a === 'object' && typeof (a as XZ).x === 'number' ? { x: (a as XZ).x, z: (a as XZ).z } : a;
+/** A sound a co-op guest hears too (coop.ts): out in the world (placed where it happens), or news for both. */
+const shared = <A extends unknown[]>(name: string, f: (...a: A) => void) => (...a: A) => {
+  coop.relay?.('sfx', [name, ...a.map(spot)]);
+  f(...a);
+};
 
 /** A footstep on what's underfoot: boards (the deck, the dock, the restaurant), or the ground in its season. */
 export function step(on: 'wood' | Season) {
@@ -19,7 +28,7 @@ export function step(on: 'wood' | Season) {
 }
 
 /** A line whipping out to a fish: yours, or the auto harpoon firing (with a thunk). The net is silent. */
-export function cast(from: XZ, src: 'player' | 'turret' | 'net') {
+function cast_(from: XZ, src: 'player' | 'turret' | 'net') {
   if (src === 'net') return;
   if (src === 'turret') {
     tone({ at: from, f: 120, f2: 55, type: 'triangle', d: 0.16, v: 0.28 });
@@ -29,19 +38,19 @@ export function cast(from: XZ, src: 'player' | 'turret' | 'net') {
 }
 
 /** A fish pulled out of the water. */
-export function splash(at: XZ) {
+function splash_(at: XZ) {
   noise({ at, f: 2400, f2: 500, kind: 'lowpass', q: 0.8, d: 0.32, v: 0.2 });
   tone({ at, f: 420, f2: 160, d: 0.1, v: 0.1 });
 }
 
 /** A fish landing on the chopping board. */
-export function flop(at: XZ) {
+function flop_(at: XZ) {
   tone({ at, f: 240, f2: 90, d: 0.09, v: 0.18 });
   noise({ at, f: 900, q: 1, d: 0.05, v: 0.07 });
 }
 
 /** The cleaver through the fish and into the board: the `i`-th of the three cuts, each a little higher. */
-export function chop(at: XZ, i: number) {
+function chop_(at: XZ, i: number) {
   noise({ at, f: 2400 + i * 300, q: 1.6, d: 0.035, v: 0.15 });
   tone({ at, f: 190 + i * 25, f2: 95, type: 'triangle', d: 0.07, v: 0.2 });
 }
@@ -71,14 +80,14 @@ export function coin() {
 }
 
 /** A customer paying at a counter or the register: bills fluttering down, and a bell. */
-export function till(at: XZ) {
+function till_(at: XZ) {
   if (!every('till', 0.1)) return;
   noise({ at, f: 3500, q: 0.7, a: 0.02, d: 0.12, v: 0.05 });
   bell(deg(9, 1), { at, v: 0.05, d: 0.4 });
 }
 
 /** A review: the more stars, the happier the little tune; one star is a sad bonk. */
-export function review(stars: number, at: XZ) {
+function review_(stars: number, at: XZ) {
   if (!every('review', 0.12)) return;
   if (stars <= 1) tone({ at, f: 220, f2: 140, type: 'triangle', d: 0.28, v: 0.16 });
   else if (stars < 3) {
@@ -94,32 +103,32 @@ export function pay(k: number) {
 }
 
 /** An upgrade bought: a run up the marimba, and a bell. */
-export function unlock() {
+function unlock_() {
   [0, 2, 4, 5, 7].forEach((n, i) => marimba(deg(n, 1), { t: i * 0.06, v: 0.15 }));
   bell(deg(10, 1), { t: 0.32, v: 0.08, d: 1 });
 }
 
 /** Something new popping into the world: a soft bubble. */
-export function pop() {
+function pop_() {
   if (!every('pop', 0.05)) return;
   tone({ f: between(280, 340), f2: 700, d: 0.09, v: 0.07 });
 }
 
 /** Something new to look at: an upgrade for sale, a rating reached. */
-export function chime() {
+function chime_() {
   if (!every('chime', 0.5)) return;
   bell(deg(7, 1), { v: 0.07, d: 0.6 });
   bell(deg(9, 1), { t: 0.12, v: 0.07, d: 0.8 });
 }
 
 /** A repeatable upgrade's next level: up a chord, and a shimmer. */
-export function levelUp() {
+function levelUp_() {
   [0, 3, 5].forEach((n, i) => marimba(deg(n, 1), { t: i * 0.07, v: 0.14 }));
   tone({ f: deg(5, 2), t: 0.21, d: 0.5, v: 0.04, vib: [6, 8] });
 }
 
 /** The stage-up: a flourish for the market done (1), then a drum and a strummed koto for the restaurant (2). */
-export function fanfare(n: 1 | 2) {
+function fanfare_(n: 1 | 2) {
   if (n === 1) {
     [0, 2, 3, 4, 5, 7, 9, 10].forEach((d, i) => marimba(deg(d, 1), { t: i * 0.055, v: 0.15 }));
     [0, 3, 5].forEach(d => bell(deg(d, 1), { t: 0.5, v: 0.06, d: 1.6 }));
@@ -131,7 +140,7 @@ export function fanfare(n: 1 | 2) {
 }
 
 /** A new season: a few notes in its own voice. */
-export function seasonSting(s: Season) {
+function seasonSting_(s: Season) {
   if (s === 'winter') [9, 7, 5].forEach((n, i) => bell(deg(n, 1), { t: i * 0.14, v: 0.06, d: 1.2 }));
   else if (s === 'spring') {
     [0, 1].forEach(i => tone({ t: i * 0.11, f: 2700, f2: 3900, d: 0.06, v: 0.04 }));
@@ -156,19 +165,19 @@ export function lose() {
 }
 
 /** A plate set down: on the belt, or at a garden table. */
-export function clink(at: XZ) {
+function clink_(at: XZ) {
   if (!every('clink', 0.08)) return;
   tone({ at, f: 1900, d: 0.03, v: 0.04 });
   tone({ at, f: 2900, d: 0.02, v: 0.025 });
 }
 
 /** Rice cut at the terraces. */
-export function swish(at: XZ) {
+function swish_(at: XZ) {
   noise({ at, f: 1400, f2: 500, q: 1.2, a: 0.02, d: 0.12, v: 0.05 });
 }
 
 /** A driver's horn: two short beeps, or one long one when they're cross. */
-export function honk(at: XZ, cross = false) {
+function honk_(at: XZ, cross = false) {
   const beep = (t: number, hold: number) => {
     tone({ at, t, f: 392, type: 'square', lp: 1400, a: 0.01, hold, d: 0.05, v: 0.05 });
     tone({ at, t, f: 494, type: 'square', lp: 1400, a: 0.01, hold, d: 0.05, v: 0.045 });
@@ -178,7 +187,7 @@ export function honk(at: XZ, cross = false) {
 }
 
 /** A driver booping you off the road: a soft, rubbery boop that drops an octave, over a little thump. */
-export function boop(at: XZ) {
+function boop_(at: XZ) {
   tone({ at, f: deg(4, 1), f2: deg(4), a: 0.012, d: 0.16, v: 0.16 });
   tone({ at, f: 160, f2: 110, type: 'triangle', a: 0.01, d: 0.1, v: 0.1 });
 }
@@ -190,3 +199,27 @@ export function click() {
 document.addEventListener('click', e => {
   if ((e.target as Element | null)?.closest?.('button')) click();
 });
+
+// ---------- heard by both players ----------
+export const cast = shared('cast', cast_);
+export const splash = shared('splash', splash_);
+export const flop = shared('flop', flop_);
+export const chop = shared('chop', chop_);
+export const till = shared('till', till_);
+export const review = shared('review', review_);
+export const unlock = shared('unlock', unlock_);
+export const pop = shared('pop', pop_);
+export const chime = shared('chime', chime_);
+export const levelUp = shared('levelUp', levelUp_);
+export const fanfare = shared('fanfare', fanfare_);
+export const seasonSting = shared('seasonSting', seasonSting_);
+export const clink = shared('clink', clink_);
+export const swish = shared('swish', swish_);
+export const honk = shared('honk', honk_);
+export const boop = shared('boop', boop_);
+/** The shared sounds by name, for a guest's phone to play what the host's tells it. */
+export const SHARED: Record<string, (...a: never[]) => void> = {
+  cast, splash, flop, chop, till, review, unlock, pop, chime, levelUp, fanfare, seasonSting, clink, swish, honk, boop,
+  // a player's own, sent to them alone
+  pick, put, coin, pay,
+};
