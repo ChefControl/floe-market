@@ -130,7 +130,7 @@ describe('sound', () => {
       ['fanfare 2', () => sfx.fanfare(2)], ['winter', () => sfx.seasonSting('winter')], ['spring', () => sfx.seasonSting('spring')],
       ['summer', () => sfx.seasonSting('summer')], ['autumn', () => sfx.seasonSting('fall')], ['tick', sfx.tick], ['win', sfx.win],
       ['lose', sfx.lose], ['clink', () => sfx.clink(at)], ['swish', () => sfx.swish(at)], ['honk', () => sfx.honk(at)],
-      ['cross honk', () => sfx.honk(at, true)], ['click', sfx.click],
+      ['cross honk', () => sfx.honk(at, true)], ['boop', () => sfx.boop(at)], ['click', sfx.click],
     ];
     for (const [name, fn] of all) {
       play(0.6);

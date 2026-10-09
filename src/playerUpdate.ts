@@ -10,7 +10,7 @@ import { boost } from './economy';
 import { buyHeld, inputVec } from './input';
 import { korkiStatue, STATUE } from './korki';
 import { groundY, keepOnFloor, pushOutOfBox, stage, walkable } from './layout';
-import { player } from './player';
+import { BOOP_SECS, player } from './player';
 import { collidePresents, givePresents, onPresentTile, PRESENT, redrawPresentTile } from './presents';
 import { scene } from './render';
 import { collide, FISH_DROP, fishTray, register, REGISTER, RICE_DROP, ricePot, sushi } from './restaurant';
@@ -50,8 +50,15 @@ function cashSpots() {
 }
 
 export function updPlayer(dt: number) {
-  const p = player.g.position, mv = inputVec();
-  if (mv) {
+  const p = player.g.position, mv = inputVec(), b = player.booped;
+  if (b) {
+    // booped: a hop backwards, easing out, whatever's pressed
+    b.t = Math.min(1, b.t + dt / BOOP_SECS);
+    const k = 1 - (1 - b.t) ** 2;
+    p.x = b.x0 + (b.x1 - b.x0) * k; p.z = b.z0 + (b.z1 - b.z0) * k;
+    player.moving = false;
+    if (b.t >= 1) player.booped = null;
+  } else if (mv) {
     p.x += mv.x * player.speed * dt; p.z += mv.z * player.speed * dt;
     const target = Math.atan2(mv.x, mv.z);
     let d = target - player.h; d = Math.atan2(Math.sin(d), Math.cos(d));
@@ -70,6 +77,7 @@ export function updPlayer(dt: number) {
   }
   // step smoothly up and down terraces, bridges and the gate
   p.y += (groundY(p) - p.y) * Math.min(1, dt * 14);
+  if (player.booped) p.y = groundY(p) + Math.sin(Math.PI * player.booped.t) * 0.45;
 
   // catch fish on the pad
   const onPad = d2xz(p, PAD) < PAD.r * PAD.r;

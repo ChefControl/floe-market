@@ -111,7 +111,7 @@ const dashGeo = new PlaneGeometry(0.12, 0.9), dashMat = new MeshBasicMaterial({ 
 /** A road running north-south at `x`, with its centre line. Grouped at its own x so it can pop in sideways. */
 function road(x: number) {
   const g = new Group(); g.position.x = x; scene.add(g);
-  const r = mesh(new PlaneGeometry(2.1, 130), 0x6B7785);
+  const r = mesh(new PlaneGeometry(ROAD_HALF * 2, 130), 0x6B7785);
   r.rotation.x = -Math.PI / 2; g.add(r);
   const dashes: Part[] = [];
   for (let z = -64; z < 64; z += 2.2) dashes.push({ geo: dashGeo, at: [0, 0.01, z], rot: [-Math.PI / 2, 0, 0] });
@@ -119,7 +119,9 @@ function road(x: number) {
   return g;
 }
 /** The road past the sled window, and in stage 2 the one past the takeout kiosk, east of the restaurant. */
-export const ROAD1_X = 9.6, ROAD2_X = 14.0;
+export const ROAD1_X = 9.75, ROAD2_X = 14.2;
+/** How far a road runs either side of its centre line: a lane each way. */
+export const ROAD_HALF = 1.3;
 const road1 = road(ROAD1_X);
 const road2 = road(ROAD2_X);
 road2.visible = false;
@@ -170,7 +172,7 @@ const housePath = (x: number, z: number) => x > 8.2 && z > HOUSE_PATH_Z - 4 && z
 /** Stage 1 keeps trees off the deck, the road, the customers' path and the water. */
 function treeOK1(x: number, z: number) {
   if (x > -8.8 && x < 8.8 && z > -7.2 && z < 8.8) return false;
-  if (x > 8.2 && x < 11.2) return false;
+  if (x > 8.2 && x < 11.4) return false;
   if (housePath(x, z)) return false;
   if (x > -5 && x < 8.6 && z > 8.4 && z < 20) return false;
   return z > -6.2;
@@ -180,7 +182,7 @@ function treeOK2(x: number, z: number) {
   if (x > -8.8 && x < 8.8 && z > -7.2 && z < 2) return false;
   if (housePath(x, z)) return false;
   if (x > -11.6 && x < 13.2 && z > 0.5 && z < 23.4) return false;
-  if (x > 12.6 && x < 15.6) return false;
+  if (x > 12.6 && x < 15.8) return false;
   if (x > -3 && x < 3 && z > 20 && z < 46) return false;
   if (x > -40 && x < -10.2 && z > -7 && z < 13.4) return false;
   return z > -6.2;
