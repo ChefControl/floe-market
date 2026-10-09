@@ -109,19 +109,29 @@ describe('the tutorial', () => {
     expect($('banner').classList.contains('on')).toBe(false); // the upgrade square is still to come
   });
 
-  it('says the tutorial is complete when the last idea is learnt, and leaves the rest to the player', async () => {
-    const { g, tut, now } = await setup({ tiles: bought('pack'), money: 100, learnt: ['stars'] });
+  it('says the tutorial is complete once the basics are learnt, and leaves the rest to the player', async () => {
+    const { g, tut, now } = await setup({ tiles: bought('pack'), money: 100 });
     g.run(0.1);
     expect(now()).toBe('shop');
     expect($('banner').classList.contains('on')).toBe(false);
     g.placePlayer(g.shop.SHOPS[0].x, g.shop.SHOPS[0].z);
     g.run(0.1);
-    expect(tut.learntLessons()).toHaveLength(7);
+    expect(tut.learntLessons()).toEqual(['fish', 'pick', 'sell', 'cash', 'buy', 'shop']); // the rating's a tip for later
     expect($('banner').classList.contains('on')).toBe(true);
     expect($('banner').textContent).toBe('Well doneTutorial completeThe rest is up to you. Go make it big!');
     g.run(3);
     expect($('banner').classList.contains('on')).toBe(true);
     g.run(1.1);
+    expect($('banner').classList.contains('on')).toBe(false);
+
+    // the rating's tip, later, doesn't bring it back
+    g.unlocks.applyUnlock('turret', true); g.unlocks.applyUnlock('roulette', true);
+    g.placePlayer(0, 0);
+    g.run(0.1);
+    expect(now()).toBe('stars');
+    tut.lesson.viewed = 10;
+    g.run(0.1);
+    expect(tut.learntLessons()).toHaveLength(7);
     expect($('banner').classList.contains('on')).toBe(false);
   });
 

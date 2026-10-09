@@ -5,8 +5,9 @@
 // as they come up, the 📈 Upgrade square and the star rating some tiles need.
 // Each idea is learnt by doing it (the rating by reading about it), and isn't shown to the same player again: what's
 // learnt is kept on the device, so Restart doesn't bring it back, and in the save, so it follows a signed-in player to
-// their other devices. A game from before the tutorial counts what it has done already. Learning the last one brings up
-// a banner saying the tutorial's complete, and that the rest is up to the player.
+// their other devices. A game from before the tutorial counts what it has done already. Learning the last of the basics
+// (everything up to the Upgrade square) brings up a banner saying the tutorial's complete, and that the rest is up to
+// the player; the rating, which only comes up after a few more upgrades, is a tip for later, outside the tutorial proper.
 import { Group, Mesh, MeshBasicMaterial, RingGeometry } from 'three';
 import { C1 } from './counters';
 import { modCost, MODS, mods } from './economy';
@@ -48,6 +49,8 @@ interface Step {
   done?: () => boolean;
   /** Learnt by having it in view this long instead. */
   read?: number;
+  /** A tip for later, when it comes up: not one of the basics the tutorial is complete without. */
+  later?: boolean;
   /** Stays up while the player stands there (buying needs holding there); the others step aside for the player. */
   stay?: boolean;
   /** A game from before the tutorial has done it already. */
@@ -96,7 +99,7 @@ const STEPS: Step[] = [
     done: () => atSquare(), known: () => stage.n > 1 || MODS.some(m => mods[m.id] > 0),
   },
   {
-    id: 'stars', after: 'buy', read: READ,
+    id: 'stars', after: 'buy', read: READ, later: true,
     at: () => { const t = firstLocked(); return t ? { x: t.x, y: t.y ?? FY, z: t.z, r: 0 } : null; },
     say: () => [`Opens at ★${firstLocked()?.stars?.toFixed(1) ?? ''}`, 'Serve customers quickly for better reviews'],
     known: () => stage.n > 1 || tiles.some(t => !!t.stars && (t.open || t.done)),
@@ -136,7 +139,7 @@ function next() {
 
 /** Seconds left of the banner saying the tutorial's complete. */
 let cheer = 0;
-/** The banner for the last lesson learnt: only ever by playing, never for a game that knew them all already. */
+/** The banner for the last of the basics learnt: only ever by playing, never for a game that knew them already. */
 function complete() {
   banner('Well done', 'Tutorial complete', 'The rest is up to you. Go make it big!');
   confetti();
@@ -156,7 +159,7 @@ export function updTutorial(dt: number) {
   const s = lesson.now;
   if (s && (s.done?.() || (s.read && lesson.viewed >= s.read))) {
     learn([s.id]);
-    if (learnt.size === LESSONS.length) complete();
+    if (!s.later && STEPS.every(t => t.later || learnt.has(t.id))) complete();
   }
   const n = next();
   if (n !== lesson.now) {
