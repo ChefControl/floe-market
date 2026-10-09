@@ -148,6 +148,7 @@ const rainMat = new LineBasicMaterial({ color: 0x6F8598, transparent: true, opac
 const rain = new LineSegments(rainGeo, rainMat);
 rain.frustumCulled = false;
 rain.visible = false;
+rain.userData.net = 'local'; // co-op: it rains on each phone's own player
 scene.add(rain);
 
 /** The sky in the rain; the clear sky (day, or stage 2's dusk) is `sky` in render.ts. */

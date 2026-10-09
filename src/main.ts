@@ -1,22 +1,34 @@
 import './errors'; // must stay first: catches errors thrown while the other modules build the scene
+import { endBoot } from './boot'; // next: the scene is built the same on every device (co-op)
 import { initCloud } from './cloud';
+import { guestTick, hostStep, noteBoot } from './coop';
 import { tick } from './game';
 import { initHint, updHint } from './hint';
 import { inputVec } from './input';
 import { updKofi } from './kofi';
 import { player } from './player';
 import { updPointers } from './pointers';
+import { coopOffered, joinCode } from './remote';
 import { camera, camK, fog, OFF, renderer, scene, sun, sunOff } from './render';
 import { isStale, load, startAutosave, wipeSave } from './save';
 import { initScores } from './scores';
 import './settings';
 import { view } from './stage';
+import { initTogether } from './together';
 import { hud, keepInSight } from './ui';
 
 // ---------- save / restart ----------
-load();
-startAutosave();
+// Co-op notes the scene as every phone builds it, before a save changes it (coop.ts).
+const coop = coopOffered();
+if (coop) noteBoot(); else endBoot();
+/** This page was opened from an invite: it plays a friend's game, and leaves its own as it is. */
+const guest = joinCode() !== null;
+if (!guest) {
+  load();
+  startAutosave();
+}
 initCloud();
+if (coop) initTogether();
 initHint();
 initScores();
 
@@ -46,7 +58,8 @@ let last = performance.now();
 function frame(now: number) {
   const dt = Math.min(0.05, (now - last) / 1000);
   last = now;
-  if (!isStale()) { tick(dt); updKofi(dt); }
+  if (guest) guestTick(dt, now);
+  else if (!isStale()) { tick(dt); updKofi(dt); hostStep(now); }
 
   // Follow the player; the stage-up pulls back to look over the whole map for a moment.
   camTarget.lerp(player.g.position, Math.min(1, dt * 6));

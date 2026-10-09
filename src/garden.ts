@@ -226,6 +226,11 @@ export function addTables(i: number): Object3D[] {
   return [r.g, ...(i ? [] : [pass]), hireWaiter(i)];
 }
 
+/** Which rows of tables are out (co-op sends them to the guest's phone, which walks round them itself). */
+export const tableRows = () => rows.map(r => r.built);
+/** On a co-op guest's phone: the rows of tables out in the host's game (whose phone sends what they look like). */
+export function setTableRows(built: boolean[]) { rows.forEach((r, i) => { r.built = !!built[i]; }); }
+
 /** Keeps the player out of the tables and the serving counter. */
 export function collideGarden(p: Vector3) {
   if (pass.visible) pushOutOfBox(p, PASS.x, PASS.z, PASS.w / 2 + 0.3, PASS.d / 2 + 0.3);

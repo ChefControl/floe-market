@@ -7,4 +7,6 @@ export const firebaseConfig = {
   authDomain: 'flow-market-6f550.firebaseapp.com',
   projectId: 'flow-market-6f550',
   appId: '1:979813315475:web:0ae39ad27c9cd4f7132e66',
+  // co-op's rooms (rooms.ts)
+  databaseURL: 'https://flow-market-6f550-default-rtdb.europe-west1.firebasedatabase.app',
 };

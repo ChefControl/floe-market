@@ -36,7 +36,7 @@ export const MARKET = ['pack', 'turret', 'roulette', 'runner', 'boots', 'sled', 
  * Loads a fresh copy of the whole game (new module instances, fresh DOM), optionally from a save.
  * With `main`, boots through src/main.ts and captures its animation-frame callback instead.
  */
-export async function loadGame(save?: SaveFixture | string, opts: { main?: boolean } = {}) {
+export async function loadGame(save?: SaveFixture | string, opts: { main?: boolean; noLoad?: boolean } = {}) {
   vi.resetModules();
   resetDom();
   localStorage.clear();
@@ -65,7 +65,7 @@ export async function loadGame(save?: SaveFixture | string, opts: { main?: boole
       import('../src/korki'), import('../src/casino'), import('../src/shop'), import('../src/economy'),
       import('../src/looks'), import('../src/shed'),
     ]);
-  if (!opts.main) saveMod.load();
+  if (!opts.main && !opts.noLoad) saveMod.load();
 
   const { player } = playerMod;
   const { wallet } = walletMod;
