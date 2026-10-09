@@ -7,12 +7,12 @@ import { singerLook } from '../src/singer';
 
 it('swaps the parka for the singer and back, arms set wider for his build', () => {
   const p = new Person(0xFF6B4A);
-  const before = p.children.length;
+  const before = p.body.children.length;
   const wear = singerLook(p);
   /** Their own body, head and hood (baked into the person, so read from what they're wearing). */
   const own = () => p.worn().filter(w => ([G.body, G.hood, G.hoodBack, G.head] as BufferGeometry[]).includes(w.geo));
   const sleeves = p.arms.map(a => a.children[0]);
-  const look = [...p.children.slice(before), ...p.arms.flatMap(a => a.children.slice(1))];
+  const look = [...p.body.children.slice(before), ...p.arms.flatMap(a => a.children.slice(1))];
   expect(own()).toHaveLength(4);
   expect(look.length).toBeGreaterThan(10);
   expect(look.some(o => o.visible)).toBe(false);

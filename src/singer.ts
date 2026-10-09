@@ -31,7 +31,7 @@ const linkGeo = new BoxGeometry(0.012, 1, 0.012);
 export function singerLook(p: Person) {
   const own: Object3D[] = [];
   const look: Object3D[] = [];
-  const add = <T extends Object3D>(o: T, parent: Object3D = p) => { o.visible = false; parent.add(o); look.push(o); return o; };
+  const add = <T extends Object3D>(o: T, parent: Object3D = p.body) => { o.visible = false; parent.add(o); look.push(o); return o; };
   /** A flat piece on the jacket's front, `x` across from the middle, tilted to lie on it. */
   const onFront = (w: number, h: number, c: number, x: number, y: number, out = 0.004) => {
     const r = bodyR(y), z = Math.sqrt(r * r - x * x) + out;
@@ -64,7 +64,7 @@ export function singerLook(p: Person) {
   add(new Mesh(new SphereGeometry(0.02, 8, 6), gold)).position.set(0, 0.765, bodyR(0.765) + 0.01);
 
   // Jacket sleeves down to the hands; a gold watch on one wrist, a black leather bracelet on the other.
-  const armX = p.arms.map(a => a.position.x);
+  const side = p.arms.map(a => Math.sign(a.position.x));
   p.arms.forEach((a, i) => {
     own.push(a.children[0]);
     add(mesh(G.arm, JACKET, 0, -0.14, 0, true), a).scale.set(1.15, 0.94, 1.1);
@@ -91,6 +91,6 @@ export function singerLook(p: Person) {
     for (const o of look) o.visible = on;
     p.disguised = on;
     p.wear();
-    p.arms.forEach((a, i) => { a.position.x = armX[i] * (on ? BUILD : 1); });
+    p.arms.forEach((a, i) => { a.position.x = side[i] * p.armSpread * (on ? BUILD : 1); });
   };
 }

@@ -56,7 +56,7 @@ describe('the crowd', () => {
     const p = new Person(0x5B8DEF, 'parka', st);
     g.render.scene.add(p);
     expect(colourOf(p, g.render.G.head)).toBe(st.skin);
-    expect(colourOf(p, g.render.G.leg)).toBe(st.legs);
+    expect(colourOf(p, (await characters()).LIMBS.trouser)).toBe(st.legs);
     expect(p.scale.x).toBeCloseTo(st.height);
     const skirt = () => worn(p).filter(c => hex(c) === st.skirt && c.geo.type === 'CylinderGeometry');
     const hair = () => worn(p).filter(c => hex(c) === st.hair);

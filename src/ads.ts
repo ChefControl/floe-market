@@ -352,7 +352,7 @@ function critic(): Ad {
   p.position.set(-0.52, 0.25, 0); p.rotation.y = Math.PI / 2; g.add(p);
   p.legs.forEach(l => { l.rotation.x = -1.45; });
   const monocle = new Mesh(new TorusGeometry(0.04, 0.008, 6, 14), new MeshBasicMaterial({ color: 0xF2C14E }));
-  monocle.position.set(0.07, 1.06, 0.255); p.add(monocle);
+  monocle.position.set(0.07, 1.06, 0.255); p.body.add(monocle);
   // the score card, held up over their head
   const card = new Sprite(new SpriteMaterial({ map: canvasTex(96, 54, (c, w, h) => {
     c.fillStyle = '#FFFFFF'; rr(c, 2, 2, w - 4, h - 4, 8); c.fill(); write(c, '★★★★★', w / 2, h / 2 + 2, 18, '#F2A81D');

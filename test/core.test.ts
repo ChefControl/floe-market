@@ -131,9 +131,9 @@ describe('characters', () => {
     expect(drawn(a)).toHaveLength(6);
     expect(drawn(a).every(m => m.material === painted)).toBe(true);
     // the body casts a shadow; the head and eyes never have
-    const [shell, trim] = drawn(a).filter(m => m.parent === a);
+    const [shell, trim] = drawn(a).filter(m => m.parent === a.body);
     expect([shell.castShadow, trim.castShadow]).toEqual([true, false]);
-    expect(new Person(0x123456).children.filter(c => c instanceof Mesh).map(m => (m as Mesh).geometry))
+    expect(new Person(0x123456).body.children.filter(c => c instanceof Mesh).map(m => (m as Mesh).geometry))
       .toEqual([shell.geometry, trim.geometry]);
     const winter = shell.geometry;
     setSeason(2);
