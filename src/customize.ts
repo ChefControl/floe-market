@@ -3,12 +3,13 @@
 // skirt. The 👕 row in the settings opens it; the camera comes in close, the player turns to face it, and they change
 // as each thing is picked. The season still decides what goes over it (the hood, a cap, sunglasses...). The look goes
 // with the save, and so to the cloud, and is kept on the device too, so a Restart doesn't undo it.
+import { isHigh, onQuality } from './graphics';
 import { openSettings } from './settings';
 import { player } from './player';
 import { Mesh, type Object3D, Raycaster, type Vector3 } from 'three';
 import { CAM_YAW, camera, OFF, scene } from './render';
 import { V } from './util';
-import { FRAMES, GREY, HAIR, LEGS, rng, SKINS, SKIRTS, type Cut, type Eyes, type Face, type Mouth } from './wardrobe';
+import { FRAMES, GREY, HAIR, LEGS, rng, SHOES, SKINS, SKIRTS, type Cheeks, type Cut, type Eyes, type Face, type Mouth } from './wardrobe';
 
 export interface Choice {
   woman: boolean;
@@ -17,6 +18,7 @@ export interface Choice {
   cut: Cut;
   eyes: Eyes;
   mouth: Mouth;
+  cheeks: Cheeks;
   face: Face;
   /** Frame colour, or null for none. */
   glasses: number | null;
@@ -25,6 +27,8 @@ export interface Choice {
   legs: number;
   /** Worn in spring and summer, or null for trousers all year. */
   skirt: number | null;
+  /** Shoes, and snow boots in winter. */
+  shoes: number;
 }
 type Key = keyof Choice;
 
@@ -41,13 +45,15 @@ export const OPTIONS: { [K in Key]: readonly Choice[K][] } = {
   top: [0xFF6B4A, 0xF2B33D, 0x3FA37C, 0x2EC4B6, 0x5B8DEF, 0x7A6FF0, 0xE85D75, 0x2C3A47],
   legs: LEGS,
   skirt: [null, ...SKIRTS],
+  shoes: SHOES,
+  cheeks: ['plain', 'rosy', 'freckles'],
 };
 
 /** The plain look the player always had: what everything not picked yet falls back to. */
 const BASE = { ...player.g.style };
 export const DEFAULT: Choice = {
-  woman: false, skin: BASE.skin, hair: BASE.hair, cut: BASE.cut, eyes: BASE.eyes, mouth: BASE.mouth, face: BASE.face, glasses: BASE.glasses,
-  top: player.g.color, legs: BASE.legs, skirt: BASE.skirt,
+  woman: false, skin: BASE.skin, hair: BASE.hair, cut: BASE.cut, eyes: BASE.eyes, mouth: BASE.mouth, cheeks: BASE.cheeks, face: BASE.face,
+  glasses: BASE.glasses, top: player.g.color, legs: BASE.legs, skirt: BASE.skirt, shoes: BASE.shoes,
 };
 /** What the player is wearing. */
 export const choice: Choice = { ...DEFAULT };
@@ -86,20 +92,23 @@ const $ = (id: string) => document.getElementById(id)!;
 const panel = $('look'), tabsEl = $('lookTabs'), rowsEl = $('lookRows');
 const TABS: { name: string; rows: Key[] }[] = [
   { name: 'Body', rows: ['woman', 'skin'] },
-  { name: 'Face', rows: ['eyes', 'mouth'] },
+  { name: 'Face', rows: ['eyes', 'mouth', 'cheeks'] },
   { name: 'Hair', rows: ['cut', 'hair'] },
   { name: 'Extras', rows: ['face', 'glasses'] },
-  { name: 'Clothes', rows: ['top', 'legs', 'skirt'] },
+  { name: 'Clothes', rows: ['top', 'legs', 'skirt', 'shoes'] },
 ];
+/** What only High graphics draw (graphics.ts): on Low, these rows aren't offered. */
+const HIGH_ONLY: Key[] = ['cheeks', 'shoes'];
 const LABELS: Record<Key, string> = {
   woman: 'Build', skin: 'Skin', cut: 'Cut', hair: 'Colour', eyes: 'Eyes', mouth: 'Mouth', face: 'Beard, moustache or earrings', glasses: 'Glasses',
-  top: 'Top', legs: 'Trousers', skirt: 'Skirt, in spring and summer',
+  top: 'Top', legs: 'Trousers', skirt: 'Skirt, in spring and summer', shoes: 'Shoes', cheeks: 'Cheeks',
 };
 /** Names for the options that are words rather than colours. */
 const WORDS: Partial<Record<string, string>> = {
   false: 'Man', true: 'Woman',
   short: 'Short', quiff: 'Quiff', curly: 'Curls', bald: 'Bald', long: 'Long', ponytail: 'Ponytail', bun: 'Bun', bob: 'Bob',
   bare: 'None', mustache: 'Moustache', beard: 'Beard', goatee: 'Goatee', earrings: 'Earrings',
+  plain: 'Plain', rosy: 'Rosy', freckles: 'Freckles',
 };
 /** Little drawings of the eyes and mouths (32 across, in the text colour), and what each is called. */
 const svg = (inner: string) => `<svg viewBox="0 0 32 32" width="100%" height="100%" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">${inner}</svg>`;
@@ -138,7 +147,7 @@ function render() {
     b.setAttribute('aria-selected', String(i === tab));
     b.tabIndex = i === tab ? 0 : -1;
   });
-  rowsEl.replaceChildren(...TABS[tab].rows.map(k => {
+  rowsEl.replaceChildren(...TABS[tab].rows.filter(k => isHigh() || !HIGH_ONLY.includes(k)).map(k => {
     const row = document.createElement('div');
     row.className = 'lrow';
     const label = document.createElement('span');
@@ -183,6 +192,7 @@ tabsEl.addEventListener('keydown', e => {
   tabsEl.querySelectorAll('button')[tab].focus();
 });
 window.addEventListener('keydown', e => { if (e.key === 'Escape' && !panel.hidden) openLook(false); });
+onQuality(() => { if (!panel.hidden) render(); });
 
 /** Its own dice, seeded like the crowd's (wardrobe.ts). */
 const dice = rng(Date.now());
@@ -197,6 +207,7 @@ $('lookDice').addEventListener('click', () => {
     face: any<Face>(woman ? ['bare', 'earrings'] : ['bare', 'mustache', 'beard', 'goatee']),
     glasses: dice() < 0.25 ? any(FRAMES) : null,
     skirt: woman && dice() < 0.6 ? any(SKIRTS) : null,
+    shoes: any(OPTIONS.shoes), cheeks: any(OPTIONS.cheeks),
   });
 });
 

@@ -3,6 +3,7 @@
 import { updAmbience } from './ambience';
 import { updAudio } from './audio';
 import { updCasino } from './casino';
+import { updBakes } from './characters';
 import { COUNTERS, postCustomers, updCounter, updLeaving } from './counters';
 import { updFarm } from './farm';
 import { updGarden } from './garden';
@@ -57,6 +58,7 @@ export function tick(dt: number) {
   updStage(dt);
   updShop();
   updLooks(dt);
+  updBakes(dt);
   updRoof(dt, player.g.position, staging());
   updAudio(dt, player.g.position);
   updAmbience();

@@ -31,7 +31,7 @@ const linkGeo = new BoxGeometry(0.012, 1, 0.012);
 export function singerLook(p: Person) {
   const own: Object3D[] = [];
   const look: Object3D[] = [];
-  const add = <T extends Object3D>(o: T, parent: Object3D = p) => { o.visible = false; parent.add(o); look.push(o); return o; };
+  const add = <T extends Object3D>(o: T, parent: Object3D = p.body) => { o.visible = false; parent.add(o); look.push(o); return o; };
   /** A flat piece on the jacket's front, `x` across from the middle, tilted to lie on it. */
   const onFront = (w: number, h: number, c: number, x: number, y: number, out = 0.004) => {
     const r = bodyR(y), z = Math.sqrt(r * r - x * x) + out;

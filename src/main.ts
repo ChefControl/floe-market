@@ -2,6 +2,7 @@ import './errors'; // must stay first: catches errors thrown while the other mod
 import { initCloud } from './cloud';
 import { CLOSE, CLOSE_AIM, closeUp } from './customize';
 import { tick } from './game';
+import { frameDrawn } from './graphics';
 import { initHint, updHint } from './hint';
 import { inputVec } from './input';
 import { updKofi } from './kofi';
@@ -45,6 +46,7 @@ const camTarget = player.g.position.clone(), look = camTarget.clone(), camOff = 
 let last = performance.now();
 
 function frame(now: number) {
+  frameDrawn((now - last) / 1000);
   const dt = Math.min(0.05, (now - last) / 1000);
   last = now;
   if (!isStale()) { tick(dt); updKofi(dt); }

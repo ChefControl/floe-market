@@ -39,7 +39,7 @@ describe('your look', () => {
     row('Top')[3].click();
     row('Trousers')[2].click();
     expect(colourOf(p, G.body)).toBe(OPTIONS.top[3]);
-    expect(colourOf(p, G.leg)).toBe(OPTIONS.legs[2]);
+    expect(colourOf(p, (await import('../src/characters')).LIMBS.trouser)).toBe(OPTIONS.legs[2]);
     expect(choice).toMatchObject({ woman: true, skin: OPTIONS.skin[5], top: OPTIONS.top[3] });
     $('lookDone').click();
     expect($('look').hidden).toBe(true);
@@ -93,9 +93,29 @@ describe('your look', () => {
     const dress = singerLook(p);
     dress(true);
     expect(dots()).toBe(2);
-    expect(p.worn().some(w => w.c === 0xFFFFFF)).toBe(false);
+    expect(p.worn().some(w => w.c === 0xFFFFFF && w.o.position.y < 1)).toBe(false); // no grin
     dress(false);
     expect(dots()).toBe(0);
+  });
+
+  it('picks rosy or freckled cheeks, and the colour of their shoes (and snow boots in winter)', async () => {
+    const g = await loadGame({ season: 0 });
+    const { OPTIONS, openLook } = await customize();
+    const { LIMBS } = await import('../src/characters');
+    const p = g.player.g;
+    openLook(true);
+    tab('Face');
+    const face = () => p.worn().filter(w => w.seasons && w.o.position.y > 0.95 && w.o.position.y < 1.02 && w.o.position.z > 0.18).length;
+    expect(face()).toBe(0);
+    row('Cheeks')[1].click();
+    expect(face()).toBe(2);
+    row('Cheeks')[2].click();
+    expect(face()).toBe(8);
+    tab('Clothes');
+    row('Shoes')[3].click();
+    expect(p.worn().filter(w => w.geo === LIMBS.shoe).every(w => w.c === OPTIONS.shoes[3])).toBe(true);
+    openLook(false);
+    expect(p.worn().filter(w => w.geo === LIMBS.boot).every(w => w.c === OPTIONS.shoes[3])).toBe(true);
   });
 
   it('gives the crowd faces too, from their own wardrobes', async () => {

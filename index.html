@@ -154,6 +154,8 @@ body{
   background:var(--pill); color:var(--pill-ink); border-radius:20px; padding:10px; box-shadow:0 4px 0 var(--shade);
 }
 #look[hidden]{ display:none; }
+/* the how-to-walk card sits under the player, where the panel goes: it waits until the panel's closed */
+body:has(#look:not([hidden])) #hint{ visibility:hidden; }
 #look button{ font:700 15px "Baloo 2","Trebuchet MS",system-ui,sans-serif; color:var(--pill-ink); border:0; cursor:pointer; }
 #look button:focus-visible{ outline:3px solid var(--coral); outline-offset:2px; }
 #look .lhead{ display:flex; align-items:center; gap:8px; }
@@ -224,6 +226,14 @@ body{
 #soundCat[aria-expanded="true"] .chev{ transform:translateY(4px) rotate(-135deg); }
 #soundPanel{ display:flex; flex-direction:column; gap:8px; padding:8px 10px 10px; border-radius:14px; background:var(--chip); }
 #soundPanel[hidden]{ display:none; }
+/* Graphics, Auto, Low or High (graphics.ts): the choices on the right of the row, and under its name, on Auto, which the game is using */
+#gfx{ display:flex; align-items:center; gap:10px; min-height:40px; padding:3px 4px 3px 12px; border-radius:14px; background:var(--chip); color:var(--pill-ink); font:700 16px "Baloo 2","Trebuchet MS",system-ui,sans-serif; }
+#gfx .name{ display:flex; flex-direction:column; line-height:1.1; min-width:0; }
+#gfxNow{ font-size:12px; font-weight:700; opacity:.6; }
+#gfxNow[hidden]{ display:none; }
+#gfx .seg{ display:flex; gap:2px; margin-left:auto; padding:3px; border-radius:12px; background:rgba(127,140,150,.22); }
+#gfx .seg button{ min-width:44px; min-height:36px; padding:0 7px; border:0; border-radius:9px; background:transparent; color:inherit; font:inherit; font-size:15px; cursor:pointer; }
+#gfx .seg button[aria-pressed="true"]{ background:var(--coral); color:#fff; box-shadow:0 2px 0 var(--shade); }
 .vol{ display:grid; grid-template-columns:44px 1fr auto; align-items:center; column-gap:10px; row-gap:2px; }
 .vol .mute{ grid-row:1 / span 2; width:44px; height:44px; padding:0; border:0; border-radius:50%; background:var(--pill); color:var(--pill-ink); font-size:20px; line-height:1; cursor:pointer; box-shadow:0 2px 0 var(--shade); }
 .vol label{ font:700 15px "Baloo 2","Trebuchet MS",system-ui,sans-serif; }
@@ -564,6 +574,7 @@ body{
     <div class="vol"><button type="button" class="mute" id="muteAmb" aria-pressed="false" aria-label="Mute ambience"></button><label for="volAmb">Ambience</label><output id="volAmbN" for="volAmb">7</output><input type="range" id="volAmb" min="0" max="10" step="1" value="7"></div>
     <div class="vol"><button type="button" class="mute" id="muteMusic" aria-pressed="false" aria-label="Mute music"></button><label for="volMusic">Music</label><output id="volMusicN" for="volMusic">7</output><input type="range" id="volMusic" min="0" max="10" step="1" value="7"></div>
   </div>
+  <div id="gfx" role="group" aria-labelledby="gfxName"><span class="ic" aria-hidden="true">✨</span><span class="name"><span id="gfxName">Graphics</span><small id="gfxNow" aria-live="polite"></small></span><span class="seg"><button type="button" data-q="auto" aria-pressed="true">Auto</button><button type="button" data-q="low" aria-pressed="false">Low</button><button type="button" data-q="high" aria-pressed="false">High</button></span></div>
   <button id="controls" type="button"><span class="ic" aria-hidden="true">🕹️</span>Controls</button>
   <a id="kofi" href="https://ko-fi.com/chefcontrol" target="_blank" rel="noopener"><span class="ic" aria-hidden="true">☕</span>Buy me a coffee<i aria-hidden="true">↗</i></a>
   <button id="restart" type="button"><span class="ic" aria-hidden="true">↺</span><span id="restartText">Restart</span></button>
