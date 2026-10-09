@@ -1,10 +1,11 @@
 // The upgrade square: each stage has one, and standing on it opens a panel of that stage's repeatable upgrades:
 // a better product (prices), marketing (customers) and the crew (speed). Stage 2 also gets a fertilizer shed by the
-// water wheel (shed.ts) once the takeout kiosk opens, whose square sells rice fertilizer the same way. The HUD's top
-// left lists every modifier in play, as a percentage.
+// water wheel (shed.ts) once the takeout kiosk opens, whose square sells rice fertilizer the same way, or with a
+// press of E (buy), as it sells only the one thing. The HUD's top left lists every modifier in play, as a percentage.
 import { repriceFish } from './counters';
 import { decal, drawMenu } from './decals';
 import { boost, MOD, modCost, MODS, mods, type ModId } from './economy';
+import { buyHeld } from './input';
 import { SHED_YARD, shedYard, stage } from './layout';
 import { player } from './player';
 import { demand } from './rating';
@@ -46,6 +47,8 @@ const pads = SQUARES.map(q => {
 const active = (q: Square) => q.stage === stage.n && !(stage.n === 2 && staging()) && (!q.shed || shedYard.open);
 /** The square whose panel is open, if any. */
 let on: Square | null = null;
+/** The upgrades sold on a square. */
+const sold = (q: Square) => MODS.filter(m => m.stage === q.stage && !!m.shed === q.shed);
 /** Whether an upgrade can be bought yet: fertilizer once the shed is open. */
 export const modOffered = (id: ModId) => !MOD[id].shed || shedYard.open;
 
@@ -80,7 +83,7 @@ export function buyMod(id: ModId) {
 function renderRows(q: Square) {
   const n = q.stage;
   title.textContent = q.title;
-  rows.replaceChildren(...MODS.filter(m => m.stage === n && !!m.shed === q.shed).map(m => {
+  rows.replaceChildren(...sold(q).map(m => {
     const cost = modCost(m.id), now = boost(m.id), lv = mods[m.id];
     const b = document.createElement('button');
     b.type = 'button'; b.className = 'mod'; b.dataset.mod = m.id;
@@ -143,7 +146,12 @@ function renderOverview() {
 }
 
 let money0 = -1;
-/** Opens the panel while the player stands on a square that's in place, and keeps it and the overview current. */
+/** Whether buy (E) was held last frame: a square buys once per press, not every frame it's held. */
+let held = false;
+/**
+ * Opens the panel while the player stands on a square that's in place, and keeps it and the overview current. On a
+ * square that sells just one upgrade (the shed), pressing buy buys its next level too.
+ */
 export function updShop() {
   const p = player.g.position;
   let here: Square | null = null;
@@ -157,6 +165,12 @@ export function updShop() {
     panel.hidden = !on;
     money0 = -1;
     built = '';
+  }
+  const press = buyHeld() && !held;
+  held = buyHeld();
+  if (on && press) {
+    const only = sold(on);
+    if (only.length === 1) buyMod(only[0].id);
   }
   if (on && wallet.money !== money0) { money0 = wallet.money; syncRows(on); }
   renderOverview();

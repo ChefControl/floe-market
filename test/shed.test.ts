@@ -47,6 +47,20 @@ describe('the fertilizer shed', () => {
     expect(rowsText()).toHaveLength(3); // prices, marketing and the crew, as before
   });
 
+  it('sells a level of fertilizer for each press of E while standing on its square', async () => {
+    const g = await loadGame({ tiles: bought('sushi', 'paddy', 'kiosk'), money: 1e9 });
+    g.press('e'); g.run(0.1); g.press('e', 'keyup');
+    expect(g.economy.mods.fertilizer).toBe(0); // not on the square: nothing
+    stand(g, g.shed.SHED_AT);
+    g.press('e'); g.run(0.5);
+    expect(g.economy.mods.fertilizer).toBe(1); // held down, it's still the one
+    expect(rowsText()).toEqual(['🌿Rice fertilizer · next: Fish mealRice growth +50% → +125%$40,000']);
+    g.press('e', 'keyup'); g.run(0.05); g.press('e'); g.run(0.05);
+    expect(g.economy.mods.fertilizer).toBe(2);
+    g.press('e', 'keyup'); stand(g, g.shop.SHOPS[1]); g.press('e'); g.run(0.05);
+    expect(g.economy.mods.specials + g.economy.mods.promo + g.economy.mods.crew).toBe(0); // the restaurant's square has three: E picks none
+  });
+
   it('makes the terraces ripen faster, with a sack of each kind in the shed', async () => {
     const g = await loadGame({ tiles: bought('sushi', 'paddy', 'kiosk'), money: 1e9 });
     const c = g.rice.field.cells[0];
