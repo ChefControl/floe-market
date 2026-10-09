@@ -2,7 +2,7 @@
 // Standing on its pad opens the betting panel; walking off closes it (settling any spin in progress).
 import { BoxGeometry, ConeGeometry, CylinderGeometry, Group, Mesh, MeshLambertMaterial } from 'three';
 import { every } from './audio';
-import { gamePad, greeting, Stakes } from './casinoKit';
+import { gamePad, greeting, speaker, Stakes } from './casinoKit';
 import { Person, SUITS } from './characters';
 import { GAMES, pushOutOfBox } from './layout';
 import { canvasTex, FONT, mat, mesh, scene } from './render';
@@ -59,7 +59,8 @@ function buildTable() {
   const croupier = new Person(SUITS[2], 'fancy');
   croupier.position.set(0, 0, -0.95);
   g.add(croupier);
-  return { g, face };
+  const voice = speaker(g, 2.0);
+  return { g, face, voice };
 }
 
 // ---------- state ----------
@@ -135,6 +136,7 @@ function settle() {
   angle = mod(s.to, TAU);
   wallet.inFlight -= s.win;
   if (s.win > 0) { addMoney(s.win); popText('+' + money(s.win), TABLE); win(); } else lose();
+  if (s.win > 0 && s.bet === 'green') table!.voice.say('Green!');
   history.unshift(s.result);
   history.length = Math.min(history.length, 10);
   historyEl.replaceChildren(...history.map(n => {
@@ -157,14 +159,15 @@ const pad = gamePad(AT, '🎡', panel, {
     drawPanelWheel();
   },
   closed() { if (spin) settle(); }, // walked away mid-spin: pay out now
+  greet() { table!.voice.say('Welcome aboard!'); },
 });
 
-/** Sets the table up on the boat. Returns it for the pop-in. */
+/** Sets the table up on the boat. Returns it and its pad's marking, for the pop-in. */
 export function enableRoulette() {
   table = buildTable();
   scene.add(table.g);
   pad.enable();
-  return table.g;
+  return [table.g, pad.mark];
 }
 
 /** Keeps the player out of the table. */
@@ -186,4 +189,8 @@ export function updRoulette(dt: number) {
     if (k >= 1) settle(); else drawPanelWheel();
   }
   table.face.rotation.y = -angle;
+  table.voice.upd(dt);
 }
+
+/** What the croupier is saying, for tests. */
+export const croupierSays = () => table?.voice.text ?? '';

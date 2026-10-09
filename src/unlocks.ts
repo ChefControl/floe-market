@@ -74,7 +74,8 @@ const onTerrace = (i: number) => ({ x: (TERRACES[i].x0 + TERRACES[i].x1) / 2, z:
 const UNLOCKS: Unlock[] = [
   { id: 'pack', cost: 30, x: -1.3, z: 6.0, icon: '🎒', name: 'Bigger arms', desc: 'Carry 14 things at once', stage: 1 },
   { id: 'turret', cost: 90, x: -6.0, z: -3.3, icon: '🎯', name: 'Auto harpoon', desc: 'Keeps catching fish while you are away', stage: 1 },
-  { id: 'roulette', cost: 150, x: -4.3, z: 0.6, icon: '🛳️', name: 'Casino boat', desc: 'A casino moored off the dock, with a roulette table', stage: 1 },
+  // by the gap in the west fence the jetty goes out through, so the jetty builds out from where you stand
+  { id: 'roulette', cost: 150, x: -6.3, z: -1.2, icon: '🛳️', name: 'Casino boat', desc: 'A casino moored off the dock, with a roulette table', stage: 1 },
   { id: 'runner', cost: 300, x: -4.0, z: 3.6, icon: '🏃', name: 'Hire a runner', desc: 'Carries fish from the pile to your counters', stars: 3.5, stage: 1 },
   { id: 'boots', cost: 500, x: -6.0, z: 6.2, icon: '🥾', name: 'Snow boots', desc: 'Walk faster', stage: 1 },
   { id: 'sled', cost: 900, x: 6.55, z: -1.0, icon: '🚗', name: 'Drive-up window', desc: 'Drivers on the road buy fish in bulk, for half as much again', stars: 3.8, stage: 1 },
@@ -211,7 +212,7 @@ export function applyUnlock(id: UnlockId, silent = false) {
   const pop = (...os: Object3D[]) => { if (!silent) os.forEach(popIn); };
   if (id === 'pack') player.back.cap = 14;
   if (id === 'turret') { turret = { ...buildTurret(), t: 1 }; pop(turret.g); }
-  if (id === 'roulette') pop(...enableCasino());
+  if (id === 'roulette') pop(...enableCasino(silent));
   if (id === 'blackjack') pop(enableBlackjack());
   if (id === 'slots') pop(enableSlots());
   if (id === 'runner' || id === 'runner2' || id === 'runner3') pop(hireRunner().g);

@@ -4,11 +4,15 @@
 // stage-up. The games themselves are in rouletteTable.ts, blackjackTable.ts and slotMachine.ts.
 import { BoxGeometry, CylinderGeometry, Group, Mesh, MeshBasicMaterial, MeshLambertMaterial, PlaneGeometry, TorusGeometry, type Object3D } from 'three';
 import { collideBlackjack, updBlackjack } from './blackjackTable';
+import { visits } from './casinoKit';
 import { BOAT, casinoBoat, JETTY_Z, PIER_X } from './layout';
+import { player } from './player';
+import { popIn } from './pop';
 import { bake, canvasTex, FONT, G, mesh, scene, type Part } from './render';
 import { collideRoulette, enableRoulette, updRoulette } from './rouletteTable';
 import { collideSlots, updSlots } from './slotMachine';
-import { FY, type XZ } from './util';
+import { view } from './stage';
+import { FY, V, type XZ } from './util';
 import { openJettyGap, planks } from './world';
 
 const CX = (BOAT.x0 + BOAT.x1) / 2, CZ = (BOAT.z0 + BOAT.z1) / 2, LEN = BOAT.x1 - BOAT.x0, BEAM = BOAT.z1 - BOAT.z0;
@@ -115,13 +119,47 @@ let pieces: Object3D[] = [];
 /** The jetty, the pier and the boat, once it's in. */
 export const casinoPieces = () => pieces;
 
-/** The 'roulette' unlock: the boat comes in, with the jetty and pier out to it and its roulette table. */
-export function enableCasino(): Object3D[] {
+// ---------- the boat coming in ----------
+/** The camera's look over at the boat as it comes in: easing over, holding, easing back; the boat pops in on arrival. */
+const GLANCE = { over: 0.6, hold: 1.4, back: 0.6, popAt: 0.5 };
+let glance: { t: number; waiting: Object3D[]; was: ReturnType<typeof V> } | null = null;
+const ease = (k: number) => k < .5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+
+/**
+ * The 'roulette' unlock: the boat comes in, with the jetty and pier out to it and its roulette table. Returns what pops
+ * in at once (the jetty and pier). Unless `silent` (loading a save), the camera then looks over at the boat, which
+ * pops in with its table as it gets there; with reduced motion it pops in straight away instead.
+ */
+export function enableCasino(silent = false): Object3D[] {
   casinoBoat.open = true;
   openJettyGap();
   boat = buildBoat();
-  pieces = [...buildJetty(), boat.g];
-  return [...pieces, enableRoulette()];
+  const jetty = buildJetty(), roulette = enableRoulette();
+  pieces = [...jetty, boat.g];
+  if (silent) return [];
+  if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return [...pieces, ...roulette];
+  const waiting = [boat.g, ...roulette];
+  waiting.forEach(o => { o.visible = false; });
+  glance = { t: 0, waiting, was: view.focus.clone() };
+  return jetty;
+}
+
+function updGlance(dt: number) {
+  const g = glance!, { over, hold, back, popAt } = GLANCE;
+  g.t += dt;
+  view.focus.set((BOAT.x0 + BOAT.x1) / 2, FY, (BOAT.z0 + BOAT.z1) / 2);
+  view.k = g.t < over + hold ? ease(Math.min(1, g.t / over)) : 1 - ease(Math.min(1, (g.t - over - hold) / back));
+  if (g.waiting.length && g.t >= popAt) g.waiting.splice(0).forEach(o => { o.visible = true; popIn(o); });
+  if (g.t >= over + hold + back) { view.k = 0; view.focus.copy(g.was); glance = null; }
+}
+
+/** Whether the player is aboard: stepping off starts a new visit, so the games greet them again next time. */
+let aboard = false;
+function updVisit() {
+  const p = player.g.position;
+  const on = p.x > BOAT.x0 && p.x < BOAT.x1 && p.z > BOAT.z0 && p.z < BOAT.z1;
+  if (aboard && !on) visits.n++;
+  aboard = on;
 }
 
 /** Keeps the player out of the games' tables and machines. */
@@ -133,6 +171,8 @@ export function collideCasino(p: XZ) {
 export function updCasino(dt: number) {
   if (!boat) return;
   boat.wheel.rotation.z += dt * 0.6;
+  if (glance) updGlance(dt);
+  updVisit();
   updRoulette(dt);
   updBlackjack(dt);
   updSlots(dt);

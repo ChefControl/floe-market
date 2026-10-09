@@ -478,7 +478,7 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
 .casino button:disabled{ opacity:.4; cursor:default; }
 .casino button:focus-visible{ outline:3px solid var(--coral); outline-offset:1px; }
 .casino .go{ background:var(--hot) !important; color:#fff !important; padding:7px 12px; font-size:15px !important; box-shadow:0 3px 0 rgba(150,45,25,.45); }
-.casino .go[hidden], .casino .acts[hidden]{ display:none; }
+.casino .go[hidden], .casino .acts[hidden], .casino .acts button[hidden]{ display:none; }
 .casino .acts{ display:flex; gap:6px; }
 .casino .acts button{ flex:1; padding:7px 4px; font-size:15px; font-weight:800; }
 #history{ display:flex; gap:4px; flex-wrap:wrap; min-height:20px; }
@@ -492,6 +492,11 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
 }
 .felt .who{ display:flex; justify-content:space-between; font-size:12px; font-weight:800; opacity:.9; }
 .felt .hand{ display:flex; min-height:48px; }
+.felt .hands{ display:flex; gap:6px; min-height:48px; }
+.felt .hands .hand{ flex:1; min-width:0; border-radius:7px; padding:1px; }
+.felt .hands .hand.on{ box-shadow:0 0 0 2px #F2C14E; }
+.felt .hands.two .card + .card{ margin-left:-18px; }
+.felt .hands.two .card{ align-items:flex-start; padding-left:3px; }
 .card{
   width:32px; height:46px; flex:none; box-sizing:border-box; border-radius:5px; background:#FFFDF8; color:#22303C;
   display:flex; flex-direction:column; align-items:center; justify-content:center; font-size:16px; font-weight:800; line-height:1;
@@ -692,10 +697,10 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
       <button type="button" data-bet="green" class="green">Green</button>
     </div>
     <div class="chips stakes" aria-label="Stake">
-      <button type="button" data-stake="5">$5</button>
-      <button type="button" data-stake="25">$25</button>
-      <button type="button" data-stake="100">$100</button>
-      <button type="button" data-stake="500">$500</button>
+      <button type="button" data-stake="0">$5</button>
+      <button type="button" data-stake="1">$25</button>
+      <button type="button" data-stake="2">$100</button>
+      <button type="button" data-stake="3">$500</button>
       <button type="button" data-stake="all">All in</button>
     </div>
     <button type="button" id="spin" class="go"></button>
@@ -706,16 +711,16 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
   <div class="felt">
     <div class="who"><span>Dealer</span><span id="dealerTotal"></span></div>
     <div class="hand" id="dealerHand" aria-label="Dealer's cards"></div>
-    <div class="hand" id="playerHand" aria-label="Your cards"></div>
+    <div class="hands" id="playerHands" aria-label="Your cards"></div>
     <div class="who"><span>You</span><span id="playerTotal"></span></div>
   </div>
   <div class="side">
     <p id="bjMsg" class="msg" aria-live="polite"></p>
     <div class="chips stakes" aria-label="Stake">
-      <button type="button" data-stake="5">$5</button>
-      <button type="button" data-stake="25">$25</button>
-      <button type="button" data-stake="100">$100</button>
-      <button type="button" data-stake="500">$500</button>
+      <button type="button" data-stake="0">$5</button>
+      <button type="button" data-stake="1">$25</button>
+      <button type="button" data-stake="2">$100</button>
+      <button type="button" data-stake="3">$500</button>
       <button type="button" data-stake="all">All in</button>
     </div>
     <button type="button" id="deal" class="go"></button>
@@ -723,6 +728,11 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
       <button type="button" id="hit">Hit</button>
       <button type="button" id="stand">Stand</button>
       <button type="button" id="double">Double</button>
+      <button type="button" id="split" hidden>Split</button>
+    </div>
+    <div class="acts" id="bjAsk" hidden>
+      <button type="button" id="insureYes">Yes</button>
+      <button type="button" id="insureNo">No</button>
     </div>
   </div>
 </div>
@@ -732,10 +742,10 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
     <p id="slotsMsg" class="msg" aria-live="polite"></p>
     <div id="pays" aria-label="What pays"></div>
     <div class="chips stakes" aria-label="Stake">
-      <button type="button" data-stake="5">$5</button>
-      <button type="button" data-stake="25">$25</button>
-      <button type="button" data-stake="100">$100</button>
-      <button type="button" data-stake="500">$500</button>
+      <button type="button" data-stake="0">$5</button>
+      <button type="button" data-stake="1">$25</button>
+      <button type="button" data-stake="2">$100</button>
+      <button type="button" data-stake="3">$500</button>
       <button type="button" data-stake="all">All in</button>
     </div>
     <button type="button" id="pull" class="go"></button>

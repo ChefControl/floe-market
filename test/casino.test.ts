@@ -1,6 +1,6 @@
 // The casino boat: the games' rules, the boat and the way out to it, and each game as the player plays it.
 import { describe, expect, it, vi } from 'vitest';
-import { dealerDraws, handValue, isBlackjack, newShoe, settle, type Card, type Suit } from '../src/blackjack';
+import { canSplit, dealerDraws, handValue, insuranceCost, isBlackjack, newShoe, settle, type Card, type Suit } from '../src/blackjack';
 import { colorOf, payout, spinWheel, WHEEL, wins } from '../src/roulette';
 import { lineMultiplier, pull, REEL, type Sym } from '../src/slots';
 import { bought, loadGame } from './helpers';
@@ -68,6 +68,20 @@ describe('blackjack rules', () => {
     expect(settle([c(10), c(5), c(9)], [c(10), c(6), c(9)], 10)).toEqual({ outcome: 'bust', payout: 0 }); // you bust first
     expect(settle([c(10), c(8)], [c(10), c(6), c(9)], 10)).toEqual({ outcome: 'win', payout: 20 });
     expect(settle([c(7), c(7), c(7)], [c(1), c(10)], 10)).toEqual({ outcome: 'lose', payout: 0 }); // 21 isn't blackjack
+  });
+
+  it('splits pairs (any two tens too), and a 21 from a split is no blackjack', () => {
+    expect(canSplit([c(8), c(8, '♥')])).toBe(true);
+    expect(canSplit([c(13), c(10)])).toBe(true);
+    expect(canSplit([c(8), c(9)])).toBe(false);
+    expect(canSplit([c(8), c(8), c(8)])).toBe(false);
+    expect(settle([c(1), c(13)], [c(10), c(9)], 10, true)).toEqual({ outcome: 'win', payout: 20 });
+    expect(settle([c(1), c(13)], [c(1), c(12)], 10, true)).toEqual({ outcome: 'lose', payout: 0 });
+  });
+
+  it('insurance costs half the stake, in whole dollars', () => {
+    expect(insuranceCost(25)).toBe(12);
+    expect(insuranceCost(1)).toBe(0);
   });
 
   it('shuffles six decks into the shoe', () => {
@@ -158,6 +172,34 @@ describe('the casino boat', () => {
     }
   });
 
+  it('comes in with the camera looking over at it, from a tile by the fence', async () => {
+    const g = await loadGame({ tiles: bought('pack', 'turret') });
+    const tile = g.unlocks.tiles.find(t => t.id === 'roulette')!;
+    expect(tile.x).toBeLessThan(-6);
+    const { view } = g.stage, focus = view.focus.clone();
+    g.unlocks.applyUnlock('roulette');
+    const [jetty, , boat] = g.casino.casinoPieces();
+    expect(jetty.visible).toBe(true);
+    expect(boat.visible).toBe(false);
+    g.run(0.3);
+    expect(view.k).toBeGreaterThan(0);
+    expect(boat.visible).toBe(false);
+    g.run(0.4);
+    expect(boat.visible).toBe(true);
+    expect(view.focus.x).toBeLessThan(-15);
+    g.run(2);
+    expect(view.k).toBe(0);
+    expect(view.focus.equals(focus)).toBe(true);
+  });
+
+  it('comes in at once for players who prefer less motion', async () => {
+    vi.stubGlobal('matchMedia', () => ({ matches: true }));
+    const g = await loadGame();
+    g.unlocks.applyUnlock('roulette');
+    expect(g.casino.casinoPieces().every(o => o.visible)).toBe(true);
+    expect(g.stage.view.k).toBe(0);
+  });
+
   it('turns its paddle wheel', async () => {
     const g = await loadGame({ tiles: bought('roulette') });
     const [, , boat] = g.casino.casinoPieces();
@@ -209,7 +251,7 @@ describe('the roulette table', () => {
   it('pays 35 to 1 on green', async () => {
     const g = await at('roulette', 100);
     click('[data-bet="green"]');
-    click('#roulette [data-stake="5"]');
+    click('#roulette [data-stake="0"]');
     expect($('spin').textContent).toBe('Spin: $5 on Green (pays ×36)');
     rig(0);
     click('#spin');
@@ -220,7 +262,7 @@ describe('the roulette table', () => {
 
   it("won't take bets the player can't cover", async () => {
     const g = await at('roulette', 60);
-    expect(button('#roulette [data-stake="100"]').disabled).toBe(true);
+    expect(button('#roulette [data-stake="2"]').disabled).toBe(true);
     click('#roulette [data-stake="all"]');
     expect($('spin').textContent).toContain('$60');
     rig(15); // black: lose it all
@@ -248,6 +290,28 @@ describe('the roulette table', () => {
     expect(saved()).toBe(125);
   });
 
+  it('the croupier welcomes the player aboard and calls a win on green', async () => {
+    const g = await at('roulette', 100);
+    const { croupierSays } = await import('../src/rouletteTable');
+    expect(croupierSays()).toBe('Welcome aboard!');
+    click('[data-bet="green"]');
+    rig(0);
+    click('#spin');
+    g.run(4);
+    expect(croupierSays()).toBe('Green!');
+  });
+
+  it('has bigger chips in stage 2, and keeps the chosen one through the stage-up', async () => {
+    const g = await at('roulette', 100_000);
+    click('#roulette [data-stake="0"]');
+    expect($('spin').textContent).toBe('Spin: $5 on Red (pays ×2)');
+    walkAway(g);
+    g.unlocks.applyUnlock('sushi', true);
+    g.placePlayer(g.layout.GAMES.roulette.x, g.layout.GAMES.roulette.z); g.run(0.05);
+    expect([...document.querySelectorAll('#roulette [data-stake]')].map(b => b.textContent)).toEqual(['$50', '$250', '$1k', '$5k', 'All in']);
+    expect($('spin').textContent).toBe('Spin: $50 on Red (pays ×2)');
+  });
+
   it('greets a broke player', async () => {
     await at('roulette', 0);
     expect($('rouletteMsg').textContent).toBe('Come back with some cash to play');
@@ -262,7 +326,10 @@ describe('the blackjack table', () => {
     stackShoe([player[0], dealer[0], player[1], dealer[1], ...rest]);
     return g;
   }
-  const cards = (id: string) => [...$(id).children].map(x => x.classList.contains('back') ? '?' : x.textContent);
+  const names = (el: Element) => [...el.querySelectorAll('.card')].map(x => x.classList.contains('back') ? '?' : x.textContent);
+  const cards = (id: string) => names($(id));
+  const hands = () => [...$('playerHands').children].map(names);
+  const says = async () => (await import('../src/blackjackTable')).dealerSays();
 
   it('deals a card at a time, the dealer\'s second face down', async () => {
     const g = await table(100, [c(10), c(7, '♥')], [c(9), c(8)]);
@@ -271,12 +338,12 @@ describe('the blackjack table', () => {
     expect($('deal').textContent).toBe('Deal: $25');
     click('#deal');
     expect(g.wallet.money).toBe(75);
-    expect(cards('playerHand')).toEqual([]);
+    expect(cards('playerHands')).toEqual([]);
     g.run(0.4);
-    expect(cards('playerHand')).toEqual(['10♠']);
+    expect(cards('playerHands')).toEqual(['10♠']);
     g.run(1.2);
-    expect(cards('playerHand')).toEqual(['10♠', '7♥']);
-    expect($('playerHand').lastElementChild!.classList.contains('red')).toBe(true);
+    expect(cards('playerHands')).toEqual(['10♠', '7♥']);
+    expect($('playerHands').querySelector('.card:last-child')!.classList.contains('red')).toBe(true);
     expect(cards('dealerHand')).toEqual(['9♠', '?']);
     expect($('dealerTotal').textContent).toBe('9');
     expect($('bjMsg').textContent).toBe('You have 17. Hit or stand?');
@@ -332,8 +399,8 @@ describe('the blackjack table', () => {
     expect(g.wallet.money).toBe(137);
   });
 
-  it("ends the hand when the dealer has blackjack", async () => {
-    const g = await table(100, [c(10), c(9)], [c(1), c(12)]);
+  it("ends the hand when the dealer has blackjack under a ten", async () => {
+    const g = await table(100, [c(10), c(9)], [c(12), c(1)]);
     click('#deal');
     g.run(3);
     expect($('bjMsg').textContent).toBe('Dealer has blackjack: the house wins.');
@@ -356,7 +423,7 @@ describe('the blackjack table', () => {
     g.run(1.6);
     click('#double');
     expect(g.wallet.money).toBe(50);
-    expect(cards('playerHand')).toEqual(['5♠', '6♠', '10♠']);
+    expect(cards('playerHands')).toEqual(['5♠', '6♠', '10♠']);
     g.run(3);
     expect(g.wallet.money).toBe(150);
   });
@@ -405,6 +472,124 @@ describe('the blackjack table', () => {
     expect(saved()).toBe(125);
   });
 
+  it('splits a pair into two hands, played in turn, with doubling after the split', async () => {
+    const g = await table(100, [c(8), c(8, '♥')], [c(10), c(7)], c(3), c(10), c(10));
+    click('#deal');
+    g.run(1.6);
+    expect(button('#split').hidden).toBe(false);
+    click('#split');
+    expect(g.wallet.money).toBe(50);
+    g.run(1);
+    expect(hands()).toEqual([['8♠', '3♠'], ['8♥', '10♠']]);
+    expect($('playerTotal').textContent).toBe('11 · 18');
+    expect($('playerHands').children[0].classList.contains('on')).toBe(true);
+    expect($('bjMsg').textContent).toBe('Hand 1: 11. Hit or stand?');
+    expect(button('#split').hidden).toBe(true);
+    click('#double'); // 21 on the first hand
+    expect(g.wallet.money).toBe(25);
+    expect($('playerHands').children[1].classList.contains('on')).toBe(true);
+    click('#stand');
+    g.run(2);
+    expect($('bjMsg').textContent).toBe('Dealer has 17: hand 1 wins, hand 2 wins. $150 back.');
+    expect(g.wallet.money).toBe(175);
+  });
+
+  it('gives split aces one card each, and their 21 pays even money', async () => {
+    const g = await table(100, [c(1), c(1, '♦')], [c(10), c(8)], c(13), c(5));
+    click('#deal');
+    g.run(1.6);
+    click('#split');
+    g.run(3);
+    expect(hands()).toEqual([['A♠', 'K♠'], ['A♦', '5♠']]);
+    expect($('bjMsg').textContent).toBe('Dealer has 18: hand 1 wins, hand 2 loses. $50 back.');
+    expect(g.wallet.money).toBe(100);
+  });
+
+  it("won't split what the player can't cover", async () => {
+    const g = await table(40, [c(8), c(8)], [c(10), c(7)]);
+    click('#deal');
+    g.run(1.6);
+    expect(button('#split').hidden).toBe(true);
+  });
+
+  it('offers insurance on an ace, which pays 2 to 1 when the dealer has blackjack', async () => {
+    const g = await table(100, [c(10), c(9)], [c(1), c(13)]);
+    click('#deal');
+    g.run(1.6);
+    expect($('bjMsg').textContent).toBe('Dealer shows an ace. Insurance for $12?');
+    expect(await says()).toBe('Insurance?');
+    expect($('bjAsk').hidden).toBe(false);
+    expect($('bjActs').hidden).toBe(true);
+    click('#insureYes');
+    expect(g.wallet.money).toBe(63);
+    g.run(2);
+    expect($('bjMsg').textContent).toBe('Dealer has blackjack: insurance pays $36.');
+    expect(g.wallet.money).toBe(99);
+  });
+
+  it('loses the insurance when the dealer has no blackjack, and plays on', async () => {
+    const g = await table(100, [c(10), c(9)], [c(1), c(7)]);
+    click('#deal');
+    g.run(1.6);
+    click('#insureYes');
+    expect($('bjMsg').textContent).toBe('You have 19. Hit or stand?');
+    click('#stand');
+    g.run(2);
+    expect(g.wallet.money).toBe(63 + 50);
+  });
+
+  it('offers even money on a blackjack against an ace', async () => {
+    const g = await table(100, [c(1), c(13)], [c(1), c(9)]);
+    click('#deal');
+    g.run(1.6);
+    expect($('bjMsg').textContent).toBe('Blackjack! Take even money?');
+    expect(await says()).toBe('Even money?');
+    click('#insureYes');
+    g.run(2);
+    expect($('bjMsg').textContent).toBe('Even money: you win $50!');
+    expect(g.wallet.money).toBe(125);
+  });
+
+  it('turning down even money risks the 3 to 2', async () => {
+    const g = await table(100, [c(1), c(13)], [c(1), c(9)]);
+    click('#deal');
+    g.run(1.6);
+    click('#insureNo');
+    g.run(2);
+    expect(g.wallet.money).toBe(137);
+    expect(await says()).toBe('Blackjack!');
+  });
+
+  it("doesn't offer insurance the player can't cover; walking off turns it down", async () => {
+    let g = await table(25, [c(10), c(9)], [c(1), c(7)]);
+    click('#deal');
+    g.run(1.6);
+    expect($('bjMsg').textContent).toBe('You have 19. Hit or stand?');
+    g = await table(100, [c(10), c(9)], [c(1), c(7)]);
+    click('#deal');
+    g.run(1.6);
+    walkAway(g);
+    expect(g.wallet.money).toBe(125);
+  });
+
+  it('the dealer greets the player once a visit, and calls a bust', async () => {
+    const g = await table(100, [c(10), c(6)], [c(10), c(5)], c(13));
+    expect(await says()).toBe('Good luck!');
+    g.run(3);
+    expect(await says()).toBe('');
+    const { GAMES } = g.layout;
+    g.placePlayer(GAMES.slots.x, GAMES.slots.z); g.run(0.05); // still aboard
+    g.placePlayer(GAMES.blackjack.x, GAMES.blackjack.z); g.run(0.05);
+    expect(await says()).toBe('');
+    click('#deal');
+    g.run(1.6);
+    click('#hit');
+    expect(await says()).toBe('Bust!');
+    walkAway(g); g.run(3); // off the boat: a new visit
+    g.placePlayer(GAMES.blackjack.x, GAMES.blackjack.z); g.run(0.05);
+    expect(await says()).toBe('Good luck!');
+  });
+
   it('greets a broke player', async () => {
     await at('blackjack', 0, 'blackjack');
     expect($('bjMsg').textContent).toBe('Come back with some cash to play');
@@ -441,6 +626,7 @@ describe('the slot machine', () => {
     g.run(0.5);
     expect(g.wallet.money).toBe(75 + 2500);
     expect($('slotsMsg').textContent).toBe('Jackpot! You win $2,500!');
+    expect((await import('../src/slotMachine')).signSays()).toBe('JACKPOT!');
   });
 
   it('pays two cherries, and nothing for no match', async () => {
@@ -461,10 +647,14 @@ describe('the slot machine', () => {
     const g = await at('slots', 100, 'slots');
     rigReels(4, 11, 17); // three fish
     click('#pull');
+    g.run(2);
+    expect((await import('../src/slotMachine')).signSays()).toBe('🐟🐟🐟!');
+    rigReels(4, 11, 17);
+    click('#pull');
     g.saveMod.save();
-    expect(saved()).toBe(75 + 625);
+    expect(saved()).toBe(700 - 25 + 625);
     walkAway(g);
-    expect(g.wallet.money).toBe(700);
+    expect(g.wallet.money).toBe(1300);
   });
 
   it('greets a broke player', async () => {

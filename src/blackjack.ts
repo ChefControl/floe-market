@@ -1,6 +1,7 @@
-// Blackjack rules, as the casino boat's table plays them: a six-deck shoe, the dealer stands on every 17 and checks
-// for blackjack before you play, blackjack pays 3 to 2, and you can double on your first two cards (no splits).
-// Kept free of game state so they're easy to test.
+// Blackjack rules, as casinos commonly play them: a six-deck shoe, the dealer stands on every 17 and checks for
+// blackjack before you play, blackjack pays 3 to 2, and you can double on your first two cards. A pair can be split
+// once (aces get one card each, and 21 after a split isn't blackjack), and when the dealer shows an ace you can take
+// insurance: half your stake, paying 2 to 1 if they have blackjack. Kept free of game state so they're easy to test.
 
 export type Suit = '♠' | '♥' | '♦' | '♣';
 /** A card: rank 1 (ace) to 13 (king). */
@@ -34,6 +35,11 @@ export function handValue(cards: Card[]) {
   return { total: soft ? total + 10 : total, soft };
 }
 export const total = (cards: Card[]) => handValue(cards).total;
+/** A card's count, aces as 1: two cards that count the same (a king and a ten too) are a pair you can split. */
+const count = (c: Card) => Math.min(10, c.rank);
+export const canSplit = (cards: Card[]) => cards.length === 2 && count(cards[0]) === count(cards[1]);
+/** What insurance costs for a stake: half, in whole dollars. */
+export const insuranceCost = (stake: number) => Math.floor(stake / 2);
 export const isBlackjack = (cards: Card[]) => cards.length === 2 && total(cards) === 21;
 export const isBust = (cards: Card[]) => total(cards) > 21;
 
@@ -44,14 +50,19 @@ export function dealerDraws(dealer: Card[], shoe: Card[]): Card[] {
   return drawn;
 }
 
-export type Outcome = 'blackjack' | 'win' | 'push' | 'lose' | 'bust';
+/** 'even' is a blackjack paid at even money, taken instead of the 3 to 2 when the dealer shows an ace. */
+export type Outcome = 'blackjack' | 'even' | 'win' | 'push' | 'lose' | 'bust';
+export interface Result { outcome: Outcome; payout: number }
 
-/** How a finished hand came out against the dealer's, and what it returns for `stake` (stake included). */
-export function settle(player: Card[], dealer: Card[], stake: number): { outcome: Outcome; payout: number } {
-  const p = total(player), d = total(dealer);
-  if (isBlackjack(player) && !isBlackjack(dealer)) return { outcome: 'blackjack', payout: stake + Math.floor(stake * 1.5) };
+/**
+ * How a finished hand came out against the dealer's, and what it returns for `stake` (stake included). A hand from a
+ * split (`split`) can make 21 but never blackjack.
+ */
+export function settle(player: Card[], dealer: Card[], stake: number, split = false): Result {
+  const p = total(player), d = total(dealer), natural = isBlackjack(player) && !split;
+  if (natural && !isBlackjack(dealer)) return { outcome: 'blackjack', payout: stake + Math.floor(stake * 1.5) };
   if (p > 21) return { outcome: 'bust', payout: 0 };
-  if (isBlackjack(dealer) && !isBlackjack(player)) return { outcome: 'lose', payout: 0 };
+  if (isBlackjack(dealer) && !natural) return { outcome: 'lose', payout: 0 };
   if (d > 21 || p > d) return { outcome: 'win', payout: stake * 2 };
   if (p === d) return { outcome: 'push', payout: stake };
   return { outcome: 'lose', payout: 0 };

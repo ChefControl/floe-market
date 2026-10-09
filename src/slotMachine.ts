@@ -3,7 +3,7 @@
 // screen shows the same reels. Walking off mid-spin pays out at once.
 import { BoxGeometry, CanvasTexture, CylinderGeometry, Group, Mesh, MeshBasicMaterial, PlaneGeometry } from 'three';
 import { every } from './audio';
-import { gamePad, greeting, Stakes } from './casinoKit';
+import { gamePad, greeting, speaker, Stakes } from './casinoKit';
 import { GAMES, pushOutOfBox } from './layout';
 import { canvasTex, FONT, G, mesh, rr, scene } from './render';
 import { clack, jackpot, lose, reelStop, win } from './sfx';
@@ -84,7 +84,8 @@ function buildBank() {
   const mid = cabinet(BANK.x, new MeshBasicMaterial({ map: live }));
   const g = new Group();
   g.add(cabinet(BANK.x - BANK.gap, side([3, 9, 15])).g, mid.g, cabinet(BANK.x + BANK.gap, side([11, 1, 6])).g);
-  return { g, lever: mid.lever, live };
+  // the middle machine's sign calls out a jackpot or three of a kind
+  return { g, lever: mid.lever, live, sign: speaker(mid.g, 2.2) };
 }
 
 // ---------- state ----------
@@ -151,6 +152,7 @@ function settle() {
     addMoney(s.win);
     popText('+' + money(s.win), { x: BANK.x, y: 1.9, z: BANK.z });
     if (lineMultiplier(syms) === THREE['7']) jackpot(); else win();
+    if (syms.every(x => x === syms[0])) bank!.sign.say(syms[0] === '7' ? 'JACKPOT!' : `${syms.join('')}!`);
   } else lose();
   msg.textContent = s.win <= 0 ? `${say(syms)}: no luck this time.`
     : lineMultiplier(syms) === THREE['7'] ? `Jackpot! You win ${money(s.win)}!` : `${say(syms)}: you win ${money(s.win)}!`;
@@ -165,6 +167,7 @@ const pad = gamePad(AT, '🎰', panel, {
     refresh();
   },
   closed() { if (spin) settle(); },
+  greet() {},
 });
 
 /** The 'slots' unlock: puts the bank of machines on the boat. Returns it for the pop-in. */
@@ -176,6 +179,9 @@ export function enableSlots() {
   return bank.g;
 }
 
+/** What the machine's sign is calling out, for tests. */
+export const signSays = () => bank?.sign.text ?? '';
+
 /** Keeps the player out of the machines. */
 export function collideSlots(p: XZ) {
   if (bank) pushOutOfBox(p, BANK.x, BANK.z, BANK.gap + 0.37 + 0.3, 0.3 + 0.3);
@@ -184,6 +190,7 @@ export function collideSlots(p: XZ) {
 export function updSlots(dt: number) {
   if (!bank) return;
   pad.upd();
+  bank.sign.upd(dt);
   const s = spin;
   if (!s) return;
   s.t += dt;
