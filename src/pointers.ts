@@ -1,5 +1,6 @@
 // Arrows at the edge of the screen pointing the way to something new (an upgrade tile that has just appeared) while
-// it's off-screen. Each goes once the player has had it in view for a moment, or once it's gone.
+// it's off-screen. Each goes once the player has had it in view for a moment, or once it's gone. The tutorial
+// (tutorial.ts) uses the same edge of the screen.
 import { camera } from './render';
 import { V } from './util';
 
@@ -33,34 +34,42 @@ export function pointAt(at: { x: number; y: number; z: number }, icon: string, a
   marks.push({ at, alive, el, arrow: el.firstChild as HTMLElement, seen: 0 });
 }
 
-export function updPointers(dt: number) {
+/** Where something in the world is on screen: `x`, `y` in pixels if it's `inView`, or else at the edge of the screen
+ *  towards it, clear of the HUD; `angle` is the way to it from the middle of the screen. */
+export function onScreen(at: { x: number; y: number; z: number }) {
   const w = window.innerWidth, h = window.innerHeight, cx = w / 2, cy = h / 2;
+  const v = V(at.x, at.y, at.z).project(camera);
+  // behind the camera, the projection comes out mirrored
+  const s = v.z > 1 ? -1 : 1;
+  const dx = s * v.x * cx, dy = -s * v.y * cy, angle = Math.atan2(dy, dx);
+  if (s > 0 && Math.abs(dx) < cx - EDGE && Math.abs(dy) < cy - EDGE) return { inView: true, x: cx + dx, y: cy + dy, angle };
+  // where the line from the middle of the screen towards it meets the edge
+  const k = Math.min((cx - EDGE) / Math.max(Math.abs(dx), 1e-6), (cy - EDGE) / Math.max(Math.abs(dy), 1e-6));
+  const x = cx + dx * k;
+  let y = cy + dy * k;
+  // keep clear of the HUD and the buttons in the corner
+  for (const b of blockers) {
+    const r = b.getBoundingClientRect();
+    if (x > r.left - EDGE && x < r.right + EDGE && y < r.bottom + EDGE) y = r.bottom + EDGE;
+  }
+  return { inView: false, x, y, angle };
+}
+
+export function updPointers(dt: number) {
   for (const m of [...marks]) {
     if (!m.alive() || m.seen >= SEEN) {
       m.el.remove();
       marks.splice(marks.indexOf(m), 1);
       continue;
     }
-    const v = V(m.at.x, m.at.y + 0.3, m.at.z).project(camera);
-    // behind the camera, the projection comes out mirrored
-    const s = v.z > 1 ? -1 : 1;
-    const dx = s * v.x * cx, dy = -s * v.y * cy;
-    if (s > 0 && Math.abs(dx) < cx - EDGE && Math.abs(dy) < cy - EDGE) {
+    const o = onScreen({ x: m.at.x, y: m.at.y + 0.3, z: m.at.z });
+    if (o.inView) {
       m.seen += dt;
       m.el.hidden = true;
       continue;
     }
-    // where the line from the middle of the screen towards it meets the edge
-    const k = Math.min((cx - EDGE) / Math.max(Math.abs(dx), 1e-6), (cy - EDGE) / Math.max(Math.abs(dy), 1e-6));
-    const x = cx + dx * k;
-    let y = cy + dy * k;
-    // keep clear of the HUD and the buttons in the corner
-    for (const b of blockers) {
-      const r = b.getBoundingClientRect();
-      if (x > r.left - EDGE && x < r.right + EDGE && y < r.bottom + EDGE) y = r.bottom + EDGE;
-    }
     m.el.hidden = false;
-    m.el.style.transform = `translate(${x}px, ${y}px)`;
-    m.arrow.style.transform = `rotate(${Math.atan2(dy, dx)}rad)`;
+    m.el.style.transform = `translate(${o.x}px, ${o.y}px)`;
+    m.arrow.style.transform = `rotate(${o.angle}rad)`;
   }
 }

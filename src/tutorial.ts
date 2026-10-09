@@ -1,0 +1,301 @@
+// The tutorial for stage 1: the market's ideas one at a time, each the first time it matters. A gold arrow bobs over
+// where to go, with a ring on the ground under it and a bubble saying what to do there; while that's off-screen, the
+// bubble waits at the edge of the screen and points the way. First the market's loop, in order: fish on the 🎣 pad,
+// pick up the slices, drop them on the counter, collect the cash. Then buying, cheapest first: Bigger arms, a level at
+// the 📈 Upgrade square, and the auto harpoon. Each is a goal to save up for, shown by the cash in the HUD with how
+// close it is, so there's always something to do; once there's the cash, the arrow leads to where it's bought. One
+// bought ahead of its turn counts. The star rating some tiles need is a tip for when it comes up.
+// Each idea is learnt by doing it (the rating by reading about it), and isn't shown to the same player again: what's
+// learnt is kept on the device, so Restart doesn't bring it back, and in the save, so it follows a signed-in player to
+// their other devices. A save from before the tutorial counts what it has done already. Learning the last of the basics
+// (the harpoon, usually) brings up a banner saying the tutorial's complete, and that the rest is up to the player; the
+// rating, which only comes up after a few more upgrades, is a tip for later, outside the tutorial proper.
+import { Group, Mesh, MeshBasicMaterial, RingGeometry } from 'three';
+import { touchBuy } from './buy';
+import { C1 } from './counters';
+import { modCost, MODS, mods } from './economy';
+import { steaksInProgress } from './fishing';
+import { stage } from './layout';
+import { player } from './player';
+import { onScreen } from './pointers';
+import { bakePainted, G, painted, scene } from './render';
+import { unlock } from './sfx';
+import { atSquare, modOffered, SHOPS } from './shop';
+import { staging } from './stage';
+import { PAD, pile, PILE } from './stations';
+import { banner, confetti, toast } from './ui';
+import { locked, onOffer, tiles, type Tile } from './unlocks';
+import { d2xz, FY, price, type XZ } from './util';
+import { wallet } from './wallet';
+
+export type Lesson = 'fish' | 'pick' | 'sell' | 'cash' | 'buy' | 'shop' | 'harpoon' | 'stars';
+const LESSONS: Lesson[] = ['fish', 'pick', 'sell', 'cash', 'buy', 'shop', 'harpoon', 'stars'];
+/** Device storage for what's been learnt (the save keeps a copy too). */
+const KEY = 'floe-market-tutorial';
+/** Seconds a lesson that's learnt by reading stays in view first. */
+const READ = 6;
+/** Seconds the banner saying it's all done stays up. */
+const CHEER = 4;
+
+/** Where a lesson points: a spot on the ground, and how near counts as being there. */
+interface Spot extends XZ { y: number; r: number }
+/** Something to save up for, and where it's bought: what it is, and what's left to pay. */
+export interface Goal { icon: string; name: string; need: number; spot: Spot }
+interface Step {
+  id: Lesson;
+  /** Shown once this one's learnt: the loop goes in order. */
+  after?: Lesson;
+  /** Where to go, or null while there's nothing there yet (no cash to collect, nothing to afford). */
+  at: () => Spot | null;
+  /** The bubble: what to do, and a line more. */
+  say: () => [string, string?];
+  /** Done it: learnt. */
+  done?: () => boolean;
+  /** Learnt by having it in view this long instead. */
+  read?: number;
+  /** A tip for later, when it comes up: not one of the basics the tutorial is complete without. */
+  later?: boolean;
+  /** Stays up while the player stands there (buying needs holding there); the others step aside for the player. */
+  stay?: boolean;
+  /** A game from before the tutorial has done it already. */
+  known: () => boolean;
+  /** Buying lessons: what's being saved up for. The arrow shows the way once there's the cash. */
+  goal?: () => Goal | null;
+}
+
+/** A game that's been played: it's bought something, or got to stage 2. Its player knows the loop. */
+const played = () => stage.n > 1 || tiles.some(t => t.paid > 0) || MODS.some(m => mods[m.id] > 0);
+const at = (p: XZ, r: number): Spot => ({ x: p.x, y: FY, z: p.z, r });
+/** A tile, as a goal. */
+const tileGoal = (t: Tile | undefined): Goal | null =>
+  t && !t.done ? { icon: t.icon, name: t.name, need: t.cost - t.paid, spot: { x: t.x, y: t.y ?? FY, z: t.z, r: t.half } } : null;
+/** The cheapest upgrade on offer that's open (not Korki's statue, which is always there). */
+const cheapest = () => onOffer().filter(t => !t.always && !t.done && !locked(t)).sort((a, b) => a.cost - b.cost)[0];
+const harpoon = () => tiles.find(t => t.id === 'turret')!;
+/** A goal's spot, once there's the cash for it. */
+const reached = (g: Goal | null) => (g && wallet.money >= g.need ? g.spot : null);
+const firstLocked = () => onOffer().find(locked) ?? null;
+/** How to buy, on this device: the Buy button on a touch screen, or E. */
+const hold = () => touchBuy() ? 'Stand on it and hold Buy' : 'Stand on it and hold E';
+/** Cash at the start of the cash lesson, to see it go up. */
+let cash0 = 0;
+
+const STEPS: Step[] = [
+  {
+    id: 'fish', at: () => at(PAD, PAD.r), say: () => ['Stand here to fish', 'They get chopped into slices'],
+    done: () => steaksInProgress() > 0 || pile.n > 0, known: played,
+  },
+  {
+    id: 'pick', after: 'fish', at: () => at(PILE, 1.45), say: () => ['Pick up the fish slices'],
+    done: () => player.back.n > 0, known: played,
+  },
+  {
+    id: 'sell', after: 'pick', at: () => at(C1.dropPos!, 1), say: () => ['Drop them on the counter', 'Customers buy fish here'],
+    done: () => C1.stock.n > 0 || C1.queue.some(c => c.hands.n > 0), known: played,
+  },
+  {
+    id: 'cash', after: 'sell', at: () => (C1.cash.n ? at(C1.cashPos, 1.5) : null), say: () => ['Collect the cash', 'Walk over it'],
+    done: () => wallet.money + wallet.inFlight > cash0, known: played,
+  },
+  {
+    // the first upgrade: Bigger arms, the cheapest
+    id: 'buy', after: 'cash', stay: true, goal: () => tileGoal(cheapest()), at: () => reached(tileGoal(cheapest())),
+    say: () => [`Buy ${cheapest()?.name ?? 'an upgrade'} here`, hold()],
+    done: () => tiles.some(t => t.paid > 0), known: played,
+  },
+  {
+    // a level at the square: learnt by buying it, not just by looking; on the square, the bubble says how
+    id: 'shop', after: 'buy', stay: true,
+    goal: () => {
+      const need = Math.min(...MODS.filter(m => m.stage === 1 && modOffered(m.id)).map(m => modCost(m.id) ?? Infinity));
+      return { icon: '📈', name: 'Market upgrade', need, spot: at(SHOPS[0], 0.95) };
+    },
+    at: () => reached(STEPS.find(t => t.id === 'shop')!.goal!()),
+    say: () => atSquare()
+      ? ['Pick an upgrade', touchBuy() ? 'Tap one in the list to buy it' : 'Click one in the list to buy it']
+      : ['Upgrade square', 'Better fish, more customers, a faster crew'],
+    done: () => MODS.some(m => mods[m.id] > 0), known: () => stage.n > 1 || MODS.some(m => mods[m.id] > 0),
+  },
+  {
+    // a machine that works for the player: the last of the basics
+    id: 'harpoon', after: 'shop', stay: true, goal: () => tileGoal(harpoon()), at: () => reached(tileGoal(harpoon())),
+    say: () => ['Buy the auto harpoon here', hold()],
+    done: () => harpoon().done, known: () => played() || harpoon().done,
+  },
+  {
+    id: 'stars', after: 'buy', read: READ, later: true,
+    at: () => { const t = firstLocked(); return t ? { x: t.x, y: t.y ?? FY, z: t.z, r: 0 } : null; },
+    say: () => [`Opens at ★${firstLocked()?.stars?.toFixed(1) ?? ''}`, 'Serve customers quickly for better reviews'],
+    known: () => stage.n > 1 || tiles.some(t => !!t.stars && (t.open || t.done)),
+  },
+];
+
+const learnt = new Set<Lesson>();
+/** The lesson showing and how long it's been in view, and what's being saved up for. */
+export const lesson = { now: null as Step | null, viewed: 0, goal: null as Goal | null };
+/** The buying lesson whose goal it is, to say so when a new one starts. */
+let saving: Step | null = null;
+/** What the device knows has been read in. */
+let fromDevice = false;
+/** A save from before the tutorial (one with no lessons in it) has just loaded: its player knows what it has done. A
+ *  game since keeps its own lessons, so a reload mid-tutorial doesn't skip what's still to come. */
+export function olderGame() { learn(STEPS.filter(s => s.known()).map(s => s.id)); }
+
+function store() {
+  try { localStorage.setItem(KEY, JSON.stringify([...learnt])); } catch { /* storage unavailable: the save still has it */ }
+}
+/** Marks lessons learnt (from the device, a save, or doing them). */
+export function learn(ids: readonly unknown[]) {
+  if (!fromDevice) {
+    // read on first use, so a save's lessons (loaded before the first tick) add to the device's rather than replace them
+    fromDevice = true;
+    let mine: unknown = [];
+    try { mine = JSON.parse(localStorage.getItem(KEY) ?? '[]'); } catch { /* storage unavailable or garbled */ }
+    if (Array.isArray(mine)) for (const id of mine) if (LESSONS.includes(id)) learnt.add(id as Lesson);
+  }
+  const n = learnt.size;
+  for (const id of ids) if (LESSONS.includes(id as Lesson)) learnt.add(id as Lesson);
+  if (learnt.size !== n) store();
+}
+/** What this player has learnt, for the save. */
+export const learntLessons = () => LESSONS.filter(id => learnt.has(id));
+
+/** A lesson still to learn whose turn has come. */
+const due = (s: Step) => !learnt.has(s.id) && (!s.after || learnt.has(s.after));
+const live = () => stage.n === 1 && !staging();
+/** The first lesson due whose spot is there. */
+const next = () => (live() && STEPS.find(s => due(s) && s.at())) || null;
+
+/** Seconds left of the banner saying the tutorial's complete. */
+let cheer = 0;
+/** The banner for the last of the basics learnt: only ever by playing, never for a game that knew them already. */
+function complete() {
+  banner('Well done', 'Tutorial complete', 'The rest is up to you. Go make it big!');
+  confetti();
+  unlock();
+  cheer = CHEER;
+}
+
+/** Learns a lesson by playing: the last of the basics completes the tutorial. */
+function finish(s: Step) {
+  learn([s.id]);
+  if (!s.later && STEPS.every(t => t.later || learnt.has(t.id))) complete();
+}
+
+/** Each tick: learns what's been done, and picks the lesson to show. */
+export function updTutorial(dt: number) {
+  if (!fromDevice) learn([]); // reads in what the device knows
+  // (the stage-up has the banner to itself)
+  if (cheer > 0 && (cheer -= dt) <= 0 && !staging()) banner(null);
+  const s = lesson.now;
+  if (s && (s.done?.() || (s.read && lesson.viewed >= s.read))) finish(s);
+  // anything bought before its turn counts when its turn comes, in order
+  for (const t of STEPS) if (t.goal && due(t) && t.done!()) finish(t);
+  // what's to save up for next: said once as it starts, and shown by the cash
+  const g = live() ? STEPS.find(t => t.goal && due(t)) ?? null : null;
+  lesson.goal = g?.goal!() ?? null;
+  if (g !== saving) {
+    saving = g;
+    if (g && lesson.goal && wallet.money < lesson.goal.need) {
+      toast(`Next goal: ${lesson.goal.name}, ${price(lesson.goal.need)}`, 'goal', 3000);
+    }
+  }
+  const n = next();
+  if (n !== lesson.now) {
+    lesson.now = n; lesson.viewed = 0;
+    if (n?.id === 'cash') cash0 = wallet.money + wallet.inFlight;
+  }
+}
+
+// ---------- what it looks like ----------
+const GOLD = 0xFFC34A;
+/** The arrow: a gold point and shaft, baked as one mesh, pointing down at the spot. */
+const arrow = new Mesh(bakePainted([
+  { geo: G.cone, at: [0, 0.25, 0], rot: [Math.PI, 0, 0], scale: [0.42, 0.5, 0.42], c: GOLD },
+  { geo: G.cyl, at: [0, 0.75, 0], scale: [0.16, 0.5, 0.16], c: GOLD },
+]), painted);
+const ringMat = new MeshBasicMaterial({ color: GOLD, transparent: true, opacity: 0.7, depthWrite: false });
+// just outside the spot's edge, a little over the deck's markings
+const ring = new Mesh(new RingGeometry(1, 1.14, 40), ringMat);
+ring.rotation.x = -Math.PI / 2;
+ring.position.y = 0.03;
+/** The arrow and its ring. */
+export const guide = new Group();
+guide.add(arrow, ring);
+guide.visible = false;
+scene.add(guide);
+/** How high the arrow's tip floats over the spot: low, or over the player's head where they stand on it. */
+const TIP = 1.2, OVER = 2.1;
+
+const bubble = document.getElementById('coach')!, head = bubble.querySelector('b')!, more = bubble.querySelector('small')!;
+const dir = bubble.querySelector<HTMLElement>('.dir')!, stars = document.getElementById('stars')!;
+/** The bubble's size (grows in), how long it's been up, and which lesson it was drawn for. */
+let k = 0, t = 0, drawn: Step | null = null, said = '';
+const still = () => !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+
+const goalEl = document.getElementById('goal')!, goalIc = document.getElementById('goalIc')!;
+const goalName = document.getElementById('goalName')!, goalN = document.getElementById('goalN')!;
+const goalBar = document.getElementById('goalBar')!;
+let goalShown = '';
+/** The goal by the cash: what's being saved up for, how much so far, and a bar filling up; gold once it's there. */
+function drawGoal() {
+  const g = lesson.goal, have = Math.max(0, Math.floor(wallet.money));
+  const key = g ? `${g.icon}${g.name}${g.need}|${Math.min(have, g.need)}` : '';
+  if (key === goalShown) return;
+  goalShown = key;
+  goalEl.hidden = !g;
+  if (!g) return;
+  const ready = have >= g.need;
+  goalIc.textContent = g.icon;
+  goalName.textContent = g.name;
+  goalN.textContent = ready ? `${price(g.need)} ✓` : `${price(have)} / ${price(g.need)}`;
+  goalBar.style.width = Math.round(Math.min(1, have / Math.max(1, g.need)) * 100) + '%';
+  goalEl.classList.toggle('ready', ready);
+  goalEl.setAttribute('aria-label', ready ? `${g.name}: you can buy it now` : `Saving up for ${g.name}: ${price(have)} of ${price(g.need)}`);
+}
+
+/** Each frame: places the arrow, ring and bubble for the lesson showing (main.ts; it needs the camera). */
+export function drawTutorial(dt: number) {
+  drawGoal();
+  const s = lesson.now, spot = s?.at();
+  if (s !== drawn) { drawn = s; k = 0; }
+  // standing there doing it, the arrow and the bubble step aside, unless what to do there needs saying
+  const there = !!s && !!spot && !s.stay && d2xz(player.g.position, spot) < spot.r * spot.r;
+  const on = !!s && !!spot && !there;
+  k = on ? Math.min(1, k + dt * 4) : 0;
+  t += dt;
+  guide.visible = on;
+  bubble.hidden = !on;
+  stars.classList.toggle('teach', on && s.id === 'stars');
+  if (!on) return;
+  const calm = still(), bob = calm ? 0 : Math.sin(t * 4) * 0.12;
+  // easing out with a little overshoot, like the pop-in (pop.ts)
+  const pop = 1 + 2.7 * (k - 1) ** 3 + 1.7 * (k - 1) ** 2;
+  guide.position.set(spot.x, spot.y, spot.z);
+  const tip = s.stay ? OVER : TIP;
+  arrow.position.y = tip + bob;
+  arrow.rotation.y = calm ? 0 : t * 1.5;
+  arrow.scale.setScalar(Math.max(0.01, pop));
+  ring.visible = spot.r > 0;
+  ring.scale.setScalar(spot.r * (calm ? 1 : 1 + Math.sin(t * 4) * 0.06));
+  ringMat.opacity = calm ? 0.7 : 0.55 + Math.sin(t * 4) * 0.2;
+
+  const [title, line = ''] = s.say();
+  if (title + line !== said) { said = title + line; head.textContent = title; more.textContent = line; more.hidden = !line; }
+  const o = onScreen({ x: spot.x, y: spot.y + tip + 1.1, z: spot.z });
+  if (o.inView) lesson.viewed += dt;
+  bubble.classList.toggle('edge', !o.inView);
+  // the whole bubble stays on the screen (at the edge, with room for its badge)
+  const bw = bubble.offsetWidth / 2, bh = bubble.offsetHeight / 2, m = o.inView ? 8 : 22;
+  const x = Math.min(Math.max(o.x, bw + m), innerWidth - bw - m);
+  let y = o.y;
+  if (o.inView) y = Math.max(y, bh * 2 + m); // over the arrow, it sits above the point
+  else {
+    y = Math.min(Math.max(y, bh + m), innerHeight - bh - m);
+    // the badge goes where the way out of the bubble meets its rim
+    const c = Math.cos(o.angle), sn = Math.sin(o.angle);
+    const r = Math.min(bw / Math.max(Math.abs(c), 1e-6), bh / Math.max(Math.abs(sn), 1e-6));
+    dir.style.transform = `translate(${Math.round(c * r)}px, ${Math.round(sn * r)}px) rotate(${o.angle}rad)`;
+  }
+  bubble.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px) translate(-50%, ${o.inView ? '-100%' : '-50%'}) scale(${pop.toFixed(3)})`;
+}

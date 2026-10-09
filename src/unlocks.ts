@@ -138,6 +138,8 @@ const always = (t: Tile) => t.always && (t.everywhere || (t.stage === stage.n &&
 
 /** The tiles on offer last time, to spot new ones; null before the first look (at a fresh start or a loaded save). */
 let before: Set<Tile> | null = null;
+/** The tiles on offer, as of the last look (`visibleTiles`, every tick). */
+export const onOffer = () => [...before ?? []];
 
 /** At most two unpaid upgrades are offered at a time, in order, plus any that are always on offer or shown. */
 export function visibleTiles() {

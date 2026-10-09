@@ -9,6 +9,8 @@ import { wallet } from './wallet';
 const btn = document.getElementById('buy')!, reminder = document.getElementById('buyHint')!;
 const prompts = document.getElementById('prompts')!, cash = document.getElementById('cash')!;
 let touch = false;
+/** Whether buying is by holding the Buy button (a touch screen), or E: what instructions should say. */
+export const touchBuy = () => touch;
 /** What the reminder says: how to buy, or that there's no cash to buy with. */
 const HOW = { keys: 'Hold <kbd>E</kbd> to buy this', touch: 'Hold <b>Buy</b> to buy this' };
 const BROKE = 'Out of cash: earn some first';

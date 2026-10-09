@@ -1,6 +1,5 @@
-// DOM overlay: cash/carry/rating HUD, the stage chip, toasts, tile tips, floating "+$" text, and the stage-up's
-// banner and confetti.
-import { player } from './player';
+// DOM overlay: cash/rating HUD (what's carried shows in the player's arms), the stage chip, toasts, tile tips,
+// floating "+$" text, and the banner and confetti for the stage-up and the end of the tutorial.
 import { rating } from './rating';
 import { camera, slideView } from './render';
 import { amount, pick, rand, V } from './util';
@@ -9,20 +8,13 @@ import { wallet } from './wallet';
 const $ = (id: string) => document.getElementById(id)!;
 
 const cashN = $('cashN'), cashEl = $('cash');
-const carryN = $('carryN'), carryEl = $('carry');
 const starsN = $('starsN');
-let shownMoney = -1, shownCarry = '', shownStars = '';
+let shownMoney = -1, shownStars = '';
 
 export function hud(dt: number) {
   if (shownMoney !== wallet.money) {
     shownMoney = wallet.money;
     cashN.textContent = amount(wallet.money);
-  }
-  const cs = player.back.n + '/' + player.back.cap;
-  if (cs !== shownCarry) {
-    shownCarry = cs;
-    carryN.textContent = cs;
-    carryEl.classList.toggle('full', player.back.n >= player.back.cap);
   }
   const st = rating().toFixed(1);
   if (st !== shownStars) {
@@ -79,11 +71,14 @@ export function keepInSight(dt: number) {
 }
 
 const bannerEl = $('banner');
-/** The big centred banner for the stage-up; `null` hides it. */
-export function banner(kicker: string | null, title = '') {
+/** The big centred banner for the stage-up and the end of the tutorial, with a smaller `line` under the title if
+ *  there's more to say; `null` hides it. */
+export function banner(kicker: string | null, title = '', line = '') {
   if (kicker === null) { bannerEl.classList.remove('on'); return; }
   bannerEl.querySelector('.k')!.textContent = kicker;
   bannerEl.querySelector('.t')!.textContent = title;
+  const s = bannerEl.querySelector<HTMLElement>('.s')!;
+  s.textContent = line; s.hidden = !line;
   bannerEl.classList.add('on');
 }
 
