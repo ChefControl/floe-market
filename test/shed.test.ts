@@ -38,10 +38,10 @@ describe('the fertilizer shed', () => {
     expect(g.player.g.position.y).toBeCloseTo(g.layout.SHED_YARD.y, 2); // up on the deck
     expect($('shop').hidden).toBe(false);
     expect($('shopTitle').textContent).toBe('Fertilizer shed');
-    expect(rowsText()).toEqual(['🌿Rice fertilizer · next: CompostRice growth +0% → +50%$20,000']);
+    expect(rowsText()).toEqual(['🌿Rice fertilizer · next: CompostRice growth +0% → +50%$20k']);
     ($('shopRows').children[0] as HTMLButtonElement).click();
     expect(g.economy.mods.fertilizer).toBe(1);
-    expect(rowsText()).toEqual(['🌿Rice fertilizer · next: Fish mealRice growth +50% → +125%$40,000']);
+    expect(rowsText()).toEqual(['🌿Rice fertilizer · next: Fish mealRice growth +50% → +125%$40k']);
     stand(g, g.shop.SHOPS[1]);
     expect($('shopTitle').textContent).toBe('Restaurant upgrades');
     expect(rowsText()).toHaveLength(3); // prices, marketing and the crew, as before
@@ -54,7 +54,7 @@ describe('the fertilizer shed', () => {
     stand(g, g.shed.SHED_AT);
     g.press('e'); g.run(0.5);
     expect(g.economy.mods.fertilizer).toBe(1); // held down, it's still the one
-    expect(rowsText()).toEqual(['🌿Rice fertilizer · next: Fish mealRice growth +50% → +125%$40,000']);
+    expect(rowsText()).toEqual(['🌿Rice fertilizer · next: Fish mealRice growth +50% → +125%$40k']);
     g.press('e', 'keyup'); g.run(0.05); g.press('e'); g.run(0.05);
     expect(g.economy.mods.fertilizer).toBe(2);
     g.press('e', 'keyup'); stand(g, g.shop.SHOPS[1]); g.press('e'); g.run(0.05);

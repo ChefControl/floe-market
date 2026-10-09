@@ -11,6 +11,9 @@ describe('HUD', () => {
     g.wallet.bumpT = 0.1;
     g.ui.hud(0.016);
     expect($('cashN').textContent).toBe('1,234');
+    g.wallet.money = 1_550_000;
+    g.ui.hud(0.016);
+    expect($('cashN').textContent).toBe('1.5M'); // short once it's big
     expect($('cash').classList.contains('bump')).toBe(true);
     expect($('carryN').textContent).toBe('6/6');
     expect($('carry').classList.contains('full')).toBe(true);
@@ -153,6 +156,7 @@ describe('how to walk', () => {
     expect(isTouch(MAC, 0)).toBe(false);
     expect(isTouch('Mozilla/5.0 (Windows NT 10.0; Win64; x64)', 0)).toBe(false);
     expect(isTouch()).toBe(false); // jsdom
+    expect(isTouch('Mozilla/5.0 (Windows NT 10.0; Win64; x64)', 10, true)).toBe(true); // a Windows tablet, finger first
   });
 
   it('shows once on a first game, then shrinks away into the settings gear once the player has walked a little', async () => {

@@ -22,7 +22,7 @@ import { hireRunner } from './runner';
 import { chime, unlock } from './sfx';
 import { enterStage2, staging } from './stage';
 import { showStage, toast, type TipContent } from './ui';
-import { FY, V } from './util';
+import { FY, price, V } from './util';
 
 export type UnlockId =
   | 'pack' | 'turret' | 'roulette' | 'runner' | 'boots' | 'sled' | 'runner2' | 'net' | 'runner3' | 'sushi'
@@ -98,9 +98,8 @@ const UNLOCKS: Unlock[] = [
 ];
 
 export const locked = (t: Tile) => !!t.stars && !t.open;
-const money = (v: number) => '$' + v.toLocaleString('en-US');
 function tipOf(t: Tile): TipContent {
-  return locked(t) ? { name: t.name, desc: `Needs a ★${t.stars!.toFixed(1)} rating (now ★${rating().toFixed(1)}) · ${money(t.cost)}` } : t;
+  return locked(t) ? { name: t.name, desc: `Needs a ★${t.stars!.toFixed(1)} rating (now ★${rating().toFixed(1)}) · ${price(t.cost)}` } : t;
 }
 
 export const tiles: Tile[] = UNLOCKS.map(u => {
