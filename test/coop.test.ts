@@ -267,4 +267,12 @@ describe('co-op', () => {
     expect(blue).toEqual([p.guest.player.g]);
     expect(p.host.playerMod.players).toHaveLength(2);
   });
+
+  it('goes back to playing alone when a room can’t be opened', async () => {
+    const host = await copy();
+    const offline = Promise.reject(new Error('offline'));
+    await expect(host.coop.host(offline)).rejects.toThrow('offline');
+    expect(host.remote.coop.role).toBe('solo');
+    expect(host.coop.isHosting()).toBe(false);
+  });
 });

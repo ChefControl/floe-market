@@ -122,13 +122,17 @@ export const isHosting = () => !!hosting;
 /** Who's playing along, if anyone. */
 export const guestName = () => hosting?.guest?.name ?? null;
 
-/** Opens a room for a friend to join. Resolves with its code. */
-export async function host(rooms: Rooms) {
+/**
+ * Opens a room for a friend to join. Resolves with its code. `rooms` may still be on its way (signing in): this phone
+ * counts as hosting from the start, so a cloud sync that signing in sets off doesn't swap its game out (cloud.ts).
+ */
+export async function host(rooms: Rooms | Promise<Rooms>) {
   if (!boundary) throw new Error('co-op needs noteBoot() before the save loads');
   if (hosting) return hosting.end.code;
-  const end = await rooms.open();
-  const h: Hosting = hosting = { end, enc: new Encoder(scene, boundary), guest: null, seq: 0, last: -Infinity, sentAt: -Infinity, sent: {}, gone: [] };
   coop.role = 'host';
+  let end: HostEnd;
+  try { end = await (await rooms).open(); } catch (e) { coop.role = 'solo'; throw e; }
+  const h: Hosting = hosting = { end, enc: new Encoder(scene, boundary!), guest: null, seq: 0, last: -Infinity, sentAt: -Infinity, sent: {}, gone: [] };
   coop.relay = (what, args) => { h.guest?.told.push([what, args]); };
   end.onJoin = () => {}; // they say hello once their phone's ready (below)
   end.onLeave = uid => { if (h.guest?.uid === uid) leave(h, `${h.guest.name} left`); };
