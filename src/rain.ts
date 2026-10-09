@@ -14,7 +14,7 @@ import { PAL, seasonal, shelter } from './season';
 import { singerLook } from './singer';
 import { popText } from './ui';
 import { d2xz, FY } from './util';
-import { ROAD1_X, ROAD2_X, treeGroup } from './world';
+import { ROAD1_X, ROAD2_X, ROAD_HALF, treeGroup } from './world';
 import { Song, type SongStatus } from './youtube';
 
 // ---------- layout ----------
@@ -39,7 +39,7 @@ const roofMat = seasonal([0xF7FAFC, 0xB0574F, 0xB0574F, 0xB0574F]);
  */
 function path(x0: number, roadX: number) {
   const g = new Group(); scene.add(g);
-  const road = { x0: roadX - 1.05, x1: roadX + 1.05 }, x1 = LAWN_X0;
+  const road = { x0: roadX - ROAD_HALF, x1: roadX + ROAD_HALF }, x1 = LAWN_X0;
   for (const [a, b] of [[x0, road.x0], [road.x1, x1]]) {
     g.add(mesh(new BoxGeometry(b - a, FY + 0.02, 1.1), pathMat, (a + b) / 2, (FY + 0.02) / 2 - 0.02, HOUSE_PATH_Z));
   }

@@ -3,6 +3,7 @@
 // their own best under the list and a way to sign in. It only shows when cloud saves are set up.
 import { cloud, cloudEnabled, connect, postScore, type Score } from './cloud';
 import { stage } from './layout';
+import { money } from './util';
 import { wallet } from './wallet';
 
 /** How many players the scoreboard lists. */
@@ -11,7 +12,6 @@ export const TOP = 20;
 const $ = (id: string) => document.getElementById(id)!;
 const btn = $('board'), panel = $('scores'), list = $('scoresList'), me = $('scoresMe'), join = $('scoresJoin');
 
-const money = (v: number) => '$' + v.toLocaleString('en-US');
 const STAGES = { 1: 'Fish Market', 2: 'Floe Sushi' } as const;
 
 function row(s: Score, rank: number, mine: boolean) {

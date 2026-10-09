@@ -200,7 +200,7 @@ function blogger(): Ad {
 
 /** A newspaper box by the crossing to her house, with the market on the front page. */
 function newspaper(): Ad {
-  const g = spot(11.3, 0, 4.6);
+  const g = spot(11.5, 0, 4.6);
   for (const x of [-0.2, 0.2]) for (const z of [-0.15, 0.15]) part(g, G.box, 0x2C3A47, x, 0.08, z, 0.05, 0.16, 0.05);
   part(g, G.box, 0x2F6FD0, 0, 0.58, 0, 0.56, 0.84, 0.46);
   part(g, G.box, 0xF4F1E8, 0, 1.03, 0.02, 0.42, 0.06, 0.32);

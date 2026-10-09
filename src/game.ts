@@ -12,6 +12,7 @@ import { updFlights } from './holder';
 import { updKorki } from './korki';
 import { updLooks } from './looks';
 import { updMusic } from './music';
+import { updNeeds } from './needs';
 import { updPlayer } from './playerUpdate';
 import { rainK, updHouse } from './rain';
 import { updRestaurant } from './restaurant';
@@ -42,6 +43,7 @@ export function tick(dt: number) {
   updRunners(dt);
   updRice(dt);
   updRestaurant(dt);
+  updNeeds(dt);
   updGarden(dt);
   COUNTERS.forEach(C => updCounter(C, dt));
   updLeaving(dt);

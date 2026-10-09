@@ -11,10 +11,10 @@ import { boost } from './economy';
 import { buyHeld, inputVec } from './input';
 import { korkiStatue, STATUE } from './korki';
 import { groundY, keepOnFloor, pushOutOfBox, stage, walkable } from './layout';
-import { player } from './player';
+import { BOOP_SECS, player } from './player';
 import { collidePresents, givePresents, onPresentTile, PRESENT, redrawPresentTile } from './presents';
 import { scene } from './render';
-import { collide, FISH_DROP, fishTray, register, REGISTER, RICE_DROP, ricePot, sushi } from './restaurant';
+import { collide, DROP_R, FISH_DROP, fishTray, register, REGISTER, RICE_DROP, ricePot, sushi } from './restaurant';
 import { field, fieldStack, harvestNear, PATCH_AT, ripeNear, STACK_AT } from './rice';
 import { save } from './save';
 import { current } from './season';
@@ -28,10 +28,13 @@ import { addMoney, wallet } from './wallet';
 /** Anything bought by holding buy on it: an upgrade tile, or the present tile at her house. */
 interface Payable { x: number; y?: number; z: number; cost: number; paid: number; done?: boolean }
 interface Drop { pos: XZ; r: number; stock: Holder; kind: Kind }
-/** Where carried things are dropped off: fish at the open counters in stage 1, fish and rice for the chefs in stage 2. */
+/**
+ * Where carried things are dropped off: fish at the open counters in stage 1, fish and rice for the chefs in stage 2.
+ * The chefs' pads take things from as far as the counters do (DROP_R), and are drawn that big (restaurant.ts).
+ */
 const CHEF_DROPS: Drop[] = [
-  { pos: FISH_DROP, r: 0.65, stock: fishTray, kind: 'fish' },
-  { pos: RICE_DROP, r: 0.65, stock: ricePot, kind: 'rice' },
+  { pos: FISH_DROP, r: DROP_R, stock: fishTray, kind: 'fish' },
+  { pos: RICE_DROP, r: DROP_R, stock: ricePot, kind: 'rice' },
 ];
 const drops = (): Drop[] => sushi.built
   ? CHEF_DROPS
@@ -39,8 +42,8 @@ const drops = (): Drop[] => sushi.built
 
 const STATION_TIPS: { pos: XZ; r: number; tip: TipContent }[] = [
   { pos: PATCH_AT, r: 1.6, tip: { name: 'Rice', desc: 'Wade through gold, ripe rice to harvest it, then carry it to the 🍚 pad at the kitchen line' } },
-  { pos: FISH_DROP, r: 0.65, tip: { name: 'Fish for the chefs', desc: 'Drop fish slices here' } },
-  { pos: RICE_DROP, r: 0.65, tip: { name: 'Rice for the chefs', desc: 'Drop bags of rice here' } },
+  { pos: FISH_DROP, r: DROP_R, tip: { name: 'Fish for the chefs', desc: 'Drop fish slices here' } },
+  { pos: RICE_DROP, r: DROP_R, tip: { name: 'Rice for the chefs', desc: 'Drop bags of rice here' } },
 ];
 
 /** Where cash piles up. A closed counter's cash stays collectable until it's all picked up. */
@@ -51,8 +54,15 @@ function cashSpots() {
 }
 
 export function updPlayer(dt: number) {
-  const p = player.g.position, mv = inputVec();
-  if (mv) {
+  const p = player.g.position, mv = inputVec(), b = player.booped;
+  if (b) {
+    // booped: a hop backwards, easing out, whatever's pressed
+    b.t = Math.min(1, b.t + dt / BOOP_SECS);
+    const k = 1 - (1 - b.t) ** 2;
+    p.x = b.x0 + (b.x1 - b.x0) * k; p.z = b.z0 + (b.z1 - b.z0) * k;
+    player.moving = false;
+    if (b.t >= 1) player.booped = null;
+  } else if (mv) {
     p.x += mv.x * player.speed * dt; p.z += mv.z * player.speed * dt;
     const target = Math.atan2(mv.x, mv.z);
     let d = target - player.h; d = Math.atan2(Math.sin(d), Math.cos(d));
@@ -71,6 +81,7 @@ export function updPlayer(dt: number) {
   }
   // step smoothly up and down terraces, bridges and the gate
   p.y += (groundY(p) - p.y) * Math.min(1, dt * 14);
+  if (player.booped) p.y = groundY(p) + Math.sin(Math.PI * player.booped.t) * 0.45;
 
   // catch fish on the pad
   const onPad = d2xz(p, PAD) < PAD.r * PAD.r;

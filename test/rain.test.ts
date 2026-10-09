@@ -340,4 +340,61 @@ describe('the crossing', () => {
     g.run(0.1);
     expect(c.mood.visible).toBe(false);
   });
+
+  it('kept waiting long enough, a driver gets out and boops the player back onto the pavement', async () => {
+    const g = await loadGame({ tiles: bought('sled') });
+    const { SLED } = g.counters;
+    const { HOUSE_PATH_Z } = await import('../src/layout');
+    const { ROAD1_X, ROAD_HALF } = g.world;
+    const { player } = await import('../src/player');
+    g.placePlayer(ROAD1_X - 0.4, HOUSE_PATH_Z); // on the crossing, in the near lane
+    g.runUntil(() => SLED.queue[0]?.held > 0);
+    const { Person } = await import('../src/characters');
+    const c = SLED.queue[0], seat = c.g.children.find(o => o instanceof Person)!;
+    g.run(7);
+    expect(c.out).toBeNull(); // still leaning on the horn
+    g.runUntil(() => c.out !== null, 2);
+    expect(c.stopped).toBe(true);
+    g.runUntil(() => player.booped !== null, 5);
+    // the driver walked over from the sled
+    expect(Math.hypot(seat.position.x, seat.position.z)).toBeGreaterThan(1);
+    g.runUntil(() => player.booped === null, 1);
+    expect(player.g.position.x).toBeLessThan(ROAD1_X - ROAD_HALF); // back on the pavement, the market's side
+    expect(player.g.position.z).toBeCloseTo(HOUSE_PATH_Z, 1);
+    // back in the seat, and on their way
+    g.runUntil(() => c.out === null, 5);
+    expect(seat.position.toArray()).toEqual([0, 0.28, 0.1]);
+    expect(c.mood.visible).toBe(false);
+    g.runUntil(() => c.arrived, 10);
+  });
+
+  it('gives up and gets back in if the player steps off the road first', async () => {
+    const g = await loadGame({ tiles: bought('sled') });
+    const { SLED } = g.counters;
+    const { HOUSE_PATH_Z } = await import('../src/layout');
+    const { player } = await import('../src/player');
+    g.placePlayer(g.world.ROAD1_X, HOUSE_PATH_Z);
+    g.runUntil(() => SLED.queue[0]?.out != null, 40);
+    const c = SLED.queue[0];
+    g.placePlayer(7.5, HOUSE_PATH_Z);
+    g.runUntil(() => c.out === null, 5);
+    expect(player.booped).toBeNull();
+    expect(player.g.position.x).toBe(7.5);
+  });
+
+  it('has a lane each way: customers keep to the counter side, and others drive by the other way', async () => {
+    const g = await loadGame({ tiles: bought('sled') });
+    const { SLED, leaving } = g.counters;
+    const { ROAD1_X } = g.world;
+    g.runUntil(() => SLED.queue.length > 0);
+    expect(SLED.queue[0].g.position.x).toBeLessThan(ROAD1_X); // the near lane, coming up from the south
+    g.runUntil(() => leaving.some(c => c.g.position.x > ROAD1_X), 20);
+    const by = leaving.find(c => c.g.position.x > ROAD1_X)!;
+    const z = by.g.position.z;
+    g.run(1);
+    expect(by.g.position.z).toBeGreaterThan(z); // down the road, southwards
+    expect(by.want).toBe(0);
+    g.runUntil(() => !leaving.includes(by), 30);
+    expect(SLED.queue).not.toContain(by);
+  });
 });

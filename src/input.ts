@@ -29,18 +29,34 @@ function endJoy(e: PointerEvent) {
 }
 canvas.addEventListener('pointerup', endJoy);
 canvas.addEventListener('pointercancel', endJoy);
+canvas.addEventListener('lostpointercapture', endJoy);
 /** Keys typed into a control (the volume sliders, the look's tabs) are for it, not for walking. */
 const forControl = (e: KeyboardEvent) => !!(e.target as Element | null)?.closest?.('input, select, textarea, [role="tablist"]');
+/**
+ * Which key: letters by where they are on the keyboard (KeyW is "w"), so WASD and E work on any layout, Hebrew or
+ * AZERTY too; anything else (the arrows) by its name.
+ */
+const keyOf = (e: KeyboardEvent) => e.code?.startsWith('Key') ? e.code.slice(3).toLowerCase() : e.key.toLowerCase();
 window.addEventListener('keydown', e => {
   if (forControl(e)) return;
-  keys[e.key.toLowerCase()] = true;
+  keys[keyOf(e)] = true;
   if (e.key.startsWith('Arrow')) e.preventDefault();
 });
-window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+window.addEventListener('keyup', e => { keys[keyOf(e)] = false; });
 
 /** The Buy button (on a touch screen) held down. */
 let buyButton = false;
 export const holdBuyButton = (on: boolean) => { buyButton = on; };
+
+// A key let go in another window never comes back as a keyup here: switching away lets go of everything, so the
+// player doesn't walk on, or keep paying into a tile, by themselves.
+function letGo() {
+  for (const k in keys) keys[k] = false;
+  buyButton = false;
+  if (joy.id !== null) endJoy({ pointerId: joy.id } as PointerEvent);
+}
+window.addEventListener('blur', letGo);
+document.addEventListener('visibilitychange', () => { if (document.hidden) letGo(); });
 /** Buying: E held, or the Buy button. */
 export const buyHeld = () => !!keys['e'] || buyButton;
 

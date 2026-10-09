@@ -1,22 +1,24 @@
 // Counters and the customers who queue at them. Stage 1 has the walk-up fish counter and the sled window, where
 // snowmobiles buy fish in bulk; both close at the stage-up. Stage 2 has the takeout kiosk by the restaurant,
-// where snowmobiles buy boxes of sushi.
-import { BoxGeometry, Group, Mesh, Sprite, SpriteMaterial, Vector3 } from 'three';
+// where snowmobiles buy boxes of sushi. Each road has a lane each way: customers keep to the one by their counter,
+// and now and then someone comes the other way up the far lane and drives on by.
+import { BoxGeometry, Group, Mesh, Object3D, Sprite, SpriteMaterial, Vector3 } from 'three';
 import { drawBubble, moodMat, newMoodSprite, patienceStep, type OrderIcon } from './bubble';
-import { animPerson, makeSled, moveEnt, PARKAS, Person } from './characters';
+import { animPerson, makeSled, moveEnt, PARKAS, Person, type Walker } from './characters';
 import { decal, drawPad } from './decals';
 import { boost, FISH_PRICE, mods, priced, SUSHI_PRICE, type ModId } from './economy';
 import { KIOSK } from './hall';
 import { carrySlot, Holder, type Slot } from './holder';
 import { addBillValue, newBill } from './items';
-import { player } from './player';
+import { groundY } from './layout';
+import { boop as hop, player } from './player';
 import { addReview, demand, starsFor } from './rating';
-import { honk, review, till } from './sfx';
+import { boop, honk, review, till } from './sfx';
 import { canvasTex, mesh, scene, type CanvasTex } from './render';
 import { popStars, popText } from './ui';
-import { FY, pick, rand, randi, V, type XZ } from './util';
+import { FY, money, pick, rand, randi, V, type XZ } from './util';
 import { crowd } from './wardrobe';
-import { gapLogs, ROAD1_X, ROAD2_X } from './world';
+import { gapLogs, ROAD1_X, ROAD2_X, ROAD_HALF } from './world';
 
 export interface Customer {
   g: Group;
@@ -44,6 +46,8 @@ export interface Customer {
   /** A driver's seconds held up by the player in the road ahead, and whether it's stopped this frame (for anyone behind). */
   held: number;
   stopped: boolean;
+  /** A driver out of their seat to boop the player off the road. */
+  out: Out | null;
 }
 
 interface CounterSpec {
@@ -70,11 +74,15 @@ interface CounterSpec {
   slot: Slot;
   spawn: () => Vector3;
   exit: () => Vector3[];
+  /** Drivers on the far lane, who come the other way and don't stop: from, and to. */
+  oncoming?: [from: Vector3, to: Vector3];
 }
 
 export interface Counter extends CounterSpec {
   queue: Customer[];
   spawnT: number;
+  /** Seconds till the next driver on the far lane. */
+  passT: number;
   serveT: number;
   /** The counter itself, and its drop-off marking. */
   meshes: Mesh[];
@@ -84,7 +92,7 @@ export interface Counter extends CounterSpec {
 
 function makeCounter(o: CounterSpec, stockCap: number): Counter {
   return {
-    ...o, queue: [], spawnT: 1, serveT: 0, meshes: [],
+    ...o, queue: [], spawnT: 1, passT: 5, serveT: 0, meshes: [],
     stock: new Holder(o.stockSlot, stockCap),
     cash: new Holder(i => {
       const j = i % 6;
@@ -123,7 +131,13 @@ place(C1,
   dropPad(C1.dropPos!, '🐟'),
 );
 
-/** The sled window in the east fence (the 'sled' unlock): snowmobiles on the road buy fish in bulk. */
+/** The middle of a road's west lane (-1), by the counters, or its east lane (1). */
+const lane = (roadX: number, side: -1 | 1) => roadX + side * ROAD_HALF / 2;
+
+/**
+ * The sled window in the east fence (the 'sled' unlock): snowmobiles on the road buy fish in bulk. They come up the
+ * road from the south, and the far lane's traffic goes down it.
+ */
 const WIN1 = { x: 7.95, z: -1 };
 export const SLED = makeCounter({
   price: FISH_PRICE.sled, maxQ: 3, spawnEvery: 7, patience: 55, want: [4, 8], enabled: false, isSled: true, icon: 'fish',
@@ -133,9 +147,10 @@ export const SLED = makeCounter({
     const j = i % 6;
     return V(WIN1.x + ((j % 2) - 0.5) * 0.4, FY + 0.94 + Math.floor(i / 6) * 0.085, WIN1.z + (Math.floor(j / 2) - 1) * 0.42);
   },
-  slot: i => V(ROAD1_X, 0, -0.6 + i * 2.5),
-  spawn: () => V(ROAD1_X, 0, 32),
-  exit: () => [V(ROAD1_X, 0, -40)],
+  slot: i => V(lane(ROAD1_X, -1), 0, -0.6 + i * 2.5),
+  spawn: () => V(lane(ROAD1_X, -1), 0, 32),
+  exit: () => [V(lane(ROAD1_X, -1), 0, -40)],
+  oncoming: [V(lane(ROAD1_X, 1), 0, -40), V(lane(ROAD1_X, 1), 0, 32)],
 }, 48);
 place(SLED,
   mesh(new BoxGeometry(0.9, 0.9, 2.2), 0xE8F1F6, WIN1.x, FY + 0.45, WIN1.z, true),
@@ -145,7 +160,8 @@ place(SLED,
 
 /**
  * Stage 2's takeout kiosk, out by the road east of the restaurant; its cash lands just inside the east wall.
- * Snowmobiles come down the road from the north and queue back up it, clear of the crossing to her house.
+ * Snowmobiles come down the road from the north and queue back up it, clear of the crossing to her house; the far
+ * lane's traffic comes up it.
  */
 export const TAKEOUT = makeCounter({
   price: SUSHI_PRICE.box, maxQ: 3, spawnEvery: 7, patience: 55, want: [3, 6], enabled: false, isSled: true, icon: 'box',
@@ -155,13 +171,14 @@ export const TAKEOUT = makeCounter({
     const j = i % 6;
     return V(KIOSK.x + ((j % 2) - 0.5) * 0.4, FY + 0.94 + Math.floor(i / 6) * 0.105, KIOSK.z + (Math.floor(j / 2) - 1) * 0.42);
   },
-  slot: i => V(ROAD2_X, 0, KIOSK.z - 0.4 - i * 2.5),
-  spawn: () => V(ROAD2_X, 0, -48),
-  exit: () => [V(ROAD2_X, 0, 48)],
+  slot: i => V(lane(ROAD2_X, -1), 0, KIOSK.z - 0.4 - i * 2.5),
+  spawn: () => V(lane(ROAD2_X, -1), 0, -48),
+  exit: () => [V(lane(ROAD2_X, -1), 0, 48)],
+  oncoming: [V(lane(ROAD2_X, 1), 0, 48), V(lane(ROAD2_X, 1), 0, -48)],
 }, 24);
 place(TAKEOUT,
-  mesh(new BoxGeometry(0.8, 0.9, 3.6), 0xE8F1F6, KIOSK.x, FY + 0.45, KIOSK.z, true),
-  mesh(new BoxGeometry(0.9, 0.08, 3.7), 0xF2B33D, KIOSK.x, FY + 0.9, KIOSK.z, true),
+  mesh(new BoxGeometry(0.8, 0.9, KIOSK.len), 0xE8F1F6, KIOSK.x, FY + 0.45, KIOSK.z, true),
+  mesh(new BoxGeometry(0.9, 0.08, KIOSK.len + 0.1), 0xF2B33D, KIOSK.x, FY + 0.9, KIOSK.z, true),
 );
 
 export const COUNTERS = [C1, SLED, TAKEOUT];
@@ -189,13 +206,14 @@ export function openSled() {
 export const openTakeout = () => open(TAKEOUT);
 
 // ---------- customers ----------
-const leaving: Customer[] = [];
+/** Customers on their way home, and drivers going by. */
+export const leaving: Customer[] = [];
 
-function spawnCustomer(C: Counter) {
+/** A customer for `C` at `at`, wanting `want` (none, for a driver going by). */
+function newCustomer(C: Counter, at: Vector3, want: number) {
   const isSled = C.isSled;
   const g = isSled ? makeSled(pick(PARKAS), pick(PARKAS), crowd()) : new Person(pick(PARKAS), 'parka', crowd());
-  g.position.copy(C.spawn()); scene.add(g);
-  const want = randi(C.want[0], C.want[1]);
+  g.position.copy(at); scene.add(g);
   const bt = canvasTex(128, 128, (c, w, h) => drawBubble(c, w, h, want, 1, C.icon));
   const sp = new Sprite(new SpriteMaterial({ map: bt.tex, depthTest: false }));
   sp.scale.set(0.8, 0.8, 1); sp.position.set(0, isSled ? 2.0 : 1.75, 0); sp.renderOrder = 5; sp.visible = false;
@@ -205,12 +223,26 @@ function spawnCustomer(C: Counter) {
   const c: Customer = {
     g, want, got: 0, h: isSled ? C.faceH : -Math.PI / 2, speed: isSled ? 5 : 2.4, isSled,
     moving: false, arrived: false, queued: false, wait: 0, payT: 0, bubble: sp, bt, drawn: -1, mood, path: [], held: 0, stopped: false,
+    out: null,
     hands: new Holder(isSled
       // on the seat behind the driver, whichever way the sled is facing
       ? i => { const p = g.position, j = i % 2; return V(p.x + (j - 0.5) * 0.36, 0.66 + Math.floor(i / 2) * 0.105, p.z - Math.cos(c.h) * 0.52); }
       : i => carrySlot(c, i), 12),
   };
-  C.queue.push(c);
+  return c;
+}
+
+function spawnCustomer(C: Counter) {
+  C.queue.push(newCustomer(C, C.spawn(), randi(C.want[0], C.want[1])));
+}
+
+/** Now and then, a driver on the far lane going the other way: they drive on by without stopping at the counter. */
+function passBy(C: Counter, dt: number) {
+  if (!C.oncoming || (C.passT -= dt) > 0) return;
+  C.passT = rand(6, 16);
+  const [from, to] = C.oncoming, c = newCustomer(C, from, 0);
+  c.h = Math.atan2(to.x - from.x, to.z - from.z);
+  c.path = [to.clone()]; leaving.push(c);
 }
 
 /** Redraws the order bubble when the count or the patience ring has changed. */
@@ -235,7 +267,7 @@ function pay(C: Counter, c: Customer) {
       if (top) addBillValue(top, v); else C.cash.receive(b, 0.35, 1.0);
     }
   });
-  if (values.length) { popText('+$' + values.reduce((a, v) => a + v, 0), C.cashPos); till(C.cashPos); }
+  if (values.length) { popText('+' + money(values.reduce((a, v) => a + v, 0)), C.cashPos); till(C.cashPos); }
 }
 
 function depart(C: Counter, c: Customer, stars?: number) {
@@ -245,8 +277,11 @@ function depart(C: Counter, c: Customer, stars?: number) {
 }
 
 // ---------- on the road ----------
-/** A driver sees this far up the road, and the road's this wide either side of a driver. */
-const AHEAD = 4.2, LANE = 1.3;
+/**
+ * A driver sees this far up the road, and stops for anything this far either side of them: half a sled and half a
+ * person, so someone on the centre line stops both lanes, and drivers in the other lane go by.
+ */
+const AHEAD = 4.2, LANE = 0.85;
 /** Whether `o` is in the road ahead of `c`, driving towards `tgt`, within `reach`. */
 function ahead(c: Customer, tgt: XZ, o: XZ, reach: number) {
   const p = c.g.position, dx = tgt.x - p.x, dz = tgt.z - p.z, d = Math.hypot(dx, dz);
@@ -259,9 +294,11 @@ const drivers = () => leaving.concat(...COUNTERS.map(C => C.queue)).filter(c => 
 /**
  * Moves a customer towards `tgt`; returns true once there. Drivers stop for the player in the road ahead (on the
  * zebra crossing to her house, or anywhere else), and behind a driver who's stopped. Kept waiting by the player, a
- * driver beeps, then leans on the horn with an angry face, again and again, until the road's clear.
+ * driver beeps, then leans on the horn with an angry face, again and again, until the road's clear. If that doesn't
+ * work, they get out and boop the player back onto the pavement.
  */
 function drive(c: Customer, tgt: XZ, dt: number) {
+  if (c.out) { getOut(c, c.out, dt); c.stopped = true; c.moving = false; return false; }
   const going = c.isSled && Math.hypot(tgt.x - c.g.position.x, tgt.z - c.g.position.z) > 0.06;
   const byPlayer = going && ahead(c, tgt, player.g.position, AHEAD);
   c.stopped = byPlayer || (going && drivers().some(o => o !== c && o.stopped && ahead(c, tgt, o.g.position, 2.8)));
@@ -277,9 +314,107 @@ function drive(c: Customer, tgt: XZ, dt: number) {
     if (blasts(c.held) > blasts(was)) honk(c.g.position, true);
     c.mood.visible = c.held > 1.2;
     if (c.mood.visible) c.mood.material = moodMat(c.held > 2.5 ? 'angry' : 'meh');
+    if (c.held >= BOOP_AT && !booping) c.out = outOfSeat(c);
   }
   if (c.stopped) { c.moving = false; return false; }
   return moveEnt(c, tgt, dt);
+}
+
+// ---------- getting out ----------
+/** Kept waiting this long by the player in the road, a driver gets out to boop them off it. One at a time. */
+const BOOP_AT = 8;
+let booping: Customer | null = null;
+interface Out {
+  /** The driver, and where they are in the world (walked like anyone else). */
+  d: Person;
+  w: Walker;
+  step: 'out' | 'walk' | 'shove' | 'back' | 'in';
+  t: number;
+  /** The spot beside the sled they got out at, and the middle of the road. */
+  door: Vector3;
+  roadX: number;
+}
+
+/** The world spot `x` across and `z` along from the middle of a sled. */
+function onSled(c: Customer, x: number, z: number) {
+  const p = c.g.position, cs = Math.cos(c.h), sn = Math.sin(c.h);
+  return V(p.x + x * cs + z * sn, 0, p.z - x * sn + z * cs);
+}
+const SEAT_Y = 0.28, SEAT_Z = 0.1;
+
+function outOfSeat(c: Customer): Out {
+  booping = c;
+  const d = c.g.children.find((o): o is Person => o instanceof Person)!;
+  // out on the side the player's on
+  const p = c.g.position, q = player.g.position;
+  const side = (q.x - p.x) * Math.cos(c.h) - (q.z - p.z) * Math.sin(c.h) < 0 ? -1 : 1;
+  const w: Walker = { g: new Object3D(), h: c.h, speed: 3, moving: false };
+  w.g.position.copy(onSled(c, 0, SEAT_Z));
+  const roadX = Math.abs(p.x - ROAD1_X) < Math.abs(p.x - ROAD2_X) ? ROAD1_X : ROAD2_X;
+  return { d, w, step: 'out', t: 0, door: onSled(c, side * 0.85, SEAT_Z), roadX };
+}
+
+/** Puts the driver where their walker is, on the ground (or at `y` on the sled), with their angry face over them. */
+function standAt(c: Customer, o: Out, y = groundY(o.w.g.position) - c.g.position.y) {
+  const p = c.g.position, at = o.w.g.position, dx = at.x - p.x, dz = at.z - p.z, cs = Math.cos(c.h), sn = Math.sin(c.h);
+  o.d.position.set(dx * cs - dz * sn, y, dx * sn + dz * cs);
+  o.d.rotation.y = o.w.h - c.h;
+  c.mood.position.set(o.d.position.x, o.d.position.y + 1.55 * o.d.style.height, o.d.position.z);
+  c.mood.visible = true; c.mood.material = moodMat('angry');
+}
+
+/** A hop between the seat and the spot beside the sled, `k` 0 to 1 of the way out. */
+function hopOut(c: Customer, o: Out, k: number) {
+  o.w.g.position.lerpVectors(onSled(c, 0, SEAT_Z), o.door, k);
+  o.d.scale.setScalar((0.85 + 0.15 * k) * o.d.style.height);
+  const ground = groundY(o.door) - c.g.position.y;
+  standAt(c, o, SEAT_Y + (ground - SEAT_Y) * k + Math.sin(Math.PI * k) * 0.25);
+}
+
+/**
+ * Out of the sled, over to the player, a shove that hops them back onto the pavement on their side of the road,
+ * back to the sled and in again. If the player gets off the road on their own first, the driver goes back.
+ */
+function getOut(c: Customer, o: Out, dt: number) {
+  const q = player.g.position;
+  o.t += dt;
+  if (o.step === 'out') {
+    hopOut(c, o, Math.min(1, o.t / 0.3));
+    if (o.t >= 0.3) { o.step = 'walk'; o.t = 0; }
+  } else if (o.step === 'walk') {
+    if (Math.abs(q.x - o.roadX) > ROAD_HALF + 0.2 || player.booped) { o.step = 'back'; return; }
+    const at = o.w.g.position, d = Math.max(0.01, Math.hypot(q.x - at.x, q.z - at.z));
+    const near = moveEnt(o.w, { x: q.x + (at.x - q.x) / d * 0.55, z: q.z + (at.z - q.z) / d * 0.55 }, dt);
+    animPerson(o.d, o.w.moving, dt, false);
+    standAt(c, o);
+    if (near) { o.step = 'shove'; o.t = 0; o.w.h = Math.atan2(q.x - at.x, q.z - at.z); standAt(c, o); }
+  } else if (o.step === 'shove') {
+    // arms back, then out
+    const k = o.t / 0.2;
+    o.d.arms.forEach(a => { a.rotation.x = k < 1 ? 0.5 * k : -1.6; });
+    if (k >= 1 && o.t - dt < 0.2) {
+      const side = Math.sign(q.x - o.roadX) || Math.sign(q.x - o.w.g.position.x) || -1;
+      player.h = Math.atan2(o.w.g.position.x - q.x, o.w.g.position.z - q.z);
+      hop({ x: o.roadX + side * (ROAD_HALF + 0.5), z: q.z });
+      boop(q);
+      popText('Boop!', q);
+    }
+    if (o.t >= 0.55) { o.step = 'back'; o.t = 0; }
+  } else if (o.step === 'back') {
+    const there = moveEnt(o.w, o.door, dt);
+    animPerson(o.d, o.w.moving, dt, false);
+    standAt(c, o);
+    if (there) { o.step = 'in'; o.t = 0; }
+  } else {
+    hopOut(c, o, Math.max(0, 1 - o.t / 0.3));
+    if (o.t >= 0.3) {
+      o.d.position.set(0, SEAT_Y, SEAT_Z); o.d.rotation.y = 0;
+      o.d.legs.forEach(l => { l.rotation.x = 0; });
+      o.d.arms.forEach(a => { a.rotation.x = -1.1; });
+      c.mood.position.set(0, 1.75, 0); c.mood.visible = false;
+      c.out = null; c.held = 0; booping = null;
+    }
+  }
 }
 
 /** The heading from one spot to another: queuers face the one ahead of them. */
@@ -293,6 +428,7 @@ export function updCounter(C: Counter, dt: number) {
     C.spawnT = C.spawnEvery * rand(.7, 1.3) / demand() / boost(C.crowd);
     spawnCustomer(C);
   }
+  passBy(C, dt);
   C.queue.forEach((c, i) => {
     c.arrived = drive(c, C.slot(i), dt);
     if (c.arrived) { c.h = i === 0 || C.isSled ? C.faceH : facing(C.slot(i), C.slot(i - 1)); c.queued = true; }
