@@ -177,6 +177,12 @@ export function honk(at: XZ, cross = false) {
   else { beep(0, 0.07); beep(0.16, 0.07); }
 }
 
+/** A driver booping you off the road: a soft, rubbery boop that drops an octave, over a little thump. */
+export function boop(at: XZ) {
+  tone({ at, f: deg(4, 1), f2: deg(4), a: 0.012, d: 0.16, v: 0.16 });
+  tone({ at, f: 160, f2: 110, type: 'triangle', a: 0.01, d: 0.1, v: 0.1 });
+}
+
 /** A button pressed. */
 export function click() {
   tone({ f: 1400, f2: 900, d: 0.025, v: 0.04 });

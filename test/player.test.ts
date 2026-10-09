@@ -122,6 +122,27 @@ describe('stations', () => {
     expect(p.z).toBeCloseTo(15.1); // the front wall
   });
 
+  it('walks into the takeout kiosk\'s booth once it\'s built, up to the counter, but not out of it', async () => {
+    const { HALL_BOX, KIOSK_BOOTH } = await import('../src/layout');
+    const shut = await loadGame({ tiles: bought('sushi') });
+    const q = shut.player.g.position;
+    shut.placePlayer(9.0, 3.2);
+    shut.press('d');
+    shut.run(1);
+    expect(q.x).toBeCloseTo(HALL_BOX.x1 - 0.4); // no booth yet: the east wall
+    const g = await loadGame({ tiles: bought('sushi', 'kiosk') });
+    const p = g.player.g.position;
+    g.placePlayer(9.0, 3.2);
+    g.press('d');
+    g.run(2);
+    expect(p.x).toBeCloseTo(11.5); // the back of the counter
+    expect(p.y).toBeCloseTo(0.15, 2); // level with the restaurant's floor
+    g.press('d', 'keyup');
+    const at = (x: number, z: number) => { g.placePlayer(x, z); g.run(0.02); return [p.x, p.z]; };
+    expect(at(11, 1.0)[1]).toBeCloseTo(KIOSK_BOOTH.z0 + 0.45); // its north wall, in line with the restaurant's
+    expect(at(11, 4.9)[1]).toBeCloseTo(KIOSK_BOOTH.z1 - 0.45); // and its south wall
+  });
+
   it('steps up the terraces, and over the bridge through the farm door', async () => {
     const g = await loadGame({ tiles: bought('sushi') });
     const p = g.player.g.position;

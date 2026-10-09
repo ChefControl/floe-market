@@ -43,8 +43,17 @@ export const YARD = area(19.2, 23.7, HOUSE_PATH_Z - 2.3, HOUSE_PATH_Z + 2.3);
 /** The door in the restaurant's east wall that the path leaves by in stage 2. */
 export const EAST_DOOR = { z0: HOUSE_PATH_Z - 0.6, z1: HOUSE_PATH_Z + 0.6 };
 
+/**
+ * The takeout kiosk's booth (hall.ts): a room off the restaurant's east wall at its north end, in line with its north
+ * wall and as far south as its first post, with the counter along its far side. It's there once the kiosk is built.
+ */
+export const KIOSK_BOOTH = { x0: HALL_BOX.x1, x1: 12.8, z0: HALL_BOX.z0, z1: 5.0 };
+export const kioskBooth = { open: false };
+
 const DOCK2 = area(-7.4, 7.4, -6.25, 1.9);
 const HALL = area(HALL_BOX.x0 + 0.4, HALL_BOX.x1 - 0.4, 1.8, HALL_BOX.z1 - 0.4);
+/** Inside the booth, up to the back of the counter. */
+const BOOTH = area(HALL.x1 - 0.2, 11.5, KIOSK_BOOTH.z0 + 0.45, KIOSK_BOOTH.z1 - 0.45);
 const GATEWAY = area(-GATE_W + 0.4, GATE_W - 0.4, 14.8, 16.6);
 const GARDEN = area(-8.6, 8.6, 16.2, 22.6, 0.02);
 const BRIDGE = area(PATH_X.x0, HALL.x0 + 0.2, FARM_DOOR.z0 + 0.3, FARM_DOOR.z1 - 0.3);
@@ -60,7 +69,8 @@ const housePath = () => area(stage.n === 1 ? 7.3 : HALL.x1 - 0.2, YARD.x0 + 0.3,
 /** Where the player can walk in the current stage. Earlier areas win where they overlap. */
 export const walkable = (): Area[] =>
   stage.n === 1 ? [DECK, housePath(), YARD]
-  : [DOCK2, HALL, GATEWAY, GARDEN, BRIDGE, PATH, ...FIELDS, ...(shedYard.open ? [SHED_YARD] : []), housePath(), YARD];
+  : [DOCK2, HALL, GATEWAY, GARDEN, BRIDGE, PATH, ...FIELDS, ...(shedYard.open ? [SHED_YARD] : []),
+    ...(kioskBooth.open ? [BOOTH] : []), housePath(), YARD];
 
 const inside = (a: Area, p: XZ) => p.x >= a.x0 && p.x <= a.x1 && p.z >= a.z0 && p.z <= a.z1;
 
@@ -70,7 +80,7 @@ export function groundY(p: XZ) {
   if (stage.n === 1) return inside(DECK, p) || house ? FY : 0;
   for (const a of FIELDS) if (inside(a, p)) return a.y;
   if (shedYard.open && inside(SHED_YARD, p)) return SHED_YARD.y;
-  if (inHall(p) || inside(DOCK2, p) || inside(BRIDGE, p) || house) return FY;
+  if (inHall(p) || inside(DOCK2, p) || inside(BRIDGE, p) || house || (kioskBooth.open && inside(BOOTH, p))) return FY;
   return inside(PATH, p) ? PATH.y : 0;
 }
 
