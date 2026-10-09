@@ -149,10 +149,17 @@ body{
 #shop .mod:focus-visible{ outline:3px solid var(--coral); outline-offset:1px; }
 
 #banner{ position:fixed; inset:0; z-index:6; display:grid; place-items:center; pointer-events:none; }
-#banner .card{ text-align:center; color:#fff; text-shadow:0 4px 0 rgba(20,30,40,.45); transform:scale(.6); opacity:0; transition:transform .45s cubic-bezier(.2,1.4,.4,1), opacity .3s; }
+/* a dark outline round every letter (shadows on all sides), so it reads over snow and white decks alike */
+#banner .card{ text-align:center; color:#fff; transform:scale(.6); opacity:0; transition:transform .45s cubic-bezier(.2,1.4,.4,1), opacity .3s; }
+#banner .card > *{
+  --o:2px; --ink:#173042;
+  text-shadow:var(--o) 0 0 var(--ink), calc(-1 * var(--o)) 0 0 var(--ink), 0 var(--o) 0 var(--ink), 0 calc(-1 * var(--o)) 0 var(--ink),
+    var(--o) var(--o) 0 var(--ink), calc(-1 * var(--o)) var(--o) 0 var(--ink), var(--o) calc(-1 * var(--o)) 0 var(--ink),
+    calc(-1 * var(--o)) calc(-1 * var(--o)) 0 var(--ink), 0 calc(var(--o) + 4px) 0 rgba(20,30,40,.45);
+}
 #banner.on .card{ transform:scale(1); opacity:1; }
-#banner .k{ font-size:clamp(14px,3.6vw,20px); font-weight:800; letter-spacing:.3em; text-transform:uppercase; opacity:.92; }
-#banner .t{ font-size:clamp(46px,13vw,96px); font-weight:800; line-height:.95; color:#FFC34A; }
+#banner .k{ font-size:clamp(14px,3.6vw,20px); font-weight:800; letter-spacing:.3em; text-transform:uppercase; }
+#banner .card > .t{ --o:3px; font-size:clamp(46px,13vw,96px); font-weight:800; line-height:.95; color:#FFC34A; }
 #banner .s{ margin:12px auto 0; max-width:min(86vw,520px); font-size:clamp(18px,5vw,26px); font-weight:700; line-height:1.2; }
 #banner .s[hidden]{ display:none; }
 #confetti{ position:fixed; inset:0; width:100%; height:100%; z-index:6; pointer-events:none; }
