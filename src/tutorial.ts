@@ -9,10 +9,10 @@
 // (everything up to the Upgrade square) brings up a banner saying the tutorial's complete, and that the rest is up to
 // the player; the rating, which only comes up after a few more upgrades, is a tip for later, outside the tutorial proper.
 import { Group, Mesh, MeshBasicMaterial, RingGeometry } from 'three';
+import { touchBuy } from './buy';
 import { C1 } from './counters';
 import { modCost, MODS, mods } from './economy';
 import { steaksInProgress } from './fishing';
-import { isTouch } from './hint';
 import { stage } from './layout';
 import { player } from './player';
 import { onScreen } from './pointers';
@@ -89,14 +89,17 @@ const STEPS: Step[] = [
   {
     id: 'buy', after: 'cash', stay: true,
     at: () => { const t = affordable(); return t ? { x: t.x, y: t.y ?? FY, z: t.z, r: t.half } : null; },
-    say: () => [`Buy ${affordable()?.name ?? 'an upgrade'} here`, isTouch() ? 'Stand on it and hold Buy' : 'Stand on it and hold E'],
+    say: () => [`Buy ${affordable()?.name ?? 'an upgrade'} here`, touchBuy() ? 'Stand on it and hold Buy' : 'Stand on it and hold E'],
     done: () => tiles.some(t => t.paid > 0), known: played,
   },
   {
-    id: 'shop', after: 'buy',
+    // learnt by buying a level there, not just by looking: on the square, the bubble says how
+    id: 'shop', after: 'buy', stay: true,
     at: () => (MODS.some(m => m.stage === 1 && (modCost(m.id) ?? Infinity) <= wallet.money) ? at(SHOPS[0], 0.95) : null),
-    say: () => ['Upgrade square', 'Better fish, more customers, a faster crew'],
-    done: () => atSquare(), known: () => stage.n > 1 || MODS.some(m => mods[m.id] > 0),
+    say: () => atSquare()
+      ? ['Pick an upgrade', touchBuy() ? 'Tap one in the list to buy it' : 'Click one in the list to buy it']
+      : ['Upgrade square', 'Better fish, more customers, a faster crew'],
+    done: () => MODS.some(m => mods[m.id] > 0), known: () => stage.n > 1 || MODS.some(m => mods[m.id] > 0),
   },
   {
     id: 'stars', after: 'buy', read: READ, later: true,

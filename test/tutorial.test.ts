@@ -82,7 +82,15 @@ describe('the tutorial', () => {
     g.wallet.money = 40;
     g.run(0.1);
     expect(now()).toBe('shop');
+    draw();
+    expect(said()).toBe('Upgrade square / Better fish, more customers, a faster crew');
     g.placePlayer(g.shop.SHOPS[0].x, g.shop.SHOPS[0].z);
+    g.run(0.1);
+    expect(now()).toBe('shop'); // standing there isn't enough: it's learnt by buying a level
+    draw();
+    expect(tut.guide.visible).toBe(true);
+    expect(said()).toBe('Pick an upgrade / Click one in the list to buy it');
+    $('shopRows').querySelector<HTMLButtonElement>('[data-mod="fillets"]')!.click();
     g.run(0.1);
     expect(now()).toBe(null);
     expect(tut.learntLessons()).toContain('shop');
@@ -110,11 +118,19 @@ describe('the tutorial', () => {
   });
 
   it('says the tutorial is complete once the basics are learnt, and leaves the rest to the player', async () => {
-    const { g, tut, now } = await setup({ tiles: bought('pack'), money: 100 });
+    const { g, tut, now, draw, said } = await setup({ tiles: bought('pack'), money: 100 });
     g.run(0.1);
     expect(now()).toBe('shop');
-    expect($('banner').classList.contains('on')).toBe(false);
     g.placePlayer(g.shop.SHOPS[0].x, g.shop.SHOPS[0].z);
+    g.run(0.1);
+    expect($('banner').classList.contains('on')).toBe(false); // not for just visiting
+    // on a touch screen (here, a laptop's first touch), it says tap, as the Buy button comes up
+    const touch = new MouseEvent('pointerdown');
+    Object.defineProperty(touch, 'pointerType', { value: 'touch' });
+    window.dispatchEvent(touch);
+    draw();
+    expect(said()).toBe('Pick an upgrade / Tap one in the list to buy it');
+    g.shop.buyMod('marketing');
     g.run(0.1);
     expect(tut.learntLessons()).toEqual(['fish', 'pick', 'sell', 'cash', 'buy', 'shop']); // the rating's a tip for later
     expect($('banner').classList.contains('on')).toBe(true);
