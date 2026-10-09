@@ -71,11 +71,11 @@ describe('her house', () => {
     const { g, rain, toPad } = await house();
     const bg = () => g.render.scene.background as Color;
     const sky = bg().clone();
-    const tears = g.player.g.children.filter(c => !c.visible && c.scale.y === 1.6);
+    const tears = g.player.g.body.children.filter(c => !c.visible && c.scale.y === 1.6);
     /** Colour of the shirt or parka the player is wearing. */
     const top = () => {
       const own = g.player.g.worn().find(w => w.geo === g.render.G.body);
-      const jacket = g.player.g.children.find(c => c.visible && c instanceof Mesh && c.geometry === g.render.G.body) as Mesh | undefined;
+      const jacket = g.player.g.body.children.find(c => c.visible && c instanceof Mesh && c.geometry === g.render.G.body) as Mesh | undefined;
       expect(!own !== !jacket).toBe(true); // one or the other, never both
       return own ? own.c : (jacket!.material as MeshLambertMaterial).color.getHex();
     };
@@ -113,7 +113,7 @@ describe('her house', () => {
     expect($('rain').hidden).toBe(true);
     expect(tears.some(t => t.visible)).toBe(false);
     expect(top()).toBe(0xFF6B4A);
-    expect(g.player.g.arms[0].rotation.z).toBe(0);
+    expect(g.player.g.arms[0].rotation.z).toBe(-g.player.g.arms[1].rotation.z); // hanging again, like the other
     expect(rain.rainK).toBeGreaterThan(0.5);
     g.run(3);
     expect(rain.rainK).toBe(0);
@@ -312,8 +312,10 @@ describe('the crossing', () => {
     expect(c.mood.visible).toBe(true);
     g.run(1.5);
     expect(c.mood.material).toBe(moodMat('angry'));
-    // one behind waits behind it
+    // one behind waits behind it (sent along now, before the first loses patience and gets out)
+    SLED.spawnT = 0;
     g.runUntil(() => SLED.queue[1]?.stopped === true, 20);
+    expect(c.out).toBeFalsy();
     expect(SLED.queue[1].g.position.z - c.g.position.z).toBeGreaterThan(2);
     expect(SLED.queue[1].held).toBe(0); // it's the one in front that's held up by the player
     // off the road: on they go, the face gone

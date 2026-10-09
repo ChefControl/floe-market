@@ -1,6 +1,8 @@
 import './errors'; // must stay first: catches errors thrown while the other modules build the scene
 import { initCloud } from './cloud';
+import { CLOSE, CLOSE_AIM, closeUp } from './customize';
 import { tick } from './game';
+import { frameDrawn } from './graphics';
 import { initHint, updHint } from './hint';
 import { inputVec } from './input';
 import { updKofi } from './kofi';
@@ -41,20 +43,22 @@ restartBtn.addEventListener('click', () => {
 });
 
 // ---------- loop ----------
-const camTarget = player.g.position.clone(), look = camTarget.clone();
+const camTarget = player.g.position.clone(), look = camTarget.clone(), camOff = OFF.clone();
 let last = performance.now();
 
 function frame(now: number) {
+  frameDrawn((now - last) / 1000);
   const dt = Math.min(0.05, (now - last) / 1000);
   last = now;
   if (!isStale()) { tick(dt); updKofi(dt); }
 
-  // Follow the player; the stage-up pulls back to look over the whole map for a moment.
+  // Follow the player; the stage-up pulls back to look over the whole map for a moment, and picking a look comes in close.
   camTarget.lerp(player.g.position, Math.min(1, dt * 6));
   look.copy(camTarget).lerp(view.focus, view.k);
-  const k = camK * view.zoom;
-  camera.position.set(look.x + OFF.x * k, look.y + OFF.y * k, look.z + OFF.z * k);
-  camera.lookAt(look.x, look.y + 0.4, look.z);
+  const k = camK * view.zoom, near = closeUp(dt);
+  camOff.copy(OFF).multiplyScalar(k).lerp(CLOSE, near);
+  camera.position.copy(look).add(camOff);
+  camera.lookAt(look.x, look.y + 0.4 + (CLOSE_AIM - 0.4) * near, look.z);
   fog.near = 34 * view.zoom; fog.far = 70 * view.zoom;
   sun.position.copy(look).add(sunOff);
   sun.target.position.copy(look);

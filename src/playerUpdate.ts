@@ -3,6 +3,7 @@ import { updBuy } from './buy';
 import { collideCasino } from './casino';
 import { animPerson } from './characters';
 import { COUNTERS } from './counters';
+import { updLook } from './customize';
 import { tryCatch } from './fishing';
 import { collideGarden } from './garden';
 import { fly, type Holder } from './holder';
@@ -163,6 +164,7 @@ export function updPlayer(dt: number) {
     payInto(t, dt, () => redrawTile(t), () => { applyUnlock(t.id); player.onTile = null; setTip(null); save(); });
   }
 
+  updLook(dt);
   player.g.rotation.y = player.h;
   animPerson(player.g, player.moving, dt, player.back.n > 0);
   footsteps();

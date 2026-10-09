@@ -185,7 +185,7 @@ const tears = [0, 1, 2, 3].map(i => {
   const t = new Mesh(tearGeo, tearMat);
   t.scale.y = 1.6;
   t.visible = false;
-  player.g.add(t);
+  player.g.body.add(t);
   return { m: t, side: i % 2 ? 1 : -1, ph: i < 2 ? 0 : 0.5 };
 });
 /** Seconds for a tear to run down a cheek. */
@@ -197,8 +197,7 @@ const dressAsSinger = singerLook(player.g);
 
 function updCrying(dt: number) {
   for (const t of tears) t.m.visible = crying;
-  const arm = player.g.arms[0]; // the one on the camera's side when facing her house
-  arm.rotation.z = 0;
+  const arm = player.g.arms[0]; // the one on the camera's side when facing her house (animPerson sets it each frame)
   if (!crying) return;
   cryT += dt;
   for (const t of tears) {

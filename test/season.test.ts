@@ -71,24 +71,33 @@ describe('seasons', () => {
   it('dresses people for the season: caps, short sleeves and sunglasses, woolly hats and scarves', async () => {
     const g = await loadGame();
     const s = await seasonMod();
-    const { Person } = await import('../src/characters');
+    const { Person, LIMBS } = await import('../src/characters');
+    const { G } = g.render;
     const p = new Person(0x5B8DEF);
     const diner = new Person(0x22303C, 'fancy');
     const chef = new Person(0xF4F6F8, 'chef');
     g.render.scene.add(p, diner, chef);
-    expect(worn(p)).toHaveLength(2); // the hood
+    /** How many pieces in `geo` they have on for the season. */
+    const on = (q: InstanceType<typeof Person>, geo: unknown) => worn(q).filter(w => w.geo === geo).length;
+    const hands = () => worn(p).filter(w => w.geo === LIMBS.hand);
+    // winter: the hood up, long sleeves, mittens in a knit and snow boots
+    expect([on(p, G.hood), on(p, LIMBS.sleeve), on(p, LIMBS.boot)]).toEqual([1, 2, 2]);
+    expect(hands().every(h => h.c !== p.style.skin)).toBe(true);
     expect(worn(diner)).toHaveLength(2); // a scarf, in winter
     s.setSeason(1);
-    expect(worn(p)).toHaveLength(3); // hair, a cap and its brim
+    // spring: hair and a cap, a jacket, bare hands, shoes
+    expect([on(p, G.hood), on(p, LIMBS.sleeve), on(p, LIMBS.boot), on(p, LIMBS.shin)]).toEqual([0, 2, 0, 0]);
+    expect(hands().every(h => h.c === p.style.skin)).toBe(true);
     expect(worn(diner)).toHaveLength(0);
     s.setSeason(2);
-    expect(worn(p)).toHaveLength(1 + 3 + 2 + 2); // hair, sunglasses, bare forearms and shins
+    // summer: short sleeves over bare arms, shorts, sunglasses
+    expect([on(p, LIMBS.sleeve), on(p, LIMBS.shortSleeve), on(p, LIMBS.bareArm), on(p, LIMBS.shin)]).toEqual([0, 2, 2, 2]);
     s.setSeason(3);
-    expect(worn(p)).toHaveLength(5); // a woolly hat, its cuff and bobble, and a scarf
+    expect([on(p, LIMBS.sleeve), on(p, LIMBS.shin)]).toEqual([2, 0]);
     expect(worn(diner)).toHaveLength(2);
     expect(worn(chef)).toHaveLength(0); // chefs wear whites all year
     // new people come dressed for the season
-    expect(worn(new Person(0xF2B33D))).toHaveLength(5);
+    expect(worn(new Person(0xF2B33D))).toHaveLength(worn(p).length);
   });
 
   it('takes the season off the player while they are the singer, and puts it back after', async () => {

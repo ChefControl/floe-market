@@ -1,7 +1,8 @@
 // The settings menu, behind the gear in the top corner: signing in for cloud saves (cloud.ts), the sound (audio.ts),
-// how to walk (hint.ts), and Restart (main.ts). The Sound row opens into the effects, the ambience and the music, each
+// the graphics (graphics.ts), how to walk (hint.ts), and Restart (main.ts). The Sound row opens into the effects, the ambience and the music, each
 // with a mute button and a 0 to 10 slider, big enough for a finger.
 import { every, prefs, setLevel, setMute, type Bus } from './audio';
+import { choose, gfx, onQuality, type Choice } from './graphics';
 import { showHint } from './hint';
 import { coin } from './sfx';
 
@@ -61,6 +62,18 @@ function soundRow(b: Bus, id: string) {
 soundRow('sfx', 'Sfx');
 soundRow('amb', 'Amb');
 soundRow('music', 'Music');
+
+// Graphics: Auto, Low or High. On Auto, which one the game is using shows under the row's name.
+const gfxButtons = [...$('gfx').querySelectorAll('button')], gfxNow = $('gfxNow');
+function showGfx() {
+  const on = gfx.picked ? gfx.quality : 'auto';
+  for (const b of gfxButtons) b.setAttribute('aria-pressed', String(b.dataset.q === on));
+  gfxNow.hidden = gfx.picked;
+  gfxNow.textContent = gfx.quality === 'high' ? 'High now' : 'Low now';
+}
+for (const b of gfxButtons) b.addEventListener('click', () => choose(b.dataset.q as Choice));
+onQuality(showGfx);
+showGfx();
 
 $('controls').addEventListener('click', () => {
   openSettings(false);
