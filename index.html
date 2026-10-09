@@ -326,6 +326,33 @@ body{
 @keyframes nudge{ 50%{ transform:scale(1.15); } }
 @media (prefers-reduced-motion: reduce){ .ptr span{ animation:none; } }
 
+/* The tutorial's bubble over the gold arrow, or at the edge of the screen pointing the way to it (tutorial.ts). */
+#coach{
+  position:fixed; left:0; top:0; z-index:4; pointer-events:none; transform-origin:50% 100%;
+  max-width:min(240px, calc(100vw - 32px)); box-sizing:border-box; padding:7px 14px 8px; border-radius:16px;
+  flex-direction:column; align-items:center; gap:1px; text-align:center; line-height:1.15;
+  box-shadow:0 3px 0 var(--shade), 0 0 0 3px #FFC34A;
+}
+#coach[hidden]{ display:none; }
+#coach b{ display:block; font-size:18px; font-weight:800; }
+#coach small{ display:block; font-size:14px; font-weight:600; opacity:.8; }
+#coach small[hidden]{ display:none; }
+/* over the arrow: a tail pointing down at it */
+#coach::after{
+  content:""; position:absolute; left:50%; top:100%; margin:3px 0 0 -9px;
+  border:9px solid transparent; border-top:11px solid #FFC34A; border-bottom:0;
+}
+#coach.edge{ transform-origin:50% 50%; }
+#coach.edge::after{ display:none; }
+/* at the edge: a gold tail sticking out of the bubble's rim, turned to point the way */
+#coach .dir{ display:none; position:absolute; left:50%; top:50%; width:0; height:0; }
+#coach.edge .dir{ display:block; }
+#coach .dir::after{ content:""; position:absolute; left:1px; top:-7px; border:7px solid transparent; border-left:20px solid #FFC34A; border-right:0; }
+/* the rating, while the tutorial talks about it */
+#stars.teach{ animation:teach 1.2s ease-in-out infinite; }
+@keyframes teach{ 50%{ box-shadow:0 3px 0 var(--shade), 0 0 0 5px rgba(255,195,74,.75); transform:scale(1.08); } }
+@media (prefers-reduced-motion: reduce){ #stars.teach{ animation:none; box-shadow:0 3px 0 var(--shade), 0 0 0 4px #FFC34A; } }
+
 /* How to walk: shown once, below the player, then off into the settings gear (hint.ts). */
 #hint{
   position:fixed; left:50%; bottom:calc(env(safe-area-inset-bottom,0px) + 16%); z-index:3; pointer-events:none;
@@ -551,6 +578,7 @@ body{
   <button type="button" id="scoresJoin" hidden>Sign in to join</button>
 </div></div>
 <div id="pointers" aria-hidden="true"></div>
+<div id="coach" class="pill" role="status" hidden><i class="dir" aria-hidden="true"></i><b></b><small></small></div>
 <div id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
 <canvas id="confetti" aria-hidden="true" hidden></canvas>
 <div id="banner" aria-live="polite"><div class="card"><div class="k"></div><div class="t"></div></div></div>

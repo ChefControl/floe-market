@@ -11,6 +11,7 @@ import { isStale, load, startAutosave, wipeSave } from './save';
 import { initScores } from './scores';
 import './settings';
 import { view } from './stage';
+import { drawTutorial } from './tutorial';
 import { hud, keepInSight } from './ui';
 
 // ---------- save / restart ----------
@@ -61,6 +62,7 @@ function frame(now: number) {
   keepInSight(dt);
   updHint(dt, !!inputVec());
   updPointers(dt);
+  drawTutorial(dt);
   hud(dt);
   renderer.render(scene, camera);
   if (loading) {

@@ -17,6 +17,7 @@ import { field, fieldStack, riceInField } from './rice';
 import { runnersLoad } from './runner';
 import { season, SEASON_LEN, SEASONS, setSeason } from './season';
 import { pile } from './stations';
+import { learn, learntLessons } from './tutorial';
 import { applyUnlock, redrawTile, tiles, updStars } from './unlocks';
 import { wallet } from './wallet';
 
@@ -66,6 +67,8 @@ export interface SaveData {
   /** Presents left at her door, and what's been paid toward the next one. */
   presents: number;
   presentPaid: number;
+  /** What the tutorial has shown this player (tutorial.ts), so it isn't shown again on another device. */
+  learnt: string[];
 }
 
 /** The one place that touches device storage. */
@@ -116,6 +119,7 @@ export function migrate(raw: unknown): SaveData {
     // saves from before the seasons start in winter, the way the game always looked
     season: num(s.season) % SEASONS.length, seasonT: Math.min(num(s.seasonT), SEASON_LEN - 1),
     presents: num(s.presents), presentPaid: Math.min(num(s.presentPaid), PRESENT.cost - 1),
+    learnt: (Array.isArray(s.learnt) ? s.learnt : []).map(String),
   };
   if (num(s.v) >= 4) {
     return {
@@ -210,6 +214,7 @@ export function save() {
     seasonT: Math.floor(season.t),
     presents: presents.n,
     presentPaid: PRESENT.paid,
+    learnt: learntLessons(),
   };
   const raw = JSON.stringify(data);
   if (deviceStore.write(raw)) lastSeen = raw;
@@ -249,6 +254,7 @@ export function load() {
   PRESENT.paid = s.presentPaid;
   redrawPresentTile();
   s.reviews.forEach(addReview);
+  learn(s.learnt);
   // In the game's order, so the stage-up is in place before stage 2's upgrades.
   for (const t of tiles) {
     const o = s.tiles.find(x => x.id === t.id);

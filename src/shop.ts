@@ -48,6 +48,8 @@ const pads = SQUARES.map(q => {
 const active = (q: Square) => q.stage === stage.n && !(stage.n === 2 && staging()) && (!q.shed || shedYard.open);
 /** The square whose panel is open, if any. */
 let on: Square | null = null;
+/** Whether this phone's player is on a square, with its panel open. */
+export const atSquare = () => on !== null;
 /** The upgrades sold on a square. */
 const sold = (q: Square) => MODS.filter(m => m.stage === q.stage && !!m.shed === q.shed);
 /** Whether an upgrade can be bought yet: fertilizer once the shed is open. */

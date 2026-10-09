@@ -24,6 +24,7 @@ import { updShop } from './shop';
 import { player } from './player';
 import { updPops } from './pop';
 import { staging, updStage } from './stage';
+import { updTutorial } from './tutorial';
 import { toast } from './ui';
 import { updAuto, updStars } from './unlocks';
 import { updFloes } from './world';
@@ -56,6 +57,7 @@ export function tick(dt: number) {
   updFarm(dt);
   updStage(dt);
   updShop();
+  updTutorial();
   updLooks(dt);
   updRoof(dt, player.g.position, staging());
   updAudio(dt, player.g.position);

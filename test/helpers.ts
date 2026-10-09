@@ -25,6 +25,7 @@ export interface SaveFixture {
   seasonT?: number;
   presents?: number;
   presentPaid?: number;
+  learnt?: string[];
 }
 
 /** Tiles entries for already-bought upgrades. */
