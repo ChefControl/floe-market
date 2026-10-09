@@ -82,3 +82,24 @@ describe('rooms between tabs', () => {
     await expect(joining).rejects.toThrow('no-room');
   }, 10_000);
 });
+
+describe('the co-op switch', () => {
+  afterEach(() => { vi.unstubAllEnvs(); history.replaceState(null, '', '/'); });
+
+  it('switched off, offers co-op to nobody: not with ?coop, and not from an invite', async () => {
+    vi.stubEnv('MODE', 'production');
+    vi.stubEnv('VITE_COOP', '');
+    vi.resetModules();
+    const remote = await import('../src/remote');
+    history.replaceState(null, '', '/?coop&join=ABCDEF');
+    expect(remote.COOP_ON).toBe(false);
+    expect(remote.coopOffered()).toBe(false);
+    expect(remote.joinCode()).toBeNull();
+    // a build with VITE_COOP=1 switches it on
+    vi.stubEnv('VITE_COOP', '1');
+    vi.resetModules();
+    const on = await import('../src/remote');
+    expect(on.coopOffered()).toBe(true);
+    expect(on.joinCode()).toBe('ABCDEF');
+  });
+});

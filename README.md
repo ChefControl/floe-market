@@ -185,7 +185,7 @@ The 🏆 button (top right) lists the 20 players who have held the most cash at 
 
 ### Playing together
 
-Two players can play one game, each on their own phone. It's new, so for now **Play together** shows in the ⚙️ settings only once the game has been opened with `?coop` at the end of its address (from then on, on that device).
+Two players can play one game, each on their own phone. **It's switched off for now:** it has been tried on two phones and works, but nobody is offered it, and an invite link opens the player's own game. A build with `VITE_COOP=1` switches it on (`VITE_COOP=1 npm run dev`, or the same in front of `npm run build`). Then **Play together** shows in the ⚙️ settings once the game has been opened with `?coop` at the end of its address (from then on, on that device).
 
 - **Inviting:** tap Play together, then Invite a friend. You sign in with Google if you haven't, and get a link to share. Your friend opens it on their phone and signs in too, and they're in your game, in a blue parka. The card says who's playing with you.
 - **Your game, together:** your friend fishes, carries, collects cash and buys upgrades in your game, with your money. Their phone walks their player itself, so walking never waits on the internet. Upgrade levels at the upgrade squares and bets at the roulette table are made through your phone, where the money is.
@@ -279,7 +279,7 @@ Each deploy removes the last one's files, and GitHub Pages lets browsers keep th
 | `src/coop.ts` | Playing together: the host's phone sending its game, a guest's phone showing it and walking its own player |
 | `src/mirror.ts` | Co-op's mirror of the 3D scene: what changed since last time, written down on the host's phone and applied on the guest's |
 | `src/together.ts` | Playing together on screen: the invite card, and joining from an invite |
-| `src/remote.ts` | Co-op's hooks into the rest of the game (what to relay to a guest, what a guest asks of the host), and when co-op is offered |
+| `src/remote.ts` | Co-op's hooks into the rest of the game (what to relay to a guest, what a guest asks of the host), its on/off switch, and when it's offered |
 | `src/link.ts` / `src/rooms.ts` | The rooms co-op's phones meet in (in memory, between tabs) / on Firebase's Realtime Database, downloaded when co-op is in use |
 | `src/firebase.ts` / `src/cloud.config.ts` | Cloud saves on Firebase (Google sign-in, Firestore), downloaded on the loading screen and started a few seconds in / the Firebase project's config |
 | `src/wallet.ts` | Money |

@@ -13,16 +13,22 @@ export const coop = {
   ask: (_what: string, _args: unknown[]): void => {},
 };
 
+/**
+ * Co-op is switched off for now: it works, but isn't offered to anyone, with ?coop or from an invite (which opens the
+ * player's own game). A build with VITE_COOP=1 switches it on (`VITE_COOP=1 npm run dev`); the tests always have it on.
+ */
+export const COOP_ON = import.meta.env.VITE_COOP === '1' || import.meta.env.MODE === 'test';
 /** Set on a device once ?coop has been in the address. */
 export const COOP_KEY = 'floe-coop';
 const params = () => new URLSearchParams(location.search);
 /** The room this page was opened to join, from an invite link (?join=CODE), if any. */
-export const joinCode = () => cleanCode(params().get('join'));
+export const joinCode = () => COOP_ON ? cleanCode(params().get('join')) : null;
 /**
- * Whether to offer co-op on this device. It's new, so for now only with ?coop in the address (and from then on, on
- * that device), and to anyone opening an invite. The loading screen (index.html) asks the same.
+ * Whether to offer co-op on this device: with ?coop in the address (and from then on, on that device), and to anyone
+ * opening an invite; never while it's switched off.
  */
 export function coopOffered() {
+  if (!COOP_ON) return false;
   const asked = params().has('coop');
   let before = false;
   try {
