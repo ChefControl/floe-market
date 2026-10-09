@@ -89,7 +89,7 @@ function renderRows(q: Square) {
     const b = document.createElement('button');
     b.type = 'button'; b.className = 'mod'; b.dataset.mod = m.id;
     b.disabled = cost === null || wallet.money < cost;
-    const what = m.kind === 'speed' && n === 1 ? 'Fishing & runners' : m.kind === 'speed' ? 'Kitchen' : EFFECT[m.kind];
+    const what = m.kind === 'speed' && n === 1 ? 'Fish, chop, runners' : m.kind === 'speed' ? 'Kitchen' : EFFECT[m.kind];
     const next = cost === null ? `${what} ${pct(now)} · fully upgraded` : `${what} ${pct(now)} → ${pct(now * m.per)}`;
     const head = cost === null ? `${m.name} · ${levelName(m.id, lv)}` : `${m.name} · ${m.levels ? 'next: ' + levelName(m.id, lv + 1) : 'level ' + (lv + 1)}`;
     b.innerHTML = '<span class="ic"></span><span class="txt"><b></b><span></span></span><span class="cost"></span>';

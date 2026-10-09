@@ -50,7 +50,7 @@ describe('the upgrade square', () => {
     vi.advanceTimersByTime(2000);
     expect($('toast').textContent).toBe('New at the Upgrade square: Crew training');
     g.run(0.05);
-    expect(rowsText()[2]).toBe('💪Crew training · level 1Fishing & runners +0% → +15%$80');
+    expect(rowsText()[2]).toBe('💪Crew training · level 1Fish, chop, runners +0% → +15%$80');
     expect(g.shop.buyMod('training')).toBe(true);
   });
 
