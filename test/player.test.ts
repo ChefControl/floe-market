@@ -71,7 +71,7 @@ describe('stations', () => {
     const g = await loadGame({ tiles: bought('sushi'), back: 3, backRice: 2, cash: 20 });
     const { fishTray, ricePot, FISH_DROP, RICE_DROP, REGISTER, register, sushi } = g.restaurant;
     sushi.chefs[0].state = 'fetch'; // keep the chef from using them
-    g.placePlayer(RICE_DROP.x, RICE_DROP.z);
+    g.placePlayer(RICE_DROP.x - 0.9, RICE_DROP.z); // near the pad's edge is near enough
     g.run(1);
     expect(ricePot.items).toHaveLength(2);
     expect(g.player.back.items).toHaveLength(3); // the fish stays in the arms
@@ -205,6 +205,68 @@ describe('buying', () => {
     g.run(5);
     expect($('buyHint').hidden).toBe(true);
     expect($('buy').hidden).toBe(true); // a computer has E: no button
+  });
+
+  it('says so when buy is held with no cash at all, and the cash shakes', async () => {
+    const g = await loadGame({ money: 0 });
+    g.placePlayer(PACK.x, PACK.z);
+    g.run(0.1);
+    expect($('buyHint').hidden).toBe(true);
+    g.press('e');
+    g.run(0.05);
+    expect($('buyHint').hidden).toBe(false); // straight away, not after two seconds
+    expect($('buyHint').textContent).toBe('Out of cash: earn some first');
+    expect($('cash').classList.contains('broke')).toBe(true);
+    g.press('e', 'keyup');
+    g.run(0.05);
+    expect($('cash').classList.contains('broke')).toBe(false);
+    expect($('buyHint').hidden).toBe(true);
+    g.wallet.money = 10; // with some, it pays in as usual
+    g.press('e');
+    g.run(0.1);
+    expect($('cash').classList.contains('broke')).toBe(false);
+    expect(g.wallet.money).toBeLessThan(10);
+  });
+
+  it('buys with E wherever E is on the keyboard, and lets go of it when the window loses focus', async () => {
+    const g = await loadGame({ money: 35 });
+    g.placePlayer(PACK.x, PACK.z);
+    // a Hebrew keyboard types ק on the E key
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ק', code: 'KeyE' }));
+    g.run(0.1);
+    expect(g.wallet.money).toBeLessThan(35);
+    window.dispatchEvent(new Event('blur')); // switched away with it held: no keyup ever comes
+    const left = g.wallet.money;
+    g.run(0.5);
+    expect(g.wallet.money).toBe(left);
+  });
+
+  it('stops walking when the window loses focus mid-step', async () => {
+    const g = await loadGame();
+    g.placePlayer(0, -3);
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ש', code: 'KeyA' })); // A, on a Hebrew keyboard
+    g.run(0.2);
+    const x = g.player.g.position.x;
+    expect(x).toBeLessThan(0);
+    document.dispatchEvent(new Event('visibilitychange')); // jsdom's page counts as shown: try a blur too
+    window.dispatchEvent(new Event('blur'));
+    g.run(0.5);
+    expect(g.player.g.position.x).toBeCloseTo(x, 3);
+  });
+
+  it('brings up the Buy button on a laptop from its first touch', async () => {
+    const g = await loadGame({ money: 35 });
+    g.placePlayer(PACK.x, PACK.z);
+    g.run(0.1);
+    expect($('buy').hidden).toBe(true); // a computer, so far
+    window.dispatchEvent(Object.assign(new Event('pointerdown'), { pointerType: 'mouse' }));
+    g.run(0.1);
+    expect($('buy').hidden).toBe(true);
+    window.dispatchEvent(Object.assign(new Event('pointerdown'), { pointerType: 'touch' }));
+    g.run(0.1);
+    expect($('buy').hidden).toBe(false);
+    g.run(2.1);
+    expect($('buyHint').textContent).toBe('Hold Buy to buy this');
   });
 
   it('gives a touch screen a Buy button to hold while on a tile', async () => {

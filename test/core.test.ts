@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { animPerson, makeSled, moveEnt, Person } from '../src/characters';
 import { carrySlot, fly, Holder, updFlights } from '../src/holder';
 import { painted, scene } from '../src/render';
-import { d2xz, fwd, pick, rand, randi, V } from '../src/util';
+import { amount, d2xz, fwd, money, pick, price, rand, randi, V } from '../src/util';
 
 const settle = () => { for (let i = 0; i < 120; i++) updFlights(1 / 60); };
 
@@ -24,6 +24,18 @@ describe('util', () => {
     const f = fwd(Math.PI / 2);
     expect(f.x).toBeCloseTo(1);
     expect(f.z).toBeCloseTo(0);
+  });
+
+  it('shortens big amounts of money to k, M and B, rounding down', () => {
+    const shown = [0, 950, 9_999, 10_000, 12_345, 19_990, 99_999, 100_000, 456_789, 999_999, 1e6, 1_550_000, 999_999_999,
+      2_340_000_000, 1_234_000_000_000].map(money);
+    expect(shown).toEqual(['$0', '$950', '$9,999', '$10k', '$12.3k', '$19.9k', '$99.9k', '$100k', '$456k', '$999k', '$1M',
+      '$1.5M', '$999M', '$2.3B', '$1,234B']);
+    expect(amount(25_000_000)).toBe('25M');
+    // prices round up, so one never looks affordable when it isn't
+    expect([9_999, 12_350, 19_990, 99_950, 100_001, 999_950, 1e6, 1_234_567].map(price)).toEqual(
+      ['$9,999', '$12.4k', '$20k', '$100k', '$101k', '$1M', '$1M', '$1.3M']);
+    expect([money(12_320), price(12_350)]).toEqual(['$12.3k', '$12.4k']);
   });
 });
 

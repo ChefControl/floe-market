@@ -373,7 +373,7 @@ describe('the scoreboard', () => {
     expect($('board').getAttribute('aria-expanded')).toBe('true');
     expect(document.activeElement).toBe($('scoresClose'));
     await vi.waitFor(() => expect(rows()).toEqual([
-      '1Mia KowalskiStage 2$52,000', '2Pat Smith (you)Stage 1$5,000', '3OlaStage 1$900',
+      '1Mia KowalskiStage 2$52k', '2Pat Smith (you)Stage 1$5,000', '3OlaStage 1$900',
     ]));
     expect($('scoresList').children[1].classList.contains('me')).toBe(true);
     expect($('scoresMe').textContent).toBe('');
@@ -402,7 +402,7 @@ describe('the scoreboard', () => {
     const { g } = await board({ money: 2500 });
     g.wallet.money = 100; // spent since
     $('board').click();
-    await vi.waitFor(() => expect(rows()).toEqual(['1Mia KowalskiStage 2$52,000', '2OlaStage 1$900']));
+    await vi.waitFor(() => expect(rows()).toEqual(['1Mia KowalskiStage 2$52k', '2OlaStage 1$900']));
     expect($('scoresMe').textContent).toBe('Your best: $2,500 · Stage 1');
     expect($('scoresJoin').hidden).toBe(false);
     $('scoresJoin').click();

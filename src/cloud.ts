@@ -8,6 +8,7 @@
 import { firebaseConfig } from './cloud.config';
 import { deviceStore, isStale, replaceSave, type SaveData } from './save';
 import { toast } from './ui';
+import { money } from './util';
 
 export interface CloudUser { uid: string; name: string }
 /** A save as the cloud keeps it: save.ts's JSON, and when it was made. */
@@ -82,7 +83,7 @@ function ago(t: number) {
   return h < 24 ? `${h} h ago` : `${Math.round(h / 24)} days ago`;
 }
 const describe = (f: Facts) =>
-  `Stage ${f.stage} · $${f.money.toLocaleString('en-US')} · ${f.upgrades} upgrades · played ${ago(f.savedAt)}`;
+  `Stage ${f.stage} · ${money(f.money)} · ${f.upgrades} upgrades · played ${ago(f.savedAt)}`;
 
 // ---------- the service ----------
 let backend: CloudBackend | null = null;

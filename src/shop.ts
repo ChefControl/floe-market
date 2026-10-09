@@ -1,7 +1,8 @@
 // The upgrade square: each stage has one, and standing on it opens a panel of that stage's repeatable upgrades:
 // a better product (prices), marketing (customers) and the crew (speed). Stage 2 also gets a fertilizer shed by the
 // water wheel (shed.ts) once the takeout kiosk opens, whose square sells rice fertilizer the same way, or with a
-// press of E (buy), as it sells only the one thing. The HUD's top left lists every modifier in play, as a percentage.
+// press of E (buy), as it sells only the one thing. The HUD's top left lists every modifier in play, as a percentage:
+// Customers there is marketing and the rating together, as both bring customers in faster.
 import { repriceFish } from './counters';
 import { decal, drawMenu } from './decals';
 import { boost, MOD, modCost, MODS, mods, type ModId } from './economy';
@@ -15,7 +16,7 @@ import { levelUp } from './sfx';
 import { SHED_AT } from './shed';
 import { staging } from './stage';
 import { toast } from './ui';
-import { FY } from './util';
+import { FY, price } from './util';
 import { wallet } from './wallet';
 
 /** Where each stage's square is: by the walk-up counter, and in the restaurant's aisle by the kitchen line. */
@@ -54,7 +55,6 @@ export const modOffered = (id: ModId) => !MOD[id].shed || shedYard.open;
 
 const $ = (id: string) => document.getElementById(id)!;
 const panel = $('shop'), title = $('shopTitle'), rows = $('shopRows');
-const money = (v: number) => '$' + v.toLocaleString('en-US');
 const pct = (k: number) => (k >= 1 ? '+' : '−') + Math.round(Math.abs(k - 1) * 100) + '%';
 const EFFECT = { price: 'Prices', customers: 'Customers', speed: 'Speed', growth: 'Rice growth' } as const;
 
@@ -95,7 +95,7 @@ function renderRows(q: Square) {
     b.children[0].textContent = m.icon;
     b.children[1].children[0].textContent = head;
     b.children[1].children[1].textContent = next;
-    b.children[2].textContent = cost === null ? 'Max' : money(cost);
+    b.children[2].textContent = cost === null ? 'Max' : price(cost);
     return b;
   }));
 }
@@ -121,13 +121,15 @@ rows.addEventListener('click', e => {
 // ---------- overview ----------
 const overview = $('mods');
 let shown = '';
-/** The modifiers in play this stage: each upgrade's effect, and how much the rating brings customers in. */
+/**
+ * The modifiers in play this stage: each upgrade's effect, with Customers counting the rating in too (×0.6 at ★1 to
+ * ×1.4 at ★5), as customers arrive at marketing × rating.
+ */
 function modifiers(): [icon: string, label: string, k: number][] {
-  const rep: [string, string, number] = ['★', 'Reputation', demand()];
-  if (stage.n === 1) return [['🐟', 'Prices', boost('fillets')], ['📣', 'Customers', boost('marketing')], ['💪', 'Speed', boost('training')], rep];
-  const out: [string, string, number][] = [['🍣', 'Prices', sushiBoost()], ['📣', 'Customers', boost('promo')], ['🧑‍🍳', 'Kitchen', boost('crew')]];
+  if (stage.n === 1) return [['🐟', 'Prices', boost('fillets')], ['📣', 'Customers', boost('marketing') * demand()], ['💪', 'Speed', boost('training')]];
+  const out: [string, string, number][] = [['🍣', 'Prices', sushiBoost()], ['📣', 'Customers', boost('promo') * demand()], ['🧑‍🍳', 'Kitchen', boost('crew')]];
   if (shedYard.open) out.push(['🌿', 'Rice growth', boost('fertilizer')]);
-  return [...out, rep];
+  return out;
 }
 function renderOverview() {
   const list = modifiers(), key = list.map(r => r.join()).join('|');

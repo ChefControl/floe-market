@@ -14,7 +14,7 @@ import { addReview, demand, starsFor } from './rating';
 import { honk, review, till } from './sfx';
 import { canvasTex, mesh, scene, type CanvasTex } from './render';
 import { popStars, popText } from './ui';
-import { FY, pick, rand, randi, V, type XZ } from './util';
+import { FY, money, pick, rand, randi, V, type XZ } from './util';
 import { crowd } from './wardrobe';
 import { gapLogs, ROAD1_X, ROAD2_X } from './world';
 
@@ -235,7 +235,7 @@ function pay(C: Counter, c: Customer) {
       if (top) addBillValue(top, v); else C.cash.receive(b, 0.35, 1.0);
     }
   });
-  if (values.length) { popText('+$' + values.reduce((a, v) => a + v, 0), C.cashPos); till(C.cashPos); }
+  if (values.length) { popText('+' + money(values.reduce((a, v) => a + v, 0)), C.cashPos); till(C.cashPos); }
 }
 
 function depart(C: Counter, c: Customer, stars?: number) {
