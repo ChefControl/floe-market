@@ -34,6 +34,11 @@ describe('what is on offer', () => {
     expect(offer(g)).toEqual(['paddy', 'seats', 'chef3', 'korki']);
     g.unlocks.applyUnlock('paddy');
     expect(offer(g)).toEqual(['seats', 'farmer', 'chef3', 'korki']);
+    // the porter carries from the farmer's stack, so it waits for the farmer
+    g.unlocks.applyUnlock('seats');
+    expect(offer(g)).toEqual(['farmer', 'plot2', 'chef3', 'korki']);
+    g.unlocks.applyUnlock('farmer');
+    expect(offer(g)).toEqual(['porter', 'plot2', 'chef3', 'korki']);
   });
 
   it('the second and third runners after the first, at its spot', async () => {

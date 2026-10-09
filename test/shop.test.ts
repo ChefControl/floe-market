@@ -1,6 +1,6 @@
 // The upgrade squares: repeatable upgrades for prices, customers (marketing) and speed (the crew), and the
 // overview of every modifier in the HUD.
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { bought, loadGame } from './helpers';
 
 const $ = (id: string) => document.getElementById(id)!;
@@ -30,13 +30,40 @@ describe('the upgrade square', () => {
     expect(rowsText()).toEqual([
       '🐟Fine fillets · level 1Prices +0% → +25%$40',
       '📣Marketing · next: PostersCustomers +0% → +20%$60',
-      '💪Crew training · level 1Fishing +0% → +15%$80',
     ]);
     const [fillets, marketing] = [...$('shopRows').children] as HTMLButtonElement[];
     expect([fillets.disabled, marketing.disabled]).toEqual([false, true]); // only $50
     g.placePlayer(0, 0);
     g.run(0.05);
     expect($('shop').hidden).toBe(true);
+  });
+
+  it('sells crew training once there is a crew: the first runner', async () => {
+    const g = await loadGame({ money: 1e9 });
+    const [at] = g.shop.SHOPS;
+    expect(g.shop.buyMod('training')).toBe(false);
+    g.placePlayer(at.x, at.z);
+    g.run(0.05);
+    expect(rowsText()).toHaveLength(2);
+    vi.useFakeTimers();
+    g.unlocks.applyUnlock('runner');
+    vi.advanceTimersByTime(2000);
+    expect($('toast').textContent).toBe('New at the Upgrade square: Crew training');
+    g.run(0.05);
+    expect(rowsText()[2]).toBe('💪Crew training · level 1Fishing +0% → +15%$80');
+    expect(g.shop.buyMod('training')).toBe(true);
+  });
+
+  it('crew training speeds up the runners too, up to twice as fast', async () => {
+    const g = await loadGame({ tiles: bought('runner'), money: 1e9 });
+    g.run(0.05);
+    expect(g.runner.runners[0].speed).toBe(3.3);
+    g.shop.buyMod('training');
+    g.run(0.05);
+    expect(g.runner.runners[0].speed).toBeCloseTo(3.3 * 1.15);
+    for (let i = 0; i < 7; i++) g.shop.buyMod('training');
+    g.run(0.05);
+    expect(g.runner.runners[0].speed).toBeCloseTo(6.6);
   });
 
   it('buys a level with a tap: better products sell for more', async () => {
@@ -69,7 +96,7 @@ describe('the upgrade square', () => {
 
   it('crew training makes fishing and chopping faster', async () => {
     const slices = async (levels: number) => {
-      const g = await loadGame({ money: 1e9 });
+      const g = await loadGame({ tiles: bought('runner'), money: 1e9 });
       for (let i = 0; i < levels; i++) g.shop.buyMod('training');
       g.placePlayer(-4.5, -5.2);
       g.run(6);
@@ -98,7 +125,7 @@ describe('the upgrade square', () => {
     const g = await loadGame({ tiles: bought('runner'), money: 1e9 });
     for (let i = 0; i < 8; i++) g.shop.buyMod('crew');
     g.run(0.05);
-    expect(g.runner.runners[0].speed).toBe(3.3); // not in the market
+    expect(g.runner.runners[0].speed).toBe(3.3); // not in the market: crew training is the market's
     g.unlocks.applyUnlock('sushi', true);
     g.run(0.05);
     expect(g.runner.runners[0].speed).toBeCloseTo(6.6); // twice as fast, at most
@@ -143,7 +170,7 @@ describe('the modifier overview', () => {
   });
 
   it('keeps upgrade levels across a reload, and converts test builds that had price tiles', async () => {
-    const g1 = await loadGame({ money: 1e9 });
+    const g1 = await loadGame({ tiles: bought('runner'), money: 1e9 });
     g1.shop.buyMod('marketing'); g1.shop.buyMod('training');
     const g2 = await loadGame(localStorage.getItem('floe-market-v1')!);
     expect(g2.economy.mods).toMatchObject({ marketing: 1, training: 1 });

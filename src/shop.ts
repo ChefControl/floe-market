@@ -16,6 +16,7 @@ import { save } from './save';
 import { levelUp } from './sfx';
 import { SHED_AT } from './shed';
 import { staging } from './stage';
+import { isDone } from './unlocks';
 import { toast } from './ui';
 import { FY, price } from './util';
 import { wallet } from './wallet';
@@ -49,10 +50,10 @@ const pads = SQUARES.map(q => {
 const active = (q: Square) => q.stage === stage.n && !(stage.n === 2 && staging()) && (!q.shed || shedYard.open);
 /** The square whose panel is open, if any. */
 let on: Square | null = null;
-/** The upgrades sold on a square. */
-const sold = (q: Square) => MODS.filter(m => m.stage === q.stage && !!m.shed === q.shed);
-/** Whether an upgrade can be bought yet: fertilizer once the shed is open. */
-export const modOffered = (id: ModId) => !MOD[id].shed || shedYard.open;
+/** Whether an upgrade can be bought yet: fertilizer once the shed is open, crew training once there's a crew. */
+export const modOffered = (id: ModId) => (!MOD[id].shed || shedYard.open) && (!MOD[id].needs || isDone(MOD[id].needs));
+/** The upgrades on sale on a square. */
+const sold = (q: Square) => MODS.filter(m => m.stage === q.stage && !!m.shed === q.shed && modOffered(m.id));
 
 const $ = (id: string) => document.getElementById(id)!;
 const panel = $('shop'), title = $('shopTitle'), rows = $('shopRows');
@@ -106,10 +107,10 @@ function renderRows(q: Square) {
 let built = '';
 /**
  * Keeps the rows current without rebuilding them while the money ticks over, which would be most frames (and a button
- * replaced mid-tap loses its click): only a new level, or another square, rebuilds them.
+ * replaced mid-tap loses its click): only a new level, an upgrade coming on sale, or another square rebuilds them.
  */
 function syncRows(q: Square) {
-  const key = q.title + MODS.map(m => mods[m.id]).join();
+  const key = q.title + MODS.map(m => modOffered(m.id) ? mods[m.id] : '-').join();
   if (key !== built) { built = key; renderRows(q); return; }
   for (const b of rows.children as HTMLCollectionOf<HTMLButtonElement>) {
     const cost = modCost(b.dataset.mod as ModId), off = cost === null || wallet.money < cost;
@@ -150,7 +151,6 @@ function renderOverview() {
   }));
 }
 
-let money0 = -1;
 /** Whether buy (E) was held last frame: a square buys once per press, not every frame it's held. */
 let held = false;
 /**
@@ -168,7 +168,6 @@ export function updShop() {
   if (here !== on) {
     on = here;
     panel.hidden = !on;
-    money0 = -1;
     built = '';
   }
   const press = buyHeld() && !held;
@@ -177,6 +176,7 @@ export function updShop() {
     const only = sold(on);
     if (only.length === 1) buyMod(only[0].id);
   }
-  if (on && wallet.money !== money0) { money0 = wallet.money; syncRows(on); }
+  // every frame: the money changes most frames, and an upgrade comes on sale with a hire (crew training)
+  if (on) syncRows(on);
   renderOverview();
 }

@@ -1,5 +1,6 @@
 // Korki's golden statue: a memorial to a NAMI Klima One, bought on a $10 tile.
-// Standing on its pad opens the memoir panel; walking off closes it. Lingering there fades in his song.
+// Standing on its pad opens the memoir panel; walking off closes it, and so does its ✕ (until the player steps back on).
+// Lingering there fades in his song.
 import {
   BoxGeometry, BufferGeometry, CylinderGeometry, ExtrudeGeometry, Group, Material, Mesh, MeshPhongMaterial, Shape, TorusGeometry,
 } from 'three';
@@ -217,6 +218,9 @@ const panel = document.getElementById('korki')!;
 const memo = panel.querySelector('.memo')!;
 let statue: Group | null = null;
 let open = false;
+/** The player closed the memoir with its ✕ while on the pad: it stays shut until they step off and back on. */
+let shut = false;
+document.getElementById('korkiClose')!.addEventListener('click', () => { shut = true; open = false; panel.hidden = true; });
 
 /** The statue, once it's built. */
 export const korkiStatue = () => statue;
@@ -257,8 +261,11 @@ let stood = 0;
 export function updKorki(dt: number) {
   if (!statue) return;
   const near = d2xz(player.g.position, KORKI) < 0.95 * 0.95;
-  if (near !== open) {
-    open = near;
+  if (!near) shut = false;
+  // on a phone the memoir covers much of the view, so its ✕ lets the player stay on the pad (and hear the song) without it
+  const show = near && !shut;
+  if (show !== open) {
+    open = show;
     panel.hidden = !open;
     if (open) memo.scrollTop = 0;
   }

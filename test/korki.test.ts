@@ -32,6 +32,21 @@ describe("Korki's statue", () => {
     expect($('korki').hidden).toBe(true);
   });
 
+  it("closes with its ✕ while the player stays on the pad, and opens again when they step back on", async () => {
+    const g = await loadGame({ tiles: bought('korki') });
+    const { KORKI } = await import('../src/korki');
+    g.placePlayer(KORKI.x, KORKI.z);
+    g.run(0.05);
+    $('korkiClose').click();
+    g.run(1);
+    expect($('korki').hidden).toBe(true);
+    g.placePlayer(0, 0);
+    g.run(0.05);
+    g.placePlayer(KORKI.x, KORKI.z);
+    g.run(0.05);
+    expect($('korki').hidden).toBe(false);
+  });
+
   it('stands off the deck, out of the way', async () => {
     const g = await loadGame({ tiles: bought('korki') });
     const { STATUE } = await import('../src/korki');
