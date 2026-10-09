@@ -25,7 +25,7 @@ async function copy(save?: SaveFixture, guest = false, before = (_g: Awaited<Ret
 type Copy = Awaited<ReturnType<typeof copy>>;
 
 /** A host's game from `save`, and a guest who's joined it. */
-async function pair(save?: SaveFixture, tweak?: Parameters<typeof copy>[2]) {
+async function pair(save?: SaveFixture, tweak?: Parameters<typeof copy>[2], drop = 0) {
   await copy(); // the first copy warms up three.js' own lazy bits (see mirror.test.ts)
   const host = await copy(save);
   const saved = localStorage.getItem('floe-market-v1');
@@ -36,6 +36,7 @@ async function pair(save?: SaveFixture, tweak?: Parameters<typeof copy>[2]) {
   const code = await host.coop.host(rooms);
   const states: string[] = [];
   let now = performance.now();
+  rooms.drop = drop;
   const joined = await guest.coop.join(rooms, code, 'Sam', s => states.push(s));
   /** Both phones play `secs` at 60 frames a second: the host's game ticks and sends; the guest's catches up. */
   const play = (secs: number) => {
@@ -254,5 +255,16 @@ describe('co-op', () => {
     p.play(0.3);
     expect(guest.presents.presents.n).toBe(host.presents.presents.n);
     expect(guest.presents.pileCover).toEqual(host.presents.pileCover);
+  });
+
+  it('says hello again until it’s in, when the host’s first answers go missing', async () => {
+    const p = await pair({ money: 64 }, undefined, 3);
+    expect(p.states).toEqual([]);
+    expect(p.until(() => last(p.states) === 'playing', 5)).toBe(true);
+    expect(p.guest.wallet.money).toBe(64);
+    // the keyframe says which player is this phone's, though the welcome never came: it shows once, not twice
+    const blue = p.guest.render.scene.children.filter(o => o instanceof p.guest.characters.Person && o.color === p.guest.playerMod.SHIRTS.guest);
+    expect(blue).toEqual([p.guest.player.g]);
+    expect(p.host.playerMod.players).toHaveLength(2);
   });
 });

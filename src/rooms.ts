@@ -16,7 +16,7 @@ import { newCode, type GuestEnd, type HostEnd, type Msg, type Rooms } from './li
 export const KEEP = 20;
 const noop = () => {};
 const read = (v: unknown) => JSON.parse(String(v)) as Msg;
-/** Messages added after now (push keys go up with the server's clock), not the ones already there. */
+/** Messages added after about now (push keys go up with the server's clock), not the ones already there. */
 const fromNow = (r: DatabaseReference) => query(r, orderByKey(), startAfter(push(r).key));
 
 export function createRooms(): Rooms {
@@ -51,13 +51,20 @@ export function createRooms(): Rooms {
         },
       };
       const guests = child(room, 'guests');
+      /** The last of each guest's messages handled: one who comes back finds their earlier ones still there. */
+      const done = new Map<string, string>();
       const offs = [
         onChildAdded(guests, s => {
           const g = s.key!, from = child(room, 'fromPlayer/' + g);
           deaf(g);
           ears.set(g, [
             onValue(child(from, 'in'), v => { if (v.exists()) host.onMsg(g, read(v.val())); }),
-            onChildAdded(fromNow(child(from, 'q')), v => host.onMsg(g, read(v.val()))),
+            // all of them, in order: a filter by time would lose the first, sent as the guest's phone joined
+            onChildAdded(child(from, 'q'), v => {
+              if (v.key! <= (done.get(g) ?? '')) return;
+              done.set(g, v.key!);
+              host.onMsg(g, read(v.val()));
+            }),
           ]);
           host.onJoin(g);
         }),

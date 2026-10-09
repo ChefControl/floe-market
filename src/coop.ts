@@ -56,6 +56,8 @@ const PROTOCOL = 1;
 export const SEND_EVERY = 100, INPUT_EVERY = 66;
 /** A guest waits this long without hearing from the host before saying so, and gives up after this. */
 export const QUIET = 3000, GIVE_UP = 5 * 60_000;
+/** A guest's phone that isn't in the game yet says hello again this often. */
+const HELLO_AGAIN = 2000;
 
 // ---------- both ----------
 /** The scene as this phone built it while loading, before any save: what the mirror names things by. */
@@ -226,7 +228,7 @@ export function hostStep(now: number) {
   const told = g.told.splice(0);
   // something every second at least, so their phone knows this one's still here
   if (!key && !d && !changed && !told.length && now - h.sentAt < 1000) return;
-  h.end.send({ k: 'd', s: ++h.seq, ...(key ? { kf: 1 } : {}), d, st, e: told });
+  h.end.send({ k: 'd', s: ++h.seq, ...(key ? { kf: 1, me: nid(g.p.g) } : {}), d, st, e: told });
   h.sentAt = now;
 }
 
@@ -250,6 +252,9 @@ interface Joined {
   carried: number[];
   /** The tiles on offer last frame, to point the way to new ones. */
   offer: Set<Tile> | null;
+  /** Says hello to the host's phone, and when it last did. */
+  hello: () => void;
+  saidHi: number;
   onState: (s: GuestState) => void;
 }
 let joined: Joined | null = null;
@@ -268,17 +273,17 @@ export async function join(rooms: Rooms, code: string, name: string, onState: (s
   const j: Joined = joined = {
     end, dec: new Decoder(scene, boundary, people, player.g), state: 'joining', seq: 0, synced: false,
     clock: performance.now(), heard: performance.now(), said: -Infinity, saidWhat: '', carried: [], offer: null, onState,
+    hello: () => { j.saidHi = j.clock; end.send({ k: 'hi', v: PROTOCOL, print: boundary!.print, name }); }, saidHi: 0,
   };
   coop.role = 'guest';
   coop.ask = (what, args) => {
     if (what === 'mod') end.send({ k: 'mod', id: args[0] });
     else if (what === 'spin') end.send({ k: 'spin', bet: args[0], stake: args[1] });
   };
-  const hello = () => end.send({ k: 'hi', v: PROTOCOL, print: boundary!.print, name });
   end.onMsg = m => got(j, m);
   end.onGone = () => to(j, 'gone');
-  end.onBack = () => { j.synced = false; hello(); };
-  hello();
+  end.onBack = () => { j.synced = false; j.hello(); };
+  j.hello();
   return j;
 }
 
@@ -304,6 +309,8 @@ function got(j: Joined, m: Msg) {
   if (m.k !== 'd') return;
   const d = m.d as Delta | null, st = (m.st ?? {}) as Record<string, unknown>;
   if (m.kf) {
+    // which player is this phone's, again: in case the welcome went missing
+    j.dec.me = Number(m.me);
     j.synced = true;
     j.seq = Number(m.s);
     see(j, st, true);
@@ -412,6 +419,8 @@ export function guestTick(dt: number, now: number) {
     const quiet = now - j.heard;
     if (quiet > GIVE_UP) { to(j, 'quiet'); j.end.close(); } else to(j, quiet > QUIET ? 'waiting' : 'playing');
   }
+  // not in yet: say hello again now and then, in case the host's phone missed it
+  if (!j.synced && (j.state === 'joining' || j.state === 'playing' || j.state === 'waiting') && now - j.saidHi > HELLO_AGAIN) j.hello();
   j.dec.frame(now);
   const p = player.g.position;
   movePlayer(player, inputVec(), dt);
