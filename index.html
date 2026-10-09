@@ -143,6 +143,34 @@ body{
 #shop .mod:disabled{ cursor:default; }
 #shop .mod:disabled .cost{ background:rgba(23,48,66,.35); box-shadow:none; }
 #shop .mod:focus-visible{ outline:3px solid var(--coral); outline-offset:1px; }
+/* Your look (customize.ts): tabs of rows, each a row of colour swatches or word chips to pick one from */
+#look{
+  position:fixed; left:50%; bottom:calc(env(safe-area-inset-bottom,0px) + 12px); transform:translateX(-50%);
+  z-index:4; width:min(94vw,420px); box-sizing:border-box; display:flex; flex-direction:column; gap:8px;
+  background:var(--pill); color:var(--pill-ink); border-radius:20px; padding:10px; box-shadow:0 4px 0 var(--shade);
+}
+#look[hidden]{ display:none; }
+#look button{ font:700 15px "Baloo 2","Trebuchet MS",system-ui,sans-serif; color:var(--pill-ink); border:0; cursor:pointer; }
+#look button:focus-visible{ outline:3px solid var(--coral); outline-offset:2px; }
+#look .lhead{ display:flex; align-items:center; gap:8px; }
+#look h2{ margin:0 auto 0 4px; font-size:17px; font-weight:800; line-height:1; }
+#look #lookDice{ width:40px; height:40px; padding:0; border-radius:50%; background:var(--chip); font-size:20px; line-height:1; }
+#look #lookDone{ min-height:40px; padding:0 16px; border-radius:999px; background:var(--go); color:#fff; box-shadow:0 2px 0 rgba(20,90,40,.4); }
+#lookTabs{ display:flex; gap:4px; padding:3px; border-radius:999px; background:var(--chip); }
+#lookTabs button{ flex:1; min-height:34px; border-radius:999px; background:transparent; }
+#lookTabs button[aria-selected="true"]{ background:var(--pill); box-shadow:0 2px 0 var(--shade); }
+#lookRows{ display:flex; flex-direction:column; gap:8px; padding:0 2px 2px; }
+#look .lrow{ display:flex; flex-direction:column; gap:4px; }
+#look .lab{ font-size:14px; font-weight:800; opacity:.75; margin-left:2px; }
+#look .opts{ display:flex; flex-wrap:wrap; gap:6px; }
+#look .swatches{ display:grid; grid-template-columns:repeat(8, minmax(0, 44px)); }
+#look .sw{ width:100%; aspect-ratio:1; padding:0; border-radius:50%; box-shadow:inset 0 0 0 2px rgba(127,140,150,.55); }
+#look .sw.icon{ background:var(--chip); color:var(--pill-ink); box-shadow:none; }
+#look .sw.icon[aria-checked="true"]{ box-shadow:0 0 0 2px var(--pill), 0 0 0 5px var(--coral); }
+#look .sw.none{ background:var(--chip) linear-gradient(135deg, transparent 46%, rgba(127,140,150,.8) 46% 54%, transparent 54%); }
+#look .sw[aria-checked="true"]{ box-shadow:0 0 0 2px var(--pill), 0 0 0 5px var(--coral); }
+#look .word{ min-height:36px; padding:0 12px; border-radius:999px; background:var(--chip); }
+#look .word[aria-checked="true"]{ background:var(--hot); color:#fff; }
 
 #banner{ position:fixed; inset:0; z-index:6; display:grid; place-items:center; pointer-events:none; }
 #banner .card{ text-align:center; color:#fff; text-shadow:0 4px 0 rgba(20,30,40,.45); transform:scale(.6); opacity:0; transition:transform .45s cubic-bezier(.2,1.4,.4,1), opacity .3s; }
@@ -472,11 +500,11 @@ body{
 /* Phones on their side: the upgrade and casino panels go down the right-hand side, and the view slides over to
    keep the player in sight beside them (ui.ts). */
 @media (max-height: 500px){
-  #shop, #casino{
+  #shop, #casino, #look{
     left:auto; transform:none; right:max(10px, env(safe-area-inset-right,0px)); bottom:max(10px, env(safe-area-inset-bottom,0px));
     max-height:calc(100% - 112px); overflow-y:auto; touch-action:pan-y;
   }
-  #shop{ width:min(46vw,400px); }
+  #shop, #look{ width:min(46vw,400px); }
   #casino{ width:min(60vw,520px); padding:10px 12px; gap:12px; }
   #wheel{ width:clamp(96px,17vw,130px); }
   #prompts{ bottom:max(12px, env(safe-area-inset-bottom,0px)); }
@@ -489,6 +517,7 @@ body{
   #numPick button{ width:40px; min-height:34px; }
   #cloudMenu button{ min-height:38px; }
   #settings > button, #settings > a{ min-height:44px; }
+  #look .word{ min-height:40px; }
   #rainMute{ width:40px; height:40px; }
   #korkiMute{ width:42px; height:42px; }
 }
@@ -523,6 +552,7 @@ body{
 <section id="settings" class="pill" aria-label="Settings" hidden>
   <button id="cloud" type="button" hidden><span class="ic" aria-hidden="true">☁️</span><span><span id="cloudName">Sign in</span><span class="wide" aria-hidden="true"> with Google</span></span><i aria-hidden="true"></i></button>
   <div id="cloudMenu" hidden><b id="cloudWho"></b><span id="cloudStatus"></span><button type="button" id="cloudOut">Sign out</button></div>
+  <button id="lookOpen" type="button"><span class="ic" aria-hidden="true">👕</span>Your look</button>
   <button id="soundCat" type="button" aria-expanded="false" aria-controls="soundPanel"><span class="ic" aria-hidden="true">🔊</span>Sound<i class="chev" aria-hidden="true"></i></button>
   <div id="soundPanel" role="group" aria-label="Sound" hidden>
     <div class="vol"><button type="button" class="mute" id="muteSfx" aria-pressed="false" aria-label="Mute effects"></button><label for="volSfx">Effects</label><output id="volSfxN" for="volSfx">7</output><input type="range" id="volSfx" min="0" max="10" step="1" value="7"></div>
@@ -557,6 +587,11 @@ body{
 <div id="hint" class="pill" role="status" hidden><div class="art" aria-hidden="true"></div><p></p></div>
 <div id="stale" role="alertdialog" aria-modal="true" aria-labelledby="staleWhy" hidden><div class="card"><p id="staleWhy">Floe Market is open in another tab, so this one stopped saving.</p><button type="button">Play here instead</button></div></div>
 <section id="shop" hidden aria-label="Upgrades"><h2 id="shopTitle"></h2><div id="shopRows"></div></section>
+<section id="look" hidden aria-labelledby="lookTitle">
+  <div class="lhead"><h2 id="lookTitle">Your look</h2><button id="lookDice" type="button" aria-label="Surprise me" title="Surprise me"><span aria-hidden="true">🎲</span></button><button id="lookDone" type="button">Done</button></div>
+  <div id="lookTabs" role="tablist" aria-label="Your look"><button type="button" role="tab" aria-controls="lookRows">Body</button><button type="button" role="tab" aria-controls="lookRows">Face</button><button type="button" role="tab" aria-controls="lookRows">Hair</button><button type="button" role="tab" aria-controls="lookRows">Extras</button><button type="button" role="tab" aria-controls="lookRows">Clothes</button></div>
+  <div id="lookRows" role="tabpanel" aria-labelledby="lookTitle"></div>
+</section>
 <div id="casino" hidden>
   <canvas id="wheel" width="240" height="240" aria-label="Roulette wheel"></canvas>
   <div class="side">

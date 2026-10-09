@@ -2,6 +2,7 @@
 // versioned so game updates never reset progress, and a second tab can't overwrite newer progress with an older
 // copy of the game.
 import { C1, repriceFish, SLED, TAKEOUT, type Counter } from './counters';
+import { choice, readLook, setLook, type Choice } from './customize';
 import { MODS, mods, type ModId } from './economy';
 import { steaksInProgress } from './fishing';
 import { waiterPlates } from './garden';
@@ -66,6 +67,8 @@ export interface SaveData {
   /** Presents left at her door, and what's been paid toward the next one. */
   presents: number;
   presentPaid: number;
+  /** How the player looks (customize.ts). Older saves have none, and keep the device's. */
+  look?: Choice;
 }
 
 /** The one place that touches device storage. */
@@ -116,6 +119,7 @@ export function migrate(raw: unknown): SaveData {
     // saves from before the seasons start in winter, the way the game always looked
     season: num(s.season) % SEASONS.length, seasonT: Math.min(num(s.seasonT), SEASON_LEN - 1),
     presents: num(s.presents), presentPaid: Math.min(num(s.presentPaid), PRESENT.cost - 1),
+    look: readLook(s.look) ?? undefined,
   };
   if (num(s.v) >= 4) {
     return {
@@ -210,6 +214,7 @@ export function save() {
     seasonT: Math.floor(season.t),
     presents: presents.n,
     presentPaid: PRESENT.paid,
+    look: { ...choice },
   };
   const raw = JSON.stringify(data);
   if (deviceStore.write(raw)) lastSeen = raw;
@@ -244,6 +249,7 @@ export function load() {
   if (!s) { tiles.forEach(redrawTile); return false; }
   wallet.money = s.money;
   wallet.best = s.best;
+  if (s.look) setLook(s.look);
   setSeason(s.season, s.seasonT, true);
   givePresents(s.presents, true);
   PRESENT.paid = s.presentPaid;

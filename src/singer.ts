@@ -64,7 +64,7 @@ export function singerLook(p: Person) {
   add(new Mesh(new SphereGeometry(0.02, 8, 6), gold)).position.set(0, 0.765, bodyR(0.765) + 0.01);
 
   // Jacket sleeves down to the hands; a gold watch on one wrist, a black leather bracelet on the other.
-  const armX = p.arms.map(a => a.position.x);
+  const side = p.arms.map(a => Math.sign(a.position.x));
   p.arms.forEach((a, i) => {
     own.push(a.children[0]);
     add(mesh(G.arm, JACKET, 0, -0.14, 0, true), a).scale.set(1.15, 0.94, 1.1);
@@ -91,6 +91,6 @@ export function singerLook(p: Person) {
     for (const o of look) o.visible = on;
     p.disguised = on;
     p.wear();
-    p.arms.forEach((a, i) => { a.position.x = armX[i] * (on ? BUILD : 1); });
+    p.arms.forEach((a, i) => { a.position.x = side[i] * p.armSpread * (on ? BUILD : 1); });
   };
 }

@@ -39,6 +39,11 @@ const skirtGeo = new CylinderGeometry(0.29, 0.37, 0.28, 14);
 const pearlsGeo = new TorusGeometry(0.2, 0.02, 6, 20);
 /** A trapper hat's turned-up fur. */
 const furGeo = new TorusGeometry(0.212, 0.05, 6, 18);
+// The face (wardrobe.ts Eyes and Mouth), sized by each piece's scale: an arch (∩, turned over for a smile), and the
+// bottom half of a disc for an open mouth.
+const INK = 0x1B2733, INSIDE = 0x5A1E24;
+const archGeo = new TorusGeometry(1, 0.3, 4, 12, Math.PI);
+const halfDiscGeo = new CylinderGeometry(1, 1, 1, 14, 1, false, -Math.PI / 2, Math.PI).rotateX(Math.PI / 2);
 
 /** One piece of a person: a shape in one colour, posed by `o` (where it goes, its turn and size, whether it casts a shadow). */
 export interface Piece {
@@ -79,6 +84,8 @@ export class Person extends Group {
   band?: Group;
   /** Wearing someone else's look (the singer's), over everything seasonal and in place of their own body and head. */
   disguised = false;
+  /** Dressed for this season instead of the one it is: the player trying a look on (customize.ts). */
+  season: Season | null = null;
   /** Everything on the body, and on each limb (arms, then legs). */
   private pieces: Piece[] = [];
   private limbPieces: Piece[][] = [[], [], [], []];
@@ -87,35 +94,67 @@ export class Person extends Group {
   private trim = mesh(NOTHING, painted);
   private limbs: Mesh[] = [];
   /** Who they are: a mix of a man's or a woman's wardrobe for the crowd, or the plain look everyone else has. */
-  readonly style: Style;
+  style: Style;
+  /** The shirt, parka, suit or dress. */
+  color: number;
+  /** Their place in the order people were dressed, which hands out the plain look's hair and knits. */
+  private readonly n: number;
+  /** Dressed from a wardrobe (the crowd's, or the player's own): with their hair under a diner's hat. */
+  private mixed: boolean;
 
   /** `color` is the shirt, parka, suit or dress; `style` mixes a crowd member up (wardrobe.ts crowd()); without one they get the plain look. */
-  constructor(readonly color: number, look: Look = 'parka', style?: Style) {
+  constructor(color: number, private readonly look: Look = 'parka', style?: Style) {
     super();
-    const n = dressed++;
-    const st = this.style = style ?? plain(n);
-    // women are a little slimmer, their arms a little closer in
-    const slim = st.woman ? 0.9 : 1;
+    this.n = dressed++;
+    this.color = color;
+    this.style = style ?? plain(this.n);
+    this.mixed = !!style;
     for (const s of [-1, 1]) {
       const p = new Group(); p.position.set(s * 0.1, 0.3, 0);
       this.add(p); this.legs.push(p);
-      const a = new Group(); a.position.set(s * (st.woman ? 0.28 : 0.3), 0.82, 0.02);
+      const a = new Group(); a.position.set(s * this.armSpread, 0.82, 0.02);
       this.add(a); this.arms.push(a);
     }
     for (const l of [...this.arms, ...this.legs]) { const m = mesh(NOTHING, painted, 0, 0, 0, true); l.add(m); this.limbs.push(m); }
     this.add(this.shell, this.trim);
+    this.dress();
+  }
+
+  /** How far out from the middle the arms hang: a woman's a little closer in. */
+  get armSpread() { return this.style.woman ? 0.28 : 0.3; }
+
+  /**
+   * Dresses them again, in everyday clothes: `style`, with the parka (or shirt) in `color`. The player's own look
+   * (customize.ts). Anything else on them (a headband, the singer's look) stays.
+   */
+  restyle(color: number, style: Style) {
+    this.color = color;
+    this.style = style;
+    this.mixed = true;
+    this.pieces = [];
+    this.limbPieces = [[], [], [], []];
+    // the singer's look sets the arms itself, and puts them back from armSpread
+    if (!this.disguised) this.arms.forEach(a => { a.position.x = Math.sign(a.position.x) * this.armSpread; });
+    this.dress();
+  }
+
+  /** Puts together everything they wear, in their look and style, and bakes it. */
+  private dress() {
+    const { look, n, color } = this, st = this.style;
+    // women are a little slimmer
+    const slim = st.woman ? 0.9 : 1;
     for (const a of this.arms) this.piece(G.arm, color, 0, -0.15, 0, true, a);
     for (const l of this.legs) this.piece(G.leg, st.legs, 0, -0.15, 0, true, l);
     const body = this.piece(G.body, color, 0, 0.6, 0, true); body.scale.set(slim, 1, slim);
     body.userData.own = true;
     this.piece(G.head, st.skin, 0, 1.03, 0.05).userData.own = true;
-    for (const s of [-1, 1]) this.piece(G.eye, 0x1B2733, s * 0.07, 1.06, 0.24);
-    if (look === 'fancy') this.dressUp(st, color, !!style);
+    this.face(st);
+    if (look === 'fancy') this.dressUp(st, color, this.mixed);
     if (look === 'waiter') this.serverClothes();
     if (look === 'chef') this.chefWhites();
     if (look === 'farmer') this.piece(G.cone, 0xE3C26B, 0, 1.27, 0.03, true).scale.set(0.36, 0.17, 0.36);
     if (look === 'parka') this.everyday(st, color);
-    if (style) this.features(st, look === 'parka' && st.summer === 'shades');
+    if (this.mixed) this.features(st, look === 'parka' && st.summer === 'shades');
     // a scarf for the cold, over the suit or the farmer's shirt
     if (look === 'fancy' || look === 'farmer') this.scarf(['winter', 'fall'], look === 'fancy' ? 0xF4EBDD : KNITS[n % KNITS.length]);
     this.scale.setScalar(st.height);
@@ -159,6 +198,53 @@ export class Person extends Group {
       const t = this.part(hang, G.sphere, c, 0, 0.94, -0.2); t.scale.set(0.06, 0.15, 0.06); t.rotation.x = 0.4;
       this.part(hang, G.sphere, c, 0, 1.07, -0.17).scale.setScalar(0.05);
     }
+  }
+
+  /**
+   * Eyes and a mouth in the style's way, worn all year. A disguise has its own face, with the plain dot eyes: they're
+   * kept for it (userData.disguise) when the style's eyes aren't dots.
+   */
+  private face(st: Style) {
+    const feature = (geo: BufferGeometry, c: number, x: number, y: number, z: number) => this.piece(geo, c, x, y, z, false, this, ALL);
+    const e = st.eyes;
+    for (const s of [-1, 1]) {
+      const x = s * 0.07, winking = e === 'wink' && s > 0;
+      const dot = this.piece(G.eye, INK, x, 1.06, 0.24);
+      if (!(e === 'dot' || e === 'lashes' || e === 'angry' || (e === 'wink' && !winking))) dot.userData.disguise = true;
+      if (e === 'round' || e === 'sparkle') {
+        feature(G.sphere, 0xFFFFFF, x, 1.06, 0.232).scale.set(0.042, 0.048, 0.022);
+        feature(G.sphere, INK, x, 1.055, 0.25).scale.set(0.024, 0.028, 0.012);
+        if (e === 'sparkle') feature(G.sphere, 0xFFFFFF, x + 0.009, 1.067, 0.26).scale.setScalar(0.009);
+      }
+      if (e === 'happy' || winking) feature(archGeo, INK, x, 1.05, 0.243).scale.setScalar(0.026);
+      if (e === 'sleepy') {
+        feature(G.sphere, 0xFFFFFF, x, 1.052, 0.234).scale.set(0.04, 0.024, 0.02);
+        feature(G.sphere, INK, x, 1.05, 0.25).scale.set(0.02, 0.016, 0.01);
+        const lid = feature(G.box, INK, x, 1.065, 0.247); lid.scale.set(0.088, 0.013, 0.012); lid.rotation.z = s * -0.12;
+      }
+      if (e === 'lashes') for (const k of [0, 1]) {
+        const l = feature(G.box, INK, x + s * (0.028 + k * 0.01), 1.086 - k * 0.012, 0.236);
+        l.scale.set(0.008, 0.026, 0.008); l.rotation.z = s * -(0.5 + k * 0.4);
+      }
+      if (e === 'angry') {
+        const b = feature(G.box, st.hair, x, 1.097, 0.236); b.scale.set(0.075, 0.017, 0.014); b.rotation.set(-0.35, 0, s * 0.4);
+      }
+    }
+    // The mouth sits low on the face, tipped to follow it; a beard's in front of it, so it comes out over one.
+    const m = st.mouth, y = 0.965, z = st.face === 'beard' ? 0.247 : 0.24;
+    const mouth = (geo: BufferGeometry, c: number, x: number, dy: number, dz = 0) => {
+      const o = feature(geo, c, x, y + dy, z + dz); o.rotation.x = 0.33; return o;
+    };
+    if (m === 'smile' || m === 'tongue') { const o = mouth(archGeo, INK, 0, 0.02); o.rotation.z = Math.PI; o.scale.set(0.04, 0.03, 0.03); }
+    if (m === 'tongue') mouth(G.sphere, 0xE8707A, 0.012, -0.017, -0.004).scale.set(0.017, 0.02, 0.01);
+    if (m === 'grin') {
+      mouth(halfDiscGeo, INSIDE, 0, 0.012).scale.set(0.048, 0.045, 0.012);
+      mouth(G.box, 0xFFFFFF, 0, 0.005, 0.007).scale.set(0.07, 0.012, 0.004);
+    }
+    if (m === 'o') mouth(G.sphere, INSIDE, 0, 0).scale.set(0.02, 0.026, 0.012);
+    if (m === 'flat') mouth(G.box, INK, 0, 0, 0.002).scale.set(0.06, 0.012, 0.01);
+    if (m === 'smirk') { const o = mouth(archGeo, INK, 0.02, 0.012); o.rotation.z = Math.PI + 0.35; o.scale.set(0.03, 0.022, 0.03); }
+    if (m === 'frown') mouth(archGeo, INK, 0, -0.022).scale.set(0.04, 0.028, 0.03);
   }
 
   /** The crowd's year-round looks: a moustache, a beard or earrings, and glasses (sunglasses stand in when `shades`). */
@@ -266,9 +352,10 @@ export class Person extends Group {
 
   /** The pieces being worn now, on the body and the limbs. */
   worn() {
-    const s = current();
-    return [...this.pieces, ...this.limbPieces.flat()]
-      .filter(p => !(this.disguised && (p.o.userData.own || p.seasons)) && (!p.seasons || p.seasons.includes(s)));
+    const s = this.season ?? current();
+    return [...this.pieces, ...this.limbPieces.flat()].filter(p => p.o.userData.disguise
+      ? this.disguised
+      : !(this.disguised && (p.o.userData.own || p.seasons)) && (!p.seasons || p.seasons.includes(s)));
   }
 
   /**

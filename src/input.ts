@@ -29,8 +29,8 @@ function endJoy(e: PointerEvent) {
 }
 canvas.addEventListener('pointerup', endJoy);
 canvas.addEventListener('pointercancel', endJoy);
-/** Keys typed into a control (the volume sliders) are for it, not for walking. */
-const forControl = (e: KeyboardEvent) => !!(e.target as Element | null)?.closest?.('input, select, textarea');
+/** Keys typed into a control (the volume sliders, the look's tabs) are for it, not for walking. */
+const forControl = (e: KeyboardEvent) => !!(e.target as Element | null)?.closest?.('input, select, textarea, [role="tablist"]');
 window.addEventListener('keydown', e => {
   if (forControl(e)) return;
   keys[e.key.toLowerCase()] = true;
