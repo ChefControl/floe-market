@@ -10,7 +10,7 @@ import { addTables } from './garden';
 import { enableKorki, KORKI } from './korki';
 import { stage, TERRACES } from './layout';
 import { buildNet, buildTurret } from './machines';
-import { players } from './player';
+import { player } from './player';
 import { pointAt } from './pointers';
 import { popIn } from './pop';
 import { rating } from './rating';
@@ -110,7 +110,6 @@ export const tiles: Tile[] = UNLOCKS.map(u => {
   t.tip = tipOf(t);
   t.d.mesh.position.set(t.x, (t.y ?? FY) + 0.012, t.z);
   t.d.mesh.visible = false;
-  t.d.tex.userData.local = true; // co-op: each phone draws it from the tile's state (coop.ts)
   return t;
 });
 
@@ -165,7 +164,7 @@ export function stageProgress() {
 }
 
 /** Updates the stage chip. */
-export function showProgress() {
+function showProgress() {
   const g = goal(stage.n);
   showStage(stage.n, g.filter(t => t.done).length, g.length);
 }
@@ -192,7 +191,7 @@ let turret: { g: Group; head: Group; t: number } | null = null;
 let net: { g: Group; t: number; src: Vector3 } | null = null;
 
 /** Korki's tile follows the statue's spot to the garden in stage 2, if it's still for sale. */
-export function moveKorkiTile() {
+function moveKorkiTile() {
   const t = tiles.find(x => x.id === 'korki')!;
   t.x = KORKI.x; t.z = KORKI.z; t.y = KORKI.y;
   t.d.mesh.position.set(t.x, t.y + 0.012, t.z);
@@ -203,11 +202,11 @@ export function applyUnlock(id: UnlockId, silent = false) {
   const t = tiles.find(x => x.id === id)!;
   t.done = true; t.d.mesh.visible = false;
   const pop = (...os: Object3D[]) => { if (!silent) os.forEach(popIn); };
-  if (id === 'pack') players.forEach(p => { p.back.cap = 14; });
+  if (id === 'pack') player.back.cap = 14;
   if (id === 'turret') { turret = { ...buildTurret(), t: 1 }; pop(turret.g); }
   if (id === 'roulette') pop(enableCasino());
   if (id === 'runner' || id === 'runner2' || id === 'runner3') pop(hireRunner().g);
-  if (id === 'boots') players.forEach(p => { p.speed = 5.8; });
+  if (id === 'boots') player.speed = 5.8;
   if (id === 'sled') pop(...openSled());
   if (id === 'net') { net = { ...buildNet(), t: 0.5 }; pop(net.g); }
   if (id === 'sushi') enterStage2(silent, moveKorkiTile);

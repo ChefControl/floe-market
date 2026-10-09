@@ -32,8 +32,6 @@ const ctx2d = new Proxy({ createLinearGradient: gradient, createRadialGradient: 
 HTMLCanvasElement.prototype.getContext = function (type: string) {
   return type === '2d' ? ctx2d : null;
 } as typeof HTMLCanvasElement.prototype.getContext;
-// Co-op sends pictures as data URLs (src/mirror.ts): an empty one stands in.
-HTMLCanvasElement.prototype.toDataURL = () => 'data:,';
 
 /** Small seeded PRNG so fish, customers and orders are the same on every run. */
 export function seeded(seed: number) {
