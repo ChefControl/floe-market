@@ -9,7 +9,7 @@ import { canvasTex, FONT, G, mesh, rr, scene } from './render';
 import { clack, jackpot, lose, reelStop, win } from './sfx';
 import { line, lineMultiplier, payout, pull, REEL, THREE, TWO_CHERRIES, type Sym } from './slots';
 import { popText } from './ui';
-import { FY, money, type XZ } from './util';
+import { money, type XZ } from './util';
 import { addMoney, wallet } from './wallet';
 
 const AT = GAMES.slots;
@@ -55,7 +55,7 @@ function drawReels(c: CanvasRenderingContext2D, pos: readonly number[], lit = fa
 // ---------- 3D machines ----------
 /** A cabinet with `screen` on its front, a lit sign on top and a lever on its right. Returns it and its lever. */
 function cabinet(x: number, screen: MeshBasicMaterial) {
-  const g = new Group(); g.position.set(x, FY, BANK.z);
+  const g = new Group(); g.position.set(x, AT.y, BANK.z);
   g.add(mesh(new BoxGeometry(0.72, 0.5, 0.6), 0x3A1A22, 0, 0.25, 0, true));
   g.add(mesh(new BoxGeometry(0.7, 0.95, 0.55), 0xC0392B, 0, 0.97, 0, true));
   g.add(mesh(new BoxGeometry(0.6, 0.08, 0.2), 0xE3B23C, 0, 0.62, 0.32, true));
@@ -150,7 +150,7 @@ function settle() {
   const syms = line(s.stops);
   if (s.win > 0) {
     addMoney(s.win);
-    popText('+' + money(s.win), { x: BANK.x, y: 1.9, z: BANK.z });
+    popText('+' + money(s.win), { x: BANK.x, y: AT.y + 1.9, z: BANK.z });
     if (lineMultiplier(syms) === THREE['7']) jackpot(); else win();
     if (syms.every(x => x === syms[0])) bank!.sign.say(syms[0] === '7' ? 'JACKPOT!' : `${syms.join('')}!`);
   } else lose();

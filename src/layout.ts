@@ -50,26 +50,46 @@ export const EAST_DOOR = { z0: HOUSE_PATH_Z - 0.6, z1: HOUSE_PATH_Z + 0.6 };
 export const KIOSK_BOOTH = { x0: HALL_BOX.x1, x1: 12.8, z0: HALL_BOX.z0, z1: 5.0 };
 export const kioskBooth = { open: false };
 
-// ---------- the casino boat ----------
+// ---------- the casino harbor ----------
 /**
- * The casino boat (casino.ts), moored in the bay north-west of the dock, in both stages: its hull, the jetty that
- * runs west along the shore from a gap in the dock's west fence, and the pier from the jetty's end out to the boat.
- * They're there once the 'roulette' unlock opens the casino.
+ * The casino harbor (casino.ts), in both stages, once the 'roulette' unlock opens it: the dock carries on west along
+ * the shore as a wide quay, out past the shoreline into deep water, and a riverboat is moored along its north side,
+ * bow towards the dock. A gangway takes you aboard onto its foredeck, at the foot of a staircase up to the open
+ * upper deck where the games are.
  */
-export const BOAT = { x0: -24.2, x1: -15.0, z0: -12.6, z1: -7.3 };
-export const JETTY_Z = -4.4;
-export const PIER_X = -15.7;
+export const QUAY = { x0: -24.6, x1: -8.0, z0: -7.6, z1: -4.2 };
+/** The riverboat: its middle, half its length (along x) and half its beam (along z). The bow points east. */
+export const SHIP = { x: -20, z: -10.55, half: 6, beam: 2.8 };
+/** How high the upper deck is; the main deck is level with the quay. */
+export const UPPER = FY + 2.1;
+/** Along the ship, from its middle (+ towards the bow): the upper deck's ends, the staircase (its top at `x0`) and the gangway. */
+export const DECKS = { stern: -5.6, front: 2.25, stairs: { x0: 2.25, x1: 4.4, half: 0.7 }, gangway: 4.7 };
 export const casinoBoat = { open: false };
-/** Where you stand to play each game, along the boat's deck in front of its table. */
+const along = (x: number) => SHIP.x + x, across = (z: number) => SHIP.z + z;
+/** Where you stand to play each game, on the upper deck in front of its table. */
 export const GAMES = {
-  roulette: { x: -22.0, z: -9.3 },
-  blackjack: { x: -19.4, z: -9.3 },
-  slots: { x: -16.8, z: -9.3 },
+  roulette: { x: along(-4.3), y: UPPER, z: across(0.75) },
+  blackjack: { x: along(-1.7), y: UPPER, z: across(0.75) },
+  slots: { x: along(0.9), y: UPPER, z: across(0.75) },
 };
-const JETTY = area(PIER_X - 0.35, -7.3, JETTY_Z - 0.35, JETTY_Z + 0.35);
-const PIER = area(PIER_X - 0.35, PIER_X + 0.35, BOAT.z1 - 0.6, JETTY_Z);
-const BOAT_DECK = area(BOAT.x0 + 0.5, BOAT.x1 - 0.5, BOAT.z0 + 0.8, BOAT.z1 - 0.4);
-const casinoAreas = () => casinoBoat.open ? [JETTY, PIER, BOAT_DECK] : [];
+const QUAY_FLOOR = area(QUAY.x0 + 0.3, QUAY.x1 + 0.6, QUAY.z0 + 0.3, QUAY.z1 - 0.2);
+const GANGWAY = area(along(DECKS.gangway) - 0.35, along(DECKS.gangway) + 0.35, across(SHIP.beam) - 0.5, QUAY.z0 + 0.4);
+const LANDING = area(along(4.2), along(5.1), across(-0.7), across(SHIP.beam - 0.5));
+const STAIRS = area(along(DECKS.stairs.x0), along(DECKS.stairs.x1), across(-DECKS.stairs.half), across(DECKS.stairs.half), UPPER);
+const UPPER_DECK = area(along(DECKS.stern), along(DECKS.front), across(-SHIP.beam + 0.5), across(SHIP.beam - 0.5), UPPER);
+const casinoAreas = () => casinoBoat.open ? [QUAY_FLOOR, GANGWAY, LANDING, STAIRS, UPPER_DECK] : [];
+/** Height of the harbor's floor at `p`: the quay and the main deck, the stairs climbing, or the upper deck; null off it. */
+function casinoY(p: XZ) {
+  if (!casinoBoat.open) return null;
+  if (inside(STAIRS, p)) return FY + (UPPER - FY) * (STAIRS.x1 - p.x) / (STAIRS.x1 - STAIRS.x0);
+  if (inside(UPPER_DECK, p)) return UPPER;
+  return [QUAY_FLOOR, GANGWAY, LANDING].some(a => inside(a, p)) ? FY : null;
+}
+/** On the harbor's boards: the quay or anywhere aboard (for footsteps on wood). */
+export const onHarbor = (p: XZ) => casinoY(p) !== null;
+/** Aboard the riverboat. */
+export const aboard = (p: XZ) =>
+  Math.abs(p.x - SHIP.x) < SHIP.half + 0.5 && Math.abs(p.z - SHIP.z) < SHIP.beam + 0.1;
 
 const DOCK2 = area(-7.4, 7.4, -6.25, 1.9);
 const HALL = area(HALL_BOX.x0 + 0.4, HALL_BOX.x1 - 0.4, 1.8, HALL_BOX.z1 - 0.4);
@@ -97,11 +117,13 @@ const inside = (a: Area, p: XZ) => p.x >= a.x0 && p.x <= a.x1 && p.z >= a.z0 && 
 
 /** Height of the ground people stand on at `p`: the deck and restaurant floor, terraces, or the snow. */
 export function groundY(p: XZ) {
-  const house = inside(housePath(), p) || inside(YARD, p), casino = casinoAreas().some(a => inside(a, p));
-  if (stage.n === 1) return inside(DECK, p) || house || casino ? FY : 0;
+  const casino = casinoY(p);
+  if (casino !== null) return casino;
+  const house = inside(housePath(), p) || inside(YARD, p);
+  if (stage.n === 1) return inside(DECK, p) || house ? FY : 0;
   for (const a of FIELDS) if (inside(a, p)) return a.y;
   if (shedYard.open && inside(SHED_YARD, p)) return SHED_YARD.y;
-  if (inHall(p) || inside(DOCK2, p) || inside(BRIDGE, p) || house || casino || (kioskBooth.open && inside(BOOTH, p))) return FY;
+  if (inHall(p) || inside(DOCK2, p) || inside(BRIDGE, p) || house || (kioskBooth.open && inside(BOOTH, p))) return FY;
   return inside(PATH, p) ? PATH.y : 0;
 }
 

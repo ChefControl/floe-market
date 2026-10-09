@@ -13,18 +13,18 @@ import { GAMES, pushOutOfBox } from './layout';
 import { mesh, scene } from './render';
 import { deal as dealSound, lose, push as pushSound, win } from './sfx';
 import { popText } from './ui';
-import { FY, money, type XZ } from './util';
+import { money, type XZ } from './util';
 import { addMoney, wallet } from './wallet';
 
 const AT = GAMES.blackjack;
-const TABLE = { x: AT.x, y: 0.6, z: AT.z - 1.75 };
+const TABLE = { x: AT.x, z: AT.z - 1.75 };
 /** Seconds between cards coming out, and before the dealer's next draw. */
 const CARD_GAP = 0.32, DEALER_GAP = 0.6;
 
 // ---------- 3D table ----------
 /** A half-moon of felt on a wooden base, its curve towards the player, with the dealer behind and a shoe of cards. */
 function buildTable() {
-  const g = new Group(); g.position.set(TABLE.x, FY, TABLE.z);
+  const g = new Group(); g.position.set(TABLE.x, AT.y, TABLE.z);
   const half = (r: number, h: number, c: number, y: number) =>
     mesh(new CylinderGeometry(r, r, h, 28, 1, false, -Math.PI / 2, Math.PI), c, 0, y, -0.45, true);
   g.add(half(0.95, 0.58, 0x6B3E26, 0.29));
@@ -292,7 +292,7 @@ function payOut() {
   r.phase = 'done';
   owe(0);
   if (back > 0) addMoney(back);
-  if (back > staked) { popText('+' + money(back), { x: TABLE.x, y: 1.2, z: TABLE.z }); win(); }
+  if (back > staked) { popText('+' + money(back), { x: TABLE.x, y: AT.y + 1.2, z: TABLE.z }); win(); }
   else if (back === staked) pushSound();
   else lose();
   if (back >= 5 * staked) table!.voice.say('Big win!');

@@ -19,9 +19,9 @@ export const visits = { n: 0 };
  * it when they step off, calling `opened`/`closed`, and `greet` the first time they step on it each visit. It
  * returns whether the panel is open.
  */
-export function gamePad(at: XZ, icon: string, panel: HTMLElement, h: { opened(): void; closed(): void; greet(): void }) {
+export function gamePad(at: XZ & { y?: number }, icon: string, panel: HTMLElement, h: { opened(): void; closed(): void; greet(): void }) {
   const d = decal(1.9, (c, w, ht) => drawPad(c, w, ht, icon));
-  d.mesh.position.set(at.x, FY + 0.01, at.z);
+  d.mesh.position.set(at.x, (at.y ?? FY) + 0.01, at.z);
   d.mesh.visible = false;
   let enabled = false, open = false, greeted = -1;
   return {

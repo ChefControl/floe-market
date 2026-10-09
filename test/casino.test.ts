@@ -131,21 +131,39 @@ async function at(game: 'roulette' | 'blackjack' | 'slots', money: number, ...mo
 const walkAway = (g: Game) => { g.placePlayer(-15.7, -4.4); g.run(0.05); };
 
 describe('the casino boat', () => {
-  it('comes with the roulette tile: a jetty through a gap in the fence, and a pier out to it', async () => {
+  it('comes with the roulette tile: a quay through a gap in the fence, a gangway aboard and stairs up', async () => {
     const g = await loadGame();
-    const p = g.player.g.position;
-    g.placePlayer(-12, -4.4);
+    const p = g.player.g.position, { SHIP, DECKS, UPPER } = g.layout, { FY } = g.util;
+    g.placePlayer(-12, -5.5);
     g.run(0.05);
     expect(p.x).toBeCloseTo(-7.4); // the fence
-    expect(g.world.jettyLogs.every(l => l.visible)).toBe(true);
+    expect(g.world.quayLogs.every(l => l.visible)).toBe(true);
     g.unlocks.applyUnlock('roulette');
-    expect(g.world.jettyLogs.some(l => l.visible)).toBe(false);
-    for (const [x, z] of [[-12, -4.4], [-15.7, -6.5], [-19.4, -8.5]]) {
+    expect(g.world.quayLogs.some(l => l.visible)).toBe(false);
+    const stairs = DECKS.stairs, mid = SHIP.x + (stairs.x0 + stairs.x1) / 2;
+    // the quay, the gangway, the foredeck at the foot of the stairs, halfway up them, and the upper deck
+    for (const [x, z, y] of [
+      [-12, -6.3, FY], [SHIP.x + DECKS.gangway, -7.6, FY], [SHIP.x + 4.7, SHIP.z, FY],
+      [mid, SHIP.z, (FY + UPPER) / 2], [SHIP.x - 1, SHIP.z, UPPER],
+    ]) {
       g.placePlayer(x, z);
-      g.run(0.05);
+      g.run(0.5);
       expect([p.x, p.z]).toEqual([x, z]);
-      expect(p.y).toBeCloseTo(g.util.FY);
+      expect(p.y).toBeCloseTo(y, 2);
     }
+    // the main deck under the upper deck is the cabin: nobody walks in there
+    g.placePlayer(SHIP.x - 1, SHIP.z + SHIP.beam - 0.3);
+    p.y = FY;
+    g.run(0.05);
+    expect(p.z).toBeLessThan(SHIP.z + SHIP.beam - 0.4);
+  });
+
+  it('has a ticket booth and crates on the quay that the player walks round', async () => {
+    const g = await loadGame({ tiles: bought('roulette') });
+    const p = g.player.g.position;
+    g.placePlayer(-12.6, -4.85);
+    g.run(0.05);
+    expect(Math.abs(p.x + 12.6) > 0.9 || Math.abs(p.z + 4.85) > 0.7).toBe(true);
   });
 
   it('puts its other games up for sale on its deck', async () => {
@@ -168,7 +186,7 @@ describe('the casino boat', () => {
     for (const k of ['roulette', 'blackjack', 'slots'] as const) {
       g.placePlayer(g.layout.GAMES[k].x, g.layout.GAMES[k].z);
       for (let i = 0; i < 60; i++) { p.z -= 0.05; g.run(1 / 60); }
-      expect(p.z).toBeGreaterThan(-11.2);
+      expect(p.z).toBeGreaterThan(-11.6);
     }
   });
 
@@ -178,8 +196,8 @@ describe('the casino boat', () => {
     expect(tile.x).toBeLessThan(-6);
     const { view } = g.stage, focus = view.focus.clone();
     g.unlocks.applyUnlock('roulette');
-    const [jetty, , boat] = g.casino.casinoPieces();
-    expect(jetty.visible).toBe(true);
+    const [quay, , boat] = g.casino.casinoPieces();
+    expect(quay.visible).toBe(true);
     expect(boat.visible).toBe(false);
     g.run(0.3);
     expect(view.k).toBeGreaterThan(0);
@@ -202,8 +220,8 @@ describe('the casino boat', () => {
 
   it('turns its paddle wheel', async () => {
     const g = await loadGame({ tiles: bought('roulette') });
-    const [, , boat] = g.casino.casinoPieces();
-    const wheel = boat.children.find(o => o.type === 'Group')!;
+    const [, , ship] = g.casino.casinoPieces();
+    const wheel = ship.children.filter(o => o.type === 'Group').pop()!;
     const was = wheel.rotation.z;
     g.run(1);
     expect(wheel.rotation.z).toBeGreaterThan(was);

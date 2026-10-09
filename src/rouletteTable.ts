@@ -9,11 +9,11 @@ import { canvasTex, FONT, mat, mesh, scene } from './render';
 import { colorOf, multiplier, payout, spinWheel, WHEEL, type Bet } from './roulette';
 import { lose, tick, win } from './sfx';
 import { popText } from './ui';
-import { FY, money, type XZ } from './util';
+import { money, type XZ } from './util';
 import { addMoney, wallet } from './wallet';
 
 const AT = GAMES.roulette;
-const TABLE = { x: AT.x, y: 0.5, z: AT.z - 1.65 };
+const TABLE = { x: AT.x, y: AT.y + 0.5, z: AT.z - 1.65 };
 const SPIN_TIME = 3.2;
 const TAU = Math.PI * 2;
 const SEG = TAU / WHEEL.length;
@@ -47,7 +47,7 @@ function drawWheel(c: CanvasRenderingContext2D, size: number, angle: number, bal
 // ---------- 3D table ----------
 /** The table and wheel, and the croupier behind them. */
 function buildTable() {
-  const g = new Group(); g.position.set(TABLE.x, FY, TABLE.z);
+  const g = new Group(); g.position.set(TABLE.x, AT.y, TABLE.z);
   g.add(mesh(new BoxGeometry(1.4, 0.62, 1.1), 0x6B3E26, 0, 0.31, 0, true));
   g.add(mesh(new BoxGeometry(1.55, 0.06, 1.25), 0x2E7D4F, 0, 0.65, 0, true));
   g.add(mesh(new CylinderGeometry(0.46, 0.4, 0.12, 28), 0x8A5A3B, 0, 0.74, 0, true));

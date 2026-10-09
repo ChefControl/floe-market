@@ -11,7 +11,7 @@ import { billValue, newBill, type Kind } from './items';
 import { boost } from './economy';
 import { buyHeld, inputVec } from './input';
 import { korkiStatue, STATUE } from './korki';
-import { groundY, keepOnFloor, pushOutOfBox, stage, walkable } from './layout';
+import { groundY, keepOnFloor, onHarbor, pushOutOfBox, stage, walkable } from './layout';
 import { BOOP_SECS, player } from './player';
 import { collidePresents, givePresents, onPresentTile, PRESENT, redrawPresentTile } from './presents';
 import { scene } from './render';
@@ -175,7 +175,7 @@ export function updPlayer(dt: number) {
 let stepsTaken = 0;
 function footsteps() {
   const n = player.moving ? Math.floor(player.g.phase / Math.PI) : 0;
-  if (n > stepsTaken) step(Math.abs(player.g.position.y - FY) < 0.05 ? 'wood' : current());
+  if (n > stepsTaken) step(Math.abs(player.g.position.y - FY) < 0.05 || onHarbor(player.g.position) ? 'wood' : current());
   stepsTaken = n;
 }
 
