@@ -5,7 +5,8 @@
 // as they come up, the 📈 Upgrade square and the star rating some tiles need.
 // Each idea is learnt by doing it (the rating by reading about it), and isn't shown to the same player again: what's
 // learnt is kept on the device, so Restart doesn't bring it back, and in the save, so it follows a signed-in player to
-// their other devices. A game from before the tutorial counts what it has done already.
+// their other devices. A game from before the tutorial counts what it has done already. Learning the last one brings up
+// a banner saying the tutorial's complete, and that the rest is up to the player.
 import { Group, Mesh, MeshBasicMaterial, RingGeometry } from 'three';
 import { C1 } from './counters';
 import { modCost, MODS, mods } from './economy';
@@ -15,9 +16,11 @@ import { stage } from './layout';
 import { player } from './player';
 import { onScreen } from './pointers';
 import { bakePainted, G, painted, scene } from './render';
+import { unlock } from './sfx';
 import { atSquare, SHOPS } from './shop';
 import { staging } from './stage';
 import { PAD, pile, PILE } from './stations';
+import { banner, confetti } from './ui';
 import { locked, onOffer, tiles } from './unlocks';
 import { d2xz, FY, type XZ } from './util';
 import { wallet } from './wallet';
@@ -28,6 +31,8 @@ const LESSONS: Lesson[] = ['fish', 'pick', 'sell', 'cash', 'buy', 'shop', 'stars
 const KEY = 'floe-market-tutorial';
 /** Seconds a lesson that's learnt by reading stays in view first. */
 const READ = 6;
+/** Seconds the banner saying it's all done stays up. */
+const CHEER = 4;
 
 /** Where a lesson points: a spot on the ground, and how near counts as being there. */
 interface Spot extends XZ { y: number; r: number }
@@ -129,15 +134,30 @@ function next() {
   return STEPS.find(s => !learnt.has(s.id) && (!s.after || learnt.has(s.after)) && s.at()) ?? null;
 }
 
+/** Seconds left of the banner saying the tutorial's complete. */
+let cheer = 0;
+/** The banner for the last lesson learnt: only ever by playing, never for a game that knew them all already. */
+function complete() {
+  banner('Well done', 'Tutorial complete', 'The rest is up to you. Go make it big!');
+  confetti();
+  unlock();
+  cheer = CHEER;
+}
+
 /** Each tick: learns what's been done, and picks the lesson to show. */
-export function updTutorial() {
+export function updTutorial(dt: number) {
   if (!started) {
     // what an older game shows its player knows already
     started = true;
     learn(STEPS.filter(s => s.known()).map(s => s.id));
   }
+  // (the stage-up has the banner to itself)
+  if (cheer > 0 && (cheer -= dt) <= 0 && !staging()) banner(null);
   const s = lesson.now;
-  if (s && (s.done?.() || (s.read && lesson.viewed >= s.read))) learn([s.id]);
+  if (s && (s.done?.() || (s.read && lesson.viewed >= s.read))) {
+    learn([s.id]);
+    if (learnt.size === LESSONS.length) complete();
+  }
   const n = next();
   if (n !== lesson.now) {
     lesson.now = n; lesson.viewed = 0;

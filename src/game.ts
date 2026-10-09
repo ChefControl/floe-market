@@ -57,7 +57,7 @@ export function tick(dt: number) {
   updFarm(dt);
   updStage(dt);
   updShop();
-  updTutorial();
+  updTutorial(dt);
   updLooks(dt);
   updRoof(dt, player.g.position, staging());
   updAudio(dt, player.g.position);

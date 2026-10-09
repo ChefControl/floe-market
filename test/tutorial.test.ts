@@ -106,6 +106,23 @@ describe('the tutorial', () => {
     tut.drawTutorial(0.1);
     expect($('stars').classList.contains('teach')).toBe(false);
     expect($('coach').hidden).toBe(true);
+    expect($('banner').classList.contains('on')).toBe(false); // the upgrade square is still to come
+  });
+
+  it('says the tutorial is complete when the last idea is learnt, and leaves the rest to the player', async () => {
+    const { g, tut, now } = await setup({ tiles: bought('pack'), money: 100, learnt: ['stars'] });
+    g.run(0.1);
+    expect(now()).toBe('shop');
+    expect($('banner').classList.contains('on')).toBe(false);
+    g.placePlayer(g.shop.SHOPS[0].x, g.shop.SHOPS[0].z);
+    g.run(0.1);
+    expect(tut.learntLessons()).toHaveLength(7);
+    expect($('banner').classList.contains('on')).toBe(true);
+    expect($('banner').textContent).toBe('Well doneTutorial completeThe rest is up to you. Go make it big!');
+    g.run(3);
+    expect($('banner').classList.contains('on')).toBe(true);
+    g.run(1.1);
+    expect($('banner').classList.contains('on')).toBe(false);
   });
 
   it('waits at the edge of the screen, pointing the way, while the spot is off it', async () => {
@@ -147,6 +164,7 @@ describe('the tutorial', () => {
     s2.draw();
     expect(s2.tut.guide.visible).toBe(false);
     expect(s2.tut.learntLessons()).toEqual(['fish', 'pick', 'sell', 'cash', 'buy', 'shop', 'stars']);
+    expect($('banner').classList.contains('on')).toBe(false); // nothing to celebrate: it was all known already
   });
 
   it('works without storage', async () => {

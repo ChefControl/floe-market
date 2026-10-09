@@ -153,6 +153,8 @@ body{
 #banner.on .card{ transform:scale(1); opacity:1; }
 #banner .k{ font-size:clamp(14px,3.6vw,20px); font-weight:800; letter-spacing:.3em; text-transform:uppercase; opacity:.92; }
 #banner .t{ font-size:clamp(46px,13vw,96px); font-weight:800; line-height:.95; color:#FFC34A; }
+#banner .s{ margin:12px auto 0; max-width:min(86vw,520px); font-size:clamp(18px,5vw,26px); font-weight:700; line-height:1.2; }
+#banner .s[hidden]{ display:none; }
 #confetti{ position:fixed; inset:0; width:100%; height:100%; z-index:6; pointer-events:none; }
 @media (prefers-reduced-motion: reduce){ #banner .card{ transition:none; } }
 
@@ -581,7 +583,7 @@ body{
 <div id="coach" class="pill" role="status" hidden><i class="dir" aria-hidden="true"></i><b></b><small></small></div>
 <div id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
 <canvas id="confetti" aria-hidden="true" hidden></canvas>
-<div id="banner" aria-live="polite"><div class="card"><div class="k"></div><div class="t"></div></div></div>
+<div id="banner" aria-live="polite"><div class="card"><div class="k"></div><div class="t"></div><div class="s" hidden></div></div></div>
 <div id="prompts">
   <div id="buyHint" class="pill" role="status" hidden></div>
   <div id="tip" class="pill" aria-live="polite"></div>
