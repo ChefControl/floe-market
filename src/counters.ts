@@ -177,8 +177,8 @@ export const TAKEOUT = makeCounter({
   oncoming: [V(lane(ROAD2_X, 1), 0, 48), V(lane(ROAD2_X, 1), 0, -48)],
 }, 24);
 place(TAKEOUT,
-  mesh(new BoxGeometry(0.8, 0.9, 3.6), 0xE8F1F6, KIOSK.x, FY + 0.45, KIOSK.z, true),
-  mesh(new BoxGeometry(0.9, 0.08, 3.7), 0xF2B33D, KIOSK.x, FY + 0.9, KIOSK.z, true),
+  mesh(new BoxGeometry(0.8, 0.9, KIOSK.len), 0xE8F1F6, KIOSK.x, FY + 0.45, KIOSK.z, true),
+  mesh(new BoxGeometry(0.9, 0.08, KIOSK.len + 0.1), 0xF2B33D, KIOSK.x, FY + 0.9, KIOSK.z, true),
 );
 
 export const COUNTERS = [C1, SLED, TAKEOUT];
