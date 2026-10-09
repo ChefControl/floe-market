@@ -5,8 +5,8 @@ import { loadGame } from './helpers';
 const $ = (id: string) => document.getElementById(id)!;
 
 describe('HUD', () => {
-  it('shows cash with a bump, and flags full arms', async () => {
-    const g = await loadGame({ back: 6 });
+  it('shows cash with a bump', async () => {
+    const g = await loadGame();
     g.wallet.money = 1234;
     g.wallet.bumpT = 0.1;
     g.ui.hud(0.016);
@@ -15,8 +15,6 @@ describe('HUD', () => {
     g.ui.hud(0.016);
     expect($('cashN').textContent).toBe('1.5M'); // short once it's big
     expect($('cash').classList.contains('bump')).toBe(true);
-    expect($('carryN').textContent).toBe('6/6');
-    expect($('carry').classList.contains('full')).toBe(true);
     g.ui.hud(0.2);
     g.ui.hud(0.016);
     expect($('cash').classList.contains('bump')).toBe(false);

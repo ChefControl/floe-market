@@ -1,6 +1,5 @@
-// DOM overlay: cash/carry/rating HUD, the stage chip, toasts, tile tips, floating "+$" text, and the banner and
-// confetti for the stage-up and the end of the tutorial.
-import { player } from './player';
+// DOM overlay: cash/rating HUD (what's carried shows in the player's arms), the stage chip, toasts, tile tips,
+// floating "+$" text, and the banner and confetti for the stage-up and the end of the tutorial.
 import { rating } from './rating';
 import { camera, slideView } from './render';
 import { amount, pick, rand, V } from './util';
@@ -9,20 +8,13 @@ import { wallet } from './wallet';
 const $ = (id: string) => document.getElementById(id)!;
 
 const cashN = $('cashN'), cashEl = $('cash');
-const carryN = $('carryN'), carryEl = $('carry');
 const starsN = $('starsN');
-let shownMoney = -1, shownCarry = '', shownStars = '';
+let shownMoney = -1, shownStars = '';
 
 export function hud(dt: number) {
   if (shownMoney !== wallet.money) {
     shownMoney = wallet.money;
     cashN.textContent = amount(wallet.money);
-  }
-  const cs = player.back.n + '/' + player.back.cap;
-  if (cs !== shownCarry) {
-    shownCarry = cs;
-    carryN.textContent = cs;
-    carryEl.classList.toggle('full', player.back.n >= player.back.cap);
   }
   const st = rating().toFixed(1);
   if (st !== shownStars) {
