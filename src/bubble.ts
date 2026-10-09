@@ -1,9 +1,9 @@
-// Order bubbles over customers' heads, with a ring that empties as their patience runs out,
-// and the mood faces shown over customers further back in a queue.
+// Order bubbles over customers' heads, with a ring that empties as their patience runs out, the mood faces shown
+// over customers further back in a queue, and the same bubble without a ring for the kitchen's needs (needs.ts).
 import { Sprite, SpriteMaterial } from 'three';
 import { canvasTex, FONT, rr } from './render';
 
-export type OrderIcon = 'fish' | 'sushi' | 'box';
+export type OrderIcon = 'fish' | 'sushi' | 'box' | 'rice';
 
 /** A blue fish with a yellow fin, like the ones in the water. */
 function fishIcon(c: CanvasRenderingContext2D) {
@@ -20,6 +20,14 @@ function fishIcon(c: CanvasRenderingContext2D) {
 function boxIcon(c: CanvasRenderingContext2D) {
   c.fillStyle = '#22262B'; rr(c, 20, 44, 48, 30, 6); c.fill();
   c.fillStyle = '#C0392B'; rr(c, 18, 40, 52, 10, 4); c.fill();
+}
+
+/** A sack of rice, as the bags look: cream, with a red band and 米 on it. */
+function riceIcon(c: CanvasRenderingContext2D) {
+  c.fillStyle = '#E6DBC0'; rr(c, 18, 38, 52, 38, 9); c.fill();
+  c.fillStyle = '#C0392B'; c.fillRect(18, 50, 52, 14);
+  c.fillStyle = '#FFFDF5'; c.font = 'bold 13px sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
+  c.fillText('米', 44, 58);
 }
 
 function sushiIcon(c: CanvasRenderingContext2D) {
@@ -40,30 +48,47 @@ const ICONS: Record<OrderIcon, { draw: (c: CanvasRenderingContext2D) => void; bo
   fish: { draw: fishIcon, box: [10, 38, 54, 32] },
   sushi: { draw: sushiIcon, box: [22, 44, 44, 30] },
   box: { draw: boxIcon, box: [18, 40, 52, 34] },
+  rice: { draw: riceIcon, box: [18, 38, 52, 38] },
 };
 /** How big the icon is drawn, the space between it and the count, and the widest the pair may be inside the ring. */
 const ICON_K = 0.8, GAP = 6, ROOM = 72;
 
-export function drawBubble(c: CanvasRenderingContext2D, w: number, h: number, n: number, left: number, icon: OrderIcon) {
+/** The white speech bubble, with its tail pointing down at the speaker. */
+function balloon(c: CanvasRenderingContext2D, w: number, h: number) {
   c.clearRect(0, 0, w, h);
   c.fillStyle = '#fff'; c.beginPath(); c.arc(64, 58, 52, 0, 7); c.fill();
   c.beginPath(); c.moveTo(52, 104); c.lineTo(64, 124); c.lineTo(76, 104); c.fill();
+}
+
+export function drawBubble(c: CanvasRenderingContext2D, w: number, h: number, n: number, left: number, icon: OrderIcon) {
+  balloon(c, w, h);
   c.lineWidth = 7; c.lineCap = 'round';
   c.strokeStyle = 'rgba(23,48,66,.12)'; c.beginPath(); c.arc(64, 58, 46, 0, 7); c.stroke();
   if (left > 0) {
     c.strokeStyle = moodColor(left);
     c.beginPath(); c.arc(64, 58, 46, -Math.PI / 2, -Math.PI / 2 + left * Math.PI * 2); c.stroke();
   }
-  // The icon and the count side by side, centred in the ring as a pair, both on its middle line, and shrunk
-  // together if a long count would push them into the ring.
+  pair(c, icon, '×' + n);
+}
+
+/** A bubble asking for something (`?`): no patience ring. */
+export function drawNeed(c: CanvasRenderingContext2D, w: number, h: number, icon: OrderIcon, label: string) {
+  balloon(c, w, h);
+  pair(c, icon, label);
+}
+
+/**
+ * The icon and a label side by side, centred in the bubble as a pair, both on its middle line, and shrunk together
+ * if a long label would push them into the ring.
+ */
+function pair(c: CanvasRenderingContext2D, icon: OrderIcon, label: string) {
   const { draw, box: [bx, by, bw, bh] } = ICONS[icon];
-  const label = '×' + n;
   c.font = '800 34px ' + FONT; c.textAlign = 'left'; c.textBaseline = 'alphabetic';
   const m = c.measureText(label);
   const iw = bw * ICON_K, tw = m.actualBoundingBoxLeft + m.actualBoundingBoxRight;
-  const pair = iw + GAP + tw, k = Math.min(1, ROOM / pair);
+  const wide = iw + GAP + tw, k = Math.min(1, ROOM / wide);
   c.save();
-  c.translate(64 - pair * k / 2, 58); c.scale(k, k);
+  c.translate(64 - wide * k / 2, 58); c.scale(k, k);
   c.save(); c.scale(ICON_K, ICON_K); c.translate(-bx, -(by + bh / 2)); draw(c); c.restore();
   c.fillStyle = '#173042';
   c.fillText(label, iw + GAP + m.actualBoundingBoxLeft, (m.actualBoundingBoxAscent - m.actualBoundingBoxDescent) / 2);

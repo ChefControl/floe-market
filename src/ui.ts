@@ -3,7 +3,7 @@
 import { player } from './player';
 import { rating } from './rating';
 import { camera, slideView } from './render';
-import { pick, rand, V } from './util';
+import { amount, pick, rand, V } from './util';
 import { wallet } from './wallet';
 
 const $ = (id: string) => document.getElementById(id)!;
@@ -16,7 +16,7 @@ let shownMoney = -1, shownCarry = '', shownStars = '';
 export function hud(dt: number) {
   if (shownMoney !== wallet.money) {
     shownMoney = wallet.money;
-    cashN.textContent = wallet.money.toLocaleString('en-US');
+    cashN.textContent = amount(wallet.money);
   }
   const cs = player.back.n + '/' + player.back.cap;
   if (cs !== shownCarry) {

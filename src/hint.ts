@@ -4,9 +4,15 @@
 // settings gear, which is where "Controls" brings it back.
 const SEEN = 'floe-market-hint';
 
-/** Phones and tablets, from the user agent; iPads call themselves Macs, so a Mac with a touch screen counts too. */
-export function isTouch(ua = navigator.userAgent, touchPoints = navigator.maxTouchPoints ?? 0) {
-  return /Android|iPhone|iPad|iPod|Mobile|Silk|Kindle/i.test(ua) || (/Macintosh/.test(ua) && touchPoints > 1);
+/**
+ * Phones and tablets, from the user agent; iPads call themselves Macs, so a Mac with a touch screen counts too. So does
+ * anything whose main pointer is a finger (`coarse`): a Windows tablet or a Chromebook without its keyboard.
+ */
+export function isTouch(
+  ua = navigator.userAgent, touchPoints = navigator.maxTouchPoints ?? 0,
+  coarse = typeof matchMedia === 'function' && !!matchMedia('(pointer: coarse)')?.matches,
+) {
+  return /Android|iPhone|iPad|iPod|Mobile|Silk|Kindle/i.test(ua) || (/Macintosh/.test(ua) && touchPoints > 1) || coarse;
 }
 
 const el = document.getElementById('hint')!, gear = document.getElementById('gear')!;

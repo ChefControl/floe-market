@@ -115,19 +115,22 @@ describe('the upgrade square', () => {
 });
 
 describe('the modifier overview', () => {
-  it('lists every modifier in play, as a percentage', async () => {
+  it('lists every modifier in play, as a percentage, with the rating counted into customers', async () => {
     const g = await loadGame({ money: 1e9 });
     g.rate(5);
     g.shop.buyMod('fillets'); g.shop.buyMod('fillets');
     g.run(0.05);
     expect([...$('mods').children].map(r => r.textContent)).toEqual([
-      '🐟Prices+56%', '📣Customers+0%', '💪Speed+0%', '★Reputation+40%',
+      '🐟Prices+56%', '📣Customers+40%', '💪Speed+0%', // ★5 brings them in ×1.4
     ]);
     expect($('mods').children[0].lastElementChild!.className).toBe('up');
+    g.shop.buyMod('marketing');
+    g.run(0.05);
+    expect($('mods').children[1].textContent).toBe('📣Customers+68%'); // ×1.2 marketing, ×1.4 rating
     g.rate(1);
     g.run(0.05);
-    expect($('mods').children[3].textContent).toBe('★Reputation−40%');
-    expect($('mods').children[3].lastElementChild!.className).toBe('down');
+    expect($('mods').children[1].textContent).toBe('📣Customers−28%'); // ×1.2, ×0.6
+    expect($('mods').children[1].lastElementChild!.className).toBe('down');
   });
 
   it("in stage 2, counts the premium menu in prices, and leaves out fishing, which the kitchen can't outpace", async () => {
@@ -135,7 +138,7 @@ describe('the modifier overview', () => {
     g.shop.buyMod('training');
     g.run(0.05);
     expect([...$('mods').children].map(r => r.textContent)).toEqual([
-      '🍣Prices+60%', '📣Customers+0%', '🧑‍🍳Kitchen+0%', '★Reputation+0%',
+      '🍣Prices+60%', '📣Customers+0%', '🧑‍🍳Kitchen+0%',
     ]);
   });
 
