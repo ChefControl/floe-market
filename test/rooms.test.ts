@@ -150,6 +150,21 @@ describe('co-op rooms on Firebase', () => {
     expect(left).toHaveLength(KEEP);
   });
 
+  it('hears a guest’s first hello, and nothing twice when they come back', async () => {
+    const { host, heard, createRooms } = await hostRoom();
+    fb.auth.currentUser = { uid: 'guest' };
+    // the hello lands as the host's phone hears them arrive, before it starts listening
+    fb.data.set(`rooms/${host.code}/fromPlayer/guest/q/k000000`, '{"k":"hi"}');
+    const g = await createRooms().join(host.code);
+    g.send({ k: 'mod', id: 'fillets' });
+    await settle();
+    fb.blip();
+    await settle();
+    g.send({ k: 'hi' });
+    await settle();
+    expect(heard.filter(h => Array.isArray(h) && h[0] === 'guest').map(h => (h as [string, Msg])[1].k)).toEqual(['hi', 'mod', 'hi']);
+  });
+
   it('hears the guest leave, and come back after their connection drops', async () => {
     const { host, heard, createRooms } = await hostRoom();
     fb.auth.currentUser = { uid: 'guest' };
