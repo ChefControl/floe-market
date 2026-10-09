@@ -6,7 +6,6 @@
 // device, otherwise a few seconds after the game starts, so the sign-in window can open the moment the button is tapped. Signed-in players also put
 // their best on the scoreboard (scores.ts).
 import { firebaseConfig } from './cloud.config';
-import { coop } from './remote';
 import { deviceStore, isStale, replaceSave, type SaveData } from './save';
 import { toast } from './ui';
 import { money } from './util';
@@ -99,13 +98,8 @@ export function connect() {
   return loading;
 }
 
-/** Resolves once Firebase has said who's signed in on this device, if anyone. */
-let knew: (u: CloudUser | null) => void = () => {};
-export const userKnown = new Promise<CloudUser | null>(r => { knew = r; });
-
 async function onUser(u: CloudUser | null) {
   cloud.user = u;
-  knew(u);
   const link = readLink();
   if (u) {
     writeLink({ ...(link?.uid === u.uid ? link : { uid: u.uid, base: 0, sum: '' }), on: true });
@@ -119,8 +113,7 @@ let busy = false;
 /** Brings this device and the account into line. `ask`: may ask the player which game to keep, if it comes to that. */
 export async function sync(ask = true) {
   const u = cloud.user, b = backend, raw = deviceStore.read(), link = readLink();
-  // a co-op guest is playing a friend's game: their own stays as it is, here and in the cloud
-  if (!u || !b || busy || isStale() || raw === null || link?.uid !== u.uid || coop.role === 'guest') return;
+  if (!u || !b || busy || isStale() || raw === null || link?.uid !== u.uid) return;
   busy = true;
   cloud.state = 'syncing'; render();
   try {
@@ -131,9 +124,6 @@ export async function sync(ask = true) {
       if (moved || !remote) await push(b, u, raw);
     } else if (digest(remote.data) === sum) writeLink({ ...link, base: remote.savedAt, sum });
     else {
-      // Hosting a friend (co-op), the game can't be swapped for the cloud's: the reload would end theirs. It waits
-      // until they've finished playing together.
-      if (coop.role === 'host') { cloud.state = 'idle'; return; }
       const here = facts(raw), there = facts(remote.data);
       if (!moved || !here.progress) { adopt(link, remote); return; }
       if (!there.progress) await push(b, u, raw);
@@ -223,8 +213,7 @@ function pick(here: Facts, there: Facts) {
   });
 }
 
-/** What to tell the player when signing in didn't work. */
-export function signInError(e: unknown) {
+function signInError(e: unknown) {
   const code = (e as { code?: string } | null)?.code ?? '';
   if (code.includes('popup-blocked')) return 'Allow pop-ups to sign in';
   if (code.includes('popup-closed') || code.includes('cancelled')) return 'Sign-in cancelled';
@@ -241,19 +230,6 @@ async function tap() {
     const b = backend ?? await connect();
     await b.signIn();
   } catch (e) { toast(signInError(e), 'cloud'); }
-}
-
-/**
- * Signs in with Google, if this device isn't signed in already: co-op needs both players signed in. Call it from a tap,
- * as it may open Google's window. Resolves with who's signed in.
- */
-export async function signInNow(): Promise<CloudUser> {
-  const b = backend ?? await connect();
-  if (!cloud.user) await b.signIn();
-  // Firebase tells onUser a moment after the window closes
-  for (let i = 0; !cloud.user && i < 50; i++) await new Promise(r => setTimeout(r, 100));
-  if (!cloud.user) throw new Error('signed-out');
-  return cloud.user;
 }
 
 async function signOut() {

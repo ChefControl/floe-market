@@ -38,10 +38,9 @@ const dayC = new Color(), duskC = new Color();
 const tone = (day: Swatch, dusk: Swatch, k: number, out: Color) => out.lerpColors(mix(day, dayC), mix(dusk, duskC), k);
 /** How far it is from day to dusk. */
 let mood = 0;
-export const moodNow = () => mood;
 
 /** Blends the light from day (0) to stage 2's dusk (1): warmer, lower sun, lanterns and lamps on. */
-export function setMood(k: number) {
+function setMood(k: number) {
   mood = k;
   // the clear-weather sky the rain at her house greys out from
   tone(DAY.bg, DUSK.bg, k, sky.bg);
@@ -73,16 +72,12 @@ type Axis = 'all' | 'y' | 'x';
 interface Anim { o: Object3D; t0: number; out: boolean; axis: Axis }
 interface Cue { t: number; run: () => void }
 let fx: { t: number; anims: Anim[]; cues: Cue[] } | null = null;
-/** A co-op guest's phone: the stage-up is playing in the host's game. */
-let theirs = false;
 const ease = (k: number) => k < .5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
 const back = (k: number) => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(k - 1, 3) + c1 * Math.pow(k - 1, 2); };
 const clamp01 = (k: number) => Math.min(1, Math.max(0, k));
 const OUT_DUR = 0.45, IN_DUR = 0.55, END = 6.6;
 /** The stage-up is playing. */
-export const staging = () => fx !== null || theirs;
-/** On a co-op guest's phone, whether the stage-up is playing in the host's game (coop.ts). */
-export const setStaging = (on: boolean) => { theirs = on; };
+export const staging = () => fx !== null;
 
 function setScale(o: Object3D, s: number, axis: Axis) {
   s = Math.max(0.001, s);
@@ -112,7 +107,7 @@ export function updStage(dt: number) {
 }
 
 /** A wider, sharper shadow map for stage 2's bigger view. */
-export function widenShadows() {
+function widenShadows() {
   Object.assign(sun.shadow.camera, { left: -18, right: 18, top: 18, bottom: -18 });
   sun.shadow.camera.updateProjectionMatrix();
   sun.shadow.mapSize.set(2048, 2048);

@@ -46,7 +46,6 @@ const floes: { m: Mesh; ph: number; sx: number; sz: number }[] = [];
 for (let i = 0; i < 9; i++) {
   const m = mesh(G.cyl, 0xFFFFFF, rand(-20, 5), 0.03, rand(-30, -16));
   m.scale.set(rand(.5, 1.4), 0.12, rand(.4, 1.1));
-  m.userData.net = 'local'; // co-op: each phone bobs and melts its own (updFloes, the seasons)
   scene.add(m);
   floes.push({ m, ph: rand(0, 6), sx: m.scale.x, sz: m.scale.z });
 }

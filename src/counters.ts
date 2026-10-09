@@ -11,7 +11,7 @@ import { KIOSK } from './hall';
 import { carrySlot, Holder, type Slot } from './holder';
 import { addBillValue, newBill } from './items';
 import { groundY } from './layout';
-import { boop as hop, players, type Player } from './player';
+import { boop as hop, player } from './player';
 import { addReview, demand, starsFor } from './rating';
 import { boop, honk, review, till } from './sfx';
 import { canvasTex, mesh, scene, type CanvasTex } from './render';
@@ -43,7 +43,7 @@ export interface Customer {
   /** Remaining exit waypoints once served. */
   path: Vector3[];
   hands: Holder;
-  /** A driver's seconds held up by a player in the road ahead, and whether it's stopped this frame (for anyone behind). */
+  /** A driver's seconds held up by the player in the road ahead, and whether it's stopped this frame (for anyone behind). */
   held: number;
   stopped: boolean;
   /** A driver out of their seat to boop the player off the road. */
@@ -292,15 +292,15 @@ function ahead(c: Customer, tgt: XZ, o: XZ, reach: number) {
 const drivers = () => leaving.concat(...COUNTERS.map(C => C.queue)).filter(c => c.isSled);
 
 /**
- * Moves a customer towards `tgt`; returns true once there. Drivers stop for a player in the road ahead (on the
- * zebra crossing to her house, or anywhere else), and behind a driver who's stopped. Kept waiting by a player, a
+ * Moves a customer towards `tgt`; returns true once there. Drivers stop for the player in the road ahead (on the
+ * zebra crossing to her house, or anywhere else), and behind a driver who's stopped. Kept waiting by the player, a
  * driver beeps, then leans on the horn with an angry face, again and again, until the road's clear. If that doesn't
- * work, they get out and boop that player back onto the pavement.
+ * work, they get out and boop the player back onto the pavement.
  */
 function drive(c: Customer, tgt: XZ, dt: number) {
   if (c.out) { getOut(c, c.out, dt); c.stopped = true; c.moving = false; return false; }
   const going = c.isSled && Math.hypot(tgt.x - c.g.position.x, tgt.z - c.g.position.z) > 0.06;
-  const inWay = going ? players.find(q => ahead(c, tgt, q.g.position, AHEAD)) : undefined, byPlayer = !!inWay;
+  const byPlayer = going && ahead(c, tgt, player.g.position, AHEAD);
   c.stopped = byPlayer || (going && drivers().some(o => o !== c && o.stopped && ahead(c, tgt, o.g.position, 2.8)));
   if (!byPlayer) {
     if (c.held) c.mood.visible = false;
@@ -314,7 +314,7 @@ function drive(c: Customer, tgt: XZ, dt: number) {
     if (blasts(c.held) > blasts(was)) honk(c.g.position, true);
     c.mood.visible = c.held > 1.2;
     if (c.mood.visible) c.mood.material = moodMat(c.held > 2.5 ? 'angry' : 'meh');
-    if (c.held >= BOOP_AT && !booping) c.out = outOfSeat(c, inWay!);
+    if (c.held >= BOOP_AT && !booping) c.out = outOfSeat(c);
   }
   if (c.stopped) { c.moving = false; return false; }
   return moveEnt(c, tgt, dt);
@@ -325,8 +325,6 @@ function drive(c: Customer, tgt: XZ, dt: number) {
 const BOOP_AT = 8;
 let booping: Customer | null = null;
 interface Out {
-  /** Who they're getting out to boop. */
-  who: Player;
   /** The driver, and where they are in the world (walked like anyone else). */
   d: Person;
   w: Walker;
@@ -344,16 +342,16 @@ function onSled(c: Customer, x: number, z: number) {
 }
 const SEAT_Y = 0.28, SEAT_Z = 0.1;
 
-function outOfSeat(c: Customer, who: Player): Out {
+function outOfSeat(c: Customer): Out {
   booping = c;
   const d = c.g.children.find((o): o is Person => o instanceof Person)!;
   // out on the side the player's on
-  const p = c.g.position, q = who.g.position;
+  const p = c.g.position, q = player.g.position;
   const side = (q.x - p.x) * Math.cos(c.h) - (q.z - p.z) * Math.sin(c.h) < 0 ? -1 : 1;
   const w: Walker = { g: new Object3D(), h: c.h, speed: 3, moving: false };
   w.g.position.copy(onSled(c, 0, SEAT_Z));
   const roadX = Math.abs(p.x - ROAD1_X) < Math.abs(p.x - ROAD2_X) ? ROAD1_X : ROAD2_X;
-  return { who, d, w, step: 'out', t: 0, door: onSled(c, side * 0.85, SEAT_Z), roadX };
+  return { d, w, step: 'out', t: 0, door: onSled(c, side * 0.85, SEAT_Z), roadX };
 }
 
 /** Puts the driver where their walker is, on the ground (or at `y` on the sled), with their angry face over them. */
@@ -378,13 +376,13 @@ function hopOut(c: Customer, o: Out, k: number) {
  * back to the sled and in again. If the player gets off the road on their own first, the driver goes back.
  */
 function getOut(c: Customer, o: Out, dt: number) {
-  const q = o.who.g.position;
+  const q = player.g.position;
   o.t += dt;
   if (o.step === 'out') {
     hopOut(c, o, Math.min(1, o.t / 0.3));
     if (o.t >= 0.3) { o.step = 'walk'; o.t = 0; }
   } else if (o.step === 'walk') {
-    if (Math.abs(q.x - o.roadX) > ROAD_HALF + 0.2 || o.who.booped || !players.includes(o.who)) { o.step = 'back'; return; }
+    if (Math.abs(q.x - o.roadX) > ROAD_HALF + 0.2 || player.booped) { o.step = 'back'; return; }
     const at = o.w.g.position, d = Math.max(0.01, Math.hypot(q.x - at.x, q.z - at.z));
     const near = moveEnt(o.w, { x: q.x + (at.x - q.x) / d * 0.55, z: q.z + (at.z - q.z) / d * 0.55 }, dt);
     animPerson(o.d, o.w.moving, dt, false);
@@ -396,8 +394,8 @@ function getOut(c: Customer, o: Out, dt: number) {
     o.d.arms.forEach(a => { a.rotation.x = k < 1 ? 0.5 * k : -1.6; });
     if (k >= 1 && o.t - dt < 0.2) {
       const side = Math.sign(q.x - o.roadX) || Math.sign(q.x - o.w.g.position.x) || -1;
-      o.who.h = Math.atan2(o.w.g.position.x - q.x, o.w.g.position.z - q.z);
-      hop(o.who, { x: o.roadX + side * (ROAD_HALF + 0.5), z: q.z });
+      player.h = Math.atan2(o.w.g.position.x - q.x, o.w.g.position.z - q.z);
+      hop({ x: o.roadX + side * (ROAD_HALF + 0.5), z: q.z });
       boop(q);
       popText('Boop!', q);
     }

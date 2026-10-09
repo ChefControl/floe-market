@@ -64,14 +64,12 @@ function signTex(w: number, h: number, bg: string, text: string, size: number) {
 export const glowMats: MeshLambertMaterial[] = [];
 function glow(color: number, emissive: number) {
   const m = new MeshLambertMaterial({ color, emissive, emissiveIntensity: 0.12 });
-  m.userData.local = true; // co-op: each phone lights its own dusk (stage.ts setMood)
   glowMats.push(m);
   return m;
 }
 const RED = glow(0xE0392B, 0xB0250F), PAPER = glow(0xFFF1D6, 0xFFC46A), STONE_LAMP = glow(0xFFE2A8, 0xFFB050);
 /** Warm lights over the bar and the gate, off until dusk. */
 export const lamps = [new PointLight(0xFFB46A, 0, 13, 1.4), new PointLight(0xFFB46A, 0, 13, 1.4)];
-lamps.forEach(l => { l.userData.net = 'local'; });
 lamps[0].position.set(0, 3.2, 9); lamps[1].position.set(0, 3.2, 16.8);
 
 /** Paper lanterns at the given spots, baked into three meshes (red bodies, cream bodies, black caps). */
@@ -144,7 +142,6 @@ const roof = piece(0, MID);
   // Tiled slopes round an open courtyard; the south and east ones are narrow.
   const slab = (w: number, d: number, x: number, z: number, rx: number, rz: number, near: (p: XZ) => boolean) => {
     const m = roofMat.clone(); m.transparent = true;
-    m.userData.local = true; // co-op: it fades round each phone's own player
     const s = mesh(new BoxGeometry(w, 0.14, d), m, 0, 0, 0, true);
     s.rotation.set(rx, 0, rz); put(roof, s, x, FY + 3.85, z);
     slabs.push({ s, m, near });
@@ -156,7 +153,6 @@ const roof = piece(0, MID);
   // upturned tips on the corners, each fading with the slopes it joins (north 0, south 1, west 2, east 3)
   for (const [x, z, a, b] of [[X0 - 1.1, Z0 - 1.1, 0, 2], [X1 + 1.1, Z0 - 1.1, 0, 3], [X0 - 1.1, Z1 + 1.1, 1, 2], [X1 + 1.1, Z1 + 1.1, 1, 3]]) {
     const m = new MeshLambertMaterial({ color: 0x2B333B, transparent: true });
-    m.userData.local = true;
     const t = mesh(G.cone, m, 0, 0, 0, true);
     t.rotation.z = (x < 0 ? 1 : -1) * 0.7; t.scale.set(0.16, 0.5, 0.16);
     put(roof, t, x, FY + 3.55, z);
@@ -253,7 +249,6 @@ const kiosk = piece(11.4, KIOSK.z);
   }
   kiosk.add(mesh(bake(kerb), 0x9AA4AC, 0, 0, 0, true));
   const m = roofMat.clone(); m.transparent = true;
-  m.userData.local = true;
   const r = mesh(new BoxGeometry(3.0, 0.12, d + 0.4), m, 0, 0, 0, true); r.rotation.z = -0.25;
   put(kiosk, r, 11.4, FY + 2.7, KIOSK.z);
   slabs.push({ s: r, m, near: p => p.x > 5.5 && p.z > 1 && p.z < 12 });

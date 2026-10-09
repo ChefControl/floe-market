@@ -10,7 +10,6 @@ import { buyHeld } from './input';
 import { SHED_YARD, shedYard, stage } from './layout';
 import { player } from './player';
 import { demand } from './rating';
-import { coop } from './remote';
 import { repriceSushi, sushiBoost } from './restaurant';
 import { save } from './save';
 import { levelUp } from './sfx';
@@ -69,8 +68,6 @@ function levelName(id: ModId, n: number) {
 export function buyMod(id: ModId) {
   const cost = modCost(id);
   if (cost === null || wallet.money < cost || !modOffered(id)) return false;
-  // a guest's phone asks the host's, where the money is (the new level comes back with the host's game)
-  if (coop.role === 'guest') { coop.ask('mod', [id]); return true; }
   wallet.money -= cost;
   mods[id]++;
   repriceFish(); repriceSushi();

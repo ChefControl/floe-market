@@ -4,7 +4,6 @@ import { BoxGeometry, ConeGeometry, CylinderGeometry, Group, Mesh, MeshLambertMa
 import { every } from './audio';
 import { decal, drawPad } from './decals';
 import { player } from './player';
-import { coop } from './remote';
 import { canvasTex, FONT, mat, mesh, scene } from './render';
 import { colorOf, multiplier, payout, spinWheel, WHEEL, type Bet, type EvenBet } from './roulette';
 import { lose, tick, win } from './sfx';
@@ -78,10 +77,6 @@ let spin: Spin | null = null;
 /** The pocket the ball was last over, for its clicks. */
 let lastPocket = 0;
 const history: number[] = [];
-/** A guest's phone has asked the host's for a spin, and is waiting to hear where the ball lands. */
-let asked = false;
-/** Co-op guests' spins, played on their phones: what each has won is paid once its wheel stops. */
-const guestSpins: { t: number; win: number }[] = [];
 
 // ---------- panel ----------
 const $ = (id: string) => document.getElementById(id)!;
@@ -111,18 +106,18 @@ function drawPanelWheel() {
 function refresh() {
   panel.querySelectorAll<HTMLButtonElement>('[data-bet]').forEach(b => {
     b.setAttribute('aria-pressed', String(b.dataset.bet === bet.kind));
-    b.disabled = !!spin || asked;
+    b.disabled = !!spin;
   });
   panel.querySelectorAll<HTMLButtonElement>('[data-stake]').forEach(b => {
     const v = b.dataset.stake!;
     b.setAttribute('aria-pressed', String(v === String(stakeChoice)));
-    b.disabled = !!spin || asked || (v === 'all' ? wallet.money <= 0 : Number(v) > wallet.money);
+    b.disabled = !!spin || (v === 'all' ? wallet.money <= 0 : Number(v) > wallet.money);
   });
   numPick.hidden = bet.kind !== 'number';
   numVal.textContent = String(pickedNumber);
   const s = stake();
-  spinBtn.disabled = !!spin || asked || s <= 0 || s > wallet.money;
-  spinBtn.textContent = spin || asked ? 'Spinning…' : `Spin: ${money(s)} on ${betLabel(bet)} (pays ×${multiplier(bet)})`;
+  spinBtn.disabled = !!spin || s <= 0 || s > wallet.money;
+  spinBtn.textContent = spin ? 'Spinning…' : `Spin: ${money(s)} on ${betLabel(bet)} (pays ×${multiplier(bet)})`;
 }
 
 $('betKinds').addEventListener('click', e => {
@@ -149,52 +144,24 @@ spinBtn.addEventListener('click', startSpin);
 
 function startSpin() {
   const s = stake();
-  if (spin || asked || s <= 0 || s > wallet.money) return;
-  msg.textContent = 'No more bets…';
-  // a guest's phone asks the host's, where the money is, and spins once it hears the result (spun)
-  if (coop.role === 'guest') { asked = true; coop.ask('spin', [bet, s]); refresh(); return; }
+  if (spin || s <= 0 || s > wallet.money) return;
   wallet.money -= s;
   const result = spinWheel();
   const win = payout(bet, s, result);
   // Already won, just not revealed yet: counted as in-flight so a save mid-spin keeps it.
   wallet.inFlight += win;
-  turn(result, win);
-}
-
-/** Sets the wheel turning to stop on `result`. */
-function turn(result: number, win: number) {
   const k = WHEEL.indexOf(result as typeof WHEEL[number]);
   spin = { t: 0, from: angle, to: angle + 4 * TAU + mod(-k * SEG - angle, TAU), result, win, bet };
+  msg.textContent = 'No more bets…';
   refresh();
-}
-
-/** A guest's spin, on the host's phone: takes the stake and decides the pocket. Null if there isn't the money. */
-export function spinFor(b: Bet, s: number): { result: number; win: number } | null {
-  if (!(s > 0) || s > wallet.money) return null;
-  wallet.money -= s;
-  const result = spinWheel(), win = payout(b, s, result);
-  wallet.inFlight += win;
-  guestSpins.push({ t: SPIN_TIME, win });
-  return { result, win };
-}
-
-/** A guest's phone hears where its ball lands (or null: the host's phone turned it down). */
-export function spun(r: { result: number; win: number } | null) {
-  asked = false;
-  if (r) turn(r.result, r.win);
-  else { msg.textContent = 'Pick a bet and spin'; refresh(); }
 }
 
 function settle() {
   const s = spin!;
   spin = null;
   angle = mod(s.to, TAU);
-  // a guest's winnings are paid on the host's phone, where the money is
-  if (coop.role !== 'guest') wallet.inFlight -= s.win;
-  if (s.win > 0) {
-    if (coop.role !== 'guest') addMoney(s.win);
-    popText('+' + money(s.win), TABLE); win();
-  } else lose();
+  wallet.inFlight -= s.win;
+  if (s.win > 0) { addMoney(s.win); popText('+' + money(s.win), TABLE); win(); } else lose();
   history.unshift(s.result);
   history.length = Math.min(history.length, 10);
   historyEl.replaceChildren(...history.map(n => {
@@ -220,9 +187,6 @@ export function moveCasino(dz: number) {
   if (table) table.g.position.z = TABLE.z;
 }
 
-/** On a co-op guest's phone: the host has the table, so its panel opens here too. */
-export function casinoOpen() { enabled = true; }
-
 /** The 'roulette' unlock: puts the table and its pad on the deck. Returns the table for the pop-in. */
 export function enableCasino() {
   enabled = true;
@@ -232,13 +196,6 @@ export function enableCasino() {
 }
 
 export function updCasino(dt: number) {
-  for (let i = guestSpins.length - 1; i >= 0; i--) {
-    const g = guestSpins[i];
-    if ((g.t -= dt) > 0) continue;
-    guestSpins.splice(i, 1);
-    wallet.inFlight -= g.win;
-    if (g.win > 0) addMoney(g.win);
-  }
   if (!enabled) return;
   const near = d2xz(player.g.position, CASINO) < 0.95 * 0.95;
   if (near !== open) {
@@ -260,6 +217,5 @@ export function updCasino(dt: number) {
     lastPocket = pocket;
     if (k >= 1) settle(); else drawPanelWheel();
   }
-  // a guest's phone has no table of its own: it shows the host's
-  if (table) table.face.rotation.y = -angle;
+  table!.face.rotation.y = -angle;
 }
