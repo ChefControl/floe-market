@@ -1,6 +1,7 @@
 // Per-frame player logic: movement plus every station interaction.
 import { updBuy } from './buy';
 import { collideCasino } from './casino';
+import { tipsy, tipsyK } from './casinoKit';
 import { animPerson } from './characters';
 import { COUNTERS } from './counters';
 import { updLook } from './customize';
@@ -55,6 +56,7 @@ function cashSpots() {
 }
 
 export function updPlayer(dt: number) {
+  tipsy.t = Math.max(0, tipsy.t - dt);
   const p = player.g.position, mv = inputVec(), b = player.booped;
   if (b) {
     // booped: a hop backwards, easing out, whatever's pressed
@@ -64,6 +66,12 @@ export function updPlayer(dt: number) {
     player.moving = false;
     if (b.t >= 1) player.booped = null;
   } else if (mv) {
+    // after too much champagne the player weaves from side to side
+    tipsy.clock += dt;
+    if (tipsy.t > 0) {
+      const a = Math.sin(tipsy.clock * 5.5) * 0.9 * tipsyK(), c = Math.cos(a), s = Math.sin(a);
+      mv.set(mv.x * c - mv.z * s, 0, mv.x * s + mv.z * c);
+    }
     p.x += mv.x * player.speed * dt; p.z += mv.z * player.speed * dt;
     const target = Math.atan2(mv.x, mv.z);
     let d = target - player.h; d = Math.atan2(Math.sin(d), Math.cos(d));

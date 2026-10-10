@@ -274,25 +274,60 @@ describe('the casino boat', () => {
     const was = waiter().x;
     g.run(1);
     expect(waiter().x).toBe(was);
-    // buying it takes the price, brings the camera in, and the player drinks it while the waiter says cheers
+    // buying it takes the price and brings the camera in; the waiter takes a glass too and they clink: a toast
     click('#sip');
     expect(g.wallet.money).toBe(975);
     expect(kit.atTable()).toBe(true);
-    g.run(1);
-    expect(salon.salonView()).toMatchObject({ drinking: true, waiter: 'Cheers!' });
+    g.run(1.5);
+    expect(salon.salonView()).toMatchObject({ drinking: true, waiter: 'To Lady Luck!', says: 'Cheers!' });
     click('#sip');
     expect(g.wallet.money).toBe(975);
+    // then the player drinks it, the glass tipped at their lips, and it goes back on the tray
+    const arm = g.player.g.arms[0];
+    g.run(1);
+    expect(arm.rotation.x).toBeLessThan(-1.5);
     g.run(3);
     expect(salon.salonView().drinking).toBe(false);
     expect(kit.atTable()).toBe(false);
-    g.run(1);
-    expect(salon.salonView().hic).toBe('Hic!');
+    g.run(1.5);
+    expect(salon.salonView().says).toBe('Hic!');
     // with no money left for one, the button's greyed out; walking off closes it and the waiter carries on
     g.wallet.money = 10; g.run(0.1);
     expect((document.getElementById('sip') as HTMLButtonElement).disabled).toBe(true);
     walkAway(g); g.run(2);
     expect(panel.hidden).toBe(true);
     expect(waiter().x).not.toBe(was);
+  });
+
+  it('makes the player tipsy after one glass too many: they zigzag and the camera sways for a few seconds', async () => {
+    const g = await at('roulette', 1000);
+    const salon = await import('../src/casinoSalon');
+    const { tipsy } = await import('../src/casinoKit');
+    const { SHIP } = g.layout, p = g.player.g.position, w = salon.salonView().staff[1];
+    g.placePlayer(SHIP.x + w.x + 0.6, SHIP.z + w.z - 0.5); g.run(0.2);
+    for (let i = 0; i < 2; i++) { click('#sip'); g.run(5.5); }
+    expect(tipsy.t).toBe(0);
+    expect(document.getElementById('bubblyMsg')!.textContent).toBe('Steady now… 🥂');
+    click('#sip'); g.run(5.3);
+    expect(tipsy.t).toBeGreaterThan(3);
+    expect(salon.salonView().says).toBe('Hic!');
+    // holding one way, they weave from side to side: how far their heading swings
+    const walk = () => {
+      g.placePlayer(SHIP.x - 2, SHIP.z + 1.2); g.run(0.05);
+      const heads: number[] = [];
+      g.press('d');
+      for (let i = 0; i < 30; i++) {
+        const x = p.x, z = p.z;
+        g.run(1 / 30);
+        heads.push(Math.atan2(p.z - z, p.x - x));
+      }
+      g.press('d', 'keyup');
+      return Math.max(...heads) - Math.min(...heads);
+    };
+    expect(walk()).toBeGreaterThan(0.8);
+    g.run(5);
+    expect(tipsy.t).toBe(0);
+    expect(walk()).toBeLessThan(0.01);
   });
 
   it('leaves the glass with the waiter if the player walks off mid-drink', async () => {

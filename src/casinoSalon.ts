@@ -13,7 +13,8 @@ import {
   MeshLambertMaterial, MeshPhongMaterial, PlaneGeometry, Quaternion, Shape, ShapeGeometry, Vector3,
   RepeatWrapping, TorusGeometry, type Material,
 } from 'three';
-import { atTable, CHIPS, easeInOut, leaveSeat, onCheer, speaker, takeSeat } from './casinoKit';
+import { atTable, CHIPS, easeInOut, leaveSeat, onCheer, speaker, takeSeat, tipsy } from './casinoKit';
+import { clink } from './sfx';
 import { animPerson, Person, SUITS } from './characters';
 import { aboard, DECKS, pushOutOfBox, SALON, SHIP, stage, UPPER } from './layout';
 import { player } from './player';
@@ -371,19 +372,23 @@ function buildCrowd(g: Group) {
   // the tray sits flat on the palm of the hand held out in front (the arm's turned to level, so the tray's turned back)
   const tray = new Group(); tray.position.set(0, -0.33, 0.07); tray.rotation.x = TRAY_ARM; waiter.arms[0].add(tray);
   tray.add(mesh(new CylinderGeometry(0.18, 0.18, 0.03, 16), 0xC0C6CC));
-  for (const [dx, dz] of [[-0.07, 0], [0.07, 0.04], [0, -0.08]]) {
+  const trayGlasses = [[-0.07, 0], [0.07, 0.04], [0, -0.08]].map(([dx, dz]) => {
     const f = flute(); f.g.position.set(dx, 0.015, dz); f.g.scale.setScalar(0.8); tray.add(f.g);
-  }
+    return f.g;
+  });
   g.add(waiter);
-  const glass = flute(); glass.g.visible = false; scene.add(glass.g);
+  // the player's glass and the waiter's own, for a toast
+  const glass = flute(), his = flute();
+  for (const f of [glass, his]) { f.g.visible = false; f.g.scale.setScalar(0.8 * 1.4); scene.add(f.g); }
   // a guest at the end of the roulette table, watching the wheel, who cheers when the player wins
   const fan = guest(7);
   fan.position.set(FAN.x, UPPER, FAN.z); fan.rotation.y = Math.PI / 2;
   g.add(fan);
   const fanSay = speaker(fan, 2.1);
   const crowdState = {
-    machines, gamblers, bartenders, drinkers, waiter, tray, glass, fan, fanSay, clap: 0, walk: { dir: 1, pause: 0 },
-    waiterSay: speaker(waiter, 1.75), hic: speaker(player.g, 1.75), hicT: 0, pour: null as Pour | null,
+    machines, gamblers, bartenders, drinkers, waiter, tray, trayGlasses, glass, his, fan, fanSay, clap: 0,
+    walk: { dir: 1, pause: 0 }, waiterSay: speaker(waiter, 1.75), hic: speaker(player.g, 1.75), hicT: 0,
+    pour: null as Pour | null, buzz: 0,
   };
   onCheer(() => {
     crowdState.clap = 1.4;
@@ -418,14 +423,30 @@ function flute() {
 const price = () => CHIPS[stage.n][1];
 /** How close the player comes for the waiter to stop and offer a glass, and how far they go for him to carry on. */
 const NEAR = 1.2, AWAY = 2.4;
-/** A glass being served and drunk: when the glass reaches the player's hand, when each sip starts and ends, when the
- *  empty glass goes back on the tray, and when it's there. */
-const DRINK = { hand: 0.6, sips: [[1.0, 1.7], [2.1, 2.8]], back: 3.1, done: 3.6 };
+/**
+ * A glass served and drunk, as keyframes of where each glass is: on the `tray`, `held` at the chest, raised for the
+ * `toast` (the glasses touching between the two of them) or at the `lips`, tipping as it empties. The waiter takes a
+ * glass too: they clink, both drink, the player twice, and the empties go back on the tray.
+ */
+type Spot = 'tray' | 'held' | 'toast' | 'lips';
+const PLAYER_KEYS: [number, Spot][] = [
+  [0, 'tray'], [0.6, 'held'], [0.85, 'held'], [1.2, 'toast'], [1.4, 'toast'], [1.7, 'held'], [2.0, 'lips'], [2.9, 'lips'],
+  [3.2, 'held'], [3.45, 'lips'], [4.35, 'lips'], [4.65, 'held'], [5.1, 'tray'],
+];
+const WAITER_KEYS: [number, Spot][] = [
+  [0, 'tray'], [0.6, 'held'], [0.85, 'held'], [1.2, 'toast'], [1.4, 'toast'], [1.7, 'held'], [2.0, 'lips'], [2.9, 'lips'],
+  [3.2, 'held'], [4.65, 'held'], [5.1, 'tray'],
+];
+/** When the glasses clink, when each sip is at the lips (and how much of the glass it drinks), and when it's over. */
+const DRINK = { clink: 1.3, sips: [[2.0, 2.9, 0.5], [3.45, 4.35, 0.47]], done: 5.1 };
+/** Glasses in a row that make the player tipsy (within half a minute or so: each wears off over a minute), and how
+ *  long they stagger. */
+const TOO_MANY = 3, SOBER_RATE = 1 / 60, TIPSY_SECS = 5;
 /** A glass being served: how long it's been, and what the camera looks at. */
-interface Pour { t: number; at: Vector3; cheered: boolean; from: Vector3 }
+interface Pour { t: number; at: Vector3; clinked: boolean }
 const bubbly = document.getElementById('bubbly')!, bubblyMsg = document.getElementById('bubblyMsg')!;
 const sipBtn = document.getElementById('sip') as HTMLButtonElement;
-const tmpA = new Vector3(), tmpB = new Vector3(), tmpQ2 = new Quaternion(), HOLD = new Quaternion().setFromEuler(new Euler(TRAY_ARM, 0, 0));
+const tmpA = new Vector3(), tmpB = new Vector3(), tmpC = new Vector3(), UP = new Vector3(0, 1, 0);
 
 /** Where the waiter is, in the world. */
 const waiterAt = (c: ReturnType<typeof buildCrowd>) => tmpB.set(SHIP.x + c.waiter.position.x, UPPER, SHIP.z + c.waiter.position.z);
@@ -436,11 +457,11 @@ function buyChampagne() {
   if (!c || c.pour || bubbly.hidden || wallet.money < price()) return;
   wallet.money -= price();
   const pp = player.g.position, w = waiterAt(c);
-  c.pour = { t: 0, at: V((pp.x + w.x) / 2, UPPER + 1.05, (pp.z + w.z) / 2), cheered: false, from: new Vector3() };
-  // the camera looks in from the side, the windows' side, so the player and the waiter are side by side in the view
-  const side = V(-(w.z - pp.z), 0, w.x - pp.x).normalize();
+  c.pour = { t: 0, at: V((pp.x + w.x) / 2, UPPER + 1.05, (pp.z + w.z) / 2), clinked: false };
+  // the camera looks in from the side (the windows' side) and a little in front of the player, to see them drink
+  const d = V(w.x - pp.x, 0, w.z - pp.z).normalize(), side = V(-d.z, 0, d.x);
   if (side.z < 0) side.negate();
-  takeSeat({ at: c.pour.at, from: side.multiplyScalar(0.85).add(V(0, 0.55, 0.35)).normalize(), wide: 1.7, tall: 1.8 }, bubbly);
+  takeSeat({ at: c.pour.at, from: side.addScaledVector(d, 0.75).add(V(0, 0.6, 0)).normalize(), wide: 1.9, tall: 1.8 }, bubbly);
   refreshBubbly();
 }
 sipBtn.addEventListener('click', buyChampagne);
@@ -450,57 +471,97 @@ let shown = '';
 /** The panel's message and button, set only when they change. */
 function refreshBubbly() {
   const c = salon!.crowd, text = c.pour ? 'Cheers! 🥂' : `Champagne · ${money(price())}`;
-  const say = c.pour ? 'Bottoms up!' : wallet.money < price() ? `A glass is ${money(price())}` : 'Champagne? 🥂';
+  const say = c.pour ? 'Bottoms up!' : wallet.money < price() ? `A glass is ${money(price())}`
+    : c.buzz >= TOO_MANY - 1.5 ? 'Steady now… 🥂' : 'Champagne? 🥂';
   sipBtn.disabled = !!c.pour || wallet.money < price();
   if (shown === text + say) return;
   shown = text + say;
   sipBtn.textContent = text; bubblyMsg.textContent = say;
 }
 
-/** Where the player's hand is, and which way their arm points: the glass is held level in it, as the waiter's tray. */
-function inHand(g: Group) {
-  const arm = player.g.arms[0];
-  player.g.updateMatrixWorld(true);
-  g.position.copy(arm.localToWorld(tmpA.set(0, -0.36, 0.07)));
-  g.quaternion.copy(arm.getWorldQuaternion(tmpQ2)).multiply(HOLD);
+/** Where someone's glass is at a keyframe: its foot, and how far it's tipped towards their face (back, if less than 0). */
+function spot(c: ReturnType<typeof buildCrowd>, who: Person, arm: Group, k: Spot, other: Person, level: number) {
+  const f = who.getWorldDirection(tmpA).setY(0).normalize();
+  if (k === 'tray') return { foot: c.tray.getWorldPosition(V(0, 0, 0)).add(V(0, 0.03, 0)), tip: 0 };
+  if (k === 'held') return { foot: who.body.localToWorld(V(arm.position.x * 0.6, 0.66, 0.3)), tip: 0 };
+  if (k === 'toast') {
+    // the two glasses touch over the middle, raised to head height, leaning in to each other
+    const mine = who.getWorldPosition(V(0, 0, 0)), theirs = other.getWorldPosition(V(0, 0, 0));
+    const mid = mine.clone().lerp(theirs, 0.5), d = theirs.sub(mine).setY(0).normalize();
+    return { foot: mid.addScaledVector(d, -0.05).setY(UPPER + 1.0), tip: -0.3 };
+  }
+  // at the lips: the rim at the mouth, tipped further the emptier it is
+  const tip = 0.95 + 0.6 * (1 - level), mouth = who.body.localToWorld(V(0, 0.98, 0.05)).addScaledVector(f, 0.17);
+  const u = UP.clone().applyAxisAngle(tmpC.crossVectors(f, UP).normalize(), tip);
+  return { foot: mouth.addScaledVector(u, -0.27), tip };
 }
 
-/** The glass on its way from the tray to the player, in their hand while they take two sips, and back on the tray. */
+/**
+ * Puts `glass` at `foot`, tipped by `tip` towards `who`'s face, and points their `arm` at its stem, so the hand's on it.
+ * Leans them back a little as they drink.
+ */
+function holdGlass(who: Person, arm: Group, glass: Group, foot: Vector3, tip: number) {
+  const f = who.getWorldDirection(tmpA).setY(0).normalize(), axis = tmpC.crossVectors(f, UP).normalize();
+  glass.position.copy(foot);
+  glass.quaternion.setFromAxisAngle(axis, tip);
+  const stem = UP.clone().applyQuaternion(glass.quaternion).multiplyScalar(0.06).add(foot);
+  const d = arm.parent!.worldToLocal(stem).sub(arm.position).normalize();
+  arm.rotation.set(Math.atan2(-d.z, -d.y), 0, Math.asin(Math.max(-1, Math.min(1, d.x))));
+  if (tip > 0.5) who.body.rotation.x = -0.1 * Math.min(1, tip - 0.5);
+}
+
+/** Where a glass is at `t`, eased between keyframes. */
+function along(c: ReturnType<typeof buildCrowd>, keys: [number, Spot][], t: number, who: Person, arm: Group, other: Person, level: number) {
+  let i = 0;
+  while (i < keys.length - 2 && t >= keys[i + 1][0]) i++;
+  const [t0, a] = keys[i], [t1, b] = keys[i + 1], k = easeInOut(Math.max(0, Math.min(1, (t - t0) / (t1 - t0))));
+  const A = spot(c, who, arm, a, other, level), B = spot(c, who, arm, b, other, level);
+  return { foot: A.foot.lerp(B.foot, k), tip: A.tip + (B.tip - A.tip) * k };
+}
+
+/** How much of a glass is left at `t`, with `sips` of it drunk. */
+const left = (t: number, sips: number) =>
+  1 - DRINK.sips.slice(0, sips).reduce((d, [a, b, much]) => d + much * Math.max(0, Math.min(1, (t - a) / (b - a))), 0);
+
+/** The toast: the waiter hands the player a glass and takes one, they clink, both drink, and the empties go back. */
 function updPour(c: ReturnType<typeof buildCrowd>, dt: number) {
-  const P = c.pour!, glass = c.glass, w = waiterAt(c);
+  const P = c.pour!, w = waiterAt(c), pp = player.g.position, me = player.g as Person;
   P.t += dt;
-  // walking off leaves the glass with the waiter
-  if (P.t > DRINK.done || player.g.position.distanceTo(tmpA.set(w.x, player.g.position.y, w.z)) > AWAY) {
-    glass.g.visible = false; glass.wine.scale.y = 1;
+  // walking off leaves the glasses with the waiter
+  if (P.t > DRINK.done || Math.hypot(pp.x - w.x, pp.z - w.z) > AWAY) {
+    for (const g of [c.glass, c.his]) { g.g.visible = false; g.wine.scale.y = 1; }
+    c.trayGlasses.forEach(g => { g.visible = true; });
     c.pour = null; leaveSeat(bubbly);
-    if (P.t > DRINK.done) c.hicT = 1.2;
+    if (P.t > DRINK.done) drank(c);
     return;
   }
-  glass.g.visible = true;
-  if (!P.cheered && P.t > 0.3) { P.cheered = true; c.waiterSay.say('Cheers!'); }
-  const arm = player.g.arms[0];
-  c.waiter.updateMatrixWorld(true);
-  const tray = c.tray.getWorldPosition(tmpB).add(V(0, 0.03, 0));
-  if (P.t < DRINK.hand) {
-    inHand(glass.g);
-    glass.g.position.lerpVectors(tray, glass.g.position, easeInOut(P.t / DRINK.hand));
-    glass.g.quaternion.identity();
-  } else if (P.t < DRINK.back) {
-    // the arm comes up and the glass tips to the lips for each sip; the champagne goes down as it's drunk
-    let lift = 0, drunk = 0;
-    DRINK.sips.forEach(([a, b], i) => {
-      const k = Math.max(0, Math.min(1, (P.t - a) / (b - a)));
-      lift = Math.max(lift, Math.sin(k * Math.PI));
-      drunk += k * (i ? 0.5 : 0.45);
-    });
-    arm.rotation.x = -1.3 - 1.3 * lift; arm.rotation.z = 0;
-    glass.wine.scale.y = Math.max(0.05, 1 - drunk);
-    inHand(glass.g);
-    P.from.copy(glass.g.position);
-  } else {
-    glass.g.position.lerpVectors(P.from, tray, easeInOut((P.t - DRINK.back) / (DRINK.done - DRINK.back)));
-    glass.g.quaternion.identity();
+  // face each other
+  if (!player.moving) {
+    let dh = Math.atan2(w.x - pp.x, w.z - pp.z) - player.h;
+    dh = Math.atan2(Math.sin(dh), Math.cos(dh));
+    player.h += dh * Math.min(1, dt * 8);
+    player.g.rotation.y = player.h;
   }
+  c.trayGlasses[0].visible = c.trayGlasses[1].visible = P.t < 0.05;
+  c.glass.g.visible = c.his.g.visible = true;
+  me.updateMatrixWorld(true); c.waiter.updateMatrixWorld(true);
+  const mine = left(P.t, 2), his = left(P.t, 1);
+  c.glass.wine.scale.y = Math.max(0.05, mine); c.his.wine.scale.y = Math.max(0.05, his);
+  const a = along(c, PLAYER_KEYS, P.t, me, me.arms[0], c.waiter, mine), b = along(c, WAITER_KEYS, P.t, c.waiter, c.waiter.arms[1], me, his);
+  holdGlass(me, me.arms[0], c.glass.g, a.foot, a.tip);
+  holdGlass(c.waiter, c.waiter.arms[1], c.his.g, b.foot, b.tip);
+  if (!P.clinked && P.t >= DRINK.clink) {
+    P.clinked = true;
+    clink(c.glass.g.position);
+    c.waiterSay.say('To Lady Luck!'); c.hic.say('Cheers!');
+  }
+}
+
+/** A glass drunk: one more makes the player tipsy for a few seconds, zigzagging with the camera swaying; else a hic. */
+function drank(c: ReturnType<typeof buildCrowd>) {
+  c.buzz += 1;
+  if (c.buzz >= TOO_MANY - 0.5) { c.buzz = 1; tipsy.t = TIPSY_SECS; c.hic.say('Hic!'); c.hicT = 2.2; }
+  else c.hicT = 1.2;
 }
 
 // ---------- the salon ----------
@@ -609,11 +670,11 @@ function updCrowd(c: ReturnType<typeof buildCrowd>, dt: number, clock: number) {
   if (near) refreshBubbly();
   c.waiterSay.upd(dt); c.hic.upd(dt);
   if (c.hicT > 0 && (c.hicT -= dt) <= 0) c.hic.say('Hic!');
+  c.buzz = Math.max(0, c.buzz - dt * SOBER_RATE);
   let face = walk.dir > 0 ? Math.PI / 2 : -Math.PI / 2;
   if (near) {
     animPerson(w, false, dt, true);
     face = Math.atan2(pp.x - wAt.x, pp.z - wAt.z);
-    if (c.pour) updPour(c, dt);
   } else if (walk.pause > 0) { walk.pause -= dt; animPerson(w, false, dt, true); }
   else {
     w.position.x += walk.dir * 1.1 * dt;
@@ -626,6 +687,7 @@ function updCrowd(c: ReturnType<typeof buildCrowd>, dt: number, clock: number) {
   const turn = ((face - w.rotation.y) % (Math.PI * 2) + Math.PI * 3) % (Math.PI * 2) - Math.PI;
   w.rotation.y += turn * Math.min(1, dt * 6);
   w.arms[0].rotation.x = -TRAY_ARM; w.arms[0].rotation.z = 0; w.arms[1].rotation.x = -0.4;
+  if (c.pour) updPour(c, dt);
   // the fan by the tables claps along with a win
   animPerson(c.fan, false, dt, false);
   c.fanSay.upd(dt);
@@ -651,11 +713,14 @@ export function collideSalon(p: XZ) {
   for (const s of [-1, 1]) pushOutOfBox(p, x(SALON.x1), z(s * (DOOR + SALON.side) / 2), 0.08 + 0.3, (SALON.side - DOOR) / 2);
 }
 
+/** For tests: jumps the glass being served to `t` seconds in. */
+export const pourTo = (t: number) => { if (salon?.crowd.pour) salon.crowd.pour.t = t; };
+
 /** For tests: how far the roof is up (1) or lifted away (0), what the fan by the tables is saying, how many guests
  *  there are, how far the radar has turned, and where the fan and the waiter are (in the ship's own space). */
 export const salonView = () => ({
   roof: salon?.roofK ?? 1, fan: salon?.crowd.fanSay.text ?? '', guests: salon ? 2 + 3 + 2 + 1 + 1 + 2 : 0,
-  waiter: salon?.crowd.waiterSay.text ?? '', drinking: !!salon?.crowd.pour, hic: salon?.crowd.hic.text ?? '',
+  waiter: salon?.crowd.waiterSay.text ?? '', drinking: !!salon?.crowd.pour, says: salon?.crowd.hic.text ?? '',
   radar: salon?.roof.radar.rotation.y ?? 0,
   staff: salon ? [salon.crowd.fan.position, salon.crowd.waiter.position] : [],
 });

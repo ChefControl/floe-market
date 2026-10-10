@@ -149,6 +149,11 @@ let seated: Seated | null = null, lastSeat: Seated | null = null, seatK = 0, sea
  *  they change), and the screen size that was for. */
 let room = 0, roomFor = '';
 const out = { k: 0, eye: new Vector3(), at: new Vector3() };
+/** Seconds the player has left feeling the champagne (they zigzag as they walk, the camera sways), and a clock for it. */
+export const tipsy = { t: 0, clock: 0 };
+/** How tipsy, 0 to 1: full until the last second, then wearing off. */
+export const tipsyK = () => Math.min(1, tipsy.t);
+
 /** Brings the camera in to `view`, with `panel` as the controls, for something besides a game's pad (the champagne). */
 export function takeSeat(view: Seat, panel: HTMLElement) { seated = { ...view, panel }; }
 /** Gives the camera back, if `panel`'s still got it. */

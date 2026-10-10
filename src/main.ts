@@ -1,5 +1,5 @@
 import './errors'; // must stay first: catches errors thrown while the other modules build the scene
-import { tableView } from './casinoKit';
+import { tableView, tipsy, tipsyK } from './casinoKit';
 import { initCloud } from './cloud';
 import { CLOSE, CLOSE_AIM, closeUp } from './customize';
 import { tick } from './game';
@@ -46,6 +46,7 @@ restartBtn.addEventListener('click', () => {
 // ---------- loop ----------
 const camTarget = player.g.position.clone(), look = camTarget.clone(), camOff = OFF.clone(), aim = look.clone();
 let last = performance.now();
+const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)') ?? { matches: false };
 
 function frame(now: number) {
   frameDrawn((now - last) / 1000);
@@ -63,7 +64,11 @@ function frame(now: number) {
   aim.set(look.x, look.y + 0.4 + (CLOSE_AIM - 0.4) * near, look.z);
   const table = tableView(dt);
   if (table.k > 0) { camera.position.lerp(table.eye, table.k); aim.lerp(table.at, table.k); }
+  // tipsy: the view sways and rolls (not for players who'd rather less motion)
+  const sway = tipsy.t > 0 && !reduceMotion.matches ? tipsyK() : 0;
+  if (sway) { aim.x += Math.sin(now / 760) * 0.45 * sway; aim.z += Math.cos(now / 910) * 0.3 * sway; }
   camera.lookAt(aim);
+  if (sway) camera.rotateZ(Math.sin(now / 580) * 0.09 * sway);
   fog.near = 34 * view.zoom; fog.far = 70 * view.zoom;
   sun.position.copy(look).add(sunOff);
   sun.target.position.copy(look);
