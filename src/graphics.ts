@@ -1,9 +1,9 @@
-// Graphics, Auto, Low or High: how much detail people are drawn in (characters.ts). High has rounded arms and legs with
-// hands and shoes, ears and a nose, a glint in the eyes, cheeks, and the zips, pockets, buttons and lapels on their
-// clothes; Low is the plainer people from before those, about a third fewer triangles each, for phones that can't keep
+// Graphics, Auto, Low or High: how much detail the game is drawn in. High draws the world the way the people are drawn
+// (characters.ts, kit.ts): low poly but rounded, with the small details, a rolling sea, cloud shadows, seasonal
+// layers and effects. Low is everything as it was before those, with a lighter renderer, for phones that can't keep
 // up. Auto, the default, lets the game pick: it starts each visit on High and watches the frame rate, and if that stays
 // under 45 a second for six seconds, it drops to Low for the rest of the visit. The player's choice is kept for the
-// device.
+// device. Before adding to the graphics, read docs/graphics.md.
 export type Quality = 'low' | 'high';
 /** What the player chose in the settings. */
 export type Choice = Quality | 'auto';

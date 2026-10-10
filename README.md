@@ -205,6 +205,8 @@ TypeScript + [three.js r186](https://threejs.org/), bundled with [Vite](https://
 
 [docs/balance.md](docs/balance.md) sets out the principles the game is balanced by, stage by stage, the numbers that show when something is off, and where each upgrade stands.
 
+[docs/graphics.md](docs/graphics.md) is the guide to drawing anything new: the Graphics setting and its menu row, building High and Low versions, keeping the game's luck intact, staying fast on phones, and checking the result. Agents get it through the `graphics` skill (`.claude/skills/graphics`).
+
 `.github/workflows/deploy.yml` runs the tests on every pull request and push. On `main`, it builds and deploys to GitHub Pages only if they pass.
 
 Each deploy removes the last one's files, and GitHub Pages lets browsers keep the page for 10 minutes. A page kept from before a deploy, or a tab left open across one, would ask for files that are gone: the game wouldn't start, or Firebase wouldn't load. So the page reloads once to fetch the new version (an inline script in `index.html` for the game's script, which the loading screen adds even when its own fetch fails, so it's still seen to fail; `src/errors.ts` for Firebase), at most once a minute in case the site is actually down.
