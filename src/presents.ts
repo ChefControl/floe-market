@@ -3,8 +3,11 @@
 // into the yard.
 import { BoxGeometry, Group, type Mesh } from 'three';
 import { decal, drawTile } from './decals';
+import { isHigh, onQuality } from './graphics';
+import { at, Build, quietly } from './kit';
 import { HOUSE_PATH_Z, pushOutOfBox } from './layout';
 import { popIn } from './pop';
+import { present } from './propsWorld';
 import { bake, mesh, scene, type Part } from './render';
 import { toast, type TipContent } from './ui';
 import { FY, type XZ } from './util';
@@ -93,6 +96,27 @@ function parts(g: Gift, o: [number, number, number]): [colour: number, Part][] {
 const pile = new Group();
 scene.add(pile);
 let newest: Group | null = null;
+/**
+ * High: the same presents with rounded edges and proper bows (propsWorld.ts), the whole pile one mesh. The newest has
+ * its own High version in its group, beside its Low one.
+ */
+const pileHi = quietly(() => new Group());
+scene.add(pileHi);
+let newestLo: Group | null = null, newestHi: Mesh | null = null;
+function showPile() {
+  const h = isHigh();
+  pile.visible = !h; pileHi.visible = h;
+  if (newestLo) newestLo.visible = !h;
+  if (newestHi) newestHi.visible = h;
+}
+showPile();
+onQuality(showPile);
+/** The presents `gs` as one High mesh, each at its spot less `o`. */
+function bakeHigh(gs: Gift[], o: [number, number, number]) {
+  const b = new Build();
+  for (const g of gs) present(b, g.w, g.h, g.d, g.wrap, g.ribbon, at(g.x - o[0], g.y - o[1], g.z - o[2], g.yaw));
+  return b.mesh();
+}
 
 function rebuild(upTo: number) {
   pile.children.forEach(m => (m as Mesh).geometry.dispose());
@@ -105,6 +129,9 @@ function rebuild(upTo: number) {
     }
   }
   for (const [colour, ps] of byColour) pile.add(mesh(bake(ps), colour, 0, 0, 0, true));
+  pileHi.children.forEach(m => (m as Mesh).geometry.dispose());
+  pileHi.clear();
+  if (upTo) quietly(() => pileHi.add(bakeHigh(gifts.slice(0, upTo), [0, 0, 0])));
 }
 
 /** Snubs, in turn, for every present after the first. */
@@ -127,7 +154,12 @@ export function givePresents(n = 1, silent = false) {
     else { presents.n += n - k - 1; break; } // the pile's full: the rest are only counted
   }
   const folding = !!newest;
-  if (newest) { scene.remove(newest); newest.children.forEach(m => (m as Mesh).geometry.dispose()); newest = null; }
+  if (newest) {
+    scene.remove(newest);
+    newestLo!.children.forEach(m => (m as Mesh).geometry.dispose());
+    newestHi!.geometry.dispose();
+    newest = newestLo = newestHi = null;
+  }
   // a full pile only needs baking again to fold the last one to pop in back into it
   if (silent || !added) { if (silent || folding) rebuild(gifts.length); }
   else {
@@ -136,7 +168,12 @@ export function givePresents(n = 1, silent = false) {
     const g = gifts[gifts.length - 1];
     newest = new Group();
     newest.position.set(g.x, g.y, g.z);
-    for (const [colour, p] of parts(g, [0, 0, 0])) newest.add(mesh(bake([p]), colour, 0, 0, 0, true));
+    const lo: Mesh[] = [];
+    for (const [colour, p] of parts(g, [0, 0, 0])) lo.push(mesh(bake([p]), colour, 0, 0, 0, true));
+    [newestLo, newestHi] = quietly(() => [new Group(), bakeHigh([g], [g.x, g.y, g.z])]);
+    newestLo.add(...lo);
+    newest.add(newestLo, newestHi);
+    showPile();
     scene.add(newest);
     popIn(newest);
   }

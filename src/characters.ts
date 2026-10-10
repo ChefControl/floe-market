@@ -3,6 +3,7 @@ import {
   TorusGeometry, Vector3,
 } from 'three';
 import { isHigh, onQuality } from './graphics';
+import { detailMarked, sledPaint, sledParts, sledQuietly } from './propsMachines';
 import { G, mat, mesh, painted, scene } from './render';
 import { current, onSeason, type Season } from './season';
 import type { XZ } from './util';
@@ -233,6 +234,7 @@ export class Person extends Group {
     super();
     try {
       this.n = dressed++;
+      this.userData.noBatch = true; // always on the move (batch.ts)
       this.color = color;
       this.style = style ?? plain(this.n);
       this.mixed = !!style;
@@ -759,22 +761,35 @@ const SCREEN = new BoxGeometry(0.78, 0.36, 0.05), SEAT = new BoxGeometry(0.82, 0
 const OUT_OF_WINTER: Season[] = ['spring', 'summer', 'fall'];
 /**
  * A snowmobile and its driver (dressed in `style`, or plainly). Out of winter it runs on four wheels instead of its skis: a little car, in effect,
- * still called a snowmobile in the code.
+ * still called a snowmobile in the code. Low: boxes. High: rounded bodywork with bumpers, headlights, handlebars and
+ * a grab rail, its skis' tips turned up and its wheels hubbed (propsMachines.ts), all shared between sleds but the paint.
  */
 export function makeSled(color: number, driverColor: number, style?: Style) {
   const g = new Group();
-  g.add(mesh(HULL, color, 0, 0.34, 0, true));
-  g.add(mesh(NOSE, color, 0, 0.28, 0.95, true));
-  for (const s of [-1, 1]) g.add(onlyIn(mesh(SKI, 0x2C3A47, s * 0.38, 0.05, 0.15), ['winter']));
+  const low = sledQuietly(() => new Group());
+  g.add(low);
+  low.add(mesh(HULL, color, 0, 0.34, 0, true));
+  low.add(mesh(NOSE, color, 0, 0.28, 0.95, true));
+  for (const s of [-1, 1]) low.add(onlyIn(mesh(SKI, 0x2C3A47, s * 0.38, 0.05, 0.15), ['winter']));
   for (const s of [-1, 1]) {
     for (const z of [-0.5, 0.85]) {
       const w = new Group(); w.position.set(s * 0.46, 0.17, z); w.rotation.z = Math.PI / 2;
       w.add(mesh(TYRE, 0x1F262E, 0, 0, 0, true), mesh(HUB, 0xC9D1D8));
-      g.add(onlyIn(w, OUT_OF_WINTER));
+      low.add(onlyIn(w, OUT_OF_WINTER));
     }
   }
-  const ws = mesh(SCREEN, glass, 0, 0.68, 0.62); ws.rotation.x = -0.45; g.add(ws);
-  g.add(mesh(SEAT, 0x5B4636, 0, 0.56, -0.52));
+  const ws = mesh(SCREEN, glass, 0, 0.68, 0.62); ws.rotation.x = -0.45; low.add(ws);
+  low.add(mesh(SEAT, 0x5B4636, 0, 0.56, -0.52));
+  sledQuietly(() => {
+    const parts = sledParts(), high = new Group();
+    const screen = mesh(parts.screen, glass, 0, 0.68, 0.62); screen.rotation.x = -0.45;
+    high.add(
+      mesh(parts.paint, sledPaint(color), 0, 0, 0, true), mesh(parts.trim, painted, 0, 0, 0, true), screen,
+      onlyIn(mesh(parts.skis, painted, 0, 0, 0, true), ['winter']), onlyIn(mesh(parts.wheels, painted, 0, 0, 0, true), OUT_OF_WINTER),
+    );
+    g.add(high);
+    detailMarked(low, high);
+  });
   const d = new Person(driverColor, 'parka', style); d.scale.setScalar(0.85 * d.style.height); d.position.set(0, 0.28, 0.1);
   d.arms.forEach(a => a.rotation.x = -1.1);
   g.add(d);

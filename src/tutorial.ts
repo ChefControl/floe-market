@@ -15,9 +15,11 @@ import { buyButtonShown, touchBuy } from './buy';
 import { C1 } from './counters';
 import { modCost, MODS, mods } from './economy';
 import { steaksInProgress } from './fishing';
+import { detail, quietly } from './kit';
 import { stage } from './layout';
 import { player } from './player';
 import { onScreen } from './pointers';
+import { guideArrow, softRing } from './propsWorld';
 import { bakePainted, G, painted, scene } from './render';
 import { unlock } from './sfx';
 import { atSquare, modOffered, SHOPS } from './shop';
@@ -210,17 +212,30 @@ export function updTutorial(dt: number) {
 // ---------- what it looks like ----------
 const GOLD = 0xFFC34A;
 /** The arrow: a gold point and shaft, baked as one mesh, pointing down at the spot. */
-const arrow = new Mesh(bakePainted([
+const arrowLo = new Mesh(bakePainted([
   { geo: G.cone, at: [0, 0.25, 0], rot: [Math.PI, 0, 0], scale: [0.42, 0.5, 0.42], c: GOLD },
   { geo: G.cyl, at: [0, 0.75, 0], scale: [0.16, 0.5, 0.16], c: GOLD },
 ]), painted);
 const ringMat = new MeshBasicMaterial({ color: GOLD, transparent: true, opacity: 0.7, depthWrite: false });
 // just outside the spot's edge, a little over the deck's markings
-const ring = new Mesh(new RingGeometry(1, 1.14, 40), ringMat);
-ring.rotation.x = -Math.PI / 2;
-ring.position.y = 0.03;
+const ringLo = new Mesh(new RingGeometry(1, 1.14, 40), ringMat);
 /** The arrow and its ring. */
 export const guide = new Group();
+/**
+ * On High, a rounded arrow with a rim and fins (so its spin shows), and a ring with soft edges (propsWorld.ts). The
+ * arrow and the ring are each a group holding both versions, about the same point, so they bob, spin and pulse as one.
+ */
+const [arrow, ring, ringHiMat] = quietly(() => {
+  const a = new Group(), r = new Group(), m = new MeshBasicMaterial({ color: GOLD, vertexColors: true, transparent: true, opacity: 0.7, depthWrite: false });
+  const ah = guideArrow(GOLD).mesh(false), rh = new Mesh(softRing(), m);
+  a.add(arrowLo, ah);
+  r.add(ringLo, rh);
+  detail(arrowLo, ah);
+  detail(ringLo, rh);
+  return [a, r, m] as const;
+});
+ring.rotation.x = -Math.PI / 2;
+ring.position.y = 0.03;
 guide.add(arrow, ring);
 guide.visible = false;
 scene.add(guide);
@@ -278,7 +293,7 @@ export function drawTutorial(dt: number) {
   arrow.scale.setScalar(Math.max(0.01, pop));
   ring.visible = spot.r > 0;
   ring.scale.setScalar(spot.r * (calm ? 1 : 1 + Math.sin(t * 4) * 0.06));
-  ringMat.opacity = calm ? 0.7 : 0.55 + Math.sin(t * 4) * 0.2;
+  ringMat.opacity = ringHiMat.opacity = calm ? 0.7 : 0.55 + Math.sin(t * 4) * 0.2;
 
   const [title, line = ''] = s.say();
   if (title + line !== said) { said = title + line; head.textContent = title; more.textContent = line; more.hidden = !line; }

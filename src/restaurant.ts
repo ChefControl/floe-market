@@ -5,8 +5,8 @@
 // kiosk. Plates for diners at the garden tables go on a serving counter out front instead, and the waiters
 // (garden.ts) carry them over.
 import {
-  BoxGeometry, CylinderGeometry, ExtrudeGeometry, Group, Mesh, MeshPhongMaterial, Shape, ShapeGeometry, Sprite,
-  SpriteMaterial, type Object3D, type Path, type Vector3,
+  BoxGeometry, CylinderGeometry, ExtrudeGeometry, Group, InstancedMesh, Matrix4, Mesh, MeshPhongMaterial, Quaternion,
+  Shape, ShapeGeometry, Sprite, SpriteMaterial, Vector3 as V3, type Object3D, type Path, type Vector3,
 } from 'three';
 import { drawBubble, patienceStep } from './bubble';
 import { animPerson, moveEnt, Person, SUITS, type Walker } from './characters';
@@ -14,12 +14,16 @@ import { TAKEOUT } from './counters';
 import { decal, drawPad } from './decals';
 import { newFish } from './fishModel';
 import { boost, PREMIUM, priced, SUSHI_PRICE } from './economy';
+import { isHigh } from './graphics';
 import { fly, Holder } from './holder';
 import { addBillValue, billValue, newBill, newBox, newPlate, newRice } from './items';
-import { inHall, pushOutOfBox } from './layout';
+import { detail, pack, quietly, rbox } from './kit';
+import { steamer } from './fx';
+import { inHall, pushOutOfBox, stage } from './layout';
+import { beltSlat, chefBoard, kitchenLine, pleatToque, registerDesk, stool as roundStool, sushiBar } from './propsKitchen';
 import { addReview, demand, starsFor } from './rating';
 import { clink, review, till } from './sfx';
-import { canvasTex, G, mat, mesh, scene, type CanvasTex } from './render';
+import { canvasTex, G, mat, mesh, painted, scene, type CanvasTex } from './render';
 import { pile } from './stations';
 import { popStars, popText } from './ui';
 import { d2xz, FY, money, pick, rand, randi, V, type XZ } from './util';
@@ -222,7 +226,32 @@ function group(x: number, z: number) {
   return g;
 }
 
-/** The bar with its belt. */
+/**
+ * Where the belt's centre line is `s` metres along (as barPoint, around the bar's middle), and which way it runs
+ * there (a turn about the vertical), into `out`, without making anything: the belt's slats move every frame.
+ */
+function beltAt(s: number, out: { x: number; z: number; ry: number }) {
+  const { L, R } = BAR;
+  s = ((s % PERIM) + PERIM) % PERIM;
+  let a: number, cx = L;
+  if (s < 2 * L) { out.x = -L + s; out.z = -R; out.ry = 0; return; }
+  s -= 2 * L;
+  if (s < Math.PI * R) a = -Math.PI / 2 + s / R;
+  else {
+    s -= Math.PI * R;
+    if (s < 2 * L) { out.x = L - s; out.z = R; out.ry = Math.PI; return; }
+    a = Math.PI / 2 + (s - 2 * L) / R; cx = -L;
+  }
+  out.x = cx + R * Math.cos(a); out.z = R * Math.sin(a);
+  // running clockwise seen from above: along (-sin a, cos a)
+  out.ry = -Math.atan2(Math.cos(a), -Math.sin(a));
+}
+
+/** The belt's slats on High, a chain of them that runs round with the plates. */
+const SLATS = Math.round(PERIM / 0.2);
+let slats: InstancedMesh | null = null;
+
+/** The bar with its belt. Low: a plain ring and a flat belt. High: the bar in detail (propsKitchen.ts), and the belt's slats. */
 const bar = group(BAR.x, BAR.z);
 {
   const counter = new Mesh(
@@ -233,37 +262,95 @@ const bar = group(BAR.x, BAR.z);
   counter.castShadow = counter.receiveShadow = true; bar.add(counter);
   const belt = new Mesh(new ShapeGeometry(ring(BAR.R - BELT_HALF, BAR.R + BELT_HALF), 18), mat(0x3C4C58));
   belt.rotation.x = -Math.PI / 2; belt.position.y = FY + BAR_H + 0.005; bar.add(belt);
+  quietly(() => {
+    const low = new Group(), high = new Group();
+    low.add(counter, belt);
+    high.add(sushiBar(BAR.L, BAR_IN, BAR_OUT, BAR_H, BAR.R, BELT_HALF, FY).mesh());
+    slats = new InstancedMesh(pack(beltSlat(PERIM / SLATS - 0.03, BELT_HALF * 2).pieces), painted, SLATS);
+    slats.position.y = FY + BAR_H + 0.008; slats.receiveShadow = true;
+    // it moves its slats itself, every frame, so it's never left out for where they were when it was first drawn
+    slats.frustumCulled = false;
+    // none laid out until the restaurant opens (moveBelt)
+    slats.count = 0;
+    high.add(slats);
+    bar.add(low, high);
+    detail(low, high);
+  });
+}
+
+const slat = { x: 0, z: 0, ry: 0 }, slatM = new Matrix4(), slatQ = new Quaternion(), slatP = new V3(), ONE = new V3(1, 1, 1), UP = new V3(0, 1, 0);
+/** Moves the belt's slats on with the plates (High only: on Low the belt is flat). */
+function moveBelt() {
+  if (!slats || !isHigh()) return;
+  slats.count = SLATS;
+  const run = (sushi.offset + sushi.t / STEP) * SP, gap = PERIM / SLATS;
+  for (let k = 0; k < SLATS; k++) {
+    beltAt(run + k * gap, slat);
+    slatM.compose(slatP.set(slat.x, 0, slat.z), slatQ.setFromAxisAngle(UP, slat.ry), ONE);
+    slats.setMatrixAt(k, slatM);
+  }
+  slats.instanceMatrix.needsUpdate = true;
 }
 
 /** The kitchen line: a long steel counter with a glass case of fish in the middle, rice cookers and a whole tuna. */
+// Low: plain blocks. High: steel doors and handles, a framed case on ice, rice cookers with their buttons (propsKitchen.ts).
 const kitchen = group(KITCHEN.x, KITCHEN.z);
 {
-  kitchen.add(mesh(new BoxGeometry(KITCHEN.w, KITCHEN.h, KITCHEN.d), 0xB8C4CC, 0, FY + KITCHEN.h / 2, 0, true));
-  kitchen.add(mesh(new BoxGeometry(KITCHEN.w + 0.06, 0.05, KITCHEN.d + 0.06), 0xE9EEF2, 0, FY + KITCHEN.h + 0.01, 0, true));
+  const low: Object3D[] = [];
+  low.push(mesh(new BoxGeometry(KITCHEN.w, KITCHEN.h, KITCHEN.d), 0xB8C4CC, 0, FY + KITCHEN.h / 2, 0, true));
+  low.push(mesh(new BoxGeometry(KITCHEN.w + 0.06, 0.05, KITCHEN.d + 0.06), 0xE9EEF2, 0, FY + KITCHEN.h + 0.01, 0, true));
   const glass = new MeshPhongMaterial({ color: 0xCFEFFA, transparent: true, opacity: .35, shininess: 100 });
-  kitchen.add(mesh(new BoxGeometry(2.4, 0.42, 0.7), glass, 0, FY + KITCHEN.h + 0.25, 0));
+  low.push(mesh(new BoxGeometry(2.4, 0.42, 0.7), glass, 0, FY + KITCHEN.h + 0.25, 0));
   [0xFF8A5C, 0xD8394B, 0xFFD24A, 0xFF8A5C, 0xD8394B, 0xFFD24A].forEach((c, i) => {
-    kitchen.add(mesh(new BoxGeometry(0.32, 0.06, 0.24), c, -0.95 + i * 0.38, FY + KITCHEN.h + 0.07, 0));
+    low.push(mesh(new BoxGeometry(0.32, 0.06, 0.24), c, -0.95 + i * 0.38, FY + KITCHEN.h + 0.07, 0));
   });
   for (const x of [-5.3, -4.4]) {
-    kitchen.add(mesh(new CylinderGeometry(0.38, 0.34, 0.5, 18), 0x9AA9B4, x, FY + KITCHEN.h + 0.27, 0, true));
-    kitchen.add(mesh(new CylinderGeometry(0.4, 0.4, 0.06, 18), 0x5B6B78, x, FY + KITCHEN.h + 0.55, 0));
+    low.push(mesh(new CylinderGeometry(0.38, 0.34, 0.5, 18), 0x9AA9B4, x, FY + KITCHEN.h + 0.27, 0, true));
+    low.push(mesh(new CylinderGeometry(0.4, 0.4, 0.06, 18), 0x5B6B78, x, FY + KITCHEN.h + 0.55, 0));
   }
-  kitchen.add(mesh(new BoxGeometry(1.5, 0.05, 0.6), 0xE9D9C0, 4.9, FY + KITCHEN.h + 0.05, 0, true));
+  low.push(mesh(new BoxGeometry(1.5, 0.05, 0.6), 0xE9D9C0, 4.9, FY + KITCHEN.h + 0.05, 0, true));
   // lying on its side on the board
   const tuna = newFish().g; tuna.position.set(5.0, FY + KITCHEN.h + 0.2, 0); tuna.rotation.x = Math.PI / 2; kitchen.add(tuna);
+  quietly(() => {
+    const lo = new Group(), hi = new Group(), { b, fine } = kitchenLine(KITCHEN.w, KITCHEN.d, KITCHEN.h, FY);
+    lo.add(...low);
+    hi.add(b.mesh(), fine.mesh(false), mesh(rbox(2.4, 0.42, 0.7, 0.03), glass, 0, FY + KITCHEN.h + 0.25, 0));
+    kitchen.add(lo, hi);
+    detail(lo, hi);
+  });
+  // steam from the rice cookers' vents (fx.ts, on High), while the restaurant's open
+  for (const x of [-5.3, -4.4]) steamer(V(KITCHEN.x + x + 0.2, FY + KITCHEN.h + 0.66, KITCHEN.z - 0.06), () => stage.n === 2);
 }
 
 /** The register desk. */
 const desk = group(DESK.x, DESK.z);
-desk.add(mesh(new BoxGeometry(DESK.w, 0.8, DESK.d), 0x8E2B2B, 0, FY + 0.4, 0, true));
-desk.add(mesh(new BoxGeometry(DESK.w + 0.04, 0.05, DESK.d + 0.04), 0xF2C14E, 0, FY + 0.82, 0, true));
-desk.add(mesh(new BoxGeometry(0.4, 0.3, 0.3), 0x22303C, 0.2, FY + 1.0, 0, true));
+{
+  const low = [
+    mesh(new BoxGeometry(DESK.w, 0.8, DESK.d), 0x8E2B2B, 0, FY + 0.4, 0, true),
+    mesh(new BoxGeometry(DESK.w + 0.04, 0.05, DESK.d + 0.04), 0xF2C14E, 0, FY + 0.82, 0, true),
+    mesh(new BoxGeometry(0.4, 0.3, 0.3), 0x22303C, 0.2, FY + 1.0, 0, true),
+  ];
+  quietly(() => {
+    const lo = new Group(), hi = registerDesk(DESK.w, DESK.d, FY, 0.2).mesh();
+    lo.add(...low);
+    desk.add(lo, hi);
+    detail(lo, hi);
+  });
+}
+
+/** High's stool and chef's board, shared by them all. */
+const ROUND = quietly(() => ({ stool: pack(roundStool().pieces), board: pack(chefBoard().pieces) }));
 
 function stool(x: number, z: number) {
   const g = new Group(); g.position.set(x, FY, z);
   const leg = mesh(G.cyl, 0x2C3A47, 0, 0.23, 0, true); leg.scale.set(0.06, 0.46, 0.06); g.add(leg);
   const top = mesh(G.cyl, 0xC0392B, 0, 0.49, 0, true); top.scale.set(0.22, 0.07, 0.22); g.add(top);
+  quietly(() => {
+    const low = new Group(), high = mesh(ROUND.stool, painted, 0, 0, 0, true);
+    low.add(leg, top);
+    g.add(low, high);
+    detail(low, high);
+  });
   scene.add(g);
   return g;
 }
@@ -303,6 +390,12 @@ function addChef() {
   for (const a of g.arms) a.rotation.x = -0.9;
   const board = mesh(new BoxGeometry(0.5, 0.04, 0.22), 0xE9D9C0, 0, BAR_H + 0.02, 0.86, true);
   g.add(board);
+  quietly(() => {
+    const high = mesh(ROUND.board, painted, 0, BAR_H + 0.02, 0.86, true);
+    g.add(high);
+    detail(board, high);
+  });
+  pleatToque(g);
   scene.add(g);
   sushi.chefs.push({
     g, q: slotNear({ x, z: BAR.z + side * BAR.R }), board: V(x, FY + BAR_H + 0.07, BAR.z + side * 0.86),
@@ -316,6 +409,7 @@ function addCooks() {
   return [FISH_DROP, RICE_DROP].map(at => {
     const g = new Person(0xF4F6F8, 'chef');
     g.position.set(at.x, FY, KITCHEN.z + KITCHEN.d / 2 + 0.65); g.rotation.y = Math.PI;
+    pleatToque(g);
     scene.add(g);
     sushi.cooks.push({ g, t: 0 });
     return g;
@@ -537,6 +631,7 @@ export function updRestaurant(dt: number) {
   sushi.t += dt;
   while (sushi.t >= STEP) { sushi.t -= STEP; stepBelt(); }
   sushi.slots.forEach((p, j) => { if (p && !p.userData.flying) p.position.copy(slotPos(j)); });
+  moveBelt();
   sushi.cooks.forEach(c => updCook(c, dt));
   sushi.chefs.forEach(c => updChef(c, dt));
   [...sushi.diners].forEach(d => updDiner(d, dt));

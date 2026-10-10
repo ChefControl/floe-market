@@ -9,6 +9,7 @@ import { boost } from './economy';
 import { tryCatch } from './fishing';
 import { addTables } from './garden';
 import { enableKorki, KORKI } from './korki';
+import { unlockFx } from './fx';
 import { GAMES, stage, TERRACES } from './layout';
 import { buildNet, buildTurret } from './machines';
 import { player } from './player';
@@ -239,6 +240,7 @@ export function applyUnlock(id: UnlockId, silent = false) {
   if (id === 'kiosk') toast('New: the Fertilizer shed, by the water wheel');
   if (id === 'runner') toast('New at the Upgrade square: Crew training');
   unlock();
+  unlockFx(t, 1.1, (t.y ?? FY) + 0.05);
   if (t.always || !goal(t.stage).every(x => x.done)) return;
   toast(t.stage === 1 ? 'Floe Sushi is ready to open' : 'Floe Sushi is fully built');
 }

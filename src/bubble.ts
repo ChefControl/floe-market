@@ -1,41 +1,10 @@
 // Order bubbles over customers' heads, with a ring that empties as their patience runs out, the mood faces shown
 // over customers further back in a queue, and the same bubble without a ring for the kitchen's needs (needs.ts).
 import { Sprite, SpriteMaterial } from 'three';
-import { canvasTex, FONT, rr } from './render';
+import { boxIcon, drawIcon, fishIcon, riceIcon, sushiIcon } from './icons';
+import { canvasTex, FONT } from './render';
 
 export type OrderIcon = 'fish' | 'sushi' | 'box' | 'rice';
-
-/** A blue fish with a yellow fin, like the ones in the water. */
-function fishIcon(c: CanvasRenderingContext2D) {
-  c.fillStyle = '#355C9E';
-  c.beginPath(); c.moveTo(24, 58); c.lineTo(10, 46); c.lineTo(10, 70); c.closePath(); c.fill();
-  c.beginPath(); c.ellipse(42, 58, 22, 12, 0, 0, 7); c.fill();
-  c.fillStyle = '#E3EAF0'; c.beginPath(); c.ellipse(44, 62, 17, 6, 0, 0, Math.PI); c.fill();
-  c.fillStyle = '#F2C14E'; c.beginPath(); c.moveTo(36, 47); c.lineTo(46, 38); c.lineTo(50, 47); c.closePath(); c.fill();
-  c.fillStyle = '#fff'; c.beginPath(); c.arc(55, 55, 3.5, 0, 7); c.fill();
-  c.fillStyle = '#1B2733'; c.beginPath(); c.arc(56, 55, 1.8, 0, 7); c.fill();
-}
-
-/** Takeout box: black with a red lid band. */
-function boxIcon(c: CanvasRenderingContext2D) {
-  c.fillStyle = '#22262B'; rr(c, 20, 44, 48, 30, 6); c.fill();
-  c.fillStyle = '#C0392B'; rr(c, 18, 40, 52, 10, 4); c.fill();
-}
-
-/** A sack of rice, as the bags look: cream, with a red band and 米 on it. */
-function riceIcon(c: CanvasRenderingContext2D) {
-  c.fillStyle = '#E6DBC0'; rr(c, 18, 38, 52, 38, 9); c.fill();
-  c.fillStyle = '#C0392B'; c.fillRect(18, 50, 52, 14);
-  c.fillStyle = '#FFFDF5'; c.font = 'bold 13px sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
-  c.fillText('米', 44, 58);
-}
-
-function sushiIcon(c: CanvasRenderingContext2D) {
-  c.fillStyle = '#FFFDF5'; rr(c, 24, 56, 40, 18, 8); c.fill();
-  c.fillStyle = '#FF8A5C'; rr(c, 22, 44, 44, 16, 8); c.fill();
-  c.strokeStyle = '#FFD2BC'; c.lineWidth = 3;
-  c.beginPath(); c.moveTo(34, 47); c.lineTo(39, 57); c.moveTo(47, 47); c.lineTo(52, 57); c.stroke();
-}
 
 /** Ring colour for the share of patience left. */
 export const moodColor = (left: number) => left > 0.6 ? '#49C25B' : left > 0.35 ? '#F2B33D' : '#E5484D';
@@ -102,10 +71,7 @@ const moodMats = new Map<Mood, SpriteMaterial>();
 export function moodMat(m: Mood) {
   let mat = moodMats.get(m);
   if (!mat) {
-    const t = canvasTex(64, 64, (c, w, h) => {
-      c.font = '52px serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
-      c.fillText(m === 'angry' ? '😠' : '😐', w / 2, h / 2 + 3);
-    });
+    const t = canvasTex(64, 64, (c, w, h) => drawIcon(c, m === 'angry' ? '😠' : '😐', w / 2, h / 2, 60));
     mat = new SpriteMaterial({ map: t.tex, depthTest: false });
     moodMats.set(m, mat);
   }

@@ -6,6 +6,7 @@ import { updCasino } from './casino';
 import { updBakes } from './characters';
 import { COUNTERS, postCustomers, updCounter, updLeaving } from './counters';
 import { updFarm } from './farm';
+import { updFx } from './fx';
 import { updGarden } from './garden';
 import { updRoof } from './hall';
 import { updChopper, updFish, updHooks } from './fishing';
@@ -54,7 +55,8 @@ export function tick(dt: number) {
   updStars();
   updFlights(dt);
   updPops(dt);
-  updFloes(time);
+  updFx(dt);
+  updFloes(time, player.g.position);
   if (updSeason(dt, player.g.position, rainK)) { toast(SEASON_INFO[current()].news, 'season'); seasonSting(current()); }
   updFarm(dt);
   updStage(dt);
