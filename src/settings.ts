@@ -1,7 +1,8 @@
 // The settings menu, behind the gear in the top corner, in four groups: You (signing in for cloud saves, cloud.ts, and
 // your look), Graphics & sound (graphics.ts, audio.ts), Game (how to walk, hint.ts, and Restart, main.ts), and About
-// (Ko-fi, and last, the Credits & Copyrights for the music and sound). The Sound row opens into the effects, the ambience and the music, each with a mute button and a 0 to 10
-// slider, big enough for a finger.
+// (Ko-fi, and last, the Credits & Copyrights for the music and sound). Graphics, Sound and the credits each open with a
+// click: Graphics into Auto, Low or High; Sound into the effects, the ambience and the music, each with a mute button
+// and a 0 to 10 slider, big enough for a finger; and the credits into the notices.
 import { every, prefs, setLevel, setMute, type Bus } from './audio';
 import { choose, gfx, onQuality, type Choice } from './graphics';
 import { showHint } from './hint';
@@ -13,7 +14,6 @@ const gear = $('gear'), menu = $('settings');
 export function openSettings(open: boolean) {
   menu.hidden = !open;
   gear.setAttribute('aria-expanded', String(open));
-  if (!open) showCredits(false);
 }
 gear.addEventListener('click', () => openSettings(gear.getAttribute('aria-expanded') !== 'true'));
 // A tap anywhere else closes it, and so does Escape.
@@ -27,12 +27,21 @@ window.addEventListener('keydown', e => {
   gear.focus();
 });
 
-const soundCat = $('soundCat'), soundPanel = $('soundPanel');
-soundCat.addEventListener('click', () => {
-  const open = soundPanel.hidden;
-  soundPanel.hidden = !open;
-  soundCat.setAttribute('aria-expanded', String(open));
-});
+/**
+ * The categories, Graphics, Sound and Credits & Copyrights: a click opens each into its panel under it, and another
+ * closes it again. On a short screen the menu scrolls, so a panel that opens is brought into view.
+ */
+function category(row: HTMLElement, panel: HTMLElement) {
+  row.addEventListener('click', () => {
+    const open = panel.hidden;
+    panel.hidden = !open;
+    row.setAttribute('aria-expanded', String(open));
+    if (open) panel.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
+  });
+}
+category($('gfxCat'), $('gfx'));
+category($('soundCat'), $('soundPanel'));
+category($('creditsBtn'), $('creditsCard'));
 
 /**
  * A kind of sound's row: its mute button, and its slider with the level beside it. Muted, the slider sits at 0, and
@@ -65,37 +74,19 @@ soundRow('sfx', 'Sfx');
 soundRow('amb', 'Amb');
 soundRow('music', 'Music');
 
-// Graphics: Auto, Low or High. On Auto, which one the game is using shows under the row's name.
-const gfxButtons = [...$('gfx').querySelectorAll('button')], gfxNow = $('gfxNow');
+// Graphics: Auto, Low or High, shown on the row while it's closed. On Auto, which one the game is using shows under
+// the choices.
+const gfxButtons = [...$('gfx').querySelectorAll('button')], gfxNow = $('gfxNow'), gfxPick = $('gfxPick');
 function showGfx() {
   const on = gfx.picked ? gfx.quality : 'auto';
   for (const b of gfxButtons) b.setAttribute('aria-pressed', String(b.dataset.q === on));
+  gfxPick.textContent = on === 'auto' ? 'Auto' : on === 'high' ? 'High' : 'Low';
   gfxNow.hidden = gfx.picked;
-  gfxNow.textContent = gfx.quality === 'high' ? 'High now' : 'Low now';
+  gfxNow.textContent = gfx.quality === 'high' ? 'Auto is on High now' : 'Auto is on Low now';
 }
 for (const b of gfxButtons) b.addEventListener('click', () => choose(b.dataset.q as Choice));
 onQuality(showGfx);
 showGfx();
-
-// Credits & Copyrights: a mouse opens the notice by hovering over the row, and it closes when the mouse moves off; a
-// click (a tap, or Enter) opens it and keeps it open, and a second one closes it.
-const credits = $('credits'), creditsBtn = $('creditsBtn'), creditsCard = $('creditsCard');
-let pinned = false;
-function showCredits(open: boolean) {
-  creditsCard.hidden = !open;
-  creditsBtn.setAttribute('aria-expanded', String(open));
-  if (!open) pinned = false;
-  // on a short screen the menu scrolls: bring the notice into view
-  else creditsCard.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
-}
-const mouse = (e: Event) => (e as PointerEvent).pointerType === 'mouse';
-credits.addEventListener('pointerenter', e => { if (mouse(e)) showCredits(true); });
-credits.addEventListener('pointerleave', e => { if (mouse(e) && !pinned) showCredits(false); });
-creditsBtn.addEventListener('click', () => {
-  if (pinned) { showCredits(false); return; }
-  showCredits(true);
-  pinned = true;
-});
 
 $('controls').addEventListener('click', () => {
   openSettings(false);

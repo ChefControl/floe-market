@@ -229,7 +229,7 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
   max-height:calc(100% - 100px); overflow-y:auto; overscroll-behavior:contain;
 }
 #settings[hidden]{ display:none; }
-#settings > button, #settings > a, #creditsBtn{
+#settings > button, #settings > a{
   display:flex; align-items:center; gap:10px; width:100%; min-height:40px; padding:6px 12px; border:0; border-radius:14px;
   background:var(--chip); color:var(--pill-ink); font:700 16px "Baloo 2","Trebuchet MS",system-ui,sans-serif; text-align:left; cursor:pointer;
 }
@@ -242,28 +242,27 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
 /* the Ko-fi link, to buy the maker a coffee: a settings row like the others, opening Ko-fi in a window of its own (kofi.ts) */
 #kofi{ box-sizing:border-box; text-decoration:none; }
 #kofi i{ margin-left:auto; font-style:normal; opacity:.6; }
-/* the Sound category, opening into a mute button and a 0-10 slider for each kind of sound, sized for fingers */
-#soundCat .chev{ margin:0 4px 4px auto; width:9px; height:9px; border-right:2.5px solid currentColor; border-bottom:2.5px solid currentColor; transform:rotate(45deg); transition:transform .2s; }
-#soundCat[aria-expanded="true"] .chev{ transform:translateY(4px) rotate(-135deg); }
-#soundPanel{ display:flex; flex-direction:column; gap:8px; padding:8px 10px 10px; border-radius:14px; background:var(--chip); }
-#soundPanel[hidden]{ display:none; }
-/* Credits & Copyrights, the menu's last row: hovering with a mouse (or a tap) opens the notice under it */
-#creditsCard{ padding:8px 12px 10px; border-radius:14px; background:var(--chip); color:var(--pill-ink); font-size:12px; line-height:1.4; font-weight:500; }
-#creditsCard[hidden]{ display:none; }
+/* the categories (Graphics, Sound, Credits & Copyrights): a row with a chevron, opening into a panel under it */
+#settings .cat .chev{ margin:0 4px 4px auto; width:9px; height:9px; flex:none; border-right:2.5px solid currentColor; border-bottom:2.5px solid currentColor; transform:rotate(45deg); transition:transform .2s; }
+#settings .cat[aria-expanded="true"] .chev{ transform:translateY(4px) rotate(-135deg); }
+#settings .catPanel{ display:flex; flex-direction:column; gap:8px; padding:8px 10px 10px; border-radius:14px; background:var(--chip); }
+#settings .catPanel[hidden]{ display:none; }
+/* Sound opens into a mute button and a 0-10 slider for each kind of sound, sized for fingers */
+/* Credits & Copyrights, the menu's last row, opening into the music's and the sounds' notices */
+#settings #creditsCard{ gap:0; color:var(--pill-ink); font-size:12px; line-height:1.4; font-weight:500; }
 #creditsCard h3{ margin:6px 0 2px; font:800 13px "Baloo 2","Trebuchet MS",system-ui,sans-serif; }
 #creditsCard h3:first-child{ margin-top:0; }
 #creditsCard ul{ margin:0; padding-left:16px; }
 #creditsCard li{ margin:2px 0; }
 #creditsCard a{ color:inherit; }
-#credits{ display:flex; flex-direction:column; gap:6px; }
-/* Graphics, Auto, Low or High (graphics.ts): the choices on the right of the row, and under its name, on Auto, which the game is using */
-#gfx{ display:flex; align-items:center; gap:10px; min-height:40px; padding:3px 4px 3px 12px; border-radius:14px; background:var(--chip); color:var(--pill-ink); font:700 16px "Baloo 2","Trebuchet MS",system-ui,sans-serif; }
-#gfx .name{ display:flex; flex-direction:column; line-height:1.1; min-width:0; }
-#gfxNow{ font-size:12px; font-weight:700; opacity:.6; }
-#gfxNow[hidden]{ display:none; }
-#gfx .seg{ display:flex; gap:2px; margin-left:auto; padding:3px; border-radius:12px; background:rgba(127,140,150,.22); }
-#gfx .seg button{ min-width:44px; min-height:36px; padding:0 7px; border:0; border-radius:9px; background:transparent; color:inherit; font:inherit; font-size:15px; cursor:pointer; }
+/* Graphics opens into Auto, Low or High, and on Auto, which one the game is using; the row shows the choice */
+#gfxPick{ margin-left:auto; font-size:13px; font-weight:700; opacity:.6; }
+#settings #gfxCat .chev{ margin-left:8px; }
+#gfx .seg{ display:flex; gap:2px; padding:3px; border-radius:12px; background:rgba(127,140,150,.22); }
+#gfx .seg button{ flex:1; min-height:38px; padding:0 7px; border:0; border-radius:9px; background:transparent; color:var(--pill-ink); font:700 15px "Baloo 2","Trebuchet MS",system-ui,sans-serif; cursor:pointer; }
 #gfx .seg button[aria-pressed="true"]{ background:var(--coral); color:#fff; box-shadow:0 2px 0 var(--shade); }
+#gfxNow{ font-size:12px; font-weight:700; opacity:.6; text-align:center; }
+#gfxNow[hidden]{ display:none; }
 .vol{ display:grid; grid-template-columns:44px 1fr auto; align-items:center; column-gap:10px; row-gap:2px; }
 .vol .mute{ grid-row:1 / span 2; width:44px; height:44px; padding:0; border:0; border-radius:50%; background:var(--pill); color:var(--pill-ink); font-size:20px; line-height:1; cursor:pointer; box-shadow:0 2px 0 var(--shade); }
 .vol label{ font:700 15px "Baloo 2","Trebuchet MS",system-ui,sans-serif; }
@@ -611,7 +610,7 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
 /* fingers need bigger targets than a mouse */
 @media (pointer: coarse){
   #cloudMenu button{ min-height:38px; }
-  #settings > button, #settings > a, #creditsBtn{ min-height:44px; }
+  #settings > button, #settings > a{ min-height:44px; }
   #look .word{ min-height:40px; }
   #rainMute{ width:40px; height:40px; }
   #korki .btns button{ width:42px; height:42px; }
@@ -650,9 +649,10 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
   <div id="cloudMenu" hidden><b id="cloudWho"></b><span id="cloudStatus"></span><button type="button" id="cloudOut">Sign out</button></div>
   <button id="lookOpen" type="button"><span class="ic" aria-hidden="true">👕</span>Your look</button>
   <h2 class="sgroup">Graphics &amp; sound</h2>
-  <div id="gfx" role="group" aria-labelledby="gfxName"><span class="ic" aria-hidden="true">✨</span><span class="name"><span id="gfxName">Graphics</span><small id="gfxNow" aria-live="polite"></small></span><span class="seg"><button type="button" data-q="auto" aria-pressed="true">Auto</button><button type="button" data-q="low" aria-pressed="false">Low</button><button type="button" data-q="high" aria-pressed="false">High</button></span></div>
-  <button id="soundCat" type="button" aria-expanded="false" aria-controls="soundPanel"><span class="ic" aria-hidden="true">🔊</span>Sound<i class="chev" aria-hidden="true"></i></button>
-  <div id="soundPanel" role="group" aria-label="Sound" hidden>
+  <button id="gfxCat" class="cat" type="button" aria-expanded="false" aria-controls="gfx"><span class="ic" aria-hidden="true">✨</span><span id="gfxName">Graphics</span><small id="gfxPick"></small><i class="chev" aria-hidden="true"></i></button>
+  <div id="gfx" class="catPanel" role="group" aria-labelledby="gfxName" hidden><span class="seg"><button type="button" data-q="auto" aria-pressed="true">Auto</button><button type="button" data-q="low" aria-pressed="false">Low</button><button type="button" data-q="high" aria-pressed="false">High</button></span><small id="gfxNow" aria-live="polite"></small></div>
+  <button id="soundCat" class="cat" type="button" aria-expanded="false" aria-controls="soundPanel"><span class="ic" aria-hidden="true">🔊</span>Sound<i class="chev" aria-hidden="true"></i></button>
+  <div id="soundPanel" class="catPanel" role="group" aria-label="Sound" hidden>
     <div class="vol"><button type="button" class="mute" id="muteSfx" aria-pressed="false" aria-label="Mute effects"></button><label for="volSfx">Effects</label><output id="volSfxN" for="volSfx">7</output><input type="range" id="volSfx" min="0" max="10" step="1" value="7"></div>
     <div class="vol"><button type="button" class="mute" id="muteAmb" aria-pressed="false" aria-label="Mute ambience"></button><label for="volAmb">Ambience</label><output id="volAmbN" for="volAmb">7</output><input type="range" id="volAmb" min="0" max="10" step="1" value="7"></div>
     <div class="vol"><button type="button" class="mute" id="muteMusic" aria-pressed="false" aria-label="Mute music"></button><label for="volMusic">Music</label><output id="volMusicN" for="volMusic">7</output><input type="range" id="volMusic" min="0" max="10" step="1" value="7"></div>
@@ -662,21 +662,19 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
   <button id="restart" type="button"><span class="ic" aria-hidden="true">↺</span><span id="restartText">Restart</span></button>
   <h2 class="sgroup">About</h2>
   <a id="kofi" href="https://ko-fi.com/chefcontrol" target="_blank" rel="noopener"><span class="ic" aria-hidden="true">☕</span>Buy me a coffee<i aria-hidden="true">↗</i></a>
-  <div id="credits">
-    <button id="creditsBtn" type="button" aria-expanded="false" aria-controls="creditsCard"><span class="ic" aria-hidden="true">©</span>Credits &amp; Copyrights</button>
-    <div id="creditsCard" role="region" aria-labelledby="creditsBtn" hidden>
-      <h3>Music</h3>
-      <ul>
-        <li>The game's own music and sound effects are original, made in your browser as you play. © ChefControl.</li>
-        <li>At her house: <a href="https://www.youtube.com/watch?v=OQE1efu22BM" target="_blank" rel="noopener">“<bdi lang="he">מאוהב בגשם</bdi>”</a> by Ofer Levy (live at Caesarea), played from YouTube. © its rights holders.</li>
-        <li>At Korki's statue: <a href="https://www.youtube.com/watch?v=jcutNFPwXPE" target="_blank" rel="noopener">“Car Alarm (extended reprise)”</a> by pat's soundhouse, played from YouTube. © its rights holders.</li>
-      </ul>
-      <h3>The casino yacht's room sound</h3>
-      <ul>
-        <li>Slot machines: <a href="https://commons.wikimedia.org/wiki/File:Amsterdam_casino_-_SoundCloud_-_Dirk-Jan_Hanegraaff.ogg" target="_blank" rel="noopener">“Amsterdam casino”</a> by Dirk-Jan Hanegraaff, <a href="https://creativecommons.org/licenses/by/3.0" target="_blank" rel="noopener">CC BY 3.0</a>; looped, levelled and made mono.</li>
-        <li>Dining room and bar: “Restaurant #3” and “Atmosphere Bar #2” by Joseph Sardin, <a href="https://bigsoundbank.com" target="_blank" rel="noopener">BigSoundBank</a>, CC0.</li>
-      </ul>
-    </div>
+  <button id="creditsBtn" class="cat" type="button" aria-expanded="false" aria-controls="creditsCard"><span class="ic" aria-hidden="true">©</span>Credits &amp; Copyrights<i class="chev" aria-hidden="true"></i></button>
+  <div id="creditsCard" class="catPanel" role="region" aria-labelledby="creditsBtn" hidden>
+    <h3>Music</h3>
+    <ul>
+      <li>The game's own music and sound effects are original, made in your browser as you play. © ChefControl.</li>
+      <li>At her house: <a href="https://www.youtube.com/watch?v=OQE1efu22BM" target="_blank" rel="noopener">“<bdi lang="he">מאוהב בגשם</bdi>”</a> by Ofer Levy (live at Caesarea), played from YouTube. © its rights holders.</li>
+      <li>At Korki's statue: <a href="https://www.youtube.com/watch?v=jcutNFPwXPE" target="_blank" rel="noopener">“Car Alarm (extended reprise)”</a> by pat's soundhouse, played from YouTube. © its rights holders.</li>
+    </ul>
+    <h3>The casino yacht's room sound</h3>
+    <ul>
+      <li>Slot machines: <a href="https://commons.wikimedia.org/wiki/File:Amsterdam_casino_-_SoundCloud_-_Dirk-Jan_Hanegraaff.ogg" target="_blank" rel="noopener">“Amsterdam casino”</a> by Dirk-Jan Hanegraaff, <a href="https://creativecommons.org/licenses/by/3.0" target="_blank" rel="noopener">CC BY 3.0</a>; looped, levelled and made mono.</li>
+      <li>Dining room and bar: “Restaurant #3” and “Atmosphere Bar #2” by Joseph Sardin, <a href="https://bigsoundbank.com" target="_blank" rel="noopener">BigSoundBank</a>, CC0.</li>
+    </ul>
   </div>
 </section>
 <div id="cloudPick" role="dialog" aria-modal="true" aria-labelledby="cloudAsk" hidden><div class="card">
