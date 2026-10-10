@@ -277,6 +277,39 @@ describe('settings', () => {
     $('soundCat').click();
     expect($('soundPanel').hidden).toBe(true);
   });
+  it('opens Controls into How to play and the Buy button switch, which a touch screen keeps on', async () => {
+    vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue('Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) Mobile/15E148');
+    await loadGame();
+    await import('../src/settings');
+    $('gear').click();
+    expect($('controlsPanel').hidden).toBe(true);
+    $('controlsCat').click();
+    expect($('controlsPanel').hidden).toBe(false);
+    expect($('controls').textContent).toContain('How to play');
+    const sw = $('buyBtnToggle') as HTMLButtonElement;
+    expect([sw.disabled, sw.getAttribute('aria-checked'), $('buyBtnNote').textContent]).toEqual([true, 'true', 'Always on with a touch screen']);
+  });
+
+  it("ends with Credits & Copyrights, which opens with a click like Sound into the music's and the sounds' notices", async () => {
+    await loadGame();
+    await import('../src/settings');
+    const card = $('creditsCard'), row = $('creditsBtn');
+    $('gear').click();
+    expect($('settings').lastElementChild).toBe(card);
+    expect([card.hidden, row.getAttribute('aria-expanded')]).toEqual([true, 'false']);
+    row.click();
+    expect([card.hidden, row.getAttribute('aria-expanded')]).toEqual([false, 'true']);
+    expect(card.textContent).toContain('Dirk-Jan Hanegraaff');
+    expect(card.querySelector('a[href="https://creativecommons.org/licenses/by/3.0"]')).not.toBeNull();
+    expect(card.textContent).toContain('Ofer Levy');
+    // the songs played from YouTube link to their videos, the same ones the game plays
+    const { SONG } = await import('../src/rain');
+    expect(card.querySelector(`a[href="https://www.youtube.com/watch?v=${SONG.id}"]`)).not.toBeNull();
+    expect(card.querySelector('a[href="https://www.youtube.com/watch?v=jcutNFPwXPE"]')).not.toBeNull();
+    row.click();
+    expect([card.hidden, row.getAttribute('aria-expanded')]).toEqual([true, 'false']);
+    expect($('soundPanel').textContent).not.toContain('Hanegraaff');
+  });
 });
 
 describe('Ko-fi', () => {

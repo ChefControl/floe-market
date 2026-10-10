@@ -382,6 +382,70 @@ describe('music', () => {
     expect(music(s.since(() => s.play(2))).length).toBeGreaterThan(0);
   });
 
+  it('brings the lounge band in up the quay to the casino yacht, in a key of its own, and gives it the music aboard', async () => {
+    const s = await withSound({ tiles: bought(...MARKET) });
+    const m = await import('../src/music'), { GAMES, SHIP } = s.g.layout;
+    s.g.placePlayer(0, -3);
+    s.play(2);
+    expect(m.musicMix()).toEqual({ stage: 1, lounge: 0 });
+    expect(s.audio.key.root).toBe(65);
+    // on the quay, alongside: mostly the band already, the market's music still under it
+    s.g.placePlayer(-12, -4.5);
+    s.play(1);
+    expect(m.harborK()).toBeGreaterThan(0.3);
+    expect(m.harborK()).toBeLessThan(1);
+    expect(m.musicMix().stage).toBeGreaterThan(0.01);
+    // aboard: the band alone, its upright bass walking down at D2 and A2, under the market's lowest note
+    s.g.placePlayer(GAMES.roulette.x, GAMES.roulette.z);
+    s.play(1);
+    expect(m.musicMix().stage).toBeLessThan(0.001);
+    expect(m.musicMix().lounge).toBeCloseTo(1, 3);
+    expect(s.audio.key.root).toBe(65); // F major pentatonic: D Dorian's notes, whatever the season
+    const heard = music(s.since(() => s.play(32)));
+    expect(heard.some(p => near(p.f, hz(38))) && heard.some(p => near(p.f, hz(45)))).toBe(true);
+    expect(heard.some(p => p.type === 'custom')).toBe(true); // the alto sax, in the last A once the stage is built
+    expect(heard.filter(p => p.kind === 'tone' && p.type !== 'triangle').every(p => p.f < 4000)).toBe(true);
+    // back to the market: the band fades away and the market's music comes back
+    s.g.placePlayer(0, -3);
+    s.play(2);
+    expect(m.musicMix()).toEqual({ stage: 1, lounge: 0 });
+    expect(m.harborK({ x: SHIP.x, z: SHIP.z })).toBe(1);
+  }, 30_000);
+
+  it('the casino yacht\'s room: the dining room faint below anywhere aboard, the bar and the slot machines up close', async () => {
+    const fetch = vi.fn(() => Promise.resolve({ arrayBuffer: () => Promise.resolve(new ArrayBuffer(8)) }));
+    vi.stubGlobal('fetch', fetch);
+    const s = await withSound({ tiles: bought('roulette') });
+    const { roomTones } = await import('../src/roomTone'), { BAR } = await import('../src/casinoSalon');
+    const { GAMES, SHIP } = s.g.layout, settle = () => new Promise(r => setTimeout(r, 0));
+    s.g.placePlayer(0, -3);
+    s.play(1);
+    expect(fetch).not.toHaveBeenCalled(); // nothing downloaded until the player heads out to the yacht
+    s.g.placePlayer(-12, -4.5);
+    s.play(0.2);
+    expect(fetch).toHaveBeenCalledTimes(3);
+    for (let i = 0; i < 4; i++) await settle();
+    s.play(0.2);
+    const lv = () => Object.fromEntries((['dining', 'bar', 'slots'] as const).map(k => [k, +roomTones[k]!.g.gain.value.toFixed(3)]));
+    expect(lv()).toEqual({ dining: 0, bar: 0, slots: 0 }); // on the quay
+    s.g.placePlayer(SHIP.x + 6, SHIP.z + 0.3); // aboard, on the foredeck at the foot of the stairs
+    s.play(0.5);
+    expect(lv()).toEqual({ dining: 0.08, bar: 0, slots: 0 });
+    s.g.placePlayer(SHIP.x + BAR.x + 1.2, SHIP.z); // up at the bar
+    s.play(0.5);
+    expect(lv().bar).toBeGreaterThan(0.24);
+    expect(lv().slots).toBe(0);
+    expect(lv().dining).toBe(0.08);
+    s.g.placePlayer(GAMES.slots.x, GAMES.slots.z); // at the slot machines
+    s.play(0.5);
+    expect(lv().bar).toBe(0);
+    expect(lv().slots).toBeGreaterThan(0.15);
+    s.g.placePlayer(GAMES.roulette.x + 1.2, GAMES.roulette.z + 1.5); // the middle of the floor: a little of each
+    s.play(0.5);
+    expect(lv().bar + lv().slots).toBeLessThan(0.3);
+    vi.unstubAllGlobals();
+  });
+
   it('picks up again after the page has been asleep', async () => {
     const s = await withSound();
     s.play(2);

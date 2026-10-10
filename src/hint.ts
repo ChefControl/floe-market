@@ -5,6 +5,18 @@
 const SEEN = 'floe-market-hint';
 
 /**
+ * Whether a Buy button comes up on a tile for sale on a computer too, to hold with the mouse as well as E: on unless
+ * the player turns it off under Controls in the settings, kept on the device. A touch screen always has it (buy.ts).
+ */
+const BUY_BUTTON = 'floe-market-buy-button';
+export const buyButton = { on: true };
+try { buyButton.on = localStorage.getItem(BUY_BUTTON) !== '0'; } catch { /* storage unavailable: on */ }
+export function setBuyButton(on: boolean) {
+  buyButton.on = on;
+  try { localStorage.setItem(BUY_BUTTON, on ? '1' : '0'); } catch { /* storage unavailable: for this visit */ }
+}
+
+/**
  * Phones and tablets, from the user agent; iPads call themselves Macs, so a Mac with a touch screen counts too. So does
  * anything whose main pointer is a finger (`coarse`): a Windows tablet or a Chromebook without its keyboard.
  */
@@ -39,7 +51,8 @@ export function showHint(fromGear = false) {
     text.innerHTML = '<b>Drag anywhere to walk</b><small class="buyline">To buy, stand on a tile and hold Buy</small>';
   } else {
     art.innerHTML = '<span class="keys"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></span>';
-    text.innerHTML = '<b>Walk with WASD</b><small>or the arrow keys, or drag with the mouse</small><small class="buyline">To buy, stand on a tile and hold <kbd>E</kbd></small>';
+    text.innerHTML = '<b>Walk with WASD</b><small>or the arrow keys, or drag with the mouse</small><small class="buyline">To buy, stand on a tile and hold <kbd>E</kbd>'
+      + (buyButton.on ? ' or Buy' : '') + '</small>';
   }
   state = 'on'; walked = 0; upFor = 0; again = fromGear;
   el.hidden = false;

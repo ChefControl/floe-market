@@ -19,8 +19,8 @@ The choice is kept on the device (`localStorage` key `floe-market-graphics`), ne
 | Where | What |
 |---|---|
 | `src/graphics.ts` | The state: `gfx.quality` (`'low'` or `'high'`), `gfx.picked`, `isHigh()`, `onQuality(f)`, `choose(c)`, and Auto's watch, `frameDrawn(sec)`, called by main.ts each frame |
-| `index.html` | The ✨ row: `<div id="gfx">` with one `<button data-q="…">` per choice, and `#gfxNow` under the name ("High now" or "Low now" while on Auto). Its styles are under `#gfx` in the same file |
-| `src/settings.ts` | Wires the row: each button calls `choose(button.dataset.q)`, and `showGfx` (run on every `onQuality`) presses the right button and fills in `#gfxNow` |
+| `index.html` | The ✨ category in the settings' Graphics & sound group: the `#gfxCat` row (its name, the current choice in `#gfxPick` and a chevron) opens `<div id="gfx">` under it, with one `<button data-q="…">` per choice and `#gfxNow` under them ("Auto is on High now" or "Auto is on Low now" while on Auto). Its styles are under `#gfx` in the same file |
+| `src/settings.ts` | Wires it: `category` opens and closes the panel with a click, like Sound; each button calls `choose(button.dataset.q)`; and `showGfx` (run on every `onQuality`) presses the right button and fills in `#gfxPick` and `#gfxNow` |
 | `src/render.ts` | `fitRenderer()`: the shadow map size and softness and the pixel ratio for each setting, run again on every change |
 | `src/demo.ts` | The demo build's 🛠 panel has its own Low/High buttons, which call `choose` |
 
@@ -34,7 +34,7 @@ Anything that looks different on Low and High reads `isHigh()` when it's built a
 
 1. Find every consumer: `grep -rn "isHigh\|onQuality\|detail(\|detailMarked\|userData.gfx" src`. Decide for each what the new level shows. A level in between usually means some things take High's look and others Low's, so a yes/no question won't do for everything. Add a small helper in graphics.ts (for example `atLeast('medium')`) rather than comparing strings all over.
 2. Add it to `Quality`, to the line that reads the saved choice, and to `choose`.
-3. Add a `<button data-q="medium">` to the row in index.html, between Low and High. settings.ts picks it up without changes, but `showGfx`'s "High now / Low now" text needs the new name.
+3. Add a `<button data-q="medium">` to the row in index.html, between Low and High. settings.ts picks it up without changes, but `showGfx`'s `#gfxPick` and "Auto is on … now" texts need the new name.
 4. Decide what Auto does with it. Today it only drops from High to Low (`setQuality('low')` in `frameDrawn`).
 5. Give it renderer settings in `fitRenderer`.
 6. Add it to the demo panel's Graphics row (demo.ts).
@@ -45,7 +45,7 @@ Anything that looks different on Low and High reads `isHigh()` when it's built a
 Copy the Graphics row's pattern rather than folding it into Quality:
 
 - **Its own module** with its state, a `localStorage` key, a getter and an `onX(f)` listener list.
-- **A row in index.html**, inside the settings next to `#gfx`, styled like it.
+- **A row in index.html**, in the settings' Graphics & sound group: a switch inside the Graphics panel (`#gfx`), or a category of its own (`class="cat"` row and `class="catPanel"` panel, opened by settings.ts's `category`), like Graphics and Sound.
 - **The wiring in settings.ts:** a click handler calling your module, and a `show` function that runs on your listener.
 - **Device only:** keep it on the device, out of the save (save.ts), like the Graphics choice.
 - **A test** for the choice being kept and for what it turns on and off.

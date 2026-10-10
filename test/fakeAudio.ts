@@ -85,6 +85,7 @@ class Osc extends Source {
   type = 'sine';
   frequency = new FakeParam(440);
   detune = new FakeParam();
+  setPeriodicWave() { this.type = 'custom'; }
   start() {
     fake.played.push({ kind: 'tone', f: this.frequency.first ?? this.frequency.value, type: this.type, loop: false, src: this, from: startOf(this), ...trace(this) });
   }
@@ -112,6 +113,10 @@ export class FakeAudioContext {
   createBufferSource() { return new Buffered(); }
   createBiquadFilter() { return Object.assign(new FakeNode(), { type: 'lowpass', frequency: new FakeParam(350), Q: new FakeParam(1) }); }
   createStereoPanner() { return Object.assign(new FakeNode(), { pan: new FakeParam() }); }
+  createConvolver() { return Object.assign(new FakeNode(), { buffer: null as unknown }); }
+  createPeriodicWave() { return {}; }
+  /** Any recording "decodes" to a minute of silence. */
+  decodeAudioData() { return Promise.resolve({ duration: 60 }); }
   createDynamicsCompressor() {
     return Object.assign(new FakeNode(), { threshold: new FakeParam(), knee: new FakeParam(), ratio: new FakeParam() });
   }

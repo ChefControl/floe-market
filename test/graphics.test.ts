@@ -102,7 +102,11 @@ describe('graphics', () => {
     const [autoB, lowB, highB] = $('gfx').querySelectorAll('button');
     const pressed = () => [autoB, lowB, highB].map(b => b.getAttribute('aria-pressed'));
     expect(pressed()).toEqual(['true', 'false', 'false']);
-    expect([$('gfxNow').hidden, $('gfxNow').textContent]).toEqual([false, 'High now']); // which one Auto is using
+    expect($('gfx').hidden).toBe(true); // closed, the row shows the choice
+    expect($('gfxPick').textContent).toBe('Auto');
+    $('gfxCat').click();
+    expect([$('gfx').hidden, $('gfxCat').getAttribute('aria-expanded')]).toEqual([false, 'true']);
+    expect([$('gfxNow').hidden, $('gfxNow').textContent]).toEqual([false, 'Auto is on High now']); // which one Auto is using
     $('lookOpen').click();
     const rows = () => [...document.querySelectorAll('#lookRows .lab')].map(l => l.textContent);
     [...document.querySelectorAll<HTMLButtonElement>('#lookTabs button')][1].click();
@@ -111,6 +115,7 @@ describe('graphics', () => {
     expect(gfx).toEqual({ quality: 'low', picked: true });
     expect(pressed()).toEqual(['false', 'true', 'false']);
     expect($('gfxNow').hidden).toBe(true);
+    expect($('gfxPick').textContent).toBe('Low');
     expect(rows()).not.toContain('Cheeks'); // the open panel follows
     expect(localStorage.getItem('floe-market-graphics')).toBe('low');
     // next time on this device

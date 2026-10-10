@@ -15,7 +15,7 @@ import { addMoney, wallet } from './wallet';
 
 const AT = GAMES.slots;
 /** The middle machine; the other two stand either side of it. */
-const BANK = { x: AT.x, z: AT.z - 2.25, gap: 0.85 };
+export const BANK = { x: AT.x, z: AT.z - 2.25, gap: 0.85 };
 /** Seconds until each reel stops. */
 const STOP = [1.0, 1.4, 1.8];
 const N = REEL.length;
