@@ -11,7 +11,7 @@ import {
   canSplit, CUT, dealerDraws, handValue, insuranceCost, isBlackjack, isBust, isRed, newShoe, rankName, settle, total,
   type Card, type Result,
 } from './blackjack';
-import { badge, chipStack, easeInOut, gamePad, greeting, settleTweens, slide, speaker, Stakes, tween } from './casinoKit';
+import { badge, cheer, chipStack, easeInOut, gamePad, greeting, settleTweens, slide, speaker, Stakes, tween } from './casinoKit';
 import { Person, SUITS } from './characters';
 import { GAMES, pushOutOfBox } from './layout';
 import { canvasTex, FONT, mesh, rr, scene } from './render';
@@ -551,7 +551,7 @@ function payOut() {
   owe(0);
   payChips(r);
   if (back > 0) addMoney(back);
-  if (back > staked) { popText('+' + money(back), { x: TABLE.x, y: AT.y + 1.2, z: TABLE.z }); win(); }
+  if (back > staked) { popText('+' + money(back), { x: TABLE.x, y: AT.y + 1.2, z: TABLE.z }); win(); cheer(); }
   else if (back === staked) pushSound();
   else lose();
   if (back >= 5 * staked) table!.voice.say('Big win!');
@@ -593,7 +593,7 @@ const pad = gamePad(AT, '🃏', panel, {
   closed: finishNow,
   greet() { table!.voice.say('Good luck!'); },
 }, {
-  at: V(TABLE.x, AT.y + TOP + 0.3, TABLE.z - 0.12), from: V(0, 1.05, 1).normalize(), wide: 1.45, tall: 1.55,
+  at: V(TABLE.x, AT.y + TOP + 0.3, TABLE.z - 0.12), from: V(0, 1.05, 1).normalize(), wide: 1.45, tall: 1.2,
 });
 
 /** The 'blackjack' unlock: puts the table on the boat. Returns it for the pop-in. */

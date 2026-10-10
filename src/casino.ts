@@ -1,27 +1,30 @@
 // The casino harbor: the dock carries on west as a stone-walled quay with bollards, lamp posts and a ticket booth,
-// and a white riverboat is moored along it, bow towards the dock. A gangway takes you aboard onto the foredeck, a
-// staircase climbs to the open upper deck where the games are, over a cabin with lit windows, between twin
-// smokestacks carrying the CASINO sign and a big red stern wheel. The 'roulette' unlock brings it all in with the
-// roulette table; the blackjack table and the slot machines are upgrades of their own, bought on the upper deck. It
-// stays put through the stage-up. The games themselves are in rouletteTable.ts, blackjackTable.ts and slotMachine.ts.
+// and a casino yacht is moored along it, bow towards the dock: a navy hull with a raked bow, bulwarks that sweep up
+// towards it and its name in gold, a lower deck banded in dark glass, and the salon on top (casinoSalon.ts: walled in
+// glass under a hardtop with a wheelhouse, a radar mast, a hot tub, loungers and the CASINO sign; guests, a bar and
+// more machines inside). A gangway takes you aboard through a gap in the bulwark onto the foredeck, where a staircase
+// climbs to the salon's door. The 'roulette' unlock brings it all in with the roulette table; the blackjack table and
+// the slot machines are upgrades of their own, bought in the salon. It stays put through the stage-up. The games
+// themselves are in rouletteTable.ts, blackjackTable.ts and slotMachine.ts.
 import {
-  BoxGeometry, CylinderGeometry, Euler, ExtrudeGeometry, Group, Mesh, MeshBasicMaterial, MeshLambertMaterial,
-  PlaneGeometry, Quaternion, Shape, ShapeGeometry, TorusGeometry, Vector3, type Object3D,
+  BoxGeometry, BufferGeometry, CylinderGeometry, Float32BufferAttribute, Group, Mesh, MeshBasicMaterial,
+  MeshLambertMaterial, MeshPhongMaterial, PlaneGeometry, Shape, ShapeGeometry, SphereGeometry, Vector2,
+  type Material, type Object3D, type Vector3,
 } from 'three';
 import { collideBlackjack, updBlackjack } from './blackjackTable';
 import { updTweens, visits } from './casinoKit';
-import { aboard, casinoBoat, DECKS, pushOutOfBox, QUAY, SHIP, UPPER } from './layout';
+import { buildSalon, carpet, collideSalon, JACK, oblong, slab, strut, updSalon } from './casinoSalon';
+import { aboard, casinoBoat, DECKS, hullHalf, pushOutOfBox, QUAY, SHIP, UPPER } from './layout';
 import { player } from './player';
 import { popIn } from './pop';
 import { bake, canvasTex, FONT, G, mat, mesh, scene, type Part } from './render';
 import { collideRoulette, enableRoulette, updRoulette } from './rouletteTable';
 import { collideSlots, updSlots } from './slotMachine';
-import { view } from './stage';
+import { staging, view } from './stage';
 import { FY, V, type XZ } from './util';
 import { openQuayGap, planks } from './world';
 
-const GOLD = 0xE3B23C, HULL = 0xF4EFE6, RED = 0xB0283A, DARK_RED = 0x6E1A26, STONE = 0x9AA3AA, IRON = 0x2B2F33;
-const bulbMat = new MeshBasicMaterial({ color: 0xFFE08A });
+const GOLD = 0xE3B23C, RED = 0xB0283A, STONE = 0x9AA3AA, IRON = 0x2B2F33;
 const glowMat = new MeshBasicMaterial({ color: 0xFFD98A });
 /** The upper deck's height above the main deck. */
 const UP = UPPER - FY;
@@ -35,24 +38,6 @@ function put<T extends Object3D>(g: Group, o: T, x: number, y: number, z: number
   o.position.set(x - g.position.x, y, z - g.position.z); g.add(o);
   return o;
 }
-const UP_AXIS = new Vector3(0, 1, 0), tmpQ = new Quaternion(), tmpE = new Euler();
-/** A rope, rail or beam from `a` to `b`, as a thin cylinder. */
-function strut(a: Vector3, b: Vector3, r: number): Part {
-  const d = b.clone().sub(a), len = d.length();
-  tmpE.setFromQuaternion(tmpQ.setFromUnitVectors(UP_AXIS, d.normalize()));
-  return { geo: G.cyl, at: [(a.x + b.x) / 2, (a.y + b.y) / 2, (a.z + b.z) / 2], rot: [tmpE.x, tmpE.y, tmpE.z], scale: [r, len, r] };
-}
-
-const SIGN = canvasTex(512, 160, (c, w, h) => {
-  c.fillStyle = '#5A1420'; c.fillRect(0, 0, w, h);
-  c.fillStyle = '#FFD24A';
-  for (let i = 0; i < 24; i++) {
-    c.beginPath(); c.arc(12 + i * 21.2, 12, 6, 0, Math.PI * 2); c.arc(12 + i * 21.2, h - 12, 6, 0, Math.PI * 2); c.fill();
-  }
-  c.font = `800 92px ${FONT}`; c.textAlign = 'center'; c.textBaseline = 'middle';
-  c.lineJoin = 'round'; c.lineWidth = 14; c.strokeStyle = '#2A0F16'; c.strokeText('CASINO', w / 2, h / 2 + 6);
-  c.fillStyle = '#FFD24A'; c.fillText('CASINO', w / 2, h / 2 + 6);
-});
 const BOOTH_SIGN = canvasTex(256, 64, (c, w, h) => {
   c.fillStyle = '#FFF8EC'; c.fillRect(0, 0, w, h);
   c.font = `800 36px ${FONT}`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillStyle = '#8E1F2F';
@@ -122,103 +107,132 @@ function buildQuay() {
   return g;
 }
 
-// ---------- the riverboat ----------
-const L = SHIP.half, B = SHIP.beam, BOW = L + 0.5;
-/** The hull's outline from above, `k` times as wide: square at the stern, a rounded point at the bow (+x). */
-function hullShape(k = 1) {
-  const s = new Shape();
-  s.moveTo(-L + 0.4, -B * k);
-  s.lineTo(4.0, -B * k);
-  s.quadraticCurveTo(6.0, -B * 0.92 * k, BOW, 0);
-  s.quadraticCurveTo(6.0, B * 0.92 * k, 4.0, B * k);
-  s.lineTo(-L + 0.4, B * k);
-  s.quadraticCurveTo(-L, B * k, -L, B * k - 0.4);
-  s.lineTo(-L, -B * k + 0.4);
-  s.quadraticCurveTo(-L, -B * k, -L + 0.4, -B * k);
-  return s;
-}
-/** Roughly the hull's half-width at `x` along it (for the bow's railing and the mooring cleats). */
-const halfBeamAt = (x: number) => x <= 4.0 ? B : B * Math.sqrt(Math.max(0, 1 - ((x - 4.0) / (BOW - 4.0)) ** 2));
+// ---------- the yacht ----------
+const L = SHIP.half, B = SHIP.beam, BOW = SHIP.bow;
+const NAVY = 0x1F3D66, TEAK = 0xA8693F;
+/** The main deck's planking, and the top of the bulwarks round it: level along the sides, sweeping up to the bow. */
+const DECK_Y = FY + 0.135;
+const sheer = (x: number) => FY + 0.85 + 0.5 * Math.max(0, (x - SHIP.sides) / (BOW - SHIP.sides)) ** 2;
+/** The gap in the quay-side bulwark where the gangway comes aboard. */
+const GAP = { x0: DECKS.gangway - 0.5, x1: DECKS.gangway + 0.5 };
+/** How round the transom's corners are, and how thick the bulwarks. */
+const CORNER = 0.6, WALL = 0.07;
 
-/** A shape lying flat, extruded `h` up from `y`. */
-function slab(shape: Shape, h: number, y: number, m: number) {
-  const o = mesh(new ExtrudeGeometry(shape, { depth: h, bevelEnabled: false, curveSegments: 10 }), m, 0, y, 0, true);
-  o.rotation.x = -Math.PI / 2;
-  return o;
-}
-
-/** A railing through `pts` at height `y`: posts, a gold rail between them and a bulb on each post. */
-function railing(pts: [number, number][], y: number, out: { posts: Part[]; rails: Part[]; bulbs: Part[] }, h = 0.75) {
-  pts.forEach(([x, z], i) => {
-    out.posts.push({ geo: G.cyl, at: [x, y + h / 2, z], scale: [0.04, h, 0.04] });
-    out.bulbs.push({ geo: G.sphere, at: [x, y + h + 0.05, z], scale: [0.06, 0.06, 0.06] });
-    if (!i) return;
-    const [px, pz] = pts[i - 1];
-    out.rails.push(strut(V(px, y + h, pz), V(x, y + h, z), 0.03));
+/** A point round the hull's edge, the bulwark's top there, and which way is out. */
+interface Rim { x: number; z: number; top: number; nx: number; nz: number }
+/** The hull's edge at deck level, all the way round: up the quay side to the stem, back down the far side and across
+ *  the transom. The gap's ends come twice, the bulwark's top dropping to the deck between them. */
+function rimPoints(): Rim[] {
+  const xs = [GAP.x0, GAP.x1];
+  for (let i = 0; i <= 10; i++) xs.push(-L + CORNER + (SHIP.sides + L - CORNER) * i / 10);
+  for (let i = 1; i < 24; i++) xs.push(SHIP.sides + (BOW - SHIP.sides) * i / 24);
+  xs.sort((a, b) => a - b);
+  const near: [number, number, number][] = [], far: [number, number, number][] = [];
+  for (const x of xs) {
+    const h = hullHalf(x), top = sheer(x);
+    if (x === GAP.x0) near.push([x, h, top], [x, h, DECK_Y]);
+    else if (x === GAP.x1) near.push([x, h, DECK_Y], [x, h, top]);
+    else near.push([x, h, x > GAP.x0 && x < GAP.x1 ? DECK_Y : top]);
+    far.push([x, -h, top]);
+  }
+  // round the transom's corners: each a quarter circle from `a0`, turning `dir`
+  const corner = (cz: number, a0: number, dir: number) => Array.from({ length: 5 }, (_, i) => {
+    const a = a0 + dir * (i + 1) / 6 * Math.PI / 2;
+    return [-L + CORNER + CORNER * Math.cos(a), cz + CORNER * Math.sin(a), sheer(-L)] as [number, number, number];
+  });
+  const loop = [...near, [BOW, 0, sheer(BOW)] as [number, number, number], ...far.reverse(),
+    ...corner(-B + CORNER, -Math.PI / 2, -1), [-L, -B + CORNER, sheer(-L)] as [number, number, number],
+    [-L, B - CORNER, sheer(-L)] as [number, number, number], ...corner(B - CORNER, Math.PI, -1)];
+  // which way is out at each point: square to the edge, away from the middle (the outline's convex)
+  return loop.map(([x, z, top], i) => {
+    const [px, pz] = loop[(i + loop.length - 1) % loop.length], [qx, qz] = loop[(i + 1) % loop.length];
+    let nx = qz - pz, nz = px - qx;
+    const d = Math.hypot(nx, nz) || 1;
+    nx /= d; nz /= d;
+    if (nx * x + nz * z < 0) { nx = -nx; nz = -nz; }
+    return { x, z, top, nx, nz };
   });
 }
-/** Points about every 0.9 m from `a` to `b`, both ends included. */
-function line(a: [number, number], b: [number, number]): [number, number][] {
-  const n = Math.max(1, Math.round(Math.hypot(b[0] - a[0], b[1] - a[1]) / 0.9));
-  return Array.from({ length: n + 1 }, (_, i) => [a[0] + (b[0] - a[0]) * i / n, a[1] + (b[1] - a[1]) * i / n]);
+
+/** A band round the hull through `rings` of points, one point per rim point in each, facing out (or in, `flip`). */
+function band(rings: Vector3[][], m: Material, flip = false) {
+  const n = rings[0].length, pos: number[] = [], idx: number[] = [];
+  for (const r of rings) for (const v of r) pos.push(v.x, v.y, v.z);
+  for (let r = 0; r < rings.length - 1; r++) {
+    for (let i = 0; i < n; i++) {
+      const a = r * n + i, b = r * n + (i + 1) % n, c = a + n, d = b + n;
+      idx.push(...(flip ? [a, c, b, b, c, d] : [a, b, c, b, d, c]));
+    }
+  }
+  const geo = new BufferGeometry();
+  geo.setAttribute('position', new Float32BufferAttribute(pos, 3));
+  geo.setIndex(idx);
+  geo.computeVertexNormals();
+  return mesh(geo, m, 0, 0, 0, true);
 }
-/** Points along the bow's edge on side `s`, from `from` to `to` along the ship. */
-function bowEdge(from: number, to: number, s: number) {
-  const pts: [number, number][] = [];
-  for (let x = from; x <= to + 0.01; x += 0.45) pts.push([x, s * (halfBeamAt(x) - 0.14)]);
-  return pts;
-}
+
+const NAME = canvasTex(512, 96, (c, w, h) => {
+  c.font = `italic 800 64px Georgia, ${FONT}`; c.textAlign = 'center'; c.textBaseline = 'middle';
+  c.fillStyle = '#E3B23C'; c.fillText('LADY LUCK', w / 2, h / 2 + 4);
+});
+const glassMat = new MeshPhongMaterial({ color: 0x1C2B38, specular: 0x9FB4C4, shininess: 70 });
+const ledMat = new MeshBasicMaterial({ color: 0xFFD98A });
 
 function buildShip() {
   const g = new Group(); g.position.set(SHIP.x, 0, SHIP.z); scene.add(g);
-  // the hull: white, a red stripe, a dark band at the waterline; a planked main deck on top
-  g.add(slab(hullShape(), 0.8, -0.67, HULL));
-  g.add(slab(hullShape(1.012), 0.12, FY - 0.3, RED));
-  g.add(slab(hullShape(1.006), 0.14, -0.1, DARK_RED));
-  const deck = new Mesh(new ShapeGeometry(hullShape(0.985), 10), new MeshLambertMaterial({ map: planks('#B07A52', '#BC8660', 0.35, 0.35) }));
-  deck.rotation.x = -Math.PI / 2; deck.position.y = FY + 0.135; deck.receiveShadow = true; g.add(deck);
-  const rail = { posts: [] as Part[], rails: [] as Part[], bulbs: [] as Part[] };
-  // the cabin under the upper deck: white walls, lit windows in gold frames, a red door at each end
-  const c0 = DECKS.stern + 0.35, c1 = DECKS.front - 0.35, cw = B - 0.45, ch = UP - 0.14;
-  g.add(mesh(new BoxGeometry(c1 - c0, ch, cw * 2), HULL, (c0 + c1) / 2, FY + 0.135 + ch / 2, 0, true));
-  const panes: Part[] = [], frames: Part[] = [], doors: Part[] = [];
-  for (let x = c0 + 0.7; x < c1 - 0.4; x += 1.1) {
-    for (const s of [-1, 1]) {
-      panes.push({ geo: G.box, at: [x, FY + 1.15, s * (cw + 0.02)], scale: [0.5, 0.62, 0.02] });
-      frames.push({ geo: G.box, at: [x, FY + 1.15, s * (cw + 0.01)], scale: [0.62, 0.74, 0.02] });
-    }
+  // the hull: navy, raked forward at the stem and drawing in below the water, with bulwarks round the deck that sweep
+  // up towards the bow, white on the inside, capped in teak; a gold line at the deck and a white one at the water
+  const rim = rimPoints();
+  const at = (y: number, out = 0) => rim.map(r => V(r.x + r.nx * out, y, r.z + r.nz * out));
+  const keel = rim.map(r => V(r.x > SHIP.sides ? SHIP.sides + (r.x - SHIP.sides) * 0.86 : r.x * 0.98, -0.55, r.z * 0.84));
+  const deckRing = at(DECK_Y), tops = rim.map(r => V(r.x, r.top, r.z));
+  g.add(band([keel, deckRing, tops], mat(NAVY)));
+  const inner = (y: (r: Rim) => number) => rim.map(r => V(r.x - r.nx * WALL, y(r), r.z - r.nz * WALL));
+  g.add(band([inner(() => DECK_Y), inner(r => r.top)], mat(0xF4EFE6), true));
+  g.add(band([rim.map(r => V(r.x + r.nx * 0.015, r.top + 0.03, r.z + r.nz * 0.015)), inner(r => r.top + 0.03)], mat(TEAK)));
+  const along = (y: number, out: number) => keel.map((k, i) => k.clone().lerp(deckRing[i], (y + 0.55) / (DECK_Y + 0.55))
+    .add(V(rim[i].nx * out, 0, rim[i].nz * out)));
+  g.add(band([along(0.03, 0.012), along(0.1, 0.012)], mat(0xF4EFE6)));
+  g.add(band([at(DECK_Y - 0.06, 0.012), at(DECK_Y - 0.01, 0.012)], mat(GOLD)));
+  // the main deck, teak, inside the bulwarks
+  const deckShape = new Shape(inner(() => 0).map(v => new Vector2(v.x, -v.z)));
+  const deck = new Mesh(new ShapeGeometry(deckShape), new MeshLambertMaterial({ map: planks('#B07A52', '#BC8660', 0.35, 0.35) }));
+  deck.rotation.x = -Math.PI / 2; deck.position.y = DECK_Y; deck.receiveShadow = true; g.add(deck);
+  // long hull windows in gold frames along both sides, and the yacht's name in gold on the bow
+  const panes: Part[] = [], frames: Part[] = [];
+  for (let x = -7.0; x < 1.6; x += 1.4) for (const s of [-1, 1]) {
+    panes.push({ geo: G.box, at: [x, FY + 0.42, s * (B + 0.012)], scale: [1.0, 0.16, 0.02] });
+    frames.push({ geo: G.box, at: [x, FY + 0.42, s * (B + 0.006)], scale: [1.08, 0.24, 0.02] });
   }
-  for (const x of [c0 - 0.02, c1 + 0.02]) doors.push({ geo: G.box, at: [x, FY + 0.85, 0], scale: [0.04, 1.4, 0.8] });
-  g.add(mesh(bake(frames), GOLD), mesh(bake(panes), glowMat), mesh(bake(doors), 0x8E1F2F));
-  // white columns round the main deck holding up the upper deck
-  const cols: Part[] = [];
-  for (let x = DECKS.stern + 0.2; x <= DECKS.front; x += 1.35) {
-    for (const s of [-1, 1]) cols.push({ geo: G.cyl, at: [x, FY + UP / 2, s * (B - 0.2)], scale: [0.07, UP, 0.07] });
+  g.add(mesh(bake(frames), GOLD), mesh(bake(panes), glassMat));
+  const nameMat = new MeshBasicMaterial({ map: NAME.tex, transparent: true, depthWrite: false });
+  for (const s of [-1, 1]) {
+    const x = 5.0, t = (x - SHIP.sides) / (BOW - SHIP.sides), slope = -2 * B * t / (BOW - SHIP.sides);
+    const name = new Mesh(new PlaneGeometry(1.3, 0.24), nameMat);
+    name.position.set(x, FY + 0.62, s * (hullHalf(x) + 0.03));
+    name.rotation.y = Math.atan2(-slope, s);
+    g.add(name);
   }
-  g.add(mesh(bake(cols), 0xFFFFFF, 0, 0, 0, true));
-  // the upper deck: planked, edged in gold, railed all round but for the top of the stairs
+  // a teak swim platform across the transom
+  g.add(mesh(new BoxGeometry(0.6, 0.08, B * 2 - 1.0), TEAK, -L - 0.28, 0.1, 0, true));
+  // the lower deck under the salon: white, with a band of dark glass all the way round, and the salon's floor above
+  // it, carpeted, an LED line glowing under its edge
+  const c0 = DECKS.stern + 0.15, c1 = DECKS.front - 0.1, cw = B - 0.38;
+  g.add(slab(oblong(c0, c1, cw, 0.4, 0.9), FY + 0.95 - DECK_Y, DECK_Y, 0xFFFFFF));
+  g.add(slab(oblong(c0 + 0.04, c1 - 0.04, cw - 0.04, 0.38, 0.86), 0.78, FY + 0.95, glassMat));
+  g.add(slab(oblong(c0, c1, cw, 0.4, 0.9), UPPER - 0.16 - FY - 1.73, FY + 1.73, 0xFFFFFF));
   const len = DECKS.front - DECKS.stern, mid = (DECKS.front + DECKS.stern) / 2;
-  const white = mat(0xFFFFFF), boards = new MeshLambertMaterial({ map: planks('#9B5A3C', '#A8664A', len / 3, 2) });
-  const floor = new Mesh(new BoxGeometry(len, 0.16, B * 2), [white, white, boards, white, white, white]);
+  const white = mat(0xFFFFFF);
+  const floor = new Mesh(new BoxGeometry(len, 0.16, B * 2 - 0.1), [white, white, carpet(len, B * 2), white, white, white]);
   floor.position.set(mid, UPPER - 0.08, 0); floor.castShadow = floor.receiveShadow = true; g.add(floor);
-  g.add(mesh(new BoxGeometry(len + 0.06, 0.1, B * 2 + 0.06), GOLD, mid, UPPER - 0.2, 0));
-  const e = 0.12, sx = DECKS.stern + e, fx = DECKS.front - e, gap = DECKS.stairs.half + 0.15;
-  railing(line([sx, -B + e], [fx, -B + e]), UPPER, rail);
-  railing(line([sx, B - e], [fx, B - e]), UPPER, rail);
-  railing(line([sx, -B + e], [sx, B - e]), UPPER, rail);
-  railing(line([fx, -B + e], [fx, -gap]), UPPER, rail);
-  railing(line([fx, gap], [fx, B - e]), UPPER, rail);
-  // the foredeck's railing round the bow, open where the gangway comes aboard
-  railing([...bowEdge(DECKS.front, L + 0.3, -1), [BOW - 0.15, 0]], FY, rail, 0.6);
-  railing([[BOW - 0.15, 0], ...bowEdge(DECKS.gangway + 0.55, L + 0.3, 1).reverse()], FY, rail, 0.6);
-  railing(bowEdge(DECKS.front, DECKS.gangway - 0.55, 1), FY, rail, 0.6);
-  // the staircase from the foredeck up to the upper deck, with white sides and gold handrails
+  g.add(mesh(new BoxGeometry(len - 0.08, 0.04, B * 2 - 0.18), ledMat, mid, UPPER - 0.18, 0));
+  // the staircase from the foredeck up to the salon's door, with white sides and gold handrails
   const { x0: tx, x1: bx, half: hw } = DECKS.stairs, steps: Part[] = [], n = 10;
   for (let i = 0; i < n; i++) {
     const x = bx - (bx - tx) * (i + 0.5) / n;
     steps.push({ geo: G.box, at: [x, FY + UP * (i + 1) / n - 0.05, 0], scale: [(bx - tx) / n + 0.02, 0.1, hw * 2] });
   }
-  g.add(mesh(bake(steps), 0x9B5A3C, 0, 0, 0, true));
+  g.add(mesh(bake(steps), TEAK, 0, 0, 0, true));
   const sides: Part[] = [], hand: Part[] = [];
   for (const s of [-1, 1]) {
     sides.push(strut(V(bx, FY + 0.05, s * (hw + 0.04)), V(tx, UPPER - 0.05, s * (hw + 0.04)), 0.05));
@@ -226,46 +240,21 @@ function buildShip() {
     hand.push({ geo: G.cyl, at: [bx, FY + 0.45, s * (hw + 0.06)], scale: [0.035, 0.85, 0.035] });
   }
   g.add(mesh(bake(sides), 0xFFFFFF, 0, 0, 0, true), mesh(bake(hand), GOLD, 0, 0, 0, true));
-  // twin smokestacks at the back of the upper deck, the CASINO sign hung between them
-  const stackX = [DECKS.stern + 0.7, DECKS.stern + 3.0], stackZ = -B + 0.5;
-  for (const x of stackX) {
-    g.add(mesh(new CylinderGeometry(0.28, 0.32, 3.6, 14), 0x22303C, x, UPPER + 1.8, stackZ, true));
-    g.add(mesh(new CylinderGeometry(0.42, 0.3, 0.3, 14), GOLD, x, UPPER + 3.65, stackZ, true));
-  }
-  const signX = (stackX[0] + stackX[1]) / 2;
-  g.add(mesh(new BoxGeometry(2.3, 0.86, 0.12), 0x5A1420, signX, UPPER + 2.45, stackZ, true));
-  const sign = new Mesh(new PlaneGeometry(2.16, 0.74), new MeshBasicMaterial({ map: SIGN.tex }));
-  sign.position.set(signX, UPPER + 2.45, stackZ + 0.07); g.add(sign);
-  // a flagpole at the bow, and strings of bulbs from it to the smokestacks
-  g.add(mesh(new CylinderGeometry(0.04, 0.05, 3.2, 8), 0xFFFFFF, BOW - 0.35, FY + 1.6, 0, true));
-  const flag = new Group(); flag.position.set(BOW - 0.35, FY + 2.95, 0); g.add(flag);
-  flag.add(mesh(new BoxGeometry(0.7, 0.4, 0.02), RED, -0.36, 0, 0));
-  const top = V(BOW - 0.35, FY + 3.2, 0);
-  for (const x of stackX) {
-    const end = V(x, UPPER + 3.5, stackZ);
-    for (let i = 1; i < 14; i++) {
-      const k = i / 14, p = top.clone().lerp(end, k);
-      p.y -= Math.sin(Math.PI * k) * 0.35;
-      rail.bulbs.push({ geo: G.sphere, at: [p.x, p.y, p.z], scale: [0.07, 0.07, 0.07] });
-    }
-  }
-  g.add(mesh(bake(rail.posts), GOLD, 0, 0, 0, true), mesh(bake(rail.rails), GOLD, 0, 0, 0, true), mesh(bake(rail.bulbs), bulbMat));
-  // the stern wheel, turning, under a red housing on two beams
-  const wheel = new Group(); wheel.position.set(-L - 1.25, FY + 0.25, 0); g.add(wheel);
-  const paddles: Part[] = [];
-  for (let i = 0; i < 6; i++) paddles.push({ geo: G.box, at: [0, 0, 0], rot: [0, 0, i / 6 * Math.PI], scale: [2.4, 0.08, 3.2] });
-  wheel.add(mesh(bake(paddles), RED, 0, 0, 0, true));
-  for (const z of [-1.65, 1.65]) wheel.add(mesh(new TorusGeometry(1.2, 0.05, 6, 28), GOLD, 0, 0, z, true));
-  for (const z of [-1.85, 1.85]) g.add(mesh(new BoxGeometry(1.6, 0.16, 0.16), 0x8A5A3B, -L - 0.75, FY + 0.25, z, true));
-  g.add(mesh(new BoxGeometry(1.3, 0.18, 3.8), RED, -L - 1.25, FY + 1.55, 0, true));
-  return { g, wheel, flag };
+  // a sunpad on the bow, and the jackstaff at the stem that the strings of lights run down to from the mast
+  g.add(slab(oblong(6.75, 7.6, 0.7, 0.2, 0.5), 0.22, DECK_Y, 0xFFFFFF));
+  g.add(slab(oblong(6.8, 7.55, 0.65, 0.18, 0.45), 0.08, DECK_Y + 0.22, NAVY));
+  g.add(mesh(new CylinderGeometry(0.03, 0.045, JACK.y - FY - 0.5, 8), 0xFFFFFF, JACK.x, (JACK.y + FY + 0.5) / 2, 0, true));
+  g.add(mesh(new SphereGeometry(0.06, 10, 8), GOLD, JACK.x, JACK.y, 0));
+  buildSalon(g);
+  return { g };
 }
 
-/** The gangway from the quay onto the foredeck, and the mooring ropes from the quay's bollards to the hull. */
+/** The gangway from the quay over the bulwark's gap onto the foredeck, and the mooring ropes from the quay's bollards
+ *  to the bulwarks. */
 function buildGangway() {
-  const x = SHIP.x + DECKS.gangway, z0 = SHIP.z + halfBeamAt(DECKS.gangway) - 0.3, z1 = QUAY.z0 + 0.4, cz = (z0 + z1) / 2;
+  const x = SHIP.x + DECKS.gangway, z0 = SHIP.z + hullHalf(DECKS.gangway) - 0.2, z1 = QUAY.z0 + 0.4, cz = (z0 + z1) / 2;
   const g = piece(x, cz);
-  put(g, mesh(new BoxGeometry(0.9, 0.08, z1 - z0), 0x9B5A3C, 0, 0, 0, true), x, FY + 0.12, cz);
+  put(g, mesh(new BoxGeometry(0.9, 0.08, z1 - z0), TEAK, 0, 0, 0, true), x, FY + 0.12, cz);
   const rails: Part[] = [];
   for (const s of [-1, 1]) {
     rails.push(strut(V(s * 0.45, FY + 0.75, z0 - cz), V(s * 0.45, FY + 0.75, z1 - cz), 0.025));
@@ -273,13 +262,13 @@ function buildGangway() {
   }
   g.add(mesh(bake(rails), GOLD, 0, 0, 0, true));
   const ropes: Part[] = [];
-  for (const dx of [-4.2, 5.3]) {
-    // each rope runs from its cleat out to the bollard nearest a little way past it
+  for (const dx of [-L + 1.3, SHIP.sides - 0.2]) {
+    // each rope runs from its fairlead on the bulwark out to the bollard nearest a little way past it
     const want = SHIP.x + dx + Math.sign(dx) * 0.9;
     const bx = BOLLARDS_X.reduce((a, b) => Math.abs(b - want) < Math.abs(a - want) ? b : a);
     const bollard = V(bx - x, FY + 0.42, QUAY.z0 + 0.17 - cz);
-    const cleat = V(SHIP.x + dx - x, FY + 0.1, SHIP.z + halfBeamAt(dx) - cz);
-    ropes.push(strut(bollard, cleat, 0.025));
+    const lead = V(SHIP.x + dx - x, sheer(dx) - 0.05, SHIP.z + hullHalf(dx) - cz);
+    ropes.push(strut(bollard, lead, 0.025));
   }
   g.add(mesh(bake(ropes), 0xE3C26B));
   return g;
@@ -335,18 +324,15 @@ function updVisit() {
 /** Keeps the player out of the games' tables and machines, and the quay's booth and crates. */
 export function collideCasino(p: XZ) {
   if (!ship) return;
-  collideRoulette(p); collideBlackjack(p); collideSlots(p);
+  collideRoulette(p); collideBlackjack(p); collideSlots(p); collideSalon(p);
   for (const o of [BOOTH, CRATES]) pushOutOfBox(p, o.x, o.z, o.w / 2 + 0.3, o.d / 2 + 0.3);
 }
 
-let clock = 0;
 export function updCasino(dt: number) {
   if (!ship) return;
-  clock += dt;
-  ship.wheel.rotation.z += dt * 0.6;
-  ship.flag.rotation.y = Math.sin(clock * 2.2) * 0.15;
   if (glance) updGlance(dt);
   updVisit();
+  updSalon(dt, player.g.position, staging());
   updTweens(dt);
   updRoulette(dt);
   updBlackjack(dt);

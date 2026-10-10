@@ -286,3 +286,10 @@ export function badge(on: Object3D) {
     },
   };
 }
+
+// ---------- cheers ----------
+const cheerers: (() => void)[] = [];
+/** Someone in the salon who reacts when the player wins (casinoSalon.ts). */
+export const onCheer = (f: () => void) => { cheerers.push(f); };
+/** The player won at one of the games: the guests watching cheer. */
+export const cheer = () => cheerers.forEach(f => f());

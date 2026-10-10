@@ -143,8 +143,8 @@ describe('the casino boat', () => {
     const stairs = DECKS.stairs, mid = SHIP.x + (stairs.x0 + stairs.x1) / 2;
     // the quay, the gangway, the foredeck at the foot of the stairs, halfway up them, and the upper deck
     for (const [x, z, y] of [
-      [-12, -5.8, FY], [SHIP.x + DECKS.gangway, -6.9, FY], [SHIP.x + 4.7, SHIP.z, FY],
-      [mid, SHIP.z, (FY + UPPER) / 2], [SHIP.x - 1, SHIP.z, UPPER],
+      [-12, -5.8, FY], [SHIP.x + DECKS.gangway, -6.9, FY], [SHIP.x + stairs.x1 + 0.3, SHIP.z, FY],
+      [mid, SHIP.z, (FY + UPPER) / 2], [SHIP.x - 2.1, SHIP.z + 1.9, UPPER],
     ]) {
       g.placePlayer(x, z);
       g.run(0.5);
@@ -186,7 +186,7 @@ describe('the casino boat', () => {
     for (const k of ['roulette', 'blackjack', 'slots'] as const) {
       g.placePlayer(g.layout.GAMES[k].x, g.layout.GAMES[k].z);
       for (let i = 0; i < 60; i++) { p.z -= 0.05; g.run(1 / 60); }
-      expect(p.z).toBeGreaterThan(-10.5);
+      expect(p.z).toBeGreaterThan(g.layout.SHIP.z - 1.3);
     }
   });
 
@@ -218,13 +218,70 @@ describe('the casino boat', () => {
     expect(g.stage.view.k).toBe(0);
   });
 
-  it('turns its paddle wheel', async () => {
-    const g = await loadGame({ tiles: bought('roulette') });
-    const [, , ship] = g.casino.casinoPieces();
-    const wheel = ship.children.filter(o => o.type === 'Group').pop()!;
-    const was = wheel.rotation.z;
+  it('walls its upper deck in as a salon, whose roof lifts and near walls fade while the player is inside', async () => {
+    const g = await at('roulette', 100);
+    const salon = await import('../src/casinoSalon');
     g.run(1);
-    expect(wheel.rotation.z).toBeGreaterThan(was);
+    expect(salon.salonView().roof).toBeLessThan(0.05);
+    walkAway(g); g.run(1);
+    expect(salon.salonView().roof).toBe(1);
+    // and everything stays up for the stage-up's show
+    g.placePlayer(g.layout.GAMES.roulette.x, g.layout.GAMES.roulette.z); g.run(0.05);
+    salon.updSalon(1, g.player.g.position, true);
+    expect(salon.salonView().roof).toBe(1);
+  });
+
+  it('is full of guests playing the machines; one by the tables cheers when the player wins', async () => {
+    const g = await at('roulette', 100);
+    const salon = await import('../src/casinoSalon');
+    expect(salon.salonView().guests).toBeGreaterThan(5);
+    rig(32);
+    click('#spin');
+    g.run(6);
+    expect(salon.salonView().fan).toMatch(/Nice!|Wow!|Lucky!/);
+    g.run(20); // the guests at the machines play away
+  });
+
+  it("keeps the player out of the bar and the row of machines along the back", async () => {
+    const g = await at('roulette', 100);
+    const { SHIP, SALON } = g.layout, p = g.player.g.position;
+    g.placePlayer(SHIP.x + SALON.x0 + 1.4, SHIP.z + 2.2); g.run(0.05);
+    for (let i = 0; i < 60; i++) { p.x -= 0.05; g.run(1 / 60); }
+    expect(p.x).toBeGreaterThan(SHIP.x + SALON.x0 + 1.4);
+    g.placePlayer(SHIP.x + 0.8, SHIP.z + 1.0); g.run(0.05);
+    for (let i = 0; i < 60; i++) { p.z -= 0.05; g.run(1 / 60); }
+    expect(p.z).toBeGreaterThan(SHIP.z - 1.5);
+  });
+
+  it('turns its radar on the mast', async () => {
+    const g = await loadGame({ tiles: bought('roulette') });
+    const salon = await import('../src/casinoSalon');
+    const was = salon.salonView().radar;
+    g.run(1);
+    expect(salon.salonView().radar).toBeGreaterThan(was);
+  });
+
+  it("keeps the guests and staff out of the player's way from the door to the games", async () => {
+    const g = await at('roulette', 100, 'blackjack', 'slots');
+    const salon = await import('../src/casinoSalon');
+    const { SHIP, SALON, GAMES } = g.layout, p = g.player.g.position;
+    // walk in at the door and along the aisle past every pad, with time for the waiter to come and go
+    g.placePlayer(SHIP.x + SALON.x1 - 0.4, SHIP.z); g.run(0.05);
+    const pads = [GAMES.slots, GAMES.blackjack, GAMES.roulette];
+    for (let lap = 0; lap < 3; lap++) {
+      for (const pad of pads) {
+        for (let i = 0; i < 120 && Math.hypot(p.x - pad.x, p.z - pad.z) > 0.05; i++) {
+          const dx = pad.x - p.x, dz = pad.z - p.z, d = Math.hypot(dx, dz), k = Math.min(1, 0.05 / d);
+          p.x += dx * k; p.z += dz * k; g.run(1 / 60);
+        }
+        expect(Math.hypot(p.x - pad.x, p.z - pad.z)).toBeLessThan(0.1);
+      }
+      g.placePlayer(SHIP.x + SALON.x1 - 0.4, SHIP.z); g.run(1.5);
+    }
+    // the fan and the waiter keep behind the tables or aft of them, never in the aisle along the windows
+    for (const o of salon.salonView().staff) {
+      expect(o.z < GAMES.roulette.z - SHIP.z - 0.8 || o.x < GAMES.roulette.x - SHIP.x - 1.2).toBe(true);
+    }
   });
 });
 

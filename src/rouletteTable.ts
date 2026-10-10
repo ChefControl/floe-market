@@ -8,7 +8,7 @@ import {
   MeshLambertMaterial, Object3D, PlaneGeometry, TorusGeometry, Vector2,
 } from 'three';
 import { every } from './audio';
-import { chipStack, gamePad, greeting, settleTweens, slide, speaker, Stakes, tween } from './casinoKit';
+import { cheer, chipStack, gamePad, greeting, settleTweens, slide, speaker, Stakes, tween } from './casinoKit';
 import { Person, SUITS } from './characters';
 import { GAMES, pushOutOfBox } from './layout';
 import { bake, canvasTex, FONT, G, mat, mesh, rr, scene, type Part } from './render';
@@ -241,7 +241,7 @@ function settle() {
   angle = mod(s.to, TAU);
   if (table) { table.face.rotation.y = -angle; placeBall(s, SPIN_TIME); }
   wallet.inFlight -= s.win;
-  if (s.win > 0) { addMoney(s.win); popText('+' + money(s.win), TABLE); win(); } else lose();
+  if (s.win > 0) { addMoney(s.win); popText('+' + money(s.win), TABLE); win(); cheer(); } else lose();
   if (s.win > 0 && s.bet === 'green') table!.voice.say('Green!');
   payChips(s);
   history.unshift(s.result);
