@@ -1,4 +1,6 @@
-// The casino boat: the games' rules, the boat and the way out to it, and each game as the player plays it.
+// The casino boat: the games' rules, the boat and the way out to it, how it's drawn, and each game as the player plays
+// it.
+import { Box3, Mesh, type Object3D, Vector3 } from 'three';
 import { describe, expect, it, vi } from 'vitest';
 import { canSplit, dealerDraws, handValue, insuranceCost, isBlackjack, newShoe, settle, type Card, type Suit } from '../src/blackjack';
 import { colorOf, payout, spinWheel, WHEEL, wins } from '../src/roulette';
@@ -120,6 +122,34 @@ describe('slot machine rules', () => {
 });
 
 type Game = Awaited<ReturnType<typeof loadGame>>;
+/** Whether `o` and everything it's in are showing. */
+const shown = (o: Object3D) => { for (let p: Object3D | null = o; p; p = p.parent) if (!p.visible) return false; return true; };
+/** How many showing meshes have a log standing in the west fence's gap onto the quay (along its line, x = -7.85). */
+function logsInGap(g: Game) {
+  const { FY } = g.util, v = new Vector3(), box = new Box3(), gap = new Box3(new Vector3(-7.9, FY + 0.3, -6.3), new Vector3(-7.8, FY + 1, -3.6));
+  let n = 0;
+  g.render.scene.updateMatrixWorld(true);
+  g.render.scene.traverse(o => {
+    if (!(o instanceof Mesh) || !shown(o)) return;
+    const geo = o.geometry, pos = geo.attributes.position, idx = geo.index;
+    if (!geo.boundingBox) geo.computeBoundingBox();
+    if (!box.copy(geo.boundingBox!).applyMatrix4(o.matrixWorld).intersectsBox(gap)) return;
+    const end = Math.min(idx ? idx.count : pos.count, geo.drawRange.start + geo.drawRange.count);
+    for (let k = geo.drawRange.start; k < end; k++) {
+      if (gap.containsPoint(v.fromBufferAttribute(pos, idx ? idx.getX(k) : k).applyMatrix4(o.matrixWorld))) { n++; return; }
+    }
+  });
+  return n;
+}
+/** The same seeded luck as setup.ts. */
+function seeded(seed: number) {
+  return () => {
+    seed = seed + 0x6D2B79F5 | 0;
+    let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
 /** Stands the player on a game's pad, on a save with the boat (and `more` games) bought. */
 async function at(game: 'roulette' | 'blackjack' | 'slots', money: number, ...more: string[]) {
   const g = await loadGame({ money, tiles: bought('roulette', ...more) });
@@ -137,9 +167,16 @@ describe('the casino boat', () => {
     g.placePlayer(-12, -5.5);
     g.run(0.05);
     expect(p.x).toBeCloseTo(-7.4); // the fence
-    expect(g.world.quayLogs.every(l => l.visible)).toBe(true);
+    const { choose } = await import('../src/graphics');
+    choose('low');
+    expect(logsInGap(g)).toBeGreaterThan(0);
+    choose('high');
+    expect(logsInGap(g)).toBeGreaterThan(0);
     g.unlocks.applyUnlock('roulette');
-    expect(g.world.quayLogs.some(l => l.visible)).toBe(false);
+    expect(logsInGap(g)).toBe(0);
+    choose('low');
+    expect(logsInGap(g)).toBe(0);
+    choose('high');
     const stairs = DECKS.stairs, mid = SHIP.x + (stairs.x0 + stairs.x1) / 2;
     // the quay, the gangway, the foredeck at the foot of the stairs, halfway up them, and the upper deck
     for (const [x, z, y] of [
@@ -377,6 +414,70 @@ describe('the casino boat', () => {
 
 /** Makes the next spin land on pocket `n`. */
 const rig = (n: number) => vi.spyOn(Math, 'random').mockReturnValue((WHEEL.indexOf(n as typeof WHEEL[number]) + 0.5) / 37);
+
+describe('drawing the boat', () => {
+  const games = ['roulette', 'blackjack', 'slots'] as const;
+
+  it("makes nothing on the game's luck: as the game loads, when the boat's bought, or a save with it is loaded", async () => {
+    // every draw made from the boat's own code (or from what it calls) is counted
+    const boat = /src\/(casino|casinoKit|casinoSalon|rouletteTable|blackjackTable|slotMachine)\.ts/;
+    const luck = Math.random;
+    let drawn = 0;
+    Math.random = () => { if (boat.test(new Error().stack ?? '')) drawn++; return luck(); };
+    try {
+      const g = await loadGame({ money: 500 });
+      for (const id of games) g.unlocks.applyUnlock(id);
+      g.run(3); // the ship comes in, the guests carry on
+      await loadGame({ money: 500, tiles: bought(...games) });
+      expect(drawn).toBe(0);
+    } finally {
+      Math.random = luck;
+    }
+  });
+
+  it("leaves the game's luck as it was, bought or loaded", async () => {
+    const next = () => [Math.random(), Math.random(), Math.random()];
+    const fresh = (seed: number) => vi.spyOn(Math, 'random').mockImplementation(seeded(seed));
+    fresh(3);
+    await loadGame({ money: 500 });
+    const without = next();
+    fresh(3);
+    const g = await loadGame({ money: 500 });
+    for (const id of games) g.unlocks.applyUnlock(id);
+    expect(next()).toEqual(without);
+    fresh(3);
+    await loadGame({ money: 500, tiles: bought(...games) });
+    expect(next()).toEqual(without);
+  });
+
+  it("draws it plainly on Low and in the kit's rounded shapes on High, each baked into a few meshes", async () => {
+    const g = await loadGame();
+    const { choose } = await import('../src/graphics');
+    const { Person } = await import('../src/characters');
+    const before = new Set(g.render.scene.children);
+    for (const id of games) g.unlocks.applyUnlock(id, true);
+    const boat = g.render.scene.children.filter(o => !before.has(o));
+    const person = (o: Object3D) => { for (let p: Object3D | null = o; p; p = p.parent) if (p instanceof Person) return true; return false; };
+    const showing = () => {
+      const out: Mesh[] = [];
+      for (const o of boat) o.traverse(m => { if (m instanceof Mesh && shown(m) && !person(m)) out.push(m); });
+      return out;
+    };
+    /** Baked by the kit (kit.ts pack): a byte a normal. Low's plain painting: floats. */
+    const kit = (m: Mesh) => m.geometry.attributes.normal?.array instanceof Int8Array;
+    const plain = (m: Mesh) => m.geometry.attributes.color?.array instanceof Float32Array;
+    choose('low');
+    const low = showing();
+    expect(low.filter(kit)).toEqual([]);
+    expect(low.filter(plain).length).toBeGreaterThan(10);
+    choose('high');
+    const high = showing();
+    expect(high.filter(plain)).toEqual([]);
+    expect(high.filter(kit).length).toBeGreaterThan(10);
+    // its still parts baked a few to a mesh: it was 168 meshes on both
+    expect([low.length, high.length].every(n => n < 100)).toBe(true);
+  });
+});
 
 describe('the roulette table', () => {
   it('opens when the player steps on its pad', async () => {

@@ -10,16 +10,18 @@
 // windows, who doesn't block the way and stops to toast with the player over a glass. None of it touches the game's
 // luck: the guests run on their own dice.
 import {
-  BoxGeometry, CanvasTexture, CylinderGeometry, Euler, ExtrudeGeometry, Group, Mesh, MeshBasicMaterial,
-  MeshLambertMaterial, MeshPhongMaterial, PlaneGeometry, Quaternion, Shape, ShapeGeometry, Vector3,
-  RepeatWrapping, type Material,
+  CanvasTexture, CylinderGeometry, ExtrudeGeometry, Group, Mesh, MeshBasicMaterial, MeshLambertMaterial,
+  MeshPhongMaterial, PlaneGeometry, Shape, ShapeGeometry, Vector3, RepeatWrapping, type Material,
 } from 'three';
-import { atTable, CHIPS, easeInOut, leaveSeat, onCheer, speaker, takeSeat, tipsy } from './casinoKit';
+import {
+  atTable, both, CHIPS, easeInOut, highOnly, leaveSeat, LIT, offLuck, onCheer, type Pen, speaker, takeSeat, tipsy,
+} from './casinoKit';
 import { clink } from './sfx';
 import { animPerson, Person, SUITS } from './characters';
+import { baked, Build, K } from './kit';
 import { aboard, DECKS, pushOutOfBox, SALON, SHIP, stage, UPPER } from './layout';
 import { player } from './player';
-import { bake, bakePainted, canvasTex, FONT, G, mesh, scene, type Part } from './render';
+import { canvasTex, FONT, mesh, painted, scene } from './render';
 import { drawReels, REELS_PX, slotRow } from './slotMachine';
 import { FY, money, V, type XZ } from './util';
 import { wallet } from './wallet';
@@ -45,18 +47,13 @@ const PALMS = [[SALON.x1 - 0.5, SALON.side - 0.5]];
 const dice = rng(0xCA5170);
 
 // ---------- materials ----------
-/** A wall's materials: those of the walls on the camera's side fade (each wall its own), the others never do. */
-function wallMats(fades: boolean) {
-  const m = (c: number) => new MeshLambertMaterial({ color: c, transparent: fades });
-  return { out: m(WHITE), in: m(PAPER), trim: m(GOLD), glass: new MeshLambertMaterial({ color: 0x8FB4C6, transparent: true, opacity: 0.32, depthWrite: false }) };
-}
-const carpetTex = canvasTex(128, 128, (c, w) => {
+const carpetTex = offLuck(() => canvasTex(128, 128, (c, w) => {
   c.fillStyle = '#8E1F2F'; c.fillRect(0, 0, w, w);
   c.strokeStyle = '#C9A24A'; c.lineWidth = 3;
   c.beginPath(); c.moveTo(w / 2, 6); c.lineTo(w - 6, w / 2); c.lineTo(w / 2, w - 6); c.lineTo(6, w / 2); c.closePath(); c.stroke();
   c.fillStyle = '#C9A24A'; c.beginPath(); c.arc(w / 2, w / 2, 7, 0, Math.PI * 2); c.fill();
   c.fillStyle = '#6E1A26'; for (const [x, y] of [[0, 0], [w, 0], [0, w], [w, w]]) { c.beginPath(); c.arc(x, y, 14, 0, Math.PI * 2); c.fill(); }
-});
+}));
 /** The salon's carpet, for the upper deck's floor (casino.ts). */
 export function carpet(len: number, wide: number) {
   const t = carpetTex.tex.clone();
@@ -74,68 +71,70 @@ function minus([a, b]: Span, holes: Span[]): Span[] {
   for (const [h0, h1] of holes) out = out.flatMap(([s0, s1]) => h1 <= s0 || h0 >= s1 ? [[s0, s1] as Span] : [[s0, h0] as Span, [h1, s1] as Span].filter(([x, y]) => y - x > 0.01));
   return out;
 }
+/** What of a wall is drawn: its white outside (which casts the shadow), its burgundy lining and gold trim, or its glass. */
+type Layer = 'outside' | 'lining' | 'glass';
 /** A wall `along` x or z from `a` to `b` at `at` (the other way), its outside towards `out` (+1 or -1), with windows
- *  and `doors`. Its parts go into the white, burgundy, gold and glass lists. */
-function wall(along: 'x' | 'z', a: number, b: number, at: number, out: number, doors: Span[], p: { out: Part[]; in: Part[]; trim: Part[]; glass: Part[] }) {
+ *  and `doors`: white outside, burgundy inside and trimmed in gold, with glass in the windows. Draws `layer` of it. */
+function wall(p: Pen, layer: Layer, along: 'x' | 'z', a: number, b: number, at: number, out: number, doors: Span[]) {
   const n = Math.floor((b - a) / WIN.pitch), off = (b - a - n * WIN.pitch) / 2;
   const wins: Span[] = [];
   for (let i = 0; i < n; i++) {
     const c = a + off + WIN.pitch * (i + 0.5);
     if (!doors.some(([d0, d1]) => c + WIN.w / 2 > d0 - 0.15 && c - WIN.w / 2 < d1 + 0.15)) wins.push([c - WIN.w / 2, c + WIN.w / 2]);
   }
-  const box = (into: Part[], s0: number, s1: number, y0: number, y1: number, depth: number, shift: number) => {
-    const m = (s0 + s1) / 2, w = s1 - s0, c = at + shift * out;
-    into.push(along === 'x'
-      ? { geo: G.box, at: [m, UPPER + (y0 + y1) / 2, c], scale: [w, y1 - y0, depth] }
-      : { geo: G.box, at: [c, UPPER + (y0 + y1) / 2, m], scale: [depth, y1 - y0, w] });
+  const box = (c: number, s0: number, s1: number, y0: number, y1: number, depth: number, shift: number) => {
+    if ((c === WHITE) !== (layer === 'outside')) return;
+    const m = (s0 + s1) / 2, w = s1 - s0, z = at + shift * out, y = UPPER + (y0 + y1) / 2;
+    if (along === 'x') p.box(w, y1 - y0, depth, c, m, y, z, null, 0.01);
+    else p.box(depth, y1 - y0, w, c, z, y, m, null, 0.01);
   };
+  if (layer === 'glass') {
+    for (const w of wins) {
+      const m = (w[0] + w[1]) / 2, y = UPPER + (WIN.sill + WIN.head) / 2, h = WIN.head - WIN.sill;
+      if (along === 'x') p.flat(w[1] - w[0], h, 0.02, 0x8FB4C6, m, y, at);
+      else p.flat(0.02, h, w[1] - w[0], 0x8FB4C6, at, y, m);
+    }
+    return;
+  }
   const solid = (s: Span, y0: number, y1: number) => {
-    box(p.out, s[0], s[1], y0, y1, 0.1, 0.02);
-    box(p.in, s[0], s[1], y0, y1, 0.02, -0.05);
+    box(WHITE, s[0], s[1], y0, y1, 0.1, 0.02);
+    box(PAPER, s[0], s[1], y0, y1, 0.02, -0.05);
   };
-  const doorTop = WIN.head;
   minus([a, b], doors).forEach(s => solid(s, 0, WIN.sill));
   // slim gold mullions between the windows, so the glass reads as one band
   minus([a, b], [...doors, ...wins]).forEach(s => {
-    if (s[1] - s[0] < 0.3) { box(p.trim, s[0], s[1], WIN.sill, WIN.head, 0.1, 0.02); box(p.in, s[0], s[1], WIN.sill, WIN.head, 0.02, -0.05); }
+    if (s[1] - s[0] < 0.3) { box(GOLD, s[0], s[1], WIN.sill, WIN.head, 0.1, 0.02); box(PAPER, s[0], s[1], WIN.sill, WIN.head, 0.02, -0.05); }
     else solid(s, WIN.sill, WIN.head);
   });
-  solid([a, b], doorTop, SALON.h);
-  for (const w of wins) box(p.glass, w[0], w[1], WIN.sill, WIN.head, 0.02, 0);
+  solid([a, b], WIN.head, SALON.h);
   // gold bands along the outside at the sills and the heads, and round the top
-  for (const y of [WIN.sill, WIN.head]) minus([a, b], y === WIN.sill ? doors : []).forEach(s => box(p.trim, s[0], s[1], y - 0.03, y + 0.03, 0.04, 0.09));
-  box(p.trim, a, b, SALON.h - 0.08, SALON.h, 0.05, 0.09);
+  for (const y of [WIN.sill, WIN.head]) minus([a, b], y === WIN.sill ? doors : []).forEach(s => box(GOLD, s[0], s[1], y - 0.03, y + 0.03, 0.04, 0.09));
+  box(GOLD, a, b, SALON.h - 0.08, SALON.h, 0.05, 0.09);
 }
 
 /** The salon's walls, each with its own materials so the near ones can fade, and the ground where standing puts each
  *  between the player and the camera (which looks in from the south-east, high up). */
-interface Fader { meshes: Mesh[]; mats: Material[]; near: boolean; base: number[] }
+interface Fader { walls: Mesh[]; mats: Material[]; base: number[] }
 function buildWalls(g: Group) {
   const faders: Fader[] = [];
-  const add = (fades: boolean, build: (p: { out: Part[]; in: Part[]; trim: Part[]; glass: Part[] }) => void) => {
-    const p = { out: [] as Part[], in: [] as Part[], trim: [] as Part[], glass: [] as Part[] };
-    build(p);
-    const m = wallMats(fades);
-    const meshes = [mesh(bake(p.out), m.out, 0, 0, 0, true), mesh(bake(p.in), m.in), mesh(bake(p.trim), m.trim), mesh(bake(p.glass), m.glass)];
-    meshes[3].castShadow = false;
-    g.add(...meshes);
-    if (fades) faders.push({ meshes, mats: [m.out, m.in, m.trim, m.glass], near: false, base: [1, 1, 1, m.glass.opacity] });
+  const add = (fades: boolean, build: (p: Pen, layer: Layer) => void) => {
+    // the walls that never fade are painted like everything else, so they merge with it (batch.ts)
+    const solid = fades ? new MeshLambertMaterial({ vertexColors: true, transparent: true }) : painted;
+    const glass = new MeshLambertMaterial({ color: 0x8FB4C6, transparent: true, opacity: 0.32, depthWrite: false });
+    // only the white outside casts a shadow: the trim lies flat on it, and would only shade it with specks
+    const walls = both(g, p => build(p, 'outside'), true, solid).filter(m => m !== null);
+    both(g, p => build(p, 'lining'), false, solid);
+    both(g, p => build(p, 'glass'), false, glass);
+    if (fades) faders.push({ walls, mats: [solid, glass], base: [1, glass.opacity] });
   };
   const { x0, x1, side } = SALON;
-  add(false, p => { wall('x', x0, x1, -side, -1, [], p); wall('z', -side, side, x0, -1, [], p); });
-  add(true, p => wall('x', x0, x1, side, 1, [], p));
-  add(true, p => wall('z', -side, side, x1, 1, [[-DOOR, DOOR]], p));
+  add(false, (p, layer) => { wall(p, layer, 'x', x0, x1, -side, -1, []); wall(p, layer, 'z', -side, side, x0, -1, []); });
+  add(true, (p, layer) => wall(p, layer, 'x', x0, x1, side, 1, []));
+  add(true, (p, layer) => wall(p, layer, 'z', -side, side, x1, 1, [[-DOOR, DOOR]]));
   return faders;
 }
 
 // ---------- shapes ----------
-const UP_AXIS = new Vector3(0, 1, 0), tmpQ = new Quaternion(), tmpE = new Euler();
-/** A rope, rail or beam from `a` to `b`, as a thin cylinder. */
-export function strut(a: Vector3, b: Vector3, r: number): Part {
-  const d = b.clone().sub(a), len = d.length();
-  tmpE.setFromQuaternion(tmpQ.setFromUnitVectors(UP_AXIS, d.normalize()));
-  return { geo: G.cyl, at: [(a.x + b.x) / 2, (a.y + b.y) / 2, (a.z + b.z) / 2], rot: [tmpE.x, tmpE.y, tmpE.z], scale: [r, len, r] };
-}
 /** An oblong from above, `x0` to `x1` along the ship and `half` either side, its back corners rounded by `rb` and its
  *  front ones by `rf`. */
 export function oblong(x0: number, x1: number, half: number, rb: number, rf: number) {
@@ -151,23 +150,20 @@ export function oblong(x0: number, x1: number, half: number, rb: number, rf: num
   s.quadraticCurveTo(x0, -half, x0 + rb, -half);
   return s;
 }
-/** A shape lying flat, extruded `h` up from `y`. */
-export function slab(shape: Shape, h: number, y: number, m: number | Material) {
-  const o = mesh(new ExtrudeGeometry(shape, { depth: h, bevelEnabled: false, curveSegments: 8 }), m, 0, y, 0, true);
-  o.rotation.x = -Math.PI / 2;
-  return o;
-}
+/** A shape lying flat, extruded `h` up from 0. */
+export const slab = (shape: Shape, h: number) =>
+  new ExtrudeGeometry(shape, { depth: h, bevelEnabled: false, curveSegments: 8 }).rotateX(-Math.PI / 2);
 
 // ---------- roof ----------
-const SIGN_TEX = canvasTex(512, 160, (c, w, h) => {
+const SIGN_TEX = offLuck(() => canvasTex(512, 160, (c, w, h) => {
   c.fillStyle = '#5A1420'; c.fillRect(0, 0, w, h);
   c.strokeStyle = '#E3B23C'; c.lineWidth = 6; c.strokeRect(14, 14, w - 28, h - 28);
   c.font = `800 96px ${FONT}`; c.textAlign = 'center'; c.textBaseline = 'middle';
   c.lineJoin = 'round'; c.lineWidth = 14; c.strokeStyle = '#2A0F16'; c.strokeText('CASINO', w / 2, h / 2 + 6);
   c.fillStyle = '#FFD24A'; c.fillText('CASINO', w / 2, h / 2 + 6);
-});
+}));
 /** The marquee's bulbs, in two sets that take turns to light: the chase round the CASINO sign. */
-const bulbsOn = new MeshBasicMaterial({ color: 0xFFE08A }), bulbsOff = new MeshBasicMaterial({ color: 0xB07A2A });
+const [bulbsOn, bulbsOff] = offLuck(() => [new MeshBasicMaterial({ color: 0xFFE08A }), new MeshBasicMaterial({ color: 0xB07A2A })]);
 /** The top of the jackstaff at the bow (casino.ts), which the strings of lights run down to from the mast. */
 export const JACK = { x: SHIP.bow - 0.55, y: FY + 3.0 };
 /** The sky lounge on the hardtop, at the front, and the mast on its roof; the sundeck aft of it, with the jacuzzi. */
@@ -178,65 +174,85 @@ const TUB = { x: -3.3, z: -0.5, r: 0.8 };
 /** The CASINO signs on both sides of the lower deck, under the salon, facing out: where along, how big, how high. */
 const SIGN = { x: -2.3, w: 3.04, h: 0.95, y: FY + 1.4, out: SHIP.beam - 0.38 + 0.07 };
 
+/** The hardtop, the sky lounge and the mast on it, the windbreak's rail, the jacuzzi's surround and the loungers. */
+function drawRoof(p: Pen) {
+  const { x0, x1, side, h } = SALON, top = UPPER + h, deckY = top + 0.16, bridgeTop = deckY + 0.92, mastTop = bridgeTop + 1.9;
+  // the hardtop, sweeping forward over the top of the stairs
+  p.add(ROOF.hardtop, WHITE, 0, top, 0);
+  // a gold rail along the top of the glass windbreak round the sides and the stern
+  const rx0 = x0 - 0.1, rx1 = x1 + 0.2, rz = side + 0.02, y = deckY + 0.57;
+  for (const z of [-rz, rz]) p.box(rx1 - rx0 + 0.05, 0.05, 0.05, GOLD, (rx0 + rx1) / 2, y, z, null, 0.015);
+  p.box(0.05, 0.05, 2 * rz + 0.05, GOLD, rx0, y, 0, null, 0.015);
+  // the sky lounge: rounded at the front, under a white roof that reaches out over it (its dark glass is its own mesh)
+  p.add(ROOF.lounge, WHITE, 0, deckY, 0).add(ROOF.loungeRoof, WHITE, 0, deckY + 0.82, 0);
+  // the mast, its spreader (gold tips on High), and the radar's post
+  p.rod(V(MAST.x + 0.35, bridgeTop, 0), V(MAST.x, mastTop, 0), 0.07, WHITE);
+  p.box(0.08, 0.06, MAST.spread * 2, WHITE, MAST.x + 0.07, mastTop - 0.4, 0, null, 0.015);
+  if (p.high) for (const s of [-1, 1]) p.ball(0.05, GOLD, MAST.x + 0.07, mastTop - 0.4, s * MAST.spread);
+  p.cyl(0.08, 0.08, 0.2, WHITE, -0.2, bridgeTop + 0.1, 0, null, 8);
+  // the jacuzzi's raised teak surround under a white rim, with a step up to it
+  p.add(ROOF.tub, 0x8A5A3B, 0, deckY, 0).add(ROOF.rim, WHITE, 0, deckY + 0.5, 0);
+  p.box(0.7, 0.22, 0.32, WHITE, TUB.x, deckY + 0.11, TUB.z + TUB.r + 0.28);
+  // sun loungers along the quay side of the sundeck, their backs up towards the far side, a red towel on each
+  for (let x = x0 + 0.6; x < SUNDECK.x1 - 0.3; x += 0.85) {
+    const z = side - 1.0;
+    p.box(0.56, 0.14, 1.25, 0x9A9086, x, deckY + 0.1, z + 0.15).box(0.54, 0.1, 1.05, WHITE, x, deckY + 0.22, z + 0.25, null, 0.04);
+    p.box(0.54, 0.08, 0.6, WHITE, x, deckY + 0.44, z - 0.6, [0.7, 0, 0], 0.035).box(0.5, 0.03, 0.34, 0xB0283A, x, deckY + 0.28, z + 0.55, null, 0.01);
+  }
+}
+/** The roof's shapes, cut once for both settings. */
+const ROOF = offLuck(() => {
+  const { x0, x1, side } = SALON, { x0: b0, x1: b1, half: bh } = BRIDGE, R = TUB.r;
+  const ring = oblong(TUB.x - R - 0.16, TUB.x + R + 0.16, R + 0.16, 0.42, 0.42);
+  ring.holes.push(oblong(TUB.x - R + 0.06, TUB.x + R - 0.06, R - 0.06, 0.3, 0.3));
+  return {
+    hardtop: slab(oblong(x0 - 0.3, x1 + 0.9, side + 0.16, 0.3, 1.1), 0.16),
+    led: slab(oblong(x0 - 0.26, x1 + 0.86, side + 0.12, 0.28, 1.06), 0.03),
+    lounge: slab(oblong(b0, b1, bh, 0.4, 1.6), 0.2),
+    glass: slab(oblong(b0 + 0.05, b1 - 0.05, bh - 0.05, 0.36, 1.55), 0.62),
+    loungeRoof: slab(oblong(b0 - 0.2, b1 + 0.2, bh + 0.12, 0.5, 1.75), 0.1),
+    loungeLed: slab(oblong(b0 - 0.16, b1 + 0.16, bh + 0.08, 0.48, 1.71), 0.03),
+    tub: slab(oblong(TUB.x - R - 0.12, TUB.x + R + 0.12, R + 0.12, 0.4, 0.4), 0.5),
+    rim: slab(ring, 0.07),
+  };
+});
+
 function buildRoof() {
   const g = new Group();
   const { x0, x1, side, h } = SALON, top = UPPER + h, deckY = top + 0.16;
   const mats: Material[] = [], base: number[] = [];
   const own = <M extends Material>(m: M, opacity = 1) => { m.transparent = true; m.opacity = opacity; mats.push(m); base.push(opacity); return m; };
-  const lam = (c: number) => own(new MeshLambertMaterial({ color: c }));
-  const white = lam(WHITE), gold = lam(GOLD);
-  const glass = own(new MeshPhongMaterial({ color: 0x1C2B38, specular: 0x9FB4C4, shininess: 70 }));
-  const glow = own(new MeshBasicMaterial({ color: 0xFFD98A }));
-  // the hardtop, sweeping forward over the top of the stairs, an LED line glowing under its edge; a teak sundeck aft
-  g.add(slab(oblong(x0 - 0.3, x1 + 0.9, side + 0.16, 0.3, 1.1), 0.16, top, white));
-  g.add(slab(oblong(x0 - 0.26, x1 + 0.86, side + 0.12, 0.28, 1.06), 0.03, top - 0.025, glow));
+  const coat = own(new MeshLambertMaterial({ vertexColors: true }));
+  both(g, drawRoof, true, coat);
+  // the LED lines glowing under the hardtop's edge and the lounge's roof, and the lounge's dark glass
+  both(g, p => p.add(ROOF.led, 0xFFD98A, 0, top - 0.025, 0).add(ROOF.loungeLed, 0xFFD98A, 0, deckY + 0.8, 0), false, own(new MeshBasicMaterial({ vertexColors: true })));
+  both(g, p => p.add(ROOF.glass, 0x1C2B38, 0, deckY + 0.2, 0), true, own(new MeshPhongMaterial({ vertexColors: true, specular: 0x9FB4C4, shininess: 70 })));
+  // a teak sundeck aft, and the glass windbreak round the sides and the stern
   const teak = own(new MeshLambertMaterial({ map: planks('#B07A52', '#BC8660', 0.35, 0.35) }));
   const deck = new Mesh(new ShapeGeometry(oblong(x0 - 0.15, SUNDECK.x1, side - 0.02, 0.2, 0.05), 8), teak);
   deck.rotation.x = -Math.PI / 2; deck.position.y = deckY + 0.005; deck.receiveShadow = true; g.add(deck);
-  // a glass windbreak round the sides and the stern, a gold rail along its top
-  const panes: Part[] = [], rail: Part[] = [];
-  const run = (ax: number, az: number, bx: number, bz: number) => {
-    const n = Math.max(1, Math.round(Math.hypot(bx - ax, bz - az) / 1.2));
-    for (let i = 0; i < n; i++) {
-      const cx = ax + (bx - ax) * (i + 0.5) / n, cz = az + (bz - az) * (i + 0.5) / n, w = Math.hypot(bx - ax, bz - az) / n - 0.06;
-      panes.push({ geo: G.box, at: [cx, deckY + 0.3, cz], scale: ax === bx ? [0.02, 0.5, w] : [w, 0.5, 0.02] });
-    }
-    rail.push({ geo: G.box, at: [(ax + bx) / 2, deckY + 0.57, (az + bz) / 2], scale: ax === bx ? [0.05, 0.05, Math.abs(bz - az) + 0.05] : [Math.abs(bx - ax) + 0.05, 0.05, 0.05] });
-  };
-  const rx0 = x0 - 0.1, rx1 = x1 + 0.2, rz = side + 0.02;
-  run(rx0, -rz, rx1, -rz); run(rx0, rz, rx1, rz); run(rx0, -rz, rx0, rz);
-  g.add(mesh(bake(panes), own(new MeshLambertMaterial({ color: 0xCDEBF5, depthWrite: false }), 0.3)), mesh(bake(rail), gold));
-  // the sky lounge: rounded at the front, wrapped in dark glass under a white roof that reaches out over it, with the
-  // mast and a turning radar on top
-  const { x0: b0, x1: b1, half: bh } = BRIDGE;
-  g.add(slab(oblong(b0, b1, bh, 0.4, 1.6), 0.2, deckY, white));
-  g.add(slab(oblong(b0 + 0.05, b1 - 0.05, bh - 0.05, 0.36, 1.55), 0.62, deckY + 0.2, glass));
-  g.add(slab(oblong(b0 - 0.2, b1 + 0.2, bh + 0.12, 0.5, 1.75), 0.1, deckY + 0.82, white));
-  g.add(slab(oblong(b0 - 0.16, b1 + 0.16, bh + 0.08, 0.48, 1.71), 0.03, deckY + 0.8, glow));
+  both(g, p => {
+    const run = (ax: number, az: number, bx: number, bz: number) => {
+      const n = Math.max(1, Math.round(Math.hypot(bx - ax, bz - az) / 1.2));
+      for (let i = 0; i < n; i++) {
+        const cx = ax + (bx - ax) * (i + 0.5) / n, cz = az + (bz - az) * (i + 0.5) / n, w = Math.hypot(bx - ax, bz - az) / n - 0.06;
+        if (ax === bx) p.flat(0.02, 0.5, w, 0xCDEBF5, cx, deckY + 0.3, cz); else p.flat(w, 0.5, 0.02, 0xCDEBF5, cx, deckY + 0.3, cz);
+      }
+    };
+    const rx0 = x0 - 0.1, rx1 = x1 + 0.2, rz = side + 0.02;
+    run(rx0, -rz, rx1, -rz); run(rx0, rz, rx1, rz); run(rx0, -rz, rx0, rz);
+  }, false, own(new MeshLambertMaterial({ color: 0xCDEBF5, depthWrite: false }), 0.3));
+  // the radar turning on the lounge's roof, and the flag flying from the mast
   const bridgeTop = deckY + 0.92, mastTop = bridgeTop + 1.9;
-  const mast: Part[] = [
-    strut(V(MAST.x + 0.35, bridgeTop, 0), V(MAST.x, mastTop, 0), 0.07),
-    { geo: G.box, at: [MAST.x + 0.07, mastTop - 0.4, 0], scale: [0.08, 0.06, MAST.spread * 2] },
-    { geo: G.cyl, at: [-0.2, bridgeTop + 0.1, 0], scale: [0.08, 0.2, 0.08] },
-  ];
-  g.add(mesh(bake(mast), white));
-  const tips: Part[] = [-1, 1].map(s => ({ geo: G.sphere, at: [MAST.x + 0.07, mastTop - 0.4, s * MAST.spread], scale: [0.05, 0.05, 0.05] }));
-  g.add(mesh(bake(tips), gold));
-  const radar = new Group(); radar.position.set(-0.2, bridgeTop + 0.24, 0); g.add(radar);
-  radar.add(mesh(new BoxGeometry(0.1, 0.07, 0.9), white));
-  const flag = new Group(); flag.position.set(MAST.x, mastTop - 0.05, 0); g.add(flag);
-  flag.add(mesh(new BoxGeometry(0.6, 0.36, 0.02), lam(0xB0283A), -0.32, -0.15, 0));
-  // the jacuzzi: a rounded square of bubbling water set in a raised teak surround under a white rim, with a step up
-  // to it; two guests sit in it against opposite sides, hatless, their shoulders just out of the water
-  const R = TUB.r, lip = deckY + 0.5, water = lip + 0.03;
-  g.add(slab(oblong(TUB.x - R - 0.12, TUB.x + R + 0.12, R + 0.12, 0.4, 0.4), 0.5, deckY, own(new MeshLambertMaterial({ color: 0x8A5A3B }))));
-  const ring = oblong(TUB.x - R - 0.16, TUB.x + R + 0.16, R + 0.16, 0.42, 0.42);
-  ring.holes.push(oblong(TUB.x - R + 0.06, TUB.x + R - 0.06, R - 0.06, 0.3, 0.3));
-  g.add(slab(ring, 0.07, lip, white));
+  const radar = new Group(); radar.position.set(-0.2, bridgeTop + 0.24, 0); radar.userData.noBatch = true; g.add(radar);
+  both(radar, p => p.box(0.1, 0.07, 0.9, WHITE, 0, 0, 0, null, 0.015), false, coat);
+  const flag = new Group(); flag.position.set(MAST.x, mastTop - 0.05, 0); flag.userData.noBatch = true; g.add(flag);
+  both(flag, p => p.box(0.6, 0.36, 0.02, 0xB0283A, -0.32, -0.15, 0, null, 0.008), false, coat);
+  // the jacuzzi's bubbling water; two guests sit in it against opposite sides, hatless, their shoulders just out of it
+  const R = TUB.r, water = deckY + 0.5 + 0.03;
   const pool = new Mesh(new ShapeGeometry(oblong(TUB.x - R + 0.06, TUB.x + R - 0.06, R - 0.06, 0.3, 0.3), 6), own(new MeshBasicMaterial({ color: 0x5ED8E0 })));
   pool.rotation.x = -Math.PI / 2; pool.position.y = water; g.add(pool);
-  g.add(mesh(new BoxGeometry(0.7, 0.22, 0.32), white, TUB.x, deckY + 0.11, TUB.z + R + 0.28, true));
-  const soakers = new Group(); g.add(soakers);
+  const soakers = new Group(); soakers.userData.noBatch = true; g.add(soakers);
   [[-1, 0.15], [1, -0.15]].forEach(([side, dz], i) => {
     const p = guest(i + 2, true);
     // sitting on the bench, legs out under the water: hips well down, so the shoulders just clear it
@@ -244,106 +260,88 @@ function buildRoof() {
     for (const l of p.legs) l.rotation.x = -1.45;
     soakers.add(p);
   });
-  // foam bubbling up at the jets
+  // on High, foam bubbling up at the jets, and steam rising off it, each wisp swelling and fading as it goes
+  const bubbling = highOnly(soakers), foamMat = own(new MeshBasicMaterial({ color: 0xF2FCFF }));
   const foam = Array.from({ length: 8 }, (_, i) => {
-    const a = i / 8 * Math.PI * 2, f = mesh(G.sphere, own(new MeshBasicMaterial({ color: 0xF2FCFF })), TUB.x + Math.cos(a) * (R - 0.2), water, TUB.z + Math.sin(a) * (R - 0.2));
-    soakers.add(f);
+    const a = i / 8 * Math.PI * 2, f = mesh(K.dot, foamMat, TUB.x + Math.cos(a) * (R - 0.2), water, TUB.z + Math.sin(a) * (R - 0.2));
+    bubbling.add(f);
     return { f, t: i * 0.37 };
   });
-  // steam rising off it, each wisp swelling and fading as it goes
   const steam = Array.from({ length: 6 }, (_, i) => {
     const m = new MeshBasicMaterial({ color: 0xFFFFFF, transparent: true, opacity: 0, depthWrite: false });
-    const w = mesh(G.sphere, m, TUB.x, water, TUB.z);
-    soakers.add(w);
+    const w = mesh(K.ball, m, TUB.x, water, TUB.z);
+    bubbling.add(w);
     return { w, m, a: i / 6 * Math.PI * 2, t: i / 6, y: water };
   });
-  // sun loungers along the quay side of the sundeck, their backs up towards the far side, a red towel on each
-  const lounge: (Part & { c: number })[] = [];
-  for (let x = x0 + 0.6; x < SUNDECK.x1 - 0.3; x += 0.85) {
-    const z = side - 1.0;
-    lounge.push({ geo: G.box, at: [x, deckY + 0.1, z + 0.15], scale: [0.56, 0.14, 1.25], c: 0x9A9086 });
-    lounge.push({ geo: G.box, at: [x, deckY + 0.22, z + 0.25], scale: [0.54, 0.1, 1.05], c: 0xFFFFFF });
-    lounge.push({ geo: G.box, at: [x, deckY + 0.44, z - 0.6], rot: [0.7, 0, 0], scale: [0.54, 0.08, 0.6], c: 0xFFFFFF });
-    lounge.push({ geo: G.box, at: [x, deckY + 0.28, z + 0.55], scale: [0.5, 0.03, 0.34], c: 0xB0283A });
-  }
-  const lounger = new MeshLambertMaterial({ vertexColors: true });
-  g.add(mesh(bakePainted(lounge), own(lounger), 0, 0, 0, true));
-  // the strings of lights from the bow up to the mast's spreader
-  const strings: Part[] = [];
+  // on High, the strings of lights from the bow up to the mast's spreader
+  const strings = new Build();
   for (const s of [-1, 1]) {
     for (let k = 1; k < 18; k++) {
       const t = k / 18, tx = MAST.x + 0.07, ty = mastTop - 0.4;
-      strings.push({ geo: G.sphere, at: [JACK.x + (tx - JACK.x) * t, JACK.y + (ty - JACK.y) * t - Math.sin(Math.PI * t) * 0.1, s * MAST.spread * t], scale: [0.06, 0.06, 0.06] });
+      strings.add(K.dot, 0xFFE08A, JACK.x + (tx - JACK.x) * t, JACK.y + (ty - JACK.y) * t - Math.sin(Math.PI * t) * 0.1, s * MAST.spread * t, null, 0.06);
     }
   }
-  const lights = mesh(bake(strings), bulbsOn);
-  g.add(lights);
+  const lights = new Group();
+  highOnly(g).add(lights);
+  lights.add(baked(strings.pieces, false, bulbsOn));
   return { g, mats, base, lights, soakers, steam, foam, radar, flag };
 }
 
 // ---------- the signs ----------
 /** The CASINO sign on each side of the ship, its bulbs chasing round it: out of the way of the view into the salon. */
 function buildSigns(g: Group) {
-  const sets: Part[][] = [[], []], frames: Part[] = [];
+  const sets = [new Build(), new Build()];
   const signMat = new MeshBasicMaterial({ map: SIGN_TEX.tex });
+  both(g, p => { for (const side of [-1, 1]) p.box(SIGN.w + 0.16, SIGN.h + 0.16, 0.08, 0x5A1420, SIGN.x, SIGN.y, side * SIGN.out - side * 0.03, null, 0.03); });
   for (const side of [-1, 1]) {
     const z = side * SIGN.out;
-    frames.push({ geo: G.box, at: [SIGN.x, SIGN.y, z - side * 0.03], scale: [SIGN.w + 0.16, SIGN.h + 0.16, 0.08] });
     const face = new Mesh(new PlaneGeometry(SIGN.w, SIGN.h), signMat);
     face.position.set(SIGN.x, SIGN.y, z + side * 0.015); if (side < 0) face.rotation.y = Math.PI;
     g.add(face);
     let i = 0;
-    const bulb = (x: number, y: number) => sets[i++ % 2].push({ geo: G.sphere, at: [x, y, z + side * 0.02], scale: [0.04, 0.04, 0.04] });
+    const bulb = (x: number, y: number) => sets[i++ % 2].add(K.dot, 0xFFE08A, x, y, z + side * 0.02, null, 0.04);
     for (let x = -SIGN.w / 2; x <= SIGN.w / 2 + 0.01; x += SIGN.w / 14) { bulb(SIGN.x + x, SIGN.y + SIGN.h / 2 + 0.06); bulb(SIGN.x + x, SIGN.y - SIGN.h / 2 - 0.06); }
     for (const e of [-1, 1]) for (let y = -SIGN.h / 2 + 0.14; y < SIGN.h / 2 - 0.08; y += 0.2) bulb(SIGN.x + e * (SIGN.w / 2 + 0.06), SIGN.y + y);
   }
-  g.add(mesh(bake(frames), 0x5A1420, 0, 0, 0, true));
-  const chase = sets.map(s => mesh(bake(s), bulbsOn));
-  g.add(...chase);
+  // the bulbs, on High: they swap between lit and dim all the time, so they're never merged (batch.ts)
+  const bulbs = highOnly(g);
+  bulbs.userData.noBatch = true;
+  const chase = sets.map(s => baked(s.pieces, false, bulbsOn));
+  bulbs.add(...chase);
   return chase;
 }
 
 // ---------- the bar ----------
-function buildBar(g: Group) {
+/** The bar across the stern with its brass rail, the back bar's shelves of bottles under a long mirror, the stools,
+ *  and a potted palm by the door. */
+function drawBar(p: Pen) {
   const { x, z0, z1 } = BAR, wood = 0x5A2E1F, len = z1 - z0, mid = (z0 + z1) / 2;
-  g.add(mesh(new BoxGeometry(0.5, 1.05, len), wood, x, UPPER + 0.525, mid, true));
-  g.add(mesh(new BoxGeometry(0.62, 0.06, len + 0.1), 0x2A1410, x, UPPER + 1.08, mid, true));
-  const brass: Part[] = [
-    { geo: G.box, at: [x + 0.27, UPPER + 0.3, mid], scale: [0.04, 0.06, len] },
-    { geo: G.cyl, at: [x + 0.4, UPPER + 0.18, mid], rot: [Math.PI / 2, 0, 0], scale: [0.025, len, 0.025] },
-  ];
-  g.add(mesh(bake(brass), GOLD));
-  // the back bar against the stern wall: shelves of bottles under a long mirror, lit from above
+  p.box(0.5, 1.05, len, wood, x, UPPER + 0.525, mid, null, 0.03).box(0.62, 0.06, len + 0.1, 0x2A1410, x, UPPER + 1.08, mid, null, 0.02);
+  p.box(0.04, 0.06, len, GOLD, x + 0.27, UPPER + 0.3, mid, null, 0.01).cyl(0.025, 0.025, len, GOLD, x + 0.4, UPPER + 0.18, mid, [Math.PI / 2, 0, 0], 8);
+  // the back bar against the stern wall: shelves of bottles under a long mirror
   const bx = SALON.x0 + 0.22, wide = len - 0.2;
-  g.add(mesh(new BoxGeometry(0.3, 0.9, wide), wood, bx, UPPER + 0.45, mid, true));
-  g.add(mesh(new BoxGeometry(0.02, 0.9, wide - 0.6), 0xBFD4DC, bx - 0.05, UPPER + 1.6, mid));
-  g.add(mesh(new BoxGeometry(0.05, 0.04, wide - 0.4), new MeshBasicMaterial({ color: 0xFFD98A }), bx + 0.05, UPPER + 2.12, mid));
-  const shelf: Part[] = [], bottles: Part[][] = [[], [], []];
-  for (const y of [1.25, 1.75]) shelf.push({ geo: G.box, at: [bx + 0.02, UPPER + y, mid], scale: [0.26, 0.04, wide] });
+  p.box(0.3, 0.9, wide, wood, bx, UPPER + 0.45, mid, null, 0.03).flat(0.02, 0.9, wide - 0.6, 0xBFD4DC, bx - 0.05, UPPER + 1.6, mid);
+  for (const y of [1.25, 1.75]) p.box(0.26, 0.04, wide, wood, bx + 0.02, UPPER + y, mid, null, 0.01);
   let n = 0;
   for (const y of [0.9, 1.27, 1.77]) for (let z = z0 + 0.2; z <= z1 - 0.2; z += 0.22) {
-    bottles[n++ % 3].push({ geo: G.cyl, at: [bx + 0.02, UPPER + y + 0.13, z], scale: [0.045, 0.24, 0.045] });
+    p.cyl(0.045, 0.045, 0.24, [0x2E7D4F, 0x8E1F2F, 0xC9A24A][n++ % 3], bx + 0.02, UPPER + y + 0.13, z, null, 6);
+    if (p.high) p.cyl(0.012, 0.03, 0.08, 0x1F1012, bx + 0.02, UPPER + y + 0.29, z, null, 5);
   }
-  g.add(mesh(bake(shelf), wood));
-  [0x2E7D4F, 0x8E1F2F, 0xC9A24A].forEach((c, i) => g.add(mesh(bake(bottles[i]), c)));
   // stools in front of the bar
-  const stools: Part[] = [];
-  for (const z of BAR.stools) {
-    stools.push({ geo: G.cyl, at: [STOOL_X, UPPER + 0.35, z], scale: [0.05, 0.7, 0.05] });
-    stools.push({ geo: G.cyl, at: [STOOL_X, UPPER + 0.72, z], scale: [0.2, 0.07, 0.2] });
-  }
-  g.add(mesh(bake(stools), GOLD, 0, 0, 0, true));
+  for (const z of BAR.stools) p.cyl(0.05, 0.05, 0.7, GOLD, STOOL_X, UPPER + 0.35, z, null, 8).cyl(0.2, 0.2, 0.07, GOLD, STOOL_X, UPPER + 0.72, z, null, 12);
   // and a potted palm by the door
-  const palms: (Part & { c: number })[] = [];
   for (const [px, pz] of PALMS) {
-    palms.push({ geo: G.cyl, at: [px, UPPER + 0.22, pz], scale: [0.24, 0.44, 0.24], c: GOLD });
-    palms.push({ geo: G.cyl, at: [px, UPPER + 0.8, pz], scale: [0.05, 1.2, 0.05], c: 0x7A5634 });
+    p.cyl(0.24, 0.24, 0.44, GOLD, px, UPPER + 0.22, pz, null, 12).cyl(0.05, 0.05, 1.2, 0x7A5634, px, UPPER + 0.8, pz, null, 6);
     for (let i = 0; i < 7; i++) {
       const a = i / 7 * Math.PI * 2;
-      palms.push({ geo: G.box, at: [px + Math.cos(a) * 0.32, UPPER + 1.3, pz + Math.sin(a) * 0.32], rot: [0, -a, 0.5], scale: [0.62, 0.03, 0.16], c: 0x2F7D3E });
+      p.box(0.62, 0.03, 0.16, 0x2F7D3E, px + Math.cos(a) * 0.32, UPPER + 1.3, pz + Math.sin(a) * 0.32, [0, -a, 0.5], 0.01);
     }
   }
-  g.add(mesh(bakePainted(palms), new MeshLambertMaterial({ vertexColors: true }), 0, 0, 0, true));
+}
+function buildBar(g: Group) {
+  both(g, drawBar);
+  // the strip of light over the mirror
+  both(g, p => p.flat(0.05, 0.04, BAR.z1 - BAR.z0 - 0.6, 0xFFD98A, SALON.x0 + 0.27, UPPER + 2.12, (BAR.z0 + BAR.z1) / 2), false, LIT);
 }
 
 // ---------- the guests ----------
@@ -430,7 +428,7 @@ const FAN = { x: -5.85, z: -1.55 };
 const TRAY_ARM = 1.6;
 
 // ---------- champagne ----------
-const glassMat = new MeshLambertMaterial({ color: 0xE8F4F8, transparent: true, opacity: 0.45, depthWrite: false });
+const glassMat = offLuck(() => new MeshLambertMaterial({ color: 0xE8F4F8, transparent: true, opacity: 0.45, depthWrite: false }));
 /** A champagne flute: its bowl, the champagne in it (which goes down as it's drunk, from the top), its stem and foot. */
 function flute() {
   const g = new Group();
@@ -612,7 +610,7 @@ export const inSalon = (p: XZ & { y: number }) => aboard(p) && p.y > FY + 1.0;
 function fade(mats: Material[], base: number[], k: number) {
   mats.forEach((m, i) => {
     m.opacity = base[i] * k;
-    m.depthWrite = k > 0.95 && i < 3;
+    m.depthWrite = k > 0.95 && base[i] === 1;
   });
 }
 
@@ -649,7 +647,7 @@ export function updSalon(dt: number, p: XZ & { y: number }, all: boolean) {
   const wallK = 0.12 + 0.88 * s.roofK;
   for (const f of s.faders) {
     fade(f.mats, f.base, wallK);
-    f.meshes[0].castShadow = wallK > 0.95;
+    for (const w of f.walls) w.castShadow = wallK > 0.95;
   }
   // the bulbs chase round the signs
   const on = Math.floor(s.clock * 3) % 2;

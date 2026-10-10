@@ -4,14 +4,14 @@
 // stop. A board by the wheel shows the last numbers, and a croupier stands behind it all. Walking off settles any spin
 // in progress.
 import {
-  BoxGeometry, ConeGeometry, CylinderGeometry, DoubleSide, Group, LatheGeometry, Mesh, MeshBasicMaterial,
-  MeshLambertMaterial, Object3D, PlaneGeometry, TorusGeometry, Vector2,
+  CylinderGeometry, DoubleSide, Group, LatheGeometry, Mesh, MeshBasicMaterial, MeshLambertMaterial, Object3D,
+  PlaneGeometry, TorusGeometry, Vector2,
 } from 'three';
 import { every } from './audio';
-import { cheer, chipStack, gamePad, greeting, settleTweens, slide, speaker, Stakes, tween } from './casinoKit';
+import { both, cheer, chipStack, gamePad, greeting, offLuck, settleTweens, slide, speaker, Stakes, tween } from './casinoKit';
 import { Person, SUITS } from './characters';
 import { GAMES, pushOutOfBox } from './layout';
-import { bake, canvasTex, FONT, G, mat, mesh, rr, scene, type Part } from './render';
+import { canvasTex, FONT, G, mat, rr, scene } from './render';
 import { colorOf, multiplier, payout, spinWheel, WHEEL, type Bet } from './roulette';
 import { lose, tick, win } from './sfx';
 import { popText } from './ui';
@@ -104,50 +104,52 @@ function drawBoard(c: CanvasRenderingContext2D, w: number, h: number) {
 /** The table, its wheel and ball, the board, and the croupier behind it all. */
 function buildTable() {
   const g = new Group(); g.position.set(TABLE.x, AT.y, TABLE.z);
-  g.add(mesh(new BoxGeometry(1.4, 0.62, 1.5), 0x6B3E26, 0, 0.31, 0, true));
-  g.add(mesh(new BoxGeometry(2 * HALF.x + 0.12, 0.05, 2 * HALF.z + 0.12), 0x8A5A3B, 0, TOP - 0.03, 0, true));
+  // the table, and the wheel's wooden bowl (on High, a gold rim round its track)
+  const rimRing = new TorusGeometry(0.49, 0.02, 6, 48);
+  both(g, p => {
+    p.box(1.4, 0.62, 1.5, 0x6B3E26, 0, 0.31, 0, null, 0.04);
+    p.box(2 * HALF.x + 0.12, 0.05, 2 * HALF.z + 0.12, 0x8A5A3B, 0, TOP - 0.03, 0, null, 0.02);
+    p.cyl(0.5, 0.46, 0.08, 0x6B3E26, 0, TOP + 0.04, WHEEL_AT.z, null, 36);
+    if (p.high) p.add(rimRing, 0xE3B23C, 0, TOP + 0.132, WHEEL_AT.z, [Math.PI / 2, 0, 0]);
+  });
   const felt = new Mesh(new PlaneGeometry(2 * HALF.x, 2 * HALF.z).rotateX(-Math.PI / 2),
     new MeshLambertMaterial({ map: canvasTex(FELT, Math.round(FELT * HALF.z / HALF.x), drawFelt).tex }));
   felt.position.y = TOP + 0.001; felt.receiveShadow = true;
   g.add(felt);
-  // the wheel: a wooden bowl, its track sloping down to the turning face inside a gold rim; on the face, the pockets
-  // sit down between raised gold frets, round a raised hub with a gold turret
+  // the wheel: its track sloping down to the turning face; on the face, the pockets sit down between raised gold frets
+  // (on High), round a raised hub with a gold turret
   const bowl = new Group(); bowl.position.set(0, TOP, WHEEL_AT.z); g.add(bowl);
-  bowl.add(mesh(new CylinderGeometry(0.5, 0.46, 0.08, 36), 0x6B3E26, 0, 0.04, 0, true));
   const track = new Mesh(new LatheGeometry([new Vector2(0.4, 0.108), new Vector2(0.49, 0.132)], 48),
     new MeshLambertMaterial({ color: 0x3A2014, side: DoubleSide }));
   track.receiveShadow = true; bowl.add(track);
-  const rim = mesh(new TorusGeometry(0.49, 0.02, 8, 48), 0xE3B23C, 0, 0.132, 0);
-  rim.rotation.x = Math.PI / 2; bowl.add(rim);
   const faceTex = canvasTex(512, 512, (c, w) => drawWheel(c, w));
   const face = new Mesh(new CylinderGeometry(FACE_R, FACE_R, 0.03, 37), [mat(0x5B3A26), new MeshLambertMaterial({ map: faceTex.tex }), mat(0x5B3A26)]);
-  face.position.y = 0.09; face.receiveShadow = true;
+  face.position.y = 0.09; face.receiveShadow = true; face.userData.noBatch = true; // it turns
   const up = 0.015, R = FACE_R * 0.984, r0 = POCKETS.r0 * R, r1 = POCKETS.r1 * R, FRET_H = 0.03;
-  const frets: Part[] = WHEEL.map((_, k) => {
-    const b = -(k + 0.5) * SEG, rm = (r0 + r1) / 2;
-    return { geo: G.box, at: [rm * Math.cos(b), up + FRET_H / 2, -rm * Math.sin(b)], rot: [0, b, 0], scale: [r1 - r0, FRET_H, 0.007] };
+  const wall = new TorusGeometry(r1, 0.006, 6, 74);
+  both(face, p => {
+    if (p.high) {
+      WHEEL.forEach((_, k) => {
+        const b = -(k + 0.5) * SEG, rm = (r0 + r1) / 2;
+        p.flat(r1 - r0, FRET_H, 0.007, 0xE3B23C, rm * Math.cos(b), up + FRET_H / 2, -rm * Math.sin(b), [0, b, 0]);
+      });
+      p.add(wall, 0xE3B23C, 0, up + 0.006, 0, [Math.PI / 2, 0, 0]);
+    }
+    p.cyl(r0 * 0.6, r0, 0.045, 0xC3875D, 0, up + 0.0225, 0, null, 36).cyl(0, 0.05, 0.1, 0xF2C14E, 0, up + 0.095, 0, null, 8);
+    for (const a of [0, Math.PI / 2]) p.flat(0.15, 0.012, 0.012, 0xF2C14E, 0, up + 0.13, 0, [0, a, 0]);
   });
-  face.add(mesh(bake(frets), 0xE3B23C, 0, 0, 0, true));
-  const wall = mesh(new TorusGeometry(r1, 0.006, 6, 74), 0xE3B23C, 0, up + 0.006, 0);
-  wall.rotation.x = Math.PI / 2; face.add(wall);
-  face.add(mesh(new CylinderGeometry(r0 * 0.6, r0, 0.045, 37), 0xC3875D, 0, up + 0.0225, 0, true));
-  face.add(mesh(new ConeGeometry(0.05, 0.1, 8), 0xF2C14E, 0, up + 0.045 + 0.05, 0, true));
-  const cross = new BoxGeometry(0.15, 0.012, 0.012);
-  face.add(mesh(cross, 0xF2C14E, 0, up + 0.13, 0), mesh(cross, 0xF2C14E, 0, up + 0.13, 0).rotateY(Math.PI / 2));
   bowl.add(face);
   // the ball goes round on its own pivot, in the bowl but not turning with the face: bright white, so it shows
-  const pivot = new Object3D(); pivot.position.y = 0.1; bowl.add(pivot);
+  const pivot = new Object3D(); pivot.position.y = 0.1; pivot.userData.noBatch = true; bowl.add(pivot);
   const ball = new Mesh(G.sphere, new MeshLambertMaterial({ color: 0xFFFFFF, emissive: 0x8A8A8A }));
   ball.castShadow = true; ball.scale.setScalar(BALL.r); pivot.add(ball);
   ball.visible = false;
   // the board of last numbers on its post, by the wheel
   const boardTex = canvasTex(BOARD.w, BOARD.h, drawBoard);
-  const board = new Group(); board.position.set(0.62, 0, -0.62); g.add(board);
-  board.add(mesh(new CylinderGeometry(0.02, 0.02, 1.1, 8), 0x8A949C, 0, TOP + 0.3, 0));
-  board.add(mesh(new BoxGeometry(0.26, 0.5, 0.05), 0x2A0F16, 0, TOP + 0.75, 0, true));
+  const board = new Group(); board.position.set(0.62, 0, -0.62); board.rotation.y = -0.35; g.add(board);
+  both(board, p => p.cyl(0.02, 0.02, 1.1, 0x8A949C, 0, TOP + 0.3, 0, null, 8).box(0.26, 0.5, 0.05, 0x2A0F16, 0, TOP + 0.75, 0, null, 0.015));
   const screen = new Mesh(new PlaneGeometry(0.22, 0.44), new MeshBasicMaterial({ map: boardTex.tex }));
   screen.position.set(0, TOP + 0.75, 0.027); board.add(screen);
-  board.rotation.y = -0.35;
   const croupier = new Person(SUITS[2], 'fancy');
   croupier.position.set(0, 0, -1.15);
   g.add(croupier);
@@ -284,7 +286,7 @@ const pad = gamePad(AT, '🎡', panel, {
 
 /** Sets the table up on the boat. Returns it and its pad's marking, for the pop-in. */
 export function enableRoulette() {
-  table = buildTable();
+  table = offLuck(buildTable);
   scene.add(table.g);
   pad.enable();
   return [table.g, pad.mark];

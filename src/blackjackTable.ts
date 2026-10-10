@@ -5,13 +5,15 @@
 // discard tray before each card they open. When the dealer shows an ace they offer insurance (or even money on a
 // blackjack). Walking off mid-hand turns down insurance, stands on what you have and settles at once.
 import {
-  BoxGeometry, CylinderGeometry, Group, Mesh, MeshLambertMaterial, PlaneGeometry, Vector3, type Object3D,
+  BoxGeometry, CylinderGeometry, Group, Matrix4, Mesh, MeshLambertMaterial, PlaneGeometry, Vector3, type Object3D,
 } from 'three';
 import {
   canSplit, CUT, dealerDraws, handValue, insuranceCost, isBlackjack, isBust, isRed, newShoe, rankName, settle, total,
   type Card, type Result,
 } from './blackjack';
-import { badge, cheer, chipStack, easeInOut, gamePad, greeting, settleTweens, slide, speaker, Stakes, tween } from './casinoKit';
+import {
+  badge, both, cheer, chipStack, easeInOut, gamePad, greeting, offLuck, Pen, settleTweens, slide, speaker, Stakes, tween,
+} from './casinoKit';
 import { Person, SUITS } from './characters';
 import { GAMES, pushOutOfBox } from './layout';
 import { canvasTex, FONT, mesh, rr, scene } from './render';
@@ -31,7 +33,7 @@ const CARD_GAP = SLIDE + FLIP + 0.05;
 
 // ---------- 3D table ----------
 const CARD = { w: 0.17, h: 0.24 };
-const cardGeo = new PlaneGeometry(CARD.w, CARD.h).rotateX(-Math.PI / 2);
+const cardGeo = offLuck(() => new PlaneGeometry(CARD.w, CARD.h).rotateX(-Math.PI / 2));
 /** Where cards leave the shoe, and the discard tray they're burned and swept into. */
 const SHOE = V(0.58, TOP + 0.16, -0.16), TRAY = V(-0.64, TOP + 0.02, -0.27);
 /** Where the dealer's chips are: lost stakes go there and winnings come from there. */
@@ -51,10 +53,10 @@ const faces = new Map<string, MeshLambertMaterial>();
 function faceMat(card: Card) {
   const key = rankName(card) + card.suit;
   let m = faces.get(key);
-  if (!m) faces.set(key, m = new MeshLambertMaterial({ map: canvasTex(128, 180, drawCardFace(card)).tex, alphaTest: 0.5 }));
+  if (!m) faces.set(key, m = offLuck(() => new MeshLambertMaterial({ map: canvasTex(128, 180, drawCardFace(card)).tex, alphaTest: 0.5 })));
   return m;
 }
-const backMat = new MeshLambertMaterial({
+const backMat = offLuck(() => new MeshLambertMaterial({
   alphaTest: 0.5,
   map: canvasTex(128, 180, (c, w, h) => {
     c.fillStyle = '#FFFDF8'; rr(c, 2, 2, w - 4, h - 4, 14); c.fill();
@@ -64,14 +66,14 @@ const backMat = new MeshLambertMaterial({
     for (let i = -h; i < w + h; i += 14) { c.beginPath(); c.moveTo(i, 0); c.lineTo(i + h, h); c.moveTo(i + h, 0); c.lineTo(i, h); c.stroke(); }
     c.restore();
   }).tex,
-});
+}));
 
 /** A card on the table: face down until it's turned over. */
 type CardMesh = Group & { userData: { card: Card; up: boolean } };
 function cardMesh(card: Card) {
-  const g = new Group() as CardMesh;
-  const back = new Mesh(cardGeo, backMat); back.rotation.z = Math.PI;
-  g.add(new Mesh(cardGeo, faceMat(card)), back);
+  const g = offLuck(() => new Group()) as CardMesh;
+  const back = offLuck(() => new Mesh(cardGeo, backMat)); back.rotation.z = Math.PI;
+  g.add(offLuck(() => new Mesh(cardGeo, faceMat(card))), back);
   g.children.forEach(m => { m.receiveShadow = true; });
   g.rotation.z = Math.PI;
   g.userData = { card, up: false };
@@ -107,28 +109,25 @@ function drawFelt(c: CanvasRenderingContext2D, w: number, h: number) {
 /** A half-moon of felt on a wooden base, its curve towards the player, with the dealer behind, a shoe and a tray. */
 function buildTable() {
   const g = new Group(); g.position.set(TABLE.x, AT.y, TABLE.z);
-  const half = (r: number, h: number, c: number, y: number) =>
-    mesh(new CylinderGeometry(r, r, h, 36, 1, false, -Math.PI / 2, Math.PI), c, 0, y, EDGE, true);
-  g.add(half(0.95, 0.58, 0x6B3E26, 0.29));
-  g.add(half(R + 0.1, 0.08, 0x8A5A3B, 0.62));
-  g.add(half(R, 0.09, 0x2E7D4F, 0.63));
+  const half = (r: number, h: number) => new CylinderGeometry(r, r, h, 36, 1, false, -Math.PI / 2, Math.PI);
+  const base = half(0.95, 0.58), rim = half(R + 0.1, 0.08), cloth = half(R, 0.09);
+  both(g, p => {
+    p.add(base, 0x6B3E26, 0, 0.29, EDGE).add(rim, 0x8A5A3B, 0, 0.62, EDGE).add(cloth, 0x2E7D4F, 0, 0.63, EDGE);
+    // the shoe, leaning towards the player, and the discard tray across from it
+    const shoeBox = new Pen(p.high).box(0.24, 0.16, 0.32, 0x8E1F2F, 0, 0, 0, null, 0.02).box(0.18, 0.02, 0.06, 0x1F1012, 0, 0.08, 0.12, null, 0.005);
+    p.addAll(shoeBox, new Matrix4().makeRotationX(0.12).setPosition(0.6, TOP + 0.08, -0.28));
+    p.box(0.24, 0.03, 0.32, 0x5A1420, TRAY.x, TOP + 0.015, TRAY.z, null, 0.01);
+    // the dealer's chip rack: five stacks
+    for (const [x, c, n] of [[-0.24, 0xC8323F, 6], [-0.12, 0x22874A, 4], [0, 0x1F2A33, 7], [0.12, 0x6A3FA0, 3], [0.24, 0xC8323F, 5]]) {
+      p.cyl(0.05, 0.05, n * 0.013, c, x, TOP + n * 0.0065, RACK.z - 0.04, null, 14);
+    }
+  });
   const print = new Mesh(new PlaneGeometry(2 * R, R).rotateX(-Math.PI / 2),
     new MeshLambertMaterial({ map: canvasTex(FELT_PX, FELT_PX / 2, drawFelt).tex, transparent: true, depthWrite: false }));
   print.position.set(0, TOP + 0.001, EDGE + R / 2); print.receiveShadow = true;
   g.add(print);
-  // the shoe, leaning towards the player, and the discard tray across from it
-  const shoe = mesh(new BoxGeometry(0.24, 0.16, 0.32), 0x8E1F2F, 0.6, TOP + 0.08, -0.28, true);
-  shoe.rotation.x = 0.12;
-  shoe.add(mesh(new BoxGeometry(0.18, 0.02, 0.06), 0x1F1012, 0, 0.08, 0.12));
-  g.add(shoe);
-  g.add(mesh(new BoxGeometry(0.24, 0.03, 0.32), 0x5A1420, TRAY.x, TOP + 0.015, TRAY.z, true));
   const pile = mesh(new BoxGeometry(CARD.w, 1, CARD.h), 0xFFFDF8, TRAY.x, TOP + 0.03, TRAY.z);
   pile.visible = false; g.add(pile);
-  // the dealer's chip rack
-  const chip = new CylinderGeometry(0.05, 0.05, 1, 14);
-  [[-0.24, 0xC8323F, 6], [-0.12, 0x22874A, 4], [0, 0x1F2A33, 7], [0.12, 0x6A3FA0, 3], [0.24, 0xC8323F, 5]].forEach(([x, c, n]) => {
-    const s = mesh(chip, c, x, TOP + n * 0.0065, RACK.z - 0.04, true); s.scale.y = n * 0.013; g.add(s);
-  });
   const dealer = new Person(SUITS[0], 'fancy');
   dealer.position.set(0, 0, -0.95);
   g.add(dealer);
@@ -149,7 +148,8 @@ function activeRing(on: Object3D) {
 
 // ---------- state ----------
 let table: ReturnType<typeof buildTable> | null = null;
-let shoe = newShoe();
+/** Shuffled when the first card's dealt, with the game's luck: not as the game loads, which would change its luck. */
+let shoe: Card[] = [];
 /** Whether the next deal is the first from this shoe: the dealer burns a card off the top first. */
 let fresh = true;
 /** One of the player's hands: two after a split. */
@@ -598,7 +598,7 @@ const pad = gamePad(AT, '🃏', panel, {
 
 /** The 'blackjack' unlock: puts the table on the boat. Returns it for the pop-in. */
 export function enableBlackjack() {
-  table = buildTable();
+  table = offLuck(buildTable);
   scene.add(table.g);
   pad.enable();
   return table.g;
