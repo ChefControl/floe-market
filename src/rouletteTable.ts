@@ -4,14 +4,14 @@
 // stop. A board by the wheel shows the last numbers, and a croupier stands behind it all. Walking off settles any spin
 // in progress.
 import {
-  BoxGeometry, ConeGeometry, CylinderGeometry, Group, Mesh, MeshBasicMaterial, MeshLambertMaterial, Object3D,
-  PlaneGeometry, TorusGeometry,
+  BoxGeometry, ConeGeometry, CylinderGeometry, DoubleSide, Group, LatheGeometry, Mesh, MeshBasicMaterial,
+  MeshLambertMaterial, Object3D, PlaneGeometry, TorusGeometry, Vector2,
 } from 'three';
 import { every } from './audio';
 import { chipStack, gamePad, greeting, settleTweens, slide, speaker, Stakes, tween } from './casinoKit';
 import { Person, SUITS } from './characters';
 import { GAMES, pushOutOfBox } from './layout';
-import { canvasTex, FONT, G, mat, mesh, rr, scene } from './render';
+import { bake, canvasTex, FONT, G, mat, mesh, rr, scene, type Part } from './render';
 import { colorOf, multiplier, payout, spinWheel, WHEEL, type Bet } from './roulette';
 import { lose, tick, win } from './sfx';
 import { popText } from './ui';
@@ -31,28 +31,40 @@ const mod = (x: number, m: number) => ((x % m) + m) % m;
 // ---------- the wheel's face ----------
 const POCKET = { red: '#D8394B', black: '#22303C', green: '#2E9E49' };
 
-/** The wheel's face, pocket 0 at the top. */
+/** The wheel's face, pocket 0 at the top: the numbers round the outside, and the pockets inside them (their gold
+ *  frets and the hub in the middle stand up off it, in 3D). */
 function drawWheel(c: CanvasRenderingContext2D, size: number) {
   const m = size / 2, R = m - 4;
   c.clearRect(0, 0, size, size);
   c.fillStyle = '#6B3E26'; c.beginPath(); c.arc(m, m, R, 0, TAU); c.fill();
-  c.font = `800 ${Math.round(size * 0.05)}px ${FONT}`; c.textAlign = 'center'; c.textBaseline = 'middle';
+  c.font = `800 ${Math.round(size * 0.048)}px ${FONT}`; c.textAlign = 'center'; c.textBaseline = 'middle';
+  const line = (a: number, r0: number, r1: number) => {
+    c.beginPath(); c.moveTo(m + Math.cos(a) * R * r0, m + Math.sin(a) * R * r0);
+    c.lineTo(m + Math.cos(a) * R * r1, m + Math.sin(a) * R * r1); c.stroke();
+  };
   WHEEL.forEach((n, i) => {
-    const a = i * SEG - Math.PI / 2;
-    c.fillStyle = POCKET[colorOf(n)];
-    c.beginPath(); c.moveTo(m, m); c.arc(m, m, R * 0.9, a - SEG / 2, a + SEG / 2); c.closePath(); c.fill();
+    const a = i * SEG - Math.PI / 2, col = POCKET[colorOf(n)];
+    c.fillStyle = col;
+    c.beginPath(); c.moveTo(m, m); c.arc(m, m, R * 0.97, a - SEG / 2, a + SEG / 2); c.closePath(); c.fill();
+    // the pocket itself, a shade darker: it's down in the wheel
+    c.fillStyle = 'rgba(0,0,0,.28)';
+    c.beginPath(); c.arc(m, m, POCKETS.r1 * R, a - SEG / 2, a + SEG / 2); c.arc(m, m, POCKETS.r0 * R, a + SEG / 2, a - SEG / 2, true); c.closePath(); c.fill();
     c.strokeStyle = '#E3B23C'; c.lineWidth = size * 0.004;
-    c.beginPath(); c.moveTo(m + Math.cos(a - SEG / 2) * R * 0.56, m + Math.sin(a - SEG / 2) * R * 0.56);
-    c.lineTo(m + Math.cos(a - SEG / 2) * R * 0.9, m + Math.sin(a - SEG / 2) * R * 0.9); c.stroke();
+    line(a - SEG / 2, POCKETS.r1, 0.97);
     c.save(); c.translate(m, m); c.rotate(a + Math.PI / 2);
-    c.fillStyle = '#fff'; c.fillText(String(n), 0, -R * 0.8);
+    c.fillStyle = '#fff'; c.fillText(String(n), 0, -R * 0.87);
     c.restore();
   });
-  c.fillStyle = '#C3875D'; c.beginPath(); c.arc(m, m, R * 0.56, 0, TAU); c.fill();
-  c.strokeStyle = '#8A5A3B'; c.lineWidth = size * 0.01; c.stroke();
+  c.strokeStyle = '#E3B23C'; c.lineWidth = size * 0.006;
+  c.beginPath(); c.arc(m, m, R * 0.97, 0, TAU); c.stroke();
+  c.fillStyle = '#C3875D'; c.beginPath(); c.arc(m, m, R * POCKETS.r0, 0, TAU); c.fill();
 }
-/** Where the ball sits in a pocket, and runs round the rim, as a fraction of the face's radius. */
-const FACE_R = 0.4, IN_POCKET = 0.73, ON_RIM = 1.06;
+/** The face's radius, and its band of pockets (as fractions of it) between the hub and the ring of numbers. */
+const FACE_R = 0.4, POCKETS = { r0: 0.52, r1: 0.76 };
+/** Where the ball sits in a pocket, and runs round the track, as a fraction of the face's radius. */
+const IN_POCKET = (POCKETS.r0 + POCKETS.r1) / 2, ON_RIM = 1.13;
+/** The ball's size, and its height over its pivot on the track and down in a pocket. */
+const BALL = { r: 0.026, rim: 0.045, pocket: 0.03 };
 
 // ---------- the layout on the felt ----------
 const BETS: { bet: Bet; x: number; label: string }[] = [
@@ -98,23 +110,35 @@ function buildTable() {
     new MeshLambertMaterial({ map: canvasTex(FELT, Math.round(FELT * HALF.z / HALF.x), drawFelt).tex }));
   felt.position.y = TOP + 0.001; felt.receiveShadow = true;
   g.add(felt);
-  // the wheel: a wooden bowl with a gold rim, the turning face and its gold turret
+  // the wheel: a wooden bowl, its track sloping down to the turning face inside a gold rim; on the face, the pockets
+  // sit down between raised gold frets, round a raised hub with a gold turret
   const bowl = new Group(); bowl.position.set(0, TOP, WHEEL_AT.z); g.add(bowl);
   bowl.add(mesh(new CylinderGeometry(0.5, 0.46, 0.08, 36), 0x6B3E26, 0, 0.04, 0, true));
-  // the dark track the ball runs round, inside a gold rim
-  bowl.add(mesh(new CylinderGeometry(0.49, 0.49, 0.01, 36), 0x3A2014, 0, 0.085, 0));
-  const rim = mesh(new TorusGeometry(0.49, 0.02, 8, 40), 0xE3B23C, 0, 0.1, 0);
+  const track = new Mesh(new LatheGeometry([new Vector2(0.4, 0.108), new Vector2(0.49, 0.132)], 48),
+    new MeshLambertMaterial({ color: 0x3A2014, side: DoubleSide }));
+  track.receiveShadow = true; bowl.add(track);
+  const rim = mesh(new TorusGeometry(0.49, 0.02, 8, 48), 0xE3B23C, 0, 0.132, 0);
   rim.rotation.x = Math.PI / 2; bowl.add(rim);
   const faceTex = canvasTex(512, 512, (c, w) => drawWheel(c, w));
   const face = new Mesh(new CylinderGeometry(FACE_R, FACE_R, 0.03, 37), [mat(0x5B3A26), new MeshLambertMaterial({ map: faceTex.tex }), mat(0x5B3A26)]);
-  face.position.y = 0.1;
-  face.add(mesh(new ConeGeometry(0.06, 0.1, 8), 0xF2C14E, 0, 0.065, 0));
-  const cross = new BoxGeometry(0.16, 0.012, 0.012);
-  face.add(mesh(cross, 0xF2C14E, 0, 0.1, 0), mesh(cross, 0xF2C14E, 0, 0.1, 0).rotateY(Math.PI / 2));
+  face.position.y = 0.09; face.receiveShadow = true;
+  const up = 0.015, R = FACE_R * 0.984, r0 = POCKETS.r0 * R, r1 = POCKETS.r1 * R, FRET_H = 0.03;
+  const frets: Part[] = WHEEL.map((_, k) => {
+    const b = -(k + 0.5) * SEG, rm = (r0 + r1) / 2;
+    return { geo: G.box, at: [rm * Math.cos(b), up + FRET_H / 2, -rm * Math.sin(b)], rot: [0, b, 0], scale: [r1 - r0, FRET_H, 0.007] };
+  });
+  face.add(mesh(bake(frets), 0xE3B23C, 0, 0, 0, true));
+  const wall = mesh(new TorusGeometry(r1, 0.006, 6, 74), 0xE3B23C, 0, up + 0.006, 0);
+  wall.rotation.x = Math.PI / 2; face.add(wall);
+  face.add(mesh(new CylinderGeometry(r0 * 0.6, r0, 0.045, 37), 0xC3875D, 0, up + 0.0225, 0, true));
+  face.add(mesh(new ConeGeometry(0.05, 0.1, 8), 0xF2C14E, 0, up + 0.045 + 0.05, 0, true));
+  const cross = new BoxGeometry(0.15, 0.012, 0.012);
+  face.add(mesh(cross, 0xF2C14E, 0, up + 0.13, 0), mesh(cross, 0xF2C14E, 0, up + 0.13, 0).rotateY(Math.PI / 2));
   bowl.add(face);
-  // the ball goes round on its own pivot, in the bowl but not turning with the face
-  const pivot = new Object3D(); pivot.position.y = 0.11; bowl.add(pivot);
-  const ball = mesh(G.sphere, 0xFFFFFF, 0, 0, 0, true); ball.scale.setScalar(0.02); pivot.add(ball);
+  // the ball goes round on its own pivot, in the bowl but not turning with the face: bright white, so it shows
+  const pivot = new Object3D(); pivot.position.y = 0.1; bowl.add(pivot);
+  const ball = new Mesh(G.sphere, new MeshLambertMaterial({ color: 0xFFFFFF, emissive: 0x8A8A8A }));
+  ball.castShadow = true; ball.scale.setScalar(BALL.r); pivot.add(ball);
   ball.visible = false;
   // the board of last numbers on its post, by the wheel
   const boardTex = canvasTex(BOARD.w, BOARD.h, drawBoard);
@@ -204,9 +228,10 @@ function placeBall(s: Spin, t: number) {
   const behind = -9 * TAU * Math.pow(1 - k, 2);
   table!.pivot.rotation.y = pocket + behind;
   const drop = Math.min(1, Math.max(0, (k - 0.62) / 0.38));
-  const r = ON_RIM + (IN_POCKET - ON_RIM) * Math.min(1, drop * 1.6);
-  const hop = Math.abs(Math.sin(drop * Math.PI * 3)) * 0.035 * (1 - drop);
-  b.position.set(r * FACE_R, drop * 0.012 + hop, 0);
+  const inward = Math.min(1, drop * 1.6);
+  const r = ON_RIM + (IN_POCKET - ON_RIM) * inward;
+  const hop = Math.abs(Math.sin(drop * Math.PI * 3)) * 0.04 * (1 - drop);
+  b.position.set(r * FACE_R, BALL.rim + (BALL.pocket - BALL.rim) * inward + hop, 0);
   return behind;
 }
 
@@ -254,7 +279,7 @@ const pad = gamePad(AT, '🎡', panel, {
   closed() { if (spin) { settle(); settleTweens(); } }, // walked away mid-spin: pay out now
   greet() { table!.voice.say('Welcome aboard!'); },
 }, {
-  at: V(TABLE.x, AT.y + TOP + 0.3, TABLE.z - 0.05), from: V(0, 1.15, 1).normalize(), wide: 1.45, tall: 1.75,
+  at: V(TABLE.x, AT.y + TOP + 0.12, TABLE.z - 0.02), from: V(0, 1.7, 1).normalize(), wide: 1.2, tall: 1.25,
 });
 
 /** Sets the table up on the boat. Returns it and its pad's marking, for the pop-in. */

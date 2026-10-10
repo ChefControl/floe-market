@@ -62,8 +62,11 @@ const BOOTH_SIGN = canvasTex(256, 64, (c, w, h) => {
 // ---------- the quay ----------
 const LAMPS_X = [-10.6, -16.4, -22.2];
 /** The ticket booth and the pile of crates on the quay, which the player walks round. */
-const BOOTH = { x: -12.6, z: -4.85, w: 1.3, d: 0.9 };
-const CRATES = { x: -23.3, z: -4.95, w: 1.9, d: 1.0 };
+/** The bollards along the kerb, every 2.8 m, leaving the gangway's foot clear. */
+const BOLLARDS_X = Array.from({ length: 6 }, (_, i) => QUAY.x0 + 1.0 + i * 2.8)
+  .filter(x => Math.abs(x - (SHIP.x + DECKS.gangway)) > 1.0);
+const BOOTH = { x: -12.6, z: -4.35, w: 1.3, d: 0.9 };
+const CRATES = { x: -23.3, z: -4.45, w: 1.9, d: 1.0 };
 
 /** The quay: a stone wall into the water, plank-topped like the dock, a kerb with bollards, lamps, a booth and crates. */
 function buildQuay() {
@@ -81,7 +84,7 @@ function buildQuay() {
   g.add(mesh(bake(kerb), 0xC9D0D5, 0, 0, 0, true));
   // bollards along the kerb
   const bollards: Part[] = [];
-  for (let x = x0 + 1.0; x < x1 - 0.5; x += 2.8) {
+  for (const x of BOLLARDS_X) {
     bollards.push({ geo: G.cyl, at: [x - cx, FY + 0.25, z0 + 0.17 - cz], scale: [0.13, 0.36, 0.13] });
     bollards.push({ geo: G.cyl, at: [x - cx, FY + 0.45, z0 + 0.17 - cz], scale: [0.18, 0.06, 0.18] });
   }
@@ -271,7 +274,10 @@ function buildGangway() {
   g.add(mesh(bake(rails), GOLD, 0, 0, 0, true));
   const ropes: Part[] = [];
   for (const dx of [-4.2, 5.3]) {
-    const bollard = V(SHIP.x + dx + Math.sign(dx) * 0.9 - x, FY + 0.42, QUAY.z0 + 0.17 - cz);
+    // each rope runs from its cleat out to the bollard nearest a little way past it
+    const want = SHIP.x + dx + Math.sign(dx) * 0.9;
+    const bx = BOLLARDS_X.reduce((a, b) => Math.abs(b - want) < Math.abs(a - want) ? b : a);
+    const bollard = V(bx - x, FY + 0.42, QUAY.z0 + 0.17 - cz);
     const cleat = V(SHIP.x + dx - x, FY + 0.1, SHIP.z + halfBeamAt(dx) - cz);
     ropes.push(strut(bollard, cleat, 0.025));
   }

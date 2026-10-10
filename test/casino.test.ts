@@ -143,7 +143,7 @@ describe('the casino boat', () => {
     const stairs = DECKS.stairs, mid = SHIP.x + (stairs.x0 + stairs.x1) / 2;
     // the quay, the gangway, the foredeck at the foot of the stairs, halfway up them, and the upper deck
     for (const [x, z, y] of [
-      [-12, -6.3, FY], [SHIP.x + DECKS.gangway, -7.6, FY], [SHIP.x + 4.7, SHIP.z, FY],
+      [-12, -5.8, FY], [SHIP.x + DECKS.gangway, -6.9, FY], [SHIP.x + 4.7, SHIP.z, FY],
       [mid, SHIP.z, (FY + UPPER) / 2], [SHIP.x - 1, SHIP.z, UPPER],
     ]) {
       g.placePlayer(x, z);
@@ -161,7 +161,7 @@ describe('the casino boat', () => {
   it('has a ticket booth and crates on the quay that the player walks round', async () => {
     const g = await loadGame({ tiles: bought('roulette') });
     const p = g.player.g.position;
-    g.placePlayer(-12.6, -4.85);
+    g.placePlayer(-12.6, -4.35);
     g.run(0.05);
     expect(Math.abs(p.x + 12.6) > 0.9 || Math.abs(p.z + 4.85) > 0.7).toBe(true);
   });
@@ -186,7 +186,7 @@ describe('the casino boat', () => {
     for (const k of ['roulette', 'blackjack', 'slots'] as const) {
       g.placePlayer(g.layout.GAMES[k].x, g.layout.GAMES[k].z);
       for (let i = 0; i < 60; i++) { p.z -= 0.05; g.run(1 / 60); }
-      expect(p.z).toBeGreaterThan(-11.6);
+      expect(p.z).toBeGreaterThan(-10.5);
     }
   });
 

@@ -133,7 +133,7 @@ export function speaker(on: Object3D, y: number) {
     upd(dt: number) {
       if (!s.visible) return;
       // smaller close up, at a table, so it doesn't fill the view
-      const k = Math.min(1, Math.max(0.45, s.getWorldPosition(tmp).distanceTo(camera.position) / 12));
+      const k = Math.min(1, Math.max(0.35, s.getWorldPosition(tmp).distanceTo(camera.position) / 12));
       s.scale.set(1.7 * k, 0.85 * k, 1);
       left -= dt;
       mat.opacity = Math.max(0, Math.min(1, (SAY_SECS - left) / FADE, left / FADE));

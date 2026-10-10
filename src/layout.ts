@@ -53,13 +53,13 @@ export const kioskBooth = { open: false };
 // ---------- the casino harbor ----------
 /**
  * The casino harbor (casino.ts), in both stages, once the 'roulette' unlock opens it: the dock carries on west along
- * the shore as a wide quay, out past the shoreline into deep water, and a riverboat is moored along its north side,
+ * the shore as a wide quay, its stone wall in line with the dock's edge at the water, and a riverboat is moored along it,
  * bow towards the dock. A gangway takes you aboard onto its foredeck, at the foot of a staircase up to the open
  * upper deck where the games are.
  */
-export const QUAY = { x0: -24.6, x1: -8.0, z0: -7.6, z1: -4.2 };
+export const QUAY = { x0: -24.6, x1: -8.0, z0: -6.5, z1: -3.7 };
 /** The riverboat: its middle, half its length (along x) and half its beam (along z). The bow points east. */
-export const SHIP = { x: -20, z: -10.55, half: 6, beam: 2.8 };
+export const SHIP = { x: -20, z: -9.45, half: 6, beam: 2.8 };
 /** How high the upper deck is; the main deck is level with the quay. */
 export const UPPER = FY + 2.1;
 /** Along the ship, from its middle (+ towards the bow): the upper deck's ends, the staircase (its top at `x0`) and the gangway. */
