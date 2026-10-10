@@ -1,6 +1,6 @@
-// The settings menu, behind the gear in the top corner: signing in for cloud saves (cloud.ts), the sound (audio.ts),
-// the graphics (graphics.ts), how to walk (hint.ts), Restart (main.ts), and last, the Credits & Copyrights for the music
-// and sound. The Sound row opens into the effects, the ambience and the music, each with a mute button and a 0 to 10
+// The settings menu, behind the gear in the top corner, in four groups: You (signing in for cloud saves, cloud.ts, and
+// your look), Sound & graphics (audio.ts, graphics.ts), Game (how to walk, hint.ts, and Restart, main.ts), and About
+// (Ko-fi, and last, the Credits & Copyrights for the music and sound). The Sound row opens into the effects, the ambience and the music, each with a mute button and a 0 to 10
 // slider, big enough for a finger.
 import { every, prefs, setLevel, setMute, type Bus } from './audio';
 import { choose, gfx, onQuality, type Choice } from './graphics';
