@@ -5,8 +5,8 @@
 // loungers. As in the restaurant, the roof lifts away and the walls on the camera's side fade while the player is
 // inside. It's full of life: a row of slot machines along the back wall with guests playing them (now and then one
 // wins), a bar at the stern with a bartender polishing glasses and two guests on stools, a waiter carrying a tray
-// between the bar and the roulette table, and a guest watching from behind the tables who cheers when the player
-// wins, none of them in the player's way. None of it touches the game's luck: the guests run on their own dice.
+// between the bar and the roulette table, and a guest watching the wheel from the end of the roulette table who
+// cheers when the player wins, none of them in the player's way. None of it touches the game's luck: the guests run on their own dice.
 import {
   BoxGeometry, CanvasTexture, CylinderGeometry, Euler, ExtrudeGeometry, Group, Mesh, MeshBasicMaterial,
   MeshLambertMaterial, MeshPhongMaterial, PlaneGeometry, Quaternion, Shape, ShapeGeometry, Vector3,
@@ -341,13 +341,14 @@ function buildCrowd(g: Group) {
   // a waiter carrying a tray of drinks between the stools and the roulette table, from the machines to the windows
   const waiter = new Person(0x24476B, 'waiter');
   waiter.position.set(WAITER.x, UPPER, WAITER.z0);
-  const tray = new Group(); tray.position.set(0.12, 1.35, 0.32); waiter.add(tray);
-  tray.add(mesh(new CylinderGeometry(0.22, 0.22, 0.03, 16), 0xC0C6CC));
-  for (const [dx, dz] of [[-0.08, 0], [0.08, 0.05], [0, -0.1]]) tray.add(mesh(new CylinderGeometry(0.03, 0.025, 0.12, 8), 0xF2C14E, dx, 0.08, dz));
+  // the tray sits flat on the palm of the hand held out in front (the arm's turned to level, so the tray's turned back)
+  const tray = new Group(); tray.position.set(0, -0.33, 0.07); tray.rotation.x = TRAY_ARM; waiter.arms[0].add(tray);
+  tray.add(mesh(new CylinderGeometry(0.18, 0.18, 0.03, 16), 0xC0C6CC));
+  for (const [dx, dz] of [[-0.07, 0], [0.07, 0.04], [0, -0.08]]) tray.add(mesh(new CylinderGeometry(0.03, 0.025, 0.12, 8), 0xF2C14E, dx, 0.08, dz));
   g.add(waiter);
-  // a guest watching from between the tables, across them from the player, who cheers when the player wins
+  // a guest at the end of the roulette table, watching the wheel, who cheers when the player wins
   const fan = guest(7);
-  fan.position.set(FAN.x, UPPER, FAN.z);
+  fan.position.set(FAN.x, UPPER, FAN.z); fan.rotation.y = Math.PI / 2;
   g.add(fan);
   const fanSay = speaker(fan, 2.1);
   const crowdState = { machines, gamblers, bartender, drinkers, waiter, fan, fanSay, clap: 0, walk: { dir: 1, pause: 0 } };
@@ -358,8 +359,10 @@ function buildCrowd(g: Group) {
   return crowdState;
 }
 /** The waiter's beat and the fan's spot: both off the player's way from the door to the games. */
-const WAITER = { x: -5.05, z0: -1.1, z1: 2.4 };
-const FAN = { x: -2.2, z: -1.05 };
+const WAITER = { x: -4.98, z0: -1.1, z1: 2.4 };
+const FAN = { x: -4.42, z: -0.15 };
+/** How far forward the waiter holds the tray arm: level with the shoulder. */
+const TRAY_ARM = 1.6;
 
 // ---------- the salon ----------
 let salon: {
@@ -470,7 +473,7 @@ function updCrowd(c: ReturnType<typeof buildCrowd>, dt: number, clock: number) {
     animPerson(w, true, dt, true);
   }
   w.rotation.y += ((walk.dir > 0 ? 0 : Math.PI) - w.rotation.y) * Math.min(1, dt * 6);
-  w.arms[0].rotation.x = -1.6; w.arms[1].rotation.x = -0.4;
+  w.arms[0].rotation.x = -TRAY_ARM; w.arms[0].rotation.z = 0; w.arms[1].rotation.x = -0.4;
   // the fan by the tables claps along with a win
   animPerson(c.fan, false, dt, false);
   c.fanSay.upd(dt);
