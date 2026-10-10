@@ -43,10 +43,16 @@ export const insuranceCost = (stake: number) => Math.floor(stake / 2);
 export const isBlackjack = (cards: Card[]) => cards.length === 2 && total(cards) === 21;
 export const isBust = (cards: Card[]) => total(cards) > 21;
 
-/** The dealer's turn: draws from `shoe` until on 17 or more (soft 17 included). Returns the cards drawn. */
-export function dealerDraws(dealer: Card[], shoe: Card[]): Card[] {
+/**
+ * The dealer's turn: draws from `shoe` until on 17 or more (soft 17 included). Returns the cards drawn. Given `burns`,
+ * the dealer burns a card into it before each card they draw.
+ */
+export function dealerDraws(dealer: Card[], shoe: Card[], burns?: Card[]): Card[] {
   const drawn: Card[] = [];
-  while (total([...dealer, ...drawn]) < 17) drawn.push(shoe.pop()!);
+  while (total([...dealer, ...drawn]) < 17) {
+    if (burns) burns.push(shoe.pop()!);
+    drawn.push(shoe.pop()!);
+  }
   return drawn;
 }
 

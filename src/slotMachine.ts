@@ -1,6 +1,7 @@
 // The casino boat's slot machines: a bank of three along the back of the deck, the middle one yours to play. Standing
-// on its pad opens the panel: pick a stake and pull. The reels spin and stop left to right, and the machine's own
-// screen shows the same reels. Walking off mid-spin pays out at once.
+// on its pad brings the camera in on its front and opens the controls: pick a stake and pull. The lever goes down,
+// and the reels on the machine's screen spin and stop left to right; what pays is printed on the cabinet under them.
+// Walking off mid-spin pays out at once.
 import { BoxGeometry, CanvasTexture, CylinderGeometry, Group, Mesh, MeshBasicMaterial, PlaneGeometry } from 'three';
 import { every } from './audio';
 import { gamePad, greeting, speaker, Stakes } from './casinoKit';
@@ -9,7 +10,7 @@ import { canvasTex, FONT, G, mesh, rr, scene } from './render';
 import { clack, jackpot, lose, reelStop, win } from './sfx';
 import { line, lineMultiplier, payout, pull, REEL, THREE, TWO_CHERRIES, type Sym } from './slots';
 import { popText } from './ui';
-import { money, type XZ } from './util';
+import { money, V, type XZ } from './util';
 import { addMoney, wallet } from './wallet';
 
 const AT = GAMES.slots;
@@ -64,6 +65,8 @@ function cabinet(x: number, screen: MeshBasicMaterial) {
   g.add(mesh(new BoxGeometry(0.74, 0.3, 0.5), 0xE3B23C, 0, 1.6, 0, true));
   const sign = new Mesh(new PlaneGeometry(0.66, 0.24), new MeshBasicMaterial({ map: SIGN.tex }));
   sign.position.set(0, 1.6, 0.255); g.add(sign);
+  const pays = new Mesh(new PlaneGeometry(0.6, 0.22), new MeshBasicMaterial({ map: PAYS.tex }));
+  pays.position.set(0, 0.77, 0.278); g.add(pays);
   g.add(mesh(new CylinderGeometry(0.06, 0.06, 0.1, 10), 0x8A949C, 0.39, 1.0, 0, true).rotateZ(Math.PI / 2));
   const lever = new Group(); lever.position.set(0.44, 1.0, 0); g.add(lever);
   lever.add(mesh(new CylinderGeometry(0.022, 0.022, 0.42, 8), 0xB9C2C9, 0, 0.21, 0, true));
@@ -76,6 +79,21 @@ const SIGN = canvasTex(256, 96, (c, w, h) => {
   for (let i = 0; i < 16; i++) { c.beginPath(); c.arc(8 + i * 16, 7, 4, 0, Math.PI * 2); c.arc(8 + i * 16, h - 7, 4, 0, Math.PI * 2); c.fill(); }
   c.font = `800 58px ${FONT}`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillStyle = '#FF6B4A';
   c.fillText('7 7 7', w / 2, h / 2 + 4);
+});
+
+/** What pays, from the rules, for the glass under the reels. */
+const PAYTABLE = [...Object.entries(THREE).map(([s, m]) => [[s, s, s], m] as const), [['🍒', '🍒'], TWO_CHERRIES] as const];
+const PAYS = canvasTex(330, 120, (c, w, h) => {
+  c.fillStyle = '#2A0F16'; c.fillRect(0, 0, w, h);
+  c.strokeStyle = '#E3B23C'; c.lineWidth = 4; c.strokeRect(2, 2, w - 4, h - 4);
+  c.textBaseline = 'middle';
+  PAYTABLE.forEach(([syms, m], i) => {
+    const x = 12 + (i % 3) * 106, y = 22 + Math.floor(i / 3) * 38;
+    c.font = '17px serif'; c.textAlign = 'left'; c.fillStyle = '#fff';
+    c.fillText(syms.join(''), x, y + 2);
+    c.font = `800 18px ${FONT}`; c.fillStyle = '#F2C14E'; c.textAlign = 'right';
+    c.fillText(`×${m}`, x + 98, y + 2);
+  });
 });
 
 function buildBank() {
@@ -100,11 +118,11 @@ let lastSym = [0, 0, 0];
 const $ = (id: string) => document.getElementById(id)!;
 const panel = $('slots'), msg = $('slotsMsg');
 const pullBtn = $('pull') as HTMLButtonElement;
-const reels = { canvas: $('reels') as HTMLCanvasElement, ctx: ($('reels') as HTMLCanvasElement).getContext('2d')! };
+const reels = canvasTex(W, H, () => {});
 const stakes = new Stakes(panel.querySelector<HTMLElement>('.stakes')!, () => !!spin, () => refresh());
 
-// what pays, from the rules
-$('pays').replaceChildren(...[...Object.entries(THREE).map(([s, m]) => [[s, s, s], m] as const), [['🍒', '🍒'], TWO_CHERRIES] as const]
+// what pays, for screen readers (it's on the machine's glass)
+$('pays').replaceChildren(...PAYTABLE
   .map(([syms, m]) => {
     const el = document.createElement('span');
     el.textContent = `${syms.join('')} ×${m}`;
@@ -119,7 +137,7 @@ function redraw(lit = false) {
 function refresh() {
   stakes.refresh(!!spin);
   pullBtn.disabled = !!spin || !stakes.ok;
-  pullBtn.textContent = spin ? 'Spinning…' : `Pull: ${money(stakes.value)}`;
+  pullBtn.textContent = spin ? 'Spinning…' : `Pull · ${money(stakes.value)}`;
 }
 
 function startSpin() {
@@ -168,6 +186,8 @@ const pad = gamePad(AT, '🎰', panel, {
   },
   closed() { if (spin) settle(); },
   greet() {},
+}, {
+  at: V(BANK.x + 0.08, AT.y + 1.1, BANK.z + 0.3), from: V(0, 0.4, 1).normalize(), wide: 1.0, tall: 1.35,
 });
 
 /** The 'slots' unlock: puts the bank of machines on the boat. Returns it for the pop-in. */

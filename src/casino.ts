@@ -9,7 +9,7 @@ import {
   PlaneGeometry, Quaternion, Shape, ShapeGeometry, TorusGeometry, Vector3, type Object3D,
 } from 'three';
 import { collideBlackjack, updBlackjack } from './blackjackTable';
-import { visits } from './casinoKit';
+import { updTweens, visits } from './casinoKit';
 import { aboard, casinoBoat, DECKS, pushOutOfBox, QUAY, SHIP, UPPER } from './layout';
 import { player } from './player';
 import { popIn } from './pop';
@@ -242,7 +242,7 @@ function buildShip() {
     const end = V(x, UPPER + 3.5, stackZ);
     for (let i = 1; i < 14; i++) {
       const k = i / 14, p = top.clone().lerp(end, k);
-      p.y -= Math.sin(Math.PI * k) * 0.7;
+      p.y -= Math.sin(Math.PI * k) * 0.35;
       rail.bulbs.push({ geo: G.sphere, at: [p.x, p.y, p.z], scale: [0.07, 0.07, 0.07] });
     }
   }
@@ -341,6 +341,7 @@ export function updCasino(dt: number) {
   ship.flag.rotation.y = Math.sin(clock * 2.2) * 0.15;
   if (glance) updGlance(dt);
   updVisit();
+  updTweens(dt);
   updRoulette(dt);
   updBlackjack(dt);
   updSlots(dt);
