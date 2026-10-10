@@ -1,17 +1,120 @@
 // What the casino boat's games share: a pad that opens the game's controls while you stand on it and brings the
 // camera in close over the table, the stake chips (buttons, and stacks of them on the felt), little moves for the
 // cards, chips and ball, total badges, and the speech bubbles the croupier, the dealer and the slot machine's sign say
-// things in.
+// things in. And how the boat is drawn: off the game's luck, each part twice, plain on Low graphics and in the kit's
+// rounded shapes on High (graphics.ts).
 import {
-  CylinderGeometry, Group, MeshLambertMaterial, Sprite, SpriteMaterial, Vector3, type Object3D,
+  BufferAttribute, BufferGeometry, CylinderGeometry, Euler, Group, type Material, type Matrix4,
+  MeshBasicMaterial, MeshLambertMaterial, MeshPhongMaterial, Quaternion, Sprite, SpriteMaterial, Vector3, type Object3D,
 } from 'three';
 import { decal, drawPad } from './decals';
+import { baked, Build, detail, dice, K, pack, quietly, rbox, tube } from './kit';
 import { stage } from './layout';
 import { player } from './player';
-import { camera, canvasTex, FONT, mesh, rr } from './render';
+import { camera, canvasTex, FONT, G, mesh, painted, rr } from './render';
 import { besideView, tableRoom, topOfView } from './ui';
 import { d2xz, FY, type XZ } from './util';
 import { wallet } from './wallet';
+
+// ---------- off the game's luck ----------
+/**
+ * three.js names everything it makes with Math.random, the game's luck (kit.ts). Everything on the boat is made with
+ * its own dice in its place instead: what's made when the game loads, the boat when it's bought or a save with it is
+ * loaded, and the cards and chips as they're played. So none of it moves the orders, the fish or the customers.
+ */
+const boatDice = dice(0xB0A7);
+/** Runs `f` with the boat's own dice in Math.random's place. */
+export const offLuck = <T>(f: () => T) => quietly(f, boatDice);
+
+// ---------- drawing the boat ----------
+type V3 = [x: number, y: number, z: number];
+const UP_AXIS = new Vector3(0, 1, 0), turn = new Quaternion(), along = new Vector3(), tilt = new Euler();
+const cyls = new Map<string, BufferGeometry>();
+/**
+ * Draws part of the boat for one graphics setting. Low's is plain, in the old way: boxes and cylinders in flat
+ * colours, merged as they are. High's is the kit's (kit.ts): bevelled boxes, baked with a plainer copy for its shadow.
+ * The same calls put the same things in the same places on both, so the layout's the same; what's drawn on High only
+ * goes under `if (pen.high)`.
+ */
+export class Pen {
+  readonly b = new Build();
+  constructor(readonly high: boolean) {}
+  /** A box `w` by `h` by `d` with its middle at (x, y, z), turned by `rot`. On High its edges are bevelled `r` in. */
+  box(w: number, h: number, d: number, c: number, x: number, y: number, z: number, rot?: V3 | null, r = 0.02) {
+    if (this.high) this.b.add(rbox(w, h, d, r), c, x, y, z, rot);
+    else this.b.add(G.box, c, x, y, z, rot, [w, h, d]);
+    return this;
+  }
+  /** A box with square edges on both: a pane of glass, a line of light. */
+  flat(w: number, h: number, d: number, c: number, x: number, y: number, z: number, rot?: V3 | null) {
+    this.b.add(G.box, c, x, y, z, rot, [w, h, d]);
+    return this;
+  }
+  /** A post `h` tall with its middle at (x, y, z), `top` and `bottom` its radii (0 for a cone), `sides` round. */
+  cyl(top: number, bottom: number, h: number, c: number, x: number, y: number, z: number, rot?: V3 | null, sides = 10) {
+    const k = `${top},${bottom},${h},${sides}`;
+    let g = cyls.get(k);
+    if (!g) cyls.set(k, g = tube(top, bottom, h, sides));
+    this.b.add(g, c, x, y, z, rot);
+    return this;
+  }
+  /** A rod of radius `r` from `a` to `b`: a rail, a rope, a strut. */
+  rod(a: Vector3, b: Vector3, r: number, c: number, sides = 8) {
+    const len = along.subVectors(b, a).length();
+    tilt.setFromQuaternion(turn.setFromUnitVectors(UP_AXIS, along.normalize()));
+    return this.cyl(r, r, len, c, (a.x + b.x) / 2, (a.y + b.y) / 2, (a.z + b.z) / 2, [tilt.x, tilt.y, tilt.z], sides);
+  }
+  /** A ball `r` across (or `r` each way). */
+  ball(r: number | V3, c: number, x: number, y: number, z: number) {
+    this.b.add(K.ball, c, x, y, z, null, r);
+    return this;
+  }
+  /** Any shape, drawn the same on both. */
+  add(geo: BufferGeometry, c: number, x: number, y: number, z: number, rot?: V3 | null, scale?: V3 | number) {
+    this.b.add(geo, c, x, y, z, rot, scale);
+    return this;
+  }
+  /** Another pen's drawing, moved into place by `m`. */
+  addAll(p: Pen, m: Matrix4) {
+    this.b.addAll(p.b, m);
+    return this;
+  }
+  /** All of it as one mesh in `material` (any number of colours, one draw call), casting shadows if `cast`. */
+  mesh(cast = true, material: Material = painted) {
+    if (this.high) return baked(this.b.pieces, cast, material);
+    // Low's in plain floats, as the old things are (render.ts bake), not the kit's bytes
+    const g = pack(this.b.pieces), n = g.attributes.normal.array, c = g.attributes.color.array;
+    g.setAttribute('normal', new BufferAttribute(Float32Array.from(n, v => v / 127), 3));
+    g.setAttribute('color', new BufferAttribute(Float32Array.from(c, v => v / 255), 3));
+    return mesh(g, material, 0, 0, 0, cast);
+  }
+}
+/**
+ * Draws `draw` into `g` both ways, each shown on its own setting (kit.ts detail): Low's plain version and High's.
+ * Returns the two meshes (null where a setting draws nothing).
+ */
+export function both(g: Object3D, draw: (p: Pen) => void, cast = true, material?: Material) {
+  const [low, high] = [false, true].map(h => {
+    const p = new Pen(h);
+    draw(p);
+    if (p.b.empty) return null;
+    const m = p.mesh(cast, material);
+    g.add(m);
+    return m;
+  });
+  detail(low, high);
+  return [low, high];
+}
+/** A group in `g` that shows on High only: for the extras that move (the bulbs, the jacuzzi's foam). */
+export function highOnly(g: Object3D) {
+  const h = offLuck(() => new Group());
+  g.add(h);
+  detail(null, h);
+  return h;
+}
+/** The boat's lit things (lanterns, LED lines) and its dark glass, painted, so each bakes into one mesh. */
+export const LIT = offLuck(() => new MeshBasicMaterial({ vertexColors: true }));
+export const DARK_GLASS = offLuck(() => new MeshPhongMaterial({ vertexColors: true, specular: 0x9FB4C4, shininess: 70 }));
 
 /** How far from a pad's centre the player can stand and still be playing. */
 const REACH = 0.95;
@@ -33,7 +136,7 @@ export interface Seat { at: Vector3; from: Vector3; wide: number; tall: number }
 export function gamePad(
   at: XZ & { y?: number }, icon: string, panel: HTMLElement, h: { opened(): void; closed(): void; greet(): void }, view: Seat,
 ) {
-  const d = decal(1.9, (c, w, ht) => drawPad(c, w, ht, icon));
+  const d = offLuck(() => decal(1.9, (c, w, ht) => drawPad(c, w, ht, icon)));
   d.mesh.position.set(at.x, (at.y ?? FY) + 0.01, at.z);
   d.mesh.visible = false;
   let enabled = false, open = false, greeted = -1;
@@ -116,9 +219,9 @@ function drawSay(c: CanvasRenderingContext2D, text: string) {
 const tmp = new Vector3();
 /** Someone (or something) on the boat that says things in a bubble `y` above `on`. */
 export function speaker(on: Object3D, y: number) {
-  const t = canvasTex(W, H, () => {});
-  const mat = new SpriteMaterial({ map: t.tex, depthTest: false, transparent: true, opacity: 0 });
-  const s = new Sprite(mat);
+  const t = offLuck(() => canvasTex(W, H, () => {}));
+  const mat = offLuck(() => new SpriteMaterial({ map: t.tex, depthTest: false, transparent: true, opacity: 0 }));
+  const s = offLuck(() => new Sprite(mat));
   s.scale.set(1.7, 0.85, 1); s.position.set(0, y, 0); s.renderOrder = 5; s.visible = false;
   on.add(s);
   let left = 0;
@@ -229,9 +332,9 @@ export function settleTweens() {
 // ---------- chips on the felt ----------
 const CHIP_COLORS = [0xC8323F, 0x22874A, 0x1F2A33, 0x6A3FA0];
 const CHIP_R = 0.055, CHIP_H = 0.013;
-const chipGeo = new CylinderGeometry(CHIP_R, CHIP_R, CHIP_H, 20);
+const chipGeo = offLuck(() => new CylinderGeometry(CHIP_R, CHIP_R, CHIP_H, 20));
 const chipMats = new Map<number, MeshLambertMaterial[]>();
-/** A chip's look: its colour, with white marks round the edge and a dashed ring on top. */
+/** A chip's look: its colour, with white marks round the edge and a dashed ring on top (its side, then its faces). */
 function chipMat(color: number) {
   let m = chipMats.get(color);
   if (m) return m;
@@ -246,10 +349,34 @@ function chipMat(color: number) {
     c.strokeStyle = '#FFF8EC'; c.lineWidth = 5; c.setLineDash([7, 6]);
     c.beginPath(); c.arc(w / 2, w / 2, w * 0.36, 0, Math.PI * 2); c.stroke();
   });
-  const face = new MeshLambertMaterial({ map: top.tex });
-  m = [new MeshLambertMaterial({ map: side.tex }), face, face];
+  m = [new MeshLambertMaterial({ map: side.tex }), new MeshLambertMaterial({ map: top.tex })];
   chipMats.set(color, m);
   return m;
+}
+const stacks = new Map<number, BufferGeometry>();
+/**
+ * `n` chips in a stack, each turned a little from the one under it and every other one nudged aside, as one shape:
+ * all their sides first and then all their faces, so the stack is two draw calls however tall it is.
+ */
+function stackGeo(n: number) {
+  let g = stacks.get(n);
+  if (g) return g;
+  const sides = chipGeo.groups[0].count, per = chipGeo.index!.count;
+  const pos: number[] = [], nor: number[] = [], uv: number[] = [], idx: number[] = [];
+  for (let j = 0; j < n; j++) {
+    const c = chipGeo.clone().rotateY(j * 0.7).translate((j % 2) * 0.004, CHIP_H / 2 + j * CHIP_H, 0);
+    pos.push(...c.attributes.position.array); nor.push(...c.attributes.normal.array); uv.push(...c.attributes.uv.array);
+  }
+  const verts = chipGeo.attributes.position.count, I = chipGeo.index!.array;
+  for (const [from, to] of [[0, sides], [sides, per]]) for (let j = 0; j < n; j++) for (let k = from; k < to; k++) idx.push(I[k] + j * verts);
+  g = new BufferGeometry();
+  g.setAttribute('position', new BufferAttribute(new Float32Array(pos), 3));
+  g.setAttribute('normal', new BufferAttribute(new Float32Array(nor), 3));
+  g.setAttribute('uv', new BufferAttribute(new Float32Array(uv), 2));
+  g.setIndex(idx);
+  g.clearGroups(); g.addGroup(0, sides * n, 0); g.addGroup(sides * n, (per - sides) * n, 1);
+  stacks.set(n, g);
+  return g;
 }
 /** A stack of chips for `amount`: the biggest of the stage's chips that fits, as many as make it up (up to 12). */
 export function chipStack(amount: number) {
@@ -257,21 +384,14 @@ export function chipStack(amount: number) {
   let i = vals.length - 1;
   while (i > 0 && vals[i] > amount) i--;
   const n = Math.max(1, Math.min(12, Math.round(amount / vals[i])));
-  const g = new Group();
-  for (let j = 0; j < n; j++) {
-    const c = mesh(chipGeo, chipMat(CHIP_COLORS[i]), (j % 2) * 0.004, CHIP_H / 2 + j * CHIP_H, 0, true);
-    c.rotation.y = j * 0.7;
-    g.add(c);
-  }
-  return g;
+  return offLuck(() => new Group().add(mesh(stackGeo(n), chipMat(CHIP_COLORS[i]), 0, 0, 0, true)));
 }
 
 // ---------- badges ----------
 /** A small dark pill with a number in it, floating over the felt: a hand's total. */
 export function badge(on: Object3D) {
-  const t = canvasTex(128, 64, () => {});
-  const m = new SpriteMaterial({ map: t.tex, depthTest: false, transparent: true });
-  const s = new Sprite(m);
+  const t = offLuck(() => canvasTex(128, 64, () => {}));
+  const s = offLuck(() => new Sprite(new SpriteMaterial({ map: t.tex, depthTest: false, transparent: true })));
   s.scale.set(0.2, 0.1, 1); s.renderOrder = 4; s.visible = false;
   on.add(s);
   return {

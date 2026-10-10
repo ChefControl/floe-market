@@ -4,7 +4,7 @@ import {
   BoxGeometry, Group, type Material, Mesh, MeshBasicMaterial, MeshLambertMaterial, type Object3D, PlaneGeometry,
   RepeatWrapping, type Vector3,
 } from 'three';
-import { at as atXZ, Build, detail, jitter, quietly, seasonLayer } from './kit';
+import { at as atXZ, Build, detail, dice, jitter, type Piece, quietly, seasonLayer } from './kit';
 import { HOUSE_PATH_Z, QUAY } from './layout';
 import {
   bollard, deckBoards, fenceLog, FLOES, lifeRing, logSnow, piling, pilingSnow, ropeCoil, scatter,
@@ -17,9 +17,12 @@ import { FY, rand } from './util';
 
 /** Snow caps show in winter and melt away in spring; leaves lie in autumn, petals in spring. */
 const SNOWY: Swatch = [1, 0, 0, 0], FALLEN: Swatch = [0, 0, 0, 1], PETALS: Swatch = [0, 1, 0, 0];
-/** Adds what's drawn only on High (graphics.ts) to `to`, built off the game's luck, with its Low version (if any). */
-function high(to: Object3D, build: () => Object3D, low?: Object3D | null) {
-  const g = quietly(build);
+/**
+ * Adds what's drawn only on High (graphics.ts) to `to`, built off the game's luck (on the scenery's dice, or `d`), with
+ * its Low version (if any).
+ */
+function high(to: Object3D, build: () => Object3D, low?: Object3D | null, d?: () => number) {
+  const g = quietly(build, d);
   to.add(g);
   detail(low ?? null, g);
   return g;
@@ -170,8 +173,15 @@ high(scene, () => {
 // Low: plain logs. High: rounded logs, their end grain on top (snow on it in winter), lashed together with rope.
 /** Fence logs that get removed when the sled window opens. */
 export const gapLogs: Object3D[] = [];
-/** Fence logs at the north end of the west fence that make way for the casino harbor's quay. */
-export const quayLogs: Object3D[] = [];
+/**
+ * Where the casino harbor's quay comes ashore (casino.ts): a gap in the west fence and no trees or bushes. Until the
+ * casino's bought the fence's logs and the trees there stand as they always have, baked in with the rest; then their
+ * meshes are made again without them (`openQuayGap`).
+ */
+const onQuay = (x: number, z: number) => x > QUAY.x0 - 1.5 && x < -7 && z < QUAY.z1 + 1.2;
+const inGap = (x: number, z: number) => x < -7.5 && z > QUAY.z0 && z < QUAY.z1 + 0.15;
+/** The gap's logs in the fence's Low parts and its High pieces, the fence's High builds, and its High group. */
+const quay = { parts: new Set<Part>(), pieces: new Set<Piece>(), wood: new Build(), snow: new Build(), high: null as Object3D | null };
 /** Fence south of the restaurant's line: gone in stage 2. Logs stand on the deck, so the group shrinks into it. */
 const fence1 = new Group();
 scene.add(fence1);
@@ -182,17 +192,19 @@ const hiLogs: { x: number; z: number; h: number; into: Part[] | Object3D; along:
 function log(x: number, z: number, into: Part[] | null, along: 'x' | 'z') {
   const h = rand(.78, .98);
   const at: Part['at'] = [x, FY + h / 2 - 0.05, z];
-  if (into) { into.push({ geo: G.log, at, scale: [1, h, 1] }); hiLogs.push({ x, z, h, into, along }); return null; }
+  if (into) {
+    const part: Part = { geo: G.log, at, scale: [1, h, 1] };
+    into.push(part); hiLogs.push({ x, z, h, into, along });
+    if (inGap(x, z)) quay.parts.add(part);
+    return null;
+  }
   const g = quietly(() => new Group()); scene.add(g);
   const l = mesh(G.log, 0xB0724A, ...at, true);
   l.scale.y = h; g.add(l);
   hiLogs.push({ x, z, h, into: g, along });
   return g;
 }
-for (let z = -6.2; z <= 8; z += 0.5) {
-  if (z > QUAY.z0 && z < QUAY.z1 + 0.15) quayLogs.push(log(-7.85, z, null, 'z')!);
-  else log(-7.85, z, z > 1.3 ? logs1 : logs, 'z');
-}
+for (let z = -6.2; z <= 8; z += 0.5) log(-7.85, z, z > 1.3 ? logs1 : logs, 'z');
 for (let x = -7.35; x <= 7.9; x += 0.5) {
   if (x > 1.7 && x < 4.3) continue;
   log(x, 7.85, logs1, 'x');
@@ -213,19 +225,23 @@ fence1.add(lowFence1);
     const n = hiLogs[i + 1], next = n && n.into === l.into && n.along === l.along && Math.hypot(n.x - l.x, n.z - l.z) < 0.6;
     const m = atXZ(l.x, FY - 0.05, l.z);
     if (!wood.has(l.into)) { wood.set(l.into, new Build()); snow.set(l.into, new Build()); }
+    const w = wood.get(l.into)!, sn = snow.get(l.into)!, w0 = w.pieces.length, s0 = sn.pieces.length;
     quietly(() => {
-      wood.get(l.into)!.addAll(fenceLog(l.h, next ? 0.5 : 0, l.along), m);
-      snow.get(l.into)!.addAll(logSnow(l.h), m);
+      w.addAll(fenceLog(l.h, next ? 0.5 : 0, l.along), m);
+      sn.addAll(logSnow(l.h), m);
     });
+    if (inGap(l.x, l.z)) for (const p of [...w.pieces.slice(w0), ...sn.pieces.slice(s0)]) quay.pieces.add(p);
   });
+  quay.wood = wood.get(logs)!; quay.snow = snow.get(logs)!;
   const lowOf = (into: Part[] | Object3D) => into === logs ? lowFence : into === logs1 ? lowFence1 : (into as Object3D).children[0];
   const parentOf = (into: Part[] | Object3D) => into === logs ? scene : into === logs1 ? fence1 : into as Object3D;
   for (const [into, b] of wood) {
-    high(parentOf(into), () => {
+    const g = high(parentOf(into), () => {
       const g = new Group();
       g.add(b.mesh(), seasonLayer(snow.get(into)!.mesh(false), SNOWY));
       return g;
     }, lowOf(into));
+    if (into === logs) quay.high = g;
   }
 }
 
@@ -291,36 +307,64 @@ function addMound(b: Batch, x: number, z: number) {
  */
 /** How big a patch of High trees is baked together (metres each way). */
 const TREE_PATCH = 14;
+const patchOf = (p: Part) => `${Math.floor(p.at[0] / TREE_PATCH)},${Math.floor(p.at[2] / TREE_PATCH)}`;
+/** The High trees of `b` in each patch (or in the patches `only`), one mesh per material, keyed by patch. */
+function highTrees(b: Batch, only?: Set<string>) {
+  const patches = new Map<string, { trunks: Build; needles: Build[]; drift: Build; bushes: Build }>();
+  const patch = (p: Part) => {
+    const k = patchOf(p);
+    let t = patches.get(k);
+    if (!t) patches.set(k, t = { trunks: new Build(), needles: [new Build(), new Build()], drift: new Build(), bushes: new Build() });
+    return t;
+  };
+  const mine = (p: Part) => !only || only.has(patchOf(p));
+  for (const p of b[0]) if (mine(p)) pineTrunk(patch(p).trunks, p);
+  for (const i of [1, 2]) for (const p of b[i]) if (mine(p)) { const t = patch(p); pineTier(t.needles[i - 1], t.drift, p, i === 2); }
+  for (const p of b[4]) if (mine(p)) bush(patch(p).bushes, p);
+  const out = new Map<string, Mesh[]>();
+  for (const [k, { trunks, needles, drift, bushes }] of patches) {
+    const ms: Mesh[] = [];
+    if (!trunks.empty) ms.push(trunks.mesh());
+    needles.forEach((n, i) => { if (!n.empty) ms.push(n.mesh(true, TREE_MATS[1 + i] as MeshLambertMaterial)); });
+    if (!drift.empty) ms.push(drift.mesh(false, TREE_MATS[3] as MeshLambertMaterial));
+    if (!bushes.empty) ms.push(bushes.mesh(false, TREE_MATS[4] as MeshLambertMaterial));
+    out.set(k, ms);
+  }
+  return out;
+}
+/** What clears the trees and bushes off the casino harbor's quay, for each batch that has any there. */
+const quayTrees: (() => void)[] = [];
 function batchGroup(b: Batch) {
-  const g = new Group();
+  const g = new Group(), lows: (Mesh | null)[] = [];
   b.forEach((parts, i) => {
+    lows.push(null);
     if (!parts.length) return;
-    const m = mesh(bake(parts), TREE_MATS[i], 0, 0, 0, i < 3);
+    const m = lows[i] = mesh(bake(parts), TREE_MATS[i], 0, 0, 0, i < 3);
     g.add(m);
   });
   const low = quietly(() => new Group());
   low.add(...g.children);
   g.add(low);
-  high(g, () => {
-    // baked in patches of ground, so the ones off screen (and outside the sun's shadow) aren't drawn at all
-    const hi = new Group(), patches = new Map<string, { trunks: Build; needles: Build[]; drift: Build; bushes: Build }>();
-    const patch = (p: Part) => {
-      const k = `${Math.floor(p.at[0] / TREE_PATCH)},${Math.floor(p.at[2] / TREE_PATCH)}`;
-      let t = patches.get(k);
-      if (!t) patches.set(k, t = { trunks: new Build(), needles: [new Build(), new Build()], drift: new Build(), bushes: new Build() });
-      return t;
-    };
-    for (const p of b[0]) pineTrunk(patch(p).trunks, p);
-    for (const i of [1, 2]) for (const p of b[i]) { const t = patch(p); pineTier(t.needles[i - 1], t.drift, p, i === 2); }
-    for (const p of b[4]) bush(patch(p).bushes, p);
-    for (const { trunks, needles, drift, bushes } of patches.values()) {
-      if (!trunks.empty) hi.add(trunks.mesh());
-      needles.forEach((n, i) => { if (!n.empty) hi.add(n.mesh(true, TREE_MATS[1 + i] as MeshLambertMaterial)); });
-      if (!drift.empty) hi.add(drift.mesh(false, TREE_MATS[3] as MeshLambertMaterial));
-      if (!bushes.empty) hi.add(bushes.mesh(false, TREE_MATS[4] as MeshLambertMaterial));
-    }
-    return hi;
+  // baked in patches of ground, so the ones off screen (and outside the sun's shadow) aren't drawn at all
+  let patches = new Map<string, Mesh[]>();
+  const hi = high(g, () => {
+    patches = highTrees(b);
+    return new Group().add(...[...patches.values()].flat());
   }, low);
+  const onIt = (p: Part) => onQuay(p.at[0], p.at[2]);
+  if (b.some(parts => parts.some(onIt))) {
+    // made again without them: each mesh with any of them in, Low's and High's, in its place in the same group
+    quayTrees.push(() => {
+      const left = b.map(parts => parts.filter(p => !onIt(p))), only = new Set(b.flat().filter(onIt).map(patchOf));
+      b.forEach((parts, i) => {
+        if (!parts.some(onIt)) return;
+        lows[i]!.removeFromParent();
+        if (left[i].length) low.add(mesh(bake(left[i]), TREE_MATS[i], 0, 0, 0, i < 3));
+      });
+      for (const k of only) for (const m of patches.get(k) ?? []) m.removeFromParent();
+      for (const ms of highTrees(left, only).values()) if (ms.length) hi.add(...ms);
+    });
+  }
   return g;
 }
 
@@ -333,12 +377,9 @@ export function treeGroup(spots: [x: number, z: number, s: number, r?: number][]
 
 /** Neither stage has trees on the path to her house or round her yard. */
 const housePath = (x: number, z: number) => x > 8.2 && z > HOUSE_PATH_Z - 4 && z < HOUSE_PATH_Z + 4.5;
-/** Neither stage has trees on the casino harbor's quay along the shore. */
-const quay = (x: number, z: number) => x > QUAY.x0 - 1.5 && x < -7 && z < QUAY.z1 + 1.2;
 /** Stage 1 keeps trees off the deck, the road, the customers' path and the water. */
 function treeOK1(x: number, z: number) {
   if (x > -8.8 && x < 8.8 && z > -7.2 && z < 8.8) return false;
-  if (quay(x, z)) return false;
   if (x > 8.2 && x < 11.4) return false;
   if (housePath(x, z)) return false;
   if (x > -5 && x < 8.6 && z > 8.4 && z < 20) return false;
@@ -347,7 +388,6 @@ function treeOK1(x: number, z: number) {
 /** Stage 2 also keeps them off the restaurant, its garden, the kiosk's road, the diners' path and the farm. */
 function treeOK2(x: number, z: number) {
   if (x > -8.8 && x < 8.8 && z > -7.2 && z < 2) return false;
-  if (quay(x, z)) return false;
   if (housePath(x, z)) return false;
   if (x > -11.6 && x < 13.2 && z > 0.5 && z < 23.4) return false;
   if (x > 12.6 && x < 15.8) return false;
@@ -384,8 +424,28 @@ export function swapDecks() {
   deck2.visible = true;
 }
 
-/** The casino harbor's gap in the west fence, onto its quay. */
-export const openQuayGap = () => quayLogs.forEach(l => { l.visible = false; });
+/**
+ * Clears the way for the casino harbor's quay (casino.ts): the west fence's mesh (Low's and High's) is taken down and
+ * put up again with a gap where the quay comes ashore, and so is any batch of trees with trees or bushes on it. All
+ * made on dice of their own, so it doesn't touch the game's luck or the scenery's.
+ */
+export function openQuayGap() {
+  if (!quay.high) return;
+  const was = quay.high, d = dice(0x9A7);
+  quay.high = null;
+  quietly(() => {
+    lowFence.removeFromParent(); was.removeFromParent();
+    const low = mesh(bake(logs.filter(p => !quay.parts.has(p))), 0xB0724A, 0, 0, 0, true);
+    scene.add(low);
+    const keep = (b: Build) => { const k = new Build(); k.pieces.push(...b.pieces.filter(p => !quay.pieces.has(p))); return k; };
+    high(scene, () => {
+      const g = new Group();
+      g.add(keep(quay.wood).mesh(), seasonLayer(keep(quay.snow).mesh(false), SNOWY));
+      return g;
+    }, low, d);
+    quayTrees.forEach(f => f());
+  }, d);
+}
 
 /** Back to a full fence on the east side: the sled window's gap closes in stage 2. */
 export const closeGap = () => gapLogs.forEach(l => { l.visible = true; });

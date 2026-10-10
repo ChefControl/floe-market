@@ -2,11 +2,11 @@
 // on its pad brings the camera in on its front and opens the controls: pick a stake and pull. The lever goes down,
 // and the reels on the machine's screen spin and stop left to right; what pays is printed on the cabinet under them.
 // Walking off mid-spin pays out at once.
-import { BoxGeometry, CanvasTexture, CylinderGeometry, Group, Mesh, MeshBasicMaterial, PlaneGeometry } from 'three';
+import { CanvasTexture, Group, Mesh, MeshBasicMaterial, PlaneGeometry } from 'three';
 import { every } from './audio';
-import { cheer, gamePad, greeting, speaker, Stakes } from './casinoKit';
+import { both, cheer, gamePad, greeting, offLuck, speaker, Stakes } from './casinoKit';
 import { GAMES, pushOutOfBox } from './layout';
-import { bake, bakePainted, canvasTex, FONT, G, mesh, painted, rr, scene, type Part } from './render';
+import { bake, canvasTex, FONT, rr, scene, type Part } from './render';
 import { clack, jackpot, lose, reelStop, win } from './sfx';
 import { line, lineMultiplier, payout, pull, REEL, THREE, TWO_CHERRIES, type Sym } from './slots';
 import { popText } from './ui';
@@ -56,64 +56,52 @@ export function drawReels(c: CanvasRenderingContext2D, pos: readonly number[], l
 }
 
 // ---------- 3D machines ----------
-/** A cabinet with `screen` on its front, a lit sign on top and a lever on its right, standing on the floor facing +z.
- *  Returns it and its lever. */
-export function slotCabinet(screen: MeshBasicMaterial) {
-  const g = new Group();
-  g.add(mesh(new BoxGeometry(0.72, 0.5, 0.6), 0x3A1A22, 0, 0.25, 0, true));
-  g.add(mesh(new BoxGeometry(0.7, 0.95, 0.55), 0xC0392B, 0, 0.97, 0, true));
-  g.add(mesh(new BoxGeometry(0.6, 0.08, 0.2), 0xE3B23C, 0, 0.62, 0.32, true));
-  const scr = new Mesh(new PlaneGeometry(0.54, 0.36), screen);
-  scr.position.set(0, 1.08, 0.28); g.add(scr);
-  g.add(mesh(new BoxGeometry(0.74, 0.3, 0.5), 0xE3B23C, 0, 1.6, 0, true));
-  const sign = new Mesh(new PlaneGeometry(0.66, 0.24), new MeshBasicMaterial({ map: SIGN.tex }));
-  sign.position.set(0, 1.6, 0.255); g.add(sign);
-  const pays = new Mesh(new PlaneGeometry(0.6, 0.22), new MeshBasicMaterial({ map: PAYS.tex }));
-  pays.position.set(0, 0.77, 0.278); g.add(pays);
-  g.add(mesh(new CylinderGeometry(0.06, 0.06, 0.1, 10), 0x8A949C, 0.39, 1.0, 0, true).rotateZ(Math.PI / 2));
-  const lever = new Group(); lever.position.set(0.44, 1.0, 0); g.add(lever);
-  lever.add(mesh(new CylinderGeometry(0.022, 0.022, 0.42, 8), 0xB9C2C9, 0, 0.21, 0, true));
-  const knob = mesh(G.sphere, 0xD8394B, 0, 0.44, 0, true); knob.scale.setScalar(0.06); lever.add(knob);
-  return { g, lever };
-}
+const GOLD = 0xE3B23C;
 /**
- * A row of cabinets like `slotCabinet` at `xs` along x, standing on the floor facing +z, one screen each: drawn in a
- * handful of meshes (the bodies baked into one, the signs into another...), however many there are. Returns the row and
- * each machine's lever.
+ * A row of slot machines at `xs` along x, standing on the floor facing +z, one screen each: a cabinet with the screen on
+ * its front, what pays on the glass under it, a lit sign on top and a lever on its right. Drawn in a handful of meshes
+ * however many there are (the bodies baked into one, the signs into another...). Returns the row and each one's lever.
  */
 export function slotRow(xs: number[], screens: MeshBasicMaterial[]) {
-  const g = new Group(), body: (Part & { c: number })[] = [], signs: Part[] = [], pays: Part[] = [];
-  const box = (w: number, h: number, d: number) => new BoxGeometry(w, h, d);
-  const shapes = { base: box(0.72, 0.5, 0.6), cab: box(0.7, 0.95, 0.55), ledge: box(0.6, 0.08, 0.2), top: box(0.74, 0.3, 0.5), hub: new CylinderGeometry(0.06, 0.06, 0.1, 10) };
+  const g = new Group(), signs: Part[] = [], pays: Part[] = [];
+  both(g, p => {
+    for (const x of xs) {
+      p.box(0.72, 0.5, 0.6, 0x3A1A22, x, 0.25, 0, null, 0.03).box(0.7, 0.95, 0.55, 0xC0392B, x, 0.97, 0, null, 0.04);
+      p.box(0.6, 0.08, 0.2, GOLD, x, 0.62, 0.32).box(0.74, 0.3, 0.5, GOLD, x, 1.6, 0, null, 0.04);
+      p.cyl(0.06, 0.06, 0.1, 0x8A949C, x + 0.39, 1.0, 0, [0, 0, Math.PI / 2], 10);
+      // on High, a gold bezel round the screen
+      if (p.high) {
+        for (const y of [0.89, 1.27]) p.box(0.58, 0.025, 0.02, GOLD, x, y, 0.28, null, 0.008);
+        for (const e of [-1, 1]) p.box(0.025, 0.4, 0.02, GOLD, x + e * 0.285, 1.08, 0.28, null, 0.008);
+      }
+    }
+  });
   const levers = xs.map((x, i) => {
-    body.push({ geo: shapes.base, at: [x, 0.25, 0], c: 0x3A1A22 }, { geo: shapes.cab, at: [x, 0.97, 0], c: 0xC0392B },
-      { geo: shapes.ledge, at: [x, 0.62, 0.32], c: 0xE3B23C }, { geo: shapes.top, at: [x, 1.6, 0], c: 0xE3B23C },
-      { geo: shapes.hub, at: [x + 0.39, 1.0, 0], rot: [0, 0, Math.PI / 2], c: 0x8A949C });
     signs.push({ geo: SIGN_PLANE, at: [x, 1.6, 0.255] });
     pays.push({ geo: PAYS_PLANE, at: [x, 0.77, 0.278] });
     const scr = new Mesh(new PlaneGeometry(0.54, 0.36), screens[i]);
     scr.position.set(x, 1.08, 0.28); g.add(scr);
-    const lever = new Group(); lever.position.set(x + 0.44, 1.0, 0); g.add(lever);
-    lever.add(mesh(bakePainted([{ geo: LEVER_ROD, at: [0, 0.21, 0], c: 0xB9C2C9 }, { geo: G.sphere, at: [0, 0.44, 0], scale: [0.06, 0.06, 0.06], c: 0xD8394B }]), painted, 0, 0, 0, true));
+    // the lever, which a pull swings down and back: always on the move, so it's never merged (batch.ts)
+    const lever = new Group(); lever.position.set(x + 0.44, 1.0, 0); lever.userData.noBatch = true; g.add(lever);
+    both(lever, p => p.cyl(0.022, 0.022, 0.42, 0xB9C2C9, 0, 0.21, 0, null, 8).ball(0.06, 0xD8394B, 0, 0.44, 0));
     return lever;
   });
-  g.add(mesh(bakePainted(body), painted, 0, 0, 0, true));
   g.add(new Mesh(bake(signs), new MeshBasicMaterial({ map: SIGN.tex })), new Mesh(bake(pays), new MeshBasicMaterial({ map: PAYS.tex })));
   return { g, levers };
 }
-const SIGN_PLANE = new PlaneGeometry(0.66, 0.24), PAYS_PLANE = new PlaneGeometry(0.6, 0.22), LEVER_ROD = new CylinderGeometry(0.022, 0.022, 0.42, 8);
+const [SIGN_PLANE, PAYS_PLANE] = offLuck(() => [new PlaneGeometry(0.66, 0.24), new PlaneGeometry(0.6, 0.22)]);
 
-const SIGN = canvasTex(256, 96, (c, w, h) => {
+const SIGN = offLuck(() => canvasTex(256, 96, (c, w, h) => {
   c.fillStyle = '#2A0F16'; c.fillRect(0, 0, w, h);
   c.fillStyle = '#FFD24A';
   for (let i = 0; i < 16; i++) { c.beginPath(); c.arc(8 + i * 16, 7, 4, 0, Math.PI * 2); c.arc(8 + i * 16, h - 7, 4, 0, Math.PI * 2); c.fill(); }
   c.font = `800 58px ${FONT}`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillStyle = '#FF6B4A';
   c.fillText('7 7 7', w / 2, h / 2 + 4);
-});
+}));
 
 /** What pays, from the rules, for the glass under the reels. */
 const PAYTABLE = [...Object.entries(THREE).map(([s, m]) => [[s, s, s], m] as const), [['🍒', '🍒'], TWO_CHERRIES] as const];
-const PAYS = canvasTex(330, 120, (c, w, h) => {
+const PAYS = offLuck(() => canvasTex(330, 120, (c, w, h) => {
   c.fillStyle = '#2A0F16'; c.fillRect(0, 0, w, h);
   c.strokeStyle = '#E3B23C'; c.lineWidth = 4; c.strokeRect(2, 2, w - 4, h - 4);
   c.textBaseline = 'middle';
@@ -124,17 +112,16 @@ const PAYS = canvasTex(330, 120, (c, w, h) => {
     c.font = `800 18px ${FONT}`; c.fillStyle = '#F2C14E'; c.textAlign = 'right';
     c.fillText(`×${m}`, x + 98, y + 2);
   });
-});
+}));
 
+/** The bank of three: the middle one's screen is the live one, the others' reels stand still. */
 function buildBank() {
   const live = new CanvasTexture(reels.canvas);
   const side = (pos: number[]) => new MeshBasicMaterial({ map: canvasTex(W, H, c => drawReels(c, pos)).tex });
-  const at = (c: ReturnType<typeof slotCabinet>, x: number) => { c.g.position.set(x, AT.y, BANK.z); return c; };
-  const mid = at(slotCabinet(new MeshBasicMaterial({ map: live })), BANK.x);
-  const g = new Group();
-  g.add(at(slotCabinet(side([3, 9, 15])), BANK.x - BANK.gap).g, mid.g, at(slotCabinet(side([11, 1, 6])), BANK.x + BANK.gap).g);
+  const row = slotRow([-BANK.gap, 0, BANK.gap], [side([3, 9, 15]), new MeshBasicMaterial({ map: live }), side([11, 1, 6])]);
+  row.g.position.set(BANK.x, AT.y, BANK.z);
   // the middle machine's sign calls out a jackpot or three of a kind
-  return { g, lever: mid.lever, live, sign: speaker(mid.g, 2.2) };
+  return { g: row.g, lever: row.levers[1], live, sign: speaker(row.g, 2.2) };
 }
 
 // ---------- state ----------
@@ -149,7 +136,7 @@ let lastSym = [0, 0, 0];
 const $ = (id: string) => document.getElementById(id)!;
 const panel = $('slots'), msg = $('slotsMsg');
 const pullBtn = $('pull') as HTMLButtonElement;
-const reels = canvasTex(W, H, () => {});
+const reels = offLuck(() => canvasTex(W, H, () => {}));
 const stakes = new Stakes(panel.querySelector<HTMLElement>('.stakes')!, () => !!spin, () => refresh());
 
 // what pays, for screen readers (it's on the machine's glass)
@@ -224,7 +211,7 @@ const pad = gamePad(AT, '🎰', panel, {
 
 /** The 'slots' unlock: puts the bank of machines on the boat. Returns it for the pop-in. */
 export function enableSlots() {
-  bank = buildBank();
+  bank = offLuck(buildBank);
   scene.add(bank.g);
   redraw();
   pad.enable();

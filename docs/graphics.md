@@ -99,6 +99,7 @@ Each scene file has a small helper that builds High off the game's luck and call
 | ads.ts | `highIn(to, low, build)`, `lowIn(to)` | The same, for campaigns |
 | propsMachines.ts | `detailMarked(low, high)` | For things made over and over (the drive-up sleds): marks them instead of adding a listener each, so old ones aren't kept alive |
 | items.ts | `looks(mesh, low, high)` | For items that come and go by the hundred: one mesh that swaps its geometry and material when drawn, rather than two meshes each |
+| casinoKit.ts | `both(g, draw)`, `highOnly(g)`, `offLuck(f)` | For the casino boat, made when it's bought: `draw(pen)` runs once per setting, so both have the same layout. A `Pen`'s `box`/`cyl`/`rod` are plain boxes and cylinders on Low and the kit's shapes on High; extras go under `if (pen.high)`. Everything on the boat is made inside `offLuck`, on the boat's own dice |
 
 Wrap the High and Low versions in groups under the thing's own group, so pop-ins and scaling still happen about the same centre.
 
