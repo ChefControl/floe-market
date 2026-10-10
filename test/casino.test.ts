@@ -182,11 +182,12 @@ describe('the casino boat', () => {
   it("doesn't let the player walk through the tables and machines", async () => {
     const g = await at('roulette', 0, 'blackjack', 'slots');
     const p = g.player.g.position;
-    // walking straight at each from its pad, the player stops at its front instead of reaching the back of the deck
+    // walking straight at each from its pad, the player stops at its front instead of reaching the back wall
+    const { SHIP } = g.layout;
     for (const k of ['roulette', 'blackjack', 'slots'] as const) {
       g.placePlayer(g.layout.GAMES[k].x, g.layout.GAMES[k].z);
       for (let i = 0; i < 60; i++) { p.z -= 0.05; g.run(1 / 60); }
-      expect(p.z).toBeGreaterThan(g.layout.SHIP.z - 1.3);
+      expect(p.z).toBeGreaterThan(SHIP.z - SHIP.beam + 1.2);
     }
   });
 
@@ -242,15 +243,17 @@ describe('the casino boat', () => {
     g.run(20); // the guests at the machines play away
   });
 
-  it("keeps the player out of the bar and the row of machines along the back", async () => {
+  it('keeps the player out of the bar by the door and the row of machines along the stern', async () => {
     const g = await at('roulette', 100);
     const { SHIP, SALON } = g.layout, p = g.player.g.position;
-    g.placePlayer(SHIP.x + SALON.x0 + 1.4, SHIP.z + 2.2); g.run(0.05);
+    // walking aft from the roulette table's end, the player stops at the guests playing the machines
+    g.placePlayer(SHIP.x - 6.2, SHIP.z + 0.5); g.run(0.05);
     for (let i = 0; i < 60; i++) { p.x -= 0.05; g.run(1 / 60); }
     expect(p.x).toBeGreaterThan(SHIP.x + SALON.x0 + 1.4);
-    g.placePlayer(SHIP.x + 0.8, SHIP.z + 1.0); g.run(0.05);
+    // and walking from the door towards the back wall, at the bar's stools
+    g.placePlayer(SHIP.x + SALON.x1 - 0.7, SHIP.z - 0.3); g.run(0.05);
     for (let i = 0; i < 60; i++) { p.z -= 0.05; g.run(1 / 60); }
-    expect(p.z).toBeGreaterThan(SHIP.z - 1.5);
+    expect(p.z).toBeGreaterThan(SHIP.z - 1.2);
   });
 
   it('turns its radar on the mast', async () => {
@@ -278,9 +281,9 @@ describe('the casino boat', () => {
       }
       g.placePlayer(SHIP.x + SALON.x1 - 0.4, SHIP.z); g.run(1.5);
     }
-    // the fan and the waiter keep behind the tables or aft of them, never in the aisle along the windows
+    // the fan and the waiter keep clear of the way along the pads, from the door to the roulette table
     for (const o of salon.salonView().staff) {
-      expect(o.z < GAMES.roulette.z - SHIP.z - 0.8 || o.x < GAMES.roulette.x - SHIP.x - 1.2).toBe(true);
+      expect(Math.abs(o.z - (GAMES.roulette.z - SHIP.z)) > 1.2 || o.x < GAMES.roulette.x - SHIP.x - 1.2).toBe(true);
     }
   });
 });

@@ -67,17 +67,18 @@ export const hullHalf = (x: number) =>
 /** How high the upper deck is; the main deck is level with the quay. */
 export const UPPER = FY + 2.1;
 /** Along the ship, from its middle (+ towards the bow): the upper deck's ends, the staircase (its top at `x0`) and the gangway. */
-export const DECKS = { stern: -7.1, front: 3.6, stairs: { x0: 3.6, x1: 5.6, half: 0.75 }, gangway: 6.1 };
+export const DECKS = { stern: -8.3, front: 3.6, stairs: { x0: 3.6, x1: 5.6, half: 0.75 }, gangway: 6.1 };
 /** The salon walled in on the upper deck (casinoSalon.ts), from the ship's middle: its ends along it, its walls'
  *  distance either side, and how tall it is. */
 export const SALON = { x0: DECKS.stern + 0.05, x1: DECKS.front - 0.05, side: SHIP.beam - 0.18, h: 2.35 };
 export const casinoBoat = { open: false };
 const along = (x: number) => SHIP.x + x, across = (z: number) => SHIP.z + z;
-/** Where you stand to play each game, on the upper deck in front of its table. */
+/** Where you stand to play each game, in the salon in front of its table: the tables and the machines stand along
+ *  the back wall, leaving the floor open between them and the door. */
 export const GAMES = {
-  roulette: { x: along(-3.4), y: UPPER, z: across(1.5) },
-  blackjack: { x: along(-0.75), y: UPPER, z: across(1.5) },
-  slots: { x: along(1.9), y: UPPER, z: across(1.5) },
+  roulette: { x: along(-4.8), y: UPPER, z: across(0) },
+  blackjack: { x: along(-2.2), y: UPPER, z: across(0) },
+  slots: { x: along(0.4), y: UPPER, z: across(0) },
 };
 const QUAY_FLOOR = area(QUAY.x0 + 0.3, QUAY.x1 + 0.6, QUAY.z0 + 0.3, QUAY.z1 - 0.2);
 /** How far out the foredeck goes at the gangway: inside the hull's sides where they draw in towards the bow. */

@@ -200,7 +200,7 @@ function buildShip() {
   deck.rotation.x = -Math.PI / 2; deck.position.y = DECK_Y; deck.receiveShadow = true; g.add(deck);
   // long hull windows in gold frames along both sides, and the yacht's name in gold on the bow
   const panes: Part[] = [], frames: Part[] = [];
-  for (let x = -7.0; x < 1.6; x += 1.4) for (const s of [-1, 1]) {
+  for (let x = -7.6; x < 1.6; x += 1.4) for (const s of [-1, 1]) {
     panes.push({ geo: G.box, at: [x, FY + 0.42, s * (B + 0.012)], scale: [1.0, 0.16, 0.02] });
     frames.push({ geo: G.box, at: [x, FY + 0.42, s * (B + 0.006)], scale: [1.08, 0.24, 0.02] });
   }

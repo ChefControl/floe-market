@@ -3,10 +3,11 @@
 // windbreak: a sky lounge wrapped in dark glass with the CASINO sign on its roof (its bulbs chasing round it), a radar
 // turning and a flag flying from its mast, and aft of it a teak sundeck with a hot tub (two guests soaking) and sun
 // loungers. As in the restaurant, the roof lifts away and the walls on the camera's side fade while the player is
-// inside. It's full of life: a row of slot machines along the back wall with guests playing them (now and then one
-// wins), a bar at the stern with a bartender polishing glasses and two guests on stools, a waiter carrying a tray
-// between the bar and the roulette table, and a guest watching the wheel from the end of the roulette table who
-// cheers when the player wins, none of them in the player's way. None of it touches the game's luck: the guests run on their own dice.
+// inside. The games stand along the back wall, leaving the floor open from the door to them, and round them it's full
+// of life: a row of slot machines along the stern wall with guests playing them (now and then one wins), a bar by the
+// door with a bartender polishing glasses and two guests on stools, a waiter carrying a tray along the windows, potted
+// palms, and a guest watching the wheel from the end of the roulette table who cheers when the player wins, none of
+// them in the player's way. None of it touches the game's luck: the guests run on their own dice.
 import {
   BoxGeometry, CanvasTexture, CylinderGeometry, Euler, ExtrudeGeometry, Group, Mesh, MeshBasicMaterial,
   MeshLambertMaterial, MeshPhongMaterial, PlaneGeometry, Quaternion, Shape, ShapeGeometry, Vector3,
@@ -27,8 +28,14 @@ const WIN = { pitch: 1.3, w: 1.2, sill: 0.45, head: 2.0 };
 /** The door at the top of the stairs. */
 const DOOR = DECKS.stairs.half + 0.2;
 /** The bar across the stern, and the row of slot machines along the back (north) wall, in the ship's own space. */
-const BAR = { x: DECKS.stern + 1.1, z0: -2.4, z1: 2.0 };
-const ROW = { z: -SALON.side + 0.42, xs: [-4.7, -3.7, -2.7, -1.7, -0.7, 0.3, 1.3, 2.3] };
+/** The salon's layout, in the ship's own space. The games stand along the back (north) wall (layout.ts). The guests'
+ *  slot machines line the stern wall, facing forward; the bar runs along the bow wall beside the door, its counter
+ *  at `x`, the back bar against the wall and stools out front; the waiter walks along the windows. */
+const ROW = { x: SALON.x0 + 0.42, zs: [-2.55, -1.7, -0.85, 0, 0.85, 1.7] };
+const BAR = { x: 2.45, z0: -2.95, z1: -1.25, back: SALON.x1 - 0.2, stools: [-2.5, -1.6] };
+const STOOL_X = BAR.x - 0.5;
+/** Potted palms in the corners on the windows' side. */
+const PALMS = [[SALON.x1 - 0.5, SALON.side - 0.5], [SALON.x0 + 0.5, SALON.side - 0.5]];
 
 /** Draws a guest's or the bartender's dice: their own sequence, so the game's luck is left alone. */
 const dice = rng(0xCA5170);
@@ -270,31 +277,39 @@ function buildRoof() {
 
 // ---------- the bar ----------
 function buildBar(g: Group) {
-  const { x, z0, z1 } = BAR, wood = 0x5A2E1F;
-  g.add(mesh(new BoxGeometry(0.5, 1.05, z1 - z0), wood, x, UPPER + 0.525, (z0 + z1) / 2, true));
-  g.add(mesh(new BoxGeometry(0.62, 0.06, z1 - z0 + 0.1), 0x2A1410, x, UPPER + 1.08, (z0 + z1) / 2, true));
-  g.add(mesh(new BoxGeometry(0.04, 0.06, z1 - z0), GOLD, x + 0.3, UPPER + 0.3, (z0 + z1) / 2));
-  // the back bar against the stern wall: shelves of bottles under a mirror
-  const bx = SALON.x0 + 0.22;
-  g.add(mesh(new BoxGeometry(0.3, 0.9, 3.6), wood, bx, UPPER + 0.45, -0.2, true));
-  g.add(mesh(new BoxGeometry(0.02, 0.9, 3.0), 0xBFD4DC, bx - 0.05, UPPER + 1.6, -0.2));
-  const shelf: Part[] = [], bottles: Part[][] = [[], [], []];
-  for (const y of [1.25, 1.75]) shelf.push({ geo: G.box, at: [bx + 0.02, UPPER + y, -0.2], scale: [0.26, 0.04, 3.4] });
+  const { x, z0, z1, back } = BAR, wood = 0x5A2E1F, len = z1 - z0, mid = (z0 + z1) / 2;
+  g.add(mesh(new BoxGeometry(0.5, 1.05, len), wood, x, UPPER + 0.525, mid, true));
+  g.add(mesh(new BoxGeometry(0.62, 0.06, len + 0.1), 0x2A1410, x, UPPER + 1.08, mid, true));
+  g.add(mesh(new BoxGeometry(0.04, 0.06, len), GOLD, x - 0.27, UPPER + 0.3, mid));
+  // the back bar against the bow wall: a low cabinet, a shelf of bottles over it
+  g.add(mesh(new BoxGeometry(0.3, 0.9, len), wood, back, UPPER + 0.45, mid, true));
+  const shelf: Part[] = [{ geo: G.box, at: [back + 0.02, UPPER + 1.35, mid], scale: [0.26, 0.04, len] }];
+  const bottles: Part[][] = [[], [], []];
   let n = 0;
-  for (const y of [0.9, 1.27, 1.77]) for (let z = -1.8; z <= 1.4; z += 0.22) {
-    bottles[n++ % 3].push({ geo: G.cyl, at: [bx + 0.02, UPPER + y + 0.13, z], scale: [0.045, 0.24, 0.045] });
+  for (const y of [0.9, 1.37]) for (let z = z0 + 0.15; z <= z1 - 0.1; z += 0.2) {
+    bottles[n++ % 3].push({ geo: G.cyl, at: [back + 0.02, UPPER + y + 0.13, z], scale: [0.045, 0.24, 0.045] });
   }
   g.add(mesh(bake(shelf), wood));
   [0x2E7D4F, 0x8E1F2F, 0xC9A24A].forEach((c, i) => g.add(mesh(bake(bottles[i]), c)));
   // stools in front of the bar
   const stools: Part[] = [];
-  for (const z of STOOLS) {
-    stools.push({ geo: G.cyl, at: [x + 0.55, UPPER + 0.35, z], scale: [0.05, 0.7, 0.05] });
-    stools.push({ geo: G.cyl, at: [x + 0.55, UPPER + 0.72, z], scale: [0.2, 0.07, 0.2] });
+  for (const z of BAR.stools) {
+    stools.push({ geo: G.cyl, at: [STOOL_X, UPPER + 0.35, z], scale: [0.05, 0.7, 0.05] });
+    stools.push({ geo: G.cyl, at: [STOOL_X, UPPER + 0.72, z], scale: [0.2, 0.07, 0.2] });
   }
   g.add(mesh(bake(stools), GOLD, 0, 0, 0, true));
+  // and potted palms in the corners by the windows
+  const palms: (Part & { c: number })[] = [];
+  for (const [px, pz] of PALMS) {
+    palms.push({ geo: G.cyl, at: [px, UPPER + 0.22, pz], scale: [0.24, 0.44, 0.24], c: GOLD });
+    palms.push({ geo: G.cyl, at: [px, UPPER + 0.8, pz], scale: [0.05, 1.2, 0.05], c: 0x7A5634 });
+    for (let i = 0; i < 7; i++) {
+      const a = i / 7 * Math.PI * 2;
+      palms.push({ geo: G.box, at: [px + Math.cos(a) * 0.32, UPPER + 1.3, pz + Math.sin(a) * 0.32], rot: [0, -a, 0.5], scale: [0.62, 0.03, 0.16], c: 0x2F7D3E });
+    }
+  }
+  g.add(mesh(bakePainted(palms), new MeshLambertMaterial({ vertexColors: true }), 0, 0, 0, true));
 }
-const STOOLS = [-1.3, 0.9];
 
 // ---------- the guests ----------
 /** A well-dressed guest, a man in a suit or a woman in an evening dress. */
@@ -311,36 +326,36 @@ const SPIN = 1.6, STOPS = [0.9, 1.25, 1.6];
 interface Gambler { p: Person; m: Machine; wait: number; t: number; joy: number; say: ReturnType<typeof speaker> }
 
 function buildCrowd(g: Group) {
-  // the slot machines along the back wall, facing in
-  const screens = ROW.xs.map((_, i) => {
+  // the slot machines along the stern wall, facing forward (the row's turned a quarter round: along it is across)
+  const screens = ROW.zs.map((_, i) => {
     const { ctx, tex } = canvasTex(REELS_PX.w, REELS_PX.h, () => {});
     const pos = [i * 3, i * 7 + 2, i * 5 + 4];
     drawReels(ctx, pos);
     return { ctx, tex, pos };
   });
-  const row = slotRow(ROW.xs, screens.map(s => new MeshBasicMaterial({ map: s.tex })));
-  row.g.position.set(0, UPPER, ROW.z);
+  const row = slotRow(ROW.zs.map(z => -z), screens.map(s => new MeshBasicMaterial({ map: s.tex })));
+  row.g.position.set(ROW.x, UPPER, 0); row.g.rotation.y = Math.PI / 2;
   g.add(row.g);
   const machines: Machine[] = screens.map((s, i) => ({ lever: row.levers[i], ctx: s.ctx, tex: s.tex, from: s.pos, to: s.pos, spin: 0 }));
-  const gamblers: Gambler[] = [0, 2, 4, 6].map((m, i) => {
+  const gamblers: Gambler[] = [0, 2, 3, 5].map((m, i) => {
     const p = guest(i);
-    p.position.set(ROW.xs[m], UPPER, ROW.z + 0.75); p.rotation.y = Math.PI;
+    p.position.set(ROW.x + 0.75, UPPER, ROW.zs[m]); p.rotation.y = -Math.PI / 2;
     g.add(p);
     return { p, m: machines[m], wait: 1 + i * 1.7, t: 0, joy: 0, say: speaker(p, 2.1) };
   });
   // the bar: the bartender behind it, two guests on stools
   const bartender = new Person(0x1F1F1F, 'waiter');
-  bartender.position.set(BAR.x - 0.6, UPPER, -0.3); bartender.rotation.y = Math.PI / 2;
+  bartender.position.set((BAR.x + BAR.back) / 2, UPPER, (BAR.z0 + BAR.z1) / 2); bartender.rotation.y = -Math.PI / 2;
   g.add(bartender);
-  const drinkers = STOOLS.map((z, i) => {
+  const drinkers = BAR.stools.map((z, i) => {
     const p = guest(i + 4);
-    p.position.set(BAR.x + 0.55, UPPER + 0.42, z); p.rotation.y = -Math.PI / 2;
+    p.position.set(STOOL_X, UPPER + 0.42, z); p.rotation.y = Math.PI / 2;
     g.add(p);
     return { p, t: 2 + i * 2.5 };
   });
-  // a waiter carrying a tray of drinks between the stools and the roulette table, from the machines to the windows
+  // a waiter carrying a tray of drinks up and down along the windows
   const waiter = new Person(0x24476B, 'waiter');
-  waiter.position.set(WAITER.x, UPPER, WAITER.z0);
+  waiter.position.set(WAITER.x0, UPPER, WAITER.z);
   // the tray sits flat on the palm of the hand held out in front (the arm's turned to level, so the tray's turned back)
   const tray = new Group(); tray.position.set(0, -0.33, 0.07); tray.rotation.x = TRAY_ARM; waiter.arms[0].add(tray);
   tray.add(mesh(new CylinderGeometry(0.18, 0.18, 0.03, 16), 0xC0C6CC));
@@ -359,8 +374,10 @@ function buildCrowd(g: Group) {
   return crowdState;
 }
 /** The waiter's beat and the fan's spot: both off the player's way from the door to the games. */
-const WAITER = { x: -4.98, z0: -1.1, z1: 2.4 };
-const FAN = { x: -4.42, z: -0.15 };
+/** The waiter's beat along the windows, and the fan's spot at the roulette table's far end: both off the player's way
+ *  from the door to the games. */
+const WAITER = { x0: SALON.x0 + 1.7, x1: SALON.x1 - 1.1, z: SALON.side - 0.9 };
+const FAN = { x: -5.95, z: -1.55 };
 /** How far forward the waiter holds the tray arm: level with the shoulder. */
 const TRAY_ARM = 1.6;
 
@@ -465,14 +482,14 @@ function updCrowd(c: ReturnType<typeof buildCrowd>, dt: number, clock: number) {
   const w = c.waiter, walk = c.walk;
   if (walk.pause > 0) { walk.pause -= dt; animPerson(w, false, dt, true); }
   else {
-    w.position.z += walk.dir * 1.1 * dt;
-    if (w.position.z > WAITER.z1 || w.position.z < WAITER.z0) {
-      w.position.z = Math.max(WAITER.z0, Math.min(WAITER.z1, w.position.z));
+    w.position.x += walk.dir * 1.1 * dt;
+    if (w.position.x > WAITER.x1 || w.position.x < WAITER.x0) {
+      w.position.x = Math.max(WAITER.x0, Math.min(WAITER.x1, w.position.x));
       walk.dir *= -1; walk.pause = 2.5;
     }
     animPerson(w, true, dt, true);
   }
-  w.rotation.y += ((walk.dir > 0 ? 0 : Math.PI) - w.rotation.y) * Math.min(1, dt * 6);
+  w.rotation.y += ((walk.dir > 0 ? Math.PI / 2 : -Math.PI / 2) - w.rotation.y) * Math.min(1, dt * 6);
   w.arms[0].rotation.x = -TRAY_ARM; w.arms[0].rotation.z = 0; w.arms[1].rotation.x = -0.4;
   // the fan by the tables claps along with a win
   animPerson(c.fan, false, dt, false);
@@ -485,12 +502,14 @@ function updCrowd(c: ReturnType<typeof buildCrowd>, dt: number, clock: number) {
   }
 }
 
-/** Keeps the player out of the bar, the row of machines and the guests at them, the fan and the waiter. */
+/** Keeps the player out of the bar, the row of machines and the guests at them, the palms, the fan and the waiter. */
 export function collideSalon(p: XZ) {
   if (!salon) return;
   const x = (v: number) => SHIP.x + v, z = (v: number) => SHIP.z + v;
-  pushOutOfBox(p, x((SALON.x0 + BAR.x + 0.85) / 2), z(0), (BAR.x + 0.85 - SALON.x0) / 2 + 0.3, SALON.side);
-  pushOutOfBox(p, x((ROW.xs[0] + ROW.xs[ROW.xs.length - 1]) / 2), z(ROW.z + 0.3), (ROW.xs[ROW.xs.length - 1] - ROW.xs[0]) / 2 + 0.36 + 0.3, 0.75 + 0.3);
+  const bar0 = STOOL_X - 0.25, rowZ = [ROW.zs[0] - 0.37, ROW.zs[ROW.zs.length - 1] + 0.37];
+  pushOutOfBox(p, x((bar0 + SALON.x1) / 2), z((-SALON.side + BAR.z1) / 2), (SALON.x1 - bar0) / 2 + 0.3, (BAR.z1 + SALON.side) / 2 + 0.3);
+  pushOutOfBox(p, x((SALON.x0 + ROW.x + 1.0) / 2), z((rowZ[0] + rowZ[1]) / 2), (ROW.x + 1.0 - SALON.x0) / 2 + 0.3, (rowZ[1] - rowZ[0]) / 2 + 0.3);
+  for (const [px, pz] of PALMS) pushOutOfBox(p, x(px), z(pz), 0.3 + 0.3, 0.3 + 0.3);
   pushOutOfBox(p, x(FAN.x), z(FAN.z), 0.25 + 0.3, 0.25 + 0.3);
   const w = salon.crowd.waiter.position;
   pushOutOfBox(p, x(w.x), z(w.z), 0.25 + 0.3, 0.25 + 0.3);
