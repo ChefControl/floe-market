@@ -2,16 +2,19 @@
 // snowmobiles buy fish in bulk; both close at the stage-up. Stage 2 has the takeout kiosk by the restaurant,
 // where snowmobiles buy boxes of sushi. Each road has a lane each way: customers keep to the one by their counter,
 // and now and then someone comes the other way up the far lane and drives on by.
-import { BoxGeometry, Group, Mesh, Object3D, Sprite, SpriteMaterial, Vector3 } from 'three';
+import { BoxGeometry, Group, Object3D, Sprite, SpriteMaterial, Vector3 } from 'three';
 import { drawBubble, moodMat, newMoodSprite, patienceStep, type OrderIcon } from './bubble';
 import { animPerson, makeSled, moveEnt, PARKAS, Person, type Walker } from './characters';
 import { decal, drawPad } from './decals';
 import { boost, FISH_PRICE, mods, priced, SUSHI_PRICE, type ModId } from './economy';
 import { KIOSK } from './hall';
+import { glint } from './fx';
 import { carrySlot, Holder, type Slot } from './holder';
 import { addBillValue, newBill } from './items';
+import { detail, quietly } from './kit';
 import { groundY } from './layout';
 import { boop as hop, player } from './player';
+import { stall } from './props';
 import { addReview, demand, starsFor } from './rating';
 import { boop, honk, review, till } from './sfx';
 import { canvasTex, mesh, scene, type CanvasTex } from './render';
@@ -85,7 +88,7 @@ export interface Counter extends CounterSpec {
   passT: number;
   serveT: number;
   /** The counter itself, and its drop-off marking. */
-  meshes: Mesh[];
+  meshes: Object3D[];
   stock: Holder;
   cash: Holder;
 }
@@ -102,8 +105,22 @@ function makeCounter(o: CounterSpec, stockCap: number): Counter {
 }
 
 /** Puts a counter's meshes in the scene, hidden unless it's open. */
-function place(C: Counter, ...ms: Mesh[]) {
+function place(C: Counter, ...ms: Object3D[]) {
   for (const m of ms) { if (!m.parent) scene.add(m); m.visible = C.enabled; C.meshes.push(m); }
+}
+/**
+ * A counter `len` long and `depth` deep, its top in `top`'s colour, standing at (x, z) and turned `ry` (its customers on
+ * its +z side before the turn). Low: two boxes. High: a fish stall (props.ts).
+ */
+function counterModel(len: number, depth: number, top: number, x: number, z: number, ry: number) {
+  const body = mesh(new BoxGeometry(len, 0.9, depth), 0xE8F1F6, 0, 0.45, 0, true);
+  const lid = mesh(new BoxGeometry(len + 0.1, 0.08, depth + 0.1), top, 0, 0.9, 0, true);
+  const [g, low, high] = quietly(() => [new Group(), new Group(), stall(len, depth, top).mesh()]);
+  g.position.set(x, FY, z); g.rotation.y = ry;
+  low.add(body, lid);
+  g.add(low, high);
+  detail(low, high);
+  return g;
 }
 function dropPad(at: Vector3, icon: string) {
   const d = decal(1.9, (c, w, h) => drawPad(c, w, h, icon));
@@ -125,11 +142,7 @@ export const C1 = makeCounter({
   spawn: () => V(6.5, 0, 18),
   exit: () => [V(2.2, 0, 10.8), V(-3, 0, 19)],
 }, 48);
-place(C1,
-  mesh(new BoxGeometry(2.2, 0.9, 0.9), 0xE8F1F6, 3, FY + 0.45, 7.95, true),
-  mesh(new BoxGeometry(2.3, 0.08, 1.0), 0x5FA8C8, 3, FY + 0.9, 7.95, true),
-  dropPad(C1.dropPos!, '🐟'),
-);
+place(C1, counterModel(2.2, 0.9, 0x5FA8C8, 3, 7.95, 0), dropPad(C1.dropPos!, '🐟'));
 
 /** The middle of a road's west lane (-1), by the counters, or its east lane (1). */
 const lane = (roadX: number, side: -1 | 1) => roadX + side * ROAD_HALF / 2;
@@ -152,11 +165,7 @@ export const SLED = makeCounter({
   exit: () => [V(lane(ROAD1_X, -1), 0, -40)],
   oncoming: [V(lane(ROAD1_X, 1), 0, -40), V(lane(ROAD1_X, 1), 0, 32)],
 }, 48);
-place(SLED,
-  mesh(new BoxGeometry(0.9, 0.9, 2.2), 0xE8F1F6, WIN1.x, FY + 0.45, WIN1.z, true),
-  mesh(new BoxGeometry(1.0, 0.08, 2.3), 0xF2B33D, WIN1.x, FY + 0.9, WIN1.z, true),
-  dropPad(SLED.dropPos!, '🚗'),
-);
+place(SLED, counterModel(2.2, 0.9, 0xF2B33D, WIN1.x, WIN1.z, Math.PI / 2), dropPad(SLED.dropPos!, '🚗'));
 
 /**
  * Stage 2's takeout kiosk, out by the road east of the restaurant; its cash lands just inside the east wall.
@@ -176,10 +185,7 @@ export const TAKEOUT = makeCounter({
   exit: () => [V(lane(ROAD2_X, -1), 0, 48)],
   oncoming: [V(lane(ROAD2_X, 1), 0, 48), V(lane(ROAD2_X, 1), 0, -48)],
 }, 24);
-place(TAKEOUT,
-  mesh(new BoxGeometry(0.8, 0.9, KIOSK.len), 0xE8F1F6, KIOSK.x, FY + 0.45, KIOSK.z, true),
-  mesh(new BoxGeometry(0.9, 0.08, KIOSK.len + 0.1), 0xF2B33D, KIOSK.x, FY + 0.9, KIOSK.z, true),
-);
+place(TAKEOUT, counterModel(KIOSK.len, 0.8, 0xF2B33D, KIOSK.x, KIOSK.z, Math.PI / 2));
 
 export const COUNTERS = [C1, SLED, TAKEOUT];
 
@@ -267,7 +273,7 @@ function pay(C: Counter, c: Customer) {
       if (top) addBillValue(top, v); else C.cash.receive(b, 0.35, 1.0);
     }
   });
-  if (values.length) { popText('+' + money(values.reduce((a, v) => a + v, 0)), C.cashPos); till(C.cashPos); }
+  if (values.length) { popText('+' + money(values.reduce((a, v) => a + v, 0)), C.cashPos); till(C.cashPos); glint(V(C.cashPos.x, FY + 0.5, C.cashPos.z)); }
 }
 
 function depart(C: Counter, c: Customer, stars?: number) {

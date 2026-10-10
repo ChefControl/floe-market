@@ -79,6 +79,8 @@ describe('her house', () => {
       expect(!own !== !jacket).toBe(true); // one or the other, never both
       return own ? own.c : (jacket!.material as MeshLambertMaterial).color.getHex();
     };
+    // the jacket is read off the Low look's own mesh (High bakes it in with the rest of him)
+    (await import('../src/graphics')).choose('low');
     expect(top()).toBe(0xFF6B4A);
     expect(tears).toHaveLength(4);
     expect($('rain').hidden).toBe(true);

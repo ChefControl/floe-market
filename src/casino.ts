@@ -3,7 +3,9 @@
 import { BoxGeometry, ConeGeometry, CylinderGeometry, Group, Mesh, MeshLambertMaterial } from 'three';
 import { every } from './audio';
 import { decal, drawPad } from './decals';
+import { detail, quietly } from './kit';
 import { player } from './player';
+import { rouletteTable, rouletteTurret } from './propsMachines';
 import { canvasTex, FONT, mat, mesh, scene } from './render';
 import { colorOf, multiplier, payout, spinWheel, WHEEL, type Bet, type EvenBet } from './roulette';
 import { lose, tick, win } from './sfx';
@@ -49,16 +51,30 @@ const pad = decal(1.9, (c, w, h) => drawPad(c, w, h, '🎰'));
 pad.mesh.position.set(CASINO.x, FY + 0.01, CASINO.z);
 pad.mesh.visible = false;
 
+/**
+ * The table. Low: a cabinet, the felt and the bowl as plain shapes, a cone in the wheel's middle. High: a panelled
+ * cabinet with a padded rail, chips and a brass-rimmed bowl, and a turret in the wheel's middle (propsMachines.ts).
+ * The wheel's face is the same on both, and spins the turret (or the cone) with it.
+ */
 function buildTable() {
   const g = new Group(); g.position.set(TABLE.x, FY, TABLE.z);
-  g.add(mesh(new BoxGeometry(1.4, 0.62, 1.1), 0x6B3E26, 0, 0.31, 0, true));
-  g.add(mesh(new BoxGeometry(1.55, 0.06, 1.25), 0x2E7D4F, 0, 0.65, 0, true));
-  g.add(mesh(new CylinderGeometry(0.46, 0.4, 0.12, 28), 0x8A5A3B, 0, 0.74, 0, true));
+  const low = quietly(() => new Group());
+  g.add(low);
+  low.add(mesh(new BoxGeometry(1.4, 0.62, 1.1), 0x6B3E26, 0, 0.31, 0, true));
+  low.add(mesh(new BoxGeometry(1.55, 0.06, 1.25), 0x2E7D4F, 0, 0.65, 0, true));
+  low.add(mesh(new CylinderGeometry(0.46, 0.4, 0.12, 28), 0x8A5A3B, 0, 0.74, 0, true));
   const faceTex = canvasTex(256, 256, (c, w) => drawWheel(c, w, 0));
   const face = new Mesh(new CylinderGeometry(0.4, 0.4, 0.03, 37), [mat(0x5B3A26), new MeshLambertMaterial({ map: faceTex.tex }), mat(0x5B3A26)]);
   face.position.y = 0.81;
-  face.add(mesh(new ConeGeometry(0.07, 0.12, 8), 0xF2C14E, 0, 0.07, 0));
+  const cone = mesh(new ConeGeometry(0.07, 0.12, 8), 0xF2C14E, 0, 0.07, 0);
+  face.add(cone);
   g.add(face);
+  quietly(() => {
+    const high = rouletteTable().mesh(), turret = rouletteTurret().mesh();
+    g.add(high); face.add(turret);
+    detail(low, high);
+    detail(cone, turret);
+  });
   scene.add(g);
   return { g, face };
 }

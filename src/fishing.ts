@@ -3,10 +3,11 @@ import { type Group, type Mesh, Plane, Vector3 } from 'three';
 import { boost } from './economy';
 import { bodyMat, newFish } from './fishModel';
 import { newSteak } from './items';
+import { chipsFx, splashFx } from './fx';
 import { G, mesh, scene } from './render';
 import { cast, chop, flop, splash } from './sfx';
 import { BLADE_HOME, BLADE_Y, blade, CHOP, chopTop, pile } from './stations';
-import { d2xz, rand, UP } from './util';
+import { d2xz, rand, UP, V } from './util';
 
 export interface Fish {
   g: Group;
@@ -114,7 +115,7 @@ export function updHooks(dt: number) {
       if (k.rope) setRope(k.rope, from, from.clone().lerp(fp, k.t / reach));
       continue;
     }
-    if (!k.start) { k.start = fp.clone(); splash(fp); }
+    if (!k.start) { k.start = fp.clone(); splash(fp); splashFx(fp); }
     const q = Math.min(1, (k.t - reach) / 0.6);
     fp.lerpVectors(k.start, chopTop, q); fp.y += 2.4 * 4 * q * (1 - q);
     k.f.g.rotation.z += dt * 12;
@@ -159,6 +160,7 @@ export function updChopper(dt: number) {
   if (chopper.cuts <= i && k >= 0.5) {
     chopper.cuts++;
     chop(CHOP, i);
+    chipsFx(V(x, chopTop.y + 0.05, CHOP.z));
     cut.constant = -x;
     c.g.children.forEach(m => { if (m !== c.body) m.visible = m.position.x > CUTS[i]; });
     const m = newSteak(); m.position.set(x - 0.15, chopTop.y, CHOP.z);
