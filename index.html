@@ -457,31 +457,48 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
 @keyframes rise{ to{ transform:translate(-50%,-180%); opacity:0; } }
 @media (prefers-reduced-motion: reduce){ .pop{ animation-duration:.01s; } #cash{ transition:none; } #cash.broke{ animation:none; } }
 
-#casino{
-  position:fixed; left:50%; bottom:calc(env(safe-area-inset-bottom,0px) + 14px); transform:translateX(-50%);
-  z-index:4; width:min(94vw,540px); box-sizing:border-box; display:flex; gap:14px; align-items:center;
-  background:var(--pill); color:var(--pill-ink); border-radius:24px; padding:12px 14px; box-shadow:0 4px 0 var(--shade);
+/* The casino games' controls (rouletteTable.ts, blackjackTable.ts, slotMachine.ts): the games themselves play out on
+   the tables, with the camera in close; this is a slim burgundy-and-gold bar of chips and buttons along the bottom. */
+.casino{
+  position:fixed; left:50%; bottom:calc(env(safe-area-inset-bottom,0px) + 10px); transform:translateX(-50%);
+  z-index:4; width:min(94vw,440px); box-sizing:border-box; display:flex; flex-direction:column; gap:10px;
+  background:#3E0E18; color:#FFF8EC; border-radius:22px; padding:10px 12px 12px;
+  box-shadow:0 0 0 2px #E3B23C, 0 5px 0 rgba(0,0,0,.35);
 }
-#casino[hidden]{ display:none; }
-#wheel{ width:clamp(104px,30vw,150px); height:auto; aspect-ratio:1; flex:none; }
-#casino .side{ flex:1; min-width:0; display:flex; flex-direction:column; gap:7px; }
-#casinoMsg{ margin:0; font-size:17px; font-weight:800; line-height:1.15; }
-#casino .chips{ display:flex; flex-wrap:wrap; gap:5px; }
-#casino button{ font:700 14px "Baloo 2","Trebuchet MS",system-ui,sans-serif; color:inherit; border:0; border-radius:999px; cursor:pointer; }
-#casino .chips button, #numPick button{ background:var(--chip); padding:3px 10px; line-height:1.2; }
-#casino .chips button[aria-pressed="true"]{ background:var(--pill-ink); color:var(--pill); }
-#casino .chips .red{ color:#D8394B; }
-#casino .chips .red[aria-pressed="true"]{ background:#D8394B; color:#fff; }
-#casino button:disabled{ opacity:.4; cursor:default; }
-#casino button:focus-visible{ outline:3px solid var(--coral); outline-offset:1px; }
-#numPick{ display:flex; align-items:center; gap:8px; font-weight:800; font-size:17px; }
-#numPick[hidden]{ display:none; }
-#numPick button{ width:30px; padding:2px 0; font-size:17px; }
-#numVal{ min-width:24px; text-align:center; }
-#spin{ background:var(--hot) !important; color:#fff !important; padding:7px 12px; font-size:15px !important; box-shadow:0 3px 0 rgba(150,45,25,.45); }
-#history{ display:flex; gap:4px; flex-wrap:wrap; min-height:20px; }
-#history .pocket{ width:20px; height:20px; border-radius:50%; display:grid; place-items:center; font-size:11px; font-weight:800; color:#fff; }
-.pocket.red{ background:#D8394B; } .pocket.black{ background:#22303C; } .pocket.green{ background:#2E9E49; }
+.casino[hidden], .casino [hidden]{ display:none !important; }
+.casino .msg{ margin:0; min-height:1.2em; text-align:center; font-size:17px; font-weight:800; line-height:1.2; }
+.casino button{
+  font:800 16px "Baloo 2","Trebuchet MS",system-ui,sans-serif; color:#2A0F16; border:0; cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+}
+.casino button:disabled{ opacity:.45; cursor:default; }
+.casino button:focus-visible{ outline:3px solid var(--coral); outline-offset:2px; }
+.casino .stakes{ display:flex; justify-content:space-between; gap:6px; }
+.casino .stakes button{
+  --c:#C8323F; position:relative; width:50px; height:50px; flex:none; padding:0; border-radius:50%;
+  background:var(--c); color:#FFF8EC; font-size:14px; box-shadow:0 3px 0 rgba(0,0,0,.35); transition:transform .15s;
+}
+.casino .stakes button::before{ content:""; position:absolute; inset:5px; border-radius:50%; border:3px dashed rgba(255,248,236,.8); }
+.casino .stakes [data-stake="1"]{ --c:#22874A; }
+.casino .stakes [data-stake="2"]{ --c:#1F2A33; }
+.casino .stakes [data-stake="3"]{ --c:#6A3FA0; }
+.casino .stakes [data-stake="all"]{ --c:#E3B23C; color:#2A0F16; }
+.casino .stakes [data-stake="all"]::before{ border-color:rgba(42,15,22,.45); }
+.casino .stakes [aria-pressed="true"]{ transform:translateY(-4px); box-shadow:0 0 0 3px #F2C14E, 0 5px 0 rgba(0,0,0,.4); }
+.casino .go{ height:50px; border-radius:16px; background:#F2C14E; box-shadow:0 4px 0 #A9761C; font-size:18px; }
+.casino .acts{ display:grid; grid-auto-flow:column; grid-auto-columns:minmax(0,1fr); gap:8px; }
+.casino .acts button{ height:50px; border-radius:14px; background:#FFF8EC; box-shadow:0 4px 0 #B9A98F; font-size:17px; }
+.casino .acts .gold{ background:#F2C14E; box-shadow:0 4px 0 #A9761C; }
+.casino .bets{ display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
+.casino .bets button{
+  height:48px; border-radius:14px; color:#FFF8EC; display:flex; flex-direction:column; align-items:center; justify-content:center;
+  line-height:1.05; box-shadow:0 4px 0 rgba(0,0,0,.35);
+}
+.casino .bets small{ font-size:13px; color:#FFE7A8; }
+.casino .bets .red{ background:#C8323F; } .casino .bets .black{ background:#1F2A33; } .casino .bets .green{ background:#22874A; }
+.casino .bets [aria-pressed="true"]{ box-shadow:0 0 0 3px #F2C14E, 0 4px 0 rgba(0,0,0,.35); }
+.casino .bets button:disabled:not([aria-pressed="true"]){ opacity:.45; }
+.casino .bets button:disabled[aria-pressed="true"]{ opacity:1; }
 
 #korki{
   position:fixed; left:50%; top:calc(env(safe-area-inset-top,0px) + 118px); transform:translateX(-50%);
@@ -565,21 +582,20 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
 /* Phones on their side: the upgrade and casino panels go down the right-hand side, and the view slides over to
    keep the player in sight beside them (ui.ts). */
 @media (max-height: 500px){
-  #shop, #casino, #look{
+  #shop, .casino, #look{
     left:auto; transform:none; right:max(10px, env(safe-area-inset-right,0px)); bottom:max(10px, env(safe-area-inset-bottom,0px));
     max-height:calc(100% - 112px); overflow-y:auto; touch-action:pan-y;
   }
   #shop, #look{ width:min(46vw,400px); }
-  #casino{ width:min(60vw,520px); padding:10px 12px; gap:12px; }
-  #wheel{ width:clamp(96px,17vw,130px); }
+  .casino{ width:min(46vw,380px); gap:8px; }
+  .casino .stakes button{ width:44px; height:44px; font-size:13px; }
+  .casino .go, .casino .acts button{ height:44px; }
   #prompts{ bottom:max(12px, env(safe-area-inset-bottom,0px)); }
   #tip{ font-size:15px; padding:6px 14px; }
   #tip b{ font-size:17px; }
 }
 /* fingers need bigger targets than a mouse */
 @media (pointer: coarse){
-  #casino .chips button{ min-height:34px; padding:4px 12px; }
-  #numPick button{ width:40px; min-height:34px; }
   #cloudMenu button{ min-height:38px; }
   #settings > button, #settings > a{ min-height:44px; }
   #look .word{ min-height:40px; }
@@ -659,30 +675,59 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
   <div id="lookTabs" role="tablist" aria-label="Your look"><button type="button" role="tab" aria-controls="lookRows">Body</button><button type="button" role="tab" aria-controls="lookRows">Face</button><button type="button" role="tab" aria-controls="lookRows">Hair</button><button type="button" role="tab" aria-controls="lookRows">Extras</button><button type="button" role="tab" aria-controls="lookRows">Clothes</button></div>
   <div id="lookRows" role="tabpanel" aria-labelledby="lookTitle"></div>
 </section>
-<div id="casino" hidden>
-  <canvas id="wheel" width="240" height="240" aria-label="Roulette wheel"></canvas>
-  <div class="side">
-    <p id="casinoMsg" aria-live="polite"></p>
-    <div class="chips" id="betKinds" aria-label="Bet">
-      <button type="button" data-bet="red" class="red">Red</button>
-      <button type="button" data-bet="black">Black</button>
-      <button type="button" data-bet="odd">Odd</button>
-      <button type="button" data-bet="even">Even</button>
-      <button type="button" data-bet="low">1–18</button>
-      <button type="button" data-bet="high">19–36</button>
-      <button type="button" data-bet="number">Number</button>
-    </div>
-    <div id="numPick" hidden><button type="button" data-step="-1" aria-label="Lower number">−</button><span id="numVal"></span><button type="button" data-step="1" aria-label="Higher number">+</button></div>
-    <div class="chips" id="stakes" aria-label="Stake">
-      <button type="button" data-stake="5">$5</button>
-      <button type="button" data-stake="25">$25</button>
-      <button type="button" data-stake="100">$100</button>
-      <button type="button" data-stake="500">$500</button>
-      <button type="button" data-stake="all">All in</button>
-    </div>
-    <button type="button" id="spin"></button>
-    <div id="history" aria-label="Recent results"></div>
+<div id="roulette" class="casino" hidden>
+  <p id="rouletteMsg" class="msg" aria-live="polite"></p>
+  <div class="bets" id="betKinds" role="group" aria-label="Bet">
+    <button type="button" data-bet="red" class="red">Red<small>×2</small></button>
+    <button type="button" data-bet="black" class="black">Black<small>×2</small></button>
+    <button type="button" data-bet="green" class="green">Green<small>×36</small></button>
   </div>
+  <div class="stakes" role="group" aria-label="Stake">
+    <button type="button" data-stake="0">$5</button>
+    <button type="button" data-stake="1">$25</button>
+    <button type="button" data-stake="2">$100</button>
+    <button type="button" data-stake="3">$500</button>
+    <button type="button" data-stake="all">All in</button>
+  </div>
+  <button type="button" id="spin" class="go"></button>
+  <div id="history" class="sr" aria-label="Recent results"></div>
+</div>
+<div id="blackjack" class="casino" hidden>
+  <p id="bjMsg" class="msg" aria-live="polite"></p>
+  <div class="acts" id="bjActs" hidden>
+    <button type="button" id="hit">Hit</button>
+    <button type="button" id="stand">Stand</button>
+    <button type="button" id="double" class="gold">Double</button>
+    <button type="button" id="split" class="gold" hidden>Split</button>
+  </div>
+  <div class="acts" id="bjAsk" hidden>
+    <button type="button" id="insureYes" class="gold">Yes</button>
+    <button type="button" id="insureNo">No thanks</button>
+  </div>
+  <div class="stakes" role="group" aria-label="Stake">
+    <button type="button" data-stake="0">$5</button>
+    <button type="button" data-stake="1">$25</button>
+    <button type="button" data-stake="2">$100</button>
+    <button type="button" data-stake="3">$500</button>
+    <button type="button" data-stake="all">All in</button>
+  </div>
+  <button type="button" id="deal" class="go"></button>
+</div>
+<div id="slots" class="casino" hidden>
+  <p id="slotsMsg" class="msg" aria-live="polite"></p>
+  <div id="pays" class="sr" aria-label="What pays"></div>
+  <div class="stakes" role="group" aria-label="Stake">
+    <button type="button" data-stake="0">$5</button>
+    <button type="button" data-stake="1">$25</button>
+    <button type="button" data-stake="2">$100</button>
+    <button type="button" data-stake="3">$500</button>
+    <button type="button" data-stake="all">All in</button>
+  </div>
+  <button type="button" id="pull" class="go"></button>
+</div>
+<div id="bubbly" class="casino" hidden>
+  <p id="bubblyMsg" class="msg" aria-live="polite"></p>
+  <button type="button" id="sip" class="go"></button>
 </div>
 <section id="korki" hidden aria-label="Korki">
   <div class="btns">

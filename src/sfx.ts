@@ -154,6 +154,25 @@ export function lose() {
   marimba(deg(3), { v: 0.08 });
   marimba(deg(1), { t: 0.15, v: 0.08, d: 0.6 });
 }
+/** Blackjack: a card slid out onto the felt, and a push (your stake back): one even note. */
+export function deal() {
+  noise({ f: 1300, f2: 700, q: 0.9, a: 0.01, d: 0.06, v: 0.06 });
+}
+export function push() {
+  marimba(deg(5), { v: 0.08, d: 0.5 });
+}
+/** The slot machine: its reels clacking round, each one stopping with a thunk, and the jackpot. */
+export function clack() {
+  noise({ f: 1000, q: 1.6, a: 0.008, d: 0.02, v: 0.03 });
+}
+export function reelStop() {
+  tone({ f: 190, f2: 130, type: 'triangle', a: 0.008, d: 0.09, v: 0.1 });
+  noise({ f: 700, kind: 'lowpass', a: 0.008, d: 0.05, v: 0.05 });
+}
+export function jackpot() {
+  for (let i = 0; i < 16; i++) tone({ t: i * 0.06, f: deg((i % 8) + 3, 1), type: 'triangle', a: 0.008, d: 0.12, v: 0.06 });
+  [0, 3, 5].forEach((n, i) => bell(deg(n, 1), { t: 1.0 + i * 0.1, v: 0.06, d: 1.4 }));
+}
 
 /** A plate set down: on the belt, or at a garden table. */
 export function clink(at: XZ) {

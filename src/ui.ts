@@ -52,8 +52,14 @@ phone?.addEventListener?.('change', () => { if (!modsPicked) showMods(!phone.mat
 stageEl.addEventListener('click', () => { modsPicked = true; showMods(modsEl.hidden !== false); });
 
 // ---------- keeping the player in sight ----------
-const panels = [$('shop'), $('casino'), $('look')];
+const panels = [$('shop'), $('roulette'), $('blackjack'), $('slots'), $('look')];
 const slid = { x: 0, y: 0 };
+/** How far a casino game slides the view to put its table in the middle of the space its controls leave (casinoKit.ts). */
+export const tableRoom = { on: false, x: 0, y: 0 };
+/** Whether a casino game's controls are down the right-hand side (a phone held sideways) rather than along the bottom. */
+export const besideView = (r: DOMRect, w: number) => r.left + r.width / 2 > w * 0.6;
+/** How much of the top of the screen to leave the HUD, over a casino table. */
+export const topOfView = (h: number) => Math.min(document.getElementById('hud')?.getBoundingClientRect().bottom ?? 0, h * 0.14);
 /** Slides the view so an open panel doesn't cover the player: sideways for a panel down the right-hand side (a phone
  *  held sideways), up for one along the bottom of a short screen. Eases there and back. */
 export function keepInSight(dt: number) {
@@ -61,7 +67,9 @@ export function keepInSight(dt: number) {
   let x = 0, y = 0;
   if (open) {
     const r = open.getBoundingClientRect();
-    if (r.left > w * 0.25) x = Math.max(0, w / 2 + 50 - r.left);
+    // a casino game's camera is on its table: that goes in the middle of the screen the controls leave
+    if (tableRoom.on && open.classList.contains('casino')) ({ x, y } = tableRoom);
+    else if (r.left > w * 0.25) x = Math.max(0, w / 2 + 50 - r.left);
     else y = Math.max(0, h / 2 + 70 - r.top);
   }
   const k = Math.min(1, dt * 8);

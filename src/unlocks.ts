@@ -1,6 +1,7 @@
 // Purchasable upgrades: pay-in tiles and what they build. Stage 1 has the fish market's seven upgrades, then the
 // gold tile that opens Floe Sushi (stage 2), which has upgrades of its own.
 import type { Group, Object3D, Vector3 } from 'three';
+import { enableBlackjack } from './blackjackTable';
 import { enableCasino } from './casino';
 import { openSled, openTakeout } from './counters';
 import { decal, drawTile, type Decal } from './decals';
@@ -9,7 +10,7 @@ import { tryCatch } from './fishing';
 import { addTables } from './garden';
 import { enableKorki, KORKI } from './korki';
 import { unlockFx } from './fx';
-import { stage, TERRACES } from './layout';
+import { GAMES, stage, TERRACES } from './layout';
 import { buildNet, buildTurret } from './machines';
 import { player } from './player';
 import { pointAt } from './pointers';
@@ -21,6 +22,7 @@ import { hireFarmer, hireRicePorter, plantTerrace } from './rice';
 import { openShed } from './shed';
 import { hireRunner } from './runner';
 import { chime, unlock } from './sfx';
+import { enableSlots } from './slotMachine';
 import { enterStage2, staging } from './stage';
 import { showStage, toast, type TipContent } from './ui';
 import { FY, price, V } from './util';
@@ -28,7 +30,7 @@ import { FY, price, V } from './util';
 export type UnlockId =
   | 'pack' | 'turret' | 'roulette' | 'runner' | 'boots' | 'sled' | 'runner2' | 'net' | 'runner3' | 'sushi'
   | 'paddy' | 'seats' | 'chef' | 'farmer' | 'porter' | 'plot2' | 'tables' | 'chef3' | 'tables2' | 'plot3' | 'kiosk'
-  | 'premium' | 'korki';
+  | 'premium' | 'korki' | 'blackjack' | 'slots';
 interface Unlock {
   id: UnlockId;
   cost: number;
@@ -73,7 +75,8 @@ const onTerrace = (i: number) => ({ x: (TERRACES[i].x0 + TERRACES[i].x1) / 2, z:
 const UNLOCKS: Unlock[] = [
   { id: 'pack', cost: 30, x: -1.3, z: 6.0, icon: '🎒', name: 'Bigger arms', desc: 'Carry 14 things at once', stage: 1 },
   { id: 'turret', cost: 90, x: -6.0, z: -3.3, icon: '🎯', name: 'Auto harpoon', desc: 'Keeps catching fish while you are away', stage: 1 },
-  { id: 'roulette', cost: 150, x: -4.3, z: 0.6, icon: '🎰', name: 'Roulette table', desc: 'Bet your cash on the wheel', stage: 1 },
+  // by the gap in the west fence the jetty goes out through, so the jetty builds out from where you stand
+  { id: 'roulette', cost: 150, x: -6.3, z: -1.2, icon: '🛳️', name: 'Casino boat', desc: 'A casino moored off the dock, with a roulette table', stage: 1 },
   { id: 'runner', cost: 300, x: -4.0, z: 3.6, icon: '🏃', name: 'Hire a runner', desc: 'Carries fish from the pile to your counters', stars: 3.5, stage: 1 },
   { id: 'boots', cost: 500, x: -6.0, z: 6.2, icon: '🥾', name: 'Snow boots', desc: 'Walk faster', stage: 1 },
   { id: 'sled', cost: 900, x: 6.55, z: -1.0, icon: '🚗', name: 'Drive-up window', desc: 'Drivers on the road buy fish in bulk, for half as much again', stars: 3.8, stage: 1 },
@@ -97,6 +100,9 @@ const UNLOCKS: Unlock[] = [
   { id: 'kiosk', cost: 50000, x: 8.2, z: 3.6, icon: '🥡', name: 'Takeout kiosk', desc: 'Drivers on the road buy boxes of sushi with the rice to spare; the chefs pack them', stars: 4.4, stage: 2 },
   { id: 'premium', cost: 60000, x: -6.2, z: 13.6, icon: '🏮', name: 'Premium menu', desc: 'Everything sells for 60% more', stars: 4.5, stage: 2 },
   { id: 'korki', cost: 10, x: KORKI.x, z: KORKI.z, icon: '🛴', name: "Korki's golden statue", desc: 'In memory of a good scooter', stage: 1, always: true, everywhere: true },
+  // the casino boat's other games, on its deck: fun extras, for sale from when the boat comes in
+  { id: 'slots', cost: 250, ...GAMES.slots, icon: '🎰', name: 'Slot machine', desc: 'Pull the lever for three of a kind', stage: 1, always: true, everywhere: true, needs: 'roulette' },
+  { id: 'blackjack', cost: 400, ...GAMES.blackjack, icon: '🃏', name: 'Blackjack table', desc: 'Beat the dealer to 21', stage: 1, always: true, everywhere: true, needs: 'roulette' },
 ];
 
 export const locked = (t: Tile) => !!t.stars && !t.open;
@@ -134,8 +140,8 @@ function offered(t: Tile) {
   return !t.needs || isDone(t.needs);
 }
 
-/** Upgrades on offer all through the current stage (or every stage), once the stage-up's show is over. */
-const always = (t: Tile) => t.always && (t.everywhere || (t.stage === stage.n && !(t.stage === 2 && staging())));
+/** Upgrades on offer all through the current stage (or every stage), once the stage-up's show is over and what they need is bought. */
+const always = (t: Tile) => t.always && !staging() && (!t.needs || isDone(t.needs)) && (t.everywhere || t.stage === stage.n);
 
 /** The tiles on offer last time, to spot new ones; null before the first look (at a fresh start or a loaded save). */
 let before: Set<Tile> | null = null;
@@ -207,7 +213,9 @@ export function applyUnlock(id: UnlockId, silent = false) {
   const pop = (...os: Object3D[]) => { if (!silent) os.forEach(popIn); };
   if (id === 'pack') player.back.cap = 14;
   if (id === 'turret') { turret = { ...buildTurret(), t: 1 }; pop(turret.g); }
-  if (id === 'roulette') pop(enableCasino());
+  if (id === 'roulette') pop(...enableCasino(silent));
+  if (id === 'blackjack') pop(enableBlackjack());
+  if (id === 'slots') pop(enableSlots());
   if (id === 'runner' || id === 'runner2' || id === 'runner3') pop(hireRunner().g);
   if (id === 'boots') player.speed = 5.8;
   if (id === 'sled') pop(...openSled());

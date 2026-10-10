@@ -5,7 +5,7 @@ import {
   RepeatWrapping, type Vector3,
 } from 'three';
 import { at as atXZ, Build, detail, jitter, quietly, seasonLayer } from './kit';
-import { HOUSE_PATH_Z } from './layout';
+import { HOUSE_PATH_Z, QUAY } from './layout';
 import {
   bollard, deckBoards, fenceLog, FLOES, lifeRing, logSnow, piling, pilingSnow, ropeCoil, scatter,
 } from './props';
@@ -170,6 +170,8 @@ high(scene, () => {
 // Low: plain logs. High: rounded logs, their end grain on top (snow on it in winter), lashed together with rope.
 /** Fence logs that get removed when the sled window opens. */
 export const gapLogs: Object3D[] = [];
+/** Fence logs at the north end of the west fence that make way for the casino harbor's quay. */
+export const quayLogs: Object3D[] = [];
 /** Fence south of the restaurant's line: gone in stage 2. Logs stand on the deck, so the group shrinks into it. */
 const fence1 = new Group();
 scene.add(fence1);
@@ -187,7 +189,10 @@ function log(x: number, z: number, into: Part[] | null, along: 'x' | 'z') {
   hiLogs.push({ x, z, h, into: g, along });
   return g;
 }
-for (let z = -6.2; z <= 8; z += 0.5) log(-7.85, z, z > 1.3 ? logs1 : logs, 'z');
+for (let z = -6.2; z <= 8; z += 0.5) {
+  if (z > QUAY.z0 && z < QUAY.z1 + 0.15) quayLogs.push(log(-7.85, z, null, 'z')!);
+  else log(-7.85, z, z > 1.3 ? logs1 : logs, 'z');
+}
 for (let x = -7.35; x <= 7.9; x += 0.5) {
   if (x > 1.7 && x < 4.3) continue;
   log(x, 7.85, logs1, 'x');
@@ -328,9 +333,12 @@ export function treeGroup(spots: [x: number, z: number, s: number, r?: number][]
 
 /** Neither stage has trees on the path to her house or round her yard. */
 const housePath = (x: number, z: number) => x > 8.2 && z > HOUSE_PATH_Z - 4 && z < HOUSE_PATH_Z + 4.5;
+/** Neither stage has trees on the casino harbor's quay along the shore. */
+const quay = (x: number, z: number) => x > QUAY.x0 - 1.5 && x < -7 && z < QUAY.z1 + 1.2;
 /** Stage 1 keeps trees off the deck, the road, the customers' path and the water. */
 function treeOK1(x: number, z: number) {
   if (x > -8.8 && x < 8.8 && z > -7.2 && z < 8.8) return false;
+  if (quay(x, z)) return false;
   if (x > 8.2 && x < 11.4) return false;
   if (housePath(x, z)) return false;
   if (x > -5 && x < 8.6 && z > 8.4 && z < 20) return false;
@@ -339,6 +347,7 @@ function treeOK1(x: number, z: number) {
 /** Stage 2 also keeps them off the restaurant, its garden, the kiosk's road, the diners' path and the farm. */
 function treeOK2(x: number, z: number) {
   if (x > -8.8 && x < 8.8 && z > -7.2 && z < 2) return false;
+  if (quay(x, z)) return false;
   if (housePath(x, z)) return false;
   if (x > -11.6 && x < 13.2 && z > 0.5 && z < 23.4) return false;
   if (x > 12.6 && x < 15.8) return false;
@@ -374,6 +383,9 @@ export function swapDecks() {
   deck1.visible = false;
   deck2.visible = true;
 }
+
+/** The casino harbor's gap in the west fence, onto its quay. */
+export const openQuayGap = () => quayLogs.forEach(l => { l.visible = false; });
 
 /** Back to a full fence on the east side: the sled window's gap closes in stage 2. */
 export const closeGap = () => gapLogs.forEach(l => { l.visible = true; });
