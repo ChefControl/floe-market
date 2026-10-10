@@ -6,7 +6,7 @@
 // - the slot machines: their jingles and bells, coming up as you near a machine (the games' bank or the guests' row).
 //
 // They're fetched the first time the player walks out towards the yacht, and play on the ambience bus. Credits (the
-// slot machines' recording asks for one) are in the sound settings and the README.
+// slot machines' recording asks for one) are under Credits & Copyrights in the settings, and in the README.
 import { ac, buses, panOf, prefs, rnd } from './audio';
 import { BAR, ROW } from './casinoSalon';
 import { harborK } from './music';

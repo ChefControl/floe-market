@@ -1,6 +1,7 @@
 // The settings menu, behind the gear in the top corner: signing in for cloud saves (cloud.ts), the sound (audio.ts),
-// the graphics (graphics.ts), how to walk (hint.ts), and Restart (main.ts). The Sound row opens into the effects, the ambience and the music, each
-// with a mute button and a 0 to 10 slider, big enough for a finger.
+// the graphics (graphics.ts), how to walk (hint.ts), Restart (main.ts), and last, the Credits & Copyrights for the music
+// and sound. The Sound row opens into the effects, the ambience and the music, each with a mute button and a 0 to 10
+// slider, big enough for a finger.
 import { every, prefs, setLevel, setMute, type Bus } from './audio';
 import { choose, gfx, onQuality, type Choice } from './graphics';
 import { showHint } from './hint';
@@ -12,6 +13,7 @@ const gear = $('gear'), menu = $('settings');
 export function openSettings(open: boolean) {
   menu.hidden = !open;
   gear.setAttribute('aria-expanded', String(open));
+  if (!open) showCredits(false);
 }
 gear.addEventListener('click', () => openSettings(gear.getAttribute('aria-expanded') !== 'true'));
 // A tap anywhere else closes it, and so does Escape.
@@ -74,6 +76,26 @@ function showGfx() {
 for (const b of gfxButtons) b.addEventListener('click', () => choose(b.dataset.q as Choice));
 onQuality(showGfx);
 showGfx();
+
+// Credits & Copyrights: a mouse opens the notice by hovering over the row, and it closes when the mouse moves off; a
+// click (a tap, or Enter) opens it and keeps it open, and a second one closes it.
+const credits = $('credits'), creditsBtn = $('creditsBtn'), creditsCard = $('creditsCard');
+let pinned = false;
+function showCredits(open: boolean) {
+  creditsCard.hidden = !open;
+  creditsBtn.setAttribute('aria-expanded', String(open));
+  if (!open) pinned = false;
+  // on a short screen the menu scrolls: bring the notice into view
+  else creditsCard.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
+}
+const mouse = (e: Event) => (e as PointerEvent).pointerType === 'mouse';
+credits.addEventListener('pointerenter', e => { if (mouse(e)) showCredits(true); });
+credits.addEventListener('pointerleave', e => { if (mouse(e) && !pinned) showCredits(false); });
+creditsBtn.addEventListener('click', () => {
+  if (pinned) { showCredits(false); return; }
+  showCredits(true);
+  pinned = true;
+});
 
 $('controls').addEventListener('click', () => {
   openSettings(false);

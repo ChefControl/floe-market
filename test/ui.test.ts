@@ -277,6 +277,39 @@ describe('settings', () => {
     $('soundCat').click();
     expect($('soundPanel').hidden).toBe(true);
   });
+  it("ends with Credits & Copyrights: the music's and the sounds' notices, open while a mouse hovers or after a tap", async () => {
+    await loadGame();
+    await import('../src/settings');
+    const card = $('creditsCard'), row = $('credits');
+    const hover = (type: string, pointerType = 'mouse') => row.dispatchEvent(Object.assign(new Event(type), { pointerType }));
+    $('gear').click();
+    expect($('settings').lastElementChild).toBe(row);
+    expect(card.hidden).toBe(true);
+    hover('pointerenter');
+    expect(card.hidden).toBe(false);
+    expect($('creditsBtn').getAttribute('aria-expanded')).toBe('true');
+    expect(card.textContent).toContain('Dirk-Jan Hanegraaff');
+    expect(card.querySelector('a[href="https://creativecommons.org/licenses/by/3.0"]')).not.toBeNull();
+    expect(card.textContent).toContain('Ofer Levy');
+    hover('pointerleave');
+    expect(card.hidden).toBe(true);
+    // a finger: no hover, so a tap opens it and it stays open until another tap
+    hover('pointerenter', 'touch');
+    expect(card.hidden).toBe(true);
+    $('creditsBtn').click();
+    hover('pointerleave', 'touch');
+    expect(card.hidden).toBe(false);
+    $('creditsBtn').click();
+    expect(card.hidden).toBe(true);
+    // a click while hovering keeps it open after the mouse leaves; closing the menu closes it
+    hover('pointerenter');
+    $('creditsBtn').click();
+    hover('pointerleave');
+    expect(card.hidden).toBe(false);
+    $('gear').click();
+    expect(card.hidden).toBe(true);
+    expect($('soundPanel').textContent).not.toContain('Hanegraaff');
+  });
 });
 
 describe('Ko-fi', () => {
