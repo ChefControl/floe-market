@@ -1,4 +1,5 @@
 import './errors'; // must stay first: catches errors thrown while the other modules build the scene
+import { batchStill } from './batch';
 import { tableView, tipsy, tipsyK } from './casinoKit';
 import { initCloud } from './cloud';
 import { CLOSE, CLOSE_AIM, closeUp } from './customize';
@@ -19,10 +20,13 @@ import { hud, keepInSight } from './ui';
 
 // ---------- save / restart ----------
 load();
+batchStill(scene);
 startAutosave();
 initCloud();
 initHint();
 initScores();
+// the demo build's tool panel (demo.ts); the game itself never loads it
+if (import.meta.env.MODE === 'demo') void import('./demo');
 
 const restartBtn = document.getElementById('restart')!, restartText = document.getElementById('restartText')!;
 let armT: ReturnType<typeof setTimeout> | undefined;

@@ -5,7 +5,9 @@ import {
   BoxGeometry, BufferGeometry, CylinderGeometry, ExtrudeGeometry, Group, Material, Mesh, MeshPhongMaterial, Shape, TorusGeometry,
 } from 'three';
 import { decal, drawPad } from './decals';
+import { detail, quietly } from './kit';
 import { player } from './player';
+import { bakeByMaterial } from './propsMachines';
 import { CAM_YAW, canvasTex, FONT, mat, mesh, rr, scene } from './render';
 import { d2xz, FY } from './util';
 import { Song } from './youtube';
@@ -193,18 +195,28 @@ const plaque = canvasTex(512, 128, (c, w, h) => {
   c.font = `600 24px ${FONT}`; c.fillText('NAMI Klima One · 5,000 km · Tel Aviv', w / 2, 98);
 });
 
+/**
+ * The statue on its pedestal. It's some seventy shapes; on High they're baked, a mesh for each material (the gold, the
+ * darker gold, the pedestal) and the two textured ones (the deck's logo, the plaque) as they are, so it looks the same
+ * for a handful of draw calls. Low keeps the shapes as they were.
+ */
 function buildStatue() {
   const g = new Group();
   g.position.set(STATUE.x, STATUE.y, STATUE.z);
   g.rotation.y = STATUE.h;
-  g.add(mesh(new BoxGeometry(1.9, 0.18, 0.95), 0xD3DCE2, 0, 0.09, 0, true));
-  g.add(mesh(new BoxGeometry(1.7, 0.32, 0.8), 0xEEF2F5, 0, 0.34, 0, true));
+  const low = quietly(() => new Group());
+  g.add(low);
+  low.add(mesh(new BoxGeometry(1.9, 0.18, 0.95), 0xD3DCE2, 0, 0.09, 0, true));
+  low.add(mesh(new BoxGeometry(1.7, 0.32, 0.8), 0xEEF2F5, 0, 0.34, 0, true));
   const p = mesh(new BoxGeometry(1.1, 0.26, 0.01), [mat(0x2B3A46), mat(0x2B3A46), mat(0x2B3A46), mat(0x2B3A46), new MeshPhongMaterial({ map: plaque.tex }), mat(0x2B3A46)], 0, 0.34, 0.402);
-  g.add(p);
+  low.add(p);
   const scooter = buildScooter();
   scooter.scale.setScalar(1.25);
   scooter.position.y = 0.5;
-  g.add(scooter);
+  low.add(scooter);
+  const high = quietly(() => bakeByMaterial(low));
+  g.add(high);
+  detail(low, high);
   scene.add(g);
   return g;
 }

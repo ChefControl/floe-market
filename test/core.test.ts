@@ -172,9 +172,10 @@ describe('characters', () => {
     const { setSeason } = await import('../src/season');
     const sled = makeSled(0xff0000, 0x00ff00);
     scene.add(sled);
-    const skis = sled.children.filter(c => c.userData.seasons?.includes('winter'));
-    const wheels = sled.children.filter(c => c.userData.seasons?.includes('summer'));
-    expect([skis.length, wheels.length]).toEqual([2, 4]);
+    /** What's worn in season `s`: Low's separate skis and wheels, and High's baked pair of skis and set of wheels. */
+    const parts = (s: string) => { const r: Object3D[] = []; sled.traverse(c => { if (c.userData.seasons?.includes(s)) r.push(c); }); return r; };
+    const skis = parts('winter'), wheels = parts('summer');
+    expect([skis.length, wheels.length]).toEqual([2 + 1, 4 + 1]);
     expect(skis.every(s => s.visible) && wheels.every(w => !w.visible)).toBe(true);
     setSeason(2);
     expect(skis.every(s => !s.visible) && wheels.every(w => w.visible)).toBe(true);

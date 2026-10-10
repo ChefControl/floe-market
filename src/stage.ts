@@ -8,7 +8,7 @@ import { glowMats, hallPieces, lamps, showHall } from './hall';
 import { korkiStatue, moveKorki } from './korki';
 import { stage } from './layout';
 import { marketLooks } from './looks';
-import { fog, hemi, scene, sky, sun, sunOff } from './render';
+import { fitRenderer, fog, hemi, scene, shadowSize, sky, sun, sunOff } from './render';
 import { houseStage2 } from './rain';
 import { mix, onBlend, type Swatch } from './season';
 import { furniture, handOver, openRestaurant } from './restaurant';
@@ -109,9 +109,8 @@ export function updStage(dt: number) {
 function widenShadows() {
   Object.assign(sun.shadow.camera, { left: -18, right: 18, top: 18, bottom: -18 });
   sun.shadow.camera.updateProjectionMatrix();
-  sun.shadow.mapSize.set(2048, 2048);
-  sun.shadow.map?.dispose();
-  sun.shadow.map = null;
+  shadowSize.px = 2048;
+  fitRenderer();
 }
 
 /**

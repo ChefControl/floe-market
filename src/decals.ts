@@ -4,6 +4,7 @@
 // Each has a dark fill, a dark edge round its white dashed line and a white badge behind its icon, so it stands out
 // on boards, snow and grass alike.
 import { Mesh, MeshBasicMaterial, PlaneGeometry } from 'three';
+import { drawIcon } from './icons';
 import { CAM_YAW, canvasTex, FONT, rr, scene, type CanvasTex, type Draw } from './render';
 import { price } from './util';
 
@@ -44,9 +45,11 @@ function badge(c: CanvasRenderingContext2D, x: number, y: number, r: number) {
 }
 const DARK = 'rgba(20,45,60,.3)';
 
+/** The marking's icon: its emoji's drawing (icons.ts), across the middle at height `y`. */
 function iconText(c: CanvasRenderingContext2D, w: number, icon: string, y: number, size: number) {
-  c.font = size + 'px serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
-  c.fillText(icon, w / 2, y);
+  drawIcon(c, icon, w / 2, y, size);
+  // the label or price under it is centred on the same line
+  c.textAlign = 'center'; c.textBaseline = 'middle';
 }
 
 /** A circle to stand in and do something: fish, drop things off, bet. */
