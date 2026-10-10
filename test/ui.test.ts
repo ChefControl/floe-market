@@ -277,6 +277,19 @@ describe('settings', () => {
     $('soundCat').click();
     expect($('soundPanel').hidden).toBe(true);
   });
+  it('opens Controls into How to play and the Buy button switch, which a touch screen keeps on', async () => {
+    vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue('Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) Mobile/15E148');
+    await loadGame();
+    await import('../src/settings');
+    $('gear').click();
+    expect($('controlsPanel').hidden).toBe(true);
+    $('controlsCat').click();
+    expect($('controlsPanel').hidden).toBe(false);
+    expect($('controls').textContent).toContain('How to play');
+    const sw = $('buyBtnToggle') as HTMLButtonElement;
+    expect([sw.disabled, sw.getAttribute('aria-checked'), $('buyBtnNote').textContent]).toEqual([true, 'true', 'Always on with a touch screen']);
+  });
+
   it("ends with Credits & Copyrights, which opens with a click like Sound into the music's and the sounds' notices", async () => {
     await loadGame();
     await import('../src/settings');

@@ -11,7 +11,7 @@
 // (the harpoon, usually) brings up a banner saying the tutorial's complete, and that the rest is up to the player; the
 // rating, which only comes up after a few more upgrades, is a tip for later, outside the tutorial proper.
 import { Group, Mesh, MeshBasicMaterial, RingGeometry } from 'three';
-import { touchBuy } from './buy';
+import { buyButtonShown, touchBuy } from './buy';
 import { C1 } from './counters';
 import { modCost, MODS, mods } from './economy';
 import { steaksInProgress } from './fishing';
@@ -76,7 +76,7 @@ const harpoon = () => tiles.find(t => t.id === 'turret')!;
 const reached = (g: Goal | null) => (g && wallet.money >= g.need ? g.spot : null);
 const firstLocked = () => onOffer().find(locked) ?? null;
 /** How to buy, on this device: the Buy button on a touch screen, or E. */
-const hold = () => touchBuy() ? 'Stand on it and hold Buy' : 'Stand on it and hold E';
+const hold = () => touchBuy() ? 'Stand on it and hold Buy' : buyButtonShown() ? 'Stand on it and hold E or Buy' : 'Stand on it and hold E';
 /** Cash at the start of the cash lesson, to see it go up. */
 let cash0 = 0;
 

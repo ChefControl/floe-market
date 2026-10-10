@@ -82,7 +82,7 @@ describe('the tutorial', () => {
     g.placePlayer(pack.x, pack.z);
     draw();
     expect(tut.guide.visible).toBe(true); // stays up there: what to do needs saying
-    expect(said()).toBe('Buy Bigger arms here / Stand on it and hold E');
+    expect(said()).toBe('Buy Bigger arms here / Stand on it and hold E or Buy');
     g.press('e');
     g.runUntil(() => pack.done);
     g.press('e', 'keyup');
@@ -120,7 +120,7 @@ describe('the tutorial', () => {
     const turret = g.unlocks.tiles.find(t => t.id === 'turret')!;
     draw();
     expect(tut.guide.position.x).toBe(turret.x);
-    expect(said()).toBe('Buy the auto harpoon here / Stand on it and hold E');
+    expect(said()).toBe('Buy the auto harpoon here / Stand on it and hold E or Buy');
     g.placePlayer(turret.x, turret.z);
     g.press('e');
     g.runUntil(() => turret.done);

@@ -217,7 +217,8 @@ describe('buying', () => {
     expect($('buyHint').hidden).toBe(true);
     g.run(0.2);
     expect($('buyHint').hidden).toBe(false);
-    expect($('buyHint').textContent).toBe('Hold E to buy this');
+    expect($('buyHint').textContent).toBe('Hold E or Buy to buy this'); // a computer has E, and the Buy button too
+    expect($('buy').hidden).toBe(false);
     g.press('e');
     g.run(0.05);
     expect($('buyHint').hidden).toBe(true);
@@ -225,7 +226,30 @@ describe('buying', () => {
     g.placePlayer(0, -3);
     g.run(5);
     expect($('buyHint').hidden).toBe(true);
-    expect($('buy').hidden).toBe(true); // a computer has E: no button
+    expect($('buy').hidden).toBe(true); // off the tile
+  });
+
+  it('leaves the Buy button out on a computer when it is turned off under Controls, and E alone buys', async () => {
+    const g = await loadGame({ money: 35 });
+    (await import('../src/hint')).setBuyButton(false);
+    await import('../src/settings');
+    g.placePlayer(PACK.x, PACK.z);
+    g.run(2.1);
+    expect($('buy').hidden).toBe(true);
+    expect($('buyHint').textContent).toBe('Hold E to buy this');
+    $('gear').click();
+    $('controlsCat').click();
+    expect($('buyBtnToggle').getAttribute('aria-checked')).toBe('false');
+    $('buyBtnToggle').click(); // back on: the button comes up, and stays on for the next visit
+    g.run(0.1);
+    expect($('buy').hidden).toBe(false);
+    expect($('buyHint').textContent).toBe('Hold E or Buy to buy this');
+    expect(localStorage.getItem('floe-market-buy-button')).toBe('1');
+    // clicked with the mouse, it buys like holding E
+    $('buy').dispatchEvent(Object.assign(new Event('pointerdown'), { pointerType: 'mouse' }));
+    g.run(0.3);
+    expect(g.wallet.money).toBeLessThan(35);
+    $('buy').dispatchEvent(new Event('pointerup'));
   });
 
   it('says so when buy is held with no cash at all, and the cash shakes', async () => {
@@ -275,8 +299,9 @@ describe('buying', () => {
     expect(g.player.g.position.x).toBeCloseTo(x, 3);
   });
 
-  it('brings up the Buy button on a laptop from its first touch', async () => {
+  it('brings up the Buy button on a laptop from its first touch, even with it turned off for the mouse', async () => {
     const g = await loadGame({ money: 35 });
+    (await import('../src/hint')).setBuyButton(false);
     g.placePlayer(PACK.x, PACK.z);
     g.run(0.1);
     expect($('buy').hidden).toBe(true); // a computer, so far

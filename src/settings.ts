@@ -1,11 +1,13 @@
 // The settings menu, behind the gear in the top corner, in four groups: You (signing in for cloud saves, cloud.ts, and
 // your look), Graphics & sound (graphics.ts, audio.ts), Game (how to walk, hint.ts, and Restart, main.ts), and About
-// (Ko-fi, and last, the Credits & Copyrights for the music and sound). Graphics, Sound and the credits each open with a
-// click: Graphics into Auto, Low or High; Sound into the effects, the ambience and the music, each with a mute button
+// (Ko-fi, and last, the Credits & Copyrights for the music and sound). Controls, Graphics, Sound and the credits each
+// open with a click: Controls into How to play and a switch for the Buy button on a computer; Graphics into Auto, Low
+// or High; Sound into the effects, the ambience and the music, each with a mute button
 // and a 0 to 10 slider, big enough for a finger; and the credits into the notices.
 import { every, prefs, setLevel, setMute, type Bus } from './audio';
 import { choose, gfx, onQuality, type Choice } from './graphics';
-import { showHint } from './hint';
+import { touchBuy } from './buy';
+import { buyButton, setBuyButton, showHint } from './hint';
 import { coin } from './sfx';
 
 const $ = (id: string) => document.getElementById(id)!;
@@ -14,6 +16,7 @@ const gear = $('gear'), menu = $('settings');
 export function openSettings(open: boolean) {
   menu.hidden = !open;
   gear.setAttribute('aria-expanded', String(open));
+  if (open) showBuyToggle();
 }
 gear.addEventListener('click', () => openSettings(gear.getAttribute('aria-expanded') !== 'true'));
 // A tap anywhere else closes it, and so does Escape.
@@ -39,6 +42,7 @@ function category(row: HTMLElement, panel: HTMLElement) {
     if (open) panel.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
   });
 }
+category($('controlsCat'), $('controlsPanel'));
 category($('gfxCat'), $('gfx'));
 category($('soundCat'), $('soundPanel'));
 category($('creditsBtn'), $('creditsCard'));
@@ -87,6 +91,17 @@ function showGfx() {
 for (const b of gfxButtons) b.addEventListener('click', () => choose(b.dataset.q as Choice));
 onQuality(showGfx);
 showGfx();
+
+// The Buy button on a computer, on or off. A touch screen has no E, so there it's always on and the switch says so.
+const buyToggle = $('buyBtnToggle') as HTMLButtonElement, buyNote = $('buyBtnNote');
+function showBuyToggle() {
+  const touch = touchBuy();
+  buyToggle.disabled = touch;
+  buyToggle.setAttribute('aria-checked', String(touch || buyButton.on));
+  buyNote.textContent = touch ? 'Always on with a touch screen' : 'Hold it on a tile to buy, as well as E';
+}
+buyToggle.addEventListener('click', () => { setBuyButton(!buyButton.on); showBuyToggle(); });
+showBuyToggle();
 
 $('controls').addEventListener('click', () => {
   openSettings(false);
