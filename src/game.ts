@@ -13,6 +13,7 @@ import { updFlights } from './holder';
 import { updKorki } from './korki';
 import { updLooks } from './looks';
 import { updMusic } from './music';
+import { updRoomTone } from './roomTone';
 import { updNeeds } from './needs';
 import { updPlayer } from './playerUpdate';
 import { rainK, updHouse } from './rain';
@@ -65,4 +66,5 @@ export function tick(dt: number) {
   updAudio(dt, player.g.position);
   updAmbience();
   updMusic(dt);
+  updRoomTone();
 }

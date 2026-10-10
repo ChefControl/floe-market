@@ -35,9 +35,9 @@ const DOOR = DECKS.stairs.half + 0.2;
  *  the length of the stern, its counter at `x`, the back bar against the wall and stools out front; a short row of
  *  the guests' slot machines stands against the bow wall beside the door, facing aft; the waiter walks along the
  *  windows. */
-const BAR = { x: SALON.x0 + 1.1, z0: -2.75, z1: 2.55, stools: [-2.1, -1.05, 0, 1.05, 2.1] };
+export const BAR = { x: SALON.x0 + 1.1, z0: -2.75, z1: 2.55, stools: [-2.1, -1.05, 0, 1.05, 2.1] };
 const STOOL_X = BAR.x + 0.55;
-const ROW = { x: SALON.x1 - 0.42, zs: [-2.55, -1.7] };
+export const ROW = { x: SALON.x1 - 0.42, zs: [-2.55, -1.7] };
 /** A potted palm in the corner by the door on the windows' side. */
 const PALMS = [[SALON.x1 - 0.5, SALON.side - 0.5]];
 

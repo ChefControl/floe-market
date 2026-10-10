@@ -1,5 +1,6 @@
 // The game's sound engine. Everything is synthesised in the browser with the Web Audio API, from a few oscillators and
-// a few seconds of noise, so sound costs a few kilobytes of code and nothing to download. It's voiced to suit the
+// a few seconds of noise, so sound costs a few kilobytes of code and almost nothing to download: the one exception is
+// the casino yacht's room tone (roomTone.ts), three real recordings fetched the first time you walk out to it. It's voiced to suit the
 // low-poly look: simple, rounded waveforms and short soft envelopes, like a box of toy instruments. Every pitched
 // effect is on the major pentatonic scale of the music's key, so effects ring along with the music (and with each
 // other) instead of clashing.
@@ -155,11 +156,13 @@ export function updAudio(dt: number, at: XZ) {
 const RIGHT = { x: Math.cos(CAM_YAW), z: -Math.sin(CAM_YAW) };
 /** At NEAR metres a sound is at half its volume; past FAR it isn't heard at all. */
 const NEAR = 7, FAR = 26;
+/** How far left or right on screen `at` is from the player, as a pan (-0.8 to 0.8). */
+export const panOf = (at: XZ) => Math.max(-0.8, Math.min(0.8, ((at.x - ear.x) * RIGHT.x + (at.z - ear.z) * RIGHT.z) / 10));
 function place(at?: XZ) {
   if (!at) return { v: 1, pan: 0 };
-  const dx = at.x - ear.x, dz = at.z - ear.z, d = Math.hypot(dx, dz);
+  const d = Math.hypot(at.x - ear.x, at.z - ear.z);
   if (d > FAR) return null;
-  return { v: 1 / (1 + (d / NEAR) ** 2), pan: Math.max(-0.8, Math.min(0.8, (dx * RIGHT.x + dz * RIGHT.z) / 10)) };
+  return { v: 1 / (1 + (d / NEAR) ** 2), pan: panOf(at) };
 }
 
 // ---------- voices ----------
@@ -175,12 +178,18 @@ export interface Voice {
   hold?: number;
   d: number;
   bus?: Bus;
+  /** A node of the bus's own to go through instead of straight into it (the lounge band's mix, music.ts). */
+  out?: AudioNode;
 }
 export interface ToneVoice extends Voice {
   f: number;
   /** Glides to this pitch over the sound. */
   f2?: number;
   type?: OscillatorType;
+  /** A waveform of its own (a reed's), in place of `type`. */
+  wave?: PeriodicWave;
+  /** Starts this much under the pitch (0.985: a little flat) and slides up onto it, the way a sax scoops into a note. */
+  scoop?: number;
   /** A low-pass filter at this frequency, closing to `lp2` (a pluck's brightness fading). */
   lp?: number;
   lp2?: number;
@@ -227,11 +236,12 @@ function envelope(o: Voice, f: number) {
   g.gain.setValueAtTime(v, top);
   g.gain.exponentialRampToValueAtTime(0.0001, t1);
   const nodes: AudioNode[] = [g];
+  const into = o.out ?? buses[bus];
   if (p.pan) {
     const s = ac.createStereoPanner();
-    s.pan.value = p.pan; s.connect(buses[bus]); g.connect(s);
+    s.pan.value = p.pan; s.connect(into); g.connect(s);
     nodes.push(s);
-  } else g.connect(buses[bus]);
+  } else g.connect(into);
   voices++;
   return { g, t0, top, t1, nodes };
 }
@@ -245,9 +255,10 @@ export function tone(o: ToneVoice) {
   const e = envelope(o, o.f);
   if (!e) return;
   const c = ac!, osc = c.createOscillator();
-  osc.type = o.type ?? 'sine';
+  if (o.wave) osc.setPeriodicWave(o.wave); else osc.type = o.type ?? 'sine';
   if (o.detune) osc.detune.value = o.detune;
-  osc.frequency.setValueAtTime(o.f, e.t0);
+  osc.frequency.setValueAtTime(o.f * (o.scoop ?? 1), e.t0);
+  if (o.scoop) osc.frequency.linearRampToValueAtTime(o.f, e.t0 + 0.07);
   if (o.f2) osc.frequency.exponentialRampToValueAtTime(o.f2, e.t1);
   let out: AudioNode = osc;
   if (o.lp) {

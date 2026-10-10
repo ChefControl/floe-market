@@ -242,6 +242,9 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
 #soundCat[aria-expanded="true"] .chev{ transform:translateY(4px) rotate(-135deg); }
 #soundPanel{ display:flex; flex-direction:column; gap:8px; padding:8px 10px 10px; border-radius:14px; background:var(--chip); }
 #soundPanel[hidden]{ display:none; }
+/* the room tone's credits, small under the sliders */
+#soundCredits{ margin:2px 0 0; font-size:11px; line-height:1.4; opacity:.75; max-width:240px; }
+#soundCredits a{ color:inherit; }
 /* Graphics, Auto, Low or High (graphics.ts): the choices on the right of the row, and under its name, on Auto, which the game is using */
 #gfx{ display:flex; align-items:center; gap:10px; min-height:40px; padding:3px 4px 3px 12px; border-radius:14px; background:var(--chip); color:var(--pill-ink); font:700 16px "Baloo 2","Trebuchet MS",system-ui,sans-serif; }
 #gfx .name{ display:flex; flex-direction:column; line-height:1.1; min-width:0; }
@@ -639,6 +642,7 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
     <div class="vol"><button type="button" class="mute" id="muteSfx" aria-pressed="false" aria-label="Mute effects"></button><label for="volSfx">Effects</label><output id="volSfxN" for="volSfx">7</output><input type="range" id="volSfx" min="0" max="10" step="1" value="7"></div>
     <div class="vol"><button type="button" class="mute" id="muteAmb" aria-pressed="false" aria-label="Mute ambience"></button><label for="volAmb">Ambience</label><output id="volAmbN" for="volAmb">7</output><input type="range" id="volAmb" min="0" max="10" step="1" value="7"></div>
     <div class="vol"><button type="button" class="mute" id="muteMusic" aria-pressed="false" aria-label="Mute music"></button><label for="volMusic">Music</label><output id="volMusicN" for="volMusic">7</output><input type="range" id="volMusic" min="0" max="10" step="1" value="7"></div>
+    <p id="soundCredits">The casino yacht's room sound: <a href="https://commons.wikimedia.org/wiki/File:Amsterdam_casino_-_SoundCloud_-_Dirk-Jan_Hanegraaff.ogg" target="_blank" rel="noopener">“Amsterdam casino”</a> by Dirk-Jan Hanegraaff (<a href="https://creativecommons.org/licenses/by/3.0" target="_blank" rel="noopener">CC BY 3.0</a>), and a restaurant and a bar by Joseph Sardin, <a href="https://bigsoundbank.com" target="_blank" rel="noopener">BigSoundBank</a> (CC0).</p>
   </div>
   <div id="gfx" role="group" aria-labelledby="gfxName"><span class="ic" aria-hidden="true">✨</span><span class="name"><span id="gfxName">Graphics</span><small id="gfxNow" aria-live="polite"></small></span><span class="seg"><button type="button" data-q="auto" aria-pressed="true">Auto</button><button type="button" data-q="low" aria-pressed="false">Low</button><button type="button" data-q="high" aria-pressed="false">High</button></span></div>
   <button id="controls" type="button"><span class="ic" aria-hidden="true">🕹️</span>Controls</button>
