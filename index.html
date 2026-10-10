@@ -234,7 +234,7 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
   background:var(--chip); color:var(--pill-ink); font:700 16px "Baloo 2","Trebuchet MS",system-ui,sans-serif; text-align:left; cursor:pointer;
 }
 #settings > button[hidden]{ display:none; }
-/* the menu's groups: a small heading over each (You, Sound & graphics, Game, About) */
+/* the menu's groups: a small heading over each (You, Graphics & sound, Game, About) */
 #settings .sgroup{ margin:6px 4px -2px; font:800 11px/1 "Baloo 2","Trebuchet MS",system-ui,sans-serif; letter-spacing:.08em; text-transform:uppercase; opacity:.6; }
 #settings .sgroup:first-child{ margin-top:0; }
 #settings .ic{ width:24px; text-align:center; font-size:18px; }
@@ -649,14 +649,14 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
   <button id="cloud" type="button" hidden><span class="ic" aria-hidden="true">☁️</span><span><span id="cloudName">Sign in</span><span class="wide" aria-hidden="true"> with Google</span></span><i aria-hidden="true"></i></button>
   <div id="cloudMenu" hidden><b id="cloudWho"></b><span id="cloudStatus"></span><button type="button" id="cloudOut">Sign out</button></div>
   <button id="lookOpen" type="button"><span class="ic" aria-hidden="true">👕</span>Your look</button>
-  <h2 class="sgroup">Sound &amp; graphics</h2>
+  <h2 class="sgroup">Graphics &amp; sound</h2>
+  <div id="gfx" role="group" aria-labelledby="gfxName"><span class="ic" aria-hidden="true">✨</span><span class="name"><span id="gfxName">Graphics</span><small id="gfxNow" aria-live="polite"></small></span><span class="seg"><button type="button" data-q="auto" aria-pressed="true">Auto</button><button type="button" data-q="low" aria-pressed="false">Low</button><button type="button" data-q="high" aria-pressed="false">High</button></span></div>
   <button id="soundCat" type="button" aria-expanded="false" aria-controls="soundPanel"><span class="ic" aria-hidden="true">🔊</span>Sound<i class="chev" aria-hidden="true"></i></button>
   <div id="soundPanel" role="group" aria-label="Sound" hidden>
     <div class="vol"><button type="button" class="mute" id="muteSfx" aria-pressed="false" aria-label="Mute effects"></button><label for="volSfx">Effects</label><output id="volSfxN" for="volSfx">7</output><input type="range" id="volSfx" min="0" max="10" step="1" value="7"></div>
     <div class="vol"><button type="button" class="mute" id="muteAmb" aria-pressed="false" aria-label="Mute ambience"></button><label for="volAmb">Ambience</label><output id="volAmbN" for="volAmb">7</output><input type="range" id="volAmb" min="0" max="10" step="1" value="7"></div>
     <div class="vol"><button type="button" class="mute" id="muteMusic" aria-pressed="false" aria-label="Mute music"></button><label for="volMusic">Music</label><output id="volMusicN" for="volMusic">7</output><input type="range" id="volMusic" min="0" max="10" step="1" value="7"></div>
   </div>
-  <div id="gfx" role="group" aria-labelledby="gfxName"><span class="ic" aria-hidden="true">✨</span><span class="name"><span id="gfxName">Graphics</span><small id="gfxNow" aria-live="polite"></small></span><span class="seg"><button type="button" data-q="auto" aria-pressed="true">Auto</button><button type="button" data-q="low" aria-pressed="false">Low</button><button type="button" data-q="high" aria-pressed="false">High</button></span></div>
   <h2 class="sgroup">Game</h2>
   <button id="controls" type="button"><span class="ic" aria-hidden="true">🕹️</span>Controls</button>
   <button id="restart" type="button"><span class="ic" aria-hidden="true">↺</span><span id="restartText">Restart</span></button>
