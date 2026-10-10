@@ -1,17 +1,18 @@
 // The casino salon on the yacht's upper deck: walls of tall windows between slim gold mullions (white outside,
 // burgundy inside) round a red carpet, under a hardtop with an LED line under its edge. On top, behind a glass
-// windbreak: a sky lounge wrapped in dark glass with the CASINO sign on its roof (its bulbs chasing round it), a radar
-// turning and a flag flying from its mast, and aft of it a teak sundeck with a hot tub (two guests soaking) and sun
-// loungers. As in the restaurant, the roof lifts away and the walls on the camera's side fade while the player is
-// inside. The games stand along the back wall, leaving the floor open from the door to them, and round them it's full
-// of life: a row of slot machines along the stern wall with guests playing them (now and then one wins), a bar by the
-// door with a bartender polishing glasses and two guests on stools, a waiter carrying a tray along the windows, potted
-// palms, and a guest watching the wheel from the end of the roulette table who cheers when the player wins, none of
-// them in the player's way. None of it touches the game's luck: the guests run on their own dice.
+// windbreak: a sky lounge wrapped in dark glass with a radar turning and a flag flying from its mast, and aft of it a
+// teak sundeck with a jacuzzi (two guests soaking to their shoulders) and sun loungers. A CASINO sign hangs on
+// each side of the ship below the salon, its bulbs chasing round it. As in the restaurant, the roof lifts away and the
+// walls on the camera's side fade while the player is inside. The games stand along the back wall, leaving the floor
+// open from the door to them, and round them it's full of life: a long bar across the stern with two bartenders and
+// guests on the stools, a short row of slot machines by the door with guests playing them (now and then one wins), a
+// palm, a guest at the roulette table who cheers when the player wins, and a waiter carrying champagne along the
+// windows, who doesn't block the way and stops to toast with the player over a glass. None of it touches the game's
+// luck: the guests run on their own dice.
 import {
   BoxGeometry, CanvasTexture, CylinderGeometry, Euler, ExtrudeGeometry, Group, Mesh, MeshBasicMaterial,
   MeshLambertMaterial, MeshPhongMaterial, PlaneGeometry, Quaternion, Shape, ShapeGeometry, Vector3,
-  RepeatWrapping, TorusGeometry, type Material,
+  RepeatWrapping, type Material,
 } from 'three';
 import { atTable, CHIPS, easeInOut, leaveSeat, onCheer, speaker, takeSeat, tipsy } from './casinoKit';
 import { clink } from './sfx';
@@ -169,12 +170,13 @@ const SIGN_TEX = canvasTex(512, 160, (c, w, h) => {
 const bulbsOn = new MeshBasicMaterial({ color: 0xFFE08A }), bulbsOff = new MeshBasicMaterial({ color: 0xB07A2A });
 /** The top of the jackstaff at the bow (casino.ts), which the strings of lights run down to from the mast. */
 export const JACK = { x: SHIP.bow - 0.55, y: FY + 3.0 };
-/** The sky lounge on the hardtop, at the front, and the mast on its roof; the sundeck aft of it, with the hot tub. */
+/** The sky lounge on the hardtop, at the front, and the mast on its roof; the sundeck aft of it, with the jacuzzi. */
 const BRIDGE = { x0: -0.8, x1: 2.9, half: 1.85 };
 const MAST = { x: 1.4, spread: 0.7 };
 const SUNDECK = { x1: -1.2 };
 const TUB = { x: -3.3, z: -0.5, r: 0.8 };
-const SIGN = { x: 0.9, w: 3.1, h: 1.0 };
+/** The CASINO signs on both sides of the lower deck, under the salon, facing out: where along, how big, how high. */
+const SIGN = { x: -2.3, w: 3.04, h: 0.95, y: FY + 1.4, out: SHIP.beam - 0.38 + 0.07 };
 
 function buildRoof() {
   const g = new Group();
@@ -224,17 +226,36 @@ function buildRoof() {
   radar.add(mesh(new BoxGeometry(0.1, 0.07, 0.9), white));
   const flag = new Group(); flag.position.set(MAST.x, mastTop - 0.05, 0); g.add(flag);
   flag.add(mesh(new BoxGeometry(0.6, 0.36, 0.02), lam(0xB0283A), -0.32, -0.15, 0));
-  // a hot tub glowing turquoise on the sundeck, two guests soaking in it
-  g.add(mesh(new CylinderGeometry(TUB.r, TUB.r + 0.05, 0.32, 24), white, TUB.x, deckY + 0.16, TUB.z, true));
-  g.add(mesh(new CylinderGeometry(TUB.r - 0.1, TUB.r - 0.1, 0.02, 24), own(new MeshBasicMaterial({ color: 0x5ED8E0 })), TUB.x, deckY + 0.28, TUB.z));
-  g.add(mesh(new TorusGeometry(TUB.r - 0.04, 0.04, 6, 28), gold, TUB.x, deckY + 0.32, TUB.z).rotateX(Math.PI / 2));
+  // the jacuzzi: a rounded square of bubbling water set in a raised teak surround under a white rim, with a step up
+  // to it; two guests sit in it against opposite sides, hatless, their shoulders just out of the water
+  const R = TUB.r, lip = deckY + 0.5, water = lip + 0.03;
+  g.add(slab(oblong(TUB.x - R - 0.12, TUB.x + R + 0.12, R + 0.12, 0.4, 0.4), 0.5, deckY, own(new MeshLambertMaterial({ color: 0x8A5A3B }))));
+  const ring = oblong(TUB.x - R - 0.16, TUB.x + R + 0.16, R + 0.16, 0.42, 0.42);
+  ring.holes.push(oblong(TUB.x - R + 0.06, TUB.x + R - 0.06, R - 0.06, 0.3, 0.3));
+  g.add(slab(ring, 0.07, lip, white));
+  const pool = new Mesh(new ShapeGeometry(oblong(TUB.x - R + 0.06, TUB.x + R - 0.06, R - 0.06, 0.3, 0.3), 6), own(new MeshBasicMaterial({ color: 0x5ED8E0 })));
+  pool.rotation.x = -Math.PI / 2; pool.position.y = water; g.add(pool);
+  g.add(mesh(new BoxGeometry(0.7, 0.22, 0.32), white, TUB.x, deckY + 0.11, TUB.z + R + 0.28, true));
   const soakers = new Group(); g.add(soakers);
-  [[-0.35, -0.3, 0.9], [0.3, 0.3, -2.3]].forEach(([dx, dz, ry], i) => {
-    const p = guest(i + 2);
-    p.position.set(TUB.x + dx, deckY - 0.12, TUB.z + dz); p.rotation.y = ry;
+  [[-1, 0.15], [1, -0.15]].forEach(([side, dz], i) => {
+    const p = guest(i + 2, true);
+    // sitting on the bench, legs out under the water: hips well down, so the shoulders just clear it
+    p.position.set(TUB.x + side * (R - 0.36), water - 0.77, TUB.z + dz); p.rotation.y = -side * Math.PI / 2;
     for (const l of p.legs) l.rotation.x = -1.45;
-    p.arms[0].rotation.z = -0.9; p.arms[1].rotation.z = 0.9;
     soakers.add(p);
+  });
+  // foam bubbling up at the jets
+  const foam = Array.from({ length: 8 }, (_, i) => {
+    const a = i / 8 * Math.PI * 2, f = mesh(G.sphere, own(new MeshBasicMaterial({ color: 0xF2FCFF })), TUB.x + Math.cos(a) * (R - 0.2), water, TUB.z + Math.sin(a) * (R - 0.2));
+    soakers.add(f);
+    return { f, t: i * 0.37 };
+  });
+  // steam rising off it, each wisp swelling and fading as it goes
+  const steam = Array.from({ length: 6 }, (_, i) => {
+    const m = new MeshBasicMaterial({ color: 0xFFFFFF, transparent: true, opacity: 0, depthWrite: false });
+    const w = mesh(G.sphere, m, TUB.x, water, TUB.z);
+    soakers.add(w);
+    return { w, m, a: i / 6 * Math.PI * 2, t: i / 6, y: water };
   });
   // sun loungers along the quay side of the sundeck, their backs up towards the far side, a red towel on each
   const lounge: (Part & { c: number })[] = [];
@@ -247,25 +268,7 @@ function buildRoof() {
   }
   const lounger = new MeshLambertMaterial({ vertexColors: true });
   g.add(mesh(bakePainted(lounge), own(lounger), 0, 0, 0, true));
-  // the CASINO sign on the sky lounge's roof, along the far side, on gold posts, its bulbs chasing round it, and the
-  // strings of lights from the bow up to the mast's spreader
-  const sz = -bh + 0.35, sy = bridgeTop + 0.35 + SIGN.h / 2;
-  const posts: Part[] = [-1, 1].map(s => ({ geo: G.cyl, at: [SIGN.x + s * (SIGN.w / 2 - 0.3), bridgeTop + 0.2, sz], scale: [0.05, 0.4, 0.05] }));
-  g.add(mesh(bake(posts), gold, 0, 0, 0, true));
-  g.add(mesh(new BoxGeometry(SIGN.w + 0.14, SIGN.h + 0.14, 0.1), lam(0x5A1420), SIGN.x, sy, sz, true));
-  const signMat = own(new MeshBasicMaterial({ map: SIGN_TEX.tex }));
-  for (const s of [-1, 1]) {
-    const face = new Mesh(new PlaneGeometry(SIGN.w, SIGN.h), signMat);
-    face.position.set(SIGN.x, sy, sz + s * 0.055); if (s < 0) face.rotation.y = Math.PI;
-    g.add(face);
-  }
-  const sets: Part[][] = [[], []];
-  let i = 0;
-  const bulb = (x: number, y: number) => { for (const s of [-1, 1]) sets[i % 2].push({ geo: G.sphere, at: [x, y, sz + s * 0.07], scale: [0.04, 0.04, 0.04] }); i++; };
-  for (let x = -SIGN.w / 2; x <= SIGN.w / 2 + 0.01; x += SIGN.w / 16) { bulb(SIGN.x + x, sy + SIGN.h / 2 + 0.07); bulb(SIGN.x + x, sy - SIGN.h / 2 - 0.07); }
-  for (const s of [-1, 1]) for (let y = -SIGN.h / 2 + 0.17; y < SIGN.h / 2 - 0.1; y += 0.22) bulb(SIGN.x + s * (SIGN.w / 2 + 0.07), sy + y);
-  const chase = sets.map(s => mesh(bake(s), bulbsOn));
-  g.add(...chase);
+  // the strings of lights from the bow up to the mast's spreader
   const strings: Part[] = [];
   for (const s of [-1, 1]) {
     for (let k = 1; k < 18; k++) {
@@ -275,7 +278,29 @@ function buildRoof() {
   }
   const lights = mesh(bake(strings), bulbsOn);
   g.add(lights);
-  return { g, mats, base, chase, lights, soakers, radar, flag };
+  return { g, mats, base, lights, soakers, steam, foam, radar, flag };
+}
+
+// ---------- the signs ----------
+/** The CASINO sign on each side of the ship, its bulbs chasing round it: out of the way of the view into the salon. */
+function buildSigns(g: Group) {
+  const sets: Part[][] = [[], []], frames: Part[] = [];
+  const signMat = new MeshBasicMaterial({ map: SIGN_TEX.tex });
+  for (const side of [-1, 1]) {
+    const z = side * SIGN.out;
+    frames.push({ geo: G.box, at: [SIGN.x, SIGN.y, z - side * 0.03], scale: [SIGN.w + 0.16, SIGN.h + 0.16, 0.08] });
+    const face = new Mesh(new PlaneGeometry(SIGN.w, SIGN.h), signMat);
+    face.position.set(SIGN.x, SIGN.y, z + side * 0.015); if (side < 0) face.rotation.y = Math.PI;
+    g.add(face);
+    let i = 0;
+    const bulb = (x: number, y: number) => sets[i++ % 2].push({ geo: G.sphere, at: [x, y, z + side * 0.02], scale: [0.04, 0.04, 0.04] });
+    for (let x = -SIGN.w / 2; x <= SIGN.w / 2 + 0.01; x += SIGN.w / 14) { bulb(SIGN.x + x, SIGN.y + SIGN.h / 2 + 0.06); bulb(SIGN.x + x, SIGN.y - SIGN.h / 2 - 0.06); }
+    for (const e of [-1, 1]) for (let y = -SIGN.h / 2 + 0.14; y < SIGN.h / 2 - 0.08; y += 0.2) bulb(SIGN.x + e * (SIGN.w / 2 + 0.06), SIGN.y + y);
+  }
+  g.add(mesh(bake(frames), 0x5A1420, 0, 0, 0, true));
+  const chase = sets.map(s => mesh(bake(s), bulbsOn));
+  g.add(...chase);
+  return chase;
 }
 
 // ---------- the bar ----------
@@ -323,8 +348,9 @@ function buildBar(g: Group) {
 
 // ---------- the guests ----------
 /** A well-dressed guest, a man in a suit or a woman in an evening dress. */
-function guest(i: number) {
+function guest(i: number, hatless = false) {
   const who = crowd();
+  if (hatless) who.hat = 'bare';
   return new Person(who.woman ? DRESSES[i % DRESSES.length] : SUITS[i % SUITS.length], 'fancy', who);
 }
 
@@ -567,7 +593,7 @@ function drank(c: ReturnType<typeof buildCrowd>) {
 // ---------- the salon ----------
 let salon: {
   roof: ReturnType<typeof buildRoof>; faders: Fader[]; crowd: ReturnType<typeof buildCrowd>; clock: number;
-  roofK: number;
+  roofK: number; chase: Mesh[];
 } | null = null;
 
 /** Builds the salon into the ship's group `g` (in the ship's own space). */
@@ -576,7 +602,7 @@ export function buildSalon(g: Group) {
   const roof = buildRoof();
   g.add(roof.g);
   buildBar(g);
-  salon = { roof, faders, crowd: buildCrowd(g), clock: 0, roofK: 1 };
+  salon = { roof, faders, crowd: buildCrowd(g), clock: 0, roofK: 1, chase: buildSigns(g) };
 }
 
 /** The player's inside the salon: on the upper deck. */
@@ -607,15 +633,27 @@ export function updSalon(dt: number, p: XZ & { y: number }, all: boolean) {
   });
   s.roof.lights.visible = s.roof.soakers.visible = s.roofK > 0.5;
   s.roof.radar.rotation.y += dt * 1.6;
+  for (const p of s.roof.steam) {
+    p.t = (p.t + dt / 2.6) % 1;
+    const r = 0.25 + p.t * 0.2, a = p.a + p.t * 1.2;
+    p.w.position.set(TUB.x + Math.cos(a) * r, p.y + 0.05 + p.t * 0.7, TUB.z + Math.sin(a) * r);
+    p.w.scale.setScalar(0.08 + p.t * 0.16);
+    p.m.opacity = 0.35 * Math.sin(Math.PI * p.t) * s.roofK;
+  }
+  for (const b of s.roof.foam) {
+    b.t += dt;
+    const k = 0.5 + 0.5 * Math.sin(b.t * 7) * Math.sin(b.t * 2.3);
+    b.f.scale.set(0.07 + 0.05 * k, 0.02, 0.07 + 0.05 * k);
+  }
   s.roof.flag.rotation.y = Math.sin(s.clock * 2.2) * 0.15;
   const wallK = 0.12 + 0.88 * s.roofK;
   for (const f of s.faders) {
     fade(f.mats, f.base, wallK);
     f.meshes[0].castShadow = wallK > 0.95;
   }
-  // the marquee chases round the roof
+  // the bulbs chase round the signs
   const on = Math.floor(s.clock * 3) % 2;
-  s.roof.chase.forEach((m, i) => { m.material = i === on ? bulbsOn : bulbsOff; });
+  s.chase.forEach((m, i) => { m.material = i === on ? bulbsOn : bulbsOff; });
   updCrowd(s.crowd, dt, s.clock);
 }
 
