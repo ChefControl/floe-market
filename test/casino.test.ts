@@ -243,17 +243,69 @@ describe('the casino boat', () => {
     g.run(20); // the guests at the machines play away
   });
 
-  it('keeps the player out of the bar by the door and the row of machines along the stern', async () => {
+  it('keeps the player out of the bar along the stern and the row of machines by the door', async () => {
     const g = await at('roulette', 100);
     const { SHIP, SALON } = g.layout, p = g.player.g.position;
-    // walking aft from the roulette table's end, the player stops at the guests playing the machines
-    g.placePlayer(SHIP.x - 6.2, SHIP.z + 0.5); g.run(0.05);
+    // walking aft from the roulette table's end, the player stops at the stools
+    g.placePlayer(SHIP.x - 5.5, SHIP.z + 0.5); g.run(0.05);
     for (let i = 0; i < 60; i++) { p.x -= 0.05; g.run(1 / 60); }
     expect(p.x).toBeGreaterThan(SHIP.x + SALON.x0 + 1.4);
-    // and walking from the door towards the back wall, at the bar's stools
+    // and walking from the door towards the back wall, at the guests playing the machines
     g.placePlayer(SHIP.x + SALON.x1 - 0.7, SHIP.z - 0.3); g.run(0.05);
     for (let i = 0; i < 60; i++) { p.z -= 0.05; g.run(1 / 60); }
     expect(p.z).toBeGreaterThan(SHIP.z - 1.2);
+  });
+
+  it('pours the player a glass of champagne from the waiter, close up', async () => {
+    const g = await at('roulette', 1000);
+    const salon = await import('../src/casinoSalon');
+    const kit = await import('../src/casinoKit');
+    const { SHIP } = g.layout, p = g.player.g.position, panel = document.getElementById('bubbly')!;
+    const waiter = () => salon.salonView().staff[1];
+    g.run(0.5);
+    expect(panel.hidden).toBe(true);
+    // walking up to the waiter (he doesn't block the way) stops him and offers a glass
+    const w = waiter().clone(), on = [SHIP.x + w.x, SHIP.z + w.z];
+    g.placePlayer(on[0], on[1]); g.run(0.05);
+    expect([p.x, p.z]).toEqual(on);
+    g.placePlayer(SHIP.x + w.x + 0.6, SHIP.z + w.z - 0.5); g.run(0.5);
+    expect(panel.hidden).toBe(false);
+    expect(document.getElementById('sip')!.textContent).toBe('Champagne · $25');
+    const was = waiter().x;
+    g.run(1);
+    expect(waiter().x).toBe(was);
+    // buying it takes the price, brings the camera in, and the player drinks it while the waiter says cheers
+    click('#sip');
+    expect(g.wallet.money).toBe(975);
+    expect(kit.atTable()).toBe(true);
+    g.run(1);
+    expect(salon.salonView()).toMatchObject({ drinking: true, waiter: 'Cheers!' });
+    click('#sip');
+    expect(g.wallet.money).toBe(975);
+    g.run(3);
+    expect(salon.salonView().drinking).toBe(false);
+    expect(kit.atTable()).toBe(false);
+    g.run(1);
+    expect(salon.salonView().hic).toBe('Hic!');
+    // with no money left for one, the button's greyed out; walking off closes it and the waiter carries on
+    g.wallet.money = 10; g.run(0.1);
+    expect((document.getElementById('sip') as HTMLButtonElement).disabled).toBe(true);
+    walkAway(g); g.run(2);
+    expect(panel.hidden).toBe(true);
+    expect(waiter().x).not.toBe(was);
+  });
+
+  it('leaves the glass with the waiter if the player walks off mid-drink', async () => {
+    const g = await at('roulette', 1000);
+    const salon = await import('../src/casinoSalon');
+    const kit = await import('../src/casinoKit');
+    const { SHIP } = g.layout, w = salon.salonView().staff[1];
+    g.placePlayer(SHIP.x + w.x + 0.6, SHIP.z + w.z - 0.5); g.run(0.2);
+    window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyE', key: 'e' }));
+    expect(salon.salonView().drinking).toBe(true);
+    g.placePlayer(SHIP.x, SHIP.z); g.run(0.1);
+    expect(salon.salonView().drinking).toBe(false);
+    expect(kit.atTable()).toBe(false);
   });
 
   it('turns its radar on the mast', async () => {

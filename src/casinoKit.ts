@@ -149,6 +149,10 @@ let seated: Seated | null = null, lastSeat: Seated | null = null, seatK = 0, sea
  *  they change), and the screen size that was for. */
 let room = 0, roomFor = '';
 const out = { k: 0, eye: new Vector3(), at: new Vector3() };
+/** Brings the camera in to `view`, with `panel` as the controls, for something besides a game's pad (the champagne). */
+export function takeSeat(view: Seat, panel: HTMLElement) { seated = { ...view, panel }; }
+/** Gives the camera back, if `panel`'s still got it. */
+export function leaveSeat(panel: HTMLElement) { if (seated?.panel === panel) seated = null; }
 /** Whether a game has the camera. */
 export const atTable = () => seated !== null;
 /**

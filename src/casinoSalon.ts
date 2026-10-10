@@ -13,12 +13,14 @@ import {
   MeshLambertMaterial, MeshPhongMaterial, PlaneGeometry, Quaternion, Shape, ShapeGeometry, Vector3,
   RepeatWrapping, TorusGeometry, type Material,
 } from 'three';
-import { onCheer, speaker } from './casinoKit';
+import { atTable, CHIPS, easeInOut, leaveSeat, onCheer, speaker, takeSeat } from './casinoKit';
 import { animPerson, Person, SUITS } from './characters';
-import { aboard, DECKS, pushOutOfBox, SALON, SHIP, UPPER } from './layout';
-import { bake, bakePainted, canvasTex, FONT, G, mesh, type Part } from './render';
+import { aboard, DECKS, pushOutOfBox, SALON, SHIP, stage, UPPER } from './layout';
+import { player } from './player';
+import { bake, bakePainted, canvasTex, FONT, G, mesh, scene, type Part } from './render';
 import { drawReels, REELS_PX, slotRow } from './slotMachine';
-import { FY, V, type XZ } from './util';
+import { FY, money, V, type XZ } from './util';
+import { wallet } from './wallet';
 import { crowd, DRESSES, rng } from './wardrobe';
 import { planks } from './world';
 
@@ -27,15 +29,15 @@ const GOLD = 0xE3B23C, WHITE = 0xFFFFFF, PAPER = 0x6E1A26;
 const WIN = { pitch: 1.3, w: 1.2, sill: 0.45, head: 2.0 };
 /** The door at the top of the stairs. */
 const DOOR = DECKS.stairs.half + 0.2;
-/** The bar across the stern, and the row of slot machines along the back (north) wall, in the ship's own space. */
-/** The salon's layout, in the ship's own space. The games stand along the back (north) wall (layout.ts). The guests'
- *  slot machines line the stern wall, facing forward; the bar runs along the bow wall beside the door, its counter
- *  at `x`, the back bar against the wall and stools out front; the waiter walks along the windows. */
-const ROW = { x: SALON.x0 + 0.42, zs: [-2.55, -1.7, -0.85, 0, 0.85, 1.7] };
-const BAR = { x: 2.45, z0: -2.95, z1: -1.25, back: SALON.x1 - 0.2, stools: [-2.5, -1.6] };
-const STOOL_X = BAR.x - 0.5;
-/** Potted palms in the corners on the windows' side. */
-const PALMS = [[SALON.x1 - 0.5, SALON.side - 0.5], [SALON.x0 + 0.5, SALON.side - 0.5]];
+/** The salon's layout, in the ship's own space. The games stand along the back (north) wall (layout.ts). The bar runs
+ *  the length of the stern, its counter at `x`, the back bar against the wall and stools out front; a short row of
+ *  the guests' slot machines stands against the bow wall beside the door, facing aft; the waiter walks along the
+ *  windows. */
+const BAR = { x: SALON.x0 + 1.1, z0: -2.75, z1: 2.55, stools: [-2.1, -1.05, 0, 1.05, 2.1] };
+const STOOL_X = BAR.x + 0.55;
+const ROW = { x: SALON.x1 - 0.42, zs: [-2.55, -1.7] };
+/** A potted palm in the corner by the door on the windows' side. */
+const PALMS = [[SALON.x1 - 0.5, SALON.side - 0.5]];
 
 /** Draws a guest's or the bartender's dice: their own sequence, so the game's luck is left alone. */
 const dice = rng(0xCA5170);
@@ -277,17 +279,24 @@ function buildRoof() {
 
 // ---------- the bar ----------
 function buildBar(g: Group) {
-  const { x, z0, z1, back } = BAR, wood = 0x5A2E1F, len = z1 - z0, mid = (z0 + z1) / 2;
+  const { x, z0, z1 } = BAR, wood = 0x5A2E1F, len = z1 - z0, mid = (z0 + z1) / 2;
   g.add(mesh(new BoxGeometry(0.5, 1.05, len), wood, x, UPPER + 0.525, mid, true));
   g.add(mesh(new BoxGeometry(0.62, 0.06, len + 0.1), 0x2A1410, x, UPPER + 1.08, mid, true));
-  g.add(mesh(new BoxGeometry(0.04, 0.06, len), GOLD, x - 0.27, UPPER + 0.3, mid));
-  // the back bar against the bow wall: a low cabinet, a shelf of bottles over it
-  g.add(mesh(new BoxGeometry(0.3, 0.9, len), wood, back, UPPER + 0.45, mid, true));
-  const shelf: Part[] = [{ geo: G.box, at: [back + 0.02, UPPER + 1.35, mid], scale: [0.26, 0.04, len] }];
-  const bottles: Part[][] = [[], [], []];
+  const brass: Part[] = [
+    { geo: G.box, at: [x + 0.27, UPPER + 0.3, mid], scale: [0.04, 0.06, len] },
+    { geo: G.cyl, at: [x + 0.4, UPPER + 0.18, mid], rot: [Math.PI / 2, 0, 0], scale: [0.025, len, 0.025] },
+  ];
+  g.add(mesh(bake(brass), GOLD));
+  // the back bar against the stern wall: shelves of bottles under a long mirror, lit from above
+  const bx = SALON.x0 + 0.22, wide = len - 0.2;
+  g.add(mesh(new BoxGeometry(0.3, 0.9, wide), wood, bx, UPPER + 0.45, mid, true));
+  g.add(mesh(new BoxGeometry(0.02, 0.9, wide - 0.6), 0xBFD4DC, bx - 0.05, UPPER + 1.6, mid));
+  g.add(mesh(new BoxGeometry(0.05, 0.04, wide - 0.4), new MeshBasicMaterial({ color: 0xFFD98A }), bx + 0.05, UPPER + 2.12, mid));
+  const shelf: Part[] = [], bottles: Part[][] = [[], [], []];
+  for (const y of [1.25, 1.75]) shelf.push({ geo: G.box, at: [bx + 0.02, UPPER + y, mid], scale: [0.26, 0.04, wide] });
   let n = 0;
-  for (const y of [0.9, 1.37]) for (let z = z0 + 0.15; z <= z1 - 0.1; z += 0.2) {
-    bottles[n++ % 3].push({ geo: G.cyl, at: [back + 0.02, UPPER + y + 0.13, z], scale: [0.045, 0.24, 0.045] });
+  for (const y of [0.9, 1.27, 1.77]) for (let z = z0 + 0.2; z <= z1 - 0.2; z += 0.22) {
+    bottles[n++ % 3].push({ geo: G.cyl, at: [bx + 0.02, UPPER + y + 0.13, z], scale: [0.045, 0.24, 0.045] });
   }
   g.add(mesh(bake(shelf), wood));
   [0x2E7D4F, 0x8E1F2F, 0xC9A24A].forEach((c, i) => g.add(mesh(bake(bottles[i]), c)));
@@ -298,7 +307,7 @@ function buildBar(g: Group) {
     stools.push({ geo: G.cyl, at: [STOOL_X, UPPER + 0.72, z], scale: [0.2, 0.07, 0.2] });
   }
   g.add(mesh(bake(stools), GOLD, 0, 0, 0, true));
-  // and potted palms in the corners by the windows
+  // and a potted palm by the door
   const palms: (Part & { c: number })[] = [];
   for (const [px, pz] of PALMS) {
     palms.push({ geo: G.cyl, at: [px, UPPER + 0.22, pz], scale: [0.24, 0.44, 0.24], c: GOLD });
@@ -326,60 +335,173 @@ const SPIN = 1.6, STOPS = [0.9, 1.25, 1.6];
 interface Gambler { p: Person; m: Machine; wait: number; t: number; joy: number; say: ReturnType<typeof speaker> }
 
 function buildCrowd(g: Group) {
-  // the slot machines along the stern wall, facing forward (the row's turned a quarter round: along it is across)
+  // the slot machines against the bow wall, facing aft (the row's turned a quarter round: along it is across)
   const screens = ROW.zs.map((_, i) => {
     const { ctx, tex } = canvasTex(REELS_PX.w, REELS_PX.h, () => {});
     const pos = [i * 3, i * 7 + 2, i * 5 + 4];
     drawReels(ctx, pos);
     return { ctx, tex, pos };
   });
-  const row = slotRow(ROW.zs.map(z => -z), screens.map(s => new MeshBasicMaterial({ map: s.tex })));
-  row.g.position.set(ROW.x, UPPER, 0); row.g.rotation.y = Math.PI / 2;
+  const row = slotRow(ROW.zs, screens.map(s => new MeshBasicMaterial({ map: s.tex })));
+  row.g.position.set(ROW.x, UPPER, 0); row.g.rotation.y = -Math.PI / 2;
   g.add(row.g);
   const machines: Machine[] = screens.map((s, i) => ({ lever: row.levers[i], ctx: s.ctx, tex: s.tex, from: s.pos, to: s.pos, spin: 0 }));
-  const gamblers: Gambler[] = [0, 2, 3, 5].map((m, i) => {
+  const gamblers: Gambler[] = [0, 1].map((m, i) => {
     const p = guest(i);
-    p.position.set(ROW.x + 0.75, UPPER, ROW.zs[m]); p.rotation.y = -Math.PI / 2;
+    p.position.set(ROW.x - 0.75, UPPER, ROW.zs[m]); p.rotation.y = Math.PI / 2;
     g.add(p);
     return { p, m: machines[m], wait: 1 + i * 1.7, t: 0, joy: 0, say: speaker(p, 2.1) };
   });
-  // the bar: the bartender behind it, two guests on stools
-  const bartender = new Person(0x1F1F1F, 'waiter');
-  bartender.position.set((BAR.x + BAR.back) / 2, UPPER, (BAR.z0 + BAR.z1) / 2); bartender.rotation.y = -Math.PI / 2;
-  g.add(bartender);
-  const drinkers = BAR.stools.map((z, i) => {
-    const p = guest(i + 4);
-    p.position.set(STOOL_X, UPPER + 0.42, z); p.rotation.y = Math.PI / 2;
+  // the bar: two bartenders behind it, one polishing a glass and one shaking a cocktail, and guests on three stools
+  const bartenders = [-1.1, 1.3].map(z => {
+    const b = new Person(0x1F1F1F, 'waiter');
+    b.position.set(BAR.x - 0.5, UPPER, z); b.rotation.y = Math.PI / 2;
+    g.add(b);
+    return b;
+  });
+  const drinkers = [0, 2, 3].map((k, i) => {
+    const p = guest(i + 4), z = BAR.stools[k];
+    p.position.set(STOOL_X, UPPER + 0.42, z); p.rotation.y = -Math.PI / 2;
     g.add(p);
     return { p, t: 2 + i * 2.5 };
   });
-  // a waiter carrying a tray of drinks up and down along the windows
+  // a waiter carrying a tray of champagne up and down along the windows, who stops to serve the player a glass
   const waiter = new Person(0x24476B, 'waiter');
   waiter.position.set(WAITER.x0, UPPER, WAITER.z);
   // the tray sits flat on the palm of the hand held out in front (the arm's turned to level, so the tray's turned back)
   const tray = new Group(); tray.position.set(0, -0.33, 0.07); tray.rotation.x = TRAY_ARM; waiter.arms[0].add(tray);
   tray.add(mesh(new CylinderGeometry(0.18, 0.18, 0.03, 16), 0xC0C6CC));
-  for (const [dx, dz] of [[-0.07, 0], [0.07, 0.04], [0, -0.08]]) tray.add(mesh(new CylinderGeometry(0.03, 0.025, 0.12, 8), 0xF2C14E, dx, 0.08, dz));
+  for (const [dx, dz] of [[-0.07, 0], [0.07, 0.04], [0, -0.08]]) {
+    const f = flute(); f.g.position.set(dx, 0.015, dz); f.g.scale.setScalar(0.8); tray.add(f.g);
+  }
   g.add(waiter);
+  const glass = flute(); glass.g.visible = false; scene.add(glass.g);
   // a guest at the end of the roulette table, watching the wheel, who cheers when the player wins
   const fan = guest(7);
   fan.position.set(FAN.x, UPPER, FAN.z); fan.rotation.y = Math.PI / 2;
   g.add(fan);
   const fanSay = speaker(fan, 2.1);
-  const crowdState = { machines, gamblers, bartender, drinkers, waiter, fan, fanSay, clap: 0, walk: { dir: 1, pause: 0 } };
+  const crowdState = {
+    machines, gamblers, bartenders, drinkers, waiter, tray, glass, fan, fanSay, clap: 0, walk: { dir: 1, pause: 0 },
+    waiterSay: speaker(waiter, 1.75), hic: speaker(player.g, 1.75), hicT: 0, pour: null as Pour | null,
+  };
   onCheer(() => {
     crowdState.clap = 1.4;
     fanSay.say(['Nice!', 'Wow!', 'Lucky!'][Math.floor(dice() * 3)]);
   });
   return crowdState;
 }
-/** The waiter's beat and the fan's spot: both off the player's way from the door to the games. */
 /** The waiter's beat along the windows, and the fan's spot at the roulette table's far end: both off the player's way
  *  from the door to the games. */
-const WAITER = { x0: SALON.x0 + 1.7, x1: SALON.x1 - 1.1, z: SALON.side - 0.9 };
-const FAN = { x: -5.95, z: -1.55 };
+const WAITER = { x0: SALON.x0 + 2.4, x1: SALON.x1 - 1.1, z: SALON.side - 0.9 };
+const FAN = { x: -5.85, z: -1.55 };
 /** How far forward the waiter holds the tray arm: level with the shoulder. */
 const TRAY_ARM = 1.6;
+
+// ---------- champagne ----------
+const glassMat = new MeshLambertMaterial({ color: 0xE8F4F8, transparent: true, opacity: 0.45, depthWrite: false });
+/** A champagne flute: its bowl, the champagne in it (which goes down as it's drunk, from the top), its stem and foot. */
+function flute() {
+  const g = new Group();
+  const wine = mesh(new CylinderGeometry(0.03, 0.013, 0.1, 10).translate(0, 0.05, 0), 0xF2D27A);
+  wine.position.y = 0.08;
+  g.add(
+    mesh(new CylinderGeometry(0.036, 0.015, 0.13, 10), glassMat, 0, 0.145, 0), wine,
+    mesh(new CylinderGeometry(0.006, 0.006, 0.08, 6), glassMat, 0, 0.04, 0),
+    mesh(new CylinderGeometry(0.028, 0.028, 0.008, 10), glassMat, 0, 0.004, 0),
+  );
+  g.scale.setScalar(1.4);
+  return { g, wine };
+}
+
+/** What a glass costs: the second chip of the stage. */
+const price = () => CHIPS[stage.n][1];
+/** How close the player comes for the waiter to stop and offer a glass, and how far they go for him to carry on. */
+const NEAR = 1.2, AWAY = 2.4;
+/** A glass being served and drunk: when the glass reaches the player's hand, when each sip starts and ends, when the
+ *  empty glass goes back on the tray, and when it's there. */
+const DRINK = { hand: 0.6, sips: [[1.0, 1.7], [2.1, 2.8]], back: 3.1, done: 3.6 };
+/** A glass being served: how long it's been, and what the camera looks at. */
+interface Pour { t: number; at: Vector3; cheered: boolean; from: Vector3 }
+const bubbly = document.getElementById('bubbly')!, bubblyMsg = document.getElementById('bubblyMsg')!;
+const sipBtn = document.getElementById('sip') as HTMLButtonElement;
+const tmpA = new Vector3(), tmpB = new Vector3(), tmpQ2 = new Quaternion(), HOLD = new Quaternion().setFromEuler(new Euler(TRAY_ARM, 0, 0));
+
+/** Where the waiter is, in the world. */
+const waiterAt = (c: ReturnType<typeof buildCrowd>) => tmpB.set(SHIP.x + c.waiter.position.x, UPPER, SHIP.z + c.waiter.position.z);
+
+/** Buys the player a glass from the waiter, if they're by him and can pay: the camera comes in close while they drink. */
+function buyChampagne() {
+  const c = salon?.crowd;
+  if (!c || c.pour || bubbly.hidden || wallet.money < price()) return;
+  wallet.money -= price();
+  const pp = player.g.position, w = waiterAt(c);
+  c.pour = { t: 0, at: V((pp.x + w.x) / 2, UPPER + 1.05, (pp.z + w.z) / 2), cheered: false, from: new Vector3() };
+  // the camera looks in from the side, the windows' side, so the player and the waiter are side by side in the view
+  const side = V(-(w.z - pp.z), 0, w.x - pp.x).normalize();
+  if (side.z < 0) side.negate();
+  takeSeat({ at: c.pour.at, from: side.multiplyScalar(0.85).add(V(0, 0.55, 0.35)).normalize(), wide: 1.7, tall: 1.8 }, bubbly);
+  refreshBubbly();
+}
+sipBtn.addEventListener('click', buyChampagne);
+window.addEventListener('keydown', e => { if (e.code === 'KeyE' && !e.repeat) buyChampagne(); });
+
+let shown = '';
+/** The panel's message and button, set only when they change. */
+function refreshBubbly() {
+  const c = salon!.crowd, text = c.pour ? 'Cheers! 🥂' : `Champagne · ${money(price())}`;
+  const say = c.pour ? 'Bottoms up!' : wallet.money < price() ? `A glass is ${money(price())}` : 'Champagne? 🥂';
+  sipBtn.disabled = !!c.pour || wallet.money < price();
+  if (shown === text + say) return;
+  shown = text + say;
+  sipBtn.textContent = text; bubblyMsg.textContent = say;
+}
+
+/** Where the player's hand is, and which way their arm points: the glass is held level in it, as the waiter's tray. */
+function inHand(g: Group) {
+  const arm = player.g.arms[0];
+  player.g.updateMatrixWorld(true);
+  g.position.copy(arm.localToWorld(tmpA.set(0, -0.36, 0.07)));
+  g.quaternion.copy(arm.getWorldQuaternion(tmpQ2)).multiply(HOLD);
+}
+
+/** The glass on its way from the tray to the player, in their hand while they take two sips, and back on the tray. */
+function updPour(c: ReturnType<typeof buildCrowd>, dt: number) {
+  const P = c.pour!, glass = c.glass, w = waiterAt(c);
+  P.t += dt;
+  // walking off leaves the glass with the waiter
+  if (P.t > DRINK.done || player.g.position.distanceTo(tmpA.set(w.x, player.g.position.y, w.z)) > AWAY) {
+    glass.g.visible = false; glass.wine.scale.y = 1;
+    c.pour = null; leaveSeat(bubbly);
+    if (P.t > DRINK.done) c.hicT = 1.2;
+    return;
+  }
+  glass.g.visible = true;
+  if (!P.cheered && P.t > 0.3) { P.cheered = true; c.waiterSay.say('Cheers!'); }
+  const arm = player.g.arms[0];
+  c.waiter.updateMatrixWorld(true);
+  const tray = c.tray.getWorldPosition(tmpB).add(V(0, 0.03, 0));
+  if (P.t < DRINK.hand) {
+    inHand(glass.g);
+    glass.g.position.lerpVectors(tray, glass.g.position, easeInOut(P.t / DRINK.hand));
+    glass.g.quaternion.identity();
+  } else if (P.t < DRINK.back) {
+    // the arm comes up and the glass tips to the lips for each sip; the champagne goes down as it's drunk
+    let lift = 0, drunk = 0;
+    DRINK.sips.forEach(([a, b], i) => {
+      const k = Math.max(0, Math.min(1, (P.t - a) / (b - a)));
+      lift = Math.max(lift, Math.sin(k * Math.PI));
+      drunk += k * (i ? 0.5 : 0.45);
+    });
+    arm.rotation.x = -1.3 - 1.3 * lift; arm.rotation.z = 0;
+    glass.wine.scale.y = Math.max(0.05, 1 - drunk);
+    inHand(glass.g);
+    P.from.copy(glass.g.position);
+  } else {
+    glass.g.position.lerpVectors(P.from, tray, easeInOut((P.t - DRINK.back) / (DRINK.done - DRINK.back)));
+    glass.g.quaternion.identity();
+  }
+}
 
 // ---------- the salon ----------
 let salon: {
@@ -465,11 +587,13 @@ function updCrowd(c: ReturnType<typeof buildCrowd>, dt: number, clock: number) {
     if (gm.joy > 0) { gm.joy -= dt; p.arms[0].rotation.x = p.arms[1].rotation.x = -2.8; }
     else p.arms[0].rotation.x = -0.4;
   }
-  // the bartender polishes a glass; the guests at the bar sip now and then
-  animPerson(c.bartender, false, dt, false);
-  c.bartender.arms[0].rotation.x = -1.2 + Math.sin(clock * 5) * 0.25;
-  c.bartender.arms[0].rotation.z = Math.cos(clock * 5) * 0.25;
-  c.bartender.arms[1].rotation.x = -1.1;
+  // one bartender polishes a glass, the other shakes cocktails now and then; the guests at the bar sip now and then
+  const [polish, shake] = c.bartenders;
+  animPerson(polish, false, dt, false); animPerson(shake, false, dt, false);
+  polish.arms[0].rotation.x = -1.2 + Math.sin(clock * 5) * 0.25;
+  polish.arms[0].rotation.z = Math.cos(clock * 5) * 0.25;
+  polish.arms[1].rotation.x = -1.1;
+  shake.arms[0].rotation.x = shake.arms[1].rotation.x = -2.0 + Math.sin(clock * 16) * 0.25 * (Math.sin(clock * 0.9) > 0 ? 1 : 0);
   for (const d of c.drinkers) {
     animPerson(d.p, false, dt, false);
     for (const l of d.p.legs) l.rotation.x = -1.45;
@@ -478,9 +602,19 @@ function updCrowd(c: ReturnType<typeof buildCrowd>, dt: number, clock: number) {
     d.p.arms[0].rotation.x = d.t < 0 ? -2.0 : -0.7;
     d.p.arms[1].rotation.x = -0.7;
   }
-  // the waiter walks up and down with the tray, pausing at each end
-  const w = c.waiter, walk = c.walk;
-  if (walk.pause > 0) { walk.pause -= dt; animPerson(w, false, dt, true); }
+  // the waiter walks up and down with the tray, pausing at each end, and stops for the player to offer a glass
+  const w = c.waiter, walk = c.walk, pp = player.g.position, wAt = waiterAt(c);
+  const near = !!c.pour || (inSalon(pp) && !atTable() && Math.hypot(pp.x - wAt.x, pp.z - wAt.z) < NEAR);
+  if (near !== !bubbly.hidden) { bubbly.hidden = !near; if (near) shown = ''; }
+  if (near) refreshBubbly();
+  c.waiterSay.upd(dt); c.hic.upd(dt);
+  if (c.hicT > 0 && (c.hicT -= dt) <= 0) c.hic.say('Hic!');
+  let face = walk.dir > 0 ? Math.PI / 2 : -Math.PI / 2;
+  if (near) {
+    animPerson(w, false, dt, true);
+    face = Math.atan2(pp.x - wAt.x, pp.z - wAt.z);
+    if (c.pour) updPour(c, dt);
+  } else if (walk.pause > 0) { walk.pause -= dt; animPerson(w, false, dt, true); }
   else {
     w.position.x += walk.dir * 1.1 * dt;
     if (w.position.x > WAITER.x1 || w.position.x < WAITER.x0) {
@@ -489,7 +623,8 @@ function updCrowd(c: ReturnType<typeof buildCrowd>, dt: number, clock: number) {
     }
     animPerson(w, true, dt, true);
   }
-  w.rotation.y += ((walk.dir > 0 ? Math.PI / 2 : -Math.PI / 2) - w.rotation.y) * Math.min(1, dt * 6);
+  const turn = ((face - w.rotation.y) % (Math.PI * 2) + Math.PI * 3) % (Math.PI * 2) - Math.PI;
+  w.rotation.y += turn * Math.min(1, dt * 6);
   w.arms[0].rotation.x = -TRAY_ARM; w.arms[0].rotation.z = 0; w.arms[1].rotation.x = -0.4;
   // the fan by the tables claps along with a win
   animPerson(c.fan, false, dt, false);
@@ -502,17 +637,16 @@ function updCrowd(c: ReturnType<typeof buildCrowd>, dt: number, clock: number) {
   }
 }
 
-/** Keeps the player out of the bar, the row of machines and the guests at them, the palms, the fan and the waiter. */
+/** Keeps the player out of the bar, the row of machines and the guests at them, the palm and the fan. The waiter
+ *  doesn't block: walk up to him for a glass, or past him. */
 export function collideSalon(p: XZ) {
   if (!salon) return;
   const x = (v: number) => SHIP.x + v, z = (v: number) => SHIP.z + v;
-  const bar0 = STOOL_X - 0.25, rowZ = [ROW.zs[0] - 0.37, ROW.zs[ROW.zs.length - 1] + 0.37];
-  pushOutOfBox(p, x((bar0 + SALON.x1) / 2), z((-SALON.side + BAR.z1) / 2), (SALON.x1 - bar0) / 2 + 0.3, (BAR.z1 + SALON.side) / 2 + 0.3);
-  pushOutOfBox(p, x((SALON.x0 + ROW.x + 1.0) / 2), z((rowZ[0] + rowZ[1]) / 2), (ROW.x + 1.0 - SALON.x0) / 2 + 0.3, (rowZ[1] - rowZ[0]) / 2 + 0.3);
+  const bar1 = STOOL_X + 0.25, row0 = ROW.x - 1.0, rowZ = [ROW.zs[0] - 0.37, ROW.zs[ROW.zs.length - 1] + 0.37];
+  pushOutOfBox(p, x((SALON.x0 + bar1) / 2), z((BAR.z0 + BAR.z1) / 2), (bar1 - SALON.x0) / 2 + 0.3, (BAR.z1 - BAR.z0) / 2 + 0.3);
+  pushOutOfBox(p, x((row0 + SALON.x1) / 2), z((rowZ[0] + rowZ[1]) / 2), (SALON.x1 - row0) / 2 + 0.3, (rowZ[1] - rowZ[0]) / 2 + 0.3);
   for (const [px, pz] of PALMS) pushOutOfBox(p, x(px), z(pz), 0.3 + 0.3, 0.3 + 0.3);
   pushOutOfBox(p, x(FAN.x), z(FAN.z), 0.25 + 0.3, 0.25 + 0.3);
-  const w = salon.crowd.waiter.position;
-  pushOutOfBox(p, x(w.x), z(w.z), 0.25 + 0.3, 0.25 + 0.3);
   // the east wall either side of the door
   for (const s of [-1, 1]) pushOutOfBox(p, x(SALON.x1), z(s * (DOOR + SALON.side) / 2), 0.08 + 0.3, (SALON.side - DOOR) / 2);
 }
@@ -520,7 +654,8 @@ export function collideSalon(p: XZ) {
 /** For tests: how far the roof is up (1) or lifted away (0), what the fan by the tables is saying, how many guests
  *  there are, how far the radar has turned, and where the fan and the waiter are (in the ship's own space). */
 export const salonView = () => ({
-  roof: salon?.roofK ?? 1, fan: salon?.crowd.fanSay.text ?? '', guests: salon ? 4 + 2 + 1 + 1 + 1 + 2 : 0,
+  roof: salon?.roofK ?? 1, fan: salon?.crowd.fanSay.text ?? '', guests: salon ? 2 + 3 + 2 + 1 + 1 + 2 : 0,
+  waiter: salon?.crowd.waiterSay.text ?? '', drinking: !!salon?.crowd.pour, hic: salon?.crowd.hic.text ?? '',
   radar: salon?.roof.radar.rotation.y ?? 0,
   staff: salon ? [salon.crowd.fan.position, salon.crowd.waiter.position] : [],
 });
