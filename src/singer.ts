@@ -1,8 +1,11 @@
 // The singer's look (Ofer Levy), worn over a Person: a navy baseball cap over short grey hair, a short grey beard,
 // an olive field jacket open over a white T-shirt, a gold chain, and a gold watch and a black leather bracelet.
 // Swapped in while the player stands in the rain outside her house.
-import { BoxGeometry, Mesh, MeshPhongMaterial, SphereGeometry, TorusGeometry, type Object3D } from 'three';
+import { BoxGeometry, CylinderGeometry, Mesh, MeshPhongMaterial, SphereGeometry, TorusGeometry, type Object3D } from 'three';
 import type { Person } from './characters';
+import { isHigh, onQuality } from './graphics';
+import { baked, Build, K, quietly, rbox, shade, tube } from './kit';
+import { addTurned } from './propsMachines';
 import { G, mat, mesh } from './render';
 
 const SKIN = 0xE0A97F, GREY = 0x8E8B88, BEARD = 0xC9C4BC, CAP = 0x1F2A4D, JACKET = 0x5F7A3B, POCKET = 0x4E6630;
@@ -85,12 +88,111 @@ export function singerLook(p: Person) {
     b.position.set(s * 0.072, HEAD.y + 0.058, HEAD.z + 0.19); b.rotation.z = s * -0.3;
   }
 
+  // On High (graphics.ts), the same look in the people's detail instead, baked into a few meshes.
+  const high = quietly(() => highLook(p, side));
+  let wearing = false;
+  const show = () => {
+    const h = isHigh();
+    for (const o of own) o.visible = !wearing;
+    for (const o of look) o.visible = wearing && !h;
+    for (const o of high) o.visible = wearing && h;
+  };
+  onQuality(show);
+
   /** Wears the singer's look (true) or the player's own clothes (false). */
   return (on: boolean) => {
-    for (const o of own) o.visible = !on;
-    for (const o of look) o.visible = on;
+    wearing = on;
+    show();
     p.disguised = on;
     p.wear();
     p.arms.forEach((a, i) => { a.position.x = side[i] * p.armSpread * (on ? BUILD : 1); });
   };
+}
+
+/**
+ * The hem round the bottom of the jacket (the body's ten sides, so it sits flat on them), and the cap's brim: the
+ * front half of a disc, its straight edge against the cap.
+ */
+const [hemGeo, brimGeo] = quietly(() => [
+  new CylinderGeometry(1, 1, 1, 10, 1, true),
+  new CylinderGeometry(0.1, 0.1, 0.016, 12, 1, false, -Math.PI / 2, Math.PI),
+]);
+const BUTTON = 0x8C7A4A;
+
+/**
+ * The singer's look in High's detail, the way the people are drawn (characters.ts): rounded sleeves with hands, the
+ * jacket's shoulders, hem, epaulettes and four flapped pockets with buttons, ears and a nose, a rounded moustache and a
+ * curved cap brim with a button on top, a chain of little links, and a watch with a face. Hidden; returns its meshes.
+ */
+function highLook(p: Person, side: number[]) {
+  const shell = new Build(), trim = new Build(), chain = new Build(), X = Math.PI / 2;
+  /** A flat piece lying on the jacket's front, `x` across from the middle, as on Low. */
+  const onFront = (b: Build, w: number, h: number, c: number, x: number, y: number, out = 0.004, d = 0.02, rz = 0) => {
+    const r = bodyR(y), z = Math.sqrt(r * r - x * x) + out;
+    addTurned(b, rbox(w, h, d, Math.min(0.008, d / 2)), c, [x, y, z], [-LEAN, Math.asin(x / r), rz], 'YXZ');
+  };
+  // the jacket, rounded over at the shoulders, with a darker hem and a stand-up collar
+  shell.add(G.body, JACKET, 0, 0.6, 0, null, [BUILD, 1, BUILD]);
+  shell.add(K.dome, JACKET, 0, 0.9, 0, null, [0.22 * BUILD, 0.092, 0.22 * BUILD]);
+  const hem = 0.3 * BUILD + 0.006;
+  shell.add(hemGeo, shade(JACKET, 0.8), 0, 0.325, 0, null, [hem, 0.05, hem]);
+  shell.add(collarGeo, JACKET, 0, 0.91, 0, [Math.PI / 2, 0, Math.PI / 2 + 0.7]);
+  // open over the T-shirt: zips down both edges, chest and hip pockets with buttoned flaps, epaulettes
+  onFront(trim, 0.13, 0.42, 0xF4F6F8, 0, 0.62, 0.002);
+  for (const s of [-1, 1]) {
+    onFront(trim, 0.03, 0.46, POCKET, s * 0.075, 0.6);
+    onFront(trim, 0.006, 0.44, 0xB8B0A0, s * 0.062, 0.6, 0.012, 0.008);
+    for (const [x, y, w, h] of [[0.16, 0.66, 0.11, 0.1], [0.17, 0.43, 0.12, 0.1]]) {
+      onFront(trim, w, h, POCKET, s * x, y);
+      onFront(trim, w + 0.006, 0.035, 0x3E5226, s * x, y + h / 2, 0.01);
+      onFront(trim, 0.018, 0.018, BUTTON, s * x, y + h / 2 - 0.005, 0.02, 0.008);
+    }
+    shell.add(rbox(0.055, 0.014, 0.14, 0.006), shade(JACKET, 0.9), s * 0.15, 0.962, 0, [0, 0, -s * 0.42]);
+    trim.add(K.dot, BUTTON, s * 0.19, 0.95, 0.045, null, 0.012);
+  }
+  // the head: ears and a nose, grey hair, the beard and a moustache, eyebrows raised in the middle
+  trim.add(G.head, SKIN, 0, HEAD.y, HEAD.z);
+  for (const s of [-1, 1]) trim.add(K.dot, SKIN, s * 0.197, 1.02, 0.045, null, [0.032, 0.048, 0.038]);
+  trim.add(K.dot, shade(SKIN, 0.93), 0, 1.008, 0.247, null, [0.03, 0.026, 0.026]);
+  trim.add(hairGeo, GREY, 0, HEAD.y, HEAD.z - 0.005);
+  trim.add(beardGeo, BEARD, 0, HEAD.y, HEAD.z);
+  for (const s of [-1, 1]) {
+    trim.add(K.ball, BEARD, s * 0.032, HEAD.y - 0.046, HEAD.z + 0.196, [0, 0, s * 0.22], [0.042, 0.018, 0.02]);
+    trim.add(rbox(0.08, 0.024, 0.02, 0.009), 0x4A4542, s * 0.072, HEAD.y + 0.058, HEAD.z + 0.19, [0, 0, s * -0.3]);
+  }
+  // the navy cap: its crown with a button on top, and a curved brim tipped up a little, as on Low
+  shell.add(crownGeo, CAP, 0, HEAD.y + 0.045, HEAD.z - 0.01);
+  shell.add(K.dot, shade(CAP, 0.8), 0, HEAD.y + 0.25, HEAD.z - 0.01, null, [0.024, 0.012, 0.024]);
+  shell.add(brimGeo, CAP, 0, HEAD.y + 0.095, HEAD.z + 0.18, [-0.4, 0, 0], [1, 1, 0.8]);
+  // the gold chain, in little links, down to the pendant on the T-shirt
+  for (const s of [-1, 1]) for (let i = 0; i < 11; i++) {
+    const t = i / 11, y = 0.895 - t * 0.13;
+    chain.add(K.dot, 0, s * 0.06 * (1 - t), y, bodyR(y) + 0.012, null, 0.0062);
+  }
+  chain.add(K.ball, 0, 0, 0.765, bodyR(0.765) + 0.014, null, [0.02, 0.022, 0.012]);
+
+  const meshes: Object3D[] = [shell.mesh(), trim.mesh(false), jewel(chain, gold)];
+  p.body.add(...meshes);
+  // sleeves with darker cuffs, hands, and a gold watch with a face on one wrist, the leather bracelet on the other
+  p.arms.forEach((a, i) => {
+    const arm = new Build(), band = new Build(), out = side[i];
+    arm.add(K.ball, JACKET, 0, -0.005, 0, null, [0.07, 0.066, 0.07]);
+    arm.add(tube(0.066, 0.058, 0.3, 8, true), JACKET, 0, -0.14, 0);
+    arm.add(tube(0.063, 0.063, 0.03, 8), shade(JACKET, 0.82), 0, -0.275, 0);
+    arm.add(K.ball, SKIN, 0, -0.315, 0.004, null, [0.05, 0.056, 0.05]);
+    band.add(K.ring, 0, 0, -0.293, 0.004, [X, 0, 0], [0.05, 0.05, 0.22]);
+    if (!i) {
+      band.add(tube(0.022, 0.022, 0.012, 10), 0, out * 0.054, -0.293, 0.004, [0, 0, X]);
+      arm.add(tube(0.016, 0.016, 0.004, 10), 0xF4F1EA, out * 0.061, -0.293, 0.004, [0, 0, X]);
+    }
+    const ms = [arm.mesh(), jewel(band, i ? leather : gold)];
+    a.add(...ms);
+    meshes.push(...ms);
+  });
+  for (const m of meshes) m.visible = false;
+  return meshes;
+}
+/** Gold or leather pieces in one mesh, in their own shiny material. */
+function jewel(b: Build, material: MeshPhongMaterial) {
+  return baked(b.pieces, true, material);
 }

@@ -5,10 +5,15 @@ import {
   BoxGeometry, DoubleSide, Group, Mesh, MeshBasicMaterial, MeshLambertMaterial, PlaneGeometry, PointLight, RepeatWrapping,
   type Object3D,
 } from 'three';
+import { at, Build, detail, quietly, rbox, seasonLayer } from './kit';
 import { EAST_DOOR, FARM_DOOR, GATE_W, HALL_BOX, KIOSK_BOOTH, kioskBooth } from './layout';
-import { bake, canvasTex, FONT, G, mat, mesh, rr, scene, type Part } from './render';
+import {
+  beam, bracket, chochin, floorBoards, HALL, kerb as kerbRun, niwaki, norenRod, post as hallPost, roofSlope, roofTip,
+  shoji as shojiPanels, signBoard, steppingStone, torii, toro, upturn,
+} from './propsHall';
+import { bake, canvasTex, FONT, G, mat, mesh, painted, rr, scene, type Part } from './render';
 import { FY, rand, type XZ } from './util';
-import { shelter } from './season';
+import { amount, shelter, type Swatch } from './season';
 import { planks, TREE_MATS } from './world';
 
 const { x0: X0, x1: X1, z0: Z0, z1: Z1 } = HALL_BOX;
@@ -31,6 +36,26 @@ function put<T extends Object3D>(g: Group, o: T, x: number, y: number, z: number
   o.position.set(x - g.position.x, y, z - g.position.z); g.add(o);
   return o;
 }
+/**
+ * Splits a piece into Low and High (graphics.ts): what's in it so far (except `keep`, which both show) moves into a
+ * group shown on Low, and the group `build` makes, off the game's luck, is shown on High beside it. Both stay in the
+ * piece, so it still pops in about its own centre. Unless `wrap`, the Low things stay where they are, each shown on
+ * Low only.
+ */
+function hiLo(g: Group, build: () => Object3D, keep: Object3D[] = [], wrap = true) {
+  const lows = g.children.filter(c => !keep.includes(c));
+  const [low, high] = quietly(() => {
+    const low = wrap ? new Group().add(...lows) : null;
+    const high = build();
+    if (low) g.add(low);
+    g.add(high);
+    return [low, high];
+  });
+  if (low) detail(low, high);
+  else { lows.forEach(o => detail(o, null)); detail(null, high); }
+}
+/** Snow shows in winter and melts away in spring. */
+const SNOWY: Swatch = [1, 0, 0, 0];
 
 // ---------- textures ----------
 const shoji = canvasTex(128, 128, (c, w, h) => {
@@ -68,6 +93,8 @@ function glow(color: number, emissive: number) {
   return m;
 }
 const RED = glow(0xE0392B, 0xB0250F), PAPER = glow(0xFFF1D6, 0xFFC46A), STONE_LAMP = glow(0xFFE2A8, 0xFFB050);
+/** High's shoji paper, which warms a little at dusk with the lanterns. */
+const SHOJI_PAPER = quietly(() => glow(HALL.paper, 0x4A3010));
 /** Warm lights over the bar and the gate, off until dusk. */
 export const lamps = [new PointLight(0xFFB46A, 0, 13, 1.4), new PointLight(0xFFB46A, 0, 13, 1.4)];
 lamps[0].position.set(0, 3.2, 9); lamps[1].position.set(0, 3.2, 16.8);
@@ -83,13 +110,36 @@ function lanterns(g: Group, at: [x: number, y: number, z: number, s: number, red
   bodies.forEach((b, i) => { if (b.length) g.add(mesh(bake(b), i ? PAPER : RED, 0, 0, 0, true)); });
   g.add(mesh(bake(caps), 0x1B2430));
 }
+/** High's paper lanterns at the same spots, in piece `g`'s frame: ribbed bodies, caps, hoops and tassels (propsHall.ts). */
+function lanternsHigh(g: Group, to: Group, at: [x: number, y: number, z: number, s: number, red: boolean][]) {
+  const red = new Build(), cream = new Build(), trim = new Build();
+  for (const [x, y, z, s, r] of at) chochin(r ? red : cream, trim, s, x - g.position.x, y, z - g.position.z, r);
+  if (!red.empty) to.add(red.mesh(true, RED));
+  if (!cream.empty) to.add(cream.mesh(true, PAPER));
+  to.add(trim.mesh(false));
+}
 
 // ---------- the building ----------
+/** High's shoji in piece `g`: paper (lit at dusk) and the wooden frames and lattice, two meshes for all its walls. */
+function shojiHigh(g: Group, to: Group) {
+  const paper = new Build(), wood = new Build();
+  for (const r of shojiRuns) {
+    if (r.g !== g) continue;
+    shojiPanels(paper, wood, Math.max(r.w, r.d), r.h, Math.min(r.w, r.d), at(r.x - g.position.x, KERB_H, r.z - g.position.z, r.d > r.w ? Math.PI / 2 : 0));
+  }
+  to.add(paper.mesh(false, SHOJI_PAPER), wood.mesh());
+}
+/** Stone kerb runs (w, d, x, z in the piece's frame), for High. */
+type Run = [w: number, d: number, x: number, z: number];
+
 /** Floorboards' tops, the same size whatever the floor's (5 by 4 over the restaurant's), and their sides. */
 const boards = (w: number, d: number) => new MeshLambertMaterial({ map: planks('#7A4A30', '#86533A', w * 5 / (X1 - X0), d * 4 / (Z1 - Z0)) });
 const BOARD_SIDE = mat(0x6B4130);
+/** Every run of shoji, for High's version of each piece. */
+const shojiRuns: { g: Group; w: number; h: number; d: number; x: number; z: number }[] = [];
 /** A run of shoji wall `h` high in `g`, standing on the kerb. */
 function shojiWall(g: Group, w: number, h: number, d: number, x: number, z: number) {
+  shojiRuns.push({ g, w, h, d, x, z });
   const t = shoji.tex.clone(); t.wrapS = t.wrapT = RepeatWrapping; t.repeat.set(Math.max(w, d) / 2, h / 2.4); t.needsUpdate = true;
   put(g, mesh(new BoxGeometry(w, h, d), new MeshLambertMaterial({ map: t }), 0, 0, 0, true), x, KERB_H + h / 2, z);
 }
@@ -99,8 +149,11 @@ const floor = piece(0, MID);
   const side = BOARD_SIDE;
   put(floor, new Mesh(new BoxGeometry(X1 - X0, 0.3, Z1 - Z0), [side, side, boards(X1 - X0, Z1 - Z0), side, side, side]), 0, 0, MID).receiveShadow = true;
   // a raised stone kerb round three sides, open at the gate, the farm door and into the kiosk's booth; walls stand on it
-  const kerb: Part[] = [];
-  const k = (w: number, d: number, x: number, z: number) => kerb.push({ geo: G.box, at: [x, KERB_H / 2, z - MID], scale: [w, KERB_H, d] });
+  const kerb: Part[] = [], runs: Run[] = [];
+  const k = (w: number, d: number, x: number, z: number) => {
+    kerb.push({ geo: G.box, at: [x, KERB_H / 2, z - MID], scale: [w, KERB_H, d] });
+    runs.push([w, d, x, z - MID]);
+  };
   const fw = X1 + 0.15 - GATE_W;
   k(fw, 0.3, -(GATE_W + fw / 2), Z1); k(fw, 0.3, GATE_W + fw / 2, Z1);
   k(0.3, FARM_DOOR.z0 - Z0, X0, (Z0 + FARM_DOOR.z0) / 2); k(0.3, Z1 - FARM_DOOR.z1, X0, (FARM_DOOR.z1 + Z1) / 2);
@@ -110,12 +163,23 @@ const floor = piece(0, MID);
   floor.add(mesh(bake(kerb), 0x9AA4AC, 0, 0, 0, true));
   // the step out through the gate
   put(floor, mesh(new BoxGeometry(GATE_W * 2, 0.15, 0.9), 0x8E979E, 0, 0, 0, true), 0, 0.075, Z1 + 0.45);
+  // High: real boards with gaps between them, and the kerb in dressed stone blocks under a capstone
+  hiLo(floor, () => {
+    const g = new Group(), stone = new Build();
+    for (const [w, d, x, z] of runs) kerbRun(stone, w, d, KERB_H, x, z);
+    stone.add(rbox(GATE_W * 2, 0.15, 0.9, 0.04), HALL.step, 0, 0.075, Z1 + 0.45 - MID);
+    g.add(floorBoards(X1 - X0, Z1 - Z0, FY, 5, 4).mesh(false), stone.mesh());
+    return g;
+  });
 }
 
 const frame = piece(0, MID);
 {
-  const posts: Part[] = [];
-  const post = (x: number, z: number) => posts.push({ geo: G.cyl, at: [x, FY + 1.7, z - MID], scale: [0.16, 3.4, 0.16] });
+  const posts: Part[] = [], spots: [x: number, z: number][] = [];
+  const post = (x: number, z: number) => {
+    posts.push({ geo: G.cyl, at: [x, FY + 1.7, z - MID], scale: [0.16, 3.4, 0.16] });
+    spots.push([x, z - MID]);
+  };
   for (const x of [X0, -7.9, 7.9, X1]) post(x, Z0);
   for (let i = 0; i <= 6; i++) { const x = X0 + i * (X1 - X0) / 6; if (Math.abs(x) > GATE_W + 0.4) post(x, Z1); }
   for (const z of [5.0, 8.5, 12.0]) { post(X0, z); post(X1, z); }
@@ -127,24 +191,60 @@ const frame = piece(0, MID);
     { geo: G.box, at: [X1, FY + 3.4, 0], scale: [0.24, 0.3, Z1 - Z0 + 0.3] },
   ];
   frame.add(mesh(bake(beams), 0x4A2418, 0, 0, 0, true));
+  // High: posts on base stones in black iron feet, capped where they meet the beams, with bracket arms under the
+  // beams; the beams' ends stand proud past the corners
+  hiLo(frame, () => {
+    const b = new Build(), z0 = Z0 - MID, z1 = Z1 - MID, top = FY + 3.25;
+    for (const [x, z] of spots) {
+      b.addAll(hallPost(0.16, FY, KERB_H, top), at(x, 0, z));
+      if (z === z0 || z === z1) b.addAll(bracket(0.75), at(x, top - 0.045, z));
+      if (x === X0 || x === X1) b.addAll(bracket(0.75), at(x, top - 0.045, z, Math.PI / 2));
+    }
+    for (const z of [z0, z1]) b.addAll(beam(X1 - X0 + 0.3, 0.3, 0.24), at(0, FY + 3.4, z));
+    for (const x of [X0, X1]) b.addAll(beam(Z1 - Z0 + 0.3, 0.3, 0.24), at(x, FY + 3.4, 0, Math.PI / 2));
+    const g = new Group();
+    g.add(b.mesh());
+    return g;
+  });
 }
 
 /**
  * Roof slopes, each with the stretch of ground where standing would put it between the player and the camera
  * (which looks in from the south-east, high up). They fade out while the player is there.
  */
-type Slab = { s: Mesh; m: MeshLambertMaterial; near: (p: XZ) => boolean };
+type Slab = { s: Mesh; m: MeshLambertMaterial; near: (p: XZ) => boolean; hi: Fader[] };
+/** A mesh on High that fades with a Low slope (or tip): the High roof's tiles, and its snow, which fades with winter too. */
+type Fader = { s: Mesh; m: MeshLambertMaterial; snow?: boolean };
 const slabs: Slab[] = [];
 /** The roof's corner tips, and the two slopes each one joins. */
-const tips: { t: Mesh; m: MeshLambertMaterial; of: [Slab, Slab] }[] = [];
+const tips: { t: Mesh; m: MeshLambertMaterial; of: [Slab, Slab]; hi: Fader[] }[] = [];
+/**
+ * High's tiled slope in place of Low slab `slab` in piece `g`: `len` along its length, `depth` down it, turned `ry` so
+ * its eave faces out, its ridge from `ridge[0]` to `ridge[1]` along it, and its ends swept up by `lift`.
+ */
+function slopeHigh(to: Group, slab: Slab, len: number, depth: number, ry: number, ridge: [number, number], lift: number) {
+  const holder = new Group();
+  holder.position.copy(slab.s.position); holder.rotation.copy(slab.s.rotation);
+  const snow = new Build(), tiles = roofSlope(len, depth, ridge, snow);
+  const m = painted.clone(), sm = painted.clone();
+  m.transparent = sm.transparent = true;
+  const t = tiles.mesh(true, m), w = snow.mesh(false, sm);
+  for (const o of [t, w]) { upturn(o, len, depth, lift); o.rotation.y = ry; holder.add(o); }
+  slab.hi.push({ s: t, m }, { s: w, m: sm, snow: true });
+  to.add(holder);
+}
+/** The courtyard's inner edges, where the slopes' ridges run: west, east, north and south. */
+const C = Math.cos(0.42), INNER = { x0: X0 + 0.1 + 1.5 * C, x1: X1 + 0.55 - 0.85 * C, z0: Z0 + 0.1 + 1.5 * C - MID, z1: Z1 + 0.55 - 0.85 * C - MID };
 const roof = piece(0, MID);
+/** The lanterns under the eaves. */
+const hung: [number, number, number, number, boolean][] = [];
 {
   // Tiled slopes round an open courtyard; the south and east ones are narrow.
   const slab = (w: number, d: number, x: number, z: number, rx: number, rz: number, near: (p: XZ) => boolean) => {
     const m = roofMat.clone(); m.transparent = true;
     const s = mesh(new BoxGeometry(w, 0.14, d), m, 0, 0, 0, true);
     s.rotation.set(rx, 0, rz); put(roof, s, x, FY + 3.85, z);
-    slabs.push({ s, m, near });
+    slabs.push({ s, m, near, hi: [] });
   };
   slab(22.6, 3.0, 0, Z0 + 0.1, -0.42, 0, p => p.z < 7.5 && p.z > -7.5 && p.x > -13);
   slab(22.6, 1.7, 0, Z1 + 0.55, 0.42, 0, p => p.z > 10 && p.x > -13);
@@ -156,14 +256,35 @@ const roof = piece(0, MID);
     const t = mesh(G.cone, m, 0, 0, 0, true);
     t.rotation.z = (x < 0 ? 1 : -1) * 0.7; t.scale.set(0.16, 0.5, 0.16);
     put(roof, t, x, FY + 3.55, z);
-    tips.push({ t, m, of: [slabs[a], slabs[b]] });
+    tips.push({ t, m, of: [slabs[a], slabs[b]], hi: [] });
   }
   // lanterns hung from the beams, red and cream in turn
-  const at: [number, number, number, number, boolean][] = [];
+  const at = hung;
   let i = 0;
   for (let x = X0 + 1.2; x <= X1 - 1.0; x += 2.2) { at.push([x, FY + 3.0, Z0, 0.8, i++ % 2 === 0]); at.push([x, FY + 3.0, Z1, 0.8, i % 2 === 0]); }
   for (let z = Z0 + 1.8; z <= Z1 - 1.0; z += 2.2) { at.push([X0, FY + 3.0, z, 0.8, i++ % 2 === 0]); at.push([X1, FY + 3.0, z, 0.8, i % 2 === 0]); }
   lanterns(roof, at);
+  // High: the slopes in rows of round tiles under a capped ridge, their eaves sweeping up into curled corner tips,
+  // with snow on them in winter; the lanterns ribbed, capped and tasselled. Low's slopes stay in the piece, so
+  // whatever looks for them there still finds them
+  hiLo(roof, () => {
+    const g = new Group(), { x0, x1, z0, z1 } = INNER;
+    slopeHigh(g, slabs[0], 22.6, 3.0, Math.PI, [-x1, -x0], 0.3);
+    slopeHigh(g, slabs[1], 22.6, 1.7, 0, [x0, x1], 0.3);
+    slopeHigh(g, slabs[2], 16.6, 3.0, -Math.PI / 2, [z0, z1], 0.3);
+    slopeHigh(g, slabs[3], 16.6, 1.7, Math.PI / 2, [-z1, -z0], 0.3);
+    const tip = roofTip();
+    for (const t of tips) {
+      const m = painted.clone(); m.transparent = true;
+      const o = tip.mesh(true, m);
+      o.position.copy(t.t.position);
+      o.rotation.y = Math.atan2(-Math.sign(o.position.z), Math.sign(o.position.x));
+      g.add(o);
+      t.hi.push({ s: o, m });
+    }
+    lanternsHigh(roof, g, hung);
+    return g;
+  }, [], false);
 }
 
 const walls = piece(0, MID);
@@ -184,6 +305,16 @@ const walls = piece(0, MID);
   for (const z of [FARM_DOOR.z0, FARM_DOOR.z1]) door.push({ geo: G.box, at: [X0, FY + 1.6, z - MID], scale: [0.26, 3.2, 0.16] });
   door.push({ geo: G.box, at: [X0, FY + 3.1, (FARM_DOOR.z0 + FARM_DOOR.z1) / 2 - MID], scale: [0.26, 0.2, FARM_DOOR.z1 - FARM_DOOR.z0 + 0.16] });
   walls.add(mesh(bake(door), 0x5B3424, 0, 0, 0, true));
+  // High: the shoji in wooden frames with a real lattice, and the door's frame rounded, its lintel capped
+  hiLo(walls, () => {
+    const g = new Group(), b = new Build(), zm = (FARM_DOOR.z0 + FARM_DOOR.z1) / 2 - MID, dw = FARM_DOOR.z1 - FARM_DOOR.z0;
+    shojiHigh(walls, g);
+    for (const z of [FARM_DOOR.z0, FARM_DOOR.z1]) b.add(rbox(0.26, 3.2, 0.16, 0.035), HALL.frame, X0, FY + 1.6, z - MID);
+    b.add(rbox(0.26, 0.2, dw + 0.16, 0.035), HALL.frame, X0, FY + 3.1, zm);
+    b.add(rbox(0.34, 0.06, dw + 0.5, 0.025), HALL.beam, X0, FY + 3.23, zm);
+    g.add(b.mesh());
+    return g;
+  });
 }
 
 // ---------- the gate ----------
@@ -202,8 +333,24 @@ const gate = piece(0, Z1 + 0.4);
     c.fillStyle = '#F7F1E3'; c.font = `800 64px ${FONT}`; c.textAlign = 'center'; c.textBaseline = 'middle';
     c.fillText('すし', w / 2, h / 2 + 6);
   });
-  put(gate, new Mesh(new PlaneGeometry(GATE_W * 2 - 0.2, 0.9), new MeshLambertMaterial({ map: noren.tex, transparent: true, side: DoubleSide })), 0, FY + 2.4, z);
-  lanterns(gate, [[-(GATE_W + 0.95), FY + 2.4, z + 0.3, 2.1, true], [GATE_W + 0.95, FY + 2.4, z + 0.3, 2.1, true]]);
+  const cloth = put(gate, new Mesh(new PlaneGeometry(GATE_W * 2 - 0.2, 0.9), new MeshLambertMaterial({ map: noren.tex, transparent: true, side: DoubleSide })), 0, FY + 2.4, z);
+  const big: [number, number, number, number, boolean][] = [[-(GATE_W + 0.95), FY + 2.4, z + 0.3, 2.1, true], [GATE_W + 0.95, FY + 2.4, z + 0.3, 2.1, true]];
+  lanterns(gate, big);
+  // High: a torii, its posts in black sleeves on base stones, the nuki wedged through them and the kasagi sweeping
+  // up at its ends (snow on it in winter); a board behind the sign, a rod for the noren, and the big lanterns hung
+  // from the kasagi on cords
+  hiLo(gate, () => {
+    const g = new Group(), snow = new Build(), b = torii((GATE_W + 0.15) * 2, FY, snow);
+    b.addAll(signBoard(3.25, 0.72), at(0, FY + 3.0, 0.22));
+    b.addAll(norenRod(GATE_W * 2 + 0.3), at(0, FY + 2.88, 0));
+    for (const [x, y] of big) {
+      b.add(G.box, HALL.ink, x, y + 1.08, 0.3, null, [0.016, 0.9, 0.016]);
+      b.add(rbox(0.06, 0.06, 0.22, 0.02), HALL.ink, x, FY + 3.93, 0.25);
+    }
+    lanternsHigh(gate, g, big);
+    g.add(b.mesh(), seasonLayer(snow.mesh(false), SNOWY));
+    return g;
+  }, [sign, cloth]);
 }
 
 // ---------- the garden ----------
@@ -231,6 +378,23 @@ const garden = piece(0, GARDEN_Z);
   }
   garden.add(mesh(bake(pines), TREE_MATS[1], 0, 0, 0, true));
   garden.add(mesh(bake(snow), TREE_MATS[3]));
+  // High: stone lanterns with all a tōrō's parts, their fireboxes lit; rounded stepping stones where the flat ones
+  // lie; and the pines pruned into pads on crooked trunks, dressed for the season like the big ones
+  hiLo(garden, () => {
+    const g = new Group(), stone = new Build(), glowing = new Build(), cap = new Build();
+    for (const x of [-3.4, 3.4]) {
+      const m = at(x, 0, 17.8 - GARDEN_Z), lit = new Build(), sn = new Build();
+      stone.addAll(toro(lit, sn), m);
+      glowing.addAll(lit, m); cap.addAll(sn, m);
+    }
+    for (const p of stones) steppingStone(stone, p.at[0], p.at[2], p.rot![1], p.scale![0], p.scale![2], 0xB9C2C9);
+    const trunk = new Build(), pads = new Build(), drift = new Build();
+    [[-8.4, 22.9], [8.6, 21.9], [-8.4, 16.8], [8.6, 17.0]].forEach(([x, z], i) => niwaki(trunk, pads, drift, x, z - GARDEN_Z, i * 1.9 + 0.4));
+    const tm = TREE_MATS as MeshLambertMaterial[];
+    g.add(stone.mesh(), glowing.mesh(false, STONE_LAMP), seasonLayer(cap.mesh(false), SNOWY));
+    g.add(trunk.mesh(true, tm[0]), pads.mesh(true, tm[1]), drift.mesh(false, tm[3]));
+    return g;
+  });
 }
 
 // ---------- the takeout kiosk's booth (its counter is the takeout window's, in counters.ts) ----------
@@ -251,12 +415,26 @@ const kiosk = piece(11.4, KIOSK.z);
   const m = roofMat.clone(); m.transparent = true;
   const r = mesh(new BoxGeometry(3.0, 0.12, d + 0.4), m, 0, 0, 0, true); r.rotation.z = -0.25;
   put(kiosk, r, 11.4, FY + 2.7, KIOSK.z);
-  slabs.push({ s: r, m, near: p => p.x > 5.5 && p.z > 1 && p.z < 12 });
+  slabs.push({ s: r, m, near: p => p.x > 5.5 && p.z > 1 && p.z < 12, hi: [] });
   const posts: Part[] = [];
   for (const z of [KZ0, KZ1]) posts.push({ geo: G.cyl, at: [1.3, FY + 1.25, z - KIOSK.z], scale: [0.12, 2.5, 0.12] });
   kiosk.add(mesh(bake(posts), 0x6B2E22, 0, 0, 0, true));
   const sign = new Mesh(new PlaneGeometry(1.9, 0.5), new MeshBasicMaterial({ map: signTex(256, 72, '#C0392B', 'Takeout', 40) }));
   sign.rotation.y = Math.PI / 2; put(kiosk, sign, 12.75, FY + 2.25, KIOSK.z);
+  // High: as the restaurant's, its boards, kerb, shoji, tiled roof and posts; a board behind the sign
+  const roofSlab = slabs[slabs.length - 1];
+  hiLo(kiosk, () => {
+    const g = new Group(), b = new Build(), ox = kiosk.position.x;
+    for (const z of [KZ0, KZ1]) kerbRun(b, KX1 - kx0, 0.3, KERB_H, (kx0 + KX1) / 2 - ox, z - KIOSK.z);
+    for (const z of [KZ0, KZ1]) b.addAll(hallPost(0.12, FY, KERB_H, FY + 2.42), at(12.7 - ox, 0, z - KIOSK.z));
+    b.addAll(signBoard(1.8, 0.42), at(12.75 - ox, FY + 2.25, 0, Math.PI / 2));
+    const boards = floorBoards(w, d, FY, w * 5 / (X1 - X0), d * 4 / (Z1 - Z0)).mesh(false);
+    boards.position.x = (KX0 + KX1) / 2 - ox;
+    g.add(boards, b.mesh());
+    shojiHigh(kiosk, g);
+    slopeHigh(g, roofSlab, d + 0.4, 3.0, Math.PI / 2, [-(d + 0.4) / 2, (d + 0.4) / 2], 0.14);
+    return g;
+  }, [sign]);
 }
 
 // No snow (or petals, or leaves) inside the restaurant, its courtyard included, or under the kiosk's roof.
@@ -279,10 +457,26 @@ export function updRoof(dt: number, p: XZ, all: boolean) {
     const want = !all && s.near(p) ? 0.12 : 1;
     s.m.opacity += (want - s.m.opacity) * Math.min(1, dt * 8);
     s.m.depthWrite = s.s.castShadow = s.m.opacity > 0.95;
+    fade(s.hi, s.m.opacity);
   }
   for (const t of tips) {
     t.m.opacity = Math.min(t.of[0].m.opacity, t.of[1].m.opacity);
     t.m.depthWrite = t.t.castShadow = t.m.opacity > 0.95;
+    fade(t.hi, t.m.opacity);
+  }
+}
+/**
+ * Fades High's roof with its Low slope (it's hidden on Low, so this does nothing there); the snow fades with winter
+ * too. Its tiles lie in layers that would add up to more than the Low slab's one face, so it fades a little further.
+ */
+function fade(hi: Fader[], o: number) {
+  const winter = amount(SNOWY), oh = Math.pow(o, 1.5);
+  for (const f of hi) {
+    const k = f.snow ? oh * winter : oh;
+    f.m.opacity = k;
+    f.m.depthWrite = k > 0.95;
+    if (f.snow) f.s.visible = k > 0.01;
+    else f.s.castShadow = k > 0.95;
   }
 }
 

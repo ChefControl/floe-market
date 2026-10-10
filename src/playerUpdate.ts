@@ -5,6 +5,7 @@ import { COUNTERS } from './counters';
 import { updLook } from './customize';
 import { tryCatch } from './fishing';
 import { collideGarden } from './garden';
+import { coinsFx } from './fx';
 import { fly, type Holder } from './holder';
 import { billValue, newBill, type Kind } from './items';
 import { boost } from './economy';
@@ -139,7 +140,7 @@ export function updPlayer(dt: number) {
       player.tCash += 0.025;
       const b = s.cash.take()!, v = billValue(b);
       wallet.inFlight += v;
-      fly(b, () => V(p.x, p.y + 0.75, p.z), 0.22, 0.6, () => { scene.remove(b); wallet.inFlight -= v; addMoney(v); coin(); });
+      fly(b, () => V(p.x, p.y + 0.75, p.z), 0.22, 0.6, () => { scene.remove(b); wallet.inFlight -= v; addMoney(v); coin(); coinsFx(V(p.x, p.y + 1.1, p.z)); });
     }
     if (player.tCash < 0) player.tCash = 0;
   }
