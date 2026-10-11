@@ -347,15 +347,15 @@ describe('Draw-a-Bug', () => {
     await vi.waitFor(() => expect(btn('reportDraw').classList.contains('drawn')).toBe(false));
   });
 
-  it('is Draw-an-Idea for an idea, in yellow, and off while the picture is left out', async () => {
+  it('is Doodle It for an idea, in yellow, and off while the picture is left out', async () => {
     await start();
     $('reportCat').click();
     expect($('report').dataset.kind).toBe('bug');
     ($('reportKind').querySelector('[data-kind="idea"]') as HTMLElement).click();
-    expect($('reportDrawName').textContent).toBe('Draw-an-Idea');
+    expect($('reportDrawName').textContent).toBe('Doodle It');
     expect($('report').dataset.kind).toBe('idea'); // the button turns yellow (index.html)
     btn('reportDraw').click();
-    expect($('drawTitle').textContent).toBe('Draw-an-Idea: sketch it on the game');
+    expect($('drawTitle').textContent).toBe('Doodle It: sketch your idea on the game');
     btn('drawDone').click();
     tick('reportShotOn', false);
     expect(btn('reportDraw').disabled).toBe(true);

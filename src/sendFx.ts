@@ -1,8 +1,8 @@
 // The moment a report is sent (report.ts), over the game: for an idea, a light bulb that flickers and lights up bright
 // with rays, and a chime; for a bug, a fly swatter that comes down on a scurrying bug with a swish and a smack, and a
-// splat. Each says so underneath ("Bright idea!", "Bug squashed!"), then fades. The drawings are inline SVG in the
-// game's colours, so they look the same on every phone; the moves are CSS (index.html), and for players who'd rather
-// less motion they just fade in and out.
+// splat. Each says so underneath ("Bright idea!", "Bug squashed!") long enough to read, then fades. The drawings are
+// SVG, in the game's colours, so they look the same on every phone; the moves are CSS (index.html), and for players
+// who'd rather less motion they just fade in and out.
 import { player } from './player';
 import { chime, chop, swish } from './sfx';
 
@@ -37,7 +37,7 @@ const BUG = `<svg viewBox="0 0 160 170" aria-hidden="true">
 const box = document.getElementById('sendFx')!;
 let done: ReturnType<typeof setTimeout> | undefined;
 /** How long it plays, in ms (the CSS keyframes run as long). */
-export const FX_MS = 1700;
+export const FX_MS = 3000;
 
 /** Plays the moment for a report just sent. */
 export function celebrate(kind: 'bug' | 'idea') {

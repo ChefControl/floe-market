@@ -1,4 +1,4 @@
-// Draw-a-Bug (Draw-an-Idea for an idea): the report's picture (report.ts), big over the dimmed game, to circle what's
+// Draw-a-Bug (Doodle It for an idea): the report's picture (report.ts), big over the dimmed game, to circle what's
 // wrong with a finger or the mouse, in red (yellow for an idea). Undo takes back the last line, Clear all of them,
 // Done keeps them, and Escape puts it away without the lines drawn this time. The lines are kept apart from the
 // picture, so they can be taken back later; report.ts paints them on before sending.
@@ -90,7 +90,7 @@ export function sketch(picture: HTMLCanvasElement, before: Stroke[], idea: boole
   base = picture;
   lines = before.map(s => [...s]);
   ink = idea ? INK.idea : INK.bug;
-  heading.textContent = idea ? 'Draw-an-Idea: sketch it on the game' : "Draw-a-Bug: circle what's wrong";
+  heading.textContent = idea ? 'Doodle It: sketch your idea on the game' : "Draw-a-Bug: circle what's wrong";
   box.hidden = false;
   redraw();
   done.focus();

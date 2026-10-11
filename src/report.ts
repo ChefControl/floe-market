@@ -159,7 +159,7 @@ function setKind(k: Report['kind']) {
   kind = k;
   for (const b of kinds) b.setAttribute('aria-checked', String(b.dataset.kind === k));
   text.placeholder = k === 'bug' ? 'What happened? What did you expect instead?' : 'What would you like in the game?';
-  $('reportDrawName').textContent = k === 'bug' ? 'Draw-a-Bug' : 'Draw-an-Idea';
+  $('reportDrawName').textContent = k === 'bug' ? 'Draw-a-Bug' : 'Doodle It';
   win.dataset.kind = k;
   if (strokes.length) repaint(); // the lines take the new kind's ink
 }
