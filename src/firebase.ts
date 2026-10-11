@@ -1,6 +1,6 @@
 // Cloud saves on Firebase: Google sign-in, and each player's save as one Firestore document, saves/{uid}. The
 // scoreboard is one more document per player, scores/{uid}, which anyone can read. A bug report is a document in
-// reports/, which no player can read back; limits/{uid} counts each player's reports, 5 an hour (firestore.rules).
+// reports/, which no player can read back; limits/{uid} counts each player's reports, 20 an hour (firestore.rules).
 // The loading screen downloads this with the game (index.html); cloud.ts starts it only once cloud saves are in use.
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, onAuthStateChanged, signInWithPopup, signOut } from 'firebase/auth';
@@ -9,7 +9,7 @@ import {
   writeBatch, type Timestamp,
 } from 'firebase/firestore';
 import type { CloudBackend } from './cloud';
-/** An hour: how long a player's count of reports runs before it starts again (firestore.rules allows 5 in it). */
+/** An hour: how long a player's count of reports runs before it starts again (firestore.rules allows 20 in it). */
 const WINDOW = 3_600_000;
 import { firebaseConfig } from './cloud.config';
 

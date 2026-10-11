@@ -101,7 +101,7 @@ describe('the Firebase backend', () => {
     sdk.doc = { since, n: 3 } as never;
     await b.sendReport('u1', r);
     // an hour on: the count starts again
-    sdk.doc = { since: { toMillis: () => Date.now() - 4_000_000 }, n: 5 } as never;
+    sdk.doc = { since: { toMillis: () => Date.now() - 4_000_000 }, n: 20 } as never;
     await b.sendReport('u1', { ...r, shot: 'data:image/jpeg;base64,AA' });
     const fresh = { last: 'server-time', since: 'server-time', n: 1 };
     expect(sdk.batch).toEqual([

@@ -211,12 +211,12 @@ The 🏆 button (top right) lists the 20 players who have held the most cash at 
 - **Always sent:** the commit the game was built from, the graphics setting and frame rate, screen size, whether it's a touch screen, the browser, and the last 10 errors the game hit this visit.
 - **Sending:**
   - A moment over the game: for an idea, a light bulb flickers on bright with a chime, "Bright idea!"; for a bug, a fly swatter comes down on a scurrying bug with a swish and a smack, "Bug squashed!". Then "Thanks! Your report is on its way."
-  - A player can send 5 reports an hour, one straight after another; the hour starts with the first. A sixth says how many minutes until they can send more, and the window stays open with the note in it.
+  - A player can send 20 reports an hour, at least a second apart; the hour starts with the first. One sent within a second of the last waits out the second and then goes. A 21st says how many minutes until they can send more, and the window stays open with the note in it.
   - When the cloud can't be reached, the report waits on the device (the newest two at most) and goes when the player is next signed in and synced. The thanks says so.
 - **When something breaks:** the red error box has a **Report this** button, which opens the form with the error written in.
 - **Data:** each report is a Firestore document in `reports/`, with a name of 20 letters and digits.
   - Only players signed in with Google can add one, and nobody can read, change or delete one from the game.
-  - `limits/{your account id}` counts reports: at most 5 in an hour from the first, and then the count starts again.
+  - `limits/{your account id}` counts reports: at most 20 in an hour from the first, at least a second apart, and then the count starts again.
   - `config/reports` (`{open: true}`, made by hand in the console) switches reports on and off.
   - All of this is in `firestore.rules`; the rules are tested against the Firestore emulator in `test/rules/`.
 - **Becoming issues:** a workflow in the private repo `ChefControl/floe-market-reports` turns each report into an issue every 30 minutes, with the picture inline. It deletes pictures and saves after 7 days. Its code and setup are in [`intake/`](intake/README.md).

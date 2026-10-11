@@ -6,7 +6,7 @@
 // that can't reach the cloud waits on the device and goes when it can. The error box's Report this button (errors.ts)
 // opens it with the error written in.
 import { prefs } from './audio';
-import { cloud, cloudEnabled, onCloud, sendReport, type Report } from './cloud';
+import { cloud, cloudEnabled, onCloud, sendReport, type Report, type Sent } from './cloud';
 import { recentErrors } from './errors';
 import { frameRate, gfx } from './graphics';
 import { player } from './player';
@@ -25,9 +25,13 @@ export const TEXT_MAX = 1000;
 export const SHOT_MAX = 200_000, SAVE_MAX = 100_000;
 /** How wide the picture is, in pixels. */
 const SHOT_W = 640;
-/** The rules let a player send 5 reports an hour, counted from the first; the game says so before trying. */
-export const QUOTA = 5, WINDOW = 3_600_000;
-/** Reports waiting for the cloud, and this hour's count of those sent ({since, n}, as limits/{uid} keeps it). */
+/**
+ * The rules let a player send 20 reports an hour, counted from the first, and at least a second apart: the game says
+ * when the hour's are used up before trying, and waits out the second itself.
+ */
+export const QUOTA = 20, WINDOW = 3_600_000, GAP = 1000;
+/** Reports waiting for the cloud, and this hour's count of those sent ({since, n} as limits/{uid} keeps it, and when
+ * the last one went). */
 export const QUEUE_KEY = 'floe-reports', COUNT_KEY = 'floe-report-count';
 /** How many reports wait on the device at most (each can be a few hundred kB). */
 const QUEUE_MAX = 2;
@@ -212,17 +216,34 @@ function writeQueue(q: Report[]) {
   deviceStore.remove(QUEUE_KEY);
 }
 
+interface Count { since: number; n: number; last: number }
 /** This hour's count of reports sent from this device, or a new one if the last hour's has run out. */
-function sentCount(now = Date.now()): { since: number; n: number } {
+function sentCount(now = Date.now()): Count {
   try {
-    const c = JSON.parse(deviceStore.read(COUNT_KEY) ?? '') as { since: number; n: number };
-    if (now - c.since <= WINDOW && c.n > 0) return c;
+    const c = JSON.parse(deviceStore.read(COUNT_KEY) ?? '') as Count;
+    if (now - c.since <= WINDOW && c.n > 0) return { ...c, last: Number(c.last) || 0 };
   } catch { /* none kept yet */ }
-  return { since: now, n: 0 };
+  return { since: now, n: 0, last: 0 };
 }
-function countSent() {
-  const c = sentCount();
-  deviceStore.write(JSON.stringify({ since: c.since, n: c.n + 1 }), COUNT_KEY);
+
+let sending: Promise<unknown> = Promise.resolve();
+/**
+ * Sends a report once the one before it has gone and a second has passed since (counted from when the cloud took it,
+ * so it's a second on the cloud's clock too), and counts it if it went.
+ */
+function sendSpaced(r: Report): Promise<Sent> {
+  const go = sending.then(async () => {
+    const wait = sentCount().last + GAP - Date.now();
+    if (wait > 0) await new Promise(res => setTimeout(res, wait));
+    const how = await sendReport(r);
+    if (how === 'sent') {
+      const c = sentCount();
+      deviceStore.write(JSON.stringify({ since: c.since, n: c.n + 1, last: Date.now() }), COUNT_KEY);
+    }
+    return how;
+  });
+  sending = go.catch(() => {});
+  return go;
 }
 
 let flushing = false;
@@ -232,11 +253,10 @@ export async function flush() {
   flushing = true;
   try {
     for (let q = readQueue(); q.length; q = readQueue()) {
-      const r = q[0], how = await sendReport(r);
+      const r = q[0], how = await sendSpaced(r);
       if (how === 'offline') return;
       // refused: most likely it got through last time and was waiting in Firebase, so it's there already
       writeQueue(readQueue().filter(w => w.id !== r.id));
-      if (how === 'sent') countSent();
     }
   } finally { flushing = false; }
 }
@@ -259,9 +279,8 @@ async function send() {
   text.value = '';
   closeReport();
   celebrate(kind);
-  const how = await sendReport(r);
+  const how = await sendSpaced(r);
   if (how === 'sent') {
-    countSent();
     toast('Thanks! Your report is on its way', 'report', 2600);
   } else if (how === 'refused') toast("Couldn't send it just now. Try again later", 'report', 2600);
   else {

@@ -1,5 +1,5 @@
 // firestore.rules for bug reports, against the Firestore emulator: `npm run test:rules` (needs Java). Players signed in
-// with Google can add up to 5 reports an hour, and nobody can read one back.
+// with Google can add up to 20 reports an hour, a second apart, and nobody can read one back.
 import { readFileSync } from 'node:fs';
 import {
   assertFails, assertSucceeds, initializeTestEnvironment, type RulesTestEnvironment,
@@ -92,22 +92,25 @@ describe('bug reports', () => {
   });
 });
 
-describe('the count that keeps reports to 5 an hour', () => {
-  it('lets a player send them one straight after another', async () => {
+describe('the count that keeps reports to 20 an hour', () => {
+  it('lets a player send them a second apart, but not closer', async () => {
     const since = ago(1);
-    await admin(db => setDoc(doc(db, 'limits', 'u1'), { last: ago(0.05), since, n: 1 }));
+    await admin(db => setDoc(doc(db, 'limits', 'u1'), { last: Timestamp.now(), since, n: 1 }));
+    await assertFails(send(google(), report(), counted(since, 2)));
+    await admin(db => setDoc(doc(db, 'limits', 'u1'), { last: ago(2 / 60), since, n: 1 }));
     await assertSucceeds(send(google(), report(), counted(since, 2)));
-    await assertSucceeds(send(google(), report(), counted(since, 3)));
   });
 
-  it('allows 5 an hour, then starts again an hour after the count began', async () => {
+  it('allows 20 an hour, then starts again an hour after the count began', async () => {
     const since = ago(40);
-    await admin(db => setDoc(doc(db, 'limits', 'u1'), { last: ago(3), since, n: 5 }));
-    await assertFails(send(google(), report(), counted(since, 6)));
+    await admin(db => setDoc(doc(db, 'limits', 'u1'), { last: ago(3), since, n: 19 }));
+    await assertSucceeds(send(google(), report(), counted(since, 20)));
+    await admin(db => setDoc(doc(db, 'limits', 'u1'), { last: ago(3), since, n: 20 }));
+    await assertFails(send(google(), report(), counted(since, 21)));
     // the count can't be started over before the hour is out, or skipped back
     await assertFails(send(google(), report()));
-    await assertFails(send(google(), report(), counted(since, 5)));
-    await admin(db => setDoc(doc(db, 'limits', 'u1'), { last: ago(3), since: ago(61), n: 5 }));
+    await assertFails(send(google(), report(), counted(since, 20)));
+    await admin(db => setDoc(doc(db, 'limits', 'u1'), { last: ago(3), since: ago(61), n: 20 }));
     await assertSucceeds(send(google(), report()));
   });
 

@@ -201,7 +201,7 @@ describe('reporting a bug or an idea', () => {
     expect($('reportNotice').textContent).toBe('your note and your game state');
   });
 
-  it('asks for a few words before sending, then sends 5 an hour, one straight after another', async () => {
+  it('asks for a few words before sending, then sends 20 an hour, a second apart', async () => {
     const { r } = await start();
     $('reportCat').click();
     $('reportSend').click();
@@ -211,24 +211,29 @@ describe('reporting a bug or an idea', () => {
     expect($('reportWarn').hidden).toBe(true);
     $('reportSend').click();
     await vi.waitFor(() => expect($('toast').textContent).toBe('Thanks! Your report is on its way'));
-    for (let i = 2; i <= 5; i++) {
-      $('reportCat').click();
-      write(`Number ${i}`);
-      $('reportSend').click();
-      await vi.waitFor(() => expect(JSON.parse(localStorage.getItem(r.COUNT_KEY)!).n).toBe(i));
-    }
-    // the sixth waits for the hour, and the window stays open with the note in it
+    // straight after: it waits out the second, then goes
+    const first = JSON.parse(localStorage.getItem(r.COUNT_KEY)!);
+    expect(first.n).toBe(1);
     $('reportCat').click();
-    write('Sixth');
+    write('Second');
     $('reportSend').click();
-    expect($('toast').textContent).toBe("That's 5 reports this hour. You can send more in 60 minutes");
-    expect(fake.reports).toHaveLength(5);
+    await new Promise(res => setTimeout(res, 300));
+    expect(fake.reports).toHaveLength(1);
+    await vi.waitFor(() => expect(fake.reports).toHaveLength(2), { timeout: 3000 });
+    expect(Date.now() - first.last).toBeGreaterThanOrEqual(r.GAP);
+    // the 21st in the hour waits for the hour, and the window stays open with the note in it
+    localStorage.setItem(r.COUNT_KEY, JSON.stringify({ since: Date.now(), n: r.QUOTA, last: 0 }));
+    $('reportCat').click();
+    write('Too many');
+    $('reportSend').click();
+    expect($('toast').textContent).toBe("That's 20 reports this hour. You can send more in 60 minutes");
+    expect(fake.reports).toHaveLength(2);
     expect($('report').hidden).toBe(false);
-    expect(($('reportText') as HTMLTextAreaElement).value).toBe('Sixth');
+    expect(($('reportText') as HTMLTextAreaElement).value).toBe('Too many');
     // an hour after the first, it goes
     localStorage.setItem(r.COUNT_KEY, JSON.stringify({ since: Date.now() - r.WINDOW - 1000, n: r.QUOTA }));
     $('reportSend').click();
-    await vi.waitFor(() => expect(fake.reports).toHaveLength(6));
+    await vi.waitFor(() => expect(fake.reports).toHaveLength(3));
   });
 
   it('says so when the cloud turns it away, and keeps nothing to send again', async () => {
