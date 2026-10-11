@@ -301,7 +301,7 @@ const HARBOR_FADE = 8;
 export function harborK(p = ear) {
   if (!casinoBoat.open) return 0;
   if (aboard(p)) return 1;
-  const dx = Math.max(0, Math.abs(p.x - SHIP.x) - SHIP.half), dz = Math.max(0, Math.abs(p.z - SHIP.z) - SHIP.beam);
+  const dx = Math.max(0, p.x - (SHIP.x + SHIP.bow), SHIP.x - SHIP.half - p.x), dz = Math.max(0, Math.abs(p.z - SHIP.z) - SHIP.beam);
   const k = Math.max(0, 1 - Math.hypot(dx, dz) / HARBOR_FADE);
   return k * k * (3 - 2 * k);
 }

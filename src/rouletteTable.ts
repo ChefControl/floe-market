@@ -12,6 +12,7 @@ import { cheer, chipStack, gamePad, greeting, settleTweens, slide, speaker, Stak
 import { Person, SUITS } from './characters';
 import { GAMES, pushOutOfBox } from './layout';
 import { bake, canvasTex, FONT, G, mat, mesh, rr, scene, type Part } from './render';
+import { casinoHigh, rouletteTable } from './propsCasino';
 import { colorOf, multiplier, payout, spinWheel, WHEEL, type Bet } from './roulette';
 import { lose, tick, win } from './sfx';
 import { popText } from './ui';
@@ -104,8 +105,13 @@ function drawBoard(c: CanvasRenderingContext2D, w: number, h: number) {
 /** The table, its wheel and ball, the board, and the croupier behind it all. */
 function buildTable() {
   const g = new Group(); g.position.set(TABLE.x, AT.y, TABLE.z);
-  g.add(mesh(new BoxGeometry(1.4, 0.62, 1.5), 0x6B3E26, 0, 0.31, 0, true));
-  g.add(mesh(new BoxGeometry(2 * HALF.x + 0.12, 0.05, 2 * HALF.z + 0.12), 0x8A5A3B, 0, TOP - 0.03, 0, true));
+  const base = [
+    mesh(new BoxGeometry(1.4, 0.62, 1.5), 0x6B3E26, 0, 0.31, 0, true),
+    mesh(new BoxGeometry(2 * HALF.x + 0.12, 0.05, 2 * HALF.z + 0.12), 0x8A5A3B, 0, TOP - 0.03, 0, true),
+  ];
+  g.add(...base);
+  // on High, a panelled cabinet on a plinth, and a padded leather rail round the felt (propsCasino.ts)
+  casinoHigh(g, () => rouletteTable(1.4, 1.5, 2 * HALF.x, 2 * HALF.z, TOP), base);
   const felt = new Mesh(new PlaneGeometry(2 * HALF.x, 2 * HALF.z).rotateX(-Math.PI / 2),
     new MeshLambertMaterial({ map: canvasTex(FELT, Math.round(FELT * HALF.z / HALF.x), drawFelt).tex }));
   felt.position.y = TOP + 0.001; felt.receiveShadow = true;

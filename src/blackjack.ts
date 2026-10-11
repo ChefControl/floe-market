@@ -77,3 +77,60 @@ export function settle(player: Card[], dealer: Card[], stake: number, split = fa
   if (p === d) return { outcome: 'push', payout: stake };
   return { outcome: 'lose', payout: 0 };
 }
+
+// ---------- the regulars ----------
+/**
+ * How a regular at the table plays. 'cautious' stands on 12 or more so as never to bust; 'dealer' plays the dealer's
+ * rule, drawing to 17; 'book' plays basic strategy for a six-deck shoe where the dealer stands on soft 17; 'bold'
+ * doubles any 9, 10 or 11 and draws to 17; 'hunch' doubles 11, and on a stiff 12 to 16 hits or stands as their gut
+ * (`roll`, drawn once a hand) says.
+ */
+export type PlayStyle = 'cautious' | 'dealer' | 'book' | 'bold' | 'hunch';
+export type Move = 'hit' | 'stand' | 'double';
+
+/** The dealer's up card as basic strategy counts it: 2 to 10, or 11 for an ace. */
+const upValue = (up: Card) => up.rank === 1 ? 11 : Math.min(10, up.rank);
+
+/** Basic strategy (no splits or surrender): hard and soft totals against the dealer's up card `u`. */
+function basic(t: number, soft: boolean, first: boolean, u: number): Move {
+  if (soft) {
+    if (t >= 19) return 'stand';
+    if (t === 18) return first && u >= 3 && u <= 6 ? 'double' : u >= 9 ? 'hit' : 'stand';
+    const dbl = t === 17 ? u >= 3 && u <= 6 : t >= 15 ? u >= 4 && u <= 6 : u >= 5 && u <= 6;
+    return first && dbl ? 'double' : 'hit';
+  }
+  if (t >= 17) return 'stand';
+  if (t >= 13) return u <= 6 ? 'stand' : 'hit';
+  if (t === 12) return u >= 4 && u <= 6 ? 'stand' : 'hit';
+  if (t === 11) return first && u <= 10 ? 'double' : 'hit';
+  if (t === 10) return first && u <= 9 ? 'double' : 'hit';
+  if (t === 9) return first && u >= 3 && u <= 6 ? 'double' : 'hit';
+  return 'hit';
+}
+
+/** What a regular playing `style` does with `cards` against the dealer's `up` card. Doubling is only on two cards. */
+export function regularMove(style: PlayStyle, cards: Card[], up: Card, roll: number): Move {
+  const { total: t, soft } = handValue(cards), first = cards.length === 2;
+  if (t >= 21) return 'stand';
+  switch (style) {
+    case 'cautious': return t >= 12 ? 'stand' : 'hit';
+    case 'dealer': return t >= 17 ? 'stand' : 'hit';
+    case 'bold': return first && t >= 9 && t <= 11 ? 'double' : t >= 17 ? 'stand' : 'hit';
+    case 'hunch': return first && t === 11 ? 'double' : t <= 11 ? 'hit' : t >= 17 ? 'stand' : roll < 0.5 ? 'hit' : 'stand';
+    case 'book': return basic(t, soft, first, upValue(up));
+  }
+}
+
+/** A regular's whole turn from `cards`, drawing off the end of `shoe`: the cards they take, and whether they doubled. */
+export function regularPlays(style: PlayStyle, cards: Card[], up: Card, roll: number, shoe: Card[]) {
+  const hand = [...cards], drawn: Card[] = [];
+  let doubled = false;
+  for (;;) {
+    const m = regularMove(style, hand, up, roll);
+    if (m === 'stand') break;
+    const c = shoe.pop()!;
+    hand.push(c); drawn.push(c);
+    if (m === 'double') { doubled = true; break; }
+  }
+  return { drawn, doubled };
+}

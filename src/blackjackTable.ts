@@ -1,7 +1,11 @@
-// The casino boat's blackjack table: a dealer behind a half-moon of green felt. Standing on its pad brings the camera
-// in over the felt and opens the controls: put a stake down and deal, then hit, stand, double or split. Everything
-// happens on the table, as in a casino, and takes its time: each card slides out of the shoe and turns over, the
-// dealer's second card waits face down, and when the dealer plays they turn it over slowly, then draw. A double on 10
+// The casino boat's blackjack table, in its own room at the back of the salon: a dealer with their back to the stern
+// behind a big half-moon of
+// green felt, and five seats round it. The player plays from the middle one; the regulars (blackjackRegulars.ts) sit
+// in two to four of the others, and play on by themselves while the player's away from the table but about the boat. Standing on the player's pad brings the camera in over the felt and opens the
+// controls: put a stake down and deal, then hit, stand, double or split. Everything happens on the table, as in a
+// casino, and takes its time: the cards come out of the shoe seat by seat from the dealer's left, then the dealer's,
+// twice round, the dealer's second face down. The regulars play their hands in turn, seat by seat, before and after
+// the player, each their own way and saying so; then the dealer turns their card over slowly and draws. A double on 10
 // or 11 gets its card face down, turned over once the dealer's done. When the dealer shows an ace they offer insurance
 // (or even money on a blackjack). Walking off mid-hand turns down insurance, stands on what you have and settles at once.
 //
@@ -9,45 +13,87 @@
 // three times, and puts it down for the player to cut, sliding a yellow cut card into the stack where they choose. The
 // cards above it go to the bottom, the dealer sets the cut card a deck from the back, the stack goes in the shoe, and
 // the dealer burns its top card into the tray, as casinos do. That's the only card ever burned: in play, every card
-// comes straight off the shoe. When the cut card comes out, the round finishes and the dealer shuffles again.
+// comes straight off the shoe. When the cut card comes out, the round finishes and the dealer shuffles again; while
+// they do, some of the regulars get up and go, and others come in for the free seats.
 import {
-  BoxGeometry, CylinderGeometry, Group, Mesh, MeshLambertMaterial, PlaneGeometry, Vector3, type Object3D,
+  BoxGeometry, CylinderGeometry, Group, Mesh, MeshLambertMaterial, PlaneGeometry, Sprite, SpriteMaterial, Vector3, type Object3D,
 } from 'three';
 import {
   canSplit, CUT_CARD, cutShoe, dealerDraws, DECKS, handValue, insuranceCost, isBlackjack, isBust, isRed, newShoe,
-  PLAYER_CUT, rankName, settle, total, type Card, type Result,
+  PLAYER_CUT, rankName, regularMove, regularPlays, settle, total, type Card, type Result,
 } from './blackjack';
-import { badge, cheer, chipStack, easeInOut, gamePad, greeting, settleTweens, slide, speaker, Stakes, tween } from './casinoKit';
+import {
+  buildRegulars, cheerAt, comeAndGo, hushAll, regularDice, say, seatExactly, seated, settleWalks, signal, updRegulars,
+  walking, type Regular,
+} from './blackjackRegulars';
+import { badge, cheer, chipStack, CHIPS, easeInOut, gamePad, greeting, settleTweens, slide, speaker, Stakes, tween } from './casinoKit';
 import { Person, SUITS } from './characters';
-import { GAMES, pushOutOfBox } from './layout';
+import { Build, detail, dice, K, quietly, shade, tube } from './kit';
+import { armrest } from './propsCasino';
+import { inRoom } from './casinoSalon';
+import { BJ_ROOM, GAMES, onHarbor, pushOutOfBox, SHIP, stage } from './layout';
 import { canvasTex, FONT, mesh, rr, scene } from './render';
 import { clack, deal as dealSound, lose, push as pushSound, win } from './sfx';
+import { player } from './player';
 import { popText } from './ui';
 import { money, V, type XZ } from './util';
 import { addMoney, wallet } from './wallet';
 
 const AT = GAMES.blackjack;
-const TABLE = { x: AT.x, z: AT.z - 1.75 };
-/** The felt's height, and where its flat edge (the dealer's side) is; it curves out towards the player. */
-const TOP = 0.68, EDGE = -0.45, R = 0.98;
+/** How far the seats are from the middle of the felt's flat edge, where the dealer stands. */
+const SEAT_R = 2.35;
+/** The middle of the felt's flat edge, in the world: across from the player's seat. The table's turned a quarter round,
+ *  so its players' side (its +z) faces east, towards the room's doorway, and the dealer's back is to the stern. */
+const TABLE = { x: AT.x - SEAT_R, z: AT.z };
+const TURN = Math.PI / 2;
+/** The felt's height, and its radius. */
+const TOP = 0.68, R = 1.9;
+/** The five seats' angles round the felt, from the dealer's left (first base) to their right (third base), and the
+ *  player's seat in the middle. */
+const SEAT_A = [60, 30, 0, -30, -60].map(d => d * Math.PI / 180);
+const ME = 2;
+const OTHER_SEATS = [0, 1, 3, 4];
 /** Seconds: a card sliding out of the shoe, turning over, and the dealer turning one over slowly. */
 const SLIDE = 0.4, FLIP = 0.3, SLOW_FLIP = 0.65;
-/** From one card to the next on the deal. */
-const CARD_GAP = SLIDE + FLIP + 0.05;
+/** From one card to the next on the deal: alone, and with regulars at the table (quicker, as dealers do). */
+const CARD_GAP = SLIDE + FLIP + 0.05, DEAL_GAP = 0.42;
+
+// ---------- where things go on the felt ----------
+/** A point on the felt (in the table's space) in front of seat `s`: `along` across it and `out` from the flat edge's
+ *  middle. */
+function feltAt(s: number, along: number, out: number, y = TOP) {
+  const a = SEAT_A[s];
+  return V(Math.sin(a) * out + Math.cos(a) * along, y, Math.cos(a) * out - Math.sin(a) * along);
+}
+/** How far out the cards, the bets and the insurance go. */
+const CARD_OUT = 1.2, BET_OUT = 1.58, INS_OUT = 0.95;
+interface Row { x: number; step: number }
+/** Where a hand's cards start along its seat, and how far apart they go: two hands share the player's seat after a
+ *  split; the regulars' cards fan a little closer. */
+const mine = (i: number, n: number): Row => n > 1 ? { x: i ? 0.1 : -0.5, step: 0.09 } : { x: -0.2, step: 0.11 };
+const THEIRS: Row = { x: -0.15, step: 0.08 };
+const cardAt = (s: number, row: Row, j: number, nudge = 0) => feltAt(s, row.x + j * row.step + nudge, CARD_OUT, TOP + 0.003 + j * 0.002);
+const betAt = (s: number, i = 0, n = 1) => feltAt(s, n > 1 ? (i ? 0.3 : -0.32) : 0, BET_OUT);
+const dealerAt = (j: number) => V(-0.2 + j * 0.11, TOP + 0.003 + j * 0.002, 0.32);
+/** The table's space to the world's. */
+const world = (v: Vector3) => V(TABLE.x + v.z, AT.y + v.y, TABLE.z - v.x);
+/** The world's to the table's (on the floor). */
+const local = (x: number, z: number) => V(-(z - TABLE.z), 0, x - TABLE.x);
 
 // ---------- 3D table ----------
 const CARD = { w: 0.17, h: 0.24 };
 const cardGeo = new PlaneGeometry(CARD.w, CARD.h).rotateX(-Math.PI / 2);
-/** Where cards leave the shoe, and the discard tray they're swept into. */
-const SHOE = V(0.58, TOP + 0.16, -0.16), TRAY = V(-0.64, TOP + 0.02, -0.27);
+/** Where cards leave the shoe (on the dealer's left), and the discard tray they're swept into (on their right), out at
+ *  the ends of the dealer's edge, clear of the cards in front of the seats at either end. */
+const SHOE = V(1.36, TOP + 0.16, 0.24), TRAY = V(-1.38, TOP + 0.02, 0.18);
 /** How thick a card is in a stack: the six decks stand about 12 cm tall. */
 const CARD_T = 0.0004;
 /** Where the dealer shuffles, where they put the stack down for the player's cut, and inside the shoe. */
-const PACK = V(0, TOP, -0.02), CUT_SPOT = V(0, TOP, 0.14), IN_SHOE = V(0.6, TOP + 0.01, -0.28);
+const PACK = V(0, TOP, 0.62), CUT_SPOT = V(0, TOP, 1.3), IN_SHOE = V(1.38, TOP + 0.01, 0.12);
 /** Where the cut card lies once it's come out of the shoe. */
-const CUT_OUT = V(0.6, TOP + 0.003, 0.03);
+const CUT_OUT = V(1.0, TOP + 0.003, 0.2);
 /** Where the dealer's chips are: lost stakes go there and winnings come from there. */
-const RACK = V(0, TOP, -0.36);
+const RACK = V(0, TOP, 0.12);
 
 const drawCardFace = (card: Card) => (c: CanvasRenderingContext2D, w: number, h: number) => {
   c.clearRect(0, 0, w, h);
@@ -114,13 +160,13 @@ function cardMesh(card: Card) {
   return g;
 }
 
-/** What's printed on the felt: the betting spots and, round the middle, what pays. */
-const FELT_PX = 1024;
-function drawFelt(c: CanvasRenderingContext2D, w: number, h: number) {
-  c.clearRect(0, 0, w, h);
+/** What's printed on the felt: what pays, round the middle, and a betting spot in front of each seat. */
+const FELT_PX = 2048;
+function drawFelt(c: CanvasRenderingContext2D, w: number) {
+  c.clearRect(0, 0, w, w / 2);
   const k = w / (2 * R), cx = w / 2;
   const arc = (text: string, r: number, size: number) => {
-    c.font = `800 ${size}px ${FONT}`;
+    c.font = `800 ${Math.round(size * k)}px ${FONT}`;
     const span = c.measureText(text).width / (r * k);
     let a = Math.PI / 2 + span / 2;
     for (const ch of text) {
@@ -131,29 +177,69 @@ function drawFelt(c: CanvasRenderingContext2D, w: number, h: number) {
       a -= cw / 2;
     }
   };
-  c.fillStyle = 'rgba(242,193,78,.75)'; c.textAlign = 'center'; c.textBaseline = 'middle';
-  arc('BLACKJACK PAYS 3 TO 2', 0.52, 30);
-  c.fillStyle = 'rgba(255,248,236,.45)';
-  arc('INSURANCE PAYS 2 TO 1', 0.43, 22);
-  c.strokeStyle = 'rgba(255,248,236,.55)'; c.lineWidth = 5;
-  c.beginPath(); c.arc(cx, 0, R * k - 14, 0, Math.PI); c.stroke();
-  for (const x of [0]) { c.beginPath(); c.arc(cx + x * k, (0.42 - EDGE) * k, 0.075 * k, 0, Math.PI * 2); c.stroke(); }
+  c.textAlign = 'center'; c.textBaseline = 'middle';
+  c.fillStyle = 'rgba(242,193,78,.8)';
+  arc('BLACKJACK PAYS 3 TO 2', 0.78, 0.088);
+  c.fillStyle = 'rgba(255,248,236,.5)';
+  arc('DEALER STANDS ON ALL 17s', 0.66, 0.056);
+  arc('INSURANCE PAYS 2 TO 1', 0.56, 0.047);
+  c.strokeStyle = 'rgba(255,248,236,.55)'; c.lineWidth = 7;
+  c.beginPath(); c.arc(cx, 0, R * k - 20, 0, Math.PI); c.stroke();
+  // the insurance line, between the words and the cards
+  c.strokeStyle = 'rgba(242,193,78,.45)'; c.lineWidth = 4;
+  c.beginPath(); c.arc(cx, 0, INS_OUT * k + 0.07 * k, Math.PI * 0.12, Math.PI * 0.88); c.stroke();
+  c.strokeStyle = 'rgba(255,248,236,.6)'; c.lineWidth = 6;
+  for (const a of SEAT_A) {
+    c.beginPath(); c.arc(cx + Math.sin(a) * BET_OUT * k, Math.cos(a) * BET_OUT * k, 0.085 * k, 0, Math.PI * 2); c.stroke();
+  }
 }
 
-/** A half-moon of felt on a wooden base, its curve towards the player, with the dealer behind, a shoe and a tray. */
+/** Where each regular's stool is (in the table's space), the way they face sitting on it, and just in front of it. */
+const STOOLS = SEAT_A.map((_, s) => feltAt(s, 0, SEAT_R, 0));
+const FACES = SEAT_A.map(a => a + Math.PI);
+const FRONTS = SEAT_A.map((_, s) => feltAt(s, 0, SEAT_R + 0.65, 0));
+/** Where the regulars come in and go out: the room's doorway, from the casino floor. */
+const ENTRY = local(SHIP.x + BJ_ROOM.x1 - 0.4, SHIP.z + (BJ_ROOM.door.z0 + BJ_ROOM.door.z1) / 2);
+
+/** The regulars' stools: gold posts with burgundy seats (on High, rounded, with a foot ring and a padded seat). */
+function stools() {
+  const low = new Group(), at = OTHER_SEATS.map(s => STOOLS[s]);
+  for (const p of at) {
+    low.add(mesh(new CylinderGeometry(0.05, 0.05, 0.7, 10), 0xE3B23C, p.x, 0.35, p.z, true));
+    low.add(mesh(new CylinderGeometry(0.21, 0.21, 0.08, 14), 0x8E1F2F, p.x, 0.72, p.z, true));
+  }
+  const b = new Build();
+  for (const p of at) {
+    b.add(tube(0.035, 0.05, 0.68, 8), 0xE3B23C, p.x, 0, p.z);
+    b.add(K.ring, 0xC9962E, p.x, 0.28, p.z, [Math.PI / 2, 0, 0], [0.17, 0.17, 0.17]);
+    b.add(tube(0.2, 0.2, 0.05, 12), 0xE3B23C, p.x, 0.66, p.z);
+    b.add(K.ball, 0x8E1F2F, p.x, 0.715, p.z, null, [0.2, 0.07, 0.2]);
+    b.add(K.ball, shade(0x8E1F2F, 1.15), p.x, 0.74, p.z, null, [0.13, 0.05, 0.13]);
+  }
+  const high = b.mesh();
+  detail(low, high);
+  return [low, high];
+}
+
+/** The big half-moon of felt on a wooden base, its curve towards the seats, with the dealer behind it, a shoe on their
+ *  left and a tray on their right, the regulars' stools round it, and the regulars themselves. */
 function buildTable() {
-  const g = new Group(); g.position.set(TABLE.x, AT.y, TABLE.z);
+  const g = new Group(); g.position.set(TABLE.x, AT.y, TABLE.z); g.rotation.y = TURN;
   const half = (r: number, h: number, c: number, y: number) =>
-    mesh(new CylinderGeometry(r, r, h, 36, 1, false, -Math.PI / 2, Math.PI), c, 0, y, EDGE, true);
-  g.add(half(0.95, 0.58, 0x6B3E26, 0.29));
-  g.add(half(R + 0.1, 0.08, 0x8A5A3B, 0.62));
+    mesh(new CylinderGeometry(r, r, h, 48, 1, false, -Math.PI / 2, Math.PI), c, 0, y, 0, true);
+  g.add(half(R - 0.05, 0.58, 0x6B3E26, 0.29));
+  g.add(half(R + 0.12, 0.08, 0x8A5A3B, 0.62));
   g.add(half(R, 0.09, 0x2E7D4F, 0.63));
+  // on High, a padded leather armrest along the curve, where the players lean (propsCasino.ts)
+  const arm = armrest(R + 0.07, TOP + 0.02).mesh();
+  g.add(arm);
+  detail(null, arm);
   const print = new Mesh(new PlaneGeometry(2 * R, R).rotateX(-Math.PI / 2),
     new MeshLambertMaterial({ map: canvasTex(FELT_PX, FELT_PX / 2, drawFelt).tex, transparent: true, depthWrite: false }));
-  print.position.set(0, TOP + 0.001, EDGE + R / 2); print.receiveShadow = true;
+  print.position.set(0, TOP + 0.001, R / 2); print.receiveShadow = true;
   g.add(print);
-  // the shoe, leaning towards the player, and the discard tray across from it
-  const shoe = mesh(new BoxGeometry(0.24, 0.16, 0.32), 0x8E1F2F, 0.6, TOP + 0.08, -0.28, true);
+  // the shoe, leaning towards the players, and the discard tray across from it
+  const shoe = mesh(new BoxGeometry(0.24, 0.16, 0.32), 0x8E1F2F, IN_SHOE.x, TOP + 0.08, IN_SHOE.z, true);
   shoe.rotation.x = 0.12;
   shoe.add(mesh(new BoxGeometry(0.18, 0.02, 0.06), 0x1F1012, 0, 0.08, 0.12));
   g.add(shoe);
@@ -169,10 +255,86 @@ function buildTable() {
     const s = mesh(chip, c, x, TOP + n * 0.0065, RACK.z - 0.04, true); s.scale.y = n * 0.013; g.add(s);
   });
   const dealer = new Person(SUITS[0], 'fancy');
-  dealer.position.set(0, 0, -0.95);
+  dealer.position.set(0, 0, -0.5);
   g.add(dealer);
+  g.add(...stools());
+  buildRegulars(g, STOOLS, FACES, FRONTS, ENTRY);
   const voice = speaker(g, 2.0);
-  return { g, voice, pile, cutCard, dealerTotal: badge(g), totals: [badge(g), badge(g)], ring: activeRing(g) };
+  // what's shown over the felt (drawn over everything) only shows to a player in the room with the table, not through
+  // its walls to one outside it
+  const info = new Group();
+  g.add(info);
+  // the totals a little bigger than the roulette table's, to read across the big table
+  const big = () => { const b = badge(info); b.sprite.scale.multiplyScalar(1.3); return b; };
+  return {
+    g, info, voice, pile, cutCard, dealerTotal: big(), totals: [big(), big()], ring: activeRing(g), mark: turnMark(g),
+    /** Each seat's total, for the regulars sitting in them. */
+    theirTotals: SEAT_A.map(big),
+    /** Who sits in each seat, on a tag on the felt just beyond their cards, on the dealer's side. */
+    tags: SEAT_A.map(() => nameTag(info)),
+  };
+}
+
+/** A name tag for a seat: a dot in their colour and their name, gold while it's their turn. */
+function nameTag(on: Object3D) {
+  const W = 320, H = 64, t = canvasTex(W, H, () => {});
+  const s = new Sprite(new SpriteMaterial({ map: t.tex, depthTest: false, transparent: true }));
+  s.scale.set(0.6, 0.12, 1); s.renderOrder = 4; s.visible = false;
+  on.add(s);
+  let drawn = '';
+  return {
+    sprite: s,
+    /** Shows `name` ('' hides it), with a dot in `color`, gold if it's their turn. */
+    set(name: string, color: string, gold: boolean) {
+      s.visible = name !== '';
+      const key = `${name}|${color}|${gold}`;
+      if (key === drawn) return;
+      drawn = key;
+      const c = t.ctx;
+      c.clearRect(0, 0, W, H);
+      c.font = `800 32px ${FONT}`;
+      const w = Math.min(W - 8, c.measureText(name).width + 62), x0 = (W - w) / 2;
+      c.fillStyle = gold ? '#F2C14E' : 'rgba(20,12,16,.82)';
+      rr(c, x0, 6, w, 52, 26); c.fill();
+      c.fillStyle = color; c.beginPath(); c.arc(x0 + 27, 32, 11, 0, Math.PI * 2); c.fill();
+      c.lineWidth = 3; c.strokeStyle = gold ? '#2A0F16' : 'rgba(255,248,236,.7)'; c.stroke();
+      c.fillStyle = gold ? '#2A0F16' : '#FFF8EC';
+      c.textAlign = 'left'; c.textBaseline = 'middle';
+      c.fillText(name, x0 + 46, 34, w - 58);
+      t.tex.needsUpdate = true;
+    },
+  };
+}
+
+/** The colour of a regular's dot on their tag: their coat's. */
+const dotOf = (r: Regular) => `#${r.color.toString(16).padStart(6, '0')}`;
+
+/** The name tags, while the player's at the table: by each hand, the player's and those of the regulars who've sat
+ *  down, where nobody sitting round the table hides them. */
+function updTags(open: boolean) {
+  const t = table!, r = round, turn = r?.phase === 'others' ? (r.order[r.turn] as Other).seat : -1;
+  const here = new Map(seated().map(x => [x.seat, x.r]));
+  t.tags.forEach((tag, s) => {
+    const who = s === ME ? null : here.get(s);
+    tag.sprite.position.copy(feltAt(s, 0, CARD_OUT - 0.27, TOP + 0.04));
+    if (!open || (s !== ME && !who)) tag.set('', '', false);
+    else if (s === ME) tag.set('You', '#F2C14E', r?.phase === 'player' && r.others.length > 0);
+    else tag.set(who!.name, dotOf(who!), turn === s);
+  });
+}
+
+/** A soft gold glow on the felt in front of the seat whose turn it is. */
+function turnMark(on: Object3D) {
+  const t = canvasTex(256, 160, (c, w, h) => {
+    const g = c.createRadialGradient(w / 2, h / 2, 10, w / 2, h / 2, w / 2);
+    g.addColorStop(0, 'rgba(242,193,78,.42)'); g.addColorStop(0.7, 'rgba(242,193,78,.2)'); g.addColorStop(1, 'rgba(242,193,78,0)');
+    c.fillStyle = g; c.fillRect(0, 0, w, h);
+    c.strokeStyle = 'rgba(242,193,78,.9)'; c.lineWidth = 5; rr(c, 14, 14, w - 28, h - 28, 30); c.stroke();
+  });
+  const m = new Mesh(new PlaneGeometry(0.66, 0.42).rotateX(-Math.PI / 2), new MeshLambertMaterial({ map: t.tex, transparent: true, depthWrite: false }));
+  m.visible = false;
+  on.add(m);
+  return m;
 }
 
 /** The gold outline round the hand being played, after a split. */
@@ -198,17 +360,26 @@ let shuffleIn = 0;
  * above the cut card, held up off the rest so the player can see where they're cutting.
  */
 let prep: { phase: 'shuffle' | 'cut' | 'load'; pack: Stack; over?: Stack } | null = null;
-/** One of the player's hands: two after a split. `down` while its double card lies face down. */
+/** A hand: one of the player's (two after a split), or a regular's. `down` while its double card lies face down. */
 interface Hand { cards: Card[]; stake: number; split: boolean; shown: number; down?: boolean }
+/** A regular in the round: their seat, their hand, what they put on insurance, their hunch for the hand, whether
+ *  they've played it, and how it came out. */
+interface Other { seat: number; r: Regular; hand: Hand; insurance: number; roll: number; done: boolean; result?: Result; insured?: number }
 interface Round {
+  /** The player's hands. */
   hands: Hand[];
-  /** The hand being played. */
+  /** The player's hand being played. */
   active: number;
+  /** The regulars, seat by seat, and who plays when: seat by seat, the player ('me') among them. */
+  others: Other[];
+  order: (Other | 'me')[];
+  /** Whose turn it is, in `order`. */
+  turn: number;
   dealer: Card[];
   shownDealer: number;
   /** The dealer's second card is face up. */
   hole: boolean;
-  phase: 'dealing' | 'ask' | 'player' | 'dealer' | 'done';
+  phase: 'dealing' | 'ask' | 'others' | 'player' | 'dealer' | 'done';
   /** What the player put on insurance, and whether they took even money on a blackjack. */
   insurance: number;
   even: boolean;
@@ -217,15 +388,23 @@ interface Round {
   insured?: number;
 }
 let round: Round | null = null;
-/** Things to happen in turn, each after its wait: the cards coming out, the dealer's draws. */
+/** Whether the player's at the table (on its pad), and seconds till the dealer deals the regulars a round of their own
+ *  while they aren't. */
+let here = false, idle = 0;
+/** How long the dealer waits between the regulars' own rounds. */
+const BETWEEN = 3.5;
+/** Things to happen in turn, each after its wait: the cards coming out, the regulars' moves, the dealer's draws. */
 let queue: { wait: number; run: () => void }[] = [];
 /** What this round has counted toward the wallet's in-flight cash (what standing now would win), so a save keeps it. */
 let owed = 0;
 function owe(v: number) { wallet.inFlight += v - owed; owed = v; }
 
-/** What's on the felt: the cards (the dealer's, and each hand's), the chips on each hand and insurance, and how many
- *  cards are in the discard tray. */
-const felt = { dealer: [] as CardMesh[], hands: [[]] as CardMesh[][], bets: [] as Group[], insurance: null as Group | null, discards: 0 };
+/** What's on the felt: the cards (the dealer's, each of the player's hands', and each regular's, by seat), the chips
+ *  on each of the player's hands and their insurance, the regulars' chips by seat, and how many cards are in the tray. */
+const felt = {
+  dealer: [] as CardMesh[], hands: [[]] as CardMesh[][], bets: [] as Group[], insurance: null as Group | null, discards: 0,
+  theirs: new Map<number, { cards: CardMesh[]; bets: Group[]; ins: Group | null }>(),
+};
 
 // ---------- controls ----------
 const $ = (id: string) => document.getElementById(id)!;
@@ -237,8 +416,8 @@ const cutEl = $('bjCut'), cutIn = $('cutAt') as HTMLInputElement;
 cutIn.min = String(PLAYER_CUT.min); cutIn.max = String(PLAYER_CUT.max);
 
 const live = () => !!round && round.phase !== 'done';
-/** The dealer is shuffling, or about to: no dealing till it's done. */
-const busy = () => !!prep || (!!due && wallet.money > 0);
+/** The dealer is shuffling, or about to, or regulars are still coming and going: no dealing till it's done. */
+const busy = () => !!prep || (!!due && wallet.money > 0) || walking();
 const stakes = new Stakes(panel.querySelector<HTMLElement>('.stakes')!, live, () => refresh());
 
 const label = (cards: Card[]) => {
@@ -247,17 +426,13 @@ const label = (cards: Card[]) => {
 };
 /** The hand being played, while it's the player's turn. */
 const playing = () => round?.phase === 'player' ? round.hands[round.active] : null;
+/** The player can hear the table: they're at it, or in the room with it. */
+const hears = () => here || inRoom(player.g.position);
 const canDouble = (h: Hand) => h.cards.length === 2 && wallet.money >= h.stake && !(h.split && h.cards[0].rank === 1);
 const canSplitNow = (r: Round) => r.hands.length === 1 && canSplit(r.hands[0].cards) && wallet.money >= r.hands[0].stake;
 const naturalHand = (r: Round) => r.hands.length === 1 && isBlackjack(r.hands[0].cards);
-
-// ---------- where things go on the felt ----------
-const STEP = 0.11;
-/** Where a hand's cards start, and how far apart they go: two hands share the player's side after a split. */
-const handRow = (i: number, n: number) => n > 1 ? { x: i ? 0.1 : -0.5, z: 0.2, step: 0.09 } : { x: -0.2, z: 0.2, step: STEP };
-const DEALER_ROW = { x: -0.2, z: -0.13, step: STEP };
-const cardAt = (row: { x: number; z: number; step: number }, j: number) => V(row.x + j * row.step, TOP + 0.003 + j * 0.002, row.z);
-const betAt = (i: number, n: number) => n > 1 ? V(i ? 0.3 : -0.32, TOP, 0.42) : V(0, TOP, 0.42);
+/** What a regular bets: their chip of the stage's. */
+const stakeOf = (r: Regular) => CHIPS[stage.n][r.chip];
 
 /** Updates the totals over the hands and the outline round the hand being played. */
 function refresh() {
@@ -267,21 +442,31 @@ function refresh() {
     if (r) {
       const ds = r.dealer.slice(0, r.shownDealer), up = ds.filter((_, i) => i !== 1 || r.hole);
       t.dealerTotal.set(up.length ? label(up) : '');
-      t.dealerTotal.sprite.position.set(DEALER_ROW.x - 0.22, TOP + 0.08, DEALER_ROW.z);
+      t.dealerTotal.sprite.position.copy(dealerAt(0)).setX(-0.42).setY(TOP + 0.08);
       r.hands.forEach((h, i) => {
-        const row = handRow(i, r.hands.length), shown = h.cards.slice(0, h.shown);
+        const row = mine(i, r.hands.length), shown = h.cards.slice(0, h.shown);
         t.totals[i].set(shown.length ? label(shown) + (h.down ? ' + ?' : '') : '', r.phase === 'player' && i === r.active);
-        t.totals[i].sprite.position.set(row.x - 0.22, TOP + 0.08, row.z);
+        t.totals[i].sprite.position.copy(feltAt(ME, row.x - 0.22, CARD_OUT, TOP + 0.08));
       });
       t.totals.slice(r.hands.length).forEach(b => b.set(''));
+      const turn = r.phase === 'others' ? r.order[r.turn] : null;
+      t.theirTotals.forEach((b, s) => {
+        const o = r.others.find(x => x.seat === s), shown = o ? o.hand.cards.slice(0, o.hand.shown) : [];
+        b.set(shown.length ? label(shown) : '', turn === o);
+        b.sprite.position.copy(feltAt(s, THEIRS.x - 0.2, CARD_OUT, TOP + 0.08));
+      });
+      // whose turn it is: a glow on the felt in front of their seat
+      const seat = turn ? (turn as Other).seat : r.phase === 'player' && r.hands.length === 1 && r.others.length ? ME : -1;
+      t.mark.visible = seat >= 0;
+      if (seat >= 0) { t.mark.position.copy(feltAt(seat, 0.02, CARD_OUT + 0.02, TOP + 0.002)); t.mark.rotation.y = SEAT_A[seat]; }
       const on = r.phase === 'player' && r.hands.length > 1 ? r.hands[r.active] : null;
       t.ring.visible = !!on;
       if (on) {
-        const row = handRow(r.active, 2), n = Math.max(2, on.cards.length);
-        t.ring.position.set(row.x + (n - 1) * row.step / 2, TOP + 0.002, row.z);
+        const row = mine(r.active, 2), n = Math.max(2, on.cards.length);
+        t.ring.position.copy(feltAt(ME, row.x + (n - 1) * row.step / 2, CARD_OUT, TOP + 0.002));
         t.ring.scale.set((n - 1) * row.step + CARD.w + 0.06, 1, CARD.h + 0.06);
       }
-    } else [t.dealerTotal, ...t.totals].forEach(b => b.set(''));
+    } else { [t.dealerTotal, ...t.totals, ...t.theirTotals].forEach(b => b.set('')); t.mark.visible = false; }
   }
   const h = playing();
   acts.hidden = !h;
@@ -313,7 +498,7 @@ function fromShoe(card: Card, to: Vector3, done?: () => void) {
   const m = cardMesh(card);
   m.position.copy(SHOE);
   table!.g.add(m);
-  dealSound();
+  if (hears()) dealSound();
   slide(m, to, SLIDE, 0.04, done);
   return m;
 }
@@ -335,75 +520,119 @@ function burn() {
   const m = fromShoe(card, TRAY.clone().setY(TOP + 0.05 + felt.discards * CARD_T), () => { table!.g.remove(m); showPile(); });
 }
 
+/** Whose card it is: the player's hand `i`, the dealer's, or a regular's. */
+type Target = number | 'dealer' | Other;
 /**
  * The next of a hand's cards (or the dealer's) out on the table and turned over; `sideways` for a double, and left
- * face down for a double on 10 or 11.
+ * face down for the player's double on 10 or 11.
  */
-const show = (i: number | 'dealer', sideways = false, down = false) => () => {
-  const r = round!, dealer = i === 'dealer', row = dealer ? felt.dealer : felt.hands[i];
-  const j = row.length;
-  const card = dealer ? r.dealer[j] : r.hands[i].cards[j];
-  const at = dealer ? cardAt(DEALER_ROW, j) : cardAt(handRow(i, r.hands.length), j);
-  if (sideways) at.x += 0.03;
-  const m = fromShoe(card, at, down ? refresh : () => turnOver(m, dealer && j > 1 ? SLOW_FLIP : FLIP, () => {
-    if (dealer) r.shownDealer++; else r.hands[i].shown++;
-    refresh();
-  }));
-  if (sideways) m.rotation.y = Math.PI / 2;
+const show = (i: Target, sideways = false, down = false) => () => {
+  const r = round!;
+  let row: CardMesh[], card: Card, at: Vector3, yaw = 0, slow = false, shown: () => void;
+  if (i === 'dealer') {
+    row = felt.dealer; card = r.dealer[row.length]; at = dealerAt(row.length); slow = row.length > 1;
+    shown = () => { r.shownDealer++; };
+  } else if (typeof i === 'number') {
+    row = felt.hands[i]; card = r.hands[i].cards[row.length]; yaw = SEAT_A[ME];
+    at = cardAt(ME, mine(i, r.hands.length), row.length, sideways ? 0.03 : 0);
+    shown = () => { r.hands[i].shown++; };
+  } else {
+    row = felt.theirs.get(i.seat)!.cards; card = i.hand.cards[row.length]; yaw = SEAT_A[i.seat];
+    at = cardAt(i.seat, THEIRS, row.length, sideways ? 0.03 : 0);
+    shown = () => { i.hand.shown++; };
+  }
+  const m = fromShoe(card, at, down ? refresh : () => turnOver(m, slow ? SLOW_FLIP : FLIP, () => { shown(); refresh(); }));
+  m.rotation.y = yaw + (sideways ? Math.PI / 2 : 0);
   row.push(m);
 };
 /** The dealer's second card: face down, until they play. */
 function holeCard() {
   const r = round!;
-  felt.dealer.push(fromShoe(r.dealer[1], cardAt(DEALER_ROW, 1), () => { r.shownDealer++; refresh(); }));
+  felt.dealer.push(fromShoe(r.dealer[1], dealerAt(1), () => { r.shownDealer++; refresh(); }));
 }
 
 /** Last round's cards into the tray. Returns how long they take to get there. */
 function sweep() {
-  const ms = [...felt.dealer, ...felt.hands.flat()];
+  const ms = [...felt.dealer, ...felt.hands.flat(), ...[...felt.theirs.values()].flatMap(t => t.cards)];
   ms.forEach((m, i) => slide(m, TRAY.clone().setY(TOP + 0.05 + i * 0.002), 0.35 + i * 0.03, 0.06, () => table!.g.remove(m)));
   felt.discards += ms.length;
   tween(0.35 + ms.length * 0.03, () => {}, showPile);
-  felt.dealer = []; felt.hands = [[]];
+  felt.dealer = []; felt.hands = [[]]; felt.theirs.clear();
   return ms.length ? 0.35 + ms.length * 0.03 : 0;
 }
 
-/** Puts `stake` down on the betting spot for hand `i` of `n`. */
-function putDown(amount: number, at: Vector3) {
-  const s = chipStack(amount);
-  s.position.set(at.x, at.y, 0.75);
-  table!.g.add(s);
-  slide(s, at, 0.3, 0.05);
-  return s;
+/** Puts `amount` down at `at`, slid in from seat `s`. */
+function putDown(amount: number, at: Vector3, s = ME) {
+  const c = chipStack(amount);
+  c.position.copy(feltAt(s, 0, SEAT_R - 0.2));
+  table!.g.add(c);
+  slide(c, at, 0.3, 0.05);
+  return c;
 }
 
 function deal() {
   const s = stakes.value;
   if (live() || busy() || !stakes.ok) return;
   wallet.money -= s;
+  startRound(s);
+}
+/** A round: the player's, with their stake of `s`, or (with none) the regulars' on their own while the player's away. */
+function startRound(s: number | null) {
   queue = [];
   const tidy = felt.dealer.length > 0;
   sweep();
-  felt.bets = [putDown(s, betAt(0, 1))];
-  // straight off the top of the shoe: player, dealer, player, dealer
-  const player = [draw()], dealer = [draw()];
-  player.push(draw()); dealer.push(draw());
+  felt.bets = s === null ? [] : [putDown(s, betAt(ME))];
+  // the regulars put their stakes down too
+  const others: Other[] = seated().sort((a, b) => a.seat - b.seat).map(({ seat, r }) => ({
+    seat, r, hand: { cards: [], stake: stakeOf(r), split: false, shown: 0 }, insurance: 0, roll: regularDice(), done: false,
+  }));
+  for (const o of others) felt.theirs.set(o.seat, { cards: [], bets: [putDown(o.hand.stake, betAt(o.seat), o.seat)], ins: null });
+  const order: (Other | 'me')[] = [...others, ...(s === null ? [] : ['me' as const])]
+    .sort((a, b) => (a === 'me' ? ME : a.seat) - (b === 'me' ? ME : b.seat));
+  // straight off the top of the shoe, seat by seat from the dealer's left, then the dealer, twice round
+  const player: Card[] = [], dealer: Card[] = [];
+  for (let pass = 0; pass < 2; pass++) {
+    for (const w of order) (w === 'me' ? player : w.hand.cards).push(draw());
+    dealer.push(draw());
+  }
   round = {
-    hands: [{ cards: player, stake: s, split: false, shown: 0 }], active: 0, dealer, shownDealer: 0, hole: false,
-    phase: 'dealing', insurance: 0, even: false,
+    hands: s === null ? [] : [{ cards: player, stake: s, split: false, shown: 0 }], active: 0, others, order, turn: -1, dealer, shownDealer: 0,
+    hole: false, phase: 'dealing', insurance: 0, even: false,
   };
   felt.hands = [[]];
   msg.textContent = 'Dealing…';
   owe(standNow());
-  later(tidy ? 0.8 : 0.35, show(0));
-  later(CARD_GAP, show('dealer'), show(0), holeCard);
+  const gap = others.length ? DEAL_GAP : CARD_GAP;
+  let first = true;
+  for (let pass = 0; pass < 2; pass++) {
+    for (const w of order) { later(first ? (tidy ? 0.8 : 0.35) : gap, show(w === 'me' ? 0 : w)); first = false; }
+    later(gap, pass ? holeCard : show('dealer'));
+  }
   later(CARD_GAP, afterDeal);
   refresh();
 }
 
-/** With an ace showing, the dealer offers insurance (even money on a blackjack) first; then they check for blackjack. */
+/** With an ace showing, the dealer offers insurance (even money on a blackjack) first; then they check for blackjack.
+ *  The regulars who take insurance put it down as the dealer asks. */
 function afterDeal() {
-  const r = round!, stake = r.hands[0].stake;
+  const r = round!;
+  if (r.dealer[0].rank !== 1 || !r.others.length) { askPlayer(); return; }
+  // the dealer asks round the table, and each regular answers in turn
+  table!.voice.say('Insurance?');
+  r.others.forEach((o, i) => later(i ? 1.0 : 0.6, () => {
+    say(o.seat, 'insure');
+    if (!o.r.insures || isBlackjack(o.hand.cards)) return;
+    signal(o.seat, 'double');
+    o.insurance = insuranceCost(o.hand.stake);
+    felt.theirs.get(o.seat)!.ins = putDown(o.insurance, feltAt(o.seat, 0, INS_OUT), o.seat);
+  }));
+  later(1.0, askPlayer);
+}
+/** Then the player's offered insurance (or even money), if they can cover it; otherwise the dealer checks. */
+function askPlayer() {
+  const r = round!;
+  if (!r.hands.length) return peek();
+  const stake = r.hands[0].stake;
   const offer = naturalHand(r) || (insuranceCost(stake) > 0 && insuranceCost(stake) <= wallet.money);
   if (r.dealer[0].rank !== 1 || !offer) return peek();
   r.phase = 'ask';
@@ -417,38 +646,101 @@ function afterDeal() {
 function answer(yes: boolean) {
   const r = round;
   if (r?.phase !== 'ask') return;
-  if (naturalHand(r)) { r.even = yes; finish(); return; }
-  if (yes) {
+  if (naturalHand(r)) r.even = yes;
+  else if (yes) {
     r.insurance = insuranceCost(r.hands[0].stake); wallet.money -= r.insurance;
-    felt.insurance = putDown(r.insurance, V(0.3, TOP, 0.0));
+    felt.insurance = putDown(r.insurance, feltAt(ME, 0.3, INS_OUT));
   }
   peek();
 }
 
-/** A blackjack on either side ends the round at once; otherwise it's the player's turn. */
+/** A dealer's blackjack ends the round at once, and so does the player's when they're alone at the table; otherwise
+ *  it's the first seat's turn. */
 function peek() {
   const r = round!;
-  if (naturalHand(r) || isBlackjack(r.dealer)) { finish(); return; }
-  r.phase = 'player';
-  owe(standNow());
+  if (isBlackjack(r.dealer) || (!r.others.length && naturalHand(r))) { finish(); return; }
+  nextTurn();
+}
+
+/** On to the next seat's turn: the player's, a regular's, or (once every seat's played) the dealer's. */
+function nextTurn() {
+  const r = round!;
+  r.turn++;
+  if (r.turn >= r.order.length) { finish(); return; }
+  const w = r.order[r.turn];
+  if (w === 'me') { hushAll(); r.phase = 'player'; r.active = -1; next(); return; }
+  theirTurn(w);
+}
+
+/** A regular plays their hand, a move at a time, saying each, till they stand, double, bust or make 21. */
+function theirTurn(o: Other) {
+  const r = round!, up = r.dealer[0];
+  r.phase = 'others';
+  msg.textContent = `${o.r.name}'s turn…`;
+  hushAll();
   refresh();
+  const done = (wait: number) => { o.done = true; refresh(); later(wait, nextTurn); };
+  const step = () => {
+    if (isBlackjack(o.hand.cards)) { say(o.seat, 'blackjack'); cheerAt(o.seat); done(1.3); return; }
+    const m = regularMove(o.r.play, o.hand.cards, up, o.roll);
+    if (m === 'stand') {
+      if (total(o.hand.cards) < 21) { say(o.seat, 'stand'); signal(o.seat, 'stand'); }
+      msg.textContent = `${o.r.name} stands on ${total(o.hand.cards)}.`;
+      done(1.2);
+      return;
+    }
+    say(o.seat, m);
+    signal(o.seat, m);
+    msg.textContent = m === 'double' ? `${o.r.name} doubles…` : `${o.r.name} takes a card…`;
+    if (m === 'double') {
+      felt.theirs.get(o.seat)!.bets.push(putDown(o.hand.stake, feltAt(o.seat, 0.12, BET_OUT), o.seat));
+      o.hand.stake *= 2;
+    }
+    o.hand.cards.push(draw());
+    owe(standNow());
+    later(0.55, show(o, m === 'double'));
+    later(CARD_GAP, () => {
+      if (isBust(o.hand.cards)) {
+        // a bust loses at once: the dealer takes the chips
+        say(o.seat, 'bust');
+        msg.textContent = `${o.r.name} busts with ${total(o.hand.cards)}.`;
+        const chips = felt.theirs.get(o.seat)!;
+        chips.bets.forEach(toRack); chips.bets = [];
+        done(1.3);
+      } else if (m === 'double' || total(o.hand.cards) === 21) {
+        msg.textContent = `${o.r.name} has ${total(o.hand.cards)}.`;
+        done(1.1);
+      } else later(0.7, step);
+    });
+  };
+  later(0.9, step);
 }
 
 /**
- * How the round comes out if the player stands on every hand now, with the dealer drawing from `from`: the cards the
- * dealer draws, each hand's result and what insurance pays. The dealer only draws if a hand is still in it.
+ * How the round comes out if the player stands on every hand now, with the regulars yet to play taking their cards
+ * from `from` first, then the dealer: the cards the dealer draws, each of the player's hands' results and what their
+ * insurance pays, and each regular's cards, stake and result. The dealer only draws if a hand is still in it.
  */
 function outcome(r: Round, from: Card[]) {
   const dealerBJ = isBlackjack(r.dealer);
-  const inIt = r.hands.some(h => !isBust(h.cards) && !(isBlackjack(h.cards) && !h.split));
-  const draws = !dealerBJ && !r.even && inIt ? dealerDraws(r.dealer, from) : [];
+  const theirs = r.others.map(o => {
+    if (o.done || dealerBJ) return { o, cards: o.hand.cards, stake: o.hand.stake };
+    const p = regularPlays(o.r.play, o.hand.cards, r.dealer[0], o.roll, from);
+    return { o, cards: [...o.hand.cards, ...p.drawn], stake: p.doubled ? o.hand.stake * 2 : o.hand.stake };
+  });
+  const inIt = (!r.even && r.hands.some(h => !isBust(h.cards) && !(isBlackjack(h.cards) && !h.split)))
+    || theirs.some(t => !isBust(t.cards) && !isBlackjack(t.cards));
+  const draws = !dealerBJ && inIt ? dealerDraws(r.dealer, from) : [];
   const dealer = [...r.dealer, ...draws];
   const results: Result[] = r.even ? [{ outcome: 'even', payout: r.hands[0].stake * 2 }]
     : r.hands.map(h => settle(h.cards, dealer, h.stake, h.split));
-  return { draws, results, insured: dealerBJ ? r.insurance * 3 : 0 };
+  return {
+    draws, results, insured: dealerBJ ? r.insurance * 3 : 0,
+    theirs: theirs.map(t => ({ ...t, result: settle(t.cards, dealer, t.stake), insured: dealerBJ ? t.o.insurance * 3 : 0 })),
+  };
 }
 const paid = (o: { results: Result[]; insured: number }) => o.results.reduce((s, x) => s + x.payout, 0) + o.insured;
-/** What the round would return if the player stood now: the dealer's draws are already in the shoe. */
+/** What the round would return if the player stood now: the regulars' and the dealer's draws are already in the shoe. */
 const standNow = () => paid(outcome(round!, [...shoe]));
 
 /** A card for the hand being played, out and turned over before the player can go on (unless it stays `down`). */
@@ -480,7 +772,7 @@ function double() {
   const r = round!;
   wallet.money -= h.stake;
   h.stake *= 2;
-  const bet = felt.bets[r.active], more = putDown(h.stake / 2, bet.position.clone().setX(bet.position.x + 0.12));
+  const bet = felt.bets[r.active], more = putDown(h.stake / 2, feltAt(ME, (r.hands.length > 1 ? (r.active ? 0.3 : -0.32) : 0) + 0.12, BET_OUT));
   more.userData.with = bet; bet.userData.more = more;
   // on 10 or 11 the card comes face down, as some casinos deal it, and waits for the dealer
   const t = total(h.cards);
@@ -501,31 +793,31 @@ function split() {
   // the pair moves apart, and the stake is matched on the second one
   const [ma, mb] = felt.hands[0];
   felt.hands = [[ma], [mb]];
-  slide(ma, cardAt(handRow(0, 2), 0), 0.35, 0.03);
-  slide(mb, cardAt(handRow(1, 2), 0), 0.35, 0.03);
-  slide(felt.bets[0], betAt(0, 2), 0.35, 0.03);
-  felt.bets.push(putDown(stake, betAt(1, 2)));
+  slide(ma, cardAt(ME, mine(0, 2), 0), 0.35, 0.03);
+  slide(mb, cardAt(ME, mine(1, 2), 0), 0.35, 0.03);
+  slide(felt.bets[0], betAt(ME, 0, 2), 0.35, 0.03);
+  felt.bets.push(putDown(stake, betAt(ME, 1, 2)));
   later(0.5, show(0));
   later(CARD_GAP, show(1), () => {
-    if (a.rank === 1) { finish(); return; }
+    if (a.rank === 1) { nextTurn(); return; }
     r.phase = 'player'; r.active = -1;
     next();
   });
   refresh();
 }
 
-/** On to the next hand still to play (a 21 plays itself), or the dealer's turn once they're all done. */
+/** On to the player's next hand still to play (a 21 plays itself), or the next seat once they're all done. */
 function next() {
   const r = round!;
   r.active++;
   while (r.active < r.hands.length && total(r.hands[r.active].cards) === 21) r.active++;
-  if (r.active >= r.hands.length) { finish(); return; }
+  if (r.active >= r.hands.length) { nextTurn(); return; }
   owe(standNow());
   refresh();
 }
 
 /**
- * The player's done: the dealer turns over their card, slowly, and (if a hand's still in it) draws to 17, each card
+ * Every seat's done: the dealer turns over their card, slowly, and (if a hand's still in it) draws to 17, each card
  * straight off the shoe. Then it's settled.
  */
 function finish() {
@@ -534,6 +826,7 @@ function finish() {
   const o = outcome(r, shoe);
   r.dealer.push(...o.draws);
   r.results = o.results; r.insured = o.insured;
+  for (const t of o.theirs) { t.o.hand.cards = t.cards; t.o.hand.stake = t.stake; t.o.result = t.result; t.o.insured = t.insured; }
   owe(paid(o));
   msg.textContent = 'Dealer plays…';
   if (r.results.some(x => x.outcome === 'blackjack' || x.outcome === 'even')) table!.voice.say('Blackjack!');
@@ -577,27 +870,53 @@ function sayOne(r: Round) {
 }
 const VERB = { win: 'wins', push: 'pushes', bust: 'busts', lose: 'loses', blackjack: 'wins', even: 'wins' } as const;
 
-/** The chips on the felt settle up: lost ones go to the rack, winnings come out beside the stake, and what's the
- *  player's slides back to them. */
-function payChips(r: Round) {
-  const t = table!.g, toPlayer = (s: Group) => slide(s, s.position.clone().setZ(0.9), 0.45, 0.05, () => t.remove(s));
-  const toRack = (s: Group) => slide(s, RACK, 0.45, 0.05, () => t.remove(s));
-  const stacks = (s: Group) => [s, ...(s.userData.more ? [s.userData.more as Group] : [])];
-  felt.bets.forEach((bet, i) => {
-    const x = r.results![i];
-    if (x.payout === 0) { stacks(bet).forEach(toRack); return; }
-    if (x.payout > r.hands[i].stake) {
-      const won = chipStack(x.payout - r.hands[i].stake);
-      won.position.copy(RACK); t.add(won);
-      slide(won, bet.position.clone().setX(bet.position.x - 0.12), 0.4, 0.05, () => tween(0.4, () => {}, () => toPlayer(won)));
-    }
-    tween(0.4, () => {}, () => stacks(bet).forEach(toPlayer));
-  });
-  const ins = felt.insurance;
-  if (ins) {
-    if (r.insured) tween(0.4, () => {}, () => toPlayer(ins)); else toRack(ins);
+/** Chips into the dealer's rack. */
+function toRack(s: Group) { slide(s, RACK, 0.45, 0.05, () => table!.g.remove(s)); }
+/** Chips back off the felt to seat `seat`. */
+function toSeat(s: Group, seat: number) {
+  slide(s, feltAt(seat, 0, SEAT_R - 0.15, s.position.y), 0.45, 0.05, () => table!.g.remove(s));
+}
+/** Settles a seat's chips: lost ones go to the rack, winnings come out beside the stake, and what's theirs slides back
+ *  to them. */
+function payBets(seat: number, bets: Group[], stake: number, payout: number, winningsAt: Vector3) {
+  const t = table!.g;
+  if (payout === 0) { bets.forEach(toRack); return; }
+  if (payout > stake) {
+    const won = chipStack(payout - stake);
+    won.position.copy(RACK); t.add(won);
+    slide(won, winningsAt, 0.4, 0.05, () => tween(0.4, () => {}, () => toSeat(won, seat)));
   }
+  tween(0.4, () => {}, () => bets.forEach(b => toSeat(b, seat)));
+}
+
+/** After `wait` seconds (now, if none). */
+const after = (wait: number, f: () => void) => { if (wait > 0) tween(wait, () => {}, f); else f(); };
+
+/**
+ * The dealer settles the table seat by seat, from their right round to their left, as dealers do: lost chips go to
+ * the rack, winnings come out beside the stake, and what's theirs slides back to each player; each regular has their
+ * say as theirs is settled.
+ */
+function payChips(r: Round) {
+  const stacks = (s: Group) => [s, ...(s.userData.more ? [s.userData.more as Group] : [])];
+  const bets = felt.bets, ins = felt.insurance;
   felt.bets = []; felt.insurance = null;
+  const seats = [...r.others.map(o => o.seat), ...(r.hands.length ? [ME] : [])].sort((a, b) => b - a);
+  seats.forEach((seat, k) => after(k * 0.7, () => {
+    if (seat === ME) {
+      bets.forEach((bet, i) => payBets(ME, stacks(bet), r.hands[i].stake, r.results![i].payout, bet.position.clone().sub(feltAt(ME, 0.12, 0).setY(0))));
+      if (ins) { if (r.insured) after(0.4, () => toSeat(ins, ME)); else toRack(ins); }
+      return;
+    }
+    const o = r.others.find(x => x.seat === seat)!, chips = felt.theirs.get(seat)!, x = o.result!;
+    payBets(seat, chips.bets, o.hand.stake, x.payout, feltAt(seat, -0.12, BET_OUT));
+    chips.bets = [];
+    if (chips.ins) { const s = chips.ins; if (o.insured) after(0.4, () => toSeat(s, seat)); else toRack(s); chips.ins = null; }
+    if (x.outcome === 'bust') return; // they've had their say
+    const won = x.payout > o.hand.stake || (o.insured ?? 0) > 0;
+    say(seat, x.outcome === 'blackjack' ? 'blackjack' : won ? 'win' : x.outcome === 'push' ? 'push' : 'lose');
+    if (won) cheerAt(seat);
+  }));
 }
 
 function payOut() {
@@ -606,14 +925,22 @@ function payOut() {
   r.phase = 'done';
   owe(0);
   payChips(r);
+  const d = r.dealer;
+  const lead = isBust(d) ? `Dealer busts with ${total(d)}` : isBlackjack(d) ? 'Dealer has blackjack' : `Dealer has ${total(d)}`;
+  if (!r.hands.length) {
+    // the regulars' own round: nothing of the player's to settle
+    if (isBust(d)) table!.voice.say('I bust!');
+    msg.textContent = here ? `${lead}. Put a stake down and deal.` : `${lead}.`;
+    if (shoe.length < CUT_CARD) cutCardOut();
+    refresh();
+    return;
+  }
   if (back > 0) addMoney(back);
-  if (back > staked) { popText('+' + money(back), { x: TABLE.x, y: AT.y + 1.2, z: TABLE.z }); win(); cheer(); }
+  if (back > staked) { popText('+' + money(back), world(feltAt(ME, 0, CARD_OUT, 1.2))); win(); cheer(); }
   else if (back === staked) pushSound();
   else lose();
   if (back >= 5 * staked) table!.voice.say('Big win!');
   else if (isBust(r.dealer)) table!.voice.say('I bust!');
-  const d = r.dealer;
-  const lead = isBust(d) ? `Dealer busts with ${total(d)}` : isBlackjack(d) ? 'Dealer has blackjack' : `Dealer has ${total(d)}`;
   if (r.hands.length > 1) {
     const each = r.results!.map((x, i) => `hand ${i + 1} ${VERB[x.outcome]}`).join(', ');
     msg.textContent = `${lead}: ${each}. ${back > 0 ? `${money(back)} back.` : 'The house wins.'}`;
@@ -642,7 +969,8 @@ function stackOf(n: number, at: Vector3) {
   return s;
 }
 
-/** The dealer sweeps up the last hand, and gathers the tray and what's left in the shoe into one stack. */
+/** The dealer sweeps up the last hand, and gathers the tray and what's left in the shoe into one stack; meanwhile
+ *  some of the regulars go and others come. */
 function startShuffle() {
   msg.textContent = dueMsg();
   due = null;
@@ -651,6 +979,7 @@ function startShuffle() {
   prep = { phase: 'shuffle', pack: stackOf(0, PACK) };
   const c = table!.cutCard;
   if (c.visible) slide(c, PACK, 0.4, 0.06, () => { c.visible = false; });
+  comeAndGo(OTHER_SEATS);
   later(sweep() + 0.15, gather);
   refresh();
 }
@@ -690,7 +1019,7 @@ function flick(from: Stack) {
   const t = table!.g, pack = prep!.pack, m = new Mesh(cardGeo, backMat);
   m.position.copy(topOf(from)).setY(m.position.y + 0.003);
   t.add(m);
-  clack();
+  if (hears()) clack();
   slide(m, topOf(pack).setY(topOf(pack).y + 0.004), 0.12, 0.03, () => t.remove(m));
 }
 
@@ -701,6 +1030,12 @@ function offerCut() {
   msg.textContent = 'The dealer squares the cards up…';
   slide(pack, CUT_SPOT, 0.45, 0.05, () => {
     prep!.phase = 'cut';
+    if (!here) {
+      // nobody at the table to cut: the dealer does
+      msg.textContent = 'The dealer cuts…';
+      later(0.9, () => cutAt(dealerCut()));
+      return;
+    }
     table!.voice.say('Your cut!');
     msg.textContent = 'Your cut: slide the yellow card into the stack, then cut.';
     table!.cutCard.visible = true;
@@ -766,12 +1101,13 @@ function cutAt(k: number) {
   });
   refresh();
 }
-/** Where the dealer cuts when the player's walked off: anywhere they're allowed to. */
+/** Where the dealer cuts when the player's walked off, or isn't at the table: anywhere they're allowed to. */
 const dealerCut = () => PLAYER_CUT.min + Math.floor(Math.random() * (PLAYER_CUT.max - PLAYER_CUT.min + 1));
 
 /**
  * Plays everything out straight away, turning down insurance and standing: the player walked off. A shuffle under way
  * is finished too, with the dealer cutting; one that's only due waits for them to come back and cut it themselves.
+ * Regulars on their way to or from the table get there.
  */
 function finishNow() {
   while (live() || prep) {
@@ -782,6 +1118,7 @@ function finishNow() {
     q.forEach(s => s.run());
     settleTweens();
   }
+  settleWalks();
 }
 
 dealBtn.addEventListener('click', deal);
@@ -796,37 +1133,68 @@ btn('cutBtn').addEventListener('click', () => cutAt(Number(cutIn.value)));
 
 const pad = gamePad(AT, '🃏', panel, {
   opened() {
+    here = true;
+    // a round of the regulars' own, or a shuffle, going on: the player watches it finish, then plays
+    if (live() || prep) { refresh(); return; }
     if (due && wallet.money > 0) { shuffleIn = 0.4; msg.textContent = dueMsg(); }
-    else if (!round) msg.textContent = greeting('Put a stake down and deal');
+    else msg.textContent = greeting('Put a stake down and deal');
     refresh();
   },
-  closed: finishNow,
+  closed() { here = false; idle = BETWEEN; finishNow(); },
   greet() { table!.voice.say('Good luck!'); },
 }, {
-  at: V(TABLE.x, AT.y + TOP + 0.3, TABLE.z - 0.12), from: V(0, 1.05, 1).normalize(), wide: 1.45, tall: 1.2,
+  // from just behind and above the player's seat, looking across the felt to the dealer much as if sitting there
+  // (the player themselves out of the way): the whole table, the regulars round it, and the dealer
+  at: world(V(0, TOP + 0.05, 0.92)), from: V(1.0, 1.15, 0).normalize(), wide: 3.7, tall: 2.3,
 });
 
-/** The 'blackjack' unlock: puts the table on the boat. Returns it for the pop-in. */
+/** Who the table opens with: three regulars, in their usual seats. */
+const FIRST = { 0: 'pearl', 3: 'tony', 4: 'lin' };
+
+/** The 'blackjack' unlock: puts the table in its room, with its first regulars. Returns it for the pop-in. */
 export function enableBlackjack() {
-  table = buildTable();
+  table = quietly(buildTable, dice(0xB1AC));
+  seatExactly(FIRST);
   scene.add(table.g);
   pad.enable();
   return table.g;
 }
 
-/** Keeps the player out of the table. */
+/** Keeps the player out of the table and the regulars' stools. */
 export function collideBlackjack(p: XZ) {
-  if (table) pushOutOfBox(p, TABLE.x, TABLE.z - 0.2, 1.08 + 0.3, 0.6 + 0.3);
+  if (!table) return;
+  const c = world(V(0, 0, (R - 0.55) / 2));
+  pushOutOfBox(p, c.x, c.z, (R + 0.55) / 2 + 0.3, R + 0.1 + 0.3);
+  for (const s of OTHER_SEATS) {
+    const w = world(STOOLS[s]);
+    pushOutOfBox(p, w.x, w.z, 0.25 + 0.3, 0.25 + 0.3);
+  }
 }
 
 export function updBlackjack(dt: number) {
   if (!table) return;
   const open = pad.upd();
+  // sitting at the table, the player sees it as they would from their seat, not over their own head or the pad
+  player.g.visible = !open;
+  pad.mark.visible = !open;
   table.voice.upd(dt);
+  updRegulars(dt);
+  updTags(open);
+  table.info.visible = hears();
   if (open && due && !prep && !live() && wallet.money > 0) {
     shuffleIn -= dt;
     if (shuffleIn <= 0) startShuffle();
   }
+  // with the player away from the table (but about the boat, where it can be seen), the regulars play on: the dealer
+  // deals them a round every so often, shuffling when it's due
+  if (!open && onHarbor(player.g.position) && !live() && !prep && !queue.length && !walking()) {
+    idle -= dt;
+    if (idle <= 0) {
+      idle = BETWEEN;
+      if (due) startShuffle();
+      else if (seated().length) startRound(null);
+    }
+  } else if (!open) idle = Math.max(idle, 1);
   if (!queue.length) return;
   queue[0].wait -= dt;
   while (queue.length && queue[0].wait <= 0) {
@@ -840,18 +1208,21 @@ export function updBlackjack(dt: number) {
 export const dealerSays = () => table?.voice.text ?? '';
 
 /**
- * For tests: the cards on the felt ('?' face down), the totals over them, the hand being played, the tray's count, and
- * the shuffle: where it's got to ('due' before it starts), how many cards are in the stack on the felt, and whether the
- * yellow cut card is out.
+ * For tests: the cards on the felt ('?' face down), the totals over them, the hand being played, the tray's count, the
+ * shuffle (where it's got to, 'due' before it starts; how many cards are in the stack on the felt; whether the yellow
+ * cut card is out), and each regular's cards and total by seat.
  */
 export function onFelt() {
   const name = (m: CardMesh) => m.userData.up ? rankName(m.userData.card) + m.userData.card.suit : '?';
+  const theirs: Record<number, string[]> = {}, theirTotals: Record<number, string> = {};
+  for (const [s, t] of felt.theirs) { theirs[s] = t.cards.map(name); theirTotals[s] = table?.theirTotals[s].text ?? ''; }
   return {
     dealer: felt.dealer.map(name), hands: felt.hands.map(h => h.map(name)),
     dealerTotal: table?.dealerTotal.text ?? '', totals: table?.totals.map(b => b.text).filter(Boolean) ?? [],
     active: round?.phase === 'player' ? round.active : -1, discards: felt.discards,
     chips: felt.bets.length, insurance: !!felt.insurance,
     shuffle: prep?.phase ?? (due ? 'due' : ''), stack: (prep?.pack.userData.n ?? 0) + (prep?.over?.userData.n ?? 0), cutCard: !!table?.cutCard.visible,
+    theirs, theirTotals, turn: round?.phase === 'others' ? (round.order[round.turn] as Other).seat : -1,
   };
 }
 
@@ -867,3 +1238,5 @@ export function stackShoe(cards: Card[], under = DECKS * 52) {
   msg.textContent = greeting('Put a stake down and deal');
   refresh();
 }
+/** For tests: who sits where at the table (regulars' ids by seat), at once. */
+export { seatExactly as seatRegulars };

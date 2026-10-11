@@ -5,7 +5,9 @@
 // more machines inside). A gangway takes you aboard through a gap in the bulwark onto the foredeck, where a staircase
 // climbs to the salon's door. The 'roulette' unlock brings it all in with the roulette table; the blackjack table and
 // the slot machines are upgrades of their own, bought in the salon. It stays put through the stage-up. The games
-// themselves are in rouletteTable.ts, blackjackTable.ts and slotMachine.ts.
+// themselves are in rouletteTable.ts, blackjackTable.ts and slotMachine.ts. On High, the quay's boards, bollards,
+// lamps, booth and crates, and the yacht's stairs, swim platform and sunpad are drawn in more detail (propsCasino.ts),
+// with life rings on the stern; on Low, as they always were.
 import {
   BoxGeometry, BufferGeometry, CylinderGeometry, Float32BufferAttribute, Group, Mesh, MeshBasicMaterial,
   MeshLambertMaterial, MeshPhongMaterial, PlaneGeometry, Shape, ShapeGeometry, SphereGeometry, Vector2,
@@ -22,6 +24,9 @@ import { collideRoulette, enableRoulette, updRoulette } from './rouletteTable';
 import { collideSlots, updSlots } from './slotMachine';
 import { staging, view } from './stage';
 import { FY, V, type XZ } from './util';
+import { at as spot, rbox } from './kit';
+import { deckBoards, lifeRing } from './props';
+import { casinoHigh, cratePile, lit, place, quayBollard, quayLamp, sunpad, swimPlatform, ticketBooth, treads } from './propsCasino';
 import { openQuayGap, planks } from './world';
 
 const GOLD = 0xE3B23C, RED = 0xB0283A, STONE = 0x9AA3AA, IRON = 0x2B2F33;
@@ -59,21 +64,24 @@ function buildQuay() {
   const g = piece(cx, cz);
   put(g, mesh(new BoxGeometry(w, 0.75, d + 0.1), STONE, 0, 0, 0, true), cx, FY - 0.55, cz);
   const side = mat(0x9C6644), top = new MeshLambertMaterial({ map: planks('#C3875D', '#CF946A', w / 4, d / 4) });
-  put(g, new Mesh(new BoxGeometry(w, 0.2, d), [side, side, top, side, side, side]), cx, FY - 0.1, cz).receiveShadow = true;
+  const boards = put(g, new Mesh(new BoxGeometry(w, 0.2, d), [side, side, top, side, side, side]), cx, FY - 0.1, cz);
+  boards.receiveShadow = true;
   // the kerb along the water's edge and round the west end, and stone blocks marked in the wall's face
   const kerb: Part[] = [
     { geo: G.box, at: [0, FY + 0.03, z0 + 0.17 - cz], scale: [w, 0.12, 0.34] },
     { geo: G.box, at: [x0 + 0.17 - cx, FY + 0.03, 0], scale: [0.34, 0.12, d] },
   ];
   for (let x = x0 + 0.6; x < x1; x += 1.2) kerb.push({ geo: G.box, at: [x - cx, FY - 0.42, z0 - cz - 0.02], scale: [1.12, 0.32, 0.06] });
-  g.add(mesh(bake(kerb), 0xC9D0D5, 0, 0, 0, true));
+  const kerbs = mesh(bake(kerb), 0xC9D0D5, 0, 0, 0, true);
+  g.add(kerbs);
   // bollards along the kerb
   const bollards: Part[] = [];
   for (const x of BOLLARDS_X) {
     bollards.push({ geo: G.cyl, at: [x - cx, FY + 0.25, z0 + 0.17 - cz], scale: [0.13, 0.36, 0.13] });
     bollards.push({ geo: G.cyl, at: [x - cx, FY + 0.45, z0 + 0.17 - cz], scale: [0.18, 0.06, 0.18] });
   }
-  g.add(mesh(bake(bollards), IRON, 0, 0, 0, true));
+  const bollardsLow = mesh(bake(bollards), IRON, 0, 0, 0, true);
+  g.add(bollardsLow);
   // lamp posts along the landward side, their lanterns lit
   const posts: Part[] = [], lights: Part[] = [];
   for (const x of LAMPS_X) {
@@ -83,16 +91,21 @@ function buildQuay() {
     posts.push({ geo: G.cone, at: [x - cx, FY + 2.95, lz], scale: [0.26, 0.2, 0.26] });
     lights.push({ geo: G.box, at: [x - cx, FY + 2.7, lz], scale: [0.26, 0.32, 0.26] });
   }
-  g.add(mesh(bake(posts), 0x234238, 0, 0, 0, true), mesh(bake(lights), glowMat));
+  const lamps = [mesh(bake(posts), 0x234238, 0, 0, 0, true), mesh(bake(lights), glowMat)];
+  g.add(...lamps);
   // the ticket booth: a little white kiosk with a red-and-white striped roof, its window towards the water
   const b = put(g, new Group(), BOOTH.x, FY, BOOTH.z);
-  b.add(mesh(new BoxGeometry(BOOTH.w, 1.5, BOOTH.d), 0xF4EFE6, 0, 0.75, 0, true));
-  b.add(mesh(new BoxGeometry(BOOTH.w - 0.3, 0.6, 0.04), 0x2A3F4C, 0, 1.05, -BOOTH.d / 2 - 0.01));
-  b.add(mesh(new BoxGeometry(BOOTH.w + 0.1, 0.1, 0.4), RED, 0, 0.7, -BOOTH.d / 2 - 0.15, true));
+  const booth = [
+    mesh(new BoxGeometry(BOOTH.w, 1.5, BOOTH.d), 0xF4EFE6, 0, 0.75, 0, true),
+    mesh(new BoxGeometry(BOOTH.w - 0.3, 0.6, 0.04), 0x2A3F4C, 0, 1.05, -BOOTH.d / 2 - 0.01),
+    mesh(new BoxGeometry(BOOTH.w + 0.1, 0.1, 0.4), RED, 0, 0.7, -BOOTH.d / 2 - 0.15, true),
+  ];
+  b.add(...booth);
   const red: Part[] = [], white: Part[] = [];
   for (let i = 0; i < 6; i++) (i % 2 ? white : red).push({ geo: G.box, at: [-BOOTH.w / 2 + 0.11 + i * 0.22, 1.62, 0], scale: [0.22, 0.12, BOOTH.d + 0.3] });
-  b.add(mesh(bake(red), RED, 0, 0, 0, true), mesh(bake(white), 0xFFF8EC, 0, 0, 0, true));
-  b.add(mesh(new BoxGeometry(BOOTH.w + 0.1, 0.34, 0.06), 0x8E1F2F, 0, 1.86, -BOOTH.d / 2 - 0.12));
+  booth.push(mesh(bake(red), RED, 0, 0, 0, true), mesh(bake(white), 0xFFF8EC, 0, 0, 0, true));
+  booth.push(mesh(new BoxGeometry(BOOTH.w + 0.1, 0.34, 0.06), 0x8E1F2F, 0, 1.86, -BOOTH.d / 2 - 0.12));
+  b.add(...booth.slice(3));
   const sign = new Mesh(new PlaneGeometry(1.1, 0.28), new MeshBasicMaterial({ map: BOOTH_SIGN.tex }));
   sign.position.set(0, 1.86, -BOOTH.d / 2 - 0.16); sign.rotation.y = Math.PI; b.add(sign);
   // crates and barrels piled at the west end
@@ -101,9 +114,25 @@ function buildQuay() {
     { geo: G.box, at: [CRATES.x + 0.2 - cx, FY + 0.25, CRATES.z + 0.1 - cz], scale: [0.5, 0.5, 0.5] },
     { geo: G.box, at: [CRATES.x - 0.4 - cx, FY + 0.8, CRATES.z - cz], scale: [0.45, 0.4, 0.45] },
   ];
-  g.add(mesh(bake(crates), 0xB7834F, 0, 0, 0, true));
+  const pile = [mesh(bake(crates), 0xB7834F, 0, 0, 0, true)];
   const barrels: Part[] = [[0.7, -0.15], [0.75, 0.3]].map(([dx, dz]) => ({ geo: G.cyl, at: [CRATES.x + dx - cx, FY + 0.32, CRATES.z + dz - cz], scale: [0.22, 0.64, 0.22] }));
-  g.add(mesh(bake(barrels), 0x7A4E2D, 0, 0, 0, true));
+  pile.push(mesh(bake(barrels), 0x7A4E2D, 0, 0, 0, true));
+  g.add(...pile);
+  // High: real boards laid like the painted ones, and the kerb, bollards, lamps, booth and crates in more detail (the
+  // booth's TICKETS sign and the stone wall are the same on both)
+  casinoHigh(g, () => {
+    const L = lit(), x = (v: number) => v - cx, z = (v: number) => v - cz;
+    L.body.addAll(deckBoards(w, d, FY, w / 4, Math.round(2 * d) / 8), spot(0, 0, 0));
+    L.body.add(rbox(w, 0.12, 0.34, 0.03), 0xC9D0D5, 0, FY + 0.03, z(z0 + 0.17));
+    L.body.add(rbox(0.34, 0.12, d, 0.03), 0xC9D0D5, x(x0 + 0.17), FY + 0.03, 0);
+    let i = 0;
+    for (let bx = x0 + 0.6; bx < x1; bx += 1.2) L.body.add(rbox(1.12, 0.32, 0.06, 0.03), i++ % 2 ? 0xC9D0D5 : 0xBFC7CD, x(bx), FY - 0.42, z(z0) - 0.02);
+    for (const bx of BOLLARDS_X) place(L, quayBollard(), spot(x(bx), FY, z(z0 + 0.17)));
+    for (const lx of LAMPS_X) place(L, quayLamp(), spot(x(lx), FY, z(z1 - 0.25)));
+    place(L, ticketBooth(BOOTH.w, BOOTH.d), spot(x(BOOTH.x), FY, z(BOOTH.z)));
+    place(L, cratePile(), spot(x(CRATES.x), FY, z(CRATES.z)));
+    return L;
+  }, [boards, kerbs, bollardsLow, ...lamps, ...booth, ...pile], glowMat);
   return g;
 }
 
@@ -200,7 +229,7 @@ function buildShip() {
   deck.rotation.x = -Math.PI / 2; deck.position.y = DECK_Y; deck.receiveShadow = true; g.add(deck);
   // long hull windows in gold frames along both sides, and the yacht's name in gold on the bow
   const panes: Part[] = [], frames: Part[] = [];
-  for (let x = -7.6; x < 1.6; x += 1.4) for (const s of [-1, 1]) {
+  for (let x = -L + 1.0; x < 1.6; x += 1.4) for (const s of [-1, 1]) {
     panes.push({ geo: G.box, at: [x, FY + 0.42, s * (B + 0.012)], scale: [1.0, 0.16, 0.02] });
     frames.push({ geo: G.box, at: [x, FY + 0.42, s * (B + 0.006)], scale: [1.08, 0.24, 0.02] });
   }
@@ -214,7 +243,8 @@ function buildShip() {
     g.add(name);
   }
   // a teak swim platform across the transom
-  g.add(mesh(new BoxGeometry(0.6, 0.08, B * 2 - 1.0), TEAK, -L - 0.28, 0.1, 0, true));
+  const platform = mesh(new BoxGeometry(0.6, 0.08, B * 2 - 1.0), TEAK, -L - 0.28, 0.1, 0, true);
+  g.add(platform);
   // the lower deck under the salon: white, with a band of dark glass all the way round, and the salon's floor above
   // it, carpeted, an LED line glowing under its edge
   const c0 = DECKS.stern + 0.15, c1 = DECKS.front - 0.1, cw = B - 0.38;
@@ -232,7 +262,8 @@ function buildShip() {
     const x = bx - (bx - tx) * (i + 0.5) / n;
     steps.push({ geo: G.box, at: [x, FY + UP * (i + 1) / n - 0.05, 0], scale: [(bx - tx) / n + 0.02, 0.1, hw * 2] });
   }
-  g.add(mesh(bake(steps), TEAK, 0, 0, 0, true));
+  const stepsLow = mesh(bake(steps), TEAK, 0, 0, 0, true);
+  g.add(stepsLow);
   const sides: Part[] = [], hand: Part[] = [];
   for (const s of [-1, 1]) {
     sides.push(strut(V(bx, FY + 0.05, s * (hw + 0.04)), V(tx, UPPER - 0.05, s * (hw + 0.04)), 0.05));
@@ -241,13 +272,24 @@ function buildShip() {
   }
   g.add(mesh(bake(sides), 0xFFFFFF, 0, 0, 0, true), mesh(bake(hand), GOLD, 0, 0, 0, true));
   // a sunpad on the bow, and the jackstaff at the stem that the strings of lights run down to from the mast
-  g.add(slab(oblong(6.75, 7.6, 0.7, 0.2, 0.5), 0.22, DECK_Y, 0xFFFFFF));
-  g.add(slab(oblong(6.8, 7.55, 0.65, 0.18, 0.45), 0.08, DECK_Y + 0.22, NAVY));
+  const pad = [slab(oblong(6.75, 7.6, 0.7, 0.2, 0.5), 0.22, DECK_Y, 0xFFFFFF), slab(oblong(6.8, 7.55, 0.65, 0.18, 0.45), 0.08, DECK_Y + 0.22, NAVY)];
+  g.add(...pad);
   g.add(mesh(new CylinderGeometry(0.03, 0.045, JACK.y - FY - 0.5, 8), 0xFFFFFF, JACK.x, (JACK.y + FY + 0.5) / 2, 0, true));
   g.add(mesh(new SphereGeometry(0.06, 10, 8), GOLD, JACK.x, JACK.y, 0));
+  // High: rounded treads with gold nosings, a planked swim platform with a ladder, a cushioned sunpad, and a pair of
+  // life rings hung inside the stern's bulwark
+  casinoHigh(g, () => {
+    const L = lit();
+    L.body.addAll(treads(n, bx, tx, FY, UPPER, hw), spot(0, 0, 0));
+    L.body.addAll(swimPlatform(B * 2 - 1.0), spot(-L_ - 0.28, 0.1, 0));
+    L.body.addAll(sunpad(NAVY), spot(7.175, DECK_Y, 0));
+    for (const z of [-1.5, 1.5]) L.body.addAll(lifeRing(), spot(-L_ + 0.14, sheer(-L_) - 0.36, z, Math.PI / 2));
+    return L;
+  }, [stepsLow, platform, ...pad]);
   buildSalon(g);
   return { g };
 }
+const L_ = L;
 
 /** The gangway from the quay over the bulwark's gap onto the foredeck, and the mooring ropes from the quay's bollards
  *  to the bulwarks. */
