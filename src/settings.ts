@@ -1,6 +1,6 @@
 // The settings menu, behind the gear in the top corner, in four groups: You (signing in for cloud saves, cloud.ts, and
 // your look), Graphics & sound (graphics.ts, audio.ts), Game (how to walk, hint.ts, and Restart, main.ts), and About
-// (Ko-fi, and last, the Credits & Copyrights for the music and sound). Controls, Graphics, Sound and the credits each
+// (Report a bug or idea, report.ts; Ko-fi; and last, the Credits & Copyrights for the music and sound). Controls, Graphics, Sound and the credits each
 // open with a click: Controls into How to play and a switch for the Buy button on a computer; Graphics into Auto, Low
 // or High; Sound into the effects, the ambience and the music, each with a mute button
 // and a 0 to 10 slider, big enough for a finger; and the credits into the notices.
@@ -19,10 +19,10 @@ export function openSettings(open: boolean) {
   if (open) showBuyToggle();
 }
 gear.addEventListener('click', () => openSettings(gear.getAttribute('aria-expanded') !== 'true'));
-// A tap anywhere else closes it, and so does Escape.
+// A tap anywhere else closes it, and so does Escape; drawing on a report's picture (sketch.ts) isn't anywhere else.
 window.addEventListener('pointerdown', e => {
-  const t = e.target as Node;
-  if (!menu.hidden && !menu.contains(t) && !gear.contains(t)) openSettings(false);
+  const t = e.target as Element;
+  if (!menu.hidden && !menu.contains(t) && !gear.contains(t) && !t.closest?.('#draw')) openSettings(false);
 }, true);
 window.addEventListener('keydown', e => {
   if (e.key !== 'Escape' || menu.hidden) return;

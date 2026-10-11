@@ -35,6 +35,23 @@ jobs:
         with:
           path: dist
 
+  # firestore.rules against the Firestore emulator (test/rules/), which needs Java. Rules are pasted into the Firebase
+  # console by hand, so this doesn't gate the deploy, but a pull request that breaks them shows red.
+  rules:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+      - run: npm ci
+      - run: npm run test:rules
+
   deploy:
     if: github.event_name != 'pull_request'
     needs: build

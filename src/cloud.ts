@@ -4,7 +4,7 @@
 // it wins; if both have (two devices played since), the player picks which game to keep. Firebase itself
 // (firebase.ts, downloaded by the loading screen) is only started while cloud saves are on: at once for a signed-in
 // device, otherwise a few seconds after the game starts, so the sign-in window can open the moment the button is tapped. Signed-in players also put
-// their best on the scoreboard (scores.ts).
+// their best on the scoreboard (scores.ts), and can send a bug report or an idea (report.ts).
 import { firebaseConfig } from './cloud.config';
 import { deviceStore, isStale, replaceSave, type SaveData } from './save';
 import { toast } from './ui';
@@ -15,6 +15,21 @@ export interface CloudUser { uid: string; name: string }
 export interface CloudSave { data: string; savedAt: number }
 /** A player on the scoreboard: the most cash they've held at once, in any game, and the furthest stage reached. */
 export interface Score { uid: string; name: string; best: number; stage: 1 | 2 }
+/**
+ * A bug report or an idea, as the player sends it (report.ts). The game state and the picture are left out when the
+ * player unticks them. `device`, `errors` and `live` are JSON. `id` names it, so sending it again can't make two.
+ */
+export interface Report {
+  id: string;
+  kind: 'bug' | 'idea';
+  text: string;
+  build: string;
+  device: string;
+  errors: string;
+  live?: string;
+  save?: string;
+  shot?: string;
+}
 /** What cloud saves need from the service behind them: firebase.ts, or a fake one in the tests. */
 export interface CloudBackend {
   onUser(cb: (u: CloudUser | null) => void): void;
@@ -26,6 +41,8 @@ export interface CloudBackend {
   postScore(s: Score): Promise<void>;
   /** The scoreboard's top `n`, best first. */
   topScores(n: number): Promise<Score[]>;
+  /** Files a report for the signed-in player. Refused (`permission-denied`) if it came too soon after the last. */
+  sendReport(uid: string, r: Report): Promise<void>;
 }
 
 /** This device's link to an account: whose, whether it's signed in, and both sides as they were at the last sync. */
@@ -178,8 +195,31 @@ function adopt(link: Link, remote: CloudSave) {
   cloud.reload();
 }
 
+// ---------- reports ----------
+/** How sending a report went: sent, refused by the rules (too soon, or reports are closed), or couldn't reach the cloud. */
+export type Sent = 'sent' | 'refused' | 'offline';
+/** Seconds to wait for the cloud to take a report. Offline, Firebase holds a write back rather than failing it. */
+export const SEND_WAIT = 20;
+/** Sends a report for the signed-in player. */
+export async function sendReport(r: Report): Promise<Sent> {
+  const u = cloud.user, b = backend;
+  if (!u || !b) return 'offline';
+  try {
+    await Promise.race([
+      b.sendReport(u.uid, r),
+      new Promise((_, no) => setTimeout(() => no(new Error('timed out')), SEND_WAIT * 1000)),
+    ]);
+    return 'sent';
+  } catch (e) {
+    return (e as { code?: string } | null)?.code === 'permission-denied' ? 'refused' : 'offline';
+  }
+}
+
 // ---------- on screen ----------
 const $ = (id: string) => document.getElementById(id)!;
+const watchers: (() => void)[] = [];
+/** Calls `f` whenever the player signs in or out, or the cloud's state changes. */
+export const onCloud = (f: () => void) => { watchers.push(f); };
 const btn = $('cloud'), menu = $('cloudMenu'), chooser = $('cloudPick');
 
 function render() {
@@ -195,6 +235,7 @@ function render() {
   $('cloudStatus').textContent = cloud.state === 'offline' ? "Can't reach the cloud right now. Your game is still saved on this device."
     : cloud.syncedAt ? `Saved to the cloud ${ago(cloud.syncedAt)}` : 'Syncing with the cloud…';
   if (!u) menu.hidden = true;
+  watchers.forEach(f => f());
 }
 
 /** Asks which of two different games to keep. */

@@ -7,6 +7,7 @@ const sdk = vi.hoisted(() => ({
   set: [] as unknown[],
   score: undefined as Record<string, unknown> | undefined,
   scores: [] as { id: string; data: Record<string, unknown> }[],
+  batch: [] as unknown[],
 }));
 vi.mock('firebase/app', () => ({ initializeApp: vi.fn(() => ({ name: 'app' })) }));
 vi.mock('firebase/auth', () => ({
@@ -27,13 +28,17 @@ vi.mock('firebase/firestore', () => ({
   limit: vi.fn((n: number) => ({ limit: n })),
   query: vi.fn((...parts: unknown[]) => ({ query: parts })),
   getDocs: vi.fn(async () => ({ docs: sdk.scores.map(s => ({ id: s.id, data: () => s.data })) })),
+  writeBatch: vi.fn(() => {
+    const sets: unknown[] = [];
+    return { set: (ref: unknown, data: unknown) => { sets.push([ref, data]); }, commit: async () => { sdk.batch.push(sets); } };
+  }),
   runTransaction: vi.fn(async (_db: unknown, fn: (tx: unknown) => Promise<void>) => fn({
     get: async () => ({ data: () => sdk.score }),
     set: (ref: unknown, data: unknown) => { sdk.set.push([ref, data]); },
   })),
 }));
 
-beforeEach(() => { sdk.doc = null; sdk.set = []; sdk.score = undefined; sdk.scores = []; });
+beforeEach(() => { sdk.doc = null; sdk.set = []; sdk.score = undefined; sdk.scores = []; sdk.batch = []; });
 
 describe('the Firebase backend', () => {
   it('signs in with Google and reports who is signed in', async () => {
@@ -82,5 +87,27 @@ describe('the Firebase backend', () => {
       { uid: 'u2', name: 'Sam', best: 800, stage: 2 }, { uid: 'u1', name: 'Pat Smith', best: 90, stage: 1 },
     ]);
     expect(fs.query).toHaveBeenCalledWith({ col: 'scores' }, { orderBy: ['best', 'desc'] }, { limit: 20 });
+  });
+
+  it("files a report in reports/ together with the player's count in limits/{uid}", async () => {
+    const { createBackend } = await import('../src/firebase');
+    const b = createBackend();
+    const r = { id: 'r1', kind: 'bug' as const, text: 'Stuck', build: 'abc', device: '{}', errors: '[]', save: undefined };
+    const fields = { kind: 'bug', text: 'Stuck', build: 'abc', device: '{}', errors: '[]', uid: 'u1', at: 'server-time', status: 'new' };
+    // the first report: a new count
+    await b.sendReport('u1', r);
+    // within the hour: the count goes on from where it was
+    const since = { toMillis: () => Date.now() - 1_800_000 };
+    sdk.doc = { since, n: 3 } as never;
+    await b.sendReport('u1', r);
+    // an hour on: the count starts again
+    sdk.doc = { since: { toMillis: () => Date.now() - 4_000_000 }, n: 20 } as never;
+    await b.sendReport('u1', { ...r, shot: 'data:image/jpeg;base64,AA' });
+    const fresh = { last: 'server-time', since: 'server-time', n: 1 };
+    expect(sdk.batch).toEqual([
+      [[{ path: 'reports/r1' }, fields], [{ path: 'limits/u1' }, fresh]],
+      [[{ path: 'reports/r1' }, fields], [{ path: 'limits/u1' }, { last: 'server-time', since, n: 4 }]],
+      [[{ path: 'reports/r1' }, { ...fields, shot: 'data:image/jpeg;base64,AA' }], [{ path: 'limits/u1' }, fresh]],
+    ]);
   });
 });

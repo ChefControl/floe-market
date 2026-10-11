@@ -1,5 +1,5 @@
 import type { Plugin } from 'vite';
-import { defineConfig } from 'vitest/config';
+import { configDefaults, defineConfig } from 'vitest/config';
 
 /**
  * The loading screen (index.html) counts the game's scripts in as they download, so it needs their names and sizes
@@ -39,9 +39,13 @@ export default defineConfig({
     rolldownOptions: { output: { codeSplitting: { groups: [{ name: 'three', test: /node_modules[\\/]three[\\/]/ }] } } },
   },
   plugins: [preloadManifest()],
+  // the commit the game was built from (GitHub Actions sets it), which bug reports carry (report.ts)
+  define: { __BUILD__: JSON.stringify(process.env.GITHUB_SHA ?? 'dev') },
   test: {
     environment: 'jsdom',
     setupFiles: ['test/setup.ts'],
+    // firestore.rules' tests need the Firestore emulator: npm run test:rules
+    exclude: [...configDefaults.exclude, 'test/rules/**', 'intake/**'],
     restoreMocks: true,
     // Loading the game builds both the Low and the High models (graphics.ts), and some tests load it several times.
     testTimeout: 15_000,
