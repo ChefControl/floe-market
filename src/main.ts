@@ -13,7 +13,7 @@ import { updPointers } from './pointers';
 import { initReports } from './report';
 import { camera, camK, fog, OFF, renderer, scene, sun, sunOff } from './render';
 import { isStale, load, startAutosave, wipeSave } from './save';
-import { initScores, updScores } from './scores';
+import { initScores } from './scores';
 import './settings';
 import { view } from './stage';
 import { drawTutorial } from './tutorial';
@@ -58,7 +58,7 @@ function frame(now: number) {
   frameDrawn((now - last) / 1000);
   const dt = Math.min(0.05, (now - last) / 1000);
   last = now;
-  if (!isStale()) { tick(dt); updKofi(dt); updScores(dt); }
+  if (!isStale()) { tick(dt); updKofi(dt); }
 
   // Follow the player; the stage-up pulls back to look over the whole map for a moment, picking a look comes in close,
   // and so does playing a game on the casino boat, over its table.

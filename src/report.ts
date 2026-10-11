@@ -1,6 +1,5 @@
-// Reporting a bug or an idea, for a player signed in with Google: the 🐞 button beside the gear, or the settings row
-// (About, Report a bug or idea), opens a window of its own over the game (signed out, they sign in first and then it
-// opens), and takes a picture of the game as it opens. The report carries the picture and
+// Reporting a bug or an idea, for a player signed in with Google: the settings row (About, Report a bug or idea) opens
+// a window of its own over the game, and takes a picture of the game as it opens. The report carries the picture and
 // the game state (the save, and where the player is), each behind a tickbox that starts on, and the notice above Send
 // says exactly what goes. Draw-a-Bug (sketch.ts) opens the picture big to circle what's wrong in red. It's sent to
 // Firestore (cloud.ts, firebase.ts), and a workflow in a private repo turns it into a GitHub issue (intake/). A report
@@ -51,9 +50,6 @@ const drawBtn = $('reportDraw') as HTMLButtonElement;
 /** The picture taken when the window opened, the lines drawn on it, and the two together as a JPEG ('' if none). */
 let base: HTMLCanvasElement | null = null, strokes: Stroke[] = [], shot = '';
 let kind: Report['kind'] = 'bug';
-/** A report asked for while signed out, which opens once the player has signed in (if they do so soon after). */
-let wanted: { at: number; note: string } | null = null;
-const WANTED_FOR = 120_000;
 
 /** The game as it is drawn now, 640 pixels wide. */
 export function takeShot() {
@@ -185,8 +181,7 @@ function showRow() {
  * ticked, and optionally a note already written. A note written before and not sent is still there.
  */
 export function openReport(note = '') {
-  if (!cloud.user) { wanted = { at: Date.now(), note }; $('cloud').click(); return; }
-  wanted = null;
+  if (!cloud.user) { $('cloud').click(); return; }
   openSettings(false);
   base = takeShot();
   strokes = [];
@@ -298,9 +293,7 @@ export function initReports() {
   if (!cloudEnabled()) return;
   row.hidden = false;
   $('errReport').hidden = false;
-  $('reportBtn').hidden = false;
   row.addEventListener('click', () => openReport());
-  $('reportBtn').addEventListener('click', () => openReport());
   // ✕, Cancel, a click on the dimmed game around it, or Escape (unless Draw-a-Bug is open over it, sketch.ts) closes it
   $('reportClose').addEventListener('click', closeReport);
   win.addEventListener('click', e => { if (e.target === win) closeReport(); });
@@ -316,11 +309,7 @@ export function initReports() {
   $('reportSend').addEventListener('click', () => { void send(); });
   $('errReport').addEventListener('click', () => openReport(recentErrors[recentErrors.length - 1] ?? $('errMsg').textContent ?? ''));
   // signing in, or coming back online, sends what was waiting
-  onCloud(() => {
-    showRow();
-    if (cloud.user && wanted && Date.now() - wanted.at < WANTED_FOR) openReport(wanted.note);
-    if (cloud.user && cloud.state === 'saved') void flush();
-  });
+  onCloud(() => { showRow(); if (cloud.user && cloud.state === 'saved') void flush(); });
   window.addEventListener('online', () => { void flush(); });
   setKind('bug');
   showRow();

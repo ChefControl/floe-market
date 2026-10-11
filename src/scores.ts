@@ -1,14 +1,8 @@
-// The scoreboard: the 🏆 Scoreboard row in the settings opens the players who have held the most cash at once, with
-// the furthest stage each has reached. Signed-in players get on it as their game syncs (cloud.ts); everyone else sees
+// The scoreboard: the 🏆 button in the corner opens the players who have held the most cash at once, with the
+// furthest stage each has reached. Signed-in players get on it as their game syncs (cloud.ts); everyone else sees
 // their own best under the list and a way to sign in. It only shows when cloud saves are set up.
-// It used to be a 🏆 button in the corner, where the 🐞 report button is now. A player who played before (their save
-// was here when the game loaded) sees the 🏆 pop up there and fly into the gear a few seconds into their game, once,
-// with a toast saying where it went; the row says "Moved here" until they open it.
 import { cloud, cloudEnabled, connect, postScore, type Score } from './cloud';
 import { stage } from './layout';
-import { SAVE_KEY } from './save';
-import { openSettings } from './settings';
-import { toast } from './ui';
 import { money } from './util';
 import { wallet } from './wallet';
 
@@ -16,23 +10,7 @@ import { wallet } from './wallet';
 export const TOP = 20;
 
 const $ = (id: string) => document.getElementById(id)!;
-const scoresRow = $('scoresCat'), chip = $('scoresMoved'), panel = $('scores'), list = $('scoresList'), me = $('scoresMe');
-const join = $('scoresJoin');
-
-/** Where this device is with the move: 'new' (not shown yet), 'shown' (flown, not opened since) or 'seen'. */
-export const MOVED_KEY = 'floe-market-board-moved';
-type Moved = 'new' | 'shown' | 'seen';
-let moved: Moved = 'seen';
-try {
-  const was = localStorage.getItem(MOVED_KEY) as Moved | null;
-  moved = was ?? (localStorage.getItem(SAVE_KEY) ? 'new' : 'seen');
-  if (!was) localStorage.setItem(MOVED_KEY, moved);
-} catch { /* storage unavailable: nobody to tell */ }
-function setMoved(m: Moved) {
-  moved = m;
-  chip.hidden = m === 'seen';
-  try { localStorage.setItem(MOVED_KEY, m); } catch { /* it may show again next time */ }
-}
+const btn = $('board'), panel = $('scores'), list = $('scoresList'), me = $('scoresMe'), join = $('scoresJoin');
 
 const STAGES = { 1: 'Fish Market', 2: 'Floe Sushi' } as const;
 
@@ -86,62 +64,24 @@ async function fill() {
 }
 
 export function openScores() {
-  openSettings(false);
-  if (moved !== 'seen') setMoved('seen');
   panel.hidden = false;
+  btn.setAttribute('aria-expanded', 'true');
   $('scoresClose').focus();
   void fill();
 }
 
 export function closeScores() {
   if (panel.hidden) return;
-  // a keyboard goes back to the gear the scoreboard was opened from
-  const focused = panel.contains(document.activeElement);
   panel.hidden = true;
-  if (focused) $('gear').focus();
+  btn.setAttribute('aria-expanded', 'false');
+  btn.focus();
 }
 
-/** Seconds into a returning player's game before the 🏆 flies into the gear. */
-export const MOVED_AFTER = 3;
-let waited = 0;
-/** Call every frame: shows a returning player where the scoreboard went, once (not over a banner, menu or window). */
-export function updScores(dt: number) {
-  if (moved !== 'new' || scoresRow.hidden) return;
-  waited += dt;
-  const busy = !$('settings').hidden || !panel.hidden || !$('report').hidden || $('banner').classList.contains('on');
-  if (waited < MOVED_AFTER || busy) return;
-  setMoved('shown');
-  flyToGear();
-}
-
-/** The 🏆 pops out under where its button was and flies into the gear, which pings; then a toast says where it went. */
-function flyToGear() {
-  const gear = $('gear');
-  const landed = () => {
-    gear.classList.add('ping');
-    setTimeout(() => gear.classList.remove('ping'), 1300);
-    toast('🏆 Scoreboard moved to ⚙️ Settings', undefined, 5000);
-  };
-  const fly = document.createElement('span');
-  if (typeof fly.animate !== 'function' || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) { landed(); return; }
-  const centre = (el: Element) => { const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; };
-  const a = centre($('reportBtn')), b = centre(gear), under = { x: a.x, y: a.y + 58 };
-  const at = (p: { x: number; y: number }, scale: number, opacity: number, offset: number) =>
-    ({ transform: `translate(${p.x - 13}px, ${p.y - 13}px) scale(${scale})`, opacity, offset });
-  fly.id = 'boardFly';
-  fly.textContent = '🏆';
-  fly.setAttribute('aria-hidden', 'true');
-  document.body.append(fly);
-  fly.animate([at(a, 0.2, 0, 0), at(under, 1.7, 1, 0.2), at(under, 1.35, 1, 0.5), at(b, 0.35, 0.2, 1)],
-    { duration: 1800, easing: 'ease-in-out' }).onfinish = () => { fly.remove(); landed(); };
-}
-
-/** Shows the scoreboard row, when cloud saves are set up. */
+/** Shows the scoreboard button, when cloud saves are set up. */
 export function initScores() {
   if (!cloudEnabled()) return;
-  scoresRow.hidden = false;
-  chip.hidden = moved === 'seen';
-  scoresRow.addEventListener('click', openScores);
+  btn.hidden = false;
+  btn.addEventListener('click', () => { if (panel.hidden) openScores(); else closeScores(); });
   $('scoresClose').addEventListener('click', closeScores);
   // a tap on the dimmed game around the card closes it too
   panel.addEventListener('click', e => { if (e.target === panel) closeScores(); });

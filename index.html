@@ -432,21 +432,14 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
 #cloudPick button b{ font-size:17px; font-weight:800; }
 #cloudPick button:focus-visible{ outline:3px solid var(--coral); outline-offset:2px; }
 #settings #restart.armed{ background:var(--hot); color:#fff; }
-/* a round 🐞 button beside the gear, for reporting a bug or idea (report.ts) */
-#reportBtn{
+/* the scoreboard: a round 🏆 button, and a card over the dimmed game listing the top players */
+#board{
   width:44px; height:44px; padding:0; border:0; border-radius:50%; display:grid; place-items:center; flex:none;
   background:var(--pill); color:var(--pill-ink); box-shadow:0 3px 0 var(--shade); font-size:22px; line-height:1; cursor:pointer;
 }
-#reportBtn[hidden]{ display:none; }
-#reportBtn:focus-visible{ outline:3px solid var(--coral); outline-offset:2px; }
-/* the scoreboard: a row in the settings (it used to be a 🏆 button where the 🐞 is: a player who saw it there gets the
-   🏆 flying into the gear once, and "Moved here" on the row until they open it), and a card over the dimmed game
-   listing the top players */
-#scoresCat i{ margin-left:auto; font-style:normal; font-size:20px; line-height:1; opacity:.6; }
-#scoresCat .moved{ margin-left:auto; padding:2px 9px; border-radius:999px; background:#FFD23F; color:#3A2A00; font-size:12px; font-weight:800; white-space:nowrap; }
-#scoresCat .moved[hidden]{ display:none; }
-#scoresCat .moved:not([hidden]) + i{ margin-left:8px; }
-#boardFly{ position:fixed; left:0; top:0; z-index:5; font-size:26px; line-height:1; pointer-events:none; }
+#board[hidden]{ display:none; }
+#board[aria-expanded="true"]{ background:#FFC34A; }
+#board:focus-visible{ outline:3px solid var(--coral); outline-offset:2px; }
 #scores{ position:fixed; inset:0; z-index:8; display:grid; place-items:center; background:rgba(23,48,66,.55); }
 #scores[hidden]{ display:none; }
 #scores .card{
@@ -728,7 +721,7 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
   #corner{ right:max(10px, env(safe-area-inset-right,0px)); top:calc(env(safe-area-inset-top,0px) + 10px); }
   #settings{ right:max(10px, env(safe-area-inset-right,0px)); top:calc(env(safe-area-inset-top,0px) + 62px); max-height:calc(100% - 76px); overflow-y:auto; touch-action:pan-y; }
   #hint{ font-size:17px; }
-  #reportBtn{ width:40px; height:40px; font-size:20px; }
+  #board{ width:40px; height:40px; font-size:20px; }
   #toast{ top:calc(env(safe-area-inset-top,0px) + 108px); font-size:19px; padding:7px 16px; }
   #korki{ top:calc(env(safe-area-inset-top,0px) + 96px); max-height:min(30vh,260px); border-radius:20px; }
   #korki .memo{ padding:12px 16px 14px; }
@@ -785,7 +778,7 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
   <div id="mods" class="pill" role="group" aria-label="Modifiers"></div>
 </div>
 <div id="corner">
-  <button id="reportBtn" type="button" aria-label="Report a bug or idea" title="Report a bug or idea" aria-haspopup="dialog" hidden><span aria-hidden="true">🐞</span></button>
+  <button id="board" type="button" aria-label="Scoreboard" aria-expanded="false" aria-controls="scores" hidden><span aria-hidden="true">🏆</span></button>
   <button id="gear" type="button" aria-label="Settings" aria-expanded="false" aria-controls="settings"><span aria-hidden="true">⚙️</span><i aria-hidden="true"></i></button>
 </div>
 <section id="settings" class="pill" aria-label="Settings" hidden>
@@ -793,7 +786,6 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
   <button id="cloud" type="button" hidden><span class="ic" aria-hidden="true">☁️</span><span><span id="cloudName">Sign in</span><span class="wide" aria-hidden="true"> with Google</span></span><i aria-hidden="true"></i></button>
   <div id="cloudMenu" hidden><b id="cloudWho"></b><span id="cloudStatus"></span><button type="button" id="cloudOut">Sign out</button></div>
   <button id="lookOpen" type="button"><span class="ic" aria-hidden="true">👕</span>Your look</button>
-  <button id="scoresCat" type="button" aria-haspopup="dialog" aria-controls="scores" hidden><span class="ic" aria-hidden="true">🏆</span>Scoreboard<b class="moved" id="scoresMoved" hidden>Moved here</b><i aria-hidden="true">›</i></button>
   <h2 class="sgroup">Graphics &amp; sound</h2>
   <button id="gfxCat" class="cat" type="button" aria-expanded="false" aria-controls="gfx"><span class="ic" aria-hidden="true">✨</span><span id="gfxName">Graphics</span><small id="gfxPick"></small><i class="chev" aria-hidden="true"></i></button>
   <div id="gfx" class="catPanel" role="group" aria-labelledby="gfxName" hidden><span class="seg"><button type="button" data-q="auto" aria-pressed="true">Auto</button><button type="button" data-q="low" aria-pressed="false">Low</button><button type="button" data-q="high" aria-pressed="false">High</button></span><small id="gfxNow" aria-live="polite"></small></div>
