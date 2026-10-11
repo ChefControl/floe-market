@@ -20,6 +20,8 @@ concurrency:
 
 jobs:
   intake:
+    # skipped (and not billed) until the Google Cloud setup in README.md is done
+    if: vars.WIF_PROVIDER != ''
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
