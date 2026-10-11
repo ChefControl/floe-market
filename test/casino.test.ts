@@ -515,8 +515,8 @@ describe('the blackjack table', () => {
   /** Seconds for the dealer to turn over their card and settle up, with no cards to draw; and for each card they draw. */
   const STOOD = 2, DRAW = 1.4;
   /** Seconds from stepping up to a fresh shoe to the stack being down for the player's cut, and from the cut to the
-   *  stack being in the shoe. */
-  const SHUFFLE = 6, LOAD = 2.7;
+   *  stack being in the shoe with its top card burned. */
+  const SHUFFLE = 6, LOAD = 3.5;
   /** Moves the cut card in the stack, `k` cards from the top. */
   const slideCut = (k: number) => {
     const s = $('cutAt') as HTMLInputElement;
@@ -656,7 +656,7 @@ describe('the blackjack table', () => {
     expect(g.wallet.money).toBe(100); // no dealing till it's cut
   });
 
-  it('cuts where the player puts the cut card, and deals the very next card: nothing is burned', async () => {
+  it('cuts where the player puts the cut card, burns the top card, and deals from the one under it', async () => {
     const g = await at('blackjack', 100, 'blackjack');
     g.run(SHUFFLE);
     const before = await inShoe();
@@ -664,19 +664,22 @@ describe('the blackjack table', () => {
     click('#cutBtn');
     expect(await inShoe()).toEqual(cutShoe(before, 100));
     expect($('bjCut').hidden).toBe(true);
-    g.run(LOAD);
-    expect(await felt()).toMatchObject({ shuffle: '', cutCard: false, discards: 0 });
+    g.run(LOAD - 0.7);
+    expect($('bjMsg').textContent).toBe('The dealer burns the top card…');
+    g.run(0.7);
+    expect(await felt()).toMatchObject({ shuffle: '', cutCard: false, discards: 1 });
+    expect(await inShoe()).toEqual(cutShoe(before, 100).slice(0, -1));
     expect($('bjMsg').textContent).toBe('Put a stake down and deal');
     expect($('deal').hidden).toBe(false);
-    // the four off the top: the first is the card that was right under the cut card
+    // the card right under the cut card was burned; the deal starts with the one under that, and burns nothing more
     const next = (await inShoe()).slice(-4).reverse();
-    expect(next[0]).toEqual(before[before.length - 1 - 100]);
+    expect(next[0]).toEqual(before[before.length - 1 - 101]);
     click('#deal');
     g.run(DEALT);
     const f = await felt();
     expect(f.hands).toEqual([[name(next[0]), name(next[2])]]);
     expect(f.dealer[0]).toBe(name(next[1]));
-    expect(f.discards).toBe(0);
+    expect(f.discards).toBe(1);
   });
 
   it('keeps the cut at least a deck in from either end', async () => {
@@ -697,8 +700,8 @@ describe('the blackjack table', () => {
     expect($('bjMsg').textContent).toBe('A fresh shoe: the dealer shuffles…');
     g.run(3);
     walkAway(g);
-    expect(await felt()).toMatchObject({ shuffle: '', stack: 0, cutCard: false });
-    expect(await inShoe()).toHaveLength(312);
+    expect(await felt()).toMatchObject({ shuffle: '', stack: 0, cutCard: false, discards: 1 });
+    expect(await inShoe()).toHaveLength(311);
     g.placePlayer(g.layout.GAMES.blackjack.x, g.layout.GAMES.blackjack.z); g.run(0.05);
     expect($('deal').hidden).toBe(false);
     g = await at('blackjack', 0, 'blackjack'); // a broke player isn't shuffled for
@@ -724,7 +727,7 @@ describe('the blackjack table', () => {
     expect((await felt()).shuffle).toBe('cut');
     click('#cutBtn');
     g.run(LOAD);
-    expect(await inShoe()).toHaveLength(312);
+    expect(await inShoe()).toHaveLength(311);
     expect($('deal').hidden).toBe(false);
   });
 

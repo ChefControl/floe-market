@@ -1,14 +1,15 @@
 // The casino boat's blackjack table: a dealer behind a half-moon of green felt. Standing on its pad brings the camera
 // in over the felt and opens the controls: put a stake down and deal, then hit, stand, double or split. Everything
 // happens on the table, as in a casino, and takes its time: each card slides out of the shoe and turns over, the
-// dealer's second card waits face down, and when the dealer plays they turn it over slowly, then draw. No card is ever
-// burned: the first card out of the shoe is the first one dealt. When the dealer shows an ace they offer insurance (or
-// even money on a blackjack). Walking off mid-hand turns down insurance, stands on what you have and settles at once.
+// dealer's second card waits face down, and when the dealer plays they turn it over slowly, then draw. When the dealer
+// shows an ace they offer insurance (or even money on a blackjack). Walking off mid-hand turns down insurance, stands
+// on what you have and settles at once.
 //
 // A fresh shoe is shuffled in front of the player: the dealer gathers the tray and the shoe into one stack, riffles it
 // three times, and puts it down for the player to cut, sliding a yellow cut card into the stack where they choose. The
-// cards above it go to the bottom, the dealer sets the cut card a deck from the back, and the stack goes in the shoe.
-// When that cut card comes out, the round finishes and the dealer shuffles again.
+// cards above it go to the bottom, the dealer sets the cut card a deck from the back, the stack goes in the shoe, and
+// the dealer burns its top card into the tray, as casinos do. That's the only card ever burned: in play, every card
+// comes straight off the shoe. When the cut card comes out, the round finishes and the dealer shuffles again.
 import {
   BoxGeometry, CylinderGeometry, Group, Mesh, MeshLambertMaterial, PlaneGeometry, Vector3, type Object3D,
 } from 'three';
@@ -327,6 +328,12 @@ function turnOver(m: CardMesh, dur: number, done?: () => void) {
 }
 /** Shows the tray holding the cards it has. */
 const showPile = () => setCount(table!.pile, felt.discards);
+/** The top card off the shoe and into the tray face down, unseen: the burn after a shuffle. */
+function burn() {
+  const card = draw();
+  felt.discards++;
+  const m = fromShoe(card, TRAY.clone().setY(TOP + 0.05 + felt.discards * CARD_T), () => { table!.g.remove(m); showPile(); });
+}
 
 /** The next of a hand's cards (or the dealer's) out on the table and turned over; `sideways` for a double. */
 const show = (i: number | 'dealer', sideways = false) => () => {
@@ -375,7 +382,7 @@ function deal() {
   const tidy = felt.dealer.length > 0;
   sweep();
   felt.bets = [putDown(s, betAt(0, 1))];
-  // straight off the top of the shoe: player, dealer, player, dealer, nothing burned
+  // straight off the top of the shoe: player, dealer, player, dealer
   const player = [draw()], dealer = [draw()];
   player.push(draw()); dealer.push(draw());
   round = {
@@ -732,6 +739,9 @@ function cutAt(k: number) {
     msg.textContent = 'Into the shoe…';
     slide(pack, IN_SHOE, 0.5, 0.12, () => t.remove(pack));
     slide(c, IN_SHOE.clone().setY(IN_SHOE.y + CUT_CARD * CARD_T), 0.5, 0.12, () => { c.visible = false; });
+  }, () => {
+    msg.textContent = 'The dealer burns the top card…';
+    burn();
   }, () => {
     prep = null;
     msg.textContent = greeting('Put a stake down and deal');
