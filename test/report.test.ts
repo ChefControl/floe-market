@@ -170,6 +170,11 @@ describe('reporting a bug or an idea', () => {
     await vi.waitFor(() => expect($('toast').textContent).toBe('Thanks! Your report is on its way'));
     expect($('report').hidden).toBe(true);
     expect(($('reportText') as HTMLTextAreaElement).value).toBe('');
+    // an idea lights a bulb as it goes
+    expect($('sendFx').hidden).toBe(false);
+    expect($('sendFx').className).toBe('idea');
+    expect($('sendFx').querySelector('.glass')).not.toBeNull();
+    expect($('sendFx').querySelector('b')!.textContent).toBe('Bright idea!');
   });
 
   it('leaves out what the player unticked', async () => {
@@ -181,6 +186,10 @@ describe('reporting a bug or an idea', () => {
     $('reportSend').click();
     await vi.waitFor(() => expect(fake.reports).toHaveLength(1));
     expect(Object.keys(fake.reports[0].r).sort()).toEqual(['build', 'device', 'errors', 'id', 'kind', 'text']);
+    // a bug gets squashed as it goes
+    expect($('sendFx').className).toBe('bug');
+    expect($('sendFx').querySelector('.swatter')).not.toBeNull();
+    expect($('sendFx').querySelector('b')!.textContent).toBe('Bug squashed!');
   });
 
   it("goes without a picture when one can't be taken, and says so", async () => {
@@ -338,11 +347,13 @@ describe('Draw-a-Bug', () => {
     await vi.waitFor(() => expect(btn('reportDraw').classList.contains('drawn')).toBe(false));
   });
 
-  it('is Draw-an-Idea for an idea, and off while the picture is left out', async () => {
+  it('is Draw-an-Idea for an idea, in yellow, and off while the picture is left out', async () => {
     await start();
     $('reportCat').click();
+    expect($('report').dataset.kind).toBe('bug');
     ($('reportKind').querySelector('[data-kind="idea"]') as HTMLElement).click();
     expect($('reportDrawName').textContent).toBe('Draw-an-Idea');
+    expect($('report').dataset.kind).toBe('idea'); // the button turns yellow (index.html)
     btn('reportDraw').click();
     expect($('drawTitle').textContent).toBe('Draw-an-Idea: sketch it on the game');
     btn('drawDone').click();
@@ -363,6 +374,9 @@ describe('Draw-a-Bug', () => {
     const out = document.createElement('canvas');
     out.getContext = (() => ctx) as unknown as typeof out.getContext;
     const base = Object.assign(document.createElement('canvas'), { width: 640, height: 360 });
+    paint(out, base, [[{ x: 1, y: 2 }]], '#FFD23F');
+    expect(ctx.strokeStyle).toBe('#FFD23F'); // an idea's ink
+    calls.length = 0;
     paint(out, base, [[{ x: 1, y: 2 }], [{ x: 10, y: 10 }, { x: 20, y: 30 }]]);
     expect([out.width, out.height]).toEqual([640, 360]);
     expect(ctx.strokeStyle).toBe('#FF2D2D');
@@ -370,5 +384,43 @@ describe('Draw-a-Bug', () => {
     expect(calls.filter(c => !c.startsWith('beginPath'))).toEqual([
       `drawImage(${base},0,0)`, `arc(1,2,${640 / 110 / 2},0,${Math.PI * 2})`, 'fill()', 'moveTo(10,10)', 'lineTo(20,30)', 'stroke()',
     ]);
+  });
+
+  it('repaints the lines in the new ink when a bug becomes an idea', async () => {
+    await start();
+    $('reportCat').click();
+    btn('reportDraw').click();
+    at('pointerdown', 5, 5); at('pointerup', 5, 5);
+    btn('drawDone').click();
+    await vi.waitFor(() => expect(btn('reportDraw').classList.contains('drawn')).toBe(true));
+    const encodes = vi.mocked(HTMLCanvasElement.prototype.toDataURL).mock.calls.length;
+    ($('reportKind').querySelector('[data-kind="idea"]') as HTMLElement).click();
+    expect(vi.mocked(HTMLCanvasElement.prototype.toDataURL).mock.calls.length).toBeGreaterThan(encodes);
+  });
+});
+
+describe('the moment a report is sent', () => {
+  it('plays for a moment, starting over if sent again, then goes', async () => {
+    await start();
+    const fx = await import('../src/sendFx');
+    vi.useFakeTimers();
+    fx.celebrate('bug');
+    fx.celebrate('idea');
+    expect($('sendFx').className).toBe('idea');
+    vi.advanceTimersByTime(fx.FX_MS - 1);
+    expect($('sendFx').hidden).toBe(false);
+    vi.advanceTimersByTime(1);
+    expect($('sendFx').hidden).toBe(true);
+    expect($('sendFx').innerHTML).toBe('');
+  });
+
+  it("starts folded: What's sent opens only when asked", async () => {
+    await start();
+    $('reportCat').click();
+    expect(($('reportWhat') as HTMLDetailsElement).open).toBe(false);
+    ($('reportWhat') as HTMLDetailsElement).open = true;
+    $('reportClose').click();
+    $('reportCat').click();
+    expect(($('reportWhat') as HTMLDetailsElement).open).toBe(false);
   });
 });

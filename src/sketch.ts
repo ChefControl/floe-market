@@ -1,21 +1,22 @@
 // Draw-a-Bug (Draw-an-Idea for an idea): the report's picture (report.ts), big over the dimmed game, to circle what's
-// wrong in red with a finger or the mouse. Undo takes back the last line, Clear all of them, Done keeps them, and
-// Escape puts it away without the lines drawn this time. The lines are kept apart from the picture, so they can be
-// taken back later; report.ts paints them on before sending.
+// wrong with a finger or the mouse, in red (yellow for an idea). Undo takes back the last line, Clear all of them,
+// Done keeps them, and Escape puts it away without the lines drawn this time. The lines are kept apart from the
+// picture, so they can be taken back later; report.ts paints them on before sending.
 
 export interface Point { x: number; y: number }
 /** One line, in the picture's own pixels. */
 export type Stroke = Point[];
 
-const RED = '#FF2D2D';
+/** The ink: red for a bug, yellow for an idea. */
+export const INK = { bug: '#FF2D2D', idea: '#FFD23F' };
 
-/** The picture with the lines painted over it, onto `out` (which takes the picture's size). */
-export function paint(out: HTMLCanvasElement, base: HTMLCanvasElement, strokes: Stroke[]) {
+/** The picture with the lines painted over it in `ink`, onto `out` (which takes the picture's size). */
+export function paint(out: HTMLCanvasElement, base: HTMLCanvasElement, strokes: Stroke[], ink = INK.bug) {
   if (out.width !== base.width || out.height !== base.height) { out.width = base.width; out.height = base.height; }
   const c = out.getContext('2d');
   if (!c) return;
   c.drawImage(base, 0, 0);
-  c.strokeStyle = c.fillStyle = RED;
+  c.strokeStyle = c.fillStyle = ink;
   c.lineWidth = Math.max(4, base.width / 110);
   c.lineCap = c.lineJoin = 'round';
   for (const s of strokes) {
@@ -31,11 +32,11 @@ const $ = (id: string) => document.getElementById(id)!;
 const box = $('draw'), cv = $('drawCanvas') as HTMLCanvasElement, heading = $('drawTitle');
 const undo = $('drawUndo') as HTMLButtonElement, clear = $('drawClear') as HTMLButtonElement, done = $('drawDone');
 
-let base: HTMLCanvasElement | null = null, lines: Stroke[] = [], line: Stroke | null = null;
+let base: HTMLCanvasElement | null = null, lines: Stroke[] = [], line: Stroke | null = null, ink = INK.bug;
 let finish: ((s: Stroke[] | null) => void) | null = null;
 
 function redraw() {
-  if (base) paint(cv, base, lines);
+  if (base) paint(cv, base, lines, ink);
   undo.disabled = clear.disabled = !lines.length;
 }
 /** Where a pointer is, in the picture's pixels (the canvas is shown smaller or bigger than it is). */
@@ -88,6 +89,7 @@ export function sketch(picture: HTMLCanvasElement, before: Stroke[], idea: boole
   close(null);
   base = picture;
   lines = before.map(s => [...s]);
+  ink = idea ? INK.idea : INK.bug;
   heading.textContent = idea ? 'Draw-an-Idea: sketch it on the game' : "Draw-a-Bug: circle what's wrong";
   box.hidden = false;
   redraw();

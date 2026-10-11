@@ -205,12 +205,12 @@ The 🏆 button (top right) lists the 20 players who have held the most cash at 
 - **The form:**
   - Bug or Idea, and a note of up to 1,000 characters.
   - A picture of the game, taken the moment the window opens.
-  - **Draw-a-Bug** (Draw-an-Idea for an idea), the red crayon button on the picture's corner, or a tap on the picture: opens it big over the game to circle what's wrong in red, with a finger or the mouse. Undo takes back the last line, Clear all of them, and Done keeps them, ready to change again; Escape puts it away without the new lines. The picture goes with the lines on it.
+  - **Draw-a-Bug**, the red crayon button on the picture's corner (**Draw-an-Idea**, yellow, for an idea), or a tap on the picture: opens it big over the game to circle what's wrong with a finger or the mouse, in red (yellow for an idea). Undo takes back the last line, Clear all of them, and Done keeps them, ready to change again; Escape puts it away without the new lines. The picture goes with the lines on it.
   - Two tickboxes, both on each time it opens: **Include this picture** and **Include my game state**. The game state is the save (progress, look and settings) plus where the player is standing and facing, what's open on screen, the season, the sound's mutes, the cloud's state and how many minutes they've played this visit.
 - **What the player is told:** above Send, **What's sent** says in a line what goes ("your note, this picture and your game state") and changes as the boxes are ticked. Opened, it lists what each of those is, what always goes and what never does (their name and email), and that the picture and game state are deleted after 7 days. Unticking a box adds a warning under it: "Without the picture, it may be hard to see what went wrong", or "Without your game state, the developer may not be able to make it happen again to fix it".
 - **Always sent:** the commit the game was built from, the graphics setting and frame rate, screen size, whether it's a touch screen, the browser, and the last 10 errors the game hit this visit.
 - **Sending:**
-  - "Thanks! Your report is on its way."
+  - A moment over the game: for an idea, a light bulb flickers on bright with a chime, "Bright idea!"; for a bug, a fly swatter comes down on a scurrying bug with a swish and a smack, "Bug squashed!". Then "Thanks! Your report is on its way."
   - Within 2 minutes of the last report, it says to try again in a couple of minutes.
   - When the cloud can't be reached, the report waits on the device (the newest two at most) and goes when the player is next signed in and synced. The thanks says so.
 - **When something breaks:** the red error box has a **Report this** button, which opens the form with the error written in.
@@ -322,7 +322,8 @@ Each deploy removes the last one's files, and GitHub Pages lets browsers keep th
 | `src/save.ts` | Per-device save/load, migration, autosave, one-tab-at-a-time guard |
 | `src/cloud.ts` | Cloud saves: the sign-in button, syncing with the account, asking which game to keep |
 | `src/report.ts` | Report a bug or idea: its window, opened from the settings, the picture of the game, the notice of what's sent, and reports waiting for the cloud |
-| `src/sketch.ts` | Draw-a-Bug: the report's picture big over the game, to circle what's wrong in red |
+| `src/sketch.ts` | Draw-a-Bug: the report's picture big over the game, to circle what's wrong in red (yellow for an idea) |
+| `src/sendFx.ts` | The moment a report is sent: a bulb lighting up for an idea, a swatter squashing a bug |
 | `src/firebase.ts` / `src/cloud.config.ts` | Cloud saves on Firebase (Google sign-in, Firestore), downloaded on the loading screen and started a few seconds in / the Firebase project's config |
 | `src/wallet.ts` | Money |
 | `src/errors.ts` | On-screen error reporting (with a Report this button), the last few errors for bug reports, and reloading once when a deploy removed a file the page needs |

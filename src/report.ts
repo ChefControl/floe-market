@@ -15,7 +15,8 @@ import { sushi } from './restaurant';
 import { deviceStore, save } from './save';
 import { current } from './season';
 import { openSettings } from './settings';
-import { paint, sketch, type Stroke } from './sketch';
+import { celebrate } from './sendFx';
+import { INK, paint, sketch, type Stroke } from './sketch';
 import { toast } from './ui';
 
 /** Longest note (firestore.rules checks it too). */
@@ -75,15 +76,17 @@ function jpeg(c: HTMLCanvasElement) {
 async function draw() {
   if (!base || !shotOn.checked) return;
   const kept = await sketch(base, strokes, kind === 'idea');
-  if (kept) {
-    strokes = kept;
-    const out = document.createElement('canvas');
-    paint(out, base, strokes);
-    shot = jpeg(out) || shot;
-    shotImg.src = shot;
-    drawBtn.classList.toggle('drawn', strokes.length > 0);
-  }
+  if (kept) { strokes = kept; repaint(); }
   drawBtn.focus();
+}
+/** The picture with the lines on it, in the ink of a bug or an idea, as it will be sent. */
+function repaint() {
+  if (!base) return;
+  const out = document.createElement('canvas');
+  paint(out, base, strokes, INK[kind]);
+  shot = jpeg(out) || shot;
+  shotImg.src = shot;
+  drawBtn.classList.toggle('drawn', strokes.length > 0);
 }
 
 /** What the save doesn't hold: where the player is and what's open on screen. */
@@ -157,6 +160,8 @@ function setKind(k: Report['kind']) {
   for (const b of kinds) b.setAttribute('aria-checked', String(b.dataset.kind === k));
   text.placeholder = k === 'bug' ? 'What happened? What did you expect instead?' : 'What would you like in the game?';
   $('reportDrawName').textContent = k === 'bug' ? 'Draw-a-Bug' : 'Draw-an-Idea';
+  win.dataset.kind = k;
+  if (strokes.length) repaint(); // the lines take the new kind's ink
 }
 
 /** The row: signed in, it opens the report window; signed out, it signs in. */
@@ -184,6 +189,7 @@ export function openReport(note = '') {
   shotOn.checked = stateOn.checked = true;
   shotOn.disabled = !shot;
   if (note) { setKind('bug'); text.value = note.slice(0, TEXT_MAX); }
+  ($('reportWhat') as HTMLDetailsElement).open = false; // What's sent starts folded
   win.hidden = false;
   showNotice(); showCount();
   kinds.find(b => b.dataset.kind === kind)?.focus();
@@ -234,6 +240,7 @@ async function send() {
   };
   text.value = '';
   closeReport();
+  celebrate(kind);
   const how = await sendReport(r);
   if (how === 'sent') {
     deviceStore.write(String(Date.now()), LAST_KEY);

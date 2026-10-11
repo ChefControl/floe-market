@@ -318,6 +318,61 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
 #reportDraw:active:not(:disabled){ transform:translateY(2px); box-shadow:0 1px 0 #9E1E1A; }
 #reportDraw:disabled{ display:none; }
 @media (prefers-reduced-motion: reduce){ #reportDraw, #reportDraw .crayon{ transition:none; animation:none !important; } }
+/* Draw-an-Idea is yellow, as its ink is (sketch.ts) */
+#report[data-kind="idea"] #reportDraw{ background:#F5C518; color:#3A2A00; box-shadow:0 3px 0 #A8830A, 0 6px 14px rgba(0,0,0,.3); }
+#report[data-kind="idea"] #reportDraw .done{ color:#A8830A; }
+#report[data-kind="idea"] #reportDraw:active:not(:disabled){ box-shadow:0 1px 0 #A8830A; }
+/* The moment a report is sent (sendFx.ts): a bulb that lights up for an idea, a swatter that squashes a bug */
+#sendFx{ position:fixed; left:50%; top:44%; z-index:9; width:220px; transform:translate(-50%,-50%); display:flex; flex-direction:column; align-items:center; pointer-events:none; animation:fxIn 1.7s ease both; }
+#sendFx[hidden]{ display:none; }
+#sendFx svg{ width:180px; height:auto; overflow:visible; }
+#sendFx b{ margin-top:4px; font:800 26px "Baloo 2","Trebuchet MS",system-ui,sans-serif; color:#fff; text-shadow:0 2px 0 rgba(0,0,0,.35), 0 0 12px rgba(0,0,0,.35); opacity:0; animation:fxWord 1.7s ease both; }
+@keyframes fxIn{ 0%{ opacity:0; transform:translate(-50%,-50%) scale(.6); } 10%{ opacity:1; transform:translate(-50%,-50%) scale(1); } 85%{ opacity:1; transform:translate(-50%,-50%) scale(1); } 100%{ opacity:0; transform:translate(-50%,-58%) scale(.96); } }
+@keyframes fxWord{ 0%, 34%{ opacity:0; transform:translateY(6px) scale(.8); } 44%{ opacity:1; transform:translateY(0) scale(1.08); } 52%, 100%{ opacity:1; transform:none; } }
+#sendFx.bug b{ animation-name:fxWordBug; }
+@keyframes fxWordBug{ 0%, 53%{ opacity:0; transform:translateY(6px) scale(.8); } 62%{ opacity:1; transform:translateY(0) scale(1.1); } 70%, 100%{ opacity:1; transform:none; } }
+/* the bulb: off and grey, a flicker, then on, bright, with a glow and rays */
+#sendFx .glass{ fill:#CFD8DE; stroke:#6B7C88; stroke-width:4; animation:bulbGlass 1.7s step-end both; }
+#sendFx .filament{ fill:none; stroke:#6B7C88; stroke-width:3.5; stroke-linejoin:round; animation:bulbWire 1.7s step-end both; }
+#sendFx .base{ fill:#9AA6AE; }
+#sendFx .tip{ fill:#5E6B73; }
+#sendFx .glow{ fill:#FFE45C; opacity:0; transform-box:fill-box; transform-origin:center; animation:bulbGlow 1.7s ease-out both; }
+#sendFx .rays line{ stroke:#FFD23F; stroke-width:7; stroke-linecap:round; }
+#sendFx .rays{ opacity:0; transform-box:view-box; transform-origin:80px 66px; animation:bulbRays 1.7s ease-out both; }
+@keyframes bulbGlass{ 0%{ fill:#CFD8DE; stroke:#6B7C88; } 16%{ fill:#FFF3A8; stroke:#B88A00; } 20%{ fill:#CFD8DE; stroke:#6B7C88; } 25%{ fill:#FFF3A8; stroke:#B88A00; } 27%{ fill:#CFD8DE; stroke:#6B7C88; } 31%, 100%{ fill:#FFE45C; stroke:#B88A00; } }
+@keyframes bulbWire{ 0%{ stroke:#6B7C88; } 16%{ stroke:#FF8C1A; } 20%{ stroke:#6B7C88; } 25%{ stroke:#FF8C1A; } 27%{ stroke:#6B7C88; } 31%, 100%{ stroke:#FF8C1A; } }
+@keyframes bulbGlow{ 0%, 30%{ opacity:0; transform:scale(.7); } 38%{ opacity:.55; transform:scale(1.15); } 60%{ opacity:.35; transform:scale(1); } 75%{ opacity:.45; transform:scale(1.05); } 100%{ opacity:.3; transform:scale(1); } }
+@keyframes bulbRays{ 0%, 30%{ opacity:0; transform:scale(.6); } 40%{ opacity:1; transform:scale(1.1); } 70%{ opacity:1; transform:scale(1); } 100%{ opacity:.6; transform:scale(1.04); } }
+/* the bug: it scurries, the swatter swings down on it, and it's a splat */
+#sendFx .critter{ transform-box:fill-box; transform-origin:50% 100%; animation:bugRun 1.7s ease-in-out both; }
+#sendFx .body{ fill:#4A2E1E; }
+#sendFx .head{ fill:#2B1A10; }
+#sendFx .shell{ stroke:#2B1A10; stroke-width:2.5; }
+#sendFx .eye{ fill:#fff; }
+#sendFx .legs path, #sendFx .antennae{ fill:none; stroke:#2B1A10; stroke-width:4; stroke-linecap:round; }
+#sendFx .antennae{ stroke-width:3; }
+#sendFx .legs{ transform-box:fill-box; transform-origin:center; animation:bugLegs .14s linear 4 alternate; }
+#sendFx .splat{ fill:#9BCB3C; stroke:#5E8A1A; stroke-width:3; opacity:0; transform-box:fill-box; transform-origin:center; animation:bugSplat 1.7s ease-out both; }
+#sendFx .burst line{ stroke:#FFD23F; stroke-width:6; stroke-linecap:round; }
+#sendFx .burst{ opacity:0; transform-box:view-box; transform-origin:80px 118px; animation:bugBurst 1.7s ease-out both; }
+#sendFx .handle, #sendFx .neck{ fill:#8B5A2B; }
+#sendFx .pad{ fill:#2F9E8F; stroke:#1E6F64; stroke-width:3; }
+#sendFx .mesh{ fill:none; stroke:rgba(255,255,255,.5); stroke-width:2; }
+#sendFx .swatter{ transform-box:view-box; transform-origin:80px -40px; animation:swat 1.7s cubic-bezier(.5,0,.75,0) both; }
+#sendFx.bug svg{ animation:shake 1.7s linear both; }
+@keyframes bugRun{ 0%{ transform:translateX(-10px); } 12%{ transform:translateX(12px) rotate(8deg); } 24%{ transform:translateX(-12px) rotate(-8deg); } 36%{ transform:translateX(8px) rotate(6deg); } 46%{ transform:translateX(-4px) rotate(-4deg); } 52%{ transform:none; opacity:1; } 55%{ transform:scale(1.7,.18); opacity:1; } 62%, 100%{ transform:scale(1.8,.12); opacity:0; } }
+@keyframes bugLegs{ to{ transform:scaleX(.82); } }
+@keyframes bugSplat{ 0%, 53%{ opacity:0; transform:scale(.3); } 58%{ opacity:1; transform:scale(1.15); } 66%, 100%{ opacity:1; transform:scale(1); } }
+@keyframes bugBurst{ 0%, 53%{ opacity:0; transform:scale(.5); } 58%{ opacity:1; transform:scale(1); } 74%, 100%{ opacity:0; transform:scale(1.4); } }
+@keyframes swat{ 0%, 30%{ transform:rotate(70deg); opacity:0; } 34%{ opacity:1; transform:rotate(70deg); } 53%{ transform:rotate(-4deg); } 56%, 68%{ transform:rotate(0deg); animation-timing-function:ease-out; } 84%, 100%{ transform:rotate(40deg); opacity:0; } }
+@keyframes shake{ 0%, 53%{ transform:none; } 55%{ transform:translate(-4px,3px); } 57%{ transform:translate(4px,-2px); } 59%{ transform:translate(-2px,1px); } 61%, 100%{ transform:none; } }
+@media (prefers-reduced-motion: reduce){
+  #sendFx, #sendFx *{ animation-duration:1.7s !important; }
+  #sendFx .critter, #sendFx .swatter, #sendFx.bug svg, #sendFx .legs, #sendFx .rays, #sendFx .burst{ animation:none !important; }
+  #sendFx .swatter, #sendFx .burst{ opacity:0; }
+  #sendFx .glass{ animation:none; fill:#FFE45C; stroke:#B88A00; }
+  #sendFx .filament{ animation:none; stroke:#FF8C1A; }
+}
 /* Draw-a-Bug (sketch.ts): the report's picture big over the dimmed game, to draw on in red */
 #draw{ position:fixed; inset:0; z-index:10; display:grid; place-items:center; padding:12px; background:rgba(23,48,66,.7); }
 #draw[hidden]{ display:none; }
@@ -789,6 +844,7 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
   </ul></details>
   <div class="btns"><button type="button" id="reportCancel">Cancel</button><button type="button" id="reportSend">Send</button></div>
 </div></div>
+<div id="sendFx" aria-hidden="true" hidden></div>
 <div id="draw" role="dialog" aria-modal="true" aria-labelledby="drawTitle" hidden><div class="card">
   <p id="drawTitle">Draw-a-Bug: circle what's wrong</p>
   <canvas id="drawCanvas" aria-label="The picture of the game. Draw on it in red"></canvas>
