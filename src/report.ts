@@ -128,14 +128,18 @@ function newId() {
 /** A list in words: "a", "a and b", "a, b and c". */
 const words = (l: string[]) => l.length < 2 ? l.join('') : l.slice(0, -1).join(', ') + ' and ' + l[l.length - 1];
 
-/** The notice says exactly what Send shares, and a line under the boxes says what leaving one out costs. */
+/**
+ * What's sent, by the Send button: in a line ("your note, this picture and your game state"), and opened up, what each
+ * of those is, what always goes and never does, and how long it's kept, listing only what's ticked. A line under the
+ * boxes says what leaving one out costs.
+ */
 function showNotice() {
   const pic = shotOn.checked && !!shot, state = stateOn.checked;
-  const what = ['your note', ...(pic ? ['this picture'] : []), ...(state ? ['your game state'] : [])];
-  const kept = pic && state ? 'The picture and game state are' : pic ? 'The picture is' : state ? 'The game state is' : '';
-  notice.textContent = `Sending shares ${words(what)} with the developer, to find and fix the problem. ` +
-    'The game version, your device type and recent errors go too. Your name and email are not sent.' +
-    (kept ? ` ${kept} deleted after 7 days.` : '');
+  notice.textContent = words(['your note', ...(pic ? ['this picture'] : []), ...(state ? ['your game state'] : [])]);
+  $('whatShot').hidden = !pic;
+  $('whatState').hidden = !state;
+  $('whatKept').hidden = !pic && !state;
+  $('whatKeptText').textContent = pic && state ? 'the picture and game state are' : pic ? 'the picture is' : 'the game state is';
   const lost = [
     ...(shotOn.checked ? [] : ['Without the picture, it may be hard to see what went wrong.']),
     ...(stateOn.checked ? [] : ['Without your game state, the developer may not be able to make it happen again to fix it.']),

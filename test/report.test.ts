@@ -95,9 +95,16 @@ describe('reporting a bug or an idea', () => {
     expect(($('reportShot') as HTMLImageElement).src).toBe(SHOT);
     expect($('reportShot').hidden).toBe(false);
     expect(box('reportShotOn').checked && box('reportStateOn').checked).toBe(true);
-    expect($('reportNotice').textContent).toBe('Sending shares your note, this picture and your game state with the '
-      + 'developer, to find and fix the problem. The game version, your device type and recent errors go too. Your '
-      + 'name and email are not sent. The picture and game state are deleted after 7 days.');
+    expect($('reportWhat').querySelector('summary')!.textContent).toBe("What's sent: your note, this picture and your game state");
+    const what = () => [...$('reportWhat').querySelectorAll('li')].filter(l => !l.hidden).map(l => l.textContent);
+    expect(what()).toEqual([
+      "Your note, and whether it's a bug or an idea.",
+      'This picture: the game as it was when you opened this, and anything you drew on it.',
+      "Your game state: your saved game (progress, look and settings), and where you're standing, what's open on screen, the season and how long you've played this visit.",
+      "Always: the game's version, your device type (graphics setting, frame rate, screen size, touch or not, browser) and the last few errors the game hit.",
+      'Never: your name or email. Your account is only used to stop too many reports at once.',
+      'Kept 7 days: the picture and game state are deleted after that. Everything goes to the developer, only to find and fix the problem.',
+    ]);
     expect($('reportWarn').hidden).toBe(true);
     expect($('reportCount').textContent).toBe('0 / 1000');
     // ✕, Cancel, a click on the dimmed game around it, and Escape each close it, keeping the note for next time
@@ -124,15 +131,16 @@ describe('reporting a bug or an idea', () => {
     tick('reportShotOn', false);
     expect($('reportShot').classList.contains('off')).toBe(true);
     expect($('reportWarn').textContent).toBe('Without the picture, it may be hard to see what went wrong.');
-    expect($('reportNotice').textContent).toMatch(/^Sending shares your note and your game state with/);
-    expect($('reportNotice').textContent).toMatch(/The game state is deleted after 7 days\.$/);
+    expect($('reportNotice').textContent).toBe('your note and your game state');
+    expect($('whatShot').hidden).toBe(true);
+    expect($('whatKept').textContent).toMatch(/^Kept 7 days: the game state is deleted/);
     tick('reportStateOn', false);
     expect($('reportWarn').textContent).toBe('Without the picture, it may be hard to see what went wrong. Without your '
       + 'game state, the developer may not be able to make it happen again to fix it.');
-    expect($('reportNotice').textContent).toMatch(/^Sending shares your note with/);
-    expect($('reportNotice').textContent).toMatch(/are not sent\.$/);
+    expect($('reportNotice').textContent).toBe('your note');
+    expect($('whatKept').hidden && $('whatState').hidden).toBe(true);
     tick('reportShotOn', true);
-    expect($('reportNotice').textContent).toMatch(/The picture is deleted after 7 days\.$/);
+    expect($('whatKept').textContent).toMatch(/^Kept 7 days: the picture is deleted/);
     expect($('reportWarn').textContent).not.toContain('picture');
     // both start ticked again the next time it opens
     $('reportClose').click(); $('reportCat').click();
@@ -181,7 +189,7 @@ describe('reporting a bug or an idea', () => {
     $('reportCat').click();
     expect($('reportShot').hidden).toBe(true);
     expect(box('reportShotOn').disabled).toBe(true);
-    expect($('reportNotice').textContent).toMatch(/^Sending shares your note and your game state with/);
+    expect($('reportNotice').textContent).toBe('your note and your game state');
   });
 
   it("asks for a few words before sending, and won't send twice in a couple of minutes", async () => {

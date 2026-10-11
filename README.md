@@ -205,12 +205,9 @@ The 🏆 button (top right) lists the 20 players who have held the most cash at 
 - **The form:**
   - Bug or Idea, and a note of up to 1,000 characters.
   - A picture of the game, taken the moment the window opens.
-  - **Draw-a-Bug** (Draw-an-Idea for an idea), under the picture, or a tap on the picture: opens it big over the game to circle what's wrong in red, with a finger or the mouse. Undo takes back the last line, Clear all of them, and Done keeps them, ready to change again; Escape puts it away without the new lines. The picture goes with the lines on it.
+  - **Draw-a-Bug** (Draw-an-Idea for an idea), the red crayon button on the picture's corner, or a tap on the picture: opens it big over the game to circle what's wrong in red, with a finger or the mouse. Undo takes back the last line, Clear all of them, and Done keeps them, ready to change again; Escape puts it away without the new lines. The picture goes with the lines on it.
   - Two tickboxes, both on each time it opens: **Include this picture** and **Include my game state**. The game state is the save (progress, look and settings) plus where the player is standing and facing, what's open on screen, the season, the sound's mutes, the cloud's state and how many minutes they've played this visit.
-- **What the player is told:** the notice above Send lists exactly what goes, and changes as the boxes are ticked:
-  > Sending shares your note, this picture and your game state with the developer, to find and fix the problem. The game version, your device type and recent errors go too. Your name and email are not sent. The picture and game state are deleted after 7 days.
-
-  Unticking a box adds a warning under it: "Without the picture, it may be hard to see what went wrong", or "Without your game state, the developer may not be able to make it happen again to fix it". **What's sent** opens into the full list.
+- **What the player is told:** above Send, **What's sent** says in a line what goes ("your note, this picture and your game state") and changes as the boxes are ticked. Opened, it lists what each of those is, what always goes and what never does (their name and email), and that the picture and game state are deleted after 7 days. Unticking a box adds a warning under it: "Without the picture, it may be hard to see what went wrong", or "Without your game state, the developer may not be able to make it happen again to fix it".
 - **Always sent:** the commit the game was built from, the graphics setting and frame rate, screen size, whether it's a touch screen, the browser, and the last 10 errors the game hit this visit.
 - **Sending:**
   - "Thanks! Your report is on its way."
