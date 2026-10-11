@@ -10,7 +10,7 @@ import { inputVec } from './input';
 import { updKofi } from './kofi';
 import { player } from './player';
 import { updPointers } from './pointers';
-import { initReports } from './report';
+import { initReports, updReports } from './report';
 import { camera, camK, fog, OFF, renderer, scene, sun, sunOff } from './render';
 import { isStale, load, startAutosave, wipeSave } from './save';
 import { initScores } from './scores';
@@ -58,7 +58,7 @@ function frame(now: number) {
   frameDrawn((now - last) / 1000);
   const dt = Math.min(0.05, (now - last) / 1000);
   last = now;
-  if (!isStale()) { tick(dt); updKofi(dt); }
+  if (!isStale()) { tick(dt); updKofi(dt); updReports(dt); }
 
   // Follow the player; the stage-up pulls back to look over the whole map for a moment, picking a look comes in close,
   // and so does playing a game on the casino boat, over its table.

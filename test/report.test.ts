@@ -74,6 +74,31 @@ describe('reporting a bug or an idea', () => {
     expect($('errReport').hidden).toBe(true);
   });
 
+  it('tells a player who played before, once, that they can report from the menu', async () => {
+    const { r } = await start(true);
+    $('gear').click(); // closes the menu start() opened
+    r.updReports(1);
+    expect(localStorage.getItem(r.NEWS_KEY)).toBe('new'); // not straight away
+    $('gear').click();
+    r.updReports(r.NEWS_AFTER);
+    expect(localStorage.getItem(r.NEWS_KEY)).toBe('new'); // nor while the menu is open
+    $('gear').click();
+    r.updReports(0.02);
+    await vi.waitFor(() => expect($('toast').textContent).toBe('🐞 You can now report bugs and ideas from the ⚙️ menu'));
+    expect(localStorage.getItem(r.NEWS_KEY)).toBe('seen');
+  });
+
+  it("tells a new player nothing, nor one who's found it already", async () => {
+    await loadGame();
+    localStorage.removeItem('floe-market-v1');
+    const r = await import('../src/report');
+    r.initReports();
+    expect(localStorage.getItem(r.NEWS_KEY)).toBe('seen');
+    const { r: again } = await start();
+    $('reportCat').click();
+    expect(localStorage.getItem(again.NEWS_KEY)).toBe('seen');
+  });
+
   it('asks a player who is signed out to sign in first', async () => {
     const { c } = await start(true);
     expect($('reportCat').hidden).toBe(false);

@@ -4,7 +4,8 @@
 // says exactly what goes. Draw-a-Bug (sketch.ts) opens the picture big to circle what's wrong in red. It's sent to
 // Firestore (cloud.ts, firebase.ts), and a workflow in a private repo turns it into a GitHub issue (intake/). A report
 // that can't reach the cloud waits on the device and goes when it can. The error box's Report this button (errors.ts)
-// opens it with the error written in.
+// opens it with the error written in. A player who played before reports came is told once, a few seconds into their
+// game, that they can report from the menu now.
 import { prefs } from './audio';
 import { cloud, cloudEnabled, onCloud, sendReport, type Report, type Sent } from './cloud';
 import { recentErrors } from './errors';
@@ -12,7 +13,7 @@ import { frameRate, gfx } from './graphics';
 import { player } from './player';
 import { camera, renderer, scene } from './render';
 import { sushi } from './restaurant';
-import { deviceStore, save } from './save';
+import { deviceStore, save, SAVE_KEY } from './save';
 import { current } from './season';
 import { openSettings } from './settings';
 import { celebrate } from './sendFx';
@@ -39,6 +40,22 @@ const QUEUE_MAX = 2;
 const PANELS = ['shop', 'look', 'roulette', 'blackjack', 'korki', 'scores', 'cloudPick', 'stale', 'hint'];
 
 const $ = (id: string) => document.getElementById(id)!;
+
+/** Whether this device's player was told reports are in the menu: 'new' (not yet) or 'seen'. */
+export const NEWS_KEY = 'floe-market-report-news';
+/** Seconds into a returning player's game before they're told. */
+export const NEWS_AFTER = 3;
+/** A player who played before reports came (their save was here when the game loaded) gets told; a new one doesn't. */
+let news = false, newsWait = 0;
+try {
+  const was = localStorage.getItem(NEWS_KEY);
+  news = was === null ? !!localStorage.getItem(SAVE_KEY) : was === 'new';
+  if (was === null) localStorage.setItem(NEWS_KEY, news ? 'new' : 'seen');
+} catch { /* storage unavailable: nobody to tell */ }
+function newsSeen() {
+  news = false;
+  try { localStorage.setItem(NEWS_KEY, 'seen'); } catch { /* it may come again next time */ }
+}
 const row = $('reportCat'), win = $('report'), name = $('reportName');
 const text = $('reportText') as HTMLTextAreaElement, count = $('reportCount');
 const shotImg = $('reportShot') as HTMLImageElement;
@@ -181,6 +198,7 @@ function showRow() {
  * ticked, and optionally a note already written. A note written before and not sent is still there.
  */
 export function openReport(note = '') {
+  if (news) newsSeen(); // found it already
   if (!cloud.user) { $('cloud').click(); return; }
   openSettings(false);
   base = takeShot();
@@ -286,6 +304,15 @@ async function send() {
     writeQueue([...readQueue(), r]);
     toast("Thanks! It'll send when you're back online", 'report', 2600);
   }
+}
+
+/** Call every frame: tells a returning player once that they can report from the menu (when nothing's open over it). */
+export function updReports(dt: number) {
+  if (!news || row.hidden) return;
+  newsWait += dt;
+  if (newsWait < NEWS_AFTER || !$('settings').hidden || !win.hidden || $('banner').classList.contains('on')) return;
+  newsSeen();
+  toast('🐞 You can now report bugs and ideas from the ⚙️ menu', undefined, 5000);
 }
 
 /** Shows the row once cloud saves are set up, and sends any reports left waiting. */

@@ -213,6 +213,7 @@ The 🏆 button (top right) lists the 20 players who have held the most cash at 
   - A moment over the game: for an idea, a light bulb flickers on bright with a chime, "Bright idea!"; for a bug, a fly swatter comes down on a scurrying bug with a swish and a smack, "Bug squashed!". That's all a player sees when it goes; words come up only when it doesn't (refused, or waiting to go online).
   - A player can send 20 reports an hour, at least a second apart; the hour starts with the first. One sent within a second of the last waits out the second and then goes. A 21st says how many minutes until they can send more, and the window stays open with the note in it.
   - When the cloud can't be reached, the report waits on the device (the newest two at most) and goes when the player is next signed in and synced. The thanks says so.
+- **Telling players:** a player who played before reports came gets a toast once, 3 seconds into their game (when nothing else is open): "🐞 You can now report bugs and ideas from the ⚙️ menu". New players aren't told, and nor is anyone who has opened it already.
 - **When something breaks:** the red error box has a **Report this** button, which opens the form with the error written in.
 - **Data:** each report is a Firestore document in `reports/`, with a name of 20 letters and digits.
   - Only players signed in with Google can add one, and nobody can read, change or delete one from the game.
