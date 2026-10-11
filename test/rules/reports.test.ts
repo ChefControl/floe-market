@@ -43,9 +43,10 @@ const counted = (since: Timestamp, n: number) => ({ last: serverTimestamp(), sin
 describe('bug reports', () => {
   it('a player signed in with Google can send one, with or without the picture and game state', async () => {
     await assertSucceeds(send(google()));
-    await admin(db => setDoc(doc(db, 'limits', 'u2'), { last: ago(3), since: ago(60), n: 1 }));
+    const since = ago(60);
+    await admin(db => setDoc(doc(db, 'limits', 'u2'), { last: ago(3), since, n: 1 }));
     const bare = Object.fromEntries(Object.entries(report({ uid: 'u2' })).filter(([k]) => !['live', 'save', 'shot'].includes(k)));
-    await assertSucceeds(send(google('u2'), bare, counted(ago(60), 2), 'u2'));
+    await assertSucceeds(send(google('u2'), bare, counted(since, 2), 'u2'));
   });
 
   it("can't be read, changed or deleted by any player, even the one who sent it", async () => {
@@ -93,10 +94,11 @@ describe('bug reports', () => {
 
 describe('the count that spaces reports out', () => {
   it('turns away a report within 2 minutes of the last', async () => {
-    await admin(db => setDoc(doc(db, 'limits', 'u1'), { last: ago(1), since: ago(60), n: 1 }));
-    await assertFails(send(google(), report(), counted(ago(60), 2)));
-    await admin(db => setDoc(doc(db, 'limits', 'u1'), { last: ago(3), since: ago(60), n: 1 }));
-    await assertSucceeds(send(google(), report(), counted(ago(60), 2)));
+    const since = ago(60);
+    await admin(db => setDoc(doc(db, 'limits', 'u1'), { last: ago(1), since, n: 1 }));
+    await assertFails(send(google(), report(), counted(since, 2)));
+    await admin(db => setDoc(doc(db, 'limits', 'u1'), { last: ago(3), since, n: 1 }));
+    await assertSucceeds(send(google(), report(), counted(since, 2)));
   });
 
   it('allows 10 a day, then starts again a day after the count began', async () => {
@@ -111,9 +113,11 @@ describe('the count that spaces reports out', () => {
   });
 
   it("can be read by its own player only, and holds only the count's fields", async () => {
-    await admin(db => setDoc(doc(db, 'limits', 'u1'), { last: ago(3), since: ago(60), n: 1 }));
+    const since = ago(60);
+    await admin(db => setDoc(doc(db, 'limits', 'u1'), { last: ago(3), since, n: 1 }));
     await assertSucceeds(getDoc(doc(google(), 'limits', 'u1')));
     await assertFails(getDoc(doc(google('u2'), 'limits', 'u1')));
-    await assertFails(send(google(), report(), { ...counted(ago(60), 2), extra: true }));
+    await assertFails(send(google(), report(), { ...counted(since, 2), extra: true }));
+    await assertSucceeds(send(google(), report(), counted(since, 2)));
   });
 });

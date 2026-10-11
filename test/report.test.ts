@@ -137,7 +137,7 @@ describe('reporting a bug or an idea', () => {
     await vi.waitFor(() => expect(fake.reports).toHaveLength(1));
     const { uid, r } = fake.reports[0];
     expect(uid).toBe('u1');
-    expect(r).toMatchObject({ kind: 'idea', text: 'More fish, please', build: 'dev', shot: SHOT });
+    expect(r).toMatchObject({ kind: 'idea', text: 'More fish, please', build: __BUILD__, shot: SHOT });
     expect(String(r.id)).toMatch(/^[A-Za-z0-9]{20}$/);
     expect(JSON.parse(String(r.save))).toMatchObject({ money: 77 }); // saved the moment it was sent
     expect(JSON.parse(String(r.live))).toMatchObject({ stage: 1, season: 'winter', open: [], cloud: 'saved' });
