@@ -96,12 +96,12 @@ describe('the Firebase backend', () => {
     const fields = { kind: 'bug', text: 'Stuck', build: 'abc', device: '{}', errors: '[]', uid: 'u1', at: 'server-time', status: 'new' };
     // the first report: a new count
     await b.sendReport('u1', r);
-    // within the day: the count goes on from where it was
-    const since = { toMillis: () => Date.now() - 3_600_000 };
+    // within the hour: the count goes on from where it was
+    const since = { toMillis: () => Date.now() - 1_800_000 };
     sdk.doc = { since, n: 3 } as never;
     await b.sendReport('u1', r);
-    // a day on: the count starts again
-    sdk.doc = { since: { toMillis: () => Date.now() - 90_000_000 }, n: 10 } as never;
+    // an hour on: the count starts again
+    sdk.doc = { since: { toMillis: () => Date.now() - 4_000_000 }, n: 5 } as never;
     await b.sendReport('u1', { ...r, shot: 'data:image/jpeg;base64,AA' });
     const fresh = { last: 'server-time', since: 'server-time', n: 1 };
     expect(sdk.batch).toEqual([

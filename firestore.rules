@@ -5,8 +5,8 @@ rules_version = '2';
 // can read it, a page of at most 50 at a time, and only that signed-in player can write it. A bug report (src/report.ts)
 // is a document in reports/, which a player signed in with Google can add but no player can read, change or delete;
 // the intake workflow (intake/) reads them with its own service account, which these rules don't apply to. Each
-// report goes with an update to limits/{uid}, which spaces a player's reports at least 2 minutes apart and at most 10
-// a day. config/reports, made by hand in the console, switches reports on ({open: true}) and off. Paste these into
+// report goes with an update to limits/{uid}, which counts a player's reports: up to 5 in an hour, one straight after
+// another if need be, and the count starts again an hour after its first. config/reports, made by hand in the console, switches reports on ({open: true}) and off. Paste these into
 // Firestore's Rules tab in the Firebase console (tests: test/rules/).
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -54,15 +54,15 @@ service cloud.firestore {
         && (!('save' in request.resource.data) || str(request.resource.data.save, 99999))
         && (!('shot' in request.resource.data) || (str(request.resource.data.shot, 200000)
           && request.resource.data.shot.matches('data:image/jpeg;base64,[A-Za-z0-9+/=]+')))
-        // sent together with the player's count, which the rules below space out
+        // sent together with the player's count, which the rules below keep to 5 an hour
         && getAfter(/databases/$(database)/documents/limits/$(request.auth.uid)).data.last == request.time;
     }
 
     match /limits/{uid} {
-      // a new day's count: the first report, or the first in a day since the count started
+      // a new hour's count: the first report, or the first once an hour has passed since the count started
       function restart() {
         return request.resource.data.since == request.time && request.resource.data.n == 1
-          && (resource == null || request.time > resource.data.since + duration.value(1, 'd'));
+          && (resource == null || request.time > resource.data.since + duration.value(1, 'h'));
       }
       function counted() {
         return request.resource.data.keys().hasOnly(['last', 'since', 'n']) && request.resource.data.last == request.time;
@@ -70,9 +70,8 @@ service cloud.firestore {
       allow get: if googleUser(uid);
       allow create: if googleUser(uid) && counted() && restart();
       allow update: if googleUser(uid) && counted()
-        && request.time > resource.data.last + duration.value(2, 'm')
         && (restart() || (request.resource.data.since == resource.data.since
-          && request.resource.data.n == resource.data.n + 1 && request.resource.data.n <= 10));
+          && request.resource.data.n == resource.data.n + 1 && request.resource.data.n <= 5));
     }
   }
 }

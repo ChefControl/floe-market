@@ -25,10 +25,10 @@ export const TEXT_MAX = 1000;
 export const SHOT_MAX = 200_000, SAVE_MAX = 100_000;
 /** How wide the picture is, in pixels. */
 const SHOT_W = 640;
-/** The rules turn away a report sent within 2 minutes of the last; the game says so before trying. */
-export const SPACING = 120_000;
-/** Reports waiting for the cloud, and when the last one went. */
-export const QUEUE_KEY = 'floe-reports', LAST_KEY = 'floe-report-last';
+/** The rules let a player send 5 reports an hour, counted from the first; the game says so before trying. */
+export const QUOTA = 5, WINDOW = 3_600_000;
+/** Reports waiting for the cloud, and this hour's count of those sent ({since, n}, as limits/{uid} keeps it). */
+export const QUEUE_KEY = 'floe-reports', COUNT_KEY = 'floe-report-count';
 /** How many reports wait on the device at most (each can be a few hundred kB). */
 const QUEUE_MAX = 2;
 /** The panels that can be open over the game, for the report's `live` state. */
@@ -212,6 +212,19 @@ function writeQueue(q: Report[]) {
   deviceStore.remove(QUEUE_KEY);
 }
 
+/** This hour's count of reports sent from this device, or a new one if the last hour's has run out. */
+function sentCount(now = Date.now()): { since: number; n: number } {
+  try {
+    const c = JSON.parse(deviceStore.read(COUNT_KEY) ?? '') as { since: number; n: number };
+    if (now - c.since <= WINDOW && c.n > 0) return c;
+  } catch { /* none kept yet */ }
+  return { since: now, n: 0 };
+}
+function countSent() {
+  const c = sentCount();
+  deviceStore.write(JSON.stringify({ since: c.since, n: c.n + 1 }), COUNT_KEY);
+}
+
 let flushing = false;
 /** Sends the reports waiting on the device, oldest first, while the cloud takes them. */
 export async function flush() {
@@ -223,7 +236,7 @@ export async function flush() {
       if (how === 'offline') return;
       // refused: most likely it got through last time and was waiting in Firebase, so it's there already
       writeQueue(readQueue().filter(w => w.id !== r.id));
-      if (how === 'sent') deviceStore.write(String(Date.now()), LAST_KEY);
+      if (how === 'sent') countSent();
     }
   } finally { flushing = false; }
 }
@@ -231,7 +244,12 @@ export async function flush() {
 async function send() {
   const note = text.value.trim();
   if (!note) { warn.textContent = 'Write a few words first.'; warn.hidden = false; text.focus(); return; }
-  if (Date.now() - Number(deviceStore.read(LAST_KEY)) < SPACING) { toast('You just sent one. Try again in a couple of minutes', 'report', 2600); return; }
+  const c = sentCount();
+  if (c.n >= QUOTA) {
+    const min = Math.max(1, Math.ceil((c.since + WINDOW - Date.now()) / 60_000));
+    toast(`That's ${QUOTA} reports this hour. You can send more in ${min} minute${min === 1 ? '' : 's'}`, 'report', 3200);
+    return;
+  }
   const r: Report = {
     id: newId(), kind, text: note.slice(0, TEXT_MAX), build: __BUILD__, device: device(),
     errors: JSON.stringify(recentErrors),
@@ -243,9 +261,9 @@ async function send() {
   celebrate(kind);
   const how = await sendReport(r);
   if (how === 'sent') {
-    deviceStore.write(String(Date.now()), LAST_KEY);
+    countSent();
     toast('Thanks! Your report is on its way', 'report', 2600);
-  } else if (how === 'refused') toast("Couldn't send it just now. Try again in a few minutes", 'report', 2600);
+  } else if (how === 'refused') toast("Couldn't send it just now. Try again later", 'report', 2600);
   else {
     writeQueue([...readQueue(), r]);
     toast("Thanks! It'll send when you're back online", 'report', 2600);

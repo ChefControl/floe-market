@@ -201,8 +201,8 @@ describe('reporting a bug or an idea', () => {
     expect($('reportNotice').textContent).toBe('your note and your game state');
   });
 
-  it("asks for a few words before sending, and won't send twice in a couple of minutes", async () => {
-    await start();
+  it('asks for a few words before sending, then sends 5 an hour, one straight after another', async () => {
+    const { r } = await start();
     $('reportCat').click();
     $('reportSend').click();
     expect($('reportWarn').textContent).toBe('Write a few words first.');
@@ -211,11 +211,24 @@ describe('reporting a bug or an idea', () => {
     expect($('reportWarn').hidden).toBe(true);
     $('reportSend').click();
     await vi.waitFor(() => expect($('toast').textContent).toBe('Thanks! Your report is on its way'));
+    for (let i = 2; i <= 5; i++) {
+      $('reportCat').click();
+      write(`Number ${i}`);
+      $('reportSend').click();
+      await vi.waitFor(() => expect(JSON.parse(localStorage.getItem(r.COUNT_KEY)!).n).toBe(i));
+    }
+    // the sixth waits for the hour, and the window stays open with the note in it
     $('reportCat').click();
-    write('Second');
+    write('Sixth');
     $('reportSend').click();
-    expect($('toast').textContent).toBe('You just sent one. Try again in a couple of minutes');
-    expect(fake.reports).toHaveLength(1);
+    expect($('toast').textContent).toBe("That's 5 reports this hour. You can send more in 60 minutes");
+    expect(fake.reports).toHaveLength(5);
+    expect($('report').hidden).toBe(false);
+    expect(($('reportText') as HTMLTextAreaElement).value).toBe('Sixth');
+    // an hour after the first, it goes
+    localStorage.setItem(r.COUNT_KEY, JSON.stringify({ since: Date.now() - r.WINDOW - 1000, n: r.QUOTA }));
+    $('reportSend').click();
+    await vi.waitFor(() => expect(fake.reports).toHaveLength(6));
   });
 
   it('says so when the cloud turns it away, and keeps nothing to send again', async () => {
@@ -224,7 +237,7 @@ describe('reporting a bug or an idea', () => {
     $('reportCat').click();
     write('Too soon');
     $('reportSend').click();
-    await vi.waitFor(() => expect($('toast').textContent).toBe("Couldn't send it just now. Try again in a few minutes"));
+    await vi.waitFor(() => expect($('toast').textContent).toBe("Couldn't send it just now. Try again later"));
     expect(localStorage.getItem(r.QUEUE_KEY)).toBeNull();
   });
 

@@ -1,5 +1,5 @@
 // firestore.rules for bug reports, against the Firestore emulator: `npm run test:rules` (needs Java). Players signed in
-// with Google can add a report, a couple of minutes and at most 10 a day apart, and nobody can read one back.
+// with Google can add up to 5 reports an hour, and nobody can read one back.
 import { readFileSync } from 'node:fs';
 import {
   assertFails, assertSucceeds, initializeTestEnvironment, type RulesTestEnvironment,
@@ -43,7 +43,7 @@ const counted = (since: Timestamp, n: number) => ({ last: serverTimestamp(), sin
 describe('bug reports', () => {
   it('a player signed in with Google can send one, with or without the picture and game state', async () => {
     await assertSucceeds(send(google()));
-    const since = ago(60);
+    const since = ago(30);
     await admin(db => setDoc(doc(db, 'limits', 'u2'), { last: ago(3), since, n: 1 }));
     const bare = Object.fromEntries(Object.entries(report({ uid: 'u2' })).filter(([k]) => !['live', 'save', 'shot'].includes(k)));
     await assertSucceeds(send(google('u2'), bare, counted(since, 2), 'u2'));
@@ -92,28 +92,27 @@ describe('bug reports', () => {
   });
 });
 
-describe('the count that spaces reports out', () => {
-  it('turns away a report within 2 minutes of the last', async () => {
-    const since = ago(60);
-    await admin(db => setDoc(doc(db, 'limits', 'u1'), { last: ago(1), since, n: 1 }));
-    await assertFails(send(google(), report(), counted(since, 2)));
-    await admin(db => setDoc(doc(db, 'limits', 'u1'), { last: ago(3), since, n: 1 }));
+describe('the count that keeps reports to 5 an hour', () => {
+  it('lets a player send them one straight after another', async () => {
+    const since = ago(1);
+    await admin(db => setDoc(doc(db, 'limits', 'u1'), { last: ago(0.05), since, n: 1 }));
     await assertSucceeds(send(google(), report(), counted(since, 2)));
+    await assertSucceeds(send(google(), report(), counted(since, 3)));
   });
 
-  it('allows 10 a day, then starts again a day after the count began', async () => {
-    const since = ago(600);
-    await admin(db => setDoc(doc(db, 'limits', 'u1'), { last: ago(3), since, n: 10 }));
-    await assertFails(send(google(), report(), counted(since, 11)));
-    // the count can't be started over before the day is out, or skipped back
+  it('allows 5 an hour, then starts again an hour after the count began', async () => {
+    const since = ago(40);
+    await admin(db => setDoc(doc(db, 'limits', 'u1'), { last: ago(3), since, n: 5 }));
+    await assertFails(send(google(), report(), counted(since, 6)));
+    // the count can't be started over before the hour is out, or skipped back
     await assertFails(send(google(), report()));
-    await assertFails(send(google(), report(), counted(since, 10)));
-    await admin(db => setDoc(doc(db, 'limits', 'u1'), { last: ago(3), since: ago(25 * 60), n: 10 }));
+    await assertFails(send(google(), report(), counted(since, 5)));
+    await admin(db => setDoc(doc(db, 'limits', 'u1'), { last: ago(3), since: ago(61), n: 5 }));
     await assertSucceeds(send(google(), report()));
   });
 
   it("can be read by its own player only, and holds only the count's fields", async () => {
-    const since = ago(60);
+    const since = ago(30);
     await admin(db => setDoc(doc(db, 'limits', 'u1'), { last: ago(3), since, n: 1 }));
     await assertSucceeds(getDoc(doc(google(), 'limits', 'u1')));
     await assertFails(getDoc(doc(google('u2'), 'limits', 'u1')));
