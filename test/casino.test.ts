@@ -1,9 +1,10 @@
-// The casino boat: the games' rules, the boat and the way out to it, and each game as the player plays it.
+// The casino boat: the games' rules, the boat and the way out to it, and each game as the player plays it. A roulette
+// round's rules and money are in roulette.test.ts.
 import { describe, expect, it, vi } from 'vitest';
 import {
   canSplit, cutShoe, dealerDraws, handValue, insuranceCost, isBlackjack, newShoe, rankName, settle, type Card, type Suit,
 } from '../src/blackjack';
-import { colorOf, payout, spinWheel, WHEEL, wins } from '../src/roulette';
+import { WHEEL } from '../src/roulette';
 import { lineMultiplier, pull, REEL, type Sym } from '../src/slots';
 import { bought, loadGame } from './helpers';
 
@@ -13,32 +14,6 @@ const button = (sel: string) => document.querySelector<HTMLButtonElement>(sel)!;
 /** A card: 1 is an ace, 11 to 13 the faces. */
 const c = (rank: number, suit: Suit = '♠'): Card => ({ rank, suit });
 const saved = () => JSON.parse(localStorage.getItem('floe-market-v1')!).money;
-
-describe('roulette rules', () => {
-  it('has 37 distinct pockets: 18 red, 18 black, one green zero', () => {
-    expect(new Set(WHEEL).size).toBe(37);
-    expect([...WHEEL].sort((a, b) => a - b)).toEqual([...Array(37).keys()]);
-    const colors = WHEEL.map(colorOf);
-    expect(colors.filter(c => c === 'red')).toHaveLength(18);
-    expect(colors.filter(c => c === 'green')).toEqual(['green']);
-    expect(colorOf(0)).toBe('green');
-  });
-
-  it('pays red and black at even money and green at 35 to 1; zero loses red and black', () => {
-    expect(wins('red', 32)).toBe(true);
-    expect(wins('black', 15)).toBe(true);
-    expect(wins('red', 0) || wins('black', 0)).toBe(false);
-    expect(payout('red', 10, 32)).toBe(20);
-    expect(payout('red', 10, 15)).toBe(0);
-    expect(payout('green', 10, 0)).toBe(360);
-    expect(payout('green', 10, 32)).toBe(0);
-  });
-
-  it('spins to the pocket the random number picks', () => {
-    expect(spinWheel(() => 0)).toBe(0);
-    expect(spinWheel(() => 0.999)).toBe(26);
-  });
-});
 
 describe('blackjack rules', () => {
   it('counts an ace as 11 until that would bust the hand', () => {
@@ -403,6 +378,8 @@ describe('the roulette table', () => {
     click('#spin');
     expect(g.wallet.money).toBe(75);
     expect($('spin').textContent).toBe('Spinning…');
+    click('[data-bet="black"]'); // no changing the bet mid-spin
+    expect(button('[data-bet="red"]').getAttribute('aria-pressed')).toBe('true');
     const t = await import('../src/rouletteTable');
     expect(t.chipsOnFelt()).toBe(1);
     g.run(4);
@@ -417,29 +394,6 @@ describe('the roulette table', () => {
     expect(t.chipsOnFelt()).toBe(0); // back to the player
   });
 
-  it('keeps the stake on a loss', async () => {
-    const g = await at('roulette', 100);
-    click('[data-bet="black"]');
-    rig(0);
-    click('#spin');
-    g.run(6);
-    expect(g.wallet.money).toBe(75);
-    expect($('rouletteMsg').textContent).toBe('0 Green: the house wins.');
-  });
-
-  it('pays 35 to 1 on green', async () => {
-    const g = await at('roulette', 100);
-    click('[data-bet="green"]');
-    click('#roulette [data-stake="clear"]');
-    click('#roulette [data-stake="0"]');
-    expect($('spin').textContent).toBe('Spin · $5 on Green');
-    rig(0);
-    click('#spin');
-    click('[data-bet="red"]'); // no changing the bet mid-spin
-    g.run(6);
-    expect(g.wallet.money).toBe(95 + 180);
-  });
-
   it("won't take bets the player can't cover", async () => {
     const g = await at('roulette', 60);
     expect(button('#roulette [data-stake="2"]').disabled).toBe(true);
@@ -449,6 +403,7 @@ describe('the roulette table', () => {
     click('#spin');
     g.run(6);
     expect(g.wallet.money).toBe(0);
+    expect($('rouletteMsg').textContent).toBe('15 Black: the house wins.');
     expect(button('#spin').disabled).toBe(true);
   });
 
