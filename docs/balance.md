@@ -23,7 +23,7 @@ The other upgrades exist to carry, sell or use the stage's ingredient. When the 
 5. **Costs outrun income a little.** Prices grow a little faster than income, so each wait is a bit longer than the last, until the stage-up starts the climb again.
 6. **No dead ends, no trap purchases.** There's always a way to earn again, and the price-list order is the best order or close to it, so following the obvious path is never a mistake.
 
-The fun extras (the roulette table, Korki's statue) are exempt from 2 and 3.
+The fun extras (the casino boat and its games, Korki's statue) are exempt from 2 and 3. The bot doesn't buy the boat's slot machine or blackjack table.
 
 ## How we know something is off
 
@@ -55,6 +55,7 @@ The bottleneck is the biggest share. A tile that doesn't touch it adds little, h
 **Principles for this stage**
 - The first purchases come fast: the first tile within a minute, a tile every 1 to 2 minutes after that.
 - Supply only pays once there's demand. Without marketing, customers are the limit and the market tops out at about $700 a minute, so runners and boots add nothing. Keep marketing affordable alongside them.
+- Crew training comes on sale with the first runner, the crew it trains, and speeds the runners up as well as fishing and chopping (up to twice as fast, like the kitchen crew in stage 2). The bot buys the runner about 45 seconds sooner with the cash that went on early training levels, and opens Floe Sushi at 11:33 rather than 12:06 (sim of 9 October 2026).
 - The rating requirements are soft gates: a well-run market passes them without noticing. The gold tile shouldn't need a higher rating than the hardest market tile did before (★4.0).
 
 **Where it stands**
@@ -63,7 +64,7 @@ The bottleneck is the biggest share. A tile that doesn't touch it adds little, h
 |---|---|---|---|---|---|---|
 | 🎒 Bigger arms | $30 | | Carry more per trip | 18 s | 0:31 | Good |
 | 🎯 Auto harpoon | $90 | | Catch while you're away | 30 s | 1:59 | Good |
-| 🎰 Roulette table | $150 | | A side game | no gain | 2:50 | Exempt |
+| 🛳️ Casino boat | $150 | | A side game | no gain | 2:50 | Exempt |
 | 🏃 Hire a runner | $300 | ★3.5 | Free your hands from carrying | no gain | 4:07 | Automation: judge by playing. Carrying isn't the limit when it comes |
 | 🥾 Snow boots | $500 | | Walk faster | no gain | 5:24 | Convenience: judge by playing |
 | 🚗 Drive-up window | $900 | ★3.8 | Bigger customers | 18 s | 7:10 | Good |
@@ -80,7 +81,7 @@ Pacing is healthy: the bot buys a tile every 25 seconds to 2¼ minutes, and open
 | (the start) | Carrying: customers wait at an empty counter 62% of the time | $153/min |
 | 🎒 Bigger arms | Carrying, 46% | $319/min |
 | 🎯 Auto harpoon | Customers: fish waits on the counter 31% of the time | $734/min |
-| 🎰 Roulette, 🏃 runner, 🥾 boots | Customers, 31% (unchanged) | $1,109 to $1,748/min |
+| 🛳️ Casino boat, 🏃 runner, 🥾 boots | Customers, 31% (unchanged) | $1,109 to $1,748/min |
 | 🚗 Drive-up window | Carrying, 27%: the drivers buy 4 to 8 at a time | $5,489/min |
 | 🏃 Second runner | Customers 24%, carrying down to 10% | $7,073/min |
 | 🥅 Ice net | Customers 27%, carrying 0% | $12,402/min |
@@ -120,7 +121,7 @@ Income keeps rising mostly from the repeatable upgrades. The bottleneck turns ov
 | 🪑 More seats | $2,500 | ★3.6 | Room for more diners | 20:49 | $2,380/min | Chefs 47%, rice 26% |
 | 🔪 Second chef | $3,000 | ★3.6 | Faster plates | 21:50 | $3,602/min | **Rice 50%**: chefs wait for rice 69% of the time |
 | 🧑‍🌾 Hire a farmer | $6,000 | ★3.9, 🌾 | Free your hands from harvesting | 30:27 | $7,865/min | Rice 37% |
-| 🧺 Rice porter | $12,000 | ★4.1, 🌾 | Free your hands from carrying rice | 35:30 | $12,136/min | Seats 42%, rice 11% |
+| 🧺 Rice porter | $12,000 | ★4.1, 🧑‍🌾 | Free your hands from carrying rice | 35:30 | $12,136/min | Seats 42%, rice 11% |
 | 🌱 Second terrace | $15,000 | ★4.1, 🌾 | Rice for more diners | 38:53 | $17,184/min | Seats 44%, rice 0% |
 | ⛱️ Garden tables | $20,000 | ★4.2 | Eight seats outside, and a waiter | 41:11 | $22,131/min | The waiter |
 | 🔪 Third chef | $25,000 | ★4.3, 🔪 | Faster plates | 43:42 | $30,598/min | The waiter |

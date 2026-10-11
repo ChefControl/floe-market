@@ -43,6 +43,15 @@ export function seeded(seed: number) {
   };
 }
 
+// Each test loads the game afresh (helpers.ts), but the timers an earlier test's game started (the autosave, the
+// cloud's syncs) would carry on behind its back, and could save or sync in the middle of a later test. So whatever
+// a test starts is stopped when it ends.
+const timers = new Set<unknown>();
+for (const k of ['setTimeout', 'setInterval'] as const) {
+  const real = globalThis[k] as (...a: unknown[]) => unknown;
+  (globalThis as Record<string, unknown>)[k] = (...a: unknown[]) => { const id = real(...a); timers.add(id); return id; };
+}
+
 beforeEach(() => {
   vi.spyOn(Math, 'random').mockImplementation(seeded(1));
   localStorage.clear();
@@ -50,4 +59,6 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.useRealTimers();
+  for (const id of timers) clearTimeout(id as number);
+  timers.clear();
 });

@@ -1,7 +1,8 @@
 // The game's sound engine. Nearly everything is synthesised in the browser with the Web Audio API, from a few
-// oscillators and a few seconds of noise, so sound costs a few kilobytes of code. The one exception is the sumo ring's
-// crowd: synthesised people sound like wind, so it's a few short recordings of real crowds (public/sounds, about
-// 620 KB), loaded once sound starts, with a synthesised crowd until they're in. It's voiced to suit the
+// oscillators and a few seconds of noise, so sound costs a few kilobytes of code. The exceptions are recordings of
+// people, which synthesis never makes convincing: the sumo ring's crowd (public/sounds, about 620 KB), loaded once
+// sound starts, with a synthesised crowd until they're in; and the casino yacht's room tone (roomTone.ts), three
+// recordings fetched the first time you walk out to it. It's voiced to suit the
 // low-poly look: simple, rounded waveforms and short soft envelopes, like a box of toy instruments. Every pitched
 // effect is on the major pentatonic scale of the music's key, so effects ring along with the music (and with each
 // other) instead of clashing.
@@ -185,13 +186,15 @@ export function updAudio(dt: number, at: XZ & { y?: number }) {
 const RIGHT = { x: Math.cos(CAM_YAW), z: -Math.sin(CAM_YAW) };
 /** At NEAR metres a sound is at half its volume; past FAR it isn't heard at all. */
 const NEAR = 7, FAR = 26;
+/** How far left or right on screen `at` is from the player, as a pan (-0.8 to 0.8). */
+export const panOf = (at: XZ) => Math.max(-0.8, Math.min(0.8, ((at.x - ear.x) * RIGHT.x + (at.z - ear.z) * RIGHT.z) / 10));
 function place(at?: XZ, through = false, flat = false) {
   if (!at) return { v: 1, pan: 0 };
   // the world above and the cellar don't hear each other
   if (!through && below(at) !== ear.down) return null;
-  const dx = at.x - ear.x, dz = at.z - ear.z, d = Math.hypot(dx, dz);
+  const d = Math.hypot(at.x - ear.x, at.z - ear.z);
   if (d > FAR) return null;
-  return { v: flat ? 1 : 1 / (1 + (d / NEAR) ** 2), pan: Math.max(-0.8, Math.min(0.8, (dx * RIGHT.x + dz * RIGHT.z) / 10)) };
+  return { v: flat ? 1 : 1 / (1 + (d / NEAR) ** 2), pan: panOf(at) };
 }
 
 // ---------- voices ----------
@@ -213,14 +216,18 @@ export interface Voice {
   hold?: number;
   d: number;
   bus?: Out;
+  /** A node of the bus's own to go through instead of straight into it (the lounge band's mix, music.ts). */
+  out?: AudioNode;
 }
 export interface ToneVoice extends Voice {
   f: number;
   /** Glides to this pitch over the sound. */
   f2?: number;
   type?: OscillatorType;
-  /** A waveform of its own (the gloop band's soft sawtooths), in place of `type`. */
+  /** A waveform of its own (the gloop band's soft sawtooths, a reed's), in place of `type`. */
   wave?: PeriodicWave;
+  /** Starts this much under the pitch (0.985: a little flat) and slides up onto it, the way a sax scoops into a note. */
+  scoop?: number;
   /** A low-pass filter at this frequency, closing to `lp2` (a pluck's brightness fading), resonant by `q`. */
   lp?: number;
   lp2?: number;
@@ -271,11 +278,12 @@ function envelope(o: Voice, f: number) {
   g.gain.setValueAtTime(v, top);
   g.gain.exponentialRampToValueAtTime(0.0001, t1);
   const nodes: AudioNode[] = [g];
+  const into = o.out ?? buses[bus];
   if (p.pan) {
     const s = ac.createStereoPanner();
-    s.pan.value = p.pan; s.connect(buses[bus]); g.connect(s);
+    s.pan.value = p.pan; s.connect(into); g.connect(s);
     nodes.push(s);
-  } else g.connect(buses[bus]);
+  } else g.connect(into);
   voices++;
   return { g, t0, top, t1, nodes };
 }
@@ -291,7 +299,8 @@ export function tone(o: ToneVoice) {
   const c = ac!, osc = c.createOscillator();
   if (o.wave) osc.setPeriodicWave(o.wave); else osc.type = o.type ?? 'sine';
   if (o.detune) osc.detune.value = o.detune;
-  osc.frequency.setValueAtTime(o.f, e.t0);
+  osc.frequency.setValueAtTime(o.f * (o.scoop ?? 1), e.t0);
+  if (o.scoop) osc.frequency.linearRampToValueAtTime(o.f, e.t0 + 0.07);
   if (o.f2) osc.frequency.exponentialRampToValueAtTime(o.f2, e.t1);
   let out: AudioNode = osc;
   if (o.lp) {
@@ -437,8 +446,8 @@ export function bed(o: Bed) {
 // ---------- recordings ----------
 /**
  * The few recorded sounds, for the ring's crowd (synthesised, people sound like wind): a stadium crowd, cut
- * down in public/sounds (see its CREDITS.md). They load once sound starts; until they're in, or if they can't load,
- * ringSound.ts's synthesised crowd plays instead.
+ * down in public/sounds (see its CREDITS.md). They load the first time the ring's crowd is heard (stage 3), so nobody
+ * downloads them before; until they're in, or if they can't load, ringSound.ts's synthesised crowd plays instead.
  */
 export const CLIPS = {
   murmur: 'sounds/crowd-murmur.mp3', chant: 'sounds/crowd-chant-loop.mp3', roar: 'sounds/crowd-roar-loop.mp3',
@@ -447,13 +456,16 @@ export const CLIPS = {
 } as const;
 export type Clip = keyof typeof CLIPS;
 const clips: Partial<Record<Clip, AudioBuffer>> = {};
-onAudio(() => {
-  if (typeof ac!.decodeAudioData !== 'function' || typeof fetch !== 'function') return;
+let fetched = false;
+/** Fetches the recordings, the first time it's called once sound is on (ringSound.ts, every frame of stage 3). */
+export function loadClips() {
+  if (fetched || !ac || typeof ac.decodeAudioData !== 'function' || typeof fetch !== 'function') return;
+  fetched = true;
   for (const [k, url] of Object.entries(CLIPS) as [Clip, string][]) {
     fetch(url).then(r => (r.ok ? r.arrayBuffer() : Promise.reject())).then(b => ac!.decodeAudioData(b))
       .then(buf => { clips[k] = buf; }).catch(() => { /* offline, or no such file: the synthesised crowd plays */ });
   }
-});
+}
 /** Whether a recording's loaded (or, for tests, hands one in). */
 export const hasClip = (k: Clip) => !!clips[k];
 /** A loaded recording's length, in seconds (0 till it's in). */

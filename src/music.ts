@@ -12,17 +12,21 @@
 //   BPM in half time: a soft, gloopy bass that sags and slides like mud round C2, taiko, a wet slap, grit, the ring's
 //   wooden clappers and a low shamisen, with mud bubbles on the chords' notes. Up on the dock in stage 3, the café
 //   band plays on.
+// - The casino yacht: its lounge band (lounge.ts), a piano trio in 5/4, in a key of its own. It comes in as you walk
+//   up the quay to the yacht, the stage's music going out under it, and has the music to itself aboard.
 //
 // Each tune plays twice, and after every two tunes a verse leaves the tune out, for a rest. The music fades away
 // under the songs (her house, Korki's statue), the rain and the stage-up's fanfare. The game's own sounds are on the
 // major pentatonic of the music's key (F for stage 1's D minor: the same notes), so they ring along with it.
-import { ac, duck, hz, key, noise, onAudio, prefs, rnd, tone, type Voice } from './audio';
-import { level, stage } from './layout';
+import { ac, buses, duck, ear, hz, key, noise, onAudio, prefs, rnd, tone, type Voice } from './audio';
+import { aboard, casinoBoat, level, SHIP, stage } from './layout';
+import { eighth as loungeEighth, LOUNGE, LOUNGE_STEPS, loungeLevel, loungeMix, playLounge } from './lounge';
 import { offerPlaying } from './offer';
 import { rainK } from './rain';
 import { current, type Season } from './season';
 import { staging } from './stage';
 import { stageProgress } from './unlocks';
+import type { XZ } from './util';
 import { songWanted } from './youtube';
 
 // ---------- harmony ----------
@@ -50,6 +54,12 @@ const MAJOR = [0, 2, 4, 5, 7, 9, 11];
 // No instrument here has a quick, high strike overtone, and every note starts over at least 8 ms: on a tune that
 // plays all the time, those come across as little high-pitched pops.
 const M: Partial<Voice> = { bus: 'music' };
+/** The stage's music goes through a level of its own, so the lounge band can take over from it. */
+let stageMix: GainNode | null = null;
+onAudio(() => {
+  stageMix = ac!.createGain(); stageMix.connect(buses.music);
+  M.out = stageMix;
+});
 /** Electric piano: a sine with a shimmer, a soft overtone an octave up, and a second voice a hair out of tune. */
 function ep(m: number, t: number, v: number, d: number) {
   const f = hz(m);
@@ -344,7 +354,6 @@ const verseLen = () => (cellar() ? GLOOP.steps * BARS : STEPS * BARS);
 
 function newVerse() {
   band = BANDS[current()];
-  key.root = market() ? MARKET.sounds : cellar() ? GLOOP.sounds : band.key;
   // five verses round: a new tune, again, another new one, again, and a rest
   const pos = verses % 5;
   resting = pos === 4;
@@ -383,6 +392,38 @@ function playCafe(i: number, at: number, parts: number) {
   if (parts >= 2) band.drums(s, at);
 }
 
+// ---------- the casino yacht ----------
+/** How far out from the yacht's sides the lounge band starts to be heard, in metres. */
+const HARBOR_FADE = 8;
+/**
+ * How far the lounge band has taken over, 0 to 1: nothing away from the harbor, coming in as you walk up the quay to
+ * the yacht, and all of it aboard.
+ */
+export function harborK(p: XZ = ear) {
+  // (not a note of it down in the cellar)
+  if (!casinoBoat.open || level.down) return 0;
+  if (aboard(p)) return 1;
+  const dx = Math.max(0, Math.abs(p.x - SHIP.x) - SHIP.half), dz = Math.max(0, Math.abs(p.z - SHIP.z) - SHIP.beam);
+  const k = Math.max(0, 1 - Math.hypot(dx, dz) / HARBOR_FADE);
+  return k * k * (3 - 2 * k);
+}
+/** The lounge band's place: the eighth it's on and when the next is due; it starts from the top each time it comes in. */
+let lounge = { on: false, step: 0, next: 0 };
+function updLounge(k: number, now: number) {
+  loungeLevel(Math.sin(k * Math.PI / 2));
+  if (k < 0.001) { lounge.on = false; return; }
+  if (!lounge.on || lounge.next < now - 0.3) lounge = { on: true, step: 0, next: now + 0.1 };
+  const parts = Math.max(3, 1 + Math.floor(stageProgress() * 3));
+  while (lounge.next < now + 0.2) {
+    if (hushed < 2) playLounge(lounge.step, lounge.next - now, parts);
+    lounge.next += loungeEighth();
+    lounge.step = (lounge.step + 1) % LOUNGE_STEPS;
+  }
+}
+
+/** The stage's music's level and the lounge band's, for the tests. */
+export const musicMix = () => ({ stage: stageMix?.gain.value ?? 1, lounge: loungeMix() });
+
 /** Keeps the music going: call every frame. It schedules a fraction of a second ahead, on the audio clock. */
 export function updMusic(dt: number) {
   if (!ac) return;
@@ -390,16 +431,21 @@ export function updMusic(dt: number) {
   const hush = (!level.down && (songWanted() || rainK > 0.05)) || staging() || offerPlaying();
   duck(hush ? 0 : 1, hush ? 1.5 : 3);
   hushed = hush ? hushed + dt : 0;
-  if (prefs.mute.music || ac.state !== 'running') { on = false; return; }
+  // the stage's music and the lounge band's, crossfading up the quay; the game's sounds in whichever key is on top
+  const harbor = harborK();
+  stageMix?.gain.setTargetAtTime(Math.cos(harbor * Math.PI / 2), ac.currentTime, 0.15);
+  key.root = harbor > 0.5 ? LOUNGE.sounds : market() ? MARKET.sounds : cellar() ? GLOOP.sounds : band.key;
+  if (prefs.mute.music || ac.state !== 'running') { on = false; lounge.on = false; return; }
   const now = ac.currentTime;
+  updLounge(harbor, now);
   // a fresh start: the first time, after the music was off or asleep, and in a new stage (or down the ladder)
   if (!on || next < now - 0.3 || playingStage !== which()) {
     on = true; playingStage = which(); step = 0; next = now + 0.1; verses = 0;
     newVerse();
   }
   while (next < now + 0.2) {
-    // faded right out: no need to play notes nobody hears
-    if (hushed < 2) play(step, next - now);
+    // faded right out (or crossfaded to the lounge band): no need to play notes nobody hears
+    if (hushed < 2 && harbor < 0.999) play(step, next - now);
     next += stepLen();
     if (++step === verseLen()) { step = 0; newVerse(); }
   }

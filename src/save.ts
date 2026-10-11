@@ -2,6 +2,7 @@
 // versioned so game updates never reset progress, and a second tab can't overwrite newer progress with an older
 // copy of the game.
 import { C1, repriceFish, SLED, TAKEOUT, type Counter } from './counters';
+import { choice, readLook, setLook, type Choice } from './customize';
 import { MODS, mods, type ModId } from './economy';
 import { loadOffer, offer } from './offer';
 import { steaksInProgress } from './fishing';
@@ -22,6 +23,7 @@ import { runnersLoad } from './runner';
 import { season, SEASON_LEN, SEASONS, setSeason } from './season';
 import { goBelow } from './stage';
 import { pile } from './stations';
+import { learn, learntLessons, olderGame } from './tutorial';
 import { applyUnlock, redrawTile, syncRingTiles, tiles, updStars } from './unlocks';
 import { wallet } from './wallet';
 
@@ -79,6 +81,11 @@ export interface SaveData {
   level: number;
   hands: Hands;
   ring: unknown;
+  /** How the player looks (customize.ts). Older saves have none, and keep the device's. */
+  look?: Choice;
+  /** What the tutorial has shown this player (tutorial.ts), so it isn't shown again on another device; null in a save
+   *  from before the tutorial, whose lessons are counted from what it has done. */
+  learnt: string[] | null;
 }
 export type Hands = Record<'rice' | 'fish' | 'rrice' | 'cfish' | 'mush' | 'bowl' | 'mbowl', number>;
 const HANDS: (keyof Hands)[] = ['rice', 'fish', 'rrice', 'cfish', 'mush', 'bowl', 'mbowl'];
@@ -139,6 +146,8 @@ export function migrate(raw: unknown): SaveData {
     // (v5's ring was the first design's, the stable and the book: it starts over as fight night's)
     level: Math.min(num(s.level), 1), hands: handsFrom(s.hands ?? { bowl: s.backBowls }), ring: num(s.v) >= 6 ? s.ring : null,
     presents: num(s.presents), presentPaid: Math.min(num(s.presentPaid), PRESENT.cost - 1),
+    look: readLook(s.look) ?? undefined,
+    learnt: Array.isArray(s.learnt) ? s.learnt.map(String) : null,
   };
   if (num(s.v) >= 4) {
     return {
@@ -247,6 +256,8 @@ export function save() {
     ring: stage.n === 3 ? saveFight() : null,
     presents: presents.n,
     presentPaid: PRESENT.paid,
+    look: { ...choice },
+    learnt: learntLessons(),
   };
   const raw = JSON.stringify(data);
   if (deviceStore.write(raw)) lastSeen = raw;
@@ -281,6 +292,7 @@ export function load() {
   if (!s) { tiles.forEach(redrawTile); return false; }
   wallet.money = s.money;
   wallet.best = s.best;
+  if (s.look) setLook(s.look);
   setSeason(s.season, s.seasonT, true);
   givePresents(s.presents, true);
   PRESENT.paid = s.presentPaid;
@@ -323,6 +335,8 @@ export function load() {
   if (field.built) fill(fieldStack, s.field + riceLeft, newRice);
   loadOffer(s.fugu);
   if (stage.n === 3) loadRing(s);
+  // the tutorial: this player's lessons, or for a save from before it, what it has done (now it's all in place)
+  if (s.learnt) learn(s.learnt); else olderGame();
   return true;
 }
 

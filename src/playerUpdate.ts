@@ -1,12 +1,16 @@
 // Per-frame player logic: movement plus every station interaction.
 import { binTip, collideBins, updBins } from './bin';
 import { updBuy } from './buy';
+import { collideCasino } from './casino';
+import { tipsy, tipsyK } from './casinoKit';
 import { collideCellar } from './cellar';
 import { cellarTip, cellarWork } from './cellarHands';
 import { animPerson } from './characters';
 import { COUNTERS } from './counters';
+import { updLook } from './customize';
 import { tryCatch } from './fishing';
 import { collideGarden } from './garden';
+import { coinsFx } from './fx';
 import { fly, type Holder } from './holder';
 import type { Vector3 } from 'three';
 import { F } from './fight';
@@ -14,7 +18,7 @@ import { billValue, newBill, type Kind } from './items';
 import { boost } from './economy';
 import { buyHeld, inputVec } from './input';
 import { korkiStatue, STATUE } from './korki';
-import { groundY, keepOnFloor, level, pushOutOfBox, stage, walkable } from './layout';
+import { groundY, keepOnFloor, level, onHarbor, pushOutOfBox, stage, walkable } from './layout';
 import { BOOP_SECS, player } from './player';
 import { collidePresents, givePresents, onPresentTile, PRESENT, redrawPresentTile } from './presents';
 import { scene } from './render';
@@ -66,6 +70,7 @@ function cashSpots() {
 }
 
 export function updPlayer(dt: number) {
+  tipsy.t = Math.max(0, tipsy.t - dt);
   const p = player.g.position, mv = player.frozen ? null : inputVec(), b = player.booped;
   if (b) {
     // booped: a hop backwards, easing out, whatever's pressed
@@ -75,6 +80,12 @@ export function updPlayer(dt: number) {
     player.moving = false;
     if (b.t >= 1) player.booped = null;
   } else if (mv) {
+    // after too much champagne the player weaves from side to side
+    tipsy.clock += dt;
+    if (tipsy.t > 0) {
+      const a = Math.sin(tipsy.clock * 5.5) * 0.9 * tipsyK(), c = Math.cos(a), s = Math.sin(a);
+      mv.set(mv.x * c - mv.z * s, 0, mv.x * s + mv.z * c);
+    }
     p.x += mv.x * player.speed * dt; p.z += mv.z * player.speed * dt;
     const target = Math.atan2(mv.x, mv.z);
     let d = target - player.h; d = Math.atan2(Math.sin(d), Math.cos(d));
@@ -88,6 +99,7 @@ export function updPlayer(dt: number) {
     collideGarden(p);
     collidePresents(p);
     collideBins(p);
+    collideCasino(p);
     if (stage.n >= 2 && korkiStatue()) pushOutOfBox(p, STATUE.x, STATUE.z, 1.25, 0.8);
     // chopper block collision
     if (p.x > CHOP.x - 1.0 && p.x < CHOP.x + 1.0 && p.z < CHOP.z + 0.8) {
@@ -121,7 +133,7 @@ export function updPlayer(dt: number) {
       player.tCash += 0.025;
       const b = s.cash.take()!, v = billValue(b);
       wallet.inFlight += v;
-      fly(b, () => V(p.x, p.y + 0.75, p.z), 0.22, 0.6, () => { scene.remove(b); wallet.inFlight -= v; addMoney(v); coin(); });
+      fly(b, () => V(p.x, p.y + 0.75, p.z), 0.22, 0.6, () => { scene.remove(b); wallet.inFlight -= v; addMoney(v); coin(); coinsFx(V(p.x, p.y + 1.1, p.z)); });
     }
     if (player.tCash < 0) player.tCash = 0;
   }
@@ -146,6 +158,7 @@ export function updPlayer(dt: number) {
     payInto(t, dt, () => redrawTile(t), () => { applyUnlock(t.id); player.onTile = null; setTip(null); save(); });
   }
 
+  updLook(dt);
   player.g.rotation.y = player.h;
   animPerson(player.g, player.moving, dt, player.back.n > 0);
   footsteps();
@@ -196,8 +209,8 @@ function upstairsWork(p: Vector3, dt: number) {
 let stepsTaken = 0;
 function footsteps() {
   const n = player.moving ? Math.floor(player.g.phase / Math.PI) : 0;
-  // boards, or the cellar's packed earth (which sounds much the same), or the ground in its season
-  if (n > stepsTaken) step(level.down || Math.abs(player.g.position.y - FY) < 0.05 ? 'wood' : current());
+  // boards (and the harbor's), or the cellar's packed earth (which sounds much the same), or the ground in its season
+  if (n > stepsTaken) step(level.down || Math.abs(player.g.position.y - FY) < 0.05 || onHarbor(player.g.position) ? 'wood' : current());
   stepsTaken = n;
 }
 

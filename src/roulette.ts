@@ -1,4 +1,5 @@
-// European roulette rules: one zero, 37 pockets. Kept free of game state so they're easy to test.
+// European roulette rules: one zero, 37 pockets. The casino boat's table takes colour bets only: red or black at
+// even money, or green (the zero) at 35 to 1. Kept free of game state so they're easy to test.
 
 /** Pocket order around the wheel, clockwise from zero. */
 export const WHEEL = [
@@ -11,22 +12,13 @@ const RED = new Set([1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 
 export type PocketColor = 'red' | 'black' | 'green';
 export const colorOf = (n: number): PocketColor => n === 0 ? 'green' : RED.has(n) ? 'red' : 'black';
 
-export type EvenBet = 'red' | 'black' | 'odd' | 'even' | 'low' | 'high';
-export type Bet = { kind: EvenBet } | { kind: 'number'; n: number };
+/** A bet is the colour the ball should land on. */
+export type Bet = PocketColor;
 
-export function wins(bet: Bet, n: number): boolean {
-  switch (bet.kind) {
-    case 'number': return n === bet.n;
-    case 'red': case 'black': return colorOf(n) === bet.kind;
-    case 'odd': return n % 2 === 1;
-    case 'even': return n !== 0 && n % 2 === 0;
-    case 'low': return n >= 1 && n <= 18;
-    case 'high': return n >= 19;
-  }
-}
+export const wins = (bet: Bet, n: number) => colorOf(n) === bet;
 
-/** What a winning bet returns per unit staked, stake included (single number pays 35 to 1). */
-export const multiplier = (bet: Bet) => bet.kind === 'number' ? 36 : 2;
+/** What a winning bet returns per unit staked, stake included (green, a single pocket, pays 35 to 1). */
+export const multiplier = (bet: Bet) => bet === 'green' ? 36 : 2;
 
 /** Total returned for a bet on pocket `n`: stake × multiplier on a win, 0 on a loss. */
 export const payout = (bet: Bet, stake: number, n: number) => wins(bet, n) ? stake * multiplier(bet) : 0;

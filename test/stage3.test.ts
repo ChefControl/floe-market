@@ -170,7 +170,11 @@ describe('the ladder', () => {
     g.player.g.position.set(0, cellar.CY, 2.6);
     g.run(0.1);
     expect(g.player.g.position.z).toBeCloseTo(2.6);
-    expect($('casino').hidden).toBe(true);
+    // nor do the casino yacht's games open, under its tables
+    const { GAMES } = await import('../src/layout');
+    g.player.g.position.set(GAMES.roulette.x, cellar.CY, GAMES.roulette.z);
+    g.run(0.1);
+    for (const id of ['roulette', 'blackjack', 'slots']) expect($(id).hidden).toBe(true);
   });
 
   it("leaves the restaurant's staff up in the world, and brings no news of the seasons down", async () => {

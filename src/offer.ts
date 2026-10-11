@@ -138,7 +138,7 @@ const RANGE = 1.7;
 const at = (dt: number, run: () => void) => { show?.cues.push({ t: show.t + dt, run }); };
 
 /** Can he turn up now? Not in the middle of something else on screen. */
-const free = () => stage.n === 2 && !staging() && rainK === 0 && ['shop', 'casino', 'korki'].every(id => $(id).hidden);
+const free = () => stage.n === 2 && !staging() && rainK === 0 && ['shop', 'roulette', 'blackjack', 'slots', 'look', 'korki'].every(id => $(id).hidden);
 
 function blink(on: boolean, slow = false) {
   blinkEl.classList.toggle('slow', slow);

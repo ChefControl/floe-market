@@ -6,6 +6,8 @@ import { BoxGeometry, CylinderGeometry, Group, type Mesh, type Object3D, type Ve
 import { animPerson, moveEnt, Person, type Walker } from './characters';
 import { boost } from './economy';
 import { fly, Holder } from './holder';
+import { at, Build, detail, quietly, seasonLayer } from './kit';
+import { servingCounter, stool, teaTable, tray, wagasa } from './propsHall';
 import { groundY, pushOutOfBox } from './layout';
 import { G, mesh, scene } from './render';
 import { owed, PASS, servingPass, sushi, take, type Diner } from './restaurant';
@@ -27,6 +29,23 @@ const SEAT_D = 0.58, LANE_D = 1.15;
 /** Where diners and waiters turn off the garden path towards a row. */
 const TURN_X = 3.6;
 const TABLE_H = 0.72;
+/** Snow shows in winter and melts away in spring. */
+const SNOWY: [number, number, number, number] = [1, 0, 0, 0];
+
+/**
+ * Moves what's in `g` so far into a group shown on Low graphics, and adds the group `build` makes (off the game's
+ * luck) beside it, shown on High; `g` itself still shows, hides and pops in as before.
+ */
+function hiLo(g: Group, build: () => Object3D) {
+  const [low, high] = quietly(() => {
+    const low = new Group();
+    low.add(...g.children);
+    const high = build();
+    g.add(low, high);
+    return [low, high];
+  });
+  detail(low, high);
+}
 
 const rows = ROWS.map(r => {
   const g = new Group(); g.visible = false; scene.add(g);
@@ -40,6 +59,20 @@ const rows = ROWS.map(r => {
     const pole = mesh(G.cyl, 0x6B4A2E, x + 0.3, GY + 1.05, r.z, true); pole.scale.set(0.035, 2.1, 0.035); g.add(pole);
     const shade = mesh(G.cone, 0xC0392B, x + 0.3, GY + 2.15, r.z, true); shade.scale.set(0.8, 0.32, 0.8); g.add(shade);
   }
+  // High: oval tables on pedestals, round stools like little barrels, and paper parasols with their ribs showing
+  // (snow on them in winter), the row baked into one mesh
+  hiLo(g, () => {
+    const hi = new Group(), b = new Build(), snow = new Build(), table = teaTable(TABLE_H), seat = stool();
+    const sh = new Build(), parasol = wagasa(2.1, 2.15, 0.8, 0.32, sh);
+    for (const x of r.xs) {
+      b.addAll(table, at(x, GY, r.z));
+      for (const s of [-1, 1]) b.addAll(seat, at(x, GY, r.z + s * SEAT_D));
+      b.addAll(parasol, at(x + 0.3, GY, r.z));
+      snow.addAll(sh, at(x + 0.3, GY, r.z));
+    }
+    hi.add(b.mesh(), seasonLayer(snow.mesh(false), SNOWY));
+    return hi;
+  });
   return { ...r, g, built: false };
 });
 
@@ -52,6 +85,12 @@ const pass = new Group(); pass.visible = false; scene.add(pass);
   pass.add(mesh(new BoxGeometry(PASS.w - 0.1, 0.3, 0.02), 0xC0392B, PASS.x, GY + PASS.h - 0.22, PASS.z + PASS.d / 2 + 0.011));
   const bell = mesh(G.sphere, 0xF2C14E, PASS.x + PASS.w / 2 - 0.12, GY + PASS.h, PASS.z - 0.12, true);
   bell.scale.set(0.07, 0.06, 0.07); pass.add(bell);
+  // High: framed panels on a plinth, a top with a lip, the cloth in three panels on a rod, and a desk bell
+  hiLo(pass, () => {
+    const m = servingCounter(PASS.w, PASS.d, PASS.h, [PASS.w / 2 - 0.12, -0.12]).mesh();
+    m.position.set(PASS.x, GY, PASS.z);
+    return m;
+  });
 }
 
 // ---------- waiters ----------
@@ -62,7 +101,7 @@ interface Waiter extends Walker {
   home: Vector3;
   tray: Holder;
   /** The round tray: carried flat in front with plates on it, or tucked under an arm when empty. */
-  board: Mesh;
+  board: Object3D;
   state: 'home' | 'out';
   /** Where to walk next; a stop with a diner is where they set that diner's plates down. */
   path: { at: Vector3; d?: Diner }[];
@@ -93,7 +132,11 @@ function hireWaiter(row: number) {
   const home = V(PASS.x + (row ? 0.5 : -0.5), 0, PASS.z + PASS.d / 2 + 0.55);
   const g = new Person(0x24476B, 'waiter');
   g.position.set(home.x, groundY(home), home.z); scene.add(g);
-  const board = mesh(trayGeo, 0x8E2B2B, 0, 0, 0, true); g.add(board);
+  // Low: a plain disc. High: a lacquered tray with a rim (propsHall.ts). Both in the group the waiter moves about.
+  const plain = mesh(trayGeo, 0x8E2B2B, 0, 0, 0, true);
+  const [board, rimmed] = quietly(() => [new Group(), tray().mesh()]);
+  board.add(plain, rimmed); g.add(board);
+  detail(plain, rimmed);
   const w: Waiter = {
     g, row, h: Math.PI, speed: SPEED, moving: false, home, board,
     tray: new Holder(i => trayPos(w, i, w.tray.n), TRAY), state: 'home', path: [], waited: 0,

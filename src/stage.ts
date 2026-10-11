@@ -4,7 +4,6 @@
 // dark, and comes up in the cellar under the dock, the crowd roaring round the ring. Loading a save sets it all up at
 // once. This is also where the light is kept (day, dusk, and the cellar's own), and the ladder between the levels.
 import { Color, type Group, type Object3D } from 'three';
-import { casinoTable, moveCasino } from './casino';
 import { boss, CELLAR_SKY, cellarLights, LADDER_FOOT, LADDER_PAD, showCellar } from './cellar';
 import { stowCarried } from './cellarHands';
 import { C1, closeMarket, marketLeftovers, SLED } from './counters';
@@ -16,7 +15,7 @@ import { korkiStatue, moveKorki } from './korki';
 import { HATCH_AT, level, stage } from './layout';
 import { marketLooks } from './looks';
 import { player } from './player';
-import { fog, hemi, scene, sky, sun, sunOff } from './render';
+import { fitRenderer, fog, hemi, scene, shadowSize, sky, sun, sunOff } from './render';
 import { buyOut } from './fight';
 import { openCellar } from './ring';
 import { react } from './ringSound';
@@ -201,15 +200,14 @@ export function updStage(dt: number) {
 function widenShadows() {
   Object.assign(sun.shadow.camera, { left: -18, right: 18, top: 18, bottom: -18 });
   sun.shadow.camera.updateProjectionMatrix();
-  sun.shadow.mapSize.set(2048, 2048);
-  sun.shadow.map?.dispose();
-  sun.shadow.map = null;
+  shadowSize.px = 2048;
+  fitRenderer();
 }
 
 /**
  * The gold 'sushi' tile: stage 2. The stage 1 counters close (their customers pay up and go home), and the
  * restaurant and farm open, with a patch of rice planted. `silent` (loading a save) skips the show. `onMove` runs
- * when the roulette table and Korki's statue move to their new spots.
+ * when Korki's statue moves to its new spot.
  */
 export function enterStage2(silent: boolean, onMove = () => {}) {
   stage.n = 2;
@@ -218,9 +216,9 @@ export function enterStage2(silent: boolean, onMove = () => {}) {
   widenShadows();
   const staff = openRestaurant(silent);
   const patch = plantPatch();
-  // The roulette table and Korki's statue go out with the old stage and come back in their new spots.
-  const movers = [casinoTable(), korkiStatue()].filter((o): o is Group => o !== null);
-  const move = () => { moveCasino(-2.2); moveKorki(); onMove(); };
+  // Korki's statue goes out with the old stage and comes back in its new spot.
+  const movers = [korkiStatue()].filter((o): o is Group => o !== null);
+  const move = () => { moveKorki(); onMove(); };
   // the restaurant keeps two of the market's runners; any more go with the market
   const retired = retireRunners();
   const outs: [Object3D, Axis][] = [

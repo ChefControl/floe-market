@@ -13,8 +13,9 @@
 import { BufferGeometry, CanvasTexture, Color, Float32BufferAttribute, InstancedMesh, Matrix4, Quaternion, Sprite, SpriteMaterial, Vector3 } from 'three';
 import { CY, cellarBoxes, parts, placeBuilt, places, RING } from './cellar';
 import { FLOOR, GONG_PAD, STALL, STALL_PAD, TUNNELS, WATCH } from './cellarPlan';
-import { crowdModel, PARKAS } from './characters';
+import { crowdModel, PARKAS, SHIRT } from './characters';
 import { BOSSES, F } from './fight';
+import { onQuality } from './graphics';
 import { ARENA, level, pushOutOfBox } from './layout';
 import { FONT, painted, rr, scene } from './render';
 import { CHAMP } from './rikishi';
@@ -30,9 +31,10 @@ export const BOSS_COLOR = new Color(0x7A4FB0), OURS = new Color(0xFF6B4A);
 // Each look is a crowd member made like the game's people (characters.ts), the low life who come down to see a fight:
 // yakuza in sharp suits and hooligans in tracksuits, with eyes, hair, hats and all (the same all year: the seasons
 // don't reach the cellar). Their body, and an arm and a leg as each hangs from its pivot. Each
-// of those is split into the shirt (made white, so each fan's colour can tint it) and the rest, and each piece is one
-// instanced mesh for every fan with that look (an arm or a leg twice a fan), so arms and legs swing as a walker's do,
-// and the swarm is a few dozen draw calls however big it gets. They're made the first time the swarm's drawn.
+// of those is split into the shirt (made in a colour nobody wears, to find it, then white, so each fan's colour can
+// tint it) and the rest, and each piece is one instanced mesh for every fan with that look (an arm or a leg twice a
+// fan), so arms and legs swing as a walker's do, and the swarm is a few dozen draw calls however big it gets. They're
+// made the first time the swarm's drawn, in the graphics' detail (High or Low), and made again if that changes.
 const LOOKS = 12, PER = Math.ceil(MAX_FANS / LOOKS * 1.5);
 type Part = 'body' | 'arm' | 'leg';
 interface Piece { im: InstancedMesh; shirt: boolean }
@@ -40,13 +42,18 @@ interface Look { parts: Record<Part, Piece[]>; armAt: Vector3[]; legAt: Vector3[
 let looks: Look[] | null = null;
 /** Every instanced mesh, for counting and shadows. */
 const allMeshes = () => (looks ?? []).flatMap(l => [...l.parts.body, ...l.parts.arm, ...l.parts.leg]).map(p => p.im);
-/** A baked geometry's white triangles (the shirt) and the rest. */
+/** A baked geometry's shirt (its SHIRT-coloured triangles, made white) and the rest. */
 function split(g: BufferGeometry): [BufferGeometry | null, BufferGeometry | null] {
   const flat = g.index ? g.toNonIndexed() : g, pos = flat.attributes.position, col = flat.attributes.color;
   const out: [number[], number[]][] = [[[], []], [[], []]];
+  const shirt = new Color(SHIRT), near = (a: number, b: number) => Math.abs(a - b) < 0.01;
   for (let t = 0; t < pos.count; t += 3) {
-    const o = out[col.getX(t) > 0.99 && col.getY(t) > 0.99 && col.getZ(t) > 0.99 ? 0 : 1];
-    for (let v = t; v < t + 3; v++) { o[0].push(pos.getX(v), pos.getY(v), pos.getZ(v)); o[1].push(col.getX(v), col.getY(v), col.getZ(v)); }
+    const isShirt = near(col.getX(t), shirt.r) && near(col.getY(t), shirt.g) && near(col.getZ(t), shirt.b);
+    const o = out[isShirt ? 0 : 1];
+    for (let v = t; v < t + 3; v++) {
+      o[0].push(pos.getX(v), pos.getY(v), pos.getZ(v));
+      if (isShirt) o[1].push(1, 1, 1); else o[1].push(col.getX(v), col.getY(v), col.getZ(v));
+    }
   }
   return out.map(([p, c]) => {
     if (!p.length) return null;
@@ -74,6 +81,11 @@ function makeLooks() {
     };
   });
 }
+// the graphics changing (High or Low): the looks are made again, in the new detail, the next time the swarm's drawn
+onQuality(() => {
+  for (const im of allMeshes()) { scene.remove(im); im.geometry.dispose(); im.dispose(); }
+  looks = null;
+});
 
 
 // ---------- where they stand ----------

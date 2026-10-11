@@ -30,8 +30,8 @@ function endJoy(e: PointerEvent) {
 canvas.addEventListener('pointerup', endJoy);
 canvas.addEventListener('pointercancel', endJoy);
 canvas.addEventListener('lostpointercapture', endJoy);
-/** Keys typed into a control (the volume sliders) are for it, not for walking. */
-const forControl = (e: KeyboardEvent) => !!(e.target as Element | null)?.closest?.('input, select, textarea');
+/** Keys typed into a control (the volume sliders, the look's tabs) are for it, not for walking. */
+const forControl = (e: KeyboardEvent) => !!(e.target as Element | null)?.closest?.('input, select, textarea, [role="tablist"]');
 /**
  * Which key: letters by where they are on the keyboard (KeyW is "w"), so WASD and E work on any layout, Hebrew or
  * AZERTY too; anything else (the arrows) by its name.

@@ -3,8 +3,10 @@
 import { updAmbience } from './ambience';
 import { updAudio } from './audio';
 import { updCasino } from './casino';
+import { updBakes } from './characters';
 import { COUNTERS, postCustomers, updCounter, updLeaving } from './counters';
 import { updFarm } from './farm';
+import { updFx } from './fx';
 import { updGarden } from './garden';
 import { updRoof } from './hall';
 import { updChopper, updFish, updHooks } from './fishing';
@@ -14,6 +16,7 @@ import { level, stage } from './layout';
 import { updLooks } from './looks';
 import { updMusic } from './music';
 import { updOffer } from './offer';
+import { updRoomTone } from './roomTone';
 import { updNeeds } from './needs';
 import { updPlayer } from './playerUpdate';
 import { rainK, updHouse } from './rain';
@@ -28,6 +31,7 @@ import { updShop } from './shop';
 import { player } from './player';
 import { updPops } from './pop';
 import { staging, updLadder, updStage } from './stage';
+import { updTutorial } from './tutorial';
 import { toast } from './ui';
 import { updAuto, updStars } from './unlocks';
 import { updFloes } from './world';
@@ -61,17 +65,21 @@ export function tick(dt: number) {
   updStars();
   updFlights(dt);
   updPops(dt);
-  updFloes(time);
+  updFx(dt);
+  updFloes(time, player.g.position);
   // (nothing falls in the cellar)
   // the seasons turn up in the world; down in the cellar, nobody hears about it
   if (updSeason(dt, player.g.position, level.down ? 1 : rainK) && !level.down) { toast(SEASON_INFO[current()].news, 'season'); seasonSting(current()); }
   updFarm(dt);
   updStage(dt);
   updShop();
+  updTutorial(dt);
   updLooks(dt);
+  updBakes(dt);
   updRoof(dt, player.g.position, staging());
   updOffer(dt);
   updAudio(dt, player.g.position);
   updAmbience();
   updMusic(dt);
+  updRoomTone();
 }

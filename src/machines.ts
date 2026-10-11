@@ -4,6 +4,8 @@ import {
   CatmullRomCurve3, ConeGeometry, CylinderGeometry, DoubleSide, Group, Mesh, MeshLambertMaterial, PlaneGeometry,
   TorusGeometry, TubeGeometry, BoxGeometry,
 } from 'three';
+import { detail, quietly, seasonLayer } from './kit';
+import { netRig, netSnow, turretBase, turretHead } from './propsMachines';
 import { canvasTex, G, mesh, scene } from './render';
 import { FY, V } from './util';
 
@@ -11,35 +13,45 @@ const STEEL = 0x5B6B78, DARK = 0x3C4C58, CORAL = 0xFF6B4A, WOOD = 0x8A5A3B, ROPE
 
 /**
  * The auto harpoon: a harpoon gun on a swivel, on a round wooden platform. `head` turns to aim (its barrel points
- * along +z), with a harpoon loaded, a reel of rope on the side and handles at the back.
+ * along +z), with a harpoon loaded, a reel of rope on the side and handles at the back. Low and High (propsMachines.ts)
+ * stand side by side in `g`, and in `head`, so the pop-in and the aiming move both.
  */
 export function buildTurret() {
   const g = new Group(); g.position.set(-6.9, FY, -5.9);
-  g.add(mesh(new CylinderGeometry(0.5, 0.55, 0.12, 18), WOOD, 0, 0.06, 0, true));
-  g.add(mesh(new CylinderGeometry(0.16, 0.22, 0.42, 12), DARK, 0, 0.33, 0, true));
-  g.add(mesh(new CylinderGeometry(0.24, 0.24, 0.06, 16), CORAL, 0, 0.56, 0, true));
+  const [low, lowHead] = quietly(() => [new Group(), new Group()]);
+  g.add(low);
+  low.add(mesh(new CylinderGeometry(0.5, 0.55, 0.12, 18), WOOD, 0, 0.06, 0, true));
+  low.add(mesh(new CylinderGeometry(0.16, 0.22, 0.42, 12), DARK, 0, 0.33, 0, true));
+  low.add(mesh(new CylinderGeometry(0.24, 0.24, 0.06, 16), CORAL, 0, 0.56, 0, true));
   const head = new Group(); head.position.y = 0.72; g.add(head);
+  head.add(lowHead);
   // the yoke, and the barrel between its arms
-  for (const s of [-1, 1]) head.add(mesh(new BoxGeometry(0.05, 0.28, 0.22), DARK, s * 0.13, -0.04, 0, true));
+  for (const s of [-1, 1]) lowHead.add(mesh(new BoxGeometry(0.05, 0.28, 0.22), DARK, s * 0.13, -0.04, 0, true));
   const barrel = mesh(new CylinderGeometry(0.075, 0.085, 1.1, 14), STEEL, 0, 0.04, 0.25, true); barrel.rotation.x = Math.PI / 2;
-  head.add(barrel);
+  lowHead.add(barrel);
   for (const z of [0.78, -0.22]) {
     const band = mesh(new CylinderGeometry(0.095, 0.095, 0.07, 14), CORAL, 0, 0.04, z, true); band.rotation.x = Math.PI / 2;
-    head.add(band);
+    lowHead.add(band);
   }
   // the harpoon, loaded: a wooden shaft out of the muzzle, a steel point and two barbs
-  const shaft = mesh(new CylinderGeometry(0.022, 0.022, 0.42, 8), WOOD, 0, 0.04, 0.98); shaft.rotation.x = Math.PI / 2; head.add(shaft);
-  const tip = mesh(new ConeGeometry(0.05, 0.18, 10), 0xD9E2E8, 0, 0.04, 1.27, true); tip.rotation.x = Math.PI / 2; head.add(tip);
+  const shaft = mesh(new CylinderGeometry(0.022, 0.022, 0.42, 8), WOOD, 0, 0.04, 0.98); shaft.rotation.x = Math.PI / 2; lowHead.add(shaft);
+  const tip = mesh(new ConeGeometry(0.05, 0.18, 10), 0xD9E2E8, 0, 0.04, 1.27, true); tip.rotation.x = Math.PI / 2; lowHead.add(tip);
   for (const s of [-1, 1]) {
-    const barb = mesh(new ConeGeometry(0.02, 0.1, 6), 0xD9E2E8, s * 0.05, 0.04, 1.17); barb.rotation.set(-Math.PI / 2, 0, s * 0.6); head.add(barb);
+    const barb = mesh(new ConeGeometry(0.02, 0.1, 6), 0xD9E2E8, s * 0.05, 0.04, 1.17); barb.rotation.set(-Math.PI / 2, 0, s * 0.6); lowHead.add(barb);
   }
   // a reel of rope on the side, for reeling the catch in
-  const reel = mesh(new CylinderGeometry(0.13, 0.13, 0.1, 16), DARK, 0.22, 0.02, -0.05, true); reel.rotation.z = Math.PI / 2; head.add(reel);
-  const coil = mesh(new TorusGeometry(0.1, 0.035, 8, 18), ROPE, 0.22, 0.02, -0.05); coil.rotation.y = Math.PI / 2; head.add(coil);
+  const reel = mesh(new CylinderGeometry(0.13, 0.13, 0.1, 16), DARK, 0.22, 0.02, -0.05, true); reel.rotation.z = Math.PI / 2; lowHead.add(reel);
+  const coil = mesh(new TorusGeometry(0.1, 0.035, 8, 18), ROPE, 0.22, 0.02, -0.05); coil.rotation.y = Math.PI / 2; lowHead.add(coil);
   // handles at the back
   for (const s of [-1, 1]) {
-    const grip = mesh(new CylinderGeometry(0.025, 0.025, 0.22, 8), DARK, s * 0.09, 0.04, -0.38); grip.rotation.x = 0.5; head.add(grip);
+    const grip = mesh(new CylinderGeometry(0.025, 0.025, 0.22, 8), DARK, s * 0.09, 0.04, -0.38); grip.rotation.x = 0.5; lowHead.add(grip);
   }
+  quietly(() => {
+    const high = turretBase().mesh(), highHead = turretHead().mesh();
+    g.add(high); head.add(highHead);
+    detail(low, high);
+    detail(lowHead, highHead);
+  });
   scene.add(g);
   return { g, head };
 }
@@ -51,11 +63,15 @@ export function buildTurret() {
 export function buildNet() {
   const g = new Group(); g.position.set(-1.2, 0, -10.8);
   const W = 3.5, TOP = 1.45, BOTTOM = 0.12, SAG = 0.16;
+  // Low: the poles, ropes and floats as plain shapes. High: rigged with lashings, a lead line and striped buoys
+  // (propsMachines.ts). The net itself is the same on both.
+  const low = quietly(() => new Group());
+  g.add(low);
   for (const s of [-1, 1]) {
-    const pole = mesh(G.cyl, 0x7A5236, s * (W / 2 + 0.05), 0.55, 0, true); pole.scale.set(0.09, 2.1, 0.09); g.add(pole);
-    g.add(mesh(new CylinderGeometry(0.1, 0.1, 0.12, 10), ROPE, s * (W / 2 + 0.05), TOP - 0.02, 0));
-    g.add(mesh(new CylinderGeometry(0.11, 0.09, 0.06, 10), 0xE9D9C0, s * (W / 2 + 0.05), 1.62, 0, true));
-    const buoy = mesh(G.sphere, CORAL, s * (W / 2 + 0.45), 0.06, 0.2, true); buoy.scale.setScalar(0.16); g.add(buoy);
+    const pole = mesh(G.cyl, 0x7A5236, s * (W / 2 + 0.05), 0.55, 0, true); pole.scale.set(0.09, 2.1, 0.09); low.add(pole);
+    low.add(mesh(new CylinderGeometry(0.1, 0.1, 0.12, 10), ROPE, s * (W / 2 + 0.05), TOP - 0.02, 0));
+    low.add(mesh(new CylinderGeometry(0.11, 0.09, 0.06, 10), 0xE9D9C0, s * (W / 2 + 0.05), 1.62, 0, true));
+    const buoy = mesh(G.sphere, CORAL, s * (W / 2 + 0.45), 0.06, 0.2, true); buoy.scale.setScalar(0.16); low.add(buoy);
   }
   // the net: a diamond mesh of rope, sagging in the middle and bellying out a little with the current
   const netTex = canvasTex(256, 96, (c, w, h) => {
@@ -82,12 +98,18 @@ export function buildNet() {
     const u = i / 8;
     return V((u - 0.5) * (W + 0.1), TOP - Math.sin(u * Math.PI) * SAG, Math.sin(u * Math.PI) * 0.05);
   }));
-  g.add(new Mesh(new TubeGeometry(top, 24, 0.025, 6), new MeshLambertMaterial({ color: ROPE })));
+  low.add(new Mesh(new TubeGeometry(top, 24, 0.025, 6), new MeshLambertMaterial({ color: ROPE })));
   for (let i = 1; i < 7; i++) {
     const p = top.getPoint(i / 7);
     const cork = mesh(new CylinderGeometry(0.07, 0.07, 0.14, 10), 0xD9A441, p.x, p.y, p.z, true); cork.rotation.z = Math.PI / 2;
-    g.add(cork);
+    low.add(cork);
   }
+  quietly(() => {
+    const high = new Group();
+    high.add(netRig(W, TOP, BOTTOM, SAG).mesh(), seasonLayer(netSnow(W).mesh(false), [1, 0, 0, 0]));
+    g.add(high);
+    detail(low, high);
+  });
   scene.add(g);
   return { g, src: V(-1.2, 0.3, -10.8) };
 }

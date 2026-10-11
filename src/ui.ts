@@ -1,8 +1,7 @@
-// DOM overlay: cash/carry/rating HUD, the stage chip, toasts, tile tips, floating "+$" text, and the stage-up's
-// banner and confetti.
+// DOM overlay: cash/rating HUD (what's carried shows in the player's arms), the stage chip, toasts, tile tips,
+// floating "+$" text, and the banner and confetti for the stage-up and the end of the tutorial.
 import { front } from './front';
 import { level, type StageN } from './layout';
-import { player } from './player';
 import { rating } from './rating';
 import { camera, slideView } from './render';
 import { amount, pick, rand, V } from './util';
@@ -11,9 +10,8 @@ import { wallet } from './wallet';
 const $ = (id: string) => document.getElementById(id)!;
 
 const cashN = $('cashN'), cashEl = $('cash'), cashIc = cashEl.querySelector('.ic')!;
-const carryN = $('carryN'), carryEl = $('carry');
 const starsN = $('starsN'), starsEl = $('stars');
-let shownMoney = -1, shownCarry = '', shownStars = '', shownDown: boolean | null = null;
+let shownMoney = -1, shownStars = '', shownDown: boolean | null = null;
 
 export function hud(dt: number) {
   // down in the cellar, money's Fugu Chips ($1,000 a chip), and there's no rating
@@ -27,12 +25,6 @@ export function hud(dt: number) {
   if (shownMoney !== wallet.money) {
     shownMoney = wallet.money;
     cashN.textContent = level.down ? amount(Math.floor(wallet.money / 1000)) : amount(wallet.money);
-  }
-  const cs = player.back.n + '/' + player.back.cap;
-  if (cs !== shownCarry) {
-    shownCarry = cs;
-    carryN.textContent = cs;
-    carryEl.classList.toggle('full', player.back.n >= player.back.cap);
   }
   const st = rating().toFixed(1);
   if (st !== shownStars) {
@@ -74,8 +66,14 @@ phone?.addEventListener?.('change', () => { if (!modsPicked) showMods(!phone.mat
 stageEl.addEventListener('click', () => { modsPicked = true; showMods(modsEl.hidden !== false); });
 
 // ---------- keeping the player in sight ----------
-const panels = [$('shop'), $('casino'), $('gong')];
+const panels = [$('shop'), $('roulette'), $('blackjack'), $('slots'), $('look'), $('gong')];
 const slid = { x: 0, y: 0 };
+/** How far a casino game slides the view to put its table in the middle of the space its controls leave (casinoKit.ts). */
+export const tableRoom = { on: false, x: 0, y: 0 };
+/** Whether a casino game's controls are down the right-hand side (a phone held sideways) rather than along the bottom. */
+export const besideView = (r: DOMRect, w: number) => r.left + r.width / 2 > w * 0.6;
+/** How much of the top of the screen to leave the HUD, over a casino table. */
+export const topOfView = (h: number) => Math.min(document.getElementById('hud')?.getBoundingClientRect().bottom ?? 0, h * 0.14);
 /** Slides the view so an open panel doesn't cover the player: sideways for a panel down the right-hand side (a phone
  *  held sideways), up for one along the bottom of a short screen. Eases there and back. */
 export function keepInSight(dt: number) {
@@ -83,7 +81,9 @@ export function keepInSight(dt: number) {
   let x = 0, y = 0;
   if (open) {
     const r = open.getBoundingClientRect();
-    if (r.left > w * 0.25) x = Math.max(0, w / 2 + 50 - r.left);
+    // a casino game's camera is on its table: that goes in the middle of the screen the controls leave
+    if (tableRoom.on && open.classList.contains('casino')) ({ x, y } = tableRoom);
+    else if (r.left > w * 0.25) x = Math.max(0, w / 2 + 50 - r.left);
     else y = Math.max(0, h / 2 + 70 - r.top);
   }
   const k = Math.min(1, dt * 8);
@@ -100,11 +100,14 @@ export function fade(on: boolean, slow = false) {
 }
 
 const bannerEl = $('banner');
-/** The big centred banner for the stage-up; `null` hides it. */
-export function banner(kicker: string | null, title = '') {
+/** The big centred banner for the stage-up and the end of the tutorial, with a smaller `line` under the title if
+ *  there's more to say; `null` hides it. */
+export function banner(kicker: string | null, title = '', line = '') {
   if (kicker === null) { bannerEl.classList.remove('on'); return; }
   bannerEl.querySelector('.k')!.textContent = kicker;
   bannerEl.querySelector('.t')!.textContent = title;
+  const s = bannerEl.querySelector<HTMLElement>('.s')!;
+  s.textContent = line; s.hidden = !line;
   bannerEl.classList.add('on');
 }
 

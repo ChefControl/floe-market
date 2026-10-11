@@ -14,6 +14,7 @@ export async function ringModules() {
 }
 type Ring = Awaited<ReturnType<typeof ringModules>>;
 interface P { x: number; z: number }
+const CASINO_GAMES = ['blackjack', 'slots'];
 
 export interface Purchase { t: number; id: string; cost: number; money: number; rating: number }
 export interface Sample { t: number; money: number; earned: number; rating: number; stage: number }
@@ -152,7 +153,9 @@ export function play(g: Game, seconds: number, dt = 0.05, ring?: Ring) {
     if (g.restaurant.sushi.built) add(g.restaurant.REGISTER, g.restaurant.register.items);
     return out.sort((a, b) => b.v - a.v);
   };
-  const nextTile = () => g.unlocks.visibleTiles().filter(x => !g.unlocks.locked(x) && Math.abs((x.y ?? 0.15) - p.y) < 2).sort((a, b) => (a.cost - a.paid) - (b.cost - b.paid))[0];
+  // it doesn't gamble: the casino boat's other games are fun extras, out of the balance (docs/balance.md)
+  const nextTile = () => g.unlocks.visibleTiles().filter(x => !g.unlocks.locked(x) && !CASINO_GAMES.includes(x.id) && Math.abs((x.y ?? 0.15) - p.y) < 2)
+    .sort((a, b) => (a.cost - a.paid) - (b.cost - b.paid))[0];
   /** The cheapest repeatable upgrade of this stage that isn't fully upgraded. */
   const nextMod = () => g.economy.MODS.filter(m => m.stage === g.layout.stage.n && g.economy.modCost(m.id) !== null && g.shop.modOffered(m.id))
     .sort((a, b) => g.economy.modCost(a.id)! - g.economy.modCost(b.id)!)[0];

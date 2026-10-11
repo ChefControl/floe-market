@@ -49,7 +49,7 @@ describe('upgrade looks', () => {
   });
 
   it('ties a headband on the player for crew training, a belt colour a level, white to black', async () => {
-    const g = await loadGame({ money: 1e9 });
+    const g = await loadGame({ tiles: bought('runner'), money: 1e9 });
     g.run(0.05);
     expect(g.player.g.band).toBeUndefined();
     g.shop.buyMod('training');

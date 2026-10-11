@@ -1,9 +1,10 @@
 import {
   BoxGeometry, BufferAttribute, BufferGeometry, CanvasTexture, Color, ColorManagement, ConeGeometry, CylinderGeometry,
-  DirectionalLight, Euler, Fog, HemisphereLight, LinearSRGBColorSpace, Material, Matrix4, Mesh, MeshLambertMaterial, PCFShadowMap,
+  DirectionalLight, Euler, Fog, HemisphereLight, LinearSRGBColorSpace, Material, Matrix4, Mesh, MeshLambertMaterial, Object3D, PCFShadowMap,
   PerspectiveCamera, Quaternion, Scene, SphereGeometry, TorusGeometry, Vector3, WebGLRenderer,
 } from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { isHigh, onQuality } from './graphics';
 import { V } from './util';
 
 // ---------- renderer / scene ----------
@@ -22,6 +23,26 @@ renderer.shadowMap.type = PCFShadowMap;
 
 export const scene = new Scene();
 scene.background = new Color(0xCFEAF5);
+// Where things are is worked out afresh each frame, but only for what shows: three.js would do it for everything,
+// hidden or not, and the setting not in use (graphics.ts) is built and hidden beside the one that is. Something
+// hidden is marked to be placed again the moment it shows (its own world matrix, and so everything in it).
+const placeAll = Object3D.prototype.updateMatrixWorld;
+function place(o: Object3D, force: boolean) {
+  if (o.matrixAutoUpdate) o.updateMatrix();
+  if (o.matrixWorldNeedsUpdate || force) {
+    if (o.parent) o.matrixWorld.multiplyMatrices(o.parent.matrixWorld, o.matrix);
+    else o.matrixWorld.copy(o.matrix);
+    o.matrixWorldNeedsUpdate = false;
+    force = true;
+  }
+  for (const c of o.children) {
+    if (!c.matrixWorldAutoUpdate) continue;
+    if (!c.visible) c.matrixWorldNeedsUpdate = true;
+    else if (c.updateMatrixWorld !== placeAll) c.updateMatrixWorld(force); // one that places itself its own way
+    else place(c, force);
+  }
+}
+scene.updateMatrixWorld = (force = false) => place(scene, force);
 export const fog = new Fog(0xCFEAF5, 34, 70);
 scene.fog = fog;
 
@@ -69,6 +90,25 @@ Object.assign(sun.shadow.camera, { left: -14, right: 14, top: 14, bottom: -14, n
 sun.shadow.bias = -0.0006;
 scene.add(sun);
 scene.add(sun.target);
+
+/** How big the sun's shadow map is on High (stage 2 widens it, stage.ts). */
+export const shadowSize = { px: 1024 };
+/**
+ * Fits the renderer to the graphics (graphics.ts). High: soft-edged shadows, up to two pixels a point. Low, for phones
+ * that can't keep up: a shadow map half the size with hard edges, and no more than one and a half pixels a point.
+ */
+export function fitRenderer() {
+  const high = isHigh(), px = high ? shadowSize.px : shadowSize.px / 2;
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, high ? 2 : 1.5));
+  sun.shadow.radius = high ? 3 : 1;
+  if (sun.shadow.mapSize.x !== px) {
+    sun.shadow.mapSize.set(px, px);
+    sun.shadow.map?.dispose();
+    sun.shadow.map = null;
+  }
+}
+fitRenderer();
+onQuality(fitRenderer);
 
 // ---------- materials / meshes ----------
 const matCache = new Map<number, MeshLambertMaterial>();

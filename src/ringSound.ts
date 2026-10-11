@@ -9,7 +9,7 @@
 // with vibrato, and a babble between. It's loudest at the ringside, softer across the arena, low out in the other
 // rooms (very low in Mr. Fugu's office), and faint through the floor from the dock.
 import {
-  between, clip, clipBed, clipLength, ear, glide, hasClip, noise, rnd, tone, vocal, type Clip, type ClipVoice, type NoiseVoice,
+  between, clip, clipBed, clipLength, ear, glide, hasClip, loadClips, noise, rnd, tone, vocal, type Clip, type ClipVoice, type NoiseVoice,
   type ToneVoice, type VocalVoice, type Vowel,
 } from './audio';
 import { RING, roomAt } from './cellar';
@@ -83,6 +83,7 @@ function shout(vowels: Vowel[], count: number, d: number, v: number, rise = 1, d
 let chatter = 0;
 const SYLLABLES: Vowel[] = ['a', 'o', 'e', 'u', 'i'];
 export function updRingSound(dt: number) {
+  loadClips();
   // (a small crowd is quieter: `size` is how big it is tonight, 0 to 1, from the fans fed; a boss's crowd is all of it)
   hears += (hearsAt(ear, ear.down) * (0.45 + 0.55 * crowd.size) - hears) * Math.min(1, dt * 3);
   crowd.excite += (crowd.settle - crowd.excite) * Math.min(1, dt * 0.6);

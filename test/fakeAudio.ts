@@ -83,7 +83,7 @@ class Source extends FakeNode {
 }
 class Osc extends Source {
   type = 'sine';
-  /** A custom waveform (the gloop band's soft sawtooths) shows as type 'custom', as in the browser. */
+  /** A custom waveform (the gloop band's soft sawtooths, a reed's) shows as type 'custom', as in the browser. */
   setPeriodicWave() { this.type = 'custom'; }
   frequency = new FakeParam(440);
   detune = new FakeParam();
@@ -121,6 +121,9 @@ export class FakeAudioContext {
   createBufferSource() { return new Buffered(); }
   createBiquadFilter() { return Object.assign(new FakeNode(), { type: 'lowpass', frequency: new FakeParam(350), Q: new FakeParam(1) }); }
   createStereoPanner() { return Object.assign(new FakeNode(), { pan: new FakeParam() }); }
+  createConvolver() { return Object.assign(new FakeNode(), { buffer: null as unknown }); }
+  /** Any recording "decodes" to a minute of silence. */
+  decodeAudioData() { return Promise.resolve({ duration: 60 }); }
   createDynamicsCompressor() {
     return Object.assign(new FakeNode(), { threshold: new FakeParam(), knee: new FakeParam(), ratio: new FakeParam() });
   }

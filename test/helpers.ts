@@ -30,6 +30,7 @@ export interface SaveFixture {
   ring?: Record<string, unknown>;
   presents?: number;
   presentPaid?: number;
+  learnt?: string[];
 }
 /** Floe Sushi's upgrades (stage 2), in order. */
 export const FLOE_SUSHI = ['paddy', 'seats', 'chef', 'farmer', 'porter', 'plot2', 'tables', 'chef3', 'tables2', 'plot3', 'kiosk', 'premium'];

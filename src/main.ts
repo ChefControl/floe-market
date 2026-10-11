@@ -1,31 +1,41 @@
 import './errors'; // must stay first: catches errors thrown while the other modules build the scene
+import { batchStill } from './batch';
+import { tableView, tipsy, tipsyK } from './casinoKit';
 import { initCloud } from './cloud';
-import { DEMO, startDemo } from './demo';
+import { CLOSE, CLOSE_AIM, closeUp } from './customize';
+import { DEMO, startDemo } from './fuguDemo';
 import { tick } from './game';
+import { frameDrawn } from './graphics';
 import { initHint, updHint } from './hint';
 import { inputVec } from './input';
 import { drawOffer, offerCam } from './offer';
 import { updKofi } from './kofi';
 import { player } from './player';
 import { updPointers } from './pointers';
+import { initReports, updReports } from './report';
 import { camera, camK, fog, OFF, renderer, scene, sun, sunOff } from './render';
 import { isStale, load, startAutosave, wipeSave } from './save';
 import { initScores } from './scores';
 import './settings';
 import { view } from './stage';
+import { drawTutorial } from './tutorial';
 import { hud, keepInSight } from './ui';
 import { V } from './util';
 
 // ---------- save / restart ----------
-// The demo build (VITE_FUGU_DEMO=1) starts from a game that's one bill short of meeting Mr. Fugu, and keeps nothing.
+// The Mr. Fugu demo build (VITE_FUGU_DEMO=1) starts from a game that's one bill short of meeting him, and keeps nothing.
 if (DEMO) startDemo();
 else {
   load();
   startAutosave();
   initCloud();
+  initReports();
   initHint();
   initScores();
 }
+batchStill(scene);
+// the demo build's tool panel (demo.ts); the game itself never loads it
+if (import.meta.env.MODE === 'demo') void import('./demo');
 
 const restartBtn = document.getElementById('restart')!, restartText = document.getElementById('restartText')!;
 let armT: ReturnType<typeof setTimeout> | undefined;
@@ -47,23 +57,29 @@ restartBtn.addEventListener('click', () => {
 });
 
 // ---------- loop ----------
-const camTarget = player.g.position.clone(), look = camTarget.clone(), aim = look.clone();
+const camTarget = player.g.position.clone(), look = camTarget.clone(), camOff = OFF.clone(), aim = look.clone();
 const smooth = (k: number) => k * k * (3 - 2 * k);
 let last = performance.now();
+const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)') ?? { matches: false };
 
 function frame(now: number) {
+  frameDrawn((now - last) / 1000);
   const dt = Math.max(0, Math.min(0.05, (now - last) / 1000)); // a first frame can be stamped before boot
   last = now;
-  if (!isStale()) { tick(dt); updKofi(dt); }
+  if (!isStale()) { tick(dt); updKofi(dt); updReports(dt); }
 
-  // Follow the player; the stage-up pulls back to look over the whole map for a moment. Up or down the ladder, the
-  // camera goes straight there (behind the fade) rather than gliding through the floor.
+  // Follow the player; the stage-up pulls back to look over the whole map for a moment, picking a look comes in close,
+  // and so does playing a game on the casino boat, over its table. Up or down the ladder, the camera goes straight
+  // there (behind the fade) rather than gliding through the floor.
   if (view.snap) { camTarget.copy(player.g.position); view.snap = false; }
   camTarget.lerp(player.g.position, Math.min(1, dt * 6));
   look.copy(camTarget).lerp(view.focus, view.k);
-  const k = camK * view.zoom;
-  camera.position.set(look.x + OFF.x * k, look.y + OFF.y * k, look.z + OFF.z * k);
-  aim.set(look.x, look.y + 0.4, look.z);
+  const k = camK * view.zoom, near = closeUp(dt);
+  camOff.copy(OFF).multiplyScalar(k).lerp(CLOSE, near);
+  camera.position.copy(look).add(camOff);
+  aim.set(look.x, look.y + 0.4 + (CLOSE_AIM - 0.4) * near, look.z);
+  const table = tableView(dt);
+  if (table.k > 0) { camera.position.lerp(table.eye, table.k); aim.lerp(table.at, table.k); }
   // Mr. Fugu's offer cuts to its own view of the hatch, and eases back to the player afterwards.
   drawOffer();
   if (offerCam.k > 0) {
@@ -72,7 +88,11 @@ function frame(now: number) {
     aim.lerp(offerCam.look, b);
     if (s) camera.position.add(V((Math.random() - 0.5) * s, (Math.random() - 0.5) * s, 0));
   }
+  // tipsy: the view sways and rolls (not for players who'd rather less motion)
+  const sway = tipsy.t > 0 && !reduceMotion.matches ? tipsyK() : 0;
+  if (sway) { aim.x += Math.sin(now / 760) * 0.45 * sway; aim.z += Math.cos(now / 910) * 0.3 * sway; }
   camera.lookAt(aim);
+  if (sway) camera.rotateZ(Math.sin(now / 580) * 0.09 * sway);
   fog.near = 34 * view.zoom; fog.far = 70 * view.zoom;
   sun.position.copy(look).add(sunOff);
   sun.target.position.copy(look);
@@ -80,6 +100,7 @@ function frame(now: number) {
   keepInSight(dt);
   updHint(dt, !!inputVec());
   updPointers(dt);
+  drawTutorial(dt);
   hud(dt);
   renderer.render(scene, camera);
   if (loading) {

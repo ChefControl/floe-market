@@ -24,7 +24,7 @@ it('boots from a save, renders, autosaves and restarts', async () => {
 
   // errors surface on screen
   window.dispatchEvent(new ErrorEvent('error', { message: 'boom' }));
-  expect($('err').textContent).toBe('Something broke: boom');
+  expect($('errMsg').textContent).toBe('Something broke: boom');
 
   // saves whenever the page may be going away
   g.wallet.money = 8;

@@ -5,6 +5,7 @@
 // venue's tiers, each found only once the boss that reveals it is beaten; and once all five are, the gold tile in Mr.
 // Fugu's office: buying him out.
 import type { Group, Object3D, Vector3 } from 'three';
+import { enableBlackjack } from './blackjackTable';
 import { enableCasino } from './casino';
 import { CY, parts, showVenue } from './cellar';
 import { openSled, openTakeout } from './counters';
@@ -14,7 +15,8 @@ import { addMachine, BOSSES, BUYOUT, CHIP, F, hire, HIRES, type Ing, MACH, MACH_
 import { tryCatch } from './fishing';
 import { addTables } from './garden';
 import { enableKorki, KORKI } from './korki';
-import { HATCH_AT, stage, TERRACES, type StageN } from './layout';
+import { unlockFx } from './fx';
+import { GAMES, HATCH_AT, stage, TERRACES, type StageN } from './layout';
 import { buildNet, buildTurret } from './machines';
 import { player } from './player';
 import { offer } from './offer';
@@ -27,6 +29,7 @@ import { hireFarmer, hireRicePorter, plantTerrace } from './rice';
 import { openShed } from './shed';
 import { hireRunner } from './runner';
 import { chime, unlock } from './sfx';
+import { enableSlots } from './slotMachine';
 import { enterStage2, enterStage3, finishStage3, staging } from './stage';
 import { showStage, toast, type TipContent } from './ui';
 import { chips, FY, price, V } from './util';
@@ -35,7 +38,7 @@ import { MAX_MACHINES } from './cellarPlan';
 export type UnlockId =
   | 'pack' | 'turret' | 'roulette' | 'runner' | 'boots' | 'sled' | 'runner2' | 'net' | 'runner3' | 'sushi'
   | 'paddy' | 'seats' | 'chef' | 'farmer' | 'porter' | 'plot2' | 'tables' | 'chef3' | 'tables2' | 'plot3' | 'kiosk'
-  | 'premium' | 'korki'
+  | 'premium' | 'korki' | 'blackjack' | 'slots'
   | 'dohyo' | 'rack' | 'barrel' | 'bed' | 'washer' | 'salter' | 'cook' | 'attendant' | 'steam' | 'smoke' | 'shelves'
   | 'tier1' | 'tier2' | 'tier3' | 'buyout';
 interface Unlock {
@@ -93,7 +96,8 @@ function ring(id: UnlockId, x: number, z: number, icon: string, name: string, de
 const UNLOCKS: Unlock[] = [
   { id: 'pack', cost: 30, x: -1.3, z: 6.0, icon: '🎒', name: 'Bigger arms', desc: 'Carry 14 things at once', stage: 1 },
   { id: 'turret', cost: 90, x: -6.0, z: -3.3, icon: '🎯', name: 'Auto harpoon', desc: 'Keeps catching fish while you are away', stage: 1 },
-  { id: 'roulette', cost: 150, x: -4.3, z: 0.6, icon: '🎰', name: 'Roulette table', desc: 'Bet your cash on the wheel', stage: 1 },
+  // by the gap in the west fence the jetty goes out through, so the jetty builds out from where you stand
+  { id: 'roulette', cost: 150, x: -6.3, z: -1.2, icon: '🛳️', name: 'Casino boat', desc: 'A casino moored off the dock, with a roulette table', stage: 1 },
   { id: 'runner', cost: 300, x: -4.0, z: 3.6, icon: '🏃', name: 'Hire a runner', desc: 'Carries fish from the pile to your counters', stars: 3.5, stage: 1 },
   { id: 'boots', cost: 500, x: -6.0, z: 6.2, icon: '🥾', name: 'Snow boots', desc: 'Walk faster', stage: 1 },
   { id: 'sled', cost: 900, x: 6.55, z: -1.0, icon: '🚗', name: 'Drive-up window', desc: 'Drivers on the road buy fish in bulk, for half as much again', stars: 3.8, stage: 1 },
@@ -107,7 +111,8 @@ const UNLOCKS: Unlock[] = [
   // out on the deck by the west end of the kitchen line, where rice comes in from the farm door: in the open (the
   // restaurant's west wall and roof hide the farm path from most of the room) and passed on every trip for rice
   { id: 'farmer', cost: 6000, x: -6.4, z: 0.6, icon: '🧑‍🌾', name: 'Hire a farmer', desc: 'Harvests the terraces onto a stack on the path', stars: 3.9, needs: 'paddy', stage: 2 },
-  { id: 'porter', cost: 12000, x: -8.2, z: 5.0, icon: '🧺', name: 'Rice porter', desc: 'Carries harvested rice in to the kitchen line', stars: 4.1, needs: 'paddy', stage: 2 },
+  // the porter carries from the farmer's stack, which only the farmer fills
+  { id: 'porter', cost: 12000, x: -8.2, z: 5.0, icon: '🧺', name: 'Rice porter', desc: 'Carries harvested rice in to the kitchen line', stars: 4.1, needs: 'farmer', stage: 2 },
   { id: 'plot2', cost: 15000, ...onTerrace(1), icon: '🌱', name: 'Second terrace', desc: 'Plant the middle terrace: rice for more diners', stars: 4.1, needs: 'paddy', stage: 2 },
   { id: 'tables', cost: 20000, x: 6.2, z: 17.7, y: 0.02, icon: '⛱️', name: 'Garden tables', desc: 'Four tables in the front garden, and a waiter to serve them', stars: 4.2, stage: 2 },
   { id: 'chef3', cost: 25000, x: 8.0, z: 11.8, icon: '🔪', name: 'Third chef', desc: 'A third chef at the bar', stars: 4.3, needs: 'chef', shown: true, stage: 2 },
@@ -134,6 +139,9 @@ const UNLOCKS: Unlock[] = [
     `The venue grows to ${TIERS[i].seats} seats${i === 2 ? ', with taiko drummers' : ''}`, [0, 1, 3, 4][i], [0, 200, 900, 2500][i], undefined, i > 1 ? `tier${i - 1}` as UnlockId : undefined)),
   { id: 'buyout', cost: BUYOUT * CHIP, ...below(7.55, -5.25), icon: '🐡', name: 'Buy back all his chips', desc: "The ring is yours: Mr. Fugu's 30% ends, the restaurant's till comes back, and stage 4 opens", stage: 3, gold: true, beat: BOSSES.length },
   { id: 'korki', cost: 10, x: KORKI.x, z: KORKI.z, icon: '🛴', name: "Korki's golden statue", desc: 'In memory of a good scooter', stage: 1, always: true, everywhere: true },
+  // the casino boat's other games, on its deck: fun extras, for sale from when the boat comes in
+  { id: 'slots', cost: 250, ...GAMES.slots, icon: '🎰', name: 'Slot machine', desc: 'Pull the lever for three of a kind', stage: 1, always: true, everywhere: true, needs: 'roulette' },
+  { id: 'blackjack', cost: 400, ...GAMES.blackjack, icon: '🃏', name: 'Blackjack table', desc: 'Beat the dealer to 21', stage: 1, always: true, everywhere: true, needs: 'roulette' },
 ];
 
 export const locked = (t: Tile) => !!t.stars && !t.open;
@@ -160,7 +168,8 @@ export function redrawTile(t: Tile) {
 // Tiles drawn before the web font loaded fall back to a system font; redraw once it's ready.
 if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => tiles.forEach(redrawTile));
 
-const isDone = (id: UnlockId) => tiles.some(t => t.id === id && t.done);
+/** Whether an upgrade tile has been bought. */
+export const isDone = (id: UnlockId) => tiles.some(t => t.id === id && t.done);
 /** A stage's own upgrades: what its progress chip counts. */
 const goal = (n: StageN) => tiles.filter(t => t.stage === n && !t.always && !t.gold);
 const built = (n: StageN) => goal(n).every(t => t.done);
@@ -180,11 +189,13 @@ function offered(t: Tile) {
   return !t.needs || isDone(t.needs);
 }
 
-/** Upgrades on offer all through the current stage (or every stage), once the stage-up's show is over. */
-const always = (t: Tile) => t.always && (t.everywhere || (t.stage === stage.n && !staging()));
+/** Upgrades on offer all through the current stage (or every stage), once the stage-up's show is over and what they need is bought. */
+const always = (t: Tile) => t.always && !staging() && (!t.needs || isDone(t.needs)) && (t.everywhere || t.stage === stage.n);
 
 /** The tiles on offer last time, to spot new ones; null before the first look (at a fresh start or a loaded save). */
 let before: Set<Tile> | null = null;
+/** The tiles on offer, as of the last look (`visibleTiles`, every tick). */
+export const onOffer = () => [...before ?? []];
 
 /** At most two unpaid upgrades are offered at a time, in order, plus any that are always on offer or shown. (Down in
  *  the cellar, every one that's been found: they're spread round its rooms.) */
@@ -255,7 +266,9 @@ export function applyUnlock(id: UnlockId, silent = false) {
   const pop = (...os: Object3D[]) => { if (!silent) os.forEach(popIn); };
   if (id === 'pack') player.back.cap = 14;
   if (id === 'turret') { turret = { ...buildTurret(), t: 1 }; pop(turret.g); }
-  if (id === 'roulette') pop(enableCasino());
+  if (id === 'roulette') pop(...enableCasino(silent));
+  if (id === 'blackjack') pop(enableBlackjack());
+  if (id === 'slots') pop(enableSlots());
   if (id === 'runner' || id === 'runner2' || id === 'runner3') pop(hireRunner().g);
   if (id === 'boots') player.speed = 5.8;
   if (id === 'sled') pop(...openSled());
@@ -286,7 +299,9 @@ export function applyUnlock(id: UnlockId, silent = false) {
   if (silent || t.gold) return;
   toast(t.name + ' unlocked');
   if (id === 'kiosk') toast('New: the Fertilizer shed, by the water wheel');
+  if (id === 'runner') toast('New at the Upgrade square: Crew training');
   unlock();
+  unlockFx(t, 1.1, (t.y ?? FY) + 0.05);
   if (t.always || !goal(t.stage).every(x => x.done)) return;
   toast(t.stage === 1 ? 'Floe Sushi is ready to open' : 'Floe Sushi is fully built');
 }

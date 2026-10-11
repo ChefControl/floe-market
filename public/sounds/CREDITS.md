@@ -1,7 +1,7 @@
 # Sounds
 
 The ring's crowd (stage 3) is recorded: the rest of the game's sound is synthesised in the browser (`src/audio.ts`).
-The recordings are cut down and mixed to mono for the game. The game credits them in its settings, under Sound.
+The recordings are cut down and mixed to mono for the game. The game credits them in its settings, under Credits & Copyrights.
 
 | File | Cut from | By | Licence |
 | --- | --- | --- | --- |

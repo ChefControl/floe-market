@@ -7,6 +7,9 @@ import { carrySlot, Holder } from './holder';
 import { newRice } from './items';
 import { FARM_DOOR, groundY, HALL_BOX, PATH_X, TERRACE_Z, TERRACES } from './layout';
 import { boost } from './economy';
+import { isHigh, onQuality } from './graphics';
+import { detail, quietly } from './kit';
+import { pallet as palletHigh, riceClump } from './propsFarm';
 import { bake, G, mat, mesh, scene, type Part } from './render';
 import { PLATES_PER_BAG, RICE_DROP, ricePot, SPAWN_EVERY } from './restaurant';
 import { swish } from './sfx';
@@ -63,7 +66,15 @@ export const fieldStack = new Holder(i => {
   const j = i % 4;
   return V(STACK.x + ((j % 2) - 0.5) * 0.34, STACK.y + 0.06 + Math.floor(i / 4) * 0.085, STACK.z + (Math.floor(j / 2) - 0.5) * 0.28);
 }, 40);
-const pallet = mesh(new BoxGeometry(0.8, 0.06, 0.7), 0x8A5A3B, STACK.x, STACK.y + 0.03, STACK.z, true);
+/** The pallet under the stack, hidden until there's a farmer: a plain board on Low, slats on bearers on High. */
+const pallet = quietly(() => new Group());
+{
+  const low = mesh(new BoxGeometry(0.8, 0.06, 0.7), 0x8A5A3B, STACK.x, STACK.y + 0.03, STACK.z, true);
+  const high = quietly(() => palletHigh(0.8, 0.7).mesh());
+  high.position.set(STACK.x, STACK.y, STACK.z);
+  pallet.add(low, high);
+  detail(low, high);
+}
 pallet.visible = false;
 scene.add(pallet);
 
@@ -75,6 +86,14 @@ for (let i = 0; i < 6; i++) {
   HEADS.push({ geo: G.sphere, at: [Math.cos(a) * r * 1.3, 0.62, Math.sin(a) * r * 1.3], scale: [0.05, 0.09, 0.05] });
 }
 const stalksGeo = bake(STALKS), headsGeo = bake(HEADS);
+/** On High, every clump draws a finer shape instead (propsFarm.ts), with the same materials. */
+const HIGH = quietly(riceClump);
+function shape(c: Cell) {
+  const h = isHigh();
+  c.stalks.geometry = h ? HIGH.stalks : stalksGeo;
+  c.heads.geometry = h ? HIGH.heads : headsGeo;
+}
+onQuality(() => field.cells.forEach(shape));
 const green = mat(0x5E9B3E), gold = mat(0xE0B84A), grain = mat(0xF2C14E);
 const ripe = (c: Cell) => c.grow >= 1;
 
@@ -91,6 +110,7 @@ function plant({ x, z, y }: { x: number; z: number; y: number }, grow: number, f
   g.add(stalks, heads);
   scene.add(g);
   const c: Cell = { x, z, grow: 0, g, stalks, heads, taken: false, fixed };
+  shape(c);
   setGrowth(c, grow);
   field.cells.push(c);
   return g;

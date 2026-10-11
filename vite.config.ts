@@ -1,5 +1,5 @@
 import type { Plugin } from 'vite';
-import { defineConfig } from 'vitest/config';
+import { configDefaults, defineConfig } from 'vitest/config';
 
 /**
  * The loading screen (index.html) counts the game's scripts in as they download, so it needs their names and sizes
@@ -31,14 +31,24 @@ function preloadManifest(): Plugin {
 export default defineConfig({
   // Relative base so the build works from any path (e.g. GitHub Pages' /floe-market/).
   base: './',
-  // three.js alone is ~550 kB minified, and the game with it ~810 kB (three stages); Firebase (cloud saves) is its own
-  // chunk, started on demand.
-  build: { chunkSizeWarningLimit: 900 },
+  // three.js gets a chunk of its own: it changes far less often than the game, so a returning player's browser keeps it
+  // cached across game updates. The game is the bigger part (the High graphics' models are built in code, not loaded);
+  // Firebase (cloud saves) is its own chunk too, started on demand.
+  build: {
+    chunkSizeWarningLimit: 1000,
+    rolldownOptions: { output: { codeSplitting: { groups: [{ name: 'three', test: /node_modules[\\/]three[\\/]/ }] } } },
+  },
   plugins: [preloadManifest()],
+  // the commit the game was built from (GitHub Actions sets it), which bug reports carry (report.ts)
+  define: { __BUILD__: JSON.stringify(process.env.GITHUB_SHA ?? 'dev') },
   test: {
     environment: 'jsdom',
     setupFiles: ['test/setup.ts'],
+    // firestore.rules' tests need the Firestore emulator: npm run test:rules
+    exclude: [...configDefaults.exclude, 'test/rules/**', 'intake/**'],
     restoreMocks: true,
+    // Loading the game builds both the Low and the High models (graphics.ts), and some tests load it several times.
+    testTimeout: 15_000,
     unstubGlobals: true,
     coverage: {
       provider: 'v8',
