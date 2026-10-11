@@ -64,11 +64,15 @@ function upright(m: number, t: number, d: number, v: number) {
   tone({ ...o, t, f, a: 0.012, d, v });
   tone({ ...o, t, f, type: 'triangle', a: 0.012, d: d * 0.6, v: v * 0.45, lp: 520 });
 }
-/** A cool, dry alto sax: scooping up into the note, hardly any vibrato, plenty of breath, darkening as it dies. */
+/**
+ * A cool, dry alto sax: scooping up into the note, hardly any vibrato, a little breath, darkening as it dies. It plays
+ * the tune an octave down, in the alto's own warm middle: up where the piano has it, past the top of a real alto's
+ * range, the reed came across as a sharp squeal. Each note eases in, so a short one is a soft blow, not a blip.
+ */
 function sax(m: number, t: number, hold: number, v: number) {
-  const f = hz(m), o = wet();
-  tone({ ...o, t, f, wave: reed, scoop: 0.985, a: 0.045, hold, d: 0.16, v, vib: [5.2, f * 0.002], lp: Math.min(3000, f * 4.5), lp2: Math.min(1800, f * 2.5) });
-  noise({ ...o, t, f: Math.min(2200, f * 2), q: 1.1, a: 0.04, hold: hold * 0.7, d: 0.12, v: v * 0.45 });
+  const f = hz(m - 12), o = wet();
+  tone({ ...o, t, f, wave: reed, scoop: 0.985, a: 0.07, hold, d: 0.2, v, vib: [5.2, f * 0.002], lp: Math.min(2400, f * 4), lp2: Math.min(1400, f * 2.2) });
+  noise({ ...o, t, f: Math.min(1800, f * 2), q: 1.1, a: 0.06, hold: hold * 0.7, d: 0.14, v: v * 0.3 });
 }
 const vibes = (m: number, t: number, v: number, d: number) => tone({ ...wet(), t, f: hz(m), a: 0.01, d, v, trem: [5.5, 0.7] });
 /** A brush swirled round the snare, a brush tap, and the hi-hat's foot: all kept under about 4 kHz. */
@@ -130,7 +134,7 @@ export function playLounge(i: number, t: number, parts: number) {
     if (on !== s) continue;
     const d = Math.max(0.5, len * st * 1.3);
     piano(m, at, 0.05, d); piano(m - 12, at + 0.004, 0.032, d);
-    if (parts >= 4 && bar >= 12) sax(m, at + 0.01, len * st * 0.85, 0.034);
+    if (parts >= 4 && bar >= 12) sax(m, at + 0.01, len * st * 0.85, 0.029);
     if (parts >= 4 && bridge) vibes(thirdUnder(m), at, 0.03, Math.max(0.6, len * st));
   }
 }

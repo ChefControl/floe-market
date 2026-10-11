@@ -291,7 +291,7 @@ function refresh() {
   cutEl.hidden = prep?.phase !== 'cut';
   stakes.refresh(live());
   dealBtn.disabled = !stakes.ok;
-  dealBtn.textContent = `Deal · ${money(stakes.value)}`;
+  dealBtn.textContent = `Deal · ${stakes.label}`;
   if (h) {
     dblBtn.disabled = !canDouble(h);
     splitBtn.hidden = !canSplitNow(r!);

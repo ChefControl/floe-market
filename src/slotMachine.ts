@@ -168,7 +168,7 @@ function redraw(lit = false) {
 function refresh() {
   stakes.refresh(!!spin);
   pullBtn.disabled = !!spin || !stakes.ok;
-  pullBtn.textContent = spin ? 'Spinning…' : `Pull · ${money(stakes.value)}`;
+  pullBtn.textContent = spin ? 'Spinning…' : `Pull · ${stakes.label}`;
 }
 
 function startSpin() {

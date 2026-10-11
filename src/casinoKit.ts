@@ -6,6 +6,7 @@ import {
   CylinderGeometry, Group, MeshLambertMaterial, Sprite, SpriteMaterial, Vector3, type Object3D,
 } from 'three';
 import { decal, drawPad } from './decals';
+import { quietly } from './kit';
 import { stage } from './layout';
 import { player } from './player';
 import { camera, canvasTex, FONT, mesh, rr } from './render';
@@ -64,32 +65,52 @@ export const CHIPS: Record<1 | 2, number[]> = { 1: [5, 25, 100, 500], 2: [50, 25
 const chipLabel = (v: number) => v >= 1000 ? `$${v / 1000}k` : `$${v}`;
 
 /**
- * The stake chips in a game's panel: four amounts that follow the stage, or all in. The choice is which chip (the
- * second, say), so it moves to its counterpart at the stage-up. Picking one calls `picked`; nothing while `busy`.
+ * The stake in a game's panel, made up as at a real table: each tap on a chip puts one more of it down (three $1k chips
+ * make $3k), Clear takes them all back, and All in puts down everything. What's down is kept as how many of each chip
+ * (one of the second, to start with), so it grows with the stage at the stage-up, and it stays down from one round to
+ * the next. Changing it calls `picked`; nothing while `busy`.
  */
 export class Stakes {
-  choice: number | 'all' = 1;
+  /** How many of each of the stage's chips are down. */
+  pile = [0, 1, 0, 0];
+  /** All in: everything the player has, instead of the pile. */
+  all = false;
   constructor(readonly el: HTMLElement, busy: () => boolean, picked: () => void) {
     el.addEventListener('click', e => {
       const b = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-stake]');
       if (!b || busy()) return;
-      this.choice = b.dataset.stake === 'all' ? 'all' : Number(b.dataset.stake);
+      const v = b.dataset.stake!, chip = v !== 'all' && v !== 'clear';
+      // all in, clear, or a chip after all in: start again from nothing
+      if (!chip || this.all) { this.all = v === 'all'; this.pile.fill(0); }
+      if (chip) this.pile[Number(v)]++;
       picked();
     });
   }
 
   /** The stake in dollars. */
-  get value() { return this.choice === 'all' ? wallet.money : CHIPS[stage.n][this.choice]; }
+  get value() { return this.all ? wallet.money : this.pile.reduce((s, n, i) => s + n * CHIPS[stage.n][i], 0); }
   /** Whether the stake can be put down now. */
   get ok() { return this.value > 0 && this.value <= wallet.money; }
+  /** The stake to the dollar, never shortened: $10,250 isn't $10.2k when it's made of chips. */
+  get label() { return '$' + this.value.toLocaleString('en-US'); }
 
-  /** Labels the chips for the stage, marks the chosen one and greys out what the player can't cover (all while `busy`). */
+  /** Labels the chips for the stage, with how many of each are down, and greys out what the player can't add to the
+   *  stake (all of it while `busy`). */
   refresh(busy: boolean) {
     this.el.querySelectorAll<HTMLButtonElement>('[data-stake]').forEach(b => {
-      const v = b.dataset.stake!, amount = v === 'all' ? wallet.money : CHIPS[stage.n][Number(v)];
-      if (v !== 'all') b.textContent = chipLabel(amount);
-      b.setAttribute('aria-pressed', String(v === String(this.choice)));
-      b.disabled = busy || amount <= 0 || amount > wallet.money;
+      const v = b.dataset.stake!;
+      if (v === 'all') {
+        b.setAttribute('aria-pressed', String(this.all));
+        b.disabled = busy || wallet.money <= 0;
+      } else if (v === 'clear') b.disabled = busy || (!this.all && this.value === 0);
+      else {
+        const amount = CHIPS[stage.n][Number(v)], n = this.all ? 0 : this.pile[Number(v)];
+        b.textContent = chipLabel(amount);
+        if (n) { b.dataset.n = `×${n}`; b.setAttribute('aria-label', `${chipLabel(amount)} ×${n}`); }
+        else { delete b.dataset.n; b.removeAttribute('aria-label'); }
+        b.setAttribute('aria-pressed', String(n > 0));
+        b.disabled = busy || (this.all ? 0 : this.value) + amount > wallet.money;
+      }
     });
   }
 }
@@ -251,19 +272,24 @@ function chipMat(color: number) {
   chipMats.set(color, m);
   return m;
 }
-/** A stack of chips for `amount`: the biggest of the stage's chips that fits, as many as make it up (up to 12). */
+/** A stack of chips for `amount`, made up as a dealer would: as many of the stage's biggest chip as fit, then the
+ *  next, and so on, the biggest at the bottom (up to 12 chips, and at least one). */
 export function chipStack(amount: number) {
-  const vals = CHIPS[stage.n];
-  let i = vals.length - 1;
-  while (i > 0 && vals[i] > amount) i--;
-  const n = Math.max(1, Math.min(12, Math.round(amount / vals[i])));
-  const g = new Group();
-  for (let j = 0; j < n; j++) {
-    const c = mesh(chipGeo, chipMat(CHIP_COLORS[i]), (j % 2) * 0.004, CHIP_H / 2 + j * CHIP_H, 0, true);
-    c.rotation.y = j * 0.7;
-    g.add(c);
+  const vals = CHIPS[stage.n], kinds: number[] = [];
+  let left = amount;
+  for (let i = vals.length - 1; i >= 0; i--) {
+    while (left >= vals[i] && kinds.length < 12) { kinds.push(i); left -= vals[i]; }
   }
-  return g;
+  if (!kinds.length) kinds.push(0);
+  return quietly(() => {
+    const g = new Group();
+    kinds.forEach((i, j) => {
+      const c = mesh(chipGeo, chipMat(CHIP_COLORS[i]), (j % 2) * 0.004, CHIP_H / 2 + j * CHIP_H, 0, true);
+      c.rotation.y = j * 0.7;
+      g.add(c);
+    });
+    return g;
+  });
 }
 
 // ---------- badges ----------
