@@ -43,7 +43,8 @@ export function gamePad(
     enable() { enabled = true; d.mesh.visible = true; },
     upd() {
       if (!enabled) return false;
-      const near = d2xz(player.g.position, at) < REACH * REACH;
+      // on the pad's own floor of the boat, not the one above or below it
+      const near = d2xz(player.g.position, at) < REACH * REACH && Math.abs(player.g.position.y - (at.y ?? FY)) < 1.2;
       if (near !== open) {
         open = near;
         panel.hidden = !open;

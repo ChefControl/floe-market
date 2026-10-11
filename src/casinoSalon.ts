@@ -17,7 +17,8 @@ import {
 import { atTable, CHIPS, easeInOut, leaveSeat, onCheer, speaker, takeSeat, tipsy } from './casinoKit';
 import { clink } from './sfx';
 import { animPerson, Person, SUITS } from './characters';
-import { aboard, DECKS, pushOutOfBox, SALON, SHIP, stage, UPPER } from './layout';
+import { quietly } from './kit';
+import { aboard, DECKS, LOUNGE, loungeSeen, pushOutOfBox, SALON, SHIP, stage, TOP, UPPER } from './layout';
 import { player } from './player';
 import { bake, bakePainted, canvasTex, FONT, G, mesh, scene, type Part } from './render';
 import { drawReels, REELS_PX, slotRow } from './slotMachine';
@@ -75,19 +76,21 @@ function minus([a, b]: Span, holes: Span[]): Span[] {
   return out;
 }
 /** A wall `along` x or z from `a` to `b` at `at` (the other way), its outside towards `out` (+1 or -1), with windows
- *  and `doors`. Its parts go into the white, burgundy, gold and glass lists. */
-function wall(along: 'x' | 'z', a: number, b: number, at: number, out: number, doors: Span[], p: { out: Part[]; in: Part[]; trim: Part[]; glass: Part[] }) {
+ *  and `doors`, standing `h` tall on a floor at `y0` (the salon's, unless it's the lounge's). Its parts go into the
+ *  white, burgundy, gold and glass lists. */
+function wall(along: 'x' | 'z', a: number, b: number, at: number, out: number, doors: Span[], p: Walls, y0 = UPPER, h = SALON.h) {
   const n = Math.floor((b - a) / WIN.pitch), off = (b - a - n * WIN.pitch) / 2;
   const wins: Span[] = [];
   for (let i = 0; i < n; i++) {
     const c = a + off + WIN.pitch * (i + 0.5);
     if (!doors.some(([d0, d1]) => c + WIN.w / 2 > d0 - 0.15 && c - WIN.w / 2 < d1 + 0.15)) wins.push([c - WIN.w / 2, c + WIN.w / 2]);
   }
+  const floor = y0;
   const box = (into: Part[], s0: number, s1: number, y0: number, y1: number, depth: number, shift: number) => {
     const m = (s0 + s1) / 2, w = s1 - s0, c = at + shift * out;
     into.push(along === 'x'
-      ? { geo: G.box, at: [m, UPPER + (y0 + y1) / 2, c], scale: [w, y1 - y0, depth] }
-      : { geo: G.box, at: [c, UPPER + (y0 + y1) / 2, m], scale: [depth, y1 - y0, w] });
+      ? { geo: G.box, at: [m, floor + (y0 + y1) / 2, c], scale: [w, y1 - y0, depth] }
+      : { geo: G.box, at: [c, floor + (y0 + y1) / 2, m], scale: [depth, y1 - y0, w] });
   };
   const solid = (s: Span, y0: number, y1: number) => {
     box(p.out, s[0], s[1], y0, y1, 0.1, 0.02);
@@ -100,20 +103,23 @@ function wall(along: 'x' | 'z', a: number, b: number, at: number, out: number, d
     if (s[1] - s[0] < 0.3) { box(p.trim, s[0], s[1], WIN.sill, WIN.head, 0.1, 0.02); box(p.in, s[0], s[1], WIN.sill, WIN.head, 0.02, -0.05); }
     else solid(s, WIN.sill, WIN.head);
   });
-  solid([a, b], doorTop, SALON.h);
+  solid([a, b], doorTop, h);
   for (const w of wins) box(p.glass, w[0], w[1], WIN.sill, WIN.head, 0.02, 0);
   // gold bands along the outside at the sills and the heads, and round the top
   for (const y of [WIN.sill, WIN.head]) minus([a, b], y === WIN.sill ? doors : []).forEach(s => box(p.trim, s[0], s[1], y - 0.03, y + 0.03, 0.04, 0.09));
-  box(p.trim, a, b, SALON.h - 0.08, SALON.h, 0.05, 0.09);
+  box(p.trim, a, b, h - 0.08, h, 0.05, 0.09);
 }
+/** A wall's parts, by material. */
+type Walls = { out: Part[]; in: Part[]; trim: Part[]; glass: Part[] };
+const walls = (): Walls => ({ out: [], in: [], trim: [], glass: [] });
 
 /** The salon's walls, each with its own materials so the near ones can fade, and the ground where standing puts each
  *  between the player and the camera (which looks in from the south-east, high up). */
 interface Fader { meshes: Mesh[]; mats: Material[]; near: boolean; base: number[] }
 function buildWalls(g: Group) {
   const faders: Fader[] = [];
-  const add = (fades: boolean, build: (p: { out: Part[]; in: Part[]; trim: Part[]; glass: Part[] }) => void) => {
-    const p = { out: [] as Part[], in: [] as Part[], trim: [] as Part[], glass: [] as Part[] };
+  const add = (fades: boolean, build: (p: Walls) => void) => {
+    const p = walls();
     build(p);
     const m = wallMats(fades);
     const meshes = [mesh(bake(p.out), m.out, 0, 0, 0, true), mesh(bake(p.in), m.in), mesh(bake(p.trim), m.trim), mesh(bake(p.glass), m.glass)];
@@ -173,39 +179,96 @@ export const JACK = { x: SHIP.bow - 0.55, y: FY + 3.0 };
 /** The sky lounge on the hardtop, at the front, and the mast on its roof; the sundeck aft of it, with the jacuzzi. */
 const BRIDGE = { x0: -0.8, x1: 2.9, half: 1.85 };
 const MAST = { x: 1.4, spread: 0.7 };
-const SUNDECK = { x1: -1.2 };
 const TUB = { x: -3.3, z: -0.5, r: 0.8 };
 /** The CASINO signs on both sides of the lower deck, under the salon, facing out: where along, how big, how high. */
 const SIGN = { x: -2.3, w: 3.04, h: 0.95, y: FY + 1.4, out: SHIP.beam - 0.38 + 0.07 };
 
+/** The lounge's stairwell from above, as a hole for a shape lying flat (whose y is the ship's -z). */
+function stairwell() {
+  const { x0, x1, z1 } = LOUNGE.stairs, z0 = -SALON.side + 0.06, w = new Shape();
+  w.moveTo(x0, -z1); w.lineTo(x1, -z1); w.lineTo(x1, -z0); w.lineTo(x0, -z0); w.closePath();
+  return w;
+}
+
 function buildRoof() {
   const g = new Group();
   const { x0, x1, side, h } = SALON, top = UPPER + h, deckY = top + 0.16;
+  /** The lounge's roof, where the sundeck is: the jacuzzi and the loungers. */
+  const skyY = TOP + LOUNGE.h + 0.14;
   const mats: Material[] = [], base: number[] = [];
   const own = <M extends Material>(m: M, opacity = 1) => { m.transparent = true; m.opacity = opacity; mats.push(m); base.push(opacity); return m; };
+  // the lounge's roof and all that's on it lift away too while the player's up in the lounge: their own list
+  const upMats: Material[] = [], upBase: number[] = [];
+  const ownUp = <M extends Material>(m: M, opacity = 1) => { m.transparent = true; m.opacity = opacity; upMats.push(m); upBase.push(opacity); return m; };
   const lam = (c: number) => own(new MeshLambertMaterial({ color: c }));
   const white = lam(WHITE), gold = lam(GOLD);
   const glass = own(new MeshPhongMaterial({ color: 0x1C2B38, specular: 0x9FB4C4, shininess: 70 }));
   const glow = own(new MeshBasicMaterial({ color: 0xFFD98A }));
-  // the hardtop, sweeping forward over the top of the stairs, an LED line glowing under its edge; a teak sundeck aft
-  g.add(slab(oblong(x0 - 0.3, x1 + 0.9, side + 0.16, 0.3, 1.1), 0.16, top, white));
-  g.add(slab(oblong(x0 - 0.26, x1 + 0.86, side + 0.12, 0.28, 1.06), 0.03, top - 0.025, glow));
-  const teak = own(new MeshLambertMaterial({ map: planks('#B07A52', '#BC8660', 0.35, 0.35) }));
-  const deck = new Mesh(new ShapeGeometry(oblong(x0 - 0.15, SUNDECK.x1, side - 0.02, 0.2, 0.05), 8), teak);
-  deck.rotation.x = -Math.PI / 2; deck.position.y = deckY + 0.005; deck.receiveShadow = true; g.add(deck);
-  // a glass windbreak round the sides and the stern, a gold rail along its top
+  const { up, whiteUp, goldUp, glowUp } = quietly(() => ({
+    up: new Group(), whiteUp: ownUp(new MeshLambertMaterial({ color: WHITE })), goldUp: ownUp(new MeshLambertMaterial({ color: GOLD })),
+    glowUp: ownUp(new MeshBasicMaterial({ color: 0xFFD98A })),
+  }));
+  g.add(up);
+  // the hardtop, sweeping forward over the top of the stairs, an LED line glowing under its edge; the lounge's
+  // stairwell comes up through both
+  const hardtop = oblong(x0 - 0.3, x1 + 0.9, side + 0.16, 0.3, 1.1), led = oblong(x0 - 0.26, x1 + 0.86, side + 0.12, 0.28, 1.06);
+  hardtop.holes.push(stairwell()); led.holes.push(stairwell());
+  g.add(slab(hardtop, 0.16, top, white));
+  g.add(slab(led, 0.03, top - 0.025, glow));
+  // the teak sundeck, up on the lounge's roof
+  const teak = ownUp(new MeshLambertMaterial({ map: planks('#B07A52', '#BC8660', 0.35, 0.35) }));
+  const { x0: lx0, x1: lx1, side: ls, h: lh } = LOUNGE;
+  const deck = new Mesh(new ShapeGeometry(oblong(lx0 - 0.05, lx1 + 0.05, ls + 0.05, 0.2, 0.2), 8), teak);
+  deck.rotation.x = -Math.PI / 2; deck.position.y = skyY + 0.005; deck.receiveShadow = true; up.add(deck);
+  // a glass windbreak round it, a gold rail along its top
   const panes: Part[] = [], rail: Part[] = [];
   const run = (ax: number, az: number, bx: number, bz: number) => {
     const n = Math.max(1, Math.round(Math.hypot(bx - ax, bz - az) / 1.2));
     for (let i = 0; i < n; i++) {
       const cx = ax + (bx - ax) * (i + 0.5) / n, cz = az + (bz - az) * (i + 0.5) / n, w = Math.hypot(bx - ax, bz - az) / n - 0.06;
-      panes.push({ geo: G.box, at: [cx, deckY + 0.3, cz], scale: ax === bx ? [0.02, 0.5, w] : [w, 0.5, 0.02] });
+      panes.push({ geo: G.box, at: [cx, skyY + 0.3, cz], scale: ax === bx ? [0.02, 0.5, w] : [w, 0.5, 0.02] });
     }
-    rail.push({ geo: G.box, at: [(ax + bx) / 2, deckY + 0.57, (az + bz) / 2], scale: ax === bx ? [0.05, 0.05, Math.abs(bz - az) + 0.05] : [Math.abs(bx - ax) + 0.05, 0.05, 0.05] });
+    rail.push({ geo: G.box, at: [(ax + bx) / 2, skyY + 0.57, (az + bz) / 2], scale: ax === bx ? [0.05, 0.05, Math.abs(bz - az) + 0.05] : [Math.abs(bx - ax) + 0.05, 0.05, 0.05] });
   };
-  const rx0 = x0 - 0.1, rx1 = x1 + 0.2, rz = side + 0.02;
-  run(rx0, -rz, rx1, -rz); run(rx0, rz, rx1, rz); run(rx0, -rz, rx0, rz);
-  g.add(mesh(bake(panes), own(new MeshLambertMaterial({ color: 0xCDEBF5, depthWrite: false }), 0.3)), mesh(bake(rail), gold));
+  const rx0 = lx0 - 0.02, rx1 = lx1 + 0.02, rz = ls + 0.02;
+  run(rx0, -rz, rx1, -rz); run(rx0, rz, rx1, rz); run(rx0, -rz, rx0, rz); run(rx1, -rz, rx1, rz);
+  up.add(mesh(bake(panes), ownUp(new MeshLambertMaterial({ color: 0xCDEBF5, depthWrite: false }), 0.3)), mesh(bake(rail), goldUp));
+  // the blackjack lounge on the aft half of the hardtop: the salon's carpet on its floor, with the stairwell open in
+  // it and railed off; walls of windows like the salon's below, the two on the camera's side fading while the
+  // player's in it; and the sundeck's roof over it, which lifts away then
+  const near = quietly(() => {
+    const fl = oblong(lx0, lx1, ls, 0.05, 0.05);
+    fl.holes.push(stairwell());
+    const floor = new Mesh(new ShapeGeometry(fl, 4), own(carpet(1, 1)));
+    floor.rotation.x = -Math.PI / 2; floor.position.y = deckY + 0.004; floor.receiveShadow = true; g.add(floor);
+    const meshesOf = (p: Walls, m: ReturnType<typeof wallMats>) => {
+      const ms = [mesh(bake(p.out), m.out, 0, 0, 0, true), mesh(bake(p.in), m.in), mesh(bake(p.trim), m.trim), mesh(bake(p.glass), m.glass)];
+      ms[3].castShadow = false;
+      g.add(...ms);
+      return ms;
+    };
+    const far = walls(), fm = wallMats(true);
+    wall('x', lx0, lx1, -ls, -1, [], far, deckY, lh); wall('z', -ls, ls, lx0, -1, [], far, deckY, lh);
+    own(fm.out); own(fm.in); own(fm.trim); own(fm.glass, fm.glass.opacity);
+    meshesOf(far, fm);
+    const faders: Fader[] = [];
+    const sides: ((p: Walls) => void)[] = [p => wall('x', lx0, lx1, ls, 1, [], p, deckY, lh), p => wall('z', -ls, ls, lx1, 1, [], p, deckY, lh)];
+    for (const build of sides) {
+      const p = walls(), m = wallMats(true);
+      build(p);
+      faders.push({ meshes: meshesOf(p, m), mats: [m.out, m.in, m.trim, m.glass], near: false, base: [1, 1, 1, m.glass.opacity] });
+    }
+    // the stairwell's balustrade: white posts and a kick plate under a gold rail
+    const { x0: sx0, x1: sx1, z1 } = LOUNGE.stairs, posts: Part[] = [], bar: Part[] = [];
+    for (let x = sx0; x <= sx1 + 0.01; x += (sx1 - sx0) / 6) posts.push({ geo: G.cyl, at: [x, deckY + 0.45, z1 + 0.03], scale: [0.025, 0.9, 0.025] });
+    posts.push({ geo: G.box, at: [(sx0 + sx1) / 2, deckY + 0.06, z1 + 0.03], scale: [sx1 - sx0, 0.12, 0.04] });
+    bar.push({ geo: G.box, at: [(sx0 + sx1) / 2, deckY + 0.92, z1 + 0.03], scale: [sx1 - sx0 + 0.06, 0.05, 0.06] });
+    g.add(mesh(bake(posts), white, 0, 0, 0, true), mesh(bake(bar), gold, 0, 0, 0, true));
+    // its roof, an LED line glowing under the edge
+    up.add(slab(oblong(lx0 - 0.1, lx1 + 0.1, ls + 0.1, 0.25, 0.25), 0.14, deckY + lh, whiteUp));
+    up.add(slab(oblong(lx0 - 0.06, lx1 + 0.06, ls + 0.06, 0.22, 0.22), 0.03, deckY + lh - 0.025, glowUp));
+    return faders;
+  });
   // the sky lounge: rounded at the front, wrapped in dark glass under a white roof that reaches out over it, with the
   // mast and a turning radar on top
   const { x0: b0, x1: b1, half: bh } = BRIDGE;
@@ -228,15 +291,15 @@ function buildRoof() {
   flag.add(mesh(new BoxGeometry(0.6, 0.36, 0.02), lam(0xB0283A), -0.32, -0.15, 0));
   // the jacuzzi: a rounded square of bubbling water set in a raised teak surround under a white rim, with a step up
   // to it; two guests sit in it against opposite sides, hatless, their shoulders just out of the water
-  const R = TUB.r, lip = deckY + 0.5, water = lip + 0.03;
-  g.add(slab(oblong(TUB.x - R - 0.12, TUB.x + R + 0.12, R + 0.12, 0.4, 0.4), 0.5, deckY, own(new MeshLambertMaterial({ color: 0x8A5A3B }))));
+  const R = TUB.r, lip = skyY + 0.5, water = lip + 0.03;
+  up.add(slab(oblong(TUB.x - R - 0.12, TUB.x + R + 0.12, R + 0.12, 0.4, 0.4), 0.5, skyY, ownUp(new MeshLambertMaterial({ color: 0x8A5A3B }))));
   const ring = oblong(TUB.x - R - 0.16, TUB.x + R + 0.16, R + 0.16, 0.42, 0.42);
   ring.holes.push(oblong(TUB.x - R + 0.06, TUB.x + R - 0.06, R - 0.06, 0.3, 0.3));
-  g.add(slab(ring, 0.07, lip, white));
-  const pool = new Mesh(new ShapeGeometry(oblong(TUB.x - R + 0.06, TUB.x + R - 0.06, R - 0.06, 0.3, 0.3), 6), own(new MeshBasicMaterial({ color: 0x5ED8E0 })));
-  pool.rotation.x = -Math.PI / 2; pool.position.y = water; g.add(pool);
-  g.add(mesh(new BoxGeometry(0.7, 0.22, 0.32), white, TUB.x, deckY + 0.11, TUB.z + R + 0.28, true));
-  const soakers = new Group(); g.add(soakers);
+  up.add(slab(ring, 0.07, lip, whiteUp));
+  const pool = new Mesh(new ShapeGeometry(oblong(TUB.x - R + 0.06, TUB.x + R - 0.06, R - 0.06, 0.3, 0.3), 6), ownUp(new MeshBasicMaterial({ color: 0x5ED8E0 })));
+  pool.rotation.x = -Math.PI / 2; pool.position.y = water; up.add(pool);
+  up.add(mesh(new BoxGeometry(0.7, 0.22, 0.32), whiteUp, TUB.x, skyY + 0.11, TUB.z + R + 0.28, true));
+  const soakers = new Group(); up.add(soakers);
   [[-1, 0.15], [1, -0.15]].forEach(([side, dz], i) => {
     const p = guest(i + 2, true);
     // sitting on the bench, legs out under the water: hips well down, so the shoulders just clear it
@@ -246,7 +309,7 @@ function buildRoof() {
   });
   // foam bubbling up at the jets
   const foam = Array.from({ length: 8 }, (_, i) => {
-    const a = i / 8 * Math.PI * 2, f = mesh(G.sphere, own(new MeshBasicMaterial({ color: 0xF2FCFF })), TUB.x + Math.cos(a) * (R - 0.2), water, TUB.z + Math.sin(a) * (R - 0.2));
+    const a = i / 8 * Math.PI * 2, f = mesh(G.sphere, ownUp(new MeshBasicMaterial({ color: 0xF2FCFF })), TUB.x + Math.cos(a) * (R - 0.2), water, TUB.z + Math.sin(a) * (R - 0.2));
     soakers.add(f);
     return { f, t: i * 0.37 };
   });
@@ -259,15 +322,15 @@ function buildRoof() {
   });
   // sun loungers along the quay side of the sundeck, their backs up towards the far side, a red towel on each
   const lounge: (Part & { c: number })[] = [];
-  for (let x = x0 + 0.6; x < SUNDECK.x1 - 0.3; x += 0.85) {
-    const z = side - 1.0;
-    lounge.push({ geo: G.box, at: [x, deckY + 0.1, z + 0.15], scale: [0.56, 0.14, 1.25], c: 0x9A9086 });
-    lounge.push({ geo: G.box, at: [x, deckY + 0.22, z + 0.25], scale: [0.54, 0.1, 1.05], c: 0xFFFFFF });
-    lounge.push({ geo: G.box, at: [x, deckY + 0.44, z - 0.6], rot: [0.7, 0, 0], scale: [0.54, 0.08, 0.6], c: 0xFFFFFF });
-    lounge.push({ geo: G.box, at: [x, deckY + 0.28, z + 0.55], scale: [0.5, 0.03, 0.34], c: 0xB0283A });
+  for (let x = lx0 + 0.6; x < lx1 - 0.4; x += 0.85) {
+    const z = ls - 1.0;
+    lounge.push({ geo: G.box, at: [x, skyY + 0.1, z + 0.15], scale: [0.56, 0.14, 1.25], c: 0x9A9086 });
+    lounge.push({ geo: G.box, at: [x, skyY + 0.22, z + 0.25], scale: [0.54, 0.1, 1.05], c: 0xFFFFFF });
+    lounge.push({ geo: G.box, at: [x, skyY + 0.44, z - 0.6], rot: [0.7, 0, 0], scale: [0.54, 0.08, 0.6], c: 0xFFFFFF });
+    lounge.push({ geo: G.box, at: [x, skyY + 0.28, z + 0.55], scale: [0.5, 0.03, 0.34], c: 0xB0283A });
   }
   const lounger = new MeshLambertMaterial({ vertexColors: true });
-  g.add(mesh(bakePainted(lounge), own(lounger), 0, 0, 0, true));
+  up.add(mesh(bakePainted(lounge), ownUp(lounger), 0, 0, 0, true));
   // the strings of lights from the bow up to the mast's spreader
   const strings: Part[] = [];
   for (const s of [-1, 1]) {
@@ -278,7 +341,7 @@ function buildRoof() {
   }
   const lights = mesh(bake(strings), bulbsOn);
   g.add(lights);
-  return { g, mats, base, lights, soakers, steam, foam, radar, flag };
+  return { g, mats, base, up, upMats, upBase, near, lights, soakers, steam, foam, radar, flag };
 }
 
 // ---------- the signs ----------
@@ -593,7 +656,8 @@ function drank(c: ReturnType<typeof buildCrowd>) {
 // ---------- the salon ----------
 let salon: {
   roof: ReturnType<typeof buildRoof>; faders: Fader[]; crowd: ReturnType<typeof buildCrowd>; clock: number;
-  roofK: number; chase: Mesh[];
+  /** How far up the salon's roof is (1) or lifted away (0), and the lounge's. */
+  roofK: number; loungeK: number; chase: Mesh[];
 } | null = null;
 
 /** Builds the salon into the ship's group `g` (in the ship's own space). */
@@ -602,11 +666,34 @@ export function buildSalon(g: Group) {
   const roof = buildRoof();
   g.add(roof.g);
   buildBar(g);
-  salon = { roof, faders, crowd: buildCrowd(g), clock: 0, roofK: 1, chase: buildSigns(g) };
+  salon = { roof, faders, crowd: buildCrowd(g), clock: 0, roofK: 1, loungeK: 1, chase: buildSigns(g) };
+  quietly(() => buildSkyStairs(g));
 }
 
-/** The player's inside the salon: on the upper deck. */
-export const inSalon = (p: XZ & { y: number }) => aboard(p) && p.y > FY + 1.0;
+/** The player's inside the salon: on the upper deck, below the lounge (on its stairs, till they're nearly up). */
+export const inSalon = (p: XZ & { y: number }) => aboard(p) && p.y > FY + 1.0 && p.y < TOP - 0.6;
+/** The player's up in the lounge. */
+export const inLounge = (p: XZ & { y: number }) => aboard(p) && p.y >= TOP - 0.6;
+
+/** The staircase from the salon up to the lounge, along the north wall: teak treads on a white side under a gold
+ *  handrail, climbing west through the stairwell. */
+function buildSkyStairs(g: Group) {
+  const { x0: tx, x1: bx, z1 } = LOUNGE.stairs, z0 = -SALON.side + 0.06, n = 12, rise = TOP - UPPER;
+  const treads: Part[] = [];
+  for (let i = 0; i < n; i++) {
+    const x = bx - (bx - tx) * (i + 0.5) / n;
+    treads.push({ geo: G.box, at: [x, UPPER + rise * (i + 1) / n - 0.05, (z0 + z1) / 2], scale: [(bx - tx) / n + 0.02, 0.1, z1 - z0] });
+  }
+  g.add(mesh(bake(treads), 0xB07A52, 0, 0, 0, true));
+  // the white side under the treads, from the floor up to the stairwell
+  const side = new Shape();
+  side.moveTo(bx, UPPER); side.lineTo(tx, UPPER); side.lineTo(tx, TOP - 0.04); side.closePath();
+  const wall = mesh(new ExtrudeGeometry(side, { depth: 0.05, bevelEnabled: false }), 0xFFFFFF, 0, 0, z1 - 0.02, true);
+  g.add(wall);
+  const hand: Part[] = [strut(V(bx, UPPER + 0.9, z1 + 0.05), V(tx, TOP + 0.9, z1 + 0.05), 0.03)];
+  hand.push({ geo: G.cyl, at: [bx, UPPER + 0.45, z1 + 0.05], scale: [0.035, 0.9, 0.035] });
+  g.add(mesh(bake(hand), GOLD, 0, 0, 0, true));
+}
 
 /** Fades between `want` and opaque, for a set of materials. */
 function fade(mats: Material[], base: number[], k: number) {
@@ -622,23 +709,39 @@ function fade(mats: Material[], base: number[], k: number) {
  */
 export function updSalon(dt: number, p: XZ & { y: number }, all: boolean) {
   if (!salon) return;
-  const s = salon, inside = !all && inSalon(p);
+  const s = salon, inside = !all && inSalon(p), upstairs = !all && inLounge(p);
   s.clock += dt;
-  s.roofK += ((inside ? 0 : 1) - s.roofK) * Math.min(1, dt * 8);
-  if (!inside && s.roofK > 0.995) s.roofK = 1;
+  const ease = (k: number, to: number) => { k += (to - k) * Math.min(1, dt * 8); return Math.abs(to - k) < 0.005 ? to : k; };
+  s.roofK = ease(s.roofK, inside ? 0 : 1);
+  s.loungeK = ease(s.loungeK, upstairs ? 0 : 1);
+  loungeSeen.k = s.roofK;
   s.roof.g.visible = s.roofK > 0.02;
   s.roof.mats.forEach((m, i) => {
     m.opacity = s.roof.base[i] * s.roofK;
     m.depthWrite = s.roofK > 0.95 && s.roof.base[i] === 1;
   });
-  s.roof.lights.visible = s.roof.soakers.visible = s.roofK > 0.5;
+  // the lounge's roof and the sundeck on it go with the salon's roof, and lift away themselves while the player's in
+  // the lounge, as its walls on the camera's side fade
+  const upK = s.roofK * s.loungeK;
+  s.roof.up.visible = upK > 0.02;
+  s.roof.upMats.forEach((m, i) => {
+    m.opacity = s.roof.upBase[i] * upK;
+    m.depthWrite = upK > 0.95 && s.roof.upBase[i] === 1;
+  });
+  for (const f of s.roof.near) {
+    const k = s.roofK * (0.12 + 0.88 * s.loungeK);
+    fade(f.mats, f.base, k);
+    f.meshes[0].castShadow = k > 0.95;
+  }
+  s.roof.lights.visible = s.roofK > 0.5;
+  s.roof.soakers.visible = upK > 0.5;
   s.roof.radar.rotation.y += dt * 1.6;
   for (const p of s.roof.steam) {
     p.t = (p.t + dt / 2.6) % 1;
     const r = 0.25 + p.t * 0.2, a = p.a + p.t * 1.2;
     p.w.position.set(TUB.x + Math.cos(a) * r, p.y + 0.05 + p.t * 0.7, TUB.z + Math.sin(a) * r);
     p.w.scale.setScalar(0.08 + p.t * 0.16);
-    p.m.opacity = 0.35 * Math.sin(Math.PI * p.t) * s.roofK;
+    p.m.opacity = 0.35 * Math.sin(Math.PI * p.t) * upK;
   }
   for (const b of s.roof.foam) {
     b.t += dt;
@@ -749,15 +852,25 @@ export function collideSalon(p: XZ) {
   pushOutOfBox(p, x(FAN.x), z(FAN.z), 0.25 + 0.3, 0.25 + 0.3);
   // the east wall either side of the door
   for (const s of [-1, 1]) pushOutOfBox(p, x(SALON.x1), z(s * (DOOR + SALON.side) / 2), 0.08 + 0.3, (SALON.side - DOOR) / 2);
+  // the side of the lounge's stairs: you step onto them at their foot
+  const { x0: sx0, x1: sx1, z1 } = LOUNGE.stairs, side1 = sx1 - 0.8;
+  pushOutOfBox(p, x((sx0 + side1) / 2), z(z1), (side1 - sx0) / 2 + 0.3, 0.05 + 0.3);
+}
+
+/** Up in the lounge: keeps the player from stepping off the side of the stairwell, onto the stairs from its rail. */
+export function collideLounge(p: XZ) {
+  if (!salon) return;
+  const { x0, x1, z1 } = LOUNGE.stairs;
+  pushOutOfBox(p, SHIP.x + (x0 + x1) / 2, SHIP.z + z1, (x1 - x0) / 2 + 0.3, 0.05 + 0.3);
 }
 
 /** For tests: jumps the glass being served to `t` seconds in. */
 export const pourTo = (t: number) => { if (salon?.crowd.pour) salon.crowd.pour.t = t; };
 
-/** For tests: how far the roof is up (1) or lifted away (0), what the fan by the tables is saying, how many guests
+/** For tests: how far the roof (and the lounge's) is up (1) or lifted away (0), what the fan by the tables is saying, how many guests
  *  there are, how far the radar has turned, and where the fan and the waiter are (in the ship's own space). */
 export const salonView = () => ({
-  roof: salon?.roofK ?? 1, fan: salon?.crowd.fanSay.text ?? '', guests: salon ? 2 + 3 + 2 + 1 + 1 + 2 : 0,
+  roof: salon?.roofK ?? 1, lounge: salon?.loungeK ?? 1, fan: salon?.crowd.fanSay.text ?? '', guests: salon ? 2 + 3 + 2 + 1 + 1 + 2 : 0,
   waiter: salon?.crowd.waiterSay.text ?? '', drinking: !!salon?.crowd.pour, says: salon?.crowd.hic.text ?? '',
   radar: salon?.roof.radar.rotation.y ?? 0,
   staff: salon ? [salon.crowd.fan.position, salon.crowd.waiter.position] : [],

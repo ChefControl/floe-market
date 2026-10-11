@@ -83,7 +83,7 @@ export async function loadGame(save?: SaveFixture | string, opts: { main?: boole
     }
     throw new Error(`condition not met within ${maxSeconds}s`);
   };
-  const placePlayer = (x: number, z: number) => player.g.position.set(x, util.FY, z);
+  const placePlayer = (x: number, z: number, y = util.FY) => player.g.position.set(x, y, z);
   const cashAt = (C: { cash: { items: import('three').Object3D[] } }) =>
     C.cash.items.reduce((s, b) => s + items.billValue(b), 0);
   const press = (key: string, type: 'keydown' | 'keyup' = 'keydown') => {

@@ -13,8 +13,8 @@ import {
 } from 'three';
 import { collideBlackjack, updBlackjack } from './blackjackTable';
 import { updTweens, visits } from './casinoKit';
-import { buildSalon, carpet, collideSalon, JACK, oblong, slab, strut, updSalon } from './casinoSalon';
-import { aboard, casinoBoat, DECKS, hullHalf, pushOutOfBox, QUAY, SHIP, UPPER } from './layout';
+import { buildSalon, carpet, collideLounge, collideSalon, JACK, oblong, slab, strut, updSalon } from './casinoSalon';
+import { aboard, casinoBoat, DECKS, hullHalf, pushOutOfBox, QUAY, SHIP, UPPER, upTop } from './layout';
 import { player } from './player';
 import { popIn } from './pop';
 import { bake, canvasTex, FONT, G, mat, mesh, scene, type Part } from './render';
@@ -322,9 +322,11 @@ function updVisit() {
 }
 
 /** Keeps the player out of the games' tables and machines, and the quay's booth and crates. */
-export function collideCasino(p: XZ) {
+export function collideCasino(p: XZ & { y: number }) {
   if (!ship) return;
-  collideRoulette(p); collideBlackjack(p); collideSlots(p); collideSalon(p);
+  // up in the lounge, only what's up there gets in the way
+  if (upTop(p)) { collideLounge(p); collideBlackjack(p); return; }
+  collideRoulette(p); collideSlots(p); collideSalon(p);
   for (const o of [BOOTH, CRATES]) pushOutOfBox(p, o.x, o.z, o.w / 2 + 0.3, o.d / 2 + 0.3);
 }
 
