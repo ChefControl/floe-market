@@ -167,7 +167,9 @@ describe('reporting a bug or an idea', () => {
     expect(JSON.parse(String(r.live))).toMatchObject({ stage: 1, season: 'winter', open: [], cloud: 'saved' });
     expect(JSON.parse(String(r.device))).toMatchObject({ graphics: 'auto high', touch: false });
     expect(JSON.parse(String(r.errors))).toEqual(['Something broke: boom']);
-    await vi.waitFor(() => expect($('toast').textContent).toBe('Thanks! Your report is on its way'));
+    // the moment says it went, with no toast as well
+    await vi.waitFor(() => expect(localStorage.getItem('floe-report-count')).not.toBeNull());
+    expect($('toast').textContent).not.toMatch(/thanks|report|send/i);
     expect($('report').hidden).toBe(true);
     expect(($('reportText') as HTMLTextAreaElement).value).toBe('');
     // an idea lights a bulb as it goes
@@ -210,7 +212,7 @@ describe('reporting a bug or an idea', () => {
     write('First');
     expect($('reportWarn').hidden).toBe(true);
     $('reportSend').click();
-    await vi.waitFor(() => expect($('toast').textContent).toBe('Thanks! Your report is on its way'));
+    await vi.waitFor(() => expect(localStorage.getItem(r.COUNT_KEY)).not.toBeNull());
     // straight after: it waits out the second, then goes
     const first = JSON.parse(localStorage.getItem(r.COUNT_KEY)!);
     expect(first.n).toBe(1);

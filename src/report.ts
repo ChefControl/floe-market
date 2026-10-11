@@ -279,11 +279,10 @@ async function send() {
   text.value = '';
   closeReport();
   celebrate(kind);
+  // sent, the moment above says so; it only needs words when it didn't go
   const how = await sendSpaced(r);
-  if (how === 'sent') {
-    toast('Thanks! Your report is on its way', 'report', 2600);
-  } else if (how === 'refused') toast("Couldn't send it just now. Try again later", 'report', 2600);
-  else {
+  if (how === 'refused') toast("Couldn't send it just now. Try again later", 'report', 2600);
+  else if (how === 'offline') {
     writeQueue([...readQueue(), r]);
     toast("Thanks! It'll send when you're back online", 'report', 2600);
   }
