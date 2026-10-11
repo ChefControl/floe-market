@@ -3,6 +3,7 @@
 import { BoxGeometry, ConeGeometry, CylinderGeometry, Group, Mesh, MeshLambertMaterial } from 'three';
 import { every } from './audio';
 import { decal, drawPad } from './decals';
+import { level } from './layout';
 import { player } from './player';
 import { canvasTex, FONT, mat, mesh, scene } from './render';
 import { colorOf, multiplier, payout, spinWheel, WHEEL, type Bet, type EvenBet } from './roulette';
@@ -197,7 +198,7 @@ export function enableCasino() {
 
 export function updCasino(dt: number) {
   if (!enabled) return;
-  const near = d2xz(player.g.position, CASINO) < 0.95 * 0.95;
+  const near = !level.down && d2xz(player.g.position, CASINO) < 0.95 * 0.95;
   if (near !== open) {
     open = near;
     panel.hidden = !open;

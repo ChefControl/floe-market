@@ -5,16 +5,18 @@
 // unlock. Each stage ends on an expensive capstone that takes most of your savings, and the next starts again
 // from a few sales, with numbers about ten times bigger.
 
+import type { StageN } from './layout';
+
 /** Base prices: stage 1's fish (walk-up counter, sled window), stage 2's plates and takeout boxes. */
 export const FISH_PRICE = { walk: 4, sled: 6 };
 export const SUSHI_PRICE = { plate: 30, box: 35 };
 /** The premium menu's multiplier on sushi prices. */
 export const PREMIUM = 1.6;
 
-export type ModId = 'fillets' | 'marketing' | 'training' | 'specials' | 'promo' | 'crew' | 'fertilizer';
+export type ModId = 'fillets' | 'marketing' | 'training' | 'specials' | 'promo' | 'crew' | 'fertilizer' | 'bowls' | 'street' | 'cellarcrew';
 export interface Mod {
   id: ModId;
-  stage: 1 | 2;
+  stage: StageN;
   kind: 'price' | 'customers' | 'speed' | 'growth';
   /** Bought at the fertilizer shed by the water wheel (shed.ts) rather than the upgrade square. */
   shed?: boolean;
@@ -24,8 +26,9 @@ export interface Mod {
   what: string;
   /** Names for each level (marketing campaigns), if they have them. */
   levels?: string[];
-  /** Each level multiplies its effect by this. */
+  /** Each level multiplies its effect by this (or, if `add`, adds this much less one of the base). */
   per: number;
+  add?: boolean;
   /** The first level's price, and how much dearer each level is than the last. */
   cost: number;
   step: number;
@@ -59,14 +62,23 @@ export const MODS: Mod[] = [
     levels: ['Compost', 'Fish meal', 'Spring minerals'],
     per: 1.5, cost: 20000, step: 2, max: 3,
   },
+  // stage 3, down in the cellar, priced in Fugu Chips (1 chip is $1,000): Pricier bowls adds a quarter of the base
+  // price a level (fight.ts's listPrice), rather than multiplying it
+  { id: 'bowls', stage: 3, kind: 'price', icon: '🏷️', name: 'Pricier bowls', what: 'Each level adds 25% of a bowl\'s base price', per: 1.25, cost: 30_000, step: 1.6, add: true },
+  {
+    id: 'street', stage: 3, kind: 'customers', icon: '📣', name: 'Word on the street', what: 'More fans fill the seats',
+    levels: ['Chalk tags', 'Matchbooks', 'Whispers', 'Pirate radio', 'Neon arrow', 'Fight posters', 'Late-night TV', 'A blimp'],
+    per: 1.2, cost: 20_000, step: 1.75, max: 8,
+  },
+  { id: 'cellarcrew', stage: 3, kind: 'speed', icon: '🧑‍🍳', name: 'Cellar crew', what: 'Hires walk and work faster', per: 1.12, cost: 40_000, step: 1.75, max: 8 },
 ];
 export const MOD = Object.fromEntries(MODS.map(m => [m.id, m])) as Record<ModId, Mod>;
 
 /** Levels bought of each. */
-export const mods: Record<ModId, number> = { fillets: 0, marketing: 0, training: 0, specials: 0, promo: 0, crew: 0, fertilizer: 0 };
+export const mods: Record<ModId, number> = { fillets: 0, marketing: 0, training: 0, specials: 0, promo: 0, crew: 0, fertilizer: 0, bowls: 0, street: 0, cellarcrew: 0 };
 
 /** How much an upgrade multiplies its effect by now (1 before the first level). */
-export const boost = (id: ModId) => MOD[id].per ** mods[id];
+export const boost = (id: ModId) => (MOD[id].add ? 1 + (MOD[id].per - 1) * mods[id] : MOD[id].per ** mods[id]);
 /** The next level's price, or null when there are no more. */
 export const modCost = (id: ModId) => {
   const m = MOD[id];

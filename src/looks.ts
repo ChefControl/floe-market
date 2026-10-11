@@ -114,7 +114,8 @@ export function updLooks(dt: number) {
   showFirst(tags, mods.specials, quiet);
   showFirst(sacks, mods.fertilizer, quiet);
   if (mods.specials > 0 && !rail.visible) { rail.visible = true; if (!quiet) popIn(rail); }
-  restaurantLooks.visible = stage.n === 2;
+  // the restaurant's carry on in stage 3, up above the ring
+  restaurantLooks.visible = stage.n >= 2;
   // The headband is the market's crew training: it comes off when the restaurant opens.
   const wear = stage.n === 1 ? mods.training : 0;
   if (wear !== belt) {

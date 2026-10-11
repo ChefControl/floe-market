@@ -10,9 +10,10 @@ import { boost, FISH_PRICE, mods, priced, SUSHI_PRICE, type ModId } from './econ
 import { KIOSK } from './hall';
 import { carrySlot, Holder, type Slot } from './holder';
 import { addBillValue, newBill } from './items';
-import { groundY } from './layout';
+import { groundY, level } from './layout';
 import { boop as hop, player } from './player';
-import { addReview, demand, starsFor } from './rating';
+import { demand, starsFor } from './rating';
+import { frontReview, toTill } from './front';
 import { boop, honk, review, till } from './sfx';
 import { canvasTex, mesh, scene, type CanvasTex } from './render';
 import { popStars, popText } from './ui';
@@ -257,7 +258,8 @@ function showOrder(C: Counter, c: Customer, left: number) {
 /** Bills for what a customer is holding fly onto the counter's cash stack. */
 function pay(C: Counter, c: Customer) {
   const from = c.g.position.clone(); from.y = 1;
-  const values = c.hands.all().map(m => (m.userData.value as number | undefined) ?? C.price);
+  // (in stage 3, the kiosk's takings are Mr. Fugu's rent, all or most of them)
+  const values = toTill(c.hands.all().map(m => (m.userData.value as number | undefined) ?? C.price));
   values.forEach((v, i) => {
     const b = newBill(v); b.position.copy(from);
     if (C.cash.hasRoom()) C.cash.receive(b, 0.35 + i * 0.04, 1.0);
@@ -271,7 +273,7 @@ function pay(C: Counter, c: Customer) {
 }
 
 function depart(C: Counter, c: Customer, stars?: number) {
-  if (stars !== undefined) { addReview(stars); popStars(stars, c.g.position); review(stars, c.g.position); }
+  if (stars !== undefined) { frontReview(stars); popStars(stars, c.g.position); review(stars, c.g.position); }
   c.bubble.visible = false; c.mood.visible = false;
   c.path = C.exit(); leaving.push(c);
 }
@@ -300,7 +302,8 @@ const drivers = () => leaving.concat(...COUNTERS.map(C => C.queue)).filter(c => 
 function drive(c: Customer, tgt: XZ, dt: number) {
   if (c.out) { getOut(c, c.out, dt); c.stopped = true; c.moving = false; return false; }
   const going = c.isSled && Math.hypot(tgt.x - c.g.position.x, tgt.z - c.g.position.z) > 0.06;
-  const byPlayer = going && ahead(c, tgt, player.g.position, AHEAD);
+  // (not the player down in the cellar, under the road)
+  const byPlayer = going && !level.down && ahead(c, tgt, player.g.position, AHEAD);
   c.stopped = byPlayer || (going && drivers().some(o => o !== c && o.stopped && ahead(c, tgt, o.g.position, 2.8)));
   if (!byPlayer) {
     if (c.held) c.mood.visible = false;

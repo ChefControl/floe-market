@@ -41,7 +41,7 @@ describe('sound', () => {
     window.dispatchEvent(new Event('pointerdown'));
     expect(fake.made).toBe(1);
     expect(s.audio.ac!.state).toBe('running');
-    expect(fake.played.filter(p => p.loop)).toHaveLength(6); // the sea, its wash, wind, rain, diners, cicadas
+    expect(fake.played.filter(p => p.loop)).toHaveLength(8); // the sea, its wash, wind, rain, diners, cicadas, and the ring's crowd
     window.dispatchEvent(new Event('pointerdown'));
     expect(fake.made).toBe(1); // one for good
   });
@@ -167,10 +167,10 @@ describe('sound', () => {
     expect(all.filter(p => p.from !== 0).map(p => p.kind + ' ' + Math.round(p.f))).toEqual([]);
   });
 
-  it("can't pile up more than 40 voices at once", async () => {
+  it("can't pile up more than 64 voices at once (a crowd's shout's worth, over everything else)", async () => {
     const { sfx, since } = await withSound();
     fake.hold = true;
-    expect(since(() => { for (let i = 0; i < 60; i++) sfx.tick(); })).toHaveLength(40);
+    expect(since(() => { for (let i = 0; i < 90; i++) sfx.tick(); })).toHaveLength(64);
   });
 
   it('mutes the effects, the ambience or the music from the settings, and remembers levels and mutes on this device', async () => {

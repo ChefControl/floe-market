@@ -1,4 +1,6 @@
-import { BoxGeometry, BufferGeometry, CylinderGeometry, Group, type Mesh, MeshLambertMaterial, Object3D, SphereGeometry, TorusGeometry } from 'three';
+import {
+  BoxGeometry, BufferGeometry, ConeGeometry, CylinderGeometry, Group, type Mesh, MeshLambertMaterial, Object3D, SphereGeometry, TorusGeometry,
+} from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { G, mat, mesh, paint, painted, scene } from './render';
 import { current, onSeason, type Season } from './season';
@@ -10,7 +12,7 @@ export const PARKAS = [0xF2B33D, 0x7A6FF0, 0x3FA37C, 0xE85D75, 0x5B8DEF, 0xF08A4
 export const SUITS = [0x22303C, 0x3B3F6B, 0x5A2E3A, 0x2F4A44, 0x4A4F57];
 
 /** Everyday clothes (a parka in winter), a diner's evening clothes, a sushi chef's whites, a farmer's straw hat, or a server's indigo. */
-export type Look = 'parka' | 'fancy' | 'chef' | 'farmer' | 'waiter';
+export type Look = 'parka' | 'fancy' | 'chef' | 'farmer' | 'waiter' | 'yakuza' | 'hooligan';
 
 // ---------- seasonal clothes ----------
 const ALL: Season[] = ['winter', 'spring', 'summer', 'fall'];
@@ -88,6 +90,8 @@ export class Person extends Group {
   private limbs: Mesh[] = [];
   /** Who they are: a mix of a man's or a woman's wardrobe for the crowd, or the plain look everyone else has. */
   readonly style: Style;
+  /** Dressed for this season all year round (down in the cellar, where the seasons don't reach), or for today's. */
+  season: Season | null = null;
 
   /** `color` is the shirt, parka, suit or dress; `style` mixes a crowd member up (wardrobe.ts crowd()); without one they get the plain look. */
   constructor(readonly color: number, look: Look = 'parka', style?: Style) {
@@ -105,7 +109,7 @@ export class Person extends Group {
     for (const l of [...this.arms, ...this.legs]) { const m = mesh(NOTHING, painted, 0, 0, 0, true); l.add(m); this.limbs.push(m); }
     this.add(this.shell, this.trim);
     for (const a of this.arms) this.piece(G.arm, color, 0, -0.15, 0, true, a);
-    for (const l of this.legs) this.piece(G.leg, st.legs, 0, -0.15, 0, true, l);
+    for (const l of this.legs) this.piece(G.leg, look === 'yakuza' ? SUIT_LEGS : st.legs, 0, -0.15, 0, true, l);
     const body = this.piece(G.body, color, 0, 0.6, 0, true); body.scale.set(slim, 1, slim);
     body.userData.own = true;
     this.piece(G.head, st.skin, 0, 1.03, 0.05).userData.own = true;
@@ -115,7 +119,9 @@ export class Person extends Group {
     if (look === 'chef') this.chefWhites();
     if (look === 'farmer') this.piece(G.cone, 0xE3C26B, 0, 1.27, 0.03, true).scale.set(0.36, 0.17, 0.36);
     if (look === 'parka') this.everyday(st, color);
-    if (style) this.features(st, look === 'parka' && st.summer === 'shades');
+    if (look === 'yakuza') this.yakuza(st);
+    if (look === 'hooligan') this.hooligan(st, color);
+    if (style) this.features(st, look === 'parka' && st.summer === 'shades', look === 'yakuza' && st.summer !== 'sunhat');
     // a scarf for the cold, over the suit or the farmer's shirt
     if (look === 'fancy' || look === 'farmer') this.scarf(['winter', 'fall'], look === 'fancy' ? 0xF4EBDD : KNITS[n % KNITS.length]);
     this.scale.setScalar(st.height);
@@ -129,7 +135,7 @@ export class Person extends Group {
   private piece(geo: BufferGeometry, c: number, x: number, y: number, z: number, cast = false, on: Object3D = this, seasons?: Season[]) {
     const o = new Object3D(); o.position.set(x, y, z); o.castShadow = cast;
     const limb = [...this.arms, ...this.legs].indexOf(on as Group);
-    (limb < 0 ? this.pieces : this.limbPieces[limb]).push({ geo, c, o, seasons });
+    (limb < 0 ? this.pieces : this.limbPieces[limb]).push({ geo: coarsening ? coarse(geo) : geo, c, o, seasons });
     return o;
   }
 
@@ -161,8 +167,9 @@ export class Person extends Group {
     }
   }
 
-  /** The crowd's year-round looks: a moustache, a beard or earrings, and glasses (sunglasses stand in when `shades`). */
-  private features(st: Style, shades: boolean) {
+  /** The crowd's year-round looks: a moustache, a beard or earrings, and glasses (sunglasses stand in when `shades`,
+   *  or are worn instead all year when `dark`). */
+  private features(st: Style, shades: boolean, dark = false) {
     const c = st.hair;
     if (st.face === 'mustache' || st.face === 'beard' || st.face === 'goatee') {
       this.part(ALL, G.box, c, 0, 0.985, 0.243).scale.set(0.13, 0.032, 0.035);
@@ -170,7 +177,10 @@ export class Person extends Group {
     if (st.face === 'beard') this.part(ALL, beardGeo, c, 0, 1.03, 0.05);
     if (st.face === 'goatee') this.part(ALL, G.box, c, 0, 0.895, 0.2).scale.set(0.07, 0.07, 0.04);
     if (st.face === 'earrings') for (const s of [-1, 1]) this.part(ALL, G.sphere, 0xE8C25A, s * 0.2, 0.96, 0.06).scale.setScalar(0.024);
-    if (st.glasses !== null) {
+    if (dark) {
+      for (const s of [-1, 1]) this.piece(lensGeo, 0x15181D, s * 0.07, 1.075, 0.262).rotation.y = s * 0.3;
+      this.piece(G.box, 0x15181D, 0, 1.085, 0.272).scale.set(0.05, 0.014, 0.014);
+    } else if (st.glasses !== null) {
       const seasons = shades ? ALL.filter(s => s !== 'summer') : ALL;
       for (const s of [-1, 1]) this.part(seasons, rimGeo, st.glasses, s * 0.07, 1.06, 0.262);
       this.part(seasons, G.box, st.glasses, 0, 1.068, 0.268).scale.set(0.06, 0.012, 0.012);
@@ -245,12 +255,63 @@ export class Person extends Group {
     this.scarf(['fall', ...out], st.scarfC);
   }
 
+  /**
+   * The fight crowd's yakuza (stage 3): a sharp suit (in the person's colour) over a loud shirt open at the neck,
+   * dark trousers, and a pompadour, a punch perm, slicked-back hair or a shaved head; dark glasses on most (features),
+   * and a gold chain on some. The same all year: it's the cellar.
+   */
+  private yakuza(st: Style) {
+    this.piece(G.box, st.neckC, 0, 0.76, 0.245, true).scale.set(0.15, 0.22, 0.02);
+    for (const s of [-1, 1]) this.piece(G.cone, st.neckC, s * 0.07, 0.87, 0.24).scale.set(0.05, 0.08, 0.025);
+    if (st.neck === 'tie') this.piece(pearlsGeo, 0xE8C25A, 0, 0.9, 0.04).rotation.x = Math.PI / 2 + 0.25;
+    const c = st.cut === 'curly' ? 0x15130F : st.hair;
+    if (st.woman) { this.hairdo(st, ALL, ALL); return; }
+    if (st.cut === 'bald') return;
+    if (st.cut === 'curly') {
+      // the punch perm: tight black curls, close to the head
+      const perm = this.piece(curlsGeo, c, 0, 1.05, 0.04, true); perm.scale.setScalar(0.92); perm.rotation.x = -0.25;
+      return;
+    }
+    this.piece(hairGeo, c, 0, 1.03, 0.04, true).rotation.x = -0.5;
+    if (st.cut === 'quiff') {
+      const q = this.piece(G.sphere, c, 0, 1.21, 0.17, true); q.scale.set(0.15, 0.08, 0.12); q.rotation.x = -0.3;
+    }
+  }
+
+  /**
+   * The fight crowd's hooligans (stage 3): a tracksuit top in the person's colour with pale stripes down the sleeves
+   * and a zip, the side's scarf in it too, and a hood up, a beanie, a baseball cap or a shaved head. All year.
+   */
+  private hooligan(st: Style, color: number) {
+    for (const [i, a] of this.arms.entries()) this.piece(G.box, STRIPE, (i ? 1 : -1) * 0.051, -0.15, 0, false, a).scale.set(0.006, 0.32, 0.03);
+    const zip = this.piece(G.box, STRIPE, 0, 0.6, 0.27); zip.scale.set(0.012, 0.5, 0.01); zip.rotation.x = -0.13;
+    const ring = this.piece(scarfGeo, color, 0, 0.9, 0.01, true); ring.rotation.x = Math.PI / 2; ring.scale.setScalar(1.12);
+    const end = this.piece(G.box, color, 0.08, 0.72, 0.26, true); end.scale.set(0.08, 0.24, 0.03); end.rotation.set(-0.13, 0, 0.08);
+    const w = st.winter;
+    if (w === 'hood') {
+      this.piece(G.hoodBack, color, 0, 1.03, -0.04, true);
+      this.piece(G.hood, color, 0, 1.03, 0.1);
+    } else if (w === 'bobble') {
+      this.piece(beanieGeo, 0x23262B, 0, 1.05, 0.04, true).rotation.x = -0.2;
+      this.piece(cuffGeo, 0x23262B, 0, 1.1, 0.05, true).rotation.x = Math.PI / 2 - 0.2;
+    } else if (w === 'trapper') {
+      this.piece(capGeo, 0x1E2A3A, 0, 1.045, 0.04, true).rotation.x = -0.15;
+      this.piece(brimGeo, 0x1E2A3A, 0, 1.14, 0.265, true).rotation.x = -0.4;
+    } else if (st.cut !== 'bald') this.hairdo(st, ALL, ALL);
+  }
+
   /** A knitted scarf round the neck, one end hanging down the front. */
   private scarf(seasons: Season[], c: number) {
     const ring = this.part(seasons, scarfGeo, c, 0, 0.9, 0.01);
     ring.rotation.x = Math.PI / 2; ring.scale.setScalar(1.12);
     const end = this.part(seasons, G.box, c, 0.08, 0.72, 0.26);
     end.scale.set(0.08, 0.24, 0.03); end.rotation.set(-0.13, 0, 0.08);
+  }
+
+  /** What's drawn of them now: the body's meshes, and an arm and a leg as each hangs from its pivot (for drawing a crowd
+   *  of them in batches: swarm.ts). */
+  baked() {
+    return { body: [this.shell.geometry, this.trim.geometry].filter(g => g !== NOTHING), arm: this.limbs[0].geometry, leg: this.limbs[2].geometry };
   }
 
   /** Puts on the clothes for the season (none of them while disguised), and bakes what's worn. */
@@ -266,7 +327,7 @@ export class Person extends Group {
 
   /** The pieces being worn now, on the body and the limbs. */
   worn() {
-    const s = current();
+    const s = this.season ?? current();
     return [...this.pieces, ...this.limbPieces.flat()]
       .filter(p => !(this.disguised && (p.o.userData.own || p.seasons)) && (!p.seasons || p.seasons.includes(s)));
   }
@@ -366,6 +427,9 @@ export class Person extends Group {
 }
 
 const BAND = new TorusGeometry(0.24, 0.035, 6, 18);
+/** The yakuza's dark suit trousers, and the hooligans' tracksuit stripes (not quite white: white's the shirt a crowd
+ *  tints, swarm.ts). */
+const SUIT_LEGS = 0x1E1F26, STRIPE = 0xEDEAE2;
 
 /** Shows a vehicle part only in `seasons` (skis in winter, wheels the rest of the year). */
 function onlyIn(o: Object3D, seasons: Season[]) {
@@ -379,6 +443,46 @@ onSeason(() => scene.traverse(o => {
   if (o instanceof Person) o.wear();
   else if (o.userData.seasons) o.visible = (o.userData.seasons as Season[]).includes(current());
 }));
+
+/** Dresses someone who works down in the cellar for good: the seasons don't reach it. */
+export function belowGround<T extends Person>(p: T) {
+  p.season = 'spring';
+  p.wear();
+  return p;
+}
+
+/** A crowd member dressed in `style` (as `look`) with a white shirt (to be tinted), kept out of the count that hands out the plain
+ *  looks, so making one changes nobody else's. Their round pieces have fewer sides (a crowd's seen from afar, and
+ *  there can be hundreds: swarm.ts). */
+export function crowdModel(style: Style, look: Look) {
+  const n = dressed;
+  coarsening = true;
+  const p = new Person(0xFFFFFF, look, style);
+  coarsening = false;
+  dressed = n;
+  return p;
+}
+let coarsening = false;
+const coarser = new Map<BufferGeometry, BufferGeometry>();
+/** `geo` with about 60% of the sides and rings, if it's round: the same shape from a little way off. */
+function coarse(geo: BufferGeometry) {
+  let c = coarser.get(geo);
+  if (c) return c;
+  const less = (n: number, min: number) => Math.max(min, Math.round(n * 0.6));
+  if (geo instanceof SphereGeometry) {
+    const p = geo.parameters;
+    c = new SphereGeometry(p.radius, less(p.widthSegments, 5), less(p.heightSegments, 3), p.phiStart, p.phiLength, p.thetaStart, p.thetaLength);
+  } else if (geo instanceof TorusGeometry) {
+    const p = geo.parameters;
+    c = new TorusGeometry(p.radius, p.tube, less(p.radialSegments, 3), less(p.tubularSegments, 6), p.arc);
+  } else if (geo instanceof ConeGeometry) c = geo;
+  else if (geo instanceof CylinderGeometry) {
+    const p = geo.parameters;
+    c = new CylinderGeometry(p.radiusTop, p.radiusBottom, p.height, less(p.radialSegments, 6), p.heightSegments, p.openEnded);
+  } else c = geo;
+  coarser.set(geo, c);
+  return c;
+}
 
 export function animPerson(p: Person, moving: boolean, dt: number, carrying: boolean) {
   if (moving) p.phase += dt * 11; else p.phase = 0;

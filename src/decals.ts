@@ -5,7 +5,7 @@
 // on boards, snow and grass alike.
 import { Mesh, MeshBasicMaterial, PlaneGeometry } from 'three';
 import { CAM_YAW, canvasTex, FONT, rr, scene, type CanvasTex, type Draw } from './render';
-import { price } from './util';
+import { chips, price } from './util';
 
 export interface Decal extends CanvasTex {
   mesh: Mesh;
@@ -81,7 +81,7 @@ export function drawMenu(c: CanvasRenderingContext2D, w: number, h: number, icon
  */
 export function drawTile(
   c: CanvasRenderingContext2D, w: number, h: number,
-  u: { paid: number; cost: number; icon: string; stars?: number; open?: boolean; gold?: boolean },
+  u: { paid: number; cost: number; icon: string; stars?: number; open?: boolean; gold?: boolean; chips?: boolean },
 ) {
   c.clearRect(0, 0, w, h);
   const locked = !!u.stars && !u.open;
@@ -101,7 +101,8 @@ export function drawTile(
     iconText(c, w, u.icon, h * 0.38, 74);
     c.globalAlpha = 1;
     if (locked) iconText(c, w, '🔒', h * 0.48, 54);
-    const t = locked ? '★' + u.stars!.toFixed(1) : price(Math.max(0, u.cost - u.paid));
+    // (down in the cellar, prices are in Fugu Chips: $1,000 a chip)
+    const left = Math.max(0, u.cost - u.paid), t = locked ? '★' + u.stars!.toFixed(1) : u.chips ? chips(left, true) : price(left);
     c.font = '800 58px ' + FONT; c.lineJoin = 'round'; c.lineWidth = 12; c.strokeStyle = 'rgba(20,45,60,.9)';
     c.strokeText(t, w / 2, h * 0.76);
     c.fillStyle = locked ? '#FFD24A' : '#fff'; c.fillText(t, w / 2, h * 0.76);

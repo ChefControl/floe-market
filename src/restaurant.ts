@@ -17,7 +17,8 @@ import { boost, PREMIUM, priced, SUSHI_PRICE } from './economy';
 import { fly, Holder } from './holder';
 import { addBillValue, billValue, newBill, newBox, newPlate, newRice } from './items';
 import { inHall, pushOutOfBox } from './layout';
-import { addReview, demand, starsFor } from './rating';
+import { demand, starsFor } from './rating';
+import { frontReview, toTill } from './front';
 import { clink, review, till } from './sfx';
 import { canvasTex, G, mat, mesh, scene, type CanvasTex } from './render';
 import { pile } from './stations';
@@ -454,8 +455,10 @@ function finishPlate(d: Diner) {
   return true;
 }
 
-/** Bills for each plate fly from the diner to the register. */
-function payBills(values: number[], from: Vector3) {
+/** Bills for each plate fly from the diner to the register (in stage 3, only what Mr. Fugu's rent leaves of them). */
+function payBills(all: number[], from: Vector3) {
+  const values = toTill(all);
+  if (!values.length) return;
   const at = from.clone(); at.y = 1.3;
   values.forEach((v, i) => {
     const b = newBill(v); b.position.copy(at);
@@ -473,7 +476,7 @@ function payBills(values: number[], from: Vector3) {
 function leave(d: Diner, stars: number) {
   d.state = 'leave'; d.seat.diner = null; d.bubble.visible = false;
   if (d.bill.length) payBills(d.bill, d.g.position);
-  addReview(stars); popStars(stars, d.g.position); review(stars, d.g.position);
+  frontReview(stars); popStars(stars, d.g.position); review(stars, d.g.position);
   d.stack.forEach(p => scene.remove(p));
   d.stack = []; d.bill = [];
   const out = d.seat.garden ? [] : [ENTRANCE.clone(), GATE.clone()];

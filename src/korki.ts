@@ -4,6 +4,7 @@ import {
   BoxGeometry, BufferGeometry, CylinderGeometry, ExtrudeGeometry, Group, Material, Mesh, MeshPhongMaterial, Shape, TorusGeometry,
 } from 'three';
 import { decal, drawPad } from './decals';
+import { level } from './layout';
 import { player } from './player';
 import { CAM_YAW, canvasTex, FONT, mat, mesh, rr, scene } from './render';
 import { d2xz, FY } from './util';
@@ -253,7 +254,7 @@ let stood = 0;
 /** Shows the memoir while the player stands on the pad, and plays his song if they stay. */
 export function updKorki(dt: number) {
   if (!statue) return;
-  const near = d2xz(player.g.position, KORKI) < 0.95 * 0.95;
+  const near = !level.down && d2xz(player.g.position, KORKI) < 0.95 * 0.95;
   if (near !== open) {
     open = near;
     panel.hidden = !open;

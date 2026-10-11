@@ -6,6 +6,7 @@
 // device, otherwise a few seconds after the game starts, so the sign-in window can open the moment the button is tapped. Signed-in players also put
 // their best on the scoreboard (scores.ts).
 import { firebaseConfig } from './cloud.config';
+import type { StageN } from './layout';
 import { deviceStore, isStale, replaceSave, type SaveData } from './save';
 import { toast } from './ui';
 import { money } from './util';
@@ -14,7 +15,7 @@ export interface CloudUser { uid: string; name: string }
 /** A save as the cloud keeps it: save.ts's JSON, and when it was made. */
 export interface CloudSave { data: string; savedAt: number }
 /** A player on the scoreboard: the most cash they've held at once, in any game, and the furthest stage reached. */
-export interface Score { uid: string; name: string; best: number; stage: 1 | 2 }
+export interface Score { uid: string; name: string; best: number; stage: StageN }
 /** What cloud saves need from the service behind them: firebase.ts, or a fake one in the tests. */
 export interface CloudBackend {
   onUser(cb: (u: CloudUser | null) => void): void;
@@ -61,13 +62,13 @@ function digest(raw: string) {
 }
 
 /** What the player would recognise a save by. */
-interface Facts { stage: 1 | 2; money: number; best: number; upgrades: number; savedAt: number; progress: boolean }
+interface Facts { stage: StageN; money: number; best: number; upgrades: number; savedAt: number; progress: boolean }
 function facts(raw: string): Facts {
   let s: Partial<SaveData> = {};
   try { s = JSON.parse(raw) as Partial<SaveData>; } catch { /* unreadable: nothing worth keeping */ }
   const tiles = s.tiles ?? [], money = s.money ?? 0;
   return {
-    stage: tiles.some(t => t.id === 'sushi' && t.done) ? 2 : 1,
+    stage: tiles.some(t => t.id === 'dohyo' && t.done) ? 3 : tiles.some(t => t.id === 'sushi' && t.done) ? 2 : 1,
     money,
     best: Math.max(s.best ?? 0, money),
     upgrades: tiles.filter(t => t.done).length + Object.values(s.mods ?? {}).reduce((a, n) => a + (n ?? 0), 0),

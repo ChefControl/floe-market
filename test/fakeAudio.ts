@@ -83,6 +83,8 @@ class Source extends FakeNode {
 }
 class Osc extends Source {
   type = 'sine';
+  /** A custom waveform (the gloop band's soft sawtooths) shows as type 'custom', as in the browser. */
+  setPeriodicWave() { this.type = 'custom'; }
   frequency = new FakeParam(440);
   detune = new FakeParam();
   start() {
@@ -92,7 +94,13 @@ class Osc extends Source {
 class Buffered extends Source {
   buffer: unknown = null;
   loop = false;
-  start() {
+  loopStart = 0;
+  loopEnd = 0;
+  playbackRate = new FakeParam(1);
+  /** Where in its buffer it started playing, in seconds. */
+  offset = 0;
+  start(_when = 0, offset = 0) {
+    this.offset = offset;
     const filter = this.outs[0] as FakeNode & { frequency?: FakeParam };
     const f = filter?.frequency, freq = f ? f.first ?? f.value : 0;
     fake.played.push({ kind: 'noise', f: freq, type: '', loop: this.loop, src: this, from: startOf(this), ...trace(this) });
@@ -109,6 +117,7 @@ export class FakeAudioContext {
   suspend() { this.state = 'suspended'; return Promise.resolve(); }
   createGain() { return Object.assign(new FakeNode(), { gain: new FakeParam(1) }); }
   createOscillator() { return new Osc(); }
+  createPeriodicWave() { return {}; }
   createBufferSource() { return new Buffered(); }
   createBiquadFilter() { return Object.assign(new FakeNode(), { type: 'lowpass', frequency: new FakeParam(350), Q: new FakeParam(1) }); }
   createStereoPanner() { return Object.assign(new FakeNode(), { pan: new FakeParam() }); }

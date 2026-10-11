@@ -1,6 +1,6 @@
 # Floe Market
 
-A cozy 3D idle/tycoon game for the browser, in two stages. Stage 1 is a fish market: catch fish from the ice, sell it at a walk-up counter and upgrade the market. Stage 2 rebuilds it as Floe Sushi, a conveyor-belt sushi restaurant with rice terraces on the hillside, which you grow until the whole chain runs itself.
+A cozy 3D idle/tycoon game for the browser, in three stages. Stage 1 is a fish market: catch fish from the ice, sell it at a walk-up counter and upgrade the market. Stage 2 rebuilds it as Floe Sushi, a conveyor-belt sushi restaurant with rice terraces on the hillside, which you grow until the whole chain runs itself. Stage 3 goes underground: Mr. Fugu, a shady pufferfish in a trench coat, cuts you into his illegal sumo ring in the cellar under the dock. It's fight night: you cook chanko for the fans, and each boss who walks in with his crowd is beaten by turning his whole crowd with bowls before the bell, until you can buy back all of Mr. Fugu's chips.
 
 ## Play
 
@@ -12,17 +12,27 @@ npm run dev
 ```
 
 - **Loading:** a loading screen shows the game's scripts coming in, megabytes so far out of the total (about 1.3 MB, or 380 kB over the wire compressed: there are no image or sound files to fetch), then stays up while the world is built, until the first frame is drawn
-- **Move:** drag anywhere (touch or mouse) for a virtual joystick, or use WASD / arrow keys. The first time on a device, a small card below the player shows how, and how to buy (a finger on the joystick on phones and tablets, the keys on a computer, going by the browser's user agent); once you've walked a little it shrinks away into the ⚙️ settings gear, where **Controls** brings it back
+- **Move:** drag anywhere (touch or mouse) for a virtual joystick, or use WASD / arrow keys. The first time on a device, a small card below the player shows how, how to buy, and how to throw things away at a bin (a finger on the joystick on phones and tablets, the keys on a computer, going by the browser's user agent); once you've walked a little it shrinks away into the ⚙️ settings gear, where **Controls** brings it back
+- **Bins:** beside the places things are picked up, to throw away what you're carrying: steel kitchen bins by the fish pile on the dock, by the farmer's rice stack and the rice patch on the farm path (stage 2), and, down in the cellar (stage 3), open oil drums in the hearth room and by the dumbwaiter in the prep hall. Stand at one and press **E** (on a touch screen, tap **Toss**)
 - **Settings (⚙️, top right):** sign in for cloud saves; **Sound**, which opens into the effects, the ambience and the music, each with a mute button and a volume from 1 to 10 (7 is the game's mix; each step is about 2 dB), remembered on the device; Controls; **Buy me a coffee**, which opens the game's [Ko-fi page](https://ko-fi.com/chefcontrol) in a pop-up window of its own (a new tab where pop-ups are blocked), so the game stays put; and Restart. While the menu is closed, a dot on the gear shows the cloud's state. After 10 minutes of play on a device, a toast says once where Buy me a coffee is and the gear pulses, unless the player has already found it
 - **Fish:** stand on the 🎣 pad to hook fish; they get chopped into fish slices automatically
 - **Sell fish (stage 1):** pick slices up from the pile, drop them on the counter's 🐟 pad, and walk over the cash to collect it. Walk-in customers pay $4 a slice; once the drive-up window is built, drivers on the road buy 4–8 at a time at $6
 - **Upgrade:** stand on a price tile (the squares) and hold **E** to pay into it; on a touch screen, a **Buy** button comes up to hold instead. Stand on one for 2 seconds without buying and a reminder says how. Squares are for buying (the tiles, and the Upgrade squares' menus) and circles for doing something (fishing, dropping things off, the roulette table). The tiles lie square with the world, with their icon and price turned to face the camera. Some tiles also need a star rating (see below). The chip under the rating shows the stage and how many of its upgrades are built
-- **Upgrade square:** each stage has a 📈 Upgrade square (by the counter in stage 1, by the kitchen line in stage 2). Stand on it to open the stage's repeatable upgrades and tap one to buy its next level: a better product (prices), marketing (customers) or the crew (speed). The list in the top left shows every modifier in play as a percentage, with your rating counted into Customers (it brings them in ×0.6 at ★1 to ×1.4 at ★5); tap the stage chip to fold it away or back (on phones it starts folded, so the HUD leaves the game in view). Every level shows in the world too (see [Economy](#economy))
+- **Upgrade square:** each stage has a 📈 Upgrade square (by the counter in stage 1, by the kitchen line in stage 2, on the cellar's landing in stage 3). Stand on it to open the stage's repeatable upgrades and tap one to buy its next level: a better product (prices), marketing (customers) or the crew (speed). The list in the top left shows every modifier in play as a percentage, including how much your rating brings customers in; tap the stage chip to fold it away or back (on phones it starts folded, so the HUD leaves the game in view). Every level shows in the world too (see [Economy](#economy))
 - **Fertilizer shed (stage 2):** once the takeout kiosk opens, a little thatched storehouse like the farmhouse goes up on a plank deck off the south end of the farm path, by the water wheel, with a green noren over its door and a lantern that glows at dusk. Stand on its 🌿 square to buy rice fertilizer: compost, then fish meal, then spring minerals, each making the terraces ripen half as fast again ($20,000, $40,000 and $80,000; all three make rice grow 3.4 times as fast). A labelled sack of each one bought lies on a pallet beside the shed, and the HUD's list shows it as Rice growth
 - **Stage up:** with all nine market upgrades built, a gold 🏯 tile appears in the middle of the dock: Open Floe Sushi, $12,000. Paying it off plays the stage-up: the counters and the south fence come down, the restaurant, its garden and the terraces go up, and day turns to dusk. Cash, rating and upgrades carry over; the counters' leftover fish and cash move to the restaurant, the roulette table moves up the dock, and Korki's statue moves to the garden
 - **Rice (stage 2):** it grows on the terraces west of the restaurant, out through the farm door. The restaurant opens with a small patch of six clumps by the door, which ripens (green to gold) in 15 seconds: just enough for the first customers at a five-star rating, and no faster with upgrades, so more customers need the rest of the terrace. Each planted terrace grows a set amount, ripening in 30 seconds, a little less than the next step of the restaurant (more seats, another chef) eats; upgrades don't speed it up, so planting more terraces is how the restaurant grows, until all three are planted and the fertilizer shed opens. Wade through ripe rice to harvest it, or take bags off the farmer's stack on the path. Fish the kitchen has no room for go back to the pile as you harvest, to make room in your arms
 - **Make sushi:** drop fish slices on the 🐟 pad and rice on the 🍚 pad at the kitchen line facing the dock. Your arms carry both at once. The cooks there toss them to a chef inside the bar, who makes a plate (a bag of rice makes two) and puts it on the belt circling them. Once the takeout kiosk is open, the chefs also pack boxes for it, keeping a few ready When the chefs stand idle for want of fish or rice, the cook at that pad holds up a bubble asking for it (🐟? or 🍚?)
 - **Sell sushi:** diners in their evening best come up the garden path and through the red gate, sit at the bar, take plates as they pass, and pay $30 a plate at the register by the gate when they leave. Once there are garden tables, some sit out under the red parasols instead: the chefs put their plates on a serving counter by the gate, and a waiter carries them over on a tray, up to four at a time. Waiters never take plates off the belt, and they're only for show: a garden diner stops waiting once their plate is made. Drivers buy 3–6 boxes at a time at the kiosk on the road ($35 a box); their cash lands just inside the east wall
+- **Mr. Fugu (end of stage 2):** once Floe Sushi is fully built and the till passes $1,000,000, a hatch turns up in the dock, knocking, with a ❗ over it and an arrow pointing the way. Walk up to it and Mr. Fugu climbs out with an offer, and makes it clear it isn't legal. Answer with a tap: **Deal me in** puts a gold 🐡 tile by the hatch (Buy into the ring, $1,000,000), and **Not today** leaves the hatch on the dock (stand on it to hear him out again). While he's on, the rest of the game goes quiet: only his voice, his bass and his effects play
+- **Fight night (stage 3):** paying the buy-in takes you down the hatch to the cellar under the dock: rooms side by side, with thin walls between them. You land at the foot of the ladder, on the landing. The arena is to the west (the clay dohyo with its four posts, the stands, the bowl stall by the hearth room's door, the gong and the cashier's window), Mr. Fugu's office is to the north, the hearth room (the big pot, its ledge and the bowl counter) to the south, and through it, the prep hall (the dumbwaiter down from the restaurant's kitchen, its rice bin and fish crate, the drying racks and the salt barrels). Down there, nothing up in the world is heard (only the ring's crowd comes up through the floor), and the seasons turn without news. Stand on the open hatch, or at the foot of the ladder, to climb up or down. The restaurant upstairs carries on by itself (see the front, below). Money down here is **Fugu Chips** (🐡, $1,000 a chip, the same wallet), and the HUD's 💪 is how many fans you fed in the last minute
+  - **The kitchen:** take rice and fish from the bins by the dumbwaiter, put them in a drying rack or a salt barrel (two at a time, ready after 8 seconds; with full arms, ready ones swap out one for one for raw ones going in), and carry the ready ones to the pot: one of each (and a mushroom, once there are mushrooms) makes 5 bowls, cooked while you stand there. Carry the bowls from the counter to the stall in the arena. The pot shows a bubble for what it's waiting on, and the stall one when fans are waiting and it's dry
+  - **Every bout** goes the same way, about every 47 seconds. **The fans buy soup** (20 seconds): as many as the seats and word on the street bring come in through the tunnels behind the arena's back walls and queue on the floor before the stall, and each one who gets a bowl pays for it (Mr. Fugu keeps 30%), turns your orange and goes to sit on the champion's side: on the stands' cushioned benches first, then on the floor round the ring. **They take their seats** (5 seconds): the ones who didn't eat give up and go home, while the wrestlers crouch. **The fight** (15 seconds), which your champion always wins against a local: it's the free show between boss nights. Then the result, and the fans go home. Boss nights are fought differently (the gong, below). The fans are the low life who come down for a fight, yakuza in sharp suits and hooligans in tracksuits, made like the game's people; they walk round the ring, the stands and the stall, each at their own pace, look about while they queue, sit down properly, stand up for the charge and cheer in bursts, and shout things in speech bubbles ("Where's the chanko??" at an empty stall). The seasons don't reach the cellar: nobody down there changes clothes
+  - **The gong:** stand on its 🔔 pad to see the next boss, the crowd he brings, the bell he gives you, his prize, and exactly how ringing now would go, worked out by playing his preparation ahead with you and your crew in it, from where you stand and with what's in your arms ("Ready: you'll turn 70 of his 120", or "You'll turn 55 of his 120: 6 short of 61", and what the pot would wait on). Ring it whenever you like (**E**, or the button): no fee, no luck. His crowd comes in through the tunnels in his purple, and once they're all at the stall (about 6 seconds, while your kitchen keeps cooking) his bell starts, and every bowl at the stall turns one of them to yours; then they sit on either side, and the fight is a tug of war between them, followed on the bar at the top of the screen: turn more than half of them and he goes over the rope. A card after says how it went, and on a loss, why. The five bosses are Hakkaku 🐙 (120 fans), Yokobashiri 🦀 (180), Dobu 🐀 (220), Samehada 🦈 (420) and Fukure 🐡 (1,000, with a minute's bell), and each one beaten opens more of the cellar
+  - **The grow room:** beating the first boss brings down the prep hall's back wall: behind it, a grow room already planted with mushroom beds, and a picker to tend them. From then on each batch needs a mushroom too, and mushroom bowls pay double
+  - **Between boss nights** the champion, Chunkos, takes on a local. Stand on the 👁️ watch spot by the ring and the camera closes in, with the names over it
+  - **The front:** upstairs, the restaurant's diners still eat and its crew still works, but its takings (the register's and the kiosk's) are Mr. Fugu's rent until you buy him out. For the playtest, adding `?front=trickle` to the page's address lets a fifth of them through instead
+  - **The buyout:** with all five bosses beaten, a gold 🐡 tile in his office, Buy back all his chips (🐡 12,000), ends the stage: he takes his money and goes, his 30% ends, and the restaurant's till is yours again. He leaves something behind on his desk that points to stage 4
 - **Rating:** customers only wait so long. Each one leaves a 1–5★ review when they go, based on how long they waited; someone who gives up leaves 1★ and pays only for what they got. The rating in the HUD is the average of the last 20 reviews (a new game starts at ★3.0). A better rating also brings customers in faster: ×0.6 at ★1, ×1.4 at ★5
 - **Seasons:** winter, spring, summer and autumn come round every five minutes of play, and the chip under your carry count shows which it is and how long is left. A new season changes the scenery over a few seconds and everyone's clothes at once:
 
@@ -44,7 +54,8 @@ npm run dev
 Everything you hear is made in the browser as it plays (Web Audio), so the game downloads no sound files; it starts with your first tap or key press, as browsers require, and sleeps while the page is hidden.
 
 - **Effects:** soft, rounded, toy-like sounds for the low-poly world. Your footsteps on boards, snow, grass or leaves; the line whipping out, the splash and the cleaver's three cuts; blips that climb the scale as you pick things up and step down as you put them down; coins; money draining into a tile and a run up the marimba when it's bought; a bell for news; reviews from a happy little tune (five stars) to a sad bonk (one); roulette clicks; car horns. Sounds out in the world come from their side of the screen and fade with distance. Every pitched effect is on the major pentatonic of the music's key, so they ring along with the music
-- **Ambience:** the sea and its gulls (loudest on the dock), wind (strongest in winter), birdsong in spring and summer, cicadas in summer, crickets at stage 2's dusk, the rain at her house, and the murmur of diners in the restaurant
+- **Ambience:** the sea and its gulls (loudest on the dock), wind (strongest in winter), birdsong in spring and summer, cicadas in summer, crickets at stage 2's dusk, the rain at her house, and the murmur of diners in the restaurant. Down in the cellar everything up in the world is shut out (its effects too), and the ring's crowd is a bed of voices as loud as they're worked up; from the dock above, it comes through the floor, faint
+- **The crowd (stage 3)** follows each bout from start to end as one continuous crowd, so you can follow the bout by ear: its murmur, chant and roar loop all the time and glide up and down with the bout (up quickly, down slowly). The chant builds as the wrestlers step up and lifts with each stamp, everything falls away for the hush at the crouch, the roar surges at the charge, rumbles on through the push and swells at the edge, a cheer grows out of it when the winner's known (bigger, with cushions thrown, for an upset), and it all drains back into the murmur through the applause for the bow. A boss's crowd is all of it. It's the one sound in the game that's recorded: a real stadium crowd of adults (Gregor Quendel's stadium recordings, CC BY 4.0, and applause from BigSoundBank, CC0; cut to about 620 KB in `public/sounds`, credited in its `CREDITS.md` and in the game's Sound settings). How much of it you hear depends on where you are: all of it at the ringside and among the stands, about half by the arena's far walls, less on the landing, low in the hearth room, lower in the prep hall, very low in the grow room and Mr. Fugu's office, and a murmur through the floor from the dock, easing as you go through a doorway. Synthesised people sounded like wind; until the recordings have loaded, a synthesised crowd of voices stands in. Hear it on the [Dohyo Crowd](https://claude.ai/artifact/SqxyNC9V5KVngZJMfDJeHA) page
 - **Music,** made up as it plays, and different for each stage. Hearing the step up between them is part of the reward:
   - **Stage 1, the market:** a kalimba (thumb piano) and a hand drum, small and handmade, in D minor at 92 BPM. To start, the kalimba picks out half a pattern. The rest of the pattern, a frame drum, a shaker, a tune and a bass line join as the market grows.
   - **Stage 2, the restaurant:** a jazz café band, with electric piano in sevenths and ninths, a bass, drums and a lead. Each season has its own key, feel and lead:
@@ -57,7 +68,8 @@ Everything you hear is made in the browser as it plays (Web Audio), so the game 
   | 🍂 Autumn | C minor | 82 BPM slow swing | Reed | Brushes, soft kick |
 
   Parts come in as the restaurant is built: chords, bass and the tune to start, then drums and a walking bass, then busier piano and the tune answering itself, then a second voice.
-  - **Both stages:** each tune plays twice, and every fifth verse rests the tune. The music fades away under the songs at her house and Korki's statue, in the rain, and through the stage-up's fanfare. A chiptune set and a gloopy sumo-ring set are saved for future stages ([docs/music-ideas.md](docs/music-ideas.md))
+  - **Stage 3, the ring:** the gloop ring, down in the cellar ([docs/music-ideas.md](docs/music-ideas.md)): C minor at 96 BPM in half time, a soft, gloopy bass that sags and slides round C2 (a soft sawtooth through a resonant low-pass), taiko, a wet slap, grit, the ring's wooden clappers calling each round, a low shamisen, and mud bubbles on the chords' notes. The bass, the drums and the shamisen's tune play from the first bout, and it grows with the ring from there. Its bass sits low, under what a laptop's or a phone's speakers can play, so the tune, the taiko's knock, the slap and the bubbles are mixed up to carry it there. Up on the dock, the café band plays on.
+  - **Every stage:** each tune plays twice, and every fifth verse rests the tune. The music fades away under the songs at her house and Korki's statue, in the rain, under Mr. Fugu's pitch, and through the stage-up's fanfare. A chiptune set is saved for a future stage ([docs/music-ideas.md](docs/music-ideas.md))
 - **Easy on the ear**, following what's known about which sounds people find pleasant:
   - Consonant notes: effects on the major pentatonic, and two-note effects a fifth or a fourth apart (simple frequency ratios).
   - No half steps in the piano's chords, where they'd sound rough and muddy that low.
@@ -74,14 +86,14 @@ The money curve follows idle games ([the math of idle games](https://www.gamedev
 
 - **Repeatable upgrades**, three a stage, at the stage's upgrade square, and rice fertilizer at the fertilizer shed in stage 2:
 
-  | | Stage 1 | Stage 2 | Each level | Price |
-  | --- | --- | --- | --- | --- |
-  | Better product | 🐟 Fine fillets | 🍣 Chef's specials | Prices +25% | ×1.6 a level, no limit |
-  | Marketing | 📣 Posters, flyers, radio, social media, ... TV ad | 📣 Menu boards, lantern signs, ... world famous | Customers +20%, longer queues | ×1.75 a level, 8 levels |
-  | Crew | 💪 Crew training: fishing and chopping | 🧑‍🍳 Kitchen crew: chefs, the runners, farm workers, waiters (not how fast rice grows) | Speed +15% | ×1.75 a level, 8 levels |
-  | Fertilizer | | 🌿 Rice fertilizer: compost, fish meal, spring minerals (from the takeout kiosk on) | Rice growth +50% | ×2 a level, 3 levels |
+  | | Stage 1 | Stage 2 | Stage 3 | Each level | Price |
+  | --- | --- | --- | --- | --- | --- |
+  | Better product | 🐟 Fine fillets | 🍣 Chef's specials | 🏷️ Pricier bowls | Prices +25% (in stage 3, of a bowl's base price) | ×1.6 a level, no limit |
+  | Marketing | 📣 Posters, flyers, radio, social media, ... TV ad | 📣 Menu boards, lantern signs, ... world famous | 📣 Word on the street | Customers (fans) +20%, longer queues | ×1.75 a level, 8 levels |
+  | Crew | 💪 Crew training: fishing and chopping | 🧑‍🍳 Kitchen crew: chefs, the runners, farm workers, waiters (not how fast rice grows) | 🧑‍🍳 Cellar crew: the hires walk and work faster | Speed +15% (+12% in stage 3) | ×1.75 a level, 8 levels |
+  | Fertilizer | | 🌿 Rice fertilizer: compost, fish meal, spring minerals (from the takeout kiosk on) | | Rice growth +50% | ×2 a level, 3 levels |
 
-  They start at $40, $60 and $80 in stage 1 and $500, $800 and $1,000 in stage 2, and fertilizer at $20,000. Each level shows in the world:
+  They start at $40, $60 and $80 in stage 1, $500, $800 and $1,000 in stage 2 (fertilizer at $20,000), and 🐡 30, 20 and 40 in stage 3. In stage 3 the fans only fill the seats there are: word on the street brings them in up to a full house. Each level in stages 1 and 2 shows in the world:
 
   | | Stage 1 | Stage 2 |
   | --- | --- | --- |
@@ -92,10 +104,10 @@ The money curve follows idle games ([the math of idle games](https://www.gamedev
 
   Fishing speed (crew training) still counts in stage 2, but it isn't in the list there: the dock catches more fish than the kitchen gets through, so carrying fish in (the runners) is what can hold the kitchen back, and the kitchen crew speeds that up.
 - **One-off upgrades** roughly double in price each time and add capacity: machines, workers, chefs, seats, terraces.
-- **Tiers.** Each stage ends on an expensive capstone. The gold tile costs about five minutes of a well-run market's income, so you start stage 2 almost broke, and stage 2's prices and sale values are about ten times stage 1's.
+- **Tiers.** Each stage ends on an expensive capstone. The gold tile costs about five minutes of a well-run market's income, so you start stage 2 almost broke, and stage 2's prices and sale values are about ten times stage 1's. Stage 2's capstone is Mr. Fugu's buy-in ($1,000,000), and stage 3's prices are about ten to twenty times stage 2's. While the restaurant pays him rent, its income can't make stage 3's prices meaningless; the buyout gives it back.
 - **No dead ends.** Fishing and rice are always free, and fish the kitchen can't take go back to the pile as you harvest rice, so arms full of fish never stop you making sushi and money again. The runners (bought in stage 1) keep the fish tray stocked, the farmer's stack can be carried in by hand before there's a rice porter, and the chefs only pack a few takeout boxes ahead, so plates keep coming for diners. Fish and rice keep up with a fast kitchen: a bag of rice makes two plates, the kitchen crew speeds up the runners, the farmer and the rice porter too, and once the terraces are full, fertilizer makes them grow faster (the farmer sweeps the ripe clumps either side of the one they came for, so they keep up).
 
-On a simulated run by a bot that plays like a reasonable player (see [Development](#development)), stage 1 takes about 13 minutes, with income growing from about $200 to $10,000 a minute; stage 2's upgrades, fertilizer included, are all bought about 41 minutes later, with income growing from about $1,000 to over $250,000 a minute, and to about $700,000 an hour into the game. Better products then carry on for as long as you like.
+On a simulated run by a bot that plays like a reasonable player (see [Development](#development)), stage 1 takes about 13 minutes, with income growing from about $200 to $10,000 a minute; stage 2's upgrades, fertilizer included, are all bought about 41 minutes later, with income growing from about $1,000 to over $250,000 a minute, and to about $700,000 an hour into the game. From the buy-in, the bosses fall at about 6, 7, 15, 23 and 30 minutes, and the buyout comes at about 32, with income growing from about 🐡 15 a minute by hand to over 🐡 1,000 a minute with the whole crew and the Grand Hall full. Better products then carry on for as long as you like.
 
 ## Unlocks
 
@@ -141,11 +153,30 @@ Far out past the road, a path leaves the market (through the east fence in stage
 
 🛴 **Korki's golden statue** ($10) is on offer from the start, outside the queue: a gold NAMI Klima One on a pedestal, in memory of Korki. Stand on its pad to read his story; stay a few seconds and his song ("Car Alarm (extended reprise)" by pat's soundhouse, via YouTube) fades in quietly, and fades out when you leave.
 
+**Stage 3: The Dohyo Below** (bought at Mr. Fugu's hatch: 🐡 Buy into the ring, $1,000,000). Prices are in Fugu Chips; each opens once the boss in the Needs column is beaten. The cellar's tiles stand in the rooms they change
+
+| Upgrade | Cost | Needs | Effect |
+| --- | --- | --- | --- |
+| 🌾 Another drying rack | 🐡 10, then 45% more each | | One more on the rice line, up to six |
+| 🛢️ Another salt barrel | 🐡 12, then 45% more each | | One more on the fish line, up to six |
+| 🧺 Rice washer | 🐡 15 | | Runs the rice line: fills the racks and carries rice to the ledge |
+| 🧂 Fish salter | 🐡 20 | | Runs the fish line |
+| 🍄 Another mushroom bed | 🐡 25, then 45% more each | Hakkaku | One more in the grow room (it comes planted, with its picker) |
+| 🏮 The Back-Alley Ring | 🐡 200 | Hakkaku | Bleachers: 48 seats (24 to start) |
+| 👨‍🍳 Cook | 🐡 250 | Yokobashiri | Keeps the pot cooking |
+| ♨️ Steam baskets | 🐡 350 | Yokobashiri | Every rack becomes a steam basket: 6 rice every 5 s |
+| 🍲 Attendant | 🐡 500 | Dobu | Carries bowls from the counter to the stall |
+| 🏚️ Smokehouse | 🐡 800 | Dobu | Every barrel becomes a smokehouse: 6 fish every 5 s |
+| 🥁 The Underground Arena | 🐡 900 | Dobu | An upper tier and the taiko drummers: 90 seats |
+| ✨ Glowing grow shelves | 🐡 1,500 | Samehada | Every bed becomes a shelf: 5 mushrooms, one every 4 s |
+| ⛩️ The Grand Hall Below | 🐡 2,500 | Samehada | The VIP boxes: 150 seats |
+| 🐡 Buy back all his chips | 🐡 12,000 | all five bosses | Stage 3 complete: his 30% ends, the restaurant's till comes back, and a lead to stage 4 |
+
 Market customers and diners order 1–3 and give up after 40 seconds of waiting (for diners, 40 seconds in total between plates). Drivers wait 55 seconds.
 
 ### Saving
 
-Progress saves automatically on the device, including your reviews, the season and everything along the supply chain (the pile, the counters, the kitchen line, plates on the belt, workers' loads, the terraces' stack): every few seconds, whenever the page is hidden or closed, and after each upgrade. Cash, fish and rice that are mid-air are counted, as are diners' unpaid bills, so closing the tab at any moment loses nothing.
+Progress saves automatically on the device, including your reviews, the season and everything along the supply chain (the pile, the counters, the kitchen line, plates on the belt, workers' loads, the terraces' stack, and in stage 3 the whole cellar: its machines and what's in them, the ledge, the counter and the stall, the crew, the bosses beaten, what you're carrying down there, and whether you were down in the cellar; a boss's rush cut short by closing the page is called off, neither won nor lost): every few seconds, whenever the page is hidden or closed, and after each upgrade. Cash, fish and rice that are mid-air are counted, as are diners' unpaid bills, so closing the tab at any moment loses nothing.
 
 - **One tab at a time.** If the game is opened in a second tab, the older tab stops saving and says so, so it can't overwrite newer progress.
 - **Updates don't reset progress.** Saves carry a format version and older saves are migrated on load, keeping cash, rating and upgrades. Saves from before the two stages stay in stage 1, except those that had both the old restaurant west of the dock and every market upgrade: they go straight to stage 2, keeping the restaurant's upgrades, with the old kitchen's fish and the counters' leftovers on the kitchen line and the cash at the register. Everyone else gets back what they spent on the old restaurant, its cash and its unsold plates. A save that can't be read is kept under `floe-market-backup` instead of being overwritten.
@@ -180,7 +211,7 @@ The 🏆 button (top right) lists the 20 players who have held the most cash at 
 
 - **Getting on it:** sign in. Your best goes up as your game syncs, and only ever goes up: spending doesn't lower it, and neither does a Restart.
 - **Names:** players show by the full name on their Google account, never an email. Your row is picked out; if you're not in the top 20 your own best shows under the list. Not signed in, it shows this game's best and a button to sign in.
-- **Data:** one Firestore document per player, `scores/{your account id}`, with that name, the best and the stage. Anyone can read the scoreboard; only you can write your own entry (`firestore.rules`). A project set up before the scoreboard needs `firestore.rules` pasted and published again, or the scoreboard says it can't load.
+- **Data:** one Firestore document per player, `scores/{your account id}`, with that name, the best and the stage. Anyone can read the scoreboard; only you can write your own entry (`firestore.rules`). A project set up before the scoreboard needs `firestore.rules` pasted and published again, or the scoreboard says it can't load; so does one set up before stage 3, whose rules only accept stages 1 and 2 (a stage 3 player's entry would be refused).
 - **Quota:** opening the scoreboard reads up to 20 documents. A signed-in player writes their entry at most once per sync, and only when their best or stage changed.
 
 ## Development
@@ -196,7 +227,7 @@ TypeScript + [three.js r186](https://threejs.org/), bundled with [Vite](https://
 | `npm test` | Unit tests with coverage (fails below the thresholds in `vite.config.ts`) |
 | `npm run test:watch` | Unit tests in watch mode |
 
-`SIM=1 SIM_MINUTES=60 SIM_OUT=sim.txt npx vitest run test/balance.sim.test.ts` has a bot (`test/bot.ts`) play a fresh game for an hour of game time, in a few seconds, and writes when it bought each upgrade and how its money and earnings grew minute by minute. Use it to check the balance after changing prices; `test/softlock.test.ts` also uses the bot to check a whole game never stalls.
+`SIM=1 SIM_MINUTES=60 SIM_OUT=sim.txt npx vitest run test/balance.sim.test.ts` has a bot (`test/bot.ts`) play a fresh game for an hour of game time, in a few seconds, and writes when it bought each upgrade and how its money and earnings grew minute by minute. Use it to check the balance after changing prices; `test/softlock.test.ts` also uses the bot to check a whole game never stalls. Add `SIM_STAGE=3` to play the ring from just after the buy-in instead: down in the cellar the bot runs whichever lines have no hire yet, cooks, carries bowls to the stall, buys the cellar's tiles, rings the gong once it says the boss's whole crowd will turn, and finds its way round the cellar's furniture.
 
 [docs/balance.md](docs/balance.md) sets out the principles the game is balanced by, stage by stage, the numbers that show when something is off, and where each upgrade stands.
 
@@ -218,8 +249,8 @@ Each deploy removes the last one's files, and GitHub Pages lets browsers keep th
 | `src/game.ts` | `tick()`: one simulation step for the whole world |
 | `src/render.ts` | Renderer, scene, camera, lights, shared materials/geometry, canvas helpers |
 | `src/world.ts` | Static scenery: water, the dock (both stages'), fences, roads, trees |
-| `src/layout.ts` | The current stage, where people can walk in each, and the ground height (terraces, bridge, garden) |
-| `src/stage.ts` | The stage-up show (banner, camera pull-back, pieces in and out), and the light: each season's sky, by day and at stage 2's dusk |
+| `src/layout.ts` | The current stage and level (the world, or the cellar), where people can walk in each (the cellar's rooms and doorways too), and the ground height (terraces, bridge, garden) |
+| `src/stage.ts` | The stage-up shows (banner, camera pull-back, pieces in and out; down the hatch; the buyout), the ladder between the levels, and the light: each season's sky, by day and at stage 2's dusk, and the cellar's |
 | `src/hall.ts` | The Floe Sushi building: floor, roof ring (fading when it would hide the player), walls, lanterns, gate, garden, kiosk booth |
 | `src/farm.ts` | The terraces, hillside and hot spring, farmhouse and water wheel, drying racks, channel, path and bridge |
 | `src/stations.ts` | Fishing pad, chopping block and cleaver, fish pile |
@@ -240,7 +271,20 @@ Each deploy removes the last one's files, and GitHub Pages lets browsers keep th
 | `src/player.ts` / `src/playerUpdate.ts` | Player entity / per-frame player logic |
 | `src/runner.ts` | Runner AI, for all three runners |
 | `src/pointers.ts` | Arrows at the edge of the screen pointing the way to new upgrade tiles |
-| `src/unlocks.ts` | Upgrade tiles for both stages and the machines they build |
+| `src/unlocks.ts` | Upgrade tiles for every stage and the machines they build |
+| `src/offer.ts` / `src/fugu.ts` | Mr. Fugu's offer at the hatch (the scene, his lines, the answers, his sound) / his model and the hatch |
+| `src/fight.ts` | Fight night's cellar as plain data (stage 3): the lines and their machines, the ledge, the pot, the counter and the stall, the fans, the crew, the bosses' rushes and the gong's forecast, the bouts, buying, and saving |
+| `src/cellarPlan.ts` | Where everything in the cellar is: the rooms' furniture, pads and machine slots, and the way from room to room |
+| `src/cellar.ts` | The cellar under the dock (stage 3), room by room: the arena (the ring, the stands, the stall, the gong, the cashier's window), the landing and its ladder, the hearth room, the prep hall and the hidden grow room, the office, their walls and doorways, the lights, walking round the furniture, and the still furniture baked into a few meshes |
+| `src/ring.ts` | Fight night in the game: runs fight.ts every frame, draws it, and answers it (chips, the gong's crash, the card, the grow room found) |
+| `src/cellarHands.ts` | The player's work in the cellar (the bins, the machines, the pot, the counter, the stall) and what each place says |
+| `src/ringKitchen.ts` | The kitchen drawn: the machines and what's in them, the ledge, the bowls, the pot's stew and steam, the dumbwaiter, the crew, and the bubbles |
+| `src/gong.ts` | The gong's panel and forecast, the boss's bout bar (the phase, and the tug of war), the card after a boss, 💪, and the watch spot |
+| `src/swarm.ts` | The fans in the arena: in from their tunnels, queueing at the stall, walking round the furniture to their seats on the benches and the floor, each side in its colour, acting each on their own and shouting in speech bubbles (a dozen yakuza and hooligan looks made like the game's people, each body part instanced, with a shadow fallback) |
+| `src/rikishi.ts` | The wrestlers' model |
+| `src/dohyo.ts` | The bouts, the champion and his opponent, the referee, and the drummers |
+| `src/front.ts` | The restaurant as the ring's front: its takings as Mr. Fugu's rent (or a trickle, for the playtest), and its reviews |
+| `src/ringSound.ts` | The ring's crowd reacting to each moment of a bout (recorded, with a synthesised stand-in) |
 | `src/roulette.ts` / `src/casino.ts` | Roulette rules / the table and its betting panel |
 | `src/korki.ts` | Korki's golden statue (a NAMI Klima One) and its memoir panel |
 | `src/rain.ts` | Her house, the path to it, and the rain, tears and song in the circle out front |
@@ -248,17 +292,18 @@ Each deploy removes the last one's files, and GitHub Pages lets browsers keep th
 | `src/youtube.ts` | Songs played through YouTube's embedded player: one API load, fades, mute buttons |
 | `src/holder.ts` | Item stacks and arcing item flights |
 | `src/pop.ts` | The pop-in animation for new things |
-| `src/characters.ts` | People and sleds, walking, and everyone's clothes for each season |
+| `src/characters.ts` | People and sleds, walking, and everyone's clothes for each season (the cellar's yakuza and hooligans, and its staff, the same all year) |
 | `src/season.ts` | The seasons: their clock, the scenery's colours for each, what falls from the sky, and the season chip |
 | `src/decals.ts` | Deck markings (pads, drop zones, price tiles) |
-| `src/items.ts` | Fish slice, rice, plate, box and bill meshes |
+| `src/items.ts` | Fish slice, rice, plate, box, bowl and bill meshes |
 | `src/input.ts` | Virtual joystick and keyboard |
+| `src/bin.ts` | The bins, beside the places things are picked up: E (or Toss, on a touch screen) throws away what you're carrying |
 | `src/hint.ts` | How to walk: shown once a device, by its user agent, then off into the settings gear |
 | `src/settings.ts` | The settings menu behind the gear: sign-in, sound and music switches, how to walk, Restart |
-| `src/audio.ts` | The sound engine: Web Audio voices (tones and filtered noise), buses, placing sounds in the world, the scale |
+| `src/audio.ts` | The sound engine: Web Audio voices (tones, filtered noise, vowels, and the crowd's recordings), buses, placing sounds in the world, the scale |
 | `src/sfx.ts` | Every sound effect, one function each |
 | `src/ambience.ts` | The sea, wind, birds, insects, rain and diners, following the player and the season |
-| `src/music.ts` | The music: a jazz café band a season, making tunes up as it plays, with parts that grow with the stage |
+| `src/music.ts` | The music: the market's kalimba, a jazz café band a season, and the gloop ring, making tunes up as they play, with parts that grow with the stage |
 | `src/ui.ts` | HUD and stage chip (which folds the modifier list), toasts, tips, floating text, the stage-up banner and confetti, and sliding the view so an open panel never covers the player |
 | `src/save.ts` | Per-device save/load, migration, autosave, one-tab-at-a-time guard |
 | `src/cloud.ts` | Cloud saves: the sign-in button, syncing with the account, asking which game to keep |

@@ -166,6 +166,7 @@ describe('how to walk', () => {
     hint.initHint();
     expect($('hint').hidden).toBe(false);
     expect($('hint').textContent).toContain('WASD');
+    expect($('hint').textContent).toContain('To throw away what you carry, stand at a bin and press E');
     hint.updHint(5, false);
     expect($('hint').hidden).toBe(false); // waits for the player to walk
     hint.updHint(0.7, true); hint.updHint(0.7, true);
@@ -188,7 +189,7 @@ describe('how to walk', () => {
     vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue(IPHONE);
     await loadGame();
     (await import('../src/hint')).initHint();
-    expect($('hint').textContent).toBe('Drag anywhere to walkTo buy, stand on a tile and hold Buy');
+    expect($('hint').textContent).toBe('Drag anywhere to walkTo buy, stand on a tile and hold BuyTo throw away what you carry, stand at a bin and tap Toss');
     expect($('hint').querySelector('.stick')).not.toBeNull();
   });
 

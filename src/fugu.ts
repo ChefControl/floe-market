@@ -129,6 +129,8 @@ export class Fugu extends Group {
   syllable() { this.voice = 0.16; }
   /** A word said: his head bobs with it. */
   word() { this.nod = Math.min(1, this.nod + 0.5); }
+  /** A full stop: his mouth shuts and his head dips firmly, to make the point. */
+  point() { this.voice = 0; this.nod = 1.6; }
 
   update(dt: number) {
     this.t += dt;
@@ -179,6 +181,8 @@ export class Fugu extends Group {
 export class Hatch extends Group {
   /** Swings up on its south edge, away from whoever's in front of it. */
   readonly lid = new Group();
+  /** The lift he rides up and down on: a plank platform on a timber frame, its top where his feet are (offer.ts moves it). */
+  readonly lift = new Group();
   readonly light = new PointLight(0xFF5A2A, 0, 7, 1.6);
   private readonly pit = new MeshLambertMaterial({ color: 0x1A0A08, emissive: 0xFF4A1C, emissiveIntensity: 0 });
   private readonly puffMat = new MeshLambertMaterial({ color: 0xFFFFFF, transparent: true, opacity: 0, depthWrite: false });
@@ -205,7 +209,21 @@ export class Hatch extends Group {
     const ring = mesh(new TorusGeometry(0.08, 0.016, 6, 14), 0x3A3F45, 0, 0.07, 0.2 - W); ring.rotation.x = Math.PI / 2;
     this.lid.add(ring);
     this.add(this.lid);
+    // (its plank clear of the ladder's top, at the hole's north edge)
+    const LW = W - 0.12, LD = W - 0.38, LZ = 0.12;
+    put(this.lift, mesh(G.box, 0x8A5A36, 0, -0.03, LZ, true)).scale.set(LW, 0.06, LD);
+    for (const x of [-0.25, 0, 0.25]) put(this.lift, mesh(G.box, 0x6E4B2E, x, 0.002, LZ)).scale.set(0.02, 0.005, LD - 0.06);
+    for (const [x, z] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) put(this.lift, mesh(G.box, 0x4A3220, x * (LW / 2 - 0.05), -0.45, LZ + z * (LD / 2 - 0.05))).scale.set(0.06, 0.8, 0.06);
+    for (const y of [-0.3, -0.75]) {
+      put(this.lift, mesh(G.box, 0x4A3220, 0, y, LZ + LD / 2 - 0.05)).scale.set(LW - 0.06, 0.05, 0.04);
+      put(this.lift, mesh(G.box, 0x4A3220, 0, y, LZ - LD / 2 + 0.05)).scale.set(LW - 0.06, 0.05, 0.04);
+    }
+    this.lift.visible = false;
+    this.add(this.lift);
     this.light.position.set(0, 0.5, 0);
+    // (off till the lid opens: a new light recompiles every material in the scene, so offer.ts switches it on
+    // behind a blink)
+    this.light.visible = false;
     this.add(this.light);
     for (let i = 0; i < 7; i++) {
       const m = mesh(G.sphere, this.puffMat.clone(), 0, 0, 0); m.visible = false;

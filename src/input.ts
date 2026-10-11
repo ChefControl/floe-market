@@ -47,6 +47,8 @@ window.addEventListener('keyup', e => { keys[keyOf(e)] = false; });
 /** The Buy button (on a touch screen) held down. */
 let buyButton = false;
 export const holdBuyButton = (on: boolean) => { buyButton = on; };
+/** Whether a key is down (by its `key`, lower case). */
+export const keyHeld = (k: string) => !!keys[k];
 
 // A key let go in another window never comes back as a keyup here: switching away lets go of everything, so the
 // player doesn't walk on, or keep paying into a tile, by themselves.

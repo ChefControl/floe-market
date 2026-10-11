@@ -23,7 +23,7 @@ service cloud.firestore {
         && request.resource.data.name.size() <= 40
         && request.resource.data.best is number
         && request.resource.data.best >= 0
-        && request.resource.data.stage in [1, 2];
+        && request.resource.data.stage in [1, 2, 3];
     }
   }
 }

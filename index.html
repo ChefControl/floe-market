@@ -92,6 +92,9 @@ body{
 #carry .ic{ width:26px; height:26px; border-radius:50%; background:#D8394B; box-shadow:inset 0 0 0 4px #F6C9C9; }
 #carry.full{ color:var(--down); }
 #stars{ font-size:18px; padding:3px 12px 3px 5px; }
+#stars[hidden]{ display:none; }
+/* down in the cellar (stage 3), money's Fugu Chips */
+#cash.chips .ic{ background:#B83A2E; }
 #stars .ic{ width:26px; height:26px; border-radius:50%; background:#F2B33D; color:#fff; display:grid; place-items:center; font-size:16px; }
 #stage{
   font:inherit; font-size:15px; padding:3px 12px 3px 5px; gap:7px; border:0; cursor:pointer; pointer-events:auto;
@@ -106,6 +109,8 @@ body{
 #stage .bar i{ display:block; height:100%; width:0; background:#FFC34A; border-radius:99px; transition:width .4s; }
 #stage.ready #stageCount{ color:var(--gold); }
 #stage.s2 .ic{ background:#B8452F; }
+#stage.s3 .ic{ background:#5B3A7A; }
+#stage.s3 .bar i{ background:#B07FD6; }
 #stage.s2 .bar i{ background:#E0392B; }
 /* the season, and how far into it: the bar fills up until the next one comes round */
 #season{ font-size:15px; padding:3px 12px 3px 5px; gap:7px; }
@@ -118,6 +123,22 @@ body{
 #season[data-season="summer"] .bar i{ background:#F2B33D; }
 #season[data-season="fall"] .ic{ background:#F6C9A0; }
 #season[data-season="fall"] .bar i{ background:#D9772E; }
+#season[hidden]{ display:none; }
+/* 💪 (stage 3, down in the cellar): fans fed in the last minute, in the season's place. */
+#power{ font-size:15px; padding:3px 12px 3px 5px; gap:6px; }
+#power[hidden]{ display:none; }
+#power .ic{ width:26px; height:26px; border-radius:50%; background:#B07FD6; display:grid; place-items:center; font-size:14px; }
+#power .lbl{ font-weight:600; opacity:.75; }
+/* The bout on now, over the ring (stage 3). */
+#boutLine{
+  position:fixed; left:50%; top:calc(env(safe-area-inset-top,0px) + 14px); transform:translateX(-50%); z-index:3; pointer-events:none;
+  font-size:15px; padding:5px 14px; max-width:calc(100vw - 32px); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+#boutLine[hidden]{ display:none; }
+/* Dark for a moment, going up or down the ladder. */
+#fade{ position:fixed; inset:0; z-index:7; background:#0F0B09; opacity:0; pointer-events:none; transition:opacity .3s; }
+#fade.on{ opacity:1; }
+#fade.slow{ transition:opacity .9s; }
 
 #mods{ display:flex; flex-direction:column; align-items:stretch; gap:1px; padding:6px 12px 6px 8px; border-radius:14px; font-size:14px; font-weight:700; line-height:1.25; min-width:150px; }
 #mods .row{ display:grid; grid-template-columns:22px 1fr auto; align-items:center; gap:6px; }
@@ -196,6 +217,8 @@ body{
 #soundCat[aria-expanded="true"] .chev{ transform:translateY(4px) rotate(-135deg); }
 #soundPanel{ display:flex; flex-direction:column; gap:8px; padding:8px 10px 10px; border-radius:14px; background:var(--chip); }
 #soundPanel[hidden]{ display:none; }
+#soundCredit{ margin:2px 0 0; font-size:12px; line-height:1.35; opacity:.75; }
+#soundCredit a{ color:inherit; }
 .vol{ display:grid; grid-template-columns:44px 1fr auto; align-items:center; column-gap:10px; row-gap:2px; }
 .vol .mute{ grid-row:1 / span 2; width:44px; height:44px; padding:0; border:0; border-radius:50%; background:var(--pill); color:var(--pill-ink); font-size:20px; line-height:1; cursor:pointer; box-shadow:0 2px 0 var(--shade); }
 .vol label{ font:700 15px "Baloo 2","Trebuchet MS",system-ui,sans-serif; }
@@ -255,6 +278,7 @@ body{
 #scoresList .name{ flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 #scoresList .stage{ flex:none; font-size:13px; font-weight:800; padding:1px 8px; border-radius:999px; background:#4A90C2; color:#fff; }
 #scoresList .stage[data-stage="2"]{ background:var(--hot); }
+#scoresList .stage[data-stage="3"]{ background:#5B3A7A; }
 #scoresList .best{ flex:none; min-width:76px; text-align:right; font-weight:800; color:var(--up); font-variant-numeric:tabular-nums; }
 #scoresMe{ margin:10px 0 0; text-align:center; font-weight:600; }
 #scoresMe:empty{ display:none; }
@@ -277,14 +301,16 @@ body{
   box-shadow:0 3px 0 rgba(150,45,25,.45); font:800 17px "Baloo 2","Trebuchet MS",system-ui,sans-serif; animation:keytap 1.2s infinite;
 }
 @keyframes keytap{ 0%,35%{ transform:translateY(3px); box-shadow:none; } 45%,100%{ transform:none; } }
-#buy{
+#buy, #toss{
   position:fixed; right:max(16px, env(safe-area-inset-right,0px)); bottom:calc(env(safe-area-inset-bottom,0px) + 100px); z-index:4;
   width:84px; height:84px; border:0; border-radius:50%; background:var(--hot); color:#fff; cursor:pointer;
   display:grid; place-items:center; align-content:center; font:800 18px/1 "Baloo 2","Trebuchet MS",system-ui,sans-serif;
   box-shadow:0 4px 0 rgba(150,45,25,.45); touch-action:none; -webkit-user-select:none; user-select:none;
 }
-#buy[hidden]{ display:none; }
-#buy span{ font-size:26px; }
+#buy[hidden], #toss[hidden]{ display:none; }
+#buy span, #toss span{ font-size:26px; }
+#toss{ background:#4E5A66; box-shadow:0 4px 0 rgba(20,28,36,.45); }
+#toss:active{ transform:translateY(3px); box-shadow:0 1px 0 rgba(20,28,36,.45); }
 #buy.down{ transform:translateY(3px); box-shadow:0 1px 0 rgba(150,45,25,.45); }
 #buy:focus-visible{ outline:3px solid var(--pill-ink); outline-offset:3px; }
 @media (prefers-reduced-motion: reduce){ #buyHint kbd{ animation:none; } }
@@ -399,6 +425,49 @@ body{
 #numVal{ min-width:24px; text-align:center; }
 #spin{ background:var(--hot) !important; color:#fff !important; padding:7px 12px; font-size:15px !important; box-shadow:0 3px 0 rgba(150,45,25,.45); }
 #history{ display:flex; gap:4px; flex-wrap:wrap; min-height:20px; }
+/* The book's window (stage 3): the player's own bet on the next bout, like the roulette table's panel. */
+/* The gong (stage 3): the next boss, exactly how ringing now would go, and the button to ring it. */
+#gong{
+  position:fixed; left:50%; bottom:calc(env(safe-area-inset-bottom,0px) + 14px); transform:translateX(-50%);
+  z-index:4; width:min(94vw,420px); box-sizing:border-box; display:flex; flex-direction:column; gap:6px;
+  background:var(--pill); color:var(--pill-ink); border-radius:22px; padding:12px 14px; box-shadow:0 4px 0 var(--shade);
+}
+#gong[hidden]{ display:none; }
+#gong h2{ margin:0; font-size:18px; font-weight:800; line-height:1.1; }
+#gong p{ margin:0; font-size:15px; font-weight:600; line-height:1.25; }
+#gongCast{ font-weight:800 !important; }
+#gongCast.short{ color:var(--down); }
+#gongCast.ready{ color:var(--up); }
+#gong button{ font:800 16px "Baloo 2","Trebuchet MS",system-ui,sans-serif; border:0; border-radius:999px; cursor:pointer; background:var(--hot); color:#fff; padding:8px 14px; box-shadow:0 3px 0 rgba(150,45,25,.45); }
+#gong button:disabled{ opacity:.4; cursor:default; }
+#gong button:focus-visible{ outline:3px solid var(--coral); outline-offset:2px; }
+/* The boss's bout bar (stage 3): the bout's phase and clock, and the tug of war between the champion's fans and his. */
+#rush{
+  position:fixed; left:50%; top:calc(env(safe-area-inset-top,0px) + 14px); transform:translateX(-50%); z-index:3; pointer-events:none;
+  display:flex; flex-direction:column; align-items:stretch; gap:4px; font-size:15px; font-weight:800; padding:6px 14px 8px;
+  border-radius:16px; width:min(80vw,340px); box-sizing:border-box;
+}
+#rush[hidden]{ display:none; }
+#rush .row{ display:flex; justify-content:space-between; gap:10px; white-space:nowrap; }
+#rush .bar{ position:relative; height:10px; border-radius:99px; background:#7A4FB0; }
+#rush .bar i{ display:block; height:100%; width:0; background:#FF6B4A; border-radius:99px 0 0 99px; transition:width .25s; }
+/* the middle (more than half wins), and the knot, which the fight pulls one way or the other */
+#rush .bar::after{ content:''; position:absolute; left:50%; top:-2px; bottom:-2px; width:2px; margin-left:-1px; background:rgba(255,255,255,.55); }
+#rush .bar b{ position:absolute; left:50%; top:-4px; width:8px; height:18px; margin-left:-4px; border-radius:4px; background:#FFF8EE; box-shadow:0 1px 3px rgba(0,0,0,.45); transition:left .2s; z-index:1; }
+/* The result of a boss's rush (stage 3): what happened, and what to do about it. */
+#fightCard{
+  position:fixed; left:50%; top:50%; transform:translate(-50%,-50%); z-index:5; width:min(90vw,380px); box-sizing:border-box;
+  background:var(--pill); color:var(--pill-ink); border-radius:22px; padding:16px 18px; box-shadow:0 6px 0 var(--shade); cursor:pointer;
+}
+#fightCard[hidden]{ display:none; }
+#fightCard h2{ margin:0 0 6px; font-size:20px; font-weight:800; line-height:1.15; }
+#fightCard h2.win{ color:var(--up); }
+#fightCard h2.lose{ color:var(--down); }
+#fightCard p{ margin:6px 0 0; font-size:15px; line-height:1.3; }
+#fightCard .bar{ position:relative; height:10px; border-radius:99px; background:#7A4FB0; overflow:hidden; margin-top:8px; }
+#fightCard .bar::after{ content:''; position:absolute; left:50%; top:0; bottom:0; width:2px; margin-left:-1px; background:rgba(255,255,255,.7); }
+#fightCard .bar i{ display:block; height:100%; background:#FF6B4A; border-radius:99px; }
+#fightCard small{ display:block; margin-top:10px; opacity:.65; }
 #history .pocket{ width:20px; height:20px; border-radius:50%; display:grid; place-items:center; font-size:11px; font-weight:800; color:#fff; }
 .pocket.red{ background:#D8394B; } .pocket.black{ background:#22303C; } .pocket.green{ background:#2E9E49; }
 
@@ -517,8 +586,11 @@ body.offer #hud, body.offer #corner, body.offer #pointers, body.offer #tip, body
   .hrow{ display:flex; align-items:center; gap:6px; }
   #cash{ font-size:21px; padding:3px 12px 3px 4px; gap:6px; }
   #cash .ic{ width:32px; height:24px; border-radius:6px; font-size:16px; box-shadow:inset 0 0 0 2px rgba(255,255,255,.35); }
-  #carry, #stars, #stage, #season{ font-size:15px; padding:4px 10px 4px 4px; gap:6px; }
-  #carry .ic, #stars .ic, #stage .ic, #season .ic{ width:22px; height:22px; font-size:13px; }
+  #carry, #stars, #stage, #season, #power{ font-size:15px; padding:4px 10px 4px 4px; gap:6px; }
+  #carry .ic, #stars .ic, #stage .ic, #season .ic, #power .ic{ width:22px; height:22px; font-size:13px; }
+  #power .lbl{ display:none; }
+  #rush{ top:calc(env(safe-area-inset-top,0px) + 108px); font-size:14px; }
+  #boutLine{ top:calc(env(safe-area-inset-top,0px) + 156px); font-size:13px; padding:4px 12px; }
   #season{ padding:4px 8px 4px 4px; }
   #season .bar{ width:22px; }
   #carry .ic{ box-shadow:inset 0 0 0 3px #F6C9C9; }
@@ -534,7 +606,7 @@ body.offer #hud, body.offer #corner, body.offer #pointers, body.offer #tip, body
 /* Phones on their side: the upgrade and casino panels go down the right-hand side, and the view slides over to
    keep the player in sight beside them (ui.ts). */
 @media (max-height: 500px){
-  #shop, #casino{
+  #shop, #casino, #gong{
     left:auto; transform:none; right:max(10px, env(safe-area-inset-right,0px)); bottom:max(10px, env(safe-area-inset-bottom,0px));
     max-height:calc(100% - 112px); overflow-y:auto; touch-action:pan-y;
   }
@@ -570,6 +642,7 @@ body.offer #hud, body.offer #corner, body.offer #pointers, body.offer #tip, body
   <div class="hrow">
     <div id="cash" class="pill"><span class="ic">$</span><span id="cashN">0</span></div>
     <div id="carry" class="pill"><span class="ic" aria-hidden="true"></span><span class="sr">Carrying </span><span id="carryN">0/6</span></div>
+    <div id="power" class="pill" hidden><span class="ic" aria-hidden="true">💪</span><span id="powerN">0</span><span class="lbl">fed this minute</span><span class="sr"> fans fed this minute</span></div>
     <div id="season" class="pill" data-season="winter"><span class="ic" id="seasonIc" aria-hidden="true">❄️</span><span class="sr">Season: </span><span id="seasonName">Winter</span><span class="bar" aria-hidden="true"><i id="seasonBar"></i></span></div>
   </div>
   <div class="hrow">
@@ -590,6 +663,7 @@ body.offer #hud, body.offer #corner, body.offer #pointers, body.offer #tip, body
     <div class="vol"><button type="button" class="mute" id="muteSfx" aria-pressed="false" aria-label="Mute effects"></button><label for="volSfx">Effects</label><output id="volSfxN" for="volSfx">7</output><input type="range" id="volSfx" min="0" max="10" step="1" value="7"></div>
     <div class="vol"><button type="button" class="mute" id="muteAmb" aria-pressed="false" aria-label="Mute ambience"></button><label for="volAmb">Ambience</label><output id="volAmbN" for="volAmb">7</output><input type="range" id="volAmb" min="0" max="10" step="1" value="7"></div>
     <div class="vol"><button type="button" class="mute" id="muteMusic" aria-pressed="false" aria-label="Mute music"></button><label for="volMusic">Music</label><output id="volMusicN" for="volMusic">7</output><input type="range" id="volMusic" min="0" max="10" step="1" value="7"></div>
+    <p id="soundCredit">Crowd recordings by <a href="https://www.gregorquendel.com" target="_blank" rel="noopener">Gregor Quendel</a> (<a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>) and <a href="https://bigsoundbank.com" target="_blank" rel="noopener">BigSoundBank</a> (CC0)</p>
   </div>
   <button id="controls" type="button"><span class="ic" aria-hidden="true">🕹️</span>Controls</button>
   <a id="kofi" href="https://ko-fi.com/chefcontrol" target="_blank" rel="noopener"><span class="ic" aria-hidden="true">☕</span>Buy me a coffee<i aria-hidden="true">↗</i></a>
@@ -616,6 +690,7 @@ body.offer #hud, body.offer #corner, body.offer #pointers, body.offer #tip, body
   <div id="tip" class="pill" aria-live="polite"></div>
 </div>
 <button id="buy" type="button" hidden><span aria-hidden="true">🛒</span>Buy</button>
+<button id="toss" type="button" hidden><span aria-hidden="true">🗑️</span>Toss</button>
 <div id="hint" class="pill" role="status" hidden><div class="art" aria-hidden="true"></div><p></p></div>
 <div id="stale" role="alertdialog" aria-modal="true" aria-labelledby="staleWhy" hidden><div class="card"><p id="staleWhy">Floe Market is open in another tab, so this one stopped saving.</p><button type="button">Play here instead</button></div></div>
 <section id="shop" hidden aria-label="Upgrades"><h2 id="shopTitle"></h2><div id="shopRows"></div></section>
@@ -664,6 +739,16 @@ body.offer #hud, body.offer #corner, body.offer #pointers, body.offer #tip, body
 <div id="stick"><div id="knob"></div></div>
 <div id="err"></div>
 
+<div id="boutLine" class="pill" role="status" hidden></div>
+<section id="gong" aria-label="The gong" hidden>
+  <h2 id="gongBoss"></h2>
+  <p id="gongCrowd"></p>
+  <p id="gongCast" aria-live="polite"></p>
+  <button type="button" id="gongGo">Ring the gong 🔔</button>
+</section>
+<div id="rush" class="pill" role="status" hidden><div class="row"><span id="rushName"></span><span id="rushBell"></span></div><div class="bar" aria-hidden="true"><i id="rushBar"></i><b id="rushKnot"></b></div><div class="row"><span id="rushYou"></span><span id="rushThem"></span></div></div>
+<div id="fightCard" role="dialog" aria-live="polite" hidden></div>
+<div id="fade" aria-hidden="true"></div>
 <div id="offer" hidden>
   <div id="offerShade"></div>
   <div id="offerAlert" aria-hidden="true">!</div>

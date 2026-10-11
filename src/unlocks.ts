@@ -1,16 +1,23 @@
-// Purchasable upgrades: pay-in tiles and what they build. Stage 1 has the fish market's seven upgrades, then the
-// gold tile that opens Floe Sushi (stage 2), which has upgrades of its own.
+// Purchasable upgrades: pay-in tiles and what they build. Stage 1 has the fish market's upgrades, then the gold tile
+// that opens Floe Sushi (stage 2), which has upgrades of its own; then, once Mr. Fugu's offer is taken, the gold tile
+// at his hatch that buys into the ring under the dock (stage 3). Down there they're priced in Fugu Chips 🐡 (still the
+// same wallet): another machine for a line (up to six, each dearer), the big machine upgrades, the hires and the
+// venue's tiers, each found only once the boss that reveals it is beaten; and once all five are, the gold tile in Mr.
+// Fugu's office: buying him out.
 import type { Group, Object3D, Vector3 } from 'three';
 import { enableCasino } from './casino';
+import { CY, parts, showVenue } from './cellar';
 import { openSled, openTakeout } from './counters';
 import { decal, drawTile, type Decal } from './decals';
 import { boost } from './economy';
+import { addMachine, BOSSES, BUYOUT, CHIP, F, hire, HIRES, type Ing, MACH, MACH_COST, machineCost, setTier, TIERS, upgradeLine, UPS } from './fight';
 import { tryCatch } from './fishing';
 import { addTables } from './garden';
 import { enableKorki, KORKI } from './korki';
-import { stage, TERRACES } from './layout';
+import { HATCH_AT, stage, TERRACES, type StageN } from './layout';
 import { buildNet, buildTurret } from './machines';
 import { player } from './player';
+import { offer } from './offer';
 import { pointAt } from './pointers';
 import { popIn } from './pop';
 import { rating } from './rating';
@@ -20,14 +27,17 @@ import { hireFarmer, hireRicePorter, plantTerrace } from './rice';
 import { openShed } from './shed';
 import { hireRunner } from './runner';
 import { chime, unlock } from './sfx';
-import { enterStage2, staging } from './stage';
+import { enterStage2, enterStage3, finishStage3, staging } from './stage';
 import { showStage, toast, type TipContent } from './ui';
-import { FY, price, V } from './util';
+import { chips, FY, price, V } from './util';
+import { MAX_MACHINES } from './cellarPlan';
 
 export type UnlockId =
   | 'pack' | 'turret' | 'roulette' | 'runner' | 'boots' | 'sled' | 'runner2' | 'net' | 'runner3' | 'sushi'
   | 'paddy' | 'seats' | 'chef' | 'farmer' | 'porter' | 'plot2' | 'tables' | 'chef3' | 'tables2' | 'plot3' | 'kiosk'
-  | 'premium' | 'korki';
+  | 'premium' | 'korki'
+  | 'dohyo' | 'rack' | 'barrel' | 'bed' | 'washer' | 'salter' | 'cook' | 'attendant' | 'steam' | 'smoke' | 'shelves'
+  | 'tier1' | 'tier2' | 'tier3' | 'buyout';
 interface Unlock {
   id: UnlockId;
   cost: number;
@@ -36,7 +46,7 @@ interface Unlock {
   icon: string;
   name: string;
   desc: string;
-  stage: 1 | 2;
+  stage: StageN;
   /** Rating needed before the tile takes money. */
   stars?: number;
   /** Offered only once this is bought (the terraces' upgrades need the first terrace). */
@@ -48,10 +58,15 @@ interface Unlock {
   shown?: boolean;
   /** On offer in every stage (Korki's statue). */
   everywhere?: boolean;
-  /** The gold tile that opens stage 2: bigger, and offered once the rest of stage 1 is built. */
+  /** A gold tile that ends its stage (and opens the next): bigger, and offered once the rest of the stage is built. */
   gold?: boolean;
   /** Ground height under the tile, where it isn't the deck (the terraces and the path). */
   y?: number;
+  /** Down in the cellar (stage 3): how many bosses must be beaten before it's found (it's hidden till then), the line
+   *  it adds another machine to (bought again and again, each dearer, up to six), and how big it is. */
+  beat?: number;
+  line?: Ing;
+  size?: number;
 }
 export interface Tile extends Unlock {
   paid: number;
@@ -66,6 +81,12 @@ export interface Tile extends Unlock {
 }
 
 const onTerrace = (i: number) => ({ x: (TERRACES[i].x0 + TERRACES[i].x1) / 2, z: 0.8, y: TERRACES[i].top + 0.08 });
+/** Down in the cellar (stage 3's upgrades are on its floor). */
+const below = (x: number, z: number) => ({ x, z, y: CY + 0.02 });
+/** A tile in the cellar: priced in chips (a machine's, as its line has it now), found once `beat` bosses are beaten. */
+function ring(id: UnlockId, x: number, z: number, icon: string, name: string, desc: string, beat: number, chipCost: number, line?: Ing, needs?: UnlockId): Unlock[] {
+  return [{ id, cost: chipCost * CHIP, ...below(x, z), icon, name, desc, stage: 3, beat, line, needs, size: 1.6 }];
+}
 
 // The price list. Upgrades roughly double in price each time, and stage 2 starts about ten times higher than
 // stage 1 (see economy.ts; the repeatable price, marketing and crew upgrades are on the upgrade squares, shop.ts).
@@ -94,16 +115,36 @@ const UNLOCKS: Unlock[] = [
   { id: 'plot3', cost: 40000, ...onTerrace(2), icon: '🌱', name: 'Third terrace', desc: 'Rice right up to the hot spring, for a full garden', stars: 4.4, needs: 'plot2', stage: 2 },
   { id: 'kiosk', cost: 50000, x: 8.2, z: 3.6, icon: '🥡', name: 'Takeout kiosk', desc: 'Drivers on the road buy boxes of sushi with the rice to spare; the chefs pack them', stars: 4.4, stage: 2 },
   { id: 'premium', cost: 60000, x: -6.2, z: 13.6, icon: '🏮', name: 'Premium menu', desc: 'Everything sells for 60% more', stars: 4.5, stage: 2 },
+  // by Mr. Fugu's hatch, once the player has said yes to him
+  { id: 'dohyo', cost: 1_000_000, x: HATCH_AT.x - 1.4, z: -0.6, icon: '🐡', name: 'Buy into the ring', desc: "Stage 3: Mr. Fugu's sumo ring under the dock", stage: 2, gold: true },
+  // down in the cellar, priced in chips: the prep hall's rice things along one row and its fish along the next, the grow
+  // room's between its beds, the hearth room's hires by the pot, the venue's tiers in the arena by the stall, and the
+  // buyout in Mr. Fugu's office
+  ...ring('rack', 13.2, 3.9, '🌾', 'Another drying rack', 'More room on the rice line', 0, MACH_COST.rice, 'rice'),
+  ...ring('washer', 14.8, 3.9, '🧺', HIRES.washer.name, 'Runs the rice line: fills the racks and carries rice to the pot', HIRES.washer.beat, HIRES.washer.cost),
+  ...ring('steam', 16.4, 3.9, '♨️', MACH.rice[1].name, `Swaps every drying rack for steam baskets: ${MACH.rice[1].cap} rice every ${MACH.rice[1].time} s`, UPS.rice.beat, UPS.rice.cost),
+  ...ring('barrel', 13.2, 5.9, '🛢️', 'Another salt barrel', 'More room on the fish line', 0, MACH_COST.fish, 'fish'),
+  ...ring('salter', 14.8, 5.9, '🧂', HIRES.salter.name, 'Runs the fish line: fills the barrels and carries fish to the pot', HIRES.salter.beat, HIRES.salter.cost),
+  ...ring('smoke', 16.4, 5.9, '🏚️', MACH.fish[1].name, `Swaps every salt barrel for a smokehouse: ${MACH.fish[1].cap} fish every ${MACH.fish[1].time} s`, UPS.fish.beat, UPS.fish.cost),
+  ...ring('bed', 13.3, -3.95, '🍄', 'Another mushroom bed', 'More room on the mushroom line', 1, MACH_COST.mush, 'mush'),
+  ...ring('shelves', 16.1, -3.95, '✨', 'Glowing grow shelves', `Swaps every bed for glowing shelves: ${MACH.mush[1].cap} mushrooms, one every ${MACH.mush[1].time} s`, UPS.mush.beat, UPS.mush.cost),
+  ...ring('cook', 9.6, 5.9, '👨‍🍳', HIRES.cook.name, 'Keeps the pot cooking: one of each, 5 bowls a batch', HIRES.cook.beat, HIRES.cook.cost),
+  ...ring('attendant', 7.6, 5.9, '🍲', HIRES.attendant.name, 'Carries bowls from the counter to the stall', HIRES.attendant.beat, HIRES.attendant.cost),
+  ...[1, 2, 3].flatMap(i => ring(`tier${i}` as UnlockId, 1.6, 1.9, ['', '🏮', '🥁', '⛩️'][i], TIERS[i].name,
+    `The venue grows to ${TIERS[i].seats} seats${i === 2 ? ', with taiko drummers' : ''}`, [0, 1, 3, 4][i], [0, 200, 900, 2500][i], undefined, i > 1 ? `tier${i - 1}` as UnlockId : undefined)),
+  { id: 'buyout', cost: BUYOUT * CHIP, ...below(7.55, -5.25), icon: '🐡', name: 'Buy back all his chips', desc: "The ring is yours: Mr. Fugu's 30% ends, the restaurant's till comes back, and stage 4 opens", stage: 3, gold: true, beat: BOSSES.length },
   { id: 'korki', cost: 10, x: KORKI.x, z: KORKI.z, icon: '🛴', name: "Korki's golden statue", desc: 'In memory of a good scooter', stage: 1, always: true, everywhere: true },
 ];
 
 export const locked = (t: Tile) => !!t.stars && !t.open;
 function tipOf(t: Tile): TipContent {
-  return locked(t) ? { name: t.name, desc: `Needs a ★${t.stars!.toFixed(1)} rating (now ★${rating().toFixed(1)}) · ${price(t.cost)}` } : t;
+  if (locked(t)) return { name: t.name, desc: `Needs a ★${t.stars!.toFixed(1)} rating (now ★${rating().toFixed(1)}) · ${price(t.cost)}` };
+  if (t.line) return { name: t.name, desc: `${t.desc} (${F.lines[t.line].n} of ${MAX_MACHINES}) · ${chips(t.cost, true)}` };
+  return t.stage === 3 ? { name: t.name, desc: `${t.desc} · ${chips(t.cost, true)}` } : t;
 }
 
 export const tiles: Tile[] = UNLOCKS.map(u => {
-  const size = u.gold ? 2.6 : 2.0;
+  const size = u.size ?? (u.gold ? 2.6 : 2.0);
   const state = { ...u, paid: 0, done: false, open: false };
   const t: Tile = Object.assign(state, { d: decal(size, (c, w, h) => drawTile(c, w, h, state)), tip: u, half: size / 2 });
   t.tip = tipOf(t);
@@ -113,7 +154,7 @@ export const tiles: Tile[] = UNLOCKS.map(u => {
 });
 
 export function redrawTile(t: Tile) {
-  drawTile(t.d.ctx, 256, 256, t);
+  drawTile(t.d.ctx, 256, 256, { ...t, chips: t.stage === 3 });
   t.d.tex.needsUpdate = true;
 }
 // Tiles drawn before the web font loaded fall back to a system font; redraw once it's ready.
@@ -121,28 +162,35 @@ if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => tile
 
 const isDone = (id: UnlockId) => tiles.some(t => t.id === id && t.done);
 /** A stage's own upgrades: what its progress chip counts. */
-const goal = (n: 1 | 2) => tiles.filter(t => t.stage === n && !t.always && !t.gold);
-const built = (n: 1 | 2) => goal(n).every(t => t.done);
+const goal = (n: StageN) => tiles.filter(t => t.stage === n && !t.always && !t.gold);
+const built = (n: StageN) => goal(n).every(t => t.done);
 /** All of a stage's own upgrades are built. */
 export const stageBuilt = built;
 
 function offered(t: Tile) {
-  if (t.gold) return built(1);
-  // stage 2's tiles wait for the stage-up's show to finish
-  if (t.stage !== stage.n || (t.stage === 2 && staging())) return false;
+  // down in the cellar, once the bosses that reveal them are beaten (the buyout too)
+  if (t.stage === 3) return stage.n === 3 && !staging() && F.beaten >= (t.beat ?? 0) && (!t.needs || isDone(t.needs));
+  // the gold tiles, once their stage is built: stage 2's only once Mr. Fugu's offer has been taken
+  if (t.gold) {
+    if (t.stage !== stage.n || staging() || !built(t.stage)) return false;
+    return t.stage !== 2 || offer.answer === 2;
+  }
+  // a new stage's tiles wait for the stage-up's show to finish
+  if (t.stage !== stage.n || staging()) return false;
   return !t.needs || isDone(t.needs);
 }
 
 /** Upgrades on offer all through the current stage (or every stage), once the stage-up's show is over. */
-const always = (t: Tile) => t.always && (t.everywhere || (t.stage === stage.n && !(t.stage === 2 && staging())));
+const always = (t: Tile) => t.always && (t.everywhere || (t.stage === stage.n && !staging()));
 
 /** The tiles on offer last time, to spot new ones; null before the first look (at a fresh start or a loaded save). */
 let before: Set<Tile> | null = null;
 
-/** At most two unpaid upgrades are offered at a time, in order, plus any that are always on offer or shown. */
+/** At most two unpaid upgrades are offered at a time, in order, plus any that are always on offer or shown. (Down in
+ *  the cellar, every one that's been found: they're spread round its rooms.) */
 export function visibleTiles() {
-  const next = tiles.filter(t => !t.done && !t.always && !t.shown && offered(t)).slice(0, 2);
-  const v = tiles.filter(t => !t.done && (always(t) || (t.shown && offered(t)) || next.includes(t)));
+  const next = tiles.filter(t => !t.done && !t.always && !t.shown && t.stage !== 3 && offered(t)).slice(0, 2);
+  const v = tiles.filter(t => !t.done && (always(t) || ((t.shown || t.stage === 3) && offered(t)) || next.includes(t)));
   tiles.forEach(t => { t.d.mesh.visible = v.includes(t); });
   if (before) announce(v.filter(t => !before!.has(t)));
   before = new Set(v);
@@ -157,14 +205,17 @@ function announce(fresh: Tile[]) {
   if (named.length) { toast(named.length === 1 ? `New upgrade: ${named[0]}` : `New upgrades: ${named.join(', ')}`); chime(); }
 }
 
-/** How much of this stage's upgrades are bought, 0 to 1 (the music brings in more parts as it grows). */
+/** How much of this stage's upgrades are bought, 0 to 1 (the music brings in more parts as it grows). Down in the
+ *  cellar, how many of the bosses are beaten. */
 export function stageProgress() {
+  if (stage.n === 3) return F.beaten / BOSSES.length;
   const g = goal(stage.n);
   return g.filter(t => t.done).length / g.length;
 }
 
-/** Updates the stage chip. */
-function showProgress() {
+/** Updates the stage chip: upgrades built, or (stage 3) bosses beaten. */
+export function showProgress() {
+  if (stage.n === 3) { showStage(3, F.beaten, BOSSES.length); return; }
   const g = goal(stage.n);
   showStage(stage.n, g.filter(t => t.done).length, g.length);
 }
@@ -223,6 +274,14 @@ export function applyUnlock(id: UnlockId, silent = false) {
   if (id === 'tables2') pop(...addTables(1));
   if (id === 'premium') setPremium();
   if (id === 'korki') pop(enableKorki());
+  if (id === 'dohyo') enterStage3(silent);
+  // (the cellar's own: loading a save, the cellar's state comes back by itself, ring.ts's loadCellar)
+  if (t.stage === 3 && !t.gold) {
+    if (silent) return;
+    ringUnlock(t);
+    if (!t.done) return;
+  }
+  if (id === 'buyout') finishStage3(silent);
   showProgress();
   if (silent || t.gold) return;
   toast(t.name + ' unlocked');
@@ -230,6 +289,51 @@ export function applyUnlock(id: UnlockId, silent = false) {
   unlock();
   if (t.always || !goal(t.stage).every(x => x.done)) return;
   toast(t.stage === 1 ? 'Floe Sushi is ready to open' : 'Floe Sushi is fully built');
+}
+
+/** A cellar tile bought: what it does to the cellar. Another machine leaves the tile there for the next, dearer one,
+ *  until the line has six. */
+function ringUnlock(t: Tile) {
+  const id = t.id;
+  if (t.line) {
+    addMachine(t.line);
+    syncRingTile(t);
+    toast(`${t.name.replace('Another', 'A new')}: ${F.lines[t.line].n} of ${MAX_MACHINES}`);
+    unlock();
+    return;
+  }
+  if (id === 'washer' || id === 'salter' || id === 'cook' || id === 'attendant') hire(id);
+  if (id === 'steam') upgradeLine('rice');
+  if (id === 'smoke') upgradeLine('fish');
+  if (id === 'shelves') upgradeLine('mush');
+  if (id === 'tier1' || id === 'tier2' || id === 'tier3') {
+    const n = Number(id.slice(4));
+    setTier(n); showVenue(n);
+    popIn(n === 1 ? parts.bleachers : n === 2 ? parts.tier : parts.vip);
+  }
+}
+/** Puts a cellar tile in line with the cellar: a line's tile at its next machine's price, or gone once it has six;
+ *  the rest bought or not as the cellar says (after loading a save). */
+function syncRingTile(t: Tile) {
+  if (t.line) {
+    const full = F.lines[t.line].n >= MAX_MACHINES;
+    t.done = full;
+    if (!full) { const c = machineCost(t.line) * CHIP; if (c !== t.cost) { t.cost = c; t.paid = Math.min(t.paid, c - 1); } }
+    if (t.done || t.paid >= t.cost) t.paid = 0;
+  } else if (!t.gold) {
+    const id = t.id;
+    t.done = id === 'washer' || id === 'salter' || id === 'cook' || id === 'attendant' ? !!F.hires[id]
+      : id === 'steam' ? F.lines.rice.up === 1 : id === 'smoke' ? F.lines.fish.up === 1 : id === 'shelves' ? F.lines.mush.up === 1
+      : id.startsWith('tier') ? F.tier >= Number(id.slice(4)) : t.done;
+  }
+  t.tip = tipOf(t);
+  if (t.done) t.d.mesh.visible = false;
+  redrawTile(t);
+}
+/** All the cellar's tiles, in line with it (a fresh cellar, or one loaded from a save). */
+export function syncRingTiles() {
+  for (const t of tiles) if (t.stage === 3 && !t.gold) syncRingTile(t);
+  showProgress();
 }
 
 export function updAuto(dt: number) {

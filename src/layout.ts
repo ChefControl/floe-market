@@ -1,9 +1,51 @@
 // Which stage the game is in, and the ground plan for each: where people can walk and how high the ground is.
 // Stage 1 is the fish market on the dock. Stage 2 (after the gold 'sushi' tile) shrinks the dock to its north
-// half and builds Floe Sushi south of it, with a front garden, and hot-spring rice terraces to the west.
+// half and builds Floe Sushi south of it, with a front garden, and hot-spring rice terraces to the west. Stage 3
+// (after the gold 'dohyo' tile) adds the cellar under the dock, Mr. Fugu's sumo ring: a level of its own, CELLAR_Y
+// down, under the dock, reached by the ladder down from his hatch. The restaurant upstairs carries on.
 import { FY, type XZ } from './util';
 
-export const stage = { n: 1 as 1 | 2 };
+export type StageN = 1 | 2 | 3;
+export const stage = { n: 1 as StageN };
+/** Which level the player is on: the world above, or (stage 3) the cellar under the dock. */
+export const level = { down: false };
+
+/** How far down the cellar's floor is. Under the dock, out of the way of everything above and out of the camera's
+ *  sight while it looks down on the cellar. */
+export const CELLAR_Y = -30;
+/** Mr. Fugu's hatch in the dock (stage 2 on), the way down to the cellar. */
+export const HATCH_AT = { x: 6.0, z: -3.3 };
+
+/** The cellar's rooms, under the dock, side by side like one building with thin walls between: the arena (the ring,
+ *  its stands, the bowl stall and the gong) to the west; down the middle Mr. Fugu's office, the landing at the foot of
+ *  the ladder from his hatch, and the hearth room (the pot); and to the east the prep hall, where the dumbwaiter comes
+ *  down beside the racks and barrels, and behind it the grow room, hidden until the first boss is beaten. Floors,
+ *  inside their walls (the walls stand in the gaps). */
+export const ARENA = { x0: -13.5, x1: 3.5, z0: -9.5, z1: 7.4 };
+export const OFFICE_ROOM = { x0: 4.1, x1: 11.0, z0: -9.5, z1: -4.1 };
+export const LANDING = { x0: 4.1, x1: 11.0, z0: -3.5, z1: 0.3 };
+export const KITCHEN = { x0: 4.1, x1: 11.0, z0: 0.9, z1: 7.4 };
+export const PREP = { x0: 11.6, x1: 20.6, z0: 0.9, z1: 8.9 };
+export const GROW = { x0: 11.6, x1: 20.6, z0: -9.5, z1: 0.3 };
+export type CellarRoom = 'arena' | 'landing' | 'office' | 'kitchen' | 'prep' | 'grow';
+export const ROOMS: Record<CellarRoom, typeof ARENA> = { arena: ARENA, landing: LANDING, office: OFFICE_ROOM, kitchen: KITCHEN, prep: PREP, grow: GROW };
+/** The doorways through the walls: the two rooms each joins, and its floor (across the wall). */
+export const DOORS: { a: CellarRoom; b: CellarRoom; x0: number; x1: number; z0: number; z1: number }[] = [
+  { a: 'landing', b: 'arena', x0: ARENA.x1, x1: LANDING.x0, z0: -1.2, z1: 0 },
+  { a: 'landing', b: 'kitchen', x0: 4.7, x1: 5.9, z0: LANDING.z1, z1: KITCHEN.z0 },
+  { a: 'landing', b: 'office', x0: (OFFICE_ROOM.x0 + OFFICE_ROOM.x1) / 2 - 0.6, x1: (OFFICE_ROOM.x0 + OFFICE_ROOM.x1) / 2 + 0.6, z0: OFFICE_ROOM.z1, z1: LANDING.z0 },
+  { a: 'kitchen', b: 'arena', x0: ARENA.x1, x1: KITCHEN.x0, z0: 4.9, z1: 6.1 },
+  { a: 'kitchen', b: 'prep', x0: KITCHEN.x1, x1: PREP.x0, z0: 4.4, z1: 5.6 },
+  // (at the east end of the prep hall's back wall, past the racks along it)
+  { a: 'prep', b: 'grow', x0: 18.5, x1: 19.7, z0: GROW.z1, z1: PREP.z0 },
+];
+/** Which of the cellar's rooms have been found: the grow room only once the first boss is beaten. */
+export const found = { grow: false };
+const shown = (r: CellarRoom) => r !== 'grow' || found.grow;
+const cellarFloors = () => [
+  ...(Object.entries(ROOMS) as [CellarRoom, typeof ARENA][]).filter(([k]) => shown(k)).map(([, r]) => r),
+  ...DOORS.filter(d => shown(d.a) && shown(d.b)),
+].map(r => ({ x0: r.x0, x1: r.x1, z0: r.z0, z1: r.z1, y: CELLAR_Y }));
 
 export interface Area { x0: number; x1: number; z0: number; z1: number; y: number }
 const area = (x0: number, x1: number, z0: number, z1: number, y = FY): Area => ({ x0, x1, z0, z1, y });
@@ -68,14 +110,17 @@ const housePath = () => area(stage.n === 1 ? 7.3 : HALL.x1 - 0.2, YARD.x0 + 0.3,
 
 /** Where the player can walk in the current stage. Earlier areas win where they overlap. */
 export const walkable = (): Area[] =>
-  stage.n === 1 ? [DECK, housePath(), YARD]
+  level.down ? cellarFloors()
+  : stage.n === 1 ? [DECK, housePath(), YARD]
   : [DOCK2, HALL, GATEWAY, GARDEN, BRIDGE, PATH, ...FIELDS, ...(shedYard.open ? [SHED_YARD] : []),
     ...(kioskBooth.open ? [BOOTH] : []), housePath(), YARD];
 
 const inside = (a: Area, p: XZ) => p.x >= a.x0 && p.x <= a.x1 && p.z >= a.z0 && p.z <= a.z1;
 
-/** Height of the ground people stand on at `p`: the deck and restaurant floor, terraces, or the snow. */
-export function groundY(p: XZ) {
+/** Height of the ground people stand on at `p`: the deck and restaurant floor, terraces, or the snow; or the cellar's
+ *  floor, for someone `down` there (the player, on its level: everyone else in the world stays up in it). */
+export function groundY(p: XZ, down = false) {
+  if (down) return CELLAR_Y;
   const house = inside(housePath(), p) || inside(YARD, p);
   if (stage.n === 1) return inside(DECK, p) || house ? FY : 0;
   for (const a of FIELDS) if (inside(a, p)) return a.y;

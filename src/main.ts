@@ -56,7 +56,9 @@ function frame(now: number) {
   last = now;
   if (!isStale()) { tick(dt); updKofi(dt); }
 
-  // Follow the player; the stage-up pulls back to look over the whole map for a moment.
+  // Follow the player; the stage-up pulls back to look over the whole map for a moment. Up or down the ladder, the
+  // camera goes straight there (behind the fade) rather than gliding through the floor.
+  if (view.snap) { camTarget.copy(player.g.position); view.snap = false; }
   camTarget.lerp(player.g.position, Math.min(1, dt * 6));
   look.copy(camTarget).lerp(view.focus, view.k);
   const k = camK * view.zoom;

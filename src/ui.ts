@@ -1,5 +1,7 @@
 // DOM overlay: cash/carry/rating HUD, the stage chip, toasts, tile tips, floating "+$" text, and the stage-up's
 // banner and confetti.
+import { front } from './front';
+import { level, type StageN } from './layout';
 import { player } from './player';
 import { rating } from './rating';
 import { camera, slideView } from './render';
@@ -8,15 +10,23 @@ import { wallet } from './wallet';
 
 const $ = (id: string) => document.getElementById(id)!;
 
-const cashN = $('cashN'), cashEl = $('cash');
+const cashN = $('cashN'), cashEl = $('cash'), cashIc = cashEl.querySelector('.ic')!;
 const carryN = $('carryN'), carryEl = $('carry');
-const starsN = $('starsN');
-let shownMoney = -1, shownCarry = '', shownStars = '';
+const starsN = $('starsN'), starsEl = $('stars');
+let shownMoney = -1, shownCarry = '', shownStars = '', shownDown: boolean | null = null;
 
 export function hud(dt: number) {
+  // down in the cellar, money's Fugu Chips ($1,000 a chip), and there's no rating
+  if (shownDown !== level.down) {
+    shownDown = level.down;
+    cashIc.textContent = level.down ? '🐡' : '$';
+    cashEl.classList.toggle('chips', level.down);
+    starsEl.hidden = level.down;
+    shownMoney = -1;
+  }
   if (shownMoney !== wallet.money) {
     shownMoney = wallet.money;
-    cashN.textContent = amount(wallet.money);
+    cashN.textContent = level.down ? amount(Math.floor(wallet.money / 1000)) : amount(wallet.money);
   }
   const cs = player.back.n + '/' + player.back.cap;
   if (cs !== shownCarry) {
@@ -36,13 +46,17 @@ export function hud(dt: number) {
 
 // ---------- stage ----------
 const stageEl = $('stage'), stageNum = $('stageNum'), stageName = $('stageName'), stageBar = $('stageBar'), stageCount = $('stageCount');
+/** What each stage is called, and what its chip says once its upgrades are all built. */
+const STAGE_NAMES: Record<StageN, string> = { 1: 'Fish Market', 2: 'Floe Sushi', 3: 'The Dohyo Below' };
 /** The stage chip: which stage, and how many of its upgrades are built. */
-export function showStage(n: 1 | 2, done: number, total: number) {
+export function showStage(n: StageN, done: number, total: number) {
   stageEl.classList.toggle('s2', n === 2);
+  stageEl.classList.toggle('s3', n === 3);
   stageNum.textContent = String(n);
-  stageName.textContent = n === 1 ? 'Fish Market' : 'Floe Sushi';
+  stageName.textContent = STAGE_NAMES[n];
   stageBar.style.width = Math.round(done / total * 100) + '%';
-  stageCount.textContent = done < total ? `${done}/${total}` : n === 1 ? 'Floe Sushi ready' : 'Complete';
+  const finished = n === 1 ? 'Floe Sushi ready' : n === 3 && !front.boughtOut ? 'Buyout ready' : 'Complete';
+  stageCount.textContent = done < total ? `${done}/${total}` : finished;
   stageEl.classList.toggle('ready', done >= total);
 }
 
@@ -60,7 +74,7 @@ phone?.addEventListener?.('change', () => { if (!modsPicked) showMods(!phone.mat
 stageEl.addEventListener('click', () => { modsPicked = true; showMods(modsEl.hidden !== false); });
 
 // ---------- keeping the player in sight ----------
-const panels = [$('shop'), $('casino')];
+const panels = [$('shop'), $('casino'), $('gong')];
 const slid = { x: 0, y: 0 };
 /** Slides the view so an open panel doesn't cover the player: sideways for a panel down the right-hand side (a phone
  *  held sideways), up for one along the bottom of a short screen. Eases there and back. */
@@ -76,6 +90,13 @@ export function keepInSight(dt: number) {
   slid.x += (x - slid.x) * k;
   slid.y += (y - slid.y) * k;
   slideView(slid.x, slid.y);
+}
+
+const fadeEl = $('fade');
+/** Darkens the screen (going up or down the ladder), or lets it come back, `slow`ly for the stage-up. */
+export function fade(on: boolean, slow = false) {
+  fadeEl.classList.toggle('slow', slow);
+  fadeEl.classList.toggle('on', on);
 }
 
 const bannerEl = $('banner');

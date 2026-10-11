@@ -1,25 +1,27 @@
 // Mr. Fugu's offer. Once Floe Sushi is fully built and the cash passes $1,000,000, a hatch turns up in the dock with a
 // "!" over it, knocking, and an arrow at the edge of the screen points the way. Walking up to it starts the scene: the
 // screen blinks, the hatch bangs open, and Mr. Fugu climbs out, makes a short pitch for the sumo ring under the dock
-// (stage 3, still to come), and makes it clear it's not legal. The player answers with a tap. Turning him down leaves
-// the hatch on the dock: stand on it to hear him out again.
+// (stage 3), and makes it clear it's not legal. The player answers with a tap. Saying yes puts his price on a gold tile
+// by the hatch (unlocks.ts): buying into the ring, and the way down to it. Turning him down leaves the hatch on the
+// dock: stand on it to hear him out again.
 import { Vector3 } from 'three';
+import { ac, between, hushWorld, noise, tone } from './audio';
 import { Fugu, Hatch } from './fugu';
-import { stage } from './layout';
+import { HATCH_AT, stage } from './layout';
 import { player } from './player';
 import { pointAt } from './pointers';
 import { rainK } from './rain';
 import { camera, camK, scene } from './render';
 import { save } from './save';
 import { staging } from './stage';
-import { banner, toast } from './ui';
+import { toast } from './ui';
 import { stageBuilt } from './unlocks';
-import { d2xz, FY, V } from './util';
+import { d2xz, FY, V, type XZ } from './util';
 import { wallet } from './wallet';
 
 export const MILLION = 1_000_000;
 /** The hatch in the dock planks, and where the player stands to hear him out, facing it. */
-export const HATCH = V(6.0, FY, -3.3);
+export const HATCH = V(HATCH_AT.x, FY, HATCH_AT.z);
 const STAND = V(5.5, FY, -5.4);
 
 /** The player's answer so far: 0 hasn't met him, 1 not now, 2 in. Saved. */
@@ -36,80 +38,51 @@ const root = $('offer'), alertEl = $('offerAlert'), blinkEl = $('offerBlink'), s
 const lineEl = $('offerLine'), pickEl = $('offerPick'), liveEl = $('offerLive');
 
 // ---------- sound ----------
-// A few synthesized blips and bumps: no files to load.
-let ac: AudioContext | null = null, out: GainNode | null = null, noise: AudioBuffer | null = null;
-function audio() {
-  try {
-    if (!ac) {
-      const C = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-      if (!C) return null;
-      ac = new C(); out = ac.createGain(); out.gain.value = 0.5; out.connect(ac.destination);
-      noise = ac.createBuffer(1, ac.sampleRate, ac.sampleRate);
-      const d = noise.getChannelData(0);
-      for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
-    }
-    if (ac.state === 'suspended') ac.resume();
-  } catch { return null; }
-  return ac;
-}
-interface Note { f: number; at?: number; dur?: number; type?: OscillatorType; vol?: number; to?: number; dest?: AudioNode }
-function tone({ f, at = 0, dur = 0.1, type = 'triangle', vol = 0.05, to = 0, dest }: Note) {
-  const a = audio(); if (!a) return;
-  const s = a.currentTime + at, o = a.createOscillator(), g = a.createGain();
-  o.type = type; o.frequency.setValueAtTime(f, s);
-  if (to) o.frequency.exponentialRampToValueAtTime(to, s + dur);
-  // a few milliseconds' fade in and out, so notes don't click
-  g.gain.setValueAtTime(0.0001, s); g.gain.exponentialRampToValueAtTime(vol, s + 0.008);
-  g.gain.exponentialRampToValueAtTime(0.0001, s + dur);
-  o.connect(g).connect(dest ?? out!); o.start(s); o.stop(s + dur + 0.05);
-}
-function hiss(dur: number, vol: number, type: BiquadFilterType, freq: number, at = 0, dest?: AudioNode) {
-  const a = audio(); if (!a) return;
-  const s = a.currentTime + at, src = a.createBufferSource(), fl = a.createBiquadFilter(), g = a.createGain();
-  src.buffer = noise; fl.type = type; fl.frequency.value = freq;
-  g.gain.setValueAtTime(0.0001, s); g.gain.exponentialRampToValueAtTime(vol, s + 0.01);
-  g.gain.exponentialRampToValueAtTime(0.0001, s + dur);
-  src.connect(fl).connect(g).connect(dest ?? out!); src.start(s, Math.random() * 0.5); src.stop(s + dur + 0.05);
-}
+// Through the game's sound engine (audio.ts). The knocking comes from the hatch, out in the world; once he's on, the
+// world goes quiet (its effects, its ambience and its music) and only his sounds play: his effects at the effects'
+// volume, and his bass at the music's.
+/** A note at the old mix's volume (`vol`), his (`cue`) unless it's out in the world (`at`), sliding to `to`. */
+const note = (f: number, d: number, vol: number, o: { t?: number; to?: number; type?: OscillatorType; at?: XZ } = {}) =>
+  tone({ f, f2: o.to, d, t: o.t, at: o.at, bus: o.at ? 'sfx' : 'cue', type: o.type ?? 'triangle', a: 0.008, v: Math.min(1, vol * 2) });
+const hiss = (d: number, vol: number, kind: BiquadFilterType, f: number, t = 0) =>
+  noise({ f, kind, d, t, a: 0.01, v: Math.min(1, vol * 2), bus: 'cue' });
 const sfx = {
-  alert: () => { tone({ f: 880, dur: 0.08, type: 'triangle', vol: 0.08 }); tone({ f: 1175, at: 0.08, dur: 0.16, type: 'triangle', vol: 0.08 }); },
-  blink: () => tone({ f: 660, dur: 0.06, type: 'triangle', vol: 0.05 }),
-  bang: () => { tone({ f: 140, to: 50, dur: 0.3, type: 'sine', vol: 0.45 }); hiss(0.25, 0.25, 'lowpass', 900); },
+  alert: () => { note(880, 0.08, 0.08); note(1175, 0.16, 0.08, { t: 0.08 }); },
+  blink: () => note(660, 0.06, 0.05),
+  bang: () => { note(140, 0.3, 0.45, { to: 50, type: 'sine' }); hiss(0.25, 0.25, 'lowpass', 900); },
   roar: () => { hiss(1.4, 0.12, 'bandpass', 500); hiss(1.1, 0.06, 'bandpass', 1200, 0.15); },
-  climb: () => [0, 0.12, 0.24, 0.36].forEach(at => tone({ f: 220, at, dur: 0.05, type: 'triangle', vol: 0.08 })),
+  climb: () => [0, 0.12, 0.24, 0.36].forEach(t => note(220, 0.05, 0.08, { t })),
   // a low mumble rather than a beep
-  voice: () => tone({ f: 105 + Math.random() * 35, dur: 0.08, type: 'triangle', vol: 0.12 }),
-  puff: () => tone({ f: 180, to: 760, dur: 0.28, type: 'triangle', vol: 0.1 }),
-  calm: () => { tone({ f: 620, to: 140, dur: 0.35, type: 'triangle', vol: 0.06 }); hiss(0.3, 0.03, 'bandpass', 900); },
-  pick: () => { tone({ f: 523, dur: 0.07, type: 'triangle', vol: 0.07 }); tone({ f: 784, at: 0.06, dur: 0.12, type: 'triangle', vol: 0.07 }); },
-  taiko: () => { tone({ f: 120, to: 42, dur: 0.55, type: 'sine', vol: 0.6 }); hiss(0.14, 0.3, 'lowpass', 420); },
+  voice: () => note(between(105, 140), 0.08, 0.17),
+  /** The end of a sentence: a lower "hm", a little longer. */
+  stop: () => note(between(88, 98), 0.16, 0.17),
+  puff: () => note(180, 0.28, 0.1, { to: 760 }),
+  calm: () => { note(620, 0.35, 0.06, { to: 140 }); hiss(0.3, 0.03, 'bandpass', 900); },
+  pick: () => { note(523, 0.07, 0.07); note(784, 0.12, 0.07, { t: 0.06 }); },
+  taiko: () => { note(120, 0.55, 0.6, { to: 42, type: 'sine' }); hiss(0.14, 0.3, 'lowpass', 420); },
+  /** Two thuds from under the hatch, heard from where the player stands. */
+  knock: () => { for (const t of [0, 0.16]) note(150, 0.12, 0.3, { t, to: 90, type: 'sine', at: HATCH }); },
 };
 
-/** A sleazy little walking bass from under the dock while he talks. */
-let music: { bus: GainNode; timer: ReturnType<typeof setInterval> } | null = null;
+/** A sleazy little walking bass from under the dock while he talks, scheduled a moment ahead on the audio clock. */
 const BASS = [55, 0, 55, 65.41, 0, 73.42, 77.78, 82.41, 98, 0, 82.41, 73.42, 0, 65.41, 55, 0];
-function startMusic() {
-  const a = audio(); if (!a || music) return;
-  const bus = a.createGain(); bus.gain.value = 0.8; bus.connect(out!);
-  const step = 60 / 92 / 2;
-  let next = a.currentTime + 0.05, i = 0;
-  const timer = setInterval(() => {
-    while (next < a.currentTime + 0.25) {
-      const at = next - a.currentTime;
-      if (BASS[i]) tone({ f: BASS[i] * 2, at, dur: step * 0.95, type: 'triangle', vol: 0.14, dest: bus });
-      next += step * (i % 2 ? 0.7 : 1.3);
-      i = (i + 1) % BASS.length;
-    }
-  }, 50);
-  music = { bus, timer };
+const BASS_STEP = 60 / 92 / 2;
+let bass: { next: number; i: number } | null = null;
+const startMusic = () => { bass = { next: -1, i: 0 }; };
+const stopMusic = () => { bass = null; };
+function updBass() {
+  if (!bass || !ac || ac.state !== 'running') return;
+  const now = ac.currentTime;
+  if (bass.next < now - 0.3) bass.next = now + 0.05;
+  while (bass.next < now + 0.25) {
+    const f = BASS[bass.i];
+    if (f) tone({ f: f * 2, t: bass.next - now, d: BASS_STEP * 0.95, type: 'triangle', a: 0.008, v: 0.33, bus: 'scene' });
+    bass.next += BASS_STEP * (bass.i % 2 ? 0.7 : 1.3);
+    bass.i = (bass.i + 1) % BASS.length;
+  }
 }
-function stopMusic() {
-  if (!music || !ac) return;
-  const m = music; music = null;
-  clearInterval(m.timer);
-  m.bus.gain.setTargetAtTime(0, ac.currentTime, 0.1);
-  setTimeout(() => m.bus.disconnect(), 800);
-}
+/** True while he's on: the game's music makes room (music.ts). */
+export const offerPlaying = () => !!show;
 
 // ---------- what he says ----------
 type Fx = 'puff' | 'calm' | 'shake' | 'glint';
@@ -126,7 +99,7 @@ const pitch = (again: boolean): Line[] => again
     { f: 'A million bucks off raw fish and rice. Honest money. Slow money.' },
     { f: 'Downstairs, the big boys wrestle. Sumo. No refs, no rules, no refunds.', fx: ['glint'] },
     { f: 'Legal? Not even close.', fx: ['puff', 'shake'] },
-    { f: "But the crowd's starving and the bets are fat. Feed 'em, run the book, keep a cut. You in?", fx: ['calm'] },
+    { f: "But the crowd's starving. Cook 'em chanko, take on my boys, I keep thirty percent. You in?", fx: ['calm'] },
   ];
 
 function answers(asked: boolean): Choice[] {
@@ -197,8 +170,7 @@ function knock(dt: number) {
   if (knockT > 0) return;
   knockT = 2.2;
   hatch!.knock();
-  const d = Math.sqrt(d2xz(player.g.position, HATCH));
-  if (d < 12) for (const at of [0, 0.16]) tone({ f: 150, to: 90, at, dur: 0.12, type: 'sine', vol: 0.3 * (1 - d / 12) });
+  sfx.knock();
 }
 
 /** Starts the meeting: the blinks, the hatch, and him. */
@@ -220,6 +192,7 @@ export function meet(again = false) {
     alertEl.classList.remove('on');
     const h = placeHatch();
     h.open = h.openTo = 0;
+    h.light.visible = true;
     fugu ??= new Fugu();
     scene.add(fugu);
     fugu.position.set(HATCH.x, -1.8, HATCH.z - 0.05);
@@ -233,7 +206,8 @@ export function meet(again = false) {
   });
   at(1.0, () => blink(false, true));
   at(1.45, () => { hatch!.openTo = 1; offerCam.shake = 0.25; sfx.bang(); sfx.roar(); });
-  at(1.95, () => { climb = { from: -1.8, to: FY, t: 0, dur: 0.8 }; sfx.climb(); });
+  // (the lift stops a little proud of the deck: the hole's only painted on it, so level with it the lift wouldn't show)
+  at(1.95, () => { climb = { from: -1.8, to: FY + 0.08, t: 0, dur: 1.0 }; sfx.climb(); });
   at(2.95, () => { startMusic(); say(pitch(again), () => ask(answers(false))); });
 }
 
@@ -270,16 +244,25 @@ function nextLine() {
   fugu!.talking = true;
 }
 
-/** Types the line out a letter at a time, pausing at commas and full stops, with a blip of his voice. */
+/** Seconds per letter, and the pauses: only a breath at a comma (a list rattles off), and a beat at a full stop. */
+const LETTER = 0.042, COMMA = 0.09, STOP = 0.75;
+/** Types the line out a letter at a time, with a blip of his voice, pausing at commas and coming down on full stops. */
 function typeOn(dt: number) {
   if (!typing || typing.n >= typing.text.length) return;
   typing.wait -= dt;
   while (typing.wait <= 0 && typing.n < typing.text.length) {
-    const ch = typing.text[typing.n++];
-    typing.wait += '.!?'.includes(ch) ? 0.28 : ch === ',' || ch === ':' ? 0.14 : 0.035;
-    if (ch.trim()) fugu!.syllable();
-    else fugu!.word();
-    if (ch.trim() && typing.n % 2) sfx.voice();
+    const ch = typing.text[typing.n++], next = typing.text[typing.n];
+    // the end of a sentence (the last of a "?!"), with more to say after it
+    const stop = '.!?'.includes(ch) && !'.!?'.includes(next ?? 'x');
+    if (stop) {
+      fugu!.point(); sfx.stop();
+      typing.wait += next === undefined ? 0 : STOP;
+    } else {
+      typing.wait += ch === ',' || ch === ':' ? COMMA : LETTER;
+      if (ch.trim()) fugu!.syllable();
+      else fugu!.word();
+      if (ch.trim() && typing.n % 2) sfx.voice();
+    }
   }
   lineEl.textContent = typing.text.slice(0, typing.n);
   if (typing.n >= typing.text.length) { sayEl.classList.add('done'); fugu!.talking = false; }
@@ -318,10 +301,9 @@ function finish(answer: 1 | 2) {
   stopMusic();
   climb = { from: fugu!.position.y, to: -1.8, t: 0, dur: 0.5 };
   if (answer === 2) {
+    // the deal's struck: the ring's drums under the dock, and his price, at the hatch
     for (const t of [0.5, 0.95, 1.4]) at(t, () => { sfx.taiko(); offerCam.shake = 0.35; });
-    at(1.5, () => banner('Stage 3', 'The Dohyo Below'));
-    at(4.3, () => banner(null));
-    at(4.5, () => leave('The sumo ring opens in stage 3, coming soon'));
+    at(2.2, () => leave('Deal. Buy into the ring at the hatch: $1,000,000'));
   } else {
     at(0.55, () => { hatch!.openTo = 0; sfx.bang(); });
     at(1.2, () => leave("Mr. Fugu's hatch stays on the dock. Stand on it to hear him out again"));
@@ -332,6 +314,7 @@ function finish(answer: 1 | 2) {
 function leave(news: string) {
   show = null; mode = 'watch'; climb = null;
   if (fugu) scene.remove(fugu);
+  if (hatch) { hatch.lift.visible = false; hatch.light.visible = hatch.openTo > 0; }
   player.frozen = false;
   document.body.classList.remove('offer');
   pickEl.hidden = true;
@@ -343,6 +326,7 @@ function leave(news: string) {
 // ---------- every frame ----------
 export function updOffer(dt: number) {
   hatch?.update(dt);
+  hushWorld(!!show);
   offerCam.shake = Math.max(0, offerCam.shake - dt);
   if (!show) {
     offerCam.k = Math.max(0, offerCam.k - dt);
@@ -352,24 +336,27 @@ export function updOffer(dt: number) {
         knock(dt);
         if (free() && d2xz(player.g.position, HATCH) < RANGE * RANGE) meet();
       }
-    } else if (hatch && free() && d2xz(player.g.position, HATCH) < 0.6 * 0.6) {
-      // standing on the hatch for a moment brings him back up
+    } else if (offer.answer === 1 && hatch && free() && d2xz(player.g.position, HATCH) < 0.6 * 0.6) {
+      // standing on the hatch for a moment brings him back up (once he's in, it's the way down to the ring: stage.ts)
       standT += dt;
       if (standT > 0.8) meet(true);
     } else standT = 0;
     return;
   }
   show.t += dt;
+  updBass();
   for (const c of show.cues.filter(c => c.t <= show!.t)) { show.cues.splice(show.cues.indexOf(c), 1); c.run(); }
   if (!fugu) return;
   if (climb) {
     climb.t += dt;
     const k = Math.min(1, climb.t / climb.dur);
-    // up with a little hop over the edge; down in a drop
-    const e = climb.to > climb.from ? 1 + 2.7 * Math.pow(k - 1, 3) + 1.7 * Math.pow(k - 1, 2) : k * k;
+    // smoothly, on the lift: easing off, rising, and slowing to a stop
+    const e = k < 0.5 ? 2 * k * k : 1 - 2 * (1 - k) * (1 - k);
     fugu.position.y = climb.from + (climb.to - climb.from) * e;
     if (k >= 1) climb = null;
   }
+  // the lift under his feet, all the way
+  if (hatch) { hatch.lift.visible = true; hatch.lift.position.y = fugu.position.y - HATCH.y; }
   fugu.update(dt);
   typeOn(dt);
 }
@@ -404,9 +391,10 @@ export function drawOffer() {
 /** Restores a saved answer: the hatch stays on the dock once he's been met (open, once the player's in). */
 export function loadOffer(answer: number) {
   offer.answer = (Math.min(2, Math.max(0, answer)) | 0) as 0 | 1 | 2;
-  if (offer.answer && stage.n === 2) {
+  if (offer.answer && stage.n >= 2) {
     const h = placeHatch();
     h.open = h.openTo = offer.answer === 2 ? 1 : 0;
+    h.light.visible = h.openTo > 0;
     h.update(0);
   }
 }

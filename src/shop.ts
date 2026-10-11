@@ -2,12 +2,14 @@
 // a better product (prices), marketing (customers) and the crew (speed). Stage 2 also gets a fertilizer shed by the
 // water wheel (shed.ts) once the takeout kiosk opens, whose square sells rice fertilizer the same way, or with a
 // press of E (buy), as it sells only the one thing. The HUD's top left lists every modifier in play, as a percentage:
-// Customers there is marketing and the rating together, as both bring customers in faster.
+// Customers there is marketing and the rating together, as both bring customers in faster. Stage 3's square is down
+// in the cellar, on the landing, priced in Fugu Chips: pricier bowls, word on the street (fans) and the cellar crew.
+import { SHOP3 } from './cellarPlan';
 import { repriceFish } from './counters';
 import { decal, drawMenu } from './decals';
 import { boost, MOD, modCost, MODS, mods, type ModId } from './economy';
 import { buyHeld } from './input';
-import { SHED_YARD, shedYard, stage } from './layout';
+import { CELLAR_Y, level, SHED_YARD, shedYard, stage, type StageN } from './layout';
 import { player } from './player';
 import { demand } from './rating';
 import { repriceSushi, sushiBoost } from './restaurant';
@@ -16,18 +18,19 @@ import { levelUp } from './sfx';
 import { SHED_AT } from './shed';
 import { staging } from './stage';
 import { toast } from './ui';
-import { FY, price } from './util';
+import { chips, FY, price } from './util';
 import { wallet } from './wallet';
 
-/** Where each stage's square is: by the walk-up counter, and in the restaurant's aisle by the kitchen line. */
-export const SHOPS = [{ x: 0.9, z: 5.4 }, { x: -3.6, z: 5.0 }];
+/** Where each stage's square is: by the walk-up counter, in the restaurant's aisle by the kitchen line, and on the
+ *  landing down in the cellar. */
+export const SHOPS = [{ x: 0.9, z: 5.4 }, { x: -3.6, z: 5.0 }, { x: SHOP3.x, z: SHOP3.z }];
 /** Half the square's side. */
 const HALF = 0.95;
 
 interface Square {
   x: number;
   z: number;
-  stage: 1 | 2;
+  stage: StageN;
   /** The panel's title. */
   title: string;
   /** The fertilizer shed's square, which sells only what's bought there (and the upgrade squares, everything else). */
@@ -37,15 +40,20 @@ const SQUARES: Square[] = [
   { ...SHOPS[0], stage: 1, title: 'Market upgrades', shed: false },
   { ...SHOPS[1], stage: 2, title: 'Restaurant upgrades', shed: false },
   { ...SHED_AT, stage: 2, title: 'Fertilizer shed', shed: true },
+  { ...SHOPS[2], stage: 3, title: 'Ring upgrades', shed: false },
 ];
 const pads = SQUARES.map(q => {
   const d = decal(HALF * 2, (c, w, h) => q.shed ? drawMenu(c, w, h, '🌿', 'Fertilizer') : drawMenu(c, w, h, '📈', 'Upgrade'));
-  d.mesh.position.set(q.x, (q.shed ? SHED_YARD.y : FY) + 0.01, q.z);
+  d.mesh.position.set(q.x, (q.shed ? SHED_YARD.y : q.stage === 3 ? CELLAR_Y : FY) + 0.01, q.z);
   return d;
 });
 
-/** Whether a square is in place: its stage's (stage 2's after the stage-up's show), and the shed's once it's open. */
-const active = (q: Square) => q.stage === stage.n && !(stage.n === 2 && staging()) && (!q.shed || shedYard.open);
+/**
+ * Whether a square is in place: its stage's (after the stage-up's show), and the shed's once it's open. Stage 3's is
+ * only there for the player down in the cellar, and the others only up in the world.
+ */
+const active = (q: Square) =>
+  q.stage === stage.n && !(stage.n >= 2 && staging()) && (!q.shed || shedYard.open) && (q.stage === 3) === level.down;
 /** The square whose panel is open, if any. */
 let on: Square | null = null;
 /** The upgrades sold on a square. */
@@ -57,6 +65,7 @@ const $ = (id: string) => document.getElementById(id)!;
 const panel = $('shop'), title = $('shopTitle'), rows = $('shopRows');
 const pct = (k: number) => (k >= 1 ? '+' : '−') + Math.round(Math.abs(k - 1) * 100) + '%';
 const EFFECT = { price: 'Prices', customers: 'Customers', speed: 'Speed', growth: 'Rice growth' } as const;
+const RING_EFFECT = { price: 'Bowl price', customers: 'Fans', speed: 'Crew', growth: 'Growth' } as const;
 
 /** What a level of an upgrade is called: the marketing campaign, or just its level. */
 function levelName(id: ModId, n: number) {
@@ -88,14 +97,15 @@ function renderRows(q: Square) {
     const b = document.createElement('button');
     b.type = 'button'; b.className = 'mod'; b.dataset.mod = m.id;
     b.disabled = cost === null || wallet.money < cost;
-    const what = m.kind === 'speed' && n === 1 ? 'Fishing' : m.kind === 'speed' ? 'Kitchen' : EFFECT[m.kind];
-    const next = cost === null ? `${what} ${pct(now)} · fully upgraded` : `${what} ${pct(now)} → ${pct(now * m.per)}`;
+    const what = m.kind === 'speed' ? ['Fishing', 'Kitchen', 'Training'][n - 1] : n === 3 ? RING_EFFECT[m.kind] : EFFECT[m.kind];
+    const then = m.add ? now + m.per - 1 : now * m.per;
+    const next = cost === null ? `${what} ${pct(now)} · fully upgraded` : `${what} ${pct(now)} → ${pct(then)}`;
     const head = cost === null ? `${m.name} · ${levelName(m.id, lv)}` : `${m.name} · ${m.levels ? 'next: ' + levelName(m.id, lv + 1) : 'level ' + (lv + 1)}`;
     b.innerHTML = '<span class="ic"></span><span class="txt"><b></b><span></span></span><span class="cost"></span>';
     b.children[0].textContent = m.icon;
     b.children[1].children[0].textContent = head;
     b.children[1].children[1].textContent = next;
-    b.children[2].textContent = cost === null ? 'Max' : price(cost);
+    b.children[2].textContent = cost === null ? 'Max' : n === 3 ? chips(cost, true) : price(cost);
     return b;
   }));
 }
@@ -127,6 +137,8 @@ let shown = '';
  */
 function modifiers(): [icon: string, label: string, k: number][] {
   if (stage.n === 1) return [['🐟', 'Prices', boost('fillets')], ['📣', 'Customers', boost('marketing') * demand()], ['💪', 'Speed', boost('training')]];
+  // stage 3 has no rating: word on the street alone brings the fans
+  if (stage.n === 3) return [['🏷️', 'Bowl price', boost('bowls')], ['📣', 'Fans', boost('street')], ['🧑‍🍳', 'Crew', boost('cellarcrew')]];
   const out: [string, string, number][] = [['🍣', 'Prices', sushiBoost()], ['📣', 'Customers', boost('promo') * demand()], ['🧑‍🍳', 'Kitchen', boost('crew')]];
   if (shedYard.open) out.push(['🌿', 'Rice growth', boost('fertilizer')]);
   return out;

@@ -31,8 +31,9 @@ function preloadManifest(): Plugin {
 export default defineConfig({
   // Relative base so the build works from any path (e.g. GitHub Pages' /floe-market/).
   base: './',
-  // three.js alone is ~550 kB minified, and the game ~700 kB; Firebase (cloud saves) is its own chunk, started on demand.
-  build: { chunkSizeWarningLimit: 800 },
+  // three.js alone is ~550 kB minified, and the game with it ~810 kB (three stages); Firebase (cloud saves) is its own
+  // chunk, started on demand.
+  build: { chunkSizeWarningLimit: 900 },
   plugins: [preloadManifest()],
   test: {
     environment: 'jsdom',
