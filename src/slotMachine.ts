@@ -8,7 +8,8 @@ import { cheer, gamePad, greeting, speaker, Stakes } from './casinoKit';
 import { GAMES, pushOutOfBox } from './layout';
 import { bake, bakePainted, canvasTex, FONT, G, mesh, painted, rr, scene, type Part } from './render';
 import { clack, jackpot, lose, reelStop, win } from './sfx';
-import { line, lineMultiplier, payout, pull, REEL, THREE, TWO_CHERRIES, type Sym } from './slots';
+import type { Moves } from './round';
+import { lineMultiplier, REEL, startRound, THREE, TWO_CHERRIES, type SlotsRound, type Sym } from './slots';
 import { popText } from './ui';
 import { money, V, type XZ } from './util';
 import { addMoney, wallet } from './wallet';
@@ -140,8 +141,10 @@ function buildBank() {
 // ---------- state ----------
 let bank: ReturnType<typeof buildBank> | null = null;
 let pos = [0, 7, 13];
-interface Spin { t: number; from: number[]; to: number[]; stops: number[]; win: number; stopped: number }
+interface Spin { t: number; from: number[]; to: number[]; round: SlotsRound; stopped: number }
 let spin: Spin | null = null;
+/** What the round in play owes, as counted in the wallet's in-flight cash. */
+let owed = 0;
 /** The symbols last under the middle of each reel, for the clacks as they go round. */
 let lastSym = [0, 0, 0];
 
@@ -171,16 +174,21 @@ function refresh() {
   pullBtn.textContent = spin ? 'Spinning…' : `Pull · ${stakes.label}`;
 }
 
+/** Applies the money a round moves to the wallet. What it owes is in flight, so a save mid-spin keeps a win. */
+function apply(m: Moves) {
+  if (m.take) wallet.money -= m.take;
+  if (m.owed !== undefined) { wallet.inFlight += m.owed - owed; owed = m.owed; }
+  if (m.pay) addMoney(m.pay);
+}
+
 function startSpin() {
-  const s = stakes.value;
-  if (spin || !stakes.ok) return;
-  wallet.money -= s;
-  const stops = pull();
-  const won = payout(stops, s);
-  // already won, just not revealed yet: counted as in-flight so a save mid-spin keeps it
-  wallet.inFlight += won;
+  if (spin) return;
+  const started = startRound(stakes.value, wallet.money, Math.random);
+  if (!started) return;
+  const { round } = started;
+  apply(started.moves);
   const from = pos.map(Math.round);
-  spin = { t: 0, from, to: from.map((f, i) => f + (3 + i) * N + mod(stops[i] - f, N)), stops, win: won, stopped: 0 };
+  spin = { t: 0, from, to: from.map((f, i) => f + (3 + i) * N + mod(round.stops[i] - f, N)), round, stopped: 0 };
   played = true;
   msg.textContent = 'Round and round…';
   refresh();
@@ -195,18 +203,17 @@ function settle() {
   const s = spin!;
   spin = null;
   pos = [...s.to];
-  wallet.inFlight -= s.win;
-  const syms = line(s.stops);
-  if (s.win > 0) {
-    addMoney(s.win);
-    popText('+' + money(s.win), { x: BANK.x, y: AT.y + 1.9, z: BANK.z });
+  const { line: syms, win: won } = s.round;
+  apply(s.round.settle());
+  if (won > 0) {
+    popText('+' + money(won), { x: BANK.x, y: AT.y + 1.9, z: BANK.z });
     if (lineMultiplier(syms) === THREE['7']) jackpot(); else win();
     cheer();
     if (syms.every(x => x === syms[0])) bank!.sign.say(syms[0] === '7' ? 'JACKPOT!' : `${syms.join('')}!`);
   } else lose();
-  msg.textContent = s.win <= 0 ? `${say(syms)}: no luck this time.`
-    : lineMultiplier(syms) === THREE['7'] ? `Jackpot! You win ${money(s.win)}!` : `${say(syms)}: you win ${money(s.win)}!`;
-  redraw(s.win > 0);
+  msg.textContent = won <= 0 ? `${say(syms)}: no luck this time.`
+    : lineMultiplier(syms) === THREE['7'] ? `Jackpot! You win ${money(won)}!` : `${say(syms)}: you win ${money(won)}!`;
+  redraw(won > 0);
   refresh();
 }
 
