@@ -4,11 +4,11 @@
 // Every walking surface here is either raised off the ground or kept clear of its neighbours, so no two of them
 // share a plane (overlapping flat surfaces at the same height flicker).
 import {
-  BoxGeometry, CylinderGeometry, DodecahedronGeometry, Group, Mesh, MeshLambertMaterial, MeshPhongMaterial, PlaneGeometry,
-  PointLight, Sprite, SpriteMaterial, TorusGeometry, type Object3D,
+  BoxGeometry, BufferGeometry, CylinderGeometry, DodecahedronGeometry, Float32BufferAttribute, Group, Mesh,
+  MeshLambertMaterial, MeshPhongMaterial, PlaneGeometry, PointLight, Sprite, SpriteMaterial, TorusGeometry, type Object3D,
 } from 'three';
-import { at, Build, detail, quietly, seasonLayer } from './kit';
-import { CHANNEL_X, FARM_DOOR, HALL_BOX, PATH_X, TERRACE_Z, TERRACES } from './layout';
+import { at, Build, detail, dice, quietly, seasonLayer } from './kit';
+import { casinoBoat, CHANNEL_X, FARM_DOOR, HALL_BOX, PATH_X, QUAY, TERRACE_Z, TERRACES } from './layout';
 import {
   bambooPipe, bridge, dryingRack, farmhouse, farmhouseSnow, kerb, pebbles, rippleDisc, rippleMaterial, rippleSheet,
   rockSnow, springRock, steppingStone, stoneWall, terraceStep, updRipples, waterWheel, wheelStand,
@@ -215,12 +215,57 @@ const racks = piece(-14.5, 12.4), racksLo = lowOf(racks);
 const DOOR_Z = (FARM_DOOR.z0 + FARM_DOOR.z1) / 2;
 const STREAM_Z = HOUSE.z - 0.4;
 const ways = piece(CHANNEL_X, DOOR_Z), waysLo = lowOf(ways);
+/** Where the land ends and the sea begins (and the quay's wall, when it's there), along the channel. */
+const SHORE_Z = QUAY.z0;
+/** How high the channel's stone edges stand: under the quay's planks (their top at FY), which run over the channel. */
+const KERB_H = FY - 0.01;
+/** The dark openings in the casino's quay, where the channel runs under it: only while the quay's there. */
+let culvert: Group;
+
+/**
+ * Where the channel runs out into the sea: a fan of its paler water, flaring out and fading away as it goes, with a
+ * few faint streaks along it where it flows. It's only a tint on the water, nothing standing up out of it, so it never
+ * looks like it's in the yacht's way, and it fades out short of the yacht's bow.
+ */
+const MOUTH = { len: 1.5, w0: 0.6, w1: 1.9 };
+const mouthMat = quietly(() => new MeshLambertMaterial({
+  color: 0xBFEFF5, emissive: 0x204050, transparent: true, depthWrite: false,
+  map: canvasTex(32, 64, (c, w, h) => {
+    c.clearRect(0, 0, w, h);
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      // the bottom row is the channel's end (the texture's v runs up from it); faded at the sides
+      const u = x / (w - 1), k = 1 - y / (h - 1), side = Math.min(1, (1 - Math.abs(2 * u - 1)) / 0.4);
+      const streak = 0.8 + 0.2 * Math.cos(u * Math.PI * 8);
+      c.fillStyle = `rgba(255,255,255,${(0.5 * (1 - k) ** 1.25 * streak * side * side * (3 - 2 * side)).toFixed(3)})`;
+      c.fillRect(x, y, 1, 1);
+    }
+  }).tex,
+}), dice(5));
+function mouth() {
+  return quietly(() => {
+    const n = 8, pos: number[] = [], uv: number[] = [], idx: number[] = [];
+    for (let i = 0; i <= n; i++) {
+      // it flares like a funnel: slowly at first, then wider
+      const k = i / n, hw = (MOUTH.w0 + (MOUTH.w1 - MOUTH.w0) * k ** 1.6) / 2, z = -k * MOUTH.len;
+      pos.push(-hw, 0, z, hw, 0, z); uv.push(0, k, 1, k);
+      if (i) idx.push(2 * i - 2, 2 * i - 1, 2 * i, 2 * i - 1, 2 * i + 1, 2 * i);
+    }
+    const geo = new BufferGeometry();
+    geo.setAttribute('position', new Float32BufferAttribute(pos, 3));
+    geo.setAttribute('uv', new Float32BufferAttribute(uv, 2));
+    geo.setIndex(idx); geo.computeVertexNormals();
+    const m = new Mesh(geo, mouthMat);
+    m.receiveShadow = true; m.userData.noBatch = true;
+    return m;
+  }, dice(6));
+}
 {
-  const z0 = -6.5, z1 = STREAM_Z + 0.3, len = z1 - z0, zc = (z0 + z1) / 2;
-  // the channel along the restaurant's west wall, out to the sea, with stone edges
+  const z0 = SHORE_Z, z1 = STREAM_Z + 0.3, len = z1 - z0, zc = (z0 + z1) / 2;
+  // the channel along the restaurant's west wall, out to the sea, with stone edges (under the casino's quay, when
+  // it's there: the quay's planks hide it, and it comes out through the quay's wall into the sea)
   put(ways, mesh(new BoxGeometry(0.6, 0.06, len), streamMat), CHANNEL_X, 0.03, zc, waysLo);
   const edges: Part[] = [];
-  for (const s of [-1, 1]) edges.push({ geo: G.box, at: [s * 0.37, 0.08, zc - DOOR_Z], scale: [0.14, 0.16, len] });
+  for (const s of [-1, 1]) edges.push({ geo: G.box, at: [s * 0.37, KERB_H / 2, zc - DOOR_Z], scale: [0.14, KERB_H, len] });
   waysLo.add(mesh(bake(edges), 0x9AA4AC, 0, 0, 0, true));
   // the stream from the water wheel to the channel
   const sx0 = HOUSE.x + 2.6, sx1 = CHANNEL_X - 0.3;
@@ -239,22 +284,35 @@ const ways = piece(CHANNEL_X, DOOR_Z), waysLo = lowOf(ways);
   for (const s of [-1, 1]) rails.push({ geo: G.box, at: [(bx0 + bx1) / 2 - CHANNEL_X, FY + 0.45, s * (bd / 2 - 0.04)], scale: [bw, 0.08, 0.08] });
   for (const s of [-1, 1]) for (const x of [bx0 + 0.1, bx1 - 0.1]) rails.push({ geo: G.box, at: [x - CHANNEL_X, FY + 0.22, s * (bd / 2 - 0.04)], scale: [0.08, 0.45, 0.08] });
   waysLo.add(mesh(bake(rails), 0x8A5A3B, 0, 0, 0, true));
+  // where it runs out into the sea: a faint fan of its paler water on the flat sea (on High, over the swell)
+  put(ways, mouth(), CHANNEL_X, 0.016, SHORE_Z, waysLo);
   // High: the water rippling, kerbs of rounded stone blocks, pebbles along the stream, rounded stepping stones in the
   // same places, and a bridge of boards with rounded rails and capped posts
   high(ways, () => {
     const hi = new Group(), b = new Build(), small = new Build();
     const channel = sheet(0.6, len, streamRipple, 0.3); channel.position.set(0, 0.055, zc - DOOR_Z);
     const stream = sheet(sx1 - sx0, 0.5, streamRipple, 0.3); stream.position.set((sx0 + sx1) / 2 - CHANNEL_X, 0.055, STREAM_Z - DOOR_Z);
-    for (const s of [-1, 1]) b.addAll(kerb(len, 0.14, 0.16, 0x9AA4AC), at(s * 0.37, 0, zc - DOOR_Z));
+    for (const s of [-1, 1]) b.addAll(kerb(len, 0.14, KERB_H, 0x9AA4AC), at(s * 0.37, 0, zc - DOOR_Z));
     small.addAll(pebbles(sx1 - sx0 - 0.4, 0.5), at((sx0 + sx1) / 2 - CHANNEL_X, 0, STREAM_Z - DOOR_Z));
     for (const p of stones) {
       const [sx, , sz] = p.scale!;
       b.addAll(steppingStone(sx, sz), at(p.at[0], 0, p.at[2], p.rot![1]));
     }
     b.addAll(bridge(bw, bd, FY, [-bw / 2 + 0.1, bw / 2 - 0.1], FY + 0.45), at((bx0 + bx1) / 2 - CHANNEL_X, 0, 0));
-    hi.add(b.mesh(), small.mesh(false), channel, stream);
+    hi.add(b.mesh(), small.mesh(false), channel, stream, put(ways, mouth(), CHANNEL_X, 0.112, SHORE_Z, hi));
     return hi;
   }, waysLo);
+  // with the casino's quay over it: dark openings in the quay where the water goes under, from the land and out to the
+  // sea, between the channel's edges
+  culvert = quietly(() => {
+    const g = new Group(), dark = new MeshLambertMaterial({ color: 0x1B2A31 });
+    g.add(new Mesh(new BoxGeometry(0.6, 0.075, 0.01), dark), new Mesh(new BoxGeometry(0.6, 0.1, 0.01), dark));
+    g.children[0].position.set(0, 0.1, QUAY.z1 + 0.005 - DOOR_Z);
+    g.children[1].position.set(0, 0.085, QUAY.z0 - 0.005 - DOOR_Z);
+    return g;
+  }, dice(7));
+  culvert.visible = false;
+  ways.add(culvert);
 }
 
 /** Everything above, for the stage-up (terraces first, in order up the slope). */
@@ -269,6 +327,7 @@ export function showFarm() {
 /** Turns the water wheel and lets steam rise off the spring. */
 export function updFarm(dt: number) {
   if (!hill.visible) return;
+  culvert.visible = casinoBoat.open;
   updRipples(dt);
   wheel.rotation.z += dt * 0.8; // its bottom moves east, with the stream
   for (const p of steam) {
