@@ -1,12 +1,28 @@
-// Imported first by main.ts so it catches errors thrown while other modules build the scene.
-const errBox = document.getElementById('err')!;
+// Imported first by main.ts so it catches errors thrown while other modules build the scene. The last few go with a
+// bug report (report.ts), whose Report this button sits in the box.
+const errBox = document.getElementById('err')!, errMsg = document.getElementById('errMsg')!;
+
+/** How many of the latest errors a report carries. */
+const KEEP = 10;
+/** The latest errors this visit, oldest first. */
+export const recentErrors: string[] = [];
+function note(m: string) {
+  recentErrors.push(m.slice(0, 300));
+  if (recentErrors.length > KEEP) recentErrors.shift();
+}
 
 export function showErr(m: string) {
   errBox.style.display = 'block';
-  errBox.textContent = m;
+  errMsg.textContent = m;
 }
 
-window.addEventListener('error', e => showErr('Something broke: ' + (e.message || e)));
+window.addEventListener('error', e => {
+  const m = 'Something broke: ' + (e.message || e);
+  note(m + (e.filename ? ` (${e.filename.split('/').pop()}:${e.lineno})` : ''));
+  showErr(m);
+});
+// a promise that failed with nothing to catch it: no box (the game carries on), but a report should know
+window.addEventListener('unhandledrejection', e => { note('Unhandled: ' + String((e.reason as Error | undefined)?.message ?? e.reason)); });
 
 /** When this tab last reloaded to catch up with a deploy (index.html's inline script uses it too). */
 export const RELOAD_KEY = 'floe-market-reload';

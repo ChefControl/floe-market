@@ -12,9 +12,13 @@ const FACES: Record<number, string> = { 1: 'A', 11: 'J', 12: 'Q', 13: 'K' };
 export const rankName = (c: Card) => FACES[c.rank] ?? String(c.rank);
 export const isRed = (c: Card) => c.suit === '♥' || c.suit === '♦';
 
-/** How many decks the shoe holds, and how low it runs before it's shuffled fresh (at the next deal). */
+/** How many decks the shoe holds. */
 export const DECKS = 6;
-export const CUT = 52;
+/** The dealer puts the yellow cut card this many cards from the back: once it's come out, the shoe is shuffled fresh
+ *  before the next deal. */
+export const CUT_CARD = 52;
+/** Where the player may cut the shuffled cards, counted from the top: at least a deck in from either end. */
+export const PLAYER_CUT = { min: 52, max: DECKS * 52 - 52 };
 
 /** A fresh shoe, shuffled. Cards are drawn off its end. */
 export function newShoe(rng: () => number = Math.random): Card[] {
@@ -25,6 +29,12 @@ export function newShoe(rng: () => number = Math.random): Card[] {
     [shoe[i], shoe[j]] = [shoe[j], shoe[i]];
   }
   return shoe;
+}
+
+/** Cuts `shoe` `k` cards from the top (its end): those go to the bottom, so the card under them is the next one out. */
+export function cutShoe(shoe: Card[], k: number): Card[] {
+  const at = shoe.length - k;
+  return [...shoe.slice(at), ...shoe.slice(0, at)];
 }
 
 /** A hand's best total, and whether an ace in it is still counting 11 (soft). */
@@ -43,16 +53,10 @@ export const insuranceCost = (stake: number) => Math.floor(stake / 2);
 export const isBlackjack = (cards: Card[]) => cards.length === 2 && total(cards) === 21;
 export const isBust = (cards: Card[]) => total(cards) > 21;
 
-/**
- * The dealer's turn: draws from `shoe` until on 17 or more (soft 17 included). Returns the cards drawn. Given `burns`,
- * the dealer burns a card into it before each card they draw.
- */
-export function dealerDraws(dealer: Card[], shoe: Card[], burns?: Card[]): Card[] {
+/** The dealer's turn: draws from `shoe` until on 17 or more (soft 17 included). Returns the cards drawn. */
+export function dealerDraws(dealer: Card[], shoe: Card[]): Card[] {
   const drawn: Card[] = [];
-  while (total([...dealer, ...drawn]) < 17) {
-    if (burns) burns.push(shoe.pop()!);
-    drawn.push(shoe.pop()!);
-  }
+  while (total([...dealer, ...drawn]) < 17) drawn.push(shoe.pop()!);
   return drawn;
 }
 

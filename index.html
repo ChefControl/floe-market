@@ -262,6 +262,130 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
 #controls:focus-visible, #buyBtnToggle:focus-visible{ outline:3px solid var(--coral); outline-offset:2px; }
 @media (prefers-reduced-motion: reduce){ #buyBtnToggle, #buyBtnToggle::after{ transition:none; } }
 /* Sound opens into a mute button and a 0-10 slider for each kind of sound, sized for fingers */
+/* Report a bug or idea (report.ts): the settings row (signed out, it signs in instead) opens a window of its own over
+   the dimmed game, with a note, the picture of the game, a tickbox each for the picture and the game state, and a
+   notice of exactly what's sent */
+#reportCat i{ margin-left:auto; font-style:normal; font-size:20px; line-height:1; opacity:.6; }
+#report{ position:fixed; inset:0; z-index:8; display:grid; place-items:center; padding:12px; background:rgba(23,48,66,.55); }
+#report[hidden]{ display:none; }
+#report .card{
+  position:relative; box-sizing:border-box; display:flex; flex-direction:column; gap:10px; width:min(100%,480px);
+  max-height:calc(100dvh - 24px); overflow-y:auto; overscroll-behavior:contain; touch-action:pan-y; padding:18px 18px 16px;
+  border-radius:24px; background:var(--pill); color:var(--pill-ink); box-shadow:0 4px 0 var(--shade); font-weight:600;
+}
+#report h2{ margin:0 44px 2px; font:800 22px "Baloo 2","Trebuchet MS",system-ui,sans-serif; text-align:center; }
+#reportClose{ position:absolute; right:12px; top:12px; width:36px; height:36px; border:0; border-radius:50%; background:var(--chip); color:inherit; font-size:18px; line-height:1; cursor:pointer; }
+#reportKind{ display:flex; gap:2px; padding:3px; border-radius:12px; background:rgba(127,140,150,.22); }
+#reportKind button{ flex:1; min-height:38px; border:0; border-radius:9px; background:transparent; color:var(--pill-ink); font:700 15px "Baloo 2","Trebuchet MS",system-ui,sans-serif; cursor:pointer; }
+#reportKind button[aria-checked="true"]{ background:var(--coral); color:#fff; box-shadow:0 2px 0 var(--shade); }
+#reportText{ box-sizing:border-box; width:100%; min-height:96px; padding:8px 10px; border:0; border-radius:12px; background:var(--chip); color:var(--pill-ink); font:500 16px/1.3 system-ui,sans-serif; resize:vertical; }
+#reportCount{ margin-top:-4px; font-size:12px; opacity:.6; text-align:right; }
+#reportPic{ position:relative; }
+#reportShot{ display:block; width:100%; max-height:min(260px,34dvh); object-fit:contain; background:rgba(0,0,0,.25); border-radius:12px; box-shadow:0 2px 0 var(--shade); transition:opacity .15s; }
+#reportShot[hidden]{ display:none; }
+#reportShot.off{ opacity:.3; }
+#report .tick{ display:flex; align-items:flex-start; gap:8px; font:700 15px/1.2 "Baloo 2","Trebuchet MS",system-ui,sans-serif; cursor:pointer; }
+#report .tick input{ flex:none; width:20px; height:20px; margin:0; accent-color:var(--coral); }
+#report .tick span{ display:flex; flex-direction:column; }
+#report .tick small{ font-size:12px; font-weight:600; opacity:.65; }
+#reportWarn{ margin:0; color:var(--down); font-size:13px; font-weight:700; line-height:1.3; }
+#reportWarn[hidden]{ display:none; }
+#reportWhat{ font-size:13px; font-weight:500; line-height:1.4; padding:8px 12px; border-radius:12px; background:var(--chip); }
+#reportWhat summary{ cursor:pointer; font-weight:800; }
+#reportNotice{ font-weight:600; }
+#reportWhat ul{ margin:6px 0 0; padding-left:18px; }
+#reportWhat li{ margin:3px 0; }
+#reportWhat li[hidden]{ display:none; }
+#report .btns{ display:flex; gap:8px; }
+#report .btns button{ flex:1; min-height:44px; border:0; border-radius:999px; font:800 16px "Baloo 2","Trebuchet MS",system-ui,sans-serif; cursor:pointer; background:var(--chip); color:var(--pill-ink); }
+#report .btns #reportSend{ background:var(--go); color:#fff; }
+#report button:focus-visible, #reportText:focus-visible, #report .tick input:focus-visible, #reportWhat summary:focus-visible{ outline:3px solid var(--coral); outline-offset:2px; }
+@media (prefers-reduced-motion: reduce){ #reportShot{ transition:none; } }
+#reportShot{ cursor:pointer; }
+/* Draw-a-Bug: a red crayon button on the picture's corner, that wiggles when pointed at, with a tick once drawn on */
+#reportDraw{
+  position:absolute; right:10px; bottom:10px; display:flex; align-items:center; gap:6px; min-height:40px; padding:4px 14px 4px 10px;
+  border:0; border-radius:999px; background:#E8332E; color:#fff; box-shadow:0 3px 0 #9E1E1A, 0 6px 14px rgba(0,0,0,.3);
+  font:800 16px "Baloo 2","Trebuchet MS",system-ui,sans-serif; cursor:pointer; transition:transform .15s;
+}
+#reportDraw[hidden]{ display:none; }
+#reportDraw .crayon{ font-size:20px; line-height:1; display:inline-block; }
+#reportDraw .done{ display:none; width:20px; height:20px; border-radius:50%; background:#fff; color:#E8332E; font-size:13px; line-height:20px; text-align:center; }
+#reportDraw.drawn .done{ display:inline-block; }
+#reportDraw:hover:not(:disabled){ transform:rotate(-3deg) scale(1.06); }
+#reportDraw:hover:not(:disabled) .crayon{ animation:scribble .5s ease-in-out infinite alternate; }
+@keyframes scribble{ from{ transform:rotate(-14deg) translateX(-1px); } to{ transform:rotate(10deg) translateX(2px); } }
+#reportDraw:active:not(:disabled){ transform:translateY(2px); box-shadow:0 1px 0 #9E1E1A; }
+#reportDraw:disabled{ display:none; }
+@media (prefers-reduced-motion: reduce){ #reportDraw, #reportDraw .crayon{ transition:none; animation:none !important; } }
+/* Doodle It is yellow, as its ink is (sketch.ts) */
+#report[data-kind="idea"] #reportDraw{ background:#F5C518; color:#3A2A00; box-shadow:0 3px 0 #A8830A, 0 6px 14px rgba(0,0,0,.3); }
+#report[data-kind="idea"] #reportDraw .done{ color:#A8830A; }
+#report[data-kind="idea"] #reportDraw:active:not(:disabled){ box-shadow:0 1px 0 #A8830A; }
+/* The moment a report is sent (sendFx.ts): a bulb that lights up for an idea, a swatter that squashes a bug */
+#sendFx{ position:fixed; left:50%; top:44%; z-index:9; width:220px; transform:translate(-50%,-50%); display:flex; flex-direction:column; align-items:center; pointer-events:none; animation:fxIn 3s ease both; }
+#sendFx[hidden]{ display:none; }
+#sendFx svg{ width:180px; height:auto; overflow:visible; }
+#sendFx b{ margin-top:4px; font:800 26px "Baloo 2","Trebuchet MS",system-ui,sans-serif; color:#fff; text-shadow:0 2px 0 rgba(0,0,0,.35), 0 0 12px rgba(0,0,0,.35); opacity:0; animation:fxWord 3s ease both; }
+@keyframes fxIn{ 0%{ opacity:0; transform:translate(-50%,-50%) scale(.6); } 6%{ opacity:1; transform:translate(-50%,-50%) scale(1); } 88%{ opacity:1; transform:translate(-50%,-50%) scale(1); } 100%{ opacity:0; transform:translate(-50%,-58%) scale(.96); } }
+@keyframes fxWord{ 0%, 19.3%{ opacity:0; transform:translateY(6px) scale(.8); } 24.9%{ opacity:1; transform:translateY(0) scale(1.08); } 29.5%, 100%{ opacity:1; transform:none; } }
+#sendFx.bug b{ animation-name:fxWordBug; }
+@keyframes fxWordBug{ 0%, 30%{ opacity:0; transform:translateY(6px) scale(.8); } 35.1%{ opacity:1; transform:translateY(0) scale(1.1); } 39.7%, 100%{ opacity:1; transform:none; } }
+/* the bulb: off and grey, a flicker, then on, bright, with a glow and rays */
+#sendFx .glass{ fill:#CFD8DE; stroke:#6B7C88; stroke-width:4; animation:bulbGlass 3s step-end both; }
+#sendFx .filament{ fill:none; stroke:#6B7C88; stroke-width:3.5; stroke-linejoin:round; animation:bulbWire 3s step-end both; }
+#sendFx .base{ fill:#9AA6AE; }
+#sendFx .tip{ fill:#5E6B73; }
+#sendFx .glow{ fill:#FFE45C; opacity:0; transform-box:fill-box; transform-origin:center; animation:bulbGlow 3s ease-out both; }
+#sendFx .rays line{ stroke:#FFD23F; stroke-width:7; stroke-linecap:round; }
+#sendFx .rays{ opacity:0; transform-box:view-box; transform-origin:80px 66px; animation:bulbRays 3s ease-out both; }
+@keyframes bulbGlass{ 0%{ fill:#CFD8DE; stroke:#6B7C88; } 9.1%{ fill:#FFF3A8; stroke:#B88A00; } 11.3%{ fill:#CFD8DE; stroke:#6B7C88; } 14.2%{ fill:#FFF3A8; stroke:#B88A00; } 15.3%{ fill:#CFD8DE; stroke:#6B7C88; } 17.6%, 100%{ fill:#FFE45C; stroke:#B88A00; } }
+@keyframes bulbWire{ 0%{ stroke:#6B7C88; } 9.1%{ stroke:#FF8C1A; } 11.3%{ stroke:#6B7C88; } 14.2%{ stroke:#FF8C1A; } 15.3%{ stroke:#6B7C88; } 17.6%, 100%{ stroke:#FF8C1A; } }
+@keyframes bulbGlow{ 0%, 17%{ opacity:0; transform:scale(.7); } 21.5%{ opacity:.55; transform:scale(1.15); } 34%{ opacity:.35; transform:scale(1); } 42.5%{ opacity:.45; transform:scale(1.05); } 100%{ opacity:.3; transform:scale(1); } }
+@keyframes bulbRays{ 0%, 17%{ opacity:0; transform:scale(.6); } 22.7%{ opacity:1; transform:scale(1.1); } 39.7%{ opacity:1; transform:scale(1); } 100%{ opacity:.6; transform:scale(1.04); } }
+/* the bug: it scurries, the swatter swings down on it, and it's a splat */
+#sendFx .critter{ transform-box:fill-box; transform-origin:50% 100%; animation:bugRun 3s ease-in-out both; }
+#sendFx .body{ fill:#4A2E1E; }
+#sendFx .head{ fill:#2B1A10; }
+#sendFx .shell{ stroke:#2B1A10; stroke-width:2.5; }
+#sendFx .eye{ fill:#fff; }
+#sendFx .legs path, #sendFx .antennae{ fill:none; stroke:#2B1A10; stroke-width:4; stroke-linecap:round; }
+#sendFx .antennae{ stroke-width:3; }
+#sendFx .legs{ transform-box:fill-box; transform-origin:center; animation:bugLegs .14s linear 4 alternate; }
+#sendFx .splat{ fill:#9BCB3C; stroke:#5E8A1A; stroke-width:3; opacity:0; transform-box:fill-box; transform-origin:center; animation:bugSplat 3s ease-out both; }
+#sendFx .burst line{ stroke:#FFD23F; stroke-width:6; stroke-linecap:round; }
+#sendFx .burst{ opacity:0; transform-box:view-box; transform-origin:80px 118px; animation:bugBurst 3s ease-out both; }
+#sendFx .handle, #sendFx .neck{ fill:#8B5A2B; }
+#sendFx .pad{ fill:#2F9E8F; stroke:#1E6F64; stroke-width:3; }
+#sendFx .mesh{ fill:none; stroke:rgba(255,255,255,.5); stroke-width:2; }
+#sendFx .swatter{ transform-box:view-box; transform-origin:80px -40px; animation:swat 3s cubic-bezier(.5,0,.75,0) both; }
+#sendFx.bug svg{ animation:shake 3s linear both; }
+@keyframes bugRun{ 0%{ transform:translateX(-10px); } 6.8%{ transform:translateX(12px) rotate(8deg); } 13.6%{ transform:translateX(-12px) rotate(-8deg); } 20.4%{ transform:translateX(8px) rotate(6deg); } 26.1%{ transform:translateX(-4px) rotate(-4deg); } 29.5%{ transform:none; opacity:1; } 31.2%{ transform:scale(1.7,.18); opacity:1; } 35.1%, 100%{ transform:scale(1.8,.12); opacity:0; } }
+@keyframes bugLegs{ to{ transform:scaleX(.82); } }
+@keyframes bugSplat{ 0%, 30%{ opacity:0; transform:scale(.3); } 32.9%{ opacity:1; transform:scale(1.15); } 37.4%, 100%{ opacity:1; transform:scale(1); } }
+@keyframes bugBurst{ 0%, 30%{ opacity:0; transform:scale(.5); } 32.9%{ opacity:1; transform:scale(1); } 41.9%, 100%{ opacity:0; transform:scale(1.4); } }
+@keyframes swat{ 0%, 17%{ transform:rotate(70deg); opacity:0; } 19.3%{ opacity:1; transform:rotate(70deg); } 30%{ transform:rotate(-4deg); } 31.7%, 38.5%{ transform:rotate(0deg); animation-timing-function:ease-out; } 47.6%, 100%{ transform:rotate(40deg); opacity:0; } }
+@keyframes shake{ 0%, 30%{ transform:none; } 31.2%{ transform:translate(-4px,3px); } 32.3%{ transform:translate(4px,-2px); } 33.4%{ transform:translate(-2px,1px); } 34.6%, 100%{ transform:none; } }
+@media (prefers-reduced-motion: reduce){
+  #sendFx, #sendFx *{ animation-duration:3s !important; }
+  #sendFx .critter, #sendFx .swatter, #sendFx.bug svg, #sendFx .legs, #sendFx .rays, #sendFx .burst{ animation:none !important; }
+  #sendFx .swatter, #sendFx .burst{ opacity:0; }
+  #sendFx .glass{ animation:none; fill:#FFE45C; stroke:#B88A00; }
+  #sendFx .filament{ animation:none; stroke:#FF8C1A; }
+}
+/* Draw-a-Bug (sketch.ts): the report's picture big over the dimmed game, to draw on in red */
+#draw{ position:fixed; inset:0; z-index:10; display:grid; place-items:center; padding:12px; background:rgba(23,48,66,.7); }
+#draw[hidden]{ display:none; }
+#draw .card{ display:flex; flex-direction:column; gap:10px; max-width:min(96vw,900px); padding:12px; border-radius:20px; background:var(--pill); color:var(--pill-ink); box-shadow:0 4px 0 var(--shade); }
+#drawTitle{ margin:0; font:800 17px "Baloo 2","Trebuchet MS",system-ui,sans-serif; text-align:center; }
+#drawCanvas{ display:block; max-width:100%; max-height:calc(100dvh - 150px); width:auto; height:auto; margin:0 auto; border-radius:12px; touch-action:none; cursor:crosshair; }
+#draw .btns{ display:flex; gap:8px; }
+#draw .btns button{ flex:1; min-height:44px; border:0; border-radius:999px; background:var(--chip); color:var(--pill-ink); font:800 15px "Baloo 2","Trebuchet MS",system-ui,sans-serif; cursor:pointer; }
+#draw .btns #drawDone{ background:var(--go); color:#fff; }
+#draw .btns button:disabled{ opacity:.4; cursor:default; }
+#draw button:focus-visible, #reportDraw:focus-visible{ outline:3px solid var(--coral); outline-offset:2px; }
+#errReport{ margin-left:10px; padding:3px 12px; border:0; border-radius:999px; background:#fff; color:#B3261E; font:700 14px system-ui,sans-serif; cursor:pointer; }
+#errReport[hidden]{ display:none; }
 /* Credits & Copyrights, the menu's last row, opening into the music's and the sounds' notices */
 #settings #creditsCard{ gap:0; color:var(--pill-ink); font-size:12px; line-height:1.4; font-weight:500; }
 #creditsCard h3{ margin:6px 0 2px; font:800 13px "Baloo 2","Trebuchet MS",system-ui,sans-serif; }
@@ -524,6 +648,9 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
 .casino .acts{ display:grid; grid-auto-flow:column; grid-auto-columns:minmax(0,1fr); gap:8px; }
 .casino .acts button{ height:50px; border-radius:14px; background:#FFF8EC; box-shadow:0 4px 0 #B9A98F; font-size:17px; }
 .casino .acts .gold{ background:#F2C14E; box-shadow:0 4px 0 #A9761C; }
+.casino .cut{ display:flex; align-items:center; gap:8px; font-size:13px; font-weight:800; color:#FFE7A8; }
+.casino .cut input{ flex:1; min-width:0; height:32px; margin:0; accent-color:#F5D03A; cursor:pointer; }
+.casino .cut .go{ padding:0 24px; }
 .casino .bets{ display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
 .casino .bets button{
   height:48px; border-radius:14px; color:#FFF8EC; display:flex; flex-direction:column; align-items:center; justify-content:center;
@@ -687,6 +814,7 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
   </div>
   <button id="restart" type="button"><span class="ic" aria-hidden="true">↺</span><span id="restartText">Restart</span></button>
   <h2 class="sgroup">About</h2>
+  <button id="reportCat" type="button" aria-haspopup="dialog" hidden><span class="ic" aria-hidden="true">🐞</span><span id="reportName">Report a bug or idea</span><i aria-hidden="true">›</i></button>
   <a id="kofi" href="https://ko-fi.com/chefcontrol" target="_blank" rel="noopener"><span class="ic" aria-hidden="true">☕</span>Buy me a coffee<i aria-hidden="true">↗</i></a>
   <button id="creditsBtn" class="cat" type="button" aria-expanded="false" aria-controls="creditsCard"><span class="ic" aria-hidden="true">©</span>Credits &amp; Copyrights<i class="chev" aria-hidden="true"></i></button>
   <div id="creditsCard" class="catPanel" role="region" aria-labelledby="creditsBtn" hidden>
@@ -703,6 +831,36 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
     </ul>
   </div>
 </section>
+<div id="report" role="dialog" aria-modal="true" aria-labelledby="reportTitle" hidden><div class="card">
+  <h2 id="reportTitle">Report a bug or idea</h2>
+  <button type="button" id="reportClose" aria-label="Close the report"><span aria-hidden="true">✕</span></button>
+  <span class="seg" id="reportKind" role="radiogroup" aria-label="What are you sending?"><button type="button" role="radio" data-kind="bug" aria-checked="true">Bug</button><button type="button" role="radio" data-kind="idea" aria-checked="false">Idea</button></span>
+  <label for="reportText" class="sr">Your note</label>
+  <textarea id="reportText" rows="4" maxlength="1000"></textarea>
+  <small id="reportCount" aria-live="polite">0 / 1000</small>
+  <div id="reportPic">
+    <img id="reportShot" alt="The picture of the game that goes with the report" hidden>
+    <button type="button" id="reportDraw" hidden><span class="crayon" aria-hidden="true">🖍️</span><span id="reportDrawName">Draw-a-Bug</span><span class="done" aria-hidden="true">✓</span></button>
+  </div>
+  <label class="tick"><input type="checkbox" id="reportShotOn" checked><span>Include this picture</span></label>
+  <label class="tick"><input type="checkbox" id="reportStateOn" checked><span>Include my game state<small>Progress, look, settings and where you are</small></span></label>
+  <p id="reportWarn" role="status" hidden></p>
+  <details id="reportWhat"><summary>What's sent: <span id="reportNotice"></span></summary><ul>
+    <li><b>Your note</b>, and whether it's a bug or an idea.</li>
+    <li id="whatShot"><b>This picture</b>: the game as it was when you opened this, and anything you drew on it.</li>
+    <li id="whatState"><b>Your game state</b>: your saved game (progress, look and settings), and where you're standing, what's open on screen, the season and how long you've played this visit.</li>
+    <li><b>Always</b>: the game's version, your device type (graphics setting, frame rate, screen size, touch or not, browser) and the last few errors the game hit.</li>
+    <li><b>Never</b>: your name or email. Your account is only used to stop too many reports at once.</li>
+    <li id="whatKept"><b>Kept 7 days</b>: <span id="whatKeptText"></span> deleted after that. Everything goes to the developer, only to find and fix the problem.</li>
+  </ul></details>
+  <div class="btns"><button type="button" id="reportCancel">Cancel</button><button type="button" id="reportSend">Send</button></div>
+</div></div>
+<div id="sendFx" aria-hidden="true" hidden></div>
+<div id="draw" role="dialog" aria-modal="true" aria-labelledby="drawTitle" hidden><div class="card">
+  <p id="drawTitle">Draw-a-Bug: circle what's wrong</p>
+  <canvas id="drawCanvas" aria-label="The picture of the game. Draw on it in red"></canvas>
+  <div class="btns"><button type="button" id="drawUndo">Undo</button><button type="button" id="drawClear">Clear</button><button type="button" id="drawDone">Done</button></div>
+</div></div>
 <div id="cloudPick" role="dialog" aria-modal="true" aria-labelledby="cloudAsk" hidden><div class="card">
   <p id="cloudAsk">This device and your account have different games. Which one do you want to keep? The other one will be replaced.</p>
   <button type="button" data-keep="device"><b>Keep this device's game</b><span id="cloudHere"></span></button>
@@ -763,6 +921,12 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
     <button type="button" id="insureYes" class="gold">Yes</button>
     <button type="button" id="insureNo">No thanks</button>
   </div>
+  <div class="cut" id="bjCut" hidden>
+    <span aria-hidden="true">Top</span>
+    <input type="range" id="cutAt" step="1" aria-label="Where to put the cut card: cards from the top">
+    <span aria-hidden="true">Bottom</span>
+    <button type="button" id="cutBtn" class="go">Cut</button>
+  </div>
   <div class="stakes" role="group" aria-label="Stake">
     <button type="button" data-stake="0">$5</button>
     <button type="button" data-stake="1">$25</button>
@@ -811,7 +975,7 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
   <span id="rainHint" role="status" hidden></span>
 </div>
 <div id="stick"><div id="knob"></div></div>
-<div id="err"></div>
+<div id="err" role="alert"><span id="errMsg"></span><button id="errReport" type="button" hidden>Report this</button></div>
 
 <script>
 // The loading screen. A build lists the game's scripts and their sizes in window.PRELOAD (see vite.config.ts): fetch

@@ -20,6 +20,8 @@ const listeners: (() => void)[] = [];
 /** Calls `f` whenever the graphics, or the player's choice, change. */
 export const onQuality = (f: () => void) => { listeners.push(f); };
 export const isHigh = () => gfx.quality === 'high';
+/** Frames a second lately, smoothed. */
+export const frameRate = { fps: 0 };
 
 function setQuality(q: Quality) {
   gfx.quality = q;
@@ -49,6 +51,8 @@ function watchAgain() { settle = SETTLE; span = frames = strikes = 0; }
  * phone locked), not a slow frame, and the game settles again after it.
  */
 export function frameDrawn(sec: number) {
+  // a smoothed frame rate, for bug reports (report.ts)
+  if (sec > 0 && sec < 1) frameRate.fps += (1 / sec - frameRate.fps) * 0.05;
   if (gfx.picked || gfx.quality === 'low') return;
   if (sec > 0.25 || document.hidden) { watchAgain(); return; }
   if (settle > 0) { settle -= sec; return; }
