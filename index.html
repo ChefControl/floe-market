@@ -262,6 +262,34 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
 #controls:focus-visible, #buyBtnToggle:focus-visible{ outline:3px solid var(--coral); outline-offset:2px; }
 @media (prefers-reduced-motion: reduce){ #buyBtnToggle, #buyBtnToggle::after{ transition:none; } }
 /* Sound opens into a mute button and a 0-10 slider for each kind of sound, sized for fingers */
+/* Report a bug or idea (report.ts): signed out, the row signs in instead (no chevron); signed in, it opens into a note,
+   the picture of the game, a tickbox each for the picture and the game state, and a notice of exactly what's sent */
+#reportCat:not(.cat) .chev{ display:none; }
+#reportKind{ display:flex; gap:2px; padding:3px; border-radius:12px; background:rgba(127,140,150,.22); }
+#reportKind button{ flex:1; min-height:38px; border:0; border-radius:9px; background:transparent; color:var(--pill-ink); font:700 15px "Baloo 2","Trebuchet MS",system-ui,sans-serif; cursor:pointer; }
+#reportKind button[aria-checked="true"]{ background:var(--coral); color:#fff; box-shadow:0 2px 0 var(--shade); }
+#reportText{ box-sizing:border-box; width:100%; min-height:84px; padding:8px 10px; border:0; border-radius:12px; background:var(--pill); color:var(--pill-ink); font:500 16px/1.3 system-ui,sans-serif; resize:vertical; }
+#reportCount{ margin-top:-4px; font-size:12px; opacity:.6; text-align:right; }
+#reportShot{ display:block; width:100%; max-height:180px; object-fit:contain; background:rgba(0,0,0,.25); border-radius:10px; box-shadow:0 2px 0 var(--shade); transition:opacity .15s; }
+#reportShot[hidden]{ display:none; }
+#reportShot.off{ opacity:.3; }
+#reportPanel .tick{ display:flex; align-items:flex-start; gap:8px; font:700 15px/1.2 "Baloo 2","Trebuchet MS",system-ui,sans-serif; cursor:pointer; }
+#reportPanel .tick input{ flex:none; width:20px; height:20px; margin:0; accent-color:var(--coral); }
+#reportPanel .tick span{ display:flex; flex-direction:column; }
+#reportPanel .tick small{ font-size:12px; font-weight:600; opacity:.65; }
+#reportWarn{ margin:0; color:var(--down); font-size:13px; font-weight:700; line-height:1.3; }
+#reportWarn[hidden]{ display:none; }
+#reportNotice{ margin:0; font-size:12px; font-weight:500; line-height:1.4; }
+#reportWhat{ font-size:12px; font-weight:500; line-height:1.4; }
+#reportWhat summary{ font-weight:700; cursor:pointer; }
+#reportWhat ul{ margin:4px 0 0; padding-left:16px; }
+#reportPanel .btns{ display:flex; gap:8px; }
+#reportPanel .btns button{ flex:1; min-height:40px; border:0; border-radius:999px; font:800 15px "Baloo 2","Trebuchet MS",system-ui,sans-serif; cursor:pointer; background:var(--pill); color:var(--pill-ink); box-shadow:0 2px 0 var(--shade); }
+#reportPanel .btns #reportSend{ background:var(--go); color:#fff; }
+#reportPanel button:focus-visible, #reportText:focus-visible, #reportPanel .tick input:focus-visible, #reportWhat summary:focus-visible{ outline:3px solid var(--coral); outline-offset:2px; }
+@media (prefers-reduced-motion: reduce){ #reportShot{ transition:none; } }
+#errReport{ margin-left:10px; padding:3px 12px; border:0; border-radius:999px; background:#fff; color:#B3261E; font:700 14px system-ui,sans-serif; cursor:pointer; }
+#errReport[hidden]{ display:none; }
 /* Credits & Copyrights, the menu's last row, opening into the music's and the sounds' notices */
 #settings #creditsCard{ gap:0; color:var(--pill-ink); font-size:12px; line-height:1.4; font-weight:500; }
 #creditsCard h3{ margin:6px 0 2px; font:800 13px "Baloo 2","Trebuchet MS",system-ui,sans-serif; }
@@ -679,6 +707,26 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
   </div>
   <button id="restart" type="button"><span class="ic" aria-hidden="true">↺</span><span id="restartText">Restart</span></button>
   <h2 class="sgroup">About</h2>
+  <button id="reportCat" class="cat" type="button" aria-expanded="false" aria-controls="reportPanel" hidden><span class="ic" aria-hidden="true">🐞</span><span id="reportName">Report a bug or idea</span><i class="chev" aria-hidden="true"></i></button>
+  <div id="reportPanel" class="catPanel" role="group" aria-labelledby="reportName" hidden>
+    <span class="seg" id="reportKind" role="radiogroup" aria-label="What are you sending?"><button type="button" role="radio" data-kind="bug" aria-checked="true">Bug</button><button type="button" role="radio" data-kind="idea" aria-checked="false">Idea</button></span>
+    <label for="reportText" class="sr">Your note</label>
+    <textarea id="reportText" rows="4" maxlength="1000"></textarea>
+    <small id="reportCount" aria-live="polite">0 / 1000</small>
+    <img id="reportShot" alt="The picture of the game that goes with the report" hidden>
+    <label class="tick"><input type="checkbox" id="reportShotOn" checked><span>Include this picture</span></label>
+    <label class="tick"><input type="checkbox" id="reportStateOn" checked><span>Include my game state<small>Progress, look, settings and where you are</small></span></label>
+    <p id="reportWarn" role="status" hidden></p>
+    <p id="reportNotice"></p>
+    <details id="reportWhat"><summary>What's sent</summary><ul>
+      <li>Your note, and whether it's a bug or an idea.</li>
+      <li>The picture: the game as it was when you opened this, without the menus.</li>
+      <li>Your game state: your saved game (progress, look and settings) and, from this moment, where you're standing, what's open on screen, the season and how long you've played this visit.</li>
+      <li>Always: the game's version, your graphics setting and frame rate, your screen size, whether it's a touch screen, your browser, and the last few errors the game hit.</li>
+      <li>Never: your name or email. Your account is only used to stop too many reports at once.</li>
+    </ul></details>
+    <div class="btns"><button type="button" id="reportCancel">Cancel</button><button type="button" id="reportSend">Send</button></div>
+  </div>
   <a id="kofi" href="https://ko-fi.com/chefcontrol" target="_blank" rel="noopener"><span class="ic" aria-hidden="true">☕</span>Buy me a coffee<i aria-hidden="true">↗</i></a>
   <button id="creditsBtn" class="cat" type="button" aria-expanded="false" aria-controls="creditsCard"><span class="ic" aria-hidden="true">©</span>Credits &amp; Copyrights<i class="chev" aria-hidden="true"></i></button>
   <div id="creditsCard" class="catPanel" role="region" aria-labelledby="creditsBtn" hidden>
@@ -800,7 +848,7 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
   <span id="rainHint" role="status" hidden></span>
 </div>
 <div id="stick"><div id="knob"></div></div>
-<div id="err"></div>
+<div id="err" role="alert"><span id="errMsg"></span><button id="errReport" type="button" hidden>Report this</button></div>
 
 <script>
 // The loading screen. A build lists the game's scripts and their sizes in window.PRELOAD (see vite.config.ts): fetch

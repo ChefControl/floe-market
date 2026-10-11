@@ -14,7 +14,7 @@ npm run dev
 - **Loading:** a loading screen shows the game's scripts coming in, megabytes so far out of the total (about 1.3 MB, or 380 kB over the wire compressed: there are no image files to fetch, and the only sound files, the casino yacht's room tone, come later, when you first walk out to it), then stays up while the world is built, until the first frame is drawn
 - **Move:** drag anywhere (touch or mouse) for a virtual joystick, or use WASD / arrow keys. The first time on a device, a small card below the player shows how, and how to buy (a finger on the joystick on phones and tablets, the keys on a computer, going by the browser's user agent); once you've walked a little it shrinks away into the ⚙️ settings gear, where **Controls** brings it back
 - **Tutorial (stage 1):** a new player is shown the market one idea at a time, each when it first matters. A gold arrow bobs over where to go, with a gold ring on the ground under it and a bubble saying what to do there; while that spot is off-screen, the bubble waits at the edge of the screen with a gold tail pointing the way. First the loop, in order: stand on the 🎣 pad to fish, pick up the slices from the pile, drop them on the counter's 🐟 pad, and collect the cash. Then buying, cheapest first: Bigger arms ($30), a level at the 📈 Upgrade square ($40), and the auto harpoon ($90). Each is a goal: a message says what's next ("Next goal: Bigger arms, $30"), and a chip under the HUD shows it with the cash so far and a bar filling up, turning gold once there's enough. Then the arrow leads to it: on a tile, "stand on it and hold E" (or Buy on a touch screen, going by whether the Buy button is in use); on the Upgrade square, which is learnt by buying a level there, "tap" or "click one in the list". Anything bought ahead of its turn counts. When a tile that needs a better rating comes on offer, a tip says what it needs, with the ★ in the HUD pulsing, until it's been in view for 6 seconds. Each idea is learnt by doing it, and the arrow steps aside while you stand where it points (except where you buy, where what to do needs saying). The last of the basics (usually the harpoon) brings up a banner with confetti for 4 seconds: Well done, Tutorial complete, and under it "The rest is up to you. Go make it big!" The rating tip is for later and doesn't bring it back. A player never sees an idea twice: what they've learnt is kept on the device, so Restart doesn't bring it back, and in the save, so it follows a signed-in player to their other devices. Saves from before the tutorial count what they've already done: anything bought means the loop, buying and the harpoon are known (a save since keeps its own lessons, so reloading mid-tutorial skips nothing)
-- **Settings (⚙️, top right),** in four groups. *You:* sign in for cloud saves, and **Your look** (below). *Graphics & sound:* **Graphics** (below), which opens into Auto, Low or High and shows the choice on its row, and **Sound**, which opens into the effects, the ambience and the music, each with a mute button and a volume from 1 to 10 (7 is the game's mix; each step is about 2 dB), remembered on the device. *Game:* **Controls**, which opens into How to play (the controls card) and a switch for the Buy button on screen (on unless turned off, kept on the device), and Restart. *About:* **Buy me a coffee**, which opens the game's [Ko-fi page](https://ko-fi.com/chefcontrol) in a pop-up window of its own (a new tab where pop-ups are blocked), so the game stays put; and last, **Credits & Copyrights**, which opens into the notices for the music and sound. Like Sound, Controls, Graphics and the credits each open and close with a click. While the menu is closed, a dot on the gear shows the cloud's state. After 10 minutes of play on a device, a toast says once where Buy me a coffee is and the gear pulses, unless the player has already found it
+- **Settings (⚙️, top right),** in four groups. *You:* sign in for cloud saves, and **Your look** (below). *Graphics & sound:* **Graphics** (below), which opens into Auto, Low or High and shows the choice on its row, and **Sound**, which opens into the effects, the ambience and the music, each with a mute button and a volume from 1 to 10 (7 is the game's mix; each step is about 2 dB), remembered on the device. *Game:* **Controls**, which opens into How to play (the controls card) and a switch for the Buy button on screen (on unless turned off, kept on the device), and Restart. *About:* **Report a bug or idea** (see [Reports](#reports)); **Buy me a coffee**, which opens the game's [Ko-fi page](https://ko-fi.com/chefcontrol) in a pop-up window of its own (a new tab where pop-ups are blocked), so the game stays put; and last, **Credits & Copyrights**, which opens into the notices for the music and sound. Like Sound, Controls, Graphics and the credits each open and close with a click. While the menu is closed, a dot on the gear shows the cloud's state. After 10 minutes of play on a device, a toast says once where Buy me a coffee is and the gear pulses, unless the player has already found it
 - **Your look (👕 in the settings):** dress the player from the crowd's wardrobe, free: a man's or a woman's build, six skin tones, eight hair colours and cuts (short, a quiff, curls, bald on top, long, a ponytail, a bun or a bob), a cartoon face the way PEAK does them (eyes: dots, round, sparkly, happy ^^, sleepy, lashes, angry brows or a wink; a mouth: none, a smile, a grin, the tongue out, an "o", flat, a smirk or a frown), a moustache, beard, goatee or earrings, glasses, rosy or freckled cheeks, and the colours of your top, trousers, skirt (worn in spring and summer) and shoes (snow boots in winter). Anyone can wear anything; 🎲 mixes up a whole look the way the crowd's are. While the panel is open the camera comes down in close for a head-to-toe look (rising higher if a wall or a counter is in the way), the player turns to face it and tries the look on in spring clothes with nothing on their head, so the hood or a hat doesn't hide it; walking off or Done puts the season's clothes back on over it. The look goes with the save (and to the cloud, for players who sign in), and stays on the device through a Restart
 - **Fish:** stand on the 🎣 pad to hook fish; they get chopped into fish slices automatically
 - **Sell fish (stage 1):** pick slices up from the pile, drop them on the counter's 🐟 pad, and walk over the cash to collect it. Walk-in customers pay $4 a slice; once the drive-up window is built, drivers on the road buy 4–8 at a time at $6
@@ -198,6 +198,31 @@ The 🏆 button (top right) lists the 20 players who have held the most cash at 
 - **Data:** one Firestore document per player, `scores/{your account id}`, with that name, the best and the stage. Anyone can read the scoreboard; only you can write your own entry (`firestore.rules`). A project set up before the scoreboard needs `firestore.rules` pasted and published again, or the scoreboard says it can't load.
 - **Quota:** opening the scoreboard reads up to 20 documents. A signed-in player writes their entry at most once per sync, and only when their best or stage changed.
 
+### Reports
+
+**Report a bug or idea** (🐞 in the settings, under About) sends a note to the developer. It shows once cloud saves are set up. Signed out, the row says "Sign in to send a report" and signs in.
+
+- **The form:**
+  - Bug or Idea, and a note of up to 1,000 characters.
+  - A picture of the game, taken the moment the row opens, so it shows the game behind the menu.
+  - Two tickboxes, both on each time it opens: **Include this picture** and **Include my game state**. The game state is the save (progress, look and settings) plus where the player is standing and facing, what's open on screen, the season, the sound's mutes, the cloud's state and how many minutes they've played this visit.
+- **What the player is told:** the notice above Send lists exactly what goes, and changes as the boxes are ticked:
+  > Sending shares your note, this picture and your game state with the developer, to find and fix the problem. The game version, your device type and recent errors go too. Your name and email are not sent. The picture and game state are deleted after 7 days.
+
+  Unticking a box adds a warning under it: "Without the picture, it may be hard to see what went wrong", or "Without your game state, the developer may not be able to make it happen again to fix it". **What's sent** opens into the full list.
+- **Always sent:** the commit the game was built from, the graphics setting and frame rate, screen size, whether it's a touch screen, the browser, and the last 10 errors the game hit this visit.
+- **Sending:**
+  - "Thanks! Your report is on its way."
+  - Within 2 minutes of the last report, it says to try again in a couple of minutes.
+  - When the cloud can't be reached, the report waits on the device (the newest two at most) and goes when the player is next signed in and synced. The thanks says so.
+- **When something breaks:** the red error box has a **Report this** button, which opens the form with the error written in.
+- **Data:** each report is a Firestore document in `reports/`, with a name of 20 letters and digits.
+  - Only players signed in with Google can add one, and nobody can read, change or delete one from the game.
+  - `limits/{your account id}` keeps reports at least 2 minutes apart and to 10 a day.
+  - `config/reports` (`{open: true}`, made by hand in the console) switches reports on and off.
+  - All of this is in `firestore.rules`; the rules are tested against the Firestore emulator in `test/rules/`.
+- **Becoming issues:** a workflow in the private repo `ChefControl/floe-market-reports` turns each report into an issue every 30 minutes, with the picture inline. It deletes pictures and saves after 7 days. Its code and setup are in [`intake/`](intake/README.md).
+
 ## Development
 
 TypeScript + [three.js r186](https://threejs.org/), bundled with [Vite](https://vite.dev/). All textures are drawn at runtime on canvas; the Baloo 2 font comes from Google Fonts.
@@ -210,6 +235,7 @@ TypeScript + [three.js r186](https://threejs.org/), bundled with [Vite](https://
 | `npm run preview` | Serve the production build |
 | `npm test` | Unit tests with coverage (fails below the thresholds in `vite.config.ts`) |
 | `npm run test:watch` | Unit tests in watch mode |
+| `npm run test:rules` | `firestore.rules`' tests, in the Firestore emulator (needs Java 21; CI runs them on every pull request) |
 
 `SIM=1 SIM_MINUTES=60 SIM_OUT=sim.txt npx vitest run test/balance.sim.test.ts` has a bot (`test/bot.ts`) play a fresh game for an hour of game time, in a few seconds, and writes when it bought each upgrade and how its money and earnings grew minute by minute. Use it to check the balance after changing prices; `test/softlock.test.ts` also uses the bot to check a whole game never stalls.
 
@@ -285,7 +311,7 @@ Each deploy removes the last one's files, and GitHub Pages lets browsers keep th
 | `src/items.ts` | Fish slice, rice, plate, box and bill meshes |
 | `src/input.ts` | Virtual joystick and keyboard |
 | `src/hint.ts` | How to walk: shown once a device, by its user agent, then off into the settings gear |
-| `src/settings.ts` | The settings menu behind the gear: sign-in, sound and music switches, graphics, how to walk, Restart |
+| `src/settings.ts` | The settings menu behind the gear: sign-in, sound and music switches, graphics, how to walk, Restart, credits |
 | `src/graphics.ts` | Graphics, Auto, Low or High: the player's choice kept on the device, and Auto's pick by the frame rate |
 | `src/audio.ts` | The sound engine: Web Audio voices (tones and filtered noise), buses, placing sounds in the world, the scale |
 | `src/sfx.ts` | Every sound effect, one function each |
@@ -297,7 +323,8 @@ Each deploy removes the last one's files, and GitHub Pages lets browsers keep th
 | `src/ui.ts` | HUD and stage chip (which folds the modifier list), toasts, tips, floating text, the stage-up banner and confetti, and sliding the view so an open panel never covers the player |
 | `src/save.ts` | Per-device save/load, migration, autosave, one-tab-at-a-time guard |
 | `src/cloud.ts` | Cloud saves: the sign-in button, syncing with the account, asking which game to keep |
+| `src/report.ts` | Report a bug or idea: the form in the settings, the picture of the game, the notice of what's sent, and reports waiting for the cloud |
 | `src/firebase.ts` / `src/cloud.config.ts` | Cloud saves on Firebase (Google sign-in, Firestore), downloaded on the loading screen and started a few seconds in / the Firebase project's config |
 | `src/wallet.ts` | Money |
-| `src/errors.ts` | On-screen error reporting, and reloading once when a deploy removed a file the page needs |
+| `src/errors.ts` | On-screen error reporting (with a Report this button), the last few errors for bug reports, and reloading once when a deploy removed a file the page needs |
 | `src/util.ts` | Math/random helpers |

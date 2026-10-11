@@ -10,6 +10,7 @@ import { inputVec } from './input';
 import { updKofi } from './kofi';
 import { player } from './player';
 import { updPointers } from './pointers';
+import { initReports } from './report';
 import { camera, camK, fog, OFF, renderer, scene, sun, sunOff } from './render';
 import { isStale, load, startAutosave, wipeSave } from './save';
 import { initScores } from './scores';
@@ -23,6 +24,7 @@ load();
 batchStill(scene);
 startAutosave();
 initCloud();
+initReports();
 initHint();
 initScores();
 // the demo build's tool panel (demo.ts); the game itself never loads it
