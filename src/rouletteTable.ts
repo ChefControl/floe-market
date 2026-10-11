@@ -12,7 +12,8 @@ import { cheer, chipStack, gamePad, greeting, settleTweens, slide, speaker, Stak
 import { Person, SUITS } from './characters';
 import { GAMES, pushOutOfBox } from './layout';
 import { bake, canvasTex, FONT, G, mat, mesh, rr, scene, type Part } from './render';
-import { colorOf, multiplier, startRound, WHEEL, type Bet, type Moves, type RouletteRound } from './roulette';
+import { colorOf, multiplier, startRound, WHEEL, type Bet, type RouletteRound } from './roulette';
+import type { Moves } from './round';
 import { lose, tick, win } from './sfx';
 import { popText } from './ui';
 import { money, V, type XZ } from './util';

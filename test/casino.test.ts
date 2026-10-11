@@ -1,11 +1,10 @@
 // The casino boat: the games' rules, the boat and the way out to it, and each game as the player plays it. A roulette
-// round's rules and money are in roulette.test.ts.
+// round's rules and money are in roulette.test.ts, a slots round's in slots.test.ts.
 import { describe, expect, it, vi } from 'vitest';
 import {
   canSplit, cutShoe, dealerDraws, handValue, insuranceCost, isBlackjack, newShoe, rankName, settle, type Card, type Suit,
 } from '../src/blackjack';
 import { WHEEL } from '../src/roulette';
-import { lineMultiplier, pull, REEL, type Sym } from '../src/slots';
 import { bought, loadGame } from './helpers';
 
 const $ = (id: string) => document.getElementById(id)!;
@@ -73,33 +72,6 @@ describe('blackjack rules', () => {
     expect(cutShoe(shoe, 2)).toEqual([c(4), c(5), c(1), c(2), c(3)]);
     expect(cutShoe(shoe, 2).pop()).toEqual(c(3));
     expect(shoe).toEqual([c(1), c(2), c(3), c(4), c(5)]);
-  });
-});
-
-describe('slot machine rules', () => {
-  it('has 20 symbols a reel, the rarer ones worth more', () => {
-    const count = (s: Sym) => REEL.filter(x => x === s).length;
-    expect(REEL).toHaveLength(20);
-    expect(['🍒', '🍋', '🔔', '🐟', '💎', '7'].map(s => count(s as Sym))).toEqual([6, 5, 4, 3, 1, 1]);
-  });
-
-  it('pays for three of a kind, and for two cherries', () => {
-    expect(lineMultiplier(['7', '7', '7'])).toBe(100);
-    expect(lineMultiplier(['🍒', '🍒', '🍒'])).toBe(8);
-    expect(lineMultiplier(['🍒', '🍋', '🍒'])).toBe(2);
-    expect(lineMultiplier(['🍒', '🍋', '🔔'])).toBe(0);
-    expect(lineMultiplier(['7', '7', '💎'])).toBe(0);
-  });
-
-  it('returns about 97% of what goes in, like the roulette wheel', () => {
-    let back = 0;
-    for (let a = 0; a < 20; a++) for (let b = 0; b < 20; b++) for (let d = 0; d < 20; d++) back += lineMultiplier([REEL[a], REEL[b], REEL[d]]);
-    expect(back / 8000).toBeCloseTo(0.973, 3);
-  });
-
-  it('stops each reel where the random numbers say', () => {
-    expect(pull(() => 0)).toEqual([0, 0, 0]);
-    expect(pull(() => 0.999)).toEqual([19, 19, 19]);
   });
 });
 

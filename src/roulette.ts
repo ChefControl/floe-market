@@ -1,6 +1,7 @@
 // European roulette: one zero, 37 pockets. The casino boat's table takes colour bets only: red or black at even
 // money, or green (the zero) at 35 to 1. A round is played here, free of the table and the wallet, so it's easy to
 // test: the table animates it and applies the money it moves.
+import type { Moves } from './round';
 
 /** Pocket order around the wheel, clockwise from zero. */
 export const WHEEL = [
@@ -18,12 +19,6 @@ export type Bet = PocketColor;
 
 /** What a winning bet returns per unit staked, stake included (green, a single pocket, pays 35 to 1). */
 export const multiplier = (bet: Bet) => bet === 'green' ? 36 : 2;
-
-/**
- * The money a round moves, for whoever holds the wallet to apply: `take` comes out of the player's cash, `pay` goes
- * back into it, and `owed` is what the round has won but not yet shown (a save counts it as cash), as it stands now.
- */
-export interface Moves { take?: number; owed?: number; pay?: number }
 
 /**
  * One roulette round. The pocket is picked as the round starts, so the win is known (and owed) from the first moment;
