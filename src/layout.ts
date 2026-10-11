@@ -76,12 +76,16 @@ export const TOP = UPPER + SALON.h + 0.16;
 /**
  * The blackjack lounge (casinoSalon.ts): a third floor on the aft half of the salon's roof, walled in like the salon
  * below it, with the jacuzzi deck on its roof. From the ship's middle: its ends along it, its walls' distance either
- * side, how tall it is, and the staircase up to it along the salon's north wall: its head at `x0`, up in the lounge,
- * its foot at `x1` on the salon's floor, from the north wall in to `z1`, where a balustrade runs along it.
+ * side, and how tall it is; its door, at the north end of its east wall; the staircase up to the roof outside, from
+ * the foredeck beside the salon's stairs (its foot at `x1`) up through the hardtop over the salon's door (its head at
+ * `x0`), between `z0` and `z1`, steep as a yacht's are; and the terrace on the roof from the stairs' head aft along
+ * the north side, past the sky lounge, to the lounge's door.
  */
 export const LOUNGE = {
   x0: SALON.x0, x1: -1.0, side: SALON.side, h: 2.3,
-  stairs: { x0: -3.6, x1: -1.3, z1: -1.6 },
+  door: { z0: -2.95, z1: -2.05 },
+  stairs: { x0: 3.75, x1: 6.3, z0: -1.9, z1: -1.0 },
+  terrace: { x0: -1.4, x1: 3.75, z0: -2.95, z1: -2.05 },
 };
 /** A level of the boat's floors: the lounge's, or anything below it. */
 export const upTop = (p: { y: number }) => p.y > (UPPER + TOP) / 2;
@@ -90,11 +94,11 @@ export const upTop = (p: { y: number }) => p.y > (UPPER + TOP) / 2;
 export const loungeSeen = { k: 1 };
 export const casinoBoat = { open: false };
 const along = (x: number) => SHIP.x + x, across = (z: number) => SHIP.z + z;
-/** Where you stand to play each game: roulette and the slot machines in the salon, in front of their table and
- *  machines along the back wall; blackjack up in the lounge, at the middle of the five seats round its table, whose
- *  dealer stands with their back to the stern. */
+/** Where you stand to play each game: roulette and the slot machines in the salon, in front of their table (in the
+ *  middle of the back wall) and machines along it; blackjack up in the lounge, at the middle of the five seats round
+ *  its table, whose dealer stands with their back to the stern. */
 export const GAMES = {
-  roulette: { x: along(-4.8), y: UPPER, z: across(0) },
+  roulette: { x: along(-3.0), y: UPPER, z: across(0) },
   blackjack: { x: along(-5.1), y: TOP, z: across(0) },
   slots: { x: along(0.4), y: UPPER, z: across(0) },
 };
@@ -106,13 +110,23 @@ const LANDING = area(along(DECKS.stairs.x1 - 0.2), along(DECKS.gangway + 0.4), a
 const STAIRS = area(along(DECKS.stairs.x0), along(DECKS.stairs.x1), across(-DECKS.stairs.half), across(DECKS.stairs.half), UPPER);
 const UPPER_DECK = area(along(DECKS.stern), along(DECKS.front), across(-SHIP.beam + 0.5), across(SHIP.beam - 0.5), UPPER);
 /** The lounge's staircase, climbing west from the salon's floor, and the lounge's floor. */
-const SKY_STAIRS = area(along(LOUNGE.stairs.x0), along(LOUNGE.stairs.x1), across(-SHIP.beam + 0.5), across(LOUNGE.stairs.z1), TOP);
-const LOUNGE_FLOOR = area(along(LOUNGE.x0 + 0.3), along(LOUNGE.stairs.x1), across(-SHIP.beam + 0.5), across(SHIP.beam - 0.5), TOP);
-/** Where the player can walk aboard: up in the lounge, only the lounge and its stairs; below it, the rest. */
+/** The stairs up to the roof (a little narrower than they are), the foredeck at their foot, the roof at their head
+ *  (beside the sky lounge), the terrace aft from there to the lounge's door, and the lounge's floor. */
+const { stairs: SKY, terrace: TER } = LOUNGE;
+const SKY_STAIRS = area(along(SKY.x0), along(SKY.x1), across(SKY.z0 + 0.05), across(SKY.z1 - 0.05), TOP);
+const SKY_FOOT = area(along(SKY.x1 - 0.05), along(SKY.x1 + 0.3), across(SKY.z0 + 0.05), across(-0.7));
+const SKY_HEAD = area(along(SKY.x0 - 0.6), along(SKY.x0), across(TER.z0), across(SKY.z1 - 0.05), TOP);
+const TERRACE = area(along(TER.x0), along(TER.x1), across(TER.z0), across(TER.z1), TOP);
+const LOUNGE_FLOOR = area(along(LOUNGE.x0 + 0.3), along(LOUNGE.x1 - 0.3), across(-SHIP.beam + 0.5), across(SHIP.beam - 0.5), TOP);
+const ROOF = [SKY_HEAD, TERRACE, LOUNGE_FLOOR];
+/** Where the player can walk aboard: up top, only the roof and the lounge (and the stairs down); below, the rest. */
 const casinoAreas = (p?: { y: number }) =>
-  !casinoBoat.open ? [] : p && upTop(p) ? [SKY_STAIRS, LOUNGE_FLOOR] : [QUAY_FLOOR, GANGWAY, LANDING, STAIRS, UPPER_DECK];
-/** Up the lounge's stairs at `p`: from the salon's floor at their foot to the lounge's at their head. */
-const skyStep = (p: XZ) => UPPER + (TOP - UPPER) * (SKY_STAIRS.x1 - p.x) / (SKY_STAIRS.x1 - SKY_STAIRS.x0);
+  !casinoBoat.open ? [] : p && upTop(p) ? [SKY_STAIRS, ...ROOF]
+  : [QUAY_FLOOR, GANGWAY, LANDING, SKY_FOOT, SKY_STAIRS, STAIRS, UPPER_DECK];
+/** Up the stairs to the roof at `p`: from the foredeck at their foot to the roof at their head. */
+const skyStep = (p: XZ) => FY + (TOP - FY) * (SKY_STAIRS.x1 - p.x) / (SKY_STAIRS.x1 - SKY_STAIRS.x0);
+/** On the stairs up to the roof, outside the salon. */
+export const onSkyStairs = (p: XZ) => casinoBoat.open && inside(SKY_STAIRS, p);
 /**
  * Height of the harbor's floor at `p`: the quay and the main deck, the stairs climbing, the upper deck, or (for
  * someone up there, given their height) the lounge; null off it.
@@ -120,10 +134,10 @@ const skyStep = (p: XZ) => UPPER + (TOP - UPPER) * (SKY_STAIRS.x1 - p.x) / (SKY_
 function casinoY(p: XZ & { y?: number }) {
   if (!casinoBoat.open) return null;
   if (inside(SKY_STAIRS, p)) return skyStep(p);
-  if (p.y !== undefined && upTop({ y: p.y }) && inside(LOUNGE_FLOOR, p)) return TOP;
+  if (p.y !== undefined && upTop({ y: p.y }) && ROOF.some(a => inside(a, p))) return TOP;
   if (inside(STAIRS, p)) return FY + (UPPER - FY) * (STAIRS.x1 - p.x) / (STAIRS.x1 - STAIRS.x0);
   if (inside(UPPER_DECK, p)) return UPPER;
-  return [QUAY_FLOOR, GANGWAY, LANDING].some(a => inside(a, p)) ? FY : null;
+  return [QUAY_FLOOR, GANGWAY, LANDING, SKY_FOOT].some(a => inside(a, p)) ? FY : null;
 }
 /** On the harbor's boards: the quay or anywhere aboard (for footsteps on wood). */
 export const onHarbor = (p: XZ) => casinoY(p) !== null;

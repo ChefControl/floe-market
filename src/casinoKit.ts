@@ -131,6 +131,8 @@ export function speaker(on: Object3D, y: number) {
       drawSay(t.ctx, text); t.tex.needsUpdate = true;
       left = SAY_SECS; s.visible = true;
     },
+    /** Stops talking: the bubble fades out now. */
+    hush() { left = Math.min(left, FADE); this.text = ''; },
     upd(dt: number) {
       if (!s.visible) return;
       // smaller close up, at a table, so it doesn't fill the view

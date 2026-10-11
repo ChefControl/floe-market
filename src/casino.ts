@@ -15,7 +15,7 @@ import {
 } from 'three';
 import { collideBlackjack, updBlackjack } from './blackjackTable';
 import { updTweens, visits } from './casinoKit';
-import { buildSalon, carpet, collideLounge, collideSalon, JACK, oblong, slab, strut, updSalon } from './casinoSalon';
+import { buildSalon, carpet, collideSalon, JACK, oblong, slab, strut, updSalon } from './casinoSalon';
 import { aboard, casinoBoat, DECKS, hullHalf, pushOutOfBox, QUAY, SHIP, UPPER, upTop } from './layout';
 import { player } from './player';
 import { popIn } from './pop';
@@ -367,7 +367,7 @@ function updVisit() {
 export function collideCasino(p: XZ & { y: number }) {
   if (!ship) return;
   // up in the lounge, only what's up there gets in the way
-  if (upTop(p)) { collideLounge(p); collideBlackjack(p); return; }
+  if (upTop(p)) { collideBlackjack(p); return; }
   collideRoulette(p); collideSlots(p); collideSalon(p);
   for (const o of [BOOTH, CRATES]) pushOutOfBox(p, o.x, o.z, o.w / 2 + 0.3, o.d / 2 + 0.3);
 }

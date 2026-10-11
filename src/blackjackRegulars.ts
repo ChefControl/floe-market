@@ -93,6 +93,8 @@ interface Sitter {
   leaving: boolean;
   /** Seconds left of a cheer, arms up. */
   joy: number;
+  /** The hand signal they're making for their move, as players do at the table, and how far into it they are. */
+  sign: { move: 'hit' | 'stand' | 'double'; t: number } | null;
 }
 let sitters: Sitter[] = [];
 /** The seats round the table, in its space, and the way each faces; and where people come up the stairs. */
@@ -107,7 +109,7 @@ export function buildRegulars(g: Group, seats: Vector3[], faces: number[], front
     const p = new Person(r.color, 'fancy', { ...plain(0), ...r.look, skirt: r.look.woman ? r.color : null });
     p.visible = false;
     g.add(p);
-    return { r, p, bubble: speaker(p, 2.15), seat: null, path: [], leaving: false, joy: 0 };
+    return { r, p, bubble: speaker(p, 2.15), seat: null, path: [], leaving: false, joy: 0, sign: null };
   }), dice(0xB1AC7));
 }
 
@@ -164,11 +166,21 @@ export function settleWalks() {
 export const walking = () => sitters.some(s => s.path.length > 0);
 
 const at = (seat: number) => sitters.find(s => s.seat === seat && !s.path.length);
-/** The regular in `seat` says their line. */
+/** The regular in `seat` says their line, and the others stop talking: one at a time. */
 export function say(seat: number, line: Line) {
   const s = at(seat);
-  if (s) s.bubble.say(s.r.lines[line]);
+  if (!s) return;
+  for (const o of sitters) if (o !== s) o.bubble.hush();
+  s.bubble.say(s.r.lines[line]);
 }
+/** The regular in `seat` signals their move with a hand, the way players do at a table: a tap on the felt for a
+ *  card, a wave over it to stand, and both hands forward with more chips to double. */
+export function signal(seat: number, move: 'hit' | 'stand' | 'double') {
+  const s = at(seat);
+  if (s) s.sign = { move, t: 0 };
+}
+/** Everyone stops talking. */
+export function hushAll() { for (const s of sitters) s.bubble.hush(); }
 /** The regular in `seat` throws their arms up. */
 export function cheerAt(seat: number) {
   const s = at(seat);
@@ -197,11 +209,29 @@ export function updRegulars(dt: number) {
     animPerson(p, false, dt, false);
     for (const l of p.legs) l.rotation.x = -1.45;
     s.joy = Math.max(0, s.joy - dt);
-    if (s.joy > 0) {
+    const sign = s.sign;
+    if (sign) sign.t += dt;
+    if (sign && sign.t < 1.0) {
+      const k = Math.sin(Math.min(1, sign.t / 0.25) * Math.PI / 2);
+      p.arms[0].rotation.x = -0.75; p.arms[0].rotation.z = 0;
+      if (sign.move === 'hit') {
+        // two taps on the felt in front of them
+        p.arms[1].rotation.x = -0.75 - 0.6 * k + Math.max(0, Math.sin(sign.t * 18)) * 0.25;
+        p.arms[1].rotation.z = 0;
+      } else if (sign.move === 'stand') {
+        // a flat hand waved side to side over the cards
+        p.arms[1].rotation.x = -0.75 - 0.75 * k;
+        p.arms[1].rotation.z = Math.sin(sign.t * 13) * 0.45 * k;
+      } else {
+        p.arms[0].rotation.x = p.arms[1].rotation.x = -0.75 - 0.6 * k;
+        p.arms[1].rotation.z = 0;
+      }
+    } else if (s.joy > 0) {
       const k = Math.sin(s.joy * 14) * 0.25;
       p.arms[0].rotation.x = p.arms[1].rotation.x = -2.6;
       p.arms[0].rotation.z = -0.3 - k; p.arms[1].rotation.z = 0.3 + k;
     } else {
+      s.sign = null;
       p.arms[0].rotation.x = p.arms[1].rotation.x = -0.75;
       p.arms[0].rotation.z = p.arms[1].rotation.z = 0;
     }

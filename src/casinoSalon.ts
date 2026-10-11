@@ -20,7 +20,7 @@ import { clink } from './sfx';
 import { animPerson, Person, SUITS } from './characters';
 import { at, Build, detail, dice as seeded, quietly } from './kit';
 import { bar, casinoHigh, lounger as padded, palm, treads as highTreads } from './propsCasino';
-import { aboard, DECKS, LOUNGE, loungeSeen, pushOutOfBox, SALON, SHIP, stage, TOP, UPPER } from './layout';
+import { aboard, DECKS, LOUNGE, loungeSeen, onSkyStairs, pushOutOfBox, SALON, SHIP, stage, TOP, UPPER } from './layout';
 import { player } from './player';
 import { bake, bakePainted, canvasTex, FONT, G, mesh, painted, scene, type Part } from './render';
 import { drawReels, REELS_PX, slotRow } from './slotMachine';
@@ -185,9 +185,10 @@ const TUB = { x: -3.3, z: -0.5, r: 0.8 };
 /** The CASINO signs on both sides of the lower deck, under the salon, facing out: where along, how big, how high. */
 const SIGN = { x: -2.3, w: 3.04, h: 0.95, y: FY + 1.4, out: SHIP.beam - 0.38 + 0.07 };
 
-/** The lounge's stairwell from above, as a hole for a shape lying flat (whose y is the ship's -z). */
+/** Where the stairs up to the roof come up through the hardtop over the salon's door, from above, as a hole for a
+ *  shape lying flat (whose y is the ship's -z). */
 function stairwell() {
-  const { x0, x1, z1 } = LOUNGE.stairs, z0 = -SALON.side + 0.06, w = new Shape();
+  const { x0, z0, z1 } = LOUNGE.stairs, x1 = SALON.x1 + 0.8, w = new Shape();
   w.moveTo(x0, -z1); w.lineTo(x1, -z1); w.lineTo(x1, -z0); w.lineTo(x0, -z0); w.closePath();
   return w;
 }
@@ -211,8 +212,8 @@ function buildRoof() {
     glowUp: ownUp(new MeshBasicMaterial({ color: 0xFFD98A })),
   }), seeded(0x10C6E));
   g.add(up);
-  // the hardtop, sweeping forward over the top of the stairs, an LED line glowing under its edge; the lounge's
-  // stairwell comes up through both
+  // the hardtop, sweeping forward over the top of the stairs, an LED line glowing under its edge; the stairs up to
+  // the roof come up through both
   const hardtop = oblong(x0 - 0.3, x1 + 0.9, side + 0.16, 0.3, 1.1), led = oblong(x0 - 0.26, x1 + 0.86, side + 0.12, 0.28, 1.06);
   hardtop.holes.push(stairwell()); led.holes.push(stairwell());
   g.add(slab(hardtop, 0.16, top, white));
@@ -235,12 +236,12 @@ function buildRoof() {
   const rx0 = lx0 - 0.02, rx1 = lx1 + 0.02, rz = ls + 0.02;
   run(rx0, -rz, rx1, -rz); run(rx0, rz, rx1, rz); run(rx0, -rz, rx0, rz); run(rx1, -rz, rx1, rz);
   up.add(mesh(bake(panes), ownUp(new MeshLambertMaterial({ color: 0xCDEBF5, depthWrite: false }), 0.3)), mesh(bake(rail), goldUp));
-  // the blackjack lounge on the aft half of the hardtop: the salon's carpet on its floor, with the stairwell open in
-  // it and railed off; walls of windows like the salon's below, the two on the camera's side fading while the
-  // player's in it; and the sundeck's roof over it, which lifts away then
+  // the blackjack lounge on the aft half of the hardtop: the salon's carpet on its floor; walls of windows like the
+  // salon's below, a door at the north end of the east one onto the terrace, the two on the camera's side fading
+  // while the player's up there; and the sundeck's roof over it, which lifts away then. Outside, the terrace from the
+  // stairs' head to the door: teak on the hardtop, railed along the edge and round where the stairs come up.
   const near = quietly(() => {
     const fl = oblong(lx0, lx1, ls, 0.05, 0.05);
-    fl.holes.push(stairwell());
     const floor = new Mesh(new ShapeGeometry(fl, 4), own(carpet(1, 1)));
     floor.rotation.x = -Math.PI / 2; floor.position.y = deckY + 0.004; floor.receiveShadow = true; g.add(floor);
     const meshesOf = (p: Walls, m: ReturnType<typeof wallMats>) => {
@@ -254,17 +255,29 @@ function buildRoof() {
     own(fm.out); own(fm.in); own(fm.trim); own(fm.glass, fm.glass.opacity);
     meshesOf(far, fm);
     const faders: Fader[] = [];
-    const sides: ((p: Walls) => void)[] = [p => wall('x', lx0, lx1, ls, 1, [], p, deckY, lh), p => wall('z', -ls, ls, lx1, 1, [], p, deckY, lh)];
+    const sides: ((p: Walls) => void)[] = [p => wall('x', lx0, lx1, ls, 1, [], p, deckY, lh), p => wall('z', -ls, ls, lx1, 1, [[LOUNGE.door.z0, LOUNGE.door.z1]], p, deckY, lh)];
     for (const build of sides) {
       const p = walls(), m = wallMats(true);
       build(p);
       faders.push({ meshes: meshesOf(p, m), mats: [m.out, m.in, m.trim, m.glass], near: false, base: [1, 1, 1, m.glass.opacity] });
     }
-    // the stairwell's balustrade: white posts and a kick plate under a gold rail
-    const { x0: sx0, x1: sx1, z1 } = LOUNGE.stairs, posts: Part[] = [], bar: Part[] = [];
-    for (let x = sx0; x <= sx1 + 0.01; x += (sx1 - sx0) / 6) posts.push({ geo: G.cyl, at: [x, deckY + 0.45, z1 + 0.03], scale: [0.025, 0.9, 0.025] });
-    posts.push({ geo: G.box, at: [(sx0 + sx1) / 2, deckY + 0.06, z1 + 0.03], scale: [sx1 - sx0, 0.12, 0.04] });
-    bar.push({ geo: G.box, at: [(sx0 + sx1) / 2, deckY + 0.92, z1 + 0.03], scale: [sx1 - sx0 + 0.06, 0.05, 0.06] });
+    // the terrace: teak from the stairs' head aft to the lounge's door
+    const { stairs: st, terrace: te } = LOUNGE, path = new Shape();
+    path.moveTo(lx1, -te.z1); path.lineTo(st.x0 - 0.6, -te.z1); path.lineTo(st.x0 - 0.6, -st.z1); path.lineTo(st.x0, -st.z1);
+    path.lineTo(st.x0, -te.z0); path.lineTo(lx1, -te.z0); path.closePath();
+    const boards = new Mesh(new ShapeGeometry(path), own(new MeshLambertMaterial({ map: planks('#B07A52', '#BC8660', 0.35, 0.35) })));
+    boards.rotation.x = -Math.PI / 2; boards.position.y = deckY + 0.006; boards.receiveShadow = true; g.add(boards);
+    // railed along the roof's edge, and either side of where the stairs come up: white posts under a gold rail
+    const posts: Part[] = [], bar: Part[] = [];
+    const rail = (ax: number, az: number, bx: number, bz: number) => {
+      const n = Math.max(1, Math.round(Math.hypot(bx - ax, bz - az) / 0.45));
+      for (let i = 0; i <= n; i++) posts.push({ geo: G.cyl, at: [ax + (bx - ax) * i / n, deckY + 0.45, az + (bz - az) * i / n], scale: [0.025, 0.9, 0.025] });
+      bar.push(strut(V(ax, deckY + 0.92, az), V(bx, deckY + 0.92, bz), 0.03));
+    };
+    rail(lx1 + 0.1, te.z0 - 0.12, st.x0 - 0.2, te.z0 - 0.12);
+    rail(st.x0 - 0.2, te.z0 - 0.12, st.x0 + 0.3, st.z0 - 0.08);
+    rail(st.x0 + 0.3, st.z0 - 0.08, SALON.x1 + 0.8, st.z0 - 0.08);
+    rail(st.x0, st.z1 + 0.06, SALON.x1 + 0.8, st.z1 + 0.06);
     g.add(mesh(bake(posts), white, 0, 0, 0, true), mesh(bake(bar), gold, 0, 0, 0, true));
     // its roof, an LED line glowing under the edge
     up.add(slab(oblong(lx0 - 0.1, lx1 + 0.1, ls + 0.1, 0.25, 0.25), 0.14, deckY + lh, whiteUp));
@@ -508,7 +521,7 @@ function buildCrowd(g: Group) {
 /** The waiter's beat along the windows, and the fan's spot at the roulette table's far end: both off the player's way
  *  from the door to the games. */
 const WAITER = { x0: SALON.x0 + 2.4, x1: SALON.x1 - 1.1, z: SALON.side - 0.9 };
-const FAN = { x: -5.85, z: -1.55 };
+const FAN = { x: -4.05, z: -1.55 };
 /** How far forward the waiter holds the tray arm: level with the shoulder. */
 const TRAY_ARM = 1.6;
 
@@ -690,34 +703,32 @@ export function buildSalon(g: Group) {
   quietly(() => buildSkyStairs(g), seeded(0x10C70));
 }
 
-/** The player's inside the salon: on the upper deck, below the lounge (on its stairs, till they're nearly up). */
-export const inSalon = (p: XZ & { y: number }) => aboard(p) && p.y > FY + 1.0 && p.y < TOP - 0.6;
-/** The player's up in the lounge. */
+/** The player's inside the salon: on the upper deck, below the roof (not outside on the stairs up to it). */
+export const inSalon = (p: XZ & { y: number }) => aboard(p) && p.y > FY + 1.0 && p.y < TOP - 0.6 && !onSkyStairs(p);
+/** The player's up on the roof, in the lounge or on its terrace. */
 export const inLounge = (p: XZ & { y: number }) => aboard(p) && p.y >= TOP - 0.6;
 
-/** The staircase from the salon up to the lounge, along the north wall: teak treads on a white side under a gold
- *  handrail, climbing west through the stairwell. */
+/**
+ * The stairs up to the roof, outside on the foredeck beside the salon's: steep, as a yacht's are, climbing aft from the
+ * foredeck up through the hardtop over the salon's door, teak treads between white stringers under gold handrails.
+ */
 function buildSkyStairs(g: Group) {
-  const { x0: tx, x1: bx, z1 } = LOUNGE.stairs, z0 = -SALON.side + 0.06, n = 12, rise = TOP - UPPER;
+  const { x0: tx, x1: bx, z0, z1 } = LOUNGE.stairs, n = 18, rise = TOP - FY, mz = (z0 + z1) / 2;
   const treads: Part[] = [];
   for (let i = 0; i < n; i++) {
     const x = bx - (bx - tx) * (i + 0.5) / n;
-    treads.push({ geo: G.box, at: [x, UPPER + rise * (i + 1) / n - 0.05, (z0 + z1) / 2], scale: [(bx - tx) / n + 0.02, 0.1, z1 - z0] });
+    treads.push({ geo: G.box, at: [x, FY + rise * (i + 1) / n - 0.04, mz], scale: [(bx - tx) / n + 0.03, 0.08, z1 - z0] });
   }
   const low = mesh(bake(treads), 0xB07A52, 0, 0, 0, true);
   g.add(low);
-  casinoHigh(g, () => {
-    const b = new Build().addAll(highTreads(n, bx, tx, UPPER, TOP, (z1 - z0) / 2), at(0, 0, (z0 + z1) / 2));
-    return b;
-  }, [low]);
-  // the white side under the treads, from the floor up to the stairwell
-  const side = new Shape();
-  side.moveTo(bx, UPPER); side.lineTo(tx, UPPER); side.lineTo(tx, TOP - 0.04); side.closePath();
-  const wall = mesh(new ExtrudeGeometry(side, { depth: 0.05, bevelEnabled: false }), 0xFFFFFF, 0, 0, z1 - 0.02, true);
-  g.add(wall);
-  const hand: Part[] = [strut(V(bx, UPPER + 0.9, z1 + 0.05), V(tx, TOP + 0.9, z1 + 0.05), 0.03)];
-  hand.push({ geo: G.cyl, at: [bx, UPPER + 0.45, z1 + 0.05], scale: [0.035, 0.9, 0.035] });
-  g.add(mesh(bake(hand), GOLD, 0, 0, 0, true));
+  casinoHigh(g, () => new Build().addAll(highTreads(n, bx, tx, FY, TOP, (z1 - z0) / 2), at(0, 0, mz)), [low]);
+  const sides: Part[] = [], hand: Part[] = [];
+  for (const z of [z0 - 0.04, z1 + 0.04]) {
+    sides.push(strut(V(bx + 0.05, FY, z), V(tx - 0.05, TOP, z), 0.05));
+    hand.push(strut(V(bx, FY + 0.9, z), V(tx, TOP + 0.9, z), 0.03));
+    hand.push({ geo: G.cyl, at: [bx, FY + 0.45, z], scale: [0.035, 0.9, 0.035] });
+  }
+  g.add(mesh(bake(sides), 0xFFFFFF, 0, 0, 0, true), mesh(bake(hand), GOLD, 0, 0, 0, true));
 }
 
 /** Fades between `want` and opaque, for a set of materials. */
@@ -877,16 +888,6 @@ export function collideSalon(p: XZ) {
   pushOutOfBox(p, x(FAN.x), z(FAN.z), 0.25 + 0.3, 0.25 + 0.3);
   // the east wall either side of the door
   for (const s of [-1, 1]) pushOutOfBox(p, x(SALON.x1), z(s * (DOOR + SALON.side) / 2), 0.08 + 0.3, (SALON.side - DOOR) / 2);
-  // the side of the lounge's stairs: you step onto them at their foot
-  const { x0: sx0, x1: sx1, z1 } = LOUNGE.stairs, side1 = sx1 - 0.8;
-  pushOutOfBox(p, x((sx0 + side1) / 2), z(z1), (side1 - sx0) / 2 + 0.3, 0.05 + 0.3);
-}
-
-/** Up in the lounge: keeps the player from stepping off the side of the stairwell, onto the stairs from its rail. */
-export function collideLounge(p: XZ) {
-  if (!salon) return;
-  const { x0, x1, z1 } = LOUNGE.stairs;
-  pushOutOfBox(p, SHIP.x + (x0 + x1) / 2, SHIP.z + z1, (x1 - x0) / 2 + 0.3, 0.05 + 0.3);
 }
 
 /** For tests: jumps the glass being served to `t` seconds in. */
