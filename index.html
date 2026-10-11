@@ -288,6 +288,23 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
 #reportPanel .btns #reportSend{ background:var(--go); color:#fff; }
 #reportPanel button:focus-visible, #reportText:focus-visible, #reportPanel .tick input:focus-visible, #reportWhat summary:focus-visible{ outline:3px solid var(--coral); outline-offset:2px; }
 @media (prefers-reduced-motion: reduce){ #reportShot{ transition:none; } }
+#reportShot{ cursor:pointer; }
+#reportDraw{ display:flex; align-items:center; gap:8px; min-height:40px; padding:4px 14px; border:2px dashed #FF2D2D; border-radius:12px; background:transparent; color:var(--pill-ink); font:800 15px "Baloo 2","Trebuchet MS",system-ui,sans-serif; cursor:pointer; }
+#reportDraw[hidden]{ display:none; }
+#reportDraw small{ margin-left:auto; font-size:12px; font-weight:600; opacity:.65; }
+#reportDraw.drawn{ border-style:solid; background:rgba(255,45,45,.14); }
+#reportDraw:disabled{ opacity:.4; cursor:default; }
+/* Draw-a-Bug (sketch.ts): the report's picture big over the dimmed game, to draw on in red */
+#draw{ position:fixed; inset:0; z-index:8; display:grid; place-items:center; padding:12px; background:rgba(23,48,66,.7); }
+#draw[hidden]{ display:none; }
+#draw .card{ display:flex; flex-direction:column; gap:10px; max-width:min(96vw,900px); padding:12px; border-radius:20px; background:var(--pill); color:var(--pill-ink); box-shadow:0 4px 0 var(--shade); }
+#drawTitle{ margin:0; font:800 17px "Baloo 2","Trebuchet MS",system-ui,sans-serif; text-align:center; }
+#drawCanvas{ display:block; max-width:100%; max-height:calc(100dvh - 150px); width:auto; height:auto; margin:0 auto; border-radius:12px; touch-action:none; cursor:crosshair; }
+#draw .btns{ display:flex; gap:8px; }
+#draw .btns button{ flex:1; min-height:44px; border:0; border-radius:999px; background:var(--chip); color:var(--pill-ink); font:800 15px "Baloo 2","Trebuchet MS",system-ui,sans-serif; cursor:pointer; }
+#draw .btns #drawDone{ background:var(--go); color:#fff; }
+#draw .btns button:disabled{ opacity:.4; cursor:default; }
+#draw button:focus-visible, #reportDraw:focus-visible{ outline:3px solid var(--coral); outline-offset:2px; }
 #errReport{ margin-left:10px; padding:3px 12px; border:0; border-radius:999px; background:#fff; color:#B3261E; font:700 14px system-ui,sans-serif; cursor:pointer; }
 #errReport[hidden]{ display:none; }
 /* Credits & Copyrights, the menu's last row, opening into the music's and the sounds' notices */
@@ -714,13 +731,14 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
     <textarea id="reportText" rows="4" maxlength="1000"></textarea>
     <small id="reportCount" aria-live="polite">0 / 1000</small>
     <img id="reportShot" alt="The picture of the game that goes with the report" hidden>
+    <button type="button" id="reportDraw" hidden><span aria-hidden="true">🖍️</span><span id="reportDrawName">Draw-a-Bug</span><small>Circle it in red</small></button>
     <label class="tick"><input type="checkbox" id="reportShotOn" checked><span>Include this picture</span></label>
     <label class="tick"><input type="checkbox" id="reportStateOn" checked><span>Include my game state<small>Progress, look, settings and where you are</small></span></label>
     <p id="reportWarn" role="status" hidden></p>
     <p id="reportNotice"></p>
     <details id="reportWhat"><summary>What's sent</summary><ul>
       <li>Your note, and whether it's a bug or an idea.</li>
-      <li>The picture: the game as it was when you opened this, without the menus.</li>
+      <li>The picture: the game as it was when you opened this, without the menus, and anything you drew on it.</li>
       <li>Your game state: your saved game (progress, look and settings) and, from this moment, where you're standing, what's open on screen, the season and how long you've played this visit.</li>
       <li>Always: the game's version, your graphics setting and frame rate, your screen size, whether it's a touch screen, your browser, and the last few errors the game hit.</li>
       <li>Never: your name or email. Your account is only used to stop too many reports at once.</li>
@@ -743,6 +761,11 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
     </ul>
   </div>
 </section>
+<div id="draw" role="dialog" aria-modal="true" aria-labelledby="drawTitle" hidden><div class="card">
+  <p id="drawTitle">Draw-a-Bug: circle what's wrong</p>
+  <canvas id="drawCanvas" aria-label="The picture of the game. Draw on it in red"></canvas>
+  <div class="btns"><button type="button" id="drawUndo">Undo</button><button type="button" id="drawClear">Clear</button><button type="button" id="drawDone">Done</button></div>
+</div></div>
 <div id="cloudPick" role="dialog" aria-modal="true" aria-labelledby="cloudAsk" hidden><div class="card">
   <p id="cloudAsk">This device and your account have different games. Which one do you want to keep? The other one will be replaced.</p>
   <button type="button" data-keep="device"><b>Keep this device's game</b><span id="cloudHere"></span></button>

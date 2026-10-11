@@ -257,3 +257,95 @@ describe('reporting a bug or an idea', () => {
     expect(errors.recentErrors).toHaveLength(10);
   });
 });
+
+describe('Draw-a-Bug', () => {
+  const at = (type: string, x: number, y: number) =>
+    $('drawCanvas').dispatchEvent(Object.assign(new MouseEvent(type, { clientX: x, clientY: y, bubbles: true }), { pointerId: 1 }));
+  const btn = (id: string) => $(id) as HTMLButtonElement;
+
+  it('opens the picture big to circle what is wrong in red, and sends it with the lines on', async () => {
+    await start();
+    $('reportCat').click();
+    expect(btn('reportDraw').hidden).toBe(false);
+    expect($('reportDrawName').textContent).toBe('Draw-a-Bug');
+    btn('reportDraw').click();
+    expect($('draw').hidden).toBe(false);
+    expect($('drawTitle').textContent).toBe("Draw-a-Bug: circle what's wrong");
+    expect(document.activeElement).toBe($('drawDone'));
+    expect(btn('drawUndo').disabled && btn('drawClear').disabled).toBe(true);
+    // a tap there doesn't close the settings underneath
+    at('pointerdown', 10, 10);
+    expect($('settings').hidden).toBe(false);
+    at('pointermove', 30, 12);
+    at('pointerup', 30, 12);
+    at('pointermove', 90, 90); // not drawing any more
+    expect(btn('drawUndo').disabled).toBe(false);
+    const encodes = vi.mocked(HTMLCanvasElement.prototype.toDataURL).mock.calls.length;
+    btn('drawDone').click();
+    await vi.waitFor(() => expect(btn('reportDraw').classList.contains('drawn')).toBe(true));
+    expect($('draw').hidden).toBe(true);
+    expect(vi.mocked(HTMLCanvasElement.prototype.toDataURL).mock.calls.length).toBeGreaterThan(encodes);
+    expect(document.activeElement).toBe(btn('reportDraw'));
+    write('Look here');
+    $('reportSend').click();
+    await vi.waitFor(() => expect(fake.reports).toHaveLength(1));
+    expect(fake.reports[0].r.shot).toBe(SHOT);
+  });
+
+  it('keeps the lines to change later; Escape puts it away without the new ones, and Clear takes them all', async () => {
+    await start();
+    $('reportCat').click();
+    ($('reportShot') as HTMLElement).click(); // the picture opens it too
+    at('pointerdown', 5, 5); at('pointerup', 5, 5);
+    btn('drawDone').click();
+    await vi.waitFor(() => expect($('draw').hidden).toBe(true));
+    btn('reportDraw').click();
+    expect(btn('drawUndo').disabled).toBe(false); // the line from before
+    at('pointerdown', 50, 50); at('pointerup', 50, 50);
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    expect($('draw').hidden).toBe(true);
+    expect($('settings').hidden).toBe(false); // Escape closed the drawing, not the menu
+    btn('reportDraw').click();
+    btn('drawUndo').click();
+    expect(btn('drawUndo').disabled).toBe(true); // only the one kept line was there
+    at('pointerdown', 9, 9); at('pointerup', 9, 9);
+    btn('drawClear').click();
+    expect(btn('drawClear').disabled).toBe(true);
+    btn('drawDone').click();
+    await vi.waitFor(() => expect(btn('reportDraw').classList.contains('drawn')).toBe(false));
+  });
+
+  it('is Draw-an-Idea for an idea, and off while the picture is left out', async () => {
+    await start();
+    $('reportCat').click();
+    ($('reportKind').querySelector('[data-kind="idea"]') as HTMLElement).click();
+    expect($('reportDrawName').textContent).toBe('Draw-an-Idea');
+    btn('reportDraw').click();
+    expect($('drawTitle').textContent).toBe('Draw-an-Idea: sketch it on the game');
+    btn('drawDone').click();
+    tick('reportShotOn', false);
+    expect(btn('reportDraw').disabled).toBe(true);
+    ($('reportShot') as HTMLElement).click();
+    expect($('draw').hidden).toBe(true);
+  });
+
+  it('paints each line over the picture in red, and a tap as a dot', async () => {
+    await start();
+    const { paint } = await import('../src/sketch');
+    const calls: string[] = [];
+    const ctx = new Proxy({} as Record<PropertyKey, unknown>, {
+      get: (t, k) => (k in t ? t[k] : (...a: unknown[]) => { calls.push(`${String(k)}(${a.join(',')})`); }),
+      set: (t, k, v) => { t[k] = v; return true; },
+    });
+    const out = document.createElement('canvas');
+    out.getContext = (() => ctx) as unknown as typeof out.getContext;
+    const base = Object.assign(document.createElement('canvas'), { width: 640, height: 360 });
+    paint(out, base, [[{ x: 1, y: 2 }], [{ x: 10, y: 10 }, { x: 20, y: 30 }]]);
+    expect([out.width, out.height]).toEqual([640, 360]);
+    expect(ctx.strokeStyle).toBe('#FF2D2D');
+    expect(ctx.lineWidth).toBeCloseTo(640 / 110);
+    expect(calls.filter(c => !c.startsWith('beginPath'))).toEqual([
+      `drawImage(${base},0,0)`, `arc(1,2,${640 / 110 / 2},0,${Math.PI * 2})`, 'fill()', 'moveTo(10,10)', 'lineTo(20,30)', 'stroke()',
+    ]);
+  });
+});

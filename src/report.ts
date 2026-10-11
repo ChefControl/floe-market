@@ -1,8 +1,8 @@
 // Reporting a bug or an idea, from the settings (About, Report a bug or idea), for a player signed in with Google.
 // Opening the row takes a picture of the game behind the menu; the report carries it and the game state (the save,
 // and where the player is), each behind a tickbox that starts on, and the notice above Send says exactly what goes.
-// It's sent to Firestore (cloud.ts, firebase.ts), and a workflow in a private repo turns it into a GitHub issue
-// (intake/). A report that can't reach the cloud waits on the device and goes when it can. The error box's Report
+// Draw-a-Bug (sketch.ts) opens the picture big to circle what's wrong in red. It's sent to Firestore (cloud.ts,
+// firebase.ts), and a workflow in a private repo turns it into a GitHub issue (intake/). A report that can't reach the cloud waits on the device and goes when it can. The error box's Report
 // this button (errors.ts) opens it with the error written in.
 import { prefs } from './audio';
 import { cloud, cloudEnabled, onCloud, sendReport, type Report } from './cloud';
@@ -14,6 +14,7 @@ import { sushi } from './restaurant';
 import { deviceStore, save } from './save';
 import { current } from './season';
 import { openSettings } from './settings';
+import { paint, sketch, type Stroke } from './sketch';
 import { toast } from './ui';
 
 /** Longest note (firestore.rules checks it too). */
@@ -38,9 +39,10 @@ const shotImg = $('reportShot') as HTMLImageElement;
 const shotOn = $('reportShotOn') as HTMLInputElement, stateOn = $('reportStateOn') as HTMLInputElement;
 const warn = $('reportWarn'), notice = $('reportNotice');
 const kinds = [...$('reportKind').querySelectorAll<HTMLButtonElement>('button')];
+const drawBtn = $('reportDraw') as HTMLButtonElement;
 
-/** The picture taken when the panel opened, as a JPEG data URL ('' if it couldn't be taken). */
-let shot = '';
+/** The picture taken when the panel opened, the lines drawn on it, and the two together as a JPEG ('' if none). */
+let base: HTMLCanvasElement | null = null, strokes: Stroke[] = [], shot = '';
 let kind: Report['kind'] = 'bug';
 
 /** The game as it is drawn now, 640 pixels wide. */
@@ -53,12 +55,34 @@ export function takeShot() {
     out.width = w;
     out.height = Math.round(w * (src.height || 1) / (src.width || 1));
     out.getContext('2d')?.drawImage(src, 0, 0, out.width, out.height);
+    return out;
+  } catch { return null; }
+}
+
+/** A picture as a JPEG small enough to send, or '' if it can't be made one. */
+function jpeg(c: HTMLCanvasElement) {
+  try {
     for (const q of [0.7, 0.5]) {
-      const url = out.toDataURL('image/jpeg', q);
+      const url = c.toDataURL('image/jpeg', q);
       if (url.startsWith('data:image/jpeg') && url.length <= SHOT_MAX) return url;
     }
   } catch { /* no picture, then */ }
   return '';
+}
+
+/** Draw-a-Bug: circle what's wrong on the picture, which then goes with the lines on it. */
+async function draw() {
+  if (!base || !shotOn.checked) return;
+  const kept = await sketch(base, strokes, kind === 'idea');
+  if (kept) {
+    strokes = kept;
+    const out = document.createElement('canvas');
+    paint(out, base, strokes);
+    shot = jpeg(out) || shot;
+    shotImg.src = shot;
+    drawBtn.classList.toggle('drawn', strokes.length > 0);
+  }
+  drawBtn.focus();
 }
 
 /** What the save doesn't hold: where the player is and what's open on screen. */
@@ -118,6 +142,7 @@ function showNotice() {
   warn.textContent = lost.join(' ');
   warn.hidden = !lost.length;
   shotImg.classList.toggle('off', !shotOn.checked);
+  drawBtn.disabled = !shotOn.checked;
 }
 
 function showCount() { count.textContent = `${text.value.length} / ${TEXT_MAX}`; }
@@ -126,6 +151,7 @@ function setKind(k: Report['kind']) {
   kind = k;
   for (const b of kinds) b.setAttribute('aria-checked', String(b.dataset.kind === k));
   text.placeholder = k === 'bug' ? 'What happened? What did you expect instead?' : 'What would you like in the game?';
+  $('reportDrawName').textContent = k === 'bug' ? 'Draw-a-Bug' : 'Draw-an-Idea';
 }
 
 /** The row: signed in, it opens the panel; signed out, it signs in. */
@@ -140,8 +166,12 @@ function showRow() {
 /** Opens the panel with a fresh picture of the game, both boxes ticked, and optionally a note already written. */
 export function openReport(note = '') {
   if (!cloud.user) { $('cloud').click(); return; }
-  shot = takeShot();
-  shotImg.hidden = !shot;
+  base = takeShot();
+  strokes = [];
+  shot = base ? jpeg(base) : '';
+  if (!shot) base = null;
+  shotImg.hidden = drawBtn.hidden = !shot;
+  drawBtn.classList.remove('drawn');
   if (shot) shotImg.src = shot;
   shotOn.checked = stateOn.checked = true;
   shotOn.disabled = !shot;
@@ -216,6 +246,8 @@ export function initReports() {
   shotOn.addEventListener('change', showNotice);
   stateOn.addEventListener('change', showNotice);
   $('reportCancel').addEventListener('click', closeReport);
+  drawBtn.addEventListener('click', () => { void draw(); });
+  shotImg.addEventListener('click', () => { void draw(); });
   $('reportSend').addEventListener('click', () => { void send(); });
   $('errReport').addEventListener('click', () => {
     openSettings(true);

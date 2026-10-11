@@ -19,10 +19,10 @@ export function openSettings(open: boolean) {
   if (open) showBuyToggle();
 }
 gear.addEventListener('click', () => openSettings(gear.getAttribute('aria-expanded') !== 'true'));
-// A tap anywhere else closes it, and so does Escape.
+// A tap anywhere else closes it, and so does Escape; drawing on a report's picture (sketch.ts) isn't anywhere else.
 window.addEventListener('pointerdown', e => {
-  const t = e.target as Node;
-  if (!menu.hidden && !menu.contains(t) && !gear.contains(t)) openSettings(false);
+  const t = e.target as Element;
+  if (!menu.hidden && !menu.contains(t) && !gear.contains(t) && !t.closest?.('#draw')) openSettings(false);
 }, true);
 window.addEventListener('keydown', e => {
   if (e.key !== 'Escape' || menu.hidden) return;
