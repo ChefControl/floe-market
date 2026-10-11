@@ -1,7 +1,7 @@
-// The blackjack lounge's regulars: six characters who come up the stairs to play at the table, stay a shoe or two and
-// go, each in their own look, with their own way of playing and their own things to say. Two to four of them sit at
-// the table at a time; while the dealer shuffles, some get up and go back down the stairs and others come up and take
-// a free seat. They run on their own dice, so neither their looks nor their play touch the game's luck.
+// The blackjack room's regulars: six characters who come in from the casino floor to play at the table, stay a shoe or
+// two and go, each in their own look, with their own way of playing and their own things to say. Two to four of them
+// sit at the table at a time; while the dealer shuffles, some get up and go back out through the doorway and others
+// come in and take a free seat. They run on their own dice, so neither their looks nor their play touch the game's luck.
 import type { Group, Vector3 } from 'three';
 import type { PlayStyle } from './blackjack';
 import { speaker } from './casinoKit';
@@ -82,7 +82,7 @@ export const CAST: Regular[] = [
 /** Their own dice: who comes and goes, and their hunches. */
 export const regularDice = rng(0xB1AC7);
 
-/** One of the cast in the lounge: their person, their speech bubble, their seat (or none), and where they're walking. */
+/** One of the cast in the blackjack room: their person, their speech bubble, their seat (or none), and where they're walking. */
 interface Sitter {
   r: Regular;
   p: Person;
@@ -97,7 +97,7 @@ interface Sitter {
   sign: { move: 'hit' | 'stand' | 'double'; t: number } | null;
 }
 let sitters: Sitter[] = [];
-/** The seats round the table, in its space, and the way each faces; and where people come up the stairs. */
+/** The seats round the table, in its space, and the way each faces; and where people come in at the doorway. */
 let place: { seats: Vector3[]; faces: number[]; front: Vector3[]; entry: Vector3 } | null = null;
 /** How high a seated regular is: on a stool. */
 const SIT = 0.42, WALK = 1.15;
@@ -109,7 +109,7 @@ export function buildRegulars(g: Group, seats: Vector3[], faces: number[], front
     const p = new Person(r.color, 'fancy', { ...plain(0), ...r.look, skirt: r.look.woman ? r.color : null });
     p.visible = false;
     g.add(p);
-    return { r, p, bubble: speaker(p, 2.15), seat: null, path: [], leaving: false, joy: 0, sign: null };
+    return { r, p, bubble: speaker(p, 2.15, 1.8), seat: null, path: [], leaving: false, joy: 0, sign: null };
   }), dice(0xB1AC7));
 }
 
@@ -131,7 +131,7 @@ export function seatExactly(at: Record<number, string>) {
   for (const [seat, id] of Object.entries(at)) sitDown(sitters.find(s => s.r.id === id)!, Number(seat));
 }
 
-/** Between shoes: some of those sitting get up and go down the stairs, and others come up for the free seats, to
+/** Between shoes: some of those sitting get up and go out, and others come in for the free seats, to
  *  leave two to four at the table. The seats to fill are `free`'s (the player's isn't). */
 export function comeAndGo(free: number[]) {
   const d = regularDice, pl = place!;

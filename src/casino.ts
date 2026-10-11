@@ -16,7 +16,7 @@ import {
 import { collideBlackjack, updBlackjack } from './blackjackTable';
 import { updTweens, visits } from './casinoKit';
 import { buildSalon, carpet, collideSalon, JACK, oblong, slab, strut, updSalon } from './casinoSalon';
-import { aboard, casinoBoat, DECKS, hullHalf, pushOutOfBox, QUAY, SHIP, UPPER, upTop } from './layout';
+import { aboard, casinoBoat, DECKS, hullHalf, pushOutOfBox, QUAY, SHIP, UPPER } from './layout';
 import { player } from './player';
 import { popIn } from './pop';
 import { bake, canvasTex, FONT, G, mat, mesh, scene, type Part } from './render';
@@ -229,7 +229,7 @@ function buildShip() {
   deck.rotation.x = -Math.PI / 2; deck.position.y = DECK_Y; deck.receiveShadow = true; g.add(deck);
   // long hull windows in gold frames along both sides, and the yacht's name in gold on the bow
   const panes: Part[] = [], frames: Part[] = [];
-  for (let x = -7.6; x < 1.6; x += 1.4) for (const s of [-1, 1]) {
+  for (let x = -L + 1.0; x < 1.6; x += 1.4) for (const s of [-1, 1]) {
     panes.push({ geo: G.box, at: [x, FY + 0.42, s * (B + 0.012)], scale: [1.0, 0.16, 0.02] });
     frames.push({ geo: G.box, at: [x, FY + 0.42, s * (B + 0.006)], scale: [1.08, 0.24, 0.02] });
   }
@@ -364,11 +364,9 @@ function updVisit() {
 }
 
 /** Keeps the player out of the games' tables and machines, and the quay's booth and crates. */
-export function collideCasino(p: XZ & { y: number }) {
+export function collideCasino(p: XZ) {
   if (!ship) return;
-  // up in the lounge, only what's up there gets in the way
-  if (upTop(p)) { collideBlackjack(p); return; }
-  collideRoulette(p); collideSlots(p); collideSalon(p);
+  collideRoulette(p); collideBlackjack(p); collideSlots(p); collideSalon(p);
   for (const o of [BOOTH, CRATES]) pushOutOfBox(p, o.x, o.z, o.w / 2 + 0.3, o.d / 2 + 0.3);
 }
 

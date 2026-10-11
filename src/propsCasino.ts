@@ -191,6 +191,21 @@ export function lounger() {
   return b;
 }
 
+/** A velvet rope on two brass posts, the second `dx`, `dz` from the first, their feet at 0: round feet, slim posts and
+ *  ball tops where Low's posts are, and the rope hanging in a curve between them just under the tops. */
+export function rope(dx: number, dz: number) {
+  const b = new Build(), brass = 0xC9962E;
+  for (const [x, z] of [[0, 0], [dx, dz]]) {
+    b.add(tube(0.11, 0.13, 0.04, 14), brass, x, 0.02, z);
+    b.add(tube(0.022, 0.03, 0.84, 8), brass, x, 0.46, z);
+    b.add(K.ball, shade(brass, 1.15), x, 0.91, z, null, [0.045, 0.045, 0.045]);
+  }
+  // an arc of a ring, its middle hanging lowest, turned to run from one post to the other
+  const c = Math.hypot(dx, dz), sag = 0.07, r = c * c / (8 * sag) + sag / 2, a = 2 * Math.asin(c / 2 / r);
+  b.add(new TorusGeometry(r, 0.022, 5, 10, a), WINE, dx / 2, 0.82 + r * Math.cos(a / 2), dz / 2, [0, -Math.atan2(dz, dx), -Math.PI / 2 - a / 2]);
+  return b;
+}
+
 // ---------- the tables ----------
 /** A padded leather armrest along the blackjack felt's curve, radius `r`, its middle `y` up: half a ring towards +z. */
 const armrestArc = quietly(() => new TorusGeometry(1, 0.06, 6, 28, Math.PI));

@@ -79,7 +79,7 @@ export function updPlayer(dt: number) {
     player.h += d * Math.min(1, dt * 14);
     player.moving = true;
   } else player.moving = false;
-  keepOnFloor(p, walkable(p));
+  keepOnFloor(p, walkable());
   collide(p);
   collideGarden(p);
   collidePresents(p);
@@ -158,8 +158,7 @@ export function updPlayer(dt: number) {
   // unlock tiles
   let on: Tile | null = null;
   for (const t of visibleTiles()) {
-    // (a tile with a height of its own is on that floor: the lounge's isn't underfoot in the salon below it)
-    if (Math.abs(p.x - t.x) < t.half && Math.abs(p.z - t.z) < t.half && (t.y === undefined || Math.abs(p.y - t.y) < 1.2)) { on = t; break; }
+    if (Math.abs(p.x - t.x) < t.half && Math.abs(p.z - t.z) < t.half) { on = t; break; }
   }
   player.onTile = on;
   // The present tile at her house is never done, and needs no holding: standing on it, each $100 leaves another

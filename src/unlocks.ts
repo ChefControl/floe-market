@@ -10,7 +10,7 @@ import { tryCatch } from './fishing';
 import { addTables } from './garden';
 import { enableKorki, KORKI } from './korki';
 import { unlockFx } from './fx';
-import { GAMES, loungeSeen, stage, TERRACES, TOP } from './layout';
+import { GAMES, stage, TERRACES } from './layout';
 import { buildNet, buildTurret } from './machines';
 import { player } from './player';
 import { pointAt } from './pointers';
@@ -152,8 +152,7 @@ export const onOffer = () => [...before ?? []];
 export function visibleTiles() {
   const next = tiles.filter(t => !t.done && !t.always && !t.shown && offered(t)).slice(0, 2);
   const v = tiles.filter(t => !t.done && (always(t) || (t.shown && offered(t)) || next.includes(t)));
-  // a tile up in the casino boat's lounge goes with it while the salon's roof is lifted away
-  tiles.forEach(t => { t.d.mesh.visible = v.includes(t) && ((t.y ?? FY) < TOP - 1 || loungeSeen.k > 0.5); });
+  tiles.forEach(t => { t.d.mesh.visible = v.includes(t); });
   if (before) announce(v.filter(t => !before!.has(t)));
   before = new Set(v);
   return v;

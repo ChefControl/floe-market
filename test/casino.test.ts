@@ -227,12 +227,12 @@ describe('the casino boat', () => {
       for (let i = 0; i < 60; i++) { p.z -= 0.05; g.run(1 / 60); }
       expect(p.z).toBeGreaterThan(SHIP.z - SHIP.beam + 1.2);
     }
-    // the blackjack table's up in the lounge, its dealer's back to the stern: walking at it, the player stops at the felt
+    // the blackjack table's in its own room, its dealer's back to the stern: walking at it, the player stops at the felt
     const bj = g.layout.GAMES.blackjack;
     g.placePlayer(bj.x, bj.z, bj.y);
     for (let i = 0; i < 60; i++) { p.x -= 0.05; g.run(1 / 60); }
     expect(p.x).toBeGreaterThan(bj.x - 0.5);
-    expect(p.y).toBeCloseTo(g.layout.TOP, 2);
+    expect(p.y).toBeCloseTo(g.layout.UPPER, 2);
   });
 
   it('comes in with the camera looking over at it, from a tile by the fence', async () => {
@@ -287,17 +287,17 @@ describe('the casino boat', () => {
     g.run(20); // the guests at the machines play away
   });
 
-  it('keeps the player out of the bar along the stern and the row of machines by the door', async () => {
+  it('keeps the player out of the bar across the back of the casino floor and the row of machines by the door', async () => {
     const g = await at('roulette', 100);
-    const { SHIP, SALON } = g.layout, p = g.player.g.position;
-    // walking aft from the roulette table's end, the player stops at the stools
-    g.placePlayer(SHIP.x - 5.5, SHIP.z + 0.5); g.run(0.05);
+    const { SHIP, SALON, BJ_ROOM } = g.layout, p = g.player.g.position;
+    // walking aft from the roulette table, the player stops at the stools
+    g.placePlayer(SHIP.x - 3.5, SHIP.z + 0.5); g.run(0.05);
     for (let i = 0; i < 60; i++) { p.x -= 0.05; g.run(1 / 60); }
-    expect(p.x).toBeGreaterThan(SHIP.x + SALON.x0 + 1.4);
-    // and walking from the door towards the back wall, at the guests playing the machines
+    expect(p.x).toBeGreaterThan(SHIP.x + BJ_ROOM.x1 + 1.9);
+    // and walking from the door towards the far wall, at the guests playing the machines
     g.placePlayer(SHIP.x + SALON.x1 - 0.7, SHIP.z - 0.3); g.run(0.05);
     for (let i = 0; i < 60; i++) { p.z -= 0.05; g.run(1 / 60); }
-    expect(p.z).toBeGreaterThan(SHIP.z - 1.2);
+    expect(p.z).toBeGreaterThan(SHIP.z - 2.0);
   });
 
   it('pours the player a glass of champagne from the waiter, close up', async () => {
@@ -1027,67 +1027,86 @@ describe('the blackjack table', () => {
     }
   };
 
-  it('is up in the lounge on the roof, reached by steep stairs outside from the foredeck and a terrace to its door', async () => {
+  it('is in a room of its own at the back of the salon, through glass doors beside the bar', async () => {
     const g = await at('roulette', 100, 'blackjack');
-    const { SHIP, LOUNGE, GAMES, UPPER, TOP } = g.layout, { FY } = g.util, p = g.player.g.position;
+    const { SHIP, GAMES, BJ_ROOM, UPPER } = g.layout, { FY } = g.util, p = g.player.g.position;
     const salon = await import('../src/casinoSalon');
-    const x = (v: number) => SHIP.x + v, z = (v: number) => SHIP.z + v;
-    // under it, in the salon, the roof's lifted away and the blackjack pad above doesn't open
-    g.placePlayer(GAMES.blackjack.x, GAMES.blackjack.z, UPPER); g.run(1);
-    expect(p.y).toBeCloseTo(UPPER, 2);
-    expect($('blackjack').hidden).toBe(true);
-    expect(salon.salonView().roof).toBeLessThan(0.05);
-    // from the foredeck, beside the salon's stairs, up the steep flight to the roof: the salon's roof stays put
-    g.placePlayer(x(6.4), z(-0.4)); g.run(1);
-    walkTo(g, x(6.4), z(-1.45));
-    walkTo(g, x(5.0), z(-1.45));
-    expect(p.y).toBeGreaterThan(FY + 1);
-    expect(salon.salonView().roof).toBe(1);
-    walkTo(g, x(3.4), z(-1.45));
+    const x = (v: number) => SHIP.x + v, z = (v: number) => SHIP.z + v, door = (BJ_ROOM.door.z0 + BJ_ROOM.door.z1) / 2;
+    // from the foredeck up the stairs, in at the salon's door and across the casino floor, past the bar's end, between
+    // the ropes and in at the blackjack room's doorway: the salon's roof lifts away, and the room's wall fades once in
+    g.placePlayer(x(6.35), z(0)); g.run(1);
+    expect(p.y).toBeCloseTo(FY, 2);
+    walkTo(g, x(2.8), z(0));
+    walkTo(g, x(-4.0), z(door));
     g.run(1);
-    expect(p.y).toBeCloseTo(TOP, 2);
-    // along the terrace past the sky lounge, in at the lounge's door, to the table
-    walkTo(g, x(3.4), z(-2.5));
-    walkTo(g, x(LOUNGE.x1 - 0.7), z(-2.5));
-    expect(p.y).toBeCloseTo(TOP, 2);
-    expect(salon.salonView().roof).toBe(1);
-    expect(salon.salonView().lounge).toBeLessThan(0.05);
-    walkTo(g, x(-4.1), z(-0.6));
+    expect(p.y).toBeCloseTo(UPPER, 2);
+    expect(salon.salonView().roof).toBeLessThan(0.05);
+    expect(salon.salonView().room).toBe(1);
+    walkTo(g, x(BJ_ROOM.x1 - 0.9), z(door));
+    expect(p.x).toBeLessThan(x(BJ_ROOM.x1 - 0.8));
+    g.run(1);
+    expect(salon.salonView().room).toBeLessThan(0.05);
+    // and round to the player's seat, where the table opens
+    walkTo(g, x(BJ_ROOM.x1 - 1.4), z(0.3));
     walkTo(g, GAMES.blackjack.x, GAMES.blackjack.z);
     expect(Math.hypot(p.x - GAMES.blackjack.x, p.z - GAMES.blackjack.z)).toBeLessThan(0.06);
     expect($('blackjack').hidden).toBe(false);
-    // and back down the same way
-    walkTo(g, x(-4.1), z(-0.6));
-    walkTo(g, x(LOUNGE.x1 - 0.7), z(-2.5));
-    walkTo(g, x(3.4), z(-2.5));
-    walkTo(g, x(3.4), z(-1.45));
-    walkTo(g, x(6.4), z(-1.45));
-    walkTo(g, x(6.4), z(-0.4));
+    // and back out the same way, down to the foredeck
+    walkTo(g, x(BJ_ROOM.x1 - 1.4), z(0.3));
+    walkTo(g, x(BJ_ROOM.x1 - 0.9), z(door));
+    walkTo(g, x(-4.0), z(door));
+    g.run(1);
+    expect(salon.salonView().room).toBe(1);
+    walkTo(g, x(2.8), z(0));
+    walkTo(g, x(6.35), z(0));
     g.run(1);
     expect(p.y).toBeCloseTo(FY, 2);
   });
 
-  it('keeps the player on the roof, and only the outside stairs lead up to it', async () => {
+  it('keeps the player to the doorway: not through the blackjack room\'s wall from either side', async () => {
     const g = await at('roulette', 100, 'blackjack');
-    const { SHIP, UPPER, TOP } = g.layout, p = g.player.g.position;
+    const { SHIP, BJ_ROOM } = g.layout, p = g.player.g.position;
     const x = (v: number) => SHIP.x + v, z = (v: number) => SHIP.z + v;
-    const step = (dx: number, dz: number, n = 40) => { for (let i = 0; i < n; i++) { p.x += dx; p.z += dz; g.run(1 / 60); } };
-    // on the terrace: not off the roof's edge, nor into the sky lounge beside it
-    g.placePlayer(x(1.0), z(-2.5), TOP); g.run(0.1);
-    step(0, -0.05);
-    expect(p.z).toBeGreaterThan(z(-3.0));
-    step(0, 0.05);
-    expect(p.z).toBeLessThan(z(-2.0));
-    expect(p.y).toBeCloseTo(TOP, 2);
-    // in the salon, nothing leads up from along its north wall any more
-    g.placePlayer(x(-1.0), z(-0.8), UPPER); g.run(0.1);
-    step(0, -0.05);
-    expect(p.y).toBeCloseTo(UPPER, 2);
-    // and from halfway up the salon's own stairs, there's no stepping across onto the roof's
-    g.placePlayer(x(4.6), z(0)); g.run(0.5);
-    step(0, -0.05, 20);
-    expect(p.z).toBeGreaterThan(z(-0.8));
-    expect(p.y).toBeLessThan(UPPER);
+    const step = (dx: number, dz: number, n = 60) => { for (let i = 0; i < n; i++) { p.x += dx; p.z += dz; g.run(1 / 60); } };
+    // from the casino floor, beside the doorway on the windows' side
+    g.placePlayer(x(BJ_ROOM.x1 + 1.5), z(3.85)); g.run(0.05);
+    step(-0.05, 0);
+    expect(p.x).toBeGreaterThan(x(BJ_ROOM.x1));
+    // from inside the room, at the far side of the wall
+    g.placePlayer(x(BJ_ROOM.x1 - 1.5), z(-2.5)); g.run(0.05);
+    step(0.05, 0);
+    expect(p.x).toBeLessThan(x(BJ_ROOM.x1));
+    // through the doorway, though, straight in
+    g.placePlayer(x(BJ_ROOM.x1 + 1.5), z((BJ_ROOM.door.z0 + BJ_ROOM.door.z1) / 2)); g.run(0.05);
+    step(-0.05, 0);
+    expect(p.x).toBeLessThan(x(BJ_ROOM.x1 - 1.0));
+  });
+
+  it('lets the regulars play on without the player while they\'re about the boat, and not while they\'re away', async () => {
+    const g = await at('blackjack', 100, 'blackjack');
+    const bj = await import('../src/blackjackTable');
+    const { SHIP } = g.layout;
+    bj.seatRegulars({ 1: 'pearl', 3: 'tony' });
+    bj.stackShoe([]);
+    // off the table, out on the casino floor: after a while the dealer deals the two of them a round of their own
+    g.placePlayer(SHIP.x + 1.0, SHIP.z + 2.0); g.run(0.05);
+    expect($('blackjack').hidden).toBe(true);
+    let dealt = false;
+    for (let i = 0; i < 400 && !dealt; i++) { g.run(0.05); dealt = Object.keys(bj.onFelt().theirs).length > 0; }
+    expect(dealt).toBe(true);
+    expect(bj.onFelt().hands.flat()).toEqual([]);
+    expect(g.wallet.money).toBe(100);
+    // and they keep at it, round after round, with the player's money untouched
+    const before = bj.inShoe().length;
+    g.run(40);
+    expect(bj.inShoe().length).toBeLessThan(before - 8);
+    expect(g.wallet.money).toBe(100);
+    // away from the boat, back at the market, the table waits
+    g.placePlayer(2.7, -3.6); g.run(0.05);
+    g.run(15);
+    const left = bj.inShoe().length;
+    g.run(30);
+    expect(bj.inShoe().length).toBe(left);
   });
 
   it('deals the regulars in seat by seat, and each plays their own turn, one at a time, before and after the player', async () => {

@@ -11,7 +11,7 @@ import { ac, buses, panOf, prefs, rnd } from './audio';
 import { BAR, ROW } from './casinoSalon';
 import { harborK } from './music';
 import { player } from './player';
-import { aboard, casinoBoat, onSkyStairs, SHIP, upTop } from './layout';
+import { aboard, casinoBoat, SHIP } from './layout';
 import { BANK } from './slotMachine';
 import { FY, type XZ } from './util';
 import diningUrl from './sounds/dining.mp3';
@@ -76,8 +76,7 @@ function set(name: Room, k: number, from?: XZ) {
 export function updRoomTone() {
   if (!ac || !casinoBoat.open || prefs.mute.amb) return;
   if (!loading && harborK() > 0) load();
-  // the bar and the machines are heard in the salon, not up in the lounge over it
-  const p = player.g.position, on = aboard(p), upstairs = on && p.y > FY + 1.0 && !upTop(p) && !onSkyStairs(p);
+  const p = player.g.position, on = aboard(p), upstairs = on && p.y > FY + 1.0;
   set('dining', on ? 1 : 0);
   const bar = nearest(p, ...COUNTER);
   set('bar', upstairs ? closeness(dist(p, bar)) : 0, bar);

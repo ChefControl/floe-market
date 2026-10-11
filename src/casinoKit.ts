@@ -114,9 +114,44 @@ function drawSay(c: CanvasRenderingContext2D, text: string) {
   c.restore();
 }
 
-const tmp = new Vector3();
-/** Someone (or something) on the boat that says things in a bubble `y` above `on`. */
-export function speaker(on: Object3D, y: number) {
+const tmp = new Vector3(), ndc = new Vector3(), size = new Vector3(), ahead = new Vector3();
+/** What's shown in the screen's top corners, that bubbles keep out from behind at a table. */
+const CORNERS = ['hud', 'corner'];
+/** Whether a bubble on `on` is on another floor of the boat from the table the player's at: it'd show through the
+ *  floor between (bubbles are drawn over everything), so it's left out while they're sitting there. */
+const otherFloor = (on: Object3D, at: Vector3) => Math.abs(on.getWorldPosition(tmp).y - at.y) > 1.5;
+/**
+ * Slides a bubble `s` (on `on`) just far enough to be wholly on screen, and out from behind what's shown in the
+ * corners at the top (the money and the rest down the left, the buttons on the right): at a table the camera's in
+ * close and low, and those sitting at the ends of it, or standing behind it, would say things off the edge of the
+ * view. Only one in front of the camera: one behind it stays out of sight.
+ */
+function keepOnScreen(s: Sprite, on: Object3D) {
+  s.getWorldPosition(tmp);
+  if (camera.getWorldDirection(ahead).dot(ndc.copy(tmp).sub(camera.position)) < 0.3) return;
+  ndc.copy(tmp).project(camera);
+  if (ndc.z > 1) return;
+  s.getWorldScale(size);
+  const t = Math.tan(camera.fov * Math.PI / 360) * tmp.distanceTo(camera.position);
+  const hh = size.y / 2 / t, hw = size.x / 2 / (t * camera.aspect), m = 0.03;
+  let x = Math.min(1 - hw - m, Math.max(-1 + hw + m, ndc.x));
+  const y = Math.min(1 - hh - m, Math.max(-1 + hh + m, ndc.y));
+  // in pixels, stepping sideways out from behind the corners' things
+  const W = window.innerWidth, H = window.innerHeight, bw = hw * W / 2, bh = hh * H / 2, py = (1 - y) / 2 * H, gap = 8;
+  let px = (x + 1) / 2 * W;
+  for (const id of CORNERS) {
+    const r = document.getElementById(id)?.getBoundingClientRect();
+    if (!r?.width || px + bw < r.left - gap || px - bw > r.right + gap || py + bh < r.top - gap || py - bh > r.bottom + gap) continue;
+    px = px < W / 2 ? r.right + gap + bw : r.left - gap - bw;
+  }
+  x = px / W * 2 - 1;
+  if (x === ndc.x && y === ndc.y) return;
+  s.position.copy(on.worldToLocal(ndc.set(x, y, ndc.z).unproject(camera)));
+}
+
+/** Someone (or something) on the boat that says things in a bubble `y` above `on` (`near` above, if given, while the
+ *  player's sitting at a table, so it's plain who's talking with the camera in low and close). */
+export function speaker(on: Object3D, y: number, near = y) {
   const t = canvasTex(W, H, () => {});
   const mat = new SpriteMaterial({ map: t.tex, depthTest: false, transparent: true, opacity: 0 });
   const s = new Sprite(mat);
@@ -138,8 +173,10 @@ export function speaker(on: Object3D, y: number) {
       // smaller close up, at a table, so it doesn't fill the view
       const k = Math.min(1, Math.max(0.35, s.getWorldPosition(tmp).distanceTo(camera.position) / 12));
       s.scale.set(1.7 * k, 0.85 * k, 1);
+      s.position.set(0, seated ? near : y, 0);
+      if (seated) keepOnScreen(s, on);
       left -= dt;
-      mat.opacity = Math.max(0, Math.min(1, (SAY_SECS - left) / FADE, left / FADE));
+      mat.opacity = seated && otherFloor(on, seated.at) ? 0 : Math.max(0, Math.min(1, (SAY_SECS - left) / FADE, left / FADE));
       if (left <= 0) { s.visible = false; this.text = ''; }
     },
   };
