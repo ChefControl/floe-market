@@ -328,9 +328,10 @@ describe('cloud saves', () => {
 
 describe('the scoreboard', () => {
   const rows = () => [...$('scoresList').children].map(li => li.textContent);
-  /** The game and the cloud module, with the scoreboard button wired up. */
-  async function board(save?: SaveFixture) {
+  /** The game and the cloud module, with the scoreboard row wired up. A new player has no save until the game makes one. */
+  async function board(save?: SaveFixture, fresh = false) {
     const started = await start(save);
+    if (fresh) localStorage.removeItem('floe-market-v1');
     const s = await import('../src/scores');
     started.c.initCloud();
     s.initScores();
@@ -344,7 +345,7 @@ describe('the scoreboard', () => {
   it("stays out of sight until there's a Firebase project to keep it in", async () => {
     h.config.apiKey = '';
     await board();
-    expect($('board').hidden).toBe(true);
+    expect($('scoresCat').hidden).toBe(true);
   });
 
   it('a signed-in player goes on it as the game syncs: full name, best cash and stage', async () => {
@@ -368,9 +369,10 @@ describe('the scoreboard', () => {
     const { c } = await board({ money: 5000 });
     $('cloud').click();
     await vi.waitFor(() => expect(c.cloud.state).toBe('saved'));
-    $('board').click();
+    $('gear').click();
+    $('scoresCat').click();
     expect($('scores').hidden).toBe(false);
-    expect($('board').getAttribute('aria-expanded')).toBe('true');
+    expect($('settings').hidden).toBe(true); // the scoreboard takes the menu's place
     expect(document.activeElement).toBe($('scoresClose'));
     await vi.waitFor(() => expect(rows()).toEqual([
       '1Mia KowalskiStage 2$52k', '2Pat Smith (you)Stage 1$5,000', '3OlaStage 1$900',
@@ -380,10 +382,10 @@ describe('the scoreboard', () => {
     expect($('scoresJoin').hidden).toBe(true);
     $('scoresClose').click();
     expect($('scores').hidden).toBe(true);
-    expect(document.activeElement).toBe($('board'));
+    expect(document.activeElement).toBe($('gear'));
   });
 
-  it("closes with Escape, a tap beside it, or the 🏆 button again", async () => {
+  it('closes with Escape, or a tap beside it', async () => {
     const { s } = await board();
     s.openScores();
     $('scoresClose').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
@@ -393,15 +395,47 @@ describe('the scoreboard', () => {
     expect($('scores').hidden).toBe(false); // on the card: stays open
     $('scores').click();
     expect($('scores').hidden).toBe(true);
-    $('board').click(); $('board').click();
-    expect($('scores').hidden).toBe(true);
+  });
+
+  it("shows a player who played before where it went, once: the 🏆 flies into the gear, and the row says so", async () => {
+    const { s } = await board({ money: 100 });
+    expect($('scoresMoved').hidden).toBe(false);
+    s.updScores(1);
+    expect($('toast').textContent).not.toContain('scoreboard'); // not straight away
+    s.updScores(s.MOVED_AFTER);
+    await vi.waitFor(() => expect($('toast').textContent).toBe('🏆 Scoreboard moved to ⚙️ Settings'));
+    expect($('gear').classList.contains('ping')).toBe(true);
+    expect(localStorage.getItem(s.MOVED_KEY)).toBe('shown');
+    // "Moved here" stays on the row until the scoreboard is opened from it
+    expect($('scoresMoved').hidden).toBe(false);
+    $('scoresCat').click();
+    expect($('scoresMoved').hidden).toBe(true);
+    expect(localStorage.getItem(s.MOVED_KEY)).toBe('seen');
+  });
+
+  it('waits until nothing else is open over the game', async () => {
+    const { s } = await board({ money: 100 });
+    $('gear').click();
+    s.updScores(10);
+    expect(localStorage.getItem(s.MOVED_KEY)).toBe('new');
+    $('gear').click();
+    s.updScores(0.1);
+    expect(localStorage.getItem(s.MOVED_KEY)).toBe('shown');
+  });
+
+  it("tells a new player nothing: they never saw it anywhere else", async () => {
+    const { s } = await board(undefined, true);
+    expect($('scoresMoved').hidden).toBe(true);
+    s.updScores(10);
+    expect(localStorage.getItem(s.MOVED_KEY)).toBe('seen');
+    expect($('gear').classList.contains('ping')).toBe(false);
   });
 
   it("shows a player who isn't signed in their own best, and a way to join", async () => {
     others();
     const { g } = await board({ money: 2500 });
     g.wallet.money = 100; // spent since
-    $('board').click();
+    $('scoresCat').click();
     await vi.waitFor(() => expect(rows()).toEqual(['1Mia KowalskiStage 2$52k', '2OlaStage 1$900']));
     expect($('scoresMe').textContent).toBe('Your best: $2,500 · Stage 1');
     expect($('scoresJoin').hidden).toBe(false);
@@ -417,7 +451,7 @@ describe('the scoreboard', () => {
     await vi.waitFor(() => expect(c.cloud.state).toBe('saved'));
     const sc = await import('../src/scores');
     for (let i = 0; i < sc.TOP; i++) fake.scores.set(`x${i}`, { uid: `x${i}`, name: `P${i}`, best: 1000 + i, stage: 1 });
-    $('board').click();
+    $('scoresCat').click();
     await vi.waitFor(() => expect(rows()).toHaveLength(sc.TOP));
     expect($('scoresMe').textContent).toBe('You: $10 · Stage 1');
   });

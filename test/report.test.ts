@@ -71,10 +71,11 @@ describe('reporting a bug or an idea', () => {
     h.config.apiKey = '';
     await start(true);
     expect($('reportCat').hidden).toBe(true);
+    expect($('reportBtn').hidden).toBe(true);
     expect($('errReport').hidden).toBe(true);
   });
 
-  it('asks a player who is signed out to sign in first', async () => {
+  it('asks a player who is signed out to sign in first, then opens', async () => {
     const { c } = await start(true);
     expect($('reportCat').hidden).toBe(false);
     expect($('reportName').textContent).toBe('Sign in to send a report');
@@ -83,7 +84,16 @@ describe('reporting a bug or an idea', () => {
     await vi.waitFor(() => expect(c.cloud.user?.uid).toBe('u1'));
     expect($('reportName').textContent).toBe('Report a bug or idea');
     expect($('reportCat').getAttribute('aria-haspopup')).toBe('dialog');
-    expect($('report').hidden).toBe(true);
+    await vi.waitFor(() => expect($('report').hidden).toBe(false));
+  });
+
+  it('opens from the 🐞 button beside the gear too', async () => {
+    await start();
+    expect($('reportBtn').hidden).toBe(false);
+    $('gear').click(); // closes the menu start() opened
+    $('reportBtn').click();
+    expect($('report').hidden).toBe(false);
+    expect($('settings').hidden).toBe(true);
   });
 
   it('opens a window of its own over the game, with a picture of it, both boxes ticked, and a notice of everything that goes', async () => {
