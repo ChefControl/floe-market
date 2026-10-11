@@ -1,6 +1,8 @@
 // The casino boat: the games' rules, the boat and the way out to it, and each game as the player plays it.
 import { describe, expect, it, vi } from 'vitest';
-import { canSplit, dealerDraws, handValue, insuranceCost, isBlackjack, newShoe, settle, type Card, type Suit } from '../src/blackjack';
+import {
+  canSplit, cutShoe, dealerDraws, handValue, insuranceCost, isBlackjack, newShoe, rankName, settle, type Card, type Suit,
+} from '../src/blackjack';
 import { colorOf, payout, spinWheel, WHEEL, wins } from '../src/roulette';
 import { lineMultiplier, pull, REEL, type Sym } from '../src/slots';
 import { bought, loadGame } from './helpers';
@@ -89,6 +91,13 @@ describe('blackjack rules', () => {
     expect(shoe).toHaveLength(312);
     expect(shoe.filter(x => x.rank === 1 && x.suit === '♥')).toHaveLength(6);
     expect(newShoe()).not.toEqual(shoe);
+  });
+
+  it('cuts the shoe: the cards above the cut go to the bottom, and the one under them comes out next', () => {
+    const shoe = [c(1), c(2), c(3), c(4), c(5)]; // the 5 is on top
+    expect(cutShoe(shoe, 2)).toEqual([c(4), c(5), c(1), c(2), c(3)]);
+    expect(cutShoe(shoe, 2).pop()).toEqual(c(3));
+    expect(shoe).toEqual([c(1), c(2), c(3), c(4), c(5)]);
   });
 });
 
@@ -498,12 +507,22 @@ describe('the blackjack table', () => {
   }
   /** What's on the felt: the cards ('?' face down), the totals over them, the hand being played. */
   const felt = async () => (await import('../src/blackjackTable')).onFelt();
+  const inShoe = async () => (await import('../src/blackjackTable')).inShoe();
+  const name = (x: Card) => rankName(x) + x.suit;
   const says = async () => (await import('../src/blackjackTable')).dealerSays();
   /** Seconds for the four cards of the deal to come out and turn over. */
   const DEALT = 3.5;
-  /** Seconds for the dealer to turn over their card and settle up, with no cards to draw; and for each card they draw
-   *  (burning one first). */
-  const STOOD = 2, DRAW = 1.7;
+  /** Seconds for the dealer to turn over their card and settle up, with no cards to draw; and for each card they draw. */
+  const STOOD = 2, DRAW = 1.4;
+  /** Seconds from stepping up to a fresh shoe to the stack being down for the player's cut, and from the cut to the
+   *  stack being in the shoe with its top card burned. */
+  const SHUFFLE = 6, LOAD = 3.5;
+  /** Moves the cut card in the stack, `k` cards from the top. */
+  const slideCut = (k: number) => {
+    const s = $('cutAt') as HTMLInputElement;
+    s.value = String(k);
+    s.dispatchEvent(new Event('input'));
+  };
 
   it('brings the camera in over the table while the player plays, fitting it above the controls', async () => {
     const g = await at('blackjack', 100, 'blackjack');
@@ -584,38 +603,132 @@ describe('the blackjack table', () => {
     expect((await felt()).chips).toBe(0); // paid back to the player
   });
 
-  it('the dealer burns a card into the tray before each card they draw, and can bust', async () => {
-    const g = await table(100, [c(10), c(8)], [c(10), c(6)], c(2), c(9));
+  it('the dealer draws straight off the shoe, burning nothing, and can bust', async () => {
+    const g = await table(100, [c(10), c(8)], [c(10), c(6)], c(9));
     click('#deal');
     g.run(DEALT);
     click('#stand');
-    g.run(1.8);
-    expect($('bjMsg').textContent).toBe('The dealer burns a card…');
+    g.run(1.4);
+    expect((await felt()).dealer).toEqual(['10♠', '6♠']);
     g.run(0.5);
-    expect((await felt()).discards).toBe(1);
-    expect((await felt()).dealer).toEqual(['10♠', '6♠']); // the burned 2 isn't theirs
-    g.run(0.5);
+    expect($('bjMsg').textContent).toBe('Dealer draws…');
     expect((await felt()).dealer).toEqual(['10♠', '6♠', '?']);
-    g.run(0.9);
+    g.run(1);
     expect((await felt()).dealer).toEqual(['10♠', '6♠', '9♠']);
-    g.run(0.6);
+    expect((await felt()).discards).toBe(0);
+    g.run(0.4);
     expect($('bjMsg').textContent).toBe('Dealer busts with 25: you win $50!');
     expect(g.wallet.money).toBe(125);
   });
 
-  it('burns a card off a fresh shoe, and sweeps the last hand into the tray at the next deal', async () => {
-    const g = await at('blackjack', 100, 'blackjack');
+  it('sweeps the last hand into the tray at the next deal', async () => {
+    const g = await table(100, [c(10), c(9)], [c(10), c(7)], c(5), c(6), c(5), c(6));
     click('#deal');
-    expect($('bjMsg').textContent).toBe('A fresh shoe: the dealer burns a card…');
-    g.run(DEALT + 1);
-    expect((await felt()).discards).toBe(1);
-    walkAway(g);
-    g.placePlayer(g.layout.GAMES.blackjack.x, g.layout.GAMES.blackjack.z); g.run(0.05);
-    const was = await felt(), out = was.dealer.length + was.hands.flat().length;
+    g.run(DEALT);
+    click('#stand');
+    g.run(STOOD);
+    expect((await felt()).discards).toBe(0);
     click('#deal');
     expect($('bjMsg').textContent).toBe('Dealing…');
     g.run(1);
-    expect((await felt()).discards).toBe(was.discards + out);
+    expect((await felt()).discards).toBe(4);
+  });
+
+  it('shuffles a fresh shoe in front of the player, riffling it three times, then offers them the cut', async () => {
+    const g = await at('blackjack', 100, 'blackjack');
+    expect($('bjMsg').textContent).toBe('A fresh shoe: the dealer shuffles…');
+    expect($('deal').hidden).toBe(true);
+    expect((await felt()).shuffle).toBe('due');
+    g.run(1.2);
+    expect(await felt()).toMatchObject({ shuffle: 'shuffle', stack: 312 }); // the shoe, gathered on the felt
+    g.run(0.5);
+    expect($('bjMsg').textContent).toBe('The dealer riffles the cards… (1 of 3)');
+    g.run(1.2);
+    expect($('bjMsg').textContent).toBe('The dealer riffles the cards… (2 of 3)');
+    expect($('bjCut').hidden).toBe(true);
+    g.run(SHUFFLE - 2.9);
+    expect(await felt()).toMatchObject({ shuffle: 'cut', stack: 312, cutCard: true });
+    expect($('bjCut').hidden).toBe(false);
+    expect($('bjMsg').textContent).toBe('Your cut: slide the yellow card into the stack, then cut.');
+    expect(await says()).toBe('Your cut!');
+    expect($('deal').hidden).toBe(true);
+    click('#deal');
+    expect(g.wallet.money).toBe(100); // no dealing till it's cut
+  });
+
+  it('cuts where the player puts the cut card, burns the top card, and deals from the one under it', async () => {
+    const g = await at('blackjack', 100, 'blackjack');
+    g.run(SHUFFLE);
+    const before = await inShoe();
+    slideCut(100);
+    click('#cutBtn');
+    expect(await inShoe()).toEqual(cutShoe(before, 100));
+    expect($('bjCut').hidden).toBe(true);
+    g.run(LOAD - 0.7);
+    expect($('bjMsg').textContent).toBe('The dealer burns the top card…');
+    g.run(0.7);
+    expect(await felt()).toMatchObject({ shuffle: '', cutCard: false, discards: 1 });
+    expect(await inShoe()).toEqual(cutShoe(before, 100).slice(0, -1));
+    expect($('bjMsg').textContent).toBe('Put a stake down and deal');
+    expect($('deal').hidden).toBe(false);
+    // the card right under the cut card was burned; the deal starts with the one under that, and burns nothing more
+    const next = (await inShoe()).slice(-4).reverse();
+    expect(next[0]).toEqual(before[before.length - 1 - 101]);
+    click('#deal');
+    g.run(DEALT);
+    const f = await felt();
+    expect(f.hands).toEqual([[name(next[0]), name(next[2])]]);
+    expect(f.dealer[0]).toBe(name(next[1]));
+    expect(f.discards).toBe(1);
+  });
+
+  it('keeps the cut at least a deck in from either end', async () => {
+    const g = await at('blackjack', 100, 'blackjack');
+    g.run(SHUFFLE);
+    expect([$('cutAt').getAttribute('min'), $('cutAt').getAttribute('max')]).toEqual(['52', '260']);
+    const before = await inShoe();
+    slideCut(5);
+    click('#cutBtn');
+    expect(await inShoe()).toEqual(cutShoe(before, 52));
+  });
+
+  it('lets the dealer cut if the player walks off mid-shuffle; one that has not started waits for them', async () => {
+    let g = await at('blackjack', 100, 'blackjack');
+    walkAway(g);
+    expect((await felt()).shuffle).toBe('due');
+    g.placePlayer(g.layout.GAMES.blackjack.x, g.layout.GAMES.blackjack.z); g.run(0.05);
+    expect($('bjMsg').textContent).toBe('A fresh shoe: the dealer shuffles…');
+    g.run(3);
+    walkAway(g);
+    expect(await felt()).toMatchObject({ shuffle: '', stack: 0, cutCard: false, discards: 1 });
+    expect(await inShoe()).toHaveLength(311);
+    g.placePlayer(g.layout.GAMES.blackjack.x, g.layout.GAMES.blackjack.z); g.run(0.05);
+    expect($('deal').hidden).toBe(false);
+    g = await at('blackjack', 0, 'blackjack'); // a broke player isn't shuffled for
+    g.run(SHUFFLE);
+    expect((await felt()).shuffle).toBe('due');
+  });
+
+  it('finishes the round when the cut card comes out, then shuffles again', async () => {
+    const g = await at('blackjack', 100, 'blackjack');
+    (await import('../src/blackjackTable')).stackShoe([c(10), c(10), c(9), c(7)], 50);
+    click('#deal');
+    g.run(DEALT);
+    click('#stand');
+    g.run(STOOD);
+    expect($('bjMsg').textContent).toBe('19 beats 17: you win $50!');
+    expect(await felt()).toMatchObject({ cutCard: true, shuffle: 'due' });
+    expect($('deal').hidden).toBe(true);
+    g.run(2.6);
+    expect($('bjMsg').textContent).toBe("The cut card's out: the dealer shuffles…");
+    g.run(1);
+    expect(await felt()).toMatchObject({ hands: [[]], dealer: [], discards: 0, cutCard: false });
+    g.run(SHUFFLE);
+    expect((await felt()).shuffle).toBe('cut');
+    click('#cutBtn');
+    g.run(LOAD);
+    expect(await inShoe()).toHaveLength(311);
+    expect($('deal').hidden).toBe(false);
   });
 
   it('a bust loses at once, without the dealer drawing', async () => {
@@ -658,16 +771,35 @@ describe('the blackjack table', () => {
     expect(g.wallet.money).toBe(100);
   });
 
-  it('doubles the stake for one more card, laid sideways', async () => {
-    const g = await table(100, [c(5), c(6)], [c(10), c(6)], c(10), c(2), c(10));
+  it('doubles on 10 or 11 with the card face down, turned over once the dealer is done', async () => {
+    const g = await table(100, [c(5), c(6)], [c(10), c(6)], c(10), c(2));
     click('#deal');
     g.run(DEALT);
     click('#double');
     expect(g.wallet.money).toBe(50);
     expect($('bjActs').hidden).toBe(true);
     g.run(0.8);
-    expect((await felt()).hands).toEqual([['5♠', '6♠', '10♠']]);
-    g.run(STOOD + DRAW + 0.5);
+    expect(await felt()).toMatchObject({ hands: [['5♠', '6♠', '?']], totals: ['11 + ?'] });
+    g.run(STOOD + DRAW - 0.1);
+    expect((await felt()).dealer).toEqual(['10♠', '6♠', '2♠']); // the dealer plays first
+    expect($('bjMsg').textContent).toBe('Your double card…');
+    expect((await felt()).hands).toEqual([['5♠', '6♠', '?']]);
+    g.run(0.6);
+    expect(await felt()).toMatchObject({ hands: [['5♠', '6♠', '10♠']], totals: ['21'] });
+    g.run(0.4);
+    expect($('bjMsg').textContent).toBe('21 beats 18: you win $100!');
+    expect(g.wallet.money).toBe(150);
+  });
+
+  it('doubles on any other total with the card face up', async () => {
+    const g = await table(100, [c(5), c(4)], [c(10), c(7)], c(10));
+    click('#deal');
+    g.run(DEALT);
+    click('#double');
+    g.run(0.8);
+    expect(await felt()).toMatchObject({ hands: [['5♠', '4♠', '10♠']], totals: ['19'] });
+    g.run(STOOD);
+    expect($('bjMsg').textContent).toBe('19 beats 17: you win $100!');
     expect(g.wallet.money).toBe(150);
   });
 
@@ -733,13 +865,17 @@ describe('the blackjack table', () => {
     expect(f.active).toBe(0);
     expect($('bjMsg').textContent).toBe('Hand 1: 11. Hit or stand?');
     expect(button('#split').hidden).toBe(true);
-    click('#double'); // 21 on the first hand
+    click('#double'); // 21 on the first hand, face down
     expect(g.wallet.money).toBe(25);
     g.run(0.8);
     f = await felt();
     expect(f.active).toBe(1);
+    expect(f.hands[0]).toEqual(['8♠', '3♠', '?']);
     click('#stand');
     g.run(STOOD);
+    expect($('bjMsg').textContent).toBe('Your double card…');
+    g.run(1);
+    expect((await felt()).hands[0]).toEqual(['8♠', '3♠', '10♠']);
     expect($('bjMsg').textContent).toBe('Dealer has 17: hand 1 wins, hand 2 wins. $150 back.');
     expect(g.wallet.money).toBe(175);
   });
