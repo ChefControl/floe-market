@@ -1,9 +1,10 @@
-// Reporting a bug or an idea, from the settings (About, Report a bug or idea), for a player signed in with Google.
-// Opening the row takes a picture of the game behind the menu; the report carries it and the game state (the save,
-// and where the player is), each behind a tickbox that starts on, and the notice above Send says exactly what goes.
-// Draw-a-Bug (sketch.ts) opens the picture big to circle what's wrong in red. It's sent to Firestore (cloud.ts,
-// firebase.ts), and a workflow in a private repo turns it into a GitHub issue (intake/). A report that can't reach the cloud waits on the device and goes when it can. The error box's Report
-// this button (errors.ts) opens it with the error written in.
+// Reporting a bug or an idea, for a player signed in with Google: the settings row (About, Report a bug or idea) opens
+// a window of its own over the game, and takes a picture of the game as it opens. The report carries the picture and
+// the game state (the save, and where the player is), each behind a tickbox that starts on, and the notice above Send
+// says exactly what goes. Draw-a-Bug (sketch.ts) opens the picture big to circle what's wrong in red. It's sent to
+// Firestore (cloud.ts, firebase.ts), and a workflow in a private repo turns it into a GitHub issue (intake/). A report
+// that can't reach the cloud waits on the device and goes when it can. The error box's Report this button (errors.ts)
+// opens it with the error written in.
 import { prefs } from './audio';
 import { cloud, cloudEnabled, onCloud, sendReport, type Report } from './cloud';
 import { recentErrors } from './errors';
@@ -33,7 +34,7 @@ const QUEUE_MAX = 2;
 const PANELS = ['shop', 'look', 'roulette', 'blackjack', 'korki', 'scores', 'cloudPick', 'stale', 'hint'];
 
 const $ = (id: string) => document.getElementById(id)!;
-const row = $('reportCat'), panel = $('reportPanel'), name = $('reportName');
+const row = $('reportCat'), win = $('report'), name = $('reportName');
 const text = $('reportText') as HTMLTextAreaElement, count = $('reportCount');
 const shotImg = $('reportShot') as HTMLImageElement;
 const shotOn = $('reportShotOn') as HTMLInputElement, stateOn = $('reportStateOn') as HTMLInputElement;
@@ -41,7 +42,7 @@ const warn = $('reportWarn'), notice = $('reportNotice');
 const kinds = [...$('reportKind').querySelectorAll<HTMLButtonElement>('button')];
 const drawBtn = $('reportDraw') as HTMLButtonElement;
 
-/** The picture taken when the panel opened, the lines drawn on it, and the two together as a JPEG ('' if none). */
+/** The picture taken when the window opened, the lines drawn on it, and the two together as a JPEG ('' if none). */
 let base: HTMLCanvasElement | null = null, strokes: Stroke[] = [], shot = '';
 let kind: Report['kind'] = 'bug';
 
@@ -154,18 +155,21 @@ function setKind(k: Report['kind']) {
   $('reportDrawName').textContent = k === 'bug' ? 'Draw-a-Bug' : 'Draw-an-Idea';
 }
 
-/** The row: signed in, it opens the panel; signed out, it signs in. */
+/** The row: signed in, it opens the report window; signed out, it signs in. */
 function showRow() {
   const signedIn = !!cloud.user;
   name.textContent = signedIn ? 'Report a bug or idea' : 'Sign in to send a report';
-  if (signedIn) row.setAttribute('aria-expanded', String(!panel.hidden));
-  else { row.removeAttribute('aria-expanded'); panel.hidden = true; }
-  row.classList.toggle('cat', signedIn);
+  if (signedIn) row.setAttribute('aria-haspopup', 'dialog');
+  else { row.removeAttribute('aria-haspopup'); win.hidden = true; }
 }
 
-/** Opens the panel with a fresh picture of the game, both boxes ticked, and optionally a note already written. */
+/**
+ * Opens the report window over the game, in place of the settings, with a fresh picture of the game and both boxes
+ * ticked, and optionally a note already written. A note written before and not sent is still there.
+ */
 export function openReport(note = '') {
   if (!cloud.user) { $('cloud').click(); return; }
+  openSettings(false);
   base = takeShot();
   strokes = [];
   shot = base ? jpeg(base) : '';
@@ -176,13 +180,16 @@ export function openReport(note = '') {
   shotOn.checked = stateOn.checked = true;
   shotOn.disabled = !shot;
   if (note) { setKind('bug'); text.value = note.slice(0, TEXT_MAX); }
-  panel.hidden = false;
-  showRow(); showNotice(); showCount();
-  panel.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
+  win.hidden = false;
+  showNotice(); showCount();
+  kinds.find(b => b.dataset.kind === kind)?.focus();
 }
 function closeReport() {
-  panel.hidden = true;
-  showRow();
+  if (win.hidden) return;
+  // a keyboard goes back to the gear the window was opened from
+  const focused = win.contains(document.activeElement);
+  win.hidden = true;
+  if (focused) $('gear').focus();
 }
 
 // ---------- sending, and the reports waiting for the cloud ----------
@@ -239,7 +246,11 @@ export function initReports() {
   if (!cloudEnabled()) return;
   row.hidden = false;
   $('errReport').hidden = false;
-  row.addEventListener('click', () => { if (panel.hidden) openReport(); else closeReport(); });
+  row.addEventListener('click', () => openReport());
+  // ✕, Cancel, a click on the dimmed game around it, or Escape (unless Draw-a-Bug is open over it, sketch.ts) closes it
+  $('reportClose').addEventListener('click', closeReport);
+  win.addEventListener('click', e => { if (e.target === win) closeReport(); });
+  window.addEventListener('keydown', e => { if (e.key === 'Escape') closeReport(); });
   for (const b of kinds) b.addEventListener('click', () => setKind(b.dataset.kind as Report['kind']));
   text.maxLength = TEXT_MAX;
   text.addEventListener('input', () => { showCount(); if (text.value.trim()) showNotice(); });
@@ -249,10 +260,7 @@ export function initReports() {
   drawBtn.addEventListener('click', () => { void draw(); });
   shotImg.addEventListener('click', () => { void draw(); });
   $('reportSend').addEventListener('click', () => { void send(); });
-  $('errReport').addEventListener('click', () => {
-    openSettings(true);
-    openReport(recentErrors[recentErrors.length - 1] ?? $('errMsg').textContent ?? '');
-  });
+  $('errReport').addEventListener('click', () => openReport(recentErrors[recentErrors.length - 1] ?? $('errMsg').textContent ?? ''));
   // signing in, or coming back online, sends what was waiting
   onCloud(() => { showRow(); if (cloud.user && cloud.state === 'saved') void flush(); });
   window.addEventListener('online', () => { void flush(); });

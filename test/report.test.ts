@@ -78,18 +78,20 @@ describe('reporting a bug or an idea', () => {
     const { c } = await start(true);
     expect($('reportCat').hidden).toBe(false);
     expect($('reportName').textContent).toBe('Sign in to send a report');
-    expect($('reportCat').hasAttribute('aria-expanded')).toBe(false);
+    expect($('reportCat').hasAttribute('aria-haspopup')).toBe(false);
     $('reportCat').click();
     await vi.waitFor(() => expect(c.cloud.user?.uid).toBe('u1'));
     expect($('reportName').textContent).toBe('Report a bug or idea');
-    expect($('reportPanel').hidden).toBe(true);
+    expect($('reportCat').getAttribute('aria-haspopup')).toBe('dialog');
+    expect($('report').hidden).toBe(true);
   });
 
-  it('opens with a picture of the game, both boxes ticked, and a notice of everything that goes', async () => {
+  it('opens a window of its own over the game, with a picture of it, both boxes ticked, and a notice of everything that goes', async () => {
     await start();
     $('reportCat').click();
-    expect($('reportPanel').hidden).toBe(false);
-    expect($('reportCat').getAttribute('aria-expanded')).toBe('true');
+    expect($('report').hidden).toBe(false);
+    expect($('settings').hidden).toBe(true); // the window takes the menu's place
+    expect(document.activeElement).toBe($('reportKind').querySelector('[data-kind="bug"]'));
     expect(($('reportShot') as HTMLImageElement).src).toBe(SHOT);
     expect($('reportShot').hidden).toBe(false);
     expect(box('reportShotOn').checked && box('reportStateOn').checked).toBe(true);
@@ -98,8 +100,22 @@ describe('reporting a bug or an idea', () => {
       + 'name and email are not sent. The picture and game state are deleted after 7 days.');
     expect($('reportWarn').hidden).toBe(true);
     expect($('reportCount').textContent).toBe('0 / 1000');
+    // ✕, Cancel, a click on the dimmed game around it, and Escape each close it, keeping the note for next time
+    write('Half a thought');
+    $('reportClose').click();
+    expect($('report').hidden).toBe(true);
+    expect(document.activeElement).toBe($('gear')); // back where it was opened from
+    for (const close of [() => $('reportCancel').click(), () => $('report').click(),
+      () => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))]) {
+      $('reportCat').click();
+      expect($('report').hidden).toBe(false);
+      close();
+      expect($('report').hidden).toBe(true);
+    }
     $('reportCat').click();
-    expect($('reportPanel').hidden).toBe(true);
+    $('reportText').click(); // a click inside the window doesn't close it
+    expect($('report').hidden).toBe(false);
+    expect(($('reportText') as HTMLTextAreaElement).value).toBe('Half a thought');
   });
 
   it('says what leaving the picture or the game state out costs, and leaves it out of the notice', async () => {
@@ -119,7 +135,7 @@ describe('reporting a bug or an idea', () => {
     expect($('reportNotice').textContent).toMatch(/The picture is deleted after 7 days\.$/);
     expect($('reportWarn').textContent).not.toContain('picture');
     // both start ticked again the next time it opens
-    $('reportCat').click(); $('reportCat').click();
+    $('reportClose').click(); $('reportCat').click();
     expect(box('reportStateOn').checked).toBe(true);
     expect($('reportWarn').hidden).toBe(true);
   });
@@ -144,7 +160,7 @@ describe('reporting a bug or an idea', () => {
     expect(JSON.parse(String(r.device))).toMatchObject({ graphics: 'auto high', touch: false });
     expect(JSON.parse(String(r.errors))).toEqual(['Something broke: boom']);
     await vi.waitFor(() => expect($('toast').textContent).toBe('Thanks! Your report is on its way'));
-    expect($('reportPanel').hidden).toBe(true);
+    expect($('report').hidden).toBe(true);
     expect(($('reportText') as HTMLTextAreaElement).value).toBe('');
   });
 
@@ -241,8 +257,7 @@ describe('reporting a bug or an idea', () => {
     expect($('errMsg').textContent).toBe('Something broke: kaboom');
     expect($('errReport').hidden).toBe(false);
     $('errReport').click();
-    expect($('settings').hidden).toBe(false);
-    expect($('reportPanel').hidden).toBe(false);
+    expect($('report').hidden).toBe(false);
     expect(($('reportText') as HTMLTextAreaElement).value).toBe('Something broke: kaboom (game.js:12)');
   });
 
@@ -273,9 +288,9 @@ describe('Draw-a-Bug', () => {
     expect($('drawTitle').textContent).toBe("Draw-a-Bug: circle what's wrong");
     expect(document.activeElement).toBe($('drawDone'));
     expect(btn('drawUndo').disabled && btn('drawClear').disabled).toBe(true);
-    // a tap there doesn't close the settings underneath
+    // drawing doesn't close the report window underneath
     at('pointerdown', 10, 10);
-    expect($('settings').hidden).toBe(false);
+    expect($('report').hidden).toBe(false);
     at('pointermove', 30, 12);
     at('pointerup', 30, 12);
     at('pointermove', 90, 90); // not drawing any more
@@ -304,7 +319,7 @@ describe('Draw-a-Bug', () => {
     at('pointerdown', 50, 50); at('pointerup', 50, 50);
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
     expect($('draw').hidden).toBe(true);
-    expect($('settings').hidden).toBe(false); // Escape closed the drawing, not the menu
+    expect($('report').hidden).toBe(false); // Escape closed the drawing, not the report window
     btn('reportDraw').click();
     btn('drawUndo').click();
     expect(btn('drawUndo').disabled).toBe(true); // only the one kept line was there
