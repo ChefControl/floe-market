@@ -516,6 +516,9 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
 .casino .acts{ display:grid; grid-auto-flow:column; grid-auto-columns:minmax(0,1fr); gap:8px; }
 .casino .acts button{ height:50px; border-radius:14px; background:#FFF8EC; box-shadow:0 4px 0 #B9A98F; font-size:17px; }
 .casino .acts .gold{ background:#F2C14E; box-shadow:0 4px 0 #A9761C; }
+.casino .cut{ display:flex; align-items:center; gap:8px; font-size:13px; font-weight:800; color:#FFE7A8; }
+.casino .cut input{ flex:1; min-width:0; height:32px; margin:0; accent-color:#F5D03A; cursor:pointer; }
+.casino .cut .go{ padding:0 24px; }
 .casino .bets{ display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
 .casino .bets button{
   height:48px; border-radius:14px; color:#FFF8EC; display:flex; flex-direction:column; align-items:center; justify-content:center;
@@ -753,6 +756,12 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
   <div class="acts" id="bjAsk" hidden>
     <button type="button" id="insureYes" class="gold">Yes</button>
     <button type="button" id="insureNo">No thanks</button>
+  </div>
+  <div class="cut" id="bjCut" hidden>
+    <span aria-hidden="true">Top</span>
+    <input type="range" id="cutAt" step="1" aria-label="Where to put the cut card: cards from the top">
+    <span aria-hidden="true">Bottom</span>
+    <button type="button" id="cutBtn" class="go">Cut</button>
   </div>
   <div class="stakes" role="group" aria-label="Stake">
     <button type="button" data-stake="0">$5</button>
