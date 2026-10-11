@@ -88,6 +88,9 @@ function drawFelt(c: CanvasRenderingContext2D, w: number, h: number) {
 
 // ---------- the board of last numbers ----------
 const BOARD = { w: 128, h: 256 };
+/** Where the board stands on the felt, its middle's height and its size: by the wheel, and low enough that the camera
+ *  at the table keeps it in view. */
+const BOARD_AT = { x: 0.58, y: TOP + 0.36, z: -0.26, w: 0.2, h: 0.42 };
 function drawBoard(c: CanvasRenderingContext2D, w: number, h: number) {
   c.fillStyle = '#1A0A0F'; c.fillRect(0, 0, w, h);
   c.strokeStyle = '#E3B23C'; c.lineWidth = 6; c.strokeRect(3, 3, w - 6, h - 6);
@@ -140,19 +143,21 @@ function buildTable() {
   const ball = new Mesh(G.sphere, new MeshLambertMaterial({ color: 0xFFFFFF, emissive: 0x8A8A8A }));
   ball.castShadow = true; ball.scale.setScalar(BALL.r); pivot.add(ball);
   ball.visible = false;
-  // the board of last numbers on its post, by the wheel
+  // the board of last numbers on its post, beside the wheel and low enough to stay in view at the table
   const boardTex = canvasTex(BOARD.w, BOARD.h, drawBoard);
-  const board = new Group(); board.position.set(0.62, 0, -0.62); g.add(board);
-  board.add(mesh(new CylinderGeometry(0.02, 0.02, 1.1, 8), 0x8A949C, 0, TOP + 0.3, 0));
-  board.add(mesh(new BoxGeometry(0.26, 0.5, 0.05), 0x2A0F16, 0, TOP + 0.75, 0, true));
-  const screen = new Mesh(new PlaneGeometry(0.22, 0.44), new MeshBasicMaterial({ map: boardTex.tex }));
-  screen.position.set(0, TOP + 0.75, 0.027); board.add(screen);
-  board.rotation.y = -0.35;
+  const board = new Group(); board.position.set(BOARD_AT.x, 0, BOARD_AT.z); g.add(board);
+  const post = BOARD_AT.y - BOARD_AT.h / 2 - TOP;
+  board.add(mesh(new CylinderGeometry(0.02, 0.02, post, 8), 0x8A949C, 0, TOP + post / 2, 0));
+  board.add(mesh(new CylinderGeometry(0.06, 0.07, 0.02, 12), 0x8A949C, 0, TOP + 0.01, 0, true));
+  board.add(mesh(new BoxGeometry(BOARD_AT.w, BOARD_AT.h, 0.05), 0x2A0F16, 0, BOARD_AT.y, 0, true));
+  const screen = new Mesh(new PlaneGeometry(BOARD_AT.w - 0.02, 2 * (BOARD_AT.w - 0.02)), new MeshBasicMaterial({ map: boardTex.tex }));
+  screen.position.set(0, BOARD_AT.y, 0.027); board.add(screen);
+  board.rotation.y = -0.25;
   const croupier = new Person(SUITS[2], 'fancy');
   croupier.position.set(0, 0, -1.15);
   g.add(croupier);
   const voice = speaker(g, 2.0);
-  return { g, face, pivot, ball, boardTex, voice };
+  return { g, face, pivot, ball, board, boardTex, voice };
 }
 
 // ---------- state ----------
@@ -184,7 +189,7 @@ function refresh() {
   });
   stakes.refresh(!!spin);
   spinBtn.disabled = !!spin || !stakes.ok;
-  spinBtn.textContent = spin ? 'Spinning…' : `Spin · ${money(stakes.value)} on ${LABELS[bet]}`;
+  spinBtn.textContent = spin ? 'Spinning…' : `Spin · ${stakes.label} on ${LABELS[bet]}`;
 }
 
 $('betKinds').addEventListener('click', e => {
@@ -279,7 +284,7 @@ const pad = gamePad(AT, '🎡', panel, {
   closed() { if (spin) { settle(); settleTweens(); } }, // walked away mid-spin: pay out now
   greet() { table!.voice.say('Welcome aboard!'); },
 }, {
-  at: V(TABLE.x, AT.y + TOP + 0.12, TABLE.z - 0.02), from: V(0, 1.7, 1).normalize(), wide: 1.2, tall: 1.25,
+  at: V(TABLE.x, AT.y + TOP + 0.12, TABLE.z - 0.02), from: V(0, 1.7, 1).normalize(), wide: 1.6, tall: 1.25,
 });
 
 /** Sets the table up on the boat. Returns it and its pad's marking, for the pop-in. */
@@ -319,3 +324,5 @@ export const croupierSays = () => table?.voice.text ?? '';
 export const ballOff = () => table ? mod(table.pivot.rotation.y + angle + WHEEL.indexOf(history[0] as typeof WHEEL[number]) * SEG + Math.PI, TAU) - Math.PI : 0;
 /** For tests: how many stacks of chips are on the felt. */
 export const chipsOnFelt = () => stacks.size;
+/** For tests: the board of last numbers. */
+export const lastNumbers = () => table?.board;

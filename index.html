@@ -500,11 +500,19 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
 }
 .casino button:disabled{ opacity:.45; cursor:default; }
 .casino button:focus-visible{ outline:3px solid var(--coral); outline-offset:2px; }
+/* the stake: each tap on a chip puts one more down, its count in a gold tag on it; Clear takes them back */
 .casino .stakes{ display:flex; justify-content:space-between; gap:6px; }
 .casino .stakes button{
-  --c:#C8323F; position:relative; width:50px; height:50px; flex:none; padding:0; border-radius:50%;
+  --c:#C8323F; position:relative; flex:0 1 50px; min-width:0; aspect-ratio:1; padding:0; border-radius:50%;
   background:var(--c); color:#FFF8EC; font-size:14px; box-shadow:0 3px 0 rgba(0,0,0,.35); transition:transform .15s;
 }
+.casino .stakes [data-n]::after{
+  content:attr(data-n); position:absolute; top:-7px; right:-7px; min-width:22px; height:20px; padding:0 4px;
+  box-sizing:border-box; border-radius:10px; background:#F2C14E; color:#2A0F16; font-size:12px; line-height:20px;
+  box-shadow:0 0 0 2px #3E0E18;
+}
+.casino .stakes [data-stake="clear"]{ --c:transparent; color:#FFE7A8; font-size:13px; box-shadow:inset 0 0 0 2px rgba(255,231,168,.55); }
+.casino .stakes [data-stake="clear"]::before{ content:none; }
 .casino .stakes button::before{ content:""; position:absolute; inset:5px; border-radius:50%; border:3px dashed rgba(255,248,236,.8); }
 .casino .stakes [data-stake="1"]{ --c:#22874A; }
 .casino .stakes [data-stake="2"]{ --c:#1F2A33; }
@@ -615,7 +623,7 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
   }
   #shop, #look{ width:min(46vw,400px); }
   .casino{ width:min(46vw,380px); gap:8px; }
-  .casino .stakes button{ width:44px; height:44px; font-size:13px; }
+  .casino .stakes button{ flex-basis:44px; font-size:13px; }
   .casino .go, .casino .acts button{ height:44px; }
   #prompts{ bottom:max(12px, env(safe-area-inset-bottom,0px)); }
   #tip{ font-size:15px; padding:6px 14px; }
@@ -738,6 +746,7 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
     <button type="button" data-stake="2">$100</button>
     <button type="button" data-stake="3">$500</button>
     <button type="button" data-stake="all">All in</button>
+    <button type="button" data-stake="clear" aria-label="Clear the stake">Clear</button>
   </div>
   <button type="button" id="spin" class="go"></button>
   <div id="history" class="sr" aria-label="Recent results"></div>
@@ -760,6 +769,7 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
     <button type="button" data-stake="2">$100</button>
     <button type="button" data-stake="3">$500</button>
     <button type="button" data-stake="all">All in</button>
+    <button type="button" data-stake="clear" aria-label="Clear the stake">Clear</button>
   </div>
   <button type="button" id="deal" class="go"></button>
 </div>
@@ -772,6 +782,7 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
     <button type="button" data-stake="2">$100</button>
     <button type="button" data-stake="3">$500</button>
     <button type="button" data-stake="all">All in</button>
+    <button type="button" data-stake="clear" aria-label="Clear the stake">Clear</button>
   </div>
   <button type="button" id="pull" class="go"></button>
 </div>

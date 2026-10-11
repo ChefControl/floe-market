@@ -1,6 +1,6 @@
 // The casino boat: the games' rules, the boat and the way out to it, and each game as the player plays it.
 import { describe, expect, it, vi } from 'vitest';
-import { canSplit, dealerDraws, handValue, insuranceCost, isBlackjack, newShoe, settle, type Card, type Suit } from '../src/blackjack';
+import { canSplit, CUT, dealerDraws, handValue, insuranceCost, isBlackjack, newShoe, settle, type Card, type Suit } from '../src/blackjack';
 import { colorOf, payout, spinWheel, WHEEL, wins } from '../src/roulette';
 import { lineMultiplier, pull, REEL, type Sym } from '../src/slots';
 import { bought, loadGame } from './helpers';
@@ -421,6 +421,7 @@ describe('the roulette table', () => {
   it('pays 35 to 1 on green', async () => {
     const g = await at('roulette', 100);
     click('[data-bet="green"]');
+    click('#roulette [data-stake="clear"]');
     click('#roulette [data-stake="0"]');
     expect($('spin').textContent).toBe('Spin · $5 on Green');
     rig(0);
@@ -471,15 +472,75 @@ describe('the roulette table', () => {
     expect(croupierSays()).toBe('Green!');
   });
 
-  it('has bigger chips in stage 2, and keeps the chosen one through the stage-up', async () => {
+  it('adds up the chips the player puts down, for any stake', async () => {
+    const g = await at('roulette', 700);
+    const chip = (v: string) => button(`#roulette [data-stake="${v}"]`);
+    expect($('spin').textContent).toBe('Spin · $25 on Red'); // one $25 chip to start with
+    expect(chip('1').dataset.n).toBe('×1');
+    click('#roulette [data-stake="clear"]');
+    expect(button('#spin').disabled).toBe(true);
+    expect(chip('clear').disabled).toBe(true);
+    for (let i = 0; i < 3; i++) click('#roulette [data-stake="2"]');
+    click('#roulette [data-stake="1"]');
+    expect($('spin').textContent).toBe('Spin · $325 on Red');
+    expect([chip('1').dataset.n, chip('2').dataset.n, chip('3').dataset.n]).toEqual(['×1', '×3', undefined]);
+    expect(chip('2').getAttribute('aria-pressed')).toBe('true');
+    expect(chip('3').disabled).toBe(true); // another $500 would be more than the player has
+    rig(32); // red
+    click('#spin');
+    expect(g.wallet.money).toBe(375);
+    expect(chip('2').disabled).toBe(true); // no changing it mid-spin
+    g.run(6);
+    expect(g.wallet.money).toBe(1025);
+    expect($('spin').textContent).toBe('Spin · $325 on Red'); // it stays down for the next spin
+    // all in, then a chip starts again from that chip
+    click('#roulette [data-stake="all"]');
+    expect($('spin').textContent).toBe('Spin · $1,025 on Red');
+    expect(chip('2').dataset.n).toBeUndefined();
+    click('#roulette [data-stake="3"]');
+    expect($('spin').textContent).toBe('Spin · $500 on Red');
+    expect(chip('all').getAttribute('aria-pressed')).toBe('false');
+  });
+
+  it('has bigger chips in stage 2, and keeps the chips down through the stage-up', async () => {
     const g = await at('roulette', 100_000);
-    click('#roulette [data-stake="0"]');
-    expect($('spin').textContent).toBe('Spin · $5 on Red');
+    click('#roulette [data-stake="clear"]');
+    click('#roulette [data-stake="0"]'); click('#roulette [data-stake="3"]'); click('#roulette [data-stake="3"]');
+    expect($('spin').textContent).toBe('Spin · $1,005 on Red');
     walkAway(g);
     g.unlocks.applyUnlock('sushi', true);
     g.placePlayer(g.layout.GAMES.roulette.x, g.layout.GAMES.roulette.z); g.run(0.05);
-    expect([...document.querySelectorAll('#roulette [data-stake]')].map(b => b.textContent)).toEqual(['$50', '$250', '$1k', '$5k', 'All in']);
-    expect($('spin').textContent).toBe('Spin · $50 on Red');
+    expect([...document.querySelectorAll('#roulette [data-stake]')].map(b => b.textContent)).toEqual(['$50', '$250', '$1k', '$5k', 'All in', 'Clear']);
+    expect($('spin').textContent).toBe('Spin · $10,050 on Red');
+  });
+
+  it('keeps its board of last numbers in view, between the HUD and the controls, on a computer or a phone', async () => {
+    const g = await at('roulette', 100);
+    const { Box3, Vector3 } = await import('three');
+    const { camera, scene, slideView } = await import('../src/render'), { tableRoom, topOfView } = await import('../src/ui');
+    const t = await import('../src/rouletteTable'), kit = await import('../src/casinoKit');
+    for (const [w, h, panel] of [[1024, 768, 200], [390, 844, 250]]) {
+      vi.stubGlobal('innerWidth', w); vi.stubGlobal('innerHeight', h);
+      camera.aspect = w / h; camera.updateProjectionMatrix();
+      const controls = h - panel - 10, pw = Math.min(w * 0.94, 440);
+      vi.spyOn($('roulette'), 'getBoundingClientRect').mockReturnValue({ left: (w - pw) / 2, top: controls, width: pw, height: panel } as DOMRect);
+      g.run(0.05);
+      // the camera where the game puts it, sat at the table
+      let v = kit.tableView(0.1);
+      for (let i = 0; i < 40; i++) v = kit.tableView(0.1);
+      camera.position.copy(v.eye); camera.lookAt(v.at);
+      slideView(tableRoom.x, tableRoom.y);
+      scene.updateMatrixWorld(); camera.updateMatrixWorld();
+      const box = new Box3().setFromObject(t.lastNumbers()!);
+      for (const x of [box.min.x, box.max.x]) for (const y of [box.min.y, box.max.y]) for (const z of [box.min.z, box.max.z]) {
+        const p = new Vector3(x, y, z).project(camera);
+        const sx = (p.x + 1) / 2 * w, sy = (1 - p.y) / 2 * h;
+        expect(sy).toBeGreaterThan(topOfView(h));
+        expect(sy).toBeLessThan(controls);
+        expect(sx).toBeGreaterThan(0);
+        expect(sx).toBeLessThan(w);
+      }
+    }
   });
 
   it('greets a broke player', async () => {
@@ -504,6 +565,8 @@ describe('the blackjack table', () => {
   /** Seconds for the dealer to turn over their card and settle up, with no cards to draw; and for each card they draw
    *  (burning one first). */
   const STOOD = 2, DRAW = 1.7;
+  /** Seconds the dealer takes to shuffle a fresh shoe. */
+  const SHUFFLE_SECS = 3.4;
 
   it('brings the camera in over the table while the player plays, fitting it above the controls', async () => {
     const g = await at('blackjack', 100, 'blackjack');
@@ -616,6 +679,45 @@ describe('the blackjack table', () => {
     expect($('bjMsg').textContent).toBe('Dealing…');
     g.run(1);
     expect((await felt()).discards).toBe(was.discards + out);
+  });
+
+  it('deals from a six-deck shoe down to the cut card, then shuffles it all back together before the next hand', async () => {
+    const g = await at('blackjack', 100, 'blackjack');
+    expect(await felt()).toMatchObject({ shoe: 312, stack: 312, cutOut: false });
+    const { stackShoe } = await import('../src/blackjackTable');
+    stackShoe([c(10), c(10), c(9), c(8)], CUT - 2); // the cut card is two cards down
+    click('#deal');
+    g.run(DEALT);
+    expect(await felt()).toMatchObject({ shoe: CUT - 2, stack: CUT - 2, cutOut: true });
+    expect(await says()).toBe('Last hand!');
+    click('#stand');
+    g.run(STOOD + 1);
+    expect(g.wallet.money).toBe(125); // the hand plays out as usual
+    // the next deal: the tray and the rest of the shoe are shuffled together, and the shoe's full again
+    click('#deal');
+    expect($('bjMsg').textContent).toBe('The cut card is out: the dealer shuffles…');
+    g.run(1.5);
+    expect(await says()).toBe('Shuffle up!');
+    expect((await felt()).discards).toBe(0);
+    g.run(SHUFFLE_SECS);
+    expect($('bjMsg').textContent).toBe('A fresh shoe: the dealer burns a card…');
+    expect((await felt()).cutOut).toBe(false);
+    g.run(DEALT);
+    expect(await felt()).toMatchObject({ shoe: 312 - 5, stack: 312 - 5, discards: 1 });
+  });
+
+  it('keeps count of every card when the player walks off mid-shuffle', async () => {
+    const g = await at('blackjack', 100, 'blackjack');
+    const { stackShoe } = await import('../src/blackjackTable');
+    stackShoe([c(10), c(10), c(9), c(8)], CUT - 2);
+    click('#deal'); g.run(DEALT); click('#stand'); g.run(STOOD + 1);
+    click('#deal');
+    g.run(1.5);
+    walkAway(g);
+    const f = await felt(), out = f.dealer.length + f.hands.flat().length;
+    expect(f.shoe + f.discards + out).toBe(312);
+    expect(f.stack).toBe(f.shoe);
+    expect(f.cutOut).toBe(false);
   });
 
   it('a bust loses at once, without the dealer drawing', async () => {
