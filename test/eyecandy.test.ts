@@ -1,9 +1,9 @@
 // The eye candy update: on High, the world is drawn the way the people are (kit.ts), with a rolling sea, cloud
 // shadows and little effects; on Low, everything is drawn exactly as before, and the renderer is lighter. Neither
 // touches the game's luck.
-import { BoxGeometry, type BufferGeometry, InstancedMesh, Mesh, MeshLambertMaterial, type Object3D, SphereGeometry } from 'three';
+import { BoxGeometry, type BufferGeometry, InstancedMesh, Mesh, MeshLambertMaterial, type Object3D, SphereGeometry, Vector3 } from 'three';
 import { describe, expect, it, vi } from 'vitest';
-import { loadGame } from './helpers';
+import { bought, loadGame } from './helpers';
 
 /** Whether `o` and everything it's in are showing. */
 const shown = (o: Object3D) => { for (let p: Object3D | null = o; p; p = p.parent) if (!p.visible) return false; return true; };
@@ -20,13 +20,16 @@ function seeded(seed: number) {
   };
 }
 
-/** Loads the game with the graphics already chosen on this device. */
-async function loadWith(q: 'low' | 'high') {
+/** A save with the casino boat and all its games bought. */
+const CASINO = { money: 500, tiles: bought('roulette', 'blackjack', 'slots') };
+
+/** Loads the game (from `save`, if any) with the graphics already chosen on this device. */
+async function loadWith(q: 'low' | 'high', save?: typeof CASINO) {
   const get = Storage.prototype.getItem;
   const spy = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(function (this: Storage, k: string) {
     return k === 'floe-market-graphics' ? q : get.call(this, k);
   });
-  const g = await loadGame();
+  const g = await loadGame(save);
   spy.mockRestore();
   return g;
 }
@@ -55,6 +58,36 @@ describe('eye candy', () => {
     // same seed again (setup.ts), then Low
     vi.spyOn(Math, 'random').mockImplementation(seeded(1));
     await loadWith('low');
+    expect([Math.random(), Math.random()]).toEqual(high);
+  });
+
+  it('draws the casino harbor in more detail on High, and on Low exactly as before', async () => {
+    const g = await loadGame(CASINO);
+    const { Person } = await import('../src/characters');
+    const { choose } = await import('../src/graphics');
+    const inPerson = (o: Object3D) => { for (let p: Object3D | null = o; p; p = p.parent) if (p instanceof Person) return true; return false; };
+    // what's baked the new way on the quay and aboard (the dock and the restaurant are checked above)
+    const newKind = () => {
+      const found: Object3D[] = [], at = new Vector3();
+      g.render.scene.traverse(o => {
+        if (!(o instanceof Mesh) || inPerson(o) || !shown(o) || !packed(o.geometry)) return;
+        o.getWorldPosition(at);
+        if (at.x < -7.5 && at.x > -30 && at.z < -3.5 && at.z > -15) found.push(o);
+      });
+      return found;
+    };
+    expect(newKind().length).toBeGreaterThan(5); // the quay, the yacht, the bar, the tables...
+    choose('low');
+    expect(newKind()).toEqual([]);
+    choose('high');
+    expect(newKind().length).toBeGreaterThan(5);
+  });
+
+  it("builds the casino harbor's detail off the game's luck too", async () => {
+    await loadWith('high', CASINO);
+    const high = [Math.random(), Math.random()];
+    vi.spyOn(Math, 'random').mockImplementation(seeded(1));
+    await loadWith('low', CASINO);
     expect([Math.random(), Math.random()]).toEqual(high);
   });
 

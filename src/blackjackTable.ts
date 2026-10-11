@@ -28,6 +28,7 @@ import {
 import { badge, cheer, chipStack, CHIPS, easeInOut, gamePad, greeting, settleTweens, slide, speaker, Stakes, tween } from './casinoKit';
 import { Person, SUITS } from './characters';
 import { Build, detail, dice, K, quietly, shade, tube } from './kit';
+import { armrest } from './propsCasino';
 import { GAMES, LOUNGE, loungeSeen, pushOutOfBox, SHIP, stage } from './layout';
 import { canvasTex, FONT, mesh, rr, scene } from './render';
 import { clack, deal as dealSound, lose, push as pushSound, win } from './sfx';
@@ -225,6 +226,10 @@ function buildTable() {
   g.add(half(R - 0.05, 0.58, 0x6B3E26, 0.29));
   g.add(half(R + 0.12, 0.08, 0x8A5A3B, 0.62));
   g.add(half(R, 0.09, 0x2E7D4F, 0.63));
+  // on High, a padded leather armrest along the curve, where the players lean (propsCasino.ts)
+  const arm = armrest(R + 0.07, TOP + 0.02).mesh();
+  g.add(arm);
+  detail(null, arm);
   const print = new Mesh(new PlaneGeometry(2 * R, R).rotateX(-Math.PI / 2),
     new MeshLambertMaterial({ map: canvasTex(FELT_PX, FELT_PX / 2, drawFelt).tex, transparent: true, depthWrite: false }));
   print.position.set(0, TOP + 0.001, R / 2); print.receiveShadow = true;

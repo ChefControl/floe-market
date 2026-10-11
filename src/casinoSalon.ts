@@ -8,7 +8,8 @@
 // guests on the stools, a short row of slot machines by the door with guests playing them (now and then one wins), a
 // palm, a guest at the roulette table who cheers when the player wins, and a waiter carrying champagne along the
 // windows, who doesn't block the way and stops to toast with the player over a glass. None of it touches the game's
-// luck: the guests run on their own dice.
+// luck: the guests run on their own dice. On High, the bar, its stools and bottles, the palm and the loungers are
+// drawn in more detail (propsCasino.ts); on Low, as they always were.
 import {
   BoxGeometry, CanvasTexture, CylinderGeometry, Euler, ExtrudeGeometry, Group, Mesh, MeshBasicMaterial,
   MeshLambertMaterial, MeshPhongMaterial, PlaneGeometry, Quaternion, Shape, ShapeGeometry, Vector3,
@@ -17,10 +18,11 @@ import {
 import { atTable, CHIPS, easeInOut, leaveSeat, onCheer, speaker, takeSeat, tipsy } from './casinoKit';
 import { clink } from './sfx';
 import { animPerson, Person, SUITS } from './characters';
-import { quietly } from './kit';
+import { at, Build, detail, dice as seeded, quietly } from './kit';
+import { bar, casinoHigh, lounger as padded, palm, treads as highTreads } from './propsCasino';
 import { aboard, DECKS, LOUNGE, loungeSeen, pushOutOfBox, SALON, SHIP, stage, TOP, UPPER } from './layout';
 import { player } from './player';
-import { bake, bakePainted, canvasTex, FONT, G, mesh, scene, type Part } from './render';
+import { bake, bakePainted, canvasTex, FONT, G, mesh, painted, scene, type Part } from './render';
 import { drawReels, REELS_PX, slotRow } from './slotMachine';
 import { FY, money, V, type XZ } from './util';
 import { wallet } from './wallet';
@@ -207,7 +209,7 @@ function buildRoof() {
   const { up, whiteUp, goldUp, glowUp } = quietly(() => ({
     up: new Group(), whiteUp: ownUp(new MeshLambertMaterial({ color: WHITE })), goldUp: ownUp(new MeshLambertMaterial({ color: GOLD })),
     glowUp: ownUp(new MeshBasicMaterial({ color: 0xFFD98A })),
-  }));
+  }), seeded(0x10C6E));
   g.add(up);
   // the hardtop, sweeping forward over the top of the stairs, an LED line glowing under its edge; the lounge's
   // stairwell comes up through both
@@ -268,7 +270,7 @@ function buildRoof() {
     up.add(slab(oblong(lx0 - 0.1, lx1 + 0.1, ls + 0.1, 0.25, 0.25), 0.14, deckY + lh, whiteUp));
     up.add(slab(oblong(lx0 - 0.06, lx1 + 0.06, ls + 0.06, 0.22, 0.22), 0.03, deckY + lh - 0.025, glowUp));
     return faders;
-  });
+  }, seeded(0x10C6F));
   // the sky lounge: rounded at the front, wrapped in dark glass under a white roof that reaches out over it, with the
   // mast and a turning radar on top
   const { x0: b0, x1: b1, half: bh } = BRIDGE;
@@ -330,7 +332,16 @@ function buildRoof() {
     lounge.push({ geo: G.box, at: [x, skyY + 0.28, z + 0.55], scale: [0.5, 0.03, 0.34], c: 0xB0283A });
   }
   const lounger = new MeshLambertMaterial({ vertexColors: true });
-  up.add(mesh(bakePainted(lounge), ownUp(lounger), 0, 0, 0, true));
+  const loungers = mesh(bakePainted(lounge), ownUp(lounger), 0, 0, 0, true);
+  up.add(loungers);
+  // on High, padded ones in their places, in a see-through copy of the painted material, so they lift away too
+  quietly(() => {
+    const b = new Build();
+    for (let x = lx0 + 0.6; x < lx1 - 0.4; x += 0.85) b.addAll(padded(), at(x, skyY, ls - 1.0));
+    const m = b.mesh(true, ownUp(painted.clone()));
+    up.add(m);
+    detail(loungers, m);
+  }, seeded(0x10C71));
   // the strings of lights from the bow up to the mast's spreader
   const strings: Part[] = [];
   for (const s of [-1, 1]) {
@@ -369,16 +380,18 @@ function buildSigns(g: Group) {
 // ---------- the bar ----------
 function buildBar(g: Group) {
   const { x, z0, z1 } = BAR, wood = 0x5A2E1F, len = z1 - z0, mid = (z0 + z1) / 2;
-  g.add(mesh(new BoxGeometry(0.5, 1.05, len), wood, x, UPPER + 0.525, mid, true));
-  g.add(mesh(new BoxGeometry(0.62, 0.06, len + 0.1), 0x2A1410, x, UPPER + 1.08, mid, true));
+  const low: Mesh[] = [];
+  const add = (...ms: Mesh[]) => { g.add(...ms); low.push(...ms); };
+  add(mesh(new BoxGeometry(0.5, 1.05, len), wood, x, UPPER + 0.525, mid, true));
+  add(mesh(new BoxGeometry(0.62, 0.06, len + 0.1), 0x2A1410, x, UPPER + 1.08, mid, true));
   const brass: Part[] = [
     { geo: G.box, at: [x + 0.27, UPPER + 0.3, mid], scale: [0.04, 0.06, len] },
     { geo: G.cyl, at: [x + 0.4, UPPER + 0.18, mid], rot: [Math.PI / 2, 0, 0], scale: [0.025, len, 0.025] },
   ];
-  g.add(mesh(bake(brass), GOLD));
+  add(mesh(bake(brass), GOLD));
   // the back bar against the stern wall: shelves of bottles under a long mirror, lit from above
   const bx = SALON.x0 + 0.22, wide = len - 0.2;
-  g.add(mesh(new BoxGeometry(0.3, 0.9, wide), wood, bx, UPPER + 0.45, mid, true));
+  add(mesh(new BoxGeometry(0.3, 0.9, wide), wood, bx, UPPER + 0.45, mid, true));
   g.add(mesh(new BoxGeometry(0.02, 0.9, wide - 0.6), 0xBFD4DC, bx - 0.05, UPPER + 1.6, mid));
   g.add(mesh(new BoxGeometry(0.05, 0.04, wide - 0.4), new MeshBasicMaterial({ color: 0xFFD98A }), bx + 0.05, UPPER + 2.12, mid));
   const shelf: Part[] = [], bottles: Part[][] = [[], [], []];
@@ -387,15 +400,15 @@ function buildBar(g: Group) {
   for (const y of [0.9, 1.27, 1.77]) for (let z = z0 + 0.2; z <= z1 - 0.2; z += 0.22) {
     bottles[n++ % 3].push({ geo: G.cyl, at: [bx + 0.02, UPPER + y + 0.13, z], scale: [0.045, 0.24, 0.045] });
   }
-  g.add(mesh(bake(shelf), wood));
-  [0x2E7D4F, 0x8E1F2F, 0xC9A24A].forEach((c, i) => g.add(mesh(bake(bottles[i]), c)));
+  add(mesh(bake(shelf), wood));
+  [0x2E7D4F, 0x8E1F2F, 0xC9A24A].forEach((c, i) => add(mesh(bake(bottles[i]), c)));
   // stools in front of the bar
   const stools: Part[] = [];
   for (const z of BAR.stools) {
     stools.push({ geo: G.cyl, at: [STOOL_X, UPPER + 0.35, z], scale: [0.05, 0.7, 0.05] });
     stools.push({ geo: G.cyl, at: [STOOL_X, UPPER + 0.72, z], scale: [0.2, 0.07, 0.2] });
   }
-  g.add(mesh(bake(stools), GOLD, 0, 0, 0, true));
+  add(mesh(bake(stools), GOLD, 0, 0, 0, true));
   // and a potted palm by the door
   const palms: (Part & { c: number })[] = [];
   for (const [px, pz] of PALMS) {
@@ -406,7 +419,14 @@ function buildBar(g: Group) {
       palms.push({ geo: G.box, at: [px + Math.cos(a) * 0.32, UPPER + 1.3, pz + Math.sin(a) * 0.32], rot: [0, -a, 0.5], scale: [0.62, 0.03, 0.16], c: 0x2F7D3E });
     }
   }
-  g.add(mesh(bakePainted(palms), new MeshLambertMaterial({ vertexColors: true }), 0, 0, 0, true));
+  add(mesh(bakePainted(palms), new MeshLambertMaterial({ vertexColors: true }), 0, 0, 0, true));
+  // High: a panelled counter and back bar with shaped bottles, padded stools and a fuller palm (the mirror and the
+  // light over it are the same on both)
+  casinoHigh(g, () => {
+    const b = bar(x, z0, z1, UPPER, bx, STOOL_X, BAR.stools);
+    for (const [px, pz] of PALMS) b.addAll(palm(), at(px, UPPER, pz));
+    return b;
+  }, low);
 }
 
 // ---------- the guests ----------
@@ -667,7 +687,7 @@ export function buildSalon(g: Group) {
   g.add(roof.g);
   buildBar(g);
   salon = { roof, faders, crowd: buildCrowd(g), clock: 0, roofK: 1, loungeK: 1, chase: buildSigns(g) };
-  quietly(() => buildSkyStairs(g));
+  quietly(() => buildSkyStairs(g), seeded(0x10C70));
 }
 
 /** The player's inside the salon: on the upper deck, below the lounge (on its stairs, till they're nearly up). */
@@ -684,7 +704,12 @@ function buildSkyStairs(g: Group) {
     const x = bx - (bx - tx) * (i + 0.5) / n;
     treads.push({ geo: G.box, at: [x, UPPER + rise * (i + 1) / n - 0.05, (z0 + z1) / 2], scale: [(bx - tx) / n + 0.02, 0.1, z1 - z0] });
   }
-  g.add(mesh(bake(treads), 0xB07A52, 0, 0, 0, true));
+  const low = mesh(bake(treads), 0xB07A52, 0, 0, 0, true);
+  g.add(low);
+  casinoHigh(g, () => {
+    const b = new Build().addAll(highTreads(n, bx, tx, UPPER, TOP, (z1 - z0) / 2), at(0, 0, (z0 + z1) / 2));
+    return b;
+  }, [low]);
   // the white side under the treads, from the floor up to the stairwell
   const side = new Shape();
   side.moveTo(bx, UPPER); side.lineTo(tx, UPPER); side.lineTo(tx, TOP - 0.04); side.closePath();
