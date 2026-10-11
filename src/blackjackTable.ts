@@ -1,9 +1,9 @@
 // The casino boat's blackjack table: a dealer behind a half-moon of green felt. Standing on its pad brings the camera
 // in over the felt and opens the controls: put a stake down and deal, then hit, stand, double or split. Everything
 // happens on the table, as in a casino, and takes its time: each card slides out of the shoe and turns over, the
-// dealer's second card waits face down, and when the dealer plays they turn it over slowly, then draw. When the dealer
-// shows an ace they offer insurance (or even money on a blackjack). Walking off mid-hand turns down insurance, stands
-// on what you have and settles at once.
+// dealer's second card waits face down, and when the dealer plays they turn it over slowly, then draw. A double on 10
+// or 11 gets its card face down, turned over once the dealer's done. When the dealer shows an ace they offer insurance
+// (or even money on a blackjack). Walking off mid-hand turns down insurance, stands on what you have and settles at once.
 //
 // A fresh shoe is shuffled in front of the player: the dealer gathers the tray and the shoe into one stack, riffles it
 // three times, and puts it down for the player to cut, sliding a yellow cut card into the stack where they choose. The
@@ -198,8 +198,8 @@ let shuffleIn = 0;
  * above the cut card, held up off the rest so the player can see where they're cutting.
  */
 let prep: { phase: 'shuffle' | 'cut' | 'load'; pack: Stack; over?: Stack } | null = null;
-/** One of the player's hands: two after a split. */
-interface Hand { cards: Card[]; stake: number; split: boolean; shown: number }
+/** One of the player's hands: two after a split. `down` while its double card lies face down. */
+interface Hand { cards: Card[]; stake: number; split: boolean; shown: number; down?: boolean }
 interface Round {
   hands: Hand[];
   /** The hand being played. */
@@ -270,7 +270,7 @@ function refresh() {
       t.dealerTotal.sprite.position.set(DEALER_ROW.x - 0.22, TOP + 0.08, DEALER_ROW.z);
       r.hands.forEach((h, i) => {
         const row = handRow(i, r.hands.length), shown = h.cards.slice(0, h.shown);
-        t.totals[i].set(shown.length ? label(shown) : '', r.phase === 'player' && i === r.active);
+        t.totals[i].set(shown.length ? label(shown) + (h.down ? ' + ?' : '') : '', r.phase === 'player' && i === r.active);
         t.totals[i].sprite.position.set(row.x - 0.22, TOP + 0.08, row.z);
       });
       t.totals.slice(r.hands.length).forEach(b => b.set(''));
@@ -335,14 +335,17 @@ function burn() {
   const m = fromShoe(card, TRAY.clone().setY(TOP + 0.05 + felt.discards * CARD_T), () => { table!.g.remove(m); showPile(); });
 }
 
-/** The next of a hand's cards (or the dealer's) out on the table and turned over; `sideways` for a double. */
-const show = (i: number | 'dealer', sideways = false) => () => {
+/**
+ * The next of a hand's cards (or the dealer's) out on the table and turned over; `sideways` for a double, and left
+ * face down for a double on 10 or 11.
+ */
+const show = (i: number | 'dealer', sideways = false, down = false) => () => {
   const r = round!, dealer = i === 'dealer', row = dealer ? felt.dealer : felt.hands[i];
   const j = row.length;
   const card = dealer ? r.dealer[j] : r.hands[i].cards[j];
   const at = dealer ? cardAt(DEALER_ROW, j) : cardAt(handRow(i, r.hands.length), j);
   if (sideways) at.x += 0.03;
-  const m = fromShoe(card, at, () => turnOver(m, dealer && j > 1 ? SLOW_FLIP : FLIP, () => {
+  const m = fromShoe(card, at, down ? refresh : () => turnOver(m, dealer && j > 1 ? SLOW_FLIP : FLIP, () => {
     if (dealer) r.shownDealer++; else r.hands[i].shown++;
     refresh();
   }));
@@ -448,13 +451,14 @@ const paid = (o: { results: Result[]; insured: number }) => o.results.reduce((s,
 /** What the round would return if the player stood now: the dealer's draws are already in the shoe. */
 const standNow = () => paid(outcome(round!, [...shoe]));
 
-/** A card for the hand being played, out and turned over before the player can go on. */
-function another(sideways = false) {
+/** A card for the hand being played, out and turned over before the player can go on (unless it stays `down`). */
+function another(sideways = false, down = false) {
   const r = round!, h = r.hands[r.active];
   h.cards.push(draw());
+  h.down = down;
   r.phase = 'dealing';
   owe(standNow());
-  later(0, show(r.active, sideways));
+  later(0, show(r.active, sideways, down));
   return h;
 }
 
@@ -478,7 +482,9 @@ function double() {
   h.stake *= 2;
   const bet = felt.bets[r.active], more = putDown(h.stake / 2, bet.position.clone().setX(bet.position.x + 0.12));
   more.userData.with = bet; bet.userData.more = more;
-  another(true);
+  // on 10 or 11 the card comes face down, as some casinos deal it, and waits for the dealer
+  const t = total(h.cards);
+  another(true, t === 10 || t === 11);
   later(CARD_GAP, () => { r.phase = 'player'; next(); });
   refresh();
 }
@@ -541,6 +547,17 @@ function finish() {
     later(wait, () => { msg.textContent = 'Dealer draws…'; show('dealer')(); });
     wait = SLIDE + SLOW_FLIP + 0.35;
   });
+  // then any double that went down face down is turned over
+  const downs = r.hands.filter(h => h.down);
+  if (downs.length) {
+    later(wait, () => {
+      msg.textContent = downs.length > 1 ? 'Your double cards…' : 'Your double card…';
+      r.hands.forEach((h, i) => {
+        if (h.down) turnOver(felt.hands[i][h.cards.length - 1], SLOW_FLIP, () => { h.down = false; h.shown++; refresh(); });
+      });
+    });
+    wait = SLOW_FLIP + 0.45;
+  }
   later(wait, payOut);
   refresh();
 }

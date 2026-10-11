@@ -771,16 +771,35 @@ describe('the blackjack table', () => {
     expect(g.wallet.money).toBe(100);
   });
 
-  it('doubles the stake for one more card, laid sideways', async () => {
-    const g = await table(100, [c(5), c(6)], [c(10), c(6)], c(10), c(2), c(10));
+  it('doubles on 10 or 11 with the card face down, turned over once the dealer is done', async () => {
+    const g = await table(100, [c(5), c(6)], [c(10), c(6)], c(10), c(2));
     click('#deal');
     g.run(DEALT);
     click('#double');
     expect(g.wallet.money).toBe(50);
     expect($('bjActs').hidden).toBe(true);
     g.run(0.8);
-    expect((await felt()).hands).toEqual([['5♠', '6♠', '10♠']]);
-    g.run(STOOD + DRAW + 0.5);
+    expect(await felt()).toMatchObject({ hands: [['5♠', '6♠', '?']], totals: ['11 + ?'] });
+    g.run(STOOD + DRAW - 0.1);
+    expect((await felt()).dealer).toEqual(['10♠', '6♠', '2♠']); // the dealer plays first
+    expect($('bjMsg').textContent).toBe('Your double card…');
+    expect((await felt()).hands).toEqual([['5♠', '6♠', '?']]);
+    g.run(0.6);
+    expect(await felt()).toMatchObject({ hands: [['5♠', '6♠', '10♠']], totals: ['21'] });
+    g.run(0.4);
+    expect($('bjMsg').textContent).toBe('21 beats 18: you win $100!');
+    expect(g.wallet.money).toBe(150);
+  });
+
+  it('doubles on any other total with the card face up', async () => {
+    const g = await table(100, [c(5), c(4)], [c(10), c(7)], c(10));
+    click('#deal');
+    g.run(DEALT);
+    click('#double');
+    g.run(0.8);
+    expect(await felt()).toMatchObject({ hands: [['5♠', '4♠', '10♠']], totals: ['19'] });
+    g.run(STOOD);
+    expect($('bjMsg').textContent).toBe('19 beats 17: you win $100!');
     expect(g.wallet.money).toBe(150);
   });
 
@@ -846,13 +865,17 @@ describe('the blackjack table', () => {
     expect(f.active).toBe(0);
     expect($('bjMsg').textContent).toBe('Hand 1: 11. Hit or stand?');
     expect(button('#split').hidden).toBe(true);
-    click('#double'); // 21 on the first hand
+    click('#double'); // 21 on the first hand, face down
     expect(g.wallet.money).toBe(25);
     g.run(0.8);
     f = await felt();
     expect(f.active).toBe(1);
+    expect(f.hands[0]).toEqual(['8♠', '3♠', '?']);
     click('#stand');
     g.run(STOOD);
+    expect($('bjMsg').textContent).toBe('Your double card…');
+    g.run(1);
+    expect((await felt()).hands[0]).toEqual(['8♠', '3♠', '10♠']);
     expect($('bjMsg').textContent).toBe('Dealer has 17: hand 1 wins, hand 2 wins. $150 back.');
     expect(g.wallet.money).toBe(175);
   });
