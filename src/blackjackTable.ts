@@ -1,21 +1,26 @@
 // The casino boat's blackjack table: a dealer behind a half-moon of green felt. Standing on its pad brings the camera
 // in over the felt and opens the controls: put a stake down and deal, then hit, stand, double or split. Everything
 // happens on the table, as in a casino, and takes its time: each card slides out of the shoe and turns over, the
-// dealer's second card waits face down, and when the dealer plays they turn it over slowly, then burn a card into the
-// discard tray before each card they open. When the dealer shows an ace they offer insurance (or even money on a
-// blackjack). Walking off mid-hand turns down insurance, stands on what you have and settles at once.
+// dealer's second card waits face down, and when the dealer plays they turn it over slowly, then draw. No card is ever
+// burned: the first card out of the shoe is the first one dealt. When the dealer shows an ace they offer insurance (or
+// even money on a blackjack). Walking off mid-hand turns down insurance, stands on what you have and settles at once.
+//
+// A fresh shoe is shuffled in front of the player: the dealer gathers the tray and the shoe into one stack, riffles it
+// three times, and puts it down for the player to cut, sliding a yellow cut card into the stack where they choose. The
+// cards above it go to the bottom, the dealer sets the cut card a deck from the back, and the stack goes in the shoe.
+// When that cut card comes out, the round finishes and the dealer shuffles again.
 import {
   BoxGeometry, CylinderGeometry, Group, Mesh, MeshLambertMaterial, PlaneGeometry, Vector3, type Object3D,
 } from 'three';
 import {
-  canSplit, CUT, dealerDraws, handValue, insuranceCost, isBlackjack, isBust, isRed, newShoe, rankName, settle, total,
-  type Card, type Result,
+  canSplit, CUT_CARD, cutShoe, dealerDraws, DECKS, handValue, insuranceCost, isBlackjack, isBust, isRed, newShoe,
+  PLAYER_CUT, rankName, settle, total, type Card, type Result,
 } from './blackjack';
 import { badge, cheer, chipStack, easeInOut, gamePad, greeting, settleTweens, slide, speaker, Stakes, tween } from './casinoKit';
 import { Person, SUITS } from './characters';
 import { GAMES, pushOutOfBox } from './layout';
 import { canvasTex, FONT, mesh, rr, scene } from './render';
-import { deal as dealSound, lose, push as pushSound, win } from './sfx';
+import { clack, deal as dealSound, lose, push as pushSound, win } from './sfx';
 import { popText } from './ui';
 import { money, V, type XZ } from './util';
 import { addMoney, wallet } from './wallet';
@@ -32,8 +37,14 @@ const CARD_GAP = SLIDE + FLIP + 0.05;
 // ---------- 3D table ----------
 const CARD = { w: 0.17, h: 0.24 };
 const cardGeo = new PlaneGeometry(CARD.w, CARD.h).rotateX(-Math.PI / 2);
-/** Where cards leave the shoe, and the discard tray they're burned and swept into. */
+/** Where cards leave the shoe, and the discard tray they're swept into. */
 const SHOE = V(0.58, TOP + 0.16, -0.16), TRAY = V(-0.64, TOP + 0.02, -0.27);
+/** How thick a card is in a stack: the six decks stand about 12 cm tall. */
+const CARD_T = 0.0004;
+/** Where the dealer shuffles, where they put the stack down for the player's cut, and inside the shoe. */
+const PACK = V(0, TOP, -0.02), CUT_SPOT = V(0, TOP, 0.14), IN_SHOE = V(0.6, TOP + 0.01, -0.28);
+/** Where the cut card lies once it's come out of the shoe. */
+const CUT_OUT = V(0.6, TOP + 0.003, 0.03);
 /** Where the dealer's chips are: lost stakes go there and winnings come from there. */
 const RACK = V(0, TOP, -0.36);
 
@@ -54,17 +65,41 @@ function faceMat(card: Card) {
   if (!m) faces.set(key, m = new MeshLambertMaterial({ map: canvasTex(128, 180, drawCardFace(card)).tex, alphaTest: 0.5 }));
   return m;
 }
+/** The burgundy lattice on the cards' backs. */
+function drawBack(c: CanvasRenderingContext2D, w: number, h: number) {
+  c.fillStyle = '#8E1F2F'; c.fillRect(0, 0, w, h);
+  c.strokeStyle = '#B0283A'; c.lineWidth = 6;
+  for (let i = -h; i < w + h; i += 14) { c.beginPath(); c.moveTo(i, 0); c.lineTo(i + h, h); c.moveTo(i + h, 0); c.lineTo(i, h); c.stroke(); }
+}
 const backMat = new MeshLambertMaterial({
   alphaTest: 0.5,
   map: canvasTex(128, 180, (c, w, h) => {
     c.fillStyle = '#FFFDF8'; rr(c, 2, 2, w - 4, h - 4, 14); c.fill();
     c.save(); rr(c, 10, 10, w - 20, h - 20, 8); c.clip();
-    c.fillStyle = '#8E1F2F'; c.fillRect(0, 0, w, h);
-    c.strokeStyle = '#B0283A'; c.lineWidth = 6;
-    for (let i = -h; i < w + h; i += 14) { c.beginPath(); c.moveTo(i, 0); c.lineTo(i + h, h); c.moveTo(i + h, 0); c.lineTo(i, h); c.stroke(); }
+    drawBack(c, w, h);
     c.restore();
   }).tex,
 });
+
+/** A stack of cards face down, its bottom at its position: white edges, a card's back on top. */
+const stackGeo = new BoxGeometry(CARD.w, 1, CARD.h).translate(0, 0.5, 0);
+const edgeMat = new MeshLambertMaterial({ color: 0xF4EEE2 });
+const stackMats = [edgeMat, edgeMat, new MeshLambertMaterial({
+  map: canvasTex(128, 180, (c, w, h) => {
+    c.fillStyle = '#FFFDF8'; c.fillRect(0, 0, w, h);
+    c.save(); c.beginPath(); c.rect(10, 10, w - 20, h - 20); c.clip(); drawBack(c, w, h); c.restore();
+  }).tex,
+}), edgeMat, edgeMat, edgeMat];
+type Stack = Mesh & { userData: { n: number } };
+/** Makes a stack `n` cards tall (hidden when there are none). */
+function setCount(s: Stack, n: number) {
+  n = Math.max(0, Math.round(n));
+  s.userData.n = n;
+  s.scale.y = Math.max(1e-4, n * CARD_T);
+  s.visible = n > 0;
+}
+/** The top of a stack, where a card comes off it or goes on. */
+const topOf = (s: Stack) => s.position.clone().setY(s.position.y + s.userData.n * CARD_T);
 
 /** A card on the table: face down until it's turned over. */
 type CardMesh = Group & { userData: { card: Card; up: boolean } };
@@ -122,8 +157,11 @@ function buildTable() {
   shoe.add(mesh(new BoxGeometry(0.18, 0.02, 0.06), 0x1F1012, 0, 0.08, 0.12));
   g.add(shoe);
   g.add(mesh(new BoxGeometry(0.24, 0.03, 0.32), 0x5A1420, TRAY.x, TOP + 0.015, TRAY.z, true));
-  const pile = mesh(new BoxGeometry(CARD.w, 1, CARD.h), 0xFFFDF8, TRAY.x, TOP + 0.03, TRAY.z);
-  pile.visible = false; g.add(pile);
+  const pile = mesh(stackGeo, stackMats, TRAY.x, TOP + 0.03, TRAY.z) as Stack;
+  setCount(pile, 0); g.add(pile);
+  // the yellow plastic cut card: in the shoe until it comes out, or in the stack for the cut
+  const cutCard = mesh(new BoxGeometry(CARD.w + 0.004, 0.003, CARD.h), 0xF5D03A, 0, 0, 0, true);
+  cutCard.visible = false; g.add(cutCard);
   // the dealer's chip rack
   const chip = new CylinderGeometry(0.05, 0.05, 1, 14);
   [[-0.24, 0xC8323F, 6], [-0.12, 0x22874A, 4], [0, 0x1F2A33, 7], [0.12, 0x6A3FA0, 3], [0.24, 0xC8323F, 5]].forEach(([x, c, n]) => {
@@ -133,7 +171,7 @@ function buildTable() {
   dealer.position.set(0, 0, -0.95);
   g.add(dealer);
   const voice = speaker(g, 2.0);
-  return { g, voice, pile, dealerTotal: badge(g), totals: [badge(g), badge(g)], ring: activeRing(g) };
+  return { g, voice, pile, cutCard, dealerTotal: badge(g), totals: [badge(g), badge(g)], ring: activeRing(g) };
 }
 
 /** The gold outline round the hand being played, after a split. */
@@ -150,8 +188,15 @@ function activeRing(on: Object3D) {
 // ---------- state ----------
 let table: ReturnType<typeof buildTable> | null = null;
 let shoe = newShoe();
-/** Whether the next deal is the first from this shoe: the dealer burns a card off the top first. */
-let fresh = true;
+/** Why the shoe has to be shuffled before the next deal: it's a fresh one, or the cut card has come out. */
+let due: 'fresh' | 'out' | null = 'fresh';
+/** Seconds until the dealer starts shuffling, once it's due and the player's at the table with cash to play. */
+let shuffleIn = 0;
+/**
+ * The shuffle going on: the stack on the felt, whether it's waiting for the player to cut it, and while it is, the cards
+ * above the cut card, held up off the rest so the player can see where they're cutting.
+ */
+let prep: { phase: 'shuffle' | 'cut' | 'load'; pack: Stack; over?: Stack } | null = null;
 /** One of the player's hands: two after a split. */
 interface Hand { cards: Card[]; stake: number; split: boolean; shown: number }
 interface Round {
@@ -169,8 +214,6 @@ interface Round {
   results?: Result[];
   /** What insurance paid back. */
   insured?: number;
-  /** The cards the dealer burns, one before each card they draw. */
-  burns: Card[];
 }
 let round: Round | null = null;
 /** Things to happen in turn, each after its wait: the cards coming out, the dealer's draws. */
@@ -189,8 +232,12 @@ const panel = $('blackjack'), msg = $('bjMsg');
 const dealBtn = $('deal') as HTMLButtonElement, acts = $('bjActs'), ask = $('bjAsk');
 const btn = (id: string) => $(id) as HTMLButtonElement;
 const hitBtn = btn('hit'), standBtn = btn('stand'), dblBtn = btn('double'), splitBtn = btn('split');
+const cutEl = $('bjCut'), cutIn = $('cutAt') as HTMLInputElement;
+cutIn.min = String(PLAYER_CUT.min); cutIn.max = String(PLAYER_CUT.max);
 
 const live = () => !!round && round.phase !== 'done';
+/** The dealer is shuffling, or about to: no dealing till it's done. */
+const busy = () => !!prep || (!!due && wallet.money > 0);
 const stakes = new Stakes(panel.querySelector<HTMLElement>('.stakes')!, live, () => refresh());
 
 const label = (cards: Card[]) => {
@@ -238,8 +285,9 @@ function refresh() {
   const h = playing();
   acts.hidden = !h;
   ask.hidden = r?.phase !== 'ask';
-  dealBtn.hidden = live();
-  stakes.el.hidden = live();
+  dealBtn.hidden = live() || busy();
+  stakes.el.hidden = live() || busy();
+  cutEl.hidden = prep?.phase !== 'cut';
   stakes.refresh(live());
   dealBtn.disabled = !stakes.ok;
   dealBtn.textContent = `Deal · ${money(stakes.value)}`;
@@ -253,8 +301,9 @@ function refresh() {
 /** Puts things on the queue, `gap` seconds apart. */
 const later = (gap: number, ...steps: (() => void)[]) => steps.forEach(run => queue.push({ wait: gap, run }));
 
+/** The next card out of the shoe. (The cut card comes out a deck before the end, so it never runs dry.) */
 function draw() {
-  if (!shoe.length) { shoe = newShoe(); fresh = true; }
+  if (!shoe.length) shoe = newShoe();
   return shoe.pop()!;
 }
 
@@ -276,16 +325,8 @@ function turnOver(m: CardMesh, dur: number, done?: () => void) {
     m.position.y = y + Math.sin(Math.PI * e) * 0.07;
   }, () => { m.userData.up = true; done?.(); });
 }
-/** A card off the top of the shoe and into the tray, face down: a burn. */
-function burn(card: Card) {
-  const m = fromShoe(card, TRAY.clone().setY(TOP + 0.04 + felt.discards * 0.0003), () => { table!.g.remove(m); addDiscards(1); });
-}
-function addDiscards(n: number) {
-  felt.discards += n;
-  const pile = table!.pile, hgt = felt.discards * 0.0003;
-  pile.visible = felt.discards > 0;
-  pile.scale.y = Math.max(0.001, hgt); pile.position.y = TOP + 0.03 + hgt / 2;
-}
+/** Shows the tray holding the cards it has. */
+const showPile = () => setCount(table!.pile, felt.discards);
 
 /** The next of a hand's cards (or the dealer's) out on the table and turned over; `sideways` for a double. */
 const show = (i: number | 'dealer', sideways = false) => () => {
@@ -307,15 +348,14 @@ function holeCard() {
   felt.dealer.push(fromShoe(r.dealer[1], cardAt(DEALER_ROW, 1), () => { r.shownDealer++; refresh(); }));
 }
 
-/** Last round's cards into the tray; with a fresh shoe, the tray goes back into it. */
-function sweep(reshuffle: boolean) {
+/** Last round's cards into the tray. Returns how long they take to get there. */
+function sweep() {
   const ms = [...felt.dealer, ...felt.hands.flat()];
   ms.forEach((m, i) => slide(m, TRAY.clone().setY(TOP + 0.05 + i * 0.002), 0.35 + i * 0.03, 0.06, () => table!.g.remove(m)));
-  tween(0.35 + ms.length * 0.03, () => {}, () => {
-    if (reshuffle) felt.discards = 0;
-    addDiscards(reshuffle ? 0 : ms.length);
-  });
+  felt.discards += ms.length;
+  tween(0.35 + ms.length * 0.03, () => {}, showPile);
   felt.dealer = []; felt.hands = [[]];
+  return ms.length ? 0.35 + ms.length * 0.03 : 0;
 }
 
 /** Puts `stake` down on the betting spot for hand `i` of `n`. */
@@ -329,27 +369,23 @@ function putDown(amount: number, at: Vector3) {
 
 function deal() {
   const s = stakes.value;
-  if (live() || !stakes.ok) return;
-  const reshuffle = shoe.length < CUT;
-  if (reshuffle) { shoe = newShoe(); fresh = true; }
+  if (live() || busy() || !stakes.ok) return;
   wallet.money -= s;
   queue = [];
   const tidy = felt.dealer.length > 0;
-  sweep(reshuffle);
+  sweep();
   felt.bets = [putDown(s, betAt(0, 1))];
-  const burned = fresh ? draw() : null;
-  fresh = false;
+  // straight off the top of the shoe: player, dealer, player, dealer, nothing burned
   const player = [draw()], dealer = [draw()];
   player.push(draw()); dealer.push(draw());
   round = {
     hands: [{ cards: player, stake: s, split: false, shown: 0 }], active: 0, dealer, shownDealer: 0, hole: false,
-    phase: 'dealing', insurance: 0, even: false, burns: [],
+    phase: 'dealing', insurance: 0, even: false,
   };
   felt.hands = [[]];
-  msg.textContent = burned ? 'A fresh shoe: the dealer burns a card…' : 'Dealing…';
+  msg.textContent = 'Dealing…';
   owe(standNow());
-  if (burned) later(tidy ? 0.7 : 0.35, () => burn(burned));
-  later(tidy || burned ? 0.8 : 0.35, show(0));
+  later(tidy ? 0.8 : 0.35, show(0));
   later(CARD_GAP, show('dealer'), show(0), holeCard);
   later(CARD_GAP, afterDeal);
   refresh();
@@ -389,19 +425,17 @@ function peek() {
 }
 
 /**
- * How the round comes out if the player stands on every hand now, with the dealer drawing from `from` (burning a card
- * before each): the cards the dealer burns and draws, each hand's result and what insurance pays. The dealer only
- * draws if a hand is still in it.
+ * How the round comes out if the player stands on every hand now, with the dealer drawing from `from`: the cards the
+ * dealer draws, each hand's result and what insurance pays. The dealer only draws if a hand is still in it.
  */
 function outcome(r: Round, from: Card[]) {
   const dealerBJ = isBlackjack(r.dealer);
   const inIt = r.hands.some(h => !isBust(h.cards) && !(isBlackjack(h.cards) && !h.split));
-  const burns: Card[] = [];
-  const draws = !dealerBJ && !r.even && inIt ? dealerDraws(r.dealer, from, burns) : [];
+  const draws = !dealerBJ && !r.even && inIt ? dealerDraws(r.dealer, from) : [];
   const dealer = [...r.dealer, ...draws];
   const results: Result[] = r.even ? [{ outcome: 'even', payout: r.hands[0].stake * 2 }]
     : r.hands.map(h => settle(h.cards, dealer, h.stake, h.split));
-  return { draws, burns, results, insured: dealerBJ ? r.insurance * 3 : 0 };
+  return { draws, results, insured: dealerBJ ? r.insurance * 3 : 0 };
 }
 const paid = (o: { results: Result[]; insured: number }) => o.results.reduce((s, x) => s + x.payout, 0) + o.insured;
 /** What the round would return if the player stood now: the dealer's draws are already in the shoe. */
@@ -478,15 +512,14 @@ function next() {
 }
 
 /**
- * The player's done: the dealer turns over their card, slowly, and (if a hand's still in it) draws to 17, burning a
- * card into the tray before each card they open. Then it's settled.
+ * The player's done: the dealer turns over their card, slowly, and (if a hand's still in it) draws to 17, each card
+ * straight off the shoe. Then it's settled.
  */
 function finish() {
   const r = round!;
   r.phase = 'dealer';
   const o = outcome(r, shoe);
   r.dealer.push(...o.draws);
-  r.burns = o.burns;
   r.results = o.results; r.insured = o.insured;
   owe(paid(o));
   msg.textContent = 'Dealer plays…';
@@ -497,11 +530,10 @@ function finish() {
     turnOver(hole, SLOW_FLIP, () => { r.hole = true; refresh(); });
   });
   let wait = SLOW_FLIP + 0.5;
-  for (const b of o.burns) {
-    later(wait, () => { msg.textContent = 'The dealer burns a card…'; burn(b); });
-    later(SLIDE + 0.45, () => { msg.textContent = 'Dealer draws…'; show('dealer')(); });
-    wait = SLIDE + SLOW_FLIP + 0.55;
-  }
+  o.draws.forEach(() => {
+    later(wait, () => { msg.textContent = 'Dealer draws…'; show('dealer')(); });
+    wait = SLIDE + SLOW_FLIP + 0.35;
+  });
   later(wait, payOut);
   refresh();
 }
@@ -563,14 +595,162 @@ function payOut() {
     msg.textContent = `${lead}: ${each}. ${back > 0 ? `${money(back)} back.` : 'The house wins.'}`;
   } else if (r.insured) msg.textContent = `Dealer has blackjack: insurance pays ${money(r.insured)}.`;
   else msg.textContent = sayOne(r);
+  if (shoe.length < CUT_CARD) cutCardOut();
   refresh();
 }
 
-/** Plays everything out straight away, turning down insurance and standing: the player walked off. */
+// ---------- the shuffle and the cut ----------
+/** The cut card came out with this round's cards: it goes down by the shoe, and the dealer shuffles before the next. */
+function cutCardOut() {
+  const c = table!.cutCard;
+  due = 'out'; shuffleIn = 2.5;
+  c.position.copy(SHOE); c.visible = true;
+  slide(c, CUT_OUT, 0.5, 0.06);
+}
+
+const dueMsg = () => due === 'out' ? "The cut card's out: the dealer shuffles…" : 'A fresh shoe: the dealer shuffles…';
+
+/** A new stack of `n` cards on the table at `at`. */
+function stackOf(n: number, at: Vector3) {
+  const s = mesh(stackGeo, stackMats, at.x, at.y, at.z, true) as Stack;
+  setCount(s, n);
+  table!.g.add(s);
+  return s;
+}
+
+/** The dealer sweeps up the last hand, and gathers the tray and what's left in the shoe into one stack. */
+function startShuffle() {
+  msg.textContent = dueMsg();
+  due = null;
+  round = null;
+  shoe = newShoe(); // what comes out of the riffles below
+  prep = { phase: 'shuffle', pack: stackOf(0, PACK) };
+  const c = table!.cutCard;
+  if (c.visible) slide(c, PACK, 0.4, 0.06, () => { c.visible = false; });
+  later(sweep() + 0.15, gather);
+  refresh();
+}
+
+function gather() {
+  const t = table!.g, pack = prep!.pack, all = DECKS * 52, used = felt.discards;
+  felt.discards = 0; showPile();
+  const fromTray = stackOf(used, TRAY.clone().setY(TOP + 0.03)), fromShoe = stackOf(all - used, SHOE.clone());
+  slide(fromTray, PACK, 0.5, 0.08, () => t.remove(fromTray));
+  slide(fromShoe, PACK.clone().setY(TOP + used * CARD_T), 0.55, 0.12, () => {
+    t.remove(fromShoe);
+    setCount(pack, all);
+    later(0.25, () => riffle(3));
+  });
+}
+
+/** Seconds a riffle takes once the stack's in two halves, and how many cards are seen flicking in. */
+const RIFFLE = 0.8, FLICKS = 12;
+/** The stack in two halves, riffled back together in the middle; `left` riffles to go, then the cut. */
+function riffle(left: number) {
+  const t = table!.g, pack = prep!.pack, n = pack.userData.n, h = Math.floor(n / 2);
+  const l = stackOf(h, PACK), r = stackOf(n - h, PACK.clone().setY(TOP + h * CARD_T));
+  setCount(pack, 0);
+  msg.textContent = `The dealer riffles the cards… (${4 - left} of 3)`;
+  slide(l, PACK.clone().setX(PACK.x - 0.2), 0.3, 0.03);
+  slide(r, PACK.clone().setX(PACK.x + 0.2), 0.3, 0.07);
+  later(0.35, () => {
+    tween(RIFFLE, k => { setCount(l, h * (1 - k)); setCount(r, (n - h) * (1 - k)); setCount(pack, n * k); }, () => {
+      t.remove(l); t.remove(r); setCount(pack, n);
+      later(0.2, left > 1 ? () => riffle(left - 1) : offerCut);
+    });
+    // a card at a time off each half in turn, onto the middle
+    for (let i = 0; i < FLICKS; i++) tween(i * RIFFLE / FLICKS, () => {}, () => flick(i % 2 ? r : l));
+  });
+}
+function flick(from: Stack) {
+  const t = table!.g, pack = prep!.pack, m = new Mesh(cardGeo, backMat);
+  m.position.copy(topOf(from)).setY(m.position.y + 0.003);
+  t.add(m);
+  clack();
+  slide(m, topOf(pack).setY(topOf(pack).y + 0.004), 0.12, 0.03, () => t.remove(m));
+}
+
+/** The stack goes down in front of the player, for them to cut. */
+function offerCut() {
+  const pack = prep!.pack;
+  cutIn.value = String(Math.round((PLAYER_CUT.min + PLAYER_CUT.max) / 2));
+  msg.textContent = 'The dealer squares the cards up…';
+  slide(pack, CUT_SPOT, 0.45, 0.05, () => {
+    prep!.phase = 'cut';
+    table!.voice.say('Your cut!');
+    msg.textContent = 'Your cut: slide the yellow card into the stack, then cut.';
+    table!.cutCard.visible = true;
+    placeCutCard();
+    refresh();
+  });
+}
+/** How far the cards above the cut card are held up off the rest. */
+const GAP = 0.016;
+/** Where the cut card goes in a stack standing at `at`, `y` up: it sticks out of the side, where it can be seen. */
+const inStack = (at: Vector3, y: number) => V(at.x + 0.05, y, at.z + 0.01);
+/** Puts the cut card in the stack where the slider says, that many cards from the top, with a gap opened there. */
+function placeCutCard() {
+  if (prep?.phase !== 'cut') return;
+  const pr = prep, n = DECKS * 52, k = Number(cutIn.value), p = pr.pack.position, below = p.y + (n - k) * CARD_T;
+  pr.over ??= stackOf(0, p);
+  setCount(pr.pack, n - k);
+  setCount(pr.over, k);
+  pr.over.position.set(p.x, below + GAP, p.z);
+  table!.cutCard.position.copy(inStack(p, below + GAP / 2));
+}
+
+/**
+ * The cut, `k` cards from the top: those come off and go to the bottom. Then the dealer takes the cut card out and
+ * sets it a deck from the back (when it comes out, it's time to shuffle), and loads the stack into the shoe.
+ */
+function cutAt(k: number) {
+  const pr = prep;
+  if (pr?.phase !== 'cut') return;
+  k = Math.min(PLAYER_CUT.max, Math.max(PLAYER_CUT.min, Math.round(k)));
+  cutIn.value = String(k);
+  placeCutCard();
+  pr.phase = 'load';
+  shoe = cutShoe(shoe, k);
+  const t = table!.g, c = table!.cutCard, pack = pr.pack, top = pr.over!, n = DECKS * 52;
+  const aside = pack.position.clone().setX(pack.position.x + 0.24);
+  pr.over = undefined;
+  msg.textContent = 'Cut! The top goes to the bottom…';
+  dealSound();
+  slide(top, aside, 0.4, 0.08); // the cards above the cut card, off to one side
+  later(0.5, () => {
+    // ...and the rest goes on top of them, the cut card riding along
+    slide(pack, aside.clone().setY(aside.y + k * CARD_T), 0.5, 0.1, () => {
+      t.remove(top);
+      pack.position.copy(aside); setCount(pack, n);
+    });
+    slide(c, inStack(aside, aside.y + n * CARD_T), 0.5, 0.1);
+  }, () => {
+    msg.textContent = 'The cut card goes in a deck from the back…';
+    slide(c, inStack(aside, aside.y + CUT_CARD * CARD_T), 0.6, 0.03);
+  });
+  later(0.8, () => {
+    msg.textContent = 'Into the shoe…';
+    slide(pack, IN_SHOE, 0.5, 0.12, () => t.remove(pack));
+    slide(c, IN_SHOE.clone().setY(IN_SHOE.y + CUT_CARD * CARD_T), 0.5, 0.12, () => { c.visible = false; });
+  }, () => {
+    prep = null;
+    msg.textContent = greeting('Put a stake down and deal');
+    refresh();
+  });
+  refresh();
+}
+/** Where the dealer cuts when the player's walked off: anywhere they're allowed to. */
+const dealerCut = () => PLAYER_CUT.min + Math.floor(Math.random() * (PLAYER_CUT.max - PLAYER_CUT.min + 1));
+
+/**
+ * Plays everything out straight away, turning down insurance and standing: the player walked off. A shuffle under way
+ * is finished too, with the dealer cutting; one that's only due waits for them to come back and cut it themselves.
+ */
 function finishNow() {
-  while (live()) {
-    if (round!.phase === 'ask') answer(false);
-    if (round!.phase === 'player') next();
+  while (live() || prep) {
+    if (round?.phase === 'ask') answer(false);
+    if (round?.phase === 'player') next();
+    if (prep?.phase === 'cut') cutAt(dealerCut());
     const q = queue; queue = [];
     q.forEach(s => s.run());
     settleTweens();
@@ -584,10 +764,13 @@ dblBtn.addEventListener('click', double);
 splitBtn.addEventListener('click', split);
 btn('insureYes').addEventListener('click', () => answer(true));
 btn('insureNo').addEventListener('click', () => answer(false));
+cutIn.addEventListener('input', placeCutCard);
+btn('cutBtn').addEventListener('click', () => cutAt(Number(cutIn.value)));
 
 const pad = gamePad(AT, '🃏', panel, {
   opened() {
-    if (!round) msg.textContent = greeting('Put a stake down and deal');
+    if (due && wallet.money > 0) { shuffleIn = 0.4; msg.textContent = dueMsg(); }
+    else if (!round) msg.textContent = greeting('Put a stake down and deal');
     refresh();
   },
   closed: finishNow,
@@ -611,8 +794,12 @@ export function collideBlackjack(p: XZ) {
 
 export function updBlackjack(dt: number) {
   if (!table) return;
-  pad.upd();
+  const open = pad.upd();
   table.voice.upd(dt);
+  if (open && due && !prep && !live() && wallet.money > 0) {
+    shuffleIn -= dt;
+    if (shuffleIn <= 0) startShuffle();
+  }
   if (!queue.length) return;
   queue[0].wait -= dt;
   while (queue.length && queue[0].wait <= 0) {
@@ -625,7 +812,11 @@ export function updBlackjack(dt: number) {
 /** What the dealer is saying, for tests. */
 export const dealerSays = () => table?.voice.text ?? '';
 
-/** For tests: the cards on the felt ('?' face down), the totals over them, the hand being played and the tray's count. */
+/**
+ * For tests: the cards on the felt ('?' face down), the totals over them, the hand being played, the tray's count, and
+ * the shuffle: where it's got to ('due' before it starts), how many cards are in the stack on the felt, and whether the
+ * yellow cut card is out.
+ */
 export function onFelt() {
   const name = (m: CardMesh) => m.userData.up ? rankName(m.userData.card) + m.userData.card.suit : '?';
   return {
@@ -633,8 +824,19 @@ export function onFelt() {
     dealerTotal: table?.dealerTotal.text ?? '', totals: table?.totals.map(b => b.text).filter(Boolean) ?? [],
     active: round?.phase === 'player' ? round.active : -1, discards: felt.discards,
     chips: felt.bets.length, insurance: !!felt.insurance,
+    shuffle: prep?.phase ?? (due ? 'due' : ''), stack: (prep?.pack.userData.n ?? 0) + (prep?.over?.userData.n ?? 0), cutCard: !!table?.cutCard.visible,
   };
 }
 
-/** For tests: the cards to deal next, in order, on top of a full shoe. */
-export function stackShoe(cards: Card[]) { shoe = [...newShoe(), ...[...cards].reverse()]; fresh = false; }
+/** For tests: the cards in the shoe, the next one out last. */
+export const inShoe = () => [...shoe];
+/**
+ * For tests: the cards to deal next, in order, on top of `under` shuffled ones (a full shoe's worth by default), as if
+ * the shoe had been shuffled and cut.
+ */
+export function stackShoe(cards: Card[], under = DECKS * 52) {
+  shoe = [...newShoe().slice(0, under), ...[...cards].reverse()];
+  due = null;
+  msg.textContent = greeting('Put a stake down and deal');
+  refresh();
+}
