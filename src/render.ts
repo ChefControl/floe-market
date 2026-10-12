@@ -1,7 +1,8 @@
 import {
   BoxGeometry, BufferAttribute, BufferGeometry, CanvasTexture, Color, ColorManagement, ConeGeometry, CylinderGeometry,
-  DirectionalLight, Euler, Fog, HemisphereLight, LinearSRGBColorSpace, Material, Matrix4, Mesh, MeshLambertMaterial, Object3D, PCFShadowMap,
-  PerspectiveCamera, Quaternion, Scene, SphereGeometry, TorusGeometry, Vector3, WebGLRenderer,
+  DirectionalLight, Euler, ExtrudeGeometry, Fog, HemisphereLight, LinearSRGBColorSpace, Material, Matrix4, Mesh,
+  MeshLambertMaterial, Object3D, PCFShadowMap, PerspectiveCamera, Quaternion, Scene, ShapeGeometry, SphereGeometry,
+  TorusGeometry, Vector3, WebGLRenderer,
 } from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { isHigh, onQuality } from './graphics';
@@ -168,12 +169,21 @@ export interface Part {
   scale?: [x: number, y: number, z: number];
 }
 const tmpM = new Matrix4(), tmpQ = new Quaternion(), tmpE = new Euler(), tmpP = new Vector3(), tmpS = new Vector3();
+/**
+ * A copy of `geo`, to move or paint. three.js' own clone() first builds a whole new shape of the same kind at its
+ * default size (a 32-sided cylinder, a 32 by 16 ball), only to copy over it: that was a quarter of loading the game.
+ * This copies into a plain geometry, which draws the same one name from Math.random (the game's luck, kit.ts). A
+ * Shape's geometry still goes through clone(), since its default shape draws a name of its own, and leaving that out
+ * would change the luck.
+ */
+export const copyGeo = (geo: BufferGeometry) =>
+  geo instanceof ShapeGeometry || geo instanceof ExtrudeGeometry ? geo.clone() : new BufferGeometry().copy(geo);
 /** Bakes many copies of simple shapes into one geometry, so a whole batch of props draws as one mesh. */
 export function bake(parts: Part[]) {
   return mergeGeometries(parts.map(p => {
     tmpQ.setFromEuler(tmpE.set(...(p.rot ?? [0, 0, 0])));
     tmpM.compose(tmpP.set(...p.at), tmpQ, tmpS.set(...(p.scale ?? [1, 1, 1])));
-    return p.geo.clone().applyMatrix4(tmpM);
+    return copyGeo(p.geo).applyMatrix4(tmpM);
   }))!;
 }
 
@@ -193,7 +203,7 @@ export function paint<T extends BufferGeometry>(geo: T, c: number) {
 }
 /** `bake` for parts of different colours, drawn with `painted`. */
 export const bakePainted = (parts: (Part & { c: number })[]) =>
-  bake(parts.map(p => ({ ...p, geo: paint(p.geo.clone(), p.c) })));
+  bake(parts.map(p => ({ ...p, geo: paint(copyGeo(p.geo), p.c) })));
 
 // shared geometry
 export const G = {
