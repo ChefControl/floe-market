@@ -3,7 +3,8 @@
 // happens on the table, as in a casino, and takes its time: each card slides out of the shoe and turns over, the
 // dealer's second card waits face down, and when the dealer plays they turn it over slowly, then draw. A double on 10
 // or 11 gets its card face down, turned over once the dealer's done. When the dealer shows an ace they offer insurance
-// (or even money on a blackjack). Walking off mid-hand turns down insurance, stands on what you have and settles at once.
+// (or even money on a blackjack). Walking off mid-hand, the dealer holds your seat for a few seconds (casinoKit.ts's
+// gamePad); stay away and they turn down insurance, stand on what you have and settle.
 //
 // A fresh shoe is shuffled in front of the player: the dealer gathers the tray and the shoe into one stack, riffles it
 // three times, and puts it down for the player to cut, sliding a yellow cut card into the stack where they choose. The
@@ -710,6 +711,9 @@ const pad = gamePad(AT, '🃏', panel, {
   },
   closed: finishNow,
   greet() { table!.voice.say('Good luck!'); },
+  live: () => live() || !!prep,
+  say: text => table!.voice.say(text),
+  away: "I'll wait!",
 }, {
   at: V(TABLE.x, AT.y + TOP + 0.3, TABLE.z - 0.12), from: V(0, 1.05, 1).normalize(), wide: 1.45, tall: 1.2,
 });
@@ -729,7 +733,7 @@ export function collideBlackjack(p: XZ) {
 
 export function updBlackjack(dt: number) {
   if (!table) return;
-  const open = pad.upd();
+  const open = pad.upd(dt);
   table.voice.upd(dt);
   if (open && shoe.due && !prep && !live() && wallet.money > 0) {
     shuffleIn -= dt;
