@@ -19,15 +19,18 @@ async function ring(save: SaveFixture = {}) {
   const at = (p: { x: number; z: number }) => g.player.g.position.set(p.x, cellar.CY, p.z);
   /** The cellar now (fight.ts swaps its state object, so always read it fresh). */
   const F = () => fight.F;
-  /** Stands on a tile with the money for it until it's bought (or, for a room's upgrade, on the room's square, and
-   *  taps it in the menu). */
+  /** Stands on a tile with the money for it until it's bought (or, for a room's upgrade, at the crafting bench, and
+   *  taps it in its room's tab). */
   const buy = (id: string) => {
     const t = g.unlocks.tiles.find(x => x.id === id)!;
     if (t.menu) {
       at(plan.ROOM_MENUS[t.menu]);
       g.run(0.1);
-      const b = document.querySelector<HTMLButtonElement>(`#shopRows [data-tile="${id}"]`);
-      if (!b || b.disabled) throw new Error(`${id} isn't on sale in its menu`);
+      document.querySelector<HTMLButtonElement>(`#shopTabs [data-tab="${t.menu}"]`)?.click();
+      // (pick its card, then buy it)
+      document.querySelector<HTMLButtonElement>(`#shopRows [data-tile="${id}"]`)?.click();
+      const b = document.querySelector<HTMLButtonElement>('#shopPick .buy');
+      if (!b || b.disabled || !document.querySelector(`#shopRows [data-tile="${id}"][aria-pressed="true"]`)) throw new Error(`${id} isn't on sale in its menu`);
       b.click();
       g.run(0.1);
       return t;
@@ -718,7 +721,7 @@ describe("the cellar's tiles", () => {
     expect(offered(g)).not.toContain('rack');
   });
 
-  it("the crafting bench sells every room's upgrades, under each room's name, what's locked saying which boss opens it", async () => {
+  it("the crafting bench sells every room's upgrades, a tab each, what's locked saying which boss opens it", async () => {
     const { g, plan, at, F } = await ring({ money: 10_000_000 });
     // no tiles of their own on the rooms' floors
     expect(g.unlocks.visibleTiles().filter(t => t.menu)).toEqual([]);
@@ -726,27 +729,50 @@ describe("the cellar's tiles", () => {
     g.run(0.1);
     expect($('shop').hidden).toBe(false);
     expect($('shopTitle').textContent).toBe('Crafting bench');
-    // (the ring's, then the prep hall's and the hearth room's; the grow room's once it's found)
-    expect([...$('shopRows').querySelectorAll('.sect')].map(h => h.textContent)).toEqual(['The ring', 'Prep hall', 'Hearth room']);
-    const rows = [...$('shopRows').querySelectorAll<HTMLButtonElement>('[data-tile]')];
-    expect(rows.map(b => b.dataset.tile)).toEqual(['rack', 'washer', 'barrel', 'salter', 'steam', 'smoke', 'cook', 'attendant']);
-    const rack = rows[0];
-    expect(rack.textContent).toContain('Another drying rack · 1 of 6');
-    expect(rack.textContent).toContain('🐡 10');
-    expect(rack.disabled).toBe(false);
-    // the steam baskets wait on the second boss, and say so
-    const steam = rows[4];
-    expect(steam.disabled).toBe(true);
-    expect(steam.textContent).toContain('After beating Yokobashiri 🦀');
-    // tapping buys it outright
-    rack.click();
+    // (a tab for the ring's, the prep hall's and the hearth room's; the grow room's once it's found)
+    const tabs = () => [...$('shopTabs').querySelectorAll<HTMLButtonElement>('[data-tab]')];
+    expect($('shopTabs').hidden).toBe(false);
+    expect(tabs().map(b => b.dataset.tab)).toEqual(['ring', 'prep', 'hearth']);
+    // (it opens on one with something to buy: the prep hall's, what's on sale first, then what's locked)
+    expect(tabs().find(b => b.getAttribute('aria-selected') === 'true')!.dataset.tab).toBe('prep');
+    // (and a dot on each with something there are the chips for: not the hearth room's, its hires wait on bosses)
+    expect(tabs().map(b => b.classList.contains('can'))).toEqual([true, true, false]);
+    // (a card each: its icon, name and price, or its lock)
+    const card = (id: string) => $('shopRows').querySelector<HTMLButtonElement>(`[data-tile="${id}"]`)!;
+    expect([...$('shopRows').querySelectorAll<HTMLButtonElement>('[data-tile]')].map(b => b.dataset.tile)).toEqual(['rack', 'washer', 'barrel', 'salter', 'steam', 'smoke']);
+    expect(card('rack').textContent).toContain('Drying rack 1/6');
+    expect(card('rack').textContent).toContain('🐡 10');
+    expect(card('rack').classList.contains('can')).toBe(true);
+    // (the first there are the chips for is picked: what it does, and its Buy button, under the cards)
+    expect(card('rack').getAttribute('aria-pressed')).toBe('true');
+    expect($('shopPick').textContent).toContain('More room on the rice line');
+    const buy = () => $('shopPick').querySelector<HTMLButtonElement>('.buy')!;
+    expect(buy().disabled).toBe(false);
+    // the steam baskets wait on the second boss, and say so when picked
+    card('steam').click();
+    expect(card('steam').classList.contains('locked')).toBe(true);
+    expect($('shopPick').textContent).toContain('After beating Yokobashiri 🦀');
+    expect(buy().disabled).toBe(true);
+    // pick, then buy
+    card('rack').click();
+    buy().click();
     g.run(0.1);
     expect(F().lines.rice.n).toBe(2);
-    expect($('shopRows').querySelector('[data-tile="rack"]')!.textContent).toContain('2 of 6');
-    // the grow room's things join in once the grow room's found
+    expect(card('rack').textContent).toContain('2/6');
+    // what's done folds into a line under the rest
+    card('washer').click();
+    buy().click();
+    g.run(0.1);
+    expect($('shopRows').querySelector('[data-tile="washer"]')).toBeNull();
+    expect($('shopPick').querySelector('.doneLine')!.textContent).toContain('Rice washer');
+    // the hearth room's tab
+    tabs()[2].click();
+    expect([...$('shopRows').querySelectorAll<HTMLButtonElement>('[data-tile]')].map(b => b.dataset.tile)).toEqual(['cook', 'attendant']);
+    // the grow room's tab joins in once the grow room's found
     g.layout.found.grow = true;
     g.run(0.1);
-    expect([...$('shopRows').querySelectorAll('.sect')].map(h => h.textContent)).toEqual(['The ring', 'Prep hall', 'Grow room', 'Hearth room']);
+    expect(tabs().map(b => b.dataset.tab)).toEqual(['ring', 'prep', 'grow', 'hearth']);
+    tabs()[2].click();
     expect($('shopRows').querySelector('[data-tile="bed"]')).not.toBeNull();
   });
 
@@ -919,6 +945,7 @@ describe("the workshop's crafting bench", () => {
     at(plan.BENCH_PAD);
     g.run(0.1);
     expect($('shop').hidden).toBe(false);
+    $('shopTabs').querySelector<HTMLButtonElement>('[data-tab="ring"]')!.click();
     expect([...$('shopRows').querySelectorAll('[data-mod]')].map(b => (b as HTMLElement).dataset.mod)).toEqual(['bowls', 'street', 'cellarcrew']);
     expect($('shopRows').textContent).toContain('🐡');
     // (and it leaves the camera where it is)
