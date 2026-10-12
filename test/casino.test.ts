@@ -3,6 +3,7 @@
 // (the shoe too) in blackjack.test.ts; these tests are about what the player sees at the table.
 import { describe, expect, it, vi } from 'vitest';
 import { rankName, Shoe, type Card, type Suit } from '../src/blackjack';
+import { GRACE } from '../src/casinoKit';
 import { WHEEL } from '../src/roulette';
 import { bought, loadGame } from './helpers';
 
@@ -319,13 +320,16 @@ describe('the roulette table', () => {
     expect(button('#spin').disabled).toBe(true);
   });
 
-  it('settles at once if the player walks away mid-spin', async () => {
+  it('plays the spin out if the player walks away mid-spin, the croupier calling after them', async () => {
     const g = await at('roulette', 100);
     rig(32);
     click('#spin');
     g.run(0.5);
     walkAway(g);
     expect($('roulette').hidden).toBe(true);
+    expect((await import('../src/rouletteTable')).croupierSays()).toBe('Still rolling!');
+    expect(g.wallet.money).toBe(75);
+    g.run(GRACE);
     expect(g.wallet.money).toBe(125);
   });
 
@@ -566,6 +570,39 @@ describe('the blackjack table', () => {
     expect((await felt()).discards).toBe(4);
   });
 
+  it("keeps the dealer's speech bubble in view over their top hat, on a computer or a phone", async () => {
+    const g = await at('blackjack', 100, 'blackjack');
+    expect(await says()).toBe('Good luck!');
+    const { Sprite, Vector3 } = await import('three');
+    const { camera, scene, slideView } = await import('../src/render'), { tableRoom } = await import('../src/ui');
+    const kit = await import('../src/casinoKit');
+    for (const [w, h, panel] of [[1024, 768, 200], [800, 600, 200], [844, 390, 170], [390, 844, 250]]) {
+      vi.stubGlobal('innerWidth', w); vi.stubGlobal('innerHeight', h);
+      camera.aspect = w / h; camera.updateProjectionMatrix();
+      const pw = Math.min(w * 0.94, 440);
+      vi.spyOn($('blackjack'), 'getBoundingClientRect').mockReturnValue({ left: (w - pw) / 2, top: h - panel - 10, width: pw, height: panel } as DOMRect);
+      let v = kit.tableView(0.1);
+      for (let i = 0; i < 40; i++) v = kit.tableView(0.1);
+      // the camera where the game puts it, sat at the table, and the bubble sized and placed for it
+      const view = () => {
+        camera.position.copy(v.eye); camera.lookAt(v.at); slideView(tableRoom.x, tableRoom.y);
+        scene.updateMatrixWorld(); camera.updateMatrixWorld();
+      };
+      view(); g.run(0.02); view();
+      // the bubble faces the camera: its corners are out along the camera's up and right
+      let bubble = null as InstanceType<typeof Sprite> | null;
+      scene.traverse(o => { if (o instanceof Sprite && o.visible && o.renderOrder === 5) bubble = o; });
+      const at0 = bubble!.getWorldPosition(new Vector3());
+      const up = new Vector3(0, 1, 0).applyQuaternion(camera.quaternion), right = new Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
+      for (const [x, y] of [[-1, -1], [-1, 1], [1, -1], [1, 1]]) {
+        const p = at0.clone().addScaledVector(right, x * bubble!.scale.x / 2).addScaledVector(up, y * bubble!.scale.y / 2).project(camera);
+        expect(Math.abs(p.x)).toBeLessThan(1);
+        expect(Math.abs(p.y)).toBeLessThan(1);
+      }
+    }
+    vi.unstubAllGlobals();
+  });
+
   it('shuffles a fresh shoe in front of the player, riffling it three times, then offers them the cut', async () => {
     const g = await at('blackjack', 100, 'blackjack');
     expect($('bjMsg').textContent).toBe('A fresh shoe: the dealer shuffles…');
@@ -622,6 +659,7 @@ describe('the blackjack table', () => {
     expect($('bjMsg').textContent).toBe('A fresh shoe: the dealer shuffles…');
     g.run(3);
     walkAway(g);
+    g.run(GRACE);
     expect(await felt()).toMatchObject({ shuffle: '', stack: 0, cutCard: false, discards: 1 });
     expect(await inShoe()).toHaveLength(311);
     g.placePlayer(g.layout.GAMES.blackjack.x, g.layout.GAMES.blackjack.z); g.run(0.05);
@@ -631,7 +669,7 @@ describe('the blackjack table', () => {
     expect((await felt()).shuffle).toBe('due');
   });
 
-  it('finishes the round when the cut card comes out, then shuffles again', async () => {
+  it('finishes the round when the cut card comes out, the dealer slides it across to the player, then shuffles again', async () => {
     const g = await at('blackjack', 100, 'blackjack');
     (await import('../src/blackjackTable')).stackShoe([c(10), c(10), c(9), c(7)], 50);
     click('#deal');
@@ -639,9 +677,12 @@ describe('the blackjack table', () => {
     click('#stand');
     g.run(STOOD);
     expect($('bjMsg').textContent).toBe('19 beats 17: you win $50!');
-    expect(await felt()).toMatchObject({ cutCard: true, shuffle: 'due' });
+    expect(await felt()).toMatchObject({ cutCard: true, presenting: true, shuffle: 'due' });
     expect($('deal').hidden).toBe(true);
-    g.run(2.6);
+    g.run(1.6);
+    expect(await says()).toBe('Cut card!'); // across the felt, by the player
+    expect(await felt()).toMatchObject({ cutCard: true, presenting: true, shuffle: 'due' });
+    g.run(1.8);
     expect($('bjMsg').textContent).toBe("The cut card's out: the dealer shuffles…");
     g.run(1);
     expect(await felt()).toMatchObject({ hands: [[]], dealer: [], discards: 0, cutCard: false });
@@ -682,14 +723,38 @@ describe('the blackjack table', () => {
     g.run(0.8 + STOOD);
     expect($('bjMsg').textContent).toBe('21 beats 18: you win $50!');
   });
-  it('stands and settles at once if the player walks away mid-hand', async () => {
+  it('holds the hand for a player who walks away mid-hand, then stands and settles if they stay away', async () => {
     const g = await table(100, [c(10), c(9)], [c(10), c(7)]);
     click('#deal');
     g.run(0.5);
     walkAway(g);
     expect($('blackjack').hidden).toBe(true);
+    expect(await says()).toBe("I'll wait!");
+    g.run(GRACE - 0.5);
+    expect(g.wallet.money).toBe(75);
+    expect((await felt()).dealer).toEqual(['10♠', '?']);
+    g.run(0.5);
     expect(g.wallet.money).toBe(125);
     expect((await felt()).dealer).toEqual(['10♠', '7♠']);
+  });
+
+  it('lets a player who stepped off by mistake come back and play on', async () => {
+    const g = await table(100, [c(10), c(6)], [c(10), c(7)], c(4));
+    click('#deal');
+    dealt(g);
+    const pad = g.layout.GAMES.blackjack;
+    g.placePlayer(pad.x, pad.z + 1.2); g.run(0.05); // a step back off the pad, still aboard
+    expect($('blackjack').hidden).toBe(true);
+    g.run(GRACE - 1);
+    g.placePlayer(pad.x, pad.z); g.run(0.05);
+    expect(await says()).toBe('Welcome back!');
+    expect($('bjMsg').textContent).toBe('You have 16. Hit or stand?');
+    g.run(GRACE); // nobody's waiting any more: the hand's still theirs
+    click('#hit');
+    g.run(0.8);
+    click('#stand');
+    g.run(STOOD);
+    expect($('bjMsg').textContent).toBe('20 beats 17: you win $50!');
   });
 
   it('saves what standing would win, mid-hand', async () => {
@@ -776,6 +841,7 @@ describe('the blackjack table', () => {
     click('#deal');
     dealt(g);
     walkAway(g);
+    g.run(GRACE);
     expect(g.wallet.money).toBe(125);
   });
 
@@ -836,7 +902,7 @@ describe('the slot machine', () => {
     expect($('slotsMsg').textContent).toBe('Jackpot! You win $2,500!');
     expect((await import('../src/slotMachine')).signSays()).toBe('JACKPOT!');
   });
-  it('pays at once if the player walks away mid-spin, and saves a win still spinning', async () => {
+  it('plays the spin out if the player walks away mid-spin, and saves a win still spinning', async () => {
     const g = await at('slots', 100, 'slots');
     rigReels(4, 11, 17); // three fish
     click('#pull');
@@ -847,6 +913,9 @@ describe('the slot machine', () => {
     g.saveMod.save();
     expect(saved()).toBe(700 - 25 + 625);
     walkAway(g);
+    expect((await import('../src/slotMachine')).signSays()).toBe('Still spinning!');
+    expect(g.wallet.money).toBe(675);
+    g.run(2);
     expect(g.wallet.money).toBe(1300);
   });
 

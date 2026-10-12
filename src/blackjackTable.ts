@@ -3,13 +3,15 @@
 // happens on the table, as in a casino, and takes its time: each card slides out of the shoe and turns over, the
 // dealer's second card waits face down, and when the dealer plays they turn it over slowly, then draw. A double on 10
 // or 11 gets its card face down, turned over once the dealer's done. When the dealer shows an ace they offer insurance
-// (or even money on a blackjack). Walking off mid-hand turns down insurance, stands on what you have and settles at once.
+// (or even money on a blackjack). Walking off mid-hand, the dealer holds your seat for a few seconds (casinoKit.ts's
+// gamePad); stay away and they turn down insurance, stand on what you have and settle.
 //
 // A fresh shoe is shuffled in front of the player: the dealer gathers the tray and the shoe into one stack, riffles it
 // three times, and puts it down for the player to cut, sliding a yellow cut card into the stack where they choose. The
 // cards above it go to the bottom, the dealer sets the cut card a deck from the back, the stack goes in the shoe, and
 // the dealer burns its top card into the tray, as casinos do. That's the only card ever burned: in play, every card
-// comes straight off the shoe. When the cut card comes out, the round finishes and the dealer shuffles again.
+// comes straight off the shoe. When the cut card comes out, the round finishes, the dealer slides the card across the
+// felt to the player, then shuffles again.
 import {
   BoxGeometry, CylinderGeometry, Group, Mesh, MeshLambertMaterial, PlaneGeometry, Vector3, type Object3D,
 } from 'three';
@@ -44,8 +46,8 @@ const SHOE = V(0.58, TOP + 0.16, -0.16), TRAY = V(-0.64, TOP + 0.02, -0.27);
 const CARD_T = 0.0004;
 /** Where the dealer shuffles, where they put the stack down for the player's cut, and inside the shoe. */
 const PACK = V(0, TOP, -0.02), CUT_SPOT = V(0, TOP, 0.14), IN_SHOE = V(0.6, TOP + 0.01, -0.28);
-/** Where the cut card lies once it's come out of the shoe. */
-const CUT_OUT = V(0.6, TOP + 0.003, 0.03);
+/** Where the cut card lands once it's come out of the shoe, and where the dealer slides it across to, by the player. */
+const CUT_OUT = V(0.6, TOP + 0.003, 0.03), TO_PLAYER = V(0.4, TOP + 0.012, 0.26);
 /** Where the dealer's chips are: lost stakes go there and winnings come from there. */
 const RACK = V(0, TOP, -0.36);
 
@@ -171,7 +173,8 @@ function buildTable() {
   const dealer = new Person(SUITS[0], 'fancy');
   dealer.position.set(0, 0, -0.95);
   g.add(dealer);
-  const voice = speaker(g, 2.0);
+  // close up, smaller than most: the dealer's top hat reaches the top of the view, and their bubble comes down over it
+  const voice = speaker(g, 2.0, 0.22);
   return { g, voice, pile, cutCard, dealerTotal: badge(g), totals: [badge(g), badge(g)], ring: activeRing(g) };
 }
 
@@ -193,6 +196,8 @@ const luck = () => Math.random();
 let shoe = new Shoe(luck);
 /** Seconds until the dealer starts shuffling, once it's due and the player's at the table with cash to play. */
 let shuffleIn = 0;
+/** The dealer is sliding the cut card across to the player: the shuffle waits till it's there. */
+let presenting = false;
 /**
  * The shuffle going on: the stack on the felt, whether it's waiting for the player to cut it, and while it is, the cards
  * above the cut card, held up off the rest so the player can see where they're cutting.
@@ -537,12 +542,23 @@ function payOut() {
 }
 
 // ---------- the shuffle and the cut ----------
-/** The cut card came out with this round's cards: it goes down by the shoe, and the dealer shuffles before the next. */
+/** Seconds: the cut card out of the shoe onto the felt, slid across to the player, and left there for them to see. */
+const OUT = 0.4, ACROSS = 1.1, SHOWN = 1.2;
+/**
+ * The cut card came out with this round's cards: it comes out of the shoe onto the felt, and the dealer slides it
+ * smoothly across the table to the player, flat on the felt, and leaves it there a moment before they shuffle.
+ */
 function cutCardOut() {
   const c = table!.cutCard;
-  shuffleIn = 2.5;
+  presenting = true;
   c.position.copy(SHOE); c.visible = true;
-  slide(c, CUT_OUT, 0.5, 0.06);
+  dealSound();
+  slide(c, CUT_OUT, OUT, 0.03, () => {
+    tween(ACROSS, k => c.position.lerpVectors(CUT_OUT, TO_PLAYER, easeInOut(k)), () => {
+      table!.voice.say('Cut card!');
+      tween(SHOWN, () => {}, () => { presenting = false; shuffleIn = 0.4; });
+    });
+  });
 }
 
 const dueMsg = () => shoe.due === 'out' ? "The cut card's out: the dealer shuffles…" : 'A fresh shoe: the dealer shuffles…';
@@ -710,6 +726,9 @@ const pad = gamePad(AT, '🃏', panel, {
   },
   closed: finishNow,
   greet() { table!.voice.say('Good luck!'); },
+  live: () => live() || !!prep,
+  say: text => table!.voice.say(text),
+  away: "I'll wait!",
 }, {
   at: V(TABLE.x, AT.y + TOP + 0.3, TABLE.z - 0.12), from: V(0, 1.05, 1).normalize(), wide: 1.45, tall: 1.2,
 });
@@ -729,9 +748,9 @@ export function collideBlackjack(p: XZ) {
 
 export function updBlackjack(dt: number) {
   if (!table) return;
-  const open = pad.upd();
+  const open = pad.upd(dt);
   table.voice.upd(dt);
-  if (open && shoe.due && !prep && !live() && wallet.money > 0) {
+  if (open && shoe.due && !prep && !presenting && !live() && wallet.money > 0) {
     shuffleIn -= dt;
     if (shuffleIn <= 0) startShuffle();
   }
@@ -749,8 +768,8 @@ export const dealerSays = () => table?.voice.text ?? '';
 
 /**
  * For tests: the cards on the felt ('?' face down), the totals over them, the hand being played, the tray's count, and
- * the shuffle: where it's got to ('due' before it starts), how many cards are in the stack on the felt, and whether the
- * yellow cut card is out.
+ * the shuffle: where it's got to ('due' before it starts), how many cards are in the stack on the felt, whether the
+ * yellow cut card is out, and whether the dealer's sliding it across.
  */
 export function onFelt() {
   const name = (m: CardMesh) => m.userData.up ? rankName(m.userData.card) + m.userData.card.suit : '?';
@@ -760,6 +779,7 @@ export function onFelt() {
     active: turn() ? round!.active : -1, discards: felt.discards,
     chips: felt.bets.length, insurance: !!felt.insurance,
     shuffle: prep?.phase ?? (shoe.due ? 'due' : ''), stack: (prep?.pack.userData.n ?? 0) + (prep?.over?.userData.n ?? 0), cutCard: !!table?.cutCard.visible,
+    presenting,
   };
 }
 

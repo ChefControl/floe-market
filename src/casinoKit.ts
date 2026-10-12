@@ -26,23 +26,32 @@ export const visits = { n: 0 };
  */
 export interface Seat { at: Vector3; from: Vector3; wide: number; tall: number }
 
+/** Seconds a round waits for a player who stepped off its pad mid-play, before it's played out without them. */
+export const GRACE = 10;
+
 /**
  * A game's pad on the boat's deck. Once `enable`d, `upd` opens the panel when the player steps on the pad and closes
  * it when they step off, calling `opened`/`closed`, and `greet` the first time they step on it each visit. While it's
  * open the camera comes in to `seat`. It returns whether the panel is open.
+ *
+ * Stepping off while a round is `live` is often a slip, so the round waits for them: the game `say`s its `away` line,
+ * and only if they're not back on the pad within `GRACE` seconds (and the round's still going) is it `closed`.
  */
 export function gamePad(
-  at: XZ & { y?: number }, icon: string, panel: HTMLElement, h: { opened(): void; closed(): void; greet(): void }, view: Seat,
+  at: XZ & { y?: number }, icon: string, panel: HTMLElement,
+  h: { opened(): void; closed(): void; greet(): void; live(): boolean; say(text: string): void; away: string },
+  view: Seat,
 ) {
   const d = decal(1.9, (c, w, ht) => drawPad(c, w, ht, icon));
   d.mesh.position.set(at.x, (at.y ?? FY) + 0.01, at.z);
   d.mesh.visible = false;
-  let enabled = false, open = false, greeted = -1;
+  // wait: seconds left for a player who stepped off mid-round (0 when nobody's being waited for)
+  let enabled = false, open = false, greeted = -1, wait = 0;
   return {
     /** The marking on the deck. */
     mark: d.mesh,
     enable() { enabled = true; d.mesh.visible = true; },
-    upd() {
+    upd(dt: number) {
       if (!enabled) return false;
       const near = d2xz(player.g.position, at) < REACH * REACH;
       if (near !== open) {
@@ -51,10 +60,14 @@ export function gamePad(
         if (open) seated = { ...view, panel };
         else if (seated?.panel === panel) seated = null;
         if (open) {
+          const back = wait > 0;
+          wait = 0;
           h.opened();
           if (greeted !== visits.n) { greeted = visits.n; h.greet(); }
-        } else h.closed();
-      }
+          else if (back) h.say('Welcome back!');
+        } else if (h.live()) { wait = GRACE; h.say(h.away); }
+        else h.closed();
+      } else if (wait > 0 && (!h.live() || (wait -= dt) <= 0)) { wait = 0; h.closed(); }
       return open;
     },
   };
@@ -134,15 +147,25 @@ function drawSay(c: CanvasRenderingContext2D, text: string) {
   c.restore();
 }
 
-const tmp = new Vector3();
-/** Someone (or something) on the boat that says things in a bubble `y` above `on`. */
-export function speaker(on: Object3D, y: number) {
+const tmp = new Vector3(), up = new Vector3();
+/** How near the top of the view a bubble can come (in the camera's -1 to 1). */
+const VIEW_TOP = 0.95;
+/**
+ * Someone (or something) on the boat that says things in a bubble `y` above `on`. Close up, at a table, it's smaller
+ * (`near` of its size), and if it would go off the top of the view it comes down, over the speaker, till it's in.
+ */
+export function speaker(on: Object3D, y: number, near = 0.35) {
   const t = canvasTex(W, H, () => {});
   const mat = new SpriteMaterial({ map: t.tex, depthTest: false, transparent: true, opacity: 0 });
   const s = new Sprite(mat);
   s.scale.set(1.7, 0.85, 1); s.position.set(0, y, 0); s.renderOrder = 5; s.visible = false;
   on.add(s);
   let left = 0;
+  /** How high the top of the bubble is on screen, with it `h` above `on`. */
+  const top = (h: number) => {
+    s.position.y = h;
+    return s.getWorldPosition(tmp).addScaledVector(up, s.scale.y / 2).project(camera).y;
+  };
   return {
     /** What it's saying now, or '' while it's quiet. */
     text: '',
@@ -153,9 +176,16 @@ export function speaker(on: Object3D, y: number) {
     },
     upd(dt: number) {
       if (!s.visible) return;
+      s.position.y = y;
       // smaller close up, at a table, so it doesn't fill the view
-      const k = Math.min(1, Math.max(0.35, s.getWorldPosition(tmp).distanceTo(camera.position) / 12));
+      const d = s.getWorldPosition(tmp).distanceTo(camera.position) / 12, k = Math.min(1, Math.max(near, d));
       s.scale.set(1.7 * k, 0.85 * k, 1);
+      if (d < near) {
+        // and down into the view, if it's over the top of it
+        up.set(0, 1, 0).applyQuaternion(camera.quaternion);
+        const at = top(y), lower = top(y - 0.5);
+        s.position.y = at > VIEW_TOP && at > lower ? y - 0.5 * Math.min(2, (at - VIEW_TOP) / (at - lower)) : y;
+      }
       left -= dt;
       mat.opacity = Math.max(0, Math.min(1, (SAY_SECS - left) / FADE, left / FADE));
       if (left <= 0) { s.visible = false; this.text = ''; }
