@@ -132,7 +132,7 @@ tabsEl.addEventListener('click', e => {
 });
 /** One thing the bench sells, as its card and the line under the cards show it: the ring's next level of an upgrade,
  *  or a room's upgrade. */
-interface Item { key: string; icon: string; name: string; desc: string; tag: string; sale: boolean; cost: number | null; buy: () => boolean }
+interface Item { key: string; icon: string; name: string; desc: string; tag: string; sale: boolean; done?: boolean; cost: number | null; buy: () => boolean }
 function modItem(m: (typeof MODS)[number]): Item {
   const cost = modCost(m.id), now = boost(m.id), lv = mods[m.id];
   const then = m.add ? now + m.per - 1 : now * m.per, what = m.kind === 'speed' ? 'Crew' : RING_EFFECT[m.kind];
@@ -146,24 +146,25 @@ function tileItem(t: Tile): Item {
   const sale = !t.done && offered(t), n = t.line ? F.lines[t.line].n : 0;
   return {
     key: 'tile:' + t.id, icon: t.icon, name: t.line ? `${t.name.replace(/^Another (\w)/, (_, c: string) => c.toUpperCase())} ${n}/${MAX_MACHINES}` : t.name,
-    desc: sale ? t.desc : `${lockedBy(t).why}: ${t.desc.charAt(0).toLowerCase()}${t.desc.slice(1)}`,
-    tag: sale ? chips(t.cost, true) : lockedBy(t).tag, sale, cost: t.cost,
+    desc: t.done ? (t.line ? `The ${t.line === 'rice' ? 'rice' : t.line === 'fish' ? 'fish' : 'mushroom'} line is full` : t.desc)
+      : sale ? t.desc : `${lockedBy(t).why}: ${t.desc.charAt(0).toLowerCase()}${t.desc.slice(1)}`,
+    tag: t.done ? (t.line ? 'Max' : '✓') : sale ? chips(t.cost, true) : lockedBy(t).tag, sale, done: t.done, cost: t.cost,
     buy: () => { const ok = buyFromMenu(t); if (ok) save(); return ok; },
   };
 }
-/** What the open tab sells: the ring's three upgrades, or a room's on sale and then its locked ones; and what's done. */
-function benchItems(q: Square): { items: Item[]; done: string[] } {
-  if (tab === 'ring') return { items: sold(q).map(modItem), done: [] };
-  const list = menuTiles(tab);
-  return { items: list.filter(t => !t.done).sort((a, b) => +!offered(a) - +!offered(b)).map(tileItem), done: list.filter(t => t.done).map(t => t.name) };
+/** What the open tab sells, each in its place whatever's bought (so the menu keeps its size and shape): the ring's
+ *  three upgrades, or a room's, what's done ticked. */
+function benchItems(q: Square): { items: Item[] } {
+  if (tab === 'ring') return { items: sold(q).map(modItem) };
+  return { items: menuTiles(tab).map(tileItem) };
 }
 /** The card picked, to show what it does and buy it: by default the first there are the chips for. */
 let picked = '';
 const canBuy = (it: Item) => it.sale && it.cost !== null && wallet.money >= it.cost;
 const pickEl = $('shopPick');
-/** The bench's menu: its tabs, the open one's cards (what's on sale, then what's locked, each with its price or its
- *  lock), what's done in a line under them, and under that the picked card: what it does, and its Buy button. Two
- *  taps to buy (pick, then buy), so a thumb on a phone doesn't buy what it brushes past. */
+/** The bench's menu, the same size whatever's in the tab: its tabs, the open one's cards (each with its price, its lock
+ *  or its tick), and under them the picked card: what it does, and its Buy button. Two taps to buy (pick, then buy),
+ *  so a thumb on a phone doesn't buy what it brushes past. */
 function renderBench(q: Square) {
   title.textContent = q.title;
   if (!benchTabs().some(t => t.id === tab)) tab = 'prep';
@@ -175,14 +176,14 @@ function renderBench(q: Square) {
     b.children[0].textContent = t.icon; b.children[1].textContent = t.label;
     return b;
   }));
-  const { items, done } = benchItems(q);
-  if (!items.some(it => it.key === picked)) picked = (items.find(canBuy) ?? items[0])?.key ?? '';
+  const { items } = benchItems(q);
+  if (!items.some(it => it.key === picked)) picked = (items.find(canBuy) ?? items.find(x => !x.done) ?? items[0])?.key ?? '';
   const out: HTMLElement[] = items.map(it => {
     const b = document.createElement('button');
     b.type = 'button'; b.className = 'card'; b.dataset.key = it.key;
     if (it.key.startsWith('tile:')) b.dataset.tile = it.key.slice(5); else b.dataset.mod = it.key.slice(4);
     b.setAttribute('aria-pressed', String(it.key === picked));
-    if (!it.sale) b.classList.add('locked');
+    if (it.done) b.classList.add('done'); else if (!it.sale) b.classList.add('locked');
     b.innerHTML = '<span class="ic"></span><b></b><span class="cost"></span>';
     b.children[0].textContent = it.icon; b.children[1].textContent = it.name; b.children[2].textContent = it.tag;
     return b;
@@ -197,10 +198,9 @@ function renderBench(q: Square) {
   txt.children[0].textContent = it?.name ?? ''; txt.children[1].textContent = it ? it.desc : '';
   const buy = document.createElement('button');
   buy.type = 'button'; buy.className = 'buy';
-  buy.textContent = !it ? '' : it.sale ? `Buy · ${it.tag}` : it.tag;
+  buy.textContent = !it ? '' : it.done ? 'Done ✓' : it.sale ? `Buy · ${it.tag}` : it.tag;
   buy.hidden = !it;
   pickEl.append(txt, buy);
-  if (done.length) { const d = document.createElement('div'); d.className = 'doneLine'; d.textContent = `✓ ${done.join(', ')}`; pickEl.append(d); }
   syncBench(q);
 }
 /** What changes with the chips: which cards can be bought now, and whether the Buy button can. */
@@ -226,10 +226,25 @@ pickEl.addEventListener('click', e => {
   const it = benchItems(on).items.find(x => x.key === picked);
   if (it && canBuy(it) && it.buy()) { built = ''; syncRows(on); }
 });
-/** Each tab's dot: lit while there's something in it there are the chips for. */
+/** Each tab's dot: lit while there's something in it there are the chips for; and, folded, how many things that is. */
 function syncDots(q: Square) {
   for (const b of tabsEl.children as HTMLCollectionOf<HTMLButtonElement>) b.classList.toggle('can', affordable(b.dataset.tab as BenchTab, q));
+  const n = sold(q).filter(m => { const c = modCost(m.id); return c !== null && wallet.money >= c; }).length
+    + benchTiles().filter(x => !x.done && offered(x) && wallet.money >= x.cost).length;
+  const text = n ? String(n) : '';
+  if (countEl.textContent !== text) countEl.textContent = text;
 }
+/** The bench's menu opens folded: no panel, just a round Craft button where the Buy button goes, out of the way of a
+ *  thumb coming down to walk off, until it's tapped (or E); ✕ folds it again. */
+let unfolded = false;
+const craftEl = $('craft'), countEl = $('craftN'), shutEl = $('shopShut');
+function fold(open: boolean) {
+  unfolded = open;
+  panel.hidden = !open; craftEl.hidden = open; shutEl.hidden = !open;
+  built = '';
+}
+craftEl.addEventListener('click', () => fold(true));
+shutEl.addEventListener('click', () => fold(false));
 /** What the bench's rooms' part shows: each upgrade's state, its price, and the line's machines (for rebuilding the
  *  rows). */
 const tileKey = () => benchTiles().map(t => `${t.id}${t.done ? '+' : offered(t) ? '' : '-'}${t.cost}`).join() + F.beaten + MACH.rice[0].cap;
@@ -339,6 +354,8 @@ export function updShop() {
     // (the bench's menu leaves the camera where it is: ui.ts's keepInSight slides the view for the rest)
     panel.dataset.still = (on as Square | null)?.bench ? '1' : '';
     tabsEl.hidden = !(on as Square | null)?.bench;
+    if ((on as Square | null)?.bench) fold(false);
+    else { craftEl.hidden = shutEl.hidden = true; unfolded = false; }
     // (the bench opens on its last tab if there's something in it to buy, or the first tab that has)
     const q = on as Square | null;
     if (q?.bench && !affordable(tab, q)) tab = benchTabs().find(t => affordable(t.id, q))?.id ?? tab;
@@ -349,7 +366,8 @@ export function updShop() {
   const press = buyHeld() && !held;
   held = buyHeld();
   if (on && press) {
-    if (bench) {
+    if (bench && !unfolded) fold(true);
+    else if (bench) {
       // E buys the picked card, or else the first in the tab there are the chips for
       const { items } = benchItems(on), it = items.find(x => x.key === picked && canBuy(x)) ?? items.find(canBuy);
       if (it && it.buy()) built = '';

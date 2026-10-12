@@ -26,6 +26,8 @@ async function ring(save: SaveFixture = {}) {
     if (t.menu) {
       at(plan.ROOM_MENUS[t.menu]);
       g.run(0.1);
+      // (the bench's menu opens folded, as its Craft button: tap it open, then the room's tab)
+      if (document.getElementById('shop')!.hidden) document.getElementById('craft')!.click();
       document.querySelector<HTMLButtonElement>(`#shopTabs [data-tab="${t.menu}"]`)?.click();
       // (pick its card, then buy it)
       document.querySelector<HTMLButtonElement>(`#shopRows [data-tile="${id}"]`)?.click();
@@ -727,7 +729,13 @@ describe("the cellar's tiles", () => {
     expect(g.unlocks.visibleTiles().filter(t => t.menu)).toEqual([]);
     at(plan.BENCH_PAD);
     g.run(0.1);
+    // it opens folded, a Craft button with a count of what there are the chips for; a tap unfolds it
+    expect($('shop').hidden).toBe(true);
+    expect($('craft').hidden).toBe(false);
+    expect(Number($('craftN').textContent)).toBeGreaterThan(0);
+    $('craft').click();
     expect($('shop').hidden).toBe(false);
+    expect($('craft').hidden).toBe(true);
     expect($('shopTitle').textContent).toBe('Crafting bench');
     // (a tab for the ring's, the prep hall's and the hearth room's; the grow room's once it's found)
     const tabs = () => [...$('shopTabs').querySelectorAll<HTMLButtonElement>('[data-tab]')];
@@ -739,7 +747,8 @@ describe("the cellar's tiles", () => {
     expect(tabs().map(b => b.classList.contains('can'))).toEqual([true, true, false]);
     // (a card each: its icon, name and price, or its lock)
     const card = (id: string) => $('shopRows').querySelector<HTMLButtonElement>(`[data-tile="${id}"]`)!;
-    expect([...$('shopRows').querySelectorAll<HTMLButtonElement>('[data-tile]')].map(b => b.dataset.tile)).toEqual(['rack', 'washer', 'barrel', 'salter', 'steam', 'smoke']);
+    // (each in its place: the rice line's along the top, the fish line's under it)
+    expect([...$('shopRows').querySelectorAll<HTMLButtonElement>('[data-tile]')].map(b => b.dataset.tile)).toEqual(['rack', 'washer', 'steam', 'barrel', 'salter', 'smoke']);
     expect(card('rack').textContent).toContain('Drying rack 1/6');
     expect(card('rack').textContent).toContain('🐡 10');
     expect(card('rack').classList.contains('can')).toBe(true);
@@ -759,12 +768,18 @@ describe("the cellar's tiles", () => {
     g.run(0.1);
     expect(F().lines.rice.n).toBe(2);
     expect(card('rack').textContent).toContain('2/6');
-    // what's done folds into a line under the rest
+    // what's done stays in its place, ticked (the menu keeps its size and shape)
     card('washer').click();
     buy().click();
     g.run(0.1);
-    expect($('shopRows').querySelector('[data-tile="washer"]')).toBeNull();
-    expect($('shopPick').querySelector('.doneLine')!.textContent).toContain('Rice washer');
+    expect(card('washer').classList.contains('done')).toBe(true);
+    expect(card('washer').textContent).toContain('✓');
+    expect([...$('shopRows').querySelectorAll('[data-tile]')]).toHaveLength(6);
+    // ✕ folds it back into its button
+    $('shopShut').click();
+    expect($('shop').hidden).toBe(true);
+    expect($('craft').hidden).toBe(false);
+    $('craft').click();
     // the hearth room's tab
     tabs()[2].click();
     expect([...$('shopRows').querySelectorAll<HTMLButtonElement>('[data-tile]')].map(b => b.dataset.tile)).toEqual(['cook', 'attendant']);
@@ -944,6 +959,7 @@ describe("the workshop's crafting bench", () => {
     expect(cellar.cellarWay(cellar.LADDER_FOOT, plan.BENCH_PAD).map(w => cellar.roomAt(w))).toContain('kitchen');
     at(plan.BENCH_PAD);
     g.run(0.1);
+    $('craft').click();
     expect($('shop').hidden).toBe(false);
     $('shopTabs').querySelector<HTMLButtonElement>('[data-tab="ring"]')!.click();
     expect([...$('shopRows').querySelectorAll('[data-mod]')].map(b => (b as HTMLElement).dataset.mod)).toEqual(['bowls', 'street', 'cellarcrew']);
@@ -955,6 +971,7 @@ describe("the workshop's crafting bench", () => {
     g.placePlayer(plan.BENCH_PAD.x, plan.BENCH_PAD.z);
     g.run(0.1);
     expect($('shop').hidden).toBe(true);
+    expect($('craft').hidden).toBe(true);
   });
 
   it('has nothing to buy on the landing or in the rooms any more', async () => {
@@ -964,6 +981,7 @@ describe("the workshop's crafting bench", () => {
       at({ x: (r.x0 + r.x1) / 2 - 1.0, z: (r.z0 + r.z1) / 2 });
       g.run(0.1);
       expect($('shop').hidden).toBe(true);
+      expect($('craft').hidden).toBe(true);
     }
   });
 });
