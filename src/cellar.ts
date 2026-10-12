@@ -10,12 +10,12 @@
 // This module is the rooms and their furniture; where things are is cellarPlan.ts, and the kitchen's lines, the bouts
 // and the swarm draw themselves (ringKitchen.ts, dohyo.ts, swarm.ts).
 import {
-  AdditiveBlending, BackSide, BoxGeometry, type BufferGeometry, Color, ConeGeometry, CylinderGeometry, Group, type Material, Matrix4,
-  Mesh, MeshBasicMaterial, MeshLambertMaterial, type Object3D, PointLight, type Side as Facing, TorusGeometry, Vector3,
+  AdditiveBlending, BackSide, BoxGeometry, type BufferGeometry, Color, ConeGeometry, CylinderGeometry, DoubleSide, Group, type Material, Matrix4,
+  Mesh, MeshBasicMaterial, MeshLambertMaterial, type Object3D, PlaneGeometry, PointLight, type Side as Facing, TorusGeometry, Vector3,
 } from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import {
-  BELT, BINS, CASHIER, COUNTER, GONG, HEARTH, LIFTS, machineAt, MAX_MACHINES, POT, STALL, TEPPO, TUNNEL_D, TUNNEL_W, TUNNELS,
+  BELT, BINS, CASHIER, COUNTER, GONG, HEARTH, HOPPERS, LIFTS, machineAt, MAX_MACHINES, POT, STALL, TEPPO, TUNNEL_D, TUNNEL_W, TUNNELS,
 } from './cellarPlan';
 import { Fugu } from './fugu';
 import { ARENA, CELLAR_Y, type CellarRoom, DOORS, found, GROW, keepOnFloor, KITCHEN, LANDING, LIFT_ROOM, OFFICE_ROOM, PREP, pushOutOfBox, ROOMS, walkable } from './layout';
@@ -70,7 +70,7 @@ const SACKS = { x: PREP.x1 - 0.6, z: PREP.z0 + 0.55 };
 
 // ---------- materials ----------
 const WOOD = 0x8A5A3B, WOOD_DARK = 0x5B3424, PILE = 0x4A3A30, CLAY = 0xB88A57, STRAW = 0xD9C47E;
-const PURPLE = 0x5B3A7A, IRON = 0x2E2E33;
+const PURPLE = 0x5B3A7A, IRON = 0x2E2E33, STEEL = 0x8C959C, STEEL_DARK = 0x4B5257;
 /** Glowing materials (lanterns, the hearth's fire, the hatch's daylight): lit only in the cellar's light. */
 const glow = (color: number, emissive: number) => new MeshLambertMaterial({ color, emissive, emissiveIntensity: 1 });
 const LANTERN_RED = glow(0xE0392B, 0xB0250F), LANTERN_PAPER = glow(0xFFF1D6, 0xFFC46A);
@@ -692,7 +692,7 @@ export const potMesh = (() => {
   for (let i = 0; i < 4; i++) add(t, mesh(new CylinderGeometry(0.15, 0.09, 0.08, 12), 0xC0392B, -0.3, 0.84 + i * 0.07, -0.62));
 }
 
-// ---------- the lift room: the two dumbwaiters, and the conveyors through the wall to a plate each in the prep hall ----------
+// ---------- the lift room: the two dumbwaiters, their conveyors, and the storage hoppers that feed the prep hall ----------
 /** The conveyors' belts, which ringKitchen.ts runs (their texture slides along). */
 export const belts: Mesh[] = [];
 /** A belt's rubber: dark, with a lighter slat across it every so often, so it's seen to move. */
@@ -706,7 +706,7 @@ beltTex.tex.wrapS = 1000;
   // The dumbwaiters from the restaurant's kitchen upstairs, rice down one and fish down the other: tall timber shafts
   // up into the dark, open at the front (to the west), their chains and the wheels they go round at the top and
   // bottom (ringKitchen.ts sends their trays round, loaded on the way down; at the bottom each tips over and drops its
-  // load onto its conveyor, which carries it through the wall to the plate in the hall).
+  // load onto its conveyor, which carries it up into the storage hopper by the wall).
   for (const k of ['rice', 'fish'] as const) {
     const g = add(cellar, new Group()); g.position.set(LIFTS[k].x, CY, LIFTS[k].z); g.rotation.y = -Math.PI / 2;
     const W = 0.95, D = 0.85, L = LIFT_LOOP;
@@ -726,31 +726,56 @@ beltTex.tex.wrapS = 1000;
     }
     // a lamp on its front post, lighting the trays coming down
     lantern(g, W / 2 + 0.05, 2.7, D / 2 + 0.05, false);
-    // its conveyor: a belt on rollers in a timber frame, on legs, from under its front through a gap in the wall to the
-    // plate's edge
-    const len = BELT.from - BELT.to, mid = (BELT.from + BELT.to) / 2, z = LIFTS[k].z;
-    for (const s of [-1, 1]) box(cellar, WOOD_DARK, mid, CY + BELT.y - 0.04, z + s * 0.27, len + 0.1, 0.12, 0.06);
-    for (const x of [BELT.to + 0.1, mid, BELT.from - 0.1]) {
-      for (const s of [-1, 1]) box(cellar, WOOD_DARK, x, CY + (BELT.y - 0.1) / 2, z + s * 0.25, 0.06, BELT.y - 0.1, 0.06);
+    // its conveyor: a belt on rollers in a steel frame, on legs, climbing from under its front up over the hopper's mouth
+    const z = LIFTS[k].z, run = BELT.from - BELT.to, rise = BELT.y1 - BELT.y0, len = Math.hypot(run, rise);
+    const tilt = -Math.atan2(rise, run), mid = (BELT.from + BELT.to) / 2, midY = (BELT.y0 + BELT.y1) / 2;
+    const beltY = (x: number) => BELT.y0 + ((BELT.from - x) / run) * rise;
+    for (const s of [-1, 1]) box(cellar, STEEL, mid, CY + midY - 0.04, z + s * 0.27, len + 0.1, 0.1, 0.05).rotation.z = tilt;
+    for (const x of [BELT.to + 0.15, mid, BELT.from - 0.1]) {
+      const h = beltY(x) - 0.1;
+      for (const s of [-1, 1]) box(cellar, STEEL_DARK, x, CY + h / 2, z + s * 0.25, 0.05, h, 0.05);
     }
-    for (const x of [BELT.to + 0.05, BELT.from - 0.05]) {
-      const roller = add(cellar, mesh(new CylinderGeometry(0.06, 0.06, 0.5, 10), IRON, x, CY + BELT.y - 0.05, z)); roller.rotation.x = Math.PI / 2;
+    for (const x of [BELT.to + 0.04, BELT.from - 0.04]) {
+      const roller = add(cellar, mesh(new CylinderGeometry(0.06, 0.06, 0.5, 10), IRON, x, CY + beltY(x) - 0.05, z)); roller.rotation.x = Math.PI / 2;
     }
     const t = beltTex.tex.clone(); t.repeat.set(len / 0.6, 1); t.needsUpdate = true;
     const belt = add(cellar, new Mesh(new BoxGeometry(len, 0.03, 0.46), [SIDE, SIDE, new MeshLambertMaterial({ map: t }), SIDE, SIDE, SIDE]));
-    belt.position.set(mid, CY + BELT.y, z); belt.receiveShadow = true;
+    belt.position.set(mid, CY + midY, z); belt.rotation.z = tilt; belt.receiveShadow = true;
     belts.push(belt);
-    // the plate at its end, on a low stand: a wide glazed one for the rice, a steel one on ice for the fish
-    const st = add(cellar, new Group()); st.position.set(BINS[k].x, CY, BINS[k].z);
-    for (const [x, z] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) box(st, WOOD_DARK, x * 0.26, 0.27, z * 0.26, 0.07, 0.54, 0.07);
-    box(st, WOOD, 0, 0.56, 0, 0.66, 0.05, 0.66);
-    if (k === 'rice') {
-      add(st, mesh(new CylinderGeometry(0.4, 0.3, 0.07, 18), 0xF2EAD8, 0, 0.62, 0, true));
-      add(st, mesh(new TorusGeometry(0.39, 0.025, 5, 20), 0x355C9E, 0, 0.655, 0)).rotation.x = Math.PI / 2;
-    } else {
-      add(st, mesh(new CylinderGeometry(0.4, 0.34, 0.06, 18), 0x9AA5AE, 0, 0.61, 0, true));
-      add(st, mesh(new CylinderGeometry(0.36, 0.36, 0.02, 18), 0xD9E4EA, 0, 0.645, 0));
-    }
+    // the storage hopper it tips into: a riveted steel bin on legs with a funnel mouth, a window on the front to see how
+    // full it is, a lamp on top, and a plate with what's in it; and from its foot, a chute through the gap in the wall
+    // to a steel tray in the hall, where the player takes from it
+    const h = add(cellar, new Group()); h.position.set(HOPPERS[k].x, CY, z);
+    for (const [x, zz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) box(h, STEEL_DARK, x * 0.33, 0.15, zz * 0.33, 0.08, 0.3, 0.08);
+    box(h, STEEL, 0, 0.7, 0, 0.8, 0.8, 0.8);
+    for (const y of [0.32, 1.08]) box(h, STEEL_DARK, 0, y, 0, 0.84, 0.05, 0.84);
+    for (const [x, zz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) box(h, STEEL_DARK, x * 0.4, 0.7, zz * 0.4, 0.05, 0.8, 0.05);
+    for (const x of [-0.3, -0.1, 0.1, 0.3]) for (const y of [0.4, 1.0]) add(h, mesh(G.sphere, STEEL_DARK, x, y, 0.405)).scale.setScalar(0.022);
+    const mouth = add(h, new Mesh(new CylinderGeometry(0.62, 0.42, 0.3, 4, 1, true), new MeshLambertMaterial({ color: STEEL, side: DoubleSide })));
+    mouth.position.y = 1.25; mouth.rotation.y = Math.PI / 4;
+    add(h, mesh(G.box, 0x1A1714, 0, 1.11, 0)).scale.set(0.58, 0.02, 0.58);
+    const glass = add(h, new Mesh(new BoxGeometry(0.34, 0.3, 0.02), new MeshBasicMaterial({ color: 0xE8B865 })));
+    glass.position.set(-0.15, 0.78, 0.405);
+    box(h, STEEL_DARK, -0.15, 0.78, 0.4, 0.42, 0.38, 0.015);
+    const tag = canvasTex(96, 96, (c, w, hh) => {
+      c.fillStyle = '#2B3A67'; c.fillRect(0, 0, w, hh);
+      c.fillStyle = '#F4F1EA'; c.font = `800 64px ${FONT}`; c.textAlign = 'center'; c.textBaseline = 'middle';
+      c.fillText(k === 'rice' ? '米' : '魚', w / 2, hh / 2 + 4);
+    });
+    const plate = add(h, new Mesh(new PlaneGeometry(0.2, 0.2), new MeshBasicMaterial({ map: tag.tex })));
+    plate.position.set(0.22, 0.82, 0.407);
+    add(h, mesh(G.sphere, 0x7CFF8A, 0.3, 1.16, 0.3)).scale.setScalar(0.05);
+    // (the chute, sloping down from its foot through the wall, and the tray at its end, on a bracket)
+    const c0 = HOPPERS[k].x - 0.4, c1 = BINS[k].x + 0.2, cl = c0 - c1, cMid = (c0 + c1) / 2, drop = 0.12;
+    const chute = box(cellar, STEEL, cMid, CY + 0.66 + drop / 2, z, Math.hypot(cl, drop), 0.03, 0.42);
+    chute.rotation.z = Math.atan2(drop, cl);
+    for (const s of [-1, 1]) box(cellar, STEEL_DARK, cMid, CY + 0.72 + drop / 2, z + s * 0.21, cl, 0.12, 0.03).rotation.z = Math.atan2(drop, cl);
+    const tray = add(cellar, new Group()); tray.position.set(BINS[k].x, CY, z);
+    box(tray, STEEL, 0, 0.62, 0, 0.6, 0.04, 0.72);
+    for (const s of [-1, 1]) box(tray, STEEL_DARK, 0, 0.67, s * 0.36, 0.6, 0.1, 0.03);
+    box(tray, STEEL_DARK, -0.3, 0.67, 0, 0.03, 0.1, 0.72);
+    box(tray, STEEL_DARK, 0.1, 0.3, 0, 0.06, 0.6, 0.06);
+    box(tray, STEEL_DARK, 0.1, 0.03, 0, 0.3, 0.06, 0.3);
   }
   // rice sacks in the corner
   const k = add(cellar, new Group()); k.position.set(SACKS.x, CY, SACKS.z);
@@ -990,10 +1015,10 @@ export function cellarBoxes(machines: Record<'rice' | 'fish' | 'mush', number> =
     // the hearth room: the hearth and the counter behind it, and the bowl counter
     [HEARTH.x, (KITCHEN.z0 + HEARTH.z + HEARTH.d / 2 + 0.6) / 2, HEARTH.w / 2 + 0.3, (HEARTH.z + HEARTH.d / 2 + 0.6 - KITCHEN.z0) / 2 + 0.3],
     [COUNTER.x, COUNTER.z, 0.75, 1.05],
-    // the prep hall: the plates against the east wall, where the conveyors come through it, and the sacks
+    // the prep hall: the trays against the east wall, where the hoppers' chutes come through it, and the sacks
     // (long enough along the wall to meet the sacks and the bin in the corners, leaving no slot between to wedge into)
-    [BINS.rice.x + 0.25, BINS.rice.z, 0.55, 0.8],
-    [BINS.fish.x + 0.25, BINS.fish.z, 0.55, 0.8],
+    [BINS.rice.x, BINS.rice.z, 0.45, 0.8],
+    [BINS.fish.x, BINS.fish.z, 0.45, 0.8],
     [SACKS.x, SACKS.z, 0.75, 0.75],
     ...KITCHEN_BINS.map((b): [number, number, number, number] => [b.x, b.z, 0.65, 0.65]),
     // the office: the dais and the desk, the safe, the visitors' chairs, the cabinet, the fish tank, the plant and the rack

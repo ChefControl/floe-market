@@ -29,8 +29,9 @@ export const KITCHEN = { x0: 4.1, x1: 11.0, z0: 0.9, z1: 7.4 };
 export const PREP = { x0: 11.6, x1: 20.6, z0: 0.9, z1: 8.9 };
 export const GROW = { x0: 11.6, x1: 20.6, z0: -9.5, z1: 0.3 };
 /** The lift room, behind the prep hall's east wall: just the two dumbwaiters, and nobody walks in it (it's no room of
- *  ROOMS's): their conveyors carry what comes down through the wall to the plates in the hall. */
-export const LIFT_ROOM = { x0: 21.2, x1: 23.4, z0: 1.9, z1: 7.9 };
+ *  ROOMS's): their conveyors carry what comes down up into a storage hopper each, which feeds a tray in the hall
+ *  through the wall. */
+export const LIFT_ROOM = { x0: 21.2, x1: 24.4, z0: 1.9, z1: 7.9 };
 export type CellarRoom = 'arena' | 'landing' | 'office' | 'kitchen' | 'prep' | 'grow';
 export const ROOMS: Record<CellarRoom, typeof ARENA> = { arena: ARENA, landing: LANDING, office: OFFICE_ROOM, kitchen: KITCHEN, prep: PREP, grow: GROW };
 /** The doorways through the walls: the two rooms each joins, and its floor (across the wall). */

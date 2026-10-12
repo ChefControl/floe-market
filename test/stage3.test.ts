@@ -247,14 +247,19 @@ describe('the rooms', () => {
     expect(cellar.roomAt(plan.POT_PAD)).toBe('kitchen');
     expect(cellar.roomAt(plan.COUNTER_PAD)).toBe('kitchen');
     expect(cellar.roomAt(plan.BIN_PADS.rice)).toBe('prep');
-    // (the dumbwaiters are in the lift room behind the prep hall's east wall, where nobody walks: a step towards one
-    // stops at the wall, and its conveyor runs through the wall to the plate)
+    // (the dumbwaiters, their conveyors and the storage hoppers are in the lift room behind the prep hall's east wall,
+    // where nobody walks: a step towards one stops at the wall; each hopper's tray is in the hall, against it)
+    const { LIFT_ROOM, PREP } = g.layout;
     for (const k of ['rice', 'fish'] as const) {
-      const q = { ...plan.LIFTS[k] };
-      g.layout.keepOnFloor(q, g.layout.walkable());
-      expect(q.x).toBeLessThan(g.layout.PREP.x1);
-      expect(plan.BELT.to).toBeLessThan(g.layout.PREP.x1);
-      expect(plan.BELT.from).toBeGreaterThan(g.layout.LIFT_ROOM.x0);
+      for (const at of [plan.LIFTS[k], plan.HOPPERS[k]]) {
+        expect(at.x).toBeGreaterThan(LIFT_ROOM.x0);
+        const q = { ...at };
+        g.layout.keepOnFloor(q, g.layout.walkable());
+        expect(q.x).toBeLessThan(PREP.x1);
+      }
+      expect(plan.BELT.to).toBeGreaterThan(LIFT_ROOM.x0);
+      expect(plan.BELT.from).toBeLessThan(plan.LIFTS[k].x);
+      expect(plan.BINS[k].x).toBeLessThan(PREP.x1);
     }
     expect(cellar.roomAt(plan.machinePad('rice', 5))).toBe('prep');
     expect(cellar.roomAt(plan.machinePad('fish', 5))).toBe('prep');

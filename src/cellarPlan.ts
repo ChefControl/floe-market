@@ -10,15 +10,19 @@ export interface Pad extends XZ { r: number }
 const pad = (x: number, z: number, r: number): Pad => ({ x, z, r });
 
 // ---------- the prep hall: the dumbwaiter, the racks along the north wall, the barrels along the south ----------
-/** The two dumbwaiters from the restaurant's kitchen, in the lift room behind the east wall, rice coming down one and
- *  fish the other; the plate in the hall, against the wall, that each one's conveyor carries its load through the wall
- *  to (BINS); and where to stand to take from a plate. */
-export const LIFTS: Record<'rice' | 'fish', XZ> = { rice: { x: (LIFT_ROOM.x0 + LIFT_ROOM.x1) / 2 + 0.2, z: 3.0 }, fish: { x: (LIFT_ROOM.x0 + LIFT_ROOM.x1) / 2 + 0.2, z: 6.8 } };
-export const BINS: Record<'rice' | 'fish', XZ> = { rice: { x: PREP.x1 - 0.75, z: 3.0 }, fish: { x: PREP.x1 - 0.75, z: 6.8 } };
-export const BIN_PADS: Record<'rice' | 'fish', Pad> = { rice: pad(PREP.x1 - 1.75, 3.0, 0.75), fish: pad(PREP.x1 - 1.75, 6.8, 0.75) };
-/** Each conveyor, along x: from under the foot of its dumbwaiter's front, where the trays tip their load onto it, to
- *  the plate's edge; and how high its belt runs. */
-export const BELT = { from: LIFTS.rice.x - 0.5, to: BINS.rice.x + 0.3, y: 0.62 };
+/** The lift room's machines, rice on one line and fish on the other: the dumbwaiter from the restaurant's kitchen
+ *  against its far wall; the steel storage hopper against the prep hall's wall, which its conveyor climbs up to and
+ *  tips into; the tray in the hall that the hopper's chute feeds through the wall (BINS); and where to stand to take
+ *  from a tray. */
+const LINE_Z = { rice: 3.0, fish: 6.8 };
+const each = (x: number) => ({ rice: { x, z: LINE_Z.rice }, fish: { x, z: LINE_Z.fish } });
+export const LIFTS: Record<'rice' | 'fish', XZ> = each(LIFT_ROOM.x1 - 0.6);
+export const HOPPERS: Record<'rice' | 'fish', XZ> = each(LIFT_ROOM.x0 + 0.5);
+export const BINS: Record<'rice' | 'fish', XZ> = each(PREP.x1 - 0.35);
+export const BIN_PADS: Record<'rice' | 'fish', Pad> = { rice: pad(PREP.x1 - 1.35, LINE_Z.rice, 0.75), fish: pad(PREP.x1 - 1.35, LINE_Z.fish, 0.75) };
+/** Each conveyor, along x, climbing: from under the foot of its dumbwaiter's front, where the trays tip their load
+ *  onto it (y0 up), to over the hopper's mouth (y1). */
+export const BELT = { from: LIFTS.rice.x - 0.5, to: HOPPERS.rice.x + 0.1, y0: 0.62, y1: 1.4 };
 /** Where each line's machines stand, and where to stand to use them: racks, barrels, and the grow room's beds. */
 export const MAX_MACHINES = 6;
 export function machineAt(k: Ing, i: number): XZ {

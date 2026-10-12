@@ -7,7 +7,7 @@
 // eat, like the cooks upstairs.
 import { CanvasTexture, Color, Group, type Material, Mesh, MeshBasicMaterial, MeshLambertMaterial, type Object3D, PlaneGeometry, Sprite, SpriteMaterial, type Vector3 } from 'three';
 import { belts, cellar, CY, LIFT_LOOP, parts, POT_TOP, potMesh, potStew } from './cellar';
-import { BELT, BIN_PADS, BINS, COUNTER, COUNTER_PAD, HEARTH, type Ing, LEDGE, LIFTS, machineAt, machinePad, MAX_MACHINES, POT, POT_PAD, STALL, STALL_PAD } from './cellarPlan';
+import { BELT, BIN_PADS, BINS, COUNTER, COUNTER_PAD, HEARTH, HOPPERS, type Ing, LEDGE, LIFTS, machineAt, machinePad, MAX_MACHINES, POT, POT_PAD, STALL, STALL_PAD } from './cellarPlan';
 import { decal, drawPad } from './decals';
 import { animPerson, belowGround, Person } from './characters';
 import { COUNTER_CAP, F, inPot, POT_CAP, poured, type Machine, mach, potWaits, type Role, STALL_CAP, type Worker } from './fight';
@@ -365,20 +365,27 @@ function drawLift(dt: number) {
       t.dropped = true; t.load.visible = false;
       const m = add(cellar, MAKE_RAW[t.k]());
       t.load.getWorldPosition(m.position);
-      const onto = V(BELT.from - 0.1, CY + BELT.y + 0.06, LIFTS[t.k].z);
+      const onto = V(BELT.from - 0.1, CY + beltY(BELT.from - 0.1) + 0.06, LIFTS[t.k].z);
       fly(m, () => onto, 0.25, 0.15, () => riding.push(m));
     }
   }
-  // the conveyors: the belts run, and what's on them rides to the plate, and drops onto it
+  // the conveyors: the belts run, and what's on them rides up them and tips into the hopper
   for (const b of belts) ((b.material as Material[])[2] as MeshLambertMaterial).map!.offset.x += dt * BELT_SPEED / 0.6;
   for (let i = riding.length - 1; i >= 0; i--) {
     const m = riding[i];
-    m.position.x -= dt * BELT_SPEED;
-    if (m.position.x <= BELT.to + 0.05) { riding.splice(i, 1); cellar.remove(m); }
+    m.position.x -= dt * BELT_SPEED * RUN;
+    m.position.y = CY + beltY(m.position.x) + 0.06;
+    if (m.position.x <= BELT.to) {
+      riding.splice(i, 1);
+      const into = V(HOPPERS.rice.x, CY + 1.0, m.position.z);
+      fly(m, () => into, 0.25, 0.12, () => cellar.remove(m));
+    }
   }
 }
-/** How fast the conveyors run, and what's riding on them. */
-const BELT_SPEED = 0.9;
+/** How fast the conveyors run (along the belt), how much of that is across, the belt's height along it, and what's
+ *  riding on them. */
+const BELT_SPEED = 0.9, RUN = (BELT.from - BELT.to) / Math.hypot(BELT.from - BELT.to, BELT.y1 - BELT.y0);
+const beltY = (x: number) => BELT.y0 + ((BELT.from - x) / (BELT.from - BELT.to)) * (BELT.y1 - BELT.y0);
 const riding: Object3D[] = [];
 
 // ---------- the crew ----------
