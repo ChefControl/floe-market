@@ -235,6 +235,25 @@ body{
 /* a cellar room's upgrade that isn't on sale yet (a boss to beat first), or one that's done */
 #shop .mod.locked .txt, #shop .mod.locked .ic{ opacity:.6; }
 #shop .mod:focus-visible{ outline:3px solid var(--coral); outline-offset:1px; }
+/* the crafting bench's list, with a mouse and keys: a heading for the ring's things and each room's, and on each row
+   its green price button, which buys it */
+#shop .sect{ margin:8px 4px 0; font-size:12px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; opacity:.65; }
+#shop .sect:first-child{ margin-top:0; }
+#shop .mod.row{ cursor:default; box-sizing:border-box; }
+/* (docked down the right-hand side, out of the middle where the player stands, as tall as the screen allows) */
+#shop.side{
+  left:auto; right:max(16px, env(safe-area-inset-right,0px)); transform:none;
+  top:calc(env(safe-area-inset-top,0px) + 76px); bottom:calc(env(safe-area-inset-bottom,0px) + 16px);
+  display:flex; flex-direction:column;
+}
+#shop.side #shopRows{ flex:1; max-height:none; min-height:0; }
+#shop .mod.row.done .txt, #shop .mod.row.done .ic{ opacity:.6; }
+#shop button.cost{ border:0; cursor:pointer; font-family:"Baloo 2","Trebuchet MS",system-ui,sans-serif; }
+#shop button.cost:hover:not(:disabled){ filter:brightness(1.08); }
+#shop button.cost:active:not(:disabled){ transform:translateY(2px); box-shadow:none; }
+#shop button.cost:disabled{ background:rgba(23,48,66,.35); box-shadow:none; cursor:default; }
+#shop .mod.row.done button.cost{ background:transparent; color:inherit; }
+#shop button.cost:focus-visible{ outline:3px solid var(--coral); outline-offset:2px; }
 /* Your look (customize.ts): tabs of rows, each a row of colour swatches or word chips to pick one from */
 #look{
   position:fixed; left:50%; bottom:calc(env(safe-area-inset-bottom,0px) + 12px); transform:translateX(-50%);
