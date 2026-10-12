@@ -14,7 +14,7 @@ import { BufferGeometry, CanvasTexture, Color, Float32BufferAttribute, Instanced
 import { CY, cellarBoxes, parts, placeBuilt, places, RING } from './cellar';
 import { FLOOR, GONG_PAD, STALL, STALL_PAD, TUNNELS, WATCH } from './cellarPlan';
 import { crowdModel, PARKAS, SHIRT } from './characters';
-import { BOSSES, F } from './fight';
+import { BOSSES, F, REACH } from './fight';
 import { onQuality } from './graphics';
 import { ARENA, level, pushOutOfBox } from './layout';
 import { FONT, painted, rr, scene } from './render';
@@ -242,6 +242,9 @@ function seatsFor(n: number) {
 interface Fan {
   x: number; z: number; y: number; h: number; way: XZ[]; seat: Seat | null; spot: XZ; routed: boolean; out: boolean;
   c: Color; t: number; key: number; speed: number; beat: number; ph: number; react: number;
+  /** Fed and not at the stall yet: where at it they get their bowl, on the way to their seat (they turn your colour
+   *  there). And when a fan still queuing is due at the stall (the fight's clock), to hurry if they'd be late. */
+  via: XZ | null; due: number;
   /** Their look, how far through a stride they are, and how far they're sat down (0 standing, 1 sitting). */
   look: number; step: number; sit: number;
 }
@@ -259,12 +262,12 @@ const tunnelOf = (k: number) => TUNNELS[Math.floor(hash(k, 10) * TUNNELS.length)
  *  local's hungry ones go home. */
 function sync() {
   const R = F.rush, B = F.bout, prep = B.phase === 'prep';
-  const want = new Map<number, { c: Color; seat: Seat | null; spot: XZ }>();
+  const want = new Map<number, { c: Color; seat: Seat | null; spot: XZ; due: number }>();
   // (`at` is their place on the floor: a local's queue moves up as the ones ahead are served, a boss's crowd stays put)
-  const place = (key: number, i: number, mine: boolean, n: number, theirsAt: number, c: Color, at = theirsAt) => {
+  const place = (key: number, i: number, mine: boolean, n: number, theirsAt: number, c: Color, at = theirsAt, due = -1) => {
     const seats = seatsFor(n), floor = spots(n);
     const seat = mine ? seats[Math.min(i, seats.length - 1)] : prep ? null : seats[Math.max(0, seats.length - 1 - theirsAt)];
-    want.set(key, { c, seat, spot: seat ?? floor[Math.min(at, floor.length - 1)] });
+    want.set(key, { c, seat, spot: seat ?? floor[Math.min(at, floor.length - 1)], due });
   };
   if (R) {
     const n = figures(R.n), ours = Math.min(n, Math.round(R.turned * n / R.n));
@@ -273,7 +276,8 @@ function sync() {
     const n = Math.max(B.crowd, B.came);
     for (let i = 0; i < (prep ? B.came : B.fed); i++) {
       const mine = i < B.fed;
-      place(B.n * 10000 + i, i, mine, n, i - B.fed, mine ? OURS : PALETTE[(i * 7) % PALETTE.length]);
+      const due = mine ? -1 : (F.queue[i - B.fed] ?? -1) + REACH;
+      place(B.n * 10000 + i, i, mine, n, i - B.fed, mine ? OURS : PALETTE[(i * 7) % PALETTE.length], i - B.fed, due);
     }
   }
   // the last bout's fans go home
@@ -286,14 +290,18 @@ function sync() {
     let f = fans.get(k);
     if (!f) {
       f = {
-        ...from(k), y: 0, way: [], seat: null, spot: tunnelOf(k).deep, routed: true, out: false, c: w.c, t: 0, key: k,
+        ...from(k), y: 0, way: [], seat: null, spot: tunnelOf(k).deep, routed: true, out: false, c: w.c, t: 0, key: k, via: null, due: -1,
         speed: 0.8 + hash(k, 3) * 0.45, beat: 6 + hash(k, 4) * 5, ph: hash(k, 5) * 6.28, react: hash(k, 6) * 0.6,
         look: Math.floor(hash(k, 9) * LOOKS), step: 0, sit: 0,
       };
       fans.set(k, f);
       go(f, w.seat, w.spot, R ? (Math.abs(k) % 60) * 0.03 + hash(k, 7) * 0.4 : hash(k, 7) * 0.3);
     }
-    f.c = w.c;
+    f.due = w.due;
+    // (fed while the stall's open: to the stall for their bowl first, still in their own colour; then to their seat)
+    const served = w.c === OURS && f.c !== OURS;
+    if (served && prep && !f.via) f.via = { x: STALL.x - 0.85, z: STALL.z + (hash(k, 14) - 0.5) * 2 };
+    if (!served || !prep) { f.c = w.c; f.via = null; }
     if (w.seat !== f.seat || w.spot !== f.spot) go(f, w.seat, w.spot, w.seat && !f.seat ? hash(k, 8) * 0.5 : 0);
   }
 }
@@ -325,6 +333,7 @@ function route(f: Fan) {
   const t = tunnelOf(f.key), to = f.seat ? f.seat.from : f.spot, across = (hash(f.key, 12) - 0.5) * 0.9, inward = hash(f.key, 13) * 0.8;
   const mouth = t.side === 'w' ? { x: t.mouth.x + inward, z: t.mouth.z + across } : { x: t.mouth.x + across, z: t.mouth.z + inward };
   if (!inArena(start)) { way.push(mouth); start.x = mouth.x; start.z = mouth.z; }
+  if (f.via) { way.push(...wayAround(start, f.via)); start.x = f.via.x; start.z = f.via.z; }
   if (inArena(to)) way.push(...wayAround(start, to));
   else way.push(...wayAround(start, mouth), { ...to });
   if (f.seat && (f.seat.from.x !== f.seat.x || f.seat.from.z !== f.seat.z)) way.push({ x: f.seat.x, z: f.seat.z });
@@ -339,7 +348,11 @@ const ROUTES_A_FRAME = 200;
 let slow = 0, shadows = true;
 /** How far a seated fan's legs come up in front of them, as a diner's do (ads.ts), and how fast they sit and stand. */
 const SIT_LEGS = -1.45, SIT_RATE = 5;
+/** Where the fans who got their bowl this frame were when they did (for tests). */
+const turned: XZ[] = [];
+export const turnedAt = () => turned;
 export function updSwarm(dt: number) {
+  turned.length = 0;
   sync();
   const on = level.down;
   if (on && fans.size && !looks) makeLooks();
@@ -358,10 +371,17 @@ export function updSwarm(dt: number) {
       // (a boss's crowd is all at the stall by the time his bell starts: anyone running late hurries)
       let v = pace * f.speed * dt;
       if (R && R.walk > 0 && !f.seat) v = Math.max(v, (d + wayLeft(f)) / Math.max(dt, R.walk) * dt);
+      // (and so does a local fan who'd get to the stall after they're due at it, or one with their bowl waiting)
+      else if (!R && !f.seat && f.due > 0) v = Math.max(v, (d + wayLeft(f)) / Math.max(dt, f.due - F.t) * dt);
+      else if (f.via) v = Math.max(v, 3.2 * f.speed * dt);
       // (the last step onto a bench climbs it)
       const last = f.way.length === 1, ty = last && f.seat ? f.seat.y : 0;
       if (d > 1e-6) f.h = Math.atan2(dx, dz);
-      if (d <= v) { f.x = p.x; f.z = p.z; f.y = ty; f.way.shift(); } else {
+      if (d <= v) {
+        f.x = p.x; f.z = p.z; f.y = ty; f.way.shift();
+        // (at the stall: they've got their bowl, and they're yours)
+        if (f.via && p.x === f.via.x && p.z === f.via.z) { f.via = null; f.c = OURS; turned.push({ x: f.x, z: f.z }); }
+      } else {
         f.x += dx / d * v; f.z += dz / d * v; f.y += (ty - f.y) * Math.min(1, v / d);
       }
       moving = true;
@@ -450,7 +470,7 @@ function lineFor(f: Fan): string {
   const R = F.rush, B = F.bout, mine = f.c === OURS;
   if (f.out) return B.phase === 'sit' ? 'leaving' : 'won';
   if (B.phase === 'prep') {
-    if (f.seat) return R ? 'turned' : 'fed';
+    if (f.seat && !f.via) return R ? 'turned' : 'fed';
     if (R && R.walk > 0) return 'boss';
     return !F.stall.length ? 'hungry' : R && rnd() < 0.4 ? 'boss' : 'queue';
   }

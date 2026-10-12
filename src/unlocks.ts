@@ -40,7 +40,7 @@ export type UnlockId =
   | 'pack' | 'turret' | 'roulette' | 'runner' | 'boots' | 'sled' | 'runner2' | 'net' | 'runner3' | 'sushi'
   | 'paddy' | 'seats' | 'chef' | 'farmer' | 'porter' | 'plot2' | 'tables' | 'chef3' | 'tables2' | 'plot3' | 'kiosk'
   | 'premium' | 'korki' | 'blackjack' | 'slots'
-  | 'dohyo' | 'rack' | 'barrel' | 'bed' | 'washer' | 'salter' | 'cook' | 'attendant' | 'steam' | 'smoke' | 'shelves'
+  | 'dohyo' | 'rack' | 'barrel' | 'bed' | 'washer' | 'salter' | 'picker' | 'cook' | 'attendant' | 'steam' | 'smoke' | 'shelves'
   | 'tier1' | 'tier2' | 'tier3' | 'buyout';
 interface Unlock {
   id: UnlockId;
@@ -139,6 +139,7 @@ const UNLOCKS: Unlock[] = [
   ...ring('salter', 14.8, 5.9, '🧂', HIRES.salter.name, 'Runs the fish line: fills the barrels and carries fish to the pot', HIRES.salter.beat, HIRES.salter.cost),
   ...ring('smoke', 16.4, 5.9, '🏚️', MACH.fish[1].name, `Swaps every salt barrel for a smokehouse: ${MACH.fish[1].cap} fish every ${MACH.fish[1].time} s`, UPS.fish.beat, UPS.fish.cost),
   ...ring('bed', 13.3, -3.95, '🍄', 'Another mushroom bed', 'More room on the mushroom line', 1, MACH_COST.mush, 'mush'),
+  ...ring('picker', 14.7, -3.95, '🧑‍🌾', HIRES.picker.name, 'Runs the mushroom line: picks the beds and carries mushrooms to the pot', HIRES.picker.beat, HIRES.picker.cost),
   ...ring('shelves', 16.1, -3.95, '✨', 'Glowing grow shelves', `Swaps every bed for glowing shelves: ${MACH.mush[1].cap} mushrooms, one every ${MACH.mush[1].time} s`, UPS.mush.beat, UPS.mush.cost),
   ...ring('cook', 9.6, 5.9, '👨‍🍳', HIRES.cook.name, 'Keeps the pot cooking: four of each, 20 bowls a batch', HIRES.cook.beat, HIRES.cook.cost),
   ...ring('attendant', 7.6, 5.9, '🍲', HIRES.attendant.name, 'Carries bowls from the counter to the stall', HIRES.attendant.beat, HIRES.attendant.cost),
@@ -152,11 +153,11 @@ const UNLOCKS: Unlock[] = [
 ];
 
 // The cellar's rooms sell their upgrades from one square each, a menu of them (shop.ts): the prep hall's racks,
-// barrels, steamers, smokehouse and the two hires who run its lines; the grow room's beds and shelves; the hearth
+// barrels, steamers, smokehouse and the two hires who run its lines; the grow room's beds, picker and shelves; the hearth
 // room's cook and attendant.
 const MENU_OF: Partial<Record<UnlockId, MenuRoom>> = {
   rack: 'prep', barrel: 'prep', washer: 'prep', salter: 'prep', steam: 'prep', smoke: 'prep',
-  bed: 'grow', shelves: 'grow', cook: 'hearth', attendant: 'hearth',
+  bed: 'grow', picker: 'grow', shelves: 'grow', cook: 'hearth', attendant: 'hearth',
 };
 for (const u of UNLOCKS) {
   const room = MENU_OF[u.id];
@@ -358,7 +359,7 @@ function ringUnlock(t: Tile) {
     unlock();
     return;
   }
-  if (id === 'washer' || id === 'salter' || id === 'cook' || id === 'attendant') hire(id);
+  if (id === 'washer' || id === 'salter' || id === 'picker' || id === 'cook' || id === 'attendant') hire(id);
   if (id === 'steam') upgradeLine('rice');
   if (id === 'smoke') upgradeLine('fish');
   if (id === 'shelves') upgradeLine('mush');
@@ -378,7 +379,7 @@ function syncRingTile(t: Tile) {
     if (t.done || t.paid >= t.cost) t.paid = 0;
   } else if (!t.gold) {
     const id = t.id;
-    t.done = id === 'washer' || id === 'salter' || id === 'cook' || id === 'attendant' ? !!F.hires[id]
+    t.done = id === 'washer' || id === 'salter' || id === 'picker' || id === 'cook' || id === 'attendant' ? !!F.hires[id]
       : id === 'steam' ? F.lines.rice.up === 1 : id === 'smoke' ? F.lines.fish.up === 1 : id === 'shelves' ? F.lines.mush.up === 1
       : id.startsWith('tier') ? F.tier >= Number(id.slice(4)) : t.done;
   }

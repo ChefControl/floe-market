@@ -240,6 +240,8 @@ export function updShop() {
   if (here !== on) {
     on = here;
     panel.hidden = !on;
+    // (the prep hall's menu leaves the camera where it is: ui.ts's keepInSight slides the view for the rest)
+    panel.dataset.still = (on as Square | null)?.room === 'prep' ? '1' : '';
     built = '';
   }
   const room = (on as Square | null)?.room;

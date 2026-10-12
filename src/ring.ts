@@ -46,7 +46,7 @@ on.grow = () => {
   popIn(parts.grow);
   const door = DOORS.find(d => d.b === 'grow')!;
   pointAt({ x: (door.x0 + door.x1) / 2, y: CY, z: PREP.z0 - 0.3 }, '🍄', () => level.down);
-  toast("The gate behind the prep hall swings open: a grow room, already planted. Mushroom bowls pay double", 'grow', 4500);
+  toast("The gate behind the prep hall swings open: a grow room with its first mushroom bed. Mushroom bowls pay double", 'grow', 4500);
 };
 
 /** Puts the cellar's look in line with its state: the venue's tier, the grow room, Mr. Fugu bought out or not. */

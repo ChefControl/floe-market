@@ -5,7 +5,7 @@
 // whenever. The bout bar over the screen follows every bout: the fans buying soup (and on a boss night, his bell
 // running down), the fans taking their seats, and the fight, a tug of war between the champion's fans and his
 // opponent's, in their colours. After a boss's bout a card says how it went, and on a loss which line held the kitchen
-// up. The HUD's 💪 is the fans fed in the last minute. And the watch spot 👁️ by the ring: stand on it and the camera
+// up. The HUD's 💪 is the fans fed in this bout's preparation. And the watch spot 👁️ by the ring: stand on it and the camera
 // closes in on the bout, with the names over it.
 import { cellar, CY, gongDisc, RING } from './cellar';
 import { GONG_PAD, WATCH } from './cellarPlan';

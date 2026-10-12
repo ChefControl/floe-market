@@ -341,8 +341,11 @@ describe('the kitchen, by hand', () => {
     g.runUntil(() => F().stall.length === 0, 200);
     g.run(0.1);
     expect(g.wallet.money - money).toBeCloseTo(n * fight.PRICE * fight.CUT * fight.CHIP, 0);
-    expect(fight.strength()).toBe(n);
-    expect($('powerN').textContent).toBe(String(n));
+    // (💪: the fans fed in this bout's preparation, which may not be all of them: the first came in an earlier bout)
+    expect(fight.strength()).toBe(F().bout.fed);
+    expect(fight.strength()).toBeGreaterThan(0);
+    g.ui.hud(0);
+    expect($('powerN').textContent).toBe(String(fight.strength()));
   });
 
   it('at a machine with full arms, swaps ready ones for raw ones, one for one', async () => {
@@ -450,7 +453,23 @@ describe('a bout', () => {
     g.ui.hud(0);
     expect(F().bout.phase).toBe('prep');
     expect($('rush').hidden).toBe(true);
-    g.run(fight.BOUT.prep - 3);
+    // (nobody eats from afar: there's soup on the stall, but they've still to walk up to it from their tunnel)
+    expect(F().bout.came).toBeGreaterThan(0);
+    expect(F().bout.fed).toBe(0);
+    expect(F().stall).toHaveLength(mine);
+    // (the first is served as soon as they've been in long enough to reach it)
+    g.runUntil(() => F().bout.fed > 0, fight.REACH);
+    expect(F().bout.fed).toBeGreaterThan(0);
+    // (each one served walks up to the stall's front for their bowl, in their own colour, and turns yours there)
+    const STALL = (await import('../src/cellarPlan')).STALL;
+    for (let i = 0; i < 200 && swarm.swarm().ours < mine; i++) {
+      g.run(0.1);
+      for (const f of swarm.turnedAt()) expect(Math.abs(f.x - (STALL.x - 0.85))).toBeLessThan(0.05);
+    }
+    expect(swarm.swarm().ours).toBe(mine);
+    expect(F().bout.fed).toBe(mine);
+    g.runUntil(() => F().bout.phase !== 'prep', fight.BOUT.prep);
+    g.run(0.01);
     expect(F().bout.phase).toBe('sit');
     expect(F().queue).toHaveLength(0);
     expect(F().stall).toHaveLength(0);
@@ -529,10 +548,13 @@ describe('the gong', () => {
     g.ui.hud(0);
     expect($('rushName').textContent).toBe("🐙 Hakkaku's crowd is in");
     expect(F().rush!.turned).toBe(1);
-    // (all of them at the stall by then, on the floor before it, but the one just turned, off to a seat)
+    // (all of them at the stall by then, on the floor before it, but the one just turned, off to the stall's front for
+    // their bowl, and only yours once they've got it)
     expect(swarm.ways().length).toBe(120);
     expect(swarm.ways().filter(w => w.length === 1).length).toBeGreaterThanOrEqual(119);
-    expect(swarm.swarm()).toMatchObject({ n: 120, ours: 1 });
+    expect(swarm.swarm()).toMatchObject({ n: 120, ours: 0 });
+    g.runUntil(() => swarm.swarm().ours > 0, 3);
+    expect(swarm.swarm().ours).toBeGreaterThan(0);
   });
 
   it('the forecast is what the rush does, with the crew working', async () => {
@@ -574,7 +596,7 @@ describe('the gong', () => {
     expect($('fightCard').textContent).toContain('You won his crowd over');
     expect($('fightCard').textContent).toContain('61 of his 120 fans were yours');
     expect($('fightCard').textContent).toContain('the grow room');
-    // the grow room: lit, walkable, planted, with its picker
+    // the grow room: lit, walkable, with its first bed (its picker's sold on its square)
     expect(g.layout.found.grow).toBe(true);
     expect(cellar.lights[7].intensity).toBeGreaterThan(0);
     expect(cellar.parts.grow.visible).toBe(true);
@@ -582,14 +604,14 @@ describe('the gong', () => {
     const q = { x: (x0 + x1) / 2, z: (z0 + z1) / 2 };
     g.layout.keepOnFloor(q, g.layout.walkable());
     expect(q).toEqual({ x: (x0 + x1) / 2, z: (z0 + z1) / 2 });
-    expect(F().lines.mush.n).toBeGreaterThan(0);
-    expect(F().hires.picker).toBe(true);
+    expect(F().lines.mush.n).toBe(1);
+    expect(F().hires.picker).toBeUndefined();
     expect(fight.inPot()).toEqual(['rice', 'fish', 'mush']);
     expect($('stageCount').textContent).toBe('1/5');
     // the next boss on the panel, and the tiles he opened
     g.run(1);
     expect($('gongBoss').textContent).toContain('Yokobashiri');
-    expect(offered(g)).toEqual(expect.arrayContaining(['bed', 'tier1']));
+    expect(offered(g)).toEqual(expect.arrayContaining(['bed', 'picker', 'tier1']));
     // the card goes on a tap
     $('fightCard').click();
     expect($('fightCard').hidden).toBe(true);

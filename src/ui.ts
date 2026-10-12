@@ -75,9 +75,10 @@ export const besideView = (r: DOMRect, w: number) => r.left + r.width / 2 > w * 
 /** How much of the top of the screen to leave the HUD, over a casino table. */
 export const topOfView = (h: number) => Math.min(document.getElementById('hud')?.getBoundingClientRect().bottom ?? 0, h * 0.14);
 /** Slides the view so an open panel doesn't cover the player: sideways for a panel down the right-hand side (a phone
- *  held sideways), up for one along the bottom of a short screen. Eases there and back. */
+ *  held sideways), up for one along the bottom of a short screen (one marked `data-still` leaves it be). Eases there
+ *  and back. */
 export function keepInSight(dt: number) {
-  const w = window.innerWidth, h = window.innerHeight, open = panels.find(p => !p.hidden);
+  const w = window.innerWidth, h = window.innerHeight, open = panels.find(p => !p.hidden && !p.dataset.still);
   let x = 0, y = 0;
   if (open) {
     const r = open.getBoundingClientRect();

@@ -1,8 +1,8 @@
 // Fight night (stage 3): the stew kitchen under the dock and the fans who eat from it, as a simulation of plain data.
 // Rice and fish come down the dumbwaiter without end; the racks dry rice and the barrels salt fish, a few at a time,
 // and (once the first boss is beaten) the grow room's beds grow mushrooms. The pot takes four of each ingredient there
-// is and makes a batch of 20 bowls, which go out to the stall in the arena. 💪 is how many fans were fed in the last
-// minute.
+// is and makes a batch of 20 bowls, which go out to the stall in the arena. 💪 is how many fans were fed in this bout's
+// preparation.
 //
 // Every bout goes the same way: the fans come in and buy soup at the stall (preparation), take their seats round the
 // ring, watch the fight, and go home. Between boss nights it's a local, the free show: as many fans come as the seats
@@ -44,7 +44,7 @@ export interface Boss {
   opens: string;
 }
 export const BOSSES: Boss[] = [
-  { face: '🐙', name: 'Hakkaku', crowd: 120, bell: 30, prize: 120, skin: 0xD59AC0, belt: 0x5B2A4A, opens: 'the grow room, already planted, and the mushroom picker. Mushroom bowls pay double. The Back-Alley Ring' },
+  { face: '🐙', name: 'Hakkaku', crowd: 120, bell: 30, prize: 120, skin: 0xD59AC0, belt: 0x5B2A4A, opens: 'the grow room and its first mushroom bed. Mushroom bowls pay double. The Back-Alley Ring' },
   { face: '🦀', name: 'Yokobashiri', crowd: 180, bell: 30, prize: 300, skin: 0xE58A62, belt: 0x7A2A1E, opens: 'the cook, and steam baskets for rice' },
   { face: '🐀', name: 'Dobu', crowd: 220, bell: 30, prize: 800, skin: 0x9C8F86, belt: 0x3B342E, opens: 'the Underground Arena, the smokehouse for fish, and the attendant' },
   { face: '🦈', name: 'Samehada', crowd: 420, bell: 30, prize: 2000, skin: 0xA3B1BE, belt: 0x2B3440, opens: 'the Grand Hall Below, and glowing grow shelves' },
@@ -84,8 +84,10 @@ export const BUYOUT = 12000;
 /** A bout's phases: preparation (the fans buy soup; on a boss night, as long as his bell), taking their seats, the
  *  fight, and the result. */
 export const BOUT = { prep: 20, sit: 5, fight: 15, pay: 7 };
-/** How much of a local bout's preparation its fans take to walk in. */
-const ARRIVE = 0.7;
+/** How much of a local bout's preparation its fans take to walk in, and seconds each takes from their tunnel to the
+ *  stall: nobody's served before they're at it (swarm.ts hurries anyone who'd be late). */
+const ARRIVE = 0.6;
+export const REACH = 6;
 /** What a hire carries at a time (more once their line is upgraded), and the attendant's armful of bowls. */
 const HIRE_LOAD = 12, HIRE_LOAD_UP = 36, ATTENDANT_BOWLS = 30;
 /** A hire's walking speed before the Cellar crew upgrade, and seconds of each job at a station. */
@@ -196,8 +198,8 @@ export const potFull = () => F.pot.length + BATCH > POT_CAP;
 export const poured = { n: 0 };
 /** Batches a minute the kitchen makes: last minute's, allowing for time the pot sat idle with nowhere to put bowls. */
 export const kitchenRate = () => F.cooked.length / Math.max(0.25, 1 - F.full.length / 60);
-/** 💪: fans fed in the last 60 seconds. */
-export const strength = () => F.fed.length;
+/** 💪: fans fed in this bout's preparation, a local's or a boss's (the ones who sit on the champion's side). */
+export const strength = () => sides().yours;
 /** Seats in the venue, and how many fans are in on a normal night: the seats, filled by word on the street. */
 export const seats = () => TIERS[F.tier].seats;
 export const crowdNow = () => Math.round(seats() * Math.min(1, 0.45 * boost('street')));
@@ -280,14 +282,15 @@ function sell(n: number) {
   return got;
 }
 /** A local bout's preparation: its fans walk in over the first part of it and queue at the stall, and each one who
- *  gets a bowl stays to watch. (Whoever hasn't eaten when it's over goes home: updBout.) */
+ *  gets a bowl, once they're there, stays to watch. (Whoever hasn't eaten when it's over goes home: updBout.) */
 function updFans() {
   const B = F.bout;
   if (F.rush || B.phase !== 'prep') return;
   if (B.crowd < 0) B.crowd = crowdNow();
   const due = Math.min(B.crowd, Math.floor(B.crowd * Math.min(1, B.t / (BOUT.prep * ARRIVE)) + 1e-9));
   while (B.came < due) { B.came++; F.queue.push(F.t); }
-  const n = Math.min(F.queue.length, F.stall.length);
+  let n = 0;
+  while (n < F.queue.length && n < F.stall.length && F.t - F.queue[n] >= REACH - 1e-9) n++;
   if (n) { F.queue.splice(0, n); sell(n); B.fed += n; }
 }
 /** Both sides of the bout now: the fans who ate (the champion's), and the rest (a boss's; a local has none). */
@@ -354,14 +357,14 @@ export const toBeat = (boss: Boss) => Math.floor(boss.crowd / 2) + 1;
 /** Batches a minute a kitchen needs, with a full stall, to turn enough of `boss`'s crowd before the bell. */
 export const needRate = (boss: Boss) => Math.ceil(Math.max(0, toBeat(boss) - STALL_CAP) * 60 / boss.bell / BATCH);
 
-/** Hakkaku's prize: the grow room, planted to match the pot, so mushrooms never hold it up, and its picker. */
+/** Hakkaku's prize: the grow room, opened as the other lines start, one bed (its first crop ready to pick) and enough
+ *  mushrooms on the ledge for a batch, so the pot doesn't stop the moment it wants them. Its picker and more beds are
+ *  bought on its square, as the prep hall's are. */
 function revealGrowRoom() {
-  const pot = Math.min(lineCap('rice'), lineCap('fish')), bed = MACH.mush[0];
-  F.lines.mush.n = Math.max(F.lines.mush.n, Math.min(MAX_MACHINES, Math.ceil(pot / (bed.cap / bed.time * 60)) + 1));
+  F.lines.mush.n = Math.max(F.lines.mush.n, 1);
   syncMachines();
   for (const m of F.lines.mush.m) m.ready = mach('mush').cap;
-  F.pantry.mush = Math.max(F.pantry.mush, 4);
-  hire('picker');
+  F.pantry.mush = Math.max(F.pantry.mush, PER_BATCH);
   on.grow();
 }
 
