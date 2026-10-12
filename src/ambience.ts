@@ -4,8 +4,9 @@
 // the calls come now and then, from somewhere near.
 //
 // Sea, wind and diners are brown noise (the low rumble of the real thing, not white noise's hiss), and they move:
-// the sea comes in as waves with calm between, the wind in gusts. Steady hiss, even quiet, wears on the ear.
-import { bed, between, clock, ear, glide, onAudio, prefs, rnd, tone } from './audio';
+// the sea comes in as waves with calm between, the wind in gusts. Steady hiss, even quiet, wears on the ear. If the
+// ambience's guard ever finds something gone wrong with them (audio.ts), they're built again.
+import { bed, between, clock, ear, glide, onAudio, onBroken, prefs, rnd, tone } from './audio';
 import { stage } from './layout';
 import { rainK } from './rain';
 import { sushi } from './restaurant';
@@ -13,17 +14,23 @@ import { current, type Season } from './season';
 import type { XZ } from './util';
 
 type Bed = ReturnType<typeof bed>;
-let beds: Record<'sea' | 'wash' | 'wind' | 'rain' | 'crowd' | 'cicadas', Bed> | null = null;
-onAudio(() => {
+let beds: Record<'sea' | 'wash' | 'wind' | 'gust' | 'rain' | 'crowd' | 'cicadas', Bed> | null = null;
+/** The beds, starting silent: any already playing stop. The wind is two, a low one and a higher one for the gusts. */
+function lay() {
+  if (beds) Object.values(beds).forEach(b => b.stop());
   beds = {
     sea: bed({ kind: 'lowpass', f: 420, q: 0.5, soft: true, smooth: 800 }),
     wash: bed({ kind: 'bandpass', f: 800, q: 0.5, soft: true, smooth: 1600 }),
-    wind: bed({ kind: 'bandpass', f: 450, q: 0.8, soft: true, smooth: 1200 }),
+    wind: bed({ kind: 'bandpass', f: 330, q: 0.8, soft: true, smooth: 1200 }),
+    // (from a set place in the noise, so the game's random numbers run as they did with one wind)
+    gust: bed({ kind: 'bandpass', f: 650, q: 0.8, soft: true, smooth: 1200, from: 1.5 }),
     rain: bed({ kind: 'bandpass', f: 2200, q: 0.4, smooth: 3500 }),
     crowd: bed({ kind: 'bandpass', f: 500, q: 1.2, soft: true, smooth: 1200, am: [3.3, 0.5] }),
     cicadas: bed({ kind: 'bandpass', f: 4200, q: 10, am: [15, 0.9] }),
   };
-});
+}
+onAudio(lay);
+onBroken(bus => { if (bus === 'amb') lay(); });
 
 /** How hard the wind blows in each season. */
 const WIND: Record<Season, number> = { winter: 0.27, spring: 0.1, summer: 0.04, fall: 0.19 };
@@ -72,9 +79,10 @@ export function updAmbience() {
   const sea = nearSea(), w = swell(), g = gust();
   glide(beds.sea.g.gain, 0.22 * sea * w, 0.25);
   glide(beds.wash.g.gain, 0.3 * sea * Math.max(0, w - 0.75), 0.2);
-  // the wind, in gusts, a little higher as it blows harder
-  glide(beds.wind.g.gain, WIND[s] * dry * (0.3 + 0.7 * g), 0.8);
-  glide(beds.wind.f.frequency, 320 + 380 * g, 0.8);
+  // the wind, in gusts, a little higher as it blows harder: from the low wind over to the high one, as loud all along
+  const wind = WIND[s] * dry * (0.3 + 0.7 * g);
+  glide(beds.wind.g.gain, wind * Math.cos(g * Math.PI / 2), 0.8);
+  glide(beds.gust.g.gain, wind * Math.sin(g * Math.PI / 2), 0.8);
   glide(beds.rain.g.gain, 0.5 * rainK, 0.5);
   // the diners: louder with more of them, and closer
   const near = Math.max(0, 1 - Math.hypot(ear.x - BAR.x, ear.z - BAR.z) / 20);

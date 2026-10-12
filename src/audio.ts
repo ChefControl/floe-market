@@ -7,7 +7,8 @@
 //
 // Browsers only let a page make sound after a tap or a key press, so nothing starts before one. The sound effects
 // (sfx.ts), the ambient bed (ambience.ts) and the music (music.ts) each have their own bus, with its own volume and
-// mute in the settings menu, per device.
+// mute in the settings menu, per device. Each bus goes on through a guard that lets only real samples through (see
+// guard), so a filter that blows up can't silence the whole game.
 import { CAM_YAW } from './render';
 import type { XZ } from './util';
 
@@ -105,11 +106,11 @@ function wake() {
   comp.connect(ac.destination);
   master = ac.createGain(); master.connect(comp);
   musicVol = ac.createGain(); musicVol.connect(master);
-  for (const b of ['sfx', 'amb', 'music'] as Bus[]) {
+  for (const b of BUSES) {
     const g = buses[b] = ac.createGain();
     g.gain.value = b === 'music' ? 1 : busLevel(b);
-    g.connect(b === 'music' ? musicVol : master);
   }
+  guard(ac);
   noiseBuf = ac.createBuffer(1, ac.sampleRate * NOISE_SECS, ac.sampleRate);
   const d = noiseBuf.getChannelData(0);
   for (let i = 0; i < d.length; i++) d[i] = rnd() * 2 - 1;
@@ -137,6 +138,49 @@ function level() {
   musicVol.gain.setTargetAtTime(busLevel('music'), ac.currentTime, 0.1);
   for (const b of ['sfx', 'amb'] as Bus[]) buses[b].gain.setTargetAtTime(busLevel(b), ac.currentTime, 0.05);
 }
+
+// ---------- the guard ----------
+/**
+ * What each bus goes through on its way to the mix: an audio worklet that lets through only real samples. A filter that
+ * goes unstable rings louder and louder at its own pitch (a horn, say) till its numbers run out, Infinity then NaN, and
+ * it stays NaN. One NaN into the shared compressor leaves that NaN for good too, and the whole game silent. The guard
+ * turns such samples, and any runaway level, into silence, and says so (at most once a second), so the bus's endless
+ * sounds can be built again (onBroken).
+ */
+export const GUARD = `registerProcessor('guard', class extends AudioWorkletProcessor {
+  constructor() { super(); this.told = -1e9; }
+  process([input], [output]) {
+    let bad = false;
+    output.forEach((o, c) => {
+      const i = input[c] ?? input[0];
+      if (!i) { o.fill(0); return; }
+      for (let k = 0; k < o.length; k++) {
+        const x = i[k];
+        if (x > -4 && x < 4) o[k] = x; else { o[k] = 0; bad = true; }
+      }
+    });
+    if (bad && currentTime - this.told > 1) { this.told = currentTime; this.port.postMessage('bad'); }
+    return true;
+  }
+});`;
+/** Connects each bus on to the mix through its guard; straight on where there are no worklets (an old browser). */
+function guard(c: AudioContext) {
+  const to = (b: Bus) => b === 'music' ? musicVol : master;
+  const straight = () => BUSES.forEach(b => buses[b].connect(to(b)));
+  if (!c.audioWorklet) { straight(); return; }
+  c.audioWorklet.addModule(URL.createObjectURL(new Blob([GUARD], { type: 'text/javascript' }))).then(() => {
+    for (const b of BUSES) {
+      const n = new AudioWorkletNode(c, 'guard', { outputChannelCount: [2] });
+      n.port.onmessage = () => broken(b);
+      buses[b].connect(n); n.connect(to(b));
+    }
+  }, straight);
+}
+const fixes: ((bus: Bus) => void)[] = [];
+/** Runs `f` with the bus whenever its guard finds something gone wrong on it, to build its endless sounds again. */
+export function onBroken(f: (bus: Bus) => void) { fixes.push(f); }
+/** Something on `bus` has gone wrong (NaN, or a runaway level): its guard has silenced it; build it again. */
+export function broken(bus: Bus) { fixes.forEach(f => f(bus)); }
 
 /** Fades the music down (0) or back up (1): under the songs, and for the stage-up's fanfare. */
 export function duck(k: number, secs: number) {
@@ -313,8 +357,13 @@ export interface Bed {
   smooth?: number;
   /** Throbbing: its rate in Hz, and how much, 0 to 1 (the way cicadas do). */
   am?: [number, number];
+  /** Where in the noise it starts, in seconds: somewhere at random if not given. */
+  from?: number;
 }
-/** A never-ending noise, filtered, starting silent: the ambient beds (ambience.ts) set its level as they go. */
+/**
+ * A never-ending noise, filtered, starting silent: the ambient beds (ambience.ts) set its level as they go. Its filters
+ * stay put: a filter moved on every frame can blow up (see guard), so a sound that changes colour fades between two.
+ */
 export function bed(o: Bed) {
   const c = ac!, src = c.createBufferSource(), fl = c.createBiquadFilter(), g = c.createGain();
   src.buffer = o.soft ? softBuf : noiseBuf; src.loop = true;
@@ -327,8 +376,10 @@ export function bed(o: Bed) {
     lp.type = 'lowpass'; lp.frequency.value = o.smooth;
     out.connect(lp); out = lp;
   }
+  let lfo: OscillatorNode | undefined;
   if (o.am) {
-    const throb = c.createGain(), lfo = c.createOscillator(), depth = c.createGain();
+    const throb = c.createGain(), depth = c.createGain();
+    lfo = c.createOscillator();
     throb.gain.value = 1 - o.am[1] / 2;
     lfo.frequency.value = o.am[0]; depth.gain.value = o.am[1] / 2;
     lfo.connect(depth); depth.connect(throb.gain); lfo.start();
@@ -336,8 +387,10 @@ export function bed(o: Bed) {
   }
   out.connect(g);
   g.connect(buses.amb);
-  src.start(0, rnd() * NOISE_SECS);
-  return { f: fl, g };
+  src.start(0, o.from ?? rnd() * NOISE_SECS);
+  /** Stops it for good, to make way for a new one. */
+  const stop = () => { src.stop(); lfo?.stop(); g.disconnect(); };
+  return { g, stop };
 }
 
 /** Moves a level or a frequency smoothly towards `v`, over about `k` seconds. */

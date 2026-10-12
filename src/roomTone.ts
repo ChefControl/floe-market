@@ -5,9 +5,10 @@
 // - the bar: chatter and laughter, coming up as you walk over to the bar across the stern;
 // - the slot machines: their jingles and bells, coming up as you near a machine (the games' bank or the guests' row).
 //
-// They're fetched the first time the player walks out towards the yacht, and play on the ambience bus. Credits (the
-// slot machines' recording asks for one) are under Credits & Copyrights in the settings, and in the README.
-import { ac, buses, panOf, prefs, rnd } from './audio';
+// They're fetched the first time the player walks out towards the yacht, and play on the ambience bus (built again if
+// its guard finds something gone wrong there, as the beds are). Credits (the slot machines' recording asks for one)
+// are under Credits & Copyrights in the settings, and in the README.
+import { ac, buses, onBroken, panOf, prefs, rnd } from './audio';
 import { BAR, ROW } from './casinoSalon';
 import { harborK } from './music';
 import { player } from './player';
@@ -27,24 +28,35 @@ const ROOMS: Record<Room, { url: string; v: number; lp: number }> = {
   slots: { url: slotsUrl, v: 0.22, lp: 6000 },
 };
 /** Each recording's level and pan, once it's loaded (and for the tests). */
-export const roomTones: Partial<Record<Room, { g: GainNode; pan: StereoPannerNode }>> = {};
+export const roomTones: Partial<Record<Room, { g: GainNode; pan: StereoPannerNode; src: AudioBufferSourceNode }>> = {};
 let loading = false;
+
+/** Plays `name`'s recording, `buf`, on a loop into the ambience, silent till set() turns it up. */
+function play(name: Room, buf: AudioBuffer) {
+  const c = ac!, src = c.createBufferSource(), lp = c.createBiquadFilter(), g = c.createGain(), pan = c.createStereoPanner();
+  src.buffer = buf; src.loop = true;
+  lp.type = 'lowpass'; lp.frequency.value = ROOMS[name].lp;
+  g.gain.value = 0;
+  src.connect(lp); lp.connect(g); g.connect(pan); pan.connect(buses.amb);
+  // each starts somewhere in its loop, so a visit doesn't always open on the same laugh
+  src.start(0, rnd() * buf.duration);
+  roomTones[name] = { g, pan, src };
+}
 
 function load() {
   loading = true;
   for (const [name, r] of Object.entries(ROOMS) as [Room, typeof ROOMS[Room]][]) {
-    fetch(r.url).then(res => res.arrayBuffer()).then(b => ac!.decodeAudioData(b)).then(buf => {
-      const c = ac!, src = c.createBufferSource(), lp = c.createBiquadFilter(), g = c.createGain(), pan = c.createStereoPanner();
-      src.buffer = buf; src.loop = true;
-      lp.type = 'lowpass'; lp.frequency.value = r.lp;
-      g.gain.value = 0;
-      src.connect(lp); lp.connect(g); g.connect(pan); pan.connect(buses.amb);
-      // each starts somewhere in its loop, so a visit doesn't always open on the same laugh
-      src.start(0, rnd() * buf.duration);
-      roomTones[name] = { g, pan };
-    }).catch(() => { /* offline, or no such file: the yacht without its room tone */ });
+    fetch(r.url).then(res => res.arrayBuffer()).then(b => ac!.decodeAudioData(b)).then(buf => play(name, buf))
+      .catch(() => { /* offline, or no such file: the yacht without its room tone */ });
   }
 }
+onBroken(bus => {
+  if (bus !== 'amb') return;
+  for (const [name, r] of Object.entries(roomTones) as [Room, NonNullable<typeof roomTones[Room]>][]) {
+    r.src.stop(); r.pan.disconnect();
+    play(name, r.src.buffer!);
+  }
+});
 
 /** 1 within a metre of `d` metres away, fading to nothing 5 metres off. */
 const closeness = (d: number) => {
