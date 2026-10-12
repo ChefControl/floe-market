@@ -59,8 +59,11 @@ function setMood(k: number) {
 onBlend(() => setMood(mood));
 
 // ---------- camera ----------
-/** How far the camera sits back (1 = stage 1), and how much it looks at `focus` instead of the player. */
-export const view = { zoom: 1, k: 0, focus: V(-5, 0, 6) };
+/**
+ * How far the camera sits back (1 = stage 1), and how much it looks at `focus` instead of the player; `close` brings it
+ * in for a moment over a new upgrade (spotlight.ts).
+ */
+export const view = { zoom: 1, k: 0, focus: V(-5, 0, 6), close: 1 };
 /** Stage 2's map is bigger, so the camera sits a little further back. */
 export const STAGE2_ZOOM = 1.2;
 /** How far back the camera pulls to show the whole map during the stage-up. */
