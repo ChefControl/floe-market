@@ -12,7 +12,8 @@ import { cheer, chipStack, gamePad, greeting, settleTweens, slide, speaker, Stak
 import { Person, SUITS } from './characters';
 import { GAMES, pushOutOfBox } from './layout';
 import { bake, canvasTex, FONT, G, mat, mesh, rr, scene, type Part } from './render';
-import { colorOf, multiplier, payout, spinWheel, WHEEL, type Bet } from './roulette';
+import { colorOf, multiplier, resultLine, startRound, WHEEL, type Bet, type RouletteRound } from './roulette';
+import type { Moves } from './round';
 import { lose, tick, win } from './sfx';
 import { popText } from './ui';
 import { money, V, type XZ } from './util';
@@ -165,11 +166,13 @@ let table: ReturnType<typeof buildTable> | null = null;
 let bet: Bet = 'red';
 /** Current wheel rotation (radians). */
 let angle = 0;
-interface Spin { t: number; from: number; to: number; result: number; win: number; bet: Bet; stake: number; chips: Group }
+interface Spin { t: number; from: number; to: number; round: RouletteRound; chips: Group }
 let spin: Spin | null = null;
 /** The pocket the ball was last over, for its clicks. */
 let lastPocket = 0;
 const history: number[] = [];
+/** What the round in play owes, as counted in the wallet's in-flight cash. */
+let owed = 0;
 /** The stacks of chips on the felt. */
 const stacks = new Set<Group>();
 
@@ -202,21 +205,26 @@ spinBtn.addEventListener('click', startSpin);
 
 const boxAt = (b: Bet) => V(BETS.find(x => x.bet === b)!.x, TOP, BOX.z);
 
+/** Applies the money a round moves to the wallet. What it owes is in flight, so a save mid-spin keeps a win. */
+function apply(m: Moves) {
+  if (m.take) wallet.money -= m.take;
+  if (m.owed !== undefined) { wallet.inFlight += m.owed - owed; owed = m.owed; }
+  if (m.pay) addMoney(m.pay);
+}
+
 function startSpin() {
-  const s = stakes.value;
-  if (spin || !stakes.ok || !table) return;
-  wallet.money -= s;
-  const result = spinWheel();
-  const win = payout(bet, s, result);
-  // Already won, just not revealed yet: counted as in-flight so a save mid-spin keeps it.
-  wallet.inFlight += win;
-  const k = WHEEL.indexOf(result as typeof WHEEL[number]);
+  if (spin || !table) return;
+  const started = startRound(bet, stakes.value, wallet.money, Math.random);
+  if (!started) return;
+  const { round } = started;
+  apply(started.moves);
+  const k = WHEEL.indexOf(round.pocket as typeof WHEEL[number]);
   // the chips go down on the box first
-  const chips = chipStack(s);
+  const chips = chipStack(round.stake);
   chips.position.copy(boxAt(bet)).setZ(HALF.z + 0.3);
   table.g.add(chips); stacks.add(chips);
   slide(chips, boxAt(bet), 0.35, 0.05);
-  spin = { t: 0, from: angle, to: angle + 5 * TAU + mod(-k * SEG - angle, TAU), result, win, bet, stake: s, chips };
+  spin = { t: 0, from: angle, to: angle + 5 * TAU + mod(-k * SEG - angle, TAU), round, chips };
   table.ball.visible = true;
   msg.textContent = 'No more bets…';
   refresh();
@@ -229,7 +237,7 @@ function startSpin() {
 function placeBall(s: Spin, t: number) {
   const b = table!.ball, k = Math.min(1, t / LAND);
   // the winning pocket's place round the bowl, as the wheel turns: it ends up at the pivot's +x
-  const pocket = -WHEEL.indexOf(s.result as typeof WHEEL[number]) * SEG - angle;
+  const pocket = -WHEEL.indexOf(s.round.pocket as typeof WHEEL[number]) * SEG - angle;
   const behind = -9 * TAU * Math.pow(1 - k, 2);
   table!.pivot.rotation.y = pocket + behind;
   const drop = Math.min(1, Math.max(0, (k - 0.62) / 0.38));
@@ -245,11 +253,12 @@ function settle() {
   spin = null;
   angle = mod(s.to, TAU);
   if (table) { table.face.rotation.y = -angle; placeBall(s, SPIN_TIME); }
-  wallet.inFlight -= s.win;
-  if (s.win > 0) { addMoney(s.win); popText('+' + money(s.win), TABLE); win(); cheer(); } else lose();
-  if (s.win > 0 && s.bet === 'green') table!.voice.say('Green!');
+  const { pocket, win: won, bet: on } = s.round;
+  apply(s.round.settle());
+  if (won > 0) { popText('+' + money(won), TABLE); win(); cheer(); } else lose();
+  if (won > 0 && on === 'green') table!.voice.say('Green!');
   payChips(s);
-  history.unshift(s.result);
+  history.unshift(pocket);
   history.length = Math.min(history.length, 10);
   historyEl.replaceChildren(...history.map(n => {
     const el = document.createElement('span');
@@ -258,22 +267,20 @@ function settle() {
     return el;
   }));
   if (table) { drawBoard(table.boardTex.ctx, BOARD.w, BOARD.h); table.boardTex.tex.needsUpdate = true; }
-  const color = colorOf(s.result);
-  const name = `${s.result} ${color[0].toUpperCase()}${color.slice(1)}`;
-  msg.textContent = s.win > 0 ? `${name}: you win ${money(s.win)}!` : `${name}: the house wins.`;
+  msg.textContent = resultLine(s.round);
   refresh();
 }
 
 /** Lost chips go to the croupier; winnings come out beside them and both slide back to the player. */
 function payChips(s: Spin) {
-  const g = table!.g, chips = s.chips;
+  const g = table!.g, chips = s.chips, { win: won, stake } = s.round;
   const away = (c: Group, z: number) => slide(c, c.position.clone().setZ(z), 0.45, 0.05, () => { g.remove(c); stacks.delete(c); });
   stacks.add(chips);
-  if (!s.win) { away(chips, -0.75); return; }
-  const won = chipStack(s.win - s.stake);
-  won.position.set(chips.position.x, TOP, -0.75); g.add(won); stacks.add(won);
-  slide(won, chips.position.clone().setX(chips.position.x + 0.12), 0.45, 0.05,
-    () => tween(0.5, () => {}, () => { away(won, HALF.z + 0.3); away(chips, HALF.z + 0.3); }));
+  if (!won) { away(chips, -0.75); return; }
+  const paid = chipStack(won - stake);
+  paid.position.set(chips.position.x, TOP, -0.75); g.add(paid); stacks.add(paid);
+  slide(paid, chips.position.clone().setX(chips.position.x + 0.12), 0.45, 0.05,
+    () => tween(0.5, () => {}, () => { away(paid, HALF.z + 0.3); away(chips, HALF.z + 0.3); }));
 }
 
 const pad = gamePad(AT, '🎡', panel, {
