@@ -7,6 +7,7 @@
 // and the cellar crew; and under them, everything each room has to buy, bought outright: the prep hall's (racks,
 // barrels, steamers, the smokehouse, the hires who run its lines), the grow room's (beds, the picker, shelves) and the
 // hearth room's (the cook and the attendant).
+import { touchBuy } from './buy';
 import { BENCH_PAD, type MenuRoom } from './cellarPlan';
 import { BOSSES, F, MACH } from './fight';
 import { repriceFish } from './counters';
@@ -234,13 +235,14 @@ function syncDots(q: Square) {
   const text = n ? String(n) : '';
   if (countEl.textContent !== text) countEl.textContent = text;
 }
-/** The bench's menu opens folded: no panel, just a round Craft button where the Buy button goes, out of the way of a
- *  thumb coming down to walk off, until it's tapped (or E); ✕ folds it again. */
+/** On a touch screen the bench's menu opens folded: no panel, just a round Craft button where the Buy button goes, out
+ *  of the way of a thumb coming down to walk off, until it's tapped (or E); ✕ folds it again. With a mouse and keys
+ *  it opens whole, as the other squares' panels do, with nothing to fold. */
 let unfolded = false;
 const craftEl = $('craft'), countEl = $('craftN'), shutEl = $('shopShut');
 function fold(open: boolean) {
   unfolded = open;
-  panel.hidden = !open; craftEl.hidden = open; shutEl.hidden = !open;
+  panel.hidden = !open; craftEl.hidden = open; shutEl.hidden = !open || !touchBuy();
   built = '';
 }
 craftEl.addEventListener('click', () => fold(true));
@@ -354,7 +356,7 @@ export function updShop() {
     // (the bench's menu leaves the camera where it is: ui.ts's keepInSight slides the view for the rest)
     panel.dataset.still = (on as Square | null)?.bench ? '1' : '';
     tabsEl.hidden = !(on as Square | null)?.bench;
-    if ((on as Square | null)?.bench) fold(false);
+    if ((on as Square | null)?.bench) fold(!touchBuy());
     else { craftEl.hidden = shutEl.hidden = true; unfolded = false; }
     // (the bench opens on its last tab if there's something in it to buy, or the first tab that has)
     const q = on as Square | null;

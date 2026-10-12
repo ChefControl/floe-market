@@ -729,13 +729,10 @@ describe("the cellar's tiles", () => {
     expect(g.unlocks.visibleTiles().filter(t => t.menu)).toEqual([]);
     at(plan.BENCH_PAD);
     g.run(0.1);
-    // it opens folded, a Craft button with a count of what there are the chips for; a tap unfolds it
-    expect($('shop').hidden).toBe(true);
-    expect($('craft').hidden).toBe(false);
-    expect(Number($('craftN').textContent)).toBeGreaterThan(0);
-    $('craft').click();
+    // (with a mouse and keys, it opens whole, with no Craft button and nothing to fold)
     expect($('shop').hidden).toBe(false);
     expect($('craft').hidden).toBe(true);
+    expect($('shopShut').hidden).toBe(true);
     expect($('shopTitle').textContent).toBe('Crafting bench');
     // (a tab for the ring's, the prep hall's and the hearth room's; the grow room's once it's found)
     const tabs = () => [...$('shopTabs').querySelectorAll<HTMLButtonElement>('[data-tab]')];
@@ -775,11 +772,6 @@ describe("the cellar's tiles", () => {
     expect(card('washer').classList.contains('done')).toBe(true);
     expect(card('washer').textContent).toContain('✓');
     expect([...$('shopRows').querySelectorAll('[data-tile]')]).toHaveLength(6);
-    // ✕ folds it back into its button
-    $('shopShut').click();
-    expect($('shop').hidden).toBe(true);
-    expect($('craft').hidden).toBe(false);
-    $('craft').click();
     // the hearth room's tab
     tabs()[2].click();
     expect([...$('shopRows').querySelectorAll<HTMLButtonElement>('[data-tile]')].map(b => b.dataset.tile)).toEqual(['cook', 'attendant']);
@@ -972,6 +964,32 @@ describe("the workshop's crafting bench", () => {
     g.run(0.1);
     expect($('shop').hidden).toBe(true);
     expect($('craft').hidden).toBe(true);
+  });
+
+  it('on a touch screen it opens folded, a Craft button out of the thumb\'s way, with a ✕ to fold it again', async () => {
+    const { g, plan, at } = await ring({ money: 10_000_000 });
+    // (a first touch: the game's a touch screen's from then on)
+    window.dispatchEvent(Object.assign(new Event('pointerdown'), { pointerType: 'touch' }));
+    at(plan.BENCH_PAD);
+    g.run(0.1);
+    expect($('shop').hidden).toBe(true);
+    expect($('craft').hidden).toBe(false);
+    expect(Number($('craftN').textContent)).toBeGreaterThan(0);
+    $('craft').click();
+    expect($('shop').hidden).toBe(false);
+    expect($('craft').hidden).toBe(true);
+    expect($('shopShut').hidden).toBe(false);
+    $('shopShut').click();
+    expect($('shop').hidden).toBe(true);
+    expect($('craft').hidden).toBe(false);
+    // walking off puts it away, and back on it's folded again
+    at({ x: plan.BENCH_PAD.x + 3, z: plan.BENCH_PAD.z });
+    g.run(0.1);
+    expect($('craft').hidden).toBe(true);
+    at(plan.BENCH_PAD);
+    g.run(0.1);
+    expect($('shop').hidden).toBe(true);
+    expect($('craft').hidden).toBe(false);
   });
 
   it('has nothing to buy on the landing or in the rooms any more', async () => {
