@@ -130,7 +130,7 @@ const UNLOCKS: Unlock[] = [
   // restaurant and its eaves hide it from the camera)
   { id: 'dohyo', cost: 1_000_000, x: HATCH_AT.x, z: HATCH_AT.z + 1.65, size: 2.0, icon: '🐡', art: 'mrFugu', name: 'Buy into the ring', desc: "Stage 3: Mr. Fugu's sumo ring under the dock", stage: 2, gold: true },
   // down in the cellar, priced in chips: the prep hall's rice things along one row and its fish along the next, the grow
-  // room's between its beds, the hearth room's hires by the pot, the venue's tiers in the arena by the stall, and the
+  // room's between its beds, the hearth room's hires by the pot, the venue's tiers in the arena by the bar, and the
   // buyout in Mr. Fugu's office
   ...ring('rack', 13.2, 3.9, '🌾', 'Another drying rack', 'More room on the rice line', 0, MACH_COST.rice, 'rice'),
   ...ring('washer', 14.8, 3.9, '🧺', HIRES.washer.name, 'Runs the rice line: fills the racks and carries rice to the pot', HIRES.washer.beat, HIRES.washer.cost),
@@ -142,7 +142,7 @@ const UNLOCKS: Unlock[] = [
   ...ring('picker', 14.7, -3.95, '🧑‍🌾', HIRES.picker.name, 'Runs the mushroom line: picks the beds and carries mushrooms to the pot', HIRES.picker.beat, HIRES.picker.cost),
   ...ring('shelves', 16.1, -3.95, '✨', 'Glowing grow shelves', `Swaps every bed for glowing shelves: ${MACH.mush[1].cap} mushrooms, one every ${MACH.mush[1].time} s`, UPS.mush.beat, UPS.mush.cost),
   ...ring('cook', 9.6, 5.9, '👨‍🍳', HIRES.cook.name, 'Keeps the pot cooking: four of each, 20 bowls a batch', HIRES.cook.beat, HIRES.cook.cost),
-  ...ring('attendant', 7.6, 5.9, '🍲', HIRES.attendant.name, 'Carries bowls from the counter to the stall', HIRES.attendant.beat, HIRES.attendant.cost),
+  ...ring('attendant', 7.6, 5.9, '🍲', HIRES.attendant.name, 'Carries bowls from the counter to the soup bar', HIRES.attendant.beat, HIRES.attendant.cost),
   ...[1, 2, 3].flatMap(i => ring(`tier${i}` as UnlockId, 1.6, 1.9, ['', '🏮', '🥁', '⛩️'][i], TIERS[i].name,
     `The venue grows to ${TIERS[i].seats} seats${i === 2 ? ', with taiko drummers' : ''}`, [0, 1, 3, 4][i], [0, 200, 900, 2500][i], undefined, i > 1 ? `tier${i - 1}` as UnlockId : undefined)),
   { id: 'buyout', cost: BUYOUT * CHIP, ...below(7.55, -5.25), icon: '🐡', name: 'Buy back all his chips', desc: "The ring is yours: Mr. Fugu's 30% ends, the restaurant's till comes back, and stage 4 opens", stage: 3, gold: true, beat: BOSSES.length },

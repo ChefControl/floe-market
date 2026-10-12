@@ -1,9 +1,9 @@
 // The player's work down in the cellar (stage 3), by standing in the right places, as upstairs: at the dumbwaiter's
 // bins, rice or fish into their arms; at a drying rack or a salt barrel, raw ones in and ready ones out; at a mushroom
 // bed, mushrooms; at the pot, ready ones onto the ledge, and the pot cooks while they stand there (until there's a
-// cook); at the counter, bowls; at the stall, bowls out for the fans. What they carry is theirs: the cellar
+// cook); at the counter, bowls; at the soup bar's hatch, bowls out for the fans. What they carry is theirs: the cellar
 // (fight.ts) only sees what they hand in or take out. And what each place says while they stand at it.
-import { BIN_PADS, BINS, COUNTER_PAD, type Ing, machineAt, machinePad, type Pad, POT_PAD, STALL_PAD, WATCH } from './cellarPlan';
+import { BAR_PAD, BIN_PADS, BINS, COUNTER_PAD, type Ing, machineAt, machinePad, type Pad, POT_PAD, WATCH } from './cellarPlan';
 import { CY } from './cellar';
 import {
   BATCH, bowlPrice, COUNTER_CAP, PER_BATCH, POT_CAP, F, fillMachine, ICON, inPot, LEDGE_CAP, lineRoom, mach, playerAtPot, STALL_CAP, takeBowl, takeReady,
@@ -13,7 +13,7 @@ import { fly } from './holder';
 import { type Kind, newBowl, newCuredFish, newMushroom, newReadyRice, newRice, newFillet } from './items';
 import { player } from './player';
 import { scene } from './render';
-import { counterAt, ledgeAt, machineSpot, stallAt } from './ringKitchen';
+import { barAt, counterAt, ledgeAt, machineSpot } from './ringKitchen';
 import { pick, put } from './sfx';
 import type { TipContent } from './ui';
 import { d2xz, V, type XZ } from './util';
@@ -47,7 +47,7 @@ function machinesNear(p: XZ, here: { k: Ing; i: number }) {
   for (let i = 0; i < n; i++) if (k !== 'mush' || d2xz(p, machinePad(k, i, n)) < REACH * REACH) out.push(i);
   return out.sort((a, b) => d2xz(p, machineAt(k, a)) - d2xz(p, machineAt(k, b)));
 }
-/** Hands something from the player's arms to `to`, where it's gone (into a machine, onto the ledge or the stall). */
+/** Hands something from the player's arms to `to`, where it's gone (into a machine, onto the ledge or the soup bar). */
 function handIn(kind: Kind, to: () => ReturnType<typeof V>) {
   const m = player.back.takeKind(kind)!;
   fly(m, to, 0.25, 0.6, () => scene.remove(m));
@@ -110,13 +110,13 @@ export function cellarWork(p: XZ, dt: number) {
       pick();
     }
   }
-  // the stall: bowls out for the fans
-  if (at(p, STALL_PAD)) {
+  // the soup bar: bowls out round it for the fans
+  if (at(p, BAR_PAD)) {
     while (player.tDrop <= 0 && back.count('bowl') && F.stall.length < STALL_CAP) {
       const m = back.items.find(x => x.userData.kind === 'bowl');
       if (!m || !toStall(!!m.userData.mush)) break;
       player.tDrop += STEP;
-      handIn('bowl', stallAt);
+      handIn('bowl', barAt);
     }
   }
   if (player.tPick < 0) player.tPick = 0;
@@ -158,10 +158,10 @@ export function cellarTip(p: XZ): TipContent | null {
     const who = F.hires.cook ? 'The cook keeps it going' : 'It cooks while you stand here';
     return { name: 'The pot', desc: `${PER_BATCH} of each make ${BATCH} bowls. ${who}, and ladles itself out onto the counter. In it: ${F.pot.length} of ${POT_CAP} bowls. On the ledge: ${ledge} (up to ${LEDGE_CAP} each)` };
   }
-  if (at(p, COUNTER_PAD)) return { name: 'Bowls', desc: `${F.counter.length} of ${COUNTER_CAP} on the counter: carry them to the stall in the arena` };
-  if (at(p, STALL_PAD)) {
+  if (at(p, COUNTER_PAD)) return { name: 'Bowls', desc: `${F.counter.length} of ${COUNTER_CAP} on the counter: carry them to the soup bar in the arena` };
+  if (at(p, BAR_PAD)) {
     const cut = F.boughtOut ? '' : ", after Mr. Fugu's 30%";
-    return { name: 'The bowl stall', desc: `${F.stall.length} of ${STALL_CAP} bowls out · ${F.queue.length} fans waiting · a bowl pays 🐡 ${chips(bowlPrice(F.beaten >= 1))}${cut}` };
+    return { name: 'The soup bar', desc: `${F.stall.length} of ${STALL_CAP} bowls out · ${F.queue.length} fans waiting · a bowl pays 🐡 ${chips(bowlPrice(F.beaten >= 1))}${cut}` };
   }
   if (at(p, WATCH)) return { name: 'The watch spot 👁️', desc: 'Stand here to watch the bout up close' };
   return null;

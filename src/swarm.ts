@@ -1,10 +1,11 @@
-// The fans in the arena (stage 3). While a bout's fans buy their soup they queue on the floor before the bowl stall, and
-// each one who eats turns your orange and goes to sit on the champion's side: on the stands' benches first, then on the
-// floor round the ring. When the bout's about to start, the ones who didn't eat give up and go home. On a boss night his
-// whole crowd floods the floor in his purple, and the ones still his sit down on his side. They turn up out of sight,
-// deep in one of the tunnels behind the arena's back walls, and after the result they go home the same way. They walk
-// round the ring, the stands and the stall, never through them, each at their own pace, and each acts on their own:
-// they look about while they queue, sit, stand up for the charge, and cheer in bursts, the side that's ahead the most.
+// The fans in the arena (stage 3). While a bout's fans buy their soup they crowd the floor round the soup bar, and each
+// one who eats steps up to a free spot at it for their bowl, turns your orange there and goes to sit on the champion's
+// side: on the stands' benches first, then on the floor round the ring. When the bout's about to start, the ones who
+// didn't eat give up and go home. On a boss night his whole crowd floods the floor in his purple, and the ones still
+// his sit down on his side. They turn up out of sight, deep in one of the tunnels behind the arena's back walls, and
+// after the result they go home the same way. They walk round the ring, the stands and the bar, never through them,
+// each at their own pace, and each acts on their own: they look about while they queue, sit, stand up for the charge,
+// and cheer in bursts, the side that's ahead the most.
 //
 // They're meant to pass for the game's people, so they're made the same way, from the same wardrobe, and walk, sit and
 // cheer as people do. But there can be 500 of them, and a Person is six draw calls of its own, so the swarm is drawn in
@@ -12,7 +13,7 @@
 // out, it stops casting shadows.
 import { BufferGeometry, CanvasTexture, Color, Float32BufferAttribute, InstancedMesh, Matrix4, Quaternion, Sprite, SpriteMaterial, Vector3 } from 'three';
 import { CY, cellarBoxes, parts, placeBuilt, places, RING } from './cellar';
-import { FLOOR, GONG_PAD, STALL, STALL_PAD, TUNNELS, WATCH } from './cellarPlan';
+import { BAR, BAR_PAD, BAR_SPOTS, FLOOR, GONG_PAD, TUNNELS, WATCH } from './cellarPlan';
 import { crowdModel, PARKAS, SHIRT } from './characters';
 import { BOSSES, F, REACH } from './fight';
 import { onQuality } from './graphics';
@@ -89,32 +90,42 @@ onQuality(() => {
 
 
 // ---------- where they stand ----------
-/** Spots on the floor for `n` fans, packed to fit, nearest the stall first. */
+/** How far from the bar's middle the crowd stands round it: no nearer than a step back from where they buy
+ *  (BAR_SPOTS), and on its north side, off the floor along the south wall (FLOOR), no further out than a couple of rows. */
+const CROWD = { r0: BAR.r + 0.85, r1: BAR.r + 1.45 };
+/** Spots on the floor for `n` fans, packed to fit, nearest the bar first: all round it but the hatch's side, then out
+ *  across the floor. */
 const spotCache = new Map<number, { x: number; z: number }[]>();
 function spots(n: number) {
   const size = n <= 60 ? 60 : n <= 150 ? 150 : MAX_FANS;
   let out = spotCache.get(size);
   if (out) return out;
-  let seed = 7;
-  const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
-  const w = FLOOR.x1 - FLOOR.x0, h = FLOOR.z1 - FLOOR.z0, gap = Math.min(0.9, Math.sqrt(w * h / size / 0.87) * 0.95);
-  out = [];
-  const front = { x: STALL.x - 0.7, z: STALL.z };
-  for (let row = 0, z = FLOOR.z0 + gap / 2; z <= FLOOR.z1; row++, z += gap * 0.87) {
-    for (let x = FLOOR.x0 + gap / 2 + (row % 2 ? gap / 2 : 0); x <= FLOOR.x1; x += gap) {
-      out.push({ x: x + (rnd() - 0.5) * gap * 0.3, z: z + (rnd() - 0.5) * gap * 0.3 });
+  // (none in the bar's footprint, or anything else's)
+  const { boxes } = navMap(), z0 = Math.min(FLOOR.z0, BAR.z - CROWD.r1), w = FLOOR.x1 - FLOOR.x0, h = FLOOR.z1 - z0;
+  const fits = (q: XZ) => {
+    const d = Math.hypot(q.x - BAR.x, q.z - BAR.z);
+    return !inBox(q, boxes, 0.15) && d > CROWD.r0 && (q.z >= FLOOR.z0 || d < CROWD.r1) && q.x < BAR.x + 0.9;
+  };
+  // (packed a little closer each time until they all fit: the bar takes a bite out of the floor)
+  for (let gap = Math.min(0.9, Math.sqrt(w * h / size / 0.87) * 0.95); ; gap *= 0.97) {
+    let seed = 7;
+    const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    out = [];
+    for (let row = 0, z = z0 + gap / 2; z <= FLOOR.z1; row++, z += gap * 0.87) {
+      for (let x = FLOOR.x0 + gap / 2 + (row % 2 ? gap / 2 : 0); x <= FLOOR.x1; x += gap) {
+        const q = { x: x + (rnd() - 0.5) * gap * 0.3, z: z + (rnd() - 0.5) * gap * 0.3 };
+        if (fits(q)) out.push(q);
+      }
     }
+    if (out.length >= size || gap < 0.2) break;
   }
-  // (none in the stall's footprint, or anything else's)
-  const { boxes } = navMap();
-  out = out.filter(q => !inBox(q, boxes, 0.15));
-  out.sort((a, b) => Math.hypot(a.x - front.x, (a.z - front.z) * 1.3) - Math.hypot(b.x - front.x, (b.z - front.z) * 1.3));
+  out.sort((a, b) => Math.hypot(a.x - BAR.x, a.z - BAR.z) - Math.hypot(b.x - BAR.x, b.z - BAR.z));
   spotCache.set(size, out);
   return out;
 }
 
 // ---------- the way round the arena ----------
-// A small map of the way round the arena's furniture: the corners of everything in it (the ring, the stands, the stall,
+// A small map of the way round the arena's furniture: the corners of everything in it (the ring, the stands, the bar,
 // the gong, the cashier's window, ...), a little out from them, and which of them can see which. A fan's way from where
 // they are to where they're going is the shortest along it. Remade when the furniture changes (a new tier).
 type Box = [number, number, number, number];
@@ -144,6 +155,10 @@ function navMap() {
   if (nav?.key === key) return nav;
   // (only what's in the arena: the furniture of the other rooms is behind its walls)
   const boxes = cellarBoxes().filter(([cx, cz, hx, hz]) => cx + hx > ARENA.x0 && cx - hx < ARENA.x1 && cz + hz > ARENA.z0 && cz - hz < ARENA.z1) as Box[];
+  // (and the hatch's side of the bar, from it to the wall, is the player's: the fans keep out, so nobody goes round the
+  // bar that way, through the hatch)
+  const x0 = BAR.x + 0.9, x1 = ARENA.x1 + 0.5;
+  boxes.push([(x0 + x1) / 2, BAR.z, (x1 - x0) / 2, 0.85]);
   const nodes: XZ[] = [];
   for (const [cx, cz, hx, hz] of boxes) {
     for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
@@ -192,7 +207,7 @@ function wayAround(a: XZ, b: XZ, first = true): XZ[] {
  *  from (a bench's is in front of the stand, on the floor). */
 interface Seat { x: number; z: number; y: number; face: number; from: XZ }
 /** Seats for `n` fans: the built benches, then as much of the floor round the ring as it takes (wherever isn't
- *  furniture, the floor before the stall or a pad, packed to fit, the nearest the ring). In the order the champion's
+ *  furniture, the floor round the bar or a pad, packed to fit, the nearest the ring). In the order the champion's
  *  fans take them from the front, and his opponent's from the back: the benches east of the ring, the floor (east to
  *  west), then the benches west of the ring, so each side fills its own benches first. */
 const seatCache = new Map<string, Seat[]>();
@@ -200,7 +215,7 @@ function seatsFor(n: number) {
   const key = `${n}|${venueKey()}`;
   let out = seatCache.get(key);
   if (out) return out;
-  const { boxes } = navMap(), pads = [STALL_PAD, GONG_PAD, WATCH];
+  const { boxes } = navMap(), pads = [BAR_PAD, GONG_PAD, WATCH];
   const facing = (x: number, z: number) => Math.atan2(RING.x - x, RING.z - z);
   const benches: Seat[] = places.filter(placeBuilt).map(pl => {
     // step out from the stand, the way the seat faces, to the floor in front of it (or from behind a chair by the ring)
@@ -213,7 +228,7 @@ function seatsFor(n: number) {
     return { x: pl.pos.x, z: pl.pos.z, y: pl.pos.y - CY, face: pl.h, from };
   });
   const free = (x: number, z: number) => !inBox({ x, z }, boxes, CLEAR + 0.05)
-    && !(x > FLOOR.x0 - 0.3 && x < FLOOR.x1 + 0.3 && z > FLOOR.z0 - 0.3)
+    && !(x > FLOOR.x0 - 0.3 && x < FLOOR.x1 + 0.3 && z > FLOOR.z0 - 0.3) && Math.hypot(x - BAR.x, z - BAR.z) > CROWD.r1 + 0.45
     && !pads.some(p => Math.hypot(x - p.x, z - p.z) < p.r + 0.35);
   let floor: Seat[] = [];
   const want = n - benches.length;
@@ -242,8 +257,8 @@ function seatsFor(n: number) {
 interface Fan {
   x: number; z: number; y: number; h: number; way: XZ[]; seat: Seat | null; spot: XZ; routed: boolean; out: boolean;
   c: Color; t: number; key: number; speed: number; beat: number; ph: number; react: number;
-  /** Fed and not at the stall yet: where at it they get their bowl, on the way to their seat (they turn your colour
-   *  there). And when a fan still queuing is due at the stall (the fight's clock), to hurry if they'd be late. */
+  /** Fed and not at the bar yet: the spot at it where they get their bowl, on the way to their seat (they turn your
+   *  colour there). And when a fan still queuing is due at the bar (the fight's clock), to hurry if they'd be late. */
   via: XZ | null; due: number;
   /** Their look, how far through a stride they are, and how far they're sat down (0 standing, 1 sitting). */
   look: number; step: number; sit: number;
@@ -258,7 +273,7 @@ const hash = (k: number, i: number) => { const v = Math.sin(k * 12.9898 + i * 78
 /** The tunnel a fan comes in by and goes home by (cellarPlan.ts). */
 const tunnelOf = (k: number) => TUNNELS[Math.floor(hash(k, 10) * TUNNELS.length)];
 /** Who should be out, where, and in what colour: in the preparation, the ones who've eaten go and sit on the
- *  champion's side and the rest wait at the stall; once the fans sit down, a boss's sit on the other side, and a
+ *  champion's side and the rest wait round the bar; once the fans sit down, a boss's sit on the other side, and a
  *  local's hungry ones go home. */
 function sync() {
   const R = F.rush, B = F.bout, prep = B.phase === 'prep';
@@ -298,12 +313,26 @@ function sync() {
       go(f, w.seat, w.spot, R ? (Math.abs(k) % 60) * 0.03 + hash(k, 7) * 0.4 : hash(k, 7) * 0.3);
     }
     f.due = w.due;
-    // (fed while the stall's open: to the stall for their bowl first, still in their own colour; then to their seat)
+    // (fed while the bar's open: up to a spot at it for their bowl, still in their own colour; then to their seat)
     const served = w.c === OURS && f.c !== OURS;
-    if (served && prep && !f.via) f.via = { x: STALL.x - 0.85, z: STALL.z + (hash(k, 14) - 0.5) * 2 };
+    if (served && prep && !f.via) f.via = spotAtBar(f);
     if (!served || !prep) { f.c = w.c; f.via = null; }
     if (w.seat !== f.seat || w.spot !== f.spot) go(f, w.seat, w.spot, w.seat && !f.seat ? hash(k, 8) * 0.5 : 0);
   }
+}
+/** Where round the bar a fan just served steps up for their bowl: the spot they make for (each fan has their own), or
+ *  if someone's already heading there, the next free one round from it (with more served at once than there are spots,
+ *  the next of those the fewest are heading for). So they come up to it from all round, not all at the one nearest the
+ *  front of the crowd. */
+function spotAtBar(f: Fan) {
+  const busy = new Map<XZ, number>(), n = BAR_SPOTS.length, first = Math.floor(hash(f.key, 14) * n);
+  for (const o of fans.values()) if (o.via) busy.set(o.via, (busy.get(o.via) ?? 0) + 1);
+  let best = BAR_SPOTS[first];
+  for (let j = 1; j < n; j++) {
+    const s = BAR_SPOTS[(first + j) % n];
+    if ((busy.get(s) ?? 0) < (busy.get(best) ?? 0)) best = s;
+  }
+  return best;
 }
 /** Where a fan turns up: deep in their tunnel, out of sight, a little to one side or the other, facing the way in. */
 function from(k: number) {
@@ -368,10 +397,10 @@ export function updSwarm(dt: number) {
     let moving = false;
     if (f.t > 0 && f.way.length) {
       const p = f.way[0], dx = p.x - f.x, dz = p.z - f.z, d = Math.hypot(dx, dz);
-      // (a boss's crowd is all at the stall by the time his bell starts: anyone running late hurries)
+      // (a boss's crowd is all round the bar by the time his bell starts: anyone running late hurries)
       let v = pace * f.speed * dt;
       if (R && R.walk > 0 && !f.seat) v = Math.max(v, (d + wayLeft(f)) / Math.max(dt, R.walk) * dt);
-      // (and so does a local fan who'd get to the stall after they're due at it, or one with their bowl waiting)
+      // (and so does a local fan who'd get to the bar after they're due at it, or one with their bowl waiting)
       else if (!R && !f.seat && f.due > 0) v = Math.max(v, (d + wayLeft(f)) / Math.max(dt, f.due - F.t) * dt);
       else if (f.via) v = Math.max(v, 3.2 * f.speed * dt);
       // (the last step onto a bench climbs it)
@@ -379,7 +408,7 @@ export function updSwarm(dt: number) {
       if (d > 1e-6) f.h = Math.atan2(dx, dz);
       if (d <= v) {
         f.x = p.x; f.z = p.z; f.y = ty; f.way.shift();
-        // (at the stall: they've got their bowl, and they're yours)
+        // (at the bar: they've got their bowl, and they're yours)
         if (f.via && p.x === f.via.x && p.z === f.via.z) { f.via = null; f.c = OURS; turned.push({ x: f.x, z: f.z }); }
       } else {
         f.x += dx / d * v; f.z += dz / d * v; f.y += (ty - f.y) * Math.min(1, v / d);
@@ -402,7 +431,7 @@ export function updSwarm(dt: number) {
     } else {
       const look = Math.sin(F.t * 0.4 * f.speed + f.ph * 2);
       bounce = R ? Math.abs(Math.sin(F.t * f.beat * 0.8 + f.ph)) * 0.07 : Math.max(0, Math.sin(F.t * 1.3 + f.ph)) * 0.03;
-      turn = Math.atan2(STALL.x - f.x, STALL.z - f.z) + (look > 0.6 ? (look - 0.6) * 2.2 : 0) * (f.ph > 3.14 ? 1 : -1);
+      turn = Math.atan2(BAR.x - f.x, BAR.z - f.z) + (look > 0.6 ? (look - 0.6) * 2.2 : 0) * (f.ph > 3.14 ? 1 : -1);
     }
     if (!looks) continue;
     const arms = cheer || (!f.seat && R && Math.sin(F.t * 0.8 + f.ph * 4) > 0.3);
@@ -450,10 +479,10 @@ function setShadows(on: boolean) {
 }
 // ---------- what they say ----------
 // Now and then someone in the crowd shouts something, in a speech bubble over their head that goes where they go: the
-// queue at an empty stall wants its chanko, the ones who've eaten are happy with it, a boss's crowd talks him up, both
+// crowd at an empty bar wants its chanko, the ones who've eaten are happy with it, a boss's crowd talks him up, both
 // sides shout through the fight, and the hungry grumble on their way out.
 const LINES: Record<string, string[]> = {
-  hungry: ["Where's the chanko??", 'Oi! Soup!', "I'm starving here!", 'Hurry up, chef!', 'Chanko! Chanko!', 'Is this a soup stall or what?'],
+  hungry: ["Where's the chanko??", 'Oi! Soup!', "I'm starving here!", 'Hurry up, chef!', 'Chanko! Chanko!', 'Is this a soup bar or what?'],
   queue: ['Smells good...', "What's in the pot?", 'Two bowls, quick!', 'Move up!', 'Chanko time!'],
   fed: ["Now THAT's chanko!", 'Mm, the good stuff', `${CHAMP}! ${CHAMP}!`, 'Worth the wait'],
   turned: ['Free soup? I switch sides!', `Forget {boss}, I'm with ${CHAMP}`, 'This chanko slaps'],

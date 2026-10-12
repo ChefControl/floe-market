@@ -124,9 +124,9 @@ export function showCard(R: Rush) {
     h.className = 'lose'; h.textContent = `Pushed out by ${boss.name} ${boss.face}`;
     p1.textContent = `You turned ${R.turned} of his ${R.n} fans: ${need - R.turned} short of the ${need} that beat him.`;
     p2.textContent = (R.dryT > 1
-      ? `Your stall stood empty for ${Math.round(R.dryT)} s${worst ? `, and the pot was waiting on ${NAME[worst]} ${ICON[worst]}` : ''}. `
+      ? `Your soup bar stood empty for ${Math.round(R.dryT)} s${worst ? `, and the pot was waiting on ${NAME[worst]} ${ICON[worst]}` : ''}. `
       : 'The bowls came too slowly from the counter. ')
-      + `Ready at about ${needRate(boss)} batches a minute with a full stall of ${STALL_CAP} (${BATCH} bowls a batch). No fee: grow and come back.`;
+      + `Ready at about ${needRate(boss)} batches a minute with a full soup bar of ${STALL_CAP} (${BATCH} bowls a batch). No fee: grow and come back.`;
   }
   const small = document.createElement('small'); small.textContent = 'Tap to close';
   card.replaceChildren(h, p1, bar, p2, small);
@@ -146,7 +146,7 @@ function renderBout() {
   let name: string, clock = '', left = `${CHAMP} ${yours}`;
   const right = `${theirs} ${boss.name}`;
   if (B.phase === 'prep') {
-    // (his bell waits for his whole crowd to reach the stall)
+    // (his bell waits for his whole crowd to reach the bar)
     name = R.walk > 0 ? `${boss.face} ${boss.name}'s crowd is coming in` : `${boss.face} ${boss.name}'s crowd is in`;
     clock = `🔔 ${Math.max(0, Math.ceil(boss.bell - R.t))} s`;
     left = `${yours} turned · ${toBeat(boss)} beats him`;

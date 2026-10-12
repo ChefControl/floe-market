@@ -2,7 +2,7 @@
 // the gong), and answers what happens down there: chips into the wallet, the gong's crash and the crowd flooding in,
 // the card after a rush, the grow room coming to light, Mr. Fugu's office lighting up for the buyout.
 import { CY, parts, showGrowRoom, showVenue } from './cellar';
-import { GONG, STALL } from './cellarPlan';
+import { BAR, GONG } from './cellarPlan';
 import { openRing, updDohyo } from './dohyo';
 import { BOSSES, CHIP, F, fightFrom, on, resetFight, step, strength } from './fight';
 import { front } from './front';
@@ -20,7 +20,7 @@ import { popText, toast } from './ui';
 import { showProgress, visibleTiles } from './unlocks';
 import { addMoney } from './wallet';
 
-/** Chips taken at the stall since the last "+🐡" over it (one a second, not one a bowl). */
+/** Chips taken at the soup bar since the last "+🐡" over it (one a second, not one a bowl). */
 let takings = 0, takingsT = 0;
 
 on.earn = (chips, why) => {
@@ -76,7 +76,7 @@ export function updRing(dt: number) {
   takingsT -= dt;
   if (takingsT <= 0) {
     takingsT = 1;
-    if (takings > 0 && level.down) popText(`+🐡 ${takings < 10 ? takings.toFixed(1).replace(/\.0$/, '') : Math.round(takings)}`, { x: STALL.x, y: CY + 2.2, z: STALL.z });
+    if (takings > 0 && level.down) popText(`+🐡 ${takings < 10 ? takings.toFixed(1).replace(/\.0$/, '') : Math.round(takings)}`, { x: BAR.x, y: CY + 2.9, z: BAR.z });
     takings = 0;
   }
   updRingKitchen(dt);

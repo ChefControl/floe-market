@@ -2,12 +2,12 @@
 // drying racks and salt barrels (and the steam baskets and smokehouses they're swapped for), the grow room's beds and
 // glowing shelves, each with what's in it, wet rice drying white and fish going brown; the ledge in front of the hearth
 // with what's waiting to go in; the pot, its stew the colour of what's in it, steaming as it cooks; the bowls on the
-// counter and the stall; the dumbwaiter's trays going round; the hires at their work, carrying what they carry; and a
-// bubble over the pot when it waits on something (🌾? 🐟? 🍄?), or over the stall when fans wait at it with nothing to
-// eat, like the cooks upstairs.
+// counter and round the soup bar, and the bar's pot steaming while there are any; the dumbwaiter's trays going round;
+// the hires at their work, carrying what they carry; and a bubble over the pot when it waits on something (🌾? 🐟?
+// 🍄?), or over the bar when fans wait at it with nothing to eat, like the cooks upstairs.
 import { CanvasTexture, Color, Group, type Material, Mesh, MeshBasicMaterial, MeshLambertMaterial, type Object3D, PlaneGeometry, Sprite, SpriteMaterial, type Vector3 } from 'three';
-import { belts, cellar, CY, LIFT_LOOP, parts, POT_TOP, potMesh, potStew } from './cellar';
-import { BELT, BIN_PADS, BINS, COUNTER, COUNTER_PAD, HEARTH, HOPPERS, type Ing, LEDGE, LIFTS, machineAt, machinePad, MAX_MACHINES, POT, POT_PAD, STALL, STALL_PAD } from './cellarPlan';
+import { BAR_STEW, belts, cellar, CY, LIFT_LOOP, parts, POT_TOP, potMesh, potStew } from './cellar';
+import { BAR, BAR_PAD, BELT, BIN_PADS, BINS, COUNTER, COUNTER_PAD, HEARTH, HOPPERS, type Ing, LEDGE, LIFTS, machineAt, machinePad, MAX_MACHINES, POT, POT_PAD } from './cellarPlan';
 import { decal, drawPad } from './decals';
 import { animPerson, belowGround, Person } from './characters';
 import { COUNTER_CAP, F, inPot, POT_CAP, poured, type Machine, mach, potWaits, type Role, STALL_CAP, type Worker } from './fight';
@@ -166,8 +166,8 @@ for (const k of ['rice', 'fish', 'mush'] as const) {
 
 // ---------- where to stand ----------
 // A round marker on the floor at every station, so each is easy to find: what the dumbwaiter hands out, each rack 🌾,
-// barrel 🐟 and bed 🍄 (shown with its machine), the pot and the bowl counter 🍲, the stall 🏮. A little smaller than
-// the ground that counts as standing there, so the markers along a line don't run into each other.
+// barrel 🐟 and bed 🍄 (shown with its machine), the pot and the bowl counter 🍲, the soup bar's hatch 🏮. A little
+// smaller than the ground that counts as standing there, so the markers along a line don't run into each other.
 const MARK = 0.9;
 function marker(at: XZ, icon: string, parent: Object3D = cellar) {
   const d = decal(MARK, (c, w, h) => drawPad(c, w, h, icon));
@@ -176,7 +176,7 @@ function marker(at: XZ, icon: string, parent: Object3D = cellar) {
   return d.mesh;
 }
 for (const k of ['rice', 'fish'] as const) marker(BIN_PADS[k], k === 'rice' ? '🍚' : '🐟');
-marker(POT_PAD, '🍲'); marker(COUNTER_PAD, '🍲'); marker(STALL_PAD, '🏮');
+marker(POT_PAD, '🍲'); marker(COUNTER_PAD, '🍲'); marker(BAR_PAD, '🏮');
 const MARK_ICON: Record<Ing, string> = { rice: '🌾', fish: '🐟', mush: '🍄' };
 // (a marker by each of the grow room's beds; one for all the racks, and one for all the barrels, which moves along the
 // row as it grows: cellarPlan.ts's machinePad)
@@ -225,7 +225,7 @@ function drawSlot(s: Slot, dt: number) {
   }
 }
 
-// ---------- the ledge, the counter and the stall ----------
+// ---------- the ledge, the counter and the soup bar ----------
 const MAKE: Record<Ing, () => Mesh> = { rice: newReadyRice, fish: newCuredFish, mush: newMushroom };
 /** What's on the ledge: up to eight of each, in its own tray, stacked two high. */
 const ledge = Object.fromEntries((['rice', 'fish', 'mush'] as const).map(k => [k, Array.from({ length: 8 }, (_, j) => {
@@ -242,7 +242,26 @@ function bowlRows(cap: number, at: (j: number) => Vector3) {
   }));
 }
 const counterBowls = bowlRows(COUNTER_CAP, j => V(COUNTER.x - 0.25 + (j % 3) * 0.3, CY + 0.85 + Math.floor(j / 12) * 0.11, COUNTER.z - 0.55 + (Math.floor(j / 3) % 4) * 0.33));
-const stallBowls = bowlRows(STALL_CAP, j => V(STALL.x - 0.12 + (j % 2) * 0.24, CY + 1.0 + Math.floor(j / 18) * 0.11, STALL.z - 0.95 + (Math.floor(j / 2) % 9) * 0.24));
+/** The bowls out on the soup bar: round its top in two rings about its pot, the outer one first, from the side facing
+ *  the room out both ways (none in the hatch), then a second layer on the outer ring. */
+const barBowls = bowlRows(STALL_CAP, j => {
+  const layer = j < 21 ? 0 : 1, k = layer ? j - 21 : j, inner = !layer && k >= 13, i = inner ? k - 13 : k;
+  const a = Math.PI + (i % 2 ? (i + 1) / 2 : -i / 2) * (inner ? 0.5625 : 0.36), r = inner ? 0.64 : 0.97;
+  return V(BAR.x + Math.cos(a) * r, CY + BAR.top + 0.05 + layer * 0.11, BAR.z + Math.sin(a) * r);
+});
+/** The bar's pot steams while there's soup out on the bar. */
+const barSteam = Array.from({ length: 3 }, (_, j) => { const s = add(cellar, mesh(G.sphere, smoke, BAR.x, CY + BAR_STEW, BAR.z)); s.userData.t = j / 3; return s; });
+function drawBarSteam(dt: number) {
+  const on = F.stall.length > 0;
+  for (const s of barSteam) {
+    s.visible = on;
+    if (!on) continue;
+    s.userData.t = (s.userData.t + dt * 0.3) % 1;
+    const u = s.userData.t as number;
+    s.position.set(BAR.x + Math.sin(u * 6 + s.id) * 0.15, CY + BAR_STEW + u * 1.1, BAR.z + 0.04 + Math.cos(u * 5 + s.id) * 0.15);
+    s.scale.setScalar(0.1 + u * 0.25);
+  }
+}
 /** Bowls ladled out of the pot (fight.ts' `poured`) and still flying to the counter: the newest of its line, hidden
  *  there until they land. */
 let seen = -1, inAir = 0;
@@ -448,8 +467,8 @@ function bubble(text: string) {
   return s;
 }
 const potAsks: Record<Ing, Sprite> = { rice: bubble('🌾?'), fish: bubble('🐟?'), mush: bubble('🍄?') };
-const stallAsk = bubble('🍲?');
-/** Seconds the pot has waited on what it's waiting on, and the stall stood empty with fans at it. */
+const barAsk = bubble('🍲?');
+/** Seconds the pot has waited on what it's waiting on, and the bar stood empty with fans at it. */
 let waitT = 0, dryT = 0;
 const SHOW_AFTER = 1.5;
 function drawBubbles(dt: number) {
@@ -461,8 +480,9 @@ function drawBubbles(dt: number) {
   }
   const hungry = F.bout.phase === 'prep' && (F.rush ? !F.rush.done : F.queue.length > 0) && !F.stall.length;
   dryT = hungry ? dryT + dt : 0;
-  stallAsk.visible = dryT > SHOW_AFTER;
-  stallAsk.position.set(STALL.x, CY + 3.0, STALL.z);
+  // (over the lanterns' wheel)
+  barAsk.visible = dryT > SHOW_AFTER;
+  barAsk.position.set(BAR.x, CY + 3.3, BAR.z);
 }
 /** The pot as drawn, for tests: how high the stew stands (0 empty, 1 brimming), the number on its tag (0: none up),
  *  and how many bowls have landed on the counter (the rest still in the air). */
@@ -471,8 +491,8 @@ export const potShows = () => ({
   tag: tally.visible ? tallyN : 0,
   landed: F.counter.length - inAir,
 });
-/** Which bubbles are up, for tests: the pot's ask, and whether the stall's asking. */
-export const bubbles = () => ({ pot: (Object.keys(potAsks) as Ing[]).find(k => potAsks[k].visible) ?? null, stall: stallAsk.visible });
+/** Which bubbles are up, for tests: the pot's ask, and whether the bar's asking. */
+export const bubbles = () => ({ pot: (Object.keys(potAsks) as Ing[]).find(k => potAsks[k].visible) ?? null, bar: barAsk.visible });
 
 // ---------- every frame ----------
 export function updRingKitchen(dt: number) {
@@ -484,14 +504,16 @@ export function updRingKitchen(dt: number) {
   }
   for (const k of ['rice', 'fish', 'mush'] as const) ledge[k].forEach((m, j) => { m.visible = j < F.pantry[k]; });
   serveBowls();
-  showBowls(stallBowls, F.stall);
+  showBowls(barBowls, F.stall);
+  drawBarSteam(dt);
   drawPot(dt);
   drawLift(dt);
   drawCrew(dt);
   drawBubbles(dt);
 }
-/** Where a ready ingredient lands on the ledge, and a bowl on the stall, for things flying there. */
+/** Where a ready ingredient lands on the ledge, and a bowl on the soup bar (in through its hatch), for things flying
+ *  there. */
 export const ledgeAt = (k: Ing) => V(LEDGE[k].x, CY + 0.7, LEDGE[k].z - 0.45);
-export const stallAt = () => V(STALL.x, CY + 1.05, STALL.z);
+export const barAt = () => V(BAR.x + 0.8, CY + BAR.top + 0.1, BAR.z);
 export const counterAt = () => V(COUNTER.x, CY + 0.9, COUNTER.z);
 export const machineSpot = (k: Ing, i: number) => { const m = machineAt(k, i); return V(m.x, CY + 0.9, m.z); };

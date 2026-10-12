@@ -1,6 +1,6 @@
 // The cellar under the dock (stage 3): Mr. Fugu's sumo ring and the stew kitchen that feeds its fans, in rooms side by
 // side, with thin walls and doorways between them. The arena: a big clay dohyo between four posts in the middle, crates
-// and planks for stands along the back and west walls, the bowl stall by the hearth room's door, and the gong and the
+// and planks for stands along the back and west walls, the soup bar by the hearth room's door, and the gong and the
 // cashier's window against the east wall. Down the middle, Mr. Fugu's office (his desk on a dais), the landing with the
 // ladder up to the hatch in the dock, and the hearth room: the big pot, its ledge and the bowl counter. To the east the
 // prep hall, where the dumbwaiter from the restaurant's kitchen comes down beside the racks and barrels, and behind its
@@ -15,7 +15,7 @@ import {
 } from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import {
-  BELT, BENCH, BINS, CASHIER, COUNTER, GONG, HEARTH, HOPPERS, LIFTS, machineAt, MAX_MACHINES, POT, STALL, TEPPO, TUNNEL_D, TUNNEL_W, TUNNELS,
+  BAR, BELT, BENCH, BINS, CASHIER, COUNTER, GONG, HEARTH, HOPPERS, LIFTS, machineAt, MAX_MACHINES, POT, TEPPO, TUNNEL_D, TUNNEL_W, TUNNELS,
 } from './cellarPlan';
 import { Fugu } from './fugu';
 import { ARENA, CELLAR_Y, type CellarRoom, CRAFT, DOORS, found, GROW, keepOnFloor, KITCHEN, LANDING, LIFT_ROOM, OFFICE_ROOM, PREP, pushOutOfBox, ROOMS, walkable } from './layout';
@@ -563,24 +563,134 @@ for (let i = 0; i < 8; i++) {
 /** Keeps a spectator's place hidden until it's built. */
 export const placeBuilt = (p: Place) => p.part === 'base' || parts[p.part].visible;
 
-// ---------- the arena's east side: the bowl stall, the gong and the cashier's window ----------
-/** The stall's sign, a curtain over the counter: "ちゃんこ" in white on indigo. */
+// ---------- the arena's east side: the soup bar, the gong and the cashier's window ----------
+/** How high the stew stands in the soup bar's pot (ringKitchen.ts puffs its steam from there). */
+export const BAR_STEW = BAR.top + 0.47;
 {
-  // the stall: a long low counter facing the floor, a cloth over it, posts and a short roof of planks, and its sign
-  const g = add(cellar, new Group()); g.position.set(STALL.x, CY, STALL.z);
-  box(g, WOOD, 0, 0.45, 0, 0.7, 0.9, 2.2);
-  box(g, 0x6B4130, 0, 0.92, 0, 0.82, 0.06, 2.3);
-  box(g, 0x2B3A67, -0.36, 0.6, 0, 0.02, 0.5, 2.1, false);
-  for (const z of [-1.05, 1.05]) box(g, WOOD_DARK, 0.3, 1.2, z, 0.1, 2.4, 0.1);
-  box(g, WOOD_DARK, 0.1, 2.42, 0, 1.0, 0.08, 2.5);
-  const tex = canvasTex(256, 96, (c, w, h) => {
-    c.fillStyle = '#2B3A67'; c.fillRect(0, 0, w, h);
-    c.fillStyle = '#F4F1EA'; c.font = '800 54px ' + FONT; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('ちゃんこ', w / 2, h / 2 + 2);
+  // The soup bar: a round counter the fans gather round, knocked together from what was lying about down here. Its
+  // body is old barrel staves in two iron hoops, with a straw rope round under the lip and a cigarette-burnt indigo
+  // cloth hung over the front; its top a battered sheet of zinc with a dark wooden rim. On the east, facing the hearth
+  // room's door, a gap in it (the hatch, its flap lifted), where the player stands to set the bowls out round its top.
+  // In the middle, on a drum, the bar's own pot of chanko. Over it a cartwheel hangs from an arm off a crooked post at
+  // the hatch, red and paper lanterns round its rim, and the price board is nailed to the post, facing the room.
+  // Upturned buckets and a crate are tucked under the lip for stools, and inside the hatch stands a crate of beer.
+  const g = add(cellar, new Group()); g.position.set(BAR.x, CY, BAR.z);
+  // (round the bar, `a` is the way from its middle, from the east towards the south: x = cos a, z = sin a; the hatch is
+  // the GAP either side of the east)
+  const R = BAR.r, TOP = BAR.top, GAP = 0.32, ARC = Math.PI * 2 - GAP * 2, SR = 0.92;
+  const at = (a: number, r: number) => [Math.cos(a) * r, Math.sin(a) * r] as const;
+  /** A flat ring round the bar (a hoop, the rope, the rim) `r` out and `tube` thick, at `y`, open at the hatch. */
+  const ring = (c: number, r: number, tube: number, y: number, cast = false) =>
+    add(g, mesh(new TorusGeometry(r, tube, 5, 40, ARC), c, 0, y, 0, cast)).rotation.set(Math.PI / 2, 0, GAP);
+  // the staves, a little different in shade and height on a fixed pattern, round a dark core, and the hoops round them
+  add(g, mesh(new CylinderGeometry(0.55, 0.55, TOP - 0.05, 14), WOOD_DARK, 0, (TOP - 0.05) / 2, 0));
+  const STAVES = 26;
+  for (let i = 0; i < STAVES; i++) {
+    const a = GAP + (i + 0.5) * ARC / STAVES, [x, z] = at(a, SR - 0.03), h = TOP - 0.06 - ((i * 7) % 3) * 0.02;
+    box(g, [WOOD, 0x9C6644, 0x7A4A32][i % 3], x, h / 2, z, 0.06, h, 0.21).rotation.y = -a;
+  }
+  ring(IRON, SR, 0.018, 0.2);
+  ring(IRON, SR, 0.018, 0.68);
+  // the hatch's posts: a short one on its south side, and on its north the crooked post that holds the lanterns up
+  { const [x, z] = at(GAP, SR - 0.03); log(g, WOOD_DARK, x, TOP / 2, z, 0.4, TOP); }
+  const [px, pz] = at(-GAP, SR - 0.03), POST = 2.85;
+  log(g, WOOD_DARK, px, POST / 2, pz, 0.45, POST).rotation.z = 0.03;
+  // the top: a battered sheet of zinc with a dark wooden rim, dented here and there, edged where the hatch cuts it
+  add(g, mesh(new CylinderGeometry(R, R, 0.05, 32, 1, false, Math.PI / 2 + GAP, ARC), 0x9AA2A6, 0, TOP - 0.025, 0, true));
+  ring(WOOD_DARK, R, 0.035, TOP - 0.02, true);
+  for (const s of [-1, 1]) {
+    const [x, z] = at(s * GAP, (R + 0.55) / 2);
+    box(g, WOOD_DARK, x, TOP - 0.02, z, R - 0.55, 0.07, 0.04).rotation.y = -s * GAP;
+  }
+  for (const [a, r, k] of [[1.6, 0.86, 0.09], [2.7, 0.5, 0.07], [3.9, 0.95, 0.1], [4.9, 0.72, 0.08]]) {
+    const [x, z] = at(a, r);
+    add(g, mesh(G.cyl, 0x7C8489, x, TOP + 0.002, z)).scale.set(k, 0.004, k * 0.8);
+  }
+  // the hatch's flap, lifted on its hinge
+  { const a = GAP + 0.03, [x, z] = at(a, (R + 0.55) / 2); box(g, 0x8C949A, x, TOP + 0.3, z, R - 0.55, 0.6, 0.03).rotation.y = -a; }
+  // the straw rope round under the lip, and the cloth hung from it over the front: indigo, ragged, burnt by cigarettes
+  ring(STRAW, 0.95, 0.04, TOP - 0.1);
+  for (let i = 0; i < 6; i++) {
+    const a = 1.75 + i * 0.26, h = 0.42 - (i % 2) * 0.05 - (i === 4 ? 0.04 : 0), [x, z] = at(a, 0.99);
+    box(g, 0x2B3A67, x, TOP - 0.1 - h / 2, z, 0.015, h, 0.25, false).rotation.y = -a;
+  }
+  for (const [a, y] of [[1.9, 0.62], [2.35, 0.75], [2.62, 0.58], [3.1, 0.7]]) {
+    const [x, z] = at(a, 1.0);
+    box(g, 0x15181D, x, y, z, 0.01, 0.035, 0.04, false).rotation.y = -a;
+  }
+  // stools tucked under the lip: two upturned buckets (one tin, one red) and a crate
+  for (const [a, c] of [[1.35, 0x8C959C], [3.75, 0xB03A2E]]) {
+    const [x, z] = at(a, SR + 0.15);
+    add(g, mesh(new CylinderGeometry(0.12, 0.15, 0.36, 12), c, x, 0.18, z, true));
+    add(g, mesh(new TorusGeometry(0.15, 0.015, 4, 14), 0x5F676C, x, 0.02, z)).rotation.x = Math.PI / 2;
+  }
+  {
+    const a = 4.6, [x, z] = at(a, SR + 0.15);
+    box(g, WOOD, x, 0.16, z, 0.3, 0.32, 0.3).rotation.y = -a;
+    for (const y of [0.08, 0.24]) box(g, WOOD_DARK, x + Math.cos(a) * 0.155, y, z + Math.sin(a) * 0.155, 0.01, 0.05, 0.3, false).rotation.y = -a;
+  }
+  // inside the hatch, a crate of beer; on the top by it, a stack of empty bowls, and on its other side, an ashtray
+  box(g, 0xC98A1E, 0.74, 0.13, 0, 0.28, 0.26, 0.38);
+  for (let i = 0; i < 6; i++) add(g, mesh(G.cyl, 0x5A3418, 0.68 + (i % 2) * 0.12, 0.3, -0.12 + Math.floor(i / 2) * 0.12)).scale.set(0.035, 0.12, 0.035);
+  const empty = new CylinderGeometry(0.15, 0.09, 0.08, 12);
+  { const [x, z] = at(0.62, 0.9); for (let i = 0; i < 4; i++) add(g, mesh(empty, 0xC0392B, x, TOP + 0.04 + i * 0.07, z)); }
+  {
+    const [x, z] = at(-0.65, 0.97);
+    add(g, mesh(G.cyl, 0x6E777C, x, TOP + 0.01, z)).scale.set(0.07, 0.02, 0.07);
+    for (const s of [-1, 1]) {
+      const butt = add(g, mesh(G.cyl, 0xE8E0D0, x + s * 0.02, TOP + 0.03, z + s * 0.015));
+      butt.scale.set(0.012, 0.05, 0.012); butt.rotation.set(0, s, Math.PI / 2);
+    }
+  }
+  // the drum in the middle, and the bar's pot on it, full of chanko, with a ladle in it
+  add(g, mesh(new CylinderGeometry(0.4, 0.43, 0.2, 18), WOOD_DARK, 0, TOP + 0.1, 0, true));
+  const py = TOP + 0.2, pot = add(g, new Group());
+  pot.position.set(0, py, 0.04);
+  add(pot, mesh(new CylinderGeometry(0.34, 0.27, 0.3, 18, 1, true), IRON, 0, 0.15, 0, true));
+  add(pot, mesh(new CylinderGeometry(0.31, 0.25, 0.3, 18, 1, true), new MeshLambertMaterial({ color: 0x1C1C20, side: BackSide }), 0, 0.15, 0));
+  add(pot, mesh(new TorusGeometry(0.34, 0.035, 5, 20), 0x3E3E44, 0, 0.3, 0)).rotation.x = Math.PI / 2;
+  for (const s of [-1, 1]) add(pot, mesh(new TorusGeometry(0.07, 0.022, 4, 8), 0x3E3E44, s * 0.37, 0.24, 0)).rotation.y = Math.PI / 2;
+  add(pot, mesh(new CylinderGeometry(0.32, 0.32, 0.02, 18), 0xC9803A, 0, BAR_STEW - py, 0));
+  for (const [c, x, z, sx, sy, sz] of [
+    [0x8FC46A, -0.12, 0.08, 0.13, 0.04, 0.08], [0x8FC46A, 0.1, -0.12, 0.12, 0.04, 0.07], [0xF4F1EA, 0.13, 0.1, 0.07, 0.06, 0.07],
+    [0xF4F1EA, -0.08, -0.1, 0.07, 0.06, 0.07], [0xE8833A, 0.02, 0.17, 0.05, 0.02, 0.05],
+  ]) add(pot, mesh(c === 0xF4F1EA ? G.box : G.sphere, c, x, BAR_STEW - py + 0.015, z)).scale.set(sx, sy, sz);
+  const ladle = add(pot, new Group()); ladle.position.set(-0.2, 0.32, -0.12); ladle.rotation.set(0.3, 0, 0.55);
+  add(ladle, mesh(G.rope, WOOD, 0, 0.3, 0)).scale.set(1.2, 0.65, 1.2);
+  add(ladle, mesh(G.sphere, 0x9AA4AC, 0, -0.04, 0)).scale.set(0.09, 0.05, 0.09);
+  // the arm off the post's top over the middle, braced, and the cartwheel hung from it, a lantern at each spoke's end
+  const arm = add(g, new Group()), len = Math.hypot(px, pz);
+  arm.position.set(px - 0.04, POST - 0.08, pz); arm.rotation.y = -Math.atan2(-pz, -px);
+  box(arm, WOOD_DARK, len / 2, 0, 0, len + 0.12, 0.09, 0.09);
+  box(arm, WOOD_DARK, 0.2, -0.2, 0, 0.56, 0.06, 0.06).rotation.z = Math.PI / 4;
+  add(arm, mesh(G.rope, 0x3A2A20, len, -0.17, 0)).scale.y = 0.34;
+  const WHEEL = POST - 0.42;
+  add(g, mesh(new TorusGeometry(1.2, 0.035, 5, 36), WOOD_DARK, 0, WHEEL, 0)).rotation.x = Math.PI / 2;
+  for (let k = 0; k < 3; k++) box(g, WOOD_DARK, 0, WHEEL, 0, 2.4, 0.04, 0.05, false).rotation.y = k * Math.PI / 3;
+  add(g, mesh(G.cyl, WOOD_DARK, 0, WHEEL, 0)).scale.set(0.09, 0.12, 0.09);
+  for (let k = 0; k < 6; k++) {
+    const [x, z] = at(k * Math.PI / 3, 1.2), y = WHEEL - 0.32;
+    add(g, mesh(G.sphere, k % 3 === 1 ? LANTERN_PAPER : LANTERN_RED, x, y, z)).scale.set(0.15, 0.19, 0.15);
+    for (const s of [-1, 1]) add(g, mesh(G.cyl, 0x1B2430, x, y + s * 0.18, z)).scale.set(0.08, 0.03, 0.08);
+    add(g, mesh(G.rope, 0x1B2430, x, y + 0.25, z)).scale.y = 0.14;
+  }
+  // the price board, an old plank painted by hand (a bowl's price is in chips), nailed to the post facing the room
+  const tex = canvasTex(256, 144, (c, w) => {
+    c.fillStyle = '#B98C55'; c.fillRect(0, 0, w, 144);
+    c.fillStyle = 'rgba(70,40,20,.35)';
+    for (let i = 0; i < 5; i++) c.fillRect(0, 14 + i * 28 + ((i * 7) % 9), w, 2);
+    c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.fillStyle = '#1B1A1E'; c.font = '800 58px ' + FONT; c.fillText('ちゃんこ', w / 2, 52);
+    c.fillStyle = '#B0250F'; c.font = '800 38px ' + FONT; c.fillText('一杯 🐡', w / 2, 110);
   });
-  const edge = mat(0x2B3A67);
-  const sgn = add(g, new Mesh(new BoxGeometry(1.8, 0.5, 0.03), [edge, edge, edge, edge, new MeshBasicMaterial({ map: tex.tex }), edge]));
-  sgn.position.set(-0.3, 2.1, 0); sgn.rotation.y = -Math.PI / 2;
+  const edge = mat(0x6B4A2E), FACE = 0.4;
+  const sgn = add(g, new Mesh(new BoxGeometry(0.78, 0.44, 0.03), [edge, edge, edge, edge, new MeshBasicMaterial({ map: tex.tex }), edge]));
+  sgn.position.set(px + Math.sin(FACE) * 0.09, 1.85, pz + Math.cos(FACE) * 0.09); sgn.rotation.y = FACE;
 }
+/** The soup bar, for walking round: its circle (its top's, and a walker's width) as boxes, each a little narrower the
+ *  further out from its middle; on the hatch's side they stop short, so the player can step up into it. */
+const BAR_BOXES = ([[-0.075, 1.275, 0.3], [0, 1.2, 0.7], [0, 0.98, 0.98], [0, 0.7, 1.2], [0, 0.3, 1.35]] as const)
+  .map(([dx, hx, hz]): [number, number, number, number] => [BAR.x + dx, BAR.z, hx, hz]);
 /** The gong: a bronze disc hung in a black frame (gong.ts swings it). */
 export const gongDisc = new Group();
 {
@@ -1123,7 +1233,7 @@ export function cellarLights(on: boolean) { lights.forEach(l => { l.visible = on
 
 // ---------- walking ----------
 /** What a walker can't walk through down here, as boxes (centre and half-sizes, a walker's width included): the ring,
- *  the stands, the stall, the gong and the cashier's window, the hearth and the counter, the dumbwaiter and its bins,
+ *  the stands, the soup bar, the gong and the cashier's window, the hearth and the counter, the dumbwaiter and its bins,
  *  the machines built so far, the teppo post, the office's furniture, and what the venue's tiers add. (The rooms'
  *  walls are where the floor ends: layout.ts.) */
 export function cellarBoxes(machines: Record<'rice' | 'fish' | 'mush', number> = { rice: 0, fish: 0, mush: 0 }) {
@@ -1131,7 +1241,7 @@ export function cellarBoxes(machines: Record<'rice' | 'fish' | 'mush', number> =
   const boxes: [cx: number, cz: number, hx: number, hz: number][] = [
     [RING.x, RING.z, RING_HALF + RING_FOOT + 0.2, RING_HALF + RING_FOOT + 0.2],
     [(BACK.a0 + BACK.a1) / 2, BACK.wall + (t ? 1.5 : 1.1), (BACK.a1 - BACK.a0) / 2 + 0.2, t ? 1.65 : 1.2],
-    [STALL.x, STALL.z, 0.55, 1.3],
+    ...BAR_BOXES,
     [GONG.x, GONG.z, 0.45, 1.15],
     [CASHIER.x, CASHIER.z, 0.65, 1.3],
     [TEPPO.x, TEPPO.z, 0.5, 0.5],

@@ -24,7 +24,7 @@ export function fuguLines(): string[] {
   ];
   const next = BOSSES[F.beaten];
   const out = ['Thirty percent of every bowl, Chef. The house always eats first.'];
-  if (F.beaten === 0) out.push('Keep the stall full. Hungry fans cheer for the other guy.');
+  if (F.beaten === 0) out.push('Keep the soup bar full. Hungry fans cheer for the other guy.');
   else out.push("You found my mushrooms. Mushroom bowls pay double. Don't spread it around.");
   out.push(next ? `${next.name} ${next.face} is next. His fans come hungry.` : "Every champion beaten. Maybe you can afford my chair now.");
   out.push(F.tier > 0 ? 'Bigger stands, bigger crowds. I like the sound of that.' : 'Build some stands, Chef. Fans pay better sitting down.');
