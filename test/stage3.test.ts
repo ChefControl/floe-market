@@ -736,14 +736,25 @@ describe("the cellar's tiles", () => {
     expect($('shopShut').hidden).toBe(true);
     expect($('shopTabs').hidden).toBe(true);
     expect($('shopTitle').textContent).toBe('Crafting bench');
-    // (the ring's, the prep hall's and the hearth room's; the grow room's once it's found)
-    const heads = () => [...$('shopRows').querySelectorAll('.sect')].map(h => h.textContent);
-    expect(heads()).toEqual(['The ring', 'Prep hall', 'Hearth room']);
+    // (the ring's, the prep hall's, the grow room's and the hearth room's, each with its number key and how many things in
+    // it there are the chips for; the grow room, till it's found, says who opens it)
+    const heads = () => [...$('shopRows').querySelectorAll('.sect .nm')].map(h => h.textContent);
+    const counts = () => [...$('shopRows').querySelectorAll('.sect .cnt')].map(h => h.textContent);
+    expect(heads()).toEqual(['The ring', 'Prep hall', 'Grow room', 'Hearth room']);
+    expect([...$('shopRows').querySelectorAll('.sect kbd')].map(k => k.textContent)).toEqual(['1', '2', '3', '4']);
+    expect(counts()).toEqual(['3 to buy', '4 to buy', '', '']);
+    expect($('shopRows').querySelector('[data-of="grow"]')!.textContent).toBe('🔒 Found after beating Hakkaku 🐙');
+    expect($('shopPurse').hidden).toBe(false);
+    expect($('shopPurse').textContent).toBe('🐡 10k');
+    expect($('shopKeys').hidden).toBe(false);
     expect([...$('shopRows').querySelectorAll('[data-mod]')].map(b => (b as HTMLElement).dataset.mod)).toEqual(['bowls', 'street', 'cellarcrew']);
-    expect([...$('shopRows').querySelectorAll<HTMLElement>('[data-tile]')].map(b => b.dataset.tile)).toEqual(['rack', 'washer', 'steam', 'barrel', 'salter', 'smoke', 'cook', 'attendant']);
+    expect([...$('shopRows').querySelectorAll<HTMLElement>('[data-tile]')].map(b => b.dataset.tile)).toEqual(['rack', 'washer', 'barrel', 'salter', 'steam', 'smoke', 'cook', 'attendant']);
     const row = (id: string) => $('shopRows').querySelector<HTMLElement>(`[data-tile="${id}"]`)!;
     const price = (id: string) => row(id).querySelector<HTMLButtonElement>('button.cost')!;
-    expect(row('rack').textContent).toContain('Drying rack 1/6');
+    // (a line's machines as dots)
+    expect(row('rack').querySelector('b')!.textContent).toBe('Drying rack');
+    expect(row('rack').querySelector('.pips')!.getAttribute('aria-label')).toBe('1 of 6');
+    expect(row('rack').querySelectorAll('.pips i.on').length).toBe(1);
     expect(row('rack').textContent).toContain('More room on the rice line');
     expect(price('rack').textContent).toBe('🐡 10');
     expect(price('rack').disabled).toBe(false);
@@ -755,7 +766,7 @@ describe("the cellar's tiles", () => {
     price('rack').click();
     g.run(0.1);
     expect(F().lines.rice.n).toBe(2);
-    expect(row('rack').textContent).toContain('2/6');
+    expect(row('rack').querySelector('.pips')!.getAttribute('aria-label')).toBe('2 of 6');
     // what's done stays in its place, ticked
     price('washer').click();
     g.run(0.1);
@@ -766,6 +777,22 @@ describe("the cellar's tiles", () => {
     g.run(0.1);
     expect(heads()).toEqual(['The ring', 'Prep hall', 'Grow room', 'Hearth room']);
     expect($('shopRows').querySelector('[data-tile="bed"]')).not.toBeNull();
+    // a heading folds its room away, and so does its number key
+    const box = (t: string) => $('shopRows').querySelector<HTMLElement>(`[data-of="${t}"]`)!;
+    $('shopRows').querySelector<HTMLElement>('.sect[data-sect="ring"]')!.click();
+    expect(box('ring').hidden).toBe(true);
+    expect($('shopRows').querySelector('.sect[data-sect="ring"]')!.getAttribute('aria-expanded')).toBe('false');
+    window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Digit1' }));
+    expect(box('ring').hidden).toBe(false);
+    window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Digit2' }));
+    expect(box('prep').hidden).toBe(true);
+    window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Digit2' }));
+    expect(box('prep').hidden).toBe(false);
+    // E buys the line under the mouse
+    const barrels = F().lines.fish.n;
+    row('barrel').querySelector('.sub')!.dispatchEvent(new Event('pointerover', { bubbles: true }));
+    g.press('e'); g.run(0.1); g.press('e', 'keyup');
+    expect(F().lines.fish.n).toBe(barrels + 1);
   });
 
   it('hires the crew, who run their lines and the pot by themselves', async () => {

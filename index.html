@@ -235,11 +235,43 @@ body{
 /* a cellar room's upgrade that isn't on sale yet (a boss to beat first), or one that's done */
 #shop .mod.locked .txt, #shop .mod.locked .ic{ opacity:.6; }
 #shop .mod:focus-visible{ outline:3px solid var(--coral); outline-offset:1px; }
-/* the crafting bench's list, with a mouse and keys: a heading for the ring's things and each room's, and on each row
-   its green price button, which buys it */
-#shop .sect{ margin:8px 4px 0; font-size:12px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; opacity:.65; }
+/* the crafting bench's list, with a mouse and keys: a heading for the ring's things and each room's (which folds it, as
+   its number key does, and says how many things in it there are the chips for), and under it a line for each thing:
+   its name (a line's machines as dots), what it does on one line (all of it under the mouse), and its green price
+   button, which buys it; what's locked, thinner, at the end */
+#shop .sect{
+  display:flex; align-items:center; gap:6px; width:100%; box-sizing:border-box; margin:6px 0 0; padding:6px 4px 3px;
+  border:0; background:none; color:inherit; cursor:pointer; text-align:left;
+  font:800 12px "Baloo 2","Trebuchet MS",system-ui,sans-serif; letter-spacing:.06em; text-transform:uppercase;
+}
 #shop .sect:first-child{ margin-top:0; }
+#shop .sect .nm, #shop .sect .chev{ opacity:.65; }
+#shop .sect .chev{ width:12px; text-align:center; transition:transform .15s; }
+#shop .sect[aria-expanded="false"] .chev{ transform:rotate(-90deg); }
+#shop .sect .cnt{ letter-spacing:0; text-transform:none; color:var(--up); }
+#shop .sect kbd{ margin-left:auto; opacity:.7; }
+#shop kbd{ font:800 11px "Baloo 2","Trebuchet MS",system-ui,sans-serif; background:var(--chip); border-radius:5px; padding:0 5px; border-bottom:2px solid var(--shade); }
+#shop .sect:focus-visible{ outline:3px solid var(--coral); outline-offset:1px; border-radius:8px; }
+#shop .sectRows{ display:flex; flex-direction:column; gap:4px; }
+#shop .sectRows[hidden]{ display:none; }
+#shop .sectNote{ padding:4px 8px; font-size:13px; font-weight:600; opacity:.65; }
 #shop .mod.row{ cursor:default; box-sizing:border-box; }
+#shop .mod.row:hover, #shop .mod.row:focus-within{ box-shadow:inset 0 0 0 999px var(--chip); }
+#shop .mod.row .txt b{ font-size:14.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+#shop .mod.row .txt .sub{ display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; opacity:.8; }
+#shop .mod.row:hover .txt .sub, #shop .mod.row:focus-within .txt .sub{ white-space:normal; }
+#shop .mod.row .txt .pips{ display:inline-flex; gap:3px; margin-left:6px; vertical-align:middle; }
+#shop .pips i{ width:7px; height:7px; border-radius:50%; box-sizing:border-box; border:1.5px solid currentColor; opacity:.45; }
+#shop .pips i.on{ background:var(--gold); border-color:var(--gold); opacity:1; }
+#shop .mod.row.locked{ padding-block:2px; background:transparent; }
+#shop .mod.row.locked .ic{ font-size:17px; }
+#shop .mod.row.locked .txt b{ font-size:13px; }
+#shopPurse{ margin-left:auto; flex:none; font:800 14px "Baloo 2","Trebuchet MS",system-ui,sans-serif; background:var(--chip); border-radius:999px; padding:1px 10px; }
+#shopPurse[hidden], #shopKeys[hidden]{ display:none; }
+#shop.side .shead{ margin-bottom:6px; }
+#shop.side h2{ margin:0 4px; }
+#shopKeys{ display:flex; flex-wrap:wrap; gap:4px 12px; margin-top:6px; padding:8px 4px 0; border-top:1px solid var(--chip); font-size:12px; font-weight:600; opacity:.8; }
+@media (prefers-reduced-motion: reduce){ #shop .sect .chev{ transition:none; } }
 /* (docked down the right-hand side, out of the middle where the player stands, as tall as the screen allows) */
 #shop.side{
   left:auto; right:max(16px, env(safe-area-inset-right,0px)); transform:none;
@@ -1116,7 +1148,7 @@ body.offer #hud, body.offer #corner, body.offer #pointers, body.offer #tip, body
 <button id="toss" type="button" hidden><span aria-hidden="true">🗑️</span>Toss</button>
 <div id="hint" class="pill" role="status" hidden><div class="art" aria-hidden="true"></div><p></p></div>
 <div id="stale" role="alertdialog" aria-modal="true" aria-labelledby="staleWhy" hidden><div class="card"><p id="staleWhy">Floe Market is open in another tab, so this one stopped saving.</p><button type="button">Play here instead</button></div></div>
-<section id="shop" hidden aria-label="Upgrades"><div class="shead"><h2 id="shopTitle"></h2><div id="shopTabs" role="tablist" aria-label="Upgrades" hidden></div><button id="shopShut" type="button" aria-label="Fold the menu away" hidden>✕</button></div><div id="shopRows"></div><div id="shopPick" hidden></div></section>
+<section id="shop" hidden aria-label="Upgrades"><div class="shead"><h2 id="shopTitle"></h2><span id="shopPurse" hidden></span><div id="shopTabs" role="tablist" aria-label="Upgrades" hidden></div><button id="shopShut" type="button" aria-label="Fold the menu away" hidden>✕</button></div><div id="shopRows"></div><div id="shopPick" hidden></div><div id="shopKeys" hidden><span><kbd>1</kbd>–<kbd>4</kbd> fold a room</span><span><kbd>E</kbd> buys the one under the mouse</span><span>walk off to close</span></div></section>
 <section id="look" hidden aria-labelledby="lookTitle">
   <div class="lhead"><h2 id="lookTitle">Your look</h2><button id="lookDice" type="button" aria-label="Surprise me" title="Surprise me"><span aria-hidden="true">🎲</span></button><button id="lookDone" type="button">Done</button></div>
   <div id="lookTabs" role="tablist" aria-label="Your look"><button type="button" role="tab" aria-controls="lookRows">Body</button><button type="button" role="tab" aria-controls="lookRows">Face</button><button type="button" role="tab" aria-controls="lookRows">Hair</button><button type="button" role="tab" aria-controls="lookRows">Extras</button><button type="button" role="tab" aria-controls="lookRows">Clothes</button></div>
