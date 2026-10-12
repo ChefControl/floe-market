@@ -346,7 +346,7 @@ const trays = (['rice', 'fish'] as const).flatMap(k => Array.from({ length: TRAY
 for (const k of ['rice', 'fish'] as const) {
   for (let j = 0; j < 4; j++) {
     const m = add(cellar, MAKE_RAW[k]());
-    m.position.set(BINS[k].x + ((j % 2) - 0.5) * 0.24, CY + 0.7 + Math.floor(j / 2) * 0.06, BINS[k].z + (j < 2 ? -0.1 : 0.1) + (j % 2) * 0.05);
+    m.position.set(BINS[k].x + ((j % 2) - 0.5) * 0.24, CY + 0.64 + Math.floor(j / 2) * 0.06, BINS[k].z + (j < 2 ? -0.1 : 0.1) + (j % 2) * 0.05);
     m.rotation.y = j * 1.3;
   }
 }

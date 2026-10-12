@@ -706,7 +706,8 @@ beltTex.tex.wrapS = 1000;
   // The dumbwaiters from the restaurant's kitchen upstairs, rice down one and fish down the other: tall timber shafts
   // up into the dark, open at the front (to the west), their chains and the wheels they go round at the top and
   // bottom (ringKitchen.ts sends their trays round, loaded on the way down; at the bottom each tips over and drops its
-  // load onto its conveyor, which carries it up into the storage hopper by the wall).
+  // load onto its conveyor, which carries it up into the storage hopper by the wall, and that fills a tray at its
+  // foot).
   for (const k of ['rice', 'fish'] as const) {
     const g = add(cellar, new Group()); g.position.set(LIFTS[k].x, CY, LIFTS[k].z); g.rotation.y = -Math.PI / 2;
     const W = 0.95, D = 0.85, L = LIFT_LOOP;
@@ -743,8 +744,7 @@ beltTex.tex.wrapS = 1000;
     belt.position.set(mid, CY + midY, z); belt.rotation.z = tilt; belt.receiveShadow = true;
     belts.push(belt);
     // the storage hopper it tips into: a riveted steel bin on legs with a funnel mouth, a window on the front to see how
-    // full it is, a lamp on top, and a plate with what's in it; and from its foot, a chute through the gap in the wall
-    // to a steel tray in the hall, where the player takes from it
+    // full it is, a lamp on top, and a plate with what's in it
     const h = add(cellar, new Group()); h.position.set(HOPPERS[k].x, CY, z);
     for (const [x, zz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) box(h, STEEL_DARK, x * 0.33, 0.15, zz * 0.33, 0.08, 0.3, 0.08);
     box(h, STEEL, 0, 0.7, 0, 0.8, 0.8, 0.8);
@@ -765,17 +765,13 @@ beltTex.tex.wrapS = 1000;
     const plate = add(h, new Mesh(new PlaneGeometry(0.2, 0.2), new MeshBasicMaterial({ map: tag.tex })));
     plate.position.set(0.22, 0.82, 0.407);
     add(h, mesh(G.sphere, 0x7CFF8A, 0.3, 1.16, 0.3)).scale.setScalar(0.05);
-    // (the chute, sloping down from its foot through the wall, and the tray at its end, on a bracket)
-    const c0 = HOPPERS[k].x - 0.4, c1 = BINS[k].x + 0.2, cl = c0 - c1, cMid = (c0 + c1) / 2, drop = 0.12;
-    const chute = box(cellar, STEEL, cMid, CY + 0.66 + drop / 2, z, Math.hypot(cl, drop), 0.03, 0.42);
-    chute.rotation.z = Math.atan2(drop, cl);
-    for (const s of [-1, 1]) box(cellar, STEEL_DARK, cMid, CY + 0.72 + drop / 2, z + s * 0.21, cl, 0.12, 0.03).rotation.z = Math.atan2(drop, cl);
+    // (its spout, and the steel tray under it, by the wall, that what's taken is handed over the wall from)
+    box(h, STEEL_DARK, -0.45, 0.62, 0, 0.12, 0.08, 0.3);
     const tray = add(cellar, new Group()); tray.position.set(BINS[k].x, CY, z);
-    box(tray, STEEL, 0, 0.62, 0, 0.6, 0.04, 0.72);
-    for (const s of [-1, 1]) box(tray, STEEL_DARK, 0, 0.67, s * 0.36, 0.6, 0.1, 0.03);
-    box(tray, STEEL_DARK, -0.3, 0.67, 0, 0.03, 0.1, 0.72);
-    box(tray, STEEL_DARK, 0.1, 0.3, 0, 0.06, 0.6, 0.06);
-    box(tray, STEEL_DARK, 0.1, 0.03, 0, 0.3, 0.06, 0.3);
+    box(tray, STEEL, 0, 0.56, 0, 0.5, 0.04, 0.72);
+    for (const s of [-1, 1]) box(tray, STEEL_DARK, 0, 0.61, s * 0.36, 0.5, 0.1, 0.03);
+    for (const s of [-1, 1]) box(tray, STEEL_DARK, s * 0.25, 0.61, 0, 0.03, 0.1, 0.72);
+    for (const s of [-1, 1]) box(tray, STEEL_DARK, 0, 0.27, s * 0.3, 0.06, 0.54, 0.06);
   }
   // rice sacks in the corner
   const k = add(cellar, new Group()); k.position.set(SACKS.x, CY, SACKS.z);
@@ -1015,10 +1011,7 @@ export function cellarBoxes(machines: Record<'rice' | 'fish' | 'mush', number> =
     // the hearth room: the hearth and the counter behind it, and the bowl counter
     [HEARTH.x, (KITCHEN.z0 + HEARTH.z + HEARTH.d / 2 + 0.6) / 2, HEARTH.w / 2 + 0.3, (HEARTH.z + HEARTH.d / 2 + 0.6 - KITCHEN.z0) / 2 + 0.3],
     [COUNTER.x, COUNTER.z, 0.75, 1.05],
-    // the prep hall: the trays against the east wall, where the hoppers' chutes come through it, and the sacks
-    // (long enough along the wall to meet the sacks and the bin in the corners, leaving no slot between to wedge into)
-    [BINS.rice.x, BINS.rice.z, 0.45, 0.8],
-    [BINS.fish.x, BINS.fish.z, 0.45, 0.8],
+    // the prep hall: the sacks (what comes down the dumbwaiters is all behind the east wall)
     [SACKS.x, SACKS.z, 0.75, 0.75],
     ...KITCHEN_BINS.map((b): [number, number, number, number] => [b.x, b.z, 0.65, 0.65]),
     // the office: the dais and the desk, the safe, the visitors' chairs, the cabinet, the fish tank, the plant and the rack

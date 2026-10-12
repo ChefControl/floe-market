@@ -10,16 +10,17 @@ export interface Pad extends XZ { r: number }
 const pad = (x: number, z: number, r: number): Pad => ({ x, z, r });
 
 // ---------- the prep hall: the dumbwaiter, the racks along the north wall, the barrels along the south ----------
-/** The lift room's machines, rice on one line and fish on the other: the dumbwaiter from the restaurant's kitchen
- *  against its far wall; the steel storage hopper against the prep hall's wall, which its conveyor climbs up to and
- *  tips into; the tray in the hall that the hopper's chute feeds through the wall (BINS); and where to stand to take
- *  from a tray. */
+/** The lift room's machines, rice on one line and fish on the other, all behind the prep hall's east wall, out of the
+ *  way: the dumbwaiter from the restaurant's kitchen against its far wall; the steel storage hopper its conveyor climbs
+ *  up to and tips into; and the tray at the hopper's foot, just over the wall (BINS). Where to stand to take from a
+ *  tray is a circle against the wall, on the hall's side (peeking out under it): only someone who walks right up to
+ *  the wall is there, not anyone passing by. */
 const LINE_Z = { rice: 3.0, fish: 6.8 };
 const each = (x: number) => ({ rice: { x, z: LINE_Z.rice }, fish: { x, z: LINE_Z.fish } });
 export const LIFTS: Record<'rice' | 'fish', XZ> = each(LIFT_ROOM.x1 - 0.6);
-export const HOPPERS: Record<'rice' | 'fish', XZ> = each(LIFT_ROOM.x0 + 0.5);
-export const BINS: Record<'rice' | 'fish', XZ> = each(PREP.x1 - 0.35);
-export const BIN_PADS: Record<'rice' | 'fish', Pad> = { rice: pad(PREP.x1 - 1.35, LINE_Z.rice, 0.75), fish: pad(PREP.x1 - 1.35, LINE_Z.fish, 0.75) };
+export const HOPPERS: Record<'rice' | 'fish', XZ> = each(LIFT_ROOM.x0 + 0.95);
+export const BINS: Record<'rice' | 'fish', XZ> = each(LIFT_ROOM.x0 + 0.15);
+export const BIN_PADS: Record<'rice' | 'fish', Pad> = { rice: pad(PREP.x1 - 0.1, LINE_Z.rice, 0.55), fish: pad(PREP.x1 - 0.1, LINE_Z.fish, 0.55) };
 /** Each conveyor, along x, climbing: from under the foot of its dumbwaiter's front, where the trays tip their load
  *  onto it (y0 up), to over the hopper's mouth (y1). */
 export const BELT = { from: LIFTS.rice.x - 0.5, to: HOPPERS.rice.x + 0.1, y0: 0.62, y1: 1.4 };

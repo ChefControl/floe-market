@@ -259,7 +259,12 @@ describe('the rooms', () => {
       }
       expect(plan.BELT.to).toBeGreaterThan(LIFT_ROOM.x0);
       expect(plan.BELT.from).toBeLessThan(plan.LIFTS[k].x);
-      expect(plan.BINS[k].x).toBeLessThan(PREP.x1);
+      expect(plan.BINS[k].x).toBeGreaterThan(LIFT_ROOM.x0);
+      // (the circle to take from it is against the wall, on the hall's side: reached only right up at the wall)
+      const pad = plan.BIN_PADS[k], edge = { x: PREP.x1, z: pad.z };
+      g.layout.keepOnFloor(edge, g.layout.walkable());
+      expect(Math.hypot(edge.x - pad.x, edge.z - pad.z)).toBeLessThan(pad.r);
+      expect(pad.x - pad.r).toBeGreaterThan(PREP.x1 - 0.8);
     }
     expect(cellar.roomAt(plan.machinePad('rice', 5))).toBe('prep');
     expect(cellar.roomAt(plan.machinePad('fish', 5))).toBe('prep');
