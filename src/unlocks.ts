@@ -23,6 +23,7 @@ import { openShed } from './shed';
 import { hireRunner } from './runner';
 import { chime, unlock } from './sfx';
 import { enableSlots } from './slotMachine';
+import { spotlight } from './spotlight';
 import { enterStage2, staging } from './stage';
 import { showStage, toast, type TipContent } from './ui';
 import { FY, price, V } from './util';
@@ -210,7 +211,9 @@ function moveKorkiTile() {
 export function applyUnlock(id: UnlockId, silent = false) {
   const t = tiles.find(x => x.id === id)!;
   t.done = true; t.d.mesh.visible = false;
-  const pop = (...os: Object3D[]) => { if (!silent) os.forEach(popIn); };
+  // what it builds first is what the spotlight goes to (the kiosk, not the shed that opens with it)
+  const shown: Object3D[] = [];
+  const pop = (...os: Object3D[]) => { if (silent) return; os.forEach(popIn); if (!shown.length) shown.push(...os); };
   if (id === 'pack') player.back.cap = 14;
   if (id === 'turret') { turret = { ...buildTurret(), t: 1 }; pop(turret.g); }
   if (id === 'roulette') pop(...enableCasino(silent));
@@ -241,6 +244,9 @@ export function applyUnlock(id: UnlockId, silent = false) {
   if (id === 'runner') toast('New at the Upgrade square: Crew training');
   unlock();
   unlockFx(t, 1.1, (t.y ?? FY) + 0.05);
+  // a moment on camera for what it built, or for the player with nothing new to see (boots, bigger arms); the casino
+  // boat has its own, out to the ship as it comes in
+  if (id !== 'roulette') spotlight(shown.length ? shown : [player.g]);
   if (t.always || !goal(t.stage).every(x => x.done)) return;
   toast(t.stage === 1 ? 'Floe Sushi is ready to open' : 'Floe Sushi is fully built');
 }

@@ -147,15 +147,25 @@ function drawSay(c: CanvasRenderingContext2D, text: string) {
   c.restore();
 }
 
-const tmp = new Vector3();
-/** Someone (or something) on the boat that says things in a bubble `y` above `on`. */
-export function speaker(on: Object3D, y: number) {
+const tmp = new Vector3(), up = new Vector3();
+/** How near the top of the view a bubble can come (in the camera's -1 to 1). */
+const VIEW_TOP = 0.95;
+/**
+ * Someone (or something) on the boat that says things in a bubble `y` above `on`. Close up, at a table, it's smaller
+ * (`near` of its size), and if it would go off the top of the view it comes down, over the speaker, till it's in.
+ */
+export function speaker(on: Object3D, y: number, near = 0.35) {
   const t = canvasTex(W, H, () => {});
   const mat = new SpriteMaterial({ map: t.tex, depthTest: false, transparent: true, opacity: 0 });
   const s = new Sprite(mat);
   s.scale.set(1.7, 0.85, 1); s.position.set(0, y, 0); s.renderOrder = 5; s.visible = false;
   on.add(s);
   let left = 0;
+  /** How high the top of the bubble is on screen, with it `h` above `on`. */
+  const top = (h: number) => {
+    s.position.y = h;
+    return s.getWorldPosition(tmp).addScaledVector(up, s.scale.y / 2).project(camera).y;
+  };
   return {
     /** What it's saying now, or '' while it's quiet. */
     text: '',
@@ -166,9 +176,16 @@ export function speaker(on: Object3D, y: number) {
     },
     upd(dt: number) {
       if (!s.visible) return;
+      s.position.y = y;
       // smaller close up, at a table, so it doesn't fill the view
-      const k = Math.min(1, Math.max(0.35, s.getWorldPosition(tmp).distanceTo(camera.position) / 12));
+      const d = s.getWorldPosition(tmp).distanceTo(camera.position) / 12, k = Math.min(1, Math.max(near, d));
       s.scale.set(1.7 * k, 0.85 * k, 1);
+      if (d < near) {
+        // and down into the view, if it's over the top of it
+        up.set(0, 1, 0).applyQuaternion(camera.quaternion);
+        const at = top(y), lower = top(y - 0.5);
+        s.position.y = at > VIEW_TOP && at > lower ? y - 0.5 * Math.min(2, (at - VIEW_TOP) / (at - lower)) : y;
+      }
       left -= dt;
       mat.opacity = Math.max(0, Math.min(1, (SAY_SECS - left) / FADE, left / FADE));
       if (left <= 0) { s.visible = false; this.text = ''; }

@@ -51,16 +51,20 @@ describe('HUD', () => {
     settle();
     expect(cam.view?.enabled ?? false).toBe(false); // nothing open: the view stays put
     shop.hidden = false;
-    const at = vi.spyOn(shop, 'getBoundingClientRect').mockReturnValue({ left: 480, top: 300 } as DOMRect);
+    const at = vi.spyOn(shop, 'getBoundingClientRect').mockReturnValue({ left: 480, right: 1014, top: 300 } as DOMRect);
     settle(); // down the right-hand side: slides left until the player's clear of it
     expect([cam.view!.offsetX, cam.view!.offsetY]).toEqual([expect.closeTo(1024 / 2 + 50 - 480), 0]);
-    at.mockReturnValue({ left: 200, top: 400 } as DOMRect);
+    at.mockReturnValue({ left: 200, right: 824, top: 400 } as DOMRect);
     settle(); // along the bottom: slides up
     expect([cam.view!.offsetX, cam.view!.offsetY]).toEqual([expect.closeTo(0), expect.closeTo(768 / 2 + 70 - 400)]);
-    at.mockReturnValue({ left: 200, top: 600 } as DOMRect);
-    settle(); // low enough already
+    at.mockReturnValue({ left: 302, right: 722, top: 600 } as DOMRect);
+    settle(); // low enough already, and centred along the bottom of a wide screen rather than down the side
     expect(cam.view?.enabled).toBe(false);
-    at.mockReturnValue({ left: 480, top: 300 } as DOMRect);
+    for (let i = 0; i < 60; i++) g.ui.keepInSight(0.05, 1);
+    // a new upgrade in the spotlight goes in the middle of what the panel leaves, under the HUD
+    const hud = g.ui.topOfView(768);
+    expect([cam.view!.offsetX, cam.view!.offsetY]).toEqual([expect.closeTo(0), expect.closeTo(768 / 2 - (hud + 600) / 2)]);
+    at.mockReturnValue({ left: 480, right: 1014, top: 300 } as DOMRect);
     settle();
     shop.hidden = true;
     settle(); // closed: back to the middle

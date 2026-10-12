@@ -101,8 +101,10 @@ describe('the casino boat', () => {
     g.run(0.4);
     expect(boat.visible).toBe(true);
     expect(view.focus.x).toBeLessThan(-15);
-    g.run(2);
+    expect(view.close).toBeLessThan(1); // in close on it
+    g.run(2.5);
     expect(view.k).toBe(0);
+    expect(view.close).toBe(1);
     expect(view.focus.equals(focus)).toBe(true);
   });
 
@@ -568,6 +570,39 @@ describe('the blackjack table', () => {
     expect((await felt()).discards).toBe(4);
   });
 
+  it("keeps the dealer's speech bubble in view over their top hat, on a computer or a phone", async () => {
+    const g = await at('blackjack', 100, 'blackjack');
+    expect(await says()).toBe('Good luck!');
+    const { Sprite, Vector3 } = await import('three');
+    const { camera, scene, slideView } = await import('../src/render'), { tableRoom } = await import('../src/ui');
+    const kit = await import('../src/casinoKit');
+    for (const [w, h, panel] of [[1024, 768, 200], [800, 600, 200], [844, 390, 170], [390, 844, 250]]) {
+      vi.stubGlobal('innerWidth', w); vi.stubGlobal('innerHeight', h);
+      camera.aspect = w / h; camera.updateProjectionMatrix();
+      const pw = Math.min(w * 0.94, 440);
+      vi.spyOn($('blackjack'), 'getBoundingClientRect').mockReturnValue({ left: (w - pw) / 2, top: h - panel - 10, width: pw, height: panel } as DOMRect);
+      let v = kit.tableView(0.1);
+      for (let i = 0; i < 40; i++) v = kit.tableView(0.1);
+      // the camera where the game puts it, sat at the table, and the bubble sized and placed for it
+      const view = () => {
+        camera.position.copy(v.eye); camera.lookAt(v.at); slideView(tableRoom.x, tableRoom.y);
+        scene.updateMatrixWorld(); camera.updateMatrixWorld();
+      };
+      view(); g.run(0.02); view();
+      // the bubble faces the camera: its corners are out along the camera's up and right
+      let bubble = null as InstanceType<typeof Sprite> | null;
+      scene.traverse(o => { if (o instanceof Sprite && o.visible && o.renderOrder === 5) bubble = o; });
+      const at0 = bubble!.getWorldPosition(new Vector3());
+      const up = new Vector3(0, 1, 0).applyQuaternion(camera.quaternion), right = new Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
+      for (const [x, y] of [[-1, -1], [-1, 1], [1, -1], [1, 1]]) {
+        const p = at0.clone().addScaledVector(right, x * bubble!.scale.x / 2).addScaledVector(up, y * bubble!.scale.y / 2).project(camera);
+        expect(Math.abs(p.x)).toBeLessThan(1);
+        expect(Math.abs(p.y)).toBeLessThan(1);
+      }
+    }
+    vi.unstubAllGlobals();
+  });
+
   it('shuffles a fresh shoe in front of the player, riffling it three times, then offers them the cut', async () => {
     const g = await at('blackjack', 100, 'blackjack');
     expect($('bjMsg').textContent).toBe('A fresh shoe: the dealer shuffles…');
@@ -634,7 +669,7 @@ describe('the blackjack table', () => {
     expect((await felt()).shuffle).toBe('due');
   });
 
-  it('finishes the round when the cut card comes out, then shuffles again', async () => {
+  it('finishes the round when the cut card comes out, the dealer slides it across to the player, then shuffles again', async () => {
     const g = await at('blackjack', 100, 'blackjack');
     (await import('../src/blackjackTable')).stackShoe([c(10), c(10), c(9), c(7)], 50);
     click('#deal');
@@ -642,9 +677,12 @@ describe('the blackjack table', () => {
     click('#stand');
     g.run(STOOD);
     expect($('bjMsg').textContent).toBe('19 beats 17: you win $50!');
-    expect(await felt()).toMatchObject({ cutCard: true, shuffle: 'due' });
+    expect(await felt()).toMatchObject({ cutCard: true, presenting: true, shuffle: 'due' });
     expect($('deal').hidden).toBe(true);
-    g.run(2.6);
+    g.run(1.6);
+    expect(await says()).toBe('Cut card!'); // across the felt, by the player
+    expect(await felt()).toMatchObject({ cutCard: true, presenting: true, shuffle: 'due' });
+    g.run(1.8);
     expect($('bjMsg').textContent).toBe("The cut card's out: the dealer shuffles…");
     g.run(1);
     expect(await felt()).toMatchObject({ hands: [[]], dealer: [], discards: 0, cutCard: false });
