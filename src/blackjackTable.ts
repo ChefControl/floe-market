@@ -1,6 +1,7 @@
 // The casino boat's blackjack table: a dealer behind a half-moon of green felt. Standing on its pad brings the camera
 // in over the felt and opens the controls: put a stake down and deal, then hit, stand, double or split. Everything
-// happens on the table, as in a casino, and takes its time: each card slides out of the shoe and turns over, the
+// happens on the table, as in a casino, and takes its time: each card is drawn out of the shoe's mouth, slid across
+// the felt and turned over (the next card in the shoe moving up to the mouth behind it), the
 // dealer's second card waits face down, and when the dealer plays they turn it over slowly, then draw. A double on 10
 // or 11 gets its card face down, turned over once the dealer's done. When the dealer shows an ace they offer insurance
 // (or even money on a blackjack). Walking off mid-hand, the dealer holds your seat for a few seconds (casinoKit.ts's
@@ -13,16 +14,17 @@
 // comes straight off the shoe. When the cut card comes out, the round finishes, the dealer slides the card across the
 // felt to the player, then shuffles again.
 import {
-  BoxGeometry, CylinderGeometry, Group, Mesh, MeshLambertMaterial, PlaneGeometry, Vector3, type Object3D,
+  BoxGeometry, CylinderGeometry, ExtrudeGeometry, Group, Mesh, MeshLambertMaterial, PlaneGeometry, Shape, Vector2, Vector3,
+  type Object3D,
 } from 'three';
 import {
   BlackjackRound, CUT_CARD, DECKS, handValue, isBust, isRed, PLAYER_CUT, rankName, resultLine, Shoe, type Card,
 } from './blackjack';
-import { badge, cheer, chipStack, easeInOut, gamePad, greeting, settleTweens, slide, speaker, Stakes, tween } from './casinoKit';
+import { badge, cheer, chipStack, easeInOut, easeOut, gamePad, greeting, settleTweens, slide, speaker, Stakes, tween } from './casinoKit';
 import { Person, SUITS } from './characters';
 import { GAMES, pushOutOfBox } from './layout';
 import { canvasTex, FONT, mesh, rr, scene } from './render';
-import { clack, deal as dealSound, lose, push as pushSound, win } from './sfx';
+import { cardLand, cardSlide, clack, deal as dealSound, lose, push as pushSound, win } from './sfx';
 import type { Moves } from './round';
 import { popText } from './ui';
 import { money, V, type XZ } from './util';
@@ -32,20 +34,35 @@ const AT = GAMES.blackjack;
 const TABLE = { x: AT.x, z: AT.z - 1.75 };
 /** The felt's height, and where its flat edge (the dealer's side) is; it curves out towards the player. */
 const TOP = 0.68, EDGE = -0.45, R = 0.98;
-/** Seconds: a card sliding out of the shoe, turning over, and the dealer turning one over slowly. */
+/** Seconds: a card coming out of the shoe and across the felt, turning over, and the dealer turning one over slowly. */
 const SLIDE = 0.4, FLIP = 0.3, SLOW_FLIP = 0.65;
+/** Of a card's SLIDE, the seconds it takes to be drawn down out of the shoe's mouth and onto the felt; then it glides. */
+const PULL = 0.18;
 /** From one card to the next on the deal. */
 const CARD_GAP = SLIDE + FLIP + 0.05;
 
 // ---------- 3D table ----------
 const CARD = { w: 0.17, h: 0.24 };
 const cardGeo = new PlaneGeometry(CARD.w, CARD.h).rotateX(-Math.PI / 2);
-/** Where cards leave the shoe, and the discard tray they're swept into. */
-const SHOE = V(0.58, TOP + 0.16, -0.16), TRAY = V(-0.64, TOP + 0.02, -0.27);
+/**
+ * The shoe, as a casino's: a wedge, tall at the back, its top sloping down to a low lip at the mouth. It stands on the
+ * dealer's left, its mouth turned to the middle of the table. Its shape side on (along it, and up), and the slope.
+ */
+const SHOE_AT = V(0.62, TOP, -0.26), SHOE_YAW = -Math.PI / 2 + 0.35;
+const SHOE_SIDE: [number, number][] = [[-0.16, 0], [0.16, 0], [0.16, 0.028], [0.135, 0.045], [-0.1, 0.15], [-0.16, 0.15]];
+const SLOPE = Math.atan2(0.15 - 0.045, 0.135 + 0.1);
+/** Down the slope, and out from it, in the shoe's own space. */
+const DOWNHILL = V(0, -Math.sin(SLOPE), Math.cos(SLOPE)), OFF_SLOPE = V(0, Math.cos(SLOPE), Math.sin(SLOPE));
+/** Where the next card lies on the slope, in the shoe's space, and where one drawn out of it touches down on the felt. */
+const NEXT = V(0, 0.0975, 0.0175).addScaledVector(OFF_SLOPE, 0.004), DOWN = V(0, 0.003, 0.3);
+/** A place in the shoe's space, on the table. */
+const shoeAt = (p: Vector3) => p.clone().applyAxisAngle(V(0, 1, 0), SHOE_YAW).add(SHOE_AT);
+/** Where stacks leave the shoe for a shuffle, and the discard tray they're swept into. */
+const SHOE = shoeAt(V(0, 0.09, -0.02)), TRAY = V(-0.64, TOP + 0.02, -0.27);
 /** How thick a card is in a stack: the six decks stand about 12 cm tall. */
 const CARD_T = 0.0004;
 /** Where the dealer shuffles, where they put the stack down for the player's cut, and inside the shoe. */
-const PACK = V(0, TOP, -0.02), CUT_SPOT = V(0, TOP, 0.14), IN_SHOE = V(0.6, TOP + 0.01, -0.28);
+const PACK = V(0, TOP, -0.02), CUT_SPOT = V(0, TOP, 0.14), IN_SHOE = shoeAt(V(0, 0.01, -0.03));
 /** Where the cut card lands once it's come out of the shoe, and where the dealer slides it across to, by the player. */
 const CUT_OUT = V(0.6, TOP + 0.003, 0.03), TO_PLAYER = V(0.4, TOP + 0.012, 0.26);
 /** Where the dealer's chips are: lost stakes go there and winnings come from there. */
@@ -154,10 +171,22 @@ function buildTable() {
     new MeshLambertMaterial({ map: canvasTex(FELT_PX, FELT_PX / 2, drawFelt).tex, transparent: true, depthWrite: false }));
   print.position.set(0, TOP + 0.001, EDGE + R / 2); print.receiveShadow = true;
   g.add(print);
-  // the shoe, leaning towards the player, and the discard tray across from it
-  const shoe = mesh(new BoxGeometry(0.24, 0.16, 0.32), 0x8E1F2F, 0.6, TOP + 0.08, -0.28, true);
-  shoe.rotation.x = 0.12;
-  shoe.add(mesh(new BoxGeometry(0.18, 0.02, 0.06), 0x1F1012, 0, 0.08, 0.12));
+  // the shoe, and the discard tray across from it
+  const shoe = new Group();
+  shoe.position.copy(SHOE_AT); shoe.rotation.y = SHOE_YAW;
+  const side = new Shape(SHOE_SIDE.map(([z, y]) => new Vector2(z, y)));
+  shoe.add(mesh(new ExtrudeGeometry(side, { depth: 0.24, bevelEnabled: false }).rotateY(-Math.PI / 2).translate(0.12, 0, 0), 0x8E1F2F, 0, 0, 0, true));
+  // the next card on the slope, between two rails, its lower end tucked behind the lip at the mouth
+  const along = (o: Object3D, at: Vector3) => { o.position.copy(at); o.rotation.x = SLOPE; shoe.add(o); };
+  const next = new Mesh(cardGeo, backMat); next.receiveShadow = true;
+  along(next, NEXT);
+  const mid = V(0, 0.0975, 0.0175);
+  for (const x of [-1, 1]) along(mesh(new BoxGeometry(0.024, 0.03, 0.26), 0x6E1824, 0, 0, 0, true), mid.clone().setX(x * 0.108).addScaledVector(OFF_SLOPE, 0.012));
+  shoe.add(mesh(new BoxGeometry(0.24, 0.02, 0.03), 0x6E1824, 0, 0.047, 0.147, true));
+  shoe.add(mesh(new BoxGeometry(0.17, 0.006, 0.004), 0x1F1012, 0, 0.03, 0.161));
+  // the weight behind the cards, that keeps the next one up at the mouth, with a brass knob to lift it by
+  shoe.add(mesh(new BoxGeometry(0.17, 0.03, 0.05), 0x2A1A1C, 0, 0.165, -0.13, true));
+  shoe.add(mesh(new CylinderGeometry(0.014, 0.014, 0.022, 10), 0xD4A548, 0, 0.19, -0.13, true));
   g.add(shoe);
   g.add(mesh(new BoxGeometry(0.24, 0.03, 0.32), 0x5A1420, TRAY.x, TOP + 0.015, TRAY.z, true));
   const pile = mesh(stackGeo, stackMats, TRAY.x, TOP + 0.03, TRAY.z) as Stack;
@@ -175,7 +204,7 @@ function buildTable() {
   g.add(dealer);
   // close up, smaller than most: the dealer's top hat reaches the top of the view, and their bubble comes down over it
   const voice = speaker(g, 2.0, 0.22);
-  return { g, voice, pile, cutCard, dealerTotal: badge(g), totals: [badge(g), badge(g)], ring: activeRing(g) };
+  return { g, voice, next, pile, cutCard, dealerTotal: badge(g), totals: [badge(g), badge(g)], ring: activeRing(g) };
 }
 
 /** The gold outline round the hand being played, after a split. */
@@ -303,18 +332,53 @@ function refresh() {
 /** Puts things on the queue, `gap` seconds apart. */
 const later = (gap: number, ...steps: (() => void)[]) => steps.forEach(run => queue.push({ wait: gap, run }));
 
-/** A card out of the shoe to `to`, face down. */
-function fromShoe(card: Card, to: Vector3, done?: () => void) {
+const easeIn = (k: number) => k * k * k;
+/** Eases out past where it's going, by a little, and back. */
+const easeOutBack = (k: number, s = 1.2) => 1 + (s + 1) * Math.pow(k - 1, 3) + s * Math.pow(k - 1, 2);
+/** The way out of the shoe, on the table: the next card's place, a little way down the slope past the lip, the felt. */
+const PATH = [NEXT, NEXT.clone().addScaledVector(DOWNHILL, 0.2), DOWN].map(shoeAt);
+/**
+ * Draws `o` out of the shoe as a dealer does, and across the felt to `to`, turned `yaw`: it slides down the slope and
+ * out of the mouth, quicker as it comes, tipping flat onto the felt; then it's slid across to its place, turning square
+ * to the table as it goes, a touch past and back. Behind it, the next card slides down to the mouth.
+ */
+function drawOut(o: Object3D, to: Vector3, yaw = 0, done?: () => void) {
+  const t = table!, [from, lip, down] = PATH;
+  o.rotation.order = 'YXZ';
+  o.position.copy(from); o.rotation.x = SLOPE; o.rotation.y = SHOE_YAW;
+  cardSlide();
+  if (t.next.visible) {
+    t.next.visible = false;
+    tween(PULL, () => {}, () => {
+      t.next.visible = !prep || prep.phase === 'load';
+      tween(0.14, k => { t.next.position.copy(NEXT).addScaledVector(DOWNHILL, -0.05 * (1 - easeOut(k))); });
+    });
+  }
+  tween(PULL, k => {
+    const e = easeIn(k), a = 1 - e;
+    // a curve down the slope, out past the lip, onto the felt
+    o.position.set(a * a * from.x + 2 * a * e * lip.x + e * e * down.x, a * a * from.y + 2 * a * e * lip.y + e * e * down.y,
+      a * a * from.z + 2 * a * e * lip.z + e * e * down.z);
+    o.rotation.x = SLOPE * (1 - e);
+  }, () => {
+    o.rotation.x = 0;
+    tween(SLIDE - PULL, k => {
+      o.position.lerpVectors(down, to, easeOutBack(k, 0.6));
+      o.rotation.y = SHOE_YAW + (yaw - SHOE_YAW) * easeOutBack(k, 1.2);
+    }, () => { o.position.copy(to); o.rotation.y = yaw; cardLand(); done?.(); });
+  });
+}
+/** A card out of the shoe to `to`, face down, turned `yaw` (a double goes sideways). */
+function fromShoe(card: Card, to: Vector3, done?: () => void, yaw = 0) {
   const m = cardMesh(card);
-  m.position.copy(SHOE);
   table!.g.add(m);
-  dealSound();
-  slide(m, to, SLIDE, 0.04, done);
+  drawOut(m, to, yaw, done);
   return m;
 }
-/** Turns a card face up, slowly or not, with a little lift. */
+/** Turns a card face up, slowly or not, with a little lift, and a snap as it goes over. */
 function turnOver(m: CardMesh, dur: number, done?: () => void) {
   const y = m.position.y;
+  dealSound();
   tween(dur, k => {
     const e = easeInOut(k);
     m.rotation.z = Math.PI * (1 - e);
@@ -343,8 +407,7 @@ const show = (i: number | 'dealer', sideways = false, down = false) => () => {
   const m = fromShoe(card, at, down ? refresh : () => turnOver(m, dealer && j > 1 ? SLOW_FLIP : FLIP, () => {
     if (dealer) seen.dealer++; else seen.hands[i]++;
     refresh();
-  }));
-  if (sideways) m.rotation.y = Math.PI / 2;
+  }), sideways ? Math.PI / 2 : 0);
   row.push(m);
 };
 /** The dealer's second card: face down, until they play. */
@@ -542,8 +605,8 @@ function payOut() {
 }
 
 // ---------- the shuffle and the cut ----------
-/** Seconds: the cut card out of the shoe onto the felt, slid across to the player, and left there for them to see. */
-const OUT = 0.4, ACROSS = 1.1, SHOWN = 1.2;
+/** Seconds: the cut card slid across to the player, once it's out of the shoe, and left there for them to see. */
+const ACROSS = 1.1, SHOWN = 1.2;
 /**
  * The cut card came out with this round's cards: it comes out of the shoe onto the felt, and the dealer slides it
  * smoothly across the table to the player, flat on the felt, and leaves it there a moment before they shuffle.
@@ -551,9 +614,8 @@ const OUT = 0.4, ACROSS = 1.1, SHOWN = 1.2;
 function cutCardOut() {
   const c = table!.cutCard;
   presenting = true;
-  c.position.copy(SHOE); c.visible = true;
-  dealSound();
-  slide(c, CUT_OUT, OUT, 0.03, () => {
+  c.visible = true;
+  drawOut(c, CUT_OUT, 0, () => {
     tween(ACROSS, k => c.position.lerpVectors(CUT_OUT, TO_PLAYER, easeInOut(k)), () => {
       table!.voice.say('Cut card!');
       tween(SHOWN, () => {}, () => { presenting = false; shuffleIn = 0.4; });
@@ -586,6 +648,7 @@ function startShuffle() {
 function gather() {
   const t = table!.g, pack = prep!.pack, all = DECKS * 52, used = felt.discards;
   felt.discards = 0; showPile();
+  table!.next.visible = false; // the shoe's emptied out with the rest
   const fromTray = stackOf(used, TRAY.clone().setY(TOP + 0.03)), fromShoe = stackOf(all - used, SHOE.clone());
   slide(fromTray, PACK, 0.5, 0.08, () => t.remove(fromTray));
   slide(fromShoe, PACK.clone().setY(TOP + used * CARD_T), 0.55, 0.12, () => {
@@ -681,7 +744,7 @@ function cutAt(k: number) {
   });
   later(0.8, () => {
     msg.textContent = 'Into the shoe…';
-    slide(pack, IN_SHOE, 0.5, 0.12, () => t.remove(pack));
+    slide(pack, IN_SHOE, 0.5, 0.12, () => { t.remove(pack); table!.next.visible = true; });
     slide(c, IN_SHOE.clone().setY(IN_SHOE.y + CUT_CARD * CARD_T), 0.5, 0.12, () => { c.visible = false; });
   }, () => {
     msg.textContent = 'The dealer burns the top card…';
