@@ -253,18 +253,18 @@ describe('the rooms', () => {
     expect(cellar.roomAt(plan.POT_PAD)).toBe('kitchen');
     expect(cellar.roomAt(plan.COUNTER_PAD)).toBe('kitchen');
     expect(cellar.roomAt(plan.BIN_PADS.rice)).toBe('prep');
-    // (the dumbwaiters, their conveyors and the storage hoppers are in the lift room behind the prep hall's east wall,
-    // where nobody walks: a step towards one stops at the wall; each hopper's tray is in the hall, against it)
+    // (the dumbwaiters, their chutes and the stores are in the lift room behind the prep hall's east wall, where nobody
+    // walks: a step towards one stops at the wall; each store's tray is in the hall, against it)
     const { LIFT_ROOM, PREP } = g.layout;
     for (const k of ['rice', 'fish'] as const) {
-      for (const at of [plan.LIFTS[k], plan.HOPPERS[k]]) {
+      for (const at of [plan.LIFTS[k], plan.STORES[k]]) {
         expect(at.x).toBeGreaterThan(LIFT_ROOM.x0);
         const q = { ...at };
         g.layout.keepOnFloor(q, g.layout.walkable());
         expect(q.x).toBeLessThan(PREP.x1);
       }
-      expect(plan.BELT.to).toBeGreaterThan(LIFT_ROOM.x0);
-      expect(plan.BELT.from).toBeLessThan(plan.LIFTS[k].x);
+      expect(plan.CHUTE.to).toBeGreaterThan(LIFT_ROOM.x0);
+      expect(plan.CHUTE.from).toBeLessThan(plan.LIFTS[k].x);
       expect(plan.BINS[k].x).toBeGreaterThan(LIFT_ROOM.x0);
       // (the circle to take from it is against the wall, on the hall's side: reached only right up at the wall)
       const pad = plan.BIN_PADS[k], edge = { x: PREP.x1, z: pad.z };
@@ -272,6 +272,10 @@ describe('the rooms', () => {
       expect(Math.hypot(edge.x - pad.x, edge.z - pad.z)).toBeLessThan(pad.r);
       expect(pad.x - pad.r).toBeGreaterThan(PREP.x1 - 0.8);
     }
+    // (each chute runs downhill, from under its dumbwaiter's hatch to its lip over the store's mouth)
+    expect(cellar.LIFT_LOOP.bottom).toBeGreaterThan(plan.CHUTE.y0);
+    expect(plan.CHUTE.y0).toBeGreaterThan(plan.CHUTE.y1);
+    expect(Math.abs(plan.CHUTE.to - plan.STORES.rice.x)).toBeLessThan(0.3);
     expect(cellar.roomAt(plan.machinePad('rice', 5))).toBe('prep');
     expect(cellar.roomAt(plan.machinePad('fish', 5))).toBe('prep');
     expect(cellar.roomAt(plan.machinePad('mush', 5))).toBe('grow');
@@ -327,6 +331,27 @@ describe('the rooms', () => {
         }
       }
     }
+  });
+
+  it('slides what the dumbwaiters bring down their wooden chutes, faster as it goes, and off the lip into the store', async () => {
+    const { g, cellar, plan } = await ring();
+    const C = plan.CHUTE, z = plan.LIFTS.fish.z;
+    /** The fish lying on the fish line's chute, on its bed (not hopping on or off it), by where it is. */
+    const onChute = () => cellar.cellar.children.filter(o => o.userData.kind === 'fish' && Math.abs(o.position.z - z) < 1e-6
+      && o.position.x > C.to && o.position.x < C.from && Math.abs(o.position.y - (cellar.CY + plan.chuteY(o.position.x) + 0.045)) < 1e-6);
+    let fish = onChute()[0];
+    for (let i = 0; i < 600 && !fish; i++) { g.run(1 / 60); fish = onChute()[0]; }
+    expect(fish).toBeDefined();
+    // down the slope, every step longer than the last, then off the end and gone into the crate
+    const xs = [fish.position.x], ys = [fish.position.y];
+    while (onChute().includes(fish)) { g.run(1 / 60); xs.push(fish.position.x); ys.push(fish.position.y); }
+    expect(xs.length).toBeGreaterThan(20);
+    for (let i = 2; i < xs.length - 1; i++) {
+      expect(ys[i]).toBeLessThan(ys[i - 1]);
+      expect(xs[i - 1] - xs[i]).toBeGreaterThanOrEqual(xs[i - 2] - xs[i - 1] - 1e-9);
+    }
+    g.run(0.5);
+    expect(fish.parent).toBe(null);
   });
 });
 

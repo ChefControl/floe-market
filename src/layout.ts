@@ -20,7 +20,7 @@ export const HATCH_AT = { x: 6.0, z: -5.1 };
 /** The cellar's rooms, under the dock, side by side like one building with thin walls between: the arena (the ring,
  *  its stands, the bowl stall and the gong) to the west; down the middle Mr. Fugu's office, the landing at the foot of
  *  the ladder from his hatch, the hearth room (the pot) and through it the workshop; and to the east the prep hall, where the dumbwaiters'
- *  conveyors come in through the east wall beside the racks and barrels, and behind it the grow room, hidden until the first boss is beaten. Floors,
+ *  trays peek in through the east wall beside the racks and barrels, and behind it the grow room, hidden until the first boss is beaten. Floors,
  *  inside their walls (the walls stand in the gaps). */
 export const ARENA = { x0: -13.5, x1: 3.5, z0: -9.5, z1: 7.4 };
 export const OFFICE_ROOM = { x0: 4.1, x1: 11.0, z0: -9.5, z1: -4.1 };
@@ -31,7 +31,7 @@ export const CRAFT = { x0: 4.1, x1: 11.0, z0: 8.0, z1: 11.6 };
 export const PREP = { x0: 11.6, x1: 20.6, z0: 0.9, z1: 8.9 };
 export const GROW = { x0: 11.6, x1: 20.6, z0: -9.5, z1: 0.3 };
 /** The lift room, behind the prep hall's east wall: just the two dumbwaiters, and nobody walks in it (it's no room of
- *  ROOMS's): their conveyors carry what comes down up into a storage hopper each, which feeds a tray by the wall,
+ *  ROOMS's): what comes down them slides down a wooden chute each into a store, which keeps a tray by the wall full,
  *  handed over it to whoever stands at the circle on the hall's side. */
 export const LIFT_ROOM = { x0: 21.2, x1: 24.8, z0: 1.9, z1: 7.9 };
 export type CellarRoom = 'arena' | 'landing' | 'office' | 'kitchen' | 'prep' | 'grow' | 'craft';

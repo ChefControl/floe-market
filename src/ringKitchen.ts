@@ -5,9 +5,9 @@
 // counter and the stall; the dumbwaiter's trays going round; the hires at their work, carrying what they carry; and a
 // bubble over the pot when it waits on something (🌾? 🐟? 🍄?), or over the stall when fans wait at it with nothing to
 // eat, like the cooks upstairs.
-import { CanvasTexture, Color, Group, type Material, Mesh, MeshBasicMaterial, MeshLambertMaterial, type Object3D, PlaneGeometry, Sprite, SpriteMaterial, type Vector3 } from 'three';
-import { belts, cellar, CY, LIFT_LOOP, parts, POT_TOP, potMesh, potStew } from './cellar';
-import { BELT, BIN_PADS, BINS, COUNTER, COUNTER_PAD, HEARTH, HOPPERS, type Ing, LEDGE, LIFTS, machineAt, machinePad, MAX_MACHINES, POT, POT_PAD, STALL, STALL_PAD } from './cellarPlan';
+import { CanvasTexture, Color, Group, Mesh, MeshBasicMaterial, MeshLambertMaterial, type Object3D, PlaneGeometry, Sprite, SpriteMaterial, type Vector3 } from 'three';
+import { cellar, CY, LIFT_LOOP, parts, POT_TOP, potMesh, potStew } from './cellar';
+import { BIN_PADS, BINS, CHUTE, chuteY, COUNTER, COUNTER_PAD, HEARTH, type Ing, LEDGE, LIFTS, machineAt, machinePad, MAX_MACHINES, POT, POT_PAD, STALL, STALL_PAD, STORES } from './cellarPlan';
 import { decal, drawPad } from './decals';
 import { animPerson, belowGround, Person } from './characters';
 import { COUNTER_CAP, F, inPot, POT_CAP, poured, type Machine, mach, potWaits, type Role, STALL_CAP, type Worker } from './fight';
@@ -318,10 +318,10 @@ function drawPot(dt: number) {
 
 // ---------- the dumbwaiter ----------
 // Each dumbwaiter's trays go round and round a loop: down the front, across the bottom, up the back and across the
-// top, loaded with a sack of rice (or a fish) as they come over the top. At the bottom of the front each tips over a
-// quarter turn towards the hall and drops its load onto the conveyor at the shaft's foot, then rights itself on its way
-// round; the conveyor carries it through the wall to the plate in the hall. (It never stops: what comes down is
-// endless, and the plates never fill.)
+// top, loaded with a sack of rice (or a fish) as they come over the top. At the bottom of the front, its hatch, each
+// tips over a quarter turn towards the hall and drops its load onto the chute under the hatch, then rights itself on
+// its way round; the load slides down the chute, faster as it goes, and off its lip into the store by the wall. (It
+// never stops: what comes down is endless, and the stores and their trays never empty or fill.)
 const LL = LIFT_LOOP, DOWN = LL.top - LL.bottom, ACROSS = LL.front - LL.back, LOOP = 2 * (DOWN + ACROSS), TRAYS = 4;
 /** How much of the loop the tip takes, after it reaches the bottom: over, the drop, and back. */
 const TIP = 0.5;
@@ -342,12 +342,19 @@ const trays = (['rice', 'fish'] as const).flatMap(k => Array.from({ length: TRAY
   const load = add(pan, MAKE_RAW[k]()); load.position.set(0.2, 0.07, 0);
   return { k, g, pan, s: (i * LOOP) / TRAYS, load, dropped: false };
 }));
-// what's on each plate: a little heap, and what's just dropped onto it, landing
+// what's in each store and on each tray by the wall: a little heap in each, laid flat, always there
 for (const k of ['rice', 'fish'] as const) {
-  for (let j = 0; j < 4; j++) {
-    const m = add(cellar, MAKE_RAW[k]());
-    m.position.set(BINS[k].x + ((j % 2) - 0.5) * 0.24, CY + 0.64 + Math.floor(j / 2) * 0.06, BINS[k].z + (j < 2 ? -0.1 : 0.1) + (j % 2) * 0.05);
-    m.rotation.y = j * 1.3;
+  // (on the tray, two side by side and two on them, lengthways along the wall, clear of the store's trough)
+  const tray: [number, number, number, number][] = [[-0.02, 0.64, -0.15, 0.15], [-0.02, 0.64, 0.15, -0.1], [-0.04, 0.7, -0.08, 0.3], [-0.04, 0.7, 0.1, -0.25]];
+  // (in the store: the rice's sacks heaped in the tub, over its brim; the fish laid on the crate's ice, side by side)
+  const store: [number, number, number, number][] = k === 'rice'
+    ? [[-0.12, 0.79, -0.08, 0.4], [0.13, 0.79, -0.05, 1.5], [-0.05, 0.79, 0.14, 2.6], [-0.03, 0.83, 0.02, 3.7]]
+    : [[-0.17, 0.8, -0.05, 1.67], [0.17, 0.8, 0.06, 1.45], [-0.05, 0.84, 0.02, 1.8]];
+  for (const [at, heap, turn] of [[BINS[k], tray, Math.PI / 2], [STORES[k], store, 0]] as const) {
+    for (const [x, y, z, ry] of heap) {
+      const m = add(cellar, MAKE_RAW[k]());
+      m.position.set(at.x + x, CY + y, at.z + z); m.rotation.y = turn + ry;
+    }
   }
 }
 function drawLift(dt: number) {
@@ -359,34 +366,36 @@ function drawLift(dt: number) {
     const tip = t.s - DOWN;
     const over = tip >= 0 && tip < TIP ? Math.sin((tip / TIP) * Math.PI) : 0;
     t.pan.rotation.z = over * (Math.PI / 2);
-    // the load rides down and tips off onto the plate, which it flies to; the tray comes back up empty
+    // the load rides down and tips off onto the chute's top end, a hop down; the tray comes back up empty
     if (t.s < DOWN) { t.load.visible = true; t.dropped = false; }
     else if (!t.dropped && tip > TIP * 0.3) {
       t.dropped = true; t.load.visible = false;
       const m = add(cellar, MAKE_RAW[t.k]());
-      t.load.getWorldPosition(m.position);
-      const onto = V(BELT.from - 0.1, CY + beltY(BELT.from - 0.1) + 0.06, LIFTS[t.k].z);
-      fly(m, () => onto, 0.25, 0.15, () => riding.push(m));
+      t.load.getWorldPosition(m.position); m.rotation.set(0, 0, SLOPE);
+      const x = CHUTE.from - 0.15, onto = V(x, CY + chuteY(x) + LIE, LIFTS[t.k].z);
+      const k = t.k;
+      fly(m, () => onto, 0.2, 0.06, () => sliding.push({ m, k, v: 0.25 }));
     }
   }
-  // the conveyors: the belts run, and what's on them rides up them and tips into the hopper
-  for (const b of belts) ((b.material as Material[])[2] as MeshLambertMaterial).map!.offset.x += dt * BELT_SPEED / 0.6;
-  for (let i = riding.length - 1; i >= 0; i--) {
-    const m = riding[i];
-    m.position.x -= dt * BELT_SPEED * RUN;
-    m.position.y = CY + beltY(m.position.x) + 0.06;
-    if (m.position.x <= BELT.to) {
-      riding.splice(i, 1);
-      const into = V(HOPPERS.rice.x, CY + 1.0, m.position.z);
-      fly(m, () => into, 0.25, 0.12, () => cellar.remove(m));
+  // the chutes: what's on them slides down, picking up speed, and drops off the lip into the store
+  for (let i = sliding.length - 1; i >= 0; i--) {
+    const it = sliding[i], m = it.m;
+    it.v = Math.min(SLIDE_MAX, it.v + SLIDE_PULL * dt);
+    m.position.x -= dt * it.v * Math.cos(SLOPE);
+    m.position.y = CY + chuteY(m.position.x) + LIE;
+    if (m.position.x <= CHUTE.to) {
+      sliding.splice(i, 1);
+      const into = V(STORES[it.k].x, CY + 0.76, m.position.z);
+      fly(m, () => into, 0.22, 0.04, () => cellar.remove(m));
     }
   }
 }
-/** How fast the conveyors run (along the belt), how much of that is across, the belt's height along it, and what's
- *  riding on them. */
-const BELT_SPEED = 0.9, RUN = (BELT.from - BELT.to) / Math.hypot(BELT.from - BELT.to, BELT.y1 - BELT.y0);
-const beltY = (x: number) => BELT.y0 + ((BELT.from - x) / (BELT.from - BELT.to)) * (BELT.y1 - BELT.y0);
-const riding: Object3D[] = [];
+/** The chutes' slope, and how high off a chute's bed what slides down it lies (its middle). */
+const SLOPE = Math.atan2(CHUTE.y0 - CHUTE.y1, CHUTE.from - CHUTE.to), LIE = 0.045;
+/** How fast what's on a chute picks up speed down it (gravity, less the boards' rub), the most it gets to, and
+ *  what's sliding. */
+const SLIDE_PULL = 2.2, SLIDE_MAX = 1.8;
+const sliding: { m: Object3D; k: 'rice' | 'fish'; v: number }[] = [];
 
 // ---------- the crew ----------
 /** How each hire looks. */

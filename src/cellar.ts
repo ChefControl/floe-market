@@ -10,12 +10,12 @@
 // This module is the rooms and their furniture; where things are is cellarPlan.ts, and the kitchen's lines, the bouts
 // and the swarm draw themselves (ringKitchen.ts, dohyo.ts, swarm.ts).
 import {
-  AdditiveBlending, BackSide, BoxGeometry, type BufferGeometry, Color, ConeGeometry, CylinderGeometry, DoubleSide, Group, type Material, Matrix4,
+  AdditiveBlending, BackSide, BoxGeometry, type BufferGeometry, Color, ConeGeometry, CylinderGeometry, Group, type Material, Matrix4,
   Mesh, MeshBasicMaterial, MeshLambertMaterial, type Object3D, PlaneGeometry, PointLight, type Side as Facing, TorusGeometry, Vector3,
 } from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import {
-  BELT, BENCH, BINS, CASHIER, COUNTER, GONG, HEARTH, HOPPERS, LIFTS, machineAt, MAX_MACHINES, POT, STALL, TEPPO, TUNNEL_D, TUNNEL_W, TUNNELS,
+  BENCH, BINS, CASHIER, CHUTE, chuteY, COUNTER, GONG, HEARTH, LIFTS, machineAt, MAX_MACHINES, POT, STALL, STORES, TEPPO, TUNNEL_D, TUNNEL_W, TUNNELS,
 } from './cellarPlan';
 import { Fugu } from './fugu';
 import { ARENA, CELLAR_Y, type CellarRoom, CRAFT, DOORS, found, GROW, keepOnFloor, KITCHEN, LANDING, LIFT_ROOM, OFFICE_ROOM, PREP, pushOutOfBox, ROOMS, walkable } from './layout';
@@ -61,16 +61,17 @@ const GUESTS = [{ x: OFFICE.x - 0.75, z: DAIS.z1 + 0.75 }, { x: OFFICE.x + 0.75,
 const CABINET = { x: OFFICE_ROOM.x1 - 0.45, z: -7.3 }, TANK = { x: OFFICE_ROOM.x0 + 0.45, z: -8.4 };
 const PLANT = { x: OFFICE_ROOM.x1 - 0.5, z: OFFICE_ROOM.z1 - 0.5 }, RACK = { x: 9.65, z: OFFICE_ROOM.z1 - 0.45 };
 // the hearth room and the prep hall
-/** The dumbwaiter's height, and where in it the trays go round (front and back, bottom and top). */
+/** The dumbwaiter's height, and where in it the trays go round (front and back, bottom and top): the bottom is its
+ *  hatch, at chest height, just over the top of its chute (CHUTE.y0), so what tips off a tray there slides down it. */
 export const LIFT_H = 4.6;
-export const LIFT_LOOP = { front: 0.25, back: -0.25, bottom: 0.75, top: LIFT_H - 0.45 };
+export const LIFT_LOOP = { front: 0.25, back: -0.25, bottom: 1.6, top: LIFT_H - 0.45 };
 /** (Just over the pot's iron top, at 1.39, and under its rim: two faces at one height flicker.) */
 export const POT_TOP = 1.43;
 const SACKS = { x: PREP.x1 - 0.6, z: PREP.z0 + 0.55 };
 
 // ---------- materials ----------
 const WOOD = 0x8A5A3B, WOOD_DARK = 0x5B3424, PILE = 0x4A3A30, CLAY = 0xB88A57, STRAW = 0xD9C47E;
-const PURPLE = 0x5B3A7A, IRON = 0x2E2E33, STEEL = 0x8C959C, STEEL_DARK = 0x4B5257;
+const PURPLE = 0x5B3A7A, IRON = 0x2E2E33, STEEL = 0x8C959C;
 /** Glowing materials (lanterns, the hearth's fire, the hatch's daylight): lit only in the cellar's light. */
 const glow = (color: number, emissive: number) => new MeshLambertMaterial({ color, emissive, emissiveIntensity: 1 });
 const LANTERN_RED = glow(0xE0392B, 0xB0250F), LANTERN_PAPER = glow(0xFFF1D6, 0xFFC46A);
@@ -165,7 +166,7 @@ function gaps(r: Rect, side: Side): [number, number][] {
   const on = (a: number, b: number) => Math.abs(a - b) < 0.01;
   return DOORS.filter(t => side === 'n' ? on(t.z1, r.z0) : side === 's' ? on(t.z0, r.z1) : side === 'w' ? on(t.x1, r.x0) : on(t.x0, r.x1))
     .map(t => (side === 'n' || side === 's' ? [t.x0 - 0.3, t.x1 + 0.3] : [t.z0 - 0.3, t.z1 + 0.3]) as [number, number])
-    // (and the fans' tunnels, through the arena's back walls, and the conveyors, through the prep hall's east wall)
+    // (and the fans' tunnels, through the arena's back walls, and the lift room's trays, through the prep hall's east wall)
     .concat(r === ARENA ? TUNNELS.filter(t => t.side === side).map(t => [t.at - TUNNEL_W / 2, t.at + TUNNEL_W / 2] as [number, number]) : [])
     .concat(r === PREP && side === 'e' ? Object.values(LIFTS).map(l => [l.z - 0.4, l.z + 0.4] as [number, number]) : []);
 }
@@ -695,22 +696,48 @@ export const potMesh = (() => {
   for (let i = 0; i < 4; i++) add(t, mesh(new CylinderGeometry(0.15, 0.09, 0.08, 12), 0xC0392B, -0.3, 0.84 + i * 0.07, -0.62));
 }
 
-// ---------- the lift room: the two dumbwaiters, their conveyors, and the storage hoppers that feed the prep hall ----------
-/** The conveyors' belts, which ringKitchen.ts runs (their texture slides along). */
-export const belts: Mesh[] = [];
-/** A belt's rubber: dark, with a lighter slat across it every so often, so it's seen to move. */
-const beltTex = canvasTex(128, 32, (c, w, h) => {
-  c.fillStyle = '#26221F'; c.fillRect(0, 0, w, h);
-  c.fillStyle = '#4A433C';
-  for (let x = 0; x < w; x += 32) c.fillRect(x, 0, 6, h);
-});
-beltTex.tex.wrapS = 1000;
+// ---------- the lift room: the two dumbwaiters, their wooden chutes, and the stores that feed the prep hall ----------
+/** The lift room's woods: cedar boards in two tones, pale hinoki for the trays, bamboo, and straw rope; and the fish's
+ *  crushed ice and salt. */
+const CEDAR = 0xB98B5A, CEDAR_DARK = 0xA67A4C, HINOKI = 0xD9B98A, BAMBOO = 0xC9A86A, BAMBOO_DARK = 0xA88850;
+const ROPE = 0xCDB56C, ICE = 0xD8EBF0, SALT = 0xF4F4EE;
+/** A board hung on a store from a loop of straw rope, its line's character brushed on it in ink (米, 魚), and the
+ *  maker's red seal in the corner. */
+function inkBoard(parent: Object3D, ch: string, y: number, z: number) {
+  const t = canvasTex(96, 128, (c, w, h) => {
+    c.fillStyle = '#E2C9A0'; c.fillRect(0, 0, w, h);
+    // the grain, down the board
+    c.strokeStyle = 'rgba(140,96,56,.3)'; c.lineWidth = 2;
+    for (const gx of [12, 30, 49, 67, 84]) { c.beginPath(); c.moveTo(gx, 0); c.bezierCurveTo(gx + 5, h * 0.35, gx - 5, h * 0.65, gx + 2, h); c.stroke(); }
+    c.fillStyle = '#1B1612'; c.font = '900 72px serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.fillText(ch, w / 2, h / 2 - 8);
+    c.fillStyle = '#B23A2E'; c.fillRect(w - 28, h - 30, 16, 16);
+  });
+  const edge = mat(CEDAR_DARK);
+  const b = add(parent, new Mesh(new BoxGeometry(0.22, 0.29, 0.025), [edge, edge, edge, edge, new MeshLambertMaterial({ map: t.tex }), edge]));
+  b.position.set(0, y, z);
+  for (const s of [-1, 1]) {
+    const r = add(parent, mesh(G.rope, ROPE, s * 0.05, y + 0.2, z - 0.005)); r.scale.set(0.6, 0.13, 0.6); r.rotation.z = s * 0.6;
+  }
+  add(parent, mesh(G.sphere, WOOD_DARK, 0, y + 0.26, z - 0.01)).scale.setScalar(0.018);
+}
+/** The short trough at a store's foot, from its west side down into the tray by the wall, with the little gate that
+ *  lets out what's taken from the tray (in the store's own space: `x` its west side, `y` where the trough leaves it). */
+function spout(parent: Object3D, x: number, y: number) {
+  const g = add(parent, new Group()); g.position.set(x - 0.1, y - 0.025, 0); g.rotation.z = 0.24;
+  box(g, CEDAR_DARK, 0, 0, 0, 0.22, 0.02, 0.16);
+  for (const s of [-1, 1]) box(g, WOOD_DARK, 0, 0.03, s * 0.08, 0.22, 0.07, 0.015);
+  // (the gate: a board in two grooves, pulled up a crack, and its peg)
+  for (const s of [-1, 1]) box(parent, WOOD_DARK, x - 0.02, y + 0.03, s * 0.1, 0.03, 0.14, 0.03);
+  box(parent, CEDAR, x - 0.025, y + 0.06, 0, 0.02, 0.1, 0.18);
+  add(parent, mesh(G.cyl, WOOD_DARK, x - 0.045, y + 0.09, 0)).scale.set(0.015, 0.05, 0.015);
+}
 {
   // The dumbwaiters from the restaurant's kitchen upstairs, rice down one and fish down the other: tall timber shafts
-  // up into the dark, open at the front (to the west), their chains and the wheels they go round at the top and
-  // bottom (ringKitchen.ts sends their trays round, loaded on the way down; at the bottom each tips over and drops its
-  // load onto its conveyor, which carries it up into the storage hopper by the wall, and that fills a tray at its
-  // foot).
+  // up into the dark, open at the front (to the west) down to a hatch at chest height and boarded in below it, their
+  // chains and the wheels they go round at the top and bottom (ringKitchen.ts sends their trays round, loaded on the
+  // way down; at the hatch each tips over and drops its load onto its chute, down which it slides into the store by
+  // the wall, and that keeps a tray at its foot full).
   for (const k of ['rice', 'fish'] as const) {
     const g = add(cellar, new Group()); g.position.set(LIFTS[k].x, CY, LIFTS[k].z); g.rotation.y = -Math.PI / 2;
     const W = 0.95, D = 0.85, L = LIFT_LOOP;
@@ -722,6 +749,10 @@ beltTex.tex.wrapS = 1000;
     // (its back boarded dark, so the trays going round in front of it show)
     box(g, 0x2A1E17, 0, LIFT_H / 2, -D / 2 + 0.02, W - 0.1, LIFT_H, 0.04, false);
     box(g, WOOD_DARK, 0, LIFT_H + 0.05, 0, W + 0.2, 0.14, D + 0.2);
+    // (the hatch's sill, which the chute's top end rests on, and boards across the front under it)
+    const sill = CHUTE.y0 - 0.1;
+    box(g, WOOD_DARK, 0, sill, D / 2, W + 0.06, 0.08, 0.16);
+    for (let j = 0; j < Math.floor((sill - 0.06) / 0.19); j++) box(g, j % 2 ? CEDAR_DARK : CEDAR, 0, 0.14 + j * 0.19, D / 2 - 0.01, W - 0.1, 0.17, 0.03);
     for (const s of [-1, 1]) {
       for (const z of [L.front, L.back]) add(g, mesh(G.rope, IRON, s * 0.36, (L.bottom + L.top) / 2, z)).scale.set(1.2, L.top - L.bottom, 1.2);
       for (const y of [L.bottom, L.top]) {
@@ -730,51 +761,107 @@ beltTex.tex.wrapS = 1000;
     }
     // a lamp on its front post, lighting the trays coming down
     lantern(g, W / 2 + 0.05, 2.7, D / 2 + 0.05, false);
-    // its conveyor: a belt on rollers in a steel frame, on legs, climbing from under its front up over the hopper's mouth
-    const z = LIFTS[k].z, run = BELT.from - BELT.to, rise = BELT.y1 - BELT.y0, len = Math.hypot(run, rise);
-    const tilt = -Math.atan2(rise, run), mid = (BELT.from + BELT.to) / 2, midY = (BELT.y0 + BELT.y1) / 2;
-    const beltY = (x: number) => BELT.y0 + ((BELT.from - x) / run) * rise;
-    for (const s of [-1, 1]) box(cellar, STEEL, mid, CY + midY - 0.04, z + s * 0.27, len + 0.1, 0.1, 0.05).rotation.z = tilt;
-    for (const x of [BELT.to + 0.15, mid, BELT.from - 0.1]) {
-      const h = beltY(x) - 0.1;
-      for (const s of [-1, 1]) box(cellar, STEEL_DARK, x, CY + h / 2, z + s * 0.25, 0.05, h, 0.05);
+
+    // its chute: a bed of three cedar planks on a dark board, side boards with a bamboo pole lashed along the top of
+    // each in straw rope, and a stop across its top end; resting on the hatch's sill, and on two trestles down to its
+    // lip over the store's mouth
+    const z = LIFTS[k].z, run = CHUTE.from - CHUTE.to, len = Math.hypot(run, CHUTE.y0 - CHUTE.y1);
+    const ch = add(cellar, new Group());
+    ch.position.set((CHUTE.from + CHUTE.to) / 2, CY + (CHUTE.y0 + CHUTE.y1) / 2, z); ch.rotation.z = Math.atan2(CHUTE.y0 - CHUTE.y1, run);
+    // (in its own space: x along it, up the slope; y up off the bed's top; z across)
+    box(ch, WOOD_DARK, 0, -0.045, 0, len, 0.03, 0.46);
+    [-0.15, 0, 0.15].forEach((dz, i) => box(ch, i % 2 ? CEDAR_DARK : CEDAR, 0, -0.015, dz, len, 0.03, 0.145));
+    box(ch, WOOD_DARK, len / 2 - 0.02, 0.03, 0, 0.04, 0.12, 0.44);
+    for (const s of [-1, 1]) {
+      box(ch, WOOD_DARK, 0, 0.03, s * 0.235, len, 0.12, 0.03);
+      const pole = add(ch, mesh(G.cyl, BAMBOO, 0, 0.115, s * 0.235)); pole.scale.set(0.028, len + 0.08, 0.028); pole.rotation.z = Math.PI / 2;
+      for (let u = -len / 2 + 0.22; u < len / 2; u += 0.4) {
+        const node = add(ch, mesh(G.cyl, BAMBOO_DARK, u, 0.115, s * 0.235)); node.scale.set(0.034, 0.025, 0.034); node.rotation.z = Math.PI / 2;
+      }
+      for (const u of [-len / 2 + 0.12, 0.02, len / 2 - 0.14]) box(ch, ROPE, u, 0.07, s * 0.235, 0.04, 0.15, 0.06);
     }
-    for (const x of [BELT.to + 0.04, BELT.from - 0.04]) {
-      const roller = add(cellar, mesh(new CylinderGeometry(0.06, 0.06, 0.5, 10), IRON, x, CY + beltY(x) - 0.05, z)); roller.rotation.x = Math.PI / 2;
+    for (const x of [CHUTE.to + 0.42, (CHUTE.from + CHUTE.to) / 2 + 0.2]) {
+      const h = chuteY(x) - 0.07;
+      for (const s of [-1, 1]) {
+        box(cellar, WOOD_DARK, x, CY + h / 2, z + s * 0.2, 0.07, h, 0.07);
+        box(cellar, ROPE, x, CY + h - 0.04, z + s * 0.2, 0.09, 0.07, 0.09);
+      }
+      box(cellar, WOOD_DARK, x, CY + h - 0.03, z, 0.08, 0.06, 0.52);
+      box(cellar, WOOD, x, CY + 0.28, z, 0.04, 0.05, 0.4);
     }
-    const t = beltTex.tex.clone(); t.repeat.set(len / 0.6, 1); t.needsUpdate = true;
-    const belt = add(cellar, new Mesh(new BoxGeometry(len, 0.03, 0.46), [SIDE, SIDE, new MeshLambertMaterial({ map: t }), SIDE, SIDE, SIDE]));
-    belt.position.set(mid, CY + midY, z); belt.rotation.z = tilt; belt.receiveShadow = true;
-    belts.push(belt);
-    // the storage hopper it tips into: a riveted steel bin on legs with a funnel mouth, a window on the front to see how
-    // full it is, a lamp on top, and a plate with what's in it
-    const h = add(cellar, new Group()); h.position.set(HOPPERS[k].x, CY, z);
-    for (const [x, zz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) box(h, STEEL_DARK, x * 0.33, 0.15, zz * 0.33, 0.08, 0.3, 0.08);
-    box(h, STEEL, 0, 0.7, 0, 0.8, 0.8, 0.8);
-    for (const y of [0.32, 1.08]) box(h, STEEL_DARK, 0, y, 0, 0.84, 0.05, 0.84);
-    for (const [x, zz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) box(h, STEEL_DARK, x * 0.4, 0.7, zz * 0.4, 0.05, 0.8, 0.05);
-    for (const x of [-0.3, -0.1, 0.1, 0.3]) for (const y of [0.4, 1.0]) add(h, mesh(G.sphere, STEEL_DARK, x, y, 0.405)).scale.setScalar(0.022);
-    const mouth = add(h, new Mesh(new CylinderGeometry(0.62, 0.42, 0.3, 4, 1, true), new MeshLambertMaterial({ color: STEEL, side: DoubleSide })));
-    mouth.position.y = 1.25; mouth.rotation.y = Math.PI / 4;
-    add(h, mesh(G.box, 0x1A1714, 0, 1.11, 0)).scale.set(0.58, 0.02, 0.58);
-    const glass = add(h, new Mesh(new BoxGeometry(0.34, 0.3, 0.02), new MeshBasicMaterial({ color: 0xE8B865 })));
-    glass.position.set(-0.15, 0.78, 0.405);
-    box(h, STEEL_DARK, -0.15, 0.78, 0.4, 0.42, 0.38, 0.015);
-    const tag = canvasTex(96, 96, (c, w, hh) => {
-      c.fillStyle = '#2B3A67'; c.fillRect(0, 0, w, hh);
-      c.fillStyle = '#F4F1EA'; c.font = `800 64px ${FONT}`; c.textAlign = 'center'; c.textBaseline = 'middle';
-      c.fillText(k === 'rice' ? '米' : '魚', w / 2, hh / 2 + 4);
-    });
-    const plate = add(h, new Mesh(new PlaneGeometry(0.2, 0.2), new MeshBasicMaterial({ map: tag.tex })));
-    plate.position.set(0.22, 0.82, 0.407);
-    add(h, mesh(G.sphere, 0x7CFF8A, 0.3, 1.16, 0.3)).scale.setScalar(0.05);
-    // (its spout, and the steel tray under it, by the wall, that what's taken is handed over the wall from)
-    box(h, STEEL_DARK, -0.45, 0.62, 0, 0.12, 0.08, 0.3);
+
+    // the store it slides into, by the wall: for rice, a cedar tub on two timbers, its staves banded with braided
+    // bamboo, full of sacks; for fish, a slatted cedar crate standing in a tray of crushed ice and salt, the fish laid
+    // on ice in it (ringKitchen.ts puts what's in each); and a board hung on its front, 米 or 魚
+    const st = add(cellar, new Group()); st.position.set(STORES[k].x, CY, z);
+    if (k === 'rice') {
+      const R0 = 0.4, R1 = 0.44, Y0 = 0.1, H = 0.72, r = (y: number) => R0 + (R1 - R0) * (y - Y0) / H;
+      for (const s of [-1, 1]) box(st, WOOD_DARK, s * 0.24, Y0 / 2, 0, 0.12, Y0, 0.9);
+      add(st, mesh(new CylinderGeometry(R1, R0, H, 18, 1, true), CEDAR, 0, Y0 + H / 2, 0, true));
+      add(st, mesh(new CylinderGeometry(R1 - 0.03, R0 - 0.03, H, 18, 1, true), new MeshLambertMaterial({ color: 0x4A3424, side: BackSide }), 0, Y0 + H / 2, 0));
+      add(st, mesh(new CylinderGeometry(R0, R0, 0.02, 18), CEDAR_DARK, 0, Y0 + 0.01, 0));
+      add(st, mesh(new CylinderGeometry(r(0.74) - 0.03, r(0.74) - 0.03, 0.02, 18), 0x3A2A1E, 0, 0.74, 0));
+      add(st, mesh(new TorusGeometry(R1 - 0.015, 0.02, 5, 24), CEDAR_DARK, 0, Y0 + H, 0)).rotation.x = Math.PI / 2;
+      // (the staves' joints, on the tub's edges, leaning out with it)
+      for (let j = 0; j < 18; j++) {
+        const p = add(st, new Group()); p.rotation.y = j / 18 * Math.PI * 2;
+        box(p, CEDAR_DARK, 0, Y0 + H / 2, (R0 + R1) / 2 + 0.004, 0.014, H - 0.02, 0.012).rotation.x = Math.atan2(R1 - R0, H);
+      }
+      for (const y of [0.22, 0.7]) {
+        for (const dy of [-0.024, 0.024]) {
+          add(st, mesh(new TorusGeometry(r(y + dy) + 0.012, 0.02, 5, 24), dy < 0 ? BAMBOO : BAMBOO_DARK, 0, y + dy, 0)).rotation.x = Math.PI / 2;
+        }
+      }
+      inkBoard(st, '米', 0.44, r(0.44) + 0.03);
+      spout(st, -r(0.76), 0.76);
+    } else {
+      // (the tray of ice and salt it stands in, lumps of both round its foot)
+      for (const s of [-1, 1]) {
+        box(st, WOOD_DARK, s * 0.47, 0.08, 0, 0.03, 0.16, 0.96);
+        box(st, WOOD_DARK, 0, 0.08, s * 0.47, 0.96, 0.16, 0.03);
+      }
+      box(st, ICE, 0, 0.06, 0, 0.92, 0.12, 0.92, false);
+      for (let j = 0; j < 16; j++) {
+        const side = j % 4, u = -0.3 + Math.floor(j / 4) * 0.2, o = 0.42;
+        const [x, zz] = side === 0 ? [u, o] : side === 1 ? [o, -u] : side === 2 ? [-u, -o] : [-o, u];
+        add(st, mesh(G.sphere, j % 3 ? ICE : SALT, x, 0.12, zz)).scale.set(0.06 - (j % 2) * 0.015, 0.035, 0.05);
+      }
+      // (the crate: corner posts, four slats a side with the dark showing between them, a rail round its top, and a
+      // bed of ice inside)
+      const B = 0.76, Y0 = 0.13;
+      box(st, 0x2A1E17, 0, Y0 + 0.32, 0, B - 0.06, 0.62, B - 0.06, false);
+      for (const [x, zz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) box(st, WOOD_DARK, x * (B / 2 - 0.02), Y0 + 0.335, zz * (B / 2 - 0.02), 0.06, 0.67, 0.06);
+      for (let j = 0; j < 4; j++) {
+        const y = Y0 + 0.075 + j * 0.16, c = j % 2 ? CEDAR_DARK : CEDAR;
+        for (const s of [-1, 1]) {
+          box(st, c, 0, y, s * (B / 2 - 0.01), B - 0.1, 0.11, 0.025);
+          box(st, c, s * (B / 2 - 0.01), y, 0, 0.025, 0.11, B - 0.1);
+        }
+      }
+      for (const s of [-1, 1]) {
+        box(st, WOOD_DARK, 0, Y0 + 0.64, s * (B / 2), B + 0.02, 0.05, 0.04);
+        box(st, WOOD_DARK, s * (B / 2), Y0 + 0.64, 0, 0.04, 0.05, B + 0.02);
+      }
+      box(st, ICE, 0, Y0 + 0.6, 0, B - 0.08, 0.04, B - 0.08, false);
+      for (const [x, zz] of [[-0.26, -0.26], [0.26, -0.24], [0.25, 0.26], [-0.24, 0.25], [0, -0.28]]) {
+        add(st, mesh(G.sphere, ICE, x, Y0 + 0.63, zz)).scale.set(0.07, 0.035, 0.06);
+      }
+      inkBoard(st, '魚', 0.42, B / 2 + 0.03);
+      spout(st, -B / 2, 0.72);
+    }
+
+    // the tray at its foot, by the wall, that what's taken is handed over the wall from: a hinoki tray with a lip, on
+    // short legs, lined with a straw mat for the rice and with bamboo leaves for the fish
     const tray = add(cellar, new Group()); tray.position.set(BINS[k].x, CY, z);
-    box(tray, STEEL, 0, 0.56, 0, 0.5, 0.04, 0.72);
-    for (const s of [-1, 1]) box(tray, STEEL_DARK, 0, 0.61, s * 0.36, 0.5, 0.1, 0.03);
-    for (const s of [-1, 1]) box(tray, STEEL_DARK, s * 0.25, 0.61, 0, 0.03, 0.1, 0.72);
-    for (const s of [-1, 1]) box(tray, STEEL_DARK, 0, 0.27, s * 0.3, 0.06, 0.54, 0.06);
+    box(tray, HINOKI, 0, 0.575, 0, 0.5, 0.03, 0.72);
+    for (const s of [-1, 1]) {
+      box(tray, CEDAR_DARK, s * 0.235, 0.615, 0, 0.03, 0.07, 0.72);
+      box(tray, CEDAR_DARK, 0, 0.615, s * 0.345, 0.5, 0.07, 0.03);
+      for (const t of [-1, 1]) box(tray, WOOD_DARK, s * 0.18, 0.28, t * 0.28, 0.05, 0.56, 0.05);
+      box(tray, WOOD_DARK, s * 0.18, 0.14, 0, 0.04, 0.04, 0.56);
+    }
+    if (k === 'rice') box(tray, STRAW, 0, 0.593, 0, 0.42, 0.006, 0.64, false);
+    else for (const s of [-1, 1]) add(tray, mesh(G.sphere, s < 0 ? 0x3F7A3A : 0x4E8C45, s * 0.1, 0.593, 0)).scale.set(0.12, 0.004, 0.32);
   }
   // rice sacks in the corner
   const k = add(cellar, new Group()); k.position.set(SACKS.x, CY, SACKS.z);
@@ -1240,5 +1327,5 @@ function bakeStill(root: Object3D, keep: Set<Object3D>) {
 }
 // (the gong's disc swings, the pot's stew changes colour, Mr. Fugu puffs up; and the venue's parts and the grow room
 // come and go, so each is baked on its own)
-bakeStill(cellar, new Set<Object3D>([gongDisc, potMesh, boss, tankFish, ...belts, ...Object.values(parts)]));
+bakeStill(cellar, new Set<Object3D>([gongDisc, potMesh, boss, tankFish, ...Object.values(parts)]));
 for (const g of Object.values(parts)) bakeStill(g, new Set());
