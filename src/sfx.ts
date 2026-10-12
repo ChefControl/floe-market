@@ -154,12 +154,19 @@ export function lose() {
   marimba(deg(3), { v: 0.08 });
   marimba(deg(1), { t: 0.15, v: 0.08, d: 0.6 });
 }
-/** Blackjack: a card slid out onto the felt, and a push (your stake back): one even note. */
+/** Blackjack: a card turned over with a soft snap, and a push (your stake back): one even note. */
 export function deal() {
   noise({ f: 1300, f2: 700, q: 0.9, a: 0.01, d: 0.06, v: 0.06 });
 }
 export function push() {
   marimba(deg(5), { v: 0.08, d: 0.5 });
+}
+/** A card drawn out of the blackjack shoe, paper sliding on paper, and coming to rest on the felt with a soft pat. */
+export function cardSlide() {
+  noise({ f: 1900, f2: 900, q: 0.8, a: 0.03, d: 0.13, v: 0.045 });
+}
+export function cardLand() {
+  noise({ f: 650, kind: 'lowpass', q: 0.7, a: 0.008, d: 0.04, v: 0.05 });
 }
 /** The slot machine: its reels clacking round, each one stopping with a thunk, and the jackpot. */
 export function clack() {
