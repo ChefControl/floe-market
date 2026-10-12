@@ -247,6 +247,15 @@ describe('the rooms', () => {
     expect(cellar.roomAt(plan.POT_PAD)).toBe('kitchen');
     expect(cellar.roomAt(plan.COUNTER_PAD)).toBe('kitchen');
     expect(cellar.roomAt(plan.BIN_PADS.rice)).toBe('prep');
+    // (the dumbwaiters are in the lift room behind the prep hall's east wall, where nobody walks: a step towards one
+    // stops at the wall, and its conveyor runs through the wall to the plate)
+    for (const k of ['rice', 'fish'] as const) {
+      const q = { ...plan.LIFTS[k] };
+      g.layout.keepOnFloor(q, g.layout.walkable());
+      expect(q.x).toBeLessThan(g.layout.PREP.x1);
+      expect(plan.BELT.to).toBeLessThan(g.layout.PREP.x1);
+      expect(plan.BELT.from).toBeGreaterThan(g.layout.LIFT_ROOM.x0);
+    }
     expect(cellar.roomAt(plan.machinePad('rice', 5))).toBe('prep');
     expect(cellar.roomAt(plan.machinePad('fish', 5))).toBe('prep');
     expect(cellar.roomAt(plan.machinePad('mush', 5))).toBe('grow');

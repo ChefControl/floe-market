@@ -1,7 +1,7 @@
 // Where everything is down in the cellar (stage 3), as plain floor positions (x, z; the floor is CELLAR_Y): the stations
 // of the kitchen's lines, the pot and its ledge, the bowl counter, the stall, the gong, and the way between rooms. Kept
 // apart from the cellar's meshes (cellar.ts) so the fight night's simulation (fight.ts) can use it without them.
-import { ARENA, type CellarRoom, DOORS, GROW, KITCHEN, LANDING, OFFICE_ROOM, PREP, ROOMS } from './layout';
+import { ARENA, type CellarRoom, DOORS, GROW, KITCHEN, LANDING, LIFT_ROOM, OFFICE_ROOM, PREP, ROOMS } from './layout';
 import type { XZ } from './util';
 
 export type Ing = 'rice' | 'fish' | 'mush';
@@ -10,11 +10,15 @@ export interface Pad extends XZ { r: number }
 const pad = (x: number, z: number, r: number): Pad => ({ x, z, r });
 
 // ---------- the prep hall: the dumbwaiter, the racks along the north wall, the barrels along the south ----------
-/** The two dumbwaiters from the restaurant's kitchen, against the east wall, rice coming down one and fish the other;
- *  the plate at each one's foot its trays tip their load onto (BINS); and where to stand to take from a plate. */
-export const LIFTS: Record<'rice' | 'fish', XZ> = { rice: { x: PREP.x1 - 0.55, z: 3.0 }, fish: { x: PREP.x1 - 0.55, z: 6.8 } };
-export const BINS: Record<'rice' | 'fish', XZ> = { rice: { x: PREP.x1 - 1.4, z: 3.0 }, fish: { x: PREP.x1 - 1.4, z: 6.8 } };
-export const BIN_PADS: Record<'rice' | 'fish', Pad> = { rice: pad(PREP.x1 - 2.3, 3.0, 0.75), fish: pad(PREP.x1 - 2.3, 6.8, 0.75) };
+/** The two dumbwaiters from the restaurant's kitchen, in the lift room behind the east wall, rice coming down one and
+ *  fish the other; the plate in the hall, against the wall, that each one's conveyor carries its load through the wall
+ *  to (BINS); and where to stand to take from a plate. */
+export const LIFTS: Record<'rice' | 'fish', XZ> = { rice: { x: (LIFT_ROOM.x0 + LIFT_ROOM.x1) / 2 + 0.2, z: 3.0 }, fish: { x: (LIFT_ROOM.x0 + LIFT_ROOM.x1) / 2 + 0.2, z: 6.8 } };
+export const BINS: Record<'rice' | 'fish', XZ> = { rice: { x: PREP.x1 - 0.75, z: 3.0 }, fish: { x: PREP.x1 - 0.75, z: 6.8 } };
+export const BIN_PADS: Record<'rice' | 'fish', Pad> = { rice: pad(PREP.x1 - 1.75, 3.0, 0.75), fish: pad(PREP.x1 - 1.75, 6.8, 0.75) };
+/** Each conveyor, along x: from under the foot of its dumbwaiter's front, where the trays tip their load onto it, to
+ *  the plate's edge; and how high its belt runs. */
+export const BELT = { from: LIFTS.rice.x - 0.5, to: BINS.rice.x + 0.3, y: 0.62 };
 /** Where each line's machines stand, and where to stand to use them: racks, barrels, and the grow room's beds. */
 export const MAX_MACHINES = 6;
 export function machineAt(k: Ing, i: number): XZ {

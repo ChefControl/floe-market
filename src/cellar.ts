@@ -15,10 +15,10 @@ import {
 } from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import {
-  BINS, CASHIER, COUNTER, GONG, HEARTH, LIFTS, machineAt, MAX_MACHINES, POT, STALL, TEPPO, TUNNEL_D, TUNNEL_W, TUNNELS,
+  BELT, BINS, CASHIER, COUNTER, GONG, HEARTH, LIFTS, machineAt, MAX_MACHINES, POT, STALL, TEPPO, TUNNEL_D, TUNNEL_W, TUNNELS,
 } from './cellarPlan';
 import { Fugu } from './fugu';
-import { ARENA, CELLAR_Y, type CellarRoom, DOORS, found, GROW, keepOnFloor, KITCHEN, LANDING, OFFICE_ROOM, PREP, pushOutOfBox, ROOMS, walkable } from './layout';
+import { ARENA, CELLAR_Y, type CellarRoom, DOORS, found, GROW, keepOnFloor, KITCHEN, LANDING, LIFT_ROOM, OFFICE_ROOM, PREP, pushOutOfBox, ROOMS, walkable } from './layout';
 import { canvasTex, FONT, G, mat, mesh, paint, rr, scene } from './render';
 import type { XZ } from './util';
 
@@ -165,8 +165,9 @@ function gaps(r: Rect, side: Side): [number, number][] {
   const on = (a: number, b: number) => Math.abs(a - b) < 0.01;
   return DOORS.filter(t => side === 'n' ? on(t.z1, r.z0) : side === 's' ? on(t.z0, r.z1) : side === 'w' ? on(t.x1, r.x0) : on(t.x0, r.x1))
     .map(t => (side === 'n' || side === 's' ? [t.x0 - 0.3, t.x1 + 0.3] : [t.z0 - 0.3, t.z1 + 0.3]) as [number, number])
-    // (and the fans' tunnels, through the arena's back walls)
-    .concat(r === ARENA ? TUNNELS.filter(t => t.side === side).map(t => [t.at - TUNNEL_W / 2, t.at + TUNNEL_W / 2] as [number, number]) : []);
+    // (and the fans' tunnels, through the arena's back walls, and the conveyors, through the prep hall's east wall)
+    .concat(r === ARENA ? TUNNELS.filter(t => t.side === side).map(t => [t.at - TUNNEL_W / 2, t.at + TUNNEL_W / 2] as [number, number]) : [])
+    .concat(r === PREP && side === 'e' ? Object.values(LIFTS).map(l => [l.z - 0.4, l.z + 0.4] as [number, number]) : []);
 }
 /** The stretches of a side between its doorways. */
 function spans(r: Rect, side: Side): [number, number][] {
@@ -335,7 +336,7 @@ function wall(r: Rect, side: Side, off = 0.1, parent: Object3D = cellar) {
   }
 }
 // the ground under it all, so nothing shows the void past a floor's edge
-box(cellar, 0x2A201A, (ARENA.x0 + PREP.x1) / 2, CY - 0.3, (ARENA.z0 + PREP.z1) / 2, PREP.x1 - ARENA.x0 + 4, 0.5, PREP.z1 - ARENA.z0 + 4, false);
+box(cellar, 0x2A201A, (ARENA.x0 + LIFT_ROOM.x1) / 2, CY - 0.3, (ARENA.z0 + PREP.z1) / 2, LIFT_ROOM.x1 - ARENA.x0 + 4, 0.5, PREP.z1 - ARENA.z0 + 4, false);
 // the rooms: floors, and their walls (tall at the very back, thin and low everywhere else)
 // (each room its own: packed earth round the ring and in the grow room, stone flags in the landing and the prep hall,
 // parquet in the office, boards in the hearth room)
@@ -344,7 +345,9 @@ tallWall(ARENA, 'n'); tallWall(ARENA, 'w'); wall(ARENA, 's');
 officeWall(); wall(OFFICE_ROOM, 'w', 0.3); wall(OFFICE_ROOM, 'e', 0.3);
 wall(LANDING, 'n', 0.3); wall(LANDING, 'w', 0.3); wall(LANDING, 'e', 0.3);
 wall(KITCHEN, 'n', 0.3); wall(KITCHEN, 'w', 0.3); wall(KITCHEN, 'e', 0.3); wall(KITCHEN, 's');
-wall(PREP, 'e'); wall(PREP, 's');
+wall(PREP, 'e', 0.3); wall(PREP, 's');
+// the lift room behind the prep hall's east wall, where nobody goes: just the dumbwaiters
+floor(LIFT_ROOM, flags); wall(LIFT_ROOM, 'n', 0.3); wall(LIFT_ROOM, 'e'); wall(LIFT_ROOM, 's', 0.3);
 // the prep hall's back: a stone wall with a locked gate the player walks past every day, until the gate opens on the
 // grow room behind
 stoneWall();
@@ -689,12 +692,21 @@ export const potMesh = (() => {
   for (let i = 0; i < 4; i++) add(t, mesh(new CylinderGeometry(0.15, 0.09, 0.08, 12), 0xC0392B, -0.3, 0.84 + i * 0.07, -0.62));
 }
 
-// ---------- the prep hall: the two dumbwaiters, and the plate at the foot of each ----------
+// ---------- the lift room: the two dumbwaiters, and the conveyors through the wall to a plate each in the prep hall ----------
+/** The conveyors' belts, which ringKitchen.ts runs (their texture slides along). */
+export const belts: Mesh[] = [];
+/** A belt's rubber: dark, with a lighter slat across it every so often, so it's seen to move. */
+const beltTex = canvasTex(128, 32, (c, w, h) => {
+  c.fillStyle = '#26221F'; c.fillRect(0, 0, w, h);
+  c.fillStyle = '#4A433C';
+  for (let x = 0; x < w; x += 32) c.fillRect(x, 0, 6, h);
+});
+beltTex.tex.wrapS = 1000;
 {
   // The dumbwaiters from the restaurant's kitchen upstairs, rice down one and fish down the other: tall timber shafts
   // up into the dark, open at the front (to the west), their chains and the wheels they go round at the top and
   // bottom (ringKitchen.ts sends their trays round, loaded on the way down; at the bottom each tips over and drops its
-  // load onto the plate in front).
+  // load onto its conveyor, which carries it through the wall to the plate in the hall).
   for (const k of ['rice', 'fish'] as const) {
     const g = add(cellar, new Group()); g.position.set(LIFTS[k].x, CY, LIFTS[k].z); g.rotation.y = -Math.PI / 2;
     const W = 0.95, D = 0.85, L = LIFT_LOOP;
@@ -714,7 +726,21 @@ export const potMesh = (() => {
     }
     // a lamp on its front post, lighting the trays coming down
     lantern(g, W / 2 + 0.05, 2.7, D / 2 + 0.05, false);
-    // the plate at its foot, on a low stand: a wide glazed one for the rice, a steel one on ice for the fish
+    // its conveyor: a belt on rollers in a timber frame, on legs, from under its front through a gap in the wall to the
+    // plate's edge
+    const len = BELT.from - BELT.to, mid = (BELT.from + BELT.to) / 2, z = LIFTS[k].z;
+    for (const s of [-1, 1]) box(cellar, WOOD_DARK, mid, CY + BELT.y - 0.04, z + s * 0.27, len + 0.1, 0.12, 0.06);
+    for (const x of [BELT.to + 0.1, mid, BELT.from - 0.1]) {
+      for (const s of [-1, 1]) box(cellar, WOOD_DARK, x, CY + (BELT.y - 0.1) / 2, z + s * 0.25, 0.06, BELT.y - 0.1, 0.06);
+    }
+    for (const x of [BELT.to + 0.05, BELT.from - 0.05]) {
+      const roller = add(cellar, mesh(new CylinderGeometry(0.06, 0.06, 0.5, 10), IRON, x, CY + BELT.y - 0.05, z)); roller.rotation.x = Math.PI / 2;
+    }
+    const t = beltTex.tex.clone(); t.repeat.set(len / 0.6, 1); t.needsUpdate = true;
+    const belt = add(cellar, new Mesh(new BoxGeometry(len, 0.03, 0.46), [SIDE, SIDE, new MeshLambertMaterial({ map: t }), SIDE, SIDE, SIDE]));
+    belt.position.set(mid, CY + BELT.y, z); belt.receiveShadow = true;
+    belts.push(belt);
+    // the plate at its end, on a low stand: a wide glazed one for the rice, a steel one on ice for the fish
     const st = add(cellar, new Group()); st.position.set(BINS[k].x, CY, BINS[k].z);
     for (const [x, z] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) box(st, WOOD_DARK, x * 0.26, 0.27, z * 0.26, 0.07, 0.54, 0.07);
     box(st, WOOD, 0, 0.56, 0, 0.66, 0.05, 0.66);
@@ -964,12 +990,10 @@ export function cellarBoxes(machines: Record<'rice' | 'fish' | 'mush', number> =
     // the hearth room: the hearth and the counter behind it, and the bowl counter
     [HEARTH.x, (KITCHEN.z0 + HEARTH.z + HEARTH.d / 2 + 0.6) / 2, HEARTH.w / 2 + 0.3, (HEARTH.z + HEARTH.d / 2 + 0.6 - KITCHEN.z0) / 2 + 0.3],
     [COUNTER.x, COUNTER.z, 0.75, 1.05],
-    // the prep hall: the dumbwaiters, their plates, the sacks
-    // (long enough along the wall to meet the sacks and the bins in the corners, leaving no slot between to wedge into)
-    [LIFTS.rice.x, LIFTS.rice.z, 0.6, 0.95],
-    [LIFTS.fish.x, LIFTS.fish.z, 0.6, 0.95],
-    [BINS.rice.x, BINS.rice.z, 0.5, 0.5],
-    [BINS.fish.x, BINS.fish.z, 0.5, 0.5],
+    // the prep hall: the plates against the east wall, where the conveyors come through it, and the sacks
+    // (long enough along the wall to meet the sacks and the bin in the corners, leaving no slot between to wedge into)
+    [BINS.rice.x + 0.25, BINS.rice.z, 0.55, 0.8],
+    [BINS.fish.x + 0.25, BINS.fish.z, 0.55, 0.8],
     [SACKS.x, SACKS.z, 0.75, 0.75],
     ...KITCHEN_BINS.map((b): [number, number, number, number] => [b.x, b.z, 0.65, 0.65]),
     // the office: the dais and the desk, the safe, the visitors' chairs, the cabinet, the fish tank, the plant and the rack
@@ -1064,5 +1088,5 @@ function bakeStill(root: Object3D, keep: Set<Object3D>) {
 }
 // (the gong's disc swings, the pot's stew changes colour, Mr. Fugu puffs up; and the venue's parts and the grow room
 // come and go, so each is baked on its own)
-bakeStill(cellar, new Set<Object3D>([gongDisc, potMesh, boss, tankFish, ...Object.values(parts)]));
+bakeStill(cellar, new Set<Object3D>([gongDisc, potMesh, boss, tankFish, ...belts, ...Object.values(parts)]));
 for (const g of Object.values(parts)) bakeStill(g, new Set());

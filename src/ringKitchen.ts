@@ -5,9 +5,9 @@
 // counter and the stall; the dumbwaiter's trays going round; the hires at their work, carrying what they carry; and a
 // bubble over the pot when it waits on something (🌾? 🐟? 🍄?), or over the stall when fans wait at it with nothing to
 // eat, like the cooks upstairs.
-import { CanvasTexture, Color, Group, Mesh, MeshBasicMaterial, MeshLambertMaterial, type Object3D, PlaneGeometry, Sprite, SpriteMaterial, type Vector3 } from 'three';
-import { cellar, CY, LIFT_LOOP, parts, POT_TOP, potMesh, potStew } from './cellar';
-import { BIN_PADS, BINS, COUNTER, COUNTER_PAD, HEARTH, type Ing, LEDGE, LIFTS, machineAt, machinePad, MAX_MACHINES, POT, POT_PAD, STALL, STALL_PAD } from './cellarPlan';
+import { CanvasTexture, Color, Group, type Material, Mesh, MeshBasicMaterial, MeshLambertMaterial, type Object3D, PlaneGeometry, Sprite, SpriteMaterial, type Vector3 } from 'three';
+import { belts, cellar, CY, LIFT_LOOP, parts, POT_TOP, potMesh, potStew } from './cellar';
+import { BELT, BIN_PADS, BINS, COUNTER, COUNTER_PAD, HEARTH, type Ing, LEDGE, LIFTS, machineAt, machinePad, MAX_MACHINES, POT, POT_PAD, STALL, STALL_PAD } from './cellarPlan';
 import { decal, drawPad } from './decals';
 import { animPerson, belowGround, Person } from './characters';
 import { COUNTER_CAP, F, inPot, POT_CAP, poured, type Machine, mach, potWaits, type Role, STALL_CAP, type Worker } from './fight';
@@ -319,8 +319,9 @@ function drawPot(dt: number) {
 // ---------- the dumbwaiter ----------
 // Each dumbwaiter's trays go round and round a loop: down the front, across the bottom, up the back and across the
 // top, loaded with a sack of rice (or a fish) as they come over the top. At the bottom of the front each tips over a
-// quarter turn towards the hall and drops its load onto the plate at the shaft's foot, then rights itself on its way
-// round. (It never stops: what comes down is endless, and the plates never fill.)
+// quarter turn towards the hall and drops its load onto the conveyor at the shaft's foot, then rights itself on its way
+// round; the conveyor carries it through the wall to the plate in the hall. (It never stops: what comes down is
+// endless, and the plates never fill.)
 const LL = LIFT_LOOP, DOWN = LL.top - LL.bottom, ACROSS = LL.front - LL.back, LOOP = 2 * (DOWN + ACROSS), TRAYS = 4;
 /** How much of the loop the tip takes, after it reaches the bottom: over, the drop, and back. */
 const TIP = 0.5;
@@ -364,11 +365,21 @@ function drawLift(dt: number) {
       t.dropped = true; t.load.visible = false;
       const m = add(cellar, MAKE_RAW[t.k]());
       t.load.getWorldPosition(m.position);
-      const plate = V(BINS[t.k].x, CY + 0.72, BINS[t.k].z);
-      fly(m, () => plate, 0.35, 0.25, () => cellar.remove(m));
+      const onto = V(BELT.from - 0.1, CY + BELT.y + 0.06, LIFTS[t.k].z);
+      fly(m, () => onto, 0.25, 0.15, () => riding.push(m));
     }
   }
+  // the conveyors: the belts run, and what's on them rides to the plate, and drops onto it
+  for (const b of belts) ((b.material as Material[])[2] as MeshLambertMaterial).map!.offset.x += dt * BELT_SPEED / 0.6;
+  for (let i = riding.length - 1; i >= 0; i--) {
+    const m = riding[i];
+    m.position.x -= dt * BELT_SPEED;
+    if (m.position.x <= BELT.to + 0.05) { riding.splice(i, 1); cellar.remove(m); }
+  }
 }
+/** How fast the conveyors run, and what's riding on them. */
+const BELT_SPEED = 0.9;
+const riding: Object3D[] = [];
 
 // ---------- the crew ----------
 /** How each hire looks. */
