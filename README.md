@@ -169,7 +169,7 @@ Far out past the road, a path leaves the market (through the east fence in stage
 
 🎰 **Slot machine** ($250) and 🃏 **Blackjack table** ($400) are in the casino yacht's salon once it's in, outside the queue, in either stage.
 
-**Stage 3: The Dohyo Below** (bought at Mr. Fugu's hatch: 🐡 Buy into the ring, $1,000,000). Prices are in Fugu Chips; each opens once the boss in the Needs column is beaten. Each room sells its upgrades from one square: the prep hall's racks, barrels, washer, salter, steam baskets and smokehouse; the grow room's beds, picker and shelves; the hearth room's cook and attendant. Standing on it opens a menu of them, what's on sale first, then what's locked (saying which boss opens it), then what's done. The venue's tiers and the buyout stay tiles
+**Stage 3: The Dohyo Below** (bought at Mr. Fugu's hatch: 🐡 Buy into the ring, $1,000,000). Prices are in Fugu Chips; each opens once the boss in the Needs column is beaten. Each room sells its upgrades from one square: the prep hall's racks, barrels, washer, salter, steam baskets and smokehouse; the grow room's beds, picker and shelves; the hearth room's cook and attendant. Standing on it opens a menu of them (the camera stays where it is), what's on sale first, then what's locked (saying which boss opens it), then what's done. The venue's tiers and the buyout stay tiles
 
 | Upgrade | Cost | Needs | Effect |
 | --- | --- | --- | --- |

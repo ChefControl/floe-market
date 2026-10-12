@@ -861,6 +861,20 @@ describe("the cellar's upgrades square", () => {
     g.run(0.1);
     expect($('shop').hidden).toBe(true);
   });
+
+  it("each room's menu leaves the camera where it is; the landing's slides the view clear of the panel", async () => {
+    const { g, plan, at } = await ring({ ring: { beaten: 1 } });
+    for (const room of ['prep', 'grow', 'hearth'] as const) {
+      at(plan.ROOM_MENUS[room]);
+      g.run(0.1);
+      expect($('shop').hidden).toBe(false);
+      expect($('shop').dataset.still).toBe('1');
+    }
+    at(plan.SHOP3);
+    g.run(0.1);
+    expect($('shop').hidden).toBe(false);
+    expect($('shop').dataset.still).toBe('');
+  });
 });
 
 describe('saving the cellar', () => {
