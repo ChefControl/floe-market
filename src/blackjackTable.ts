@@ -172,7 +172,8 @@ function buildTable() {
   const dealer = new Person(SUITS[0], 'fancy');
   dealer.position.set(0, 0, -0.95);
   g.add(dealer);
-  const voice = speaker(g, 2.0);
+  // close up, smaller than most: the dealer's top hat reaches the top of the view, and their bubble comes down over it
+  const voice = speaker(g, 2.0, 0.22);
   return { g, voice, pile, cutCard, dealerTotal: badge(g), totals: [badge(g), badge(g)], ring: activeRing(g) };
 }
 

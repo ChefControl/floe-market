@@ -564,6 +564,39 @@ describe('the blackjack table', () => {
     expect((await felt()).discards).toBe(4);
   });
 
+  it("keeps the dealer's speech bubble in view over their top hat, on a computer or a phone", async () => {
+    const g = await at('blackjack', 100, 'blackjack');
+    expect(await says()).toBe('Good luck!');
+    const { Sprite, Vector3 } = await import('three');
+    const { camera, scene, slideView } = await import('../src/render'), { tableRoom } = await import('../src/ui');
+    const kit = await import('../src/casinoKit');
+    for (const [w, h, panel] of [[1024, 768, 200], [800, 600, 200], [844, 390, 170], [390, 844, 250]]) {
+      vi.stubGlobal('innerWidth', w); vi.stubGlobal('innerHeight', h);
+      camera.aspect = w / h; camera.updateProjectionMatrix();
+      const pw = Math.min(w * 0.94, 440);
+      vi.spyOn($('blackjack'), 'getBoundingClientRect').mockReturnValue({ left: (w - pw) / 2, top: h - panel - 10, width: pw, height: panel } as DOMRect);
+      let v = kit.tableView(0.1);
+      for (let i = 0; i < 40; i++) v = kit.tableView(0.1);
+      // the camera where the game puts it, sat at the table, and the bubble sized and placed for it
+      const view = () => {
+        camera.position.copy(v.eye); camera.lookAt(v.at); slideView(tableRoom.x, tableRoom.y);
+        scene.updateMatrixWorld(); camera.updateMatrixWorld();
+      };
+      view(); g.run(0.02); view();
+      // the bubble faces the camera: its corners are out along the camera's up and right
+      let bubble = null as InstanceType<typeof Sprite> | null;
+      scene.traverse(o => { if (o instanceof Sprite && o.visible && o.renderOrder === 5) bubble = o; });
+      const at0 = bubble!.getWorldPosition(new Vector3());
+      const up = new Vector3(0, 1, 0).applyQuaternion(camera.quaternion), right = new Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
+      for (const [x, y] of [[-1, -1], [-1, 1], [1, -1], [1, 1]]) {
+        const p = at0.clone().addScaledVector(right, x * bubble!.scale.x / 2).addScaledVector(up, y * bubble!.scale.y / 2).project(camera);
+        expect(Math.abs(p.x)).toBeLessThan(1);
+        expect(Math.abs(p.y)).toBeLessThan(1);
+      }
+    }
+    vi.unstubAllGlobals();
+  });
+
   it('shuffles a fresh shoe in front of the player, riffling it three times, then offers them the cut', async () => {
     const g = await at('blackjack', 100, 'blackjack');
     expect($('bjMsg').textContent).toBe('A fresh shoe: the dealer shuffles…');
