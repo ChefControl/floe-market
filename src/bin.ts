@@ -79,7 +79,7 @@ function bin(at: Vector3, s: StageN, down: boolean, make: (g: Group) => Group, t
 /** Beside the places things are picked up: on the dock, the fish pile (behind it, by the water: out of the way to the
  *  counter, and well away from Mr. Fugu's hatch, and
  *  none by the harpoon at the fishing spot); on the farm path (stage 2), the farmer's stack of rice and the patch; in the cellar's kitchen (stage
- *  3), old oil drums by the bowls' counter and the dumbwaiter's crate. Each far enough from its
+ *  3), old oil drums by the arena's door and the dumbwaiter's crate. Each far enough from its
  *  station that the station's own tip still shows there. */
 export const BINS: Bin[] = [
   bin(V(3.1, FY, -6.0), 1, false, pedal, -0.4),

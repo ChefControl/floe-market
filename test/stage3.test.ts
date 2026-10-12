@@ -306,6 +306,43 @@ describe('the rooms', () => {
     }
   });
 
+  it("keeps the bowl counter's circle out of the way: going through the hearth room takes no bowls, walking up to the counter does", async () => {
+    const { g, cellar, plan, F, at } = await ring();
+    const { cellarRoute } = await import('./bot');
+    const P = plan.COUNTER_PAD, boxes = cellar.cellarBoxes(), back = g.player.back;
+    // every way through the hearth room, round its furniture, between its doorways (from the landing, the arena, the
+    // prep hall and the workshop) and from each to the pot, passes the circle more than a body's width wide of it
+    const ends = [cellar.LADDER_FOOT, plan.STALL_PAD, plan.BIN_PADS.rice, plan.BENCH_PAD, plan.POT_PAD];
+    for (const a of ends) for (const b of ends) {
+      if (a === b) continue;
+      let here = { x: a.x, z: a.z };
+      for (const w of cellar.cellarWay(here, b)) {
+        for (const p of cellarRoute(boxes, here, w, g.layout.ROOMS[cellar.roomAt(w)])) {
+          for (let k = 0; k <= 40; k++) {
+            const x = here.x + (p.x - here.x) * k / 40, z = here.z + (p.z - here.z) * k / 40;
+            expect(Math.hypot(x - P.x, z - P.z), `from ${a.x}, ${a.z} to ${b.x}, ${b.z}, at ${x.toFixed(2)}, ${z.toFixed(2)}`).toBeGreaterThan(P.r + 0.3);
+          }
+          here = p;
+        }
+      }
+    }
+    // walking past it, from the prep hall's doorway to the workshop's, with bowls on the counter: none taken
+    F().counter.push(...Array<boolean>(20).fill(false));
+    const L = g.layout, prep = L.DOORS.find(d => d.b === 'prep')!, craft = L.DOORS.find(d => d.b === 'craft')!;
+    const from = { x: L.KITCHEN.x1 - 0.3, z: (prep.z0 + prep.z1) / 2 }, to = { x: (craft.x0 + craft.x1) / 2, z: L.KITCHEN.z1 - 0.3 };
+    for (let k = 0; k <= 80; k++) { at({ x: from.x + (to.x - from.x) * k / 80, z: from.z + (to.z - from.z) * k / 80 }); g.run(1 / 60); }
+    expect(back.count('bowl')).toBe(0);
+    // but walking up to it, the player stops at its side, still on the circle, and their arms fill
+    at({ x: P.x - 0.8, z: P.z });
+    for (let i = 0; i < 60; i++) { g.player.g.position.x += 0.05; g.run(1 / 60); }
+    expect(g.player.g.position.x).toBeLessThan(plan.COUNTER.x - 0.5);
+    expect(Math.hypot(g.player.g.position.x - P.x, g.player.g.position.z - P.z)).toBeLessThan(P.r);
+    expect(back.count('bowl')).toBeGreaterThan(0);
+    // (and the circle's on the hearth room's floor, against the counter, and clear of it)
+    expect(cellar.roomAt(P)).toBe('kitchen');
+    expect(boxes.some(([cx, cz, hx, hz]) => Math.abs(P.x - cx) < hx && Math.abs(P.z - cz) < hz)).toBe(false);
+  });
+
   it('has a clear way, round all the furniture and six of every machine, on every leg of the work', async () => {
     const { g, cellar, plan } = await ring({ ring: RING_DONE });
     const { cellarRoute } = await import('./bot');
@@ -313,7 +350,7 @@ describe('the rooms', () => {
     const boxes = cellar.cellarBoxes(six);
     const inside = (x: number, z: number) => boxes.some(([cx, cz, hx, hz]) => Math.abs(x - cx) < hx - 0.01 && Math.abs(z - cz) < hz - 0.01);
     const stops = [cellar.LADDER_FOOT, plan.BIN_PADS.rice, plan.machinePad('rice', 5), plan.BIN_PADS.fish, plan.machinePad('fish', 5),
-      plan.machinePad('mush', 5), plan.POT_PAD, plan.COUNTER_PAD, plan.STALL_PAD, plan.GONG_PAD, plan.WATCH, plan.BIN_PADS.rice];
+      plan.machinePad('mush', 5), plan.POT_PAD, plan.COUNTER_PAD, plan.STALL_PAD, plan.GONG_PAD, plan.WATCH, plan.BENCH_PAD, plan.BIN_PADS.rice];
     for (const s of stops) expect(inside(s.x, s.z), `stop at ${s.x}, ${s.z}`).toBe(false);
     for (let i = 1; i < stops.length; i++) {
       let here = { x: stops[i - 1].x, z: stops[i - 1].z };
@@ -974,6 +1011,27 @@ describe("the workshop's crafting bench", () => {
     g.run(0.1);
     expect($('shop').hidden).toBe(true);
     expect($('craft').hidden).toBe(true);
+  });
+
+  it("is through a doorway by the bench, at the west end of the hearth room's south wall, that opens onto its square", async () => {
+    const { g, cellar, plan, at } = await ring({ money: 10_000_000 });
+    const L = g.layout, d = L.DOORS.find(t => t.b === 'craft')!, B = plan.BENCH_PAD, HALF = 0.95;
+    // the doorway's in the west half of the wall, with the bench's square straight ahead through it
+    expect(d.x1).toBeLessThan((L.CRAFT.x0 + L.CRAFT.x1) / 2);
+    expect(B.x + HALF).toBeGreaterThan(d.x0 + 0.3);
+    expect(B.x - HALF).toBeLessThan(d.x1 - 0.3);
+    // nothing in the doorway, or within a metre of it either side, or on the square
+    const boxes = cellar.cellarBoxes({ rice: 6, fish: 6, mush: 6 });
+    const hits = (x0: number, x1: number, z0: number, z1: number) => boxes.filter(([cx, cz, hx, hz]) => cx + hx > x0 && cx - hx < x1 && cz + hz > z0 && cz - hz < z1);
+    expect(hits(d.x0, d.x1, d.z0 - 1, d.z1 + 1)).toEqual([]);
+    expect(hits(B.x - HALF, B.x + HALF, B.z - HALF, B.z + HALF)).toEqual([]);
+    // walking straight in from the hearth room: through the doorway and onto the square, which opens the bench's menu
+    const x = (d.x0 + d.x1) / 2;
+    at({ x, z: d.z0 - 1 });
+    for (let i = 0; i < 60; i++) { g.player.g.position.z += 0.05; g.run(1 / 60); }
+    expect(g.player.g.position.z).toBeCloseTo(d.z0 + 2, 5);
+    expect(g.player.g.position.x).toBeCloseTo(x, 5);
+    expect($('shop').hidden).toBe(false);
   });
 
   it('on a touch screen it opens folded, a Craft button out of the thumb\'s way, with a ✕ to fold it again', async () => {
