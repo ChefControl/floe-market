@@ -37,7 +37,7 @@ export const QUEUE_KEY = 'floe-reports', COUNT_KEY = 'floe-report-count';
 /** How many reports wait on the device at most (each can be a few hundred kB). */
 const QUEUE_MAX = 2;
 /** The panels that can be open over the game, for the report's `live` state. */
-const PANELS = ['shop', 'look', 'roulette', 'blackjack', 'korki', 'scores', 'cloudPick', 'stale', 'hint'];
+const PANELS = ['shop', 'look', 'roulette', 'blackjack', 'slots', 'bubbly', 'korki', 'scores', 'cloudPick', 'stale', 'hint'];
 
 const $ = (id: string) => document.getElementById(id)!;
 
