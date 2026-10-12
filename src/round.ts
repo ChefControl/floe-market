@@ -1,5 +1,5 @@
-// What every casino round shares (roulette.ts, slots.ts): the money it moves, which the game's table applies to the
-// wallet. A round never touches the wallet itself.
+// What every casino round shares (roulette.ts, slots.ts, blackjack.ts): the money it moves, which the game's table
+// applies to the wallet. A round never touches the wallet itself.
 
 /**
  * The money a round moves, for whoever holds the wallet to apply: `take` comes out of the player's cash, `pay` goes

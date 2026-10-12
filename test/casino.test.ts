@@ -1,9 +1,8 @@
 // The casino boat: the games' rules, the boat and the way out to it, and each game as the player plays it. A roulette
-// round's rules and money are in roulette.test.ts, a slots round's in slots.test.ts.
+// round's rules and money are in roulette.test.ts, a slots round's in slots.test.ts, and blackjack's (the shoe too) in
+// blackjack.test.ts.
 import { describe, expect, it, vi } from 'vitest';
-import {
-  canSplit, cutShoe, dealerDraws, handValue, insuranceCost, isBlackjack, newShoe, rankName, settle, type Card, type Suit,
-} from '../src/blackjack';
+import { rankName, Shoe, type Card, type Suit } from '../src/blackjack';
 import { WHEEL } from '../src/roulette';
 import { bought, loadGame } from './helpers';
 
@@ -13,67 +12,6 @@ const button = (sel: string) => document.querySelector<HTMLButtonElement>(sel)!;
 /** A card: 1 is an ace, 11 to 13 the faces. */
 const c = (rank: number, suit: Suit = '♠'): Card => ({ rank, suit });
 const saved = () => JSON.parse(localStorage.getItem('floe-market-v1')!).money;
-
-describe('blackjack rules', () => {
-  it('counts an ace as 11 until that would bust the hand', () => {
-    expect(handValue([c(1), c(6)])).toEqual({ total: 17, soft: true });
-    expect(handValue([c(1), c(6), c(10)])).toEqual({ total: 17, soft: false });
-    expect(handValue([c(1), c(1), c(9)])).toEqual({ total: 21, soft: true });
-    expect(handValue([c(13), c(12), c(2)]).total).toBe(22);
-  });
-
-  it('a blackjack is 21 in two cards', () => {
-    expect(isBlackjack([c(1), c(13)])).toBe(true);
-    expect(isBlackjack([c(1), c(5), c(5)])).toBe(false);
-  });
-
-  it('the dealer draws to 17 and stands on any 17, soft or not', () => {
-    expect(dealerDraws([c(1), c(6)], [c(5)])).toEqual([]);
-    const shoe = [c(9), c(4), c(2)];
-    expect(dealerDraws([c(10), c(3)], shoe)).toEqual([c(2), c(4)]);
-    expect(shoe).toEqual([c(9)]);
-  });
-
-  it('pays 3 to 2 for blackjack, double for a win, and the stake back for a push', () => {
-    expect(settle([c(1), c(13)], [c(10), c(9)], 10)).toEqual({ outcome: 'blackjack', payout: 25 });
-    expect(settle([c(1), c(13)], [c(10), c(9)], 25).payout).toBe(62); // rounded down to whole dollars
-    expect(settle([c(1), c(13)], [c(1), c(12)], 10)).toEqual({ outcome: 'push', payout: 10 });
-    expect(settle([c(10), c(9)], [c(10), c(7)], 10)).toEqual({ outcome: 'win', payout: 20 });
-    expect(settle([c(10), c(7)], [c(10), c(9)], 10)).toEqual({ outcome: 'lose', payout: 0 });
-    expect(settle([c(10), c(8)], [c(9), c(9)], 10)).toEqual({ outcome: 'push', payout: 10 });
-    expect(settle([c(10), c(5), c(9)], [c(10), c(6), c(9)], 10)).toEqual({ outcome: 'bust', payout: 0 }); // you bust first
-    expect(settle([c(10), c(8)], [c(10), c(6), c(9)], 10)).toEqual({ outcome: 'win', payout: 20 });
-    expect(settle([c(7), c(7), c(7)], [c(1), c(10)], 10)).toEqual({ outcome: 'lose', payout: 0 }); // 21 isn't blackjack
-  });
-
-  it('splits pairs (any two tens too), and a 21 from a split is no blackjack', () => {
-    expect(canSplit([c(8), c(8, '♥')])).toBe(true);
-    expect(canSplit([c(13), c(10)])).toBe(true);
-    expect(canSplit([c(8), c(9)])).toBe(false);
-    expect(canSplit([c(8), c(8), c(8)])).toBe(false);
-    expect(settle([c(1), c(13)], [c(10), c(9)], 10, true)).toEqual({ outcome: 'win', payout: 20 });
-    expect(settle([c(1), c(13)], [c(1), c(12)], 10, true)).toEqual({ outcome: 'lose', payout: 0 });
-  });
-
-  it('insurance costs half the stake, in whole dollars', () => {
-    expect(insuranceCost(25)).toBe(12);
-    expect(insuranceCost(1)).toBe(0);
-  });
-
-  it('shuffles six decks into the shoe', () => {
-    const shoe = newShoe();
-    expect(shoe).toHaveLength(312);
-    expect(shoe.filter(x => x.rank === 1 && x.suit === '♥')).toHaveLength(6);
-    expect(newShoe()).not.toEqual(shoe);
-  });
-
-  it('cuts the shoe: the cards above the cut go to the bottom, and the one under them comes out next', () => {
-    const shoe = [c(1), c(2), c(3), c(4), c(5)]; // the 5 is on top
-    expect(cutShoe(shoe, 2)).toEqual([c(4), c(5), c(1), c(2), c(3)]);
-    expect(cutShoe(shoe, 2).pop()).toEqual(c(3));
-    expect(shoe).toEqual([c(1), c(2), c(3), c(4), c(5)]);
-  });
-});
 
 type Game = Awaited<ReturnType<typeof loadGame>>;
 /** Stands the player on a game's pad, on a save with the boat (and `more` games) bought. */
@@ -505,6 +443,8 @@ describe('the blackjack table', () => {
   /** Seconds from stepping up to a fresh shoe to the stack being down for the player's cut, and from the cut to the
    *  stack being in the shoe with its top card burned. */
   const SHUFFLE = 6, LOAD = 3.5;
+  /** `cards` (the next one out last) cut `k` from the top, as the shoe cuts them. */
+  const cutShoe = (cards: Card[], k: number) => { const s = Shoe.of([...cards].reverse()); s.cut(k); return s.left; };
   /** Moves the cut card in the stack, `k` cards from the top. */
   const slideCut = (k: number) => {
     const s = $('cutAt') as HTMLInputElement;
