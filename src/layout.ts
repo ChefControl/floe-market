@@ -43,7 +43,8 @@ export const DOORS: { a: CellarRoom; b: CellarRoom; x0: number; x1: number; z0: 
   { a: 'landing', b: 'office', x0: (OFFICE_ROOM.x0 + OFFICE_ROOM.x1) / 2 - 0.6, x1: (OFFICE_ROOM.x0 + OFFICE_ROOM.x1) / 2 + 0.6, z0: OFFICE_ROOM.z1, z1: LANDING.z0 },
   { a: 'kitchen', b: 'arena', x0: ARENA.x1, x1: KITCHEN.x0, z0: 4.9, z1: 6.1 },
   { a: 'kitchen', b: 'prep', x0: KITCHEN.x1, x1: PREP.x0, z0: 4.4, z1: 5.6 },
-  { a: 'kitchen', b: 'craft', x0: 9.3, x1: 10.5, z0: KITCHEN.z1, z1: CRAFT.z0 },
+  // (towards the west end of the hearth room's south wall, so it opens straight onto the crafting bench's square)
+  { a: 'kitchen', b: 'craft', x0: 6.0, x1: 7.2, z0: KITCHEN.z1, z1: CRAFT.z0 },
   // (at the east end of the prep hall's back wall, past the racks along it)
   { a: 'prep', b: 'grow', x0: 18.5, x1: 19.7, z0: GROW.z1, z1: PREP.z0 },
 ];

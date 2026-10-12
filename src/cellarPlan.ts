@@ -52,9 +52,11 @@ export const LEDGE: Record<Ing, XZ> = {
 /** Where ingredients are dropped off, and where standing keeps the pot cooking (until there's a cook). */
 export const POT_PAD = pad(HEARTH.x, HEARTH.z + 1.95, 0.9);
 export const COOK_AT = { x: HEARTH.x + 1.45, z: HEARTH.z + 1.6 };
-/** The counter the bowls come out on, by the arena's door, and where to stand to pick them up. */
-export const COUNTER = { x: KITCHEN.x0 + 0.65, z: KITCHEN.z0 + 2.3 };
-export const COUNTER_PAD = pad(KITCHEN.x0 + 1.7, KITCHEN.z0 + 2.3, 0.75);
+/** The counter the bowls come out on: a low table against the east wall, in the corner south of the prep hall's door,
+ *  where nobody passes (the doorways and the pot are all north and west of it); and where to stand to pick them up, a
+ *  small circle right against its side, so only someone who walks up to the counter takes any, not anyone going by. */
+export const COUNTER = { x: KITCHEN.x1 - 0.65, z: KITCHEN.z1 - 0.75 };
+export const COUNTER_PAD = pad(COUNTER.x - 0.95, COUNTER.z, 0.5);
 
 // ---------- the arena: the bowl stall, the gong and its window, the watch spot ----------
 /** The bowl stall, just inside the arena by the hearth room's door, facing the floor; where to stand behind it to set
@@ -97,7 +99,7 @@ export const OFFICE_DOOR = { x: (OFFICE_ROOM.x0 + OFFICE_ROOM.x1) / 2, z: OFFICE
 // ---------- where the crew stand when there's nothing to do ----------
 export const HOME = {
   washer: { x: PREP.x0 + 0.9, z: PREP.z0 + 2.3 }, salter: { x: PREP.x0 + 0.9, z: PREP.z1 - 2.3 },
-  picker: { x: (GROW.x0 + GROW.x1) / 2 + 1.6, z: GROW.z1 - 0.9 }, cook: COOK_AT, attendant: { x: KITCHEN.x0 + 1.5, z: KITCHEN.z1 - 1.0 },
+  picker: { x: (GROW.x0 + GROW.x1) / 2 + 1.6, z: GROW.z1 - 0.9 }, cook: COOK_AT, attendant: { x: COUNTER_PAD.x - 0.5, z: KITCHEN.z1 - 0.35 },
 } as const;
 
 // ---------- getting about ----------
