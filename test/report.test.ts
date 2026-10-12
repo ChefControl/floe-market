@@ -173,6 +173,18 @@ describe('reporting a bug or an idea', () => {
     expect($('reportWarn').hidden).toBe(true);
   });
 
+  it("lists the panels open over the game in the game state, every casino game's included", async () => {
+    await start();
+    const casino = [...document.querySelectorAll<HTMLElement>('.casino')];
+    expect(casino.map(p => p.id)).toEqual(['roulette', 'blackjack', 'slots', 'bubbly']);
+    casino.forEach(p => { p.hidden = false; });
+    $('reportCat').click();
+    write('Stuck on the boat');
+    $('reportSend').click();
+    await vi.waitFor(() => expect(fake.reports).toHaveLength(1));
+    expect(JSON.parse(String(fake.reports[0].r.live)).open).toEqual(expect.arrayContaining(casino.map(p => p.id)));
+  });
+
   it('sends the note, the picture and the game state, and thanks the player', async () => {
     const { g } = await start();
     window.dispatchEvent(new ErrorEvent('error', { message: 'boom' }));
