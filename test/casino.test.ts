@@ -629,7 +629,7 @@ describe('the blackjack table', () => {
     expect((await felt()).shuffle).toBe('due');
   });
 
-  it('finishes the round when the cut card comes out, then shuffles again', async () => {
+  it('finishes the round when the cut card comes out, the dealer slides it across to the player, then shuffles again', async () => {
     const g = await at('blackjack', 100, 'blackjack');
     (await import('../src/blackjackTable')).stackShoe([c(10), c(10), c(9), c(7)], 50);
     click('#deal');
@@ -637,9 +637,12 @@ describe('the blackjack table', () => {
     click('#stand');
     g.run(STOOD);
     expect($('bjMsg').textContent).toBe('19 beats 17: you win $50!');
-    expect(await felt()).toMatchObject({ cutCard: true, shuffle: 'due' });
+    expect(await felt()).toMatchObject({ cutCard: true, presenting: true, shuffle: 'due' });
     expect($('deal').hidden).toBe(true);
-    g.run(2.6);
+    g.run(1.6);
+    expect(await says()).toBe('Cut card!'); // across the felt, by the player
+    expect(await felt()).toMatchObject({ cutCard: true, presenting: true, shuffle: 'due' });
+    g.run(1.8);
     expect($('bjMsg').textContent).toBe("The cut card's out: the dealer shuffles…");
     g.run(1);
     expect(await felt()).toMatchObject({ hands: [[]], dealer: [], discards: 0, cutCard: false });
