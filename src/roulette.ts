@@ -2,6 +2,7 @@
 // money, or green (the zero) at 35 to 1. A round is played here, free of the table and the wallet, so it's easy to
 // test: the table animates it and applies the money it moves.
 import type { Moves } from './round';
+import { money } from './util';
 
 /** Pocket order around the wheel, clockwise from zero. */
 export const WHEEL = [
@@ -46,4 +47,11 @@ export function startRound(bet: Bet, stake: number, cash: number, rng: () => num
   let owed = win;
   const settle = (): Moves => { const pay = owed; owed = 0; return { owed: 0, pay }; };
   return { round: { bet, stake, pocket, win, settle }, moves: { take: stake, owed } };
+}
+
+/** What the table says once a round's settled: the pocket, and the win or loss. */
+export function resultLine(r: RouletteRound) {
+  const color = colorOf(r.pocket);
+  const name = `${r.pocket} ${color[0].toUpperCase()}${color.slice(1)}`;
+  return r.win > 0 ? `${name}: you win ${money(r.win)}!` : `${name}: the house wins.`;
 }

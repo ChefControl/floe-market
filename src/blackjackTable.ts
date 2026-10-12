@@ -14,7 +14,7 @@ import {
   BoxGeometry, CylinderGeometry, Group, Mesh, MeshLambertMaterial, PlaneGeometry, Vector3, type Object3D,
 } from 'three';
 import {
-  BlackjackRound, CUT_CARD, DECKS, handValue, isBlackjack, isBust, isRed, PLAYER_CUT, rankName, Shoe, total, type Card,
+  BlackjackRound, CUT_CARD, DECKS, handValue, isBust, isRed, PLAYER_CUT, rankName, resultLine, Shoe, type Card,
 } from './blackjack';
 import { badge, cheer, chipStack, easeInOut, gamePad, greeting, settleTweens, slide, speaker, Stakes, tween } from './casinoKit';
 import { Person, SUITS } from './characters';
@@ -499,21 +499,6 @@ function finish() {
   refresh();
 }
 
-/** What the message says about a single hand's result. */
-function sayOne(r: BlackjackRound) {
-  const h = r.hands[0], x = r.results[0], d = r.dealer;
-  switch (x.outcome) {
-    case 'blackjack': return `Blackjack! You win ${money(x.payout)}!`;
-    case 'even': return `Even money: you win ${money(x.payout)}!`;
-    case 'win': return isBust(d) ? `Dealer busts with ${total(d)}: you win ${money(x.payout)}!`
-      : `${total(h.cards)} beats ${total(d)}: you win ${money(x.payout)}!`;
-    case 'push': return `${total(h.cards)} each: a push, your ${money(h.stake)} back.`;
-    case 'bust': return `Bust with ${total(h.cards)}: the house wins.`;
-    case 'lose': return isBlackjack(d) ? 'Dealer has blackjack: the house wins.' : `Dealer has ${total(d)}: the house wins.`;
-  }
-}
-const VERB = { win: 'wins', push: 'pushes', bust: 'busts', lose: 'loses', blackjack: 'wins', even: 'wins' } as const;
-
 /** The chips on the felt settle up: lost ones go to the rack, winnings come out beside the stake, and what's the
  *  player's slides back to them. */
 function payChips(r: BlackjackRound) {
@@ -546,13 +531,7 @@ function payOut() {
   else lose();
   if (back >= 5 * staked) table!.voice.say('Big win!');
   else if (isBust(r.dealer)) table!.voice.say('I bust!');
-  const d = r.dealer;
-  const lead = isBust(d) ? `Dealer busts with ${total(d)}` : isBlackjack(d) ? 'Dealer has blackjack' : `Dealer has ${total(d)}`;
-  if (r.hands.length > 1) {
-    const each = r.results.map((x, i) => `hand ${i + 1} ${VERB[x.outcome]}`).join(', ');
-    msg.textContent = `${lead}: ${each}. ${back > 0 ? `${money(back)} back.` : 'The house wins.'}`;
-  } else if (r.insured) msg.textContent = `Dealer has blackjack: insurance pays ${money(r.insured)}.`;
-  else msg.textContent = sayOne(r);
+  msg.textContent = resultLine(r);
   if (shoe.due) cutCardOut();
   refresh();
 }

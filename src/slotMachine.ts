@@ -9,7 +9,7 @@ import { GAMES, pushOutOfBox } from './layout';
 import { bake, bakePainted, canvasTex, FONT, G, mesh, painted, rr, scene, type Part } from './render';
 import { clack, jackpot, lose, reelStop, win } from './sfx';
 import type { Moves } from './round';
-import { lineMultiplier, REEL, startRound, THREE, TWO_CHERRIES, type SlotsRound, type Sym } from './slots';
+import { lineMultiplier, REEL, resultLine, startRound, THREE, TWO_CHERRIES, type SlotsRound } from './slots';
 import { popText } from './ui';
 import { money, V, type XZ } from './util';
 import { addMoney, wallet } from './wallet';
@@ -195,7 +195,6 @@ function startSpin() {
 }
 pullBtn.addEventListener('click', startSpin);
 
-const say = (syms: readonly Sym[]) => syms.join(' ');
 /** Whether the player has pulled yet: until then the panel greets them. */
 let played = false;
 
@@ -211,8 +210,7 @@ function settle() {
     cheer();
     if (syms.every(x => x === syms[0])) bank!.sign.say(syms[0] === '7' ? 'JACKPOT!' : `${syms.join('')}!`);
   } else lose();
-  msg.textContent = won <= 0 ? `${say(syms)}: no luck this time.`
-    : lineMultiplier(syms) === THREE['7'] ? `Jackpot! You win ${money(won)}!` : `${say(syms)}: you win ${money(won)}!`;
+  msg.textContent = resultLine(s.round);
   redraw(won > 0);
   refresh();
 }
