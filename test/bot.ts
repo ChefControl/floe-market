@@ -203,7 +203,7 @@ export function play(g: Game, seconds: number, dt = 0.05, ring?: Ring) {
     }
     if (back.count('bowl') && F.stall.length < f.STALL_CAP) { go(P.STALL_PAD, () => !back.count('bowl') || F.stall.length >= f.STALL_CAP, 25); return; }
     const carrying = () => f.inPot().some(k => back.count(READY[k]));
-    if (carrying()) { go(P.POT_PAD, () => !carrying() && (!!F.hires.cook || !f.canCook() || f.counterFull()), 25); return; }
+    if (carrying()) { go(P.POT_PAD, () => !carrying() && (!!F.hires.cook || !f.canCook() || f.potFull()), 25); return; }
     // raw ones for a line that's been hired out from under them: into the bin, so their arms are free for bowls
     const toss = () => { const bin = cellar.KITCHEN_BINS[0]; go({ x: bin.x + 0.95, z: bin.z }, () => back.n === 0, 10, true); };
     if ((['rice', 'fish'] as const).some(k => F.hires[HIRE[k]] && back.count(k)) && !back.count('bowl') && !carrying()) { toss(); return; }
@@ -211,7 +211,7 @@ export function play(g: Game, seconds: number, dt = 0.05, ring?: Ring) {
       go(P.COUNTER_PAD, () => !back.hasRoom() || !F.counter.length, 15);
       return;
     }
-    if (!F.hires.cook && f.canCook() && !f.counterFull()) { go(P.POT_PAD, () => !f.canCook() || f.counterFull(), 15); return; }
+    if (!F.hires.cook && f.canCook() && !f.potFull()) { go(P.POT_PAD, () => !f.canCook() || f.potFull(), 15); return; }
     // the lines with no hire, the one the pot's shortest of first: ready ones out, raw ones in
     for (const k of [...f.inPot()].sort((a, b) => F.pantry[a] - F.pantry[b])) {
       if (F.hires[HIRE[k]]) continue;

@@ -10,10 +10,11 @@ export interface Pad extends XZ { r: number }
 const pad = (x: number, z: number, r: number): Pad => ({ x, z, r });
 
 // ---------- the prep hall: the dumbwaiter, the racks along the north wall, the barrels along the south ----------
-/** The dumbwaiter from the restaurant's kitchen, against the east wall, and the rice bin and fish crate it fills. */
-export const LIFT = { x: PREP.x1 - 0.6, z: 4.9 };
-export const BINS: Record<'rice' | 'fish', XZ> = { rice: { x: PREP.x1 - 1.0, z: 3.0 }, fish: { x: PREP.x1 - 1.0, z: 6.8 } };
-export const BIN_PADS: Record<'rice' | 'fish', Pad> = { rice: pad(PREP.x1 - 1.95, 3.0, 0.75), fish: pad(PREP.x1 - 1.95, 6.8, 0.75) };
+/** The two dumbwaiters from the restaurant's kitchen, against the east wall, rice coming down one and fish the other;
+ *  the plate at each one's foot its trays tip their load onto (BINS); and where to stand to take from a plate. */
+export const LIFTS: Record<'rice' | 'fish', XZ> = { rice: { x: PREP.x1 - 0.55, z: 3.0 }, fish: { x: PREP.x1 - 0.55, z: 6.8 } };
+export const BINS: Record<'rice' | 'fish', XZ> = { rice: { x: PREP.x1 - 1.4, z: 3.0 }, fish: { x: PREP.x1 - 1.4, z: 6.8 } };
+export const BIN_PADS: Record<'rice' | 'fish', Pad> = { rice: pad(PREP.x1 - 2.3, 3.0, 0.75), fish: pad(PREP.x1 - 2.3, 6.8, 0.75) };
 /** Where each line's machines stand, and where to stand to use one: racks, barrels, and the grow room's beds. */
 export const MAX_MACHINES = 6;
 export function machineAt(k: Ing, i: number): XZ {
@@ -23,7 +24,7 @@ export function machineAt(k: Ing, i: number): XZ {
 }
 export function machinePad(k: Ing, i: number): Pad {
   const m = machineAt(k, i);
-  return k === 'rice' ? pad(m.x, m.z + 1.0, 0.5) : k === 'fish' ? pad(m.x, m.z - 1.0, 0.5) : pad(m.x, m.z + 0.95, 0.6);
+  return k === 'rice' ? pad(m.x, m.z + 1.0, 0.7) : k === 'fish' ? pad(m.x, m.z - 1.0, 0.7) : pad(m.x, m.z + 0.95, 0.75);
 }
 
 // ---------- the hearth room: the pot, its ledge, the bowl counter ----------
@@ -63,6 +64,15 @@ export const TUNNELS = [
   { side: 'w' as const, at: 6.2, mouth: { x: ARENA.x0 + 0.5, z: 6.2 }, deep: { x: ARENA.x0 - TUNNEL_D + 0.6, z: 6.2 } },
   { side: 'n' as const, at: -11.9, mouth: { x: -11.9, z: ARENA.z0 + 0.5 }, deep: { x: -11.9, z: ARENA.z0 - TUNNEL_D + 0.6 } },
 ];
+
+// ---------- each room's upgrade square ----------
+/** Where each room's upgrades are sold, on one square that opens a menu of them (shop.ts): in the middle of the prep
+ *  hall between its racks and barrels, between the grow room's two rows of beds, and in the hearth room behind the
+ *  pot. */
+export type MenuRoom = 'prep' | 'grow' | 'hearth';
+export const ROOM_MENUS: Record<MenuRoom, XZ> = {
+  prep: { x: 15.0, z: 4.9 }, grow: { x: 14.7, z: GROW.z1 - 4.25 }, hearth: { x: HEARTH.x + 0.3, z: HEARTH.z + 4.3 },
+};
 
 // ---------- the landing and the office ----------
 /** Stage 3's upgrade square, in the middle of the landing. */

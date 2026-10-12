@@ -64,7 +64,7 @@ describe('the bins', () => {
     g.placePlayer(bin.at.x, bin.at.z + 0.95);
     g.press('e'); g.run(0.1);
     expect(g.player.back.n).toBe(0);
-    g.player.back.put(items.newSteak());
+    g.player.back.put(items.newFillet());
     g.run(0.5);
     expect(g.player.back.n).toBe(1);
     g.press('e', 'keyup');

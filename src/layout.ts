@@ -13,8 +13,9 @@ export const level = { down: false };
 /** How far down the cellar's floor is. Under the dock, out of the way of everything above and out of the camera's
  *  sight while it looks down on the cellar. */
 export const CELLAR_Y = -30;
-/** Mr. Fugu's hatch in the dock (stage 2 on), the way down to the cellar. */
-export const HATCH_AT = { x: 6.0, z: -3.3 };
+/** Mr. Fugu's hatch in the dock (there from the start, shut till stage 3), the way down to the cellar: out towards the water, so that meeting him
+ *  there has the sea behind him, and his tile fits between it and the restaurant. */
+export const HATCH_AT = { x: 6.0, z: -5.1 };
 
 /** The cellar's rooms, under the dock, side by side like one building with thin walls between: the arena (the ring,
  *  its stands, the bowl stall and the gong) to the west; down the middle Mr. Fugu's office, the landing at the foot of
@@ -42,10 +43,16 @@ export const DOORS: { a: CellarRoom; b: CellarRoom; x0: number; x1: number; z0: 
 /** Which of the cellar's rooms have been found: the grow room only once the first boss is beaten. */
 export const found = { grow: false };
 const shown = (r: CellarRoom) => r !== 'grow' || found.grow;
+/** How far a walker's middle keeps from a cellar wall: about their width, so they stop at its face, not halfway in. */
+const BODY = 0.2;
 const cellarFloors = () => [
-  ...(Object.entries(ROOMS) as [CellarRoom, typeof ARENA][]).filter(([k]) => shown(k)).map(([, r]) => r),
-  ...DOORS.filter(d => shown(d.a) && shown(d.b)),
-].map(r => ({ x0: r.x0, x1: r.x1, z0: r.z0, z1: r.z1, y: CELLAR_Y }));
+  ...(Object.entries(ROOMS) as [CellarRoom, typeof ARENA][]).filter(([k]) => shown(k))
+    .map(([, r]) => ({ x0: r.x0 + BODY, x1: r.x1 - BODY, z0: r.z0 + BODY, z1: r.z1 - BODY })),
+  // a doorway reaches that far into the rooms either side (across the wall it's in: its narrow way), to meet them
+  ...DOORS.filter(d => shown(d.a) && shown(d.b)).map(d => d.x1 - d.x0 < d.z1 - d.z0
+    ? { x0: d.x0 - BODY, x1: d.x1 + BODY, z0: d.z0, z1: d.z1 }
+    : { x0: d.x0, x1: d.x1, z0: d.z0 - BODY, z1: d.z1 + BODY }),
+].map(r => ({ ...r, y: CELLAR_Y }));
 
 export interface Area { x0: number; x1: number; z0: number; z1: number; y: number }
 const area = (x0: number, x1: number, z0: number, z1: number, y = FY): Area => ({ x0, x1, z0, z1, y });

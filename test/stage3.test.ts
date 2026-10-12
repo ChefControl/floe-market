@@ -19,9 +19,19 @@ async function ring(save: SaveFixture = {}) {
   const at = (p: { x: number; z: number }) => g.player.g.position.set(p.x, cellar.CY, p.z);
   /** The cellar now (fight.ts swaps its state object, so always read it fresh). */
   const F = () => fight.F;
-  /** Stands on a tile with the money for it until it's bought. */
+  /** Stands on a tile with the money for it until it's bought (or, for a room's upgrade, on the room's square, and
+   *  taps it in the menu). */
   const buy = (id: string) => {
     const t = g.unlocks.tiles.find(x => x.id === id)!;
+    if (t.menu) {
+      at(plan.ROOM_MENUS[t.menu]);
+      g.run(0.1);
+      const b = document.querySelector<HTMLButtonElement>(`#shopRows [data-tile="${id}"]`);
+      if (!b || b.disabled) throw new Error(`${id} isn't on sale in its menu`);
+      b.click();
+      g.run(0.1);
+      return t;
+    }
     at(t);
     g.press('e');
     const n = t.line ? F().lines[t.line].n : -1;
@@ -32,8 +42,9 @@ async function ring(save: SaveFixture = {}) {
   };
   return { g, cellar, plan, fight, dohyo, gong, swarm, front, stage, ringSound, at, F, buy };
 }
-/** The stage 3 tiles on offer now. */
-const offered = (g: Awaited<ReturnType<typeof loadGame>>) => g.unlocks.visibleTiles().filter(t => t.stage === 3).map(t => t.id);
+/** The stage 3 upgrades on offer now: on tiles, and in the rooms' menus. */
+const offered = (g: Awaited<ReturnType<typeof loadGame>>) =>
+  [...g.unlocks.visibleTiles().filter(t => t.stage === 3), ...g.unlocks.menuOffer()].map(t => t.id);
 
 describe('buying into the ring', () => {
   it('the gold tile by the hatch takes the player down to the cellar, with a show', async () => {
@@ -89,7 +100,7 @@ describe('buying into the ring', () => {
   it('the stage chip says when all five bosses are beaten, and the buyout is all that is on offer', async () => {
     const { g } = await ring({ ring: RING_DONE });
     expect($('stageCount').textContent).toBe('Buyout ready');
-    expect(offered(g).filter(id => !['rack', 'barrel', 'bed'].includes(id))).toEqual(['steam', 'smoke', 'shelves', 'buyout']);
+    expect(offered(g).filter(id => !['rack', 'barrel', 'bed'].includes(id)).sort()).toEqual(['buyout', 'shelves', 'smoke', 'steam']);
   });
 });
 
@@ -137,8 +148,8 @@ describe('the ladder', () => {
     g.placePlayer(g.layout.HATCH_AT.x + 2, g.layout.HATCH_AT.z);
     g.run(0.2);
     // ...and going down, what's carried up top stays there
-    const { newSteak } = await import('../src/items');
-    g.player.back.put(newSteak());
+    const { newFillet } = await import('../src/items');
+    g.player.back.put(newFillet());
     g.placePlayer(g.layout.HATCH_AT.x, g.layout.HATCH_AT.z);
     g.run(1.2);
     expect(level.down).toBe(true);
@@ -220,6 +231,26 @@ describe('the rooms', () => {
     expect(g.player.g.position.x).toBeLessThanOrEqual(L.ARENA.x1 + 1e-6);
   });
 
+  it("stops the player at a wall's face, and pushes them out of the prep hall's corners without a jitter", async () => {
+    const { g, cellar } = await ring();
+    const L = g.layout;
+    // walking north into the prep hall's back wall: they stop a body's width short of the floor's edge
+    g.player.g.position.set(16, cellar.CY, 3);
+    for (let i = 0; i < 90; i++) { g.player.g.position.z -= 0.05; g.run(1 / 60); }
+    expect(g.player.g.position.z).toBeCloseTo(L.PREP.z0 + 0.2, 5);
+    // wedged between the dumbwaiter and the sacks, or between it and the bins: out to one clear spot, and kept there
+    for (const at of [{ x: 20.2, z: 2.25 }, { x: 20.2, z: 7.7 }, { x: 20.5, z: 8.8 }]) {
+      g.player.g.position.set(at.x, cellar.CY, at.z);
+      g.run(1 / 30);
+      const was = g.player.g.position.clone();
+      g.run(0.3);
+      expect(g.player.g.position.distanceTo(was), `from ${at.x}, ${at.z}`).toBeLessThan(1e-6);
+      const boxes = cellar.cellarBoxes({ rice: 1, fish: 1, mush: 0 }), { x, z } = was;
+      expect(boxes.some(([cx, cz, hx, hz]) => Math.abs(x - cx) < hx - 1e-6 && Math.abs(z - cz) < hz - 1e-6)).toBe(false);
+      expect(cellar.roomAt({ x, z })).toBe('prep');
+    }
+  });
+
   it('has a clear way, round all the furniture and six of every machine, on every leg of the work', async () => {
     const { g, cellar, plan } = await ring({ ring: RING_DONE });
     const { cellarRoute } = await import('./bot');
@@ -248,71 +279,139 @@ describe('the kitchen, by hand', () => {
   it('rice and fish from the bins, ready in the rack and the barrel, cooked into bowls, and sold to the fans for chips', async () => {
     const { g, plan, fight, at, F } = await ring();
     const back = g.player.back;
-    // the bins: an armful of rice, then of fish
+    const cap = fight.MACH.rice[0].cap;
+    // the dumbwaiter: only as much rice as the drying rack has room for (not an armful it can't take)
     at(plan.BIN_PADS.rice);
     g.run(0.3);
     expect(back.count('rice')).toBe(2);
     g.run(2);
-    expect(back.count('rice')).toBe(back.cap);
-    // the drying rack takes two; they're ready after its time
+    expect(back.count('rice')).toBe(cap);
+    expect(back.hasRoom()).toBe(true);
+    // the drying rack takes them all; they're ready after its time
     at(plan.machinePad('rice', 0));
-    g.run(0.5);
-    expect(F().lines.rice.m[0].items).toHaveLength(2);
-    expect(back.count('rice')).toBe(back.cap - 2);
+    g.run(1);
+    expect(F().lines.rice.m[0].items).toHaveLength(cap);
+    expect(back.count('rice')).toBe(0);
+    // with the rack full, the dumbwaiter hands out no more
+    at(plan.BIN_PADS.rice);
+    g.run(1);
+    expect(back.count('rice')).toBe(0);
+    at(plan.machinePad('rice', 0));
     g.run(fight.MACH.rice[0].time);
-    // ready ones come out into the player's arms, and the next raw ones go in
-    expect(back.count('rrice')).toBe(2);
-    expect(F().lines.rice.m[0].items).toHaveLength(2);
-    expect(F().lines.rice.m[0].items.every(p => p < 1)).toBe(true);
-    // fish: the bin is full-armed already, so drop the rice off first (at the pot, ready rice onto the ledge)
+    // ready ones come out into the player's arms
+    expect(back.count('rrice')).toBe(cap);
+    expect(F().lines.rice.m[0].items).toHaveLength(0);
+    // at the pot, the ready rice onto the ledge...
     at(plan.POT_PAD);
-    g.run(0.5);
-    expect(F().pantry.rice).toBe(2);
+    g.run(1);
+    expect(F().pantry.rice).toBe(cap);
     expect(back.count('rrice')).toBe(0);
     // ...and with no fish, the pot waits on it
     expect(fight.potWaits()).toBe('fish');
     expect(F().counter).toHaveLength(0);
-    for (const m of back.all().filter(x => x.userData.kind === 'rice')) { back.takeKind('rice'); g.render.scene.remove(m); }
     at(plan.BIN_PADS.fish);
     g.run(2);
+    expect(back.count('fish')).toBe(fight.MACH.fish[0].cap);
     at(plan.machinePad('fish', 0));
-    g.run(0.5 + fight.MACH.fish[0].time);
-    expect(back.count('cfish')).toBe(2);
-    // two of each on the ledge: the pot cooks two batches while the player stands at it
+    g.run(1 + fight.MACH.fish[0].time);
+    expect(back.count('cfish')).toBe(fight.MACH.fish[0].cap);
+    // the pot cooks a batch, four of each, while the player stands at it: its bowls go into the pot, which ladles them
+    // out onto the counter a bowl at a time
     at(plan.POT_PAD);
-    g.run(1.5);
-    expect(F().pantry).toMatchObject({ rice: 0, fish: 0 });
-    expect(F().counter).toHaveLength(2 * fight.BATCH);
-    // bowls from the counter to the stall
+    g.runUntil(() => F().pot.length > 0, 5);
+    g.run(0.2);
+    expect(F().pantry).toMatchObject({ rice: cap - fight.PER_BATCH, fish: cap - fight.PER_BATCH });
+    expect(F().pot.length).toBeGreaterThan(0);
+    expect(F().pot.length + F().counter.length).toBe(fight.BATCH);
+    g.run(3);
+    expect(F().pot).toHaveLength(0);
+    expect(F().counter).toHaveLength(fight.BATCH);
+    expect(fight.potWaits()).toBe('rice'); // (two of each left: not enough for another)
+    // bowls from the counter to the stall, an armful
     for (const m of back.all()) { back.takeKind(m.userData.kind); g.render.scene.remove(m); }
     at(plan.COUNTER_PAD);
-    g.run(1);
-    expect(back.count('bowl')).toBe(2 * fight.BATCH);
+    g.run(2);
+    const n = Math.min(back.cap, fight.BATCH);
+    expect(back.count('bowl')).toBe(n);
     const money = g.wallet.money;
     at(plan.STALL_PAD);
-    g.run(1);
+    g.run(2);
     expect(back.count('bowl')).toBe(0);
     // the fans walk in and eat: each bowl's chips, less Mr. Fugu's 30%, go into the wallet
-    g.runUntil(() => F().stall.length === 0, 60);
+    g.runUntil(() => F().stall.length === 0, 200);
     g.run(0.1);
-    expect(g.wallet.money - money).toBeCloseTo(2 * fight.BATCH * fight.PRICE * fight.CUT * fight.CHIP, 0);
-    expect(fight.strength()).toBe(2 * fight.BATCH);
-    expect($('powerN').textContent).toBe(String(2 * fight.BATCH));
+    expect(g.wallet.money - money).toBeCloseTo(n * fight.PRICE * fight.CUT * fight.CHIP, 0);
+    expect(fight.strength()).toBe(n);
+    expect($('powerN').textContent).toBe(String(n));
   });
 
   it('at a machine with full arms, swaps ready ones for raw ones, one for one', async () => {
-    const { g, plan, at, F } = await ring();
+    const { g, plan, fight, at, F } = await ring();
     const back = g.player.back;
+    const cap = fight.MACH.rice[0].cap;
+    // a rack of ready rice counts as room: the dumbwaiter hands out a rackful
+    F().lines.rice.m[0].items = Array(cap).fill(1);
     at(plan.BIN_PADS.rice);
     g.run(3);
-    expect(back.hasRoom()).toBe(false);
-    F().lines.rice.m[0].items = [1, 1];
+    expect(back.count('rice')).toBe(cap);
+    // arms full (with bowls besides)
+    const { newBowl } = await import('../src/items');
+    while (back.hasRoom()) back.put(newBowl(false));
     at(plan.machinePad('rice', 0));
-    g.run(0.5);
-    expect(back.count('rrice')).toBe(2);
-    expect(back.count('rice')).toBe(back.cap - 2);
-    expect(F().lines.rice.m[0].items).toHaveLength(2);
+    g.run(1);
+    expect(back.count('rrice')).toBe(cap);
+    expect(back.count('rice')).toBe(0);
+    expect(F().lines.rice.m[0].items).toHaveLength(cap);
     expect(F().lines.rice.m[0].items.every(p => p < 0.2)).toBe(true);
+  });
+
+  it('a full rack passes the rest along to the next one in reach', async () => {
+    const { g, plan, fight, at, F } = await ring();
+    const back = g.player.back;
+    const cap = fight.MACH.rice[0].cap;
+    fight.addMachine('rice');
+    at(plan.BIN_PADS.rice);
+    g.run(3);
+    expect(back.count('rice')).toBe(2 * cap);
+    at(plan.machinePad('rice', 0));
+    g.run(2);
+    expect(F().lines.rice.m[0].items).toHaveLength(cap);
+    expect(F().lines.rice.m[1].items).toHaveLength(cap);
+    expect(back.count('rice')).toBe(0);
+  });
+
+  it('the pot, the counter and the stall are each their own: a batch fills the pot, ladled out onto the counter', async () => {
+    const { g, F, fight } = await ring();
+    const { potShows } = await import('../src/ringKitchen');
+    F().pot.length = 0; F().counter.length = 0;
+    g.run(0.1);
+    expect(potShows()).toEqual({ stew: 0, tag: 0, landed: 0 });
+    // a batch in the pot: the stew up, the tag saying how many bowls
+    for (let i = 0; i < fight.BATCH; i++) F().pot.push(false);
+    g.run(1 / 60);
+    expect(potShows().stew).toBeCloseTo(fight.BATCH / fight.POT_CAP, 1);
+    expect(potShows().tag).toBeGreaterThan(fight.BATCH - 2);
+    // out a bowl at a time onto the counter, the stew going down with each, the bowls flying over
+    g.run(0.5);
+    expect(potShows().stew).toBeGreaterThan(0);
+    expect(potShows().stew).toBeLessThan(fight.BATCH / fight.POT_CAP - 0.05);
+    expect(F().counter.length).toBeGreaterThan(0);
+    expect(F().pot.length + F().counter.length).toBe(fight.BATCH);
+    g.run(3);
+    expect(potShows()).toEqual({ stew: 0, tag: 0, landed: fight.BATCH });
+    expect(F().counter).toHaveLength(fight.BATCH);
+    // carrying bowls from the counter to the stall leaves the pot as it is
+    F().counter.splice(0, 3);
+    g.run(0.5);
+    expect(potShows()).toEqual({ stew: 0, tag: 0, landed: fight.BATCH - 3 });
+    // and a full counter stops the ladle: what's left waits in the pot
+    while (F().counter.length < fight.COUNTER_CAP) F().counter.push(false);
+    F().pot.push(true, true);
+    g.run(1);
+    expect(F().pot).toHaveLength(2);
+    F().counter.splice(0, 5);
+    g.run(1);
+    expect(F().pot).toHaveLength(0);
   });
 
   it('says what it wants over the pot and the stall, and what each place does at it', async () => {
@@ -323,7 +422,7 @@ describe('the kitchen, by hand', () => {
     expect(fight.potWaits()).toBe('rice');
     expect(bubbles().pot).toBe('rice'); // 🌾?
     expect(bubbles().stall).toBe(true); // 🍲?: fans waiting, nothing out
-    F().pantry.rice = 3;
+    F().pantry.rice = fight.PER_BATCH;
     g.run(0.2);
     expect(bubbles().pot).toBe('fish');
     // the tips
@@ -526,11 +625,43 @@ describe("the cellar's tiles", () => {
     buy('rack');
     expect(F().lines.rice.n).toBe(2);
     expect(t.done).toBe(false);
-    expect(t.d.mesh.visible).toBe(true);
+    expect(g.unlocks.menuOffer()).toContain(t);
     expect(t.cost).toBe(Math.round(fight.MACH_COST.rice * fight.MACH_STEP) * fight.CHIP);
     for (let n = 3; n <= 6; n++) { buy('rack'); expect(F().lines.rice.n).toBe(n); }
     expect(t.done).toBe(true);
     expect(offered(g)).not.toContain('rack');
+  });
+
+  it("each room sells its upgrades from one square: a menu of them, what's locked saying which boss opens it", async () => {
+    const { g, plan, at, F } = await ring({ money: 10_000_000 });
+    // no tiles of their own on the prep hall's floor
+    expect(g.unlocks.visibleTiles().filter(t => t.menu)).toEqual([]);
+    at(plan.ROOM_MENUS.prep);
+    g.run(0.1);
+    expect($('shop').hidden).toBe(false);
+    expect($('shopTitle').textContent).toBe('Prep hall upgrades');
+    const rows = [...$('shopRows').querySelectorAll<HTMLButtonElement>('[data-tile]')];
+    expect(rows.map(b => b.dataset.tile)).toEqual(['rack', 'washer', 'barrel', 'salter', 'steam', 'smoke']);
+    const rack = rows[0];
+    expect(rack.textContent).toContain('Another drying rack · 1 of 6');
+    expect(rack.textContent).toContain('🐡 10');
+    expect(rack.disabled).toBe(false);
+    // the steam baskets wait on the second boss, and say so
+    const steam = rows[4];
+    expect(steam.disabled).toBe(true);
+    expect(steam.textContent).toContain('After beating Yokobashiri 🦀');
+    // tapping buys it outright
+    rack.click();
+    g.run(0.1);
+    expect(F().lines.rice.n).toBe(2);
+    expect($('shopRows').querySelector('[data-tile="rack"]')!.textContent).toContain('2 of 6');
+    // the grow room's square is there once the grow room is
+    at(plan.ROOM_MENUS.grow);
+    g.run(0.1);
+    expect($('shop').hidden).toBe(true);
+    at(plan.ROOM_MENUS.hearth);
+    g.run(0.1);
+    expect($('shopTitle').textContent).toBe('Hearth upgrades');
   });
 
   it('hires the crew, who run their lines and the pot by themselves', async () => {
@@ -661,6 +792,36 @@ describe('the buyout, and the front', () => {
     const { front } = await ring();
     expect(front.front.mode).toBe('trickle');
     history.replaceState(null, '', '/');
+  });
+});
+
+describe("Mr. Fugu's office", () => {
+  it('he has a word for whoever steps up to his desk: a new one each time, by how the ring is doing', async () => {
+    const { g, F, at } = await ring();
+    const office = await import('../src/office');
+    const lines = office.fuguLines();
+    expect(lines[0]).toContain('Thirty percent');
+    expect(lines.join(' ')).toContain('Hakkaku');
+    expect(office.fuguSays()).toBe('');
+    at(office.DESK_PAD);
+    g.run(0.2);
+    expect(office.fuguSays()).toBe(lines[0]);
+    // standing there, he doesn't repeat himself; off and back on, the next line
+    g.run(1);
+    expect(office.fuguSays()).toBe(lines[0]);
+    at({ x: office.DESK_PAD.x, z: office.DESK_PAD.z + 2 });
+    g.run(0.2);
+    at(office.DESK_PAD);
+    g.run(0.2);
+    expect(office.fuguSays()).toBe(lines[1]);
+    // and the bubble goes after a while
+    g.run(10);
+    expect(office.fuguSays()).toBe('');
+    // a boss beaten: the grow room's his secret
+    F().beaten = 1;
+    expect(office.fuguLines().join(' ')).toContain('mushrooms');
+    F().boughtOut = true;
+    expect(office.fuguLines()[0]).toContain('your house');
   });
 });
 

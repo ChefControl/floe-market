@@ -1,7 +1,7 @@
 // Fight night (stage 3): the stew kitchen under the dock and the fans who eat from it, as a simulation of plain data.
 // Rice and fish come down the dumbwaiter without end; the racks dry rice and the barrels salt fish, a few at a time,
-// and (once the first boss is beaten) the grow room's beds grow mushrooms. The pot takes one of each ingredient there
-// is and makes a batch of 5 bowls, which go out to the stall in the arena. 💪 is how many fans were fed in the last
+// and (once the first boss is beaten) the grow room's beds grow mushrooms. The pot takes four of each ingredient there
+// is and makes a batch of 20 bowls, which go out to the stall in the arena. 💪 is how many fans were fed in the last
 // minute.
 //
 // Every bout goes the same way: the fans come in and buy soup at the stall (preparation), take their seats round the
@@ -33,9 +33,9 @@ export const CHIP = 1000;
 export interface MachineKind { name: string; cap: number; time: number }
 /** Each line's machine, and the big upgrade that swaps them all: how many it holds, and seconds to make them ready. */
 export const MACH: Record<Ing, [MachineKind, MachineKind]> = {
-  rice: [{ name: 'Drying rack', cap: 2, time: 8 }, { name: 'Steam baskets', cap: 6, time: 5 }],
-  fish: [{ name: 'Salt barrel', cap: 2, time: 8 }, { name: 'Smokehouse', cap: 6, time: 5 }],
-  mush: [{ name: 'Mushroom bed', cap: 2, time: 8 }, { name: 'Glowing shelf', cap: 5, time: 4 }],
+  rice: [{ name: 'Drying rack', cap: 6, time: 8 }, { name: 'Steam baskets', cap: 10, time: 5 }],
+  fish: [{ name: 'Salt barrel', cap: 6, time: 8 }, { name: 'Smokehouse', cap: 10, time: 5 }],
+  mush: [{ name: 'Mushroom bed', cap: 6, time: 8 }, { name: 'Glowing shelf', cap: 9, time: 4 }],
 };
 export interface Boss {
   face: string; name: string; crowd: number; bell: number; prize: number;
@@ -59,7 +59,10 @@ export const TIERS = [
 /** A batch of the pot, the bowls the stall and the counter hold, and how many of each ingredient the ledge holds. */
 /** Seconds a boss's crowd takes to walk in from the back door to the stall, before his bell starts. */
 export const WALK_IN = 6;
-export const BATCH = 5, STALL_CAP = 30, COUNTER_CAP = 20, LEDGE_CAP = 40;
+/** A batch: four of each ingredient in the pot makes twenty bowls (five a set, as when it took one of each, before the
+ *  machines held four more). The pot holds two batches, ladled out onto the counter a bowl every LADLE seconds; the
+ *  counter holds two batches too. */
+export const PER_BATCH = 4, BATCH = 20, POT_CAP = 40, COUNTER_CAP = 40, STALL_CAP = 30, LEDGE_CAP = 40, LADLE = 0.1;
 /** Chips a bowl sells for (mushroom bowls pay double), and what Mr. Fugu leaves of it until he's bought out. */
 export const PRICE = 1.6, CUT = 0.7;
 export type Role = 'washer' | 'salter' | 'picker' | 'cook' | 'attendant';
@@ -124,8 +127,10 @@ export interface Fight {
   lines: Record<Ing, Line>;
   hires: Partial<Record<Role, boolean>>;
   crew: Worker[];
-  /** Ingredients on the ledge, bowls on the counter and the stall (true for a mushroom bowl). */
+  /** Ingredients on the ledge; bowls in the pot, on the counter and on the stall (true for a mushroom bowl), each its
+   *  own: cooked into the pot, ladled out onto the counter (the next one in `potT` seconds), carried to the stall. */
   pantry: Record<Ing, number>;
+  pot: boolean[]; potT: number;
   counter: boolean[]; stall: boolean[];
   /** When each fan waiting at the stall walked in; and when fans were fed, batches were cooked, and the pot sat full
    *  (each kept a minute). */
@@ -145,7 +150,7 @@ export function blank(): Fight {
   return {
     t: 0, beaten: 0, tier: 0, boughtOut: false,
     lines: { rice: line(1), fish: line(1), mush: line(0) }, hires: {}, crew: [],
-    pantry: { rice: 0, fish: 0, mush: 0 }, counter: [], stall: [],
+    pantry: { rice: 0, fish: 0, mush: 0 }, pot: [], potT: 0, counter: [], stall: [],
     queue: [], fed: [], cooked: [], full: [], fullAcc: 0, earned: [],
     rush: null, bout: freshBout(0),
     seed: 3, cookT: 0,
@@ -181,11 +186,14 @@ export function resetFight(f: Fight = blank()) {
 // ---------- reading it ----------
 export const mach = (k: Ing) => MACH[k][F.lines[k].up];
 export const growOpen = () => F.beaten >= 1;
-/** What goes in the pot: one of each ingredient there is. */
+/** What goes in the pot: four of each ingredient there is. */
 export const inPot = () => ING.filter(k => k !== 'mush' || growOpen());
 export const nextBoss = (): Boss | undefined => BOSSES[F.beaten];
-export const canCook = () => inPot().every(k => F.pantry[k] >= 1);
-export const counterFull = () => F.counter.length + BATCH > COUNTER_CAP;
+export const canCook = () => inPot().every(k => F.pantry[k] >= PER_BATCH);
+/** No room in the pot for another batch. */
+export const potFull = () => F.pot.length + BATCH > POT_CAP;
+/** Bowls ladled out of the pot onto the counter so far (in the real cellar, not a forecast's), for drawing them flying. */
+export const poured = { n: 0 };
 /** Batches a minute the kitchen makes: last minute's, allowing for time the pot sat idle with nowhere to put bowls. */
 export const kitchenRate = () => F.cooked.length / Math.max(0.25, 1 - F.full.length / 60);
 /** 💪: fans fed in the last 60 seconds. */
@@ -201,7 +209,7 @@ export const perMinute = () => F.earned.reduce((s, [, v]) => s + v, 0);
 /** What a line's machines can make in a minute, kept fed. */
 export const lineCap = (k: Ing) => { const M = mach(k); return F.lines[k].n * M.cap / M.time * 60; };
 /** The ingredient the pot is waiting on, if it's waiting (for the bubble over it). */
-export const potWaits = (): Ing | null => (canCook() ? null : inPot().find(k => F.pantry[k] < 1) ?? null);
+export const potWaits = (): Ing | null => (canCook() ? null : inPot().find(k => F.pantry[k] < PER_BATCH) ?? null);
 
 // ---------- machines ----------
 const fresh = (): Machine => ({ items: [], coming: 0, ready: 0, p: 0 });
@@ -215,6 +223,15 @@ function syncMachines() {
 /** How many are ready to take out of a machine, and how many more raw ones it has room for. */
 export const doneCount = (k: Ing, m: Machine) => (k === 'mush' ? m.ready : m.items.filter(p => p >= 1).length);
 export const freeCount = (k: Ing, m: Machine) => (k === 'mush' ? 0 : mach(k).cap - m.items.length);
+/** How many more raw ones a line (rice or fish) can take: each machine's empty spots, and the ones holding ready
+ *  items (they come out as raw ones go in), less what's already on its way. What the dumbwaiter hands the player. */
+export function lineRoom(k: Ing) {
+  if (k === 'mush') return 0;
+  const L = F.lines[k];
+  let n = 0;
+  for (let i = 0; i < L.n; i++) { const m = L.m[i]; n += mach(k).cap - (m.items.length - doneCount(k, m)) - m.coming; }
+  return Math.max(0, n);
+}
 function updMachines(dt: number) {
   for (const k of ING) {
     const M = mach(k);
@@ -228,19 +245,30 @@ function updMachines(dt: number) {
 
 // ---------- the pot ----------
 function cookBatch() {
-  for (const k of inPot()) F.pantry[k] -= 1;
+  for (const k of inPot()) F.pantry[k] -= PER_BATCH;
   const m = growOpen();
-  for (let i = 0; i < BATCH; i++) F.counter.push(m);
+  for (let i = 0; i < BATCH; i++) F.pot.push(m);
   F.cooked.push(F.t);
   if (real) on.cooked();
 }
-/** Cooks a batch every half second while someone's at the pot, if there's one of each and room for the bowls. */
+/** Cooks a batch every half second while someone's at the pot, if there's four of each and room for the bowls. */
 function tendPot(timer: { cookT: number }, dt: number) {
   timer.cookT -= dt;
   if (timer.cookT > 0) return true;
   timer.cookT = 0.5;
-  if (canCook() && !counterFull()) { cookBatch(); return true; }
+  if (canCook() && !potFull()) { cookBatch(); return true; }
   return false;
+}
+
+/** The pot ladles its bowls out onto the counter, one at a time, while the counter has room. */
+function ladle(dt: number) {
+  F.potT -= dt;
+  while (F.potT <= 0 && F.pot.length && F.counter.length < COUNTER_CAP) {
+    F.counter.push(F.pot.shift()!);
+    F.potT += LADLE;
+    if (real) poured.n++;
+  }
+  if (F.potT < 0) F.potT = 0;
 }
 
 // ---------- the fans ----------
@@ -294,7 +322,7 @@ function updRush(dt: number) {
   if (n) { sell(n); R.turned += n; R.lastTurn = R.t; }
   if (!F.stall.length) {
     R.dryT += dt;
-    if (!canCook()) for (const k of inPot()) if (F.pantry[k] < 1) R.short[k] += dt;
+    if (!canCook()) for (const k of inPot()) if (F.pantry[k] < PER_BATCH) R.short[k] += dt;
   }
   if (R.turned >= R.n || R.t >= BOSSES[R.boss].bell) {
     // the stall shuts and his crowd sits down: more than half of them turned, and the champion wins
@@ -408,7 +436,7 @@ function planLine(w: Worker, k: Ing): Step[] | null {
   if (F.pantry[k] < Math.min(LEDGE_CAP / 2, Math.max(8, cap))) {
     const order = ms.map((m, i) => [i, doneCount(k, m)]).filter(([, d]) => d > 0).sort((a, b) => b[1] - a[1]);
     const total = order.reduce((t, [, d]) => t + d, 0);
-    if (total && (total >= Math.min(cap, k === 'mush' ? 2 : 3) || F.pantry[k] < 1)) {
+    if (total && (total >= Math.min(cap, k === 'mush' ? 2 : 3) || F.pantry[k] < PER_BATCH)) {
       const steps: Step[] = [];
       let want = cap;
       for (const [i] of order) {
@@ -442,7 +470,7 @@ function thinkYou(w: Worker): Step[] | null {
   const opts: [number, () => Step[] | null][] = [];
   const stallLow = F.stall.length < 6, rush = !!F.rush && !F.rush.done;
   if (!F.hires.attendant && F.counter.length && F.stall.length < STALL_CAP) opts.push([3 + (stallLow ? 4 : 0) + (rush ? 4 : 0) + F.counter.length * 0.2, planBowls]);
-  if (!F.hires.cook && canCook() && !counterFull()) opts.push([3 + (F.counter.length < BATCH ? 3 : 0), () => [{ to: POT_PAD, act: 'cook' }]]);
+  if (!F.hires.cook && canCook() && !potFull()) opts.push([3 + (F.counter.length < BATCH ? 3 : 0), () => [{ to: POT_PAD, act: 'cook' }]]);
   for (const k of inPot()) {
     if (F.hires[k === 'rice' ? 'washer' : k === 'fish' ? 'salter' : 'picker']) continue;
     opts.push([2 + (F.pantry[k] < 2 ? 3 : 0) + (k === 'rice' ? 0.2 : k === 'fish' ? 0.1 : 0), () => planLine(w, k)]);
@@ -584,12 +612,13 @@ export function step(dt: number) {
   F.t += dt;
   syncMachines();
   updMachines(dt);
+  ladle(dt);
   for (const w of F.crew) updWorker(w, dt);
   updFans();
   updRush(dt);
   // once a second, note whether the pot sat idle with nowhere to put its bowls
   F.fullAcc += dt;
-  if (F.fullAcc >= 1) { F.fullAcc -= 1; if (counterFull() && canCook()) F.full.push(F.t); }
+  if (F.fullAcc >= 1) { F.fullAcc -= 1; if (potFull() && canCook()) F.full.push(F.t); }
   const old = F.t - 60;
   for (const a of [F.fed, F.cooked, F.full]) while (a.length && a[0] < old) a.shift();
   while (F.earned.length && F.earned[0][0] < old) F.earned.shift();
@@ -672,6 +701,7 @@ export function fightFrom(raw: unknown): Fight {
       boughtOut: !!r.boughtOut,
       hires: Object.fromEntries((Object.keys(HIRES) as Role[]).filter(k => r.hires?.[k]).map(k => [k, true])),
       pantry: Object.fromEntries(ING.map(k => [k, clamp(Math.floor(num(r.pantry?.[k])), 0, LEDGE_CAP)])) as Record<Ing, number>,
+      pot: list<boolean>(r.pot, x => typeof x === 'boolean').slice(0, POT_CAP),
       counter: list<boolean>(r.counter, x => typeof x === 'boolean').slice(0, COUNTER_CAP),
       stall: list<boolean>(r.stall, x => typeof x === 'boolean').slice(0, STALL_CAP),
       queue: list<number>(r.queue, isNum),

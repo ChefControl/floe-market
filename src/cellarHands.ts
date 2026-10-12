@@ -6,11 +6,11 @@
 import { BIN_PADS, BINS, COUNTER_PAD, type Ing, machinePad, type Pad, POT_PAD, STALL_PAD, WATCH } from './cellarPlan';
 import { CY } from './cellar';
 import {
-  BATCH, bowlPrice, COUNTER_CAP, F, fillMachine, ICON, inPot, LEDGE_CAP, mach, playerAtPot, STALL_CAP, takeBowl, takeReady, toLedge,
-  toStall, doneCount, NAME,
+  BATCH, bowlPrice, COUNTER_CAP, PER_BATCH, POT_CAP, F, fillMachine, ICON, inPot, LEDGE_CAP, lineRoom, mach, playerAtPot, STALL_CAP, takeBowl, takeReady,
+  toLedge, toStall, doneCount, NAME,
 } from './fight';
 import { fly } from './holder';
-import { type Kind, newBowl, newCuredFish, newMushroom, newReadyRice, newRice, newSteak } from './items';
+import { type Kind, newBowl, newCuredFish, newMushroom, newReadyRice, newRice, newFillet } from './items';
 import { player } from './player';
 import { scene } from './render';
 import { counterAt, ledgeAt, machineSpot, stallAt } from './ringKitchen';
@@ -36,6 +36,15 @@ function machineHere(p: XZ): { k: Ing; i: number } | null {
   }
   return best;
 }
+/** How far along a line the player reaches from a machine's pad: its neighbours either side, so a full rack passes
+ *  what's left to the next one, and nobody has to hunt for the one with room. */
+const REACH = 1.6;
+/** The machines in reach of the player on `here`'s pad, nearest first. */
+function machinesNear(p: XZ, here: { k: Ing; i: number }) {
+  const { k } = here, out: number[] = [];
+  for (let i = 0; i < F.lines[k].n; i++) if (d2xz(p, machinePad(k, i)) < REACH * REACH) out.push(i);
+  return out.sort((a, b) => d2xz(p, machinePad(k, a)) - d2xz(p, machinePad(k, b)));
+}
 /** Hands something from the player's arms to `to`, where it's gone (into a machine, onto the ledge or the stall). */
 function handIn(kind: Kind, to: () => ReturnType<typeof V>) {
   const m = player.back.takeKind(kind)!;
@@ -47,33 +56,40 @@ function handIn(kind: Kind, to: () => ReturnType<typeof V>) {
 export function cellarWork(p: XZ, dt: number) {
   player.tPick -= dt; player.tDrop -= dt;
   const back = player.back;
-  // the dumbwaiter's bins: rice or fish, as much as there's room for
+  // the dumbwaiter's plates: rice or fish, only as much as the racks (or the barrels) have room for
   for (const k of ['rice', 'fish'] as const) {
     if (!at(p, BIN_PADS[k])) continue;
-    while (player.tPick <= 0 && back.hasRoom()) {
+    // (counting what's still flying into their arms)
+    while (player.tPick <= 0 && back.hasRoom() && back.all().filter(m => m.userData.kind === RAW[k]).length < lineRoom(k)) {
       player.tPick += STEP;
-      const m = k === 'rice' ? newRice() : newSteak();
+      const m = k === 'rice' ? newRice() : newFillet();
       m.position.set(BINS[k].x, CY + 0.7, BINS[k].z);
       back.receive(m, 0.22, 0.7);
       pick();
     }
   }
-  // a machine: ready ones out (with full arms, swapped one for one for raw ones going in), then raw ones in
+  // a machine (and its neighbours in reach): ready ones out (with full arms, swapped one for one for raw ones going in),
+  // then raw ones in, nearest first
   const here = machineHere(p);
   if (here) {
-    const { k, i } = here, m = F.lines[k].m[i];
-    while (player.tPick <= 0 && m && doneCount(k, m) > 0) {
-      const swap = !back.hasRoom();
-      if (swap && (k === 'mush' || !back.count(RAW[k as 'rice' | 'fish']))) break;
-      takeReady(k, i);
-      if (swap && fillMachine(k, i)) handIn(RAW[k as 'rice' | 'fish'], () => machineSpot(k, i));
-      player.tPick += STEP;
-      const r = MAKE_READY[k](); r.position.copy(machineSpot(k, i));
-      back.receive(r, 0.22, 0.7);
-      pick();
+    const { k } = here;
+    for (const i of machinesNear(p, here)) {
+      const m = F.lines[k].m[i];
+      while (player.tPick <= 0 && m && doneCount(k, m) > 0) {
+        const swap = !back.hasRoom();
+        if (swap && (k === 'mush' || !back.count(RAW[k as 'rice' | 'fish']))) break;
+        takeReady(k, i);
+        if (swap && fillMachine(k, i)) handIn(RAW[k as 'rice' | 'fish'], () => machineSpot(k, i));
+        player.tPick += STEP;
+        const r = MAKE_READY[k](); r.position.copy(machineSpot(k, i));
+        back.receive(r, 0.22, 0.7);
+        pick();
+      }
     }
     if (k !== 'mush') {
-      while (player.tDrop <= 0 && back.count(RAW[k]) && fillMachine(k, i)) { player.tDrop += STEP; handIn(RAW[k], () => machineSpot(k, i)); }
+      for (const i of machinesNear(p, here)) {
+        while (player.tDrop <= 0 && back.count(RAW[k]) && fillMachine(k, i)) { player.tDrop += STEP; handIn(RAW[k], () => machineSpot(k, i)); }
+      }
     }
   }
   // the pot: ready ones onto the ledge, and it cooks while the player's there
@@ -122,8 +138,12 @@ export function stowCarried() {
 const chips = (v: number) => (v < 10 ? v.toFixed(2).replace(/0$/, '').replace(/\.0$/, '') : Math.round(v).toLocaleString('en-US'));
 /** What's said about where the player's standing in the cellar, if it's somewhere. */
 export function cellarTip(p: XZ): TipContent | null {
-  if (at(p, BIN_PADS.rice)) return { name: 'Rice from upstairs', desc: 'Carry it to the drying racks along the north wall' };
-  if (at(p, BIN_PADS.fish)) return { name: 'Fish from upstairs', desc: 'Carry it to the salt barrels along the south wall' };
+  if (at(p, BIN_PADS.rice)) {
+    return { name: 'Rice from upstairs', desc: lineRoom('rice') ? `The drying racks have room for ${lineRoom('rice')}: carry it to them along the north wall` : 'The drying racks are full: take out the dry rice first' };
+  }
+  if (at(p, BIN_PADS.fish)) {
+    return { name: 'Fish from upstairs', desc: lineRoom('fish') ? `The salt barrels have room for ${lineRoom('fish')}: carry it to them along the south wall` : 'The salt barrels are full: take out the salted fish first' };
+  }
   const here = machineHere(p);
   if (here) {
     const { k, i } = here, M = mach(k), m = F.lines[k].m[i];
@@ -134,9 +154,9 @@ export function cellarTip(p: XZ): TipContent | null {
   if (at(p, POT_PAD)) {
     const ledge = inPot().map(k => `${ICON[k]} ${F.pantry[k]}`).join(' · ');
     const who = F.hires.cook ? 'The cook keeps it going' : 'It cooks while you stand here';
-    return { name: 'The pot', desc: `One of each makes ${BATCH} bowls. ${who}. On the ledge: ${ledge} (up to ${LEDGE_CAP} each)` };
+    return { name: 'The pot', desc: `${PER_BATCH} of each make ${BATCH} bowls. ${who}, and ladles itself out onto the counter. In it: ${F.pot.length} of ${POT_CAP} bowls. On the ledge: ${ledge} (up to ${LEDGE_CAP} each)` };
   }
-  if (at(p, COUNTER_PAD)) return { name: 'Bowls', desc: `${F.counter.length} on the counter: carry them to the stall in the arena` };
+  if (at(p, COUNTER_PAD)) return { name: 'Bowls', desc: `${F.counter.length} of ${COUNTER_CAP} on the counter: carry them to the stall in the arena` };
   if (at(p, STALL_PAD)) {
     const cut = F.boughtOut ? '' : ", after Mr. Fugu's 30%";
     return { name: 'The bowl stall', desc: `${F.stall.length} of ${STALL_CAP} bowls out · ${F.queue.length} fans waiting · a bowl pays 🐡 ${chips(bowlPrice(F.beaten >= 1))}${cut}` };

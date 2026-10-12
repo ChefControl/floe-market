@@ -8,6 +8,7 @@ import { BOSSES, CHIP, F, fightFrom, on, resetFight, step, strength } from './fi
 import { front } from './front';
 import { showCard, updGong } from './gong';
 import { DOORS, level, PREP } from './layout';
+import { updOffice } from './office';
 import { pointAt } from './pointers';
 import { popIn } from './pop';
 import { updRingKitchen } from './ringKitchen';
@@ -45,7 +46,7 @@ on.grow = () => {
   popIn(parts.grow);
   const door = DOORS.find(d => d.b === 'grow')!;
   pointAt({ x: (door.x0 + door.x1) / 2, y: CY, z: PREP.z0 - 0.3 }, '🍄', () => level.down);
-  toast("Behind the prep hall's back wall: a grow room, already planted. Mushroom bowls pay double", 'grow', 4500);
+  toast("The gate behind the prep hall swings open: a grow room, already planted. Mushroom bowls pay double", 'grow', 4500);
 };
 
 /** Puts the cellar's look in line with its state: the venue's tier, the grow room, Mr. Fugu bought out or not. */
@@ -80,6 +81,7 @@ export function updRing(dt: number) {
   }
   updRingKitchen(dt);
   updDohyo(dt);
+  updOffice(dt);
   updSwarm(dt);
   updGong(dt);
 }

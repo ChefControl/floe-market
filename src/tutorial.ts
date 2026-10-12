@@ -14,7 +14,7 @@ import { Group, Mesh, MeshBasicMaterial, RingGeometry } from 'three';
 import { buyButtonShown, touchBuy } from './buy';
 import { C1 } from './counters';
 import { modCost, MODS, mods } from './economy';
-import { steaksInProgress } from './fishing';
+import { filletsInProgress } from './fishing';
 import { detail, quietly } from './kit';
 import { stage } from './layout';
 import { player } from './player';
@@ -85,7 +85,7 @@ let cash0 = 0;
 const STEPS: Step[] = [
   {
     id: 'fish', at: () => at(PAD, PAD.r), say: () => ['Stand here to fish', 'They get chopped into slices'],
-    done: () => steaksInProgress() > 0 || pile.n > 0, known: played,
+    done: () => filletsInProgress() > 0 || pile.n > 0, known: played,
   },
   {
     id: 'pick', after: 'fish', at: () => at(PILE, 1.45), say: () => ['Pick up the fish slices'],

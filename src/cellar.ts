@@ -10,15 +10,15 @@
 // This module is the rooms and their furniture; where things are is cellarPlan.ts, and the kitchen's lines, the bouts
 // and the swarm draw themselves (ringKitchen.ts, dohyo.ts, swarm.ts).
 import {
-  AdditiveBlending, BoxGeometry, type BufferGeometry, Color, ConeGeometry, CylinderGeometry, Group, type Material, Matrix4,
+  AdditiveBlending, BackSide, BoxGeometry, type BufferGeometry, Color, ConeGeometry, CylinderGeometry, Group, type Material, Matrix4,
   Mesh, MeshBasicMaterial, MeshLambertMaterial, type Object3D, PointLight, type Side as Facing, TorusGeometry, Vector3,
 } from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import {
-  BINS, CASHIER, COUNTER, GONG, HEARTH, LIFT, machineAt, MAX_MACHINES, POT, STALL, TEPPO, TUNNEL_D, TUNNEL_W, TUNNELS,
+  BINS, CASHIER, COUNTER, GONG, HEARTH, LIFTS, machineAt, MAX_MACHINES, POT, STALL, TEPPO, TUNNEL_D, TUNNEL_W, TUNNELS,
 } from './cellarPlan';
 import { Fugu } from './fugu';
-import { ARENA, CELLAR_Y, type CellarRoom, DOORS, found, GROW, KITCHEN, LANDING, OFFICE_ROOM, PREP, pushOutOfBox, ROOMS } from './layout';
+import { ARENA, CELLAR_Y, type CellarRoom, DOORS, found, GROW, keepOnFloor, KITCHEN, LANDING, OFFICE_ROOM, PREP, pushOutOfBox, ROOMS, walkable } from './layout';
 import { canvasTex, FONT, G, mat, mesh, paint, rr, scene } from './render';
 import type { XZ } from './util';
 
@@ -169,11 +169,11 @@ function gaps(r: Rect, side: Side): [number, number][] {
     .concat(r === ARENA ? TUNNELS.filter(t => t.side === side).map(t => [t.at - TUNNEL_W / 2, t.at + TUNNEL_W / 2] as [number, number]) : []);
 }
 /** The stretches of a side between its doorways. */
-function spans(r: Rect, side: Side, solid = false): [number, number][] {
+function spans(r: Rect, side: Side): [number, number][] {
   const along = side === 'n' || side === 's';
   let a = (along ? r.x0 : r.z0) - 0.3;
   const out: [number, number][] = [];
-  for (const [g0, g1] of solid ? [] : gaps(r, side).sort((x, y) => x[0] - y[0])) { if (g0 > a) out.push([a, g0]); a = g1; }
+  for (const [g0, g1] of gaps(r, side).sort((x, y) => x[0] - y[0])) { if (g0 > a) out.push([a, g0]); a = g1; }
   const end = (along ? r.x1 : r.z1) + 0.3;
   if (end > a) out.push([a, end]);
   return out;
@@ -183,10 +183,9 @@ const line = (r: Rect, side: Side, off: number) =>
   side === 'n' ? r.z0 - off : side === 's' ? r.z1 + off : side === 'w' ? r.x0 - off : r.x1 + off;
 /** A tall wall at the back of the cellar: the dock's piles going up into the dark, planks behind them, beams across,
  *  and a stone footing (none of it casting shadows: the sun's light doesn't reach down here, and the piles' would
- *  streak the floor). Only on the outer back walls, where it hides nothing; and `solid` (no doorways) across the back
- *  of the prep hall, until the grow room behind it is found. */
-function tallWall(r: Rect, side: 'n' | 'w', parent: Object3D = cellar, solid = false) {
-  for (const [a0, a1] of spans(r, side, solid)) {
+ *  streak the floor). Only on the outer back walls, where it hides nothing. */
+function tallWall(r: Rect, side: 'n' | 'w', parent: Object3D = cellar) {
+  for (const [a0, a1] of spans(r, side)) {
     const mid = (a0 + a1) / 2, len = a1 - a0;
     const at = (o: number) => line(r, side, o);
     const put = (o: number, y: number, sx: number, sy: number, sz: number, c: number, cast = false) =>
@@ -194,7 +193,67 @@ function tallWall(r: Rect, side: 'n' | 'w', parent: Object3D = cellar, solid = f
     for (let a = a0 + 0.3; a <= a1; a += 1.1) side === 'n' ? log(parent, PILE, a, CY + 3.2, at(0.6), 1.9, 7, false) : log(parent, PILE, at(0.6), CY + 3.2, a, 1.9, 7, false);
     put(1.1, 3, len, 6.4, 0.3, 0x2A201A);
     for (const y of [2.2, 4.6]) put(0.25, y, len, 0.22, 0.18, WOOD_DARK, true);
-    put(0.1, 0.25, len, 0.5, 0.5, 0x4E4A46, true);
+    put(0.3, 0.25, len, 0.5, 0.5, 0x4E4A46, true);
+  }
+}
+/** Mortared cellar stone: blocks in staggered courses, a few tones in a fixed order. */
+const stone = canvasTex(256, 256, (c, w, h) => {
+  c.fillStyle = '#2E2925'; c.fillRect(0, 0, w, h);
+  const ROW = h / 6, tones = ['#6E665C', '#787064', '#645D54', '#817869', '#6A6358'];
+  for (let r = 0; r < 6; r++) {
+    for (let i = 0, x = (r % 2) * -32; x < w; i++, x += 64) {
+      c.fillStyle = tones[(r * 3 + i) % tones.length]; rr(c, x + 3, r * ROW + 3, 58, ROW - 6, 6); c.fill();
+      c.fillStyle = 'rgba(255,255,255,.07)'; c.fillRect(x + 7, r * ROW + 5, 50, 4);
+      c.fillStyle = 'rgba(0,0,0,.16)'; c.fillRect(x + 7, r * ROW + ROW - 9, 50, 4);
+    }
+  }
+});
+stone.tex.wrapS = stone.tex.wrapT = 1000;
+/** The prep hall's back while the grow room behind it is a secret: not the dock's piles but a mortared stone wall, tall
+ *  enough to hide it, with an iron gate in it, chained and padlocked, dark beyond. All of it comes down when the first
+ *  boss is beaten, for the low wall and the same gate swung open (built in parts.grow). */
+function stoneWall() {
+  const p = parts.hidden, H = 4.6, z = PREP.z0 - 0.4, T = 0.5;
+  const t = DOORS.find(d => d.b === 'grow')!, gx = (t.x0 + t.x1) / 2, gw = t.x1 - t.x0 + 0.6, GH = 2.5;
+  const edge = mat(0x3A3530);
+  const block = (x0: number, x1: number, y0: number, y1: number) => {
+    const tex = stone.tex.clone(); tex.repeat.set((x1 - x0) / 2, (y1 - y0) / 2); tex.needsUpdate = true;
+    const m = add(p, new Mesh(new BoxGeometry(x1 - x0, y1 - y0, T), [edge, edge, edge, edge, new MeshLambertMaterial({ map: tex }), edge]));
+    m.position.set((x0 + x1) / 2, CY + (y0 + y1) / 2, z); m.receiveShadow = true;
+  };
+  block(PREP.x0 - 0.3, gx - gw / 2, 0, H); block(gx + gw / 2, PREP.x1 + 0.3, 0, H); block(gx - gw / 2, gx + gw / 2, GH, H);
+  // a footing, a timber cap, and pilasters every few metres
+  box(p, 0x4E4A46, (PREP.x0 + PREP.x1) / 2, CY + 0.15, z + 0.08, PREP.x1 - PREP.x0 + 0.6, 0.3, T + 0.16);
+  box(p, WOOD_DARK, (PREP.x0 + PREP.x1) / 2, CY + H, z, PREP.x1 - PREP.x0 + 0.7, 0.25, T + 0.2, false);
+  for (const x of [PREP.x0 + 0.2, PREP.x0 + 3.2, PREP.x0 + 6.0, PREP.x1 - 0.2]) box(p, 0x5E574E, x, CY + H / 2, z + 0.2, 0.4, H, 0.2, false);
+  // the gate: a heavy timber frame, dark beyond, iron bars and straps
+  for (const s of [-1, 1]) box(p, WOOD_DARK, gx + s * (gw / 2 - 0.12), CY + GH / 2, z + 0.12, 0.26, GH, T + 0.1);
+  box(p, WOOD_DARK, gx, CY + GH, z + 0.12, gw + 0.2, 0.3, T + 0.12);
+  box(p, new MeshBasicMaterial({ color: 0x0A0908 }), gx, CY + (GH - 0.15) / 2, z - 0.1, gw - 0.4, GH - 0.15, 0.1, false);
+  bars(p, gx, z + 0.18, gw - 0.5, GH - 0.25, 0);
+  // the chain across where the leaves meet, and the padlock on it
+  for (let i = 0; i < 8; i++) {
+    const l = add(p, mesh(new TorusGeometry(0.05, 0.016, 5, 10), 0x8A8F96, gx - 0.3 + i * 0.086, CY + 1.2 - Math.sin((i / 7) * Math.PI) * 0.08, z + 0.24));
+    l.rotation.y = i % 2 ? Math.PI / 2 : 0;
+  }
+  box(p, 0xC9A23A, gx, CY + 0.98, z + 0.27, 0.22, 0.22, 0.08);
+  box(p, 0x1B1A1E, gx, CY + 0.95, z + 0.315, 0.03, 0.07, 0.01, false);
+  const shackle = add(p, mesh(new TorusGeometry(0.075, 0.022, 6, 12, Math.PI), 0x9AA4AC, gx, CY + 1.09, z + 0.27));
+  shackle.castShadow = true;
+  for (const s of [-1, 1]) lantern(p, gx + s * (gw / 2 + 0.45), CY + 2.3, z + 0.45, false);
+}
+/** An iron gate's bars, `w` wide and `h` tall, centred on `x` (or, `open` > 0, its two leaves swung back that far into the
+ *  room behind, hinged on the frame). */
+function bars(p: Object3D, x: number, z: number, w: number, h: number, open: number) {
+  for (const s of [-1, 1]) {
+    const leaf = add(p, new Group()); leaf.position.set(x + s * w / 2, CY, z); leaf.rotation.y = -s * open;
+    const n = 4, lw = w / 2;
+    for (let i = 0; i < n; i++) {
+      const bx = -s * (lw * (i + 0.5) / n);
+      add(leaf, mesh(G.box, IRON, bx, h / 2, 0, true)).scale.set(0.045, h, 0.045);
+      add(leaf, mesh(G.cone, IRON, bx, h + 0.06, 0)).scale.set(0.05, 0.12, 0.05);
+    }
+    for (const y of [0.3, h * 0.55, h - 0.12]) add(leaf, mesh(G.box, IRON, -s * lw / 2, y, 0.02, true)).scale.set(lw, 0.07, 0.05);
   }
 }
 /** The office's back wall, his own and not the dock's piles: dark red wallpaper with a gold pattern over a dark wood
@@ -286,9 +345,14 @@ officeWall(); wall(OFFICE_ROOM, 'w', 0.3); wall(OFFICE_ROOM, 'e', 0.3);
 wall(LANDING, 'n', 0.3); wall(LANDING, 'w', 0.3); wall(LANDING, 'e', 0.3);
 wall(KITCHEN, 'n', 0.3); wall(KITCHEN, 'w', 0.3); wall(KITCHEN, 'e', 0.3); wall(KITCHEN, 's');
 wall(PREP, 'e'); wall(PREP, 's');
-// the prep hall's back: a tall wall the player walks past every day, until it comes down to show the grow room behind
-tallWall(PREP, 'n', parts.hidden, true);
+// the prep hall's back: a stone wall with a locked gate the player walks past every day, until the gate opens on the
+// grow room behind
+stoneWall();
 wall(PREP, 'n', 0.3, parts.grow);
+{ // the gate, swung open into the grow room
+  const t = DOORS.find(d => d.b === 'grow')!;
+  bars(parts.grow, (t.x0 + t.x1) / 2, PREP.z0 - 0.4, t.x1 - t.x0 + 0.1, 1.75, Math.PI / 2 - 0.15);
+}
 floor(GROW, earth, 0.3, parts.grow); tallWall(GROW, 'n', parts.grow); wall(GROW, 'e', 0.1, parts.grow);
 // ceiling beams over the arena's back
 for (let x = ARENA.x0 + 1; x <= ARENA.x1; x += 2.2) box(cellar, WOOD_DARK, x, CY + 6.3, ARENA.z0 + 0.7, 0.25, 0.3, 2.4, false);
@@ -322,21 +386,31 @@ for (const t of DOORS) {
   }
   ax ? box(g, WOOD_DARK, cx, CY + FRAME_H, cz, w + 0.3, 0.2, 0.26) : box(g, WOOD_DARK, cx, CY + FRAME_H, cz, 0.26, 0.2, w + 0.3);
 }
-/** A sign over a doorway, on the landing's side, saying where it goes. */
-function sign(text: string, x: number, z: number, turn = 0) {
-  const tex = canvasTex(256, 80, (c, w, h) => {
-    c.fillStyle = '#15181D'; rr(c, 4, 4, w - 8, h - 8, 16); c.fill();
-    c.fillStyle = '#F2C14E'; c.font = '800 46px ' + FONT; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(text, w / 2, h / 2 + 3);
+/**
+ * A room's name on a plaque facing the camera, `w` wide: on the room's back wall (standing on a low one's rail, or high
+ * on a tall one), so each room's name is on its own side of the wall it's on; and the office's over its door.
+ */
+function sign(text: string, x: number, y: number, z: number, parent: Object3D = cellar, w = 1.3) {
+  const h = w * 0.3, tex = canvasTex(256, 77, (c, cw, ch) => {
+    c.fillStyle = '#15181D'; rr(c, 4, 4, cw - 8, ch - 8, 16); c.fill();
+    c.fillStyle = '#F2C14E'; c.font = '800 44px ' + FONT; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(text, cw / 2, ch / 2 + 3);
   });
   const edge = mat(0x15181D);
-  const m = add(cellar, new Mesh(new BoxGeometry(1.15, 0.36, 0.04), [edge, edge, edge, edge, new MeshBasicMaterial({ map: tex.tex }), edge]));
-  m.position.set(x, CY + FRAME_H + 0.3, z); m.rotation.y = turn;
+  const m = add(parent, new Mesh(new BoxGeometry(w, h, 0.04), [edge, edge, edge, edge, new MeshBasicMaterial({ map: tex.tex }), edge]));
+  m.position.set(x, CY + y, z);
 }
+/** On a low wall along a room's back (`off` 0.3: between two rooms), standing on its rail; and just in front of a tall
+ *  one's front beams. */
+const onLow = (r: Rect) => r.z0 - 0.3 + 0.1, onTall = (r: Rect) => r.z0 - 0.1, onRail = WALL + 0.08 + 0.2;
+const mid = (r: Rect) => (r.x0 + r.x1) / 2;
+sign('RING', mid(ARENA), 2.85, onTall(ARENA), cellar, 2.2);
+sign('KITCHEN', KITCHEN.x1 - 0.95, onRail, onLow(KITCHEN) - 0.1);
+// the prep hall's: on its tall back wall, then on the low one once that's come down for the grow room
+sign('PREP', mid(PREP), 2.85, onTall(PREP), parts.hidden, 1.8);
+sign('PREP', mid(PREP) - 1.5, onRail, onLow(PREP) - 0.1, parts.grow);
+sign('GROW ROOM', mid(GROW), 2.85, onTall(GROW), parts.grow, 2.2);
 const door = (to: CellarRoom) => DOORS.find(t => t.b === to)!;
-sign('RING', ARENA.x1 + 0.45, (door('arena').z0 + door('arena').z1) / 2);
-sign('KITCHEN', (door('kitchen').x0 + door('kitchen').x1) / 2, LANDING.z1 + 0.15);
-sign('PREP', KITCHEN.x1 - 0.15, 5.0, -Math.PI / 2);
-sign('OFFICE', (door('office').x0 + door('office').x1) / 2, LANDING.z0 - 0.15);
+sign('OFFICE', (door('office').x0 + door('office').x1) / 2, FRAME_H + 0.3, LANDING.z0 - 0.15, cellar, 1.15);
 
 // ---------- lanterns along the walls ----------
 function lantern(parent: Object3D, x: number, y: number, z: number, red: boolean) {
@@ -578,10 +652,15 @@ export const potStew = new MeshLambertMaterial({ color: 0xC9803A });
 export const potMesh = (() => {
   const g = add(cellar, new Group()); g.position.set(POT.x, CY, POT.z);
   const y = HEARTH.h + 0.08;
-  add(g, mesh(new CylinderGeometry(0.86, 0.66, 0.56, 20), IRON, 0, y + 0.28, 0, true));
+  // open, so the stew can sink inside it: an iron shell, its dark inside and a floor
+  add(g, mesh(new CylinderGeometry(0.86, 0.66, 0.56, 20, 1, true), IRON, 0, y + 0.28, 0, true));
+  add(g, mesh(new CylinderGeometry(0.82, 0.62, 0.56, 20, 1, true), new MeshLambertMaterial({ color: 0x1C1C20, side: BackSide }), 0, y + 0.28, 0));
+  add(g, mesh(new CylinderGeometry(0.62, 0.62, 0.02, 20), 0x1C1C20, 0, y + 0.03, 0));
   add(g, mesh(new TorusGeometry(0.85, 0.06, 6, 24), 0x3E3E44, 0, y + 0.56, 0)).rotation.x = Math.PI / 2;
   for (const s of [-1, 1]) add(g, mesh(new TorusGeometry(0.12, 0.035, 5, 10), 0x3E3E44, s * 0.92, y + 0.44, 0)).rotation.y = Math.PI / 2;
-  add(g, mesh(new CylinderGeometry(0.8, 0.8, 0.02, 20), potStew, 0, POT_TOP, 0));
+  // the stew and what's in it, which rise and fall with the bowls waiting (ringKitchen moves this)
+  const fill = add(g, new Group()); fill.name = 'potFill';
+  add(fill, mesh(new CylinderGeometry(0.8, 0.8, 0.02, 20), potStew, 0, POT_TOP, 0));
   // what's in it, on a fixed scatter
   const bits: [number, number, number, number][] = [
     [0x8FC46A, 0.32, 0.05, 0.16], [0x8FC46A, 0.28, 0.05, 0.14], [0x8FC46A, 0.3, 0.05, 0.15], // cabbage
@@ -591,7 +670,7 @@ export const potMesh = (() => {
   ];
   bits.forEach(([c, sx, sy, sz], i) => {
     const a = i * 2.4, r = 0.18 + ((i * 0.37) % 0.45), tofu = c === 0xF4F1EA;
-    const m = add(g, mesh(tofu ? G.box : G.sphere, c, Math.cos(a) * r, POT_TOP + 0.02, Math.sin(a) * r));
+    const m = add(fill, mesh(tofu ? G.box : G.sphere, c, Math.cos(a) * r, POT_TOP + 0.02, Math.sin(a) * r));
     m.scale.set(sx, sy, sz); m.rotation.y = a;
   });
   // the ladle, leaning on the rim
@@ -610,37 +689,43 @@ export const potMesh = (() => {
   for (let i = 0; i < 4; i++) add(t, mesh(new CylinderGeometry(0.15, 0.09, 0.08, 12), 0xC0392B, -0.3, 0.84 + i * 0.07, -0.62));
 }
 
-// ---------- the prep hall: the dumbwaiter, and the rice bin and fish crate at its foot ----------
+// ---------- the prep hall: the two dumbwaiters, and the plate at the foot of each ----------
 {
-  // The dumbwaiter from the restaurant's kitchen upstairs: a tall timber shaft up into the dark, open at the front (to
-  // the west), its chains and the wheels they go round at the top and bottom (ringKitchen.ts sends its trays round,
-  // loaded on the way down, tipping rice into the bin on one side and fish into the crate on the other).
-  const g = add(cellar, new Group()); g.position.set(LIFT.x, CY, LIFT.z); g.rotation.y = -Math.PI / 2;
-  const W = 0.95, D = 0.95, L = LIFT_LOOP;
-  for (const [x, z] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) box(g, WOOD_DARK, x * W / 2, LIFT_H / 2, z * D / 2, 0.12, LIFT_H, 0.12);
-  for (let y = 0.4; y < LIFT_H; y += 1.4) {
-    box(g, WOOD_DARK, 0, y, -D / 2, W, 0.1, 0.1);
-    for (const s of [-1, 1]) box(g, WOOD_DARK, s * W / 2, y, 0, 0.1, 0.1, D);
-  }
-  // (its back boarded dark, so the trays going round in front of it show)
-  box(g, 0x2A1E17, 0, LIFT_H / 2, -D / 2 + 0.02, W - 0.1, LIFT_H, 0.04, false);
-  box(g, WOOD_DARK, 0, LIFT_H + 0.05, 0, W + 0.2, 0.14, D + 0.2);
-  for (const s of [-1, 1]) {
-    for (const z of [L.front, L.back]) add(g, mesh(G.rope, IRON, s * 0.36, (L.bottom + L.top) / 2, z)).scale.set(1.2, L.top - L.bottom, 1.2);
-    for (const y of [L.bottom, L.top]) {
-      const wheel = add(g, mesh(new CylinderGeometry(0.27, 0.27, 0.05, 14), IRON, s * 0.36, y, 0)); wheel.rotation.z = Math.PI / 2;
+  // The dumbwaiters from the restaurant's kitchen upstairs, rice down one and fish down the other: tall timber shafts
+  // up into the dark, open at the front (to the west), their chains and the wheels they go round at the top and
+  // bottom (ringKitchen.ts sends their trays round, loaded on the way down; at the bottom each tips over and drops its
+  // load onto the plate in front).
+  for (const k of ['rice', 'fish'] as const) {
+    const g = add(cellar, new Group()); g.position.set(LIFTS[k].x, CY, LIFTS[k].z); g.rotation.y = -Math.PI / 2;
+    const W = 0.95, D = 0.85, L = LIFT_LOOP;
+    for (const [x, z] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) box(g, WOOD_DARK, x * W / 2, LIFT_H / 2, z * D / 2, 0.12, LIFT_H, 0.12);
+    for (let y = 0.4; y < LIFT_H; y += 1.4) {
+      box(g, WOOD_DARK, 0, y, -D / 2, W, 0.1, 0.1);
+      for (const s of [-1, 1]) box(g, WOOD_DARK, s * W / 2, y, 0, 0.1, 0.1, D);
+    }
+    // (its back boarded dark, so the trays going round in front of it show)
+    box(g, 0x2A1E17, 0, LIFT_H / 2, -D / 2 + 0.02, W - 0.1, LIFT_H, 0.04, false);
+    box(g, WOOD_DARK, 0, LIFT_H + 0.05, 0, W + 0.2, 0.14, D + 0.2);
+    for (const s of [-1, 1]) {
+      for (const z of [L.front, L.back]) add(g, mesh(G.rope, IRON, s * 0.36, (L.bottom + L.top) / 2, z)).scale.set(1.2, L.top - L.bottom, 1.2);
+      for (const y of [L.bottom, L.top]) {
+        const wheel = add(g, mesh(new CylinderGeometry(0.27, 0.27, 0.05, 14), IRON, s * 0.36, y, 0)); wheel.rotation.z = Math.PI / 2;
+      }
+    }
+    // a lamp on its front post, lighting the trays coming down
+    lantern(g, W / 2 + 0.05, 2.7, D / 2 + 0.05, false);
+    // the plate at its foot, on a low stand: a wide glazed one for the rice, a steel one on ice for the fish
+    const st = add(cellar, new Group()); st.position.set(BINS[k].x, CY, BINS[k].z);
+    for (const [x, z] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) box(st, WOOD_DARK, x * 0.26, 0.27, z * 0.26, 0.07, 0.54, 0.07);
+    box(st, WOOD, 0, 0.56, 0, 0.66, 0.05, 0.66);
+    if (k === 'rice') {
+      add(st, mesh(new CylinderGeometry(0.4, 0.3, 0.07, 18), 0xF2EAD8, 0, 0.62, 0, true));
+      add(st, mesh(new TorusGeometry(0.39, 0.025, 5, 20), 0x355C9E, 0, 0.655, 0)).rotation.x = Math.PI / 2;
+    } else {
+      add(st, mesh(new CylinderGeometry(0.4, 0.34, 0.06, 18), 0x9AA5AE, 0, 0.61, 0, true));
+      add(st, mesh(new CylinderGeometry(0.36, 0.36, 0.02, 18), 0xD9E4EA, 0, 0.645, 0));
     }
   }
-  // a lamp on its front post, lighting the trays coming down
-  lantern(g, W / 2 + 0.05, 2.7, D / 2 + 0.05, false);
-  // the rice bin and the fish crate at its foot, either side
-  const bin = add(cellar, new Group()); bin.position.set(BINS.rice.x, CY, BINS.rice.z);
-  add(bin, mesh(new CylinderGeometry(0.5, 0.44, 0.62, 14), WOOD, 0, 0.31, 0, true));
-  for (const y of [0.12, 0.5]) add(bin, mesh(new TorusGeometry(0.49, 0.025, 5, 16), IRON, 0, y, 0)).rotation.x = Math.PI / 2;
-  const crate = add(cellar, new Group()); crate.position.set(BINS.fish.x, CY, BINS.fish.z);
-  box(crate, WOOD, 0, 0.25, 0, 0.9, 0.5, 0.9);
-  for (const s of [-1, 1]) box(crate, WOOD_DARK, 0, 0.25, s * 0.43, 0.94, 0.08, 0.04);
-  box(crate, 0xD9E4EA, 0, 0.49, 0, 0.8, 0.02, 0.8, false);
   // rice sacks in the corner
   const k = add(cellar, new Group()); k.position.set(SACKS.x, CY, SACKS.z);
   [[0, 0, 0], [-0.45, 0.1, 0.5], [-0.2, 0.3, 0.3]].forEach(([x, z, r]) => {
@@ -671,6 +756,27 @@ log(cellar, 0x7A5236, TEPPO.x, CY + 1.3, TEPPO.z, 2.2, 2.6);
 // ---------- Mr. Fugu's office ----------
 /** Mr. Fugu, behind his desk (dohyo.ts puffs him up when the crowd roars). */
 export const boss = new Fugu();
+/** The fish in his tank: little ones, each its own colour, up and down the glass at their own depth and pace. */
+export const tankFish = new Group();
+const FISH = [0xE8833A, 0xF2C14E, 0x4FA3D9, 0xE85A6A, 0xF4F1EA, 0xE8833A].map((c, i) => {
+  const f = add(tankFish, new Group());
+  add(f, mesh(G.sphere, c)).scale.set(0.028, 0.038, 0.07);
+  const tail = add(f, new Group()); tail.position.z = -0.065;
+  const fin = add(tail, mesh(G.cone, c, 0, 0, -0.025)); fin.scale.set(0.006, 0.05, 0.045); fin.rotation.x = Math.PI / 2;
+  f.userData = { tail, x: -0.13 + (i % 3) * 0.13, y: 1.06 + i * 0.075, pace: 0.45 + (i % 4) * 0.12, phase: i * 1.7 };
+  return f;
+});
+let swimT = 0;
+/** The tank's fish swimming the length of it and back, wagging their tails, turning at the ends. */
+export function swimTank(dt: number) {
+  swimT += dt;
+  for (const f of FISH) {
+    const u = f.userData, a = swimT * u.pace + u.phase, dz = Math.cos(a);
+    f.position.set(u.x, u.y + Math.sin(a * 2.3) * 0.02, Math.sin(a) * 0.55);
+    f.rotation.y += ((dz >= 0 ? 0 : Math.PI) - f.rotation.y) * Math.min(1, dt * 6);
+    u.tail.rotation.y = Math.sin(swimT * 11 + u.phase) * 0.5;
+  }
+}
 {
   // the dais the desk stands on, carpeted red
   const D = DAIS, dw = D.x1 - D.x0, dd = D.z1 - D.z0;
@@ -753,11 +859,12 @@ export const boss = new Fugu();
   const glass = add(tank, mesh(G.box, new MeshLambertMaterial({ color: 0x7FC4E8, emissive: 0x1E4A66, transparent: true, opacity: 0.45, depthWrite: false }), 0, 1.2, 0));
   glass.scale.set(0.52, 0.66, 1.42); glass.renderOrder = 1;
   box(tank, 0x1B1A1E, 0, 1.55, 0, 0.56, 0.05, 1.46, false);
-  for (const [c2, y, z, r] of [[0xE8833A, 1.1, -0.3, 0.06], [0xE8833A, 1.3, 0.25, 0.05], [0xEBD38E, 1.2, 0.0, 0.09]] as const) {
-    add(tank, mesh(G.sphere, c2, 0, y, z)).scale.setScalar(r);
-  }
-  add(tank, mesh(G.cone, 0x5E9C5A, 0, 1.06, 0.45)).scale.set(0.05, 0.25, 0.05);
-  // a plant in the corner, and the coat rack by the door with his spare fedora
+  // a weed or two, and the little puffer on the sand (the swimmers are tankFish, below)
+  add(tank, mesh(G.sphere, 0xEBD38E, 0.05, 1.04, 0.3)).scale.setScalar(0.07);
+  for (const [z, h] of [[0.45, 0.25], [0.55, 0.18], [-0.5, 0.22]]) add(tank, mesh(G.cone, 0x5E9C5A, 0.08, 0.94 + h / 2, z)).scale.set(0.04, h, 0.04);
+  tankFish.position.copy(tank.position);
+  cellar.add(tankFish);
+  // a plant in the corner, and the coat rack by the door with his spare hat
   const plant = add(cellar, new Group()); plant.position.set(PLANT.x, CY, PLANT.z);
   add(plant, mesh(new CylinderGeometry(0.28, 0.22, 0.5, 12), 0x8E4A2E, 0, 0.25, 0, true));
   for (const [x, y, z, r] of [[0, 0.8, 0, 0.32], [0.15, 1.05, 0.05, 0.24], [-0.12, 1.0, -0.08, 0.22], [0, 1.25, 0, 0.18]]) {
@@ -766,8 +873,13 @@ export const boss = new Fugu();
   const rack = add(cellar, new Group()); rack.position.set(RACK.x, CY, RACK.z);
   add(rack, mesh(G.cyl, WOOD_DARK, 0, 0.9, 0, true)).scale.set(0.04, 1.8, 0.04);
   for (let i = 0; i < 3; i++) { const foot = box(rack, WOOD_DARK, 0, 0.03, 0, 0.5, 0.04, 0.05); foot.rotation.y = i * Math.PI / 3; }
-  add(rack, mesh(G.cyl, 0x2E2B33, 0.12, 1.72, 0)).scale.set(0.2, 0.02, 0.2);
-  add(rack, mesh(G.cyl, 0x2E2B33, 0.12, 1.8, 0)).scale.set(0.12, 0.14, 0.12);
+  // his spare, not another of the fedora he's wearing: a straw boater with a navy band, the same size (fugu.ts' brim, at
+  // his 1.15), hung on the top of the pole
+  const spare = add(rack, new Group()); spare.position.set(0.06, 1.84, 0); spare.rotation.set(0.12, 0, -0.2);
+  add(spare, mesh(new CylinderGeometry(0.425, 0.425, 0.028, 20), STRAW, 0, 0, 0, true));
+  add(spare, mesh(new TorusGeometry(0.425, 0.016, 5, 24), 0xC9AE62)).rotation.x = Math.PI / 2;
+  add(spare, mesh(new CylinderGeometry(0.25, 0.26, 0.17, 18), STRAW, 0, 0.095, 0, true));
+  add(spare, mesh(new CylinderGeometry(0.265, 0.265, 0.06, 18), 0x1F3A5F, 0, 0.045, 0));
   add(rack, mesh(G.box, 0xC49A5A, -0.1, 1.35, 0, true)).scale.set(0.12, 0.7, 0.3);
 }
 
@@ -797,7 +909,7 @@ export function showVenue(t: number) {
   parts.tier.visible = parts.drums.visible = t >= 2;
   parts.vip.visible = t >= 3;
 }
-/** The grow room is found: the prep hall's back wall comes down, and there it is. */
+/** The grow room is found: the prep hall's stone wall comes down, its gate open, and there it is. */
 export function showGrowRoom(on = true) {
   parts.grow.visible = on;
   parts.hidden.visible = !on;
@@ -852,10 +964,12 @@ export function cellarBoxes(machines: Record<'rice' | 'fish' | 'mush', number> =
     // the hearth room: the hearth and the counter behind it, and the bowl counter
     [HEARTH.x, (KITCHEN.z0 + HEARTH.z + HEARTH.d / 2 + 0.6) / 2, HEARTH.w / 2 + 0.3, (HEARTH.z + HEARTH.d / 2 + 0.6 - KITCHEN.z0) / 2 + 0.3],
     [COUNTER.x, COUNTER.z, 0.75, 1.05],
-    // the prep hall: the dumbwaiter, its bins, the sacks
-    [LIFT.x, LIFT.z, 0.75, 0.75],
-    [BINS.rice.x, BINS.rice.z, 0.75, 0.75],
-    [BINS.fish.x, BINS.fish.z, 0.7, 0.7],
+    // the prep hall: the dumbwaiters, their plates, the sacks
+    // (long enough along the wall to meet the sacks and the bins in the corners, leaving no slot between to wedge into)
+    [LIFTS.rice.x, LIFTS.rice.z, 0.6, 0.95],
+    [LIFTS.fish.x, LIFTS.fish.z, 0.6, 0.95],
+    [BINS.rice.x, BINS.rice.z, 0.5, 0.5],
+    [BINS.fish.x, BINS.fish.z, 0.5, 0.5],
     [SACKS.x, SACKS.z, 0.75, 0.75],
     ...KITCHEN_BINS.map((b): [number, number, number, number] => [b.x, b.z, 0.65, 0.65]),
     // the office: the dais and the desk, the safe, the visitors' chairs, the cabinet, the fish tank, the plant and the rack
@@ -879,9 +993,26 @@ export function cellarBoxes(machines: Record<'rice' | 'fish' | 'mush', number> =
   if (parts.drums.visible) for (const d of DRUMS) boxes.push([d.x, d.z, 0.6, 0.6]);
   return boxes;
 }
-/** Keeps the player out of everything in the cellar they can't walk through. */
+/** Keeps the player out of everything in the cellar they can't walk through: out by the nearest side that's clear of
+ *  every box and still on the floor. (Pushed out of each box in turn, two that touch, or one against a wall, would
+ *  bounce them back and forth between, a frame each.) */
 export function collideCellar(p: XZ, machines?: Record<'rice' | 'fish' | 'mush', number>) {
-  for (const [cx, cz, hx, hz] of cellarBoxes(machines)) pushOutOfBox(p, cx, cz, hx, hz);
+  const boxes = cellarBoxes(machines), floors = walkable();
+  const inside = (x: number, z: number, [cx, cz, hx, hz]: (typeof boxes)[number], e = 1e-6) => Math.abs(x - cx) < hx - e && Math.abs(z - cz) < hz - e;
+  const blocked = (x: number, z: number) => boxes.some(b => inside(x, z, b));
+  if (!blocked(p.x, p.z)) return;
+  let bx = 0, bz = 0, bd = Infinity;
+  for (const b of boxes) {
+    if (!inside(p.x, p.z, b, 0)) continue;
+    const [cx, cz, hx, hz] = b;
+    for (const [x, z] of [[cx - hx, p.z], [cx + hx, p.z], [p.x, cz - hz], [p.x, cz + hz]]) {
+      const q = { x, z }; keepOnFloor(q, floors);
+      const d = (x - p.x) ** 2 + (z - p.z) ** 2;
+      if (q.x === x && q.z === z && d < bd && !blocked(x, z)) { bd = d; bx = x; bz = z; }
+    }
+  }
+  if (bd < Infinity) { p.x = bx; p.z = bz; return; }
+  for (const [cx, cz, hx, hz] of boxes) pushOutOfBox(p, cx, cz, hx, hz);
 }
 
 // ---------- one mesh for the furniture ----------
@@ -933,5 +1064,5 @@ function bakeStill(root: Object3D, keep: Set<Object3D>) {
 }
 // (the gong's disc swings, the pot's stew changes colour, Mr. Fugu puffs up; and the venue's parts and the grow room
 // come and go, so each is baked on its own)
-bakeStill(cellar, new Set<Object3D>([gongDisc, potMesh, boss, ...Object.values(parts)]));
+bakeStill(cellar, new Set<Object3D>([gongDisc, potMesh, boss, tankFish, ...Object.values(parts)]));
 for (const g of Object.values(parts)) bakeStill(g, new Set());

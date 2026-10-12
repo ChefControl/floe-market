@@ -429,19 +429,23 @@ function getOut(c: Customer, o: Out, dt: number) {
 /** The heading from one spot to another: queuers face the one ahead of them. */
 const facing = (from: XZ, to: XZ) => Math.atan2(to.x - from.x, to.z - from.z);
 
+/** While a scene holds the world (Mr. Fugu's): those already on their way finish, but nobody new comes, nobody passes
+ *  by on the road, and nobody waiting loses patience. */
+export const calm = { on: false };
+
 export function updCounter(C: Counter, dt: number) {
   if (!C.enabled) return;
-  C.spawnT -= dt;
+  if (!calm.on) C.spawnT -= dt;
   // marketing brings customers in faster and lets the queue grow longer
   if (C.spawnT <= 0 && C.queue.length < C.maxQ + Math.floor(mods[C.crowd] * C.qPer)) {
     C.spawnT = C.spawnEvery * rand(.7, 1.3) / demand() / boost(C.crowd);
     spawnCustomer(C);
   }
-  passBy(C, dt);
+  if (!calm.on) passBy(C, dt);
   C.queue.forEach((c, i) => {
     c.arrived = drive(c, C.slot(i), dt);
     if (c.arrived) { c.h = i === 0 || C.isSled ? C.faceH : facing(C.slot(i), C.slot(i - 1)); c.queued = true; }
-    if (c.queued) c.wait += dt;
+    if (c.queued && !calm.on) c.wait += dt;
     const left = 1 - c.wait / C.patience;
     c.bubble.visible = i === 0 && c.arrived && c.got < c.want;
     if (c.bubble.visible) showOrder(C, c, left);
@@ -491,7 +495,7 @@ export function closeMarket() {
 /** Takes what's left on the closed counters (landed fish and bills) to hand over to the restaurant. */
 export function marketLeftovers() {
   return {
-    steaks: [...C1.stock.items.splice(0), ...SLED.stock.items.splice(0)],
+    fillets: [...C1.stock.items.splice(0), ...SLED.stock.items.splice(0)],
     bills: [...C1.cash.items.splice(0), ...SLED.cash.items.splice(0)],
   };
 }

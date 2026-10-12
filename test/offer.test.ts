@@ -1,5 +1,6 @@
-// Mr. Fugu's offer: once Floe Sushi is fully built and the cash passes a million, he climbs out of a hatch in the dock
-// with a short pitch, and the player answers.
+// Mr. Fugu's offer: once Floe Sushi is fully built and the cash passes a million, a hatch turns up in the dock. Walk up
+// to it and he peeks out from under the lid ("come back tonight"); wait for nightfall, and he climbs out with a short
+// pitch, and the player answers.
 import type { PointLight } from 'three';
 import { describe, expect, it } from 'vitest';
 import { fake, installFakeAudio, nameBuses } from './fakeAudio';
@@ -22,13 +23,28 @@ async function setup(save: Parameters<typeof loadGame>[0] = {}) {
     b.click();
   };
   const answers = () => [...$('offerPick').querySelectorAll('button')].map(b => b.textContent!.slice(2));
-  return { g, offer, $, hearHimOut, answer, answers };
+  /** Through his peek from under the lid, and the night, to his pitch and its answers. */
+  const pitch = () => { hearHimOut(); answer('Wait for nightfall'); hearHimOut(); };
+  return { g, offer, $, hearHimOut, answer, answers, pitch };
 }
 
 describe("Mr. Fugu's offer", () => {
   it('waits for the restaurant to be fully built and the cash to pass a million', async () => {
+    // his hatch is in the dock from the start, shut, and quiet: in stage 1...
+    const first = await loadGame({ money: 5_000_000 });
+    const { Hatch } = await import('../src/fugu');
+    const { scene: world } = await import('../src/render');
+    const hatches = () => { const hs: InstanceType<typeof Hatch>[] = []; world.traverseVisible(o => { if (o instanceof Hatch) hs.push(o); }); return hs; };
+    expect(hatches()).toHaveLength(1);
+    expect(hatches()[0].openTo).toBe(0);
+    first.run(3);
+    expect(document.getElementById('offerAlert')!.classList.contains('on')).toBe(false);
+    // ...and in stage 2 before the restaurant's built, even with the million: nothing knocks, nobody peeks
     const early = await loadGame({ tiles: bought(...MARKET, 'sushi'), money: 5_000_000 });
     early.run(3);
+    expect(document.getElementById('offerAlert')!.classList.contains('on')).toBe(false);
+    early.placePlayer((await import('../src/offer')).HATCH.x, (await import('../src/offer')).HATCH.z + 1.2);
+    early.run(2);
     expect(early.player.frozen).toBe(false);
 
     const { g, offer, $ } = await setup();
@@ -50,17 +66,62 @@ describe("Mr. Fugu's offer", () => {
     g.placePlayer(offer.HATCH.x - 1, offer.HATCH.z + 1);
     g.run(0.1);
     expect(g.player.frozen).toBe(true);
-    // the HUD steps aside behind the blinks, and the player ends up in front of the hatch
+    // the HUD steps aside behind the blinks, and the player ends up in front of the hatch, on the restaurant's side
     g.run(1);
     expect(document.body.classList.contains('offer')).toBe(true);
-    expect(g.player.g.position.z).toBeLessThan(-5);
+    expect(g.player.g.position.z).toBeGreaterThan(offer.HATCH.z + 1.5);
     // ...and comes on behind the blinks, for the lid opening
     expect(lit()).toBe(lights + 1);
   });
 
-  it('a pitch, the answers, and "Not today" leaves his hatch on the dock', async () => {
+  it('first he peeks out from under the lid: "Not now" leaves him there till the player walks off and comes back', async () => {
     const { g, offer, $, hearHimOut, answer, answers } = await setup({ money: 1_000_000 });
     hearHimOut();
+    expect(answers()).toEqual(['Wait for nightfall', 'Not now']);
+    const { nightK } = await import('../src/stage');
+    expect(nightK()).toBe(0); // (by day)
+    answer('Not now');
+    g.runUntil(() => { g.press('z'); return !g.player.frozen; }, 15, 0.1);
+    expect(offer.offer.answer).toBe(0);
+    expect($('offerAlert').classList.contains('on')).toBe(true);
+    // standing about doesn't bring him straight back up, even right by the hatch (once a visit)...
+    g.run(2);
+    expect(g.player.frozen).toBe(false);
+    g.placePlayer(offer.HATCH.x, offer.HATCH.z + 1.2);
+    g.run(3);
+    expect(g.player.frozen).toBe(false);
+    // ...walking off and coming back does
+    g.placePlayer(offer.HATCH.x - 5, offer.HATCH.z + 3);
+    g.run(0.5);
+    g.placePlayer(offer.HATCH.x, offer.HATCH.z + 1.2);
+    g.run(1);
+    expect(g.player.frozen).toBe(true);
+    hearHimOut();
+    expect(answers()).toEqual(['Wait for nightfall', 'Not now']);
+  });
+
+  it('waiting for nightfall: night falls, he climbs out, and when he\'s done it\'s day again', async () => {
+    const { g, offer, hearHimOut, answer, pitch } = await setup({ money: 1_000_000 });
+    const { nightK } = await import('../src/stage');
+    pitch();
+    expect(nightK()).toBe(1);
+    expect(offer.offer.answer).toBe(0);
+    answer('Not today');
+    g.runUntil(() => { g.press('z'); return !g.player.frozen; }, 15, 0.1);
+    g.run(6);
+    expect(nightK()).toBe(0);
+    // walking off and back onto his hatch brings him back up, at night again, without the peek
+    g.placePlayer(offer.HATCH.x - 4, offer.HATCH.z + 2); g.run(0.3);
+    g.placePlayer(offer.HATCH.x, offer.HATCH.z);
+    g.run(1);
+    expect(g.player.frozen).toBe(true);
+    hearHimOut();
+    expect(nightK()).toBe(1);
+  });
+
+  it('a pitch, the answers, and "Not today" leaves his hatch on the dock', async () => {
+    const { g, offer, $, hearHimOut, answer, answers, pitch } = await setup({ money: 1_000_000 });
+    pitch();
     expect(answers()).toEqual(['Deal me in', 'Is this legal?', 'Not today']);
     // keys run through the answers
     g.press('ArrowRight'); g.press('ArrowRight', 'keyup');
@@ -75,17 +136,27 @@ describe("Mr. Fugu's offer", () => {
     expect($('offer').hidden).toBe(true);
     expect(document.body.classList.contains('offer')).toBe(false);
     expect(JSON.parse(localStorage.getItem('floe-market-v1')!).fugu).toBe(1);
-    // standing on the hatch brings him back up
-    g.run(2);
+    // standing about where he left the player doesn't bring him back up...
+    g.run(3);
     expect(g.player.frozen).toBe(false);
+    // ...stepping onto the hatch does
+    g.placePlayer(offer.HATCH.x, offer.HATCH.z);
+    g.run(1);
+    expect(g.player.frozen).toBe(true);
+    // and once a visit: answered again, staying on it doesn't bring him straight back up; stepping off and on does
+    hearHimOut(); answer('Not today');
+    g.runUntil(() => { g.press('z'); return !g.player.frozen; }, 15, 0.1);
+    g.placePlayer(offer.HATCH.x, offer.HATCH.z);
+    expect(() => g.runUntil(() => g.player.frozen, 3)).toThrow();
+    g.placePlayer(offer.HATCH.x + 1.2, offer.HATCH.z + 0.5); g.run(0.3);
     g.placePlayer(offer.HATCH.x, offer.HATCH.z);
     g.run(1);
     expect(g.player.frozen).toBe(true);
   });
 
   it('"Deal me in" puts his price on a gold tile by the hatch, and the hatch stays open', async () => {
-    const { g, offer, $, hearHimOut, answer } = await setup({ money: 1_000_000 });
-    hearHimOut();
+    const { g, offer, $, answer, pitch } = await setup({ money: 1_000_000 });
+    pitch();
     // a tap shows the rest of a line at once
     g.press('z');
     answer('Deal me in');
@@ -111,6 +182,35 @@ describe("Mr. Fugu's offer", () => {
     again.run(3);
     expect(again.player.frozen).toBe(false);
     expect(again.unlocks.visibleTiles().some(t => t.id === 'dohyo')).toBe(true);
+  });
+
+  it('while he is on, the world winds down: what is in the air lands, the cars finish their drive, nobody new comes', async () => {
+    const { g, offer } = await setup();
+    const [counters, { fly }, items, { scene }] = await Promise.all([import('../src/counters'), import('../src/holder'), import('../src/items'), import('../src/render')]);
+    const T = counters.TAKEOUT;
+    // a few cars at the takeout window first, away from the hatch, then the million, and up to it
+    g.placePlayer(0, -2);
+    g.runUntil(() => T.queue.length > 0, 60);
+    g.wallet.money = 1_000_000;
+    g.run(0.1);
+    g.placePlayer(offer.HATCH.x, offer.HATCH.z + 1.2);
+    g.runUntil(() => offer.offerPlaying(), 10);
+    g.run(0.05);
+    expect(counters.calm.on).toBe(true);
+    // a fillet thrown just as he came up lands instead of hanging in the air
+    const m = items.newFillet(); scene.add(m); m.position.set(0, 3, 0);
+    fly(m, () => m.position.clone().set(2, 1, 0), 0.5, 1);
+    g.run(0.6);
+    expect(m.position.distanceTo(m.position.clone().set(2, 1, 0))).toBeLessThan(1e-6);
+    // the cars already there drive on to where they were going; nobody new pulls in or passes, and nobody waiting sulks
+    const cars = [...T.queue], waits = cars.map(c => c.wait), spawn = T.spawnT;
+    const at = cars.map(c => c.g.position.clone());
+    g.run(20);
+    expect(T.queue.every(c => cars.includes(c))).toBe(true);
+    expect(T.spawnT).toBe(spawn);
+    T.queue.forEach(c => expect(c.wait).toBe(waits[cars.indexOf(c)]));
+    expect(cars.some((c, i) => c.g.position.distanceTo(at[i]) > 0.01 || c.arrived)).toBe(true);
+    expect(offer.offerPlaying()).toBe(true);
   });
 
   it('tapping the screen reads on, but not while the answers are up', async () => {
@@ -146,7 +246,9 @@ describe("Mr. Fugu's offer", () => {
     expect(audio.buses.sfx.gain.value).toBe(0);
     expect(audio.buses.amb.gain.value).toBe(0);
     expect(since(() => { sfx.coin(); sfx.splash(offer.HATCH); })).toEqual([]);
-    heard = since(() => { play(3); hearHimOut(); play(3); });
+    // (past his peek: choosing "Wait for nightfall" clicks, like any button)
+    play(3); hearHimOut(); answer('Wait for nightfall');
+    heard = since(() => { hearHimOut(); play(3); });
     // (the band's last notes play into its fade, which is down to nothing: see the music's bus below)
     expect(heard.filter(p => p.f >= 20 && !['cue', 'scene', 'music'].includes(p.bus)).map(p => [p.kind, p.bus, Math.round(p.f)])).toEqual([]);
     expect(heard.some(p => p.type === 'triangle' && p.f >= 105 && p.f <= 140)).toBe(true);
@@ -170,6 +272,7 @@ describe("Mr. Fugu's offer", () => {
 
     // the settings' mutes reach him: no bass with the music muted, no mumble with the effects muted
     audio.setMute('music', true); audio.setMute('sfx', true);
+    g.placePlayer(offer.HATCH.x - 4, offer.HATCH.z + 2); play(0.3);
     g.placePlayer(offer.HATCH.x, offer.HATCH.z);
     heard = since(() => { play(5); hearHimOut(); });
     expect(g.player.frozen).toBe(true);
@@ -183,7 +286,7 @@ describe("Mr. Fugu's offer", () => {
     expect(line()).toBe('Psst.'); // a beat to read it
     g.run(0.3);
     expect(line()).toMatch(/^Psst\. C/);
-    // the rest of it, "hef. Over here.", holds at "Chef." too
-    expect(g.runUntil(() => line() === 'Psst. Chef. Over here.', 10)).toBeGreaterThan(1.2);
+    g.runUntil(() => line() === 'Psst. Chef.', 10);
+    expect(line()).toBe('Psst. Chef.');
   });
 });

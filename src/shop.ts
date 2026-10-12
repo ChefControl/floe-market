@@ -4,12 +4,16 @@
 // press of E (buy), as it sells only the one thing. The HUD's top left lists every modifier in play, as a percentage:
 // Customers there is marketing and the rating together, as both bring customers in faster. Stage 3's square is down
 // in the cellar, on the landing, priced in Fugu Chips: pricier bowls, word on the street (fans) and the cellar crew.
-import { SHOP3 } from './cellarPlan';
+// And down there each room with things to buy has a square of its own, a menu of them, each bought outright: the prep
+// hall's (racks, barrels, steamers, the smokehouse, the hires who run its lines), the grow room's (beds, shelves) and
+// the hearth room's (the cook and the attendant).
+import { type MenuRoom, ROOM_MENUS, SHOP3 } from './cellarPlan';
+import { BOSSES, F, MACH } from './fight';
 import { repriceFish } from './counters';
 import { decal, drawMenu } from './decals';
 import { boost, MOD, modCost, MODS, mods, type ModId } from './economy';
 import { buyHeld } from './input';
-import { CELLAR_Y, level, SHED_YARD, shedYard, stage, type StageN } from './layout';
+import { CELLAR_Y, found, level, SHED_YARD, shedYard, stage, type StageN } from './layout';
 import { player } from './player';
 import { demand } from './rating';
 import { repriceSushi, sushiBoost } from './restaurant';
@@ -17,7 +21,8 @@ import { save } from './save';
 import { levelUp } from './sfx';
 import { SHED_AT } from './shed';
 import { staging } from './stage';
-import { isDone } from './unlocks';
+import { buyFromMenu, isDone, menuSeen, menuTiles, offered, type Tile } from './unlocks';
+import { MAX_MACHINES } from './cellarPlan';
 import { toast } from './ui';
 import { chips, FY, price } from './util';
 import { wallet } from './wallet';
@@ -36,15 +41,22 @@ interface Square {
   title: string;
   /** The fertilizer shed's square, which sells only what's bought there (and the upgrade squares, everything else). */
   shed: boolean;
+  /** A cellar room's square, selling that room's upgrades (unlocks.ts's menu tiles) rather than the stage's levels. */
+  room?: MenuRoom;
+  /** What's on its square, under the icon. */
+  label?: string;
 }
 const SQUARES: Square[] = [
   { ...SHOPS[0], stage: 1, title: 'Market upgrades', shed: false },
   { ...SHOPS[1], stage: 2, title: 'Restaurant upgrades', shed: false },
   { ...SHED_AT, stage: 2, title: 'Fertilizer shed', shed: true },
   { ...SHOPS[2], stage: 3, title: 'Ring upgrades', shed: false },
+  { ...ROOM_MENUS.prep, stage: 3, title: 'Prep hall upgrades', shed: false, room: 'prep', label: 'Prep' },
+  { ...ROOM_MENUS.grow, stage: 3, title: 'Grow room upgrades', shed: false, room: 'grow', label: 'Grow' },
+  { ...ROOM_MENUS.hearth, stage: 3, title: 'Hearth upgrades', shed: false, room: 'hearth', label: 'Hearth' },
 ];
 const pads = SQUARES.map(q => {
-  const d = decal(HALF * 2, (c, w, h) => q.shed ? drawMenu(c, w, h, '🌿', 'Fertilizer') : drawMenu(c, w, h, '📈', 'Upgrade'));
+  const d = decal(HALF * 2, (c, w, h) => q.shed ? drawMenu(c, w, h, '🌿', 'Fertilizer') : drawMenu(c, w, h, '📈', q.label ?? 'Upgrade'));
   d.mesh.position.set(q.x, (q.shed ? SHED_YARD.y : q.stage === 3 ? CELLAR_Y : FY) + 0.01, q.z);
   return d;
 });
@@ -54,7 +66,8 @@ const pads = SQUARES.map(q => {
  * only there for the player down in the cellar, and the others only up in the world.
  */
 const active = (q: Square) =>
-  q.stage === stage.n && !(stage.n >= 2 && staging()) && (!q.shed || shedYard.open) && (q.stage === 3) === level.down;
+  q.stage === stage.n && !(stage.n >= 2 && staging()) && (!q.shed || shedYard.open) && (q.stage === 3) === level.down
+  && (q.room !== 'grow' || found.grow);
 /** The square whose panel is open, if any. */
 let on: Square | null = null;
 /** Whether this phone's player is on a square, with its panel open. */
@@ -90,9 +103,44 @@ export function buyMod(id: ModId) {
   return true;
 }
 
+// ---------- a room's menu ----------
+/** Why a room's upgrade isn't on sale yet: the boss to beat first, or what to buy before it. */
+function lockedBy(t: Tile) {
+  if (F.beaten < (t.beat ?? 0)) { const b = BOSSES[t.beat! - 1]; return { tag: `🔒 ${b.face}`, why: `After beating ${b.name} ${b.face}` }; }
+  return { tag: '🔒', why: 'Not yet' };
+}
+/** One row per upgrade of the room's: what it is and does (a line's machine, how many there are), and its price on a
+ *  button; one bought shows as done, one not found yet as locked, with what opens it. */
+function renderTileRows(q: Square) {
+  title.textContent = q.title;
+  const list = menuTiles(q.room!);
+  // on sale first, then the locked ones, then what's done
+  const rank = (t: Tile) => (t.done ? 2 : offered(t) ? 0 : 1);
+  rows.replaceChildren(...list.slice().sort((a, b) => rank(a) - rank(b)).map(t => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'mod'; b.dataset.tile = t.id;
+    const sale = !t.done && offered(t);
+    b.disabled = !sale || wallet.money < t.cost;
+    if (!sale) b.classList.add('locked');
+    const n = t.line ? F.lines[t.line].n : 0;
+    const head = t.line ? `${t.name} · ${n} of ${MAX_MACHINES}` : t.name;
+    const sub = t.done ? (t.line ? `The ${t.line === 'rice' ? 'rice' : t.line === 'fish' ? 'fish' : 'mushroom'} line is full` : t.desc)
+      : sale ? t.desc : `${lockedBy(t).why}: ${t.desc.charAt(0).toLowerCase()}${t.desc.slice(1)}`;
+    b.innerHTML = '<span class="ic"></span><span class="txt"><b></b><span></span></span><span class="cost"></span>';
+    b.children[0].textContent = t.icon;
+    b.children[1].children[0].textContent = head;
+    b.children[1].children[1].textContent = sub;
+    b.children[2].textContent = t.done ? (t.line ? 'Max' : 'Done ✓') : sale ? chips(t.cost, true) : lockedBy(t).tag;
+    return b;
+  }));
+}
+/** What a room's menu shows: each upgrade's state, its price, and the line's machines (for rebuilding the rows). */
+const tileKey = (q: Square) => menuTiles(q.room!).map(t => `${t.id}${t.done ? '+' : offered(t) ? '' : '-'}${t.cost}`).join() + F.beaten + MACH.rice[0].cap;
+
 // ---------- panel ----------
 /** One row per upgrade sold on square `q`: what the next level does, and its price on a button. */
 function renderRows(q: Square) {
+  if (q.room) { renderTileRows(q); return; }
   const n = q.stage;
   title.textContent = q.title;
   rows.replaceChildren(...sold(q).map(m => {
@@ -119,14 +167,27 @@ let built = '';
  * replaced mid-tap loses its click): only a new level, an upgrade coming on sale, or another square rebuilds them.
  */
 function syncRows(q: Square) {
-  const key = q.title + MODS.map(m => modOffered(m.id) ? mods[m.id] : '-').join();
+  const key = q.title + (q.room ? tileKey(q) : MODS.map(m => modOffered(m.id) ? mods[m.id] : '-').join());
   if (key !== built) { built = key; renderRows(q); return; }
+  if (q.room) {
+    for (const b of rows.children as HTMLCollectionOf<HTMLButtonElement>) {
+      const t = menuTiles(q.room).find(x => x.id === b.dataset.tile)!, off = t.done || !offered(t) || wallet.money < t.cost;
+      if (b.disabled !== off) b.disabled = off;
+    }
+    return;
+  }
   for (const b of rows.children as HTMLCollectionOf<HTMLButtonElement>) {
     const cost = modCost(b.dataset.mod as ModId), off = cost === null || wallet.money < cost;
     if (b.disabled !== off) b.disabled = off;
   }
 }
 rows.addEventListener('click', e => {
+  const t = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-tile]');
+  if (t && !t.disabled && on?.room) {
+    const tile = menuTiles(on.room).find(x => x.id === t.dataset.tile);
+    if (tile && buyFromMenu(tile)) { save(); syncRows(on); }
+    return;
+  }
   const b = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-mod]');
   if (b && !b.disabled && on && buyMod(b.dataset.mod as ModId)) syncRows(on);
 });
@@ -181,11 +242,19 @@ export function updShop() {
     panel.hidden = !on;
     built = '';
   }
+  const room = (on as Square | null)?.room;
+  if (room) menuSeen.add(room);
   const press = buyHeld() && !held;
   held = buyHeld();
   if (on && press) {
-    const only = sold(on);
-    if (only.length === 1) buyMod(only[0].id);
+    if (room) {
+      // E buys the first thing on sale there's the chips for
+      const t = menuTiles(room).find(x => !x.done && offered(x) && wallet.money >= x.cost);
+      if (t && buyFromMenu(t)) save();
+    } else {
+      const only = sold(on);
+      if (only.length === 1) buyMod(only[0].id);
+    }
   }
   // every frame: the money changes most frames, and an upgrade comes on sale with a hire (crew training)
   if (on) syncRows(on);

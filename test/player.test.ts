@@ -53,7 +53,7 @@ describe('stations', () => {
     expect(g.stations.pile.items).toHaveLength(4);
   });
 
-  it('stocks the steak counter and collects its cash', async () => {
+  it('stocks the fillet counter and collects its cash', async () => {
     const g = await loadGame({ back: 5, c1c: 20 });
     const { C1 } = g.counters;
     C1.maxQ = 0;

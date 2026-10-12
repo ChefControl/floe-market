@@ -45,13 +45,13 @@ describe('saving progress', () => {
     expect(g2.cashAt(g2.counters.SLED)).toBe(18);
   });
 
-  it("puts the sled window's steaks and cash somewhere if it isn't open", async () => {
+  it("puts the sled window's fillets and cash somewhere if it isn't open", async () => {
     const g = await loadGame({ money: 1, c2: 4, c2c: 18 });
     expect(g.wallet.money).toBe(19);
     expect(g.stations.pile.items).toHaveLength(4);
   });
 
-  it("counts the closed counter's last steaks and cash toward the restaurant", async () => {
+  it("counts the closed counter's last fillets and cash toward the restaurant", async () => {
     const g = await loadGame({ c1: 2 });
     const { C1 } = g.counters;
     g.runUntil(() => (C1.queue[0]?.hands.n ?? 0) > 0);

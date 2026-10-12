@@ -2,10 +2,11 @@
 // He's built like everyone else (the same legs, body and arms) with a pufferfish for a head: spines that stand up
 // when he puffs, a pout, shades, a toothpick and a fedora, over a trench coat with a gold chain.
 import {
-  BoxGeometry, ConeGeometry, CylinderGeometry, Group, type Mesh, MeshLambertMaterial, type Object3D, PointLight, Quaternion,
-  SphereGeometry, TorusGeometry, Vector3,
+  AlwaysDepth, AlwaysStencilFunc, BoxGeometry, ConeGeometry, CylinderGeometry, EqualStencilFunc, Group, Mesh,
+  MeshLambertMaterial, type Object3D, PlaneGeometry, PointLight, Quaternion, ReplaceStencilOp, RepeatWrapping, ShaderMaterial,
+  SphereGeometry, SpotLight, TorusGeometry, Vector3,
 } from 'three';
-import { G, mesh } from './render';
+import { canvasTex, G, mesh } from './render';
 
 const COAT = 0xC49A5A, COAT_DARK = 0x9C7840, TROUSERS = 0x2C3A47;
 const FISH = 0xEBD38E, BELLY = 0xFFF6E0, SPOT = 0x8A6A3A, SPINE = 0xF6E7B4, FIN = 0xD9B866, LIPS = 0xF08A7E;
@@ -26,6 +27,25 @@ const brimGeo = new CylinderGeometry(0.37, 0.37, 0.025, 16);
 const crownGeo = new CylinderGeometry(0.2, 0.23, 0.2, 14);
 const bandGeo = new CylinderGeometry(0.233, 0.233, 0.05, 14);
 
+
+/** The light on his shades: a little all over, and a streak across the glass (it sweeps over them when they glint). */
+const shine = canvasTex(64, 32, (c, w, h) => {
+  c.fillStyle = '#3A3A3A'; c.fillRect(0, 0, w, h);
+  const g = c.createLinearGradient(0, 0, w, 0);
+  g.addColorStop(0.3, 'rgba(255,255,255,0)'); g.addColorStop(0.45, 'rgba(255,255,255,1)'); g.addColorStop(0.52, 'rgba(255,255,255,0.9)');
+  g.addColorStop(0.58, 'rgba(255,255,255,0)'); g.addColorStop(0.66, 'rgba(255,255,255,0.7)'); g.addColorStop(0.72, 'rgba(255,255,255,0)');
+  c.fillStyle = g;
+  // slanted, like light on glass
+  c.setTransform(1, 0, -0.6, 1, h * 0.3, 0); c.fillRect(-w, 0, w * 3, h);
+}).tex;
+// (round and round: a glint carries the streak out one side of the glass and back in the other)
+shine.wrapS = RepeatWrapping;
+
+/** Where the streak on his shades rests: across the middle of the glass. */
+const SHINE_REST = 0.05;
+/** How long a glint takes to sweep across. */
+const GLINT = 0.6;
+
 const UP = new Vector3(0, 1, 0);
 /** Adds `m` to `parent` and hands back `m` (Object3D.add returns the parent). */
 const put = <T extends Object3D>(parent: Object3D, m: T) => { parent.add(m); return m; };
@@ -42,11 +62,17 @@ export class Fugu extends Group {
   private readonly lips: Mesh;
   private readonly gape: Mesh;
   private readonly pick: Mesh;
-  private readonly lens = new MeshLambertMaterial({ color: SHADES, emissive: 0xFFFFFF, emissiveIntensity: 0 });
+  private readonly lens = new MeshLambertMaterial({ color: SHADES, emissive: 0xFFFFFF, emissiveMap: shine, emissiveIntensity: 0 });
+  /** Only his shades showing, catching the light in the dark (see stare()). */
+  private staring = false;
   /** 0 to 1: how puffed up he is, and how puffed up he's getting. */
   puff = 0;
   puffTo = 0;
   talking = false;
+  /** Looking someone in the eye: how far his head tips down to them (radians), and his idle sway nearly stilled so
+   *  his gaze stays on them. */
+  gaze = 0;
+  steady = false;
   private t = 0;
   private shakeT = 0;
   private glintT = 0;
@@ -121,10 +147,35 @@ export class Fugu extends Group {
     this.update(0);
   }
 
+  /** His own colours, taken the first time he's shaded (mesh() hands everyone of a colour the same material). */
+  private own: { m: MeshLambertMaterial; c: number }[] | null = null;
+  /** How much of his colour shows, 0 (a black shape against the light: rising out of the smoke) to 1 (himself). */
+  shade(k: number) {
+    if (!this.own) {
+      this.own = [];
+      this.traverse(o => {
+        const m = o as Mesh;
+        if (!m.isMesh || m.material === this.lens) return;
+        const mat = (m.material as MeshLambertMaterial).clone();
+        m.material = mat;
+        this.own!.push({ m: mat, c: mat.color.getHex() });
+      });
+    }
+    for (const { m, c } of this.own) m.color.setHex(c).multiplyScalar(0.03 + 0.97 * k);
+  }
+  /** Just his shades, catching the light in the dark (peeking out from under the hatch): the rest of him isn't drawn. */
+  stare(on: boolean) {
+    this.shade(1);
+    for (const { m } of this.own!) m.visible = !on;
+    this.staring = on;
+  }
   /** Shakes him for a moment (he's furious). */
   shake(s = 0.45) { this.shakeT = s; }
   /** The light catches his shades. */
-  glint() { this.glintT = 0.35; }
+  glint() {
+    if (this.glintT > 0) return; // (one at a time: a second never cuts the first short)
+    this.glintT = GLINT;
+  }
   /** A letter said: keeps his mouth going. */
   syllable() { this.voice = 0.16; }
   /** A word said: his head bobs with it. */
@@ -158,14 +209,16 @@ export class Fugu extends Group {
     this.gape.visible = o > 0.05;
     this.pick.position.y = -0.12 - 0.03 * o;
     this.pick.rotation.z = 1.25 + Math.sin(this.t * 3) * 0.12 - 0.15 * o;
-    const tilt = this.talking ? Math.sin(this.t * 2.6) * 0.09 : 0;
-    this.head.rotation.set(this.nod * 0.12 - 0.04 * k, Math.sin(this.t * 1.3) * 0.08, tilt);
+    // (peeking from under the lid, he keeps his head still: only the faintest of it)
+    const m = this.staring ? 0.15 : 1, sway = this.steady ? 0.2 : 1;
+    const tilt = this.talking ? Math.sin(this.t * 2.6) * 0.09 * m * (this.steady ? 0.5 : 1) : 0;
+    this.head.rotation.set((this.nod * 0.12 - 0.04 * k) * m + this.gaze, Math.sin(this.t * 1.3) * 0.08 * m * sway, tilt);
     const jitter = this.shakeT > 0 ? Math.sin(this.t * 90) * 0.035 : 0;
-    this.head.position.set(jitter, 1.13 + Math.sin(this.t * 2.4) * 0.012 + 0.1 * k - this.nod * 0.02, 0);
+    this.head.position.set(jitter, 1.13 + (Math.sin(this.t * 2.4) * 0.012 - this.nod * 0.02) * m + 0.1 * k, 0);
     // the hat stays on through all of it
     const top = HEAD_R * s * 0.82;
-    this.hat.position.set(jitter - 0.02 - tilt * top, this.head.position.y + top, -0.02 + this.nod * 0.12 * top);
-    this.hat.rotation.set(-0.06 + this.nod * 0.12, this.head.rotation.y, 0.14 + tilt);
+    this.hat.position.set(jitter - 0.02 - tilt * top, this.head.position.y + top, -0.02 + (this.nod * 0.12 + this.gaze) * top);
+    this.hat.rotation.set(-0.06 + this.nod * 0.12 + this.gaze, this.head.rotation.y, 0.14 + tilt);
     for (const [i, f] of this.fins.entries()) f.rotation.y = Math.sin(this.t * (this.talking ? 16 : 9) + i * Math.PI) * 0.5;
     // a hand comes out of his pocket to talk with; puffed up, he throws both out
     const [left, right] = this.arms;
@@ -173,18 +226,64 @@ export class Fugu extends Group {
     this.armT += (talkArm - this.armT) * Math.min(1, dt * 8);
     right.rotation.set(0.25 - this.armT * (1.25 + Math.sin(this.t * 5) * 0.25), 0, 0.12 + 0.75 * k);
     left.rotation.set(0.25 - 0.6 * k, 0, -0.12 - 0.75 * k);
-    this.lens.emissiveIntensity = this.glintT > 0 ? Math.sin(this.glintT / 0.35 * Math.PI) * 0.8 : 0;
+    // a glint: the glass lights up, and the streak sweeps from the middle out across it, round, and back to rest in
+    // the middle
+    const g = this.glintT > 0 ? 1 - this.glintT / GLINT : -1;
+    shine.offset.x = SHINE_REST - (g >= 0 ? g * g * (3 - 2 * g) : 0);
+    // peeking, the shades shine faintly in the dark
+    this.lens.emissiveIntensity = (this.staring ? 0.75 : 0) + (g >= 0 ? Math.sin(g * Math.PI) * 1.4 : 0);
   }
 }
 
+// The hole under the hatch is real: a shaft of rough planks going down to a furnace glow, with the ladder down one
+// side. The deck is solid over it, so the hole is cut in the drawing: where the hatch's opening is the nearest thing
+// on screen (nobody standing in front of it), a plane marks the stencil and pushes the depth back to the far plane,
+// and the shaft (and whatever's in it) is drawn after that, through the gap.
+const OPEN = 1.1, DEEP = 2.6;
+const boards = canvasTex(128, 256, (c, w, h) => {
+  c.fillStyle = '#5A3A24'; c.fillRect(0, 0, w, h);
+  for (let i = 0; i < 6; i++) {
+    c.fillStyle = ['#4E321F', '#5F3E27', '#553622'][i % 3]; c.fillRect(i * 21.3 + 1, 0, 19.3, h);
+    c.fillStyle = '#1E120A'; c.fillRect(i * 21.3, 0, 1.5, h);
+  }
+  for (let j = 0; j < 40; j++) { c.fillStyle = 'rgba(20,10,4,0.25)'; c.fillRect((j * 37) % w, (j * 71) % h, 1, 8 + (j * 13) % 30); }
+});
+boards.tex.wrapS = boards.tex.wrapT = RepeatWrapping; boards.tex.repeat.set(1, 2);
+/** Marks the opening in the stencil, where it's in sight (the deck's depth still in place: it's tested against it). */
+const markMat = new ShaderMaterial({
+  vertexShader: 'void main(){ gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+  fragmentShader: 'void main(){ gl_FragColor = vec4(0.0); }',
+  colorWrite: false, depthWrite: false,
+  stencilWrite: true, stencilRef: 1, stencilFunc: AlwaysStencilFunc, stencilZPass: ReplaceStencilOp,
+});
+/** Then, only there, pushes the depth back to the far plane, so the shaft under the deck can be drawn through it. */
+const clearMat = new ShaderMaterial({
+  vertexShader: 'void main(){ gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+  fragmentShader: 'void main(){ gl_FragColor = vec4(0.0); gl_FragDepth = 1.0; }',
+  colorWrite: false, depthFunc: AlwaysDepth,
+  stencilWrite: true, stencilRef: 1, stencilFunc: EqualStencilFunc,
+});
+
 /** A trapdoor in the dock planks, with a ladder going down to a glow, a roar and a lot of steam. */
 export class Hatch extends Group {
-  /** Swings up on its south edge, away from whoever's in front of it. */
+  /** Swings up on its far edge (+z, before offer.ts turns the hatch round), away from whoever's in front of it. */
   readonly lid = new Group();
   /** The lift he rides up and down on: a plank platform on a timber frame, its top where his feet are (offer.ts moves it). */
   readonly lift = new Group();
   readonly light = new PointLight(0xFF5A2A, 0, 7, 1.6);
-  private readonly pit = new MeshLambertMaterial({ color: 0x1A0A08, emissive: 0xFF4A1C, emissiveIntensity: 0 });
+  /** A light from high in front, on his head and shoulders (his legs stay in the dark), for Mr. Fugu's reveal. Off,
+   *  like `light`, till offer.ts switches them on behind a blink (see lit()). */
+  readonly spot = new SpotLight(0xFFE6CC, 0, 9, 0.17, 0.7, 1.0);
+  /** The furnace glow at the bottom of the shaft. */
+  private readonly pit = new MeshLambertMaterial({ color: 0x2A1208, emissive: 0xFF5A1C, emissiveIntensity: 0 });
+  /** The shaft's planks and its ladder (its own, to go dark in: see update()). */
+  private readonly wall = new MeshLambertMaterial({ map: boards.tex });
+  private readonly rail = new MeshLambertMaterial({ color: 0x6E4B2E });
+  /** How far the lid's lifted a crack (0 to 1): someone peeking out from under it. */
+  peek = 0;
+  peekTo = 0;
+  /** A shove from underneath (offer.ts): how far the lid's thrown up, on top of the rest. */
+  jolt = 0;
   private readonly puffMat = new MeshLambertMaterial({ color: 0xFFFFFF, transparent: true, opacity: 0, depthWrite: false });
   private readonly steam: { m: Mesh; t: number }[] = [];
   /** 0 shut to 1 wide open, and where it's going (fast). */
@@ -196,7 +295,19 @@ export class Hatch extends Group {
   constructor() {
     super();
     const W = 1.15;
-    this.add(mesh(new BoxGeometry(W, 0.012, W), this.pit, 0, 0.004, 0));
+    // the shaft, and the hole into it (drawn after the world: renderOrder 1 marks it, 2 draws through it)
+    const mark = new Mesh(new PlaneGeometry(OPEN, OPEN), markMat), clear = new Mesh(new PlaneGeometry(OPEN, OPEN), clearMat);
+    for (const [m, order] of [[mark, 1], [clear, 1.5]] as const) { m.rotation.x = -Math.PI / 2; m.position.y = 0.006; m.renderOrder = order; this.add(m); }
+    const shaft = new Group();
+    const wall = this.wall;
+    for (const [x, z, ry] of [[0, -OPEN / 2, 0], [0, OPEN / 2, Math.PI], [-OPEN / 2, 0, Math.PI / 2], [OPEN / 2, 0, -Math.PI / 2]]) {
+      const w = new Mesh(new PlaneGeometry(OPEN, DEEP), wall); w.position.set(x, -DEEP / 2, z); w.rotation.y = ry; shaft.add(w);
+    }
+    const floor = new Mesh(new PlaneGeometry(OPEN, OPEN), this.pit); floor.rotation.x = -Math.PI / 2; floor.position.y = -DEEP;
+    shaft.add(floor);
+    for (const sx of [-0.3, 0.3]) put(shaft, mesh(new BoxGeometry(0.045, DEEP, 0.045), this.rail, sx, -DEEP / 2, -OPEN / 2 + 0.07));
+    for (let y = -0.35; y > -DEEP; y -= 0.3) put(shaft, mesh(new BoxGeometry(0.6, 0.035, 0.035), this.rail, 0, y, -OPEN / 2 + 0.07));
+    this.add(shaft);
     for (const [x, z, sx, sz] of [[0, -W / 2, W + 0.16, 0.08], [0, W / 2, W + 0.16, 0.08], [-W / 2, 0, 0.08, W], [W / 2, 0, 0.08, W]])
       put(this, mesh(G.box, 0x4A3220, x, 0.02, z)).scale.set(sx, 0.05, sz);
     // the top of a ladder, sticking up out of the hole
@@ -209,7 +320,7 @@ export class Hatch extends Group {
     const ring = mesh(new TorusGeometry(0.08, 0.016, 6, 14), 0x3A3F45, 0, 0.07, 0.2 - W); ring.rotation.x = Math.PI / 2;
     this.lid.add(ring);
     this.add(this.lid);
-    // (its plank clear of the ladder's top, at the hole's north edge)
+    // (its plank clear of the ladder's top, at the hole's far edge)
     const LW = W - 0.12, LD = W - 0.38, LZ = 0.12;
     put(this.lift, mesh(G.box, 0x8A5A36, 0, -0.03, LZ, true)).scale.set(LW, 0.06, LD);
     for (const x of [-0.25, 0, 0.25]) put(this.lift, mesh(G.box, 0x6E4B2E, x, 0.002, LZ)).scale.set(0.02, 0.005, LD - 0.06);
@@ -225,14 +336,23 @@ export class Hatch extends Group {
     // behind a blink)
     this.light.visible = false;
     this.add(this.light);
+    this.spot.position.set(0.5, 4.4, -1.9);
+    this.spot.target.position.set(0, 1.45, 0);
+    this.spot.visible = false;
+    this.add(this.spot, this.spot.target);
     for (let i = 0; i < 7; i++) {
       const m = mesh(G.sphere, this.puffMat.clone(), 0, 0, 0); m.visible = false;
       this.add(m); this.steam.push({ m, t: i / 7 * 1.6 });
     }
+    this.through();
   }
 
   /** Someone knocks from underneath. */
   knock() { this.bumpT = 0.32; }
+  /** Switches its lights on or off (do it out of sight: it recompiles every material in the scene). */
+  lit(on: boolean) { this.light.visible = this.spot.visible = on; }
+  /** Draws everything of the hatch's (and `also`'s: him, rising out of it) through the hole, after it's cut. */
+  through(...also: Object3D[]) { for (const g of [this, ...also]) g.traverse(o => { if (o.renderOrder === 0) o.renderOrder = 2; }); }
 
   update(dt: number) {
     this.open += (this.openTo - this.open) * Math.min(1, dt * (this.openTo > this.open ? 14 : 9));
@@ -240,8 +360,13 @@ export class Hatch extends Group {
     const k = this.open;
     // two quick knocks, 0.16s apart
     const bump = Math.abs(Math.sin((0.32 - this.bumpT) / 0.16 * Math.PI)) * (this.bumpT > 0 ? 0.12 : 0);
-    this.lid.rotation.x = k * 1.95 + bump;
-    this.pit.emissiveIntensity = k * 0.55;
+    this.peek += (this.peekTo - this.peek) * Math.min(1, dt * 5);
+    this.lid.rotation.x = Math.max(k * 1.95, this.peek * 0.17) + bump + this.jolt;
+    // lifted a crack, it's black under there (only his shades show); opened, the furnace glow
+    const dark = 1 - 0.95 * this.peek * (1 - k);
+    this.pit.emissiveIntensity = (0.35 + 0.4 * k) * dark * dark;
+    this.wall.color.setScalar(dark);
+    this.rail.color.setHex(0x6E4B2E).multiplyScalar(dark);
     this.light.intensity = k * 8;
     for (const s of this.steam) {
       s.t = (s.t + dt) % 1.6;

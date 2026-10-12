@@ -10,6 +10,7 @@ import { C1, closeMarket, marketLeftovers, SLED } from './counters';
 import { farmPieces, showFarm, springLamp } from './farm';
 import { front } from './front';
 import { glowMats, hallPieces, lamps, showHall } from './hall';
+import { nightSky } from './horizon';
 import { kindOf } from './items';
 import { korkiStatue, moveKorki } from './korki';
 import { HATCH_AT, level, stage } from './layout';
@@ -42,12 +43,15 @@ const DUSK = {
   grd: [0x9C9FCB, 0xA0A8BC, 0xA49E9C, 0xA2929C] as Swatch, sun: [0xFFBE86, 0xFFC69C, 0xFFB46E, 0xFFA864] as Swatch,
   hemi: 0.72, sunI: 0.6, off: V(-14, 11, 6), glow: 1.0,
 };
+/** Night, for Mr. Fugu's meeting (offer.ts): moonlight from high over the sea, a dark sky, the lanterns lit. The same
+ *  whatever the season. */
+const NIGHT = { bg: 0x0B1426, sky: 0x4A5A86, grd: 0x14161F, sun: 0xA8BCFF, hemi: 0.4, sunI: 0.36, off: V(-4, 15, -9), glow: 1.0 };
 const lerp = (a: number, b: number, k: number) => a + (b - a) * k;
-const dayC = new Color(), duskC = new Color();
+const dayC = new Color(), duskC = new Color(), nightC = new Color();
 /** Mixes a sky colour for the season and the time of day `k` into `out`. */
 const tone = (day: Swatch, dusk: Swatch, k: number, out: Color) => out.lerpColors(mix(day, dayC), mix(dusk, duskC), k);
-/** How far it is from day to dusk. */
-let mood = 0;
+/** How far it is from day to dusk, and how far night has fallen over that (0 none, 1 full night). */
+let mood = 0, night = 0;
 
 /** Blends the light from day (0) to stage 2's dusk (1): warmer, lower sun, lanterns and lamps on. Down in the cellar,
  *  its own light instead (the dusk waits for the player to come back up). */
@@ -66,13 +70,34 @@ function setMood(k: number) {
   tone(DAY.sun, DUSK.sun, k, sun.color);
   sun.intensity = sky.sun;
   sunOff.lerpVectors(DAY.off, DUSK.off, k);
-  glowMats.forEach(m => { m.emissiveIntensity = lerp(DAY.glow, DUSK.glow, k); });
-  [...lamps, springLamp].forEach(l => { l.intensity = 9 * k; });
+  if (night > 0) {
+    const n = night;
+    for (const [c, hex] of [[sky.bg, NIGHT.bg], [hemi.color, NIGHT.sky], [hemi.groundColor, NIGHT.grd], [sun.color, NIGHT.sun]] as const) c.lerp(nightC.setHex(hex), n);
+    sky.hemi = lerp(sky.hemi, NIGHT.hemi * Math.PI, n);
+    sky.sun = lerp(sky.sun, NIGHT.sunI * Math.PI, n);
+    (scene.background as Color).copy(sky.bg);
+    fog.color.copy(sky.bg);
+    hemi.intensity = sky.hemi;
+    sun.intensity = sky.sun;
+    sunOff.lerp(NIGHT.off, n);
+  }
+  const lit = Math.max(k, night);
+  glowMats.forEach(m => { m.emissiveIntensity = lerp(DAY.glow, DUSK.glow, lit); });
+  [...lamps, springLamp].forEach(l => { l.intensity = 9 * lit; });
+  nightSky(night);
 }
+
+/** Lets night fall (`k` up to 1) or lift (back to 0) over the day or dusk: for Mr. Fugu's meeting (offer.ts). */
+export function setNight(k: number) {
+  night = Math.max(0, Math.min(1, k));
+  setMood(mood);
+}
+export const nightK = () => night;
 onBlend(() => setMood(mood));
 
 /** The cellar's light: near-black, the lanterns' warm glow, and no sky. */
 function cellarSky() {
+  nightSky(0);
   sky.bg.copy(CELLAR_SKY.bg);
   (scene.background as Color).copy(CELLAR_SKY.bg);
   fog.color.copy(CELLAR_SKY.bg);

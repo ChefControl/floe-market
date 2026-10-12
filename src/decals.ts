@@ -84,7 +84,7 @@ export function drawMenu(c: CanvasRenderingContext2D, w: number, h: number, icon
  */
 export function drawTile(
   c: CanvasRenderingContext2D, w: number, h: number,
-  u: { paid: number; cost: number; icon: string; stars?: number; open?: boolean; gold?: boolean; chips?: boolean },
+  u: { paid: number; cost: number; icon: string; art?: string; stars?: number; open?: boolean; gold?: boolean; chips?: boolean },
 ) {
   c.clearRect(0, 0, w, h);
   const locked = !!u.stars && !u.open;
@@ -101,7 +101,7 @@ export function drawTile(
     c.globalAlpha = locked ? 0.6 : 1;
     badge(c, w / 2, h * 0.37, 56);
     c.globalAlpha = locked ? .45 : 1;
-    iconText(c, w, u.icon, h * 0.38, 74);
+    iconText(c, w, u.art ?? u.icon, h * 0.38, 74);
     c.globalAlpha = 1;
     if (locked) iconText(c, w, '🔒', h * 0.48, 54);
     // (down in the cellar, prices are in Fugu Chips: $1,000 a chip)

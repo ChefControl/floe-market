@@ -662,9 +662,9 @@ export function openRestaurant(silent: boolean): Object3D[] {
   return built;
 }
 
-/** Takes over what the stage 1 counters had left: steaks go to the fish tray (or the pile), cash to the register. */
-export function handOver(left: { steaks: Mesh[]; bills: Mesh[] }) {
-  for (const m of left.steaks) (fishTray.hasRoom() ? fishTray : pile).receive(m, 0.6, 1.6);
+/** Takes over what the stage 1 counters had left: fillets go to the fish tray (or the pile), cash to the register. */
+export function handOver(left: { fillets: Mesh[]; bills: Mesh[] }) {
+  for (const m of left.fillets) (fishTray.hasRoom() ? fishTray : pile).receive(m, 0.6, 1.6);
   for (const b of left.bills) register.receive(b, 0.7, 1.6);
 }
 

@@ -5,10 +5,10 @@ import { C1, repriceFish, SLED, TAKEOUT, type Counter } from './counters';
 import { choice, readLook, setLook, type Choice } from './customize';
 import { MODS, mods, type ModId } from './economy';
 import { loadOffer, offer } from './offer';
-import { steaksInProgress } from './fishing';
+import { filletsInProgress } from './fishing';
 import { waiterPlates } from './garden';
 import type { Holder } from './holder';
-import { addBillValue, billValue, kindOf, newBill, newBowl, newBox, newCuredFish, newMushroom, newReadyRice, newRice, newSteak } from './items';
+import { addBillValue, billValue, kindOf, newBill, newBowl, newBox, newCuredFish, newMushroom, newReadyRice, newRice, newFillet } from './items';
 import { level, stage } from './layout';
 import { player } from './player';
 import { givePresents, PRESENT, presents, redrawPresentTile } from './presents';
@@ -46,11 +46,11 @@ export interface SaveData {
   mods: Partial<Record<ModId, number>>;
   /** Latest customer reviews (1–5★), oldest first. */
   reviews: number[];
-  /** Fish slices (steaks) on the pile and in the player's arms, and bags of rice in the player's arms. */
+  /** Fish slices (fillets) on the pile and in the player's arms, and bags of rice in the player's arms. */
   pile: number;
   back: number;
   backRice: number;
-  /** Stage 1: steaks on the walk-up counter and the sled window, and their uncollected cash. */
+  /** Stage 1: fillets on the walk-up counter and the sled window, and their uncollected cash. */
   c1: number;
   c1c: number;
   c2: number;
@@ -159,7 +159,7 @@ export function migrate(raw: unknown): SaveData {
   }
   // v1–v3 were the fish market, with (v3) an optional restaurant west of the dock and its upgrades. Players who
   // had that restaurant and every market upgrade go straight to stage 2 and keep its upgrades: the old kitchen's
-  // steaks and the counters' leftovers become fish for the chefs, and the cash moves to the register. Everyone
+  // fillets and the counters' leftovers become fish for the chefs, and the cash moves to the register. Everyone
   // else stays in stage 1 and gets back what they spent on the old restaurant, its cash and its unsold plates.
   const oldSushi = (t: { id: string }) => OLD_SUSHI.includes(t.id);
   const k = num(s.k), kp = num(s.kp), rc = num(s.rc);
@@ -205,7 +205,7 @@ function requestPersistentStorage() {
 
 // ---------- save / load ----------
 const cashSum = (cash: Holder) => cash.all().reduce((s, b) => s + billValue(b), 0);
-/** Steaks on an open counter, counting what its customers are holding but haven't paid for yet. */
+/** Fillets on an open counter, counting what its customers are holding but haven't paid for yet. */
 const onCounter = (C: Counter) => C.enabled ? C.stock.n + C.queue.reduce((n, c) => n + c.hands.n, 0) : 0;
 
 export function save() {
@@ -226,7 +226,7 @@ export function save() {
   }
   const rice = level.down ? 0 : kinds('rice').length, back = level.down ? 0 : carried.length - rice;
   // In stage 2, anything still on the closed stage 1 counters belongs to the restaurant.
-  const left = sushi.built ? { steaks: C1.stock.n + SLED.stock.n, cash: cashSum(C1.cash) + cashSum(SLED.cash) } : { steaks: 0, cash: 0 };
+  const left = sushi.built ? { fillets: C1.stock.n + SLED.stock.n, cash: cashSum(C1.cash) + cashSum(SLED.cash) } : { fillets: 0, cash: 0 };
   const data: SaveData = {
     v: VERSION,
     savedAt: Date.now(),
@@ -235,12 +235,12 @@ export function save() {
     tiles: tiles.map(t => ({ id: t.id, paid: t.paid, done: t.done, open: t.open })),
     mods: { ...mods },
     reviews: [...reviews],
-    pile: Math.min(pile.cap, pile.n + steaksInProgress() + runnersLoad()),
+    pile: Math.min(pile.cap, pile.n + filletsInProgress() + runnersLoad()),
     back,
     backRice: rice,
     c1: onCounter(C1), c1c: C1.enabled ? cashSum(C1.cash) : 0,
     c2: onCounter(SLED), c2c: SLED.enabled ? cashSum(SLED.cash) : 0,
-    fish: ss.fish + left.steaks,
+    fish: ss.fish + left.fillets,
     rice: ss.rice,
     plates: ss.plates + waiterPlates(),
     cash: ss.cash + left.cash,
@@ -310,24 +310,24 @@ export function load() {
   repriceFish(); repriceSushi();
   updStars(true);
   tiles.forEach(redrawTile);
-  fill(player.back, s.back, newSteak);
+  fill(player.back, s.back, newFillet);
   fill(player.back, s.backRice, newRice);
   let riceLeft = 0;
   if (sushi.built) {
     // Plates that don't fit on the belt go back to the kitchen line as fish and rice; fish it can't hold goes on
     // the pile, and rice onto the terraces' stack.
     const extraPlates = loadPlates(s.plates);
-    fill(pile, fill(fishTray, s.fish + extraPlates, newSteak) + s.pile, newSteak);
+    fill(pile, fill(fishTray, s.fish + extraPlates, newFillet) + s.pile, newFillet);
     riceLeft = fill(ricePot, s.rice + extraPlates, newRice);
     fillCash(register, platePrice(), s.cash);
     fill(TAKEOUT.stock, s.boxes, () => newBox(TAKEOUT.price, sushi.premium));
     fillCash(TAKEOUT.cash, TAKEOUT.price, s.tcash);
   } else {
-    fill(pile, s.pile + (SLED.enabled ? 0 : s.c2), newSteak);
-    fill(C1.stock, s.c1, newSteak);
+    fill(pile, s.pile + (SLED.enabled ? 0 : s.c2), newFillet);
+    fill(C1.stock, s.c1, newFillet);
     fillCash(C1.cash, C1.price, s.c1c);
     if (SLED.enabled) {
-      fill(SLED.stock, s.c2, newSteak);
+      fill(SLED.stock, s.c2, newFillet);
       fillCash(SLED.cash, SLED.price, s.c2c);
     } else wallet.money += s.c2c;
     wallet.money += s.tcash;
@@ -347,7 +347,7 @@ function loadRing(s: SaveData) {
   syncRingTiles();
   const h = s.hands;
   const makers: [keyof Hands, () => import('three').Mesh][] = [
-    ['rice', newRice], ['fish', newSteak], ['rrice', newReadyRice], ['cfish', newCuredFish], ['mush', newMushroom],
+    ['rice', newRice], ['fish', newFillet], ['rrice', newReadyRice], ['cfish', newCuredFish], ['mush', newMushroom],
     ['bowl', () => newBowl(false)], ['mbowl', () => newBowl(true)],
   ];
   for (const [k, make] of makers) fill(player.back, h[k], make);
