@@ -60,14 +60,16 @@ function frame(now: number) {
   last = now;
   if (!isStale()) { tick(dt); updKofi(dt); updReports(dt); }
 
-  // Follow the player; the stage-up pulls back to look over the whole map for a moment, picking a look comes in close,
-  // and so does playing a game on the casino boat, over its table.
+  // Follow the player; the stage-up pulls back to look over the whole map for a moment, a new upgrade has the camera
+  // come in close on it for a couple of seconds, picking a look comes in close, and so does playing a game on the
+  // casino boat, over its table.
   camTarget.lerp(player.g.position, Math.min(1, dt * 6));
   look.copy(camTarget).lerp(view.focus, view.k);
-  const k = camK * view.zoom, near = closeUp(dt);
+  const k = camK * view.zoom * view.close, near = closeUp(dt);
   camOff.copy(OFF).multiplyScalar(k).lerp(CLOSE, near);
   camera.position.copy(look).add(camOff);
-  aim.set(look.x, look.y + 0.4 + (CLOSE_AIM - 0.4) * near, look.z);
+  // a little over the player's feet; something else in view, at its middle
+  aim.set(look.x, look.y + 0.4 * (1 - view.k) + (CLOSE_AIM - 0.4) * near, look.z);
   const table = tableView(dt);
   if (table.k > 0) { camera.position.lerp(table.eye, table.k); aim.lerp(table.at, table.k); }
   // tipsy: the view sways and rolls (not for players who'd rather less motion)
@@ -79,7 +81,7 @@ function frame(now: number) {
   sun.position.copy(look).add(sunOff);
   sun.target.position.copy(look);
 
-  keepInSight(dt);
+  keepInSight(dt, view.k);
   updHint(dt, !!inputVec());
   updPointers(dt);
   drawTutorial(dt);
