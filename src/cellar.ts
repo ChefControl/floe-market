@@ -15,10 +15,10 @@ import {
 } from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import {
-  BELT, BINS, CASHIER, COUNTER, GONG, HEARTH, HOPPERS, LIFTS, machineAt, MAX_MACHINES, POT, STALL, TEPPO, TUNNEL_D, TUNNEL_W, TUNNELS,
+  BELT, BENCH, BINS, CASHIER, COUNTER, GONG, HEARTH, HOPPERS, LIFTS, machineAt, MAX_MACHINES, POT, STALL, TEPPO, TUNNEL_D, TUNNEL_W, TUNNELS,
 } from './cellarPlan';
 import { Fugu } from './fugu';
-import { ARENA, CELLAR_Y, type CellarRoom, DOORS, found, GROW, keepOnFloor, KITCHEN, LANDING, LIFT_ROOM, OFFICE_ROOM, PREP, pushOutOfBox, ROOMS, walkable } from './layout';
+import { ARENA, CELLAR_Y, type CellarRoom, CRAFT, DOORS, found, GROW, keepOnFloor, KITCHEN, LANDING, LIFT_ROOM, OFFICE_ROOM, PREP, pushOutOfBox, ROOMS, walkable } from './layout';
 import { canvasTex, FONT, G, mat, mesh, paint, rr, scene } from './render';
 import type { XZ } from './util';
 
@@ -336,7 +336,7 @@ function wall(r: Rect, side: Side, off = 0.1, parent: Object3D = cellar) {
   }
 }
 // the ground under it all, so nothing shows the void past a floor's edge
-box(cellar, 0x2A201A, (ARENA.x0 + LIFT_ROOM.x1) / 2, CY - 0.3, (ARENA.z0 + PREP.z1) / 2, LIFT_ROOM.x1 - ARENA.x0 + 4, 0.5, PREP.z1 - ARENA.z0 + 4, false);
+box(cellar, 0x2A201A, (ARENA.x0 + LIFT_ROOM.x1) / 2, CY - 0.3, (ARENA.z0 + CRAFT.z1) / 2, LIFT_ROOM.x1 - ARENA.x0 + 4, 0.5, CRAFT.z1 - ARENA.z0 + 4, false);
 // the rooms: floors, and their walls (tall at the very back, thin and low everywhere else)
 // (each room its own: packed earth round the ring and in the grow room, stone flags in the landing and the prep hall,
 // parquet in the office, boards in the hearth room)
@@ -344,7 +344,9 @@ floor(ARENA, earth); floor(LANDING, flags); floor(OFFICE_ROOM, parquet); floor(K
 tallWall(ARENA, 'n'); tallWall(ARENA, 'w'); wall(ARENA, 's');
 officeWall(); wall(OFFICE_ROOM, 'w', 0.3); wall(OFFICE_ROOM, 'e', 0.3);
 wall(LANDING, 'n', 0.3); wall(LANDING, 'w', 0.3); wall(LANDING, 'e', 0.3);
-wall(KITCHEN, 'n', 0.3); wall(KITCHEN, 'w', 0.3); wall(KITCHEN, 'e', 0.3); wall(KITCHEN, 's');
+wall(KITCHEN, 'n', 0.3); wall(KITCHEN, 'w', 0.3); wall(KITCHEN, 'e', 0.3); wall(KITCHEN, 's', 0.3);
+// the workshop, through the hearth room's south wall
+floor(CRAFT, boards); wall(CRAFT, 'w'); wall(CRAFT, 'e', 0.3); wall(CRAFT, 's');
 wall(PREP, 'e', 0.3); wall(PREP, 's');
 // the lift room behind the prep hall's east wall, where nobody goes: just the dumbwaiters
 floor(LIFT_ROOM, flags); wall(LIFT_ROOM, 'n', 0.3); wall(LIFT_ROOM, 'e'); wall(LIFT_ROOM, 's', 0.3);
@@ -408,6 +410,7 @@ const onLow = (r: Rect) => r.z0 - 0.3 + 0.1, onTall = (r: Rect) => r.z0 - 0.1, o
 const mid = (r: Rect) => (r.x0 + r.x1) / 2;
 sign('RING', mid(ARENA), 2.85, onTall(ARENA), cellar, 2.2);
 sign('KITCHEN', KITCHEN.x1 - 0.95, onRail, onLow(KITCHEN) - 0.1);
+sign('WORKSHOP', CRAFT.x0 + 2.4, onRail, onLow(CRAFT) - 0.1, cellar, 1.6);
 // the prep hall's: on its tall back wall, then on the low one once that's come down for the grow room
 sign('PREP', mid(PREP), 2.85, onTall(PREP), parts.hidden, 1.8);
 sign('PREP', mid(PREP) - 1.5, onRail, onLow(PREP) - 0.1, parts.grow);
@@ -783,6 +786,129 @@ beltTex.tex.wrapS = 1000;
   box(cellar, 0x23302A, PREP.x0 + 0.2, CY + 1.5, 2.6, 0.06, 0.9, 1.3, false);
 }
 
+// ---------- the workshop: the crafting bench, and a cellar carpenter's tools, timber and crates ----------
+/** Where the workshop's things stand, for walking round them: crates against the north wall, a plank on two sawhorses,
+ *  timber along the east wall, a nail keg and a tool chest along the south one. */
+const CRATES = { x: 8.0, z: CRAFT.z0 + 0.45 }, HORSES = { x: 9.2, z: 10.5 }, TIMBER = { x: CRAFT.x1 - 0.45, z: 9.4 };
+const KEG = { x: 5.6, z: CRAFT.z1 - 0.35 }, CHEST = { x: 7.0, z: CRAFT.z1 - 0.35 };
+/** A flat thing lying on the floor (sawdust, chalk), lit like the floor. */
+function onFloor(x: number, z: number, w: number, d: number, turn: number, draw: (c: CanvasRenderingContext2D, w: number, h: number) => void) {
+  const t = canvasTex(128, 128, draw);
+  const m = add(cellar, new Mesh(new PlaneGeometry(w, d), new MeshLambertMaterial({ map: t.tex, transparent: true, depthWrite: false })));
+  m.rotation.set(-Math.PI / 2, 0, turn); m.position.set(x, CY + 0.006, z); m.renderOrder = 1;
+}
+{
+  // the crafting bench: a thick top on four legs and a shelf, a vise at its south end, and on it a saw, a mallet, a
+  // plane and a blueprint
+  const g = add(cellar, new Group()); g.position.set(BENCH.x, CY, BENCH.z);
+  const { w: W, d: D } = BENCH;
+  box(g, 0xA8774D, 0, 0.88, 0, W, 0.1, D);
+  box(g, 0x7A5235, 0, 0.82, 0, W - 0.06, 0.04, D - 0.06);
+  for (const [x, z] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) box(g, WOOD_DARK, x * (W / 2 - 0.08), 0.42, z * (D / 2 - 0.1), 0.1, 0.84, 0.1);
+  box(g, WOOD, 0, 0.24, 0, W - 0.12, 0.05, D - 0.25);
+  box(g, 0x6E4F33, -0.15, 0.36, -0.5, 0.4, 0.2, 0.5); box(g, 0x8A6A44, 0.1, 0.34, 0.45, 0.35, 0.16, 0.4);
+  // (the vise: two iron jaws, its screw and bar)
+  for (const dz of [-0.08, 0.08]) box(g, IRON, W / 2 - 0.05, 1.0, D / 2 - 0.3 + dz, 0.18, 0.14, 0.06);
+  add(g, mesh(G.cyl, IRON, W / 2 - 0.05, 1.0, D / 2 - 0.08)).scale.set(0.03, 0.4, 0.03);
+  const bar = add(g, mesh(G.cyl, STEEL, W / 2 - 0.05, 1.0, D / 2 + 0.12)); bar.scale.set(0.02, 0.3, 0.02); bar.rotation.x = Math.PI / 2;
+  // (a saw: its blade and handle; a mallet; a plane)
+  const saw = add(g, new Group()); saw.position.set(0.05, 0.94, -0.65); saw.rotation.y = 0.3;
+  box(saw, STEEL, 0, 0, 0.18, 0.18, 0.01, 0.6); box(saw, 0x8E3B2E, 0, 0.01, -0.18, 0.12, 0.03, 0.16);
+  const mallet = add(g, new Group()); mallet.position.set(-0.2, 0.97, 0.15); mallet.rotation.y = -0.6;
+  const head = add(mallet, mesh(G.cyl, 0xC9A06A, 0, 0, 0)); head.scale.set(0.07, 0.2, 0.07); head.rotation.x = Math.PI / 2;
+  box(mallet, WOOD_DARK, 0.17, -0.02, 0, 0.28, 0.03, 0.03);
+  box(g, 0x8E3B2E, 0.25, 0.97, 0.75, 0.12, 0.08, 0.3); box(g, STEEL, 0.25, 1.02, 0.75, 0.04, 0.03, 0.12);
+  // (the blueprint, of a pot and its fire)
+  const plan = canvasTex(128, 96, (c, w, h) => {
+    c.fillStyle = '#2E5E9E'; c.fillRect(0, 0, w, h);
+    c.strokeStyle = 'rgba(255,255,255,.25)'; c.lineWidth = 1;
+    for (let x = 0; x < w; x += 12) { c.beginPath(); c.moveTo(x, 0); c.lineTo(x, h); c.stroke(); }
+    for (let y = 0; y < h; y += 12) { c.beginPath(); c.moveTo(0, y); c.lineTo(w, y); c.stroke(); }
+    c.strokeStyle = '#F4F7FB'; c.lineWidth = 3;
+    c.beginPath(); c.moveTo(34, 30); c.lineTo(94, 30); c.lineTo(88, 70); c.lineTo(40, 70); c.closePath(); c.stroke();
+    c.beginPath(); c.moveTo(28, 30); c.lineTo(100, 30); c.stroke();
+    for (const x of [48, 64, 80]) { c.beginPath(); c.moveTo(x, 84); c.quadraticCurveTo(x - 6, 76, x, 72); c.stroke(); }
+  });
+  const sheet = add(g, new Mesh(new PlaneGeometry(0.5, 0.38), new MeshLambertMaterial({ map: plan.tex })));
+  sheet.rotation.set(-Math.PI / 2, 0, Math.PI / 2 + 0.15); sheet.position.set(-0.05, 0.935, -0.05);
+  // the pegboard behind it on the wall, its tools hung on their painted outlines, and the plans pinned up beside them
+  const peg = canvasTex(256, 128, (c, w, h) => {
+    c.fillStyle = '#B98B5A'; c.fillRect(0, 0, w, h);
+    c.fillStyle = 'rgba(60,36,20,.55)';
+    for (let x = 6; x < w; x += 12) for (let y = 6; y < h; y += 12) { c.beginPath(); c.arc(x, y, 1.6, 0, Math.PI * 2); c.fill(); }
+    const tool = (x: number, y: number, draw: () => void) => {
+      c.save(); c.translate(x, y);
+      c.fillStyle = 'rgba(40,24,14,.45)'; c.beginPath(); draw(); c.fill();
+      c.restore();
+    };
+    // (hammer, saw, wrench and square, as dark outlines where they hang)
+    tool(30, 64, () => { c.rect(-4, -30, 8, 56); c.rect(-16, -34, 32, 12); });
+    tool(78, 64, () => { c.moveTo(-14, -36); c.lineTo(14, -36); c.lineTo(10, 30); c.lineTo(-10, 30); c.closePath(); });
+    tool(120, 64, () => { c.rect(-4, -26, 8, 52); c.arc(0, -30, 10, 0, Math.PI * 2); });
+    tool(160, 64, () => { c.rect(-18, 18, 40, 8); c.rect(-18, -30, 8, 56); });
+    // (a blueprint pinned up, and a paper of tallies)
+    c.fillStyle = '#2E5E9E'; c.fillRect(190, 18, 56, 44);
+    c.strokeStyle = '#F4F7FB'; c.lineWidth = 2; c.strokeRect(198, 26, 40, 28);
+    c.beginPath(); c.moveTo(198, 40); c.lineTo(238, 40); c.moveTo(218, 26); c.lineTo(218, 54); c.stroke();
+    c.fillStyle = '#F1E7D2'; c.fillRect(196, 72, 46, 44);
+    c.strokeStyle = '#3B2A1E'; c.lineWidth = 2;
+    for (let i = 0; i < 4; i++) { c.beginPath(); c.moveTo(202 + i * 8, 82); c.lineTo(202 + i * 8, 100); c.stroke(); }
+    c.beginPath(); c.moveTo(198, 98); c.lineTo(234, 84); c.stroke();
+    c.fillStyle = '#C0392B'; for (const [x, y] of [[193, 20], [243, 20], [219, 74]]) { c.beginPath(); c.arc(x, y, 3, 0, Math.PI * 2); c.fill(); }
+  });
+  const edge = mat(WOOD_DARK);
+  const board = add(cellar, new Mesh(new BoxGeometry(0.04, 1.2, BENCH.d + 0.2), [new MeshLambertMaterial({ map: peg.tex }), edge, edge, edge, edge, edge]));
+  board.position.set(CRAFT.x0 + 0.02, CY + 1.7, BENCH.z);
+  for (const s of [-1, 1]) box(cellar, WOOD_DARK, CRAFT.x0 + 0.02, CY + 1.2, BENCH.z + s * (BENCH.d / 2 + 0.12), 0.08, 2.4, 0.08);
+  // (the tools themselves, hung on two of the outlines: the hammer and the saw)
+  const hz = (u: number) => BENCH.z - (BENCH.d + 0.2) / 2 + (u / 256) * (BENCH.d + 0.2);
+  box(cellar, WOOD, CRAFT.x0 + 0.08, CY + 1.68, hz(30), 0.04, 0.42, 0.05); box(cellar, STEEL, CRAFT.x0 + 0.08, CY + 1.9, hz(30), 0.06, 0.08, 0.24);
+  box(cellar, STEEL, CRAFT.x0 + 0.07, CY + 1.72, hz(78), 0.01, 0.5, 0.2); box(cellar, 0x8E3B2E, CRAFT.x0 + 0.08, CY + 1.98, hz(78), 0.03, 0.12, 0.14);
+  // a lamp over the bench
+  lantern(cellar, BENCH.x + 0.5, CY + 2.6, BENCH.z, false);
+  // crates against the north wall, one on another
+  box(cellar, 0x8C6A45, CRATES.x - 0.35, CY + 0.3, CRATES.z, 0.6, 0.6, 0.6);
+  box(cellar, 0x7E5E3C, CRATES.x + 0.35, CY + 0.25, CRATES.z + 0.02, 0.6, 0.5, 0.55);
+  box(cellar, 0x9A7650, CRATES.x - 0.3, CY + 0.8, CRATES.z, 0.45, 0.4, 0.45);
+  for (const dx of [-0.35, 0.35]) box(cellar, WOOD_DARK, CRATES.x + dx, CY + 0.3, CRATES.z + 0.31, 0.62, 0.06, 0.02, false);
+  // a plank across two sawhorses, half sawn through
+  for (const dx of [-0.6, 0.6]) {
+    const hs = add(cellar, new Group()); hs.position.set(HORSES.x + dx, CY, HORSES.z);
+    box(hs, WOOD, 0, 0.55, 0, 0.08, 0.06, 0.7);
+    for (const s of [-1, 1]) for (const t of [-1, 1]) box(hs, WOOD_DARK, s * 0.12, 0.27, t * 0.28, 0.05, 0.56, 0.05).rotation.z = s * 0.25;
+  }
+  box(cellar, 0xC9A06A, HORSES.x, CY + 0.62, HORSES.z, 1.8, 0.06, 0.3);
+  box(cellar, 0x8C6A45, HORSES.x + 0.3, CY + 0.66, HORSES.z + 0.05, 0.02, 0.03, 0.2, false);
+  // timber stacked along the east wall
+  for (let i = 0; i < 4; i++) box(cellar, i % 2 ? 0xB98B5A : 0xA67A4C, TIMBER.x + (i % 2 ? 0.05 : -0.05), CY + 0.06 + i * 0.1, TIMBER.z, 0.5, 0.09, 1.7);
+  for (const dz of [-0.6, 0.6]) box(cellar, WOOD_DARK, TIMBER.x, CY + 0.02, TIMBER.z + dz, 0.6, 0.04, 0.1);
+  // a keg of nails, and a red tool chest
+  add(cellar, mesh(G.cyl, 0x8A6A44, KEG.x, CY + 0.3, KEG.z, true)).scale.set(0.3, 0.6, 0.3);
+  for (const y of [0.12, 0.48]) add(cellar, mesh(G.cyl, IRON, KEG.x, CY + y, KEG.z)).scale.set(0.31, 0.04, 0.31);
+  add(cellar, mesh(G.cyl, 0x9AA5AE, KEG.x, CY + 0.61, KEG.z)).scale.set(0.26, 0.02, 0.26);
+  box(cellar, 0xB23A2E, CHEST.x, CY + 0.25, CHEST.z, 0.9, 0.5, 0.5);
+  box(cellar, 0x8E2B22, CHEST.x, CY + 0.52, CHEST.z, 0.92, 0.06, 0.52);
+  for (const y of [0.18, 0.36]) box(cellar, STEEL, CHEST.x, CY + y, CHEST.z - 0.255, 0.3, 0.03, 0.02, false);
+  // sawdust under the sawhorses and by the bench, and chalk marks on the boards
+  const dust = (c: CanvasRenderingContext2D, w: number, h: number) => {
+    const hash = (i: number) => { const x = Math.sin(i * 45.17) * 43758.5453; return x - Math.floor(x); };
+    for (let i = 0; i < 260; i++) {
+      const a = hash(i) * Math.PI * 2, d = Math.sqrt(hash(i + 300)) * w * 0.46;
+      c.fillStyle = i % 3 ? 'rgba(232,200,150,.75)' : 'rgba(196,156,104,.7)';
+      c.fillRect(w / 2 + Math.cos(a) * d, h / 2 + Math.sin(a) * d * 0.7, 2 + hash(i + 600) * 3, 2);
+    }
+  };
+  onFloor(HORSES.x, HORSES.z, 2.0, 1.4, 0, dust);
+  onFloor(BENCH.x + 0.75, BENCH.z + 0.9, 1.1, 0.9, 0.6, dust);
+  onFloor(TIMBER.x - 0.6, TIMBER.z - 0.3, 0.9, 0.9, 1.2, dust);
+  onFloor(8.0, 9.7, 1.4, 1.0, 0.2, (c, w, h) => {
+    c.strokeStyle = 'rgba(240,236,226,.55)'; c.lineWidth = 3;
+    c.strokeRect(14, 24, w - 28, h - 48);
+    c.beginPath(); c.moveTo(14, h / 2); c.lineTo(w - 14, h / 2); c.moveTo(w / 2, 24); c.lineTo(w / 2, h - 24); c.stroke();
+    c.font = '700 18px ' + FONT; c.fillStyle = 'rgba(240,236,226,.55)'; c.fillText('1.2', w / 2 + 6, 20);
+  });
+}
+
 // ---------- the grow room: dark earth, damp walls, and glowing toadstools in the corners ----------
 {
   const SPORE = glow(0x9CE6C8, 0x2E9C7A);
@@ -967,11 +1093,11 @@ export function showGrowRoom(on = true) {
 // ---------- light ----------
 /** The cellar's lights: the lamp over the ring, two lanterns' worth of warm light over the stands, the hearth's fire
  *  (lighting the hearth room), the hatch's daylight (the landing), the office's lamp, the dumbwaiter's lamp in the prep
- *  hall, and (once it's found) the grow room's sickly glow. */
+ *  hall, (once it's found) the grow room's sickly glow, and the workshop's lamp. */
 export const lights = [
   new PointLight(0xFFD7A0, 16, 15, 1.2), new PointLight(0xFF9A5A, 9, 10, 1.5), new PointLight(0xFF9A5A, 9, 10, 1.5),
   new PointLight(0xFF9A4A, 8, 8, 1.5), new PointLight(0xCFE8FF, 10, 7, 1.4), new PointLight(0xFFC77A, 8, 9, 1.4),
-  new PointLight(0xFFD08A, 8, 9, 1.4), new PointLight(0x9CE6C8, 9, 11, 1.4),
+  new PointLight(0xFFD08A, 8, 9, 1.4), new PointLight(0x9CE6C8, 9, 11, 1.4), new PointLight(0xFFC98A, 7, 8, 1.4),
 ];
 lights[0].position.set(RING.x, CY + 5.4, RING.z);
 lights[1].position.set(RING.x, CY + 3.4, ARENA.z0 + 1.5);
@@ -981,6 +1107,7 @@ lights[4].position.set(LADDER.x - 1.2, CY + 4, LADDER.z + 0.8);
 lights[5].position.set(OFFICE.x + 1.5, CY + 3.4, OFFICE.z + 1.2);
 lights[6].position.set((PREP.x0 + PREP.x1) / 2 + 1, CY + 3.2, (PREP.z0 + PREP.z1) / 2);
 lights[7].position.set((GROW.x0 + GROW.x1) / 2, CY + 3.0, (GROW.z0 + GROW.z1) / 2);
+lights[8].position.set(BENCH.x + 2.2, CY + 2.8, BENCH.z);
 const GROW_GLOW = lights[7].intensity;
 lights[7].intensity = 0;
 lights.forEach(l => { l.visible = false; scene.add(l); });
@@ -1014,6 +1141,13 @@ export function cellarBoxes(machines: Record<'rice' | 'fish' | 'mush', number> =
     // the prep hall: the sacks (what comes down the dumbwaiters is all behind the east wall)
     [SACKS.x, SACKS.z, 0.75, 0.75],
     ...KITCHEN_BINS.map((b): [number, number, number, number] => [b.x, b.z, 0.65, 0.65]),
+    // the workshop: the bench, the crates, the sawhorses, the timber, the keg and the chest
+    [BENCH.x, BENCH.z, BENCH.w / 2 + 0.1, BENCH.d / 2 + 0.1],
+    [CRATES.x, CRATES.z, 0.75, 0.45],
+    [HORSES.x, HORSES.z, 1.0, 0.45],
+    [TIMBER.x, TIMBER.z, 0.4, 0.95],
+    [KEG.x, KEG.z, 0.35, 0.35],
+    [CHEST.x, CHEST.z, 0.55, 0.35],
     // the office: the dais and the desk, the safe, the visitors' chairs, the cabinet, the fish tank, the plant and the rack
     [(DAIS.x0 + DAIS.x1) / 2, (DAIS.z0 + DAIS.z1) / 2, (DAIS.x1 - DAIS.x0) / 2 + 0.3, (DAIS.z1 - DAIS.z0) / 2 + 0.3],
     [VAULT.x, VAULT.z, 0.9, 0.85],

@@ -1,7 +1,7 @@
 // Where everything is down in the cellar (stage 3), as plain floor positions (x, z; the floor is CELLAR_Y): the stations
 // of the kitchen's lines, the pot and its ledge, the bowl counter, the stall, the gong, and the way between rooms. Kept
 // apart from the cellar's meshes (cellar.ts) so the fight night's simulation (fight.ts) can use it without them.
-import { ARENA, type CellarRoom, DOORS, GROW, KITCHEN, LANDING, LIFT_ROOM, OFFICE_ROOM, PREP, ROOMS } from './layout';
+import { ARENA, type CellarRoom, CRAFT, DOORS, GROW, KITCHEN, LIFT_ROOM, OFFICE_ROOM, PREP, ROOMS } from './layout';
 import type { XZ } from './util';
 
 export type Ing = 'rice' | 'fish' | 'mush';
@@ -78,18 +78,18 @@ export const TUNNELS = [
   { side: 'n' as const, at: -11.9, mouth: { x: -11.9, z: ARENA.z0 + 0.5 }, deep: { x: -11.9, z: ARENA.z0 - TUNNEL_D + 0.6 } },
 ];
 
-// ---------- each room's upgrade square ----------
-/** Where each room's upgrades are sold, on one square that opens a menu of them (shop.ts): in the middle of the prep
- *  hall between its racks and barrels, between the grow room's two rows of beds, and in the hearth room behind the
- *  pot. */
+// ---------- the workshop: the crafting bench ----------
+/** The crafting bench, against the workshop's west wall (along it), and the square in front of it to stand on, which
+ *  opens a menu of everything bought down here (shop.ts): the ring's upgrades, and each room's. */
+export const BENCH = { x: CRAFT.x0 + 0.55, z: (CRAFT.z0 + CRAFT.z1) / 2, w: 1.0, d: 2.4 };
+export const BENCH_PAD = { x: BENCH.x + 1.65, z: BENCH.z };
+/** Each room whose upgrades the bench sells (all of them at the bench now, so a room's tiles point there). */
 export type MenuRoom = 'prep' | 'grow' | 'hearth';
-export const ROOM_MENUS: Record<MenuRoom, XZ> = {
-  prep: { x: 15.0, z: 4.9 }, grow: { x: 14.7, z: GROW.z1 - 4.25 }, hearth: { x: HEARTH.x + 0.3, z: HEARTH.z + 4.3 },
-};
+export const ROOM_MENUS: Record<MenuRoom, XZ> = { prep: BENCH_PAD, grow: BENCH_PAD, hearth: BENCH_PAD };
 
 // ---------- the landing and the office ----------
-/** Stage 3's upgrade square, in the middle of the landing. */
-export const SHOP3 = { x: (LANDING.x0 + LANDING.x1) / 2 - 1.0, z: (LANDING.z0 + LANDING.z1) / 2 };
+/** Stage 3's upgrade square: the crafting bench's. */
+export const SHOP3 = BENCH_PAD;
 export const OFFICE_DOOR = { x: (OFFICE_ROOM.x0 + OFFICE_ROOM.x1) / 2, z: OFFICE_ROOM.z1 - 1.2 };
 
 // ---------- where the crew stand when there's nothing to do ----------

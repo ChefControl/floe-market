@@ -237,6 +237,17 @@ function brokenHeart(c: Ctx) {
   }
 }
 
+/** 🔨 The crafting bench's square: a claw hammer, its wooden handle and steel head, at a slant. */
+function hammer(c: Ctx) {
+  c.save(); c.rotate(Math.PI / 5);
+  solid(c, WOOD, () => box(c, -7, -16, 14, 62, 6));
+  flat(c, DARK_WOOD, () => c.rect(-7, 30, 14, 5));
+  solid(c, STEEL, () => { c.moveTo(-34, -38); c.lineTo(10, -38); c.quadraticCurveTo(26, -38, 34, -48); c.lineTo(38, -42); c.quadraticCurveTo(30, -24, 10, -18); c.lineTo(-34, -18); c.closePath(); });
+  solid(c, '#9AA7B0', () => box(c, -42, -40, 12, 24, 3));
+  line(c, '#fff', 3, () => { c.moveTo(-28, -33); c.lineTo(4, -33); });
+  c.restore();
+}
+
 /** 📈 The upgrade square: rising bars, and a green arrow climbing over them. */
 function upgrade(c: Ctx) {
   [[-40, 18], [-14, 32], [12, 48]].forEach(([x, h]) => solid(c, SKY, () => box(c, x, 40 - h, 20, h, 4)));
@@ -671,7 +682,7 @@ function mushroom(c: Ctx) {
 /** Every drawing, by the emoji it stands in for. */
 const DRAWINGS: Record<string, Drawing> = {
   '🎣': rod, '🐟': fish, '🍚': rice, '🚗': car, '🎰': roulette, '🛴': scooter, '💔': brokenHeart,
-  '📈': upgrade, '🌿': sprig,
+  '📈': upgrade, '🔨': hammer, '🌿': sprig,
   '🎒': backpack, '🎯': target, '🏃': runner, '🥾': boot, '🥅': net, '🏯': torii,
   '🌾': sheaf, '🪑': stool, '🔪': knife, '🧑‍🌾': farmer, '🧺': basket, '🌱': seedling, '⛱️': parasol, '⛱': parasol,
   '🥡': takeout, '🏮': lantern, '🎁': present, '🔒': lock,

@@ -718,16 +718,18 @@ describe("the cellar's tiles", () => {
     expect(offered(g)).not.toContain('rack');
   });
 
-  it("each room sells its upgrades from one square: a menu of them, what's locked saying which boss opens it", async () => {
+  it("the crafting bench sells every room's upgrades, under each room's name, what's locked saying which boss opens it", async () => {
     const { g, plan, at, F } = await ring({ money: 10_000_000 });
-    // no tiles of their own on the prep hall's floor
+    // no tiles of their own on the rooms' floors
     expect(g.unlocks.visibleTiles().filter(t => t.menu)).toEqual([]);
-    at(plan.ROOM_MENUS.prep);
+    at(plan.BENCH_PAD);
     g.run(0.1);
     expect($('shop').hidden).toBe(false);
-    expect($('shopTitle').textContent).toBe('Prep hall upgrades');
+    expect($('shopTitle').textContent).toBe('Crafting bench');
+    // (the ring's, then the prep hall's and the hearth room's; the grow room's once it's found)
+    expect([...$('shopRows').querySelectorAll('.sect')].map(h => h.textContent)).toEqual(['The ring', 'Prep hall', 'Hearth room']);
     const rows = [...$('shopRows').querySelectorAll<HTMLButtonElement>('[data-tile]')];
-    expect(rows.map(b => b.dataset.tile)).toEqual(['rack', 'washer', 'barrel', 'salter', 'steam', 'smoke']);
+    expect(rows.map(b => b.dataset.tile)).toEqual(['rack', 'washer', 'barrel', 'salter', 'steam', 'smoke', 'cook', 'attendant']);
     const rack = rows[0];
     expect(rack.textContent).toContain('Another drying rack · 1 of 6');
     expect(rack.textContent).toContain('🐡 10');
@@ -741,13 +743,11 @@ describe("the cellar's tiles", () => {
     g.run(0.1);
     expect(F().lines.rice.n).toBe(2);
     expect($('shopRows').querySelector('[data-tile="rack"]')!.textContent).toContain('2 of 6');
-    // the grow room's square is there once the grow room is
-    at(plan.ROOM_MENUS.grow);
+    // the grow room's things join in once the grow room's found
+    g.layout.found.grow = true;
     g.run(0.1);
-    expect($('shop').hidden).toBe(true);
-    at(plan.ROOM_MENUS.hearth);
-    g.run(0.1);
-    expect($('shopTitle').textContent).toBe('Hearth upgrades');
+    expect([...$('shopRows').querySelectorAll('.sect')].map(h => h.textContent)).toEqual(['The ring', 'Prep hall', 'Grow room', 'Hearth room']);
+    expect($('shopRows').querySelector('[data-tile="bed"]')).not.toBeNull();
   });
 
   it('hires the crew, who run their lines and the pot by themselves', async () => {
@@ -911,33 +911,33 @@ describe("Mr. Fugu's office", () => {
   });
 });
 
-describe("the cellar's upgrades square", () => {
-  it('is on the landing, with bowl price, fans and crew, priced in chips', async () => {
-    const { g, plan, at } = await ring({ money: 100_000_000 });
-    at(plan.SHOP3);
+describe("the workshop's crafting bench", () => {
+  it('is through the hearth room, and sells bowl price, fans and crew too, priced in chips', async () => {
+    const { g, cellar, plan, at } = await ring({ money: 100_000_000 });
+    expect(cellar.roomAt(plan.BENCH_PAD)).toBe('craft');
+    expect(cellar.cellarWay(cellar.LADDER_FOOT, plan.BENCH_PAD).map(w => cellar.roomAt(w))).toContain('kitchen');
+    at(plan.BENCH_PAD);
     g.run(0.1);
     expect($('shop').hidden).toBe(false);
     expect([...$('shopRows').querySelectorAll('[data-mod]')].map(b => (b as HTMLElement).dataset.mod)).toEqual(['bowls', 'street', 'cellarcrew']);
     expect($('shopRows').textContent).toContain('🐡');
+    // (and it leaves the camera where it is)
+    expect($('shop').dataset.still).toBe('1');
     // the same spot upstairs is just the dock
     g.stage.setLevel(false);
-    g.placePlayer(plan.SHOP3.x, plan.SHOP3.z);
+    g.placePlayer(plan.BENCH_PAD.x, plan.BENCH_PAD.z);
     g.run(0.1);
     expect($('shop').hidden).toBe(true);
   });
 
-  it("each room's menu leaves the camera where it is; the landing's slides the view clear of the panel", async () => {
-    const { g, plan, at } = await ring({ ring: { beaten: 1 } });
-    for (const room of ['prep', 'grow', 'hearth'] as const) {
-      at(plan.ROOM_MENUS[room]);
+  it('has nothing to buy on the landing or in the rooms any more', async () => {
+    const { g, at } = await ring({ money: 100_000_000, ring: { beaten: 1 } });
+    const { LANDING, PREP, KITCHEN, GROW } = g.layout;
+    for (const r of [LANDING, PREP, KITCHEN, GROW]) {
+      at({ x: (r.x0 + r.x1) / 2 - 1.0, z: (r.z0 + r.z1) / 2 });
       g.run(0.1);
-      expect($('shop').hidden).toBe(false);
-      expect($('shop').dataset.still).toBe('1');
+      expect($('shop').hidden).toBe(true);
     }
-    at(plan.SHOP3);
-    g.run(0.1);
-    expect($('shop').hidden).toBe(false);
-    expect($('shop').dataset.still).toBe('');
   });
 });
 

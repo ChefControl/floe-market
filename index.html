@@ -162,7 +162,10 @@ body{
 }
 #shop[hidden]{ display:none; }
 #shop h2{ margin:0 4px 6px; font-size:17px; font-weight:800; line-height:1; }
-#shopRows{ display:flex; flex-direction:column; gap:5px; }
+#shopRows{ display:flex; flex-direction:column; gap:5px; max-height:min(58vh,520px); overflow-y:auto; overscroll-behavior:contain; }
+/* the crafting bench's menu: a heading over the ring's upgrades and each room's */
+#shop .sect{ margin:6px 4px 0; font-size:12px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; opacity:.65; }
+#shop .sect:first-child{ margin-top:0; }
 #shop .mod{
   display:flex; align-items:center; gap:8px; width:100%; text-align:left; cursor:pointer;
   font:600 13px "Baloo 2","Trebuchet MS",system-ui,sans-serif; color:inherit;

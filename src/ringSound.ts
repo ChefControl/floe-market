@@ -18,8 +18,9 @@ import { RING, roomAt } from './cellar';
 /** Through the floor from the dock, the crowd is this much quieter. */
 const MUFFLED = 0.15;
 /** Out of the arena, by the room: through one doorway on the landing and in the hearth room, two in the prep hall
- *  (and the clatter of its work), and hardly at all in the grow room or behind Mr. Fugu's office door. */
-const ROOMS_HEAR = { landing: 0.3, kitchen: 0.24, prep: 0.13, grow: 0.07, office: 0.07 } as const;
+ *  (and the clatter of its work) and the workshop, and hardly at all in the grow room or behind Mr. Fugu's office
+ *  door. */
+const ROOMS_HEAR = { landing: 0.3, kitchen: 0.24, craft: 0.12, prep: 0.13, grow: 0.07, office: 0.07 } as const;
 /** In the arena, all of it at the ringside and in the front of the stands, half of it by the far walls. */
 const RINGSIDE = 6.5, ARENA_FAR = 12.5, ARENA_LOW = 0.45;
 /** How much of the crowd the player hears where they are now, before smoothing. */
