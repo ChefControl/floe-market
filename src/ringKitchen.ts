@@ -178,7 +178,9 @@ function marker(at: XZ, icon: string, parent: Object3D = cellar) {
 for (const k of ['rice', 'fish'] as const) marker(BIN_PADS[k], k === 'rice' ? '🍚' : '🐟');
 marker(POT_PAD, '🍲'); marker(COUNTER_PAD, '🍲'); marker(STALL_PAD, '🏮');
 const MARK_ICON: Record<Ing, string> = { rice: '🌾', fish: '🐟', mush: '🍄' };
-const machineMarks = (['rice', 'fish', 'mush'] as const).flatMap(k => Array.from({ length: MAX_MACHINES }, (_, i) => {
+// (a marker by each of the grow room's beds; one for all the racks, and one for all the barrels, which moves along the
+// row as it grows: cellarPlan.ts's machinePad)
+const machineMarks = (['rice', 'fish', 'mush'] as const).flatMap(k => Array.from({ length: k === 'mush' ? MAX_MACHINES : 1 }, (_, i) => {
   const m = marker(machinePad(k, i), MARK_ICON[k], k === 'mush' ? parts.grow : cellar);
   m.visible = false;
   return { k, i, m };
@@ -457,7 +459,11 @@ export const bubbles = () => ({ pot: (Object.keys(potAsks) as Ing[]).find(k => p
 // ---------- every frame ----------
 export function updRingKitchen(dt: number) {
   for (const s of slots) drawSlot(s, dt);
-  for (const mk of machineMarks) mk.m.visible = mk.i < F.lines[mk.k].n;
+  for (const mk of machineMarks) {
+    const n = F.lines[mk.k].n, at = machinePad(mk.k, mk.i, n);
+    mk.m.visible = mk.i < n;
+    mk.m.position.x = at.x; mk.m.position.z = at.z;
+  }
   for (const k of ['rice', 'fish', 'mush'] as const) ledge[k].forEach((m, j) => { m.visible = j < F.pantry[k]; });
   serveBowls();
   showBowls(stallBowls, F.stall);

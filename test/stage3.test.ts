@@ -398,19 +398,34 @@ describe('the kitchen, by hand', () => {
     expect(F().lines.rice.m[0].items.every(p => p < 0.2)).toBe(true);
   });
 
-  it('a full rack passes the rest along to the next one in reach', async () => {
+  it('one spot works every rack, moving along to the middle of the row as more are built', async () => {
     const { g, plan, fight, at, F } = await ring();
     const back = g.player.back;
-    const cap = fight.MACH.rice[0].cap;
-    fight.addMachine('rice');
+    const cap = fight.MACH.rice[0].cap, first = plan.machineAt('rice', 0);
+    // (one rack: the spot's in front of it)
+    expect(plan.machinePad('rice', 0, 1)).toMatchObject({ x: first.x });
+    for (let i = 1; i < plan.MAX_MACHINES; i++) fight.addMachine('rice');
+    const n = F().lines.rice.n, spot = plan.machinePad('rice', 0, n);
+    // (six: one spot for all of them, in the middle of the row)
+    expect(n).toBe(plan.MAX_MACHINES);
+    for (let i = 0; i < n; i++) expect(plan.machinePad('rice', i, n)).toEqual(spot);
+    expect(spot.x).toBeCloseTo((first.x + plan.machineAt('rice', n - 1).x) / 2);
+    // from it, the racks are filled the nearest first, an armful at a time, right out to the ends of the row
+    const trip = () => { at(plan.BIN_PADS.rice); g.run(3); expect(back.count('rice')).toBeGreaterThan(0); at(spot); g.run(2); expect(back.count('rice')).toBe(0); };
+    trip();
+    const after1 = F().lines.rice.m.map(m => m.items.length);
+    expect(after1[2] + after1[3]).toBe(2 * cap);
+    expect(after1[0] + after1[5]).toBe(0);
+    trip();
+    expect(F().lines.rice.m[0].items.length).toBeGreaterThan(0);
+    // and once they're ready, they come out from there too, from the far ends as well
+    g.run(fight.MACH.rice[0].time + 0.5);
     at(plan.BIN_PADS.rice);
+    g.run(0.5);
+    at(spot);
     g.run(3);
-    expect(back.count('rice')).toBe(2 * cap);
-    at(plan.machinePad('rice', 0));
-    g.run(2);
-    expect(F().lines.rice.m[0].items).toHaveLength(cap);
-    expect(F().lines.rice.m[1].items).toHaveLength(cap);
-    expect(back.count('rice')).toBe(0);
+    expect(back.count('rrice')).toBe(back.cap);
+    expect(fight.doneCount('rice', F().lines.rice.m[0]) + fight.doneCount('rice', F().lines.rice.m[2])).toBeLessThan(2 * cap);
   });
 
   it('the pot, the counter and the stall are each their own: a batch fills the pot, ladled out onto the counter', async () => {

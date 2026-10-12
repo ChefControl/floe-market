@@ -3,7 +3,7 @@
 // bed, mushrooms; at the pot, ready ones onto the ledge, and the pot cooks while they stand there (until there's a
 // cook); at the counter, bowls; at the stall, bowls out for the fans. What they carry is theirs: the cellar
 // (fight.ts) only sees what they hand in or take out. And what each place says while they stand at it.
-import { BIN_PADS, BINS, COUNTER_PAD, type Ing, machinePad, type Pad, POT_PAD, STALL_PAD, WATCH } from './cellarPlan';
+import { BIN_PADS, BINS, COUNTER_PAD, type Ing, machineAt, machinePad, type Pad, POT_PAD, STALL_PAD, WATCH } from './cellarPlan';
 import { CY } from './cellar';
 import {
   BATCH, bowlPrice, COUNTER_CAP, PER_BATCH, POT_CAP, F, fillMachine, ICON, inPot, LEDGE_CAP, lineRoom, mach, playerAtPot, STALL_CAP, takeBowl, takeReady,
@@ -25,25 +25,27 @@ const MAKE_READY = { rice: newReadyRice, fish: newCuredFish, mush: newMushroom }
 /** Seconds between one thing and the next, picked up or put down. */
 const STEP = 0.07;
 const at = (p: XZ, pad: Pad) => d2xz(p, pad) < pad.r * pad.r;
-/** The machine whose pad the player's standing on, if any (the nearest, where pads touch). */
+/** The machine whose pad the player's standing on, if any (the nearest, where pads touch; on the racks' or the
+ *  barrels' one spot, the nearest of the row). */
 function machineHere(p: XZ): { k: Ing; i: number } | null {
   let best: { k: Ing; i: number } | null = null, bd = Infinity;
   for (const k of inPot()) {
-    for (let i = 0; i < F.lines[k].n; i++) {
-      const pad = machinePad(k, i), d = d2xz(p, pad);
+    const n = F.lines[k].n;
+    for (let i = 0; i < n; i++) {
+      const pad = machinePad(k, i, n), d = d2xz(p, pad);
       if (d < pad.r * pad.r && d < bd) { bd = d; best = { k, i }; }
     }
   }
   return best;
 }
-/** How far along a line the player reaches from a machine's pad: its neighbours either side, so a full rack passes
- *  what's left to the next one, and nobody has to hunt for the one with room. */
+/** How far along the grow room's beds the player reaches from one's pad: its neighbours either side, so nobody has to
+ *  hunt for the one that's ready. (The racks and barrels are all in reach from their one spot.) */
 const REACH = 1.6;
 /** The machines in reach of the player on `here`'s pad, nearest first. */
 function machinesNear(p: XZ, here: { k: Ing; i: number }) {
-  const { k } = here, out: number[] = [];
-  for (let i = 0; i < F.lines[k].n; i++) if (d2xz(p, machinePad(k, i)) < REACH * REACH) out.push(i);
-  return out.sort((a, b) => d2xz(p, machinePad(k, a)) - d2xz(p, machinePad(k, b)));
+  const { k } = here, n = F.lines[k].n, out: number[] = [];
+  for (let i = 0; i < n; i++) if (k !== 'mush' || d2xz(p, machinePad(k, i, n)) < REACH * REACH) out.push(i);
+  return out.sort((a, b) => d2xz(p, machineAt(k, a)) - d2xz(p, machineAt(k, b)));
 }
 /** Hands something from the player's arms to `to`, where it's gone (into a machine, onto the ledge or the stall). */
 function handIn(kind: Kind, to: () => ReturnType<typeof V>) {

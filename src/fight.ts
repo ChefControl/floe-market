@@ -444,7 +444,7 @@ function planLine(w: Worker, k: Ing): Step[] | null {
       let want = cap;
       for (const [i] of order) {
         if (want <= 0) break;
-        steps.push({ to: machinePad(k, i), act: 'pick', k, i });
+        steps.push({ to: machinePad(k, i, ms.length), act: 'pick', k, i });
         want -= doneCount(k, ms[i]);
       }
       steps.push({ to: ledgeSpot(k), act: 'ledge', k });
@@ -463,8 +463,8 @@ function planLine(w: Worker, k: Ing): Step[] | null {
     plan.push([i, n]); ms[i].coming += n; left -= n;
   }
   const steps: Step[] = [{ to: BIN_PADS[k as 'rice' | 'fish'], act: 'bin', k, n: cap - left }];
-  for (const [i, n] of plan) steps.push({ to: machinePad(k, i), act: 'fill', k, i, n });
-  steps.push({ to: machinePad(k, plan[plan.length - 1][0]), act: 'drop' });
+  for (const [i, n] of plan) steps.push({ to: machinePad(k, i, ms.length), act: 'fill', k, i, n });
+  steps.push({ to: machinePad(k, plan[plan.length - 1][0], ms.length), act: 'drop' });
   return steps;
 }
 const planBowls = (): Step[] => [{ to: COUNTER_PAD, act: 'take' }, { to: STALL_PAD, act: 'stall' }];

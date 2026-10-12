@@ -218,10 +218,10 @@ export function play(g: Game, seconds: number, dt = 0.05, ring?: Ring) {
       const ms = F.lines[k].m;
       const ready = ms.map((m, i) => [i, f.doneCount(k, m)]).filter(([, d]) => d > 0).sort((a, b) => b[1] - a[1]);
       const raw = k === 'mush' ? 0 : back.count(k);
-      if (ready.length && (room() || raw)) { const i = ready[0][0]; go(P.machinePad(k, i), () => f.doneCount(k, ms[i]) === 0 || (!back.hasRoom() && !back.count(k)), 15); return; }
+      if (ready.length && (room() || raw)) { const i = ready[0][0]; go(P.machinePad(k, i, ms.length), () => f.doneCount(k, ms[i]) === 0 || (!back.hasRoom() && !back.count(k)), 15); return; }
       if (k === 'mush') continue;
       const free = ms.map((m, i) => [i, f.freeCount(k, m)]).filter(([, n]) => n > 0);
-      if (raw && free.length) { const i = free[0][0]; go(P.machinePad(k, i), () => !back.count(k) || f.freeCount(k, ms[i]) === 0, 15); return; }
+      if (raw && free.length) { const i = free[0][0]; go(P.machinePad(k, i, ms.length), () => !back.count(k) || f.freeCount(k, ms[i]) === 0, 15); return; }
       const open = free.reduce((sum, [, n]) => sum + n, 0);
       if (open > raw && room()) { go(P.BIN_PADS[k], () => back.count(k) >= open || !back.hasRoom(), 10); return; }
     }

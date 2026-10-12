@@ -15,16 +15,20 @@ const pad = (x: number, z: number, r: number): Pad => ({ x, z, r });
 export const LIFTS: Record<'rice' | 'fish', XZ> = { rice: { x: PREP.x1 - 0.55, z: 3.0 }, fish: { x: PREP.x1 - 0.55, z: 6.8 } };
 export const BINS: Record<'rice' | 'fish', XZ> = { rice: { x: PREP.x1 - 1.4, z: 3.0 }, fish: { x: PREP.x1 - 1.4, z: 6.8 } };
 export const BIN_PADS: Record<'rice' | 'fish', Pad> = { rice: pad(PREP.x1 - 2.3, 3.0, 0.75), fish: pad(PREP.x1 - 2.3, 6.8, 0.75) };
-/** Where each line's machines stand, and where to stand to use one: racks, barrels, and the grow room's beds. */
+/** Where each line's machines stand, and where to stand to use them: racks, barrels, and the grow room's beds. */
 export const MAX_MACHINES = 6;
 export function machineAt(k: Ing, i: number): XZ {
   if (k === 'rice') return { x: PREP.x0 + 1.0 + i * 1.0, z: PREP.z0 + 0.7 };
   if (k === 'fish') return { x: PREP.x0 + 1.0 + i * 1.0, z: PREP.z1 - 0.7 };
   return { x: GROW.x0 + 1.7 + (i % 3) * 2.8, z: GROW.z1 - 2.7 - Math.floor(i / 3) * 4.0 };
 }
-export function machinePad(k: Ing, i: number): Pad {
-  const m = machineAt(k, i);
-  return k === 'rice' ? pad(m.x, m.z + 1.0, 0.7) : k === 'fish' ? pad(m.x, m.z - 1.0, 0.7) : pad(m.x, m.z + 0.95, 0.75);
+/** Where to stand to use machine `i` of a line of `n`: in front of each of the grow room's beds; and one spot for all
+ *  of the prep hall's racks, and one for its barrels, in front of the first while there's one, moving along to the
+ *  middle of the row as more are built, every one of them in reach from it (cellarHands.ts). */
+export function machinePad(k: Ing, i: number, n = 1): Pad {
+  if (k === 'mush') { const m = machineAt(k, i); return pad(m.x, m.z + 0.95, 0.75); }
+  const first = machineAt(k, 0), x = first.x + (Math.min(MAX_MACHINES, Math.max(1, n)) - 1) / 2;
+  return pad(x, k === 'rice' ? first.z + 1.0 : first.z - 1.0, 0.8);
 }
 
 // ---------- the hearth room: the pot, its ledge, the bowl counter ----------
