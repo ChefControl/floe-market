@@ -1,5 +1,5 @@
 // What the repeatable upgrades look like: every level bought shows somewhere in the world.
-import { Box3, Mesh, MeshBasicMaterial, type MeshLambertMaterial } from 'three';
+import { Box3, Mesh, MeshBasicMaterial, type MeshLambertMaterial, type Object3D, Vector3 } from 'three';
 import { describe, expect, it } from 'vitest';
 import { bought, loadGame, MARKET } from './helpers';
 
@@ -7,6 +7,11 @@ type Game = Awaited<ReturnType<typeof loadGame>>;
 const shown = (os: { visible: boolean }[]) => os.filter(o => o.visible).length;
 const beltColor = (g: Game) => ((g.player.g.band!.children[0] as Mesh).material as MeshLambertMaterial).color.getHex();
 const hatTop = (g: Game) => new Box3().setFromObject(g.restaurant.sushi.chefs[0].g).max.y;
+/** How far the camera's spotlight is from the middle of `os`. */
+const offFrom = (g: Game, os: Object3D[]) => {
+  const mid = os.reduce((m, o) => m.add(new Box3().setFromObject(o).getCenter(new Vector3())), new Vector3()).divideScalar(os.length);
+  return g.stage.view.focus.distanceTo(mid);
+};
 
 describe('upgrade looks', () => {
   it('puts up each marketing campaign south of the market, popping it in', async () => {
@@ -105,9 +110,45 @@ describe('upgrade looks', () => {
     expect(hatTop(g) - before).toBeCloseTo(2 * 0.06);
   });
 
+  it('puts a new marketing campaign in the spotlight: the camera goes over and in close, then back', async () => {
+    const g = await loadGame({ money: 1e9 });
+    const { view } = g.stage, focus = view.focus.clone();
+    g.run(0.05);
+    g.shop.buyMod('marketing');
+    g.run(0.8);
+    expect(view.k).toBeCloseTo(1);
+    expect(view.close).toBeCloseTo(0.6);
+    expect(offFrom(g, [g.looks.marketAds[0].g])).toBeLessThan(0.1); // the posters on the fence
+    g.shop.buyMod('marketing');
+    g.run(1);
+    expect(offFrom(g, [g.looks.marketAds[1].g])).toBeLessThan(0.1); // on to the promoter with the flyers
+    g.run(3);
+    expect(view.close).toBe(1);
+    expect(view.focus.equals(focus)).toBe(true);
+  });
+
+  it("puts every other level's look in the spotlight too", async () => {
+    const g = await loadGame({ tiles: bought(...MARKET), money: 1e9 });
+    const looked = (id: Parameters<Game['shop']['buyMod']>[0], at: () => Object3D[]) => {
+      g.run(4); // the last one's over
+      g.shop.buyMod(id);
+      g.run(0.8);
+      expect(g.stage.view.close, id).toBeCloseTo(0.6);
+      expect(offFrom(g, at()), id).toBeLessThan(0.1);
+    };
+    looked('fillets', () => [g.looks.priceBoard.mesh]);
+    looked('training', () => [g.player.g]);
+    g.unlocks.applyUnlock('sushi', true);
+    looked('specials', () => [g.looks.tags[0]]);
+    looked('promo', () => [g.looks.restaurantAds[0].g]);
+    const { chefs, cooks } = g.restaurant.sushi;
+    looked('crew', () => [...chefs, ...cooks].map(p => p.g));
+  });
+
   it('loads straight into the looks a save had, without popping them in', async () => {
     const g = await loadGame({ tiles: bought(...MARKET, 'sushi'), mods: { marketing: 8, training: 3, specials: 5, promo: 4, crew: 8 } });
     g.run(0.05);
+    expect(g.stage.view.close).toBe(1); // nor any spotlight
     const ads = g.looks.restaurantAds.map(a => a.g);
     expect(shown(ads)).toBe(4);
     expect(ads[3].scale.x).toBe(1);

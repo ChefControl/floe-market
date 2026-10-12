@@ -26,6 +26,7 @@ import { seasonSting } from './sfx';
 import { updShop } from './shop';
 import { player } from './player';
 import { updPops } from './pop';
+import { updSpotlight } from './spotlight';
 import { staging, updStage } from './stage';
 import { updTutorial } from './tutorial';
 import { toast } from './ui';
@@ -60,6 +61,7 @@ export function tick(dt: number) {
   if (updSeason(dt, player.g.position, rainK)) { toast(SEASON_INFO[current()].news, 'season'); seasonSting(current()); }
   updFarm(dt);
   updStage(dt);
+  updSpotlight(dt);
   updShop();
   updTutorial(dt);
   updLooks(dt);

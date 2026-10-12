@@ -5,6 +5,7 @@
 //   Chef's specials: a wooden menu tag over the kitchen line for each, a new dish on every one.
 //   Kitchen crew: the chefs' and cooks' toques grow taller.
 //   Rice fertilizer: a labelled sack of each kind on a pallet by the fertilizer shed (shed.ts).
+// A level bought puts what it changed in the spotlight (spotlight.ts): the camera goes over and in close on it.
 import { BoxGeometry, Group, Mesh, MeshLambertMaterial, type Object3D } from 'three';
 import { type Ad, marketAds, restaurantAds, updAds } from './ads';
 import { C1 } from './counters';
@@ -17,6 +18,7 @@ import { popIn } from './pop';
 import { signFrame, signSnow } from './props';
 import { KITCHEN, sushi } from './restaurant';
 import { sacks } from './shed';
+import { spotlight } from './spotlight';
 import { canvasTex, FONT, G, mat, mesh, rr, scene } from './render';
 import { FY } from './util';
 
@@ -124,13 +126,15 @@ export const tags = DISHES.map((dish, i) => {
 export const BELTS = [0xF4F4F0, 0xF7D038, 0xF08A24, 0x3FA34D, 0x2F6FD0, 0x7E4CC2, 0x7A4A2A, 0x1E1E1E];
 
 // ---------- keeping them in step ----------
-let synced = false, priceKey = '', belt = -1, hat = 0;
+let synced = false, priceKey = '', belt = -1, hat = 0, fillets = 0, crew = 0;
 const groupOf = (a: Ad) => a.g;
+/** What a level bought this frame changed, for the spotlight. */
+const fresh: Object3D[] = [];
 /** Shows the first `n` of `items`; the newly shown ones pop in unless `quiet`. */
 function showFirst(items: Object3D[], n: number, quiet: boolean) {
   items.forEach((o, i) => {
     const want = i < n;
-    if (want && !o.visible && !quiet) popIn(o);
+    if (want && !o.visible && !quiet) { popIn(o); fresh.push(o); }
     o.visible = want;
   });
 }
@@ -141,6 +145,8 @@ export function updLooks(dt: number) {
   synced = true;
   const key = `${C1.price}|${mods.fillets}`;
   if (key !== priceKey) { priceKey = key; drawPrice(C1.price, mods.fillets); }
+  if (mods.fillets > fillets && !quiet) fresh.push(priceBoard.mesh);
+  fillets = mods.fillets;
   showFirst(marketAds.map(groupOf), mods.marketing, quiet);
   showFirst(restaurantAds.map(groupOf), mods.promo, quiet);
   showFirst(tags, mods.specials, quiet);
@@ -152,10 +158,13 @@ export function updLooks(dt: number) {
   if (wear !== belt) {
     belt = wear;
     player.g.headband(belt ? BELTS[Math.min(belt, BELTS.length) - 1] : null);
-    if (belt && !quiet) popIn(player.g.band!);
+    if (belt && !quiet) { popIn(player.g.band!); fresh.push(player.g); }
   }
   // toques grow up to their new height rather than jumping
   hat = quiet ? mods.crew : Math.min(mods.crew, hat + dt * 2);
   for (const p of [...sushi.chefs, ...sushi.cooks]) p.g.toque(hat);
+  if (mods.crew > crew && !quiet) fresh.push(...[...sushi.chefs, ...sushi.cooks].map(p => p.g));
+  crew = mods.crew;
+  if (fresh.length) spotlight(fresh.splice(0));
   updAds(dt);
 }

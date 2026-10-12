@@ -20,7 +20,8 @@ import { popIn } from './pop';
 import { bake, canvasTex, FONT, G, mat, mesh, scene, type Part } from './render';
 import { collideRoulette, enableRoulette, updRoulette } from './rouletteTable';
 import { collideSlots, updSlots } from './slotMachine';
-import { staging, view } from './stage';
+import { spotlight } from './spotlight';
+import { staging } from './stage';
 import { FY, V, type XZ } from './util';
 import { openQuayGap, planks } from './world';
 
@@ -280,15 +281,13 @@ let pieces: Object3D[] = [];
 export const casinoPieces = () => pieces;
 
 // ---------- the ship coming in ----------
-/** The camera's look over at the ship as it comes in: easing over, holding, easing back; the ship pops in on arrival. */
-const GLANCE = { over: 0.6, hold: 1.4, back: 0.6, popAt: 0.5 };
-let glance: { t: number; waiting: Object3D[]; was: ReturnType<typeof V> } | null = null;
-const ease = (k: number) => k < .5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+/** The spotlight on the ship (spotlight.ts): only a little closer, as big as it is, and it pops in as the camera gets there. */
+const SHOW = { close: 0.85, popAt: 0.5 };
 
 /**
  * The 'roulette' unlock: the quay and the ship come in, with the roulette table. Returns what pops in at once (the
- * quay). Unless `silent` (loading a save), the camera then looks over at the ship, which pops in with its gangway and
- * table as it gets there; with reduced motion it all pops in straight away instead.
+ * quay). Unless `silent` (loading a save), the camera then goes over to the ship in the spotlight, and it pops in with
+ * its gangway and table as the camera gets there; with reduced motion it all pops in straight away instead.
  */
 export function enableCasino(silent = false): Object3D[] {
   casinoBoat.open = true;
@@ -297,20 +296,11 @@ export function enableCasino(silent = false): Object3D[] {
   ship = buildShip();
   pieces = [quay, gangway, ship.g];
   if (silent) return [];
-  if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return [...pieces, ...roulette];
   const waiting = [gangway, ship.g, ...roulette];
+  const arrive = () => waiting.forEach(o => { o.visible = true; popIn(o); });
+  if (!spotlight([ship.g], { close: SHOW.close, cue: { at: SHOW.popAt, run: arrive } })) return [...pieces, ...roulette];
   waiting.forEach(o => { o.visible = false; });
-  glance = { t: 0, waiting, was: view.focus.clone() };
   return [quay];
-}
-
-function updGlance(dt: number) {
-  const g = glance!, { over, hold, back, popAt } = GLANCE;
-  g.t += dt;
-  view.focus.set(SHIP.x, FY, SHIP.z);
-  view.k = g.t < over + hold ? ease(Math.min(1, g.t / over)) : 1 - ease(Math.min(1, (g.t - over - hold) / back));
-  if (g.waiting.length && g.t >= popAt) g.waiting.splice(0).forEach(o => { o.visible = true; popIn(o); });
-  if (g.t >= over + hold + back) { view.k = 0; view.focus.copy(g.was); glance = null; }
 }
 
 /** Whether the player was aboard last frame: stepping off starts a new visit, so the games greet them again next time. */
@@ -330,7 +320,6 @@ export function collideCasino(p: XZ) {
 
 export function updCasino(dt: number) {
   if (!ship) return;
-  if (glance) updGlance(dt);
   updVisit();
   updSalon(dt, player.g.position, staging());
   updTweens(dt);

@@ -101,8 +101,10 @@ describe('the casino boat', () => {
     g.run(0.4);
     expect(boat.visible).toBe(true);
     expect(view.focus.x).toBeLessThan(-15);
-    g.run(2);
+    expect(view.close).toBeLessThan(1); // in close on it
+    g.run(2.5);
     expect(view.k).toBe(0);
+    expect(view.close).toBe(1);
     expect(view.focus.equals(focus)).toBe(true);
   });
 
