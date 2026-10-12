@@ -12,7 +12,7 @@ import { cheer, chipStack, gamePad, greeting, settleTweens, slide, speaker, Stak
 import { Person, SUITS } from './characters';
 import { GAMES, pushOutOfBox } from './layout';
 import { bake, canvasTex, FONT, G, mat, mesh, rr, scene, type Part } from './render';
-import { colorOf, multiplier, startRound, WHEEL, type Bet, type RouletteRound } from './roulette';
+import { colorOf, multiplier, resultLine, startRound, WHEEL, type Bet, type RouletteRound } from './roulette';
 import type { Moves } from './round';
 import { lose, tick, win } from './sfx';
 import { popText } from './ui';
@@ -267,9 +267,7 @@ function settle() {
     return el;
   }));
   if (table) { drawBoard(table.boardTex.ctx, BOARD.w, BOARD.h); table.boardTex.tex.needsUpdate = true; }
-  const color = colorOf(pocket);
-  const name = `${pocket} ${color[0].toUpperCase()}${color.slice(1)}`;
-  msg.textContent = won > 0 ? `${name}: you win ${money(won)}!` : `${name}: the house wins.`;
+  msg.textContent = resultLine(s.round);
   refresh();
 }
 

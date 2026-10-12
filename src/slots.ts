@@ -2,6 +2,7 @@
 // by the symbol, and two cherries pay double, for a return of about 97% (like the roulette wheel's). A round is played
 // here, free of the machine and the wallet, so it's easy to test: the machine animates it and applies the money it moves.
 import type { Moves } from './round';
+import { money } from './util';
 
 export type Sym = '🍒' | '🍋' | '🔔' | '🐟' | '💎' | '7';
 
@@ -50,4 +51,11 @@ export function startRound(stake: number, cash: number, rng: () => number = Math
   let owed = win;
   const settle = (): Moves => { const pay = owed; owed = 0; return { owed: 0, pay }; };
   return { round: { stake, stops, line, win, settle }, moves: { take: stake, owed } };
+}
+
+/** What the machine says once a round's settled: the pay line, and the win (the jackpot called as such) or nothing. */
+export function resultLine(r: SlotsRound) {
+  const said = r.line.join(' ');
+  if (r.win <= 0) return `${said}: no luck this time.`;
+  return lineMultiplier(r.line) === THREE['7'] ? `Jackpot! You win ${money(r.win)}!` : `${said}: you win ${money(r.win)}!`;
 }

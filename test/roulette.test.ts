@@ -1,6 +1,6 @@
 // A roulette round, played without the table: the wheel, the colours and what each pays, and the money a round moves.
 import { describe, expect, it } from 'vitest';
-import { colorOf, startRound, WHEEL, type Bet } from '../src/roulette';
+import { colorOf, resultLine, startRound, WHEEL, type Bet } from '../src/roulette';
 
 /** A random number that spins the wheel to pocket `n`. */
 const landOn = (n: number) => () => (WHEEL.indexOf(n as typeof WHEEL[number]) + 0.5) / WHEEL.length;
@@ -65,5 +65,14 @@ describe('a roulette round', () => {
     let spun = 0;
     startRound('red', 101, 100, () => { spun++; return 0; });
     expect(spun).toBe(0);
+  });
+});
+
+describe('what the table says once a round is settled', () => {
+  it('names the pocket and its colour, and the win or the loss', () => {
+    expect(resultLine(play('red', 25, 32).round)).toBe('32 Red: you win $50!');
+    expect(resultLine(play('green', 25, 0).round)).toBe('0 Green: you win $900!');
+    expect(resultLine(play('red', 60, 15).round)).toBe('15 Black: the house wins.');
+    expect(resultLine(play('black', 25, 0).round)).toBe('0 Green: the house wins.');
   });
 });

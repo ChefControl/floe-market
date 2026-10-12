@@ -4,6 +4,7 @@
 // insurance: half your stake, paying 2 to 1 if they have blackjack. The shoe and each round are played here, free of
 // the table and the wallet, so they're easy to test: the table animates them and applies the money a round moves.
 import type { Moves } from './round';
+import { money } from './util';
 
 export type Suit = '♠' | '♥' | '♦' | '♣';
 /** A card: rank 1 (ace) to 13 (king). */
@@ -312,5 +313,28 @@ export class BlackjackRound {
     const results: Result[] = this.even ? [{ outcome: 'even', payout: this.hands[0].stake * 2 }]
       : this.hands.map(h => score(h.cards, dealer, h.stake, h.split));
     return { draws, results, insured: dealerBJ ? this.insurance * 3 : 0 };
+  }
+}
+
+const VERB = { win: 'wins', push: 'pushes', bust: 'busts', lose: 'loses', blackjack: 'wins', even: 'wins' } as const;
+
+/** What the table says once a round's settled: how a single hand came out, or each hand's after a split. */
+export function resultLine(r: BlackjackRound) {
+  const d = r.dealer, back = r.paid;
+  const lead = isBust(d) ? `Dealer busts with ${total(d)}` : isBlackjack(d) ? 'Dealer has blackjack' : `Dealer has ${total(d)}`;
+  if (r.hands.length > 1) {
+    const each = r.results.map((x, i) => `hand ${i + 1} ${VERB[x.outcome]}`).join(', ');
+    return `${lead}: ${each}. ${back > 0 ? `${money(back)} back.` : 'The house wins.'}`;
+  }
+  if (r.insured) return `Dealer has blackjack: insurance pays ${money(r.insured)}.`;
+  const h = r.hands[0], x = r.results[0];
+  switch (x.outcome) {
+    case 'blackjack': return `Blackjack! You win ${money(x.payout)}!`;
+    case 'even': return `Even money: you win ${money(x.payout)}!`;
+    case 'win': return isBust(d) ? `Dealer busts with ${total(d)}: you win ${money(x.payout)}!`
+      : `${total(h.cards)} beats ${total(d)}: you win ${money(x.payout)}!`;
+    case 'push': return `${total(h.cards)} each: a push, your ${money(h.stake)} back.`;
+    case 'bust': return `Bust with ${total(h.cards)}: the house wins.`;
+    case 'lose': return isBlackjack(d) ? 'Dealer has blackjack: the house wins.' : `Dealer has ${total(d)}: the house wins.`;
   }
 }

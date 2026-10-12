@@ -1,6 +1,6 @@
 // A slots round, played without the machine: the reel, what pays, and the money a round moves.
 import { describe, expect, it } from 'vitest';
-import { lineMultiplier, REEL, startRound, type Sym } from '../src/slots';
+import { lineMultiplier, REEL, resultLine, startRound, type Sym } from '../src/slots';
 
 /** Random numbers that stop the reels, left to right, at these places on the strip. */
 const stopAt = (...stops: number[]) => { let i = 0; return () => (stops[i++] + 0.5) / REEL.length; };
@@ -70,5 +70,14 @@ describe('a slots round', () => {
     expect(startRound(101, 100, rng)).toBeNull();
     expect(spun).toBe(0);
     expect(startRound(100, 100, rng)!.moves.take).toBe(100);
+  });
+});
+
+describe('what the machine says once a round is settled', () => {
+  it('reads out the pay line and the win, calls the jackpot, and says when nothing pays', () => {
+    expect(resultLine(play(25, 8, 8, 8).round)).toBe('Jackpot! You win $2,500!');
+    expect(resultLine(play(25, 4, 11, 17).round)).toBe('🐟 🐟 🐟: you win $625!');
+    expect(resultLine(play(25, 0, 1, 3).round)).toBe('🍒 🍋 🍒: you win $50!');
+    expect(resultLine(play(25, 0, 1, 2).round)).toBe('🍒 🍋 🔔: no luck this time.');
   });
 });

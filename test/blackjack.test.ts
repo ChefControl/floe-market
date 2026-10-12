@@ -2,7 +2,7 @@
 // the payout, with the money it moves.
 import { describe, expect, it } from 'vitest';
 import {
-  BlackjackRound, CUT_CARD, handValue, insuranceCost, isBlackjack, PLAYER_CUT, Shoe, type Card, type Suit,
+  BlackjackRound, CUT_CARD, handValue, insuranceCost, isBlackjack, PLAYER_CUT, resultLine, Shoe, type Card, type Suit,
 } from '../src/blackjack';
 
 /** A card: 1 is an ace, 11 to 13 the faces. */
@@ -191,6 +191,7 @@ describe('a blackjack round', () => {
     up.afterDeal(100);
     up.double(100);
     expect(up.hands[0].down).toBe(false);
+    expect(up.results).toEqual([{ outcome: 'win', payout: 40 }]);
   });
 
   it("won't double what the player can't cover, or after the first two cards", () => {
@@ -293,5 +294,40 @@ describe('a blackjack round', () => {
     const dealing = deal([c(10), c(9)], [c(10), c(7)]).round;
     expect(dealing.walkAway()).toEqual({ owed: 20 });
     expect(dealing.settle()).toEqual({ owed: 0, pay: 20 });
+  });
+});
+
+describe('what the table says once a round is settled', () => {
+  /** A round of $25, dealt, played with `play`, and settled; what the table says about it. */
+  const said = (player: Card[], dealer: Card[], rest: Card[], play: (r: BlackjackRound) => void) => {
+    const { round } = deal(player, dealer, rest, 25);
+    play(round);
+    round.settle();
+    return resultLine(round);
+  };
+  const stand = (r: BlackjackRound) => { r.afterDeal(100); r.stand(); };
+
+  it('says how a single hand came out', () => {
+    expect(said([c(10), c(9)], [c(10), c(7)], [], stand)).toBe('19 beats 17: you win $50!');
+    expect(said([c(10), c(8)], [c(10), c(6)], [c(9)], stand)).toBe('Dealer busts with 25: you win $50!');
+    expect(said([c(10), c(7)], [c(10), c(9)], [], stand)).toBe('Dealer has 19: the house wins.');
+    expect(said([c(10), c(8)], [c(9), c(9)], [], stand)).toBe('18 each: a push, your $25 back.');
+    expect(said([c(10), c(6)], [c(10), c(5)], [c(13)], r => { r.afterDeal(100); r.hit(); })).toBe('Bust with 26: the house wins.');
+  });
+
+  it("calls blackjacks, the dealer's too, even money and insurance", () => {
+    expect(said([c(1), c(13)], [c(9), c(7)], [], r => r.afterDeal(100))).toBe('Blackjack! You win $62!');
+    expect(said([c(10), c(9)], [c(12), c(1)], [], r => r.afterDeal(100))).toBe('Dealer has blackjack: the house wins.');
+    expect(said([c(1), c(13)], [c(1), c(9)], [], r => { r.afterDeal(100); r.answer(true); })).toBe('Even money: you win $50!');
+    expect(said([c(10), c(9)], [c(1), c(13)], [], r => { r.afterDeal(100); r.answer(true); })).toBe('Dealer has blackjack: insurance pays $36.');
+  });
+
+  it('gives each hand after a split, and what came back', () => {
+    expect(said([c(8), c(8, '♥')], [c(10), c(7)], [c(3), c(10), c(10)], r => { r.afterDeal(100); r.split(100); r.double(100); r.stand(); }))
+      .toBe('Dealer has 17: hand 1 wins, hand 2 wins. $150 back.');
+    expect(said([c(1), c(1, '♦')], [c(10), c(8)], [c(13), c(5)], r => { r.afterDeal(100); r.split(100); }))
+      .toBe('Dealer has 18: hand 1 wins, hand 2 loses. $50 back.');
+    expect(said([c(8), c(8, '♥')], [c(10), c(9)], [c(2), c(2)], r => { r.afterDeal(100); r.split(100); r.stand(); r.stand(); }))
+      .toBe('Dealer has 19: hand 1 loses, hand 2 loses. The house wins.');
   });
 });
