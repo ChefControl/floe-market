@@ -3,6 +3,7 @@
 // (the shoe too) in blackjack.test.ts; these tests are about what the player sees at the table.
 import { describe, expect, it, vi } from 'vitest';
 import { rankName, Shoe, type Card, type Suit } from '../src/blackjack';
+import { GRACE } from '../src/casinoKit';
 import { WHEEL } from '../src/roulette';
 import { bought, loadGame } from './helpers';
 
@@ -317,13 +318,16 @@ describe('the roulette table', () => {
     expect(button('#spin').disabled).toBe(true);
   });
 
-  it('settles at once if the player walks away mid-spin', async () => {
+  it('plays the spin out if the player walks away mid-spin, the croupier calling after them', async () => {
     const g = await at('roulette', 100);
     rig(32);
     click('#spin');
     g.run(0.5);
     walkAway(g);
     expect($('roulette').hidden).toBe(true);
+    expect((await import('../src/rouletteTable')).croupierSays()).toBe('Still rolling!');
+    expect(g.wallet.money).toBe(75);
+    g.run(GRACE);
     expect(g.wallet.money).toBe(125);
   });
 
@@ -653,6 +657,7 @@ describe('the blackjack table', () => {
     expect($('bjMsg').textContent).toBe('A fresh shoe: the dealer shuffles…');
     g.run(3);
     walkAway(g);
+    g.run(GRACE);
     expect(await felt()).toMatchObject({ shuffle: '', stack: 0, cutCard: false, discards: 1 });
     expect(await inShoe()).toHaveLength(311);
     g.placePlayer(g.layout.GAMES.blackjack.x, g.layout.GAMES.blackjack.z); g.run(0.05);
@@ -716,14 +721,38 @@ describe('the blackjack table', () => {
     g.run(0.8 + STOOD);
     expect($('bjMsg').textContent).toBe('21 beats 18: you win $50!');
   });
-  it('stands and settles at once if the player walks away mid-hand', async () => {
+  it('holds the hand for a player who walks away mid-hand, then stands and settles if they stay away', async () => {
     const g = await table(100, [c(10), c(9)], [c(10), c(7)]);
     click('#deal');
     g.run(0.5);
     walkAway(g);
     expect($('blackjack').hidden).toBe(true);
+    expect(await says()).toBe("I'll wait!");
+    g.run(GRACE - 0.5);
+    expect(g.wallet.money).toBe(75);
+    expect((await felt()).dealer).toEqual(['10♠', '?']);
+    g.run(0.5);
     expect(g.wallet.money).toBe(125);
     expect((await felt()).dealer).toEqual(['10♠', '7♠']);
+  });
+
+  it('lets a player who stepped off by mistake come back and play on', async () => {
+    const g = await table(100, [c(10), c(6)], [c(10), c(7)], c(4));
+    click('#deal');
+    dealt(g);
+    const pad = g.layout.GAMES.blackjack;
+    g.placePlayer(pad.x, pad.z + 1.2); g.run(0.05); // a step back off the pad, still aboard
+    expect($('blackjack').hidden).toBe(true);
+    g.run(GRACE - 1);
+    g.placePlayer(pad.x, pad.z); g.run(0.05);
+    expect(await says()).toBe('Welcome back!');
+    expect($('bjMsg').textContent).toBe('You have 16. Hit or stand?');
+    g.run(GRACE); // nobody's waiting any more: the hand's still theirs
+    click('#hit');
+    g.run(0.8);
+    click('#stand');
+    g.run(STOOD);
+    expect($('bjMsg').textContent).toBe('20 beats 17: you win $50!');
   });
 
   it('saves what standing would win, mid-hand', async () => {
@@ -810,6 +839,7 @@ describe('the blackjack table', () => {
     click('#deal');
     dealt(g);
     walkAway(g);
+    g.run(GRACE);
     expect(g.wallet.money).toBe(125);
   });
 
@@ -870,7 +900,7 @@ describe('the slot machine', () => {
     expect($('slotsMsg').textContent).toBe('Jackpot! You win $2,500!');
     expect((await import('../src/slotMachine')).signSays()).toBe('JACKPOT!');
   });
-  it('pays at once if the player walks away mid-spin, and saves a win still spinning', async () => {
+  it('plays the spin out if the player walks away mid-spin, and saves a win still spinning', async () => {
     const g = await at('slots', 100, 'slots');
     rigReels(4, 11, 17); // three fish
     click('#pull');
@@ -881,6 +911,9 @@ describe('the slot machine', () => {
     g.saveMod.save();
     expect(saved()).toBe(700 - 25 + 625);
     walkAway(g);
+    expect((await import('../src/slotMachine')).signSays()).toBe('Still spinning!');
+    expect(g.wallet.money).toBe(675);
+    g.run(2);
     expect(g.wallet.money).toBe(1300);
   });
 
