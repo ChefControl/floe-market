@@ -119,6 +119,36 @@ describe('the ladder', () => {
     expect(g.player.booped).toBeNull();
   });
 
+  it("doesn't draw the world up top while the player's down in the cellar, and puts it all back after", async () => {
+    const { g, cellar } = await ring({ level: 1 });
+    const { hideAbove, leftOut } = await import('../src/levelCull');
+    const { Box3 } = await import('three');
+    const { scene } = g.render;
+    const before = scene.children.map(o => o.visible);
+    const show = hideAbove();
+    const off = scene.children.filter((o, i) => before[i] && !o.visible);
+    expect(off.length).toBe(leftOut());
+    expect(off.length).toBeGreaterThan(100);
+    // (only what's wholly up top: never the cellar, the player or the fans)
+    for (const o of off) expect(new Box3().setFromObject(o).min.y).toBeGreaterThan(cellar.CY + 15);
+    expect(off).not.toContain(g.player.g);
+    show();
+    expect(scene.children.map(o => o.visible)).toEqual(before);
+    // (something that comes down shows straight away)
+    const tray = off[0];
+    const y = tray.position.y;
+    tray.position.y = cellar.CY;
+    hideAbove()();
+    const again = hideAbove();
+    expect(tray.visible).toBe(true);
+    again();
+    tray.position.y = y;
+    // up on the dock, everything's drawn
+    g.stage.setLevel(false);
+    hideAbove()();
+    expect(leftOut()).toBe(0);
+  });
+
   it('climbs up through the hatch to the dock, and back down, with the light changing', async () => {
     // (with bowls, cured fish and raw rice in the player's arms)
     const { g, cellar, stage, F } = await ring({ level: 1, hands: { bowl: 2, cfish: 3, rice: 1 } });

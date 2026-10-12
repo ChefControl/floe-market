@@ -8,6 +8,7 @@ import { tick } from './game';
 import { frameDrawn } from './graphics';
 import { initHint, updHint } from './hint';
 import { inputVec } from './input';
+import { hideAbove } from './levelCull';
 import { drawOffer, offerCam } from './offer';
 import { updKofi } from './kofi';
 import { player } from './player';
@@ -102,7 +103,10 @@ function frame(now: number) {
   updPointers(dt);
   drawTutorial(dt);
   hud(dt);
+  // (down in the cellar, the world up top isn't drawn: levelCull.ts)
+  const showAbove = hideAbove();
   renderer.render(scene, camera);
+  showAbove();
   if (loading) {
     const el = loading;
     el.classList.add('done');
