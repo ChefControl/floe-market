@@ -357,9 +357,9 @@ describe('the roulette table', () => {
     const chip = (v: string) => button(`#roulette [data-stake="${v}"]`);
     expect($('spin').textContent).toBe('Spin · $25 on Red'); // one $25 chip to start with
     expect(chip('1').dataset.n).toBe('×1');
-    click('#roulette [data-stake="clear"]');
+    click('#roulette [data-stake="undo"]'); // takes the starting chip back
     expect(button('#spin').disabled).toBe(true);
-    expect(chip('clear').disabled).toBe(true);
+    expect(chip('undo').disabled).toBe(true);
     for (let i = 0; i < 3; i++) click('#roulette [data-stake="2"]');
     click('#roulette [data-stake="1"]');
     expect($('spin').textContent).toBe('Spin · $325 on Red');
@@ -382,15 +382,68 @@ describe('the roulette table', () => {
     expect(chip('all').getAttribute('aria-pressed')).toBe('false');
   });
 
+  it('takes back one change at a time: a chip, or all in, back to what was down before it', async () => {
+    await at('roulette', 700);
+    const undo = () => click('#roulette [data-stake="undo"]');
+    click('#roulette [data-stake="2"]'); click('#roulette [data-stake="2"]');
+    expect($('spin').textContent).toBe('Spin · $225 on Red');
+    undo();
+    expect($('spin').textContent).toBe('Spin · $125 on Red');
+    expect(button('#roulette [data-stake="2"]').dataset.n).toBe('×1');
+    click('#roulette [data-stake="all"]');
+    click('#roulette [data-stake="0"]');
+    expect($('spin').textContent).toBe('Spin · $5 on Red');
+    undo();
+    expect($('spin').textContent).toBe('Spin · $700 on Red'); // back to all in
+    undo();
+    expect($('spin').textContent).toBe('Spin · $125 on Red'); // and to the chips under it
+    undo(); undo();
+    expect(button('#spin').disabled).toBe(true);
+    expect(button('#roulette [data-stake="undo"]').disabled).toBe(true);
+  });
+
+  it('keeps putting chips down while one is held, faster and faster, till it lets go or the cash runs out', async () => {
+    await at('roulette', 2000);
+    const { HOLD } = await import('../src/casinoKit');
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      const chip = button('#roulette [data-stake="2"]'), undo = button('#roulette [data-stake="undo"]');
+      const press = (b: HTMLElement, ev: string) => b.dispatchEvent(new Event(ev, { bubbles: true }));
+      // a tap: down, up and the click that comes with it make one chip
+      press(chip, 'pointerdown'); press(chip, 'pointerup'); chip.click(); vi.runAllTimers();
+      expect(chip.dataset.n).toBe('×1');
+      // held: one at once, then on its own after a moment, coming quicker
+      press(chip, 'pointerdown');
+      expect(chip.dataset.n).toBe('×2');
+      vi.advanceTimersByTime(HOLD.wait - 1);
+      expect(chip.dataset.n).toBe('×2');
+      vi.advanceTimersByTime(1);
+      expect(chip.dataset.n).toBe('×3');
+      vi.advanceTimersByTime(HOLD.first + HOLD.first * 0.85);
+      expect(chip.dataset.n).toBe('×5');
+      press(chip, 'pointerup'); chip.click(); vi.advanceTimersByTime(5000);
+      expect(chip.dataset.n).toBe('×5');
+      // held till there's no cash for another: $25 + 19 × $100 is all $2,000
+      press(chip, 'pointerdown'); vi.advanceTimersByTime(10_000);
+      expect($('spin').textContent).toBe('Spin · $1,925 on Red');
+      expect(chip.disabled).toBe(true);
+      press(chip, 'pointerup');
+      // holding Undo takes them back the same way, down to nothing
+      press(undo, 'pointerdown'); vi.advanceTimersByTime(10_000); press(undo, 'pointerup');
+      expect(button('#spin').disabled).toBe(true);
+      expect(undo.disabled).toBe(true);
+    } finally { vi.useRealTimers(); }
+  });
+
   it('has bigger chips in stage 2, and keeps the chips down through the stage-up', async () => {
     const g = await at('roulette', 100_000);
-    click('#roulette [data-stake="clear"]');
+    click('#roulette [data-stake="undo"]');
     click('#roulette [data-stake="0"]'); click('#roulette [data-stake="3"]'); click('#roulette [data-stake="3"]');
     expect($('spin').textContent).toBe('Spin · $1,005 on Red');
     walkAway(g);
     g.unlocks.applyUnlock('sushi', true);
     g.placePlayer(g.layout.GAMES.roulette.x, g.layout.GAMES.roulette.z); g.run(0.05);
-    expect([...document.querySelectorAll('#roulette [data-stake]')].map(b => b.textContent)).toEqual(['$50', '$250', '$1k', '$5k', 'All in', 'Clear']);
+    expect([...document.querySelectorAll('#roulette [data-stake]')].map(b => b.textContent)).toEqual(['$50', '$250', '$1k', '$5k', 'All in', 'Undo']);
     expect($('spin').textContent).toBe('Spin · $10,050 on Red');
   });
 

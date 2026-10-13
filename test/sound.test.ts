@@ -484,6 +484,26 @@ describe('music', () => {
     vi.unstubAllGlobals();
   });
 
+  it("cuts a recording to a length Chrome can loop: the dining room's loses a frame at 48 kHz", async () => {
+    await withSound();
+    const { loopable } = await import('../src/roomTone');
+    const recording = (length: number, sampleRate: number) => {
+      const d = new Float32Array(length);
+      for (let i = 0; i < length; i++) d[i] = (i % 997) / 997;
+      return { length, sampleRate, numberOfChannels: 1, duration: length / sampleRate, getChannelData: () => d } as unknown as AudioBuffer;
+    };
+    // Chrome 152 puts the end of this one's loop a hair past its last frame, and sticks there
+    expect((4_111_488 / 48_000) * 48_000).toBeGreaterThan(4_111_488);
+    const dining = recording(4_111_488, 48_000), cut = loopable(dining).getChannelData(0);
+    expect(cut).toHaveLength(4_111_487);
+    expect([cut[0], cut[1234], cut[4_111_486]]).toEqual([0, 1234 % 997 / 997, 4_111_486 % 997 / 997].map(Math.fround));
+    // the bar's and the slot machines' loop as they are, so they're kept as they are
+    for (const n of [4_371_213, 5_805_440]) {
+      const r = recording(n, 48_000);
+      expect(loopable(r)).toBe(r);
+    }
+  });
+
   it('picks up again after the page has been asleep', async () => {
     const s = await withSound();
     s.play(2);
