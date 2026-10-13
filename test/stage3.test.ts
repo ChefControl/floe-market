@@ -4,6 +4,7 @@
 // card after it, the cellar's tiles (machines again and again, hires, tiers) bought with Fugu Chips, the swarm on the
 // floor, the watch spot, the buyout, the restaurant upstairs as the front, and saving it all.
 import { describe, expect, it } from 'vitest';
+import indexHtml from '../index.html?raw';
 import { bought, FLOE_SUSHI, loadGame, MARKET, RING_DONE, type SaveFixture } from './helpers';
 
 const $ = (id: string) => document.getElementById(id)!;
@@ -978,6 +979,15 @@ describe("the cellar's tiles", () => {
     row('barrel').querySelector('.sub')!.dispatchEvent(new Event('pointerover', { bubbles: true }));
     g.press('e'); g.run(0.1); g.press('e', 'keyup');
     expect(F().lines.fish.n).toBe(barrels + 1);
+    // and walking off the bench puts it away, off the screen as well as hidden (its docked layout never shows it)
+    const css = document.head.appendChild(document.createElement('style'));
+    css.textContent = [...indexHtml.matchAll(/<style>([\s\S]*?)<\/style>/g)].map(m => m[1]).join('\n');
+    expect(getComputedStyle($('shop')).display).not.toBe('none');
+    at({ x: plan.BENCH_PAD.x + 2, z: plan.BENCH_PAD.z });
+    g.run(0.1);
+    expect($('shop').hidden).toBe(true);
+    expect(getComputedStyle($('shop')).display).toBe('none');
+    css.remove();
   });
 
   it('hires the crew, who run their lines and the pot by themselves', async () => {

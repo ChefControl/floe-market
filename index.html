@@ -273,7 +273,7 @@ body{
 #shopKeys{ display:flex; flex-wrap:wrap; gap:4px 12px; margin-top:6px; padding:8px 4px 0; border-top:1px solid var(--chip); font-size:12px; font-weight:600; opacity:.8; }
 @media (prefers-reduced-motion: reduce){ #shop .sect .chev{ transition:none; } }
 /* (docked down the right-hand side, out of the middle where the player stands, as tall as the screen allows) */
-#shop.side{
+#shop.side:not([hidden]){
   left:auto; right:max(16px, env(safe-area-inset-right,0px)); transform:none;
   top:calc(env(safe-area-inset-top,0px) + 76px); bottom:calc(env(safe-area-inset-bottom,0px) + 16px);
   display:flex; flex-direction:column;
