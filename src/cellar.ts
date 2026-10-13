@@ -562,8 +562,9 @@ const onLow = (r: Rect) => r.z0 - 0.3 + 0.1, onTall = (r: Rect) => r.z0 - 0.1, o
 const mid = (r: Rect) => (r.x0 + r.x1) / 2;
 sign('RING', mid(ARENA), 2.85, onTall(ARENA), cellar, 2.2);
 sign('KITCHEN', KITCHEN.x1 - 0.95, onRail, onLow(KITCHEN) - 0.1);
-// (the workshop's east of its doorway, over the sake barrels)
-sign('WORKSHOP', CRAFT.x1 - 1.1, onRail, onLow(CRAFT) - 0.1, cellar, 1.6);
+// (the workshop's between its doorway and the bowl counter, over the fish crates: any further east and it stands in
+// front of the counter's bowls)
+sign('WORKSHOP', 8.45, onRail, onLow(CRAFT) - 0.1, cellar, 1.6);
 // (the prep hall's stands on the rail of its back wall, the stone one or the plank one after it: the two are as high)
 sign('PREP', mid(PREP) - 1.5, onRail, onLow(PREP) - 0.1);
 sign('GROW ROOM', mid(GROW), 2.85, onTall(GROW), parts.grow, 2.2);
