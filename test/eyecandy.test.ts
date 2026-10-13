@@ -1,7 +1,10 @@
 // The eye candy update: on High, the world is drawn the way the people are (kit.ts), with a rolling sea, cloud
 // shadows and little effects; on Low, everything is drawn exactly as before, and the renderer is lighter. Neither
 // touches the game's luck.
-import { BoxGeometry, type BufferGeometry, InstancedMesh, Mesh, MeshLambertMaterial, type Object3D, SphereGeometry } from 'three';
+import {
+  BoxGeometry, type BufferGeometry, CylinderGeometry, ExtrudeGeometry, InstancedMesh, Mesh, MeshLambertMaterial,
+  type Object3D, Shape, ShapeGeometry, SphereGeometry,
+} from 'three';
 import { describe, expect, it, vi } from 'vitest';
 import { loadGame } from './helpers';
 
@@ -56,6 +59,31 @@ describe('eye candy', () => {
     vi.spyOn(Math, 'random').mockImplementation(seeded(1));
     await loadWith('low');
     expect([Math.random(), Math.random()]).toEqual(high);
+  });
+
+  it("copies the shapes it bakes without building a spare one first, taking the luck three.js' own copy took", async () => {
+    const { copyGeo } = await import('../src/render');
+    /** How many numbers `f` draws from the luck. */
+    const draws = (f: () => unknown) => {
+      const luck = Math.random;
+      let n = 0;
+      Math.random = () => { n++; return luck(); };
+      try { f(); } finally { Math.random = luck; }
+      return n;
+    };
+    // clone() would build a 32-sided cylinder first, then copy this one over it
+    expect(copyGeo(new CylinderGeometry(1, 1, 1, 8))).not.toBeInstanceOf(CylinderGeometry);
+    const s = new Shape().moveTo(0, 0).lineTo(1, 0).lineTo(0, 1);
+    const shapes = [new CylinderGeometry(1, 1, 1, 8), new SphereGeometry(1, 7, 5), new ShapeGeometry(s), new ExtrudeGeometry(s)];
+    for (const geo of shapes) {
+      // one name each, and a Shape's geometry a second, for the shape its clone() makes first
+      expect(draws(() => copyGeo(geo))).toBe(draws(() => geo.clone()));
+      const copy = copyGeo(geo), x = geo.attributes.position.getX(0);
+      expect(copy.attributes.position.array).toEqual(geo.attributes.position.array);
+      expect(copy.index?.array).toEqual(geo.index?.array);
+      copy.translate(5, 0, 0); // a copy: moving it leaves the shape alone
+      expect(geo.attributes.position.getX(0)).toBe(x);
+    }
   });
 
   it('rolls the sea and rocks the floes on High, with the flat sea and its foam on Low', async () => {
