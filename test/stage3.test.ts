@@ -420,6 +420,43 @@ describe('the rooms', () => {
       expect(first(from, to, ground.open)?.distance ?? Infinity).toBeGreaterThan(Math.hypot(to.x, to.z) + 0.5);
       expect(down(t.deep.x, t.deep.z, ground.open)).toBeCloseTo(GROUND.bank, 5);
     }
+    // none of it is lit by the rooms' lights (its light's drawn into it), and a kerb of stone runs along the earth's
+    // edge round every room, just past the low walls' rails (round the grow room's own walls, only once it's found)
+    for (const m of [ground.open, ground.hidden, ground.rocks, ground.kerb, ground.growKerb]) expect((m.material as import('three').Material).type).toBe('MeshBasicMaterial');
+    for (const [x, z] of [[-5, L.ARENA.z1 + 0.35], [7.5, L.CRAFT.z1 + 0.35], [16, L.PREP.z1 + 0.35], [L.LIFT_ROOM.x1 + 0.35, 5]]) {
+      const h = down(x, z, ground.kerb)!;
+      expect(h, `${x}, ${z}`).toBeGreaterThan(low[0]);
+      expect(h, `${x}, ${z}`).toBeLessThan(low[0] + 0.1);
+    }
+    expect(down(L.GROW.x1 + 0.35, -5, ground.growKerb)).toBeNull();
+    // in front of the rooms, toward the camera, the rock rises a few metres out, with crags on it ...
+    expect(down(-5, L.ARENA.z1 + 6, ground.open)! - GROUND.cut).toBeGreaterThan(2);
+    expect(down(16, L.PREP.z1 + 6, ground.open)! - GROUND.cut).toBeGreaterThan(2);
+    // ... but never into the camera's sight of a room's floor: from wherever the player stands, in a wide screen and a
+    // phone's, nothing of it is in the way of anything in a room on the screen that shows over the walls (every spot
+    // of every floor, as high as their rails)
+    const { OFF } = await import('../src/render'), { CELLAR_ZOOM } = await import('../src/stage');
+    const { Frustum, Matrix4, PerspectiveCamera } = await import('three');
+    const floorsOf = [...Object.values(L.ROOMS), L.LIFT_ROOM].flatMap(r => open(r).filter(([x, z]) => Math.round((x - r.x0) / 0.5) % 2 === 0 && Math.round((z - r.z0) / 0.5) % 2 === 0));
+    for (const [aspect, fov, k] of [[21 / 9, 40, 1], [9 / 19, 46, 1.28]]) {
+      const cam = new PerspectiveCamera(fov, aspect, 0.1, 200);
+      for (const r of [...Object.values(L.ROOMS), L.LIFT_ROOM]) {
+        for (const [px, pz] of [[r.x0 + 0.5, r.z1 - 0.5], [(r.x0 + r.x1) / 2, (r.z0 + r.z1) / 2], [r.x1 - 0.5, r.z1 - 0.5]]) {
+          cam.position.set(px + OFF.x * k * CELLAR_ZOOM, CY + OFF.y * k * CELLAR_ZOOM, pz + OFF.z * k * CELLAR_ZOOM);
+          cam.lookAt(px, CY + 0.4, pz); cam.updateMatrixWorld();
+          const sees = new Frustum().setFromProjectionMatrix(new Matrix4().multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse));
+          for (const [x, z] of floorsOf) {
+            const spot = new Vector3(x, CY + low[0] + 0.02, z);
+            if (!sees.containsPoint(spot)) continue;
+            const to = spot.clone().sub(cam.position), far = to.length();
+            for (const m of [ground.open, ground.rocks]) {
+              const hit = new Raycaster(cam.position, to.normalize(), 0, far - 0.05).intersectObject(m, false)[0];
+              expect(hit, `from ${px}, ${pz} (${aspect.toFixed(2)}), to ${x}, ${z}: ${m === ground.rocks ? 'a crag' : 'the rise'}`).toBeUndefined();
+            }
+          }
+        }
+      }
+    }
     // when the grow room's found, its place opens up, under the tall wall at its back and the low ones round it
     cellar.showGrowRoom();
     for (const [x, z] of open(L.GROW)) {
@@ -429,7 +466,8 @@ describe('the rooms', () => {
     expect(down(16, L.GROW.z0 - 0.75)).toBeCloseTo(tall[0], 5);
     expect(down(L.GROW.x1 + 0.1, -5)).toBeCloseTo(low[0], 5);
     expect(down(13, L.PREP.z0 - 0.3)).toBeCloseTo(low[0], 5);
-  }, 90_000);
+    expect(down(L.GROW.x1 + 0.35, -5, ground.growKerb)! - low[0]).toBeGreaterThan(0);
+  }, 180_000);
 
   it('has a clear way, round all the furniture and six of every machine, on every leg of the work', async () => {
     const { g, cellar, plan } = await ring({ ring: RING_DONE });

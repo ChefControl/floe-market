@@ -21,7 +21,7 @@ import {
 } from './cellarPlan';
 import { Fugu } from './fugu';
 import { ARENA, CELLAR_Y, type CellarRoom, CRAFT, DOORS, found, GROW, keepOnFloor, KITCHEN, LANDING, LIFT_ROOM, OFFICE_ROOM, PREP, pushOutOfBox, ROOMS, walkable } from './layout';
-import { canvasTex, FONT, G, mat, mesh, paint, rr, scene } from './render';
+import { canvasTex, FONT, G, mat, mesh, OFF, paint, rr, scene } from './render';
 import type { XZ } from './util';
 
 export { cellarWay, roomAt } from './cellarPlan';
@@ -449,8 +449,24 @@ const dirt = canvasTex(256, 256, (c, w, h) => {
   }
 });
 dirt.tex.wrapS = dirt.tex.wrapT = 1000;
-// (both sides drawn: a rock face seen from behind, past a wall's end, still shows as rock)
-const EARTH = new MeshLambertMaterial({ map: dirt.tex, vertexColors: true, side: DoubleSide });
+// (both sides drawn: a rock face seen from behind, past a wall's end, still shows as rock; and no light of the rooms'
+// on it at all, so none ever seems to come through a wall: its light is drawn into it, a facet at a time, by `bake`)
+const EARTH = new MeshBasicMaterial({ map: dirt.tex, vertexColors: true, side: DoubleSide });
+/** Where the dim light out in the earth comes from: overhead, a little from the camera's side, so the rock's facets
+ *  catch it differently and read as broken stone in the dark. */
+const SKY = new Vector3(0.3, 1, 0.5).normalize();
+/** Draws that light into a mesh's colours (one face at a time; each corner's colour already its darkness): a face
+ *  turned up to it at full, one turned away at a third. */
+function bake(g: BufferGeometry) {
+  const p = g.attributes.position, c = g.attributes.color, a = new Vector3(), b = new Vector3(), n = new Vector3();
+  for (let i = 0; i < p.count; i += 3) {
+    a.fromBufferAttribute(p, i + 1).sub(n.fromBufferAttribute(p, i));
+    b.fromBufferAttribute(p, i + 2).sub(n);
+    n.crossVectors(a, b).normalize();
+    const k = 0.35 + 0.65 * Math.max(0, n.dot(SKY));
+    for (let j = i; j < i + 3; j++) c.setXYZ(j, c.getX(j) * k, c.getY(j) * k, c.getZ(j) * k);
+  }
+}
 type Box = { x0: number; x1: number; z0: number; z1: number };
 /** A room's hole in the earth: out to its walls' middles. */
 const dug = (r: Rect): Box => {
@@ -496,23 +512,62 @@ export const ground = (() => {
    *  and over the grow room's place while it's a secret, flat where it meets the walls round it, rough inside. */
   const rough = (x: number, z: number) => ease(0.35, 2.5, fromRoom(x, z)) * ease(0.3, 1.2, fromBank(x, z));
   const roughHidden = (x: number, z: number) => ease(0.35, 2.5, Math.min(x - grow.x0, grow.x1 - x, z - grow.z0, grow.z1 - z));
-  /** The ground's height at a corner, on its square's level: the cut ground lumpy, rising and dipping as it goes out. */
-  const lift = (x: number, z: number, h: number, inGrow = false) =>
-    h === GROUND.cut ? h + (inGrow ? roughHidden(x, z) : rough(x, z)) * (lumps(x, z) - 0.32) * 1.1 : h;
-  // not lit by the rooms at all (their lights stay inside their walls): just made out right by a wall, and gone into the
-  // dark 4 m out, a little uneven; the grow room's place as dark as the rest while it's a secret
-  const DARK = 4;
   const lit = holes.filter(b => b !== grow);
+  // On the camera's side, as in front of a dungeon's rooms seen from above, the rock rises toward the camera a step out
+  // past the kerb, in a broken slope up to a ridge, with crags on it, so the bottom of the screen is rock in the dark
+  // and never an empty black. None of it ever comes up into the camera's sight of a room: the camera looks down 15 in
+  // 13 at the middle of the screen, and less steeply at a room off to one side (as far as 48° off in the widest
+  // screen), never under about 0.85 in 1, so all of it stays under 0.7 in 1 up from the nearest room in front of it,
+  // looking from any way the camera might.
+  /** How steep it all rises, at most; and how far out in front it goes on rising. */
+  const SLOPE = 0.7, FRONT = 10;
+  const yaw = Math.atan2(-OFF.x, -OFF.z), FAN = [-48, -36, -24, -12, 0, 12, 24, 36, 48].map(a => yaw + a * Math.PI / 180);
+  const seen = new Map<number, number>();
+  /** How far a point is in front of the rooms, toward the camera: going from it away from the camera, straight or off
+   *  to either side as far as the screen's edges, how far until a room (Infinity: none, it's not in front of one: no
+   *  room within FRONT of it going about straight away from the camera). */
+  const before = (x: number, z: number) => {
+    const key = Math.round(x * 100) * 100003 + Math.round(z * 100);
+    let t = seen.get(key);
+    if (t === undefined) {
+      const hit = (a: number, most: number) => {
+        const dx = Math.sin(a), dz = Math.cos(a);
+        for (let d = 0; d < most; d += 0.25) if (lit.some(b => within(b, x + dx * d, z + dz * d))) return d;
+        return Infinity;
+      };
+      t = Math.min(...FAN.slice(3, 6).map(a => hit(a, FRONT)));
+      if (t < Infinity) for (const a of FAN) t = Math.min(t, hit(a, t));
+      seen.set(key, t);
+    }
+    return t;
+  };
+  /** How much the rock's risen at a point: nothing for the first metre out, then a slope steepening, each lump its own,
+   *  to a broken ridge 4 to 5 m up. */
+  const rise = (x: number, z: number) => {
+    const t = before(x, z);
+    if (t === Infinity) return 0;
+    const up = Math.max(0, t - 1) * SLOPE * ease(1, 3, t) * (0.65 + 0.35 * lumps(x * 0.6 + 21, z * 0.6 - 7));
+    return Math.min(up, 3.8 + 1.2 * lumps(x * 0.4 - 5, z * 0.4 + 13));
+  };
+  /** The ground's height at a corner, on its square's level: the cut ground lumpy, rising and dipping as it goes out, and
+   *  rising toward the camera in front of the rooms. */
+  const lift = (x: number, z: number, h: number, inGrow = false) =>
+    h === GROUND.cut ? h + (inGrow ? roughHidden(x, z) : rough(x, z)) * (lumps(x, z) - 0.32) * 1.1 + (inGrow ? 0 : rise(x, z)) : h;
+  // not lit by the rooms at all (their lights stay inside their walls): just made out right by a wall, and gone into the
+  // dark 4 m out, a little uneven; the grow room's place as dark as the rest while it's a secret. The rise in front of
+  // the rooms never quite goes: its slope and ridge stay just made out, dark rock against the dark.
+  const DARK = 4;
   const fromLit = (x: number, z: number) => Math.min(...lit.map(b => off(b, x, z)));
   const shade = (x: number, z: number) => {
-    const k = 1 - ease(0, DARK, fromLit(x, z));
-    return k * k * (0.75 + 0.5 * lumps(x + 9, z - 4)) * 0.3;
+    const k = 1 - ease(0, DARK, fromLit(x, z)), t = before(x, z);
+    const near = k * k * (0.75 + 0.5 * lumps(x + 9, z - 4)) * 0.45;
+    return t === Infinity ? near : Math.max(near, 0.2 * ease(1.5, 4, t) * (0.7 + 0.6 * lumps(x - 3, z + 8)));
   };
   // the squares' edges: every hole's, tunnel's and bank's; every half metre for the first few metres round the rooms
-  // (for the ground's lumps and its fall into the dark); then rings out to 42 m (as far as the camera ever sees from
-  // anywhere in the cellar, and more)
+  // (for the ground's lumps and its fall into the dark), and for longer in front of them, toward the camera (for the
+  // rise); then rings out to 42 m (as far as the camera ever sees from anywhere in the cellar, and more)
   const STEP = 0.5, NEAR = DARK + 1, RINGS = [12, 18, 25, 33, 42];
-  const every = (a0: number, a1: number) => Array.from({ length: Math.floor((a1 - a0 + 2 * NEAR) / STEP) + 1 }, (_, i) => Math.round((a0 - NEAR) / STEP) * STEP + i * STEP);
+  const every = (a0: number, a1: number) => Array.from({ length: Math.floor((a1 - a0 + NEAR + FRONT) / STEP) + 1 }, (_, i) => Math.round((a0 - NEAR) / STEP) * STEP + i * STEP);
   const edges = (a: number[]) => [...new Set(a.filter(Number.isFinite).map(v => Math.round(v * 1000) / 1000))].sort((p, q) => p - q);
   const xs = edges([...holes, ...bores, ...banks].flatMap(b => [b.x0, b.x1]).concat(RINGS.flatMap(d => [bb.x0 - d, bb.x1 + d]), every(bb.x0, bb.x1)));
   const zs = edges([...holes, ...bores, ...banks].flatMap(b => [b.z0, b.z1]).concat(RINGS.flatMap(d => [bb.z0 - d, bb.z1 + d]), every(bb.z0, bb.z1)));
@@ -540,7 +595,7 @@ export const ground = (() => {
         const g = new BufferGeometry();
         g.setAttribute('position', new Float32BufferAttribute(pos, 3));
         g.setAttribute('uv', new Float32BufferAttribute(uv, 2)); g.setAttribute('color', new Float32BufferAttribute(col, 3));
-        g.computeVertexNormals();
+        bake(g);
         return add(parent, new Mesh(g, EARTH));
       },
     };
@@ -577,14 +632,77 @@ export const ground = (() => {
       // (as dark as the ground it lies on)
       const k = Math.min(1, shade(px, pz) * 1.3);
       b.setAttribute('color', new Float32BufferAttribute(new Array<number>(b.attributes.position.count * 3).fill(k), 3));
+      bake(b);
       stones.push(b);
     }
   }
   if (stones.length) {
-    add(cellar, new Mesh(mergeGeometries(stones)!, new MeshLambertMaterial({ color: 0x5A5047, flatShading: true, vertexColors: true })));
+    add(cellar, new Mesh(mergeGeometries(stones)!, new MeshBasicMaterial({ color: 0x5A5047, vertexColors: true })));
     stones.forEach(b => b.dispose());
   }
-  return { open: open.mesh(cellar), hidden: hidden.mesh(parts.hidden) };
+  // crags on the rise in front of the rooms, standing up dark against the dark like the rock of a dungeon's edge in
+  // the foreground of a game seen from above: on a fixed scatter, each its own size, lean and turn, the further out the
+  // bigger, and never reaching the camera's sight of a room (the rise's rule, from the crag's near side)
+  const crags: BufferGeometry[] = [];
+  for (let x = bb.x0 - 2; x <= bb.x1 + FRONT; x += 1.5) {
+    for (let z = bb.z0; z <= bb.z1 + FRONT; z += 1.5) {
+      const r = hash2(Math.round(x * 10) + 501, Math.round(z * 10) - 77), px = x + (hash2(Math.round(z * 10), 31) - 0.5) * 1.2, pz = z + (r - 0.5) * 1.2;
+      const t = before(px, pz);
+      if (r < 0.45 || t < 2.6 || t > FRONT || top(px, pz) !== GROUND.cut || bored(px, pz) || secret(px, pz)) continue;
+      const w = 0.5 + hash2(Math.round(px * 10), Math.round(pz * 10)) * 0.5 + t * 0.06, base = lift(px, pz, GROUND.cut);
+      const h = Math.min(0.8 + r * 2.4, SLOPE * (t - w) - 0.2 - (base - GROUND.cut));
+      if (h < 0.5) continue;
+      const c = new IcosahedronGeometry(1, 1);
+      const p = c.attributes.position;
+      for (let i = 0; i < p.count; i++) {
+        // (each corner pushed in or out on the hash, the same where faces share it, so it stays whole)
+        const k = 0.8 + 0.4 * hash2(Math.round(p.getX(i) * 50) + Math.round(p.getZ(i) * 50) * 7 + Math.round(r * 999), Math.round(p.getY(i) * 50));
+        p.setXYZ(i, p.getX(i) * k, p.getY(i) * k, p.getZ(i) * k);
+      }
+      c.scale(w, h / 2, w * 0.8); c.rotateZ((r - 0.7) * 0.4); c.rotateY(r * 11); c.translate(px, CY + base + h / 2 - 0.25, pz);
+      const k = 0.3 * ease(1.5, 4, t) * (0.8 + 0.5 * r);
+      c.setAttribute('color', new Float32BufferAttribute(new Array<number>(p.count * 3).fill(k), 3));
+      bake(c);
+      crags.push(c);
+    }
+  }
+  const rocks = add(cellar, new Mesh(mergeGeometries(crags)!, new MeshBasicMaterial({ map: dirt.tex, vertexColors: true })));
+  crags.forEach(c => c.dispose());
+  // the kerb: a course of rough-cut stone along the earth's edge just past each low wall's rail, the wall's top as seen
+  // from above, each block its own length and a little its own height, lit like the rest out here but a good deal
+  // lighter, so where every room stops reads at a glance (never along a bank, nor over a tunnel; round the grow room's
+  // own walls only once it's found)
+  const kerbs = new Map<Object3D, BufferGeometry[]>([[cellar, []], [parts.grow, []]]);
+  for (const h of holes) {
+    const into = kerbs.get(h === grow ? parts.grow : cellar)!;
+    for (const side of ['n', 's', 'w', 'e'] as const) {
+      const alongX = side === 'n' || side === 's', s = side === 'n' || side === 'w' ? -1 : 1;
+      const edge = side === 'n' ? h.z0 : side === 's' ? h.z1 : side === 'w' ? h.x0 : h.x1;
+      // (the courses along x run on past the corners, to close them)
+      const [a0, a1] = alongX ? [h.x0 - 0.46, h.x1 + 0.46] : [h.z0, h.z1];
+      const o0 = edge + s * 0.1, o1 = edge + s * 0.46;
+      for (let a = a0, i = 0; a < a1 - 0.15; i++) {
+        const r = hash2(Math.round(a * 10) + i, Math.round(edge * 10) + 77), len = Math.min(a1 - a, 0.5 + r * 0.4), b0 = a + 0.02, b1 = a + len - 0.02;
+        a += len;
+        const at = (u: number, v: number) => alongX ? [u, v] : [v, u];
+        if ([at(b0, o0), at(b1, o0), at(b0, o1), at(b1, o1)].some(([x, z]) => top(x, z) !== GROUND.cut || bored(x, z) || fromBank(x, z) < 0.2)) continue;
+        const ht = 0.16 + r * 0.06, [cx, cz] = at((b0 + b1) / 2, (o0 + o1) / 2);
+        const k = alongX ? new BoxGeometry(b1 - b0, ht, o1 - o0 - s * 0.03 * r) : new BoxGeometry(o1 - o0, ht, b1 - b0);
+        const g = k.toNonIndexed(); k.dispose();
+        g.translate(cx, CY + GROUND.cut + 0.02 + r * 0.05 - ht / 2, cz);
+        g.setAttribute('color', new Float32BufferAttribute(new Array<number>(g.attributes.position.count * 3).fill(0.7 + 0.25 * hash2(i, Math.round(edge * 10))), 3));
+        bake(g);
+        into.push(g);
+      }
+    }
+  }
+  const KERB = new MeshBasicMaterial({ color: 0x6E6458, vertexColors: true });
+  const [kerb, growKerb] = [...kerbs].map(([parent, gs]) => {
+    const m = add(parent, new Mesh(mergeGeometries(gs)!, KERB));
+    gs.forEach(g => g.dispose());
+    return m;
+  });
+  return { open: open.mesh(cellar), hidden: hidden.mesh(parts.hidden), rocks, kerb, growKerb };
 })();
 
 // the doorways: a timber frame in the wall, posts and a lintel
