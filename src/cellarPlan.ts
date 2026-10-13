@@ -1,6 +1,6 @@
 // Where everything is down in the cellar (stage 3), as plain floor positions (x, z; the floor is CELLAR_Y): the stations
-// of the kitchen's lines, the pot and its ledge, the bowl counter, the stall, the gong, and the way between rooms. Kept
-// apart from the cellar's meshes (cellar.ts) so the fight night's simulation (fight.ts) can use it without them.
+// of the kitchen's lines, the pot and its ledge, the bowl counter, the soup bar, the gong, and the way between rooms.
+// Kept apart from the cellar's meshes (cellar.ts) so the fight night's simulation (fight.ts) can use it without them.
 import { ARENA, type CellarRoom, CRAFT, DOORS, GROW, KITCHEN, LIFT_ROOM, OFFICE_ROOM, PREP, ROOMS } from './layout';
 import type { XZ } from './util';
 
@@ -58,12 +58,21 @@ export const COOK_AT = { x: HEARTH.x + 1.45, z: HEARTH.z + 1.6 };
 export const COUNTER = { x: KITCHEN.x1 - 0.65, z: KITCHEN.z1 - 0.75 };
 export const COUNTER_PAD = pad(COUNTER.x - 0.95, COUNTER.z, 0.5);
 
-// ---------- the arena: the bowl stall, the gong and its window, the watch spot ----------
-/** The bowl stall, just inside the arena by the hearth room's door, facing the floor; where to stand behind it to set
- *  bowls out; and the arena floor in front of it, where the fans queue and a boss's crowd floods in. */
-export const STALL = { x: ARENA.x1 - 1.9, z: 5.5 };
-export const STALL_PAD = pad(ARENA.x1 - 0.85, 5.5, 0.8);
-export const FLOOR = { x0: ARENA.x0 + 0.7, x1: STALL.x - 0.55, z0: 3.9, z1: ARENA.z1 - 0.3 };
+// ---------- the arena: the soup bar, the gong and its window, the watch spot ----------
+/** The soup bar: a round counter just inside the arena by the hearth room's door, its pot in the middle; how far its
+ *  top reaches out from there, and how high it stands. The hatch in it faces the door, and outside the hatch, a step
+ *  in from the door, is where to stand to set bowls out round its top. */
+export const BAR = { x: ARENA.x1 - 2.35, z: 5.5, r: 1.15, top: 0.96 };
+export const BAR_PAD = pad(ARENA.x1 - 0.85, 5.5, 0.8);
+/** Where round the bar the fans step up to buy their bowl: a little out from its top, every way but the hatch's,
+ *  each spot an arm's length from the next (swarm.ts sends each fan to a free one). */
+export const BAR_SPOTS: XZ[] = Array.from({ length: 11 }, (_, i) => {
+  const a = (60 + i * 24) * Math.PI / 180;
+  return { x: BAR.x + Math.cos(a) * (BAR.r + 0.35), z: BAR.z + Math.sin(a) * (BAR.r + 0.35) };
+});
+/** The arena floor along the south wall, from the bar across, where the fans queue and a boss's crowd floods in
+ *  (swarm.ts crowds them round the bar first, and keeps them off it, off where they buy, and off the hatch's side). */
+export const FLOOR = { x0: ARENA.x0 + 0.7, x1: ARENA.x1 - 0.5, z0: 3.9, z1: ARENA.z1 - 0.3 };
 /** The gong, against the east wall, and where to stand to ring it; the cashier's window beside it. */
 export const GONG = { x: ARENA.x1 - 0.7, z: -2.9 };
 export const GONG_PAD = pad(ARENA.x1 - 1.9, -2.9, 0.85);

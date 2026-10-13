@@ -17,7 +17,7 @@
 //
 // Money is Fugu Chips 🐡 down here: 1 chip is $1,000 of the same wallet.
 import { boost } from './economy';
-import { BIN_PADS, cellarWay, COOK_AT, COUNTER_PAD, HOME, type Ing, LEDGE, machinePad, MAX_MACHINES, POT_PAD, STALL_PAD } from './cellarPlan';
+import { BAR_PAD, BIN_PADS, cellarWay, COOK_AT, COUNTER_PAD, HOME, type Ing, LEDGE, machinePad, MAX_MACHINES, POT_PAD } from './cellarPlan';
 import type { XZ } from './util';
 
 export type { Ing };
@@ -397,7 +397,7 @@ export function forecast(): Forecast | null {
       const w: Worker = { ...worker('washer'), role: 'you', x: me.x, z: me.z, speed: me.speed * YOU_PACE, cap: me.cap, carry: me.carry ? structuredClone(me.carry) : null };
       // first, whatever's in their arms where it goes
       const c = w.carry;
-      if (c?.k === 'bowl') w.steps = [{ to: STALL_PAD, act: 'stall' }];
+      if (c?.k === 'bowl') w.steps = [{ to: BAR_PAD, act: 'stall' }];
       else if (c?.ready) w.steps = [{ to: ledgeSpot(c.k), act: 'ledge', k: c.k }];
       else w.carry = null;
       F.crew.push(w);
@@ -467,7 +467,7 @@ function planLine(w: Worker, k: Ing): Step[] | null {
   steps.push({ to: machinePad(k, plan[plan.length - 1][0], ms.length), act: 'drop' });
   return steps;
 }
-const planBowls = (): Step[] => [{ to: COUNTER_PAD, act: 'take' }, { to: STALL_PAD, act: 'stall' }];
+const planBowls = (): Step[] => [{ to: COUNTER_PAD, act: 'take' }, { to: BAR_PAD, act: 'stall' }];
 /** The player's next job, in a forecast: whatever's most pressing that no hire does (the mockup's "You"). */
 function thinkYou(w: Worker): Step[] | null {
   const opts: [number, () => Step[] | null][] = [];

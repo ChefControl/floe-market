@@ -1,6 +1,6 @@
 // Stage 3, Fight Night: Mr. Fugu's sumo ring in the cellar under the dock. Buying in, the ladder, the rooms (and the
 // grow room behind the prep hall's wall), the kitchen worked by hand (the dumbwaiter's bins, the racks and barrels,
-// the pot, the counter, the stall) and the fans who pay for bowls, the gong and its forecast, a boss's rush and the
+// the pot, the counter, the soup bar) and the fans who pay for bowls, the gong and its forecast, a boss's rush and the
 // card after it, the cellar's tiles (machines again and again, hires, tiers) bought with Fugu Chips, the swarm on the
 // floor, the watch spot, the buyout, the restaurant upstairs as the front, and saving it all.
 import { describe, expect, it } from 'vitest';
@@ -247,7 +247,7 @@ describe('the rooms', () => {
     expect(floorAt(16, -4)).toBe(false);
     // where everything is
     expect(cellar.roomAt(cellar.RING)).toBe('arena');
-    expect(cellar.roomAt(plan.STALL_PAD)).toBe('arena');
+    expect(cellar.roomAt(plan.BAR_PAD)).toBe('arena');
     expect(cellar.roomAt(plan.GONG_PAD)).toBe('arena');
     expect(cellar.roomAt(plan.WATCH)).toBe('arena');
     expect(cellar.roomAt(plan.POT_PAD)).toBe('kitchen');
@@ -281,8 +281,8 @@ describe('the rooms', () => {
     expect(cellar.roomAt(plan.machinePad('mush', 5))).toBe('grow');
     expect(cellar.roomAt(cellar.OFFICE)).toBe('office');
     expect(cellar.roomAt(cellar.LADDER_PAD)).toBe('landing');
-    // from the bins to the stall: the prep hall, the hearth room, then the arena, without the landing
-    const way = cellar.cellarWay(plan.BIN_PADS.rice, plan.STALL_PAD).map(w => cellar.roomAt(w));
+    // from the bins to the soup bar: the prep hall, the hearth room, then the arena, without the landing
+    const way = cellar.cellarWay(plan.BIN_PADS.rice, plan.BAR_PAD).map(w => cellar.roomAt(w));
     expect(new Set(way)).toEqual(new Set(['prep', 'kitchen', 'arena']));
     // walking into the earth stops at the wall
     g.player.g.position.set(L.ARENA.x1 - 0.2, cellar.CY, 2);
@@ -316,7 +316,7 @@ describe('the rooms', () => {
     const P = plan.COUNTER_PAD, boxes = cellar.cellarBoxes(), back = g.player.back;
     // every way through the hearth room, round its furniture, between its doorways (from the landing, the arena, the
     // prep hall and the workshop) and from each to the pot, passes the circle more than a body's width wide of it
-    const ends = [cellar.LADDER_FOOT, plan.STALL_PAD, plan.BIN_PADS.rice, plan.BENCH_PAD, plan.POT_PAD];
+    const ends = [cellar.LADDER_FOOT, plan.BAR_PAD, plan.BIN_PADS.rice, plan.BENCH_PAD, plan.POT_PAD];
     for (const a of ends) for (const b of ends) {
       if (a === b) continue;
       let here = { x: a.x, z: a.z };
@@ -354,7 +354,7 @@ describe('the rooms', () => {
     const boxes = cellar.cellarBoxes(six);
     const inside = (x: number, z: number) => boxes.some(([cx, cz, hx, hz]) => Math.abs(x - cx) < hx - 0.01 && Math.abs(z - cz) < hz - 0.01);
     const stops = [cellar.LADDER_FOOT, plan.BIN_PADS.rice, plan.machinePad('rice', 5), plan.BIN_PADS.fish, plan.machinePad('fish', 5),
-      plan.machinePad('mush', 5), plan.POT_PAD, plan.COUNTER_PAD, plan.STALL_PAD, plan.GONG_PAD, plan.WATCH, plan.BENCH_PAD, plan.BIN_PADS.rice];
+      plan.machinePad('mush', 5), plan.POT_PAD, plan.COUNTER_PAD, plan.BAR_PAD, plan.GONG_PAD, plan.WATCH, plan.BENCH_PAD, plan.BIN_PADS.rice];
     for (const s of stops) expect(inside(s.x, s.z), `stop at ${s.x}, ${s.z}`).toBe(false);
     for (let i = 1; i < stops.length; i++) {
       let here = { x: stops[i - 1].x, z: stops[i - 1].z };
@@ -444,14 +444,14 @@ describe('the kitchen, by hand', () => {
     expect(F().pot).toHaveLength(0);
     expect(F().counter).toHaveLength(fight.BATCH);
     expect(fight.potWaits()).toBe('rice'); // (two of each left: not enough for another)
-    // bowls from the counter to the stall, an armful
+    // bowls from the counter to the soup bar, an armful
     for (const m of back.all()) { back.takeKind(m.userData.kind); g.render.scene.remove(m); }
     at(plan.COUNTER_PAD);
     g.run(2);
     const n = Math.min(back.cap, fight.BATCH);
     expect(back.count('bowl')).toBe(n);
     const money = g.wallet.money;
-    at(plan.STALL_PAD);
+    at(plan.BAR_PAD);
     g.run(2);
     expect(back.count('bowl')).toBe(0);
     // the fans walk in and eat: each bowl's chips, less Mr. Fugu's 30%, go into the wallet
@@ -515,7 +515,7 @@ describe('the kitchen, by hand', () => {
     expect(fight.doneCount('rice', F().lines.rice.m[0]) + fight.doneCount('rice', F().lines.rice.m[2])).toBeLessThan(2 * cap);
   });
 
-  it('the pot, the counter and the stall are each their own: a batch fills the pot, ladled out onto the counter', async () => {
+  it('the pot, the counter and the soup bar are each their own: a batch fills the pot, ladled out onto the counter', async () => {
     const { g, F, fight } = await ring();
     const { potShows } = await import('../src/ringKitchen');
     F().pot.length = 0; F().counter.length = 0;
@@ -535,7 +535,7 @@ describe('the kitchen, by hand', () => {
     g.run(3);
     expect(potShows()).toEqual({ stew: 0, tag: 0, landed: fight.BATCH });
     expect(F().counter).toHaveLength(fight.BATCH);
-    // carrying bowls from the counter to the stall leaves the pot as it is
+    // carrying bowls from the counter to the soup bar leaves the pot as it is
     F().counter.splice(0, 3);
     g.run(0.5);
     expect(potShows()).toEqual({ stew: 0, tag: 0, landed: fight.BATCH - 3 });
@@ -549,14 +549,14 @@ describe('the kitchen, by hand', () => {
     expect(F().pot).toHaveLength(0);
   });
 
-  it('says what it wants over the pot and the stall, and what each place does at it', async () => {
+  it('says what it wants over the pot and the soup bar, and what each place does at it', async () => {
     const { g, plan, fight, at, F } = await ring();
     const { bubbles } = await import('../src/ringKitchen');
     g.run(5);
     expect(F().queue.length).toBeGreaterThan(0);
     expect(fight.potWaits()).toBe('rice');
     expect(bubbles().pot).toBe('rice'); // 🌾?
-    expect(bubbles().stall).toBe(true); // 🍲?: fans waiting, nothing out
+    expect(bubbles().bar).toBe(true); // 🍲?: fans waiting, nothing out
     F().pantry.rice = fight.PER_BATCH;
     g.run(0.2);
     expect(bubbles().pot).toBe('fish');
@@ -567,8 +567,9 @@ describe('the kitchen, by hand', () => {
     at(plan.machinePad('rice', 0));
     g.run(0.1);
     expect($('tip').textContent).toContain('Drying rack 1');
-    at(plan.STALL_PAD);
+    at(plan.BAR_PAD);
     g.run(0.1);
+    expect($('tip').textContent).toContain('The soup bar');
     expect($('tip').textContent).toContain(`a bowl pays 🐡 ${+(fight.PRICE * fight.CUT).toFixed(2)}`);
   });
 
@@ -579,24 +580,24 @@ describe('a bout', () => {
     const { g, fight, swarm, F } = await ring();
     const crowd = fight.crowdNow(), mine = Math.ceil((crowd + 1) / 2);
     for (let i = 0; i < mine; i++) fight.toStall(false);
-    // the preparation: they come in and queue at the stall, and the ones who eat go and sit on the champion's side
-    // (a local's the free show, told by the arena alone: no bar)
+    // the preparation: they come in and crowd round the soup bar, and the ones who eat go and sit on the champion's
+    // side (a local's the free show, told by the arena alone: no tug of war at the top of the screen)
     g.run(3);
     g.ui.hud(0);
     expect(F().bout.phase).toBe('prep');
     expect($('rush').hidden).toBe(true);
-    // (nobody eats from afar: there's soup on the stall, but they've still to walk up to it from their tunnel)
+    // (nobody eats from afar: there's soup on the bar, but they've still to walk up to it from their tunnel)
     expect(F().bout.came).toBeGreaterThan(0);
     expect(F().bout.fed).toBe(0);
     expect(F().stall).toHaveLength(mine);
     // (the first is served as soon as they've been in long enough to reach it)
     g.runUntil(() => F().bout.fed > 0, fight.REACH);
     expect(F().bout.fed).toBeGreaterThan(0);
-    // (each one served walks up to the stall's front for their bowl, in their own colour, and turns yours there)
-    const STALL = (await import('../src/cellarPlan')).STALL;
+    // (each one served steps up to a spot at the bar for their bowl, in their own colour, and turns yours there)
+    const { BAR_SPOTS } = await import('../src/cellarPlan');
     for (let i = 0; i < 200 && swarm.swarm().ours < mine; i++) {
       g.run(0.1);
-      for (const f of swarm.turnedAt()) expect(Math.abs(f.x - (STALL.x - 0.85))).toBeLessThan(0.05);
+      for (const f of swarm.turnedAt()) expect(Math.min(...BAR_SPOTS.map(s => Math.hypot(f.x - s.x, f.z - s.z)))).toBeLessThan(0.05);
     }
     expect(swarm.swarm().ours).toBe(mine);
     expect(F().bout.fed).toBe(mine);
@@ -617,7 +618,7 @@ describe('a bout', () => {
     expect(F().bout.phase).toBe('pay');
     expect(F().bout.win).toBe(true);
     expect($('rush').hidden).toBe(true);
-    // then they go home, and the next bout's fans come in; with nothing on the stall they all go home hungry, and the
+    // then they go home, and the next bout's fans come in; with nothing on the bar they all go home hungry, and the
     // champion still wins
     F().stall.length = 0;
     g.run(fight.BOUT.pay + 0.1);
@@ -630,7 +631,7 @@ describe('a bout', () => {
 });
 
 describe('the crowd', () => {
-  it('shouts in speech bubbles: an empty stall gets them asking for their chanko', async () => {
+  it('shouts in speech bubbles: an empty soup bar gets them asking for their chanko', async () => {
     const { g, swarm, fight, F } = await ring();
     F().stall.length = 0;
     const heard = new Set<string>();
@@ -670,7 +671,7 @@ describe('the gong', () => {
     expect($('rushYou').textContent).toBe('0 turned · 61 beats him');
     expect($('gongGo').hidden).toBe(true);
     expect($('toast').textContent).toContain('Hakkaku walks in with 120 fans');
-    // his bell waits for them all to walk in to the stall, and nobody buys on the way
+    // his bell waits for them all to walk in to the bar, and nobody buys on the way
     fight.toStall(false);
     g.run(fight.WALK_IN - 0.2);
     g.ui.hud(0);
@@ -680,7 +681,7 @@ describe('the gong', () => {
     g.ui.hud(0);
     expect($('rushName').textContent).toBe("🐙 Hakkaku's crowd is in");
     expect(F().rush!.turned).toBe(1);
-    // (all of them at the stall by then, on the floor before it, but the one just turned, off to the stall's front for
+    // (all of them round the bar by then, on the floor, but the one just turned, off to a spot at the bar for
     // their bowl, and only yours once they've got it)
     expect(swarm.ways().length).toBe(120);
     expect(swarm.ways().filter(w => w.length === 1).length).toBeGreaterThanOrEqual(119);
@@ -760,7 +761,7 @@ describe('the gong', () => {
     const card = $('fightCard').textContent!;
     expect(card).toContain('Pushed out by Hakkaku');
     expect(card).toContain('You turned 0 of his 120 fans: 61 short of the 61 that beat him.');
-    expect(card).toContain('Your stall stood empty');
+    expect(card).toContain('Your soup bar stood empty');
     expect(card).toContain('the pot was waiting on rice');
     // his crowd clears, and the gong's ready again; a tie (60 of 120) still loses
     g.runUntil(() => !F().rush, 20);
@@ -887,15 +888,56 @@ describe("the cellar's tiles", () => {
 });
 
 describe('the swarm and the watch spot', () => {
-  it('the waiting fans stand on the floor before the stall', async () => {
-    const { g, swarm, F } = await ring();
+  it('the waiting fans crowd the floor round the soup bar, a step back from it and off the hatch\'s side', async () => {
+    const { g, swarm, plan, F } = await ring();
     g.run(10);
     expect(F().queue.length).toBeGreaterThan(3);
     expect(swarm.swarm().n).toBe(F().queue.length);
     expect(swarm.swarm().shadows).toBe(true);
+    const { BAR } = plan, stood = swarm.ways().filter(w => w.length === 1).map(([p]) => p);
+    expect(stood.length).toBeGreaterThan(3);
+    for (const p of stood) {
+      expect(Math.hypot(p.x - BAR.x, p.z - BAR.z)).toBeGreaterThan(BAR.r + 0.8);
+      expect(p.x).toBeLessThan(BAR.x + 0.95);
+    }
+    // (the ones at the front of the crowd are round it, not off across the floor)
+    expect(Math.min(...stood.map(p => Math.hypot(p.x - BAR.x, p.z - BAR.z)))).toBeLessThan(BAR.r + 1.5);
   });
 
-  it('a boss\'s crowd walks round the ring, the stands and the stall to its seats, never through them', async () => {
+  it('each fan served steps up to a free spot of their own all round the soup bar, walking round it, never through it', async () => {
+    const { g, swarm, plan, fight, F } = await ring();
+    for (let i = 0; i < fight.STALL_CAP; i++) fight.toStall(false);
+    const { BAR, BAR_SPOTS } = plan, at = new Set<number>(), boxes = (await import('../src/cellar')).cellarBoxes();
+    const inBar = (x: number, z: number) => boxes.some(([cx, cz, hx, hz]) => Math.hypot(cx - BAR.x, cz - BAR.z) < 0.1 && Math.abs(x - cx) < hx - 0.02 && Math.abs(z - cz) < hz - 0.02);
+    for (let i = 0; i < 900 && F().bout.phase === 'prep'; i++) {
+      g.run(1 / 30, 1 / 30);
+      for (const f of swarm.turnedAt()) {
+        const k = BAR_SPOTS.findIndex(s => Math.hypot(f.x - s.x, f.z - s.z) < 0.05);
+        expect(k).toBeGreaterThanOrEqual(0);
+        at.add(k);
+      }
+      // (round the bar to their spot and on to their seat, never across it, nor round behind it through the hatch)
+      for (const way of swarm.ways()) {
+        for (let j = 1; j < way.length; j++) {
+          const a = way[j - 1], b = way[j];
+          for (let t = 0; t <= 20; t++) {
+            const x = a.x + (b.x - a.x) * t / 20, z = a.z + (b.z - a.z) * t / 20;
+            expect(inBar(x, z), `${x.toFixed(2)}, ${z.toFixed(2)}`).toBe(false);
+            expect(x > BAR.x + 1.3 && Math.abs(z - BAR.z) < 0.6, `${x.toFixed(2)}, ${z.toFixed(2)}`).toBe(false);
+          }
+        }
+      }
+    }
+    expect(F().bout.fed).toBeGreaterThan(8);
+    // (a good few different spots, on both sides of the bar, and none on the hatch's side: that's the player's)
+    expect(at.size).toBeGreaterThanOrEqual(5);
+    const used = [...at].map(k => BAR_SPOTS[k]);
+    expect(used.some(s => s.z < BAR.z - 0.5)).toBe(true);
+    expect(used.some(s => s.z > BAR.z + 0.5)).toBe(true);
+    expect(BAR_SPOTS.every(s => s.x < BAR.x + 0.8)).toBe(true);
+  });
+
+  it('a boss\'s crowd walks round the ring, the stands and the soup bar to its seats, never through them', async () => {
     const { g, fight, swarm, cellar, F } = await ring({ ring: { tier: 2 } });
     expect(fight.ringGong()).toBe(true);
     g.runUntil(() => { while (F().rush!.turned + F().stall.length < 61 && fight.toStall(false)); return F().rush!.done; }, 31 + fight.WALK_IN);
@@ -931,7 +973,7 @@ describe('the swarm and the watch spot', () => {
     expect(stage.view.zoom).toBeLessThan(stage.CELLAR_ZOOM);
     expect($('boutLine').hidden).toBe(false);
     expect($('boutLine').textContent).toContain('Chunkos against');
-    at(plan.STALL_PAD);
+    at(plan.BAR_PAD);
     g.run(3);
     expect(gong.watching()).toBe(false);
     expect($('boutLine').hidden).toBe(true);
@@ -1129,7 +1171,7 @@ describe('saving the cellar', () => {
     F().beaten = 2;
     at(plan.BIN_PADS.fish);
     g.run(3);
-    at(plan.STALL_PAD);
+    at(plan.BAR_PAD);
     g.run(0.1);
     g.render.scene.remove(g.player.back.takeKind('fish')!);
     g.player.back.put(g.items.newBowl(true));

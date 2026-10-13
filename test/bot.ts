@@ -2,7 +2,7 @@
 // it fishes, carries, sells, collects cash and buys the next upgrade as soon as it can afford it. It walks at the
 // player's speed and goes round obstacles by fixed waypoints, so its timings are close to a human's. Down in the
 // cellar (stage 3) it runs whichever lines have no hire yet (rice and fish from the bins into the racks and barrels,
-// ready ones to the pot), cooks, carries bowls to the stall, and rings the gong once it says the boss's whole crowd will
+// ready ones to the pot), cooks, carries bowls to the bar, and rings the gong once it says the boss's whole crowd will
 // turn; it needs the cellar's modules for that (`ring`, see ringModules).
 import type { loadGame } from './helpers';
 
@@ -186,7 +186,7 @@ export function play(g: Game, seconds: number, dt = 0.05, ring?: Ring) {
     decide2();
   }
 
-  /** The cellar: the gong when it says the boss is beaten, bowls to the stall, ready ones to the pot, the lines that
+  /** The cellar: the gong when it says the boss is beaten, bowls to the soup bar, ready ones to the pot, the lines that
    *  have no hire, and otherwise waiting by the pot. */
   function decide3({ cellar, plan: P, fight: f }: Ring) {
     const F = f.F, back = player.back, room = () => back.cap - back.n;
@@ -201,7 +201,7 @@ export function play(g: Game, seconds: number, dt = 0.05, ring?: Ring) {
         return;
       }
     }
-    if (back.count('bowl') && F.stall.length < f.STALL_CAP) { go(P.STALL_PAD, () => !back.count('bowl') || F.stall.length >= f.STALL_CAP, 25); return; }
+    if (back.count('bowl') && F.stall.length < f.STALL_CAP) { go(P.BAR_PAD, () => !back.count('bowl') || F.stall.length >= f.STALL_CAP, 25); return; }
     const carrying = () => f.inPot().some(k => back.count(READY[k]));
     if (carrying()) { go(P.POT_PAD, () => !carrying() && (!!F.hires.cook || !f.canCook() || f.potFull()), 25); return; }
     // raw ones for a line that's been hired out from under them: into the bin, so their arms are free for bowls
