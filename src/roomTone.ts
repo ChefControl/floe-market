@@ -31,6 +31,24 @@ const ROOMS: Record<Room, { url: string; v: number; lp: number }> = {
 export const roomTones: Partial<Record<Room, { g: GainNode; pan: StereoPannerNode; src: AudioBufferSourceNode }>> = {};
 let loading = false;
 
+/**
+ * `buf`, cut to a length Chrome can loop. Chrome 152 works out where a loop ends as its length ÷ the sample rate × the
+ * sample rate, and for some lengths that comes out a hair past the end: the dining room's 4,111,488 frames at 48 kHz
+ * give 4,111,488.0000000005. Then the recording sticks at the end of its first time round and writes nothing more, and
+ * the low-pass after it is handed its own last output to filter again, every 128 frames: it rings louder and louder at
+ * about 316 Hz (a horn) till its numbers run out, a second later, and it's NaN for good. Later Chromes don't stick there
+ * (crbug.com/553218226); here the recording loses the frame or two it takes, and loops exactly in any of them.
+ */
+export function loopable(buf: AudioBuffer) {
+  const { length, sampleRate: rate, numberOfChannels: channels } = buf;
+  let n = length;
+  while (n > 1 && (n / rate) * rate !== n) n--;
+  if (n === length) return buf;
+  const cut = ac!.createBuffer(channels, n, rate);
+  for (let c = 0; c < channels; c++) cut.getChannelData(c).set(buf.getChannelData(c).subarray(0, n));
+  return cut;
+}
+
 /** Plays `name`'s recording, `buf`, on a loop into the ambience, silent till set() turns it up. */
 function play(name: Room, buf: AudioBuffer) {
   const c = ac!, src = c.createBufferSource(), lp = c.createBiquadFilter(), g = c.createGain(), pan = c.createStereoPanner();
@@ -46,7 +64,7 @@ function play(name: Room, buf: AudioBuffer) {
 function load() {
   loading = true;
   for (const [name, r] of Object.entries(ROOMS) as [Room, typeof ROOMS[Room]][]) {
-    fetch(r.url).then(res => res.arrayBuffer()).then(b => ac!.decodeAudioData(b)).then(buf => play(name, buf))
+    fetch(r.url).then(res => res.arrayBuffer()).then(b => ac!.decodeAudioData(b)).then(buf => play(name, loopable(buf)))
       .catch(() => { /* offline, or no such file: the yacht without its room tone */ });
   }
 }
