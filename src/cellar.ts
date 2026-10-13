@@ -11,7 +11,7 @@
 // This module is the rooms and their furniture; where things are is cellarPlan.ts, and the kitchen's lines, the bouts
 // and the swarm draw themselves (ringKitchen.ts, dohyo.ts, swarm.ts).
 import {
-  AdditiveBlending, BackSide, BoxGeometry, BufferGeometry, CatmullRomCurve3, Color, ConeGeometry, CylinderGeometry, DoubleSide, Float32BufferAttribute, Group,
+  AdditiveBlending, BackSide, BoxGeometry, BufferGeometry, CatmullRomCurve3, Color, ConeGeometry, CylinderGeometry, DoubleSide, Float32BufferAttribute, Group, IcosahedronGeometry,
   type Material, Matrix4, Mesh, MeshBasicMaterial, MeshLambertMaterial, type Object3D, PlaneGeometry, PointLight, type Side as Facing, TorusGeometry,
   TubeGeometry, Vector3,
 } from 'three';
@@ -409,31 +409,43 @@ for (const t of TUNNELS) {
 // ---------- the earth the cellar's dug into ----------
 // Everything round the rooms is solid ground, so past a wall there's never an edge of the world: cut level with the low
 // walls in front (just under their rails, so each shows as a rim round its room and the two never flicker), and banked
-// up to the tall walls' caps behind them, with a rock face where the two meet. It's one mesh of squares over the whole
-// cellar and far out past it, with each room left open out to its walls' middles; it darkens away from the rooms into
-// the cellar's murk (the fog takes it from there), and the dock's piles come down through it in rows. The fans' tunnels
-// run under the bank, which stays whole over them (no rock face cuts across one). While the grow room's a secret, its
-// place is earth like the rest, piles and all (parts.hidden), and it opens up when it's found. Nothing in it moves:
-// it's drawn as it is, with no shadows.
+// up to the tall walls' caps behind them, with a rock face where the two meet. It's one mesh over the whole cellar and
+// far out past it, with each room left open out to its walls' middles. As in the dungeons of a game seen from above,
+// the rooms are the only lit places down here: a step out from a wall the ground turns to rough, broken rock with
+// boulders lying about on it, and a few metres out it's gone into the dark, the same near-black as the cellar's murk,
+// so there's no edge to see, only the lit rooms in the dark. The fans' tunnels run under the bank, which stays whole
+// over them (no rock face cuts across one). While the grow room's a secret, its place is ground like the rest
+// (parts.hidden), and it opens up when it's found. Nothing in it moves: it's drawn as it is, with no shadows.
 /** The earth's top: in front, under the low walls' rails, and behind the back walls, under their caps. */
 export const GROUND = { cut: WALL + 0.06, bank: TALL - 0.02 };
-/** The cut earth: dark packed ground with stones in it, drawn wrapped round so it tiles. */
+/** The rock round the rooms: dark broken stone, cracked, with flat-topped chips catching the light, drawn wrapped round
+ *  so it tiles. */
 const dirt = canvasTex(256, 256, (c, w, h) => {
-  c.fillStyle = '#4C3F34'; c.fillRect(0, 0, w, h);
+  c.fillStyle = '#3B332C'; c.fillRect(0, 0, w, h);
   const hash = (i: number) => { const x = Math.sin(i * 37.719) * 43758.5453; return x - Math.floor(x); };
-  const blob = (x: number, y: number, rx: number, ry: number) => {
-    for (const dx of [-w, 0, w]) for (const dy of [-h, 0, h]) { c.beginPath(); c.ellipse(x + dx, y + dy, rx, ry, 0, 0, Math.PI * 2); c.fill(); }
-  };
-  for (let i = 0; i < 200; i++) {
-    c.fillStyle = i % 2 ? 'rgba(28,20,14,.18)' : 'rgba(130,108,86,.10)';
-    const r = 4 + hash(i + 600) * 14;
-    blob(hash(i) * w, hash(i + 300) * h, r, r);
+  /** A shape drawn wrapped round the tile's edges, so it tiles without a seam. */
+  const wrapped = (draw: (dx: number, dy: number) => void) => { for (const dx of [-w, 0, w]) for (const dy of [-h, 0, h]) draw(dx, dy); };
+  for (let i = 0; i < 140; i++) {
+    c.fillStyle = i % 3 ? 'rgba(18,13,10,.22)' : 'rgba(120,104,88,.12)';
+    const x = hash(i) * w, y = hash(i + 300) * h, r = 6 + hash(i + 600) * 18;
+    wrapped((dx, dy) => { c.beginPath(); c.ellipse(x + dx, y + dy, r, r * 0.6, hash(i + 700) * Math.PI, 0, Math.PI * 2); c.fill(); });
   }
-  // stones, each with its shadow
-  for (let i = 0; i < 36; i++) {
-    const x = hash(i + 900) * w, y = hash(i + 1200) * h, r = 3 + hash(i + 1500) * 6;
-    c.fillStyle = 'rgba(20,14,10,.4)'; blob(x + 1, y + 2, r, r * 0.7);
-    c.fillStyle = ['#6E665C', '#787064', '#645D54'][i % 3]; blob(x, y, r, r * 0.7);
+  // cracks: short jagged dark lines
+  c.strokeStyle = 'rgba(12,9,7,.55)'; c.lineWidth = 1.6;
+  for (let i = 0; i < 26; i++) {
+    const x = hash(i + 2000) * w, y = hash(i + 2100) * h;
+    wrapped((dx, dy) => {
+      c.beginPath(); c.moveTo(x + dx, y + dy);
+      for (let k = 0; k < 4; k++) c.lineTo(x + dx + (hash(i * 7 + k + 2200) - 0.5) * 34 * (k + 1) / 2, y + dy + (hash(i * 7 + k + 2300) - 0.3) * 26 * (k + 1) / 2);
+      c.stroke();
+    });
+  }
+  // chips of stone: angular, lit on top, each with its shadow
+  for (let i = 0; i < 44; i++) {
+    const x = hash(i + 900) * w, y = hash(i + 1200) * h, r = 3 + hash(i + 1500) * 7, a = hash(i + 1600) * Math.PI;
+    const chip = (ox: number, oy: number) => { c.beginPath(); for (let k = 0; k < 5; k++) { const t = a + (k / 5) * Math.PI * 2, rr2 = r * (0.7 + hash(i * 5 + k + 1700) * 0.5); c.lineTo(ox + Math.cos(t) * rr2, oy + Math.sin(t) * rr2 * 0.7); } c.closePath(); c.fill(); };
+    c.fillStyle = 'rgba(10,7,5,.5)'; wrapped((dx, dy) => chip(x + dx + 1.5, y + dy + 2.5));
+    c.fillStyle = ['#5E564D', '#69604F', '#544C44'][i % 3]; wrapped((dx, dy) => chip(x + dx, y + dy));
   }
 });
 dirt.tex.wrapS = dirt.tex.wrapT = 1000;
@@ -466,29 +478,53 @@ export const ground = (() => {
     : banks.some(b => within(b, x, z)) ? GROUND.bank : GROUND.cut;
   const secret = (x: number, z: number) => within(grow, x, z) && !holes.some(b => b !== grow && within(b, x, z));
   const bored = (x: number, z: number) => bores.some(b => within(b, x, z));
-  // full by the rooms, down to 40% 30 m out
   const bb = holes.reduce((b, h) => ({ x0: Math.min(b.x0, h.x0), x1: Math.max(b.x1, h.x1), z0: Math.min(b.z0, h.z0), z1: Math.max(b.z1, h.z1) }));
-  const shade = (x: number, z: number) => 1 - 0.6 * Math.min(1, Math.hypot(Math.max(bb.x0 - x, 0, x - bb.x1), Math.max(bb.z0 - z, 0, z - bb.z1)) / 30);
-  // the squares' edges: every hole's, tunnel's and bank's, and rings round the rooms for the shading, out to 42 m (as far
-  // as the camera ever sees from anywhere in the cellar, and more)
-  const RINGS = [3, 7, 12, 18, 25, 33, 42];
+  /** How far a point is from a box (0 inside it), and from the nearest room, and from the nearest bank. */
+  const off = (b: Box, x: number, z: number) => Math.hypot(Math.max(b.x0 - x, 0, x - b.x1), Math.max(b.z0 - z, 0, z - b.z1));
+  const fromRoom = (x: number, z: number) => Math.min(...holes.map(b => off(b, x, z)));
+  const fromBank = (x: number, z: number) => Math.min(...banks.map(b => off(b, x, z)));
+  const ease = (a: number, b: number, v: number) => { const t = Math.min(1, Math.max(0, (v - a) / (b - a))); return t * t * (3 - 2 * t); };
+  /** Smooth noise from 0 to 1, on a fixed hash (never Math.random: that's the game's), in two sizes of lump. */
+  const hash2 = (i: number, j: number) => { const v = Math.sin(i * 127.1 + j * 311.7) * 43758.5453; return v - Math.floor(v); };
+  const noise = (x: number, z: number) => {
+    const i = Math.floor(x), j = Math.floor(z), u = ease(0, 1, x - i), v = ease(0, 1, z - j);
+    const a = hash2(i, j), b = hash2(i + 1, j), c = hash2(i, j + 1), d = hash2(i + 1, j + 1);
+    return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
+  };
+  const lumps = (x: number, z: number) => noise(x / 1.6, z / 1.6) * 0.7 + noise(x / 0.55 + 40, z / 0.55) * 0.3;
+  /** How much the cut ground's broken up at a point: flat at the walls (and at the bank's foot), rough a few steps out. */
+  const rough = (x: number, z: number) => ease(0.35, 2.5, fromRoom(x, z)) * ease(0.3, 1.2, fromBank(x, z));
+  /** The ground's height at a corner, on its square's level: the cut ground lumpy, rising and dipping as it goes out. */
+  const lift = (x: number, z: number, h: number) => h === GROUND.cut ? h + rough(x, z) * (lumps(x, z) - 0.32) * 1.1 : h;
+  // lit by the rooms: a little dimmer than their floors at the walls, and gone into the dark 6 m out, a little uneven
+  const DARK = 6;
+  const shade = (x: number, z: number) => {
+    const k = 1 - ease(0.2, DARK, fromRoom(x, z));
+    return k * k * (0.8 + 0.35 * lumps(x + 9, z - 4)) * 0.9;
+  };
+  // the squares' edges: every hole's, tunnel's and bank's; every half metre for the first few metres round the rooms
+  // (for the ground's lumps and its fall into the dark); then rings out to 42 m (as far as the camera ever sees from
+  // anywhere in the cellar, and more)
+  const STEP = 0.5, NEAR = DARK + 1, RINGS = [12, 18, 25, 33, 42];
+  const every = (a0: number, a1: number) => Array.from({ length: Math.floor((a1 - a0 + 2 * NEAR) / STEP) + 1 }, (_, i) => Math.round((a0 - NEAR) / STEP) * STEP + i * STEP);
   const edges = (a: number[]) => [...new Set(a.filter(Number.isFinite).map(v => Math.round(v * 1000) / 1000))].sort((p, q) => p - q);
-  const xs = edges([...holes, ...bores, ...banks].flatMap(b => [b.x0, b.x1]).concat(RINGS.flatMap(d => [bb.x0 - d, bb.x1 + d])));
-  const zs = edges([...holes, ...bores, ...banks].flatMap(b => [b.z0, b.z1]).concat(RINGS.flatMap(d => [bb.z0 - d, bb.z1 + d])));
-  /** A mesh's worth of quads, each corner's texture by where it is (4 m a tile) and shaded by how far out it is. */
+  const xs = edges([...holes, ...bores, ...banks].flatMap(b => [b.x0, b.x1]).concat(RINGS.flatMap(d => [bb.x0 - d, bb.x1 + d]), every(bb.x0, bb.x1)));
+  const zs = edges([...holes, ...bores, ...banks].flatMap(b => [b.z0, b.z1]).concat(RINGS.flatMap(d => [bb.z0 - d, bb.z1 + d]), every(bb.z0, bb.z1)));
+  /** A mesh's worth of quads, each corner's texture by where it is (3 m a tile) and shaded by how far out it is; lit
+   *  facet by facet (the normals worked out from the quads once they're all in), like broken stone. */
   const sheet = () => {
-    const pos: number[] = [], nor: number[] = [], uv: number[] = [], col: number[] = [];
+    const pos: number[] = [], uv: number[] = [], col: number[] = [];
     const quad = (q: number[][], n: number[]) => {
       for (const i of [0, 1, 2, 0, 2, 3]) {
         const [x, y, z] = q[i], k = shade(x, z);
-        pos.push(x, y, z); nor.push(...n); col.push(k, k, k);
-        uv.push((n[0] ? z : x) / 4, (n[1] ? z : y) / 4);
+        pos.push(x, y, z); col.push(k, k, k);
+        uv.push((n[0] ? z : x) / 3, (n[1] ? z : y) / 3);
       }
     };
     return {
-      /** The top of a square. */
+      /** The top of a square, each corner at its height. */
       flat: (x0: number, x1: number, z0: number, z1: number, h: number) =>
-        quad([[x0, CY + h, z0], [x0, CY + h, z1], [x1, CY + h, z1], [x1, CY + h, z0]], [0, 1, 0]),
+        quad([[x0, CY + lift(x0, z0, h), z0], [x0, CY + lift(x0, z1, h), z1], [x1, CY + lift(x1, z1, h), z1], [x1, CY + lift(x1, z0, h), z0]], [0, 1, 0]),
       /** A rock face across x = `at` (or z, `onX` false), from `a0` to `a1` along it, facing `s` (+1 or -1). */
       face: (onX: boolean, at: number, a0: number, a1: number, y0: number, y1: number, s: number) => {
         const [p, q] = s > 0 ? [a1, a0] : [a0, a1], v = (a: number, y: number) => onX ? [at, CY + y, a] : [a, CY + y, at];
@@ -496,8 +532,9 @@ export const ground = (() => {
       },
       mesh: (parent: Object3D) => {
         const g = new BufferGeometry();
-        g.setAttribute('position', new Float32BufferAttribute(pos, 3)); g.setAttribute('normal', new Float32BufferAttribute(nor, 3));
+        g.setAttribute('position', new Float32BufferAttribute(pos, 3));
         g.setAttribute('uv', new Float32BufferAttribute(uv, 2)); g.setAttribute('color', new Float32BufferAttribute(col, 3));
+        g.computeVertexNormals();
         return add(parent, new Mesh(g, EARTH));
       },
     };
@@ -520,14 +557,26 @@ export const ground = (() => {
       }
     }
   }
-  // the dock's piles, every 3.6 m, wherever there's earth all round one
-  const around = [[0, 0], [-0.8, -0.8], [0.8, -0.8], [-0.8, 0.8], [0.8, 0.8]];
-  for (let x = bb.x0 - 18; x <= bb.x1 + 18; x += 3.6) {
-    for (let z = bb.z0 - 18; z <= bb.z1 + 18; z += 3.6) {
-      const h = top(x, z);
-      if (h !== null && around.every(([dx, dz]) => top(x + dx, z + dz) === h)) log(cellar, PILE, x, CY + h, z, 1.6, 0.12, false);
-      else if (around.every(([dx, dz]) => secret(x + dx, z + dz))) log(parts.hidden, PILE, x, CY + GROUND.cut, z, 1.6, 0.12, false);
+  // boulders lying about on the cut ground, a step or two out from the walls (never on one, nor in a tunnel), so its
+  // edge in the dark is broken up: on a fixed scatter, each its own size and turn, sunk a little into the ground
+  const stones: BufferGeometry[] = [];
+  for (let x = bb.x0 - 4; x <= bb.x1 + 4; x += 0.9) {
+    for (let z = bb.z0 - 4; z <= bb.z1 + 4; z += 0.9) {
+      const r = hash2(Math.round(x * 10), Math.round(z * 10)), px = x + (hash2(Math.round(z * 10), 7) - 0.5) * 0.6, pz = z + (r - 0.5) * 0.6;
+      const d = fromRoom(px, pz);
+      if (r < 0.62 || d < 0.75 || d > 3.6 || top(px, pz) !== GROUND.cut || fromBank(px, pz) < 0.8 || secret(px, pz) || bored(px, pz)) continue;
+      const size = 0.16 + hash2(Math.round(px * 10), Math.round(pz * 10)) * 0.32 * Math.min(1, d / 2);
+      const b = new IcosahedronGeometry(1, 0);
+      b.scale(size * 1.25, size * 0.75, size); b.rotateY(r * 9); b.translate(px, CY + lift(px, pz, GROUND.cut) + size * 0.35, pz);
+      // (as dark as the ground it lies on)
+      const k = Math.min(1, shade(px, pz) * 1.15);
+      b.setAttribute('color', new Float32BufferAttribute(new Array<number>(b.attributes.position.count * 3).fill(k), 3));
+      stones.push(b);
     }
+  }
+  if (stones.length) {
+    add(cellar, new Mesh(mergeGeometries(stones)!, new MeshLambertMaterial({ color: 0x5A5047, flatShading: true, vertexColors: true })));
+    stones.forEach(b => b.dispose());
   }
   return { open: open.mesh(cellar), hidden: hidden.mesh(parts.hidden) };
 })();
