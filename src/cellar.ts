@@ -492,15 +492,21 @@ export const ground = (() => {
     return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
   };
   const lumps = (x: number, z: number) => noise(x / 1.6, z / 1.6) * 0.7 + noise(x / 0.55 + 40, z / 0.55) * 0.3;
-  /** How much the cut ground's broken up at a point: flat at the walls (and at the bank's foot), rough a few steps out. */
+  /** How much the cut ground's broken up at a point: flat at the walls (and at the bank's foot), rough a few steps out;
+   *  and over the grow room's place while it's a secret, flat where it meets the walls round it, rough inside. */
   const rough = (x: number, z: number) => ease(0.35, 2.5, fromRoom(x, z)) * ease(0.3, 1.2, fromBank(x, z));
+  const roughHidden = (x: number, z: number) => ease(0.35, 2.5, Math.min(x - grow.x0, grow.x1 - x, z - grow.z0, grow.z1 - z));
   /** The ground's height at a corner, on its square's level: the cut ground lumpy, rising and dipping as it goes out. */
-  const lift = (x: number, z: number, h: number) => h === GROUND.cut ? h + rough(x, z) * (lumps(x, z) - 0.32) * 1.1 : h;
-  // lit by the rooms: a little dimmer than their floors at the walls, and gone into the dark 6 m out, a little uneven
-  const DARK = 6;
+  const lift = (x: number, z: number, h: number, inGrow = false) =>
+    h === GROUND.cut ? h + (inGrow ? roughHidden(x, z) : rough(x, z)) * (lumps(x, z) - 0.32) * 1.1 : h;
+  // not lit by the rooms at all (their lights stay inside their walls): just made out right by a wall, and gone into the
+  // dark 4 m out, a little uneven; the grow room's place as dark as the rest while it's a secret
+  const DARK = 4;
+  const lit = holes.filter(b => b !== grow);
+  const fromLit = (x: number, z: number) => Math.min(...lit.map(b => off(b, x, z)));
   const shade = (x: number, z: number) => {
-    const k = 1 - ease(0.2, DARK, fromRoom(x, z));
-    return k * k * (0.8 + 0.35 * lumps(x + 9, z - 4)) * 0.9;
+    const k = 1 - ease(0, DARK, fromLit(x, z));
+    return k * k * (0.75 + 0.5 * lumps(x + 9, z - 4)) * 0.3;
   };
   // the squares' edges: every hole's, tunnel's and bank's; every half metre for the first few metres round the rooms
   // (for the ground's lumps and its fall into the dark); then rings out to 42 m (as far as the camera ever sees from
@@ -512,7 +518,7 @@ export const ground = (() => {
   const zs = edges([...holes, ...bores, ...banks].flatMap(b => [b.z0, b.z1]).concat(RINGS.flatMap(d => [bb.z0 - d, bb.z1 + d]), every(bb.z0, bb.z1)));
   /** A mesh's worth of quads, each corner's texture by where it is (3 m a tile) and shaded by how far out it is; lit
    *  facet by facet (the normals worked out from the quads once they're all in), like broken stone. */
-  const sheet = () => {
+  const sheet = (inGrow = false) => {
     const pos: number[] = [], uv: number[] = [], col: number[] = [];
     const quad = (q: number[][], n: number[]) => {
       for (const i of [0, 1, 2, 0, 2, 3]) {
@@ -524,7 +530,7 @@ export const ground = (() => {
     return {
       /** The top of a square, each corner at its height. */
       flat: (x0: number, x1: number, z0: number, z1: number, h: number) =>
-        quad([[x0, CY + lift(x0, z0, h), z0], [x0, CY + lift(x0, z1, h), z1], [x1, CY + lift(x1, z1, h), z1], [x1, CY + lift(x1, z0, h), z0]], [0, 1, 0]),
+        quad([[x0, CY + lift(x0, z0, h, inGrow), z0], [x0, CY + lift(x0, z1, h, inGrow), z1], [x1, CY + lift(x1, z1, h, inGrow), z1], [x1, CY + lift(x1, z0, h, inGrow), z0]], [0, 1, 0]),
       /** A rock face across x = `at` (or z, `onX` false), from `a0` to `a1` along it, facing `s` (+1 or -1). */
       face: (onX: boolean, at: number, a0: number, a1: number, y0: number, y1: number, s: number) => {
         const [p, q] = s > 0 ? [a1, a0] : [a0, a1], v = (a: number, y: number) => onX ? [at, CY + y, a] : [a, CY + y, at];
@@ -539,7 +545,7 @@ export const ground = (() => {
       },
     };
   };
-  const open = sheet(), hidden = sheet();
+  const open = sheet(), hidden = sheet(true);
   for (let i = 0; i < xs.length - 1; i++) {
     for (let j = 0; j < zs.length - 1; j++) {
       const x = (xs[i] + xs[i + 1]) / 2, z = (zs[j] + zs[j + 1]) / 2, h = top(x, z);
@@ -569,7 +575,7 @@ export const ground = (() => {
       const b = new IcosahedronGeometry(1, 0);
       b.scale(size * 1.25, size * 0.75, size); b.rotateY(r * 9); b.translate(px, CY + lift(px, pz, GROUND.cut) + size * 0.35, pz);
       // (as dark as the ground it lies on)
-      const k = Math.min(1, shade(px, pz) * 1.15);
+      const k = Math.min(1, shade(px, pz) * 1.3);
       b.setAttribute('color', new Float32BufferAttribute(new Array<number>(b.attributes.position.count * 3).fill(k), 3));
       stones.push(b);
     }

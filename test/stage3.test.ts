@@ -394,7 +394,12 @@ describe('the rooms', () => {
       expect(down(x, z, ground.open), `${x}, ${z}`).toBeNull();
       expect(down(x, z, ground.hidden), `${x}, ${z}`).toBeNull();
     }
-    for (const [x, z] of open(L.GROW)) expect(down(x, z, ground.hidden)).toBeCloseTo(GROUND.cut, 5);
+    // (broken ground like the rest, level with the walls round it at its edges)
+    for (const [x, z] of open(L.GROW)) {
+      const h = down(x, z, ground.hidden)!;
+      expect(h).toBeGreaterThan(GROUND.cut - 0.45);
+      expect(h).toBeLessThan(GROUND.cut + 0.85);
+    }
     // out past the walls, broken ground about the cut (level with it right at the walls, lumpy further out); behind the
     // back walls, banked up; and no edge to it anywhere the camera sees
     for (const [x, z] of [[-5, L.ARENA.z1 + 0.35], [7.5, L.CRAFT.z1 + 0.35], [16, L.PREP.z1 + 0.35]]) {
