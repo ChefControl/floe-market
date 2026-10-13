@@ -347,6 +347,79 @@ describe('the rooms', () => {
     expect(boxes.some(([cx, cz, hx, hz]) => Math.abs(P.x - cx) < hx && Math.abs(P.z - cz) < hz)).toBe(false);
   });
 
+  it("is dug into the earth: every wall's top one height in front and one at the back, the earth level with them, and every room, doorway and tunnel open", async () => {
+    const { g, cellar, plan } = await ring();
+    const L = g.layout, { CY, GROUND, ground } = cellar;
+    const { Raycaster, Vector3 } = await import('three');
+    type O = import('three').Object3D;
+    const shown = (o: O) => { for (let p: O | null = o; p; p = p.parent) if (!p.visible) return false; return true; };
+    /** What's first in the way of a ray, of the meshes shown in `o`. */
+    const first = (from: { x: number; y: number; z: number }, dir: { x: number; y: number; z: number }, o: O) => {
+      const meshes: O[] = [];
+      o.traverse(m => { if ((m as import('three').Mesh).isMesh && shown(m)) meshes.push(m); });
+      return new Raycaster(new Vector3(from.x, from.y, from.z), new Vector3(dir.x, dir.y, dir.z).normalize()).intersectObjects(meshes, false)[0] ?? null;
+    };
+    /** How high over the floor the first thing straight down at (x, z) is (null: nothing). */
+    const down = (x: number, z: number, o: O = cellar.cellar) => {
+      const hit = first({ x, y: CY + 20, z }, { x: 0, y: -1, z: 0 }, o);
+      return hit ? hit.point.y - CY : null;
+    };
+    // the walls' tops: every low one's rail at one height, just over the earth's cut (between rooms and round the
+    // outside, the prep hall's stone back wall too); every tall one's cap at one height, just over the bank behind it
+    // (the arena's piles, north and west, and the office's own wall); and every doorway's lintel at one height
+    const low = [[-5, L.ARENA.z1 + 0.1], [L.ARENA.x1 + 0.3, 2], [L.KITCHEN.x1 + 0.3, 2], [L.CRAFT.x0 + 0.5, L.CRAFT.z1 + 0.1], [16, L.PREP.z1 + 0.1],
+      [L.LIFT_ROOM.x1 + 0.1, 4.9], [13, L.PREP.z0 - 0.3], [L.OFFICE_ROOM.x1 + 0.3, -6]].map(([x, z]) => down(x, z)!);
+    const tall = [[-5, L.ARENA.z0 - 0.75], [L.ARENA.x0 - 0.75, 0], [7, L.OFFICE_ROOM.z0 - 0.25]].map(([x, z]) => down(x, z)!);
+    const lintels = [...L.DOORS.map(d => down((d.x0 + d.x1) / 2, (d.z0 + d.z1) / 2)!), ...plan.TUNNELS.map(t =>
+      t.side === 'w' ? down(L.ARENA.x0 - 0.08, t.at + 0.5)! : down(t.at + 0.5, L.ARENA.z0 - 0.08)!)];
+    for (const h of low) expect(h).toBeCloseTo(low[0], 5);
+    for (const h of tall) expect(h).toBeCloseTo(tall[0], 5);
+    for (const h of lintels) expect(h).toBeCloseTo(lintels[0], 5);
+    expect(low[0] - GROUND.cut).toBeGreaterThan(0);
+    expect(low[0] - GROUND.cut).toBeLessThan(0.05);
+    expect(tall[0] - GROUND.bank).toBeGreaterThan(0);
+    expect(tall[0] - GROUND.bank).toBeLessThan(0.05);
+    expect(lintels[0]).toBeGreaterThan(low[0] + 0.5);
+    expect(lintels[0]).toBeLessThan(tall[0] - 3);
+    // every room's floor open (but the grow room's place, earth like the rest while it's a secret), every doorway, and
+    // the lift room behind the prep hall
+    const open = (r: { x0: number; x1: number; z0: number; z1: number }) => {
+      const out: [number, number][] = [];
+      for (let x = r.x0 + 0.05; x < r.x1; x += 0.5) for (let z = r.z0 + 0.05; z < r.z1; z += 0.5) out.push([x, z]);
+      return out;
+    };
+    const floors = [...Object.values(L.ROOMS).filter(r => r !== L.GROW), L.LIFT_ROOM].flatMap(open)
+      .concat(L.DOORS.filter(d => d.b !== 'grow').map(d => [(d.x0 + d.x1) / 2, (d.z0 + d.z1) / 2]));
+    for (const [x, z] of floors) {
+      expect(down(x, z, ground.open), `${x}, ${z}`).toBeNull();
+      expect(down(x, z, ground.hidden), `${x}, ${z}`).toBeNull();
+    }
+    for (const [x, z] of open(L.GROW)) expect(down(x, z, ground.hidden)).toBeCloseTo(GROUND.cut, 5);
+    // out past the walls, earth at the cut; behind the back walls, banked up; and no edge to it anywhere the camera sees
+    for (const [x, z] of [[-5, L.ARENA.z1 + 1], [7.5, L.CRAFT.z1 + 1], [16, L.PREP.z1 + 1], [L.LIFT_ROOM.x1 + 1, 5], [L.GROW.x1 + 1, -5], [-20, L.ARENA.z1 + 3]]) {
+      expect(down(x, z, ground.open), `${x}, ${z}`).toBeCloseTo(GROUND.cut, 5);
+    }
+    for (const [x, z] of [[-5, L.ARENA.z0 - 2], [L.ARENA.x0 - 2, 0], [7, L.OFFICE_ROOM.z0 - 0.5], [16, L.GROW.z0 - 2]]) {
+      expect(down(x, z, ground.open), `${x}, ${z}`).toBeCloseTo(GROUND.bank, 5);
+    }
+    for (const [x, z] of [[-50, 0], [60, 0], [0, 45], [0, -45], [-50, 45], [60, -45]]) expect(down(x, z, ground.open)).not.toBeNull();
+    // the fans' tunnels run under the bank, and nothing of it is in their way from the arena to their far ends
+    for (const t of plan.TUNNELS) {
+      const from = { x: t.mouth.x, y: CY + 1, z: t.mouth.z }, to = { x: t.deep.x - from.x, y: 0, z: t.deep.z - from.z };
+      expect(first(from, to, ground.open)?.distance ?? Infinity).toBeGreaterThan(Math.hypot(to.x, to.z) + 0.5);
+      expect(down(t.deep.x, t.deep.z, ground.open)).toBeCloseTo(GROUND.bank, 5);
+    }
+    // when the grow room's found, its place opens up, under the tall wall at its back and the low ones round it
+    cellar.showGrowRoom();
+    for (const [x, z] of open(L.GROW)) {
+      expect(down(x, z, ground.open)).toBeNull();
+      expect(down(x, z, ground.hidden)).toBeNull();
+    }
+    expect(down(16, L.GROW.z0 - 0.75)).toBeCloseTo(tall[0], 5);
+    expect(down(L.GROW.x1 + 0.1, -5)).toBeCloseTo(low[0], 5);
+    expect(down(13, L.PREP.z0 - 0.3)).toBeCloseTo(low[0], 5);
+  });
+
   it('has a clear way, round all the furniture and six of every machine, on every leg of the work', async () => {
     const { g, cellar, plan } = await ring({ ring: RING_DONE });
     const { cellarRoute } = await import('./bot');

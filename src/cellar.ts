@@ -4,14 +4,16 @@
 // cashier's window against the east wall. Down the middle, Mr. Fugu's office (his desk on a dais), the landing with the
 // ladder up to the hatch in the dock, and the hearth room: the big pot, its ledge and the bowl counter. To the east the
 // prep hall, where the dumbwaiter from the restaurant's kitchen comes down beside the racks and barrels, and behind its
-// tall north wall the grow room, which nobody knows is there until the first boss is beaten. It's built CELLAR_Y under
-// the dock, out of the camera's sight from up there. Only the outer back walls go up high: the rest are low, so the
-// camera sees into every room.
+// stone north wall the grow room, which nobody knows is there until the first boss is beaten. It's built CELLAR_Y under
+// the dock, out of the camera's sight from up there, dug into the earth. Only the back walls along the very back of the
+// cellar go up high, all to one height: every other wall is low, all to one height too, so the camera sees into every
+// room, and the earth round the rooms comes up level with their tops.
 // This module is the rooms and their furniture; where things are is cellarPlan.ts, and the kitchen's lines, the bouts
 // and the swarm draw themselves (ringKitchen.ts, dohyo.ts, swarm.ts).
 import {
-  AdditiveBlending, BackSide, BoxGeometry, type BufferGeometry, CatmullRomCurve3, Color, ConeGeometry, CylinderGeometry, DoubleSide, Group, type Material, Matrix4,
-  Mesh, MeshBasicMaterial, MeshLambertMaterial, type Object3D, PlaneGeometry, PointLight, type Side as Facing, TorusGeometry, TubeGeometry, Vector3,
+  AdditiveBlending, BackSide, BoxGeometry, BufferGeometry, CatmullRomCurve3, Color, ConeGeometry, CylinderGeometry, DoubleSide, Float32BufferAttribute, Group,
+  type Material, Matrix4, Mesh, MeshBasicMaterial, MeshLambertMaterial, type Object3D, PlaneGeometry, PointLight, type Side as Facing, TorusGeometry,
+  TubeGeometry, Vector3,
 } from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import {
@@ -183,20 +185,40 @@ function spans(r: Rect, side: Side): [number, number][] {
 /** Where a side's wall stands: `off` outside the floor. */
 const line = (r: Rect, side: Side, off: number) =>
   side === 'n' ? r.z0 - off : side === 's' ? r.z1 + off : side === 'w' ? r.x0 - off : r.x1 + off;
-/** A tall wall at the back of the cellar: the dock's piles going up into the dark, planks behind them, beams across,
- *  and a stone footing (none of it casting shadows: the sun's light doesn't reach down here, and the piles' would
- *  streak the floor). Only on the outer back walls, where it hides nothing. */
+// The walls' heights, one rule for the whole cellar: every wall round a room or between two is low (WALL, under a
+// timber rail), so the camera sees into every room over the ones in front; only along the very back of the cellar,
+// where there's nothing behind to hide, do the walls go up high, all to TALL under a timber cap: the dock's piles
+// behind the arena (north and west) and the grow room, and Mr. Fugu's own wall behind the office. A doorway's frame
+// stands FRAME_H, whatever wall it's in.
+/** How high a low wall's boards stand (its rail on top), and a tall wall's top. */
+const WALL = 1.1, TALL = 6.4;
+/** How high a doorway's frame stands. */
+const FRAME_H = 2.0;
+/** How far out from each room's floor its walls stand, side by side (where a room has none of its own on a side, it's
+ *  a neighbour's, between the two: 0.3): the earth round the rooms is dug back to there. Kept by the walls as they go up. */
+const reach = new Map<Rect, Partial<Record<Side, number>>>();
+const stands = (r: Rect, side: Side, off: number) => {
+  const o = reach.get(r) ?? reach.set(r, {}).get(r)!;
+  o[side] = Math.max(o[side] ?? 0, off);
+};
+/** A tall wall at the back of the cellar: the dock's piles going up into the dark, planks behind them, beams across, a
+ *  timber cap along the top and a stone footing (none of it casting shadows: the sun's light doesn't reach down here,
+ *  and the piles' would streak the floor). Only on the outer back walls, where it hides nothing. */
 function tallWall(r: Rect, side: 'n' | 'w', parent: Object3D = cellar) {
+  stands(r, side, 1.1);
+  const at = (o: number) => line(r, side, o);
+  const along = (a0: number, a1: number) => (o: number, y: number, sx: number, sy: number, sz: number, c: number, cast = false) =>
+    side === 'n' ? box(parent, c, (a0 + a1) / 2, CY + y, at(o), sx, sy, sz, cast) : box(parent, c, at(o), CY + y, (a0 + a1) / 2, sz, sy, sx, cast);
   for (const [a0, a1] of spans(r, side)) {
-    const mid = (a0 + a1) / 2, len = a1 - a0;
-    const at = (o: number) => line(r, side, o);
-    const put = (o: number, y: number, sx: number, sy: number, sz: number, c: number, cast = false) =>
-      side === 'n' ? box(parent, c, mid, CY + y, at(o), sx, sy, sz, cast) : box(parent, c, at(o), CY + y, mid, sz, sy, sx, cast);
-    for (let a = a0 + 0.3; a <= a1; a += 1.1) side === 'n' ? log(parent, PILE, a, CY + 3.2, at(0.6), 1.9, 7, false) : log(parent, PILE, at(0.6), CY + 3.2, a, 1.9, 7, false);
-    put(1.1, 3, len, 6.4, 0.3, 0x2A201A);
+    const len = a1 - a0, put = along(a0, a1);
+    for (let a = a0 + 0.3; a <= a1; a += 1.1) side === 'n' ? log(parent, PILE, a, CY + (TALL - 0.5) / 2, at(0.6), 1.9, TALL + 0.1, false) : log(parent, PILE, at(0.6), CY + (TALL - 0.5) / 2, a, 1.9, TALL + 0.1, false);
+    put(1.1, (TALL - 0.4) / 2, len, TALL, 0.3, 0x2A201A);
     for (const y of [2.2, 4.6]) put(0.25, y, len, 0.22, 0.18, WOOD_DARK, true);
     put(0.3, 0.25, len, 0.5, 0.5, 0x4E4A46, true);
   }
+  // (the cap runs the whole way along, over the fans' tunnels too)
+  const [a0, a1] = side === 'n' ? [r.x0 - 0.3, r.x1 + 0.3] : [r.z0 - 0.3, r.z1 + 0.3];
+  along(a0, a1)(0.75, TALL - 0.1, a1 - a0, 0.2, 1.1, WOOD_DARK);
 }
 /** Mortared cellar stone: blocks in staggered courses, a few tones in a fixed order. */
 const stone = canvasTex(256, 256, (c, w, h) => {
@@ -211,38 +233,40 @@ const stone = canvasTex(256, 256, (c, w, h) => {
   }
 });
 stone.tex.wrapS = stone.tex.wrapT = 1000;
-/** The prep hall's back while the grow room behind it is a secret: not the dock's piles but a mortared stone wall, tall
- *  enough to hide it, with an iron gate in it, chained and padlocked, dark beyond. All of it comes down when the first
- *  boss is beaten, for the low wall and the same gate swung open (built in parts.grow). */
+/** The prep hall's back while the grow room behind it is a secret: not plank but mortared stone, a low wall like every
+ *  other between rooms (as high, on the same line, under the same rail), with an iron gate in it in a doorway's frame,
+ *  chained and padlocked, dark beyond; past it there's only earth. All of it comes down when the first boss is beaten,
+ *  for the plank wall and the same gate swung open (built in parts.grow). */
 function stoneWall() {
-  const p = parts.hidden, H = 4.6, z = PREP.z0 - 0.4, T = 0.5;
-  const t = DOORS.find(d => d.b === 'grow')!, gx = (t.x0 + t.x1) / 2, gw = t.x1 - t.x0 + 0.6, GH = 2.5;
+  const p = parts.hidden, z = line(PREP, 'n', 0.3), T = 0.3, x0 = PREP.x0 - 0.3, x1 = PREP.x1 + 0.3;
+  stands(PREP, 'n', 0.3);
+  const t = DOORS.find(d => d.b === 'grow')!, gx = (t.x0 + t.x1) / 2, gw = t.x1 - t.x0 + 0.6;
   const edge = mat(0x3A3530);
-  const block = (x0: number, x1: number, y0: number, y1: number) => {
-    const tex = stone.tex.clone(); tex.repeat.set((x1 - x0) / 2, (y1 - y0) / 2); tex.needsUpdate = true;
-    const m = add(p, new Mesh(new BoxGeometry(x1 - x0, y1 - y0, T), [edge, edge, edge, edge, new MeshLambertMaterial({ map: tex }), edge]));
-    m.position.set((x0 + x1) / 2, CY + (y0 + y1) / 2, z); m.receiveShadow = true;
-  };
-  block(PREP.x0 - 0.3, gx - gw / 2, 0, H); block(gx + gw / 2, PREP.x1 + 0.3, 0, H); block(gx - gw / 2, gx + gw / 2, GH, H);
-  // a footing, a timber cap, and pilasters every few metres
-  box(p, 0x4E4A46, (PREP.x0 + PREP.x1) / 2, CY + 0.15, z + 0.08, PREP.x1 - PREP.x0 + 0.6, 0.3, T + 0.16);
-  box(p, WOOD_DARK, (PREP.x0 + PREP.x1) / 2, CY + H, z, PREP.x1 - PREP.x0 + 0.7, 0.25, T + 0.2, false);
-  for (const x of [PREP.x0 + 0.2, PREP.x0 + 3.2, PREP.x0 + 6.0, PREP.x1 - 0.2]) box(p, 0x5E574E, x, CY + H / 2, z + 0.2, 0.4, H, 0.2, false);
-  // the gate: a heavy timber frame, dark beyond, iron bars and straps
-  for (const s of [-1, 1]) box(p, WOOD_DARK, gx + s * (gw / 2 - 0.12), CY + GH / 2, z + 0.12, 0.26, GH, T + 0.1);
-  box(p, WOOD_DARK, gx, CY + GH, z + 0.12, gw + 0.2, 0.3, T + 0.12);
-  box(p, new MeshBasicMaterial({ color: 0x0A0908 }), gx, CY + (GH - 0.15) / 2, z - 0.1, gw - 0.4, GH - 0.15, 0.1, false);
-  bars(p, gx, z + 0.18, gw - 0.5, GH - 0.25, 0);
+  // the stone either side of the gate, each under its rail
+  for (const [a0, a1] of [[x0, gx - gw / 2], [gx + gw / 2, x1]]) {
+    const tex = stone.tex.clone(); tex.repeat.set((a1 - a0) / 2, WALL / 2); tex.needsUpdate = true;
+    const m = add(p, new Mesh(new BoxGeometry(a1 - a0, WALL, T), [edge, edge, edge, edge, new MeshLambertMaterial({ map: tex }), edge]));
+    m.position.set((a0 + a1) / 2, CY + WALL / 2, z); m.receiveShadow = true;
+    box(p, WOOD_DARK, (a0 + a1) / 2, CY + WALL + 0.04, z, a1 - a0 + 0.1, 0.08, T + 0.08);
+  }
+  // a footing, and pilasters every few metres, up to the rail like a plank wall's posts
+  box(p, 0x4E4A46, (x0 + x1) / 2, CY + 0.08, z + 0.02, x1 - x0, 0.16, T + 0.12);
+  for (const x of [PREP.x0 + 0.2, PREP.x0 + 3.2, PREP.x0 + 6.0, PREP.x1 - 0.2]) box(p, 0x5E574E, x, CY + WALL / 2, z + 0.12, 0.4, WALL, 0.14, false);
+  // the gate: a heavy timber frame, as high as a doorway's, dark beyond, iron bars and straps
+  for (const s of [-1, 1]) box(p, WOOD_DARK, gx + s * (gw / 2 - 0.12), CY + FRAME_H / 2, z + 0.02, 0.26, FRAME_H, T + 0.1);
+  box(p, WOOD_DARK, gx, CY + FRAME_H, z + 0.02, gw + 0.2, 0.2, T + 0.12);
+  box(p, new MeshBasicMaterial({ color: 0x0A0908 }), gx, CY + (FRAME_H - 0.1) / 2, z - 0.2, gw - 0.4, FRAME_H - 0.1, 0.1, false);
+  bars(p, gx, z + 0.08, gw - 0.5, FRAME_H - 0.25, 0);
   // the chain across where the leaves meet, and the padlock on it
   for (let i = 0; i < 8; i++) {
-    const l = add(p, mesh(new TorusGeometry(0.05, 0.016, 5, 10), 0x8A8F96, gx - 0.3 + i * 0.086, CY + 1.2 - Math.sin((i / 7) * Math.PI) * 0.08, z + 0.24));
+    const l = add(p, mesh(new TorusGeometry(0.05, 0.016, 5, 10), 0x8A8F96, gx - 0.3 + i * 0.086, CY + 1.2 - Math.sin((i / 7) * Math.PI) * 0.08, z + 0.14));
     l.rotation.y = i % 2 ? Math.PI / 2 : 0;
   }
-  box(p, 0xC9A23A, gx, CY + 0.98, z + 0.27, 0.22, 0.22, 0.08);
-  box(p, 0x1B1A1E, gx, CY + 0.95, z + 0.315, 0.03, 0.07, 0.01, false);
-  const shackle = add(p, mesh(new TorusGeometry(0.075, 0.022, 6, 12, Math.PI), 0x9AA4AC, gx, CY + 1.09, z + 0.27));
+  box(p, 0xC9A23A, gx, CY + 0.98, z + 0.17, 0.22, 0.22, 0.08);
+  box(p, 0x1B1A1E, gx, CY + 0.95, z + 0.215, 0.03, 0.07, 0.01, false);
+  const shackle = add(p, mesh(new TorusGeometry(0.075, 0.022, 6, 12, Math.PI), 0x9AA4AC, gx, CY + 1.09, z + 0.17));
   shackle.castShadow = true;
-  for (const s of [-1, 1]) lantern(p, gx + s * (gw / 2 + 0.45), CY + 2.3, z + 0.45, false);
+  for (const s of [-1, 1]) lantern(p, gx + s * (gw / 2 + 0.45), CY + 2.3, z + 0.35, false);
 }
 /** An iron gate's bars, `w` wide and `h` tall, centred on `x` (or, `open` > 0, its two leaves swung back that far into the
  *  room behind, hinged on the frame). */
@@ -261,7 +285,9 @@ function bars(p: Object3D, x: number, z: number, w: number, h: number, open: num
 /** The office's back wall, his own and not the dock's piles: dark red wallpaper with a gold pattern over a dark wood
  *  wainscot, a cornice, a portrait of Mr. Fugu, the ring's ranking sheet, a clock, and brass wall lamps. */
 function officeWall() {
-  const r = OFFICE_ROOM, x0 = r.x0 - 0.3, x1 = r.x1 + 0.3, len = x1 - x0, mid = (x0 + x1) / 2, z = r.z0 - 0.25, H = 4.2;
+  // (as high as the piles' wall beside it: its cornice tops out at TALL)
+  const r = OFFICE_ROOM, x0 = r.x0 - 0.3, x1 = r.x1 + 0.3, len = x1 - x0, mid = (x0 + x1) / 2, z = r.z0 - 0.25, H = TALL - 0.11;
+  stands(r, 'n', 0.25);
   const paper = canvasTex(128, 128, (c, w, h) => {
     c.fillStyle = '#5A1E22'; c.fillRect(0, 0, w, h);
     c.strokeStyle = 'rgba(214,170,90,.55)'; c.lineWidth = 3;
@@ -319,8 +345,8 @@ function officeWall() {
 /** A thin plank wall, waist high so it never hides a room from the camera: boards on a stone sill, posts, and a rail
  *  along the top. Between two rooms it stands in the gap between their floors (`off` 0.3); round the outside, at the
  *  floor's edge. */
-const WALL = 1.1;
 function wall(r: Rect, side: Side, off = 0.1, parent: Object3D = cellar) {
+  stands(r, side, off);
   const along = side === 'n' || side === 's', at = line(r, side, off);
   for (const [a0, a1] of spans(r, side)) {
     const mid = (a0 + a1) / 2, len = a1 - a0;
@@ -373,15 +399,140 @@ for (const t of TUNNELS) {
   put(D / 2, 0.01, t.at, D, 0.02, W + 0.4, 0x2A1A12);
   for (const s of [-1, 1]) put(D / 2 + 0.1, 1.3, t.at + s * (W / 2 + 0.15), D, 2.6, 0.3, 0x2A201A);
   put(D + 0.1, 1.3, t.at, 0.2, 2.6, W + 0.6, 0x2A201A);
-  put(D / 2 + 0.1, 2.7, t.at, D + 0.2, 0.2, W + 0.6, 0x2A201A);
-  put(0.7, 4.4, t.at, 1.2, 4.0, W + 0.1, 0x2A201A);
-  for (const s of [-1, 1]) put(0.05, 1.15, t.at + s * (W / 2 + 0.05), 0.16, 2.3, 0.16, WOOD_DARK, true);
-  put(0.05, 2.36, t.at, 0.2, 0.16, W + 0.4, WOOD_DARK, true);
+  put(D / 2 + 0.15, 2.7, t.at, D + 0.1, 0.2, W + 0.6, 0x2A201A);
+  put(0.7, (FRAME_H + TALL - 0.2) / 2, t.at, 1.2, TALL - 0.2 - FRAME_H, W + 0.1, 0x2A201A);
+  for (const s of [-1, 1]) put(0.05, FRAME_H / 2, t.at + s * (W / 2 + 0.05), 0.16, FRAME_H, 0.16, WOOD_DARK, true);
+  put(0.05, FRAME_H, t.at, 0.2, 0.2, W + 0.4, WOOD_DARK, true);
   west ? lantern(cellar, edge + 0.2, CY + 2.75, t.at, true) : lantern(cellar, t.at, CY + 2.75, edge + 0.2, true);
 }
 
+// ---------- the earth the cellar's dug into ----------
+// Everything round the rooms is solid ground, so past a wall there's never an edge of the world: cut level with the low
+// walls in front (just under their rails, so each shows as a rim round its room and the two never flicker), and banked
+// up to the tall walls' caps behind them, with a rock face where the two meet. It's one mesh of squares over the whole
+// cellar and far out past it, with each room left open out to its walls' middles; it darkens away from the rooms into
+// the cellar's murk (the fog takes it from there), and the dock's piles come down through it in rows. The fans' tunnels
+// run under the bank, which stays whole over them (no rock face cuts across one). While the grow room's a secret, its
+// place is earth like the rest, piles and all (parts.hidden), and it opens up when it's found. Nothing in it moves:
+// it's drawn as it is, with no shadows.
+/** The earth's top: in front, under the low walls' rails, and behind the back walls, under their caps. */
+export const GROUND = { cut: WALL + 0.06, bank: TALL - 0.02 };
+/** The cut earth: dark packed ground with stones in it, drawn wrapped round so it tiles. */
+const dirt = canvasTex(256, 256, (c, w, h) => {
+  c.fillStyle = '#4C3F34'; c.fillRect(0, 0, w, h);
+  const hash = (i: number) => { const x = Math.sin(i * 37.719) * 43758.5453; return x - Math.floor(x); };
+  const blob = (x: number, y: number, rx: number, ry: number) => {
+    for (const dx of [-w, 0, w]) for (const dy of [-h, 0, h]) { c.beginPath(); c.ellipse(x + dx, y + dy, rx, ry, 0, 0, Math.PI * 2); c.fill(); }
+  };
+  for (let i = 0; i < 200; i++) {
+    c.fillStyle = i % 2 ? 'rgba(28,20,14,.18)' : 'rgba(130,108,86,.10)';
+    const r = 4 + hash(i + 600) * 14;
+    blob(hash(i) * w, hash(i + 300) * h, r, r);
+  }
+  // stones, each with its shadow
+  for (let i = 0; i < 36; i++) {
+    const x = hash(i + 900) * w, y = hash(i + 1200) * h, r = 3 + hash(i + 1500) * 6;
+    c.fillStyle = 'rgba(20,14,10,.4)'; blob(x + 1, y + 2, r, r * 0.7);
+    c.fillStyle = ['#6E665C', '#787064', '#645D54'][i % 3]; blob(x, y, r, r * 0.7);
+  }
+});
+dirt.tex.wrapS = dirt.tex.wrapT = 1000;
+// (both sides drawn: a rock face seen from behind, past a wall's end, still shows as rock)
+const EARTH = new MeshLambertMaterial({ map: dirt.tex, vertexColors: true, side: DoubleSide });
+type Box = { x0: number; x1: number; z0: number; z1: number };
+/** A room's hole in the earth: out to its walls' middles. */
+const dug = (r: Rect): Box => {
+  const o = reach.get(r) ?? {};
+  return { x0: r.x0 - (o.w ?? 0.3), x1: r.x1 + (o.e ?? 0.3), z0: r.z0 - (o.n ?? 0.3), z1: r.z1 + (o.s ?? 0.3) };
+};
+const within = (b: Box, x: number, z: number) => x > b.x0 && x < b.x1 && z > b.z0 && z < b.z1;
+/** The earth's two meshes: round the rooms, and the grow room's place while it's a secret. */
+export const ground = (() => {
+  const rooms = [...Object.values(ROOMS), LIFT_ROOM], holes = rooms.map(dug);
+  const grow = holes[rooms.indexOf(GROW)], A = dug(ARENA), O = dug(OFFICE_ROOM);
+  /** The fans' tunnels, from the arena's wall out past their far ends. */
+  const bores: Box[] = TUNNELS.map(t => {
+    const a0 = t.at - TUNNEL_W / 2 - 0.35, a1 = t.at + TUNNEL_W / 2 + 0.35, o = TUNNEL_D + 0.3;
+    return t.side === 'w' ? { x0: ARENA.x0 - o, x1: A.x0, z0: a0, z1: a1 } : { x0: a0, x1: a1, z0: ARENA.z0 - o, z1: A.z0 };
+  });
+  /** Where it's banked up: behind the back walls (west of the arena, as far south as its wall goes; north of it, all the
+   *  way along; and behind the office's own wall). */
+  const banks: Box[] = [
+    { x0: -Infinity, x1: A.x0, z0: -Infinity, z1: ARENA.z1 + 0.3 }, { x0: -Infinity, x1: Infinity, z0: -Infinity, z1: A.z0 },
+    { x0: O.x0, x1: O.x1, z0: -Infinity, z1: O.z0 },
+  ];
+  /** The earth's top at a point (from CY), or null where a room's dug out: banked up, or cut low everywhere else. */
+  const top = (x: number, z: number) => holes.some(b => within(b, x, z)) ? null
+    : banks.some(b => within(b, x, z)) ? GROUND.bank : GROUND.cut;
+  const secret = (x: number, z: number) => within(grow, x, z) && !holes.some(b => b !== grow && within(b, x, z));
+  const bored = (x: number, z: number) => bores.some(b => within(b, x, z));
+  // full by the rooms, down to 40% 30 m out
+  const bb = holes.reduce((b, h) => ({ x0: Math.min(b.x0, h.x0), x1: Math.max(b.x1, h.x1), z0: Math.min(b.z0, h.z0), z1: Math.max(b.z1, h.z1) }));
+  const shade = (x: number, z: number) => 1 - 0.6 * Math.min(1, Math.hypot(Math.max(bb.x0 - x, 0, x - bb.x1), Math.max(bb.z0 - z, 0, z - bb.z1)) / 30);
+  // the squares' edges: every hole's, tunnel's and bank's, and rings round the rooms for the shading, out to 42 m (as far
+  // as the camera ever sees from anywhere in the cellar, and more)
+  const RINGS = [3, 7, 12, 18, 25, 33, 42];
+  const edges = (a: number[]) => [...new Set(a.filter(Number.isFinite).map(v => Math.round(v * 1000) / 1000))].sort((p, q) => p - q);
+  const xs = edges([...holes, ...bores, ...banks].flatMap(b => [b.x0, b.x1]).concat(RINGS.flatMap(d => [bb.x0 - d, bb.x1 + d])));
+  const zs = edges([...holes, ...bores, ...banks].flatMap(b => [b.z0, b.z1]).concat(RINGS.flatMap(d => [bb.z0 - d, bb.z1 + d])));
+  /** A mesh's worth of quads, each corner's texture by where it is (4 m a tile) and shaded by how far out it is. */
+  const sheet = () => {
+    const pos: number[] = [], nor: number[] = [], uv: number[] = [], col: number[] = [];
+    const quad = (q: number[][], n: number[]) => {
+      for (const i of [0, 1, 2, 0, 2, 3]) {
+        const [x, y, z] = q[i], k = shade(x, z);
+        pos.push(x, y, z); nor.push(...n); col.push(k, k, k);
+        uv.push((n[0] ? z : x) / 4, (n[1] ? z : y) / 4);
+      }
+    };
+    return {
+      /** The top of a square. */
+      flat: (x0: number, x1: number, z0: number, z1: number, h: number) =>
+        quad([[x0, CY + h, z0], [x0, CY + h, z1], [x1, CY + h, z1], [x1, CY + h, z0]], [0, 1, 0]),
+      /** A rock face across x = `at` (or z, `onX` false), from `a0` to `a1` along it, facing `s` (+1 or -1). */
+      face: (onX: boolean, at: number, a0: number, a1: number, y0: number, y1: number, s: number) => {
+        const [p, q] = s > 0 ? [a1, a0] : [a0, a1], v = (a: number, y: number) => onX ? [at, CY + y, a] : [a, CY + y, at];
+        quad(onX ? [v(p, y0), v(q, y0), v(q, y1), v(p, y1)] : [v(q, y0), v(p, y0), v(p, y1), v(q, y1)], onX ? [s, 0, 0] : [0, 0, s]);
+      },
+      mesh: (parent: Object3D) => {
+        const g = new BufferGeometry();
+        g.setAttribute('position', new Float32BufferAttribute(pos, 3)); g.setAttribute('normal', new Float32BufferAttribute(nor, 3));
+        g.setAttribute('uv', new Float32BufferAttribute(uv, 2)); g.setAttribute('color', new Float32BufferAttribute(col, 3));
+        return add(parent, new Mesh(g, EARTH));
+      },
+    };
+  };
+  const open = sheet(), hidden = sheet();
+  for (let i = 0; i < xs.length - 1; i++) {
+    for (let j = 0; j < zs.length - 1; j++) {
+      const x = (xs[i] + xs[i + 1]) / 2, z = (zs[j] + zs[j + 1]) / 2, h = top(x, z);
+      if (h !== null) open.flat(xs[i], xs[i + 1], zs[j], zs[j + 1], h);
+      else if (secret(x, z)) hidden.flat(xs[i], xs[i + 1], zs[j], zs[j + 1], GROUND.cut);
+      // a rock face where it steps up or down to the square east of it, or south of it, facing the lower: the bank's
+      // face down to the floor where a room's dug out in front of it (inside the back walls, but closing off their ends;
+      // never across a tunnel)
+      for (const [onX, x2, z2, at, a0, a1] of [[true, (xs[i + 1] + xs[i + 2]) / 2, z, xs[i + 1], zs[j], zs[j + 1]], [false, x, (zs[j + 1] + zs[j + 2]) / 2, zs[j + 1], xs[i], xs[i + 1]]] as const) {
+        if (Number.isNaN(x2) || Number.isNaN(z2)) continue;
+        const h2 = top(x2, z2);
+        if (h !== null && h2 !== null) { if (h !== h2) open.face(onX, at, a0, a1, Math.min(h, h2), Math.max(h, h2), h > h2 ? 1 : -1); }
+        else if (h === GROUND.bank && !bored(x, z)) open.face(onX, at, a0, a1, 0, h, 1);
+        else if (h2 === GROUND.bank && !bored(x2, z2)) open.face(onX, at, a0, a1, 0, h2, -1);
+      }
+    }
+  }
+  // the dock's piles, every 3.6 m, wherever there's earth all round one
+  const around = [[0, 0], [-0.8, -0.8], [0.8, -0.8], [-0.8, 0.8], [0.8, 0.8]];
+  for (let x = bb.x0 - 18; x <= bb.x1 + 18; x += 3.6) {
+    for (let z = bb.z0 - 18; z <= bb.z1 + 18; z += 3.6) {
+      const h = top(x, z);
+      if (h !== null && around.every(([dx, dz]) => top(x + dx, z + dz) === h)) log(cellar, PILE, x, CY + h, z, 1.6, 0.12, false);
+      else if (around.every(([dx, dz]) => secret(x + dx, z + dz))) log(parts.hidden, PILE, x, CY + GROUND.cut, z, 1.6, 0.12, false);
+    }
+  }
+  return { open: open.mesh(cellar), hidden: hidden.mesh(parts.hidden) };
+})();
+
 // the doorways: a timber frame in the wall, posts and a lintel
-const FRAME_H = 2.0;
 /** Whether a doorway's wall runs east-west (between rooms one behind the other), or north-south (side by side). */
 const acrossX = (t: (typeof DOORS)[number]) => !Object.values(ROOMS).some(r => Math.abs(r.x1 - t.x0) < 0.01 || Math.abs(r.x0 - t.x1) < 0.01);
 for (const t of DOORS) {
@@ -413,9 +564,8 @@ sign('RING', mid(ARENA), 2.85, onTall(ARENA), cellar, 2.2);
 sign('KITCHEN', KITCHEN.x1 - 0.95, onRail, onLow(KITCHEN) - 0.1);
 // (the workshop's east of its doorway, over the sake barrels)
 sign('WORKSHOP', CRAFT.x1 - 1.1, onRail, onLow(CRAFT) - 0.1, cellar, 1.6);
-// the prep hall's: on its tall back wall, then on the low one once that's come down for the grow room
-sign('PREP', mid(PREP), 2.85, onTall(PREP), parts.hidden, 1.8);
-sign('PREP', mid(PREP) - 1.5, onRail, onLow(PREP) - 0.1, parts.grow);
+// (the prep hall's stands on the rail of its back wall, the stone one or the plank one after it: the two are as high)
+sign('PREP', mid(PREP) - 1.5, onRail, onLow(PREP) - 0.1);
 sign('GROW ROOM', mid(GROW), 2.85, onTall(GROW), parts.grow, 2.2);
 const door = (to: CellarRoom) => DOORS.find(t => t.b === to)!;
 sign('OFFICE', (door('office').x0 + door('office').x1) / 2, FRAME_H + 0.3, LANDING.z0 - 0.15, cellar, 1.15);
