@@ -1,5 +1,5 @@
 // The cellar under the dock (stage 3): Mr. Fugu's sumo ring and the stew kitchen that feeds its fans, in rooms side by
-// side, with thin walls and doorways between them. The arena: a big clay dohyo between four posts in the middle, crates
+// side, with thin walls and doorways between them. The arena: a big clay dohyo under lanterns in the middle, crates
 // and planks for stands along the back and west walls, the soup bar by the hearth room's door, and the gong and the
 // cashier's window against the east wall. Down the middle, Mr. Fugu's office (his desk on a dais), the landing with the
 // ladder up to the hatch in the dock, and the hearth room: the big pot, its ledge and the bowl counter. To the east the
@@ -10,8 +10,8 @@
 // This module is the rooms and their furniture; where things are is cellarPlan.ts, and the kitchen's lines, the bouts
 // and the swarm draw themselves (ringKitchen.ts, dohyo.ts, swarm.ts).
 import {
-  AdditiveBlending, BackSide, BoxGeometry, type BufferGeometry, Color, ConeGeometry, CylinderGeometry, DoubleSide, Group, type Material, Matrix4,
-  Mesh, MeshBasicMaterial, MeshLambertMaterial, type Object3D, PlaneGeometry, PointLight, type Side as Facing, TorusGeometry, Vector3,
+  AdditiveBlending, BackSide, BoxGeometry, type BufferGeometry, CatmullRomCurve3, Color, ConeGeometry, CylinderGeometry, DoubleSide, Group, type Material, Matrix4,
+  Mesh, MeshBasicMaterial, MeshLambertMaterial, type Object3D, PlaneGeometry, PointLight, type Side as Facing, TorusGeometry, TubeGeometry, Vector3,
 } from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import {
@@ -70,8 +70,8 @@ export const POT_TOP = 1.43;
 const SACKS = { x: PREP.x1 - 0.6, z: PREP.z0 + 0.55 };
 
 // ---------- materials ----------
-const WOOD = 0x8A5A3B, WOOD_DARK = 0x5B3424, PILE = 0x4A3A30, CLAY = 0xB88A57, STRAW = 0xD9C47E;
-const PURPLE = 0x5B3A7A, IRON = 0x2E2E33, STEEL = 0x8C959C, STEEL_DARK = 0x4B5257;
+const WOOD = 0x8A5A3B, WOOD_DARK = 0x5B3424, PILE = 0x4A3A30, CLAY = 0x6E4428, STRAW = 0xD9C47E;
+const IRON = 0x2E2E33, STEEL = 0x8C959C, STEEL_DARK = 0x4B5257;
 /** Glowing materials (lanterns, the hearth's fire, the hatch's daylight): lit only in the cellar's light. */
 const glow = (color: number, emissive: number) => new MeshLambertMaterial({ color, emissive, emissiveIntensity: 1 });
 const LANTERN_RED = glow(0xE0392B, 0xB0250F), LANTERN_PAPER = glow(0xFFF1D6, 0xFFC46A);
@@ -431,22 +431,45 @@ for (let x = ARENA.x0 + 1.5, i = 0; x <= ARENA.x1 - 1; x += 2.4, i++) lantern(ce
 for (let z = ARENA.z0 + 1.5, i = 0; z <= ARENA.z1 - 1; z += 2.4, i++) lantern(cellar, ARENA.x0 + 0.1, CY + 3.6, z, i % 2 === 1);
 
 // ---------- the dohyo ----------
-// A raised mound of clay, with steps cut into it, a square of straw bales round its top and the circle of bales inside
-// it, sand on top raked smooth, and the two white lines they crouch behind. Over it, instead of a hanging roof (which
-// would hide the bout from the camera above), the four posts of an old ring, each wrapped in its season's colour
-// (green, red, white and black), with a purple rope and paper streamers between them along the back.
-/** The sand on the ring's top: raked smooth, a little paler in a band round the straw circle. */
-const sandTex = canvasTex(256, 256, (c, w, h) => {
-  c.fillStyle = '#CFA56B'; c.fillRect(0, 0, w, h);
-  const g = c.createRadialGradient(w / 2, h / 2, w * 0.3, w / 2, h / 2, w * 0.5);
-  g.addColorStop(0, 'rgba(255,240,210,0)'); g.addColorStop(0.55, 'rgba(255,240,210,.28)'); g.addColorStop(1, 'rgba(255,240,210,0)');
+// A raised mound of tamped clay, dark, the layers it was beaten down in showing on its sides, with steps cut into it, a
+// square of straw bales round its top and the circle of bales inside it, pale sand on top raked in rings, and the two
+// white lines they crouch behind: pale on dark, so the ring stands out from the floor. Over it, it's done up like a
+// shrine fair at night (an ennichi): four green bamboo poles where an old ring's four posts stood, each flying a tall
+// banner (a nobori), and strings of red and paper lanterns between them along the back and the sides (none along the
+// front, where they'd hang across the bout) and up from the back two to a big red lantern with Mr. Fugu's name, high
+// over the middle.
+/** The sand on the ring's top, `SAND_PX` pixels a metre: pale, raked in rings round the middle, paler still in a band
+ *  inside the straw. */
+const SAND_PX = 512 / (RING_HALF * 2);
+const sandTex = canvasTex(512, 512, (c, w, h) => {
+  c.fillStyle = '#D9BE8A'; c.fillRect(0, 0, w, h);
+  const r = RING_R * SAND_PX;
+  const g = c.createRadialGradient(w / 2, h / 2, r * 0.6, w / 2, h / 2, r * 1.05);
+  g.addColorStop(0, 'rgba(255,246,225,0)'); g.addColorStop(0.8, 'rgba(255,246,225,.4)'); g.addColorStop(1, 'rgba(255,246,225,0)');
   c.fillStyle = g; c.fillRect(0, 0, w, h);
-  for (let i = 0; i < 900; i++) {
+  c.lineWidth = 1.4;
+  for (let k = 6, i = 0; k < r * 0.95; k += 7, i++) {
+    c.strokeStyle = `rgba(150,105,55,${i % 2 ? 0.1 : 0.17})`;
+    c.beginPath(); c.arc(w / 2, h / 2, k, 0, Math.PI * 2); c.stroke();
+  }
+  for (let i = 0; i < 1800; i++) {
     const x = Math.sin(i * 12.9898) * 43758.5453, y = Math.sin(i * 78.233) * 43758.5453;
-    c.fillStyle = i % 3 ? 'rgba(120,80,40,.10)' : 'rgba(255,245,220,.16)';
+    c.fillStyle = i % 3 ? 'rgba(120,80,40,.12)' : 'rgba(255,248,230,.2)';
     c.fillRect((x - Math.floor(x)) * w, (y - Math.floor(y)) * h, 2, 2);
   }
 });
+/** The mound's sides: dark clay, in the bands it was tamped down in (once round each side). */
+const clayTex = canvasTex(256, 64, (c, w, h) => {
+  c.fillStyle = '#7E4F2E'; c.fillRect(0, 0, w, h);
+  for (let k = 1; k < 6; k++) { c.fillStyle = k % 2 ? 'rgba(40,22,10,.35)' : 'rgba(170,120,80,.18)'; c.fillRect(0, (h * k) / 6 - 1, w, 2); }
+  for (let i = 0; i < 500; i++) {
+    const x = Math.sin(i * 39.346) * 43758.5453, y = Math.sin(i * 11.135) * 43758.5453;
+    c.fillStyle = i % 2 ? 'rgba(30,15,5,.25)' : 'rgba(190,140,90,.2)';
+    c.fillRect((x - Math.floor(x)) * w, (y - Math.floor(y)) * h, 2, 2);
+  }
+});
+clayTex.tex.wrapS = 1000; // RepeatWrapping
+clayTex.tex.repeat.set(4, 1);
 /** A straw bale (tawara) lying along x, `len` long, at x, y, z in `parent`, turned `turn` about y. */
 const BALE = new CylinderGeometry(0.13, 0.13, 1, 7);
 function bale(parent: Object3D, x: number, y: number, z: number, len: number, turn: number, i: number) {
@@ -454,11 +477,21 @@ function bale(parent: Object3D, x: number, y: number, z: number, len: number, tu
   m.scale.y = len; m.rotation.set(0, turn, Math.PI / 2, 'YXZ');
   return m;
 }
+/** The four banners, from the north-east pole round by the east: the stable's name, "full house", the bout, and the
+ *  underground tournament; and their cloth and lettering. */
+const BANNERS: [word: string, cloth: string, ink: string][] = [
+  ['河豚部屋', '#26345E', '#F2ECE0'], ['大入', '#B8352A', '#F7EFE0'], ['勝負', '#F2ECE0', '#1C1A18'], ['地下場所', '#26345E', '#F2ECE0'],
+];
+const MINCHO = '"Hiragino Mincho ProN","Yu Mincho","Noto Serif JP",serif';
+/** A point every 1/`n` of the way along a string hung from `a` to `b`, sagging `drop` in the middle. */
+const sag = (a: Vector3, b: Vector3, drop: number, n: number) => Array.from({ length: n + 1 }, (_, i) => {
+  const t = i / n, p = a.clone().lerp(b, t); p.y -= drop * 4 * t * (1 - t); return p;
+});
 {
   const g = add(cellar, new Group()); g.position.copy(RING);
   const d = Math.SQRT2;
   // the mound: four-sided, so a turned cylinder is a square with sloping sides
-  const base = add(g, mesh(new CylinderGeometry(RING_HALF * d, (RING_HALF + RING_FOOT) * d, RING_TOP, 4, 1), CLAY, 0, RING_TOP / 2, 0, true));
+  const base = add(g, mesh(new CylinderGeometry(RING_HALF * d, (RING_HALF + RING_FOOT) * d, RING_TOP, 4, 1), [new MeshLambertMaterial({ map: clayTex.tex }), mat(CLAY), mat(CLAY)], 0, RING_TOP / 2, 0, true));
   base.rotation.y = Math.PI / 4;
   const top = add(g, new Mesh(new BoxGeometry(RING_HALF * 2 - 0.02, 0.02, RING_HALF * 2 - 0.02), [mat(CLAY), mat(CLAY), new MeshLambertMaterial({ map: sandTex.tex }), mat(CLAY), mat(CLAY), mat(CLAY)]));
   top.position.y = RING_TOP + 0.01; top.receiveShadow = true;
@@ -466,7 +499,7 @@ function bale(parent: Object3D, x: number, y: number, z: number, len: number, tu
   for (const [x, z] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
     for (let k = 0; k < 2; k++) {
       const out = RING_HALF + RING_FOOT * (k ? 0.7 : 0.25), h = RING_TOP * (k ? 0.36 : 0.7);
-      box(g, 0xB0814F, x * out, h / 2, z * out, x ? 0.4 : 1.3, h, x ? 1.3 : 0.4);
+      box(g, 0x7A4A2B, x * out, h / 2, z * out, x ? 0.4 : 1.3, h, x ? 1.3 : 0.4);
       bale(g, x * (out + (x ? 0.16 : 0)), h, z * (out + (z ? 0.16 : 0)), 1.2, x ? Math.PI / 2 : 0, k);
     }
   }
@@ -491,27 +524,63 @@ function bale(parent: Object3D, x: number, y: number, z: number, len: number, tu
   add(g, mesh(G.cyl, 0xFFFFFF, c, RING_TOP + 0.33, -c)).scale.set(0.17, 0.03, 0.17);
   add(g, mesh(G.cyl, 0x3C6E8F, -c, RING_TOP + 0.15, c, true)).scale.set(0.22, 0.3, 0.22);
   add(g, mesh(G.rope, WOOD, -c + 0.1, RING_TOP + 0.4, c, true)).rotation.z = 0.5;
-  // the four posts, in the seasons' colours, with a tassel each, and the rope and streamers between them
-  const POST = 3.4, at = RING_HALF + RING_FOOT * 0.5;
-  [[1, -1, 0x2F8F5B], [1, 1, 0xC0392B], [-1, 1, 0xF4F1EA], [-1, -1, 0x1B2430]].forEach(([x, z, col]) => {
-    log(g, col, x * at, POST / 2, z * at, 1.25, POST);
-    box(g, WOOD_DARK, x * at, POST + 0.05, z * at, 0.38, 0.1, 0.38);
-    add(g, mesh(G.cone, col, x * at, POST - 0.55, z * at, true)).scale.set(0.15, 0.6, 0.15);
-    add(g, mesh(G.sphere, col, x * at, POST - 0.22, z * at)).scale.setScalar(0.1);
-  });
-  // the rope runs only along the back and west sides: on the near sides it would cut across the ring
-  const ropeH = POST - 0.12;
-  for (const along of ['x', 'z'] as const) {
-    const r = add(g, mesh(G.log, PURPLE, along === 'x' ? 0 : -at, ropeH, along === 'x' ? -at : 0));
-    r.scale.set(0.5, at * 2, 0.5);
-    r.rotation.set(along === 'x' ? 0 : Math.PI / 2, 0, along === 'x' ? Math.PI / 2 : 0);
-    // white paper streamers (shide) hanging from it
-    for (let k = -2; k <= 2; k++) {
-      const o = k * at * 0.36;
-      const [x, z] = along === 'x' ? [o, -at] : [-at, o];
-      box(g, 0xFFFFFF, x, ropeH - 0.2, z, along === 'x' ? 0.1 : 0.02, 0.3, along === 'x' ? 0.02 : 0.1, false);
+  // the four bamboo poles, at the corners, in lengths with a knot at each joint; each banner hangs from a crossbar on its
+  // pole's outer side, turned a little to the camera
+  const POLE = 5.4, at = RING_HALF + RING_FOOT * 0.5, SEG = POLE / 6, tops: Vector3[] = [];
+  [[1, -1], [1, 1], [-1, 1], [-1, -1]].forEach(([sx, sz], i) => {
+    const x = sx * at, z = sz * at;
+    for (let k = 0; k < 6; k++) {
+      add(g, mesh(G.cyl, k % 2 ? 0x8FA552 : 0x7E9446, x, (k + 0.5) * SEG, z, true)).scale.set(0.085, SEG, 0.085);
+      add(g, mesh(G.cyl, 0x5E6E30, x, (k + 1) * SEG, z)).scale.set(0.1, 0.05, 0.1);
     }
+    tops.push(V(x, POLE - 0.1, z));
+    const [word, cloth, ink] = BANNERS[i];
+    const tex = canvasTex(96, 384, (c, w, h) => {
+      c.fillStyle = cloth; c.fillRect(0, 0, w, h);
+      c.fillStyle = ink; c.fillRect(0, 0, w, 14); c.fillRect(0, h - 14, w, 14);
+      c.font = `800 ${word.length > 2 ? 64 : 84}px ${MINCHO}`; c.textAlign = 'center'; c.textBaseline = 'middle';
+      const step = (h - 60) / word.length;
+      [...word].forEach((ch, j) => c.fillText(ch, w / 2, 32 + step * (j + 0.5)));
+    });
+    const fx = x + sx * 0.48, bar = POLE - 0.45;
+    box(g, 0x7E9446, fx, bar + 0.04, z, 0.95, 0.05, 0.05, false);
+    const flag = add(g, mesh(new PlaneGeometry(0.72, 2.6), new MeshLambertMaterial({ map: tex.tex, side: DoubleSide }), fx, bar - 1.3, z, true));
+    flag.rotation.y = sx * sz > 0 ? 0.35 : -0.35;
+  });
+  // the lantern strings, and the lanterns on them (two shapes in all: one for the red ones and one for the paper)
+  const hub = V(0, POLE + 1.6, 0), lit: Record<'red' | 'paper', BufferGeometry[]> = { red: [], paper: [] };
+  const string = (pts: Vector3[]) => add(g, mesh(new TubeGeometry(new CatmullRomCurve3(pts), 24, 0.015, 4), 0x1A1614));
+  const lamp = (p: Vector3, red: boolean, s: number) => {
+    const ball = G.sphere.clone(); ball.scale(0.2 * s, 0.26 * s, 0.2 * s); ball.translate(p.x, p.y, p.z);
+    lit[red ? 'red' : 'paper'].push(ball);
+    for (const k of [-1, 1]) add(g, mesh(G.cyl, 0x1B2430, p.x, p.y + k * 0.25 * s, p.z)).scale.set(0.1 * s, 0.05 * s, 0.1 * s);
+  };
+  for (let i = 0; i < 4; i++) {
+    // (the front poles, south-east and south-west, have none up to the big lantern, nor one between them: seen from
+    // behind the ring, they'd cross the bout)
+    if (tops[i].z < 0) {
+      const up = sag(tops[i], hub, 0.5, 8); string(up);
+      for (const k of [3, 5]) lamp(up[k].clone().setY(up[k].y - 0.28), k === 3, 0.75);
+    }
+    if (i === 1) continue;
+    const along = sag(tops[i], tops[(i + 1) % 4], 0.7, 12); string(along);
+    for (let k = 1; k < 12; k++) lamp(along[k].clone().setY(along[k].y - 0.3), (k + i) % 2 === 0, 0.85);
   }
+  add(g, new Mesh(mergeGeometries(lit.red)!, LANTERN_RED));
+  add(g, new Mesh(mergeGeometries(lit.paper)!, LANTERN_PAPER));
+  lit.red.concat(lit.paper).forEach(b => b.dispose());
+  // the big red lantern over the middle, "河豚" (fugu) on both sides, glowing through its paper
+  const big = canvasTex(256, 128, (c, w, h) => {
+    c.fillStyle = '#C8301F'; c.fillRect(0, 0, w, h);
+    c.fillStyle = 'rgba(0,0,0,.18)'; for (let y = 6; y < h; y += 10) c.fillRect(0, y, w, 2);
+    c.fillStyle = '#16100D'; c.font = `800 62px ${MINCHO}`; c.textAlign = 'center'; c.textBaseline = 'middle';
+    for (const x of [0.25, 0.75]) c.fillText('河豚', w * x, h / 2);
+  });
+  const BIG_Y = POLE + 0.95;
+  add(g, mesh(G.sphere, new MeshLambertMaterial({ map: big.tex, emissive: 0xFFFFFF, emissiveMap: big.tex, emissiveIntensity: 0.55 }), 0, BIG_Y, 0)).scale.set(0.42, 0.56, 0.42);
+  for (const k of [-1, 1]) add(g, mesh(G.cyl, 0x1B2430, 0, BIG_Y + k * 0.56, 0)).scale.set(0.22, 0.08, 0.22);
+  // its cord, on up past the strings' knot to the dock's beams
+  add(g, mesh(G.rope, 0x1A1614, 0, (BIG_Y + 0.6 + hub.y + 2) / 2, 0)).scale.y = hub.y + 2 - BIG_Y - 0.6;
 }
 
 // ---------- the stands: crates and planks, in tiers, with a cushioned seat for each fan ----------
@@ -552,14 +621,25 @@ stand(baseStand, 'base', 'x', BACK.a0, BACK.a1, BACK.wall, 1, 0, 2, 0.62);
 stand(parts.bleachers, 'bleachers', 'z', WEST.a0, WEST.a1, WEST.wall, 1, 0, 2, 0.62);
 stand(parts.tier, 'tier', 'x', BACK.a0, BACK.a1, BACK.wall, 1, 2, 1, 0.62);
 stand(parts.tier, 'tier', 'z', WEST.a0, WEST.a1, WEST.wall, 1, 2, 1, 0.62);
-// the VIP boxes: red cushioned chairs right by the ring, on its south side
+// the VIP boxes: box seats (masu-seki) right by the ring, on its south side: a low platform with a red skirt, split
+// by rails into a box for each pair, a cushion for each seat, and a sake flask and two cups in every other box
 const VIP_Z = RING.z + RING_HALF + RING_FOOT + 0.7;
+{
+  const H = 0.4, w = 7.2;
+  box(parts.vip, WOOD_DARK, RING.x, CY + H / 2, VIP_Z, w, H, 0.9);
+  box(parts.vip, WOOD, RING.x, CY + H + 0.01, VIP_Z, w - 0.04, 0.02, 0.86, false);
+  box(parts.vip, 0xC0392B, RING.x, CY + H * 0.55, VIP_Z + 0.455, w - 0.1, H * 0.6, 0.02, false);
+  for (const s of [-1, 1]) box(parts.vip, WOOD_DARK, RING.x, CY + H + 0.07, VIP_Z + s * 0.42, w, 0.14, 0.06);
+  for (let j = 0; j <= 4; j++) box(parts.vip, WOOD_DARK, RING.x - w / 2 + j * 1.8, CY + H + 0.07, VIP_Z, 0.06, 0.14, 0.9);
+  for (let j = 0; j < 4; j += 2) {
+    const x = RING.x - 2.7 + j * 1.8;
+    add(parts.vip, mesh(G.cyl, 0xF4F1EA, x, CY + H + 0.12, VIP_Z - 0.25)).scale.set(0.06, 0.22, 0.06);
+    for (const s of [-1, 1]) add(parts.vip, mesh(G.cyl, 0xF4F1EA, x + s * 0.14, CY + H + 0.04, VIP_Z - 0.25)).scale.set(0.035, 0.05, 0.035);
+  }
+}
 for (let i = 0; i < 8; i++) {
   const x = RING.x - 3.15 + i * 0.9, z = VIP_Z;
-  const chair = add(parts.vip, new Group()); chair.position.set(x, CY, z);
-  box(chair, 0xC0392B, 0, 0.42, 0, 0.5, 0.12, 0.5);
-  box(chair, 0xC0392B, 0, 0.75, 0.24, 0.5, 0.6, 0.1);
-  box(chair, 0xF2C14E, 0, 0.2, 0, 0.42, 0.4, 0.42, false);
+  box(parts.vip, i % 2 ? 0x8E2B2B : 0xF2C14E, x, CY + 0.44, z + 0.05, 0.46, 0.07, 0.46, false);
   places.push({ pos: V(x, CY + 0.25, z - 0.05), h: Math.PI, part: 'vip' });
 }
 /** Keeps a spectator's place hidden until it's built. */
@@ -693,6 +773,36 @@ export const BAR_STEW = BAR.top + 0.47;
  *  further out from its middle; on the hatch's side they stop short, so the player can step up into it. */
 const BAR_BOXES = ([[-0.075, 1.275, 0.3], [0, 1.2, 0.7], [0, 0.98, 0.98], [0, 0.7, 1.2], [0, 0.3, 1.35]] as const)
   .map(([dx, hx, hz]): [number, number, number, number] => [BAR.x + dx, BAR.z, hx, hz]);
+/** Straw-wrapped sake barrels (komodaru), stacked against the east wall between the landing's door and the soup bar, the
+ *  way a shrine stacks the ones it's given. */
+const KOMO = { x: ARENA.x1 - 0.35, z: 1.95 };
+{
+  // two wraps, each with its crest on the side facing the arena and the one facing the camera
+  const wrap = (i: number) => canvasTex(256, 128, (c, w, h) => {
+    c.fillStyle = '#D2B878'; c.fillRect(0, 0, w, h);
+    for (let k = 0; k < 90; k++) {
+      const x = Math.sin((k + i * 90) * 12.9898) * 43758.5453;
+      c.fillStyle = k % 3 ? 'rgba(130,95,40,.35)' : 'rgba(255,240,190,.4)'; c.fillRect((x - Math.floor(x)) * w, 0, 1.4, h);
+    }
+    c.fillStyle = '#1A1614'; c.fillRect(0, 16, w, 5); c.fillRect(0, h - 21, w, 5);
+    c.font = `800 36px ${MINCHO}`; c.textAlign = 'center'; c.textBaseline = 'middle';
+    // (round the barrel from the south: west is three quarters of the way, and the south's at both edges)
+    for (const x of [0, 0.75, 1]) {
+      c.fillStyle = i ? '#B8352A' : '#1E2C55'; c.beginPath(); c.arc(w * x, h / 2, 30, 0, Math.PI * 2); c.fill();
+      c.fillStyle = '#F7EFE0'; c.fillText(i ? '酒' : '鰒', w * x, h / 2 + 2);
+    }
+  });
+  const geos: BufferGeometry[][] = [[], []];
+  let n = 0;
+  for (const [row, y] of [[4, 0.3], [3, 0.9], [2, 1.5]]) {
+    for (let k = 0; k < row; k++) {
+      const b = new CylinderGeometry(0.3, 0.3, 0.6, 14);
+      b.translate(KOMO.x, CY + y, KOMO.z + (k - (row - 1) / 2) * 0.62);
+      geos[n++ % 2].push(b);
+    }
+  }
+  geos.forEach((gs, i) => { add(cellar, mesh(mergeGeometries(gs)!, new MeshLambertMaterial({ map: wrap(i).tex }), 0, 0, 0, true)); gs.forEach(b => b.dispose()); });
+}
 /** The gong: a bronze disc hung in a black frame (gong.ts swings it). */
 export const gongDisc = new Group();
 {
@@ -1471,9 +1581,9 @@ export function cellarLights(on: boolean) { lights.forEach(l => { l.visible = on
 
 // ---------- walking ----------
 /** What a walker can't walk through down here, as boxes (centre and half-sizes, a walker's width included): the ring,
- *  the stands, the soup bar, the gong and the cashier's window, the hearth and the counter, the dumbwaiter and its bins,
- *  the machines built so far, the teppo post, the office's furniture, and what the venue's tiers add. (The rooms'
- *  walls are where the floor ends: layout.ts.) */
+ *  the stands, the soup bar, the sake barrels, the gong and the cashier's window, the hearth and the counter, the
+ *  dumbwaiter and its bins, the machines built so far, the teppo post, the office's furniture, and what the venue's
+ *  tiers add. (The rooms' walls are where the floor ends: layout.ts.) */
 export function cellarBoxes(machines: Record<'rice' | 'fish' | 'mush', number> = { rice: 0, fish: 0, mush: 0 }) {
   const t = parts.tier.visible;
   const boxes: [cx: number, cz: number, hx: number, hz: number][] = [
@@ -1483,6 +1593,7 @@ export function cellarBoxes(machines: Record<'rice' | 'fish' | 'mush', number> =
     [GONG.x, GONG.z, 0.45, 1.15],
     [CASHIER.x, CASHIER.z, 0.65, 1.3],
     [TEPPO.x, TEPPO.z, 0.5, 0.5],
+    [KOMO.x, KOMO.z, 0.5, 1.45],
     // the hearth room: the hearth and the counter behind it, and the bowl counter
     [HEARTH.x, (KITCHEN.z0 + HEARTH.z + HEARTH.d / 2 + 0.6) / 2, HEARTH.w / 2 + 0.3, (HEARTH.z + HEARTH.d / 2 + 0.6 - KITCHEN.z0) / 2 + 0.3],
     [COUNTER.x, COUNTER.z, 0.75, 0.95],
