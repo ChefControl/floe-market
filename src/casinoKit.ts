@@ -77,27 +77,85 @@ export function gamePad(
 export const CHIPS: Record<1 | 2, number[]> = { 1: [5, 25, 100, 500], 2: [50, 250, 1000, 5000] };
 const chipLabel = (v: number) => v >= 1000 ? `$${v / 1000}k` : `$${v}`;
 
+/** Holding a chip (or Undo) down: how long before it starts going on its own, how often it goes at first, and how
+ *  often at most, as it speeds up. In ms. */
+export const HOLD = { wait: 400, first: 180, fastest: 45 };
+
+/** What's down: how many of each chip, or all in. */
+interface Down { pile: number[]; all: boolean }
+
 /**
  * The stake in a game's panel, made up as at a real table: each tap on a chip puts one more of it down (three $1k chips
- * make $3k), Clear takes them all back, and All in puts down everything. What's down is kept as how many of each chip
- * (one of the second, to start with), so it grows with the stage at the stage-up, and it stays down from one round to
- * the next. Changing it calls `picked`; nothing while `busy`.
+ * make $3k), and holding one keeps putting them down, faster and faster, till it's let go or there's no cash for
+ * another. Undo takes back the last change (a chip, or All in), and holding it takes them back the same way; All in
+ * puts down everything. What's down is kept as how many of each chip (one of the second, to start with), so it grows
+ * with the stage at the stage-up, and it stays down from one round to the next. Changing it calls `picked`; nothing
+ * while `busy`.
  */
 export class Stakes {
   /** How many of each of the stage's chips are down. */
   pile = [0, 1, 0, 0];
   /** All in: everything the player has, instead of the pile. */
   all = false;
-  constructor(readonly el: HTMLElement, busy: () => boolean, picked: () => void) {
-    el.addEventListener('click', e => {
-      const b = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-stake]');
-      if (!b || busy()) return;
-      const v = b.dataset.stake!, chip = v !== 'all' && v !== 'clear';
-      // all in, clear, or a chip after all in: start again from nothing
-      if (!chip || this.all) { this.all = v === 'all'; this.pile.fill(0); }
-      if (chip) this.pile[Number(v)]++;
-      picked();
+  /** What was down before each change, the last change last: Undo goes back through it (to nothing down, at most). */
+  private past: Down[] = [{ pile: [0, 0, 0, 0], all: false }];
+  /** The chip (or Undo) the pointer is holding down, and the timer for its next go. */
+  private held: HTMLButtonElement | null = null;
+  private timer = 0;
+
+  constructor(readonly el: HTMLElement, private busy: () => boolean, private picked: () => void) {
+    el.addEventListener('pointerdown', e => {
+      const b = this.button(e);
+      if (!b || b.dataset.stake === 'all' || b.disabled || busy()) return;
+      this.release();
+      this.held = b;
+      try { b.setPointerCapture(e.pointerId); } catch { /* pointer already gone */ }
+      this.press(b);
+      this.repeat(b, HOLD.wait, HOLD.first);
     });
+    for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) el.addEventListener(ev, () => this.release());
+    // a long press shouldn't bring up the browser's menu
+    el.addEventListener('contextmenu', e => { if (this.button(e)) e.preventDefault(); });
+    // taps from the keyboard (or All in); a chip the pointer pressed has gone down already
+    el.addEventListener('click', e => {
+      const b = this.button(e);
+      if (b && b !== this.held && !busy()) this.press(b);
+    });
+  }
+
+  private button(e: Event) { return (e.target as HTMLElement).closest<HTMLButtonElement>('[data-stake]'); }
+
+  /** One go of `b`: a chip down, All in, or Undo. */
+  private press(b: HTMLButtonElement) {
+    const v = b.dataset.stake!;
+    if (v === 'undo') {
+      const last = this.past.pop();
+      if (!last) return;
+      this.pile = last.pile; this.all = last.all;
+    } else {
+      if (v === 'all' && this.all) return;
+      this.past.push({ pile: [...this.pile], all: this.all });
+      // all in starts from nothing, and so does a chip after all in
+      if (v === 'all' || this.all) { this.all = v === 'all'; this.pile = [0, 0, 0, 0]; }
+      if (v !== 'all') this.pile[Number(v)]++;
+    }
+    this.picked();
+  }
+
+  /** Goes again in `wait` ms while `b` is held, a little sooner each time, till it can't. */
+  private repeat(b: HTMLButtonElement, wait: number, every: number) {
+    this.timer = window.setTimeout(() => {
+      if (this.held !== b || b.disabled || this.busy()) return;
+      this.press(b);
+      this.repeat(b, every, Math.max(HOLD.fastest, every * 0.85));
+    }, wait);
+  }
+
+  /** Lets go of the held chip: after the click that comes with letting go, so that click doesn't count again. */
+  private release() {
+    clearTimeout(this.timer);
+    const b = this.held;
+    if (b) setTimeout(() => { if (this.held === b) this.held = null; });
   }
 
   /** The stake in dollars. */
@@ -115,7 +173,7 @@ export class Stakes {
       if (v === 'all') {
         b.setAttribute('aria-pressed', String(this.all));
         b.disabled = busy || wallet.money <= 0;
-      } else if (v === 'clear') b.disabled = busy || (!this.all && this.value === 0);
+      } else if (v === 'undo') b.disabled = busy || !this.past.length;
       else {
         const amount = CHIPS[stage.n][Number(v)], n = this.all ? 0 : this.pile[Number(v)];
         b.textContent = chipLabel(amount);
