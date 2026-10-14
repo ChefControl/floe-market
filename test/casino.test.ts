@@ -506,8 +506,15 @@ describe('the roulette table', () => {
     try {
       const chip = button('#roulette [data-stake="2"]'), undo = button('#roulette [data-stake="undo"]');
       const press = (b: HTMLElement, ev: string) => b.dispatchEvent(new Event(ev, { bubbles: true }));
+      // the click a finger or the mouse makes (a keyboard's has detail 0)
+      const tap = (b: HTMLElement) => b.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 1 }));
       // a tap: down, up and the click that comes with it make one chip
-      press(chip, 'pointerdown'); press(chip, 'pointerup'); chip.click(); vi.runAllTimers();
+      press(chip, 'pointerdown'); press(chip, 'pointerup'); tap(chip); vi.runAllTimers();
+      expect(chip.dataset.n).toBe('×1');
+      // on an iPhone the click can come after the game's next timers have run: still one chip (reports#9)
+      press(chip, 'pointerdown'); press(chip, 'pointerup'); vi.runAllTimers(); tap(chip);
+      expect(chip.dataset.n).toBe('×2');
+      click('#roulette [data-stake="undo"]');
       expect(chip.dataset.n).toBe('×1');
       // held: one at once, then on its own after a moment, coming quicker
       press(chip, 'pointerdown');
@@ -518,7 +525,7 @@ describe('the roulette table', () => {
       expect(chip.dataset.n).toBe('×3');
       vi.advanceTimersByTime(HOLD.first + HOLD.first * 0.85);
       expect(chip.dataset.n).toBe('×5');
-      press(chip, 'pointerup'); chip.click(); vi.advanceTimersByTime(5000);
+      press(chip, 'pointerup'); tap(chip); vi.advanceTimersByTime(5000);
       expect(chip.dataset.n).toBe('×5');
       // held till there's no cash for another: $25 + 19 × $100 is all $2,000
       press(chip, 'pointerdown'); vi.advanceTimersByTime(10_000);
