@@ -227,11 +227,21 @@ function drawSlot(s: Slot, dt: number) {
 
 // ---------- the ledge, the counter and the soup bar ----------
 const MAKE: Record<Ing, () => Mesh> = { rice: newReadyRice, fish: newCuredFish, mush: newMushroom };
-/** What's on the ledge: up to eight of each, in its own tray, stacked two high. */
+/** How each ingredient's laid out in its tray on the ledge, square to it: so many across, so many deep, layer on layer
+ *  (`w`, `d` and `h` apart), lying the long way (`turn`) or not. Fish fillets are two piles of four, laid along the tray. */
+const TRAY: Record<Ing, { across: number; deep: number; w: number; d: number; h: number; turn: number }> = {
+  rice: { across: 2, deep: 2, w: 0.25, d: 0.22, h: 0.09, turn: 0 },
+  fish: { across: 2, deep: 1, w: 0.33, d: 0, h: 0.08, turn: Math.PI / 2 },
+  mush: { across: 4, deep: 2, w: 0.13, d: 0.18, h: 0.08, turn: 0 },
+};
+/** The top of the ledge's trays, and the middle of them front to back (cellar.ts lays them in front of the hearth). */
+const TRAY_TOP = HEARTH.h * 0.75 + 0.055, TRAY_Z = HEARTH.z + HEARTH.d / 2 + 0.3;
+/** What's on the ledge: up to eight of each, in its own tray, the bottom layer filled first. */
 const ledge = Object.fromEntries((['rice', 'fish', 'mush'] as const).map(k => [k, Array.from({ length: 8 }, (_, j) => {
-  const m = add(cellar, MAKE[k]());
-  m.position.set(LEDGE[k].x + ((j % 4) - 1.5) * 0.12, CY + 0.62 + Math.floor(j / 4) * 0.08, LEDGE[k].z - 0.48 + (j % 2) * 0.08);
-  m.rotation.y = j * 0.7;
+  const m = add(cellar, MAKE[k]()), t = TRAY[k], n = t.across * t.deep, i = j % n;
+  const col = i % t.across, row = Math.floor(i / t.across), half = 0.045;
+  m.position.set(LEDGE[k].x + (col - (t.across - 1) / 2) * t.w, CY + TRAY_TOP + half + Math.floor(j / n) * t.h, TRAY_Z + (row - (t.deep - 1) / 2) * t.d);
+  m.rotation.y = t.turn;
   m.visible = false;
   return m;
 })])) as Record<Ing, Mesh[]>;
@@ -291,7 +301,11 @@ const SOUP: Record<Ing, [number, number, number]> = { rice: [239, 230, 207], fis
 const steam = Array.from({ length: 6 }, (_, j) => { const s = add(cellar, mesh(G.sphere, smoke, POT.x, CY + POT_TOP, POT.z)); s.userData.t = j / 6; return s; });
 /** The stew: the bowls in the pot, cooked and not yet ladled out; empty once they're all out, brimming when it's full. */
 const potFill = potMesh.getObjectByName('potFill')!;
-const POT_LOW = HEARTH.h + 0.16;
+/** Where the stew stands with none left: on the pot's floor, so the last bowl's worth sinks away rather than vanishing. */
+const POT_LOW = HEARTH.h + 0.115;
+/** How high the stew's drawn (0 to 1): up at once as a batch goes in, down no faster than this a second. */
+let stewK = 0;
+const STEW_FALL = 0.3;
 /** The tally tag hung on the pot's front, saying how many bowls are in it (unlit, so the fire can't wash it out). */
 const tallyCv = document.createElement('canvas'); tallyCv.width = 192; tallyCv.height = 96;
 const tallyTex = new CanvasTexture(tallyCv);
@@ -314,8 +328,9 @@ function drawTally(n: number) {
 }
 function drawPot(dt: number) {
   const ready = F.pot.length;
-  potFill.visible = ready > 0;
-  const f = Math.min(1, ready / POT_CAP), y = POT_LOW + (POT_TOP - POT_LOW) * f;
+  stewK = Math.max(Math.min(1, ready / POT_CAP), stewK - STEW_FALL * dt);
+  potFill.visible = stewK > 0.002;
+  const y = POT_LOW + (POT_TOP - POT_LOW) * stewK;
   // the pot narrows towards its foot, so the stew does too
   const r = 0.66 + 0.2 * (y - HEARTH.h - 0.08) / 0.56 - 0.05;
   potFill.position.y = y - POT_TOP; potFill.scale.set(Math.min(1, r / 0.8), 1, Math.min(1, r / 0.8));
@@ -538,7 +553,7 @@ export function updRingKitchen(dt: number) {
 }
 /** Where a ready ingredient lands on the ledge, and a bowl on the soup bar (in through its hatch), for things flying
  *  there. */
-export const ledgeAt = (k: Ing) => V(LEDGE[k].x, CY + 0.7, LEDGE[k].z - 0.45);
+export const ledgeAt = (k: Ing) => V(LEDGE[k].x, CY + TRAY_TOP + 0.1, TRAY_Z);
 export const barAt = () => V(BAR.x + 0.8, CY + BAR.top + 0.1, BAR.z);
 export const counterAt = () => V(COUNTER.x, CY + 0.9, COUNTER.z);
 export const machineSpot = (k: Ing, i: number) => { const m = machineAt(k, i); return V(m.x, CY + 0.9, m.z); };

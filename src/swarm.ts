@@ -298,7 +298,8 @@ function sync() {
   // the last bout's fans go home
   for (const [k, f] of fans) {
     if (want.has(k)) continue;
-    if (!f.out) { f.out = true; go(f, null, tunnelOf(k).deep, hash(k, 1) * 1.2); }
+    // (at a walk: no longer due anywhere, so nothing hurries them)
+    if (!f.out) { f.out = true; f.due = -1; f.via = null; go(f, null, tunnelOf(k).deep, hash(k, 1) * 1.2); }
     else if (f.routed && !f.way.length) fans.delete(k);
   }
   for (const [k, w] of want) {
@@ -377,6 +378,8 @@ const ROUTES_A_FRAME = 200;
 let slow = 0, shadows = true;
 /** How far a seated fan's legs come up in front of them, as a diner's do (ads.ts), and how fast they sit and stand. */
 const SIT_LEGS = -1.45, SIT_RATE = 5;
+/** How fast fans walk home (before the bar's open, they walk in at the same pace). */
+const HOME_PACE = 2.6;
 /** Where the fans who got their bowl this frame were when they did (for tests). */
 const turned: XZ[] = [];
 export const turnedAt = () => turned;
@@ -397,9 +400,10 @@ export function updSwarm(dt: number) {
     let moving = false;
     if (f.t > 0 && f.way.length) {
       const p = f.way[0], dx = p.x - f.x, dz = p.z - f.z, d = Math.hypot(dx, dz);
-      // (a boss's crowd is all round the bar by the time his bell starts: anyone running late hurries)
-      let v = pace * f.speed * dt;
-      if (R && R.walk > 0 && !f.seat) v = Math.max(v, (d + wayLeft(f)) / Math.max(dt, R.walk) * dt);
+      // (going home, they walk: nobody's due anywhere. A boss's crowd is all round the bar by the time his bell starts:
+      // anyone running late hurries)
+      let v = (f.out ? HOME_PACE : pace) * f.speed * dt;
+      if (f.out) { /* (at a walk) */ } else if (R && R.walk > 0 && !f.seat) v = Math.max(v, (d + wayLeft(f)) / Math.max(dt, R.walk) * dt);
       // (and so does a local fan who'd get to the bar after they're due at it, or one with their bowl waiting)
       else if (!R && !f.seat && f.due > 0) v = Math.max(v, (d + wayLeft(f)) / Math.max(dt, f.due - F.t) * dt);
       else if (f.via) v = Math.max(v, 3.2 * f.speed * dt);
@@ -571,5 +575,7 @@ export const swarm = () => {
   const all = [...fans.values()].filter(f => !f.out), sat = all.filter(f => f.seat && f.routed && !f.way.length);
   return { n: all.length, ours: all.filter(f => f.c === OURS).length, seated: sat.length, benched: sat.filter(f => f.y > 0.05).length, shadows };
 };
+/** Where each fan is, by who they are, and whether they're going home (for tests). */
+export const whereabouts = () => [...fans.values()].map(f => ({ key: f.key, x: f.x, z: f.z, out: f.out }));
 /** Every fan's way, for tests: where they are and the corners they'll pass. */
 export const ways = () => [...fans.values()].map(f => [{ x: f.x, z: f.z }, ...f.way]);

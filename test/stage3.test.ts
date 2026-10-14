@@ -483,6 +483,24 @@ describe('the rooms', () => {
     expect(spare).toEqual([]);
   });
 
+  it('keeps a metre clear in front of every doorway, both sides: nothing stands in the way of going through', async () => {
+    const { g, cellar } = await ring({ ring: RING_DONE });
+    g.layout.found.grow = true;
+    const six = { rice: 6, fish: 6, mush: 6 }, inWay: string[] = [];
+    for (const d of g.layout.DOORS) {
+      const across = d.x1 - d.x0 < d.z1 - d.z0; // (a doorway in a wall along z: going through it is along x)
+      for (let a = 0.15; a <= 0.85; a += 0.1) for (const out of [-1, -0.5, 0.5, 1]) {
+        const q = across
+          ? { x: out < 0 ? d.x0 + out : d.x1 + out, z: d.z0 + (d.z1 - d.z0) * a }
+          : { x: d.x0 + (d.x1 - d.x0) * a, z: out < 0 ? d.z0 + out : d.z1 + out };
+        const was = { ...q };
+        cellar.collideCellar(q, six);
+        if (Math.hypot(q.x - was.x, q.z - was.z) > 1e-6) inWay.push(`${d.a}-${d.b} at ${was.x.toFixed(1)},${was.z.toFixed(1)}`);
+      }
+    }
+    expect(inWay).toEqual([]);
+  });
+
   it('has a clear way, round all the furniture and six of every machine, on every leg of the work', async () => {
     const { g, cellar, plan } = await ring({ ring: RING_DONE });
     const { cellarRoute } = await import('./bot');
@@ -668,7 +686,10 @@ describe('the kitchen, by hand', () => {
     expect(potShows().stew).toBeLessThan(fight.BATCH / fight.POT_CAP - 0.05);
     expect(F().counter.length).toBeGreaterThan(0);
     expect(F().pot.length + F().counter.length).toBe(fight.BATCH);
-    g.run(3);
+    // (going down smoothly, the last bowl's worth too: it sinks to the pot's floor rather than vanishing)
+    let last = potShows().stew, drop = 0;
+    for (let i = 0; i < 180; i++) { g.run(1 / 60); drop = Math.max(drop, last - potShows().stew); last = potShows().stew; }
+    expect(drop).toBeLessThan(0.3 / 60 + 1e-6);
     expect(potShows()).toEqual({ stew: 0, tag: 0, landed: fight.BATCH });
     expect(F().counter).toHaveLength(fight.BATCH);
     // carrying bowls from the counter to the soup bar leaves the pot as it is
@@ -763,6 +784,26 @@ describe('a bout', () => {
     expect(swarm.swarm().n).toBe(0);
     g.run(fight.BOUT.fight);
     expect(F().bout.win).toBe(true);
+  });
+
+  it('the fans go home at a walk, the hungry ones and the rest after the bout, never in a jump', async () => {
+    const { g, fight, swarm, F } = await ring();
+    const crowd = fight.crowdNow();
+    for (let i = 0; i < Math.ceil(crowd / 2); i++) fight.toStall(false);
+    const was = new Map<number, { x: number; z: number }>();
+    let fastest = 0, leaving = 0;
+    const DT = 0.05, end = F().bout.n + 1;
+    for (let i = 0; i < 4000 && F().bout.n <= end; i++) {
+      g.run(DT);
+      for (const f of swarm.whereabouts()) {
+        const p = was.get(f.key);
+        if (f.out && p) { fastest = Math.max(fastest, Math.hypot(f.x - p.x, f.z - p.z) / DT); leaving++; }
+        was.set(f.key, { x: f.x, z: f.z });
+      }
+    }
+    // (hungry ones went home when the fans sat down, and everyone after the result)
+    expect(leaving).toBeGreaterThan(100);
+    expect(fastest).toBeLessThan(3.5);
   });
 });
 

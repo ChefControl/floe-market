@@ -189,7 +189,8 @@ function listRow(it: Item) {
     for (let i = 0; i < max; i++) { const d = document.createElement('i'); if (i < n) d.className = 'on'; dots.append(d); }
     name.append(dots);
   }
-  row.children[1].children[1].textContent = it.desc;
+  const sub = row.children[1].children[1] as HTMLElement;
+  sub.textContent = it.desc; sub.title = it.desc;
   const b = row.children[2] as HTMLButtonElement;
   b.dataset.key = it.key; b.textContent = it.tag; b.disabled = !canBuy(it);
   b.setAttribute('aria-label', it.sale ? `Buy ${it.name}, ${it.tag}` : `${it.name}: ${it.tag}`);

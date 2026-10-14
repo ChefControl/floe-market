@@ -17,7 +17,7 @@ import {
 } from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import {
-  BAR, BENCH, BINS, CASHIER, CHUTE, chuteY, COUNTER, GONG, HEARTH, LIFTS, machineAt, MAX_MACHINES, POT, STORES, TEPPO, TUNNEL_D, TUNNEL_W, TUNNELS,
+  BAR, BENCH, BIN_PADS, BINS, CASHIER, CHUTE, chuteY, COUNTER, GONG, HEARTH, LIFTS, machineAt, MAX_MACHINES, POT, STORES, TEPPO, TUNNEL_D, TUNNEL_W, TUNNELS,
 } from './cellarPlan';
 import { Fugu } from './fugu';
 import { ARENA, CELLAR_Y, type CellarRoom, CRAFT, DOORS, found, GROW, keepOnFloor, KITCHEN, LANDING, LIFT_ROOM, OFFICE_ROOM, PREP, pushOutOfBox, ROOMS, walkable } from './layout';
@@ -69,7 +69,7 @@ export const LIFT_H = 4.6;
 export const LIFT_LOOP = { front: 0.25, back: -0.25, bottom: 1.6, top: LIFT_H - 0.45 };
 /** (Just over the pot's iron top, at 1.39, and under its rim: two faces at one height flicker.) */
 export const POT_TOP = 1.43;
-const SACKS = { x: PREP.x1 - 0.6, z: PREP.z0 + 0.55 };
+const SACKS = { x: PREP.x1 - 0.42, z: (BIN_PADS.rice.z + BIN_PADS.fish.z) / 2 };
 
 // ---------- materials ----------
 const WOOD = 0x8A5A3B, WOOD_DARK = 0x5B3424, PILE = 0x4A3A30, CLAY = 0x6E4428, STRAW = 0xD9C47E;
@@ -303,7 +303,13 @@ function officeWall() {
   for (let x = x0 + 0.45; x < x1 - 0.2; x += 0.9) box(cellar, 0x4E2E1E, x, CY + 0.55, z + 0.17, 0.7, 0.75, 0.02, false);
   box(cellar, WOOD_DARK, mid, CY + 1.12, z + 0.16, len, 0.08, 0.1, false);
   box(cellar, 0x2A1810, mid, CY + 0.06, z + 0.17, len, 0.12, 0.06, false);
-  box(cellar, WOOD_DARK, mid, CY + H, z + 0.08, len + 0.1, 0.22, 0.4, false);
+  // (its cap the piles' walls' own, as high and as deep, so the three run on as one along the top; a moulding under it)
+  box(cellar, WOOD_DARK, mid, CY + TALL - 0.1, line(r, 'n', 0.75), len, 0.2, 1.1, false);
+  box(cellar, WOOD_DARK, mid, CY + TALL - 0.3, z + 0.14, len, 0.16, 0.12, false);
+  // a timber post at each end, from the piles' planks either side out past its own face, so nothing shows behind it and
+  // no face of the walls either side is flush with one of its own (two faces in one place flicker)
+  const front = z + 0.32, rear = line(r, 'n', 0.95);
+  for (const x of [x0, x1]) box(cellar, PILE, x, CY + (TALL - 0.2) / 2, (front + rear) / 2, 0.4, TALL - 0.2, front - rear, false);
   /** A picture on the wall: a canvas in a gold frame. */
   const picture = (x: number, y: number, w: number, h: number, draw: (c: CanvasRenderingContext2D, w: number, h: number) => void) => {
     const t = canvasTex(Math.round(w * 160), Math.round(h * 160), draw), f = mat(0xC9A23A);
@@ -1411,12 +1417,15 @@ function spout(parent: Object3D, x: number, y: number) {
     if (k === 'rice') box(tray, STRAW, 0, 0.593, 0, 0.42, 0.006, 0.64, false);
     else for (const s of [-1, 1]) add(tray, mesh(G.sphere, s < 0 ? 0x3F7A3A : 0x4E8C45, s * 0.1, 0.593, 0)).scale.set(0.12, 0.004, 0.32);
   }
-  // rice sacks in the corner
+  // rice in tawara against the east wall, between the two trays' circles (in the corner, it was in the grow room's way):
+  // straw bales lying on their sides, two and one on top, each bound with three straw ropes and capped at its ends
   const k = add(cellar, new Group()); k.position.set(SACKS.x, CY, SACKS.z);
-  [[0, 0, 0], [-0.45, 0.1, 0.5], [-0.2, 0.3, 0.3]].forEach(([x, z, r]) => {
-    const sack = add(k, mesh(G.sphere, 0xE8DCC0, x, 0.32, z, true)); sack.scale.set(0.3, 0.34, 0.26); sack.rotation.y = r;
-    add(k, mesh(G.cyl, 0xB08A5A, x, 0.64, z)).scale.set(0.08, 0.08, 0.08);
-  });
+  const BALE = new CylinderGeometry(0.2, 0.2, 0.62, 12), BAND = new TorusGeometry(0.205, 0.022, 5, 14), CAP = new CylinderGeometry(0.17, 0.17, 0.04, 12);
+  for (const [z, y] of [[-0.21, 0.2], [0.21, 0.2], [0, 0.54]]) {
+    const b = add(k, mesh(BALE, STRAW, 0, y, z, true)); b.rotation.z = Math.PI / 2;
+    for (const x of [-0.2, 0, 0.2]) add(k, mesh(BAND, 0xA8894E, x, y, z)).rotation.y = Math.PI / 2;
+    for (const x of [-0.32, 0.32]) add(k, mesh(CAP, 0xB89A5C, x, y, z)).rotation.z = Math.PI / 2;
+  }
   // a chalk board by the door, ruled into the three lines
   box(cellar, 0x23302A, PREP.x0 + 0.2, CY + 1.5, 2.6, 0.06, 0.9, 1.3, false);
 }
@@ -1701,8 +1710,18 @@ function float(parent: Object3D, x: number, y: number, z: number, r: number) {
       add(parts.grow, mesh(G.sphere, SPORE, x + Math.cos(a) * r, CY + 0.18 + i * 0.06, z + Math.sin(a) * r)).scale.set(0.09, 0.05, 0.09);
     }
   }
-  // dripping pipes along the back
-  for (let x = GROW.x0 + 1; x < GROW.x1; x += 3.1) add(parts.grow, mesh(G.log, 0x4A5A5A, x, CY + 2.6, GROW.z0 + 0.2)).scale.set(0.6, 5, 0.6);
+  // two water pipes down the back wall, either side of its sign: iron, flanged at the joints, coming out of the wall up
+  // high and stopping over a bucket that catches what drips
+  const z = GROW.z0 + 0.15;
+  for (const x of [GROW.x0 + 1.2, GROW.x1 - 1.2]) {
+    add(parts.grow, mesh(G.cyl, STEEL_DARK, x, CY + 2.2, z)).scale.set(0.05, 3.7, 0.05);
+    add(parts.grow, mesh(G.cyl, STEEL_DARK, x, CY + 4.05, z - 0.25, false)).rotation.x = Math.PI / 2;
+    parts.grow.children[parts.grow.children.length - 1].scale.set(0.05, 0.5, 0.05);
+    for (const y of [1.2, 2.4, 3.6]) add(parts.grow, mesh(G.cyl, IRON, x, CY + y, z, false)).scale.set(0.075, 0.06, 0.075);
+    add(parts.grow, mesh(G.sphere, STEEL_DARK, x, CY + 4.05, z, false)).scale.setScalar(0.07);
+    add(parts.grow, mesh(G.cyl, WOOD, x, CY + 0.13, z + 0.02, true)).scale.set(0.16, 0.26, 0.16);
+    add(parts.grow, mesh(G.cyl, 0x3E5A66, x, CY + 0.255, z + 0.02, false)).scale.set(0.14, 0.01, 0.14);
+  }
 }
 
 // ---------- the teppo post, where the sparring partner slaps ----------
@@ -1922,7 +1941,7 @@ export function cellarBoxes(machines: Record<'rice' | 'fish' | 'mush', number> =
     [HEARTH.x, (KITCHEN.z0 + HEARTH.z + HEARTH.d / 2 + 0.6) / 2, HEARTH.w / 2 + 0.3, (HEARTH.z + HEARTH.d / 2 + 0.6 - KITCHEN.z0) / 2 + 0.3],
     [COUNTER.x, COUNTER.z, 0.75, 0.95],
     // the prep hall: the sacks (what comes down the dumbwaiters is all behind the east wall)
-    [SACKS.x, SACKS.z, 0.75, 0.75],
+    [SACKS.x, SACKS.z, 0.45, 0.6],
     ...KITCHEN_BINS.map((b): [number, number, number, number] => [b.x, b.z, 0.65, 0.65]),
     // the workshop: the bench, the tansu, the fish crates, the sake barrels, the timber, the beam on its trestles, the
     // rope, the heap of net and the bucket
