@@ -5,7 +5,7 @@
 // counter and round the soup bar, and the bar's pot steaming while there are any; the dumbwaiter's trays going round;
 // the hires at their work, carrying what they carry; and a bubble over the pot when it waits on something (🌾? 🐟?
 // 🍄?), or over the bar when fans wait at it with nothing to eat, like the cooks upstairs.
-import { CanvasTexture, Color, Group, Mesh, MeshBasicMaterial, MeshLambertMaterial, type Object3D, PlaneGeometry, Sprite, SpriteMaterial, type Vector3 } from 'three';
+import { CanvasTexture, Color, Group, type Material, Mesh, MeshBasicMaterial, MeshLambertMaterial, type Object3D, PlaneGeometry, Sprite, SpriteMaterial, type Vector3 } from 'three';
 import { BAR_STEW, cellar, CY, LIFT_LOOP, parts, POT_TOP, potMesh, potStew } from './cellar';
 import { BAR, BAR_PAD, BIN_PADS, BINS, CHUTE, chuteY, COUNTER, COUNTER_PAD, HEARTH, type Ing, LEDGE, LIFTS, machineAt, machinePad, MAX_MACHINES, POT, POT_PAD, STORES } from './cellarPlan';
 import { decal, drawPad } from './decals';
@@ -243,9 +243,28 @@ const TRAY: Record<Ing, { across: number; deep: number; w: number; d: number; h:
 };
 /** The top of the ledge's trays, and the middle of them front to back (cellar.ts lays them in front of the hearth). */
 const TRAY_TOP = HEARTH.h * 0.75 + 0.055, TRAY_Z = HEARTH.z + HEARTH.d / 2 + 0.3;
+/** The ledge's things a shade darker than anywhere else: they sit right under the hearth's lamp, and lit full by it,
+ *  they glared. A darker copy of each material (made once, off the game's luck), put back on after the item changes its
+ *  look for the graphics (items.ts) as well. */
+const dimmed = new Map<Material, Material>(), dark = new Set<Material>();
+function dimOne(m: Mesh) {
+  const was = m.material as Material;
+  if (Array.isArray(m.material) || dark.has(was)) return;
+  let d = dimmed.get(was);
+  if (!d) { d = quietly(() => was.clone()); (d as MeshLambertMaterial).color?.multiplyScalar(0.45); dimmed.set(was, d); dark.add(d); }
+  m.material = d;
+}
+const dim = (o: Object3D) => o.traverse(c => {
+  const m = c as Mesh;
+  if (!m.isMesh) return;
+  dimOne(m);
+  const wear = m.onBeforeRender;
+  m.onBeforeRender = function (...a) { wear.apply(this, a); dimOne(m); };
+});
 /** What's on the ledge: up to eight of each, in its own tray, the bottom layer filled first. */
 const ledge = Object.fromEntries((['rice', 'fish', 'mush'] as const).map(k => [k, Array.from({ length: 8 }, (_, j) => {
   const m = add(cellar, MAKE[k]()), t = TRAY[k], n = t.across * t.deep, i = j % n;
+  dim(m);
   const col = i % t.across, row = Math.floor(i / t.across), half = 0.045;
   m.position.set(LEDGE[k].x + (col - (t.across - 1) / 2) * t.w, CY + TRAY_TOP + half + Math.floor(j / n) * t.h, TRAY_Z + (row - (t.deep - 1) / 2) * t.d);
   m.rotation.y = t.turn;
