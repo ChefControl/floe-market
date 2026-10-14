@@ -1,11 +1,12 @@
 // Reporting a bug or an idea, for a player signed in with Google: the settings row (About, Report a bug or idea) opens
-// a window of its own over the game, and takes a picture of the game as it opens. The report carries the picture and
-// the game state (the save, and where the player is), each behind a tickbox that starts on, and the notice above Send
-// says exactly what goes. Draw-a-Bug (sketch.ts) opens the picture big to circle what's wrong in red. It's sent to
-// Firestore (cloud.ts, firebase.ts), and a workflow in a private repo turns it into a GitHub issue (intake/). A report
-// that can't reach the cloud waits on the device and goes when it can. The error box's Report this button (errors.ts)
-// opens it with the error written in. A player who played before reports came is told once, a few seconds into their
-// game, that they can report from the menu now.
+// a window of its own over the game, and takes a picture of the game as it opens: two, in fact, one as the player sees
+// it (with the panels, buttons and money over it, drawn by html2canvas) and one of just the game. The report carries
+// the pictures and the game state (the save, and where the player is), each behind a tickbox that starts on, and the
+// notice above Send says exactly what goes. Draw-a-Bug (sketch.ts) opens the picture big to circle what's wrong in
+// red, and the lines go on both. It's sent to Firestore (cloud.ts, firebase.ts), and a workflow in a private repo
+// turns it into a GitHub issue (intake/). A report that can't reach the cloud waits on the device and goes when it can.
+// The error box's Report this button (errors.ts) opens it with the error written in. A player who played before
+// reports came is told once, a few seconds into their game, that they can report from the menu now.
 import { prefs } from './audio';
 import { cloud, cloudEnabled, onCloud, sendReport, type Report, type Sent } from './cloud';
 import { recentErrors } from './errors';
@@ -22,7 +23,7 @@ import { toast } from './ui';
 
 /** Longest note (firestore.rules checks it too). */
 export const TEXT_MAX = 1000;
-/** Biggest picture and save a report carries (firestore.rules checks them too). */
+/** Biggest picture (each of the two) and save a report carries (firestore.rules checks them too). */
 export const SHOT_MAX = 200_000, SAVE_MAX = 100_000;
 /** How wide the picture is, in pixels. */
 const SHOT_W = 640;
@@ -34,8 +35,13 @@ export const QUOTA = 20, WINDOW = 3_600_000, GAP = 1000;
 /** Reports waiting for the cloud, and this hour's count of those sent ({since, n} as limits/{uid} keeps it, and when
  * the last one went). */
 export const QUEUE_KEY = 'floe-reports', COUNT_KEY = 'floe-report-count';
-/** How many reports wait on the device at most (each can be a few hundred kB). */
+/** How many reports wait on the device at most (each can be half a MB). */
 const QUEUE_MAX = 2;
+/** How long Send waits for the picture as the player sees it, if it isn't made yet, before it goes without, in ms. */
+export const UI_WAIT = 4000;
+/** What's left out of that picture: the report window over it, and the game's own canvas, which is drawn under it from
+ *  the picture of just the game. */
+const NOT_SHOWN = new Set(['report', 'draw', 'sendFx', 'game']);
 /** The panels that can be open over the game, for the report's `live` state. */
 const PANELS = ['shop', 'look', 'roulette', 'blackjack', 'slots', 'bubbly', 'tears', 'korki', 'scores', 'cloudPick', 'stale', 'hint'];
 
@@ -64,8 +70,16 @@ const warn = $('reportWarn'), notice = $('reportNotice');
 const kinds = [...$('reportKind').querySelectorAll<HTMLButtonElement>('button')];
 const drawBtn = $('reportDraw') as HTMLButtonElement;
 
-/** The picture taken when the window opened, the lines drawn on it, and the two together as a JPEG ('' if none). */
-let base: HTMLCanvasElement | null = null, strokes: Stroke[] = [], shot = '';
+/**
+ * The pictures taken when the window opened, of just the game (`world`) and as the player saw it (`screen`, once it's
+ * made), the lines drawn on them, and each with the lines on as a JPEG ('' if none). They're the same size, so the
+ * lines fit both.
+ */
+let world: HTMLCanvasElement | null = null, screen: HTMLCanvasElement | null = null, strokes: Stroke[] = [];
+let shot = '', ui = '';
+/** The picture as the player saw it, while it's being made; and how many times the window's opened, so a picture
+ *  made for a window since closed isn't used. */
+let making: Promise<void> = Promise.resolve(), opens = 0;
 let kind: Report['kind'] = 'bug';
 
 /** The game as it is drawn now, 640 pixels wide. */
@@ -82,6 +96,46 @@ export function takeShot() {
   } catch { return null; }
 }
 
+let pageKit: Promise<typeof import('html2canvas')> | undefined;
+/**
+ * The game as the player sees it: `world` (takeShot's picture) with what's shown over the game's canvas drawn on top,
+ * the same size, or null if it can't be made. The page is drawn again by html2canvas (loaded the first time), which
+ * takes a moment, so it's done while the report window is open, leaving that out.
+ */
+export async function takeUi(world: HTMLCanvasElement) {
+  try {
+    // loaded once, or again next time if it couldn't be
+    const { default: html2canvas } = await (pageKit ??= import('html2canvas').catch(e => { pageKit = undefined; throw e; }));
+    const r = renderer.domElement.getBoundingClientRect();
+    const layer = await html2canvas(document.body, {
+      backgroundColor: null, logging: false, scale: world.width / (r.width || innerWidth),
+      x: r.left + scrollX, y: r.top + scrollY, width: r.width || innerWidth, height: r.height || innerHeight,
+      windowWidth: innerWidth, windowHeight: innerHeight,
+      // the songs' YouTube players are out of sight, and can't be drawn anyway
+      ignoreElements: el => NOT_SHOWN.has(el.id) || el.tagName === 'IFRAME',
+      onclone: doc => {
+        // the page's own colour is behind the game, not over it
+        for (const el of [doc.documentElement, doc.body]) el.style.background = 'transparent';
+        // html2canvas draws a slider as a box with its number in: a line with a knob where it's set, instead
+        for (const sl of doc.querySelectorAll<HTMLInputElement>('input[type=range]')) {
+          const lo = Number(sl.min || 0), hi = Number(sl.max || 100), at = (Number(sl.value) - lo) / (hi - lo || 1);
+          const knob = doc.createElement('div'), h = sl.offsetHeight || 20;
+          knob.style.cssText = `display:inline-block;vertical-align:middle;width:${sl.offsetWidth}px;height:${h}px;`
+            + `background:radial-gradient(circle ${h / 2 - 1}px at ${Math.round(at * 100)}% 50%, #fff 98%, transparent),`
+            + 'linear-gradient(transparent 42%, rgba(255,255,255,.45) 42% 58%, transparent 58%)';
+          sl.replaceWith(knob);
+        }
+      },
+    });
+    const out = document.createElement('canvas');
+    out.width = world.width; out.height = world.height;
+    const c = out.getContext('2d');
+    c?.drawImage(world, 0, 0);
+    c?.drawImage(layer, 0, 0, out.width, out.height);
+    return out;
+  } catch { return null; }
+}
+
 /** A picture as a JPEG small enough to send, or '' if it can't be made one. */
 function jpeg(c: HTMLCanvasElement) {
   try {
@@ -93,20 +147,26 @@ function jpeg(c: HTMLCanvasElement) {
   return '';
 }
 
-/** Draw-a-Bug: circle what's wrong on the picture, which then goes with the lines on it. */
+/** Draw-a-Bug: circle what's wrong on the picture as the player saw it, and the lines go on both pictures. */
 async function draw() {
-  if (!base || !shotOn.checked) return;
-  const kept = await sketch(base, strokes, kind === 'idea');
+  const pic = screen ?? world;
+  if (!pic || !shotOn.checked) return;
+  const kept = await sketch(pic, strokes, kind === 'idea');
   if (kept) { strokes = kept; repaint(); }
   drawBtn.focus();
 }
-/** The picture with the lines on it, in the ink of a bug or an idea, as it will be sent. */
-function repaint() {
-  if (!base) return;
+/** `pic` with the lines on it, in the ink of a bug or an idea, as it will be sent ('' if it can't be). */
+function withLines(pic: HTMLCanvasElement) {
   const out = document.createElement('canvas');
-  paint(out, base, strokes, INK[kind]);
-  shot = jpeg(out) || shot;
-  shotImg.src = shot;
+  paint(out, pic, strokes, INK[kind]);
+  return jpeg(out);
+}
+/** Both pictures with the lines on, and the window showing the one as the player saw it, once it's there. */
+function repaint() {
+  if (!world) return;
+  shot = withLines(world) || shot;
+  if (screen) ui = withLines(screen) || ui;
+  shotImg.src = ui || shot;
   drawBtn.classList.toggle('drawn', strokes.length > 0);
 }
 
@@ -201,10 +261,18 @@ export function openReport(note = '') {
   if (news) newsSeen(); // found it already
   if (!cloud.user) { $('cloud').click(); return; }
   openSettings(false);
-  base = takeShot();
+  world = takeShot();
+  screen = null;
   strokes = [];
-  shot = base ? jpeg(base) : '';
-  if (!shot) base = null;
+  shot = world ? jpeg(world) : '';
+  ui = '';
+  if (!shot) world = null;
+  const opened = ++opens, pic = world;
+  making = pic ? takeUi(pic).then(c => {
+    if (opened !== opens || !c) return;
+    screen = c;
+    repaint();
+  }) : Promise.resolve();
   shotImg.hidden = drawBtn.hidden = !shot;
   drawBtn.classList.remove('drawn');
   if (shot) shotImg.src = shot;
@@ -288,15 +356,21 @@ async function send() {
     toast(`That's ${QUOTA} reports this hour. You can send more in ${min} minute${min === 1 ? '' : 's'}`, 'report', 3200);
     return;
   }
+  const pic = shotOn.checked && !!shot, opened = opens;
   const r: Report = {
     id: newId(), kind, text: note.slice(0, TEXT_MAX), build: __BUILD__, device: device(),
     errors: JSON.stringify(recentErrors),
     ...(stateOn.checked ? { live: live(), save: saveNow() } : {}),
-    ...(shotOn.checked && shot ? { shot } : {}),
+    ...(pic ? { shot } : {}),
   };
   text.value = '';
   closeReport();
   celebrate(kind);
+  // the picture as the player saw it may still be being made
+  if (pic) {
+    await Promise.race([making, new Promise(res => setTimeout(res, UI_WAIT))]);
+    if (ui && opened === opens) r.ui = ui;
+  }
   // sent, the moment above says so; it only needs words when it didn't go
   const how = await sendSpaced(r);
   if (how === 'refused') toast("Couldn't send it just now. Try again later", 'report', 2600);

@@ -26,7 +26,8 @@ const ago = (min: number) => Timestamp.fromMillis(Date.now() - min * 60_000);
 
 const report = (over: Record<string, unknown> = {}) => ({
   uid: 'u1', at: serverTimestamp(), status: 'new', kind: 'bug', text: 'The fish fell through the ice', build: 'abc123',
-  device: '{"fps":60}', errors: '[]', live: '{"x":1}', save: '{"v":4}', shot: 'data:image/jpeg;base64,/9j/4AAQ', ...over,
+  device: '{"fps":60}', errors: '[]', live: '{"x":1}', save: '{"v":4}', shot: 'data:image/jpeg;base64,/9j/4AAQ',
+  ui: 'data:image/jpeg;base64,/9j/4AAR', ...over,
 });
 /** A report and the player's count, as firebase.ts sends them. */
 let next = 0;
@@ -45,7 +46,7 @@ describe('bug reports', () => {
     await assertSucceeds(send(google()));
     const since = ago(30);
     await admin(db => setDoc(doc(db, 'limits', 'u2'), { last: ago(3), since, n: 1 }));
-    const bare = Object.fromEntries(Object.entries(report({ uid: 'u2' })).filter(([k]) => !['live', 'save', 'shot'].includes(k)));
+    const bare = Object.fromEntries(Object.entries(report({ uid: 'u2' })).filter(([k]) => !['live', 'save', 'shot', 'ui'].includes(k)));
     await assertSucceeds(send(google('u2'), bare, counted(since, 2), 'u2'));
   });
 
@@ -87,6 +88,10 @@ describe('bug reports', () => {
     await assertFails(send(db, report({ save: 'x'.repeat(100_000) })));
     await assertFails(send(db, report({ shot: 'https://example.com/x.jpg' })));
     await assertFails(send(db, report({ shot: 'data:image/jpeg;base64,' + 'A'.repeat(200_000) })));
+    await assertFails(send(db, report({ ui: 'https://example.com/x.jpg' })));
+    await assertFails(send(db, report({ ui: 'data:image/jpeg;base64,' + 'A'.repeat(200_000) })));
+    // the picture of the screen only goes with the one of just the game
+    await assertFails(send(db, Object.fromEntries(Object.entries(report()).filter(([k]) => k !== 'shot'))));
     await assertFails(send(db, report({ errors: 5 })));
     await assertSucceeds(send(db, report({ text: 'x'.repeat(1000) })));
   });

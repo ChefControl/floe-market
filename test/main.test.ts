@@ -25,6 +25,11 @@ it('boots from a save, renders, autosaves and restarts', async () => {
   // errors surface on screen
   window.dispatchEvent(new ErrorEvent('error', { message: 'boom' }));
   expect($('errMsg').textContent).toBe('Something broke: boom');
+  // but not another site's, which the browser hides: that's only kept for a report
+  $('err').style.display = 'none';
+  window.dispatchEvent(new ErrorEvent('error', { message: 'Script error.' }));
+  expect($('err').style.display).toBe('none');
+  expect((await import('../src/errors')).recentErrors.slice(-1)[0]).toBe('Something broke: Script error.');
 
   // saves whenever the page may be going away
   g.wallet.money = 8;

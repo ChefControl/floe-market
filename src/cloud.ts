@@ -29,6 +29,8 @@ export interface Report {
   live?: string;
   save?: string;
   shot?: string;
+  /** The picture as the player saw it, with what's shown over the game (`shot` is just the game). */
+  ui?: string;
 }
 /** What cloud saves need from the service behind them: firebase.ts, or a fake one in the tests. */
 export interface CloudBackend {

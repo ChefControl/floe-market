@@ -109,13 +109,16 @@ export class Stakes {
   /** The chip (or Undo) the pointer is holding down, and the timer for its next go. */
   private held: HTMLButtonElement | null = null;
   private timer = 0;
+  /** The chip (or Undo) the pointer last pressed, whose click is still to come: it went down on the press already. */
+  private owed: HTMLButtonElement | null = null;
 
   constructor(readonly el: HTMLElement, private busy: () => boolean, private picked: () => void) {
     el.addEventListener('pointerdown', e => {
       const b = this.button(e);
+      this.owed = null;
       if (!b || b.dataset.stake === 'all' || b.disabled || busy()) return;
       this.release();
-      this.held = b;
+      this.held = this.owed = b;
       try { b.setPointerCapture(e.pointerId); } catch { /* pointer already gone */ }
       this.press(b);
       this.repeat(b, HOLD.wait, HOLD.first);
@@ -123,10 +126,13 @@ export class Stakes {
     for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) el.addEventListener(ev, () => this.release());
     // a long press shouldn't bring up the browser's menu
     el.addEventListener('contextmenu', e => { if (this.button(e)) e.preventDefault(); });
-    // taps from the keyboard (or All in); a chip the pointer pressed has gone down already
+    // taps from the keyboard (or All in). A chip the pointer pressed has gone down already, so the click that comes
+    // with it doesn't count, however late it comes (on an iPhone it can come well after the finger's lifted). A
+    // keyboard's click (detail 0) always counts.
     el.addEventListener('click', e => {
       const b = this.button(e);
-      if (b && b !== this.held && !busy()) this.press(b);
+      if (b && b === this.owed && (e as MouseEvent).detail > 0) { this.owed = null; return; }
+      if (b && !busy()) this.press(b);
     });
   }
 
@@ -158,11 +164,10 @@ export class Stakes {
     }, wait);
   }
 
-  /** Lets go of the held chip: after the click that comes with letting go, so that click doesn't count again. */
+  /** Lets go of the held chip. */
   private release() {
     clearTimeout(this.timer);
-    const b = this.held;
-    if (b) setTimeout(() => { if (this.held === b) this.held = null; });
+    this.held = null;
   }
 
   /** The stake in dollars. */
