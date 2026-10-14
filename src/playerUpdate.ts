@@ -58,7 +58,7 @@ function cashSpots() {
 
 export function updPlayer(dt: number) {
   tipsy.t = Math.max(0, tipsy.t - dt);
-  const p = player.g.position, mv = inputVec(), b = player.booped;
+  const p = player.g.position, mv = player.held ? null : inputVec(), b = player.booped;
   if (b) {
     // booped: a hop backwards, easing out, whatever's pressed
     b.t = Math.min(1, b.t + dt / BOOP_SECS);
@@ -78,7 +78,7 @@ export function updPlayer(dt: number) {
     let d = target - player.h; d = Math.atan2(Math.sin(d), Math.cos(d));
     player.h += d * Math.min(1, dt * 14);
     player.moving = true;
-  } else player.moving = false;
+  } else if (!player.held) player.moving = false;
   keepOnFloor(p, walkable());
   collide(p);
   collideGarden(p);

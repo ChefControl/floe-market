@@ -20,7 +20,7 @@ import {
 import {
   BlackjackRound, CUT_CARD, DECKS, handValue, isBust, isRed, PLAYER_CUT, rankName, resultLine, Shoe, type Card,
 } from './blackjack';
-import { badge, cheer, chipStack, easeInOut, easeOut, gamePad, greeting, settleTweens, slide, speaker, Stakes, tween } from './casinoKit';
+import { badge, cheer, chipStack, easeInOut, easeOut, gamePad, greeting, settleTweens, slide, speaker, Stakes, tally, tween } from './casinoKit';
 import { Person, SUITS } from './characters';
 import { GAMES, pushOutOfBox } from './layout';
 import { canvasTex, FONT, mesh, rr, scene } from './render';
@@ -249,6 +249,7 @@ let queue: { wait: number; run: () => void }[] = [];
 let owed = 0;
 /** Applies the money a round moves to the wallet. What it owes is in flight, so a save mid-hand keeps it. */
 function apply(m: Moves) {
+  tally(m);
   if (m.take) wallet.money -= m.take;
   if (m.owed !== undefined) { wallet.inFlight += m.owed - owed; owed = m.owed; }
   if (m.pay) addMoney(m.pay);

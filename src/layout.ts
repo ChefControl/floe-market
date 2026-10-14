@@ -100,6 +100,8 @@ export const onHarbor = (p: XZ) => casinoY(p) !== null;
 /** Aboard the yacht. */
 export const aboard = (p: XZ) =>
   Math.abs(p.x - SHIP.x) < SHIP.half + 0.5 && Math.abs(p.z - SHIP.z) < SHIP.beam + 0.1;
+/** In the salon: aboard, on the upper deck. */
+export const inSalon = (p: XZ & { y: number }) => aboard(p) && p.y > FY + 1.0;
 
 const DOCK2 = area(-7.4, 7.4, -6.25, 1.9);
 const HALL = area(HALL_BOX.x0 + 0.4, HALL_BOX.x1 - 0.4, 1.8, HALL_BOX.z1 - 0.4);

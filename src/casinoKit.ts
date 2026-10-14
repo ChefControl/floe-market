@@ -10,6 +10,7 @@ import { quietly } from './kit';
 import { stage } from './layout';
 import { player } from './player';
 import { camera, canvasTex, FONT, mesh, rr } from './render';
+import type { Moves } from './round';
 import { besideView, tableRoom, topOfView } from './ui';
 import { d2xz, FY, type XZ } from './util';
 import { wallet } from './wallet';
@@ -19,6 +20,12 @@ const REACH = 0.95;
 
 /** Visits to the boat: it goes up each time the player steps off it, so each game greets them once a visit. */
 export const visits = { n: 0 };
+
+/** What the player is down at the games since they last had a cry in the restroom (casinoRestroom.ts): each round's
+ *  stake adds to it and what it pays back takes off it, never below nothing. */
+export const losses = { down: 0 };
+/** Counts a round's money into `losses`: each game's table calls it as it applies the round's moves to the wallet. */
+export function tally(m: Moves) { losses.down = Math.max(0, losses.down + (m.take ?? 0) - (m.pay ?? 0)); }
 
 /**
  * Where the camera comes in to while a game is open: the point it looks at, the way back from it to the camera, and

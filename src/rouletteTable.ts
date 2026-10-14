@@ -8,7 +8,7 @@ import {
   MeshLambertMaterial, Object3D, PlaneGeometry, TorusGeometry, Vector2,
 } from 'three';
 import { every } from './audio';
-import { cheer, chipStack, gamePad, greeting, settleTweens, slide, speaker, Stakes, tween } from './casinoKit';
+import { cheer, chipStack, gamePad, greeting, settleTweens, slide, speaker, Stakes, tally, tween } from './casinoKit';
 import { Person, SUITS } from './characters';
 import { GAMES, pushOutOfBox } from './layout';
 import { bake, canvasTex, FONT, G, mat, mesh, rr, scene, type Part } from './render';
@@ -207,6 +207,7 @@ const boxAt = (b: Bet) => V(BETS.find(x => x.bet === b)!.x, TOP, BOX.z);
 
 /** Applies the money a round moves to the wallet. What it owes is in flight, so a save mid-spin keeps a win. */
 function apply(m: Moves) {
+  tally(m);
   if (m.take) wallet.money -= m.take;
   if (m.owed !== undefined) { wallet.inFlight += m.owed - owed; owed = m.owed; }
   if (m.pay) addMoney(m.pay);

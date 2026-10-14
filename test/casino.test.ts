@@ -240,6 +240,103 @@ describe('the casino boat', () => {
     expect(kit.atTable()).toBe(false);
   });
 
+  it('has a restroom in the corner by the door, where a player who lost at the games can go and cry', async () => {
+    const g = await at('roulette', 100);
+    const room = await import('../src/casinoRestroom');
+    const kit = await import('../src/casinoKit');
+    const { SHIP, GAMES } = g.layout, p = g.player.g.position, { pad } = room.restroomView();
+    const toPad = () => { g.placePlayer(SHIP.x + pad.x, SHIP.z + pad.z); g.run(0.1); };
+    // nothing lost, nothing to cry about
+    toPad();
+    expect($('tears').hidden).toBe(false);
+    expect($('tearsMsg').textContent).toBe('Nothing to cry about… yet');
+    expect(button('#cry').disabled).toBe(true);
+    // a round lost at roulette
+    g.placePlayer(GAMES.roulette.x, GAMES.roulette.z); g.run(0.05);
+    expect($('tears').hidden).toBe(true);
+    rig(0);
+    click('#spin'); g.run(7);
+    expect(g.wallet.money).toBe(75);
+    toPad();
+    expect($('tearsMsg').textContent).toBe('Down $25 😢');
+    // in they go, the camera coming in after them, and they sit on the lid and sob as the door shuts
+    click('#cry');
+    expect(kit.atTable()).toBe(true);
+    expect(button('#cry').disabled).toBe(true);
+    g.run(1.6);
+    expect(p.x).toBeGreaterThan(SHIP.x + room.STALL.x0);
+    const said = new Set<string>();
+    for (let i = 0; i < 40; i++) { g.run(0.1); said.add(room.restroomView().says); }
+    expect(room.restroomView()).toMatchObject({ crying: true, door: 0 });
+    expect(g.player.g.legs[0].rotation.x).toBeCloseTo(-1.45);
+    expect(room.restroomView().tears).toBeGreaterThan(0);
+    expect(room.restroomView().puddle).toBeGreaterThan(0.3);
+    expect(said).toContain('My $25…');
+    // pressing does nothing while they're in there, but moving would get them out early (another test)
+    expect($('tearsMsg').textContent).toBe('Let it all out… 😭');
+    // then they come out onto the pad feeling better, with nothing left to cry about
+    g.run(5.5);
+    expect(room.restroomView().crying).toBe(false);
+    expect(kit.atTable()).toBe(false);
+    expect([p.x, p.z]).toEqual([SHIP.x + pad.x, SHIP.z + pad.z]);
+    expect(room.restroomView().says).toBe('Much better.');
+    expect($('tearsMsg').textContent).toBe('Nothing to cry about… yet');
+    expect(button('#cry').disabled).toBe(true);
+    // and the puddle dries
+    g.run(30);
+    expect(room.restroomView().puddle).toBe(0);
+    walkAway(g);
+    expect($('tears').hidden).toBe(true);
+  });
+
+  it('counts what the player is down since their last cry, which a win takes back off, and moving cuts a cry short', async () => {
+    const g = await at('roulette', 1000);
+    const room = await import('../src/casinoRestroom');
+    const { losses, tally } = await import('../src/casinoKit');
+    tally({ take: 100 }); tally({ pay: 40 });
+    expect(losses.down).toBe(60);
+    tally({ take: 50, owed: 100 }); tally({ pay: 200 });
+    expect(losses.down).toBe(0);
+    tally({ take: 30 });
+    const { SHIP } = g.layout, p = g.player.g.position, { pad } = room.restroomView();
+    g.placePlayer(SHIP.x + pad.x, SHIP.z + pad.z); g.run(0.1);
+    expect($('tearsMsg').textContent).toBe('Down $30 😢');
+    window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyE', key: 'e' }));
+    expect(room.restroomView().crying).toBe(true);
+    expect(losses.down).toBe(0);
+    g.run(3);
+    const x = p.x;
+    g.press('a'); g.run(0.1);
+    expect(p.x).toBeGreaterThan(x - 0.3); // held: getting up off the lid, not walking off
+    g.run(2.2);
+    expect(room.restroomView().crying).toBe(false);
+    g.run(0.2);
+    expect(p.x).toBeLessThan(SHIP.x + pad.x); // walking off
+    g.press('a', 'keyup');
+  });
+
+  it("keeps the player out of the restroom stall, and the waiter's offer away from its door", async () => {
+    const g = await at('roulette', 1000);
+    const room = await import('../src/casinoRestroom');
+    const salon = await import('../src/casinoSalon');
+    const { SHIP } = g.layout, p = g.player.g.position, { pad } = room.restroomView();
+    g.placePlayer(SHIP.x + pad.x, SHIP.z + pad.z); g.run(0.05);
+    for (let i = 0; i < 60; i++) { p.x += 0.05; g.run(1 / 60); }
+    expect(p.x).toBeLessThan(SHIP.x + room.STALL.x0 - 0.2);
+    // standing on its pad, the waiter comes along to the end of his beat close by, but only the restroom's panel opens
+    g.placePlayer(SHIP.x + pad.x, SHIP.z + pad.z);
+    let closest = Infinity;
+    for (let i = 0; i < 200; i++) {
+      g.run(0.1);
+      const w = salon.salonView().staff[1];
+      closest = Math.min(closest, Math.hypot(SHIP.x + w.x - p.x, SHIP.z + w.z - p.z));
+      expect($('bubbly').hidden).toBe(true);
+      expect(w.x).toBeLessThan(room.STALL.x0 - 0.5);
+    }
+    expect(closest).toBeLessThan(1.2);
+    expect($('tears').hidden).toBe(false);
+  });
+
   it('turns its radar on the mast', async () => {
     const g = await loadGame({ tiles: bought('roulette') });
     const salon = await import('../src/casinoSalon');

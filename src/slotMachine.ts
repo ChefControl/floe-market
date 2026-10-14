@@ -4,7 +4,7 @@
 // Walking off mid-spin, the reels spin on and pay as usual.
 import { BoxGeometry, CanvasTexture, CylinderGeometry, Group, Mesh, MeshBasicMaterial, PlaneGeometry } from 'three';
 import { every } from './audio';
-import { cheer, gamePad, greeting, speaker, Stakes } from './casinoKit';
+import { cheer, gamePad, greeting, speaker, Stakes, tally } from './casinoKit';
 import { GAMES, pushOutOfBox } from './layout';
 import { bake, bakePainted, canvasTex, FONT, G, mesh, painted, rr, scene, type Part } from './render';
 import { clack, jackpot, lose, reelStop, win } from './sfx';
@@ -176,6 +176,7 @@ function refresh() {
 
 /** Applies the money a round moves to the wallet. What it owes is in flight, so a save mid-spin keeps a win. */
 function apply(m: Moves) {
+  tally(m);
   if (m.take) wallet.money -= m.take;
   if (m.owed !== undefined) { wallet.inFlight += m.owed - owed; owed = m.owed; }
   if (m.pay) addMoney(m.pay);

@@ -452,6 +452,15 @@ function angry(c: Ctx) {
   line(c, INK, 6, () => c.arc(0, 34, 15, -0.82 * Math.PI, -0.18 * Math.PI));
 }
 
+/** 😭 The casino's restroom, for a good cry: eyes squeezed shut, mouth wide open, tears streaming down both cheeks. */
+function sob(c: Ctx) {
+  solid(c, '#F7D038', () => dot(c, 0, 0, 44));
+  solid(c, '#6EC3F0', () => { box(c, -29, -8, 15, 48, 7.5); box(c, 14, -8, 15, 48, 7.5); });
+  line(c, INK, 6, () => { c.moveTo(-30, -9); c.quadraticCurveTo(-19, -21, -8, -9); c.moveTo(8, -9); c.quadraticCurveTo(19, -21, 30, -9); });
+  solid(c, '#8E2B2B', () => oval(c, 0, 17, 13, 12));
+  flat(c, '#E8607A', () => oval(c, 0, 24, 8, 4));
+}
+
 // ---------- chef's specials: the dishes on the menu tags ----------
 
 /** 🍤 A tempura prawn: bumpy golden batter and a red tail. */
@@ -610,7 +619,7 @@ const DRAWINGS: Record<string, Drawing> = {
   '🎒': backpack, '🎯': target, '🏃': runner, '🥾': boot, '🥅': net, '🏯': torii,
   '🌾': sheaf, '🪑': stool, '🔪': knife, '🧑‍🌾': farmer, '🧺': basket, '🌱': seedling, '⛱️': parasol, '⛱': parasol,
   '🥡': takeout, '🏮': lantern, '🎁': present, '🔒': lock,
-  '😐': meh, '😠': angry,
+  '😐': meh, '😠': angry, '😭': sob,
   '🍤': tempura, '🍙': onigiri, '🦐': prawn, '🐙': octopus, '🦑': squid, '🦀': crab, '🍱': bento, '🐡': puffer,
   '🍥': naruto, '🍢': oden, '🍵': tea, '🍶': sake,
 };

@@ -17,12 +17,14 @@ export interface Player extends Walker {
   onTile: Tile | null;
   /** Booped off the road by a driver: hopping from (x0, z0) to (x1, z1), `t` 0 to 1 of the way. */
   booped: { x0: number; z0: number; x1: number; z1: number; t: number } | null;
+  /** In a scene that moves them itself (a cry in the casino's restroom): what's pressed doesn't move them. */
+  held: boolean;
 }
 
 export const player: Player = {
   g: new Person(0xFF6B4A), h: 0, speed: 4.2, moving: false,
   tPick: 0, tDrop: 0, tCash: 0, tCatch: 0, tPay: 0,
-  onTile: null, booped: null,
+  onTile: null, booped: null, held: false,
   back: new Holder(i => carrySlot(player, i), 6),
 };
 player.g.position.set(-1.5, FY, -2.0);
