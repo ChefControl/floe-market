@@ -19,7 +19,8 @@ export function firestore(projectId: string): Store {
     async filing(id) { await reports.doc(id).update({ status: 'filing' }); },
     async filed(id, issue, at) {
       await reports.doc(id).update({
-        status: 'filed', issue, filedAt: Timestamp.fromMillis(at), save: FieldValue.delete(), shot: FieldValue.delete(),
+        status: 'filed', issue, filedAt: Timestamp.fromMillis(at),
+        save: FieldValue.delete(), shot: FieldValue.delete(), ui: FieldValue.delete(),
       });
     },
     async expired(before) {

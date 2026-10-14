@@ -1,5 +1,5 @@
-// One run of the intake: every new report becomes an issue, with its picture and save on the `files` branch, and
-// reports filed more than 7 days ago lose their picture and save, in the issue, on the branch and in Firestore.
+// One run of the intake: every new report becomes an issue, with its pictures and save on the `files` branch, and
+// reports filed more than 7 days ago lose their pictures and save, in the issue, on the branch and in Firestore.
 // The services are passed in (main.ts makes the real ones), so the tests can use stand-ins.
 import { body, expired, ID, jpeg, KEEP_MS, marker, reporter, title, type Links, type StoredReport } from './issue.ts';
 
@@ -9,7 +9,7 @@ export interface Store {
   pending(): Promise<StoredReport[]>;
   /** Marks a report as being filed, so a run that stops halfway doesn't open a second issue for it. */
   filing(id: string): Promise<void>;
-  /** Marks a report filed as issue `issue` at `at`, and drops its picture and save from Firestore. */
+  /** Marks a report filed as issue `issue` at `at`, and drops its pictures and save from Firestore. */
   filed(id: string, issue: number, at: number): Promise<void>;
   /** Reports filed before `before`: their issue number, if they have one. */
   expired(before: number): Promise<{ id: string; issue?: number }[]>;
@@ -23,12 +23,13 @@ export interface Issues {
   read(n: number): Promise<string>;
   edit(n: number, body: string): Promise<void>;
 }
+export type FileName = 'shot.jpg' | 'ui.jpg' | 'save.json';
 /** The `files` branch: a folder per report, rebuilt each run as one commit holding only the last 7 days. */
 export interface Files {
-  put(id: string, name: 'shot.jpg' | 'save.json', data: Uint8Array | string, at: number): void;
+  put(id: string, name: FileName, data: Uint8Array | string, at: number): void;
   /** Drops the folders of reports filed before `before`. */
   prune(before: number): void;
-  url(id: string, name: 'shot.jpg' | 'save.json'): string;
+  url(id: string, name: FileName): string;
   /** Pushes the branch, if anything changed. */
   save(): Promise<void>;
 }
@@ -44,8 +45,9 @@ export async function run(store: Store, issues: Issues, files: Files, now = Date
   for (const r of reports) {
     if (!ID.test(r.id)) { done.skipped.push(r.id); await store.remove(r.id); continue; }
     if (r.status === 'new') await store.filing(r.id);
-    const links: Links = {}, shot = jpeg(r.shot);
+    const links: Links = {}, shot = jpeg(r.shot), ui = jpeg(r.ui);
     if (shot) { files.put(r.id, 'shot.jpg', shot, now); links.shot = files.url(r.id, 'shot.jpg'); }
+    if (shot && ui) { files.put(r.id, 'ui.jpg', ui, now); links.ui = files.url(r.id, 'ui.jpg'); }
     if (r.save) { files.put(r.id, 'save.json', r.save, now); links.save = files.url(r.id, 'save.json'); }
     ready.push({ r, links });
   }

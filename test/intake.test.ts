@@ -5,10 +5,11 @@ import { body, defang, expired, fenced, jpeg, KEEP_MS, marker, reporter, title, 
 import { run, type Files, type Issues, type Store } from '../intake/src/run.ts';
 
 const JPEG = 'data:image/jpeg;base64,' + btoa(String.fromCharCode(0xff, 0xd8, 0xff, 0xe0));
+const UI = 'data:image/jpeg;base64,' + btoa(String.fromCharCode(0xff, 0xd8, 0xff, 0xe1, 0));
 const NOW = Date.UTC(2026, 9, 11, 12);
 const report = (over: Partial<StoredReport> = {}): StoredReport => ({
   id: 'A'.repeat(20), uid: 'u1', kind: 'bug', text: 'The sled got stuck', build: '6ff81ebcafe1234', device: '{"fps":58}',
-  errors: '["Something broke: boom"]', live: '{"x":1.5,"stage":2}', save: '{"v":4}', shot: JPEG, at: NOW - 60_000,
+  errors: '["Something broke: boom"]', live: '{"x":1.5,"stage":2}', save: '{"v":4}', shot: JPEG, ui: UI, at: NOW - 60_000,
   status: 'new', ...over,
 });
 
@@ -19,7 +20,7 @@ function services(reports: StoredReport[], old: { id: string; issue?: number }[]
   const store: Store = {
     async pending() { return [...db.values()].filter(r => r.status !== 'filed'); },
     async filing(id) { db.get(id)!.status = 'filing'; },
-    async filed(id, issue, at) { Object.assign(db.get(id)!, { status: 'filed', issue, save: undefined, shot: undefined }); filed.set(id, { issue, at }); },
+    async filed(id, issue, at) { Object.assign(db.get(id)!, { status: 'filed', issue, save: undefined, shot: undefined, ui: undefined }); filed.set(id, { issue, at }); },
     async expired() { return old; },
     async remove(id) { db.delete(id); removed.push(id); },
   };
@@ -42,17 +43,19 @@ function services(reports: StoredReport[], old: { id: string; issue?: number }[]
 }
 
 describe('the intake', () => {
-  it('turns a new report into an issue, with its picture and save on the files branch first', async () => {
+  it('turns a new report into an issue, with its pictures and save on the files branch first', async () => {
     const s = services([report()]);
     const done = await run(s.store, s.issues, s.files, NOW);
     expect(done).toEqual({ filed: [101], skipped: [], expired: 0 });
-    expect(s.put).toEqual([`${'A'.repeat(20)}/shot.jpg:4 bytes`, `${'A'.repeat(20)}/save.json:{"v":4}`]);
-    expect(s.log).toEqual(['put', 'put', 'prune ' + (NOW - KEEP_MS), 'save']);
+    expect(s.put).toEqual([`${'A'.repeat(20)}/shot.jpg:4 bytes`, `${'A'.repeat(20)}/ui.jpg:5 bytes`, `${'A'.repeat(20)}/save.json:{"v":4}`]);
+    expect(s.log).toEqual(['put', 'put', 'put', 'prune ' + (NOW - KEEP_MS), 'save']);
     const [issue] = s.made;
     expect(issue.title).toBe('Bug: The sled got stuck');
     expect(issue.labels).toEqual(['bug', 'new']);
     expect(issue.body).toContain(marker('A'.repeat(20)));
-    expect(issue.body).toContain(`![The game when the report was opened](https://github.com/o/r/blob/files/${'A'.repeat(20)}/shot.jpg?raw=true)`);
+    // as the player saw it, then just the game, side by side (one paragraph)
+    expect(issue.body).toContain(`![The screen when the report was opened](https://github.com/o/r/blob/files/${'A'.repeat(20)}/ui.jpg?raw=true) <!-- ui -->\n`
+      + `![The game when the report was opened](https://github.com/o/r/blob/files/${'A'.repeat(20)}/shot.jpg?raw=true)`);
     expect(issue.body).toContain('[save.json](https://github.com/o/r/blob/files/');
     expect(issue.body).toContain('build `6ff81ebcafe1`');
     expect(issue.body).toContain('2026-10-11 11:59 UTC');
@@ -63,7 +66,7 @@ describe('the intake', () => {
   });
 
   it("says what the player left out, and files ideas as ideas", async () => {
-    const s = services([report({ kind: 'idea', text: '\n  More fish\nplease', shot: undefined, save: undefined, live: undefined, errors: '[]' })]);
+    const s = services([report({ kind: 'idea', text: '\n  More fish\nplease', shot: undefined, ui: undefined, save: undefined, live: undefined, errors: '[]' })]);
     await run(s.store, s.issues, s.files, NOW);
     const [issue] = s.made;
     expect(issue.title).toBe('Idea: More fish');
@@ -138,8 +141,10 @@ describe("a player's words in an issue", () => {
   });
 
   it('loses only the picture and save lines when they expire', () => {
-    const b = body(report(), { shot: 'https://s', save: 'https://v' }, 'x');
+    const b = body(report(), { shot: 'https://s', ui: 'https://u', save: 'https://v' }, 'x');
     const e = expired(b);
+    expect(e).toContain('_Picture of the screen deleted after 7 days._');
+    expect(e).not.toContain('https://u');
     expect(e).toContain('_Picture deleted after 7 days._');
     expect(e).toContain('_save.json deleted after 7 days._');
     expect(e).not.toContain('https://s');

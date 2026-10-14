@@ -9,7 +9,7 @@ This folder is kept in the game's repo, under `intake/`, so it's reviewed alongs
 1. The game writes each report to Firestore, `reports/{id}`. Only players signed in with Google can send one. They can't read it back, and the rules space each player's reports out (`firestore.rules` in the game's repo).
 2. Every 30 minutes, the **Reports to issues** workflow (`.github/workflows/intake.yml`) runs `src/main.ts`:
    - It reads new reports with a service account. It signs in through GitHub's own short-lived token (Workload Identity Federation), so no key is stored anywhere.
-   - It puts each report's `shot.jpg` and `save.json` on the `files` branch, in a folder named after the report.
+   - It puts each report's pictures and `save.json` on the `files` branch, in a folder named after the report: `ui.jpg` is the screen as the player saw it, with the game's panels and buttons, and `shot.jpg` is just the game.
    - It opens one issue per report, labelled `bug` or `idea` plus `new`. The picture shows at the top, and `save.json` is linked.
    - It marks the report filed and drops its picture and save from Firestore.
 3. **After 7 days:** the next run drops the report's folder from the `files` branch and removes the report from Firestore. It also edits the issue to say the picture and save are gone. The note, device and errors stay in the issue.

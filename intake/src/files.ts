@@ -1,4 +1,4 @@
-// The `files` branch: a folder per report (shot.jpg, save.json) and index.json, saying when each was filed. Each run
+// The `files` branch: a folder per report (shot.jpg, ui.jpg, save.json) and index.json, saying when each was filed. Each run
 // takes the branch as it is, adds and drops folders, and pushes it back as a single new commit with no history, so
 // a file dropped after 7 days doesn't stay in the branch's past. It works in a folder of its own and a separate git
 // index, so the checked-out repo is left alone.
