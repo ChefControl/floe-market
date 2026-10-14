@@ -435,16 +435,22 @@ function loadFor(w: Worker): [string, () => Mesh, number] {
   const make = c.ready ? MAKE[c.k] : c.k === 'rice' ? newRice : newFillet;
   return [`${c.k}${c.ready}${c.n}`, make, Math.min(8, c.n)];
 }
+/** A hire as drawn: made the first time they're wanted, where they stand. */
+function handOf(w: Worker) {
+  const role = w.role as Role;
+  let h = hands.get(role);
+  if (!h) {
+    const p = add(cellar, DRESS[role]());
+    p.position.set(w.x, CY, w.z);
+    h = { p, key: '', load: [] };
+    hands.set(role, h);
+  }
+  return h;
+}
 function drawCrew(dt: number) {
   for (const w of F.crew) {
     if (w.role === 'you') continue;
-    let h = hands.get(w.role);
-    if (!h) {
-      const p = add(cellar, DRESS[w.role]());
-      h = { p, key: '', load: [] };
-      hands.set(w.role, h);
-    }
-    const p = h.p;
+    const h = handOf(w), p = h.p;
     p.position.set(w.x, CY, w.z);
     if (w.moving) p.rotation.y = w.h;
     else if (w.cooking > 0) p.rotation.y = Math.PI;
@@ -460,6 +466,16 @@ function drawCrew(dt: number) {
 }
 /** The Person for a hire, if they're in (for tests and pointing at them). */
 export const crewPerson = (role: Role) => hands.get(role)?.p ?? null;
+/** What a cellar upgrade's just built, as drawn, for its moment on camera (ring.ts): a line's newest machine (or, `all`,
+ *  every one it has: an upgrade swaps them all), or a new hire, there at once where they start. */
+export function built(what: { line: Ing; all?: boolean } | { role: Role }): Object3D[] {
+  if ('role' in what) {
+    const w = F.crew.find(c => c.role === what.role);
+    return w ? [handOf(w).p] : [];
+  }
+  const n = F.lines[what.line].n;
+  return slots.filter(s => s.k === what.line && (what.all ? s.i < n : s.i === n - 1)).map(s => s.g);
+}
 
 // ---------- bubbles ----------
 /** A white speech bubble with `text` in it (an emoji and a question mark). */

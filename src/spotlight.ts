@@ -1,7 +1,9 @@
 // The spotlight: an upgrade that's just been bought gets a moment on camera. The camera eases over to what it built,
 // comes in close for a couple of seconds, then goes back out to the player. Something that walks off (a runner) is
-// followed while it's in the spotlight.
+// followed while it's in the spotlight. Going up or down the cellar's ladder ends it at once: the camera goes with the
+// player.
 import { Box3, type Object3D, type Vector3 } from 'three';
+import { level } from './layout';
 import { view } from './stage';
 import { V } from './util';
 
@@ -14,7 +16,7 @@ const ease = (k: number) => k < .5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2
 interface Cue { at: number; run: () => void }
 /** Something in the spotlight, and how far its middle is from its own position (measured once, as it's put there). */
 interface Lit { o: Object3D; up: Vector3 }
-interface Shot { t: number; on: Lit[]; close: number; was: Vector3; cue: Cue | null; snap: boolean }
+interface Shot { t: number; on: Lit[]; close: number; was: Vector3; cue: Cue | null; snap: boolean; down: boolean }
 let shot: Shot | null = null;
 const mid = V(0, 0, 0), tmp = V(0, 0, 0), box = new Box3();
 
@@ -38,8 +40,8 @@ export function spotlight(on: Object3D[], { close = SPOT_CLOSE, cue }: { close?:
   // a second upgrade while one's still showing: the camera stays in close and goes straight on over to the new one
   shot?.cue?.run();
   shot = shot
-    ? { t: Math.min(shot.t, SPOT.over), on: on.map(lit), close, was: shot.was, cue: cue ?? null, snap: false }
-    : { t: 0, on: on.map(lit), close, was: view.focus.clone(), cue: cue ?? null, snap: true };
+    ? { t: Math.min(shot.t, SPOT.over), on: on.map(lit), close, was: shot.was, cue: cue ?? null, snap: false, down: level.down }
+    : { t: 0, on: on.map(lit), close, was: view.focus.clone(), cue: cue ?? null, snap: true, down: level.down };
   return true;
 }
 
@@ -47,6 +49,7 @@ export function spotlight(on: Object3D[], { close = SPOT_CLOSE, cue }: { close?:
 export function updSpotlight(dt: number) {
   const s = shot;
   if (!s) return;
+  if (s.down !== level.down) { s.cue?.run(); view.k = 0; view.close = 1; view.focus.copy(s.was); shot = null; return; }
   s.t += dt;
   if (s.cue && s.t >= s.cue.at) { s.cue.run(); s.cue = null; }
   mid.set(0, 0, 0);

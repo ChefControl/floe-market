@@ -9,12 +9,15 @@ import { front } from './front';
 import { showCard, updGong } from './gong';
 import { DOORS, level, PREP } from './layout';
 import { updOffice } from './office';
+import { player } from './player';
 import { pointAt } from './pointers';
 import { popIn } from './pop';
-import { updRingKitchen } from './ringKitchen';
+import { built, updRingKitchen } from './ringKitchen';
 import { crowd, react } from './ringSound';
 import { save } from './save';
 import { chime, fanfare, gong, levelUp } from './sfx';
+import { spotlight } from './spotlight';
+import { staging } from './stage';
 import { updSwarm } from './swarm';
 import { popText, toast } from './ui';
 import { showProgress, visibleTiles } from './unlocks';
@@ -47,6 +50,15 @@ on.grow = () => {
   const door = DOORS.find(d => d.b === 'grow')!;
   pointAt({ x: (door.x0 + door.x1) / 2, y: CY, z: PREP.z0 - 0.3 }, '🍄', () => level.down);
   toast("The gate behind the prep hall swings open: a grow room with its first mushroom bed. Mushroom bowls pay double", 'grow', 4500);
+};
+// An upgrade bought at the crafting bench gets its moment on camera, as upstairs: what it built pops in, and the camera
+// goes over to it and comes in close for a couple of seconds (spotlight.ts), in the middle of the space the bench's menu
+// leaves. Never while a boss is in (his rush waits for nobody) or a scene has the player, up or down the ladder or in
+// Mr. Fugu's office: then it just pops in.
+on.built = what => {
+  const os = 'tier' in what ? [what.tier === 1 ? parts.bleachers : what.tier === 2 ? parts.tier : parts.vip] : built(what);
+  os.forEach(popIn);
+  if (!F.rush && !player.held && !staging()) spotlight(os);
 };
 
 /** Puts the cellar's look in line with its state: the venue's tier, the grow room, Mr. Fugu bought out or not. */

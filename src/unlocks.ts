@@ -7,11 +7,11 @@
 import type { Group, Object3D, Vector3 } from 'three';
 import { enableBlackjack } from './blackjackTable';
 import { enableCasino } from './casino';
-import { CY, parts, showVenue } from './cellar';
+import { CY, showVenue } from './cellar';
 import { openSled, openTakeout } from './counters';
 import { decal, drawTile, type Decal } from './decals';
 import { boost } from './economy';
-import { addMachine, BOSSES, BUYOUT, CHIP, F, hire, HIRES, type Ing, MACH, MACH_COST, machineCost, setTier, TIERS, upgradeLine, UPS } from './fight';
+import { addMachine, BOSSES, BUYOUT, CHIP, F, hire, HIRES, type Ing, MACH, MACH_COST, machineCost, on, setTier, TIERS, upgradeLine, UPS } from './fight';
 import { tryCatch } from './fishing';
 import { addTables } from './garden';
 import { enableKorki, KORKI } from './korki';
@@ -348,14 +348,14 @@ export function applyUnlock(id: UnlockId, silent = false) {
   unlock();
   unlockFx(t, 1.1, (t.y ?? FY) + 0.05);
   // a moment on camera for what it built, or for the player with nothing new to see (boots, bigger arms); the casino
-  // boat has its own, out to the ship as it comes in
-  if (id !== 'roulette') spotlight(shown.length ? shown : [player.g]);
+  // boat has its own, out to the ship as it comes in, and the cellar's have theirs (ring.ts's on.built)
+  if (id !== 'roulette' && t.stage !== 3) spotlight(shown.length ? shown : [player.g]);
   if (t.always || !goal(t.stage).every(x => x.done)) return;
   toast(t.stage === 1 ? 'Floe Sushi is ready to open' : 'Floe Sushi is fully built');
 }
 
-/** A cellar tile bought: what it does to the cellar. Another machine leaves the tile there for the next, dearer one,
- *  until the line has six. */
+/** A cellar tile bought: what it does to the cellar, and its moment on camera (ring.ts's on.built). Another machine
+ *  leaves the tile there for the next, dearer one, until the line has six. */
 function ringUnlock(t: Tile) {
   const id = t.id;
   if (t.line) {
@@ -363,16 +363,23 @@ function ringUnlock(t: Tile) {
     syncRingTile(t);
     toast(`${t.name.replace('Another', 'A new')}: ${F.lines[t.line].n} of ${MAX_MACHINES}`);
     unlock();
+    on.built({ line: t.line });
     return;
   }
-  if (id === 'washer' || id === 'salter' || id === 'picker' || id === 'cook' || id === 'attendant') hire(id);
-  if (id === 'steam') upgradeLine('rice');
-  if (id === 'smoke') upgradeLine('fish');
-  if (id === 'shelves') upgradeLine('mush');
+  if (id === 'washer' || id === 'salter' || id === 'picker' || id === 'cook' || id === 'attendant') {
+    hire(id);
+    on.built({ role: id });
+  }
+  // (an upgrade swaps every machine of its line)
+  const up = ({ steam: 'rice', smoke: 'fish', shelves: 'mush' } as const)[id as 'steam' | 'smoke' | 'shelves'];
+  if (up) {
+    upgradeLine(up);
+    on.built({ line: up, all: true });
+  }
   if (id === 'tier1' || id === 'tier2' || id === 'tier3') {
     const n = Number(id.slice(4));
     setTier(n); showVenue(n);
-    popIn(n === 1 ? parts.bleachers : n === 2 ? parts.tier : parts.vip);
+    on.built({ tier: n });
   }
 }
 /** Puts a cellar tile in line with the cellar: a line's tile at its next machine's price, or gone once it has six;

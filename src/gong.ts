@@ -183,7 +183,8 @@ function updWatch(dt: number) {
   if (want === 0 && watch === 0) return;
   watch += (want - watch) * Math.min(1, dt * 2.5);
   if (Math.abs(want - watch) < 0.002) watch = want;
-  view.focus.set(RING.x, CY, RING.z);
+  // (0.4 up: the camera aims at the middle of what it's on, main.ts, so this is where it aimed over the player's feet)
+  view.focus.set(RING.x, CY + 0.4, RING.z);
   view.k = 0.85 * watch;
   view.zoom = CELLAR_ZOOM * (1 - 0.45 * watch);
 }

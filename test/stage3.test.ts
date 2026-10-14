@@ -1098,11 +1098,14 @@ describe('the swarm and the watch spot', () => {
   });
 
   it('standing on the watch spot closes the camera in on the bout, with the names over it', async () => {
-    const { g, plan, gong, stage, at } = await ring();
+    const { g, plan, gong, stage, cellar, at } = await ring();
     at(plan.WATCH);
     g.run(3);
     expect(gong.watching()).toBe(true);
     expect(stage.view.zoom).toBeLessThan(stage.CELLAR_ZOOM);
+    // aimed as ever, 0.4 m up: main.ts aims a little over the player's feet, and at the middle of anything else
+    const { k, focus } = stage.view, feet = g.player.g.position.y;
+    expect(feet + (focus.y - feet) * k + 0.4 * (1 - k)).toBeCloseTo(cellar.CY + 0.4, 5);
     expect($('boutLine').hidden).toBe(false);
     expect($('boutLine').textContent).toContain('Chunkos against');
     at(plan.BAR_PAD);
@@ -1289,6 +1292,72 @@ describe("the workshop's crafting bench", () => {
       expect($('shop').hidden).toBe(true);
       expect($('craft').hidden).toBe(true);
     }
+  });
+
+  it('puts what it builds in the spotlight, as upstairs: the new rack, a hire, the racks swapped for steam baskets', async () => {
+    const { g, plan, at, buy } = await ring({ money: 10_000_000, ring: { beaten: 2 } });
+    const { Box3, Vector3 } = await import('three');
+    const kitchen = await import('../src/ringKitchen');
+    const { view } = g.stage, focus = view.focus.clone();
+    type O = import('three').Object3D;
+    /** How far the camera's spotlight is from the middle of `os`. */
+    const off = (os: O[]) => {
+      const mid = os.reduce((m, o) => m.add(new Box3().setFromObject(o).getCenter(new Vector3())), new Vector3()).divideScalar(os.length);
+      return view.focus.distanceTo(mid);
+    };
+    at(plan.BENCH_PAD);
+    g.run(0.1);
+    // a drying rack: the camera goes over to the new one (the second) and in close, then back to the player
+    buy('rack');
+    g.run(0.8);
+    expect(view.close).toBeCloseTo(0.6);
+    const rack = kitchen.built({ line: 'rice' });
+    expect(rack).toHaveLength(1);
+    expect(off(rack)).toBeLessThan(0.1);
+    g.run(3);
+    expect(view.close).toBe(1);
+    expect(view.focus.equals(focus)).toBe(true);
+    // a hire: on him, from where he starts by the racks, followed (a step behind) as he sets off to work
+    buy('washer');
+    g.run(0.8);
+    expect(view.close).toBeCloseTo(0.6);
+    expect(off([kitchen.crewPerson('washer')!])).toBeLessThan(1);
+    g.run(3);
+    // the steam baskets: on both the racks they're swapped for
+    buy('steam');
+    g.run(0.8);
+    expect(off(kitchen.built({ line: 'rice', all: true }))).toBeLessThan(0.1);
+    expect(kitchen.built({ line: 'rice', all: true })).toHaveLength(2);
+    g.run(3);
+    // (and it goes in the middle of the space the bench's menu leaves: ui.test.ts)
+    expect($('shop').dataset.still).toBe('1');
+  });
+
+  it("leaves the camera on the player while a boss is in, and ends a spotlight up or down the ladder", async () => {
+    const { g, plan, at, buy, fight, stage, F } = await ring({ money: 10_000_000 });
+    const { view } = g.stage;
+    at(plan.BENCH_PAD);
+    g.run(0.1);
+    // a boss's crowd coming in: what's bought pops in, but the camera stays on the player
+    expect(fight.ringGong()).toBe(true);
+    g.run(0.1);
+    const kitchen = await import('../src/ringKitchen');
+    buy('rack');
+    expect(kitchen.built({ line: 'rice' })[0].scale.x).toBeLessThan(1); // popping in
+    g.run(0.8);
+    expect(view.close).toBe(1);
+    expect(view.k).toBe(0);
+    g.runUntil(() => !F().rush, 60 + fight.WALK_IN);
+    // with him gone, a moment on camera again; and up the ladder, it ends at once, the camera with the player
+    at(plan.BENCH_PAD);
+    g.run(0.1);
+    buy('rack');
+    g.run(0.8);
+    expect(view.close).toBeCloseTo(0.6);
+    stage.setLevel(false);
+    g.run(0.05);
+    expect(view.close).toBe(1);
+    expect(view.k).toBe(0);
   });
 });
 

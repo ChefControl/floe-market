@@ -176,7 +176,12 @@ export const on = {
   bout: (_phase: Phase) => {},
   /** The grow room has been found. */
   grow: () => {},
+  /** Something bought at the crafting bench has been built (unlocks.ts). */
+  built: (_what: Built) => {},
 };
+/** Something just bought for the cellar: a line's new machine (or, `all`, every one it has: an upgrade swaps them all),
+ *  a hire, or the venue's next tier. */
+export type Built = { line: Ing; all?: boolean } | { role: Role } | { tier: number };
 
 /** Starts the cellar over: a fresh one, or a saved one. */
 export function resetFight(f: Fight = blank()) {
