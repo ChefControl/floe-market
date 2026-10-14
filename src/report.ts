@@ -11,9 +11,9 @@ import { prefs } from './audio';
 import { cloud, cloudEnabled, onCloud, sendReport, type Report, type Sent } from './cloud';
 import { recentErrors } from './errors';
 import { frameRate, gfx } from './graphics';
+import { level, stage } from './layout';
 import { player } from './player';
 import { camera, renderer, scene } from './render';
-import { sushi } from './restaurant';
 import { deviceStore, save, SAVE_KEY } from './save';
 import { current } from './season';
 import { openSettings } from './settings';
@@ -43,7 +43,8 @@ export const UI_WAIT = 4000;
  *  the picture of just the game. */
 const NOT_SHOWN = new Set(['report', 'draw', 'sendFx', 'game']);
 /** The panels that can be open over the game, for the report's `live` state. */
-const PANELS = ['shop', 'look', 'roulette', 'blackjack', 'slots', 'bubbly', 'tears', 'korki', 'scores', 'cloudPick', 'stale', 'hint'];
+const PANELS = ['shop', 'look', 'roulette', 'blackjack', 'slots', 'bubbly', 'tears', 'korki', 'scores', 'cloudPick', 'stale', 'hint',
+  'gong', 'fightCard', 'offer'];
 
 const $ = (id: string) => document.getElementById(id)!;
 
@@ -170,13 +171,15 @@ function repaint() {
   drawBtn.classList.toggle('drawn', strokes.length > 0);
 }
 
-/** What the save doesn't hold: where the player is and what's open on screen. */
+/** What the save doesn't hold: where the player is (in stage 3, up in the world or down in the cellar) and what's open
+ *  on screen. */
 function live() {
   const p = player.g.position;
   return JSON.stringify({
     x: Math.round(p.x * 10) / 10, z: Math.round(p.z * 10) / 10,
     facing: Math.round(player.g.rotation.y * 180 / Math.PI),
-    stage: sushi.built ? 2 : 1,
+    stage: stage.n,
+    cellar: level.down,
     season: current(),
     open: PANELS.filter(id => { const el = document.getElementById(id); return !!el && !el.hidden; }),
     muted: prefs.mute,

@@ -1,7 +1,7 @@
 // Reporting a bug or an idea from the settings: the form, what it tells the player, what it sends, and the reports
 // that wait on the device when the cloud can't be reached. Firebase is a fake that keeps reports in memory.
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { bought, loadGame } from './helpers';
+import { bought, FLOE_SUSHI, loadGame, MARKET, type SaveFixture } from './helpers';
 
 const h = vi.hoisted(() => {
   type User = { uid: string; name: string } | null;
@@ -47,10 +47,10 @@ const write = (t: string) => {
   ta.dispatchEvent(new Event('input'));
 };
 
-/** The game, with cloud saves and reports started, signed in unless `out`. */
-async function start(out = false) {
+/** The game (`save`'s), with cloud saves and reports started, signed in unless `out`. */
+async function start(out = false, save: SaveFixture = { money: 50, tiles: bought('pack') }) {
   fake.signedIn = false;
-  const g = await loadGame({ money: 50, tiles: bought('pack') });
+  const g = await loadGame(save);
   const c = await import('../src/cloud'), r = await import('../src/report');
   c.initCloud();
   r.initReports();
@@ -190,6 +190,19 @@ describe('reporting a bug or an idea', () => {
     expect(JSON.parse(String(fake.reports[0].r.live)).open).toEqual(expect.arrayContaining(casino.map(p => p.id)));
   });
 
+  it("says when it's stage 3 and the player's down in the cellar, with the gong, a fight card or Mr. Fugu's offer open", async () => {
+    await start(false, { tiles: bought(...MARKET, 'sushi', ...FLOE_SUSHI, 'dohyo'), fugu: 2, level: 1 });
+    const panels = ['gong', 'fightCard', 'offer'];
+    panels.forEach(id => { $(id).hidden = false; });
+    $('reportCat').click();
+    write('The gong rang twice');
+    $('reportSend').click();
+    await vi.waitFor(() => expect(fake.reports).toHaveLength(1));
+    const live = JSON.parse(String(fake.reports[0].r.live));
+    expect(live).toMatchObject({ stage: 3, cellar: true });
+    expect(live.open).toEqual(expect.arrayContaining(panels));
+  });
+
   it('sends the note, the picture and the game state, and thanks the player', async () => {
     const { g } = await start();
     window.dispatchEvent(new ErrorEvent('error', { message: 'boom' }));
@@ -206,7 +219,7 @@ describe('reporting a bug or an idea', () => {
     expect(r).toMatchObject({ kind: 'idea', text: 'More fish, please', build: __BUILD__, shot: SHOT, ui: SHOT });
     expect(String(r.id)).toMatch(/^[A-Za-z0-9]{20}$/);
     expect(JSON.parse(String(r.save))).toMatchObject({ money: 77 }); // saved the moment it was sent
-    expect(JSON.parse(String(r.live))).toMatchObject({ stage: 1, season: 'winter', open: [], cloud: 'saved' });
+    expect(JSON.parse(String(r.live))).toMatchObject({ stage: 1, cellar: false, season: 'winter', open: [], cloud: 'saved' });
     expect(JSON.parse(String(r.device))).toMatchObject({ graphics: 'auto high', touch: false });
     expect(JSON.parse(String(r.errors))).toEqual(['Something broke: boom']);
     // the moment says it went, with no toast as well
