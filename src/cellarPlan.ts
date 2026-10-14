@@ -70,6 +70,11 @@ export const BAR_SPOTS: XZ[] = Array.from({ length: 11 }, (_, i) => {
   const a = (60 + i * 24) * Math.PI / 180;
   return { x: BAR.x + Math.cos(a) * (BAR.r + 0.35), z: BAR.z + Math.sin(a) * (BAR.r + 0.35) };
 });
+/** The bar's stools, tucked under its top's edge between where the fans step up (none in the way of any of them). */
+export const BAR_STOOLS: XZ[] = [72, 120, 168, 216, 264].map(deg => {
+  const a = deg * Math.PI / 180;
+  return { x: BAR.x + Math.cos(a) * BAR.r, z: BAR.z + Math.sin(a) * BAR.r };
+});
 /** The arena floor along the south wall, from the bar across, where the fans queue and a boss's crowd floods in
  *  (swarm.ts crowds them round the bar first, and keeps them off it, off where they buy, and off the hatch's side). */
 export const FLOOR = { x0: ARENA.x0 + 0.7, x1: ARENA.x1 - 0.5, z0: 3.9, z1: ARENA.z1 - 0.3 };
@@ -91,9 +96,10 @@ export const TUNNELS = [
   { side: 'n' as const, at: -11.9, mouth: { x: -11.9, z: ARENA.z0 + 0.5 }, deep: { x: -11.9, z: ARENA.z0 - TUNNEL_D + 0.6 } },
 ];
 
-// ---------- the workshop: the crafting bench ----------
-/** The crafting bench, against the workshop's west wall (along it), and the square in front of it to stand on, which
- *  opens a menu of everything bought down here (shop.ts): the ring's upgrades, and each room's. */
+// ---------- the cookware shop: the shop counter ----------
+/** The shop counter (still BENCH: it was a crafting bench), against the shop's west wall (along it), and the square in
+ *  front of it to stand on, which opens a menu of everything bought down here (shop.ts): the ring's upgrades, and each
+ *  room's. */
 export const BENCH = { x: CRAFT.x0 + 0.55, z: (CRAFT.z0 + CRAFT.z1) / 2, w: 1.0, d: 2.4 };
 export const BENCH_PAD = { x: BENCH.x + 1.65, z: BENCH.z };
 /** Each room whose upgrades the bench sells (all of them at the bench now, so a room's tiles point there). */
@@ -101,7 +107,7 @@ export type MenuRoom = 'prep' | 'grow' | 'hearth';
 export const ROOM_MENUS: Record<MenuRoom, XZ> = { prep: BENCH_PAD, grow: BENCH_PAD, hearth: BENCH_PAD };
 
 // ---------- the landing and the office ----------
-/** Stage 3's upgrade square: the crafting bench's. */
+/** Stage 3's upgrade square: the shop counter's. */
 export const SHOP3 = BENCH_PAD;
 export const OFFICE_DOOR = { x: (OFFICE_ROOM.x0 + OFFICE_ROOM.x1) / 2, z: OFFICE_ROOM.z1 - 1.2 };
 

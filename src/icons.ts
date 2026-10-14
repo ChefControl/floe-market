@@ -237,14 +237,16 @@ function brokenHeart(c: Ctx) {
   }
 }
 
-/** 🔨 The crafting bench's square: a claw hammer, its wooden handle and steel head, at a slant. */
-function hammer(c: Ctx) {
-  c.save(); c.rotate(Math.PI / 5);
-  solid(c, WOOD, () => box(c, -7, -16, 14, 62, 6));
-  flat(c, DARK_WOOD, () => c.rect(-7, 30, 14, 5));
-  solid(c, STEEL, () => { c.moveTo(-34, -38); c.lineTo(10, -38); c.quadraticCurveTo(26, -38, 34, -48); c.lineTo(38, -42); c.quadraticCurveTo(30, -24, 10, -18); c.lineTo(-34, -18); c.closePath(); });
-  solid(c, '#9AA7B0', () => box(c, -42, -40, 12, 24, 3));
-  line(c, '#fff', 3, () => { c.moveTo(-28, -33); c.lineTo(4, -33); });
+/** 🍳 The cookware shop's square: a black frying pan at a slant, its wooden handle, an egg frying in it. */
+function pan(c: Ctx) {
+  c.save(); c.rotate(-Math.PI / 7);
+  solid(c, WOOD, () => box(c, 22, -7, 32, 14, 6));
+  flat(c, DARK_WOOD, () => c.rect(46, -7, 4, 14));
+  solid(c, '#3A3D44', () => dot(c, -8, 0, 34));
+  flat(c, '#24262B', () => dot(c, -8, 0, 26));
+  solid(c, CREAM, () => { c.moveTo(-26, -2); c.bezierCurveTo(-28, -20, -4, -22, 4, -12); c.bezierCurveTo(14, -2, 6, 16, -10, 14); c.bezierCurveTo(-24, 14, -24, 8, -26, -2); c.closePath(); });
+  solid(c, GOLD, () => dot(c, -9, -3, 8));
+  flat(c, 'rgba(255,255,255,.7)', () => dot(c, -12, -6, 2.5));
   c.restore();
 }
 
@@ -691,7 +693,7 @@ function mushroom(c: Ctx) {
 /** Every drawing, by the emoji it stands in for. */
 const DRAWINGS: Record<string, Drawing> = {
   '🎣': rod, '🐟': fish, '🍚': rice, '🚗': car, '🎰': roulette, '🛴': scooter, '💔': brokenHeart,
-  '📈': upgrade, '🔨': hammer, '🌿': sprig,
+  '📈': upgrade, '🍳': pan, '🌿': sprig,
   '🎒': backpack, '🎯': target, '🏃': runner, '🥾': boot, '🥅': net, '🏯': torii,
   '🌾': sheaf, '🪑': stool, '🔪': knife, '🧑‍🌾': farmer, '🧺': basket, '🌱': seedling, '⛱️': parasol, '⛱': parasol,
   '🥡': takeout, '🏮': lantern, '🎁': present, '🔒': lock,

@@ -3,7 +3,7 @@
 // water wheel (shed.ts) once the takeout kiosk opens, whose square sells rice fertilizer the same way, or with a
 // press of E (buy), as it sells only the one thing. The HUD's top left lists every modifier in play, as a percentage:
 // Customers there is marketing and the rating together, as both bring customers in faster. Stage 3's square is down
-// in the cellar, at the crafting bench in the workshop, priced in Fugu Chips: pricier bowls, word on the street (fans)
+// in the cellar, at the shop counter in the cookware shop, priced in Fugu Chips: pricier bowls, word on the street (fans)
 // and the cellar crew; and under them, everything each room has to buy, bought outright: the prep hall's (racks,
 // barrels, steamers, the smokehouse, the hires who run its lines), the grow room's (beds, the picker, shelves) and the
 // hearth room's (the cook and the attendant).
@@ -29,7 +29,7 @@ import { chips, FY, price } from './util';
 import { wallet } from './wallet';
 
 /** Where each stage's square is: by the walk-up counter, in the restaurant's aisle by the kitchen line, and in front of
- *  the crafting bench down in the cellar's workshop. */
+ *  the shop counter down in the cellar's cookware shop. */
 export const SHOPS = [{ x: 0.9, z: 5.4 }, { x: -3.6, z: 5.0 }, { x: BENCH_PAD.x, z: BENCH_PAD.z }];
 /** Half the square's side. */
 const HALF = 0.95;
@@ -42,7 +42,7 @@ interface Square {
   title: string;
   /** The fertilizer shed's square, which sells only what's bought there (and the upgrade squares, everything else). */
   shed: boolean;
-  /** The crafting bench's square: the stage's levels, and every cellar room's upgrades (unlocks.ts's menu tiles). */
+  /** The shop counter's square: the stage's levels, and every cellar room's upgrades (unlocks.ts's menu tiles). */
   bench?: boolean;
   /** What's on its square, under the icon. */
   label?: string;
@@ -51,10 +51,10 @@ const SQUARES: Square[] = [
   { ...SHOPS[0], stage: 1, title: 'Market upgrades', shed: false },
   { ...SHOPS[1], stage: 2, title: 'Restaurant upgrades', shed: false },
   { ...SHED_AT, stage: 2, title: 'Fertilizer shed', shed: true },
-  { ...SHOPS[2], stage: 3, title: 'Crafting bench', shed: false, bench: true, label: 'Craft' },
+  { ...SHOPS[2], stage: 3, title: 'Cookware shop', shed: false, bench: true, label: 'Shop' },
 ];
 const pads = SQUARES.map(q => {
-  const d = decal(HALF * 2, (c, w, h) => q.shed ? drawMenu(c, w, h, '🌿', 'Fertilizer') : drawMenu(c, w, h, q.bench ? '🔨' : '📈', q.label ?? 'Upgrade'));
+  const d = decal(HALF * 2, (c, w, h) => q.shed ? drawMenu(c, w, h, '🌿', 'Fertilizer') : drawMenu(c, w, h, q.bench ? '🍳' : '📈', q.label ?? 'Upgrade'));
   d.mesh.position.set(q.x, (q.shed ? SHED_YARD.y : q.stage === 3 ? CELLAR_Y : FY) + 0.01, q.z);
   return d;
 });

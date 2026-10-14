@@ -51,7 +51,7 @@ on.grow = () => {
   pointAt({ x: (door.x0 + door.x1) / 2, y: CY, z: PREP.z0 - 0.3 }, '🍄', () => level.down);
   toast("The gate behind the prep hall swings open: a grow room with its first mushroom bed. Mushroom bowls pay double", 'grow', 4500);
 };
-// An upgrade bought at the crafting bench gets its moment on camera, as upstairs: what it built pops in, and the camera
+// An upgrade bought at the shop counter gets its moment on camera, as upstairs: what it built pops in, and the camera
 // goes over to it and comes in close for a couple of seconds (spotlight.ts), in the middle of the space the bench's menu
 // leaves. Never while a boss is in (his rush waits for nobody) or a scene has the player, up or down the ladder or in
 // Mr. Fugu's office: then it just pops in.

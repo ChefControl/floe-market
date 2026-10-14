@@ -975,7 +975,7 @@ describe("the cellar's tiles", () => {
     expect($('craft').hidden).toBe(true);
     expect($('shopShut').hidden).toBe(true);
     expect($('shopTabs').hidden).toBe(true);
-    expect($('shopTitle').textContent).toBe('Crafting bench');
+    expect($('shopTitle').textContent).toBe('Cookware shop');
     // (the ring's, the prep hall's, the grow room's and the hearth room's, each with its number key and how many things in
     // it there are the chips for; the grow room, till it's found, says who opens it)
     const heads = () => [...$('shopRows').querySelectorAll('.sect .nm')].map(h => h.textContent);
@@ -1121,6 +1121,17 @@ describe('the swarm and the watch spot', () => {
     expect(used.some(s => s.z < BAR.z - 0.5)).toBe(true);
     expect(used.some(s => s.z > BAR.z + 0.5)).toBe(true);
     expect(BAR_SPOTS.every(s => s.x < BAR.x + 0.8)).toBe(true);
+  });
+
+  it('the soup bar\'s stools are tucked under its top, none where a fan steps up for a bowl nor on the hatch\'s side', async () => {
+    const { BAR, BAR_SPOTS, BAR_STOOLS, BAR_PAD } = await import('../src/cellarPlan');
+    expect(BAR_STOOLS.length).toBeGreaterThanOrEqual(4);
+    for (const s of BAR_STOOLS) {
+      expect(Math.hypot(s.x - BAR.x, s.z - BAR.z)).toBeLessThanOrEqual(BAR.r + 0.01);
+      // (a stool's seat is 0.19 round, a fan's body about 0.2: clear of each other)
+      for (const p of BAR_SPOTS) expect(Math.hypot(s.x - p.x, s.z - p.z)).toBeGreaterThan(0.4);
+      expect(Math.hypot(s.x - BAR_PAD.x, s.z - BAR_PAD.z)).toBeGreaterThan(BAR_PAD.r + 0.6);
+    }
   });
 
   it('a boss\'s crowd walks round the ring, the stands and the soup bar to its seats, never through them', async () => {
