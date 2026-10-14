@@ -19,6 +19,9 @@ export function showErr(m: string) {
 window.addEventListener('error', e => {
   const m = 'Something broke: ' + (e.message || e);
   note(m + (e.filename ? ` (${e.filename.split('/').pop()}:${e.lineno})` : ''));
+  // another site's script failing (YouTube's player, or one the browser puts in the page itself): the browser hides
+  // what went wrong and the game carries on, so a report keeps it, but there's no box (reports#8)
+  if (e.message === 'Script error.' && !e.filename) return;
   showErr(m);
 });
 // a promise that failed with nothing to catch it: no box (the game carries on), but a report should know
