@@ -21,7 +21,7 @@ import {
 } from './cellarPlan';
 import { Fugu } from './fugu';
 import { ARENA, CELLAR_Y, type CellarRoom, CRAFT, DOORS, found, GROW, keepOnFloor, KITCHEN, LANDING, LIFT_ROOM, OFFICE_ROOM, PREP, pushOutOfBox, ROOMS, walkable } from './layout';
-import { canvasTex, FONT, G, mat, mesh, OFF, paint, rr, scene } from './render';
+import { canvasTex, copyGeo, FONT, G, mat, mesh, OFF, paint, rr, scene } from './render';
 import type { XZ } from './util';
 
 export { cellarWay, roomAt } from './cellarPlan';
@@ -875,7 +875,7 @@ const sag = (a: Vector3, b: Vector3, drop: number, n: number) => Array.from({ le
   const hub = V(0, POLE + 1.6, 0), lit: Record<'red' | 'paper', BufferGeometry[]> = { red: [], paper: [] };
   const string = (pts: Vector3[]) => add(g, mesh(new TubeGeometry(new CatmullRomCurve3(pts), 24, 0.015, 4), 0x1A1614));
   const lamp = (p: Vector3, red: boolean, s: number) => {
-    const ball = G.sphere.clone(); ball.scale(0.2 * s, 0.26 * s, 0.2 * s); ball.translate(p.x, p.y, p.z);
+    const ball = copyGeo(G.sphere); ball.scale(0.2 * s, 0.26 * s, 0.2 * s); ball.translate(p.x, p.y, p.z);
     lit[red ? 'red' : 'paper'].push(ball);
     for (const k of [-1, 1]) add(g, mesh(G.cyl, 0x1B2430, p.x, p.y + k * 0.25 * s, p.z)).scale.set(0.1 * s, 0.05 * s, 0.1 * s);
   };
@@ -1437,7 +1437,7 @@ function onFloor(x: number, z: number, w: number, d: number, turn: number, draw:
 }
 /** The same picture on several faces, as one mesh: `geo` (facing +z) moved into place by each of `at`. */
 function pictures(geo: BufferGeometry, map: typeof earth.tex, at: Matrix4[]) {
-  return add(cellar, new Mesh(mergeGeometries(at.map(m => geo.clone().applyMatrix4(m)))!, new MeshLambertMaterial({ map })));
+  return add(cellar, new Mesh(mergeGeometries(at.map(m => copyGeo(geo).applyMatrix4(m)))!, new MeshLambertMaterial({ map })));
 }
 const placed = (x: number, y: number, z: number, turn = 0) => new Matrix4().makeRotationY(turn).setPosition(x, y, z);
 /** A curl of plane shavings; and the colours of pale new-cut wood, hemp rope, old glass floats and black iron. */
@@ -2000,7 +2000,7 @@ function bakeStill(root: Object3D, keep: Set<Object3D>) {
       if (keep.has(c) || !c.visible) continue;
       const m = c as Mesh;
       if (!m.isMesh || (m as unknown as { isInstancedMesh?: boolean }).isInstancedMesh || c.children.length || !plain(m.material)) { walk(c); continue; }
-      const g = m.geometry.index ? m.geometry.toNonIndexed() : m.geometry.clone();
+      const g = m.geometry.index ? m.geometry.toNonIndexed() : copyGeo(m.geometry);
       for (const k of Object.keys(g.attributes)) if (k !== 'position' && k !== 'normal') g.deleteAttribute(k);
       m4.multiplyMatrices(toRoot, m.matrixWorld);
       g.applyMatrix4(m4);

@@ -3,6 +3,7 @@
 // the pot, the counter, the soup bar) and the fans who pay for bowls, the gong and its forecast, a boss's rush and the
 // card after it, the cellar's tiles (machines again and again, hires, tiers) bought with Fugu Chips, the swarm on the
 // floor, the watch spot, the buyout, the restaurant upstairs as the front, and saving it all.
+import { BufferGeometry, ExtrudeGeometry, ShapeGeometry } from 'three';
 import { describe, expect, it } from 'vitest';
 import indexHtml from '../index.html?raw';
 import { bought, FLOE_SUSHI, loadGame, MARKET, RING_DONE, type SaveFixture } from './helpers';
@@ -469,6 +470,18 @@ describe('the rooms', () => {
     expect(down(13, L.PREP.z0 - 0.3)).toBeCloseTo(low[0], 5);
     expect(down(L.GROW.x1 + 0.35, -5, ground.growKerb)! - low[0]).toBeGreaterThan(0);
   }, 180_000);
+
+  it("copies its shapes without building a spare one first (render.ts's copyGeo): its lanterns, labels and baked furniture", async () => {
+    // three.js' own clone() builds a whole new shape of the same kind at its default size, only to copy over it
+    const clone = BufferGeometry.prototype.clone, spare: string[] = [];
+    BufferGeometry.prototype.clone = function (this: BufferGeometry) {
+      const shape = this instanceof ShapeGeometry || this instanceof ExtrudeGeometry; // (copyGeo clones these, for the luck)
+      if (!shape && this.constructor !== BufferGeometry && new Error().stack?.includes('/src/cellar.ts')) spare.push(this.type);
+      return clone.call(this);
+    };
+    try { await ring(); } finally { BufferGeometry.prototype.clone = clone; }
+    expect(spare).toEqual([]);
+  });
 
   it('has a clear way, round all the furniture and six of every machine, on every leg of the work', async () => {
     const { g, cellar, plan } = await ring({ ring: RING_DONE });
