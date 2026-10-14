@@ -1,7 +1,7 @@
 // Sound: silent until a tap or a key press, then the effects, the ambient beds and the music, all synthesised. The
 // tests listen through a stand-in for Web Audio (fakeAudio.ts) that logs what's played, on which bus, panned where.
 import { describe, expect, it, vi } from 'vitest';
-import { fake, installFakeAudio, level, nameBuses, type Played } from './fakeAudio';
+import { fake, FakeAudioContext, FakeNode, installFakeAudio, level, nameBuses, type Played } from './fakeAudio';
 import { bought, loadGame, MARKET, type SaveFixture } from './helpers';
 import { seeded } from './setup';
 
@@ -77,6 +77,45 @@ describe('sound', () => {
     expect(said).toHaveLength(2); // all's well
     expect(run(null)).toEqual([[0, 0, 0, 0, 0], [0, 0, 0, 0, 0]]); // nothing playing into it
     vi.unstubAllGlobals();
+  });
+
+  it("puts a scene's own sound through guards too: each output goes on to the mix through one of its own", async () => {
+    // a browser with audio worklets: the guard's module loads, and each guard is a node of its own
+    type Guard = FakeNode & { port: { onmessage: (() => void) | null } };
+    const made: Guard[] = [];
+    vi.stubGlobal('AudioWorkletNode', class extends FakeNode {
+      port = { onmessage: null as (() => void) | null };
+      constructor() { super(); made.push(this as Guard); }
+    });
+    const url = URL.createObjectURL;
+    URL.createObjectURL = () => 'blob:guard';
+    Object.defineProperty(FakeAudioContext.prototype, 'audioWorklet', { value: { addModule: () => Promise.resolve() }, configurable: true });
+    try {
+      const s = await withSound();
+      await new Promise(r => setTimeout(r, 0)); // (the module's loaded)
+      const outs = ['sfx', 'amb', 'music', 'cue', 'scene'] as const;
+      const guardOf = (b: (typeof outs)[number]) => (s.audio.buses[b] as unknown as FakeNode).outs;
+      // the three buses, and Mr. Fugu's scene's effects and music: each into a guard of its own, and only that
+      for (const b of outs) {
+        expect(guardOf(b), b).toHaveLength(1);
+        expect(made, b).toContain(guardOf(b)[0]);
+      }
+      expect(new Set(outs.map(b => guardOf(b)[0])).size).toBe(5);
+      // and on into the mix: a scene's effects where the effects go, its music where the music goes (the music's volume)
+      const into = (b: (typeof outs)[number]) => guardOf(b)[0].outs[0];
+      expect(into('cue')).toBe(into('sfx'));
+      expect(into('scene')).toBe(into('music'));
+      expect(into('music')).not.toBe(into('sfx'));
+      // a guard that finds something gone wrong says which output it's on
+      const said: string[] = [];
+      s.audio.onBroken(b => said.push(b));
+      (guardOf('scene')[0] as Guard).port.onmessage!();
+      expect(said).toEqual(['scene']);
+    } finally {
+      URL.createObjectURL = url;
+      delete (FakeAudioContext.prototype as { audioWorklet?: unknown }).audioWorklet;
+      vi.unstubAllGlobals();
+    }
   });
 
   it('sleeps while the page is hidden, and wakes with it, or with the next tap', async () => {

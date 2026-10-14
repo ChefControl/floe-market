@@ -2,7 +2,7 @@
 // following every moment of a bout, loud below and muffled through the floor above. Heard through the Web Audio
 // stand-in (fakeAudio.ts), as in sound.test.ts.
 import { describe, expect, it } from 'vitest';
-import { fake, installFakeAudio, level, nameBuses, type Played } from './fakeAudio';
+import { fake, type FakeNode, type FakeParam, installFakeAudio, level, nameBuses, type Played } from './fakeAudio';
 import { bought, FLOE_SUSHI, loadGame, MARKET, RING_DONE } from './helpers';
 
 const hz = (midi: number) => 440 * 2 ** ((midi - 69) / 12);
@@ -215,5 +215,52 @@ describe('the crowd', () => {
     s.g.player.g.position.set(cellar.OFFICE.x, cellar.CY, cellar.OFFICE.z + 1.5);
     s.play(2); s.ringSound.react('charge'); run(0.2);
     expect(roar()).toBeLessThan(ringside * 0.1);
+  });
+
+  it('moves no filter as it works up (one moved every frame can blow up): its voices fade from a hubbub over to shouts', async () => {
+    const s = await ringWithSound();
+    const cellar = await import('../src/cellar');
+    s.g.player.g.position.set(cellar.RING.x + 1, cellar.CY, cellar.RING.z + 5); // at the ringside
+    s.play(0.1);
+    // every filter an endless sound goes through, watched from here on
+    const moved: string[] = [];
+    for (const p of fake.played.filter(q => q.loop)) {
+      for (let n: FakeNode | undefined = p.src; n && !fake.buses.has(n); n = n.outs[0]) {
+        const f = (n as FakeNode & { frequency?: FakeParam; Q?: FakeParam }).Q && (n as FakeNode & { frequency: FakeParam }).frequency;
+        if (!f) continue;
+        for (const k of ['setValueAtTime', 'linearRampToValueAtTime', 'exponentialRampToValueAtTime', 'setTargetAtTime'] as const) {
+          const was = f[k].bind(f);
+          f[k] = (v: number) => { moved.push(`${p.f} Hz: ${k}(${v})`); return was(v); };
+        }
+      }
+    }
+    // into the first fight (the fans buy soup for 20 s, sit down for 5, then the charge), the synthesised crowd on
+    const bed = (f: number) => level(fake.played.find(p => p.loop && p.f === f)!);
+    let hubbub = 0, shouts = 0, excite = 0;
+    for (let t = 0; t < 30; t += 0.5) {
+      s.play(0.5);
+      hubbub = Math.max(hubbub, bed(850)); shouts = Math.max(shouts, bed(1300)); excite = Math.max(excite, s.ringSound.crowd.excite);
+    }
+    expect(excite).toBeGreaterThan(0.8);
+    expect(hubbub).toBeGreaterThan(0);
+    expect(shouts).toBeGreaterThan(0);
+    expect(moved).toEqual([]);
+  }, 30_000);
+
+  it("loops the recorded crowd short of each recording's end, where Chrome 152 can stick on a loop", async () => {
+    // (left to loop the whole recording, Chrome 152 works out the end as its length ÷ the rate × the rate, which can land
+    // a hair past the last frame: it sticks there, and the filter after it rings up into a horn, roomTone.ts's loopable)
+    const s = await ringWithSound();
+    const LEN = { murmur: 20, chant: 11, roar: 10, applause: 10, cheer1: 8, cheer2: 11.5, swell: 7 } as const;
+    for (const [k, duration] of Object.entries(LEN)) s.audio.setClip(k as keyof typeof LEN, { duration, name: k } as unknown as AudioBuffer);
+    s.g.player.g.position.set(-3.4, -30, 3.6); // by the ring
+    s.play(0.5);
+    const named = (p: Played) => (p.src as unknown as { buffer?: { name?: string } }).buffer?.name;
+    for (const k of ['murmur', 'chant', 'roar'] as const) {
+      const src = fake.played.find(p => p.loop && named(p) === k)!.src as unknown as { loopStart: number; loopEnd: number };
+      expect(src.loopStart, k).toBeGreaterThan(0);
+      expect(src.loopEnd, k).toBeGreaterThan(src.loopStart);
+      expect(LEN[k] - src.loopEnd, k).toBeGreaterThan(0.05); // thousands of frames short of the end
+    }
   });
 });
