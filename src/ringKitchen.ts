@@ -13,7 +13,7 @@ import { animPerson, belowGround, Person } from './characters';
 import { COUNTER_CAP, F, inPot, POT_CAP, poured, type Machine, mach, potWaits, type Role, STALL_CAP, type Worker } from './fight';
 import { fly } from './holder';
 import { newBowl, newCuredFish, newMushroom, newReadyRice, newRice, newFillet } from './items';
-import { Build, K, rbox, tube } from './kit';
+import { Build, K, quietly, rbox, tube } from './kit';
 import { FONT, G, mesh } from './render';
 import { V, type XZ } from './util';
 
@@ -31,8 +31,8 @@ interface Slot { k: Ing; i: number; g: Group; looks: [Group, Group]; items: Obje
 function spotsFor(k: Ing): [Vector3[], Vector3[]] {
   const ring = (n: number, r: number, y: number, a0 = 0) => Array.from({ length: n }, (_, j) => V(Math.sin(a0 + j / n * Math.PI * 2) * r, y, Math.cos(a0 + j / n * Math.PI * 2) * r));
   if (k === 'rice') {
-    // two rows of three mounds on the drying sieve; ten rice balls on the top steamer, seven round, three in the middle
-    return [[0, 1, 2, 3, 4, 5].map(j => V(-0.26 + (j % 3) * 0.26, 1.33, -0.1 + Math.floor(j / 3) * 0.2)), [...ring(7, 0.24, 1.17), ...ring(3, 0.09, 1.17, 0.5)]];
+    // two rows of three mounds in the rack's top zaru; ten rice balls on the top steamer, seven round, three in the middle
+    return [[0, 1, 2, 3, 4, 5].map(j => V(-0.24 + (j % 3) * 0.24, 1.36, -0.09 + Math.floor(j / 3) * 0.18)), [...ring(7, 0.24, 1.17), ...ring(3, 0.09, 1.17, 0.5)]];
   }
   if (k === 'fish') {
     // six slices laid in the salt, round the barrel's dome; ten hanging in the smokehouse's front, two staggered rows
@@ -46,33 +46,40 @@ const shape = (draw: (b: Build) => void) => { const b = new Build(); draw(b); re
 const looksOnce = new Map<string, Build>();
 const look = (key: string, draw: (b: Build) => void) => { let b = looksOnce.get(key); if (!b) looksOnce.set(key, b = shape(draw)); return b.mesh(true); };
 const BAMBOO_DARK = 0xA88850, HOOP = 0x3A3A40, SALT = 0xF4F4EE, WATER = 0x5E9EC0;
-/** A drying rack (where the rice is washed and dried): a frame of turned posts and braces, a slatted shelf with a tub
- *  of washing water and a sack of rice, and on top the wide woven sieve the rice dries on. Steam baskets: three banded
- *  bamboo steamers on an iron brazier, the lid off beside them. */
+/** A drying rack (where the washed rice drains and dries): an open timber shelf, three tiers of zaru (the shallow bamboo
+ *  baskets a kitchen drains and dries food in) heaped with washed rice, a fourth open to the air on top, and a drip
+ *  trough at its foot. Steam baskets: three banded bamboo steamers on an iron brazier, the lid off beside them. */
 function riceLooks(g: Group): [Group, Group] {
   const a = add(g, new Group()), b = add(g, new Group());
-  add(a, look('rack', r => {
-    for (const [x, z] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
-      r.add(K.post, WOOD_DARK, x * 0.42, 0.66, z * 0.26, null, [0.04, 1.32, 0.04]);
-      r.add(K.ball, WOOD_DARK, x * 0.42, 1.33, z * 0.26, null, 0.05);
+  /** A zaru, oval to fit the shelf, its woven floor (two tones, ringed), its rim bound in darker cane. */
+  const zaru = (r: Build, y: number, w: number, d: number) => {
+    r.add(tube(w, w * 0.9, 0.05, 18), BAMBOO, 0, y + 0.025, 0, null, [1, 1, d / w]);
+    for (const k of [0.75, 0.45]) r.add(K.ring, BAMBOO_DARK, 0, y + 0.052, 0, [Math.PI / 2, 0, 0], [w * k, d * k, 0.05]);
+    r.add(K.ring, BAMBOO_DARK, 0, y + 0.05, 0, [Math.PI / 2, 0, 0], [w, d, 0.35]);
+  };
+  // (built off the game's luck, kit.ts' quietly, as new scenery is)
+  add(a, look('rack', r => quietly(() => {
+    // the frame: four square posts, rails front and back and across the ends at each tier, the top rails a little
+    // proud, and slats across each tier for the basket to sit on
+    for (const [x, z] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) r.add(rbox(0.06, 1.3, 0.06, 0.012), WOOD_DARK, x * 0.41, 0.65, z * 0.25);
+    for (const y of [0.32, 0.68, 1.04, 1.28]) {
+      for (const z of [-0.25, 0.25]) r.add(rbox(0.88, 0.045, 0.04, 0.01), WOOD_DARK, 0, y, z);
+      for (const x of [-0.41, 0.41]) r.add(rbox(0.04, 0.045, 0.54, 0.01), WOOD_DARK, x, y, 0);
+      for (let j = 0; j < 4; j++) r.add(rbox(0.03, 0.02, 0.5, 0.006), BAMBOO_DARK, -0.27 + j * 0.18, y + 0.03, 0);
     }
-    // braces along the back and the sides
-    for (const z of [-0.26, 0.26]) r.add(rbox(0.84, 0.035, 0.035, 0.01), WOOD_DARK, 0, 0.3, z);
-    for (const x of [-0.42, 0.42]) r.add(rbox(0.035, 0.035, 0.52, 0.01), WOOD_DARK, x, 0.3, 0);
-    // the slatted shelf, with the washing tub and a rice sack on it
-    for (let j = 0; j < 6; j++) r.add(rbox(0.86, 0.025, 0.07, 0.008), j % 2 ? BAMBOO_DARK : BAMBOO, 0, 0.5, -0.22 + j * 0.088);
-    r.add(tube(0.17, 0.14, 0.2, 10, true), WOOD, -0.18, 0.62, 0.02);
-    r.add(tube(0.14, 0.14, 0.01, 10), WOOD_DARK, -0.18, 0.525, 0.02);
-    r.add(K.ring, HOOP, -0.18, 0.6, 0.02, [Math.PI / 2, 0, 0], [0.16, 0.16, 0.2]);
-    r.add(tube(0.162, 0.162, 0.01, 10), WATER, -0.18, 0.68, 0.02);
-    r.add(K.ball, 0xD8C49A, 0.22, 0.62, 0.0, null, [0.15, 0.13, 0.13]);
-    r.add(K.ball, 0xC2AC80, 0.22, 0.74, 0.0, null, [0.06, 0.04, 0.06]);
-    // the top: the woven sieve on its bearers
-    for (const x of [-0.42, 0.42]) r.add(rbox(0.06, 0.04, 0.6, 0.012), WOOD_DARK, x, 1.25, 0);
-    r.add(tube(0.5, 0.46, 0.06, 18), BAMBOO, 0, 1.29, 0, null, [1, 1, 0.72]);
-    r.add(K.ring, BAMBOO_DARK, 0, 1.32, 0, [Math.PI / 2, 0, 0], [0.5, 0.36, 0.25]);
-    r.add(tube(0.46, 0.46, 0.008, 18), 0xE6D9B8, 0, 1.322, 0, null, [1, 1, 0.72]);
-  }));
+    // three tiers of zaru, each heaped with washed rice
+    for (const y of [0.34, 0.7, 1.06]) {
+      zaru(r, y, 0.37, 0.235);
+      r.add(K.dome, 0xF2EEE2, 0, y + 0.05, 0, null, [0.3, 0.06, 0.19]);
+    }
+    // on top, one more, open to the air: the rice in it is what's drying now (the machine's own mounds)
+    zaru(r, 1.3, 0.42, 0.27);
+    // the drip trough at its foot, with the water that's run off
+    r.add(rbox(0.8, 0.1, 0.46, 0.02), WOOD, 0, 0.05, 0);
+    r.add(rbox(0.72, 0.01, 0.38, 0.003), WATER, 0, 0.1, 0);
+    // a cloth hung over the top rail at the end, for wiping down
+    r.add(rbox(0.02, 0.32, 0.22, 0.005), 0xE8E2D4, 0.435, 1.13, 0.02);
+  })));
   add(b, look('steam', r => {
     r.add(rbox(0.8, 0.5, 0.6, 0.05), IRON, 0, 0.25, 0);
     for (const x of [-0.3, 0.3]) for (const z of [-0.22, 0.22]) r.add(K.post, IRON, x, 0.02, z, null, [0.05, 0.04, 0.05]);
