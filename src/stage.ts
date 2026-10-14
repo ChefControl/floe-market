@@ -140,7 +140,7 @@ let hop: { t: number; down: boolean; moved: boolean } | null = null, linger = 0,
 /** Climbs the ladder: dark, across, and light again. */
 function climb(down: boolean) {
   hop = { t: 0, down, moved: false };
-  player.frozen = true; player.moving = false;
+  player.held = true; player.moving = false;
   fade(true);
 }
 /** The ladder between the dock and the cellar (stage 3): stand at the foot of it, or on the open hatch, to climb. */
@@ -157,10 +157,10 @@ export function updLadder(dt: number) {
       setLevel(hop.down);
       fade(false);
     }
-    if (hop.t >= 0.6) { hop = null; player.frozen = false; armed = false; }
+    if (hop.t >= 0.6) { hop = null; player.held = false; armed = false; }
     return;
   }
-  if (stage.n !== 3 || staging() || player.frozen) return;
+  if (stage.n !== 3 || staging() || player.held) return;
   const p = player.g.position;
   const on = level.down ? d2xz(p, LADDER_PAD) < LADDER_PAD.r ** 2 : d2xz(p, HATCH_AT) < HATCH_R ** 2;
   // once off the ladder (or out from under the hatch), stepping back on climbs again
@@ -314,7 +314,7 @@ export function enterStage3(silent: boolean) {
   showCellar();
   if (silent) return;
   openCellar();
-  player.frozen = true; player.moving = false;
+  player.held = true; player.moving = false;
   fx = {
     t: 0, anims: [], kind: 3,
     cues: [
@@ -331,7 +331,7 @@ export function enterStage3(silent: boolean) {
       },
       { t: 2.0, run: () => fade(false, true) },
       { t: 2.6, run: () => { banner('Stage 3', 'The Dohyo Below'); confetti(); fanfare(3); react('upset'); } },
-      { t: 5.6, run: () => { banner(null); player.frozen = false; toast('In the prep hall: rice onto the drying rack, fish into the salt barrel, then both to the pot'); } },
+      { t: 5.6, run: () => { banner(null); player.held = false; toast('In the prep hall: rice onto the drying rack, fish into the salt barrel, then both to the pot'); } },
     ],
   };
   updStage(0);

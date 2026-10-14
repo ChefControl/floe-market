@@ -221,7 +221,7 @@ function begin(then: () => void) {
   show = { t: 0, cues: [], blast: null };
   waiting = false;
   mode = 'watch';
-  player.frozen = true; player.moving = false;
+  player.held = true; player.moving = false;
   root.hidden = false;
   alertEl.classList.add('on');
   sfx.alert();
@@ -487,7 +487,7 @@ function leave(news: string) {
   caption(null);
   // and the night lifts
   if (nightK() > 0) dusk = { from: nightK(), to: 0, t: 0, dur: 5 };
-  player.frozen = false;
+  player.held = false;
   document.body.classList.remove('offer');
   pickEl.hidden = true;
   root.hidden = true;

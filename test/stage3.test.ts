@@ -68,7 +68,7 @@ describe('buying into the ring', () => {
     g.press('e', 'keyup');
     expect(g.wallet.money).toBe(100_000);
     expect($('banner').textContent).toBe('Stage 2 completeFloe Sushi');
-    expect(g.player.frozen).toBe(true);
+    expect(g.player.held).toBe(true);
     expect(offered(g)).toEqual([]); // the cellar's tiles wait for the show
     g.run(1.8);
     // dark, and down the hatch
@@ -86,7 +86,7 @@ describe('buying into the ring', () => {
     g.run(1);
     expect($('banner').textContent).toBe('Stage 3The Dohyo Below');
     g.run(3.5);
-    expect(g.player.frozen).toBe(false);
+    expect(g.player.held).toBe(false);
     expect(g.stage.staging()).toBe(false);
     // a fresh cellar: a rack and a barrel, nothing on the ledge
     expect(fight.F.lines.rice.n).toBe(1);

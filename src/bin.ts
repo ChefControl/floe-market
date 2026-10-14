@@ -132,7 +132,7 @@ export function updBins(dt: number) {
     b.open += ((b.hold > 0 ? 1 : 0) - b.open) * Math.min(1, dt * (b.hold > 0 ? 16 : 6));
     b.lid.rotation.x = -b.open * 1.7;
   }
-  const at = player.frozen ? null : binAt(player.g.position), full = player.back.n > 0;
+  const at = player.held ? null : binAt(player.g.position), full = player.back.n > 0;
   btn.hidden = !(touch && at && full);
   // E pressed (not held: a held E is for buying, on a tile)
   const e = keyHeld('e');

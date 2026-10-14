@@ -71,7 +71,7 @@ function cashSpots() {
 
 export function updPlayer(dt: number) {
   tipsy.t = Math.max(0, tipsy.t - dt);
-  const p = player.g.position, mv = player.frozen || player.held ? null : inputVec(), b = player.booped;
+  const p = player.g.position, mv = player.held ? null : inputVec(), b = player.booped;
   if (b) {
     // booped: a hop backwards, easing out, whatever's pressed
     b.t = Math.min(1, b.t + dt / BOOP_SECS);
