@@ -6,7 +6,7 @@
 // walls on the camera's side fade while the player is inside. The games stand along the back wall, leaving the floor
 // open from the door to them, and round them it's full of life: a long bar across the stern with two bartenders and
 // guests on the stools, a short row of slot machines by the door with guests playing them (now and then one wins), a
-// palm, a guest at the roulette table who cheers when the player wins, and a waiter carrying champagne along the
+// palm (in the restroom stall in the corner by the door, casinoRestroom.ts), a guest at the roulette table who cheers when the player wins, and a waiter carrying champagne along the
 // windows, who doesn't block the way and stops to toast with the player over a glass. None of it touches the game's
 // luck: the guests run on their own dice.
 import {
@@ -17,7 +17,8 @@ import {
 import { atTable, CHIPS, easeInOut, leaveSeat, onCheer, speaker, takeSeat, tipsy } from './casinoKit';
 import { clink } from './sfx';
 import { animPerson, Person, SUITS } from './characters';
-import { aboard, DECKS, pushOutOfBox, SALON, SHIP, stage, UPPER } from './layout';
+import { byTheStall, STALL } from './casinoRestroom';
+import { DECKS, inSalon, pushOutOfBox, SALON, SHIP, stage, UPPER } from './layout';
 import { player } from './player';
 import { bake, bakePainted, canvasTex, FONT, G, mesh, scene, type Part } from './render';
 import { drawReels, REELS_PX, slotRow } from './slotMachine';
@@ -38,8 +39,9 @@ const DOOR = DECKS.stairs.half + 0.2;
 export const BAR = { x: SALON.x0 + 1.1, z0: -2.75, z1: 2.55, stools: [-2.1, -1.05, 0, 1.05, 2.1] };
 const STOOL_X = BAR.x + 0.55;
 export const ROW = { x: SALON.x1 - 0.42, zs: [-2.55, -1.7] };
-/** A potted palm in the corner by the door on the windows' side. */
-const PALMS = [[SALON.x1 - 0.5, SALON.side - 0.5]];
+/** A little potted palm in the corner by the door on the windows' side, beside the toilet in the restroom stall there
+ *  (casinoRestroom.ts). */
+const PALMS = [[SALON.x1 - 0.26, SALON.side - 0.24]];
 
 /** Draws a guest's or the bartender's dice: their own sequence, so the game's luck is left alone. */
 const dice = rng(0xCA5170);
@@ -336,11 +338,11 @@ function buildBar(g: Group) {
   // and a potted palm by the door
   const palms: (Part & { c: number })[] = [];
   for (const [px, pz] of PALMS) {
-    palms.push({ geo: G.cyl, at: [px, UPPER + 0.22, pz], scale: [0.24, 0.44, 0.24], c: GOLD });
-    palms.push({ geo: G.cyl, at: [px, UPPER + 0.8, pz], scale: [0.05, 1.2, 0.05], c: 0x7A5634 });
+    palms.push({ geo: G.cyl, at: [px, UPPER + 0.1, pz], scale: [0.11, 0.2, 0.11], c: GOLD });
+    palms.push({ geo: G.cyl, at: [px, UPPER + 0.32, pz], scale: [0.025, 0.44, 0.025], c: 0x7A5634 });
     for (let i = 0; i < 7; i++) {
       const a = i / 7 * Math.PI * 2;
-      palms.push({ geo: G.box, at: [px + Math.cos(a) * 0.32, UPPER + 1.3, pz + Math.sin(a) * 0.32], rot: [0, -a, 0.5], scale: [0.62, 0.03, 0.16], c: 0x2F7D3E });
+      palms.push({ geo: G.box, at: [px + Math.cos(a) * 0.13, UPPER + 0.52, pz + Math.sin(a) * 0.13], rot: [0, -a, 0.5], scale: [0.26, 0.02, 0.07], c: 0x2F7D3E });
     }
   }
   g.add(mesh(bakePainted(palms), new MeshLambertMaterial({ vertexColors: true }), 0, 0, 0, true));
@@ -422,9 +424,9 @@ function buildCrowd(g: Group) {
   });
   return crowdState;
 }
-/** The waiter's beat along the windows, and the fan's spot at the roulette table's far end: both off the player's way
- *  from the door to the games. */
-const WAITER = { x0: SALON.x0 + 2.4, x1: SALON.x1 - 1.1, z: SALON.side - 0.9 };
+/** The waiter's beat along the windows, short of the restroom's door, and the fan's spot at the roulette table's far
+ *  end: both off the player's way from the door to the games. */
+const WAITER = { x0: SALON.x0 + 2.4, x1: STALL.x0 - 1.1, z: SALON.side - 0.9 };
 const FAN = { x: -5.85, z: -1.55 };
 /** How far forward the waiter holds the tray arm: level with the shoulder. */
 const TRAY_ARM = 1.6;
@@ -605,9 +607,6 @@ export function buildSalon(g: Group) {
   salon = { roof, faders, crowd: buildCrowd(g), clock: 0, roofK: 1, chase: buildSigns(g) };
 }
 
-/** The player's inside the salon: on the upper deck. */
-export const inSalon = (p: XZ & { y: number }) => aboard(p) && p.y > FY + 1.0;
-
 /** Fades between `want` and opaque, for a set of materials. */
 function fade(mats: Material[], base: number[], k: number) {
   mats.forEach((m, i) => {
@@ -703,7 +702,7 @@ function updCrowd(c: ReturnType<typeof buildCrowd>, dt: number, clock: number) {
   }
   // the waiter walks up and down with the tray, pausing at each end, and stops for the player to offer a glass
   const w = c.waiter, walk = c.walk, pp = player.g.position, wAt = waiterAt(c);
-  const near = !!c.pour || (inSalon(pp) && !atTable() && Math.hypot(pp.x - wAt.x, pp.z - wAt.z) < NEAR);
+  const near = !!c.pour || (inSalon(pp) && !atTable() && !byTheStall() && Math.hypot(pp.x - wAt.x, pp.z - wAt.z) < NEAR);
   if (near !== !bubbly.hidden) { bubbly.hidden = !near; if (near) shown = ''; }
   if (near) refreshBubbly();
   c.waiterSay.upd(dt); c.hic.upd(dt);
@@ -745,7 +744,7 @@ export function collideSalon(p: XZ) {
   const bar1 = STOOL_X + 0.25, row0 = ROW.x - 1.0, rowZ = [ROW.zs[0] - 0.37, ROW.zs[ROW.zs.length - 1] + 0.37];
   pushOutOfBox(p, x((SALON.x0 + bar1) / 2), z((BAR.z0 + BAR.z1) / 2), (bar1 - SALON.x0) / 2 + 0.3, (BAR.z1 - BAR.z0) / 2 + 0.3);
   pushOutOfBox(p, x((row0 + SALON.x1) / 2), z((rowZ[0] + rowZ[1]) / 2), (SALON.x1 - row0) / 2 + 0.3, (rowZ[1] - rowZ[0]) / 2 + 0.3);
-  for (const [px, pz] of PALMS) pushOutOfBox(p, x(px), z(pz), 0.3 + 0.3, 0.3 + 0.3);
+  for (const [px, pz] of PALMS) pushOutOfBox(p, x(px), z(pz), 0.15 + 0.3, 0.15 + 0.3);
   pushOutOfBox(p, x(FAN.x), z(FAN.z), 0.25 + 0.3, 0.25 + 0.3);
   // the east wall either side of the door
   for (const s of [-1, 1]) pushOutOfBox(p, x(SALON.x1), z(s * (DOOR + SALON.side) / 2), 0.08 + 0.3, (SALON.side - DOOR) / 2);

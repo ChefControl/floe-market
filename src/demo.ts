@@ -31,7 +31,7 @@ el.innerHTML = `<style>${css}</style><button type="button" aria-label="Demo tool
   <div class="row" id="demoSeason"><b>Season</b>${SEASONS.map((s, i) => `<button data-s="${i}">${SEASON_INFO[s].name}</button>`).join('')}</div>
   <div class="row" id="demoFx"><b>Effects</b><button data-fx="splash">Splash</button><button data-fx="chips">Chips</button>
     <button data-fx="coins">Coins</button><button data-fx="glint">Glint</button><button data-fx="unlock">Sparkles</button></div>
-  <div class="row" id="demoGame"><b>Game</b><button data-g="1">Stage 1</button><button data-g="2">Stage 2</button></div>
+  <div class="row" id="demoGame"><b>Game</b><button data-g="0">To buy</button><button data-g="1">Stage 1</button><button data-g="2">Stage 2</button></div>
 </div>`;
 document.body.appendChild(el);
 const box = el.querySelector<HTMLElement>('.box')!, stats = el.querySelector<HTMLElement>('#demoStats')!;
@@ -61,10 +61,12 @@ el.querySelector('#demoFx')!.addEventListener('click', e => {
 el.querySelector('#demoGame')!.addEventListener('click', e => {
   const g = (e.target as HTMLElement).dataset.g;
   if (!g) return;
-  // (stage 2: stages 1 and 2 built, and none of the ring's tiles: they wait for Mr. Fugu's offer)
-  const done = (t: { id: string; stage: number }) => g === '2' ? t.stage < 3 && t.id !== 'dohyo' : t.stage === 1 && t.id !== 'sushi';
+  // To buy: a market with nothing built yet and the cash to buy it all, for trying out buying upgrades; stage 2: stages
+  // 1 and 2 built, and none of the ring's tiles (they wait for Mr. Fugu's offer)
+  const done = (t: { id: string; stage: number }) =>
+    g === '2' ? t.stage < 3 && t.id !== 'dohyo' : g === '1' && t.stage === 1 && t.id !== 'sushi';
   replaceSave(JSON.stringify({
-    v: 4, savedAt: Date.now(), money: g === '2' ? 300_000 : 9_000, best: 300_000,
+    v: 4, savedAt: Date.now(), money: g === '2' ? 300_000 : g === '0' ? 20_000 : 9_000, best: 300_000,
     tiles: tiles.map(t => ({ id: t.id, paid: done(t) ? t.cost : 0, done: done(t), open: true })),
     mods: g === '2' ? { fillets: 6, marketing: 8, training: 8, specials: 8, promo: 8, crew: 8 } : { fillets: 4, marketing: 5, crew: 3 },
     reviews: Array(20).fill(5), pile: 20, back: 0, backRice: 0, c1: 5, c1c: 0, c2: 4, c2c: 0, fish: 8, rice: 8, plates: 6,

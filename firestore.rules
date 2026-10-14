@@ -35,6 +35,7 @@ service cloud.firestore {
         && request.auth.token.firebase.sign_in_provider == 'google.com';
     }
     function str(v, max) { return v is string && v.size() <= max; }
+    function jpeg(v) { return str(v, 200000) && v.matches('data:image/jpeg;base64,[A-Za-z0-9+/=]+'); }
 
     match /reports/{id} {
       // named the way the game names them (src/report.ts), which the intake relies on for the report's files
@@ -42,7 +43,7 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/config/reports).data.open == true
         && request.resource.data.keys().hasAll(['uid', 'at', 'status', 'kind', 'text', 'build', 'device', 'errors'])
         && request.resource.data.keys().hasOnly(['uid', 'at', 'status', 'kind', 'text', 'build', 'device', 'errors',
-          'live', 'save', 'shot'])
+          'live', 'save', 'shot', 'ui'])
         && request.resource.data.at == request.time
         && request.resource.data.status == 'new'
         && request.resource.data.kind in ['bug', 'idea']
@@ -52,8 +53,9 @@ service cloud.firestore {
         && str(request.resource.data.errors, 4000)
         && (!('live' in request.resource.data) || str(request.resource.data.live, 4000))
         && (!('save' in request.resource.data) || str(request.resource.data.save, 99999))
-        && (!('shot' in request.resource.data) || (str(request.resource.data.shot, 200000)
-          && request.resource.data.shot.matches('data:image/jpeg;base64,[A-Za-z0-9+/=]+')))
+        && (!('shot' in request.resource.data) || jpeg(request.resource.data.shot))
+        // the picture as the player saw it, with the panels over the game: only with the one of just the game
+        && (!('ui' in request.resource.data) || ('shot' in request.resource.data && jpeg(request.resource.data.ui)))
         // sent together with the player's count, which the rules below keep to 20 an hour
         && getAfter(/databases/$(database)/documents/limits/$(request.auth.uid)).data.last == request.time;
     }

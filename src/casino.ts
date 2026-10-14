@@ -2,10 +2,11 @@
 // and a casino yacht is moored along it, bow towards the dock: a navy hull with a raked bow, bulwarks that sweep up
 // towards it and its name in gold, a lower deck banded in dark glass, and the salon on top (casinoSalon.ts: walled in
 // glass under a hardtop with a wheelhouse, a radar mast, a hot tub, loungers and the CASINO sign; guests, a bar and
-// more machines inside). A gangway takes you aboard through a gap in the bulwark onto the foredeck, where a staircase
-// climbs to the salon's door. The 'roulette' unlock brings it all in with the roulette table; the blackjack table and
-// the slot machines are upgrades of their own, bought in the salon. It stays put through the stage-up. The games
-// themselves are in rouletteTable.ts, blackjackTable.ts and slotMachine.ts.
+// more machines inside, and a restroom stall in the corner by the door, to cry in: casinoRestroom.ts). A gangway takes
+// you aboard through a gap in the bulwark onto the foredeck, where a staircase climbs to the salon's door. The
+// 'roulette' unlock brings it all in with the roulette table; the blackjack table and the slot machines are upgrades of
+// their own, bought in the salon. It stays put through the stage-up. The games themselves are in rouletteTable.ts,
+// blackjackTable.ts and slotMachine.ts.
 import {
   BoxGeometry, BufferGeometry, CylinderGeometry, Float32BufferAttribute, Group, Mesh, MeshBasicMaterial,
   MeshLambertMaterial, MeshPhongMaterial, PlaneGeometry, Shape, ShapeGeometry, SphereGeometry, Vector2,
@@ -13,6 +14,7 @@ import {
 } from 'three';
 import { collideBlackjack, updBlackjack } from './blackjackTable';
 import { updTweens, visits } from './casinoKit';
+import { buildRestroom, collideRestroom, updRestroom } from './casinoRestroom';
 import { buildSalon, carpet, collideSalon, JACK, oblong, slab, strut, updSalon } from './casinoSalon';
 import { aboard, casinoBoat, DECKS, hullHalf, pushOutOfBox, QUAY, SHIP, UPPER } from './layout';
 import { player } from './player';
@@ -20,7 +22,8 @@ import { popIn } from './pop';
 import { bake, canvasTex, FONT, G, mat, mesh, scene, type Part } from './render';
 import { collideRoulette, enableRoulette, updRoulette } from './rouletteTable';
 import { collideSlots, updSlots } from './slotMachine';
-import { staging, view } from './stage';
+import { spotlight } from './spotlight';
+import { staging } from './stage';
 import { FY, V, type XZ } from './util';
 import { openQuayGap, planks } from './world';
 
@@ -246,6 +249,7 @@ function buildShip() {
   g.add(mesh(new CylinderGeometry(0.03, 0.045, JACK.y - FY - 0.5, 8), 0xFFFFFF, JACK.x, (JACK.y + FY + 0.5) / 2, 0, true));
   g.add(mesh(new SphereGeometry(0.06, 10, 8), GOLD, JACK.x, JACK.y, 0));
   buildSalon(g);
+  buildRestroom(g);
   return { g };
 }
 
@@ -280,15 +284,13 @@ let pieces: Object3D[] = [];
 export const casinoPieces = () => pieces;
 
 // ---------- the ship coming in ----------
-/** The camera's look over at the ship as it comes in: easing over, holding, easing back; the ship pops in on arrival. */
-const GLANCE = { over: 0.6, hold: 1.4, back: 0.6, popAt: 0.5 };
-let glance: { t: number; waiting: Object3D[]; was: ReturnType<typeof V> } | null = null;
-const ease = (k: number) => k < .5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+/** The spotlight on the ship (spotlight.ts): only a little closer, as big as it is, and it pops in as the camera gets there. */
+const SHOW = { close: 0.85, popAt: 0.5 };
 
 /**
  * The 'roulette' unlock: the quay and the ship come in, with the roulette table. Returns what pops in at once (the
- * quay). Unless `silent` (loading a save), the camera then looks over at the ship, which pops in with its gangway and
- * table as it gets there; with reduced motion it all pops in straight away instead.
+ * quay). Unless `silent` (loading a save), the camera then goes over to the ship in the spotlight, and it pops in with
+ * its gangway and table as the camera gets there; with reduced motion it all pops in straight away instead.
  */
 export function enableCasino(silent = false): Object3D[] {
   casinoBoat.open = true;
@@ -297,20 +299,11 @@ export function enableCasino(silent = false): Object3D[] {
   ship = buildShip();
   pieces = [quay, gangway, ship.g];
   if (silent) return [];
-  if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return [...pieces, ...roulette];
   const waiting = [gangway, ship.g, ...roulette];
+  const arrive = () => waiting.forEach(o => { o.visible = true; popIn(o); });
+  if (!spotlight([ship.g], { close: SHOW.close, cue: { at: SHOW.popAt, run: arrive } })) return [...pieces, ...roulette];
   waiting.forEach(o => { o.visible = false; });
-  glance = { t: 0, waiting, was: view.focus.clone() };
   return [quay];
-}
-
-function updGlance(dt: number) {
-  const g = glance!, { over, hold, back, popAt } = GLANCE;
-  g.t += dt;
-  view.focus.set(SHIP.x, FY, SHIP.z);
-  view.k = g.t < over + hold ? ease(Math.min(1, g.t / over)) : 1 - ease(Math.min(1, (g.t - over - hold) / back));
-  if (g.waiting.length && g.t >= popAt) g.waiting.splice(0).forEach(o => { o.visible = true; popIn(o); });
-  if (g.t >= over + hold + back) { view.k = 0; view.focus.copy(g.was); glance = null; }
 }
 
 /** Whether the player was aboard last frame: stepping off starts a new visit, so the games greet them again next time. */
@@ -324,15 +317,15 @@ function updVisit() {
 /** Keeps the player out of the games' tables and machines, and the quay's booth and crates. */
 export function collideCasino(p: XZ) {
   if (!ship) return;
-  collideRoulette(p); collideBlackjack(p); collideSlots(p); collideSalon(p);
+  collideRoulette(p); collideBlackjack(p); collideSlots(p); collideSalon(p); collideRestroom(p);
   for (const o of [BOOTH, CRATES]) pushOutOfBox(p, o.x, o.z, o.w / 2 + 0.3, o.d / 2 + 0.3);
 }
 
 export function updCasino(dt: number) {
   if (!ship) return;
-  if (glance) updGlance(dt);
   updVisit();
   updSalon(dt, player.g.position, staging());
+  updRestroom(dt);
   updTweens(dt);
   updRoulette(dt);
   updBlackjack(dt);

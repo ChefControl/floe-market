@@ -1,10 +1,10 @@
 // The casino boat's slot machines: a bank of three along the back of the deck, the middle one yours to play. Standing
 // on its pad brings the camera in on its front and opens the controls: pick a stake and pull. The lever goes down,
 // and the reels on the machine's screen spin and stop left to right; what pays is printed on the cabinet under them.
-// Walking off mid-spin pays out at once.
+// Walking off mid-spin, the reels spin on and pay as usual.
 import { BoxGeometry, CanvasTexture, CylinderGeometry, Group, Mesh, MeshBasicMaterial, PlaneGeometry } from 'three';
 import { every } from './audio';
-import { cheer, gamePad, greeting, speaker, Stakes } from './casinoKit';
+import { cheer, gamePad, greeting, speaker, Stakes, tally } from './casinoKit';
 import { GAMES, pushOutOfBox } from './layout';
 import { bake, bakePainted, canvasTex, FONT, G, mesh, painted, rr, scene, type Part } from './render';
 import { clack, jackpot, lose, reelStop, win } from './sfx';
@@ -176,6 +176,7 @@ function refresh() {
 
 /** Applies the money a round moves to the wallet. What it owes is in flight, so a save mid-spin keeps a win. */
 function apply(m: Moves) {
+  tally(m);
   if (m.take) wallet.money -= m.take;
   if (m.owed !== undefined) { wallet.inFlight += m.owed - owed; owed = m.owed; }
   if (m.pay) addMoney(m.pay);
@@ -223,6 +224,9 @@ const pad = gamePad(AT, '🎰', panel, {
   },
   closed() { if (spin) settle(); },
   greet() {},
+  live: () => !!spin,
+  say: text => bank!.sign.say(text),
+  away: 'Still spinning!',
 }, {
   at: V(BANK.x + 0.08, AT.y + 1.1, BANK.z + 0.3), from: V(0, 0.4, 1).normalize(), wide: 1.0, tall: 1.35,
 });
@@ -246,7 +250,7 @@ export function collideSlots(p: XZ) {
 
 export function updSlots(dt: number) {
   if (!bank) return;
-  pad.upd();
+  pad.upd(dt);
   bank.sign.upd(dt);
   const s = spin;
   if (!s) return;

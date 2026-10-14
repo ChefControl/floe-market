@@ -28,9 +28,12 @@ const h = vi.hoisted(() => {
     },
   };
   const config = { apiKey: 'test-key', authDomain: 'test', projectId: 'test', appId: 'test' };
-  return { fake, backend, config };
+  // html2canvas, drawing the page over the game for the picture as the player saw it
+  const html2canvas = vi.fn(async (_el: HTMLElement, _o: { ignoreElements: (el: Element) => boolean }) => document.createElement('canvas'));
+  return { fake, backend, config, html2canvas };
 });
 vi.mock('../src/cloud.config', () => ({ firebaseConfig: h.config }));
+vi.mock('html2canvas', () => ({ default: h.html2canvas }));
 vi.mock('../src/firebase', () => ({ createBackend: () => h.backend }));
 
 const { fake } = h;
@@ -64,6 +67,8 @@ beforeEach(() => {
   fake.reports = [];
   h.config.apiKey = 'test-key';
   vi.spyOn(HTMLCanvasElement.prototype, 'toDataURL').mockReturnValue(SHOT);
+  h.html2canvas.mockClear();
+  h.html2canvas.mockImplementation(async () => document.createElement('canvas'));
 });
 
 describe('reporting a bug or an idea', () => {
@@ -124,7 +129,7 @@ describe('reporting a bug or an idea', () => {
     const what = () => [...$('reportWhat').querySelectorAll('li')].filter(l => !l.hidden).map(l => l.textContent);
     expect(what()).toEqual([
       "Your note, and whether it's a bug or an idea.",
-      'This picture: the game as it was when you opened this, and anything you drew on it.',
+      'This picture: the game as it was when you opened this, and anything you drew on it. It goes twice: as you saw it, and once more without the panels and buttons over the game.',
       "Your game state: your saved game (progress, look and settings), and where you're standing, what's open on screen, the season and how long you've played this visit.",
       "Always: the game's version, your device type (graphics setting, frame rate, screen size, touch or not, browser) and the last few errors the game hit.",
       'Never: your name or email. Your account is only used to stop too many reports at once.',
@@ -176,7 +181,7 @@ describe('reporting a bug or an idea', () => {
   it("lists the panels open over the game in the game state, every casino game's included", async () => {
     await start();
     const casino = [...document.querySelectorAll<HTMLElement>('.casino')];
-    expect(casino.map(p => p.id)).toEqual(['roulette', 'blackjack', 'slots', 'bubbly']);
+    expect(casino.map(p => p.id)).toEqual(['roulette', 'blackjack', 'slots', 'bubbly', 'tears']);
     casino.forEach(p => { p.hidden = false; });
     $('reportCat').click();
     write('Stuck on the boat');
@@ -198,7 +203,7 @@ describe('reporting a bug or an idea', () => {
     await vi.waitFor(() => expect(fake.reports).toHaveLength(1));
     const { uid, r } = fake.reports[0];
     expect(uid).toBe('u1');
-    expect(r).toMatchObject({ kind: 'idea', text: 'More fish, please', build: __BUILD__, shot: SHOT });
+    expect(r).toMatchObject({ kind: 'idea', text: 'More fish, please', build: __BUILD__, shot: SHOT, ui: SHOT });
     expect(String(r.id)).toMatch(/^[A-Za-z0-9]{20}$/);
     expect(JSON.parse(String(r.save))).toMatchObject({ money: 77 }); // saved the moment it was sent
     expect(JSON.parse(String(r.live))).toMatchObject({ stage: 1, season: 'winter', open: [], cloud: 'saved' });
@@ -214,6 +219,40 @@ describe('reporting a bug or an idea', () => {
     expect($('sendFx').className).toBe('idea');
     expect($('sendFx').querySelector('.glass')).not.toBeNull();
     expect($('sendFx').querySelector('b')!.textContent).toBe('Bright idea!');
+  });
+
+  it('draws the page over the game for the picture as the player saw it, leaving out the report window', async () => {
+    await start();
+    $('reportCat').click();
+    await vi.waitFor(() => expect(h.html2canvas).toHaveBeenCalledTimes(1));
+    const skip = h.html2canvas.mock.calls[0][1].ignoreElements;
+    expect(['report', 'draw', 'game'].every(id => skip($(id)))).toBe(true);
+    expect(skip(document.createElement('iframe'))).toBe(true);
+    expect(skip($('blackjack')) || skip($('hud'))).toBe(false);
+  });
+
+  it("sends just the picture of the game when the one as the player saw it can't be made, or isn't done in time", async () => {
+    await start();
+    h.html2canvas.mockRejectedValue(new Error('no'));
+    $('reportCat').click();
+    write('Odd');
+    $('reportSend').click();
+    await vi.waitFor(() => expect(fake.reports).toHaveLength(1));
+    expect(fake.reports[0].r).toMatchObject({ shot: SHOT });
+    expect(fake.reports[0].r.ui).toBeUndefined();
+    // still being made: Send waits a while for it, then goes without
+    const r = await import('../src/report');
+    h.html2canvas.mockImplementation(() => new Promise(() => {}));
+    vi.useFakeTimers({ toFake: ['setTimeout'] });
+    try {
+      $('reportCat').click();
+      write('Slow');
+      $('reportSend').click();
+      await vi.advanceTimersByTimeAsync(r.UI_WAIT + r.GAP);
+    } finally { vi.useRealTimers(); }
+    await vi.waitFor(() => expect(fake.reports).toHaveLength(2));
+    expect(fake.reports[1].r).toMatchObject({ text: 'Slow', shot: SHOT });
+    expect(fake.reports[1].r.ui).toBeUndefined();
   });
 
   it('leaves out what the player unticked', async () => {

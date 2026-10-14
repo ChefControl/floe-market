@@ -31,6 +31,7 @@ import { seasonSting } from './sfx';
 import { updShop } from './shop';
 import { player } from './player';
 import { updPops } from './pop';
+import { updSpotlight } from './spotlight';
 import { staging, updLadder, updStage } from './stage';
 import { updTutorial } from './tutorial';
 import { toast } from './ui';
@@ -85,6 +86,7 @@ export function tick(dt: number) {
     updFarm(dt);
   }
   updStage(dt);
+  updSpotlight(dt);
   updShop();
   if (!held) updTutorial(dt);
   updLooks(dt);

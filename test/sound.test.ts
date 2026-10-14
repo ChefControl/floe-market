@@ -27,8 +27,11 @@ async function withSound(save?: SaveFixture, start = true) {
     fn();
     return fake.played.slice(n);
   };
-  const bed = (f: number) => level(fake.played.find(p => p.loop && p.f === f)!);
-  return { g, audio, sfx, ambience, season, rain, play, since, bed };
+  /** How loud the endless bed filtered at `f` is now (the latest, if it's been laid again). */
+  const bed = (f: number) => level(fake.played.filter(p => p.loop && p.f === f).pop()!);
+  /** The wind: the low bed and the high one, together. */
+  const wind = () => Math.hypot(bed(330), bed(650));
+  return { g, audio, sfx, ambience, season, rain, play, since, bed, wind };
 }
 const tones = (ps: Played[]) => ps.filter(p => p.kind === 'tone' && p.bus === 'sfx');
 
@@ -41,9 +44,39 @@ describe('sound', () => {
     window.dispatchEvent(new Event('pointerdown'));
     expect(fake.made).toBe(1);
     expect(s.audio.ac!.state).toBe('running');
-    expect(fake.played.filter(p => p.loop)).toHaveLength(8); // the sea, its wash, wind, rain, diners, cicadas, and the ring's crowd
+    // the sea, its wash, wind (low and high), rain, diners, cicadas, and the ring's crowd (its rumble, and its voices low
+    // and high)
+    expect(fake.played.filter(p => p.loop)).toHaveLength(10);
     window.dispatchEvent(new Event('pointerdown'));
     expect(fake.made).toBe(1); // one for good
+  });
+
+  it('guards each bus: only real samples get through to the mix, and it says when something has gone wrong', async () => {
+    const { GUARD } = await import('../src/audio');
+    // the guard's worklet, run here: its clock, its messages, and the class it registers
+    let now = 0;
+    const said: unknown[] = [];
+    class AudioWorkletProcessor { port = { postMessage: (m: unknown) => said.push(m) }; }
+    let Guard: new () => { process(i: Float32Array[][], o: Float32Array[][]): boolean } = null!;
+    vi.stubGlobal('currentTime', 0);
+    Object.defineProperty(globalThis, 'currentTime', { get: () => now, configurable: true });
+    new Function('registerProcessor', 'AudioWorkletProcessor', GUARD)((_: string, c: typeof Guard) => { Guard = c; }, AudioWorkletProcessor);
+    const g = new Guard(), run = (input: number[] | null) => {
+      const out = [new Float32Array(5), new Float32Array(5)];
+      expect(g.process([input ? [Float32Array.from(input)] : []], [out])).toBe(true);
+      return out.map(o => [...o]);
+    };
+    // a filter blowing up: a runaway level, then Infinity, then NaN, all silenced; the rest let through, in both ears
+    expect(run([0.25, 5, Infinity, NaN, -0.5])).toEqual([[0.25, 0, 0, 0, -0.5], [0.25, 0, 0, 0, -0.5]]);
+    expect(said).toEqual(['bad']);
+    now = 0.5; run([NaN, 0, 0, 0, 0]);
+    expect(said).toHaveLength(1); // at most once a second
+    now = 1.6; run([NaN, 0, 0, 0, 0]);
+    expect(said).toHaveLength(2);
+    now = 5; run([0.1, -0.1, 0.2, -0.2, 0]);
+    expect(said).toHaveLength(2); // all's well
+    expect(run(null)).toEqual([[0, 0, 0, 0, 0], [0, 0, 0, 0, 0]]); // nothing playing into it
+    vi.unstubAllGlobals();
   });
 
   it('sleeps while the page is hidden, and wakes with it, or with the next tap', async () => {
@@ -444,7 +477,34 @@ describe('music', () => {
     s.g.placePlayer(GAMES.roulette.x + 1.2, GAMES.roulette.z + 1.5); // the middle of the floor: a little of each
     s.play(0.5);
     expect(lv().bar + lv().slots).toBeLessThan(0.3);
+    // if the ambience's guard finds something wrong, each recording plays again from a new source, as loud as before
+    const was = lv(), old = roomTones.bar!.src as unknown as { stopped: boolean };
+    s.audio.broken('amb');
+    expect(old.stopped).toBe(true);
+    expect(roomTones.bar!.src).not.toBe(old);
+    s.play(2);
+    expect(lv()).toEqual(was);
     vi.unstubAllGlobals();
+  });
+
+  it("cuts a recording to a length Chrome can loop: the dining room's loses a frame at 48 kHz", async () => {
+    await withSound();
+    const { loopable } = await import('../src/roomTone');
+    const recording = (length: number, sampleRate: number) => {
+      const d = new Float32Array(length);
+      for (let i = 0; i < length; i++) d[i] = (i % 997) / 997;
+      return { length, sampleRate, numberOfChannels: 1, duration: length / sampleRate, getChannelData: () => d } as unknown as AudioBuffer;
+    };
+    // Chrome 152 puts the end of this one's loop a hair past its last frame, and sticks there
+    expect((4_111_488 / 48_000) * 48_000).toBeGreaterThan(4_111_488);
+    const dining = recording(4_111_488, 48_000), cut = loopable(dining).getChannelData(0);
+    expect(cut).toHaveLength(4_111_487);
+    expect([cut[0], cut[1234], cut[4_111_486]]).toEqual([0, 1234 % 997 / 997, 4_111_486 % 997 / 997].map(Math.fround));
+    // the bar's and the slot machines' loop as they are, so they're kept as they are
+    for (const n of [4_371_213, 5_805_440]) {
+      const r = recording(n, 48_000);
+      expect(loopable(r)).toBe(r);
+    }
   });
 
   it('picks up again after the page has been asleep', async () => {
@@ -465,32 +525,50 @@ describe('ambience', () => {
     expect(s.bed(420)).toBeGreaterThan(0.03);
     at(0, 30);
     expect(s.bed(420)).toBe(0);
-    const winter = s.bed(450);
+    const winter = s.wind();
     expect(winter).toBeGreaterThan(0.27 * 0.3 - 1e-9); // a winter wind, between gusts at least
     s.season.setSeason(2, 0, true);
     at(0, 0);
-    const summer = s.bed(450);
+    const summer = s.wind();
     expect(summer).toBeLessThan(winter);
     expect(summer).toBeLessThanOrEqual(0.04);
     expect(s.bed(4200)).toBeCloseTo(0.03); // cicadas
     s.audio.setMute('amb', true);
     s.season.setSeason(0, 0, true);
     at(0, 0);
-    expect(s.bed(450)).toBe(summer); // left alone while sound's off
+    expect(s.wind()).toBe(summer); // left alone while sound's off
   });
 
   it('brings the sea in as waves, with calm between, and the wind in gusts, on soft brown noise', async () => {
     const s = await withSound();
-    const sea: number[] = [], wind: number[] = [];
+    const sea: number[] = [], wind: number[] = [], high: number[] = [];
     for (let i = 0; i < 240; i++) {
       s.audio.updAudio(0.25, { x: 0, z: -6 });
       s.ambience.updAmbience();
-      sea.push(s.bed(420)); wind.push(s.bed(450));
+      sea.push(s.bed(420)); wind.push(s.wind()); high.push(s.bed(650) / s.wind());
     }
     expect(Math.min(...sea)).toBeLessThan(0.35 * Math.max(...sea));
     expect(Math.min(...wind)).toBeLessThan(0.5 * Math.max(...wind));
-    const soft = fake.played.filter(p => p.loop && [420, 800, 450, 500].includes(p.f));
-    expect(soft).toHaveLength(4); // sea, wash, wind and diners: the brown-noise beds
+    // the harder it blows, the more of it is the high wind: its pitch rises with the gusts
+    expect(high[wind.indexOf(Math.max(...wind))]).toBeGreaterThan(high[wind.indexOf(Math.min(...wind))] + 0.3);
+    const soft = fake.played.filter(p => p.loop && [420, 800, 330, 650, 500].includes(p.f));
+    expect(soft).toHaveLength(5); // sea, wash, the two winds and diners: the brown-noise beds
+  });
+
+  it("lays its beds again if the ambience's guard finds something gone wrong, and carries on as before", async () => {
+    const s = await withSound();
+    const at = (x: number, z: number) => { s.audio.updAudio(0.25, { x, z }); s.ambience.updAmbience(); };
+    at(0, -6);
+    const old = fake.played.filter(p => p.loop);
+    const sea = s.bed(420);
+    s.audio.broken('music'); // not the ambience's
+    expect(fake.played.filter(p => p.loop)).toHaveLength(10);
+    s.audio.broken('amb');
+    expect(old.every(p => (p.src as unknown as { stopped: boolean }).stopped)).toBe(true);
+    expect(fake.played.filter(p => p.loop)).toHaveLength(20); // ten new ones in their place
+    expect(s.bed(420)).toBe(0); // starting silent
+    at(0, -6);
+    expect(s.bed(420)).toBeCloseTo(sea, 1);
   });
 
   it('rains at her house', async () => {

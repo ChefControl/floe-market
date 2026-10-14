@@ -14,14 +14,16 @@ export interface StoredReport {
   live?: string;
   save?: string;
   shot?: string;
+  /** The picture as the player saw it, with the panels over the game (`shot` is just the game). */
+  ui?: string;
   /** When it was sent, in ms. */
   at: number;
   status: 'new' | 'filing' | 'filed';
   issue?: number;
 }
 
-/** Where the picture and the save of a report are, on the reports repo's `files` branch. */
-export interface Links { shot?: string; save?: string }
+/** Where the pictures and the save of a report are, on the reports repo's `files` branch. */
+export interface Links { shot?: string; ui?: string; save?: string }
 
 /** How long the picture and the save are kept, in ms. */
 export const KEEP_MS = 7 * 86_400_000;
@@ -62,7 +64,7 @@ export function title(r: StoredReport) {
 
 /** Hidden in each issue, so a run that stopped halfway can find the issue it already opened. */
 export const marker = (id: string) => `<!-- report:${id} -->`;
-const SHOT_TAG = '<!-- shot -->', SAVE_TAG = '<!-- save -->';
+const SHOT_TAG = '<!-- shot -->', UI_TAG = '<!-- ui -->', SAVE_TAG = '<!-- save -->';
 
 /** The issue's text. */
 export function body(r: StoredReport, links: Links, who: string) {
@@ -71,6 +73,8 @@ export function body(r: StoredReport, links: Links, who: string) {
   try { errors = (JSON.parse(r.errors) as unknown[]).map(String); } catch { errors = [r.errors]; }
   return [
     marker(r.id),
+    // side by side where there's room: as the player saw it, and just the game
+    ...(links.ui ? [`![The screen when the report was opened](${links.ui}) ${UI_TAG}`] : []),
     links.shot ? `![The game when the report was opened](${links.shot}) ${SHOT_TAG}` : '_No picture: the player left it out._',
     '',
     `**${r.kind === 'idea' ? 'Idea' : 'Bug'}** · build \`${build(r.build)}\` · player \`${who}\` · ${when}`,
@@ -96,10 +100,11 @@ export function body(r: StoredReport, links: Links, who: string) {
 export function expired(text: string) {
   return text.split('\n').map(l =>
     l.endsWith(SHOT_TAG) ? '_Picture deleted after 7 days._'
+      : l.endsWith(UI_TAG) ? '_Picture of the screen deleted after 7 days._'
       : l.endsWith(SAVE_TAG) ? '_save.json deleted after 7 days._' : l).join('\n');
 }
 
-/** The picture's bytes, if it really is a JPEG. */
+/** A picture's bytes, if it really is a JPEG. */
 export function jpeg(shot: string | undefined) {
   const m = /^data:image\/jpeg;base64,([A-Za-z0-9+/=]+)$/.exec(shot ?? '');
   if (!m) return null;

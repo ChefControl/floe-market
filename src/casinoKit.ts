@@ -10,6 +10,7 @@ import { quietly } from './kit';
 import { level, stage, type StageN } from './layout';
 import { player } from './player';
 import { camera, canvasTex, FONT, mesh, rr } from './render';
+import type { Moves } from './round';
 import { besideView, tableRoom, topOfView } from './ui';
 import { d2xz, FY, type XZ } from './util';
 import { wallet } from './wallet';
@@ -20,29 +21,44 @@ const REACH = 0.95;
 /** Visits to the boat: it goes up each time the player steps off it, so each game greets them once a visit. */
 export const visits = { n: 0 };
 
+/** What the player is down at the games since they last had a cry in the restroom (casinoRestroom.ts): each round's
+ *  stake adds to it and what it pays back takes off it, never below nothing. */
+export const losses = { down: 0 };
+/** Counts a round's money into `losses`: each game's table calls it as it applies the round's moves to the wallet. */
+export function tally(m: Moves) { losses.down = Math.max(0, losses.down + (m.take ?? 0) - (m.pay ?? 0)); }
+
 /**
  * Where the camera comes in to while a game is open: the point it looks at, the way back from it to the camera, and
  * how wide and tall a view (in metres) it has to fit into the part of the screen the controls leave.
  */
 export interface Seat { at: Vector3; from: Vector3; wide: number; tall: number }
 
+/** Seconds a round waits for a player who stepped off its pad mid-play, before it's played out without them. */
+export const GRACE = 10;
+
 /**
  * A game's pad on the boat's deck. Once `enable`d, `upd` opens the panel when the player steps on the pad and closes
  * it when they step off, calling `opened`/`closed`, and `greet` the first time they step on it each visit. While it's
  * open the camera comes in to `seat`. It returns whether the panel is open.
+ *
+ * Stepping off while a round is `live` is often a slip, so the round waits for them: the game `say`s its `away` line,
+ * and only if they're not back on the pad within `GRACE` seconds (and the round's still going) is it `closed`.
  */
 export function gamePad(
-  at: XZ & { y?: number }, icon: string, panel: HTMLElement, h: { opened(): void; closed(): void; greet(): void }, view: Seat,
+  at: XZ & { y?: number }, icon: string, panel: HTMLElement,
+  h: { opened(): void; closed(): void; greet(): void; live(): boolean; say(text: string): void; away: string },
+  view: Seat,
 ) {
   const d = decal(1.9, (c, w, ht) => drawPad(c, w, ht, icon));
   d.mesh.position.set(at.x, (at.y ?? FY) + 0.01, at.z);
   d.mesh.visible = false;
-  let enabled = false, open = false, greeted = -1;
+  // wait: seconds left for a player who stepped off mid-round (0 when nobody's being waited for)
+  let enabled = false, open = false, greeted = -1, wait = 0;
   return {
     /** The marking on the deck. */
     mark: d.mesh,
     enable() { enabled = true; d.mesh.visible = true; },
-    upd() {
+    upd(dt: number) {
       if (!enabled) return false;
       const near = !level.down && d2xz(player.g.position, at) < REACH * REACH;
       if (near !== open) {
@@ -51,10 +67,14 @@ export function gamePad(
         if (open) seated = { ...view, panel };
         else if (seated?.panel === panel) seated = null;
         if (open) {
+          const back = wait > 0;
+          wait = 0;
           h.opened();
           if (greeted !== visits.n) { greeted = visits.n; h.greet(); }
-        } else h.closed();
-      }
+          else if (back) h.say('Welcome back!');
+        } else if (h.live()) { wait = GRACE; h.say(h.away); }
+        else h.closed();
+      } else if (wait > 0 && (!h.live() || (wait -= dt) <= 0)) { wait = 0; h.closed(); }
       return open;
     },
   };
@@ -64,27 +84,90 @@ export function gamePad(
 export const CHIPS: Record<StageN, number[]> = { 1: [5, 25, 100, 500], 2: [50, 250, 1000, 5000], 3: [500, 2500, 10_000, 50_000] };
 const chipLabel = (v: number) => v >= 1000 ? `$${v / 1000}k` : `$${v}`;
 
+/** Holding a chip (or Undo) down: how long before it starts going on its own, how often it goes at first, and how
+ *  often at most, as it speeds up. In ms. */
+export const HOLD = { wait: 400, first: 180, fastest: 45 };
+
+/** What's down: how many of each chip, or all in. */
+interface Down { pile: number[]; all: boolean }
+
 /**
  * The stake in a game's panel, made up as at a real table: each tap on a chip puts one more of it down (three $1k chips
- * make $3k), Clear takes them all back, and All in puts down everything. What's down is kept as how many of each chip
- * (one of the second, to start with), so it grows with the stage at the stage-up, and it stays down from one round to
- * the next. Changing it calls `picked`; nothing while `busy`.
+ * make $3k), and holding one keeps putting them down, faster and faster, till it's let go or there's no cash for
+ * another. Undo takes back the last change (a chip, or All in), and holding it takes them back the same way; All in
+ * puts down everything. What's down is kept as how many of each chip (one of the second, to start with), so it grows
+ * with the stage at the stage-up, and it stays down from one round to the next. Changing it calls `picked`; nothing
+ * while `busy`.
  */
 export class Stakes {
   /** How many of each of the stage's chips are down. */
   pile = [0, 1, 0, 0];
   /** All in: everything the player has, instead of the pile. */
   all = false;
-  constructor(readonly el: HTMLElement, busy: () => boolean, picked: () => void) {
-    el.addEventListener('click', e => {
-      const b = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-stake]');
-      if (!b || busy()) return;
-      const v = b.dataset.stake!, chip = v !== 'all' && v !== 'clear';
-      // all in, clear, or a chip after all in: start again from nothing
-      if (!chip || this.all) { this.all = v === 'all'; this.pile.fill(0); }
-      if (chip) this.pile[Number(v)]++;
-      picked();
+  /** What was down before each change, the last change last: Undo goes back through it (to nothing down, at most). */
+  private past: Down[] = [{ pile: [0, 0, 0, 0], all: false }];
+  /** The chip (or Undo) the pointer is holding down, and the timer for its next go. */
+  private held: HTMLButtonElement | null = null;
+  private timer = 0;
+  /** The chip (or Undo) the pointer last pressed, whose click is still to come: it went down on the press already. */
+  private owed: HTMLButtonElement | null = null;
+
+  constructor(readonly el: HTMLElement, private busy: () => boolean, private picked: () => void) {
+    el.addEventListener('pointerdown', e => {
+      const b = this.button(e);
+      this.owed = null;
+      if (!b || b.dataset.stake === 'all' || b.disabled || busy()) return;
+      this.release();
+      this.held = this.owed = b;
+      try { b.setPointerCapture(e.pointerId); } catch { /* pointer already gone */ }
+      this.press(b);
+      this.repeat(b, HOLD.wait, HOLD.first);
     });
+    for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) el.addEventListener(ev, () => this.release());
+    // a long press shouldn't bring up the browser's menu
+    el.addEventListener('contextmenu', e => { if (this.button(e)) e.preventDefault(); });
+    // taps from the keyboard (or All in). A chip the pointer pressed has gone down already, so the click that comes
+    // with it doesn't count, however late it comes (on an iPhone it can come well after the finger's lifted). A
+    // keyboard's click (detail 0) always counts.
+    el.addEventListener('click', e => {
+      const b = this.button(e);
+      if (b && b === this.owed && (e as MouseEvent).detail > 0) { this.owed = null; return; }
+      if (b && !busy()) this.press(b);
+    });
+  }
+
+  private button(e: Event) { return (e.target as HTMLElement).closest<HTMLButtonElement>('[data-stake]'); }
+
+  /** One go of `b`: a chip down, All in, or Undo. */
+  private press(b: HTMLButtonElement) {
+    const v = b.dataset.stake!;
+    if (v === 'undo') {
+      const last = this.past.pop();
+      if (!last) return;
+      this.pile = last.pile; this.all = last.all;
+    } else {
+      if (v === 'all' && this.all) return;
+      this.past.push({ pile: [...this.pile], all: this.all });
+      // all in starts from nothing, and so does a chip after all in
+      if (v === 'all' || this.all) { this.all = v === 'all'; this.pile = [0, 0, 0, 0]; }
+      if (v !== 'all') this.pile[Number(v)]++;
+    }
+    this.picked();
+  }
+
+  /** Goes again in `wait` ms while `b` is held, a little sooner each time, till it can't. */
+  private repeat(b: HTMLButtonElement, wait: number, every: number) {
+    this.timer = window.setTimeout(() => {
+      if (this.held !== b || b.disabled || this.busy()) return;
+      this.press(b);
+      this.repeat(b, every, Math.max(HOLD.fastest, every * 0.85));
+    }, wait);
+  }
+
+  /** Lets go of the held chip. */
+  private release() {
+    clearTimeout(this.timer);
+    this.held = null;
   }
 
   /** The stake in dollars. */
@@ -102,7 +185,7 @@ export class Stakes {
       if (v === 'all') {
         b.setAttribute('aria-pressed', String(this.all));
         b.disabled = busy || wallet.money <= 0;
-      } else if (v === 'clear') b.disabled = busy || (!this.all && this.value === 0);
+      } else if (v === 'undo') b.disabled = busy || !this.past.length;
       else {
         const amount = CHIPS[stage.n][Number(v)], n = this.all ? 0 : this.pile[Number(v)];
         b.textContent = chipLabel(amount);
@@ -134,15 +217,25 @@ function drawSay(c: CanvasRenderingContext2D, text: string) {
   c.restore();
 }
 
-const tmp = new Vector3();
-/** Someone (or something) on the boat that says things in a bubble `y` above `on`. */
-export function speaker(on: Object3D, y: number) {
+const tmp = new Vector3(), up = new Vector3();
+/** How near the top of the view a bubble can come (in the camera's -1 to 1). */
+const VIEW_TOP = 0.95;
+/**
+ * Someone (or something) on the boat that says things in a bubble `y` above `on`. Close up, at a table, it's smaller
+ * (`near` of its size), and if it would go off the top of the view it comes down, over the speaker, till it's in.
+ */
+export function speaker(on: Object3D, y: number, near = 0.35) {
   const t = canvasTex(W, H, () => {});
   const mat = new SpriteMaterial({ map: t.tex, depthTest: false, transparent: true, opacity: 0 });
   const s = new Sprite(mat);
   s.scale.set(1.7, 0.85, 1); s.position.set(0, y, 0); s.renderOrder = 5; s.visible = false;
   on.add(s);
   let left = 0;
+  /** How high the top of the bubble is on screen, with it `h` above `on`. */
+  const top = (h: number) => {
+    s.position.y = h;
+    return s.getWorldPosition(tmp).addScaledVector(up, s.scale.y / 2).project(camera).y;
+  };
   return {
     /** What it's saying now, or '' while it's quiet. */
     text: '',
@@ -153,9 +246,16 @@ export function speaker(on: Object3D, y: number) {
     },
     upd(dt: number) {
       if (!s.visible) return;
+      s.position.y = y;
       // smaller close up, at a table, so it doesn't fill the view
-      const k = Math.min(1, Math.max(0.35, s.getWorldPosition(tmp).distanceTo(camera.position) / 12));
+      const d = s.getWorldPosition(tmp).distanceTo(camera.position) / 12, k = Math.min(1, Math.max(near, d));
       s.scale.set(1.7 * k, 0.85 * k, 1);
+      if (d < near) {
+        // and down into the view, if it's over the top of it
+        up.set(0, 1, 0).applyQuaternion(camera.quaternion);
+        const at = top(y), lower = top(y - 0.5);
+        s.position.y = at > VIEW_TOP && at > lower ? y - 0.5 * Math.min(2, (at - VIEW_TOP) / (at - lower)) : y;
+      }
       left -= dt;
       mat.opacity = Math.max(0, Math.min(1, (SAY_SECS - left) / FADE, left / FADE));
       if (left <= 0) { s.visible = false; this.text = ''; }

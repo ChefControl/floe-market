@@ -75,17 +75,23 @@ export const besideView = (r: DOMRect, w: number) => r.left + r.width / 2 > w * 
 /** How much of the top of the screen to leave the HUD, over a casino table. */
 export const topOfView = (h: number) => Math.min(document.getElementById('hud')?.getBoundingClientRect().bottom ?? 0, h * 0.14);
 /** Slides the view so an open panel doesn't cover the player: sideways for a panel down the right-hand side (a phone
- *  held sideways), up for one along the bottom of a short screen (one marked `data-still` leaves it be). Eases there
- *  and back. */
-export function keepInSight(dt: number) {
-  const w = window.innerWidth, h = window.innerHeight, open = panels.find(p => !p.hidden && !p.dataset.still);
+ *  held sideways), up for one along the bottom of a short screen; one marked `data-still` (the crafting bench's menu)
+ *  leaves the player where they are. Eases there and back. While the camera's on something else instead (`away` of the
+ *  way: a new upgrade in the spotlight), that goes in the middle of the space the panel leaves, a still one's too. */
+export function keepInSight(dt: number, away = 0) {
+  const w = window.innerWidth, h = window.innerHeight;
+  const open = panels.find(p => !p.hidden && (!p.dataset.still || away > 0));
   let x = 0, y = 0;
   if (open) {
-    const r = open.getBoundingClientRect();
+    const r = open.getBoundingClientRect(), still = !!open.dataset.still;
+    // where on the screen what the camera's on goes: the player just clear of the panel (or, a still panel, where they
+    // are), anything else in the middle of the space it leaves
+    const to = (player: number, middle: number) => player + (middle - player) * away;
     // a casino game's camera is on its table: that goes in the middle of the screen the controls leave
     if (tableRoom.on && open.classList.contains('casino')) ({ x, y } = tableRoom);
-    else if (r.left > w * 0.25) x = Math.max(0, w / 2 + 50 - r.left);
-    else y = Math.max(0, h / 2 + 70 - r.top);
+    // down the right-hand side, against its edge (not just a bottom panel centred on a wide screen)
+    else if (r.left > w * 0.25 && r.right > w - 60) x = Math.max(0, w / 2 - to(still ? w / 2 : r.left - 50, r.left / 2));
+    else y = Math.max(0, h / 2 - to(still ? h / 2 : r.top - 70, (topOfView(h) + r.top) / 2));
   }
   const k = Math.min(1, dt * 8);
   slid.x += (x - slid.x) * k;

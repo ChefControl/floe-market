@@ -766,19 +766,20 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
 }
 .casino button:disabled{ opacity:.45; cursor:default; }
 .casino button:focus-visible{ outline:3px solid var(--coral); outline-offset:2px; }
-/* the stake: each tap on a chip puts one more down, its count in a gold tag on it; Clear takes them back */
+/* the stake: each tap on a chip puts one more down (holding it keeps going), its count in a gold tag on it; Undo takes the last back */
 .casino .stakes{ display:flex; justify-content:space-between; gap:6px; }
 .casino .stakes button{
   --c:#C8323F; position:relative; flex:0 1 50px; min-width:0; aspect-ratio:1; padding:0; border-radius:50%;
   background:var(--c); color:#FFF8EC; font-size:14px; box-shadow:0 3px 0 rgba(0,0,0,.35); transition:transform .15s;
+  touch-action:manipulation; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none;
 }
 .casino .stakes [data-n]::after{
   content:attr(data-n); position:absolute; top:-7px; right:-7px; min-width:22px; height:20px; padding:0 4px;
   box-sizing:border-box; border-radius:10px; background:#F2C14E; color:#2A0F16; font-size:12px; line-height:20px;
   box-shadow:0 0 0 2px #3E0E18;
 }
-.casino .stakes [data-stake="clear"]{ --c:transparent; color:#FFE7A8; font-size:13px; box-shadow:inset 0 0 0 2px rgba(255,231,168,.55); }
-.casino .stakes [data-stake="clear"]::before{ content:none; }
+.casino .stakes [data-stake="undo"]{ --c:transparent; color:#FFE7A8; font-size:13px; box-shadow:inset 0 0 0 2px rgba(255,231,168,.55); }
+.casino .stakes [data-stake="undo"]::before{ content:none; }
 .casino .stakes button::before{ content:""; position:absolute; inset:5px; border-radius:50%; border:3px dashed rgba(255,248,236,.8); }
 .casino .stakes [data-stake="1"]{ --c:#22874A; }
 .casino .stakes [data-stake="2"]{ --c:#1F2A33; }
@@ -1108,7 +1109,7 @@ body.offer #hud, body.offer #corner, body.offer #pointers, body.offer #tip, body
   <p id="reportWarn" role="status" hidden></p>
   <details id="reportWhat"><summary>What's sent: <span id="reportNotice"></span></summary><ul>
     <li><b>Your note</b>, and whether it's a bug or an idea.</li>
-    <li id="whatShot"><b>This picture</b>: the game as it was when you opened this, and anything you drew on it.</li>
+    <li id="whatShot"><b>This picture</b>: the game as it was when you opened this, and anything you drew on it. It goes twice: as you saw it, and once more without the panels and buttons over the game.</li>
     <li id="whatState"><b>Your game state</b>: your saved game (progress, look and settings), and where you're standing, what's open on screen, the season and how long you've played this visit.</li>
     <li><b>Always</b>: the game's version, your device type (graphics setting, frame rate, screen size, touch or not, browser) and the last few errors the game hit.</li>
     <li><b>Never</b>: your name or email. Your account is only used to stop too many reports at once.</li>
@@ -1167,7 +1168,7 @@ body.offer #hud, body.offer #corner, body.offer #pointers, body.offer #tip, body
     <button type="button" data-stake="2">$100</button>
     <button type="button" data-stake="3">$500</button>
     <button type="button" data-stake="all">All in</button>
-    <button type="button" data-stake="clear" aria-label="Clear the stake">Clear</button>
+    <button type="button" data-stake="undo" aria-label="Take back the last chip">Undo</button>
   </div>
   <button type="button" id="spin" class="go"></button>
   <div id="history" class="sr" aria-label="Recent results"></div>
@@ -1196,7 +1197,7 @@ body.offer #hud, body.offer #corner, body.offer #pointers, body.offer #tip, body
     <button type="button" data-stake="2">$100</button>
     <button type="button" data-stake="3">$500</button>
     <button type="button" data-stake="all">All in</button>
-    <button type="button" data-stake="clear" aria-label="Clear the stake">Clear</button>
+    <button type="button" data-stake="undo" aria-label="Take back the last chip">Undo</button>
   </div>
   <button type="button" id="deal" class="go"></button>
 </div>
@@ -1209,13 +1210,17 @@ body.offer #hud, body.offer #corner, body.offer #pointers, body.offer #tip, body
     <button type="button" data-stake="2">$100</button>
     <button type="button" data-stake="3">$500</button>
     <button type="button" data-stake="all">All in</button>
-    <button type="button" data-stake="clear" aria-label="Clear the stake">Clear</button>
+    <button type="button" data-stake="undo" aria-label="Take back the last chip">Undo</button>
   </div>
   <button type="button" id="pull" class="go"></button>
 </div>
 <div id="bubbly" class="casino" hidden>
   <p id="bubblyMsg" class="msg" aria-live="polite"></p>
   <button type="button" id="sip" class="go"></button>
+</div>
+<div id="tears" class="casino" hidden>
+  <p id="tearsMsg" class="msg" aria-live="polite"></p>
+  <button type="button" id="cry" class="go"></button>
 </div>
 <section id="korki" hidden aria-label="Korki">
   <div class="btns">

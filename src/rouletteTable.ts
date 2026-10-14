@@ -1,14 +1,14 @@
 // The casino boat's roulette table: bet on red, black or green, and watch the ball. Standing on its pad brings the
 // camera in over the table and opens the controls. The chips go down on the felt, the wheel spins one way and the
 // ball runs round its rim the other, slows, drops in, rattles about and settles in a pocket as the wheel comes to a
-// stop. A board by the wheel shows the last numbers, and a croupier stands behind it all. Walking off settles any spin
-// in progress.
+// stop. A board by the wheel shows the last numbers, and a croupier stands behind it all. Walking off mid-spin, the
+// croupier calls after you and the ball rolls on (casinoKit.ts's gamePad waits for you to come back).
 import {
   BoxGeometry, ConeGeometry, CylinderGeometry, DoubleSide, Group, LatheGeometry, Mesh, MeshBasicMaterial,
   MeshLambertMaterial, Object3D, PlaneGeometry, TorusGeometry, Vector2,
 } from 'three';
 import { every } from './audio';
-import { cheer, chipStack, gamePad, greeting, settleTweens, slide, speaker, Stakes, tween } from './casinoKit';
+import { cheer, chipStack, gamePad, greeting, settleTweens, slide, speaker, Stakes, tally, tween } from './casinoKit';
 import { Person, SUITS } from './characters';
 import { GAMES, pushOutOfBox } from './layout';
 import { bake, canvasTex, FONT, G, mat, mesh, rr, scene, type Part } from './render';
@@ -207,6 +207,7 @@ const boxAt = (b: Bet) => V(BETS.find(x => x.bet === b)!.x, TOP, BOX.z);
 
 /** Applies the money a round moves to the wallet. What it owes is in flight, so a save mid-spin keeps a win. */
 function apply(m: Moves) {
+  tally(m);
   if (m.take) wallet.money -= m.take;
   if (m.owed !== undefined) { wallet.inFlight += m.owed - owed; owed = m.owed; }
   if (m.pay) addMoney(m.pay);
@@ -288,8 +289,11 @@ const pad = gamePad(AT, '🎡', panel, {
     if (!history.length) msg.textContent = greeting('Pick a colour and spin');
     refresh();
   },
-  closed() { if (spin) { settle(); settleTweens(); } }, // walked away mid-spin: pay out now
+  closed() { if (spin) { settle(); settleTweens(); } }, // still spinning when the wait for the player ran out: pay out now
   greet() { table!.voice.say('Welcome aboard!'); },
+  live: () => !!spin,
+  say: text => table!.voice.say(text),
+  away: 'Still rolling!',
 }, {
   at: V(TABLE.x, AT.y + TOP + 0.12, TABLE.z - 0.02), from: V(0, 1.7, 1).normalize(), wide: 1.6, tall: 1.25,
 });
@@ -309,7 +313,7 @@ export function collideRoulette(p: XZ) {
 
 export function updRoulette(dt: number) {
   if (!table) return;
-  pad.upd();
+  pad.upd(dt);
   if (spin) {
     spin.t += dt;
     const k = Math.min(1, spin.t / SPIN_TIME);
