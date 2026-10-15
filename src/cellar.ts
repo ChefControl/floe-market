@@ -904,14 +904,34 @@ later(() => quietly(() => {
   board.position.set(1.6, 0.62, CORDON + 0.06); board.rotation.x = -0.25;
 }));
 
-// ---------- the stands: crates and planks, in tiers, with a cushioned seat for each fan ----------
+// ---------- the stands: crates and planks, in tiers, and whatever each fan found to sit on ----------
 /** A seat in the stands: where a fan sits (on the plank), which way they face, and which part it's in (swarm.ts). */
 export interface Place { pos: Vector3; h: number; part: 'base' | 'bleachers' | 'tier' | 'vip' }
 export const places: Place[] = [];
 /** A stand's tiers: three when it's all built, the highest at the back wall, stepping down towards the ring. */
 const TIERS = 3;
-/** The seats' cushions: deep red, indigo and gold, in turn (colours the cellar already uses). */
-const CUSHIONS = [0x8E2B2B, 0x2B3A67, 0xF2C14E];
+/** What a fan sits on in a back-alley pit: a flattened rice sack (lumpy, stitched, in its hemp's shades), a round
+ *  woven straw mat (an enza), a racing form left folded on the plank, or the bare plank. */
+const SACKCLOTH = [0xA08660, 0x8E7652, 0xB09A6E], ENZA = 0xB49E62, PAPER = 0xCFC8B6, INK = 0x6E675C;
+/** The same number for the same seat, between 0 and 1 (not the luck). */
+const seatHash = (i: number) => { const x = Math.sin(i * 12.9898 + 0.31) * 43758.5453; return x - Math.floor(x); };
+/** A flattened rice sack on a seat at (x, y, z), turned `turn`, in `c`: a lumpy pillow with a seam across it. */
+function sack(g: Object3D, c: number, x: number, y: number, z: number, turn: number) {
+  const s = add(g, mesh(G.sphere, c, x, y + 0.04, z, false)); s.scale.set(0.23, 0.05, 0.2); s.rotation.y = turn;
+  box(g, shade(c, 0.7), x, y + 0.085, z, 0.012, 0.01, 0.34, false).rotation.y = turn;
+}
+/** The seat at (x, y, z) in `g`: one of the above, a little askew, by `k` (which seat it is). */
+function seatOn(g: Object3D, k: number, x: number, y: number, z: number) {
+  const h = seatHash(k), turn = (seatHash(k + 0.5) - 0.5) * 0.5;
+  if (h < 0.4) sack(g, SACKCLOTH[Math.floor(seatHash(k + 0.7) * SACKCLOTH.length)], x, y, z, turn);
+  else if (h < 0.6) {
+    add(g, mesh(G.cyl, ENZA, x, y + 0.02, z, false)).scale.set(0.19, 0.04, 0.19);
+    add(g, mesh(G.cyl, shade(ENZA, 0.82), x, y + 0.03, z, false)).scale.set(0.11, 0.025, 0.11);
+  } else if (h < 0.75) {
+    box(g, PAPER, x, y + 0.006, z, 0.26, 0.012, 0.36, false).rotation.y = turn;
+    box(g, INK, x + Math.cos(turn) * 0.04, y + 0.013, z - Math.sin(turn) * 0.04, 0.12, 0.004, 0.2, false).rotation.y = turn;
+  }
+}
 /** Builds `tiers` of a stand along one wall, from tier `from` (counted out from the wall), into `g`, with a seat
  *  every `gap` along each; or with no `g`, lays out the places only (they're there from the start, built or not). */
 function stand(g: Group | null, part: Place['part'], along: 'x' | 'z', a0: number, a1: number, wall: number, out: number, from: number, tiers: number, gap: number) {
@@ -919,7 +939,11 @@ function stand(g: Group | null, part: Place['part'], along: 'x' | 'z', a0: numbe
     const h = 0.3 + (TIERS - 1 - i) * 0.42, at = wall + out * (0.45 + i * 0.85), len = Math.abs(a1 - a0), mid = (a0 + a1) / 2;
     const [cx, cz] = along === 'x' ? [mid, at] : [at, mid];
     if (g) {
-      box(g, i % 2 ? WOOD : 0x9C6644, cx, CY + h / 2, cz, along === 'x' ? len : 0.85, h, along === 'x' ? 0.85 : len);
+      box(g, i % 2 ? 0x6E4A33 : 0x7A5238, cx, CY + h / 2, cz, along === 'x' ? len : 0.85, h, along === 'x' ? 0.85 : len);
+      // the boards nailed over the crates: a seam along the top, and one along the face towards the ring
+      box(g, WOOD_DARK, cx, CY + h + 0.002, cz, along === 'x' ? len : 0.02, 0.004, along === 'x' ? 0.02 : len, false);
+      const [fx, fz] = along === 'x' ? [cx, cz + out * 0.426] : [cx + out * 0.426, cz];
+      box(g, WOOD_DARK, fx, CY + h * 0.55, fz, along === 'x' ? len : 0.02, 0.02, along === 'x' ? 0.02 : len, false);
       // the crates' slats, on the face towards the ring
       for (let k = -len / 2 + 0.6; k < len / 2; k += 2.1) {
         const [bx, bz] = along === 'x' ? [cx + k, cz + out * 0.43] : [cx + out * 0.43, cz + k];
@@ -930,8 +954,8 @@ function stand(g: Group | null, part: Place['part'], along: 'x' | 'z', a0: numbe
     for (let k = -len / 2 + 0.4, n = 0; k < len / 2 - 0.2; k += gap, n++) {
       const [px, pz] = along === 'x' ? [cx + k, cz] : [cx, cz + k];
       if (!g) places.push({ pos: V(px, CY + h, pz), h: face, part });
-      // a cushion (zabuton) on the plank for each seat, in the ring's colours
-      else box(g, CUSHIONS[(n + i) % CUSHIONS.length], px, CY + h + 0.03, pz, 0.46, 0.06, 0.46, false);
+      // and on the plank, whatever they brought to sit on
+      else seatOn(g, n * 7 + i * 31 + (along === 'x' ? 0 : 500), px, CY + h, pz);
     }
   }
 }
@@ -949,25 +973,25 @@ const seating = (base: Group | null) => {
 };
 seating(null);
 later(() => seating(add(cellar, new Group())));
-// the VIP boxes: box seats (masu-seki) right by the ring, on its south side: a low platform with a red skirt, split
-// by rails into a box for each pair, a cushion for each seat, and a sake flask and two cups in every other box
+// the VIP boxes: box seats (masu-seki) right by the ring, on its south side: a low platform hung with a stained canvas,
+// split by rails into a box for each pair, a sack for each seat, and a bottle and two cups in every other box
 const VIP_Z = RING.z + RING_HALF + RING_FOOT + 0.7;
 later(() => {
   const H = 0.4, w = 7.2;
   box(parts.vip, WOOD_DARK, RING.x, CY + H / 2, VIP_Z, w, H, 0.9);
   box(parts.vip, WOOD, RING.x, CY + H + 0.01, VIP_Z, w - 0.04, 0.02, 0.86, false);
-  box(parts.vip, 0xC0392B, RING.x, CY + H * 0.55, VIP_Z + 0.455, w - 0.1, H * 0.6, 0.02, false);
+  box(parts.vip, 0x5E5443, RING.x, CY + H * 0.55, VIP_Z + 0.455, w - 0.1, H * 0.6, 0.02, false);
   for (const s of [-1, 1]) box(parts.vip, WOOD_DARK, RING.x, CY + H + 0.07, VIP_Z + s * 0.42, w, 0.14, 0.06);
   for (let j = 0; j <= 4; j++) box(parts.vip, WOOD_DARK, RING.x - w / 2 + j * 1.8, CY + H + 0.07, VIP_Z, 0.06, 0.14, 0.9);
   for (let j = 0; j < 4; j += 2) {
     const x = RING.x - 2.7 + j * 1.8;
-    add(parts.vip, mesh(G.cyl, 0xF4F1EA, x, CY + H + 0.12, VIP_Z - 0.25)).scale.set(0.06, 0.22, 0.06);
-    for (const s of [-1, 1]) add(parts.vip, mesh(G.cyl, 0xF4F1EA, x + s * 0.14, CY + H + 0.04, VIP_Z - 0.25)).scale.set(0.035, 0.05, 0.035);
+    add(parts.vip, mesh(G.cyl, 0x3E2A1C, x, CY + H + 0.12, VIP_Z - 0.25)).scale.set(0.06, 0.22, 0.06);
+    for (const s of [-1, 1]) add(parts.vip, mesh(G.cyl, 0x9A8A70, x + s * 0.14, CY + H + 0.04, VIP_Z - 0.25)).scale.set(0.035, 0.05, 0.035);
   }
 });
 for (let i = 0; i < 8; i++) places.push({ pos: V(RING.x - 3.15 + i * 0.9, CY + 0.25, VIP_Z - 0.05), h: Math.PI, part: 'vip' });
 later(() => {
-  for (let i = 0; i < 8; i++) box(parts.vip, i % 2 ? 0x8E2B2B : 0xF2C14E, RING.x - 3.15 + i * 0.9, CY + 0.44, VIP_Z + 0.05, 0.46, 0.07, 0.46, false);
+  for (let i = 0; i < 8; i++) sack(parts.vip, SACKCLOTH[i % SACKCLOTH.length], RING.x - 3.15 + i * 0.9, CY + 0.41, VIP_Z + 0.05, (seatHash(900 + i) - 0.5) * 0.4);
 });
 /** Keeps a spectator's place hidden until it's built. */
 export const placeBuilt = (p: Place) => p.part === 'base' || parts[p.part].visible;
