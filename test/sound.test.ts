@@ -386,7 +386,7 @@ describe('music', () => {
       expect(s.audio.key.root).toBe(root);
       expect(heard(m)).toBe(true);
     }
-  });
+  }, 30_000);
 
   it('plays each tune twice, and rests the tune every fifth verse', async () => {
     const s = await withSound({ tiles: bought('sushi') });

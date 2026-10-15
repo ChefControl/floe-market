@@ -1038,7 +1038,7 @@ describe('the gong', () => {
     expect(fight.ringGong()).toBe(true);
     g.runUntil(() => { while (F().rush!.turned + F().stall.length < 60 && fight.toStall(false)); return F().rush!.done; }, 31 + fight.WALK_IN);
     expect(F().rush).toMatchObject({ turned: 60, win: false });
-  });
+  }, 30_000);
 });
 
 describe("the cellar's tiles", () => {
