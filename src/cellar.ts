@@ -20,9 +20,9 @@ import {
   BAR, BENCH, BIN_PADS, BINS, CASHIER, CHUTE, chuteY, COUNTER, GONG, HEARTH, LIFTS, machineAt, MAX_MACHINES, POT, STORES, TEPPO, TUNNEL_D, TUNNEL_W, TUNNELS,
 } from './cellarPlan';
 import { Fugu } from './fugu';
-import { Build, K, quietly, rbox, shade, tube } from './kit';
+import { apart, Build, dice, K, quietly, rbox, shade, shadowsOf, tube } from './kit';
 import { ARENA, CELLAR_Y, type CellarRoom, CRAFT, DOORS, found, GROW, keepOnFloor, KITCHEN, LANDING, LIFT_ROOM, OFFICE_ROOM, PREP, pushOutOfBox, ROOMS, walkable } from './layout';
-import { canvasTex, copyGeo, FONT, G, mat, mesh, OFF, paint, rr, scene } from './render';
+import { type CanvasTex, canvasTex, copyGeo, type Draw, FONT, G, mat, mesh, OFF, paint, rr, scene } from './render';
 import type { XZ } from './util';
 
 export { cellarWay, roomAt } from './cellarPlan';
@@ -87,6 +87,21 @@ const log = (parent: Object3D, c: number, x: number, y: number, z: number, r: nu
   const m = add(parent, mesh(G.log, c, x, y, z, cast)); m.scale.set(r, h, r); return m;
 };
 
+// The cellar's rooms and furniture are built the first time they're needed (stage 3 reached: buildCellar), not as the
+// game loads: they were well over a third of its loading, for a stage most players never see, or not for hours.
+/** What's built then, in order. */
+const toBuild: (() => void)[] = [];
+/** Puts off building `f` till then. */
+const later = (f: () => void) => { toBuild.push(f); };
+/** A texture that tiles, drawn the first time it's asked for. */
+function tiling(w: number, h: number, draw: Draw) {
+  let t: CanvasTex | null = null;
+  return () => {
+    if (!t) { t = canvasTex(w, h, draw); t.tex.wrapS = t.tex.wrapT = 1000; } // RepeatWrapping
+    return t;
+  };
+}
+
 /** The whole cellar, hidden until stage 3. Everything in it is placed in world coordinates (y from CY). */
 export const cellar = new Group();
 cellar.visible = false;
@@ -99,7 +114,7 @@ Object.values(parts).forEach(g => { g.visible = false; cellar.add(g); });
 parts.hidden.visible = true;
 
 // ---------- the rooms ----------
-const earth = canvasTex(256, 256, (c, w, h) => {
+const earth = tiling(256, 256, (c, w, h) => {
   c.fillStyle = '#6A5444'; c.fillRect(0, 0, w, h);
   // blotches scattered by a fixed hash (no Math.random: that's the game's; and no steady step, which lines them up
   // in stripes)
@@ -109,18 +124,16 @@ const earth = canvasTex(256, 256, (c, w, h) => {
     c.beginPath(); c.arc(hash(i) * w, hash(i + 500) * h, 3 + hash(i + 1000) * 12, 0, Math.PI * 2); c.fill();
   }
 });
-earth.tex.wrapS = earth.tex.wrapT = 1000; // RepeatWrapping
 /** A board floor, for the kitchen. */
-const boards = canvasTex(256, 256, (c, w, h) => {
+const boards = tiling(256, 256, (c, w, h) => {
   for (let i = 0; i < 8; i++) {
     c.fillStyle = ['#8A6244', '#93694A', '#80593D', '#8E6546'][i % 4]; c.fillRect(0, i * h / 8, w, h / 8);
     c.fillStyle = 'rgba(40,24,14,.5)'; c.fillRect(0, i * h / 8, w, 2);
     c.fillRect(((i * 97) % 200) + 20, i * h / 8, 2, h / 8);
   }
 });
-boards.tex.wrapS = boards.tex.wrapT = 1000;
 /** Stone flags, for the landing: grey slabs of a few sizes, in rows, with dark joints. */
-const flags = canvasTex(256, 256, (c, w, h) => {
+const flags = tiling(256, 256, (c, w, h) => {
   c.fillStyle = '#2E2A26'; c.fillRect(0, 0, w, h);
   const hash = (i: number) => { const x = Math.sin(i * 91.17) * 43758.5453; return x - Math.floor(x); };
   const ROW = h / 4;
@@ -137,9 +150,8 @@ const flags = canvasTex(256, 256, (c, w, h) => {
     }
   }
 });
-flags.tex.wrapS = flags.tex.wrapT = 1000;
 /** Dark basket-weave parquet, for Mr. Fugu's office: squares of four strips, each square turned from the last. */
-const parquet = canvasTex(256, 256, (c, w, h) => {
+const parquet = tiling(256, 256, (c, w, h) => {
   c.fillStyle = '#2E180F'; c.fillRect(0, 0, w, h);
   const S = 64, T = S / 4, tones = ['#5C3322', '#53301F', '#64392A', '#4E2C1D'];
   for (let gy = 0; gy < h / S; gy++) {
@@ -153,10 +165,9 @@ const parquet = canvasTex(256, 256, (c, w, h) => {
     }
   }
 });
-parquet.tex.wrapS = parquet.tex.wrapT = 1000;
 const SIDE = mat(0x3A2C22);
 /** A floor over `r`, out to the middle of its walls, of earth or boards, its texture repeating every 4 m. */
-function floor(r: Rect, tex: typeof earth, pad = 0.3, parent: Object3D = cellar) {
+function floor(r: Rect, tex: CanvasTex, pad = 0.3, parent: Object3D = cellar) {
   const w = r.x1 - r.x0 + pad * 2, d = r.z1 - r.z0 + pad * 2;
   const t = tex.tex.clone(); t.repeat.set(w / 4, d / 4); t.needsUpdate = true;
   const f = add(parent, new Mesh(new BoxGeometry(w, 0.4, d), [SIDE, SIDE, new MeshLambertMaterial({ map: t }), SIDE, SIDE, SIDE]));
@@ -222,7 +233,7 @@ function tallWall(r: Rect, side: 'n' | 'w', parent: Object3D = cellar) {
   along(a0, a1)(0.75, TALL - 0.1, a1 - a0, 0.2, 1.1, WOOD_DARK);
 }
 /** Mortared cellar stone: blocks in staggered courses, a few tones in a fixed order. */
-const stone = canvasTex(256, 256, (c, w, h) => {
+const stone = tiling(256, 256, (c, w, h) => {
   c.fillStyle = '#2E2925'; c.fillRect(0, 0, w, h);
   const ROW = h / 6, tones = ['#6E665C', '#787064', '#645D54', '#817869', '#6A6358'];
   for (let r = 0; r < 6; r++) {
@@ -233,7 +244,6 @@ const stone = canvasTex(256, 256, (c, w, h) => {
     }
   }
 });
-stone.tex.wrapS = stone.tex.wrapT = 1000;
 /** The prep hall's back while the grow room behind it is a secret: not plank but mortared stone, a low wall like every
  *  other between rooms (as high, on the same line, under the same rail), with an iron gate in it in a doorway's frame,
  *  chained and padlocked, dark beyond; past it there's only earth. All of it comes down when the first boss is beaten,
@@ -245,7 +255,7 @@ function stoneWall() {
   const edge = mat(0x3A3530);
   // the stone either side of the gate, each under its rail
   for (const [a0, a1] of [[x0, gx - gw / 2], [gx + gw / 2, x1]]) {
-    const tex = stone.tex.clone(); tex.repeat.set((a1 - a0) / 2, WALL / 2); tex.needsUpdate = true;
+    const tex = stone().tex.clone(); tex.repeat.set((a1 - a0) / 2, WALL / 2); tex.needsUpdate = true;
     const m = add(p, new Mesh(new BoxGeometry(a1 - a0, WALL, T), [edge, edge, edge, edge, new MeshLambertMaterial({ map: tex }), edge]));
     m.position.set((a0 + a1) / 2, CY + WALL / 2, z); m.receiveShadow = true;
     box(p, WOOD_DARK, (a0 + a1) / 2, CY + WALL + 0.04, z, a1 - a0 + 0.1, 0.08, T + 0.08);
@@ -369,49 +379,51 @@ function wall(r: Rect, side: Side, off = 0.1, parent: Object3D = cellar) {
     }
   }
 }
-// the ground under it all, so nothing shows the void past a floor's edge
-box(cellar, 0x2A201A, (ARENA.x0 + LIFT_ROOM.x1) / 2, CY - 0.3, (ARENA.z0 + CRAFT.z1) / 2, LIFT_ROOM.x1 - ARENA.x0 + 4, 0.5, CRAFT.z1 - ARENA.z0 + 4, false);
-// the rooms: floors, and their walls (tall at the very back, thin and low everywhere else)
-// (each room its own: packed earth round the ring and in the grow room, stone flags in the landing and the prep hall,
-// parquet in the office, boards in the hearth room)
-floor(ARENA, earth); floor(LANDING, flags); floor(OFFICE_ROOM, parquet); floor(KITCHEN, boards); floor(PREP, flags);
-tallWall(ARENA, 'n'); tallWall(ARENA, 'w'); wall(ARENA, 's');
-officeWall(); wall(OFFICE_ROOM, 'w', 0.3); wall(OFFICE_ROOM, 'e', 0.3);
-wall(LANDING, 'n', 0.3); wall(LANDING, 'w', 0.3); wall(LANDING, 'e', 0.3);
-wall(KITCHEN, 'n', 0.3); wall(KITCHEN, 'w', 0.3); wall(KITCHEN, 'e', 0.3); wall(KITCHEN, 's', 0.3);
-// the cookware shop, through the hearth room's south wall
-floor(CRAFT, boards); wall(CRAFT, 'w'); wall(CRAFT, 'e', 0.3); wall(CRAFT, 's');
-wall(PREP, 'e', 0.3); wall(PREP, 's');
-// the lift room behind the prep hall's east wall, where nobody goes: just the dumbwaiters
-floor(LIFT_ROOM, flags); wall(LIFT_ROOM, 'n', 0.3); wall(LIFT_ROOM, 'e'); wall(LIFT_ROOM, 's', 0.3);
-// the prep hall's back: a stone wall with a locked gate the player walks past every day, until the gate opens on the
-// grow room behind
-stoneWall();
-wall(PREP, 'n', 0.3, parts.grow);
-{ // the gate, swung open into the grow room
-  const t = DOORS.find(d => d.b === 'grow')!;
-  bars(parts.grow, (t.x0 + t.x1) / 2, PREP.z0 - 0.4, t.x1 - t.x0 + 0.1, 1.75, Math.PI / 2 - 0.15);
-}
-floor(GROW, earth, 0.3, parts.grow); tallWall(GROW, 'n', parts.grow); wall(GROW, 'e', 0.1, parts.grow);
-// ceiling beams over the arena's back
-for (let x = ARENA.x0 + 1; x <= ARENA.x1; x += 2.2) box(cellar, WOOD_DARK, x, CY + 6.3, ARENA.z0 + 0.7, 0.25, 0.3, 2.4, false);
-// the fans' tunnels: a doorway through the back wall, framed in timber with the wall carried on over it and a lantern
-// over it, into a low dark passage, roofed over so nobody's seen till they come out
-for (const t of TUNNELS) {
-  const west = t.side === 'w', edge = west ? ARENA.x0 : ARENA.z0;
-  /** A box `o` out from the arena's wall (into the tunnel) and `a` along it. */
-  const put = (o: number, y: number, a: number, so: number, sy: number, sa: number, c: number, cast = false) =>
-    west ? box(cellar, c, edge - o, CY + y, a, so, sy, sa, cast) : box(cellar, c, a, CY + y, edge - o, sa, sy, so, cast);
-  const D = TUNNEL_D, W = TUNNEL_W;
-  put(D / 2, 0.01, t.at, D, 0.02, W + 0.4, 0x2A1A12);
-  for (const s of [-1, 1]) put(D / 2 + 0.1, 1.3, t.at + s * (W / 2 + 0.15), D, 2.6, 0.3, 0x2A201A);
-  put(D + 0.1, 1.3, t.at, 0.2, 2.6, W + 0.6, 0x2A201A);
-  put(D / 2 + 0.15, 2.7, t.at, D + 0.1, 0.2, W + 0.6, 0x2A201A);
-  put(0.7, (FRAME_H + TALL - 0.2) / 2, t.at, 1.2, TALL - 0.2 - FRAME_H, W + 0.1, 0x2A201A);
-  for (const s of [-1, 1]) put(0.05, FRAME_H / 2, t.at + s * (W / 2 + 0.05), 0.16, FRAME_H, 0.16, WOOD_DARK, true);
-  put(0.05, FRAME_H, t.at, 0.2, 0.2, W + 0.4, WOOD_DARK, true);
-  west ? lantern(cellar, edge + 0.2, CY + 2.75, t.at, true) : lantern(cellar, t.at, CY + 2.75, edge + 0.2, true);
-}
+later(() => {
+  // the ground under it all, so nothing shows the void past a floor's edge
+  box(cellar, 0x2A201A, (ARENA.x0 + LIFT_ROOM.x1) / 2, CY - 0.3, (ARENA.z0 + CRAFT.z1) / 2, LIFT_ROOM.x1 - ARENA.x0 + 4, 0.5, CRAFT.z1 - ARENA.z0 + 4, false);
+  // the rooms: floors, and their walls (tall at the very back, thin and low everywhere else)
+  // (each room its own: packed earth round the ring and in the grow room, stone flags in the landing and the prep hall,
+  // parquet in the office, boards in the hearth room)
+  floor(ARENA, earth()); floor(LANDING, flags()); floor(OFFICE_ROOM, parquet()); floor(KITCHEN, boards()); floor(PREP, flags());
+  tallWall(ARENA, 'n'); tallWall(ARENA, 'w'); wall(ARENA, 's');
+  officeWall(); wall(OFFICE_ROOM, 'w', 0.3); wall(OFFICE_ROOM, 'e', 0.3);
+  wall(LANDING, 'n', 0.3); wall(LANDING, 'w', 0.3); wall(LANDING, 'e', 0.3);
+  wall(KITCHEN, 'n', 0.3); wall(KITCHEN, 'w', 0.3); wall(KITCHEN, 'e', 0.3); wall(KITCHEN, 's', 0.3);
+  // the cookware shop, through the hearth room's south wall
+  floor(CRAFT, boards()); wall(CRAFT, 'w'); wall(CRAFT, 'e', 0.3); wall(CRAFT, 's');
+  wall(PREP, 'e', 0.3); wall(PREP, 's');
+  // the lift room behind the prep hall's east wall, where nobody goes: just the dumbwaiters
+  floor(LIFT_ROOM, flags()); wall(LIFT_ROOM, 'n', 0.3); wall(LIFT_ROOM, 'e'); wall(LIFT_ROOM, 's', 0.3);
+  // the prep hall's back: a stone wall with a locked gate the player walks past every day, until the gate opens on the
+  // grow room behind
+  stoneWall();
+  wall(PREP, 'n', 0.3, parts.grow);
+  { // the gate, swung open into the grow room
+    const t = DOORS.find(d => d.b === 'grow')!;
+    bars(parts.grow, (t.x0 + t.x1) / 2, PREP.z0 - 0.4, t.x1 - t.x0 + 0.1, 1.75, Math.PI / 2 - 0.15);
+  }
+  floor(GROW, earth(), 0.3, parts.grow); tallWall(GROW, 'n', parts.grow); wall(GROW, 'e', 0.1, parts.grow);
+  // ceiling beams over the arena's back
+  for (let x = ARENA.x0 + 1; x <= ARENA.x1; x += 2.2) box(cellar, WOOD_DARK, x, CY + 6.3, ARENA.z0 + 0.7, 0.25, 0.3, 2.4, false);
+  // the fans' tunnels: a doorway through the back wall, framed in timber with the wall carried on over it and a lantern
+  // over it, into a low dark passage, roofed over so nobody's seen till they come out
+  for (const t of TUNNELS) {
+    const west = t.side === 'w', edge = west ? ARENA.x0 : ARENA.z0;
+    /** A box `o` out from the arena's wall (into the tunnel) and `a` along it. */
+    const put = (o: number, y: number, a: number, so: number, sy: number, sa: number, c: number, cast = false) =>
+      west ? box(cellar, c, edge - o, CY + y, a, so, sy, sa, cast) : box(cellar, c, a, CY + y, edge - o, sa, sy, so, cast);
+    const D = TUNNEL_D, W = TUNNEL_W;
+    put(D / 2, 0.01, t.at, D, 0.02, W + 0.4, 0x2A1A12);
+    for (const s of [-1, 1]) put(D / 2 + 0.1, 1.3, t.at + s * (W / 2 + 0.15), D, 2.6, 0.3, 0x2A201A);
+    put(D + 0.1, 1.3, t.at, 0.2, 2.6, W + 0.6, 0x2A201A);
+    put(D / 2 + 0.15, 2.7, t.at, D + 0.1, 0.2, W + 0.6, 0x2A201A);
+    put(0.7, (FRAME_H + TALL - 0.2) / 2, t.at, 1.2, TALL - 0.2 - FRAME_H, W + 0.1, 0x2A201A);
+    for (const s of [-1, 1]) put(0.05, FRAME_H / 2, t.at + s * (W / 2 + 0.05), 0.16, FRAME_H, 0.16, WOOD_DARK, true);
+    put(0.05, FRAME_H, t.at, 0.2, 0.2, W + 0.4, WOOD_DARK, true);
+    west ? lantern(cellar, edge + 0.2, CY + 2.75, t.at, true) : lantern(cellar, t.at, CY + 2.75, edge + 0.2, true);
+  }
+});
 
 // ---------- the earth the cellar's dug into ----------
 // Everything round the rooms is solid ground, so past a wall there's never an edge of the world: cut level with the low
@@ -427,7 +439,7 @@ for (const t of TUNNELS) {
 export const GROUND = { cut: WALL + 0.06, bank: TALL - 0.02 };
 /** The rock round the rooms: dark broken stone, cracked, with flat-topped chips catching the light, drawn wrapped round
  *  so it tiles. */
-const dirt = canvasTex(256, 256, (c, w, h) => {
+const dirt = tiling(256, 256, (c, w, h) => {
   c.fillStyle = '#3B332C'; c.fillRect(0, 0, w, h);
   const hash = (i: number) => { const x = Math.sin(i * 37.719) * 43758.5453; return x - Math.floor(x); };
   /** A shape drawn wrapped round the tile's edges, so it tiles without a seam. */
@@ -455,10 +467,6 @@ const dirt = canvasTex(256, 256, (c, w, h) => {
     c.fillStyle = ['#5E564D', '#69604F', '#544C44'][i % 3]; wrapped((dx, dy) => chip(x + dx, y + dy));
   }
 });
-dirt.tex.wrapS = dirt.tex.wrapT = 1000;
-// (both sides drawn: a rock face seen from behind, past a wall's end, still shows as rock; and no light of the rooms'
-// on it at all, so none ever seems to come through a wall: its light is drawn into it, a facet at a time, by `bake`)
-const EARTH = new MeshBasicMaterial({ map: dirt.tex, vertexColors: true, side: DoubleSide });
 /** Where the dim light out in the earth comes from: overhead, a little from the camera's side, so the rock's facets
  *  catch it differently and read as broken stone in the dark. */
 const SKY = new Vector3(0.3, 1, 0.5).normalize();
@@ -481,8 +489,13 @@ const dug = (r: Rect): Box => {
   return { x0: r.x0 - (o.w ?? 0.3), x1: r.x1 + (o.e ?? 0.3), z0: r.z0 - (o.n ?? 0.3), z1: r.z1 + (o.s ?? 0.3) };
 };
 const within = (b: Box, x: number, z: number) => x > b.x0 && x < b.x1 && z > b.z0 && z < b.z1;
-/** The earth's two meshes: round the rooms, and the grow room's place while it's a secret. */
-export const ground = (() => {
+/** The earth's meshes, once it's built: round the rooms, and the grow room's place while it's a secret; the crags, and
+ *  the kerbs round the rooms and round the grow room. */
+export const ground = {} as Record<'open' | 'hidden' | 'rocks' | 'kerb' | 'growKerb', Mesh>;
+later(() => {
+  // (both sides drawn: a rock face seen from behind, past a wall's end, still shows as rock; and no light of the rooms'
+  // on it at all, so none ever seems to come through a wall: its light is drawn into it, a facet at a time, by `bake`)
+  const EARTH = new MeshBasicMaterial({ map: dirt().tex, vertexColors: true, side: DoubleSide });
   const rooms = [...Object.values(ROOMS), LIFT_ROOM], holes = rooms.map(dug);
   const grow = holes[rooms.indexOf(GROW)], A = dug(ARENA), O = dug(OFFICE_ROOM);
   /** The fans' tunnels, from the arena's wall out past their far ends. */
@@ -686,7 +699,7 @@ export const ground = (() => {
       crags.push(c);
     }
   }
-  const rocks = add(cellar, new Mesh(mergeGeometries(crags)!, new MeshBasicMaterial({ map: dirt.tex, vertexColors: true })));
+  const rocks = add(cellar, new Mesh(mergeGeometries(crags)!, new MeshBasicMaterial({ map: dirt().tex, vertexColors: true })));
   crags.forEach(c => c.dispose());
   // the kerb: a course of rough-cut stone along the earth's edge just past each low wall's rail, the wall's top as seen
   // from above, each block its own length and a little its own height, lit like the rest out here but a good deal
@@ -722,20 +735,22 @@ export const ground = (() => {
     gs.forEach(g => g.dispose());
     return m;
   });
-  return { open: open.mesh(cellar), hidden: hidden.mesh(parts.hidden), rocks, kerb, growKerb };
-})();
+  Object.assign(ground, { open: open.mesh(cellar), hidden: hidden.mesh(parts.hidden), rocks, kerb, growKerb });
+});
 
 // the doorways: a timber frame in the wall, posts and a lintel
 /** Whether a doorway's wall runs east-west (between rooms one behind the other), or north-south (side by side). */
 const acrossX = (t: (typeof DOORS)[number]) => !Object.values(ROOMS).some(r => Math.abs(r.x1 - t.x0) < 0.01 || Math.abs(r.x0 - t.x1) < 0.01);
-for (const t of DOORS) {
-  const ax = acrossX(t), cx = (t.x0 + t.x1) / 2, cz = (t.z0 + t.z1) / 2, w = (ax ? t.x1 - t.x0 : t.z1 - t.z0) + 0.6;
-  const g = t.b === 'grow' ? parts.grow : cellar;
-  for (const s of [-1, 1]) {
-    ax ? box(g, WOOD_DARK, cx + s * w / 2, CY + FRAME_H / 2, cz, 0.2, FRAME_H, 0.22) : box(g, WOOD_DARK, cx, CY + FRAME_H / 2, cz + s * w / 2, 0.22, FRAME_H, 0.2);
+later(() => {
+  for (const t of DOORS) {
+    const ax = acrossX(t), cx = (t.x0 + t.x1) / 2, cz = (t.z0 + t.z1) / 2, w = (ax ? t.x1 - t.x0 : t.z1 - t.z0) + 0.6;
+    const g = t.b === 'grow' ? parts.grow : cellar;
+    for (const s of [-1, 1]) {
+      ax ? box(g, WOOD_DARK, cx + s * w / 2, CY + FRAME_H / 2, cz, 0.2, FRAME_H, 0.22) : box(g, WOOD_DARK, cx, CY + FRAME_H / 2, cz + s * w / 2, 0.22, FRAME_H, 0.2);
+    }
+    ax ? box(g, WOOD_DARK, cx, CY + FRAME_H, cz, w + 0.3, 0.2, 0.26) : box(g, WOOD_DARK, cx, CY + FRAME_H, cz, 0.26, 0.2, w + 0.3);
   }
-  ax ? box(g, WOOD_DARK, cx, CY + FRAME_H, cz, w + 0.3, 0.2, 0.26) : box(g, WOOD_DARK, cx, CY + FRAME_H, cz, 0.26, 0.2, w + 0.3);
-}
+});
 /**
  * A room's name on a plaque facing the camera, `w` wide: on the room's back wall (standing on a low one's rail, or high
  * on a tall one), so each room's name is on its own side of the wall it's on; and the office's over its door.
@@ -753,16 +768,18 @@ function sign(text: string, x: number, y: number, z: number, parent: Object3D = 
  *  one's front beams. */
 const onLow = (r: Rect) => r.z0 - 0.3 + 0.1, onTall = (r: Rect) => r.z0 - 0.1, onRail = WALL + 0.08 + 0.2;
 const mid = (r: Rect) => (r.x0 + r.x1) / 2;
-sign('RING', mid(ARENA), 2.85, onTall(ARENA), cellar, 2.2);
-sign('KITCHEN', KITCHEN.x1 - 0.95, onRail, onLow(KITCHEN) - 0.1);
-// (the cookware shop's between its doorway and the bowl counter, over the crates of crockery: any further east and it stands in
-// front of the counter's bowls)
-sign('COOKWARE', 8.45, onRail, onLow(CRAFT) - 0.1, cellar, 1.6);
-// (the prep hall's stands on the rail of its back wall, the stone one or the plank one after it: the two are as high)
-sign('PREP', mid(PREP) - 1.5, onRail, onLow(PREP) - 0.1);
-sign('GROW ROOM', mid(GROW), 2.85, onTall(GROW), parts.grow, 2.2);
 const door = (to: CellarRoom) => DOORS.find(t => t.b === to)!;
-sign('OFFICE', (door('office').x0 + door('office').x1) / 2, FRAME_H + 0.3, LANDING.z0 - 0.15, cellar, 1.15);
+later(() => {
+  sign('RING', mid(ARENA), 2.85, onTall(ARENA), cellar, 2.2);
+  sign('KITCHEN', KITCHEN.x1 - 0.95, onRail, onLow(KITCHEN) - 0.1);
+  // (the cookware shop's between its doorway and the bowl counter, over the crates of crockery: any further east and it
+  // stands in front of the counter's bowls)
+  sign('COOKWARE', 8.45, onRail, onLow(CRAFT) - 0.1, cellar, 1.6);
+  // (the prep hall's stands on the rail of its back wall, the stone one or the plank one after it: the two are as high)
+  sign('PREP', mid(PREP) - 1.5, onRail, onLow(PREP) - 0.1);
+  sign('GROW ROOM', mid(GROW), 2.85, onTall(GROW), parts.grow, 2.2);
+  sign('OFFICE', (door('office').x0 + door('office').x1) / 2, FRAME_H + 0.3, LANDING.z0 - 0.15, cellar, 1.15);
+});
 
 // ---------- lanterns along the walls ----------
 function lantern(parent: Object3D, x: number, y: number, z: number, red: boolean) {
@@ -771,8 +788,10 @@ function lantern(parent: Object3D, x: number, y: number, z: number, red: boolean
   for (const s of [-1, 1]) add(g, mesh(G.cyl, 0x1B2430, 0, s * 0.29, 0)).scale.set(0.13, 0.05, 0.13);
   add(g, mesh(G.rope, 0x1B2430, 0, 0.6, 0)).scale.y = 0.6;
 }
-for (let x = ARENA.x0 + 1.5, i = 0; x <= ARENA.x1 - 1; x += 2.4, i++) lantern(cellar, x, CY + 3.6, ARENA.z0 + 0.1, i % 2 === 0);
-for (let z = ARENA.z0 + 1.5, i = 0; z <= ARENA.z1 - 1; z += 2.4, i++) lantern(cellar, ARENA.x0 + 0.1, CY + 3.6, z, i % 2 === 1);
+later(() => {
+  for (let x = ARENA.x0 + 1.5, i = 0; x <= ARENA.x1 - 1; x += 2.4, i++) lantern(cellar, x, CY + 3.6, ARENA.z0 + 0.1, i % 2 === 0);
+  for (let z = ARENA.z0 + 1.5, i = 0; z <= ARENA.z1 - 1; z += 2.4, i++) lantern(cellar, ARENA.x0 + 0.1, CY + 3.6, z, i % 2 === 1);
+});
 
 // ---------- the ring: the back-alley pit ----------
 // Mr. Fugu's ring is whatever was to hand at the dock: rice bales stacked two high and roped into a square, packed dirt
@@ -793,7 +812,7 @@ export const PIT_STEPS = [{ out: 0.28, top: 0.42 }, { out: 0.74, top: 0.22 }];
 const CORDON = RING_HALF + RING_FOOT + 0.15;
 /** The dirt on the ring's top, `PIT_PX` pixels a metre. */
 const PIT_PX = 512 / (RING_HALF * 2);
-quietly(() => {
+later(() => quietly(() => {
   const g = add(cellar, new Group()); g.position.copy(RING);
   const b = new Build(), thin = new Build();
   const R = RING_TOP;
@@ -883,9 +902,7 @@ quietly(() => {
   });
   const board = add(g, new Mesh(new PlaneGeometry(1.3, 0.5), new MeshLambertMaterial({ map: sign.tex, side: DoubleSide })));
   board.position.set(1.6, 0.62, CORDON + 0.06); board.rotation.x = -0.25;
-});
-// (the clay ring this replaced was built with the game's luck: the dice it took, so the luck after it stays the same)
-for (let i = 0; i < 2052; i++) Math.random();
+}));
 
 // ---------- the stands: crates and planks, in tiers, with a cushioned seat for each fan ----------
 /** A seat in the stands: where a fan sits (on the plank), which way they face, and which part it's in (swarm.ts). */
@@ -895,24 +912,26 @@ export const places: Place[] = [];
 const TIERS = 3;
 /** The seats' cushions: deep red, indigo and gold, in turn (colours the cellar already uses). */
 const CUSHIONS = [0x8E2B2B, 0x2B3A67, 0xF2C14E];
-/** Builds `tiers` of a stand along one wall, from tier `from` (counted out from the wall), into `g`, with places
- *  spaced along each. */
-function stand(g: Group, part: Place['part'], along: 'x' | 'z', a0: number, a1: number, wall: number, out: number, from: number, tiers: number, gap: number) {
+/** Builds `tiers` of a stand along one wall, from tier `from` (counted out from the wall), into `g`, with a seat
+ *  every `gap` along each; or with no `g`, lays out the places only (they're there from the start, built or not). */
+function stand(g: Group | null, part: Place['part'], along: 'x' | 'z', a0: number, a1: number, wall: number, out: number, from: number, tiers: number, gap: number) {
   for (let i = from; i < from + tiers; i++) {
     const h = 0.3 + (TIERS - 1 - i) * 0.42, at = wall + out * (0.45 + i * 0.85), len = Math.abs(a1 - a0), mid = (a0 + a1) / 2;
     const [cx, cz] = along === 'x' ? [mid, at] : [at, mid];
-    box(g, i % 2 ? WOOD : 0x9C6644, cx, CY + h / 2, cz, along === 'x' ? len : 0.85, h, along === 'x' ? 0.85 : len);
-    // the crates' slats, on the face towards the ring
-    for (let k = -len / 2 + 0.6; k < len / 2; k += 2.1) {
-      const [bx, bz] = along === 'x' ? [cx + k, cz + out * 0.43] : [cx + out * 0.43, cz + k];
-      box(g, WOOD_DARK, bx, CY + h / 2, bz, along === 'x' ? 0.6 : 0.02, h - 0.02, along === 'x' ? 0.02 : 0.6, false);
+    if (g) {
+      box(g, i % 2 ? WOOD : 0x9C6644, cx, CY + h / 2, cz, along === 'x' ? len : 0.85, h, along === 'x' ? 0.85 : len);
+      // the crates' slats, on the face towards the ring
+      for (let k = -len / 2 + 0.6; k < len / 2; k += 2.1) {
+        const [bx, bz] = along === 'x' ? [cx + k, cz + out * 0.43] : [cx + out * 0.43, cz + k];
+        box(g, WOOD_DARK, bx, CY + h / 2, bz, along === 'x' ? 0.6 : 0.02, h - 0.02, along === 'x' ? 0.02 : 0.6, false);
+      }
     }
     const face = along === 'x' ? (out > 0 ? 0 : Math.PI) : (out > 0 ? Math.PI / 2 : -Math.PI / 2);
     for (let k = -len / 2 + 0.4, n = 0; k < len / 2 - 0.2; k += gap, n++) {
       const [px, pz] = along === 'x' ? [cx + k, cz] : [cx, cz + k];
-      places.push({ pos: V(px, CY + h, pz), h: face, part });
+      if (!g) places.push({ pos: V(px, CY + h, pz), h: face, part });
       // a cushion (zabuton) on the plank for each seat, in the ring's colours
-      box(g, CUSHIONS[(n + i) % CUSHIONS.length], px, CY + h + 0.03, pz, 0.46, 0.06, 0.46, false);
+      else box(g, CUSHIONS[(n + i) % CUSHIONS.length], px, CY + h + 0.03, pz, 0.46, 0.06, 0.46, false);
     }
   }
 }
@@ -920,15 +939,20 @@ function stand(g: Group, part: Place['part'], along: 'x' | 'z', a0: number, a1: 
 // bleachers)
 const BACK = { a0: RING.x - 5.6, a1: RING.x + 5.6, wall: ARENA.z0 + 0.1 };
 const WEST = { a0: RING.z - 3.7, a1: RING.z + 3.7, wall: ARENA.x0 + 0.1 };
-const baseStand = add(cellar, new Group());
-stand(baseStand, 'base', 'x', BACK.a0, BACK.a1, BACK.wall, 1, 0, 2, 0.62);
-stand(parts.bleachers, 'bleachers', 'z', WEST.a0, WEST.a1, WEST.wall, 1, 0, 2, 0.62);
-stand(parts.tier, 'tier', 'x', BACK.a0, BACK.a1, BACK.wall, 1, 2, 1, 0.62);
-stand(parts.tier, 'tier', 'z', WEST.a0, WEST.a1, WEST.wall, 1, 2, 1, 0.62);
+/** The stands' places (with no `base`), or the stands themselves: the back ones into `base`, the rest into the venue's
+ *  parts. */
+const seating = (base: Group | null) => {
+  stand(base, 'base', 'x', BACK.a0, BACK.a1, BACK.wall, 1, 0, 2, 0.62);
+  stand(base && parts.bleachers, 'bleachers', 'z', WEST.a0, WEST.a1, WEST.wall, 1, 0, 2, 0.62);
+  stand(base && parts.tier, 'tier', 'x', BACK.a0, BACK.a1, BACK.wall, 1, 2, 1, 0.62);
+  stand(base && parts.tier, 'tier', 'z', WEST.a0, WEST.a1, WEST.wall, 1, 2, 1, 0.62);
+};
+seating(null);
+later(() => seating(add(cellar, new Group())));
 // the VIP boxes: box seats (masu-seki) right by the ring, on its south side: a low platform with a red skirt, split
 // by rails into a box for each pair, a cushion for each seat, and a sake flask and two cups in every other box
 const VIP_Z = RING.z + RING_HALF + RING_FOOT + 0.7;
-{
+later(() => {
   const H = 0.4, w = 7.2;
   box(parts.vip, WOOD_DARK, RING.x, CY + H / 2, VIP_Z, w, H, 0.9);
   box(parts.vip, WOOD, RING.x, CY + H + 0.01, VIP_Z, w - 0.04, 0.02, 0.86, false);
@@ -940,12 +964,11 @@ const VIP_Z = RING.z + RING_HALF + RING_FOOT + 0.7;
     add(parts.vip, mesh(G.cyl, 0xF4F1EA, x, CY + H + 0.12, VIP_Z - 0.25)).scale.set(0.06, 0.22, 0.06);
     for (const s of [-1, 1]) add(parts.vip, mesh(G.cyl, 0xF4F1EA, x + s * 0.14, CY + H + 0.04, VIP_Z - 0.25)).scale.set(0.035, 0.05, 0.035);
   }
-}
-for (let i = 0; i < 8; i++) {
-  const x = RING.x - 3.15 + i * 0.9, z = VIP_Z;
-  box(parts.vip, i % 2 ? 0x8E2B2B : 0xF2C14E, x, CY + 0.44, z + 0.05, 0.46, 0.07, 0.46, false);
-  places.push({ pos: V(x, CY + 0.25, z - 0.05), h: Math.PI, part: 'vip' });
-}
+});
+for (let i = 0; i < 8; i++) places.push({ pos: V(RING.x - 3.15 + i * 0.9, CY + 0.25, VIP_Z - 0.05), h: Math.PI, part: 'vip' });
+later(() => {
+  for (let i = 0; i < 8; i++) box(parts.vip, i % 2 ? 0x8E2B2B : 0xF2C14E, RING.x - 3.15 + i * 0.9, CY + 0.44, VIP_Z + 0.05, 0.46, 0.07, 0.46, false);
+});
 /** Keeps a spectator's place hidden until it's built. */
 export const placeBuilt = (p: Place) => p.part === 'base' || parts[p.part].visible;
 
@@ -1051,7 +1074,7 @@ function woodTop(w: number, d: number, alongZ: boolean) {
     }
   });
 }
-{
+later(() => {
   const { x0, x1, z0, z1, d, top: TOP } = BAR, g = add(cellar, new Group()), plaster = mat(0xD9C3A0), rim = mat(0xC9A97A);
   const painted = (panels: Panel[], len: number) => new MeshLambertMaterial({ map: fresco(Math.round(330 * len), 300, panels).tex });
   /** A counter from (ax0, az0) to (ax1, az1), its sides' materials (+x, -x, +z, -z). */
@@ -1114,7 +1137,7 @@ function woodTop(w: number, d: number, alongZ: boolean) {
   const t = DOORS.find(o => o.a === 'kitchen' && o.b === 'arena')!, span = t.z1 - t.z0 + 0.6, cz = (t.z0 + t.z1) / 2, cx = (t.x0 + t.x1) / 2 - 0.06;
   for (let i = -1; i <= 1; i++) box(g, 0x2B3A67, cx, CY + FRAME_H - 0.35, cz + i * span / 3, 0.02, 0.5, span / 3 - 0.04, false).receiveShadow = false;
   box(g, 0xF4F1EA, cx - 0.02, CY + FRAME_H - 0.32, cz, 0.01, 0.16, 0.16, false);
-}
+});
 /** The soup square, for walking round: its two counters, a walker's width out all round (the walls are its other sides). */
 const BAR_BOXES: [number, number, number, number][] = (() => {
   const { x0, x1, z0, z1, d } = BAR, W = 0.22;
@@ -1126,7 +1149,7 @@ const BAR_BOXES: [number, number, number, number][] = (() => {
 /** Straw-wrapped sake barrels (komodaru), stacked against the east wall between the landing's door and the soup bar, the
  *  way a shrine stacks the ones it's given. */
 const KOMO = { x: ARENA.x1 - 0.35, z: 1.95 };
-{
+later(() => {
   // two wraps, each with its crest on the side facing the arena and the one facing the camera
   const wrap = (i: number) => canvasTex(256, 128, (c, w, h) => {
     c.fillStyle = '#D2B878'; c.fillRect(0, 0, w, h);
@@ -1152,10 +1175,10 @@ const KOMO = { x: ARENA.x1 - 0.35, z: 1.95 };
     }
   }
   geos.forEach((gs, i) => { add(cellar, mesh(mergeGeometries(gs)!, new MeshLambertMaterial({ map: wrap(i).tex }), 0, 0, 0, true)); gs.forEach(b => b.dispose()); });
-}
+});
 /** The gong: a bronze disc hung in a black frame (gong.ts swings it). */
 export const gongDisc = new Group();
-{
+later(() => {
   const g = add(cellar, new Group()); g.position.set(GONG.x, CY, GONG.z); g.rotation.y = -Math.PI / 2;
   for (const s of [-1, 1]) box(g, 0x1B1A1E, s * 0.85, 1.25, 0, 0.12, 2.5, 0.12);
   box(g, 0x1B1A1E, 0, 2.5, 0, 1.95, 0.14, 0.16);
@@ -1171,9 +1194,9 @@ export const gongDisc = new Group();
   const m = add(g, new Group()); m.position.set(1.05, 0.55, 0.1); m.rotation.z = 0.25;
   add(m, mesh(G.rope, WOOD, 0, 0, 0)).scale.set(1.4, 1.1, 1.4);
   add(m, mesh(G.sphere, 0xC0392B, 0, 0.58, 0)).scale.setScalar(0.12);
-}
+});
 /** The cashier's window, where the chips go: a cage window like a bookie's, its counter stacked with Fugu Chips. */
-{
+later(() => {
   const g = add(cellar, new Group()); g.position.set(CASHIER.x, CY, CASHIER.z); g.rotation.y = -Math.PI / 2;
   box(g, WOOD, 0, 0.5, 0, 2.2, 1, 0.8);
   box(g, 0x6B4130, 0, 1.02, 0.08, 2.3, 0.06, 1.0);
@@ -1191,10 +1214,10 @@ export const gongDisc = new Group();
   });
   const edge = mat(0x15181D);
   add(g, new Mesh(new BoxGeometry(1.5, 0.46, 0.04), [edge, edge, edge, edge, new MeshBasicMaterial({ map: tex.tex }), edge])).position.set(0, 2.55, 0.3);
-}
+});
 
 // ---------- the hearth room: the hearth and its pot, the ledge, the bowl counter ----------
-{
+later(() => {
   // a short indigo curtain (noren) in three strips hanging in the hearth room's doorway from the landing, with a white
   // crest on the middle one
   const t = door('kitchen'), span = t.x1 - t.x0 + 0.6, x = (t.x0 + t.x1) / 2, z = (t.z0 + t.z1) / 2 + 0.06;
@@ -1223,7 +1246,7 @@ export const gongDisc = new Group();
   add(g, mesh(G.sphere, 0xE59A6B, -0.95, 0.98, back, true)).scale.set(0.28, 0.07, 0.1);
   box(g, 0xC9CDD2, -0.55, 0.95, back + 0.05, 0.26, 0.01, 0.05, false);
   for (const x of [0.3, 0.6, 1.25]) add(g, mesh(G.sphere, 0x8FC46A, x, 1.02, back, true)).scale.set(0.15, 0.13, 0.15);
-}
+});
 /** The big iron pot of chanko on the hearth: stew to the brim, full of cabbage, tofu, carrot and fish, with a ladle in
  *  it (ringKitchen.ts adds the steam, and colours the stew by what's in it). */
 export const potStew = new MeshLambertMaterial({ color: 0xC9803A });
@@ -1257,7 +1280,7 @@ export const potMesh = (() => {
   add(ladle, mesh(G.sphere, 0x9AA4AC, 0, -0.02, 0)).scale.set(0.13, 0.07, 0.13);
   return g;
 })();
-{
+later(() => {
   // the counter the bowls come out on: a low table against the east wall in the corner south of the prep hall's door, a
   // cloth along it for the bowls, and on a shelf underneath, the empty ones stacked
   const t = add(cellar, new Group()); t.position.set(COUNTER.x, CY, COUNTER.z);
@@ -1268,7 +1291,7 @@ export const potMesh = (() => {
   for (const z of [-0.3, 0.25]) {
     for (let i = 0; i < 4; i++) add(t, mesh(new CylinderGeometry(0.15, 0.09, 0.08, 12), 0xC0392B, 0.1, 0.29 + i * 0.07, z));
   }
-}
+});
 
 // ---------- the lift room: the two dumbwaiters, their wooden chutes, and the stores that feed the prep hall ----------
 /** The lift room's woods: cedar boards in two tones, pale hinoki for the trays, bamboo, and straw rope; and the fish's
@@ -1306,7 +1329,7 @@ function spout(parent: Object3D, x: number, y: number) {
   box(parent, CEDAR, x - 0.025, y + 0.06, 0, 0.02, 0.1, 0.18);
   add(parent, mesh(G.cyl, WOOD_DARK, x - 0.045, y + 0.09, 0)).scale.set(0.015, 0.05, 0.015);
 }
-{
+later(() => {
   // The dumbwaiters from the restaurant's kitchen upstairs, rice down one and fish down the other: tall timber shafts
   // up into the dark, open at the front (to the west) down to a hatch at chest height and boarded in below it, their
   // chains and the wheels they go round at the top and bottom (ringKitchen.ts sends their trays round, loaded on the
@@ -1448,7 +1471,7 @@ function spout(parent: Object3D, x: number, y: number) {
   }
   // a chalk board by the door, ruled into the three lines
   box(cellar, 0x23302A, PREP.x0 + 0.2, CY + 1.5, 2.6, 0.06, 0.9, 1.3, false);
-}
+});
 
 // ---------- the cookware shop: the shop counter, and a dōgu-ya's stock, as on Kappabashi street ----------
 /** Where the shop's things stand, for walking round them (the way from its doorway to the counter's square is kept
@@ -1459,7 +1482,7 @@ const TANSU = { x: CRAFT.x0 + 0.95, z: CRAFT.z0 + 0.25 }, CRATES = { x: 8.3, z: 
 const SHELF = { x: CRAFT.x1 - 0.45, z: 9.75 }, SHOWCASE = { x: 8.85, z: 10.05 };
 const STEAMERS = { x: 6.3, z: CRAFT.z1 - 0.4 }, POTS = { x: 8.7, z: CRAFT.z1 - 0.4 }, CROCK = { x: CRAFT.x0 + 0.4, z: CRAFT.z1 - 0.3 };
 /** The same picture on several faces, as one mesh: `geo` (facing +z) moved into place by each of `at`. */
-function pictures(geo: BufferGeometry, map: typeof earth.tex, at: Matrix4[]) {
+function pictures(geo: BufferGeometry, map: CanvasTex['tex'], at: Matrix4[]) {
   return add(cellar, new Mesh(mergeGeometries(at.map(m => copyGeo(geo).applyMatrix4(m)))!, new MeshLambertMaterial({ map })));
 }
 const placed = (x: number, y: number, z: number, turn = 0) => new Matrix4().makeRotationY(turn).setPosition(x, y, z);
@@ -1468,9 +1491,9 @@ const HEMP = 0x8A6A44, BLACK_IRON = 0x1E1E22, PORCELAIN = 0xF2EEE6, INDIGO = 0x2
 const ALUMINIUM = 0xC8CED2, POT_STEEL = 0xB8C4CC, COPPER = 0xB86B3A, CLAY_GLAZE = 0x4A3428;
 /** The shop's see-through glass. */
 const SHOP_GLASS = new MeshLambertMaterial({ color: 0xCFE8F0, transparent: true, opacity: 0.2, depthWrite: false });
-/** A bowl, a plate, a pot's body, a seiro's ring: shapes the stock is made of, sized by scale. */
-const BOWL = tube(1, 0.6, 0.6, 12), PLATE = tube(1, 0.8, 0.1, 14), POT_BODY = tube(1, 1, 1, 16), CUP = tube(1, 0.75, 1, 10);
-{
+later(() => {
+  /** A bowl, a plate, a pot's body, a seiro's ring: shapes the stock is made of, sized by scale. */
+  const BOWL = tube(1, 0.6, 0.6, 12), PLATE = tube(1, 0.8, 0.1, 14), POT_BODY = tube(1, 1, 1, 16), CUP = tube(1, 0.75, 1, 10);
   // everything small in the shop baked into two meshes: what casts a shadow, and what's too small to
   const b = new Build(), f = new Build(), Y = CY;
   const stack = (x: number, y: number, z: number, n: number, c: number | number[], r = 0.1) => {
@@ -1814,10 +1837,10 @@ const BOWL = tube(1, 0.6, 0.6, 12), PLATE = tube(1, 0.8, 0.1, 14), POT_BODY = tu
 
   add(cellar, b.mesh());
   add(cellar, f.mesh(false));
-}
+});
 
 // ---------- the grow room: dark earth, damp walls, and glowing toadstools in the corners ----------
-{
+later(() => {
   const SPORE = glow(0x9CE6C8, 0x2E9C7A);
   for (const [x, z] of [[GROW.x0 + 0.4, GROW.z0 + 0.5], [GROW.x1 - 0.4, GROW.z0 + 0.5], [GROW.x1 - 0.4, GROW.z1 - 0.6], [GROW.x0 + 0.5, GROW.z1 - 2.2]]) {
     for (let i = 0; i < 4; i++) {
@@ -1838,10 +1861,10 @@ const BOWL = tube(1, 0.6, 0.6, 12), PLATE = tube(1, 0.8, 0.1, 14), POT_BODY = tu
     add(parts.grow, mesh(G.cyl, WOOD, x, CY + 0.13, z + 0.02, true)).scale.set(0.16, 0.26, 0.16);
     add(parts.grow, mesh(G.cyl, 0x3E5A66, x, CY + 0.255, z + 0.02, false)).scale.set(0.14, 0.01, 0.14);
   }
-}
+});
 
 // ---------- the teppo post, where the sparring partner slaps ----------
-log(cellar, 0x7A5236, TEPPO.x, CY + 1.3, TEPPO.z, 2.2, 2.6);
+later(() => { log(cellar, 0x7A5236, TEPPO.x, CY + 1.3, TEPPO.z, 2.2, 2.6); });
 
 // ---------- Mr. Fugu's office ----------
 /** Mr. Fugu, behind his desk (dohyo.ts puffs him up when the crowd roars). */
@@ -1867,7 +1890,7 @@ export function swimTank(dt: number) {
     u.tail.rotation.y = Math.sin(swimT * 11 + u.phase) * 0.5;
   }
 }
-{
+later(() => {
   // the dais the desk stands on, carpeted red
   const D = DAIS, dw = D.x1 - D.x0, dd = D.z1 - D.z0;
   box(cellar, 0x4A2A1C, (D.x0 + D.x1) / 2, CY + D.h / 2, (D.z0 + D.z1) / 2, dw, D.h, dd);
@@ -1971,27 +1994,29 @@ export function swimTank(dt: number) {
   add(spare, mesh(new CylinderGeometry(0.25, 0.26, 0.17, 18), STRAW, 0, 0.095, 0, true));
   add(spare, mesh(new CylinderGeometry(0.265, 0.265, 0.06, 18), 0x1F3A5F, 0, 0.045, 0));
   add(rack, mesh(G.box, 0xC49A5A, -0.1, 1.35, 0, true)).scale.set(0.12, 0.7, 0.3);
-}
+});
 
 // ---------- the ladder up to the dock, in the daylight coming down through the hatch ----------
-{
+later(() => {
   const g = add(cellar, new Group()); g.position.copy(LADDER); g.rotation.y = Math.PI / 2;
   for (const s of [-1, 1]) box(g, WOOD, s * 0.3, 3.4, 0, 0.08, 6.8, 0.08);
   for (let y = 0.35; y < 6.6; y += 0.42) box(g, WOOD, 0, y, 0, 0.6, 0.05, 0.06);
   const beam = add(g, mesh(new ConeGeometry(BEAM_R, 7.2, 20, 1, true), new MeshBasicMaterial({ color: 0xBFE3FF, transparent: true, opacity: 0.09, blending: AdditiveBlending, depthWrite: false })));
   beam.position.y = 3.6;
   beam.renderOrder = 2;
-}
+});
 
 // ---------- the drummers' drums (the Underground Arena's) ----------
 export const DRUMS = [V(-9.9, CY, RING.z - 2.6), V(-9.9, CY, RING.z + 2.6)];
-for (const at of DRUMS) {
-  const g = add(parts.drums, new Group()); g.position.set(at.x, CY, at.z);
-  const d = add(g, mesh(new CylinderGeometry(0.42, 0.42, 0.55, 16), 0x7A3B2E, 0, 0.75, 0, true));
-  d.rotation.z = Math.PI / 2;
-  for (const s of [-1, 1]) add(g, mesh(new CylinderGeometry(0.43, 0.43, 0.02, 16), 0xF2E6CC, s * 0.28, 0.75, 0)).rotation.z = Math.PI / 2;
-  box(g, WOOD_DARK, 0, 0.3, 0, 0.5, 0.6, 0.5);
-}
+later(() => {
+  for (const at of DRUMS) {
+    const g = add(parts.drums, new Group()); g.position.set(at.x, CY, at.z);
+    const d = add(g, mesh(new CylinderGeometry(0.42, 0.42, 0.55, 16), 0x7A3B2E, 0, 0.75, 0, true));
+    d.rotation.z = Math.PI / 2;
+    for (const s of [-1, 1]) add(g, mesh(new CylinderGeometry(0.43, 0.43, 0.02, 16), 0xF2E6CC, s * 0.28, 0.75, 0)).rotation.z = Math.PI / 2;
+    box(g, WOOD_DARK, 0, 0.3, 0, 0.5, 0.6, 0.5);
+  }
+});
 
 /** Puts up the venue's tier `t` (0 to 3), and everything below it: the stands it adds, and its decorations. */
 export function showVenue(t: number) {
@@ -2031,8 +2056,8 @@ lights.forEach(l => { l.visible = false; scene.add(l); });
 /** The cellar's sky: near-black brown, warm low light, as stage.ts's day and dusk are for the world above. */
 export const CELLAR_SKY = { bg: new Color(0x1B1512), sky: 0xFFD7A8, grd: 0x4A3428, hemi: 0.4, sun: 0xFFC98F, sunI: 0.34 };
 
-/** Shows the cellar (stage 3). */
-export function showCellar() { cellar.visible = true; }
+/** Shows the cellar (stage 3), building it first if it's not built yet. */
+export function showCellar() { buildCellar(); cellar.visible = true; }
 /** The cellar's lights on while the player's down there, off above (each light costs every material in the scene). */
 // (the grow room's glow is there all along, dark till it's found: lighting a new light mid-bout would recompile every
 // material in the scene)
@@ -2160,7 +2185,47 @@ function bakeStill(root: Object3D, keep: Set<Object3D>) {
     geos.forEach(g => g.dispose());
   }
 }
-// (the gong's disc swings, the pot's stew changes colour, Mr. Fugu puffs up; and the venue's parts and the grow room
-// come and go, so each is baked on its own)
-bakeStill(cellar, new Set<Object3D>([gongDisc, potMesh, boss, tankFish, ...Object.values(parts)]));
-for (const g of Object.values(parts)) bakeStill(g, new Set());
+
+// ---------- building it ----------
+// Built as the game loaded, the cellar drew 16616 numbers from the game's luck (with the 2052 the clay ring before this
+// one took) and 376 from the scenery's dice. Loading still draws them all, so everything after is as it was: what it
+// makes now that's shared with what's built after it, up in the world, as building it made it then (its plain colours,
+// and the shadows of the kit's shapes it used first), so that's found made, as it was, rather than made and drawn for;
+// and the rest of the numbers, BUILT_WITH.
+/** What building the cellar drew that loading doesn't otherwise, from the luck and from the scenery's dice. */
+const BUILT_WITH = { luck: 15536, scenery: 364 };
+/** Every colour the cellar's plain furniture is (render.ts' mat), in the order building it first uses them. */
+const ITS_COLOURS = [
+  0x2A201A, 0x4A3A30, 0x5B3424, 0x4E4A46, 0x8A5A3B, 0x3A1418, 0x3E2418, 0x4E2E1E, 0x2A1810, 0xC9A23A, 0xF4F1EA,
+  0x1B1A1E, 0xB8862E, 0x3A3530, 0x5E574E, 0x2E2E33, 0x8A8F96, 0x9AA4AC, 0x1B2430, 0x2A1A12, 0x15181D, 0x9C6644,
+  0x8E2B2B, 0x2B3A67, 0xF2C14E, 0xC0392B, 0xD9C3A0, 0xC9A97A, 0x1E1612, 0x6E4C30, 0x7A5638, 0x7E9446, 0x5E6E30,
+  0x8FA552, 0x1A1614, 0x8A6A1E, 0xE0BE5A, 0x3A2A20, 0x6B4130, 0xE8B04A, 0x9A5B3E, 0x5E3B2C, 0x7E4A33, 0x3E2A20,
+  0x1E1410, 0xE6CFA0, 0xE59A6B, 0xC9CDD2, 0x8FC46A, 0x2A1E17, 0xB98B5A, 0xA67A4C, 0xC9A86A, 0xA88850, 0xCDB56C,
+  0x3A2A1E, 0xD9B98A, 0xD9C47E, 0xD8EBF0, 0xF4F4EE, 0x3F7A3A, 0x4E8C45, 0xA8894E, 0xB89A5C, 0x23302A, 0xF2EEE6,
+  0x3A1C12, 0x5A2E1C, 0x4A2416, 0x6E3A24, 0x1E1E22, 0xA87B50, 0x8C6440, 0xC9B271, 0xE6DCC8, 0x4B5257, 0x3E5A66,
+  0x7A5236, 0x4A2A1C, 0x5A2618, 0x6E3220, 0x5E9C5A, 0x7A1E1E, 0xEFE3C4, 0x6B1E22, 0x2A2A2E, 0x2E3238, 0x3A3F46,
+  0xE8E4D8, 0x1E2024, 0xA8322D, 0x5B4636, 0xC9B98E, 0xEBD38E, 0x8E4A2E, 0x3E7A3E, 0xC9AE62, 0x1F3A5F, 0xC49A5A,
+  0x7A3B2E, 0xF2E6CC,
+];
+for (const c of ITS_COLOURS) mat(c);
+shadowsOf(K.ball, K.dome, G.cyl);
+for (let i = 0; i < BUILT_WITH.luck; i++) Math.random();
+quietly(() => { for (let i = 0; i < BUILT_WITH.scenery; i++) Math.random(); });
+let built = false;
+/**
+ * Builds the cellar's rooms and furniture, the first time it's called: on dice of its own, off the game's luck and the
+ * scenery's (how it looks never depends on what they throw: they only name what three.js makes). What the cellar's
+ * other modules put in it as they loaded (the kitchen's lines and bowls, the bins, the gong's pads) is left as it is.
+ */
+export function buildCellar() {
+  if (built) return;
+  built = true;
+  const theirs = [cellar, ...Object.values(parts)].flatMap(g => g.children);
+  apart(() => {
+    for (const f of toBuild) f();
+    // (the gong's disc swings, the pot's stew changes colour, Mr. Fugu puffs up; and the venue's parts and the grow
+    // room come and go, so each is baked on its own)
+    bakeStill(cellar, new Set<Object3D>([gongDisc, potMesh, boss, tankFish, ...Object.values(parts), ...theirs]));
+    for (const g of Object.values(parts)) bakeStill(g, new Set(theirs));
+  }, dice(0xCE11A));
+}
