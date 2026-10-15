@@ -246,22 +246,29 @@ export const BEASTS: Record<Kind, (k: Kit, L: Look) => Beast> = {
   shark(k, L) {
     const r = k.r, sk = L.skin, dk = tint(sk, 0.7), f = r.f;
     broad(k, 0.15, sk);
-    k.part(r.neck, b => {
-      b.add(SPH, sk, 0, 0.14, 0.03, null, [0.21, 0.22, 0.24]);
-      b.add(SPH, sk, 0, 0.19, 0.22, [0.16, 0, 0], [0.14, 0.115, 0.27]);
-      b.add(SPH, L.under!, 0, 0.05, 0.11, null, [0.18, 0.085, 0.2]);
-      b.add(SPH, 0x3A1418, 0, 0.088, 0.2, null, [0.165, 0.038, 0.11]);
+    // his head twice a man's, as a shark's is to its body: sat low on his shoulders, no neck
+    const head = k.bone(r.neck, 0, -0.12, 0.02, null, 2);
+    k.part(head, b => {
+      // a torpedo of a skull tapering to a pointed snout, white underneath, the mouth slung under the snout
+      b.add(SPH, sk, 0, 0.13, 0.04, [0.08, 0, 0], [0.19, 0.16, 0.25]);
+      b.add(SPH, sk, 0, 0.14, 0.23, [0.18, 0, 0], [0.1, 0.085, 0.2]);
+      b.add(SPH, L.under!, 0, 0.06, 0.11, [0.06, 0, 0], [0.165, 0.07, 0.23]);
+      // the grin: a wide open mouth under the snout, rows of teeth top and bottom
+      b.add(SPH, 0x3A1418, 0, 0.08, 0.22, [0.1, 0, 0], [0.135, 0.045, 0.11]);
       for (let i = 0; i < 9; i++) {
-        const x = -0.12 + i * 0.03, z = 0.2 + 0.105 * Math.sqrt(Math.max(0, 1 - (x / 0.165) ** 2));
-        b.add(CONE, 0xFBF8F0, x, 0.105, z - 0.01, [Math.PI, 0, 0], [0.012, 0.036, 0.012]);
-        if (i < 8) b.add(CONE, 0xFBF8F0, x + 0.015, 0.07, z - 0.015, null, [0.011, 0.03, 0.011]);
+        const x = -0.11 + i * 0.0275, z = 0.22 + 0.105 * Math.sqrt(Math.max(0, 1 - (x / 0.135) ** 2));
+        b.add(CONE, 0xFBF8F0, x, 0.105, z - 0.006, [Math.PI, 0, 0], [0.013, 0.04, 0.013]);
+        if (i < 8) b.add(CONE, 0xFBF8F0, x + 0.014, 0.055, z - 0.012, null, [0.012, 0.034, 0.012]);
       }
       for (const s of [-1, 1]) {
-        b.add(SPH, 0x0E0B09, s * 0.165, 0.205, 0.16, null, [0.032, 0.034, 0.03]);
-        b.add(SPH, sk, s * 0.165, 0.235, 0.165, null, [0.045, 0.022, 0.04]);
-        for (let n = 0; n < 3; n++) b.add(BOX, dk, s * 0.2, 0.06, -0.03 + n * 0.045, [0, 0, s * 0.12], [0.012, 0.1, 0.014]);
+        // small black eyes on the sides, a hard ridge over each
+        b.add(SPH, 0x0E0B09, s * 0.15, 0.165, 0.16, null, [0.026, 0.028, 0.026]);
+        b.add(SPH, sk, s * 0.145, 0.188, 0.165, [0, 0, s * 0.35], [0.045, 0.018, 0.04]);
+        // gill slits behind
+        for (let n = 0; n < 3; n++) b.add(BOX, dk, s * 0.185, 0.1, -0.06 + n * 0.04, [0, 0, s * 0.12], [0.01, 0.09, 0.012]);
       }
-      b.add(BOX, 0xE9D4CC, 0.178, 0.205, 0.16, [0.6, 0, 0.2], [0.012, 0.14, 0.016]);
+      // an old scar across his left eye
+      b.add(BOX, 0xE9D4CC, 0.155, 0.17, 0.165, [0.6, 0, 0.2], [0.01, 0.11, 0.013]);
     });
     // grey all over his back, white only down his front (the chest and belly are pale under it)
     k.part(r.chestAt, b => b.add(SPH, sk, 0, 0.03, -0.08, null, [0.45 * f, 0.29, 0.33 * f]));
