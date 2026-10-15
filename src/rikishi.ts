@@ -1,10 +1,12 @@
 // The wrestlers (stage 3): the player's champion, who fights every bout; his sparring partner, who slaps the teppo post
-// in the corner; the nameless locals he takes on between boss nights; and the bosses, each in his own skin and belt.
+// in the corner; the nameless locals he takes on between boss nights; and the bosses, each a sea creature built on the
+// same body (creatures.ts).
 // Each is built on joints, so he can stamp, squat, crouch, grip, slap and fall: hips that tilt (the belt on them, so it
 // follows the body), a spine that bends, a neck, and legs and arms that bend at the knee and the elbow. Every bone is
 // one mesh, its shapes baked together (kit.ts), and rebaked when he's dressed as someone else. He's posed with a Pose
 // (dohyo.ts): a set of joint angles, mixed one into another as he moves.
 import { Group, type Mesh, type Object3D, SphereGeometry } from 'three';
+import { type Beast, BEASTS, type Kit, type Look } from './creatures';
 import { Build, K, quietly, shade } from './kit';
 
 const SKIN = 0xF3C9A4, HAIR = 0x15130F;
@@ -44,6 +46,8 @@ const THIGH = 0.26, SHIN = 0.24, ANKLE = 0.07;
 const ROUND = quietly(() => new SphereGeometry(1, 16, 12));
 const add = <T extends Object3D>(p: Object3D, o: T) => { p.add(o); return o; };
 const bone = (p: Object3D, x: number, y: number, z: number) => { const g = add(p, new Group()); g.position.set(x, y, z); return g; };
+/** A baked part: the bone it's on, how it's made, and the mesh made. */
+interface Part { at: Object3D; make: (b: Build) => void; m?: Mesh }
 type Recipe = (b: Build, skin: number, belt: number, f: number) => void;
 
 /** A wrestler: legs, hips with the belt (its knot behind, its fringe hanging in front), a round body that bends over
@@ -60,11 +64,24 @@ export class RikishiModel extends Group {
   private body: Group;
   /** The belt's fringe (sagari), hanging plumb from under its front, whatever the hips do. */
   private fringe: Group;
-  /** The belly, which wobbles on a spring. */
-  private bellyAt: Group;
+  /** The belly, which wobbles on a spring (and a puffer swells), and the chest over it. */
+  readonly bellyAt: Group;
+  readonly chestAt: Group;
   private parts: { at: Group; make: Recipe; m?: Mesh }[] = [];
   private skin: number;
   private belt: number;
+  /** How he looks: his skin and belt, and the creature he is, if he's a boss. */
+  private look: Look;
+  /** The creature's own bones and parts (gone when he changes), and what moves them. */
+  private bones: Group[] = [];
+  private extra: Part[] = [];
+  private beast: Beast | null = null;
+  private clock = 0;
+  /** A creature's temper, from 0 to 1 (dohyo.ts): how blown up the puffer is, and wants to be, and how wild he is (in
+   *  the fight). */
+  puff = 0;
+  puffTo = 0;
+  agitate = 0;
   /** How stout he is, 1 for a middling 150 kg or so. */
   f = 1;
   private jig = 0;
@@ -72,7 +89,7 @@ export class RikishiModel extends Group {
 
   constructor(belt: number, skin = SKIN) {
     super();
-    this.skin = skin; this.belt = belt;
+    this.skin = skin; this.belt = belt; this.look = { skin, belt };
     this.body = bone(this, 0, 0, 0);
     this.hips = bone(this.body, 0, THIGH + SHIN + ANKLE, 0);
     for (const s of [1, -1]) {
@@ -102,13 +119,14 @@ export class RikishiModel extends Group {
     this.part(this.fringe, (b, _, bl) => { for (let i = 0; i < 7; i++) b.add(K.post, shade(bl, 0.9), (i - 3) * 0.045, -0.135, 0, null, [0.012, 0.27, 0.012]); });
     this.spine = bone(this.hips, 0, 0.07, 0);
     this.bellyAt = bone(this.spine, 0, 0.23, 0.1);
-    this.part(this.bellyAt, (b, sk, _, f) => b.add(ROUND, sk, 0, 0, 0, null, [0.42 * f, 0.31, 0.38 * f]));
-    this.part(this.spine, (b, sk, _, f) => {
-      b.add(ROUND, sk, 0, 0.5, 0, null, [0.44 * f, 0.3, 0.36 * f]);
-      for (const s of [-1, 1]) b.add(ROUND, sk, s * 0.17, 0.5, 0.2, null, [0.16, 0.12, 0.12]);
-    });
+    this.part(this.bellyAt, (b, sk, _, f) => b.add(ROUND, this.look.under ?? sk, 0, 0, 0, null, [0.42 * f, 0.31, 0.38 * f]));
+    this.chestAt = bone(this.spine, 0, 0.5, 0);
+    const chest = (sk: number) => (this.look.kind === 'crab' || this.look.kind === 'puffer' ? this.look.under! : sk);
+    this.part(this.chestAt, (b, sk, _, f) => b.add(ROUND, chest(sk), 0, 0, 0, null, [0.44 * f, 0.3, 0.36 * f]));
+    this.part(this.spine, (b, sk) => { for (const s of [-1, 1]) b.add(ROUND, chest(sk), s * 0.17, 0.5, 0.2, null, [0.16, 0.12, 0.12]); });
     this.neck = bone(this.spine, 0, 0.74, 0.03);
     this.part(this.neck, (b, sk) => {
+      if (this.look.kind) return; // a creature brings his own head
       b.add(ROUND, sk, 0, 0.13, 0, null, [0.21, 0.205, 0.2]);
       b.add(ROUND, HAIR, 0, 0.18, -0.035, null, [0.212, 0.18, 0.19]);
       for (const s of [-1, 1]) {
@@ -127,7 +145,7 @@ export class RikishiModel extends Group {
       this.part(sh, (b, sk) => b.add(ROUND, sk, 0, -0.12, 0, null, [0.125, 0.18, 0.125]));
       this.part(el, (b, sk) => {
         b.add(ROUND, sk, 0, -0.11, 0, null, [0.095, 0.14, 0.095]);
-        b.add(ROUND, sk, 0, -0.25, 0.01, null, [0.08, 0.075, 0.07]);
+        if (this.hands) b.add(ROUND, sk, 0, -0.25, 0.01, null, [0.08, 0.075, 0.07]);
       });
       this.arms.push({ s, sh, el, hand });
     }
@@ -136,32 +154,65 @@ export class RikishiModel extends Group {
     this.apply(P0, 0);
   }
   private part(at: Group, make: Recipe) { this.parts.push({ at, make }); }
-  /** Bakes every bone's meshes afresh, in his skin and belt, at his weight. */
+  /** Whether he has hands (an octopus has tentacles, a crab claws). */
+  private hands = true;
+  /** Bakes every bone's meshes afresh, in his skin and belt, at his weight, and builds the creature he is on them. */
   private bakeAll() {
     quietly(() => {
+      // the last creature's bones and parts go, and he stands as a man again
+      for (const g of this.bones) g.removeFromParent();
+      for (const p of this.extra) { p.at.remove(p.m!); p.m!.geometry.dispose(); }
+      this.bones = []; this.extra = []; this.beast = null; this.hands = true;
+      this.neck.position.set(0, 0.74, 0.03); this.chestAt.scale.set(1, 1, 1);
+      this.arms.forEach(A => { A.sh.position.x = A.s * (0.32 + 0.12 * this.f); });
+      const kind = this.look.kind;
+      if (kind) {
+        const kit: Kit = {
+          r: this,
+          bone: (p, x, y, z, rot, scale) => {
+            const g = bone(p, x, y, z);
+            if (rot) g.rotation.set(...rot);
+            if (scale) g.scale.setScalar(scale);
+            this.bones.push(g); return g;
+          },
+          part: (at, make) => { const b = new Build(); make(b); this.extra.push({ at, make, m: add(at, b.mesh(true)) }); },
+        };
+        this.beast = BEASTS[kind](kit, this.look);
+        this.hands = this.beast.hands;
+      }
       for (const p of this.parts) {
-        if (p.m) { p.at.remove(p.m); p.m.geometry.dispose(); }
+        if (p.m) { p.at.remove(p.m); p.m.geometry.dispose(); p.m = undefined; }
         const b = new Build();
         p.make(b, this.skin, this.belt, this.f);
-        p.m = add(p.at, b.mesh(true));
+        if (!b.empty) p.m = add(p.at, b.mesh(true));
       }
     });
   }
+  /** The creature he is, if he's a boss. */
+  get kind() { return this.look.kind; }
+  /** How wide he is, against a middling wrestler: his weight, and a puffer blown up. */
+  get girth() { return this.f * (1 + 0.32 * this.puff); }
   /** Fills him out for his weight, from a stocky 110 kg to a vast 200. */
   setWeight(kg: number) {
     const f = 0.9 + (kg - 110) / 140;
     if (Math.abs(f - this.f) < 1e-6 && this.parts[0].m) return;
-    this.f = f;
-    this.legs.forEach(L => { L.hip.position.x = L.s * 0.19 * f; });
-    this.arms.forEach(A => { A.sh.position.x = A.s * (0.32 + 0.12 * f); });
-    this.fringe.position.z = 0.35 * f + 0.01;
-    this.bellyAt.position.z = 0.05 + 0.05 * f;
+    this.weigh(f);
     this.bakeAll();
   }
-  /** Dresses him in another skin and belt (a local, or a boss). */
-  dress(belt: number, skin = SKIN) {
-    if (belt === this.belt && skin === this.skin) return;
-    this.belt = belt; this.skin = skin;
+  private weigh(f: number) {
+    this.f = f;
+    this.legs.forEach(L => { L.hip.position.x = L.s * 0.19 * f; });
+    this.fringe.position.z = 0.35 * f + 0.01;
+    this.bellyAt.position.z = 0.05 + 0.05 * f;
+  }
+  /** Dresses him in another skin and belt (a local). */
+  dress(belt: number, skin = SKIN) { this.dressAs({ skin, belt }); }
+  /** Dresses him as `look`, a local or a boss's creature, at `kg` if it's given. */
+  dressAs(look: Look, kg?: number) {
+    const f = kg === undefined ? this.f : 0.9 + (kg - 110) / 140;
+    if (look.kind === this.look.kind && look.skin === this.skin && look.belt === this.belt && Math.abs(f - this.f) < 1e-6) return;
+    this.look = look; this.skin = look.skin; this.belt = look.belt; this.puff = this.puffTo = 0;
+    if (kg !== undefined) this.weigh(f);
     this.bakeAll();
   }
   /** A knock: sets his belly wobbling, `v` hard. */
@@ -195,5 +246,8 @@ export class RikishiModel extends Group {
     this.bellyAt.scale.set(1 - this.jig * 0.45, 1 + this.jig, 1);
     // the fringe hangs plumb, swinging a little with the belly
     this.fringe.rotation.set(Math.max(-1.2, Math.min(1.2, -(tilt + p.pitch))) + this.jig * 1.5, 0, -lean - p.roll * 0.8);
+    // and the creature's own parts: tentacles, whiskers, claws, tails, a puffer's swelling
+    this.clock += dt;
+    this.beast?.anim?.(this.clock, dt, p);
   }
 }

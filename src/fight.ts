@@ -18,6 +18,7 @@
 // Money is Fugu Chips 🐡 down here: 1 chip is $1,000 of the same wallet.
 import { boost } from './economy';
 import { BAR_PAD, BIN_PADS, cellarWay, COOK_AT, COUNTER_PAD, HOME, type Ing, LEDGE, machinePad, MAX_MACHINES, POT_PAD } from './cellarPlan';
+import type { Kind } from './creatures';
 import type { XZ } from './util';
 
 export type { Ing };
@@ -39,16 +40,16 @@ export const MACH: Record<Ing, [MachineKind, MachineKind]> = {
 };
 export interface Boss {
   face: string; name: string; crowd: number; bell: number; prize: number;
-  /** His skin and belt, and his crowd's colour. */
-  skin: number; belt: number;
+  /** The sea creature he is (creatures.ts), from his name. */
+  kind: Kind;
   opens: string;
 }
 export const BOSSES: Boss[] = [
-  { face: '🐙', name: 'Hakkaku', crowd: 120, bell: 30, prize: 120, skin: 0xD59AC0, belt: 0x5B2A4A, opens: 'the grow room and its first mushroom bed. Mushroom bowls pay double. The Back-Alley Ring' },
-  { face: '🦀', name: 'Yokobashiri', crowd: 180, bell: 30, prize: 300, skin: 0xE58A62, belt: 0x7A2A1E, opens: 'the cook, and steam baskets for rice' },
-  { face: '🐀', name: 'Dobu', crowd: 220, bell: 30, prize: 800, skin: 0x9C8F86, belt: 0x3B342E, opens: 'the Underground Arena, the smokehouse for fish, and the attendant' },
-  { face: '🦈', name: 'Samehada', crowd: 420, bell: 30, prize: 2000, skin: 0xA3B1BE, belt: 0x2B3440, opens: 'the Grand Hall Below, and glowing grow shelves' },
-  { face: '🐡', name: 'Fukure', crowd: 1000, bell: 60, prize: 10000, skin: 0xE9D9A0, belt: 0xC9A23A, opens: 'the gold tile: buy back all his chips' },
+  { face: '🐙', name: 'Hakkaku', crowd: 120, bell: 30, prize: 120, kind: 'octopus', opens: 'the grow room and its first mushroom bed. Mushroom bowls pay double. The Back-Alley Ring' },
+  { face: '🦀', name: 'Yokobashiri', crowd: 180, bell: 30, prize: 300, kind: 'crab', opens: 'the cook, and steam baskets for rice' },
+  { face: '🐟', name: 'Dobu', crowd: 220, bell: 30, prize: 800, kind: 'catfish', opens: 'the Underground Arena, the smokehouse for fish, and the attendant' },
+  { face: '🦈', name: 'Samehada', crowd: 420, bell: 30, prize: 2000, kind: 'shark', opens: 'the Grand Hall Below, and glowing grow shelves' },
+  { face: '🐡', name: 'Fukure', crowd: 1000, bell: 60, prize: 10000, kind: 'puffer', opens: 'the gold tile: buy back all his chips' },
 ];
 export const TIERS = [
   { name: 'The Dock Cellar', seats: 24 },
