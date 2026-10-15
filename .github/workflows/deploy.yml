@@ -16,7 +16,33 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # The unit tests, in four shards side by side, each on a runner of its own: most of them load the whole game, some
+  # hundreds of times, which on one runner took over ten minutes. Each shard keeps its results and coverage in a blob
+  # for build to merge.
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx vitest run --coverage --shard=${{ matrix.shard }}/${{ strategy.job-total }} --reporter=default --reporter=blob
+        env:
+          VITEST_SHARD: ${{ matrix.shard }}
+      - uses: actions/upload-artifact@v7
+        with:
+          name: blob-${{ matrix.shard }}
+          path: .vitest/blob/
+          include-hidden-files: true
+          retention-days: 1
+
   build:
+    needs: test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -25,8 +51,14 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      # Unit tests gate the deploy: a failing test (or coverage below the thresholds) stops here.
-      - run: npm test
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: blob-*
+          path: .vitest/blob/
+          merge-multiple: true
+      # Unit tests gate the deploy: a failing test (in any shard) or coverage below the thresholds (over all of them,
+      # merged) stops here.
+      - run: npx vitest run --merge-reports=.vitest/blob --coverage
       - run: npm run build
       - if: github.event_name != 'pull_request'
         uses: actions/configure-pages@v6

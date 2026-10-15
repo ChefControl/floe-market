@@ -278,6 +278,10 @@ export interface Voice {
   bus?: Out;
   /** A node of the bus's own to go through instead of straight into it (the lounge band's mix, music.ts). */
   out?: AudioNode;
+  /** Left (-1) or right (1), for a sound with no place in the world (the gloop ring's bubbles): in place of `at`'s. */
+  pan?: number;
+  /** Some of it sent on to other nodes as well, [node, how much] each: the gloop ring's reverb and echo (music.ts). */
+  sends?: [AudioNode, number][];
 }
 export interface ToneVoice extends Voice {
   f: number;
@@ -338,12 +342,18 @@ function envelope(o: Voice, f: number) {
   g.gain.setValueAtTime(v, top);
   g.gain.exponentialRampToValueAtTime(0.0001, t1);
   const nodes: AudioNode[] = [g];
-  const into = o.out ?? buses[bus];
-  if (p.pan) {
+  const into = o.out ?? buses[bus], pan = o.pan ?? p.pan;
+  let last: AudioNode = g;
+  if (pan) {
     const s = ac.createStereoPanner();
-    s.pan.value = p.pan; s.connect(into); g.connect(s);
-    nodes.push(s);
+    s.pan.value = pan; s.connect(into); g.connect(s);
+    nodes.push(s); last = s;
   } else g.connect(into);
+  for (const [to, k] of o.sends ?? []) {
+    const s = ac.createGain();
+    s.gain.value = k; last.connect(s); s.connect(to);
+    nodes.push(s);
+  }
   voices++;
   return { g, t0, top, t1, nodes };
 }

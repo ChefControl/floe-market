@@ -124,6 +124,7 @@ export class FakeAudioContext {
   createBiquadFilter() { return Object.assign(new FakeNode(), { type: 'lowpass', frequency: new FakeParam(350), Q: new FakeParam(1) }); }
   createStereoPanner() { return Object.assign(new FakeNode(), { pan: new FakeParam() }); }
   createConvolver() { return Object.assign(new FakeNode(), { buffer: null as unknown }); }
+  createDelay() { return Object.assign(new FakeNode(), { delayTime: new FakeParam() }); }
   /** Any recording "decodes" to a minute of silence. */
   decodeAudioData() { return Promise.resolve({ duration: 60 }); }
   createDynamicsCompressor() {
