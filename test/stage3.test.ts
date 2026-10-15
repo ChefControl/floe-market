@@ -1183,6 +1183,22 @@ describe('the swarm and the watch spot', () => {
     expect(Math.min(...stood.map(p => plan.fromBar(p)))).toBeLessThan(1.5);
   });
 
+  it('a bowl sold waits on the soup square for the fan who bought it, and hops to them when they get there', async () => {
+    const { g, swarm, fight, F } = await ring();
+    const { barShows } = await import('../src/ringKitchen');
+    for (let i = 0; i < 10; i++) fight.toStall(false);
+    // (sold: it stays out on its counter while its fan walks up)
+    g.runUntil(() => fight.sold.n > 0 && swarm.heading() > 0, 20);
+    g.run(1 / 60);
+    expect(barShows().waiting).toBeGreaterThan(0);
+    expect(barShows().out).toBe(F().stall.length);
+    // (and when they're at the bar, it's theirs: it leaves its place, flying to them)
+    g.runUntil(() => swarm.turnedAt().length > 0, 20);
+    const was = barShows().waiting;
+    g.run(1 / 60);
+    expect(barShows().waiting).toBeLessThan(was);
+  });
+
   it('each fan served steps up to a free spot of their own round the soup square, walking round it, never through it', async () => {
     const { g, swarm, plan, fight, F } = await ring();
     for (let i = 0; i < fight.STALL_CAP; i++) fight.toStall(false);

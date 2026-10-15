@@ -391,8 +391,12 @@ const SIT_LEGS = -1.45, SIT_RATE = 5;
 /** How fast fans walk home (before the bar's open, they walk in at the same pace). */
 const HOME_PACE = 2.6;
 /** Where the fans who got their bowl this frame were when they did (for tests). */
-const turned: XZ[] = [];
+const turned: (XZ & { key: number })[] = [];
 export const turnedAt = () => turned;
+/** Where fan `key` is now, if they're out. */
+export const fanAt = (key: number): XZ | undefined => fans.get(key);
+/** How many fans are on their way to the bar for a bowl they've bought. */
+export const heading = () => { let n = 0; for (const f of fans.values()) if (f.via && !f.out) n++; return n; };
 export function updSwarm(dt: number) {
   turned.length = 0;
   sync();
@@ -423,7 +427,7 @@ export function updSwarm(dt: number) {
       if (d <= v) {
         f.x = p.x; f.z = p.z; f.y = ty; f.way.shift();
         // (at the bar: they've got their bowl, and they're yours)
-        if (f.via && p.x === f.via.x && p.z === f.via.z) { f.via = null; f.c = OURS; turned.push({ x: f.x, z: f.z }); }
+        if (f.via && p.x === f.via.x && p.z === f.via.z) { f.via = null; f.c = OURS; turned.push({ x: f.x, z: f.z, key: f.key }); }
       } else {
         f.x += dx / d * v; f.z += dz / d * v; f.y += (ty - f.y) * Math.min(1, v / d);
       }

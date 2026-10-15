@@ -202,6 +202,8 @@ export const canCook = () => inPot().every(k => F.pantry[k] >= PER_BATCH);
 export const potFull = () => F.pot.length + BATCH > POT_CAP;
 /** Bowls ladled out of the pot onto the counter so far (in the real cellar, not a forecast's), for drawing them flying. */
 export const poured = { n: 0 };
+/** Bowls sold at the stall so far (in the real cellar), for drawing each one hopping to the fan who bought it. */
+export const sold = { n: 0 };
 /** Batches a minute the kitchen makes: last minute's, allowing for time the pot sat idle with nowhere to put bowls. */
 export const kitchenRate = () => F.cooked.length / Math.max(0.25, 1 - F.full.length / 60);
 /** 💪: fans fed in this bout's preparation, a local's or a boss's (the ones who sit on the champion's side). */
@@ -282,7 +284,7 @@ function ladle(dt: number) {
 // ---------- the fans ----------
 function sell(n: number) {
   let got = 0;
-  for (let i = 0; i < n && F.stall.length; i++) { got += bowlPrice(F.stall.shift()!); F.fed.push(F.t); }
+  for (let i = 0; i < n && F.stall.length; i++) { got += bowlPrice(F.stall.shift()!); F.fed.push(F.t); if (real) sold.n++; }
   F.earned.push([F.t, got]);
   if (real && got) on.earn(got, 'bowls');
   return got;
