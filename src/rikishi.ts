@@ -77,19 +77,26 @@ export class RikishiModel extends Group {
     this.hips = bone(this.body, 0, THIGH + SHIN + ANKLE, 0);
     for (const s of [1, -1]) {
       const hip = bone(this.hips, 0.19 * s, 0, 0), knee = bone(hip, 0, -THIGH, 0), foot = bone(knee, 0, -SHIN, 0);
-      this.part(hip, (b, sk, _, f) => b.add(ROUND, sk, 0, -0.12, 0, null, [0.19 * f, 0.2, 0.2 * f]));
+      // the thigh, and the belt round the top of it, so the belt goes with the leg
+      this.part(hip, (b, sk, bl, f) => {
+        b.add(ROUND, sk, 0, -0.12, 0, null, [0.19 * f, 0.2, 0.2 * f]);
+        b.add(ROUND, bl, 0, -0.05, 0, null, [0.205 * f, 0.12, 0.215 * f]);
+      });
       this.part(knee, (b, sk) => b.add(ROUND, sk, 0, -0.11, 0, null, [0.14, 0.16, 0.15]));
       this.part(foot, (b, sk) => b.add(ROUND, sk, 0, -0.035, 0.05, null, [0.1, 0.045, 0.15]));
       this.legs.push({ s, hip, knee, foot });
     }
-    // the belt: wound tight round the hips under the belly, the flap down the front, the knot behind
-    this.part(this.hips, (b, _, bl, f) => {
-      b.add(ROUND, bl, 0, -0.01, 0, null, [0.39 * f, 0.15, 0.35 * f]);
-      b.add(K.post, bl, 0, -0.01, 0, null, [0.385 * f, 0.24, 0.345 * f]);
-      b.add(K.post, shade(bl, 0.8), 0, 0.1, 0, null, [0.39 * f, 0.03, 0.35 * f]);
-      b.add(K.post, bl, 0, -0.12, 0.3 * f - 0.04, null, [0.1, 0.2, 0.06]);
-      b.add(K.post, bl, 0, 0.05, -0.34 * f, null, [0.12, 0.17, 0.05]);
-      b.add(K.post, bl, 0, -0.12, -0.3 * f, null, [0.08, 0.2, 0.04]);
+    // the belt: wound tight round the hips and his backside, under the belly; the flap down the front, the knot
+    // and the strip flat behind
+    this.part(this.hips, (b, sk, bl, f) => {
+      const h = 0.19 + 0.06 * (f - 1);
+      for (const s of [-1, 1]) b.add(ROUND, sk, s * 0.12 * f, -0.09, -0.13 * f, null, [0.2 * f, 0.2, 0.17 * f]);
+      b.add(ROUND, bl, 0, -0.01, 0, null, [0.42 * f, h, 0.34 * f]);
+      b.add(K.post, bl, 0, -0.01, 0, null, [0.4 * f, h + 0.01, 0.32 * f]);
+      b.add(K.post, shade(bl, 0.8), 0, 0.1, 0, null, [0.405 * f, 0.03, 0.325 * f]);
+      b.add(ROUND, bl, 0, -0.13, 0.33 * f - 0.02, null, [0.12, 0.16, 0.06]);
+      b.add(ROUND, bl, 0, 0.05, -0.32 * f, null, [0.13, 0.1, 0.06]);
+      b.add(ROUND, bl, 0, -0.13, -0.31 * f, null, [0.085, 0.2, 0.05]);
     });
     this.fringe = bone(this.hips, 0, -0.07, 0.36);
     this.part(this.fringe, (b, _, bl) => { for (let i = 0; i < 7; i++) b.add(K.post, shade(bl, 0.9), (i - 3) * 0.045, -0.135, 0, null, [0.012, 0.27, 0.012]); });
@@ -162,7 +169,7 @@ export class RikishiModel extends Group {
   /** Stands him in pose `p`, his feet on the ground (wherever his root is), and wobbles his belly on by `dt`. */
   apply(p: Pose, dt: number) {
     // the pelvis takes part of the bend, lean and turn, and the belt with it; the legs are set against it
-    const tilt = Math.max(-0.3, Math.min(0.42, p.bend * 0.35)), lean = p.side * 0.4, turn = p.twist * 0.4;
+    const tilt = Math.max(-0.3, Math.min(0.55, p.bend * 0.5)), lean = p.side * 0.4, turn = p.twist * 0.4;
     let drop = 0;
     this.legs.forEach((L, i) => {
       const x = i ? p.l1x : p.l0x, z = i ? p.l1z : p.l0z, k = i ? p.l1k : p.l0k;
