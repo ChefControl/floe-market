@@ -23,7 +23,8 @@ import { CHAMP } from './rikishi';
 import { crowdStyle } from './wardrobe';
 import type { XZ } from './util';
 
-/** The most figures the arena holds (a bigger crowd is drawn one figure for every two fans: Fukure's 1,000). */
+/** The most figures the arena's drawn with (a bigger crowd is drawn one figure for every two fans: Fukure's 1,000),
+ *  and fewer still if it doesn't seat that many a comfortable step apart (room()). */
 export const MAX_FANS = 520;
 /** Their colours: a boss's crowd's purple, and yours. */
 export const BOSS_COLOR = new Color(0x7A4FB0), OURS = new Color(0xFF6B4A);
@@ -93,7 +94,11 @@ onQuality(() => {
 /** How far from the soup square's counters the crowd stands round it: no nearer than a step back from where they buy
  *  (BAR_SPOTS), and on its north side, off the floor along the south wall (FLOOR), no further out than a couple of rows. */
 const CROWD = { r0: 0.85, r1: 1.45 };
-/** Spots on the floor for `n` fans, packed to fit, nearest the square first: round it, then out across the floor. */
+/** The closest the waiting crowd stands, and the fans sit on the floor round the ring (the benches' own spacing): any
+ *  closer and they stand in each other. */
+const STAND_GAP = 0.55, SEAT_GAP = 0.6;
+/** Spots on the floor for up to `n` fans, packed to fit but never closer than STAND_GAP (so there may be fewer), nearest
+ *  the square first: round it, then out across the floor. */
 const spotCache = new Map<number, { x: number; z: number }[]>();
 function spots(n: number) {
   const size = n <= 60 ? 60 : n <= 150 ? 150 : MAX_FANS;
@@ -106,7 +111,7 @@ function spots(n: number) {
     return !inBox(q, boxes, 0.15) && d > CROWD.r0 && (q.z >= FLOOR.z0 || d < CROWD.r1);
   };
   // (packed a little closer each time until they all fit: the square takes a bite out of the floor)
-  for (let gap = Math.min(0.9, Math.sqrt(w * h / size / 0.87) * 0.95); ; gap *= 0.97) {
+  for (let gap = Math.max(STAND_GAP, Math.min(0.9, Math.sqrt(w * h / size / 0.87) * 0.95)); ; gap *= 0.97) {
     let seed = 7;
     const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
     out = [];
@@ -116,7 +121,7 @@ function spots(n: number) {
         if (fits(q)) out.push(q);
       }
     }
-    if (out.length >= size || gap < 0.2) break;
+    if (out.length >= size || gap * 0.97 < STAND_GAP) break;
   }
   out.sort((a, b) => fromBar(a) - fromBar(b));
   spotCache.set(size, out);
@@ -202,8 +207,9 @@ function wayAround(a: XZ, b: XZ, first = true): XZ[] {
 /** A seat: where they sit (y up from the floor: a bench's plank), which way they face, and where they step up to it
  *  from (a bench's is in front of the stand, on the floor). */
 interface Seat { x: number; z: number; y: number; face: number; from: XZ }
-/** Seats for `n` fans: the built benches, then as much of the floor round the ring as it takes (wherever isn't
- *  furniture, the floor round the bar or a pad, packed to fit, the nearest the ring). In the order the champion's
+/** Seats for `n` fans (or as many as there's room for): the built benches, then as much of the floor round the ring as
+ *  it takes (wherever isn't furniture, the floor round the bar or a pad, packed to fit but never closer than SEAT_GAP,
+ *  the nearest the ring). In the order the champion's
  *  fans take them from the front, and his opponent's from the back: the benches east of the ring, the floor (east to
  *  west), then the benches west of the ring, so each side fills its own benches first. */
 const seatCache = new Map<string, Seat[]>();
@@ -228,7 +234,7 @@ function seatsFor(n: number) {
     && !pads.some(p => Math.hypot(x - p.x, z - p.z) < p.r + 0.35);
   let floor: Seat[] = [];
   const want = n - benches.length;
-  for (let gap = 0.9; want > 0 && gap >= 0.4; gap -= 0.05) {
+  for (let gap = 0.9; want > 0 && gap >= SEAT_GAP - 1e-9; gap -= 0.05) {
     floor = [];
     for (let row = 0, z = ARENA.z0 + 0.5; z <= ARENA.z1 - 0.5; row++, z += gap * 0.87) {
       for (let x = ARENA.x0 + 0.5 + (row % 2 ? gap / 2 : 0); x <= ARENA.x1 - 0.5; x += gap) {
@@ -245,6 +251,9 @@ function seatsFor(n: number) {
   seatCache.set(key, out);
   return out;
 }
+
+/** How many fans the arena seats, benches and floor: a bigger crowd is drawn with fewer figures, each for a few. */
+const room = () => seatsFor(MAX_FANS).length;
 
 // ---------- who's out there ----------
 /** A fan: where they are (and how high: up on a bench), where they're going (a seat, or a spot on the floor, or the way
@@ -277,11 +286,16 @@ function sync() {
   // (`at` is their place on the floor: a local's queue moves up as the ones ahead are served, a boss's crowd stays put)
   const place = (key: number, i: number, mine: boolean, n: number, theirsAt: number, c: Color, at = theirsAt, due = -1) => {
     const seats = seatsFor(n), floor = spots(n);
-    const seat = mine ? seats[Math.min(i, seats.length - 1)] : prep ? null : seats[Math.max(0, seats.length - 1 - theirsAt)];
+    let seat: Seat | null;
+    if (R) {
+      // (a boss's crowd: each fan has a seat of their own, the champion's from the front and his from the back; in the
+      // preparation the ones still his wait on the floor round the bar, and when that's full, sit early in theirs)
+      seat = !mine && prep && at < floor.length ? null : seats[Math.min(i, seats.length - 1)];
+    } else seat = mine ? seats[Math.min(i, seats.length - 1)] : prep ? null : seats[Math.max(0, seats.length - 1 - theirsAt)];
     want.set(key, { c, seat, spot: seat ?? floor[Math.min(at, floor.length - 1)], due });
   };
   if (R) {
-    const n = figures(R.n), ours = Math.min(n, Math.round(R.turned * n / R.n));
+    const n = Math.min(figures(R.n), room()), ours = Math.min(n, Math.round(R.turned * n / R.n));
     for (let i = 0; i < n; i++) place(-1 - (B.n * 10000 + i), i, i < ours, n, i - ours, i < ours ? OURS : BOSS_COLOR, i);
   } else {
     const n = Math.max(B.crowd, B.came);
@@ -501,7 +515,7 @@ function lineFor(f: Fan): string {
   const R = F.rush, B = F.bout, mine = f.c === OURS;
   if (f.out) return B.phase === 'sit' ? 'leaving' : 'won';
   if (B.phase === 'prep') {
-    if (f.seat && !f.via) return R ? 'turned' : 'fed';
+    if (f.seat && !f.via && mine) return R ? 'turned' : 'fed';
     if (R && R.walk > 0) return 'boss';
     return !F.stall.length ? 'hungry' : R && rnd() < 0.4 ? 'boss' : 'queue';
   }
