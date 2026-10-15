@@ -124,11 +124,21 @@ export const K = quietly(() => ({
 /** One shape in one colour, moved into place by `m`. */
 export interface Piece { geo: BufferGeometry; c: number; m: Matrix4 }
 
-const v = new Vector3(), nm = new Matrix3(), tint = new Color();
+const nm = new Matrix3(), tint = new Color();
+/** An attribute's x, y and z for each vertex in one flat array: its own array when it's kept that way already (as
+ *  three.js' shapes keep theirs), read out one by one when it isn't. */
+function xyz(a: BufferGeometry['attributes'][string]): ArrayLike<number> {
+  if ((a as BufferAttribute).isBufferAttribute && a.itemSize === 3 && !a.normalized) return a.array;
+  const out = new Float64Array(a.count * 3);
+  for (let i = 0; i < a.count; i++) { out[i * 3] = a.getX(i); out[i * 3 + 1] = a.getY(i); out[i * 3 + 2] = a.getZ(i); }
+  return out;
+}
 /**
  * Merges pieces into one geometry, each moved into place and painted its colour, writing straight into the finished
  * arrays. Packed small: no texture coordinates (it's painted, never textured), and colours and normals a byte each
- * rather than a float, 18 bytes a vertex instead of 44. Drawn with render.ts' `painted`.
+ * rather than a float, 18 bytes a vertex instead of 44. Drawn with render.ts' `painted`. (Every game load bakes
+ * thousands of pieces, so the moving's done here in the arrays, the sums just as Vector3's applyMatrix4, applyMatrix3
+ * and normalize do them, to the same numbers.)
  */
 export function pack(pieces: Piece[]) {
   let verts = 0, idx = 0;
@@ -140,19 +150,24 @@ export function pack(pieces: Piece[]) {
   const index = verts > 65535 ? new Uint32Array(idx) : new Uint16Array(idx);
   let at = 0, ia = 0;
   for (const p of pieces) {
-    const P = p.geo.attributes.position, N = p.geo.attributes.normal, I = p.geo.index, m = p.m;
-    nm.getNormalMatrix(m);
+    const P = p.geo.attributes.position, I = p.geo.index, ps = xyz(P), ns = xyz(p.geo.attributes.normal);
+    const e = p.m.elements, n = nm.getNormalMatrix(p.m).elements;
     tint.setHex(p.c);
     const r = Math.round(tint.r * 255), gr = Math.round(tint.g * 255), b = Math.round(tint.b * 255);
     for (let i = 0; i < P.count; i++, at++) {
-      v.fromBufferAttribute(P, i).applyMatrix4(m);
-      pos[at * 3] = v.x; pos[at * 3 + 1] = v.y; pos[at * 3 + 2] = v.z;
-      v.fromBufferAttribute(N, i).applyMatrix3(nm).normalize();
-      nor[at * 3] = Math.round(v.x * 127); nor[at * 3 + 1] = Math.round(v.y * 127); nor[at * 3 + 2] = Math.round(v.z * 127);
-      col[at * 3] = r; col[at * 3 + 1] = gr; col[at * 3 + 2] = b;
+      const j = i * 3, o = at * 3;
+      const x = ps[j], y = ps[j + 1], z = ps[j + 2], w = 1 / (e[3] * x + e[7] * y + e[11] * z + e[15]);
+      pos[o] = (e[0] * x + e[4] * y + e[8] * z + e[12]) * w;
+      pos[o + 1] = (e[1] * x + e[5] * y + e[9] * z + e[13]) * w;
+      pos[o + 2] = (e[2] * x + e[6] * y + e[10] * z + e[14]) * w;
+      const a = ns[j], c = ns[j + 1], d = ns[j + 2];
+      const nx = n[0] * a + n[3] * c + n[6] * d, ny = n[1] * a + n[4] * c + n[7] * d, nz = n[2] * a + n[5] * c + n[8] * d;
+      const k = 1 / (Math.sqrt(nx * nx + ny * ny + nz * nz) || 1);
+      nor[o] = Math.round(nx * k * 127); nor[o + 1] = Math.round(ny * k * 127); nor[o + 2] = Math.round(nz * k * 127);
+      col[o] = r; col[o + 1] = gr; col[o + 2] = b;
     }
     const base = at - P.count;
-    if (I) for (let k = 0; k < I.count; k++) index[ia++] = I.getX(k) + base;
+    if (I) for (let k = 0, ix = I.array; k < I.count; k++) index[ia++] = ix[k] + base;
     else for (let k = 0; k < P.count; k++) index[ia++] = base + k;
   }
   const g = new BufferGeometry();

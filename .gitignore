@@ -5,3 +5,5 @@ dist/
 # the Firebase emulator's logs, from npm run test:rules
 *-debug.log
 .firebase/
+# vitest's blob reports, when the tests run in shards (deploy.yml)
+.vitest/
