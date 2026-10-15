@@ -1,5 +1,5 @@
 // Mr. Fugu at his desk (stage 3): step up in front of it and he has a word for you, in a bubble over his head, by how
-// the ring's doing; step away and come back for the next one. And his fish tank's fish, swimming.
+// the ring's doing, his mouth going as he says it; step away and come back for the next one. And his fish tank's fish, swimming.
 import { Sprite, SpriteMaterial } from 'three';
 import { boss, CY, OFFICE, swimTank } from './cellar';
 import { decal, drawPad } from './decals';
@@ -59,6 +59,18 @@ function draw(text: string) {
 
 let near = false, next = 0, left = 0, shown = '';
 const FADE = 0.25;
+/** His mouth going through the line as on the dock (offer.ts): a letter at a time, a breath at a comma, a beat at a
+ *  full stop. How far he's got, and how long until the next. */
+let upTo = 0, beat = 0;
+const LETTER = 0.042, COMMA = 0.09, STOP = 0.75;
+function mouth(dt: number) {
+  beat -= dt;
+  while (beat <= 0 && upTo < shown.length) {
+    const ch = shown[upTo++], after = shown[upTo];
+    if ('.!?'.includes(ch) && !'.!?'.includes(after ?? 'x')) { boss.point(); beat += STOP; }
+    else { beat += ch === ',' || ch === ':' ? COMMA : LETTER; if (ch.trim()) boss.syllable(); else boss.word(); }
+  }
+}
 /** What he's saying now ('' while he's quiet), for tests. */
 export const fuguSays = () => shown;
 
@@ -68,6 +80,7 @@ export function updOffice(dt: number) {
   if (here && !near) {
     const all = fuguLines();
     shown = all[next % all.length]; next++;
+    upTo = 0; beat = 0;
     draw(shown);
     left = 2.2 + shown.length * 0.06;
     bubble.visible = true;
@@ -77,7 +90,8 @@ export function updOffice(dt: number) {
     left -= dt;
     bubbleMat.opacity = Math.max(0, Math.min(1, (2.2 + shown.length * 0.06 - left) / FADE, left / FADE));
     bubble.position.set(boss.position.x, boss.position.y + 2.75, boss.position.z);
+    mouth(dt);
     if (left <= 0) { bubble.visible = false; shown = ''; }
   }
-  boss.talking = bubble.visible && left > 0.6;
+  boss.talking = bubble.visible && upTo < shown.length;
 }

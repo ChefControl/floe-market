@@ -354,12 +354,105 @@ describe('the rooms', () => {
     const L = g.layout, { CY, GROUND, ground } = cellar;
     const { Raycaster, Vector3 } = await import('three');
     type O = import('three').Object3D;
+    type Mesh = import('three').Mesh;
+    type V3 = import('three').Vector3;
+    type P3 = { x: number; y: number; z: number };
     const shown = (o: O) => { for (let p: O | null = o; p; p = p.parent) if (!p.visible) return false; return true; };
+    // (thousands of rays go at the earth, a mesh of tens of thousands of triangles; three.js tries every one of them
+    // for each ray, too slow for CI's coverage run, so a plain mesh's triangles are sorted once into a grid over the
+    // ground, in the world, and a ray only tries the ones in the cells it crosses; what each ray hits is as three.js
+    // would find it, sides and all)
+    const CELL = 2;
+    type Grid = { tri: Float32Array; cells: Map<string, number[]>; lo: V3; hi: V3; cull: boolean };
+    const grids = new Map<Mesh, { key: string; grid: Grid }>();
+    const gridOf = (m: Mesh): Grid => {
+      const g = m.geometry, pos = g.attributes.position, idx = g.index;
+      m.updateWorldMatrix(true, false);
+      const key = `${g.uuid} ${g.drawRange.start} ${g.drawRange.count} ${(pos as import('three').BufferAttribute).version} ${idx?.version} ${m.matrixWorld.elements.join()}`;
+      const had = grids.get(m);
+      if (had?.key === key) return had.grid;
+      const n = idx ? idx.count : pos.count, s = Math.max(0, g.drawRange.start), e = Math.min(n, s + g.drawRange.count);
+      // (three.js tests a back side by flipping each triangle; a mirroring matrix flips them too)
+      const side = (m.material as import('three').Material).side, flip = (side === 2 ? false : side === 1) !== m.matrixWorld.determinant() < 0;
+      const tri = new Float32Array(Math.max(0, Math.floor((e - s) / 3)) * 9), cells = new Map<string, number[]>();
+      const lo = new Vector3(Infinity, Infinity, Infinity), hi = new Vector3(-Infinity, -Infinity, -Infinity), v = new Vector3();
+      for (let i = s, t = 0; i + 2 < e; i += 3, t++) {
+        let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
+        for (let j = 0; j < 3; j++) {
+          const k = flip ? 2 - j : j, at = idx ? idx.getX(i + k) : i + k;
+          v.fromBufferAttribute(pos, at).applyMatrix4(m.matrixWorld);
+          tri[t * 9 + j * 3] = v.x; tri[t * 9 + j * 3 + 1] = v.y; tri[t * 9 + j * 3 + 2] = v.z;
+          lo.min(v); hi.max(v);
+          x0 = Math.min(x0, v.x); x1 = Math.max(x1, v.x); z0 = Math.min(z0, v.z); z1 = Math.max(z1, v.z);
+        }
+        for (let cx = Math.floor(x0 / CELL); cx <= Math.floor(x1 / CELL); cx++) {
+          for (let cz = Math.floor(z0 / CELL); cz <= Math.floor(z1 / CELL); cz++) {
+            const c = `${cx},${cz}`, list = cells.get(c);
+            if (list) list.push(t); else cells.set(c, [t]);
+          }
+        }
+      }
+      const grid = { tri, cells, lo, hi, cull: side !== 2 };
+      grids.set(m, { key, grid });
+      return grid;
+    };
+    /** The nearest of a plain mesh's triangles along a ray (`dir` of length 1) closer than `far`, as three.js finds it. */
+    const cast = (m: Mesh, from: P3, dir: P3, far: number) => {
+      const { tri, cells, lo, hi, cull } = gridOf(m);
+      // (only where the ray's inside the mesh's box)
+      let t0 = 0, t1 = far;
+      for (const a of ['x', 'y', 'z'] as const) {
+        if (Math.abs(dir[a]) < 1e-12) { if (from[a] < lo[a] - 1e-6 || from[a] > hi[a] + 1e-6) return null; continue; }
+        let ta = (lo[a] - from[a]) / dir[a], tb = (hi[a] - from[a]) / dir[a];
+        if (ta > tb) [ta, tb] = [tb, ta];
+        t0 = Math.max(t0, ta - 1e-6); t1 = Math.min(t1, tb + 1e-6);
+        if (t0 > t1) return null;
+      }
+      const xs = [from.x + dir.x * t0, from.x + dir.x * t1], zs = [from.z + dir.z * t0, from.z + dir.z * t1];
+      const seen = new Set<number>();
+      let best = Infinity;
+      for (let cx = Math.floor(Math.min(...xs) / CELL); cx <= Math.floor(Math.max(...xs) / CELL); cx++) {
+        for (let cz = Math.floor(Math.min(...zs) / CELL); cz <= Math.floor(Math.max(...zs) / CELL); cz++) {
+          for (const t of cells.get(`${cx},${cz}`) ?? []) {
+            if (seen.has(t)) continue;
+            seen.add(t);
+            // (Ray.intersectTriangle)
+            const o = t * 9, ax = tri[o], ay = tri[o + 1], az = tri[o + 2];
+            const e1x = tri[o + 3] - ax, e1y = tri[o + 4] - ay, e1z = tri[o + 5] - az, e2x = tri[o + 6] - ax, e2y = tri[o + 7] - ay, e2z = tri[o + 8] - az;
+            const nx = e1y * e2z - e1z * e2y, ny = e1z * e2x - e1x * e2z, nz = e1x * e2y - e1y * e2x;
+            let DdN = dir.x * nx + dir.y * ny + dir.z * nz, sign: number;
+            if (DdN > 0) { if (cull) continue; sign = 1; } else if (DdN < 0) { sign = -1; DdN = -DdN; } else continue;
+            const dx = from.x - ax, dy = from.y - ay, dz = from.z - az;
+            // diff × edge2, edge1 × diff
+            const c2x = dy * e2z - dz * e2y, c2y = dz * e2x - dx * e2z, c2z = dx * e2y - dy * e2x;
+            const DdQxE2 = sign * (dir.x * c2x + dir.y * c2y + dir.z * c2z);
+            if (DdQxE2 < 0) continue;
+            const c1x = e1y * dz - e1z * dy, c1y = e1z * dx - e1x * dz, c1z = e1x * dy - e1y * dx;
+            const DdE1xQ = sign * (dir.x * c1x + dir.y * c1y + dir.z * c1z);
+            if (DdE1xQ < 0 || DdQxE2 + DdE1xQ > DdN) continue;
+            const QdN = -sign * (dx * nx + dy * ny + dz * nz);
+            if (QdN < 0) continue;
+            const d = QdN / DdN;
+            if (d <= far && d < best) best = d;
+          }
+        }
+      }
+      return best < Infinity ? { distance: best, point: new Vector3(from.x + dir.x * best, from.y + dir.y * best, from.z + dir.z * best) } : null;
+    };
+    const plain = (m: O): m is Mesh => m.type === 'Mesh' && !Array.isArray((m as Mesh).material);
     /** What's first in the way of a ray, of the meshes shown in `o`. */
-    const first = (from: { x: number; y: number; z: number }, dir: { x: number; y: number; z: number }, o: O) => {
-      const meshes: O[] = [];
-      o.traverse(m => { if ((m as import('three').Mesh).isMesh && shown(m)) meshes.push(m); });
-      return new Raycaster(new Vector3(from.x, from.y, from.z), new Vector3(dir.x, dir.y, dir.z).normalize()).intersectObjects(meshes, false)[0] ?? null;
+    const first = (from: P3, dir: P3, o: O, far = Infinity) => {
+      const d = new Vector3(dir.x, dir.y, dir.z).normalize(), meshes: O[] = [];
+      const hits: { distance: number; point: V3 }[] = [];
+      o.traverse(m => {
+        if (!(m as Mesh).isMesh || !shown(m)) return;
+        if (!plain(m)) { meshes.push(m); return; }
+        const hit = cast(m, from, d, far);
+        if (hit) hits.push(hit);
+      });
+      const best = hits.sort((a, b) => a.distance - b.distance)[0] ?? null;
+      const other = meshes.length ? new Raycaster(new Vector3(from.x, from.y, from.z), d, 0, far).intersectObjects(meshes, false)[0] : undefined;
+      return other && (!best || other.distance < best.distance) ? other : best;
     };
     /** How high over the floor the first thing straight down at (x, z) is (null: nothing). */
     const down = (x: number, z: number, o: O = cellar.cellar) => {
@@ -452,8 +545,8 @@ describe('the rooms', () => {
             if (!sees.containsPoint(spot)) continue;
             const to = spot.clone().sub(cam.position), far = to.length();
             for (const m of [ground.open, ground.rocks]) {
-              const hit = new Raycaster(cam.position, to.normalize(), 0, far - 0.05).intersectObject(m, false)[0];
-              expect(hit, `from ${px}, ${pz} (${aspect.toFixed(2)}), to ${x}, ${z}: ${m === ground.rocks ? 'a crag' : 'the rise'}`).toBeUndefined();
+              const hit = plain(m) ? cast(m, cam.position, to.normalize(), far - 0.05) : new Raycaster(cam.position, to.normalize(), 0, far - 0.05).intersectObject(m, false)[0];
+              expect(hit ?? undefined, `from ${px}, ${pz} (${aspect.toFixed(2)}), to ${x}, ${z}: ${m === ground.rocks ? 'a crag' : 'the rise'}`).toBeUndefined();
             }
           }
         }
@@ -1261,6 +1354,9 @@ describe("Mr. Fugu's office", () => {
     at(office.DESK_PAD);
     g.run(0.2);
     expect(office.fuguSays()).toBe(lines[0]);
+    // (his mouth going as he says it, and shut once it's said)
+    const { boss } = await import('../src/cellar');
+    expect(boss.talking).toBe(true);
     // standing there, he doesn't repeat himself; off and back on, the next line
     g.run(1);
     expect(office.fuguSays()).toBe(lines[0]);
@@ -1272,6 +1368,7 @@ describe("Mr. Fugu's office", () => {
     // and the bubble goes after a while
     g.run(10);
     expect(office.fuguSays()).toBe('');
+    expect(boss.talking).toBe(false);
     // a boss beaten: the grow room's his secret
     F().beaten = 1;
     expect(office.fuguLines().join(' ')).toContain('mushrooms');
@@ -1443,7 +1540,7 @@ describe("the workshop's crafting bench", () => {
     g.run(0.05);
     expect(view.close).toBe(1);
     expect(view.k).toBe(0);
-  });
+  }, 60_000);
 });
 
 describe('saving the cellar', () => {
