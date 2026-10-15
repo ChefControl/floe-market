@@ -2,7 +2,7 @@
 // to it and he peeks out from under the lid ("come back tonight"); wait for nightfall, and he climbs out with a short
 // pitch, and the player answers.
 import type { PointLight } from 'three';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { fake, installFakeAudio, nameBuses } from './fakeAudio';
 import { bought, loadGame, MARKET } from './helpers';
 
@@ -288,5 +288,50 @@ describe("Mr. Fugu's offer", () => {
     expect(line()).toMatch(/^Psst\. C/);
     g.runUntil(() => line() === 'Psst. Chef.', 10);
     expect(line()).toBe('Psst. Chef.');
+  });
+});
+
+describe('stage 3 behind its flag (flags.ts)', () => {
+  it("is shut in the live game: no hatch, nobody knocks, till a device is switched on or its save has met him", async () => {
+    vi.stubEnv('DEV', false);
+    try {
+      const hatchesIn = async () => {
+        const { Hatch } = await import('../src/fugu');
+        const { scene } = await import('../src/render');
+        let n = 0;
+        scene.traverse(o => { if (o instanceof Hatch) n++; });
+        return n;
+      };
+      // the restaurant built and a million in the till: on main's own terms, all quiet
+      const g = await loadGame({ tiles: bought(...MARKET, ...FLOE_SUSHI), money: 5_000_000 });
+      const flags = await import('../src/flags');
+      expect(flags.stage3On()).toBe(false);
+      expect(await hatchesIn()).toBe(0);
+      g.run(3);
+      expect(document.getElementById('offerAlert')!.classList.contains('on')).toBe(false);
+      expect(g.unlocks.visibleTiles().some(t => t.id === 'dohyo')).toBe(false);
+      // ?stage3=on switches this device on, for good, and ?stage3=off back off
+      history.replaceState(null, '', '/?stage3=on');
+      const on = await loadGame({ tiles: bought(...MARKET, ...FLOE_SUSHI), money: 5_000_000 });
+      expect((await import('../src/flags')).stage3On()).toBe(true);
+      expect(await hatchesIn()).toBe(1);
+      on.run(0.5);
+      expect(document.getElementById('offerAlert')!.classList.contains('on')).toBe(true);
+      history.replaceState(null, '', '/');
+      expect(localStorage.getItem('floe-market-stage3')).toBe('1');
+      history.replaceState(null, '', '/?stage3=off');
+      await loadGame({ tiles: bought(...MARKET, ...FLOE_SUSHI) });
+      expect((await import('../src/flags')).stage3On()).toBe(false);
+      history.replaceState(null, '', '/');
+      // a save that's met him (down in the ring, here) opens it wherever it's loaded
+      const down = await loadGame({ tiles: bought(...MARKET, ...FLOE_SUSHI, 'dohyo'), fugu: 2, level: 1 });
+      expect((await import('../src/flags')).stage3On()).toBe(true);
+      expect(await hatchesIn()).toBe(1);
+      expect(down.layout.stage.n).toBe(3);
+      expect(localStorage.getItem('floe-market-stage3')).toBe('1');
+    } finally {
+      vi.unstubAllEnvs();
+      history.replaceState(null, '', '/');
+    }
   });
 });

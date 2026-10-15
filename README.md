@@ -1,6 +1,6 @@
 # Floe Market
 
-A cozy 3D idle/tycoon game for the browser, in three stages. Stage 1 is a fish market: catch fish from the ice, sell it at a walk-up counter and upgrade the market. Stage 2 rebuilds it as Floe Sushi, a conveyor-belt sushi restaurant with rice terraces on the hillside, which you grow until the whole chain runs itself. Stage 3 goes underground: Mr. Fugu, a shady pufferfish in a trench coat, cuts you into his illegal sumo ring in the cellar under the dock. It's fight night: you cook chanko for the fans, and each boss who walks in with his crowd is beaten by turning his whole crowd with bowls before the bell, until you can buy back all of Mr. Fugu's chips.
+A cozy 3D idle/tycoon game for the browser, in three stages. Stage 1 is a fish market: catch fish from the ice, sell it at a walk-up counter and upgrade the market. Stage 2 rebuilds it as Floe Sushi, a conveyor-belt sushi restaurant with rice terraces on the hillside, which you grow until the whole chain runs itself. Stage 3 (still being made, and not open to players yet: see [Feature flags](#feature-flags)) goes underground: Mr. Fugu, a shady pufferfish in a trench coat, cuts you into his illegal sumo ring in the cellar under the dock. It's fight night: you cook chanko for the fans, and each boss who walks in with his crowd is beaten by turning his whole crowd with bowls before the bell, until you can buy back all of Mr. Fugu's chips.
 
 ## Play
 
@@ -270,6 +270,10 @@ TypeScript + [three.js r186](https://threejs.org/), bundled with [Vite](https://
 | `npm run test:rules` | `firestore.rules`' tests, in the Firestore emulator (needs Java 21; CI runs them on every pull request) |
 
 `SIM=1 SIM_MINUTES=60 SIM_OUT=sim.txt npx vitest run test/balance.sim.test.ts` has a bot (`test/bot.ts`) play a fresh game for an hour of game time, in a few seconds, and writes when it bought each upgrade and how its money and earnings grew minute by minute. Use it to check the balance after changing prices; `test/softlock.test.ts` also uses the bot to check a whole game never stalls. Add `SIM_STAGE=3` to play the ring from just after the buy-in instead: down in the cellar the bot runs whichever lines have no hire yet, cooks, carries bowls to the soup bar, buys the cellar's tiles, rings the gong once it says the boss's whole crowd will turn, and finds its way round the cellar's furniture.
+
+### Feature flags
+
+`src/flags.ts` keeps stage 3 from players until it's ready: in the live game there's no hatch in the dock and Mr. Fugu never knocks. It's on in the dev server, the tests and the playtest build (`VITE_FUGU_DEMO=1`). On the live game, open it once with `?stage3=on` in the address to switch it on for that device (`?stage3=off` switches it back off). A save that has met Mr. Fugu switches it on wherever it's loaded, so a cloud save carries on on another device.
 
 [docs/balance.md](docs/balance.md) sets out the principles the game is balanced by, stage by stage, the numbers that show when something is off, and where each upgrade stands.
 

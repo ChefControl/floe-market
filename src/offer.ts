@@ -9,6 +9,7 @@
 // it to hear him out again (that night). Either way, the night lifts after.
 import { Vector3 } from 'three';
 import { ac, between, hushWorld, noise, tone } from './audio';
+import { stage3On } from './flags';
 import { Fugu, Hatch } from './fugu';
 import { HatchFx } from './hatchFx';
 import { HATCH_AT, stage } from './layout';
@@ -499,6 +500,8 @@ function leave(news: string) {
 
 // ---------- every frame ----------
 export function updOffer(dt: number) {
+  // (stage 3 not open yet: no hatch, and nobody knocks)
+  if (!stage3On()) return;
   hatch?.update(dt);
   fx?.update(dt);
   hushWorld(!!show);
@@ -596,14 +599,15 @@ export function drawOffer() {
 /** Restores a saved answer: the hatch is shut till the player's in, then open. */
 export function loadOffer(answer: number) {
   offer.answer = (Math.min(2, Math.max(0, answer)) | 0) as 0 | 1 | 2;
+  if (!stage3On()) return;
   const h = placeHatch();
   h.open = h.openTo = offer.answer === 2 ? 1 : 0;
   h.light.visible = h.openTo > 0;
   h.update(0);
 }
 // The hatch is always in the dock, shut, from the very start: nobody knocks on it till there's a million to be made
-// (stage 2, with the restaurant all built).
-placeHatch();
+// (stage 2, with the restaurant all built). Until stage 3 is open (flags.ts), there's no hatch at all.
+if (stage3On()) placeHatch();
 
 window.addEventListener('keydown', e => {
   if (!show) return;

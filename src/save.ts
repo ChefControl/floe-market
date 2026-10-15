@@ -4,6 +4,7 @@
 import { C1, repriceFish, SLED, TAKEOUT, type Counter } from './counters';
 import { choice, readLook, setLook, type Choice } from './customize';
 import { MODS, mods, type ModId } from './economy';
+import { keepStage3 } from './flags';
 import { loadOffer, offer } from './offer';
 import { filletsInProgress } from './fishing';
 import { waiterPlates } from './garden';
@@ -333,6 +334,8 @@ export function load() {
     wallet.money += s.tcash;
   }
   if (field.built) fill(fieldStack, s.field + riceLeft, newRice);
+  // (a game that's met Mr. Fugu keeps stage 3 open on this device, flag or no flag: flags.ts)
+  if (s.fugu) keepStage3();
   loadOffer(s.fugu);
   if (stage.n === 3) loadRing(s);
   // the tutorial: this player's lessons, or for a save from before it, what it has done (now it's all in place)
