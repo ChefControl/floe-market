@@ -499,8 +499,8 @@ export function bed(o: Bed) {
 
 // ---------- recordings ----------
 /**
- * The few recorded sounds, for the ring's crowd (synthesised, people sound like wind): a stadium crowd, cut
- * down in public/sounds (see its CREDITS.md). They load the first time the ring's crowd is heard (stage 3), so nobody
+ * The few recorded sounds, for the ring's crowd (synthesised, people sound like wind): a stadium crowd, and a hall
+ * of people chatting for the murmur, cut down in public/sounds (see its CREDITS.md). They load the first time the ring's crowd is heard (stage 3), so nobody
  * downloads them before; until they're in, or if they can't load, ringSound.ts's synthesised crowd plays instead.
  */
 export const CLIPS = {
