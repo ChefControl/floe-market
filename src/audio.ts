@@ -140,9 +140,24 @@ function wake() {
   for (let i = 0; i < n; i++) b[i] -= lean * i / (n - 1);
   musicVol.gain.value = busLevel('music');
   void ac.resume();
+  ticker();
   ready.splice(0).forEach(f => f());
 }
 for (const ev of ['pointerdown', 'pointerup', 'touchend', 'keydown'] as const) window.addEventListener(ev, wake, true);
+// ---------- keeping time ----------
+// The music is scheduled a moment ahead on the audio clock, a step at a time. From the game's frames alone it ran dry
+// whenever the browser slowed them down, as it does for a window that isn't in front (alt-tabbed away): the notes
+// already queued played on, the rest came late, crammed together, or not at all, and the music lost its beat. So the
+// schedulers also run on a worker's timer, which a browser keeps ticking for a page in the background.
+const ticks: (() => void)[] = [];
+/** Runs `f` every few hundredths of a second while sound is running, between the game's frames as well as on them. */
+export function onTick(f: () => void) { ticks.push(f); }
+function ticker() {
+  if (typeof Worker === 'undefined') return;
+  const w = new Worker(URL.createObjectURL(new Blob(['setInterval(() => postMessage(0), 40)'], { type: 'text/javascript' })));
+  w.onmessage = () => { if (ac?.state === 'running') ticks.forEach(f => f()); };
+}
+
 // Asleep while the page is hidden.
 document.addEventListener('visibilitychange', () => {
   if (!ac) return;
@@ -263,6 +278,10 @@ export interface Voice {
   bus?: Out;
   /** A node of the bus's own to go through instead of straight into it (the lounge band's mix, music.ts). */
   out?: AudioNode;
+  /** Left (-1) or right (1), for a sound with no place in the world (the gloop ring's bubbles): in place of `at`'s. */
+  pan?: number;
+  /** Some of it sent on to other nodes as well, [node, how much] each: the gloop ring's reverb and echo (music.ts). */
+  sends?: [AudioNode, number][];
 }
 export interface ToneVoice extends Voice {
   f: number;
@@ -323,12 +342,18 @@ function envelope(o: Voice, f: number) {
   g.gain.setValueAtTime(v, top);
   g.gain.exponentialRampToValueAtTime(0.0001, t1);
   const nodes: AudioNode[] = [g];
-  const into = o.out ?? buses[bus];
-  if (p.pan) {
+  const into = o.out ?? buses[bus], pan = o.pan ?? p.pan;
+  let last: AudioNode = g;
+  if (pan) {
     const s = ac.createStereoPanner();
-    s.pan.value = p.pan; s.connect(into); g.connect(s);
-    nodes.push(s);
+    s.pan.value = pan; s.connect(into); g.connect(s);
+    nodes.push(s); last = s;
   } else g.connect(into);
+  for (const [to, k] of o.sends ?? []) {
+    const s = ac.createGain();
+    s.gain.value = k; last.connect(s); s.connect(to);
+    nodes.push(s);
+  }
   voices++;
   return { g, t0, top, t1, nodes };
 }

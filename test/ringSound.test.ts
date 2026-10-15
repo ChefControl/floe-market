@@ -21,24 +21,50 @@ async function ringWithSound(down = true, ring: Record<string, unknown> = {}) {
 const tunes = (ps: Played[]) => ps.filter(p => p.bus === 'music');
 
 describe('the gloop ring', () => {
-  it('plays down in the cellar: the soft, sagging bass round C2, taiko, slap and shamisen from the start, then more as the bosses fall', async () => {
+  it('plays down in the cellar as it was made: the soft, sagging bass round C2 to start, then more as the bosses fall', async () => {
     const early = await ringWithSound();
     const start = tunes(early.since(() => early.play(24)));
     expect(early.audio.key.root).toBe(63); // the game's sounds in E-flat major: C minor's pentatonic
     expect(start.some(p => p.type === 'custom' && near(p.f, hz(36)))).toBe(true); // the gloop on C2
     expect(start.some(p => p.type === 'sine' && near(p.f, hz(36)))).toBe(true); // and the sine under it
-    expect(start.some(p => p.f === 66)).toBe(true); // taiko from the first bout
-    expect(start.some(p => p.kind === 'noise' && p.f === 1500)).toBe(true); // the wet slap
-    expect(start.some(p => p.type === 'custom' && p.f > hz(59) && p.f < hz(76))).toBe(true); // the shamisen's tune
-    expect(start.some(p => p.type === 'triangle' && p.f < 110)).toBe(false); // but not the drone yet
+    expect(start.some(p => p.f === 66)).toBe(false); // the drums come with the bosses
+    expect(start.some(p => p.type === 'custom' && p.f > hz(57) && p.f < hz(76))).toBe(false); // and so does the tune
+
+    const half = await ringWithSound(true, { beaten: 2 });
+    const mid = tunes(half.since(() => half.play(24)));
+    expect(mid.some(p => p.f === 66)).toBe(true); // taiko
+    expect(mid.some(p => p.kind === 'noise' && p.f === 1500)).toBe(true); // the wet slap
+    expect(mid.some(p => p.type === 'custom' && p.f > hz(57) && p.f < hz(76))).toBe(false); // not the tune yet
 
     const built = await ringWithSound(true, RING_DONE);
     const full = tunes(built.since(() => built.play(24)));
     expect(full.some(p => p.f === 66)).toBe(true); // taiko
-    expect(full.some(p => p.kind === 'noise' && p.f === 1500)).toBe(true); // the wet slap
     expect(full.some(p => p.f === 784)).toBe(true); // the clappers
-    expect(full.some(p => p.type === 'custom' && p.f > hz(59) && p.f < hz(76))).toBe(true); // the shamisen
+    expect(full.some(p => p.type === 'custom' && p.f > hz(57) && p.f < hz(76))).toBe(true); // the shamisen
     expect(full.some(p => p.type === 'triangle' && p.f < 110)).toBe(true); // the low drone
+  }, 30_000);
+
+  it("plays in the cellar's damp room: a reverb and an echo on the drums, the tune and the bubbles, but not on the bass", async () => {
+    const s = await ringWithSound(true, RING_DONE);
+    // (the voices kept wired up after they end, to follow where each one goes)
+    fake.hold = true;
+    const m = tunes(s.since(() => s.play(12)));
+    /** Whether a voice reaches the room's reverb (a convolver) on its way out. */
+    const wet = (p: Played) => {
+      const seen = new Set<FakeNode>();
+      const go = (n: FakeNode): boolean => {
+        if (seen.has(n)) return false;
+        seen.add(n);
+        return ('buffer' in n && !('loop' in n)) || n.outs.some(go);
+      };
+      return go(p.src);
+    };
+    const taiko = m.filter(p => p.f === 66), shami = m.filter(p => p.type === 'custom' && p.f > hz(57) && p.f < hz(76));
+    const bass = m.filter(p => p.type === 'custom' && near(p.f, hz(36)));
+    expect(taiko.length && shami.length && bass.length).toBeTruthy();
+    expect(taiko.every(wet)).toBe(true);
+    expect(shami.every(wet)).toBe(true);
+    expect(bass.some(wet)).toBe(false);
   }, 30_000);
 
   it('gives way to the café band up on the dock, and comes back down the ladder', async () => {
@@ -59,20 +85,18 @@ describe('the gloop ring', () => {
     expect(m.filter(p => p.kind === 'tone' && p.f >= 4000)).toEqual([]);
   }, 30_000);
 
-  it("keeps the shamisen low and on the chords: C4 to E-flat 5, never held a half step off the chord's notes", async () => {
+  it("keeps the shamisen low and on the chords: B-flat 3 to E-flat 5, never a half step off the chord's notes", async () => {
     const { music } = await ringWithSound();
     const chords = [[0, 3, 7], [0, 3, 7], [8, 0, 3], [10, 2, 5]];
-    for (let k = 0; k < 6; k++) {
-      music.gloopTune().forEach((bar, b) => {
-        const pcs = chords[b % 4];
-        for (const n of bar) {
-          expect(n.m).toBeGreaterThanOrEqual(60);
-          expect(n.m).toBeLessThanOrEqual(75);
-          if (n.s % 4 === 0) expect(pcs).toContain(n.m % 12);
-          expect(pcs.some(p => [1, 11].includes(((n.m - p) % 12 + 12) % 12))).toBe(false);
-        }
-      });
-    }
+    music.GLOOP_TUNE.forEach((bar, b) => {
+      const pcs = chords[b % 4];
+      for (const n of bar) {
+        expect(n.m).toBeGreaterThanOrEqual(58);
+        expect(n.m).toBeLessThanOrEqual(75);
+        if (n.s % 4 === 0) expect(pcs).toContain(n.m % 12);
+        expect(pcs.some(p => [1, 11].includes(((n.m - p) % 12 + 12) % 12))).toBe(false);
+      }
+    });
   });
 });
 

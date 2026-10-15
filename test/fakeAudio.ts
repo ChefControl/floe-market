@@ -38,6 +38,8 @@ export interface Played {
   src: FakeNode;
   /** The level its envelope started from, before the sound began (see startLevel()). */
   from?: number;
+  /** When it starts, on the audio clock. */
+  at: number;
 }
 
 export const fake = {
@@ -87,8 +89,8 @@ class Osc extends Source {
   setPeriodicWave() { this.type = 'custom'; }
   frequency = new FakeParam(440);
   detune = new FakeParam();
-  start() {
-    fake.played.push({ kind: 'tone', f: this.frequency.first ?? this.frequency.value, type: this.type, loop: false, src: this, from: startOf(this), ...trace(this) });
+  start(when = 0) {
+    fake.played.push({ kind: 'tone', f: this.frequency.first ?? this.frequency.value, type: this.type, loop: false, src: this, from: startOf(this), at: when, ...trace(this) });
   }
 }
 class Buffered extends Source {
@@ -99,11 +101,11 @@ class Buffered extends Source {
   playbackRate = new FakeParam(1);
   /** Where in its buffer it started playing, in seconds. */
   offset = 0;
-  start(_when = 0, offset = 0) {
+  start(when = 0, offset = 0) {
     this.offset = offset;
     const filter = this.outs[0] as FakeNode & { frequency?: FakeParam };
     const f = filter?.frequency, freq = f ? f.first ?? f.value : 0;
-    fake.played.push({ kind: 'noise', f: freq, type: '', loop: this.loop, src: this, from: startOf(this), ...trace(this) });
+    fake.played.push({ kind: 'noise', f: freq, type: '', loop: this.loop, src: this, from: startOf(this), at: when, ...trace(this) });
   }
 }
 
@@ -122,6 +124,7 @@ export class FakeAudioContext {
   createBiquadFilter() { return Object.assign(new FakeNode(), { type: 'lowpass', frequency: new FakeParam(350), Q: new FakeParam(1) }); }
   createStereoPanner() { return Object.assign(new FakeNode(), { pan: new FakeParam() }); }
   createConvolver() { return Object.assign(new FakeNode(), { buffer: null as unknown }); }
+  createDelay() { return Object.assign(new FakeNode(), { delayTime: new FakeParam() }); }
   /** Any recording "decodes" to a minute of silence. */
   decodeAudioData() { return Promise.resolve({ duration: 60 }); }
   createDynamicsCompressor() {
