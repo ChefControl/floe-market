@@ -8,7 +8,7 @@
 // (unlocks.ts): buying into the ring, and the way down to it. Turning him down leaves the hatch on the dock: stand on
 // it to hear him out again (that night). Either way, the night lifts after.
 import { Vector3 } from 'three';
-import { ac, between, hushWorld, noise, tone } from './audio';
+import { ac, between, hushWorld, noise, onAudio, onTick, tone } from './audio';
 import { stage3On } from './flags';
 import { Fugu, Hatch } from './fugu';
 import { HatchFx } from './hatchFx';
@@ -85,19 +85,21 @@ const sfx = {
 const BASS = [55, 0, 55, 65.41, 0, 73.42, 77.78, 82.41, 98, 0, 82.41, 73.42, 0, 65.41, 55, 0];
 const BASS_STEP = 60 / 92 / 2;
 let bass: { next: number; i: number } | null = null;
-const startMusic = () => { bass = { next: -1, i: 0 }; };
+const startMusic = () => { bass = { next: -Infinity, i: 0 }; };
 const stopMusic = () => { bass = null; };
 function updBass() {
   if (!bass || !ac || ac.state !== 'running') return;
   const now = ac.currentTime;
-  if (bass.next < now - 0.3) bass.next = now + 0.05;
+  if (bass.next < now - 5) bass.next = now + 0.05;
   while (bass.next < now + 0.25) {
-    const f = BASS[bass.i];
+    // (a step whose time has gone by, while the page was held up, is let go: the bass keeps its beat)
+    const f = bass.next >= now ? BASS[bass.i] : 0;
     if (f) tone({ f: f * 2, t: bass.next - now, d: BASS_STEP * 0.95, type: 'triangle', a: 0.008, v: 0.33, bus: 'scene' });
     bass.next += BASS_STEP * (bass.i % 2 ? 0.7 : 1.3);
     bass.i = (bass.i + 1) % BASS.length;
   }
 }
+onAudio(() => onTick(updBass));
 /** True while he's on: the game's music makes room (music.ts). */
 export const offerPlaying = () => !!show;
 

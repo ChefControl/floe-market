@@ -66,7 +66,7 @@ function play(i, t) {
 
 ## Gloop ring: the underground sumo ring (stage 3, in the game)
 
-Heavy, gloopy and slow, made after a reference track picked for it ("Gloopin"): the same tempo, a bass down around C2 that sags and slides like mud, and a half-time beat. It was liked as it is (a heavier, more resonant bass was tried and turned down), and saved for a sumo stage. It's now in `src/music.ts`, played down in stage 3's cellar, on the engine's voices (which gained the `wave` and `q` options below). The shamisen's tune there is made up by `gloopTune()`, the game's own version of the listening page's `minorTune()`. In the game its tune, taiko, slap, clappers and bubbles are mixed louder than on the listening page (the shamisen at 0.17, and a knock round 150 Hz added to the taiko), so it carries on a laptop's or a phone's speakers over the crowd; the bass is as it was.
+Heavy, gloopy and slow, made after a reference track picked for it ("Gloopin"): the same tempo, a bass down around C2 that sags and slides like mud, and a half-time beat. It was liked as it is (a heavier, more resonant bass was tried and turned down), and saved for a sumo stage. It's now in `src/music.ts`, played down in stage 3's cellar as it is here: the same levels, the same tune (`GLOOP_TUNE`, the eight bars the listening page's `minorTune()` makes from its seed), its layers as the bosses fall, and its reverb, echo and panned bubbles (the engine's voices gained `wave`, `q`, `pan` and `sends`). For a while the game played its own version, louder and dry, with a new tune every two verses and the drums and tune from the first bout; it was put back to this one after a side-by-side on the listening page.
 
 | | |
 | --- | --- |
@@ -89,7 +89,7 @@ How it grows with the stage (1 to 4, as the other music does):
 
 - **Soft sawtooth:** the engine's voices (`src/audio.ts`) need a `PeriodicWave` option, as for the 8-bit market: the series `im[k] = 1 / k` for k = 1 to 24 (the bass) or 1 to 6 (the shamisen). A plain sawtooth clicks at each note's peak; this doesn't.
 - **Resonance:** `tone()`'s low-pass needs a `q` (the bass is at 6, the shamisen at 3). The page closes the filter over 60% of the decay; the game's `tone()` does it over 50%, which is close enough.
-- **Reverb, echo and pan:** the listening page sends some parts to a reverb (`rev`), a dotted-eighth echo (`dly`) and pans the bubbles (`pan`). The game's music has none of these, so leave them out or add them to the music bus.
+- **Reverb, echo and pan:** the listening page sends some parts to a reverb (`rev`), a dotted-eighth echo (`dly`) and pans the bubbles (`pan`). In the game, the cellar has a room of its own for these (`cellarRoom()` in `src/music.ts`): a voice's `sends` go into it and `pan` places the bubbles.
 - **Highest sounds:** everything is under 4 kHz, as the music test in `test/sound.test.ts` checks: the clappers' overtone is at about 2 kHz, and the highest bubbles rise to about 2.1 kHz.
 - **Pops:** an offline render of every layer had no more clicks than the music in the game (0 at layer 1, up to 7 at layer 4, against up to 14 for the market's kalimba), and less above 4 kHz than either stage's music.
 
