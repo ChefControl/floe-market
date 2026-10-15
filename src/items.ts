@@ -61,13 +61,41 @@ function looks<T extends Mesh>(m: T, low: Look, high: Look) {
 }
 onQuality(() => scene.traverse(o => wearing.get(o)?.()));
 
-const steak = oneSkin(G.steak, [1, 2], '#B52E3E', 64, 64, c => {
-  c.fillStyle = '#D8394B'; c.beginPath(); c.arc(32, 32, 31, 0, 7); c.fill();
-  c.strokeStyle = '#F6D0D0'; c.lineWidth = 5; c.beginPath(); c.arc(32, 32, 26, 0.4, 5.0); c.stroke();
-  c.fillStyle = '#FFF4E6'; c.beginPath(); c.arc(41, 25, 7, 0, 7); c.fill();
-  c.strokeStyle = 'rgba(255,215,215,.7)'; c.lineWidth = 2;
-  c.beginPath(); c.moveTo(13, 38); c.quadraticCurveTo(30, 28, 47, 44); c.stroke();
-});
+/**
+ * A bluefin tuna fillet's face, drawn on a round slice's cap (across the picture is across the fillet, up it towards the
+ * tail): the dark blue skin down one long edge with a silver line and a layer of white fat under it, then the red flesh
+ * with its white fat lines in chevrons pointing to the tail. In its colours: fresh, or cured.
+ */
+const filletFace = (flesh: string, deep: string, line: string, skin: string, sheen: string) => (c: CanvasRenderingContext2D, w: number, h: number) => {
+  c.save();
+  c.beginPath(); c.arc(w / 2, h / 2, w / 2 - 1, 0, Math.PI * 2); c.clip();
+  const g = c.createLinearGradient(0, 0, w, 0); g.addColorStop(0, deep); g.addColorStop(0.55, flesh); g.addColorStop(1, deep);
+  c.fillStyle = g; c.fillRect(0, 0, w, h);
+  c.strokeStyle = line; c.lineWidth = 2.5; c.lineCap = 'round';
+  const mid = w * 0.58;
+  for (let y = -20; y < h + 40; y += 15) {
+    c.beginPath(); c.moveTo(w * 0.22, y + 18); c.quadraticCurveTo(mid - 14, y + 4, mid, y); c.quadraticCurveTo(mid + 14, y + 6, w, y + 20); c.stroke();
+  }
+  c.lineWidth = 1.5; c.beginPath(); c.moveTo(mid, 0); c.lineTo(mid, h); c.stroke();
+  c.fillStyle = 'rgba(255,240,242,.85)'; c.fillRect(w * 0.17, 0, w * 0.05, h);
+  c.fillStyle = sheen; c.fillRect(w * 0.14, 0, w * 0.035, h);
+  c.fillStyle = skin; c.fillRect(0, 0, w * 0.145, h);
+  c.restore();
+};
+/** Pulls a round slice out into a block off the loin: longer than it's wide, narrowing towards the tail end (+x). */
+function asFillet(geo: BufferGeometry, r = 0.19) {
+  const g = geo.clone(), p = g.attributes.position, n = g.attributes.normal;
+  for (let i = 0; i < p.count; i++) {
+    const x = p.getX(i), w = 0.85 * (1 - 0.38 * Math.max(0, x / r));
+    p.setXYZ(i, x * 1.12, p.getY(i), p.getZ(i) * w);
+    n.setXYZ(i, n.getX(i) / 1.12, n.getY(i), n.getZ(i) / w);
+  }
+  g.normalizeNormals();
+  return g;
+}
+const fillet = oneSkin(asFillet(G.fillet), [1, 2], '#C62F48', 128, 128, filletFace('#E23A57', '#B81F3D', 'rgba(255,226,232,.8)', '#16203A', '#6F8CB8'));
+/** The same fillet out of the salt barrel: cured brown. */
+const cured = oneSkin(asFillet(G.fillet), [1, 2], '#7A4626', 128, 128, filletFace('#AE6A3E', '#8A4E2C', 'rgba(242,214,178,.7)', '#2B2622', '#8A7A6A'));
 
 // box faces: +x, -x, +y (the top), -y, +z, -z
 const bill = oneSkin(G.bill, [2], '#3FAE52', 128, 80, (c, w, h) => {
@@ -79,17 +107,18 @@ const bill = oneSkin(G.bill, [2], '#3FAE52', 128, 80, (c, w, h) => {
 
 /** High's items: the same pictures, on rounded shapes of the same size. */
 const ROUND = quietly(() => ({
-  steak: steak.fit(roundSlice(0.19, 0.08, 0.022)),
+  fillet: fillet.fit(asFillet(roundSlice(0.19, 0.08, 0.022))),
+  cured: cured.fit(asFillet(roundSlice(0.19, 0.08, 0.022))),
   bill: bill.fit(rbox(0.4, 0.06, 0.24, 0.012)),
 }));
 
 /** What a carried or stocked item is, so mixed stacks can be sorted at drop-offs. */
-export type Kind = 'fish' | 'rice' | 'box';
+export type Kind = 'fish' | 'rice' | 'box' | 'bowl' | 'rrice' | 'cfish' | 'mush';
 export const kindOf = (m: Object3D): Kind | undefined => m.userData.kind;
 
-/** A fish slice (drawn as a salmon steak), as it comes off the chopping block. */
-export function newSteak() {
-  const m = looks(mesh(steak.geo, steak.mat), steak, { geo: ROUND.steak, mat: steak.mat });
+/** A fish slice (drawn as a block of bluefin tuna fillet), as it comes off the chopping block. */
+export function newFillet() {
+  const m = looks(mesh(fillet.geo, fillet.mat), fillet, { geo: ROUND.fillet, mat: fillet.mat });
   m.userData.kind = 'fish';
   return m;
 }
@@ -124,6 +153,46 @@ export function newBox(value: number, premium: boolean) {
   m.add(looks(lid, { geo: lidGeo, mat: lid.material as Material }, premium ? BOX.gold : BOX.lid));
   m.userData.kind = 'box';
   m.userData.value = value;
+  return m;
+}
+
+const bowlGeo = new CylinderGeometry(0.17, 0.11, 0.1, 14), stewGeo = new CylinderGeometry(0.155, 0.155, 0.01, 14);
+const bitGeo = new BoxGeometry(0.05, 0.03, 0.05), capGeo = new CylinderGeometry(0.03, 0.075, 0.05, 9);
+/** A bowl of chanko from the pot in the cellar (stage 3): rice and fish in it, and mushrooms too once there are some
+ *  (`mush`, a bowl that sells for double). */
+export function newBowl(mush = false) {
+  const m = mesh(bowlGeo, 0xA8322D, 0, 0, 0, true);
+  // (the stew a little over the bowl's top, not level with it: two faces at one height flicker)
+  m.add(mesh(stewGeo, mush ? 0xA8743E : 0xC98A3E, 0, 0.056, 0));
+  for (const [x, z, c] of [[-0.05, 0.03, 0x6FAF4F], [0.06, -0.02, 0xF4F1EA], [0.0, -0.07, 0xE59A6B]] as const) m.add(mesh(bitGeo, c, x, 0.068, z));
+  if (mush) m.add(mesh(capGeo, 0x7A5236, 0.04, 0.075, 0.06));
+  m.userData.kind = 'bowl';
+  m.userData.mush = mush;
+  return m;
+}
+
+// The cellar's ingredients once a line has done its work: a ball of washed, dried rice; a salted fish, gone brown; a
+// mushroom from the grow room.
+const ballGeo = new CylinderGeometry(0.1, 0.12, 0.09, 10);
+const stemGeo = new CylinderGeometry(0.035, 0.04, 0.08, 7), bigCapGeo = new CylinderGeometry(0.04, 0.13, 0.07, 10);
+/** Rice off the racks, ready for the pot. */
+export function newReadyRice() {
+  const m = mesh(ballGeo, 0xFFFBEF, 0, 0, 0, true);
+  m.add(mesh(new BoxGeometry(0.06, 0.092, 0.02), 0x2E3A2E, 0, 0, 0.11));
+  m.userData.kind = 'rrice';
+  return m;
+}
+/** Fish out of the salt barrels: the market's fillet, cured brown. */
+export function newCuredFish() {
+  const m = looks(mesh(cured.geo, cured.mat, 0, 0, 0, true), cured, { geo: ROUND.cured, mat: cured.mat });
+  m.userData.kind = 'cfish';
+  return m;
+}
+/** A mushroom, picked. */
+export function newMushroom() {
+  const m = mesh(stemGeo, 0xEDE2CC, 0, 0, 0, true);
+  m.add(mesh(bigCapGeo, 0x8C6542, 0, 0.06, 0));
+  m.userData.kind = 'mush';
   return m;
 }
 

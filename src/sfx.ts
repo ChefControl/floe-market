@@ -2,6 +2,7 @@
 // audio.ts: soft blips that climb the scale for picking things up and coins, struck wood for the cleaver and the
 // boards underfoot, little bells for money and news, and filtered noise for water, snow and swishing rice. Sounds out
 // in the world (a customer paying, a driver's horn) are placed where they happen, and fade with distance.
+import type { StageN } from './layout';
 import { bell, between, deg, every, marimba, noise, pluck, streak, tone } from './audio';
 import type { Season } from './season';
 import type { XZ } from './util';
@@ -51,6 +52,13 @@ export function pick() {
   const n = streak('pick') % 6;
   tone({ f: deg(n, 1), d: 0.06, v: 0.06 });
   tone({ f: deg(n, 2), d: 0.03, v: 0.02 });
+}
+
+/** Things thrown in a bin, at `at`: a hollow clunk and a rattle as the lid drops. */
+export function toss(at: XZ) {
+  tone({ at, f: 120, f2: 70, a: 0.006, d: 0.22, v: 0.22, type: 'triangle' });
+  noise({ at, f: 900, f2: 500, q: 1.2, a: 0.004, d: 0.12, v: 0.08 });
+  noise({ at, t: 0.18, f: 1400, q: 2, a: 0.003, d: 0.06, v: 0.05 });
 }
 
 /** Something put down on a counter or a pad: a soft wooden tock, stepping down through a run. */
@@ -118,15 +126,25 @@ export function levelUp() {
   tone({ f: deg(5, 2), t: 0.21, d: 0.5, v: 0.04, vib: [6, 8] });
 }
 
-/** The stage-up: a flourish for the market done (1), then a drum and a strummed koto for the restaurant (2). */
-export function fanfare(n: 1 | 2) {
+/**
+ * The stage-ups: a flourish for the market done (1), a drum and a strummed koto for the restaurant (2), and three
+ * taiko and a low strum for the ring under the dock (3).
+ */
+export function fanfare(n: StageN) {
   if (n === 1) {
     [0, 2, 3, 4, 5, 7, 9, 10].forEach((d, i) => marimba(deg(d, 1), { t: i * 0.055, v: 0.15 }));
     [0, 3, 5].forEach(d => bell(deg(d, 1), { t: 0.5, v: 0.06, d: 1.6 }));
-  } else {
+  } else if (n === 2) {
     tone({ f: 80, f2: 42, d: 0.5, v: 0.4 });
     noise({ f: 300, kind: 'lowpass', d: 0.25, v: 0.18 });
     [0, 3, 5, 7, 10].forEach((d, i) => pluck(deg(d), { t: 0.25 + i * 0.04, v: 0.1, d: 1.4 }));
+  } else {
+    // a soft taiko, like the gloop band's: low, barely bending, eased in
+    for (const t of [0, 0.3, 0.6]) {
+      tone({ t, f: 66, f2: 50, a: 0.015, d: 0.45, v: 0.4 });
+      noise({ t, f: 320, kind: 'lowpass', a: 0.012, d: 0.08, v: 0.12 });
+    }
+    [0, 3, 5, 7].forEach((d, i) => pluck(deg(d - 5), { t: 0.9 + i * 0.05, v: 0.1, d: 1.2 }));
   }
 }
 
@@ -143,6 +161,15 @@ export function seasonSting(s: Season) {
 /** The roulette ball clicking past a pocket. */
 export function tick() {
   noise({ f: 2200, q: 2, d: 0.012, v: 0.04 });
+}
+
+/** The gong in the cellar's arena (stage 3), struck to call a boss in: a deep bronze crash that rings on and on, its
+ *  partials out of tune with each other the way a gong's are, and a hiss of the mallet. */
+export function gong(at: XZ) {
+  for (const [f, v, d] of [[98, 0.12, 4.2], [151, 0.08, 3.4], [214, 0.06, 2.7], [289, 0.04, 2.1], [407, 0.025, 1.4]] as const) {
+    tone({ at, f, f2: f * 0.985, a: 0.012, d, v });
+  }
+  noise({ at, f: 900, q: 0.8, a: 0.004, d: 0.45, v: 0.04 });
 }
 
 /** Roulette: a shower of coins for a win, two falling notes for a loss. */

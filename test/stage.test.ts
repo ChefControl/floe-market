@@ -12,7 +12,7 @@ describe('the stage-up', () => {
     const { runners } = g.runner;
     expect(runners).toHaveLength(3);
     const third = runners[2];
-    for (let i = 0; i < 3; i++) third.back.put(g.items.newSteak());
+    for (let i = 0; i < 3; i++) third.back.put(g.items.newFillet());
     const pile = g.stations.pile.n;
     const gold = g.unlocks.tiles.find(t => t.id === 'sushi')!;
     g.placePlayer(gold.x, gold.z);

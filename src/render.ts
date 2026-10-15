@@ -14,7 +14,8 @@ import { V } from './util';
 ColorManagement.enabled = false;
 
 export const canvas = document.getElementById('game') as HTMLCanvasElement;
-export const renderer = new WebGLRenderer({ canvas, antialias: true });
+// (a stencil buffer for the hole under Mr. Fugu's hatch, fugu.ts, which shows the shaft below the deck through it)
+export const renderer = new WebGLRenderer({ canvas, antialias: true, stencil: true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
 renderer.outputColorSpace = LinearSRGBColorSpace;
 // the fish on the chopping block is cut with a clipping plane (fishing.ts)
@@ -209,7 +210,7 @@ export const bakePainted = (parts: (Part & { c: number })[]) =>
 export const G = {
   sphere: new SphereGeometry(1, 14, 10),
   tail: new ConeGeometry(0.2, 0.36, 4),
-  steak: new CylinderGeometry(0.19, 0.19, 0.08, 14),
+  fillet: new CylinderGeometry(0.19, 0.19, 0.08, 14),
   bill: new BoxGeometry(0.4, 0.06, 0.24),
   log: new CylinderGeometry(0.15, 0.17, 1, 7),
   rope: new CylinderGeometry(0.025, 0.025, 1, 5),

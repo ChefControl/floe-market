@@ -1,7 +1,10 @@
 // Per-frame player logic: movement plus every station interaction.
+import { binTip, collideBins, updBins } from './bin';
 import { updBuy } from './buy';
 import { collideCasino } from './casino';
 import { tipsy, tipsyK } from './casinoKit';
+import { collideCellar } from './cellar';
+import { cellarTip, cellarWork } from './cellarHands';
 import { animPerson } from './characters';
 import { COUNTERS } from './counters';
 import { updLook } from './customize';
@@ -9,11 +12,13 @@ import { tryCatch } from './fishing';
 import { collideGarden } from './garden';
 import { coinsFx } from './fx';
 import { fly, type Holder } from './holder';
+import type { Vector3 } from 'three';
+import { F } from './fight';
 import { billValue, newBill, type Kind } from './items';
 import { boost } from './economy';
 import { buyHeld, inputVec } from './input';
 import { korkiStatue, STATUE } from './korki';
-import { groundY, keepOnFloor, onHarbor, pushOutOfBox, stage, walkable } from './layout';
+import { groundY, keepOnFloor, level, onHarbor, pushOutOfBox, stage, walkable } from './layout';
 import { BOOP_SECS, player } from './player';
 import { collidePresents, givePresents, onPresentTile, PRESENT, redrawPresentTile } from './presents';
 import { scene } from './render';
@@ -39,7 +44,8 @@ const CHEF_DROPS: Drop[] = [
   { pos: FISH_DROP, r: DROP_R, stock: fishTray, kind: 'fish' },
   { pos: RICE_DROP, r: DROP_R, stock: ricePot, kind: 'rice' },
 ];
-const drops = (): Drop[] => sushi.built
+// (down in the cellar, the player's work is cellarHands.ts's)
+const drops = (): Drop[] => level.down ? [] : sushi.built
   ? CHEF_DROPS
   : COUNTERS.filter(C => C.enabled && C.dropPos).map(C => ({ pos: C.dropPos!, r: 1.0, stock: C.stock, kind: 'fish' }));
 
@@ -48,9 +54,16 @@ const STATION_TIPS: { pos: XZ; r: number; tip: TipContent }[] = [
   { pos: FISH_DROP, r: DROP_R, tip: { name: 'Fish for the chefs', desc: 'Drop fish slices here' } },
   { pos: RICE_DROP, r: DROP_R, tip: { name: 'Rice for the chefs', desc: 'Drop bags of rice here' } },
 ];
+/** What's said about where the player's standing: a station upstairs, or down in the cellar. */
+function stationTip(p: XZ): TipContent | null {
+  if (level.down) return cellarTip(p);
+  return (sushi.built && STATION_TIPS.find(s => d2xz(p, s.pos) < s.r * s.r)?.tip) || null;
+}
 
 /** Where cash piles up. A closed counter's cash stays collectable until it's all picked up. */
 function cashSpots() {
+  // (down in the cellar, the fans' chips go straight into the wallet)
+  if (level.down) return [];
   const s = COUNTERS.filter(C => C.enabled || C.cash.n).map(C => ({ pos: C.cashPos as XZ, cash: C.cash }));
   if (sushi.built) s.push({ pos: REGISTER, cash: register });
   return s;
@@ -80,20 +93,80 @@ export function updPlayer(dt: number) {
     player.moving = true;
   } else if (!player.held) player.moving = false;
   keepOnFloor(p, walkable());
-  collide(p);
-  collideGarden(p);
-  collidePresents(p);
-  collideCasino(p);
-  if (stage.n === 2 && korkiStatue()) pushOutOfBox(p, STATUE.x, STATUE.z, 1.25, 0.8);
-  // chopper block collision
-  if (p.x > CHOP.x - 1.0 && p.x < CHOP.x + 1.0 && p.z < CHOP.z + 0.8) {
-    const ex = p.x < CHOP.x ? CHOP.x - 1.0 : CHOP.x + 1.0;
-    if (Math.abs(p.x - ex) < Math.abs(p.z - (CHOP.z + 0.8))) p.x = ex; else p.z = CHOP.z + 0.8;
+  if (level.down) collideCellar(p, { rice: F.lines.rice.n, fish: F.lines.fish.n, mush: F.lines.mush.n });
+  else {
+    collide(p);
+    collideGarden(p);
+    collidePresents(p);
+    collideBins(p);
+    collideCasino(p);
+    if (stage.n >= 2 && korkiStatue()) pushOutOfBox(p, STATUE.x, STATUE.z, 1.25, 0.8);
+    // chopper block collision
+    if (p.x > CHOP.x - 1.0 && p.x < CHOP.x + 1.0 && p.z < CHOP.z + 0.8) {
+      const ex = p.x < CHOP.x ? CHOP.x - 1.0 : CHOP.x + 1.0;
+      if (Math.abs(p.x - ex) < Math.abs(p.z - (CHOP.z + 0.8))) p.x = ex; else p.z = CHOP.z + 0.8;
+    }
   }
-  // step smoothly up and down terraces, bridges and the gate
-  p.y += (groundY(p) - p.y) * Math.min(1, dt * 14);
-  if (player.booped) p.y = groundY(p) + Math.sin(Math.PI * player.booped.t) * 0.45;
+  // step smoothly up and down terraces, bridges and the gate (and straight down or up the ladder)
+  const gy = groundY(p, level.down);
+  p.y = Math.abs(gy - p.y) > 5 ? gy : p.y + (gy - p.y) * Math.min(1, dt * 14);
+  if (player.booped) p.y = gy + Math.sin(Math.PI * player.booped.t) * 0.45;
+  if (level.down) cellarWork(p, dt);
+  else upstairsWork(p, dt);
 
+  // drop fish at the counters, or fish and rice off for the chefs
+  player.tDrop -= dt;
+  for (const s of drops()) {
+    if (d2xz(p, s.pos) >= s.r * s.r) continue;
+    while (player.tDrop <= 0 && s.stock.hasRoom() && player.back.count(s.kind)) {
+      player.tDrop += 0.06;
+      s.stock.receive(player.back.takeKind(s.kind)!, 0.25, 0.8);
+      put();
+    }
+  }
+  if (player.tDrop < 0) player.tDrop = 0;
+  // collect cash
+  for (const s of cashSpots()) {
+    if (d2xz(p, s.pos) >= 1.5 * 1.5) continue;
+    player.tCash -= dt;
+    while (player.tCash <= 0 && s.cash.items.length) {
+      player.tCash += 0.025;
+      const b = s.cash.take()!, v = billValue(b);
+      wallet.inFlight += v;
+      fly(b, () => V(p.x, p.y + 0.75, p.z), 0.22, 0.6, () => { scene.remove(b); wallet.inFlight -= v; addMoney(v); coin(); coinsFx(V(p.x, p.y + 1.1, p.z)); });
+    }
+    if (player.tCash < 0) player.tCash = 0;
+  }
+
+  // unlock tiles (the ones on this level)
+  let on: Tile | null = null;
+  for (const t of visibleTiles()) {
+    if (Math.abs((t.y ?? FY) - p.y) > 2) continue;
+    if (Math.abs(p.x - t.x) < t.half && Math.abs(p.z - t.z) < t.half) { on = t; break; }
+  }
+  player.onTile = on;
+  // The present tile at her house is never done, and needs no holding: standing on it, each $100 leaves another
+  // present at her door.
+  const gift = !on && !level.down && onPresentTile(p);
+  setTip(on ? on.tip : gift ? PRESENT.tip : binTip(p) ?? stationTip(p));
+  const forSale = !!on && !locked(on) && !on.done;
+  updBuy(forSale, dt);
+  updBins(dt);
+  if (gift) payInto(PRESENT, dt, redrawPresentTile, () => { PRESENT.paid = 0; givePresents(); save(); });
+  else if (forSale && buyHeld()) {
+    const t = on!;
+    payInto(t, dt, () => redrawTile(t), () => { applyUnlock(t.id); player.onTile = null; setTip(null); save(); });
+  }
+
+  updLook(dt);
+  player.g.rotation.y = player.h;
+  animPerson(player.g, player.moving, dt, player.back.n > 0);
+  footsteps();
+  player.back.layout(player.h);
+}
+
+/** Up in the world: fishing, the pile, the rice. */
+function upstairsWork(p: Vector3, dt: number) {
   // catch fish on the pad
   const onPad = d2xz(p, PAD) < PAD.r * PAD.r;
   player.tCatch -= dt;
@@ -130,61 +203,14 @@ export function updPlayer(dt: number) {
     }
     harvestNear(p, player.back, dt);
   }
-
-  // drop fish at the counters, or fish and rice off for the chefs
-  player.tDrop -= dt;
-  for (const s of drops()) {
-    if (d2xz(p, s.pos) >= s.r * s.r) continue;
-    while (player.tDrop <= 0 && s.stock.hasRoom() && player.back.count(s.kind)) {
-      player.tDrop += 0.06;
-      s.stock.receive(player.back.takeKind(s.kind)!, 0.25, 0.8);
-      put();
-    }
-  }
-  if (player.tDrop < 0) player.tDrop = 0;
-  // collect cash
-  for (const s of cashSpots()) {
-    if (d2xz(p, s.pos) >= 1.5 * 1.5) continue;
-    player.tCash -= dt;
-    while (player.tCash <= 0 && s.cash.items.length) {
-      player.tCash += 0.025;
-      const b = s.cash.take()!, v = billValue(b);
-      wallet.inFlight += v;
-      fly(b, () => V(p.x, p.y + 0.75, p.z), 0.22, 0.6, () => { scene.remove(b); wallet.inFlight -= v; addMoney(v); coin(); coinsFx(V(p.x, p.y + 1.1, p.z)); });
-    }
-    if (player.tCash < 0) player.tCash = 0;
-  }
-
-  // unlock tiles
-  let on: Tile | null = null;
-  for (const t of visibleTiles()) {
-    if (Math.abs(p.x - t.x) < t.half && Math.abs(p.z - t.z) < t.half) { on = t; break; }
-  }
-  player.onTile = on;
-  // The present tile at her house is never done, and needs no holding: standing on it, each $100 leaves another
-  // present at her door.
-  const gift = !on && onPresentTile(p);
-  setTip(on ? on.tip : gift ? PRESENT.tip : (sushi.built && STATION_TIPS.find(s => d2xz(p, s.pos) < s.r * s.r)?.tip) || null);
-  const forSale = !!on && !locked(on) && !on.done;
-  updBuy(forSale, dt);
-  if (gift) payInto(PRESENT, dt, redrawPresentTile, () => { PRESENT.paid = 0; givePresents(); save(); });
-  else if (forSale && buyHeld()) {
-    const t = on!;
-    payInto(t, dt, () => redrawTile(t), () => { applyUnlock(t.id); player.onTile = null; setTip(null); save(); });
-  }
-
-  updLook(dt);
-  player.g.rotation.y = player.h;
-  animPerson(player.g, player.moving, dt, player.back.n > 0);
-  footsteps();
-  player.back.layout(player.h);
 }
 
 /** A footstep each time a foot comes down: on boards (at deck height), or on the ground in its season. */
 let stepsTaken = 0;
 function footsteps() {
   const n = player.moving ? Math.floor(player.g.phase / Math.PI) : 0;
-  if (n > stepsTaken) step(Math.abs(player.g.position.y - FY) < 0.05 || onHarbor(player.g.position) ? 'wood' : current());
+  // boards (and the harbor's), or the cellar's packed earth (which sounds much the same), or the ground in its season
+  if (n > stepsTaken) step(level.down || Math.abs(player.g.position.y - FY) < 0.05 || onHarbor(player.g.position) ? 'wood' : current());
   stepsTaken = n;
 }
 

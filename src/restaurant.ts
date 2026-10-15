@@ -21,7 +21,8 @@ import { detail, pack, quietly, rbox } from './kit';
 import { steamer } from './fx';
 import { inHall, pushOutOfBox, stage } from './layout';
 import { beltSlat, chefBoard, kitchenLine, pleatToque, registerDesk, stool as roundStool, sushiBar } from './propsKitchen';
-import { addReview, demand, starsFor } from './rating';
+import { demand, starsFor } from './rating';
+import { frontReview, toTill } from './front';
 import { clink, review, till } from './sfx';
 import { canvasTex, G, mat, mesh, painted, scene, type CanvasTex } from './render';
 import { pile } from './stations';
@@ -548,8 +549,10 @@ function finishPlate(d: Diner) {
   return true;
 }
 
-/** Bills for each plate fly from the diner to the register. */
-function payBills(values: number[], from: Vector3) {
+/** Bills for each plate fly from the diner to the register (in stage 3, only what Mr. Fugu's rent leaves of them). */
+function payBills(all: number[], from: Vector3) {
+  const values = toTill(all);
+  if (!values.length) return;
   const at = from.clone(); at.y = 1.3;
   values.forEach((v, i) => {
     const b = newBill(v); b.position.copy(at);
@@ -567,7 +570,7 @@ function payBills(values: number[], from: Vector3) {
 function leave(d: Diner, stars: number) {
   d.state = 'leave'; d.seat.diner = null; d.bubble.visible = false;
   if (d.bill.length) payBills(d.bill, d.g.position);
-  addReview(stars); popStars(stars, d.g.position); review(stars, d.g.position);
+  frontReview(stars); popStars(stars, d.g.position); review(stars, d.g.position);
   d.stack.forEach(p => scene.remove(p));
   d.stack = []; d.bill = [];
   const out = d.seat.garden ? [] : [ENTRANCE.clone(), GATE.clone()];
@@ -659,9 +662,9 @@ export function openRestaurant(silent: boolean): Object3D[] {
   return built;
 }
 
-/** Takes over what the stage 1 counters had left: steaks go to the fish tray (or the pile), cash to the register. */
-export function handOver(left: { steaks: Mesh[]; bills: Mesh[] }) {
-  for (const m of left.steaks) (fishTray.hasRoom() ? fishTray : pile).receive(m, 0.6, 1.6);
+/** Takes over what the stage 1 counters had left: fillets go to the fish tray (or the pile), cash to the register. */
+export function handOver(left: { fillets: Mesh[]; bills: Mesh[] }) {
+  for (const m of left.fillets) (fishTray.hasRoom() ? fishTray : pile).receive(m, 0.6, 1.6);
   for (const b of left.bills) register.receive(b, 0.7, 1.6);
 }
 

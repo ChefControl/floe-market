@@ -71,6 +71,30 @@ describe('HUD', () => {
     expect(cam.view?.enabled).toBe(false);
   });
 
+  it("leaves the player be beside a still panel (the crafting bench's menu), but puts a spotlight in the middle of what it leaves", async () => {
+    const g = await loadGame(); // a 1024x768 window
+    const cam = g.render.camera, shop = $('shop');
+    const settle = (away = 0) => { for (let i = 0; i < 60; i++) g.ui.keepInSight(0.05, away); };
+    shop.hidden = false;
+    shop.dataset.still = '1';
+    // docked down the right-hand side on a computer: the view stays put for the player
+    const at = vi.spyOn(shop, 'getBoundingClientRect').mockReturnValue({ left: 600, right: 1008, top: 76 } as DOMRect);
+    settle();
+    expect(cam.view?.enabled ?? false).toBe(false);
+    // something new in the spotlight: in the middle of the space to the panel's left
+    settle(1);
+    expect([cam.view!.offsetX, cam.view!.offsetY]).toEqual([expect.closeTo(1024 / 2 - 600 / 2), 0]);
+    // along the bottom, on a phone: in the middle of the space over it, under the HUD
+    at.mockReturnValue({ left: 0, right: 1024, top: 500 } as DOMRect);
+    settle(1);
+    const hud = g.ui.topOfView(768);
+    expect([cam.view!.offsetX, cam.view!.offsetY]).toEqual([expect.closeTo(0), expect.closeTo(768 / 2 - (hud + 500) / 2)]);
+    settle(); // back on the player: put again
+    expect(cam.view?.enabled).toBe(false);
+    shop.hidden = true;
+    delete shop.dataset.still;
+  });
+
   it('shows toasts briefly', async () => {
     const g = await loadGame();
     vi.useFakeTimers();
@@ -168,6 +192,7 @@ describe('how to walk', () => {
     hint.initHint();
     expect($('hint').hidden).toBe(false);
     expect($('hint').textContent).toContain('WASD');
+    expect($('hint').textContent).toContain('To throw away what you carry, stand at a bin and press E');
     hint.updHint(5, false);
     expect($('hint').hidden).toBe(false); // waits for the player to walk
     hint.updHint(0.7, true); hint.updHint(0.7, true);
@@ -190,7 +215,7 @@ describe('how to walk', () => {
     vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue(IPHONE);
     await loadGame();
     (await import('../src/hint')).initHint();
-    expect($('hint').textContent).toBe('Drag anywhere to walkTo buy, stand on a tile and hold Buy');
+    expect($('hint').textContent).toBe('Drag anywhere to walkTo buy, stand on a tile and hold BuyTo throw away what you carry, stand at a bin and tap Toss');
     expect($('hint').querySelector('.stick')).not.toBeNull();
   });
 

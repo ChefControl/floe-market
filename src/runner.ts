@@ -5,7 +5,7 @@ import { animPerson, moveEnt, Person, type Walker } from './characters';
 import { C1, COUNTERS, SLED } from './counters';
 import { boost } from './economy';
 import { carrySlot, Holder } from './holder';
-import { newSteak } from './items';
+import { newFillet } from './items';
 import { scene } from './render';
 import { FISH_DROP, fishTray, sushi } from './restaurant';
 import { PILE_STAND, pile } from './stations';
@@ -37,7 +37,7 @@ const besideSled = (r: Runner, at: XZ) => V(at.x, FY, at.z + SIDE[r.i]);
 /** Where a runner stands to unload at the kitchen line, just north of the fish drop-off. */
 const tray = (r: Runner): Target => ({ pos: beside(r, V(FISH_DROP.x, FY, FISH_DROP.z - 0.1)), stock: fishTray, h: 0 });
 
-/** The kitchen line once the restaurant is open; otherwise the open counter with the fewest steaks. */
+/** The kitchen line once the restaurant is open; otherwise the open counter with the fewest fillets. */
 function pickTarget(r: Runner): Target {
   if (sushi.built) return tray(r);
   const C = COUNTERS.filter(c => c.enabled && c.dropPos).sort((a, b) => a.stock.n - b.stock.n)[0] ?? C1;
@@ -69,7 +69,7 @@ export function retireRunners(): Person[] {
   for (const r of gone) {
     for (const m of r.back.all()) {
       scene.remove(m);
-      if (pile.hasRoom()) pile.put(newSteak());
+      if (pile.hasRoom()) pile.put(newFillet());
     }
     r.back.items.length = 0;
     r.back.inbound.length = 0;

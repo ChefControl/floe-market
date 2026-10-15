@@ -137,9 +137,9 @@ describe('her house', () => {
     expect(moved / after.length).toBeLessThan(0.05); // only those that wrapped round to the far side
   });
 
-  it('leaves the hands alone while carrying steaks', async () => {
+  it('leaves the hands alone while carrying fillets', async () => {
     const { g, toPad } = await house();
-    g.stations.pile.put(g.items.newSteak());
+    g.stations.pile.put(g.items.newFillet());
     g.player.back.put(g.stations.pile.take()!);
     toPad();
     g.run(1);

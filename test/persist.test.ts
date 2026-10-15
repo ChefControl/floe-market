@@ -13,7 +13,7 @@ describe('saving progress', () => {
       cash: 30, boxes: 2, tcash: 18, field: 3,
     });
     g1.saveMod.save();
-    expect(stored().v).toBe(4);
+    expect(stored().v).toBe(6);
 
     const g2 = await loadGame(localStorage.getItem(KEY)!);
     const { restaurant: r, counters: { TAKEOUT } } = g2;
@@ -45,13 +45,13 @@ describe('saving progress', () => {
     expect(g2.cashAt(g2.counters.SLED)).toBe(18);
   });
 
-  it("puts the sled window's steaks and cash somewhere if it isn't open", async () => {
+  it("puts the sled window's fillets and cash somewhere if it isn't open", async () => {
     const g = await loadGame({ money: 1, c2: 4, c2c: 18 });
     expect(g.wallet.money).toBe(19);
     expect(g.stations.pile.items).toHaveLength(4);
   });
 
-  it("counts the closed counter's last steaks and cash toward the restaurant", async () => {
+  it("counts the closed counter's last fillets and cash toward the restaurant", async () => {
     const g = await loadGame({ c1: 2 });
     const { C1 } = g.counters;
     g.runUntil(() => (C1.queue[0]?.hands.n ?? 0) > 0);
@@ -125,7 +125,7 @@ describe('loading', () => {
   it('sanitises saves', async () => {
     const { saveMod } = await loadGame();
     const s = saveMod.migrate({ v: 4, money: '12', tiles: [{ id: 'pack', paid: 25, done: true }, null], pile: -3, reviews: [5, '4', 9, null] });
-    expect(s).toMatchObject({ v: 4, money: 12, pile: 0, back: 0, reviews: [5, 4], tiles: [{ id: 'pack', paid: 25, done: true, open: false }] });
+    expect(s).toMatchObject({ v: 6, money: 12, pile: 0, back: 0, reviews: [5, 4], tiles: [{ id: 'pack', paid: 25, done: true, open: false }] });
     expect(() => saveMod.migrate('nope')).toThrow();
     expect(() => saveMod.migrate([])).toThrow();
   });
@@ -141,7 +141,7 @@ describe('loading', () => {
     };
     const s = saveMod.migrate(old);
     expect(s).toMatchObject({
-      v: 4, money: 100 + 300, pile: 4, back: 2, backRice: 0, c1: 0, c1c: 0, c2: 0, c2c: 0, fish: 5 + 3 + 6, rice: 6,
+      v: 6, money: 100 + 300, pile: 4, back: 2, backRice: 0, c1: 0, c1c: 0, c2: 0, c2c: 0, fish: 5 + 3 + 6, rice: 6,
       plates: 7, cash: 24 + 12 + 18, boxes: 0, tcash: 0, field: 0, reviews: [5, 5],
     });
     expect(s.tiles.map(t => t.id)).toEqual([...MARKET, 'sushi', 'seats']);
@@ -165,7 +165,7 @@ describe('loading', () => {
       tiles: [...bought('pack', 'runner'), { id: 'sushi', paid: 1200, done: true }, { id: 'seats', paid: 300, done: false }],
     };
     expect(saveMod.migrate(old)).toMatchObject({
-      v: 4, money: 3 + 1200 + 300 + 10 + 2 * 12, pile: 4 + 3, c1: 2, c1c: 5, c2: 1, c2c: 6, fish: 0, rice: 0, plates: 0, cash: 0,
+      v: 6, money: 3 + 1200 + 300 + 10 + 2 * 12, pile: 4 + 3, c1: 2, c1c: 5, c2: 1, c2c: 6, fish: 0, rice: 0, plates: 0, cash: 0,
       tiles: [{ id: 'pack' }, { id: 'runner' }],
     });
     // v1 and v2 saves were only ever the market
@@ -188,7 +188,7 @@ describe('loading', () => {
     const g = await loadGame('{broken');
     expect(localStorage.getItem('floe-market-backup')).toBe('{broken');
     g.saveMod.save();
-    expect(stored().v).toBe(4);
+    expect(stored().v).toBe(6);
     expect(localStorage.getItem('floe-market-backup')).toBe('{broken');
   });
 

@@ -1,7 +1,9 @@
 // Situations a player could get stuck in for good, and the ways out the game guarantees.
 import { describe, expect, it } from 'vitest';
-import { play } from './bot';
-import { bought, loadGame } from './helpers';
+import { play, ringModules } from './bot';
+import { bought, FLOE_SUSHI, loadGame, MARKET } from './helpers';
+
+const SUSHI = [...MARKET, 'sushi', ...FLOE_SUSHI];
 
 /** Walks the player through the rice patch, clump by clump. */
 function wade(g: Awaited<ReturnType<typeof loadGame>>) {
@@ -65,6 +67,14 @@ describe('no way to get stuck', () => {
     const g = await loadGame({ tiles: bought('pack', 'turret', 'runner', 'net', 'sushi') });
     const { earned } = play(g, 4 * 60);
     expect(earned).toBeGreaterThan(500);
+  });
+
+  it('a player broke after buying into the ring earns their way back: the rack, the barrel and the pot are enough', async () => {
+    const g = await loadGame({ tiles: bought(...SUSHI, 'dohyo'), fugu: 2, level: 1 });
+    expect(g.wallet.money).toBe(0);
+    // by hand alone, with nothing bought: rice and fish through the machines, the pot, and bowls out to the fans
+    const { earned } = play(g, 4 * 60, 0.05, await ringModules());
+    expect(earned).toBeGreaterThanOrEqual(10_000); // the first rack's price, ten chips
   });
 
   it('a whole game never stalls: something new is bought at least every six minutes', async () => {

@@ -237,6 +237,19 @@ function brokenHeart(c: Ctx) {
   }
 }
 
+/** 🍳 The cookware shop's square: a black frying pan at a slant, its wooden handle, an egg frying in it. */
+function pan(c: Ctx) {
+  c.save(); c.rotate(-Math.PI / 7);
+  solid(c, WOOD, () => box(c, 22, -7, 32, 14, 6));
+  flat(c, DARK_WOOD, () => c.rect(46, -7, 4, 14));
+  solid(c, '#3A3D44', () => dot(c, -8, 0, 34));
+  flat(c, '#24262B', () => dot(c, -8, 0, 26));
+  solid(c, CREAM, () => { c.moveTo(-26, -2); c.bezierCurveTo(-28, -20, -4, -22, 4, -12); c.bezierCurveTo(14, -2, 6, 16, -10, 14); c.bezierCurveTo(-24, 14, -24, 8, -26, -2); c.closePath(); });
+  solid(c, GOLD, () => dot(c, -9, -3, 8));
+  flat(c, 'rgba(255,255,255,.7)', () => dot(c, -12, -6, 2.5));
+  c.restore();
+}
+
 /** 📈 The upgrade square: rising bars, and a green arrow climbing over them. */
 function upgrade(c: Ctx) {
   [[-40, 18], [-14, 32], [12, 48]].forEach(([x, h]) => solid(c, SKY, () => box(c, x, 40 - h, 20, h, 4)));
@@ -562,6 +575,49 @@ function puffer(c: Ctx) {
   line(c, INK, 3, () => dot(c, 27, 6, 3));
 }
 
+/**
+ * Mr. Fugu meaning business, for the tile that buys into his ring (the menu's 🐡 is the dish): puffed up, his spines
+ * out, under his fedora, behind shades set in a glare, a scar down over one eye, and a scowl with a gold tooth and his
+ * toothpick in the corner of it.
+ */
+function mrFugu(c: Ctx) {
+  const FISH = '#E3B448', HAT = '#2E2B33', SHADES = '#15181D', SCAR = '#B5364A', cy = 10;
+  // spines all round, long and sharp, the ones on top hidden under the hat
+  solid(c, '#F6E7B4', () => {
+    for (let i = 0; i < 18; i++) {
+      const a = (i / 18) * TAU + 0.17, b = 0.13;
+      if (Math.sin(a) < -0.55) continue;
+      c.moveTo(Math.cos(a - b) * 27, cy + Math.sin(a - b) * 27);
+      c.lineTo(Math.cos(a) * 41, cy + Math.sin(a) * 41);
+      c.lineTo(Math.cos(a + b) * 27, cy + Math.sin(a + b) * 27);
+    }
+  });
+  solid(c, FISH, () => dot(c, 0, cy, 30));
+  flat(c, '#FFF4D6', () => oval(c, 0, cy + 21, 19, 8));
+  flat(c, '#B07A3A', () => { dot(c, -21, cy + 8, 3); dot(c, -15, cy + 15, 2.5); dot(c, 22, cy + 13, 2.5); });
+  // the scar, from the brow to the cheek, stitched; the shades go over the middle of it
+  line(c, SCAR, 4, () => { c.moveTo(9, -9); c.lineTo(23, 22); });
+  line(c, SCAR, 2.5, () => { for (const k of [0.25, 0.55, 0.85]) { const x = 9 + 14 * k, y = -9 + 31 * k; c.moveTo(x - 4, y + 2); c.lineTo(x + 4, y - 2); } });
+  // the shades, their tops slanting down to the middle: a glare
+  for (const s of [-1, 1]) {
+    solid(c, SHADES, () => poly(c, s * 28, -3, s * 4, 4, s * 5, 13, s * 25, 11));
+    line(c, 'rgba(255,255,255,.55)', 2.5, () => { c.moveTo(s * 22, 1); c.lineTo(s * 15, 3); });
+  }
+  bar(c, SHADES, 3, () => { c.moveTo(-4, 5); c.lineTo(4, 5); });
+  // the scowl, a gold tooth under it, and the toothpick
+  solid(c, '#F2C14E', () => box(c, -9, 30, 6, 6, 1.5));
+  line(c, INK, 5, () => { c.moveTo(-14, 33); c.quadraticCurveTo(0, 24, 14, 32); });
+  bar(c, '#E3C26B', 2.5, () => { c.moveTo(12, 32); c.lineTo(31, 24); });
+  // the fedora, tipped a little: its brim, its pinched crown, and its red band
+  c.save(); c.translate(0, -16); c.rotate(-0.12);
+  solid(c, HAT, () => oval(c, 0, 0, 43, 7));
+  const crown = () => { c.moveTo(-24, 0); c.lineTo(-20, -27); c.quadraticCurveTo(-10, -34, 0, -27); c.quadraticCurveTo(10, -34, 20, -27); c.lineTo(24, 0); c.closePath(); };
+  solid(c, HAT, crown);
+  inside(c, crown, () => flat(c, '#A8322D', () => c.rect(-30, -9, 60, 7)));
+  c.beginPath(); crown(); c.stroke();
+  c.restore();
+}
+
 /** 🍥 A slice of naruto: a scalloped white fishcake with its pink swirl. */
 function naruto(c: Ctx) {
   solid(c, CREAM, () => {
@@ -612,16 +668,40 @@ function sake(c: Ctx) {
   solid(c, '#E3EAF0', () => oval(c, 27, 20, 13, 3.5));
 }
 
+/** 🍲 Chanko: an iron pot of orange stew, with a bit of fish, a slice of carrot and greens, and steam over it. */
+function chanko(c: Ctx) {
+  line(c, STEEL, 4, () => {
+    c.moveTo(-12, -24); c.quadraticCurveTo(-20, -32, -12, -40); c.quadraticCurveTo(-4, -46, -10, -52);
+    c.moveTo(10, -24); c.quadraticCurveTo(2, -32, 10, -40);
+  });
+  bar(c, '#3A3A40', 6, () => { c.moveTo(-44, -6); c.lineTo(-34, -6); c.moveTo(34, -6); c.lineTo(44, -6); });
+  solid(c, '#4A4A52', () => { c.moveTo(-38, -10); c.lineTo(38, -10); c.lineTo(32, 26); c.quadraticCurveTo(0, 40, -32, 26); c.closePath(); });
+  flat(c, '#6A6A74', () => c.rect(-36, 4, 72, 5));
+  solid(c, '#E8873A', () => oval(c, 0, -10, 38, 10));
+  flat(c, CREAM, () => oval(c, -14, -11, 9, 4));
+  flat(c, '#F2A65A', () => dot(c, 10, -9, 5));
+  flat(c, GREEN, () => oval(c, 2, -14, 7, 3, 0.4));
+}
+
+/** 🍄 A mushroom: a round brown cap with pale spots on a thick cream stalk. */
+function mushroom(c: Ctx) {
+  solid(c, CREAM, () => box(c, -12, -6, 24, 40, 8));
+  solid(c, '#9C6A3E', () => { c.moveTo(-40, 0); c.quadraticCurveTo(-40, -42, 0, -42); c.quadraticCurveTo(40, -42, 40, 0); c.closePath(); });
+  flat(c, '#E8D6B8', () => { dot(c, -16, -22, 6); dot(c, 12, -28, 5); dot(c, 22, -12, 4); });
+}
+
 /** Every drawing, by the emoji it stands in for. */
 const DRAWINGS: Record<string, Drawing> = {
   '🎣': rod, '🐟': fish, '🍚': rice, '🚗': car, '🎰': roulette, '🛴': scooter, '💔': brokenHeart,
-  '📈': upgrade, '🌿': sprig,
+  '📈': upgrade, '🍳': pan, '🌿': sprig,
   '🎒': backpack, '🎯': target, '🏃': runner, '🥾': boot, '🥅': net, '🏯': torii,
   '🌾': sheaf, '🪑': stool, '🔪': knife, '🧑‍🌾': farmer, '🧺': basket, '🌱': seedling, '⛱️': parasol, '⛱': parasol,
   '🥡': takeout, '🏮': lantern, '🎁': present, '🔒': lock,
   '😐': meh, '😠': angry, '😭': sob,
   '🍤': tempura, '🍙': onigiri, '🦐': prawn, '🐙': octopus, '🦑': squid, '🦀': crab, '🍱': bento, '🐡': puffer,
-  '🍥': naruto, '🍢': oden, '🍵': tea, '🍶': sake,
+  '🍥': naruto, '🍢': oden, '🍵': tea, '🍶': sake, '🍲': chanko, '🍄': mushroom,
+  // (a drawing of its own, with no emoji: the buy-in tile's, unlocks.ts' `art`)
+  'mrFugu': mrFugu,
 };
 /** The emoji that have a drawing (the contact sheet goes through them all). */
 export const DRAWN = Object.keys(DRAWINGS);

@@ -17,7 +17,8 @@ export interface Player extends Walker {
   onTile: Tile | null;
   /** Booped off the road by a driver: hopping from (x0, z0) to (x1, z1), `t` 0 to 1 of the way. */
   booped: { x0: number; z0: number; x1: number; z1: number; t: number } | null;
-  /** In a scene that moves them itself (a cry in the casino's restroom): what's pressed doesn't move them. */
+  /** In a scene that holds them still or moves them itself (Mr. Fugu's offer, up or down the cellar's ladder, a cry in
+   *  the casino's restroom): what's pressed doesn't move them. */
   held: boolean;
 }
 

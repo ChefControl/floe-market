@@ -1,5 +1,7 @@
 // DOM overlay: cash/rating HUD (what's carried shows in the player's arms), the stage chip, toasts, tile tips,
 // floating "+$" text, and the banner and confetti for the stage-up and the end of the tutorial.
+import { front } from './front';
+import { level, type StageN } from './layout';
 import { rating } from './rating';
 import { camera, slideView } from './render';
 import { amount, pick, rand, V } from './util';
@@ -7,14 +9,22 @@ import { wallet } from './wallet';
 
 const $ = (id: string) => document.getElementById(id)!;
 
-const cashN = $('cashN'), cashEl = $('cash');
-const starsN = $('starsN');
-let shownMoney = -1, shownStars = '';
+const cashN = $('cashN'), cashEl = $('cash'), cashIc = cashEl.querySelector('.ic')!;
+const starsN = $('starsN'), starsEl = $('stars');
+let shownMoney = -1, shownStars = '', shownDown: boolean | null = null;
 
 export function hud(dt: number) {
+  // down in the cellar, money's Fugu Chips ($1,000 a chip), and there's no rating
+  if (shownDown !== level.down) {
+    shownDown = level.down;
+    cashIc.textContent = level.down ? '🐡' : '$';
+    cashEl.classList.toggle('chips', level.down);
+    starsEl.hidden = level.down;
+    shownMoney = -1;
+  }
   if (shownMoney !== wallet.money) {
     shownMoney = wallet.money;
-    cashN.textContent = amount(wallet.money);
+    cashN.textContent = level.down ? amount(Math.floor(wallet.money / 1000)) : amount(wallet.money);
   }
   const st = rating().toFixed(1);
   if (st !== shownStars) {
@@ -28,13 +38,17 @@ export function hud(dt: number) {
 
 // ---------- stage ----------
 const stageEl = $('stage'), stageNum = $('stageNum'), stageName = $('stageName'), stageBar = $('stageBar'), stageCount = $('stageCount');
+/** What each stage is called, and what its chip says once its upgrades are all built. */
+const STAGE_NAMES: Record<StageN, string> = { 1: 'Fish Market', 2: 'Floe Sushi', 3: 'The Dohyo Below' };
 /** The stage chip: which stage, and how many of its upgrades are built. */
-export function showStage(n: 1 | 2, done: number, total: number) {
+export function showStage(n: StageN, done: number, total: number) {
   stageEl.classList.toggle('s2', n === 2);
+  stageEl.classList.toggle('s3', n === 3);
   stageNum.textContent = String(n);
-  stageName.textContent = n === 1 ? 'Fish Market' : 'Floe Sushi';
+  stageName.textContent = STAGE_NAMES[n];
   stageBar.style.width = Math.round(done / total * 100) + '%';
-  stageCount.textContent = done < total ? `${done}/${total}` : n === 1 ? 'Floe Sushi ready' : 'Complete';
+  const finished = n === 1 ? 'Floe Sushi ready' : n === 3 && !front.boughtOut ? 'Buyout ready' : 'Complete';
+  stageCount.textContent = done < total ? `${done}/${total}` : finished;
   stageEl.classList.toggle('ready', done >= total);
 }
 
@@ -52,7 +66,7 @@ phone?.addEventListener?.('change', () => { if (!modsPicked) showMods(!phone.mat
 stageEl.addEventListener('click', () => { modsPicked = true; showMods(modsEl.hidden !== false); });
 
 // ---------- keeping the player in sight ----------
-const panels = [$('shop'), $('roulette'), $('blackjack'), $('slots'), $('look')];
+const panels = [$('shop'), $('roulette'), $('blackjack'), $('slots'), $('look'), $('gong')];
 const slid = { x: 0, y: 0 };
 /** How far a casino game slides the view to put its table in the middle of the space its controls leave (casinoKit.ts). */
 export const tableRoom = { on: false, x: 0, y: 0 };
@@ -61,26 +75,35 @@ export const besideView = (r: DOMRect, w: number) => r.left + r.width / 2 > w * 
 /** How much of the top of the screen to leave the HUD, over a casino table. */
 export const topOfView = (h: number) => Math.min(document.getElementById('hud')?.getBoundingClientRect().bottom ?? 0, h * 0.14);
 /** Slides the view so an open panel doesn't cover the player: sideways for a panel down the right-hand side (a phone
- *  held sideways), up for one along the bottom of a short screen. Eases there and back. While the camera's on
- *  something else instead (`away` of the way: a new upgrade in the spotlight), that goes in the middle of the space the
- *  panel leaves. */
+ *  held sideways), up for one along the bottom of a short screen; one marked `data-still` (the shop counter's menu)
+ *  leaves the player where they are. Eases there and back. While the camera's on something else instead (`away` of the
+ *  way: a new upgrade in the spotlight), that goes in the middle of the space the panel leaves, a still one's too. */
 export function keepInSight(dt: number, away = 0) {
-  const w = window.innerWidth, h = window.innerHeight, open = panels.find(p => !p.hidden);
+  const w = window.innerWidth, h = window.innerHeight;
+  const open = panels.find(p => !p.hidden && (!p.dataset.still || away > 0));
   let x = 0, y = 0;
   if (open) {
-    const r = open.getBoundingClientRect();
-    // where on the screen what the camera's on goes: the player just clear of the panel, anything else in the middle
+    const r = open.getBoundingClientRect(), still = !!open.dataset.still;
+    // where on the screen what the camera's on goes: the player just clear of the panel (or, a still panel, where they
+    // are), anything else in the middle of the space it leaves
     const to = (player: number, middle: number) => player + (middle - player) * away;
     // a casino game's camera is on its table: that goes in the middle of the screen the controls leave
     if (tableRoom.on && open.classList.contains('casino')) ({ x, y } = tableRoom);
     // down the right-hand side, against its edge (not just a bottom panel centred on a wide screen)
-    else if (r.left > w * 0.25 && r.right > w - 60) x = Math.max(0, w / 2 - to(r.left - 50, r.left / 2));
-    else y = Math.max(0, h / 2 - to(r.top - 70, (topOfView(h) + r.top) / 2));
+    else if (r.left > w * 0.25 && r.right > w - 60) x = Math.max(0, w / 2 - to(still ? w / 2 : r.left - 50, r.left / 2));
+    else y = Math.max(0, h / 2 - to(still ? h / 2 : r.top - 70, (topOfView(h) + r.top) / 2));
   }
   const k = Math.min(1, dt * 8);
   slid.x += (x - slid.x) * k;
   slid.y += (y - slid.y) * k;
   slideView(slid.x, slid.y);
+}
+
+const fadeEl = $('fade');
+/** Darkens the screen (going up or down the ladder), or lets it come back, `slow`ly for the stage-up. */
+export function fade(on: boolean, slow = false) {
+  fadeEl.classList.toggle('slow', slow);
+  fadeEl.classList.toggle('on', on);
 }
 
 const bannerEl = $('banner');

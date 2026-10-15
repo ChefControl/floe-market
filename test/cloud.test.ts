@@ -5,7 +5,7 @@ import { bought, loadGame, MARKET, type SaveFixture } from './helpers';
 
 const h = vi.hoisted(() => {
   type User = { uid: string; name: string } | null;
-  type Score = { uid: string; name: string; best: number; stage: 1 | 2 };
+  type Score = { uid: string; name: string; best: number; stage: 1 | 2 | 3 };
   const fake = {
     signedIn: false,
     user: { uid: 'u1', name: 'Pat Smith' },
@@ -33,7 +33,7 @@ const h = vi.hoisted(() => {
       if (fake.offline) throw new Error('offline');
       fake.scoreWrites++;
       const was = fake.scores.get(s.uid);
-      fake.scores.set(s.uid, { ...s, best: Math.max(s.best, was?.best ?? 0), stage: Math.max(s.stage, was?.stage ?? 1) as 1 | 2 });
+      fake.scores.set(s.uid, { ...s, best: Math.max(s.best, was?.best ?? 0), stage: Math.max(s.stage, was?.stage ?? 1) as 1 | 2 | 3 });
     },
     async topScores(n: number) {
       if (fake.offline || fake.boardDown) throw new Error('offline');
@@ -345,6 +345,14 @@ describe('the scoreboard', () => {
     h.config.apiKey = '';
     await board();
     expect($('board').hidden).toBe(true);
+  });
+
+  it('knows a stage 3 game: the ring under the dock', async () => {
+    await board({ money: 300, tiles: bought(...MARKET, 'sushi', 'dohyo') });
+    $('cloud').click();
+    await vi.waitFor(() => expect(fake.scores.get('u1')?.stage).toBe(3));
+    $('board').click();
+    await vi.waitFor(() => expect($('scoresList').querySelector('.stage')?.getAttribute('title')).toBe('The Dohyo Below'));
   });
 
   it('a signed-in player goes on it as the game syncs: full name, best cash and stage', async () => {

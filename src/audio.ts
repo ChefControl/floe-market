@@ -1,18 +1,28 @@
-// The game's sound engine. Everything is synthesised in the browser with the Web Audio API, from a few oscillators and
-// a few seconds of noise, so sound costs a few kilobytes of code and almost nothing to download: the one exception is
-// the casino yacht's room tone (roomTone.ts), three real recordings fetched the first time you walk out to it. It's voiced to suit the
+// The game's sound engine. Nearly everything is synthesised in the browser with the Web Audio API, from a few
+// oscillators and a few seconds of noise, so sound costs a few kilobytes of code. The exceptions are recordings of
+// people, which synthesis never makes convincing: the sumo ring's crowd (public/sounds, about 620 KB), loaded once
+// sound starts, with a synthesised crowd until they're in; and the casino yacht's room tone (roomTone.ts), three
+// recordings fetched the first time you walk out to it. It's voiced to suit the
 // low-poly look: simple, rounded waveforms and short soft envelopes, like a box of toy instruments. Every pitched
 // effect is on the major pentatonic scale of the music's key, so effects ring along with the music (and with each
 // other) instead of clashing.
 //
 // Browsers only let a page make sound after a tap or a key press, so nothing starts before one. The sound effects
 // (sfx.ts), the ambient bed (ambience.ts) and the music (music.ts) each have their own bus, with its own volume and
-// mute in the settings menu, per device. Each bus goes on through a guard that lets only real samples through (see
-// guard), so a filter that blows up can't silence the whole game.
+// mute in the settings menu, per device. Each bus (and a scene's own sound, see Out) goes on through a guard that lets
+// only real samples through (see guard), so a filter that blows up can't silence the whole game.
+import { CELLAR_Y } from './layout';
 import { CAM_YAW } from './render';
 import type { XZ } from './util';
 
 export type Bus = 'sfx' | 'amb' | 'music';
+/**
+ * Where a voice goes: a bus, or a scene's own sound (Mr. Fugu's), which carries on while the world goes quiet for it
+ * (see hushWorld): `cue`, its effects, at the effects' volume and mute, and `scene`, its music, at the music's.
+ */
+export type Out = Bus | 'cue' | 'scene';
+/** Which setting each output follows. */
+const SETTING: Record<Out, Bus> = { sfx: 'sfx', amb: 'amb', music: 'music', cue: 'sfx', scene: 'music' };
 
 // ---------- settings ----------
 const PREFS = 'floe-market-sound';
@@ -58,6 +68,9 @@ export function setMute(b: Bus, on: boolean) {
 }
 /** What a bus's gain is, for its level and mute. */
 const busLevel = (b: Bus) => (prefs.mute[b] ? 0 : LEVEL[b] * gainOf(prefs.level[b]));
+/** A scene has the stage: the world's effects and ambience are silent (the music makes room by itself, music.ts). */
+let hushed = false;
+const worldLevel = (b: Bus) => (hushed ? 0 : busLevel(b));
 
 // ---------- randomness ----------
 let seed = 0x2F6B4A1D;
@@ -74,7 +87,7 @@ export const between = (a: number, b: number) => a + (b - a) * rnd();
 // ---------- the context ----------
 export let ac: AudioContext | null = null;
 /** Where each kind of sound goes: every voice connects to its bus. */
-export const buses = {} as Record<Bus, GainNode>;
+export const buses = {} as Record<Out, GainNode>;
 let master: GainNode, musicVol: GainNode;
 /** Seconds of white noise, the raw material of every hiss, splash, swish and shaker. */
 let noiseBuf: AudioBuffer;
@@ -108,8 +121,12 @@ function wake() {
   musicVol = ac.createGain(); musicVol.connect(master);
   for (const b of BUSES) {
     const g = buses[b] = ac.createGain();
-    g.gain.value = b === 'music' ? 1 : busLevel(b);
+    g.gain.value = b === 'music' ? 1 : worldLevel(b);
   }
+  buses.cue = ac.createGain();
+  buses.cue.gain.value = busLevel('sfx');
+  // like the music's own bus, at full: the music's volume (musicVol) sets its level
+  buses.scene = ac.createGain();
   guard(ac);
   noiseBuf = ac.createBuffer(1, ac.sampleRate * NOISE_SECS, ac.sampleRate);
   const d = noiseBuf.getChannelData(0);
@@ -136,12 +153,21 @@ document.addEventListener('visibilitychange', () => {
 function level() {
   if (!ac) return;
   musicVol.gain.setTargetAtTime(busLevel('music'), ac.currentTime, 0.1);
-  for (const b of ['sfx', 'amb'] as Bus[]) buses[b].gain.setTargetAtTime(busLevel(b), ac.currentTime, 0.05);
+  for (const b of ['sfx', 'amb'] as Bus[]) buses[b].gain.setTargetAtTime(worldLevel(b), ac.currentTime, 0.05);
+  buses.cue.gain.setTargetAtTime(busLevel('sfx'), ac.currentTime, 0.05);
+}
+
+/** Quiets the world's effects and ambience for a scene (on), or brings them back (off). */
+export function hushWorld(on: boolean) {
+  if (hushed === on) return;
+  hushed = on;
+  if (!ac) return;
+  for (const b of ['sfx', 'amb'] as Bus[]) buses[b].gain.setTargetAtTime(worldLevel(b), ac.currentTime, on ? 0.1 : 0.4);
 }
 
 // ---------- the guard ----------
 /**
- * What each bus goes through on its way to the mix: an audio worklet that lets through only real samples. A filter that
+ * What each output goes through on its way to the mix: an audio worklet that lets through only real samples. A filter that
  * goes unstable rings louder and louder at its own pitch (a horn, say) till its numbers run out, Infinity then NaN, and
  * it stays NaN. One NaN into the shared compressor leaves that NaN for good too, and the whole game silent. The guard
  * turns such samples, and any runaway level, into silence, and says so (at most once a second), so the bus's endless
@@ -163,24 +189,27 @@ export const GUARD = `registerProcessor('guard', class extends AudioWorkletProce
     return true;
   }
 });`;
-/** Connects each bus on to the mix through its guard; straight on where there are no worklets (an old browser). */
+/** Every output, each with a guard of its own: the three buses, and a scene's effects and music. */
+const OUTS: Out[] = [...BUSES, 'cue', 'scene'];
+/** Connects each output on to the mix through its guard; straight on where there are no worklets (an old browser). */
 function guard(c: AudioContext) {
-  const to = (b: Bus) => b === 'music' ? musicVol : master;
-  const straight = () => BUSES.forEach(b => buses[b].connect(to(b)));
+  // (the music and a scene's music through the music's volume, the rest straight into the mix)
+  const to = (b: Out) => b === 'music' || b === 'scene' ? musicVol : master;
+  const straight = () => OUTS.forEach(b => buses[b].connect(to(b)));
   if (!c.audioWorklet) { straight(); return; }
   c.audioWorklet.addModule(URL.createObjectURL(new Blob([GUARD], { type: 'text/javascript' }))).then(() => {
-    for (const b of BUSES) {
+    for (const b of OUTS) {
       const n = new AudioWorkletNode(c, 'guard', { outputChannelCount: [2] });
       n.port.onmessage = () => broken(b);
       buses[b].connect(n); n.connect(to(b));
     }
   }, straight);
 }
-const fixes: ((bus: Bus) => void)[] = [];
-/** Runs `f` with the bus whenever its guard finds something gone wrong on it, to build its endless sounds again. */
-export function onBroken(f: (bus: Bus) => void) { fixes.push(f); }
+const fixes: ((bus: Out) => void)[] = [];
+/** Runs `f` with the output whenever its guard finds something gone wrong on it, to build its endless sounds again. */
+export function onBroken(f: (bus: Out) => void) { fixes.push(f); }
 /** Something on `bus` has gone wrong (NaN, or a runaway level): its guard has silenced it; build it again. */
-export function broken(bus: Bus) { fixes.forEach(f => f(bus)); }
+export function broken(bus: Out) { fixes.forEach(f => f(bus)); }
 
 /** Fades the music down (0) or back up (1): under the songs, and for the stage-up's fanfare. */
 export function duck(k: number, secs: number) {
@@ -188,12 +217,14 @@ export function duck(k: number, secs: number) {
 }
 
 // ---------- where sounds come from ----------
-/** Where the ears are (the player), and the game's clock for sound; both kept by updAudio. */
-export const ear = { x: 0, z: 0 };
+/** Where the ears are (the player, and whether down in the cellar), and the game's clock for sound; kept by updAudio. */
+export const ear = { x: 0, z: 0, down: false };
 export let clock = 0;
-export function updAudio(dt: number, at: XZ) {
+/** Whether a place is down in the cellar (stage 3), under the dock: anywhere without a height is up in the world. */
+const below = (p: XZ & { y?: number }) => (p.y ?? 0) < CELLAR_Y / 2;
+export function updAudio(dt: number, at: XZ & { y?: number }) {
   clock += dt;
-  ear.x = at.x; ear.z = at.z;
+  ear.x = at.x; ear.z = at.z; ear.down = below(at);
 }
 
 /** The screen's right, along the ground: things to the player's right on screen sound from the right. */
@@ -202,26 +233,34 @@ const RIGHT = { x: Math.cos(CAM_YAW), z: -Math.sin(CAM_YAW) };
 const NEAR = 7, FAR = 26;
 /** How far left or right on screen `at` is from the player, as a pan (-0.8 to 0.8). */
 export const panOf = (at: XZ) => Math.max(-0.8, Math.min(0.8, ((at.x - ear.x) * RIGHT.x + (at.z - ear.z) * RIGHT.z) / 10));
-function place(at?: XZ) {
+function place(at?: XZ, through = false, flat = false) {
   if (!at) return { v: 1, pan: 0 };
+  // the world above and the cellar don't hear each other
+  if (!through && below(at) !== ear.down) return null;
   const d = Math.hypot(at.x - ear.x, at.z - ear.z);
   if (d > FAR) return null;
-  return { v: 1 / (1 + (d / NEAR) ** 2), pan: panOf(at) };
+  return { v: flat ? 1 : 1 / (1 + (d / NEAR) ** 2), pan: panOf(at) };
 }
 
 // ---------- voices ----------
 export interface Voice {
   /** Seconds from now. */
   t?: number;
-  /** Where in the world it comes from, heard from the player. Left out, it's right here: the player's own, the UI. */
-  at?: XZ;
+  /** Where in the world it comes from, heard from the player. Left out, it's right here: the player's own, the UI.
+   *  Heard only on its own level (by its height): up in the world, or down in the cellar. */
+  at?: XZ & { y?: number };
+  /** Heard from the other level too (the ring's crowd, through the floor), as loud as it says. */
+  through?: boolean;
+  /** Placed left or right only, not quieter with distance: its caller works out how far it carries (the crowd's, by
+   *  the room the player's in). */
+  flat?: boolean;
   /** Peak volume, 0 to 1. */
   v?: number;
   /** Seconds rising to the peak, held there, and dying away. */
   a?: number;
   hold?: number;
   d: number;
-  bus?: Bus;
+  bus?: Out;
   /** A node of the bus's own to go through instead of straight into it (the lounge band's mix, music.ts). */
   out?: AudioNode;
 }
@@ -230,13 +269,14 @@ export interface ToneVoice extends Voice {
   /** Glides to this pitch over the sound. */
   f2?: number;
   type?: OscillatorType;
-  /** A waveform of its own (a reed's), in place of `type`. */
+  /** A waveform of its own (the gloop band's soft sawtooths, a reed's), in place of `type`. */
   wave?: PeriodicWave;
   /** Starts this much under the pitch (0.985: a little flat) and slides up onto it, the way a sax scoops into a note. */
   scoop?: number;
-  /** A low-pass filter at this frequency, closing to `lp2` (a pluck's brightness fading). */
+  /** A low-pass filter at this frequency, closing to `lp2` (a pluck's brightness fading), resonant by `q`. */
   lp?: number;
   lp2?: number;
+  q?: number;
   /** Vibrato: its rate and depth, in Hz. */
   vib?: [number, number];
   /** Tremolo: its rate in Hz, and how deep, 0 to 1 (an electric piano's or a vibraphone's shimmer). */
@@ -261,13 +301,16 @@ export const forEar = (f: number) => 1 / (1 + Math.exp(-(Math.log2(f / 3200) ** 
 
 /** Voices sounding now, capped so a busy moment on a phone can't pile up hundreds. */
 let voices = 0;
-const MAX_VOICES = 40;
+/** (Room for a crowd's shout, a dozen voices at once, over the music and everything else.) */
+const MAX_VOICES = 64;
 
 /** A voice's envelope, into its bus and placed left or right, at frequency `f`; null when it can't or needn't be heard. */
 function envelope(o: Voice, f: number) {
   const bus = o.bus ?? 'sfx';
-  if (!ac || ac.state !== 'running' || voices >= MAX_VOICES || prefs.mute[bus]) return null;
-  const p = place(o.at);
+  if (!ac || ac.state !== 'running' || voices >= MAX_VOICES || prefs.mute[SETTING[bus]]) return null;
+  // nobody hears the world while a scene is on: no need to play it, or to spend voices the scene needs
+  if (hushed && (bus === 'sfx' || bus === 'amb')) return null;
+  const p = place(o.at, o.through, o.flat);
   if (!p) return null;
   const t0 = ac.currentTime + 0.01 + (o.t ?? 0), a = o.a ?? 0.004, top = t0 + a + (o.hold ?? 0), t1 = top + o.d;
   const g = ac.createGain(), v = (o.v ?? 0.3) * p.v * forEar(f);
@@ -307,6 +350,7 @@ export function tone(o: ToneVoice) {
   let out: AudioNode = osc;
   if (o.lp) {
     const f = c.createBiquadFilter();
+    if (o.q) f.Q.value = o.q;
     f.frequency.setValueAtTime(o.lp, e.t0);
     if (o.lp2) f.frequency.exponentialRampToValueAtTime(o.lp2, e.top + o.d * 0.5);
     osc.connect(f); out = f; e.nodes.push(f);
@@ -329,6 +373,66 @@ export function tone(o: ToneVoice) {
   out.connect(e.g);
   osc.start(e.t0); osc.stop(e.t1 + 0.02);
   e.nodes.push(osc);
+  release(osc, e.nodes);
+}
+
+/** The vowels a voice can shout, by their first three formants (Hz) and how loud each is, for a grown man's voice. */
+export const VOWELS = {
+  a: [[730, 1], [1090, 0.5], [2440, 0.16]],
+  o: [[570, 1], [840, 0.55], [2410, 0.1]],
+  e: [[530, 1], [1840, 0.4], [2480, 0.18]],
+  u: [[440, 1], [1020, 0.32], [2240, 0.08]],
+  i: [[300, 1], [2290, 0.3], [3010, 0.12]],
+} as const;
+export type Vowel = keyof typeof VOWELS;
+export interface VocalVoice extends Voice {
+  /** The pitch it starts on, and glides to. */
+  f: number;
+  f2?: number;
+  vowel: Vowel;
+  /** Formants scaled up for a smaller throat (1 a man's, about 1.15 a woman's). */
+  throat?: number;
+  /** Vibrato: its rate and depth, in Hz (a voice without it sounds like a machine, and a crowd of them, phasey). */
+  vib?: [number, number];
+}
+/** A soft sawtooth for the vocal folds' buzz: its first 16 harmonics, falling off gently. */
+let folds: PeriodicWave | null = null;
+onAudio(() => {
+  const n = 16, re = new Float32Array(n + 1), im = new Float32Array(n + 1);
+  for (let k = 1; k <= n; k++) im[k] = 1 / k ** 1.1;
+  folds = ac!.createPeriodicWave(re, im);
+});
+/**
+ * A voice: the vocal folds' buzz through the throat's resonances (a band-pass filter at each of a vowel's formants),
+ * with vibrato. One person's "hey!" or "ooh"; many at once, each at their own pitch, time and length, are a crowd.
+ */
+export function vocal(o: VocalVoice) {
+  const e = envelope(o, 700);
+  if (!e) return;
+  const c = ac!, osc = c.createOscillator(), k = o.throat ?? 1;
+  if (folds) osc.setPeriodicWave(folds); else osc.type = 'sawtooth';
+  osc.frequency.setValueAtTime(o.f, e.t0);
+  if (o.f2) osc.frequency.exponentialRampToValueAtTime(o.f2, e.t1);
+  const sum = c.createGain();
+  // a narrow formant lets little of the buzz through: made up for, so a voice is about as loud as a tone at its level
+  sum.gain.value = 3.2;
+  for (const [f, amp] of VOWELS[o.vowel]) {
+    const bp = c.createBiquadFilter(), g = c.createGain();
+    bp.type = 'bandpass'; bp.frequency.value = f * k; bp.Q.value = (f * k) / 90;
+    g.gain.value = amp;
+    osc.connect(bp); bp.connect(g); g.connect(sum);
+    e.nodes.push(bp, g);
+  }
+  if (o.vib) {
+    const lfo = c.createOscillator(), depth = c.createGain();
+    lfo.frequency.value = o.vib[0]; depth.gain.value = o.vib[1];
+    lfo.connect(depth); depth.connect(osc.frequency);
+    lfo.start(e.t0); lfo.stop(e.t1);
+    e.nodes.push(lfo, depth);
+  }
+  sum.connect(e.g);
+  osc.start(e.t0); osc.stop(e.t1 + 0.02);
+  e.nodes.push(osc, sum);
   release(osc, e.nodes);
 }
 
@@ -391,6 +495,71 @@ export function bed(o: Bed) {
   /** Stops it for good, to make way for a new one. */
   const stop = () => { src.stop(); lfo?.stop(); g.disconnect(); };
   return { g, stop };
+}
+
+// ---------- recordings ----------
+/**
+ * The few recorded sounds, for the ring's crowd (synthesised, people sound like wind): a stadium crowd, cut
+ * down in public/sounds (see its CREDITS.md). They load the first time the ring's crowd is heard (stage 3), so nobody
+ * downloads them before; until they're in, or if they can't load, ringSound.ts's synthesised crowd plays instead.
+ */
+export const CLIPS = {
+  murmur: 'sounds/crowd-murmur.mp3', chant: 'sounds/crowd-chant-loop.mp3', roar: 'sounds/crowd-roar-loop.mp3',
+  applause: 'sounds/crowd-applause.mp3', cheer1: 'sounds/crowd-cheer-1.mp3', cheer2: 'sounds/crowd-cheer-2.mp3',
+  swell: 'sounds/crowd-swell.mp3',
+} as const;
+export type Clip = keyof typeof CLIPS;
+const clips: Partial<Record<Clip, AudioBuffer>> = {};
+let fetched = false;
+/** Fetches the recordings, the first time it's called once sound is on (ringSound.ts, every frame of stage 3). */
+export function loadClips() {
+  if (fetched || !ac || typeof ac.decodeAudioData !== 'function' || typeof fetch !== 'function') return;
+  fetched = true;
+  for (const [k, url] of Object.entries(CLIPS) as [Clip, string][]) {
+    fetch(url).then(r => (r.ok ? r.arrayBuffer() : Promise.reject())).then(b => ac!.decodeAudioData(b))
+      .then(buf => { clips[k] = buf; }).catch(() => { /* offline, or no such file: the synthesised crowd plays */ });
+  }
+}
+/** Whether a recording's loaded (or, for tests, hands one in). */
+export const hasClip = (k: Clip) => !!clips[k];
+/** A loaded recording's length, in seconds (0 till it's in). */
+export const clipLength = (k: Clip) => clips[k]?.duration ?? 0;
+export function setClip(k: Clip, buf: AudioBuffer) { clips[k] = buf; }
+export interface ClipVoice extends Voice {
+  clip: Clip;
+  /** Seconds into the recording to start from, and how fast to play it (a little slower is a little lower). */
+  from?: number;
+  rate?: number;
+}
+/**
+ * Plays part of a recording, through an envelope like any other voice: from `from` seconds in, for the envelope's
+ * length. False when it isn't loaded (so the caller can play something else).
+ */
+export function clip(o: ClipVoice) {
+  const buf = clips[o.clip];
+  if (!buf) return false;
+  const e = envelope(o, 100);
+  if (!e) return true;
+  const src = ac!.createBufferSource();
+  src.buffer = buf; src.playbackRate.value = o.rate ?? 1;
+  src.connect(e.g);
+  src.start(e.t0, Math.max(0, Math.min(o.from ?? 0, buf.duration - 0.2)));
+  src.stop(e.t1 + 0.02);
+  e.nodes.push(src);
+  release(src, e.nodes);
+  return true;
+}
+/** A recording looping endlessly into `bus`, silent until its level's set (like a bed): null till it's loaded.
+ *  (Its ends are left off the loop: an MP3 is padded with a moment of silence at each.) */
+export function clipBed(k: Clip, bus: Bus = 'amb') {
+  const buf = clips[k];
+  if (!buf || !ac) return null;
+  const src = ac.createBufferSource(), g = ac.createGain();
+  src.buffer = buf; src.loop = true; src.loopStart = 0.06; src.loopEnd = buf.duration - 0.06;
+  g.gain.value = 0;
+  src.connect(g); g.connect(buses[bus]);
+  src.start(0, 0.06 + rnd() * (buf.duration - 0.2));
+  return { g };
 }
 
 /** Moves a level or a frequency smoothly towards `v`, over about `k` seconds. */

@@ -12,6 +12,7 @@ import type { CloudBackend } from './cloud';
 /** An hour: how long a player's count of reports runs before it starts again (firestore.rules allows 20 in it). */
 const WINDOW = 3_600_000;
 import { firebaseConfig } from './cloud.config';
+import type { StageN } from './layout';
 
 export function createBackend(): CloudBackend {
   const app = initializeApp(firebaseConfig);
@@ -34,7 +35,7 @@ export function createBackend(): CloudBackend {
       await runTransaction(db, async tx => {
         const was = (await tx.get(scoreRef(s.uid))).data();
         tx.set(scoreRef(s.uid), {
-          name: s.name, best: Math.max(s.best, Number(was?.best) || 0), stage: Math.max(s.stage, Number(was?.stage) || 1),
+          name: s.name, best: Math.max(s.best, Number(was?.best) || 0), stage: Math.max(s.stage, Number(was?.stage) || 1) as StageN,
           updated: serverTimestamp(),
         });
       });
@@ -43,7 +44,7 @@ export function createBackend(): CloudBackend {
       const q = await getDocs(query(collection(db, 'scores'), orderBy('best', 'desc'), limit(n)));
       return q.docs.map(d => {
         const v = d.data();
-        return { uid: d.id, name: String(v.name), best: Number(v.best) || 0, stage: v.stage === 2 ? 2 : 1 };
+        return { uid: d.id, name: String(v.name), best: Number(v.best) || 0, stage: v.stage === 3 ? 3 : v.stage === 2 ? 2 : 1 };
       });
     },
     async sendReport(uid, { id, ...r }) {

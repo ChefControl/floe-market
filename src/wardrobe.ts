@@ -143,8 +143,10 @@ export function rng(seed: number) {
 
 let people = 0;
 /** The next person in the crowd: a man or a woman, mixed from their wardrobe. */
-export function crowd(): Style {
-  const r = rng(++people * 0x9E3779B9);
+export const crowd = () => crowdStyle(++people);
+/** Crowd member number `n`, without counting them in (the swarm's looks: swarm.ts). */
+export function crowdStyle(n: number): Style {
+  const r = rng(n * 0x9E3779B9);
   const one = <T>(a: readonly T[]) => a[Math.floor(r() * a.length)];
   const woman = r() < 0.5;
   const W = woman ? WOMEN : MEN;

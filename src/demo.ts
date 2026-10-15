@@ -61,8 +61,10 @@ el.querySelector('#demoFx')!.addEventListener('click', e => {
 el.querySelector('#demoGame')!.addEventListener('click', e => {
   const g = (e.target as HTMLElement).dataset.g;
   if (!g) return;
-  // To buy: a market with nothing built yet and the cash to buy it all, for trying out buying upgrades
-  const done = (t: { id: string; stage: number }) => g === '2' || (g === '1' && t.stage === 1 && t.id !== 'sushi');
+  // To buy: a market with nothing built yet and the cash to buy it all, for trying out buying upgrades; stage 2: stages
+  // 1 and 2 built, and none of the ring's tiles (they wait for Mr. Fugu's offer)
+  const done = (t: { id: string; stage: number }) =>
+    g === '2' ? t.stage < 3 && t.id !== 'dohyo' : g === '1' && t.stage === 1 && t.id !== 'sushi';
   replaceSave(JSON.stringify({
     v: 4, savedAt: Date.now(), money: g === '2' ? 300_000 : g === '0' ? 20_000 : 9_000, best: 300_000,
     tiles: tiles.map(t => ({ id: t.id, paid: done(t) ? t.cost : 0, done: done(t), open: true })),

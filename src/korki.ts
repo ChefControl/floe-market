@@ -6,6 +6,7 @@ import {
 } from 'three';
 import { decal, drawPad } from './decals';
 import { detail, quietly } from './kit';
+import { level } from './layout';
 import { player } from './player';
 import { bakeByMaterial } from './propsMachines';
 import { CAM_YAW, canvasTex, FONT, mat, mesh, rr, scene } from './render';
@@ -269,7 +270,7 @@ let stood = 0;
 /** Shows the memoir while the player stands on the pad, and plays his song if they stay. */
 export function updKorki(dt: number) {
   if (!statue) return;
-  const near = d2xz(player.g.position, KORKI) < 0.95 * 0.95;
+  const near = !level.down && d2xz(player.g.position, KORKI) < 0.95 * 0.95;
   if (!near) shut = false;
   // on a phone the memoir covers much of the view, so its ✕ lets the player stay on the pad (and hear the song) without it
   const show = near && !shut;

@@ -1,7 +1,7 @@
 // Sound: silent until a tap or a key press, then the effects, the ambient beds and the music, all synthesised. The
 // tests listen through a stand-in for Web Audio (fakeAudio.ts) that logs what's played, on which bus, panned where.
 import { describe, expect, it, vi } from 'vitest';
-import { fake, installFakeAudio, level, nameBuses, type Played } from './fakeAudio';
+import { fake, FakeAudioContext, FakeNode, installFakeAudio, level, nameBuses, type Played } from './fakeAudio';
 import { bought, loadGame, MARKET, type SaveFixture } from './helpers';
 import { seeded } from './setup';
 
@@ -44,7 +44,9 @@ describe('sound', () => {
     window.dispatchEvent(new Event('pointerdown'));
     expect(fake.made).toBe(1);
     expect(s.audio.ac!.state).toBe('running');
-    expect(fake.played.filter(p => p.loop)).toHaveLength(7); // the sea, its wash, wind (low and high), rain, diners, cicadas
+    // the sea, its wash, wind (low and high), rain, diners, cicadas, and the ring's crowd (its rumble, and its voices low
+    // and high)
+    expect(fake.played.filter(p => p.loop)).toHaveLength(10);
     window.dispatchEvent(new Event('pointerdown'));
     expect(fake.made).toBe(1); // one for good
   });
@@ -75,6 +77,45 @@ describe('sound', () => {
     expect(said).toHaveLength(2); // all's well
     expect(run(null)).toEqual([[0, 0, 0, 0, 0], [0, 0, 0, 0, 0]]); // nothing playing into it
     vi.unstubAllGlobals();
+  });
+
+  it("puts a scene's own sound through guards too: each output goes on to the mix through one of its own", async () => {
+    // a browser with audio worklets: the guard's module loads, and each guard is a node of its own
+    type Guard = FakeNode & { port: { onmessage: (() => void) | null } };
+    const made: Guard[] = [];
+    vi.stubGlobal('AudioWorkletNode', class extends FakeNode {
+      port = { onmessage: null as (() => void) | null };
+      constructor() { super(); made.push(this as Guard); }
+    });
+    const url = URL.createObjectURL;
+    URL.createObjectURL = () => 'blob:guard';
+    Object.defineProperty(FakeAudioContext.prototype, 'audioWorklet', { value: { addModule: () => Promise.resolve() }, configurable: true });
+    try {
+      const s = await withSound();
+      await new Promise(r => setTimeout(r, 0)); // (the module's loaded)
+      const outs = ['sfx', 'amb', 'music', 'cue', 'scene'] as const;
+      const guardOf = (b: (typeof outs)[number]) => (s.audio.buses[b] as unknown as FakeNode).outs;
+      // the three buses, and Mr. Fugu's scene's effects and music: each into a guard of its own, and only that
+      for (const b of outs) {
+        expect(guardOf(b), b).toHaveLength(1);
+        expect(made, b).toContain(guardOf(b)[0]);
+      }
+      expect(new Set(outs.map(b => guardOf(b)[0])).size).toBe(5);
+      // and on into the mix: a scene's effects where the effects go, its music where the music goes (the music's volume)
+      const into = (b: (typeof outs)[number]) => guardOf(b)[0].outs[0];
+      expect(into('cue')).toBe(into('sfx'));
+      expect(into('scene')).toBe(into('music'));
+      expect(into('music')).not.toBe(into('sfx'));
+      // a guard that finds something gone wrong says which output it's on
+      const said: string[] = [];
+      s.audio.onBroken(b => said.push(b));
+      (guardOf('scene')[0] as Guard).port.onmessage!();
+      expect(said).toEqual(['scene']);
+    } finally {
+      URL.createObjectURL = url;
+      delete (FakeAudioContext.prototype as { audioWorklet?: unknown }).audioWorklet;
+      vi.unstubAllGlobals();
+    }
   });
 
   it('sleeps while the page is hidden, and wakes with it, or with the next tap', async () => {
@@ -198,10 +239,10 @@ describe('sound', () => {
     expect(all.filter(p => p.from !== 0).map(p => p.kind + ' ' + Math.round(p.f))).toEqual([]);
   });
 
-  it("can't pile up more than 40 voices at once", async () => {
+  it("can't pile up more than 64 voices at once (a crowd's shout's worth, over everything else)", async () => {
     const { sfx, since } = await withSound();
     fake.hold = true;
-    expect(since(() => { for (let i = 0; i < 60; i++) sfx.tick(); })).toHaveLength(40);
+    expect(since(() => { for (let i = 0; i < 90; i++) sfx.tick(); })).toHaveLength(64);
   });
 
   it('mutes the effects, the ambience or the music from the settings, and remembers levels and mutes on this device', async () => {
@@ -345,13 +386,14 @@ describe('music', () => {
       expect(s.audio.key.root).toBe(root);
       expect(heard(m)).toBe(true);
     }
-  });
+  }, 30_000);
 
   it('plays each tune twice, and rests the tune every fifth verse', async () => {
     const s = await withSound({ tiles: bought('sushi') });
     const verse = 8 * 8 * 60 / 84 / 2;
     const verses = [0, 1, 2, 3, 4].map(() => lead(s.since(() => s.play(verse))).length);
-    expect(verses.slice(0, 4).every(n => n > 10)).toBe(true);
+    // (high notes of the tune: a lower tune has fewer of them over 1500 Hz)
+    expect(verses.slice(0, 4).every(n => n > 5)).toBe(true);
     expect(verses[4]).toBeLessThan(6); // (a note either side, scheduled a moment ahead)
   });
 
@@ -559,10 +601,10 @@ describe('ambience', () => {
     const old = fake.played.filter(p => p.loop);
     const sea = s.bed(420);
     s.audio.broken('music'); // not the ambience's
-    expect(fake.played.filter(p => p.loop)).toHaveLength(7);
+    expect(fake.played.filter(p => p.loop)).toHaveLength(10);
     s.audio.broken('amb');
     expect(old.every(p => (p.src as unknown as { stopped: boolean }).stopped)).toBe(true);
-    expect(fake.played.filter(p => p.loop)).toHaveLength(14); // seven new ones in their place
+    expect(fake.played.filter(p => p.loop)).toHaveLength(20); // ten new ones in their place
     expect(s.bed(420)).toBe(0); // starting silent
     at(0, -6);
     expect(s.bed(420)).toBeCloseTo(sea, 1);

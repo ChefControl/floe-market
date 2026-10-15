@@ -12,7 +12,7 @@ async function open(save: SaveFixture = {}) {
 }
 
 describe('opening the restaurant', () => {
-  it('replaces the counters: their queue pays up and leaves, their steaks and cash move over, rice is planted', async () => {
+  it('replaces the counters: their queue pays up and leaves, their fillets and cash move over, rice is planted', async () => {
     const g = await loadGame({ tiles: bought('sled'), c1: 3, c1c: 12, c2: 2, c2c: 6 });
     const { C1, SLED } = g.counters, { sushi, ricePot, register, STARTER_RICE, sushiStock } = g.restaurant;
     g.runUntil(() => (C1.queue[0]?.hands.n ?? 0) > 0);

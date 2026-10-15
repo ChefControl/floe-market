@@ -1,21 +1,26 @@
 // The world's own sound, quietly under everything else: the sea, with gulls over it; the wind, strongest in winter;
 // birdsong by day, cicadas in summer and crickets at stage 2's dusk; the rain at her house; and in the restaurant,
-// the murmur of its diners. The steady ones are loops of filtered noise whose levels follow the player and the season;
+// the murmur of its diners; and (stage 3) the ring's crowd under the dock, roaring with each bout, and only that
+// down in the cellar, where everything up in the world is shut out. The steady ones are loops of filtered noise whose levels follow the player and the season;
 // the calls come now and then, from somewhere near.
 //
 // Sea, wind and diners are brown noise (the low rumble of the real thing, not white noise's hiss), and they move:
 // the sea comes in as waves with calm between, the wind in gusts. Steady hiss, even quiet, wears on the ear. If the
 // ambience's guard ever finds something gone wrong with them (audio.ts), they're built again.
-import { bed, between, clock, ear, glide, onAudio, onBroken, prefs, rnd, tone } from './audio';
-import { stage } from './layout';
+import { bed, between, clipBed, clock, ear, glide, onAudio, onBroken, prefs, rnd, tone } from './audio';
+import { level, stage } from './layout';
+import { crowd as ring, ringHears } from './ringSound';
 import { rainK } from './rain';
 import { sushi } from './restaurant';
 import { current, type Season } from './season';
 import type { XZ } from './util';
 
 type Bed = ReturnType<typeof bed>;
-let beds: Record<'sea' | 'wash' | 'wind' | 'gust' | 'rain' | 'crowd' | 'cicadas', Bed> | null = null;
-/** The beds, starting silent: any already playing stop. The wind is two, a low one and a higher one for the gusts. */
+let beds: Record<'sea' | 'wash' | 'wind' | 'gust' | 'rain' | 'crowd' | 'cicadas' | 'ring' | 'voices' | 'shouts', Bed> | null = null;
+/**
+ * The beds, starting silent: any already playing stop. The wind is two, a low one and a higher one for the gusts, and
+ * so are the ring crowd's voices, a low hubbub and higher shouts: nothing moves a filter as it goes (audio.ts's bed).
+ */
 function lay() {
   if (beds) Object.values(beds).forEach(b => b.stop());
   beds = {
@@ -27,6 +32,11 @@ function lay() {
     rain: bed({ kind: 'bandpass', f: 2200, q: 0.4, smooth: 3500 }),
     crowd: bed({ kind: 'bandpass', f: 500, q: 1.2, soft: true, smooth: 1200, am: [3.3, 0.5] }),
     cicadas: bed({ kind: 'bandpass', f: 4200, q: 10, am: [15, 0.9] }),
+    // the ring's room: a low rumble under the crowd (their voices are ringSound.ts's, people not noise)
+    ring: bed({ kind: 'bandpass', f: 520, q: 0.7, soft: true, smooth: 1600 }),
+    voices: bed({ kind: 'bandpass', f: 850, q: 1.6, smooth: 3000, am: [0.6, 0.5] }),
+    // (from a set place in the noise, so sound's random numbers run as they did with one bed of voices)
+    shouts: bed({ kind: 'bandpass', f: 1300, q: 1.6, smooth: 3000, am: [0.6, 0.5], from: 2.1 }),
   };
 }
 onAudio(lay);
@@ -71,22 +81,36 @@ function cricket(at: XZ) {
 const nearby = () => ({ x: ear.x + between(-12, 12), z: ear.z + between(-9, 9) });
 
 const next = { gull: 4, bird: 3, cricket: 2 };
+/** The ring crowd's recorded murmur, looping (audio.ts's clipBed), once it's loaded. */
+let murmur: { g: GainNode } | null = null;
 
 export function updAmbience() {
   if (!beds || prefs.mute.amb) return;
-  const s = current(), dusk = stage.n === 2, dry = 1 - rainK;
+  // down in the cellar, nothing from up in the world: not the sea, the sky or the restaurant's diners
+  const s = current(), dusk = stage.n >= 2, out = level.down ? 0 : 1, dry = (1 - rainK) * out;
   // the sea, wave after wave, and a soft wash as each one breaks
-  const sea = nearSea(), w = swell(), g = gust();
+  const sea = nearSea() * out, w = swell(), g = gust();
   glide(beds.sea.g.gain, 0.22 * sea * w, 0.25);
   glide(beds.wash.g.gain, 0.3 * sea * Math.max(0, w - 0.75), 0.2);
   // the wind, in gusts, a little higher as it blows harder: from the low wind over to the high one, as loud all along
   const wind = WIND[s] * dry * (0.3 + 0.7 * g);
   glide(beds.wind.g.gain, wind * Math.cos(g * Math.PI / 2), 0.8);
   glide(beds.gust.g.gain, wind * Math.sin(g * Math.PI / 2), 0.8);
-  glide(beds.rain.g.gain, 0.5 * rainK, 0.5);
+  glide(beds.rain.g.gain, 0.5 * rainK * out, 0.5);
   // the diners: louder with more of them, and closer
   const near = Math.max(0, 1 - Math.hypot(ear.x - BAR.x, ear.z - BAR.z) / 20);
-  glide(beds.crowd.g.gain, dusk ? 0.19 * Math.min(1, sushi.diners.length / 14) * near : 0, 0.6);
+  glide(beds.crowd.g.gain, dusk ? 0.19 * Math.min(1, sushi.diners.length / 14) * near * out : 0, 0.6);
+  // the ring's crowd: as loud as they're worked up, and as much of it as carries to where the player is
+  // (as much of it as reaches the player: ringSound.ts works that out, room by room)
+  const e = stage.n === 3 ? ring.excite : 0, k = ringHears();
+  // the recorded murmur of the crowd, once it's loaded, louder as they're worked up (and the rumble under it quieter)
+  if (stage.n === 3) murmur ??= clipBed('murmur');
+  if (murmur) glide(murmur.g.gain, stage.n === 3 ? (0.15 + 0.5 * e) * k : 0, 0.3);
+  glide(beds.ring.g.gain, stage.n === 3 ? (murmur ? 0.08 + 0.1 * e : 0.22 + 0.3 * e) * k : 0, 0.25);
+  // (the synthesised voices, till it is: higher as they're worked up, from the hubbub over to the shouts)
+  const voices = stage.n === 3 && !murmur ? 0.08 * e * e * k : 0, up = Math.min(1, e) * Math.PI / 2;
+  glide(beds.voices.g.gain, voices * Math.cos(up), 0.2);
+  glide(beds.shouts.g.gain, voices * Math.sin(up), 0.2);
   glide(beds.cicadas.g.gain, s === 'summer' ? 0.03 * dry : 0, 1.5);
 
   if (clock > next.gull) {

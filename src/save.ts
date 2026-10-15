@@ -4,10 +4,13 @@
 import { C1, repriceFish, SLED, TAKEOUT, type Counter } from './counters';
 import { choice, readLook, setLook, type Choice } from './customize';
 import { MODS, mods, type ModId } from './economy';
-import { steaksInProgress } from './fishing';
+import { keepStage3 } from './flags';
+import { loadOffer, offer } from './offer';
+import { filletsInProgress } from './fishing';
 import { waiterPlates } from './garden';
 import type { Holder } from './holder';
-import { addBillValue, billValue, kindOf, newBill, newBox, newRice, newSteak } from './items';
+import { addBillValue, billValue, kindOf, newBill, newBowl, newBox, newCuredFish, newMushroom, newReadyRice, newRice, newFillet } from './items';
+import { level, stage } from './layout';
 import { player } from './player';
 import { givePresents, PRESENT, presents, redrawPresentTile } from './presents';
 import { addReview, reviews, WINDOW } from './rating';
@@ -15,18 +18,21 @@ import {
   fishTray, loadPlates, platePrice, register, repriceSushi, ricePot, STARTER_RICE, sushi, sushiStock,
 } from './restaurant';
 import { field, fieldStack, riceInField } from './rice';
+import { saveFight } from './fight';
+import { loadCellar } from './ring';
 import { runnersLoad } from './runner';
 import { season, SEASON_LEN, SEASONS, setSeason } from './season';
+import { goBelow } from './stage';
 import { pile } from './stations';
 import { learn, learntLessons, olderGame } from './tutorial';
-import { applyUnlock, redrawTile, tiles, updStars } from './unlocks';
+import { applyUnlock, redrawTile, syncRingTiles, tiles, updStars } from './unlocks';
 import { wallet } from './wallet';
 
 /** Storage key. The name is historical; the format version lives in the data (`v`). */
 export const SAVE_KEY = 'floe-market-v1';
 /** An unreadable save is copied here before starting over, so it can still be recovered by hand. */
 export const BACKUP_KEY = 'floe-market-backup';
-const VERSION = 4;
+const VERSION = 6;
 
 export interface SaveData {
   v: number;
@@ -41,11 +47,11 @@ export interface SaveData {
   mods: Partial<Record<ModId, number>>;
   /** Latest customer reviews (1–5★), oldest first. */
   reviews: number[];
-  /** Fish slices (steaks) on the pile and in the player's arms, and bags of rice in the player's arms. */
+  /** Fish slices (fillets) on the pile and in the player's arms, and bags of rice in the player's arms. */
   pile: number;
   back: number;
   backRice: number;
-  /** Stage 1: steaks on the walk-up counter and the sled window, and their uncollected cash. */
+  /** Stage 1: fillets on the walk-up counter and the sled window, and their uncollected cash. */
   c1: number;
   c1c: number;
   c2: number;
@@ -68,11 +74,26 @@ export interface SaveData {
   /** Presents left at her door, and what's been paid toward the next one. */
   presents: number;
   presentPaid: number;
+  /** Mr. Fugu's offer: 0 not met yet, 1 turned down for now, 2 in. */
+  fugu: number;
+  /** Stage 3: down in the cellar (1) or up in the world (0), what the player's carrying down there, by kind (raw and
+   *  ready rice and fish, mushrooms, bowls and mushroom bowls), and the cellar itself (fight.ts's, read back by its
+   *  fightFrom: anything that doesn't read back starts it fresh). */
+  level: number;
+  hands: Hands;
+  ring: unknown;
   /** How the player looks (customize.ts). Older saves have none, and keep the device's. */
   look?: Choice;
   /** What the tutorial has shown this player (tutorial.ts), so it isn't shown again on another device; null in a save
    *  from before the tutorial, whose lessons are counted from what it has done. */
   learnt: string[] | null;
+}
+export type Hands = Record<'rice' | 'fish' | 'rrice' | 'cfish' | 'mush' | 'bowl' | 'mbowl', number>;
+const HANDS: (keyof Hands)[] = ['rice', 'fish', 'rrice', 'cfish', 'mush', 'bowl', 'mbowl'];
+/** What the player carries down in the cellar, whatever came out of storage. */
+function handsFrom(raw: unknown): Hands {
+  const h = (typeof raw === 'object' && raw ? raw : {}) as Record<string, unknown>;
+  return Object.fromEntries(HANDS.map(k => [k, num(h[k])])) as Hands;
 }
 
 /** The one place that touches device storage. */
@@ -122,6 +143,9 @@ export function migrate(raw: unknown): SaveData {
     pile: num(s.pile), back: num(s.back), mods: modLevels,
     // saves from before the seasons start in winter, the way the game always looked
     season: num(s.season) % SEASONS.length, seasonT: Math.min(num(s.seasonT), SEASON_LEN - 1),
+    fugu: Math.min(num(s.fugu), 2),
+    // (v5's ring was the first design's, the stable and the book: it starts over as fight night's)
+    level: Math.min(num(s.level), 1), hands: handsFrom(s.hands ?? { bowl: s.backBowls }), ring: num(s.v) >= 6 ? s.ring : null,
     presents: num(s.presents), presentPaid: Math.min(num(s.presentPaid), PRESENT.cost - 1),
     look: readLook(s.look) ?? undefined,
     learnt: Array.isArray(s.learnt) ? s.learnt.map(String) : null,
@@ -136,7 +160,7 @@ export function migrate(raw: unknown): SaveData {
   }
   // v1–v3 were the fish market, with (v3) an optional restaurant west of the dock and its upgrades. Players who
   // had that restaurant and every market upgrade go straight to stage 2 and keep its upgrades: the old kitchen's
-  // steaks and the counters' leftovers become fish for the chefs, and the cash moves to the register. Everyone
+  // fillets and the counters' leftovers become fish for the chefs, and the cash moves to the register. Everyone
   // else stays in stage 1 and gets back what they spent on the old restaurant, its cash and its unsold plates.
   const oldSushi = (t: { id: string }) => OLD_SUSHI.includes(t.id);
   const k = num(s.k), kp = num(s.kp), rc = num(s.rc);
@@ -182,7 +206,7 @@ function requestPersistentStorage() {
 
 // ---------- save / load ----------
 const cashSum = (cash: Holder) => cash.all().reduce((s, b) => s + billValue(b), 0);
-/** Steaks on an open counter, counting what its customers are holding but haven't paid for yet. */
+/** Fillets on an open counter, counting what its customers are holding but haven't paid for yet. */
 const onCounter = (C: Counter) => C.enabled ? C.stock.n + C.queue.reduce((n, c) => n + c.hands.n, 0) : 0;
 
 export function save() {
@@ -191,9 +215,19 @@ export function save() {
   // Count everything mid-air too (flying bills and slices, fish being reeled in, workers' loads, what the chefs
   // are holding, diners' plates), so closing the page at any moment loses nothing.
   const ss = sushiStock(), carried = player.back.all();
-  const rice = carried.filter(m => kindOf(m) === 'rice').length;
+  const kinds = (k: string) => carried.filter(m => kindOf(m) === k);
+  // (down in the cellar, everything carried is the cellar's: raw rice and fish from its bins too)
+  const hands = Object.fromEntries(HANDS.map(k => [k, 0])) as Hands;
+  if (level.down) {
+    for (const m of carried) {
+      const k = kindOf(m);
+      if (k === 'bowl') hands[m.userData.mush ? 'mbowl' : 'bowl']++;
+      else if (k && k in hands) hands[k as keyof Hands]++;
+    }
+  }
+  const rice = level.down ? 0 : kinds('rice').length, back = level.down ? 0 : carried.length - rice;
   // In stage 2, anything still on the closed stage 1 counters belongs to the restaurant.
-  const left = sushi.built ? { steaks: C1.stock.n + SLED.stock.n, cash: cashSum(C1.cash) + cashSum(SLED.cash) } : { steaks: 0, cash: 0 };
+  const left = sushi.built ? { fillets: C1.stock.n + SLED.stock.n, cash: cashSum(C1.cash) + cashSum(SLED.cash) } : { fillets: 0, cash: 0 };
   const data: SaveData = {
     v: VERSION,
     savedAt: Date.now(),
@@ -202,12 +236,12 @@ export function save() {
     tiles: tiles.map(t => ({ id: t.id, paid: t.paid, done: t.done, open: t.open })),
     mods: { ...mods },
     reviews: [...reviews],
-    pile: Math.min(pile.cap, pile.n + steaksInProgress() + runnersLoad()),
-    back: carried.length - rice,
+    pile: Math.min(pile.cap, pile.n + filletsInProgress() + runnersLoad()),
+    back,
     backRice: rice,
     c1: onCounter(C1), c1c: C1.enabled ? cashSum(C1.cash) : 0,
     c2: onCounter(SLED), c2c: SLED.enabled ? cashSum(SLED.cash) : 0,
-    fish: ss.fish + left.steaks,
+    fish: ss.fish + left.fillets,
     rice: ss.rice,
     plates: ss.plates + waiterPlates(),
     cash: ss.cash + left.cash,
@@ -217,6 +251,10 @@ export function save() {
     field: riceInField(),
     season: season.i,
     seasonT: Math.floor(season.t),
+    fugu: offer.answer,
+    level: level.down ? 1 : 0,
+    hands,
+    ring: stage.n === 3 ? saveFight() : null,
     presents: presents.n,
     presentPaid: PRESENT.paid,
     look: { ...choice },
@@ -273,32 +311,50 @@ export function load() {
   repriceFish(); repriceSushi();
   updStars(true);
   tiles.forEach(redrawTile);
-  fill(player.back, s.back, newSteak);
+  fill(player.back, s.back, newFillet);
   fill(player.back, s.backRice, newRice);
   let riceLeft = 0;
   if (sushi.built) {
     // Plates that don't fit on the belt go back to the kitchen line as fish and rice; fish it can't hold goes on
     // the pile, and rice onto the terraces' stack.
     const extraPlates = loadPlates(s.plates);
-    fill(pile, fill(fishTray, s.fish + extraPlates, newSteak) + s.pile, newSteak);
+    fill(pile, fill(fishTray, s.fish + extraPlates, newFillet) + s.pile, newFillet);
     riceLeft = fill(ricePot, s.rice + extraPlates, newRice);
     fillCash(register, platePrice(), s.cash);
     fill(TAKEOUT.stock, s.boxes, () => newBox(TAKEOUT.price, sushi.premium));
     fillCash(TAKEOUT.cash, TAKEOUT.price, s.tcash);
   } else {
-    fill(pile, s.pile + (SLED.enabled ? 0 : s.c2), newSteak);
-    fill(C1.stock, s.c1, newSteak);
+    fill(pile, s.pile + (SLED.enabled ? 0 : s.c2), newFillet);
+    fill(C1.stock, s.c1, newFillet);
     fillCash(C1.cash, C1.price, s.c1c);
     if (SLED.enabled) {
-      fill(SLED.stock, s.c2, newSteak);
+      fill(SLED.stock, s.c2, newFillet);
       fillCash(SLED.cash, SLED.price, s.c2c);
     } else wallet.money += s.c2c;
     wallet.money += s.tcash;
   }
   if (field.built) fill(fieldStack, s.field + riceLeft, newRice);
+  // (a game that's met Mr. Fugu keeps stage 3 open on this device, flag or no flag: flags.ts)
+  if (s.fugu) keepStage3();
+  loadOffer(s.fugu);
+  if (stage.n === 3) loadRing(s);
   // the tutorial: this player's lessons, or for a save from before it, what it has done (now it's all in place)
   if (s.learnt) learn(s.learnt); else olderGame();
   return true;
+}
+
+/** Puts the cellar back as it was, what the player was carrying down there, and the player too, if that's where they
+ *  were. */
+function loadRing(s: SaveData) {
+  loadCellar(s.ring);
+  syncRingTiles();
+  const h = s.hands;
+  const makers: [keyof Hands, () => import('three').Mesh][] = [
+    ['rice', newRice], ['fish', newFillet], ['rrice', newReadyRice], ['cfish', newCuredFish], ['mush', newMushroom],
+    ['bowl', () => newBowl(false)], ['mbowl', () => newBowl(true)],
+  ];
+  for (const [k, make] of makers) fill(player.back, h[k], make);
+  if (s.level) goBelow();
 }
 
 /** Saves on a timer and whenever the page may be going away, and watches for other tabs taking over. */

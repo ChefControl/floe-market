@@ -10,6 +10,7 @@ Each stage is about producing one raw ingredient, and growing that production is
 
 - **Stage 1, the Fish Market:** fish. Catching more (the harpoon, the net) and getting it to customers.
 - **Stage 2, Floe Sushi:** rice, plus the restaurant that turns it and the fish into sushi. Planting more terraces is what lets the restaurant serve more diners, and the restaurant grows alongside to use it.
+- **Stage 3, the Dohyo Below:** throughput against a deadline. Rice, fish and (after the first boss) mushrooms become bowls, and each boss's crowd has to be turned with bowls before his bell. The gong forecasts the rush exactly, so the question is never luck, only what line holds the pot up and what to buy next.
 
 The other upgrades exist to carry, sell or use the stage's ingredient. When the numbers and the theme disagree, change the numbers.
 
@@ -140,6 +141,58 @@ What it shows:
 - **The end game had a rice shortage, which fertilizer fixes.** With every upgrade bought and the kitchen crew maxed, the kitchen eats about 2.35 bags a second, against 1.8 from three planted terraces. Before the fertilizer shed, the chefs stood idle with no rice 39% of the time from the kiosk on, with about 19 diners waiting and the rating sliding to ★3.6–4.0, at about $875,000 a minute 77 minutes in. Fertilizer alone wasn't enough: the farmer (about 1.8 bags a second) and then the porter (about 2) became the limit, which the farmer's sweep and the porter's 18-bag loads fix. With +20% a level, the chefs were still short 12–15% of the time until the third level was in, so each level is now +50%: the chefs are out of rice 0% of the time from the second level on (about a minute after the kiosk), with the rating at ★4.6–5.0 and about $1.6 million a minute 77 minutes in. Without the fertilizer, the same farmer and porter still leave the chefs short 33–36% of the time.
 - **Stage 2 is long:** about 42 minutes, against 33 before the garden and the slower terraces. The bot buys the cheaper repeatable upgrades before each tile, which leaves two gaps of about 8 minutes between tiles (the terrace to More seats, the Second chef to the farmer), and the rating dips to ★2.6 to ★2.8 in the second, while rice is carried in by hand.
 
+## The stage-up: Buy into the ring ($1,000,000)
+
+**What it's about:** Mr. Fugu's offer is the reward for finishing Floe Sushi (he turns up once the till passes a million), and his buy-in is stage 2's capstone. It leaves the player nearly broke at the foot of the ladder.
+
+**Principles**
+- The restaurant keeps running upstairs as the front, but its takings are Mr. Fugu's rent until the buyout. Otherwise stage 2's income (over $250,000 a minute by then) would make stage 3's first prices meaningless. The playtest also tries a trickle (`?front=trickle`, a fifth of the takings).
+- A rack, a barrel and the pot are enough to start the loop by hand, and the first machines and hires cost tens of chips: a broke player who just plays earns 🐡 10 (in `test/softlock.test.ts`, at least $10,000 in four minutes) and the first rack in a few.
+
+## Stage 3: The Dohyo Below
+
+**What it's about:** fight night. The player runs the kitchen by hand (rice and fish from the bins into the racks and barrels, ready ones to the pot, bowls to the stall), hands each job over (washer, salter, cook, attendant), feeds each bout's fans while they buy soup, and rings the gong when the forecast says more than half of the next boss's crowd will turn. About 35 minutes from the buy-in to the buyout. Prices are in Fugu Chips (🐡 1 = $1,000).
+
+**The bottleneck it should rotate through:** your hands (racks and barrels by hand) → the lines (more machines, then the washer and salter) → mushrooms (the grow room, which Hakkaku's win plants to match the pot) → the pot (the cook) → the walk to the stall (the attendant) → the lines again (steam baskets, the smokehouse, the shelves) → the crowd (the tiers: more seats, more fans a minute between bosses).
+
+**Principles for this stage**
+- No fee and no luck: the gong costs nothing, and its forecast is exact (it plays the rush ahead in a copy of the cellar, with the player in it). A loss only costs time, and its card says which ingredient held the pot up.
+- Each boss opens the next stretch: the grow room and the first tier (Hakkaku), the cook and steam baskets (Yokobashiri), the attendant, the smokehouse and the second tier (Dobu), the shelves and the last tier (Samehada), the buyout (Fukure).
+- Machines can be bought again and again (up to six a line), each 45% dearer, so the lines grow with the crowds.
+
+**The tables** (`src/fight.ts`)
+
+| | |
+|---|---|
+| Bosses | Hakkaku 120 fans, Yokobashiri 180, Dobu 220, Samehada 420 (a 30 s bell each, which starts once his crowd has walked in, 6 s), Fukure 1,000 (60 s); more than half beats each. Prizes 🐡 120, 300, 800, 2,000, 10,000 |
+| A bowl | 🐡 1.6 (a mushroom bowl twice that), less Mr. Fugu's 30% until the buyout; a batch is 5 bowls |
+| Machines | Rack and barrel: 2 every 8 s; steam baskets and smokehouse: 6 every 5 s. Mushroom bed: 2, one every 8 s; glowing shelf: 5, one every 4 s |
+| Seats | 24, 48, 90, 150 by tier; a local bout's fans are 45% of the seats, raised by word on the street, and they only buy in its 20 s of preparation (a bout is about 47 s) |
+| Hires | Washer 🐡 15, salter 20 (from the start), cook 250 (Yokobashiri), attendant 500 (Dobu); a hire carries 12 at a time, 48 once their line is upgraded |
+
+**When the bot gets there** (from the buy-in, `SIM_STAGE=3`)
+
+| | Bot |
+|---|---|
+| Washer, salter | 5:27, 5:29 |
+| Beat Hakkaku | 6:15 |
+| Beat Yokobashiri | 7:39 |
+| The Back-Alley Ring | 11:48 |
+| Cook | 13:27 |
+| Beat Dobu | 14:32 |
+| Attendant | 14:51 |
+| Beat Samehada | 22:53 |
+| Beat Fukure | 30:46 |
+| Buy back all his chips | 32:32 |
+
+The design's targets were about 6, 13, 20, 27 and 33 minutes for the bosses and about 35 for the buyout.
+
+What it shows:
+- **Each boss is set by what you can carry before the hire he opens.** Before the cook, your hands turn about 90 of Yokobashiri's crowd in his bell (so he brings 180: 91 beat him); before the attendant, about 114 of Dobu's (220: 111; at 230 the bot only made 116 when it rang at a lucky moment). Samehada's 420 needs the attendant and the smokehouse; 460 was out of reach in 50 minutes.
+- **Local fans only buy in a bout's preparation,** so a bowl is 🐡 1.6 (double the first pass's) to keep the income.
+- **Yokobashiri falls soon after Hakkaku** (about a minute): he's capped by your hands, which are as fast at 6 minutes as at 13. Slowing him would need a later hire, not a bigger crowd.
+- **The forecast is the player's:** it plays your preparation from where you stand, at your pace, picking things up one at a time, with only the room left in your arms. The bot's first try at Hakkaku still turns fewer than it says (it plays the kitchen less well than the forecast does); from Yokobashiri on, the bot turns what the gong said.
+
 ## Open work, in order
 
 1. ~~Measure the bottleneck at every point.~~ Done.
@@ -148,3 +201,5 @@ What it shows:
 4. **The waiters:** faster, or a third, if the garden should be limited by rice and chefs rather than by service.
 5. **The Third runner:** left as is for now (stage 1 stays as it is). It adds nothing measurable and raises the gate to open the restaurant to ★4.2.
 6. **Re-run** the routes and payback for the new price list (the upgrade paths page still shows the old one), and update the tables here.
+7. **Stage 3: the rent or the trickle**, after a playtest (`?front=trickle`).
+8. **Stage 3's pace:** after a playtest, spread Yokobashiri out from Hakkaku (a later or dearer cook), and stretch the end towards 35 minutes; measure stage 3's bottlenecks as for stage 2.

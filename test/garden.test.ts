@@ -43,7 +43,7 @@ describe('garden tables', () => {
     const [d] = spawn(g);
     expect(d.seat.garden).toBe(true);
     g.runUntil(() => d.state === 'wait', 30);
-    g.restaurant.handOver({ steaks: [...Array(12)].map(() => g.items.newSteak()), bills: [] });
+    g.restaurant.handOver({ fillets: [...Array(12)].map(() => g.items.newFillet()), bills: [] });
     for (let i = 0; i < 6; i++) g.restaurant.ricePot.put(g.items.newRice());
     g.runUntil(() => servingPass.n > 0, 30);
     expect(sushi.slots.filter(Boolean)).toHaveLength(0); // not on the belt
@@ -70,7 +70,7 @@ describe('garden tables', () => {
   it('keeps cooking for the garden when the belt is full', async () => {
     const { g } = await setup('tables');
     g.restaurant.loadPlates(30);
-    g.restaurant.handOver({ steaks: [...Array(12)].map(() => g.items.newSteak()), bills: [] });
+    g.restaurant.handOver({ fillets: [...Array(12)].map(() => g.items.newFillet()), bills: [] });
     for (let i = 0; i < 6; i++) g.restaurant.ricePot.put(g.items.newRice());
     fillBar(g);
     const [d] = spawn(g);
@@ -80,7 +80,7 @@ describe('garden tables', () => {
 
   it('a diner stops waiting once their plate is made, so the waiter costs them nothing', async () => {
     const { g, garden } = await setup('tables');
-    g.restaurant.handOver({ steaks: [...Array(12)].map(() => g.items.newSteak()), bills: [] });
+    g.restaurant.handOver({ fillets: [...Array(12)].map(() => g.items.newFillet()), bills: [] });
     for (let i = 0; i < 6; i++) g.restaurant.ricePot.put(g.items.newRice());
     fillBar(g);
     const [d] = spawn(g);
@@ -98,7 +98,7 @@ describe('garden tables', () => {
     const diners = spawn(g, 6);
     // everyone sits down before the kitchen gets anything, so the chefs' plates come out together
     g.runUntil(() => diners.every(d => d.state === 'wait'), 30);
-    g.restaurant.handOver({ steaks: [...Array(24)].map(() => g.items.newSteak()), bills: [] });
+    g.restaurant.handOver({ fillets: [...Array(24)].map(() => g.items.newFillet()), bills: [] });
     for (let i = 0; i < 12; i++) g.restaurant.ricePot.put(g.items.newRice());
     const w = garden.waiters[0];
     g.runUntil(() => w.state === 'out', 30);
@@ -108,7 +108,7 @@ describe('garden tables', () => {
 
   it('counts plates on the serving counter and the trays when saving', async () => {
     const { g, garden } = await setup('tables');
-    g.restaurant.handOver({ steaks: [...Array(12)].map(() => g.items.newSteak()), bills: [] });
+    g.restaurant.handOver({ fillets: [...Array(12)].map(() => g.items.newFillet()), bills: [] });
     for (let i = 0; i < 6; i++) g.restaurant.ricePot.put(g.items.newRice());
     fillBar(g);
     spawn(g, 3);

@@ -7,7 +7,7 @@ import {
 } from 'three';
 import { decal, drawPad } from './decals';
 import { quietly } from './kit';
-import { stage } from './layout';
+import { level, stage, type StageN } from './layout';
 import { player } from './player';
 import { camera, canvasTex, FONT, mesh, rr } from './render';
 import type { Moves } from './round';
@@ -60,7 +60,7 @@ export function gamePad(
     enable() { enabled = true; d.mesh.visible = true; },
     upd(dt: number) {
       if (!enabled) return false;
-      const near = d2xz(player.g.position, at) < REACH * REACH;
+      const near = !level.down && d2xz(player.g.position, at) < REACH * REACH;
       if (near !== open) {
         open = near;
         panel.hidden = !open;
@@ -80,8 +80,8 @@ export function gamePad(
   };
 }
 
-/** The chips for each stage: stage 2 earns about ten times as much, so its chips are ten times bigger. */
-export const CHIPS: Record<1 | 2, number[]> = { 1: [5, 25, 100, 500], 2: [50, 250, 1000, 5000] };
+/** The chips for each stage: each earns about ten times as much as the one before, so its chips are ten times bigger. */
+export const CHIPS: Record<StageN, number[]> = { 1: [5, 25, 100, 500], 2: [50, 250, 1000, 5000], 3: [500, 2500, 10_000, 50_000] };
 const chipLabel = (v: number) => v >= 1000 ? `$${v / 1000}k` : `$${v}`;
 
 /** Holding a chip (or Undo) down: how long before it starts going on its own, how often it goes at first, and how

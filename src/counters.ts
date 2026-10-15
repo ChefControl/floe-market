@@ -12,10 +12,11 @@ import { glint } from './fx';
 import { carrySlot, Holder, type Slot } from './holder';
 import { addBillValue, newBill } from './items';
 import { detail, quietly } from './kit';
-import { groundY } from './layout';
+import { groundY, level } from './layout';
 import { boop as hop, player } from './player';
 import { stall } from './props';
-import { addReview, demand, starsFor } from './rating';
+import { demand, starsFor } from './rating';
+import { frontReview, toTill } from './front';
 import { boop, honk, review, till } from './sfx';
 import { canvasTex, mesh, scene, type CanvasTex } from './render';
 import { popStars, popText } from './ui';
@@ -263,7 +264,8 @@ function showOrder(C: Counter, c: Customer, left: number) {
 /** Bills for what a customer is holding fly onto the counter's cash stack. */
 function pay(C: Counter, c: Customer) {
   const from = c.g.position.clone(); from.y = 1;
-  const values = c.hands.all().map(m => (m.userData.value as number | undefined) ?? C.price);
+  // (in stage 3, the kiosk's takings are Mr. Fugu's rent, all or most of them)
+  const values = toTill(c.hands.all().map(m => (m.userData.value as number | undefined) ?? C.price));
   values.forEach((v, i) => {
     const b = newBill(v); b.position.copy(from);
     if (C.cash.hasRoom()) C.cash.receive(b, 0.35 + i * 0.04, 1.0);
@@ -277,7 +279,7 @@ function pay(C: Counter, c: Customer) {
 }
 
 function depart(C: Counter, c: Customer, stars?: number) {
-  if (stars !== undefined) { addReview(stars); popStars(stars, c.g.position); review(stars, c.g.position); }
+  if (stars !== undefined) { frontReview(stars); popStars(stars, c.g.position); review(stars, c.g.position); }
   c.bubble.visible = false; c.mood.visible = false;
   c.path = C.exit(); leaving.push(c);
 }
@@ -306,7 +308,8 @@ const drivers = () => leaving.concat(...COUNTERS.map(C => C.queue)).filter(c => 
 function drive(c: Customer, tgt: XZ, dt: number) {
   if (c.out) { getOut(c, c.out, dt); c.stopped = true; c.moving = false; return false; }
   const going = c.isSled && Math.hypot(tgt.x - c.g.position.x, tgt.z - c.g.position.z) > 0.06;
-  const byPlayer = going && ahead(c, tgt, player.g.position, AHEAD);
+  // (not the player down in the cellar, under the road)
+  const byPlayer = going && !level.down && ahead(c, tgt, player.g.position, AHEAD);
   c.stopped = byPlayer || (going && drivers().some(o => o !== c && o.stopped && ahead(c, tgt, o.g.position, 2.8)));
   if (!byPlayer) {
     if (c.held) c.mood.visible = false;
@@ -426,19 +429,23 @@ function getOut(c: Customer, o: Out, dt: number) {
 /** The heading from one spot to another: queuers face the one ahead of them. */
 const facing = (from: XZ, to: XZ) => Math.atan2(to.x - from.x, to.z - from.z);
 
+/** While a scene holds the world (Mr. Fugu's): those already on their way finish, but nobody new comes, nobody passes
+ *  by on the road, and nobody waiting loses patience. */
+export const calm = { on: false };
+
 export function updCounter(C: Counter, dt: number) {
   if (!C.enabled) return;
-  C.spawnT -= dt;
+  if (!calm.on) C.spawnT -= dt;
   // marketing brings customers in faster and lets the queue grow longer
   if (C.spawnT <= 0 && C.queue.length < C.maxQ + Math.floor(mods[C.crowd] * C.qPer)) {
     C.spawnT = C.spawnEvery * rand(.7, 1.3) / demand() / boost(C.crowd);
     spawnCustomer(C);
   }
-  passBy(C, dt);
+  if (!calm.on) passBy(C, dt);
   C.queue.forEach((c, i) => {
     c.arrived = drive(c, C.slot(i), dt);
     if (c.arrived) { c.h = i === 0 || C.isSled ? C.faceH : facing(C.slot(i), C.slot(i - 1)); c.queued = true; }
-    if (c.queued) c.wait += dt;
+    if (c.queued && !calm.on) c.wait += dt;
     const left = 1 - c.wait / C.patience;
     c.bubble.visible = i === 0 && c.arrived && c.got < c.want;
     if (c.bubble.visible) showOrder(C, c, left);
@@ -488,7 +495,7 @@ export function closeMarket() {
 /** Takes what's left on the closed counters (landed fish and bills) to hand over to the restaurant. */
 export function marketLeftovers() {
   return {
-    steaks: [...C1.stock.items.splice(0), ...SLED.stock.items.splice(0)],
+    fillets: [...C1.stock.items.splice(0), ...SLED.stock.items.splice(0)],
     bills: [...C1.cash.items.splice(0), ...SLED.cash.items.splice(0)],
   };
 }

@@ -25,7 +25,7 @@ describe('fishing', () => {
   });
 });
 
-describe('steak counter', () => {
+describe('fillet counter', () => {
   it('serves a queued customer from stock, takes payment, and sends them home', async () => {
     const g = await loadGame({ c1: 10 });
     const { C1 } = g.counters;
@@ -50,7 +50,7 @@ describe('steak counter', () => {
 });
 
 describe('sled window', () => {
-  it('sells steaks in bulk to snowmobiles on the road', async () => {
+  it('sells fillets in bulk to snowmobiles on the road', async () => {
     const g = await loadGame({ tiles: bought('sled'), c2: 12 });
     const { SLED } = g.counters;
     g.runUntil(() => SLED.queue.length > 0);

@@ -183,6 +183,22 @@ export function unlockFx(at: XZ, r = 1, y = 0.2) {
 /** Somewhere that smokes or steams all the time while it's there: `on` says whether it's there now. */
 interface Source { at: Vector3; kind: 'smoke' | 'steam'; every: number; t: number; on: () => boolean }
 const sources: Source[] = [];
+/** Dust kicked up off the ring's dirt at `at` (a stamp, a charge, a fall): `n` puffs, `big` times the size. */
+export function dustFx(at: Vector3, n = 6, big = 1) {
+  if (!on()) return;
+  for (let i = 0; i < n; i++) {
+    const a = jitter(0, Math.PI * 2), sp = jitter(0.4, 1.1) * big;
+    P.smoke.emit(at, Math.cos(a) * sp, jitter(0.15, 0.5) * big, Math.sin(a) * sp, jitter(0.6, 1.1), jitter(0.07, 0.12) * big, jitter(0, 1) < 0.5 ? 0x9A7A58 : 0xB59570, 0.5);
+  }
+}
+/** A handful of salt thrown from `from` over the ring, to land about `to`. */
+export function saltFx(from: Vector3, to: Vector3) {
+  if (!on()) return;
+  const T = 0.8;
+  for (let i = 0; i < 18; i++) {
+    P.drops.emit(from, (to.x - from.x) / T + jitter(-0.5, 0.5), 3.2 + jitter(-0.6, 0.6), (to.z - from.z) / T + jitter(-0.5, 0.5), jitter(0.6, 0.9), jitter(0.015, 0.03), 0xFFFFFF);
+  }
+}
 /** A chimney at `at` that smokes while `on()`: a puff every so often, drifting up and away with the wind. */
 export const chimney = (at: Vector3, on: () => boolean = () => true) => { sources.push({ at, kind: 'smoke', every: 0.22, t: 0, on }); };
 /** Steam rising from a pot at `at` while `on()`. */

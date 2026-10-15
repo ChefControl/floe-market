@@ -1,6 +1,6 @@
 // The controls, shown once on a device: a small card below the player, with a finger dragging the joystick round on a
 // phone or tablet, or W A S D being pressed on a computer (which it is comes from the browser's user agent), and how
-// to buy (stand on a tile and hold E, or the Buy button). Once the player has walked a little it shrinks away into the
+// to buy (stand on a tile and hold E, or the Buy button) and to throw things away (at a bin, press E or tap Toss). Once the player has walked a little it shrinks away into the
 // settings gear, which is where "Controls" brings it back.
 const SEEN = 'floe-market-hint';
 
@@ -48,11 +48,13 @@ function overGear() {
 export function showHint(fromGear = false) {
   if (isTouch()) {
     art.innerHTML = '<span class="ring"></span><span class="stick"></span>';
-    text.innerHTML = '<b>Drag anywhere to walk</b><small class="buyline">To buy, stand on a tile and hold Buy</small>';
+    text.innerHTML = '<b>Drag anywhere to walk</b><small class="buyline">To buy, stand on a tile and hold Buy</small>' +
+      '<small class="buyline binline">To throw away what you carry, stand at a bin and tap Toss</small>';
   } else {
     art.innerHTML = '<span class="keys"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></span>';
     text.innerHTML = '<b>Walk with WASD</b><small>or the arrow keys, or drag with the mouse</small><small class="buyline">To buy, stand on a tile and hold <kbd>E</kbd>'
-      + (buyButton.on ? ' or Buy' : '') + '</small>';
+      + (buyButton.on ? ' or Buy' : '') + '</small>'
+      + '<small class="buyline binline">To throw away what you carry, stand at a bin and press <kbd>E</kbd></small>';
   }
   state = 'on'; walked = 0; upFor = 0; again = fromGear;
   el.hidden = false;
@@ -81,7 +83,7 @@ function putAway() {
   }, GO * 1000);
 }
 
-/** Seconds the hint stays up at least, to read the buying line too. */
+/** Seconds the hint stays up at least, to read the buying and bin lines too. */
 const READ = 5;
 
 /** Call every frame with whether the player is walking: once they've walked a little (and had time to read), it's done. */

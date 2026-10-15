@@ -1,6 +1,6 @@
 # Music saved for later
 
-Music that was tried for the game, liked, and kept for a stage that doesn't exist yet. The game's music itself is in `src/music.ts` and described in the README.
+Music that was tried for the game, liked, and kept for a stage that didn't exist yet. The game's music itself is in `src/music.ts` and described in the README. The gloop ring is now the music of stage 3's cellar; it's kept here as it was found, with its porting notes.
 
 ## 8-bit market: for a future, futuristic stage
 
@@ -64,9 +64,9 @@ function play(i, t) {
 ```
 
 
-## Gloop ring: for a future underground sumo ring
+## Gloop ring: the underground sumo ring (stage 3, in the game)
 
-Heavy, gloopy and slow, made after a reference track picked for it ("Gloopin"): the same tempo, a bass down around C2 that sags and slides like mud, and a half-time beat. It was liked as it is (a heavier, more resonant bass was tried and turned down), and saved for a sumo stage.
+Heavy, gloopy and slow, made after a reference track picked for it ("Gloopin"): the same tempo, a bass down around C2 that sags and slides like mud, and a half-time beat. It was liked as it is (a heavier, more resonant bass was tried and turned down), and saved for a sumo stage. It's now in `src/music.ts`, played down in stage 3's cellar, on the engine's voices (which gained the `wave` and `q` options below). The shamisen's tune there is made up by `gloopTune()`, the game's own version of the listening page's `minorTune()`. In the game its tune, taiko, slap, clappers and bubbles are mixed louder than on the listening page (the shamisen at 0.17, and a knock round 150 Hz added to the taiko), so it carries on a laptop's or a phone's speakers over the crowd; the bass is as it was.
 
 | | |
 | --- | --- |

@@ -36,6 +36,8 @@ export function amount(v: number, up = false) {
 export const money = (v: number) => '$' + amount(v);
 /** A price, short once it's big, rounded up: $12,350 is $12.4k. */
 export const price = (v: number) => '$' + amount(v, true);
+/** Dollars as Fugu Chips 🐡, the cellar's money (stage 3): $1,000 a chip, short once it's big. A price rounds `up`. */
+export const chips = (dollars: number, up = false) => '🐡 ' + amount((up ? Math.ceil : Math.floor)(dollars / 1000 - 1e-9 * (up ? 1 : -1)), up);
 /** Squared distance on the ground plane. */
 export const d2xz = (a: XZ, b: XZ) => {
   const dx = a.x - b.x, dz = a.z - b.z;

@@ -2,7 +2,7 @@
 import { type Group, type Mesh, Plane, Vector3 } from 'three';
 import { boost } from './economy';
 import { bodyMat, newFish } from './fishModel';
-import { newSteak } from './items';
+import { newFillet } from './items';
 import { chipsFx, splashFx } from './fx';
 import { G, mesh, scene } from './render';
 import { cast, chop, flop, splash } from './sfx';
@@ -72,15 +72,15 @@ interface Hook {
 let incomingFish = 0;
 const hooks: Hook[] = [];
 
-/** Steaks still on their way: fish being reeled in or chopped. */
-export function steaksInProgress() { return incomingFish * 3; }
+/** Fillets still on their way: fish being reeled in or chopped. */
+export function filletsInProgress() { return incomingFish * 3; }
 
 /**
  * Hooks the nearest free fish in range and reels it to the chopping block.
  * `origin` is re-read every frame so the rope follows a moving fisher.
  */
 export function tryCatch(origin: () => Vector3, src: CatchSource): Fish | null {
-  if (pile.n + steaksInProgress() + 3 > pile.cap) return null;
+  if (pile.n + filletsInProgress() + 3 > pile.cap) return null;
   const from = origin();
   let best: Fish | null = null, bd = 1e9;
   for (const f of fish) {
@@ -163,7 +163,7 @@ export function updChopper(dt: number) {
     chipsFx(V(x, chopTop.y + 0.05, CHOP.z));
     cut.constant = -x;
     c.g.children.forEach(m => { if (m !== c.body) m.visible = m.position.x > CUTS[i]; });
-    const m = newSteak(); m.position.set(x - 0.15, chopTop.y, CHOP.z);
+    const m = newFillet(); m.position.set(x - 0.15, chopTop.y, CHOP.z);
     pile.receive(m, 0.32, 1.1);
   }
   if (chopper.cuts === CUTS.length && chopper.t >= each * CUTS.length) {

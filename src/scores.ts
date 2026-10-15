@@ -12,7 +12,7 @@ export const TOP = 20;
 const $ = (id: string) => document.getElementById(id)!;
 const btn = $('board'), panel = $('scores'), list = $('scoresList'), me = $('scoresMe'), join = $('scoresJoin');
 
-const STAGES = { 1: 'Fish Market', 2: 'Floe Sushi' } as const;
+const STAGES = { 1: 'Fish Market', 2: 'Floe Sushi', 3: 'The Dohyo Below' } as const;
 
 function row(s: Score, rank: number, mine: boolean) {
   const li = document.createElement('li');

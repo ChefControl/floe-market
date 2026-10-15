@@ -146,8 +146,8 @@ describe('characters', () => {
   });
 
   it('draws each stacked item in one call, and shares a sled\'s geometry with every other', async () => {
-    const { newBill, newRice, newSteak } = await import('../src/items');
-    for (const m of [newBill(1), newRice(), newSteak()]) {
+    const { newBill, newRice, newFillet } = await import('../src/items');
+    for (const m of [newBill(1), newRice(), newFillet()]) {
       expect(Array.isArray(m.material)).toBe(false);
       expect(m.geometry.groups).toHaveLength(0);
     }

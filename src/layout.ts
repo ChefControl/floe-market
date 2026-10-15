@@ -1,9 +1,67 @@
 // Which stage the game is in, and the ground plan for each: where people can walk and how high the ground is.
 // Stage 1 is the fish market on the dock. Stage 2 (after the gold 'sushi' tile) shrinks the dock to its north
-// half and builds Floe Sushi south of it, with a front garden, and hot-spring rice terraces to the west.
+// half and builds Floe Sushi south of it, with a front garden, and hot-spring rice terraces to the west. Stage 3
+// (after the gold 'dohyo' tile) adds the cellar under the dock, Mr. Fugu's sumo ring: a level of its own, CELLAR_Y
+// down, under the dock, reached by the ladder down from his hatch. The restaurant upstairs carries on.
 import { FY, type XZ } from './util';
 
-export const stage = { n: 1 as 1 | 2 };
+export type StageN = 1 | 2 | 3;
+export const stage = { n: 1 as StageN };
+/** Which level the player is on: the world above, or (stage 3) the cellar under the dock. */
+export const level = { down: false };
+
+/** How far down the cellar's floor is. Under the dock, out of the way of everything above and out of the camera's
+ *  sight while it looks down on the cellar. */
+export const CELLAR_Y = -30;
+/** Mr. Fugu's hatch in the dock (there from the start, shut till stage 3), the way down to the cellar: out towards the water, so that meeting him
+ *  there has the sea behind him, and his tile fits between it and the restaurant. */
+export const HATCH_AT = { x: 6.0, z: -5.1 };
+
+/** The cellar's rooms, under the dock, side by side like one building with thin walls between: the arena (the ring,
+ *  its stands, the soup square and the gong) to the west; down the middle Mr. Fugu's office, the landing at the foot of
+ *  the ladder from his hatch, the hearth room (the pot) and through it the cookware shop; and to the east the prep hall, where the dumbwaiters'
+ *  trays peek in through the east wall beside the racks and barrels, and behind it the grow room, hidden until the first boss is beaten. Floors,
+ *  inside their walls (the walls stand in the gaps). */
+export const ARENA = { x0: -13.5, x1: 3.5, z0: -9.5, z1: 7.4 };
+export const OFFICE_ROOM = { x0: 4.1, x1: 11.0, z0: -9.5, z1: -4.1 };
+export const LANDING = { x0: 4.1, x1: 11.0, z0: -3.5, z1: 0.3 };
+export const KITCHEN = { x0: 4.1, x1: 11.0, z0: 0.9, z1: 7.4 };
+/** The cookware shop, through the hearth room's south wall: the shop counter, where everything down here is bought. */
+export const CRAFT = { x0: 4.1, x1: 11.0, z0: 8.0, z1: 11.6 };
+export const PREP = { x0: 11.6, x1: 20.6, z0: 0.9, z1: 8.9 };
+export const GROW = { x0: 11.6, x1: 20.6, z0: -9.5, z1: 0.3 };
+/** The lift room, behind the prep hall's east wall: just the two dumbwaiters, and nobody walks in it (it's no room of
+ *  ROOMS's): what comes down them slides down a wooden chute each into a store, which keeps a tray by the wall full,
+ *  handed over it to whoever stands at the circle on the hall's side. */
+export const LIFT_ROOM = { x0: 21.2, x1: 24.8, z0: 1.9, z1: 7.9 };
+export type CellarRoom = 'arena' | 'landing' | 'office' | 'kitchen' | 'prep' | 'grow' | 'craft';
+export const ROOMS: Record<CellarRoom, typeof ARENA> = { arena: ARENA, landing: LANDING, office: OFFICE_ROOM, kitchen: KITCHEN, prep: PREP, grow: GROW, craft: CRAFT };
+/** The doorways through the walls: the two rooms each joins, and its floor (across the wall). */
+export const DOORS: { a: CellarRoom; b: CellarRoom; x0: number; x1: number; z0: number; z1: number }[] = [
+  { a: 'landing', b: 'arena', x0: ARENA.x1, x1: LANDING.x0, z0: -1.2, z1: 0 },
+  { a: 'landing', b: 'kitchen', x0: 4.7, x1: 5.9, z0: LANDING.z1, z1: KITCHEN.z0 },
+  { a: 'landing', b: 'office', x0: (OFFICE_ROOM.x0 + OFFICE_ROOM.x1) / 2 - 0.6, x1: (OFFICE_ROOM.x0 + OFFICE_ROOM.x1) / 2 + 0.6, z0: OFFICE_ROOM.z1, z1: LANDING.z0 },
+  // (into the soup square in the arena, closed in by its counters: the way out to serve, not to the ring)
+  { a: 'kitchen', b: 'arena', x0: ARENA.x1, x1: KITCHEN.x0, z0: 4.9, z1: 6.1 },
+  { a: 'kitchen', b: 'prep', x0: KITCHEN.x1, x1: PREP.x0, z0: 4.4, z1: 5.6 },
+  // (towards the west end of the hearth room's south wall, so it opens straight onto the shop counter's square)
+  { a: 'kitchen', b: 'craft', x0: 6.0, x1: 7.2, z0: KITCHEN.z1, z1: CRAFT.z0 },
+  // (at the east end of the prep hall's back wall, past the racks along it)
+  { a: 'prep', b: 'grow', x0: 18.5, x1: 19.7, z0: GROW.z1, z1: PREP.z0 },
+];
+/** Which of the cellar's rooms have been found: the grow room only once the first boss is beaten. */
+export const found = { grow: false };
+const shown = (r: CellarRoom) => r !== 'grow' || found.grow;
+/** How far a walker's middle keeps from a cellar wall: about their width, so they stop at its face, not halfway in. */
+const BODY = 0.2;
+const cellarFloors = () => [
+  ...(Object.entries(ROOMS) as [CellarRoom, typeof ARENA][]).filter(([k]) => shown(k))
+    .map(([, r]) => ({ x0: r.x0 + BODY, x1: r.x1 - BODY, z0: r.z0 + BODY, z1: r.z1 - BODY })),
+  // a doorway reaches that far into the rooms either side (across the wall it's in: its narrow way), to meet them
+  ...DOORS.filter(d => shown(d.a) && shown(d.b)).map(d => d.x1 - d.x0 < d.z1 - d.z0
+    ? { x0: d.x0 - BODY, x1: d.x1 + BODY, z0: d.z0, z1: d.z1 }
+    : { x0: d.x0, x1: d.x1, z0: d.z0 - BODY, z1: d.z1 + BODY }),
+].map(r => ({ ...r, y: CELLAR_Y }));
 
 export interface Area { x0: number; x1: number; z0: number; z1: number; y: number }
 const area = (x0: number, x1: number, z0: number, z1: number, y = FY): Area => ({ x0, x1, z0, z1, y });
@@ -84,21 +142,21 @@ const QUAY_FLOOR = area(QUAY.x0 + 0.3, QUAY.x1 + 0.6, QUAY.z0 + 0.3, QUAY.z1 - 0
 /** How far out the foredeck goes at the gangway: inside the hull's sides where they draw in towards the bow. */
 const FOREDECK_EDGE = hullHalf(DECKS.gangway + 0.4) - 0.35;
 const GANGWAY = area(along(DECKS.gangway) - 0.35, along(DECKS.gangway) + 0.35, across(FOREDECK_EDGE), QUAY.z0 + 0.4);
-const LANDING = area(along(DECKS.stairs.x1 - 0.2), along(DECKS.gangway + 0.4), across(-0.7), across(FOREDECK_EDGE));
+const FOREDECK = area(along(DECKS.stairs.x1 - 0.2), along(DECKS.gangway + 0.4), across(-0.7), across(FOREDECK_EDGE));
 const STAIRS = area(along(DECKS.stairs.x0), along(DECKS.stairs.x1), across(-DECKS.stairs.half), across(DECKS.stairs.half), UPPER);
 const UPPER_DECK = area(along(DECKS.stern), along(DECKS.front), across(-SHIP.beam + 0.5), across(SHIP.beam - 0.5), UPPER);
-const casinoAreas = () => casinoBoat.open ? [QUAY_FLOOR, GANGWAY, LANDING, STAIRS, UPPER_DECK] : [];
+const casinoAreas = () => casinoBoat.open ? [QUAY_FLOOR, GANGWAY, FOREDECK, STAIRS, UPPER_DECK] : [];
 /** Height of the harbor's floor at `p`: the quay and the main deck, the stairs climbing, or the upper deck; null off it. */
 function casinoY(p: XZ) {
   if (!casinoBoat.open) return null;
   if (inside(STAIRS, p)) return FY + (UPPER - FY) * (STAIRS.x1 - p.x) / (STAIRS.x1 - STAIRS.x0);
   if (inside(UPPER_DECK, p)) return UPPER;
-  return [QUAY_FLOOR, GANGWAY, LANDING].some(a => inside(a, p)) ? FY : null;
+  return [QUAY_FLOOR, GANGWAY, FOREDECK].some(a => inside(a, p)) ? FY : null;
 }
 /** On the harbor's boards: the quay or anywhere aboard (for footsteps on wood). */
 export const onHarbor = (p: XZ) => casinoY(p) !== null;
-/** Aboard the yacht. */
-export const aboard = (p: XZ) =>
+/** Aboard the yacht (never from down in the cellar, wherever under it the player is). */
+export const aboard = (p: XZ) => !level.down &&
   Math.abs(p.x - SHIP.x) < SHIP.half + 0.5 && Math.abs(p.z - SHIP.z) < SHIP.beam + 0.1;
 /** In the salon: aboard, on the upper deck. */
 export const inSalon = (p: XZ & { y: number }) => aboard(p) && p.y > FY + 1.0;
@@ -121,14 +179,17 @@ const housePath = () => area(stage.n === 1 ? 7.3 : HALL.x1 - 0.2, YARD.x0 + 0.3,
 
 /** Where the player can walk in the current stage. Earlier areas win where they overlap. */
 export const walkable = (): Area[] =>
-  stage.n === 1 ? [DECK, ...casinoAreas(), housePath(), YARD]
+  level.down ? cellarFloors()
+  : stage.n === 1 ? [DECK, ...casinoAreas(), housePath(), YARD]
   : [DOCK2, ...casinoAreas(), HALL, GATEWAY, GARDEN, BRIDGE, PATH, ...FIELDS, ...(shedYard.open ? [SHED_YARD] : []),
     ...(kioskBooth.open ? [BOOTH] : []), housePath(), YARD];
 
 const inside = (a: Area, p: XZ) => p.x >= a.x0 && p.x <= a.x1 && p.z >= a.z0 && p.z <= a.z1;
 
-/** Height of the ground people stand on at `p`: the deck and restaurant floor, terraces, or the snow. */
-export function groundY(p: XZ) {
+/** Height of the ground people stand on at `p`: the deck and restaurant floor, terraces, or the snow; or the cellar's
+ *  floor, for someone `down` there (the player, on its level: everyone else in the world stays up in it). */
+export function groundY(p: XZ, down = false) {
+  if (down) return CELLAR_Y;
   const casino = casinoY(p);
   if (casino !== null) return casino;
   const house = inside(housePath(), p) || inside(YARD, p);

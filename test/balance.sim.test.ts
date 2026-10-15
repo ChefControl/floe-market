@@ -1,17 +1,20 @@
 // Balance simulation: a bot plays a fresh game and reports when it could afford each upgrade, how money and
 // earnings grow. Slow, so it only runs on demand, writing its report to SIM_OUT (or a temp file):
 //   SIM=1 SIM_MINUTES=60 SIM_OUT=sim.txt npx vitest run test/balance.sim.test.ts
+// SIM_STAGE=3 plays the ring instead, from just after buying in (broke, with stage 2's rating).
+//   SIM=1 SIM_STAGE=3 SIM_MINUTES=40 SIM_OUT=sim3.txt npx vitest run test/balance.sim.test.ts
 import { writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { describe, it } from 'vitest';
-import { mmss, play } from './bot';
-import { loadGame } from './helpers';
+import { mmss, play, ringModules } from './bot';
+import { bought as tiles, FLOE_SUSHI, loadGame, MARKET } from './helpers';
 
 describe.runIf(process.env.SIM)('balance', () => {
   it('plays a fresh game', async () => {
-    const g = await loadGame();
+    const ring = process.env.SIM_STAGE === '3';
+    const g = await loadGame(ring ? { tiles: tiles(...MARKET, 'sushi', ...FLOE_SUSHI, 'dohyo'), fugu: 2, level: 1, reviews: Array(20).fill(4.6) } : undefined);
     const minutes = Number(process.env.SIM_MINUTES || 60);
-    const { bought, samples, trace } = play(g, minutes * 60);
+    const { bought, samples, trace } = play(g, minutes * 60, 0.05, ring ? await ringModules() : undefined);
     const out: string[] = [];
     const log = (l: string) => out.push(l);
     let prev = 0;
