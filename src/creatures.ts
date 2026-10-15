@@ -3,7 +3,7 @@
 // hang on the wrestler's bones and move with them: a head on the neck, claws on the elbows, fins on the spine,
 // tentacles and legs on the hips. The long soft ones (tentacles, whiskers, tails) are short chains of joints that sway.
 // Each part is baked into one mesh per bone (kit.ts), like the wrestler's own.
-import { BoxGeometry, ConeGeometry, Euler, ExtrudeGeometry, type Group, Matrix4, type Object3D, Quaternion, Shape, SphereGeometry, Vector3 } from 'three';
+import { BoxGeometry, CircleGeometry, ConeGeometry, Euler, ExtrudeGeometry, type Group, Matrix4, type Object3D, Quaternion, Shape, SphereGeometry, Vector3 } from 'three';
 import { slimeFx } from './fx';
 import { Build, K, quietly, shade } from './kit';
 import type { Pose, RikishiModel } from './rikishi';
@@ -19,7 +19,7 @@ export const LOOKS: Record<Kind, Look> = {
   crab: { kind: 'crab', skin: 0xE58A62, shell: 0xC2452B, under: 0xF2C9A0, belt: 0x5A2416 },
   catfish: { kind: 'catfish', skin: 0x6B6748, under: 0xCFC29C, belt: 0x3B342E },
   shark: { kind: 'shark', skin: 0x6F88A0, under: 0xEEF0F0, belt: 0x2B3440 },
-  puffer: { kind: 'puffer', skin: 0xD9C8A2, back: 0xD3BE92, under: 0xF1EDE2, belt: 0xC9A23A },
+  puffer: { kind: 'puffer', skin: 0x8E8358, back: 0x6E6542, under: 0xF2EEE2, belt: 0x2B2238 },
 };
 /** What each one shouts when his slap lands (on High, as the other words). */
 export const SLAPS: Record<Kind, string[]> = {
@@ -94,6 +94,73 @@ function broad(k: Kit, w: number, c: number) {
 /** A round shape: its middle, its radii, and how it's turned. */
 interface Round { at: V3; r: V3; rot?: V3 }
 const qq = new Quaternion(), ee = new Euler(), Z = new Vector3(0, 0, 1), UP = new Vector3(0, 1, 0);
+
+/** Balls for the puffer: a big one for his body, and a small one for the little parts of his face. */
+const BALL = quietly(() => new SphereGeometry(1, 16, 12)), SMALL = quietly(() => new SphereGeometry(1, 8, 6));
+/** A flat round spot (facing z). */
+const DISC = quietly(() => new CircleGeometry(1, 6));
+/** A spine: its root at the origin, its point 1 up along y. */
+const SPIKE = quietly(() => new ConeGeometry(1, 1, 6, 1, true).translate(0, 0.5, 0));
+/** A fan fin: its root at the origin, opening up along y to a scalloped edge 1 up, 1 wide (x), 1 thick (z, centred). */
+const FAN = quietly(() => {
+  const s = new Shape();
+  s.moveTo(-0.07, 0); s.quadraticCurveTo(-0.5, 0.5, -0.46, 0.86);
+  const n = 5;
+  for (let i = 0; i < n; i++) {
+    const x0 = -0.46 + (0.92 * i) / n, x1 = -0.46 + (0.92 * (i + 1)) / n, y = (x: number) => 0.86 + 0.12 * Math.cos(x * 2.2);
+    s.quadraticCurveTo((x0 + x1) / 2, y((x0 + x1) / 2) + 0.07, x1, y(x1) - 0.02);
+  }
+  s.quadraticCurveTo(0.5, 0.5, 0.07, 0); s.lineTo(-0.07, 0);
+  return new ExtrudeGeometry(s, { depth: 1, bevelEnabled: false, curveSegments: 4 }).translate(0, 0, -0.5);
+});
+
+/** The turn that lays a shape's y along `y`, its x as near `x` as it can be. */
+function orient(y: Vector3, x: Vector3): V3 {
+  const yy = y.clone().normalize(), zz = x.clone().cross(yy).normalize(), xx = yy.clone().cross(zz).normalize();
+  ee.setFromRotationMatrix(new Matrix4().makeBasis(xx, yy, zz));
+  return [ee.x, ee.y, ee.z];
+}
+/** The turn that points a shape's y along `d`. */
+function point(d: Vector3): V3 { ee.setFromQuaternion(qq.setFromUnitVectors(UP, d.clone().normalize())); return [ee.x, ee.y, ee.z]; }
+/** Evenly spread directions over a ball (a Fibonacci spiral). */
+function spread(n: number) {
+  const out: Vector3[] = [];
+  for (let i = 0; i < n; i++) {
+    const y = 1 - (2 * (i + 0.5)) / n, r = Math.sqrt(1 - y * y), a = i * 2.39996;
+    out.push(new Vector3(Math.cos(a) * r, y, Math.sin(a) * r));
+  }
+  return out;
+}
+/** Small round spots painted on the round `o` where `keep` says (by the direction out to them), each about `size` across. */
+function spots(b: Build, o: Round, n: number, size: number, c: number, seed: number, keep: (d: Vector3) => boolean) {
+  const s = new Build(), mean = (o.r[0] + o.r[1] + o.r[2]) / 3;
+  for (let i = 0, made = 0; made < n && i < n * 10; i++) {
+    const d = new Vector3(hash(seed + i) * 2 - 1, hash(seed + i + 0.31) * 2 - 1, hash(seed + i + 0.63) * 2 - 1);
+    if (d.lengthSq() > 1 || d.lengthSq() < 0.05) continue;
+    d.normalize();
+    if (!keep(d)) continue;
+    made++;
+    const sz = (size * (0.7 + hash(seed + i + 0.9) * 0.6)) / mean;
+    ee.setFromQuaternion(qq.setFromUnitVectors(Z, d));
+    s.add(DISC, c, d.x, d.y, d.z, [ee.x, ee.y, ee.z], [sz, sz, 1]);
+  }
+  b.addAll(s, new Matrix4().compose(new Vector3(...o.at), qq.identity(), new Vector3(...o.r)));
+}
+/** A puffer's big round eye bulging out along `d`: its socket, the dark ball, a gold ring round the pupil, a glint, and a heavy
+ *  lid over the top of it slanted down to the middle, in a glare. */
+function glare(b: Build, s: number, c: Vector3, d: Vector3, er: number, skin: number, brow: number, iris: number) {
+  const n = d.clone().normalize(), at = (k: number) => c.clone().addScaledVector(n, k), o = point(n);
+  let p = at(-er * 0.5); b.add(SPH, skin, p.x, p.y, p.z, null, [er * 1.12, er * 1.12, er * 1.12]);
+  b.add(SPH, 0x1A1612, c.x, c.y, c.z, null, [er, er, er]);
+  p = at(er * 0.5); b.add(SPH, iris, p.x, p.y, p.z, o, [er * 0.8, er * 0.56, er * 0.8]);
+  p = at(er * 0.72); b.add(SPH, 0x070605, p.x, p.y - er * 0.02, p.z, o, [er * 0.36, er * 0.38, er * 0.36]);
+  p = at(er * 0.9); b.add(K.dot, 0xFFFFFF, p.x - s * er * 0.22, p.y + er * 0.3, p.z, o, [er * 0.14, er * 0.12, er * 0.14]);
+  const yaw = Math.atan2(n.x, n.z);
+  const lid = c.clone().addScaledVector(n, -er * 0.06); lid.y += er * 0.42; lid.x -= s * er * 0.1;
+  b.add(SPH, skin, lid.x, lid.y, lid.z, [0, yaw, s * 0.34], [er * 1.04, er * 0.74, er * 1.04]);
+  const bw = c.clone().addScaledVector(n, er * 0.3); bw.y += er * 0.72; bw.x -= s * er * 0.3;
+  b.add(SMALL, brow, bw.x, bw.y, bw.z, [0.3, yaw, s * 0.5], [er * 0.85, er * 0.22, er * 0.55]);
+}
 /** `n` small spots scattered over the round `o` where `keep` says (by the direction out to them), each about `size`
  *  across. */
 function dots(b: Build, o: Round, n: number, size: number, c: number, seed: number, keep: (d: Vector3) => boolean, out = 1) {
@@ -289,88 +356,130 @@ export const BEASTS: Record<Kind, (k: Kit, L: Look) => Beast> = {
     };
   },
 
-  // Fukure 膨れ, "swollen": Mr. Fugu's own champion, a porcupine puffer (harisenbon). A puffer is a ball with a face, so
-  // he is one: everything above his belt one round body, tan over the top peppered with small dark spots and pale
-  // underneath, his face on the front of it. Big round eyes high on the ball, a small pouting beak with its tooth plates
-  // bared (one capped in gold), little fins fluttering on his sides and a tail fin behind. Meaner than the fish: the lids
-  // pulled down slanting in, a brow ridge, an old scar across one eye. At rest his spines lie back; angry (puffTo, from
-  // dohyo.ts) he blows up a third bigger and they stand out long; beaten, he goes down like a balloon.
+  // Fukure 膨れ, "swollen": Mr. Fugu's own champion, a porcupine puffer (harisenbon) on the wrestler's body. At rest he's
+  // a fat round fish no bigger than a 200 kg wrestler: olive-tan over the back with small dark spots and his spines laid
+  // flat, pale down the front, a broad blunt head with no neck, big gold eyes under scowling lids, thick pale lips drawn
+  // back off the beak, fan fins fluttering behind his eyes and a tail behind his belt. Angry, he blows up into a ball
+  // half as big again, every spine standing out.
   puffer(k, L) {
-    const r = k.r, pale = L.under!, tan = L.back!, DOT = 0x3A2A1C, FINC = 0xE6D9A6, f = r.f;
-    // the ball, on the chest's bone so it swells with him, and the tan over its top and back
-    const ball: Round = { at: [0, 0.03, 0.02], r: [0.37 * f, 0.52, 0.34 * f] };
-    const cap: Round = { at: [0, 0.1, -0.13], r: [0.376 * f, 0.485, 0.34 * f] };
-    const belly: Round = { at: [0, 0, 0], r: [0.42 * f, 0.31, 0.38 * f] };
-    // where his face is, on the front of the ball
-    const ez = (x: number, y: number) => ball.at[2] + ball.r[2] * Math.sqrt(Math.max(0, 1 - (x / ball.r[0]) ** 2 - ((y - ball.at[1]) / ball.r[1]) ** 2));
-    const face = (d: Vector3) => d.z > 0.55 && d.y > -0.45 && d.y < 0.8;
-    k.part(r.chestAt, b => {
-      b.add(SPH, pale, ...ball.at, null, ball.r);
-      b.add(SPH, tan, ...cap.at, null, cap.r);
-      dots(b, cap, 240, 0.02, DOT, 61, d => d.y > -0.45 && !(d.z > 0.6 && d.y < 0.6));
-      const my = 0.07, mz = ez(0, my);
-      for (const s of [-1, 1]) {
-        // big round eyes, bulging: a tan rim, a gold ring, a wide black pupil looking forward, a glint
-        const x = s * 0.24, y = 0.29, z = ez(x, y) - 0.05, d = new Vector3(s * 0.4, 0.05, 1).normalize();
-        b.add(SPH, tint(tan, 0.85), x, y, z, null, [0.135, 0.135, 0.12]);
-        b.add(SPH, 0xB08A2E, x + d.x * 0.03, y + d.y * 0.03, z + d.z * 0.03, null, [0.12, 0.12, 0.11]);
-        b.add(SPH, 0x0C0C0E, x + d.x * 0.075, y + d.y * 0.075, z + d.z * 0.075, null, [0.078, 0.082, 0.07]);
-        b.add(SPH, 0xFFFFFF, x + d.x * 0.13 - s * 0.02, y + 0.04, z + d.z * 0.13, null, [0.016, 0.016, 0.01]);
-        // the lid pulled down over the top of it, slanting in, and the brow ridge over that
-        b.add(SPH, tan, x + d.x * 0.02, y + 0.075, z + d.z * 0.02, [0, 0, s * 0.42], [0.142, 0.07, 0.13]);
-        b.add(SPH, tint(tan, 0.62), x - s * 0.02, y + 0.13, z + 0.02, [0, 0, s * 0.5], [0.14, 0.03, 0.09]);
-        // the corners of his mouth, turned down
-        b.add(SPH, tint(pale, 0.78), s * 0.135, my - 0.05, mz - 0.02, [0, 0, s * 0.6], [0.06, 0.018, 0.035]);
+    const r = k.r, f = r.f, sk = L.skin, bk = L.back ?? shade(sk, 0.85), pale = L.under!, SPOT = 0x2A2116;
+    const FINC = 0xD9CC9C, QUILL = 0xF3EEE0, IRIS = 0xE8C640, LIP = 0xEADCC6;
+
+    // ---- his trunk: a fish's body from the belt up, tan over the back and sides, pale down the front ----
+    // At rest it's a wrestler's chest and belly and no bigger; blown up it's a ball. Its shape is the bone's scale: the
+    // shell is a unit ball.
+    const REST = { at: new Vector3(0, 0.38, 0.03), r: new Vector3(0.465 * f, 0.52, 0.425 * f) };
+    const PUFF = { at: new Vector3(0, 0.6, 0.06), r: new Vector3(0.6 * f, 0.74, 0.56 * f) };
+    const orb = k.bone(r.spine, 0, 0, 0);
+    k.part(orb, b => {
+      b.add(BALL, pale, 0, -0.1, 0.16, null, [0.92, 0.9, 0.86]);
+      b.add(BALL, sk, 0, 0.03, -0.08, null, [1, 0.97, 0.93]);
+      b.add(BALL, bk, 0, 0.13, -0.16, null, [0.95, 0.9, 0.86]);
+      const tan = (d: Vector3) => d.z < 0.25 || d.y > 0.55;
+      spots(b, { at: [0, 0.06, -0.08], r: [1, 0.95, 0.93] }, 46, 0.055, SPOT, 7, tan);
+      // the spines laid flat, pointing down his back as a fish's point to its tail
+      for (const d of spread(150)) {
+        if (!tan(d) || d.y < -0.6 || (Math.abs(d.x) > 0.75 && Math.abs(d.y) < 0.5 && d.z > -0.3)) continue;
+        const p = new Vector3(d.x, 0.06 + d.y * 0.95, -0.08 + d.z * 0.93).multiplyScalar(0.99);
+        const down = new Vector3(0, -1, 0).addScaledVector(d, d.y).normalize().addScaledVector(d, 0.28);
+        b.add(SPIKE, QUILL, p.x, p.y, p.z, point(down), [0.028, 0.15, 0.028]);
       }
-      // a small pouting beak: thick pale lips, a dark gap, the tooth plates (one capped in gold)
-      b.add(SPH, 0xEFE4CB, 0, my, mz - 0.01, null, [0.15, 0.11, 0.11]);
-      b.add(SPH, 0x24120E, 0, my, mz + 0.075, null, [0.1, 0.05, 0.035]);
-      b.add(BOX, 0xFBF8F0, 0, my + 0.04, mz + 0.085, null, [0.12, 0.034, 0.02]);
-      b.add(BOX, 0xE2B436, 0.031, my - 0.038, mz + 0.085, null, [0.058, 0.03, 0.02]);
-      b.add(BOX, 0xFBF8F0, -0.031, my - 0.038, mz + 0.085, null, [0.058, 0.03, 0.02]);
-      // an old scar across his left eye
-      b.add(BOX, 0xE9C8BA, 0.24, 0.29, ez(0.24, 0.29) + 0.07, [0, 0.4, -0.4], [0.016, 0.3, 0.016]);
     });
-    // little fins fluttering on his sides behind his eyes, and a tail fin behind his belt
-    const fins = [-1, 1].map(s => {
-      const g = k.bone(r.chestAt, s * ball.r[0] * 0.97, 0.12, 0.05);
-      k.part(g, b => b.add(SPH, FINC, s * 0.02, 0, -0.08, null, [0.022, 0.12, 0.13]));
-      return g;
+    // and his spines standing out, hidden inside him until he swells
+    const PR = PUFF.r, quills = k.bone(r.spine, 0, 0, 0);
+    k.part(quills, b => {
+      for (const d of spread(150)) {
+        if (d.y < -0.5) continue; // the belt
+        if (d.z > 0.5 && d.y > -0.25 && Math.abs(d.x) < 0.6) continue; // his face
+        if (Math.abs(d.x) > 0.8 && Math.abs(d.y) < 0.35) continue; // his arms
+        const len = 0.24 + 0.07 * hash(d.x * 31 + d.y * 7);
+        const p = new Vector3(d.x * PR.x, d.y * PR.y, d.z * PR.z).multiplyScalar(0.9);
+        const nrm = new Vector3(d.x / PR.x, d.y / PR.y, d.z / PR.z).normalize();
+        b.add(SPIKE, QUILL, p.x, p.y, p.z, point(nrm), [0.032, len, 0.032]);
+      }
     });
-    const tail = k.bone(r.hips, 0, -0.02, -0.38 * f);
-    k.part(tail, b => b.add(SPH, FINC, 0, 0, -0.13, null, [0.025, 0.17, 0.18]));
-    // the spines, all over him but his face: lying back at rest, standing out long when he's blown up
-    const spines = (at: Object3D, o: Round, keep: (d: Vector3) => boolean, N: number, size: number) => {
-      const rest = k.bone(at, 0, 0, 0), out = k.bone(at, 0, 0, 0), n = new Vector3();
-      for (const [g, up] of [[rest, false], [out, true]] as const) k.part(g, b => {
-        for (let i = 0; i < N; i++) {
-          const y = 1 - ((i + 0.5) / N) * 2, rr = Math.sqrt(1 - y * y), a = i * 2.39996;
-          const d = new Vector3(Math.cos(a) * rr, y, Math.sin(a) * rr);
-          if (!keep(d)) continue;
-          n.set(d.x / o.r[0], d.y / o.r[1], d.z / o.r[2]).normalize();
-          if (!up) { n.z -= 0.9; n.normalize(); }
-          const len = (up ? 0.3 : 0.06) * size, w = 0.022 * size + 0.004;
-          ee.setFromQuaternion(qq.setFromUnitVectors(UP, n));
-          b.add(CONE, 0xF2EEE4, o.at[0] + d.x * o.r[0] + n.x * len * 0.3, o.at[1] + d.y * o.r[1] + n.y * len * 0.3, o.at[2] + d.z * o.r[2] + n.z * len * 0.3, [ee.x, ee.y, ee.z], [w, len, w]);
-        }
+
+    // ---- his head: broad and blunt, the top of his body with no neck between; big gold eyes bulging out of its sides
+    // under heavy lids, thick lips drawn back off the beak, and a fan fin behind each eye. Blown up, it swells with the
+    // ball and rides on its front, so the face stays on him ----
+    const head = k.bone(r.neck, 0, -0.06, 0.08);
+    const HD: Round = { at: [0, 0.1, 0], r: [0.6, 0.4, 0.52] };
+    k.part(head, b => {
+      b.add(BALL, sk, ...HD.at, null, HD.r);
+      b.add(BALL, bk, 0, 0.15, -0.07, null, [0.57, 0.36, 0.47]);
+      b.add(BALL, pale, 0, -0.06, 0.1, null, [0.55, 0.3, 0.45]);
+      spots(b, HD, 22, 0.04, SPOT, 3, d => d.y > 0.25 && d.z < 0.6);
+      for (const d of spread(60)) {
+        if (d.y < 0.2 || d.z > 0.4) continue;
+        const p = new Vector3(d.x * 0.6, 0.1 + d.y * 0.4, d.z * 0.52).multiplyScalar(0.99);
+        const back = new Vector3(0, 0.15, -1).addScaledVector(d, 0.35);
+        b.add(SPIKE, QUILL, p.x, p.y, p.z, point(back), [0.026, 0.13, 0.026]);
+      }
+      // the blunt snout, and its thick pale lips in a scowl round the beak, the teeth bared between them
+      b.add(SPH, pale, 0, -0.03, 0.42, null, [0.25, 0.15, 0.16]);
+      b.add(SMALL, 0x2A1414, 0, -0.02, 0.565, null, [0.12, 0.05, 0.03]);
+      for (const s of [-1, 1]) {
+        // the lips, thick and drawn back off the teeth, down at the corners
+        b.add(SMALL, LIP, s * 0.07, 0.035, 0.555, [0, s * 0.4, -s * 0.32], [0.09, 0.032, 0.045]);
+        b.add(SMALL, LIP, s * 0.065, -0.075, 0.55, [0, s * 0.4, -s * 0.1], [0.085, 0.034, 0.045]);
+        b.add(SMALL, LIP, s * 0.135, -0.035, 0.515, null, [0.03, 0.045, 0.035]);
+        // and the beak bared between them: two teeth over two, fused, a notch between
+        b.add(BOX, 0xFFFDF5, s * 0.027, 0.0, 0.585, [0, 0, -s * 0.14], [0.05, 0.034, 0.016]);
+        b.add(BOX, 0xFFFDF5, s * 0.025, -0.045, 0.582, [0, 0, s * 0.1], [0.046, 0.03, 0.016]);
+      }
+      for (const s of [-1, 1]) glare(b, s, new Vector3(s * 0.36, 0.19, 0.31), new Vector3(s * 0.55, 0.3, 0.78), 0.165, sk, shade(bk, 0.7), IRIS);
+    });
+    const pecs = r.arms.map(A => {
+      const at = k.bone(head, A.s * 0.57, 0.04, -0.08, orient(new Vector3(A.s * 0.85, 0.15, -0.5), new Vector3(0, 1, 0)));
+      const fl = k.bone(at, 0, 0, 0);
+      k.part(fl, b => { b.add(FAN, FINC, 0, 0, 0, null, [0.34, 0.34, 0.018]); for (const x of [-0.06, 0, 0.06]) b.add(K.post, shade(FINC, 0.85), x, 0.12, 0, [0, 0, -x * 4], [0.006, 0.2, 0.012]); });
+      return { at, fl, s: A.s };
+    });
+    // thick arms, spotted, set out on the sides of his body
+    const SHX = 0.32 + 0.12 * f + 0.06;
+    r.arms.forEach((A, i) => {
+      k.part(A.sh, b => {
+        const up: Round = { at: [0, -0.11, 0], r: [0.15, 0.2, 0.15] };
+        b.add(SPH, sk, ...up.at, null, up.r);
+        spots(b, up, 5, 0.035, SPOT, 40 + i, d => d.x * A.s > -0.3 && d.z < 0.5);
       });
-      return { rest, out };
-    };
-    const sets = [
-      spines(r.chestAt, ball, d => d.y > -0.75 && !face(d), 240, 1),
-      spines(r.bellyAt, belly, d => d.y < -0.05 && d.y >= -0.8 && d.z > 0.3, 50, 0.8),
-    ];
+      k.part(A.el, b => b.add(SPH, sk, 0, -0.1, 0, null, [0.115, 0.15, 0.115]));
+    });
+
+    // ---- a small fin low on his back, and his tail behind the belt ----
+    const dors = k.bone(r.spine, 0, 0, 0), DD = new Vector3(0, -0.3, -1).normalize();
+    k.part(dors, b => b.add(FAN, FINC, 0, 0, 0, orient(new Vector3(0, 0.3, -1), new Vector3(0, 1, 0)), [0.2, 0.16, 0.02]));
+    const tail = k.bone(r.hips, 0, -0.02, -0.33 * f, [-0.15, 0, 0]);
+    k.part(tail, b => {
+      b.add(SPH, sk, 0, 0, -0.05, null, [0.08, 0.1, 0.12]);
+      b.add(FAN, FINC, 0, 0, -0.1, orient(new Vector3(0, 0.1, -1), new Vector3(0, 1, 0)), [0.36, 0.3, 0.025]);
+    });
+
+    const cur = new Vector3(), at = new Vector3();
     return {
       hands: true,
       anim(t, dt) {
         r.puff += (r.puffTo - r.puff) * Math.min(1, dt * (r.puffTo > r.puff ? 7 : 2.5));
-        const p = r.puff, big = 1 + 0.32 * p;
-        r.chestAt.scale.setScalar(big); r.bellyAt.scale.multiplyScalar(big);
-        // his arms out from the sides of the ball, further as it swells
-        r.arms.forEach(A => { A.sh.position.x = A.s * (0.35 * f + 0.2 * p); });
-        for (const s of sets) { s.out.visible = p > 0.4; s.rest.visible = !s.out.visible; }
-        fins.forEach((e, i) => { e.rotation.y = (i ? 1 : -1) * (0.25 + 0.35 * Math.sin(t * 9 + i)); });
-        tail.rotation.y = 0.4 * Math.sin(t * 7);
+        const p = r.puff, br = Math.sin(t * 1.7);
+        // the trunk: breathing at rest, a ball blown up
+        cur.lerpVectors(REST.r, PUFF.r, p).multiplyScalar(1 + 0.012 * br);
+        at.lerpVectors(REST.at, PUFF.at, p);
+        orb.position.copy(at); orb.scale.copy(cur);
+        // (and bristling a little while he fights)
+        const g = 0.74 + 0.26 * p + 0.09 * r.agitate * (1 - p);
+        quills.position.copy(at); quills.scale.set((cur.x / PR.x) * g, (cur.y / PR.y) * g, (cur.z / PR.z) * g);
+        quills.visible = p > 0.02 || r.agitate > 0.05;
+        r.chestAt.scale.set(1 + 0.28 * p, 1 + 0.6 * p, 1 + 0.2 * p);
+        r.bellyAt.scale.x *= 0.92 + 0.3 * p; r.bellyAt.scale.z *= 0.9 + 0.3 * p;
+        // the head pushed out onto the front of the ball, its fins and his arms out to its sides
+        r.neck.position.set(0, 0.74 - 0.12 * p + 0.008 * br, 0.03 + 0.07 * p);
+        head.scale.setScalar(1 + 0.4 * p);
+        r.neck.rotation.x += 0.12 * (1 - p); // chin down, glaring up from under his lids
+        r.arms.forEach(A => { A.sh.position.x = A.s * (SHX + 0.26 * p); });
+        dors.position.set(at.x + cur.x * DD.x, at.y + cur.y * DD.y, at.z + cur.z * DD.z);
+        // the fins never stop
+        pecs.forEach((P, i) => { P.fl.rotation.x = 0.35 * Math.sin(t * 11 + i * 1.3) + 0.1; });
+        tail.rotation.y = 0.28 * Math.sin(t * 2.3) * (1 + r.agitate);
       },
     };
   },
