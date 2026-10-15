@@ -226,9 +226,32 @@ export function onBroken(f: (bus: Out) => void) { fixes.push(f); }
 /** Something on `bus` has gone wrong (NaN, or a runaway level): its guard has silenced it; build it again. */
 export function broken(bus: Out) { fixes.forEach(f => f(bus)); }
 
-/** Fades the music down (0) or back up (1): under the songs, and for the stage-up's fanfare. */
+/** Where the music's been faded to (duck), for a hush to bring it back to; and till when a hush holds it down. */
+let ducked = 1, hushTill = 0;
+/** Fades the music down (0) or back up (1): under the songs, and for the stage-up's fanfare. (Not during a hush: it
+ *  comes back to this when the hush is over.) */
 export function duck(k: number, secs: number) {
-  if (ac) buses.music.gain.setTargetAtTime(k, ac.currentTime, secs / 3);
+  ducked = k;
+  if (ac && ac.currentTime >= hushTill) buses.music.gain.setTargetAtTime(k, ac.currentTime, secs / 3);
+}
+/**
+ * Everything but the cues (the music, the world's effects and its ambience) drops away almost to nothing for `secs`,
+ * then swells back: the gong's stroke ringing out over a cellar gone quiet. Smooth both ways, no step in any gain.
+ */
+export function hushFor(secs: number) {
+  if (!ac) return;
+  const t = ac.currentTime, back = t + secs;
+  // (the music's ducking keeps off till it's swelled most of the way back)
+  hushTill = back + 1.2;
+  const dip = (g: GainNode, to: number) => {
+    // (held where it is, mid-fade or not: Firefox has no cancelAndHoldAtTime, and takes its last value instead)
+    if (g.gain.cancelAndHoldAtTime) g.gain.cancelAndHoldAtTime(t);
+    else { g.gain.cancelScheduledValues(t); g.gain.setValueAtTime(g.gain.value, t); }
+    g.gain.setTargetAtTime(to * 0.03, t, 0.04);
+    g.gain.setTargetAtTime(to, back, 0.35);
+  };
+  dip(buses.music, ducked);
+  for (const b of ['sfx', 'amb'] as Bus[]) dip(buses[b], worldLevel(b));
 }
 
 // ---------- where sounds come from ----------

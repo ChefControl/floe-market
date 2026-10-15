@@ -1,13 +1,13 @@
 // The cellar under the dock (stage 3): Mr. Fugu's sumo ring and the stew kitchen that feeds its fans, in rooms side by
-// side, with thin walls and doorways between them. The arena: a big clay dohyo under lanterns in the middle, crates
-// and planks for stands along the back and west walls, the soup bar by the hearth room's door, and the gong and the
-// cashier's window against the east wall. Down the middle, Mr. Fugu's office (his desk on a dais), the landing with the
-// ladder up to the hatch in the dock, and the hearth room: the big pot, its ledge and the bowl counter. To the east the
-// prep hall, where the dumbwaiter from the restaurant's kitchen comes down beside the racks and barrels, and behind its
-// stone north wall the grow room, which nobody knows is there until the first boss is beaten. It's built CELLAR_Y under
-// the dock, out of the camera's sight from up there, dug into the earth. Only the back walls along the very back of the
-// cellar go up high, all to one height: every other wall is low, all to one height too, so the camera sees into every
-// room, and the earth round the rooms comes up level with their tops.
+// side, with thin walls and doorways between them. The arena: a big clay dohyo under lanterns in the middle, crates and
+// planks for stands along the back and west walls, the soup bar by the hearth room's door, the gong out on the floor
+// south-west of the ring, and the cashier's window against the east wall. Down the middle, Mr. Fugu's office (his desk
+// on a dais), the landing with the ladder up to the hatch in the dock, and the hearth room: the big pot, its ledge and
+// the bowl counter. To the east the prep hall, where the dumbwaiter from the restaurant's kitchen comes down beside the
+// racks and barrels, and behind its stone north wall the grow room, which nobody knows is there until the first boss is
+// beaten. It's built CELLAR_Y under the dock, out of the camera's sight from up there, dug into the earth. Only the
+// back walls along the very back of the cellar go up high, all to one height: every other wall is low, all to one
+// height too, so the camera sees into every room, and the earth round the rooms comes up level with their tops.
 // This module is the rooms and their furniture; where things are is cellarPlan.ts, and the kitchen's lines, the bouts
 // and the swarm draw themselves (ringKitchen.ts, dohyo.ts, swarm.ts).
 import {
@@ -996,7 +996,7 @@ later(() => {
 /** Keeps a spectator's place hidden until it's built. */
 export const placeBuilt = (p: Place) => p.part === 'base' || parts[p.part].visible;
 
-// ---------- the arena's east side: the soup square, the gong and the cashier's window ----------
+// ---------- the arena: the soup square, the gong (out on the floor) and the cashier's window ----------
 // The soup square, after the street-food counters of Pompeii: two counters of plastered clay at right angles, closing
 // in the arena's corner by the hearth room's doorway (the walls are its other two sides), where the player stands to
 // serve (like the sushi chefs inside their belt upstairs). Their tops are pale hinoki planks, two staggered rows of
@@ -1200,16 +1200,20 @@ later(() => {
   }
   geos.forEach((gs, i) => { add(cellar, mesh(mergeGeometries(gs)!, new MeshLambertMaterial({ map: wrap(i).tex }), 0, 0, 0, true)); gs.forEach(b => b.dispose()); });
 });
-/** The gong: a bronze disc hung in a black frame (gong.ts swings it). */
+/** The gong: a bronze disc hung in a black frame, its face to the near wall (gong.ts swings it, and lights it up when
+ *  it's struck). */
 export const gongDisc = new Group();
+/** Its bronze (made with it, not as the cellar loads: a material's id takes numbers from the luck). */
+export let gongBronze: MeshLambertMaterial | null = null;
 later(() => {
-  const g = add(cellar, new Group()); g.position.set(GONG.x, CY, GONG.z); g.rotation.y = -Math.PI / 2;
+  gongBronze = new MeshLambertMaterial({ color: 0xC9A23A, emissive: 0x5A3A0A });
+  const g = add(cellar, new Group()); g.position.set(GONG.x, CY, GONG.z);
   for (const s of [-1, 1]) box(g, 0x1B1A1E, s * 0.85, 1.25, 0, 0.12, 2.5, 0.12);
   box(g, 0x1B1A1E, 0, 2.5, 0, 1.95, 0.14, 0.16);
   box(g, 0x8E2B2B, 0, 2.62, 0, 2.1, 0.08, 0.22);
   gongDisc.position.set(0, 2.38, 0);
   g.add(gongDisc);
-  const disc = add(gongDisc, mesh(new CylinderGeometry(0.62, 0.62, 0.05, 24), new MeshLambertMaterial({ color: 0xC9A23A, emissive: 0x5A3A0A }), 0, -0.95, 0, true));
+  const disc = add(gongDisc, mesh(new CylinderGeometry(0.62, 0.62, 0.05, 24), gongBronze, 0, -0.95, 0, true));
   disc.rotation.x = Math.PI / 2;
   add(gongDisc, mesh(new TorusGeometry(0.62, 0.04, 6, 24), 0x8A6A1E, 0, -0.95, 0));
   add(gongDisc, mesh(G.cyl, 0xE0BE5A, 0, -0.95, 0.03)).scale.set(0.2, 0.02, 0.2);
@@ -2098,7 +2102,7 @@ export function cellarBoxes(machines: Record<'rice' | 'fish' | 'mush', number> =
     [RING.x, RING.z, RING_HALF + RING_FOOT + 0.2, RING_HALF + RING_FOOT + 0.2],
     [(BACK.a0 + BACK.a1) / 2, BACK.wall + (t ? 1.5 : 1.1), (BACK.a1 - BACK.a0) / 2 + 0.2, t ? 1.65 : 1.2],
     ...BAR_BOXES,
-    [GONG.x, GONG.z, 0.45, 1.15],
+    [GONG.x, GONG.z, 1.15, 0.45],
     [CASHIER.x, CASHIER.z, 0.65, 1.3],
     [TEPPO.x, TEPPO.z, 0.5, 0.5],
     [KOMO.x, KOMO.z, 0.5, 1.45],

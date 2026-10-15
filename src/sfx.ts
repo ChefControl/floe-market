@@ -3,7 +3,7 @@
 // boards underfoot, little bells for money and news, and filtered noise for water, snow and swishing rice. Sounds out
 // in the world (a customer paying, a driver's horn) are placed where they happen, and fade with distance.
 import type { StageN } from './layout';
-import { bell, between, deg, every, marimba, noise, pluck, streak, tone } from './audio';
+import { ac, bell, between, buses, deg, every, hushFor, marimba, noise, onBroken, pluck, rnd, streak, tone } from './audio';
 import type { Season } from './season';
 import type { XZ } from './util';
 
@@ -163,13 +163,41 @@ export function tick() {
   noise({ f: 2200, q: 2, d: 0.012, v: 0.04 });
 }
 
-/** The gong in the cellar's arena (stage 3), struck to call a boss in: a deep bronze crash that rings on and on, its
- *  partials out of tune with each other the way a gong's are, and a hiss of the mallet. */
-export function gong(at: XZ) {
-  for (const [f, v, d] of [[98, 0.12, 4.2], [151, 0.08, 3.4], [214, 0.06, 2.7], [289, 0.04, 2.1], [407, 0.025, 1.4]] as const) {
-    tone({ at, f, f2: f * 0.985, a: 0.012, d, v });
+/** The gong's hall: a long, dark tail (4.5 s of noise, low-passed, dying away), shared by every stroke. */
+let hall: ConvolverNode | null = null;
+function gongHall() {
+  if (hall) return hall;
+  const c = ac!, n = Math.floor(c.sampleRate * 4.5), ir = c.createBuffer(2, n, c.sampleRate);
+  for (let ch = 0; ch < 2; ch++) {
+    const d = ir.getChannelData(ch);
+    let lp = 0;
+    for (let i = 0; i < n; i++) { lp += 0.2 * (rnd() * 2 - 1 - lp); d[i] = lp * (1 - i / n) ** 3; }
   }
-  noise({ at, f: 900, q: 0.8, a: 0.004, d: 0.45, v: 0.04 });
+  hall = c.createConvolver(); hall.buffer = ir; hall.connect(buses.cue);
+  return hall;
+}
+onBroken(bus => { if (bus === 'cue' && hall) { hall.disconnect(); hall = null; } });
+/** A gong's partials, out of tune with each other the way a big gong's are: [ratio to the lowest, volume, seconds
+ *  ringing, seconds swelling]. The upper ones bloom a moment after the stroke, as a tam-tam's do. (All under
+ *  500 Hz.) */
+const GONG_PARTIALS = [[1, 0.16, 6.5, 0.01], [1.48, 0.1, 5.2, 0.01], [2.02, 0.08, 4.4, 0.04], [2.58, 0.06, 3.6, 0.12],
+  [3.16, 0.045, 3, 0.25], [3.94, 0.035, 2.5, 0.35], [4.71, 0.025, 2.1, 0.45], [5.62, 0.018, 1.7, 0.5]] as const;
+/** The gong in the cellar's arena (stage 3), struck to call a boss in: the mallet's deep thump, then a low bronze roar
+ *  that blooms and rings on into its own long hall, everything else in the cellar falling silent under it for a second
+ *  (hushFor), and coming back. `at` is down in the cellar: without its height it'd be up in the world, unheard down
+ *  there. */
+export function gong(at: XZ & { y: number }) {
+  const sends: [AudioNode, number][] | undefined = ac ? [[gongHall(), 0.55]] : undefined, F0 = 73;
+  for (const [k, v, d, a] of GONG_PARTIALS) {
+    const f = F0 * k;
+    // each partial a pair a hair apart, beating slowly against itself
+    tone({ at, bus: 'cue', sends, f, f2: f * 0.988, a, d, v });
+    tone({ at, bus: 'cue', sends, f, f2: f * 0.988, a: a + 0.02, d: d * 0.8, v: v * 0.6, detune: 7 });
+  }
+  tone({ at, bus: 'cue', f: 52, f2: 44, a: 0.01, d: 0.5, v: 0.3 });
+  noise({ at, bus: 'cue', f: 260, kind: 'lowpass', a: 0.01, d: 0.16, v: 0.08 });
+  noise({ at, bus: 'cue', sends, f: 1100, f2: 800, q: 1.4, a: 0.35, d: 2.4, v: 0.025 });
+  hushFor(1.1);
 }
 
 /** Roulette: a shower of coins for a win, two falling notes for a loss. */

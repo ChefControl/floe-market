@@ -104,11 +104,12 @@ function spots(n: number) {
   const size = n <= 60 ? 60 : n <= 150 ? 150 : MAX_FANS;
   let out = spotCache.get(size);
   if (out) return out;
-  // (none in the square, or anything else's footprint)
+  // (none in the square, or anything else's footprint, or on the gong's pad: the player rings it from there)
   const { boxes } = navMap(), z0 = Math.min(FLOOR.z0, BAR.z0 - CROWD.r1), w = FLOOR.x1 - FLOOR.x0, h = FLOOR.z1 - z0;
   const fits = (q: XZ) => {
     const d = fromBar(q);
-    return !inBox(q, boxes, 0.15) && d > CROWD.r0 && (q.z >= FLOOR.z0 || d < CROWD.r1);
+    return !inBox(q, boxes, 0.15) && d > CROWD.r0 && (q.z >= FLOOR.z0 || d < CROWD.r1)
+      && Math.hypot(q.x - GONG_PAD.x, q.z - GONG_PAD.z) > GONG_PAD.r + 0.2;
   };
   // (packed a little closer each time until they all fit: the square takes a bite out of the floor)
   for (let gap = Math.max(STAND_GAP, Math.min(0.9, Math.sqrt(w * h / size / 0.87) * 0.95)); ; gap *= 0.97) {
