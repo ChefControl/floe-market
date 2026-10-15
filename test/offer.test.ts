@@ -333,5 +333,5 @@ describe('stage 3 behind its flag (flags.ts)', () => {
       vi.unstubAllEnvs();
       history.replaceState(null, '', '/');
     }
-  });
+  }, 45_000); // loads the game four times: right at the 15s default on CI
 });
