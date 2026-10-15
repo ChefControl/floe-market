@@ -20,7 +20,7 @@ import {
   BAR, BENCH, BIN_PADS, BINS, CASHIER, CHUTE, chuteY, COUNTER, GONG, HEARTH, LIFTS, machineAt, MAX_MACHINES, POT, STORES, TEPPO, TUNNEL_D, TUNNEL_W, TUNNELS,
 } from './cellarPlan';
 import { Fugu } from './fugu';
-import { Build, K, rbox, shade, tube } from './kit';
+import { Build, K, quietly, rbox, shade, tube } from './kit';
 import { ARENA, CELLAR_Y, type CellarRoom, CRAFT, DOORS, found, GROW, keepOnFloor, KITCHEN, LANDING, LIFT_ROOM, OFFICE_ROOM, PREP, pushOutOfBox, ROOMS, walkable } from './layout';
 import { canvasTex, copyGeo, FONT, G, mat, mesh, OFF, paint, rr, scene } from './render';
 import type { XZ } from './util';
@@ -73,7 +73,7 @@ export const POT_TOP = 1.43;
 const SACKS = { x: PREP.x1 - 0.42, z: (BIN_PADS.rice.z + BIN_PADS.fish.z) / 2 };
 
 // ---------- materials ----------
-const WOOD = 0x8A5A3B, WOOD_DARK = 0x5B3424, PILE = 0x4A3A30, CLAY = 0x6E4428, STRAW = 0xD9C47E;
+const WOOD = 0x8A5A3B, WOOD_DARK = 0x5B3424, PILE = 0x4A3A30, STRAW = 0xD9C47E;
 const IRON = 0x2E2E33, STEEL_DARK = 0x4B5257;
 /** Glowing materials (lanterns, the hearth's fire, the hatch's daylight): lit only in the cellar's light. */
 const glow = (color: number, emissive: number) => new MeshLambertMaterial({ color, emissive, emissiveIntensity: 1 });
@@ -761,158 +761,118 @@ function lantern(parent: Object3D, x: number, y: number, z: number, red: boolean
 for (let x = ARENA.x0 + 1.5, i = 0; x <= ARENA.x1 - 1; x += 2.4, i++) lantern(cellar, x, CY + 3.6, ARENA.z0 + 0.1, i % 2 === 0);
 for (let z = ARENA.z0 + 1.5, i = 0; z <= ARENA.z1 - 1; z += 2.4, i++) lantern(cellar, ARENA.x0 + 0.1, CY + 3.6, z, i % 2 === 1);
 
-// ---------- the dohyo ----------
-// A raised mound of tamped clay, dark, the layers it was beaten down in showing on its sides, with steps cut into it, a
-// square of straw bales round its top and the circle of bales inside it, pale sand on top raked in rings, and the two
-// white lines they crouch behind: pale on dark, so the ring stands out from the floor. Over it, it's done up like a
-// shrine fair at night (an ennichi): four green bamboo poles where an old ring's four posts stood, each flying a tall
-// banner (a nobori), and strings of red and paper lanterns between them along the back and the sides (none along the
-// front, where they'd hang across the bout) and up from the back two to a big red lantern with Mr. Fugu's name, high
-// over the middle.
-/** The sand on the ring's top, `SAND_PX` pixels a metre: pale, raked in rings round the middle, paler still in a band
- *  inside the straw. */
-const SAND_PX = 512 / (RING_HALF * 2);
-const sandTex = canvasTex(512, 512, (c, w, h) => {
-  c.fillStyle = '#D9BE8A'; c.fillRect(0, 0, w, h);
-  const r = RING_R * SAND_PX;
-  const g = c.createRadialGradient(w / 2, h / 2, r * 0.6, w / 2, h / 2, r * 1.05);
-  g.addColorStop(0, 'rgba(255,246,225,0)'); g.addColorStop(0.8, 'rgba(255,246,225,.4)'); g.addColorStop(1, 'rgba(255,246,225,0)');
-  c.fillStyle = g; c.fillRect(0, 0, w, h);
-  c.lineWidth = 1.4;
-  for (let k = 6, i = 0; k < r * 0.95; k += 7, i++) {
-    c.strokeStyle = `rgba(150,105,55,${i % 2 ? 0.1 : 0.17})`;
-    c.beginPath(); c.arc(w / 2, h / 2, k, 0, Math.PI * 2); c.stroke();
-  }
-  for (let i = 0; i < 1800; i++) {
-    const x = Math.sin(i * 12.9898) * 43758.5453, y = Math.sin(i * 78.233) * 43758.5453;
-    c.fillStyle = i % 3 ? 'rgba(120,80,40,.12)' : 'rgba(255,248,230,.2)';
-    c.fillRect((x - Math.floor(x)) * w, (y - Math.floor(y)) * h, 2, 2);
-  }
-});
-/** The mound's sides: dark clay, in the bands it was tamped down in (once round each side). */
-const clayTex = canvasTex(256, 64, (c, w, h) => {
-  c.fillStyle = '#7E4F2E'; c.fillRect(0, 0, w, h);
-  for (let k = 1; k < 6; k++) { c.fillStyle = k % 2 ? 'rgba(40,22,10,.35)' : 'rgba(170,120,80,.18)'; c.fillRect(0, (h * k) / 6 - 1, w, 2); }
-  for (let i = 0; i < 500; i++) {
-    const x = Math.sin(i * 39.346) * 43758.5453, y = Math.sin(i * 11.135) * 43758.5453;
-    c.fillStyle = i % 2 ? 'rgba(30,15,5,.25)' : 'rgba(190,140,90,.2)';
-    c.fillRect((x - Math.floor(x)) * w, (y - Math.floor(y)) * h, 2, 2);
-  }
-});
-clayTex.tex.wrapS = 1000; // RepeatWrapping
-clayTex.tex.repeat.set(4, 1);
-/** A straw bale (tawara) lying along x, `len` long, at x, y, z in `parent`, turned `turn` about y. */
-const BALE = new CylinderGeometry(0.13, 0.13, 1, 7);
-function bale(parent: Object3D, x: number, y: number, z: number, len: number, turn: number, i: number) {
-  const m = add(parent, mesh(BALE, i % 2 ? STRAW : 0xCDB56C, x, y, z, true));
-  m.scale.y = len; m.rotation.set(0, turn, Math.PI / 2, 'YXZ');
-  return m;
-}
-/** The four banners, from the north-east pole round by the east: the stable's name, "full house", the bout, and the
- *  underground tournament; and their cloth and lettering. */
-const BANNERS: [word: string, cloth: string, ink: string][] = [
-  ['河豚部屋', '#26345E', '#F2ECE0'], ['大入', '#B8352A', '#F7EFE0'], ['勝負', '#F2ECE0', '#1C1A18'], ['地下場所', '#26345E', '#F2ECE0'],
-];
+// ---------- the ring: the back-alley pit ----------
+// Mr. Fugu's ring is whatever was to hand at the dock: rice bales stacked two high and roped into a square, packed dirt
+// tamped down on top (his name sprayed in a corner, a chalk puffer, the night's tallies), and the ring marked out by an
+// old ship's hawser instead of straw, the two white lines they crouch behind chalked across the middle. Pallets make the
+// steps east and west, where the wrestlers come up (and where the loser goes off). One green dish lamp hangs on its
+// chain over the middle (the cellar's lamp over the ring, lights[0]), its light falling in a cone; a chain on steel pipes
+// round its foot keeps the crowd back, open east and west, and a sign leans on it. Salt in a tin bucket and water in
+// another, on the corners. (Built with the scenery's own dice: kit.ts.)
 const MINCHO = '"Hiragino Mincho ProN","Yu Mincho","Noto Serif JP",serif';
 /** A point every 1/`n` of the way along a string hung from `a` to `b`, sagging `drop` in the middle. */
 const sag = (a: Vector3, b: Vector3, drop: number, n: number) => Array.from({ length: n + 1 }, (_, i) => {
   const t = i / n, p = a.clone().lerp(b, t); p.y -= drop * 4 * t * (1 - t); return p;
 });
-{
+/** The pallets up to the ring, east and west: each one's middle, out from the ring's edge, and how high its top is. */
+export const PIT_STEPS = [{ out: 0.28, top: 0.42 }, { out: 0.74, top: 0.22 }];
+/** Where the chain round the ring's foot stands, out from its middle, each side. */
+const CORDON = RING_HALF + RING_FOOT + 0.15;
+/** The dirt on the ring's top, `PIT_PX` pixels a metre. */
+const PIT_PX = 512 / (RING_HALF * 2);
+quietly(() => {
   const g = add(cellar, new Group()); g.position.copy(RING);
-  const d = Math.SQRT2;
-  // the mound: four-sided, so a turned cylinder is a square with sloping sides
-  const base = add(g, mesh(new CylinderGeometry(RING_HALF * d, (RING_HALF + RING_FOOT) * d, RING_TOP, 4, 1), [new MeshLambertMaterial({ map: clayTex.tex }), mat(CLAY), mat(CLAY)], 0, RING_TOP / 2, 0, true));
-  base.rotation.y = Math.PI / 4;
-  const top = add(g, new Mesh(new BoxGeometry(RING_HALF * 2 - 0.02, 0.02, RING_HALF * 2 - 0.02), [mat(CLAY), mat(CLAY), new MeshLambertMaterial({ map: sandTex.tex }), mat(CLAY), mat(CLAY), mat(CLAY)]));
-  top.position.y = RING_TOP + 0.01; top.receiveShadow = true;
-  // steps cut into the clay on each side, the east ones where the wrestlers come up
-  for (const [x, z] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-    for (let k = 0; k < 2; k++) {
-      const out = RING_HALF + RING_FOOT * (k ? 0.7 : 0.25), h = RING_TOP * (k ? 0.36 : 0.7);
-      box(g, 0x7A4A2B, x * out, h / 2, z * out, x ? 0.4 : 1.3, h, x ? 1.3 : 0.4);
-      bale(g, x * (out + (x ? 0.16 : 0)), h, z * (out + (z ? 0.16 : 0)), 1.2, x ? Math.PI / 2 : 0, k);
+  const b = new Build(), thin = new Build();
+  const R = RING_TOP;
+  // the mound, and the bales round its sides, two rows, bound in rope
+  b.add(rbox(RING_HALF * 2 - 0.2, R - 0.02, RING_HALF * 2 - 0.2, 0.04), 0x4A3826, 0, (R - 0.02) / 2, 0);
+  const BALE_LEN = 2.15, baleGeo = new CylinderGeometry(0.15, 0.15, BALE_LEN, 10), band = new TorusGeometry(0.152, 0.022, 4, 12);
+  for (let side = 0; side < 4; side++) {
+    const a = (side * Math.PI) / 2, nx = Math.cos(a), nz = Math.sin(a), out = RING_HALF - 0.08;
+    // (lying along the side: along z on the east and west, along x on the north and south)
+    const alongZ = side % 2 === 0, rot: [number, number, number] = alongZ ? [Math.PI / 2, 0, 0] : [0, 0, Math.PI / 2];
+    const bandRot: [number, number, number] = alongZ ? [0, 0, 0] : [0, Math.PI / 2, 0];
+    for (const [row, alongs] of [[0, [-2.2, 0, 2.2]], [1, [-1.1, 1.1]]] as const) {
+      alongs.forEach((s, i) => {
+        const x = nx * out - nz * s, z = nz * out + nx * s, y = 0.15 + row * 0.29;
+        b.add(baleGeo, (i + row + side) % 2 ? STRAW : 0xC9AE68, x, y, z, rot);
+        for (const k of [-0.7, 0, 0.7]) b.add(band, 0x6E5530, x - nz * k, y, z + nx * k, bandRot);
+      });
     }
   }
-  // the square of bales round the top's edge
-  const edge = RING_HALF - 0.15, n = 8, len = (edge * 2) / n;
-  for (let i = 0; i < n; i++) {
-    const a = -edge + len * (i + 0.5);
-    bale(g, a, RING_TOP + 0.08, edge, len - 0.04, 0, i); bale(g, a, RING_TOP + 0.08, -edge, len - 0.04, 0, i + 1);
-    bale(g, edge, RING_TOP + 0.08, a, len - 0.04, Math.PI / 2, i); bale(g, -edge, RING_TOP + 0.08, a, len - 0.04, Math.PI / 2, i + 1);
-  }
-  // the circle of bales, with the four at the compass points set out a little (the tokudawara)
-  const N = 24;
-  for (let i = 0; i < N; i++) {
-    const t = (i / N) * Math.PI * 2, r = RING_R + (i % 6 === 0 ? 0.12 : 0);
-    bale(g, Math.cos(t) * r, RING_TOP + 0.08, Math.sin(t) * r, ((Math.PI * 2 * RING_R) / N) * 0.92, -t + Math.PI / 2, i);
-  }
-  // the two white lines they crouch behind
-  for (const s of [-1, 1]) box(g, 0xFFFFFF, s * 0.42, RING_TOP + 0.03, 0, 0.08, 0.01, 0.7, false);
-  // salt and water at the corners, outside the circle
-  const c = RING_HALF - 0.55;
-  add(g, mesh(G.cyl, 0x9C6644, c, RING_TOP + 0.16, -c, true)).scale.set(0.2, 0.32, 0.2);
-  add(g, mesh(G.cyl, 0xFFFFFF, c, RING_TOP + 0.33, -c)).scale.set(0.17, 0.03, 0.17);
-  add(g, mesh(G.cyl, 0x3C6E8F, -c, RING_TOP + 0.15, c, true)).scale.set(0.22, 0.3, 0.22);
-  add(g, mesh(G.rope, WOOD, -c + 0.1, RING_TOP + 0.4, c, true)).rotation.z = 0.5;
-  // the four bamboo poles, at the corners, in lengths with a knot at each joint; each banner hangs from a crossbar on its
-  // pole's outer side, turned a little to the camera
-  const POLE = 5.4, at = RING_HALF + RING_FOOT * 0.5, SEG = POLE / 6, tops: Vector3[] = [];
-  [[1, -1], [1, 1], [-1, 1], [-1, -1]].forEach(([sx, sz], i) => {
-    const x = sx * at, z = sz * at;
-    for (let k = 0; k < 6; k++) {
-      add(g, mesh(G.cyl, k % 2 ? 0x8FA552 : 0x7E9446, x, (k + 0.5) * SEG, z, true)).scale.set(0.085, SEG, 0.085);
-      add(g, mesh(G.cyl, 0x5E6E30, x, (k + 1) * SEG, z)).scale.set(0.1, 0.05, 0.1);
-    }
-    tops.push(V(x, POLE - 0.1, z));
-    const [word, cloth, ink] = BANNERS[i];
-    const tex = canvasTex(96, 384, (c, w, h) => {
-      c.fillStyle = cloth; c.fillRect(0, 0, w, h);
-      c.fillStyle = ink; c.fillRect(0, 0, w, 14); c.fillRect(0, h - 14, w, 14);
-      c.font = `800 ${word.length > 2 ? 64 : 84}px ${MINCHO}`; c.textAlign = 'center'; c.textBaseline = 'middle';
-      const step = (h - 60) / word.length;
-      [...word].forEach((ch, j) => c.fillText(ch, w / 2, 32 + step * (j + 0.5)));
+  // the hawser: two strands twisted round each other, round the ring
+  for (const ph of [0, Math.PI]) {
+    const pts = Array.from({ length: 480 }, (_, i) => {
+      const a = (i / 480) * Math.PI * 2, tw = a * 90 + ph;
+      return V(Math.cos(a) * (RING_R + 0.055 * Math.cos(tw)), R + 0.07 + 0.055 * Math.sin(tw), Math.sin(a) * (RING_R + 0.055 * Math.cos(tw)));
     });
-    const fx = x + sx * 0.48, bar = POLE - 0.45;
-    box(g, 0x7E9446, fx, bar + 0.04, z, 0.95, 0.05, 0.05, false);
-    const flag = add(g, mesh(new PlaneGeometry(0.72, 2.6), new MeshLambertMaterial({ map: tex.tex, side: DoubleSide }), fx, bar - 1.3, z, true));
-    flag.rotation.y = sx * sz > 0 ? 0.35 : -0.35;
-  });
-  // the lantern strings, and the lanterns on them (two shapes in all: one for the red ones and one for the paper)
-  const hub = V(0, POLE + 1.6, 0), lit: Record<'red' | 'paper', BufferGeometry[]> = { red: [], paper: [] };
-  const string = (pts: Vector3[]) => add(g, mesh(new TubeGeometry(new CatmullRomCurve3(pts), 24, 0.015, 4), 0x1A1614));
-  const lamp = (p: Vector3, red: boolean, s: number) => {
-    const ball = copyGeo(G.sphere); ball.scale(0.2 * s, 0.26 * s, 0.2 * s); ball.translate(p.x, p.y, p.z);
-    lit[red ? 'red' : 'paper'].push(ball);
-    for (const k of [-1, 1]) add(g, mesh(G.cyl, 0x1B2430, p.x, p.y + k * 0.25 * s, p.z)).scale.set(0.1 * s, 0.05 * s, 0.1 * s);
-  };
-  for (let i = 0; i < 4; i++) {
-    // (the front poles, south-east and south-west, have none up to the big lantern, nor one between them: seen from
-    // behind the ring, they'd cross the bout)
-    if (tops[i].z < 0) {
-      const up = sag(tops[i], hub, 0.5, 8); string(up);
-      for (const k of [3, 5]) lamp(up[k].clone().setY(up[k].y - 0.28), k === 3, 0.75);
-    }
-    if (i === 1) continue;
-    const along = sag(tops[i], tops[(i + 1) % 4], 0.7, 12); string(along);
-    for (let k = 1; k < 12; k++) lamp(along[k].clone().setY(along[k].y - 0.3), (k + i) % 2 === 0, 0.85);
+    b.add(new TubeGeometry(new CatmullRomCurve3(pts, true), 720, 0.07, 6, true), ph ? 0x9C8050 : 0xB79A62, 0, 0, 0);
   }
-  add(g, new Mesh(mergeGeometries(lit.red)!, LANTERN_RED));
-  add(g, new Mesh(mergeGeometries(lit.paper)!, LANTERN_PAPER));
-  lit.red.concat(lit.paper).forEach(b => b.dispose());
-  // the big red lantern over the middle, "河豚" (fugu) on both sides, glowing through its paper
-  const big = canvasTex(256, 128, (c, w, h) => {
-    c.fillStyle = '#C8301F'; c.fillRect(0, 0, w, h);
-    c.fillStyle = 'rgba(0,0,0,.18)'; for (let y = 6; y < h; y += 10) c.fillRect(0, y, w, 2);
-    c.fillStyle = '#16100D'; c.font = `800 62px ${MINCHO}`; c.textAlign = 'center'; c.textBaseline = 'middle';
-    for (const x of [0.25, 0.75]) c.fillText('河豚', w * x, h / 2);
+  // the chalk lines they crouch behind
+  for (const s of [-1, 1]) thin.add(rbox(0.08, 0.012, 0.7, 0.004), 0xEDE6D8, s * 0.42, R + 0.008, 0);
+  // the pallets up to it, east and west: slats on bearers
+  for (const s of [-1, 1]) for (const { out, top } of PIT_STEPS) {
+    const x = s * (RING_HALF + out);
+    b.add(rbox(0.42, top - 0.05, 1.25, 0.02), 0x6A4E32, x, (top - 0.05) / 2, 0);
+    for (let j = 0; j < 5; j++) b.add(rbox(0.44, 0.04, 0.2, 0.01), j % 2 ? 0x9A7A52 : 0xA88760, x, top - 0.02, -0.6 + j * 0.3);
+  }
+  // salt in a tin bucket, water in another, on the corners
+  const c = RING_HALF - 0.55;
+  b.add(tube(0.2, 0.17, 0.32, 12), 0x8A9096, c, R + 0.16, -c);
+  thin.add(tube(0.18, 0.18, 0.02, 12), 0xF4F1EA, c, R + 0.31, -c);
+  b.add(tube(0.21, 0.18, 0.3, 12), 0x8A9096, -c, R + 0.15, c);
+  thin.add(tube(0.19, 0.19, 0.02, 12), 0x3C6E8F, -c, R + 0.29, c);
+  b.add(tube(0.015, 0.015, 0.5, 5), WOOD, -c + 0.1, R + 0.4, c, [0, 0, 0.5]);
+  // the chain round its foot, on steel pipes, open east and west for the wrestlers
+  const H = CORDON, posts: [number, number][] = [[-H, -1], [-H, -H], [0, -H], [H, -H], [H, -1], [H, 1], [H, H], [0, H], [-H, H], [-H, 1]];
+  for (const [x, z] of posts) {
+    b.add(tube(0.045, 0.045, 1, 8), 0x6A6E72, x, 0.5, z);
+    b.add(K.ball, 0x6A6E72, x, 1.0, z, null, 0.06);
+  }
+  for (let i = 0; i < posts.length; i++) {
+    const [x0, z0] = posts[i], [x1, z1] = posts[(i + 1) % posts.length];
+    if (x0 === x1 && Math.abs(x0) === H && Math.abs(z0) === 1 && Math.abs(z1) === 1) continue; // (the gaps)
+    const pts = Array.from({ length: 11 }, (_, k) => { const t = k / 10; return V(x0 + (x1 - x0) * t, 0.95 - 0.25 * 4 * t * (1 - t), z0 + (z1 - z0) * t); });
+    thin.add(new TubeGeometry(new CatmullRomCurve3(pts), 16, 0.022, 4), 0x9AA0A6, 0, 0, 0);
+  }
+  // the dish lamp, on its chain, over the middle
+  b.add(new ConeGeometry(0.75, 0.45, 24, 1, true), 0x3D5A45, 0, 5.75, 0);
+  b.add(tube(0.02, 0.02, 3.4, 5), 0x555555, 0, 7.6, 0);
+  add(g, b.mesh(true)); add(g, thin.mesh(false));
+  add(g, mesh(G.sphere, LANTERN_PAPER, 0, 5.57, 0)).scale.setScalar(0.16);
+  // (the dish's inside, dark, so it reads as a dish from below the rim)
+  add(g, mesh(new ConeGeometry(0.74, 0.44, 24, 1, true), new MeshLambertMaterial({ color: 0x24302A, side: BackSide }), 0, 5.75, 0));
+  const beam = add(g, mesh(new ConeGeometry(3.3, 5.5, 32, 1, true), new MeshBasicMaterial({ color: 0xFFE2A0, transparent: true, opacity: 0.045, blending: AdditiveBlending, depthWrite: false, side: DoubleSide })));
+  beam.position.y = 5.55 - 2.75; beam.renderOrder = 2;
+  // the dirt on top: Mr. Fugu's name sprayed in a corner, a chalk puffer in another, the tallies, scuffs and stones
+  const dirt = canvasTex(512, 512, (cx, w, h) => {
+    cx.fillStyle = '#7A5A3E'; cx.fillRect(0, 0, w, h);
+    const r = RING_R * PIT_PX, ring = cx.createRadialGradient(w / 2, h / 2, r * 0.5, w / 2, h / 2, r);
+    ring.addColorStop(0, 'rgba(160,125,90,.25)'); ring.addColorStop(1, 'rgba(160,125,90,0)');
+    cx.fillStyle = ring; cx.fillRect(0, 0, w, h);
+    const rnd = (i: number) => { const x = Math.sin(i * 12.9898 + 0.7) * 43758.5453; return x - Math.floor(x); };
+    cx.fillStyle = 'rgba(30,18,8,.25)';
+    for (let i = 0; i < 60; i++) { cx.beginPath(); cx.ellipse(rnd(i * 3) * w, rnd(i * 7) * h, 6 + rnd(i) * 14, 4 + rnd(i + 1) * 8, rnd(i + 2) * 3, 0, Math.PI * 2); cx.fill(); }
+    for (let i = 0; i < 1600; i++) { cx.fillStyle = i % 3 ? 'rgba(40,25,12,.18)' : 'rgba(220,190,150,.16)'; cx.fillRect(rnd(i + 0.5) * w, rnd(i + 0.25) * h, 2, 2); }
+    cx.save(); cx.translate(w * 0.84, h * 0.84); cx.rotate(-0.5); cx.fillStyle = 'rgba(200,40,30,.75)'; cx.font = `800 46px ${MINCHO}`; cx.textAlign = 'center'; cx.fillText('河豚', 0, 0); cx.restore();
+    cx.strokeStyle = 'rgba(240,235,225,.65)'; cx.lineWidth = 4; cx.beginPath(); cx.arc(w * 0.16, h * 0.16, 22, 0, Math.PI * 2); cx.stroke();
+    for (let i = 0; i < 8; i++) { const a = (i / 8) * Math.PI * 2; cx.beginPath(); cx.moveTo(w * 0.16 + Math.cos(a) * 22, h * 0.16 + Math.sin(a) * 22); cx.lineTo(w * 0.16 + Math.cos(a) * 31, h * 0.16 + Math.sin(a) * 31); cx.stroke(); }
+    cx.strokeStyle = 'rgba(240,235,225,.5)'; cx.lineWidth = 3;
+    for (let i = 0; i < 9; i++) { const x = w * 0.72 + (i % 5) * 9, y = h * 0.12 + Math.floor(i / 5) * 30; cx.beginPath(); cx.moveTo(x, y); cx.lineTo(x + (i % 5 === 4 ? -36 : 0), y + 22); cx.stroke(); }
   });
-  const BIG_Y = POLE + 0.95;
-  add(g, mesh(G.sphere, new MeshLambertMaterial({ map: big.tex, emissive: 0xFFFFFF, emissiveMap: big.tex, emissiveIntensity: 0.55 }), 0, BIG_Y, 0)).scale.set(0.42, 0.56, 0.42);
-  for (const k of [-1, 1]) add(g, mesh(G.cyl, 0x1B2430, 0, BIG_Y + k * 0.56, 0)).scale.set(0.22, 0.08, 0.22);
-  // its cord, on up past the strings' knot to the dock's beams
-  add(g, mesh(G.rope, 0x1A1614, 0, (BIG_Y + 0.6 + hub.y + 2) / 2, 0)).scale.y = hub.y + 2 - BIG_Y - 0.6;
-}
+  const top = add(g, new Mesh(new PlaneGeometry(RING_HALF * 2 - 0.24, RING_HALF * 2 - 0.24), new MeshLambertMaterial({ map: dirt.tex })));
+  top.rotation.x = -Math.PI / 2; top.position.y = R + 0.002; top.receiveShadow = true;
+  // a sign leaning on the chain, south, for the crowd
+  const sign = canvasTex(256, 96, (cx, w, h) => {
+    cx.fillStyle = '#B79363'; cx.fillRect(0, 0, w, h);
+    cx.fillStyle = 'rgba(0,0,0,.12)'; for (let y = 0; y < h; y += 24) cx.fillRect(0, y, w, 2);
+    cx.fillStyle = '#B5281E'; cx.font = `800 40px ${FONT}`; cx.textAlign = 'center'; cx.textBaseline = 'middle'; cx.fillText('NO REFUNDS', w / 2, h / 2 + 4);
+  });
+  const board = add(g, new Mesh(new PlaneGeometry(1.3, 0.5), new MeshLambertMaterial({ map: sign.tex, side: DoubleSide })));
+  board.position.set(1.6, 0.62, CORDON + 0.06); board.rotation.x = -0.25;
+});
+// (the clay ring this replaced was built with the game's luck: the dice it took, so the luck after it stays the same)
+for (let i = 0; i < 2052; i++) Math.random();
 
 // ---------- the stands: crates and planks, in tiers, with a cushioned seat for each fan ----------
 /** A seat in the stands: where a fan sits (on the plank), which way they face, and which part it's in (swarm.ts). */
@@ -2043,7 +2003,7 @@ export const lights = [
   new PointLight(0xFF9A4A, 8, 8, 1.5), new PointLight(0xCFE8FF, 10, 7, 1.4), new PointLight(0xFFC77A, 8, 9, 1.4),
   new PointLight(0xFFD08A, 8, 9, 1.4), new PointLight(0x9CE6C8, 9, 11, 1.4), new PointLight(0xFFC98A, 7, 8, 1.4),
 ];
-lights[0].position.set(RING.x, CY + 5.4, RING.z);
+lights[0].position.set(RING.x, CY + 5.35, RING.z);
 lights[1].position.set(RING.x, CY + 3.4, ARENA.z0 + 1.5);
 lights[2].position.set(ARENA.x0 + 1.5, CY + 3.4, RING.z + 1);
 lights[3].position.set(HEARTH.x, CY + 1.1, HEARTH.z + 1.3);

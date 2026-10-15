@@ -1513,3 +1513,27 @@ describe('saving the cellar', () => {
     expect(s.v).toBe(6);
   });
 });
+
+describe('the wrestlers', () => {
+  it("grip, slap and push without ever standing inside each other; the belt bends with them; the loser goes down off the ring", async () => {
+    const { g, cellar, dohyo, fight, F } = await ring();
+    const { champ, rival } = dohyo.ring;
+    const apart = () => Math.hypot(champ.position.x - rival.position.x, champ.position.z - rival.position.z);
+    g.runUntil(() => F().bout.phase === 'sit', fight.BOUT.prep + 1);
+    // crouched behind the lines, the hips (and the belt on them) tip forward with the body
+    g.run(fight.BOUT.sit - 0.3);
+    expect(champ.hips.rotation.x).toBeGreaterThan(0.2);
+    // (today's pair stood 0.9 apart, inside each other: these meet chest to chest and no closer)
+    g.runUntil(() => F().bout.phase === 'fight', 2);
+    let closest = Infinity;
+    for (let t = 0; t < fight.BOUT.fight - 0.1; t += 0.05) { g.run(0.05); closest = Math.min(closest, apart()); }
+    expect(closest).toBeGreaterThan(1);
+    // the local goes over the hawser on the west and down off the ring by the pallets; the champion stays up on it
+    g.runUntil(() => F().bout.phase === 'pay', 1);
+    g.run(2.6);
+    expect(cellar.RING.x - rival.position.x).toBeGreaterThan(cellar.RING_HALF);
+    expect(rival.position.y).toBeLessThan(cellar.CY + 0.1);
+    expect(Math.abs(champ.position.x - cellar.RING.x)).toBeLessThan(cellar.RING_R);
+    expect(champ.position.y).toBeCloseTo(cellar.CY + cellar.RING_TOP, 2);
+  });
+});

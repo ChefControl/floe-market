@@ -21,6 +21,7 @@ import './settings';
 import { view } from './stage';
 import { drawTutorial } from './tutorial';
 import { hud, keepInSight } from './ui';
+import { jitter } from './kit';
 import { V } from './util';
 
 // ---------- save / restart ----------
@@ -94,6 +95,8 @@ function frame(now: number) {
   // tipsy: the view sways and rolls (not for players who'd rather less motion)
   const sway = tipsy.t > 0 && !reduceMotion.matches ? tipsyK() : 0;
   if (sway) { aim.x += Math.sin(now / 760) * 0.45 * sway; aim.z += Math.cos(now / 910) * 0.3 * sway; }
+  // a big hit in the ring, seen from the watch spot (not for players who'd rather less motion)
+  if (view.shake && !reduceMotion.matches) { const s = view.shake * 0.35; camera.position.add(V(jitter(-s, s), jitter(-s, s), jitter(-s, s))); }
   camera.lookAt(aim);
   if (sway) camera.rotateZ(Math.sin(now / 580) * 0.09 * sway);
   fog.near = 34 * view.zoom; fog.far = 70 * view.zoom;

@@ -142,6 +142,8 @@ body{
   font-size:15px; padding:5px 14px; max-width:calc(100vw - 32px); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
 }
 #boutLine[hidden]{ display:none; }
+/* the ring's big hits, seen from the watch spot (gong.ts): a white flash over the game, under the HUD */
+#ringFlash{ position:fixed; inset:0; background:#fff; opacity:0; pointer-events:none; z-index:1; }
 /* Dark for a moment, going up or down the ladder. */
 #fade{ position:fixed; inset:0; z-index:7; background:#0F0B09; opacity:0; pointer-events:none; transition:opacity .3s; }
 #fade.on{ opacity:1; }
@@ -1245,6 +1247,7 @@ body.offer #hud, body.offer #corner, body.offer #pointers, body.offer #tip, body
 <div id="stick"><div id="knob"></div></div>
 <div id="err" role="alert"><span id="errMsg"></span><button id="errReport" type="button" hidden>Report this</button></div>
 
+<div id="ringFlash" aria-hidden="true"></div>
 <div id="boutLine" class="pill" role="status" hidden></div>
 <section id="gong" aria-label="The gong" hidden>
   <h2 id="gongBoss"></h2>

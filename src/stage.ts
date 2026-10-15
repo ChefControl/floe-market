@@ -172,9 +172,10 @@ export function updLadder(dt: number) {
 // ---------- camera ----------
 /**
  * How far the camera sits back (1 = stage 1), and how much it looks at `focus` instead of the player; `close` brings it
- * in for a moment over a new upgrade (spotlight.ts); `snap` has it go straight to the player (up or down the ladder).
+ * in for a moment over a new upgrade (spotlight.ts); `snap` has it go straight to the player (up or down the ladder);
+ * `shake` shakes it, for a big hit in the ring seen from the watch spot (gong.ts).
  */
-export const view = { zoom: 1, k: 0, focus: V(-5, 0, 6), close: 1, snap: false };
+export const view = { zoom: 1, k: 0, focus: V(-5, 0, 6), close: 1, snap: false, shake: 0 };
 /** Stage 2's map is bigger, so the camera sits a little further back. */
 export const STAGE2_ZOOM = 1.2;
 /** How far back the camera pulls to show the whole map during the stage-up. */

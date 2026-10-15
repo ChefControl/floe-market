@@ -10,7 +10,7 @@
 import { cellar, CY, gongDisc, RING } from './cellar';
 import { GONG_PAD, WATCH } from './cellarPlan';
 import { decal, drawPad } from './decals';
-import { showBoutLine } from './dohyo';
+import { ringCam, showBoutLine } from './dohyo';
 import {
   BATCH, BOSSES, BUYOUT, type Carry, F, forecast, ICON, type Ing, NAME, needRate, nextBoss, ringGong, type Rush, sides, STALL_CAP,
   strength, toBeat, worstShort, you,
@@ -178,15 +178,22 @@ function renderPower() {
 // ---------- the watch spot ----------
 /** How far the camera's closed in on the ring, 0 to 1. */
 let watch = 0;
+const flashEl = document.getElementById('ringFlash')!;
+const lessMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)') ?? { matches: false };
 function updWatch(dt: number) {
   const want = on(WATCH) ? 1 : 0;
-  if (want === 0 && watch === 0) return;
+  view.shake = 0;
+  if (want === 0 && watch === 0) { flashEl.style.opacity = '0'; return; }
   watch += (want - watch) * Math.min(1, dt * 2.5);
   if (Math.abs(want - watch) < 0.002) watch = want;
-  // (0.4 up: the camera aims at the middle of what it's on, main.ts, so this is where it aimed over the player's feet)
-  view.focus.set(RING.x, CY + 0.4, RING.z);
+  // The ring's big hits (dohyo.ts): the camera punches in on the pair, shakes, and the screen flashes white. (0.4 up:
+  // the camera aims at the middle of what it's on, main.ts, so this is where it aimed over the player's feet.)
+  const punch = Math.min(1, ringCam.punch) * watch;
+  view.focus.set(RING.x + (ringCam.at.x - RING.x) * 0.6 * punch, CY + 0.4, RING.z + (ringCam.at.z - RING.z) * 0.6 * punch);
   view.k = 0.85 * watch;
-  view.zoom = CELLAR_ZOOM * (1 - 0.45 * watch);
+  view.zoom = CELLAR_ZOOM * (1 - 0.45 * watch) * (1 - 0.25 * punch);
+  view.shake = ringCam.shake * watch;
+  flashEl.style.opacity = lessMotion.matches ? '0' : String(Math.min(1, ringCam.flash) * 0.8 * watch);
 }
 /** Whether the camera's on the ring (for tests). */
 export const watching = () => watch > 0.5;
