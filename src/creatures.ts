@@ -3,7 +3,7 @@
 // hang on the wrestler's bones and move with them: a head on the neck, claws on the elbows, fins on the spine,
 // tentacles and legs on the hips. The long soft ones (tentacles, whiskers, tails) are short chains of joints that sway.
 // Each part is baked into one mesh per bone (kit.ts), like the wrestler's own.
-import { BoxGeometry, ConeGeometry, Euler, type Group, Matrix4, type Object3D, Quaternion, SphereGeometry, Vector3 } from 'three';
+import { BoxGeometry, ConeGeometry, Euler, ExtrudeGeometry, type Group, Matrix4, type Object3D, Quaternion, Shape, SphereGeometry, Vector3 } from 'three';
 import { slimeFx } from './fx';
 import { Build, K, quietly, shade } from './kit';
 import type { Pose, RikishiModel } from './rikishi';
@@ -39,6 +39,25 @@ export interface Kit {
 type V3 = [number, number, number];
 
 const SPH = quietly(() => new SphereGeometry(1, 12, 9)), CONE = quietly(() => new ConeGeometry(1, 1, 8)), BOX = quietly(() => new BoxGeometry(1, 1, 1));
+/** A flat fin, swept back like a shark's: its base along x (-0.5 to 0.5, the front at -0.5), its tip 1 up and back
+ *  past the base's end, 1 thick (z, centred). */
+const FIN = quietly(() => {
+  const s = new Shape();
+  s.moveTo(0, 0); s.quadraticCurveTo(0.3, 0.6, 1.1, 1); s.quadraticCurveTo(0.72, 0.5, 1, 0); s.lineTo(0, 0);
+  return new ExtrudeGeometry(s, { depth: 1, bevelEnabled: false, curveSegments: 6 }).translate(-0.5, 0, -0.5);
+});
+/** A shark's tail fin, its root at the origin and running back along x: the top lobe long, the bottom short. */
+const TAIL = quietly(() => {
+  const s = new Shape();
+  s.moveTo(0, 0.1); s.quadraticCurveTo(0.3, 0.42, 0.78, 1); s.quadraticCurveTo(0.42, 0.48, 0.38, 0.04);
+  s.quadraticCurveTo(0.5, -0.2, 0.62, -0.48); s.quadraticCurveTo(0.24, -0.26, 0, -0.1); s.lineTo(0, 0.1);
+  return new ExtrudeGeometry(s, { depth: 1, bevelEnabled: false, curveSegments: 6 }).translate(0, 0, -0.5);
+});
+/** The turn that lays a fin's x (its base) along `x` and its y (its height) along `y`. */
+function lay(x: Vector3, y: Vector3): V3 {
+  ee.setFromRotationMatrix(new Matrix4().makeBasis(x.normalize(), y.normalize(), x.clone().cross(y).normalize()));
+  return [ee.x, ee.y, ee.z];
+}
 const clamp01 = (k: number) => Math.min(1, Math.max(0, k));
 const lerp = (a: number, b: number, k: number) => a + (b - a) * k;
 /** The same number for the same `i`, between 0 and 1 (never the luck). */
@@ -234,69 +253,76 @@ export const BEASTS: Record<Kind, (k: Kit, L: Look) => Beast> = {
       }
       b.add(BOX, 0xE9D4CC, 0.178, 0.205, 0.16, [0.6, 0, 0.2], [0.012, 0.14, 0.016]);
     });
-    const dorsal = k.bone(r.spine, 0, 0.84, -0.27 * f, [-0.55, 0, 0]);
-    k.part(dorsal, b => b.add(CONE, sk, 0, 0, 0, null, [0.03, 0.46, 0.22]));
-    r.arms.forEach(A => k.part(A.el, b => b.add(CONE, sk, A.s * 0.06, -0.07, -0.07, [2.4, 0, -A.s * 0.35], [0.018, 0.22, 0.08])));
-    const tail = k.bone(r.hips, 0, -0.06, -0.33 * f, [0.75, 0, 0]);
+    // grey all over his back, white only down his front (the chest and belly are pale under it)
+    k.part(r.chestAt, b => b.add(SPH, sk, 0, 0.03, -0.08, null, [0.45 * f, 0.29, 0.33 * f]));
+    k.part(r.bellyAt, b => b.add(SPH, sk, 0, 0, -0.1, null, [0.43 * f, 0.3, 0.33 * f]));
+    // the fin on his back, standing up off the top of it and swept back
+    k.part(r.spine, b => b.add(FIN, sk, 0, 0.74, -0.07 - 0.21 * f, lay(new Vector3(0, -0.42, -0.91), new Vector3(0, 0.91, -0.42)), [0.42, 0.5, 0.045]));
+    // a fin trailing back off each forearm
+    r.arms.forEach(A => k.part(A.el, b => b.add(FIN, sk, A.s * 0.02, -0.12, -0.07, lay(new Vector3(0, -1, 0), new Vector3(A.s * 0.15, 0, -1)), [0.18, 0.13, 0.03])));
+    // and his tail behind the belt: a thick root, the long top lobe and the short bottom one
+    const tail = k.bone(r.hips, 0, -0.03, -0.34 * f, [-0.25, 0, 0]);
     k.part(tail, b => {
-      b.add(SPH, sk, 0, -0.1, 0, null, [0.05, 0.14, 0.055]);
-      for (const [len, a] of [[0.36, 2.35], [0.24, 0.55]]) b.add(CONE, sk, 0, -0.22 - (Math.cos(a) * len) / 2, (-Math.sin(a) * len) / 2, [a, 0, 0], [0.02, len, 0.09]);
+      b.add(SPH, sk, 0, 0, -0.08, null, [0.06, 0.08, 0.15]);
+      b.add(TAIL, sk, 0, 0, -0.17, lay(new Vector3(0, 0, -1), new Vector3(0, 1, 0)), [0.42, 0.42, 0.035]);
     });
     return {
       hands: true,
-      anim(t) { tail.rotation.y = 0.25 * Math.sin(t * 2.2) * (1 + r.agitate); dorsal.rotation.z = 0.04 * Math.sin(t * 1.3); },
+      anim(t) { tail.rotation.y = 0.3 * Math.sin(t * 2.2) * (1 + r.agitate); },
     };
   },
 
-  // Fukure 膨れ, "swollen": Mr. Fugu's own champion, a porcupine puffer (harisenbon), after a photo of one blown up: a
-  // pale ball bristling all over with long white spines, a tan top and head peppered with small dark spots, big dark
-  // bulging eyes on the sides of his head, a wide mouth with thick pale lips, pale fins. Meaner than the fish: heavy lids
-  // pulled down into a glare, a frown with the beak's tooth plates bared (one capped in gold), an old scar across one
-  // eye. At rest his spines lie back; angry (puffTo, from dohyo.ts) he blows up a third bigger, his head sat up on top,
-  // and they stand out long; beaten, he goes down like a balloon.
+  // Fukure 膨れ, "swollen": Mr. Fugu's own champion, a porcupine puffer (harisenbon). A puffer is a ball with a face, so
+  // he is one: everything above his belt one round body, tan over the top peppered with small dark spots and pale
+  // underneath, his face on the front of it. Big round eyes high on the ball, a small pouting beak with its tooth plates
+  // bared (one capped in gold), little fins fluttering on his sides and a tail fin behind. Meaner than the fish: the lids
+  // pulled down slanting in, a brow ridge, an old scar across one eye. At rest his spines lie back; angry (puffTo, from
+  // dohyo.ts) he blows up a third bigger and they stand out long; beaten, he goes down like a balloon.
   puffer(k, L) {
-    const r = k.r, pale = L.under!, tan = L.back!, DOT = 0x3A2A1C, FIN = 0xE6DFCF, f = r.f;
-    const chest: Round = { at: [0, 0, 0], r: [0.44 * f, 0.3, 0.36 * f] }, belly: Round = { at: [0, 0, 0], r: [0.42 * f, 0.31, 0.38 * f] };
-    const head: Round = { at: [0, 0, 0], r: [0.27, 0.23, 0.26] };
-    // the tan top, peppered with dark spots
+    const r = k.r, pale = L.under!, tan = L.back!, DOT = 0x3A2A1C, FINC = 0xE6D9A6, f = r.f;
+    // the ball, on the chest's bone so it swells with him, and the tan over its top and back
+    const ball: Round = { at: [0, 0.06, 0.02], r: [0.43 * f, 0.6, 0.39 * f] };
+    const cap: Round = { at: [0, 0.14, -0.15], r: [0.437 * f, 0.56, 0.39 * f] };
+    const belly: Round = { at: [0, 0, 0], r: [0.42 * f, 0.31, 0.38 * f] };
+    // where his face is, on the front of the ball
+    const ez = (x: number, y: number) => ball.at[2] + ball.r[2] * Math.sqrt(Math.max(0, 1 - (x / ball.r[0]) ** 2 - ((y - ball.at[1]) / ball.r[1]) ** 2));
+    const face = (d: Vector3) => d.z > 0.55 && d.y > -0.45 && d.y < 0.8;
     k.part(r.chestAt, b => {
-      const coat: Round = { at: [0, 0.42 * 0.3, -0.08 * 0.36 * f], r: [1.03 * 0.44 * f, 1.03 * 0.3, 1.03 * 0.36 * f] };
-      b.add(SPH, tan, ...coat.at, null, coat.r);
-      dots(b, coat, 120, 0.035, DOT, 61, d => d.y > 0.05);
-    });
-    // the head, which grows with him: pale, tan over the top with the same spots, and his face
-    const top = k.bone(r.neck, 0, 0.06, 0.06);
-    k.part(top, b => {
-      b.add(SPH, pale, 0, 0, 0, null, head.r);
-      const cap: Round = { at: [0, 0.32 * 0.23, -0.04 * 0.26], r: [1.02 * 0.27, 0.9 * 0.23, 0.26] };
+      b.add(SPH, pale, ...ball.at, null, ball.r);
       b.add(SPH, tan, ...cap.at, null, cap.r);
-      dots(b, cap, 45, 0.05, DOT, 91, d => d.y > 0);
-      const y0 = -0.06, z0 = -0.06;
+      dots(b, cap, 240, 0.02, DOT, 61, d => d.y > -0.45 && !(d.z > 0.6 && d.y < 0.6));
+      const my = 0.1, mz = ez(0, my);
       for (const s of [-1, 1]) {
-        // big dark eyes bulging from the sides, a tan rim, a glint; the lid pulled down hard, slanting in
-        b.add(SPH, 0x8A7652, s * 0.19, 0.12 + y0, 0.16 + z0, null, [0.088, 0.088, 0.075]);
-        b.add(SPH, 0x111214, s * 0.2, 0.12 + y0, 0.175 + z0, null, [0.075, 0.075, 0.068]);
-        b.add(SPH, 0xFFFFFF, s * 0.215, 0.14 + y0, 0.235 + z0, null, [0.012, 0.012, 0.008]);
-        b.add(SPH, tan, s * 0.195, 0.158 + y0, 0.172 + z0, [0, 0, s * 0.38], [0.094, 0.05, 0.084]);
-        b.add(SPH, tint(tan, 0.75), s * 0.15, 0.2 + y0, 0.2 + z0, [0, 0, s * 0.5], [0.1, 0.03, 0.07]);
+        // big round eyes, bulging: a tan rim, a gold ring, a wide black pupil looking forward, a glint
+        const x = s * 0.27, y = 0.33, z = ez(x, y) - 0.05, d = new Vector3(s * 0.4, 0.05, 1).normalize();
+        b.add(SPH, tint(tan, 0.85), x, y, z, null, [0.135, 0.135, 0.12]);
+        b.add(SPH, 0xB08A2E, x + d.x * 0.03, y + d.y * 0.03, z + d.z * 0.03, null, [0.12, 0.12, 0.11]);
+        b.add(SPH, 0x0C0C0E, x + d.x * 0.075, y + d.y * 0.075, z + d.z * 0.075, null, [0.078, 0.082, 0.07]);
+        b.add(SPH, 0xFFFFFF, x + d.x * 0.13 - s * 0.02, y + 0.04, z + d.z * 0.13, null, [0.016, 0.016, 0.01]);
+        // the lid pulled down over the top of it, slanting in, and the brow ridge over that
+        b.add(SPH, tan, x + d.x * 0.02, y + 0.075, z + d.z * 0.02, [0, 0, s * 0.42], [0.142, 0.07, 0.13]);
+        b.add(SPH, tint(tan, 0.62), x - s * 0.02, y + 0.13, z + 0.02, [0, 0, s * 0.5], [0.14, 0.03, 0.09]);
         // the corners of his mouth, turned down
-        b.add(SPH, 0xE6D8BE, s * 0.115, 0.02 + y0, 0.28 + z0, null, [0.035, 0.028, 0.035]);
-        // the beak's tooth plates, one capped in gold
-        b.add(BOX, s > 0 ? 0xE2B436 : 0xFBF8F0, s * 0.02, 0.05 + y0, 0.336 + z0, null, [0.036, 0.016, 0.012]);
-        b.add(BOX, 0xFBF8F0, s * 0.018, 0.026 + y0, 0.336 + z0, null, [0.034, 0.014, 0.012]);
+        b.add(SPH, tint(pale, 0.78), s * 0.135, my - 0.05, mz - 0.02, [0, 0, s * 0.6], [0.06, 0.018, 0.035]);
       }
+      // a small pouting beak: thick pale lips, a dark gap, the tooth plates (one capped in gold)
+      b.add(SPH, 0xEFE4CB, 0, my, mz - 0.01, null, [0.15, 0.11, 0.11]);
+      b.add(SPH, 0x24120E, 0, my, mz + 0.075, null, [0.1, 0.05, 0.035]);
+      b.add(BOX, 0xFBF8F0, 0, my + 0.04, mz + 0.085, null, [0.12, 0.034, 0.02]);
+      b.add(BOX, 0xE2B436, 0.031, my - 0.038, mz + 0.085, null, [0.058, 0.03, 0.02]);
+      b.add(BOX, 0xFBF8F0, -0.031, my - 0.038, mz + 0.085, null, [0.058, 0.03, 0.02]);
       // an old scar across his left eye
-      b.add(BOX, 0xE9C8BA, 0.2, 0.13 + y0, 0.25 + z0, [0, 0.5, -0.35], [0.014, 0.22, 0.014]);
-      // thick pale lips round a dark gap
-      b.add(SPH, 0xE6D8BE, 0, 0.065 + y0, 0.3 + z0, null, [0.12, 0.034, 0.05]);
-      b.add(SPH, 0xEFE6D2, 0, 0.012 + y0, 0.29 + z0, null, [0.125, 0.045, 0.055]);
-      b.add(SPH, 0x24120E, 0, 0.038 + y0, 0.318 + z0, null, [0.1, 0.024, 0.03]);
+      b.add(BOX, 0xE9C8BA, 0.27, 0.33, ez(0.27, 0.33) + 0.07, [0, 0.4, -0.4], [0.016, 0.3, 0.016]);
     });
-    // pale fins: one behind each side of his head, and a tail fin behind his belt
-    const ears = [-1, 1].map(s => { const e = k.bone(top, s * 0.27, -0.02, -0.1); k.part(e, b => b.add(SPH, FIN, 0, 0, 0, null, [0.02, 0.09, 0.11])); return e; });
-    const tail = k.bone(r.hips, 0, -0.04, -0.42 * f);
-    k.part(tail, b => b.add(SPH, FIN, 0, 0, 0, null, [0.02, 0.12, 0.15]));
-    // the spines, all over him, head too: lying back at rest, standing out long when he's blown up
+    // little fins fluttering on his sides behind his eyes, and a tail fin behind his belt
+    const fins = [-1, 1].map(s => {
+      const g = k.bone(r.chestAt, s * ball.r[0] * 0.97, 0.12, 0.05);
+      k.part(g, b => b.add(SPH, FINC, s * 0.02, 0, -0.08, null, [0.022, 0.12, 0.13]));
+      return g;
+    });
+    const tail = k.bone(r.hips, 0, -0.02, -0.38 * f);
+    k.part(tail, b => b.add(SPH, FINC, 0, 0, -0.13, null, [0.025, 0.17, 0.18]));
+    // the spines, all over him but his face: lying back at rest, standing out long when he's blown up
     const spines = (at: Object3D, o: Round, keep: (d: Vector3) => boolean, N: number, size: number) => {
       const rest = k.bone(at, 0, 0, 0), out = k.bone(at, 0, 0, 0), n = new Vector3();
       for (const [g, up] of [[rest, false], [out, true]] as const) k.part(g, b => {
@@ -306,7 +332,7 @@ export const BEASTS: Record<Kind, (k: Kit, L: Look) => Beast> = {
           if (!keep(d)) continue;
           n.set(d.x / o.r[0], d.y / o.r[1], d.z / o.r[2]).normalize();
           if (!up) { n.z -= 0.9; n.normalize(); }
-          const len = (up ? 0.29 : 0.07) * size, w = 0.022 * size + 0.004;
+          const len = (up ? 0.3 : 0.06) * size, w = 0.022 * size + 0.004;
           ee.setFromQuaternion(qq.setFromUnitVectors(UP, n));
           b.add(CONE, 0xF2EEE4, o.at[0] + d.x * o.r[0] + n.x * len * 0.3, o.at[1] + d.y * o.r[1] + n.y * len * 0.3, o.at[2] + d.z * o.r[2] + n.z * len * 0.3, [ee.x, ee.y, ee.z], [w, len, w]);
         }
@@ -314,20 +340,19 @@ export const BEASTS: Record<Kind, (k: Kit, L: Look) => Beast> = {
       return { rest, out };
     };
     const sets = [
-      spines(r.chestAt, chest, d => d.y >= -0.05, 115, 1),
-      spines(r.bellyAt, belly, d => d.y < -0.05 && d.y >= -0.8, 115, 1),
-      spines(top, head, d => !(d.y < 0.05 || (d.z > 0.55 && d.y < 0.5) || (Math.abs(d.x) > 0.75 && d.z > 0)), 40, 0.7),
+      spines(r.chestAt, ball, d => d.y > -0.75 && !face(d), 240, 1),
+      spines(r.bellyAt, belly, d => d.y < -0.05 && d.y >= -0.8 && d.z > 0.3, 50, 0.8),
     ];
     return {
       hands: true,
       anim(t, dt) {
         r.puff += (r.puffTo - r.puff) * Math.min(1, dt * (r.puffTo > r.puff ? 7 : 2.5));
         const p = r.puff, big = 1 + 0.32 * p;
-        r.chestAt.scale.setScalar(big); r.bellyAt.scale.multiplyScalar(big); top.scale.setScalar(1 + 0.38 * p);
-        r.arms.forEach(A => { A.sh.position.x = A.s * (0.32 + 0.12 * f + 0.14 * p); });
-        r.neck.position.set(0, 0.84 + 0.2 * p, 0.04 + 0.12 * p * f);
+        r.chestAt.scale.setScalar(big); r.bellyAt.scale.multiplyScalar(big);
+        // his arms out from the sides of the ball, further as it swells
+        r.arms.forEach(A => { A.sh.position.x = A.s * (0.4 * f + 0.2 * p); });
         for (const s of sets) { s.out.visible = p > 0.4; s.rest.visible = !s.out.visible; }
-        ears.forEach((e, i) => { e.rotation.y = (i ? 1 : -1) * (0.3 + 0.35 * Math.sin(t * 9 + i)); });
+        fins.forEach((e, i) => { e.rotation.y = (i ? 1 : -1) * (0.25 + 0.35 * Math.sin(t * 9 + i)); });
         tail.rotation.y = 0.4 * Math.sin(t * 7);
       },
     };

@@ -121,7 +121,7 @@ export class RikishiModel extends Group {
     this.bellyAt = bone(this.spine, 0, 0.23, 0.1);
     this.part(this.bellyAt, (b, sk, _, f) => b.add(ROUND, this.look.under ?? sk, 0, 0, 0, null, [0.42 * f, 0.31, 0.38 * f]));
     this.chestAt = bone(this.spine, 0, 0.5, 0);
-    const chest = (sk: number) => (this.look.kind === 'crab' || this.look.kind === 'puffer' ? this.look.under! : sk);
+    const chest = (sk: number) => (this.look.kind === 'crab' || this.look.kind === 'puffer' || this.look.kind === 'shark' ? this.look.under! : sk);
     this.part(this.chestAt, (b, sk, _, f) => b.add(ROUND, chest(sk), 0, 0, 0, null, [0.44 * f, 0.3, 0.36 * f]));
     this.part(this.spine, (b, sk) => { for (const s of [-1, 1]) b.add(ROUND, chest(sk), s * 0.17, 0.5, 0.2, null, [0.16, 0.12, 0.12]); });
     this.neck = bone(this.spine, 0, 0.74, 0.03);
