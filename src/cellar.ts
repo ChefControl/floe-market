@@ -1,13 +1,13 @@
 // The cellar under the dock (stage 3): Mr. Fugu's sumo ring and the stew kitchen that feeds its fans, in rooms side by
-// side, with thin walls and doorways between them. The arena: a big clay dohyo under lanterns in the middle, crates
-// and planks for stands along the back and west walls, the soup bar by the hearth room's door, and the gong and the
-// cashier's window against the east wall. Down the middle, Mr. Fugu's office (his desk on a dais), the landing with the
-// ladder up to the hatch in the dock, and the hearth room: the big pot, its ledge and the bowl counter. To the east the
-// prep hall, where the dumbwaiter from the restaurant's kitchen comes down beside the racks and barrels, and behind its
-// stone north wall the grow room, which nobody knows is there until the first boss is beaten. It's built CELLAR_Y under
-// the dock, out of the camera's sight from up there, dug into the earth. Only the back walls along the very back of the
-// cellar go up high, all to one height: every other wall is low, all to one height too, so the camera sees into every
-// room, and the earth round the rooms comes up level with their tops.
+// side, with thin walls and doorways between them. The arena: a big clay dohyo under lanterns in the middle, crates and
+// planks for stands along the back and west walls, the soup bar by the hearth room's door, the gong out on the floor
+// south-west of the ring, and the cashier's window against the east wall. Down the middle, Mr. Fugu's office (his desk
+// on a dais), the landing with the ladder up to the hatch in the dock, and the hearth room: the big pot, its ledge and
+// the bowl counter. To the east the prep hall, where the dumbwaiter from the restaurant's kitchen comes down beside the
+// racks and barrels, and behind its stone north wall the grow room, which nobody knows is there until the first boss is
+// beaten. It's built CELLAR_Y under the dock, out of the camera's sight from up there, dug into the earth. Only the
+// back walls along the very back of the cellar go up high, all to one height: every other wall is low, all to one
+// height too, so the camera sees into every room, and the earth round the rooms comes up level with their tops.
 // This module is the rooms and their furniture; where things are is cellarPlan.ts, and the kitchen's lines, the bouts
 // and the swarm draw themselves (ringKitchen.ts, dohyo.ts, swarm.ts).
 import {
@@ -904,14 +904,31 @@ later(() => quietly(() => {
   board.position.set(1.6, 0.62, CORDON + 0.06); board.rotation.x = -0.25;
 }));
 
-// ---------- the stands: crates and planks, in tiers, with a cushioned seat for each fan ----------
+// ---------- the stands: crates and planks, in tiers, with a straw mat along each ----------
 /** A seat in the stands: where a fan sits (on the plank), which way they face, and which part it's in (swarm.ts). */
 export interface Place { pos: Vector3; h: number; part: 'base' | 'bleachers' | 'tier' | 'vip' }
 export const places: Place[] = [];
 /** A stand's tiers: three when it's all built, the highest at the back wall, stepping down towards the ring. */
 const TIERS = 3;
-/** The seats' cushions: deep red, indigo and gold, in turn (colours the cellar already uses). */
-const CUSHIONS = [0x8E2B2B, 0x2B3A67, 0xF2C14E];
+/** The seats: a long straw goza mat bound in black along each tier, as the crowds sat on in the timber huts of Edo
+ *  sumo. */
+const GOZA = 0xC8B47A, GOZA_EDGE = 0x24242A;
+/** The same number for the same board, between 0 and 1 (not the luck). */
+const seatHash = (i: number) => { const x = Math.sin(i * 12.9898 + 0.31) * 43758.5453; return x - Math.floor(x); };
+/** A tier's top, `len` long along `along` at (cx, top, cz), `out` towards the ring: three boards, and a goza mat along
+ *  them with a seat every `gap` from `first`. */
+function benchTop(g: Object3D, along: 'x' | 'z', cx: number, top: number, cz: number, len: number, out: number, first: number, gap: number, k: number) {
+  const ax = along === 'x', at = (u: number, v: number): [number, number] => (ax ? [cx + u, cz + v * out] : [cx + v * out, cz + u]);
+  for (let j = 0; j < 3; j++) {
+    const [x, z] = at(0, -0.28 + j * 0.28);
+    box(g, shade(WOOD, 0.88 + seatHash(k + j) * 0.2), x, top + 0.01, z, ax ? len : 0.27, 0.02, ax ? 0.27 : len, false);
+  }
+  const [x, z] = at(0, 0);
+  box(g, GOZA, x, top + 0.024, z, ax ? len - 0.1 : 0.5, 0.012, ax ? 0.5 : len - 0.1, false);
+  for (const s of [-1, 1]) { const [ex, ez] = at(0, s * 0.245); box(g, GOZA_EDGE, ex, top + 0.026, ez, ax ? len - 0.1 : 0.03, 0.012, ax ? 0.03 : len - 0.1, false); }
+  // (the mat's weave, a faint line between seats)
+  for (let u = first + gap / 2; u < len / 2 - 0.1; u += gap) { const [wx, wz] = at(u, 0); box(g, shade(GOZA, 0.86), wx, top + 0.031, wz, ax ? 0.012 : 0.46, 0.004, ax ? 0.46 : 0.012, false); }
+}
 /** Builds `tiers` of a stand along one wall, from tier `from` (counted out from the wall), into `g`, with a seat
  *  every `gap` along each; or with no `g`, lays out the places only (they're there from the start, built or not). */
 function stand(g: Group | null, part: Place['part'], along: 'x' | 'z', a0: number, a1: number, wall: number, out: number, from: number, tiers: number, gap: number) {
@@ -919,7 +936,12 @@ function stand(g: Group | null, part: Place['part'], along: 'x' | 'z', a0: numbe
     const h = 0.3 + (TIERS - 1 - i) * 0.42, at = wall + out * (0.45 + i * 0.85), len = Math.abs(a1 - a0), mid = (a0 + a1) / 2;
     const [cx, cz] = along === 'x' ? [mid, at] : [at, mid];
     if (g) {
-      box(g, i % 2 ? WOOD : 0x9C6644, cx, CY + h / 2, cz, along === 'x' ? len : 0.85, h, along === 'x' ? 0.85 : len);
+      box(g, i % 2 ? 0x6E4A33 : 0x7A5238, cx, CY + h / 2, cz, along === 'x' ? len : 0.85, h, along === 'x' ? 0.85 : len);
+      // the boards nailed over the crates: a seam along the top, and one along the face towards the ring
+      box(g, WOOD_DARK, cx, CY + h + 0.002, cz, along === 'x' ? len : 0.02, 0.004, along === 'x' ? 0.02 : len, false);
+      const [fx, fz] = along === 'x' ? [cx, cz + out * 0.426] : [cx + out * 0.426, cz];
+      box(g, WOOD_DARK, fx, CY + h * 0.55, fz, along === 'x' ? len : 0.02, 0.02, along === 'x' ? 0.02 : len, false);
+      benchTop(g, along, cx, CY + h, cz, len, out, -len / 2 + 0.4, gap, i * 7 + (along === 'x' ? 0 : 50));
       // the crates' slats, on the face towards the ring
       for (let k = -len / 2 + 0.6; k < len / 2; k += 2.1) {
         const [bx, bz] = along === 'x' ? [cx + k, cz + out * 0.43] : [cx + out * 0.43, cz + k];
@@ -930,8 +952,7 @@ function stand(g: Group | null, part: Place['part'], along: 'x' | 'z', a0: numbe
     for (let k = -len / 2 + 0.4, n = 0; k < len / 2 - 0.2; k += gap, n++) {
       const [px, pz] = along === 'x' ? [cx + k, cz] : [cx, cz + k];
       if (!g) places.push({ pos: V(px, CY + h, pz), h: face, part });
-      // a cushion (zabuton) on the plank for each seat, in the ring's colours
-      else box(g, CUSHIONS[(n + i) % CUSHIONS.length], px, CY + h + 0.03, pz, 0.46, 0.06, 0.46, false);
+
     }
   }
 }
@@ -949,30 +970,33 @@ const seating = (base: Group | null) => {
 };
 seating(null);
 later(() => seating(add(cellar, new Group())));
-// the VIP boxes: box seats (masu-seki) right by the ring, on its south side: a low platform with a red skirt, split
-// by rails into a box for each pair, a cushion for each seat, and a sake flask and two cups in every other box
+// the VIP boxes: box seats (masu-seki) right by the ring, on its south side: a low platform hung with a stained canvas,
+// split by rails into a box for each pair, a straw mat for each seat, and a bottle and two cups in every other box
 const VIP_Z = RING.z + RING_HALF + RING_FOOT + 0.7;
 later(() => {
   const H = 0.4, w = 7.2;
   box(parts.vip, WOOD_DARK, RING.x, CY + H / 2, VIP_Z, w, H, 0.9);
   box(parts.vip, WOOD, RING.x, CY + H + 0.01, VIP_Z, w - 0.04, 0.02, 0.86, false);
-  box(parts.vip, 0xC0392B, RING.x, CY + H * 0.55, VIP_Z + 0.455, w - 0.1, H * 0.6, 0.02, false);
+  box(parts.vip, 0x5E5443, RING.x, CY + H * 0.55, VIP_Z + 0.455, w - 0.1, H * 0.6, 0.02, false);
   for (const s of [-1, 1]) box(parts.vip, WOOD_DARK, RING.x, CY + H + 0.07, VIP_Z + s * 0.42, w, 0.14, 0.06);
   for (let j = 0; j <= 4; j++) box(parts.vip, WOOD_DARK, RING.x - w / 2 + j * 1.8, CY + H + 0.07, VIP_Z, 0.06, 0.14, 0.9);
   for (let j = 0; j < 4; j += 2) {
     const x = RING.x - 2.7 + j * 1.8;
-    add(parts.vip, mesh(G.cyl, 0xF4F1EA, x, CY + H + 0.12, VIP_Z - 0.25)).scale.set(0.06, 0.22, 0.06);
-    for (const s of [-1, 1]) add(parts.vip, mesh(G.cyl, 0xF4F1EA, x + s * 0.14, CY + H + 0.04, VIP_Z - 0.25)).scale.set(0.035, 0.05, 0.035);
+    add(parts.vip, mesh(G.cyl, 0x3E2A1C, x, CY + H + 0.12, VIP_Z - 0.25)).scale.set(0.06, 0.22, 0.06);
+    for (const s of [-1, 1]) add(parts.vip, mesh(G.cyl, 0x9A8A70, x + s * 0.14, CY + H + 0.04, VIP_Z - 0.25)).scale.set(0.035, 0.05, 0.035);
   }
 });
 for (let i = 0; i < 8; i++) places.push({ pos: V(RING.x - 3.15 + i * 0.9, CY + 0.25, VIP_Z - 0.05), h: Math.PI, part: 'vip' });
 later(() => {
-  for (let i = 0; i < 8; i++) box(parts.vip, i % 2 ? 0x8E2B2B : 0xF2C14E, RING.x - 3.15 + i * 0.9, CY + 0.44, VIP_Z + 0.05, 0.46, 0.07, 0.46, false);
+  for (let i = 0; i < 8; i++) {
+    box(parts.vip, GOZA, RING.x - 3.15 + i * 0.9, CY + 0.415, VIP_Z + 0.05, 0.6, 0.012, 0.6, false);
+    for (const s of [-1, 1]) box(parts.vip, GOZA_EDGE, RING.x - 3.15 + i * 0.9 + s * 0.29, CY + 0.417, VIP_Z + 0.05, 0.03, 0.012, 0.6, false);
+  }
 });
 /** Keeps a spectator's place hidden until it's built. */
 export const placeBuilt = (p: Place) => p.part === 'base' || parts[p.part].visible;
 
-// ---------- the arena's east side: the soup square, the gong and the cashier's window ----------
+// ---------- the arena: the soup square, the gong (out on the floor) and the cashier's window ----------
 // The soup square, after the street-food counters of Pompeii: two counters of plastered clay at right angles, closing
 // in the arena's corner by the hearth room's doorway (the walls are its other two sides), where the player stands to
 // serve (like the sushi chefs inside their belt upstairs). Their tops are pale hinoki planks, two staggered rows of
@@ -1176,16 +1200,20 @@ later(() => {
   }
   geos.forEach((gs, i) => { add(cellar, mesh(mergeGeometries(gs)!, new MeshLambertMaterial({ map: wrap(i).tex }), 0, 0, 0, true)); gs.forEach(b => b.dispose()); });
 });
-/** The gong: a bronze disc hung in a black frame (gong.ts swings it). */
+/** The gong: a bronze disc hung in a black frame, its face to the near wall (gong.ts swings it, and lights it up when
+ *  it's struck). */
 export const gongDisc = new Group();
+/** Its bronze (made with it, not as the cellar loads: a material's id takes numbers from the luck). */
+export let gongBronze: MeshLambertMaterial | null = null;
 later(() => {
-  const g = add(cellar, new Group()); g.position.set(GONG.x, CY, GONG.z); g.rotation.y = -Math.PI / 2;
+  gongBronze = new MeshLambertMaterial({ color: 0xC9A23A, emissive: 0x5A3A0A });
+  const g = add(cellar, new Group()); g.position.set(GONG.x, CY, GONG.z);
   for (const s of [-1, 1]) box(g, 0x1B1A1E, s * 0.85, 1.25, 0, 0.12, 2.5, 0.12);
   box(g, 0x1B1A1E, 0, 2.5, 0, 1.95, 0.14, 0.16);
   box(g, 0x8E2B2B, 0, 2.62, 0, 2.1, 0.08, 0.22);
   gongDisc.position.set(0, 2.38, 0);
   g.add(gongDisc);
-  const disc = add(gongDisc, mesh(new CylinderGeometry(0.62, 0.62, 0.05, 24), new MeshLambertMaterial({ color: 0xC9A23A, emissive: 0x5A3A0A }), 0, -0.95, 0, true));
+  const disc = add(gongDisc, mesh(new CylinderGeometry(0.62, 0.62, 0.05, 24), gongBronze, 0, -0.95, 0, true));
   disc.rotation.x = Math.PI / 2;
   add(gongDisc, mesh(new TorusGeometry(0.62, 0.04, 6, 24), 0x8A6A1E, 0, -0.95, 0));
   add(gongDisc, mesh(G.cyl, 0xE0BE5A, 0, -0.95, 0.03)).scale.set(0.2, 0.02, 0.2);
@@ -2074,7 +2102,7 @@ export function cellarBoxes(machines: Record<'rice' | 'fish' | 'mush', number> =
     [RING.x, RING.z, RING_HALF + RING_FOOT + 0.2, RING_HALF + RING_FOOT + 0.2],
     [(BACK.a0 + BACK.a1) / 2, BACK.wall + (t ? 1.5 : 1.1), (BACK.a1 - BACK.a0) / 2 + 0.2, t ? 1.65 : 1.2],
     ...BAR_BOXES,
-    [GONG.x, GONG.z, 0.45, 1.15],
+    [GONG.x, GONG.z, 1.15, 0.45],
     [CASHIER.x, CASHIER.z, 0.65, 1.3],
     [TEPPO.x, TEPPO.z, 0.5, 0.5],
     [KOMO.x, KOMO.z, 0.5, 1.45],

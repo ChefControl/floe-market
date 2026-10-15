@@ -31,10 +31,12 @@ on.earn = (chips, why) => {
   if (why === 'bowls') { takings += chips; return; }
   if (level.down) popText(`+🐡 ${Math.round(chips).toLocaleString('en-US')}`, { x: GONG.x, y: CY + 2.6, z: GONG.z });
 };
+/** Seconds till the crowd roars for a boss walking in: after the gong's second of silence (sfx.ts). */
+let roarT = 0;
 on.rush = r => {
   const b = BOSSES[r.boss];
-  gong({ x: GONG.x, z: GONG.z });
-  react('charge');
+  gong({ x: GONG.x, y: CY, z: GONG.z });
+  roarT = 1.1;
   toast(`${b.face} ${b.name} walks in with ${b.crowd} fans: turn more than half before the bell!`, 'rush', 3000);
 };
 on.rushEnd = r => {
@@ -91,6 +93,7 @@ export function updRing(dt: number) {
     if (takings > 0 && level.down) popText(`+🐡 ${takings < 10 ? takings.toFixed(1).replace(/\.0$/, '') : Math.round(takings)}`, { x: BAR.x, y: CY + 2.9, z: BAR.z });
     takings = 0;
   }
+  if (roarT > 0 && (roarT -= dt) <= 0) react('charge');
   updRingKitchen(dt);
   updDohyo(dt);
   updOffice(dt);

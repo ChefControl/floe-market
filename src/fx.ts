@@ -191,6 +191,19 @@ export function dustFx(at: Vector3, n = 6, big = 1) {
     P.smoke.emit(at, Math.cos(a) * sp, jitter(0.15, 0.5) * big, Math.sin(a) * sp, jitter(0.6, 1.1), jitter(0.07, 0.12) * big, jitter(0, 1) < 0.5 ? 0x9A7A58 : 0xB59570, 0.5);
   }
 }
+/** Ink squirted by the octopus (stage 3's first boss) at `at`: a dark cloud of `n` puffs. */
+export function inkFx(at: Vector3, n = 10) {
+  if (!on()) return;
+  for (let i = 0; i < n; i++) {
+    const a = jitter(0, Math.PI * 2), sp = jitter(0.3, 0.9);
+    P.smoke.emit(at, Math.cos(a) * sp, jitter(0.05, 0.4), Math.sin(a) * sp, jitter(1.0, 1.6), jitter(0.09, 0.15), jitter(0, 1) < 0.5 ? 0x1C1226 : 0x2E2238, 0.5);
+  }
+}
+/** A drip of slime off the gutter catfish (the third boss) at `at`. */
+export function slimeFx(at: Vector3) {
+  if (!on()) return;
+  P.drops.emit(at, jitter(-0.05, 0.05), -0.3, jitter(-0.05, 0.05), 0.55, jitter(0.02, 0.032), 0x56663A);
+}
 /** A handful of salt thrown from `from` over the ring, to land about `to`. */
 export function saltFx(from: Vector3, to: Vector3) {
   if (!on()) return;
