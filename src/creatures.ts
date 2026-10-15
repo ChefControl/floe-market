@@ -84,6 +84,13 @@ function chain(k: Kit, p: Object3D, n: number, len: number, r0: number, r1: numb
   }
   return js;
 }
+/** Broad shoulders: his arms set `w` further out, a yoke of muscle across the top of his back from one to the other,
+ *  and rounder shoulders, in `c`. */
+function broad(k: Kit, w: number, c: number) {
+  const r = k.r, x = 0.32 + 0.12 * r.f + w;
+  r.arms.forEach(A => { A.sh.position.x = A.s * x; k.part(A.sh, b => b.add(SPH, c, 0, -0.05, 0, null, [0.165, 0.17, 0.16])); });
+  k.part(r.spine, b => b.add(SPH, c, 0, 0.6, -0.05, null, [x + 0.05, 0.17, 0.27 * r.f]));
+}
 /** A round shape: its middle, its radii, and how it's turned. */
 interface Round { at: V3; r: V3; rot?: V3 }
 const qq = new Quaternion(), ee = new Euler(), Z = new Vector3(0, 0, 1), UP = new Vector3(0, 1, 0);
@@ -145,10 +152,10 @@ export const BEASTS: Record<Kind, (k: Kit, L: Look) => Beast> = {
   crab(k, L) {
     const r = k.r, SH = L.shell!, TIP = 0xF4E2C8, f = r.f;
     k.part(r.spine, b => {
-      const shell: Round = { at: [0, 0.52, -0.13 * f], r: [0.5 * f, 0.34, 0.3 * f] };
+      const shell: Round = { at: [0, 0.52, -0.13 * f], r: [0.5 * f + 0.14, 0.34, 0.3 * f] };
       b.add(SPH, SH, ...shell.at, null, shell.r);
       dots(b, shell, 8, 0.05, tint(SH, 0.8), 11, d => d.z < 0.2);
-      for (let i = -3; i <= 3; i++) b.add(CONE, tint(SH, 1.15), i * 0.13 * f, 0.84 - Math.abs(i) * 0.045 - (Math.abs(i) > 2 ? 0.06 : 0), -0.1 * f, [0, 0, -i * 0.32], [0.035, 0.11, 0.035]);
+      for (let i = -3; i <= 3; i++) b.add(CONE, tint(SH, 1.15), i * (0.13 * f + 0.045), 0.84 - Math.abs(i) * 0.045 - (Math.abs(i) > 2 ? 0.06 : 0), -0.1 * f, [0, 0, -i * 0.32], [0.035, 0.11, 0.035]);
     });
     k.part(r.neck, b => {
       b.add(SPH, SH, 0, 0.09, 0.06, null, [0.22, 0.13, 0.19]);
@@ -160,7 +167,8 @@ export const BEASTS: Record<Kind, (k: Kit, L: Look) => Beast> = {
     });
     const mouth = [-1, 1].map(s => { const m = k.bone(r.neck, s * 0.035, 0.03, 0.235); k.part(m, b => b.add(BOX, TIP, 0, 0, 0, null, [0.05, 0.06, 0.03])); return m; });
     // armour on the shoulders, forearms, shins and feet
-    r.arms.forEach(A => { k.part(A.sh, b => b.add(SPH, SH, 0, -0.03, 0, null, [0.16, 0.13, 0.15])); k.part(A.el, b => b.add(SPH, SH, 0, -0.11, 0, null, [0.105, 0.15, 0.105])); });
+    broad(k, 0.14, SH);
+    r.arms.forEach(A => { k.part(A.sh, b => b.add(SPH, SH, 0, -0.01, 0, null, [0.2, 0.15, 0.19])); k.part(A.el, b => b.add(SPH, SH, 0, -0.11, 0, null, [0.105, 0.15, 0.105])); });
     r.legs.forEach(G => { k.part(G.knee, b => b.add(SPH, SH, 0, -0.11, 0, null, [0.15, 0.165, 0.16])); k.part(G.foot, b => b.add(SPH, SH, 0, -0.035, 0.05, null, [0.106, 0.05, 0.156])); });
     // the claws: a palm, a fixed finger, and a jaw that snaps; the right one huge
     const jaws = r.arms.map((A, i) => {
@@ -199,6 +207,7 @@ export const BEASTS: Record<Kind, (k: Kit, L: Look) => Beast> = {
   // low fin down his back and a tail behind his belt. (His stamps shake the ring: dohyo.ts.)
   catfish(k, L) {
     const r = k.r, sk = L.skin, dk = tint(sk, 0.68), f = r.f;
+    broad(k, 0.13, sk);
     k.part(r.neck, b => {
       const head: Round = { at: [0, 0.1, 0.06], r: [0.3, 0.16, 0.27] };
       b.add(SPH, sk, ...head.at, null, head.r);
@@ -236,6 +245,7 @@ export const BEASTS: Record<Kind, (k: Kit, L: Look) => Beast> = {
   // on his forearms, and a tail behind his belt that swishes.
   shark(k, L) {
     const r = k.r, sk = L.skin, dk = tint(sk, 0.7), f = r.f;
+    broad(k, 0.15, sk);
     k.part(r.neck, b => {
       b.add(SPH, sk, 0, 0.14, 0.03, null, [0.21, 0.22, 0.24]);
       b.add(SPH, sk, 0, 0.19, 0.22, [0.16, 0, 0], [0.14, 0.115, 0.27]);
@@ -281,8 +291,8 @@ export const BEASTS: Record<Kind, (k: Kit, L: Look) => Beast> = {
   puffer(k, L) {
     const r = k.r, pale = L.under!, tan = L.back!, DOT = 0x3A2A1C, FINC = 0xE6D9A6, f = r.f;
     // the ball, on the chest's bone so it swells with him, and the tan over its top and back
-    const ball: Round = { at: [0, 0.06, 0.02], r: [0.43 * f, 0.6, 0.39 * f] };
-    const cap: Round = { at: [0, 0.14, -0.15], r: [0.437 * f, 0.56, 0.39 * f] };
+    const ball: Round = { at: [0, 0.03, 0.02], r: [0.37 * f, 0.52, 0.34 * f] };
+    const cap: Round = { at: [0, 0.1, -0.13], r: [0.376 * f, 0.485, 0.34 * f] };
     const belly: Round = { at: [0, 0, 0], r: [0.42 * f, 0.31, 0.38 * f] };
     // where his face is, on the front of the ball
     const ez = (x: number, y: number) => ball.at[2] + ball.r[2] * Math.sqrt(Math.max(0, 1 - (x / ball.r[0]) ** 2 - ((y - ball.at[1]) / ball.r[1]) ** 2));
@@ -291,10 +301,10 @@ export const BEASTS: Record<Kind, (k: Kit, L: Look) => Beast> = {
       b.add(SPH, pale, ...ball.at, null, ball.r);
       b.add(SPH, tan, ...cap.at, null, cap.r);
       dots(b, cap, 240, 0.02, DOT, 61, d => d.y > -0.45 && !(d.z > 0.6 && d.y < 0.6));
-      const my = 0.1, mz = ez(0, my);
+      const my = 0.07, mz = ez(0, my);
       for (const s of [-1, 1]) {
         // big round eyes, bulging: a tan rim, a gold ring, a wide black pupil looking forward, a glint
-        const x = s * 0.27, y = 0.33, z = ez(x, y) - 0.05, d = new Vector3(s * 0.4, 0.05, 1).normalize();
+        const x = s * 0.24, y = 0.29, z = ez(x, y) - 0.05, d = new Vector3(s * 0.4, 0.05, 1).normalize();
         b.add(SPH, tint(tan, 0.85), x, y, z, null, [0.135, 0.135, 0.12]);
         b.add(SPH, 0xB08A2E, x + d.x * 0.03, y + d.y * 0.03, z + d.z * 0.03, null, [0.12, 0.12, 0.11]);
         b.add(SPH, 0x0C0C0E, x + d.x * 0.075, y + d.y * 0.075, z + d.z * 0.075, null, [0.078, 0.082, 0.07]);
@@ -312,7 +322,7 @@ export const BEASTS: Record<Kind, (k: Kit, L: Look) => Beast> = {
       b.add(BOX, 0xE2B436, 0.031, my - 0.038, mz + 0.085, null, [0.058, 0.03, 0.02]);
       b.add(BOX, 0xFBF8F0, -0.031, my - 0.038, mz + 0.085, null, [0.058, 0.03, 0.02]);
       // an old scar across his left eye
-      b.add(BOX, 0xE9C8BA, 0.27, 0.33, ez(0.27, 0.33) + 0.07, [0, 0.4, -0.4], [0.016, 0.3, 0.016]);
+      b.add(BOX, 0xE9C8BA, 0.24, 0.29, ez(0.24, 0.29) + 0.07, [0, 0.4, -0.4], [0.016, 0.3, 0.016]);
     });
     // little fins fluttering on his sides behind his eyes, and a tail fin behind his belt
     const fins = [-1, 1].map(s => {
@@ -350,7 +360,7 @@ export const BEASTS: Record<Kind, (k: Kit, L: Look) => Beast> = {
         const p = r.puff, big = 1 + 0.32 * p;
         r.chestAt.scale.setScalar(big); r.bellyAt.scale.multiplyScalar(big);
         // his arms out from the sides of the ball, further as it swells
-        r.arms.forEach(A => { A.sh.position.x = A.s * (0.4 * f + 0.2 * p); });
+        r.arms.forEach(A => { A.sh.position.x = A.s * (0.35 * f + 0.2 * p); });
         for (const s of sets) { s.out.visible = p > 0.4; s.rest.visible = !s.out.visible; }
         fins.forEach((e, i) => { e.rotation.y = (i ? 1 : -1) * (0.25 + 0.35 * Math.sin(t * 9 + i)); });
         tail.rotation.y = 0.4 * Math.sin(t * 7);

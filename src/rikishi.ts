@@ -248,6 +248,17 @@ export class RikishiModel extends Group {
     this.fringe.rotation.set(Math.max(-1.2, Math.min(1.2, -(tilt + p.pitch))) + this.jig * 1.5, 0, -lean - p.roll * 0.8);
     // and the creature's own parts: tentacles, whiskers, claws, tails, a puffer's swelling
     this.clock += dt;
-    this.beast?.anim?.(this.clock, dt, p);
+    if (this.beast) this.beast.anim?.(this.clock, dt, p);
+    else this.idle(this.clock);
+  }
+  /** A man's own life, as a creature's soft parts move: he breathes, chest and belly rising, his head turns slowly as
+   *  he looks about, and his arms sway with his breath. */
+  private idle(t: number) {
+    const b = Math.sin(t * 1.7);
+    this.chestAt.scale.set(1 + 0.012 * b, 1 + 0.035 * b, 1 + 0.025 * b);
+    this.bellyAt.scale.z *= 1 + 0.025 * b;
+    this.neck.position.y = 0.74 + 0.012 * b;
+    this.neck.rotation.y = 0.28 * Math.sin(t * 0.45) * Math.sin(t * 0.13 + 1);
+    this.arms.forEach(A => { A.sh.rotation.z += A.s * 0.035 * b; });
   }
 }
