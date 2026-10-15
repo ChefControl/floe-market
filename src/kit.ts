@@ -34,7 +34,7 @@ export function dice(seed: number) {
     return ((t ^ t >>> 14) >>> 0) / 4294967296;
   };
 }
-const scenery = dice(0x5CE4E);
+let scenery = dice(0x5CE4E);
 /** Runs `f` with Math.random swapped for the scenery's own dice (or `d`), then puts the game's luck back. */
 export function quietly<T>(f: () => T, d: () => number = scenery): T {
   const luck = Math.random;
@@ -43,6 +43,13 @@ export function quietly<T>(f: () => T, d: () => number = scenery): T {
 }
 /** A number between a and b from the scenery's dice (use inside `quietly`, or anywhere: it never touches the luck). */
 export const jitter = (a: number, b: number) => a + scenery() * (b - a);
+/** Runs `f` with dice of its own, `d`, for the scenery's as well as the luck: for something built later than the rest
+ *  (the cellar, cellar.ts), which then moves neither on for what's built after it. */
+export function apart<T>(f: () => T, d: () => number): T {
+  const theirs = scenery;
+  scenery = d;
+  try { return quietly(f, d); } finally { scenery = theirs; }
+}
 
 // ---------- shapes ----------
 const boxes = new Map<string, BufferGeometry>(), bevelled = new WeakMap<BufferGeometry, number[]>();
@@ -193,6 +200,9 @@ function plainShape(geo: BufferGeometry): BufferGeometry {
   if (p === undefined) plainer.set(geo, p = quietly(() => plainerShape(geo)));
   return p ?? geo;
 }
+/** Makes the shadow shapes of `geos` now, as building something with them would (what's built later than it once was,
+ *  cellar.ts), so what's built in the meantime finds them made, as it did. */
+export const shadowsOf = (...geos: BufferGeometry[]) => { geos.forEach(plainShape); };
 function plainerShape(geo: BufferGeometry): BufferGeometry | null {
   const a = (geo as BufferGeometry & { parameters?: Record<string, never> }).parameters ?? {}, box = bevelled.get(geo);
   if (box) return new BoxGeometry(...box);

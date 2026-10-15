@@ -1,7 +1,7 @@
 // Mr. Fugu at his desk (stage 3): step up in front of it and he has a word for you, in a bubble over his head, by how
 // the ring's doing, his mouth going as he says it; step away and come back for the next one. And his fish tank's fish, swimming.
 import { Sprite, SpriteMaterial } from 'three';
-import { boss, CY, OFFICE, swimTank } from './cellar';
+import { boss, cellar, CY, OFFICE, swimTank } from './cellar';
 import { decal, drawPad } from './decals';
 import { BOSSES, F } from './fight';
 import { level } from './layout';
@@ -13,7 +13,7 @@ import { d2xz } from './util';
 export const DESK_PAD = { x: OFFICE.x, z: OFFICE.z + 2.35, r: 0.8 };
 const mark = decal(1.3, (c, w, h) => drawPad(c, w, h, '💬'));
 mark.mesh.position.set(DESK_PAD.x, CY + 0.035, DESK_PAD.z);
-boss.parent!.add(mark.mesh);
+cellar.add(mark.mesh);
 
 /** What he says, by how things stand: a few for now, one each time you step up. */
 export function fuguLines(): string[] {
@@ -37,7 +37,7 @@ const said = canvasTex(W, H, () => {});
 const bubbleMat = new SpriteMaterial({ map: said.tex, depthTest: false, transparent: true, opacity: 0 });
 const bubble = new Sprite(bubbleMat);
 bubble.scale.set(2.6, 2.6 * H / W, 1); bubble.renderOrder = 6; bubble.visible = false;
-boss.parent!.add(bubble);
+cellar.add(bubble);
 /** Draws `text` in a white bubble with its tail down, wrapped onto up to three lines. */
 function draw(text: string) {
   const c = said.ctx;
