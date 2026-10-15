@@ -1074,27 +1074,27 @@ describe("the cellar's tiles", () => {
 });
 
 describe('the swarm and the watch spot', () => {
-  it('the waiting fans crowd the floor round the soup bar, a step back from it and off the hatch\'s side', async () => {
+  it('the waiting fans crowd the floor round the soup square, a step back from its counters and never inside', async () => {
     const { g, swarm, plan, F } = await ring();
     g.run(10);
     expect(F().queue.length).toBeGreaterThan(3);
     expect(swarm.swarm().n).toBe(F().queue.length);
     expect(swarm.swarm().shadows).toBe(true);
-    const { BAR } = plan, stood = swarm.ways().filter(w => w.length === 1).map(([p]) => p);
+    const stood = swarm.ways().filter(w => w.length === 1).map(([p]) => p);
     expect(stood.length).toBeGreaterThan(3);
     for (const p of stood) {
-      expect(Math.hypot(p.x - BAR.x, p.z - BAR.z)).toBeGreaterThan(BAR.r + 0.8);
-      expect(p.x).toBeLessThan(BAR.x + 0.95);
+      expect(plan.fromBar(p)).toBeGreaterThan(0.8);
+      expect(plan.inSquare(p)).toBe(false);
     }
     // (the ones at the front of the crowd are round it, not off across the floor)
-    expect(Math.min(...stood.map(p => Math.hypot(p.x - BAR.x, p.z - BAR.z)))).toBeLessThan(BAR.r + 1.5);
+    expect(Math.min(...stood.map(p => plan.fromBar(p)))).toBeLessThan(1.5);
   });
 
-  it('each fan served steps up to a free spot of their own all round the soup bar, walking round it, never through it', async () => {
+  it('each fan served steps up to a free spot of their own round the soup square, walking round it, never through it', async () => {
     const { g, swarm, plan, fight, F } = await ring();
     for (let i = 0; i < fight.STALL_CAP; i++) fight.toStall(false);
-    const { BAR, BAR_SPOTS } = plan, at = new Set<number>(), boxes = (await import('../src/cellar')).cellarBoxes();
-    const inBar = (x: number, z: number) => boxes.some(([cx, cz, hx, hz]) => Math.hypot(cx - BAR.x, cz - BAR.z) < 0.1 && Math.abs(x - cx) < hx - 0.02 && Math.abs(z - cz) < hz - 0.02);
+    const { BAR, BAR_SPOTS } = plan, at = new Set<number>();
+    const inBar = (x: number, z: number) => x > BAR.x0 + 0.02 && x < BAR.x1 - 0.02 && z > BAR.z0 + 0.02 && z < BAR.z1 - 0.02;
     for (let i = 0; i < 900 && F().bout.phase === 'prep'; i++) {
       g.run(1 / 30, 1 / 30);
       for (const f of swarm.turnedAt()) {
@@ -1102,36 +1102,56 @@ describe('the swarm and the watch spot', () => {
         expect(k).toBeGreaterThanOrEqual(0);
         at.add(k);
       }
-      // (round the bar to their spot and on to their seat, never across it, nor round behind it through the hatch)
+      // (round the square to their spot and on to their seat, never across its counters nor into it)
       for (const way of swarm.ways()) {
         for (let j = 1; j < way.length; j++) {
           const a = way[j - 1], b = way[j];
           for (let t = 0; t <= 20; t++) {
             const x = a.x + (b.x - a.x) * t / 20, z = a.z + (b.z - a.z) * t / 20;
             expect(inBar(x, z), `${x.toFixed(2)}, ${z.toFixed(2)}`).toBe(false);
-            expect(x > BAR.x + 1.3 && Math.abs(z - BAR.z) < 0.6, `${x.toFixed(2)}, ${z.toFixed(2)}`).toBe(false);
           }
         }
       }
     }
     expect(F().bout.fed).toBeGreaterThan(8);
-    // (a good few different spots, on both sides of the bar, and none on the hatch's side: that's the player's)
+    // (a good few different spots, on both its open sides, each a step out from its counters)
     expect(at.size).toBeGreaterThanOrEqual(5);
-    const used = [...at].map(k => BAR_SPOTS[k]);
-    expect(used.some(s => s.z < BAR.z - 0.5)).toBe(true);
-    expect(used.some(s => s.z > BAR.z + 0.5)).toBe(true);
-    expect(BAR_SPOTS.every(s => s.x < BAR.x + 0.8)).toBe(true);
+    const sides = new Set([...at].map(k => BAR_SPOTS[k]).map(s => s.z < BAR.z0 ? 'n' : 'w'));
+    expect(sides.size).toBeGreaterThanOrEqual(2);
+    for (const s of BAR_SPOTS) expect(plan.fromBar(s)).toBeCloseTo(0.35, 5);
   });
 
-  it('the soup bar\'s stools are tucked under its top, none where a fan steps up for a bowl nor on the hatch\'s side', async () => {
-    const { BAR, BAR_SPOTS, BAR_STOOLS, BAR_PAD } = await import('../src/cellarPlan');
-    expect(BAR_STOOLS.length).toBeGreaterThanOrEqual(4);
-    for (const s of BAR_STOOLS) {
-      expect(Math.hypot(s.x - BAR.x, s.z - BAR.z)).toBeLessThanOrEqual(BAR.r + 0.01);
-      // (a stool's seat is 0.19 round, a fan's body about 0.2: clear of each other)
-      for (const p of BAR_SPOTS) expect(Math.hypot(s.x - p.x, s.z - p.z)).toBeGreaterThan(0.4);
-      expect(Math.hypot(s.x - BAR_PAD.x, s.z - BAR_PAD.z)).toBeGreaterThan(BAR_PAD.r + 0.6);
+  it('the soup square closes in the hearth room\'s doorway: you serve from inside it and leave through the hearth room', async () => {
+    const { g, cellar, plan, fight } = await ring();
+    const { BAR, BAR_PLACES, BAR_PAD } = plan;
+    // a place on the counters' tops for every bowl out, each on a counter, none crowding the next
+    expect(BAR_PLACES).toHaveLength(fight.STALL_CAP);
+    for (const h of BAR_PLACES) {
+      expect(plan.fromBar(h)).toBe(0);
+      expect(plan.inSquare(h)).toBe(false);
+      for (const o of BAR_PLACES) if (o !== h) expect(Math.hypot(h.x - o.x, h.z - o.z)).toBeGreaterThan(0.25);
     }
+    // the pad's inside it; walking out west or north stops at the counters, and south at the arena's wall
+    expect(plan.inSquare(BAR_PAD)).toBe(true);
+    for (const [dx, dz] of [[-1, 0], [0, -1], [0, 1]]) {
+      g.player.g.position.set(BAR_PAD.x, cellar.CY, BAR_PAD.z);
+      for (let i = 0; i < 90; i++) { g.player.g.position.x += dx * 0.05; g.player.g.position.z += dz * 0.05; g.run(1 / 60); }
+      const p = g.player.g.position;
+      expect(p.x).toBeGreaterThan(BAR.x0 + BAR.d);
+      expect(p.z).toBeGreaterThan(BAR.z0 + BAR.d);
+      expect(p.z).toBeLessThanOrEqual(g.layout.ARENA.z1 + 1e-6);
+    }
+    // and in from the hearth room through its doorway
+    g.player.g.position.set(g.layout.KITCHEN.x0 + 0.6, cellar.CY, 5.5);
+    for (let i = 0; i < 120 && !plan.inSquare({ x: g.player.g.position.x, z: g.player.g.position.z }); i++) { g.player.g.position.x -= 0.05; g.run(1 / 60); }
+    expect(plan.inSquare({ x: g.player.g.position.x, z: g.player.g.position.z })).toBe(true);
+    // the crew's way from it to the ring's gong goes back through the hearth room and round by the landing
+    const way = cellar.cellarWay(BAR_PAD, plan.GONG_PAD).map(w => cellar.roomAt(w));
+    expect(way).toContain('kitchen');
+    expect(way).toContain('landing');
+    // and from the hearth room to the arena's floor, never through the square
+    const round = cellar.cellarWay(plan.POT_PAD, plan.WATCH);
+    expect(round.some(w => plan.inSquare(w))).toBe(false);
   });
 
   it('a boss\'s crowd walks round the ring, the stands and the soup bar to its seats, never through them', async () => {

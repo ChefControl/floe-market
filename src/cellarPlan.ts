@@ -1,5 +1,5 @@
 // Where everything is down in the cellar (stage 3), as plain floor positions (x, z; the floor is CELLAR_Y): the stations
-// of the kitchen's lines, the pot and its ledge, the bowl counter, the soup bar, the gong, and the way between rooms.
+// of the kitchen's lines, the pot and its ledge, the bowl counter, the soup square, the gong, and the way between rooms.
 // Kept apart from the cellar's meshes (cellar.ts) so the fight night's simulation (fight.ts) can use it without them.
 import { ARENA, type CellarRoom, CRAFT, DOORS, GROW, KITCHEN, LIFT_ROOM, OFFICE_ROOM, PREP, ROOMS } from './layout';
 import type { XZ } from './util';
@@ -58,25 +58,51 @@ export const COOK_AT = { x: HEARTH.x + 1.45, z: HEARTH.z + 1.6 };
 export const COUNTER = { x: KITCHEN.x1 - 0.65, z: KITCHEN.z1 - 0.75 };
 export const COUNTER_PAD = pad(COUNTER.x - 0.95, COUNTER.z, 0.5);
 
-// ---------- the arena: the soup bar, the gong and its window, the watch spot ----------
-/** The soup bar: a round counter just inside the arena by the hearth room's door, its pot in the middle; how far its
- *  top reaches out from there, and how high it stands. The hatch in it faces the door, and outside the hatch, a step
- *  in from the door, is where to stand to set bowls out round its top. */
-export const BAR = { x: ARENA.x1 - 2.35, z: 5.5, r: 1.15, top: 0.96 };
-export const BAR_PAD = pad(ARENA.x1 - 0.85, 5.5, 0.8);
-/** Where round the bar the fans step up to buy their bowl: a little out from its top, every way but the hatch's,
- *  each spot an arm's length from the next (swarm.ts sends each fan to a free one). */
-export const BAR_SPOTS: XZ[] = Array.from({ length: 11 }, (_, i) => {
-  const a = (60 + i * 24) * Math.PI / 180;
-  return { x: BAR.x + Math.cos(a) * (BAR.r + 0.35), z: BAR.z + Math.sin(a) * (BAR.r + 0.35) };
-});
-/** The bar's stools, tucked under its top's edge between where the fans step up (none in the way of any of them). */
-export const BAR_STOOLS: XZ[] = [72, 120, 168, 216, 264].map(deg => {
-  const a = deg * Math.PI / 180;
-  return { x: BAR.x + Math.cos(a) * BAR.r, z: BAR.z + Math.sin(a) * BAR.r };
-});
-/** The arena floor along the south wall, from the bar across, where the fans queue and a boss's crowd floods in
- *  (swarm.ts crowds them round the bar first, and keeps them off it, off where they buy, and off the hatch's side). */
+// ---------- the arena: the soup square, the gong and its window, the watch spot ----------
+/** The soup square: two painted clay counters at right angles, closing in a corner of the arena against the hearth
+ *  room's wall and the arena's south wall, the doorway from the hearth room opening into it (DOORS' kitchen-arena door
+ *  now leads only in there). The north counter runs from the west one to the hearth room's wall, the west one from the
+ *  north one to the south wall. The player serves from inside, like the sushi chefs inside their belt upstairs; the
+ *  fans buy from outside, along the north and west. Its outer edges, how deep each counter is, and how high it stands;
+ *  x and z are its middle. (The east and south sides are the walls: the counters run on to them, past the arena's
+ *  edge.) */
+export const BAR = (() => {
+  const x0 = 0.2, x1 = ARENA.x1 + 0.2, z0 = 3.65, z1 = ARENA.z1 + 0.04;
+  return { x0, x1, z0, z1, d: 0.7, top: 0.95, x: (x0 + x1) / 2, z: (z0 + z1) / 2 };
+})();
+/** Where to stand to set the bowls out: the square's floor, inside its counters. */
+export const BAR_PAD = pad(2.2, 5.6, 0.8);
+/** How far a point is from the square's outside (0 on or inside it). */
+export const fromBar = (p: XZ) => Math.hypot(Math.max(BAR.x0 - p.x, 0, p.x - BAR.x1), Math.max(BAR.z0 - p.z, 0, p.z - BAR.z1));
+/** The nearest point of the square's outside to `p` (where a fan waiting there looks). */
+export const nearBar = (p: XZ): XZ => ({ x: Math.min(BAR.x1, Math.max(BAR.x0, p.x)), z: Math.min(BAR.z1, Math.max(BAR.z0, p.z)) });
+/** Whether `p` is on the square's floor, inside its counters (or in its doorway). */
+export const inSquare = (p: XZ) => p.x > BAR.x0 + BAR.d - 0.1 && p.x < KITCHEN.x0 - 0.05 && p.z > BAR.z0 + BAR.d - 0.1 && p.z < BAR.z1 + 0.1;
+/** The places on the counters' tops where the bowls are set out, in the order they're filled: along the west counter
+ *  from the south wall, then along the north one from the corner to the hearth room's wall. Each counter has two rows
+ *  of them, staggered (the corner's the north one's). (No mark where a bowl isn't: an empty place looks empty.) */
+export const BAR_PLACES: XZ[] = (() => {
+  const { x0, x1, z0, z1, d } = BAR, ROWS = 0.17, GAP = 0.4;
+  /** `n` places a row, from `a` on, the second row half a gap on. */
+  const rows = (n: number, a: number, dir: number, at: (t: number, side: number) => XZ) =>
+    Array.from({ length: n * 2 }, (_, i) => at(a + dir * (Math.floor(i / 2) * GAP + (i % 2) * GAP / 2), i % 2 ? 1 : -1));
+  return [
+    ...rows(7, z1 - 0.15, -1, (z, s) => ({ x: x0 + d / 2 + s * ROWS, z })),
+    ...rows(8, x0 + 0.15, 1, (x, s) => ({ x, z: z0 + d / 2 + s * ROWS })),
+  ].filter(h => h.x < x1 - 0.1);
+})();
+/** Where round the square the fans step up to buy their bowl: a little out from its counters, along its north and west
+ *  sides, each spot an arm's length from the next (swarm.ts sends each fan to a free one). */
+export const BAR_SPOTS: XZ[] = (() => {
+  // (none on the north side's east end: the sake barrels stand there)
+  const { x0, z0 } = BAR, OUT = 0.35;
+  return [
+    ...[0.75, 1.45, 2.15].map(x => ({ x, z: z0 - OUT })),
+    ...[4.25, 4.9, 5.55, 6.2, 6.85].map(z => ({ x: x0 - OUT, z })),
+  ];
+})();
+/** The arena floor along the south wall, from the square across, where the fans queue and a boss's crowd floods in
+ *  (swarm.ts crowds them round the square first, and keeps them off it and off where they buy). */
 export const FLOOR = { x0: ARENA.x0 + 0.7, x1: ARENA.x1 - 0.5, z0: 3.9, z1: ARENA.z1 - 0.3 };
 /** The gong, against the east wall, and where to stand to ring it; the cashier's window beside it. */
 export const GONG = { x: ARENA.x1 - 0.7, z: -2.9 };
@@ -133,7 +159,10 @@ function mouth(t: (typeof DOORS)[number], room: CellarRoom): XZ {
   const r = ROOMS[room], cl = (v: number, a: number, b: number) => Math.max(a + 0.5, Math.min(b - 0.5, v));
   return { x: cl((t.x0 + t.x1) / 2, r.x0, r.x1), z: cl((t.z0 + t.z1) / 2, r.z0, r.z1) };
 }
-/** The rooms to walk through from one to another, fewest doorways first: the doorways in order. */
+/** The hearth room's doorway into the soup square: the only way in or out of it, and no way into the rest of the arena. */
+const SQUARE_DOOR = DOORS.find(d => d.a === 'kitchen' && d.b === 'arena')!;
+/** The rooms to walk through from one to another, fewest doorways first: the doorways in order (the arena reached
+ *  round by the landing: the hearth room's doorway into it only leads into the soup square). */
 function doorsBetween(from: CellarRoom, to: CellarRoom) {
   const prev = new Map<CellarRoom, [CellarRoom, (typeof DOORS)[number]] | null>([[from, null]]);
   const q: CellarRoom[] = [from];
@@ -141,6 +170,7 @@ function doorsBetween(from: CellarRoom, to: CellarRoom) {
     const r = q.shift()!;
     if (r === to) break;
     for (const d of DOORS) {
+      if (d === SQUARE_DOOR) continue;
       const other = d.a === r ? d.b : d.b === r ? d.a : null;
       if (other && !prev.has(other)) { prev.set(other, [r, d]); q.push(other); }
     }
@@ -149,8 +179,12 @@ function doorsBetween(from: CellarRoom, to: CellarRoom) {
   for (let r = to; prev.get(r); r = prev.get(r)![0]) out.unshift([prev.get(r)![0], r, prev.get(r)![1]]);
   return out;
 }
-/** The way from `a` to `b` down here, for someone walking it: through the doorways, room by room, then to `b`. */
+/** The way from `a` to `b` down here, for someone walking it: through the doorways, room by room, then to `b` (into or
+ *  out of the soup square through the hearth room). */
 export function cellarWay(a: XZ, b: XZ): XZ[] {
+  const inA = inSquare(a), inB = inSquare(b), hearth = mouth(SQUARE_DOOR, 'kitchen'), square = mouth(SQUARE_DOOR, 'arena');
+  if (inB && !inA) return [...cellarWay(a, hearth), square, { x: b.x, z: b.z }];
+  if (inA && !inB) return [square, hearth, ...cellarWay(hearth, b)];
   const way: XZ[] = [];
   for (const [r0, r1, d] of doorsBetween(roomAt(a), roomAt(b))) way.push(mouth(d, r0), mouth(d, r1));
   way.push({ x: b.x, z: b.z });

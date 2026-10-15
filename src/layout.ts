@@ -18,7 +18,7 @@ export const CELLAR_Y = -30;
 export const HATCH_AT = { x: 6.0, z: -5.1 };
 
 /** The cellar's rooms, under the dock, side by side like one building with thin walls between: the arena (the ring,
- *  its stands, the bowl stall and the gong) to the west; down the middle Mr. Fugu's office, the landing at the foot of
+ *  its stands, the soup square and the gong) to the west; down the middle Mr. Fugu's office, the landing at the foot of
  *  the ladder from his hatch, the hearth room (the pot) and through it the cookware shop; and to the east the prep hall, where the dumbwaiters'
  *  trays peek in through the east wall beside the racks and barrels, and behind it the grow room, hidden until the first boss is beaten. Floors,
  *  inside their walls (the walls stand in the gaps). */
@@ -41,6 +41,7 @@ export const DOORS: { a: CellarRoom; b: CellarRoom; x0: number; x1: number; z0: 
   { a: 'landing', b: 'arena', x0: ARENA.x1, x1: LANDING.x0, z0: -1.2, z1: 0 },
   { a: 'landing', b: 'kitchen', x0: 4.7, x1: 5.9, z0: LANDING.z1, z1: KITCHEN.z0 },
   { a: 'landing', b: 'office', x0: (OFFICE_ROOM.x0 + OFFICE_ROOM.x1) / 2 - 0.6, x1: (OFFICE_ROOM.x0 + OFFICE_ROOM.x1) / 2 + 0.6, z0: OFFICE_ROOM.z1, z1: LANDING.z0 },
+  // (into the soup square in the arena, closed in by its counters: the way out to serve, not to the ring)
   { a: 'kitchen', b: 'arena', x0: ARENA.x1, x1: KITCHEN.x0, z0: 4.9, z1: 6.1 },
   { a: 'kitchen', b: 'prep', x0: KITCHEN.x1, x1: PREP.x0, z0: 4.4, z1: 5.6 },
   // (towards the west end of the hearth room's south wall, so it opens straight onto the shop counter's square)

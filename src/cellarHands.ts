@@ -1,7 +1,7 @@
 // The player's work down in the cellar (stage 3), by standing in the right places, as upstairs: at the dumbwaiter's
 // bins, rice or fish into their arms; at a drying rack or a salt barrel, raw ones in and ready ones out; at a mushroom
 // bed, mushrooms; at the pot, ready ones onto the ledge, and the pot cooks while they stand there (until there's a
-// cook); at the counter, bowls; at the soup bar's hatch, bowls out for the fans. What they carry is theirs: the cellar
+// cook); at the counter, bowls; inside the soup square, bowls out for the fans. What they carry is theirs: the cellar
 // (fight.ts) only sees what they hand in or take out. And what each place says while they stand at it.
 import { BAR_PAD, BIN_PADS, BINS, COUNTER_PAD, type Ing, machineAt, machinePad, type Pad, POT_PAD, WATCH } from './cellarPlan';
 import { CY } from './cellar';
@@ -110,13 +110,14 @@ export function cellarWork(p: XZ, dt: number) {
       pick();
     }
   }
-  // the soup bar: bowls out round it for the fans
+  // the soup square: bowls out in the counters' holes for the fans, each flying to its own
   if (at(p, BAR_PAD)) {
     while (player.tDrop <= 0 && back.count('bowl') && F.stall.length < STALL_CAP) {
       const m = back.items.find(x => x.userData.kind === 'bowl');
       if (!m || !toStall(!!m.userData.mush)) break;
       player.tDrop += STEP;
-      handIn('bowl', barAt);
+      const hole = barAt(F.stall.length - 1);
+      handIn('bowl', () => hole);
     }
   }
   if (player.tPick < 0) player.tPick = 0;
@@ -158,7 +159,7 @@ export function cellarTip(p: XZ): TipContent | null {
     const who = F.hires.cook ? 'The cook keeps it going' : 'It cooks while you stand here';
     return { name: 'The pot', desc: `${PER_BATCH} of each make ${BATCH} bowls. ${who}, and ladles itself out onto the counter. In it: ${F.pot.length} of ${POT_CAP} bowls. On the ledge: ${ledge} (up to ${LEDGE_CAP} each)` };
   }
-  if (at(p, COUNTER_PAD)) return { name: 'Bowls', desc: `${F.counter.length} of ${COUNTER_CAP} on the counter: carry them to the soup bar in the arena` };
+  if (at(p, COUNTER_PAD)) return { name: 'Bowls', desc: `${F.counter.length} of ${COUNTER_CAP} on the counter: carry them through the door to the soup bar` };
   if (at(p, BAR_PAD)) {
     const cut = F.boughtOut ? '' : ", after Mr. Fugu's 30%";
     return { name: 'The soup bar', desc: `${F.stall.length} of ${STALL_CAP} bowls out · ${F.queue.length} fans waiting · a bowl pays 🐡 ${chips(bowlPrice(F.beaten >= 1))}${cut}` };

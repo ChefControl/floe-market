@@ -13,7 +13,7 @@
 // out, it stops casting shadows.
 import { BufferGeometry, CanvasTexture, Color, Float32BufferAttribute, InstancedMesh, Matrix4, Quaternion, Sprite, SpriteMaterial, Vector3 } from 'three';
 import { CY, cellarBoxes, parts, placeBuilt, places, RING } from './cellar';
-import { BAR, BAR_PAD, BAR_SPOTS, FLOOR, GONG_PAD, TUNNELS, WATCH } from './cellarPlan';
+import { BAR, BAR_PAD, BAR_SPOTS, FLOOR, fromBar, GONG_PAD, nearBar, TUNNELS, WATCH } from './cellarPlan';
 import { crowdModel, PARKAS, SHIRT } from './characters';
 import { BOSSES, F, REACH } from './fight';
 import { onQuality } from './graphics';
@@ -90,23 +90,22 @@ onQuality(() => {
 
 
 // ---------- where they stand ----------
-/** How far from the bar's middle the crowd stands round it: no nearer than a step back from where they buy
+/** How far from the soup square's counters the crowd stands round it: no nearer than a step back from where they buy
  *  (BAR_SPOTS), and on its north side, off the floor along the south wall (FLOOR), no further out than a couple of rows. */
-const CROWD = { r0: BAR.r + 0.85, r1: BAR.r + 1.45 };
-/** Spots on the floor for `n` fans, packed to fit, nearest the bar first: all round it but the hatch's side, then out
- *  across the floor. */
+const CROWD = { r0: 0.85, r1: 1.45 };
+/** Spots on the floor for `n` fans, packed to fit, nearest the square first: round it, then out across the floor. */
 const spotCache = new Map<number, { x: number; z: number }[]>();
 function spots(n: number) {
   const size = n <= 60 ? 60 : n <= 150 ? 150 : MAX_FANS;
   let out = spotCache.get(size);
   if (out) return out;
-  // (none in the bar's footprint, or anything else's)
-  const { boxes } = navMap(), z0 = Math.min(FLOOR.z0, BAR.z - CROWD.r1), w = FLOOR.x1 - FLOOR.x0, h = FLOOR.z1 - z0;
+  // (none in the square, or anything else's footprint)
+  const { boxes } = navMap(), z0 = Math.min(FLOOR.z0, BAR.z0 - CROWD.r1), w = FLOOR.x1 - FLOOR.x0, h = FLOOR.z1 - z0;
   const fits = (q: XZ) => {
-    const d = Math.hypot(q.x - BAR.x, q.z - BAR.z);
-    return !inBox(q, boxes, 0.15) && d > CROWD.r0 && (q.z >= FLOOR.z0 || d < CROWD.r1) && q.x < BAR.x + 0.9;
+    const d = fromBar(q);
+    return !inBox(q, boxes, 0.15) && d > CROWD.r0 && (q.z >= FLOOR.z0 || d < CROWD.r1);
   };
-  // (packed a little closer each time until they all fit: the bar takes a bite out of the floor)
+  // (packed a little closer each time until they all fit: the square takes a bite out of the floor)
   for (let gap = Math.min(0.9, Math.sqrt(w * h / size / 0.87) * 0.95); ; gap *= 0.97) {
     let seed = 7;
     const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
@@ -119,13 +118,13 @@ function spots(n: number) {
     }
     if (out.length >= size || gap < 0.2) break;
   }
-  out.sort((a, b) => Math.hypot(a.x - BAR.x, a.z - BAR.z) - Math.hypot(b.x - BAR.x, b.z - BAR.z));
+  out.sort((a, b) => fromBar(a) - fromBar(b));
   spotCache.set(size, out);
   return out;
 }
 
 // ---------- the way round the arena ----------
-// A small map of the way round the arena's furniture: the corners of everything in it (the ring, the stands, the bar,
+// A small map of the way round the arena's furniture: the corners of everything in it (the ring, the stands, the square,
 // the gong, the cashier's window, ...), a little out from them, and which of them can see which. A fan's way from where
 // they are to where they're going is the shortest along it. Remade when the furniture changes (a new tier).
 type Box = [number, number, number, number];
@@ -154,11 +153,8 @@ function navMap() {
   const key = venueKey();
   if (nav?.key === key) return nav;
   // (only what's in the arena: the furniture of the other rooms is behind its walls)
+  // (the soup square's counters among them: its inside, the player's, is closed in by them and the wall)
   const boxes = cellarBoxes().filter(([cx, cz, hx, hz]) => cx + hx > ARENA.x0 && cx - hx < ARENA.x1 && cz + hz > ARENA.z0 && cz - hz < ARENA.z1) as Box[];
-  // (and the hatch's side of the bar, from it to the wall, is the player's: the fans keep out, so nobody goes round the
-  // bar that way, through the hatch)
-  const x0 = BAR.x + 0.9, x1 = ARENA.x1 + 0.5;
-  boxes.push([(x0 + x1) / 2, BAR.z, (x1 - x0) / 2, 0.85]);
   const nodes: XZ[] = [];
   for (const [cx, cz, hx, hz] of boxes) {
     for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
@@ -228,7 +224,7 @@ function seatsFor(n: number) {
     return { x: pl.pos.x, z: pl.pos.z, y: pl.pos.y - CY, face: pl.h, from };
   });
   const free = (x: number, z: number) => !inBox({ x, z }, boxes, CLEAR + 0.05)
-    && !(x > FLOOR.x0 - 0.3 && x < FLOOR.x1 + 0.3 && z > FLOOR.z0 - 0.3) && Math.hypot(x - BAR.x, z - BAR.z) > CROWD.r1 + 0.45
+    && !(x > FLOOR.x0 - 0.3 && x < FLOOR.x1 + 0.3 && z > FLOOR.z0 - 0.3) && fromBar({ x, z }) > CROWD.r1 + 0.45
     && !pads.some(p => Math.hypot(x - p.x, z - p.z) < p.r + 0.35);
   let floor: Seat[] = [];
   const want = n - benches.length;
@@ -435,7 +431,9 @@ export function updSwarm(dt: number) {
     } else {
       const look = Math.sin(F.t * 0.4 * f.speed + f.ph * 2);
       bounce = R ? Math.abs(Math.sin(F.t * f.beat * 0.8 + f.ph)) * 0.07 : Math.max(0, Math.sin(F.t * 1.3 + f.ph)) * 0.03;
-      turn = Math.atan2(BAR.x - f.x, BAR.z - f.z) + (look > 0.6 ? (look - 0.6) * 2.2 : 0) * (f.ph > 3.14 ? 1 : -1);
+      // (towards the nearest of the square's counters)
+      const at = nearBar(f);
+      turn = Math.atan2(at.x - f.x, at.z - f.z) + (look > 0.6 ? (look - 0.6) * 2.2 : 0) * (f.ph > 3.14 ? 1 : -1);
     }
     if (!looks) continue;
     const arms = cheer || (!f.seat && R && Math.sin(F.t * 0.8 + f.ph * 4) > 0.3);

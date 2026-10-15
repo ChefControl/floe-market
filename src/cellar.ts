@@ -17,12 +17,11 @@ import {
 } from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import {
-  BAR, BAR_STOOLS, BENCH, BIN_PADS, BINS, CASHIER, CHUTE, chuteY, COUNTER, GONG, HEARTH, LIFTS, machineAt, MAX_MACHINES, POT, STORES, TEPPO, TUNNEL_D, TUNNEL_W, TUNNELS,
+  BAR, BENCH, BIN_PADS, BINS, CASHIER, CHUTE, chuteY, COUNTER, GONG, HEARTH, LIFTS, machineAt, MAX_MACHINES, POT, STORES, TEPPO, TUNNEL_D, TUNNEL_W, TUNNELS,
 } from './cellarPlan';
 import { Fugu } from './fugu';
-import { at as placeAt, Build, K, rbox, shade, tube } from './kit';
+import { Build, K, rbox, shade, tube } from './kit';
 import { ARENA, CELLAR_Y, type CellarRoom, CRAFT, DOORS, found, GROW, keepOnFloor, KITCHEN, LANDING, LIFT_ROOM, OFFICE_ROOM, PREP, pushOutOfBox, ROOMS, walkable } from './layout';
-import { stool } from './propsKitchen';
 import { canvasTex, copyGeo, FONT, G, mat, mesh, OFF, paint, rr, scene } from './render';
 import type { XZ } from './util';
 
@@ -977,125 +976,180 @@ for (let i = 0; i < 8; i++) {
 /** Keeps a spectator's place hidden until it's built. */
 export const placeBuilt = (p: Place) => p.part === 'base' || parts[p.part].visible;
 
-// ---------- the arena's east side: the soup bar, the gong and the cashier's window ----------
-/** How high the stew stands in the soup bar's pot (ringKitchen.ts puffs its steam from there). */
-export const BAR_STEW = BAR.top + 0.47;
-{
-  // The soup bar: a round bar counter like the sushi bar upstairs, the fans buying their bowls from all round it. Its
-  // body is lacquered a deep red-brown on a dark kick plate, panelled all round, with a brass foot rail; its top pale
-  // hinoki with a rounded lip, standing out over the body. On the east, facing the hearth room's door, a gap in it (the
-  // hatch, its flap lifted), where the player stands to set the bowls out round its top. In the middle, on a gas ring,
-  // the bar's own pot of chanko. Red stools stand round it, the restaurant's, and paper lamps hang over it; at the
-  // hatch, a lacquered post with the price board and a red lantern, as a bar puts out.
-  const g = add(cellar, new Group()); g.position.set(BAR.x, CY, BAR.z);
-  // (round the bar, `a` is the way from its middle, from the east towards the south: x = cos a, z = sin a; the hatch is
-  // the GAP either side of the east)
-  const R = BAR.r, TOP = BAR.top, GAP = 0.32, ARC = Math.PI * 2 - GAP * 2, BODY = 0.9;
-  const LACQUER = 0x7A3B2E, TRIM = 0x94493A, KICK = 0x3A2420, BRASS = 0xC9A23A, TOP_WOOD = 0xE9D9C0, LIP = 0xB5774A;
-  const at = (a: number, r: number) => [Math.cos(a) * r, Math.sin(a) * r] as const;
-  /** Part of a cylinder round the bar, open at the hatch (`start` turned to `a`'s way of counting). */
-  const arc = (r0: number, r1: number, h: number, open = false) =>
-    new CylinderGeometry(r0, r1, h, 40, 1, open, Math.PI / 2 + GAP, ARC);
-  /** A flat ring round the bar `r` out and `tube` thick, at `y`, open at the hatch. */
-  const ring = (c: number, r: number, tube: number, y: number, cast = false) =>
-    add(g, mesh(new TorusGeometry(r, tube, 6, 40, ARC), c, 0, y, 0, cast)).rotation.set(Math.PI / 2, 0, GAP);
-  // the dark core, the kick plate set back under the body, and the lacquered body round it, closed off at the hatch
-  add(g, mesh(new CylinderGeometry(0.55, 0.55, TOP - 0.05, 16), KICK, 0, (TOP - 0.05) / 2, 0));
-  add(g, mesh(arc(BODY - 0.04, BODY - 0.04, 0.11), KICK, 0, 0.055, 0));
-  add(g, mesh(arc(BODY, BODY, TOP - 0.15), LACQUER, 0, 0.11 + (TOP - 0.15) / 2, 0, true));
-  for (const s of [-1, 1]) {
-    const [x, z] = at(s * GAP, (BODY + 0.55) / 2);
-    box(g, LACQUER, x, (TOP - 0.04) / 2, z, BODY - 0.55, TOP - 0.04, 0.05).rotation.y = -s * GAP;
-  }
-  // its panels, a slim pilaster every so often round it, and the brass foot rail on little brackets
-  const PANELS = 14;
-  for (let i = 0; i <= PANELS; i++) {
-    const a = GAP + i * ARC / PANELS, [x, z] = at(a, BODY + 0.008);
-    box(g, TRIM, x, 0.15 + (TOP - 0.3) / 2, z, 0.03, TOP - 0.3, 0.06, false).rotation.y = -a;
-  }
-  ring(shade(LACQUER, 0.8), BODY + 0.01, 0.02, 0.13);
-  ring(BRASS, BODY + 0.08, 0.018, 0.2);
-  for (let i = 0; i < 7; i++) {
-    const a = GAP + 0.2 + i * (ARC - 0.4) / 6, [x, z] = at(a, BODY + 0.04);
-    box(g, BRASS, x, 0.2, z, 0.08, 0.02, 0.02, false).rotation.y = -a;
-  }
-  // the top: pale hinoki, standing out over the body, with a rounded lip round its edge and along the hatch's sides
-  add(g, mesh(new CylinderGeometry(R, R, 0.05, 40, 1, false, Math.PI / 2 + GAP, ARC), TOP_WOOD, 0, TOP - 0.025, 0, true));
-  ring(LIP, R, 0.035, TOP - 0.02, true);
-  for (const s of [-1, 1]) {
-    const [x, z] = at(s * GAP, (R + 0.55) / 2);
-    box(g, LIP, x, TOP - 0.02, z, R - 0.55, 0.07, 0.05).rotation.y = -s * GAP;
-  }
-  // the hatch's flap, lifted on its hinge, and a slatted mat on the floor inside it
-  { const a = GAP + 0.03, [x, z] = at(a, (R + 0.55) / 2); box(g, TOP_WOOD, x, TOP + 0.3, z, R - 0.55, 0.6, 0.04).rotation.y = -a; }
-  for (let i = 0; i < 4; i++) box(g, 0x8A6A44, 0.62 + i * 0.12, 0.02, 0, 0.08, 0.03, 0.5, false);
-  // the red stools round it (the restaurant's), between where the fans step up for their bowls
-  const stools = new Build();
-  for (const s of BAR_STOOLS) stools.addAll(stool(), placeAt(s.x, CY, s.z).multiply(new Matrix4().makeScale(0.86, 1.15, 0.86)));
-  add(cellar, stools.mesh());
-  // on the top by the hatch: a stack of empty bowls, and on its other side the shichimi and a soy jug
-  const empty = new CylinderGeometry(0.15, 0.09, 0.08, 12);
-  { const [x, z] = at(0.62, 0.9); for (let i = 0; i < 4; i++) add(g, mesh(empty, 0xC0392B, x, TOP + 0.04 + i * 0.07, z)); }
-  {
-    const [x, z] = at(-0.65, 0.93);
-    add(g, mesh(G.sphere, 0x8E2B2B, x - 0.05, TOP + 0.07, z)).scale.set(0.05, 0.07, 0.05);
-    add(g, mesh(G.cyl, WOOD_DARK, x - 0.05, TOP + 0.15, z)).scale.set(0.02, 0.04, 0.02);
-    add(g, mesh(new CylinderGeometry(0.035, 0.05, 0.16, 10), 0xF2EEE6, x + 0.06, TOP + 0.08, z + 0.03));
-    add(g, mesh(G.cyl, 0x2B3A67, x + 0.06, TOP + 0.08, z + 0.03)).scale.set(0.052, 0.04, 0.052);
-  }
-  // the gas ring in the middle, a blue flame showing round the pot's foot, and the bar's pot on it, full of chanko,
-  // with a ladle in it
-  add(g, mesh(new CylinderGeometry(0.38, 0.4, 0.2, 18), STEEL_DARK, 0, TOP + 0.1, 0, true));
-  add(g, mesh(new TorusGeometry(0.29, 0.02, 4, 20), glow(0x7AB8FF, 0x2A6AE0), 0, TOP + 0.205, 0.04)).rotation.x = Math.PI / 2;
-  const py = TOP + 0.2, pot = add(g, new Group());
-  pot.position.set(0, py, 0.04);
-  add(pot, mesh(new CylinderGeometry(0.34, 0.27, 0.3, 18, 1, true), IRON, 0, 0.15, 0, true));
-  add(pot, mesh(new CylinderGeometry(0.31, 0.25, 0.3, 18, 1, true), new MeshLambertMaterial({ color: 0x1C1C20, side: BackSide }), 0, 0.15, 0));
-  add(pot, mesh(new TorusGeometry(0.34, 0.035, 5, 20), 0x3E3E44, 0, 0.3, 0)).rotation.x = Math.PI / 2;
-  for (const s of [-1, 1]) add(pot, mesh(new TorusGeometry(0.07, 0.022, 4, 8), 0x3E3E44, s * 0.37, 0.24, 0)).rotation.y = Math.PI / 2;
-  add(pot, mesh(new CylinderGeometry(0.32, 0.32, 0.02, 18), 0xC9803A, 0, BAR_STEW - py, 0));
-  for (const [c, x, z, sx, sy, sz] of [
-    [0x8FC46A, -0.12, 0.08, 0.13, 0.04, 0.08], [0x8FC46A, 0.1, -0.12, 0.12, 0.04, 0.07], [0xF4F1EA, 0.13, 0.1, 0.07, 0.06, 0.07],
-    [0xF4F1EA, -0.08, -0.1, 0.07, 0.06, 0.07], [0xE8833A, 0.02, 0.17, 0.05, 0.02, 0.05],
-  ]) add(pot, mesh(c === 0xF4F1EA ? G.box : G.sphere, c, x, BAR_STEW - py + 0.015, z)).scale.set(sx, sy, sz);
-  const ladle = add(pot, new Group()); ladle.position.set(-0.2, 0.32, -0.12); ladle.rotation.set(0.3, 0, 0.55);
-  add(ladle, mesh(G.rope, WOOD, 0, 0.3, 0)).scale.set(1.2, 0.65, 1.2);
-  add(ladle, mesh(G.sphere, 0x9AA4AC, 0, -0.04, 0)).scale.set(0.09, 0.05, 0.09);
-  // paper lamps hung over the counter on long cords (round the back, from the camera's side, so none hides the pot)
-  const LAMP = glow(0xFFF1D6, 0xFFC46A); LAMP.side = DoubleSide;
-  for (const deg of [165, 232, 298]) {
-    const [x, z] = at(deg * Math.PI / 180, 0.8), y = 2.2;
-    add(g, mesh(new CylinderGeometry(0.1, 0.2, 0.2, 14, 1, true), LAMP, x, y, z));
-    add(g, mesh(G.cyl, 0x1B2430, x, y + 0.11, z)).scale.set(0.11, 0.02, 0.11);
-    add(g, mesh(G.rope, 0x1B2430, x, y + 1.6, z)).scale.y = 3.0;
-  }
-  // the post at the hatch: lacquered, square, a red lantern hung off its top and the price board, painted by hand (a
-  // bowl's price is in chips), on it facing the room
-  const [px, pz] = at(-GAP, BODY - 0.06), POST = 2.5;
-  box(g, LACQUER, px, POST / 2, pz, 0.12, POST, 0.12);
-  box(g, KICK, px, POST + 0.02, pz, 0.16, 0.04, 0.16);
-  {
-    const [lx, lz] = at(-GAP - 0.2, R + 0.05), y = POST - 0.35;
-    box(g, KICK, (px + lx) / 2, POST - 0.06, (pz + lz) / 2, 0.04, 0.04, Math.hypot(lx - px, lz - pz) + 0.06).rotation.y = Math.atan2(lx - px, lz - pz);
-    add(g, mesh(G.sphere, LANTERN_RED, lx, y, lz)).scale.set(0.15, 0.2, 0.15);
-    for (const s of [-1, 1]) add(g, mesh(G.cyl, 0x1B2430, lx, y + s * 0.19, lz)).scale.set(0.08, 0.03, 0.08);
-  }
-  const tex = canvasTex(256, 144, (c, w) => {
-    c.fillStyle = '#E9D9C0'; c.fillRect(0, 0, w, 144);
-    c.fillStyle = 'rgba(120,80,40,.18)';
-    for (let i = 0; i < 5; i++) c.fillRect(0, 14 + i * 28 + ((i * 7) % 9), w, 2);
-    c.textAlign = 'center'; c.textBaseline = 'middle';
-    c.fillStyle = '#1B1A1E'; c.font = '800 58px ' + FONT; c.fillText('ちゃんこ', w / 2, 52);
-    c.fillStyle = '#B0250F'; c.font = '800 38px ' + FONT; c.fillText('一杯 🐡', w / 2, 110);
+// ---------- the arena's east side: the soup square, the gong and the cashier's window ----------
+// The soup square, after the street-food counters of Pompeii: two counters of plastered clay at right angles, closing
+// in the arena's corner by the hearth room's doorway (the walls are its other two sides), where the player stands to
+// serve (like the sushi chefs inside their belt upstairs). Their tops are pale hinoki planks, two staggered rows of
+// places on them, one for each bowl (ringKitchen.ts sets the bowls out); their sides painted
+// like a temple fair's poster, inside and out, ochre panels framed in Pompeian red over a black dado: a wrestler in his
+// stance, Mr. Fugu as a puffer in his shades, a steaming bowl. Boards on the floor inside; a bamboo pole at each
+// corner, the ring's lanterns strung round three sides (none across the front, the camera's), and the square's name
+// board over the back.
+/** A painting on a counter's side, `w` by `h` pixels: a panel for each of `panels`, side by side. */
+type Panel = (c: CanvasRenderingContext2D, x: number, y: number, w: number, h: number) => void;
+function fresco(w: number, h: number, panels: Panel[]) {
+  return canvasTex(w, h, c => {
+    c.fillStyle = '#9E2F22'; c.fillRect(0, 0, w, h);
+    c.fillStyle = '#1E1612'; c.fillRect(0, h * 0.82, w, h * 0.18);
+    c.fillStyle = '#E9D9B8'; c.fillRect(0, 0, w, h * 0.07);
+    c.fillStyle = '#C9A23A'; c.fillRect(0, h * 0.07, w, 4); c.fillRect(0, h * 0.82 - 4, w, 4);
+    const n = panels.length, gap = w * 0.025, pw = (w - gap * (n + 1)) / n, py = h * 0.11, ph = h * 0.69;
+    panels.forEach((draw, i) => {
+      const x = gap + i * (pw + gap);
+      c.fillStyle = '#D9A441'; c.fillRect(x, py, pw, ph);
+      c.strokeStyle = '#1E1612'; c.lineWidth = 4; c.strokeRect(x + 5, py + 5, pw - 10, ph - 10);
+      // (each figure with a dark edge on its lower side, so it reads from the camera)
+      c.save(); c.beginPath(); c.rect(x + 7, py + 7, pw - 14, ph - 14); c.clip();
+      c.shadowColor = '#1E1612'; c.shadowOffsetX = 4; c.shadowOffsetY = 4;
+      draw(c, x, py, pw, ph);
+      c.restore();
+    });
+    // chips and scuffs in the plaster
+    for (let i = 0; i < 70; i++) {
+      const a = Math.sin(i * 12.9898) * 43758.5453, b = Math.sin(i * 78.233) * 43758.5453;
+      c.fillStyle = i % 2 ? 'rgba(255,240,220,.12)' : 'rgba(0,0,0,.12)'; c.fillRect((a - Math.floor(a)) * w, (b - Math.floor(b)) * h, 3, 2);
+    }
   });
-  const edge = mat(KICK), FACE = 0.4;
-  const sgn = add(g, new Mesh(new BoxGeometry(0.78, 0.44, 0.03), [edge, edge, edge, edge, new MeshBasicMaterial({ map: tex.tex }), edge]));
-  sgn.position.set(px + Math.sin(FACE) * 0.08, 1.75, pz + Math.cos(FACE) * 0.08); sgn.rotation.y = FACE;
 }
-/** The soup bar, for walking round: its circle (its top's, and a walker's width) as boxes, each a little narrower the
- *  further out from its middle; on the hatch's side they stop short, so the player can step up into it. */
-const BAR_BOXES = ([[-0.075, 1.275, 0.3], [0, 1.2, 0.7], [0, 0.98, 0.98], [0, 0.7, 1.2], [0, 0.3, 1.35]] as const)
-  .map(([dx, hx, hz]): [number, number, number, number] => [BAR.x + dx, BAR.z, hx, hz]);
+/** A wrestler squatting in his stance, hands on his knees. */
+const rikishi: Panel = (c, x, y, w, h) => {
+  const cx = x + w / 2, cy = y + h * 0.5, r = h * 0.25, SKIN = '#E8B48A';
+  c.fillStyle = SKIN; c.beginPath(); c.ellipse(cx, cy, r * 1.05, r, 0, 0, Math.PI * 2); c.fill();
+  c.beginPath(); c.arc(cx, cy - r * 1.05, r * 0.42, 0, Math.PI * 2); c.fill();
+  c.fillStyle = '#1E1612'; c.beginPath(); c.ellipse(cx, cy - r * 1.5, r * 0.16, r * 0.1, 0, 0, Math.PI * 2); c.fill();
+  c.fillRect(cx - r * 0.15, cy - r * 1.1, r * 0.08, r * 0.05); c.fillRect(cx + r * 0.07, cy - r * 1.1, r * 0.08, r * 0.05);
+  c.fillStyle = '#2B3A67'; c.fillRect(cx - r, cy + r * 0.35, r * 2, r * 0.32);
+  c.strokeStyle = SKIN; c.lineCap = 'round'; c.lineWidth = r * 0.36;
+  for (const s of [-1, 1]) {
+    c.beginPath(); c.moveTo(cx + s * r * 0.7, cy + r * 0.7); c.lineTo(cx + s * r * 1.4, cy + r * 0.95); c.lineTo(cx + s * r * 1.5, cy + r * 1.35); c.stroke();
+    c.beginPath(); c.moveTo(cx + s * r * 0.9, cy - r * 0.4); c.lineTo(cx + s * r * 1.45, cy + r * 0.25); c.stroke();
+  }
+};
+/** Mr. Fugu as a puffer: spines out, in his shades and gold chain, grinning. */
+const puffer: Panel = (c, x, y, w, h) => {
+  const cx = x + w * 0.48, cy = y + h * 0.52, r = h * 0.3, SKIN = '#F2D27A';
+  c.fillStyle = SKIN;
+  for (let i = 0; i < 18; i++) {
+    const a = (i / 18) * Math.PI * 2;
+    c.beginPath(); c.moveTo(cx + Math.cos(a) * r * 0.9, cy + Math.sin(a) * r * 0.9);
+    c.lineTo(cx + Math.cos(a + 0.12) * r * 1.3, cy + Math.sin(a + 0.12) * r * 1.3); c.lineTo(cx + Math.cos(a + 0.3) * r * 0.9, cy + Math.sin(a + 0.3) * r * 0.9); c.fill();
+  }
+  c.beginPath(); c.arc(cx, cy, r, 0, Math.PI * 2); c.fill();
+  c.fillStyle = '#F4ECD8'; c.beginPath(); c.ellipse(cx, cy + r * 0.35, r * 0.75, r * 0.5, 0, 0, Math.PI); c.fill();
+  c.fillStyle = SKIN; c.beginPath(); c.moveTo(cx + r * 0.95, cy); c.lineTo(cx + r * 1.55, cy - r * 0.45); c.lineTo(cx + r * 1.55, cy + r * 0.45); c.fill();
+  c.fillStyle = '#1E1612'; c.fillRect(cx - r * 0.75, cy - r * 0.35, r * 0.6, r * 0.22); c.fillRect(cx - r * 0.2, cy - r * 0.32, r * 0.1, r * 0.06);
+  c.strokeStyle = '#1E1612'; c.lineWidth = 3; c.beginPath(); c.arc(cx - r * 0.55, cy + r * 0.15, r * 0.18, 0.2, 2.6); c.stroke();
+  c.fillStyle = '#C9A23A'; c.beginPath(); c.arc(cx - r * 0.3, cy + r * 0.62, r * 0.12, 0, Math.PI * 2); c.fill();
+};
+/** A bowl of chanko, steaming, its name under it. */
+const steaming: Panel = (c, x, y, w, h) => {
+  const cx = x + w / 2, cy = y + h * 0.62, r = h * 0.3;
+  c.strokeStyle = 'rgba(80,60,50,.55)'; c.lineWidth = 5; c.lineCap = 'round';
+  for (const dx of [-0.4, 0, 0.4]) {
+    c.beginPath(); c.moveTo(cx + dx * r, cy - r * 0.55);
+    c.bezierCurveTo(cx + dx * r - 14, cy - r * 0.9, cx + dx * r + 14, cy - r * 1.1, cx + dx * r, cy - r * 1.5); c.stroke();
+  }
+  c.fillStyle = '#C98A3E'; c.beginPath(); c.ellipse(cx, cy - r * 0.3, r * 1.15, r * 0.28, 0, 0, Math.PI * 2); c.fill();
+  c.fillStyle = '#A8322D'; c.beginPath(); c.moveTo(cx - r * 1.2, cy - r * 0.3); c.quadraticCurveTo(cx, cy + r * 1.2, cx + r * 1.2, cy - r * 0.3); c.fill();
+  c.fillStyle = '#6FAF4F'; c.fillRect(cx - r * 0.5, cy - r * 0.42, r * 0.3, r * 0.14);
+  c.fillStyle = '#F4F1EA'; c.fillRect(cx + r * 0.15, cy - r * 0.45, r * 0.25, r * 0.2);
+  c.fillStyle = '#1E1612'; c.font = `800 ${Math.round(h * 0.16)}px ${MINCHO}`; c.textAlign = 'center'; c.fillText('ちゃんこ', cx, y + h * 0.95);
+};
+/** A counter's top, `w` by `d` metres: pale hinoki planks along its length (along x, or z if `alongZ`), each a
+ *  slightly different tone, with fine grain and thin dark seams, drawn at the same pixels a metre whatever its shape (so
+ *  the planks are as wide on every counter). */
+const TOP_PX = 256, PLANK = 0.13;
+function woodTop(w: number, d: number, alongZ: boolean) {
+  return canvasTex(Math.round(TOP_PX * w), Math.round(TOP_PX * d), (c, cw, ch) => {
+    // (drawn as if along x; turned for a counter along z)
+    const L = alongZ ? ch : cw, A = alongZ ? cw : ch, n = Math.ceil(A / (PLANK * TOP_PX)), pw = A / n;
+    const plank = (x: number, y: number, len: number, wid: number) => alongZ ? c.fillRect(y, x, wid, len) : c.fillRect(x, y, len, wid);
+    const tones = ['#E2CDA6', '#DCC59C', '#E6D2AE', '#D8C096'];
+    for (let i = 0; i < n; i++) {
+      c.fillStyle = tones[i % tones.length]; plank(0, i * pw, L, pw);
+      // fine grain: long faint streaks along the plank
+      for (let k = 0; k < 9; k++) {
+        const r = Math.sin((i * 9 + k) * 12.9898) * 43758.5453, f = r - Math.floor(r);
+        c.fillStyle = k % 3 ? 'rgba(150,110,60,.10)' : 'rgba(255,245,225,.18)';
+        plank(0, i * pw + 3 + f * (pw - 6), L, 1.5);
+      }
+      // the seam between planks
+      c.fillStyle = 'rgba(90,60,30,.45)'; plank(0, i * pw, L, 1.5);
+    }
+  });
+}
+{
+  const { x0, x1, z0, z1, d, top: TOP } = BAR, g = add(cellar, new Group()), plaster = mat(0xD9C3A0), rim = mat(0xC9A97A);
+  const painted = (panels: Panel[], len: number) => new MeshLambertMaterial({ map: fresco(Math.round(330 * len), 300, panels).tex });
+  /** A counter from (ax0, az0) to (ax1, az1), its sides' materials (+x, -x, +z, -z). */
+  const counter = (ax0: number, ax1: number, az0: number, az1: number, sides: Material[]) => {
+    const w = ax1 - ax0, dd = az1 - az0, cx = (ax0 + ax1) / 2, cz = (az0 + az1) / 2;
+    const body = add(g, new Mesh(new BoxGeometry(w, TOP - 0.06, dd), [sides[0], sides[1], plaster, plaster, sides[2], sides[3]]));
+    body.position.set(cx, CY + (TOP - 0.06) / 2, cz); body.castShadow = true; body.receiveShadow = true;
+    // (its top a little bigger all round)
+    const tw = w + 0.08, td = dd + 0.08;
+    const slab = add(g, new Mesh(new BoxGeometry(tw, 0.07, td), [rim, rim, new MeshLambertMaterial({ map: woodTop(tw, td, dd > w).tex }), rim, rim, rim]));
+    slab.position.set(cx, CY + TOP - 0.03, cz); slab.castShadow = true; slab.receiveShadow = true;
+    box(g, 0x1E1612, cx, CY + 0.04, cz, w + 0.04, 0.08, dd + 0.04);
+  };
+  const front: Panel[] = [rikishi, puffer, steaming];
+  // the north counter, from the corner to the hearth room's wall, and the west one, from it to the south wall (each
+  // painted inside, where the camera looks, and out, where the fans stand)
+  const west = z1 - z0 - d;
+  counter(x0, x1, z0, z0 + d, [plaster, painted([steaming], d), painted(front, x1 - x0), painted(front, x1 - x0)]);
+  counter(x0, x0 + d, z0 + d, z1, [painted([puffer, rikishi, steaming], west), painted([steaming, puffer, rikishi], west), plaster, plaster]);
+  // boards on the floor inside, out to the walls
+  const fz0 = z0 + d + 0.02, fz1 = ARENA.z1 + 0.06;
+  for (let i = 0, x = x0 + d + 0.02; x < ARENA.x1 + 0.2; x += 0.24, i++) {
+    // (thin, and under the drop-off's marker on them: ringKitchen.ts lays it at 0.012)
+    box(g, i % 2 ? 0x7A5638 : 0x6E4C30, Math.min(x + 0.11, ARENA.x1 + 0.09), CY + 0.004, (fz0 + fz1) / 2, 0.22, 0.004, fz1 - fz0, false).receiveShadow = true;
+  }
+  // a bamboo pole at each corner, in lengths with a knot at each joint (the south two against the south wall)
+  const POLE = 2.7, SEG = POLE / 3, C = [V(x0 + 0.08, 0, z0 + 0.08), V(x1 - 0.14, 0, z0 + 0.08), V(x1 - 0.14, 0, z1 - 0.12), V(x0 + 0.08, 0, z1 - 0.12)];
+  for (const p of C) {
+    for (let k = 0; k < 3; k++) {
+      add(g, mesh(G.cyl, k % 2 ? 0x8FA552 : 0x7E9446, p.x, CY + (k + 0.5) * SEG, p.z, true)).scale.set(0.06, SEG, 0.06);
+      add(g, mesh(G.cyl, 0x5E6E30, p.x, CY + (k + 1) * SEG, p.z)).scale.set(0.072, 0.04, 0.072);
+    }
+  }
+  // the lanterns strung between them round the back three sides, red and paper by turns, and a crossbar along the back
+  const tops = C.map(p => V(p.x, CY + POLE - 0.1, p.z)), lit: Record<'red' | 'paper', BufferGeometry[]> = { red: [], paper: [] };
+  for (const [i, j] of [[3, 0], [0, 1], [1, 2]]) {
+    const along = sag(tops[i], tops[j], 0.3, 10);
+    add(g, mesh(new TubeGeometry(new CatmullRomCurve3(along), 20, 0.012, 4), 0x1A1614));
+    for (let k = 2; k < 10; k += 2) {
+      const p = along[k], ball = copyGeo(G.sphere);
+      ball.scale(0.14, 0.18, 0.14); ball.translate(p.x, p.y - 0.22, p.z);
+      lit[(k / 2 + i) % 2 ? 'red' : 'paper'].push(ball);
+      for (const s of [-1, 1]) add(g, mesh(G.cyl, 0x1B2430, p.x, p.y - 0.22 + s * 0.175, p.z)).scale.set(0.07, 0.03, 0.07);
+    }
+  }
+  add(g, new Mesh(mergeGeometries(lit.red)!, LANTERN_RED));
+  add(g, new Mesh(mergeGeometries(lit.paper)!, LANTERN_PAPER));
+  lit.red.concat(lit.paper).forEach(b => b.dispose());
+  const bar = add(g, mesh(G.cyl, 0x7E9446, (x0 + x1) / 2, CY + POLE - 0.04, z0 + 0.08));
+  bar.scale.set(0.05, x1 - x0 - 0.1, 0.05); bar.rotation.z = Math.PI / 2;
+  // its name board, standing on the crossbar, facing the room
+  const name = canvasTex(256, 96, (c, w, h) => {
+    c.fillStyle = '#9E2F22'; c.fillRect(0, 0, w, h);
+    c.fillStyle = 'rgba(80,50,20,.15)'; for (let i = 0; i < 6; i++) c.fillRect(0, (i + 0.5) * h / 6, w, 2);
+    c.fillStyle = '#F7EFE0'; c.font = `800 ${Math.round(h * 0.55)}px ${MINCHO}`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('ちゃんこ', w / 2, h / 2 + 2);
+  });
+  const edge = mat(WOOD_DARK);
+  add(g, new Mesh(new BoxGeometry(1.1, 0.41, 0.04), [edge, edge, edge, edge, new MeshBasicMaterial({ map: name.tex }), edge])).position.set((x0 + x1) / 2, CY + POLE + 0.2, z0 + 0.1);
+  // a short indigo curtain in the doorway from the hearth room, a white crest on its middle strip, like the landing's
+  const t = DOORS.find(o => o.a === 'kitchen' && o.b === 'arena')!, span = t.z1 - t.z0 + 0.6, cz = (t.z0 + t.z1) / 2, cx = (t.x0 + t.x1) / 2 - 0.06;
+  for (let i = -1; i <= 1; i++) box(g, 0x2B3A67, cx, CY + FRAME_H - 0.35, cz + i * span / 3, 0.02, 0.5, span / 3 - 0.04, false).receiveShadow = false;
+  box(g, 0xF4F1EA, cx - 0.02, CY + FRAME_H - 0.32, cz, 0.01, 0.16, 0.16, false);
+}
+/** The soup square, for walking round: its two counters, a walker's width out all round (the walls are its other sides). */
+const BAR_BOXES: [number, number, number, number][] = (() => {
+  const { x0, x1, z0, z1, d } = BAR, W = 0.22;
+  return [
+    [(x0 + x1) / 2, z0 + d / 2, (x1 - x0) / 2 + W, d / 2 + W],
+    [x0 + d / 2, (z0 + z1) / 2, d / 2 + W, (z1 - z0) / 2 + W],
+  ];
+})();
 /** Straw-wrapped sake barrels (komodaru), stacked against the east wall between the landing's door and the soup bar, the
  *  way a shrine stacks the ones it's given. */
 const KOMO = { x: ARENA.x1 - 0.35, z: 1.95 };
