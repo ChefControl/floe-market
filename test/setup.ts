@@ -4,6 +4,15 @@ import { resetDom } from './dom';
 
 resetDom();
 
+// Vitest's jsdom environment swaps the typed arrays (and ArrayBuffer) for jsdom's own, from jsdom's realm, and V8 copies
+// an array of numbers into another realm's typed array the slow way, item by item: some 25 times as long. three.js does
+// that for every shape it builds, so it was most of the time it took to load the game. Node's own are put back
+// (structuredClone makes its copy in Node's realm), all of them together so they still go with each other.
+for (const T of [ArrayBuffer, Int8Array, Uint8Array, Uint8ClampedArray, Int16Array, Uint16Array, Int32Array, Uint32Array,
+  Float32Array, Float64Array]) {
+  Object.defineProperty(globalThis, T.name, { value: structuredClone(new T(0)).constructor, writable: true, configurable: true });
+}
+
 // jsdom has no WebGL, so the renderer is a stub. Everything else in three.js is real.
 vi.mock('three', async importOriginal => {
   const three = await importOriginal<typeof import('three')>();

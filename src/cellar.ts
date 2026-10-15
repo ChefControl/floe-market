@@ -504,8 +504,21 @@ export const ground = (() => {
   const bb = holes.reduce((b, h) => ({ x0: Math.min(b.x0, h.x0), x1: Math.max(b.x1, h.x1), z0: Math.min(b.z0, h.z0), z1: Math.max(b.z1, h.z1) }));
   /** How far a point is from a box (0 inside it), and from the nearest room, and from the nearest bank. */
   const off = (b: Box, x: number, z: number) => Math.hypot(Math.max(b.x0 - x, 0, x - b.x1), Math.max(b.z0 - z, 0, z - b.z1));
-  const fromRoom = (x: number, z: number) => Math.min(...holes.map(b => off(b, x, z)));
-  const fromBank = (x: number, z: number) => Math.min(...banks.map(b => off(b, x, z)));
+  const nearest = (bs: Box[], x: number, z: number) => { let d = Infinity; for (const b of bs) d = Math.min(d, off(b, x, z)); return d; };
+  const fromRoom = (x: number, z: number) => nearest(holes, x, z);
+  const fromBank = (x: number, z: number) => nearest(banks, x, z);
+  /** `f` worked out once for each point it's asked about (the squares' corners are shared, four squares to one, and a
+   *  quad paints each of its corners twice: done over, they made the ground most of the cellar's building time). */
+  const once = (f: (x: number, z: number) => number) => {
+    const seen = new Map<number, Map<number, number>>();
+    return (x: number, z: number) => {
+      let row = seen.get(x);
+      if (!row) seen.set(x, row = new Map());
+      let v = row.get(z);
+      if (v === undefined) row.set(z, v = f(x, z));
+      return v;
+    };
+  };
   const ease = (a: number, b: number, v: number) => { const t = Math.min(1, Math.max(0, (v - a) / (b - a))); return t * t * (3 - 2 * t); };
   /** Smooth noise from 0 to 1, on a fixed hash (never Math.random: that's the game's), in two sizes of lump. */
   const hash2 = (i: number, j: number) => { const v = Math.sin(i * 127.1 + j * 311.7) * 43758.5453; return v - Math.floor(v); };
@@ -517,7 +530,7 @@ export const ground = (() => {
   const lumps = (x: number, z: number) => noise(x / 1.6, z / 1.6) * 0.7 + noise(x / 0.55 + 40, z / 0.55) * 0.3;
   /** How much the cut ground's broken up at a point: flat at the walls (and at the bank's foot), rough a few steps out;
    *  and over the grow room's place while it's a secret, flat where it meets the walls round it, rough inside. */
-  const rough = (x: number, z: number) => ease(0.35, 2.5, fromRoom(x, z)) * ease(0.3, 1.2, fromBank(x, z));
+  const rough = once((x, z) => ease(0.35, 2.5, fromRoom(x, z)) * ease(0.3, 1.2, fromBank(x, z)));
   const roughHidden = (x: number, z: number) => ease(0.35, 2.5, Math.min(x - grow.x0, grow.x1 - x, z - grow.z0, grow.z1 - z));
   const lit = holes.filter(b => b !== grow);
   // On the camera's side, as in front of a dungeon's rooms seen from above, the rock rises toward the camera a step out
@@ -539,7 +552,7 @@ export const ground = (() => {
     if (t === undefined) {
       const hit = (a: number, most: number) => {
         const dx = Math.sin(a), dz = Math.cos(a);
-        for (let d = 0; d < most; d += 0.25) if (lit.some(b => within(b, x + dx * d, z + dz * d))) return d;
+        for (let d = 0; d < most; d += 0.25) for (const b of lit) if (within(b, x + dx * d, z + dz * d)) return d;
         return Infinity;
       };
       t = Math.min(...FAN.slice(3, 6).map(a => hit(a, FRONT)));
@@ -550,12 +563,12 @@ export const ground = (() => {
   };
   /** How much the rock's risen at a point: nothing for the first metre out, then a slope steepening, each lump its own,
    *  to a broken ridge 4 to 5 m up. */
-  const rise = (x: number, z: number) => {
+  const rise = once((x, z) => {
     const t = before(x, z);
     if (t === Infinity) return 0;
     const up = Math.max(0, t - 1) * SLOPE * ease(1, 3, t) * (0.65 + 0.35 * lumps(x * 0.6 + 21, z * 0.6 - 7));
     return Math.min(up, 3.8 + 1.2 * lumps(x * 0.4 - 5, z * 0.4 + 13));
-  };
+  });
   /** The ground's height at a corner, on its square's level: the cut ground lumpy, rising and dipping as it goes out, and
    *  rising toward the camera in front of the rooms. */
   const lift = (x: number, z: number, h: number, inGrow = false) =>
@@ -564,12 +577,12 @@ export const ground = (() => {
   // dark 4 m out, a little uneven; the grow room's place as dark as the rest while it's a secret. The rise in front of
   // the rooms never quite goes: its slope and ridge stay just made out, dark rock against the dark.
   const DARK = 4;
-  const fromLit = (x: number, z: number) => Math.min(...lit.map(b => off(b, x, z)));
-  const shade = (x: number, z: number) => {
+  const fromLit = (x: number, z: number) => nearest(lit, x, z);
+  const shade = once((x, z) => {
     const k = 1 - ease(0, DARK, fromLit(x, z)), t = before(x, z);
     const near = k * k * (0.75 + 0.5 * lumps(x + 9, z - 4)) * 0.45;
     return t === Infinity ? near : Math.max(near, 0.2 * ease(1.5, 4, t) * (0.7 + 0.6 * lumps(x - 3, z + 8)));
-  };
+  });
   // the squares' edges: every hole's, tunnel's and bank's; every half metre for the first few metres round the rooms
   // (for the ground's lumps and its fall into the dark), and for longer in front of them, toward the camera (for the
   // rise); then rings out to 42 m (as far as the camera ever sees from anywhere in the cellar, and more)
