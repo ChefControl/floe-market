@@ -2,9 +2,11 @@
 // ring under it) is on in the dev server, the tests and the playtest build (VITE_FUGU_DEMO=1); in the live game, only
 // on a device switched on by opening it with ?stage3=on in the address (?stage3=off switches it back off). A save
 // that's already been down there switches it on too, so a game played on one device carries on on another.
+// VITE_STAGE3=on or off at build time overrides the build's own default (a playtest of the live game: off).
 const KEY = 'floe-market-stage3';
 
-let on = import.meta.env.DEV || import.meta.env.VITE_FUGU_DEMO === '1';
+const built = import.meta.env.VITE_STAGE3 as string | undefined;
+let on = built ? built === 'on' : import.meta.env.DEV || import.meta.env.VITE_FUGU_DEMO === '1';
 try {
   const asked = new URLSearchParams(location.search).get('stage3');
   if (asked === 'on') localStorage.setItem(KEY, '1');
