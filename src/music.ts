@@ -18,7 +18,7 @@
 // Each tune plays twice, and after every two tunes a verse leaves the tune out, for a rest. The music fades away
 // under the songs (her house, Korki's statue), the rain and the stage-up's fanfare. The game's own sounds are on the
 // major pentatonic of the music's key (F for stage 1's D minor: the same notes), so they ring along with it.
-import { ac, buses, duck, ear, hz, key, noise, onAudio, prefs, rnd, tone, type Voice } from './audio';
+import { ac, buses, duck, ear, hz, key, noise, onAudio, onTick, prefs, rnd, tone, type Voice } from './audio';
 import { aboard, casinoBoat, level, SHIP, stage } from './layout';
 import { eighth as loungeEighth, LOUNGE, LOUNGE_STEPS, loungeLevel, loungeMix, playLounge } from './lounge';
 import { offerPlaying } from './offer';
@@ -412,10 +412,10 @@ let lounge = { on: false, step: 0, next: 0 };
 function updLounge(k: number, now: number) {
   loungeLevel(Math.sin(k * Math.PI / 2));
   if (k < 0.001) { lounge.on = false; return; }
-  if (!lounge.on || lounge.next < now - 0.3) lounge = { on: true, step: 0, next: now + 0.1 };
+  if (!lounge.on || lounge.next < now - 5) lounge = { on: true, step: 0, next: now + 0.1 };
   const parts = Math.max(3, 1 + Math.floor(stageProgress() * 3));
   while (lounge.next < now + 0.2) {
-    if (hushed < 2) playLounge(lounge.step, lounge.next - now, parts);
+    if (lounge.next >= now && hushed < 2) playLounge(lounge.step, lounge.next - now, parts);
     lounge.next += loungeEighth();
     lounge.step = (lounge.step + 1) % LOUNGE_STEPS;
   }
@@ -435,18 +435,25 @@ export function updMusic(dt: number) {
   const harbor = harborK();
   stageMix?.gain.setTargetAtTime(Math.cos(harbor * Math.PI / 2), ac.currentTime, 0.15);
   key.root = harbor > 0.5 ? LOUNGE.sounds : market() ? MARKET.sounds : cellar() ? GLOOP.sounds : band.key;
+  schedule();
+}
+/** Queues the music's next steps on the audio clock: on every frame, and on the timer between them (onTick). */
+function schedule() {
+  if (!ac) return;
   if (prefs.mute.music || ac.state !== 'running') { on = false; lounge.on = false; return; }
-  const now = ac.currentTime;
+  const now = ac.currentTime, harbor = harborK();
   updLounge(harbor, now);
-  // a fresh start: the first time, after the music was off or asleep, and in a new stage (or down the ladder)
-  if (!on || next < now - 0.3 || playingStage !== which()) {
+  // a fresh start: the first time, after the music was off or a long stall, and in a new stage (or down the ladder)
+  if (!on || next < now - 5 || playingStage !== which()) {
     on = true; playingStage = which(); step = 0; next = now + 0.1; verses = 0;
     newVerse();
   }
   while (next < now + 0.2) {
-    // faded right out (or crossfaded to the lounge band): no need to play notes nobody hears
-    if (hushed < 2 && harbor < 0.999) play(step, next - now);
+    // faded right out (or crossfaded to the lounge band): no need to play notes nobody hears; and a step whose time
+    // has gone by (the page was held up) is let go, so the music carries on on its beat rather than late
+    if (next >= now && hushed < 2 && harbor < 0.999) play(step, next - now);
     next += stepLen();
     if (++step === verseLen()) { step = 0; newVerse(); }
   }
 }
+onAudio(() => onTick(schedule));
