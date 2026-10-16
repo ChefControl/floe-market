@@ -8,7 +8,7 @@
 import { BoxGeometry, CylinderGeometry, Group, Mesh, MeshBasicMaterial, MeshLambertMaterial, PlaneGeometry, Sprite, SpriteMaterial, Vector3 } from 'three';
 import { noise, tone } from './audio';
 import { CY, denDoor, parts } from './cellar';
-import { CLUB_DOOR } from './cellarPlan';
+import { CLUB_DOOR, CLUB_WAY } from './cellarPlan';
 import { liftFog, updFog } from './clubFog';
 import { F } from './fight';
 import { club } from './noir';
@@ -101,8 +101,12 @@ let open = 0, want = 0;
 let scene: { t: number } | null = null;
 /** Seconds the slot's open for a good evening, and whether he's said it this visit. */
 let evening = 0, greeted = false;
-/** Whether the tunnel has the camera in closer. */
+/** Whether the tunnel or the club has the camera in closer. */
 let closer = false;
+/** How close the camera comes in (of the cellar's own view): down the tunnel, and in the club and its side rooms. */
+export const CLOSE = { tunnel: 0.78, club: 0.55 };
+/** Whether `p` is in the club, its side rooms or the way in from its doors. */
+const inClub = (p: Vector3) => [DEN, LOANS, CARDS, VIP, CLUB_WAY].some(r => p.x > r.x0 - 0.3 && p.x < r.x1 + 0.3 && p.z > r.z0 - 0.3 && p.z < r.z1 + 0.3);
 const SCENE = { knock: 0.5, slot: 1.2, ask: 1.45, book: 2.5, ok: 3.3, shut: 4.4, swing: 4.7, done: 5.6 };
 
 /** How far down the tunnel the player is, 0 at its mouth to 1 at the doors; -1 out of it. */
@@ -137,13 +141,19 @@ export function updDoorway(dt: number) {
   const p = player.g.position, down = level.down && found.den;
   updFog(dt);
   const k = down ? along(p) : -1;
-  // the dark closing in down the tunnel, and the view coming in closer (not while an upgrade has the camera)
+  // the dark closing in down the tunnel, and the view coming in closer, closer still in the club (not while an upgrade
+  // has the camera)
   shade.style.opacity = String(Math.max(0, k) * 0.7 * (1 - open * 0.6));
+  const close = k >= 0 ? CLOSE.tunnel : down && inClub(p) ? CLOSE.club : 0;
   // (only ever pulling it back out from where it pulled it in: an upgrade's spotlight has it otherwise)
-  if (k >= 0 && !scene && !staging()) { closer = true; view.close += (0.78 - view.close) * Math.min(1, dt * 2.5); }
+  if (close && !scene && !staging()) { closer = true; view.close += (close - view.close) * Math.min(1, dt * 2.5); }
   else if (closer) { view.close += (1 - view.close) * Math.min(1, dt * 2.5); if (view.close > 0.995) { view.close = 1; closer = false; } }
+  // the player's stride shortened as the view comes in (eased alongside it), so the club's as big on foot as it looks
+  const stride = close && !scene ? close : 1;
+  player.stride += (stride - player.stride) * Math.min(1, dt * 2.5);
+  if (Math.abs(player.stride - stride) < 0.005) player.stride = stride;
   const heard = clubHeard(p);
-  club.k = heard.k; club.muffle = heard.muffle;
+  club.k = heard.k; club.muffle = heard.muffle; club.vol = heard.vol;
   if (!down) { want = 0; open = 0; denDoor.shut = true; return; }
   const t = performance.now() / 1000;
   for (const b of bulbs) {
@@ -204,15 +214,16 @@ export function updDoorway(dt: number) {
   }
 }
 
-/** How far the club's band is heard, 0 to 1, and how muffled (0: clear, 1: through the shut doors): full in the club,
- *  through its doorways in Harry's office, Tommy's card room and Eddie's room, through the doors down the tunnel, louder the nearer you get (music.ts). */
+/** How far the club's band is heard, 0 to 1 (the stage's music fading out under it), how muffled (0: clear, 1: through
+ *  the shut doors), and how loud besides: full in the club; in Harry's office, Tommy's card room and Eddie's room, through
+ *  their doorways, a little quieter and duller (and the stage's music still all gone, so it never comes back in by a side
+ *  room's wall); through the doors down the tunnel, louder the nearer you get (music.ts). */
 export function clubHeard(p: { x: number; z: number }) {
-  if (!level.down || !found.den) return { k: 0, muffle: 1 };
-  if (p.x > DEN.x0 - 0.5 && p.x < D.x - 0.1 && p.z > DEN.z0 - 0.5 && p.z < DEN.z1 + 0.5) return { k: 1, muffle: 0 };
-  // (in Harry's office, Tommy's card room or Eddie's room, through its doorway: a little quieter, and duller)
-  if (p.x > LOANS.x0 - 0.5 && p.x <= DEN.x0 - 0.5 && p.z > LOANS.z0 - 0.5 && p.z < CARDS.z1 + 0.5) return { k: 0.8, muffle: 0.45 };
-  if (p.x > VIP.x0 - 0.5 && p.x < VIP.x1 + 0.5 && p.z >= DEN.z1 + 0.5 && p.z < VIP.z1 + 0.5) return { k: 0.8, muffle: 0.45 };
+  if (!level.down || !found.den) return { k: 0, muffle: 1, vol: 1 };
+  if (p.x > DEN.x0 - 0.5 && p.x < D.x - 0.1 && p.z > DEN.z0 - 0.5 && p.z < DEN.z1 + 0.5) return { k: 1, muffle: 0, vol: 1 };
+  if (p.x > LOANS.x0 - 0.5 && p.x <= DEN.x0 - 0.5 && p.z > LOANS.z0 - 0.5 && p.z < CARDS.z1 + 0.5) return { k: 1, muffle: 0.45, vol: 0.8 };
+  if (p.x > VIP.x0 - 0.5 && p.x < VIP.x1 + 0.5 && p.z >= DEN.z1 + 0.5 && p.z < VIP.z1 + 0.5) return { k: 1, muffle: 0.45, vol: 0.8 };
   const a = along(V(p.x, 0, p.z));
-  if (a < 0) return { k: 0, muffle: 1 };
-  return { k: 0.25 + 0.65 * a * a, muffle: 1 - open };
+  if (a < 0) return { k: 0, muffle: 1, vol: 1 };
+  return { k: 0.25 + 0.65 * a * a, muffle: 1 - open, vol: 1 };
 }

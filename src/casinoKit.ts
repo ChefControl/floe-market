@@ -50,7 +50,7 @@ export const GRACE = 10;
 export function gamePad(
   at: XZ & { y?: number }, icon: string, panel: HTMLElement,
   h: { opened(): void; closed(): void; greet(): void; live(): boolean; say(text: string): void; away: string },
-  view: Seat, here: () => boolean = () => !level.down,
+  view: Seat, here: () => boolean = () => !level.down, reach = REACH,
 ) {
   const d = decal(1.9, (c, w, ht) => drawPad(c, w, ht, icon));
   d.mesh.position.set(at.x, (at.y ?? FY) + 0.01, at.z);
@@ -63,7 +63,7 @@ export function gamePad(
     enable() { enabled = true; d.mesh.visible = true; },
     upd(dt: number) {
       if (!enabled) return false;
-      const near = here() && d2xz(player.g.position, at) < REACH * REACH;
+      const near = here() && d2xz(player.g.position, at) < reach * reach;
       if (near !== open) {
         open = near;
         panel.hidden = !open;

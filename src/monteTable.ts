@@ -7,7 +7,7 @@
 import { BoxGeometry, Group, Mesh, MeshLambertMaterial } from 'three';
 import { gamePad, type StakeRules, Stakes } from './casinoKit';
 import { CY, parts } from './cellar';
-import { BOOTH_PADS, DESKS } from './cellarPlan';
+import { BOOTH_PADS, BOOTHS, DESKS } from './cellarPlan';
 import { QUEEN } from './family';
 import { CHIP, F, perMinute } from './fight';
 import { found, level } from './layout';
@@ -18,7 +18,7 @@ import { popText } from './ui';
 import { chips, V } from './util';
 import { addMoney, wallet } from './wallet';
 
-const C = DESKS.tommy;
+const C = DESKS.tommy, FACE = BOOTHS.tommy.face;
 /** The middle of his table's top, and how far apart the cards lie on it. */
 const TOP = { x: C.x, y: CY + C.h + 0.02, z: C.z }, GAP = 0.2;
 const CARD = { w: 0.13, d: 0.19, h: 0.004 };
@@ -42,13 +42,17 @@ const black = (rank: string, suit: string) => canvasTex(64, 90, (c, w, h) => {
 }).tex;
 const edge = new MeshLambertMaterial({ color: 0xE8E0CC }), backMat = new MeshLambertMaterial({ map: back.tex });
 const cardGeo = new BoxGeometry(CARD.w, CARD.h, CARD.d);
+/** His table's top, turned as he sits (its x along his front, left to right as you see it; its z towards you). */
+const top = new Group();
+top.position.set(TOP.x, TOP.y, TOP.z); top.rotation.y = FACE;
+parts.den.add(top);
 /** The three cards, the queen in the middle: each a group on the table (where it is), its card inside (how it's turned). */
 const cards = [black('8', '♠'), QUEEN, black('8', '♣')].map(face => {
   const g = new Group(), m = new Mesh(cardGeo, [edge, edge, backMat, new MeshLambertMaterial({ map: face }), edge, edge]);
   // its face is the underside: turned over, it shows the right way up to someone in front of the table
   m.rotation.y = Math.PI;
   g.add(m);
-  parts.den.add(g);
+  top.add(g);
   return { g, m };
 });
 const QUEEN_CARD = START;
@@ -56,7 +60,7 @@ const QUEEN_CARD = START;
 /** Puts card `c` at place `at` (0 to 2, fractions on the way), `lift` above the table, turned `up` (0 down, 1 face up). */
 function lay(c: number, at: number, lift = 0, up = 0, dz = 0) {
   const { g, m } = cards[c];
-  g.position.set(TOP.x + (at - 1) * GAP, TOP.y + CARD.h / 2 + 0.002 + lift + Math.sin(Math.PI * up) * 0.06, TOP.z + dz);
+  g.position.set((at - 1) * GAP, CARD.h / 2 + 0.002 + lift + Math.sin(Math.PI * up) * 0.06, dz);
   m.rotation.z = Math.PI * up;
 }
 
@@ -203,7 +207,7 @@ const pad = gamePad(BOOTH_PADS.tommy, '🃏', panel, {
   say: text => say(text),
   away: "Hey! The lady's still on the table.",
 }, {
-  at: V(TOP.x, TOP.y, TOP.z), from: V(0, 0.95, 0.75).normalize(), wide: 0.8, tall: 0.55,
+  at: V(TOP.x, TOP.y, TOP.z), from: V(Math.sin(FACE) * 0.75, 0.95, Math.cos(FACE) * 0.75).normalize(), wide: 0.8, tall: 0.55,
 }, () => level.down && found.den);
 // (its marking's the Undertow's own, undertow.ts's: this one's never put down)
 pad.enable();

@@ -503,7 +503,7 @@ describe('the rooms', () => {
     for (const [x, z] of [[-5, L.ARENA.z1 + 0.35], [7.5, L.CRAFT.z1 + 0.35], [16, L.PREP.z1 + 0.35]]) {
       expect(earthAt(x, z), `${x}, ${z}`).toBeCloseTo(GROUND.cut, 2);
     }
-    for (const [x, z] of [[-5, L.ARENA.z1 + 1], [7.5, L.CRAFT.z1 + 1], [16, L.PREP.z1 + 1], [L.LIFT_ROOM.x1 + 1, 5], [L.GROW.x1 + 1, -5], [-20, L.ARENA.z1 + 3]]) {
+    for (const [x, z] of [[-5, L.ARENA.z1 + 1], [7.5, L.CRAFT.z1 + 1], [16, L.PREP.z1 + 1], [L.LIFT_ROOM.x1 + 1, 5], [L.GROW.x1 + 1, -5], [L.LOANS.x0 - 1, L.ARENA.z1 + 3]]) {
       const h = earthAt(x, z)!;
       expect(h, `${x}, ${z}`).toBeGreaterThan(GROUND.cut - 0.45);
       expect(h, `${x}, ${z}`).toBeLessThan(GROUND.cut + 0.85);
@@ -579,8 +579,8 @@ describe('the rooms', () => {
       expect(down(x, z, ground.nearDen), `${x}, ${z}`).toBeNull();
     }
     // (along the club's front west of Eddie's room, and along his room's own)
-    expect(down(-11, L.DEN.z1 + 0.5, ground.denKerb)! - low[0]).toBeGreaterThan(0);
-    expect(down(-11, L.DEN.z1 + 1, ground.nearDen)! - GROUND.cut).toBeLessThan(0.85);
+    expect(down(L.VIP.x0 - 1.5, L.DEN.z1 + 0.5, ground.denKerb)! - low[0]).toBeGreaterThan(0);
+    expect(down(L.VIP.x0 - 1.5, L.DEN.z1 + 1, ground.nearDen)! - GROUND.cut).toBeLessThan(0.85);
     expect(down(-7, L.VIP.z1 + 0.35, ground.denKerb)! - low[0]).toBeGreaterThan(0);
     expect(down(-7, L.VIP.z1 + 1, ground.nearDen)! - GROUND.cut).toBeLessThan(0.85);
     cellar.showDen(false);

@@ -103,12 +103,29 @@ describe('the Undertow', () => {
     // in the club, the band at full
     at(middle(L.DEN));
     g.run(0.2);
-    expect(club).toEqual({ k: 1, muffle: 0 });
-    // in Harry's office through its doorway, a little quieter and duller
-    at(plan.BOOTH_PADS.harry);
-    g.run(0.2);
-    expect(club.k).toBeLessThan(1);
-    expect(club.muffle).toBeGreaterThan(0);
+    expect(club).toEqual({ k: 1, muffle: 0, vol: 1 });
+    // in Harry's office, Tommy's card room and Eddie's room, through their doorways, a little quieter and duller; and the
+    // stage's music still all gone, right into each one's corners
+    for (const r of [L.LOANS, L.CARDS, L.VIP]) {
+      for (const [px, pz] of [[r.x0 + 0.25, r.z0 + 0.25], [r.x1 - 0.25, r.z0 + 0.25], [r.x0 + 0.25, r.z1 - 0.25], [r.x1 - 0.25, r.z1 - 0.25], [(r.x0 + r.x1) / 2, (r.z0 + r.z1) / 2]]) {
+        at({ x: px, z: pz });
+        g.run(0.1);
+        expect(club.k, `${px}, ${pz}`).toBe(1);
+        expect(club.vol, `${px}, ${pz}`).toBeLessThan(1);
+        expect(club.muffle, `${px}, ${pz}`).toBeGreaterThan(0);
+      }
+    }
+    // and in the club the camera's in closer than in the rest of the cellar (closer than down the tunnel)
+    at(middle(L.DEN));
+    g.run(3);
+    expect(g.stage.view.close).toBeCloseTo(D.CLOSE.club, 2);
+    expect(D.CLOSE.club).toBeLessThan(D.CLOSE.tunnel);
+    // and the player's stride as much shorter, so the club's as big on foot as it looks
+    expect(g.player.stride).toBeCloseTo(D.CLOSE.club, 2);
+    // (back to full out in the cellar)
+    at(middle(L.ARENA));
+    g.run(3);
+    expect(g.player.stride).toBe(1);
     // the doors shut behind you, and open as you come up to them again: a good evening through the slot first
     at({ x, z: L.PASSAGE.z0 + 0.5 });
     g.run(2);
@@ -140,6 +157,22 @@ describe('the Undertow', () => {
     expect(cellar.cellarWay(plan.DRINK_PAD, plan.BOOTH_PADS.harry).length).toBeGreaterThan(1);
   });
 
+  it("can't hear the fans in the arena from in the club: none of their bubbles show while you're in the Undertow", async () => {
+    const { g, plan, cellar, at } = await ring({ ring: { beaten: 2, lines: { mush: { n: 1 } } } });
+    const swarm = await import('../src/swarm'), { F } = await import('../src/fight'), L = g.layout;
+    F.stall.length = 0;
+    // in the club and in Eddie's room, all through the bout's preparation, while the fans go hungry
+    for (const p of [{ x: (L.DEN.x0 + L.DEN.x1) / 2, z: (L.DEN.z0 + L.DEN.z1) / 2 }, plan.BOOTH_PADS.eddie]) {
+      at(p);
+      for (let i = 0; i < 40; i++) { g.run(0.1); expect(swarm.said()).toEqual([]); }
+    }
+    // back in the arena, they're heard again
+    at({ x: cellar.RING.x + 4, z: cellar.RING.z + 3 });
+    const heard = new Set<string>();
+    for (let i = 0; i < 80 && !heard.size; i++) { g.run(0.1); swarm.said().forEach(t => heard.add(t)); }
+    expect(heard.size).toBeGreaterThan(0);
+  });
+
   it('the Family each have a word for whoever steps up to his pad: who he is first, then his business', async () => {
     const { g, plan, undertow, cellar, at } = await ring({ ring: { beaten: 2, lines: { mush: { n: 1 } } } });
     const { family } = await import('../src/family');
@@ -149,9 +182,20 @@ describe('the Undertow', () => {
     expect(undertow.undertowSays('harry')).toBe(undertow.LINES.harry[0]);
     expect(undertow.undertowSays('harry')).toContain('Samehada');
     expect(family.harry.talking).toBe(true);
-    // he's watching; standing there, he doesn't repeat himself; off and back on, the next line
+    // he's watching; his head bobs to his words as he talks, smoothly, never jumping from one frame to the next
     expect(family.harry.watch).not.toBeNull();
-    g.run(1);
+    let jump = 0, nodded = 0, last = family.harry.head.rotation.x;
+    for (let i = 0; i < 60; i++) {
+      g.run(1 / 60);
+      const x = family.harry.head.rotation.x;
+      jump = Math.max(jump, Math.abs(x - last)); nodded = Math.max(nodded, Math.abs(x)); last = x;
+    }
+    expect(nodded).toBeGreaterThan(0.04);
+    expect(jump).toBeLessThan(0.03);
+    // and he's done talking (still and quiet) well before his bubble goes, so it can be read
+    g.runUntil(() => !family.harry.talking, 8);
+    expect(undertow.undertowSays('harry')).toBe(undertow.LINES.harry[0]);
+    // standing there, he doesn't repeat himself; off and back on, the next line
     expect(undertow.undertowSays('harry')).toBe(undertow.LINES.harry[0]);
     at({ x: plan.BOOTH_PADS.harry.x, z: plan.BOOTH_PADS.harry.z + 0.9 });
     g.run(0.2);
@@ -228,17 +272,36 @@ describe('the Undertow', () => {
     expect(M.roundsLeft()).toBe(3);
   });
 
-  it('is a club: the bar and its stools, the tables, the banquette and the stage in the way, the bar and Gus\'s pads clear', async () => {
+  it('is a club: the bar and its stools, the tables and the bandstand in the way, the bar\'s pad clear', async () => {
     const { g, cellar, plan } = await ring({ ring: { beaten: 2, lines: { mush: { n: 1 } } } });
-    for (const p of [plan.DRINK_PAD, plan.BLOB_PAD]) expect(standable(g, cellar, p)).toBe(true);
+    expect(standable(g, cellar, plan.DRINK_PAD)).toBe(true);
     const B = plan.DEN_BAR;
     expect(standable(g, cellar, { x: (B.x0 + B.x1) / 2, z: B.front - 0.2 })).toBe(false);
-    for (const t of [...Object.values(plan.DEN_TABLES), plan.STAGE, plan.BAR_STOOLS[0]]) expect(standable(g, cellar, t)).toBe(false);
+    for (const t of [...Object.values(plan.DEN_TABLES), plan.STAGE, ...Object.values(plan.BAND), plan.BAR_STOOLS[0]]) expect(standable(g, cellar, t)).toBe(false);
     // and there's room to walk in from the doors, between the tables, to the bar and down to the far end of the room
     const L = g.layout, z = doorAt(plan).z;
-    for (const p of [middle(plan.CLUB_WAY), { x: L.DEN.x1 - 0.5, z }, { x: L.DEN.x1 - 2.6, z }, { x: L.DEN.x1 - 2.6, z: L.DEN.z0 + 2.8 }, { x: (plan.ARCHES[0] + plan.ARCHES[1]) / 2, z: L.DEN.z0 + 2.8 }, { x: (L.DEN.x0 + L.DEN.x1) / 2, z: L.DEN.z1 - 0.3 }]) {
+    for (const p of [middle(plan.CLUB_WAY), { x: L.DEN.x1 - 0.5, z }, { x: L.DEN.x1 - 1.0, z }, { x: L.DEN.x1 - 1.3, z: plan.LOUNGE.z - 0.5 }, { x: L.DEN.x1 - 2.6, z: L.DEN.z0 + 3.4 }, { x: (plan.ARCHES[0] + plan.ARCHES[1]) / 2, z: L.DEN.z0 + 2.8 }, { x: (L.DEN.x0 + L.DEN.x1) / 2, z: L.DEN.z1 - 0.3 }]) {
       expect(standable(g, cellar, p), JSON.stringify(p)).toBe(true);
     }
+  });
+
+  it('has a band on the bandstand playing along with the music: the sax up for the last A, two of the drummer\'s arms on the vibes for the bridge', async () => {
+    const { g, plan } = await ring({ ring: { beaten: 2, lines: { mush: { n: 1 } } } });
+    const { band, bandState } = await import('../src/band'), { eighth } = await import('../src/noir');
+    // all five up on the stand
+    for (const m of Object.values(band)) expect(m.position.y).toBeCloseTo(g.layout.CELLAR_Y + plan.BANDSTAND.h, 2);
+    /** Plays on to `bar` (sixteen to a round), and how far the sax and the vibes arms are in there. */
+    const at = (bar: number) => {
+      g.runUntil(() => bandState().bar === bar, 60);
+      g.run(eighth() * 6);
+      return bandState();
+    };
+    expect(at(2).sax).toBeLessThan(0.1);
+    expect(at(2).vibes).toBeLessThan(0.1);
+    expect(at(9).vibes).toBeGreaterThan(0.9);
+    expect(at(9).sax).toBeLessThan(0.1);
+    expect(at(13).sax).toBeGreaterThan(0.9);
+    expect(at(13).vibes).toBeLessThan(0.1);
   });
 
   it('Angler Al pours a drink at the bar: a kelp tonic clears your head, the house special leaves you tipsy', async () => {
@@ -267,8 +330,12 @@ describe('the Undertow', () => {
   it("Gus, the blobfish at the bar, tells you what he's heard about the next boss for a drink", async () => {
     const { g, plan, at, F } = await ring({ money: 100 * 1000, ring: { beaten: 2, lines: { mush: { n: 1 } } } });
     const club = await import('../src/club'), fight = await import('../src/fight');
-    at(plan.BLOB_PAD);
+    // no pad: his panel opens when you speak to him
+    const gusAt = { x: plan.BAR_STOOLS[3].x + 0.5, z: plan.DEN_BAR.front + 1.2 };
+    at(gusAt);
     g.run(0.2);
+    expect($('denGus').hidden).toBe(true);
+    g.press('e'); g.run(0.1); g.press('e', 'keyup');
     expect($('denGus').hidden).toBe(false);
     expect(club.buyGus()).toBe(true);
     expect(g.wallet.money).toBe(95_000);
@@ -277,18 +344,48 @@ describe('the Undertow', () => {
     F().beaten = 5;
     club.buyGus();
     expect(club.clubSays('gus')).toContain('You beat the lot');
+    // and it shuts the moment you move off
+    at({ x: gusAt.x, z: gusAt.z + 0.2 });
+    g.run(0.1);
+    expect($('denGus').hidden).toBe(true);
   });
 
-  it('the regulars have a word as you come up to them, and Velvet sings while you\'re in the room', async () => {
-    const { g, at } = await ring({ ring: { beaten: 2, lines: { mush: { n: 1 } } } });
+  it('the regulars have a word as you come up to them (Doc and Gus only when you speak to them), and Velvet sings while you\'re in the room', async () => {
+    const { g, at, plan } = await ring({ ring: { beaten: 2, lines: { mush: { n: 1 } } } });
     const club = await import('../src/club'), R = await import('../src/regulars');
-    for (const k of ['inky', 'coat', 'doc'] as const) {
-      const w = R.where(k);
-      at({ x: w.x + 1.2, z: w.z + 0.9 });
+    const L = g.layout, mid = { x: (L.DEN.x0 + L.DEN.x1) / 2, z: (L.DEN.z0 + L.DEN.z1) / 2 };
+    /** A step from `k` towards the middle of the club. */
+    const beside = (k: 'inky' | 'coat' | 'doc' | 'gus') => {
+      const w = R.where(k), d = Math.hypot(mid.x - w.x, mid.z - w.z);
+      return { x: w.x + (mid.x - w.x) / d * 1.1, z: w.z + (mid.z - w.z) / d * 1.1 };
+    };
+    for (const k of ['inky', 'coat'] as const) {
+      at(beside(k));
       g.run(0.2);
       expect(club.clubSays(k)).toBe(club.CLUB_LINES[k][0]);
     }
-    expect(R.regulars.doc.watch).not.toBeNull();
+    // Doc and Gus keep to themselves till you speak to them, and only close up (a step off, there's no Talk)
+    const cellar = await import('../src/cellar'), w = R.where('doc');
+    let docAt = { x: 0, z: 0 }, best = Infinity;
+    for (let x = -1.1; x <= 1.1; x += 0.1) for (let z = -1.1; z <= 1.1; z += 0.1) {
+      const q = { x: w.x + x, z: w.z + z }, d = Math.hypot(x, z);
+      if (d < best && d > 0.5 && standable(g, cellar, q)) { best = d; docAt = q; }
+    }
+    expect(best).toBeLessThan(1.0);
+    const off = beside('doc');
+    at({ x: w.x + (off.x - w.x) * 1.4, z: w.z + (off.z - w.z) * 1.4 });
+    g.run(0.3);
+    expect(document.getElementById('buy')!.textContent).not.toContain('Talk');
+    for (const [k, p] of [['doc', docAt], ['gus', { x: plan.BAR_STOOLS[3].x + 0.5, z: plan.DEN_BAR.front + 1.2 }]] as const) {
+      at(p);
+      g.run(0.5);
+      expect(club.clubSays(k), k).toBe('');
+      expect(document.getElementById('buy')!.textContent, k).toContain('Talk');
+      g.press('e'); g.run(0.1); g.press('e', 'keyup');
+      expect(club.clubSays(k), k).toBe(club.CLUB_LINES[k][0]);
+      // (and he's watching you)
+      if (k === 'doc') expect(R.regulars.doc.watch).not.toBeNull();
+    }
     g.runUntil(() => club.SONG.includes(club.clubSays('velvet')), 12);
   });
 

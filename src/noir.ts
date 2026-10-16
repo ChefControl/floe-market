@@ -9,9 +9,10 @@ import { ac, buses, hz, noise, rnd, tone, type ToneVoice } from './audio';
 import { FORM } from './lounge';
 
 export const NOIR = { key: 62, sounds: 65, bpm: 104, swing: 0.6 };
-/** How far the band's heard where the player is, 0 to 1, and how muffled (1: through the shut doors), as the way in
- *  works it out (doorway.ts) for the music (music.ts). */
-export const club = { k: 0, muffle: 1 };
+/** How far the band's heard where the player is, 0 to 1 (and so how far the stage's music is faded out under it), how
+ *  muffled (1: through the shut doors), and how loud it is besides (a little quieter through a side room's doorway), as
+ *  the way in works it out (doorway.ts) for the music (music.ts). */
+export const club = { k: 0, muffle: 1, vol: 1 };
 
 /** The band's mix: `level` fades it in and out, `door` muffles it; `room` sends what goes through it to the reverb too. */
 let level: GainNode | null = null, door: BiquadFilterNode, plain: GainNode, room: GainNode, reed: PeriodicWave;
@@ -127,6 +128,19 @@ export function playNoir(i: number, t: number) {
     if (bar >= 12) tenor(m, at + 0.012, len * st * 0.85, 0.034);
     if (bridge) vibes(thirdUnder(m), at, 0.026, Math.max(0.6, len * st));
   }
+}
+/** What the band plays on eighth `i`, as playNoir has it, for the band on the stand to play along (band.ts): which bar,
+ *  which eighth of it, whether it's on a beat, a piano chord, a brush swirl or tap, the hi-hat; whether the trumpet's
+ *  blowing (a note of the tune sounding), the sax is in (the last A) and blowing, and a vibes note (the bridge). */
+export function noirScore(i: number) {
+  const bar = Math.floor(i / 10) % TUNE.length, s = i % 10, bridge = bar >= 8 && bar < 12;
+  const blowing = TUNE[bar].some(([on, , len]) => on <= s && s < on + len), note = TUNE[bar].some(([on]) => on === s);
+  return {
+    bar, s, beat: s % 2 === 0, bridge,
+    chord: bridge ? s === 0 || s === 6 : s === 0 || s === 7 || (s === 6 && bar === 15),
+    swirl: s === 0 || s === 6, chick: s === 2 || s === 6,
+    trumpet: blowing, sax: bar >= 12, saxBlowing: bar >= 12 && blowing, vibes: bridge && note,
+  };
 }
 /** An eighth note, in seconds. */
 export const eighth = () => 60 / NOIR.bpm / 2;

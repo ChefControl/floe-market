@@ -432,8 +432,8 @@ function updLounge(k: number, now: number) {
 // ---------- the Undertow ----------
 /** The club's band's place, as the lounge band's: it starts from the top each time it comes in. */
 let noir = { on: false, step: 0, next: 0 };
-function updNoir(k: number, muffle: number, now: number) {
-  noirLevel(Math.sin(k * Math.PI / 2), muffle);
+function updNoir(k: number, muffle: number, vol: number, now: number) {
+  noirLevel(Math.sin(k * Math.PI / 2) * vol, muffle);
   if (k < 0.001) { noir.on = false; return; }
   if (!noir.on || noir.next < now - 5) noir = { on: true, step: 0, next: now + 0.1 };
   while (noir.next < now + 0.2) {
@@ -442,6 +442,15 @@ function updNoir(k: number, muffle: number, now: number) {
     noir.step = (noir.step + 1) % NOIR_STEPS;
   }
 }
+
+/** Where the club's band is in its sixteen bars as it's heard now, in eighths (fractional), or null while it isn't
+ *  playing (band.ts has the band on the stand play along to it). */
+export const noirHeard = () => {
+  if (!ac || !noir.on) return null;
+  // (what's coming out of the speakers now went in a little before: the output's own delay)
+  const out = ac.currentTime - (ac.outputLatency || 0) - (ac.baseLatency || 0);
+  return (((noir.step - (noir.next - out) / noirEighth()) % NOIR_STEPS) + NOIR_STEPS) % NOIR_STEPS;
+};
 
 /** The stage's music's level, the lounge band's and the Undertow's, for the tests. */
 export const musicMix = () => ({ stage: stageMix?.gain.value ?? 1, lounge: loungeMix(), noir: noirMix() });
@@ -466,7 +475,7 @@ function schedule() {
   if (prefs.mute.music || ac.state !== 'running') { on = false; lounge.on = false; noir.on = false; return; }
   const now = ac.currentTime, harbor = harborK(), den = club.k, away = Math.max(harbor, den);
   updLounge(harbor, now);
-  updNoir(den, club.muffle, now);
+  updNoir(den, club.muffle, club.vol, now);
   // a fresh start: the first time, after the music was off or a long stall, and in a new stage (or down the ladder)
   if (!on || next < now - 5 || playingStage !== which()) {
     on = true; playingStage = which(); step = 0; next = now + 0.1; verses = 0;

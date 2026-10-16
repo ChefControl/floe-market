@@ -1,6 +1,6 @@
 // The Undertow's barman and regulars (stage 3), built like the Family (family.ts) from the same plain shapes in flat
 // colours: Angler Al, an anglerfish behind the bar in a waistcoat and bow tie, his lure lit over the counter, polishing
-// a glass; Gus, a blobfish slumped on the end stool at the bar; three sardines in one trench coat at the high table,
+// a glass; Gus, a blobfish slumped on the stool in the bar's far corner; three sardines in one trench coat, lurking in the lounge's corner,
 // one head out of the collar under a fedora and one out of each sleeve; Doc Murk, a squid in a lab coat and brass
 // goggles, sitting in the regulars' booth with a flask of something green bubbling; and Velvet, a jellyfish glowing
 // pink over the stage by the microphone, her ribbons swaying; and in Harry's office, Inky, his bookkeeper, an octopus in
@@ -8,9 +8,9 @@
 // near; club.ts has them talk.
 import { CylinderGeometry, DoubleSide, Group, MeshBasicMaterial, MeshLambertMaterial, type Object3D, SphereGeometry, TorusGeometry, Vector3 } from 'three';
 import { CY } from './cellar';
-import { BAR_STOOLS, BARMAN, DEN_BAR, DEN_TABLES, LEDGER, SNUG, STAGE } from './cellarPlan';
+import { BAR_STOOLS, BARMAN, COAT_SPOT, DEN_BAR, LEDGER, SNUG, STAGE } from './cellarPlan';
 import { angler } from './angler';
-import { Hood } from './family';
+import { flatten, Hood, settle } from './family';
 import { G, mesh } from './render';
 
 export type Regular = 'al' | 'gus' | 'coat' | 'doc' | 'velvet' | 'inky';
@@ -31,7 +31,7 @@ function eyes(h: Object3D, x: number, y: number, z: number, r: number, white = 0
 const GLINT = new MeshBasicMaterial({ color: 0xFFFFFF });
 /** One eye, as the Family's are made: its white, an iris, a pupil (`look` down a little, or up) and a glint, under a lid
  *  of `skin` turned `lid` forward over it (0: shut to halfway; negative: open wider) and tilted `tilt` at its outer end. */
-function eye(h: Object3D, x: number, y: number, z: number, r: number, o: { skin: number; white?: number; iris?: number; lid?: number; tilt?: number; look?: number; bar?: boolean }) {
+export function eye(h: Object3D, x: number, y: number, z: number, r: number, o: { skin: number; white?: number; iris?: number; lid?: number; tilt?: number; look?: number; bar?: boolean }) {
   const s = Math.sign(x) || 1, ly = y + (o.look ?? 0) * r;
   put(h, mesh(G.sphere, o.white ?? 0xF2EEE2, x, y, z)).scale.setScalar(r);
   if (o.iris !== undefined) put(h, mesh(G.sphere, o.iris, x, ly, z + r * 0.72)).scale.set(r * 0.62, r * 0.62, r * 0.3);
@@ -257,6 +257,7 @@ function octopus() {
   return { g, arms };
 }
 
+const RIBBON = glowing(0xFFC8E0, 0xB03070, 0.7);
 /** Velvet, a jellyfish: a glowing pink bell with a frilled rim, a brighter heart, sleepy eyes and red lips, a string of
  *  pearls round her rim, and ribbons hanging down that sway. */
 function jelly() {
@@ -274,7 +275,7 @@ function jelly() {
   for (let i = 0; i < 8; i++) {
     const a = i / 8 * Math.PI * 2, r = put(g, new Group()); r.position.set(Math.sin(a) * 0.22, -0.02, Math.cos(a) * 0.22);
     for (let k = 0; k < 5; k++) {
-      const seg = put(r, mesh(G.box, glowing(0xFFC8E0, 0xB03070, 0.7), 0, -0.1 - k * 0.18, 0)); seg.scale.set(0.05 - k * 0.006, 0.18, 0.012);
+      const seg = put(r, mesh(G.box, RIBBON, 0, -0.1 - k * 0.18, 0)); seg.scale.set(0.05 - k * 0.006, 0.18, 0.012);
       seg.rotation.y = a;
     }
     ribbons.push(r);
@@ -285,13 +286,15 @@ function jelly() {
 // ---------- in the room ----------
 const al = angler(), gus = blob(), coat = trenchCoat(), doc = squid(), velvet = jelly(), inky = octopus();
 const STOOL_TOP = 0.85;
+/** How high Velvet floats, over her stage's boards. */
+const SING_Y = STAGE.h + 1.05;
 /** Al stands on the duckboard behind his bar (cellar.ts), so he's seen over his counter; and he's a big fish. */
 export const DUCKBOARD = 0.22;
 al.g.position.set(BARMAN.x, CY + DUCKBOARD, BARMAN.z); al.g.scale.setScalar(1.1);
 gus.position.set(BAR_STOOLS[3].x, CY, BAR_STOOLS[3].z); gus.sit(STOOL_TOP);
-coat.position.set(DEN_TABLES.coat.x, CY, DEN_TABLES.coat.z - 0.55);
-doc.position.set(SNUG.x - 0.35, CY, SNUG.z + 0.12); doc.sit(0.51);
-velvet.g.position.set(STAGE.x - 0.1, CY + 1.25, STAGE.z + 0.05); velvet.g.rotation.y = 0.25;
+coat.position.set(COAT_SPOT.x, CY, COAT_SPOT.z); coat.rotation.y = COAT_SPOT.face;
+doc.position.set(SNUG.x, CY, SNUG.z); doc.rotation.y = SNUG.face; doc.sit(0.51);
+velvet.g.position.set(STAGE.x, CY + SING_Y, STAGE.z + 0.3);
 /** Inky sits at his desk on a swivel stool, facing it (east, as Harry does). */
 inky.g.position.set(LEDGER.clerk.x, CY, LEDGER.clerk.z); inky.g.rotation.y = Math.PI / 2; inky.g.sit(0.5);
 const swivel = new Group();
@@ -299,9 +302,16 @@ swivel.position.set(LEDGER.clerk.x, CY, LEDGER.clerk.z);
 put(swivel, mesh(new CylinderGeometry(0.2, 0.2, 0.06, 14), 0x3A2618, 0, 0.47, 0));
 put(swivel, mesh(G.cyl, 0x262E33, 0, 0.23, 0)).scale.set(0.03, 0.44, 0.03);
 put(swivel, mesh(new CylinderGeometry(0.2, 0.22, 0.03, 12), 0x262E33, 0, 0.015, 0));
+// (each drawn in a few meshes rather than dozens: whatever moves on its own kept apart)
+settle(al.g, false, [al.lure, ...al.lids]); flatten(al.lure);
+settle(gus); settle(coat); settle(doc);
+for (const a of inky.arms) flatten(a.children[0]);
+settle(inky.g, false, inky.arms);
+flatten(velvet.bell);
+for (const r of velvet.ribbons) flatten(r);
 /** Doc Murk's flask on his table, and the bubbles rising out of it. */
 const flask = new Group();
-flask.position.set(SNUG.table.x - 0.2, CY + 0.78, SNUG.table.z - 0.05);
+flask.position.set(SNUG.table.x + 0.12, CY + 0.75, SNUG.table.z - 0.18);
 put(flask, mesh(G.sphere, glowing(0x9CFFB0, 0x2EC050, 0.85), 0, 0.07, 0)).scale.setScalar(0.07);
 put(flask, mesh(G.cyl, glowing(0xCFFFE0, 0x1A6030, 0.6), 0, 0.17, 0)).scale.set(0.02, 0.1, 0.02);
 const bubbles = Array.from({ length: 4 }, (_, i) => {
@@ -324,8 +334,12 @@ export const where = (k: Regular) => (k === 'velvet' ? velvet.g : regulars[k]).p
 /** Velvet's bubble goes on her, over her bell. */
 export const velvetAt = velvet.g;
 
-let t = 0;
-/** The regulars, every frame: breathing and looking (their Hoods), Al's lure bobbing and his arm polishing, Velvet
+/** Al's blinks: how long one takes, and the gaps between them (a few seconds, never quite the same, going round). */
+const BLINK = 0.18, BLINK_GAPS = [3.4, 5.1, 2.6, 6.2, 4.0, 1.1, 4.6];
+/** His lids as they're set open, and where he's got to in his blinks. */
+const lidOpen = al.lids.map(l => l.rotation.x);
+let t = 0, blinkIn = BLINK_GAPS[0], blinkN = 0;
+/** The regulars, every frame: breathing and looking (their Hoods), Al's lure bobbing, his arm polishing and his blinks, Velvet
  *  floating and her ribbons swaying, the bubbles out of Doc's flask, and Inky's arms at his books. */
 export function updRegulars(dt: number) {
   t += dt;
@@ -333,7 +347,11 @@ export function updRegulars(dt: number) {
   al.lure.rotation.x = Math.sin(t * 1.3) * 0.12;
   al.g.arms[1].rotation.x = -0.9 + Math.sin(t * 5) * 0.12;
   al.g.arms[1].rotation.z = 0.25 + Math.cos(t * 5) * 0.1;
-  velvet.g.position.y = CY + 1.25 + Math.sin(t * 0.9) * 0.07;
+  // (his lids down over his eyes and up again)
+  if ((blinkIn -= dt) <= -BLINK) blinkIn = BLINK_GAPS[++blinkN % BLINK_GAPS.length];
+  const shut = blinkIn < 0 ? Math.sin(-blinkIn / BLINK * Math.PI) : 0;
+  al.lids.forEach((l, i) => { l.rotation.x = lidOpen[i] + (Math.PI / 2 - lidOpen[i]) * shut; });
+  velvet.g.position.y = CY + SING_Y + Math.sin(t * 0.9) * 0.07;
   velvet.bell.scale.set(1 + Math.sin(t * 1.8) * 0.04, 1 - Math.sin(t * 1.8) * 0.05, 1 + Math.sin(t * 1.8) * 0.04);
   velvet.ribbons.forEach((r, i) => { r.rotation.x = Math.sin(t * 1.4 + i) * 0.18; r.rotation.z = Math.cos(t * 1.1 + i * 0.7) * 0.15; });
   inky.arms.forEach((a, i) => { a.rotation.z = Math.sin(t * (3.1 + i * 0.4) + i) * 0.12; a.children[0].position.x = Math.sin(t * 7 + i * 2) * 0.01; });

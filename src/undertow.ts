@@ -1,15 +1,18 @@
 // The Undertow (stage 3): the Family's back room, through a tunnel out of the arena's south wall, found when the second
 // boss is beaten (cellar.ts builds it, ring.ts opens it). Each of the three stands at his booth with a pad in front of
-// his table: step up to it and he has a word for you, in a bubble over his head, nodding along as he says it; step away
+// his table: step up to it and he has a word for you, in a bubble over his head, his head bobbing as he says it (chatter.ts); step away
 // and come back for the next one. While you're in the room, each of them follows you with his eyes.
+import { updBand } from './band';
 import { CY, parts } from './cellar';
+import { updCrowd } from './crowd';
 import { updClub } from './club';
 import { updDoorway } from './doorway';
 import { type Booth, BOOTH_PADS, BOOTHS, GUARDS } from './cellarPlan';
+import { chatter } from './chatter';
 import { decal, drawPad } from './decals';
-import { family } from './family';
+import { family, settle } from './family';
 import { guards } from './guards';
-import { CARDS, DEN, found, level, LOANS, VIP } from './layout';
+import { found, inUndertow, level, VIP } from './layout';
 import { tommySays, updMonte } from './monteTable';
 import { player } from './player';
 import { bubble } from './speech';
@@ -50,24 +53,25 @@ const booths = (Object.keys(BOOTHS) as Booth[]).map(k => {
   host.position.set(b.x, CY, b.z); host.rotation.y = b.face;
   if (k === 'eddie') host.sit(0.51);
   if (k === 'tommy') host.sit(0.5);
+  settle(host);
   parts.den.add(host);
-  return { k, pad, host, talk, near: false, next: 0 };
+  const voice = chatter();
+  return { k, pad, host, talk, voice, near: false, next: 0, say(text: string) { talk.say(text); voice.say(text); } };
 });
 
 // Eddie's two bodyguards, either side of him in his room (popped in when the club's found), the one with the earpiece
 // with a word for you as you come in
-guards.forEach((g, i) => { g.position.set(GUARDS[i].x, CY, GUARDS[i].z); g.rotation.y = GUARDS[i].face; parts.den.add(g); });
-const guardTalk = bubble(parts.den, 2.3);
+guards.forEach((g, i) => { g.position.set(GUARDS[i].x, CY, GUARDS[i].z); g.rotation.y = GUARDS[i].face; settle(g); parts.den.add(g); });
+const guardTalk = bubble(parts.den, 2.3), guardVoice = chatter();
 let inVip = false, guardNext = 0;
 
 /** What each is saying now ('' while he's quiet), for tests. */
 export const undertowSays = (k: Booth) => booths.find(b => b.k === k)!.talk.text;
 /** What the bodyguard's saying now, for tests. */
 export const guardSays = () => guardTalk.text;
-tommySays(text => booths.find(b => b.k === 'tommy')!.talk.say(text));
+tommySays(text => booths.find(b => b.k === 'tommy')!.say(text));
 
-/** Whether `p` is in the club, or in Harry's office through its west wall. */
-const inDen = (p: { x: number; z: number }) => [DEN, LOANS, VIP, CARDS].some(r => p.x > r.x0 - 0.5 && p.x < r.x1 + 0.5 && p.z > r.z0 - 0.5 && p.z < r.z1 + 0.5);
+const inDen = inUndertow;
 
 /** The Undertow, every frame (stage 3): the Family talking to whoever steps up, and watching them. */
 export function updUndertow(dt: number) {
@@ -75,21 +79,25 @@ export function updUndertow(dt: number) {
   updMonte(dt);
   updClub(dt);
   if (!found.den) return;
+  updBand(dt);
+  updCrowd(dt);
   const p = player.g.position, here = level.down && inDen(p);
   for (const b of booths) {
     const on = level.down && d2xz(p, b.pad) < b.pad.r * b.pad.r;
-    if (on && !b.near) b.talk.say(LINES[b.k][b.next++ % LINES[b.k].length]);
+    if (on && !b.near) b.say(LINES[b.k][b.next++ % LINES[b.k].length]);
     b.near = on;
     if (b.talk.upd(dt)) b.talk.sprite.position.set(b.host.position.x, b.host.position.y + 2.15, b.host.position.z);
-    b.host.talking = !!b.talk.text;
+    if (b.voice.upd(dt)) b.host.syllable();
+    b.host.talking = b.voice.talking;
     b.host.watch = here && d2xz(p, b.host.position) < WATCH * WATCH ? p : null;
     b.host.update(dt);
   }
   const vip = level.down && p.x > VIP.x0 && p.x < VIP.x1 && p.z > VIP.z0 && p.z < VIP.z1;
-  if (vip && !inVip) guardTalk.say(GUARD_LINES[guardNext++ % GUARD_LINES.length]);
+  if (vip && !inVip) { const line = GUARD_LINES[guardNext++ % GUARD_LINES.length]; guardTalk.say(line); guardVoice.say(line); }
   inVip = vip;
   if (guardTalk.upd(dt)) guardTalk.sprite.position.set(guards[0].position.x, guards[0].position.y + 2.2, guards[0].position.z);
-  guards[0].talking = !!guardTalk.text;
+  if (guardVoice.upd(dt)) guards[0].syllable();
+  guards[0].talking = guardVoice.talking;
   for (const g of guards) {
     g.watch = vip ? p : null;
     g.update(dt);

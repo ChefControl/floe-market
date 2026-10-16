@@ -17,7 +17,8 @@ import { BAR, BAR_PAD, BAR_SPOTS, FLOOR, fromBar, GONG_PAD, nearBar, TUNNELS, WA
 import { crowdModel, PARKAS, SHIRT } from './characters';
 import { BOSSES, F, REACH } from './fight';
 import { onQuality } from './graphics';
-import { ARENA, level, pushOutOfBox } from './layout';
+import { ARENA, inUndertow, level, pushOutOfBox } from './layout';
+import { player } from './player';
 import { FONT, painted, rr, scene } from './render';
 import { CHAMP } from './rikishi';
 import { crowdStyle } from './wardrobe';
@@ -558,7 +559,8 @@ function draw(sp: Speech, text: string) {
   sp.text = text;
 }
 function talk(dt: number) {
-  const on = level.down && fans.size > 0;
+  // (none heard in the Undertow: its walls are between, though a bubble's drawn over everything)
+  const on = level.down && fans.size > 0 && !inUndertow(player.g.position);
   nextSay -= dt;
   if (on && nextSay <= 0) {
     // busier when the crowd's bigger, and in the fight

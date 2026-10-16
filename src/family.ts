@@ -3,9 +3,10 @@
 // a purple suit and a small pork-pie hat, fixes fights; Hammerhead Harry, a hammerhead in pinstripes and a fedora, lends
 // chips; Three-Card Tommy, a catfish in tweed and a flat cap with the queen tucked in its band, runs the monte. As on
 // their rap sheets (the Undertow Files). Each stands at his booth, breathes, turns his head to whoever's in front of
-// him, and nods along while he talks.
-import { CylinderGeometry, DoubleSide, Group, MeshBasicMaterial, MeshLambertMaterial, type Object3D, PlaneGeometry, RepeatWrapping, SphereGeometry, TorusGeometry, Vector3 } from 'three';
-import { canvasTex, G, mesh } from './render';
+// him, and bobs his head to his words as he talks (chatter.ts).
+import { CylinderGeometry, DoubleSide, Group, type Material, Matrix4, type Mesh, MeshBasicMaterial, MeshLambertMaterial, type Object3D, PlaneGeometry, RepeatWrapping, SphereGeometry, TorusGeometry, Vector3 } from 'three';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { canvasTex, copyGeo, G, mesh, paint, painted } from './render';
 import type { XZ } from './util';
 
 export type Host = 'eddie' | 'harry' | 'tommy';
@@ -43,7 +44,7 @@ export const QUEEN = canvasTex(64, 90, (c, w) => {
 
 interface Dress { coat: number | MeshLambertMaterial; lapel: number; shirt: number; hand: number }
 
-/** One of the Family: his body and arms, and his head (`head`, built by each), which turns to look and nods as he talks. */
+/** One of the Family: his body and arms, and his head (`head`, built by each), which turns to look and bobs as he talks. */
 export class Hood extends Group {
   readonly head = new Group();
   readonly arms: Group[] = [];
@@ -54,7 +55,12 @@ export class Hood extends Group {
   watch: XZ | null = null;
   private t = 0;
   private turn = 0;
-  private nod = 0;
+  /** How much he's talking (easing in and out), and his head's lift on each syllable: the lift it's going to, and
+   *  where it is (following, so it never jumps), and how many syllables so far. */
+  private talk = 0;
+  private lift = 0;
+  private bob = 0;
+  private said = 0;
   constructor(d: Dress) {
     super();
     for (const s of [-1, 1]) {
@@ -92,8 +98,8 @@ export class Hood extends Group {
     this.body.position.y = h - 0.3;
     return this;
   }
-  /** A word said: his head bobs. */
-  word() { this.nod = Math.min(1, this.nod + 0.5); }
+  /** A syllable said (chatter.ts): his chin comes up a little, by a bit more or less each time, and settles. */
+  syllable() { this.lift = [0.8, 1, 0.6, 0.9][this.said++ % 4]; }
   update(dt: number) {
     this.t += dt;
     // breathing, and a slow shift of weight
@@ -107,10 +113,13 @@ export class Hood extends Group {
       want = Math.max(-0.9, Math.min(0.9, Math.atan2(Math.sin(want), Math.cos(want))));
     }
     this.turn += (want - this.turn) * Math.min(1, dt * 5);
-    this.nod = Math.max(0, this.nod - dt * 3);
-    if (this.talking && Math.sin(this.t * 9) > 0.6) this.word();
+    // talking: his chin lifting on each syllable, and a slow tilt of the head from side to side
+    this.talk += ((this.talking ? 1 : 0) - this.talk) * Math.min(1, dt * 4);
+    this.lift *= Math.exp(-dt * 9);
+    this.bob += (this.lift - this.bob) * Math.min(1, dt * 16);
     this.head.rotation.y = this.turn;
-    this.head.rotation.x = Math.sin(Math.min(1, this.nod) * Math.PI) * 0.12;
+    this.head.rotation.x = -this.bob * 0.1 + this.talk * Math.sin(this.t * 2.3) * 0.025;
+    this.head.rotation.z = this.talk * Math.sin(this.t * 1.6) * 0.05;
   }
 }
 const tmp = new Vector3();
@@ -226,3 +235,65 @@ function tommy() {
 
 /** The Family, each built once. */
 export const family: Record<Host, Hood> = { eddie: eddie(), harry: harry(), tommy: tommy() };
+
+// ---------- merging a figure's still parts ----------
+const plain = (m: Material | Material[]): m is MeshLambertMaterial => !Array.isArray(m) && m instanceof MeshLambertMaterial
+  && !m.map && !m.transparent && !m.vertexColors && m.emissive.getHex() === 0;
+/** Merges the plain meshes under `root` (but not into `keep`) into one, in `root`'s own space, its colours painted on. */
+export function flatten(root: Object3D, keep: Set<Object3D> = new Set()) {
+  root.updateMatrixWorld(true);
+  const toRoot = root.matrixWorld.clone().invert(), m4 = new Matrix4();
+  /** `m`'s geometry in `root`'s space, keeping only `attrs`. */
+  const placed = (m: Mesh, attrs: string[]) => {
+    const g = m.geometry.index ? m.geometry.toNonIndexed() : copyGeo(m.geometry);
+    for (const k of Object.keys(g.attributes)) if (!attrs.includes(k)) g.deleteAttribute(k);
+    m4.multiplyMatrices(toRoot, m.matrixWorld);
+    g.applyMatrix4(m4);
+    if (m4.determinant() < 0) {
+      for (const a of [g.attributes.position, g.attributes.normal]) {
+        for (let i = 0; i < a.count; i += 3) for (let j = 0; j < 3; j++) { const t = a.array[(i + 1) * 3 + j]; a.array[(i + 1) * 3 + j] = a.array[(i + 2) * 3 + j]; a.array[(i + 2) * 3 + j] = t; }
+      }
+    }
+    return g;
+  };
+  // (the plain ones painted into one; the others, glowing or see-through, merged with any that share their material)
+  const flat: Mesh[] = [], alike = new Map<Material, Mesh[]>();
+  const walk = (o: Object3D) => {
+    for (const c of o.children) {
+      if (keep.has(c)) continue;
+      const m = c as Mesh;
+      if (!m.isMesh || c.children.length) { walk(c); continue; }
+      if (plain(m.material)) flat.push(m);
+      else if (!Array.isArray(m.material) && !(m.material as MeshLambertMaterial).vertexColors) (alike.get(m.material) ?? alike.set(m.material, []).get(m.material)!).push(m);
+    }
+  };
+  walk(root);
+  if (flat.length) {
+    const geos = flat.map(m => paint(placed(m, ['position', 'normal']), (m.material as MeshLambertMaterial).color.getHex()));
+    for (const m of flat) m.removeFromParent();
+    put(root, mesh(mergeGeometries(geos)!, painted, 0, 0, 0, true));
+    geos.forEach(g => g.dispose());
+  }
+  for (const [mat, ms] of alike) {
+    if (ms.length < 2) continue;
+    const uv = ms.every(m => m.geometry.attributes.uv), geos = ms.map(m => placed(m, uv ? ['position', 'normal', 'uv'] : ['position', 'normal']));
+    const merged = mergeGeometries(geos);
+    geos.forEach(g => g.dispose());
+    if (!merged) continue;
+    const o = mesh(merged, mat, 0, 0, 0, ms[0].castShadow);
+    o.renderOrder = ms[0].renderOrder;
+    for (const m of ms) m.removeFromParent();
+    put(root, o);
+  }
+}
+/** Merges each moving part of a figure on its own (so it's drawn in a few meshes, not dozens): its head, each arm, its
+ *  body round them, and its legs (each on its own if it walks); never into anything in `keep` (what moves on its own:
+ *  a horn, a bass). */
+export function settle(g: Hood, walks = false, keep: Object3D[] = []) {
+  const k = new Set(keep);
+  flatten(g.head, k);
+  for (const a of g.arms) flatten(a, k);
+  flatten(g.body, new Set([g.head, ...g.arms, ...keep]));
+  if (walks) for (const l of g.legs) flatten(l, k);
+  else flatten(g, new Set([g.body, ...keep]));
+}

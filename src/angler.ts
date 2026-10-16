@@ -78,11 +78,11 @@ function eye(h: Object3D, s: number, at: Vector3, r: number, lid: number) {
   put(e, mesh(G.sphere, GLINT, s * -0.05 * r + r * 0.2, look + r * 0.2, r * 0.95)).scale.setScalar(r * 0.11);
   const up = put(e, mesh(halfBall, SKIN, 0, 0, 0)); up.scale.setScalar(r * 1.16); up.rotation.set(lid, 0, -s * 0.12);
   const low = put(e, mesh(halfBall, SKIN, 0, 0, 0)); low.scale.setScalar(r * 1.12); low.rotation.set(Math.PI + 0.95, 0, s * 0.1);
-  return e;
+  return { e, up };
 }
 
 /** Angler Al, the Gentleman. */
-export function angler(): { g: Hood; lure: Object3D } {
+export function angler(): { g: Hood; lure: Object3D; lids: Object3D[] } {
   const g = new Hood({ coat: VEST, lapel: VEST_DARK, shirt: SHIRT, hand: SKIN });
   const b = g.body, kids = b.children;
   // a waistcoat over a shirt: shirt shoulders, a shirt collar, shirt sleeves and cuffs
@@ -146,9 +146,11 @@ export function angler(): { g: Hood; lure: Object3D } {
   // two small nostrils over the moustache
   put(h, mesh(bake([-1, 1].map(s => { const { p, n } = skin(s * 0.07, 0.305, -0.002); return aimed(G.sphere, p, n, [0.009, 0.012, 0.005], FRONT); })), DARK));
   // big half-lidded eyes, and brows, the right one a little raised
+  const lids: Object3D[] = [];
   for (const s of [-1, 1]) {
     const r = 0.072, { p, n } = skin(s * 0.38, 0.385, 0);
-    const e = eye(h, s, p.addScaledVector(n, -0.45 * r), r, s > 0 ? -0.1 : -0.02);
+    const { e, up } = eye(h, s, p.addScaledVector(n, -0.45 * r), r, s > 0 ? -0.1 : -0.02);
+    lids.push(up);
     // a brow: a ridge laid right along the top of his lid (the right one cocked up a little at its outer end)
     const ridge = put(e, mesh(browGeo, DARK, 0, 0, 0)); ridge.scale.setScalar(r * 1.17 / 0.05);
     ridge.rotation.set(s > 0 ? 0.5 : 0.62, 0, Math.PI * 0.2 + s * (s > 0 ? 0.12 : 0.04));
@@ -191,5 +193,5 @@ export function angler(): { g: Hood; lure: Object3D } {
   const cloth = new MeshLambertMaterial({ map: stripes });
   put(hold, mesh(G.sphere, cloth, 0, 0.005, 0.03)).scale.set(0.066, 0.042, 0.06);
   const tail = put(hold, mesh(G.sphere, cloth, -0.012, -0.06, 0.0)); tail.scale.set(0.045, 0.075, 0.016); tail.rotation.z = 0.15;
-  return { g, lure };
+  return { g, lure, lids };
 }
