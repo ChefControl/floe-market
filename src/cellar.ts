@@ -17,7 +17,7 @@ import {
 } from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import {
-  ARCH_HALF, ARCHES, BAR, BAR_STOOLS, BARRELS, BENCH, BIN_PADS, BINS, BOOTHS, CASHIER, GUARDS, MID_BOOTH, CLUB_DOOR, CLUB_WAY, DEN_BAR, DEN_TABLES, DESKS, LEDGER, SNUG, STAGE, CHUTE, chuteY, COUNTER, GONG, HEARTH, LIFTS, machineAt, MAX_MACHINES, POT, STORES, TEPPO, TUNNEL_D, TUNNEL_W, TUNNELS,
+  ARCH_HALF, ARCHES, BAR, BAR_STOOLS, BARRELS, BENCH, BIN_PADS, BINS, BOOTHS, CASHIER, GUARDS, MID_BOOTH, CLUB_DOOR, CLUB_WAY, DEN_BAR, DEN_TABLES, DESKS, FLAP, LEDGER, SNUG, STAGE, CHUTE, chuteY, COUNTER, GONG, HEARTH, LIFTS, machineAt, MAX_MACHINES, POT, STORES, TEPPO, TUNNEL_D, TUNNEL_W, TUNNELS,
 } from './cellarPlan';
 import { Fugu } from './fugu';
 import { apart, Build, dice, K, quietly, rbox, shade, shadowsOf, tube } from './kit';
@@ -1115,7 +1115,8 @@ export const placeBuilt = (p: Place) => p.part === 'base' || parts[p.part].visib
 // like a temple fair's poster, inside and out, ochre panels framed in Pompeian red over a black dado: a wrestler in his
 // stance, Mr. Fugu as a puffer in his shades, a steaming bowl. Boards on the floor inside; a bamboo pole at each
 // corner, the ring's lanterns strung round three sides (none across the front, the camera's), and the square's name
-// board over the back.
+// board over the back. At the west counter's south end, by the wall, a flap: a stretch of counter whose top lifts on a
+// hinge, and the half-door under it swings back against the wall, when the player walks right up to it (updBarFlap).
 /** A painting on a counter's side, `w` by `h` pixels: a panel for each of `panels`, side by side. */
 type Panel = (c: CanvasRenderingContext2D, x: number, y: number, w: number, h: number) => void;
 function fresco(w: number, h: number, panels: Panel[]) {
@@ -1224,11 +1225,32 @@ later(() => {
     box(g, 0x1E1612, cx, CY + 0.04, cz, w + 0.04, 0.08, dd + 0.04);
   };
   const front: Panel[] = [rikishi, puffer, steaming];
-  // the north counter, from the corner to the hearth room's wall, and the west one, from it to the south wall (each
-  // painted inside, where the camera looks, and out, where the fans stand)
-  const west = z1 - z0 - d;
+  // the north counter, from the corner to the hearth room's wall, and the west one, from it to the flap (each painted
+  // inside, where the camera looks, and out, where the fans stand)
+  const west = FLAP.z0 - z0 - d;
   counter(x0, x1, z0, z0 + d, [plaster, painted([steaming], d), painted(front, x1 - x0), painted(front, x1 - x0)]);
-  counter(x0, x0 + d, z0 + d, z1, [painted([puffer, rikishi, steaming], west), painted([steaming, puffer, rikishi], west), plaster, plaster]);
+  counter(x0, x0 + d, z0 + d, FLAP.z0, [painted([puffer, rikishi, steaming], west), painted([steaming, puffer, rikishi], west), plaster, plaster]);
+  // the flap, on to the wall: its top a lid hinged where it meets the counter, lifting from the wall end; under it, on
+  // the arena's side, a painted half-door hinged at the wall, swinging out flat against it (the square's side open
+  // under the lid, as behind any bar)
+  {
+    const L = z1 - FLAP.z0, H = TOP - 0.1, lid = add(g, new Group());
+    lid.position.set(x0 + d / 2, CY + TOP - 0.065, FLAP.z0);
+    const tw = d + 0.08, slab = add(lid, new Mesh(new BoxGeometry(tw, 0.07, L - 0.02), [rim, rim, new MeshLambertMaterial({ map: woodTop(tw, L, true).tex }), rim, rim, rim]));
+    slab.position.set(0, 0.035, L / 2 + 0.01); slab.castShadow = true;
+    // (two iron straps over its hinge, and a ring to lift it by at its far end)
+    for (const s of [-1, 1]) box(lid, 0x2E2E33, s * d * 0.3, 0.072, 0.09, 0.05, 0.01, 0.16, false);
+    add(lid, mesh(new TorusGeometry(0.045, 0.01, 4, 12), 0x2E2E33, 0, 0.075, L - 0.12)).rotation.x = Math.PI / 2;
+    flap.lid = lid;
+    const door = add(g, new Group()); door.position.set(x0 + 0.025, CY, z1 - 0.03);
+    const face = new MeshLambertMaterial({ map: fresco(Math.round(330 * L), 300, [steaming]).tex });
+    const panel = add(door, new Mesh(new BoxGeometry(0.04, H, L - 0.06), [plaster, face, plaster, plaster, plaster, plaster]));
+    panel.position.set(0, H / 2 + 0.02, -(L - 0.06) / 2); panel.castShadow = true;
+    // (its iron hinges, at the wall end)
+    for (const y of [0.18, H - 0.15]) box(door, 0x2E2E33, 0, y, -0.04, 0.05, 0.05, 0.08, false);
+    flap.door = door;
+    moving.push(lid, door);
+  }
   // boards on the floor inside, out to the walls
   const fz0 = z0 + d + 0.02, fz1 = ARENA.z1 + 0.06;
   for (let i = 0, x = x0 + d + 0.02; x < ARENA.x1 + 0.2; x += 0.24, i++) {
@@ -1273,14 +1295,33 @@ later(() => {
   for (let i = -1; i <= 1; i++) box(g, 0x2B3A67, cx, CY + FRAME_H - 0.35, cz + i * span / 3, 0.02, 0.5, span / 3 - 0.04, false).receiveShadow = false;
   box(g, 0xF4F1EA, cx - 0.02, CY + FRAME_H - 0.32, cz, 0.01, 0.16, 0.16, false);
 });
-/** The soup square, for walking round: its two counters, a walker's width out all round (the walls are its other sides). */
+/** The soup square, for walking round: its two counters, a walker's width out all round (the walls are its other sides),
+ *  and the flap (not there for the player while it's open). */
 const BAR_BOXES: [number, number, number, number][] = (() => {
-  const { x0, x1, z0, z1, d } = BAR, W = 0.22;
+  const { x0, x1, z0, d } = BAR, W = 0.22;
   return [
     [(x0 + x1) / 2, z0 + d / 2, (x1 - x0) / 2 + W, d / 2 + W],
-    [x0 + d / 2, (z0 + z1) / 2, d / 2 + W, (z1 - z0) / 2 + W],
+    [x0 + d / 2, (z0 + FLAP.z0) / 2, d / 2 + W, (FLAP.z0 - z0) / 2 + W],
   ];
 })();
+const FLAP_BOX: [number, number, number, number] = [BAR.x0 + BAR.d / 2, (FLAP.z0 + FLAP.z1) / 2, BAR.d / 2 + 0.22, (FLAP.z1 - FLAP.z0) / 2];
+/** What moves in the cellar's furniture, left out of its baking: the flap's lid and door. */
+const moving: Object3D[] = [];
+/** The flap: how far open it is (0 shut, 1 open), and its lid and door (once built). */
+const flap = { k: 0, lid: null as Object3D | null, door: null as Object3D | null };
+/** Whether the player's up at the flap, inside the square or out (about half a metre short of the counter), or in it. */
+const atFlap = (p: XZ) => Math.abs(p.x - FLAP_BOX[0]) < BAR.d / 2 + 0.8 && p.z > FLAP.z0 - 0.35 && p.z < FLAP.z1 + 0.3;
+/** The flap, every frame: opening when the player (at `p`, down here) walks right up to it, quickly, and shutting after
+ *  them when they step away, a little slower; its lid lifting from the wall end past upright, its door swinging back. */
+export function updBarFlap(dt: number, p: XZ | null) {
+  flap.k = p && atFlap(p) ? Math.min(1, flap.k + dt / 0.3) : Math.max(0, flap.k - dt / 0.45);
+  const e = flap.k * flap.k * (3 - 2 * flap.k);
+  if (flap.lid) flap.lid.rotation.x = -e * 1.75;
+  if (flap.door) flap.door.rotation.y = e * Math.PI / 2;
+}
+/** Whether the flap's open enough to walk through, and how far open it is (for tests). */
+export const flapOpen = () => flap.k > 0.7;
+export const flapK = () => flap.k;
 /** Straw-wrapped sake barrels (komodaru), stacked against the east wall between the landing's door and the soup bar, the
  *  way a shrine stacks the ones it's given. */
 const KOMO = { x: ARENA.x1 - 0.35, z: 1.95 };
@@ -2684,12 +2725,14 @@ export function cellarLights(on: boolean) { lights.forEach(l => { l.visible = on
  *  the stands, the soup bar, the sake barrels, the gong and the cashier's window, the hearth and the counter, the
  *  dumbwaiter and its bins, the machines built so far, the teppo post, the office's furniture, and what the venue's
  *  tiers add. (The rooms' walls are where the floor ends: layout.ts.) */
-export function cellarBoxes(machines: Record<'rice' | 'fish' | 'mush', number> = { rice: 0, fish: 0, mush: 0 }) {
+export function cellarBoxes(machines: Record<'rice' | 'fish' | 'mush', number> = { rice: 0, fish: 0, mush: 0 }, player = false) {
   const t = parts.tier.visible;
   const boxes: [cx: number, cz: number, hx: number, hz: number][] = [
     [RING.x, RING.z, RING_HALF + RING_FOOT + 0.2, RING_HALF + RING_FOOT + 0.2],
     [(BACK.a0 + BACK.a1) / 2, BACK.wall + (t ? 1.5 : 1.1), (BACK.a1 - BACK.a0) / 2 + 0.2, t ? 1.65 : 1.2],
     ...BAR_BOXES,
+    // (the flap's shut to everyone but the player, and to them till it's open)
+    ...(player && flapOpen() ? [] : [FLAP_BOX]),
     [GONG.x, GONG.z, 1.15, 0.45],
     [CASHIER.x, CASHIER.z, 0.65, 1.3],
     [TEPPO.x, TEPPO.z, 0.5, 0.5],
@@ -2765,7 +2808,7 @@ export function cellarBoxes(machines: Record<'rice' | 'fish' | 'mush', number> =
  *  every box and still on the floor. (Pushed out of each box in turn, two that touch, or one against a wall, would
  *  bounce them back and forth between, a frame each.) */
 export function collideCellar(p: XZ, machines?: Record<'rice' | 'fish' | 'mush', number>) {
-  const boxes = cellarBoxes(machines), floors = walkable();
+  const boxes = cellarBoxes(machines, true), floors = walkable();
   const inside = (x: number, z: number, [cx, cz, hx, hz]: (typeof boxes)[number], e = 1e-6) => Math.abs(x - cx) < hx - e && Math.abs(z - cz) < hz - e;
   const blocked = (x: number, z: number) => boxes.some(b => inside(x, z, b));
   if (!blocked(p.x, p.z)) return;
@@ -2868,9 +2911,9 @@ export function buildCellar() {
   const theirs = [cellar, ...Object.values(parts)].flatMap(g => g.children);
   apart(() => {
     for (const f of toBuild) f();
-    // (the gong's disc swings, the pot's stew changes colour, Mr. Fugu puffs up; and the venue's parts, the grow room
-    // and the Undertow come and go, so each is baked on its own)
-    bakeStill(cellar, new Set<Object3D>([gongDisc, potMesh, boss, tankFish, ...Object.values(parts), ...theirs]));
+    // (the gong's disc swings, the pot's stew changes colour, Mr. Fugu puffs up, the soup square's flap lifts; and the
+    // venue's parts, the grow room and the Undertow come and go, so each is baked on its own)
+    bakeStill(cellar, new Set<Object3D>([gongDisc, potMesh, boss, tankFish, ...Object.values(parts), ...theirs, ...moving]));
     for (const g of Object.values(parts)) bakeStill(g, new Set(theirs));
   }, dice(0xCE11A));
 }
