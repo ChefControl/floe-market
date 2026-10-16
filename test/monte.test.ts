@@ -51,9 +51,10 @@ describe("Tommy's monte", () => {
     expect(startRound(100, 500, 100)).not.toBeNull();
   });
 
-  it('has a limit of about two minutes of takings, never below the floor, and plays 3 rounds a fight', () => {
+  it("has a limit of a fight's takings at a full house, in fives, never below the floor, and plays 3 rounds a fight", () => {
     expect(limitFor(0)).toBe(LIMIT_FLOOR);
-    expect(limitFor(300)).toBe(600);
+    expect(limitFor(300)).toBe(300);
+    expect(limitFor(123.4)).toBe(120);
     expect(ROUNDS).toBe(3);
   });
 });

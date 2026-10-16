@@ -12,13 +12,14 @@ export const WIN = 2;
 export const SWAPS = { min: 4, max: 10 };
 /** Rounds he'll play with you a bout. */
 export const ROUNDS = 3;
-/** His table's limit: about two minutes of the player's takings, and never less than this many chips. */
-export const LIMIT_MINUTES = 2, LIMIT_FLOOR = 20;
+/** His table's limit: one fight's takings at a full house (fullHouse.ts), in steps of this many chips, and never less
+ *  than this many. */
+export const LIMIT_FIGHTS = 1, LIMIT_STEP = 5, LIMIT_FLOOR = 20;
 /** Where the queen starts: in the middle, where he shows her. */
 export const START = 1;
 
-/** His table's limit, in chips, for a player taking `perMinute` chips a minute. */
-export const limitFor = (perMinute: number) => Math.max(LIMIT_FLOOR, Math.round(LIMIT_MINUTES * perMinute));
+/** His table's limit, in chips, for a player whose fights take `fullFight` chips at a full house. */
+export const limitFor = (fullFight: number) => Math.max(LIMIT_FLOOR, Math.floor(LIMIT_FIGHTS * fullFight / LIMIT_STEP) * LIMIT_STEP);
 /** How many swaps he makes for `stake` at a table whose limit is `limit` (both in the same money). */
 export const swapsFor = (stake: number, limit: number) =>
   SWAPS.min + Math.round((SWAPS.max - SWAPS.min) * Math.max(0, Math.min(1, stake / Math.max(1, limit))));

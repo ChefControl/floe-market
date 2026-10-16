@@ -89,7 +89,11 @@ const chipLabel = (v: number) => v >= 1000 ? `$${v / 1000}k` : `$${v}`;
 
 /** What's different about a table's stake (Tommy's, down in the cellar): its chips, a limit on the stake besides the
  *  player's cash, and how a chip and the stake are written. */
-export interface StakeRules { chips(): number[]; limit(): number; chip(v: number): string; label(v: number): string }
+export interface StakeRules {
+  chips(): number[]; limit(): number; chip(v: number): string; label(v: number): string;
+  /** Whether the chips bigger than the table's limit are taken off it (rather than greyed out). */
+  hideOver?: boolean;
+}
 const BOAT: StakeRules = {
   chips: () => CHIPS[stage.n], limit: () => Infinity, chip: chipLabel, label: v => '$' + v.toLocaleString('en-US'),
 };
@@ -205,6 +209,7 @@ export class Stakes {
         else { delete b.dataset.n; b.removeAttribute('aria-label'); }
         b.setAttribute('aria-pressed', String(n > 0));
         b.disabled = busy || (this.all ? 0 : this.value) + amount > this.most;
+        b.hidden = !!this.rules.hideOver && amount > this.rules.limit();
       }
     });
   }

@@ -2474,15 +2474,18 @@ later(() => {
   box(p, 0x6E3220, hx + H.w / 2 - 0.04, CY + 0.5, hz, 0.05, 0.5, H.d - 0.86);
   box(p, BRASS, hx + H.w / 2 - 0.01, CY + H.h - 0.05, hz, 0.02, 0.03, H.d - 0.1, false);
   const ht = CY + H.h + 0.03;
-  box(p, 0x3A4650, hx - 0.05, ht + 0.07, hz - 0.42, 0.24, 0.14, 0.34);
-  box(p, BRASS, hx + 0.07, ht + 0.1, hz - 0.42, 0.01, 0.04, 0.06, false);
+  box(p, 0x3A4650, hx - 0.05, ht + 0.07, hz - 0.3, 0.24, 0.14, 0.34);
+  box(p, BRASS, hx + 0.07, ht + 0.1, hz - 0.3, 0.01, 0.04, 0.06, false);
   box(p, 0x7A1E1E, hx, ht + 0.015, hz + 0.05, 0.22, 0.03, 0.3).rotation.y = 0.1;
   box(p, 0xF4F1EA, hx + 0.01, ht + 0.033, hz + 0.05, 0.2, 0.006, 0.28, false).rotation.y = 0.1;
   for (let i = 0; i < 6; i++) box(p, i % 2 ? 0xF4F1EA : 0xE8DDB8, hx + 0.12 - (i % 3) * 0.06, ht + 0.004 + i * 0.006, hz + 0.42 + (i % 2) * 0.05, 0.13, 0.005, 0.18, false).rotation.y = (i * 0.9) % 1 - 0.5;
   box(p, 0x2A2A2E, hx - 0.15, ht + 0.04, hz + 0.45, 0.2, 0.08, 0.22);
-  add(p, mesh(G.cyl, BRASS, hx - 0.2, ht + 0.12, hz - 0.08)).scale.set(0.012, 0.22, 0.012);
-  const shade = add(p, mesh(new CylinderGeometry(0.1, 0.1, 0.3, 10, 1, false, 0, Math.PI), glow(0x2F7A4A, 0x1E5A34), hx - 0.16, ht + 0.24, hz - 0.08));
-  shade.rotation.set(Math.PI / 2, 0, Math.PI / 2);
+  // (the banker's lamp at the desk's far corner, out from between him and whoever's across the desk: a round brass
+  // foot, its stem, and the green shade lying flat along the desk, the curve up)
+  add(p, mesh(new CylinderGeometry(0.075, 0.085, 0.025, 16), BRASS, hx - 0.2, ht + 0.012, hz - 0.52));
+  add(p, mesh(G.cyl, BRASS, hx - 0.2, ht + 0.13, hz - 0.52)).scale.set(0.012, 0.22, 0.012);
+  const shade = add(p, mesh(new CylinderGeometry(0.1, 0.1, 0.3, 10, 1, false, 0, Math.PI), glow(0x2F7A4A, 0x1E5A34), hx - 0.16, ht + 0.24, hz - 0.52));
+  shade.rotation.set(Math.PI / 2, 0, Math.PI / 2, 'ZYX');
   // the lamp hung over the desk: a cord down from the dark, a green enamel shade, its bulb glowing under it
   add(p, mesh(G.cyl, 0x15181D, hx, CY + 2.6, hz, false)).scale.set(0.01, 0.7, 0.01);
   add(p, mesh(new ConeGeometry(0.26, 0.2, 16, 1, true), glow(0x2F7A4A, 0x14402A), hx, CY + 2.18, hz));
