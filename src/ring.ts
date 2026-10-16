@@ -1,7 +1,7 @@
 // Fight night in the game (stage 3): runs fight.ts's cellar every frame, draws it (the kitchen, the bouts, the swarm,
 // the gong), and answers what happens down there: chips into the wallet, the gong's crash and the crowd flooding in,
 // the card after a rush, the grow room coming to light, Mr. Fugu's office lighting up for the buyout.
-import { CY, parts, showGrowRoom, showVenue } from './cellar';
+import { CY, parts, showGrowRoom, showVenue, updBarFlap } from './cellar';
 import { BAR, GONG } from './cellarPlan';
 import { openRing, updDohyo } from './dohyo';
 import { BOSSES, CHIP, F, fightFrom, on, resetFight, step, strength } from './fight';
@@ -95,6 +95,7 @@ export function updRing(dt: number) {
   }
   if (roarT > 0 && (roarT -= dt) <= 0) react('charge');
   updRingKitchen(dt);
+  updBarFlap(dt, level.down ? player.g.position : null);
   updDohyo(dt);
   updOffice(dt);
   updSwarm(dt);
