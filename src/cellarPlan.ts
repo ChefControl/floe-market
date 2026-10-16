@@ -1,7 +1,7 @@
 // Where everything is down in the cellar (stage 3), as plain floor positions (x, z; the floor is CELLAR_Y): the stations
 // of the kitchen's lines, the pot and its ledge, the bowl counter, the soup square, the gong, and the way between rooms.
 // Kept apart from the cellar's meshes (cellar.ts) so the fight night's simulation (fight.ts) can use it without them.
-import { ARENA, type CellarRoom, CRAFT, DOORS, GROW, KITCHEN, LIFT_ROOM, OFFICE_ROOM, PREP, ROOMS } from './layout';
+import { ARENA, type CellarRoom, CRAFT, DEN, DOORS, GROW, KITCHEN, LIFT_ROOM, LOANS, OFFICE_ROOM, PASSAGE, PREP, ROOMS } from './layout';
 import type { XZ } from './util';
 
 export type Ing = 'rice' | 'fish' | 'mush';
@@ -131,6 +131,65 @@ export const BENCH_PAD = { x: BENCH.x + 1.65, z: BENCH.z };
 /** Each room whose upgrades the bench sells (all of them at the bench now, so a room's tiles point there). */
 export type MenuRoom = 'prep' | 'grow' | 'hearth';
 export const ROOM_MENUS: Record<MenuRoom, XZ> = { prep: BENCH_PAD, grow: BENCH_PAD, hearth: BENCH_PAD };
+
+// ---------- the Undertow: the club, and the Family's three spread round it ----------
+/** The three pointed arches along the club's back wall, east of the bar (their middles, west to east): a booth for the
+ *  regulars, Eddie's booth, and the singer's stage; each 2·ARCH_HALF wide. */
+export const ARCH_HALF = 1.0;
+export const ARCHES = [DEN.x0 + 4.75, DEN.x0 + 6.75, DEN.x0 + 8.75];
+export type Booth = 'eddie' | 'harry' | 'tommy';
+/** Where each of the Family deals from, and which way he faces (0: out into the room, south; a quarter turn: east):
+ *  Eddie sat in his booth under the middle arch, Harry behind his desk in his office through the club's west wall (its
+ *  door on his right as he sits), and Tommy sat in a corner of his own, the south-west, behind his card table. */
+export const BOOTHS: Record<Booth, XZ & { face: number }> = {
+  eddie: { x: ARCHES[1], z: DEN.z0 + 0.62, face: 0 },
+  harry: { x: LOANS.x0 + 0.75, z: LOANS.z0 + 2.1, face: Math.PI / 2 },
+  tommy: { x: DEN.x0 + 2.0, z: DEN.z1 - 2.75, face: 0 },
+};
+/** What each deals across: Eddie's round table (`r`), Harry's desk and Tommy's half-moon card table, its straight edge
+ *  towards him (`w` across x, `d` across z); each `h` high. */
+export const DESKS = {
+  eddie: { x: ARCHES[1], z: DEN.z0 + 1.45, r: 0.45, h: 0.76 },
+  harry: { x: LOANS.x0 + 1.6, z: LOANS.z0 + 2.1, w: 0.7, d: 1.4, h: 0.78 },
+  tommy: { x: DEN.x0 + 2.0, z: DEN.z1 - 2.15, w: 1.2, d: 0.6, h: 0.76 },
+};
+/** The pad in front of each, where you step up to deal with him. */
+export const BOOTH_PADS: Record<Booth, Pad> = {
+  eddie: pad(DESKS.eddie.x, DESKS.eddie.z + DESKS.eddie.r + 0.65, 0.6),
+  harry: pad(DESKS.harry.x + DESKS.harry.w / 2 + 0.7, DESKS.harry.z, 0.6),
+  tommy: pad(DESKS.tommy.x, DESKS.tommy.z + DESKS.tommy.d / 2 + 0.75, 0.6),
+};
+/** Harry's office (LOANS), round him: his bookkeeper's little desk in the south-west corner (him at its west end, facing
+ *  east, as Harry does), the safe in the north-west corner, the filing cabinets along the back wall (`n` of them, from
+ *  `x`), the hat stand and the water cooler by the door, and a potted kelp in the south-east corner. */
+export const LEDGER = {
+  clerk: { x: LOANS.x0 + 0.6, z: LOANS.z1 - 0.62 }, desk: { x: LOANS.x0 + 1.22, z: LOANS.z1 - 0.62, w: 0.55, d: 0.95, h: 0.74 },
+  safe: { x: LOANS.x0 + 0.42, z: LOANS.z0 + 0.4 }, files: { x: LOANS.x0 + 1.25, n: 3, z: LOANS.z0 + 0.26 },
+  hats: { x: LOANS.x1 - 0.32, z: LOANS.z0 + 0.38 }, cooler: { x: LOANS.x1 - 0.3, z: LOANS.z0 + 1.15 }, kelp: { x: LOANS.x1 - 0.38, z: LOANS.z1 - 0.36 },
+};
+/** The bar along the back wall west of the arches, facing the room: its counter (x0 to x1, `d` deep to its front at
+ *  `front`, `h` high), and where the barman stands behind it, in front of the shelves on the wall. */
+export const DEN_BAR = { x0: DEN.x0 + 0.25, x1: ARCHES[0] - ARCH_HALF - 0.15, front: DEN.z0 + 1.15, d: 0.55, h: 1.05 };
+export const BARMAN = { x: (DEN_BAR.x0 + DEN_BAR.x1) / 2 + 0.3, z: DEN.z0 + 0.3 };
+/** The bar's stools, along the front of its counter (the one at the east end is the blobfish's). */
+export const BAR_STOOLS: XZ[] = [-1.45, -0.9, 0.85, 1.35].map(dx => ({ x: BARMAN.x + dx, z: DEN_BAR.front + 0.45 }));
+/** Where you order a drink, in front of the barman; and where you buy the blobfish one, beside his stool. */
+export const DRINK_PAD = pad(BARMAN.x, DEN_BAR.front + 0.95, 0.6);
+export const BLOB_PAD = pad(BAR_STOOLS[3].x + 0.1, DEN_BAR.front + 1.35, 0.55);
+/** The regulars' booth under the west arch (its seat, and the little table in front of it), and the singer's little
+ *  round stage under the east one. */
+export const SNUG = { x: ARCHES[0], z: DEN.z0 + 0.62, table: { x: ARCHES[0], z: DEN.z0 + 1.35 } };
+export const STAGE = { x: ARCHES[2], z: DEN.z0 + 1.0, r: 0.85 };
+/** Out on the floor: the trench coat's high table, the pink table, the round table, and the barrels in the corner. */
+export const DEN_TABLES = {
+  coat: { x: DEN.x1 - 1.6, z: DEN.z0 + 2.9 }, pink: { x: DEN.x0 + 4.6, z: DEN.z1 - 1.0 },
+  south: { x: DEN.x0 + 8.4, z: DEN.z1 - 1.1 },
+} satisfies Record<string, XZ>;
+export const BARRELS = { x: DEN.x1 - 0.6, z: DEN.z1 - 0.8 };
+/** The club's doors: a pair across the short way through the rock from near the far end of the tunnel to the club's
+ *  east wall (`way`), hung at the tunnel's side (`x`), swinging in towards the club. */
+export const CLUB_DOOR = { x: PASSAGE.x0 - 0.15, z0: PASSAGE.z1 - 1.8, z1: PASSAGE.z1 - 0.2 };
+export const CLUB_WAY = { x0: DEN.x1, x1: PASSAGE.x0, z0: CLUB_DOOR.z0, z1: CLUB_DOOR.z1 };
 
 // ---------- the landing and the office ----------
 /** Stage 3's upgrade square: the shop counter's. */

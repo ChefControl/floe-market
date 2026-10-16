@@ -109,6 +109,8 @@ const rushEl = $('rush'), rushName = $('rushName'), rushBell = $('rushBell'), ru
 const rushYou = $('rushYou'), rushThem = $('rushThem'), barEl = rushBar.parentElement!;
 const card = $('fightCard');
 let cardT = 0;
+/** Whether a boss's card is up after his bout. */
+export const cardUp = () => !card.hidden;
 card.addEventListener('click', () => { card.hidden = true; });
 /** The card after a boss's rush: turned him, or how short, why, and what it takes. */
 export function showCard(R: Rush) {

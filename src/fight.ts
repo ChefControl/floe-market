@@ -45,7 +45,7 @@ export interface Boss {
 }
 export const BOSSES: Boss[] = [
   { face: '🐙', name: 'Hakkaku', crowd: 120, bell: 30, prize: 120, skin: 0xD59AC0, belt: 0x5B2A4A, opens: 'the grow room and its first mushroom bed. Mushroom bowls pay double. The Back-Alley Ring' },
-  { face: '🦀', name: 'Yokobashiri', crowd: 180, bell: 30, prize: 300, skin: 0xE58A62, belt: 0x7A2A1E, opens: 'the cook, and steam baskets for rice' },
+  { face: '🦀', name: 'Yokobashiri', crowd: 180, bell: 30, prize: 300, skin: 0xE58A62, belt: 0x7A2A1E, opens: 'the cook, steam baskets for rice, and a way out through the south wall' },
   { face: '🐀', name: 'Dobu', crowd: 220, bell: 30, prize: 800, skin: 0x9C8F86, belt: 0x3B342E, opens: 'the Underground Arena, the smokehouse for fish, and the attendant' },
   { face: '🦈', name: 'Samehada', crowd: 420, bell: 30, prize: 2000, skin: 0xA3B1BE, belt: 0x2B3440, opens: 'the Grand Hall Below, and glowing grow shelves' },
   { face: '🐡', name: 'Fukure', crowd: 1000, bell: 60, prize: 10000, skin: 0xE9D9A0, belt: 0xC9A23A, opens: 'the gold tile: buy back all his chips' },
@@ -143,7 +143,11 @@ export interface Fight {
   bout: Bout;
   /** The locals' bouts' dice, and the player's turn at the pot. */
   seed: number; cookT: number;
+  /** The Undertow (undertow.ts): whether the doorman's let you in yet (doorway.ts), and the bout Tommy last played monte
+   *  in and how many rounds he played in it. */
+  den: Den;
 }
+export interface Den { door: boolean; monte: { bout: number; played: number } }
 
 const line = (n: number): Line => ({ n, up: 0, m: [] });
 /** A bout's preparation, from the start (how many fans come is worked out as it starts: -1). */
@@ -156,6 +160,7 @@ export function blank(): Fight {
     queue: [], fed: [], cooked: [], full: [], fullAcc: 0, earned: [],
     rush: null, bout: freshBout(0),
     seed: 3, cookT: 0,
+    den: { door: false, monte: { bout: -1, played: 0 } },
   };
 }
 /** The cellar now (a forecast swaps a copy in for a moment). */
@@ -176,6 +181,8 @@ export const on = {
   bout: (_phase: Phase) => {},
   /** The grow room has been found. */
   grow: () => {},
+  /** The Undertow has been found (the second boss beaten). */
+  den: () => {},
   /** Something bought at the shop counter has been built (unlocks.ts). */
   built: (_what: Built) => {},
 };
@@ -352,6 +359,7 @@ function bossResult(R: Rush) {
     F.beaten++;
     on.earn(boss.prize, 'prize');
     if (F.beaten === 1) revealGrowRoom();
+    if (F.beaten === 2) on.den();
   }
   on.rushEnd(R);
 }
@@ -716,6 +724,7 @@ export function fightFrom(raw: unknown): Fight {
       fed: list<number>(r.fed, isNum), cooked: list<number>(r.cooked, isNum), full: list<number>(r.full, isNum),
       fullAcc: num(r.fullAcc), earned: list<[number, number]>(r.earned, x => Array.isArray(x) && x.every(isNum)),
       seed: clamp(Math.floor(num(r.seed, 3)), 1, 2147483646), cookT: 0,
+      den: { door: r.den?.door === true, monte: { bout: Math.floor(num(r.den?.monte?.bout, -1)), played: clamp(Math.floor(num(r.den?.monte?.played)), 0, 99) } },
     };
     for (const k of ING) {
       const L = (r.lines?.[k] ?? {}) as Partial<Line>;

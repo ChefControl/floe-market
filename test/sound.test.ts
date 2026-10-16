@@ -2,7 +2,7 @@
 // tests listen through a stand-in for Web Audio (fakeAudio.ts) that logs what's played, on which bus, panned where.
 import { describe, expect, it, vi } from 'vitest';
 import { fake, FakeAudioContext, FakeNode, installFakeAudio, level, nameBuses, type Played } from './fakeAudio';
-import { bought, loadGame, MARKET, type SaveFixture } from './helpers';
+import { bought, FLOE_SUSHI, loadGame, MARKET, type SaveFixture } from './helpers';
 import { seeded } from './setup';
 
 const $ = (id: string) => document.getElementById(id)!;
@@ -460,7 +460,7 @@ describe('music', () => {
     const m = await import('../src/music'), { GAMES, SHIP } = s.g.layout;
     s.g.placePlayer(0, -3);
     s.play(2);
-    expect(m.musicMix()).toEqual({ stage: 1, lounge: 0 });
+    expect(m.musicMix()).toEqual({ stage: 1, lounge: 0, noir: 0 });
     expect(s.audio.key.root).toBe(65);
     // on the quay, alongside: mostly the band already, the market's music still under it
     s.g.placePlayer(-12, -4.5);
@@ -481,8 +481,45 @@ describe('music', () => {
     // back to the market: the band fades away and the market's music comes back
     s.g.placePlayer(0, -3);
     s.play(2);
-    expect(m.musicMix()).toEqual({ stage: 1, lounge: 0 });
+    expect(m.musicMix()).toEqual({ stage: 1, lounge: 0, noir: 0 });
     expect(m.harborK({ x: SHIP.x, z: SHIP.z })).toBe(1);
+  }, 30_000);
+
+  it("the Undertow's band, down in the stage 3 cellar: through its doors down the tunnel, and the music in the club", async () => {
+    const s = await withSound({
+      tiles: bought(...MARKET, 'sushi', ...FLOE_SUSHI, 'dohyo'), fugu: 2, level: 1, reviews: Array(20).fill(5),
+      ring: { beaten: 2, lines: { mush: { n: 1 } }, den: { door: true } },
+    });
+    const m = await import('../src/music'), { CY } = await import('../src/cellar'), plan = await import('../src/cellarPlan');
+    const { club } = await import('../src/noir'), { DEN, PASSAGE } = s.g.layout;
+    const at = (x: number, z: number) => s.g.player.g.position.set(x, CY, z), x = (PASSAGE.x0 + PASSAGE.x1) / 2;
+    at(plan.GONG_PAD.x, plan.GONG_PAD.z);
+    s.play(2);
+    expect(m.musicMix().noir).toBe(0);
+    // down the tunnel: the band through the doors, under the stage's music, louder nearer them
+    at(x, PASSAGE.z0 + 1);
+    s.play(1);
+    const far = m.musicMix().noir;
+    expect(far).toBeGreaterThan(0.1);
+    expect(club.muffle).toBe(1);
+    at(x, plan.CLUB_DOOR.z0 - 1.5);
+    s.play(1);
+    expect(m.musicMix().noir).toBeGreaterThan(far);
+    expect(m.musicMix().stage).toBeGreaterThan(0.01);
+    // in the club: the band alone, in its own key, its upright bass on D2 and A2, the harmon mute's trumpet, nothing shrill
+    at((DEN.x0 + DEN.x1) / 2, DEN.z1 - 0.3);
+    s.play(1);
+    expect(m.musicMix().noir).toBeCloseTo(1, 3);
+    expect(m.musicMix().stage).toBeLessThan(0.001);
+    expect(s.audio.key.root).toBe(65);
+    const heard = music(s.since(() => s.play(24)));
+    expect(heard.some(p => near(p.f, hz(38))) && heard.some(p => near(p.f, hz(45)))).toBe(true);
+    expect(heard.some(p => p.type === 'custom')).toBe(true);
+    expect(heard.filter(p => p.kind === 'tone' && p.type !== 'triangle').every(p => p.f < 4000)).toBe(true);
+    // back up the tunnel and out: gone
+    at(plan.GONG_PAD.x, plan.GONG_PAD.z);
+    s.play(2);
+    expect(m.musicMix().noir).toBeLessThan(0.001);
   }, 30_000);
 
   it('the casino yacht\'s room: the dining room faint below anywhere aboard, the bar and the slot machines up close', async () => {

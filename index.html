@@ -145,6 +145,8 @@ body{
 /* the ring's big hits, seen from the watch spot (gong.ts): a white flash over the game, under the HUD */
 #ringFlash{ position:fixed; inset:0; background:#fff; opacity:0; pointer-events:none; z-index:1; }
 /* Dark for a moment, going up or down the ladder. */
+#tunnelShade{ position:fixed; inset:0; z-index:1; pointer-events:none; opacity:0; background:radial-gradient(ellipse 70% 62% at 50% 48%, rgba(5,4,8,0) 38%, rgba(5,4,8,.92) 100%); }
+#doorFlash{ position:fixed; inset:0; z-index:1; pointer-events:none; opacity:0; background:radial-gradient(ellipse 80% 70% at 45% 50%, rgba(255,150,200,.9), rgba(80,220,210,.45) 55%, rgba(20,10,30,0) 100%); mix-blend-mode:screen; }
 #fade{ position:fixed; inset:0; z-index:7; background:#0F0B09; opacity:0; pointer-events:none; transition:opacity .3s; }
 #fade.on{ opacity:1; }
 #fade.slow{ transition:opacity .9s; }
@@ -1215,6 +1217,36 @@ body.offer #hud, body.offer #corner, body.offer #pointers, body.offer #tip, body
     <button type="button" data-stake="undo" aria-label="Take back the last chip">Undo</button>
   </div>
   <button type="button" id="pull" class="go"></button>
+</div>
+<div id="monte" class="casino" hidden>
+  <p id="monteMsg" class="msg" aria-live="polite"></p>
+  <div class="acts" id="montePick" role="group" aria-label="Where's the queen?" hidden>
+    <button type="button" data-card="0">Left</button>
+    <button type="button" data-card="1">Middle</button>
+    <button type="button" data-card="2">Right</button>
+  </div>
+  <div class="stakes" role="group" aria-label="Stake">
+    <button type="button" data-stake="0">🐡 1</button>
+    <button type="button" data-stake="1">🐡 5</button>
+    <button type="button" data-stake="2">🐡 25</button>
+    <button type="button" data-stake="3">🐡 100</button>
+    <button type="button" data-stake="all">Max</button>
+    <button type="button" data-stake="undo" aria-label="Take back the last chip">Undo</button>
+  </div>
+  <button type="button" id="monteDeal" class="go"></button>
+</div>
+<div id="tunnelShade" aria-hidden="true"></div>
+<div id="doorFlash" aria-hidden="true"></div>
+<div id="denBar" class="casino" hidden>
+  <p id="denBarMsg" class="msg" aria-live="polite"></p>
+  <div class="acts" role="group" aria-label="Drinks">
+    <button type="button" data-drink="tonic"></button>
+    <button type="button" data-drink="house" class="gold"></button>
+  </div>
+</div>
+<div id="denGus" class="casino" hidden>
+  <p id="denGusMsg" class="msg" aria-live="polite"></p>
+  <button type="button" id="buyGus" class="go"></button>
 </div>
 <div id="bubbly" class="casino" hidden>
   <p id="bubblyMsg" class="msg" aria-live="polite"></p>
