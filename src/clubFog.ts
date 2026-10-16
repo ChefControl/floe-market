@@ -9,12 +9,12 @@ import { Color, DataTexture, Group, LinearFilter, Mesh, PlaneGeometry, RepeatWra
 import { CY, parts } from './cellar';
 import { CLUB_DOOR } from './cellarPlan';
 import { F } from './fight';
-import { DEN, LOANS } from './layout';
+import { DEN, LOANS, VIP } from './layout';
 
 const D = CLUB_DOOR;
-/** What it covers: the room, Harry's office through its west wall, and the way in from the doors, out over the rock
- *  round them, but not past the doors. */
-const RECT = { x0: LOANS.x0 - 1.1, x1: D.x - 0.12, z0: DEN.z0 - 0.5, z1: DEN.z1 + 1.1 };
+/** What it covers: the room, Harry's office through its west wall, Eddie's through its south one, and the way in from
+ *  the doors, out over the rock round them, but not past the doors. */
+const RECT = { x0: LOANS.x0 - 1.1, x1: D.x - 0.12, z0: DEN.z0 - 0.5, z1: VIP.z1 + 1.1 };
 /** The sheets' heights, from the floor to just over the back wall. */
 const SHEETS = [0.15, 0.6, 1.1, 1.6, 2.15, 2.65, 3.05];
 /** Seconds it takes to roll back off the room (most of it once the camera's back from the doors), and how far it has

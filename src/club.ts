@@ -8,7 +8,7 @@ import { gamePad, tipsy } from './casinoKit';
 import { CY, parts } from './cellar';
 import { BAR_STOOLS, BARMAN, BLOB_PAD, DEN_BAR, DRINK_PAD } from './cellarPlan';
 import { BOSSES, CHIP, F } from './fight';
-import { DEN, found, level, LOANS } from './layout';
+import { CARDS, DEN, found, level, LOANS, VIP } from './layout';
 import { player } from './player';
 import { BUBBLE_Y, glass, type Regular, regularParts, regulars, updRegulars, velvetAt, where } from './regulars';
 import { camera } from './render';
@@ -143,7 +143,7 @@ for (const [p, mark] of [[DRINK_PAD, barPad.mark], [BLOB_PAD, gusPad.mark]] as c
 }
 
 /** Whether `p` is in the club, or in Harry's office through its west wall. */
-const inDen = (p: { x: number; z: number }) => [DEN, LOANS].some(r => p.x > r.x0 - 0.5 && p.x < r.x1 + 0.5 && p.z > r.z0 - 0.5 && p.z < r.z1 + 0.5);
+const inDen = (p: { x: number; z: number }) => [DEN, LOANS, VIP, CARDS].some(r => p.x > r.x0 - 0.5 && p.x < r.x1 + 0.5 && p.z > r.z0 - 0.5 && p.z < r.z1 + 0.5);
 let singT = SING_EVERY, verse = 0;
 const tmp = V(0, 0, 0);
 

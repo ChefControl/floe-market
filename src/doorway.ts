@@ -13,7 +13,7 @@ import { liftFog, updFog } from './clubFog';
 import { F } from './fight';
 import { club } from './noir';
 import { dustFx, steamer } from './fx';
-import { DEN, found, level, LOANS, PASSAGE } from './layout';
+import { CARDS, DEN, found, level, LOANS, PASSAGE, VIP } from './layout';
 import { player } from './player';
 import { camera, canvasTex, G, mesh } from './render';
 import { bubble } from './speech';
@@ -205,12 +205,13 @@ export function updDoorway(dt: number) {
 }
 
 /** How far the club's band is heard, 0 to 1, and how muffled (0: clear, 1: through the shut doors): full in the club,
- *  through its doorway in Harry's office, through the doors down the tunnel, louder the nearer you get (music.ts). */
+ *  through its doorways in Harry's office, Tommy's card room and Eddie's room, through the doors down the tunnel, louder the nearer you get (music.ts). */
 export function clubHeard(p: { x: number; z: number }) {
   if (!level.down || !found.den) return { k: 0, muffle: 1 };
   if (p.x > DEN.x0 - 0.5 && p.x < D.x - 0.1 && p.z > DEN.z0 - 0.5 && p.z < DEN.z1 + 0.5) return { k: 1, muffle: 0 };
-  // (in Harry's office, through its doorway: a little quieter, and duller)
-  if (p.x > LOANS.x0 - 0.5 && p.x <= DEN.x0 - 0.5 && p.z > LOANS.z0 - 0.5 && p.z < LOANS.z1 + 0.5) return { k: 0.8, muffle: 0.45 };
+  // (in Harry's office, Tommy's card room or Eddie's room, through its doorway: a little quieter, and duller)
+  if (p.x > LOANS.x0 - 0.5 && p.x <= DEN.x0 - 0.5 && p.z > LOANS.z0 - 0.5 && p.z < CARDS.z1 + 0.5) return { k: 0.8, muffle: 0.45 };
+  if (p.x > VIP.x0 - 0.5 && p.x < VIP.x1 + 0.5 && p.z >= DEN.z1 + 0.5 && p.z < VIP.z1 + 0.5) return { k: 0.8, muffle: 0.45 };
   const a = along(V(p.x, 0, p.z));
   if (a < 0) return { k: 0, muffle: 1 };
   return { k: 0.25 + 0.65 * a * a, muffle: 1 - open };

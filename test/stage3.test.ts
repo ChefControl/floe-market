@@ -242,10 +242,10 @@ describe('the rooms', () => {
   it('keeps the arena, the hearth room, the prep hall and the office apart, through doorways', async () => {
     const { g, cellar, plan } = await ring();
     const L = g.layout, floorAt = (x: number, z: number) => { const q = { x, z }; L.keepOnFloor(q, L.walkable()); return Math.hypot(q.x - x, q.z - z) < 1e-6; };
-    // a wall between the rooms, and a way through each doorway (but the grow room's and the Undertow's and Harry's office's, not yet found)
+    // a wall between the rooms, and a way through each doorway (but the grow room's and the Undertow's and its side rooms', not yet found)
     expect(floorAt((L.ARENA.x1 + L.KITCHEN.x0) / 2, 2)).toBe(false);
     expect(floorAt((L.KITCHEN.x1 + L.PREP.x0) / 2, 2)).toBe(false);
-    for (const d of L.DOORS) expect(floorAt((d.x0 + d.x1) / 2, (d.z0 + d.z1) / 2)).toBe(d.b !== 'grow' && d.b !== 'passage' && d.b !== 'den' && d.b !== 'loans');
+    for (const d of L.DOORS) expect(floorAt((d.x0 + d.x1) / 2, (d.z0 + d.z1) / 2)).toBe(d.b !== 'grow' && d.b !== 'passage' && d.b !== 'den' && d.b !== 'loans' && d.b !== 'vip' && d.b !== 'cards');
     expect(floorAt(16, -4)).toBe(false);
     // where everything is
     expect(cellar.roomAt(cellar.RING)).toBe('arena');
@@ -465,7 +465,7 @@ describe('the rooms', () => {
     const low = [[-5, L.ARENA.z1 + 0.1], [L.ARENA.x1 + 0.3, 2], [L.KITCHEN.x1 + 0.3, 2], [L.CRAFT.x0 + 0.5, L.CRAFT.z1 + 0.1], [16, L.PREP.z1 + 0.1],
       [L.LIFT_ROOM.x1 + 0.1, 4.9], [13, L.PREP.z0 - 0.3], [L.OFFICE_ROOM.x1 + 0.3, -6]].map(([x, z]) => down(x, z)!);
     const tall = [[-5, L.ARENA.z0 - 0.75], [L.ARENA.x0 - 0.75, 0], [7, L.OFFICE_ROOM.z0 - 0.25]].map(([x, z]) => down(x, z)!);
-    const secret = (d: (typeof L.DOORS)[number]) => d.b === 'grow' || d.b === 'passage' || d.b === 'den' || d.b === 'loans';
+    const secret = (d: (typeof L.DOORS)[number]) => d.b === 'grow' || d.b === 'passage' || d.b === 'den' || d.b === 'loans' || d.b === 'vip' || d.b === 'cards';
     const lintels = [...L.DOORS.filter(d => !secret(d)).map(d => down((d.x0 + d.x1) / 2, (d.z0 + d.z1) / 2)!), ...plan.TUNNELS.map(t =>
       t.side === 'w' ? down(L.ARENA.x0 - 0.08, t.at + 0.5)! : down(t.at + 0.5, L.ARENA.z0 - 0.08)!)];
     for (const h of low) expect(h).toBeCloseTo(low[0], 5);
@@ -529,7 +529,7 @@ describe('the rooms', () => {
     }
     expect(down(L.GROW.x1 + 0.35, -5, ground.growKerb)).toBeNull();
     // in front of the rooms, toward the camera, the rock rises a few metres out, with crags on it ...
-    expect(down(-5, L.DEN.z1 + 6, ground.open)! - GROUND.cut).toBeGreaterThan(2);
+    expect(down(-7, L.VIP.z1 + 6, ground.open)! - GROUND.cut).toBeGreaterThan(2);
     expect(down(16, L.PREP.z1 + 6, ground.open)! - GROUND.cut).toBeGreaterThan(2);
     // ... but never into the camera's sight of a room's floor: from wherever the player stands, in a wide screen and a
     // phone's, nothing of it is in the way of anything in a room on the screen that shows over the walls (every spot
@@ -574,12 +574,15 @@ describe('the rooms', () => {
     cellar.showDen();
     expect(down(mouth, L.ARENA.z1 + 0.1)).not.toBeCloseTo(low[0], 2);
     expect(down(mouth, L.ARENA.z1 + 0.35, ground.mouthKerb)).toBeNull();
-    for (const [x, z] of [L.PASSAGE, L.DEN].flatMap(open)) {
+    for (const [x, z] of [L.PASSAGE, L.DEN, L.VIP].flatMap(open)) {
       expect(earthAt(x, z), `${x}, ${z}`).toBeNull();
       expect(down(x, z, ground.nearDen), `${x}, ${z}`).toBeNull();
     }
-    expect(down(-5, L.DEN.z1 + 0.35, ground.denKerb)! - low[0]).toBeGreaterThan(0);
-    expect(down(-5, L.DEN.z1 + 1, ground.nearDen)! - GROUND.cut).toBeLessThan(0.85);
+    // (along the club's front west of Eddie's room, and along his room's own)
+    expect(down(-11, L.DEN.z1 + 0.5, ground.denKerb)! - low[0]).toBeGreaterThan(0);
+    expect(down(-11, L.DEN.z1 + 1, ground.nearDen)! - GROUND.cut).toBeLessThan(0.85);
+    expect(down(-7, L.VIP.z1 + 0.35, ground.denKerb)! - low[0]).toBeGreaterThan(0);
+    expect(down(-7, L.VIP.z1 + 1, ground.nearDen)! - GROUND.cut).toBeLessThan(0.85);
     cellar.showDen(false);
   }, 180_000);
 
