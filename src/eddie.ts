@@ -1,0 +1,107 @@
+// Slick Eddie's fixed fights (stage 3, the Undertow): step up to his table and he'll keep some of the next boss's fans
+// home, 10% to 50% of them, for the same share of that boss's prize in Fugu Chips, paid up front, win or lose. The
+// bigger the fix, the likelier the papers get wind of it: 5% for a small one, 70% for half the hall. Whether they do
+// is rolled the moment it's paid for (outside the cellar's sim, which leaves nothing to chance, so the gong's forecast
+// stays exact) and saved, and only comes out at the gong: if the fix holds, the boss walks in with that many fewer
+// fans; if it's caught, he brings the lot, Eddie keeps the fee, and the same share of the player's own fans stay away
+// for a bout or more after. The gong shows how both would go. One fix a boss, each time he's called in.
+import { gamePad } from './casinoKit';
+import { CY } from './cellar';
+import { BOOTH_PADS, BOOTHS } from './cellarPlan';
+import { CHIP, F, FIX, fixFee, fixOn, keptHome, nextBoss, setFix } from './fight';
+import { apart, dice } from './kit';
+import { found, level } from './layout';
+import { save } from './save';
+import { coin } from './sfx';
+import { V } from './util';
+import { wallet } from './wallet';
+
+const $ = (id: string) => document.getElementById(id)!;
+const panel = $('eddie'), msg = $('eddieMsg'), odds = $('eddieOdds'), shake = $('eddieFix') as HTMLButtonElement;
+const cuts = [...panel.querySelectorAll<HTMLButtonElement>('[data-cut]')];
+/** The size of fix picked, in tenths of the boss's crowd. */
+let cut = 1;
+const pct = (k: number) => `${Math.round(k * 100)}%`;
+const n = (v: number) => v.toLocaleString('en-US');
+/** Whether the player has the chips for a fix of `c` on the next boss. */
+const afford = (c: number) => { const b = nextBoss(); return !!b && wallet.money >= fixFee(b, c) * CHIP; };
+
+/** What he says, and what the panel offers, now. */
+function refresh() {
+  const b = nextBoss(), on = fixOn(), busy = !b || !!F.rush || !!on;
+  for (const el of cuts) {
+    const c = Number(el.dataset.cut);
+    el.setAttribute('aria-pressed', String(c === cut));
+    el.disabled = busy;
+  }
+  if (!b) {
+    msg.textContent = "Nobody left to fix, kid. You beat 'em all straight.";
+    odds.textContent = ''; shake.hidden = true;
+    return;
+  }
+  shake.hidden = false;
+  if (F.rush) {
+    msg.textContent = "Not now. The bell's going.";
+    odds.textContent = ''; shake.disabled = true; shake.textContent = 'Shake on it';
+    return;
+  }
+  if (on) {
+    msg.textContent = `It's done. ${n(keptHome(b, on.cut))} of ${b.name}'s fans stay home… if nobody talks.`;
+    odds.textContent = "Ring the gong when you like. You'll know there.";
+    shake.disabled = true; shake.textContent = 'Fixed 🤝';
+    return;
+  }
+  const fee = fixFee(b, cut), caught = FIX.caught[cut - 1], bouts = FIX.scandal[cut - 1];
+  msg.textContent = `${b.face} ${b.name}: I keep ${n(keptHome(b, cut))} of his ${n(b.crowd)} fans home.`;
+  odds.textContent = `${pct(caught)} chance the papers get it: then he brings the lot, and ${cut * 10}% of your own fans stay away for ${bouts} bout${bouts === 1 ? '' : 's'}. The fee's mine either way.`;
+  shake.disabled = !afford(cut);
+  shake.textContent = `Shake on it · 🐡 ${n(fee)}`;
+}
+cuts.forEach(el => el.addEventListener('click', () => { cut = Number(el.dataset.cut); refresh(); }));
+
+/** Something for Eddie to say in his bubble (undertow.ts sets it). */
+let say: (text: string) => void = () => {};
+export function eddieSays(f: (text: string) => void) { say = f; }
+
+/** Pays Eddie for a fix of `c` tenths (the one picked, by default) on the next boss: the fee goes at once, whether
+ *  he's caught is rolled now (`rng`), and it's saved, so a reload changes nothing. */
+export function payEddie(c = cut, rng: () => number = Math.random) {
+  const b = nextBoss();
+  if (!b || F.rush || fixOn() || !afford(c)) return false;
+  if (!setFix(c, rng() < FIX.caught[c - 1])) return false;
+  wallet.money -= fixFee(b, c) * CHIP;
+  coin();
+  say('Consider it done. We never talked.');
+  refresh();
+  save();
+  return true;
+}
+shake.addEventListener('click', () => payEddie());
+/** Picks the size of fix, in tenths of the boss's crowd (for tests, and the buttons). */
+export function pickCut(c: number) { cut = Math.max(1, Math.min(5, Math.round(c))); refresh(); }
+/** What he's saying in the panel now, for tests. */
+export const eddieMsg = () => `${msg.textContent} ${odds.textContent}`;
+
+// (on dice of its own: three.js names what it makes from Math.random, and made at load off the game's luck, it would
+// change every throw after it)
+const pad = apart(() => gamePad(BOOTH_PADS.eddie, '🤝', panel, {
+  opened() { refresh(); },
+  closed() {},
+  greet() {},
+  live: () => false,
+  say: text => say(text),
+  away: '',
+}, {
+  at: V(BOOTHS.eddie.x + 0.45, CY + 0.95, BOOTHS.eddie.z), from: V(0.8, 0.75, 0.25).normalize(), wide: 1.5, tall: 1.2,
+}, () => level.down && found.den), dice(0xED1E));
+// (its marking's the Undertow's own, undertow.ts's: this one's never put down)
+pad.enable();
+
+/** What the panel was last drawn for, so it's only redrawn when that changes. */
+let drawn = '';
+/** Eddie's table, every frame (once the Undertow's found): his pad, and the panel kept up with the cellar. */
+export function updEddie(dt: number) {
+  if (!pad.upd(dt)) { drawn = ''; return; }
+  const key = [F.beaten, !!F.rush, !!fixOn(), cut, afford(cut)].join('|');
+  if (key !== drawn) { drawn = key; refresh(); }
+}

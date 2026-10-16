@@ -4,7 +4,7 @@
 import { CY, parts, showDen, showGrowRoom, showVenue, updBarFlap } from './cellar';
 import { BAR, GONG } from './cellarPlan';
 import { openRing, updDohyo } from './dohyo';
-import { BOSSES, CHIP, F, fightFrom, on, resetFight, step, strength } from './fight';
+import { BOSSES, CHIP, F, fightFrom, FIX, on, resetFight, step, strength } from './fight';
 import { front } from './front';
 import { cardUp, showCard, updGong } from './gong';
 import { ARENA, DOORS, level, PASSAGE, PREP } from './layout';
@@ -41,7 +41,12 @@ on.rush = r => {
   const b = BOSSES[r.boss];
   gong({ x: GONG.x, y: CY, z: GONG.z });
   roarT = 1.1;
-  toast(`${b.face} ${b.name} walks in with ${b.crowd} fans: turn more than half before the bell!`, 'rush', 3000);
+  // (and with Slick Eddie's fix on it, how that went: eddie.ts)
+  const fix = r.fix;
+  const said = !fix ? `${b.face} ${b.name} walks in with ${r.n} fans: turn more than half before the bell!`
+    : !fix.caught ? `🤝 Eddie's boys kept ${r.kept} of his fans home: ${b.face} ${b.name} walks in with ${r.n}. Turn more than half before the bell!`
+      : `🗞️ The papers got Eddie's fix! ${b.face} ${b.name} walks in with all ${r.n}, and ${fix.cut * 10}% of your own fans stay away for ${FIX.scandal[fix.cut - 1]} bout${FIX.scandal[fix.cut - 1] === 1 ? '' : 's'} after.`;
+  toast(said, 'rush', fix ? 4500 : 3000);
 };
 on.rushEnd = r => {
   showCard(r);

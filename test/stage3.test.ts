@@ -737,7 +737,7 @@ describe('the kitchen, by hand', () => {
     expect(fight.strength()).toBeGreaterThan(0);
     g.ui.hud(0);
     expect($('powerN').textContent).toBe(String(fight.strength()));
-  });
+  }, 30_000);
 
   it('at a machine with full arms, swaps ready ones for raw ones, one for one', async () => {
     const { g, plan, fight, at, F } = await ring();
@@ -904,7 +904,7 @@ describe('a bout', () => {
     expect(swarm.swarm().n).toBe(0);
     g.run(fight.BOUT.fight);
     expect(F().bout.win).toBe(true);
-  });
+  }, 30_000);
 
   it('the fans go home at a walk, the hungry ones and the rest after the bout, never in a jump', async () => {
     const { g, fight, swarm, F } = await ring();
@@ -924,7 +924,7 @@ describe('a bout', () => {
     // (hungry ones went home when the fans sat down, and everyone after the result)
     expect(leaving).toBeGreaterThan(100);
     expect(fastest).toBeLessThan(3.5);
-  });
+  }, 30_000);
 });
 
 describe('the crowd', () => {

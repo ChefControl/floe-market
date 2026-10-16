@@ -118,6 +118,9 @@ export interface Rush {
   /** Seconds the pot sat waiting on each ingredient, and the stall stood empty. */
   short: Record<Ing, number>; dryT: number;
   done: boolean; win: boolean;
+  /** Slick Eddie's fix on it, if one was paid for (eddie.ts): how big (tenths of his crowd), and whether he was caught
+   *  (then the boss brought them all); and how many of his fans it kept home. */
+  fix: { cut: number; caught: boolean } | null; kept: number;
 }
 export type Phase = 'prep' | 'sit' | 'fight' | 'pay';
 /** A bout: its phase and how long it's been in it, who wins (known once the fans sit down), the ring's tug (-1 his,
@@ -144,11 +147,20 @@ export interface Fight {
   bout: Bout;
   /** The locals' bouts' dice, and the player's turn at the pot. */
   seed: number; cookT: number;
-  /** The Undertow (undertow.ts): whether the doorman's let you in yet (doorway.ts), the bout Tommy last played monte
-   *  in and how many rounds he played in it, and what's owed to Harry (loan.ts). */
+  /** The Undertow (undertow.ts): whether the doorman's let you in yet (doorway.ts), and the bout Tommy last played monte
+   *  in and how many rounds he played in it; Slick Eddie's fix on the next boss, and the scandal if he's caught; and
+   *  what's owed to Harry (loan.ts). */
   den: Den;
 }
-export interface Den { door: boolean; monte: { bout: number; played: number }; loan: Loan }
+export interface Den {
+  door: boolean; monte: { bout: number; played: number };
+  /** The fix paid for: on which boss (-1, none), how big (1 to 5 tenths of his crowd kept home), and whether Eddie gets
+   *  caught. That's rolled as it's paid for (eddie.ts), outside the cellar's sim, and only comes out at the gong. */
+  eddie: { boss: number; cut: number; caught: boolean };
+  /** A fix that got out: tenths of the player's own fans who stay away, and for how many more local bouts. */
+  scandal: { cut: number; bouts: number };
+  loan: Loan;
+}
 /** Hammerhead Harry's loan (loan.ts): chips still owed (0: none), and what was owed when it was made. */
 export interface Loan { owed: number; total: number }
 
@@ -163,7 +175,10 @@ export function blank(): Fight {
     queue: [], fed: [], cooked: [], full: [], fullAcc: 0, earned: [],
     rush: null, bout: freshBout(0),
     seed: 3, cookT: 0,
-    den: { door: false, monte: { bout: -1, played: 0 }, loan: { owed: 0, total: 0 } },
+    den: {
+      door: false, monte: { bout: -1, played: 0 }, eddie: { boss: -1, cut: 0, caught: false }, scandal: { cut: 0, bouts: 0 },
+      loan: { owed: 0, total: 0 },
+    },
   };
 }
 /** The cellar now (a forecast swaps a copy in for a moment). */
@@ -197,7 +212,7 @@ export type Built = { line: Ing; all?: boolean } | { role: Role } | { tier: numb
 export function resetFight(f: Fight = blank()) {
   F = f;
   syncMachines();
-  fc = null;
+  fc.clear();
 }
 
 // ---------- reading it ----------
@@ -219,7 +234,11 @@ export const kitchenRate = () => F.cooked.length / Math.max(0.25, 1 - F.full.len
 export const strength = () => sides().yours;
 /** Seats in the venue, and how many fans are in on a normal night: the seats, filled by word on the street. */
 export const seats = () => TIERS[F.tier].seats;
-export const crowdNow = () => Math.round(seats() * Math.min(1, 0.45 * boost('street')));
+export const crowdNow = () => {
+  const n = Math.round(seats() * Math.min(1, 0.45 * boost('street'))), s = F.den.scandal;
+  // (fewer while the papers have Eddie's fix: eddie.ts)
+  return s.bouts > 0 ? Math.round(n * (1 - s.cut / 10)) : n;
+};
 /** What a bowl sells for (a mushroom bowl, `m`), before and after Mr. Fugu's cut. */
 export const listPrice = (m: boolean) => PRICE * (m ? 2 : 1) * boost('bowls');
 export const bowlPrice = (m: boolean) => listPrice(m) * (F.boughtOut ? 1 : CUT);
@@ -316,9 +335,32 @@ export function sides() {
   return R ? { yours: R.turned, theirs: R.n - R.turned } : { yours: F.bout.fed, theirs: 0 };
 }
 
+// ---------- Slick Eddie's fix ----------
+/** For each size of fix (1 to 5 tenths of the boss's crowd kept home): the chance Eddie's caught, and how many local
+ *  bouts the scandal then lasts (the player's own fans down by the same share). */
+export const FIX = { caught: [0.05, 0.15, 0.3, 0.5, 0.7], scandal: [1, 1, 2, 2, 3] };
+/** How many of `boss`'s fans a fix of `cut` tenths keeps home, and what it costs: the same share of his prize, in chips. */
+export const keptHome = (boss: Boss, cut: number) => Math.round(boss.crowd * cut / 10);
+export const fixFee = (boss: Boss, cut: number) => Math.round(boss.prize * cut / 10);
+/** The fix paid for on the next boss, if there is one. */
+export const fixOn = () => {
+  const e = F.den.eddie;
+  return nextBoss() && e.boss === F.beaten && e.cut > 0 ? e : null;
+};
+/** Pays for a fix on the next boss, `cut` tenths of his crowd, Eddie caught or not (rolled by the caller, eddie.ts). */
+export function setFix(cut: number, caught: boolean) {
+  if (!nextBoss() || F.rush || fixOn()) return false;
+  F.den.eddie = { boss: F.beaten, cut: clamp(Math.round(cut), 1, 5), caught };
+  return true;
+}
+
 // ---------- the rush ----------
-function startRush() {
-  F.rush = { boss: F.beaten, n: BOSSES[F.beaten].crowd, turned: 0, walk: WALK_IN, t: 0, lastTurn: 0, short: { rice: 0, fish: 0, mush: 0 }, dryT: 0, done: false, win: false };
+/** His crowd walks in: all of it, or less the `kept` home by a `fix` that held. */
+function startRush(kept = 0, fix: Rush['fix'] = null) {
+  F.rush = {
+    boss: F.beaten, n: BOSSES[F.beaten].crowd - kept, turned: 0, walk: WALK_IN, t: 0, lastTurn: 0, short: { rice: 0, fish: 0, mush: 0 },
+    dryT: 0, done: false, win: false, fix, kept,
+  };
   // his crowd takes the floor (a local bout's called off)
   F.queue = [];
   F.bout = { ...freshBout(F.bout.n), crowd: 0 };
@@ -326,9 +368,15 @@ function startRush() {
 }
 /** Rings the gong: the next boss's rush begins. False if there's no boss left, or one's in already. */
 export function ringGong() {
-  if (!nextBoss() || F.rush) return false;
-  startRush();
-  fc = null;
+  const boss = nextBoss();
+  if (!boss || F.rush) return false;
+  // Eddie's fix comes out now: his boys kept the fans home, or the papers got it first (and the player's own fans stay
+  // away for a bout or more after this one)
+  const e = fixOn(), fix = e ? { cut: e.cut, caught: e.caught } : null;
+  F.den.eddie = { boss: -1, cut: 0, caught: false };
+  if (fix?.caught) F.den.scandal = { cut: fix.cut, bouts: FIX.scandal[fix.cut - 1] };
+  startRush(fix && !fix.caught ? keptHome(boss, fix.cut) : 0, fix);
+  fc.clear();
   return true;
 }
 /** A boss's preparation: his crowd walks in to the stall (the kitchen keeps cooking), and then until his bell (or his
@@ -370,10 +418,10 @@ function bossResult(R: Rush) {
 }
 /** The worst-jammed ingredient of a rush, if one held the pot up. */
 export const worstShort = (R: Rush) => ING.filter(k => R.short[k] > 0.5).sort((a, b) => R.short[b] - R.short[a])[0] ?? null;
-/** More than half: how many of `boss`'s fans have to be turned to beat him. */
-export const toBeat = (boss: Boss) => Math.floor(boss.crowd / 2) + 1;
+/** More than half: how many of `boss`'s fans have to be turned to beat him (`n` of them, if a fix kept some home). */
+export const toBeat = (boss: Boss, n = boss.crowd) => Math.floor(n / 2) + 1;
 /** Batches a minute a kitchen needs, with a full stall, to turn enough of `boss`'s crowd before the bell. */
-export const needRate = (boss: Boss) => Math.ceil(Math.max(0, toBeat(boss) - STALL_CAP) * 60 / boss.bell / BATCH);
+export const needRate = (boss: Boss, n = boss.crowd) => Math.ceil(Math.max(0, toBeat(boss, n) - STALL_CAP) * 60 / boss.bell / BATCH);
 
 /** Hakkaku's prize: the grow room, opened as the other lines start, one bed (its first crop ready to pick) and enough
  *  mushrooms on the ledge for a batch, so the pot doesn't stop the moment it wants them. Its picker and more beds are
@@ -395,17 +443,19 @@ export interface You { x: number; z: number; speed: number; cap: number; carry: 
 const YOU_PACE = 1;
 /** Where the player is now, for the forecast (the game sets it; without it, the forecast is the crew alone). */
 export const you = { now: (): You | null => null };
-let fc: { t: number; i: number; v: Forecast } | null = null;
+/** The forecasts made lately, by how many of his fans are kept home (none, or a fix's). */
+const fc = new Map<number, { t: number; i: number; v: Forecast }>();
 /**
  * What would happen if the gong were rung now: the whole cellar is copied, and the rush run ahead in the copy, to the
  * bell, with the player in it doing what a good player would: cooking until there's a cook, carrying bowls until
  * there's an attendant, and running the lines that have no hire. Exact, because nothing in the cellar is left to
  * chance. Kept for half a second of game time.
  */
-export function forecast(): Forecast | null {
+export function forecast(kept = 0): Forecast | null {
   const boss = nextBoss();
   if (!boss || F.rush) return null;
-  if (fc && fc.i === F.beaten && F.t - fc.t < 0.5 && F.t >= fc.t) return fc.v;
+  const was0 = fc.get(kept);
+  if (was0 && was0.i === F.beaten && F.t - was0.t < 0.5 && F.t >= was0.t) return was0.v;
   const was = F, me = you.now();
   F = structuredClone(was);
   real = false;
@@ -420,11 +470,11 @@ export function forecast(): Forecast | null {
       else w.carry = null;
       F.crew.push(w);
     }
-    startRush();
+    startRush(kept);
     for (let n = 0; n < 4000 && !F.rush!.done; n++) step(0.05);
     const R = F.rush!;
     const v: Forecast = { boss, turned: R.turned, worst: worstShort(R), at: R.t };
-    fc = { t: was.t, i: was.beaten, v };
+    fc.set(kept, { t: was.t, i: was.beaten, v });
     return v;
   } finally {
     F = was;
@@ -617,6 +667,8 @@ function updBout(dt: number) {
     if (B.t >= BOUT.fight) {
       B.phase = 'pay'; B.t = 0; B.n++;
       if (R) bossResult(R);
+      // (a local bout over: one fewer for a scandal to last)
+      else if (F.den.scandal.bouts > 0) F.den.scandal.bouts--;
       if (real) on.bout('pay');
     }
   } else if (B.phase === 'pay' && B.t >= BOUT.pay) {
@@ -703,6 +755,8 @@ export function buyOut() { F.boughtOut = true; }
 /** The cellar, for saving: a rush cut short by closing the page is called off (no win, no loss). */
 export function saveFight(): Fight {
   const f = structuredClone(F);
+  // (and a fix that held on it holds again next time: the player's paid for it)
+  if (f.rush?.fix && !f.rush.fix.caught) f.den.eddie = { boss: f.rush.boss, cut: f.rush.fix.cut, caught: false };
   if (f.rush) { f.rush = null; f.queue = []; f.bout = freshBout(f.bout.n); }
   return f;
 }
@@ -731,6 +785,10 @@ export function fightFrom(raw: unknown): Fight {
       seed: clamp(Math.floor(num(r.seed, 3)), 1, 2147483646), cookT: 0,
       den: {
         door: r.den?.door === true, monte: { bout: Math.floor(num(r.den?.monte?.bout, -1)), played: clamp(Math.floor(num(r.den?.monte?.played)), 0, 99) },
+        eddie: num(r.den?.eddie?.cut) >= 1
+          ? { boss: clamp(Math.floor(num(r.den?.eddie?.boss, -1)), -1, BOSSES.length - 1), cut: clamp(Math.round(num(r.den?.eddie?.cut)), 1, 5), caught: r.den?.eddie?.caught === true }
+          : b.den.eddie,
+        scandal: { cut: clamp(Math.round(num(r.den?.scandal?.cut)), 0, 5), bouts: clamp(Math.floor(num(r.den?.scandal?.bouts)), 0, 3) },
         loan: { owed: Math.max(0, num(r.den?.loan?.owed)), total: Math.max(0, num(r.den?.loan?.total), num(r.den?.loan?.owed)) },
       },
     };

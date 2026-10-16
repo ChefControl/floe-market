@@ -441,6 +441,83 @@ describe('the Undertow', () => {
     g.runUntil(() => club.SONG.includes(club.clubSays('velvet')), 12);
   });
 
+  it("Slick Eddie fixes the next boss: his fans kept home for a share of the prize, up front; the gong shows both ways it could go", async () => {
+    const { g, plan, fight, at, F } = await ring({ money: 1000 * 1000, ring: { beaten: 2, lines: { mush: { n: 1 } } } });
+    const E = await import('../src/eddie');
+    at(plan.BOOTH_PADS.eddie);
+    g.run(0.2);
+    expect($('eddie').hidden).toBe(false);
+    // 30% of Dobu's 220 fans: 66 kept home, for 30% of his 800-chip prize; a 30% chance it gets out
+    E.pickCut(3);
+    expect(E.eddieMsg()).toContain('66 of his 220');
+    expect(E.eddieMsg()).toContain('30% chance');
+    expect($('eddieFix').textContent).toContain('🐡 240');
+    expect(E.payEddie(3, () => 0.99)).toBe(true);
+    expect(g.wallet.money).toBe(1000 * 1000 - 240 * 1000);
+    expect(F().den.eddie).toEqual({ boss: 2, cut: 3, caught: false });
+    // one fix a boss
+    expect(E.payEddie(1, () => 0.99)).toBe(false);
+    expect(E.eddieMsg()).toContain("It's done");
+    // saved as it's paid for: a reload doesn't undo it, or roll it again
+    expect(fight.fightFrom(fight.saveFight()).den.eddie).toEqual({ boss: 2, cut: 3, caught: false });
+    // the gong: how it goes if the fix holds (154 fans) and if it's caught (all 220), and the chance of each
+    at(plan.GONG_PAD);
+    g.run(0.7);
+    expect($('gongCast').textContent).toMatch(/Fix holds \(70%\): .* of 154.*\. Caught \(30%\): .* of 220.*\./);
+    // rung: it held, and he walks in with 66 fewer; the fix is spent
+    expect(fight.ringGong()).toBe(true);
+    expect(F().rush).toMatchObject({ n: 154, kept: 66, fix: { cut: 3, caught: false } });
+    expect(fight.fixOn()).toBeNull();
+    expect(F().den.scandal.bouts).toBe(0);
+    // (and a reload in the middle of it calls the rush off, but keeps the fix for next time: it was paid for)
+    expect(fight.saveFight().den.eddie).toEqual({ boss: 2, cut: 3, caught: false });
+  });
+
+  it("if the papers get Eddie's fix, the boss brings them all, and the player's own fans stay away for a bout or more", async () => {
+    const { g, plan, fight, at, F } = await ring({ money: 1000 * 1000, ring: { beaten: 2, lines: { mush: { n: 1 } } } });
+    const E = await import('../src/eddie');
+    at(plan.BOOTH_PADS.eddie);
+    g.run(0.2);
+    expect(E.payEddie(4, () => 0.2)).toBe(true); // (under 50%: caught)
+    const fans = fight.crowdNow();
+    expect(fight.ringGong()).toBe(true);
+    expect(F().rush).toMatchObject({ n: 220, kept: 0, fix: { cut: 4, caught: true } });
+    // 40% of your own fans stay away, for the next 2 local bouts
+    expect(F().den.scandal).toEqual({ cut: 4, bouts: 2 });
+    expect(fight.crowdNow()).toBe(Math.round(fans * 0.6));
+    g.runUntil(() => !F().rush && F().bout.crowd >= 0, 120);
+    expect(F().bout.crowd).toBe(Math.round(fans * 0.6));
+    g.runUntil(() => F().den.scandal.bouts === 1, 60);
+    // (and it's saved as it stands)
+    expect(fight.fightFrom(fight.saveFight()).den.scandal).toEqual({ cut: 4, bouts: 1 });
+    g.runUntil(() => F().den.scandal.bouts === 0, 60);
+    expect(fight.crowdNow()).toBe(fans);
+  }, 60_000);
+
+  it("the gong's forecast of a fixed rush is what the rush does, and junk in a saved fix reads back as none", async () => {
+    const { fight: f } = await ring({ level: 0 });
+    f.resetFight();
+    for (const k of ['rice', 'fish'] as const) for (let i = 0; i < 2; i++) f.addMachine(k);
+    for (const r of ['washer', 'salter', 'cook', 'attendant'] as const) f.hire(r);
+    for (let t = 0; t < 90; t += 0.05) f.step(0.05);
+    const boss = f.BOSSES[0], kept = f.keptHome(boss, 5);
+    expect(f.setFix(5, false)).toBe(true);
+    const fc = f.forecast(kept)!, all = f.forecast()!;
+    expect(fc.turned).toBeGreaterThan(0);
+    expect(f.ringGong()).toBe(true);
+    expect(f.F.rush!.n).toBe(boss.crowd - kept);
+    for (let n = 0; n < 4000 && !f.F.rush!.done; n++) f.step(0.05);
+    expect(f.F.rush!.turned).toBe(fc.turned);
+    expect(f.F.rush!.win).toBe(fc.turned >= f.toBeat(boss, boss.crowd - kept));
+    expect(all.turned).toBeGreaterThanOrEqual(fc.turned);
+    for (const den of [{ eddie: { boss: 9, cut: 'x' } }, { eddie: { cut: 99, boss: 1 }, scandal: { cut: -3, bouts: 40 } }]) {
+      const back = f.fightFrom({ ...f.saveFight(), den }).den;
+      expect(back.eddie.cut === 0 || (back.eddie.cut >= 1 && back.eddie.cut <= 5)).toBe(true);
+      expect(back.scandal.bouts).toBeLessThanOrEqual(3);
+      expect(back.scandal.cut).toBeGreaterThanOrEqual(0);
+    }
+  });
+
   it("Mr. Fugu, once you've met the Family, wants you to know who he pays", async () => {
     const { office, F } = await ring({ ring: { beaten: 1, lines: { mush: { n: 1 } } } });
     expect(office.fuguLines().join(' ')).not.toContain('the Family');
