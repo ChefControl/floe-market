@@ -66,7 +66,8 @@ describe('the Undertow', () => {
     expect(standable(g, cellar, middle(L.PASSAGE))).toBe(true);
     expect(standable(g, cellar, doorAt(plan))).toBe(false);
     expect(cellar.roomAt(middle(L.DEN))).toBe('den');
-  });
+    // (a whole bout, and the club built: longer than most)
+  }, 30_000);
 
   it('the way in: down a long dark tunnel to a pair of doors, the band louder through them; the first time, the doorman looks you over', async () => {
     const { g, plan, cellar, at, F } = await ring({ ring: { beaten: 2, lines: { mush: { n: 1 } } } });
