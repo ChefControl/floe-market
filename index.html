@@ -136,6 +136,14 @@ body{
 #power[hidden]{ display:none; }
 #power .ic{ width:26px; height:26px; border-radius:50%; background:#B07FD6; display:grid; place-items:center; font-size:14px; }
 #power .lbl{ font-weight:600; opacity:.75; }
+/* What's owed to Hammerhead Harry (stage 3, loanDesk.ts): beside the stage chip, how much of it's paid off so far,
+   and his share of the stall's sales till it is. */
+#iou{ font-size:15px; padding:3px 12px 3px 5px; gap:6px; }
+#iou[hidden]{ display:none; }
+#iou .ic{ width:26px; height:26px; border-radius:50%; background:#3C5A6B; display:grid; place-items:center; font-size:14px; }
+#iou .bar{ width:36px; height:7px; border-radius:99px; background:var(--chip); overflow:hidden; }
+#iou .bar i{ display:block; height:100%; width:0; background:#7FB3C9; border-radius:99px; transition:width .4s; }
+#iou #iouLeft{ font-weight:600; opacity:.75; }
 /* The bout on now, over the ring (stage 3). */
 #boutLine{
   position:fixed; left:50%; top:calc(env(safe-area-inset-top,0px) + 14px); transform:translateX(-50%); z-index:3; pointer-events:none;
@@ -973,9 +981,10 @@ body.offer #hud, body.offer #corner, body.offer #pointers, body.offer #tip, body
   .hrow{ display:flex; align-items:center; gap:6px; }
   #cash{ font-size:21px; padding:3px 12px 3px 4px; gap:6px; }
   #cash .ic{ width:32px; height:24px; border-radius:6px; font-size:16px; box-shadow:inset 0 0 0 2px rgba(255,255,255,.35); }
-  #stars, #stage, #season, #goal, #power{ font-size:15px; padding:4px 10px 4px 4px; gap:6px; }
-  #stars .ic, #stage .ic, #season .ic, #goal .ic, #power .ic{ width:22px; height:22px; font-size:13px; }
+  #stars, #stage, #season, #goal, #power, #iou{ font-size:15px; padding:4px 10px 4px 4px; gap:6px; }
+  #stars .ic, #stage .ic, #season .ic, #goal .ic, #power .ic, #iou .ic{ width:22px; height:22px; font-size:13px; }
   #power .lbl{ display:none; }
+  #iou .bar{ display:none; }
   #rush{ top:calc(env(safe-area-inset-top,0px) + 108px); font-size:14px; }
   #boutLine{ top:calc(env(safe-area-inset-top,0px) + 156px); font-size:13px; padding:4px 12px; }
   #season{ padding:4px 8px 4px 4px; }
@@ -1045,6 +1054,7 @@ body.offer #hud, body.offer #corner, body.offer #pointers, body.offer #tip, body
   <div class="hrow">
     <div id="stars" class="pill"><span class="ic" aria-hidden="true">★</span><span class="sr">Rating </span><span id="starsN">3.0</span></div>
     <button id="stage" class="pill" type="button" aria-expanded="true" aria-controls="mods"><span class="sr">Stage </span><span class="ic" id="stageNum">1</span><span id="stageName">Fish Market</span><span class="bar" aria-hidden="true"><i id="stageBar"></i></span><span id="stageCount">0/7</span><span class="chev" aria-hidden="true"></span></button>
+    <div id="iou" class="pill" role="status" hidden><span class="ic" aria-hidden="true">🦈</span><span class="sr">Owed to Harry: </span><span id="iouN"></span><span class="bar" aria-hidden="true"><i id="iouBar"></i></span><span id="iouLeft"></span></div>
   </div>
   <div id="goal" class="pill" role="status" hidden><span class="ic" id="goalIc" aria-hidden="true"></span><span id="goalName"></span><span id="goalN"></span><span class="bar" aria-hidden="true"><i id="goalBar"></i></span></div>
   <div id="mods" class="pill" role="group" aria-label="Modifiers"></div>
@@ -1244,6 +1254,15 @@ body.offer #hud, body.offer #corner, body.offer #pointers, body.offer #tip, body
     <button type="button" data-drink="tonic"></button>
     <button type="button" data-drink="house" class="gold"></button>
   </div>
+</div>
+<div id="loans" class="casino" hidden>
+  <p id="loansMsg" class="msg" aria-live="polite"></p>
+  <div class="cut" id="loansPick">
+    <span aria-hidden="true">🐡</span>
+    <input type="range" id="loansAmount" aria-label="How much to borrow, in chips">
+    <button type="button" id="loansBorrow" class="go"></button>
+  </div>
+  <button type="button" id="loansRepay" class="go" hidden></button>
 </div>
 <div id="denGus" class="casino" hidden>
   <p id="denGusMsg" class="msg" aria-live="polite"></p>

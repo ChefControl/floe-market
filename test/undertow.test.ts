@@ -328,6 +328,57 @@ describe('the Undertow', () => {
     expect(club.buyDrink('tonic')).toBe(false);
   });
 
+  it("Harry lends up to two bouts' takings at a full house, held from when you walk in, and takes 30% of the stall's sales till it's paid", async () => {
+    const { g, plan, at, fight } = await ring({ money: 50 * 1000, ring: { beaten: 2, lines: { mush: { n: 1 } } } });
+    const D = await import('../src/loanDesk'), Lo = await import('../src/loan'), L = g.layout;
+    // his limit's worked out as you walk in: two bouts at a full house, a plain bowl each
+    at({ x: (L.DEN.x0 + L.DEN.x1) / 2, z: (L.DEN.z0 + L.DEN.z1) / 2 });
+    g.run(0.1);
+    const max = Lo.maxLoan(), full = fight.crowdNow() * fight.bowlPrice(false);
+    expect(max).toBe(Math.max(10, Math.floor(2 * full / 5) * 5));
+    // ...and held while you're in, whatever the stall does meanwhile
+    fight.F.tier++;
+    expect(Lo.fullBout()).not.toBe(full);
+    at(plan.BOOTH_PADS.harry);
+    g.run(0.2);
+    expect(Lo.maxLoan()).toBe(max);
+    expect($('loans').hidden).toBe(false);
+    expect(D.loansMsg()).toContain(`Up to 🐡 ${max}`);
+    expect(D.loansMsg()).toContain('30%');
+    expect(($('loansAmount') as HTMLInputElement).max).toBe(String(max));
+    // not more than that
+    expect(D.takeLoan(max + 5)).toBe(false);
+    const money = g.wallet.money, n = Math.max(10, Math.floor(max / 2 / 5) * 5);
+    expect(D.takeLoan(n)).toBe(true);
+    expect(g.wallet.money).toBe(money + n * 1000);
+    expect(Lo.owed()).toBe(Math.ceil(n * 1.2));
+    expect(D.takeLoan(10)).toBe(false); // one at a time
+    g.run(0.1);
+    expect($('loansPick').hidden).toBe(true);
+    expect($('iou').hidden).toBe(false);
+    expect($('iouLeft').textContent).toBe('30% of sales');
+    // he takes three chips in ten of what the stall sells, not of a prize
+    const due = Lo.owed(), before = g.wallet.money;
+    fight.on.earn(10, 'bowls');
+    expect(g.wallet.money).toBe(before + 7000);
+    expect(Lo.owed()).toBeCloseTo(due - 3);
+    fight.on.earn(10, 'prize');
+    expect(Lo.owed()).toBeCloseTo(due - 3);
+    // it's still owed after a reload
+    expect(fight.fightFrom(fight.saveFight()).den.loan).toEqual(fight.F.den.loan);
+    // pay off the rest at his desk
+    expect(D.payLoan()).toBe(true);
+    expect(Lo.owed()).toBe(0);
+    g.run(0.1);
+    expect($('iou').hidden).toBe(true);
+    // or let the sales pay it: he never takes more than's owed
+    expect(D.takeLoan(10)).toBe(true);
+    const owing = Lo.owed(), had = g.wallet.money;
+    fight.on.earn(100, 'bowls');
+    expect(Lo.owed()).toBe(0);
+    expect(g.wallet.money).toBe(had + (100 - owing) * 1000);
+  });
+
   it("Gus, the blobfish at the bar, tells you what he's heard about the next boss for a drink", async () => {
     const { g, plan, at, F } = await ring({ money: 100 * 1000, ring: { beaten: 2, lines: { mush: { n: 1 } } } });
     const club = await import('../src/club'), fight = await import('../src/fight');

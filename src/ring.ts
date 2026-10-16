@@ -8,6 +8,7 @@ import { BOSSES, CHIP, F, fightFrom, on, resetFight, step, strength } from './fi
 import { front } from './front';
 import { cardUp, showCard, updGong } from './gong';
 import { ARENA, DOORS, level, PASSAGE, PREP } from './layout';
+import { collect } from './loan';
 import { updOffice } from './office';
 import { updUndertow } from './undertow';
 import { player } from './player';
@@ -28,6 +29,8 @@ import { addMoney } from './wallet';
 let takings = 0, takingsT = 0;
 
 on.earn = (chips, why) => {
+  // (while there's a loan of Harry's to pay off, he takes his share of the stall's sales: loan.ts)
+  if (why === 'bowls') chips -= collect(chips);
   addMoney(Math.round(chips * CHIP));
   if (why === 'bowls') { takings += chips; return; }
   if (level.down) popText(`+🐡 ${Math.round(chips).toLocaleString('en-US')}`, { x: GONG.x, y: CY + 2.6, z: GONG.z });

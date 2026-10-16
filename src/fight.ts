@@ -144,11 +144,13 @@ export interface Fight {
   bout: Bout;
   /** The locals' bouts' dice, and the player's turn at the pot. */
   seed: number; cookT: number;
-  /** The Undertow (undertow.ts): whether the doorman's let you in yet (doorway.ts), and the bout Tommy last played monte
-   *  in and how many rounds he played in it. */
+  /** The Undertow (undertow.ts): whether the doorman's let you in yet (doorway.ts), the bout Tommy last played monte
+   *  in and how many rounds he played in it, and what's owed to Harry (loan.ts). */
   den: Den;
 }
-export interface Den { door: boolean; monte: { bout: number; played: number } }
+export interface Den { door: boolean; monte: { bout: number; played: number }; loan: Loan }
+/** Hammerhead Harry's loan (loan.ts): chips still owed (0: none), and what was owed when it was made. */
+export interface Loan { owed: number; total: number }
 
 const line = (n: number): Line => ({ n, up: 0, m: [] });
 /** A bout's preparation, from the start (how many fans come is worked out as it starts: -1). */
@@ -161,7 +163,7 @@ export function blank(): Fight {
     queue: [], fed: [], cooked: [], full: [], fullAcc: 0, earned: [],
     rush: null, bout: freshBout(0),
     seed: 3, cookT: 0,
-    den: { door: false, monte: { bout: -1, played: 0 } },
+    den: { door: false, monte: { bout: -1, played: 0 }, loan: { owed: 0, total: 0 } },
   };
 }
 /** The cellar now (a forecast swaps a copy in for a moment). */
@@ -727,7 +729,10 @@ export function fightFrom(raw: unknown): Fight {
       fed: list<number>(r.fed, isNum), cooked: list<number>(r.cooked, isNum), full: list<number>(r.full, isNum),
       fullAcc: num(r.fullAcc), earned: list<[number, number]>(r.earned, x => Array.isArray(x) && x.every(isNum)),
       seed: clamp(Math.floor(num(r.seed, 3)), 1, 2147483646), cookT: 0,
-      den: { door: r.den?.door === true, monte: { bout: Math.floor(num(r.den?.monte?.bout, -1)), played: clamp(Math.floor(num(r.den?.monte?.played)), 0, 99) } },
+      den: {
+        door: r.den?.door === true, monte: { bout: Math.floor(num(r.den?.monte?.bout, -1)), played: clamp(Math.floor(num(r.den?.monte?.played)), 0, 99) },
+        loan: { owed: Math.max(0, num(r.den?.loan?.owed)), total: Math.max(0, num(r.den?.loan?.total), num(r.den?.loan?.owed)) },
+      },
     };
     for (const k of ING) {
       const L = (r.lines?.[k] ?? {}) as Partial<Line>;
