@@ -1263,6 +1263,38 @@ describe('the swarm and the watch spot', () => {
     expect(round.some(w => plan.inSquare(w))).toBe(false);
   });
 
+  it('the flap at the west counter\'s south end lifts for the player, right up at it, lets them through, and shuts after them', async () => {
+    const { g, cellar, plan } = await ring();
+    const { BAR, FLAP } = plan, p = g.player.g.position, z = (FLAP.z0 + FLAP.z1) / 2 + 0.1, edge = BAR.x0 - 0.22;
+    // nothing's set out on it, and no fan steps up to buy at it
+    for (const h of plan.BAR_PLACES) expect(h.x > BAR.x0 + BAR.d || h.z < FLAP.z0).toBe(true);
+    for (const s of plan.BAR_SPOTS) expect(s.z).toBeLessThan(FLAP.z0);
+    // a step away from it, it stays shut
+    p.set(BAR.x0 - 1.2, cellar.CY, z);
+    g.run(1);
+    expect(cellar.flapK()).toBe(0);
+    // walked up to from the arena, it holds the player at the counter till it's open, then lets them into the square
+    let held = 0;
+    for (let i = 0; i < 90 && !plan.inSquare(p); i++) {
+      p.x += 0.05;
+      g.run(1 / 60);
+      if (!cellar.flapOpen()) { expect(p.x).toBeLessThanOrEqual(edge + 1e-6); held++; }
+    }
+    expect(held).toBeGreaterThan(0);
+    expect(plan.inSquare(p)).toBe(true);
+    // and back out the same way
+    for (let i = 0; i < 90 && p.x > BAR.x0 - 0.5; i++) { p.x -= 0.05; g.run(1 / 60); }
+    expect(p.x).toBeLessThanOrEqual(BAR.x0 - 0.5);
+    // even open, it's never a way through for the fans or the crew; and it shuts once the player's away
+    p.set(BAR.x0 + BAR.d / 2, cellar.CY, z);
+    g.run(0.5);
+    expect(cellar.flapOpen()).toBe(true);
+    expect(cellar.cellarBoxes().some(([cx, cz, hx, hz]) => Math.abs(BAR.x0 + BAR.d / 2 - cx) < hx && Math.abs(z - cz) < hz)).toBe(true);
+    p.set(BAR.x0 - 2, cellar.CY, 5);
+    g.run(1);
+    expect(cellar.flapK()).toBe(0);
+  });
+
   it('a boss\'s crowd walks round the ring, the stands and the soup bar to its seats, never through them', async () => {
     const { g, fight, swarm, cellar, F } = await ring({ ring: { tier: 2 } });
     expect(fight.ringGong()).toBe(true);

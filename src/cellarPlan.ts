@@ -70,6 +70,10 @@ export const BAR = (() => {
   const x0 = 0.2, x1 = ARENA.x1 + 0.2, z0 = 3.65, z1 = ARENA.z1 + 0.04;
   return { x0, x1, z0, z1, d: 0.7, top: 0.95, x: (x0 + x1) / 2, z: (z0 + z1) / 2 };
 })();
+/** The flap: the west counter's south end, by the wall, `z0` to `z1`, a way through for the player alone. Walk right up
+ *  to it, from inside or out, and its top hinges up and the panels under it swing back against the wall (cellar.ts);
+ *  step away and it shuts. Nothing's set out on it. */
+export const FLAP = { z0: BAR.z1 - 0.9, z1: BAR.z1 };
 /** Where to stand to set the bowls out: the square's floor, inside its counters. */
 export const BAR_PAD = pad(2.2, 5.6, 0.8);
 /** How far a point is from the square's outside (0 on or inside it). */
@@ -79,26 +83,27 @@ export const nearBar = (p: XZ): XZ => ({ x: Math.min(BAR.x1, Math.max(BAR.x0, p.
 /** Whether `p` is on the square's floor, inside its counters (or in its doorway). */
 export const inSquare = (p: XZ) => p.x > BAR.x0 + BAR.d - 0.1 && p.x < KITCHEN.x0 - 0.05 && p.z > BAR.z0 + BAR.d - 0.1 && p.z < BAR.z1 + 0.1;
 /** The places on the counters' tops where the bowls are set out, in the order they're filled: along the west counter
- *  from the south wall, then along the north one from the corner to the hearth room's wall. Each counter has two rows
- *  of them, staggered (the corner's the north one's). (No mark where a bowl isn't: an empty place looks empty.) */
+ *  from the flap, then along the north one from the corner to the hearth room's wall. Each counter has two rows of
+ *  them, staggered (the corner's the north one's; the west one's a little closer together, to leave the flap clear).
+ *  (No mark where a bowl isn't: an empty place looks empty.) */
 export const BAR_PLACES: XZ[] = (() => {
-  const { x0, x1, z0, z1, d } = BAR, ROWS = 0.17, GAP = 0.4;
-  /** `n` places a row, from `a` on, the second row half a gap on. */
-  const rows = (n: number, a: number, dir: number, at: (t: number, side: number) => XZ) =>
-    Array.from({ length: n * 2 }, (_, i) => at(a + dir * (Math.floor(i / 2) * GAP + (i % 2) * GAP / 2), i % 2 ? 1 : -1));
+  const { x0, x1, z0, d } = BAR, ROWS = 0.17, GAP = 0.4, WEST = 7, from = FLAP.z0 - 0.15;
+  /** `n` places a row, `gap` apart, from `a` on, the second row half a gap on. */
+  const rows = (n: number, a: number, dir: number, gap: number, at: (t: number, side: number) => XZ) =>
+    Array.from({ length: n * 2 }, (_, i) => at(a + dir * (Math.floor(i / 2) * gap + (i % 2) * gap / 2), i % 2 ? 1 : -1));
   return [
-    ...rows(7, z1 - 0.15, -1, (z, s) => ({ x: x0 + d / 2 + s * ROWS, z })),
-    ...rows(8, x0 + 0.15, 1, (x, s) => ({ x, z: z0 + d / 2 + s * ROWS })),
+    ...rows(WEST, from, -1, (from - (z0 + d + 0.1)) / (WEST - 0.5), (z, s) => ({ x: x0 + d / 2 + s * ROWS, z })),
+    ...rows(8, x0 + 0.15, 1, GAP, (x, s) => ({ x, z: z0 + d / 2 + s * ROWS })),
   ].filter(h => h.x < x1 - 0.1);
 })();
 /** Where round the square the fans step up to buy their bowl: a little out from its counters, along its north and west
  *  sides, each spot an arm's length from the next (swarm.ts sends each fan to a free one). */
 export const BAR_SPOTS: XZ[] = (() => {
-  // (none on the north side's east end: the sake barrels stand there)
+  // (none on the north side's east end: the sake barrels stand there; and none outside the flap, to keep it clear)
   const { x0, z0 } = BAR, OUT = 0.35;
   return [
     ...[0.75, 1.45, 2.15].map(x => ({ x, z: z0 - OUT })),
-    ...[4.25, 4.9, 5.55, 6.2, 6.85].map(z => ({ x: x0 - OUT, z })),
+    ...[4.25, 4.9, 5.55, 6.2].map(z => ({ x: x0 - OUT, z })),
   ];
 })();
 /** The arena floor along the south wall, from the square across, where the fans queue and a boss's crowd floods in
