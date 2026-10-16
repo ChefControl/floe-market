@@ -10,6 +10,7 @@ import { updDoorway } from './doorway';
 import { type Booth, BOOTH_PADS, BOOTHS, GUARDS } from './cellarPlan';
 import { chatter } from './chatter';
 import { decal, drawPad } from './decals';
+import { eddieSays, updEddie } from './eddie';
 import { family, settle } from './family';
 import { guards } from './guards';
 import { found, inUndertow, level, VIP } from './layout';
@@ -70,6 +71,7 @@ export const undertowSays = (k: Booth) => booths.find(b => b.k === k)!.talk.text
 /** What the bodyguard's saying now, for tests. */
 export const guardSays = () => guardTalk.text;
 tommySays(text => booths.find(b => b.k === 'tommy')!.say(text));
+eddieSays(text => booths.find(b => b.k === 'eddie')!.say(text));
 
 const inDen = inUndertow;
 
@@ -77,6 +79,7 @@ const inDen = inUndertow;
 export function updUndertow(dt: number) {
   updDoorway(dt);
   updMonte(dt);
+  updEddie(dt);
   updClub(dt);
   if (!found.den) return;
   updBand(dt);

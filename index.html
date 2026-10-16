@@ -794,6 +794,8 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
 .casino .go{ height:50px; border-radius:16px; background:#F2C14E; box-shadow:0 4px 0 #A9761C; font-size:18px; }
 .casino .acts{ display:grid; grid-auto-flow:column; grid-auto-columns:minmax(0,1fr); gap:8px; }
 .casino .acts button{ height:50px; border-radius:14px; background:#FFF8EC; box-shadow:0 4px 0 #B9A98F; font-size:17px; }
+.casino .acts [aria-pressed="true"]{ background:#F2C14E; box-shadow:0 4px 0 #A9761C; }
+.casino .odds{ margin:0; text-align:center; font-size:14px; font-weight:700; line-height:1.3; opacity:.8; }
 .casino .acts .gold{ background:#F2C14E; box-shadow:0 4px 0 #A9761C; }
 .casino .cut{ display:flex; align-items:center; gap:8px; font-size:13px; font-weight:800; color:#FFE7A8; }
 .casino .cut input{ flex:1; min-width:0; height:32px; margin:0; accent-color:#F5D03A; cursor:pointer; }
@@ -1218,6 +1220,18 @@ body.offer #hud, body.offer #corner, body.offer #pointers, body.offer #tip, body
     <button type="button" data-stake="undo" aria-label="Take back the last chip">Undo</button>
   </div>
   <button type="button" id="pull" class="go"></button>
+</div>
+<div id="eddie" class="casino" hidden>
+  <p id="eddieMsg" class="msg" aria-live="polite"></p>
+  <p id="eddieOdds" class="odds"></p>
+  <div class="acts" role="group" aria-label="How many of his fans stay home">
+    <button type="button" data-cut="1">10%</button>
+    <button type="button" data-cut="2">20%</button>
+    <button type="button" data-cut="3">30%</button>
+    <button type="button" data-cut="4">40%</button>
+    <button type="button" data-cut="5">50%</button>
+  </div>
+  <button type="button" id="eddieFix" class="go"></button>
 </div>
 <div id="monte" class="casino" hidden>
   <p id="monteMsg" class="msg" aria-live="polite"></p>
