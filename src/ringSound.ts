@@ -7,7 +7,8 @@
 // with cushions thrown, for a boss beaten), and applause for the bow. The more fans are fed, the louder it all is. Until the recordings have loaded (or
 // if they can't), it's synthesised: voices, each a buzz through a vowel's formants (audio.ts's vocal) at its own pitch,
 // with vibrato, and a babble between. It's loudest at the ringside, softer across the arena, low out in the other
-// rooms (very low in Mr. Fugu's office), and faint through the floor from the dock.
+// rooms (very low in Mr. Fugu's office, and not at all in the Undertow, behind its doors), and faint through the floor
+// from the dock.
 import {
   between, clip, clipBed, clipLength, ear, glide, hasClip, loadClips, noise, rnd, tone, vocal, type Clip, type ClipVoice, type NoiseVoice,
   type ToneVoice, type VocalVoice, type Vowel,
@@ -19,8 +20,9 @@ import { RING, roomAt } from './cellar';
 const MUFFLED = 0.15;
 /** Out of the arena, by the room: through one doorway on the landing and in the hearth room, two in the prep hall
  *  (and the clatter of its work) and the cookware shop, and hardly at all in the grow room or behind Mr. Fugu's office
- *  door. */
-const ROOMS_HEAR = { landing: 0.3, kitchen: 0.24, craft: 0.12, prep: 0.13, grow: 0.07, office: 0.07 } as const;
+ *  door; in the Undertow's tunnel, a good deal of it, and in the Undertow itself none at all, the club's band all there is
+ *  behind its doors and the rock (and in its back rooms past it). */
+const ROOMS_HEAR = { landing: 0.3, kitchen: 0.24, craft: 0.12, prep: 0.13, grow: 0.07, office: 0.07, passage: 0.35, den: 0, loans: 0, vip: 0, cards: 0 } as const;
 /** In the arena, all of it at the ringside and in the front of the stands, half of it by the far walls. */
 const RINGSIDE = 6.5, ARENA_FAR = 12.5, ARENA_LOW = 0.45;
 /** How much of the crowd the player hears where they are now, before smoothing. */

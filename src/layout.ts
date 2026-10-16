@@ -34,8 +34,23 @@ export const GROW = { x0: 11.6, x1: 20.6, z0: -9.5, z1: 0.3 };
  *  ROOMS's): what comes down them slides down a wooden chute each into a store, which keeps a tray by the wall full,
  *  handed over it to whoever stands at the circle on the hall's side. */
 export const LIFT_ROOM = { x0: 21.2, x1: 24.8, z0: 1.9, z1: 7.9 };
-export type CellarRoom = 'arena' | 'landing' | 'office' | 'kitchen' | 'prep' | 'grow' | 'craft';
-export const ROOMS: Record<CellarRoom, typeof ARENA> = { arena: ARENA, landing: LANDING, office: OFFICE_ROOM, kitchen: KITCHEN, prep: PREP, grow: GROW, craft: CRAFT };
+/** The Undertow, the Family's club, nobody knows is there until the second boss is beaten: a long dark tunnel out
+ *  through the arena's south wall, between the ring and the soup square, down past the club's east wall to a door in it
+ *  at the far end; and the club, a big smoky room dug into the rock in front of the arena (the camera's side, like the
+ *  cookware shop), from a little west of the arena's west wall, and deep. */
+export const PASSAGE = { x0: -1.9, x1: -0.7, z0: 8.0, z1: 15.6 };
+export const DEN = { x0: -15.5, x1: -3.4, z0: 10.2, z1: 22.0 };
+/** Hammerhead Harry's office, a side room through the club's west wall: where the loans are made and the books kept. */
+export const LOANS = { x0: DEN.x0 - 5.1, x1: DEN.x0 - 0.6, z0: DEN.z0, z1: DEN.z0 + 4.4 };
+/** Slick Eddie's private room, through the club's south wall (on the camera's side): his banquette and his table, and his
+ *  two bodyguards either side of him. */
+export const VIP = { x0: DEN.x0 + 3.3, x1: DEN.x0 + 8.7, z0: DEN.z1 + 0.6, z1: DEN.z1 + 4.2 };
+/** Three-Card Tommy's card room, through the club's west wall south of Harry's office: his table and his screen. */
+export const CARDS = { x0: LOANS.x0, x1: LOANS.x1, z0: LOANS.z1 + 0.6, z1: LOANS.z1 + 4.0 };
+export type CellarRoom = 'arena' | 'landing' | 'office' | 'kitchen' | 'prep' | 'grow' | 'craft' | 'passage' | 'den' | 'loans' | 'vip' | 'cards';
+export const ROOMS: Record<CellarRoom, typeof ARENA> = {
+  arena: ARENA, landing: LANDING, office: OFFICE_ROOM, kitchen: KITCHEN, prep: PREP, grow: GROW, craft: CRAFT, passage: PASSAGE, den: DEN, loans: LOANS, vip: VIP, cards: CARDS,
+};
 /** The doorways through the walls: the two rooms each joins, and its floor (across the wall). */
 export const DOORS: { a: CellarRoom; b: CellarRoom; x0: number; x1: number; z0: number; z1: number }[] = [
   { a: 'landing', b: 'arena', x0: ARENA.x1, x1: LANDING.x0, z0: -1.2, z1: 0 },
@@ -48,10 +63,23 @@ export const DOORS: { a: CellarRoom; b: CellarRoom; x0: number; x1: number; z0: 
   { a: 'kitchen', b: 'craft', x0: 6.0, x1: 7.2, z0: KITCHEN.z1, z1: CRAFT.z0 },
   // (at the east end of the prep hall's back wall, past the racks along it)
   { a: 'prep', b: 'grow', x0: 18.5, x1: 19.7, z0: GROW.z1, z1: PREP.z0 },
+  // (the tunnel: through the arena's south wall, and at its far end through the Undertow's east wall)
+  { a: 'arena', b: 'passage', x0: PASSAGE.x0, x1: PASSAGE.x1, z0: ARENA.z1, z1: PASSAGE.z0 },
+  { a: 'passage', b: 'den', x0: DEN.x1, x1: PASSAGE.x0, z0: PASSAGE.z1 - 1.8, z1: PASSAGE.z1 - 0.2 },
+  // (Harry's office, through the club's west wall, south of the bar)
+  { a: 'den', b: 'loans', x0: LOANS.x1, x1: DEN.x0, z0: DEN.z0 + 2.4, z1: DEN.z0 + 3.6 },
+  // (Tommy's card room, through the club's west wall south of Harry's office, near the front)
+  { a: 'den', b: 'cards', x0: CARDS.x1, x1: DEN.x0, z0: CARDS.z1 - 2.0, z1: CARDS.z1 - 0.8 },
+  // (Eddie's room, through the club's south wall, at its east end)
+  { a: 'den', b: 'vip', x0: VIP.x1 - 2.55, x1: VIP.x1 - 1.35, z0: DEN.z1, z1: VIP.z0 },
 ];
-/** Which of the cellar's rooms have been found: the grow room only once the first boss is beaten. */
-export const found = { grow: false };
-const shown = (r: CellarRoom) => r !== 'grow' || found.grow;
+/** Whether `p` is in the Undertow: the club, or one of its side rooms (Harry's office, Tommy's card room, Eddie's room). */
+export const inUndertow = (p: { x: number; z: number }) =>
+  [DEN, LOANS, VIP, CARDS].some(r => p.x > r.x0 - 0.5 && p.x < r.x1 + 0.5 && p.z > r.z0 - 0.5 && p.z < r.z1 + 0.5);
+/** Which of the cellar's rooms have been found: the grow room once the first boss is beaten, the Undertow (its tunnel
+ *  and Harry's office too) once the second is. */
+export const found = { grow: false, den: false };
+const shown = (r: CellarRoom) => (r !== 'grow' || found.grow) && ((r !== 'den' && r !== 'passage' && r !== 'loans' && r !== 'vip' && r !== 'cards') || found.den);
 /** How far a walker's middle keeps from a cellar wall: about their width, so they stop at its face, not halfway in. */
 const BODY = 0.2;
 const cellarFloors = () => [

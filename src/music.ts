@@ -23,6 +23,7 @@
 import { ac, buses, duck, ear, hz, key, noise, onAudio, onBroken, onTick, prefs, rnd, tone, type Voice } from './audio';
 import { aboard, casinoBoat, level, SHIP, stage } from './layout';
 import { eighth as loungeEighth, LOUNGE, LOUNGE_STEPS, loungeLevel, loungeMix, playLounge } from './lounge';
+import { club, eighth as noirEighth, NOIR, NOIR_STEPS, noirLevel, noirMix, playNoir } from './noir';
 import { offerPlaying } from './offer';
 import { rainK } from './rain';
 import { current, type Season } from './season';
@@ -428,8 +429,31 @@ function updLounge(k: number, now: number) {
   }
 }
 
-/** The stage's music's level and the lounge band's, for the tests. */
-export const musicMix = () => ({ stage: stageMix?.gain.value ?? 1, lounge: loungeMix() });
+// ---------- the Undertow ----------
+/** The club's band's place, as the lounge band's: it starts from the top each time it comes in. */
+let noir = { on: false, step: 0, next: 0 };
+function updNoir(k: number, muffle: number, vol: number, now: number) {
+  noirLevel(Math.sin(k * Math.PI / 2) * vol, muffle);
+  if (k < 0.001) { noir.on = false; return; }
+  if (!noir.on || noir.next < now - 5) noir = { on: true, step: 0, next: now + 0.1 };
+  while (noir.next < now + 0.2) {
+    if (noir.next >= now && hushed < 2) playNoir(noir.step, noir.next - now);
+    noir.next += noirEighth();
+    noir.step = (noir.step + 1) % NOIR_STEPS;
+  }
+}
+
+/** Where the club's band is in its sixteen bars as it's heard now, in eighths (fractional), or null while it isn't
+ *  playing (band.ts has the band on the stand play along to it). */
+export const noirHeard = () => {
+  if (!ac || !noir.on) return null;
+  // (what's coming out of the speakers now went in a little before: the output's own delay)
+  const out = ac.currentTime - (ac.outputLatency || 0) - (ac.baseLatency || 0);
+  return (((noir.step - (noir.next - out) / noirEighth()) % NOIR_STEPS) + NOIR_STEPS) % NOIR_STEPS;
+};
+
+/** The stage's music's level, the lounge band's and the Undertow's, for the tests. */
+export const musicMix = () => ({ stage: stageMix?.gain.value ?? 1, lounge: loungeMix(), noir: noirMix() });
 
 /** Keeps the music going: call every frame. It schedules a fraction of a second ahead, on the audio clock. */
 export function updMusic(dt: number) {
@@ -438,27 +462,29 @@ export function updMusic(dt: number) {
   const hush = (!level.down && (songWanted() || rainK > 0.05)) || staging() || offerPlaying();
   duck(hush ? 0 : 1, hush ? 1.5 : 3);
   hushed = hush ? hushed + dt : 0;
-  // the stage's music and the lounge band's, crossfading up the quay; the game's sounds in whichever key is on top
-  const harbor = harborK();
-  stageMix?.gain.setTargetAtTime(Math.cos(harbor * Math.PI / 2), ac.currentTime, 0.15);
-  key.root = harbor > 0.5 ? LOUNGE.sounds : market() ? MARKET.sounds : cellar() ? GLOOP.sounds : band.key;
+  // the stage's music and the lounge band's, crossfading up the quay; down the Undertow's tunnel, the stage's and the
+  // club's band's (doorway.ts); the game's sounds in whichever key is on top
+  const harbor = harborK(), den = club.k, away = Math.max(harbor, den);
+  stageMix?.gain.setTargetAtTime(Math.cos(away * Math.PI / 2), ac.currentTime, 0.15);
+  key.root = harbor > 0.5 ? LOUNGE.sounds : den > 0.5 ? NOIR.sounds : market() ? MARKET.sounds : cellar() ? GLOOP.sounds : band.key;
   schedule();
 }
 /** Queues the music's next steps on the audio clock: on every frame, and on the timer between them (onTick). */
 function schedule() {
   if (!ac) return;
-  if (prefs.mute.music || ac.state !== 'running') { on = false; lounge.on = false; return; }
-  const now = ac.currentTime, harbor = harborK();
+  if (prefs.mute.music || ac.state !== 'running') { on = false; lounge.on = false; noir.on = false; return; }
+  const now = ac.currentTime, harbor = harborK(), den = club.k, away = Math.max(harbor, den);
   updLounge(harbor, now);
+  updNoir(den, club.muffle, club.vol, now);
   // a fresh start: the first time, after the music was off or a long stall, and in a new stage (or down the ladder)
   if (!on || next < now - 5 || playingStage !== which()) {
     on = true; playingStage = which(); step = 0; next = now + 0.1; verses = 0;
     newVerse();
   }
   while (next < now + 0.2) {
-    // faded right out (or crossfaded to the lounge band): no need to play notes nobody hears; and a step whose time
-    // has gone by (the page was held up) is let go, so the music carries on on its beat rather than late
-    if (next >= now && hushed < 2 && harbor < 0.999) play(step, next - now);
+    // faded right out (or crossfaded to the lounge band or the club's): no need to play notes nobody hears; and a step
+    // whose time has gone by (the page was held up) is let go, so the music carries on on its beat rather than late
+    if (next >= now && hushed < 2 && away < 0.999) play(step, next - now);
     next += stepLen();
     if (++step === verseLen()) { step = 0; newVerse(); }
   }

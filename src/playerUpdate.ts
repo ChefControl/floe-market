@@ -86,7 +86,8 @@ export function updPlayer(dt: number) {
       const a = Math.sin(tipsy.clock * 5.5) * 0.9 * tipsyK(), c = Math.cos(a), s = Math.sin(a);
       mv.set(mv.x * c - mv.z * s, 0, mv.x * s + mv.z * c);
     }
-    p.x += mv.x * player.speed * dt; p.z += mv.z * player.speed * dt;
+    const v = player.speed * player.stride * dt;
+    p.x += mv.x * v; p.z += mv.z * v;
     const target = Math.atan2(mv.x, mv.z);
     let d = target - player.h; d = Math.atan2(Math.sin(d), Math.cos(d));
     player.h += d * Math.min(1, dt * 14);

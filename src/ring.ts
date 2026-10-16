@@ -1,14 +1,15 @@
 // Fight night in the game (stage 3): runs fight.ts's cellar every frame, draws it (the kitchen, the bouts, the swarm,
 // the gong), and answers what happens down there: chips into the wallet, the gong's crash and the crowd flooding in,
 // the card after a rush, the grow room coming to light, Mr. Fugu's office lighting up for the buyout.
-import { CY, parts, showGrowRoom, showVenue, updBarFlap } from './cellar';
+import { CY, parts, showDen, showGrowRoom, showVenue, updBarFlap } from './cellar';
 import { BAR, GONG } from './cellarPlan';
 import { openRing, updDohyo } from './dohyo';
-import { BOSSES, CHIP, F, fightFrom, on, resetFight, step, strength } from './fight';
+import { BOSSES, CHIP, F, fightFrom, FIX, on, resetFight, step, strength } from './fight';
 import { front } from './front';
-import { showCard, updGong } from './gong';
-import { DOORS, level, PREP } from './layout';
+import { cardUp, showCard, updGong } from './gong';
+import { ARENA, DOORS, level, PASSAGE, PREP } from './layout';
 import { updOffice } from './office';
+import { updUndertow } from './undertow';
 import { player } from './player';
 import { pointAt } from './pointers';
 import { popIn } from './pop';
@@ -37,7 +38,12 @@ on.rush = r => {
   const b = BOSSES[r.boss];
   gong({ x: GONG.x, y: CY, z: GONG.z });
   roarT = 1.1;
-  toast(`${b.face} ${b.name} walks in with ${b.crowd} fans: turn more than half before the bell!`, 'rush', 3000);
+  // (and with Slick Eddie's fix on it, how that went: eddie.ts)
+  const fix = r.fix;
+  const said = !fix ? `${b.face} ${b.name} walks in with ${r.n} fans: turn more than half before the bell!`
+    : !fix.caught ? `🤝 Eddie's boys kept ${r.kept} of his fans home: ${b.face} ${b.name} walks in with ${r.n}. Turn more than half before the bell!`
+      : `🗞️ The papers got Eddie's fix! ${b.face} ${b.name} walks in with all ${r.n}, and ${fix.cut * 10}% of your own fans stay away for ${FIX.scandal[fix.cut - 1]} bout${FIX.scandal[fix.cut - 1] === 1 ? '' : 's'} after.`;
+  toast(said, 'rush', fix ? 4500 : 3000);
 };
 on.rushEnd = r => {
   showCard(r);
@@ -53,6 +59,20 @@ on.grow = () => {
   pointAt({ x: (door.x0 + door.x1) / 2, y: CY, z: PREP.z0 - 0.3 }, '🍄', () => level.down);
   toast("The gate behind the prep hall swings open: a grow room with its first mushroom bed. Mushroom bowls pay double", 'grow', 4500);
 };
+// The second boss beaten: the Undertow's found. Not with his card still up, though, nor while his crowd's still going
+// home: once the next bout's begun and the player's down here and free, the arena's wall across the tunnel's mouth
+// comes down and the camera goes over to the tunnel and the room through it.
+let denDue = false;
+on.den = () => { denDue = true; };
+function revealDen() {
+  denDue = false;
+  showDen(true);
+  const mouth = { x: (PASSAGE.x0 + PASSAGE.x1) / 2, y: CY, z: ARENA.z1 };
+  spotlight([parts.den], { close: 0.75 });
+  chime();
+  pointAt(mouth, '🃏', () => level.down);
+  toast('The rock behind the south wall gives way: a tunnel to the Undertow, where the Family does business', 'den', 5000);
+}
 // An upgrade bought at the shop counter gets its moment on camera, as upstairs: what it built pops in, and the camera
 // goes over to it and comes in close for a couple of seconds (spotlight.ts), in the middle of the space the bench's menu
 // leaves. Never while a boss is in (his rush waits for nobody) or a scene has the player, up or down the ladder or in
@@ -67,6 +87,8 @@ on.built = what => {
 function dress() {
   showVenue(F.tier);
   showGrowRoom(F.beaten >= 1);
+  showDen(F.beaten >= 2);
+  denDue = false;
   front.boughtOut = F.boughtOut;
 }
 /** The 'dohyo' stage-up: a fresh cellar, the ring open. */
@@ -98,6 +120,8 @@ export function updRing(dt: number) {
   updBarFlap(dt, level.down ? player.g.position : null);
   updDohyo(dt);
   updOffice(dt);
+  if (denDue && !F.rush && !cardUp() && level.down && !player.held && !staging()) revealDen();
+  updUndertow(dt);
   updSwarm(dt);
   updGong(dt);
 }

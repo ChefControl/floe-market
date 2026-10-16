@@ -9,6 +9,7 @@ import { frameDrawn } from './graphics';
 import { initHint, updHint } from './hint';
 import { inputVec } from './input';
 import { hideAbove } from './levelCull';
+import { doorCam } from './doorway';
 import { drawOffer, offerCam } from './offer';
 import { updKofi } from './kofi';
 import { player } from './player';
@@ -92,6 +93,8 @@ function frame(now: number) {
     aim.lerp(offerCam.look, b);
     if (s) camera.position.add(V((Math.random() - 0.5) * s, (Math.random() - 0.5) * s, 0));
   }
+  // the Undertow's doorman looking you over the first time: the camera on the doors (doorway.ts)
+  if (doorCam.k > 0) { const b = smooth(doorCam.k); camera.position.lerp(doorCam.pos, b); aim.lerp(doorCam.look, b); }
   // tipsy: the view sways and rolls (not for players who'd rather less motion)
   const sway = tipsy.t > 0 && !reduceMotion.matches ? tipsyK() : 0;
   if (sway) { aim.x += Math.sin(now / 760) * 0.45 * sway; aim.z += Math.cos(now / 910) * 0.3 * sway; }

@@ -209,7 +209,9 @@ describe('the crowd', () => {
     const prep = hears(plan.BIN_PADS.rice.x, plan.BIN_PADS.rice.z);
     const office = hears(cellar.OFFICE.x, cellar.OFFICE.z + 1.5);
     const dock = hears(cellar.RING.x, cellar.RING.z, false);
+    const L = layout, undertow = [L.DEN, L.LOANS, L.VIP, L.CARDS].map(r => hears((r.x0 + r.x1) / 2, (r.z0 + r.z1) / 2));
     expect(ringside).toBe(1);
+    expect(undertow).toEqual([0, 0, 0, 0]); // none of it behind the Undertow's doors
     expect(stands).toBeGreaterThan(0.95); // among the crowd
     expect(farArena).toBeGreaterThan(0.4); expect(farArena).toBeLessThan(0.7);
     expect(landing).toBeLessThan(farArena);

@@ -43,11 +43,14 @@ export const GRACE = 10;
  *
  * Stepping off while a round is `live` is often a slip, so the round waits for them: the game `say`s its `away` line,
  * and only if they're not back on the pad within `GRACE` seconds (and the round's still going) is it `closed`.
+ *
+ * `here` says whether the player's where the pad is: on the boat, unless it says otherwise (Tommy's table, down in the
+ * Undertow).
  */
 export function gamePad(
   at: XZ & { y?: number }, icon: string, panel: HTMLElement,
   h: { opened(): void; closed(): void; greet(): void; live(): boolean; say(text: string): void; away: string },
-  view: Seat,
+  view: Seat, here: () => boolean = () => !level.down, reach = REACH,
 ) {
   const d = decal(1.9, (c, w, ht) => drawPad(c, w, ht, icon));
   d.mesh.position.set(at.x, (at.y ?? FY) + 0.01, at.z);
@@ -60,7 +63,7 @@ export function gamePad(
     enable() { enabled = true; d.mesh.visible = true; },
     upd(dt: number) {
       if (!enabled) return false;
-      const near = !level.down && d2xz(player.g.position, at) < REACH * REACH;
+      const near = here() && d2xz(player.g.position, at) < reach * reach;
       if (near !== open) {
         open = near;
         panel.hidden = !open;
@@ -83,6 +86,13 @@ export function gamePad(
 /** The chips for each stage: each earns about ten times as much as the one before, so its chips are ten times bigger. */
 export const CHIPS: Record<StageN, number[]> = { 1: [5, 25, 100, 500], 2: [50, 250, 1000, 5000], 3: [500, 2500, 10_000, 50_000] };
 const chipLabel = (v: number) => v >= 1000 ? `$${v / 1000}k` : `$${v}`;
+
+/** What's different about a table's stake (Tommy's, down in the cellar): its chips, a limit on the stake besides the
+ *  player's cash, and how a chip and the stake are written. */
+export interface StakeRules { chips(): number[]; limit(): number; chip(v: number): string; label(v: number): string }
+const BOAT: StakeRules = {
+  chips: () => CHIPS[stage.n], limit: () => Infinity, chip: chipLabel, label: v => '$' + v.toLocaleString('en-US'),
+};
 
 /** Holding a chip (or Undo) down: how long before it starts going on its own, how often it goes at first, and how
  *  often at most, as it speeds up. In ms. */
@@ -112,7 +122,7 @@ export class Stakes {
   /** The chip (or Undo) the pointer last pressed, whose click is still to come: it went down on the press already. */
   private owed: HTMLButtonElement | null = null;
 
-  constructor(readonly el: HTMLElement, private busy: () => boolean, private picked: () => void) {
+  constructor(readonly el: HTMLElement, private busy: () => boolean, private picked: () => void, private rules: StakeRules = BOAT) {
     el.addEventListener('pointerdown', e => {
       const b = this.button(e);
       this.owed = null;
@@ -170,12 +180,14 @@ export class Stakes {
     this.held = null;
   }
 
+  /** The most the stake can be: the player's cash, or the table's limit if that's less. */
+  get most() { return Math.min(wallet.money, this.rules.limit()); }
   /** The stake in dollars. */
-  get value() { return this.all ? wallet.money : this.pile.reduce((s, n, i) => s + n * CHIPS[stage.n][i], 0); }
+  get value() { return this.all ? this.most : this.pile.reduce((s, n, i) => s + n * this.rules.chips()[i], 0); }
   /** Whether the stake can be put down now. */
-  get ok() { return this.value > 0 && this.value <= wallet.money; }
+  get ok() { return this.value > 0 && this.value <= this.most; }
   /** The stake to the dollar, never shortened: $10,250 isn't $10.2k when it's made of chips. */
-  get label() { return '$' + this.value.toLocaleString('en-US'); }
+  get label() { return this.rules.label(this.value); }
 
   /** Labels the chips for the stage, with how many of each are down, and greys out what the player can't add to the
    *  stake (all of it while `busy`). */
@@ -184,15 +196,15 @@ export class Stakes {
       const v = b.dataset.stake!;
       if (v === 'all') {
         b.setAttribute('aria-pressed', String(this.all));
-        b.disabled = busy || wallet.money <= 0;
+        b.disabled = busy || this.most <= 0;
       } else if (v === 'undo') b.disabled = busy || !this.past.length;
       else {
-        const amount = CHIPS[stage.n][Number(v)], n = this.all ? 0 : this.pile[Number(v)];
-        b.textContent = chipLabel(amount);
-        if (n) { b.dataset.n = `×${n}`; b.setAttribute('aria-label', `${chipLabel(amount)} ×${n}`); }
+        const amount = this.rules.chips()[Number(v)], n = this.all ? 0 : this.pile[Number(v)];
+        b.textContent = this.rules.chip(amount);
+        if (n) { b.dataset.n = `×${n}`; b.setAttribute('aria-label', `${this.rules.chip(amount)} ×${n}`); }
         else { delete b.dataset.n; b.removeAttribute('aria-label'); }
         b.setAttribute('aria-pressed', String(n > 0));
-        b.disabled = busy || (this.all ? 0 : this.value) + amount > wallet.money;
+        b.disabled = busy || (this.all ? 0 : this.value) + amount > this.most;
       }
     });
   }

@@ -21,7 +21,7 @@ import { buyOut } from './fight';
 import { openCellar } from './ring';
 import { react } from './ringSound';
 import { houseStage2 } from './rain';
-import { current, mix, onBlend, type Swatch } from './season';
+import { mix, onBlend, type Swatch } from './season';
 import { furniture, handOver, openRestaurant } from './restaurant';
 import { fieldStack, plantPatch } from './rice';
 import { retireRunners } from './runner';
@@ -114,10 +114,10 @@ export const CELLAR_ZOOM = 1.1;
 /** Puts the player on a level: the cellar (stage 3) or the world above, with its light, lamps and camera. */
 export function setLevel(down: boolean) {
   level.down = down;
-  // (the seasons don't reach the cellar: the player keeps the clothes they came down in, and dresses for the day again
-  // back up top)
-  player.g.season = down ? current() : null;
-  if (!down) player.g.wear();
+  // (the seasons don't reach the cellar, and it's hot down there: the player changes into summer clothes on the way
+  // down, and dresses for the day again back up top)
+  player.g.season = down ? 'summer' : null;
+  player.g.wear();
   cellarLights(down);
   // the lamps above are off down here (every light costs every material in the scene)
   [...lamps, springLamp].forEach(l => { l.visible = !down; });

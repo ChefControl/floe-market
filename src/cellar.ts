@@ -11,17 +11,17 @@
 // This module is the rooms and their furniture; where things are is cellarPlan.ts, and the kitchen's lines, the bouts
 // and the swarm draw themselves (ringKitchen.ts, dohyo.ts, swarm.ts).
 import {
-  AdditiveBlending, BackSide, BoxGeometry, BufferGeometry, CatmullRomCurve3, Color, ConeGeometry, CylinderGeometry, DoubleSide, Float32BufferAttribute, Group, IcosahedronGeometry,
+  AdditiveBlending, BackSide, BoxGeometry, BufferGeometry, CatmullRomCurve3, CircleGeometry, Color, ConeGeometry, CylinderGeometry, DoubleSide, Float32BufferAttribute, Group, IcosahedronGeometry,
   type Material, Matrix4, Mesh, MeshBasicMaterial, MeshLambertMaterial, type Object3D, PlaneGeometry, PointLight, type Side as Facing, TorusGeometry,
   TubeGeometry, Vector3,
 } from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import {
-  BAR, FLAP, BENCH, BIN_PADS, BINS, CASHIER, CHUTE, chuteY, COUNTER, GONG, HEARTH, LIFTS, machineAt, MAX_MACHINES, POT, STORES, TEPPO, TUNNEL_D, TUNNEL_W, TUNNELS,
+  ARCH_HALF, ARCHES, AUDIENCE, AUDIENCE_CHAIRS, BAR, BAR_STOOLS, BOOTH_SEAT, BOOTH_TABLE, CHAT, DANCE, DANCERS, inBooth, LOUNGE, WALL_BOOTHS, BARRELS, BENCH, BIN_PADS, BINS, BAND, BANDSTAND, BOOTHS, CASHIER, COAT_SPOT, GUARDS, CLUB_DOOR, CLUB_WAY, DEN_BAR, DEN_TABLES, DESKS, FLAP, LEDGER, STAGE, CHUTE, chuteY, COUNTER, GONG, HEARTH, LIFTS, machineAt, MAX_MACHINES, POT, STORES, TEPPO, TUNNEL_D, TUNNEL_W, TUNNELS,
 } from './cellarPlan';
 import { Fugu } from './fugu';
 import { apart, Build, dice, K, quietly, rbox, shade, shadowsOf, tube } from './kit';
-import { ARENA, CELLAR_Y, type CellarRoom, CRAFT, DOORS, found, GROW, keepOnFloor, KITCHEN, LANDING, LIFT_ROOM, OFFICE_ROOM, PREP, pushOutOfBox, ROOMS, walkable } from './layout';
+import { ARENA, CARDS, CELLAR_Y, type CellarRoom, CRAFT, DEN, DOORS, found, GROW, keepOnFloor, KITCHEN, LANDING, LIFT_ROOM, LOANS, OFFICE_ROOM, PASSAGE, PREP, pushOutOfBox, ROOMS, VIP, walkable } from './layout';
 import { type CanvasTex, canvasTex, copyGeo, type Draw, FONT, G, mat, mesh, OFF, paint, rr, scene } from './render';
 import type { XZ } from './util';
 
@@ -108,10 +108,16 @@ cellar.visible = false;
 scene.add(cellar);
 /** Parts that come with the venue's tiers, shown when they're bought: the bleachers (the Back-Alley Ring), the upper
  *  tier and the taiko drums (the Underground Arena), and the VIP boxes (the Grand Hall Below). And the grow room, with
- *  the doorway into it, found when the first boss is beaten (until then, `hidden`: the prep hall's tall back wall). */
-export const parts = { bleachers: new Group(), tier: new Group(), vip: new Group(), drums: new Group(), grow: new Group(), hidden: new Group() };
+ *  the doorway into it, found when the first boss is beaten (until then, `hidden`: the prep hall's tall back wall); and
+ *  the Undertow and its tunnel, found when the second is (until then, `denHidden`: the arena's wall across its mouth). */
+export const parts = {
+  bleachers: new Group(), tier: new Group(), vip: new Group(), drums: new Group(), grow: new Group(), hidden: new Group(),
+  // (the Undertow's made on dice of their own, so loading draws from the game's luck just what it did before it: see
+  // BUILT_WITH)
+  ...apart(() => ({ den: new Group(), denHidden: new Group() }), dice(0xDE4)),
+};
 Object.values(parts).forEach(g => { g.visible = false; cellar.add(g); });
-parts.hidden.visible = true;
+parts.hidden.visible = parts.denHidden.visible = true;
 
 // ---------- the rooms ----------
 const earth = tiling(256, 256, (c, w, h) => {
@@ -165,6 +171,15 @@ const parquet = tiling(256, 256, (c, w, h) => {
     }
   }
 });
+/** Near-black boards, for the Undertow: narrow, polished, a cold sheen along them. */
+const denBoards = tiling(256, 256, (c, w, h) => {
+  for (let i = 0; i < 12; i++) {
+    c.fillStyle = ['#1C1D22', '#211F24', '#19191E', '#1F1E22'][i % 4]; c.fillRect(0, i * h / 12, w, h / 12);
+    c.fillStyle = 'rgba(0,0,0,.7)'; c.fillRect(0, i * h / 12, w, 2);
+    c.fillRect(((i * 97) % 200) + 20, i * h / 12, 2, h / 12);
+    c.fillStyle = 'rgba(140,210,210,.06)'; c.fillRect(((i * 53) % 180) + 30, i * h / 12 + 6, 80, 3);
+  }
+});
 const SIDE = mat(0x3A2C22);
 /** A floor over `r`, out to the middle of its walls, of earth or boards, its texture repeating every 4 m. */
 function floor(r: Rect, tex: CanvasTex, pad = 0.3, parent: Object3D = cellar) {
@@ -178,7 +193,9 @@ type Side = 'n' | 's' | 'e' | 'w';
 /** Where along a room's side the doorways go through it, so its wall leaves them open. */
 function gaps(r: Rect, side: Side): [number, number][] {
   const on = (a: number, b: number) => Math.abs(a - b) < 0.01;
-  return DOORS.filter(t => side === 'n' ? on(t.z1, r.z0) : side === 's' ? on(t.z0, r.z1) : side === 'w' ? on(t.x1, r.x0) : on(t.x0, r.x1))
+  // (only along this room's own side: the arena's west wall is in line with the club's, south of it)
+  const alongside = (t: (typeof DOORS)[number]) => side === 'n' || side === 's' ? t.x1 > r.x0 && t.x0 < r.x1 : t.z1 > r.z0 && t.z0 < r.z1;
+  return DOORS.filter(t => alongside(t) && (side === 'n' ? on(t.z1, r.z0) : side === 's' ? on(t.z0, r.z1) : side === 'w' ? on(t.x1, r.x0) : on(t.x0, r.x1)))
     .map(t => (side === 'n' || side === 's' ? [t.x0 - 0.3, t.x1 + 0.3] : [t.z0 - 0.3, t.z1 + 0.3]) as [number, number])
     // (and the fans' tunnels, through the arena's back walls, and the lift room's trays, through the prep hall's east wall)
     .concat(r === ARENA ? TUNNELS.filter(t => t.side === side).map(t => [t.at - TUNNEL_W / 2, t.at + TUNNEL_W / 2] as [number, number]) : [])
@@ -365,23 +382,73 @@ function officeWall() {
 function wall(r: Rect, side: Side, off = 0.1, parent: Object3D = cellar) {
   stands(r, side, off);
   const along = side === 'n' || side === 's', at = line(r, side, off);
+  for (const [a0, a1] of spans(r, side)) planks(parent, along, at, a0, a1);
+}
+/** A stretch of plank wall from `a0` to `a1` along x (`along`) or z, standing at `at`. */
+function planks(parent: Object3D, along: boolean, at: number, a0: number, a1: number) {
+  const mid = (a0 + a1) / 2, len = a1 - a0;
+  const put = (y: number, l: number, h: number, t: number, c: number) =>
+    along ? box(parent, c, mid, CY + y, at, l, h, t) : box(parent, c, at, CY + y, mid, t, h, l);
+  put(0.08, len, 0.16, 0.22, 0x4E4A46);
+  put(WALL / 2, len, WALL, 0.12, WOOD);
+  put(WALL + 0.04, len + 0.1, 0.08, 0.2, WOOD_DARK);
+  const n = Math.max(1, Math.round(len / 1.8));
+  for (let k = 0; k <= n; k++) {
+    const a = a0 + (len * k) / n;
+    along ? box(parent, WOOD_DARK, a, CY + WALL / 2, at, 0.16, WALL + 0.1, 0.16) : box(parent, WOOD_DARK, at, CY + WALL / 2, a, 0.16, WALL + 0.1, 0.16);
+  }
+}
+/** How high the Undertow's back walls stand: the club's behind the bar and the arches, Harry's office's behind his desk
+ *  and his shelves, and Tommy's and Eddie's rooms' behind them (they hide nothing but earth: the rest are low like the cellar's
+ *  others, so the camera sees in). */
+const DEN_TALL = 2.9;
+/** One of the Undertow's walls: dark panelling on a footing under an iron rail, tall along the very back (the club's
+ *  north wall, the office's north and west ones, and the west ones of Tommy's and Eddie's rooms) and low everywhere else,
+ *  iron posts along the low ones (the club's west and south walls low too, between it and the side rooms); along the
+ *  club's front, a pink tube on its rail. */
+function denWall(r: Rect, side: Side) {
+  const between = (r === DEN && (side === 'w' || side === 's')) || (r === LOANS && side === 's'), off = side === 'n' || between ? 0.3 : 0.1, along = side === 'n' || side === 's', at = line(r, side, off);
+  stands(r, side, off);
   for (const [a0, a1] of spans(r, side)) {
-    const mid = (a0 + a1) / 2, len = a1 - a0;
-    const put = (y: number, l: number, h: number, t: number, c: number) =>
-      along ? box(parent, c, mid, CY + y, at, l, h, t) : box(parent, c, at, CY + y, mid, t, h, l);
-    put(0.08, len, 0.16, 0.22, 0x4E4A46);
-    put(WALL / 2, len, WALL, 0.12, WOOD);
-    put(WALL + 0.04, len + 0.1, 0.08, 0.2, WOOD_DARK);
-    const n = Math.max(1, Math.round(len / 1.8));
-    for (let k = 0; k <= n; k++) {
-      const a = a0 + (len * k) / n;
-      along ? box(parent, WOOD_DARK, a, CY + WALL / 2, at, 0.16, WALL + 0.1, 0.16) : box(parent, WOOD_DARK, at, CY + WALL / 2, a, 0.16, WALL + 0.1, 0.16);
+    const tall = side === 'n' || ((r === LOANS || r === VIP || r === CARDS) && side === 'w'), h = tall ? DEN_TALL : WALL, mid = (a0 + a1) / 2, len = a1 - a0;
+    const put = (y: number, l: number, hh: number, t: number, c: number | Material, cast = true) =>
+      along ? box(parts.den, c, mid, CY + y, at, l, hh, t, cast) : box(parts.den, c, at, CY + y, mid, t, hh, l, cast);
+    put(0.08, len, 0.16, 0.22, 0x2A2F33);
+    put(h / 2, len, h, 0.12, 0x1A2024);
+    put(h + 0.04, len + 0.1, 0.08, 0.2, 0x262E33);
+    if (tall) put(WALL, len, 0.05, 0.16, 0x262E33);
+    else {
+      const n = Math.max(1, Math.round(len / 1.8));
+      for (let k = 0; k <= n; k++) {
+        const a = a0 + (len * k) / n;
+        along ? box(parts.den, 0x262E33, a, CY + WALL / 2, at, 0.1, WALL + 0.1, 0.16) : box(parts.den, 0x262E33, at, CY + WALL / 2, a, 0.16, WALL + 0.1, 0.1);
+      }
+    }
+    if (r === DEN && side === 's') box(parts.den, glow(0xFFA8D0, 0xFF2E86), mid, CY + WALL + 0.1, at, len - 0.5, 0.035, 0.035, false);
+    // (the club's own low walls, inside: warm wood panelling under a brass rail, framed in panels; and a little lamp on
+    // every other post)
+    if (r === DEN && !tall) {
+      const inward = side === 'w' ? 1 : -1, face = at + inward * 0.07;
+      const panel = (a: number, l: number, y: number, hh: number, t: number, c: number | Material) =>
+        along ? box(parts.den, c, a, CY + y, face + inward * t / 2, l, hh, t, false) : box(parts.den, c, face + inward * t / 2, CY + y, a, t, hh, l, false);
+      panel(mid, len - 0.1, 0.55, 0.8, 0.02, 0x4A2A1E);
+      panel(mid, len - 0.1, 0.97, 0.04, 0.035, 0x9A7A3A);
+      for (let a = a0 + 0.3; a < a1 - 0.2; a += 0.6) panel(a, 0.03, 0.55, 0.78, 0.03, 0x2E1A12);
+      const n = Math.max(1, Math.round(len / 1.8));
+      for (let k = 1; k < n; k += 2) {
+        const a = a0 + (len * k) / n, x = along ? a : at, z = along ? at : a;
+        add(parts.den, mesh(G.sphere, wallLamp(), x, CY + WALL + 0.2, z, false)).scale.set(0.06, 0.08, 0.06);
+        add(parts.den, mesh(G.cyl, 0x262E33, x, CY + WALL + 0.11, z, false)).scale.set(0.02, 0.06, 0.02);
+      }
     }
   }
 }
+/** The lamps on the club's low walls (made when it's built, not as the game loads). */
+let wallLampMat: MeshLambertMaterial | null = null;
+const wallLamp = () => (wallLampMat ??= glow(0xFFE2B0, 0xE0A040));
 later(() => {
   // the ground under it all, so nothing shows the void past a floor's edge
-  box(cellar, 0x2A201A, (ARENA.x0 + LIFT_ROOM.x1) / 2, CY - 0.3, (ARENA.z0 + CRAFT.z1) / 2, LIFT_ROOM.x1 - ARENA.x0 + 4, 0.5, CRAFT.z1 - ARENA.z0 + 4, false);
+  box(cellar, 0x2A201A, (LOANS.x0 + LIFT_ROOM.x1) / 2, CY - 0.3, (ARENA.z0 + DEN.z1) / 2, LIFT_ROOM.x1 - LOANS.x0 + 4, 0.5, DEN.z1 - ARENA.z0 + 4, false);
   // the rooms: floors, and their walls (tall at the very back, thin and low everywhere else)
   // (each room its own: packed earth round the ring and in the grow room, stone flags in the landing and the prep hall,
   // parquet in the office, boards in the hearth room)
@@ -404,6 +471,32 @@ later(() => {
     bars(parts.grow, (t.x0 + t.x1) / 2, PREP.z0 - 0.4, t.x1 - t.x0 + 0.1, 1.75, Math.PI / 2 - 0.15);
   }
   floor(GROW, earth(), 0.3, parts.grow); tallWall(GROW, 'n', parts.grow); wall(GROW, 'e', 0.1, parts.grow);
+  // the Undertow: a tunnel through the arena's south wall, into the Family's back room dug into the rock in front of the
+  // arena. Until the second boss is beaten, the arena's wall runs on across the tunnel's mouth, and there's only earth
+  // behind it (denHidden).
+  {
+    const t = DOORS.find(d => d.b === 'passage')!;
+    planks(parts.denHidden, true, line(ARENA, 's', 0.1), t.x0 - 0.3, t.x1 + 0.3);
+  }
+  // (the tunnel's dug back to the arena's own wall, and its floor runs from the arena's to the room's)
+  stands(PASSAGE, 'n', PASSAGE.z0 - line(ARENA, 's', 0.1));
+  floor({ x0: PASSAGE.x0, x1: PASSAGE.x1, z0: ARENA.z1 + 0.4, z1: PASSAGE.z1 + 0.1 }, earth(), 0.1, parts.den);
+  wall(PASSAGE, 'w', 0.1, parts.den); wall(PASSAGE, 'e', 0.1, parts.den); wall(PASSAGE, 's', 0.1, parts.den);
+  // (the short way through the rock from the tunnel to the club's doors: boarded, and walled either side; its boards run
+  // from the club's floor's edge to the tunnel's, meeting each without overlapping it, or the two flicker where they lie)
+  floor({ x0: DEN.x1 + 0.3, x1: PASSAGE.x0 - 0.1, z0: CLUB_WAY.z0 - 0.1, z1: CLUB_WAY.z1 + 0.1 }, denBoards(), 0, parts.den);
+  for (const z of [CLUB_WAY.z0 - 0.1, CLUB_WAY.z1 + 0.1]) planks(parts.den, true, z, CLUB_WAY.x0 + 0.1, CLUB_WAY.x1 - 0.1);
+  floor(DEN, denBoards(), 0.3, parts.den);
+  for (const side of ['n', 'w', 'e', 's'] as const) denWall(DEN, side);
+  // Harry's office, through the club's west wall (the club's wall between them)
+  floor(LOANS, parquet(), 0.3, parts.den);
+  for (const side of ['n', 'w', 's'] as const) denWall(LOANS, side);
+  // Tommy's card room, through the club's west wall south of the office (the club's wall and the office's between)
+  floor(CARDS, denBoards(), 0.3, parts.den);
+  for (const side of ['w', 's'] as const) denWall(CARDS, side);
+  // Eddie's room, through the club's south wall (the club's wall between them)
+  floor(VIP, parquet(), 0.3, parts.den);
+  for (const side of ['w', 'e', 's'] as const) denWall(VIP, side);
   // ceiling beams over the arena's back
   for (let x = ARENA.x0 + 1; x <= ARENA.x1; x += 2.2) box(cellar, WOOD_DARK, x, CY + 6.3, ARENA.z0 + 0.7, 0.25, 0.3, 2.4, false);
   // the fans' tunnels: a doorway through the back wall, framed in timber with the wall carried on over it and a lantern
@@ -434,7 +527,8 @@ later(() => {
 // boulders lying about on it, and a few metres out it's gone into the dark, the same near-black as the cellar's murk,
 // so there's no edge to see, only the lit rooms in the dark. The fans' tunnels run under the bank, which stays whole
 // over them (no rock face cuts across one). While the grow room's a secret, its place is ground like the rest
-// (parts.hidden), and it opens up when it's found. Nothing in it moves: it's drawn as it is, with no shadows.
+// (parts.hidden), and it opens up when it's found; the same for the Undertow and its tunnel (parts.denHidden). Nothing
+// in it moves: it's drawn as it is, with no shadows.
 /** The earth's top: in front, under the low walls' rails, and behind the back walls, under their caps. */
 export const GROUND = { cut: WALL + 0.06, bank: TALL - 0.02 };
 /** The rock round the rooms: dark broken stone, cracked, with flat-topped chips catching the light, drawn wrapped round
@@ -489,15 +583,19 @@ const dug = (r: Rect): Box => {
   return { x0: r.x0 - (o.w ?? 0.3), x1: r.x1 + (o.e ?? 0.3), z0: r.z0 - (o.n ?? 0.3), z1: r.z1 + (o.s ?? 0.3) };
 };
 const within = (b: Box, x: number, z: number) => x > b.x0 && x < b.x1 && z > b.z0 && z < b.z1;
-/** The earth's meshes, once it's built: round the rooms, and the grow room's place while it's a secret; the crags, and
- *  the kerbs round the rooms and round the grow room. */
-export const ground = {} as Record<'open' | 'hidden' | 'rocks' | 'kerb' | 'growKerb', Mesh>;
+/** The earth's meshes, once it's built: round the rooms (near the Undertow, lit once it's found and dark till then), and
+ *  the secret rooms' places while they're secrets; the crags, and the kerbs round the rooms, round the grow room, round
+ *  the Undertow, and along the arena's wall across the tunnel's mouth while it's a secret. */
+export const ground = {} as Record<'open' | 'nearDen' | 'nearDenShut' | 'hidden' | 'denHidden' | 'rocks' | 'kerb' | 'growKerb' | 'denKerb' | 'mouthKerb', Mesh>;
 later(() => {
   // (both sides drawn: a rock face seen from behind, past a wall's end, still shows as rock; and no light of the rooms'
   // on it at all, so none ever seems to come through a wall: its light is drawn into it, a facet at a time, by `bake`)
   const EARTH = new MeshBasicMaterial({ map: dirt().tex, vertexColors: true, side: DoubleSide });
-  const rooms = [...Object.values(ROOMS), LIFT_ROOM], holes = rooms.map(dug);
-  const grow = holes[rooms.indexOf(GROW)], A = dug(ARENA), O = dug(OFFICE_ROOM);
+  const rooms = [...Object.values(ROOMS), LIFT_ROOM, CLUB_WAY], holes = rooms.map(dug);
+  const grow = holes[rooms.indexOf(GROW)], den = [PASSAGE, DEN, CLUB_WAY, LOANS, VIP, CARDS].map(r => holes[rooms.indexOf(r)]);
+  const A = dug(ARENA), O = dug(OFFICE_ROOM);
+  /** The secret rooms: their holes, what they're shown in once found, and what covers them till then. */
+  const secrets = [{ holes: [grow], open: parts.grow, shut: parts.hidden }, { holes: den, open: parts.den, shut: parts.denHidden }];
   /** The fans' tunnels, from the arena's wall out past their far ends. */
   const bores: Box[] = TUNNELS.map(t => {
     const a0 = t.at - TUNNEL_W / 2 - 0.35, a1 = t.at + TUNNEL_W / 2 + 0.35, o = TUNNEL_D + 0.3;
@@ -509,10 +607,14 @@ later(() => {
     { x0: -Infinity, x1: A.x0, z0: -Infinity, z1: ARENA.z1 + 0.3 }, { x0: -Infinity, x1: Infinity, z0: -Infinity, z1: A.z0 },
     { x0: O.x0, x1: O.x1, z0: -Infinity, z1: O.z0 },
   ];
-  /** The earth's top at a point (from CY), or null where a room's dug out: banked up, or cut low everywhere else. */
-  const top = (x: number, z: number) => holes.some(b => within(b, x, z)) ? null
+  /** The earth's top at a point (from CY), or null where a room's dug out: banked up, or cut low everywhere else (`shut`:
+   *  as it is while the Undertow's a secret, its place still ground). */
+  const top = (x: number, z: number, shut = false) => holes.some(b => !(shut && den.includes(b)) && within(b, x, z)) ? null
     : banks.some(b => within(b, x, z)) ? GROUND.bank : GROUND.cut;
-  const secret = (x: number, z: number) => within(grow, x, z) && !holes.some(b => b !== grow && within(b, x, z));
+  /** Which secret room's place a point is in, if any (and in no other room's). */
+  const secretAt = (x: number, z: number) =>
+    secrets.find(s => s.holes.some(b => within(b, x, z)) && !holes.some(b => !s.holes.includes(b) && within(b, x, z))) ?? null;
+  const secret = (x: number, z: number) => secretAt(x, z) !== null;
   const bored = (x: number, z: number) => bores.some(b => within(b, x, z));
   const bb = holes.reduce((b, h) => ({ x0: Math.min(b.x0, h.x0), x1: Math.max(b.x1, h.x1), z0: Math.min(b.z0, h.z0), z1: Math.max(b.z1, h.z1) }));
   /** How far a point is from a box (0 inside it), and from the nearest room, and from the nearest bank. */
@@ -544,8 +646,11 @@ later(() => {
   /** How much the cut ground's broken up at a point: flat at the walls (and at the bank's foot), rough a few steps out;
    *  and over the grow room's place while it's a secret, flat where it meets the walls round it, rough inside. */
   const rough = once((x, z) => ease(0.35, 2.5, fromRoom(x, z)) * ease(0.3, 1.2, fromBank(x, z)));
-  const roughHidden = (x: number, z: number) => ease(0.35, 2.5, Math.min(x - grow.x0, grow.x1 - x, z - grow.z0, grow.z1 - z));
-  const lit = holes.filter(b => b !== grow);
+  const roughHidden = (x: number, z: number) => ease(0.35, 2.5, Math.max(0, ...holes.filter(b => within(b, x, z)).map(b => Math.min(x - b.x0, b.x1 - x, z - b.z0, b.z1 - z))));
+  // (the rise in front of the rooms is the same whether the Undertow's found or not, so that once it is, nothing in
+  // front of it stands up into the camera's sight of it; but the ground round it is only lit once it's found: near it,
+  // the earth's drawn twice, lit in parts.den and dark in parts.denHidden)
+  const lit = holes.filter(b => b !== grow), litShut = lit.filter(b => !den.includes(b));
   // On the camera's side, as in front of a dungeon's rooms seen from above, the rock rises toward the camera a step out
   // past the kerb, in a broken slope up to a ridge, with crags on it, so the bottom of the screen is rock in the dark
   // and never an empty black. None of it ever comes up into the camera's sight of a room: the camera looks down 15 in
@@ -590,12 +695,14 @@ later(() => {
   // dark 4 m out, a little uneven; the grow room's place as dark as the rest while it's a secret. The rise in front of
   // the rooms never quite goes: its slope and ridge stay just made out, dark rock against the dark.
   const DARK = 4;
-  const fromLit = (x: number, z: number) => nearest(lit, x, z);
-  const shade = once((x, z) => {
-    const k = 1 - ease(0, DARK, fromLit(x, z)), t = before(x, z);
+  const fromLit = (x: number, z: number, found: boolean) => nearest(found ? lit : litShut, x, z);
+  const shading = (found: boolean) => once((x, z) => {
+    const k = 1 - ease(0, DARK, fromLit(x, z, found)), t = before(x, z);
     const near = k * k * (0.75 + 0.5 * lumps(x + 9, z - 4)) * 0.45;
     return t === Infinity ? near : Math.max(near, 0.2 * ease(1.5, 4, t) * (0.7 + 0.6 * lumps(x - 3, z + 8)));
   });
+  const shadeShut = shading(false), shadeFound = shading(true);
+  const shade = (x: number, z: number, found = false) => (found ? shadeFound : shadeShut)(x, z);
   // the squares' edges: every hole's, tunnel's and bank's; every half metre for the first few metres round the rooms
   // (for the ground's lumps and its fall into the dark), and for longer in front of them, toward the camera (for the
   // rise); then rings out to 42 m (as far as the camera ever sees from anywhere in the cellar, and more)
@@ -606,11 +713,11 @@ later(() => {
   const zs = edges([...holes, ...bores, ...banks].flatMap(b => [b.z0, b.z1]).concat(RINGS.flatMap(d => [bb.z0 - d, bb.z1 + d]), every(bb.z0, bb.z1)));
   /** A mesh's worth of quads, each corner's texture by where it is (3 m a tile) and shaded by how far out it is; lit
    *  facet by facet (the normals worked out from the quads once they're all in), like broken stone. */
-  const sheet = (inGrow = false) => {
+  const sheet = (inGrow = false, denFound = false) => {
     const pos: number[] = [], uv: number[] = [], col: number[] = [];
     const quad = (q: number[][], n: number[]) => {
       for (const i of [0, 1, 2, 0, 2, 3]) {
-        const [x, y, z] = q[i], k = shade(x, z);
+        const [x, y, z] = q[i], k = shade(x, z, denFound);
         pos.push(x, y, z); col.push(k, k, k);
         uv.push((n[0] ? z : x) / 3, (n[1] ? z : y) / 3);
       }
@@ -633,12 +740,24 @@ later(() => {
       },
     };
   };
-  const open = sheet(), hidden = sheet(true);
+  const hiddenSheets = new Map(secrets.map(s => [s, sheet(true)]));
+  /** The earth round the rooms: one sheet, but near the Undertow two, lit and dark (whichever's shown). */
+  const far = sheet(), lit2 = sheet(false, true), dark2 = sheet();
+  const nearDen = (x: number, z: number) => nearest(den, x, z) < DARK + 0.5;
+  const open = {
+    flat: (x0: number, x1: number, z0: number, z1: number, h: number) => {
+      for (const sh of nearDen((x0 + x1) / 2, (z0 + z1) / 2) ? [lit2, dark2] : [far]) sh.flat(x0, x1, z0, z1, h);
+    },
+    face: (onX: boolean, at: number, a0: number, a1: number, y0: number, y1: number, s: number) => {
+      const [x, z] = onX ? [at, (a0 + a1) / 2] : [(a0 + a1) / 2, at];
+      for (const sh of nearDen(x, z) ? [lit2, dark2] : [far]) sh.face(onX, at, a0, a1, y0, y1, s);
+    },
+  };
   for (let i = 0; i < xs.length - 1; i++) {
     for (let j = 0; j < zs.length - 1; j++) {
-      const x = (xs[i] + xs[i + 1]) / 2, z = (zs[j] + zs[j + 1]) / 2, h = top(x, z);
+      const x = (xs[i] + xs[i + 1]) / 2, z = (zs[j] + zs[j + 1]) / 2, h = top(x, z), s = h === null ? secretAt(x, z) : null;
       if (h !== null) open.flat(xs[i], xs[i + 1], zs[j], zs[j + 1], h);
-      else if (secret(x, z)) hidden.flat(xs[i], xs[i + 1], zs[j], zs[j + 1], GROUND.cut);
+      else if (s) hiddenSheets.get(s)!.flat(xs[i], xs[i + 1], zs[j], zs[j + 1], GROUND.cut);
       // a rock face where it steps up or down to the square east of it, or south of it, facing the lower: the bank's
       // face down to the floor where a room's dug out in front of it (inside the back walls, but closing off their ends;
       // never across a tunnel)
@@ -705,9 +824,10 @@ later(() => {
   // from above, each block its own length and a little its own height, lit like the rest out here but a good deal
   // lighter, so where every room stops reads at a glance (never along a bank, nor over a tunnel; round the grow room's
   // own walls only once it's found)
-  const kerbs = new Map<Object3D, BufferGeometry[]>([[cellar, []], [parts.grow, []]]);
+  // (and the stretch of the arena's own across the tunnel's mouth, while the Undertow's a secret)
+  const kerbs = new Map<Object3D, BufferGeometry[]>([[cellar, []], [parts.grow, []], [parts.den, []], [parts.denHidden, []]]);
   for (const h of holes) {
-    const into = kerbs.get(h === grow ? parts.grow : cellar)!;
+    const own = h === grow ? parts.grow : den.includes(h) ? parts.den : cellar;
     for (const side of ['n', 's', 'w', 'e'] as const) {
       const alongX = side === 'n' || side === 's', s = side === 'n' || side === 'w' ? -1 : 1;
       const edge = side === 'n' ? h.z0 : side === 's' ? h.z1 : side === 'w' ? h.x0 : h.x1;
@@ -718,7 +838,9 @@ later(() => {
         const r = hash2(Math.round(a * 10) + i, Math.round(edge * 10) + 77), len = Math.min(a1 - a, 0.5 + r * 0.4), b0 = a + 0.02, b1 = a + len - 0.02;
         a += len;
         const at = (u: number, v: number) => alongX ? [u, v] : [v, u];
-        if ([at(b0, o0), at(b1, o0), at(b0, o1), at(b1, o1)].some(([x, z]) => top(x, z) !== GROUND.cut || bored(x, z) || fromBank(x, z) < 0.2)) continue;
+        const clear = (shut: boolean) => [at(b0, o0), at(b1, o0), at(b0, o1), at(b1, o1)].every(([x, z]) => top(x, z, shut) === GROUND.cut && !bored(x, z) && fromBank(x, z) >= 0.2);
+        const into = clear(false) ? kerbs.get(own)! : own === cellar && clear(true) ? kerbs.get(parts.denHidden)! : null;
+        if (!into) continue;
         const ht = 0.16 + r * 0.06, [cx, cz] = at((b0 + b1) / 2, (o0 + o1) / 2);
         const k = alongX ? new BoxGeometry(b1 - b0, ht, o1 - o0 - s * 0.03 * r) : new BoxGeometry(o1 - o0, ht, b1 - b0);
         const g = k.toNonIndexed(); k.dispose();
@@ -730,12 +852,13 @@ later(() => {
     }
   }
   const KERB = new MeshBasicMaterial({ color: 0x6E6458, vertexColors: true });
-  const [kerb, growKerb] = [...kerbs].map(([parent, gs]) => {
+  const [kerb, growKerb, denKerb, mouthKerb] = [...kerbs].map(([parent, gs]) => {
     const m = add(parent, new Mesh(mergeGeometries(gs)!, KERB));
     gs.forEach(g => g.dispose());
     return m;
   });
-  Object.assign(ground, { open: open.mesh(cellar), hidden: hidden.mesh(parts.hidden), rocks, kerb, growKerb });
+  const [hidden, denHidden] = secrets.map(s => hiddenSheets.get(s)!.mesh(s.shut));
+  Object.assign(ground, { open: far.mesh(cellar), nearDen: lit2.mesh(parts.den), nearDenShut: dark2.mesh(parts.denHidden), hidden, denHidden, rocks, kerb, growKerb, denKerb, mouthKerb });
 });
 
 // the doorways: a timber frame in the wall, posts and a lintel
@@ -743,8 +866,10 @@ later(() => {
 const acrossX = (t: (typeof DOORS)[number]) => !Object.values(ROOMS).some(r => Math.abs(r.x1 - t.x0) < 0.01 || Math.abs(r.x0 - t.x1) < 0.01);
 later(() => {
   for (const t of DOORS) {
+    // (the club's doors hang in a frame of their own: doorway.ts)
+    if (t.b === 'den') continue;
     const ax = acrossX(t), cx = (t.x0 + t.x1) / 2, cz = (t.z0 + t.z1) / 2, w = (ax ? t.x1 - t.x0 : t.z1 - t.z0) + 0.6;
-    const g = t.b === 'grow' ? parts.grow : cellar;
+    const g = t.b === 'grow' ? parts.grow : t.b === 'passage' || t.b === 'loans' || t.b === 'vip' || t.b === 'cards' ? parts.den : cellar;
     for (const s of [-1, 1]) {
       ax ? box(g, WOOD_DARK, cx + s * w / 2, CY + FRAME_H / 2, cz, 0.2, FRAME_H, 0.22) : box(g, WOOD_DARK, cx, CY + FRAME_H / 2, cz + s * w / 2, 0.22, FRAME_H, 0.2);
     }
@@ -758,7 +883,10 @@ later(() => {
 function sign(text: string, x: number, y: number, z: number, parent: Object3D = cellar, w = 1.3) {
   const h = w * 0.3, tex = canvasTex(256, 77, (c, cw, ch) => {
     c.fillStyle = '#15181D'; rr(c, 4, 4, cw - 8, ch - 8, 16); c.fill();
-    c.fillStyle = '#F2C14E'; c.font = '800 44px ' + FONT; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(text, cw / 2, ch / 2 + 3);
+    c.fillStyle = '#F2C14E'; c.font = '800 44px ' + FONT; c.textAlign = 'center'; c.textBaseline = 'middle';
+    // (a long name's squeezed to fit)
+    const k = Math.min(1, (cw - 30) / c.measureText(text).width);
+    c.save(); c.translate(cw / 2, ch / 2 + 3); c.scale(k, 1); c.fillText(text, 0, 0); c.restore();
   });
   const edge = mat(0x15181D);
   const m = add(parent, new Mesh(new BoxGeometry(w, h, 0.04), [edge, edge, edge, edge, new MeshBasicMaterial({ map: tex.tex }), edge]));
@@ -779,6 +907,9 @@ later(() => {
   sign('PREP', mid(PREP) - 1.5, onRail, onLow(PREP) - 0.1);
   sign('GROW ROOM', mid(GROW), 2.85, onTall(GROW), parts.grow, 2.2);
   sign('OFFICE', (door('office').x0 + door('office').x1) / 2, FRAME_H + 0.3, LANDING.z0 - 0.15, cellar, 1.15);
+  // (the Undertow's high on its back wall, over the bar's shelves)
+  sign('THE UNDERTOW', (DEN_BAR.x0 + DEN_BAR.x1) / 2, 2.3, onLow(DEN) + 0.06, parts.den, 1.9);
+  sign('LOANS', mid(LOANS) + 1.05, 2.45, onLow(LOANS) + 0.06, parts.den, 1.2);
 });
 
 // ---------- lanterns along the walls ----------
@@ -1932,6 +2063,632 @@ later(() => {
   }
 });
 
+// ---------- the Undertow: the Family's club ----------
+// A dark club dug out of the rock in front of the arena, after a gangster's bar in a city's undercity: near-black boards,
+// iron and neon. The way in is a long dark tunnel shored up like a mine's, out of the arena's south wall and down past
+// the club, pipes along its wall and beams overhead, to a pair of heavy doors in its side at the far end (the doors, the
+// doorman behind them and the tunnel's lights: doorway.ts). Laid out as a jazz club and a speakeasy are: along its back,
+// under a tall dark wall, the long bar at the west end (its front lit by tubes of amber and pink, bottles lit from under
+// their shelves in front of a gilt-framed mirror, lamps hung low along it, the club's name over it), then three pointed
+// iron arches hung with red velvet, iron columns between them with teal lamps at their tops, and the bandstand across
+// them, the dance floor in front of it and the audience's little lamp-lit tables fanned round that; red leather booths
+// along the west and south walls; and at the back, behind a brass rail, a green-carpeted lounge. Through a doorway in
+// the west wall, Hammerhead Harry
+// has an office of his own, a bookkeeper's back room: his desk, filing cabinets and shelves of ledgers, a safe, his
+// bookkeeper's corner, and a board of IOUs pinned up behind him. Through another doorway in it, south of the office,
+// Three-Card Tommy has a card room of his own: sat behind a half-moon card table by a green-shaded lamp, a folding screen
+// behind him and his card on an easel by it. Round the room: a high table by the bar, a round table in the lounge,
+// barrels in its corner, a bill on an easel inside the doors, the low walls panelled in warm wood with little lamps along
+// their tops, and a pink tube along the front wall. (The barman and the regulars: regulars.ts; the band: band.ts; the
+// locals who fill the place: crowd.ts.)
+/** The club's stools (for walking round). */
+const DEN_STOOLS: XZ[] = [];
+later(() => {
+  /** The club's neon and lamps: teal, pink, amber and green tubes. */
+  const TEAL = glow(0xA8F7F0, 0x2FC9C0), PINK = glow(0xFFA8D0, 0xFF2E86), AMBER = glow(0xFFE2A8, 0xFFA43A), GREEN = glow(0xA8FFBA, 0x2EE070);
+  /** A lamp's warm glow: the booths' and the audience's table lamps, and the lamps on the low walls. */
+  const BOOTH_LAMP = glow(0xFFD8B0, 0xE08A3A);
+  /** Red velvet, in folds, cut to a pointed arch (for the curtains in the arches). */
+  const velvet = canvasTex(128, 192, (c, w, h) => {
+    const spring = h * (1 - 1.5 / 2.55);
+    c.beginPath(); c.moveTo(0, h); c.lineTo(0, spring);
+    c.quadraticCurveTo(0, spring * 0.25, w / 2, 0); c.quadraticCurveTo(w, spring * 0.25, w, spring); c.lineTo(w, h); c.closePath();
+    c.clip();
+    const g = c.createLinearGradient(0, 0, w, 0);
+    for (let i = 0; i <= 8; i++) g.addColorStop(i / 8, i % 2 ? '#5A0F1C' : '#8E1E2E');
+    c.fillStyle = g; c.fillRect(0, 0, w, h);
+    const top = c.createLinearGradient(0, 0, 0, h);
+    top.addColorStop(0, 'rgba(10,0,4,.55)'); top.addColorStop(0.4, 'rgba(10,0,4,0)'); top.addColorStop(1, 'rgba(10,0,4,.35)');
+    c.fillStyle = top; c.fillRect(0, 0, w, h);
+  });
+  /** The bill on the easel inside the doors. */
+  const tonight = canvasTex(184, 264, (c, w, h) => {
+    c.fillStyle = '#1A1218'; c.fillRect(0, 0, w, h);
+    c.strokeStyle = '#C9A23A'; c.lineWidth = 4; c.strokeRect(8, 8, w - 16, h - 16);
+    c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.fillStyle = '#F2E2B0'; c.font = `800 18px ${FONT}`; c.fillText('TONIGHT', w / 2, 38);
+    c.fillStyle = '#FF7AB8'; c.font = `800 34px ${FONT}`; c.fillText('VELVET', w / 2, 96);
+    c.fillStyle = '#F2E2B0'; c.font = `800 16px ${FONT}`; c.fillText('& THE', w / 2, 134);
+    c.font = `800 28px ${FONT}`; c.fillText('LOW TIDE', w / 2, 166);
+    c.fillStyle = '#C9A23A'; c.font = `800 14px ${FONT}`; c.fillText('NO COVER · NO QUESTIONS', w / 2, 226);
+  });
+  /** The band's name on the front of the bass drum. */
+  const drumHead = canvasTex(128, 128, (c, w) => {
+    c.fillStyle = '#F2EEE2'; c.beginPath(); c.arc(w / 2, w / 2, w / 2, 0, Math.PI * 2); c.fill();
+    c.strokeStyle = '#8E1E2E'; c.lineWidth = 5; c.beginPath(); c.arc(w / 2, w / 2, w / 2 - 9, 0, Math.PI * 2); c.stroke();
+    c.fillStyle = '#8E1E2E'; c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.font = `800 15px ${FONT}`; c.fillText('THE', w / 2, w / 2 - 22);
+    c.font = `800 26px ${FONT}`; c.fillText('LOW', w / 2, w / 2 + 2); c.fillText('TIDE', w / 2, w / 2 + 28);
+  });
+  /** VIP, in pink neon, over the door of Eddie's room. */
+  const vipSign = canvasTex(160, 64, (c, w, h) => {
+    c.fillStyle = 'rgba(20,10,16,.85)'; rr(c, 4, 4, w - 8, h - 8, 10); c.fill();
+    c.font = `800 40px ${FONT}`; c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.shadowColor = '#FF2E86'; c.shadowBlur = 14; c.fillStyle = '#FFB0D6'; c.fillText('VIP', w / 2, h / 2 + 2); c.fillText('VIP', w / 2, h / 2 + 2);
+  });
+  /** A champagne bottle's gold foil. */
+  const GOLD_FOIL = glow(0xE8C46A, 0x5A4010);
+  /** Eddie's chalkboard of the card: the five bosses down it, and the odds he's giving on each. */
+  const theCard = canvasTex(192, 128, (c, w, h) => {
+    c.fillStyle = '#5A3A22'; c.fillRect(0, 0, w, h);
+    c.fillStyle = '#1F2A24'; c.fillRect(7, 7, w - 14, h - 14);
+    c.fillStyle = '#E8E4D8'; c.font = `800 17px ${FONT}`; c.textAlign = 'center'; c.fillText('THE CARD', w / 2, 26);
+    c.font = `600 14px ${FONT}`;
+    ['🐙 2-1', '🦀 3-1', '🐀 4-1', '🦈 6-1', '🐡 10-1'].forEach((t, i) => { c.textAlign = 'left'; c.fillText(t, 22 + (i % 2) * 82, 50 + Math.floor(i / 2) * 24); });
+    c.strokeStyle = 'rgba(232,228,216,.5)'; c.lineWidth = 2; c.beginPath(); c.moveTo(20, 33); c.lineTo(w - 20, 33); c.stroke();
+  });
+  /** Harry's board: cork, with IOUs pinned all over it. */
+  const iouBoard = canvasTex(192, 112, (c, w, h) => {
+    c.fillStyle = '#6A4A2A'; c.fillRect(0, 0, w, h);
+    c.fillStyle = '#B88A55'; c.fillRect(6, 6, w - 12, h - 12);
+    const hash = (i: number) => { const x = Math.sin(i * 45.7) * 43758.5453; return x - Math.floor(x); };
+    for (let i = 0; i < 14; i++) {
+      const x = 14 + hash(i) * (w - 54), y = 12 + hash(i + 20) * (h - 44);
+      c.save(); c.translate(x + 18, y + 13); c.rotate((hash(i + 40) - 0.5) * 0.5);
+      c.fillStyle = i % 3 ? '#F4F1EA' : '#E8DDB8'; c.fillRect(-18, -13, 36, 26);
+      c.fillStyle = '#4A3A30'; c.font = `700 9px ${FONT}`; c.textAlign = 'center'; c.fillText('IOU', 0, -2);
+      c.fillStyle = '#9B2F2A'; c.font = `700 8px ${FONT}`; c.fillText(`🐡${(1 + Math.floor(hash(i + 60) * 9)) * 10}`, 0, 9);
+      c.fillStyle = '#C0392B'; c.beginPath(); c.arc(0, -10, 2.4, 0, Math.PI * 2); c.fill();
+      c.restore();
+    }
+  });
+  /** Tommy's card, on the easel by his table. */
+  const ladySign = canvasTex(128, 80, (c, w, h) => {
+    c.fillStyle = '#C9A877'; c.fillRect(0, 0, w, h);
+    c.fillStyle = '#2A1E18'; c.font = `800 18px ${FONT}`; c.textAlign = 'center'; c.fillText('FIND', w / 2, 28); c.fillText('THE LADY', w / 2, 52);
+    c.fillStyle = '#B23A2E'; c.font = '16px serif'; c.fillText('♥', w / 2, 72);
+  });
+  /** The panels of Tommy's screen: lacquer red in a gold border, a suit on each. */
+  const screenPanels = ['♠', '♥', '♣'].map(suit => canvasTex(64, 192, (c, w, h) => {
+    c.fillStyle = '#5A0F1C'; c.fillRect(0, 0, w, h);
+    c.strokeStyle = '#C9A23A'; c.lineWidth = 3; c.strokeRect(5, 5, w - 10, h - 10);
+    c.lineWidth = 1.5; c.strokeRect(10, 10, w - 20, h - 20);
+    c.fillStyle = '#E2BC5C'; c.font = '40px serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(suit, w / 2, h * 0.42);
+    c.font = '14px serif'; c.fillText(suit, w / 2, h * 0.16); c.fillText(suit, w / 2, h * 0.72);
+  }).tex);
+  const p = parts.den, BRASS = 0xC9A23A, LEATHER = 0x6B1E22, IRONS = 0x262E33, PIPE = 0x3A454C, MAHOGANY = 0x5A2618;
+  const face = line(DEN, 'n', 0.3) + 0.07;
+  // ---- the tunnel ----
+  // shoring: a frame of timber every so often along it, beams across the top, a lantern at its mouth, and pipes along its
+  // east wall (one of them leaking steam: doorway.ts)
+  for (let z = PASSAGE.z0 + 0.5; z < PASSAGE.z1 - 0.3; z += 1.25) {
+    // (none in front of the doors)
+    if (z > CLUB_DOOR.z0 - 0.25 && z < CLUB_DOOR.z1 + 0.25) continue;
+    for (const x of [PASSAGE.x0 + 0.05, PASSAGE.x1 - 0.05]) box(p, WOOD_DARK, x, CY + FRAME_H / 2, z, 0.18, FRAME_H, 0.18);
+    box(p, WOOD_DARK, (PASSAGE.x0 + PASSAGE.x1) / 2, CY + FRAME_H, z, PASSAGE.x1 - PASSAGE.x0 + 0.3, 0.18, 0.22);
+  }
+  lantern(p, PASSAGE.x0 - 0.1, CY + 2.3, ARENA.z1 + 0.5, true);
+  for (const [y, r] of [[1.35, 0.05], [1.55, 0.035]] as const) {
+    const pipe = add(p, mesh(G.cyl, PIPE, PASSAGE.x1 - 0.12, CY + y, (PASSAGE.z0 + PASSAGE.z1) / 2)); pipe.scale.set(r, PASSAGE.z1 - PASSAGE.z0, r); pipe.rotation.x = Math.PI / 2;
+  }
+  for (let z = PASSAGE.z0 + 1.1; z < PASSAGE.z1; z += 2.4) add(p, mesh(new CylinderGeometry(0.075, 0.075, 0.08, 10), IRONS, PASSAGE.x1 - 0.12, CY + 1.35, z)).rotation.x = Math.PI / 2;
+  // a brass plate by the doors: members only
+  box(p, BRASS, PASSAGE.x0 + 0.02, CY + 1.55, CLUB_DOOR.z0 - 0.45, 0.02, 0.14, 0.32, false);
+  // ---- the club's back wall: the columns and the three arches, each with its curtain ----
+  const cols = [ARCHES[0] - ARCH_HALF, ...ARCHES.map(x => x + ARCH_HALF)];
+  for (const x of cols) {
+    box(p, IRONS, x, CY + DEN_TALL / 2, face + 0.05, 0.18, DEN_TALL, 0.1);
+    box(p, IRONS, x, CY + 0.15, face + 0.08, 0.26, 0.3, 0.16);
+    const ring = add(p, mesh(new TorusGeometry(0.15, 0.028, 6, 18), IRONS, x, CY + 2.3, face + 0.11)); ring.castShadow = false;
+    add(p, mesh(new CylinderGeometry(0.12, 0.12, 0.03, 16), TEAL, x, CY + 2.3, face + 0.11)).rotation.x = Math.PI / 2;
+    box(p, TEAL, x, CY + 1.65, face + 0.115, 0.035, 0.9, 0.035, false);
+  }
+  /** One side of a pointed arch, from its spring `w` out from the middle (straight up from there) round to its point,
+   *  as a tube: an arc of a circle twice as wide as the arch, as a Gothic arch's are, squashed to rise from y0 to y1. */
+  const archSide = (x: number, s: number, w: number, y0: number, y1: number, r: number) => {
+    const end = Math.PI / 3, pts = Array.from({ length: 8 }, (_, i) => {
+      const a = end * i / 7;
+      return new Vector3(x + s * (w - 2 * w * (1 - Math.cos(a))), CY + y0 + (y1 - y0) * Math.sin(a) / Math.sin(end), face + 0.12);
+    });
+    add(p, mesh(new TubeGeometry(new CatmullRomCurve3(pts), 16, r, 6), IRONS));
+  };
+  const curtain = new MeshLambertMaterial({ map: velvet.tex, alphaTest: 0.5 });
+  for (const x of ARCHES) {
+    for (const s of [-1, 1]) { archSide(x, s, ARCH_HALF - 0.09, 1.5, 2.6, 0.04); archSide(x, s, ARCH_HALF - 0.25, 1.5, 2.38, 0.018); }
+    const rose = add(p, mesh(new TorusGeometry(0.07, 0.014, 5, 14), IRONS, x, CY + 2.24, face + 0.12)); rose.castShadow = false;
+    add(p, new Mesh(new PlaneGeometry(2 * (ARCH_HALF - 0.09), 2.55), curtain)).position.set(x, CY + 1.275, face + 0.02);
+  }
+  // ---- the bar ----
+  // its counter, lit down its front by tubes of amber and pink, a brass rail along its top edge and another at its foot
+  const B = DEN_BAR, bw = B.x1 - B.x0, bx = (B.x0 + B.x1) / 2, bz = B.front - B.d / 2;
+  box(p, 0x221816, bx, CY + (B.h - 0.06) / 2, bz, bw, B.h - 0.06, B.d);
+  box(p, 0x2C2522, bx, CY + B.h - 0.03, bz + 0.03, bw + 0.1, 0.06, B.d + 0.12);
+  box(p, BRASS, bx, CY + B.h - 0.03, B.front + 0.095, bw + 0.1, 0.03, 0.02, false);
+  box(p, BRASS, bx, CY + 0.15, B.front + 0.16, bw - 0.1, 0.03, 0.03, false);
+  const tubes = Math.round(bw / 0.42);
+  for (let i = 0; i < tubes; i++) box(p, i % 3 === 1 ? PINK : AMBER, B.x0 + (i + 0.5) * bw / tubes, CY + B.h / 2, B.front + 0.015, 0.035, B.h - 0.3, 0.035, false);
+  // a duckboard behind it for the barman to stand on (regulars.ts), so he's seen over his counter
+  box(p, 0x1E1614, bx, CY + 0.11, (face + B.front - B.d) / 2 + 0.1, bw - 0.1, 0.22, B.front - B.d - face - 0.25);
+  // behind it, against the wall: a cabinet, shelves of bottles with slanted green tubes among them, the club's name
+  // over them (sign(), with the rooms'), and pipes along the top of the wall, one coming down to the counter
+  box(p, 0x1E1614, bx, CY + 0.45, face + 0.14, bw, 0.9, 0.28);
+  // (a back-bar mirror behind the bottles, in a gilt frame, and the shelves lit from under, so the bottles glow)
+  box(p, new MeshLambertMaterial({ color: 0x5A6A78, emissive: 0x1A2430 }), bx, CY + 1.55, face + 0.012, bw - 0.5, 0.95, 0.01, false);
+  for (const y of [1.06, 2.04]) box(p, BRASS, bx, CY + y, face + 0.02, bw - 0.4, 0.035, 0.02, false);
+  for (const x of [B.x0 + 0.2, B.x1 - 0.2]) box(p, BRASS, x, CY + 1.55, face + 0.02, 0.035, 1.0, 0.02, false);
+  const SHELF_GLOW = glow(0xFFD9A0, 0xE08A2A);
+  const BOTTLES = [0x7A3B1E, 0x2E6A4A, 0xC9A23A, 0x8E2B26, 0x6FA8B8, 0x3E2418, 0xD9C27A];
+  const per = Math.round((bw - 0.3) / 0.19);
+  for (const [j, y] of [1.2, 1.62].entries()) {
+    box(p, 0x2C2522, bx, CY + y, face + 0.12, bw, 0.04, 0.24);
+    box(p, SHELF_GLOW, bx, CY + y - 0.025, face + 0.235, bw - 0.1, 0.012, 0.012, false);
+    for (let i = 0; i < per; i++) {
+      const x = B.x0 + 0.15 + (i + (j % 2) * 0.5) * (bw - 0.3) / per;
+      add(p, mesh(G.cyl, BOTTLES[(i * 3 + j) % BOTTLES.length], x, CY + y + 0.13, face + 0.12, false)).scale.set(0.035, 0.22, 0.035);
+      add(p, mesh(G.cyl, BOTTLES[(i * 3 + j) % BOTTLES.length], x, CY + y + 0.28, face + 0.12, false)).scale.set(0.012, 0.08, 0.012);
+    }
+  }
+  for (let i = 0; i < 4; i++) box(p, GREEN, B.x0 + 0.5 + i * (bw - 1) / 3, CY + 1.42, face + 0.02, 0.03, 0.5, 0.03, false).rotation.z = i % 2 ? 0.45 : -0.45;
+  for (const [y, r] of [[2.68, 0.05], [2.8, 0.035]] as const) {
+    const pipe = add(p, mesh(G.cyl, PIPE, bx, CY + y, face + 0.1)); pipe.scale.set(r, bw + 0.3, r); pipe.rotation.z = Math.PI / 2;
+  }
+  const drop = B.x1 - 0.2;
+  add(p, mesh(G.cyl, PIPE, drop, CY + (B.h + 2.68) / 2, face + 0.1)).scale.set(0.05, 2.68 - B.h, 0.05);
+  add(p, mesh(new CylinderGeometry(0.07, 0.07, 0.03, 14), 0xE8E0CC, drop, CY + 1.9, face + 0.16, false)).rotation.x = Math.PI / 2;
+  // the bar's stools, and a lamp hung over its west end
+  const stool = (x: number, z: number, h = 0.72) => {
+    add(p, mesh(new CylinderGeometry(0.18, 0.18, 0.03, 14), IRONS, x, CY + 0.04, z, false));
+    add(p, mesh(G.cyl, IRONS, x, CY + h / 2, z)).scale.set(0.03, h, 0.03);
+    add(p, mesh(new CylinderGeometry(0.17, 0.15, 0.07, 14), LEATHER, x, CY + h + 0.035, z));
+    DEN_STOOLS.push({ x, z });
+  };
+  for (const s of BAR_STOOLS) stool(s.x, s.z, 0.78);
+  // (lamps hung low along it)
+  for (let x = B.x0 + 0.6; x < B.x1 - 0.3; x += 1.35) {
+    add(p, mesh(G.rope, 0x1B1A1E, x, CY + 2.55, B.front - 0.25)).scale.y = 0.6;
+    add(p, mesh(new CylinderGeometry(0.06, 0.2, 0.16, 14, 1, true), IRONS, x, CY + 2.2, B.front - 0.25));
+    add(p, mesh(G.sphere, AMBER, x, CY + 2.13, B.front - 0.25)).scale.setScalar(0.06);
+  }
+  // ---- the booths round the walls: a high-backed red leather bench either side of a dark table running out from the
+  // wall, buttons along their backs, a lamp on the table, and a little brass lamp on the wall over it (the first is the regulars', Doc Murk's) ----
+  for (const b of WALL_BOOTHS) {
+    const g = add(p, new Group()); g.position.set(b.x, CY, b.z); g.rotation.y = b.into;
+    box(g, MAHOGANY, 0, 0.72, BOOTH_TABLE, 0.55, 0.05, 0.95);
+    box(g, IRONS, 0, 0.36, BOOTH_TABLE + 0.1, 0.08, 0.72, 0.08);
+    box(g, IRONS, 0, 0.02, BOOTH_TABLE + 0.1, 0.4, 0.04, 0.3, false);
+    for (const sd of [-1, 1]) {
+      const x = sd * BOOTH_SEAT;
+      box(g, WOOD_DARK, x, 0.2, 0.5, 0.48, 0.4, 0.98);
+      box(g, LEATHER, x, 0.45, 0.5, 0.46, 0.12, 0.96);
+      box(g, LEATHER, x + sd * 0.25, 0.85, 0.5, 0.14, 0.9, 1.0);
+      for (let k = 0.15; k < 0.95; k += 0.27) add(g, mesh(G.sphere, 0x4A1216, x + sd * 0.18, 1.1, k)).scale.setScalar(0.022);
+    }
+    add(g, mesh(new CylinderGeometry(0.045, 0.06, 0.02, 10), BRASS, 0, 0.755, BOOTH_TABLE + 0.2, false));
+    add(g, mesh(G.cyl, BRASS, 0, 0.83, BOOTH_TABLE + 0.2, false)).scale.set(0.008, 0.15, 0.008);
+    add(g, mesh(new CylinderGeometry(0.045, 0.085, 0.1, 12, 1, true), BOOTH_LAMP, 0, 0.93, BOOTH_TABLE + 0.2, false));
+    add(g, mesh(G.sphere, BOOTH_LAMP, 0, 1.22, 0.06, false)).scale.set(0.06, 0.08, 0.04);
+    box(g, BRASS, 0, 1.22, 0.03, 0.12, 0.03, 0.04, false);
+  }
+  /** A curved banquette round the back of a round table at (0, 0) in `g`, facing +z. */
+  const banquette = (g: Object3D) => {
+    for (let i = 0; i < 7; i++) {
+      const a = Math.PI * (0.15 + 0.7 * i / 6), r = 0.95, seat = add(g, new Group());
+      seat.position.set(-Math.cos(a) * r, 0, -Math.sin(a) * r); seat.rotation.y = Math.PI / 2 - a;
+      box(seat, WOOD_DARK, 0, 0.2, 0, 0.5, 0.4, 0.46);
+      box(seat, LEATHER, 0, 0.45, 0.02, 0.5, 0.12, 0.44);
+      box(seat, LEATHER, 0, 0.85, -0.22, 0.5, 0.8, 0.14);
+    }
+  };
+  /** A little round table on a pedestal at (0, 0) in `g`, its top `h` up. */
+  const pedestal = (g: Object3D, r: number, h: number) => {
+    add(g, mesh(new CylinderGeometry(0.24, 0.28, 0.04, 14), IRONS, 0, 0.02, 0, false));
+    add(g, mesh(G.cyl, IRONS, 0, h / 2, 0)).scale.set(0.05, h, 0.05);
+    add(g, mesh(new CylinderGeometry(r, r, 0.05, 22), MAHOGANY, 0, h, 0));
+  };
+  // ---- Slick Eddie's room, through the club's south wall ----
+  // over its doorway on the club's side, two brass posts with a velvet rope looped from each to the wall, and over it on
+  // the room's, VIP in pink neon; inside, a red carpet with a gold edge, and at its far end his banquette round his
+  // table (on it his telephone, the fight card, a stack of chips and a carnation in a glass), his chalkboard of the card
+  // on the wall over him, his two bodyguards either side of him (guards.ts); a champagne bucket on a stand by the
+  // table, and in the corners by the door a brass standard lamp and a potted palm
+  {
+    const E = DESKS.eddie, EB = BOOTHS.eddie, t = DOORS.find(d => d.b === 'vip')!, wallZ = line(DEN, 's', 0.3);
+    for (const x of [t.x0 - 0.3, t.x1 + 0.3]) {
+      const z = wallZ - 0.45;
+      add(p, mesh(new CylinderGeometry(0.11, 0.13, 0.03, 14), BRASS, x, CY + 0.015, z, false));
+      add(p, mesh(G.cyl, BRASS, x, CY + 0.45, z)).scale.set(0.025, 0.9, 0.025);
+      add(p, mesh(G.sphere, BRASS, x, CY + 0.92, z, false)).scale.setScalar(0.045);
+      const rope = new CatmullRomCurve3([V(x, CY + 0.86, z), V(x, CY + 0.66, (z + wallZ) / 2), V(x, CY + 0.84, wallZ - 0.08)]);
+      add(p, mesh(new TubeGeometry(rope, 10, 0.02, 6, false), 0x8E1E2E, 0, 0, 0, false));
+    }
+    const neon = add(p, new Mesh(new PlaneGeometry(0.9, 0.36), new MeshBasicMaterial({ map: vipSign.tex, transparent: true })));
+    neon.position.set((t.x0 + t.x1) / 2, CY + FRAME_H + 0.32, wallZ + 0.1);
+    box(p, 0x6A1A1E, (VIP.x0 + VIP.x1) / 2, CY + 0.012, (VIP.z0 + VIP.z1) / 2, VIP.x1 - VIP.x0 - 0.5, 0.02, VIP.z1 - VIP.z0 - 0.5, false);
+    box(p, 0xB8862E, (VIP.x0 + VIP.x1) / 2, CY + 0.01, (VIP.z0 + VIP.z1) / 2, VIP.x1 - VIP.x0 - 0.35, 0.02, VIP.z1 - VIP.z0 - 0.35, false);
+    // (his table and banquette, turned to face the door)
+    const g = add(p, new Group()); g.position.set(E.x, CY, E.z); g.rotation.y = EB.face;
+    banquette(g); pedestal(g, E.r, E.h);
+    const top = E.h + 0.025;
+    box(g, 0x1B1A1E, -0.22, top + 0.05, -0.1, 0.22, 0.1, 0.16);
+    box(g, 0x1B1A1E, -0.22, top + 0.13, -0.1, 0.28, 0.05, 0.07).rotation.y = 0.15;
+    box(g, 0xEFE3C4, 0.1, top + 0.005, 0.12, 0.3, 0.01, 0.2, false).rotation.y = -0.25;
+    for (let i = 0; i < 5; i++) add(g, mesh(G.cyl, i % 2 ? 0xC0392B : 0xF4F1EA, 0.24, top + 0.012 + i * 0.022, -0.14)).scale.set(0.055, 0.02, 0.055);
+    add(g, mesh(new CylinderGeometry(0.03, 0.025, 0.12, 10), glow(0xD8EEF2, 0x203038), -0.02, top + 0.06, -0.22));
+    add(g, mesh(G.cyl, 0x2E6A2E, -0.02, top + 0.17, -0.22)).scale.set(0.005, 0.12, 0.005);
+    add(g, mesh(G.sphere, 0xC8323A, -0.02, top + 0.24, -0.22)).scale.setScalar(0.03);
+    const west = line(VIP, 'w', 0.1) + 0.07;
+    const chalk = add(p, new Mesh(new PlaneGeometry(0.9, 0.6), new MeshLambertMaterial({ map: theCard.tex })));
+    chalk.position.set(west + 0.06, CY + 1.72, E.z); chalk.rotation.y = Math.PI / 2;
+    // (the champagne: a silver bucket on a stand, a bottle's neck up out of the ice)
+    const bx = E.x + 0.25, bz = E.z + E.r + 0.55;
+    add(p, mesh(G.cyl, 0x8A8F96, bx, CY + 0.32, bz)).scale.set(0.02, 0.64, 0.02);
+    add(p, mesh(new CylinderGeometry(0.16, 0.18, 0.02, 12), 0x8A8F96, bx, CY + 0.01, bz, false));
+    add(p, mesh(new CylinderGeometry(0.13, 0.1, 0.2, 14), new MeshLambertMaterial({ color: 0xC9CDD2, emissive: 0x2A2C30 }), bx, CY + 0.74, bz));
+    add(p, mesh(new CylinderGeometry(0.045, 0.05, 0.16, 10), 0x1E4A2A, bx + 0.02, CY + 0.88, bz, false)).rotation.z = -0.2;
+    add(p, mesh(new CylinderGeometry(0.022, 0.03, 0.06, 8), GOLD_FOIL, bx + 0.04, CY + 0.98, bz, false)).rotation.z = -0.2;
+    // (the lamp, and the palm)
+    const lx = VIP.x1 - 0.35, lz = VIP.z0 + 0.35;
+    add(p, mesh(new CylinderGeometry(0.14, 0.16, 0.04, 14), BRASS, lx, CY + 0.02, lz, false));
+    add(p, mesh(G.cyl, BRASS, lx, CY + 0.8, lz)).scale.set(0.016, 1.6, 0.016);
+    add(p, mesh(new CylinderGeometry(0.12, 0.2, 0.22, 16, 1, true), glow(0xF2C79A, 0x8A4A1A), lx, CY + 1.66, lz));
+    const px = VIP.x1 - 0.42, pz = VIP.z1 - 0.42;
+    add(p, mesh(new CylinderGeometry(0.2, 0.15, 0.36, 12), 0x5A2618, px, CY + 0.18, pz));
+    for (let i = 0; i < 6; i++) {
+      const a = i / 6 * Math.PI * 2, frond = box(p, 0x3E7A3E, px + Math.sin(a) * 0.18, CY + 0.95, pz + Math.cos(a) * 0.18, 0.12, 0.02, 0.5, false);
+      frond.rotation.set(Math.cos(a) * 0.5, a, 0);
+    }
+    add(p, mesh(G.cyl, 0x6E4A2A, px, CY + 0.6, pz)).scale.set(0.035, 0.7, 0.035);
+  }
+  // ---- the bandstand across the middle and east arches: dark boards up on a plinth, a pink neon line along its lip and
+  // its step, footlights along its front; the singer's half-round out from the middle of it, with a spot's beam down
+  // onto her and its pool on the boards, and her microphone; and on it the band's grand piano at the west end (its lid
+  // up towards the room), the drum kit at the back (THE LOW TIDE on its bass drum) and the vibes beside it (band.ts has
+  // the band, and the horns and the bass they hold) ----
+  {
+    const B = BANDSTAND, S = STAGE, top = CY + B.h, w = B.x1 - B.x0, d = B.z1 - B.z0, mx = (B.x0 + B.x1) / 2, mz = (B.z0 + B.z1) / 2;
+    box(p, 0x231A18, mx, CY + B.h / 2, mz, w, B.h, d);
+    box(p, 0x4A2E22, mx, top + 0.01, mz, w - 0.06, 0.02, d - 0.06, false);
+    for (let x = B.x0 + 0.3; x < B.x1 - 0.1; x += 0.5) box(p, 0x3A241C, x, top + 0.021, mz, 0.015, 0.003, d - 0.08, false);
+    box(p, 0x2E211E, mx, CY + B.h / 4, B.z1 + 0.15, w, B.h / 2, 0.3);
+    box(p, PINK, mx, top - 0.02, B.z1 + 0.012, w, 0.025, 0.02, false);
+    box(p, PINK, mx, CY + B.h / 2 - 0.02, B.z1 + 0.312, w, 0.022, 0.02, false);
+    add(p, mesh(new CylinderGeometry(S.r, S.r + 0.03, S.h, 32, 1, false, -Math.PI / 2, Math.PI), 0x231A18, S.x, CY + S.h / 2, S.z));
+    add(p, mesh(new CylinderGeometry(S.r - 0.04, S.r - 0.04, 0.02, 32, 1, false, -Math.PI / 2, Math.PI), 0x4A2E22, S.x, top + 0.01, S.z, false));
+    const lip = add(p, mesh(new TorusGeometry(S.r + 0.012, 0.022, 6, 32, Math.PI), PINK, S.x, top - 0.02, S.z, false)); lip.rotation.x = Math.PI / 2;
+    const bulb = glow(0xFFE8B8, 0xE0A040);
+    for (let i = 0; i < 7; i++) {
+      const a = -1.2 + 2.4 * i / 6;
+      add(p, mesh(G.sphere, bulb, S.x + Math.sin(a) * (S.r - 0.1), top + 0.02, S.z + Math.cos(a) * (S.r - 0.1), false)).scale.set(0.045, 0.03, 0.045);
+    }
+    for (let x = B.x0 + 0.3; x < B.x1 - 0.1; x += 0.45) {
+      if (Math.abs(x - S.x) < S.r + 0.1) continue;
+      add(p, mesh(G.sphere, bulb, x, top + 0.02, B.z1 - 0.08, false)).scale.set(0.045, 0.03, 0.045);
+    }
+    const light = { color: 0xFFD2EA, transparent: true, blending: AdditiveBlending, depthWrite: false };
+    const sing = { x: S.x, z: S.z + 0.3 };
+    const pool = add(p, new Mesh(new CircleGeometry(0.55, 32), new MeshBasicMaterial({ ...light, opacity: 0.22 })));
+    pool.position.set(sing.x, top + 0.025, sing.z); pool.rotation.x = -Math.PI / 2;
+    const beam = add(p, mesh(new CylinderGeometry(0.1, 0.55, 2.9, 24, 1, true), new MeshBasicMaterial({ ...light, opacity: 0.05, side: DoubleSide }), sing.x, top + 1.45, sing.z, false));
+    beam.renderOrder = 2;
+    const mic = { x: S.x + 0.32, z: S.z + 0.62 };
+    add(p, mesh(new CylinderGeometry(0.11, 0.11, 0.02, 12), IRONS, mic.x, top + 0.01, mic.z, false));
+    add(p, mesh(G.cyl, 0xB9C2C9, mic.x, top + 0.55, mic.z)).scale.set(0.012, 1.1, 0.012);
+    add(p, mesh(G.sphere, 0x2A2A2E, mic.x, top + 1.13, mic.z)).scale.set(0.045, 0.06, 0.045);
+
+    // (the grand: the turtle at its keys at the west end, facing east, its case running east from them, its lid propped
+    // up on the side towards the room)
+    const PIANO = 0x141216, P0 = BAND.piano, pg = add(p, new Group()); pg.position.set(P0.x, top, P0.z);
+    const keysX = 0.3, len = 1.05, wide = 0.74, cy = 0.78;
+    box(pg, PIANO, keysX + 0.35, cy, 0, 0.7, 0.24, wide);
+    const tail = add(pg, mesh(new CylinderGeometry(wide / 2, wide / 2, 0.24, 24), PIANO, keysX + 0.7, cy, 0)); tail.scale.x = (len - 0.7) / (wide / 2);
+    box(pg, 0x0C0A0E, keysX + 0.62, cy + 0.125, 0, len - 0.12, 0.01, wide - 0.06, false);
+    for (const [x, z] of [[keysX + 0.08, -wide / 2 + 0.06], [keysX + 0.08, wide / 2 - 0.06], [keysX + len - 0.15, 0]]) {
+      add(pg, mesh(G.cyl, PIANO, x, (cy - 0.12) / 2, z)).scale.set(0.035, cy - 0.12, 0.035);
+      add(pg, mesh(G.sphere, BRASS, x, 0.02, z, false)).scale.setScalar(0.03);
+    }
+    box(pg, PIANO, keysX - 0.06, cy - 0.07, 0, 0.14, 0.1, wide);
+    box(pg, 0xF4F1EA, keysX - 0.08, cy - 0.01, 0, 0.12, 0.025, wide - 0.08, false);
+    for (let k = 0; k < 15; k++) if (![2, 6, 9, 13].includes(k % 14)) box(pg, 0x111114, keysX - 0.05, cy + 0.01, -wide / 2 + 0.08 + k * (wide - 0.16) / 14, 0.07, 0.02, 0.022, false);
+    box(pg, PIANO, keysX + 0.06, cy + 0.2, 0, 0.02, 0.18, wide * 0.6).rotation.z = 0.2;
+    const lid = add(pg, new Group()); lid.position.set(keysX + 0.05, cy + 0.13, -wide / 2); lid.rotation.x = -0.6;
+    box(lid, PIANO, len / 2 - 0.02, 0.01, wide / 2, len - 0.05, 0.02, wide);
+    const prop = add(pg, mesh(G.cyl, 0x2A2420, keysX + 0.6, cy + 0.32, wide / 2 - 0.2)); prop.scale.set(0.012, 0.42, 0.012); prop.rotation.x = 0.45;
+    // (his bench)
+    box(pg, PIANO, 0, 0.44, 0, 0.32, 0.06, 0.6);
+    for (const s of [-1, 1]) box(pg, PIANO, 0, 0.21, s * 0.24, 0.26, 0.42, 0.04, false);
+
+    // (the drums, the octopus behind them on his stool, facing out a little turned)
+    const D0 = BAND.drums, dg = add(p, new Group()); dg.position.set(D0.x, top, D0.z); dg.rotation.y = D0.face;
+    const SHELL = 0x7A1E2E, CHROME = 0xC9CDD2, CYMBAL = 0xD9B45A;
+    add(dg, mesh(new CylinderGeometry(0.17, 0.2, 0.04, 14), IRONS, 0, 0.47, 0));
+    add(dg, mesh(G.cyl, IRONS, 0, 0.23, 0)).scale.set(0.03, 0.46, 0.03);
+    const kick = add(dg, mesh(new CylinderGeometry(0.27, 0.27, 0.32, 24), SHELL, 0.05, 0.28, 0.6)); kick.rotation.x = Math.PI / 2;
+    for (const z of [0.44, 0.76]) { const hoop = add(dg, mesh(new TorusGeometry(0.27, 0.015, 5, 24), CHROME, 0.05, 0.28, z, false)); hoop.rotation.y = 0; }
+    const head = add(dg, new Mesh(new CircleGeometry(0.26, 24), new MeshLambertMaterial({ map: drumHead.tex })));
+    head.position.set(0.05, 0.28, 0.765);
+    const drum = (x: number, y: number, z: number, r: number, h: number, tilt = 0) => {
+      const g = add(dg, new Group()); g.position.set(x, y, z); g.rotation.x = tilt;
+      add(g, mesh(new CylinderGeometry(r, r, h, 20), SHELL, 0, 0, 0));
+      add(g, mesh(new CylinderGeometry(r - 0.01, r - 0.01, 0.01, 20), 0xEDE6D6, 0, h / 2 + 0.003, 0, false));
+      const rim = add(g, mesh(new TorusGeometry(r, 0.012, 5, 20), CHROME, 0, h / 2, 0, false)); rim.rotation.x = Math.PI / 2;
+    };
+    drum(-0.24, 0.6, 0.36, 0.17, 0.13, 0.15);
+    add(dg, mesh(G.cyl, CHROME, -0.24, 0.27, 0.36)).scale.set(0.012, 0.54, 0.012);
+    drum(0.12, 0.72, 0.5, 0.12, 0.16, 0.35);
+    drum(0.4, 0.42, 0.34, 0.19, 0.34);
+    const cymbal = (x: number, z: number, h: number, r: number, tilt: number) => {
+      add(dg, mesh(G.cyl, CHROME, x, h / 2, z)).scale.set(0.012, h, 0.012);
+      add(dg, mesh(new CylinderGeometry(0.1, 0.13, 0.02, 12), IRONS, x, 0.01, z, false));
+      const c = add(dg, mesh(new CylinderGeometry(r * 0.15, r, 0.02, 24), CYMBAL, x, h + 0.01, z)); c.rotation.x = tilt;
+      return c;
+    };
+    cymbal(-0.5, 0.3, 0.88, 0.17, 0);
+    add(dg, mesh(new CylinderGeometry(0.025, 0.17, 0.015, 24), CYMBAL, -0.5, 0.86, 0.3, false));
+    cymbal(0.55, 0.62, 1.02, 0.25, -0.2);
+
+    // (the vibes beside the drums: two rows of gold bars along a dark frame, a tube hung under each, the naturals on the
+    // octopus's side)
+    const V0 = BAND.vibes, vg = add(p, new Group()); vg.position.set(V0.x, top, V0.z); vg.rotation.y = V0.face;
+    const VLEN = 0.95, vy = 0.82;
+    for (const s of [-1, 1]) {
+      box(vg, IRONS, 0, vy / 2, s * (VLEN / 2 + 0.03), 0.42, 0.03, 0.04);
+      box(vg, IRONS, -0.15, vy / 2, s * (VLEN / 2 + 0.03), 0.03, vy, 0.04);
+      box(vg, IRONS, 0.15, vy / 2, s * (VLEN / 2 + 0.03), 0.03, vy, 0.04);
+      box(vg, IRONS, s * 0.13, vy - 0.03, 0, 0.025, 0.025, VLEN + 0.06, false);
+    }
+    const BAR_GOLD = glow(0xE8C46A, 0x3A2A08);
+    for (const [row, n, x, up] of [[0, 11, -0.09, 0], [1, 8, 0.12, 0.025]] as const) {
+      for (let i = 0; i < n; i++) {
+        const k = i / (n - 1), z = -VLEN / 2 + 0.04 + k * (VLEN - 0.08), long = 0.2 - 0.08 * k;
+        box(vg, BAR_GOLD, x, vy + up, z, long, 0.018, 0.05 - row * 0.008);
+        add(vg, mesh(G.cyl, CHROME, x, vy - 0.06 - (0.32 - 0.18 * k) / 2, z, false)).scale.set(0.017, 0.32 - 0.18 * k, 0.017);
+      }
+    }
+  }
+  // ---- Hammerhead Harry's office, through the club's west wall: a bookkeeper's back room ----
+  // a dark green carpet; his desk side on to the door (its drawers towards him, a panel with a brass trim towards you),
+  // on it his cash box, his ledger open, a pile of IOUs, a banker's lamp and an adding machine, and a green-shaded lamp
+  // hung low over it; behind him, on the tall west wall, his board of IOUs and a clock; along the back wall the filing
+  // cabinets, ledgers in rows on two shelves over them, and the safe in the corner; his bookkeeper's little desk in the
+  // south-west corner, piled with ledgers, an adding machine with its paper curling down to the floor; a hat stand and
+  // a water cooler by the door, a potted kelp in the corner; and over the door, on the club's side, his name in gold on
+  // frosted glass
+  const L = LOANS, lwest = line(L, 'w', 0.1) + 0.07, H = DESKS.harry, hx = H.x, hz = H.z, K = LEDGER;
+  box(p, 0x1F3A2E, (L.x0 + L.x1) / 2, CY + 0.012, (L.z0 + L.z1) / 2, L.x1 - L.x0 - 0.35, 0.02, L.z1 - L.z0 - 0.35, false);
+  box(p, 0x2E5A44, (L.x0 + L.x1) / 2, CY + 0.014, (L.z0 + L.z1) / 2, L.x1 - L.x0 - 0.55, 0.02, L.z1 - L.z0 - 0.55, false);
+  box(p, MAHOGANY, hx, CY + H.h, hz, H.w, 0.06, H.d);
+  for (const s of [-1, 1]) {
+    box(p, 0x6E3220, hx, CY + H.h / 2 - 0.02, hz + s * (H.d / 2 - 0.22), H.w - 0.06, H.h - 0.04, 0.42);
+    for (const y of [0.2, 0.42, 0.62]) box(p, BRASS, hx - H.w / 2 + 0.02, CY + y, hz + s * (H.d / 2 - 0.22), 0.02, 0.03, 0.14, false);
+  }
+  box(p, 0x6E3220, hx + H.w / 2 - 0.04, CY + 0.5, hz, 0.05, 0.5, H.d - 0.86);
+  box(p, BRASS, hx + H.w / 2 - 0.01, CY + H.h - 0.05, hz, 0.02, 0.03, H.d - 0.1, false);
+  const ht = CY + H.h + 0.03;
+  box(p, 0x3A4650, hx - 0.05, ht + 0.07, hz - 0.42, 0.24, 0.14, 0.34);
+  box(p, BRASS, hx + 0.07, ht + 0.1, hz - 0.42, 0.01, 0.04, 0.06, false);
+  box(p, 0x7A1E1E, hx, ht + 0.015, hz + 0.05, 0.22, 0.03, 0.3).rotation.y = 0.1;
+  box(p, 0xF4F1EA, hx + 0.01, ht + 0.033, hz + 0.05, 0.2, 0.006, 0.28, false).rotation.y = 0.1;
+  for (let i = 0; i < 6; i++) box(p, i % 2 ? 0xF4F1EA : 0xE8DDB8, hx + 0.12 - (i % 3) * 0.06, ht + 0.004 + i * 0.006, hz + 0.42 + (i % 2) * 0.05, 0.13, 0.005, 0.18, false).rotation.y = (i * 0.9) % 1 - 0.5;
+  box(p, 0x2A2A2E, hx - 0.15, ht + 0.04, hz + 0.45, 0.2, 0.08, 0.22);
+  add(p, mesh(G.cyl, BRASS, hx - 0.2, ht + 0.12, hz - 0.08)).scale.set(0.012, 0.22, 0.012);
+  const shade = add(p, mesh(new CylinderGeometry(0.1, 0.1, 0.3, 10, 1, false, 0, Math.PI), glow(0x2F7A4A, 0x1E5A34), hx - 0.16, ht + 0.24, hz - 0.08));
+  shade.rotation.set(Math.PI / 2, 0, Math.PI / 2);
+  // the lamp hung over the desk: a cord down from the dark, a green enamel shade, its bulb glowing under it
+  add(p, mesh(G.cyl, 0x15181D, hx, CY + 2.6, hz, false)).scale.set(0.01, 0.7, 0.01);
+  add(p, mesh(new ConeGeometry(0.26, 0.2, 16, 1, true), glow(0x2F7A4A, 0x14402A), hx, CY + 2.18, hz));
+  add(p, mesh(G.sphere, AMBER, hx, CY + 2.1, hz, false)).scale.setScalar(0.06);
+  const board = add(p, new Mesh(new PlaneGeometry(1.25, 0.73), new MeshLambertMaterial({ map: iouBoard.tex })));
+  board.position.set(lwest + 0.02, CY + 1.85, hz); board.rotation.y = Math.PI / 2;
+  // the clock over the bookkeeper's corner: a white face in a dark rim, its hands at ten to five
+  const clock = add(p, new Group()); clock.position.set(lwest + 0.03, CY + 2.15, K.clerk.z - 0.2); clock.rotation.y = Math.PI / 2;
+  add(clock, mesh(new CylinderGeometry(0.17, 0.17, 0.04, 20), 0x23282C, 0, 0, 0)).rotation.x = Math.PI / 2;
+  add(clock, mesh(new CylinderGeometry(0.145, 0.145, 0.045, 20), 0xF2EEE2, 0, 0, 0.002, false)).rotation.x = Math.PI / 2;
+  for (const [len, a] of [[0.1, -1.05], [0.07, 0.5]]) { const hand = box(clock, 0x15181D, Math.sin(a) * len / 2, Math.cos(a) * len / 2, 0.028, 0.012, len, 0.006, false); hand.rotation.z = -a; }
+  // the filing cabinets along the back wall, each with its four drawers, and two shelves of ledgers over them
+  const F = K.files, fw = 0.52, fx1 = F.x + (F.n - 1) * (fw + 0.06);
+  for (let i = 0; i < F.n; i++) {
+    const x = F.x + i * (fw + 0.06);
+    box(p, 0x4A4F55, x, CY + 0.62, F.z, fw, 1.24, 0.5);
+    for (let k = 0; k < 4; k++) {
+      box(p, 0x3A3F45, x, CY + 0.17 + k * 0.29, F.z + 0.251, fw - 0.06, 0.012, 0.004, false);
+      box(p, 0x8A9098, x, CY + 0.3 + k * 0.29, F.z + 0.26, 0.12, 0.02, 0.02, false);
+    }
+  }
+  const SPINES = [0x7A1E1E, 0x1F3A5A, 0x2E4A2A, 0x5A3A1E, 0x3A2A4A, 0x6A5A2A];
+  for (const [j, y] of [1.5, 1.95].entries()) {
+    box(p, WOOD_DARK, (F.x + fx1) / 2, CY + y, face + 0.13, fx1 - F.x + fw + 0.2, 0.04, 0.26);
+    for (let x = F.x - fw / 2 + 0.03, k = j * 3; x < fx1 + fw / 2 - 0.05; k++) {
+      const w = 0.05 + (k * 7 % 3) * 0.01, hh = 0.26 + (k * 5 % 4) * 0.015;
+      box(p, SPINES[k % SPINES.length], x + w / 2, CY + y + 0.02 + hh / 2, face + 0.13, w - 0.005, hh, 0.2, false);
+      x += w + (k % 7 === 6 ? 0.08 : 0);
+    }
+  }
+  // the safe: squat and dark green, its brass dial and handle towards the room
+  const S = K.safe;
+  box(p, 0x2C3A34, S.x, CY + 0.42, S.z, 0.62, 0.84, 0.6);
+  box(p, 0x24302B, S.x, CY + 0.42, S.z + 0.31, 0.5, 0.72, 0.02);
+  add(p, mesh(new CylinderGeometry(0.07, 0.07, 0.03, 16), BRASS, S.x + 0.08, CY + 0.52, S.z + 0.33)).rotation.x = Math.PI / 2;
+  box(p, BRASS, S.x - 0.14, CY + 0.36, S.z + 0.33, 0.12, 0.03, 0.03, false);
+  // the bookkeeper's desk: ledgers piled up on it, one open, an adding machine with its paper tape curling to the floor
+  const C = K.desk, ct = CY + C.h;
+  box(p, 0x5A3A26, C.x, ct, C.z, C.w, 0.05, C.d);
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) box(p, 0x3A2618, C.x + sx * (C.w / 2 - 0.04), CY + C.h / 2, C.z + sz * (C.d / 2 - 0.04), 0.05, C.h, 0.05);
+  for (let i = 0; i < 5; i++) box(p, SPINES[(i + 2) % SPINES.length], C.x - 0.05 + (i % 2) * 0.03, ct + 0.04 + i * 0.045, C.z - C.d / 2 + 0.2, 0.28, 0.04, 0.22).rotation.y = (i % 3 - 1) * 0.12;
+  box(p, 0xF4F1EA, C.x - 0.02, ct + 0.035, C.z + 0.05, 0.26, 0.01, 0.34, false);
+  box(p, 0x2A2A2E, C.x + 0.05, ct + 0.06, C.z + 0.3, 0.2, 0.08, 0.2);
+  box(p, 0xF4F1EA, C.x + C.w / 2 + 0.01, CY + (C.h + 0.04) / 2, C.z + 0.3, 0.005, C.h + 0.04, 0.05, false);
+  box(p, 0xF4F1EA, C.x + C.w / 2 + 0.14, CY + 0.004, C.z + 0.3, 0.26, 0.005, 0.05, false).rotation.y = 0.3;
+  // the hat stand by the door, a fedora on it
+  const stand = add(p, new Group()); stand.position.set(K.hats.x, CY, K.hats.z);
+  add(stand, mesh(G.cyl, WOOD_DARK, 0, 0.9, 0, true)).scale.set(0.035, 1.8, 0.035);
+  for (let i = 0; i < 3; i++) box(stand, WOOD_DARK, 0, 0.03, 0, 0.44, 0.04, 0.05).rotation.y = i * Math.PI / 3;
+  add(stand, mesh(new CylinderGeometry(0.26, 0.26, 0.02, 16), 0x2E2B33, 0.03, 1.84, 0, true)).rotation.z = -0.2;
+  add(stand, mesh(new CylinderGeometry(0.14, 0.16, 0.13, 14), 0x2E2B33, 0.03, 1.91, 0, true)).rotation.z = -0.2;
+  // the water cooler: a pale cabinet, a blue bottle upside down on it, paper cones in a holder
+  const W = K.cooler;
+  box(p, 0xD8D8D0, W.x, CY + 0.45, W.z, 0.3, 0.9, 0.3);
+  add(p, mesh(G.cyl, new MeshLambertMaterial({ color: 0x7AB8E0, transparent: true, opacity: 0.75 }), W.x, CY + 1.1, W.z)).scale.set(0.13, 0.36, 0.13);
+  add(p, mesh(G.sphere, new MeshLambertMaterial({ color: 0x7AB8E0, transparent: true, opacity: 0.75 }), W.x, CY + 0.95, W.z, false)).scale.set(0.13, 0.08, 0.13);
+  box(p, 0xF4F1EA, W.x - 0.16, CY + 0.7, W.z, 0.02, 0.2, 0.06, false);
+  // the potted kelp, tall ribbons of it up out of a clay pot
+  const Kp = K.kelp;
+  add(p, mesh(new CylinderGeometry(0.2, 0.15, 0.36, 12), 0x9A5A3A, Kp.x, CY + 0.18, Kp.z));
+  for (let i = 0; i < 6; i++) {
+    const a = i / 6 * Math.PI * 2, leaf = box(p, 0x3A7A3A, Kp.x + Math.sin(a) * 0.07, CY + 0.36 + 0.5, Kp.z + Math.cos(a) * 0.07, 0.07, 1.0 - (i % 3) * 0.15, 0.015, false);
+    leaf.rotation.set(Math.cos(a) * 0.18, a, Math.sin(a) * 0.18);
+  }
+  // over the doors of the office and the card room, on the club's side: frosted glass, the name in gold
+  for (const [to, name] of [['loans', 'H. HAMMERHEAD · LOANS'], ['cards', 'THREE-CARD TOMMY']] as const) {
+    const t = DOORS.find(d => d.b === to)!, plate = canvasTex(256, 64, (c, w, h) => {
+      c.fillStyle = '#B9C6C2'; c.fillRect(0, 0, w, h);
+      c.fillStyle = 'rgba(255,255,255,.25)'; c.fillRect(0, 0, w, h / 2);
+      c.fillStyle = '#C9A23A'; c.font = `800 22px ${FONT}`; c.textAlign = 'center'; c.textBaseline = 'middle';
+      c.fillText(name, w / 2, h / 2 + 1);
+    });
+    const glass = add(p, new Mesh(new PlaneGeometry(1.3, 0.32), new MeshLambertMaterial({ map: plate.tex })));
+    glass.position.set(line(DEN, 'w', 0.3) + 0.12, CY + FRAME_H + 0.32, (t.z0 + t.z1) / 2); glass.rotation.y = Math.PI / 2;
+  }
+  // ---- Three-Card Tommy's card room, through the club's west wall ----
+  // a round green rug; a half-moon card table, its straight edge his (his three cards on it: monteTable.ts),
+  // green baize inside a padded rail round its curved edge, a tray of chips and a deck at his elbows, on three turned legs;
+  // his bentwood chair; a folding screen behind him, a suit on each panel; a green-shaded lamp leant over the table; and
+  // his card on an easel by it
+  // (all of it turned as he sits, facing the door: built round his table's middle, its x along his front and its z out
+  // towards you)
+  const T = DESKS.tommy, TB = BOOTHS.tommy, R = T.w / 2, back = -T.d / 2, him = -Math.hypot(TB.x - T.x, TB.z - T.z);
+  const n = add(p, new Group()); n.position.set(T.x, 0, T.z); n.rotation.y = TB.face;
+  const half = (r: number, h: number, open = false) => new CylinderGeometry(r, r, h, 24, 1, open, -Math.PI / 2, Math.PI);
+  add(n, mesh(new CylinderGeometry(1.08, 1.08, 0.02, 32), 0x1E3A2C, 0, CY + 0.014, -0.2, false));
+  add(n, mesh(new CylinderGeometry(1.15, 1.15, 0.018, 32), 0xB8862E, 0, CY + 0.012, -0.2, false));
+  add(n, mesh(half(R, 0.05), MAHOGANY, 0, CY + T.h - 0.025, back));
+  add(n, mesh(half(R - 0.03, 0.1, true), MAHOGANY, 0, CY + T.h - 0.1, back));
+  box(n, MAHOGANY, 0, CY + T.h - 0.07, back + 0.012, T.w - 0.02, 0.1, 0.025);
+  add(n, mesh(half(R - 0.06, 0.012), 0x1F6A3A, 0, CY + T.h + 0.003, back, false));
+  const rail = add(n, mesh(new TorusGeometry(R - 0.035, 0.035, 6, 24, Math.PI), LEATHER, 0, CY + T.h + 0.012, back)); rail.rotation.x = Math.PI / 2;
+  for (const [dx, dz] of [[-R + 0.14, 0.1], [R - 0.14, 0.1], [0, R - 0.14]]) add(n, mesh(G.cyl, MAHOGANY, dx, CY + (T.h - 0.1) / 2, back + dz)).scale.set(0.03, T.h - 0.1, 0.03);
+  box(n, 0x2A1E18, 0.36, CY + T.h + 0.018, back + 0.13, 0.26, 0.03, 0.1, false);
+  [0xB23A2E, 0x2E5AA8, 0xEDE6D2, 0x1B1A1E].forEach((c, i) => {
+    const k = 3 - (i % 2);
+    add(n, mesh(new CylinderGeometry(0.026, 0.026, 0.012 * k, 12), c, 0.27 + i * 0.06, CY + T.h + 0.033 + 0.006 * k, back + 0.13, false));
+  });
+  box(n, 0x8E2B26, -0.38, CY + T.h + 0.022, back + 0.15, 0.09, 0.03, 0.13, false).rotation.y = 0.3;
+  // (his chair: a round seat on four legs, a hoop for its back)
+  add(n, mesh(new CylinderGeometry(0.2, 0.19, 0.04, 16), MAHOGANY, 0, CY + 0.47, him));
+  for (const a of [0.8, 2.35, 3.95, 5.5]) add(n, mesh(G.cyl, MAHOGANY, Math.sin(a) * 0.14, CY + 0.23, him + Math.cos(a) * 0.14, false)).scale.set(0.018, 0.46, 0.018);
+  for (const s of [-1, 1]) add(n, mesh(G.cyl, MAHOGANY, s * 0.16, CY + 0.66, him - 0.17, false)).scale.set(0.016, 0.38, 0.016);
+  add(n, mesh(new TorusGeometry(0.16, 0.018, 6, 16, Math.PI), MAHOGANY, 0, CY + 0.85, him - 0.17));
+  // (the screen: three panels hinged together, the outer two folded forward round him)
+  const screen = add(n, new Group()); screen.position.set(0, CY, him - 0.62);
+  screenPanels.forEach((tex, i) => {
+    const s = i - 1, hinge = add(screen, new Group()), PW = 0.55;
+    hinge.position.x = s * PW / 2; hinge.rotation.y = -s * 0.5;
+    const x = s * PW / 2;
+    box(hinge, MAHOGANY, x, 0.9, 0, PW, 1.7, 0.04);
+    const face = add(hinge, new Mesh(new PlaneGeometry(PW - 0.06, 1.62), new MeshLambertMaterial({ map: tex })));
+    face.position.set(x, 0.9, 0.022);
+    for (const fx of [-0.2, 0.2]) box(hinge, MAHOGANY, x + fx, 0.03, 0, 0.06, 0.06, 0.1, false);
+  });
+  // (the lamp: a brass standard lamp by the screen's end, its green enamel shade leant out over the table, its bulb
+  // glowing under it; not hung over the table, where it'd hide him from the camera up high)
+  const lx = -0.95, lz = him - 0.1;
+  add(n, mesh(new CylinderGeometry(0.15, 0.17, 0.04, 14), BRASS, lx, CY + 0.02, lz, false));
+  add(n, mesh(G.cyl, BRASS, lx, CY + 0.8, lz)).scale.set(0.016, 1.6, 0.016);
+  const arm = add(n, mesh(G.cyl, BRASS, lx + 0.14, CY + 1.62, lz + 0.05, false)); arm.scale.set(0.012, 0.32, 0.012); arm.rotation.set(0.3, 0, -1.1);
+  add(n, mesh(new ConeGeometry(0.2, 0.16, 16, 1, true), glow(0x2F7A4A, 0x14402A), lx + 0.29, CY + 1.62, lz + 0.1));
+  add(n, mesh(G.sphere, AMBER, lx + 0.29, CY + 1.56, lz + 0.1, false)).scale.setScalar(0.05);
+  // (the easel, on the far side from the door: two legs splayed in front, one behind, his card on its ledge)
+  const easel = add(n, new Group()); easel.position.set(-R - 0.4, CY, 0.15); easel.rotation.y = 0.5;
+  for (const s of [-1, 1]) { const leg = add(easel, mesh(G.cyl, MAHOGANY, s * 0.17, 0.42, 0.04, false)); leg.scale.set(0.014, 0.86, 0.014); leg.rotation.set(-0.12, 0, -s * 0.12); }
+  const hind = add(easel, mesh(G.cyl, MAHOGANY, 0, 0.38, -0.12, false)); hind.scale.set(0.014, 0.8, 0.014); hind.rotation.x = 0.35;
+  box(easel, MAHOGANY, 0, 0.47, 0.07, 0.46, 0.025, 0.05, false);
+  const card = add(easel, new Mesh(new PlaneGeometry(0.42, 0.26), new MeshLambertMaterial({ map: ladySign.tex })));
+  card.position.set(0, 0.62, 0.05); card.rotation.x = -0.12;
+  // (the Family, each at his place: undertow.ts)
+  // ---- round the room ----
+  // a red rug under the audience, from the foot of the bandstand to the lounge's rail; and the lounge carpeted in green,
+  // from the rail to the front wall
+  const rugX0 = BANDSTAND.x0 - 0.8, rugX1 = DEN.x1 - 0.5, rugZ0 = BANDSTAND.z1 + 0.3, rugZ1 = LOUNGE.z - 0.25;
+  box(p, 0x1E3A2E, (DEN.x0 + DEN.x1) / 2, CY + 0.012, (LOUNGE.z + DEN.z1) / 2, DEN.x1 - DEN.x0 - 0.3, 0.02, DEN.z1 - LOUNGE.z - 0.2, false);
+  box(p, 0xB8862E, (DEN.x0 + DEN.x1) / 2, CY + 0.01, (LOUNGE.z + DEN.z1) / 2, DEN.x1 - DEN.x0 - 0.15, 0.02, DEN.z1 - LOUNGE.z - 0.05, false);
+  box(p, 0x6A1A1E, (rugX0 + rugX1) / 2, CY + 0.012, (rugZ0 + rugZ1) / 2, rugX1 - rugX0, 0.02, rugZ1 - rugZ0, false);
+  box(p, 0xB8862E, (rugX0 + rugX1) / 2, CY + 0.01, (rugZ0 + rugZ1) / 2, rugX1 - rugX0 + 0.15, 0.02, rugZ1 - rugZ0 + 0.15, false);
+  // round iron tables, each on a pedestal with an iron rim round its dark top
+  const ironTable = (at: XZ, r = 0.38, h = 0.76) => {
+    add(p, mesh(new CylinderGeometry(0.24, 0.28, 0.04, 14), IRONS, at.x, CY + 0.02, at.z, false));
+    add(p, mesh(G.cyl, IRONS, at.x, CY + h / 2, at.z)).scale.set(0.045, h, 0.045);
+    add(p, mesh(new CylinderGeometry(r, r, 0.04, 20), 0x1E2226, at.x, CY + h, at.z));
+    const rim = add(p, mesh(new TorusGeometry(r, 0.018, 5, 24), IRONS, at.x, CY + h + 0.01, at.z)); rim.rotation.x = Math.PI / 2;
+  };
+  const D = DEN_TABLES;
+  // the audience's little tables in front of the bandstand, each with a lamp (a pink-shaded glow), a couple of drinks and
+  // two café chairs, bentwood, turned in towards the stage
+  const LAMP = glow(0xFFC8DC, 0xC0406E), DRINK = glow(0xE8A83A, 0x5A3200), BENTWOOD = 0x3A2418;
+  AUDIENCE.forEach((t, n) => {
+    ironTable(t, t.r, t.h);
+    add(p, mesh(new CylinderGeometry(0.04, 0.05, 0.02, 10), BRASS, t.x, CY + t.h + 0.03, t.z, false));
+    add(p, mesh(G.cyl, BRASS, t.x, CY + t.h + 0.1, t.z, false)).scale.set(0.008, 0.14, 0.008);
+    add(p, mesh(new CylinderGeometry(0.035, 0.07, 0.08, 12, 1, true), LAMP, t.x, CY + t.h + 0.19, t.z, false));
+    for (const s of [-1, 1]) if (n % 3 !== 1 || s > 0) add(p, mesh(new CylinderGeometry(0.03, 0.025, 0.08, 10), DRINK, t.x + s * 0.14, CY + t.h + 0.06, t.z + 0.1, false));
+  });
+  for (const c of AUDIENCE_CHAIRS) {
+    const g = add(p, new Group()); g.position.set(c.x, CY, c.z); g.rotation.y = c.face;
+    add(g, mesh(new CylinderGeometry(0.19, 0.19, 0.04, 14), BENTWOOD, 0, 0.45, 0));
+    for (const [x, z] of [[-0.13, -0.13], [0.13, -0.13], [-0.13, 0.13], [0.13, 0.13]]) add(g, mesh(G.cyl, BENTWOOD, x, 0.22, z)).scale.set(0.014, 0.45, 0.014);
+    const back = add(g, mesh(new TorusGeometry(0.16, 0.016, 5, 14, Math.PI), BENTWOOD, 0, 0.66, -0.17)); back.scale.set(1, 1.2, 1);
+    for (const x of [-0.16, 0.16]) add(g, mesh(G.cyl, BENTWOOD, x, 0.56, -0.17)).scale.set(0.014, 0.22, 0.014);
+  }
+  // the high table by the bar's west end, where two stand and talk
+  ironTable(CHAT, 0.3, 1.05);
+  // the dance floor in front of the bandstand: a half-round of honey-coloured parquet laid in strips, a brass edge
+  add(p, mesh(new CylinderGeometry(DANCE.r, DANCE.r, 0.012, 40, 1, false, -Math.PI / 2, Math.PI), 0x8A6440, DANCE.x, CY + 0.028, DANCE.z, false));
+  for (let k = -DANCE.r + 0.3; k < DANCE.r; k += 0.3) {
+    const half = Math.sqrt(DANCE.r * DANCE.r - k * k);
+    box(p, 0x6E4E32, DANCE.x + k, CY + 0.035, DANCE.z + half / 2, 0.012, 0.002, half - 0.05, false);
+  }
+  const danceRim = add(p, mesh(new TorusGeometry(DANCE.r, 0.022, 5, 40, Math.PI), BRASS, DANCE.x, CY + 0.034, DANCE.z, false)); danceRim.rotation.x = Math.PI / 2;
+  // the lounge's rail: brass, on posts, across the room from the west end (open by Tommy's door) to the east wall, with
+  // two ways through, a lamp on the post either side of each
+  const ends = [LOUNGE.x0, ...LOUNGE.gaps.flat()], RAIL_LAMP = glow(0xFFE2B0, 0xE0A040);
+  for (let k = 0; k + 1 < ends.length; k += 2) {
+    const a = ends[k], b = ends[k + 1], n = Math.max(1, Math.round((b - a) / 0.55));
+    for (let i = 0; i <= n; i++) {
+      const x = a + (b - a) * i / n;
+      add(p, mesh(G.cyl, BRASS, x, CY + 0.45, LOUNGE.z)).scale.set(0.022, 0.9, 0.022);
+      if (i === 0 || i === n) add(p, mesh(G.sphere, RAIL_LAMP, x, CY + 0.98, LOUNGE.z, false)).scale.setScalar(0.06);
+    }
+    for (const [y, r] of [[0.9, 0.028], [0.5, 0.016]]) {
+      const bar = add(p, mesh(G.cyl, BRASS, (a + b) / 2, CY + y, LOUNGE.z)); bar.scale.set(r, b - a, r); bar.rotation.z = Math.PI / 2;
+    }
+    box(p, 0x2A1A14, (a + b) / 2, CY + 0.03, LOUNGE.z, b - a, 0.06, 0.12, false);
+  }
+  // a poster on an easel inside the doors: who's on tonight
+  const poster = add(p, new Group()); poster.position.set(DEN.x1 - 0.45, CY, CLUB_DOOR.z0 - 0.55); poster.rotation.y = -Math.PI / 2 - 0.35;
+  for (const sx of [-1, 1]) { const leg = add(poster, mesh(G.cyl, WOOD_DARK, sx * 0.2, 0.7, -0.05)); leg.scale.set(0.015, 1.45, 0.015); leg.rotation.z = -sx * 0.08; }
+  const prop = add(poster, mesh(G.cyl, WOOD_DARK, 0, 0.62, -0.3)); prop.scale.set(0.015, 1.3, 0.015); prop.rotation.x = -0.25;
+  box(poster, BRASS, 0, 1.0, 0.0, 0.5, 0.7, 0.02);
+  const bill = add(poster, new Mesh(new PlaneGeometry(0.46, 0.66), new MeshLambertMaterial({ map: tonight.tex })));
+  bill.position.set(0, 1.0, 0.012);
+  // the round table just inside the lounge's rail, a stool either side
+  ironTable(D.rail);
+  stool(D.rail.x - 0.62, D.rail.z); stool(D.rail.x + 0.62, D.rail.z);
+  // barrels in the corner, standing in a pair, iron hoops round them
+  for (const dz of [-0.36, 0.36]) {
+    const z = BARRELS.z + dz;
+    add(p, mesh(new CylinderGeometry(0.27, 0.27, 0.85, 14), 0x5A3A26, BARRELS.x, CY + 0.425, z));
+    for (const y of [0.12, 0.42, 0.72]) add(p, mesh(new CylinderGeometry(0.285, 0.285, 0.035, 14), IRONS, BARRELS.x, CY + y, z, false));
+  }
+});
+
 // ---------- the teppo post, where the sparring partner slaps ----------
 later(() => { log(cellar, 0x7A5236, TEPPO.x, CY + 1.3, TEPPO.z, 2.2, 2.6); });
 
@@ -2093,6 +2850,19 @@ export function showVenue(t: number) {
   parts.tier.visible = parts.drums.visible = t >= 2;
   parts.vip.visible = t >= 3;
 }
+/** Whether the club's doors are shut (doorway.ts opens and shuts them): shut, they're in the way. */
+export const denDoor = { shut: true };
+/** The Undertow's found: the arena's wall across the tunnel's mouth comes down, and through it the Family's back room.
+ *  (Its lamps' light is there all along, dark till then, as the grow room's is.) */
+export function showDen(on = true) {
+  parts.den.visible = on;
+  parts.denHidden.visible = !on;
+  found.den = on;
+  lights[9].intensity = on ? DEN_GLOW[0] : 0;
+  lights[10].intensity = on ? DEN_GLOW[1] : 0;
+  lights[11].intensity = on ? DEN_GLOW[2] : 0;
+  lights[12].intensity = on ? DEN_GLOW[3] : 0;
+}
 /** The grow room is found: the prep hall's stone wall comes down, its gate open, and there it is. */
 export function showGrowRoom(on = true) {
   parts.grow.visible = on;
@@ -2104,11 +2874,15 @@ export function showGrowRoom(on = true) {
 // ---------- light ----------
 /** The cellar's lights: the lamp over the ring, two lanterns' worth of warm light over the stands, the hearth's fire
  *  (lighting the hearth room), the hatch's daylight (the landing), the office's lamp, the dumbwaiter's lamp in the prep
- *  hall, (once it's found) the grow room's sickly glow, and the cookware shop's lamp. */
+ *  hall, (once it's found) the grow room's sickly glow, the cookware shop's lamp, and (once it's found) the Undertow's
+ *  cold light over the room and its bar's warm glow. */
 export const lights = [
   new PointLight(0xFFD7A0, 16, 15, 1.2), new PointLight(0xFF9A5A, 9, 10, 1.5), new PointLight(0xFF9A5A, 9, 10, 1.5),
   new PointLight(0xFF9A4A, 8, 8, 1.5), new PointLight(0xCFE8FF, 10, 7, 1.4), new PointLight(0xFFC77A, 8, 9, 1.4),
   new PointLight(0xFFD08A, 8, 9, 1.4), new PointLight(0x9CE6C8, 9, 11, 1.4), new PointLight(0xFFC98A, 7, 8, 1.4),
+  // (the Undertow's, on dice of their own, as its parts are: the club's teal over the room, the bar's amber, Harry's
+  // lamp's warm light over his desk, and a low rosy one in Eddie's room)
+  ...apart(() => [new PointLight(0xB8E6DE, 12, 13, 1.3), new PointLight(0xFFA27A, 7, 8, 1.4), new PointLight(0xFFD9A0, 7, 7, 1.4), new PointLight(0xFFC4A8, 7, 7, 1.4)], dice(0xDE11)),
 ];
 lights[0].position.set(RING.x, CY + 5.35, RING.z);
 lights[1].position.set(RING.x, CY + 3.4, ARENA.z0 + 1.5);
@@ -2119,8 +2893,12 @@ lights[5].position.set(OFFICE.x + 1.5, CY + 3.4, OFFICE.z + 1.2);
 lights[6].position.set((PREP.x0 + PREP.x1) / 2 + 1, CY + 3.2, (PREP.z0 + PREP.z1) / 2);
 lights[7].position.set((GROW.x0 + GROW.x1) / 2, CY + 3.0, (GROW.z0 + GROW.z1) / 2);
 lights[8].position.set(BENCH.x + 2.2, CY + 2.8, BENCH.z);
-const GROW_GLOW = lights[7].intensity;
-lights[7].intensity = 0;
+lights[9].position.set((DEN.x0 + DEN.x1) / 2 + 1, CY + 3.0, DEN.z0 + 3.2);
+lights[10].position.set(DEN_BAR.x0 + 1.5, CY + 2.3, DEN.z0 + 3.4);
+lights[11].position.set(DESKS.harry.x + 0.6, CY + 2.3, DESKS.harry.z + 0.5);
+lights[12].position.set(DESKS.eddie.x + 1.0, CY + 2.3, DESKS.eddie.z);
+const GROW_GLOW = lights[7].intensity, DEN_GLOW = [lights[9].intensity, lights[10].intensity, lights[11].intensity, lights[12].intensity];
+lights[7].intensity = lights[9].intensity = lights[10].intensity = lights[11].intensity = lights[12].intensity = 0;
 lights.forEach(l => { l.visible = false; scene.add(l); });
 /** The cellar's sky: near-black brown, warm low light, as stage.ts's day and dusk are for the world above. */
 export const CELLAR_SKY = { bg: new Color(0x1B1512), sky: 0xFFD7A8, grd: 0x4A3428, hemi: 0.4, sun: 0xFFC98F, sunI: 0.34 };
@@ -2175,6 +2953,53 @@ export function cellarBoxes(machines: Record<'rice' | 'fish' | 'mush', number> =
     [PLANT.x, PLANT.z, 0.55, 0.55],
     [RACK.x, RACK.z, 0.4, 0.4],
   ];
+  // the Undertow, once it's found: the booths under the arches from the wall to the front of their tables, Eddie's room
+  // (his banquette and table, his bodyguards, the champagne, the lamp and the palm), Harry's office, Tommy's card room (his
+  // table, him behind it, his screen, his easel), the bar, the stools, the tables, the stage and the barrels; and the
+  // club's doors while they're shut
+  if (found.den) {
+    const E = DESKS.eddie, H = DESKS.harry, T = DESKS.tommy;
+    /** A box from z0 to z1, `hx` either side of x. */
+    const along = (x: number, hx: number, z0: number, z1: number): [number, number, number, number] => [x, (z0 + z1) / 2, hx, (z1 - z0) / 2];
+    const BS = BANDSTAND;
+    boxes.push([(BS.x0 + BS.x1) / 2, (DEN.z0 + BS.z1 + 0.3) / 2, (BS.x1 - BS.x0) / 2 + 0.15, (BS.z1 + 0.3 - DEN.z0) / 2 + 0.15]);
+    // (the booths round the walls, each all the way out to its benches' ends; the lounge's rail, a run at a time)
+    for (const b of WALL_BOOTHS) {
+      const c = inBooth(b, 0, 0.5), wide = Math.abs(Math.sin(b.into)) > 0.5;
+      boxes.push([c.x, c.z, wide ? 0.62 : 1.0, wide ? 1.0 : 0.62]);
+    }
+    const ends = [LOUNGE.x0, ...LOUNGE.gaps.flat()];
+    for (let k = 0; k + 1 < ends.length; k += 2) boxes.push([(ends[k] + ends[k + 1]) / 2, LOUNGE.z, (ends[k + 1] - ends[k]) / 2 + 0.05, 0.1]);
+    boxes.push([(VIP.x0 + E.x + E.r + 0.2) / 2, E.z, (E.x + E.r + 0.2 - VIP.x0) / 2, 1.15]);
+    for (const g of GUARDS) boxes.push([g.x, g.z, 0.32, 0.32]);
+    boxes.push([E.x + 0.25, E.z + E.r + 0.55, 0.25, 0.25], [VIP.x1 - 0.35, VIP.z0 + 0.35, 0.3, 0.3], [VIP.x1 - 0.42, VIP.z1 - 0.42, 0.4, 0.4]);
+    // (Harry's office: his desk and him behind it, the cabinets and the safe along the back wall, his bookkeeper's desk
+    // and him, the hat stand, the water cooler and the kelp)
+    const K = LEDGER, fx1 = K.files.x + (K.files.n - 1) * 0.58 + 0.26;
+    boxes.push([H.x, H.z, H.w / 2 + 0.2, H.d / 2 + 0.2], along(LOANS.x0 + 0.5, 0.55, H.z - H.d / 2 - 0.1, H.z + H.d / 2 + 0.1));
+    boxes.push([(LOANS.x0 + fx1) / 2, LOANS.z0 + 0.28, (fx1 - LOANS.x0) / 2 + 0.2, 0.48]);
+    boxes.push(along((LOANS.x0 + K.desk.x + K.desk.w / 2) / 2, (K.desk.x + K.desk.w / 2 - LOANS.x0) / 2 + 0.2, K.desk.z - K.desk.d / 2 - 0.2, LOANS.z1));
+    boxes.push([K.hats.x, K.hats.z, 0.32, 0.32], [K.cooler.x, K.cooler.z, 0.36, 0.36], [K.kelp.x, K.kelp.z, 0.4, 0.4]);
+    // (Tommy's, turned as he sits: a box from his table's middle `x0` to `x1` along his front and `z0` to `z1` out from it)
+    const turned = (x0: number, x1: number, z0: number, z1: number): [number, number, number, number] => {
+      const f = BOOTHS.tommy.face, c = Math.cos(f), sn = Math.sin(f), mx = (x0 + x1) / 2, mz = (z0 + z1) / 2;
+      const hx = Math.abs(c) * (x1 - x0) / 2 + Math.abs(sn) * (z1 - z0) / 2, hz = Math.abs(sn) * (x1 - x0) / 2 + Math.abs(c) * (z1 - z0) / 2;
+      return [T.x + mx * c + mz * sn, T.z - mx * sn + mz * c, hx, hz];
+    };
+    const him = Math.hypot(BOOTHS.tommy.x - T.x, BOOTHS.tommy.z - T.z);
+    boxes.push(turned(-T.w / 2 - 0.2, T.w / 2 + 0.2, -him - 0.75, T.d / 2 + 0.2), turned(-T.w / 2 - 0.7, -T.w / 2 - 0.1, -0.15, 0.45));
+    const B = DEN_BAR;
+    boxes.push([(B.x0 + B.x1) / 2, (DEN.z0 + B.front) / 2, (B.x1 - B.x0) / 2 + 0.25, (B.front - DEN.z0) / 2 + 0.2]);
+    for (const s of DEN_STOOLS) boxes.push([s.x, s.z, 0.38, 0.38]);
+    for (const t of Object.values(DEN_TABLES)) boxes.push([t.x, t.z, 0.6, 0.6]);
+    boxes.push([COAT_SPOT.x, COAT_SPOT.z, 0.3, 0.3]);
+    for (const t of AUDIENCE) boxes.push([t.x, t.z, t.r + 0.08, t.r + 0.08]);
+    for (const c of AUDIENCE_CHAIRS) boxes.push([c.x, c.z, 0.22, 0.22]);
+    boxes.push([CHAT.x, CHAT.z, 0.3, 0.3], [CHAT.a.x, CHAT.a.z, 0.22, 0.22], [CHAT.b.x, CHAT.b.z, 0.22, 0.22]);
+    for (const d of DANCERS) boxes.push([d.x, d.z, 0.5, 0.5]);
+    boxes.push([STAGE.x, STAGE.z + STAGE.r / 2, STAGE.r + 0.15, STAGE.r / 2 + 0.15], [BARRELS.x, BARRELS.z, 0.5, 0.85]);
+    if (denDoor.shut) boxes.push(along(CLUB_DOOR.x, 0.2, CLUB_DOOR.z0, CLUB_DOOR.z1));
+  }
   for (const k of ['rice', 'fish', 'mush'] as const) {
     if (k === 'mush' && !found.grow) continue;
     for (let i = 0; i < Math.min(MAX_MACHINES, machines[k]); i++) {
@@ -2257,6 +3082,52 @@ function bakeStill(root: Object3D, keep: Set<Object3D>) {
   }
 }
 
+/**
+ * Merges the still meshes under `root` (but not `keep`) that share a material and aren't plain furniture (bakeStill has
+ * those): each material's lot into one mesh, in `root`'s own space, so a room full of lamps of a few kinds is drawn as a
+ * few meshes rather than one per lamp.
+ */
+function bakeAlike(root: Object3D, keep: Set<Object3D>) {
+  root.updateMatrixWorld(true);
+  const toRoot = root.matrixWorld.clone().invert(), m4 = new Matrix4();
+  const bins = new Map<string, Mesh[]>();
+  const walk = (o: Object3D) => {
+    for (const c of o.children) {
+      if (keep.has(c) || !c.visible) continue;
+      const m = c as Mesh;
+      if (!m.isMesh || (m as unknown as { isInstancedMesh?: boolean }).isInstancedMesh || c.children.length) { walk(c); continue; }
+      const mat = m.material;
+      if (Array.isArray(mat) || plain(mat) || (mat as MeshLambertMaterial).vertexColors) continue;
+      const key = `${mat.uuid}${+m.castShadow}${+m.receiveShadow}${m.renderOrder}`;
+      (bins.get(key) ?? bins.set(key, []).get(key)!).push(m);
+    }
+  };
+  walk(root);
+  for (const ms of bins.values()) {
+    if (ms.length < 2) continue;
+    const uv = ms.every(m => m.geometry.attributes.uv);
+    const geos = ms.map(m => {
+      const g = m.geometry.index ? m.geometry.toNonIndexed() : copyGeo(m.geometry);
+      for (const k of Object.keys(g.attributes)) if (k !== 'position' && k !== 'normal' && !(uv && k === 'uv')) g.deleteAttribute(k);
+      m4.multiplyMatrices(toRoot, m.matrixWorld);
+      g.applyMatrix4(m4);
+      if (m4.determinant() < 0) {
+        for (const a of [g.attributes.position, g.attributes.normal]) {
+          for (let i = 0; i < a.count; i += 3) for (let j = 0; j < a.itemSize; j++) { const t = a.array[(i + 1) * a.itemSize + j]; a.array[(i + 1) * a.itemSize + j] = a.array[(i + 2) * a.itemSize + j]; a.array[(i + 2) * a.itemSize + j] = t; }
+        }
+      }
+      return g;
+    });
+    const merged = mergeGeometries(geos);
+    geos.forEach(g => g.dispose());
+    if (!merged) continue;
+    const o = new Mesh(merged, ms[0].material);
+    o.castShadow = ms[0].castShadow; o.receiveShadow = ms[0].receiveShadow; o.renderOrder = ms[0].renderOrder;
+    for (const m of ms) m.removeFromParent();
+    root.add(o);
+  }
+}
+
 // ---------- building it ----------
 // Built as the game loaded, the cellar drew 16616 numbers from the game's luck (with the 2052 the clay ring before this
 // one took) and 376 from the scenery's dice. Loading still draws them all, so everything after is as it was: what it
@@ -2295,8 +3166,10 @@ export function buildCellar() {
   apart(() => {
     for (const f of toBuild) f();
     // (the gong's disc swings, the pot's stew changes colour, Mr. Fugu puffs up, the soup square's flap lifts; and the
-    // venue's parts and the grow room come and go, so each is baked on its own)
+    // venue's parts, the grow room and the Undertow come and go, so each is baked on its own)
     bakeStill(cellar, new Set<Object3D>([gongDisc, potMesh, boss, tankFish, ...Object.values(parts), ...theirs, ...moving]));
     for (const g of Object.values(parts)) bakeStill(g, new Set(theirs));
+    // (and the Undertow's lamps and glows, each kind merged into one: there are dozens of them)
+    bakeAlike(parts.den, new Set(theirs));
   }, dice(0xCE11A));
 }

@@ -183,12 +183,13 @@ export function unlockFx(at: XZ, r = 1, y = 0.2) {
 /** Somewhere that smokes or steams all the time while it's there: `on` says whether it's there now. */
 interface Source { at: Vector3; kind: 'smoke' | 'steam'; every: number; t: number; on: () => boolean }
 const sources: Source[] = [];
-/** Dust kicked up off the ring's dirt at `at` (a stamp, a charge, a fall): `n` puffs, `big` times the size. */
-export function dustFx(at: Vector3, n = 6, big = 1) {
+/** Dust kicked up off the ring's dirt at `at` (a stamp, a charge, a fall): `n` puffs, `big` times the size (or, in
+ *  `tints` of its own, smoke: the Undertow's doors opening). */
+export function dustFx(at: Vector3, n = 6, big = 1, tints = [0x9A7A58, 0xB59570]) {
   if (!on()) return;
   for (let i = 0; i < n; i++) {
     const a = jitter(0, Math.PI * 2), sp = jitter(0.4, 1.1) * big;
-    P.smoke.emit(at, Math.cos(a) * sp, jitter(0.15, 0.5) * big, Math.sin(a) * sp, jitter(0.6, 1.1), jitter(0.07, 0.12) * big, jitter(0, 1) < 0.5 ? 0x9A7A58 : 0xB59570, 0.5);
+    P.smoke.emit(at, Math.cos(a) * sp, jitter(0.15, 0.5) * big, Math.sin(a) * sp, jitter(0.6, 1.1), jitter(0.07, 0.12) * big, jitter(0, 1) < 0.5 ? tints[0] : tints[1], 0.5);
   }
 }
 /** Ink squirted by the octopus (stage 3's first boss) at `at`: a dark cloud of `n` puffs. */

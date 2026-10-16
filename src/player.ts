@@ -20,12 +20,15 @@ export interface Player extends Walker {
   /** In a scene that holds them still or moves them itself (Mr. Fugu's offer, up or down the cellar's ladder, a cry in
    *  the casino's restroom): what's pressed doesn't move them. */
   held: boolean;
+  /** How much of `speed` they walk at: less where the camera's come in closer (down the Undertow's tunnel and in the
+   *  club), so they cross as much of the screen a second as anywhere else and the place feels as big as it looks. */
+  stride: number;
 }
 
 export const player: Player = {
   g: new Person(0xFF6B4A), h: 0, speed: 4.2, moving: false,
   tPick: 0, tDrop: 0, tCash: 0, tCatch: 0, tPay: 0,
-  onTile: null, booped: null, held: false,
+  onTile: null, booped: null, held: false, stride: 1,
   back: new Holder(i => carrySlot(player, i), 6),
 };
 player.g.position.set(-1.5, FY, -2.0);

@@ -2,7 +2,8 @@
 // crowd he brings and how long the bell gives you, and exactly how ringing it now would go, worked out by running the
 // rush ahead in a copy of the cellar, with the player in it working as a good player would (fight.ts's forecast):
 // "Ready: you'll turn 70 of his 120", or "You'll turn 55 of his 120: 6 short of 61". No fee, no luck: ring it
-// whenever. The bout bar over the screen follows every bout: the fans buying soup (and on a boss night, his bell
+// whenever. With Slick Eddie's fix paid for (eddie.ts), it shows how both ways would go: the fix holding (fewer of his
+// fans) and it getting out (all of them), and the chance of each. The bout bar over the screen follows every bout: the fans buying soup (and on a boss night, his bell
 // running down), the fans taking their seats, and the fight, a tug of war between the champion's fans and his
 // opponent's, in their colours. After a boss's bout a card says how it went, and on a loss which line held the kitchen
 // up. The HUD's 💪 is the fans fed in this bout's preparation. And the watch spot 👁️ by the ring: stand on it and the camera
@@ -14,8 +15,8 @@ import { decal, drawPad } from './decals';
 import { dustFx } from './fx';
 import { ringCam, showBoutLine } from './dohyo';
 import {
-  BATCH, BOSSES, BUYOUT, type Carry, F, forecast, ICON, type Ing, NAME, needRate, nextBoss, ringGong, type Rush, sides, STALL_CAP,
-  strength, toBeat, worstShort, you,
+  BATCH, BOSSES, BUYOUT, type Carry, F, FIX, fixOn, forecast, ICON, type Ing, keptHome, NAME, needRate, nextBoss, ringGong, type Rush,
+  sides, STALL_CAP, strength, toBeat, worstShort, you,
 } from './fight';
 import { kindOf } from './items';
 import { buyHeld } from './input';
@@ -68,7 +69,7 @@ function render() {
   if (R && !R.done) {
     const boss = BOSSES[R.boss];
     head = `${boss.face} ${boss.name} is in`;
-    crowd = `${R.turned} of his ${R.n} fans turned so far: ${toBeat(boss)} beats him`;
+    crowd = `${R.turned} of his ${R.n} fans turned so far: ${toBeat(boss, R.n)} beats him`;
     cast = 'Keep the bowls coming!';
     button = null;
   } else if (!b) {
@@ -78,11 +79,19 @@ function render() {
     button = null;
   } else {
     // (no forecast while the last boss's crowd is still on the floor: the gong can't be rung until it clears)
-    const f = R ? null : forecast(), i = F.beaten;
+    const f = R ? null : forecast(), i = F.beaten, fix = fixOn();
     head = `${b.face} ${b.name} · boss ${i + 1} of ${BOSSES.length}`;
     crowd = `Brings ${b.crowd} fans: turn more than half (${toBeat(b)}) before the bell, ${b.bell} s · prize 🐡 ${amount(b.prize)}`;
     if (!f) cast = '';
-    else if (f.turned >= toBeat(b)) { cast = `Ready: you'll turn ${f.turned} of his ${b.crowd}`; cls = 'ready'; }
+    else if (fix) {
+      // (both ways it could go, with the chance of each)
+      const kept = keptHome(b, fix.cut), n = b.crowd - kept, held = forecast(kept)!, p = FIX.caught[fix.cut - 1];
+      const way = (v: typeof f, of: number) => v.turned >= toBeat(b, of) ? `ready, you'll turn ${v.turned} of ${of}` : `you'd turn ${v.turned} of ${of}, ${toBeat(b, of) - v.turned} short`;
+      crowd = `Brings ${b.crowd} fans, Eddie keeping ${kept} home if his fix holds: turn more than half before the bell, ${b.bell} s · prize 🐡 ${amount(b.prize)}`;
+      cast = `🤝 Fix holds (${Math.round((1 - p) * 100)}%): ${way(held, n)}. Caught (${Math.round(p * 100)}%): ${way(f, b.crowd)}.`;
+      const ok = held.turned >= toBeat(b, n), both = ok && f.turned >= toBeat(b);
+      cls = both ? 'ready' : ok ? '' : 'short';
+    } else if (f.turned >= toBeat(b)) { cast = `Ready: you'll turn ${f.turned} of his ${b.crowd}`; cls = 'ready'; }
     else {
       cast = `You'll turn ${f.turned} of his ${b.crowd}: ${toBeat(b) - f.turned} short of ${toBeat(b)}.`;
       if (f.worst) cast += ` The pot would wait on ${NAME[f.worst]} ${ICON[f.worst]}.`;
@@ -111,10 +120,12 @@ const rushEl = $('rush'), rushName = $('rushName'), rushBell = $('rushBell'), ru
 const rushYou = $('rushYou'), rushThem = $('rushThem'), barEl = rushBar.parentElement!;
 const card = $('fightCard');
 let cardT = 0;
+/** Whether a boss's card is up after his bout. */
+export const cardUp = () => !card.hidden;
 card.addEventListener('click', () => { card.hidden = true; });
 /** The card after a boss's rush: turned him, or how short, why, and what it takes. */
 export function showCard(R: Rush) {
-  const boss = BOSSES[R.boss], pct = Math.round(Math.min(1, R.turned / R.n) * 100), need = toBeat(boss);
+  const boss = BOSSES[R.boss], pct = Math.round(Math.min(1, R.turned / R.n) * 100), need = toBeat(boss, R.n);
   const h = document.createElement('h2'), p1 = document.createElement('p'), bar = document.createElement('div'), p2 = document.createElement('p');
   bar.className = 'bar'; bar.innerHTML = '<i></i>'; (bar.firstChild as HTMLElement).style.width = pct + '%';
   if (R.win) {
@@ -151,7 +162,7 @@ function renderBout() {
     // (his bell waits for his whole crowd to reach the bar)
     name = R.walk > 0 ? `${boss.face} ${boss.name}'s crowd is coming in` : `${boss.face} ${boss.name}'s crowd is in`;
     clock = `🔔 ${Math.max(0, Math.ceil(boss.bell - R.t))} s`;
-    left = `${yours} turned · ${toBeat(boss)} beats him`;
+    left = `${yours} turned · ${toBeat(boss, R.n)} beats him`;
   } else if (B.phase === 'sit') name = 'Taking their seats';
   else if (B.phase === 'fight') { name = `${CHAMP} against ${boss.name} ${boss.face}`; clock = 'Fight!'; }
   else name = B.win ? `${CHAMP} wins!` : `${boss.name} wins`;

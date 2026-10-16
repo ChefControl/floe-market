@@ -802,7 +802,8 @@ describe('the blackjack table', () => {
     const next = (await inShoe()).slice(-4).reverse();
     expect(next[0]).toEqual(before[before.length - 1 - 101]);
     click('#deal');
-    dealt(g);
+    // (the deal itself, not the player's turn after it: a natural has no turn)
+    g.run(DEALT);
     const f = await felt();
     expect(f.hands).toEqual([[name(next[0]), name(next[2])]]);
     expect(f.dealer[0]).toBe(name(next[1]));

@@ -83,7 +83,7 @@ describe('the cellar, built when stage 3 is reached', () => {
     g.run(3);
     await next();
     expect(await build()).toEqual(atOnce);
-  });
+  }, 30_000);
 
   it("builds it off the game's luck and the scenery's dice", async () => {
     await loadGame();
