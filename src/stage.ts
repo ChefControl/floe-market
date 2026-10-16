@@ -332,7 +332,7 @@ export function enterStage3(silent: boolean) {
       },
       { t: 2.0, run: () => fade(false, true) },
       { t: 2.6, run: () => { banner('Stage 3', 'The Dohyo Below'); confetti(); fanfare(3); react('upset'); } },
-      { t: 5.6, run: () => { banner(null); player.held = false; toast('In the prep hall: rice onto the drying rack, fish into the salt barrel, then both to the pot'); } },
+      { t: 5.6, run: () => { banner(null); player.held = false; toast('Rack the rice, salt the fish, then the pot'); } },
     ],
   };
   updStage(0);
@@ -360,8 +360,8 @@ export function finishStage3(silent: boolean) {
     t: 0, anims: [], kind: 3,
     cues: [
       { t: 0, run: () => { banner('Stage 3 complete', 'The Dohyo Below'); confetti(); fanfare(3); react('upset'); } },
-      { t: 3.0, run: () => { banner(null); toast("Mr. Fugu took his money and left by the hatch. The ring and the restaurant's till are yours"); } },
-      { t: 5.5, run: () => toast("On his desk, he left a matchbook from a club nobody's heard of. Stage 4 is coming soon") },
+      { t: 3.0, run: () => { banner(null); toast("Mr. Fugu's gone. The ring is yours."); } },
+      { t: 5.5, run: () => toast('He left a matchbook behind. Stage 4 soon.') },
     ],
   };
   updStage(0);

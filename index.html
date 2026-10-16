@@ -803,7 +803,11 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
 .casino .acts{ display:grid; grid-auto-flow:column; grid-auto-columns:minmax(0,1fr); gap:8px; }
 .casino .acts button{ height:50px; border-radius:14px; background:#FFF8EC; box-shadow:0 4px 0 #B9A98F; font-size:17px; }
 .casino .acts [aria-pressed="true"]{ background:#F2C14E; box-shadow:0 4px 0 #A9761C; }
+/* a panel's one caption: the rule its buttons' numbers can't show */
 .casino .odds{ margin:0; text-align:center; font-size:14px; font-weight:700; line-height:1.3; opacity:.8; }
+/* Eddie's: the chance his fix gets out, the risk you're taking, big, with "caught" in red */
+#eddieOdds{ font-size:19px; font-weight:800; opacity:1; }
+#eddieOdds .caught{ color:#FF5A4E; font-weight:900; }
 .casino .acts .gold{ background:#F2C14E; box-shadow:0 4px 0 #A9761C; }
 .casino .cut{ display:flex; align-items:center; gap:8px; font-size:13px; font-weight:800; color:#FFE7A8; }
 .casino .cut input{ flex:1; min-width:0; height:32px; margin:0; accent-color:#F5D03A; cursor:pointer; }
@@ -1270,13 +1274,13 @@ body.offer #hud, body.offer #corner, body.offer #pointers, body.offer #tip, body
   </div>
 </div>
 <div id="loans" class="casino" hidden>
-  <p id="loansMsg" class="msg" aria-live="polite"></p>
   <div class="cut" id="loansPick">
     <span aria-hidden="true">🐡</span>
     <input type="range" id="loansAmount" aria-label="How much to borrow, in chips">
-    <button type="button" id="loansBorrow" class="go"></button>
   </div>
+  <button type="button" id="loansBorrow" class="go"></button>
   <button type="button" id="loansRepay" class="go" hidden></button>
+  <p id="loansMsg" class="odds" aria-live="polite"></p>
 </div>
 <div id="denGus" class="casino" hidden>
   <p id="denGusMsg" class="msg" aria-live="polite"></p>

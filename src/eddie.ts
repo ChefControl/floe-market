@@ -26,36 +26,30 @@ const n = (v: number) => v.toLocaleString('en-US');
 /** Whether the player has the chips for a fix of `c` on the next boss. */
 const afford = (c: number) => { const b = nextBoss(); return !!b && wallet.money >= fixFee(b, c) * CHIP; };
 
-/** What he says, and what the panel offers, now. */
+/** What the panel offers now: the size buttons, the fee and the fans kept home on the button, and under them the one
+ *  thing the numbers can't show, the chance the papers get it (his coin, at the gong). */
 function refresh() {
   const b = nextBoss(), on = fixOn(), busy = !b || !!F.rush || !!on;
+  msg.hidden = true;
   for (const el of cuts) {
     const c = Number(el.dataset.cut);
     el.setAttribute('aria-pressed', String(c === cut));
     el.disabled = busy;
   }
-  if (!b) {
-    msg.textContent = "Nobody left to fix, kid. You beat 'em all straight.";
-    odds.textContent = ''; shake.hidden = true;
-    return;
-  }
+  if (!b) { odds.textContent = 'Nobody left to fix.'; shake.hidden = true; return; }
   shake.hidden = false;
-  if (F.rush) {
-    msg.textContent = "Not now. The bell's going.";
-    odds.textContent = ''; shake.disabled = true; shake.textContent = 'Shake on it';
-    return;
-  }
+  if (F.rush) { odds.textContent = 'Not during a bout.'; shake.disabled = true; shake.textContent = 'Fix'; return; }
   if (on) {
-    msg.textContent = `It's done. ${n(keptHome(b, on.cut))} of ${b.name}'s fans stay home… if nobody talks.`;
-    odds.textContent = "Ring the gong when you like. You'll know there.";
-    shake.disabled = true; shake.textContent = 'Fixed 🤝';
+    odds.textContent = "You'll know at the gong.";
+    shake.disabled = true; shake.textContent = `Fixed 🤝 ${b.face} −${n(keptHome(b, on.cut))} fans`;
     return;
   }
-  const fee = fixFee(b, cut), caught = FIX.caught[cut - 1], bouts = FIX.scandal[cut - 1];
-  msg.textContent = `${b.face} ${b.name}: I keep ${n(keptHome(b, cut))} of his ${n(b.crowd)} fans home.`;
-  odds.textContent = `${pct(caught)} chance the papers get it: then he brings the lot, and ${cut * 10}% of your own fans stay away for ${bouts} bout${bouts === 1 ? '' : 's'}. The fee's mine either way.`;
+  // ("caught" in red: the risk, big enough to see before you shake on it)
+  const risk = document.createElement('b');
+  risk.className = 'caught'; risk.textContent = 'caught';
+  odds.replaceChildren(`${pct(FIX.caught[cut - 1])} chance we get `, risk);
   shake.disabled = !afford(cut);
-  shake.textContent = `Shake on it · 🐡 ${n(fee)}`;
+  shake.textContent = `Pay 🐡 ${n(fixFee(b, cut))} · Fix ${b.face} −${n(keptHome(b, cut))} fans`;
 }
 cuts.forEach(el => el.addEventListener('click', () => { cut = Number(el.dataset.cut); refresh(); }));
 
@@ -71,7 +65,7 @@ export function payEddie(c = cut, rng: () => number = Math.random) {
   if (!setFix(c, rng() < FIX.caught[c - 1])) return false;
   wallet.money -= fixFee(b, c) * CHIP;
   coin();
-  say('Consider it done. We never talked.');
+  say('Done. We never talked.');
   refresh();
   save();
   return true;

@@ -1423,7 +1423,7 @@ describe("Mr. Fugu's office", () => {
     const { g, F, at } = await ring();
     const office = await import('../src/office');
     const lines = office.fuguLines();
-    expect(lines[0]).toContain('Thirty percent');
+    expect(lines[0]).toContain('30% of every bowl');
     expect(lines.join(' ')).toContain('Hakkaku');
     expect(office.fuguSays()).toBe('');
     at(office.DESK_PAD);
@@ -1446,9 +1446,9 @@ describe("Mr. Fugu's office", () => {
     expect(boss.talking).toBe(false);
     // a boss beaten: the grow room's his secret
     F().beaten = 1;
-    expect(office.fuguLines().join(' ')).toContain('mushrooms');
+    expect(office.fuguLines().join(' ')).toContain('Mushroom bowls');
     F().boughtOut = true;
-    expect(office.fuguLines()[0]).toContain('your house');
+    expect(office.fuguLines()[0]).toContain('Your house');
   });
 });
 

@@ -4,7 +4,7 @@
 import { CY, parts, showDen, showGrowRoom, showVenue, updBarFlap } from './cellar';
 import { BAR, GONG } from './cellarPlan';
 import { openRing, updDohyo } from './dohyo';
-import { BOSSES, CHIP, F, fightFrom, FIX, on, resetFight, step, strength } from './fight';
+import { BOSSES, CHIP, F, fightFrom, on, resetFight, step, strength } from './fight';
 import { front } from './front';
 import { cardUp, showCard, updGong } from './gong';
 import { ARENA, DOORS, level, PASSAGE, PREP } from './layout';
@@ -43,10 +43,11 @@ on.rush = r => {
   roarT = 1.1;
   // (and with Slick Eddie's fix on it, how that went: eddie.ts)
   const fix = r.fix;
-  const said = !fix ? `${b.face} ${b.name} walks in with ${r.n} fans: turn more than half before the bell!`
-    : !fix.caught ? `🤝 Eddie's boys kept ${r.kept} of his fans home: ${b.face} ${b.name} walks in with ${r.n}. Turn more than half before the bell!`
-      : `🗞️ The papers got Eddie's fix! ${b.face} ${b.name} walks in with all ${r.n}, and ${fix.cut * 10}% of your own fans stay away for ${FIX.scandal[fix.cut - 1]} bout${FIX.scandal[fix.cut - 1] === 1 ? '' : 's'} after.`;
-  toast(said, 'rush', fix ? 4500 : 3000);
+  // (a few words: the fight's own UI has the numbers)
+  const said = !fix ? `${b.face} ${b.name} walks in with ${r.n} fans`
+    : !fix.caught ? `🤝 Fixed! ${b.face} ${b.name} brings only ${r.n}`
+      : `🗞️ Caught! ${b.face} ${b.name} brings all ${r.n}`;
+  toast(said, 'rush', 3000);
 };
 on.rushEnd = r => {
   showCard(r);
@@ -60,7 +61,7 @@ on.grow = () => {
   popIn(parts.grow);
   const door = DOORS.find(d => d.b === 'grow')!;
   pointAt({ x: (door.x0 + door.x1) / 2, y: CY, z: PREP.z0 - 0.3 }, '🍄', () => level.down);
-  toast("The gate behind the prep hall swings open: a grow room with its first mushroom bed. Mushroom bowls pay double", 'grow', 4500);
+  toast('🍄 A grow room opened: mushroom bowls pay double', 'grow', 4500);
 };
 // The second boss beaten: the Undertow's found. Not with his card still up, though, nor while his crowd's still going
 // home: once the next bout's begun and the player's down here and free, the arena's wall across the tunnel's mouth
@@ -74,7 +75,7 @@ function revealDen() {
   spotlight([parts.den], { close: 0.75 });
   chime();
   pointAt(mouth, '🃏', () => level.down);
-  toast('The rock behind the south wall gives way: a tunnel to the Undertow, where the Family does business', 'den', 5000);
+  toast('🕳️ A tunnel to the Undertow opened', 'den', 4000);
 }
 // An upgrade bought at the shop counter gets its moment on camera, as upstairs: what it built pops in, and the camera
 // goes over to it and comes in close for a couple of seconds (spotlight.ts), in the middle of the space the bench's menu

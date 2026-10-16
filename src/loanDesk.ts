@@ -1,6 +1,7 @@
 // Hammerhead Harry's desk in the Undertow (stage 3): his loans (loan.ts) made across it. Standing on his pad brings the
-// camera in over the desk and opens the controls: slide to how much you want, up to his limit (worked out as you walked
-// in), and borrow it; with a loan out, the one button is to pay off what's left. Whatever's owed shows in the HUD beside
+// camera in over the desk and opens the controls: slide to how much you want (the slider's end is his limit, worked out
+// as you walked in), the button saying what's borrowed and what's returned; with a loan out, the one button is to pay
+// off what's left. Under either, the one rule the numbers can't show: his share of your sales. Whatever's owed shows in the HUD beside
 // the stage chip (🦈), filling up as he takes his share of the stall's sales (ring.ts) till it's paid.
 import { gamePad } from './casinoKit';
 import { CY } from './cellar';
@@ -24,24 +25,19 @@ const CUT = `${Math.round(SHARE * 100)}%`;
 
 /** How much the slider's on, in chips. */
 const wanted = () => Number(amount.value);
-/** What he says across the desk: his terms for what's on the slider, or what's still owed. */
-function terms() {
-  if (owed() > 0) return `You owe me ${fmt(owed())}. I take ${CUT} of your sales till it's paid.`;
-  return `Up to ${fmt(maxLoan())}. You pay back ${fmt(payBack(wanted()))}: I take ${CUT} of your sales till it's paid.`;
-}
 function refresh() {
   const out = owed() > 0, max = maxLoan();
-  pick.hidden = out;
+  pick.hidden = borrowBtn.hidden = out;
   repayBtn.hidden = !out;
   if (amount.max !== String(max)) {
     // (a new limit: the slider goes up to it, and starts there)
     amount.min = String(LOAN_FLOOR); amount.step = String(LOAN_STEP); amount.max = String(max);
     amount.value = String(max);
   }
-  borrowBtn.textContent = `Borrow ${fmt(wanted())}`;
+  borrowBtn.textContent = `Borrow ${fmt(wanted())} · Return ${fmt(payBack(wanted()))}`;
   repayBtn.textContent = `Pay off ${fmt(owed())}`;
   repayBtn.disabled = wallet.money < owed() * CHIP - 1e-6;
-  msg.textContent = terms();
+  msg.textContent = `${CUT} of your sales till it's paid`;
 }
 amount.addEventListener('input', () => refresh());
 
@@ -51,7 +47,7 @@ export function takeLoan(n = wanted()) {
   const lent = borrow(n);
   addMoney(lent * CHIP);
   popText(`+${fmt(lent)}`, { x: DESKS.harry.x, y: CY + 1.4, z: DESKS.harry.z });
-  say(`${fmt(lent)}. I'll take my ${fmt(owed())} out of your sales, ${CUT} at a time.`);
+  say('Pleasure doing business, kid.');
   refresh();
   return true;
 }
