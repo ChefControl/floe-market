@@ -1,6 +1,6 @@
 // Mr. Fugu at his desk (stage 3): step up in front of it and he has a word for you, in a bubble over his head, by how
 // the ring's doing, his mouth going as he says it; step away and come back for the next one. And his fish tank's fish, swimming.
-import { boss, CY, OFFICE, swimTank } from './cellar';
+import { boss, cellar, CY, OFFICE, swimTank } from './cellar';
 import { decal, drawPad } from './decals';
 import { BOSSES, F } from './fight';
 import { level } from './layout';
@@ -12,7 +12,7 @@ import { d2xz } from './util';
 export const DESK_PAD = { x: OFFICE.x, z: OFFICE.z + 2.35, r: 0.8 };
 const mark = decal(1.3, (c, w, h) => drawPad(c, w, h, '💬'));
 mark.mesh.position.set(DESK_PAD.x, CY + 0.035, DESK_PAD.z);
-boss.parent!.add(mark.mesh);
+cellar.add(mark.mesh);
 
 /** What he says, by how things stand: a few for now, one each time you step up. */
 export function fuguLines(): string[] {
@@ -33,7 +33,7 @@ export function fuguLines(): string[] {
 }
 
 // ---------- his bubble ----------
-const talk = bubble(boss.parent!);
+const talk = bubble(cellar);
 
 let near = false, next = 0, shown = '';
 /** His mouth going through the line as on the dock (offer.ts): a letter at a time, a breath at a comma, a beat at a

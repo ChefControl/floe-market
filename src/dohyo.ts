@@ -14,12 +14,18 @@
 // calls the bout and points his fan at the winner; they bow, the winner squats for his prize, and back to the corners.
 // The fans watch from the stands (swarm.ts), and the crowd's sound follows the bout (ringSound.ts). The sparring
 // partner slaps the teppo post in the corner all the while.
+//
+// The bosses are sea creatures (creatures.ts), and each brings something of his own to the bout: Hakkaku's tentacles
+// thrash in the fight and he squirts ink at the straw and when he lands; Yokobashiri walks in and off sideways and
+// snaps his claws; Dobu's stamps shake the ring; Samehada grins (CHOMP!); and Fukure blows up for the glare, the charge
+// and whenever he's winning, and goes down like a balloon when he's beaten.
 import { CanvasTexture, Group, type Object3D, Sprite, SpriteMaterial, Vector3 } from 'three';
 import { boss, CY, DRUMS, parts, PIT_STEPS, RING, RING_HALF, RING_R, RING_TOP } from './cellar';
 import { TEPPO } from './cellarPlan';
 import { belowGround, Person } from './characters';
 import { BOSSES, BOUT, F, strength } from './fight';
-import { dustFx, saltFx } from './fx';
+import { LOOKS, SLAPS } from './creatures';
+import { dustFx, inkFx, saltFx } from './fx';
 import { isHigh } from './graphics';
 import { Build, K, quietly, shade } from './kit';
 import { level } from './layout';
@@ -98,6 +104,13 @@ function slap(i: number, k: number, base: Pose): Pose {
   return o;
 }
 /** Steps on the spot: each foot lifting in turn, `amp` high. */
+/** The crab's walk: sideways, his feet stepping apart and together, his claws up. */
+const sideways = (ph: number) => {
+  const s = Math.sin(ph);
+  return pose({ l0z: 0.2 + 0.38 * Math.max(0, s), l1z: 0.2 + 0.38 * Math.max(0, -s), l0k: 0.25 * Math.max(0, s), l1k: 0.25 * Math.max(0, -s), l0x: 0.12, l1x: 0.12, bend: 0.2, a0x: 0.7, a1x: 0.7, a0z: 0.45, a1z: 0.45, a0e: 1.3, a1e: 1.3, up: Math.abs(s) * 0.03, side: s * 0.05 });
+};
+/** Whether `who` is the crab, who goes everywhere sideways. */
+const crab = (who: number) => who === 1 && rival.kind === 'crab';
 const steps = (p: Pose, ph: number, amp: number) => {
   const s = Math.sin(ph);
   return { ...p, l0x: p.l0x + Math.max(0, s) * amp, l0k: p.l0k + Math.max(0, s) * amp * 1.3, l1x: p.l1x + Math.max(0, -s) * amp, l1k: p.l1k + Math.max(0, -s) * amp * 1.3 };
@@ -110,21 +123,24 @@ interface At { x: number; z: number; yaw: number; p: Pose; air: number }
 /** Facing the other man: the champion (0) west, his opponent (1) east. */
 const face = (who: number) => (who ? Math.PI / 2 : -Math.PI / 2);
 const at = (who: number, x: number, p: Pose = STAND, o: Partial<At> = {}): At => ({ x, z: 0, yaw: face(who), p, air: 0, ...o });
-/** How far apart they stand locked chest to chest. */
-const contact = () => 0.5 * (champ.f + rival.f) * 1.08 * SIZE;
+/** How far apart they stand locked chest to chest (a puffer blown up stands further off). */
+const contact = () => 0.5 * (champ.girth + rival.girth) * 1.08 * SIZE;
 
 // the ritual, over and over while the fans buy soup: stamping, sizing each other up, and the squat
 const BLOCK = 13.5, SHIKO = 2.15;
 function ritual(t: number, who: number): At {
   const s = who ? -1 : 1, mark = s * MARK, tt = t - who * 0.4;
   if (tt < 1) return at(who, s * CORNER);
-  if (tt < 4) return at(who, lerp(s * CORNER, mark, ease((tt - 1) / 3)), walk(tt * 7.5));
+  if (tt < 4) {
+    const x = lerp(s * CORNER, mark, ease((tt - 1) / 3));
+    return crab(who) ? at(who, x, sideways(tt * 9), { yaw: 0 }) : at(who, x, walk(tt * 7.5));
+  }
   if (tt < 6.5) {
     // salt: reach back, throw it over the ring, and back
     const k = (tt - 4) / 2.5;
     const a = k < 0.3 ? lerp(0, -0.9, ease(k / 0.3)) : k < 0.42 ? lerp(-0.9, 2.1, ease((k - 0.3) / 0.12)) : lerp(2.1, 0, ease(clamp01((k - 0.42) / 0.4)));
     const tw = k < 0.3 ? 0.35 * ease(k / 0.3) : k < 0.42 ? -0.25 : -0.25 * (1 - ease(clamp01((k - 0.42) / 0.4)));
-    return at(who, mark, pose({ a0x: a, a0e: 0.25, a0z: 0.15, bend: k < 0.3 ? 0.12 : 0, twist: tw }));
+    return at(who, mark, pose({ a0x: a, a0e: 0.25, a0z: 0.15, bend: k < 0.3 ? 0.12 : 0, twist: tw }), crab(who) ? { yaw: lerp(0, face(who), ease(clamp01((tt - 4) / 0.5))) } : {});
   }
   const n = Math.floor((tt - 6.5) / BLOCK), b = (tt - 6.5) % BLOCK;
   if (b < 6.5) {
@@ -226,16 +242,17 @@ const slow = (v: number) => v < 1 ? v : v < 1.9 ? 1 + (v - 1) * 0.39 : 1.351 + (
 const unslow = (a: number) => a < 1 ? a : a < 1.351 ? 1 + (a - 1) / 0.39 : 1.9 + (a - 1.351) * ((BOUT.pay - 1.9) / (BOUT.pay - 1.351));
 /** Where the fight left them. */
 let end: [At, At] | null = null;
-function walkTo(s: At, from: number, to: number, k: number) {
+function walkTo(s: At, from: number, to: number, k: number, who: number) {
   s.x = lerp(from, to, ease(k)); s.p = k > 0 && k < 1 ? walk(k * 18) : STAND; s.yaw = to > from ? Math.PI / 2 : -Math.PI / 2;
+  if (crab(who) && k > 0 && k < 1) { s.p = sideways(k * 22); s.yaw = 0; }
 }
 /** After the fall: back to their marks, the bow, the winner squatting for his prize (three chops of the hand), and
  *  back to the corners. */
 function afterBout(v: number, W: At, L: At, w: number, l: number, wFrom: number, lFrom: number) {
   const wm = (w ? -1 : 1) * MARK, lm = (l ? -1 : 1) * MARK, wc = (w ? -1 : 1) * CORNER, lc = (l ? -1 : 1) * CORNER;
   if (v < 3.2) {
-    if (v > 1.7) walkTo(W, wFrom, wm, (v - 1.7) / 1.2);
-    if (v > 2.0) walkTo(L, lFrom, lm, (v - 2.0) / 1.2);
+    if (v > 1.7) walkTo(W, wFrom, wm, (v - 1.7) / 1.2, w);
+    if (v > 2.0) walkTo(L, lFrom, lm, (v - 2.0) / 1.2, l);
     if (v > 2.9) { W.yaw = face(w); L.yaw = face(l); }
   } else if (v < 4.1) {
     W.x = wm; L.x = lm; W.yaw = face(w); L.yaw = face(l);
@@ -244,8 +261,8 @@ function afterBout(v: number, W: At, L: At, w: number, l: number, wFrom: number,
     W.x = wm; W.yaw = face(w);
     const u = v - 4.1, n = Math.min(2, Math.max(0, Math.floor((u - 0.6) / 0.4))), chop = Math.max(0, Math.sin(((u - 0.6 - n * 0.4) / 0.35) * Math.PI));
     W.p = u < 1.9 ? { ...mixPose(STAND, SQUAT, ease(clamp01(u / 0.5))), ...(u > 0.6 && u < 1.8 ? { a0x: 1.25 + chop * 0.2, a0z: [0.45, 0, -0.45][n], a0e: 0.1 } : {}) } : mixPose(SQUAT, STAND, ease(clamp01((u - 1.9) / 0.4)));
-    if (u > 2.3) walkTo(W, wm, wc, clamp01((u - 2.3) / 0.6));
-    walkTo(L, lm, lc, clamp01(u / 1.4));
+    if (u > 2.3) walkTo(W, wm, wc, clamp01((u - 2.3) / 0.6), w);
+    walkTo(L, lm, lc, clamp01(u / 1.4), l);
   }
 }
 function resultAt(a: number): [At, At] {
@@ -422,7 +439,7 @@ function dressRival() {
   const b = bossOn(), key = b ? b.name : 'local' + (F.bout.n % LOCAL_BELTS.length);
   if (key === dressedAs) return;
   dressedAs = key;
-  if (b) { rival.dress(b.belt, b.skin); rival.setWeight(b.crowd >= 500 ? 200 : 160 + F.rush!.boss * 8); }
+  if (b) rival.dressAs(LOOKS[b.kind], b.crowd >= 500 ? 200 : 160 + F.rush!.boss * 8);
   else { rival.dress(LOCAL_BELTS[F.bout.n % LOCAL_BELTS.length]); rival.setWeight(130 + (F.bout.n * 13) % 30); }
 }
 const lineEl = document.getElementById('boutLine')!;
@@ -457,8 +474,11 @@ function moments(ph: string, t: number) {
       const r = who ? rival : champ;
       if (crossed(4 + who * 0.4 + 1.0) && isHigh()) saltFx(where(r.arms[0].hand), v3.set(RING.x, CY + RING_TOP, RING.z));
       if (ph === was.phase && stamped(was.t, t, who)) {
-        dust(where(r.legs[0].foot).lerp(where(r.legs[1].foot), 0.5), 6, 0.8);
-        r.kick(3); hit(0.05); react('stomp');
+        const foot = where(r.legs[0].foot).lerp(where(r.legs[1].foot), 0.5), quake = r.kind === 'catfish';
+        dust(foot, quake ? 16 : 6, quake ? 1.5 : 0.8);
+        r.kick(3); hit(quake ? 0.3 : 0.05); react('stomp');
+        // the earthquake catfish: the ring shakes, and the champion with it
+        if (quake) { champ.kick(2.5); word('ゴゴゴ', foot.setY(foot.y + 1.6), { size: 1.1, fill: '#C9D28A', life: 0.9 }); }
       }
     }
   }
@@ -470,7 +490,13 @@ function moments(ph: string, t: number) {
       hit(0.3, 0.55, 1);
     }
     for (const a of [2.5, 5.5, 8.5, 11.5]) if (crossed(a)) call('Nokotta!', 1.0);
-    if (!edged && Math.abs(B.tug) > 0.82) { edged = true; react('edge'); ringCam.punch = Math.max(ringCam.punch, 0.7); const def = B.tug > 0 ? rival : champ; word('!!', where(def.neck).setY(CY + 2.6), { size: 0.8, fill: '#FFFFFF' }); }
+    if (!edged && Math.abs(B.tug) > 0.82) {
+      edged = true; react('edge'); ringCam.punch = Math.max(ringCam.punch, 0.7);
+      const def = B.tug > 0 ? rival : champ;
+      word('!!', where(def.neck).setY(CY + 2.6), { size: 0.8, fill: '#FFFFFF' });
+      // the octopus, driven to the straw, squirts a little ink
+      if (def.kind === 'octopus') inkFx(where(def.bellyAt), 10);
+    }
     if (Math.abs(B.tug) < 0.5) edged = false;
     if (crossed(9.6)) { const m = mid().setY(CY + 1.6); word('BOMP!', m, { size: 1.3, fill: '#FF8A5A' }); burst(m, 1.4); champ.kick(5); rival.kick(5); hit(0.12); }
   }
@@ -480,7 +506,9 @@ function moments(ph: string, t: number) {
     for (let a = 0.1; a < 0.7; a += 0.15) if (passed(a)) { dust(where(L.legs[0].foot), 3, 0.6); L.kick(0.8); }
     if (passed(0.85)) { L.kick(2); W.kick(1.5); }
     if (passed(1.0)) ringCam.punch = Math.max(ringCam.punch, 1.1);
-    if (passed(1.78)) { dust(where(L), 24, 1.8); L.kick(9); W.kick(2); hit(0.55, 0.3, 1.2); }
+    if (passed(1.78)) { dust(where(L), 24, 1.8); L.kick(9); W.kick(2); hit(0.55, 0.3, 1.2); if (L.kind === 'octopus') inkFx(where(L.bellyAt), 34); }
+    // the puffer, beaten, goes down like a balloon
+    if (L.kind === 'puffer' && passed(1.4)) word('PFFFT', where(L.neck).setY(CY + 2.4), { size: 1.0, fill: '#F7EFD6', life: 1.0 });
     if (crossed(unslow(3.5 + 1.5 * ((BOUT.pay - 3.5) / 5.3)))) react('bow');
   }
 }
@@ -504,7 +532,8 @@ function fightBeats(u: number, dt: number) {
     if (was < 0.5 && s.arm >= 0.5) {
       const me = i ? rival : champ, them = i ? champ : rival, p = where(them.neck).lerp(where(me.neck), 0.35);
       burst(p, 0.7); them.kick(ours ? 2.5 : 1.2); sl[1 - i].snap = 1; sl[1 - i].recoil += ours ? 0.05 : 0.02;
-      if (ours && s.n % 3 === 0) word(['PAF!', 'SLAP!', 'WHAP!'][(s.n / 3) % 3], p.setY(p.y + 0.4), { size: 0.9 });
+      const say = i && rival.kind ? SLAPS[rival.kind] : ['PAF!', 'SLAP!', 'WHAP!'];
+      if (ours && s.n % 3 === 0) word(say[(s.n / 3) % 3], p.setY(p.y + 0.4), { size: 0.9 });
     }
     s.snap = Math.max(0, s.snap - dt * 7); s.recoil *= Math.exp(-dt * 4);
   });
@@ -517,9 +546,23 @@ function place(r: RikishiModel, s: At, dt: number) {
   r.apply(s.p, dt);
 }
 
+/** Fukure's temper: blown up for the glare, the charge, while he's winning and for his win; down when he's beaten. */
+function temper(ph: string, t: number) {
+  if (ph === 'prep') { const b = (t - 0.4 - 6.5) % BLOCK; return t > 6.9 && b > 6.8 && b < 9.6 ? 1 : 0; }
+  if (ph === 'sit') return t > 4.2 ? 0.7 : 0;
+  if (ph === 'fight') return t < 1.2 || F.bout.tug < -0.25 ? 1 : 0.3;
+  return !F.bout.win ? (t < 4 ? 1 : 0) : t < unslow(1.3) ? 0.8 : 0;
+}
+let puffed = false;
 function pose2(dt: number) {
   const B = F.bout, t = B.t;
   dressRival();
+  rival.agitate = B.phase === 'fight' ? 1 : 0;
+  if (rival.kind === 'puffer') {
+    rival.puffTo = temper(B.phase, t);
+    if (rival.puffTo > 0.9 && !puffed) word('PUFF!', where(rival.neck).setY(CY + 2.5), { size: 1.0, fill: '#FFE07A' });
+    puffed = rival.puffTo > 0.5;
+  }
   let pair: [At, At];
   if (B.phase === 'prep') pair = [ritual(t, 0), ritual(t, 1)];
   else if (B.phase === 'sit') pair = [crouchAt(t, 0), crouchAt(t, 1)];

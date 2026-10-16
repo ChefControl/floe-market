@@ -1202,6 +1202,22 @@ describe('the swarm and the watch spot', () => {
     expect(Math.min(...stood.map(p => plan.fromBar(p)))).toBeLessThan(1.5);
   });
 
+  it('a bowl sold waits on the soup square for the fan who bought it, and hops to them when they get there', async () => {
+    const { g, swarm, fight, F } = await ring();
+    const { barShows } = await import('../src/ringKitchen');
+    for (let i = 0; i < 10; i++) fight.toStall(false);
+    // (sold: it stays out on its counter while its fan walks up)
+    g.runUntil(() => fight.sold.n > 0 && swarm.heading() > 0, 20);
+    g.run(1 / 60);
+    expect(barShows().waiting).toBeGreaterThan(0);
+    expect(barShows().out).toBe(F().stall.length);
+    // (and when they're at the bar, it's theirs: it leaves its place, flying to them)
+    g.runUntil(() => swarm.turnedAt().length > 0, 20);
+    const was = barShows().waiting;
+    g.run(1 / 60);
+    expect(barShows().waiting).toBeLessThan(was);
+  });
+
   it('each fan served steps up to a free spot of their own round the soup square, walking round it, never through it', async () => {
     const { g, swarm, plan, fight, F } = await ring();
     for (let i = 0; i < fight.STALL_CAP; i++) fight.toStall(false);
@@ -1651,5 +1667,37 @@ describe('the wrestlers', () => {
     expect(rival.position.y).toBeLessThan(cellar.CY + 0.1);
     expect(Math.abs(champ.position.x - cellar.RING.x)).toBeLessThan(cellar.RING_R);
     expect(champ.position.y).toBeCloseTo(cellar.CY + cellar.RING_TOP, 2);
+  });
+  it('the bosses are sea creatures on the same body, built without touching the luck, and a local after is a man again', async () => {
+    const { dohyo, fight } = await ring();
+    const { LOOKS } = await import('../src/creatures');
+    const { pose } = await import('../src/rikishi');
+    const { rival } = dohyo.ring;
+    const meshes = () => { let n = 0; rival.traverse(o => { if ((o as { isMesh?: boolean }).isMesh) n++; }); return n; };
+    rival.dress(0x2C3A6B); rival.setWeight(150);
+    const man = meshes();
+    const luck = Math.random;
+    let rolled = 0;
+    Math.random = () => { rolled++; return luck(); };
+    try {
+      for (const b of fight.BOSSES) {
+        rival.dressAs(LOOKS[b.kind], 180);
+        expect(rival.kind).toBe(b.kind);
+        // his own head, claws, tentacles, fins: more parts than a man's
+        expect(meshes()).toBeGreaterThan(man);
+      }
+    } finally { Math.random = luck; }
+    expect(rolled).toBe(0);
+    // Fukure blows up a third bigger when he's angry
+    rival.dressAs(LOOKS.puffer, 200);
+    rival.puffTo = 1;
+    for (let i = 0; i < 30; i++) rival.apply(pose(), 1 / 30);
+    expect(rival.chestAt.scale.x).toBeGreaterThan(1.25);
+    expect(rival.girth).toBeGreaterThan(rival.f * 1.25);
+    // and a local is a plain wrestler again
+    rival.dress(0x2C3A6B); rival.setWeight(150);
+    expect(rival.kind).toBeUndefined();
+    expect(meshes()).toBe(man);
+    expect(rival.chestAt.scale.x).toBe(1);
   });
 });

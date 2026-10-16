@@ -441,6 +441,26 @@ describe('music', () => {
     }
   });
 
+  it('keeps its beat when the game is held up (a window in the background gets few frames): no notes late, none off the beat', async () => {
+    const s = await withSound({ tiles: bought('sushi', ...CAFE) });
+    const eighth = 60 / 84 / 2;
+    /** Where in its eighth a note falls: on it, or late by the swing. */
+    const phase = (p: Played) => (((p.at % eighth) + eighth) % eighth).toFixed(4);
+    const beat = new Set(music(s.since(() => s.play(4))).map(phase));
+    expect(beat.size).toBe(2); // the beats and the swung off-beats
+    for (const stall of [0.25, 1, 3]) {
+      fake.now += stall; // no frames for a while
+      const after = music(s.since(() => s.play(2)));
+      expect(after.length).toBeGreaterThan(10);
+      expect(after.filter(p => !beat.has(phase(p)))).toEqual([]);
+    }
+    // nothing scheduled in the past, crammed in late
+    fake.now += 0.5;
+    const n = fake.played.length, at = fake.now;
+    s.g.game.tick(1 / 60);
+    expect(music(fake.played.slice(n)).filter(p => p.at < at)).toEqual([]);
+  });
+
   it('makes way for the rain at her house, and comes back after', async () => {
     const s = await withSound();
     s.play(2);

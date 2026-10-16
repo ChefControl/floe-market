@@ -10,11 +10,12 @@ import { cellar, CY, LIFT_LOOP, parts, POT_TOP, potMesh, potStew } from './cella
 import { BAR, BAR_PLACES, BAR_PAD, BIN_PADS, BINS, CHUTE, chuteY, COUNTER, COUNTER_PAD, HEARTH, type Ing, LEDGE, LIFTS, machineAt, machinePad, MAX_MACHINES, POT, POT_PAD, STORES } from './cellarPlan';
 import { decal, drawPad } from './decals';
 import { animPerson, belowGround, Person } from './characters';
-import { COUNTER_CAP, F, inPot, POT_CAP, poured, type Machine, mach, potWaits, type Role, STALL_CAP, type Worker } from './fight';
+import { COUNTER_CAP, F, inPot, POT_CAP, poured, sold, type Machine, mach, potWaits, type Role, STALL_CAP, type Worker } from './fight';
 import { fly } from './holder';
 import { newBowl, newCuredFish, newMushroom, newReadyRice, newRice, newFillet } from './items';
 import { Build, K, quietly, rbox, tube } from './kit';
 import { FONT, G, mesh } from './render';
+import { fanAt, heading, turnedAt } from './swarm';
 import { V, type XZ } from './util';
 
 const add = <T extends Object3D>(p: Object3D, o: T) => { p.add(o); return o; };
@@ -317,6 +318,58 @@ function serveBowls() {
   inAir = Math.min(inAir, n);
   showBowls(counterBowls, F.counter.slice(0, n - inAir));
 }
+/** The bowls out on the soup square, each in its own place on the counters: a mushroom bowl or a plain one, and whether
+ *  it's sold (waiting there for the fan who bought it, on their way to the bar). When the fan gets there, the bowl
+ *  nearest them hops into their hands. (A boss's big crowd is drawn a figure for a few fans: each who comes takes the
+ *  bowls nobody else is coming for.) */
+const onBar: ({ mush: boolean; sold: boolean } | null)[] = Array(STALL_CAP).fill(null);
+let soldSeen = -1;
+function drawBar() {
+  const kept = onBar.filter(b => b && !b.sold).length;
+  if (soldSeen < 0 || sold.n < soldSeen) soldSeen = sold.n; // (a game just loaded: nothing's owed)
+  let bought = sold.n - soldSeen;
+  soldSeen = sold.n;
+  // bowls gone from the stall: the ones bought wait for their fan (the oldest out first, as the stall sells them);
+  // any other way (a game loaded), they just go
+  let gone = kept - F.stall.length;
+  for (let j = 0; j < onBar.length && gone > 0; j++) {
+    const b = onBar[j];
+    if (!b || b.sold) continue;
+    if (bought > 0 && F.bout.phase === 'prep') { b.sold = true; bought--; } else onBar[j] = null;
+    gone--;
+  }
+  // and bowls put out on the stall go in the first free places, in the order they were put out
+  for (let k = Math.min(kept, F.stall.length); k < F.stall.length; k++) {
+    const j = onBar.indexOf(null);
+    if (j < 0) break;
+    onBar[j] = { mush: F.stall[k], sold: false };
+  }
+  // the fans just at the bar: each takes the sold bowl nearest them, and any no one else is coming for
+  const owed = () => onBar.reduce((n, b) => n + (b?.sold ? 1 : 0), 0);
+  const here = turnedAt();
+  for (let i = 0; i < here.length; i++) {
+    const f = here[i], spare = Math.max(1, Math.ceil((owed() - heading()) / (here.length - i)));
+    for (let s = 0; s < spare; s++) {
+      let best = -1, bd = Infinity;
+      onBar.forEach((b, j) => { if (b?.sold) { const d = Math.hypot(BAR_PLACES[j].x - f.x, BAR_PLACES[j].z - f.z); if (d < bd) { bd = d; best = j; } } });
+      if (best < 0) break;
+      hop(onBar[best]!.mush, best, f.key, s * 0.07);
+      onBar[best] = null;
+    }
+  }
+  // (once the stall shuts, anything still waiting is cleared away)
+  if (F.bout.phase !== 'prep') onBar.forEach((b, j) => { if (b?.sold) onBar[j] = null; });
+  barBowls.forEach(r => r.forEach(b => { b.visible = false; }));
+  onBar.forEach((b, j) => { if (b) barBowls[b.mush ? 1 : 0][j].visible = true; });
+}
+/** A bowl hopping from its place on the counter into fan `key`'s hands, `wait` seconds from now. */
+function hop(mush: boolean, j: number, key: number, wait: number) {
+  const b = add(cellar, newBowl(mush)), to = V(0, 0, 0);
+  b.position.copy(barBowls[0][j].position); b.scale.setScalar(0.78);
+  const hands = () => { const f = fanAt(key); if (f) to.set(f.x, CY + 0.85, f.z); return to; };
+  hands();
+  fly(b, hands, 0.32 + wait, 0.45, () => cellar.remove(b));
+}
 function showBowls(rows: Mesh[][], line: boolean[]) {
   rows.forEach(r => r.forEach(b => { b.visible = false; }));
   line.forEach((m, j) => { const b = rows[m ? 1 : 0][j]; if (b) b.visible = true; });
@@ -557,6 +610,8 @@ export const potShows = () => ({
   tag: tally.visible ? tallyN : 0,
   landed: F.counter.length - inAir,
 });
+/** The bowls out on the soup square, for tests: the ones for sale, and the ones sold and waiting for their fan. */
+export const barShows = () => ({ out: onBar.filter(b => b && !b.sold).length, waiting: onBar.filter(b => b?.sold).length });
 /** Which bubbles are up, for tests: the pot's ask, and whether the bar's asking. */
 export const bubbles = () => ({ pot: (Object.keys(potAsks) as Ing[]).find(k => potAsks[k].visible) ?? null, bar: barAsk.visible });
 
@@ -570,7 +625,7 @@ export function updRingKitchen(dt: number) {
   }
   for (const k of ['rice', 'fish', 'mush'] as const) ledge[k].forEach((m, j) => { m.visible = j < F.pantry[k]; });
   serveBowls();
-  showBowls(barBowls, F.stall);
+  drawBar();
   drawBarSteam(dt);
   drawPot(dt);
   drawLift(dt);

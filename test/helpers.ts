@@ -63,18 +63,36 @@ export async function loadGame(save?: SaveFixture | string, opts: { main?: boole
     vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => { frame = cb; return 1; });
     await import('../src/main');
   }
-  const [game, saveMod, playerMod, stations, counters, fishing, runner, unlocks, walletMod, ui, input, render, items, util,
-    rating, rice, restaurant, world, layout, stage, hall, farm, korki, casino, shop, economy, looks, shed] =
-    await Promise.all([
-      import('../src/game'), import('../src/save'), import('../src/player'), import('../src/stations'),
-      import('../src/counters'), import('../src/fishing'), import('../src/runner'), import('../src/unlocks'),
-      import('../src/wallet'), import('../src/ui'), import('../src/input'), import('../src/render'),
-      import('../src/items'), import('../src/util'),
-      import('../src/rating'), import('../src/rice'), import('../src/restaurant'), import('../src/world'),
-      import('../src/layout'), import('../src/stage'), import('../src/hall'), import('../src/farm'),
-      import('../src/korki'), import('../src/casino'), import('../src/shop'), import('../src/economy'),
-      import('../src/looks'), import('../src/shed'),
-    ]);
+  // One at a time, in this order: some modules draw from the luck (Math.random) as they load, so loading them side by
+  // side would let timing decide who draws first, and give a different scene and luck from one run to the next.
+  const game = await import('../src/game');
+  const saveMod = await import('../src/save');
+  const playerMod = await import('../src/player');
+  const stations = await import('../src/stations');
+  const counters = await import('../src/counters');
+  const fishing = await import('../src/fishing');
+  const runner = await import('../src/runner');
+  const unlocks = await import('../src/unlocks');
+  const walletMod = await import('../src/wallet');
+  const ui = await import('../src/ui');
+  const input = await import('../src/input');
+  const render = await import('../src/render');
+  const items = await import('../src/items');
+  const util = await import('../src/util');
+  const rating = await import('../src/rating');
+  const rice = await import('../src/rice');
+  const restaurant = await import('../src/restaurant');
+  const world = await import('../src/world');
+  const layout = await import('../src/layout');
+  const stage = await import('../src/stage');
+  const hall = await import('../src/hall');
+  const farm = await import('../src/farm');
+  const korki = await import('../src/korki');
+  const casino = await import('../src/casino');
+  const shop = await import('../src/shop');
+  const economy = await import('../src/economy');
+  const looks = await import('../src/looks');
+  const shed = await import('../src/shed');
   if (!opts.main) saveMod.load();
 
   const { player } = playerMod;

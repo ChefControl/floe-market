@@ -41,7 +41,13 @@ const booths = (Object.keys(BOOTHS) as Booth[]).map(k => {
   const pad = BOOTH_PADS[k], mark = decal(1.2, (c, w, h) => drawPad(c, w, h, ICONS[k]));
   mark.mesh.position.set(pad.x, CY + 0.035, pad.z);
   parts.den.add(mark.mesh);
-  const host = family[k], talk = bubble(parts.den, 2.3);
+  // (each at his place, popped in when the club's found: Eddie sat in his booth, Tommy at his card table, Harry behind
+  // his desk)
+  const b = BOOTHS[k], host = family[k], talk = bubble(parts.den, 2.3);
+  host.position.set(b.x, CY, b.z); host.rotation.y = b.face;
+  if (k === 'eddie') host.sit(0.51);
+  if (k === 'tommy') host.sit(0.5);
+  parts.den.add(host);
   return { k, pad, host, talk, near: false, next: 0 };
 });
 

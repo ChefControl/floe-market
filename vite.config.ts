@@ -54,8 +54,10 @@ export default defineConfig({
       provider: 'v8',
       include: ['src/**'],
       reporter: ['text', 'text-summary'],
-      // CI fails below these. Set a little under current coverage so new code needs tests, without busywork.
-      thresholds: { lines: 95, statements: 95, functions: 95, branches: 85 },
+      // CI fails below these. Set a little under current coverage so new code needs tests, without busywork. (CI runs
+      // the tests in shards, each covering only part of the game: they're checked once the shards' reports are merged,
+      // deploy.yml.)
+      thresholds: process.env.VITEST_SHARD ? undefined : { lines: 95, statements: 95, functions: 95, branches: 85 },
     },
   },
 });

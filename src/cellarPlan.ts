@@ -104,9 +104,10 @@ export const BAR_SPOTS: XZ[] = (() => {
 /** The arena floor along the south wall, from the square across, where the fans queue and a boss's crowd floods in
  *  (swarm.ts crowds them round the square first, and keeps them off it and off where they buy). */
 export const FLOOR = { x0: ARENA.x0 + 0.7, x1: ARENA.x1 - 0.5, z0: 3.9, z1: ARENA.z1 - 0.3 };
-/** The gong, against the east wall, and where to stand to ring it; the cashier's window beside it. */
-export const GONG = { x: ARENA.x1 - 0.7, z: -2.9 };
-export const GONG_PAD = pad(ARENA.x1 - 1.9, -2.9, 0.85);
+/** The gong, out on the floor south-west of the ring, facing the near wall (and the camera), and where to stand to
+ *  ring it, in front of it; the cashier's window by the east wall. */
+export const GONG = { x: -5.3, z: 4.3 };
+export const GONG_PAD = pad(GONG.x, GONG.z + 1.3, 0.85);
 export const CASHIER = { x: ARENA.x1 - 0.55, z: -5.2 };
 /** The watch spot 👁️: stand on it and the camera closes in on the ring. */
 export const WATCH = pad(0.7, -5.6, 0.7);

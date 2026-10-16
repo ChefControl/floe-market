@@ -7,9 +7,11 @@
 // opponent's, in their colours. After a boss's bout a card says how it went, and on a loss which line held the kitchen
 // up. The HUD's 💪 is the fans fed in this bout's preparation. And the watch spot 👁️ by the ring: stand on it and the camera
 // closes in on the bout, with the names over it.
-import { cellar, CY, gongDisc, RING } from './cellar';
-import { GONG_PAD, WATCH } from './cellarPlan';
+import { AdditiveBlending, DoubleSide, Mesh, MeshBasicMaterial, NormalBlending, RingGeometry, Vector3 } from 'three';
+import { cellar, CY, gongBronze, gongDisc, RING } from './cellar';
+import { GONG, GONG_PAD, WATCH } from './cellarPlan';
 import { decal, drawPad } from './decals';
+import { dustFx } from './fx';
 import { ringCam, showBoutLine } from './dohyo';
 import {
   BATCH, BOSSES, BUYOUT, type Carry, F, forecast, ICON, type Ing, NAME, needRate, nextBoss, ringGong, type Rush, sides, STALL_CAP,
@@ -98,7 +100,7 @@ function render() {
 /** Rings the gong, if a boss can be called in now: the bell starts. */
 export function ring() {
   if (!ringGong()) return false;
-  strike = 1;
+  struck();
   said = '';
   return true;
 }
@@ -200,9 +202,75 @@ function updWatch(dt: number) {
 /** Whether the camera's on the ring (for tests). */
 export const watching = () => watch > 0.5;
 
+// ---------- the stroke ----------
+// Struck, the gong has weight: the disc swings back slow and heavy on its ropes and shivers, its bronze flares, two
+// rings of shock spread off its face and one across the floor, dust jumps at the frame's feet, the camera jolts, and
+// the player, at the pad, is knocked back a step, leaning away with their arm flung up, then finds their feet.
+// (The sound, and the second of silence everything else falls into: sfx.ts.)
+/** Seconds since the gong was struck (Infinity: not since the cellar was opened). */
+let since = Infinity;
+/** The player's stroke: which way they're knocked (away from the gong) and how far they've gone so far. */
+let recoil: { x: number; z: number; gone: number } | null = null;
+/** How far the player's knocked back, and how long the stroke's pose takes to wear off. */
+const KNOCK = 0.3, POSE = 0.9;
+/** The disc's middle (cellar.ts hangs it 0.95 under its ropes, 2.38 up). */
+const DISC_Y = 1.43;
+/** The shock waves: [ring, seconds after the stroke it starts, seconds it lasts, how far it spreads]. */
+const waveMat = (color: number, add: boolean) => new MeshBasicMaterial({
+  color, transparent: true, opacity: 0, depthWrite: false, side: DoubleSide, blending: add ? AdditiveBlending : NormalBlending,
+});
+const waves: [Mesh, number, number, number][] = [
+  [new Mesh(new RingGeometry(0.92, 1, 48), waveMat(0xFFE2A0, true)), 0, 0.45, 1.2],
+  [new Mesh(new RingGeometry(0.94, 1, 48), waveMat(0xFFE2A0, true)), 0.13, 0.5, 1.6],
+  [new Mesh(new RingGeometry(0.85, 1, 48), waveMat(0xC9B48C, false)), 0.03, 0.6, 2.3],
+];
+waves.forEach(([m], i) => {
+  m.visible = false;
+  if (i < 2) m.position.set(GONG.x, CY + DISC_Y, GONG.z + 0.06);
+  else { m.position.set(GONG.x, CY + 0.03, GONG.z); m.rotation.x = -Math.PI / 2; }
+  cellar.add(m);
+});
+const feet = new Vector3();
+function struck() {
+  since = 0;
+  feet.set(GONG.x, CY + 0.05, GONG.z);
+  for (const s of [-1, 1]) dustFx(feet.setX(GONG.x + s * 0.85), 5, 0.8);
+  if (!on(GONG_PAD)) return;
+  const p = player.g.position, d = Math.hypot(p.x - GONG.x, p.z - GONG.z) || 1;
+  recoil = { x: (p.x - GONG.x) / d, z: (p.z - GONG.z) / d, gone: 0 };
+  player.h = Math.atan2(-recoil.x, -recoil.z);
+}
+const ease = (k: number) => 1 - (1 - k) ** 3;
+function updStroke(dt: number) {
+  if (since === Infinity) return;
+  since += dt;
+  const t = since;
+  // the disc: thrown back away from the striker, and swinging slow (a heavy pendulum) and shivering as it rings
+  gongDisc.rotation.x = 0.2 * Math.exp(-t * 0.9) * Math.sin(t * 4.6) + 0.012 * Math.exp(-t * 3) * Math.sin(t * 70);
+  if (gongBronze) gongBronze.emissiveIntensity = 1 + 2.4 * Math.exp(-t * 3.5);
+  for (const [m, at, life, far] of waves) {
+    const k = (t - at) / life;
+    m.visible = k > 0 && k < 1;
+    if (!m.visible) continue;
+    m.scale.setScalar(0.7 + far * ease(k));
+    (m.material as MeshBasicMaterial).opacity = (1 - k) ** 1.5 * (m === waves[2][0] ? 0.4 : 0.75);
+  }
+  if (t > 6) { since = Infinity; gongDisc.rotation.x = 0; if (gongBronze) gongBronze.emissiveIntensity = 1; }
+  // the player: knocked back (easing out), leaning away and squashed by the blow, their striking arm flung up
+  if (!recoil) return;
+  const p = player.g.position, to = KNOCK * ease(Math.min(1, t / 0.3)), step = to - recoil.gone;
+  p.x += recoil.x * step; p.z += recoil.z * step; recoil.gone = to;
+  const b = player.g.body, w = Math.max(0, 1 - t / POSE) ** 2;
+  b.rotation.x = -0.3 * Math.exp(-t * 5) * Math.cos(t * 9) * (t < 0.08 ? t / 0.08 : 1);
+  b.scale.y *= 1 - 0.07 * Math.exp(-t * 9);
+  const arm = player.g.arms[0];
+  arm.rotation.x += (-2.3 - arm.rotation.x) * w;
+  arm.rotation.z += (-0.5 - arm.rotation.z) * w;
+  if (t >= POSE) recoil = null;
+}
+
 // ---------- every frame ----------
-/** The gong's swing after it's struck. */
-let strike = 0, held = false;
+let held = false;
 export function updGong(dt: number) {
   const atGong = on(GONG_PAD) && stage.n === 3;
   if (atGong !== !panel.hidden) { panel.hidden = !atGong; said = ''; }
@@ -211,11 +279,12 @@ export function updGong(dt: number) {
   const press = buyHeld() && !held;
   held = buyHeld();
   if (atGong && press) ring();
-  strike = Math.max(0, strike - dt * 0.4);
-  gongDisc.rotation.x = Math.sin(strike * 30) * 0.25 * strike;
+  updStroke(dt);
   renderBout();
   renderPower();
   updWatch(dt);
+  // the stroke's jolt (on top of the ring's, if the camera's on it)
+  if (since < 0.6) view.shake = Math.max(view.shake, 0.45 * (1 - since / 0.6) ** 2);
   // (during a rush, the rush's bar says who's in)
   showBoutLine(watch > 0.5 && !(F.rush && !F.rush.done));
   if (cardT > 0) { cardT -= dt; if (cardT <= 0) card.hidden = true; }

@@ -10,15 +10,17 @@
 //
 // - Stage 3, down in the cellar under the dock: the gloop ring (docs/music-ideas.md), heavy and slow. C minor at 96
 //   BPM in half time: a soft, gloopy bass that sags and slides like mud round C2, taiko, a wet slap, grit, the ring's
-//   wooden clappers and a low shamisen, with mud bubbles on the chords' notes. Up on the dock in stage 3, the café
-//   band plays on.
+//   wooden clappers and a low shamisen, with mud bubbles on the chords' notes, in a damp room (a reverb and an echo).
+//   It's played as it was made on the listening page, with one tune of its own and no rests; the bass and bubbles to
+//   start, and the drums, the tune and a drone coming in as the bosses fall. Up on the dock in stage 3, the café band
+//   plays on.
 // - The casino yacht: its lounge band (lounge.ts), a piano trio in 5/4, in a key of its own. It comes in as you walk
 //   up the quay to the yacht, the stage's music going out under it, and has the music to itself aboard.
 //
-// Each tune plays twice, and after every two tunes a verse leaves the tune out, for a rest. The music fades away
+// Each tune plays twice, and after every two tunes a verse leaves the tune out, for a rest (not the gloop ring's). The music fades away
 // under the songs (her house, Korki's statue), the rain and the stage-up's fanfare. The game's own sounds are on the
 // major pentatonic of the music's key (F for stage 1's D minor: the same notes), so they ring along with it.
-import { ac, buses, duck, ear, hz, key, noise, onAudio, prefs, rnd, tone, type Voice } from './audio';
+import { ac, buses, duck, ear, hz, key, noise, onAudio, onBroken, onTick, prefs, rnd, tone, type Voice } from './audio';
 import { aboard, casinoBoat, level, SHIP, stage } from './layout';
 import { eighth as loungeEighth, LOUNGE, LOUNGE_STEPS, loungeLevel, loungeMix, playLounge } from './lounge';
 import { club, eighth as noirEighth, NOIR, NOIR_STEPS, noirLevel, noirMix, playNoir } from './noir';
@@ -252,11 +254,19 @@ function playMarket(i: number, at: number, parts: number) {
 }
 
 // ---------- stage 3: the gloop ring ----------
+// As it was made and liked on the listening page (docs/music-ideas.md): its levels, its tune, and its damp room.
 /** C minor, on its pentatonic; the game's sounds play in E-flat major, which has the same notes. Sixteenths. */
 const GLOOP = { key: 60, sounds: 63, bpm: 96, swing: 0.54, steps: 16 };
 /** A bar each, round twice a verse: Cm, Cm, A♭, B♭, as [root, intervals] up from C. */
 const GLOOP_CHORDS: [number, number[]][] = [[0, [0, 3, 7]], [0, [0, 3, 7]], [8, [0, 4, 7]], [10, [0, 4, 7]]];
-const GLOOP_RHYTHMS = ['x.....x...x.....', 'x..x..x.....x...', '....x..x..x.x...', 'x.......x.x.x...'];
+/**
+ * The shamisen's tune, the same every verse: eight bars, low (B♭3 to E♭5), on the C minor pentatonic, on a note of
+ * the chord on the beat and never a half step off one. As the listening page made it up, from its seed.
+ */
+export const GLOOP_TUNE: Note[][] = [
+  [[0, 67], [6, 72], [10, 67]], [[0, 67], [6, 67], [10, 72]], [[0, 72], [6, 72], [10, 72]], [[0, 70], [8, 65], [10, 70], [12, 70]],
+  [[0, 72], [3, 75], [6, 75], [12, 72]], [[4, 72], [7, 70], [10, 72], [12, 67]], [[0, 72], [3, 70], [6, 63], [12, 60]], [[4, 58], [7, 60], [10, 58], [12, 58]],
+].map(bar => bar.map(([s, m]) => ({ s, m })));
 /** Soft sawtooths: only the first few harmonics, so a note's peak doesn't click as a plain sawtooth's does. */
 let saw24: PeriodicWave, saw6: PeriodicWave;
 function softSaw(n: number) {
@@ -265,6 +275,30 @@ function softSaw(n: number) {
   return ac!.createPeriodicWave(re, im);
 }
 onAudio(() => { saw24 = softSaw(24); saw6 = softSaw(6); });
+/**
+ * The damp cellar the gloop ring plays in: a reverb (2.6 s of fading noise), and an echo a dotted eighth behind,
+ * feeding back into itself and into the reverb. Built the first time it's heard, into the stage's music.
+ */
+let room: { rev: GainNode; dly: GainNode; outs: AudioNode[] } | null = null;
+function cellarRoom() {
+  if (room) return room;
+  const c = ac!, to = stageMix ?? buses.music;
+  const n = Math.floor(c.sampleRate * 2.6), ir = c.createBuffer(2, n, c.sampleRate);
+  for (let ch = 0; ch < 2; ch++) { const d = ir.getChannelData(ch); for (let i = 0; i < n; i++) d[i] = (rnd() * 2 - 1) * (1 - i / n) ** 2.4; }
+  const verb = c.createConvolver(), rev = c.createGain(), dly = c.createGain(), echo = c.createDelay(2), back = c.createGain(), wet = c.createGain();
+  verb.buffer = ir; rev.connect(verb); verb.connect(to);
+  echo.delayTime.value = 60 / GLOOP.bpm * 0.75; back.gain.value = 0.35; wet.gain.value = 0.6;
+  dly.connect(echo); echo.connect(back); back.connect(echo); echo.connect(wet); wet.connect(to); wet.connect(rev);
+  return room = { rev, dly, outs: [verb, echo, wet] };
+}
+// (if something on the music's bus blows up, the room's echo would keep it going round: it's built again, empty)
+onBroken(bus => { if (bus === 'music' && room) { room.outs.forEach(n => n.disconnect()); room = null; } });
+/** Some of a sound into the cellar's room: `rev` of it into the reverb, `dly` into the echo. */
+const wet = (rev: number, dly = 0): Partial<Voice> => {
+  const r = cellarRoom(), sends: [AudioNode, number][] = [[r.rev, rev]];
+  if (dly) sends.push([r.dly, dly]);
+  return { sends };
+};
 /** The gloopy bass: a soft sawtooth through a resonant low-pass that snaps shut, over a sine; it sags as it dies, or slides. */
 const gloop = (m: number, t: number, d: number, v = 0.18, slide = -0.7) => {
   const f = hz(m), f2 = f * 2 ** (slide / 12);
@@ -272,45 +306,18 @@ const gloop = (m: number, t: number, d: number, v = 0.18, slide = -0.7) => {
   tone({ ...M, f, f2, t, a: 0.012, d, v });
 };
 /** A mud bubble: a sine rising quickly as it fades. */
-const blub = (m: number, t: number, v = 0.045) => tone({ ...M, f: hz(m), f2: hz(m) * 1.7, t, a: 0.01, d: 0.09, v });
-// (its skin's knock, round 150 Hz and up, is what's heard of it on a laptop's or a phone's speakers)
-const taiko = (t: number, v = 0.2) => { tone({ ...M, f: 66, f2: 50, t, a: 0.015, d: 0.45, v }); tone({ ...M, f: 150, f2: 110, t, a: 0.01, d: 0.12, v: v * 0.5 }); noise({ ...M, t, f: 600, kind: 'lowpass', a: 0.012, d: 0.08, v: v * 0.5 }); };
-/** The half-time backbeat: a wet slap, noise falling in pitch over a dull thud. */
-const splat = (t: number, v = 0.09) => { noise({ ...M, t, f: 1500, f2: 450, q: 1.4, a: 0.016, d: 0.13, v }); tone({ ...M, f: 170, f2: 130, t, a: 0.012, d: 0.09, v: v * 0.8 }); };
+const blub = (m: number, t: number, v: number, x: Partial<Voice>) => tone({ ...M, ...x, f: hz(m), f2: hz(m) * 1.7, t, a: 0.01, d: 0.09, v });
+/** A taiko: the game's soft kick, a little lower and longer, with a dull skin. */
+const taiko = (t: number, v = 0.2) => { tone({ ...M, ...wet(0.15), f: 66, f2: 50, t, a: 0.015, d: 0.45, v }); noise({ ...M, ...wet(0.15), t, f: 320, kind: 'lowpass', a: 0.012, d: 0.08, v: v * 0.3 }); };
+/** The half-time backbeat: a wet slap, noise falling in pitch over a dull thud, in a damp room. */
+const splat = (t: number, v = 0.06) => { noise({ ...M, ...wet(0.3), t, f: 1500, f2: 450, q: 1.4, a: 0.016, d: 0.13, v }); tone({ ...M, f: 170, f2: 130, t, a: 0.012, d: 0.09, v: v * 0.8 }); };
 /** The ring's wooden clappers (hyoshigi), calling the next round. */
-const clapper = (t: number, v = 0.045) => { tone({ ...M, f: 784, t, a: 0.008, d: 0.07, v }); tone({ ...M, f: 784 * 2.6, t, a: 0.008, d: 0.035, v: v * 0.15 }); };
+const clapper = (t: number, v = 0.03) => { tone({ ...M, ...wet(0.4), f: 784, t, a: 0.008, d: 0.07, v }); tone({ ...M, ...wet(0.4), f: 784 * 2.6, t, a: 0.008, d: 0.035, v: v * 0.15 }); };
 /** A low, twangy plucked string: a shamisen's bark, filtered dark. */
-const shami = (m: number, t: number, v = 0.17) => tone({ ...M, f: hz(m), t, wave: saw6, a: 0.01, d: 0.4, v, lp: hz(m) * 6, lp2: hz(m) * 1.6, q: 3 });
+const shami = (m: number, t: number) => tone({ ...M, ...wet(0.2, 0.12), f: hz(m), t, wave: saw6, a: 0.01, d: 0.4, v: 0.06, lp: hz(m) * 4, lp2: hz(m) * 1.2, q: 3 });
 const grit = (t: number, v = 0.016) => noise({ ...M, t, f: 2600, q: 1.2, a: 0.01, d: 0.04, v });
 
-/**
- * Eight bars of shamisen, low (C4 to about E♭5), on the C minor pentatonic: on a note of the chord on the beat, and
- * off it, never a half step from one.
- */
-export function gloopTune(): Note[][] {
-  const L = MINOR_PENTA.length, pitch = (d: number) => GLOOP.key + 12 * Math.floor(d / L) + MINOR_PENTA[((d % L) + L) % L];
-  let d = 3;
-  return Array.from({ length: BARS }, (_, bar) => {
-    const [root, iv] = GLOOP_CHORDS[bar % 4], pcs = iv.map(x => (root + x) % 12);
-    const inChord = (k: number) => pcs.includes(pitch(k) % 12);
-    const clash = (k: number) => pcs.some(p => [1, 11].includes(((pitch(k) - p) % 12 + 12) % 12));
-    const notes: Note[] = [];
-    [...GLOOP_RHYTHMS[Math.floor(rnd() * GLOOP_RHYTHMS.length)]].forEach((ch, s) => {
-      if (ch !== 'x') return;
-      const want = d + Math.round((rnd() * 2 - 1) * 2);
-      let best = d, bd = Infinity;
-      for (let k = 0; k <= 6; k++) {
-        if (s % 4 === 0 ? !inChord(k) : clash(k)) continue;
-        if (Math.abs(k - want) < bd) { bd = Math.abs(k - want); best = k; }
-      }
-      d = best;
-      notes.push({ s, m: pitch(d) });
-    });
-    return notes;
-  });
-}
-
-/** Plays sixteenth `i` of a gloop verse, at `at`; `layer` (2 to 4 as the ring grows, 1 just the bass) adds to it. */
+/** Plays sixteenth `i` of a gloop verse, at `at`; `layer` (1 to 4, as the bosses fall) adds to it. */
 function playGloop(i: number, at: number, layer: number) {
   const bar = Math.floor(i / GLOOP.steps), b = bar % 4, s = i % GLOOP.steps, [root, iv] = GLOOP_CHORDS[b];
   // the bass, down round C2: C2, A♭1, B♭1
@@ -321,9 +328,9 @@ function playGloop(i: number, at: number, layer: number) {
   if (b === 1 && s === 13) gloop(low, at, 0.45, 0.15, -5); // C sliding down to G, into A♭
   if (b === 3 && s === 14) gloop(low, at, 0.3, 0.13, 2); // B♭ sliding up to C, home
   if (layer >= 3 && s === 3) gloop(low + 7, at, 0.12, 0.09);
-  // bubbles rising out of the mud, on the chord's notes
+  // bubbles rising out of the mud, on the chord's notes, here and there round the room
   if ((layer >= 3 || s % 2 === 0) && rnd() < [0, 0.12, 0.14, 0.16, 0.18][layer]) {
-    blub(72 + root % 12 + iv[Math.floor(rnd() * 3)] - (root >= 8 ? 12 : 0), at);
+    blub(72 + root % 12 + iv[Math.floor(rnd() * 3)] - (root >= 8 ? 12 : 0), at, 0.03, { pan: rnd() * 1.2 - 0.6, ...wet(0, 0.3) });
   }
   if (layer >= 2) {
     if (s === 0 || s === 10) taiko(at, s ? 0.14 : 0.2);
@@ -331,10 +338,10 @@ function playGloop(i: number, at: number, layer: number) {
     if (s % 4 === 2 || (layer >= 3 && s % 2 === 1)) grit(at, s % 4 === 2 ? 0.016 : 0.01);
     if (bar % 8 === 7 && (s === 12 || s === 14)) clapper(at);
   }
-  if (!resting && layer >= 2 && (Math.floor(bar / 2) % 2 === 1 || layer >= 4)) for (const n of tune[bar % 8]) if (n.s === s) shami(n.m, at);
+  if (layer >= 3 && (Math.floor(bar / 2) % 2 === 1 || layer >= 4)) for (const n of GLOOP_TUNE[bar % 8]) if (n.s === s) shami(n.m, at);
   if (layer >= 4) {
-    if (s === 0 && bar % 2 === 0) for (const x of [0, 7]) tone({ ...M, f: hz(43 + (root + x + 5) % 12), t: at, type: 'triangle', a: 0.5, hold: 0.8, d: 2.2, v: 0.03, lp: 700, vib: [0.3, 1.2] });
-    if (!resting && bar % 8 >= 4) for (const n of tune[bar % 8]) if (n.s === s) blub(n.m + 12, at + 60 / GLOOP.bpm / 4, 0.035);
+    if (s === 0 && bar % 2 === 0) for (const x of [0, 7]) tone({ ...M, ...wet(0.4), f: hz(43 + (root + x + 5) % 12), t: at, type: 'triangle', a: 0.5, hold: 0.8, d: 2.2, v: 0.03, lp: 700, vib: [0.3, 1.2] });
+    if (bar % 8 >= 4) for (const n of GLOOP_TUNE[bar % 8]) if (n.s === s) blub(n.m + 12, at + 60 / GLOOP.bpm / 4, 0.025, wet(0, 0.2));
   }
 }
 
@@ -358,7 +365,8 @@ function newVerse() {
   // five verses round: a new tune, again, another new one, again, and a rest
   const pos = verses % 5;
   resting = pos === 4;
-  if (pos === 0 || pos === 2) tune = market() ? marketTune() : cellar() ? gloopTune() : compose(band);
+  // (the gloop ring has one tune of its own, and no rests)
+  if (!cellar() && (pos === 0 || pos === 2)) tune = market() ? marketTune() : compose(band);
   verses++;
 }
 
@@ -368,8 +376,7 @@ function play(i: number, t: number) {
   // swing: the off-beats come late
   const swing = market() ? MARKET.swing : cellar() ? GLOOP.swing : band.swing;
   const at = i % 2 ? t + (swing - 0.5) * 2 * stepLen() : t;
-  // (the gloop ring starts a layer in: its drums and its tune from the first bout, so it's never just the low bass)
-  if (market()) playMarket(i, at, parts); else if (cellar()) playGloop(i, at, Math.min(4, parts + 1)); else playCafe(i, at, parts);
+  if (market()) playMarket(i, at, parts); else if (cellar()) playGloop(i, at, parts); else playCafe(i, at, parts);
 }
 
 /** Plays eighth `i` of a café verse, at `at`. */
@@ -413,10 +420,10 @@ let lounge = { on: false, step: 0, next: 0 };
 function updLounge(k: number, now: number) {
   loungeLevel(Math.sin(k * Math.PI / 2));
   if (k < 0.001) { lounge.on = false; return; }
-  if (!lounge.on || lounge.next < now - 0.3) lounge = { on: true, step: 0, next: now + 0.1 };
+  if (!lounge.on || lounge.next < now - 5) lounge = { on: true, step: 0, next: now + 0.1 };
   const parts = Math.max(3, 1 + Math.floor(stageProgress() * 3));
   while (lounge.next < now + 0.2) {
-    if (hushed < 2) playLounge(lounge.step, lounge.next - now, parts);
+    if (lounge.next >= now && hushed < 2) playLounge(lounge.step, lounge.next - now, parts);
     lounge.next += loungeEighth();
     lounge.step = (lounge.step + 1) % LOUNGE_STEPS;
   }
@@ -428,9 +435,9 @@ let noir = { on: false, step: 0, next: 0 };
 function updNoir(k: number, muffle: number, now: number) {
   noirLevel(Math.sin(k * Math.PI / 2), muffle);
   if (k < 0.001) { noir.on = false; return; }
-  if (!noir.on || noir.next < now - 0.3) noir = { on: true, step: 0, next: now + 0.1 };
+  if (!noir.on || noir.next < now - 5) noir = { on: true, step: 0, next: now + 0.1 };
   while (noir.next < now + 0.2) {
-    if (hushed < 2) playNoir(noir.step, noir.next - now);
+    if (noir.next >= now && hushed < 2) playNoir(noir.step, noir.next - now);
     noir.next += noirEighth();
     noir.step = (noir.step + 1) % NOIR_STEPS;
   }
@@ -451,19 +458,26 @@ export function updMusic(dt: number) {
   const harbor = harborK(), den = club.k, away = Math.max(harbor, den);
   stageMix?.gain.setTargetAtTime(Math.cos(away * Math.PI / 2), ac.currentTime, 0.15);
   key.root = harbor > 0.5 ? LOUNGE.sounds : den > 0.5 ? NOIR.sounds : market() ? MARKET.sounds : cellar() ? GLOOP.sounds : band.key;
+  schedule();
+}
+/** Queues the music's next steps on the audio clock: on every frame, and on the timer between them (onTick). */
+function schedule() {
+  if (!ac) return;
   if (prefs.mute.music || ac.state !== 'running') { on = false; lounge.on = false; noir.on = false; return; }
-  const now = ac.currentTime;
+  const now = ac.currentTime, harbor = harborK(), den = club.k, away = Math.max(harbor, den);
   updLounge(harbor, now);
   updNoir(den, club.muffle, now);
-  // a fresh start: the first time, after the music was off or asleep, and in a new stage (or down the ladder)
-  if (!on || next < now - 0.3 || playingStage !== which()) {
+  // a fresh start: the first time, after the music was off or a long stall, and in a new stage (or down the ladder)
+  if (!on || next < now - 5 || playingStage !== which()) {
     on = true; playingStage = which(); step = 0; next = now + 0.1; verses = 0;
     newVerse();
   }
   while (next < now + 0.2) {
-    // faded right out (or crossfaded to the lounge band): no need to play notes nobody hears
-    if (hushed < 2 && away < 0.999) play(step, next - now);
+    // faded right out (or crossfaded to the lounge band or the club's): no need to play notes nobody hears; and a step
+    // whose time has gone by (the page was held up) is let go, so the music carries on on its beat rather than late
+    if (next >= now && hushed < 2 && away < 0.999) play(step, next - now);
     next += stepLen();
     if (++step === verseLen()) { step = 0; newVerse(); }
   }
 }
+onAudio(() => onTick(schedule));
