@@ -164,6 +164,6 @@ export function cellarTip(p: XZ): TipContent | null {
   if (at(p, BAR_PAD)) {
     return { name: 'The soup bar', desc: `${F.stall.length}/${STALL_CAP} out · ${F.queue.length} waiting · a bowl pays 🐡 ${chips(bowlPrice(F.beaten >= 1))}` };
   }
-  if (at(p, WATCH)) return { name: 'The watch spot 👁️', desc: 'Watch the bout up close' };
+  if (at(p, WATCH)) return { name: 'The watch spot 👁️', desc: 'Watch the fight up close' };
   return null;
 }

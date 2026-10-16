@@ -512,7 +512,7 @@ const LINES: Record<string, string[]> = {
   sit: ['Here we go!', "My money's on the big guy", 'Sit down in front!'],
   ours: ['Push him out!', `${CHAMP.toUpperCase()}!`, 'Get him!', 'Throw him!'],
   theirs: ['{boss}!!', 'Come on, {boss}!', 'Crush him!'],
-  won: ['Told ya!', 'What a bout!', `${CHAMP}! ${CHAMP}!`],
+  won: ['Told ya!', 'What a fight!', `${CHAMP}! ${CHAMP}!`],
   lost: ['Rigged!', 'Ugh, my money...', 'Next time...'],
   leaving: ['No chanko, no show', "I'm off", 'Waste of a night'],
 };

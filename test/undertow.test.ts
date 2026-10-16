@@ -219,7 +219,7 @@ describe('the Undertow', () => {
     expect(family.eddie.watch).toBeNull();
   });
 
-  it("Tommy deals monte at his crate: the stake in Fugu Chips up to his limit, double for the queen, 3 rounds a bout", async () => {
+  it("Tommy deals monte at his crate: the stake in Fugu Chips up to his limit, double for the queen, 3 rounds a fight", async () => {
     const { g, plan, fight, at, F } = await ring({ money: 100 * 1000, ring: { beaten: 2, lines: { mush: { n: 1 } } } });
     const M = await import('../src/monteTable');
     const { wallet } = g;
@@ -450,8 +450,9 @@ describe('the Undertow', () => {
     expect($('eddie').hidden).toBe(false);
     // 30% of Dobu's 220 fans: 66 kept home, for 30% of his 800-chip prize; a 30% chance it gets out
     E.pickCut(3);
-    expect($('eddieFix').textContent).toBe('Pay 🐡 240 · Fix 🐟 −66 fans');
-    expect(E.eddieMsg()).toContain('30% chance we get caught');
+    expect($('eddieFix').textContent).toBe('Fix 🐟 −66 fans · 30% caught');
+    // (each size says what it costs)
+    expect($('eddie').querySelector('[data-cut="3"]')!.textContent).toBe('🐡 240');
     expect(E.payEddie(3, () => 0.99)).toBe(true);
     expect(g.wallet.money).toBe(1000 * 1000 - 240 * 1000);
     expect(F().den.eddie).toEqual({ boss: 2, cut: 3, caught: false });
