@@ -193,9 +193,13 @@ describe('the ladder', () => {
     expect(level.down).toBe(true);
     expect(g.player.back.n).toBe(0);
     expect(stage.view.zoom).toBe(stage.CELLAR_ZOOM);
+    // it's hot down there: the player's in summer clothes, whatever the season up top
+    const { setSeason, current } = await import('../src/season');
+    /** Whether all the player has on is worn in `s`. */
+    const dressedFor = (s: string) => g.player.g.worn().every(p => !p.seasons || p.seasons.includes(s as never));
+    expect(dressedFor('summer')).toBe(true);
     // a season's turn doesn't bring the sky into the cellar, or change anyone's clothes down there
     g.saveMod.save();
-    const { setSeason, current } = await import('../src/season');
     const wearing = g.player.g.worn();
     setSeason((['winter', 'spring', 'summer', 'fall'].indexOf(current()) + 2) % 4);
     g.run(7);
@@ -205,7 +209,8 @@ describe('the ladder', () => {
     g.player.g.position.set(cellar.LADDER_PAD.x, cellar.CY, cellar.LADDER_PAD.z);
     g.run(1.2);
     expect(level.down).toBe(false);
-    expect(g.player.g.worn()).not.toEqual(wearing);
+    expect(dressedFor(current())).toBe(true);
+    if (current() !== 'summer') expect(g.player.g.worn()).not.toEqual(wearing);
   });
 
   it("keeps the world above out of the cellar: the fish pile, the restaurant's walls and the casino", async () => {

@@ -5,6 +5,7 @@
 // with the save, and so to the cloud, and is kept on the device too, so a Restart doesn't undo it.
 import { isHigh, onQuality } from './graphics';
 import { openSettings } from './settings';
+import { level } from './layout';
 import { player } from './player';
 import { Mesh, type Object3D, Raycaster, type Vector3 } from 'three';
 import { CAM_YAW, camera, OFF, scene } from './render';
@@ -74,8 +75,9 @@ const KEY = 'floe-market-look';
  * head, whatever the season, so the hood or a hat doesn't hide their hair and glasses.
  */
 function dressPlayer() {
+  // (and done picking, back in summer clothes if they're down in the cellar, where it's hot: stage.ts's setLevel)
   const { top, ...st } = choice, trying = !panel.hidden;
-  player.g.season = trying ? 'spring' : null;
+  player.g.season = trying ? 'spring' : level.down ? 'summer' : null;
   player.g.restyle(top, { ...BASE, ...st, spring: trying ? 'bare' : BASE.spring });
 }
 
