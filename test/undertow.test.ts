@@ -209,7 +209,7 @@ describe('the Undertow', () => {
     // the others too, each his own
     at(plan.BOOTH_PADS.tommy);
     g.run(0.2);
-    expect(undertow.undertowSays('tommy')).toContain('Follow the lady');
+    expect(undertow.undertowSays('tommy')).toContain('Three-Card Tommy');
     at(plan.BOOTH_PADS.eddie);
     g.run(0.2);
     expect(undertow.undertowSays('eddie')).toContain('Slick Eddie');
@@ -219,7 +219,7 @@ describe('the Undertow', () => {
     expect(family.eddie.watch).toBeNull();
   });
 
-  it("Tommy deals monte at his crate: the stake in Fugu Chips up to his limit, double for the queen, 3 rounds a bout", async () => {
+  it("Tommy deals monte at his crate: the stake in Fugu Chips up to his limit, double for the queen, 3 rounds a fight", async () => {
     const { g, plan, fight, at, F } = await ring({ money: 100 * 1000, ring: { beaten: 2, lines: { mush: { n: 1 } } } });
     const M = await import('../src/monteTable');
     const { wallet } = g;
@@ -227,7 +227,7 @@ describe('the Undertow', () => {
     g.run(0.2);
     expect($('monte').hidden).toBe(false);
     // nothing taken yet: his limit's the floor's 20 chips, and he'll play 3 rounds
-    expect(M.monteMsg()).toContain('Table limit 🐡 20');
+    expect(M.monteMsg()).toContain('limit 🐡 20');
     expect(M.monteMsg()).toContain('3 rounds left');
     // over his limit, he won't deal
     M.stakeMonte(25);
@@ -251,7 +251,7 @@ describe('the Undertow', () => {
     M.pickMonte((M.monteNow()!.round.queen + 1) % 3);
     g.runUntil(() => M.monteNow() === null, 5);
     expect(wallet.money).toBe(100_000);
-    expect(M.monteMsg()).toContain('Not that one');
+    expect(M.monteMsg()).toContain('She was on the');
     // walking off before picking leaves the stake on his crate (he waits a little first)
     M.dealMonte();
     g.run(0.5);
@@ -343,8 +343,9 @@ describe('the Undertow', () => {
     g.run(0.2);
     expect(Lo.maxLoan()).toBe(max);
     expect($('loans').hidden).toBe(false);
-    expect(D.loansMsg()).toContain(`Up to 🐡 ${max}`);
-    expect(D.loansMsg()).toContain('30%');
+    // the slider ends at his limit; the button says what's borrowed and returned; one caption for his cut
+    expect($('loansBorrow').textContent).toBe(`Borrow 🐡 ${max} · Return 🐡 ${Math.ceil(max * 1.2)}`);
+    expect(D.loansMsg()).toBe("30% of your sales till it's paid");
     expect(($('loansAmount') as HTMLInputElement).max).toBe(String(max));
     // not more than that
     expect(D.takeLoan(max + 5)).toBe(false);
@@ -449,15 +450,15 @@ describe('the Undertow', () => {
     expect($('eddie').hidden).toBe(false);
     // 30% of Dobu's 220 fans: 66 kept home, for 30% of his 800-chip prize; a 30% chance it gets out
     E.pickCut(3);
-    expect(E.eddieMsg()).toContain('66 of his 220');
-    expect(E.eddieMsg()).toContain('30% chance');
-    expect($('eddieFix').textContent).toContain('🐡 240');
+    expect($('eddieFix').textContent).toBe('Fix 🐟 −66 fans · 30% caught');
+    // (each size says what it costs)
+    expect($('eddie').querySelector('[data-cut="3"]')!.textContent).toBe('🐡 240');
     expect(E.payEddie(3, () => 0.99)).toBe(true);
     expect(g.wallet.money).toBe(1000 * 1000 - 240 * 1000);
     expect(F().den.eddie).toEqual({ boss: 2, cut: 3, caught: false });
     // one fix a boss
     expect(E.payEddie(1, () => 0.99)).toBe(false);
-    expect(E.eddieMsg()).toContain("It's done");
+    expect(E.eddieMsg()).toContain("You'll know at the gong");
     // saved as it's paid for: a reload doesn't undo it, or roll it again
     expect(fight.fightFrom(fight.saveFight()).den.eddie).toEqual({ boss: 2, cut: 3, caught: false });
     // the gong: how it goes if the fix holds (154 fans) and if it's caught (all 220), and the chance of each

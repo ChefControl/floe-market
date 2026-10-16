@@ -17,27 +17,28 @@ import { found, inUndertow, level, VIP } from './layout';
 import { harrySays, updLoans } from './loanDesk';
 import { tommySays, updMonte } from './monteTable';
 import { player } from './player';
-import { bubble } from './speech';
+import { bubble, onlyVendor } from './speech';
 import { d2xz } from './util';
 
 /** What Eddie's bodyguard with the earpiece says as you walk into Eddie's room, one line each time. */
 export const GUARD_LINES = ["Mr. Eddie'll see you now.", "Hands where I can see 'em.", "Easy, pal. Nobody's in a hurry in here."];
-/** What each says, one line each time you step up to him: who he is first, then his business. */
+/** What each says, one line each time you step up to him: who he is first, then his business (a few words each:
+ *  his panel has the numbers). */
 export const LINES: Record<Booth, string[]> = {
   eddie: [
     'Slick Eddie. I fix things. Boss fights, mostly.',
-    "Name the boss, tell me how many of his fans stay home. Small favour, small risk. Big favour… well.",
-    'Everybody owes Eddie. You will too, sooner or later.',
+    'Small fix, small risk. Big fix… well.',
+    'Everybody owes Eddie. You will too.',
   ],
   harry: [
-    "Hammerhead Harry. Samehada's my nephew. Don't hold it against me.",
-    'Short of chips? I lend. A little extra on top, and I take my cut out of your sales till it\'s paid.',
-    "No hurry, no rough stuff. I just take three in every ten your stall makes. Friendly, right?",
+    "Hammerhead Harry. Samehada's uncle, God help me.",
+    'Short of chips? I lend. Friendly terms.',
+    'No hurry. I just take my cut.',
   ],
   tommy: [
-    'Three-Card Tommy. Follow the lady, kid. Nobody ever does.',
-    'Three cards, one queen. Find her and I pay double.',
-    "It's an honest game, this one. The trick's all in my hands.",
+    'Three-Card Tommy. Nobody ever follows the lady.',
+    'Find the queen, I pay double.',
+    "Honest game. The trick's in my hands.",
   ],
 };
 /** Each pad's icon: Eddie's handshake, Harry's money bag, Tommy's cards. */
@@ -76,6 +77,13 @@ eddieSays(text => booths.find(b => b.k === 'eddie')!.say(text));
 harrySays(text => booths.find(b => b.k === 'harry')!.say(text));
 
 const inDen = inUndertow;
+/** How high over each host his bubble goes: over his head, but Eddie's on his suit, clear of his face (he's sat, and
+ *  the camera's in close across his table). */
+const TALK_Y: Record<Booth, number> = { eddie: 0.95, harry: 2.15, tommy: 2.15 };
+/** How high Eddie's face is, sat (his bubble's tail points up to it). */
+const EDDIE_FACE = 1.35;
+/** Each host's controls, open while the player's sat at his table. */
+const PANELS: Record<Booth, HTMLElement> = { eddie: document.getElementById('eddie')!, harry: document.getElementById('loans')!, tommy: document.getElementById('monte')! };
 
 /** The Undertow, every frame (stage 3): the Family talking to whoever steps up, and watching them. */
 export function updUndertow(dt: number) {
@@ -88,11 +96,16 @@ export function updUndertow(dt: number) {
   updBand(dt);
   updCrowd(dt);
   const p = player.g.position, here = level.down && inDen(p);
+  // (sat at a host's table, his controls open, his bubble's the only one up: speech.ts)
+  onlyVendor('family', booths.find(b => !PANELS[b.k].hidden)?.talk ?? null);
   for (const b of booths) {
     const on = level.down && d2xz(p, b.pad) < b.pad.r * b.pad.r;
     if (on && !b.near) b.say(LINES[b.k][b.next++ % LINES[b.k].length]);
     b.near = on;
-    if (b.talk.upd(dt)) b.talk.sprite.position.set(b.host.position.x, b.host.position.y + 2.15, b.host.position.z);
+    if (b.talk.upd(dt)) {
+      const { x, y, z } = b.host.position;
+      if (b.k === 'eddie') b.talk.place(x, y + TALK_Y.eddie, z, y + EDDIE_FACE); else b.talk.place(x, y + TALK_Y[b.k], z);
+    }
     if (b.voice.upd(dt)) b.host.syllable();
     b.host.talking = b.voice.talking;
     b.host.watch = here && d2xz(p, b.host.position) < WATCH * WATCH ? p : null;
@@ -101,7 +114,7 @@ export function updUndertow(dt: number) {
   const vip = level.down && p.x > VIP.x0 && p.x < VIP.x1 && p.z > VIP.z0 && p.z < VIP.z1;
   if (vip && !inVip) { const line = GUARD_LINES[guardNext++ % GUARD_LINES.length]; guardTalk.say(line); guardVoice.say(line); }
   inVip = vip;
-  if (guardTalk.upd(dt)) guardTalk.sprite.position.set(guards[0].position.x, guards[0].position.y + 2.2, guards[0].position.z);
+  if (guardTalk.upd(dt)) guardTalk.place(guards[0].position.x, guards[0].position.y + 2.2, guards[0].position.z);
   if (guardVoice.upd(dt)) guards[0].syllable();
   guards[0].talking = guardVoice.talking;
   for (const g of guards) {

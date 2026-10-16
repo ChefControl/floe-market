@@ -15,7 +15,7 @@ import { club } from './noir';
 import { dustFx, steamer } from './fx';
 import { CARDS, DEN, found, level, LOANS, PASSAGE, VIP } from './layout';
 import { player } from './player';
-import { camera, canvasTex, G, mesh } from './render';
+import { canvasTex, G, mesh } from './render';
 import { bubble } from './speech';
 import { staging, view } from './stage';
 import { d2xz, V } from './util';
@@ -205,13 +205,8 @@ export function updDoorway(dt: number) {
   open += (want - open) * Math.min(1, dt * (want ? 4 : 2.5));
   denDoor.shut = open < 0.6;
   for (const l of leaves) l.pivot.rotation.y = l.s * open * Math.PI * 0.55;
-  if (says.upd(dt)) {
-    const s = says.sprite;
-    s.position.set(D.x + 0.25, CY + H + 0.45, MID.z);
-    // (smaller close up, as the doorman looks you over, so it doesn't fill the view)
-    const k2 = Math.min(1, Math.max(0.3, s.position.distanceTo(camera.position) / 12));
-    s.scale.set(2.1 * k2, 2.1 * k2 * 200 / 512, 1);
-  }
+  // (kept in sight, and smaller close up as the doorman looks you over: speech.ts)
+  if (says.upd(dt)) says.place(D.x + 0.25, CY + H + 0.45, MID.z);
 }
 
 /** How far the club's band is heard, 0 to 1 (the stage's music fading out under it), how muffled (0: clear, 1: through

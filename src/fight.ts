@@ -154,8 +154,9 @@ export interface Fight {
 }
 export interface Den {
   door: boolean; monte: { bout: number; played: number };
-  /** The fix paid for: on which boss (-1, none), how big (1 to 5 tenths of his crowd kept home), and whether Eddie gets
-   *  caught. That's rolled as it's paid for (eddie.ts), outside the cellar's sim, and only comes out at the gong. */
+  /** The fix paid for: on which boss (-1, none), how big (1 to 5 tenths of his crowd kept home), and whether Eddie got
+   *  caught. That's rolled as it's paid for (eddie.ts), outside the cellar's sim, and comes out at the gong, on his coin
+   *  (gong.ts). */
   eddie: { boss: number; cut: number; caught: boolean };
   /** A fix that got out: tenths of the player's own fans who stay away, and for how many more local bouts. */
   scandal: { cut: number; bouts: number };
@@ -370,8 +371,8 @@ function startRush(kept = 0, fix: Rush['fix'] = null) {
 export function ringGong() {
   const boss = nextBoss();
   if (!boss || F.rush) return false;
-  // Eddie's fix comes out now: his boys kept the fans home, or the papers got it first (and the player's own fans stay
-  // away for a bout or more after this one)
+  // Eddie's fix comes out now, on his coin (gong.ts): his boys kept the fans home, or the papers got it first (and the
+  // player's own fans stay away for a bout or more after this one)
   const e = fixOn(), fix = e ? { cut: e.cut, caught: e.caught } : null;
   F.den.eddie = { boss: -1, cut: 0, caught: false };
   if (fix?.caught) F.den.scandal = { cut: fix.cut, bouts: FIX.scandal[fix.cut - 1] };

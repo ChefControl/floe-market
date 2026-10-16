@@ -17,18 +17,18 @@ cellar.add(mark.mesh);
 /** What he says, by how things stand: a few for now, one each time you step up. */
 export function fuguLines(): string[] {
   if (F.boughtOut) return [
-    "It's your house now, Chef. I only keep the chair warm.",
-    "The fans still ask for me. Tell them I'm on holiday.",
-    'No cut, no boss. Just you and the stew.',
+    'Your house now, Chef. I just sit here.',
+    "Fans ask for me? Say I'm on holiday.",
+    'No cut, no boss. Just you and stew.',
   ];
   const next = BOSSES[F.beaten];
-  const out = ['Thirty percent of every bowl, Chef. The house always eats first.'];
+  const out = ['30% of every bowl, Chef. House eats first.'];
   // (once the Undertow's found: he answers to the Family too)
-  if (F.beaten >= 2) out.unshift('So you met the Family. Who do you think I pay?');
-  if (F.beaten === 0) out.push('Keep the soup bar full. Hungry fans cheer for the other guy.');
-  else out.push("You found my mushrooms. Mushroom bowls pay double. Don't spread it around.");
-  out.push(next ? `${next.name} ${next.face} is next. His fans come hungry.` : "Every champion beaten. Maybe you can afford my chair now.");
-  out.push(F.tier > 0 ? 'Bigger stands, bigger crowds. I like the sound of that.' : 'Build some stands, Chef. Fans pay better sitting down.');
+  if (F.beaten >= 2) out.unshift('Met the Family? Guess who I pay.');
+  if (F.beaten === 0) out.push('Hungry fans cheer for the other guy.');
+  else out.push("Mushroom bowls pay double. Don't spread it around.");
+  out.push(next ? `${next.name} ${next.face} is next. His fans come hungry.` : 'Every champion beaten. Afford my chair yet?');
+  out.push(F.tier > 0 ? 'Bigger stands, bigger crowds. I like it.' : 'Build stands, Chef. Seated fans pay better.');
   return out;
 }
 
@@ -62,7 +62,7 @@ export function updOffice(dt: number) {
   }
   near = here;
   if (talk.upd(dt)) {
-    talk.sprite.position.set(boss.position.x, boss.position.y + 2.75, boss.position.z);
+    talk.place(boss.position.x, boss.position.y + 2.75, boss.position.z);
     mouth(dt);
   } else shown = '';
   boss.talking = talk.sprite.visible && upTo < shown.length;

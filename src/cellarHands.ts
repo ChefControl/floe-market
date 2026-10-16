@@ -6,8 +6,8 @@
 import { BAR_PAD, BIN_PADS, BINS, COUNTER_PAD, type Ing, machineAt, machinePad, type Pad, POT_PAD, WATCH } from './cellarPlan';
 import { CY } from './cellar';
 import {
-  BATCH, bowlPrice, COUNTER_CAP, PER_BATCH, POT_CAP, F, fillMachine, ICON, inPot, LEDGE_CAP, lineRoom, mach, playerAtPot, STALL_CAP, takeBowl, takeReady,
-  toLedge, toStall, doneCount, NAME,
+  BATCH, bowlPrice, COUNTER_CAP, PER_BATCH, POT_CAP, F, fillMachine, ICON, inPot, lineRoom, mach, playerAtPot, STALL_CAP, takeBowl, takeReady,
+  toLedge, toStall, doneCount,
 } from './fight';
 import { fly } from './holder';
 import { type Kind, newBowl, newCuredFish, newMushroom, newReadyRice, newRice, newFillet } from './items';
@@ -141,29 +141,29 @@ export function stowCarried() {
 const chips = (v: number) => (v < 10 ? v.toFixed(2).replace(/0$/, '').replace(/\.0$/, '') : Math.round(v).toLocaleString('en-US'));
 /** What's said about where the player's standing in the cellar, if it's somewhere. */
 export function cellarTip(p: XZ): TipContent | null {
+  // (a title and one line of icons and numbers: what's there, and where it goes)
   if (at(p, BIN_PADS.rice)) {
-    return { name: 'Rice from upstairs', desc: lineRoom('rice') ? `The drying racks have room for ${lineRoom('rice')}: carry it to them along the north wall` : 'The drying racks are full: take out the dry rice first' };
+    const n = lineRoom('rice');
+    return { name: 'Rice 🌾', desc: n ? `→ the drying racks · room for ${n}` : 'The drying racks are full' };
   }
   if (at(p, BIN_PADS.fish)) {
-    return { name: 'Fish from upstairs', desc: lineRoom('fish') ? `The salt barrels have room for ${lineRoom('fish')}: carry it to them along the south wall` : 'The salt barrels are full: take out the salted fish first' };
+    const n = lineRoom('fish');
+    return { name: 'Fish 🐟', desc: n ? `→ the salt barrels · room for ${n}` : 'The salt barrels are full' };
   }
   const here = machineHere(p);
   if (here) {
     const { k, i } = here, M = mach(k), m = F.lines[k].m[i];
     const ready = m ? doneCount(k, m) : 0, going = k === 'mush' ? 0 : (m?.items.length ?? 0) - ready;
-    const what = k === 'mush' ? `grows ${M.cap} at a time, one every ${M.time} s` : `takes ${M.cap} ${NAME[k]} for ${M.time} s`;
-    return { name: `${M.name} ${i + 1} ${ICON[k]}`, desc: `It ${what} · ${ready} ready${k === 'mush' ? '' : `, ${going} in it`}` };
+    return { name: `${M.name} ${i + 1} ${ICON[k]}`, desc: `${ready} ready${k === 'mush' ? '' : ` · ${going} in`} · ${M.cap} per ${M.time} s` };
   }
   if (at(p, POT_PAD)) {
-    const ledge = inPot().map(k => `${ICON[k]} ${F.pantry[k]}`).join(' · ');
-    const who = F.hires.cook ? 'The cook keeps it going' : 'It cooks while you stand here';
-    return { name: 'The pot', desc: `${PER_BATCH} of each make ${BATCH} bowls. ${who}, and ladles itself out onto the counter. In it: ${F.pot.length} of ${POT_CAP} bowls. On the ledge: ${ledge} (up to ${LEDGE_CAP} each)` };
+    const ledge = inPot().map(k => `${ICON[k]} ${F.pantry[k]}/${PER_BATCH}`).join(' · ');
+    return { name: F.hires.cook ? 'The pot' : 'The pot · stand here to cook', desc: `${ledge} → 🍲 ${BATCH} · ${F.pot.length}/${POT_CAP} in the pot` };
   }
-  if (at(p, COUNTER_PAD)) return { name: 'Bowls', desc: `${F.counter.length} of ${COUNTER_CAP} on the counter: carry them through the door to the soup bar` };
+  if (at(p, COUNTER_PAD)) return { name: 'Bowls 🍲', desc: `${F.counter.length}/${COUNTER_CAP} → the soup bar` };
   if (at(p, BAR_PAD)) {
-    const cut = F.boughtOut ? '' : ", after Mr. Fugu's 30%";
-    return { name: 'The soup bar', desc: `${F.stall.length} of ${STALL_CAP} bowls out · ${F.queue.length} fans waiting · a bowl pays 🐡 ${chips(bowlPrice(F.beaten >= 1))}${cut}` };
+    return { name: 'The soup bar', desc: `${F.stall.length}/${STALL_CAP} out · ${F.queue.length} waiting · a bowl pays 🐡 ${chips(bowlPrice(F.beaten >= 1))}` };
   }
-  if (at(p, WATCH)) return { name: 'The watch spot 👁️', desc: 'Stand here to watch the bout up close' };
+  if (at(p, WATCH)) return { name: 'The watch spot 👁️', desc: 'Watch the fight up close' };
   return null;
 }

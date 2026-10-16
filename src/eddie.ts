@@ -26,36 +26,38 @@ const n = (v: number) => v.toLocaleString('en-US');
 /** Whether the player has the chips for a fix of `c` on the next boss. */
 const afford = (c: number) => { const b = nextBoss(); return !!b && wallet.money >= fixFee(b, c) * CHIP; };
 
-/** What he says, and what the panel offers, now. */
+/** The risk of each size of fix, as a colour, green for the smallest to red for the biggest: five strong ones, each
+ *  clear of the next and dark enough for white words on it. */
+const RISK = ['#139A43', '#6B9E00', '#A66A00', '#E8590C', '#D61F2C'];
+const riskColour = (c: number) => RISK[c - 1];
+
+/** What the panel offers now: its headline, the size buttons, each its fee over a stripe for its risk, and under them
+ *  the one button saying the rest, the fans kept home and the chance the papers get it (his coin, at the gong; "caught"
+ *  in the picked size's colour); all in one place, under the row the player's picking from. */
 function refresh() {
   const b = nextBoss(), on = fixOn(), busy = !b || !!F.rush || !!on;
+  msg.textContent = 'Fix a fight'; msg.hidden = false; odds.hidden = true;
   for (const el of cuts) {
     const c = Number(el.dataset.cut);
     el.setAttribute('aria-pressed', String(c === cut));
     el.disabled = busy;
+    el.style.setProperty('--risk', riskColour(c));
+    if (b) el.textContent = `🐡 ${n(fixFee(b, c))}`;
   }
-  if (!b) {
-    msg.textContent = "Nobody left to fix, kid. You beat 'em all straight.";
-    odds.textContent = ''; shake.hidden = true;
-    return;
-  }
+  if (!b) { odds.textContent = 'Nobody left to fix.'; odds.hidden = false; shake.hidden = true; return; }
   shake.hidden = false;
-  if (F.rush) {
-    msg.textContent = "Not now. The bell's going.";
-    odds.textContent = ''; shake.disabled = true; shake.textContent = 'Shake on it';
-    return;
-  }
+  if (F.rush) { shake.disabled = true; shake.textContent = 'Not during a fight'; return; }
   if (on) {
-    msg.textContent = `It's done. ${n(keptHome(b, on.cut))} of ${b.name}'s fans stay home… if nobody talks.`;
-    odds.textContent = "Ring the gong when you like. You'll know there.";
-    shake.disabled = true; shake.textContent = 'Fixed 🤝';
+    odds.textContent = "You'll know at the gong."; odds.hidden = false;
+    shake.disabled = true; shake.textContent = `Fixed 🤝 ${b.face} −${n(keptHome(b, on.cut))} fans`;
     return;
   }
-  const fee = fixFee(b, cut), caught = FIX.caught[cut - 1], bouts = FIX.scandal[cut - 1];
-  msg.textContent = `${b.face} ${b.name}: I keep ${n(keptHome(b, cut))} of his ${n(b.crowd)} fans home.`;
-  odds.textContent = `${pct(caught)} chance the papers get it: then he brings the lot, and ${cut * 10}% of your own fans stay away for ${bouts} bout${bouts === 1 ? '' : 's'}. The fee's mine either way.`;
+  // (the risk in the picked size's colour, right on the button you shake on)
+  const risk = document.createElement('b');
+  risk.className = 'caught'; risk.textContent = `${pct(FIX.caught[cut - 1])} caught`;
+  shake.style.setProperty('--risk', riskColour(cut));
   shake.disabled = !afford(cut);
-  shake.textContent = `Shake on it · 🐡 ${n(fee)}`;
+  shake.replaceChildren(`Fix ${b.face} −${n(keptHome(b, cut))} fans · `, risk);
 }
 cuts.forEach(el => el.addEventListener('click', () => { cut = Number(el.dataset.cut); refresh(); }));
 
@@ -71,7 +73,7 @@ export function payEddie(c = cut, rng: () => number = Math.random) {
   if (!setFix(c, rng() < FIX.caught[c - 1])) return false;
   wallet.money -= fixFee(b, c) * CHIP;
   coin();
-  say('Consider it done. We never talked.');
+  say('Done. We never talked.');
   refresh();
   save();
   return true;
@@ -79,8 +81,8 @@ export function payEddie(c = cut, rng: () => number = Math.random) {
 shake.addEventListener('click', () => payEddie());
 /** Picks the size of fix, in tenths of the boss's crowd (for tests, and the buttons). */
 export function pickCut(c: number) { cut = Math.max(1, Math.min(5, Math.round(c))); refresh(); }
-/** What he's saying in the panel now, for tests. */
-export const eddieMsg = () => `${msg.textContent} ${odds.textContent}`;
+/** What he's saying in the panel now, and on its button, for tests. */
+export const eddieMsg = () => `${msg.textContent} ${odds.textContent} ${shake.textContent}`;
 
 // (on dice of its own: three.js names what it makes from Math.random, and made at load off the game's luck, it would
 // change every throw after it)

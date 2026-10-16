@@ -66,7 +66,8 @@ phone?.addEventListener?.('change', () => { if (!modsPicked) showMods(!phone.mat
 stageEl.addEventListener('click', () => { modsPicked = true; showMods(modsEl.hidden !== false); });
 
 // ---------- keeping the player in sight ----------
-const panels = [$('shop'), $('roulette'), $('blackjack'), $('slots'), $('look'), $('gong')];
+// (the casino boat's tables and the Undertow's: Eddie's, Tommy's, Harry's, Al's bar and Gus)
+const panels = [$('shop'), $('roulette'), $('blackjack'), $('slots'), $('look'), $('gong'), $('eddie'), $('monte'), $('loans'), $('denBar'), $('denGus')];
 const slid = { x: 0, y: 0 };
 /** How far a casino game slides the view to put its table in the middle of the space its controls leave (casinoKit.ts). */
 export const tableRoom = { on: false, x: 0, y: 0 };

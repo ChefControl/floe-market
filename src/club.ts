@@ -15,8 +15,7 @@ import { buyHeld } from './input';
 import { found, inUndertow, level } from './layout';
 import { player } from './player';
 import { BUBBLE_Y, glass, type Regular, regularParts, regulars, updRegulars, velvetAt, where } from './regulars';
-import { camera } from './render';
-import { bubble } from './speech';
+import { bubble, onlyVendor } from './speech';
 import { d2xz, V } from './util';
 import { wallet } from './wallet';
 
@@ -24,24 +23,24 @@ for (const o of regularParts) parts.den.add(o);
 
 /** What each says, one line each time you come up to them (Al at his pad, Doc and Gus when you speak to them), going round. */
 export const CLUB_LINES: Record<Regular, string[]> = {
-  al: ['Angler Al. I keep the lights on round here. Well, the one.', "Don't mind Gus. He's been sinking since the tide went out.", 'What can I get you?'],
+  al: ['Angler Al. I keep the light on.', "Don't mind Gus. He's been sinking lately.", 'What can I get you?'],
   gus: ['*sigh*', "It's always last call somewhere, kid.", 'Buy a fish a drink? I hear things.'],
   coat: ['Evening. We are one tall gentleman.', 'Nothing fishy here, pal.', 'Keep walking. We... I mean I... am busy.'],
   doc: ["Don't touch the green one.", "It's for science. Mostly.", 'Ink? Fresh out. Ask me tomorrow.'],
-  velvet: ['Request? Honey, I only know the one song.', 'Stay a while. The tide never hurries down here.'],
-  inky: ["Inky. I keep Harry's books. All eight of them.", 'Interest compounds, friend. So do I.', 'Shh. Counting what everybody owes.'],
+  velvet: ['Request? Honey, I only know the one song.', 'Stay a while. The tide never hurries.'],
+  inky: ["Inky. I keep Harry's books, all eight.", 'Interest compounds, friend. So do I.', 'Shh. Counting what everybody owes.'],
 };
 /** Velvet's song, a line at a time. */
 export const SONG = ["♪ Down where the light don't reach... ♪", '♪ Every chip runs out, baby... ♪', '♪ The undertow keeps what it takes... ♪', '♪ ...and it never gives it back ♪'];
-/** What Gus has heard about each boss in turn, for the price of a drink. */
+/** What Gus has heard about each boss in turn, for the price of a drink: just the hint. */
 export const RUMOURS = [
-  "Hakkaku's lot are all arms and no patience. Have your bowls out before you ring.",
-  "The crab's crowd comes in sideways and starving. Fill the stall before you ring.",
-  'His lot come up out of the gutters, and they eat fast. Keep that pot going.',
-  "Samehada's Harry's nephew. Borrow from the uncle, beat the nephew. Family's funny like that.",
-  "The big one's Mr. Fugu's own. A minute on his bell and a thousand mouths. Bring everything.",
+  "Hakkaku's lot are impatient. Have bowls out before you ring.",
+  "The crab's crowd comes starving. Fill the stall first.",
+  'His lot eat fast. Keep that pot going.',
+  "Samehada's Harry's nephew. Borrow from the uncle, beat the nephew.",
+  "Mr. Fugu's own: a thousand mouths. Bring everything.",
 ];
-const ALL_BEATEN = 'You beat the lot, kid. Now they whisper about you.';
+const ALL_BEATEN = 'You beat the lot. They whisper about you.';
 /** Al's drinks: what each is called, its price in chips, and what he says pouring it. */
 export const DRINKS = {
   tonic: { name: 'Kelp tonic', cost: 2, says: 'Kelp tonic. Clears the head.' },
@@ -61,7 +60,7 @@ const BAR_MARK = 0.42, BAR_REACH = 0.6;
 // ---------- who's talking ----------
 const ALL: Regular[] = ['al', 'gus', 'coat', 'doc', 'velvet', 'inky'];
 const talk = Object.fromEntries(ALL.map(k => [k, { b: bubble(parts.den, k === 'velvet' ? 2.4 : 2.3), next: 0, near: false }])) as
-  Record<Regular, { b: ReturnType<typeof bubble>; next: number; near: boolean; base?: number }>;
+  Record<Regular, { b: ReturnType<typeof bubble>; next: number; near: boolean }>;
 /** Each one going through what they say, their head bobbing to it (chatter.ts). */
 const voices = Object.fromEntries(ALL.map(k => [k, chatter()])) as Record<Regular, ReturnType<typeof chatter>>;
 /** Has `k` say `text` in their bubble. */
@@ -163,7 +162,9 @@ const tmp = V(0, 0, 0);
 /** The club, every frame (once the Undertow's found): the bar's and Gus's pads, a drink on its way, the regulars
  *  talking to whoever comes near and watching them, and Velvet's song. */
 export function updClub(dt: number) {
-  barPad.upd(dt);
+  const atBar = barPad.upd(dt);
+  // (at Al's pad, or talking to Gus, theirs is the only bubble up: speech.ts)
+  onlyVendor('club', atBar ? talk.al.b : gusOpen ? talk.gus.b : null);
   if (!found.den) return;
   const p = player.g.position, inRoom = level.down && inDen(p);
   if (pour) {
@@ -188,16 +189,12 @@ export function updClub(dt: number) {
   if (gusOpen && !(inRoom && d2xz(p, gusFrom) < GUS_OFF * GUS_OFF)) openGus(false);
   // Velvet's song, a line now and then, while you're in the room
   if (inRoom && !talk.velvet.b.text && (singT -= dt) <= 0) { singT = SING_EVERY; say('velvet', SONG[verse++ % SONG.length]); }
+  // (each over its speaker, kept in sight: speech.ts)
   for (const k of ALL) {
-    const t = talk[k], s = t.b.sprite;
-    if (t.b.upd(dt)) {
-      if (k === 'velvet') s.position.copy(velvetAt.getWorldPosition(tmp)).add(V(0, BUBBLE_Y.velvet, 0));
-      else { const at = where(k); s.position.set(at.x, at.y + BUBBLE_Y[k], at.z); }
-      // (smaller close up, at the bar or Gus, so it doesn't fill the view)
-      t.base ??= s.scale.x;
-      const k2 = Math.min(1, Math.max(0.35, s.position.distanceTo(camera.position) / 12));
-      s.scale.set(t.base * k2, t.base * k2 * 200 / 512, 1);
-    }
+    const t = talk[k];
+    if (!t.b.upd(dt)) continue;
+    const at = k === 'velvet' ? velvetAt.getWorldPosition(tmp) : where(k), y = BUBBLE_Y[k];
+    t.b.place(at.x, at.y + y, at.z);
   }
   for (const [k, h] of Object.entries(regulars) as [Exclude<Regular, 'velvet'>, (typeof regulars)['al']][]) {
     if (voices[k].upd(dt)) h.syllable();

@@ -126,15 +126,15 @@ function refresh() {
   stakes.refresh(!!play);
   const left = roundsLeft();
   dealBtn.disabled = !!play || left <= 0 || !stakes.ok;
-  dealBtn.textContent = play ? 'Watch the lady…' : left <= 0 ? 'Three rounds a bout' : `Deal · ${stakes.label}`;
+  dealBtn.textContent = play ? 'Watch the lady…' : left <= 0 ? 'Three rounds a fight' : `Deal · ${stakes.label}`;
   picks.hidden = play?.phase !== 'pick';
 }
 /** What he says between rounds: the game, or that he's done for the bout. */
 function idleLine() {
   const left = roundsLeft();
-  if (left <= 0) return "That's three. Come back after the next bout, kid.";
+  if (left <= 0) return "That's three. Next fight, kid.";
   if (wallet.money <= 0) return 'Come back with some chips, kid.';
-  return `Follow the lady. Table limit ${chips(limit())}, ${left} round${left === 1 ? '' : 's'} left this bout.`;
+  return `${left} round${left === 1 ? '' : 's'} left · limit ${chips(limit())}`;
 }
 
 /** Deals a round of the stake down: takes it, counts the round, and starts him gathering the cards. */
@@ -184,7 +184,7 @@ function done(walked = false) {
     win();
     say('Sharp eyes, kid.');
   } else {
-    msg.textContent = `Not that one: she was on the ${PLACE[r.queen]}. ${roundsLeft() > 0 ? 'Again?' : "That's three for this bout."}`;
+    msg.textContent = `She was on the ${PLACE[r.queen]}.`;
     lose();
     say('Better luck next time.');
   }
