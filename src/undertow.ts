@@ -14,6 +14,7 @@ import { eddieSays, updEddie } from './eddie';
 import { family, settle } from './family';
 import { guards } from './guards';
 import { found, inUndertow, level, VIP } from './layout';
+import { harrySays, updLoans } from './loanDesk';
 import { tommySays, updMonte } from './monteTable';
 import { player } from './player';
 import { bubble } from './speech';
@@ -30,8 +31,8 @@ export const LINES: Record<Booth, string[]> = {
   ],
   harry: [
     "Hammerhead Harry. Samehada's my nephew. Don't hold it against me.",
-    'Short of chips? I lend. You pay me back with a little extra, before the fourth bout.',
-    "Pay on time and we're friends. Miss it, and you'll be on crutches.",
+    'Short of chips? I lend. A little extra on top, and I take my cut out of your sales till it\'s paid.',
+    "No hurry, no rough stuff. I just take three in every ten your stall makes. Friendly, right?",
   ],
   tommy: [
     'Three-Card Tommy. Follow the lady, kid. Nobody ever does.',
@@ -72,6 +73,7 @@ export const undertowSays = (k: Booth) => booths.find(b => b.k === k)!.talk.text
 export const guardSays = () => guardTalk.text;
 tommySays(text => booths.find(b => b.k === 'tommy')!.say(text));
 eddieSays(text => booths.find(b => b.k === 'eddie')!.say(text));
+harrySays(text => booths.find(b => b.k === 'harry')!.say(text));
 
 const inDen = inUndertow;
 
@@ -80,6 +82,7 @@ export function updUndertow(dt: number) {
   updDoorway(dt);
   updMonte(dt);
   updEddie(dt);
+  updLoans(dt);
   updClub(dt);
   if (!found.den) return;
   updBand(dt);

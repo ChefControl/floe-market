@@ -148,7 +148,8 @@ export interface Fight {
   /** The locals' bouts' dice, and the player's turn at the pot. */
   seed: number; cookT: number;
   /** The Undertow (undertow.ts): whether the doorman's let you in yet (doorway.ts), and the bout Tommy last played monte
-   *  in and how many rounds he played in it; Slick Eddie's fix on the next boss, and the scandal if he's caught. */
+   *  in and how many rounds he played in it; Slick Eddie's fix on the next boss, and the scandal if he's caught; and
+   *  what's owed to Harry (loan.ts). */
   den: Den;
 }
 export interface Den {
@@ -158,7 +159,10 @@ export interface Den {
   eddie: { boss: number; cut: number; caught: boolean };
   /** A fix that got out: tenths of the player's own fans who stay away, and for how many more local bouts. */
   scandal: { cut: number; bouts: number };
+  loan: Loan;
 }
+/** Hammerhead Harry's loan (loan.ts): chips still owed (0: none), and what was owed when it was made. */
+export interface Loan { owed: number; total: number }
 
 const line = (n: number): Line => ({ n, up: 0, m: [] });
 /** A bout's preparation, from the start (how many fans come is worked out as it starts: -1). */
@@ -171,7 +175,10 @@ export function blank(): Fight {
     queue: [], fed: [], cooked: [], full: [], fullAcc: 0, earned: [],
     rush: null, bout: freshBout(0),
     seed: 3, cookT: 0,
-    den: { door: false, monte: { bout: -1, played: 0 }, eddie: { boss: -1, cut: 0, caught: false }, scandal: { cut: 0, bouts: 0 } },
+    den: {
+      door: false, monte: { bout: -1, played: 0 }, eddie: { boss: -1, cut: 0, caught: false }, scandal: { cut: 0, bouts: 0 },
+      loan: { owed: 0, total: 0 },
+    },
   };
 }
 /** The cellar now (a forecast swaps a copy in for a moment). */
@@ -782,6 +789,7 @@ export function fightFrom(raw: unknown): Fight {
           ? { boss: clamp(Math.floor(num(r.den?.eddie?.boss, -1)), -1, BOSSES.length - 1), cut: clamp(Math.round(num(r.den?.eddie?.cut)), 1, 5), caught: r.den?.eddie?.caught === true }
           : b.den.eddie,
         scandal: { cut: clamp(Math.round(num(r.den?.scandal?.cut)), 0, 5), bouts: clamp(Math.floor(num(r.den?.scandal?.bouts)), 0, 3) },
+        loan: { owed: Math.max(0, num(r.den?.loan?.owed)), total: Math.max(0, num(r.den?.loan?.total), num(r.den?.loan?.owed)) },
       },
     };
     for (const k of ING) {
