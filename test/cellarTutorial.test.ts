@@ -233,7 +233,7 @@ describe("the cellar's tutorial", () => {
     expect(said()).toBe(`Grab more rice / The pot takes ${fight.PER_BATCH}`);
   });
 
-  it('a game that came down before the practice fight: the gong only once the forecast says Hakkaku is beaten', async () => {
+  it('a game that has had its practice fight: the gong only once the forecast says Hakkaku is beaten', async () => {
     const { g, tut, plan, fight, F, at, draw, now, said } = await cellar({ learnt: [...STAGE1, 'bins', 'prep', 'pot', 'bowls', 'bench', 'chips', 'power'] });
     at({ x: 0, z: 0 });
     g.run(1.1);
@@ -267,6 +267,26 @@ describe("the cellar's tutorial", () => {
     expect($('banner').classList.contains('on')).toBe(true);
     expect($('banner').textContent).toContain('First fight won');
     expect($('banner').textContent).toContain('Four more bosses to go');
+  });
+
+  it('a game from before the practice fight that has beaten no boss gets it too, but not one past Hakkaku or that won it', async () => {
+    // (as a save from before it: no word in it of the practice fight)
+    const older = await cellar({ ring: { sparred: undefined } });
+    expect(older.F().practice).toBe(true);
+    expect(older.fight.nextBoss()).toBe(older.fight.PRACTICE);
+    expect(older.F().quiet).toBe(false); // (its doors were open already)
+    // won, it's never owed again, even after a reload
+    older.F().practice = false; older.F().sparred = true;
+    older.g.saveMod.save();
+    expect(JSON.parse(localStorage.getItem('floe-market-v1')!).ring).toMatchObject({ practice: false, sparred: true });
+    const past = await cellar({ ring: { sparred: undefined, beaten: 1 } });
+    expect(past.F().practice).toBe(false);
+    expect(past.fight.nextBoss()!.name).toBe('Yokobashiri');
+    // one whose tutorial learnt the gong on it won it before that was kept
+    const won = await cellar({ ring: { sparred: undefined }, learnt: [...STAGE1, 'bins', 'prep', 'pot', 'bowls', 'bench', 'gong'] });
+    expect(won.F().practice).toBe(false);
+    expect(won.F().sparred).toBe(true);
+    expect(won.fight.nextBoss()!.name).toBe('Hakkaku');
   });
 
   it("a save from before the cellar's lessons counts what it has done down there", async () => {

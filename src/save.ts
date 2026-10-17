@@ -18,7 +18,7 @@ import {
   fishTray, loadPlates, platePrice, register, repriceSushi, ricePot, STARTER_RICE, sushi, sushiStock,
 } from './restaurant';
 import { field, fieldStack, riceInField } from './rice';
-import { saveFight } from './fight';
+import { owedPractice, saveFight } from './fight';
 import { loadCellar } from './ring';
 import { runnersLoad } from './runner';
 import { season, SEASON_LEN, SEASONS, setSeason } from './season';
@@ -347,6 +347,9 @@ export function load() {
  *  were. */
 function loadRing(s: SaveData) {
   loadCellar(s.ring);
+  // (a game that's beaten no boss and never won the practice fight has it to come, one from before it too; one whose
+  // tutorial learnt the gong on it won it before that was kept)
+  owedPractice(!!s.learnt?.includes('gong'));
   syncRingTiles();
   const h = s.hands;
   const makers: [keyof Hands, () => import('three').Mesh][] = [
