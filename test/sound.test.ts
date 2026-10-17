@@ -580,6 +580,54 @@ describe('music', () => {
     expect(drift(h0, t0)).toBeLessThan(0.5);
   }, 30_000);
 
+  it("plays the cooking game its own music at the pot: in as the show starts, the cellar's music and the crowd making room, and away after", async () => {
+    // (the game holds still while the show's on: the music goes on on the audio's timer, a worker's, run here by hand)
+    const workers: { onmessage: (() => void) | null }[] = [];
+    vi.stubGlobal('Worker', class { onmessage = null; constructor() { workers.push(this); } });
+    const url = URL.createObjectURL;
+    URL.createObjectURL = () => 'blob:tick';
+    try {
+      const s = await withSound({ tiles: bought(...MARKET, 'sushi', ...FLOE_SUSHI, 'dohyo'), fugu: 2, level: 1, reviews: Array(20).fill(5), ring: { beaten: 3 } });
+      const [plan, cellar, fight, show, m, pot] = await Promise.all([
+        import('../src/cellarPlan'), import('../src/cellar'), import('../src/fight'), import('../src/chanko'), import('../src/music'), import('../src/potMusic'),
+      ]);
+      s.g.player.g.position.set(plan.POT_PAD.x, cellar.CY, plan.POT_PAD.z);
+      fight.F.pantry = { rice: 8, fish: 8, mush: 8 }; fight.F.cookT = 1e9;
+      s.play(2);
+      const amb = s.audio.buses.amb.gain.value;
+      expect(m.musicMix().stage).toBeGreaterThan(0.9);
+      expect(pot.potState()).toMatchObject({ on: false, level: 0 });
+      const wait = (secs: number) => { for (let t = 0; t < secs; t += 0.04) { fake.now += 0.04; workers.forEach(w => w.onmessage?.()); } };
+      expect(show.startShow()).toBe(true);
+      const heard = music(s.since(() => wait(4)));
+      expect(pot.potState()).toMatchObject({ on: true, playing: true });
+      expect(pot.potState().level).toBeCloseTo(1, 2);
+      expect(m.musicMix().stage).toBeLessThan(0.01);
+      expect(s.audio.buses.amb.gain.value).toBeLessThan(amb * 0.5);
+      // its notes, steadily, and nothing shrill
+      expect(heard.length).toBeGreaterThan(40);
+      expect(heard.filter(p => p.kind === 'tone' && p.type !== 'triangle').every(p => p.f < 4000)).toBe(true);
+      // the show over: it fades away, and the cellar's music and the crowd come back
+      show.stopShow();
+      wait(2);
+      expect(pot.potState()).toMatchObject({ on: false, playing: false });
+      expect(pot.potState().level).toBeLessThan(0.01);
+      expect(m.musicMix().stage).toBeGreaterThan(0.9);
+      s.play(3);
+      expect(show.showing()).toBe(false);
+      expect(m.musicMix().stage).toBeGreaterThan(0.9);
+      expect(s.audio.buses.amb.gain.value).toBeCloseTo(amb, 2);
+      // and the next show starts it again from the top
+      fight.F.bonus = { pct: 0, t: 0 };
+      expect(show.startShow()).toBe(true);
+      wait(0.5);
+      expect(pot.potState().playing).toBe(true);
+    } finally {
+      URL.createObjectURL = url;
+      vi.unstubAllGlobals();
+    }
+  }, 30_000);
+
   it('the casino yacht\'s room: the dining room faint below anywhere aboard, the bar and the slot machines up close', async () => {
     const fetch = vi.fn(() => Promise.resolve({ arrayBuffer: () => Promise.resolve(new ArrayBuffer(8)) }));
     vi.stubGlobal('fetch', fetch);

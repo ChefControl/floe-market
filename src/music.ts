@@ -25,6 +25,7 @@ import { aboard, casinoBoat, level, SHIP, stage } from './layout';
 import { eighth as loungeEighth, LOUNGE, LOUNGE_STEPS, loungeLevel, loungeMix, playLounge } from './lounge';
 import { club, eighth as noirEighth, NOIR, NOIR_STEPS, noirLevel, noirMix, playNoir } from './noir';
 import { offerPlaying } from './offer';
+import { potFading, potPlaying } from './potMusic';
 import { rainK } from './rain';
 import { current, type Season } from './season';
 import { staging } from './stage';
@@ -474,10 +475,8 @@ export function updMusic(dt: number) {
   const hush = (!level.down && (songWanted() || rainK > 0.05)) || staging() || offerPlaying();
   duck(hush ? 0 : 1, hush ? 1.5 : 3);
   hushed = hush ? hushed + dt : 0;
-  // the stage's music and the lounge band's, crossfading up the quay; down the Undertow's tunnel, the stage's and the
-  // club's band's (doorway.ts); the game's sounds in whichever key is on top
-  const harbor = harborK(), den = club.k, away = Math.max(harbor, den);
-  stageMix?.gain.setTargetAtTime(Math.cos(away * Math.PI / 2), ac.currentTime, 0.15);
+  // the game's sounds in the key of whichever music is on top (schedule crossfades them)
+  const harbor = harborK(), den = club.k;
   key.root = harbor > 0.5 ? LOUNGE.sounds : den > 0.5 ? NOIR.sounds : market() ? MARKET.sounds : cellar() ? GLOOP.sounds : band.key;
   schedule();
 }
@@ -485,7 +484,11 @@ export function updMusic(dt: number) {
 function schedule() {
   if (!ac) return;
   if (prefs.mute.music || ac.state !== 'running') { on = false; lounge.on = false; noir.on = false; return; }
-  const now = ac.currentTime, harbor = harborK(), den = club.k, away = Math.max(harbor, den);
+  const now = ac.currentTime, harbor = harborK(), den = club.k, away = Math.max(harbor, den), pot = potPlaying();
+  // the stage's music and the lounge band's crossfading up the quay, or down the Undertow's tunnel the stage's and the
+  // club's band's (doorway.ts); and the stage's all out under the cooking game's music at the pot (potMusic.ts),
+  // coming back slowly as that fades away
+  stageMix?.gain.setTargetAtTime(pot ? 0 : Math.cos(away * Math.PI / 2), now, potFading() ? 0.5 : 0.15);
   updLounge(harbor, now);
   updNoir(den, club.muffle, club.vol, now);
   // a fresh start: the first time, after the music was off or a long stall, and in a new stage (or down the ladder)
@@ -496,7 +499,7 @@ function schedule() {
   while (next < now + 0.2) {
     // faded right out (or crossfaded to the lounge band or the club's): no need to play notes nobody hears; and a step
     // whose time has gone by (the page was held up) is let go, so the music carries on on its beat rather than late
-    if (next >= now && hushed < 2 && away < 0.999) play(step, next - now);
+    if (next >= now && hushed < 2 && away < 0.999 && !pot) play(step, next - now);
     next += stepLen();
     if (++step === verseLen()) { step = 0; newVerse(); }
   }

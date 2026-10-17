@@ -70,7 +70,9 @@ export function setMute(b: Bus, on: boolean) {
 const busLevel = (b: Bus) => (prefs.mute[b] ? 0 : LEVEL[b] * gainOf(prefs.level[b]));
 /** A scene has the stage: the world's effects and ambience are silent (the music makes room by itself, music.ts). */
 let hushed = false;
-const worldLevel = (b: Bus) => (hushed ? 0 : busLevel(b));
+/** How far the world's effects and ambience step back besides, 0 to 1 (under the cooking game's music: potMusic.ts). */
+let dimmed = 1;
+const worldLevel = (b: Bus) => (hushed ? 0 : busLevel(b) * dimmed);
 
 // ---------- randomness ----------
 let seed = 0x2F6B4A1D;
@@ -178,6 +180,12 @@ export function hushWorld(on: boolean) {
   hushed = on;
   if (!ac) return;
   for (const b of ['sfx', 'amb'] as Bus[]) buses[b].gain.setTargetAtTime(worldLevel(b), ac.currentTime, on ? 0.1 : 0.4);
+}
+/** Turns the world's effects and ambience down to `k` of their level (1: back up), over about `secs`. */
+export function dimWorld(k: number, secs: number) {
+  dimmed = k;
+  if (!ac) return;
+  for (const b of ['sfx', 'amb'] as Bus[]) buses[b].gain.setTargetAtTime(worldLevel(b), ac.currentTime, secs / 3);
 }
 
 // ---------- the guard ----------
