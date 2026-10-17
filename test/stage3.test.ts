@@ -1184,11 +1184,20 @@ describe("the cellar's tiles", () => {
     expect(g.unlocks.tiles.filter(t => t.id.startsWith('tier')).every(t => t.menu === 'venue')).toBe(true);
     at(plan.BENCH_PAD);
     g.run(0.1);
-    // (with a mouse and keys, it opens whole: no Craft button, nothing to fold, the wide board)
+    // (with a mouse and keys, it opens whole, the wide board, with a red ✕ that folds it to the Shop button, as Esc does)
     expect($('shop').hidden).toBe(false);
     expect($('shop').classList.contains('board')).toBe(true);
     expect($('craft').hidden).toBe(true);
-    expect($('shopShut').hidden).toBe(true);
+    expect($('shopShut').hidden).toBe(false);
+    $('shopShut').click();
+    expect($('shop').hidden).toBe(true);
+    expect($('craft').hidden).toBe(false);
+    $('craft').click();
+    expect($('shop').hidden).toBe(false);
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    expect($('shop').hidden).toBe(true);
+    $('craft').click();
+    g.run(0.1);
     expect($('shopTabs').hidden).toBe(true);
     expect($('shopTitle').textContent).toBe('Cookware shop');
     expect($('shopPurse').hidden).toBe(false);

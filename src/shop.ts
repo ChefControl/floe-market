@@ -401,17 +401,18 @@ function syncCount(q: Square) {
   if (countEl.textContent !== text) countEl.textContent = text;
 }
 /** On a touch screen the shop's tree opens folded: no panel, just a round Shop button where the Buy button goes, out
- *  of the way of a thumb coming down to walk off, until it's tapped (or E); ✕ folds it again. With a mouse it opens
- *  whole, as the other squares' panels do, with nothing to fold. */
+ *  of the way of a thumb coming down to walk off, until it's tapped (or E). With a mouse it opens whole. Either way the
+ *  big red ✕ in its corner folds it away to the Shop button (and so does Esc), to see the cellar past the board. */
 let unfolded = false;
 const craftEl = $('craft'), countEl = $('craftN'), shutEl = $('shopShut');
 function fold(open: boolean) {
   unfolded = open;
-  panel.hidden = !open; craftEl.hidden = open; shutEl.hidden = !open || !touchBuy();
+  panel.hidden = !open; craftEl.hidden = open; shutEl.hidden = !open;
   built = ''; jump = true;
 }
 craftEl.addEventListener('click', () => fold(true));
 shutEl.addEventListener('click', () => fold(false));
+window.addEventListener('keydown', e => { if (e.key === 'Escape' && on?.bench && unfolded) fold(false); });
 /** What the tree shows: each node's state and price, and the gates won (for rebuilding it). */
 const treeKey = () => treeTiles().map(t => `${t.id}${t.done ? '+' : offered(t) ? '' : '-'}${t.cost}`).join() + F.beaten + practiceDue() + MACH.rice[0].cap;
 

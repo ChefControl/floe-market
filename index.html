@@ -173,6 +173,10 @@ body{
 #shop.away, #craft.away{ visibility:hidden; pointer-events:none; }
 #shop h2{ margin:0 4px 6px; font-size:17px; font-weight:800; line-height:1; }
 #shop .shead{ display:flex; align-items:center; gap:8px; }
+/* (the board's head: its name, the chips in the middle, and the big red ✕ in the corner) */
+#shop.board .shead{ display:grid; grid-template-columns:1fr auto 1fr; }
+#shop.board #shopPurse{ margin:0; font-size:17px; padding:3px 14px 1px; }
+#shop.board #shopShut{ justify-self:end; width:44px; height:44px; font-size:20px; }
 #shop .shead:has(#shopTabs:not([hidden])){ margin-bottom:8px; }
 #shop .shead:has(#shopTabs:not([hidden])) h2{ margin:0 0 0 4px; flex:none; }
 #shopRows{ display:flex; flex-direction:column; gap:5px; max-height:min(48vh,420px); overflow-y:auto; overscroll-behavior:contain; }
@@ -1488,7 +1492,7 @@ body.show #toss, body.show #cook, body.show #coach, body.show #hint, body.show #
 </section>
 <div id="hint" class="pill" role="status" hidden><div class="art" aria-hidden="true"></div><p></p></div>
 <div id="stale" role="alertdialog" aria-modal="true" aria-labelledby="staleWhy" hidden><div class="card"><p id="staleWhy">Floe Market is open in another tab, so this one stopped saving.</p><button type="button">Play here instead</button></div></div>
-<section id="shop" hidden aria-label="Upgrades"><div class="shead"><h2 id="shopTitle"></h2><span id="shopPurse" hidden></span><div id="shopTabs" role="tablist" aria-label="Upgrades" hidden></div><button id="shopShut" type="button" aria-label="Fold the menu away" hidden>✕</button></div><div id="shopRows"></div><div id="shopPick" hidden></div><div id="shopKeys" hidden><span>Click a lit one to buy it</span><span><kbd>E</kbd> buys the one under the mouse</span><span>walk off to close</span></div></section>
+<section id="shop" hidden aria-label="Upgrades"><div class="shead"><h2 id="shopTitle"></h2><span id="shopPurse" hidden></span><div id="shopTabs" role="tablist" aria-label="Upgrades" hidden></div><button id="shopShut" type="button" aria-label="Fold the menu away" hidden>✕</button></div><div id="shopRows"></div><div id="shopPick" hidden></div><div id="shopKeys" hidden><span>Click a lit one to buy it</span><span><kbd>E</kbd> buys the one under the mouse</span><span><kbd>Esc</kbd> or walk off to close</span></div></section>
 <section id="look" hidden aria-labelledby="lookTitle">
   <div class="lhead"><h2 id="lookTitle">Your look</h2><button id="lookDice" type="button" aria-label="Surprise me" title="Surprise me"><span aria-hidden="true">🎲</span></button><button id="lookDone" type="button">Done</button></div>
   <div id="lookTabs" role="tablist" aria-label="Your look"><button type="button" role="tab" aria-controls="lookRows">Body</button><button type="button" role="tab" aria-controls="lookRows">Face</button><button type="button" role="tab" aria-controls="lookRows">Hair</button><button type="button" role="tab" aria-controls="lookRows">Extras</button><button type="button" role="tab" aria-controls="lookRows">Clothes</button></div>
