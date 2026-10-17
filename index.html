@@ -234,7 +234,7 @@ body{
   top:calc(env(safe-area-inset-top,0px) + 76px); max-height:calc(100vh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px) - 92px);
 }
 #shop.board #shopRows, #shop.ladder #shopRows{ flex:0 1 auto; min-height:0; max-height:none; overflow:hidden; gap:8px; }
-#shop.board .tree{ flex:0 1 auto; }
+#shop.board .tree{ flex:none; overflow:hidden; align-self:center; }
 #shop.ladder #shopRows{ height:min(54vh, 470px); flex:none; }
 #shop.board .shead, #shop.ladder .shead{ margin-bottom:6px; }
 #shop.board h2, #shop.ladder h2{ margin:0 4px; }
@@ -278,7 +278,9 @@ body{
 #shop.board .treeBody .node .ic{ grid-row:1 / 3; align-self:center; }
 #shop.board .treeBody .node .txt{ align-self:end; }
 #shop.board .treeBody .node .txt b{ font-size:12.5px; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; white-space:normal; }
-#shop.board .treeBody .node .foot{ align-self:start; }
+#shop.board .treeBody .node .foot{ align-self:start; gap:5px; }
+#shop.board .node .pips{ gap:2px; }
+#shop.board .node .pips i{ width:6px; height:6px; }
 /* (a ladder's node stands up: icon, name, dots, price, one under the other) */
 #shop.ladder .node:not(.lv){ flex-direction:column; justify-content:center; gap:3px; padding:5px 3px; text-align:center; }
 #shop.ladder .node:not(.lv) .txt{ flex:none; align-items:center; width:100%; }

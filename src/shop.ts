@@ -161,7 +161,7 @@ function benchItems(q: Square): { levels: Item[]; nodes: Item[]; items: Item[] }
  *  bottom sheet: a column a room, a bar a gate, a node picked with a tap and bought with the Buy button under it. */
 const boardMode = () => !touchBuy();
 /** The board's sizes, in pixels: the rooms' column, a gate's column, a node, the gates' heads, the gap between rows. */
-const BOARD = { lane: 70, col: 152, w: 140, h: 60, head: 58, gap: 8 };
+const BOARD = { lane: 64, col: 156, w: 148, h: 54, head: 50, gap: 6 };
 /** The ladder's: a node, a gate's bar, the gap between rows (across, it's a fifth of the sheet a room). */
 const LADDER = { h: 80, bar: 30, gap: 8 };
 /** The line under the mouse, which E buys and the line under the tree describes. */
@@ -257,7 +257,8 @@ function boardEl(nodes: Item[]) {
     Object.assign(e.style, { left: p.x + 'px', top: p.y + 'px', width: B.w + 'px', height: B.h + 'px' });
     body.append(e);
   }
-  return { els: [head, body], jump: (tree: HTMLElement) => { tree.scrollLeft = Math.max(0, B.lane + (nextGate() - 2) * B.col); } };
+  tree0 = { w: W, h: B.head + H };
+  return { els: [head, body], jump: () => {} };
 }
 /** The ladder: the rooms' names along the top (stuck there as it scrolls), then a band a gate, each under its bar. */
 function ladderEl(nodes: Item[]) {
@@ -297,6 +298,22 @@ function ladderEl(nodes: Item[]) {
   // (it opens at the newest band, with the bar above it in view)
   return { els: [head, body], jump: (tree: HTMLElement) => { tree.scrollTop = Math.max(0, band[Math.max(0, nextGate() - 1)] - L.bar - 34); } };
 }
+/** The board's own size, before it's shrunk to fit. */
+let tree0 = { w: 0, h: 0 };
+/** The board never scrolls: it's shrunk to fit what the screen leaves it (the panel's tallest, less its title, the
+ *  ring's levels and the line under it), across and down. */
+function fitBoard() {
+  const tree = rows.querySelector<HTMLElement>('.tree');
+  if (!tree || !panel.classList.contains('board') || panel.hidden || !panel.offsetHeight) return;
+  const top = parseFloat(getComputedStyle(panel).top) || 76, room = innerHeight - top - 16;
+  tree.style.display = 'none';
+  const rest = panel.getBoundingClientRect().height + 8, across = panel.clientWidth - 20;
+  tree.style.display = '';
+  const k = Math.min(1, (room - rest - 4) / tree0.h, across / tree0.w);
+  tree.style.width = tree0.w + 'px';
+  tree.style.zoom = String(Math.max(0.4, k));
+}
+addEventListener('resize', fitBoard);
 /** Whether the next build of the tree scrolls to the newest band (on opening it), or keeps its scroll. */
 let jump = true;
 /** The shop's tree, the same shape whatever's bought: the ring's levels, the tree, and under it the line for the node
@@ -313,7 +330,8 @@ function renderBench(q: Square) {
   const tree = div('tree'), drawn = board ? boardEl(nodes) : ladderEl(nodes);
   tree.append(...drawn.els);
   rows.replaceChildren(levelStrip(levels, board), tree);
-  if (keep) { tree.scrollTop = keep[0]; tree.scrollLeft = keep[1]; } else drawn.jump(tree);
+  if (board) fitBoard();
+  else if (keep) { tree.scrollTop = keep[0]; tree.scrollLeft = keep[1]; } else drawn.jump(tree);
   jump = false;
   pickEl.hidden = false;
   pickEl.replaceChildren();
