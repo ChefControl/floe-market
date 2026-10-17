@@ -105,18 +105,19 @@ function clearShot() {
 }
 
 // ---------- the set ----------
-/** The top of a block of bluefin tuna (items.ts' fillet face, along a loin): the dark blue skin down the far edge with
- *  its silver line and fat under it, then the red flesh with white fat in chevrons pointing along it. */
+/** The top of a block of bluefin tuna (items.ts' fillet face, along a loin), cured brown out of the prep hall's salt
+ *  barrels, as all the cellar's fish is by the time it's at the pot (items.ts' cured fillet's colours): the dark skin
+ *  down the far edge with its grey sheen and fat under it, then the brown flesh with pale fat in chevrons along it. */
 function sakuFace(c: CanvasRenderingContext2D, w: number, h: number) {
-  const g = c.createLinearGradient(0, 0, 0, h); g.addColorStop(0, '#B81F3D'); g.addColorStop(0.55, '#E23A57'); g.addColorStop(1, '#C42745');
+  const g = c.createLinearGradient(0, 0, 0, h); g.addColorStop(0, '#8A4E2C'); g.addColorStop(0.55, '#AE6A3E'); g.addColorStop(1, '#91532F');
   c.fillStyle = g; c.fillRect(0, 0, w, h);
-  c.strokeStyle = 'rgba(255,226,232,.8)'; c.lineWidth = 2.5; c.lineCap = 'round';
+  c.strokeStyle = 'rgba(242,214,178,.7)'; c.lineWidth = 2.5; c.lineCap = 'round';
   for (let x = -20; x < w + 20; x += 16) {
     c.beginPath(); c.moveTo(x, h * 0.24); c.quadraticCurveTo(x + 8, h * 0.5, x + 13, h * 0.62); c.quadraticCurveTo(x + 6, h * 0.8, x - 2, h); c.stroke();
   }
-  c.fillStyle = 'rgba(255,240,242,.85)'; c.fillRect(0, h * 0.15, w, h * 0.06);
-  c.fillStyle = '#6F8CB8'; c.fillRect(0, h * 0.12, w, h * 0.035);
-  c.fillStyle = '#16203A'; c.fillRect(0, 0, w, h * 0.125);
+  c.fillStyle = 'rgba(242,214,178,.8)'; c.fillRect(0, h * 0.15, w, h * 0.06);
+  c.fillStyle = '#8A7A6A'; c.fillRect(0, h * 0.12, w, h * 0.035);
+  c.fillStyle = '#2B2622'; c.fillRect(0, 0, w, h * 0.125);
 }
 const unlit = (c: number) => new MeshBasicMaterial({ color: c });
 const STEEL = new MeshLambertMaterial({ color: 0xD6DCE1 });
@@ -386,9 +387,9 @@ function build(): Set {
   add(knife, mesh(rbox(0.034, 0.046, 0.17, 0.016), 0x5B3424, 0, 0.075, 0.245, true));
   // the row: the cabbage, the carrot and the tofu, then the block of tuna, end to end, a gold line over each cut
   const row = add(g, new Group());
-  // (the tuna off the loin, in the market fillet's colours: a slice and the rest, the top picture running on from one to
-  // the other)
-  const { tex } = canvasTex(256, 64, sakuFace), side = new MeshLambertMaterial({ color: 0xC62F48 }), front = new MeshLambertMaterial({ color: 0xD8344F });
+  // (the tuna off the loin, cured, in the cured fillet's colours: a slice and the rest, the top picture running on from
+  // one to the other)
+  const { tex } = canvasTex(256, 64, sakuFace), side = new MeshLambertMaterial({ color: 0x7A4626 }), front = new MeshLambertMaterial({ color: 0x8A4E2C });
   const block = ROW[3].lens[0] + ROW[3].lens[1];
   const fish = (at: number, len: number) => {
     const t = tex.clone(); t.repeat.set(len / block, 1); t.offset.set(at / block, 0); t.needsUpdate = true;
