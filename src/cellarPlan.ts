@@ -49,7 +49,7 @@ export const POT = { x: HEARTH.x, z: HEARTH.z };
 export const LEDGE: Record<Ing, XZ> = {
   rice: { x: HEARTH.x - 0.7, z: HEARTH.z + 1.0 }, fish: { x: HEARTH.x, z: HEARTH.z + 1.0 }, mush: { x: HEARTH.x + 0.7, z: HEARTH.z + 1.0 },
 };
-/** Where ingredients are dropped off, and where standing keeps the pot cooking (until there's a cook). */
+/** Where ingredients are dropped off, and where standing keeps the pot cooking (full batches: a cook's are 70%). */
 export const POT_PAD = pad(HEARTH.x, HEARTH.z + 1.95, 0.9);
 export const COOK_AT = { x: HEARTH.x + 1.45, z: HEARTH.z + 1.6 };
 /** The counter the bowls come out on: a low table against the east wall, in the corner south of the prep hall's door,

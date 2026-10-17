@@ -625,14 +625,14 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
   box-shadow:0 3px 0 rgba(150,45,25,.45); font:800 17px "Baloo 2","Trebuchet MS",system-ui,sans-serif; animation:keytap 1.2s infinite;
 }
 @keyframes keytap{ 0%,35%{ transform:translateY(3px); box-shadow:none; } 45%,100%{ transform:none; } }
-#buy, #toss, #craft{
+#buy, #toss, #craft, #cook{
   position:fixed; right:max(16px, env(safe-area-inset-right,0px)); bottom:calc(env(safe-area-inset-bottom,0px) + 100px); z-index:4;
   width:84px; height:84px; border:0; border-radius:50%; background:var(--hot); color:#fff; cursor:pointer;
   display:grid; place-items:center; align-content:center; font:800 18px/1 "Baloo 2","Trebuchet MS",system-ui,sans-serif;
   box-shadow:0 4px 0 rgba(150,45,25,.45); touch-action:none; -webkit-user-select:none; user-select:none;
 }
-#buy[hidden], #toss[hidden], #craft[hidden]{ display:none; }
-#buy span, #toss span, #craft span{ font-size:26px; }
+#buy[hidden], #toss[hidden], #craft[hidden], #cook[hidden]{ display:none; }
+#buy span, #toss span, #craft span, #cook span{ font-size:26px; }
 #craft:active{ transform:translateY(3px); box-shadow:0 1px 0 rgba(150,45,25,.45); }
 #craft:focus-visible{ outline:3px solid var(--pill-ink); outline-offset:3px; }
 #craft b{
@@ -1220,6 +1220,89 @@ body.offer #hud, body.offer #corner, body.offer #pointers, body.offer #tip, body
   #rainMute{ width:40px; height:40px; }
   #korki .btns button{ width:42px; height:42px; }
 }
+
+/* ---------- the cooking at the pot (chanko.ts): a hinoki cutting board framing the camera on the pot ---------- */
+#cook b{ font:inherit; font-variant-numeric:tabular-nums; }
+#cook:active{ transform:translateY(3px); box-shadow:0 1px 0 rgba(150,45,25,.45); }
+#cook:disabled{ background:#4E5A66; box-shadow:0 4px 0 rgba(20,28,36,.45); cursor:default; }
+#cook:focus-visible{ outline:3px solid var(--pill-ink); outline-offset:3px; }
+#potBonus{ background:var(--hot); color:#fff; font-variant-numeric:tabular-nums; }
+#potBonus[hidden]{ display:none; }
+body.show #hud, body.show #corner, body.show #pointers, body.show #prompts, body.show .pop, body.show #buy, body.show #craft,
+body.show #toss, body.show #cook, body.show #coach, body.show #hint, body.show #shop, body.show #toast{ opacity:0; visibility:hidden; }
+#show{
+  --wood:#E3C38F; --wood2:#D9B27A; --rim:#8A5A30; --rim2:#6E4523; --ink:#3B2716; --paper:#F6EBD3; --red:#B5332E; --red2:#7A1F1B; --leaf:#2E7D46;
+  position:fixed; inset:0; z-index:6; display:flex; flex-direction:column; color:var(--ink);
+  font-family:"Baloo 2","Trebuchet MS",system-ui,sans-serif; -webkit-user-select:none; user-select:none;
+  box-shadow:inset 0 0 0 6px var(--rim);
+}
+#show[hidden]{ display:none; }
+#show .shTop, #show .shLower{
+  background:var(--wood); background-image:repeating-linear-gradient(92deg, rgba(120,72,30,.07) 0 2px, transparent 2px 9px), linear-gradient(#EBCF9F, var(--wood2));
+}
+#show .shTop{ border-bottom:5px solid var(--rim); box-shadow:0 5px 0 var(--rim2), 0 10px 18px rgba(0,0,0,.25);
+  padding:calc(env(safe-area-inset-top,0px) + 10px) max(14px, env(safe-area-inset-right,0px)) 10px max(14px, env(safe-area-inset-left,0px)); display:grid; gap:8px; }
+#show .shBar{ display:flex; align-items:center; gap:10px; }
+#show .shName{ font-size:22px; font-weight:800; line-height:1; flex:1; min-width:0; }
+#show .shPaused{ font-size:12px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; background:var(--ink); color:#F4E3C3; border-radius:999px; padding:3px 9px 1px; white-space:nowrap; }
+#showShut{ width:34px; height:34px; border-radius:50%; border:0; background:var(--ink); color:#F4E3C3; font:800 17px/1 inherit; cursor:pointer; padding:0; }
+#show .shSteps{ list-style:none; margin:0; padding:0; display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:6px; }
+#show .shSteps li{ background:var(--paper); border-radius:10px; padding:4px 6px 3px; text-align:center; box-shadow:0 2px 0 rgba(59,39,22,.25); transition:transform .15s; }
+#show .shSteps li .k{ display:none; }
+#show .shSteps li .n{ display:block; font-size:15px; font-weight:800; line-height:1.1; }
+#show .shSteps li .st{ font-size:14px; letter-spacing:1px; line-height:1.1; }
+#show .shSteps li.done .st{ color:var(--red); }
+#show .shSteps li.on{ background:var(--red); color:#FFF3E2; transform:translateY(-2px); }
+#showPlay{ position:relative; flex:1; min-height:0; touch-action:none; cursor:pointer; }
+#showPops{ position:absolute; inset:0; pointer-events:none; overflow:hidden; }
+.shPop{ position:absolute; transform:translate(-50%,-50%); font-size:30px; font-weight:800; white-space:nowrap; color:#3B2716; line-height:1;
+  -webkit-text-stroke:6px #F6EBD3; paint-order:stroke fill; animation:shPop .95s ease-out forwards; }
+.shPop.top{ color:#2E7D46; font-size:38px; }
+.shPop.big{ font-size:44px; }
+.shPop.miss{ color:#B5332E; }
+@keyframes shPop{ 0%{ opacity:0; transform:translate(-50%,-30%) scale(.6); } 15%{ opacity:1; transform:translate(-50%,-50%) scale(1.12); } 25%{ transform:translate(-50%,-50%) scale(1); } 75%{ opacity:1; } 100%{ opacity:0; transform:translate(-50%,-150%); } }
+#showBanner{ position:absolute; left:50%; top:40%; transform:translate(-50%,-50%); pointer-events:none; opacity:0; text-align:center; }
+#showBanner.show{ animation:shBanner .95s ease both; }
+@keyframes shBanner{ 0%{ opacity:0; transform:translate(-50%,-50%) scale(1.5); } 18%{ opacity:1; transform:translate(-50%,-50%) scale(1); } 80%{ opacity:1; } 100%{ opacity:0; transform:translate(-50%,-50%) scale(.96); } }
+#showBanner .k{ display:none; }
+#showBanner .w{ font-size:58px; font-weight:800; letter-spacing:.03em; line-height:1; color:var(--red); -webkit-text-stroke:8px var(--paper); paint-order:stroke fill; text-shadow:0 5px 0 var(--rim2); }
+#showMeter{ position:absolute; right:max(16px, env(safe-area-inset-right,0px)); top:12%; bottom:16%; width:64px; display:grid; grid-template-rows:auto 1fr auto; gap:6px; justify-items:center; pointer-events:none; }
+#showMeter[hidden], #showBoil[hidden]{ display:none; }
+#showMeter b, #showBoil b{ font-size:18px; font-weight:800; -webkit-text-stroke:5px var(--paper); paint-order:stroke fill; white-space:nowrap; }
+#showMeter .tube{ position:relative; width:30px; border-radius:15px; background:rgba(246,235,211,.85); border:3px solid var(--rim); overflow:hidden; }
+#showMeter .band{ position:absolute; left:0; right:0; bottom:calc((var(--c) - .07) * 100%); height:14%; background:rgba(46,125,70,.35); outline:2px dashed var(--leaf); outline-offset:-2px; z-index:2; }
+#showMeter .fill{ position:absolute; left:0; right:0; bottom:0; height:calc(var(--lv) * 100%); background:#C98A3C; z-index:1; }
+#showMeter[data-k="Salt"] .fill{ background:#FFFFFF; }
+#showMeter[data-k="Soy"] .fill{ background:#5A2E1C; }
+#showMeter .line{ position:absolute; left:-2px; right:-2px; bottom:calc(var(--c) * 100%); height:3px; background:var(--leaf); z-index:3; }
+#showMeter .dots{ display:grid; gap:3px; }
+#showMeter .dot{ font-style:normal; font-size:12px; font-weight:800; text-align:center; padding:1px 6px 0; border-radius:999px; background:var(--paper); color:var(--ink); box-shadow:0 2px 0 rgba(59,39,22,.25); }
+#showMeter .dot[data-on="true"]{ background:var(--red); color:#FFF3E2; }
+#showBoil{ position:absolute; left:10%; right:10%; bottom:14px; display:grid; gap:4px; justify-items:center; pointer-events:none; }
+#showBoil .tube{ position:relative; width:100%; height:24px; border-radius:12px; background:rgba(246,235,211,.85); border:3px solid var(--rim); }
+#showBoil .band{ position:absolute; top:0; bottom:0; left:calc((var(--c) - .15) * 100%); width:30%; background:rgba(46,125,70,.4); }
+#showBoil .knob{ position:absolute; top:50%; left:calc(var(--lv) * 100%); width:30px; height:30px; border-radius:50%; transform:translate(-50%,-50%); background:var(--red); border:3px solid var(--paper); }
+#showBoil[data-ok="true"] .knob{ background:var(--leaf); }
+#showBoil[data-ok="true"] b{ color:var(--leaf); }
+#showBoil .ends{ width:100%; display:flex; justify-content:space-between; font-size:13px; font-weight:800; -webkit-text-stroke:4px var(--paper); paint-order:stroke fill; }
+#show .shCard{ position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:min(340px, calc(100% - 32px)); box-sizing:border-box;
+  background:var(--paper); color:var(--ink); border-radius:18px; box-shadow:0 6px 0 rgba(59,39,22,.3), 0 12px 30px rgba(0,0,0,.3); padding:20px 20px 18px;
+  display:grid; gap:6px; justify-items:center; text-align:center; cursor:default; }
+#show .shCard[hidden]{ display:none; }
+#show .shCard .ik, #show .hanko{ display:none; }
+#show .shCard .tier{ font-size:32px; font-weight:800; line-height:1.05; }
+#show .shCard .stars{ font-size:28px; font-weight:800; color:var(--red); font-variant-numeric:tabular-nums; line-height:1; }
+#show .shCard .bonus{ font-size:20px; font-weight:800; font-variant-numeric:tabular-nums; }
+#show .shCard .sub{ font-size:15px; font-weight:600; font-variant-numeric:tabular-nums; }
+#show .shCard button{ font:800 19px "Baloo 2","Trebuchet MS",system-ui,sans-serif; border:0; border-radius:12px; padding:7px 24px 5px; margin-top:6px; cursor:pointer;
+  background:var(--red); color:#FFF3E2; box-shadow:0 4px 0 var(--red2); }
+#show .shCard button:active{ transform:translateY(3px); box-shadow:0 1px 0 var(--red2); }
+#show .shCard button:focus-visible, #showShut:focus-visible{ outline:3px solid var(--ink); outline-offset:3px; }
+#show .shLower{ border-top:5px solid var(--rim); text-align:center;
+  padding:10px max(14px, env(safe-area-inset-right,0px)) calc(env(safe-area-inset-bottom,0px) + 12px) max(14px, env(safe-area-inset-left,0px)); }
+#showCap{ font-size:19px; font-weight:800; line-height:1.15; }
+@media (max-width:520px){ #show .shName{ font-size:19px; } #show .shSteps li .n{ font-size:14px; } }
+@media (prefers-reduced-motion: reduce){ #showBanner.show{ animation-duration:.01s; } .shPop{ animation-duration:.01s; } }
 </style>
 </head>
 <body>
@@ -1235,6 +1318,7 @@ body.offer #hud, body.offer #corner, body.offer #pointers, body.offer #tip, body
 <div id="hud">
   <div class="hrow">
     <div id="cash" class="pill"><span class="ic">$</span><span id="cashN">0</span></div>
+    <div id="potBonus" class="pill" hidden><span class="ic" aria-hidden="true">🔥</span><span class="v"></span></div>
     <div id="power" class="pill" hidden><span class="ic" aria-hidden="true">💪</span><span id="powerN">0</span><span class="lbl">fed this fight</span><span class="sr"> fans fed this fight</span></div>
     <div id="season" class="pill" data-season="winter"><span class="ic" id="seasonIc" aria-hidden="true">❄️</span><span class="sr">Season: </span><span id="seasonName">Winter</span><span class="bar" aria-hidden="true"><i id="seasonBar"></i></span></div>
   </div>
@@ -1349,6 +1433,22 @@ body.offer #hud, body.offer #corner, body.offer #pointers, body.offer #tip, body
 <button id="buy" type="button" hidden><span aria-hidden="true">🛒</span>Buy</button>
 <button id="craft" type="button" hidden><span aria-hidden="true">🍳</span>Shop<b id="craftN"></b></button>
 <button id="toss" type="button" hidden><span aria-hidden="true">🗑️</span>Toss</button>
+<button id="cook" type="button" hidden><span aria-hidden="true">🍲</span><b>Cook</b></button>
+<section id="show" hidden aria-label="Cooking at the pot">
+  <header class="shTop">
+    <div class="shBar"><b class="shName">Cook the chanko</b><span class="shPaused">Game paused</span><button id="showShut" type="button" aria-label="Stop cooking">✕</button></div>
+    <ol id="showSteps" class="shSteps" aria-label="Steps"></ol>
+  </header>
+  <div id="showPlay">
+    <div id="showPops" aria-live="polite"></div>
+    <div id="showBanner" aria-hidden="true"><div class="k"></div><div class="w"></div></div>
+    <div id="showMeter" hidden><b></b><div class="tube"><i class="band"></i><i class="fill"></i><i class="line"></i></div><div class="dots"><i class="dot">Salt</i><i class="dot">Soy</i><i class="dot">Miso</i></div></div>
+    <div id="showBoil" hidden><b></b><div class="tube"><i class="band"></i><i class="knob"></i></div><div class="ends"><span>Simmer</span><span>Boil</span></div></div>
+    <div id="showIntro" class="shCard"><div class="tier">Chanko time</div><div class="sub">🔪 Cut · 🐟 Throw · 🧂 Season · 🥄 Stir</div><div class="bonus">🍚 🐟 🍄 ×4 → up to +50% bowls</div><button id="showGo" type="button">Start</button></div>
+    <div id="showCard" class="shCard" hidden><div class="hanko" aria-hidden="true"></div><div class="stars"></div><div class="tier"></div><div class="bonus"></div><div class="sub"></div><button id="showBack" type="button">Back to the pot</button></div>
+  </div>
+  <footer class="shLower"><span id="showCap"></span></footer>
+</section>
 <div id="hint" class="pill" role="status" hidden><div class="art" aria-hidden="true"></div><p></p></div>
 <div id="stale" role="alertdialog" aria-modal="true" aria-labelledby="staleWhy" hidden><div class="card"><p id="staleWhy">Floe Market is open in another tab, so this one stopped saving.</p><button type="button">Play here instead</button></div></div>
 <section id="shop" hidden aria-label="Upgrades"><div class="shead"><h2 id="shopTitle"></h2><span id="shopPurse" hidden></span><div id="shopTabs" role="tablist" aria-label="Upgrades" hidden></div><button id="shopShut" type="button" aria-label="Fold the menu away" hidden>✕</button></div><div id="shopRows"></div><div id="shopPick" hidden></div><div id="shopKeys" hidden><span><kbd>1</kbd>–<kbd>4</kbd> fold a room</span><span><kbd>E</kbd> buys the one under the mouse</span><span>walk off to close</span></div></section>

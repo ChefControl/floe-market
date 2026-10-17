@@ -47,8 +47,8 @@ export interface Boss {
 }
 export const BOSSES: Boss[] = [
   { face: '🐙', name: 'Hakkaku', crowd: 120, bell: 30, prize: 120, kind: 'octopus', opens: 'grow room, mushroom bowls, Back-Alley Ring' },
-  { face: '🦀', name: 'Yokobashiri', crowd: 180, bell: 30, prize: 300, kind: 'crab', opens: 'the cook, steam baskets, a way south' },
-  { face: '🐟', name: 'Dobu', crowd: 220, bell: 30, prize: 800, kind: 'catfish', opens: 'Underground Arena, smokehouse, attendant' },
+  { face: '🦀', name: 'Yokobashiri', crowd: 180, bell: 30, prize: 300, kind: 'crab', opens: 'the attendant, steam baskets, a way south' },
+  { face: '🐟', name: 'Dobu', crowd: 220, bell: 30, prize: 800, kind: 'catfish', opens: 'Underground Arena, smokehouse, the cook' },
   { face: '🦈', name: 'Samehada', crowd: 420, bell: 30, prize: 2000, kind: 'shark', opens: 'Grand Hall Below, glowing grow shelves' },
   { face: '🐡', name: 'Fukure', crowd: 1000, bell: 60, prize: 10000, kind: 'puffer', opens: 'buy back all his chips' },
 ];
@@ -71,6 +71,12 @@ export const WALK_IN = 6;
  *  machines held four more). The pot holds two batches, ladled out onto the counter a bowl every LADLE seconds; the
  *  counter holds two batches too. */
 export const PER_BATCH = 4, BATCH = 20, POT_CAP = 40, COUNTER_CAP = 40, STALL_CAP = 30, LEDGE_CAP = 40, LADLE = 0.1;
+/** The pot's the player's to work: a cook gets 70% of what they do out of the same four of each, a 14-bowl batch. */
+export const COOK_SHARE = 0.7, COOK_BATCH = Math.round(BATCH * COOK_SHARE);
+/** The cooking show at the pot (chanko.ts): its stars buy the pot bigger batches for a while (a cook's too, at 70%).
+ *  Placeholders until the balancing pass. */
+export const BONUS_S = 45;
+export const BONUS_TIERS = [{ min: 12, pct: 50, name: 'Perfect pot' }, { min: 9, pct: 35, name: 'Hearty' }, { min: 6, pct: 20, name: 'Tasty' }, { min: 0, pct: 0, name: 'Bland' }];
 /** Chips a bowl sells for (mushroom bowls pay double), and what Mr. Fugu leaves of it until he's bought out. */
 export const PRICE = 1.6, CUT = 0.7;
 export type Role = 'washer' | 'salter' | 'picker' | 'cook' | 'attendant';
@@ -80,8 +86,9 @@ export const HIRES: Record<Role, { line?: Ing; name: string; cost: number; beat:
   washer: { line: 'rice', name: 'Rice washer', cost: 15, beat: 0 },
   salter: { line: 'fish', name: 'Fish salter', cost: 20, beat: 0 },
   picker: { line: 'mush', name: 'Mushroom picker', cost: 120, beat: 1 },
-  cook: { name: 'Cook', cost: 250, beat: 2 },
-  attendant: { name: 'Attendant', cost: 500, beat: 3 },
+  // (serving's taken off the player's hands before the pot is: the pot's theirs)
+  attendant: { name: 'Attendant', cost: 250, beat: 2 },
+  cook: { name: 'Cook', cost: 500, beat: 3 },
 };
 /** The machine upgrades: chips, and bosses to beat first. */
 export const UPS: Record<Ing, { cost: number; beat: number }> = { rice: { cost: 350, beat: 2 }, fish: { cost: 800, beat: 3 }, mush: { cost: 1500, beat: 4 } };
@@ -156,6 +163,8 @@ export interface Fight {
   bout: Bout;
   /** The locals' bouts' dice, and the player's turn at the pot. */
   seed: number; cookT: number;
+  /** The cooking show's bonus: how much bigger the pot's batches are (percent), and for how many more seconds. */
+  bonus: { pct: number; t: number };
   /** The Undertow (undertow.ts): whether the doorman's let you in yet (doorway.ts), and the bout Tommy last played monte
    *  in and how many rounds he played in it; Slick Eddie's fix on the next boss, and the scandal if he's caught; and
    *  what's owed to Harry (loan.ts). */
@@ -184,7 +193,7 @@ export function blank(): Fight {
     pantry: { rice: 0, fish: 0, mush: 0 }, pot: [], potT: 0, counter: [], stall: [],
     queue: [], fed: [], cooked: [], full: [], fullAcc: 0, earned: [],
     rush: null, bout: freshBout(0),
-    seed: 3, cookT: 0,
+    seed: 3, cookT: 0, bonus: { pct: 0, t: 0 },
     den: {
       door: false, monte: { bout: -1, played: 0 }, eddie: { boss: -1, cut: 0, caught: false }, scandal: { cut: 0, bouts: 0 },
       loan: { owed: 0, total: 0 },
@@ -221,6 +230,7 @@ export type Built = { line: Ing; all?: boolean } | { role: Role } | { tier: numb
 /** Starts the cellar over: a fresh one, or a saved one. */
 export function resetFight(f: Fight = blank()) {
   F = f;
+  youCooked = -Infinity;
   syncMachines();
   fc.clear();
 }
@@ -234,8 +244,28 @@ export const nextBoss = (): Boss | undefined => (practiceDue() ? PRACTICE : BOSS
 /** The gong calls in the sparring partner next, not a boss. */
 export const practiceDue = () => F.practice && F.beaten === 0;
 export const canCook = () => inPot().every(k => F.pantry[k] >= PER_BATCH);
+/** Bowls in the player's batch now: more while the cooking show's bonus lasts. */
+export const batchBowls = () => Math.round(BATCH * (1 + (F.bonus.t > 0 ? F.bonus.pct : 0) / 100));
+/** ...and in a cook's: 70% of it. */
+export const cookBowls = () => Math.round(batchBowls() * COOK_SHARE);
+/** Whether the cooking show can start: not while its bonus lasts. */
+export const canShow = () => F.bonus.t <= 0;
+/** The cooking show's result: `stars` of 12 buy the pot its bonus (none for a bland pot). Returns the tier. */
+export function showResult(stars: number) {
+  const tier = BONUS_TIERS.find(x => stars >= x.min)!;
+  F.bonus = tier.pct ? { pct: tier.pct, t: BONUS_S } : { pct: 0, t: 0 };
+  return tier;
+}
+/** The cooking show's batch: four of each, as any batch takes, cooked into the pot at the size its stars bought (a
+ *  pot that's nearly full takes it all the same). The bowls it made, or 0 with too few on the ledge. */
+export function showBatch() {
+  if (!canCook()) return 0;
+  const n = batchBowls();
+  cookBatch(n);
+  return n;
+}
 /** No room in the pot for another batch. */
-export const potFull = () => F.pot.length + BATCH > POT_CAP;
+export const potFull = () => F.pot.length + batchBowls() > POT_CAP;
 /** Bowls ladled out of the pot onto the counter so far (in the real cellar, not a forecast's), for drawing them flying. */
 export const poured = { n: 0 };
 /** Bowls sold at the stall so far (in the real cellar), for drawing each one hopping to the fan who bought it. */
@@ -294,21 +324,25 @@ function updMachines(dt: number) {
 }
 
 // ---------- the pot ----------
-function cookBatch() {
+function cookBatch(bowls: number) {
   for (const k of inPot()) F.pantry[k] -= PER_BATCH;
   const m = growOpen();
-  for (let i = 0; i < BATCH; i++) F.pot.push(m);
+  for (let i = 0; i < bowls; i++) F.pot.push(m);
   F.cooked.push(F.t);
   if (real) on.cooked();
 }
-/** Cooks a batch every half second while someone's at the pot, if there's four of each and room for the bowls. */
-function tendPot(timer: { cookT: number }, dt: number) {
+/** Cooks a batch every half second while someone's at the pot, if there's four of each and room for the bowls: the
+ *  player's (or the forecast's "You") a full one, a cook's COOK_BATCH. */
+function tendPot(timer: { cookT: number }, dt: number, bowls = batchBowls()) {
   timer.cookT -= dt;
   if (timer.cookT > 0) return true;
   timer.cookT = 0.5;
-  if (canCook() && !potFull()) { cookBatch(); return true; }
+  if (canCook() && !potFull()) { cookBatch(bowls); return true; }
   return false;
 }
+/** When the player last stood at the pot (F.t): the cook stands back while they're cooking. */
+let youCooked = -Infinity;
+const youCooking = () => real && F.t - youCooked >= 0 && F.t - youCooked < 0.25;
 
 /** The pot ladles its bowls out onto the counter, one at a time, while the counter has room. */
 function ladle(dt: number) {
@@ -459,23 +493,26 @@ export interface You { x: number; z: number; speed: number; cap: number; carry: 
 const YOU_PACE = 1;
 /** Where the player is now, for the forecast (the game sets it; without it, the forecast is the crew alone). */
 export const you = { now: (): You | null => null };
-/** The forecasts made lately, by how many of his fans are kept home (none, or a fix's). */
-const fc = new Map<number, { t: number; i: number; v: Forecast }>();
+/** The forecasts made lately, by how many of his fans are kept home (none, or a fix's) and the cooking show's bonus
+ *  assumed. */
+const fc = new Map<string, { t: number; i: number; v: Forecast }>();
 /**
  * What would happen if the gong were rung now: the whole cellar is copied, and the rush run ahead in the copy, to the
  * bell, with the player in it doing what a good player would: cooking until there's a cook, carrying bowls until
  * there's an attendant, and running the lines that have no hire. Exact, because nothing in the cellar is left to
- * chance. Kept for half a second of game time.
+ * chance. Kept for half a second of game time. `bonus`: as if the cooking show (chanko.ts) had just bought the pot a
+ * bonus of that many percent (a BONUS_TIERS pct: 20, 35, 50), for its BONUS_S seconds from the gong.
  */
-export function forecast(kept = 0): Forecast | null {
+export function forecast(kept = 0, { bonus = 0 }: { bonus?: number } = {}): Forecast | null {
   const boss = nextBoss();
   if (!boss || F.rush) return null;
-  const was0 = fc.get(kept);
+  const key = `${kept}|${bonus}`, was0 = fc.get(key);
   if (was0 && was0.i === F.beaten && was0.v.boss === boss && F.t - was0.t < 0.5 && F.t >= was0.t) return was0.v;
   const was = F, me = you.now();
   F = structuredClone(was);
   real = false;
   try {
+    if (bonus) F.bonus = { pct: bonus, t: BONUS_S };
     if (me) {
       // (a little slower than they walk: nobody plays a rush perfectly, and "Ready" has to be a promise the gong keeps)
       const w: Worker = { ...worker('washer'), role: 'you', x: me.x, z: me.z, speed: me.speed * YOU_PACE, cap: me.cap, carry: me.carry ? structuredClone(me.carry) : null };
@@ -490,7 +527,7 @@ export function forecast(kept = 0): Forecast | null {
     for (let n = 0; n < 4000 && !F.rush!.done; n++) step(0.05);
     const R = F.rush!;
     const v: Forecast = { boss, turned: R.turned, worst: worstShort(R), at: R.t };
-    fc.set(kept, { t: was.t, i: was.beaten, v });
+    fc.set(key, { t: was.t, i: was.beaten, v });
     return v;
   } finally {
     F = was;
@@ -628,7 +665,12 @@ const load = (w: Worker) => (!w.carry ? 0 : w.carry.k === 'bowl' ? w.carry.bowls
 /** A hire's moment: cooking, busy at a station, walking to the next one, or thinking what to do. */
 function updWorker(w: Worker, dt: number) {
   w.moving = false;
-  if (w.cooking > 0) { w.cooking -= dt; if (!tendPot(w, dt) && w.role !== 'cook') w.cooking = 0; return; }
+  if (w.cooking > 0) {
+    w.cooking -= dt;
+    if (w.role === 'cook') { if (!youCooking()) tendPot(w, dt, cookBowls()); }
+    else if (!tendPot(w, dt)) w.cooking = 0;
+    return;
+  }
   if (w.dwell > 0) { w.dwell -= dt; return; }
   if (!w.path.length) {
     if (w.steps.length) {
@@ -699,6 +741,7 @@ function updBout(dt: number) {
 /** Moves the cellar on by `dt` seconds. */
 export function step(dt: number) {
   F.t += dt;
+  if (F.bonus.t > 0 && (F.bonus.t -= dt) <= 0) F.bonus = { pct: 0, t: 0 };
   syncMachines();
   updMachines(dt);
   ladle(dt);
@@ -736,9 +779,10 @@ export function toLedge(k: Ing) {
   F.pantry[k]++;
   return true;
 }
-/** The player standing at the pot keeps it cooking (until there's a cook, who does it for them). */
+/** The player standing at the pot keeps it cooking, full batches (a cook stands back while they do). */
 export function playerAtPot(dt: number) {
-  if (!F.hires.cook) tendPot(F, dt);
+  youCooked = F.t;
+  tendPot(F, dt);
 }
 /** The player at the counter: takes a bowl (true for a mushroom bowl), if there is one. */
 export const takeBowl = (): boolean | undefined => F.counter.shift();
@@ -799,6 +843,7 @@ export function fightFrom(raw: unknown): Fight {
       fed: list<number>(r.fed, isNum), cooked: list<number>(r.cooked, isNum), full: list<number>(r.full, isNum),
       fullAcc: num(r.fullAcc), earned: list<[number, number]>(r.earned, x => Array.isArray(x) && x.every(isNum)),
       seed: clamp(Math.floor(num(r.seed, 3)), 1, 2147483646), cookT: 0,
+      bonus: BONUS_TIERS.some(x => x.pct && x.pct === r.bonus?.pct) && num(r.bonus?.t) > 0 ? { pct: r.bonus!.pct, t: clamp(num(r.bonus?.t), 0, BONUS_S) } : b.bonus,
       den: {
         door: r.den?.door === true, monte: { bout: Math.floor(num(r.den?.monte?.bout, -1)), played: clamp(Math.floor(num(r.den?.monte?.played)), 0, 99) },
         eddie: num(r.den?.eddie?.cut) >= 1

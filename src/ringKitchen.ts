@@ -184,7 +184,7 @@ function marker(at: XZ, icon: string, parent: Object3D = cellar) {
   return d.mesh;
 }
 for (const k of ['rice', 'fish'] as const) marker(BIN_PADS[k], k === 'rice' ? '🍚' : '🐟');
-marker(POT_PAD, '🍲'); marker(COUNTER_PAD, '🍲'); marker(BAR_PAD, '🏮');
+marker(POT_PAD, '🍲').name = 'potPad'; marker(COUNTER_PAD, '🍲'); marker(BAR_PAD, '🏮');
 const MARK_ICON: Record<Ing, string> = { rice: '🌾', fish: '🐟', mush: '🍄' };
 // (a marker by each of the grow room's beds; one for all the racks, and one for all the barrels, which moves along the
 // row as it grows: cellarPlan.ts's machinePad)
@@ -311,6 +311,7 @@ function serveBowls() {
     if (!slot) continue;
     const b = add(cellar, newBowl(m));
     b.position.set(POT.x + (j % 3 - 1) * 0.2, CY + POT_TOP + 0.1, POT.z);
+    b.name = 'potFlight';
     inAir++;
     fly(b, () => slot.position, 0.5, 1.1, () => { cellar.remove(b); inAir = Math.max(0, inAir - 1); });
   }
@@ -377,7 +378,7 @@ function showBowls(rows: Mesh[][], line: boolean[]) {
 
 // ---------- the pot ----------
 const SOUP: Record<Ing, [number, number, number]> = { rice: [239, 230, 207], fish: [233, 138, 107], mush: [140, 101, 66] };
-const steam = Array.from({ length: 6 }, (_, j) => { const s = add(cellar, mesh(G.sphere, smoke, POT.x, CY + POT_TOP, POT.z)); s.userData.t = j / 6; return s; });
+const steam = Array.from({ length: 6 }, (_, j) => { const s = add(cellar, mesh(G.sphere, smoke, POT.x, CY + POT_TOP, POT.z)); s.userData.t = j / 6; s.name = 'potSteam'; return s; });
 /** The stew: the bowls in the pot, cooked and not yet ladled out; empty once they're all out, brimming when it's full. */
 const potFill = potMesh.getObjectByName('potFill')!;
 /** Where the stew stands with none left: on the pot's floor, so the last bowl's worth sinks away rather than vanishing. */
@@ -389,8 +390,8 @@ const STEW_FALL = 0.3;
 const tallyCv = document.createElement('canvas'); tallyCv.width = 192; tallyCv.height = 96;
 const tallyTex = new CanvasTexture(tallyCv);
 const tally = add(potMesh, new Mesh(new PlaneGeometry(0.62, 0.31), new MeshBasicMaterial({ map: tallyTex, transparent: true })));
-tally.position.set(0, HEARTH.h + 0.48, 0.93); tally.rotation.x = -0.25;
-const cord = add(potMesh, mesh(G.box, 0x3E3E44, 0, HEARTH.h + 0.67, 0.89)); cord.scale.set(0.02, 0.1, 0.02);
+tally.position.set(0, HEARTH.h + 0.48, 0.93); tally.rotation.x = -0.25; tally.name = 'potTally';
+const cord = add(potMesh, mesh(G.box, 0x3E3E44, 0, HEARTH.h + 0.67, 0.89)); cord.scale.set(0.02, 0.1, 0.02); cord.name = 'potCord';
 let tallyN = -1;
 function drawTally(n: number) {
   tally.visible = cord.visible = n > 0;

@@ -1165,7 +1165,7 @@ describe("the cellar's tiles", () => {
     expect($('shopPurse').textContent).toBe('🐡 10k');
     expect($('shopKeys').hidden).toBe(false);
     expect([...$('shopRows').querySelectorAll('[data-mod]')].map(b => (b as HTMLElement).dataset.mod)).toEqual(['bowls', 'street', 'cellarcrew']);
-    expect([...$('shopRows').querySelectorAll<HTMLElement>('[data-tile]')].map(b => b.dataset.tile)).toEqual(['rack', 'washer', 'barrel', 'salter', 'steam', 'smoke', 'cook', 'attendant']);
+    expect([...$('shopRows').querySelectorAll<HTMLElement>('[data-tile]')].map(b => b.dataset.tile)).toEqual(['rack', 'washer', 'barrel', 'salter', 'steam', 'smoke', 'attendant', 'cook']);
     const row = (id: string) => $('shopRows').querySelector<HTMLElement>(`[data-tile="${id}"]`)!;
     const price = (id: string) => row(id).querySelector<HTMLButtonElement>('button.cost')!;
     // (a line's machines as dots)
@@ -1234,6 +1234,38 @@ describe("the cellar's tiles", () => {
     expect(F().stall.length + F().fed.length).toBeGreaterThan(0);
     expect(F().cooked.length).toBeGreaterThan(0);
     expect(g.wallet.money).toBeGreaterThan(money);
+  }, 30_000);
+
+  it('serving is taken off the player\'s hands before the pot: the attendant after the second boss, the cook after the third', async () => {
+    const { g, F } = await ring({ money: 10_000_000 });
+    F().beaten = 1;
+    g.run(0.1);
+    expect(offered(g)).not.toContain('attendant');
+    F().beaten = 2;
+    g.run(0.1);
+    expect(offered(g)).toContain('attendant');
+    expect(offered(g)).not.toContain('cook');
+    F().beaten = 3;
+    g.run(0.1);
+    expect(offered(g)).toContain('cook');
+  });
+
+  it('a cook gets 70% of the player\'s batch out of the pot, and stands back while the player cooks', async () => {
+    const { g, plan, fight, at, F } = await ring({ ring: { beaten: 3 } });
+    expect(fight.COOK_BATCH).toBe(14);
+    at(plan.WATCH);
+    fight.hire('cook');
+    // (the cook walks over to the pot, and cooks a batch: 14 bowls)
+    F().pantry = { rice: 4, fish: 4, mush: 4 };
+    g.runUntil(() => F().cooked.length > 0, 20);
+    expect(F().pot.length + F().counter.length).toBe(fight.COOK_BATCH);
+    // the player at the pot cooks a full one, the cook standing back
+    F().pot = []; F().counter = []; F().cooked = [];
+    at(plan.POT_PAD);
+    g.run(0.1);
+    F().pantry = { rice: 8, fish: 8, mush: 8 };
+    g.runUntil(() => F().cooked.length >= 2, 5);
+    expect(F().pot.length + F().counter.length).toBe(2 * fight.BATCH);
   }, 30_000);
 
   it('opens with the bosses: the tiers build the venue up and bring more fans', async () => {
@@ -1601,7 +1633,7 @@ describe("the workshop's crafting bench", () => {
     g.run(0.1);
     expect(card('rack').textContent).toContain('2/6');
     tabs()[2].click();
-    expect([...$('shopRows').querySelectorAll<HTMLButtonElement>('[data-tile]')].map(b => b.dataset.tile)).toEqual(['cook', 'attendant']);
+    expect([...$('shopRows').querySelectorAll<HTMLButtonElement>('[data-tile]')].map(b => b.dataset.tile)).toEqual(['attendant', 'cook']);
     $('shopShut').click();
     expect($('shop').hidden).toBe(true);
     expect($('craft').hidden).toBe(false);

@@ -1479,7 +1479,7 @@ export const potMesh = (() => {
     m.scale.set(sx, sy, sz); m.rotation.y = a;
   });
   // the ladle, leaning on the rim
-  const ladle = add(g, new Group()); ladle.position.set(0.55, POT_TOP + 0.05, -0.35); ladle.rotation.z = -0.6;
+  const ladle = add(g, new Group()); ladle.position.set(0.55, POT_TOP + 0.05, -0.35); ladle.rotation.z = -0.6; ladle.name = 'potLadle';
   add(ladle, mesh(G.rope, WOOD, 0, 0.5, 0)).scale.set(1.3, 1.1, 1.3);
   add(ladle, mesh(G.sphere, 0x9AA4AC, 0, -0.02, 0)).scale.set(0.13, 0.07, 0.13);
   return g;
