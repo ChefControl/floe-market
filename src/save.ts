@@ -24,7 +24,7 @@ import { runnersLoad } from './runner';
 import { season, SEASON_LEN, SEASONS, setSeason } from './season';
 import { goBelow } from './stage';
 import { pile } from './stations';
-import { learn, learntLessons, olderGame } from './tutorial';
+import { learntLessons, loadLessons } from './tutorial';
 import { applyUnlock, redrawTile, syncRingTiles, tiles, updStars } from './unlocks';
 import { wallet } from './wallet';
 
@@ -339,7 +339,7 @@ export function load() {
   loadOffer(s.fugu);
   if (stage.n === 3) loadRing(s);
   // the tutorial: this player's lessons, or for a save from before it, what it has done (now it's all in place)
-  if (s.learnt) learn(s.learnt); else olderGame();
+  loadLessons(s.learnt);
   return true;
 }
 

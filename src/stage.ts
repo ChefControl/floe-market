@@ -27,6 +27,7 @@ import { fieldStack, plantPatch } from './rice';
 import { retireRunners } from './runner';
 import { fanfare } from './sfx';
 import { pile } from './stations';
+import { cellarKnown } from './tutorial';
 import { banner, confetti, fade, toast } from './ui';
 import { d2xz, FY, V } from './util';
 import { closeGap, stage1Only, stage2Only, swapDecks } from './world';
@@ -332,7 +333,13 @@ export function enterStage3(silent: boolean) {
       },
       { t: 2.0, run: () => fade(false, true) },
       { t: 2.6, run: () => { banner('Stage 3', 'The Dohyo Below'); confetti(); fanfare(3); react('upset'); } },
-      { t: 5.6, run: () => { banner(null); player.held = false; toast('Rack the rice, salt the fish, then the pot'); } },
+      {
+        t: 5.6, run: () => {
+          banner(null); player.held = false;
+          // (a player who's not been down here before has the tutorial to show them round instead)
+          if (cellarKnown()) toast('Rack the rice, salt the fish, then the pot');
+        },
+      },
     ],
   };
   updStage(0);
