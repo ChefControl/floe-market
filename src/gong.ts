@@ -17,14 +17,15 @@ import { decal, drawPad } from './decals';
 import { dustFx } from './fx';
 import { ringCam } from './dohyo';
 import {
-  type Boss, bossOf, BOSSES, BUYOUT, canRing, canShow, type Carry, F, type Forecast, fixOn, forecast, ICON, type Ing, keptHome, LANDS, NAME, nextBoss, practiceDue, ringGong,
+  type Boss, bossOf, BOSSES, BUYOUT, canRing, canShow, type Carry, F, type Forecast, fixOn, forecast, ICON, type Ing, keptHome, NAME, nextBoss, practiceDue, ringGong,
   grand, type Rush, sides, slam, SLAM, slamDue, strength, toBeat, worstShort, you,
 } from './fight';
 import { kindOf } from './items';
 import { buyHeld, keyHeld } from './input';
 import { level, stage } from './layout';
 import { player } from './player';
-import { moveOf } from './finishers';
+import { landsOf, moveOf } from './finishers';
+import { epicFx } from './epicFx';
 import { showFace } from './portraits';
 import { CHAMP } from './rikishi';
 import { chime, coinDrop, coinEdge, coinPing, lose, win } from './sfx';
@@ -248,7 +249,7 @@ fitted.push(rushYou, rushThem);
 rushYou.dataset.least = rushThem.dataset.least = '0.85';
 const card = $('fightCard');
 /** Seconds the card stays up; seconds till it shows (it's up, but waits unseen, `wait`, for the loser to land:
- *  fight.ts's LANDS), and what plays as it does. */
+ *  finishers.ts's landsOf), and what plays as it does. */
 let cardT = 0, cardIn = 0, cardSting: (() => void) | null = null;
 /** Whether a boss's card is up after his fight (or waiting to show). */
 export const cardUp = () => !card.hidden;
@@ -277,7 +278,7 @@ export function showCard(R: Rush, sting?: () => void) {
   card.className = `${R.win ? 'win' : 'lose'} wait`;
   card.replaceChildren(...kids);
   card.hidden = false;
-  cardIn = LANDS + 0.35; cardSting = sting ?? null;
+  cardIn = landsOf(R, F.bout.finish) + 0.35; cardSting = sting ?? null;
 }
 /** What the strip said last, so it's only rewritten when something in it changes. */
 let barSaid = '';
@@ -290,7 +291,7 @@ function renderBout() {
   const R = F.rush, show = level.down && stage.n === 3 && !coinUp() && (!!R || (watch > 0.5 && !F.quiet));
   if (show === rushEl.hidden) { rushEl.hidden = !show; rushEl.classList.toggle('in', show); }
   if (!show) { barSaid = ''; return; }
-  const B = F.bout, boss = R ? bossOf(R.boss) : null, name = boss ? boss.name : 'Local', move = moveOf(R, B.finish);
+  const B = F.bout, boss = R ? bossOf(R.boss) : null, name = boss ? boss.name : 'Local', move = moveOf(R, B.finish), lands = landsOf(R, B.finish);
   const { yours, theirs } = sides();
   let left = `${CHAMP} ${yours}`, right = `${theirs} ${name}`, mid: string, fill = yours + theirs ? yours / (yours + theirs) : 0.5, goal = -1;
   if (R && B.phase === 'prep') {
@@ -298,8 +299,8 @@ function renderBout() {
     left = `${CHAMP} ${R.turned}`; right = `${R.n - R.turned} ${name}`;
     mid = `🔔 ${Math.max(0, Math.ceil(boss!.bell - R.t))}`;
     fill = R.turned / R.n; goal = toBeat(boss!, R.n) / R.n;
-  } else if (B.phase === 'pay' && move && B.t >= 0.5 && B.t < LANDS + 1.2) mid = move.name;
-  else if (B.phase === 'fight' || (B.phase === 'pay' && B.t < LANDS)) mid = 'FIGHT!';
+  } else if (B.phase === 'pay' && move && B.t >= 0.5 && B.t < lands + 1.2) mid = move.name;
+  else if (B.phase === 'fight' || (B.phase === 'pay' && B.t < lands)) mid = 'FIGHT!';
   // (who won, once the loser's down)
   else if (B.phase === 'pay') mid = B.win ? 'WIN!' : 'LOSE';
   else mid = 'VS';
@@ -368,17 +369,20 @@ let watch = 0;
 const flashEl = document.getElementById('ringFlash')!;
 const lessMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)') ?? { matches: false };
 function updWatch(dt: number) {
-  const want = on(WATCH) ? 1 : 0;
+  // (an epic, dohyo.ts, may take the camera even off the watch spot)
+  const want = on(WATCH) || ringCam.take ? 1 : 0;
   view.shake = 0;
-  if (want === 0 && watch === 0) { flashEl.style.opacity = '0'; return; }
+  if (want === 0 && watch === 0) { flashEl.style.opacity = '0'; epicFx.watch = 0; return; }
   watch += (want - watch) * Math.min(1, dt * 2.5);
   if (Math.abs(want - watch) < 0.002) watch = want;
+  epicFx.watch = watch;
   // The ring's big hits (dohyo.ts): the camera punches in on the pair, shakes, and the screen flashes white. (0.4 up:
   // the camera aims at the middle of what it's on, main.ts, so this is where it aimed over the player's feet.)
   const punch = Math.min(1, ringCam.punch) * watch;
-  view.focus.set(RING.x + (ringCam.at.x - RING.x) * 0.6 * punch, CY + 0.4, RING.z + (ringCam.at.z - RING.z) * 0.6 * punch);
+  // (and an epic looks up after a man thrown high, and pulls back to keep it all in)
+  view.focus.set(RING.x + (ringCam.at.x - RING.x) * 0.6 * punch, CY + 0.4 + ringCam.y * watch, RING.z + (ringCam.at.z - RING.z) * 0.6 * punch);
   view.k = 0.85 * watch;
-  view.zoom = CELLAR_ZOOM * (1 - 0.45 * watch) * (1 - 0.25 * punch);
+  view.zoom = CELLAR_ZOOM * (1 - 0.45 * watch) * (1 - 0.25 * punch) * (1 + 0.8 * ringCam.wide * watch);
   view.shake = ringCam.shake * watch;
   flashEl.style.opacity = lessMotion.matches ? '0' : String(Math.min(1, ringCam.flash) * 0.8 * watch);
 }

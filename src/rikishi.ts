@@ -42,7 +42,7 @@ export function mixPose(a: Pose, b: Pose, k: number): Pose {
 }
 
 /** The bones' lengths: thigh and shin, and the ankle's height off the ground. */
-const THIGH = 0.26, SHIN = 0.24, ANKLE = 0.07;
+export const THIGH = 0.26, SHIN = 0.24, ANKLE = 0.07;
 const ROUND = quietly(() => new SphereGeometry(1, 16, 12));
 const add = <T extends Object3D>(p: Object3D, o: T) => { p.add(o); return o; };
 const bone = (p: Object3D, x: number, y: number, z: number) => { const g = add(p, new Group()); g.position.set(x, y, z); return g; };

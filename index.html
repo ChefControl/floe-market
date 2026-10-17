@@ -148,6 +148,17 @@ body{
 #iou #iouLeft{ font-weight:600; opacity:.75; }
 /* the ring's big hits, seen from the watch spot (gong.ts): a white flash over the game, under the HUD */
 #ringFlash{ position:fixed; inset:0; background:#fff; opacity:0; pointer-events:none; z-index:1; }
+/* the epic: a perfect slam's finisher (epicFx.ts): speed lines, a flash, the move's name slammed across the screen */
+#epic{ position:fixed; inset:0; pointer-events:none; z-index:2; overflow:hidden; }
+#epic .lines{ position:absolute; left:50%; top:50%; width:200vmax; height:200vmax; margin:-100vmax 0 0 -100vmax; opacity:0;
+  background:repeating-conic-gradient(rgba(255,255,255,.85) 0deg 1.2deg, transparent 1.2deg 6.5deg, rgba(255,255,255,.5) 6.5deg 7.1deg, transparent 7.1deg 11deg);
+  -webkit-mask:radial-gradient(circle, transparent 0 17vmax, #000 34vmax); mask:radial-gradient(circle, transparent 0 17vmax, #000 34vmax); }
+#epic .flash{ position:absolute; inset:0; opacity:0; }
+#epic .words{ position:absolute; left:0; right:0; top:26%; text-align:center; opacity:0; font:400 clamp(44px, 9vw, 120px)/1 Bungee,"Arial Black",Impact,sans-serif;
+  color:#FFD34A; -webkit-text-stroke:5px #1B1210; paint-order:stroke fill; letter-spacing:.02em; transform:skewX(-10deg); text-shadow:0 6px 0 #C0392B, 0 10px 18px rgba(0,0,0,.6); }
+#epic .words.in{ animation:epicIn .32s cubic-bezier(.2,1.6,.4,1) both; }
+@keyframes epicIn{ from{ transform:skewX(-10deg) scale(2.6); } to{ transform:skewX(-10deg) scale(1); } }
+@media (prefers-reduced-motion: reduce){ #epic .words.in{ animation:none; } }
 /* Dark for a moment, going up or down the ladder. */
 #tunnelShade{ position:fixed; inset:0; z-index:1; pointer-events:none; opacity:0; background:radial-gradient(ellipse 70% 62% at 50% 48%, rgba(5,4,8,0) 38%, rgba(5,4,8,.92) 100%); }
 #doorFlash{ position:fixed; inset:0; z-index:1; pointer-events:none; opacity:0; background:radial-gradient(ellipse 80% 70% at 45% 50%, rgba(255,150,200,.9), rgba(80,220,210,.45) 55%, rgba(20,10,30,0) 100%); mix-blend-mode:screen; }
@@ -1636,6 +1647,7 @@ body.show #toss, body.show #cook, body.show #coach, body.show #hint, body.show #
 <div id="err" role="alert"><span id="errMsg"></span><button id="errReport" type="button" hidden>Report this</button></div>
 
 <div id="ringFlash" aria-hidden="true"></div>
+<div id="epic" hidden aria-hidden="true"><div class="lines"></div><div class="flash"></div><div class="words"></div></div>
 <section id="gong" aria-label="The gong" hidden>
   <div class="vs"><div class="you"><i class="port" id="gongYouP" aria-hidden="true"></i><span class="name">Chunkos</span></div><b class="x" aria-hidden="true">VS</b><div class="them"><span class="name" id="gongBoss"></span><i class="port" id="gongThemP" aria-hidden="true"></i></div></div>
   <div class="pbody">

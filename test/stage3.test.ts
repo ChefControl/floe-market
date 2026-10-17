@@ -3,10 +3,11 @@
 // the pot, the counter, the soup bar) and the fans who pay for bowls, the gong and its forecast, a boss's rush and the
 // card after it, the cellar's tiles (machines again and again, hires, tiers) bought with Fugu Chips, the swarm on the
 // floor, the watch spot, the buyout, the restaurant upstairs as the front, and saving it all.
-import { BufferGeometry, ExtrudeGeometry, ShapeGeometry } from 'three';
+import { BufferGeometry, ExtrudeGeometry, ShapeGeometry, Vector3 } from 'three';
 import { describe, expect, it, vi } from 'vitest';
 import indexHtml from '../index.html?raw';
 import { bought, FLOE_SUSHI, loadGame, MARKET, RING_DONE, type SaveFixture } from './helpers';
+import { makeRing } from '../src/finishRig';
 
 const $ = (id: string) => document.getElementById(id)!;
 const SUSHI = [...MARKET, 'sushi', ...FLOE_SUSHI];
@@ -1259,7 +1260,12 @@ describe('the finishers', () => {
     expect(end(30, -1)).toEqual(['grand', 'BELT THROW']);
   });
 
-  it('a tight win goes the wrong way first, then the champion turns it at his own straw: the boss lands behind him', async () => {
+  /** Whether he's down: his middle low over the ground under him (lying, or sat). */
+  const down = (r: import('../src/rikishi').RikishiModel, c: typeof import('../src/cellar')) => {
+    const v = r.hips.getWorldPosition(new Vector3()), rg = makeRing(c.RING_TOP, c.RING_HALF, c.RING_R, c.PIT_STEPS);
+    return v.y - c.CY - rg.ground(v.x - c.RING.x, v.z - c.RING.z) < 0.45;
+  };
+  it('a tight win goes the wrong way first, then the champion turns it at his own straw', async () => {
     const { g, fight, dohyo, cellar, F } = await ring();
     expect(fight.ringGong()).toBe(true);
     g.runUntil(() => { while (F().rush!.turned + F().stall.length < 72 && fight.toStall(false)); return F().rush!.done; }, 31 + fight.WALK_IN);
@@ -1271,38 +1277,39 @@ describe('the finishers', () => {
     g.runUntil(() => F().bout.phase === 'pay' && F().bout.t >= 0.6, 3);
     g.ui.hud(0);
     expect($('rushBell').textContent).toBe('TENTACLE TWIST');
-    g.runUntil(() => F().bout.t >= fight.LANDS + 0.2, 4);
-    // thrown out over the straw behind him, east, where a push-out would have him go west
-    expect(dohyo.ring.rival.position.x - cellar.RING.x).toBeGreaterThan(cellar.RING_HALF);
+    // (down by the time the card shows: finishRig's own test checks how each move gets him there)
+    const { landsOf } = await import('../src/finishers');
+    g.runUntil(() => F().bout.t >= landsOf(F().rush, 'tight') + 0.2, 6);
+    expect(down(dohyo.ring.rival, cellar)).toBe(true);
     g.run(1.2);
     g.ui.hud(0);
     expect($('rushBell').textContent).toBe('WIN!');
     expect(F().beaten).toBe(1);
   }, 30_000);
 
-  it("the crab's own: he hoists the champion overhead and scuttles off with him, or slips aside at his straw", async () => {
+  it("the crab's own: under half needed, his heavy finisher; just short, his tight one", async () => {
     const { g, fight, dohyo, cellar, F } = await ring({ ring: { beaten: 1, lines: { mush: { n: 1 } } } });
+    const { landsOf } = await import('../src/finishers');
     const lose = async (n: number) => {
       g.runUntil(() => !F().rush, 30);
       expect(fight.ringGong()).toBe(true);
       g.runUntil(() => { while (F().rush!.turned + F().stall.length < n && fight.toStall(false)); return F().rush!.done; }, 31 + fight.WALK_IN);
-      g.runUntil(() => F().bout.phase === 'pay' && F().bout.t >= 1.2, 25);
+      g.runUntil(() => F().bout.phase === 'pay' && F().bout.t >= 0.6, 25);
     };
-    const y = (r: typeof dohyo.ring.champ) => r.position.y - cellar.CY, x = (r: typeof dohyo.ring.champ) => r.position.x - cellar.RING.x;
-    const z = (r: typeof dohyo.ring.champ) => r.position.z - cellar.RING.z;
-    // under half of the 96 needed: Crab shuffle, the champion held up over his head, carried along the straw
+    // under half of the 96 needed: Crab shuffle
     await lose(30);
     expect(F().bout.finish).toBe('heavy');
-    expect(y(dohyo.ring.champ) - y(dohyo.ring.rival)).toBeGreaterThan(0.9);
-    expect(z(dohyo.ring.rival)).toBeGreaterThan(0.5);
-    g.runUntil(() => F().bout.t >= fight.LANDS + 0.2, 4);
-    expect(x(dohyo.ring.champ)).toBeGreaterThan(cellar.RING_HALF);
-    // just short, 90 of 96: Side step, the crab aside and the champion on past him, off the mound west
+    g.ui.hud(0);
+    expect($('rushBell').textContent).toBe('CRAB SHUFFLE');
+    g.runUntil(() => F().bout.t >= landsOf(F().rush, 'heavy') + 0.2, 6);
+    expect(down(dohyo.ring.champ, cellar)).toBe(true);
+    // just short, 90 of 96: Side step
     await lose(90);
     expect(F().bout.finish).toBe('tight');
-    expect(z(dohyo.ring.rival)).toBeGreaterThan(0.9);
-    g.runUntil(() => F().bout.t >= fight.LANDS + 0.2, 4);
-    expect(x(dohyo.ring.champ)).toBeLessThan(-cellar.RING_HALF);
+    g.ui.hud(0);
+    expect($('rushBell').textContent).toBe('SIDE STEP');
+    g.runUntil(() => F().bout.t >= landsOf(F().rush, 'tight') + 0.2, 6);
+    expect(down(dohyo.ring.champ, cellar)).toBe(true);
   }, 60_000);
 
   it("a heavy loss ends with the boss's own move; a plain win with the push-out west", async () => {
@@ -1313,9 +1320,9 @@ describe('the finishers', () => {
     g.runUntil(() => F().bout.phase === 'pay' && F().bout.t >= 0.6, 25);
     g.ui.hud(0);
     expect($('rushBell').textContent).toBe('EIGHT-ARM WRAP');
-    g.runUntil(() => F().bout.t >= fight.LANDS + 0.2, 4);
-    // (the champion off the mound, east)
-    expect(dohyo.ring.champ.position.x - cellar.RING.x).toBeGreaterThan(cellar.RING_HALF);
+    const { landsOf } = await import('../src/finishers');
+    g.runUntil(() => F().bout.t >= landsOf(F().rush, 'heavy') + 0.2, 6);
+    expect(down(dohyo.ring.champ, cellar)).toBe(true);
     g.runUntil(() => !F().rush, 15);
     expect(fight.ringGong()).toBe(true);
     g.runUntil(() => { while (F().rush!.turned + F().stall.length < 90 && fight.toStall(false)); return F().rush!.done; }, 31 + fight.WALK_IN);
@@ -1392,9 +1399,10 @@ describe('the gong during a local fight', () => {
     expect(el.classList.contains('two')).toBe(false);
   });
 
-  it("the fall lands when fight.ts says it does", async () => {
-    const { fight, dohyo } = await ring({ level: 0 });
-    expect(Math.abs(dohyo.landsAt - fight.LANDS)).toBeLessThan(0.05);
+  it("the push-out's fall lands when fight.ts says it does", async () => {
+    const { fight } = await ring({ level: 0 });
+    const { PUSH } = await import('../src/finishers');
+    expect(PUSH.lands).toBe(fight.LANDS);
   });
 });
 

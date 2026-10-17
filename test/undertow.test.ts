@@ -67,7 +67,7 @@ describe('the Undertow', () => {
     expect(g.layout.found.den).toBe(false);
     // the card goes, his crowd goes home, the next bout begins: Mr. Fugu wants a word, a "!" over him
     $('fightCard').click();
-    g.runUntil(() => S.wayState().calling, fight.BOUT.pay + 1);
+    g.runUntil(() => S.wayState().calling, fight.EPIC_PAY + 1);
     expect(F().rush).toBeNull();
     expect(g.layout.found.den).toBe(false);
     // knocking before he's had his word: "Password?", and nobody's let in

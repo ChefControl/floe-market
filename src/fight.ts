@@ -103,11 +103,17 @@ export const BUYOUT = 12000;
 /** A bout's phases: preparation (the fans buy soup; on a boss night, as long as his bell), taking their seats, the
  *  fight, and the result. */
 export const BOUT = { prep: 20, sit: 5, fight: 15, pay: 7 };
-/** Seconds into a fight's result that the loser lands off the mound (dohyo.ts's finish, slowed: its `landsAt`). Nothing
- *  that says who won is shown before it. */
+/** Seconds into a push-out's result that the loser lands off the mound (finishers/push.ts); a finisher's are its own
+ *  (finishers.ts's landsOf). Nothing that says who won is shown before it. */
 export const LANDS = 2.3;
 /** How much faster a local fight's result plays out after the fall, while a boss called in by the gong waits on it. */
 export const HURRY = 1.6;
+/** A result's length: a push-out's (a local's, or a plain boss fight's) BOUT.pay; a finisher's (finishers.ts) longer,
+ *  for the move and the getting up after it; and the epic, a perfect slam's (gong.ts), longer still. */
+export const FINISHER_PAY = 8.5, EPIC_PAY = 11;
+/** Whether this fight's result is the epic: a grand win with a perfect slam. */
+export const epic = (B: Bout = F.bout, R: Rush | null = F.rush) => !!R && B.finish === 'grand' && R.slam === 2;
+export const payLen = (B: Bout = F.bout, R: Rush | null = F.rush) => (epic(B, R) ? EPIC_PAY : R && B.finish !== 'push' ? FINISHER_PAY : BOUT.pay);
 /** The slam, a grand win's showy finish, the player's to land (gong.ts): offered once `share` of a boss's crowd was
  *  turned; in the fight a ring closes on the champion's face over `lead` seconds to meet its mark `at` seconds in (the
  *  belly bump), and a press within `perfect` of it is perfect, within `good` good: his prize, that much more. */
@@ -827,7 +833,7 @@ function updBout(dt: number) {
     const k = B.t / BOUT.fight, target = (B.win ? 1 : -1) * (B.finish === 'tight' ? -0.85 : 1), wobble = Math.sin(B.t * 1.7 + B.noise) * 0.4 * (1 - k);
     B.tug = clamp(lean + wobble + (target - lean) * ease(clamp((k - 0.35) / 0.6, 0, 1)), -1, 1);
     if (B.t >= BOUT.fight) fightOver();
-  } else if (B.phase === 'pay' && B.t >= BOUT.pay) {
+  } else if (B.phase === 'pay' && B.t >= payLen()) {
     // the fans go home, and the next ones come in (or the boss the gong called, his crowd)
     F.rush = null; F.queue = [];
     F.bout = freshBout(B.n);
