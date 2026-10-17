@@ -45,6 +45,10 @@ const LESSONS: Lesson[] = [
 ];
 /** Device storage for what's been learnt (the save keeps a copy too). */
 const KEY = 'floe-market-tutorial';
+/** Forgets what this device has learnt (the demo build, which keeps nothing, so every visit starts over). */
+export function forgetLessons() {
+  try { localStorage.removeItem(KEY); } catch { /* storage unavailable: there's nothing kept */ }
+}
 /** Seconds a lesson that's learnt by reading stays in view first. */
 const READ = 6;
 /** Seconds the banner saying it's all done stays up. */
