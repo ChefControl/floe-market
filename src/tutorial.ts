@@ -11,19 +11,25 @@
 // (the harpoon, usually) brings up a banner saying the tutorial's complete, and that the rest is up to the player; the
 // rating, which only comes up after a few more upgrades, is a tip for later, outside the tutorial proper.
 // Stage 3 has a tutorial of its own, the same way, for what's new down in the cellar (nothing stage 1 already taught):
-// the dumbwaiter's bins, the racks and barrels, standing at the pot to cook, the bowls from the counter out to the
-// stall, the cheapest thing at the shop counter (saved up for in 🐡), and the gong: the practice fight against the champion's
+// first a look round at how a fight goes (the ring, the fans fed at the stall on your side, 💪 counting them, the gong
+// calling a boss with a crowd of his own, and turning half of them before his bell), read where each thing is; then the
+// dumbwaiter's bins, the racks and barrels, standing at the pot to cook, the bowls from the counter out to the stall,
+// the cooking game at the pot, played once (a bonus game, so not one of the basics), the cheapest thing at the shop
+// counter (saved up for in 🐡), and the gong: the practice fight against the champion's
 // sparring partner (fight.ts), whose small crowd a full stall turns (so it's pointed at once the forecast says it's
 // won, and the stall until then); winning it is the end of it. Any game that's beaten no boss and never won it has it
 // to come, older ones too (fight.ts, owedPractice). (A game without one, a test's, has the first boss instead, pointed
-// at only once its forecast says it's a win.) Then tips for later: the fans' chips and Fugu's cut, 💪, and the
-// grow room's beds. A save from before the cellar's lessons counts what it has done down there already.
+// at only once its forecast says it's a win.) Then tips for later: the fans' chips and Fugu's cut, and the grow room's
+// beds. A save from before the cellar's lessons counts what it has done down there already; one from before the look
+// round skips it if it's had a fight.
 import { Group, Mesh, MeshBasicMaterial, RingGeometry } from 'three';
 import { buyButtonShown, touchBuy } from './buy';
 import { BAR_PAD, BENCH_PAD, BIN_PADS, COUNTER_PAD, GONG_PAD, machinePad, POT_PAD, type Pad } from './cellarPlan';
 import { C1 } from './counters';
 import { modCost, MODS, mods } from './economy';
-import { BOSSES, doneCount, F, forecast, growOpen, lineRoom, mach, nextBoss, PER_BATCH, practiceDue, sold, toBeat } from './fight';
+import {
+  BOSSES, canShow, doneCount, F, forecast, growOpen, lineRoom, mach, nextBoss, PER_BATCH, practiceDue, showsDone, sold, toBeat,
+} from './fight';
 import { filletsInProgress } from './fishing';
 import { detail, quietly } from './kit';
 import { CELLAR_Y, level, stage } from './layout';
@@ -41,10 +47,11 @@ import { chips, d2xz, FY, price, type XZ } from './util';
 import { wallet } from './wallet';
 
 export type Lesson = 'fish' | 'pick' | 'sell' | 'cash' | 'buy' | 'shop' | 'harpoon' | 'stars'
-  | 'bins' | 'prep' | 'pot' | 'bowls' | 'bench' | 'gong' | 'chips' | 'power' | 'grow';
+  | 'ring' | 'fed' | 'boss' | 'bell' | 'bins' | 'prep' | 'pot' | 'bowls' | 'cook' | 'bench' | 'gong' | 'chips' | 'power' | 'grow';
+// ('power' was a tip for later, before the look round said it up front: kept, so a save's copy of it isn't dropped)
 const LESSONS: Lesson[] = [
   'fish', 'pick', 'sell', 'cash', 'buy', 'shop', 'harpoon', 'stars',
-  'bins', 'prep', 'pot', 'bowls', 'bench', 'gong', 'chips', 'power', 'grow',
+  'ring', 'fed', 'boss', 'bell', 'bins', 'prep', 'pot', 'bowls', 'cook', 'bench', 'gong', 'chips', 'power', 'grow',
 ];
 /** Device storage for what's been learnt (the save keeps a copy too). */
 const KEY = 'floe-market-tutorial';
@@ -75,6 +82,8 @@ interface Step {
   done?: () => boolean;
   /** Learnt by having it in view this long instead. */
   read?: number;
+  /** (with `read`) Read while its bubble's up at all, waiting at the screen's edge too, not only with its spot in view. */
+  anywhere?: boolean;
   /** A tip for later, when it comes up: not one of the basics the tutorial is complete without. */
   later?: boolean;
   /** Stays up while the player stands there (buying needs holding there); the others step aside for the player. */
@@ -183,6 +192,16 @@ function gongReady() {
 }
 /** The card after a boss's fight is up (gong.ts). */
 const cardUp = () => document.getElementById('fightCard')?.hidden === false;
+/** The middle of the ring (cellar.ts's RING, kept apart from its 3D). */
+export const RING_AT = { x: -4.4, z: -1.4 };
+/** The look round at how a fight goes: known to a game that's had a fight, a practice one or a boss's. */
+const fought = () => F.beaten > 0 || F.sparred;
+/** The lessons of the look round, which a save from before it counts on their own (loadLessons). */
+const LOOK: Lesson[] = ['ring', 'fed', 'boss', 'bell'];
+/** Standing at the pot. */
+const atPot = () => d2xz(player.g.position, POT_PAD) < POT_PAD.r * POT_PAD.r;
+/** How to start the cooking game, on this device. */
+const cookKey = () => (touchBuy() ? 'Tap Cook' : 'Press E or Cook');
 
 const STEPS: Step[] = [
   {
@@ -232,9 +251,27 @@ const STEPS: Step[] = [
     say: () => [`Opens at ★${firstLocked()?.stars?.toFixed(1) ?? ''}`, 'Serve customers quickly for better reviews'],
     known: () => stage.n > 1 || tiles.some(t => !!t.stars && (t.open || t.done)),
   },
-  // stage 3: what's new down in the cellar, in order, from the dumbwaiter to the first fight
+  // stage 3: what's new down in the cellar, in order: a look round at how a fight goes, read where each thing is; then
+  // from the dumbwaiter to the first fight
   {
-    id: 'bins', stage: 3, at: () => down(BIN_PADS.rice), say: () => ['Grab rice or fish here', 'Sent down from upstairs'],
+    id: 'ring', stage: 3, read: READ, anywhere: true, at: () => ({ ...RING_AT, y: CELLAR_Y, r: 0 }),
+    say: () => ['Fight night happens in this ring', 'The side with more fans wins'], known: fought,
+  },
+  {
+    // (and the 💪 by the cash glows)
+    id: 'fed', stage: 3, after: 'ring', read: READ, anywhere: true, at: () => down(BAR_PAD, 0),
+    say: () => ['Fed fans cheer for your champion', '💪 up top counts them'], known: fought,
+  },
+  {
+    id: 'boss', stage: 3, after: 'fed', read: READ, anywhere: true, at: () => down(GONG_PAD, 0),
+    say: () => ['Ring the gong to call a boss', 'He brings a crowd of his own'], known: fought,
+  },
+  {
+    id: 'bell', stage: 3, after: 'boss', read: READ, anywhere: true, at: () => down(BAR_PAD, 0),
+    say: () => ['Feed his fans to turn them', 'Turn half before his bell rings'], known: fought,
+  },
+  {
+    id: 'bins', stage: 3, after: 'bell', at: () => down(BIN_PADS.rice), say: () => ['Grab rice or fish here', 'Sent down from upstairs'],
     done: () => holding('rice', 'fish'), known: served,
   },
   {
@@ -253,6 +290,14 @@ const STEPS: Step[] = [
     at: () => (holding('bowl') ? down(BAR_PAD) : F.counter.length ? down(COUNTER_PAD) : null),
     say: () => (holding('bowl') ? ['Drop them in the stall', 'Fans come once it\'s out'] : ['Take the bowls']),
     done: () => F.stall.length > 0 || sold.n > 0, known: served,
+  },
+  {
+    // the cooking game at the pot, played through once: a bonus game, so not one of the basics (nor its banner)
+    // (nothing to point at while its bonus runs, and its own panel's up while it's on)
+    id: 'cook', stage: 3, after: 'bowls', stay: true, later: true, at: () => (canShow() ? down(POT_PAD) : null),
+    say: () => (!atPot() ? ['Play the cooking game here', 'Bigger batches for a while']
+      : F.show ? ['Carry on your cooking game', cookKey()] : [cookKey(), 'Stars make bigger batches for 45 s']),
+    done: () => showsDone.n > 0, known: () => F.bonus.t > 0 || !!F.show,
   },
   {
     // the cheapest thing at the shop counter, saved up for in chips; on the square, the bubble says how
@@ -287,10 +332,6 @@ const STEPS: Step[] = [
     say: () => ['Fans pay in 🐡 chips', 'Fugu keeps 30%'], known: served,
   },
   {
-    id: 'power', stage: 3, after: 'chips', read: READ, later: true, at: () => down(BAR_PAD, 0),
-    say: () => ['💪 Fed fans cheer for you', 'Keep the stall full'], known: () => F.beaten > 0,
-  },
-  {
     id: 'grow', stage: 3, after: 'gong', read: READ, later: true,
     at: () => (growOpen() && F.lines.mush.n > 0 ? down(machinePad('mush', 0, F.lines.mush.n), 0) : null),
     say: () => ['Mushrooms grow here', 'The pot wants 🍄 too'], known: () => F.beaten > 1 || !!F.hires.picker,
@@ -314,6 +355,8 @@ export function loadLessons(ids: readonly unknown[] | null) {
   learn(ids);
   const below = STEPS.filter(s => s.stage === 3);
   if (!below.some(s => ids.includes(s.id))) learn(below.filter(s => s.known()).map(s => s.id));
+  // (and one from before the look round at how a fight goes, which came later, skips it if it's had a fight)
+  else if (!LOOK.some(id => ids.includes(id))) learn(STEPS.filter(s => LOOK.includes(s.id) && s.known()).map(s => s.id));
 }
 
 function store() {
@@ -425,7 +468,7 @@ scene.add(guide);
 const TIP = 1.2, OVER = 2.1;
 
 const bubble = document.getElementById('coach')!, head = bubble.querySelector('b')!, more = bubble.querySelector('small')!;
-const dir = bubble.querySelector<HTMLElement>('.dir')!, stars = document.getElementById('stars')!;
+const dir = bubble.querySelector<HTMLElement>('.dir')!, stars = document.getElementById('stars')!, power = document.getElementById('power')!;
 /** The bubble's size (grows in), how long it's been up, and which lesson it was drawn for. */
 let k = 0, t = 0, drawn: Step | null = null, said = '';
 const still = () => !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
@@ -451,9 +494,9 @@ function drawGoal() {
   goalEl.setAttribute('aria-label', ready ? `${g.name}: you can buy it now` : `Saving up for ${g.name}: ${cost(g, have, true)} of ${cost(g, g.need)}`);
 }
 
-/** A stage 3 panel's open (the gong's, Eddie's, Tommy's, Harry's), Eddie's coin's up, or a fight's card: the bubble
- *  keeps out of its way. */
-const PANELS = ['gong', 'eddie', 'monte', 'loans', 'coin', 'fightCard'].map(id => document.getElementById(id));
+/** A stage 3 panel's open (the gong's, Eddie's, Tommy's, Harry's), Eddie's coin's up, a fight's card, the cooking game,
+ *  or a scene (on the way south, or one of the Family introducing himself): the bubble keeps out of its way. */
+const PANELS = ['gong', 'eddie', 'monte', 'loans', 'coin', 'fightCard', 'show', 'way', 'meet'].map(id => document.getElementById(id));
 const panelUp = () => PANELS.some(p => p && !p.hidden);
 
 /** Each frame: places the arrow, ring and bubble for the lesson showing (main.ts; it needs the camera). */
@@ -469,6 +512,7 @@ export function drawTutorial(dt: number) {
   guide.visible = on;
   bubble.hidden = !on;
   stars.classList.toggle('teach', on && s.id === 'stars');
+  power.classList.toggle('teach', on && s.id === 'fed');
   if (!on) return;
   const calm = still(), bob = calm ? 0 : Math.sin(t * 4) * 0.12;
   // easing out with a little overshoot, like the pop-in (pop.ts)
@@ -485,7 +529,7 @@ export function drawTutorial(dt: number) {
   const [title, line = ''] = s.say();
   if (title + line !== said) { said = title + line; head.textContent = title; more.textContent = line; more.hidden = !line; }
   const o = onScreen({ x: spot.x, y: spot.y + tip + 1.1, z: spot.z });
-  if (o.inView) lesson.viewed += dt;
+  if (o.inView || s.anywhere) lesson.viewed += dt;
   bubble.classList.toggle('edge', !o.inView);
   // the whole bubble stays on the screen (at the edge, with room for its badge)
   const bw = bubble.offsetWidth / 2, bh = bubble.offsetHeight / 2, m = o.inView ? 8 : 22;

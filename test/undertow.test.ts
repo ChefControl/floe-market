@@ -294,6 +294,72 @@ describe('the Undertow', () => {
     expect(family.eddie.watch).toBeNull();
   });
 
+  it('the first time, each of the Family introduces himself, staged like Mr. Fugu, once a game; then his table opens', async () => {
+    // (a game from before the introductions, with nothing to show it's used any of them)
+    const { g, plan, undertow, fight, at, F } = await ring({ ring: { beaten: 2, lines: { mush: { n: 1 } }, den: { met: undefined } } });
+    const meet = await import('../src/meet');
+    const { family } = await import('../src/family');
+    expect(F().den.met).toEqual({ eddie: false, harry: false, tommy: false });
+    at(plan.BOOTH_PADS.eddie);
+    g.run(0.1);
+    // the cellar holds still, the camera comes in on him, his panel waits, and nobody else has a word
+    expect(meet.meetPlaying()).toBe(true);
+    expect(g.player.held).toBe(true);
+    expect($('meet').hidden).toBe(false);
+    expect($('eddie').hidden).toBe(true);
+    expect(undertow.undertowSays('eddie')).toBe('');
+    const t = F().t;
+    g.run(1);
+    expect(F().t).toBe(t);
+    expect(meet.meetCam.k).toBeGreaterThan(0.9);
+    // his lines, one at a time in his bubble, his name on it, his head bobbing as he says them; a tap for the next
+    expect(meet.meetState()).toMatchObject({ who: 'eddie', says: meet.INTRO.eddie[0], line: 0 });
+    expect($('meetWho').textContent).toBe('Slick Eddie');
+    expect(family.eddie.talking).toBe(true);
+    const said: string[] = [];
+    for (let i = 0; i < 20 && meet.meetPlaying(); i++) {
+      g.run(1.5);
+      said.push(meet.meetState().says);
+      window.dispatchEvent(new PointerEvent('pointerdown'));
+      g.run(0.1);
+    }
+    expect([...new Set(said)]).toEqual(meet.INTRO.eddie);
+    // every line 8 words or fewer, all three of them
+    for (const l of Object.values(meet.INTRO).flat()) expect(l.split(' ').length, l).toBeLessThanOrEqual(8);
+    // then back to the game: his panel opens as ever, and it's kept
+    g.run(0.1);
+    expect(meet.meetPlaying()).toBe(false);
+    expect(g.player.held).toBe(false);
+    expect($('eddie').hidden).toBe(false);
+    expect(F().den.met.eddie).toBe(true);
+    g.saveMod.save();
+    expect(JSON.parse(localStorage.getItem('floe-market-v1')!).ring.den.met).toEqual({ eddie: true, harry: false, tommy: false });
+    // off and back on: no introduction again, his word as before
+    at({ x: plan.BOOTH_PADS.eddie.x + 1.5, z: plan.BOOTH_PADS.eddie.z });
+    g.run(0.3);
+    at(plan.BOOTH_PADS.eddie);
+    g.run(0.2);
+    expect(meet.meetPlaying()).toBe(false);
+    expect(undertow.undertowSays('eddie')).toContain('Slick Eddie');
+    // the next one has his own
+    at(plan.BOOTH_PADS.tommy);
+    g.run(1);
+    expect(meet.meetState()).toMatchObject({ who: 'tommy', says: meet.INTRO.tommy[0] });
+    expect($('meetWho').textContent).toBe('Three-Card Tommy');
+    expect($('monte').hidden).toBe(true);
+    // (and a reload keeps who's been met)
+    const again = await ring(JSON.parse(localStorage.getItem('floe-market-v1')!));
+    expect(again.fight.F.den.met.eddie).toBe(true);
+    void fight;
+  }, 30_000);
+
+  it('a save from before the introductions counts a vendor met when it shows he was used', async () => {
+    const { F } = await ring({ ring: { beaten: 3, lines: { mush: { n: 1 } }, den: { met: undefined, monte: { bout: 4, played: 2 }, loan: { owed: 18, total: 24 } } } });
+    expect(F().den.met).toEqual({ eddie: false, harry: true, tommy: true });
+    const fixed = await ring({ ring: { beaten: 2, lines: { mush: { n: 1 } }, den: { met: undefined, eddie: { boss: 2, cut: 2, caught: false } } } });
+    expect(fixed.F().den.met).toEqual({ eddie: true, harry: false, tommy: false });
+  }, 30_000);
+
   it("Tommy deals monte at his crate: the stake in Fugu Chips up to his limit, double for the queen, 3 rounds a fight", async () => {
     const { g, plan, fight, at, F } = await ring({ money: 100 * 1000, ring: { beaten: 2, lines: { mush: { n: 1 } } } });
     const M = await import('../src/monteTable');

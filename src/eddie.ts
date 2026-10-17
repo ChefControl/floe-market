@@ -11,6 +11,7 @@ import { BOOTH_PADS, BOOTHS } from './cellarPlan';
 import { CHIP, F, FIX, fixFee, fixOn, keptHome, nextBoss, setFix } from './fight';
 import { apart, dice } from './kit';
 import { found, level } from './layout';
+import { met } from './meet';
 import { save } from './save';
 import { coin } from './sfx';
 import { V } from './util';
@@ -97,7 +98,7 @@ const pad = apart(() => gamePad(BOOTH_PADS.eddie, '🤝', panel, {
   away: '',
 }, {
   at: V(BOOTHS.eddie.x + 0.45, CY + 0.95, BOOTHS.eddie.z), from: V(0.8, 0.75, 0.25).normalize(), wide: 1.5, tall: 1.2,
-}, () => level.down && found.den), dice(0xED1E));
+}, () => level.down && found.den && met('eddie')), dice(0xED1E));
 // (its marking's the Undertow's own, undertow.ts's: this one's never put down)
 pad.enable();
 

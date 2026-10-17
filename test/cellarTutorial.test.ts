@@ -1,7 +1,7 @@
-// Stage 3's tutorial: the gold arrow and bubble again, down in the cellar, for what's new there (the bins, the racks
-// and barrels, the pot, the bowls, a level at the shop counter, the gong), never what stage 1 taught; the gong only
-// once its forecast says the first fight's won, and winning it the end of it. A save from before it counts what it
-// has done down there.
+// Stage 3's tutorial: the gold arrow and bubble again, down in the cellar, for what's new there (a look round at how a
+// fight goes, then the bins, the racks and barrels, the pot, the bowls, the cooking game, a level at the shop counter,
+// the gong), never what stage 1 taught; the gong only once its forecast says the first fight's won, and winning it the
+// end of it. A save from before it counts what it has done down there.
 import { describe, expect, it } from 'vitest';
 import { bought, FLOE_SUSHI, loadGame, MARKET, type SaveFixture } from './helpers';
 
@@ -9,6 +9,8 @@ const $ = (id: string) => document.getElementById(id)!;
 const SUSHI = [...MARKET, 'sushi', ...FLOE_SUSHI];
 /** Everything stage 1's tutorial teaches. */
 const STAGE1 = ['fish', 'pick', 'sell', 'cash', 'buy', 'shop', 'harpoon', 'stars'];
+/** The look round at how a fight goes, first thing down there. */
+const LOOK = ['ring', 'fed', 'boss', 'bell'];
 
 /** A game down in the cellar, its player knowing stage 1, and the tutorial. */
 async function cellar(save: SaveFixture = {}) {
@@ -35,6 +37,9 @@ async function cellar(save: SaveFixture = {}) {
   const carrying = (kind: string) => g.player.back.all().filter(m => m.userData.kind === kind).length;
   return { g, tut, plan, fight, stage, CY, at, F, draw, now, said, goal, carrying };
 }
+
+/** The cooking game left half way, if it was. */
+const F_show = (fight: typeof import('../src/fight')) => fight.F.show;
 
 describe("the cellar's tutorial", () => {
   it('leads a new player from the bins to the stall, saves up in chips for a level, then sends them to the gong', async () => {
@@ -121,6 +126,11 @@ describe("the cellar's tutorial", () => {
     // the first soup's out: the doors open, and the first local fight's fans come in for it
     expect(F().quiet).toBe(false);
     g.runUntil(() => F().bout.came > 0, 15);
+    // the cooking game at the pot next (its own test has it played): played to the end, bland, it's learnt
+    expect(now()).toBe('cook');
+    fight.showResult(0);
+    g.run(0.1);
+    expect(tut.learntLessons()).toContain('cook');
 
     // the cheapest thing at the shop counter, saved up for in chips: another drying rack
     at({ x: 0, z: 0 });
@@ -182,7 +192,7 @@ describe("the cellar's tutorial", () => {
   });
 
   it('the practice fight: the sparring partner and a small crowd, and winning it completes the tutorial', async () => {
-    const { g, tut, plan, fight, F, at, draw } = await cellar({ ring: { practice: true }, learnt: [...STAGE1, 'bins', 'prep', 'pot', 'bowls', 'bench', 'chips', 'power'] });
+    const { g, tut, plan, fight, F, at, draw } = await cellar({ ring: { practice: true }, learnt: [...STAGE1, 'bins', 'prep', 'pot', 'bowls', 'cook', 'bench', 'chips', 'power'] });
     const { ring } = await import('../src/dohyo');
     at(plan.GONG_PAD);
     g.run(0.1);
@@ -234,7 +244,7 @@ describe("the cellar's tutorial", () => {
   });
 
   it('a game that has had its practice fight: the gong only once the forecast says Hakkaku is beaten', async () => {
-    const { g, tut, plan, fight, F, at, draw, now, said } = await cellar({ learnt: [...STAGE1, 'bins', 'prep', 'pot', 'bowls', 'bench', 'chips', 'power'] });
+    const { g, tut, plan, fight, F, at, draw, now, said } = await cellar({ learnt: [...STAGE1, 'bins', 'prep', 'pot', 'bowls', 'cook', 'bench', 'chips', 'power'] });
     at({ x: 0, z: 0 });
     g.run(1.1);
     expect(now()).toBe(null); // an empty kitchen: it'd be lost
@@ -294,15 +304,104 @@ describe("the cellar's tutorial", () => {
     // two bosses beaten: everything's known
     const old = await cellar({ ring: { beaten: 2, tier: 1, hires: { washer: true, salter: true, picker: true } } });
     old.g.run(0.1);
-    expect(old.tut.learntLessons()).toEqual(expect.arrayContaining(['bins', 'prep', 'pot', 'bowls', 'bench', 'gong', 'chips', 'power', 'grow']));
-    expect(old.now()).toBe(null);
+    expect(old.tut.learntLessons()).toEqual(expect.arrayContaining([...LOOK, 'bins', 'prep', 'pot', 'bowls', 'bench', 'gong', 'chips', 'grow']));
+    // (but the cooking game's new to everyone: shown once, as it's no basic it leaves the cellar known)
+    expect(old.now()).toBe('cook');
     expect(old.tut.cellarKnown()).toBe(true);
   });
 
   it("a save that only just came down still has the cellar's lessons to come, and stage 1's aren't shown again", async () => {
-    const { g, now, tut } = await cellar();
+    const { g, now, tut } = await cellar({ ring: { sparred: false } });
     g.run(0.1);
-    expect(now()).toBe('bins');
+    expect(now()).toBe('ring');
     expect(tut.learntLessons()).toEqual(STAGE1);
+  });
+
+  it('first, a look round at how a fight goes: the ring, the fans fed on your side and 💪, the gong, his bell', async () => {
+    const { g, tut, plan, CY, at, draw, now, said } = await cellar({ ring: { practice: true, quiet: true, sparred: false } });
+    at(plan.POT_PAD);
+    g.run(0.1);
+    expect(now()).toBe('ring');
+    draw();
+    expect(tut.guide.position).toMatchObject({ x: tut.RING_AT.x, y: CY, z: tut.RING_AT.z });
+    expect(said()).toBe('Fight night happens in this ring / The side with more fans wins');
+    // (cellar.ts's ring, where the arrow points)
+    expect(tut.RING_AT).toEqual({ x: (await import('../src/cellar')).RING.x, z: (await import('../src/cellar')).RING.z });
+    /** Reads on, drawing as main.ts would, until the next card's up. */
+    const readOn = () => { const was = now(); for (let i = 0; i < 100 && now() === was; i++) { draw(); g.run(0.1); } };
+    // each is read in about 6 s, standing still, with its spot off the screen too (the bubble waiting at the edge)
+    readOn();
+    expect(now()).toBe('fed');
+    draw();
+    expect(tut.guide.position.x).toBe(plan.BAR_PAD.x);
+    expect(said()).toBe('Fed fans cheer for your champion / 💪 up top counts them');
+    expect($('power').classList.contains('teach')).toBe(true);
+    readOn();
+    expect(now()).toBe('boss');
+    draw();
+    expect($('power').classList.contains('teach')).toBe(false);
+    expect(tut.guide.position.x).toBe(plan.GONG_PAD.x);
+    expect($('coach').classList.contains('edge')).toBe(true);
+    expect(said()).toBe('Ring the gong to call a boss / He brings a crowd of his own');
+    readOn();
+    expect(now()).toBe('bell');
+    draw();
+    expect(said()).toBe('Feed his fans to turn them / Turn half before his bell rings');
+    readOn();
+    // then the walkthrough as before, from the bins
+    expect(now()).toBe('bins');
+    expect(tut.learntLessons()).toEqual([...STAGE1, ...LOOK]);
+    expect($('banner').textContent).not.toContain('Tutorial complete');
+  });
+
+  it("a save from before the look round skips it once it's had a fight, and has it to come if not", async () => {
+    const fought = await cellar({ learnt: [...STAGE1, 'bins', 'prep'] });
+    fought.g.run(0.1);
+    expect(fought.tut.learntLessons()).toEqual(expect.arrayContaining(LOOK));
+    expect(fought.now()).not.toBe('ring');
+    const fresh = await cellar({ learnt: [...STAGE1, 'bins', 'prep'], ring: { sparred: false } });
+    fresh.g.run(0.1);
+    expect(fresh.now()).toBe('ring');
+    // (two games loaded)
+  }, 30_000);
+
+  it('the cooking game at the pot, after the first bowls: played through once, it never counts toward the banner', async () => {
+    const { g, tut, plan, fight, at, draw, now, said } = await cellar({ learnt: [...STAGE1, ...LOOK, 'bins', 'prep', 'pot', 'bowls'] });
+    const show = await import('../src/chanko');
+    at({ x: plan.POT_PAD.x - 3, z: plan.POT_PAD.z });
+    g.run(0.1);
+    expect(now()).toBe('cook');
+    draw();
+    expect(tut.guide.position).toMatchObject({ x: plan.POT_PAD.x, z: plan.POT_PAD.z });
+    expect(said()).toBe('Play the cooking game here / Bigger batches for a while');
+    // at the pot, how to start it; the bubble stays, over the player's head
+    at(plan.POT_PAD);
+    g.run(0.1);
+    draw();
+    expect($('coach').hidden).toBe(false);
+    expect(said()).toBe('Press E or Cook / Stars make bigger batches for 45 s');
+    // while it's on, the bubble keeps out of its way
+    $('cook').click();
+    g.run(0.6);
+    expect(show.showing()).toBe(true);
+    draw();
+    expect($('coach').hidden).toBe(true);
+    // left half way, it's to carry on
+    $('showGo').click();
+    g.run(0.5);
+    show.stopShow();
+    g.run(1);
+    expect(F_show(fight)).not.toBeNull();
+    draw();
+    expect(now()).toBe('cook');
+    expect(said()).toBe('Carry on your cooking game / Press E or Cook');
+    expect(tut.learntLessons()).not.toContain('cook');
+    // played to the end (its result card), and it's learnt, with no banner
+    fight.showResult(6);
+    g.run(0.1);
+    expect(tut.learntLessons()).toContain('cook');
+    expect($('banner').textContent).not.toContain('Tutorial complete');
+    // (nothing to point at while its bonus runs: on to the shop counter)
+    expect(now()).not.toBe('cook');
   });
 });
