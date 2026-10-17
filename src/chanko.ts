@@ -2,11 +2,11 @@
 // camera comes in close on the real pot, framed by a hinoki cutting board (the scoreboard of the four steps along its top,
 // what to do along its foot). The four steps are played on a little set built at the hearth from the game's own things,
 // over a stew of its own that answers everything done to it: a napa cabbage, a carrot, a block of tofu and a block of
-// tuna slide along a long prep board under the knife (tap as each gold line lights up under it: one through each), the
-// cut pieces hopping into a basket; the four pieces cut off are thrown in one by one, then a mushroom and a handful of
-// dried rice (drag up and let go: the nearer the pot's middle the better), and sink into the stew, and what's left in the
-// basket is tipped in after them; salt, soy and miso are
-// poured to a line (hold, let go in the band), each turning the stew its colour from where it goes in; and the stew is
+// tuna slide along a long prep board under the knife (tap as each gold line lights up under it: one through each
+// vegetable, two through the tuna), the cut pieces hopping into a basket; a piece off each is thrown in one by one,
+// then a mushroom and a handful of dried rice (drag up and let go: the nearer the pot's middle the better), and sink
+// into the stew, and what's left in the basket is tipped in after them; salt, soy and miso are poured to a line (hold,
+// let go in the band), each turning the stew its colour from where it goes in; and the stew is
 // stirred round in the boil band (press the soup to take the ladle, then it follows the mouse or finger), whirling with
 // the ladle, and what went in comes back up. Each step gives up to 3 stars; the 12 buy the pot a bonus for a while
 // (fight.ts' showResult): bigger batches, and the cook's 70% of them. It's a bonus game and nothing more: it takes
@@ -148,11 +148,11 @@ function driedRice() {
 type Cut = 'cabbage' | 'carrot' | 'tofu' | 'fish';
 /** What's laid on the board, in the order it comes under the knife: what goes in the stew with the fish (a napa
  *  cabbage, a carrot, a block of tofu: the stew's own cabbage, carrot and tofu), then the block of tuna; each `d` across
- *  the board and cut once, a piece `lens[0]` long off its end (that's what's thrown in) from the rest, `lens[1]` long
- *  (which waits in the basket, and is tipped in after the throws). */
-const ROW: { k: Cut; lens: [number, number]; d: number }[] = [
+ *  the board and cut into pieces `lens` long, the vegetables once and the tuna in three. The piece off each one's end
+ *  is what's thrown in; the rest waits in the basket, and is tipped in after the throws. */
+const ROW: { k: Cut; lens: number[]; d: number }[] = [
   { k: 'cabbage', lens: [0.08, 0.12], d: 0.16 }, { k: 'carrot', lens: [0.08, 0.12], d: 0.08 }, { k: 'tofu', lens: [0.08, 0.12], d: 0.13 },
-  { k: 'fish', lens: [0.15, 0.3], d: 0.17 },
+  { k: 'fish', lens: [0.15, 0.15, 0.15], d: 0.17 },
 ];
 /** The gap between one thing and the next along the board. */
 const ROW_GAP = 0.03;
@@ -390,13 +390,13 @@ function build(): Set {
   // (the tuna off the loin, cured, in the cured fillet's colours: a slice and the rest, the top picture running on from
   // one to the other)
   const { tex } = canvasTex(256, 64, sakuFace), side = new MeshLambertMaterial({ color: 0x7A4626 }), front = new MeshLambertMaterial({ color: 0x8A4E2C });
-  const block = ROW[3].lens[0] + ROW[3].lens[1];
+  const block = ROW[3].lens.reduce((a, l) => a + l, 0);
   const fish = (at: number, len: number) => {
     const t = tex.clone(); t.repeat.set(len / block, 1); t.offset.set(at / block, 0); t.needsUpdate = true;
     return [side, side, new MeshLambertMaterial({ map: t }), side, front, side];
   };
   const pieces = PIECES.map(p => {
-    const r = ROW[p.item], o = add(row, piece(r.k, p.n, p.len, r.d, fish, p.n ? r.lens[0] : 0));
+    const r = ROW[p.item], o = add(row, piece(r.k, p.n, p.len, r.d, fish, r.lens.slice(0, p.n).reduce((a, l) => a + l, 0)));
     o.position.set(p.x, o.userData.y, 0);
     return o as Object3D;
   });
@@ -492,9 +492,10 @@ function callout(text: string, at: Vector3, score: number, big = false) {
 }
 const shake = { t: 0 };
 
-/** The cut: the row slides along under the knife, one line through each thing, and each line's cut or missed once
- *  (`got`: their scores, -1 for one still to come, kept by the run); what's gone by hops off into the basket. Left half way, what's cut stays cut and
- *  what's missed stays missed; the row comes back along for the lines still to come. */
+/** The cut: the row slides along under the knife (a line through each vegetable, two through the tuna), and each line's
+ *  cut or missed once (`got`: their scores, -1 for one still to come, kept by the run); what's gone by hops off into
+ *  the basket. Left half way, what's cut stays cut and what's missed stays missed; the row comes back along for the
+ *  lines still to come. */
 function cutStep(s: Set, got: number[]): Step {
   for (let j = got.length; j < LINES.length; j++) got.push(-1);
   const cuts = LINES.map((_, j) => ({ done: got[j] >= 0, cut: got[j] > 0, score: Math.max(0, got[j]) }));
@@ -579,10 +580,13 @@ function throwStep(s: Set, cut: number[], got: number[]): Step {
   let drag: { x: number; y: number } | null = null, fly: { a: Vector3; b: Vector3; t: number } | null = null;
   /** Where each piece is held to be thrown: on the board, right of the knife. */
   const REST = V(BOARD.x + 0.32, BOARD.y + 0.031, BOARD.z + 0.04);
-  /** What was cut off each thing, one throw each: the piece off its end, or, its line missed, the whole thing. */
+  /** What was cut off each thing, one throw each: the piece off its end (up to its first line that was cut), or, no
+   *  line through it cut, the whole thing. */
   function cutPieces(): Hand[] {
-    return LINES.map((l, j) => {
-      const ids = cut[j] > 0 ? [l.i] : [l.i, l.i + 1], whole = ids.reduce((a, id) => a + PIECES[id].len, 0);
+    return ROW.map((_, item) => {
+      const all = PIECES.flatMap((p, k) => (p.item === item ? [k] : []));
+      const first = LINES.findIndex((l, j) => PIECES[l.i].item === item && cut[j] > 0);
+      const ids = first < 0 ? all : all.filter(k => k <= LINES[first].i), whole = ids.reduce((a, id) => a + PIECES[id].len, 0);
       let x = -whole / 2;
       const offs = ids.map(id => { const o = V(x + PIECES[id].len / 2, s.pieces[id].userData.y - 0.031, 0); x += PIECES[id].len; return o; });
       return { parts: ids.map(id => s.pieces[id]), offs, up: true };
