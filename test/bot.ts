@@ -18,12 +18,17 @@ const CASINO_GAMES = ['blackjack', 'slots'];
 
 export interface Purchase { t: number; id: string; cost: number; money: number; rating: number }
 export interface Sample { t: number; money: number; earned: number; rating: number; stage: number }
+/** A boss's rush (stage 3): when his bell ended, who, his crowd and the more-than-half to turn, how many were turned
+ *  (and what the gong forecast as it was rung), the bell's seconds used, and how long the soup bar stood empty. */
+export interface Fought { t: number; boss: string; n: number; need: number; turned: number; forecast: number; win: boolean; bell: number; dry: number }
 
 /** Plays `g` for `seconds` of game time. Returns what it bought when, and samples of money and earnings. */
 export function play(g: Game, seconds: number, dt = 0.05, ring?: Ring) {
   const { player, wallet } = g;
   const p = player.g.position;
-  const bought: Purchase[] = [], samples: Sample[] = [];
+  const bought: Purchase[] = [], samples: Sample[] = [], fights: Fought[] = [];
+  const logged = new WeakSet<object>();
+  let rangFc = -1;
   let t = 0, earned = 0, lastMoney = wallet.money, nextSample = 0, beaten = ring ? ring.fight.F.beaten : 0;
   let plan: { path: P[]; until: () => boolean; maxT: number; buy?: boolean } | null = null;
   /** Holding E, to buy the tile it's standing on. */
@@ -52,6 +57,13 @@ export function play(g: Game, seconds: number, dt = 0.05, ring?: Ring) {
         seen.set(m.id, n);
         bought.push({ t, id: `${m.id}${n}`, cost: Math.round(m.cost * m.step ** (n - 1)), money: wallet.money, rating: g.rating.rating() });
       }
+    }
+    // (and every boss's rush, once his bell's done)
+    const R = ring?.fight.F.rush;
+    if (ring && R?.done && !logged.has(R)) {
+      logged.add(R);
+      const b = ring.fight.bossOf(R.boss);
+      fights.push({ t, boss: b.name, n: R.n, need: ring.fight.toBeat(b, R.n), turned: R.turned, forecast: rangFc, win: R.win, bell: R.t, dry: R.dryT });
     }
     // (down in the cellar, the bosses beaten, as if bought)
     if (ring && ring.fight.F.beaten > beaten) {
@@ -196,7 +208,8 @@ export function play(g: Game, seconds: number, dt = 0.05, ring?: Ring) {
       const fc = f.forecast();
       // (the gong's panel says it from the gong: walk over, and ring it only if it still says so there)
       if (fc && fc.turned >= f.toBeat(fc.boss)) {
-        if (near(P.GONG_PAD, 0.3)) go(P.GONG_PAD, () => !!F.rush, 2, true);
+        rangFc = fc.turned;
+        if (near(P.GONG_PAD, 0.3)) go(P.GONG_PAD, () => !!F.rush || F.called, 2, true);
         else go(P.GONG_PAD, () => near(P.GONG_PAD, 0.3), 20);
         return;
       }
@@ -288,7 +301,7 @@ export function play(g: Game, seconds: number, dt = 0.05, ring?: Ring) {
     if (plan) walk();
     step();
   }
-  return { bought, samples, earned, trace };
+  return { bought, samples, earned, trace, fights };
 }
 
 /**
