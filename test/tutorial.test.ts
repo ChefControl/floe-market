@@ -155,7 +155,7 @@ describe('the tutorial', () => {
     expect(said()).toBe('Opens at ★3.5 / Serve customers quickly for better reviews');
     expect($('stars').classList.contains('teach')).toBe(true);
     expect(tut.guide.children[1].visible).toBe(false); // no ring: there's nothing to do on the tile yet
-    for (let i = 0; i < 70; i++) { tut.drawTutorial(0.1); g.run(0.1); }
+    for (let i = 0; i < 110; i++) { tut.drawTutorial(0.1); g.run(0.1); }
     expect(now()).toBe(null);
     tut.drawTutorial(0.1);
     expect($('stars').classList.contains('teach')).toBe(false);

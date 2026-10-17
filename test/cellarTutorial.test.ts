@@ -63,7 +63,7 @@ describe("the cellar's tutorial", () => {
     expect(now()).toBe('arrive');
     // then a few seconds' grace to find their feet
     at({ x: plan.BIN_PADS.rice.x - 2, z: plan.BIN_PADS.rice.z });
-    wait(4);
+    wait(7);
     expect(now()).toBe('arrive');
     wait(1.5);
     // then the dumbwaiter, and the arrow's down on the cellar's floor
@@ -151,12 +151,14 @@ describe("the cellar's tutorial", () => {
     draw();
     expect(said()).toBe('Fans eat, then cheer your wrestler / 💪 up top counts them');
     expect($('power').classList.contains('teach')).toBe(true);
-    wait(4.5);
+    wait(7);
+    expect(now()).toBe('fed');
+    wait(1.5);
     expect($('power').classList.contains('teach')).toBe(false);
     // then that they pay in chips (a tip), and no "Next goal" in chips to save up for
     expect(now()).toBe('chips');
     expect(goal()).toBe(null);
-    wait(6.5);
+    wait(10.5);
     expect(tut.learntLessons()).toContain('chips');
 
     // the fight: with an empty stall it'd be lost, so the loop's next job, saying what it's for

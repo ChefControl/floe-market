@@ -75,7 +75,8 @@ describe('the Undertow', () => {
     g.runUntil(() => S.wayState().says === S.LINES.ask, 3);
     g.runUntil(() => S.wayState().says === S.LINES.no, 3);
     expect(S.wayState().scene).toBeNull();
-    g.run(2);
+    // (his bubble left to fade)
+    g.runUntil(() => S.wayState().says === '', 8);
     expect(g.layout.found.den).toBe(false);
     // at his desk: the camera on him, the cellar holding still, his lines a tap at a time, and his matchbook
     at(DESK_PAD);
