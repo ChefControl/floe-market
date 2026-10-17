@@ -148,10 +148,10 @@ function driedRice() {
 type Cut = 'cabbage' | 'carrot' | 'tofu' | 'fish';
 /** What's laid on the board, in the order it comes under the knife: what goes in the stew with the fish (a napa
  *  cabbage, a carrot, a block of tofu: the stew's own cabbage, carrot and tofu), then the block of tuna; each `d` across
- *  the board and cut into pieces `lens` long, the vegetables once and the tuna in three. The piece off each one's end
+ *  the board and cut into pieces `lens` long: the vegetables in half, the tuna in thirds. The piece off each one's end
  *  is what's thrown in; the rest waits in the basket, and is tipped in after the throws. */
 const ROW: { k: Cut; lens: number[]; d: number }[] = [
-  { k: 'cabbage', lens: [0.08, 0.12], d: 0.16 }, { k: 'carrot', lens: [0.08, 0.12], d: 0.08 }, { k: 'tofu', lens: [0.08, 0.12], d: 0.13 },
+  { k: 'cabbage', lens: [0.1, 0.1], d: 0.16 }, { k: 'carrot', lens: [0.1, 0.1], d: 0.08 }, { k: 'tofu', lens: [0.1, 0.1], d: 0.13 },
   { k: 'fish', lens: [0.15, 0.15, 0.15], d: 0.17 },
 ];
 /** The gap between one thing and the next along the board. */
