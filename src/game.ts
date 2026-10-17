@@ -1,7 +1,7 @@
 // One simulation step for everything in the world. main.ts adds the camera and rendering on top;
 // tests call tick() directly to drive the game without a render loop.
 import { updAmbience } from './ambience';
-import { updAudio } from './audio';
+import { hushWorld, updAudio } from './audio';
 import { updCasino } from './casino';
 import { showing, updCookButton, updShow } from './chanko';
 import { updBakes } from './characters';
@@ -31,6 +31,7 @@ import { updRunners } from './runner';
 import { current, SEASON_INFO, updSeason } from './season';
 import { seasonSting } from './sfx';
 import { updShop } from './shop';
+import { wayPlaying } from './southDoor';
 import { player } from './player';
 import { updPops } from './pop';
 import { updSpotlight } from './spotlight';
@@ -100,6 +101,8 @@ export function tick(dt: number) {
   updBakes(dt);
   updRoof(dt, player.g.position, staging());
   updOffer(dt);
+  // (and through his scenes, or the scenes on the way south in the cellar (southDoor.ts), the world's own sounds go quiet)
+  hushWorld(offerPlaying() || wayPlaying());
   updAudio(dt, player.g.position);
   updAmbience();
   updMusic(dt);

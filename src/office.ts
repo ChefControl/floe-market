@@ -54,7 +54,8 @@ export const fuguSays = () => shown;
 export function updOffice(dt: number) {
   swimTank(dt);
   const here = level.down && d2xz(player.g.position, DESK_PAD) < DESK_PAD.r * DESK_PAD.r;
-  if (here && !near) {
+  // (Mr. Fugu with his matchbook for the doorman has more to say than a line: southDoor.ts)
+  if (here && !near && !(F.beaten >= 2 && !F.den.book)) {
     const all = fuguLines();
     shown = all[next % all.length]; next++;
     upTo = 0; beat = 0;

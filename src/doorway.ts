@@ -1,11 +1,11 @@
-// The way into the Undertow (stage 3): a long dark tunnel and a pair of heavy doors with a doorman behind them. Walking
-// down the tunnel, the view closes in and darkens round the edges, its caged bulbs flicker, water drips from the beams
-// and a pipe leaks steam, and the club's band comes through the doors, muffled, louder as you go. The first time, the
-// doors are shut: you knock, a slot slides open on a pair of eyes, "Password?", and you hold up Mr. Fugu's matchbook (the
-// club on it is theirs). He lets you in: the bolts go, the doors swing open on a burst of light and smoke, and the music
-// comes up full. After that, the doors open as you come up to them, from either side, and shut behind you; and now and
-// then he says good evening through the slot.
-import { BoxGeometry, CylinderGeometry, Group, Mesh, MeshBasicMaterial, MeshLambertMaterial, PlaneGeometry, Sprite, SpriteMaterial, Vector3 } from 'three';
+// The way into the Undertow (stage 3): a long dark tunnel and a pair of heavy doors at the end of it. Walking down the
+// tunnel, the view closes in and darkens round the edges, its caged bulbs flicker, water drips from the beams and a pipe
+// leaks steam, and the club's band comes through the doors, muffled, louder as you go. The first time they open (the
+// doorman's let you in already, at the door at the tunnel's mouth: southDoor.ts), they swing open on a burst of light
+// and smoke, and the music comes up full. They open as you come up to them, from either side, and shut behind you. The
+// doorman's slot, his eyes behind it and his speech bubble are made here, with the rest of the way in, and hung on his
+// door.
+import { BoxGeometry, CylinderGeometry, Group, Mesh, MeshBasicMaterial, MeshLambertMaterial, PlaneGeometry, Vector3 } from 'three';
 import { noise, tone } from './audio';
 import { CY, denDoor, parts } from './cellar';
 import { CLUB_DOOR, CLUB_WAY } from './cellarPlan';
@@ -15,14 +15,12 @@ import { club } from './noir';
 import { dustFx, steamer } from './fx';
 import { CARDS, DEN, found, level, LOANS, PASSAGE, VIP } from './layout';
 import { player } from './player';
-import { canvasTex, G, mesh } from './render';
+import { G, mesh } from './render';
 import { bubble } from './speech';
 import { staging, view } from './stage';
 import { d2xz, V } from './util';
 
 const D = CLUB_DOOR, MID = { x: D.x, z: (D.z0 + D.z1) / 2 }, LEAF = (D.z1 - D.z0) / 2, H = 2.1;
-/** The camera's own view of the doors while the doorman looks you over (main.ts eases to it and back). */
-export const doorCam = { k: 0, pos: V(D.x + 1.9, CY + 4.3, MID.z + 2.4), look: V(D.x - 0.2, CY + 1.05, MID.z - 0.1) };
 
 // ---------- the doors ----------
 const WOOD = new MeshLambertMaterial({ color: 0x3A2418 }), IRON = new MeshLambertMaterial({ color: 0x23282C });
@@ -44,10 +42,9 @@ for (const z of [D.z0 - 0.07, D.z1 + 0.07]) { const post = new Mesh(new BoxGeome
   const under = new Mesh(new PlaneGeometry(0.06, D.z1 - D.z0 - 0.1), new MeshBasicMaterial({ color: 0xFF5FA8, transparent: true, opacity: 0.85 }));
   under.position.set(D.x + 0.06, CY + 0.012, MID.z); under.rotation.x = -Math.PI / 2; parts.den.add(under);
 }
-/** The slot in the north leaf, at a doorman's eye height: its cover, which slides aside, and the eyes behind it. */
+/** The doorman's slot, at his eye height: its cover, which slides aside (along its length, `z`), and the eyes behind
+ *  it, looking out along `x` (southDoor.ts hangs it on his door). */
 const slot = new Group();
-slot.position.set(0.05, 1.62, LEAF * 0.58);
-leaves[0].pivot.add(slot);
 const slotBack = new Mesh(new BoxGeometry(0.015, 0.13, 0.4), new MeshBasicMaterial({ color: 0x050405 }));
 slot.add(slotBack);
 const cover = new Mesh(new BoxGeometry(0.02, 0.16, 0.42), IRON); cover.position.x = 0.012; slot.add(cover);
@@ -58,15 +55,13 @@ for (const s of [-1, 1]) {
   const brow = mesh(G.box, 0x1A1416, 0.006, 0.042, s * 0.085); brow.scale.set(0.01, 0.014, 0.08); brow.rotation.x = s * 0.35; eyes.add(brow);
 }
 eyes.visible = false;
-/** What the doorman says, over the doors; and the matchbook you hold up. */
+/** What the doorman says, over his door. */
 const says = bubble(parts.den, 2.1);
-const matchbook = new Sprite(new SpriteMaterial({ map: canvasTex(96, 128, (c, w, h) => {
-  c.fillStyle = '#7A1622'; c.fillRect(6, 4, w - 12, h - 8);
-  c.fillStyle = '#E8C46A'; c.fillRect(6, 4, w - 12, 22); c.fillRect(6, h - 30, w - 12, 4);
-  c.font = '44px serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('🐡', w / 2, h / 2 + 6);
-}).tex, depthTest: false }));
-matchbook.scale.set(0.32, 0.42, 1); matchbook.visible = false; matchbook.renderOrder = 6;
-parts.den.add(matchbook);
+// (the matchbook held up to him was once a sprite made here, as the game loads: its texture, the texture's source, its
+// material and itself, four ids of four draws of the luck each. They're still drawn, so the luck upstairs goes as it did.)
+for (let i = 0; i < 16; i++) Math.random();
+/** The doorman's things, for his door (southDoor.ts). */
+export const doorman = { slot, cover, eyes, says };
 
 // ---------- the tunnel ----------
 /** Its caged bulbs, hung from the beams: each flickers now and then. */
@@ -97,29 +92,22 @@ const shade = $('tunnelShade'), flash = $('doorFlash');
 // ---------- the doors' state ----------
 /** How far open the doors are, 0 to 1, and where they're going. */
 let open = 0, want = 0;
-/** The first time's scene, while it plays: seconds into it. */
-let scene: { t: number } | null = null;
-/** Seconds the slot's open for a good evening, and whether he's said it this visit. */
-let evening = 0, greeted = false;
 /** Whether the tunnel or the club has the camera in closer. */
 let closer = false;
 /** How close the camera comes in (of the cellar's own view): down the tunnel, and in the club and its side rooms. */
 export const CLOSE = { tunnel: 0.78, club: 0.55 };
 /** Whether `p` is in the club, its side rooms or the way in from its doors. */
 const inClub = (p: Vector3) => [DEN, LOANS, CARDS, VIP, CLUB_WAY].some(r => p.x > r.x0 - 0.3 && p.x < r.x1 + 0.3 && p.z > r.z0 - 0.3 && p.z < r.z1 + 0.3);
-const SCENE = { knock: 0.5, slot: 1.2, ask: 1.45, book: 2.5, ok: 3.3, shut: 4.4, swing: 4.7, done: 5.6 };
 
 /** How far down the tunnel the player is, 0 at its mouth to 1 at the doors; -1 out of it. */
 function along(p: Vector3) {
   if (p.x < PASSAGE.x0 - 0.2 || p.x > PASSAGE.x1 + 0.2 || p.z < PASSAGE.z0 - 0.4 || p.z > PASSAGE.z1 + 0.2) return -1;
   return Math.max(0, Math.min(1, (p.z - PASSAGE.z0) / (MID.z - PASSAGE.z0)));
 }
-/** Whether the doors are open, the scene's over, and so on: for tests. */
-export const doorState = () => ({ open, scene: scene?.t ?? null, says: says.text, let: F.den.door });
+/** How far the doors are open, and whether they've ever opened: for tests. */
+export const doorState = () => ({ open, opened: F.den.door });
 
 const sfx = {
-  knock: (t: number) => { noise({ t, f: 220, q: 1.2, a: 0.008, d: 0.1, v: 0.22, at: MID }); tone({ t, f: 95, f2: 80, a: 0.008, d: 0.12, v: 0.14, at: MID }); },
-  slide: () => noise({ f: 700, f2: 500, q: 2, a: 0.03, d: 0.22, v: 0.05, at: MID }),
   bolt: () => { noise({ f: 900, q: 3, a: 0.008, d: 0.08, v: 0.08, at: MID }); tone({ f: 160, f2: 120, a: 0.008, d: 0.1, v: 0.08, at: MID }); },
   creak: () => tone({ f: 130, f2: 92, type: 'triangle', lp: 700, a: 0.12, d: 0.6, v: 0.05, at: MID }),
   drip: (at: { x: number; z: number }) => tone({ f: 720, f2: 950, a: 0.01, d: 0.09, v: 0.02, at }),
@@ -135,8 +123,7 @@ function burst(big: boolean) {
   if (big) liftFog();
 }
 
-/** The way in, every frame (stage 3, once the Undertow's found): the tunnel's lights, drips and dark, the doors, and
- *  the first time's scene. */
+/** The way in, every frame (stage 3, once the Undertow's found): the tunnel's lights, drips and dark, and the doors. */
 export function updDoorway(dt: number) {
   const p = player.g.position, down = level.down && found.den;
   updFog(dt);
@@ -146,10 +133,10 @@ export function updDoorway(dt: number) {
   shade.style.opacity = String(Math.max(0, k) * 0.7 * (1 - open * 0.6));
   const close = k >= 0 ? CLOSE.tunnel : down && inClub(p) ? CLOSE.club : 0;
   // (only ever pulling it back out from where it pulled it in: an upgrade's spotlight has it otherwise)
-  if (close && !scene && !staging()) { closer = true; view.close += (close - view.close) * Math.min(1, dt * 2.5); }
+  if (close && !staging()) { closer = true; view.close += (close - view.close) * Math.min(1, dt * 2.5); }
   else if (closer) { view.close += (1 - view.close) * Math.min(1, dt * 2.5); if (view.close > 0.995) { view.close = 1; closer = false; } }
   // the player's stride shortened as the view comes in (eased alongside it), so the club's as big on foot as it looks
-  const stride = close && !scene ? close : 1;
+  const stride = close || 1;
   player.stride += (stride - player.stride) * Math.min(1, dt * 2.5);
   if (Math.abs(player.stride - stride) < 0.005) player.stride = stride;
   const heard = clubHeard(p);
@@ -167,46 +154,14 @@ export function updDoorway(dt: number) {
     d.drop.position.y = CY + 2 - 2 * Math.min(1, fall) ** 2;
     if (fall >= 1 && (d.t - dt) % d.every / 0.55 < 1 && k >= 0) sfx.drip(d.drop.position);
   }
-  // the first time: the doorman's scene
+  // the doors open as you come up to them, from either side, and shut behind you; the first time, on a burst of the
+  // club's light and smoke
   const near = (r: number) => d2xz(p, MID) < r * r;
-  if (!F.den.door && !scene && k >= 0 && near(1.6)) { scene = { t: 0 }; player.held = true; player.moving = false; }
-  if (scene) {
-    const s = scene, was = s.t;
-    s.t += dt;
-    const at = (x: number) => was < x && s.t >= x;
-    doorCam.k = Math.min(1, s.t / 0.6) * (s.t > SCENE.done ? Math.max(0, 1 - (s.t - SCENE.done) / 0.8) : 1);
-    if (at(SCENE.knock)) { sfx.knock(0); sfx.knock(0.22); }
-    if (at(SCENE.slot)) { eyes.visible = true; sfx.slide(); }
-    if (at(SCENE.ask)) says.say('Password?');
-    if (at(SCENE.book)) { matchbook.visible = true; }
-    if (at(SCENE.ok)) says.say("...Fugu's book. Go on in.");
-    if (at(SCENE.shut)) { matchbook.visible = false; sfx.slide(); }
-    if (at(SCENE.swing)) { F.den.door = true; burst(true); player.held = false; }
-    if (s.t >= SCENE.done + 0.8) scene = null;
-    const slotK = s.t < SCENE.slot ? 0 : s.t < SCENE.shut ? Math.min(1, (s.t - SCENE.slot) / 0.25) : Math.max(0, 1 - (s.t - SCENE.shut) / 0.25);
-    cover.position.z = -slotK * 0.42; eyes.visible = slotK > 0.3;
-    // (held up towards the slot, at about head height)
-    matchbook.position.set(p.x - 0.35, p.y + 1.5 + Math.min(0.12, Math.max(0, s.t - SCENE.book) * 0.4), p.z - 0.15);
-  } else {
-    doorCam.k = 0;
-    // after that: the doors open as you come up to them, from either side, and shut behind you; from the tunnel, now
-    // and then, a good evening through the slot first
-    const close = near(1.7);
-    if (close && want === 0) {
-      if (k >= 0 && !greeted) { greeted = true; evening = 0.9; says.say('Evening.'); sfx.slide(); }
-      else if (evening <= 0) burst(false);
-    }
-    if (evening > 0 && (evening -= dt) <= 0 && want === 0) burst(false);
-    if (!near(2.4)) { if (want === 1) sfx.creak(); want = 0; }
-    if (!down || !(p.x > DEN.x0 - 1 && p.x < PASSAGE.x1 + 1 && p.z > PASSAGE.z0 - 1)) greeted = false;
-    const ek = evening > 0 ? Math.min(1, (0.9 - evening) / 0.2) : 0;
-    cover.position.z = -ek * 0.42; eyes.visible = ek > 0.3;
-  }
+  if (near(1.7) && want === 0) { burst(!F.den.door); F.den.door = true; }
+  if (!near(2.4)) { if (want === 1) sfx.creak(); want = 0; }
   open += (want - open) * Math.min(1, dt * (want ? 4 : 2.5));
   denDoor.shut = open < 0.6;
   for (const l of leaves) l.pivot.rotation.y = l.s * open * Math.PI * 0.55;
-  // (kept in sight, and smaller close up as the doorman looks you over: speech.ts)
-  if (says.upd(dt)) says.place(D.x + 0.25, CY + H + 0.45, MID.z);
 }
 
 /** How far the club's band is heard, 0 to 1 (the stage's music fading out under it), how muffled (0: clear, 1: through

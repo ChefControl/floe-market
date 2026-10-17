@@ -399,6 +399,10 @@ export const turnedAt = () => turned;
 export const fanAt = (key: number): XZ | undefined => fans.get(key);
 /** How many fans are on their way to the bar for a bowl they've bought. */
 export const heading = () => { let n = 0; for (const f of fans.values()) if (f.via && !f.out) n++; return n; };
+/** A scene's own shot (southDoor.ts): the fans standing where it's filmed kept out of it (they're still there, just not
+ *  drawn), and the crowd's shouting hushed, while it plays. */
+export const shot = { hide: null as ((x: number, z: number) => boolean) | null, quiet: false };
+
 export function updSwarm(dt: number) {
   turned.length = 0;
   sync();
@@ -455,7 +459,7 @@ export function updSwarm(dt: number) {
       const at = nearBar(f);
       turn = Math.atan2(at.x - f.x, at.z - f.z) + (look > 0.6 ? (look - 0.6) * 2.2 : 0) * (f.ph > 3.14 ? 1 : -1);
     }
-    if (!looks) continue;
+    if (!looks || shot.hide?.(f.x, f.z)) continue;
     const arms = cheer || (!f.seat && R && Math.sin(F.t * 0.8 + f.ph * 4) > 0.3);
     // a look with room for them (a crowd's looks are uneven, so one can fill up)
     let k = f.look;
@@ -560,7 +564,7 @@ function draw(sp: Speech, text: string) {
 }
 function talk(dt: number) {
   // (none heard in the Undertow: its walls are between, though a bubble's drawn over everything)
-  const on = level.down && fans.size > 0 && !inUndertow(player.g.position);
+  const on = level.down && fans.size > 0 && !inUndertow(player.g.position) && !shot.quiet;
   nextSay -= dt;
   if (on && nextSay <= 0) {
     // busier when the crowd's bigger, and in the fight
