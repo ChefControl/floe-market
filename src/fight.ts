@@ -40,8 +40,8 @@ export const MACH: Record<Ing, [MachineKind, MachineKind]> = {
 };
 export interface Boss {
   face: string; name: string; crowd: number; bell: number; prize: number;
-  /** The sea creature he is (creatures.ts), from his name. */
-  kind: Kind;
+  /** The sea creature he is (creatures.ts), from his name; none for the sparring partner, who's a wrestler like ours. */
+  kind?: Kind;
   /** What beating him opens, as his result card says it: "🔓 New: …". */
   opens: string;
 }
@@ -52,6 +52,12 @@ export const BOSSES: Boss[] = [
   { face: '🦈', name: 'Samehada', crowd: 420, bell: 30, prize: 2000, kind: 'shark', opens: 'Grand Hall Below, glowing grow shelves' },
   { face: '🐡', name: 'Fukure', crowd: 1000, bell: 60, prize: 10000, kind: 'puffer', opens: 'buy back all his chips' },
 ];
+/** The practice fight before the first boss (once, for a player who's just come down): the champion's own sparring
+ *  partner and a small crowd, so the gong's learnt on a fight that's won. His prize hires the two lines' hands, which is
+ *  what it takes to beat Hakkaku. It isn't a boss: nothing's counted beaten. */
+export const PRACTICE: Boss = { face: '🤼', name: 'Sparring partner', crowd: 40, bell: 30, prize: 35, opens: '' };
+/** A rush's boss: one of the five, or (-1) the sparring partner. */
+export const bossOf = (i: number) => (i < 0 ? PRACTICE : BOSSES[i]);
 export const TIERS = [
   { name: 'The Dock Cellar', seats: 24 },
   { name: 'The Back-Alley Ring', seats: 48 },
@@ -131,6 +137,11 @@ export interface Bout { phase: Phase; t: number; win: boolean; tug: number; nois
 export interface Fight {
   t: number;
   beaten: number; tier: number; boughtOut: boolean;
+  /** The practice fight's still to come (a player who's just come down: ring.ts). */
+  practice: boolean;
+  /** The doors are shut: a player who's just come down, before their first soup's out on the stall (ring.ts). No fans
+   *  come, and there's no local fight, until it is (or the gong's rung). */
+  quiet: boolean;
   lines: Record<Ing, Line>;
   hires: Partial<Record<Role, boolean>>;
   crew: Worker[];
@@ -171,7 +182,7 @@ const line = (n: number): Line => ({ n, up: 0, m: [] });
 const freshBout = (n: number): Bout => ({ phase: 'prep', t: 0, win: false, tug: 0, noise: 0, n, crowd: -1, came: 0, fed: 0 });
 export function blank(): Fight {
   return {
-    t: 0, beaten: 0, tier: 0, boughtOut: false,
+    t: 0, beaten: 0, tier: 0, boughtOut: false, practice: false, quiet: false,
     lines: { rice: line(1), fish: line(1), mush: line(0) }, hires: {}, crew: [],
     pantry: { rice: 0, fish: 0, mush: 0 }, pot: [], potT: 0, counter: [], stall: [],
     queue: [], fed: [], cooked: [], full: [], fullAcc: 0, earned: [],
@@ -222,7 +233,9 @@ export const mach = (k: Ing) => MACH[k][F.lines[k].up];
 export const growOpen = () => F.beaten >= 1;
 /** What goes in the pot: four of each ingredient there is. */
 export const inPot = () => ING.filter(k => k !== 'mush' || growOpen());
-export const nextBoss = (): Boss | undefined => BOSSES[F.beaten];
+export const nextBoss = (): Boss | undefined => (practiceDue() ? PRACTICE : BOSSES[F.beaten]);
+/** The gong calls in the sparring partner next, not a boss. */
+export const practiceDue = () => F.practice && F.beaten === 0;
 export const canCook = () => inPot().every(k => F.pantry[k] >= PER_BATCH);
 /** No room in the pot for another batch. */
 export const potFull = () => F.pot.length + BATCH > POT_CAP;
@@ -323,7 +336,7 @@ function sell(n: number) {
  *  gets a bowl, once they're there, stays to watch. (Whoever hasn't eaten when it's over goes home: updBout.) */
 function updFans() {
   const B = F.bout;
-  if (F.rush || B.phase !== 'prep') return;
+  if (F.rush || F.quiet || B.phase !== 'prep') return;
   if (B.crowd < 0) B.crowd = crowdNow();
   const due = Math.min(B.crowd, Math.floor(B.crowd * Math.min(1, B.t / (BOUT.prep * ARRIVE)) + 1e-9));
   while (B.came < due) { B.came++; F.queue.push(F.t); }
@@ -347,11 +360,11 @@ export const fixFee = (boss: Boss, cut: number) => Math.round(boss.prize * cut /
 /** The fix paid for on the next boss, if there is one. */
 export const fixOn = () => {
   const e = F.den.eddie;
-  return nextBoss() && e.boss === F.beaten && e.cut > 0 ? e : null;
+  return nextBoss() && !practiceDue() && e.boss === F.beaten && e.cut > 0 ? e : null;
 };
 /** Pays for a fix on the next boss, `cut` tenths of his crowd, Eddie caught or not (rolled by the caller, eddie.ts). */
 export function setFix(cut: number, caught: boolean) {
-  if (!nextBoss() || F.rush || fixOn()) return false;
+  if (!nextBoss() || practiceDue() || F.rush || fixOn()) return false;
   F.den.eddie = { boss: F.beaten, cut: clamp(Math.round(cut), 1, 5), caught };
   return true;
 }
@@ -359,8 +372,10 @@ export function setFix(cut: number, caught: boolean) {
 // ---------- the rush ----------
 /** His crowd walks in: all of it, or less the `kept` home by a `fix` that held. */
 function startRush(kept = 0, fix: Rush['fix'] = null) {
+  // (his crowd comes in, doors shut or not)
+  F.quiet = false;
   F.rush = {
-    boss: F.beaten, n: BOSSES[F.beaten].crowd - kept, turned: 0, walk: WALK_IN, t: 0, lastTurn: 0, short: { rice: 0, fish: 0, mush: 0 },
+    boss: practiceDue() ? -1 : F.beaten, n: nextBoss()!.crowd - kept, turned: 0, walk: WALK_IN, t: 0, lastTurn: 0, short: { rice: 0, fish: 0, mush: 0 },
     dryT: 0, done: false, win: false, fix, kept,
   };
   // his crowd takes the floor (a local bout's called off)
@@ -394,7 +409,7 @@ function updRush(dt: number) {
     R.dryT += dt;
     if (!canCook()) for (const k of inPot()) if (F.pantry[k] < PER_BATCH) R.short[k] += dt;
   }
-  if (R.turned >= R.n || R.t >= BOSSES[R.boss].bell) {
+  if (R.turned >= R.n || R.t >= bossOf(R.boss).bell) {
     // the stall shuts and his crowd sits down: more than half of them turned, and the champion wins
     R.done = true; R.win = R.turned * 2 > R.n;
     toSeats(R.win);
@@ -409,7 +424,11 @@ function toSeats(win: boolean) {
 /** The result of a boss's bout, once the fight's over. */
 function bossResult(R: Rush) {
   if (!real) return;
-  if (R.win) {
+  if (R.win && R.boss < 0) {
+    // practice: his prize, and the first boss is next
+    F.practice = false;
+    on.earn(PRACTICE.prize, 'prize');
+  } else if (R.win) {
     const boss = BOSSES[R.boss];
     F.beaten++;
     on.earn(boss.prize, 'prize');
@@ -457,7 +476,7 @@ export function forecast(kept = 0): Forecast | null {
   const boss = nextBoss();
   if (!boss || F.rush) return null;
   const was0 = fc.get(kept);
-  if (was0 && was0.i === F.beaten && F.t - was0.t < 0.5 && F.t >= was0.t) return was0.v;
+  if (was0 && was0.i === F.beaten && was0.v.boss === boss && F.t - was0.t < 0.5 && F.t >= was0.t) return was0.v;
   const was = F, me = you.now();
   F = structuredClone(was);
   real = false;
@@ -604,7 +623,11 @@ function doAct(w: Worker, st: Step): boolean {
       return true;
     }
     case 'stall':
-      if (w.carry?.k === 'bowl') { const room = STALL_CAP - F.stall.length; F.stall.push(...w.carry.bowls.slice(0, room)); F.counter.unshift(...w.carry.bowls.slice(room)); }
+      if (w.carry?.k === 'bowl') {
+        const room = STALL_CAP - F.stall.length;
+        F.stall.push(...w.carry.bowls.slice(0, room)); F.counter.unshift(...w.carry.bowls.slice(room));
+        if (room > 0 && w.carry.bowls.length) openDoors();
+      }
       w.carry = null;
       return true;
   }
@@ -652,6 +675,8 @@ const ease = (k: number) => k * k * (3 - 2 * k);
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
 function updBout(dt: number) {
   const B = F.bout, R = F.rush;
+  // (the doors still shut: no local fight yet, its preparation waiting at its start)
+  if (F.quiet && !R) { B.t = 0; return; }
   B.t += dt;
   // (a boss's preparation lasts until his bell: updRush)
   if (B.phase === 'prep' && !R && B.t >= BOUT.prep) {
@@ -732,7 +757,16 @@ export const takeBowl = (): boolean | undefined => F.counter.shift();
 export function toStall(m: boolean) {
   if (F.stall.length >= STALL_CAP) return false;
   F.stall.push(m);
+  openDoors();
   return true;
+}
+/** The first soup's out (or the gong's rung): the doors open, and the first local fight's fans come straight in. */
+function openDoors() {
+  if (!F.quiet) return;
+  F.quiet = false;
+  if (F.rush) return;
+  F.bout = freshBout(F.bout.n);
+  if (real) on.bout('prep');
 }
 
 // ---------- buying ----------
@@ -775,7 +809,7 @@ export function fightFrom(raw: unknown): Fight {
       ...b,
       t: Math.max(0, num(r.t)),
       beaten: clamp(Math.floor(num(r.beaten)), 0, BOSSES.length), tier: clamp(Math.floor(num(r.tier)), 0, TIERS.length - 1),
-      boughtOut: !!r.boughtOut,
+      boughtOut: !!r.boughtOut, practice: r.practice === true, quiet: r.quiet === true,
       hires: Object.fromEntries((Object.keys(HIRES) as Role[]).filter(k => r.hires?.[k]).map(k => [k, true])),
       pantry: Object.fromEntries(ING.map(k => [k, clamp(Math.floor(num(r.pantry?.[k])), 0, LEDGE_CAP)])) as Record<Ing, number>,
       pot: list<boolean>(r.pot, x => typeof x === 'boolean').slice(0, POT_CAP),

@@ -17,7 +17,7 @@ import { decal, drawPad } from './decals';
 import { dustFx } from './fx';
 import { ringCam } from './dohyo';
 import {
-  type Boss, BOSSES, BUYOUT, type Carry, F, type Forecast, fixOn, forecast, ICON, type Ing, keptHome, NAME, nextBoss, ringGong,
+  type Boss, bossOf, BOSSES, BUYOUT, type Carry, F, type Forecast, fixOn, forecast, ICON, type Ing, keptHome, NAME, nextBoss, practiceDue, ringGong,
   type Rush, sides, strength, toBeat, worstShort, you,
 } from './fight';
 import { kindOf } from './items';
@@ -85,10 +85,13 @@ interface Row { face?: 'Grin' | 'Grimace'; say: string; v?: Verdict }
 /** What the panel says, so it's only rewritten when something in it changes. */
 let said = '';
 function render() {
-  const b = nextBoss(), R = F.rush, on = R && !R.done ? BOSSES[R.boss] : b;
+  const b = nextBoss(), R = F.rush, on = R && !R.done ? bossOf(R.boss) : b;
+  // (the sparring partner's practice fight says so, first)
+  const practice = R && !R.done ? R.boss < 0 : practiceDue();
   let chips: string[] = [], rows: Row[] = [], button: string | null = 'Ring the gong';
   if (R && !R.done) {
     chips = [`👥 ${R.n}`, `🔔 ${on!.bell} s`, `🐡 ${amount(on!.prize)}`];
+    if (practice) chips.unshift('🤼 Practice');
     rows = [{ say: 'Keep the bowls coming!' }];
     button = null;
   } else if (!b) {
@@ -96,6 +99,7 @@ function render() {
     button = null;
   } else {
     chips = [`👥 ${b.crowd}`, `🔔 ${b.bell} s`, `🐡 ${amount(b.prize)}`];
+    if (practice) chips.unshift('🤼 Practice');
     // (no forecast while the last boss's crowd is still on the floor: the gong can't be rung until it clears)
     const f = R ? null : forecast(), fix = fixOn();
     if (f && fix) {
@@ -109,7 +113,7 @@ function render() {
   if (key === said) return;
   said = key;
   vsEl.hidden = !on;
-  if (on) { bossEl.textContent = on.name; showFace(youP, 'champ', '🍙'); showFace(themP, on.kind, on.face); }
+  if (on) { bossEl.textContent = on.name; showFace(youP, 'champ', '🍙'); showFace(themP, on.kind ?? 'local', on.face); }
   chipsEl.replaceChildren(...chips.map(c => { const e = document.createElement('span'); e.className = 'fchip'; e.textContent = c; return e; }));
   castEl.replaceChildren(...rows.map(r => {
     const e = document.createElement('div');
@@ -139,7 +143,7 @@ const bannerEl = $('fightBanner'), bannerWho = $('bannerWho'), bannerGoal = $('b
 let bannerT = 0;
 /** 入場: his name, the crowd he's brought, and how many of them to turn, across the screen for a few seconds. */
 function banner(R: Rush) {
-  const boss = BOSSES[R.boss];
+  const boss = bossOf(R.boss);
   bannerWho.textContent = `${boss.name} ${boss.face} · ${R.n} fans`;
   bannerGoal.textContent = `TURN ${toBeat(boss, R.n)} TO WIN`;
   bannerEl.classList.remove('on');
@@ -162,7 +166,7 @@ const EDGE = 1.4, DROP = 3.71, SAYS = 4.95, READY = 5.3;
 /** Whether Eddie's coin is up: the world waits for it. */
 export const coinUp = () => coinT >= 0;
 function toss(R: Rush) {
-  const boss = BOSSES[R.boss], caught = R.fix!.caught;
+  const boss = bossOf(R.boss), caught = R.fix!.caught;
   coinEl.className = caught ? 'caught' : 'hold';
   coinHead.textContent = caught ? '🗞️ CAUGHT!' : 'THE FIX HOLDS';
   coinSub.textContent = caught ? `He brings all ${R.n}` : `${boss.name} brings ${R.n}, not ${boss.crowd}`;
@@ -217,9 +221,12 @@ export function lossReason(R: Rush) {
 }
 /** The card after a boss's rush: a stamp on a burst, and YOU WIN with the prize and what's new, or how short and why. */
 export function showCard(R: Rush) {
-  const boss = BOSSES[R.boss], el = (tag: string, cls: string, text = '') => { const e = document.createElement(tag); e.className = cls; e.textContent = text; return e; };
+  const boss = bossOf(R.boss), el = (tag: string, cls: string, text = '') => { const e = document.createElement(tag); e.className = cls; e.textContent = text; return e; };
   const kids = [el('div', 'burst'), el('div', 'hanko', R.win ? '勝' : '負')];
-  if (R.win) kids.push(el('h2', '', 'YOU WIN'), el('div', 'prize', `🐡 ${amount(boss.prize)}`), el('div', 'unlock', `🔓 New: ${boss.opens}`));
+  // practice: what it takes to beat the first boss (his prize hires it)
+  const next = BOSSES[0];
+  if (R.win && R.boss < 0) kids.push(el('h2', '', 'PRACTICE WON'), el('div', 'prize', `🐡 ${amount(boss.prize)}`), el('div', 'unlock', `Next: ${next.name} ${next.face} · hire a washer and salter`));
+  else if (R.win) kids.push(el('h2', '', 'YOU WIN'), el('div', 'prize', `🐡 ${amount(boss.prize)}`), el('div', 'unlock', `🔓 New: ${boss.opens}`));
   else kids.push(el('h2', '', `SHORT BY ${toBeat(boss, R.n) - R.turned}`), el('span', 'fchip reason', lossReason(R)));
   kids.push(el('div', 'tap', 'Tap to close'));
   card.className = R.win ? 'win' : 'lose';
@@ -234,10 +241,11 @@ let barSaid = '';
  *  fans, purple for theirs: his goal marked on it while his crowd's turning, and in the fight the knot, pulled one way
  *  or the other. */
 function renderBout() {
-  const R = F.rush, show = level.down && stage.n === 3 && !coinUp() && (!!R || watch > 0.5);
+  // (a local's from the watch spot only once the doors are open: before, there's no fight to show)
+  const R = F.rush, show = level.down && stage.n === 3 && !coinUp() && (!!R || (watch > 0.5 && !F.quiet));
   if (show === rushEl.hidden) { rushEl.hidden = !show; rushEl.classList.toggle('in', show); }
   if (!show) { barSaid = ''; return; }
-  const B = F.bout, boss = R ? BOSSES[R.boss] : null, name = boss ? boss.name : 'Local';
+  const B = F.bout, boss = R ? bossOf(R.boss) : null, name = boss ? boss.name : 'Local';
   const { yours, theirs } = sides();
   let left = `${CHAMP} ${yours}`, right = `${theirs} ${name}`, mid: string, fill = yours + theirs ? yours / (yours + theirs) : 0.5, goal = -1;
   if (R && B.phase === 'prep') {
@@ -254,7 +262,7 @@ function renderBout() {
   if (key === barSaid) return;
   barSaid = key;
   showFace(rushYouP, 'champ', '🍙');
-  if (boss) showFace(rushThemP, boss.kind, boss.face); else showFace(rushThemP, 'local', '🙂');
+  if (boss) showFace(rushThemP, boss.kind ?? 'local', boss.face); else showFace(rushThemP, 'local', '🙂');
   rushYou.textContent = left; rushBell.textContent = mid; rushThem.textContent = right;
   rushBar.style.width = Math.round(fill * 1000) / 10 + '%';
   rushGoal.hidden = goal < 0; rushGoal.style.left = Math.round(goal * 1000) / 10 + '%';

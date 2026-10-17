@@ -1329,8 +1329,12 @@ const FLAP_BOX: [number, number, number, number] = [BAR.x0 + BAR.d / 2, (FLAP.z0
 const moving: Object3D[] = [];
 /** The flap: how far open it is (0 shut, 1 open), and its lid and door (once built). */
 const flap = { k: 0, lid: null as Object3D | null, door: null as Object3D | null };
-/** Whether the player's up at the flap, inside the square or out (about half a metre short of the counter), or in it. */
-const atFlap = (p: XZ) => Math.abs(p.x - FLAP_BOX[0]) < BAR.d / 2 + 0.8 && p.z > FLAP.z0 - 0.35 && p.z < FLAP.z1 + 0.3;
+/** How near the flap opens it: from the arena, a good way out (so it's found by walking past), and along the counter
+ *  a little past its end; from inside the square, only right up at it (not whenever the player's serving). */
+export const FLAP_REACH = { out: 1.6, in: 0.8, along: 0.8 };
+/** Whether the player's near enough the flap, inside the square or out, or in it. */
+const atFlap = (p: XZ) => p.x > FLAP_BOX[0] - BAR.d / 2 - FLAP_REACH.out && p.x < FLAP_BOX[0] + BAR.d / 2 + FLAP_REACH.in
+  && p.z > FLAP.z0 - FLAP_REACH.along && p.z < FLAP.z1 + 0.3;
 /** The flap, every frame: opening when the player (at `p`, down here) walks right up to it, quickly, and shutting after
  *  them when they step away, a little slower; its lid lifting from the wall end past upright, its door swinging back. */
 export function updBarFlap(dt: number, p: XZ | null) {

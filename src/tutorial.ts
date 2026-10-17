@@ -10,13 +10,23 @@
 // their other devices. A save from before the tutorial counts what it has done already. Learning the last of the basics
 // (the harpoon, usually) brings up a banner saying the tutorial's complete, and that the rest is up to the player; the
 // rating, which only comes up after a few more upgrades, is a tip for later, outside the tutorial proper.
+// Stage 3 has a tutorial of its own, the same way, for what's new down in the cellar (nothing stage 1 already taught):
+// the dumbwaiter's bins, the racks and barrels, standing at the pot to cook, the bowls from the counter out to the
+// stall, the cheapest thing at the shop counter (saved up for in 🐡), and the gong: the practice fight against the champion's
+// sparring partner (fight.ts), whose small crowd a full stall turns (so it's pointed at once the forecast says it's
+// won, and the stall until then); winning it is the end of it. (A
+// game that came down before the practice fight has the first boss instead, pointed at only once its forecast says
+// it's a win.) Then tips for later: the fans' chips and Fugu's cut, 💪, and the
+// grow room's beds. A save from before the cellar's lessons counts what it has done down there already.
 import { Group, Mesh, MeshBasicMaterial, RingGeometry } from 'three';
 import { buyButtonShown, touchBuy } from './buy';
+import { BAR_PAD, BENCH_PAD, BIN_PADS, COUNTER_PAD, GONG_PAD, machinePad, POT_PAD, type Pad } from './cellarPlan';
 import { C1 } from './counters';
 import { modCost, MODS, mods } from './economy';
+import { BOSSES, doneCount, F, forecast, growOpen, lineRoom, mach, nextBoss, PER_BATCH, practiceDue, sold, toBeat } from './fight';
 import { filletsInProgress } from './fishing';
 import { detail, quietly } from './kit';
-import { stage } from './layout';
+import { CELLAR_Y, level, stage } from './layout';
 import { player } from './player';
 import { onScreen } from './pointers';
 import { guideArrow, softRing } from './propsWorld';
@@ -26,14 +36,22 @@ import { atSquare, modOffered, SHOPS } from './shop';
 import { staging } from './stage';
 import { PAD, pile, PILE } from './stations';
 import { banner, confetti, toast } from './ui';
-import { locked, onOffer, tiles, type Tile } from './unlocks';
-import { d2xz, FY, price, type XZ } from './util';
+import { locked, menuOffer, onOffer, tiles, type Tile } from './unlocks';
+import { chips, d2xz, FY, price, type XZ } from './util';
 import { wallet } from './wallet';
 
-export type Lesson = 'fish' | 'pick' | 'sell' | 'cash' | 'buy' | 'shop' | 'harpoon' | 'stars';
-const LESSONS: Lesson[] = ['fish', 'pick', 'sell', 'cash', 'buy', 'shop', 'harpoon', 'stars'];
+export type Lesson = 'fish' | 'pick' | 'sell' | 'cash' | 'buy' | 'shop' | 'harpoon' | 'stars'
+  | 'bins' | 'prep' | 'pot' | 'bowls' | 'bench' | 'gong' | 'chips' | 'power' | 'grow';
+const LESSONS: Lesson[] = [
+  'fish', 'pick', 'sell', 'cash', 'buy', 'shop', 'harpoon', 'stars',
+  'bins', 'prep', 'pot', 'bowls', 'bench', 'gong', 'chips', 'power', 'grow',
+];
 /** Device storage for what's been learnt (the save keeps a copy too). */
 const KEY = 'floe-market-tutorial';
+/** Forgets what this device has learnt (the demo build, which keeps nothing, so every visit starts over). */
+export function forgetLessons() {
+  try { localStorage.removeItem(KEY); } catch { /* storage unavailable: there's nothing kept */ }
+}
 /** Seconds a lesson that's learnt by reading stays in view first. */
 const READ = 6;
 /** Seconds the banner saying it's all done stays up. */
@@ -42,9 +60,11 @@ const CHEER = 4;
 /** Where a lesson points: a spot on the ground, and how near counts as being there. */
 interface Spot extends XZ { y: number; r: number }
 /** Something to save up for, and where it's bought: what it is, and what's left to pay. */
-export interface Goal { icon: string; name: string; need: number; spot: Spot }
+export interface Goal { icon: string; name: string; need: number; spot: Spot; inChips?: boolean }
 interface Step {
   id: Lesson;
+  /** The stage it's taught on (1 unless it says). */
+  stage?: 3;
   /** Shown once this one's learnt: the loop goes in order. */
   after?: Lesson;
   /** Where to go, or null while there's nothing there yet (no cash to collect, nothing to afford). */
@@ -81,6 +101,88 @@ const firstLocked = () => onOffer().find(locked) ?? null;
 const hold = () => touchBuy() ? 'Stand on it and hold Buy' : buyButtonShown() ? 'Stand on it and hold E or Buy' : 'Stand on it and hold E';
 /** Cash at the start of the cash lesson, to see it go up. */
 let cash0 = 0;
+
+// ---------- stage 3: the cellar ----------
+const down = (p: Pad, r = p.r): Spot => ({ x: p.x, y: CELLAR_Y, z: p.z, r });
+/** How many of a kind the player has in their arms, counting what's still flying into them. */
+const carried = (kind: string) => player.back.all().filter(m => m.userData.kind === kind).length;
+const holding = (...kinds: string[]) => kinds.some(k => carried(k) > 0);
+/** Something bought down here: a level at the shop counter, a machine, a hire, a bigger venue. */
+const boughtBelow = () => MODS.some(m => m.stage === 3 && mods[m.id] > 0) || F.lines.rice.n > 1 || F.lines.fish.n > 1
+  || Object.values(F.hires).some(Boolean) || F.tier > 0;
+/** A cellar that's sold soup: it's beaten a boss, or has chips coming in, bowls about, or a crew working it. */
+const served = () => F.beaten > 0 || F.earned.length > 0 || F.pot.length + F.counter.length + F.stall.length > 0
+  || F.lines.rice.n > 1 || F.lines.fish.n > 1 || Object.values(F.hires).some(Boolean);
+/** The prep hall's two lines, and what each one's raw and ready in the player's arms. */
+const PREP = ['rice', 'fish'] as const;
+type PrepLine = typeof PREP[number];
+const RAW = { rice: 'rice', fish: 'fish' }, READIED = { rice: 'rrice', fish: 'cfish' };
+const LINE = {
+  rice: { put: 'Rice dries on the rack', wait: 'Drying', take: 'Take the dried rice' },
+  fish: { put: 'Fish goes in salt', wait: 'Salting', take: 'Take the salted fish' },
+};
+/** How many of a line's are ready, in the player's arms and on the pot's ledge. */
+const readyOf = (k: PrepLine) => carried(READIED[k]) + F.pantry[k];
+/** A line's machines: how many are in them still going and ready, and seconds until the next is ready. */
+function inLine(k: PrepLine) {
+  let going = 0, ready = 0, next = Infinity;
+  const M = mach(k);
+  for (const m of F.lines[k].m) {
+    const d = doneCount(k, m);
+    ready += d; going += m.items.length - d;
+    for (const p of m.items) if (p < 1) next = Math.min(next, (1 - p) * M.time);
+  }
+  return { going, ready, next };
+}
+/**
+ * Where the prep hall's lesson points, and what it says, until there's a batch's worth of rice and fish ready: raw
+ * ones in the player's arms into their machines (and how long they take), then a line that's short to its bin, then the
+ * ready ones out of the machines, and while they're still going, how long until they're ready.
+ */
+function prepping(): { at: Spot; say: [string, string?] } | null {
+  const short = PREP.filter(k => readyOf(k) < PER_BATCH);
+  if (!short.length) return null;
+  const machine = (k: PrepLine) => down(machinePad(k, 0, F.lines[k].n));
+  for (const k of PREP) {
+    if (carried(RAW[k]) && lineRoom(k) > 0) return { at: machine(k), say: [LINE[k].put, `Ready in ${mach(k).time} s`] };
+  }
+  for (const k of short) {
+    const l = inLine(k);
+    if (readyOf(k) + l.going + l.ready + carried(RAW[k]) < PER_BATCH) {
+      const has = (o: PrepLine) => readyOf(o) + inLine(o).going + inLine(o).ready + carried(RAW[o]) > 0;
+      const say: [string, string?] = has(k) ? [`Grab more ${k}`, `The pot takes ${PER_BATCH}`]
+        : has(PREP.find(o => o !== k)!) ? [`Now grab ${k} too`, 'The pot needs both'] : [`Grab ${k} here`];
+      return { at: down(BIN_PADS[k]), say };
+    }
+  }
+  for (const k of short) if (inLine(k).ready) return { at: machine(k), say: [LINE[k].take] };
+  for (const k of short) {
+    const l = inLine(k);
+    if (l.going) return { at: machine(k), say: [`${LINE[k].wait}… ${Math.max(1, Math.ceil(l.next))} s`, 'Then take them out'] };
+  }
+  return null;
+}
+/** The cheapest thing on sale at the shop counter, a level or a room's upgrade (so the first's bought soonest). */
+const cheapestBelow = () => [
+  ...MODS.filter(m => m.stage === 3 && modOffered(m.id)).map(m => ({ icon: m.icon, name: m.name, c: modCost(m.id) ?? Infinity })),
+  ...menuOffer().map(t => ({ icon: t.icon, name: t.name, c: t.cost })),
+].sort((a, b) => a.c - b.c)[0];
+/** The practice fight's been due in this game (so its being over means it was won). */
+let practised = false;
+/** Whether the gong's forecast says the next boss is beaten: worked out once a second, as it runs the whole rush. */
+let readyAt = -Infinity, ready = false;
+function gongReady() {
+  const b = nextBoss();
+  if (!b || F.rush) return false;
+  if (F.t < readyAt || F.t - readyAt >= 1) {
+    readyAt = F.t;
+    const f = forecast();
+    ready = !!f && f.turned >= toBeat(b);
+  }
+  return ready;
+}
+/** The card after a boss's fight is up (gong.ts). */
+const cardUp = () => document.getElementById('fightCard')?.hidden === false;
 
 const STEPS: Step[] = [
   {
@@ -130,6 +232,69 @@ const STEPS: Step[] = [
     say: () => [`Opens at ★${firstLocked()?.stars?.toFixed(1) ?? ''}`, 'Serve customers quickly for better reviews'],
     known: () => stage.n > 1 || tiles.some(t => !!t.stars && (t.open || t.done)),
   },
+  // stage 3: what's new down in the cellar, in order, from the dumbwaiter to the first fight
+  {
+    id: 'bins', stage: 3, at: () => down(BIN_PADS.rice), say: () => ['Grab rice or fish here', 'Sent down from upstairs'],
+    done: () => holding('rice', 'fish'), known: served,
+  },
+  {
+    // both lines, until there's a batch's worth of each ready: the pot takes rice and fish
+    id: 'prep', stage: 3, after: 'bins', stay: true, at: () => prepping()?.at ?? null, say: () => prepping()?.say ?? [''],
+    done: () => PREP.every(k => readyOf(k) >= PER_BATCH) || F.cooked.length > 0, known: served,
+  },
+  {
+    id: 'pot', stage: 3, after: 'prep', stay: true, at: () => down(POT_PAD),
+    say: () => ['Stand here to cook chanko', 'It only cooks while you stay'],
+    done: () => F.cooked.length > 0 || F.pot.length + F.counter.length + F.stall.length > 0, known: served,
+  },
+  {
+    // the bowls from the counter, then out on the stall (nothing to point at while the pot's still ladling)
+    id: 'bowls', stage: 3, after: 'pot',
+    at: () => (holding('bowl') ? down(BAR_PAD) : F.counter.length ? down(COUNTER_PAD) : null),
+    say: () => (holding('bowl') ? ['Drop them in the stall', 'Fans come once it\'s out'] : ['Take the bowls']),
+    done: () => F.stall.length > 0 || sold.n > 0, known: served,
+  },
+  {
+    // the cheapest thing at the shop counter, saved up for in chips; on the square, the bubble says how
+    id: 'bench', stage: 3, after: 'bowls', stay: true,
+    goal: () => {
+      const l = cheapestBelow();
+      return l ? { icon: l.icon, name: l.name, need: l.c, spot: down({ ...BENCH_PAD, r: 0.95 }), inChips: true } : null;
+    },
+    at: () => reached(STEPS.find(t => t.id === 'bench')!.goal!()),
+    say: () => {
+      const l = cheapestBelow();
+      if (!atSquare()) return [`Buy ${l ? l.name[0].toLowerCase() + l.name.slice(1) : 'an upgrade'} here`, 'At the shop counter'];
+      // (on a touch screen the menu opens folded, as its Shop button)
+      if (document.getElementById('craft')?.hidden === false) return ['Tap Shop', 'Then pick an upgrade'];
+      return ['Pick an upgrade', touchBuy() ? 'Tap one in the list to buy it' : 'Click one in the list to buy it'];
+    },
+    done: boughtBelow, known: boughtBelow,
+  },
+  {
+    // the first fight: pointed at only once the forecast says it's won, and learnt by winning it (once its card's away)
+    // the practice fight (or, for a game from before it, the first boss once he's a win), learnt by winning it, once
+    // its card's away
+    // (in practice, the stall first while the forecast says it'd be lost: a full stall always wins it)
+    id: 'gong', stage: 3, after: 'bench',
+    at: () => (gongReady() ? down(GONG_PAD) : practiceDue() && !F.rush ? down(BAR_PAD) : null),
+    say: () => (!practiceDue() ? ['Ring the gong', 'Your crowd is ready']
+      : gongReady() ? ['Ring the gong', 'A practice fight to start'] : ['Fill the stall first', 'Then ring the gong']),
+    done: () => (F.beaten > 0 || (practised && !F.practice)) && !cardUp(), known: () => F.beaten > 0,
+  },
+  {
+    id: 'chips', stage: 3, after: 'bowls', read: READ, later: true, at: () => (sold.n > 0 ? down(BAR_PAD, 0) : null),
+    say: () => ['Fans pay in 🐡 chips', 'Fugu keeps 30%'], known: served,
+  },
+  {
+    id: 'power', stage: 3, after: 'chips', read: READ, later: true, at: () => down(BAR_PAD, 0),
+    say: () => ['💪 Fed fans cheer for you', 'Keep the stall full'], known: () => F.beaten > 0,
+  },
+  {
+    id: 'grow', stage: 3, after: 'gong', read: READ, later: true,
+    at: () => (growOpen() && F.lines.mush.n > 0 ? down(machinePad('mush', 0, F.lines.mush.n), 0) : null),
+    say: () => ['Mushrooms grow here', 'The pot wants 🍄 too'], known: () => F.beaten > 1 || !!F.hires.picker,
+  },
 ];
 
 const learnt = new Set<Lesson>();
@@ -142,6 +307,14 @@ let fromDevice = false;
 /** A save from before the tutorial (one with no lessons in it) has just loaded: its player knows what it has done. A
  *  game since keeps its own lessons, so a reload mid-tutorial doesn't skip what's still to come. */
 export function olderGame() { learn(STEPS.filter(s => s.known()).map(s => s.id)); }
+/** A save's lessons (or, from before the tutorial, none: what it has done). A save from before the cellar's lessons
+ *  (none of them in it) counts what it has done down there, lesson by lesson. */
+export function loadLessons(ids: readonly unknown[] | null) {
+  if (!ids) { olderGame(); return; }
+  learn(ids);
+  const below = STEPS.filter(s => s.stage === 3);
+  if (!below.some(s => ids.includes(s.id))) learn(below.filter(s => s.known()).map(s => s.id));
+}
 
 function store() {
   try { localStorage.setItem(KEY, JSON.stringify([...learnt])); } catch { /* storage unavailable: the save still has it */ }
@@ -164,42 +337,51 @@ export const learntLessons = () => LESSONS.filter(id => learnt.has(id));
 
 /** A lesson still to learn whose turn has come. */
 const due = (s: Step) => !learnt.has(s.id) && (!s.after || learnt.has(s.after));
-const live = () => stage.n === 1 && !staging();
+/** A lesson's stage is being played, and not changing: the cellar's down in the cellar. */
+const live = (s: Step) => (s.stage ?? 1) === stage.n && !staging() && (s.stage !== 3 || level.down);
 /** The first lesson due whose spot is there. */
-const next = () => (live() && STEPS.find(s => due(s) && s.at())) || null;
+const next = () => STEPS.find(s => live(s) && due(s) && s.at()) ?? null;
+/** The cellar's basics are known: its entry needs only a reminder where to start (stage.ts). */
+export const cellarKnown = () => STEPS.every(s => s.stage !== 3 || s.later || learnt.has(s.id));
 
 /** Seconds left of the banner saying the tutorial's complete. */
 let cheer = 0;
 /** The banner for the last of the basics learnt: only ever by playing, never for a game that knew them already. */
-function complete() {
-  banner('Well done', 'Tutorial complete', 'The rest is up to you. Go make it big!');
+function complete(n: number) {
+  if (n === 3 && F.beaten === 0) banner('Practice won', 'Tutorial complete', `Now take on ${BOSSES[0].name} ${BOSSES[0].face}`);
+  else if (n === 3) banner('First fight won', 'Tutorial complete', 'Four more bosses to go');
+  else banner('Well done', 'Tutorial complete', 'The rest is up to you. Go make it big!');
   confetti();
   unlock();
   cheer = CHEER;
 }
 
-/** Learns a lesson by playing: the last of the basics completes the tutorial. */
+/** Learns a lesson by playing: the last of a stage's basics completes its tutorial. */
 function finish(s: Step) {
   learn([s.id]);
-  if (!s.later && STEPS.every(t => t.later || learnt.has(t.id))) complete();
+  const n = s.stage ?? 1;
+  if (!s.later && STEPS.every(t => (t.stage ?? 1) !== n || t.later || learnt.has(t.id))) complete(n);
 }
+/** A price, in the goal's money (rounded up; what's saved so far, `held`, rounded down). */
+const cost = (g: Goal, v: number, held = false) => (g.inChips ? chips(v, !held) : price(v));
 
 /** Each tick: learns what's been done, and picks the lesson to show. */
 export function updTutorial(dt: number) {
   if (!fromDevice) learn([]); // reads in what the device knows
+  if (F.practice) practised = true;
   // (the stage-up has the banner to itself)
   if (cheer > 0 && (cheer -= dt) <= 0 && !staging()) banner(null);
   const s = lesson.now;
   if (s && (s.done?.() || (s.read && lesson.viewed >= s.read))) finish(s);
-  // anything bought before its turn counts when its turn comes, in order
-  for (const t of STEPS) if (t.goal && due(t) && t.done!()) finish(t);
+  // anything bought before its turn counts when its turn comes, in order (and anything done in the cellar, down there)
+  for (const t of STEPS) if ((t.goal || (t.stage === 3 && live(t))) && t.done && due(t) && t.done()) finish(t);
   // what's to save up for next: said once as it starts, and shown by the cash
-  const g = live() ? STEPS.find(t => t.goal && due(t)) ?? null : null;
+  const g = STEPS.find(t => t.goal && due(t) && live(t)) ?? null;
   lesson.goal = g?.goal!() ?? null;
   if (g !== saving) {
     saving = g;
     if (g && lesson.goal && wallet.money < lesson.goal.need) {
-      toast(`Next goal: ${lesson.goal.name}, ${price(lesson.goal.need)}`, 'goal', 3000);
+      toast(`Next goal: ${lesson.goal.name}, ${cost(lesson.goal, lesson.goal.need)}`, 'goal', 3000);
     }
   }
   const n = next();
@@ -263,11 +445,16 @@ function drawGoal() {
   const ready = have >= g.need;
   goalIc.textContent = g.icon;
   goalName.textContent = g.name;
-  goalN.textContent = ready ? `${price(g.need)} ✓` : `${price(have)} / ${price(g.need)}`;
+  goalN.textContent = ready ? `${cost(g, g.need)} ✓` : `${cost(g, have, true)} / ${cost(g, g.need)}`;
   goalBar.style.width = Math.round(Math.min(1, have / Math.max(1, g.need)) * 100) + '%';
   goalEl.classList.toggle('ready', ready);
-  goalEl.setAttribute('aria-label', ready ? `${g.name}: you can buy it now` : `Saving up for ${g.name}: ${price(have)} of ${price(g.need)}`);
+  goalEl.setAttribute('aria-label', ready ? `${g.name}: you can buy it now` : `Saving up for ${g.name}: ${cost(g, have, true)} of ${cost(g, g.need)}`);
 }
+
+/** A stage 3 panel's open (the gong's, Eddie's, Tommy's, Harry's), Eddie's coin's up, or a fight's card: the bubble
+ *  keeps out of its way. */
+const PANELS = ['gong', 'eddie', 'monte', 'loans', 'coin', 'fightCard'].map(id => document.getElementById(id));
+const panelUp = () => PANELS.some(p => p && !p.hidden);
 
 /** Each frame: places the arrow, ring and bubble for the lesson showing (main.ts; it needs the camera). */
 export function drawTutorial(dt: number) {
@@ -276,7 +463,7 @@ export function drawTutorial(dt: number) {
   if (s !== drawn) { drawn = s; k = 0; }
   // standing there doing it, the arrow and the bubble step aside, unless what to do there needs saying
   const there = !!s && !!spot && !s.stay && d2xz(player.g.position, spot) < spot.r * spot.r;
-  const on = !!s && !!spot && !there;
+  const on = !!s && !!spot && !there && !panelUp();
   k = on ? Math.min(1, k + dt * 4) : 0;
   t += dt;
   guide.visible = on;

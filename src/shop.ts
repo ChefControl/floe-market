@@ -21,6 +21,7 @@ import { repriceSushi, sushiBoost } from './restaurant';
 import { save } from './save';
 import { levelUp } from './sfx';
 import { SHED_AT } from './shed';
+import { spotOn } from './spotlight';
 import { staging } from './stage';
 import { buyFromMenu, isDone, menuSeen, menuTiles, offered, type Tile } from './unlocks';
 import { MAX_MACHINES } from './cellarPlan';
@@ -472,6 +473,10 @@ export function updShop() {
   }
   const bench = !!(on as Square | null)?.bench;
   if (bench) for (const r of benchRooms()) menuSeen.add(r);
+  // while what was just bought has the camera, the menu (and its Shop button) steps out of the way; E still buys (the
+  // spotlight goes straight on over to the next one, spotlight.ts), as the shed's square sells a level a press
+  const away = spotOn();
+  panel.classList.toggle('away', away); craftEl.classList.toggle('away', away);
   const press = buyHeld() && !held;
   held = buyHeld();
   if (on && press) {

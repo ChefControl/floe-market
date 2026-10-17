@@ -23,7 +23,7 @@ import { CanvasTexture, Group, type Object3D, Sprite, SpriteMaterial, Vector3 } 
 import { boss, CY, DRUMS, parts, PIT_STEPS, RING, RING_HALF, RING_R, RING_TOP } from './cellar';
 import { TEPPO } from './cellarPlan';
 import { belowGround, Person } from './characters';
-import { BOSSES, BOUT, F } from './fight';
+import { bossOf, BOUT, F } from './fight';
 import { LOOKS, SLAPS } from './creatures';
 import { dustFx, inkFx, saltFx } from './fx';
 import { isHigh } from './graphics';
@@ -46,7 +46,9 @@ const ease = (k: number) => k * k * (3 - 2 * k);
 const clamp01 = (k: number) => Math.min(1, Math.max(0, k));
 const lerp = (a: number, b: number, k: number) => a + (b - a) * k;
 
-const [champ, rival, partner] = quietly(() => [new RikishiModel(CHAMP_BELT), new RikishiModel(LOCAL_BELTS[0]), new RikishiModel(0x6B4A2C)]);
+/** The sparring partner's belt (his, in the ring for his practice fight, too). */
+const PARTNER_BELT = 0x6B4A2C;
+const [champ, rival, partner] = quietly(() => [new RikishiModel(CHAMP_BELT), new RikishiModel(LOCAL_BELTS[0]), new RikishiModel(PARTNER_BELT)]);
 champ.setWeight(170);
 partner.setWeight(140);
 for (const r of [champ, rival, partner]) { r.visible = false; r.scale.setScalar(SIZE); scene.add(r); }
@@ -432,18 +434,21 @@ function drums() {
 
 // ---------- the bout ----------
 /** Who the champion's up against: the boss whose rush it is, or tonight's local. */
-const bossOn = () => (F.rush ? BOSSES[F.rush.boss] : null);
+const bossOn = () => (F.rush ? bossOf(F.rush.boss) : null);
+/** The sparring partner's in the ring for his practice fight (and so not at the teppo post). */
+const sparring = () => !!F.rush && F.rush.boss < 0;
 let dressedAs = '';
 function dressRival() {
   const b = bossOn(), key = b ? b.name : 'local' + (F.bout.n % LOCAL_BELTS.length);
   if (key === dressedAs) return;
   dressedAs = key;
-  if (b) rival.dressAs(LOOKS[b.kind], b.crowd >= 500 ? 200 : 160 + F.rush!.boss * 8);
+  if (b?.kind) rival.dressAs(LOOKS[b.kind], b.crowd >= 500 ? 200 : 160 + F.rush!.boss * 8);
+  else if (b) { rival.dress(PARTNER_BELT); rival.setWeight(140); }
   else { rival.dress(LOCAL_BELTS[F.bout.n % LOCAL_BELTS.length]); rival.setWeight(130 + (F.bout.n * 13) % 30); }
 }
 /** What was happening last frame, to catch the moments as the clock passes them; and where each wrestler was shown
  *  as the phase changed (they go on from there, so a bout cut short never jumps). */
-let was = { phase: '', t: 0 }, since = 0, edged = false, from: [At, At] | null = null;
+let was = { phase: '', t: 0 }, since = 0, edged = false, from: [At, At] | null = null, blend = 0.5;
 const shown: [At, At] = [at(0, CORNER), at(1, -CORNER)];
 const BLEND = 0.5;
 /** The referee's calls, over his head. */
@@ -544,8 +549,27 @@ function temper(ph: string, t: number) {
   return !F.bout.win ? (t < 4 ? 1 : 0) : t < unslow(1.3) ? 0.8 : 0;
 }
 let puffed = false;
+/** Where the champion trains while the doors are shut: by the teppo post, on the open floor just west of his sparring
+ *  partner (clear of the fence south of the post), facing out. */
+const WARM_UP = { x: TEPPO.x - 1.95 - RING.x, z: TEPPO.z + 0.25 - RING.z };
+/** The champion's stamps, over and over, while he waits for the doors to open. */
+function warmUp(t: number): At {
+  const c = t % SHIKO, leg = Math.floor(t / SHIKO) % 2;
+  const p = c < 0.8 ? mixPose(RISE, shikoUp(leg), ease(c / 0.8)) : c < 1.08 ? shikoUp(leg)
+    : c < 1.22 ? mixPose(shikoUp(leg), SHIKO_LOW, (c - 1.08) / 0.14) : mixPose(SHIKO_LOW, RISE, ease(clamp01((c - 1.5) / 0.65)));
+  return { ...WARM_UP, yaw: 0, p, air: 0 };
+}
 function pose2(dt: number) {
   const B = F.bout, t = B.t;
+  // the doors still shut (a player who's just come down, before their first soup): no fight yet, nobody in the ring,
+  // and the champion training by the teppo post
+  rival.visible = !F.quiet || !!F.rush;
+  if (!rival.visible) {
+    const w = warmUp(F.t);
+    place(champ, w, dt);
+    shown[0] = w;
+    return;
+  }
   dressRival();
   rival.agitate = B.phase === 'fight' ? 1 : 0;
   if (rival.kind === 'puffer') {
@@ -559,8 +583,8 @@ function pose2(dt: number) {
   else if (B.phase === 'fight') { fightBeats(t, dt); pair = fightAt(t); end = pair; }
   else pair = resultAt(slow(t));
   // a phase that started from somewhere else (a bout cut short, a rush rung mid-ritual) blends on from where they were
-  if (from && since < BLEND) {
-    const k = ease(since / BLEND);
+  if (from && since < blend) {
+    const k = ease(since / blend);
     pair = pair.map((s, i) => ({ x: lerp(from![i].x, s.x, k), z: lerp(from![i].z, s.z, k), yaw: lerp(from![i].yaw, s.yaw, k), p: mixPose(from![i].p, s.p, k), air: lerp(from![i].air, s.air, k) })) as [At, At];
   }
   place(champ, pair[0], dt); place(rival, pair[1], dt);
@@ -583,6 +607,8 @@ function pose2(dt: number) {
 /** The sparring partner, slapping the teppo post with one hand and the other. */
 const TEPPO_SLAP = pose({ bend: 0.25, l0x: 0.3, l0z: 0.35, l0k: 0.45, l1x: -0.2, l1z: 0.3, l1k: 0.15, head: -0.2 });
 function spar(dt: number) {
+  // (off to the ring for his practice fight)
+  partner.visible = !sparring();
   partner.position.set(TEPPO.x - 0.75, CY, TEPPO.z);
   partner.rotation.y = Math.PI / 2;
   const s = Math.sin(F.t * 5);
@@ -596,11 +622,16 @@ export function openRing() {
   gyoji.root.position.set(RING.x, CY + RING_TOP, RING.z - 1.75);
 }
 
+/** Whether the doors were shut last frame: opening, the champion walks over from the teppo post to his corner. */
+let shut = false;
 export function updDohyo(dt: number) {
   if (!gyoji.root.visible) return;
-  const ph = F.bout.phase, t = F.bout.t;
-  if (ph !== was.phase) { from = was.phase ? [{ ...shown[0] }, { ...shown[1] }] : null; since = 0; }
-  else since += dt;
+  const ph = F.bout.phase, t = F.bout.t, quiet = F.quiet && !F.rush;
+  if (ph !== was.phase || (shut && !quiet)) {
+    from = was.phase ? [{ ...shown[0] }, { ...shown[1] }] : null; since = 0;
+    blend = shut && !quiet ? 1.8 : BLEND;
+  } else since += dt;
+  shut = quiet;
   moments(ph, t);
   pose2(dt);
   was = { phase: ph, t };
