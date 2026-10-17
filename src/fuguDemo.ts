@@ -1,8 +1,11 @@
 // The demo build of Mr. Fugu's offer (VITE_FUGU_DEMO=1): Floe Sushi fully built, the cash $100 short of a million and
 // the last diners' bills at the register, which the crew brings in a moment later: then he knocks, and the arrow
 // points the way. Or, with ?cellar in the address, down in his cellar (stage 3) with chips to spend, to try fight
-// night (&chips=N for N chips, not 2,000; &beaten=N with N of the bosses beaten already, and what they open open).
+// night (&chips=N for N chips, not 2,000; &beaten=N with N of the bosses beaten already, and what they open open;
+// &pot to start at the pot, for its cooking game).
 // Nothing is kept, so every visit starts over, the tutorial included.
+import { POT_PAD } from './cellarPlan';
+import { F, LEDGE_CAP } from './fight';
 import { player } from './player';
 import { REGISTER } from './restaurant';
 import { deviceStore, load } from './save';
@@ -31,4 +34,6 @@ export function startDemo() {
   }));
   load();
   if (!cellar) player.g.position.set(REGISTER.x - 1.6, FY, REGISTER.z - 1.4);
+  // (with a full ledge, so the show can be played again and again)
+  else if (q.has('pot')) { player.g.position.set(POT_PAD.x, player.g.position.y, POT_PAD.z); F.pantry = { rice: LEDGE_CAP, fish: LEDGE_CAP, mush: LEDGE_CAP }; }
 }

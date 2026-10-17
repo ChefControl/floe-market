@@ -213,6 +213,16 @@ export function saltFx(from: Vector3, to: Vector3) {
     P.drops.emit(from, (to.x - from.x) / T + jitter(-0.5, 0.5), 3.2 + jitter(-0.6, 0.6), (to.z - from.z) / T + jitter(-0.5, 0.5), jitter(0.6, 0.9), jitter(0.015, 0.03), 0xFFFFFF);
   }
 }
+/** Something poured out of a bottle or shaker at `at` (the cooking show's seasonings): a few drops of `color`. */
+export function pourFx(at: Vector3, color: number, n = 2, size = 0.02) {
+  if (!on()) return;
+  for (let i = 0; i < n; i++) P.drops.emit(at, jitter(-0.12, 0.12), jitter(-0.6, -0.2), jitter(-0.12, 0.12), jitter(0.45, 0.6), size * jitter(0.7, 1.3), color);
+}
+/** A puff of steam off the pot at `at` (the cooking show's stirring): `n` of them. */
+export function steamFx(at: Vector3, n = 1) {
+  if (!on()) return;
+  for (let i = 0; i < n; i++) P.steam.emit(at3.set(at.x + jitter(-0.3, 0.3), at.y, at.z + jitter(-0.3, 0.3)), jitter(-0.05, 0.05), jitter(0.4, 0.7), jitter(-0.05, 0.05), jitter(0.9, 1.4), jitter(0.08, 0.14), 0xFFFFFF);
+}
 /** A chimney at `at` that smokes while `on()`: a puff every so often, drifting up and away with the wind. */
 export const chimney = (at: Vector3, on: () => boolean = () => true) => { sources.push({ at, kind: 'smoke', every: 0.22, t: 0, on }); };
 /** Steam rising from a pot at `at` while `on()`. */

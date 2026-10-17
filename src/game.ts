@@ -3,6 +3,7 @@
 import { updAmbience } from './ambience';
 import { updAudio } from './audio';
 import { updCasino } from './casino';
+import { showing, updCookButton, updShow } from './chanko';
 import { updBakes } from './characters';
 import { calm, COUNTERS, postCustomers, updCounter, updLeaving } from './counters';
 import { updFarm } from './farm';
@@ -42,6 +43,8 @@ import { updFloes } from './world';
 let time = 0;
 
 export function tick(dt: number) {
+  // the cooking show at the pot (chanko.ts): everything holds still but the show
+  if (showing()) { updShow(dt); return; }
   time += dt;
   // Through Mr. Fugu's scenes (offer.ts) the world holds still around him: nobody hauls, fishes, drives, eats or
   // grows, and the seasons wait. Only the light, the sea and its fish (and any catch already in the air, which lands),
@@ -68,6 +71,7 @@ export function tick(dt: number) {
       updRing(dt);
       updRingSound(dt);
       updLadder(dt);
+      updCookButton();
     }
   }
   // While he's on, the world winds down rather than stopping dead: what's in the air lands, and the cars finish their
