@@ -23,7 +23,7 @@
 // already, and one from before the arriving and fans cards skips them if it's served soup.
 import { Group, Mesh, MeshBasicMaterial, RingGeometry } from 'three';
 import { buyButtonShown, touchBuy } from './buy';
-import { BAR_PAD, BENCH_PAD, BIN_PADS, COUNTER_PAD, GONG_PAD, machinePad, POT_PAD, type Pad } from './cellarPlan';
+import { BAR_PAD, BENCH_PAD, BIN_PADS, COUNTER_PAD, GONG_PAD, machinePad, POT_PAD, type Pad, WATCH } from './cellarPlan';
 import { C1 } from './counters';
 import { modCost, MODS, mods } from './economy';
 import {
@@ -60,8 +60,9 @@ export function forgetLessons() {
 }
 /** Seconds a lesson that's learnt by reading stays in view first. */
 const READ = 6;
-/** Seconds the cellar's cards that are only read stay in view: the arriving one, and the fans one. */
-const GLANCE = 4;
+/** Seconds the cellar's fans card stays in view; and the arriving one, once the player's started moving (a grace for
+ *  them to find their feet before the first job). */
+const GLANCE = 4, SETTLE = 5;
 /** Seconds the banner saying it's all done stays up. */
 const CHEER = 4;
 
@@ -85,6 +86,8 @@ interface Step {
   read?: number;
   /** No arrow: just the bubble, over the player where they stand (`at` follows them). */
   plain?: boolean;
+  /** (with `read`) Its time counts only once the player's moved from where they were when it came up. */
+  moved?: boolean;
   /** A tip for later, when it comes up: not one of the basics the tutorial is complete without. */
   later?: boolean;
   /** Stays up while the player stands there (buying needs holding there); the others step aside for the player. */
@@ -109,8 +112,9 @@ const reached = (g: Goal | null) => (g && wallet.money >= g.need ? g.spot : null
 const firstLocked = () => onOffer().find(locked) ?? null;
 /** How to buy, on this device: the Buy button on a touch screen, or E. */
 const hold = () => touchBuy() ? 'Stand on it and hold Buy' : buyButtonShown() ? 'Stand on it and hold E or Buy' : 'Stand on it and hold E';
-/** Cash at the start of the cash lesson, to see it go up. */
+/** Cash at the start of the cash lesson, to see it go up; and where the player stood as the lesson showing came up. */
 let cash0 = 0;
+const from = { x: 0, z: 0 };
 
 // ---------- stage 3: the cellar ----------
 const down = (p: Pad, r = p.r): Spot => ({ x: p.x, y: CELLAR_Y, z: p.z, r });
@@ -261,7 +265,8 @@ const STEPS: Step[] = [
   // stage 3: what's new down in the cellar, in order, done first and explained as it happens
   {
     // (no arrow: read where they stand, as they come down)
-    id: 'arrive', stage: 3, read: GLANCE, plain: true, stay: true,
+    // (up till they first move, then a few seconds more)
+    id: 'arrive', stage: 3, read: SETTLE, moved: true, plain: true, stay: true,
     at: () => ({ x: player.g.position.x, y: CELLAR_Y, z: player.g.position.z, r: 0 }),
     say: () => ['Cook soup, feed fans, win fights', 'Follow the gold arrow'], known: served,
   },
@@ -305,10 +310,12 @@ const STEPS: Step[] = [
   },
   {
     // the first fight (the practice one, or for a game from before it the first boss): the loop's next job till the
-    // forecast says it's won, then the gong; during it, what wins it, back on the loop; learnt by winning it
+    // forecast says it's won, then the gong; while his fans are coming and eating, what wins it, back on the loop; once
+    // his bell's rung, off to watch the fight; learnt by winning it
     id: 'gong', stage: 3, after: 'fed',
-    at: () => (!F.rush && gongReady() ? down(GONG_PAD) : loop()?.at ?? (F.rush ? down(BAR_PAD) : null)),
+    at: () => (F.rush?.done ? down(WATCH) : !F.rush && gongReady() ? down(GONG_PAD) : loop()?.at ?? (F.rush ? down(BAR_PAD) : null)),
     say: () => {
+      if (F.rush?.done) return ['Go watch the fight', 'Stand on the 👁️ spot'];
       if (F.rush) return ['Feed his fans to win them', `Win ${target()} before the 🔔 rings`];
       if (gongReady()) return ['Ring the gong for a fight', 'A rival brings his own fans'];
       return [lost ? 'Fill the stall, then try again' : 'Fill the stall for a fight', loop()?.say[0]];
@@ -428,6 +435,7 @@ export function updTutorial(dt: number) {
   const n = next();
   if (n !== lesson.now) {
     lesson.now = n; lesson.viewed = 0;
+    from.x = player.g.position.x; from.z = player.g.position.z;
     if (n?.id === 'cash') cash0 = wallet.money + wallet.inFlight;
   }
 }
@@ -527,7 +535,7 @@ export function drawTutorial(dt: number) {
   const [title, line = ''] = s.say();
   if (title + line !== said) { said = title + line; head.textContent = title; more.textContent = line; more.hidden = !line; }
   const o = onScreen({ x: spot.x, y: spot.y + tip + 1.1, z: spot.z });
-  if (o.inView) lesson.viewed += dt;
+  if (o.inView && (!s.moved || d2xz(player.g.position, from) > 0.3 * 0.3)) lesson.viewed += dt;
   bubble.classList.toggle('edge', !o.inView);
   // the whole bubble stays on the screen (at the edge, with room for its badge)
   const bw = bubble.offsetWidth / 2, bh = bubble.offsetHeight / 2, m = o.inView ? 8 : 22;

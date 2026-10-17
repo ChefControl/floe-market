@@ -58,7 +58,12 @@ describe("the cellar's tutorial", () => {
     expect(tut.guide.visible).toBe(false);
     expect($('coach').hidden).toBe(false);
     expect(said()).toBe('Cook soup, feed fans, win fights / Follow the gold arrow');
-    wait(3);
+    // it stays till they first move, however long
+    wait(10);
+    expect(now()).toBe('arrive');
+    // then a few seconds' grace to find their feet
+    at({ x: plan.BIN_PADS.rice.x - 2, z: plan.BIN_PADS.rice.z });
+    wait(4);
     expect(now()).toBe('arrive');
     wait(1.5);
     // then the dumbwaiter, and the arrow's down on the cellar's floor
@@ -187,6 +192,11 @@ describe("the cellar's tutorial", () => {
     expect(said()).toBe('Feed his fans to win them / Win 21 before the 🔔 rings');
     g.runUntil(() => { while (F().rush!.turned + F().stall.length < 21 && fight.toStall(false)); return F().rush!.done; }, 31 + fight.WALK_IN);
     expect(F().rush!.win).toBe(true);
+    // his bell's rung: nothing more to feed, so off to watch the fight
+    g.run(0.1);
+    draw();
+    expect(said()).toBe('Go watch the fight / Stand on the 👁️ spot');
+    expect(tut.guide.position).toMatchObject({ x: plan.WATCH.x, z: plan.WATCH.z });
     g.runUntil(() => !F().practice, 30);
     g.run(0.1);
     $('fightCard').click();
