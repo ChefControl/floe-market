@@ -2,16 +2,19 @@
 // the last diners' bills at the register, which the crew brings in a moment later: then he knocks, and the arrow
 // points the way. Or, with ?cellar in the address, down in his cellar (stage 3) with chips to spend, to try fight
 // night (&chips=N for N chips, not 2,000; &beaten=N with N of the bosses beaten already, and what they open open).
-// Nothing is kept, so every visit starts over.
+// Nothing is kept, so every visit starts over, the tutorial included.
 import { player } from './player';
 import { REGISTER } from './restaurant';
 import { deviceStore, load } from './save';
+import { forgetLessons } from './tutorial';
 import { tiles } from './unlocks';
 import { FY } from './util';
 
 export const DEMO = import.meta.env.VITE_FUGU_DEMO === '1';
 
 export function startDemo() {
+  // (and the tutorial's lessons from a visit before, which the device keeps apart from the save)
+  forgetLessons();
   const q = new URLSearchParams(location.search), cellar = q.has('cellar');
   const chips = Math.max(0, Number(q.get('chips')) || 2_000), beaten = Math.max(0, Math.floor(Number(q.get('beaten')) || 0));
   deviceStore.write(JSON.stringify({
