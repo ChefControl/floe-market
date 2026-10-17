@@ -866,6 +866,8 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
 #gong .you{ background:linear-gradient(100deg,#C93A1C,var(--fn-champ)); padding:0 14px 0 12px; }
 #gong .them{ background:linear-gradient(100deg,#5B2F96,var(--fn-boss)); padding:0 12px 0 14px; justify-content:flex-end; }
 #gong .name{ min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+#gong .name.two{ white-space:normal; line-height:1.05; font-size:.8em; overflow-wrap:anywhere; }
+#gong .them .name.two{ text-align:right; }
 #gong .port{ width:50px; height:50px; }
 #gong .x{ height:100%; display:grid; place-items:center; font:400 22px/1 var(--fn-arcade); color:var(--fn-gold);
   background:linear-gradient(100deg,var(--fn-champ) 0 50%,#5B2F96 50%); text-shadow:2px 2px 0 #2A0F16; }
@@ -902,6 +904,7 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
 #rush .row{ display:grid; grid-template-columns:1fr auto 1fr; align-items:baseline; gap:8px; font:800 17px/1.1 "Baloo 2","Trebuchet MS",system-ui,sans-serif;
   font-variant-numeric:tabular-nums; white-space:nowrap; }
 #rush .row>span{ overflow:hidden; text-overflow:ellipsis; }
+#rush .row>span.two{ white-space:normal; font-size:.8em; line-height:1.05; }
 #rush .row>:last-child{ text-align:right; }
 #rush .row b{ font:400 20px/1 var(--fn-arcade); color:var(--fn-gold); text-align:center; }
 #rush .rope{ position:relative; height:13px; border-radius:7px; background:var(--fn-boss); }
@@ -928,6 +931,8 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
 #fightCard{ position:fixed; inset:0; z-index:5; display:grid; place-content:center; justify-items:center; gap:14px; text-align:center; cursor:pointer;
   overflow:hidden; background:radial-gradient(ellipse at center,rgba(10,14,22,.35),rgba(10,14,22,.8)); animation:cardIn .35s ease-out; }
 #fightCard[hidden]{ display:none; }
+/* (up, but unseen till the loser's landed: its stamp and burst start as it shows) */
+#fightCard.wait, #fightCard.wait *{ visibility:hidden; animation:none !important; }
 @keyframes cardIn{ from{ opacity:0; } to{ opacity:1; } }
 #fightCard>*{ position:relative; }
 #fightCard .burst{ position:absolute; left:50%; top:50%; width:900px; height:900px; margin:-450px 0 0 -450px;

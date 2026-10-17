@@ -17,7 +17,7 @@ import { decal, drawPad } from './decals';
 import { dustFx } from './fx';
 import { ringCam } from './dohyo';
 import {
-  type Boss, bossOf, BOSSES, BUYOUT, canShow, type Carry, F, type Forecast, fixOn, forecast, ICON, type Ing, keptHome, NAME, nextBoss, practiceDue, ringGong,
+  type Boss, bossOf, BOSSES, BUYOUT, canRing, canShow, type Carry, F, type Forecast, fixOn, forecast, ICON, type Ing, keptHome, LANDS, NAME, nextBoss, practiceDue, ringGong,
   type Rush, sides, strength, toBeat, worstShort, you,
 } from './fight';
 import { kindOf } from './items';
@@ -32,6 +32,19 @@ import { d2xz } from './util';
 
 const $ = (id: string) => document.getElementById(id)!;
 const amount = (v: number) => Math.floor(v).toLocaleString('en-US');
+/** Shrinks a name's text until it fits its box (down to `least` of its size), so a long one ("Sparring partner") is
+ *  never cut off; past that, it takes two lines. Again once the web fonts are in, and when the window's resized. */
+export function fit(el: HTMLElement, least = Number(el.dataset.least) || 0.7) {
+  el.style.fontSize = ''; el.classList.remove('two');
+  if (!el.isConnected || el.clientWidth <= 0) return;
+  const base = parseFloat(getComputedStyle(el).fontSize) || 16;
+  for (let k = 1; k >= least - 1e-9 && el.scrollWidth > el.clientWidth + 0.5; k -= 0.05) el.style.fontSize = `${(base * k).toFixed(1)}px`;
+  if (el.scrollWidth > el.clientWidth + 0.5) { el.style.fontSize = ''; el.classList.add('two'); }
+}
+const fitted: HTMLElement[] = [];
+const refit = () => fitted.forEach(fit);
+document.fonts?.ready.then(refit);
+window.addEventListener('resize', refit);
 
 // ---------- the pads ----------
 const pads = [
@@ -88,6 +101,7 @@ function cookedAt(kept = 0) {
 // ---------- the gong's panel ----------
 const panel = $('gong'), vsEl = panel.querySelector<HTMLElement>('.vs')!, bossEl = $('gongBoss'), chipsEl = $('gongCrowd');
 const castEl = $('gongCast'), go = $('gongGo') as HTMLButtonElement, youP = $('gongYouP'), themP = $('gongThemP');
+fitted.push(bossEl);
 /** Eddie's face, small, as on his coin: grinning (the fix holds) or grimacing (caught). */
 const mini = (face: 'Grin' | 'Grimace') => `<svg class="mini" viewBox="-60 -60 120 120" aria-hidden="true"><use href="#coinRim"/><use href="#coinEddie"/><use href="#coin${face}"/></svg>`;
 /** A line of the panel: Eddie's face for one way his coin could land, what it says, and a verdict's seal. */
@@ -103,6 +117,11 @@ function render() {
     chips = [`👥 ${R.n}`, `🔔 ${on!.bell} s`, `🐡 ${amount(on!.prize)}`];
     if (practice) chips.unshift('🤼 Practice');
     rows = [{ say: 'Keep the bowls coming!' }];
+    button = null;
+  } else if (b && F.called) {
+    // (rung while a local fight was on: he walks in once it's over)
+    chips = [`👥 ${b.crowd}`, `🔔 ${b.bell} s`, `🐡 ${amount(b.prize)}`];
+    rows = [{ say: 'He walks in after this fight' }];
     button = null;
   } else if (!b) {
     rows = [{ say: 'All five beaten' }, { say: `Buy Mr. Fugu out: 🐡 ${amount(BUYOUT)}` }];
@@ -123,7 +142,7 @@ function render() {
   if (key === said) return;
   said = key;
   vsEl.hidden = !on;
-  if (on) { bossEl.textContent = on.name; showFace(youP, 'champ', '🍙'); showFace(themP, on.kind ?? 'local', on.face); }
+  if (on) { bossEl.textContent = on.name; fit(bossEl); showFace(youP, 'champ', '🍙'); showFace(themP, on.kind ?? 'local', on.face); }
   chipsEl.replaceChildren(...chips.map(c => { const e = document.createElement('span'); e.className = 'fchip'; e.textContent = c; return e; }));
   castEl.replaceChildren(...rows.map(r => {
     const e = document.createElement('div');
@@ -136,15 +155,22 @@ function render() {
   go.hidden = button === null;
   if (button) { go.textContent = button; go.disabled = !!R; }
 }
-/** Rings the gong, if a boss can be called in now: the bell starts (once Eddie's coin, if he's in on it, is down). */
+/** Rings the gong, if a boss can be called in now: Eddie's coin first, if he's in on it, and the banner as the boss
+ *  walks in (walkIn: at once, or once the local fight that's on is over). */
 export function ring() {
-  if (!ringGong()) return false;
+  if (!canRing()) return false;
+  const boss = nextBoss()!, e = fixOn();
+  // (the coin's up before he's called in, so his banner waits for it)
+  if (e) toss(boss, e.caught, e.caught ? boss.crowd : boss.crowd - keptHome(boss, e.cut));
+  ringGong();
   struck();
   said = '';
-  const R = F.rush!;
-  if (R.fix) toss(R);
-  else banner(R);
   return true;
+}
+/** A boss walks in (fight.ts's on.rush, by way of ring.ts): his banner, unless Eddie's coin is still up (then it
+ *  comes after the tap). */
+export function walkIn(R: Rush) {
+  if (!coinUp()) banner(R);
 }
 go.addEventListener('click', () => { if (!go.disabled) ring(); });
 
@@ -175,11 +201,10 @@ let coinT = -1;
 const EDGE = 1.4, DROP = 3.71, SAYS = 4.95, READY = 5.3;
 /** Whether Eddie's coin is up: the world waits for it. */
 export const coinUp = () => coinT >= 0;
-function toss(R: Rush) {
-  const boss = bossOf(R.boss), caught = R.fix!.caught;
+function toss(boss: Boss, caught: boolean, n: number) {
   coinEl.className = caught ? 'caught' : 'hold';
   coinHead.textContent = caught ? '🗞️ CAUGHT!' : 'THE FIX HOLDS';
-  coinSub.textContent = caught ? `He brings all ${R.n}` : `${boss.name} brings ${R.n}, not ${boss.crowd}`;
+  coinSub.textContent = caught ? `He brings all ${n}` : `${boss.name} brings ${n}, not ${boss.crowd}`;
   coinEl.hidden = false;
   panel.hidden = true;
   player.held = true; player.moving = false;
@@ -193,6 +218,7 @@ function endCoin() {
   coinT = -1;
   player.held = false;
   said = '';
+  // (or, with a local fight being seen out, when he walks in after it)
   if (F.rush) banner(F.rush);
 }
 coinEl.addEventListener('click', () => { if (coinT >= READY) endCoin(); });
@@ -216,11 +242,16 @@ export function updCoin(dt: number) {
 // ---------- the strip, and the card after a boss ----------
 const rushEl = $('rush'), rushBell = $('rushBell'), rushBar = $('rushBar'), rushGoal = $('rushGoal'), rushKnot = $('rushKnot');
 const rushYou = $('rushYou'), rushThem = $('rushThem'), rushYouP = $('rushYouP'), rushThemP = $('rushThemP');
+fitted.push(rushYou, rushThem);
+// (the strip's small already: two lines sooner)
+rushYou.dataset.least = rushThem.dataset.least = '0.85';
 const card = $('fightCard');
-let cardT = 0;
-/** Whether a boss's card is up after his fight. */
+/** Seconds the card stays up; seconds till it shows (it's up, but waits unseen, `wait`, for the loser to land:
+ *  fight.ts's LANDS), and what plays as it does. */
+let cardT = 0, cardIn = 0, cardSting: (() => void) | null = null;
+/** Whether a boss's card is up after his fight (or waiting to show). */
 export const cardUp = () => !card.hidden;
-card.addEventListener('click', () => { card.hidden = true; });
+card.addEventListener('click', () => { card.hidden = true; cardIn = 0; cardSting = null; });
 /** What cost a lost fight, in one chip: the pot waiting on an ingredient, the soup bar standing empty, or neither (the
  *  kitchen just too slow for him). */
 export function lossReason(R: Rush) {
@@ -229,8 +260,9 @@ export function lossReason(R: Rush) {
   if (R.dryT > 1) return `🍲 Soup bar empty ${Math.round(R.dryT)} s`;
   return '🍲 Kitchen too slow for his crowd';
 }
-/** The card after a boss's rush: a stamp on a burst, and YOU WIN with the prize and what's new, or how short and why. */
-export function showCard(R: Rush) {
+/** The card after a boss's rush: a stamp on a burst, and YOU WIN with the prize and what's new, or how short and why.
+ *  It comes up once the loser's landed off the mound (with `sting` played then), not as the fight ends. */
+export function showCard(R: Rush, sting?: () => void) {
   const boss = bossOf(R.boss), el = (tag: string, cls: string, text = '') => { const e = document.createElement(tag); e.className = cls; e.textContent = text; return e; };
   const kids = [el('div', 'burst'), el('div', 'hanko', R.win ? '勝' : '負')];
   // practice: what it takes to beat the first boss (his prize hires it)
@@ -239,10 +271,10 @@ export function showCard(R: Rush) {
   else if (R.win) kids.push(el('h2', '', 'YOU WIN'), el('div', 'prize', `🐡 ${amount(boss.prize)}`), el('div', 'unlock', `🔓 New: ${boss.opens}`));
   else kids.push(el('h2', '', `SHORT BY ${toBeat(boss, R.n) - R.turned}`), el('span', 'fchip reason', lossReason(R)));
   kids.push(el('div', 'tap', 'Tap to close'));
-  card.className = R.win ? 'win' : 'lose';
+  card.className = `${R.win ? 'win' : 'lose'} wait`;
   card.replaceChildren(...kids);
   card.hidden = false;
-  cardT = 10;
+  cardIn = LANDS + 0.35; cardSting = sting ?? null;
 }
 /** What the strip said last, so it's only rewritten when something in it changes. */
 let barSaid = '';
@@ -263,7 +295,8 @@ function renderBout() {
     left = `${CHAMP} ${R.turned}`; right = `${R.n - R.turned} ${name}`;
     mid = `🔔 ${Math.max(0, Math.ceil(boss!.bell - R.t))}`;
     fill = R.turned / R.n; goal = toBeat(boss!, R.n) / R.n;
-  } else if (B.phase === 'fight') mid = 'FIGHT!';
+  } else if (B.phase === 'fight' || (B.phase === 'pay' && B.t < LANDS)) mid = 'FIGHT!';
+  // (who won, once the loser's down)
   else if (B.phase === 'pay') mid = B.win ? 'WIN!' : 'LOSE';
   else mid = 'VS';
   // (the knot waits on the middle until the fight pulls it one way or the other)
@@ -274,6 +307,7 @@ function renderBout() {
   showFace(rushYouP, 'champ', '🍙');
   if (boss) showFace(rushThemP, boss.kind ?? 'local', boss.face); else showFace(rushThemP, 'local', '🙂');
   rushYou.textContent = left; rushBell.textContent = mid; rushThem.textContent = right;
+  fit(rushYou); fit(rushThem);
   rushBar.style.width = Math.round(fill * 1000) / 10 + '%';
   rushGoal.hidden = goal < 0; rushGoal.style.left = Math.round(goal * 1000) / 10 + '%';
   rushKnot.hidden = knot < 0; rushKnot.style.left = Math.round(knot * 10) / 10 + '%';
@@ -395,6 +429,7 @@ export function updGong(dt: number) {
   updWatch(dt);
   // the stroke's jolt (on top of the ring's, if the camera's on it)
   if (since < 0.6) view.shake = Math.max(view.shake, 0.45 * (1 - since / 0.6) ** 2);
-  if (cardT > 0) { cardT -= dt; if (cardT <= 0) card.hidden = true; }
+  if (cardIn > 0 && (cardIn -= dt) <= 0) { cardIn = 0; card.classList.remove('wait'); cardT = 10; cardSting?.(); cardSting = null; }
+  else if (cardT > 0) { cardT -= dt; if (cardT <= 0) card.hidden = true; }
   if (bannerT > 0) { bannerT -= dt; if (bannerT <= 0) { bannerEl.hidden = true; bannerEl.classList.remove('on'); } }
 }

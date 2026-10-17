@@ -241,6 +241,8 @@ function fightAt(u: number): [At, At] {
 /** The finish runs slowed to about a third as he's tipped over the straw, and catches up after he lands. */
 const slow = (v: number) => v < 1 ? v : v < 1.9 ? 1 + (v - 1) * 0.39 : 1.351 + (v - 1.9) * ((BOUT.pay - 1.351) / (BOUT.pay - 1.9));
 const unslow = (a: number) => a < 1 ? a : a < 1.351 ? 1 + (a - 1) / 0.39 : 1.9 + (a - 1.351) * ((BOUT.pay - 1.9) / (BOUT.pay - 1.351));
+/** Seconds into the result that the loser lands off the mound, on his back (fight.ts's LANDS). */
+export const landsAt = unslow(1.78);
 /** Where the fight left them. */
 let end: [At, At] | null = null;
 function walkTo(s: At, from: number, to: number, k: number, who: number) {

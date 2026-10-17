@@ -638,6 +638,9 @@ describe('the Undertow', () => {
     const fc = f.forecast(kept)!, all = f.forecast()!;
     expect(fc.turned).toBeGreaterThan(0);
     expect(f.ringGong()).toBe(true);
+    // (a local fight on: he walks in once it's over, and the forecast knew)
+    expect(f.F.called).toBe(true);
+    while (f.F.called) f.step(0.05);
     expect(f.F.rush!.n).toBe(boss.crowd - kept);
     for (let n = 0; n < 4000 && !f.F.rush!.done; n++) f.step(0.05);
     expect(f.F.rush!.turned).toBe(fc.turned);

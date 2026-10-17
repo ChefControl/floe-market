@@ -1050,6 +1050,9 @@ describe('the gong', () => {
     const fc = f.forecast()!;
     expect(fc.boss.name).toBe('Hakkaku');
     expect(f.ringGong()).toBe(true);
+    // (a local fight on: he walks in once it's over, and the forecast knew)
+    expect(f.F.called).toBe(true);
+    while (f.F.called) f.step(0.05);
     for (let n = 0; n < 4000 && !f.F.rush!.done; n++) f.step(0.05);
     expect(f.F.rush!.turned).toBe(fc.turned);
     expect(f.F.rush!.win).toBe(fc.turned >= 61);
@@ -1117,6 +1120,16 @@ describe('the gong', () => {
     expect(F().bout.phase).toBe('pay');
     expect(F().beaten).toBe(1);
     expect(g.wallet.money - money).toBeGreaterThanOrEqual(fight.BOSSES[0].prize * fight.CHIP);
+    // the card waits, unseen, for him to land off the mound (and the strip says nothing till then either)
+    expect($('fightCard').hidden).toBe(false);
+    expect($('fightCard').className).toBe('win wait');
+    g.ui.hud(0);
+    expect($('rushBell').textContent).toBe('FIGHT!');
+    g.runUntil(() => F().bout.t >= fight.LANDS, 3);
+    expect($('fightCard').className).toBe('win wait');
+    g.run(0.5);
+    g.ui.hud(0);
+    expect($('rushBell').textContent).toBe('WIN!');
     expect($('fightCard').hidden).toBe(false);
     expect($('fightCard').className).toBe('win');
     expect($('fightCard').textContent).toBe('勝YOU WIN🐡 120🔓 New: grow room, mushroom bowls, Back-Alley RingTap to close');
@@ -1145,7 +1158,7 @@ describe('the gong', () => {
     const { g, fight, F } = await ring();
     const money = g.wallet.money;
     expect(fight.ringGong()).toBe(true);
-    g.run(fight.WALK_IN + fight.BOSSES[0].bell + fight.BOUT.sit + fight.BOUT.fight + 0.5);
+    g.run(fight.WALK_IN + fight.BOSSES[0].bell + fight.BOUT.sit + fight.BOUT.fight + fight.LANDS + 0.5);
     expect(F().rush!.win).toBe(false);
     expect(F().beaten).toBe(0);
     expect(g.wallet.money).toBe(money);
@@ -1158,6 +1171,79 @@ describe('the gong', () => {
     g.runUntil(() => { while (F().rush!.turned + F().stall.length < 60 && fight.toStall(false)); return F().rush!.done; }, 31 + fight.WALK_IN);
     expect(F().rush).toMatchObject({ turned: 60, win: false });
   }, 30_000);
+});
+
+describe('the gong during a local fight', () => {
+  it('waits for it: the champion finishes it there and then, and the boss walks in as its fans go home', async () => {
+    const { g, plan, fight, at, F } = await ring();
+    g.runUntil(() => F().bout.phase === 'fight' && F().bout.t > 4, 50);
+    const n = F().bout.n, t0 = F().t;
+    at(plan.GONG_PAD);
+    g.press('e');
+    g.run(0.05);
+    g.press('e', 'keyup');
+    // no boss yet: the local's result at once, the champion's, and the gong can't be rung twice
+    expect(F().rush).toBeNull();
+    expect(F().called).toBe(true);
+    expect(F().bout).toMatchObject({ phase: 'pay', win: true, n: n + 1 });
+    expect(fight.ringGong()).toBe(false);
+    expect(fight.forecast()).toBeNull();
+    expect($('gongCast').textContent).toBe('He walks in after this fight');
+    expect($('gongGo').hidden).toBe(true);
+    expect($('fightBanner').hidden).toBe(true);
+    // he lands; the rest of it (the bow, the prize, back to the corners) a little hurried
+    g.run(fight.LANDS - 0.2);
+    expect(F().rush).toBeNull();
+    g.runUntil(() => !!F().rush, 6);
+    const took = F().t - t0, want = fight.LANDS + (fight.BOUT.pay - fight.LANDS) / fight.HURRY;
+    expect(Math.abs(took - want)).toBeLessThan(0.3);
+    expect(took).toBeLessThan(fight.BOUT.pay);
+    // then he walks in, banner and all, and his rush starts from the top
+    expect(F().called).toBe(false);
+    expect(F().rush).toMatchObject({ boss: 0, n: 120, turned: 0, walk: fight.WALK_IN });
+    expect(F().bout).toMatchObject({ phase: 'prep', n: n + 1 });
+    expect($('fightBanner').hidden).toBe(false);
+    expect($('fightBanner').textContent).toBe('入場Hakkaku 🐙 · 120 fansTURN 61 TO WIN');
+  });
+
+  it('before the fight, he walks in at once; and a reload while he waits calls him off', async () => {
+    const { g, fight, F } = await ring();
+    g.runUntil(() => F().bout.phase === 'sit', 30);
+    expect(fight.ringGong()).toBe(true);
+    expect(F().rush).toMatchObject({ boss: 0, n: 120 });
+    g.runUntil(() => !F().rush, 120);
+    g.runUntil(() => F().bout.phase === 'fight', 50);
+    expect(fight.ringGong()).toBe(true);
+    expect(fight.saveFight().called).toBe(false);
+    expect(fight.fightFrom(fight.saveFight()).called).toBe(false);
+  }, 30_000);
+
+  it('a long name shrinks to fit its box on the gong and the strip, and takes two lines past that', async () => {
+    const { gong } = await ring({ level: 0 });
+    const el = document.createElement('span');
+    document.body.append(el);
+    el.textContent = 'Sparring partner';
+    let box = 150;
+    Object.defineProperty(el, 'clientWidth', { get: () => box });
+    Object.defineProperty(el, 'scrollWidth', { get: () => el.textContent!.length * (parseFloat(el.style.fontSize) || 16) * 0.6 });
+    gong.fit(el);
+    expect(parseFloat(el.style.fontSize)).toBeLessThan(16);
+    expect(el.scrollWidth).toBeLessThanOrEqual(150);
+    expect(el.classList.contains('two')).toBe(false);
+    box = 60;
+    gong.fit(el);
+    expect(el.classList.contains('two')).toBe(true);
+    expect(el.style.fontSize).toBe('');
+    box = 400;
+    gong.fit(el);
+    expect(el.style.fontSize).toBe('');
+    expect(el.classList.contains('two')).toBe(false);
+  });
+
+  it("the fall lands when fight.ts says it does", async () => {
+    const { fight, dohyo } = await ring({ level: 0 });
+    expect(Math.abs(dohyo.landsAt - fight.LANDS)).toBeLessThan(0.05);
+  });
 });
 
 describe("the cellar's tiles", () => {
