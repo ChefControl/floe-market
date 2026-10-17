@@ -127,18 +127,29 @@ export class RikishiModel extends Group {
     this.neck = bone(this.spine, 0, 0.74, 0.03);
     this.part(this.neck, (b, sk) => {
       if (this.look.kind) return; // a creature brings his own head
+      // (the champion, in the player's colour, is his own man: strong, level brows and an easy smile, where a
+      // local looks worried; and his topknot tied in orange)
+      const champ = this.belt === CHAMP_BELT;
       b.add(ROUND, sk, 0, 0.13, 0, null, [0.21, 0.205, 0.2]);
       b.add(ROUND, HAIR, 0, 0.18, -0.035, null, [0.212, 0.18, 0.19]);
       for (const s of [-1, 1]) {
         b.add(K.dot, 0x1B2733, s * 0.07, 0.14, 0.185, null, [0.026, 0.03, 0.02]);
-        b.add(K.post, HAIR, s * 0.075, 0.195, 0.18, [0, 0, s * -0.25], [0.04, 0.022, 0.02]);
-        b.add(K.dot, 0xF09A86, s * 0.13, 0.08, 0.14, null, [0.04, 0.028, 0.02]);
+        if (champ) b.add(K.post, HAIR, s * 0.074, 0.193, 0.181, [0, 0, s * 0.1 + Math.PI / 2], [0.021, 0.055, 0.02]);
+        else b.add(K.post, HAIR, s * 0.075, 0.195, 0.18, [0, 0, s * -0.25], [0.04, 0.022, 0.02]);
+        b.add(K.dot, champ ? 0xEDAE98 : 0xF09A86, s * 0.13, 0.08, 0.14, null, champ ? [0.034, 0.022, 0.02] : [0.04, 0.028, 0.02]);
       }
-      b.add(K.post, 0x7A2E26, 0, 0.055, 0.19, null, [0.03, 0.014, 0.01]);
+      if (champ) {
+        // (an easy smile: a wide, shallow curve, drawn in short strokes laid along it on the face)
+        for (let i = -2; i <= 2; i++) {
+          const a = i * 0.11, x = 0.17 * Math.sin(a), y = 0.23 - 0.17 * Math.cos(a);
+          const z = 0.2 * Math.sqrt(Math.max(0, 1 - (x / 0.21) ** 2 - ((y - 0.13) / 0.205) ** 2)) + 0.001;
+          b.add(K.post, 0x7A2E26, x, y, z, [0, -x * 2, a + Math.PI / 2], [0.0085, 0.021, 0.006]);
+        }
+      } else b.add(K.post, 0x7A2E26, 0, 0.055, 0.19, null, [0.03, 0.014, 0.01]);
       // the topknot: a ginkgo leaf folded forward over the crown, and its white tie
       b.add(K.post, HAIR, 0, 0.345, -0.02, null, [0.028, 0.05, 0.04]);
       b.add(ROUND, HAIR, 0, 0.36, 0.07, null, [0.11, 0.028, 0.075]);
-      b.add(K.post, 0xF2EEE6, 0, 0.35, 0.015, null, [0.03, 0.03, 0.007]);
+      b.add(K.post, champ ? CHAMP_BELT : 0xF2EEE6, 0, 0.35, 0.015, null, [0.03, 0.03, 0.007]);
     });
     for (const s of [1, -1]) {
       const sh = bone(this.spine, 0.44 * s, 0.56, 0), el = bone(sh, 0, -0.27, 0), hand = bone(el, 0, -0.25, 0.01);

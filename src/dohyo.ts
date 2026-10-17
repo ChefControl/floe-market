@@ -23,12 +23,11 @@ import { CanvasTexture, Group, type Object3D, Sprite, SpriteMaterial, Vector3 } 
 import { boss, CY, DRUMS, parts, PIT_STEPS, RING, RING_HALF, RING_R, RING_TOP } from './cellar';
 import { TEPPO } from './cellarPlan';
 import { belowGround, Person } from './characters';
-import { BOSSES, BOUT, F, strength } from './fight';
+import { BOSSES, BOUT, F } from './fight';
 import { LOOKS, SLAPS } from './creatures';
 import { dustFx, inkFx, saltFx } from './fx';
 import { isHigh } from './graphics';
 import { Build, K, quietly, shade } from './kit';
-import { level } from './layout';
 import { FONT, rr, scene } from './render';
 import { crowd, react } from './ringSound';
 import { CHAMP, CHAMP_BELT, LOCAL_BELTS, mixPose, type Pose, pose, RikishiModel } from './rikishi';
@@ -442,15 +441,6 @@ function dressRival() {
   if (b) rival.dressAs(LOOKS[b.kind], b.crowd >= 500 ? 200 : 160 + F.rush!.boss * 8);
   else { rival.dress(LOCAL_BELTS[F.bout.n % LOCAL_BELTS.length]); rival.setWeight(130 + (F.bout.n * 13) % 30); }
 }
-const lineEl = document.getElementById('boutLine')!;
-/** What the bout line over the ring says. */
-export function boutLine() {
-  const b = bossOn();
-  if (b) return `${CHAMP} against ${b.name} ${b.face}`;
-  if (F.bout.phase === 'pay') return `${CHAMP} wins`;
-  return `${CHAMP} against a local · 💪 ${strength()}`;
-}
-
 /** What was happening last frame, to catch the moments as the clock passes them; and where each wrestler was shown
  *  as the phase changed (they go on from there, so a bout cut short never jumps). */
 let was = { phase: '', t: 0 }, since = 0, edged = false, from: [At, At] | null = null;
@@ -620,11 +610,6 @@ export function updDohyo(dt: number) {
   // Mr. Fugu puffs up when the house roars
   boss.puffTo = crowd.excite > 1 ? 1 : 0;
   boss.update(dt);
-  lineEl.hidden = !level.down || !showLine;
-  if (!lineEl.hidden) { const l = boutLine(); if (lineEl.textContent !== l) lineEl.textContent = l; }
 }
-/** Whether the bout line's up: on the watch spot, or while a boss is in (gong.ts says). */
-let showLine = false;
-export function showBoutLine(on: boolean) { showLine = on; }
 /** The champion and his opponent, the sparring partner and the referee, for tests. */
 export const ring = { champ, rival, partner, gyoji: gyoji.root };

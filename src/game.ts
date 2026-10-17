@@ -16,6 +16,7 @@ import { updKorki } from './korki';
 import { level, stage } from './layout';
 import { updLooks } from './looks';
 import { updMusic } from './music';
+import { coinUp, updCoin } from './gong';
 import { offerPlaying, updOffer } from './offer';
 import { updRoomTone } from './roomTone';
 import { updNeeds } from './needs';
@@ -45,7 +46,9 @@ export function tick(dt: number) {
   // Through Mr. Fugu's scenes (offer.ts) the world holds still around him: nobody hauls, fishes, drives, eats or
   // grows, and the seasons wait. Only the light, the sea and its fish (and any catch already in the air, which lands),
   // the sound and the scene itself go on.
-  const held = offerPlaying();
+  // (as they do while Slick Eddie's coin is up at the gong, gong.ts: the boss's crowd waits at the door, and his bell)
+  const coin = coinUp(), held = offerPlaying() || coin;
+  if (coin) updCoin(dt);
   updPlayer(dt);
   updFish(dt, time);
   updHooks(dt);

@@ -49,9 +49,9 @@ describe('the Undertow', () => {
     expect(F().rush!.win).toBe(true);
     g.run(fight.BOUT.sit + fight.BOUT.fight + 0.5);
     expect(F().beaten).toBe(2);
-    // the card says something's behind the south wall; the room's not there yet
+    // the card says there's a way south now; the room's not there yet
     expect($('fightCard').hidden).toBe(false);
-    expect($('fightCard').textContent).toContain('south wall');
+    expect($('fightCard').textContent).toContain('🔓 New: the cook, steam baskets, a way south');
     expect(g.layout.found.den).toBe(false);
     // the card goes, his crowd goes home, the next bout begins: there it is
     $('fightCard').click();
@@ -466,10 +466,12 @@ describe('the Undertow', () => {
     expect(E.eddieMsg()).toContain("You'll know at the gong");
     // saved as it's paid for: a reload doesn't undo it, or roll it again
     expect(fight.fightFrom(fight.saveFight()).den.eddie).toEqual({ boss: 2, cut: 3, caught: false });
-    // the gong: how it goes if the fix holds (154 fans) and if it's caught (all 220), and the chance of each
+    // the gong: your chances if the fix holds (154 fans) and if it's caught (all 220), a word for each face of his coin
     at(plan.GONG_PAD);
     g.run(0.7);
-    expect($('gongCast').textContent).toMatch(/Fix holds \(70%\): .* of 154.*\. Caught \(30%\): .* of 220.*\./);
+    const gong = await import('../src/gong'), dobu = fight.BOSSES[2], says = (v: Parameters<typeof gong.verdict>[1], n?: number) => gong.VERDICT[gong.verdict(dobu, v, n)];
+    expect([...$('gongCast').children].map(r => r.textContent)).toEqual([`Fix holds${says(fight.forecast(66)!, 154)}`, `Caught${says(fight.forecast()!)}`]);
+    expect($('gongCast').querySelectorAll('svg.mini use[href="#coinGrin"], svg.mini use[href="#coinGrimace"]')).toHaveLength(2);
     // rung: it held, and he walks in with 66 fewer; the fix is spent
     expect(fight.ringGong()).toBe(true);
     expect(F().rush).toMatchObject({ n: 154, kept: 66, fix: { cut: 3, caught: false } });
@@ -478,6 +480,54 @@ describe('the Undertow', () => {
     // (and a reload in the middle of it calls the rush off, but keeps the fix for next time: it was paid for)
     expect(fight.saveFight().den.eddie).toEqual({ boss: 2, cut: 3, caught: false });
   });
+
+  it("rung with a fix on, Eddie's coin is tossed, and the world waits on it till it's tapped away; then the boss walks in", async () => {
+    const { g, plan, fight, at, F } = await ring({ money: 1000 * 1000, ring: { beaten: 2, lines: { mush: { n: 1 } } } });
+    const E = await import('../src/eddie'), gong = await import('../src/gong');
+    expect(E.payEddie(3, () => 0.99)).toBe(true);
+    at(plan.GONG_PAD);
+    g.run(0.2);
+    const t = F().t;
+    expect(gong.ring()).toBe(true);
+    // up: smiling Eddie, the gong's panel away, and nothing moves: his crowd's at the door, the bell's not started
+    expect($('coin').hidden).toBe(false);
+    expect($('coin').className).toBe('hold');
+    expect($('gong').hidden).toBe(true);
+    expect($('fightBanner').hidden).toBe(true);
+    expect($('rush').hidden).toBe(true);
+    g.run(3);
+    expect(F().rush).toMatchObject({ n: 154, walk: fight.WALK_IN, t: 0 });
+    expect(F().t).toBe(t);
+    expect(g.player.held).toBe(true);
+    // (a tap before it's said its piece does nothing)
+    $('coin').click();
+    expect($('coin').hidden).toBe(false);
+    g.run(2.5);
+    expect($('coin').className).toBe('hold ready');
+    expect($('coinHead').textContent).toBe('THE FIX HOLDS');
+    expect($('coinSub').textContent).toBe('Dobu brings 154, not 220');
+    // tapped: he walks in
+    $('coin').click();
+    expect($('coin').hidden).toBe(true);
+    expect(g.player.held).toBe(false);
+    expect($('fightBanner').textContent).toBe('入場Dobu 🐟 · 154 fansTURN 78 TO WIN');
+    g.run(1);
+    expect(F().rush!.walk).toBeLessThan(fight.WALK_IN);
+    expect($('rush').hidden).toBe(false);
+    // caught, the next time: frowning Eddie, and he brings them all
+    g.runUntil(() => !F().rush, 120);
+    expect(E.payEddie(2, () => 0.01)).toBe(true);
+    expect(gong.ring()).toBe(true);
+    expect($('coin').className).toBe('caught');
+    g.run(6);
+    expect($('coinHead').textContent).toBe('🗞️ CAUGHT!');
+    expect($('coinSub').textContent).toBe('He brings all 220');
+    // (E does it too)
+    g.press('e');
+    g.run(0.1);
+    g.press('e', 'keyup');
+    expect($('coin').hidden).toBe(true);
+  }, 60_000);
 
   it("if the papers get Eddie's fix, the boss brings them all, and the player's own fans stay away for a bout or more", async () => {
     const { g, plan, fight, at, F } = await ring({ money: 1000 * 1000, ring: { beaten: 2, lines: { mush: { n: 1 } } } });

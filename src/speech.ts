@@ -33,11 +33,9 @@ const hiddenBy = (b: Bubble) => { for (const v of vendors.values()) if (v && v !
 function room() {
   const h = window.innerHeight || 1;
   let hud = Math.min(document.getElementById('hud')?.getBoundingClientRect().bottom ?? 0, h * 0.14);
-  // (and under a fight's bar along the top, while one's up: the boss's tug of war, or a local fight's line)
-  for (const id of ['rush', 'boutLine']) {
-    const el = document.getElementById(id);
-    if (el && !el.hidden) { const r = el.getBoundingClientRect(); if (r.height && r.top < h * 0.3) hud = Math.max(hud, r.bottom); }
-  }
+  // (and under the fight's strip along the top, while it's up)
+  const strip = document.getElementById('rush');
+  if (strip && !strip.hidden) { const r = strip.getBoundingClientRect(); if (r.height && r.top < h * 0.3) hud = Math.max(hud, r.bottom); }
   let bottom = h, close = false;
   for (const p of document.querySelectorAll<HTMLElement>('.casino:not([hidden])')) {
     const r = p.getBoundingClientRect();
