@@ -4,14 +4,15 @@
 // their levels glide with the bout: the chant builds as the wrestlers step up and stamp, everything falls away for the
 // hush at the crouch, the roar surges at the charge, rumbles on through the push and swells at the edge, then drains
 // back into the murmur after the result. Over that, a rising "ooh" at the edge, a cheer as the winner's known (bigger,
-// with cushions thrown, for a boss beaten), and applause for the bow. The more fans are fed, the louder it all is. Until the recordings have loaded (or
+// with cushions thrown, for a boss beaten), and applause for the bow. The more fans in the hall, the louder it all is,
+// and an empty hall is silent but for the wrestlers' own thuds in the ring. Until the recordings have loaded (or
 // if they can't), it's synthesised: voices, each a buzz through a vowel's formants (audio.ts's vocal) at its own pitch,
 // with vibrato, and a babble between. It's loudest at the ringside, softer across the arena, low out in the other
 // rooms (very low in Mr. Fugu's office, and not at all in the Undertow, behind its doors), and faint through the floor
 // from the dock.
 import {
   between, clip, clipBed, clipLength, ear, glide, hasClip, loadClips, noise, rnd, tone, vocal, type Clip, type ClipVoice, type NoiseVoice,
-  type ToneVoice, type VocalVoice, type Vowel,
+  type VocalVoice, type Vowel,
 } from './audio';
 import { RING, roomAt } from './cellar';
 
@@ -33,13 +34,15 @@ export function hearsAt(p: { x: number; z: number }, down: boolean) {
   if (room !== 'arena') return ROOMS_HEAR[room];
   return 1 - (1 - ARENA_LOW) * Math.min(1, Math.max(0, (d - RINGSIDE) / (ARENA_FAR - RINGSIDE)));
 }
-/** That, eased as the player walks (through a doorway it fades rather than jumps): what everything below plays at. */
+/** That, eased as the player walks (through a doorway it fades rather than jumps): what the ring's sounds play at. */
 let hears = 1;
-/** For ambience.ts's murmur. */
-export const ringHears = () => hears;
+/** How much crowd there is to hear, 0 to 1: nothing in an empty hall, a murmur from a few fans, all of it from about
+ *  60 (`crowd.size`'s full), eased so it swells as they come in and dies away as they go home. */
+let loud = 0;
+/** How much of the crowd the player hears now: where they are, and how many fans are in (for ambience.ts's murmur). */
+export const ringHears = () => hears * loud;
 const at = { x: RING.x, z: RING.z };
-const near = <T extends { v?: number }>(o: T) => ({ ...o, at, through: true, flat: true, v: (o.v ?? 0.3) * hears });
-const t = (o: ToneVoice) => tone(near(o));
+const near = <T extends { v?: number }>(o: T) => ({ ...o, at, through: true, flat: true, v: (o.v ?? 0.3) * hears * loud });
 const n = (o: NoiseVoice) => noise(near(o));
 const say = (o: VocalVoice) => vocal(near(o));
 /** The recordings are a whole stadium at full tilt: brought down to sit about 10 dB over the murmur (measured). */
@@ -61,7 +64,9 @@ const recorded = () => (['chant', 'roar', 'applause', 'cheer1', 'cheer2', 'swell
  * how loud they're chanting (0 to 1), and what that relaxes back to: up as the wrestlers step up, a beat louder on each
  * stamp, gone for the hush and the rest of the bout.
  */
-export const crowd = { excite: 0, settle: 0.3, chant: 0, chantRest: 0, size: 1 };
+export const crowd = { excite: 0, settle: 0.3, chant: 0, chantRest: 0, size: 0 };
+/** Whether there's anyone in the hall to make a noise. */
+const someone = () => crowd.size > 0;
 function excited(to: number, rest = 0.3) { crowd.excite = to; crowd.settle = rest; }
 
 /** Someone in the crowd: a man (lower, and a bigger throat) or a woman, at a pitch of their own. */
@@ -87,14 +92,15 @@ let chatter = 0;
 const SYLLABLES: Vowel[] = ['a', 'o', 'e', 'u', 'i'];
 export function updRingSound(dt: number) {
   loadClips();
-  // (a small crowd is quieter: `size` is how big it is tonight, 0 to 1, from the fans fed; a boss's crowd is all of it)
-  hears += (hearsAt(ear, ear.down) * (0.45 + 0.55 * crowd.size) - hears) * Math.min(1, dt * 3);
+  hears += (hearsAt(ear, ear.down) - hears) * Math.min(1, dt * 3);
+  // (a small crowd is quieter, and none silent: `size` is how full the hall is, 0 to 1, from the fans in it)
+  loud += (Math.sqrt(Math.min(1, Math.max(0, crowd.size))) - loud) * Math.min(1, dt * 1.5);
   crowd.excite += (crowd.settle - crowd.excite) * Math.min(1, dt * 0.6);
   crowd.chant += (crowd.chantRest - crowd.chant) * Math.min(1, dt * 0.5);
   layers();
   // (the recorded murmur, when it's in, is ambience.ts's)
   if (hasClip('murmur')) return;
-  const e = crowd.excite, rate = 12 * e + (e > 0.15 ? 2 : 0);
+  const e = crowd.excite, rate = loud > 0.02 ? 12 * e + (e > 0.15 ? 2 : 0) : 0;
   chatter -= dt * rate;
   while (chatter <= 0 && rate > 0) {
     chatter += between(0.5, 1.5);
@@ -120,7 +126,7 @@ function layers() {
   chantBed ??= clipBed('chant', 'sfx');
   roarBed ??= clipBed('roar', 'sfx');
   if (!chantBed || !roarBed) return;
-  const k = hears;
+  const k = hears * loud;
   toward(chantBed.g.gain, CHANT_V * crowd.chant * k);
   toward(roarBed.g.gain, ROAR_V * roarLevel() * k);
 }
@@ -133,23 +139,33 @@ function applause(secs: number, per: number, v: number, dt = 0) {
     n({ t: when, f: between(1100, 2300), q: 1.6, a: 0.003, d: between(0.025, 0.05), v: v * fade * between(0.5, 1) });
   }
 }
-/** A low thud: a foot coming down, two wrestlers meeting, a cushion landing. */
-const thud = (v = 0.3, dt = 0, f = 70) => { t({ t: dt, f, f2: f * 0.7, a: 0.008, d: 0.22, v }); n({ t: dt, f: 260, kind: 'lowpass', a: 0.006, d: 0.08, v: v * 0.4 }); };
+/** A low thud: a foot coming down, two wrestlers meeting (the ring's own, heard full or empty), a cushion landing. */
+function thud(v = 0.3, dt = 0, f = 70, ring = false) {
+  const k = ring ? hears : hears * loud, o = { at, through: true, flat: true };
+  tone({ ...o, t: dt, f, f2: f * 0.7, a: 0.008, d: 0.22, v: v * k });
+  noise({ ...o, t: dt, f: 260, kind: 'lowpass', a: 0.006, d: 0.08, v: v * 0.4 * k });
+}
 
 export type Moment = 'billing' | 'stomp' | 'crouch' | 'charge' | 'edge' | 'win' | 'upset' | 'bow';
-/** The crowd reacts to `m`, a moment in the bout: recorded, once the recordings are in. */
+/** The crowd reacts to `m`, a moment in the bout: recorded, once the recordings are in. With nobody in the hall, only
+ *  the wrestlers' own thuds. */
 export function react(m: Moment) {
+  if (!someone()) {
+    if (m === 'stomp') thud(0.35, 0, 62, true);
+    if (m === 'charge') thud(0.5, 0, 82, true);
+    return;
+  }
   if (recorded()) { live(m); return; }
   switch (m) {
     case 'billing': excited(0.5); break;
     case 'stomp': // a foot comes down: "yoisho!" and a few claps
-      thud(0.35, 0, 62);
+      thud(0.35, 0, 62, true);
       shout(['o', 'e'], 8, 0.28, 0.1, 1.2, 0.02);
       applause(0.35, 40, 0.05, 0.02);
       excited(Math.max(crowd.excite, 0.55)); break;
     case 'crouch': excited(0.06, 0.06); break; // hush
     case 'charge': // they hit, and the room erupts
-      thud(0.5, 0, 82);
+      thud(0.5, 0, 82, true);
       shout(['a', 'o'], 12, 0.9, 0.16, 1.1);
       excited(1, 0.75); break;
     case 'edge': shout(['u', 'o'], 10, 0.8, 0.13, 1.35); excited(1, 0.8); break; // a heel on the straw: "ooh"
@@ -174,7 +190,7 @@ function live(m: Moment) {
       crowd.chantRest = 0.5; crowd.chant = Math.max(crowd.chant, 0.5);
       excited(0.5); break;
     case 'stomp': // a foot comes down: the chant lifts with it, and a few claps
-      thud(0.35, 0, 62);
+      thud(0.35, 0, 62, true);
       crowd.chant = 1;
       slice('applause', 0.6, 0.1, 0.05, 0.08);
       excited(Math.max(crowd.excite, 0.55)); break;
@@ -182,7 +198,7 @@ function live(m: Moment) {
       crowd.chant = crowd.chantRest = 0;
       excited(0.06, 0.06); break;
     case 'charge': // they hit: the roar surges, and rumbles on through the push
-      thud(0.5, 0, 82);
+      thud(0.5, 0, 82, true);
       excited(1, 0.75); break;
     case 'edge': // a heel on the straw: the "ooh" rising over the roar
       rec({ clip: 'swell', from: between(2.2, 2.8), a: 0.25, hold: 0.9, d: 0.6, v: 0.45 });

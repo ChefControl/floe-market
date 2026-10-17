@@ -594,6 +594,8 @@ export const swarm = () => {
   const all = [...fans.values()].filter(f => !f.out), sat = all.filter(f => f.seat && f.routed && !f.way.length);
   return { n: all.length, ours: all.filter(f => f.c === OURS).length, seated: sat.length, benched: sat.filter(f => f.y > 0.05).length, shadows };
 };
+/** How many fans are in the hall now: coming in, there, or on their way home (for the crowd's sound, ring.ts). */
+export const inHall = () => fans.size;
 /** Where each fan is, by who they are, and whether they're going home (for tests). */
 export const whereabouts = () => [...fans.values()].map(f => ({ key: f.key, x: f.x, z: f.z, out: f.out }));
 /** Every fan's way, for tests: where they are and the corners they'll pass. */
