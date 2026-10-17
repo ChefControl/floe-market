@@ -430,14 +430,26 @@ function updLounge(k: number, now: number) {
 }
 
 // ---------- the Undertow ----------
-/** The club's band's place, as the lounge band's: it starts from the top each time it comes in. */
+/**
+ * The club's band's place: the eighth it's on and when the next is due. It starts from the top the first time it's
+ * heard, and from then on plays on behind the club's doors whether anyone hears it or not (its notes left out where
+ * nobody does), so it's the same tune going on down the tunnel and in the club, and walking in or out never starts it
+ * over. (After a long stall, the page held up, it picks up where it would be by now.)
+ */
 let noir = { on: false, step: 0, next: 0 };
 function updNoir(k: number, muffle: number, vol: number, now: number) {
   noirLevel(Math.sin(k * Math.PI / 2) * vol, muffle);
-  if (k < 0.001) { noir.on = false; return; }
-  if (!noir.on || noir.next < now - 5) noir = { on: true, step: 0, next: now + 0.1 };
+  if (!noir.on) {
+    if (k < 0.001) return;
+    noir = { on: true, step: 0, next: now + 0.1 };
+  }
+  if (noir.next < now - 5) {
+    const skip = Math.ceil((now - noir.next) / noirEighth());
+    noir.next += skip * noirEighth();
+    noir.step = (noir.step + skip) % NOIR_STEPS;
+  }
   while (noir.next < now + 0.2) {
-    if (noir.next >= now && hushed < 2) playNoir(noir.step, noir.next - now);
+    if (noir.next >= now && hushed < 2 && k >= 0.001) playNoir(noir.step, noir.next - now);
     noir.next += noirEighth();
     noir.step = (noir.step + 1) % NOIR_STEPS;
   }

@@ -542,6 +542,44 @@ describe('music', () => {
     expect(m.musicMix().noir).toBeLessThan(0.001);
   }, 30_000);
 
+  it("the Undertow's band plays on as you walk in through its doors and out again: one tune going on, never started over", async () => {
+    const s = await withSound({
+      tiles: bought(...MARKET, 'sushi', ...FLOE_SUSHI, 'dohyo'), fugu: 2, level: 1, reviews: Array(20).fill(5),
+      ring: { beaten: 2, lines: { mush: { n: 1 } }, den: { door: true } },
+    });
+    const m = await import('../src/music'), { CY } = await import('../src/cellar'), plan = await import('../src/cellarPlan');
+    const { club, eighth, NOIR_STEPS } = await import('../src/noir'), { DEN, PASSAGE } = s.g.layout;
+    const at = (x: number, z: number) => s.g.player.g.position.set(x, CY, z), mid = (plan.CLUB_DOOR.z0 + plan.CLUB_DOOR.z1) / 2;
+    /** How far the band's got from `from`, against how far it should have by the clock since `t` (in eighths, round its
+     *  sixteen bars): 0 when it's played on without a break. */
+    const drift = (from: number, t: number) => {
+      const d = (m.noirHeard()! - from - (fake.now - t) / eighth()) % NOIR_STEPS;
+      return Math.min(Math.abs(d), NOIR_STEPS - Math.abs(d));
+    };
+    // down the tunnel, at the doors: the band through them
+    at((PASSAGE.x0 + PASSAGE.x1) / 2, mid);
+    s.play(2);
+    const h0 = m.noirHeard()!, t0 = fake.now;
+    expect(club.k).toBeGreaterThan(0.5);
+    // through the doors a step a frame: heard all the way, and on into the club without starting again
+    for (let x = PASSAGE.x0 + 0.3; x > DEN.x1 - 1.5; x -= 0.02) {
+      at(x, mid);
+      s.play(1 / 60);
+      expect(club.k, `x ${x.toFixed(2)}`).toBeGreaterThan(0.5);
+    }
+    s.play(1);
+    expect(club.k).toBe(1);
+    expect(drift(h0, t0)).toBeLessThan(0.5);
+    // out to the ring, where it isn't heard, and back down the tunnel: still the same tune, where it would be by now
+    at(plan.GONG_PAD.x, plan.GONG_PAD.z);
+    s.play(4);
+    expect(m.musicMix().noir).toBeLessThan(0.001);
+    at((PASSAGE.x0 + PASSAGE.x1) / 2, PASSAGE.z0 + 1);
+    s.play(1);
+    expect(m.musicMix().noir).toBeGreaterThan(0.1);
+    expect(drift(h0, t0)).toBeLessThan(0.5);
+  }, 30_000);
+
   it('the casino yacht\'s room: the dining room faint below anywhere aboard, the bar and the slot machines up close', async () => {
     const fetch = vi.fn(() => Promise.resolve({ arrayBuffer: () => Promise.resolve(new ArrayBuffer(8)) }));
     vi.stubGlobal('fetch', fetch);

@@ -170,7 +170,8 @@ export function updDoorway(dt: number) {
  *  room's wall); through the doors down the tunnel, louder the nearer you get (music.ts). */
 export function clubHeard(p: { x: number; z: number }) {
   if (!level.down || !found.den) return { k: 0, muffle: 1, vol: 1 };
-  if (p.x > DEN.x0 - 0.5 && p.x < D.x - 0.1 && p.z > DEN.z0 - 0.5 && p.z < DEN.z1 + 0.5) return { k: 1, muffle: 0, vol: 1 };
+  // (the club reaches right up to where the tunnel starts, at the doors: no step between them where neither hears it)
+  if (p.x > DEN.x0 - 0.5 && p.x < PASSAGE.x0 - 0.2 && p.z > DEN.z0 - 0.5 && p.z < DEN.z1 + 0.5) return { k: 1, muffle: 0, vol: 1 };
   if (p.x > LOANS.x0 - 0.5 && p.x <= DEN.x0 - 0.5 && p.z > LOANS.z0 - 0.5 && p.z < CARDS.z1 + 0.5) return { k: 1, muffle: 0.45, vol: 0.8 };
   if (p.x > VIP.x0 - 0.5 && p.x < VIP.x1 + 0.5 && p.z >= DEN.z1 + 0.5 && p.z < VIP.z1 + 0.5) return { k: 1, muffle: 0.45, vol: 0.8 };
   const a = along(V(p.x, 0, p.z));
