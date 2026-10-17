@@ -18,10 +18,10 @@ import { dustFx } from './fx';
 import { ringCam } from './dohyo';
 import {
   type Boss, bossOf, BOSSES, BUYOUT, canRing, canShow, type Carry, F, type Forecast, fixOn, forecast, ICON, type Ing, keptHome, LANDS, NAME, nextBoss, practiceDue, ringGong,
-  type Rush, sides, strength, toBeat, worstShort, you,
+  grand, type Rush, sides, slam, SLAM, slamDue, strength, toBeat, worstShort, you,
 } from './fight';
 import { kindOf } from './items';
-import { buyHeld } from './input';
+import { buyHeld, keyHeld } from './input';
 import { level, stage } from './layout';
 import { player } from './player';
 import { showFace } from './portraits';
@@ -270,6 +270,8 @@ export function showCard(R: Rush, sting?: () => void) {
   if (R.win && R.boss < 0) kids.push(el('h2', '', 'PRACTICE WON'), el('div', 'prize', `🐡 ${amount(boss.prize)}`), el('div', 'unlock', `Next: ${next.name} ${next.face} · hire a washer and salter`));
   else if (R.win) kids.push(el('h2', '', 'YOU WIN'), el('div', 'prize', `🐡 ${amount(boss.prize)}`), el('div', 'unlock', `🔓 New: ${boss.opens}`));
   else kids.push(el('h2', '', `SHORT BY ${toBeat(boss, R.n) - R.turned}`), el('span', 'fchip reason', lossReason(R)));
+  // (a slam landed: its bonus)
+  if (R.win && R.slam > 0) kids.splice(kids.findIndex(k => k.className === 'prize') + 1, 0, el('span', 'fchip slam', `💥 Slam +🐡 ${amount(boss.prize * SLAM.bonus[R.slam] + 0.5)}`));
   kids.push(el('div', 'tap', 'Tap to close'));
   card.className = `${R.win ? 'win' : 'lose'} wait`;
   card.replaceChildren(...kids);
@@ -312,6 +314,41 @@ function renderBout() {
   rushGoal.hidden = goal < 0; rushGoal.style.left = Math.round(goal * 1000) / 10 + '%';
   rushKnot.hidden = knot < 0; rushKnot.style.left = Math.round(knot * 10) / 10 + '%';
 }
+
+// ---------- the slam ----------
+// A grand win (fight.ts's SLAM): in the fight, a white ring closes on the champion's face on the strip to meet a gold
+// one at the belly bump, and Space (or a tap of the button) as they meet lands the slam: perfect or good, for more of
+// his prize. One try. What it came to stays on the button for a moment.
+const slamRing = $('slamRing'), slamClose = slamRing.querySelector('b')!, slamGo = $('slamGo') as HTMLButtonElement;
+/** Seconds the button keeps saying how the slam went. */
+let slamSaid = 0, spaceHeld = false;
+const SLAM_SAYS = ['Missed', 'Good slam!', 'Perfect slam!'];
+function goSlam() {
+  const q = slam();
+  if (q < 0) return;
+  slamGo.textContent = SLAM_SAYS[q];
+  slamGo.classList.add('said');
+  slamSaid = 1.2;
+  if (q > 0) chime();
+}
+slamGo.addEventListener('click', goSlam);
+function updSlam(dt: number) {
+  const space = keyHeld(' '), press = space && !spaceHeld;
+  spaceHeld = space;
+  const on = !rushEl.hidden && slamDue();
+  if (on && press) goSlam();
+  if (slamSaid > 0) slamSaid -= dt;
+  const show = !rushEl.hidden && (slamDue() || slamSaid > 0);
+  slamRing.hidden = !slamDue() || rushEl.hidden;
+  if (!slamRing.hidden) slamClose.style.transform = `scale(${(1 + 1.4 * Math.max(0, SLAM.at - F.bout.t) / SLAM.lead).toFixed(3)})`;
+  if (show === slamGo.hidden) slamGo.hidden = !show;
+  if (!show && slamGo.classList.contains('said')) {
+    slamGo.classList.remove('said');
+    slamGo.innerHTML = 'SLAM! <kbd>Space</kbd> on gold';
+  }
+}
+/** Whether a rush is a grand win with the slam still to try (for tests). */
+export const slamOffered = () => !!F.rush && grand(F.rush) && F.rush.slam < 0;
 
 // ---------- 💪 ----------
 const power = $('power'), powerN = $('powerN'), seasonChip = $('season');
@@ -425,6 +462,7 @@ export function updGong(dt: number) {
   if (atGong && press) ring();
   updStroke(dt);
   renderBout();
+  updSlam(dt);
   renderPower();
   updWatch(dt);
   // the stroke's jolt (on top of the ring's, if the camera's on it)

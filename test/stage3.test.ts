@@ -1173,6 +1173,62 @@ describe('the gong', () => {
   }, 30_000);
 });
 
+describe('the slam', () => {
+  /** A rush on Hakkaku won with `n` of his 140 turned, up to the fight. */
+  async function wonBy(n: number) {
+    const r = await ring();
+    const { g, fight, F } = r;
+    expect(fight.ringGong()).toBe(true);
+    g.runUntil(() => { while (F().rush!.turned + F().stall.length < n && fight.toStall(false)); return F().rush!.done; }, 31 + fight.WALK_IN);
+    expect(F().rush).toMatchObject({ turned: n, win: true });
+    g.runUntil(() => F().bout.phase === 'fight', 10);
+    return r;
+  }
+
+  it('a grand win offers it in the fight: Space as the rings meet lands it, for a fifth more of his prize', async () => {
+    const { g, fight, gong, F } = await wonBy(105);
+    expect(gong.slamOffered()).toBe(true);
+    // (not till the ring starts closing on the champion's face)
+    expect($('slamGo').hidden).toBe(true);
+    g.runUntil(() => F().bout.t >= fight.SLAM.at - fight.SLAM.lead + 0.1, 12);
+    expect($('slamGo').hidden).toBe(false);
+    expect($('slamGo').textContent).toBe('SLAM! Space on gold');
+    expect($('slamRing').hidden).toBe(false);
+    g.runUntil(() => F().bout.t >= fight.SLAM.at - 0.02, 3);
+    const money = g.wallet.money;
+    g.press(' ');
+    g.run(1 / 30);
+    g.press(' ', 'keyup');
+    expect(F().rush!.slam).toBe(2);
+    expect($('slamGo').textContent).toBe('Perfect slam!');
+    expect($('slamRing').hidden).toBe(true);
+    // one try
+    expect(fight.slam()).toBe(-1);
+    g.runUntil(() => F().bout.phase === 'pay', 8);
+    expect(g.wallet.money - money).toBe(Math.round(120 * 1.2 * fight.CHIP));
+    g.run(fight.LANDS + 0.5);
+    expect($('fightCard').textContent).toBe('勝YOU WIN🐡 120💥 Slam +🐡 24🔓 New: grow room, mushroom bowls, Back-Alley RingTap to close');
+  }, 30_000);
+
+  it('a good one is a tenth more; too soon is a miss; and a plain win offers none', async () => {
+    const { fight, F } = await wonBy(105);
+    F().bout.t = fight.SLAM.at - 0.25;
+    expect(fight.slam()).toBe(1);
+    const r2 = await wonBy(110);
+    r2.F().bout.t = r2.fight.SLAM.at - r2.fight.SLAM.lead + 0.2;
+    expect(r2.fight.slam()).toBe(0);
+    const money = r2.g.wallet.money;
+    r2.g.runUntil(() => r2.F().bout.phase === 'pay', 15);
+    expect(r2.g.wallet.money - money).toBe(120 * r2.fight.CHIP);
+    // 104 of 140 is a win, but not a grand one
+    const r3 = await wonBy(104);
+    expect(r3.gong.slamOffered()).toBe(false);
+    r3.g.runUntil(() => r3.F().bout.t >= r3.fight.SLAM.at, 12);
+    expect($('slamGo').hidden).toBe(true);
+    expect(r3.fight.slam()).toBe(-1);
+  }, 60_000);
+});
+
 describe('the gong during a local fight', () => {
   it('waits for it: the champion finishes it there and then, and the boss walks in as its fans go home', async () => {
     const { g, plan, fight, at, F } = await ring();

@@ -108,6 +108,10 @@ export const BOUT = { prep: 20, sit: 5, fight: 15, pay: 7 };
 export const LANDS = 2.3;
 /** How much faster a local fight's result plays out after the fall, while a boss called in by the gong waits on it. */
 export const HURRY = 1.6;
+/** The slam, a grand win's showy finish, the player's to land (gong.ts): offered once `share` of a boss's crowd was
+ *  turned; in the fight a ring closes on the champion's face over `lead` seconds to meet its mark `at` seconds in (the
+ *  belly bump), and a press within `perfect` of it is perfect, within `good` good: his prize, that much more. */
+export const SLAM = { share: 0.75, at: 9.6, lead: 1.6, perfect: 0.12, good: 0.3, bonus: [0, 0.1, 0.2] };
 /** How much of a local bout's preparation its fans take to walk in, and seconds each takes from their tunnel to the
  *  stall: nobody's served before they're at it (swarm.ts hurries anyone who'd be late). */
 const ARRIVE = 0.6;
@@ -144,6 +148,8 @@ export interface Rush {
   /** Slick Eddie's fix on it, if one was paid for (eddie.ts): how big (tenths of his crowd), and whether he was caught
    *  (then the boss brought them all); and how many of his fans it kept home. */
   fix: { cut: number; caught: boolean } | null; kept: number;
+  /** The slam, on a grand win: not tried (-1), missed (0), good (1) or perfect (2). */
+  slam: number;
 }
 export type Phase = 'prep' | 'sit' | 'fight' | 'pay';
 /** A bout: its phase and how long it's been in it, who wins (known once the fans sit down), the ring's tug (-1 his,
@@ -434,7 +440,7 @@ function startRush(kept = 0, fix: Rush['fix'] = null) {
   F.quiet = false;
   F.rush = {
     boss: practiceDue() ? -1 : F.beaten, n: nextBoss()!.crowd - kept, turned: 0, walk: WALK_IN, t: 0, lastTurn: 0, short: { rice: 0, fish: 0, mush: 0 },
-    dryT: 0, done: false, win: false, fix, kept,
+    dryT: 0, done: false, win: false, fix, kept, slam: -1,
   };
   // his crowd takes the floor (a local bout's called off)
   F.queue = [];
@@ -504,15 +510,30 @@ function bossResult(R: Rush) {
     // practice: his prize, and the first boss is next
     F.practice = false;
     F.sparred = true;
-    on.earn(PRACTICE.prize, 'prize');
+    on.earn(PRACTICE.prize * (1 + SLAM.bonus[Math.max(0, R.slam)]), 'prize');
   } else if (R.win) {
     const boss = BOSSES[R.boss];
     F.beaten++;
-    on.earn(boss.prize, 'prize');
+    on.earn(boss.prize * (1 + SLAM.bonus[Math.max(0, R.slam)]), 'prize');
     if (F.beaten === 1) revealGrowRoom();
     if (F.beaten === 2) on.den();
   }
   on.rushEnd(R);
+}
+/** A grand win: three of every four of his crowd turned (the slam's on offer in the fight). */
+export const grand = (R: Rush) => R.win && R.turned >= Math.ceil(R.n * SLAM.share);
+/** The slam can be landed now: a grand win's fight, from when the ring starts closing till just after it's met its
+ *  mark, and not tried yet. */
+export function slamDue() {
+  const R = F.rush, B = F.bout;
+  return !!R && R.done && grand(R) && R.slam < 0 && B.phase === 'fight' && B.t >= SLAM.at - SLAM.lead && B.t <= SLAM.at + SLAM.good;
+}
+/** The player goes for the slam: how it went (0 missed, 1 good, 2 perfect), or -1 if it isn't on. */
+export function slam() {
+  if (!slamDue()) return -1;
+  const R = F.rush!, d = Math.abs(F.bout.t - SLAM.at);
+  R.slam = d <= SLAM.perfect ? 2 : d <= SLAM.good ? 1 : 0;
+  return R.slam;
 }
 /** The worst-jammed ingredient of a rush, if one held the pot up. */
 export const worstShort = (R: Rush) => ING.filter(k => R.short[k] > 0.5).sort((a, b) => R.short[b] - R.short[a])[0] ?? null;

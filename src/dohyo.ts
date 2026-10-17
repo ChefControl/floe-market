@@ -245,6 +245,8 @@ const unslow = (a: number) => a < 1 ? a : a < 1.351 ? 1 + (a - 1) / 0.39 : 1.9 +
 export const landsAt = unslow(1.78);
 /** Where the fight left them. */
 let end: [At, At] | null = null;
+/** A perfect slam (fight.ts's SLAM): the champion's finish lifts the boss this much higher by the belt. */
+const slammed = () => (F.rush?.slam === 2 && F.bout.win ? 3 : 1);
 function walkTo(s: At, from: number, to: number, k: number, who: number) {
   s.x = lerp(from, to, ease(k)); s.p = k > 0 && k < 1 ? walk(k * 18) : STAND; s.yaw = to > from ? Math.PI / 2 : -Math.PI / 2;
   if (crab(who) && k > 0 && k < 1) { s.p = sideways(k * 22); s.yaw = 0; }
@@ -284,13 +286,13 @@ function resultAt(a: number): [At, At] {
     // the lift by the belt: his heels leave the straw
     const k = ease((a - 0.7) / 0.3);
     L.x = straw + dir * 0.08 * k; W.x = L.x - dir * D * (1 - 0.05 * k);
-    W.p = mixPose(DRIVE, LIFT, k); L.air = 0.14 * k;
+    W.p = mixPose(DRIVE, LIFT, k); L.air = 0.14 * k * slammed();
     L.p = mixPose({ ...BRACE, pitch: -0.1, bend: 0.45 }, TIPPED, k);
   } else if (a < 1.35) {
     // the heave: tipped back over the straw
     const k = (a - 1.0) / 0.35;
     L.x = straw + dir * (0.08 + 0.3 * k * k); W.x = wBase + dir * (0.08 + 0.3 * ease(k));
-    W.p = mixPose(LIFT, SHOVE, ease(k)); L.air = 0.14 * (1 - k * k);
+    W.p = mixPose(LIFT, SHOVE, ease(k)); L.air = 0.14 * (1 - k * k) * slammed();
     L.p = { ...TIPPED, pitch: lerp(-0.28, -0.7, k), bend: 0.2 * (1 - k), l0x: 0.35 + 0.4 * k, a0x: 2.0 + Math.sin(a * 18) * 0.5, a0z: 1.1, a1x: 2.2 + Math.cos(a * 18) * 0.5, a1z: 1.1 };
   } else if (a < 1.78) {
     // the fall: faster and faster, off the mound and down
@@ -451,6 +453,8 @@ function dressRival() {
 /** What was happening last frame, to catch the moments as the clock passes them; and where each wrestler was shown
  *  as the phase changed (they go on from there, so a bout cut short never jumps). */
 let was = { phase: '', t: 0 }, since = 0, edged = false, from: [At, At] | null = null, blend = 0.5;
+/** How the slam went, as last seen (fight.ts's Rush.slam): a landed one hits as it lands. */
+let slamWas = -1;
 const shown: [At, At] = [at(0, CORNER), at(1, -CORNER)];
 const BLEND = 0.5;
 /** The referee's calls, over his head. */
@@ -496,6 +500,14 @@ function moments(ph: string, t: number) {
     }
     if (Math.abs(B.tug) < 0.5) edged = false;
     if (crossed(9.6)) { const m = mid().setY(CY + 1.6); word('BOMP!', m, { size: 1.3, fill: '#FF8A5A' }); burst(m, 1.4); champ.kick(5); rival.kick(5); hit(0.12); }
+    // a slam landed (gong.ts): a big hit, and the boss rocked back
+    const s = F.rush?.slam ?? -1;
+    if (s > 0 && slamWas <= 0) {
+      const m = mid().setY(CY + 1.9);
+      word('SLAM!', m, { size: s > 1 ? 1.6 : 1.2, fill: '#FFD34A', life: 1.0 }); burst(m, s > 1 ? 1.9 : 1.3);
+      rival.kick(s > 1 ? 10 : 6); champ.kick(3); hit(s > 1 ? 0.5 : 0.25, s > 1 ? 0.8 : 0.3, s > 1 ? 1.2 : 0.6); react('edge');
+    }
+    slamWas = s;
   }
   if (ph === 'pay') {
     const L = B.win ? rival : champ, W = B.win ? champ : rival, passed = (a: number) => crossed(unslow(a));
