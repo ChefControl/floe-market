@@ -575,10 +575,10 @@ describe('the rooms', () => {
     expect(down(L.GROW.x1 + 0.1, -5)).toBeCloseTo(low[0], 5);
     expect(down(13, L.PREP.z0 - 0.3)).toBeCloseTo(low[0], 5);
     expect(down(L.GROW.x1 + 0.35, -5, ground.growKerb)! - low[0]).toBeGreaterThan(0);
-    // and while the Undertow's a secret, the arena's south wall runs on across its tunnel's mouth, rail and kerb; when
-    // it's found, the wall's open there, and the tunnel and the room are dug out, lit, kerbed round
+    // and while the Undertow's a secret, the doorman's door stands across its tunnel's mouth (its lintel up over the
+    // low wall: southDoor.ts), kerbed in front; when it's found, the tunnel and the room are dug out, lit, kerbed round
     const mouth = (L.PASSAGE.x0 + L.PASSAGE.x1) / 2;
-    expect(down(mouth, L.ARENA.z1 + 0.1)).toBeCloseTo(low[0], 5);
+    expect(down(mouth, L.ARENA.z1 + 0.1)).toBeGreaterThan(low[0] + 0.8);
     expect(down(mouth, L.ARENA.z1 + 0.35, ground.mouthKerb)! - low[0]).toBeGreaterThan(0);
     cellar.showDen();
     expect(down(mouth, L.ARENA.z1 + 0.1)).not.toBeCloseTo(low[0], 2);

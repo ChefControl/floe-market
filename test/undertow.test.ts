@@ -28,19 +28,31 @@ const middle = (r: { x0: number; x1: number; z0: number; z1: number }) => ({ x: 
 const doorAt = (plan: typeof import('../src/cellarPlan')) => ({ x: plan.CLUB_DOOR.x, z: (plan.CLUB_DOOR.z0 + plan.CLUB_DOOR.z1) / 2 });
 
 describe('the Undertow', () => {
-  it("is a secret until the second boss is beaten: the arena's wall runs on across its tunnel, and nobody can walk in", async () => {
-    const { g, cellar } = await ring({ ring: { beaten: 1, lines: { mush: { n: 1 } } } });
+  it("is a secret until the second boss is beaten: a door across its tunnel in the arena's wall, nobody answering it, and nobody can walk in", async () => {
+    const { g, cellar, at } = await ring({ ring: { beaten: 1, lines: { mush: { n: 1 } } } });
+    const S = await import('../src/southDoor');
     const L = g.layout;
     expect(L.found.den).toBe(false);
     expect(cellar.parts.den.visible).toBe(false);
     expect(cellar.parts.denHidden.visible).toBe(true);
+    expect(cellar.parts.denWall.visible).toBe(false);
     expect(cellar.lights[9].intensity).toBe(0);
     for (const d of L.DOORS.filter(t => t.b === 'passage' || t.b === 'den')) expect(standable(g, cellar, middle(d))).toBe(false);
     expect(standable(g, cellar, middle(L.DEN))).toBe(false);
+    // knock: nobody answers, and the door stays shut
+    at({ x: (L.PASSAGE.x0 + L.PASSAGE.x1) / 2, z: L.ARENA.z1 - 0.6 });
+    g.runUntil(() => S.wayState().says === S.LINES.nobody, 3);
+    expect(S.wayState().scene).toBeNull();
+    expect(g.player.held).toBe(false);
+    g.run(3);
+    expect(S.wayState().open).toBe(0);
+    expect(L.found.den).toBe(false);
   });
 
-  it("opens when Yokobashiri's beaten: once his card's away and the next bout's begun, the wall comes down on the tunnel", async () => {
+  it("opens when Yokobashiri's beaten: Mr. Fugu hands over his matchbook, the doorman asks for the password, and the door swings in on the tunnel", async () => {
     const { g, plan, fight, cellar, at, F } = await ring({ ring: { beaten: 1, lines: { mush: { n: 1 } } } });
+    const S = await import('../src/southDoor'), { DESK_PAD } = await import('../src/office');
+    const front = { x: (g.layout.PASSAGE.x0 + g.layout.PASSAGE.x1) / 2, z: g.layout.ARENA.z1 - 0.6 };
     at(plan.GONG_PAD);
     g.run(0.1);
     expect(fight.ringGong()).toBe(true);
@@ -53,24 +65,86 @@ describe('the Undertow', () => {
     expect($('fightCard').hidden).toBe(false);
     expect($('fightCard').textContent).toContain('🔓 New: the attendant, steam baskets, a way south');
     expect(g.layout.found.den).toBe(false);
-    // the card goes, his crowd goes home, the next bout begins: there it is
+    // the card goes, his crowd goes home, the next bout begins: Mr. Fugu wants a word, a "!" over him
     $('fightCard').click();
-    g.runUntil(() => g.layout.found.den, fight.BOUT.pay + 1);
+    g.runUntil(() => S.wayState().calling, fight.BOUT.pay + 1);
     expect(F().rush).toBeNull();
+    expect(g.layout.found.den).toBe(false);
+    // knocking before he's had his word: "Password?", and nobody's let in
+    at(front);
+    g.runUntil(() => S.wayState().says === S.LINES.ask, 3);
+    g.runUntil(() => S.wayState().says === S.LINES.no, 3);
+    expect(S.wayState().scene).toBeNull();
+    g.run(2);
+    expect(g.layout.found.den).toBe(false);
+    // at his desk: the camera on him, the cellar holding still, his lines a tap at a time, and his matchbook
+    at(DESK_PAD);
+    g.run(0.1);
+    expect(S.wayState().scene).toBe('fugu');
+    expect(g.player.held).toBe(true);
+    const t = F().t;
+    for (const line of S.LINES.fugu) {
+      g.runUntil(() => S.wayState().says === line, 6);
+      // (a tap while he's still saying it shows the rest of it at once)
+      g.run(0.4);
+      expect($('wayLine').textContent).not.toBe(line);
+      g.press(' ');
+      expect($('wayLine').textContent).toBe(line);
+      g.run(0.5);
+      expect(S.wayState().says).toBe(line);
+      g.press(' ');
+    }
+    // then his matchbook's up close, to turn about and pocket
+    g.run(0.8);
+    expect($('wayLook').hidden).toBe(false);
+    expect(F().den.book).toBe(false);
+    g.press('ArrowLeft');
+    g.run(0.5);
+    g.press('ArrowLeft', 'keyup');
+    $('wayPocket').click();
+    g.runUntil(() => S.wayState().scene === null, 2);
+    expect($('wayLook').hidden).toBe(true);
+    expect(F().t).toBe(t);
+    expect(F().den.book).toBe(true);
+    expect(S.wayState().scene).toBeNull();
+    expect(g.player.held).toBe(false);
+    // back at the door: the slot, "Password?", the matchbook, and in
+    at(front);
+    g.run(0.1);
+    expect(S.wayState().scene).toBe('door');
+    expect(g.player.held).toBe(true);
+    g.runUntil(() => S.wayState().says === S.LINES.ask, 3);
+    g.runUntil(() => S.wayState().says === S.LINES.ok, 3);
+    g.runUntil(() => g.layout.found.den, 3);
+    expect(F().den.way).toBe(true);
+    g.runUntil(() => S.wayState().scene === null, 4);
+    expect(g.player.held).toBe(false);
+    expect(S.wayState().open).toBeGreaterThan(0.9);
     expect(cellar.parts.den.visible).toBe(true);
     expect(cellar.parts.denHidden.visible).toBe(false);
     expect(cellar.lights[9].intensity).toBeGreaterThan(0);
-    // into the tunnel, down to the club's doors: shut, until the doorman lets you in (below)
+    // into the tunnel, down to the club's doors: shut, till you come up to them (below)
     const L = g.layout;
     for (const d of L.DOORS.filter(t => t.b === 'passage')) expect(standable(g, cellar, middle(d))).toBe(true);
     expect(standable(g, cellar, middle(L.PASSAGE))).toBe(true);
     expect(standable(g, cellar, doorAt(plan))).toBe(false);
     expect(cellar.roomAt(middle(L.DEN))).toBe('den');
+    // the door shuts behind you, and opens as you come up to it again: from the arena, a good evening through the slot
+    at(middle(L.PASSAGE));
+    g.run(0.5);
+    at({ x: L.ARENA.x0 + 3, z: 0 });
+    g.run(3);
+    expect(S.wayState().open).toBeLessThan(0.1);
+    at(front);
+    g.run(0.2);
+    expect(S.wayState().says).toBe(S.LINES.evening);
+    g.run(1.5);
+    expect(S.wayState().open).toBeGreaterThan(0.9);
     // (a whole bout, and the club built: longer than most)
-  }, 30_000);
+  }, 40_000);
 
-  it('the way in: down a long dark tunnel to a pair of doors, the band louder through them; the first time, the doorman looks you over', async () => {
-    const { g, plan, cellar, at, F } = await ring({ ring: { beaten: 2, lines: { mush: { n: 1 } } } });
+  it('the way in: down a long dark tunnel to a pair of doors, the band louder through them; the first time they open on a burst of light and smoke', async () => {
+    const { g, plan, cellar, at, F } = await ring({ ring: { beaten: 2, lines: { mush: { n: 1 } }, den: { door: false } } });
     const D = await import('../src/doorway'), { club } = await import('../src/noir'), { fogLeft } = await import('../src/clubFog');
     const L = g.layout, x = (L.PASSAGE.x0 + L.PASSAGE.x1) / 2, door = doorAt(plan);
     expect(F().den.door).toBe(false);
@@ -86,14 +160,10 @@ describe('the Undertow', () => {
     expect(standable(g, cellar, door)).toBe(false);
     // till the doors open, the club behind them is under a bank of smoke
     expect(fogLeft()).toBe(1);
-    // up to the doors: a knock, the slot, "Password?", Mr. Fugu's matchbook, and in
+    // up to the doors: they swing open, the band comes up clear
     at({ x, z: door.z });
-    g.run(0.2);
-    expect(D.doorState().scene).not.toBeNull();
-    expect(g.player.held).toBe(true);
-    g.runUntil(() => D.doorState().says === 'Password?', 3);
-    g.runUntil(() => F().den.door, 5);
-    g.runUntil(() => D.doorState().scene === null, 3);
+    g.run(1);
+    expect(F().den.door).toBe(true);
     expect(g.player.held).toBe(false);
     expect(D.doorState().open).toBeGreaterThan(0.9);
     expect(standable(g, cellar, door)).toBe(true);
@@ -127,20 +197,25 @@ describe('the Undertow', () => {
     at(middle(L.ARENA));
     g.run(3);
     expect(g.player.stride).toBe(1);
-    // the doors shut behind you, and open as you come up to them again: a good evening through the slot first
+    // the doors shut behind you, and open as you come up to them again
     at({ x, z: L.PASSAGE.z0 + 0.5 });
     g.run(2);
     expect(D.doorState().open).toBeLessThan(0.1);
     expect(standable(g, cellar, door)).toBe(false);
     at({ x, z: door.z });
-    g.run(0.2);
-    expect(D.doorState().scene).toBeNull();
-    expect(D.doorState().says).toBe('Evening.');
-    g.run(1.5);
+    g.run(1);
     expect(D.doorState().open).toBeGreaterThan(0.9);
     // (and they're open for a game loaded later, the smoke long gone)
-    expect(F().den.door).toBe(true);
     expect(fogLeft()).toBe(0);
+  });
+
+  it("is still behind the door, on loading a game that's beaten two but not been let in", async () => {
+    const { g, cellar, F } = await ring({ ring: { beaten: 2, lines: { mush: { n: 1 } }, den: { book: false, way: false } } });
+    const S = await import('../src/southDoor');
+    expect(F().den.way).toBe(false);
+    expect(g.layout.found.den).toBe(false);
+    expect(S.wayState().calling).toBe(true);
+    expect(cellar.parts.den.visible).toBe(false);
   });
 
   it("is there on loading a game that's beaten two, with each of the Family's pads clear to stand on and his table in the way", async () => {

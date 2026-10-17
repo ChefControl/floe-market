@@ -9,7 +9,6 @@ import { frameDrawn } from './graphics';
 import { initHint, updHint } from './hint';
 import { inputVec } from './input';
 import { hideAbove } from './levelCull';
-import { doorCam } from './doorway';
 import { showCam, showShake } from './chanko';
 import { drawOffer, offerCam } from './offer';
 import { updKofi } from './kofi';
@@ -19,6 +18,7 @@ import { initReports, updReports } from './report';
 import { camera, camK, fog, OFF, renderer, scene, sun, sunOff } from './render';
 import { isStale, load, startAutosave, wipeSave } from './save';
 import { initScores } from './scores';
+import { drawWay, wayCam } from './southDoor';
 import './settings';
 import { view } from './stage';
 import { drawTutorial } from './tutorial';
@@ -94,8 +94,8 @@ function frame(now: number) {
     aim.lerp(offerCam.look, b);
     if (s) camera.position.add(V((Math.random() - 0.5) * s, (Math.random() - 0.5) * s, 0));
   }
-  // the Undertow's doorman looking you over the first time: the camera on the doors (doorway.ts)
-  if (doorCam.k > 0) { const b = smooth(doorCam.k); camera.position.lerp(doorCam.pos, b); aim.lerp(doorCam.look, b); }
+  // the way south: Mr. Fugu with his matchbook, and the doorman looking you over at his door (southDoor.ts)
+  if (wayCam.k > 0) { const b = smooth(wayCam.k); camera.position.lerp(wayCam.pos, b); aim.lerp(wayCam.look, b); }
   // the cooking show at the pot: its own camera on the stew (chanko.ts), jolting a little on a chop
   if (showCam.k > 0) {
     const b = smooth(showCam.k), s = reduceMotion.matches ? 0 : showShake();
@@ -122,6 +122,7 @@ function frame(now: number) {
   const showAbove = hideAbove();
   renderer.render(scene, camera);
   showAbove();
+  drawWay();
   if (loading) {
     const el = loading;
     el.classList.add('done');

@@ -168,13 +168,14 @@ export interface Fight {
   seed: number; cookT: number;
   /** The cooking show's bonus: how much bigger the pot's batches are (percent), and for how many more seconds. */
   bonus: { pct: number; t: number };
-  /** The Undertow (undertow.ts): whether the doorman's let you in yet (doorway.ts), and the bout Tommy last played monte
-   *  in and how many rounds he played in it; Slick Eddie's fix on the next boss, and the scandal if he's caught; and
-   *  what's owed to Harry (loan.ts). */
+  /** The Undertow (undertow.ts): whether Mr. Fugu's given you his matchbook yet, whether the doorman's let you in through
+   *  the door at the tunnel's mouth yet (southDoor.ts), whether the club's own doors have first opened (doorway.ts), and
+   *  the bout Tommy last played monte in and how many rounds he played in it; Slick Eddie's fix on the next boss, and the
+   *  scandal if he's caught; and what's owed to Harry (loan.ts). */
   den: Den;
 }
 export interface Den {
-  door: boolean; monte: { bout: number; played: number };
+  book: boolean; way: boolean; door: boolean; monte: { bout: number; played: number };
   /** The fix paid for: on which boss (-1, none), how big (1 to 5 tenths of his crowd kept home), and whether Eddie got
    *  caught. That's rolled as it's paid for (eddie.ts), outside the cellar's sim, and comes out at the gong, on his coin
    *  (gong.ts). */
@@ -198,7 +199,7 @@ export function blank(): Fight {
     rush: null, bout: freshBout(0),
     seed: 3, cookT: 0, bonus: { pct: 0, t: 0 },
     den: {
-      door: false, monte: { bout: -1, played: 0 }, eddie: { boss: -1, cut: 0, caught: false }, scandal: { cut: 0, bouts: 0 },
+      book: false, way: false, door: false, monte: { bout: -1, played: 0 }, eddie: { boss: -1, cut: 0, caught: false }, scandal: { cut: 0, bouts: 0 },
       loan: { owed: 0, total: 0 },
     },
   };
@@ -865,6 +866,9 @@ export function fightFrom(raw: unknown): Fight {
       seed: clamp(Math.floor(num(r.seed, 3)), 1, 2147483646), cookT: 0,
       bonus: BONUS_TIERS.some(x => x.pct && x.pct === r.bonus?.pct) && num(r.bonus?.t) > 0 ? { pct: r.bonus!.pct, t: clamp(num(r.bonus?.t), 0, BONUS_S) } : b.bonus,
       den: {
+        // (a game saved before the door at the tunnel's mouth: the tunnel's open already, if the second boss was beaten)
+        book: typeof r.den?.book === 'boolean' ? r.den.book : num(r.beaten) >= 2,
+        way: typeof r.den?.way === 'boolean' ? r.den.way : num(r.beaten) >= 2,
         door: r.den?.door === true, monte: { bout: Math.floor(num(r.den?.monte?.bout, -1)), played: clamp(Math.floor(num(r.den?.monte?.played)), 0, 99) },
         eddie: num(r.den?.eddie?.cut) >= 1
           ? { boss: clamp(Math.floor(num(r.den?.eddie?.boss, -1)), -1, BOSSES.length - 1), cut: clamp(Math.round(num(r.den?.eddie?.cut)), 1, 5), caught: r.den?.eddie?.caught === true }

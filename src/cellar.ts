@@ -73,7 +73,8 @@ export const POT_TOP = 1.43;
 const SACKS = { x: PREP.x1 - 0.42, z: (BIN_PADS.rice.z + BIN_PADS.fish.z) / 2 };
 
 // ---------- materials ----------
-const WOOD = 0x8A5A3B, WOOD_DARK = 0x5B3424, PILE = 0x4A3A30, STRAW = 0xD9C47E;
+export const WOOD = 0x8A5A3B, WOOD_DARK = 0x5B3424;
+const PILE = 0x4A3A30, STRAW = 0xD9C47E;
 const IRON = 0x2E2E33, STEEL_DARK = 0x4B5257;
 /** Glowing materials (lanterns, the hearth's fire, the hatch's daylight): lit only in the cellar's light. */
 const glow = (color: number, emissive: number) => new MeshLambertMaterial({ color, emissive, emissiveIntensity: 1 });
@@ -109,15 +110,16 @@ scene.add(cellar);
 /** Parts that come with the venue's tiers, shown when they're bought: the bleachers (the Back-Alley Ring), the upper
  *  tier and the taiko drums (the Underground Arena), and the VIP boxes (the Grand Hall Below). And the grow room, with
  *  the doorway into it, found when the first boss is beaten (until then, `hidden`: the prep hall's tall back wall); and
- *  the Undertow and its tunnel, found when the second is (until then, `denHidden`: the arena's wall across its mouth). */
+ *  the Undertow and its tunnel, found once the doorman lets you in (until then, `denHidden`: the earth over it); and
+ *  `denWall`, the arena's wall across the tunnel's mouth, which the doorman's door stands in for (southDoor.ts). */
 export const parts = {
   bleachers: new Group(), tier: new Group(), vip: new Group(), drums: new Group(), grow: new Group(), hidden: new Group(),
   // (the Undertow's made on dice of their own, so loading draws from the game's luck just what it did before it: see
   // BUILT_WITH)
-  ...apart(() => ({ den: new Group(), denHidden: new Group() }), dice(0xDE4)),
+  ...apart(() => ({ den: new Group(), denHidden: new Group(), denWall: new Group() }), dice(0xDE4)),
 };
 Object.values(parts).forEach(g => { g.visible = false; cellar.add(g); });
-parts.hidden.visible = parts.denHidden.visible = true;
+parts.hidden.visible = parts.denHidden.visible = parts.denWall.visible = true;
 
 // ---------- the rooms ----------
 const earth = tiling(256, 256, (c, w, h) => {
@@ -220,7 +222,8 @@ const line = (r: Rect, side: Side, off: number) =>
 // behind the arena (north and west) and the grow room, and Mr. Fugu's own wall behind the office. A doorway's frame
 // stands FRAME_H, whatever wall it's in.
 /** How high a low wall's boards stand (its rail on top), and a tall wall's top. */
-const WALL = 1.1, TALL = 6.4;
+export const WALL = 1.1;
+const TALL = 6.4;
 /** How high a doorway's frame stands. */
 const FRAME_H = 2.0;
 /** How far out from each room's floor its walls stand, side by side (where a room has none of its own on a side, it's
@@ -472,11 +475,11 @@ later(() => {
   }
   floor(GROW, earth(), 0.3, parts.grow); tallWall(GROW, 'n', parts.grow); wall(GROW, 'e', 0.1, parts.grow);
   // the Undertow: a tunnel through the arena's south wall, into the Family's back room dug into the rock in front of the
-  // arena. Until the second boss is beaten, the arena's wall runs on across the tunnel's mouth, and there's only earth
-  // behind it (denHidden).
+  // arena. Until the doorman lets you through his door across its mouth (southDoor.ts, which stands in for the arena's
+  // wall there, denWall), there's only earth behind it (denHidden).
   {
     const t = DOORS.find(d => d.b === 'passage')!;
-    planks(parts.denHidden, true, line(ARENA, 's', 0.1), t.x0 - 0.3, t.x1 + 0.3);
+    planks(parts.denWall, true, line(ARENA, 's', 0.1), t.x0 - 0.3, t.x1 + 0.3);
   }
   // (the tunnel's dug back to the arena's own wall, and its floor runs from the arena's to the room's)
   stands(PASSAGE, 'n', PASSAGE.z0 - line(ARENA, 's', 0.1));
@@ -2181,7 +2184,7 @@ later(() => {
     for (const x of [PASSAGE.x0 + 0.05, PASSAGE.x1 - 0.05]) box(p, WOOD_DARK, x, CY + FRAME_H / 2, z, 0.18, FRAME_H, 0.18);
     box(p, WOOD_DARK, (PASSAGE.x0 + PASSAGE.x1) / 2, CY + FRAME_H, z, PASSAGE.x1 - PASSAGE.x0 + 0.3, 0.18, 0.22);
   }
-  lantern(p, PASSAGE.x0 - 0.1, CY + 2.3, ARENA.z1 + 0.5, true);
+  lantern(p, PASSAGE.x0 - 0.1, CY + 2.3, ARENA.z1 + 1.6, true);
   for (const [y, r] of [[1.35, 0.05], [1.55, 0.035]] as const) {
     const pipe = add(p, mesh(G.cyl, PIPE, PASSAGE.x1 - 0.12, CY + y, (PASSAGE.z0 + PASSAGE.z1) / 2)); pipe.scale.set(r, PASSAGE.z1 - PASSAGE.z0, r); pipe.rotation.x = Math.PI / 2;
   }
@@ -2859,6 +2862,9 @@ export function showVenue(t: number) {
 }
 /** Whether the club's doors are shut (doorway.ts opens and shuts them): shut, they're in the way. */
 export const denDoor = { shut: true };
+/** Whether the doorman's door, across the tunnel's mouth in the arena's south wall, is shut (southDoor.ts opens and
+ *  shuts it): shut, it's in the way. */
+export const southDoor = { shut: true };
 /** The Undertow's found: the arena's wall across the tunnel's mouth comes down, and through it the Family's back room.
  *  (Its lamps' light is there all along, dark till then, as the grow room's is.) */
 export function showDen(on = true) {
@@ -2963,7 +2969,7 @@ export function cellarBoxes(machines: Record<'rice' | 'fish' | 'mush', number> =
   // the Undertow, once it's found: the booths under the arches from the wall to the front of their tables, Eddie's room
   // (his banquette and table, his bodyguards, the champagne, the lamp and the palm), Harry's office, Tommy's card room (his
   // table, him behind it, his screen, his easel), the bar, the stools, the tables, the stage and the barrels; and the
-  // club's doors while they're shut
+  // club's doors while they're shut, and the doorman's door at the tunnel's mouth while it is
   if (found.den) {
     const E = DESKS.eddie, H = DESKS.harry, T = DESKS.tommy;
     /** A box from z0 to z1, `hx` either side of x. */
@@ -3006,6 +3012,7 @@ export function cellarBoxes(machines: Record<'rice' | 'fish' | 'mush', number> =
     for (const d of DANCERS) boxes.push([d.x, d.z, 0.5, 0.5]);
     boxes.push([STAGE.x, STAGE.z + STAGE.r / 2, STAGE.r + 0.15, STAGE.r / 2 + 0.15], [BARRELS.x, BARRELS.z, 0.5, 0.85]);
     if (denDoor.shut) boxes.push(along(CLUB_DOOR.x, 0.2, CLUB_DOOR.z0, CLUB_DOOR.z1));
+    if (southDoor.shut) boxes.push([(PASSAGE.x0 + PASSAGE.x1) / 2, ARENA.z1 + 0.1, (PASSAGE.x1 - PASSAGE.x0) / 2 + 0.1, 0.15]);
   }
   for (const k of ['rice', 'fish', 'mush'] as const) {
     if (k === 'mush' && !found.grow) continue;

@@ -1,13 +1,14 @@
 // Fight night in the game (stage 3): runs fight.ts's cellar every frame, draws it (the kitchen, the bouts, the swarm,
 // the gong), and answers what happens down there: chips into the wallet, the gong's crash and the crowd flooding in,
-// the card after a rush, the grow room coming to light, Mr. Fugu's office lighting up for the buyout.
+// the card after a rush, the grow room coming to light, Mr. Fugu's word about the way south to the Undertow, his
+// office lighting up for the buyout.
 import { CY, parts, showDen, showGrowRoom, showVenue, updBarFlap } from './cellar';
 import { BAR, GONG } from './cellarPlan';
 import { openRing, updDohyo } from './dohyo';
 import { CHIP, F, fightFrom, on, resetFight, step } from './fight';
 import { front } from './front';
 import { cardUp, showCard, updGong } from './gong';
-import { ARENA, DOORS, level, PASSAGE, PREP } from './layout';
+import { DOORS, level, PREP } from './layout';
 import { collect } from './loan';
 import { updOffice } from './office';
 import { updUndertow } from './undertow';
@@ -17,6 +18,7 @@ import { popIn } from './pop';
 import { built, updRingKitchen } from './ringKitchen';
 import { crowd, react } from './ringSound';
 import { save } from './save';
+import { callFugu, dressDoor, updSouthDoor, wayPlaying } from './southDoor';
 import { chime, fanfare, gong, levelUp } from './sfx';
 import { spotlight } from './spotlight';
 import { staging } from './stage';
@@ -56,20 +58,11 @@ on.grow = () => {
   pointAt({ x: (door.x0 + door.x1) / 2, y: CY, z: PREP.z0 - 0.3 }, '🍄', () => level.down);
   toast('🍄 A grow room opened: mushroom bowls pay double', 'grow', 4500);
 };
-// The second boss beaten: the Undertow's found. Not with his card still up, though, nor while his crowd's still going
-// home: once the next bout's begun and the player's down here and free, the arena's wall across the tunnel's mouth
-// comes down and the camera goes over to the tunnel and the room through it.
+// The second boss beaten: the way south. Not with his card still up, though, nor while his crowd's still going home:
+// once the next bout's begun and the player's down here and free, Mr. Fugu wants a word, a "!" over him at his desk: he
+// has his matchbook for the doorman at the door at the tunnel's mouth (southDoor.ts).
 let denDue = false;
 on.den = () => { denDue = true; };
-function revealDen() {
-  denDue = false;
-  showDen(true);
-  const mouth = { x: (PASSAGE.x0 + PASSAGE.x1) / 2, y: CY, z: ARENA.z1 };
-  spotlight([parts.den], { close: 0.75 });
-  chime();
-  pointAt(mouth, '🃏', () => level.down);
-  toast('🕳️ A tunnel to the Undertow opened', 'den', 4000);
-}
 // An upgrade bought at the shop counter gets its moment on camera, as upstairs: what it built pops in, and the camera
 // goes over to it and comes in close for a couple of seconds (spotlight.ts), in the middle of the space the bench's menu
 // leaves. Never while a boss is in (his rush waits for nobody) or a scene has the player, up or down the ladder or in
@@ -84,7 +77,8 @@ on.built = what => {
 function dress() {
   showVenue(F.tier);
   showGrowRoom(F.beaten >= 1);
-  showDen(F.beaten >= 2);
+  showDen(F.beaten >= 2 && F.den.way);
+  dressDoor();
   denDue = false;
   front.boughtOut = F.boughtOut;
 }
@@ -106,6 +100,17 @@ export function loadCellar(raw: unknown) {
 
 /** The cellar, every frame (stage 3 only). */
 export function updRing(dt: number) {
+  // While a scene on the way south has the player (southDoor.ts), the cellar winds down and holds still: nothing goes on
+  // in the fight, and so nobody new comes or goes and nobody's turn comes; but whoever's walking somewhere gets there,
+  // the soup square's flap settles, and the wrestlers ease into where they were going.
+  if (wayPlaying()) {
+    updRingKitchen(dt);
+    updBarFlap(dt, null);
+    updDohyo(dt);
+    updSwarm(dt);
+    updSouthDoor(dt);
+    return;
+  }
   step(dt);
   // the crowd's as loud as there are fans in the hall to make it: 60 or more is all of it, none is silence
   crowd.size = Math.min(1, inHall() / 60);
@@ -120,8 +125,9 @@ export function updRing(dt: number) {
   updBarFlap(dt, level.down ? player.g.position : null);
   updDohyo(dt);
   updOffice(dt);
-  if (denDue && !F.rush && !cardUp() && level.down && !player.held && !staging()) revealDen();
+  if (denDue && !F.rush && !cardUp() && level.down && !player.held && !staging()) { denDue = false; callFugu(); }
   updUndertow(dt);
+  updSouthDoor(dt);
   updSwarm(dt);
   updGong(dt);
 }

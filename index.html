@@ -1068,18 +1068,19 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
 @media (prefers-reduced-motion: reduce){ #loading, #loading .fill{ transition:none; } }
 #err{ position:fixed; left:12px; right:12px; bottom:calc(env(safe-area-inset-bottom,0px) + 12px); z-index:9; color:#fff; background:#B3261E; border-radius:12px; padding:10px 14px; font:600 15px system-ui,sans-serif; display:none; }
 
-/* ---------- Mr. Fugu's offer (offer.ts) ----------
+/* ---------- Mr. Fugu's offer (offer.ts), and the scenes on the way south (southDoor.ts), staged as it is ----------
    The HUD steps aside, everything but him dims, his lines come in a speech bubble and the answers are big buttons. */
-#offer{ --fx:50%; --fy:40%; }
-#offer[hidden]{ display:none; }
-#offerShade{
+#offer, #way{ --fx:50%; --fy:40%; }
+#offer[hidden], #way[hidden]{ display:none; }
+#offerShade, #wayShade{
   position:fixed; inset:0; z-index:2; pointer-events:none; opacity:0; transition:opacity .6s;
   background:radial-gradient(circle at var(--fx) var(--fy), rgba(15,34,48,0) 0, rgba(15,34,48,0) 16vmin, rgba(15,34,48,.74) 62vmin);
 }
-body.offer #offerShade{ opacity:1; }
-body.offer #game{ filter:saturate(.8); }
+body.offer #offerShade, body.way #wayShade{ opacity:1; }
+body.offer #game, body.way #game{ filter:saturate(.8); }
 #hud, #corner, #pointers{ transition:opacity .3s; }
-body.offer #hud, body.offer #corner, body.offer #pointers, body.offer #tip, body.offer .pop{ opacity:0; visibility:hidden; }
+body.offer #hud, body.offer #corner, body.offer #pointers, body.offer #tip, body.offer .pop,
+body.way #hud, body.way #corner, body.way #pointers, body.way #tip, body.way .pop{ opacity:0; visibility:hidden; }
 #offerBlink{ position:fixed; inset:0; z-index:7; background:#0F2230; opacity:0; pointer-events:none; }
 #offerBlink.on{ opacity:1; }
 #offerBlink.slow{ transition:opacity .45s; }
@@ -1088,28 +1089,31 @@ body.offer #hud, body.offer #corner, body.offer #pointers, body.offer #tip, body
 /* a caption over the scene, as in a film ("That night…") */
 #offerCaption{ position:fixed; left:50%; bottom:22%; transform:translateX(-50%); z-index:6; pointer-events:none; color:#F4EEDD; font:700 26px "Baloo 2","Trebuchet MS",system-ui,sans-serif; letter-spacing:.04em; text-shadow:0 2px 12px rgba(0,0,0,.6); opacity:0; transition:opacity .8s; white-space:nowrap; }
 #offerCaption.on{ opacity:1; }
-#offerAlert{
+#offerAlert, #wayAlert{
   position:fixed; left:0; top:0; z-index:5; width:46px; height:46px; margin:-23px 0 0 -23px; border-radius:50%;
   display:grid; place-items:center; background:var(--pill); color:var(--hot); font-size:32px; font-weight:800; line-height:1;
   box-shadow:0 3px 0 var(--shade), 0 0 0 3px #FFC34A; pointer-events:none;
   transform:scale(0); transition:transform .3s cubic-bezier(.2,1.6,.4,1);
 }
-#offerAlert.on{ transform:scale(1); }
-#offerSay{
+#offerAlert.on, #wayAlert.on{ transform:scale(1); }
+/* (the way south's "!" waits out in the world, under the HUD and the panels) */
+#wayAlert{ z-index:1; }
+body.offer #wayAlert, body.way #wayAlert{ visibility:hidden; }
+#offerSay, #waySay{
   position:fixed; left:0; top:0; z-index:5; box-sizing:border-box; width:min(66vw,300px);
   padding:14px 18px 12px; border-radius:20px; background:var(--pill); color:var(--pill-ink); box-shadow:0 4px 0 var(--shade);
   font-size:19px; font-weight:700; line-height:1.2; text-align:center; pointer-events:none;
   transform:translateY(-100%) scale(.85); transform-origin:var(--tail,50%) 100%; opacity:0; transition:opacity .15s, transform .2s;
 }
-#offerSay.on{ opacity:1; transform:translateY(-100%); }
-#offerSay b{ position:absolute; top:-12px; left:50%; transform:translateX(-50%); white-space:nowrap; background:var(--hot); color:#fff; font-size:14px; font-weight:800; padding:1px 11px; border-radius:999px; }
-#offerSay p{ margin:0; min-height:1.2em; }
+#offerSay.on, #waySay.on{ opacity:1; transform:translateY(-100%); }
+#offerSay b, #waySay b{ position:absolute; top:-12px; left:50%; transform:translateX(-50%); white-space:nowrap; background:var(--hot); color:#fff; font-size:14px; font-weight:800; padding:1px 11px; border-radius:999px; }
+#offerSay p, #waySay p{ margin:0; min-height:1.2em; }
 /* the rest of the line, unseen till it's said, so the centred line stays put as it types */
-#offerLine::after{ content:attr(data-rest); visibility:hidden; }
+#offerLine::after, #wayLine::after{ content:attr(data-rest); visibility:hidden; }
 /* the tail points straight down at him, like everyone's speech bubbles */
-#offerSay::after{ content:""; position:absolute; left:calc(var(--tail,50%) - 8px); bottom:-12px; border:8px solid transparent; border-top:13px solid var(--pill); border-bottom:0; }
-#offerSay i{ position:absolute; right:10px; bottom:4px; width:0; height:0; border:5px solid transparent; border-top:7px solid currentColor; border-bottom:0; opacity:0; }
-#offerSay.done i{ opacity:.55; animation:more .8s ease-in-out infinite; }
+#offerSay::after, #waySay::after{ content:""; position:absolute; left:calc(var(--tail,50%) - 8px); bottom:-12px; border:8px solid transparent; border-top:13px solid var(--pill); border-bottom:0; }
+#offerSay i, #waySay i{ position:absolute; right:10px; bottom:4px; width:0; height:0; border:5px solid transparent; border-top:7px solid currentColor; border-bottom:0; opacity:0; }
+#offerSay.done i, #waySay.done i{ opacity:.55; animation:more .8s ease-in-out infinite; }
 @keyframes more{ 50%{ transform:translateY(3px); } }
 #offerPick{
   position:fixed; left:50%; bottom:calc(env(safe-area-inset-bottom,0px) + 22px); transform:translateX(-50%); z-index:5;
@@ -1127,8 +1131,24 @@ body.offer #hud, body.offer #corner, body.offer #pointers, body.offer #tip, body
 #offerPick .main{ background:var(--go); color:#fff; box-shadow:0 3px 0 rgba(20,90,40,.45); }
 #offerPick .main .ic{ background:rgba(255,255,255,.22); }
 #offerPick button:focus-visible{ outline:3px solid var(--coral); outline-offset:2px; }
+/* looking Mr. Fugu's matchbook over (southDoor.ts): drag anywhere to turn it, then pocket it */
+#wayLook{ position:fixed; inset:0; z-index:6; touch-action:none; cursor:grab; }
+#wayLook[hidden]{ display:none; }
+#wayLook:active{ cursor:grabbing; }
+#wayLook p{
+  position:absolute; left:50%; top:calc(env(safe-area-inset-top,0px) + 18px); transform:translateX(-50%); margin:0; pointer-events:none;
+  padding:6px 16px; border-radius:999px; background:var(--pill); color:var(--pill-ink); box-shadow:0 3px 0 var(--shade);
+  font:800 17px "Baloo 2","Trebuchet MS",system-ui,sans-serif; white-space:nowrap;
+}
+#wayLook button{
+  position:absolute; left:50%; bottom:calc(env(safe-area-inset-bottom,0px) + 22px); transform:translateX(-50%);
+  display:inline-flex; align-items:center; gap:8px; border:0; border-radius:999px; padding:6px 20px 6px 7px; cursor:pointer;
+  font:800 19px "Baloo 2","Trebuchet MS",system-ui,sans-serif; background:var(--go); color:#fff; box-shadow:0 3px 0 rgba(20,90,40,.45);
+}
+#wayLook .ic{ width:34px; height:34px; border-radius:50%; background:rgba(255,255,255,.22); display:grid; place-items:center; font-size:19px; }
+#wayLook button:focus-visible{ outline:3px solid var(--coral); outline-offset:2px; }
 @keyframes pickIn{ from{ transform:translateY(16px) scale(.8); opacity:0; } }
-@media (prefers-reduced-motion: reduce){ #offerAlert, #offerSay{ transition:none; } #offerPick button, #offerSay.done i{ animation:none; } }
+@media (prefers-reduced-motion: reduce){ #offerAlert, #offerSay, #wayAlert, #waySay{ transition:none; } #offerPick button, #offerSay.done i, #waySay.done i{ animation:none; } }
 
 /* ---------- phones ----------
    The HUD shrinks to two short rows so it leaves the game in view (the stage chip opens the modifiers), and the
@@ -1684,6 +1704,13 @@ body.show #toss, body.show #cook, body.show #coach, body.show #hint, body.show #
   <div id="offerCaption" aria-hidden="true"></div>
   <div id="offerBlink"></div>
   <p id="offerLive" class="sr" aria-live="polite"></p>
+</div>
+<div id="wayAlert" aria-hidden="true">!</div>
+<div id="way" hidden>
+  <div id="wayShade"></div>
+  <div id="waySay" aria-hidden="true"><b id="wayWho">Mr. Fugu</b><p id="wayLine"></p><i></i></div>
+  <div id="wayLook" hidden><p>↻ Drag to turn it</p><button id="wayPocket" type="button"><span class="ic" aria-hidden="true">✓</span><span>Pocket it</span></button></div>
+  <p id="wayLive" class="sr" aria-live="polite"></p>
 </div>
 <script>
 // The loading screen. A build lists the game's scripts and their sizes in window.PRELOAD (see vite.config.ts): fetch

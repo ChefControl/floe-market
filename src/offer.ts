@@ -8,7 +8,7 @@
 // (unlocks.ts): buying into the ring, and the way down to it. Turning him down leaves the hatch on the dock: stand on
 // it to hear him out again (that night). Either way, the night lifts after.
 import { Vector3 } from 'three';
-import { ac, between, hushWorld, noise, onAudio, onTick, tone } from './audio';
+import { ac, between, noise, onAudio, onTick, tone } from './audio';
 import { stage3On } from './flags';
 import { Fugu, Hatch } from './fugu';
 import { HatchFx } from './hatchFx';
@@ -506,7 +506,6 @@ export function updOffer(dt: number) {
   if (!stage3On()) return;
   hatch?.update(dt);
   fx?.update(dt);
-  hushWorld(!!show);
   offerCam.shake = Math.max(0, offerCam.shake - dt);
   offerCam.close += (closeTo - offerCam.close) * Math.min(1, dt * 0.9);
   if (dusk) {
