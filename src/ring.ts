@@ -91,6 +91,8 @@ function dress() {
 /** The 'dohyo' stage-up: a fresh cellar, the ring open. */
 export function openCellar() {
   resetFight();
+  // (just come down: a practice fight before the first boss)
+  F.practice = true;
   dress();
   openRing();
 }

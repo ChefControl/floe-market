@@ -12,15 +12,18 @@
 // rating, which only comes up after a few more upgrades, is a tip for later, outside the tutorial proper.
 // Stage 3 has a tutorial of its own, the same way, for what's new down in the cellar (nothing stage 1 already taught):
 // the dumbwaiter's bins, the racks and barrels, standing at the pot to cook, the bowls from the counter out to the
-// stall, a level at the shop counter (saved up for in 🐡), and the gong, pointed at only once its forecast says the
-// first fight's a win; winning it is the end of it. Then tips for later: the fans' chips and Fugu's cut, 💪, and the
+// stall, a level at the shop counter (saved up for in 🐡), and the gong: the practice fight against the champion's
+// sparring partner (fight.ts), whose small crowd a full stall turns (so it's pointed at once the forecast says it's
+// won, and the stall until then); winning it is the end of it. (A
+// game that came down before the practice fight has the first boss instead, pointed at only once its forecast says
+// it's a win.) Then tips for later: the fans' chips and Fugu's cut, 💪, and the
 // grow room's beds. A save from before the cellar's lessons counts what it has done down there already.
 import { Group, Mesh, MeshBasicMaterial, RingGeometry } from 'three';
 import { buyButtonShown, touchBuy } from './buy';
 import { BAR_PAD, BENCH_PAD, BIN_PADS, COUNTER_PAD, GONG_PAD, machinePad, POT_PAD, type Pad } from './cellarPlan';
 import { C1 } from './counters';
 import { modCost, MODS, mods } from './economy';
-import { doneCount, F, forecast, growOpen, lineRoom, mach, nextBoss, PER_BATCH, sold, toBeat } from './fight';
+import { BOSSES, doneCount, F, forecast, growOpen, lineRoom, mach, nextBoss, PER_BATCH, practiceDue, sold, toBeat } from './fight';
 import { filletsInProgress } from './fishing';
 import { detail, quietly } from './kit';
 import { CELLAR_Y, level, stage } from './layout';
@@ -162,6 +165,8 @@ function prepping(): { at: Spot; say: [string, string?] } | null {
 /** The cheapest level at the shop counter. */
 const cheapestLevel = () => MODS.filter(m => m.stage === 3 && modOffered(m.id))
   .map(m => ({ m, c: modCost(m.id) ?? Infinity })).sort((a, b) => a.c - b.c)[0];
+/** The practice fight's been due in this game (so its being over means it was won). */
+let practised = false;
 /** Whether the gong's forecast says the next boss is beaten: worked out once a second, as it runs the whole rush. */
 let readyAt = -Infinity, ready = false;
 function gongReady() {
@@ -265,9 +270,14 @@ const STEPS: Step[] = [
   },
   {
     // the first fight: pointed at only once the forecast says it's won, and learnt by winning it (once its card's away)
-    id: 'gong', stage: 3, after: 'bench', at: () => (gongReady() ? down(GONG_PAD) : null),
-    say: () => ['Ring the gong', 'Your crowd is ready'],
-    done: () => F.beaten > 0 && !cardUp(), known: () => F.beaten > 0,
+    // the practice fight (or, for a game from before it, the first boss once he's a win), learnt by winning it, once
+    // its card's away
+    // (in practice, the stall first while the forecast says it'd be lost: a full stall always wins it)
+    id: 'gong', stage: 3, after: 'bench',
+    at: () => (gongReady() ? down(GONG_PAD) : practiceDue() && !F.rush ? down(BAR_PAD) : null),
+    say: () => (!practiceDue() ? ['Ring the gong', 'Your crowd is ready']
+      : gongReady() ? ['Ring the gong', 'A practice fight to start'] : ['Fill the stall first', 'Then ring the gong']),
+    done: () => (F.beaten > 0 || (practised && !F.practice)) && !cardUp(), known: () => F.beaten > 0,
   },
   {
     id: 'chips', stage: 3, after: 'bowls', read: READ, later: true, at: () => (sold.n > 0 ? down(BAR_PAD, 0) : null),
@@ -335,7 +345,8 @@ export const cellarKnown = () => STEPS.every(s => s.stage !== 3 || s.later || le
 let cheer = 0;
 /** The banner for the last of the basics learnt: only ever by playing, never for a game that knew them already. */
 function complete(n: number) {
-  if (n === 3) banner('First fight won', 'Tutorial complete', 'Four more bosses to go');
+  if (n === 3 && F.beaten === 0) banner('Practice won', 'Tutorial complete', `Now take on ${BOSSES[0].name} ${BOSSES[0].face}`);
+  else if (n === 3) banner('First fight won', 'Tutorial complete', 'Four more bosses to go');
   else banner('Well done', 'Tutorial complete', 'The rest is up to you. Go make it big!');
   confetti();
   unlock();
@@ -354,6 +365,7 @@ const cost = (g: Goal, v: number) => (g.inChips ? chips(v, true) : price(v));
 /** Each tick: learns what's been done, and picks the lesson to show. */
 export function updTutorial(dt: number) {
   if (!fromDevice) learn([]); // reads in what the device knows
+  if (F.practice) practised = true;
   // (the stage-up has the banner to itself)
   if (cheer > 0 && (cheer -= dt) <= 0 && !staging()) banner(null);
   const s = lesson.now;
@@ -436,8 +448,9 @@ function drawGoal() {
   goalEl.setAttribute('aria-label', ready ? `${g.name}: you can buy it now` : `Saving up for ${g.name}: ${cost(g, have)} of ${cost(g, g.need)}`);
 }
 
-/** A stage 3 panel's open (the gong's, Eddie's, Tommy's, Harry's) or a fight's card: the bubble keeps out of its way. */
-const PANELS = ['gong', 'eddie', 'monte', 'loans', 'fightCard'].map(id => document.getElementById(id));
+/** A stage 3 panel's open (the gong's, Eddie's, Tommy's, Harry's), Eddie's coin's up, or a fight's card: the bubble
+ *  keeps out of its way. */
+const PANELS = ['gong', 'eddie', 'monte', 'loans', 'coin', 'fightCard'].map(id => document.getElementById(id));
 const panelUp = () => PANELS.some(p => p && !p.hidden);
 
 /** Each frame: places the arrow, ring and bubble for the lesson showing (main.ts; it needs the camera). */

@@ -23,7 +23,7 @@ import { CanvasTexture, Group, type Object3D, Sprite, SpriteMaterial, Vector3 } 
 import { boss, CY, DRUMS, parts, PIT_STEPS, RING, RING_HALF, RING_R, RING_TOP } from './cellar';
 import { TEPPO } from './cellarPlan';
 import { belowGround, Person } from './characters';
-import { BOSSES, BOUT, F } from './fight';
+import { bossOf, BOUT, F } from './fight';
 import { LOOKS, SLAPS } from './creatures';
 import { dustFx, inkFx, saltFx } from './fx';
 import { isHigh } from './graphics';
@@ -46,7 +46,9 @@ const ease = (k: number) => k * k * (3 - 2 * k);
 const clamp01 = (k: number) => Math.min(1, Math.max(0, k));
 const lerp = (a: number, b: number, k: number) => a + (b - a) * k;
 
-const [champ, rival, partner] = quietly(() => [new RikishiModel(CHAMP_BELT), new RikishiModel(LOCAL_BELTS[0]), new RikishiModel(0x6B4A2C)]);
+/** The sparring partner's belt (his, in the ring for his practice fight, too). */
+const PARTNER_BELT = 0x6B4A2C;
+const [champ, rival, partner] = quietly(() => [new RikishiModel(CHAMP_BELT), new RikishiModel(LOCAL_BELTS[0]), new RikishiModel(PARTNER_BELT)]);
 champ.setWeight(170);
 partner.setWeight(140);
 for (const r of [champ, rival, partner]) { r.visible = false; r.scale.setScalar(SIZE); scene.add(r); }
@@ -432,13 +434,16 @@ function drums() {
 
 // ---------- the bout ----------
 /** Who the champion's up against: the boss whose rush it is, or tonight's local. */
-const bossOn = () => (F.rush ? BOSSES[F.rush.boss] : null);
+const bossOn = () => (F.rush ? bossOf(F.rush.boss) : null);
+/** The sparring partner's in the ring for his practice fight (and so not at the teppo post). */
+const sparring = () => !!F.rush && F.rush.boss < 0;
 let dressedAs = '';
 function dressRival() {
   const b = bossOn(), key = b ? b.name : 'local' + (F.bout.n % LOCAL_BELTS.length);
   if (key === dressedAs) return;
   dressedAs = key;
-  if (b) rival.dressAs(LOOKS[b.kind], b.crowd >= 500 ? 200 : 160 + F.rush!.boss * 8);
+  if (b?.kind) rival.dressAs(LOOKS[b.kind], b.crowd >= 500 ? 200 : 160 + F.rush!.boss * 8);
+  else if (b) { rival.dress(PARTNER_BELT); rival.setWeight(140); }
   else { rival.dress(LOCAL_BELTS[F.bout.n % LOCAL_BELTS.length]); rival.setWeight(130 + (F.bout.n * 13) % 30); }
 }
 /** What was happening last frame, to catch the moments as the clock passes them; and where each wrestler was shown
@@ -583,6 +588,8 @@ function pose2(dt: number) {
 /** The sparring partner, slapping the teppo post with one hand and the other. */
 const TEPPO_SLAP = pose({ bend: 0.25, l0x: 0.3, l0z: 0.35, l0k: 0.45, l1x: -0.2, l1z: 0.3, l1k: 0.15, head: -0.2 });
 function spar(dt: number) {
+  // (off to the ring for his practice fight)
+  partner.visible = !sparring();
   partner.position.set(TEPPO.x - 0.75, CY, TEPPO.z);
   partner.rotation.y = Math.PI / 2;
   const s = Math.sin(F.t * 5);

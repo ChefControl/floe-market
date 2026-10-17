@@ -15,7 +15,7 @@ import { BufferGeometry, CanvasTexture, Color, Float32BufferAttribute, Instanced
 import { CY, cellarBoxes, parts, placeBuilt, places, RING } from './cellar';
 import { BAR, BAR_PAD, BAR_SPOTS, FLOOR, fromBar, GONG_PAD, nearBar, TUNNELS, WATCH } from './cellarPlan';
 import { crowdModel, PARKAS, SHIRT } from './characters';
-import { BOSSES, F, REACH } from './fight';
+import { bossOf, F, REACH } from './fight';
 import { onQuality } from './graphics';
 import { ARENA, inUndertow, level, pushOutOfBox } from './layout';
 import { player } from './player';
@@ -567,7 +567,7 @@ function talk(dt: number) {
     nextSay = (F.bout.phase === 'fight' ? 0.5 : 1) * (0.6 + rnd() * 0.9) * (fans.size > 60 ? 0.7 : 1);
     const free = speech.find(sp => !sp.fan), all = [...fans.values()].filter(f => f.t > 0 && !speech.some(sp => sp.fan === f));
     if (free && all.length) {
-      const f = all[Math.floor(rnd() * all.length)], boss = F.rush ? BOSSES[F.rush.boss].name : 'the local';
+      const f = all[Math.floor(rnd() * all.length)], boss = F.rush ? bossOf(F.rush.boss).name : 'the local';
       // (never the same thing twice on screen at once)
       const lines = LINES[lineFor(f)].map(l => l.split('{boss}').join(boss)).filter(l => !speech.some(sp => sp.fan && sp.text === l));
       if (lines.length) { draw(free, lines[Math.floor(rnd() * lines.length)]); free.fan = f; free.t = 0; }

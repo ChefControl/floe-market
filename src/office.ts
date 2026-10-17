@@ -2,7 +2,7 @@
 // the ring's doing, his mouth going as he says it; step away and come back for the next one. And his fish tank's fish, swimming.
 import { boss, cellar, CY, OFFICE, swimTank } from './cellar';
 import { decal, drawPad } from './decals';
-import { BOSSES, F } from './fight';
+import { F, nextBoss } from './fight';
 import { level } from './layout';
 import { player } from './player';
 import { bubble } from './speech';
@@ -21,7 +21,7 @@ export function fuguLines(): string[] {
     "Fans ask for me? Say I'm on holiday.",
     'No cut, no boss. Just you and stew.',
   ];
-  const next = BOSSES[F.beaten];
+  const next = nextBoss();
   const out = ['30% of every bowl, Chef. House eats first.'];
   // (once the Undertow's found: he answers to the Family too)
   if (F.beaten >= 2) out.unshift('Met the Family? Guess who I pay.');

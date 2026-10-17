@@ -94,6 +94,9 @@ describe('buying into the ring', () => {
     expect(fight.F.lines.fish.n).toBe(1);
     expect(fight.F.lines.mush.n).toBe(0);
     expect(fight.F.beaten).toBe(0);
+    // and a practice fight before the first boss (the cellar's tutorial teaches the gong on it)
+    expect(fight.F.practice).toBe(true);
+    expect(fight.nextBoss()).toBe(fight.PRACTICE);
     // the HUD: bosses beaten on the stage chip, 💪 in the season's place, and the wallet in chips
     g.ui.hud(0);
     expect($('stageName').textContent).toBe('The Dohyo Below');
@@ -1777,7 +1780,7 @@ describe('the wrestlers', () => {
     Math.random = () => { rolled++; return luck(); };
     try {
       for (const b of fight.BOSSES) {
-        rival.dressAs(LOOKS[b.kind], 180);
+        rival.dressAs(LOOKS[b.kind!], 180);
         expect(rival.kind).toBe(b.kind);
         // his own head, claws, tentacles, fins: more parts than a man's
         expect(meshes()).toBeGreaterThan(man);
