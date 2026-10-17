@@ -3,8 +3,8 @@
 // what to do along its foot). The four steps are played on a little set built at the hearth from the game's own things,
 // over a stew of its own that answers everything done to it: a napa cabbage, a carrot, a block of tofu and a block of
 // tuna slide along a long prep board under the knife (tap as each gold line lights up under it), the cut pieces hopping
-// into a basket; they're thrown in a handful at a time, each thing's pieces together, then a mushroom and a handful of
-// dried rice (drag up and let go: the nearer the pot's middle the better), and sink into the stew; salt, soy and miso are
+// into a basket; they're thrown in one by one, then a mushroom and a handful of dried rice (drag up and let go: the
+// nearer the pot's middle the better), and sink into the stew; salt, soy and miso are
 // poured to a line (hold, let go in the band), each turning the stew its colour from where it goes in; and the stew is
 // stirred round in the boil band (press the soup to take the ladle, then it follows the mouse or finger), whirling with
 // the ladle, and what went in comes back up. Each step gives up to 3 stars; the 12 buy the pot a bonus for a while
@@ -552,32 +552,34 @@ function cutStep(s: Set, got: number[]): Step {
   };
 }
 
-/** The throw: a handful at a time, each thing's cut pieces together (a run of them a missed line left joined stays
- *  joined), then a mushroom (once the grow room's open) and a handful of dried rice. Each hops up from the basket onto
- *  the board right of the knife to be thrown, and what goes in sinks into the stew. `got`: each throw's score, kept by
- *  the run, so carrying on starts at the next one. */
+/** The throw: every piece that was cut, one at a time (two a missed line left joined go as one), the cabbage first and
+ *  the tuna last, then a mushroom (once the grow room's open) and a handful of dried rice. Each hops up from the basket
+ *  onto the board right of the knife to be thrown, and what goes in sinks into the stew. `got`: each throw's score,
+ *  kept by the run, so carrying on starts at the next one. */
 function throwStep(s: Set, cut: number[], got: number[]): Step {
   type Hand = { parts: Object3D[]; offs: Vector3[]; up: boolean };
   let hands: Hand[] = [];
   let i = got.length, t = 0, wait = 0;
   let st: 'hop' | 'ready' | 'fly' | 'wait' = 'ready';
   let drag: { x: number; y: number } | null = null, fly: { a: Vector3; b: Vector3; t: number } | null = null;
-  /** Where each handful's held to be thrown: on the board, right of the knife. */
+  /** Where each piece is held to be thrown: on the board, right of the knife. */
   const REST = V(BOARD.x + 0.32, BOARD.y + 0.031, BOARD.z + 0.04);
-  /** Each thing's pieces side by side, a run joined where its line wasn't cut. */
-  function handOf(item: number): Hand {
-    const ids = PIECES.flatMap((p, k) => (p.item === item ? [k] : [])), r = ROW[item];
-    let x = 0;
-    const xs = ids.map((_, k) => {
-      if (k) x += r.len + (cut[LINES.findIndex(l => l.i === ids[k - 1])] > 0 ? 0.03 : 0);
-      return x;
+  /** The pieces as they were cut: each on its own, but a run its missed lines left joined held together. */
+  function cutPieces(): Hand[] {
+    const runs: number[][] = [];
+    PIECES.forEach((p, k) => {
+      const line = LINES.findIndex(l => l.i === k - 1);
+      if (k && PIECES[k - 1].item === p.item && !(cut[line] > 0)) runs[runs.length - 1].push(k); else runs.push([k]);
     });
-    return { parts: ids.map(id => s.pieces[id]), offs: ids.map((id, k) => V(xs[k] - x / 2, s.pieces[id].userData.y - 0.031, 0)), up: true };
+    return runs.map(ids => {
+      const len = ROW[PIECES[ids[0]].item].len, mid = (ids.length - 1) / 2;
+      return { parts: ids.map(id => s.pieces[id]), offs: ids.map((id, k) => V((k - mid) * len, s.pieces[id].userData.y - 0.031, 0)), up: true };
+    });
   }
-  /** The board and the stew as they are with `n` handfuls thrown: those in the stew (or gone), the rest waiting. */
+  /** The board and the stew as they are with `n` thrown: those in the stew (or gone), the rest waiting. */
   function lay(n: number) {
     s.row.visible = s.knife.visible = false;
-    hands = [...ROW.map((_, item) => handOf(item)),
+    hands = [...cutPieces(),
       ...(growOpen() ? [{ parts: [s.mush], offs: [V(0, 0.039, 0)], up: true }] : []), { parts: [s.rice], offs: [V(0, 0.039, 0)], up: false }];
     s.mush.visible = growOpen(); s.rice.visible = true;
     s.g.add(s.mush); s.mush.position.copy(MUSH_AT);
@@ -595,7 +597,7 @@ function throwStep(s: Set, cut: number[], got: number[]): Step {
     h.parts.forEach((o, k) => { o.rotation.set(0, 0, 0); hop(o, REST.clone().add(h.offs[k]), 0.22); });
     st = 'hop';
   }
-  /** The handful's on the board: held together, to drag and throw as one. */
+  /** The next one's on the board: held (a joined run together), to drag and throw. */
   function grab() {
     const h = hands[i];
     s.hand.position.copy(REST); s.hand.rotation.set(0, 0, 0);
@@ -612,11 +614,11 @@ function throwStep(s: Set, cut: number[], got: number[]): Step {
     if (inPot) {
       splashFx({ x: fly.b.x, z: fly.b.z }, STEW_Y);
       wave(fly.b.x, fly.b.z, 0.045);
-      // (the pieces land a little apart, as a handful does)
+      // (a joined run lands a little apart)
       h.parts.forEach((o, k) => drown(o, fly!.b.x + h.offs[k].x * 0.7 + rnd(-0.05, 0.05), fly!.b.z + rnd(-0.08, 0.08), h.up));
     } else h.parts.forEach(o => { s.g.add(o); o.visible = false; });
     fly = null;
-    st = 'wait'; wait = 0.45;
+    st = 'wait'; wait = 0.3;
   }
   const this_: Step = {
     name: 'Throw', kanji: '投', cap: 'Drag up, let go into the pot', shot: 'throw', stars: 0, done: false,
@@ -637,7 +639,7 @@ function throwStep(s: Set, cut: number[], got: number[]): Step {
     down(x, y) { if (st === 'ready') drag = { x, y }; },
     move(x, y) {
       if (!drag || st !== 'ready') return;
-      // (the handful follows the finger a little, up off the board, and its shadow shows where it'd land)
+      // (it follows the finger a little, up off the board, and its shadow shows where it'd land)
       const dy = clamp((drag.y - y) / innerHeight, 0, 0.2);
       s.hand.position.set(REST.x + clamp((x - drag.x) / innerWidth, -0.15, 0.15) * 0.8, REST.y + dy * 0.6, REST.z - dy * 0.4);
       const b = y < drag.y - 14 ? onStew(drag.x + (x - drag.x) * 2.7, drag.y + (y - drag.y) * 2.7) : null;

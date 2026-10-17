@@ -46,7 +46,7 @@ async function atPot() {
   };
   /** One throw: dragged up from the board and let go, aimed at the pot's middle. */
   const throwOne = () => {
-    // (the next handful hops up onto the board first)
+    // (the next piece hops up onto the board first)
     run(0.45);
     const from = onScreen(P.x, CY + 0.99, P.z + 1.38), to = onScreen(P.x, CY + 1.37, P.z);
     ptr('pointerdown', from.x, from.y);
@@ -55,7 +55,7 @@ async function atPot() {
     run(1.1);
   };
   /** Throws until the throw's done; how many it took. */
-  const throwAll = () => { until('Throw'); let n = 0; while (n < 10 && show.showState()?.step === 'Throw' && show.showState()?.phase === 'play') { throwOne(); n++; } return n; };
+  const throwAll = () => { until('Throw'); let n = 0; while (n < 16 && show.showState()?.step === 'Throw' && show.showState()?.phase === 'play') { throwOne(); n++; } return n; };
   /** Three pours, held a while. */
   const season = () => { until('Season'); for (let i = 0; i < 3; i++) { run(0.1); key('keydown'); run(0.7); key('keyup'); run(0.8); } };
   /** Circles round the pot at a steady pace for `s` seconds, from a first press at `x, y` (on the soup, if not given). */
@@ -140,19 +140,19 @@ describe('the cooking show at the pot', () => {
     expect(F().cooked.length).toBe(0);
   }, 60_000);
 
-  it('the stew\'s cabbage, carrot and tofu are cut with the fish; every piece is thrown in, a handful at a time', async () => {
+  it('the stew\'s cabbage, carrot and tofu are cut with the fish; every piece is thrown in, one by one', async () => {
     const { show, open, cut, throwAll, until } = await atPot();
     open(); cut();
-    // six clean cuts (one each through the cabbage, the carrot and the tofu, three through the fish): a handful of each,
-    // then the mushroom and the rice
+    // six clean cuts (one each through the cabbage, the carrot and the tofu, three through the fish): ten pieces, each
+    // thrown on its own, then the mushroom and the rice
     expect(show.showState()!.run.got[0]).toEqual([1, 1, 1, 1, 1, 1]);
-    expect(throwAll()).toBe(6);
+    expect(throwAll()).toBe(12);
     until('Season');
     const got = show.showState()!.run.got;
-    expect(got[1]).toHaveLength(6);
+    expect(got[1]).toHaveLength(12);
     // (all ten pieces, the mushroom and the rice went in)
     expect(show.showState()!.stew.in).toHaveLength(12);
-    expect(show.showState()!.stars[1]).toBe(Math.round(got[1].reduce((a, b) => a + b, 0) / 6 * 3));
+    expect(show.showState()!.stars[1]).toBe(Math.round(got[1].reduce((a, b) => a + b, 0) / 12 * 3));
   }, 60_000);
 
   it('a missed line counts against the cut; before the grow room\'s open, no mushroom', async () => {
@@ -162,8 +162,8 @@ describe('the cooking show at the pot', () => {
     until('Throw');
     expect(show.showState()!.run.got[0]).toEqual([1, 0, 1, 1, 1, 1]);
     expect(show.showState()!.stars[0]).toBe(Math.round(5 / 6 * 3));
-    // the four handfuls (the carrot in one piece), and the rice
-    expect(throwAll()).toBe(5);
+    // the pieces one by one (the carrot's two joined, as one), and the rice
+    expect(throwAll()).toBe(2 + 1 + 2 + 4 + 1);
   }, 60_000);
 
   it('what\'s thrown in sinks into the stew, and the stir brings it back up', async () => {
@@ -172,9 +172,9 @@ describe('the cooking show at the pot', () => {
     until('Throw');
     throwOne();
     run(1.5);
-    // (the cabbage's two pieces, down under the top)
+    // (the first piece of cabbage, down under the top)
     const sunk = show.showState()!.stew.in;
-    expect(sunk).toHaveLength(2);
+    expect(sunk).toHaveLength(1);
     for (const y of sunk) expect(y).toBeLessThan(-0.08);
     throwAll(); season(); stir();
     run(1.2);
@@ -239,8 +239,8 @@ describe('the cooking show at the pot', () => {
     until('Throw');
     expect(show.showState()!.stars[0]).toBe(cutStars);
     expect(show.showState()!.run.got[1]).toEqual(kept.got[1]);
-    // (four handfuls, the mushroom and the rice in all, less the one that's in already)
-    expect(throwAll()).toBe(5);
+    // (the pieces, the tofu's two joined, the mushroom and the rice in all, less the one that's in already)
+    expect(throwAll()).toBe(2 + 2 + 1 + 4 + 1 + 1 - 1);
     // ✕ half way through a pour: the pour stops where it is, and counts
     until('Season');
     run(0.1); key('keydown'); run(0.3);

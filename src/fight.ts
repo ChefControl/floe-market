@@ -858,7 +858,7 @@ function showFrom(v: unknown): ShowRun | null {
   const nums = (a: unknown, n: number, lo: number, hi: number) => (Array.isArray(a) ? a.filter(isNum).slice(0, n).map(x => clamp(x, lo, hi)) : []);
   return {
     step: clamp(Math.floor(r.step), 0, 4),
-    got: [0, 1, 2, 3].map(j => nums(r.got![j], 8, -1, 60)),
+    got: [0, 1, 2, 3].map(j => nums(r.got![j], 16, -1, 60)),
     lines: nums(r.lines, 3, 0, 1),
   };
 }
