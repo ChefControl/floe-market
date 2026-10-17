@@ -146,6 +146,9 @@ export interface Fight {
   beaten: number; tier: number; boughtOut: boolean;
   /** The practice fight's still to come (a player who's just come down: ring.ts). */
   practice: boolean;
+  /** The doors are shut: a player who's just come down, before their first soup's out on the stall (ring.ts). No fans
+   *  come, and there's no local fight, until it is (or the gong's rung). */
+  quiet: boolean;
   lines: Record<Ing, Line>;
   hires: Partial<Record<Role, boolean>>;
   crew: Worker[];
@@ -188,7 +191,7 @@ const line = (n: number): Line => ({ n, up: 0, m: [] });
 const freshBout = (n: number): Bout => ({ phase: 'prep', t: 0, win: false, tug: 0, noise: 0, n, crowd: -1, came: 0, fed: 0 });
 export function blank(): Fight {
   return {
-    t: 0, beaten: 0, tier: 0, boughtOut: false, practice: false,
+    t: 0, beaten: 0, tier: 0, boughtOut: false, practice: false, quiet: false,
     lines: { rice: line(1), fish: line(1), mush: line(0) }, hires: {}, crew: [],
     pantry: { rice: 0, fish: 0, mush: 0 }, pot: [], potT: 0, counter: [], stall: [],
     queue: [], fed: [], cooked: [], full: [], fullAcc: 0, earned: [],
@@ -367,7 +370,7 @@ function sell(n: number) {
  *  gets a bowl, once they're there, stays to watch. (Whoever hasn't eaten when it's over goes home: updBout.) */
 function updFans() {
   const B = F.bout;
-  if (F.rush || B.phase !== 'prep') return;
+  if (F.rush || F.quiet || B.phase !== 'prep') return;
   if (B.crowd < 0) B.crowd = crowdNow();
   const due = Math.min(B.crowd, Math.floor(B.crowd * Math.min(1, B.t / (BOUT.prep * ARRIVE)) + 1e-9));
   while (B.came < due) { B.came++; F.queue.push(F.t); }
@@ -403,6 +406,8 @@ export function setFix(cut: number, caught: boolean) {
 // ---------- the rush ----------
 /** His crowd walks in: all of it, or less the `kept` home by a `fix` that held. */
 function startRush(kept = 0, fix: Rush['fix'] = null) {
+  // (his crowd comes in, doors shut or not)
+  F.quiet = false;
   F.rush = {
     boss: practiceDue() ? -1 : F.beaten, n: nextBoss()!.crowd - kept, turned: 0, walk: WALK_IN, t: 0, lastTurn: 0, short: { rice: 0, fish: 0, mush: 0 },
     dryT: 0, done: false, win: false, fix, kept,
@@ -655,7 +660,11 @@ function doAct(w: Worker, st: Step): boolean {
       return true;
     }
     case 'stall':
-      if (w.carry?.k === 'bowl') { const room = STALL_CAP - F.stall.length; F.stall.push(...w.carry.bowls.slice(0, room)); F.counter.unshift(...w.carry.bowls.slice(room)); }
+      if (w.carry?.k === 'bowl') {
+        const room = STALL_CAP - F.stall.length;
+        F.stall.push(...w.carry.bowls.slice(0, room)); F.counter.unshift(...w.carry.bowls.slice(room));
+        if (room > 0 && w.carry.bowls.length) openDoors();
+      }
       w.carry = null;
       return true;
   }
@@ -708,6 +717,8 @@ const ease = (k: number) => k * k * (3 - 2 * k);
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
 function updBout(dt: number) {
   const B = F.bout, R = F.rush;
+  // (the doors still shut: no local fight yet, its preparation waiting at its start)
+  if (F.quiet && !R) { B.t = 0; return; }
   B.t += dt;
   // (a boss's preparation lasts until his bell: updRush)
   if (B.phase === 'prep' && !R && B.t >= BOUT.prep) {
@@ -790,7 +801,16 @@ export const takeBowl = (): boolean | undefined => F.counter.shift();
 export function toStall(m: boolean) {
   if (F.stall.length >= STALL_CAP) return false;
   F.stall.push(m);
+  openDoors();
   return true;
+}
+/** The first soup's out (or the gong's rung): the doors open, and the first local fight's fans come straight in. */
+function openDoors() {
+  if (!F.quiet) return;
+  F.quiet = false;
+  if (F.rush) return;
+  F.bout = freshBout(F.bout.n);
+  if (real) on.bout('prep');
 }
 
 // ---------- buying ----------
@@ -833,7 +853,7 @@ export function fightFrom(raw: unknown): Fight {
       ...b,
       t: Math.max(0, num(r.t)),
       beaten: clamp(Math.floor(num(r.beaten)), 0, BOSSES.length), tier: clamp(Math.floor(num(r.tier)), 0, TIERS.length - 1),
-      boughtOut: !!r.boughtOut, practice: r.practice === true,
+      boughtOut: !!r.boughtOut, practice: r.practice === true, quiet: r.quiet === true,
       hires: Object.fromEntries((Object.keys(HIRES) as Role[]).filter(k => r.hires?.[k]).map(k => [k, true])),
       pantry: Object.fromEntries(ING.map(k => [k, clamp(Math.floor(num(r.pantry?.[k])), 0, LEDGE_CAP)])) as Record<Ing, number>,
       pot: list<boolean>(r.pot, x => typeof x === 'boolean').slice(0, POT_CAP),

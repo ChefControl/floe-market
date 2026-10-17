@@ -251,7 +251,7 @@ const STEPS: Step[] = [
     // the bowls from the counter, then out on the stall (nothing to point at while the pot's still ladling)
     id: 'bowls', stage: 3, after: 'pot',
     at: () => (holding('bowl') ? down(BAR_PAD) : F.counter.length ? down(COUNTER_PAD) : null),
-    say: () => (holding('bowl') ? ['Drop them in the stall', 'Fans eat here'] : ['Take the bowls']),
+    say: () => (holding('bowl') ? ['Drop them in the stall', 'Fans come once it\'s out'] : ['Take the bowls']),
     done: () => F.stall.length > 0 || sold.n > 0, known: served,
   },
   {
@@ -362,8 +362,8 @@ function finish(s: Step) {
   const n = s.stage ?? 1;
   if (!s.later && STEPS.every(t => (t.stage ?? 1) !== n || t.later || learnt.has(t.id))) complete(n);
 }
-/** A price, in the goal's money. */
-const cost = (g: Goal, v: number) => (g.inChips ? chips(v, true) : price(v));
+/** A price, in the goal's money (rounded up; what's saved so far, `held`, rounded down). */
+const cost = (g: Goal, v: number, held = false) => (g.inChips ? chips(v, !held) : price(v));
 
 /** Each tick: learns what's been done, and picks the lesson to show. */
 export function updTutorial(dt: number) {
@@ -445,10 +445,10 @@ function drawGoal() {
   const ready = have >= g.need;
   goalIc.textContent = g.icon;
   goalName.textContent = g.name;
-  goalN.textContent = ready ? `${cost(g, g.need)} ✓` : `${cost(g, have)} / ${cost(g, g.need)}`;
+  goalN.textContent = ready ? `${cost(g, g.need)} ✓` : `${cost(g, have, true)} / ${cost(g, g.need)}`;
   goalBar.style.width = Math.round(Math.min(1, have / Math.max(1, g.need)) * 100) + '%';
   goalEl.classList.toggle('ready', ready);
-  goalEl.setAttribute('aria-label', ready ? `${g.name}: you can buy it now` : `Saving up for ${g.name}: ${cost(g, have)} of ${cost(g, g.need)}`);
+  goalEl.setAttribute('aria-label', ready ? `${g.name}: you can buy it now` : `Saving up for ${g.name}: ${cost(g, have, true)} of ${cost(g, g.need)}`);
 }
 
 /** A stage 3 panel's open (the gong's, Eddie's, Tommy's, Harry's), Eddie's coin's up, or a fight's card: the bubble
