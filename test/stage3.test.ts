@@ -1127,7 +1127,9 @@ describe('the gong', () => {
     // (a tight win, 71 of 140: the strip names the champion's reversal, not who won)
     g.ui.hud(0);
     expect($('rushBell').textContent).toBe('TENTACLE TWIST');
-    g.runUntil(() => F().bout.t >= fight.LANDS, 3);
+    // (the card waits for his move's landing: finishers.ts)
+    const { landsOf } = await import('../src/finishers');
+    g.runUntil(() => F().bout.t >= landsOf(F().rush, F().bout.finish), 4);
     expect($('fightCard').className).toBe('win wait');
     g.run(0.5);
     expect($('fightCard').hidden).toBe(false);
@@ -1158,7 +1160,7 @@ describe('the gong', () => {
     const { g, fight, F } = await ring();
     const money = g.wallet.money;
     expect(fight.ringGong()).toBe(true);
-    g.run(fight.WALK_IN + fight.BOSSES[0].bell + fight.BOUT.sit + fight.BOUT.fight + fight.LANDS + 0.5);
+    g.run(fight.WALK_IN + fight.BOSSES[0].bell + fight.BOUT.sit + fight.BOUT.fight + 3.9);
     expect(F().rush!.win).toBe(false);
     expect(F().beaten).toBe(0);
     expect(g.wallet.money).toBe(money);
