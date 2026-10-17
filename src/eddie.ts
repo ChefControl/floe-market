@@ -31,9 +31,9 @@ const afford = (c: number) => { const b = nextBoss(); return !!b && wallet.money
 const RISK = ['#139A43', '#6B9E00', '#A66A00', '#E8590C', '#D61F2C'];
 const riskColour = (c: number) => RISK[c - 1];
 
-/** What the panel offers now: its headline, the size buttons, each its fee over a stripe for its risk, and under them
- *  the one button saying the rest, the fans kept home and the chance the papers get it (his coin, at the gong; "caught"
- *  in the picked size's colour); all in one place, under the row the player's picking from. */
+/** What the panel offers now: its headline, the size buttons, each its fee (the picked one in its risk's colour), and
+ *  under them the one button saying the rest, the fans kept home and the chance the papers get it (his coin, at the
+ *  gong; "caught" in the picked size's colour); all in one place, under the row the player's picking from. */
 function refresh() {
   const b = nextBoss(), on = fixOn(), busy = !b || !!F.rush || !!on;
   msg.textContent = 'Fix a fight'; msg.hidden = false; odds.hidden = true;
@@ -42,7 +42,9 @@ function refresh() {
     el.setAttribute('aria-pressed', String(c === cut));
     el.disabled = busy;
     el.style.setProperty('--risk', riskColour(c));
-    if (b) el.textContent = `🐡 ${n(fixFee(b, c))}`;
+    // (the chip over its fee, each on a line of its own)
+    if (b) el.replaceChildren(Object.assign(document.createElement('span'), { className: 'chip', textContent: '🐡' }),
+      Object.assign(document.createElement('span'), { className: 'fee', textContent: n(fixFee(b, c)) }));
   }
   if (!b) { odds.textContent = 'Nobody left to fix.'; odds.hidden = false; shake.hidden = true; return; }
   shake.hidden = false;
