@@ -53,7 +53,7 @@ export const LINES = {
 export const wayCam = { k: 0, pos: V(0, 0, 0), look: V(0, 0, 0) };
 
 // ---------- the door ----------
-const IRON = 0x23282C, TIMBER = 0x2A201A;
+const IRON = 0x23282C;
 interface Built { root: Group; leaf: Group; book: Group; dim: Mesh }
 let built: Built | null = null;
 /** Built the first time the cellar's dressed (on dice of its own, so the game's luck never moves for it). */
@@ -73,11 +73,26 @@ function build(): Built {
       box(root, WOOD_DARK, m, CY + WALL + 0.04, Z, l + 0.05, 0.08, 0.2);
     }
     for (const a of [A0, A1]) box(root, WOOD_DARK, a, CY + WALL / 2, Z, 0.16, WALL + 0.1, 0.16);
-    // its frame, slim iron posts and a lintel just over the door, and timber sides behind it, as high as the door, to the
-    // tunnel's own walls
+    // its frame, slim iron posts and a lintel just over the door; behind it, the tunnel's low plank walls carried on up
+    // to the posts, so there's no gap either side
     for (const x of [X0 - 0.04, X1 + 0.04]) box(root, IRON, x, CY + (H + 0.1) / 2, Z, 0.08, H + 0.1, 0.14);
     box(root, IRON, X, CY + H + 0.05, Z, W + 0.16, 0.1, 0.14);
-    for (const x of [X0 - 0.05, X1 + 0.05]) box(root, TIMBER, x, CY + H / 2, Z + 0.3, 0.06, H, 0.46, false);
+    const B0 = Z + 0.07, B1 = PASSAGE.z0 - 0.3 - 0.08;
+    for (const x of [PASSAGE.x0 - 0.1, PASSAGE.x1 + 0.1]) {
+      const m = (B0 + B1) / 2, l = B1 - B0;
+      box(root, 0x4E4A46, x, CY + 0.08, m, 0.22, 0.16, l);
+      box(root, WOOD, x, CY + WALL / 2, m, 0.12, WALL, l);
+      box(root, WOOD_DARK, x, CY + WALL + 0.04, m, 0.2, 0.08, l);
+    }
+    // (and the tunnel's pipes along its east wall, carried on to the door and turned into the earth beside its post,
+    // each through a flange)
+    for (const [y, r] of [[1.35, 0.05], [1.55, 0.035]] as const) {
+      const px = PASSAGE.x1 - 0.12, run = PASSAGE.z0 - (Z + 0.2);
+      const pipe = mesh(G.cyl, 0x3A454C, px, CY + y, Z + 0.2 + run / 2); pipe.scale.set(r, run + 0.02, r); pipe.rotation.x = Math.PI / 2; parts.den.add(pipe);
+      const elbow = mesh(G.sphere, 0x3A454C, px, CY + y, Z + 0.2); elbow.scale.setScalar(r * 1.05); parts.den.add(elbow);
+      const out = mesh(G.cyl, 0x3A454C, px + 0.12, CY + y, Z + 0.2); out.scale.set(r, 0.24, r); out.rotation.z = Math.PI / 2; parts.den.add(out);
+      const flange = mesh(G.cyl, 0x262E33, PASSAGE.x1 + 0.005, CY + y, Z + 0.2); flange.scale.set(r + 0.025, 0.03, r + 0.025); flange.rotation.z = Math.PI / 2; parts.den.add(flange);
+    }
     // (a red lantern on an iron bracket off its east post, on the arena's side)
     box(root, IRON, X1 + 0.04, CY + H - 0.02, Z - 0.17, 0.035, 0.035, 0.24, false);
     const lamp = new Group(); lamp.position.set(X1 + 0.04, CY + H - 0.3, Z - 0.28); root.add(lamp);
@@ -85,16 +100,34 @@ function build(): Built {
     const shade = mesh(G.sphere, red); shade.scale.set(0.16, 0.2, 0.16); lamp.add(shade);
     for (const s of [-1, 1]) { const cap = mesh(G.cyl, 0x1B2430, 0, s * 0.19, 0); cap.scale.set(0.09, 0.035, 0.09); lamp.add(cap); }
     const cord = mesh(G.rope, 0x1B2430, 0, 0.24, 0); cord.scale.y = 0.1; lamp.add(cord);
-    // the door, hung on its west side and swinging in, south, into the tunnel: planks, three iron bands studded along,
-    // and a ring for a handle
+    // the door, hung on its west side and swinging in, south, into the tunnel: planks, three iron bands studded along
+    // its front, and a ring for a handle; on its back, the tunnel's side, the planks' seams, three ledges and two braces
+    // between them, the hinges' straps along the ledges, and a bolt shot into a keeper on the east post
     const leaf = new Group(); leaf.position.set(X0, CY, Z); root.add(leaf);
     const DOOR = new MeshLambertMaterial({ color: 0x3A2418 });
     box(leaf, DOOR, W / 2, H / 2, 0, W - 0.02, H, 0.09);
     for (const y of [0.35, 1.05, 1.75]) {
-      box(leaf, IRON, W / 2, y, -0.005, W - 0.04, 0.07, 0.1);
+      box(leaf, IRON, W / 2, y, -0.035, W - 0.04, 0.07, 0.04);
       for (const x of [0.15, W / 2, W - 0.15]) { const stud = mesh(G.sphere, 0x6A6F74, x, y, -0.055); stud.scale.setScalar(0.022); leaf.add(stud); }
     }
     const ring = mesh(new CylinderGeometry(0.06, 0.06, 0.015, 14), 0x8A7A4A, W - 0.14, 1.0, -0.06); ring.rotation.x = Math.PI / 2; leaf.add(ring);
+    const LEDGE = 0x6A4630;
+    for (let k = 1; k < 6; k++) box(leaf, 0x2A1A12, (W * k) / 6, H / 2, 0.046, 0.012, H - 0.04, 0.004, false);
+    const ledges = [0.3, 1.05, 1.8];
+    // (shallow, and clear of the hinge side, so the door opens flat against the tunnel's wall)
+    for (const y of ledges) box(leaf, LEDGE, (0.24 + W - 0.08) / 2, y, 0.057, W - 0.32, 0.13, 0.025);
+    for (let k = 0; k < 2; k++) {
+      // (each brace from the hinge side low to the far side high, as a ledged door's are)
+      const y0 = ledges[k] + 0.08, y1 = ledges[k + 1] - 0.08, x0 = 0.3, x1 = W - 0.14, len = Math.hypot(x1 - x0, y1 - y0);
+      box(leaf, LEDGE, (x0 + x1) / 2, (y0 + y1) / 2, 0.055, len, 0.11, 0.022).rotation.z = Math.atan2(y1 - y0, x1 - x0);
+    }
+    for (const y of [ledges[0], ledges[2]]) {
+      box(leaf, IRON, 0.55, y, 0.075, 0.5, 0.05, 0.012);
+      const pin = mesh(G.cyl, IRON, -0.01, y, 0.06); pin.scale.set(0.025, 0.14, 0.025); leaf.add(pin);
+    }
+    box(leaf, IRON, W - 0.2, ledges[1] + 0.18, 0.06, 0.34, 0.035, 0.03);
+    for (const x of [W - 0.3, W - 0.12]) box(leaf, IRON, x, ledges[1] + 0.18, 0.07, 0.03, 0.07, 0.04);
+    box(root, IRON, X1 + 0.03, CY + ledges[1] + 0.18, Z + 0.08, 0.05, 0.09, 0.05);
     // the doorman's slot, at his eye height, looking out north, into the arena
     const { slot, says } = doorman;
     slot.position.set(W * 0.6, 1.62, -0.05); slot.rotation.y = Math.PI / 2; leaf.add(slot);
