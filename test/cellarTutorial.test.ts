@@ -115,24 +115,24 @@ describe("the cellar's tutorial", () => {
     at(plan.BAR_PAD);
     g.runUntil(() => tut.learntLessons().includes('bowls'));
 
-    // a level at the shop counter, the cheapest, saved up for in chips
+    // the cheapest thing at the shop counter, saved up for in chips: another drying rack
     at({ x: 0, z: 0 });
     g.run(0.1);
     draw();
-    expect(goal()).toMatch(/^📣Word on the street🐡 \d+ \/ 🐡 20$/);
-    expect($('toast').textContent).toBe('Next goal: Word on the street, 🐡 20');
-    g.wallet.money = 20_000;
+    expect(goal()).toMatch(/^🌾Another drying rack🐡 \d+ \/ 🐡 10$/);
+    expect($('toast').textContent).toBe('Next goal: Another drying rack, 🐡 10');
+    g.wallet.money = 10_000;
     g.run(0.1);
     expect(now()).toBe('bench');
     draw();
-    expect(goal()).toBe('📣Word on the street🐡 20 ✓');
+    expect(goal()).toBe('🌾Another drying rack🐡 10 ✓');
     expect(tut.guide.position.x).toBe(plan.BENCH_PAD.x);
-    expect(said()).toBe('Buy a level here / Bowl price, fans or crew');
+    expect(said()).toBe('Buy another drying rack here / At the shop counter');
     at(plan.BENCH_PAD);
     g.run(0.1);
     draw();
     expect(said()).toBe('Pick an upgrade / Click one in the list to buy it');
-    $('shopRows').querySelector<HTMLButtonElement>('[data-mod="street"] button.cost')!.click();
+    $('shopRows').querySelector<HTMLButtonElement>('[data-tile="rack"] button.cost')!.click();
     g.run(0.1);
     expect(tut.learntLessons()).toContain('bench');
     // then the practice fight: with an empty stall, it'd be lost, so the stall first...
