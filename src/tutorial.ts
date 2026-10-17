@@ -12,7 +12,8 @@
 // rating, which only comes up after a few more upgrades, is a tip for later, outside the tutorial proper.
 // Stage 3 has a tutorial of its own, the same way, for what's new down in the cellar (nothing stage 1 already taught):
 // first a look round at how a fight goes (the ring, the fans fed at the stall on your side, 💪 counting them, the gong
-// calling a boss with a crowd of his own, and turning half of them before his bell), read where each thing is; then the
+// calling a boss with a crowd of his own, and turning half of them before his bell), each read once the player's walked
+// over to the thing it's about; then the
 // dumbwaiter's bins, the racks and barrels, standing at the pot to cook, the bowls from the counter out to the stall,
 // the cooking game at the pot, played once (a bonus game, so not one of the basics), the cheapest thing at the shop
 // counter (saved up for in 🐡), and the gong: the practice fight against the champion's
@@ -24,7 +25,7 @@
 // round skips it if it's had a fight.
 import { Group, Mesh, MeshBasicMaterial, RingGeometry } from 'three';
 import { buyButtonShown, touchBuy } from './buy';
-import { BAR_PAD, BENCH_PAD, BIN_PADS, COUNTER_PAD, GONG_PAD, machinePad, POT_PAD, type Pad } from './cellarPlan';
+import { BAR_PAD, BENCH_PAD, BIN_PADS, COUNTER_PAD, GONG, GONG_PAD, machinePad, POT_PAD, type Pad } from './cellarPlan';
 import { C1 } from './counters';
 import { modCost, MODS, mods } from './economy';
 import {
@@ -61,6 +62,8 @@ export function forgetLessons() {
 }
 /** Seconds a lesson that's learnt by reading stays in view first. */
 const READ = 6;
+/** Seconds a card of the cellar's look round stays up once the player's walked over to what it's about. */
+const VISIT = 2.5;
 /** Seconds the banner saying it's all done stays up. */
 const CHEER = 4;
 
@@ -82,8 +85,8 @@ interface Step {
   done?: () => boolean;
   /** Learnt by having it in view this long instead. */
   read?: number;
-  /** (with `read`) Read while its bubble's up at all, waiting at the screen's edge too, not only with its spot in view. */
-  anywhere?: boolean;
+  /** (with `read`) Read standing at its spot: the player walks over to it first, and the time counts only there. */
+  visit?: boolean;
   /** A tip for later, when it comes up: not one of the basics the tutorial is complete without. */
   later?: boolean;
   /** Stays up while the player stands there (buying needs holding there); the others step aside for the player. */
@@ -192,8 +195,9 @@ function gongReady() {
 }
 /** The card after a boss's fight is up (gong.ts). */
 const cardUp = () => document.getElementById('fightCard')?.hidden === false;
-/** The middle of the ring (cellar.ts's RING, kept apart from its 3D). */
-export const RING_AT = { x: -4.4, z: -1.4 };
+/** The middle of the ring (cellar.ts's RING, kept apart from its 3D), and how near it counts as being at it: just
+ *  outside its edge (the player can't step up on it). */
+export const RING_AT = { x: -4.4, z: -1.4 }, RING_NEAR = 5.2;
 /** The look round at how a fight goes: known to a game that's had a fight, a practice one or a boss's. */
 const fought = () => F.beaten > 0 || F.sparred;
 /** The lessons of the look round, which a save from before it counts on their own (loadLessons). */
@@ -251,23 +255,24 @@ const STEPS: Step[] = [
     say: () => [`Opens at ★${firstLocked()?.stars?.toFixed(1) ?? ''}`, 'Serve customers quickly for better reviews'],
     known: () => stage.n > 1 || tiles.some(t => !!t.stars && (t.open || t.done)),
   },
-  // stage 3: what's new down in the cellar, in order: a look round at how a fight goes, read where each thing is; then
-  // from the dumbwaiter to the first fight
+  // stage 3: what's new down in the cellar, in order: a look round at how a fight goes, the arrow leading to each thing
+  // and its card read there; then from the dumbwaiter to the first fight
   {
-    id: 'ring', stage: 3, read: READ, anywhere: true, at: () => ({ ...RING_AT, y: CELLAR_Y, r: 0 }),
+    id: 'ring', stage: 3, read: VISIT, visit: true, stay: true, at: () => ({ ...RING_AT, y: CELLAR_Y, r: RING_NEAR }),
     say: () => ['Fight night happens in this ring', 'The side with more fans wins'], known: fought,
   },
   {
     // (and the 💪 by the cash glows)
-    id: 'fed', stage: 3, after: 'ring', read: READ, anywhere: true, at: () => down(BAR_PAD, 0),
+    id: 'fed', stage: 3, after: 'ring', read: VISIT, visit: true, stay: true, at: () => down(BAR_PAD),
     say: () => ['Fed fans cheer for your champion', '💪 up top counts them'], known: fought,
   },
   {
-    id: 'boss', stage: 3, after: 'fed', read: READ, anywhere: true, at: () => down(GONG_PAD, 0),
+    // (round the gong itself, so it's read before its pad's panel opens)
+    id: 'boss', stage: 3, after: 'fed', read: VISIT, visit: true, stay: true, at: () => ({ ...GONG, y: CELLAR_Y, r: 2 }),
     say: () => ['Ring the gong to call a boss', 'He brings a crowd of his own'], known: fought,
   },
   {
-    id: 'bell', stage: 3, after: 'boss', read: READ, anywhere: true, at: () => down(BAR_PAD, 0),
+    id: 'bell', stage: 3, after: 'boss', read: VISIT, visit: true, stay: true, at: () => down(BAR_PAD),
     say: () => ['Feed his fans to turn them', 'Turn half before his bell rings'], known: fought,
   },
   {
@@ -529,7 +534,7 @@ export function drawTutorial(dt: number) {
   const [title, line = ''] = s.say();
   if (title + line !== said) { said = title + line; head.textContent = title; more.textContent = line; more.hidden = !line; }
   const o = onScreen({ x: spot.x, y: spot.y + tip + 1.1, z: spot.z });
-  if (o.inView || s.anywhere) lesson.viewed += dt;
+  if (s.visit ? d2xz(player.g.position, spot) < spot.r * spot.r : o.inView) lesson.viewed += dt;
   bubble.classList.toggle('edge', !o.inView);
   // the whole bubble stays on the screen (at the edge, with room for its badge)
   const bw = bubble.offsetWidth / 2, bh = bubble.offsetHeight / 2, m = o.inView ? 8 : 22;

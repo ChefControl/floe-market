@@ -317,37 +317,52 @@ describe("the cellar's tutorial", () => {
     expect(tut.learntLessons()).toEqual(STAGE1);
   });
 
-  it('first, a look round at how a fight goes: the ring, the fans fed on your side and 💪, the gong, his bell', async () => {
+  it('first, a look round at how a fight goes, each card read once the player walks over: the ring, the stall and 💪, the gong, his bell', async () => {
     const { g, tut, plan, CY, at, draw, now, said } = await cellar({ ring: { practice: true, quiet: true, sparred: false } });
+    const { RING, RING_HALF } = await import('../src/cellar');
     at(plan.POT_PAD);
     g.run(0.1);
     expect(now()).toBe('ring');
     draw();
     expect(tut.guide.position).toMatchObject({ x: tut.RING_AT.x, y: CY, z: tut.RING_AT.z });
     expect(said()).toBe('Fight night happens in this ring / The side with more fans wins');
-    // (cellar.ts's ring, where the arrow points)
-    expect(tut.RING_AT).toEqual({ x: (await import('../src/cellar')).RING.x, z: (await import('../src/cellar')).RING.z });
-    /** Reads on, drawing as main.ts would, until the next card's up. */
-    const readOn = () => { const was = now(); for (let i = 0; i < 100 && now() === was; i++) { draw(); g.run(0.1); } };
-    // each is read in about 6 s, standing still, with its spot off the screen too (the bubble waiting at the edge)
-    readOn();
+    // (cellar.ts's ring, where the arrow points, and near enough is by its edge)
+    expect(tut.RING_AT).toEqual({ x: RING.x, z: RING.z });
+    expect(tut.RING_NEAR).toBeGreaterThan(RING_HALF);
+    /** Draws and runs on, as main.ts would, for `s` seconds. */
+    const wait = (s: number) => { for (let t = 0; t < s; t += 0.1) { draw(); g.run(0.1); } };
+    // standing far off, it waits for them, however long
+    wait(15);
+    expect(now()).toBe('ring');
+    // walked over, it's read in a couple of seconds there, the bubble staying up
+    at({ x: tut.RING_AT.x + tut.RING_NEAR - 0.5, z: tut.RING_AT.z });
+    wait(1);
+    expect(now()).toBe('ring');
+    expect($('coach').hidden).toBe(false);
+    wait(2);
     expect(now()).toBe('fed');
     draw();
     expect(tut.guide.position.x).toBe(plan.BAR_PAD.x);
     expect(said()).toBe('Fed fans cheer for your champion / 💪 up top counts them');
     expect($('power').classList.contains('teach')).toBe(true);
-    readOn();
+    wait(10);
+    expect(now()).toBe('fed');
+    at(plan.BAR_PAD);
+    wait(3);
     expect(now()).toBe('boss');
     draw();
     expect($('power').classList.contains('teach')).toBe(false);
-    expect(tut.guide.position.x).toBe(plan.GONG_PAD.x);
-    expect($('coach').classList.contains('edge')).toBe(true);
+    expect(tut.guide.position).toMatchObject({ x: plan.GONG.x, z: plan.GONG.z });
     expect(said()).toBe('Ring the gong to call a boss / He brings a crowd of his own');
-    readOn();
+    // (by the gong, short of its pad, whose panel would have the bubble keep out of its way)
+    at({ x: plan.GONG.x + 1.6, z: plan.GONG.z });
+    wait(3);
     expect(now()).toBe('bell');
     draw();
+    expect(tut.guide.position.x).toBe(plan.BAR_PAD.x);
     expect(said()).toBe('Feed his fans to turn them / Turn half before his bell rings');
-    readOn();
+    at(plan.BAR_PAD);
+    wait(3);
     // then the walkthrough as before, from the bins
     expect(now()).toBe('bins');
     expect(tut.learntLessons()).toEqual([...STAGE1, ...LOOK]);
