@@ -29,7 +29,8 @@ import { fanfare } from './sfx';
 import { pile } from './stations';
 import { cellarKnown } from './tutorial';
 import { banner, confetti, fade, toast } from './ui';
-import { d2xz, FY, V } from './util';
+import { d2xz, FY, money, V } from './util';
+import { addMoney, wallet } from './wallet';
 import { closeGap, stage1Only, stage2Only, swapDecks } from './world';
 
 // ---------- light ----------
@@ -315,6 +316,9 @@ export function enterStage3(silent: boolean) {
   stage.n = 3;
   showCellar();
   if (silent) return;
+  // what stage 2 made stays upstairs, in the till: the ring is played from no chips (it comes back at the buyout)
+  front.till += wallet.money;
+  wallet.money = 0;
   openCellar();
   player.held = true; player.moving = false;
   fx = {
@@ -362,12 +366,15 @@ export function finishStage3(silent: boolean) {
   buyOut();
   front.boughtOut = true;
   boss.visible = false;
+  const till = front.till;
+  if (till) { addMoney(till); front.till = 0; }
   if (silent) return;
   fx = {
     t: 0, anims: [], kind: 3,
     cues: [
       { t: 0, run: () => { banner('Stage 3 complete', 'The Dohyo Below'); confetti(); fanfare(3); react('upset'); } },
       { t: 3.0, run: () => { banner(null); toast("Mr. Fugu's gone. The ring is yours."); } },
+      ...till ? [{ t: 4.2, run: () => toast(`The till's yours again: +${money(till)}`) }] : [],
       { t: 5.5, run: () => toast('He left a matchbook behind. Stage 4 soon.') },
     ],
   };
