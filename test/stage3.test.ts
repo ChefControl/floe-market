@@ -67,7 +67,9 @@ describe('buying into the ring', () => {
     g.press('e');
     g.runUntil(() => layout.stage.n === 3, 10);
     g.press('e', 'keyup');
-    expect(g.wallet.money).toBe(100_000);
+    // what stage 2 made stays upstairs in the restaurant's till: the cellar starts from no chips
+    expect(g.wallet.money).toBe(0);
+    expect((await import('../src/front')).front.till).toBe(100_000);
     expect($('banner').textContent).toBe('Stage 2 completeFloe Sushi');
     expect(g.player.held).toBe(true);
     expect(offered(g)).toEqual([]); // the cellar's tiles wait for the show
@@ -105,8 +107,40 @@ describe('buying into the ring', () => {
     expect($('power').hidden).toBe(false);
     expect($('season').hidden).toBe(true);
     expect($('cash').classList.contains('chips')).toBe(true);
-    expect($('cash').textContent).toContain('100');
+    expect($('cash').textContent).toBe('🐡0');
     expect(offered(g).sort()).toEqual(['barrel', 'rack', 'salter', 'washer']);
+  });
+
+  it("however much stage 2 made, it waits in the till: it doesn't buy the cellar, and it's saved", async () => {
+    const g = await loadGame({ tiles: bought(...SUSHI), fugu: 2, money: 500_000_000 });
+    const gold = g.unlocks.tiles.find(t => t.id === 'dohyo')!;
+    g.placePlayer(gold.x, gold.z);
+    g.press('e');
+    g.runUntil(() => g.layout.stage.n === 3, 60);
+    g.press('e', 'keyup');
+    g.run(6);
+    const { front } = await import('../src/front');
+    expect(g.wallet.money).toBe(0);
+    expect(front.till).toBe(499_000_000);
+    g.saveMod.save();
+    const g2 = await loadGame(localStorage.getItem('floe-market-v1')!);
+    expect(g2.wallet.money).toBe(0);
+    expect((await import('../src/front')).front.till).toBe(499_000_000);
+  });
+
+  it('a stage 3 save from before the till keeps what the cellar can have paid it, and the rest goes in the till', async () => {
+    // (two bosses beaten: the practice, Hakkaku and Yokobashiri paid 35 + 120 + 300 chips, and Dobu's 800 is next)
+    const { front, F } = await ring({ money: 499_000_000, till: null, ring: { beaten: 2 } });
+    expect(F().beaten).toBe(2);
+    const keep = (35 + 120 + 300 + 800) * 1000;
+    expect(front.front.till).toBe(499_000_000 - keep);
+    expect((await import('../src/wallet')).wallet.money).toBe(keep);
+  });
+
+  it("a stage 3 save from before the till that's in the cellar's budget keeps its chips", async () => {
+    const { front } = await ring({ money: 400_000, till: null, ring: { beaten: 2 } });
+    expect(front.front.till).toBe(0);
+    expect((await import('../src/wallet')).wallet.money).toBe(400_000);
   });
 
   it('the stage chip says when all five bosses are beaten, and the buyout is all that is on offer', async () => {
@@ -1483,9 +1517,12 @@ describe('the swarm and the watch spot', () => {
 
 describe('the buyout, and the front', () => {
   it("buying Mr. Fugu out: he goes, his share ends, the restaurant's till comes back, and stage 4 is hinted at", async () => {
-    const { g, cellar, front, fight, buy } = await ring({ money: 12_500_000, ring: RING_DONE });
+    const { g, cellar, front, fight, buy } = await ring({ money: 12_500_000, ring: RING_DONE, till: 300_000_000 });
     buy('buyout');
     expect(front.front.boughtOut).toBe(true);
+    // the cash from upstairs comes out of the till
+    expect(front.front.till).toBe(0);
+    expect(g.wallet.money).toBe(300_500_000);
     expect(fight.F.boughtOut).toBe(true);
     expect(fight.bowlPrice(false)).toBe(fight.listPrice(false));
     expect(cellar.boss.visible).toBe(false);
