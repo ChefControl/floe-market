@@ -65,12 +65,14 @@ let denDue = false;
 on.den = () => { denDue = true; };
 // An upgrade bought at the shop counter gets its moment on camera, as upstairs: what it built pops in, and the camera
 // goes over to it and comes in close for a couple of seconds (spotlight.ts), in the middle of the space the bench's menu
-// leaves. Never while a boss is in (his rush waits for nobody) or a scene has the player, up or down the ladder or in
-// Mr. Fugu's office: then it just pops in.
+// leaves; several bought in a row get the one close-up, once the player's done. Never while a boss is in (his rush
+// waits for nobody) or a scene has the player, up or down the ladder or in Mr. Fugu's office: then it just pops in.
 on.built = what => {
   const os = 'tier' in what ? [what.tier === 1 ? parts.bleachers : what.tier === 2 ? parts.tier : parts.vip] : built(what);
   os.forEach(popIn);
-  if (!F.rush && !player.held && !staging()) spotlight(os);
+  // (asked again as the close-up starts: it waits till the player's stopped buying, spotlight.ts)
+  const free = () => !F.rush && !player.held && !staging();
+  if (free()) spotlight(os, { when: free });
 };
 
 /** Puts the cellar's look in line with its state: the venue's tier, the grow room, Mr. Fugu bought out or not. */

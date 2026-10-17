@@ -113,14 +113,15 @@ describe('upgrade looks', () => {
   it('puts a new marketing campaign in the spotlight: the camera goes over and in close, then back', async () => {
     const g = await loadGame({ money: 1e9 });
     const { view } = g.stage, focus = view.focus.clone();
+    const { SPOT_WAIT: W } = await import('../src/spotlight');
     g.run(0.05);
     g.shop.buyMod('marketing');
-    g.run(0.8);
+    g.run(W + 0.8);
     expect(view.k).toBeCloseTo(1);
     expect(view.close).toBeCloseTo(0.6);
     expect(offFrom(g, [g.looks.marketAds[0].g])).toBeLessThan(0.1); // the posters on the fence
     g.shop.buyMod('marketing');
-    g.run(1);
+    g.run(W + 1);
     expect(offFrom(g, [g.looks.marketAds[1].g])).toBeLessThan(0.1); // on to the promoter with the flyers
     g.run(3);
     expect(view.close).toBe(1);
@@ -129,10 +130,11 @@ describe('upgrade looks', () => {
 
   it("puts every other level's look in the spotlight too", async () => {
     const g = await loadGame({ tiles: bought(...MARKET), money: 1e9 });
+    const { SPOT_WAIT: W } = await import('../src/spotlight');
     const looked = (id: Parameters<Game['shop']['buyMod']>[0], at: () => Object3D[]) => {
       g.run(4); // the last one's over
       g.shop.buyMod(id);
-      g.run(0.8);
+      g.run(W + 0.8);
       expect(g.stage.view.close, id).toBeCloseTo(0.6);
       expect(offFrom(g, at()), id).toBeLessThan(0.1);
     };
