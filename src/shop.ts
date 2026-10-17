@@ -21,6 +21,7 @@ import { repriceSushi, sushiBoost } from './restaurant';
 import { save } from './save';
 import { levelUp } from './sfx';
 import { SHED_AT } from './shed';
+import { spotOn } from './spotlight';
 import { staging } from './stage';
 import { buyFromMenu, isDone, menuSeen, menuTiles, offered, type Tile } from './unlocks';
 import { MAX_MACHINES } from './cellarPlan';
@@ -232,7 +233,7 @@ function toggleRoom(t: BenchTab) {
 }
 window.addEventListener('keydown', e => {
   const i = /^Digit([1-4])$/.exec(e.code)?.[1];
-  if (!i || e.repeat || !on?.bench || !listMode() || panel.hidden || (e.target as HTMLElement).closest?.('input, textarea')) return;
+  if (!i || e.repeat || !on?.bench || !listMode() || panel.hidden || spotOn() || (e.target as HTMLElement).closest?.('input, textarea')) return;
   toggleRoom(TABS[+i - 1].id);
 });
 /** The card picked, to show what it does and buy it: by default the first there are the chips for. */
@@ -472,7 +473,10 @@ export function updShop() {
   }
   const bench = !!(on as Square | null)?.bench;
   if (bench) for (const r of benchRooms()) menuSeen.add(r);
-  const press = buyHeld() && !held;
+  // while what was just bought has the camera, the menu (and its Shop button) steps out of the way, and buys nothing
+  const away = spotOn();
+  panel.classList.toggle('away', away); craftEl.classList.toggle('away', away);
+  const press = buyHeld() && !held && !away;
   held = buyHeld();
   if (on && press) {
     if (bench && !unfolded) fold(true);

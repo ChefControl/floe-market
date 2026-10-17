@@ -169,6 +169,8 @@ body{
   background:var(--pill); color:var(--pill-ink); border-radius:20px; padding:10px 10px 10px; box-shadow:0 4px 0 var(--shade);
 }
 #shop[hidden]{ display:none; }
+/* while an upgrade just bought has the camera (spotlight.ts), the menu and its Shop button step out of its way */
+#shop.away, #craft.away{ visibility:hidden; pointer-events:none; }
 #shop h2{ margin:0 4px 6px; font-size:17px; font-weight:800; line-height:1; }
 #shop .shead{ display:flex; align-items:center; gap:8px; }
 #shop .shead:has(#shopTabs:not([hidden])){ margin-bottom:8px; }
