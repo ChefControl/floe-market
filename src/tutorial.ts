@@ -59,10 +59,10 @@ export function forgetLessons() {
   try { localStorage.removeItem(KEY); } catch { /* storage unavailable: there's nothing kept */ }
 }
 /** Seconds a lesson that's learnt by reading stays in view first (long enough for a slow reader). */
-const READ = 10;
+const READ = 9;
 /** Seconds the cellar's fans card stays in view; and the arriving one, once the player's started moving (a grace for
  *  them to find their feet before the first job). */
-const GLANCE = 8, SETTLE = 8;
+const GLANCE = 7, SETTLE = 7;
 /** Seconds the banner saying it's all done stays up. */
 const CHEER = 4;
 

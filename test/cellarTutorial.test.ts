@@ -63,7 +63,7 @@ describe("the cellar's tutorial", () => {
     expect(now()).toBe('arrive');
     // then a few seconds' grace to find their feet
     at({ x: plan.BIN_PADS.rice.x - 2, z: plan.BIN_PADS.rice.z });
-    wait(7);
+    wait(6);
     expect(now()).toBe('arrive');
     wait(1.5);
     // then the dumbwaiter, and the arrow's down on the cellar's floor
@@ -151,7 +151,7 @@ describe("the cellar's tutorial", () => {
     draw();
     expect(said()).toBe('Fans eat, then cheer your wrestler / 💪 up top counts them');
     expect($('power').classList.contains('teach')).toBe(true);
-    wait(7);
+    wait(6);
     expect(now()).toBe('fed');
     wait(1.5);
     expect($('power').classList.contains('teach')).toBe(false);

@@ -10,7 +10,7 @@ import { camera, canvasTex, FONT, rr } from './render';
 
 const W = 512, H = 200, FADE = 0.25;
 /** How long a line stays up: a few seconds, and longer the longer it is (time enough for a slow reader). */
-export const readFor = (text: string) => 3.5 + text.length * 0.1;
+export const readFor = (text: string) => 2.5 + text.length * 0.1;
 /** The most of the view's height and width a bubble takes, and how far in from the edges of the view it's kept (all
  *  of the view, -1 to 1 across). */
 const MOST = 0.13, MOST_WIDE = 0.5, EDGE = 0.03;
