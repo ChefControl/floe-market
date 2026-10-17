@@ -255,7 +255,7 @@ describe("the cellar's tutorial", () => {
     expect($('gong').hidden).toBe(false);
     expect($('coach').hidden).toBe(true);
     expect(fight.ringGong()).toBe(true);
-    g.runUntil(() => { while (F().rush!.turned + F().stall.length < 61 && fight.toStall(false)); return F().rush!.done; }, 31 + fight.WALK_IN);
+    g.runUntil(() => { while (F().rush!.turned + F().stall.length < 71 && fight.toStall(false)); return F().rush!.done; }, 31 + fight.WALK_IN);
     g.runUntil(() => F().beaten === 1, 30);
     // the fight's card first; then, once it's away, the tutorial's done
     expect($('fightCard').hidden).toBe(false);

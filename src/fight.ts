@@ -45,12 +45,16 @@ export interface Boss {
   /** What beating him opens, as his result card says it: "🔓 New: …". */
   opens: string;
 }
+/** Each boss's crowd is set so that turning more than half of it takes a kitchen played close to the gong's "good
+ *  player" (fight.ts's forecast), or the cooking show's bonus: with the stage 3 bot, Yokobashiri's 96 to turn is just
+ *  under the ~100 a kitchen with no attendant turns at best, and Fukure's 541 just under the ~560 of everything bought.
+ *  (Raised from 120/180/220/420/1000 on 2026-10-17, the practice fight left as it was.) */
 export const BOSSES: Boss[] = [
-  { face: '🐙', name: 'Hakkaku', crowd: 120, bell: 30, prize: 120, kind: 'octopus', opens: 'grow room, mushroom bowls, Back-Alley Ring' },
-  { face: '🦀', name: 'Yokobashiri', crowd: 180, bell: 30, prize: 300, kind: 'crab', opens: 'the attendant, steam baskets, a way south' },
-  { face: '🐟', name: 'Dobu', crowd: 220, bell: 30, prize: 800, kind: 'catfish', opens: 'Underground Arena, smokehouse, the cook' },
-  { face: '🦈', name: 'Samehada', crowd: 420, bell: 30, prize: 2000, kind: 'shark', opens: 'Grand Hall Below, glowing grow shelves' },
-  { face: '🐡', name: 'Fukure', crowd: 1000, bell: 60, prize: 10000, kind: 'puffer', opens: 'buy back all his chips' },
+  { face: '🐙', name: 'Hakkaku', crowd: 140, bell: 30, prize: 120, kind: 'octopus', opens: 'grow room, mushroom bowls, Back-Alley Ring' },
+  { face: '🦀', name: 'Yokobashiri', crowd: 190, bell: 30, prize: 300, kind: 'crab', opens: 'the attendant, steam baskets, a way south' },
+  { face: '🐟', name: 'Dobu', crowd: 280, bell: 30, prize: 800, kind: 'catfish', opens: 'Underground Arena, smokehouse, the cook' },
+  { face: '🦈', name: 'Samehada', crowd: 480, bell: 30, prize: 2000, kind: 'shark', opens: 'Grand Hall Below, glowing grow shelves' },
+  { face: '🐡', name: 'Fukure', crowd: 1080, bell: 60, prize: 10000, kind: 'puffer', opens: 'buy back all his chips' },
 ];
 /** The practice fight before the first boss (once, for a player who's just come down): the champion's own sparring
  *  partner and a small crowd, so the gong's learnt on a fight that's won. His prize hires the two lines' hands, which is

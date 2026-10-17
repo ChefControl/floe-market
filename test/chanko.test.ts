@@ -73,9 +73,9 @@ describe('the cooking show at the pot', () => {
   it('the gong\'s verdict goes by what a cooking bonus could do: maybe if +35% wins, likely lost if only +50% does', async () => {
     await atPot();
     const [fight, gong] = await Promise.all([import('../src/fight'), import('../src/gong')]);
-    // Dobu's 220: 111 beat him
+    // a crowd of 220: 111 beat him
     const boss = fight.BOSSES[2], f = (turned: number) => ({ boss, turned, worst: null, at: 0 });
-    const v = (base: number, at35: number, at50: number) => gong.verdict(boss, f(base), boss.crowd, { at35: f(at35), at50: f(at50) });
+    const v = (base: number, at35: number, at50: number) => gong.verdict(boss, f(base), 220, { at35: f(at35), at50: f(at50) });
     expect(v(134, 140, 150)).toBe('win');
     expect(v(111, 130, 140)).toBe('likelywin');
     expect(v(100, 111, 125)).toBe('maybe');
