@@ -12,7 +12,7 @@
 // rating, which only comes up after a few more upgrades, is a tip for later, outside the tutorial proper.
 // Stage 3 has a tutorial of its own, the same way, for what's new down in the cellar (nothing stage 1 already taught):
 // the dumbwaiter's bins, the racks and barrels, standing at the pot to cook, the bowls from the counter out to the
-// stall, a level at the shop counter (saved up for in 🐡), and the gong: the practice fight against the champion's
+// stall, the cheapest thing at the shop counter (saved up for in 🐡), and the gong: the practice fight against the champion's
 // sparring partner (fight.ts), whose small crowd a full stall turns (so it's pointed at once the forecast says it's
 // won, and the stall until then); winning it is the end of it. (A
 // game that came down before the practice fight has the first boss instead, pointed at only once its forecast says
@@ -36,7 +36,7 @@ import { atSquare, modOffered, SHOPS } from './shop';
 import { staging } from './stage';
 import { PAD, pile, PILE } from './stations';
 import { banner, confetti, toast } from './ui';
-import { locked, onOffer, tiles, type Tile } from './unlocks';
+import { locked, menuOffer, onOffer, tiles, type Tile } from './unlocks';
 import { chips, d2xz, FY, price, type XZ } from './util';
 import { wallet } from './wallet';
 
@@ -162,9 +162,11 @@ function prepping(): { at: Spot; say: [string, string?] } | null {
   }
   return null;
 }
-/** The cheapest level at the shop counter. */
-const cheapestLevel = () => MODS.filter(m => m.stage === 3 && modOffered(m.id))
-  .map(m => ({ m, c: modCost(m.id) ?? Infinity })).sort((a, b) => a.c - b.c)[0];
+/** The cheapest thing on sale at the shop counter, a level or a room's upgrade (so the first's bought soonest). */
+const cheapestBelow = () => [
+  ...MODS.filter(m => m.stage === 3 && modOffered(m.id)).map(m => ({ icon: m.icon, name: m.name, c: modCost(m.id) ?? Infinity })),
+  ...menuOffer().map(t => ({ icon: t.icon, name: t.name, c: t.cost })),
+].sort((a, b) => a.c - b.c)[0];
 /** The practice fight's been due in this game (so its being over means it was won). */
 let practised = false;
 /** Whether the gong's forecast says the next boss is beaten: worked out once a second, as it runs the whole rush. */
@@ -253,15 +255,16 @@ const STEPS: Step[] = [
     done: () => F.stall.length > 0 || sold.n > 0, known: served,
   },
   {
-    // a level at the shop counter, saved up for in chips; on the square, the bubble says how
+    // the cheapest thing at the shop counter, saved up for in chips; on the square, the bubble says how
     id: 'bench', stage: 3, after: 'bowls', stay: true,
     goal: () => {
-      const l = cheapestLevel();
-      return l ? { icon: l.m.icon, name: l.m.name, need: l.c, spot: down({ ...BENCH_PAD, r: 0.95 }), inChips: true } : null;
+      const l = cheapestBelow();
+      return l ? { icon: l.icon, name: l.name, need: l.c, spot: down({ ...BENCH_PAD, r: 0.95 }), inChips: true } : null;
     },
     at: () => reached(STEPS.find(t => t.id === 'bench')!.goal!()),
     say: () => {
-      if (!atSquare()) return ['Buy a level here', 'Bowl price, fans or crew'];
+      const l = cheapestBelow();
+      if (!atSquare()) return [`Buy ${l ? l.name[0].toLowerCase() + l.name.slice(1) : 'an upgrade'} here`, 'At the shop counter'];
       // (on a touch screen the menu opens folded, as its Shop button)
       if (document.getElementById('craft')?.hidden === false) return ['Tap Shop', 'Then pick an upgrade'];
       return ['Pick an upgrade', touchBuy() ? 'Tap one in the list to buy it' : 'Click one in the list to buy it'];
