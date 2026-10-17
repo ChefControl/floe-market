@@ -66,22 +66,21 @@ function build(): Built {
     // the arena's low plank wall either side of it, as cellar.ts's planks stand (their sill, boards and rail), up to its
     // posts
     const A0 = X0 - 0.3, A1 = X1 + 0.3;
-    for (const [a, b] of [[A0, X0 - 0.12], [X1 + 0.12, A1]]) {
+    for (const [a, b] of [[A0, X0 - 0.08], [X1 + 0.08, A1]]) {
       const m = (a + b) / 2, l = b - a;
       box(root, 0x4E4A46, m, CY + 0.08, Z, l, 0.16, 0.22);
       box(root, WOOD, m, CY + WALL / 2, Z, l, WALL, 0.12);
       box(root, WOOD_DARK, m, CY + WALL + 0.04, Z, l + 0.05, 0.08, 0.2);
     }
     for (const a of [A0, A1]) box(root, WOOD_DARK, a, CY + WALL / 2, Z, 0.16, WALL + 0.1, 0.16);
-    // its frame, iron posts and a lintel as the club's doors have, and timber sides behind it, back into the earth
-    for (const x of [X0 - 0.07, X1 + 0.07]) box(root, IRON, x, CY + (H + 0.15) / 2, Z, 0.14, H + 0.15, 0.2);
-    box(root, IRON, X, CY + H + 0.12, Z, W + 0.34, 0.2, 0.24);
-    for (const x of [X0 - 0.14, X1 + 0.14]) box(root, TIMBER, x, CY + (H + 0.2) / 2, Z + 0.5, 0.12, H + 0.2, 0.9, false);
-    // (shored over the top as the tunnel behind it is, beams across like its frames')
-    for (const z of [Z + 0.2, Z + 0.85]) box(root, WOOD_DARK, X, CY + H + 0.3, z, W + 0.5, 0.18, 0.2);
+    // its frame, slim iron posts and a lintel just over the door, and timber sides behind it, as high as the door, to the
+    // tunnel's own walls
+    for (const x of [X0 - 0.04, X1 + 0.04]) box(root, IRON, x, CY + (H + 0.1) / 2, Z, 0.08, H + 0.1, 0.14);
+    box(root, IRON, X, CY + H + 0.05, Z, W + 0.16, 0.1, 0.14);
+    for (const x of [X0 - 0.05, X1 + 0.05]) box(root, TIMBER, x, CY + H / 2, Z + 0.3, 0.06, H, 0.46, false);
     // (a red lantern on an iron bracket off its east post, on the arena's side)
-    box(root, IRON, X1 + 0.07, CY + H - 0.02, Z - 0.2, 0.04, 0.04, 0.3, false);
-    const lamp = new Group(); lamp.position.set(X1 + 0.07, CY + H - 0.3, Z - 0.32); root.add(lamp);
+    box(root, IRON, X1 + 0.04, CY + H - 0.02, Z - 0.17, 0.035, 0.035, 0.24, false);
+    const lamp = new Group(); lamp.position.set(X1 + 0.04, CY + H - 0.3, Z - 0.28); root.add(lamp);
     const red = new MeshLambertMaterial({ color: 0xE0392B, emissive: 0xB0250F });
     const shade = mesh(G.sphere, red); shade.scale.set(0.16, 0.2, 0.16); lamp.add(shade);
     for (const s of [-1, 1]) { const cap = mesh(G.cyl, 0x1B2430, 0, s * 0.19, 0); cap.scale.set(0.09, 0.035, 0.09); lamp.add(cap); }
