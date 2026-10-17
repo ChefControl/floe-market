@@ -806,11 +806,11 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
 /* a panel's one caption: the rule its buttons' numbers can't show */
 .casino .odds{ margin:0; text-align:center; font-size:14px; font-weight:700; line-height:1.3; opacity:.8; }
 /* Eddie's: the chance his fix gets out, the risk you're taking, big, with "caught" in red */
-/* (Eddie's sizes: each its price, over a stripe from green to red for the risk; the button under them says the rest) */
+/* (Eddie's sizes: each its price, the picked one in its risk's colour, green to red; the button under them says the rest) */
 #eddieMsg{ font-size:21px; font-weight:900; letter-spacing:.01em; }
 #eddie .acts button{
-  height:auto; min-height:60px; padding:6px 2px 14px; display:flex; flex-direction:column; align-items:center;
-  justify-content:center; gap:3px; line-height:1; box-shadow:inset 0 -8px 0 var(--risk, transparent), 0 4px 0 #B9A98F;
+  height:auto; min-height:56px; padding:6px 2px; display:flex; flex-direction:column; align-items:center;
+  justify-content:center; gap:3px; line-height:1;
 }
 #eddie .acts .chip{ font-size:16px; }
 #eddie .acts .fee{ font-variant-numeric:tabular-nums; white-space:nowrap; }
