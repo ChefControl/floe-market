@@ -1,9 +1,10 @@
 // A speech bubble over someone in the world: a white bubble with its tail towards them, the line wrapped onto up to
 // three lines (Mr. Fugu at his desk, the Family and the regulars in the Undertow, the doorman). It fades in, stays as
-// long as the line takes to read, and fades out. Its owner puts it where it'd be, over the speaker's head (`place`),
-// and it stays in sight from there: never more than a little of the view (so it's smaller close up, at a table),
-// pushed back inside the view if it would go off it (under the HUD at the top, over an open panel at the bottom),
-// and out from under another bubble up at the same time, its tail turned to where it would have been, over the speaker.
+// long as the line takes to read, and fades out. Its owner puts it where it'd be, over the speaker's head (`place`).
+// Never more than a little of the view (so it's smaller close up, at a table); and while the camera's in close at
+// someone's table, with his controls open, it stays in sight: pushed back inside the view if it would go off it (under
+// the HUD at the top, over the panel at the bottom), and out from under another bubble up at the same time, its tail
+// turned to where it would have been, over the speaker. Out in the room it stays over the speaker, on screen or off.
 import { type Object3D, Sprite, SpriteMaterial, Vector3 } from 'three';
 import { camera, canvasTex, FONT, rr } from './render';
 
@@ -26,17 +27,25 @@ const vendors = new Map<string, Bubble | null>();
 export function onlyVendor(where: string, b: Bubble | null) { vendors.set(where, b); }
 const hiddenBy = (b: Bubble) => { for (const v of vendors.values()) if (v && v !== b) return true; return false; };
 
-/** Where on the screen a bubble may go (NDC, -1 to 1): under the HUD at the top, and over a casino panel that's open
- *  along the bottom (a host's controls, with the camera in close on his table). */
+/** Where on the screen a bubble may go (NDC, -1 to 1), while the camera's in close at someone's table (`close`: a
+ *  casino panel's open, his controls): under the HUD (and a fight's bar) at the top, and over the panel along the
+ *  bottom. */
 function room() {
   const h = window.innerHeight || 1;
-  const hud = Math.min(document.getElementById('hud')?.getBoundingClientRect().bottom ?? 0, h * 0.14);
-  let bottom = h;
+  let hud = Math.min(document.getElementById('hud')?.getBoundingClientRect().bottom ?? 0, h * 0.14);
+  // (and under a fight's bar along the top, while one's up: the boss's tug of war, or a local fight's line)
+  for (const id of ['rush', 'boutLine']) {
+    const el = document.getElementById(id);
+    if (el && !el.hidden) { const r = el.getBoundingClientRect(); if (r.height && r.top < h * 0.3) hud = Math.max(hud, r.bottom); }
+  }
+  let bottom = h, close = false;
   for (const p of document.querySelectorAll<HTMLElement>('.casino:not([hidden])')) {
     const r = p.getBoundingClientRect();
-    if (r.height && r.left < window.innerWidth * 0.4) bottom = Math.min(bottom, r.top);
+    if (!r.height) continue;
+    close = true;
+    if (r.left < window.innerWidth * 0.4) bottom = Math.min(bottom, r.top);
   }
-  return { top: 1 - 2 * hud / h - EDGE, bottom: 1 - 2 * bottom / h + EDGE };
+  return { close, top: 1 - 2 * hud / h - EDGE, bottom: 1 - 2 * bottom / h + EDGE };
 }
 
 /** A bubble, `width` wide, added to `parent` (its owner places it). */
@@ -70,8 +79,8 @@ export function bubble(parent: Object3D, width = 2.6) {
       return sprite.visible;
     },
     /**
-     * Puts it at (x, y, z) in `parent`, where it'd be, over the speaker's head; then sizes it to the view, and if it
-     * would go off the view brings it back in, its tail turned to where it would have been. Or, given `faceY` (the
+     * Puts it at (x, y, z) in `parent`, where it'd be, over the speaker's head; then sizes it to the view, and (in close
+     * at a table) if it would go off the view brings it back in, its tail turned to where it would have been. Or, given `faceY` (the
      * speaker's face, that high over (x, z) in `parent`), its tail's turned to his face instead: for a bubble that's
      * put lower, on his chest, out of the way of his face.
      */
@@ -92,13 +101,14 @@ export function bubble(parent: Object3D, width = 2.6) {
       const c = at.clone().project(camera);
       if (c.z > 1) return;
       const hy = hgt / viewH * 2 / 2, hx = w / (viewH * camera.aspect) * 2 / 2, r = room();
-      const cx = Math.max(-1 + EDGE + hx, Math.min(1 - EDGE - hx, c.x));
-      let cy = Math.max(r.bottom + hy, Math.min(r.top - hy, c.y));
+      // (out in the room, it stays where it is, over the speaker)
+      const cx = r.close ? Math.max(-1 + EDGE + hx, Math.min(1 - EDGE - hx, c.x)) : c.x;
+      let cy = r.close ? Math.max(r.bottom + hy, Math.min(r.top - hy, c.y)) : c.y;
       // (out from under one already up this frame: above it if there's room, else below)
       const now = performance.now();
       if (now - placedAt > 8) placed = [];
       placedAt = now;
-      for (const o of hiddenBy(this) ? [] : placed) {
+      for (const o of hiddenBy(this) || !r.close ? [] : placed) {
         if (Math.abs(cx - o.x) >= hx + o.hx || Math.abs(cy - o.y) >= hy + o.hy) continue;
         const above = o.y + o.hy + hy, below = o.y - o.hy - hy;
         cy = above <= r.top - hy ? above : below;

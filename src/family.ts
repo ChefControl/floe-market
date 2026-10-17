@@ -6,6 +6,7 @@
 // him, and bobs his head to his words as he talks (chatter.ts).
 import { CylinderGeometry, DoubleSide, Group, type Material, Matrix4, type Mesh, MeshBasicMaterial, MeshLambertMaterial, type Object3D, PlaneGeometry, RepeatWrapping, SphereGeometry, TorusGeometry, Vector3 } from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { apart, dice } from './kit';
 import { canvasTex, copyGeo, G, mesh, paint, painted } from './render';
 import type { XZ } from './util';
 
@@ -162,8 +163,8 @@ function eddie() {
   return g;
 }
 
-/** Hammerhead Harry: a hammerhead in pinstripes, the loan shark (Samehada's uncle). Dark glasses at the hammer's tips, a
- *  mild frown, a fedora worn at an angle like Mr. Fugu's, a red tie with a gold clip. */
+/** Hammerhead Harry: a hammerhead in pinstripes, the loan shark (Samehada's uncle). Dark glasses at the hammer's tips
+ *  (faintly rimmed, so they stand off the dark rooms he's in), a mild frown, a fedora worn at an angle like Mr. Fugu's, a red tie with a gold clip. */
 function harry() {
   const g = new Hood({ coat: PINSTRIPE, lapel: 0x1F2533, shirt: 0xEDE7D6, hand: 0x8A97A2 });
   const SKIN = 0x8A97A2, BELLY = 0xD5DBDF, DARK = 0x5A6670;
@@ -176,6 +177,11 @@ function harry() {
   put(h, mesh(G.sphere, BELLY, 0, 0.335, 0.05)).scale.set(0.34, 0.04, 0.12);
   for (const s of [-1, 1]) {
     const lens = put(h, mesh(G.box, SHADES, s * 0.355, 0.375, 0.1)); lens.scale.set(0.1, 0.07, 0.03); lens.rotation.y = s * 0.45;
+    // (its frame, just proud of the lens all round, a shade lighter than it; on dice of its own, so the game's luck,
+    // which three.js names what it makes from, is where it was)
+    apart(() => {
+      const rim = put(h, mesh(G.box, 0x4A535C, s * 0.355, 0.375, 0.096)); rim.scale.set(0.112, 0.082, 0.026); rim.rotation.y = s * 0.45;
+    }, dice(0x4A55 + s));
     const brow = put(h, mesh(G.box, DARK, s * 0.33, 0.43, 0.1)); brow.scale.set(0.12, 0.026, 0.05); brow.rotation.z = s * 0.12;
     for (const y of [0.06, 0.12, 0.18]) { const gill = put(h, mesh(G.box, DARK, s * 0.158, y, 0.02)); gill.scale.set(0.012, 0.05, 0.05); gill.rotation.y = s * 0.3; }
   }

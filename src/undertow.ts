@@ -77,11 +77,10 @@ eddieSays(text => booths.find(b => b.k === 'eddie')!.say(text));
 harrySays(text => booths.find(b => b.k === 'harry')!.say(text));
 
 const inDen = inUndertow;
-/** How high over each host his bubble goes: over his head, but Eddie's on his suit, clear of his face (he's sat, and
- *  the camera's in close across his table). */
-const TALK_Y: Record<Booth, number> = { eddie: 0.95, harry: 2.15, tommy: 2.15 };
-/** How high Eddie's face is, sat (his bubble's tail points up to it). */
-const EDDIE_FACE = 1.35;
+/** How high over each host his bubble goes: over his head; but Eddie's and Harry's on their chests, clear of their
+ *  faces (the camera's in close across their tables), with the tail up to the face (`FACE`, that high). */
+const TALK_Y: Record<Booth, number> = { eddie: 0.95, harry: 0.72, tommy: 2.15 };
+const FACE: Partial<Record<Booth, number>> = { eddie: 1.35, harry: 1.15 };
 /** Each host's controls, open while the player's sat at his table. */
 const PANELS: Record<Booth, HTMLElement> = { eddie: document.getElementById('eddie')!, harry: document.getElementById('loans')!, tommy: document.getElementById('monte')! };
 
@@ -104,7 +103,8 @@ export function updUndertow(dt: number) {
     b.near = on;
     if (b.talk.upd(dt)) {
       const { x, y, z } = b.host.position;
-      if (b.k === 'eddie') b.talk.place(x, y + TALK_Y.eddie, z, y + EDDIE_FACE); else b.talk.place(x, y + TALK_Y[b.k], z);
+      const face = FACE[b.k];
+      b.talk.place(x, y + TALK_Y[b.k], z, face === undefined ? undefined : y + face);
     }
     if (b.voice.upd(dt)) b.host.syllable();
     b.host.talking = b.voice.talking;

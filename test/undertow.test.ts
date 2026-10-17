@@ -226,9 +226,14 @@ describe('the Undertow', () => {
     at(plan.BOOTH_PADS.tommy);
     g.run(0.2);
     expect($('monte').hidden).toBe(false);
-    // nothing taken yet: his limit's the floor's 20 chips, and he'll play 3 rounds
+    // his limit's a fight's takings at a full house (here, the floor's 20 chips), and he'll play 3 rounds; the chips
+    // over it aren't on his table
+    const H = await import('../src/fullHouse'), Mo = await import('../src/monte');
+    expect(Mo.limitFor(H.heldFight())).toBe(20);
     expect(M.monteMsg()).toContain('limit 🐡 20');
     expect(M.monteMsg()).toContain('3 rounds left');
+    const chip = (i: number) => $('monte').querySelector<HTMLButtonElement>(`[data-stake="${i}"]`)!;
+    expect([0, 1, 2, 3].map(i => chip(i).hidden)).toEqual([false, false, true, true]);
     // over his limit, he won't deal
     M.stakeMonte(25);
     expect(M.dealMonte()).toBe(false);
@@ -338,7 +343,7 @@ describe('the Undertow', () => {
     expect(max).toBe(Math.max(10, Math.floor(2 * full / 5) * 5));
     // ...and held while you're in, whatever the stall does meanwhile
     fight.F.tier++;
-    expect(Lo.fullBout()).not.toBe(full);
+    expect((await import('../src/fullHouse')).fullFight()).not.toBe(full);
     at(plan.BOOTH_PADS.harry);
     g.run(0.2);
     expect(Lo.maxLoan()).toBe(max);
