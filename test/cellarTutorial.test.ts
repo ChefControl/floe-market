@@ -37,8 +37,9 @@ async function cellar(save: SaveFixture = {}) {
 }
 
 describe("the cellar's tutorial", () => {
-  it('leads a new player from the bins to the stall, then saves up in chips for a level', async () => {
-    const { g, tut, plan, fight, CY, at, F, draw, now, said, goal, carrying } = await cellar({ money: 0 });
+  it('leads a new player from the bins to the stall, saves up in chips for a level, then sends them to the gong', async () => {
+    // (just come down: the practice fight still to come)
+    const { g, tut, plan, fight, CY, at, F, draw, now, said, goal, carrying } = await cellar({ money: 0, ring: { practice: true } });
     at({ x: plan.BIN_PADS.rice.x - 3, z: plan.BIN_PADS.rice.z });
     g.run(0.1);
     // nothing from stage 1 again: the dumbwaiter first, and the arrow's down on the cellar's floor
@@ -134,8 +135,59 @@ describe("the cellar's tutorial", () => {
     $('shopRows').querySelector<HTMLButtonElement>('[data-mod="street"] button.cost')!.click();
     g.run(0.1);
     expect(tut.learntLessons()).toContain('bench');
-    // (the gong's next, once it's a win: until then, nothing pointing at it)
-    expect(now()).not.toBe('gong');
+    // then the practice fight: with an empty stall, it'd be lost, so the stall first...
+    at({ x: 0, z: 0 });
+    F().stall.length = 0;
+    g.run(1.1);
+    expect(now()).toBe('gong');
+    draw();
+    expect(tut.guide.position.x).toBe(plan.BAR_PAD.x);
+    expect(said()).toBe('Fill the stall first / Then ring the gong');
+    // ...and with it full, the gong
+    while (fight.toStall(false));
+    g.run(1.1);
+    draw();
+    expect(tut.guide.position.x).toBe(plan.GONG_PAD.x);
+    expect(said()).toBe('Ring the gong / A practice fight to start');
+  });
+
+  it('the practice fight: the sparring partner and a small crowd, and winning it completes the tutorial', async () => {
+    const { g, tut, plan, fight, F, at, draw } = await cellar({ ring: { practice: true }, learnt: [...STAGE1, 'bins', 'prep', 'pot', 'bowls', 'bench', 'chips', 'power'] });
+    const { ring } = await import('../src/dohyo');
+    at(plan.GONG_PAD);
+    g.run(0.1);
+    draw();
+    // the gong calls him in, not Hakkaku, and the bubble keeps out of its panel's way
+    expect($('gong').hidden).toBe(false);
+    expect($('gongBoss').textContent).toBe('Sparring partner');
+    expect([...$('gongCrowd').children].map(c => c.textContent)).toEqual(['🤼 Practice', '👥 40', '🔔 30 s', '🐡 35']);
+    expect($('coach').hidden).toBe(true);
+    expect(fight.ringGong()).toBe(true);
+    expect(F().rush!.n).toBe(40);
+    g.run(0.1);
+    expect(ring.partner.visible).toBe(false); // (in the ring, not at the teppo post)
+    // 21 of his 40, by the bell
+    g.runUntil(() => { while (F().rush!.turned + F().stall.length < 21 && fight.toStall(false)); return F().rush!.done; }, 31 + fight.WALK_IN);
+    expect(F().rush!.win).toBe(true);
+    const money = g.wallet.money;
+    g.runUntil(() => !F().practice, 30);
+    // no boss beaten: Hakkaku's next, and the prize hires the two lines' hands
+    expect(F().beaten).toBe(0);
+    expect(fight.nextBoss()!.name).toBe('Hakkaku');
+    expect(g.wallet.money - money).toBeGreaterThanOrEqual(35 * fight.CHIP);
+    expect($('fightCard').textContent).toContain('PRACTICE WON');
+    expect($('fightCard').textContent).toContain('Next: Hakkaku 🐙 · hire a washer and salter.');
+    g.run(0.1);
+    expect(tut.learntLessons()).not.toContain('gong');
+    $('fightCard').click();
+    g.run(0.1);
+    expect(tut.learntLessons()).toContain('gong');
+    expect($('banner').textContent).toContain('Practice won');
+    expect($('banner').textContent).toContain('Tutorial complete');
+    expect($('banner').textContent).toContain('Now take on Hakkaku 🐙');
+    // and the practice is over for good, saved
+    g.saveMod.save();
+    expect(JSON.parse(localStorage.getItem('floe-market-v1')!).ring.practice).toBe(false);
   });
 
   it('sends them back for more when a line has too few for a batch, never to a pot that would wait', async () => {
@@ -151,7 +203,7 @@ describe("the cellar's tutorial", () => {
     expect(said()).toBe(`Grab more rice / The pot takes ${fight.PER_BATCH}`);
   });
 
-  it('points at the gong only once the forecast says the fight is won, and winning it completes the tutorial', async () => {
+  it('a game that came down before the practice fight: the gong only once the forecast says Hakkaku is beaten', async () => {
     const { g, tut, plan, fight, F, at, draw, now, said } = await cellar({ learnt: [...STAGE1, 'bins', 'prep', 'pot', 'bowls', 'bench', 'chips', 'power'] });
     at({ x: 0, z: 0 });
     g.run(1.1);
