@@ -6,11 +6,12 @@
 import type { Kind } from './creatures';
 import { bossOf, type Finish, type Rush } from './fight';
 
-/** How a finisher goes. `throw`: driven to the straw, lifted by the belt and thrown off the mound; `carry`: lifted off
- *  his feet and carried to the straw, then dropped over it; `bump`: a belly blow sends him flying; `quake`: a stamp
+/** How a finisher goes. `throw`: driven to the straw, lifted by the belt and thrown off the mound, flipped flat in the
+ *  air; `carry`: hoisted overhead and carried along the straw (the crab scuttling sideways), then flung off it; `bump`: a belly blow sends him flying; `quake`: a stamp
  *  shakes him off his feet and he staggers out; `reversal`: at his own straw, the man about to go out lifts the
- *  other and twists, throwing him out over his hip (utchari). */
-export type Shape = 'throw' | 'carry' | 'bump' | 'quake' | 'reversal';
+ *  other and twists, throwing him out over his hip (utchari); `sidestep`: at his own straw, the man about to go out
+ *  slips aside, and the other, charging, stumbles on past him and off the mound, face first. */
+export type Shape = 'throw' | 'carry' | 'bump' | 'quake' | 'reversal' | 'sidestep';
 /** Something of the creature's in it: an ink cloud, a smear of slime, the puffer blowing up or the air squeezed out of
  *  him, a claw snapping, a bite. */
 export type Fx = 'ink' | 'slime' | 'puff' | 'pop' | 'claw' | 'bite';
@@ -34,10 +35,10 @@ export const MOVES: Record<Kind | 'partner', Moves> = {
     champGrand: { name: 'BELT THROW', shape: 'throw', lift: 0.5 },
   },
   crab: {
-    tight: { name: 'SIDE STEP', shape: 'reversal', lift: 0.15, fx: 'claw' },
-    heavy: { name: 'CRAB SHUFFLE', shape: 'carry', lift: 0.3, fx: 'claw' },
-    champTight: { name: 'SHELL FLIP', shape: 'reversal', lift: 0.45, spin: true },
-    champGrand: { name: 'LIFT-OUT', shape: 'carry', lift: 0.4 },
+    tight: { name: 'SIDE STEP', shape: 'sidestep', lift: 0, fx: 'claw' },
+    heavy: { name: 'CRAB SHUFFLE', shape: 'carry', lift: 1.15, fx: 'claw' },
+    champTight: { name: 'SHELL FLIP', shape: 'reversal', lift: 0.6, spin: true },
+    champGrand: { name: 'LIFT-OUT', shape: 'carry', lift: 1.05 },
   },
   catfish: {
     tight: { name: 'SLIPPERY ESCAPE', shape: 'reversal', lift: 0.2, fx: 'slime' },

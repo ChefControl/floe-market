@@ -279,13 +279,15 @@ function afterBout(v: number, W: At, L: At, w: number, l: number, wFrom: number,
 function resultAt(a: number): [At, At] {
   const won = F.bout.win, dir = won ? -1 : 1, D = contact(), mv = finisher(), lift = liftOf(mv), shape = mv?.shape ?? 'throw';
   if (shape === 'reversal') return reversalAt(a, mv!, lift);
+  if (shape === 'sidestep') return sidestepAt(a);
+  if (shape === 'carry') return carryAt(a, lift);
   const [c0, o0] = end ?? fightAt(BOUT.fight);
   const W0 = won ? c0 : o0, L0 = won ? o0 : c0, w = won ? 0 : 1, l = 1 - w;
   const zk = 1 - ease(clamp01(a / 0.5));
   const W = at(w, W0.x, DRIVE, { z: W0.z * zk }), L = at(l, L0.x, BRACE, { z: L0.z * zk });
   const straw = dir * (RING_R + 0.05), wBase = straw - dir * D * 0.95, land = dir * (RING_HALF + 1.05);
   /** Where he is when the fall starts, and how high. */
-  const over = straw + dir * 0.38, air0 = shape === 'carry' ? lift : 0;
+  const over = straw + dir * 0.38;
   if (a < 1.35 && (shape === 'bump' || shape === 'quake')) {
     // a belly blow, or a stamp, from where they are: then he flies, or staggers, out to the straw
     const hitAt = shape === 'bump' ? 0.6 : 0.7, k = clamp01((a - hitAt) / (1.35 - hitAt));
@@ -304,26 +306,25 @@ function resultAt(a: number): [At, At] {
       L.p = a < 0.7 ? STANDOFF : { ...TIPPED, pitch: -0.15 - 0.4 * k + Math.sin(a * 20) * 0.12, a0x: 2.2 + Math.sin(a * 17) * 0.6, a0z: 1.1, a1x: 2.2 + Math.cos(a * 17) * 0.6, a1z: 1.1 };
     }
   } else if (a < 0.7) {
-    // heels on the straw: he gives ground an inch at a time (or, carried, off his feet already)
+    // heels on the straw: he gives ground an inch at a time
     L.x = lerp(L0.x, straw, ease(a / 0.7)); W.x = L.x - dir * D;
-    if (shape === 'carry') { W.p = mixPose(DRIVE, LIFT, ease(clamp01(a / 0.3))); L.air = lift * ease(clamp01(a / 0.3)); L.p = { ...TIPPED, pitch: -0.1, l0x: 0.2, l1x: 0.1, l0k: 0.2, l1k: 0.2 }; }
-    else { W.p = steps(DRIVE, a * 16, 0.12); L.p = { ...BRACE, pitch: -0.1 - 0.05 * Math.sin(a * 13), bend: 0.45 }; }
+    W.p = steps(DRIVE, a * 16, 0.12); L.p = { ...BRACE, pitch: -0.1 - 0.05 * Math.sin(a * 13), bend: 0.45 };
   } else if (a < 1.0) {
     // the lift by the belt: his heels leave the straw
     const k = ease((a - 0.7) / 0.3);
     L.x = straw + dir * 0.08 * k; W.x = L.x - dir * D * (1 - 0.05 * k);
-    W.p = shape === 'carry' ? LIFT : mixPose(DRIVE, LIFT, k); L.air = shape === 'carry' ? lift : lift * k;
+    W.p = mixPose(DRIVE, LIFT, k); L.air = lift * k;
     L.p = mixPose({ ...BRACE, pitch: -0.1, bend: 0.45 }, TIPPED, k);
   } else if (a < 1.35) {
     // the heave: tipped back over the straw
     const k = (a - 1.0) / 0.35;
     L.x = straw + dir * (0.08 + 0.3 * k * k); W.x = wBase + dir * (0.08 + 0.3 * ease(k));
-    W.p = mixPose(LIFT, SHOVE, ease(k)); L.air = shape === 'carry' ? lift : lift * (1 - k * k);
-    L.p = { ...TIPPED, pitch: lerp(-0.28, -0.7, k), bend: 0.2 * (1 - k), l0x: 0.35 + 0.4 * k, a0x: 2.0 + Math.sin(a * 18) * 0.5, a0z: 1.1, a1x: 2.2 + Math.cos(a * 18) * 0.5, a1z: 1.1 };
+    W.p = mixPose(LIFT, SHOVE, ease(k)); L.air = lift * (1 - k * k);
+    L.p = { ...TIPPED, pitch: lerp(-0.28, mv ? -1.4 : -0.7, k), bend: 0.2 * (1 - k), l0x: 0.35 + 0.4 * k, a0x: 2.0 + Math.sin(a * 18) * 0.5, a0z: 1.1, a1x: 2.2 + Math.cos(a * 18) * 0.5, a1z: 1.1 };
   } else if (a < 1.78) {
     // the fall: faster and faster, off the mound and down
     const k = (a - 1.35) / 0.43, g = k * k;
-    L.x = lerp(over, land, g); L.air = air0 * (1 - g);
+    L.x = lerp(over, land, g);
     L.p = mixPose({ ...TIPPED, pitch: -0.7, bend: 0, l0x: 0.75, a0x: 2.4, a0z: 1.2, a1x: 2.4, a1z: 1.2 }, LIE, g);
     W.x = wBase + dir * (0.38 + 0.12 * ease(k)); W.p = mixPose(SHOVE, teeter(a), ease(clamp01(k * 2)));
   } else {
@@ -337,6 +338,84 @@ function resultAt(a: number): [At, At] {
   }
   // (swung round a full turn in the air)
   if (mv?.spin && a > 0.7 && a < 1.78) L.yaw += Math.PI * 2 * ease((a - 0.7) / 1.08);
+  return won ? [W, L] : [L, W];
+}
+/** Held up overhead, flat on his back, kicking. */
+const HELD = (a: number) => pose({ pitch: -1.5, head: 0.3, a0x: 2.3 + Math.sin(a * 15) * 0.6, a0z: 0.9, a1x: 2.0 + Math.cos(a * 15) * 0.6, a1z: 0.9, l0x: 0.4 + Math.sin(a * 12) * 0.5, l0k: 0.4, l1x: 0.5 + Math.cos(a * 12) * 0.5, l1k: 0.4 });
+/** Down, then up and away (the end of every finish): the loser bounces on his back (or his front) at `land` and gets
+ *  up; the winner, from `wx`, steps back to `wBack`, raises a fist, and they go back to their marks. */
+function landed(a: number, W: At, L: At, w: number, l: number, wx: number, wBack: number, land: number, front = false) {
+  const b = a - 1.78, DOWN = front ? { ...LIE, pitch: 1.35, a0x: -0.4, a1x: -0.6, head: -0.4 } : LIE;
+  L.x = land; L.air = b < 0.22 ? 0.07 * Math.sin((b / 0.22) * Math.PI) : 0;
+  L.p = b < 0.14 ? { ...DOWN, sq: 1 - 0.16 * Math.sin((b / 0.14) * Math.PI) } : a < 2.6 ? DOWN : a < 3.0 ? mixPose(DOWN, SIT, ease((a - 2.6) / 0.4)) : mixPose(SIT, STAND, ease(clamp01((a - 3.0) / 0.4)));
+  W.x = a < 2.3 ? wx : lerp(wx, wBack, ease(clamp01((a - 2.3) / 0.4)));
+  W.p = a < 2.15 ? mixPose(teeter(a), STAND, ease((a - 1.78) / 0.37)) : a < 2.3 ? STAND : a < 2.7 ? walk(a * 14, 0.3) : a < 3.5 ? mixPose(STAND, FIST, ease(clamp01((a - 2.7) / 0.25))) : STAND;
+  if (a > 3.5) afterBout(1.7 + (a - 3.5) * (5.3 / (BOUT.pay - 3.5)), W, L, w, l, wBack, land);
+}
+/** The carry: the winner hoists him overhead, carries him along the straw (the crab sideways, scuttling, his claws up)
+ *  and flings him off the mound. */
+function carryAt(a: number, lift: number): [At, At] {
+  const won = F.bout.win, dir = won ? -1 : 1;
+  const [c0, o0] = end ?? fightAt(BOUT.fight);
+  const W0 = won ? c0 : o0, L0 = won ? o0 : c0, w = won ? 0 : 1, l = 1 - w, isCrab = crab(w);
+  const W = at(w, W0.x, LIFT), L = at(l, L0.x, BRACE);
+  const straw = dir * (RING_R + 0.05), wx = straw - dir * 0.55, land = dir * (RING_HALF + 1.15), along = isCrab ? 1.3 : 0;
+  /** Where the loser's held: over the winner's head, his middle above it. */
+  const held = (k: number) => { L.x = W.x - dir * 0.55 * k; L.z = W.z; L.air = lift * k; };
+  if (a < 0.45) {
+    // hoisted up, by the belt and over the head
+    const k = ease(a / 0.45);
+    W.x = lerp(W0.x, wx, k); W.z = W0.z * (1 - k);
+    W.p = mixPose(LIFT, { ...STAND, a0x: 2.9, a1x: 2.9, a0z: 0.25, a1z: 0.25, a0e: 0.5, a1e: 0.5 }, k);
+    held(k); L.x = lerp(L0.x, L.x, k); L.p = mixPose(BRACE, HELD(a), k);
+  } else if (a < 1.35) {
+    // carried along the straw, kicking: the crab sideways, his claws snapping
+    const k = ease((a - 0.45) / 0.9);
+    W.x = wx; W.z = along * k;
+    W.p = isCrab ? { ...sideways(a * 26), a0x: 2.8, a1x: 2.8, a0e: 0.3, a1e: 0.3 } : { ...steps(STAND, a * 14, along ? 0.18 : 0.08), a0x: 2.9, a1x: 2.9, a0z: 0.25, a1z: 0.25, a0e: 0.5, a1e: 0.5 };
+    held(1); L.air = lift + 0.06 * Math.sin(a * 20); L.p = HELD(a);
+  } else if (a < 1.78) {
+    // flung off the mound
+    const k = (a - 1.35) / 0.43, g = k * k;
+    W.x = wx; W.z = along * (1 - ease(k)); W.p = mixPose({ ...STAND, a0x: 2.9, a1x: 2.9 }, SHOVE, ease(clamp01(k * 2)));
+    L.x = lerp(wx - dir * 0.55, land, ease(k)); L.z = along * (1 - g); L.air = lift * (1 - g) + 0.5 * Math.sin(Math.PI * k);
+    L.p = mixPose(HELD(a), LIE, g);
+  } else landed(a, W, L, w, l, wx, wx - dir * 0.4, land);
+  return won ? [W, L] : [L, W];
+}
+/** The side step: the one about to go out, heels on his own straw, slips aside, and the other's charge carries him on
+ *  past, over the straw and off the mound, face first. */
+function sidestepAt(a: number): [At, At] {
+  const won = F.bout.win, s = won ? 1 : -1, D = contact();
+  const [c0, o0] = end ?? fightAt(BOUT.fight);
+  const W0 = won ? c0 : o0, L0 = won ? o0 : c0, w = won ? 0 : 1, l = 1 - w, isCrab = crab(w);
+  const zk = 1 - ease(clamp01(a / 0.5));
+  const W = at(w, W0.x, BRACE, { z: W0.z * zk }), L = at(l, L0.x, DRIVE, { z: L0.z * zk });
+  const rope = s * (RING_R - 0.1), land = s * (RING_HALF + 1.05), aside = 1.1;
+  const lunge = { ...CHARGE, pitch: 0.35, a0x: 1.6, a1x: 1.6 };
+  if (a < 0.7) {
+    // driven back to his own straw
+    W.x = lerp(W0.x, rope, ease(a / 0.7)); L.x = W.x - s * D;
+    W.p = { ...BRACE, pitch: -0.15, bend: 0.4 }; L.p = steps(DRIVE, a * 16, 0.12);
+  } else if (a < 1.0) {
+    // he slips aside, and the other's charge has nothing to push
+    const k = ease((a - 0.7) / 0.3);
+    W.x = rope - s * 0.25 * k; W.z = aside * k;
+    W.p = isCrab ? sideways(a * 30) : mixPose(BRACE, STANDOFF, k);
+    L.x = lerp(rope - s * D, rope - s * 0.1, k); L.p = mixPose(DRIVE, lunge, k);
+  } else if (a < 1.35) {
+    // stumbling on, arms out, over the straw
+    const k = (a - 1.0) / 0.35;
+    W.x = rope - s * 0.25; W.z = aside; W.p = isCrab ? { ...sideways(0), a0x: 2.4, a1x: 2.4 } : STANDOFF;
+    W.yaw = Math.atan2(L.x - W.x, L.z - W.z);
+    L.x = lerp(rope - s * 0.1, rope + s * 0.45, k); L.p = { ...lunge, pitch: 0.35 + 0.5 * k, a0x: 1.9 + Math.sin(a * 18) * 0.6, a1x: 1.9 + Math.cos(a * 18) * 0.6 };
+  } else if (a < 1.78) {
+    // and down, off the mound, face first
+    const k = (a - 1.35) / 0.43, g = k * k;
+    W.x = rope - s * 0.25; W.z = aside * (1 - ease(k)); W.p = isCrab ? { ...sideways(a * 20), a0x: 2.4, a1x: 2.4 } : STAND;
+    L.x = lerp(rope + s * 0.45, land, g);
+    L.p = mixPose({ ...lunge, pitch: 0.85 }, { ...LIE, pitch: 1.35, a0x: -0.4, a1x: -0.6, head: -0.4 }, g);
+  } else { W.z = 0; landed(a, W, L, w, l, rope - s * 0.25, rope - s * 0.7, land, true); }
   return won ? [W, L] : [L, W];
 }
 /** The reversal (utchari): the one about to go out, his heels on his own straw, lifts the other by the belt, twists,
@@ -594,7 +673,7 @@ function moments(ph: string, t: number) {
     // a finisher (finishers.ts): its name over the ring, and its moment
     const mv = finisher();
     if (mv) {
-      if (passed(0.85)) word(mv.name, v3.set(RING.x, CY + RING_TOP + 2.5, RING.z).clone(), { size: 1.4, fill: '#FFD34A', life: 1.6 });
+      if (passed(0.85)) word(mv.name, v3.set(RING.x, CY + RING_TOP + 3.2, RING.z).clone(), { size: 1.4, fill: '#FFD34A', life: 1.6 });
       if (passed(mv.shape === 'bump' ? 0.6 : 0.7)) {
         const p = mid().setY(CY + 1.7);
         react('edge');
@@ -604,9 +683,11 @@ function moments(ph: string, t: number) {
         const fx = rival.kind ? where(rival.bellyAt) : null;
         if (fx && mv.fx === 'ink') inkFx(fx, 30);
         if (fx && mv.fx === 'slime') { slimeFx(fx); slimeFx(where(champ.bellyAt)); }
-        if (mv.fx === 'claw') word('SNIP!', where(rival.neck).setY(CY + 2.3), { size: 0.9 });
-        if (mv.fx === 'bite') word('CHOMP!', where(rival.neck).setY(CY + 2.3), { size: 0.9, fill: '#FFFFFF' });
-        if (mv.fx === 'puff') word('PUFF!', where(rival.neck).setY(CY + 2.5), { size: 1.0, fill: '#FFE07A' });
+        // (under the move's name, by his head)
+        const by = () => { const n = where(rival.neck); return n.setY(n.y + 0.45); };
+        if (mv.fx === 'claw') word('SNIP!', by(), { size: 0.8 });
+        if (mv.fx === 'bite') word('CHOMP!', by(), { size: 0.8, fill: '#FFFFFF' });
+        if (mv.fx === 'puff') word('PUFF!', by(), { size: 0.9, fill: '#FFE07A' });
       }
     }
     // the puffer, beaten, goes down like a balloon

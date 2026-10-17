@@ -1280,6 +1280,31 @@ describe('the finishers', () => {
     expect(F().beaten).toBe(1);
   }, 30_000);
 
+  it("the crab's own: he hoists the champion overhead and scuttles off with him, or slips aside at his straw", async () => {
+    const { g, fight, dohyo, cellar, F } = await ring({ ring: { beaten: 1, lines: { mush: { n: 1 } } } });
+    const lose = async (n: number) => {
+      g.runUntil(() => !F().rush, 30);
+      expect(fight.ringGong()).toBe(true);
+      g.runUntil(() => { while (F().rush!.turned + F().stall.length < n && fight.toStall(false)); return F().rush!.done; }, 31 + fight.WALK_IN);
+      g.runUntil(() => F().bout.phase === 'pay' && F().bout.t >= 1.2, 25);
+    };
+    const y = (r: typeof dohyo.ring.champ) => r.position.y - cellar.CY, x = (r: typeof dohyo.ring.champ) => r.position.x - cellar.RING.x;
+    const z = (r: typeof dohyo.ring.champ) => r.position.z - cellar.RING.z;
+    // under half of the 96 needed: Crab shuffle, the champion held up over his head, carried along the straw
+    await lose(30);
+    expect(F().bout.finish).toBe('heavy');
+    expect(y(dohyo.ring.champ) - y(dohyo.ring.rival)).toBeGreaterThan(0.9);
+    expect(z(dohyo.ring.rival)).toBeGreaterThan(0.5);
+    g.runUntil(() => F().bout.t >= fight.LANDS + 0.2, 4);
+    expect(x(dohyo.ring.champ)).toBeGreaterThan(cellar.RING_HALF);
+    // just short, 90 of 96: Side step, the crab aside and the champion on past him, off the mound west
+    await lose(90);
+    expect(F().bout.finish).toBe('tight');
+    expect(z(dohyo.ring.rival)).toBeGreaterThan(0.9);
+    g.runUntil(() => F().bout.t >= fight.LANDS + 0.2, 4);
+    expect(x(dohyo.ring.champ)).toBeLessThan(-cellar.RING_HALF);
+  }, 60_000);
+
   it("a heavy loss ends with the boss's own move; a plain win with the push-out west", async () => {
     const { g, fight, dohyo, cellar, F } = await ring();
     expect(fight.ringGong()).toBe(true);
