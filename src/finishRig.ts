@@ -184,7 +184,7 @@ export function hipsAt(s: At, ring: Ring): V3 {
 }
 /** Points round his belt, where a man may grip it (in the model's own space, on its hips): its front, sides and back
  *  (round a puffer's swelling, blown up). */
-const BELT_N = 20;
+const BELT_N = 72;
 const beltRound = (r: RikishiModel) => Array.from({ length: BELT_N }, (_, i) => {
   const a = (i / BELT_N) * Math.PI * 2;
   return new Vector3(Math.sin(a) * (0.42 * r.girth + 0.03), -0.02, Math.cos(a) * (0.34 * r.girth + 0.03));
@@ -261,11 +261,12 @@ export function grip(by: RikishiModel, of: RikishiModel, k: number | [number, nu
       return { at: best, d: bd, sh };
     });
   };
-  // he leans in over the other to get his hands on it (a hold below his reach: he bends to it)
+  // he leans in over the other to get his hands on it (a hold below his reach, as he stands: he bends to it)
   let h = holds();
-  const arm = (UPPER + FORE) * by.scale.x * 0.96;
+  const arm = (UPPER + FORE) * by.scale.x * 0.96, base = by.spine.rotation.x;
+  const below = (o: { at: Vector3; sh: Vector3 }) => by.worldToLocal(o.at.clone()).y < by.worldToLocal(o.sh.clone()).y;
   for (let n = 0; n < 8; n++) {
-    const short = Math.max(...h.map((o, i) => (ks[i] > 0 && o.at.y < o.sh.y ? o.d - arm : 0)));
+    const short = Math.max(...h.map((o, i) => (ks[i] > 0 && below(o) ? o.d - arm : 0)));
     if (short <= 0) break;
     const was = by.spine.rotation.x;
     by.spine.rotation.x = Math.min(was + Math.min(0.15, short * 1.5) * Math.max(...ks), Math.max(was, LEAN));
@@ -273,16 +274,22 @@ export function grip(by: RikishiModel, of: RikishiModel, k: number | [number, nu
     if (Math.max(...h2.map(o => o.d)) >= Math.max(...h.map(o => o.d))) { by.spine.rotation.x = was; break; }
     h = h2;
   }
+  // (and he doesn't straighten in a blink when he needn't lean any more: he comes up over a few frames)
+  const lean = by.spine.rotation.x - base, was = leanWas.get(by) ?? 0;
+  if (lean < was - 0.06) { by.spine.rotation.x = base + was - 0.06; h = holds(); }
+  leanWas.set(by, by.spine.rotation.x - base);
   by.arms.forEach((_, i) => reach(by, i, h[i].at, ks[i]));
 }
+/** How far each man was leaning in last frame (to come up from it smoothly). */
+const leanWas = new WeakMap<RikishiModel, number>();
 /** The two men as a frame has them: placed, pinned, their hands reaching. Returns where each actually stands. */
 export function drive(f: Frame, W: RikishiModel, L: RikishiModel, origin: Vector3, ring: Ring, dt: number): [At, At] {
   place(W, f.W, origin, ring, dt);
   if (f.wHips) pin(W, W.hips, v3(origin, f.wHips));
   place(L, f.L, origin, ring, dt);
   if (f.lHips) pin(L, L.hips, v3(origin, f.lHips));
-  if (f.grip) grip(W, L, f.grip);
-  if (f.hold) grip(L, W, f.hold);
+  if (f.grip) grip(W, L, f.grip); else leanWas.delete(W);
+  if (f.hold) grip(L, W, f.hold); else leanWas.delete(L);
   for (const [who, i, p, k] of f.reach ?? []) reach(who === 'W' ? W : L, i, v3(origin, p), k);
   const actual = (r: RikishiModel, s: At): At => {
     const x = r.position.x - origin.x, z = r.position.z - origin.z;
@@ -311,11 +318,12 @@ function walkTo(s: At, from: At, x: number, z: number, k: number, crab: boolean)
  */
 export function aftermath(c: Ctx, u: number, len: number, We: At, Le: At, front = false): [At, At] {
   const W: At = { ...We }, L: At = { ...Le };
-  const down = front ? DOWN_FRONT : DOWN, crabW = c.kind === 'crab' && c.w === 1, crabL = c.kind === 'crab' && c.l === 1;
+  // (down as the move left him: on his back, his front, or a crab on his shell, at his own height off the clay)
+  const down = Le.p, crabW = c.kind === 'crab' && c.w === 1, crabL = c.kind === 'crab' && c.l === 1;
   // the loser: down a moment, then sits up, gets his feet under him and pushes himself up
-  L.air = Le.air * (1 - ease(seg(u, 0, 0.3)));
+  L.air = Le.air * (1 - ease(seg(u, 0.6, 1.0)));
   // (face down, he pushes himself up straight onto his feet; on his back, he sits up first)
-  L.p = u < 0.6 ? mixPose(Le.p, down, ease(seg(u, 0, 0.3)))
+  L.p = u < 0.6 ? down
     : front ? (u < 1.25 ? mixPose(down, GETUP, ease(seg(u, 0.6, 1.25))) : mixPose(GETUP, STAND, ease(seg(u, 1.25, UP))))
     : u < 1.0 ? mixPose(down, SIT, ease(seg(u, 0.6, 1.0))) : u < 1.25 ? mixPose(SIT, GETUP, ease(seg(u, 1.0, 1.25))) : mixPose(GETUP, STAND, ease(seg(u, 1.25, UP)));
   // the winner: finds his feet, and raises a fist
