@@ -1123,13 +1123,12 @@ describe('the gong', () => {
     // the card waits, unseen, for him to land off the mound (and the strip says nothing till then either)
     expect($('fightCard').hidden).toBe(false);
     expect($('fightCard').className).toBe('win wait');
+    // (a tight win, 71 of 140: the strip names the champion's reversal, not who won)
     g.ui.hud(0);
-    expect($('rushBell').textContent).toBe('FIGHT!');
+    expect($('rushBell').textContent).toBe('TENTACLE TWIST');
     g.runUntil(() => F().bout.t >= fight.LANDS, 3);
     expect($('fightCard').className).toBe('win wait');
     g.run(0.5);
-    g.ui.hud(0);
-    expect($('rushBell').textContent).toBe('WIN!');
     expect($('fightCard').hidden).toBe(false);
     expect($('fightCard').className).toBe('win');
     expect($('fightCard').textContent).toBe('勝YOU WIN🐡 120🔓 New: grow room, mushroom bowls, Back-Alley RingTap to close');
@@ -1226,6 +1225,78 @@ describe('the slam', () => {
     r3.g.runUntil(() => r3.F().bout.t >= r3.fight.SLAM.at, 12);
     expect($('slamGo').hidden).toBe(true);
     expect(r3.fight.slam()).toBe(-1);
+  }, 60_000);
+});
+
+describe('the finishers', () => {
+  it("how a boss's fight ends goes by his vote: a grand win, a heavy loss, a tight one, or a push-out", async () => {
+    const { fight } = await ring({ level: 0 });
+    const F2 = await import('../src/finishers');
+    // Hakkaku: 71 of his 140 to turn; tight is within 7 of that
+    const end = (turned: number, boss = 0) => {
+      const R = { boss, n: fight.bossOf(boss).crowd, turned, win: turned * 2 > fight.bossOf(boss).crowd, slam: -1 } as import('../src/fight').Rush;
+      const f = fight.finishOf(R);
+      return [f, F2.moveOf(R, f)?.name ?? null];
+    };
+    expect(end(105)).toEqual(['grand', 'BELT THROW']);
+    expect(end(104)).toEqual(['push', null]);
+    expect(end(78)).toEqual(['tight', 'TENTACLE TWIST']);
+    expect(end(71)).toEqual(['tight', 'TENTACLE TWIST']);
+    expect(end(70)).toEqual(['tight', 'INK ESCAPE']);
+    expect(end(64)).toEqual(['tight', 'INK ESCAPE']);
+    expect(end(63)).toEqual(['push', null]);
+    expect(end(36)).toEqual(['push', null]);
+    expect(end(35)).toEqual(['heavy', 'EIGHT-ARM WRAP']);
+    // every boss has his own, and the champion his own against each
+    for (const k of ['octopus', 'crab', 'catfish', 'shark', 'puffer'] as const) {
+      const m = F2.MOVES[k];
+      expect(new Set([m.tight.name, m.heavy.name, m.champTight.name, m.champGrand.name]).size).toBe(4);
+      for (const mv of Object.values(m)) expect(mv.name.split(' ').length).toBeLessThanOrEqual(3);
+    }
+    expect(end(0, 4)).toEqual(['heavy', 'PUFF BOUNCE']);
+    expect(end(810, 4)).toEqual(['grand', 'BIG SQUEEZE']);
+    // (the practice fight: the sparring partner's)
+    expect(end(30, -1)).toEqual(['grand', 'BELT THROW']);
+  });
+
+  it('a tight win goes the wrong way first, then the champion turns it at his own straw: the boss lands behind him', async () => {
+    const { g, fight, dohyo, cellar, F } = await ring();
+    expect(fight.ringGong()).toBe(true);
+    g.runUntil(() => { while (F().rush!.turned + F().stall.length < 72 && fight.toStall(false)); return F().rush!.done; }, 31 + fight.WALK_IN);
+    expect(F().bout.finish).toBe('tight');
+    g.runUntil(() => F().bout.phase === 'fight' && F().bout.t > fight.BOUT.fight - 0.3, 25);
+    // (the champion's the one at the straw: his own, east)
+    expect(F().bout.tug).toBeLessThan(-0.6);
+    expect(dohyo.ring.champ.position.x - cellar.RING.x).toBeGreaterThan(1);
+    g.runUntil(() => F().bout.phase === 'pay' && F().bout.t >= 0.6, 3);
+    g.ui.hud(0);
+    expect($('rushBell').textContent).toBe('TENTACLE TWIST');
+    g.runUntil(() => F().bout.t >= fight.LANDS + 0.2, 4);
+    // thrown out over the straw behind him, east, where a push-out would have him go west
+    expect(dohyo.ring.rival.position.x - cellar.RING.x).toBeGreaterThan(cellar.RING_HALF);
+    g.run(1.2);
+    g.ui.hud(0);
+    expect($('rushBell').textContent).toBe('WIN!');
+    expect(F().beaten).toBe(1);
+  }, 30_000);
+
+  it("a heavy loss ends with the boss's own move; a plain win with the push-out west", async () => {
+    const { g, fight, dohyo, cellar, F } = await ring();
+    expect(fight.ringGong()).toBe(true);
+    g.runUntil(() => { while (F().rush!.turned + F().stall.length < 20 && fight.toStall(false)); return F().rush!.done; }, 31 + fight.WALK_IN);
+    expect(F().bout.finish).toBe('heavy');
+    g.runUntil(() => F().bout.phase === 'pay' && F().bout.t >= 0.6, 25);
+    g.ui.hud(0);
+    expect($('rushBell').textContent).toBe('EIGHT-ARM WRAP');
+    g.runUntil(() => F().bout.t >= fight.LANDS + 0.2, 4);
+    // (the champion off the mound, east)
+    expect(dohyo.ring.champ.position.x - cellar.RING.x).toBeGreaterThan(cellar.RING_HALF);
+    g.runUntil(() => !F().rush, 15);
+    expect(fight.ringGong()).toBe(true);
+    g.runUntil(() => { while (F().rush!.turned + F().stall.length < 90 && fight.toStall(false)); return F().rush!.done; }, 31 + fight.WALK_IN);
+    expect(F().bout.finish).toBe('push');
+    g.runUntil(() => F().bout.phase === 'pay' && F().bout.t >= fight.LANDS + 0.2, 25);
+    expect(dohyo.ring.rival.position.x - cellar.RING.x).toBeLessThan(-cellar.RING_HALF);
   }, 60_000);
 });
 

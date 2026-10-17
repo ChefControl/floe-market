@@ -24,6 +24,7 @@ import { kindOf } from './items';
 import { buyHeld, keyHeld } from './input';
 import { level, stage } from './layout';
 import { player } from './player';
+import { moveOf } from './finishers';
 import { showFace } from './portraits';
 import { CHAMP } from './rikishi';
 import { chime, coinDrop, coinEdge, coinPing, lose, win } from './sfx';
@@ -289,7 +290,7 @@ function renderBout() {
   const R = F.rush, show = level.down && stage.n === 3 && !coinUp() && (!!R || (watch > 0.5 && !F.quiet));
   if (show === rushEl.hidden) { rushEl.hidden = !show; rushEl.classList.toggle('in', show); }
   if (!show) { barSaid = ''; return; }
-  const B = F.bout, boss = R ? bossOf(R.boss) : null, name = boss ? boss.name : 'Local';
+  const B = F.bout, boss = R ? bossOf(R.boss) : null, name = boss ? boss.name : 'Local', move = moveOf(R, B.finish);
   const { yours, theirs } = sides();
   let left = `${CHAMP} ${yours}`, right = `${theirs} ${name}`, mid: string, fill = yours + theirs ? yours / (yours + theirs) : 0.5, goal = -1;
   if (R && B.phase === 'prep') {
@@ -297,7 +298,8 @@ function renderBout() {
     left = `${CHAMP} ${R.turned}`; right = `${R.n - R.turned} ${name}`;
     mid = `🔔 ${Math.max(0, Math.ceil(boss!.bell - R.t))}`;
     fill = R.turned / R.n; goal = toBeat(boss!, R.n) / R.n;
-  } else if (B.phase === 'fight' || (B.phase === 'pay' && B.t < LANDS)) mid = 'FIGHT!';
+  } else if (B.phase === 'pay' && move && B.t >= 0.5 && B.t < LANDS + 1.2) mid = move.name;
+  else if (B.phase === 'fight' || (B.phase === 'pay' && B.t < LANDS)) mid = 'FIGHT!';
   // (who won, once the loser's down)
   else if (B.phase === 'pay') mid = B.win ? 'WIN!' : 'LOSE';
   else mid = 'VS';

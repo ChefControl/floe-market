@@ -155,7 +155,14 @@ export type Phase = 'prep' | 'sit' | 'fight' | 'pay';
 /** A bout: its phase and how long it's been in it, who wins (known once the fans sit down), the ring's tug (-1 his,
  *  +1 the champion's), its wobble, how many bouts so far; and a local bout's fans: how many are coming, how many have,
  *  and how many ate (the ones who stay to watch). */
-export interface Bout { phase: Phase; t: number; win: boolean; tug: number; noise: number; n: number; crowd: number; came: number; fed: number }
+export interface Bout {
+  phase: Phase; t: number; win: boolean; tug: number; noise: number; n: number; crowd: number; came: number; fed: number;
+  /** How it ends (finishers.ts): a push-out, or by how a boss's vote went, a tight one, a heavy loss, a grand win. */
+  finish: Finish;
+}
+/** How a fight ends: see finishOf. */
+export type Finish = 'push' | 'tight' | 'heavy' | 'grand';
+export const FINISHES: Finish[] = ['push', 'tight', 'heavy', 'grand'];
 export interface Fight {
   t: number;
   beaten: number; tier: number; boughtOut: boolean;
@@ -210,7 +217,7 @@ export interface Loan { owed: number; total: number }
 
 const line = (n: number): Line => ({ n, up: 0, m: [] });
 /** A bout's preparation, from the start (how many fans come is worked out as it starts: -1). */
-const freshBout = (n: number): Bout => ({ phase: 'prep', t: 0, win: false, tug: 0, noise: 0, n, crowd: -1, came: 0, fed: 0 });
+const freshBout = (n: number): Bout => ({ phase: 'prep', t: 0, win: false, tug: 0, noise: 0, n, crowd: -1, came: 0, fed: 0, finish: 'push' });
 export function blank(): Fight {
   return {
     t: 0, beaten: 0, tier: 0, boughtOut: false, practice: false, sparred: false, quiet: false, called: false,
@@ -494,13 +501,14 @@ function updRush(dt: number) {
   if (R.turned >= R.n || R.t >= bossOf(R.boss).bell) {
     // the stall shuts and his crowd sits down: more than half of them turned, and the champion wins
     R.done = true; R.win = R.turned * 2 > R.n;
-    toSeats(R.win);
+    toSeats(R.win, finishOf(R));
   }
 }
-/** The fans take their seats: the bout's result is settled now (whichever side is bigger), and shown in the fight. */
-function toSeats(win: boolean) {
+/** The fans take their seats: the bout's result is settled now (whichever side is bigger), and shown in the fight,
+ *  and how it ends. */
+function toSeats(win: boolean, finish: Finish = 'push') {
   const B = F.bout;
-  B.phase = 'sit'; B.t = 0; B.win = win; B.tug = 0;
+  B.phase = 'sit'; B.t = 0; B.win = win; B.tug = 0; B.finish = finish;
   if (real) on.bout('sit');
 }
 /** The result of a boss's bout, once the fight's over. */
@@ -519,6 +527,18 @@ function bossResult(R: Rush) {
     if (F.beaten === 2) on.den();
   }
   on.rushEnd(R);
+}
+/** How close a vote is tight: within this share of the fans needed, either way. */
+export const TIGHT = 0.1;
+/** How a boss's fight ends (finishers.ts), from how his vote went: a grand win (the champion's big finisher, and the
+ *  slam), a heavy loss (under half the fans needed: the boss's big one), a tight one (a reversal at the straw, by
+ *  whoever wins it), or a push-out. */
+export function finishOf(R: Rush): Finish {
+  const need = toBeat(bossOf(R.boss), R.n);
+  if (grand(R)) return 'grand';
+  if (!R.win && R.turned * 2 < need) return 'heavy';
+  if (Math.abs(R.turned - need) <= Math.round(need * TIGHT)) return 'tight';
+  return 'push';
 }
 /** A grand win: three of every four of his crowd turned (the slam's on offer in the fight). */
 export const grand = (R: Rush) => R.win && R.turned >= Math.ceil(R.n * SLAM.share);
@@ -803,7 +823,8 @@ function updBout(dt: number) {
   } else if (B.phase === 'fight') {
     // the pair lean the way the crowd does, and wrestle it out to the side with more fans
     const { yours, theirs } = sides(), lean = (yours - theirs) / Math.max(1, yours + theirs) * 0.35;
-    const k = B.t / BOUT.fight, target = B.win ? 1 : -1, wobble = Math.sin(B.t * 1.7 + B.noise) * 0.4 * (1 - k);
+    // (a tight one goes the other way first: the winner's driven back to his own straw, and turns it there at the end)
+    const k = B.t / BOUT.fight, target = (B.win ? 1 : -1) * (B.finish === 'tight' ? -0.85 : 1), wobble = Math.sin(B.t * 1.7 + B.noise) * 0.4 * (1 - k);
     B.tug = clamp(lean + wobble + (target - lean) * ease(clamp((k - 0.35) / 0.6, 0, 1)), -1, 1);
     if (B.t >= BOUT.fight) fightOver();
   } else if (B.phase === 'pay' && B.t >= BOUT.pay) {
@@ -966,7 +987,7 @@ export function fightFrom(raw: unknown): Fight {
     if (r.bout && ['prep', 'sit', 'fight', 'pay'].includes(r.bout.phase)) {
       const o = r.bout;
       f.bout = { ...b.bout, phase: o.phase, t: num(o.t), win: !!o.win, tug: clamp(num(o.tug), -1, 1), noise: num(o.noise), n: num(o.n),
-        crowd: Math.floor(num(o.crowd, -1)), came: Math.floor(num(o.came)), fed: Math.floor(num(o.fed)) };
+        crowd: Math.floor(num(o.crowd, -1)), came: Math.floor(num(o.came)), fed: Math.floor(num(o.fed)), finish: FINISHES.includes(o.finish) ? o.finish : 'push' };
     }
     // the crew start their jobs over, from where they stand
     for (const role of Object.keys(f.hires) as Role[]) {
