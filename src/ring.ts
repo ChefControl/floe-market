@@ -4,7 +4,7 @@
 import { CY, parts, showDen, showGrowRoom, showVenue, updBarFlap } from './cellar';
 import { BAR, GONG } from './cellarPlan';
 import { openRing, updDohyo } from './dohyo';
-import { BOSSES, CHIP, F, fightFrom, on, resetFight, step, strength } from './fight';
+import { CHIP, F, fightFrom, on, resetFight, step, strength } from './fight';
 import { front } from './front';
 import { cardUp, showCard, updGong } from './gong';
 import { ARENA, DOORS, level, PASSAGE, PREP } from './layout';
@@ -37,17 +37,10 @@ on.earn = (chips, why) => {
 };
 /** Seconds till the crowd roars for a boss walking in: after the gong's second of silence (sfx.ts). */
 let roarT = 0;
-on.rush = r => {
-  const b = BOSSES[r.boss];
+on.rush = () => {
   gong({ x: GONG.x, y: CY, z: GONG.z });
+  // (the crowd roars once it's in: the gong's banner says who, gong.ts, after Eddie's coin if he's in on it)
   roarT = 1.1;
-  // (and with Slick Eddie's fix on it, how that went: eddie.ts)
-  const fix = r.fix;
-  // (a few words: the fight's own UI has the numbers)
-  const said = !fix ? `${b.face} ${b.name} walks in with ${r.n} fans`
-    : !fix.caught ? `🤝 Fixed! ${b.face} ${b.name} brings only ${r.n}`
-      : `🗞️ Caught! ${b.face} ${b.name} brings all ${r.n}`;
-  toast(said, 'rush', 3000);
 };
 on.rushEnd = r => {
   showCard(r);

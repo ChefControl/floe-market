@@ -1,30 +1,33 @@
-// The gong, and what's shown about the fight night (stage 3). Standing at the gong opens its panel: the next boss, the
-// crowd he brings and how long the bell gives you, and exactly how ringing it now would go, worked out by running the
-// rush ahead in a copy of the cellar, with the player in it working as a good player would (fight.ts's forecast):
-// "Ready: you'll turn 70 of his 120", or "You'll turn 55 of his 120: 6 short of 61". No fee, no luck: ring it
-// whenever. With Slick Eddie's fix paid for (eddie.ts), it shows how both ways would go: the fix holding (fewer of his
-// fans) and it getting out (all of them), and the chance of each. The bout bar over the screen follows every bout: the fans buying soup (and on a boss night, his bell
-// running down), the fans taking their seats, and the fight, a tug of war between the champion's fans and his
-// opponent's, in their colours. After a boss's bout a card says how it went, and on a loss which line held the kitchen
-// up. The HUD's 💪 is the fans fed in this bout's preparation. And the watch spot 👁️ by the ring: stand on it and the camera
-// closes in on the bout, with the names over it.
+// The gong, and what's shown about the fight night (stage 3), as a TV sumo broadcast with an arcade's punch. Standing
+// at the gong opens its panel: the champion against the next boss, their faces (portraits.ts), the crowd he brings,
+// his bell and his prize, and your chances in a word (Win to Lose), worked out by running the rush ahead in a copy of
+// the cellar, with the player in it working as a good player would (fight.ts's forecast). No numbers there: finding
+// out you never had a chance is part of it. No fee, no luck: ring it whenever. With Slick Eddie's fix paid for
+// (eddie.ts), it gives a word for each face of his coin: the fix holding (fewer of his fans), and it getting out (all of
+// them). Rung with a fix on, his coin's tossed (and the whole world waits on it, game.ts): it spins, lands on its edge,
+// drops flat on one face, says what that means, and waits for a tap. Then a banner walks the boss in (入場). The strip
+// along the top follows every boss's fight (and a local's, from the watch spot): the faces, the fans each way, his bell
+// running down, then the fight, a tug of war on a rope in their colours. After a boss's fight a card stamps the result:
+// the prize and what's new, or how short and the one thing that cost it. The HUD's 💪 is the fans fed in this fight's
+// preparation. And the watch spot 👁️ by the ring: stand on it and the camera closes in on the fight.
 import { AdditiveBlending, DoubleSide, Mesh, MeshBasicMaterial, NormalBlending, RingGeometry, Vector3 } from 'three';
 import { cellar, CY, gongBronze, gongDisc, RING } from './cellar';
 import { GONG, GONG_PAD, WATCH } from './cellarPlan';
 import { decal, drawPad } from './decals';
 import { dustFx } from './fx';
-import { ringCam, showBoutLine } from './dohyo';
+import { ringCam } from './dohyo';
 import {
-  BATCH, BOSSES, BUYOUT, type Carry, F, FIX, fixOn, forecast, ICON, type Ing, keptHome, NAME, needRate, nextBoss, ringGong, type Rush,
-  sides, STALL_CAP, strength, toBeat, worstShort, you,
+  type Boss, BOSSES, BUYOUT, type Carry, F, type Forecast, fixOn, forecast, ICON, type Ing, keptHome, NAME, nextBoss, ringGong,
+  type Rush, sides, strength, toBeat, worstShort, you,
 } from './fight';
 import { kindOf } from './items';
 import { buyHeld } from './input';
 import { level, stage } from './layout';
 import { player } from './player';
+import { showFace } from './portraits';
 import { CHAMP } from './rikishi';
+import { chime, coinDrop, coinEdge, coinPing, lose, win } from './sfx';
 import { CELLAR_ZOOM, view } from './stage';
-import { BOSS_COLOR, OURS } from './swarm';
 import { d2xz } from './util';
 
 const $ = (id: string) => document.getElementById(id)!;
@@ -59,123 +62,203 @@ you.now = () => {
   return { x: player.g.position.x, z: player.g.position.z, speed: player.speed, cap: room(c), carry: c };
 };
 
+// ---------- your chances ----------
+export type Verdict = 'win' | 'likelywin' | 'maybe' | 'likelylose' | 'lose';
+export const VERDICT: Record<Verdict, string> = { win: 'Win', likelywin: 'Likely win', maybe: 'Maybe', likelylose: 'Likely lose', lose: 'Lose' };
+/**
+ * Ringing now, in a word: the fans the forecast turns against the more-than-half that beats him (of `n`, with a fix's
+ * fans kept home): 120% or more a win, from 100% likely, from 85% maybe, from 60% likely lost, and under that lost.
+ * (When the cook's bonus comes in, its bands go by what the bonus could do: forecast(kept, { bonus }) at 35 and 50.)
+ */
+export function verdict(boss: Boss, f: Forecast, n = boss.crowd): Verdict {
+  const r = f.turned / toBeat(boss, n);
+  return r >= 1.2 ? 'win' : r >= 1 ? 'likelywin' : r >= 0.85 ? 'maybe' : r >= 0.6 ? 'likelylose' : 'lose';
+}
+
 // ---------- the gong's panel ----------
-const panel = $('gong'), bossEl = $('gongBoss'), crowdEl = $('gongCrowd'), castEl = $('gongCast'), go = $('gongGo') as HTMLButtonElement;
+const panel = $('gong'), vsEl = panel.querySelector<HTMLElement>('.vs')!, bossEl = $('gongBoss'), chipsEl = $('gongCrowd');
+const castEl = $('gongCast'), go = $('gongGo') as HTMLButtonElement, youP = $('gongYouP'), themP = $('gongThemP');
+/** Eddie's face, small, as on his coin: grinning (the fix holds) or grimacing (caught). */
+const mini = (face: 'Grin' | 'Grimace') => `<svg class="mini" viewBox="-60 -60 120 120" aria-hidden="true"><use href="#coinRim"/><use href="#coinEddie"/><use href="#coin${face}"/></svg>`;
+/** A line of the panel: Eddie's face for one way his coin could land, what it says, and a verdict's seal. */
+interface Row { face?: 'Grin' | 'Grimace'; say: string; v?: Verdict }
 /** What the panel says, so it's only rewritten when something in it changes. */
 let said = '';
 function render() {
-  const b = nextBoss(), R = F.rush;
-  let head: string, crowd: string, cast: string, cls = '', button: string | null = 'Ring the gong 🔔';
+  const b = nextBoss(), R = F.rush, on = R && !R.done ? BOSSES[R.boss] : b;
+  let chips: string[] = [], rows: Row[] = [], button: string | null = 'Ring the gong';
   if (R && !R.done) {
-    const boss = BOSSES[R.boss];
-    head = `${boss.face} ${boss.name} is in`;
-    crowd = `${R.turned} of his ${R.n} fans turned so far: ${toBeat(boss, R.n)} beats him`;
-    cast = 'Keep the bowls coming!';
+    chips = [`👥 ${R.n}`, `🔔 ${on!.bell} s`, `🐡 ${amount(on!.prize)}`];
+    rows = [{ say: 'Keep the bowls coming!' }];
     button = null;
   } else if (!b) {
-    head = 'No one left to fight';
-    crowd = `All five beaten. Buy back all of Mr. Fugu's chips in his office: 🐡 ${amount(BUYOUT)}`;
-    cast = '';
+    rows = [{ say: 'All five beaten' }, { say: `Buy Mr. Fugu out: 🐡 ${amount(BUYOUT)}` }];
     button = null;
   } else {
+    chips = [`👥 ${b.crowd}`, `🔔 ${b.bell} s`, `🐡 ${amount(b.prize)}`];
     // (no forecast while the last boss's crowd is still on the floor: the gong can't be rung until it clears)
-    const f = R ? null : forecast(), i = F.beaten, fix = fixOn();
-    head = `${b.face} ${b.name} · boss ${i + 1} of ${BOSSES.length}`;
-    crowd = `Brings ${b.crowd} fans: turn more than half (${toBeat(b)}) before the bell, ${b.bell} s · prize 🐡 ${amount(b.prize)}`;
-    if (!f) cast = '';
-    else if (fix) {
-      // (both ways it could go, with the chance of each)
-      const kept = keptHome(b, fix.cut), n = b.crowd - kept, held = forecast(kept)!, p = FIX.caught[fix.cut - 1];
-      const way = (v: typeof f, of: number) => v.turned >= toBeat(b, of) ? `ready, you'll turn ${v.turned} of ${of}` : `you'd turn ${v.turned} of ${of}, ${toBeat(b, of) - v.turned} short`;
-      crowd = `Brings ${b.crowd} fans, Eddie keeping ${kept} home if his fix holds: turn more than half before the bell, ${b.bell} s · prize 🐡 ${amount(b.prize)}`;
-      cast = `🤝 Fix holds (${Math.round((1 - p) * 100)}%): ${way(held, n)}. Caught (${Math.round(p * 100)}%): ${way(f, b.crowd)}.`;
-      const ok = held.turned >= toBeat(b, n), both = ok && f.turned >= toBeat(b);
-      cls = both ? 'ready' : ok ? '' : 'short';
-    } else if (f.turned >= toBeat(b)) { cast = `Ready: you'll turn ${f.turned} of his ${b.crowd}`; cls = 'ready'; }
-    else {
-      cast = `You'll turn ${f.turned} of his ${b.crowd}: ${toBeat(b) - f.turned} short of ${toBeat(b)}.`;
-      if (f.worst) cast += ` The pot would wait on ${NAME[f.worst]} ${ICON[f.worst]}.`;
-      cls = 'short';
-    }
+    const f = R ? null : forecast(), fix = fixOn();
+    if (f && fix) {
+      // one for each way his coin could land: the fix holding, his boys keeping some home; or caught, all of them
+      const kept = keptHome(b, fix.cut);
+      rows = [{ face: 'Grin', say: 'Fix holds', v: verdict(b, forecast(kept)!, b.crowd - kept) }, { face: 'Grimace', say: 'Caught', v: verdict(b, f) }];
+    } else if (f) rows = [{ say: 'Your chances', v: verdict(b, f) }];
     if (R) button = 'Wait for the ring to clear';
   }
-  const key = [head, crowd, cast, cls, button].join('|');
+  const key = JSON.stringify([on?.name, chips, rows, button]);
   if (key === said) return;
   said = key;
-  bossEl.textContent = head; crowdEl.textContent = crowd; castEl.textContent = cast; castEl.className = cls;
+  vsEl.hidden = !on;
+  if (on) { bossEl.textContent = on.name; showFace(youP, 'champ', '🍙'); showFace(themP, on.kind, on.face); }
+  chipsEl.replaceChildren(...chips.map(c => { const e = document.createElement('span'); e.className = 'fchip'; e.textContent = c; return e; }));
+  castEl.replaceChildren(...rows.map(r => {
+    const e = document.createElement('div');
+    e.className = r.face ? 'odds fix' : 'odds';
+    if (r.face) e.insertAdjacentHTML('beforeend', mini(r.face));
+    const say = document.createElement('span'); say.className = 'lbl'; say.textContent = r.say; e.append(say);
+    if (r.v) { const v = document.createElement('span'); v.className = `seal v-${r.v}`; v.textContent = VERDICT[r.v]; e.append(v); }
+    return e;
+  }));
   go.hidden = button === null;
   if (button) { go.textContent = button; go.disabled = !!R; }
 }
-/** Rings the gong, if a boss can be called in now: the bell starts. */
+/** Rings the gong, if a boss can be called in now: the bell starts (once Eddie's coin, if he's in on it, is down). */
 export function ring() {
   if (!ringGong()) return false;
   struck();
   said = '';
+  const R = F.rush!;
+  if (R.fix) toss(R);
+  else banner(R);
   return true;
 }
 go.addEventListener('click', () => { if (!go.disabled) ring(); });
 
-// ---------- the bout bar, and the card after a boss ----------
-const rushEl = $('rush'), rushName = $('rushName'), rushBell = $('rushBell'), rushBar = $('rushBar'), rushKnot = $('rushKnot');
-const rushYou = $('rushYou'), rushThem = $('rushThem'), barEl = rushBar.parentElement!;
+// ---------- the banner: a boss walks in ----------
+const bannerEl = $('fightBanner'), bannerWho = $('bannerWho'), bannerGoal = $('bannerGoal');
+let bannerT = 0;
+/** 入場: his name, the crowd he's brought, and how many of them to turn, across the screen for a few seconds. */
+function banner(R: Rush) {
+  const boss = BOSSES[R.boss];
+  bannerWho.textContent = `${boss.name} ${boss.face} · ${R.n} fans`;
+  bannerGoal.textContent = `TURN ${toBeat(boss, R.n)} TO WIN`;
+  bannerEl.classList.remove('on');
+  bannerEl.hidden = false;
+  void bannerEl.offsetWidth; // (so the animation starts over)
+  bannerEl.classList.add('on');
+  bannerT = 2.8;
+}
+
+// ---------- Slick Eddie's coin ----------
+// Tossed at the gong with his fix on. It was rolled when he was paid (and kept, so a reload can't toss it again), and
+// comes out here: it spins up, comes down spinning on its edge (his two faces flicking past slower and slower), drops
+// flat, and a second later says what it means. The whole world waits on it (game.ts), the boss's crowd at the door
+// and his bell, until it's tapped away. (With less motion: it's down already, and still waits.) The timings are the
+// stylesheet's (index.html, #coin).
+const coinEl = $('coin'), coinHead = $('coinHead'), coinSub = $('coinSub');
+/** Seconds since the toss (-1: no coin up); when it comes down on its edge, drops flat, and says what it means. */
+let coinT = -1;
+const EDGE = 1.4, DROP = 3.71, SAYS = 4.95, READY = 5.3;
+/** Whether Eddie's coin is up: the world waits for it. */
+export const coinUp = () => coinT >= 0;
+function toss(R: Rush) {
+  const boss = BOSSES[R.boss], caught = R.fix!.caught;
+  coinEl.className = caught ? 'caught' : 'hold';
+  coinHead.textContent = caught ? '🗞️ CAUGHT!' : 'THE FIX HOLDS';
+  coinSub.textContent = caught ? `He brings all ${R.n}` : `${boss.name} brings ${R.n}, not ${boss.crowd}`;
+  coinEl.hidden = false;
+  panel.hidden = true;
+  player.held = true; player.moving = false;
+  coinT = 0;
+  if (lessMotion.matches) { coinT = SAYS; sting(caught); }
+  else coinPing();
+}
+const sting = (caught: boolean) => { if (caught) lose(); else { win(); chime(); } };
+function endCoin() {
+  coinEl.hidden = true; coinEl.classList.remove('ready');
+  coinT = -1;
+  player.held = false;
+  said = '';
+  if (F.rush) banner(F.rush);
+}
+coinEl.addEventListener('click', () => { if (coinT >= READY) endCoin(); });
+/** The coin, while the world waits on it (game.ts): its sounds as it goes, and a tap (or E) once it's said its piece.
+ *  (And the gong's stroke, still ringing.) */
+export function updCoin(dt: number) {
+  if (coinT < 0) return;
+  const was = coinT;
+  coinT += dt;
+  const passed = (t: number) => was < t && coinT >= t;
+  if (passed(EDGE)) coinEdge();
+  if (passed(DROP)) coinDrop();
+  if (passed(SAYS)) sting(coinEl.classList.contains('caught'));
+  if (coinT >= READY) coinEl.classList.add('ready');
+  const press = buyHeld() && !held;
+  held = buyHeld();
+  if (press && coinT >= READY) endCoin();
+  updStroke(dt);
+}
+
+// ---------- the strip, and the card after a boss ----------
+const rushEl = $('rush'), rushBell = $('rushBell'), rushBar = $('rushBar'), rushGoal = $('rushGoal'), rushKnot = $('rushKnot');
+const rushYou = $('rushYou'), rushThem = $('rushThem'), rushYouP = $('rushYouP'), rushThemP = $('rushThemP');
 const card = $('fightCard');
 let cardT = 0;
-/** Whether a boss's card is up after his bout. */
+/** Whether a boss's card is up after his fight. */
 export const cardUp = () => !card.hidden;
 card.addEventListener('click', () => { card.hidden = true; });
-/** The card after a boss's rush: turned him, or how short, why, and what it takes. */
+/** What cost a lost fight, in one chip: the pot waiting on an ingredient, the soup bar standing empty, or neither (the
+ *  kitchen just too slow for him). */
+export function lossReason(R: Rush) {
+  const worst = worstShort(R);
+  if (R.dryT > 1 && worst) return `${ICON[worst]} Pot waited on ${NAME[worst]}`;
+  if (R.dryT > 1) return `🍲 Soup bar empty ${Math.round(R.dryT)} s`;
+  return '🍲 Kitchen too slow for his crowd';
+}
+/** The card after a boss's rush: a stamp on a burst, and YOU WIN with the prize and what's new, or how short and why. */
 export function showCard(R: Rush) {
-  const boss = BOSSES[R.boss], pct = Math.round(Math.min(1, R.turned / R.n) * 100), need = toBeat(boss, R.n);
-  const h = document.createElement('h2'), p1 = document.createElement('p'), bar = document.createElement('div'), p2 = document.createElement('p');
-  bar.className = 'bar'; bar.innerHTML = '<i></i>'; (bar.firstChild as HTMLElement).style.width = pct + '%';
-  if (R.win) {
-    h.className = 'win'; h.textContent = 'You won his crowd over';
-    p1.textContent = `${R.turned} of his ${R.n} fans were yours, and ${boss.face} ${boss.name} went over the rope.`;
-    p2.textContent = `Prize: 🐡 ${amount(boss.prize)}. Revealed: ${boss.opens}.`;
-  } else {
-    const worst = worstShort(R);
-    h.className = 'lose'; h.textContent = `Pushed out by ${boss.name} ${boss.face}`;
-    p1.textContent = `You turned ${R.turned} of his ${R.n} fans: ${need - R.turned} short of the ${need} that beat him.`;
-    p2.textContent = (R.dryT > 1
-      ? `Your soup bar stood empty for ${Math.round(R.dryT)} s${worst ? `, and the pot was waiting on ${NAME[worst]} ${ICON[worst]}` : ''}. `
-      : 'The bowls came too slowly from the counter. ')
-      + `Ready at about ${needRate(boss)} batches a minute with a full soup bar of ${STALL_CAP} (${BATCH} bowls a batch). No fee: grow and come back.`;
-  }
-  const small = document.createElement('small'); small.textContent = 'Tap to close';
-  card.replaceChildren(h, p1, bar, p2, small);
+  const boss = BOSSES[R.boss], el = (tag: string, cls: string, text = '') => { const e = document.createElement(tag); e.className = cls; e.textContent = text; return e; };
+  const kids = [el('div', 'burst'), el('div', 'hanko', R.win ? '勝' : '負')];
+  if (R.win) kids.push(el('h2', '', 'YOU WIN'), el('div', 'prize', `🐡 ${amount(boss.prize)}`), el('div', 'unlock', `🔓 New: ${boss.opens}`));
+  else kids.push(el('h2', '', `SHORT BY ${toBeat(boss, R.n) - R.turned}`), el('span', 'fchip reason', lossReason(R)));
+  kids.push(el('div', 'tap', 'Tap to close'));
+  card.className = R.win ? 'win' : 'lose';
+  card.replaceChildren(...kids);
   card.hidden = false;
   cardT = 10;
 }
-/** What the bout bar said last, so it's only rewritten when something in it changes. */
+/** What the strip said last, so it's only rewritten when something in it changes. */
 let barSaid = '';
-/** The boss's bout bar: the phase and its clock, and the tug of war, the champion's fans (orange, on the left) against
- *  the boss's, the knot moving with the fight. (A local's the free show, told by the arena alone: no bar.) */
+/** The strip along the top, every boss's fight (and a local's, from the watch spot): the champion's face and his fans
+ *  on the left, the other's on the right; the bell (or the fight, or how it went) between; and the rope, orange for his
+ *  fans, purple for theirs: his goal marked on it while his crowd's turning, and in the fight the knot, pulled one way
+ *  or the other. */
 function renderBout() {
-  const R = F.rush, show = level.down && stage.n === 3 && !!R;
-  rushEl.hidden = !show;
+  const R = F.rush, show = level.down && stage.n === 3 && !coinUp() && (!!R || watch > 0.5);
+  if (show === rushEl.hidden) { rushEl.hidden = !show; rushEl.classList.toggle('in', show); }
   if (!show) { barSaid = ''; return; }
-  const B = F.bout, boss = BOSSES[R.boss];
-  const { yours, theirs } = sides(), share = yours + theirs ? yours / (yours + theirs) : 0.5;
-  let name: string, clock = '', left = `${CHAMP} ${yours}`;
-  const right = `${theirs} ${boss.name}`;
-  if (B.phase === 'prep') {
+  const B = F.bout, boss = R ? BOSSES[R.boss] : null, name = boss ? boss.name : 'Local';
+  const { yours, theirs } = sides();
+  let left = `${CHAMP} ${yours}`, right = `${theirs} ${name}`, mid: string, fill = yours + theirs ? yours / (yours + theirs) : 0.5, goal = -1;
+  if (R && B.phase === 'prep') {
     // (his bell waits for his whole crowd to reach the bar)
-    name = R.walk > 0 ? `${boss.face} ${boss.name}'s crowd is coming in` : `${boss.face} ${boss.name}'s crowd is in`;
-    clock = `🔔 ${Math.max(0, Math.ceil(boss.bell - R.t))} s`;
-    left = `${yours} turned · ${toBeat(boss, R.n)} beats him`;
-  } else if (B.phase === 'sit') name = 'Taking their seats';
-  else if (B.phase === 'fight') { name = `${CHAMP} against ${boss.name} ${boss.face}`; clock = 'Fight!'; }
-  else name = B.win ? `${CHAMP} wins!` : `${boss.name} wins`;
-  // (the knot waits on the middle, more than half, until the fight pulls it one way or the other)
-  const knot = B.phase === 'fight' || B.phase === 'pay' ? 50 - B.tug * 46 : 50;
-  const key = [name, clock, left, right, Math.round(share * 200), Math.round(knot * 2)].join('|');
+    left = `${CHAMP} ${R.turned}`; right = `${R.n - R.turned} ${name}`;
+    mid = `🔔 ${Math.max(0, Math.ceil(boss!.bell - R.t))}`;
+    fill = R.turned / R.n; goal = toBeat(boss!, R.n) / R.n;
+  } else if (B.phase === 'fight') mid = 'FIGHT!';
+  else if (B.phase === 'pay') mid = B.win ? 'WIN!' : 'LOSE';
+  else mid = 'VS';
+  // (the knot waits on the middle until the fight pulls it one way or the other)
+  const knot = B.phase === 'fight' || B.phase === 'pay' ? 50 - B.tug * 46 : -1;
+  const key = [name, left, mid, right, Math.round(fill * 200), Math.round(goal * 200), Math.round(knot * 2)].join('|');
   if (key === barSaid) return;
   barSaid = key;
-  rushName.textContent = name; rushBell.textContent = clock; rushYou.textContent = left; rushThem.textContent = right;
-  barEl.style.background = '#' + BOSS_COLOR.getHexString();
-  rushBar.style.width = Math.round(share * 1000) / 10 + '%';
-  rushBar.style.background = '#' + OURS.getHexString();
-  rushKnot.style.left = Math.round(knot * 10) / 10 + '%';
+  showFace(rushYouP, 'champ', '🍙');
+  if (boss) showFace(rushThemP, boss.kind, boss.face); else showFace(rushThemP, 'local', '🙂');
+  rushYou.textContent = left; rushBell.textContent = mid; rushThem.textContent = right;
+  rushBar.style.width = Math.round(fill * 1000) / 10 + '%';
+  rushGoal.hidden = goal < 0; rushGoal.style.left = Math.round(goal * 1000) / 10 + '%';
+  rushKnot.hidden = knot < 0; rushKnot.style.left = Math.round(knot * 10) / 10 + '%';
 }
 
 // ---------- 💪 ----------
@@ -294,7 +377,6 @@ export function updGong(dt: number) {
   updWatch(dt);
   // the stroke's jolt (on top of the ring's, if the camera's on it)
   if (since < 0.6) view.shake = Math.max(view.shake, 0.45 * (1 - since / 0.6) ** 2);
-  // (during a rush, the rush's bar says who's in)
-  showBoutLine(watch > 0.5 && !(F.rush && !F.rush.done));
   if (cardT > 0) { cardT -= dt; if (cardT <= 0) card.hidden = true; }
+  if (bannerT > 0) { bannerT -= dt; if (bannerT <= 0) { bannerEl.hidden = true; bannerEl.classList.remove('on'); } }
 }

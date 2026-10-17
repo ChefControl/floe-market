@@ -42,14 +42,15 @@ export interface Boss {
   face: string; name: string; crowd: number; bell: number; prize: number;
   /** The sea creature he is (creatures.ts), from his name. */
   kind: Kind;
+  /** What beating him opens, as his result card says it: "🔓 New: …". */
   opens: string;
 }
 export const BOSSES: Boss[] = [
-  { face: '🐙', name: 'Hakkaku', crowd: 120, bell: 30, prize: 120, kind: 'octopus', opens: 'the grow room and its first mushroom bed. Mushroom bowls pay double. The Back-Alley Ring' },
-  { face: '🦀', name: 'Yokobashiri', crowd: 180, bell: 30, prize: 300, kind: 'crab', opens: 'the cook, steam baskets for rice, and a way out through the south wall' },
-  { face: '🐟', name: 'Dobu', crowd: 220, bell: 30, prize: 800, kind: 'catfish', opens: 'the Underground Arena, the smokehouse for fish, and the attendant' },
-  { face: '🦈', name: 'Samehada', crowd: 420, bell: 30, prize: 2000, kind: 'shark', opens: 'the Grand Hall Below, and glowing grow shelves' },
-  { face: '🐡', name: 'Fukure', crowd: 1000, bell: 60, prize: 10000, kind: 'puffer', opens: 'the gold tile: buy back all his chips' },
+  { face: '🐙', name: 'Hakkaku', crowd: 120, bell: 30, prize: 120, kind: 'octopus', opens: 'grow room, mushroom bowls, Back-Alley Ring' },
+  { face: '🦀', name: 'Yokobashiri', crowd: 180, bell: 30, prize: 300, kind: 'crab', opens: 'the cook, steam baskets, a way south' },
+  { face: '🐟', name: 'Dobu', crowd: 220, bell: 30, prize: 800, kind: 'catfish', opens: 'Underground Arena, smokehouse, attendant' },
+  { face: '🦈', name: 'Samehada', crowd: 420, bell: 30, prize: 2000, kind: 'shark', opens: 'Grand Hall Below, glowing grow shelves' },
+  { face: '🐡', name: 'Fukure', crowd: 1000, bell: 60, prize: 10000, kind: 'puffer', opens: 'buy back all his chips' },
 ];
 export const TIERS = [
   { name: 'The Dock Cellar', seats: 24 },

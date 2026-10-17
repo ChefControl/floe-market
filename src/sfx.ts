@@ -236,6 +236,20 @@ export function jackpot() {
   [0, 3, 5].forEach((n, i) => bell(deg(n, 1), { t: 1.0 + i * 0.1, v: 0.06, d: 1.4 }));
 }
 
+/** Slick Eddie's coin at the gong (gong.ts): flicked up with a ping, a bright clink as it comes down on its edge, and a
+ *  thunk as it drops flat. */
+export function coinPing() {
+  bell(deg(9, 1), { v: 0.07, d: 0.7 });
+}
+export function coinEdge() {
+  tone({ f: 2400, d: 0.04, v: 0.035 });
+  tone({ f: 3600, t: 0.01, d: 0.03, v: 0.02 });
+}
+export function coinDrop() {
+  tone({ f: 210, f2: 140, type: 'triangle', a: 0.008, d: 0.12, v: 0.1 });
+  noise({ f: 800, kind: 'lowpass', a: 0.008, d: 0.06, v: 0.05 });
+}
+
 /** A plate set down: on the belt, or at a garden table. */
 export function clink(at: XZ) {
   if (!every('clink', 0.08)) return;

@@ -4,7 +4,7 @@
 // card after it, the cellar's tiles (machines again and again, hires, tiers) bought with Fugu Chips, the swarm on the
 // floor, the watch spot, the buyout, the restaurant upstairs as the front, and saving it all.
 import { BufferGeometry, ExtrudeGeometry, ShapeGeometry } from 'three';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import indexHtml from '../index.html?raw';
 import { bought, FLOE_SUSHI, loadGame, MARKET, RING_DONE, type SaveFixture } from './helpers';
 
@@ -945,15 +945,21 @@ describe('the crowd', () => {
 });
 
 describe('the gong', () => {
-  it('its panel names the next boss and forecasts the rush exactly; ringing it brings his crowd onto the floor', async () => {
-    const { g, plan, swarm, fight, at, F } = await ring();
+  it('its panel names the next boss and your chances; ringing it walks him in, and brings his crowd onto the floor', async () => {
+    const { g, plan, swarm, fight, gong, at, F } = await ring();
     at(plan.GONG_PAD);
     g.run(0.3);
     expect($('gong').hidden).toBe(false);
-    expect($('gongBoss').textContent).toBe('🐙 Hakkaku · boss 1 of 5');
-    expect($('gongCrowd').textContent).toContain('Brings 120 fans: turn more than half (61) before the bell');
-    expect($('gongCast').textContent).toMatch(/^You'll turn \d+ of his 120: \d+ short of 61\./);
-    expect($('gongCast').className).toBe('short');
+    // Chunkos against him, what he brings (his crowd, his bell, his prize), and your chances in a word
+    expect($('gongBoss').textContent).toBe('Hakkaku');
+    expect([...$('gongCrowd').children].map(c => c.textContent)).toEqual(['👥 120', '🔔 30 s', '🐡 120']);
+    const said = gong.VERDICT[gong.verdict(fight.BOSSES[0], fight.forecast()!)];
+    expect($('gongCast').textContent).toBe(`Your chances${said}`);
+    expect($('gongCast').querySelector('.seal')!.className).toMatch(/^seal v-/);
+    expect($('gongGo').textContent).toBe('Ring the gong');
+    // (their faces: here, with no WebGL to render them, their emoji)
+    expect($('gongYouP').textContent).toBe('🍙');
+    expect($('gongThemP').textContent).toBe('🐙');
     // ring it anyway: no fee
     const money = g.wallet.money;
     g.press('e');
@@ -961,23 +967,32 @@ describe('the gong', () => {
     g.press('e', 'keyup');
     expect(F().rush).toMatchObject({ boss: 0, n: 120, turned: 0 });
     expect(g.wallet.money).toBe(money);
+    // 入場: his name, his crowd, and how many to turn
+    expect($('fightBanner').hidden).toBe(false);
+    expect($('fightBanner').textContent).toBe('入場Hakkaku 🐙 · 120 fansTURN 61 TO WIN');
     expect($('rush').hidden).toBe(false);
     g.ui.hud(0);
-    expect($('rushName').textContent).toBe("🐙 Hakkaku's crowd is coming in");
-    expect($('rushBell').textContent).toBe('🔔 30 s');
-    expect($('rushYou').textContent).toBe('0 turned · 61 beats him');
+    expect($('rushYou').textContent).toBe('Chunkos 0');
+    expect($('rushBell').textContent).toBe('🔔 30');
+    expect($('rushThem').textContent).toBe('120 Hakkaku');
+    // (his goal marked on the rope: 61 of 120)
+    expect($('rushGoal').hidden).toBe(false);
+    expect($('rushGoal').style.left).toBe('50.8%');
+    expect($('rushKnot').hidden).toBe(true);
     expect($('gongGo').hidden).toBe(true);
-    expect($('toast').textContent).toContain('Hakkaku walks in with 120 fans');
     // his bell waits for them all to walk in to the bar, and nobody buys on the way
     fight.toStall(false);
     g.run(fight.WALK_IN - 0.2);
     g.ui.hud(0);
-    expect($('rushBell').textContent).toBe('🔔 30 s');
+    expect($('rushBell').textContent).toBe('🔔 30');
     expect(F().rush!.turned).toBe(0);
     g.run(0.4);
     g.ui.hud(0);
-    expect($('rushName').textContent).toBe("🐙 Hakkaku's crowd is in");
     expect(F().rush!.turned).toBe(1);
+    expect($('rushYou').textContent).toBe('Chunkos 1');
+    expect($('rushThem').textContent).toBe('119 Hakkaku');
+    // (and the banner's gone by then)
+    expect($('fightBanner').hidden).toBe(true);
     // (all of them round the bar by then, on the floor, but the one just turned, off to a spot at the bar for
     // their bowl, and only yours once they've got it)
     expect(swarm.ways().length).toBe(120);
@@ -1002,6 +1017,48 @@ describe('the gong', () => {
     expect(f.F.rush!.win).toBe(fc.turned >= 61);
   });
 
+  it("the faces are rendered once from each wrestler's own model, close up, and never touch the luck", async () => {
+    await ring({ level: 0 });
+    const { renderer } = await import('../src/render'), P = await import('../src/portraits');
+    // (a renderer that can draw off the screen and read it back, as a real one can)
+    const shots: number[] = [];
+    Object.assign(renderer, {
+      getRenderTarget: () => null, getClearAlpha: () => 1, setRenderTarget() {}, setClearAlpha() {}, clear() {},
+      readRenderTargetPixels: (_t: unknown, _x: number, _y: number, w: number, _h: number, px: Uint8Array) => { shots.push(w); px.fill(200); },
+    });
+    const ctx = document.createElement('canvas').getContext('2d') as unknown as Record<string, unknown>;
+    ctx.createImageData = (w: number, h: number) => ({ data: new Uint8ClampedArray(w * h * 4) });
+    const url = vi.spyOn(HTMLCanvasElement.prototype, 'toDataURL').mockReturnValue('data:image/png;base64,FACE');
+    const luck = Math.random;
+    let drawn = 0;
+    Math.random = () => { drawn++; return luck(); };
+    try {
+      const who = ['champ', 'local', 'octopus', 'crab', 'catfish', 'shark', 'puffer'] as const;
+      expect(who.map(w => P.portrait(w))).toEqual(who.map(() => 'data:image/png;base64,FACE'));
+      // once each, sharp (192 pixels across), and kept
+      expect(shots).toEqual(who.map(() => 192));
+      P.portrait('crab');
+      expect(shots).toHaveLength(who.length);
+    } finally { Math.random = luck; url.mockRestore(); }
+    expect(drawn).toBe(0);
+    // on the page: the picture, and no emoji
+    const el = document.createElement('i');
+    P.showFace(el, 'shark', '🦈');
+    expect(el.style.backgroundImage).toBe('url("data:image/png;base64,FACE")');
+    expect(el.textContent).toBe('');
+  });
+
+  it("your chances are a word, by how many the forecast turns of the more than half that beats him", async () => {
+    const { fight, gong } = await ring({ level: 0 });
+    const boss = fight.BOSSES[2], at = (turned: number, n?: number) => gong.verdict(boss, { boss, turned, worst: null, at: 0 }, n);
+    // Dobu's 220: 111 beat him
+    expect([134, 133, 111, 110, 95, 94, 67, 66, 0].map(t => at(t))).toEqual(
+      ['win', 'likelywin', 'likelywin', 'maybe', 'maybe', 'likelylose', 'likelylose', 'lose', 'lose']);
+    // (with a fix holding, 66 of them kept home: 78 of 154 beat him)
+    expect(at(78, 154)).toBe('likelywin');
+    expect(Object.values(gong.VERDICT)).toEqual(['Win', 'Likely win', 'Maybe', 'Likely lose', 'Lose']);
+  });
+
   it('turning more than half his crowd beats him, after the fight: the prize, the card, and the grow room found', async () => {
     const { g, plan, fight, swarm, cellar, at, F } = await ring();
     at(plan.GONG_PAD);
@@ -1023,9 +1080,8 @@ describe('the gong', () => {
     expect(F().beaten).toBe(1);
     expect(g.wallet.money - money).toBeGreaterThanOrEqual(fight.BOSSES[0].prize * fight.CHIP);
     expect($('fightCard').hidden).toBe(false);
-    expect($('fightCard').textContent).toContain('You won his crowd over');
-    expect($('fightCard').textContent).toContain('61 of his 120 fans were yours');
-    expect($('fightCard').textContent).toContain('the grow room');
+    expect($('fightCard').className).toBe('win');
+    expect($('fightCard').textContent).toBe('勝YOU WIN🐡 120🔓 New: grow room, mushroom bowls, Back-Alley RingTap to close');
     // the grow room: lit, walkable, with its first bed (its picker's sold on its square)
     expect(g.layout.found.grow).toBe(true);
     expect(cellar.lights[7].intensity).toBeGreaterThan(0);
@@ -1056,10 +1112,8 @@ describe('the gong', () => {
     expect(F().beaten).toBe(0);
     expect(g.wallet.money).toBe(money);
     const card = $('fightCard').textContent!;
-    expect(card).toContain('Pushed out by Hakkaku');
-    expect(card).toContain('You turned 0 of his 120 fans: 61 short of the 61 that beat him.');
-    expect(card).toContain('Your soup bar stood empty');
-    expect(card).toContain('the pot was waiting on rice');
+    expect($('fightCard').className).toBe('lose');
+    expect(card).toBe('負SHORT BY 61🍚 Pot waited on riceTap to close');
     // his crowd clears, and the gong's ready again; a tie (60 of 120) still loses
     g.runUntil(() => !F().rush, 20);
     expect(fight.ringGong()).toBe(true);
@@ -1359,12 +1413,14 @@ describe('the swarm and the watch spot', () => {
     // aimed as ever, 0.4 m up: main.ts aims a little over the player's feet, and at the middle of anything else
     const { k, focus } = stage.view, feet = g.player.g.position.y;
     expect(feet + (focus.y - feet) * k + 0.4 * (1 - k)).toBeCloseTo(cellar.CY + 0.4, 5);
-    expect($('boutLine').hidden).toBe(false);
-    expect($('boutLine').textContent).toContain('Chunkos against');
+    // (and the strip along the top, the champion against tonight's local)
+    expect($('rush').hidden).toBe(false);
+    expect($('rushYou').textContent).toMatch(/^Chunkos \d+$/);
+    expect($('rushThem').textContent).toMatch(/^\d+ Local$/);
     at(plan.BAR_PAD);
     g.run(3);
     expect(gong.watching()).toBe(false);
-    expect($('boutLine').hidden).toBe(true);
+    expect($('rush').hidden).toBe(true);
   });
 
   it('bouts go on between boss nights: the fans buy soup, sit, the fight, and the result', async () => {
