@@ -81,7 +81,8 @@ export const topOfView = (h: number) => Math.min(document.getElementById('hud')?
  *  way: a new upgrade in the spotlight), that goes in the middle of the space the panel leaves, a still one's too. */
 export function keepInSight(dt: number, away = 0) {
   const w = window.innerWidth, h = window.innerHeight;
-  const open = panels.find(p => !p.hidden && (!p.dataset.still || away > 0));
+  // (a panel that's stepped out of the spotlight's way, the shop's, leaves the whole screen to it)
+  const open = panels.find(p => !p.hidden && !p.classList.contains('away') && (!p.dataset.still || away > 0));
   let x = 0, y = 0;
   if (open) {
     const r = open.getBoundingClientRect(), still = !!open.dataset.still;

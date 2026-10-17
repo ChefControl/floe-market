@@ -45,6 +45,9 @@ export function spotlight(on: Object3D[], { close = SPOT_CLOSE, cue }: { close?:
   return true;
 }
 
+/** Whether something's in the spotlight now (the shop's menu steps out of the way meanwhile: shop.ts). */
+export const spotOn = () => !!shot;
+
 /** Moves the spotlight on by `dt`. */
 export function updSpotlight(dt: number) {
   const s = shot;
