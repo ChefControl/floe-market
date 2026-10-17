@@ -27,8 +27,9 @@ import { BRACE, CHARGE, CROUCH, DRIVE, GETUP, GRIP, LIE, LIFT, SHIKO_LOW, STANDO
 import { mixPose, type Pose, pose } from '../rikishi';
 
 const PI = Math.PI;
-/** Hugging: bent right in over each other (a spine's lean as far as it goes), and how close that has them. */
-const BENT = 1.45, HUG = 0.75;
+/** Hugging: bent in over each other, and how close that has them (closer, and the bodies are in each other: the arms
+ *  stretch to the belts instead, finishRig.ts). */
+const BENT = 0.8, HUG = 0.9;
 
 // ---------- a body turning about his middle ----------
 const add = (a: V3, b: V3): V3 => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
@@ -267,7 +268,7 @@ const FG_TURN = 2.1, swingK = (u: number) => 0.3 * u + 0.7 * u * u;
 const fgT = (t: number) => warp(t, [[FG.rel, 0.5], [FG.rel + FG.fly / 0.5, 1]]);
 
 function finGrab(c: Ctx): Frame {
-  const T = fgT(c.t), e = c.lSide, g = c.D * 0.7, ring = c.ring, w = c.w, l = c.l, sf = c.L.f;
+  const T = fgT(c.t), e = c.lSide, g = c.D * 0.88, ring = c.ring, w = c.w, l = c.l, sf = c.L.f;
   const zk = 1 - ease(seg(T, 0, 0.4));
   const xc = (T: number) => c.W0.x - e * 0.07 * ease(seg(T, 0, 0.5));
   // the shark drives low, head down into his chest, his right hand on the belt; the champion, heels on his straw, has
@@ -276,7 +277,7 @@ function finGrab(c: Ctx): Frame {
     const s = ease(seg(T, FG.reach1, FG.set1));
     return { ...BRACE, twist: 0, side: 0, pitch: -0.1 - 0.06 * s, bend: 0.6, head: -0.25, l0k: BRACE.l0k + 0.3 * s, l1k: BRACE.l1k + 0.3 * s };
   };
-  const sP: Pose = { ...DRIVE, twist: 0, side: 0.3 * e, bend: 1.3, head: -0.7, a0x: 1.0, a0z: 0.1, a0e: 0.9 };
+  const sP: Pose = { ...DRIVE, twist: 0, side: 0.3 * e, bend: 1.1, head: -0.7, a0x: 1.0, a0z: 0.1, a0e: 0.9 };
   const into = (T: number) => ease(seg(T, 0, 0.3));
   const Cst = (T: number) => at(w, xc(T), mixPose(GRIP, cP(T), into(T)), { z: c.W0.z * zk });
   const Sst = (T: number) => at(l, lerp(c.L0.x, xc(T) + e * g, into(T)), steps(mixPose(GRIP, sP, into(T)), T * 14, 0.1), { z: c.L0.z * zk });
@@ -369,7 +370,7 @@ function spinAt(c: Ctx, T: number, P: Spin) {
   if (T < P.lock) return { C, C0, piv, S: S0(T), sH: undefined as V3 | undefined, th, om, sp, wEnd };
   const Sl = S0(P.lock), C0l = at(w, lerp(c.W0.x, c.L0.x - e * g, 1), GRIP, { z: c.W0.z * (1 - ease(seg(P.lock, 0, 0.4))) });
   const rel0 = sub(hipsAt(Sl, ring), hipsAt(C0l, ring)), lift = P.rise * ease(seg(T, P.lock + 0.12, P.lift + 0.05));
-  const flat = Math.sin(P.tilt * sp * sp), r = rot(qAx(0, 1, 0, th), rel0), hL = hipsAt(Sl, ring), inK = 1 - 0.17 * flat;
+  const flat = Math.sin(P.tilt * sp * sp), r = rot(qAx(0, 1, 0, th), rel0), hL = hipsAt(Sl, ring), inK = 1 - 0.1 * flat;
   // (never over the champion's shoulders: he holds him at his own chest's height, below his shoulders)
   const sH: V3 = [piv[0] + r[0] * inK, Math.min(hL[1] + lift + 0.33 * flat, piv[1] + 0.3), piv[2] + r[2] * inK];
   const hang = ease(seg(T, P.lock + 0.1, P.lift + 0.1));

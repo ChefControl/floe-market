@@ -204,8 +204,10 @@ export function pin(r: RikishiModel, part: Object3D, to: Vector3) {
   r.updateMatrixWorld(true);
 }
 /** How far a man leans in over the other to get hold of his belt, at most (his spine's bend, radians, past the pelvis's
- *  part of it): further, and he'd be lying on him. */
-const LEAN = 0.9;
+ *  part of it): further, and his head would be in the other's chest. (His arm stretches for the rest.) */
+const LEAN = 0.5;
+/** How far an arm stretches, at most, to get a hand on a belt out of its reach (the arms are short beside the bellies). */
+const STRETCH = 1.8;
 /** The arm's two bones: shoulder to elbow, and elbow to the hand (rikishi.ts). */
 const UPPER = 0.27, FORE = Math.hypot(0.25, 0.01), FORE_D = Math.atan2(0.01, 0.25);
 /**
@@ -214,16 +216,26 @@ const UPPER = 0.27, FORE = Math.hypot(0.25, 0.01), FORE_D = Math.atan2(0.01, 0.2
  */
 export function reach(r: RikishiModel, i: number, target: Vector3, k: number) {
   if (k <= 0) return;
-  const A = r.arms[i], s = A.s;
+  const A = r.arms[i];
   r.updateMatrixWorld(true);
   const d = A.sh.parent!.worldToLocal(target.clone()).sub(A.sh.position);
-  const D = Math.min(UPPER + FORE - 1e-3, Math.max(Math.abs(UPPER - FORE) + 0.03, d.length()));
-  d.setLength(D);
-  // the elbow, from the distance: |w|² = UPPER² + FORE² + 2·UPPER·FORE·cos(e + FORE_D)
-  const ce = (D * D - UPPER * UPPER - FORE * FORE) / (2 * UPPER * FORE);
-  const e = Math.max(0, Math.min(Math.PI - 0.05, Math.acos(Math.max(-1, Math.min(1, ce))) - FORE_D));
-  // the hand from the shoulder, the arm hanging down with that elbow
-  const wy = -UPPER - 0.25 * Math.cos(e) + 0.01 * Math.sin(e), wz = 0.25 * Math.sin(e) + 0.01 * Math.cos(e);
+  const want = Math.max(Math.abs(UPPER - FORE) + 0.03, d.length());
+  let e: number, wy: number, wz: number, stretch = 1;
+  if (want <= UPPER + FORE - 0.02) {
+    // in reach: the elbow from the distance, |w|² = UPPER² + FORE² + 2·UPPER·FORE·cos(e + FORE_D)
+    const ce = (want * want - UPPER * UPPER - FORE * FORE) / (2 * UPPER * FORE);
+    e = Math.max(0, Math.min(Math.PI - 0.05, Math.acos(Math.max(-1, Math.min(1, ce))) - FORE_D));
+    wy = -UPPER - 0.25 * Math.cos(e) + 0.01 * Math.sin(e); wz = 0.25 * Math.sin(e) + 0.01 * Math.cos(e);
+  } else {
+    // out of reach: the arm nearly straight, and longer (the shoulder's bone stretched along its length, and all of
+    // the arm with it), as far as STRETCH: a cartoon arm reaching round a belly
+    e = 0.12;
+    const y0 = -UPPER - 0.25 * Math.cos(e) + 0.01 * Math.sin(e);
+    wz = 0.25 * Math.sin(e) + 0.01 * Math.cos(e);
+    stretch = Math.min(STRETCH, Math.sqrt(Math.max(0, want * want - wz * wz)) / -y0);
+    wy = y0 * stretch;
+  }
+  d.setLength(Math.hypot(wy, wz));
   // the shoulder: out to the side (z), then forward (x)
   const z = Math.asin(Math.max(-1, Math.min(1, -d.x / wy)));
   const ax = Math.atan2(wz, wy * Math.cos(z)) - Math.atan2(d.z, d.y);
@@ -231,7 +243,7 @@ export function reach(r: RikishiModel, i: number, target: Vector3, k: number) {
   const x0 = A.sh.rotation.x, z0 = A.sh.rotation.z, e0 = A.el.rotation.x;
   A.sh.rotation.set(x0 + wrap(-ax - x0) * k, 0, z0 + wrap(z - z0) * k);
   A.el.rotation.x = e0 + (-e - e0) * k;
-  void s;
+  A.sh.scale.set(1, 1 + (stretch - 1) * k, 1);
 }
 /** Where his belt's grip points are now (the test checks a gripping hand is on one). */
 export const beltPoints = (r: RikishiModel) => { r.updateMatrixWorld(true); return beltRound(r).map(p => r.hips.localToWorld(p)); };
@@ -263,7 +275,7 @@ export function grip(by: RikishiModel, of: RikishiModel, k: number | [number, nu
   };
   // he leans in over the other to get his hands on it (a hold below his reach, as he stands: he bends to it)
   let h = holds();
-  const arm = (UPPER + FORE) * by.scale.x * 0.96, base = by.spine.rotation.x;
+  const arm = (UPPER + FORE) * STRETCH * by.scale.x * 0.96, base = by.spine.rotation.x;
   const below = (o: { at: Vector3; sh: Vector3 }) => by.worldToLocal(o.at.clone()).y < by.worldToLocal(o.sh.clone()).y;
   for (let n = 0; n < 8; n++) {
     const short = Math.max(...h.map((o, i) => (ks[i] > 0 && below(o) ? o.d - arm : 0)));

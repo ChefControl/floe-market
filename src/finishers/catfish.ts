@@ -68,6 +68,10 @@ const HELD = { ...GRIP, pitch: -0.1, l0x: 0.45, l1x: 0.45, l0k: 0.75, l1k: 0.75,
 /** The champion sunk under the catfish's weight, his heels on the straw. */
 const SUNK = { ...HELD, l0x: 0.75, l1x: 0.75, l0k: 1.25, l1k: 1.25, bend: 0.62, pitch: -0.06 };
 /** Crouched beside a man down, a hand on his chest. */
+/** Twisting him over: sunk low, the hips turned, the shoulders rolling him. */
+const TWIST = { ...SUNK, twist: 0.55, side: -0.25, bend: 0.75, head: -0.4 };
+/** Up over him, a fist raised: the winner. */
+const STOOD = { ...STAND, l0z: 0.3, l1z: 0.3, a0x: 2.95, a0z: 0.12, a0e: 0.15, bend: -0.04, head: 0.15 };
 const OVER = { ...GETUP, bend: 0.75, head: -0.35, pitch: 0.1, a0x: 1.2, a0z: 0.1, a0e: 0.3, a1x: 0.4, a1z: 0.3, a1e: 0.6 };
 /** Reared back for the belly bomb: belly out, arms swung back, knees bent. */
 const WINDUP = pose({ l0x: 0.5, l0z: 0.5, l0k: 1.0, l1x: 0.5, l1z: 0.5, l1k: 1.0, bend: -0.22, head: 0.1, pitch: -0.08, a0x: -0.55, a0z: 0.6, a0e: 0.3, a1x: -0.55, a1z: 0.6, a1e: 0.3 });
@@ -303,9 +307,10 @@ export const heavy: FinishMove = {
 
 // ======================================================================================================
 // MUD ROLL (the champion's tight win): the catfish drives him to his own straw, his feet slithering on the clay; the
-// champion sinks under the slippery weight and goes with it: the two of them, still locked by the belts, topple over
-// sideways together, and roll over once in the mud, the catfish onto his back and the champion over on top of him;
-// the champion pushes himself up off him and comes up crouched over him, a hand on his chest.
+// champion sinks under the slippery weight, twists, and rolls him: still holding the belt he turns the catfish over
+// sideways into the mud, lets go as he goes down, and the catfish rolls on over onto his back in his own slime; the
+// champion, on his feet the whole time, straightens over him and throws a fist up. (On his feet: so there's no doubt
+// who won.)
 // ======================================================================================================
 /** Slowed through the roll (real 0.95 to 1.75). */
 const ER: [number, number][] = [[0.95, 0.6], [1.75, 1]];
@@ -322,7 +327,6 @@ function roll(c: Ctx): Frame {
   const sL = e, sW = -e;
   // the legs as they lie, and how each lies on his side
   const sideL = (k: number): Pose => ({ ...mixPose({ ...DRIVE, l0x: 0.4, l1x: 0.2, l0k: 0.4, l1k: 0.3 }, { ...DRIVE, l0x: 0.5, l1x: 0.3, l0k: 0.5, l1k: 0.6, bend: 0.4 }, k), roll: sL * (Math.PI / 2) * easeIn(k) });
-  const sideW = (k: number): Pose => ({ ...mixPose(SUNK, { ...SUNK, l0k: 0.7, l1k: 0.6, l0x: 0.5, l1x: 0.4 }, k), roll: sW * (Math.PI / 2) * easeIn(k) });
   const AIR = 0.5;
   if (T < SINK) {
     // the drive: his heels to the straw, the catfish's feet sliding on his own slime
@@ -337,47 +341,34 @@ function roll(c: Ctx): Frame {
   } else if (T < SIDE) {
     // over they go, sideways together, like a felled tree, still locked on the belts
     const k = seg(T, TOPPLE_R, SIDE);
-    W.x = xW; W.p = sideW(k); W.air = AIR * easeIn(k);
+    // (the champion stays on his feet: he twists his hips and turns him over, low over him)
+    W.x = xW; W.p = mixPose(SUNK, TWIST, ease(k));
     L.x = xW - e * D * (1 - 0.1 * ease(k)); L.p = sideL(k); L.air = AIR * easeIn(k);
+    f.grip = 1; f.hold = 0.9 * (1 - ease(seg(k, 0, 0.3)));
   } else {
     // the roll: on their sides, then over, as one, the catfish onto his back (rolling the way his back is) and the
     // champion up and over on top of him; then up off him
-    const L1: At = { ...L, x: xW - e * D * 0.9, p: sideL(1), air: AIR }, W1: At = { ...W, x: xW, p: sideW(1), air: AIR };
-    const hL = hipsAt(L1, c.ring), hW = hipsAt(W1, c.ring);
+    const L1: At = { ...L, x: xW - e * D * 0.9, p: sideL(1), air: AIR };
+    const hL = hipsAt(L1, c.ring);
     const rollBy = 0.5, k = ease(seg(T, SIDE, ROLLED));
     // the catfish's middle rolls along the clay, a little lower as he comes onto his back
     const bL: V3 = [hL[0] - e * rollBy * k, lerp(hL[1], c.ring.top + 0.12, k), hL[2]];
-    // the champion's goes round over his
-    const r0 = Math.hypot(hW[0] - hL[0], hW[1] - hL[1]), r = lerp(r0, 0.58, k), a0 = Math.atan2(hW[1] - hL[1], (hW[0] - hL[0]) * e);
-    const ang = lerp(a0, Math.PI / 2, k);
-    const bW: V3 = [bL[0] + e * Math.cos(ang) * r, bL[1] + Math.sin(ang) * r, lerp(hW[2], bL[2], k)];
-    const yawL = face(l), yawW = face(w);
+    const yawL = face(l);
     // (on his back, rolled: his pitch takes him over; turned flat, the same lie is a turn of his yaw)
     const backL = { ...mixPose(sideL(1), LIE, k), roll: sL * Math.PI / 2, pitch: -(Math.PI / 2) * k };
-    const downW = { ...mixPose(sideW(1), { ...DOWN_FRONT, a0x: 1.0, a1x: 1.0 }, k), roll: sW * Math.PI / 2, pitch: (Math.PI / 2) * k };
-    L.yaw = yawL; W.yaw = yawW; L.p = backL; W.p = downW; L.x = L1.x; W.x = xW;
-    f.lHips = bL; f.wHips = bW;
-    // (his hands slide off the champion's belt as he goes under; the champion's stay on his)
-    f.hold = 1 - ease(seg(T, SIDE, SIDE + 0.1));
+    L.yaw = yawL; L.p = backL; L.x = L1.x;
+    f.lHips = bL;
+    // the champion lets go as he goes over, follows him a step, and straightens up over him
+    f.hold = 0; f.grip = 1 - ease(seg(T, SIDE, SIDE + 0.12));
+    const u = seg(T, SIDE, UP_R);
+    W.x = xW - e * 0.35 * ease(seg(T, SIDE, ROLLED)); W.yaw = face(w);
+    W.p = T < ROLLED ? mixPose(TWIST, OVER, ease(seg(T, SIDE, ROLLED))) : mixPose(OVER, STOOD, ease(seg(T, ROLLED, UP_R)));
+    void u;
     if (T >= ROLLED) {
-      // flat on his back: the same lie, turned (yaw for roll), then settling into it; the champion pushes up off him
-      // and comes up crouched over him, a hand on his chest
-      const b = T - ROLLED, u = seg(T, ROLLED + 0.05, UP_R);
+      // flat on his back: the same lie, turned (yaw for roll), then settling into it
+      const b = T - ROLLED;
       L.p = { ...mixPose({ ...backL, roll: 0, pitch: -Math.PI / 2 }, LIE, ease(seg(b, 0, 0.4))), sq: squash(b, 0.16, 0.12) };
       L.yaw = yawL + (sL * Math.PI) / 2;
-      const end: At = { x: bL[0] + e * 0.72, z: bL[2] + 0.12, yaw: face(w), p: OVER, air: 0 };
-      const hE = hipsAt(end, c.ring), top: V3 = [bL[0], bL[1] + 0.58, bL[2]];
-      const wYaw0 = yawW - (sW * Math.PI) / 2;
-      W.yaw = lerp(near(wYaw0, face(w)), face(w), ease(u));
-      W.p = mixPose({ ...downW, roll: 0, pitch: Math.PI / 2 }, OVER, ease(u));
-      const hp = lerpV(top, hE, ease(u));
-      hp[1] += 0.12 * Math.sin(Math.PI * u);
-      f.wHips = u < 1 ? hp : undefined;
-      if (u >= 1) { W.x = end.x; W.z = end.z; W.yaw = end.yaw; W.p = OVER; }
-      f.lHips = bL;
-      f.grip = 1 - ease(seg(b, 0, 0.12)); f.hold = 0;
-      const chest: V3 = [bL[0] + e * 0.12, bL[1] + 0.3, bL[2] + 0.3];
-      f.reach = [['W', 0, chest, ease(seg(u, 0.55, 0.9))]];
     }
   }
   return f;

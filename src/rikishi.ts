@@ -247,6 +247,7 @@ export class RikishiModel extends Group {
     this.arms.forEach((A, i) => {
       A.sh.rotation.set(-(i ? p.a1x : p.a0x), 0, A.s * (0.2 + (i ? p.a1z : p.a0z)));
       A.el.rotation.x = -(i ? p.a1e : p.a0e);
+      A.sh.scale.set(1, 1, 1);
     });
     const wide = 1 + (1 - p.sq) * 0.6;
     this.body.scale.set(wide, p.sq, wide);

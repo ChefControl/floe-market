@@ -4,7 +4,7 @@
 // belt is on it, the loser down from when he lands, inside the arena, and done in time for the getting up and the bow.
 // (One boss's: npx vitest run test/finishers.test.ts -t octopus)
 import { Vector3 } from 'three';
-import { describe, expect, it } from 'vitest';
+import { afterAll, describe, expect, it } from 'vitest';
 import type { Kind } from '../src/creatures';
 import { LOOKS } from '../src/creatures';
 import {
@@ -21,6 +21,9 @@ const ORIGIN = new Vector3();
 const DT = 1 / 60;
 /** How far the fight drives them from the middle (dohyo.ts's PUSH). */
 const PUSHED = DOHYO.r - 0.6;
+/** How far two bodies may press into each other (soft bellies give), metres. */
+const INTO = 0.6;
+const OVERLAP: string[] = [];
 const BOSS: Record<Kind, number> = { octopus: 0, crab: 1, catfish: 2, shark: 3, puffer: 4 };
 
 type Who = Kind | 'partner' | 'local';
@@ -54,7 +57,7 @@ function play(who: Who, mv: FinishMove, cs: Case) {
   const C0 = at(0, cx + D / 2, GRIP), O0 = at(1, cx - D / 2, GRIP);
   const W = w ? rival : champ, L = w ? champ : rival;
   const c: Ctx = { t: 0, w, l, lSide: l ? -1 : 1, W0: w ? O0 : C0, L0: w ? C0 : O0, D, kind: who === 'partner' || who === 'local' ? undefined : who, slam: cs.slam ?? 0, ring: rig, W, L, keep: new Map() };
-  const bad: string[] = [];
+  const bad: string[] = [], into = { o: 0, t: 0 };
   const say = (t: number, s: string) => { if (bad.length < 10) bad.push(`${t.toFixed(2)}s: ${s}`); };
   const words = (s: string) => s.trim().split(/\s+/).length;
   const fx: Fx = {
@@ -136,12 +139,22 @@ function play(who: Who, mv: FinishMove, cs: Case) {
       const h = above(world(L.hips));
       if (h > 0.45) say(t, `the loser's middle is ${h.toFixed(2)} m up after he's landed (he should be down)`);
     }
+    // how far the two bodies are into each other (the bellies, the chests, the heads, as balls)
+    if (t < mv.done) {
+      const balls = (r: RikishiModel) => [[r.bellyAt, 0.36 * r.girth], [r.chestAt, 0.36 * r.f], [r.neck, 0.2]].map(([o, rad]) => ({ p: world(o as RikishiModel['neck']), r: (rad as number) * SIZE }));
+      const a = balls(W), b2 = balls(L);
+      for (const x of a) for (const y of b2) { const o = x.r + y.r - x.p.distanceTo(y.p); if (o > into.o) { into.o = o; into.t = t; } }
+    }
     last = now;
   }
+  if (into.o > INTO) say(into.t, `the two bodies are ${into.o.toFixed(2)} m into each other (at most ${INTO}): keep them further apart`);
+  OVERLAP.push(`${who} ${cs.move}: ${into.o.toFixed(2)} at ${into.t.toFixed(2)}`);
   return bad;
 }
 
 const MOVES = await import('../src/finishers');
+// (PROBE_OUT=<file>: how far into each other the bodies go, every move, written there)
+afterAll(async () => { if (process.env.PROBE_OUT) ((await import('node:fs')) as unknown as { writeFileSync(p: string, s: string): void }).writeFileSync(process.env.PROBE_OUT, OVERLAP.join('\n')); });
 describe('the push-out (finishers/push.ts)', () => {
   it('lands at fight.LANDS, and is done in time', async () => {
     const fight = await import('../src/fight');
