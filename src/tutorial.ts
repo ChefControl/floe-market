@@ -10,26 +10,24 @@
 // their other devices. A save from before the tutorial counts what it has done already. Learning the last of the basics
 // (the harpoon, usually) brings up a banner saying the tutorial's complete, and that the rest is up to the player; the
 // rating, which only comes up after a few more upgrades, is a tip for later, outside the tutorial proper.
-// Stage 3 has a tutorial of its own, the same way, for what's new down in the cellar (nothing stage 1 already taught):
-// first a look round at how a fight goes (the ring, the fans fed at the stall on your side, 💪 counting them, the gong
-// calling a boss with a crowd of his own, and turning half of them before his bell), each read once the player's walked
-// over to the thing it's about; then the
-// dumbwaiter's bins, the racks and barrels, standing at the pot to cook, the bowls from the counter out to the stall,
-// the cooking game at the pot, played once (a bonus game, so not one of the basics), the cheapest thing at the shop
-// counter (saved up for in 🐡), and the gong: the practice fight against the champion's
-// sparring partner (fight.ts), whose small crowd a full stall turns (so it's pointed at once the forecast says it's
-// won, and the stall until then); winning it is the end of it. Any game that's beaten no boss and never won it has it
-// to come, older ones too (fight.ts, owedPractice). (A game without one, a test's, has the first boss instead, pointed
-// at only once its forecast says it's a win.) Then tips for later: the fans' chips and Fugu's cut, and the grow room's
-// beds. A save from before the cellar's lessons counts what it has done down there already; one from before the look
-// round skips it if it's had a fight.
+// Stage 3 has a tutorial of its own, the same way, for what's new down in the cellar (nothing stage 1 already taught),
+// done first and explained as it happens: a card on arriving saying what it's all about (no arrow: it's read where the
+// player stands); then the dumbwaiter's bins, the racks and barrels, the pot, the bowls from the counter out to the stall;
+// once the first fan's eaten, what fans and 💪 are (and a tip that they pay in 🐡); then the fight: the loop's next job
+// (whatever fills the stall) till the gong's forecast says it's won, the cooking game at the pot just before it (played
+// once, a bonus game, so not one of the basics), the gong, and during the fight what wins it, back on the loop; a lost
+// one says to fill the stall and try again. It's the practice fight against the champion's sparring partner (fight.ts),
+// for any game that's beaten no boss and never won it, older ones too (fight.ts, owedPractice); a game without one, a
+// test's, has the first boss instead. Winning it, its prize is spent at the shop counter, and that's the end of it. Then
+// tips for later: the grow room's beds. A save from before the cellar's lessons counts what it has done down there
+// already, and one from before the arriving and fans cards skips them if it's served soup.
 import { Group, Mesh, MeshBasicMaterial, RingGeometry } from 'three';
 import { buyButtonShown, touchBuy } from './buy';
-import { BAR_PAD, BENCH_PAD, BIN_PADS, COUNTER_PAD, GONG, GONG_PAD, machinePad, POT_PAD, type Pad } from './cellarPlan';
+import { BAR_PAD, BENCH_PAD, BIN_PADS, COUNTER_PAD, GONG_PAD, machinePad, POT_PAD, type Pad } from './cellarPlan';
 import { C1 } from './counters';
 import { modCost, MODS, mods } from './economy';
 import {
-  BOSSES, canShow, doneCount, F, forecast, growOpen, lineRoom, mach, nextBoss, PER_BATCH, practiceDue, showsDone, sold, toBeat,
+  BONUS_S, bossOf, BOSSES, canCook, canShow, doneCount, F, forecast, growOpen, lineRoom, mach, nextBoss, PER_BATCH, showsDone, sold, toBeat,
 } from './fight';
 import { filletsInProgress } from './fishing';
 import { detail, quietly } from './kit';
@@ -43,16 +41,16 @@ import { atSquare, modOffered, SHOPS } from './shop';
 import { staging } from './stage';
 import { PAD, pile, PILE } from './stations';
 import { banner, confetti, toast } from './ui';
-import { locked, menuOffer, onOffer, tiles, type Tile } from './unlocks';
+import { locked, onOffer, tiles, type Tile } from './unlocks';
 import { chips, d2xz, FY, price, type XZ } from './util';
 import { wallet } from './wallet';
 
 export type Lesson = 'fish' | 'pick' | 'sell' | 'cash' | 'buy' | 'shop' | 'harpoon' | 'stars'
-  | 'ring' | 'fed' | 'boss' | 'bell' | 'bins' | 'prep' | 'pot' | 'bowls' | 'cook' | 'bench' | 'gong' | 'chips' | 'power' | 'grow';
-// ('power' was a tip for later, before the look round said it up front: kept, so a save's copy of it isn't dropped)
+  | 'arrive' | 'bins' | 'prep' | 'pot' | 'bowls' | 'fed' | 'cook' | 'gong' | 'bench' | 'chips' | 'power' | 'grow';
+// ('power' was a tip for later, before the fans card said it: kept, so a save's copy of it isn't dropped)
 const LESSONS: Lesson[] = [
   'fish', 'pick', 'sell', 'cash', 'buy', 'shop', 'harpoon', 'stars',
-  'ring', 'fed', 'boss', 'bell', 'bins', 'prep', 'pot', 'bowls', 'cook', 'bench', 'gong', 'chips', 'power', 'grow',
+  'arrive', 'bins', 'prep', 'pot', 'bowls', 'fed', 'cook', 'gong', 'bench', 'chips', 'power', 'grow',
 ];
 /** Device storage for what's been learnt (the save keeps a copy too). */
 const KEY = 'floe-market-tutorial';
@@ -62,8 +60,8 @@ export function forgetLessons() {
 }
 /** Seconds a lesson that's learnt by reading stays in view first. */
 const READ = 6;
-/** Seconds a card of the cellar's look round stays up once the player's walked over to what it's about. */
-const VISIT = 2.5;
+/** Seconds the cellar's cards that are only read stay in view: the arriving one, and the fans one. */
+const GLANCE = 4;
 /** Seconds the banner saying it's all done stays up. */
 const CHEER = 4;
 
@@ -85,8 +83,8 @@ interface Step {
   done?: () => boolean;
   /** Learnt by having it in view this long instead. */
   read?: number;
-  /** (with `read`) Read standing at its spot: the player walks over to it first, and the time counts only there. */
-  visit?: boolean;
+  /** No arrow: just the bubble, over the player where they stand (`at` follows them). */
+  plain?: boolean;
   /** A tip for later, when it comes up: not one of the basics the tutorial is complete without. */
   later?: boolean;
   /** Stays up while the player stands there (buying needs holding there); the others step aside for the player. */
@@ -130,8 +128,8 @@ const PREP = ['rice', 'fish'] as const;
 type PrepLine = typeof PREP[number];
 const RAW = { rice: 'rice', fish: 'fish' }, READIED = { rice: 'rrice', fish: 'cfish' };
 const LINE = {
-  rice: { put: 'Rice dries on the rack', wait: 'Drying', take: 'Take the dried rice' },
-  fish: { put: 'Fish goes in salt', wait: 'Salting', take: 'Take the salted fish' },
+  rice: { put: 'Put the rice on the rack', ready: (s: number) => `It dries in ${s} seconds`, wait: 'Drying', take: 'Take the dried rice' },
+  fish: { put: 'Put the fish in the barrel', ready: (s: number) => `Salt cures it in ${s} seconds`, wait: 'Salting', take: 'Take the salted fish' },
 };
 /** How many of a line's are ready, in the player's arms and on the pot's ledge. */
 const readyOf = (k: PrepLine) => carried(READIED[k]) + F.pantry[k];
@@ -156,29 +154,24 @@ function prepping(): { at: Spot; say: [string, string?] } | null {
   if (!short.length) return null;
   const machine = (k: PrepLine) => down(machinePad(k, 0, F.lines[k].n));
   for (const k of PREP) {
-    if (carried(RAW[k]) && lineRoom(k) > 0) return { at: machine(k), say: [LINE[k].put, `Ready in ${mach(k).time} s`] };
+    if (carried(RAW[k]) && lineRoom(k) > 0) return { at: machine(k), say: [LINE[k].put, LINE[k].ready(mach(k).time)] };
   }
   for (const k of short) {
     const l = inLine(k);
     if (readyOf(k) + l.going + l.ready + carried(RAW[k]) < PER_BATCH) {
       const has = (o: PrepLine) => readyOf(o) + inLine(o).going + inLine(o).ready + carried(RAW[o]) > 0;
-      const say: [string, string?] = has(k) ? [`Grab more ${k}`, `The pot takes ${PER_BATCH}`]
-        : has(PREP.find(o => o !== k)!) ? [`Now grab ${k} too`, 'The pot needs both'] : [`Grab ${k} here`];
+      const say: [string, string?] = has(k) ? [`Grab more ${k}`, `The pot needs ${PER_BATCH}`]
+        : has(PREP.find(o => o !== k)!) ? [`Now grab ${k} too`, 'Soup needs both'] : [`Grab ${k} from this tray`, 'Soup needs rice and fish'];
       return { at: down(BIN_PADS[k]), say };
     }
   }
   for (const k of short) if (inLine(k).ready) return { at: machine(k), say: [LINE[k].take] };
   for (const k of short) {
     const l = inLine(k);
-    if (l.going) return { at: machine(k), say: [`${LINE[k].wait}… ${Math.max(1, Math.ceil(l.next))} s`, 'Then take them out'] };
+    if (l.going) return { at: machine(k), say: [`${LINE[k].wait}… ${Math.max(1, Math.ceil(l.next))} s`, 'Then take it out'] };
   }
   return null;
 }
-/** The cheapest thing on sale at the shop counter, a level or a room's upgrade (so the first's bought soonest). */
-const cheapestBelow = () => [
-  ...MODS.filter(m => m.stage === 3 && modOffered(m.id)).map(m => ({ icon: m.icon, name: m.name, c: modCost(m.id) ?? Infinity })),
-  ...menuOffer().map(t => ({ icon: t.icon, name: t.name, c: t.cost })),
-].sort((a, b) => a.c - b.c)[0];
 /** The practice fight's been due in this game (so its being over means it was won). */
 let practised = false;
 /** Whether the gong's forecast says the next boss is beaten: worked out once a second, as it runs the whole rush. */
@@ -195,17 +188,27 @@ function gongReady() {
 }
 /** The card after a boss's fight is up (gong.ts). */
 const cardUp = () => document.getElementById('fightCard')?.hidden === false;
-/** The middle of the ring (cellar.ts's RING, kept apart from its 3D), and how near it counts as being at it: just
- *  outside its edge (the player can't step up on it). */
-export const RING_AT = { x: -4.4, z: -1.4 }, RING_NEAR = 5.2;
-/** The look round at how a fight goes: known to a game that's had a fight, a practice one or a boss's. */
-const fought = () => F.beaten > 0 || F.sparred;
-/** The lessons of the look round, which a save from before it counts on their own (loadLessons). */
-const LOOK: Lesson[] = ['ring', 'fed', 'boss', 'bell'];
+/** The cellar's lessons that came later than the rest, which a save from before them counts on their own (loadLessons). */
+const NEWER: Lesson[] = ['arrive', 'fed'];
 /** Standing at the pot. */
 const atPot = () => d2xz(player.g.position, POT_PAD) < POT_PAD.r * POT_PAD.r;
 /** How to start the cooking game, on this device. */
 const cookKey = () => (touchBuy() ? 'Tap Cook' : 'Press E or Cook');
+/** The bowls in the kitchen, on their way to the stall: in the player's arms, on the counter, or still in the pot. */
+function bowling(): { at: Spot; say: [string, string?] } | null {
+  if (holding('bowl')) return { at: down(BAR_PAD), say: ['Set the bowls out here', 'Walk in through the kitchen door'] };
+  if (F.counter.length) return { at: down(COUNTER_PAD), say: ['Pick up the bowls'] };
+  if (F.pot.length) return { at: down(COUNTER_PAD), say: ['Bowls come out here'] };
+  return null;
+}
+/** The next job filling the stall: bowls to carry out, a batch to cook, or the prep hall's next. */
+const loop = () => bowling() ?? (canCook() ? { at: down(POT_PAD), say: ['Bring it all to the pot', 'Stay here while it cooks'] as [string, string?] } : prepping());
+/** The tutorial's fight is won (the practice fight, or for a game from before it the first boss), once its card's away. */
+const wonFight = () => (F.beaten > 0 || (practised && !F.practice)) && !cardUp();
+/** Its fight was lost (seen as its rush ends with it still to win): the stall's to fill again before another go. */
+let inFight = false, lost = false;
+/** The fight on now: its target, as the strip shows it. */
+const target = () => (F.rush ? toBeat(bossOf(F.rush.boss), F.rush.n) : 0);
 
 const STEPS: Step[] = [
   {
@@ -255,28 +258,15 @@ const STEPS: Step[] = [
     say: () => [`Opens at ★${firstLocked()?.stars?.toFixed(1) ?? ''}`, 'Serve customers quickly for better reviews'],
     known: () => stage.n > 1 || tiles.some(t => !!t.stars && (t.open || t.done)),
   },
-  // stage 3: what's new down in the cellar, in order: a look round at how a fight goes, the arrow leading to each thing
-  // and its card read there; then from the dumbwaiter to the first fight
+  // stage 3: what's new down in the cellar, in order, done first and explained as it happens
   {
-    id: 'ring', stage: 3, read: VISIT, visit: true, stay: true, at: () => ({ ...RING_AT, y: CELLAR_Y, r: RING_NEAR }),
-    say: () => ['Fight night happens in this ring', 'The side with more fans wins'], known: fought,
+    // (no arrow: read where they stand, as they come down)
+    id: 'arrive', stage: 3, read: GLANCE, plain: true, stay: true,
+    at: () => ({ x: player.g.position.x, y: CELLAR_Y, z: player.g.position.z, r: 0 }),
+    say: () => ['Cook soup, feed fans, win fights', 'Follow the gold arrow'], known: served,
   },
   {
-    // (and the 💪 by the cash glows)
-    id: 'fed', stage: 3, after: 'ring', read: VISIT, visit: true, stay: true, at: () => down(BAR_PAD),
-    say: () => ['Fed fans cheer for your champion', '💪 up top counts them'], known: fought,
-  },
-  {
-    // (round the gong itself, so it's read before its pad's panel opens)
-    id: 'boss', stage: 3, after: 'fed', read: VISIT, visit: true, stay: true, at: () => ({ ...GONG, y: CELLAR_Y, r: 2 }),
-    say: () => ['Ring the gong to call a boss', 'He brings a crowd of his own'], known: fought,
-  },
-  {
-    id: 'bell', stage: 3, after: 'boss', read: VISIT, visit: true, stay: true, at: () => down(BAR_PAD),
-    say: () => ['Feed his fans to turn them', 'Turn half before his bell rings'], known: fought,
-  },
-  {
-    id: 'bins', stage: 3, after: 'bell', at: () => down(BIN_PADS.rice), say: () => ['Grab rice or fish here', 'Sent down from upstairs'],
+    id: 'bins', stage: 3, after: 'arrive', at: () => down(BIN_PADS.rice), say: () => ['Grab rice from this tray', 'Soup needs rice and fish'],
     done: () => holding('rice', 'fish'), known: served,
   },
   {
@@ -286,55 +276,55 @@ const STEPS: Step[] = [
   },
   {
     id: 'pot', stage: 3, after: 'prep', stay: true, at: () => down(POT_PAD),
-    say: () => ['Stand here to cook chanko', 'It only cooks while you stay'],
+    say: () => ['Bring it all to the pot', 'Stay here while it cooks'],
     done: () => F.cooked.length > 0 || F.pot.length + F.counter.length + F.stall.length > 0, known: served,
   },
   {
-    // the bowls from the counter, then out on the stall (nothing to point at while the pot's still ladling)
-    id: 'bowls', stage: 3, after: 'pot',
-    at: () => (holding('bowl') ? down(BAR_PAD) : F.counter.length ? down(COUNTER_PAD) : null),
-    say: () => (holding('bowl') ? ['Drop them in the stall', 'Fans come once it\'s out'] : ['Take the bowls']),
+    // the bowls out of the pot, off the counter, out on the stall (whose first bowl opens the doors)
+    id: 'bowls', stage: 3, after: 'pot', at: () => bowling()?.at ?? null, say: () => bowling()?.say ?? [''],
     done: () => F.stall.length > 0 || sold.n > 0, known: served,
   },
   {
-    // the cooking game at the pot, played through once: a bonus game, so not one of the basics (nor its banner)
-    // (nothing to point at while its bonus runs, and its own panel's up while it's on)
-    id: 'cook', stage: 3, after: 'bowls', stay: true, later: true, at: () => (canShow() ? down(POT_PAD) : null),
-    say: () => (!atPot() ? ['Play the cooking game here', 'Bigger batches for a while']
-      : F.show ? ['Carry on your cooking game', cookKey()] : [cookKey(), 'Stars make bigger batches for 45 s']),
+    // the first fan fed: what fans and 💪 are (and the 💪 by the cash glows)
+    id: 'fed', stage: 3, after: 'bowls', read: GLANCE, at: () => (sold.n > 0 ? down(BAR_PAD, 0) : null),
+    say: () => ['Fans eat, then cheer your wrestler', '💪 up top counts them'], known: served,
+  },
+  {
+    id: 'chips', stage: 3, after: 'fed', read: READ, later: true, at: () => (sold.n > 0 ? down(BAR_PAD, 0) : null),
+    say: () => ['Fans pay in 🐡 chips', 'Fugu keeps 30%'], known: served,
+  },
+  {
+    // the cooking game at the pot, played through once, just before the fight so its bonus helps: a bonus game, so not
+    // one of the basics (nor its banner); nothing to point at while its bonus runs, and its own panel's up while it's on
+    id: 'cook', stage: 3, after: 'fed', stay: true, later: true,
+    at: () => (canShow() && !F.rush && (gongReady() || !!F.show) ? down(POT_PAD) : null),
+    say: () => (!atPot() ? ['Cook a bonus pot first', `Bigger pots for ${BONUS_S} seconds`]
+      : F.show ? ['Carry on your cooking game', cookKey()]
+      : [touchBuy() ? 'Tap Cook to start' : 'Press E to start', 'Good cooking makes bigger pots']),
     done: () => showsDone.n > 0, known: () => F.bonus.t > 0 || !!F.show,
   },
   {
-    // the cheapest thing at the shop counter, saved up for in chips; on the square, the bubble says how
-    id: 'bench', stage: 3, after: 'bowls', stay: true,
-    goal: () => {
-      const l = cheapestBelow();
-      return l ? { icon: l.icon, name: l.name, need: l.c, spot: down({ ...BENCH_PAD, r: 0.95 }), inChips: true } : null;
-    },
-    at: () => reached(STEPS.find(t => t.id === 'bench')!.goal!()),
+    // the first fight (the practice one, or for a game from before it the first boss): the loop's next job till the
+    // forecast says it's won, then the gong; during it, what wins it, back on the loop; learnt by winning it
+    id: 'gong', stage: 3, after: 'fed',
+    at: () => (!F.rush && gongReady() ? down(GONG_PAD) : loop()?.at ?? (F.rush ? down(BAR_PAD) : null)),
     say: () => {
-      const l = cheapestBelow();
-      if (!atSquare()) return [`Buy ${l ? l.name[0].toLowerCase() + l.name.slice(1) : 'an upgrade'} here`, 'At the shop counter'];
+      if (F.rush) return ['Feed his fans to win them', `Win ${target()} before the 🔔 rings`];
+      if (gongReady()) return ['Ring the gong for a fight', 'A rival brings his own fans'];
+      return [lost ? 'Fill the stall, then try again' : 'Fill the stall for a fight', loop()?.say[0]];
+    },
+    done: wonFight, known: () => F.beaten > 0,
+  },
+  {
+    // its prize spent at the shop counter (the hands its card says to hire): the last of the basics
+    id: 'bench', stage: 3, after: 'gong', stay: true, at: () => down({ ...BENCH_PAD, r: 0.95 }),
+    say: () => {
+      if (!atSquare()) return ['Spend your prize here', F.hires.washer || F.hires.salter ? 'At the shop counter' : 'Hire a washer and salter'];
       // (on a touch screen the menu opens folded, as its Shop button)
       if (document.getElementById('craft')?.hidden === false) return ['Tap Shop', 'Then pick an upgrade'];
-      return ['Pick an upgrade', touchBuy() ? 'Tap one in the list to buy it' : 'Click one in the list to buy it'];
+      return ['Pick an upgrade', touchBuy() ? 'Tap one to buy it' : 'Click one to buy it'];
     },
     done: boughtBelow, known: boughtBelow,
-  },
-  {
-    // the first fight: pointed at only once the forecast says it's won, and learnt by winning it (once its card's away)
-    // the practice fight (or, for a game from before it, the first boss once he's a win), learnt by winning it, once
-    // its card's away
-    // (in practice, the stall first while the forecast says it'd be lost: a full stall always wins it)
-    id: 'gong', stage: 3, after: 'bench',
-    at: () => (gongReady() ? down(GONG_PAD) : practiceDue() && !F.rush ? down(BAR_PAD) : null),
-    say: () => (!practiceDue() ? ['Ring the gong', 'Your crowd is ready']
-      : gongReady() ? ['Ring the gong', 'A practice fight to start'] : ['Fill the stall first', 'Then ring the gong']),
-    done: () => (F.beaten > 0 || (practised && !F.practice)) && !cardUp(), known: () => F.beaten > 0,
-  },
-  {
-    id: 'chips', stage: 3, after: 'bowls', read: READ, later: true, at: () => (sold.n > 0 ? down(BAR_PAD, 0) : null),
-    say: () => ['Fans pay in 🐡 chips', 'Fugu keeps 30%'], known: served,
   },
   {
     id: 'grow', stage: 3, after: 'gong', read: READ, later: true,
@@ -360,8 +350,8 @@ export function loadLessons(ids: readonly unknown[] | null) {
   learn(ids);
   const below = STEPS.filter(s => s.stage === 3);
   if (!below.some(s => ids.includes(s.id))) learn(below.filter(s => s.known()).map(s => s.id));
-  // (and one from before the look round at how a fight goes, which came later, skips it if it's had a fight)
-  else if (!LOOK.some(id => ids.includes(id))) learn(STEPS.filter(s => LOOK.includes(s.id) && s.known()).map(s => s.id));
+  // (and one from before the arriving and fans cards, which came later, skips them if it's served soup)
+  else if (!NEWER.some(id => ids.includes(id))) learn(STEPS.filter(s => NEWER.includes(s.id) && s.known()).map(s => s.id));
 }
 
 function store() {
@@ -396,8 +386,8 @@ export const cellarKnown = () => STEPS.every(s => s.stage !== 3 || s.later || le
 let cheer = 0;
 /** The banner for the last of the basics learnt: only ever by playing, never for a game that knew them already. */
 function complete(n: number) {
-  if (n === 3 && F.beaten === 0) banner('Practice won', 'Tutorial complete', `Now take on ${BOSSES[0].name} ${BOSSES[0].face}`);
-  else if (n === 3) banner('First fight won', 'Tutorial complete', 'Four more bosses to go');
+  if (n === 3 && F.beaten === 0) banner('Well done', 'Tutorial complete', `Now take on ${BOSSES[0].name} ${BOSSES[0].face}`);
+  else if (n === 3) banner('Well done', 'Tutorial complete', 'Four more bosses to go');
   else banner('Well done', 'Tutorial complete', 'The rest is up to you. Go make it big!');
   confetti();
   unlock();
@@ -417,6 +407,9 @@ const cost = (g: Goal, v: number, held = false) => (g.inChips ? chips(v, !held) 
 export function updTutorial(dt: number) {
   if (!fromDevice) learn([]); // reads in what the device knows
   if (F.practice) practised = true;
+  // (the tutorial's fight ending, still to win: lost)
+  if (F.rush) inFight = true;
+  else if (inFight) { inFight = false; lost = !(F.beaten > 0 || (practised && !F.practice)); }
   // (the stage-up has the banner to itself)
   if (cheer > 0 && (cheer -= dt) <= 0 && !staging()) banner(null);
   const s = lesson.now;
@@ -514,7 +507,7 @@ export function drawTutorial(dt: number) {
   const on = !!s && !!spot && !there && !panelUp();
   k = on ? Math.min(1, k + dt * 4) : 0;
   t += dt;
-  guide.visible = on;
+  guide.visible = on && !s.plain;
   bubble.hidden = !on;
   stars.classList.toggle('teach', on && s.id === 'stars');
   power.classList.toggle('teach', on && s.id === 'fed');
@@ -534,7 +527,7 @@ export function drawTutorial(dt: number) {
   const [title, line = ''] = s.say();
   if (title + line !== said) { said = title + line; head.textContent = title; more.textContent = line; more.hidden = !line; }
   const o = onScreen({ x: spot.x, y: spot.y + tip + 1.1, z: spot.z });
-  if (s.visit ? d2xz(player.g.position, spot) < spot.r * spot.r : o.inView) lesson.viewed += dt;
+  if (o.inView) lesson.viewed += dt;
   bubble.classList.toggle('edge', !o.inView);
   // the whole bubble stays on the screen (at the edge, with room for its badge)
   const bw = bubble.offsetWidth / 2, bh = bubble.offsetHeight / 2, m = o.inView ? 8 : 22;
