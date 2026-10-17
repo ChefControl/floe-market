@@ -94,7 +94,8 @@ describe('buying into the ring', () => {
     expect(fight.F.lines.fish.n).toBe(1);
     expect(fight.F.lines.mush.n).toBe(0);
     expect(fight.F.beaten).toBe(0);
-    // and a practice fight before the first boss (the cellar's tutorial teaches the gong on it)
+    // the doors shut till the first soup's out, and a practice fight before the first boss (the cellar's tutorial)
+    expect(fight.F.quiet).toBe(true);
     expect(fight.F.practice).toBe(true);
     expect(fight.nextBoss()).toBe(fight.PRACTICE);
     // the HUD: bosses beaten on the stage chip, 💪 in the season's place, and the wallet in chips

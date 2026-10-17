@@ -241,7 +241,8 @@ let barSaid = '';
  *  fans, purple for theirs: his goal marked on it while his crowd's turning, and in the fight the knot, pulled one way
  *  or the other. */
 function renderBout() {
-  const R = F.rush, show = level.down && stage.n === 3 && !coinUp() && (!!R || watch > 0.5);
+  // (a local's from the watch spot only once the doors are open: before, there's no fight to show)
+  const R = F.rush, show = level.down && stage.n === 3 && !coinUp() && (!!R || (watch > 0.5 && !F.quiet));
   if (show === rushEl.hidden) { rushEl.hidden = !show; rushEl.classList.toggle('in', show); }
   if (!show) { barSaid = ''; return; }
   const B = F.bout, boss = R ? bossOf(R.boss) : null, name = boss ? boss.name : 'Local';
