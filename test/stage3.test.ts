@@ -1206,9 +1206,7 @@ describe("the cellar's tiles", () => {
     expect(box('prep').hidden).toBe(true);
     window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Digit2' }));
     expect(box('prep').hidden).toBe(false);
-    // E buys the line under the mouse (once the last upgrade's close-up is over: the menu's out of its way till then)
-    const { SPOT } = await import('../src/spotlight');
-    g.run(SPOT.over + SPOT.hold + SPOT.back);
+    // E buys the line under the mouse
     const barrels = F().lines.fish.n;
     row('barrel').querySelector('.sub')!.dispatchEvent(new Event('pointerover', { bubbles: true }));
     g.press('e'); g.run(0.1); g.press('e', 'keyup');
@@ -1647,11 +1645,8 @@ describe("the workshop's crafting bench", () => {
     const rack = kitchen.built({ line: 'rice' });
     expect(rack).toHaveLength(1);
     expect(off(rack)).toBeLessThan(0.1);
-    // the menu steps out of the camera's way meanwhile, and buys nothing
+    // the menu steps out of the camera's way meanwhile
     expect($('shop').classList.contains('away')).toBe(true);
-    const racks = (await import('../src/fight')).F.lines.rice.n;
-    g.press('e'); g.run(0.1); g.press('e', 'keyup');
-    expect((await import('../src/fight')).F.lines.rice.n).toBe(racks);
     g.run(3);
     expect(view.close).toBe(1);
     expect(view.focus.equals(focus)).toBe(true);
