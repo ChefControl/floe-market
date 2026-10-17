@@ -496,6 +496,9 @@ function cutStep(s: Set, got: number[]): Step {
   const rowX = () => BOARD.x + ROW_FROM - CUT_V * t;
   const lineX = (j: number) => rowX() + LINES[j].x;
   const toBasket = (i: number) => { if (!off[i]) { off[i] = true; hop(s.pieces[i], slot(i)); } };
+  /** Where the cut's words go up: left of the knife, over what's been cut and going away, so they never cover the next
+   *  line coming in from the right. */
+  const SAY = V(knifeX - 0.24, BOARD.y + 0.2, BOARD.z - 0.04);
   function tap() {
     if (chop > 0.4) return;
     chop = 1;
@@ -504,10 +507,10 @@ function cutStep(s: Set, got: number[]): Step {
     let best = open[0], err = Infinity;
     for (const o of open) { const e = Math.abs(lineX(o.j) - knifeX); if (e < err) { err = e; best = o; } }
     const at = V(knifeX, BOARD.y + 0.12, BOARD.z);
-    if (err >= RAGGED) { callout('Miss', at, 0); return; }
+    if (err >= RAGGED) { callout('Miss', SAY, 0); return; }
     const c = best.c;
     mark(best.j, err < CLEAN ? 1 : err < GOOD ? 0.6 : 0.2);
-    callout(c.score === 1 ? 'Clean!' : c.score > 0.5 ? 'Good' : 'Ragged', at, c.score, c.score === 1);
+    callout(c.score === 1 ? 'Clean!' : c.score > 0.5 ? 'Good' : 'Ragged', SAY, c.score, c.score === 1);
     chipsFx(at);
     shake.t = 0.12;
     s.guides[best.j].visible = false;
@@ -533,7 +536,7 @@ function cutStep(s: Set, got: number[]): Step {
       });
       // the knife comes down and goes back up
       s.knife.position.y = BOARD.y + 0.035 + 0.17 * (1 - Math.sin((1 - chop) * Math.PI) * (chop > 0 ? 1 : 0));
-      cuts.forEach((c, j) => { if (!c.done && lineX(j) < knifeX - RAGGED) { mark(j, 0); callout('Missed', V(knifeX, BOARD.y + 0.12, BOARD.z), 0); } });
+      cuts.forEach((c, j) => { if (!c.done && lineX(j) < knifeX - RAGGED) { mark(j, 0); callout('Missed', SAY, 0); } });
       // a line under the knife, near enough for a good cut, lights up and stands out: tap now
       s.guides.forEach((l, j) => {
         const lit = !cuts[j].done && Math.abs(lineX(j) - knifeX) < GOOD;
