@@ -1205,7 +1205,9 @@ describe("the cellar's tiles", () => {
     expect(box('prep').hidden).toBe(true);
     window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Digit2' }));
     expect(box('prep').hidden).toBe(false);
-    // E buys the line under the mouse
+    // E buys the line under the mouse (once the last upgrade's close-up is over: the menu's out of its way till then)
+    const { SPOT } = await import('../src/spotlight');
+    g.run(SPOT.over + SPOT.hold + SPOT.back);
     const barrels = F().lines.fish.n;
     row('barrel').querySelector('.sub')!.dispatchEvent(new Event('pointerover', { bubbles: true }));
     g.press('e'); g.run(0.1); g.press('e', 'keyup');

@@ -233,7 +233,7 @@ function toggleRoom(t: BenchTab) {
 }
 window.addEventListener('keydown', e => {
   const i = /^Digit([1-4])$/.exec(e.code)?.[1];
-  if (!i || e.repeat || !on?.bench || !listMode() || panel.hidden || spotOn() || (e.target as HTMLElement).closest?.('input, textarea')) return;
+  if (!i || e.repeat || !on?.bench || !listMode() || panel.hidden || (e.target as HTMLElement).closest?.('input, textarea')) return;
   toggleRoom(TABS[+i - 1].id);
 });
 /** The card picked, to show what it does and buy it: by default the first there are the chips for. */
