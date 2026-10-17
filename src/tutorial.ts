@@ -20,7 +20,7 @@ import { buyButtonShown, touchBuy } from './buy';
 import { BAR_PAD, BENCH_PAD, BIN_PADS, COUNTER_PAD, GONG_PAD, machinePad, POT_PAD, type Pad } from './cellarPlan';
 import { C1 } from './counters';
 import { modCost, MODS, mods } from './economy';
-import { F, forecast, growOpen, nextBoss, sold, toBeat } from './fight';
+import { doneCount, F, forecast, growOpen, lineRoom, mach, nextBoss, PER_BATCH, sold, toBeat } from './fight';
 import { filletsInProgress } from './fishing';
 import { detail, quietly } from './kit';
 import { CELLAR_Y, level, stage } from './layout';
@@ -97,13 +97,64 @@ let cash0 = 0;
 
 // ---------- stage 3: the cellar ----------
 const down = (p: Pad, r = p.r): Spot => ({ x: p.x, y: CELLAR_Y, z: p.z, r });
-const holding = (...kinds: string[]) => kinds.some(k => player.back.count(k) > 0);
+/** How many of a kind the player has in their arms, counting what's still flying into them. */
+const carried = (kind: string) => player.back.all().filter(m => m.userData.kind === kind).length;
+const holding = (...kinds: string[]) => kinds.some(k => carried(k) > 0);
 /** Something bought down here: a level at the shop counter, a machine, a hire, a bigger venue. */
 const boughtBelow = () => MODS.some(m => m.stage === 3 && mods[m.id] > 0) || F.lines.rice.n > 1 || F.lines.fish.n > 1
   || Object.values(F.hires).some(Boolean) || F.tier > 0;
 /** A cellar that's sold soup: it's beaten a boss, or has chips coming in, bowls about, or a crew working it. */
 const served = () => F.beaten > 0 || F.earned.length > 0 || F.pot.length + F.counter.length + F.stall.length > 0
   || F.lines.rice.n > 1 || F.lines.fish.n > 1 || Object.values(F.hires).some(Boolean);
+/** The prep hall's two lines, and what each one's raw and ready in the player's arms. */
+const PREP = ['rice', 'fish'] as const;
+type PrepLine = typeof PREP[number];
+const RAW = { rice: 'rice', fish: 'fish' }, READIED = { rice: 'rrice', fish: 'cfish' };
+const LINE = {
+  rice: { put: 'Rice dries on the rack', wait: 'Drying', take: 'Take the dried rice' },
+  fish: { put: 'Fish goes in salt', wait: 'Salting', take: 'Take the salted fish' },
+};
+/** How many of a line's are ready, in the player's arms and on the pot's ledge. */
+const readyOf = (k: PrepLine) => carried(READIED[k]) + F.pantry[k];
+/** A line's machines: how many are in them still going and ready, and seconds until the next is ready. */
+function inLine(k: PrepLine) {
+  let going = 0, ready = 0, next = Infinity;
+  const M = mach(k);
+  for (const m of F.lines[k].m) {
+    const d = doneCount(k, m);
+    ready += d; going += m.items.length - d;
+    for (const p of m.items) if (p < 1) next = Math.min(next, (1 - p) * M.time);
+  }
+  return { going, ready, next };
+}
+/**
+ * Where the prep hall's lesson points, and what it says, until there's a batch's worth of rice and fish ready: raw
+ * ones in the player's arms into their machines (and how long they take), then a line that's short to its bin, then the
+ * ready ones out of the machines, and while they're still going, how long until they're ready.
+ */
+function prepping(): { at: Spot; say: [string, string?] } | null {
+  const short = PREP.filter(k => readyOf(k) < PER_BATCH);
+  if (!short.length) return null;
+  const machine = (k: PrepLine) => down(machinePad(k, 0, F.lines[k].n));
+  for (const k of PREP) {
+    if (carried(RAW[k]) && lineRoom(k) > 0) return { at: machine(k), say: [LINE[k].put, `Ready in ${mach(k).time} s`] };
+  }
+  for (const k of short) {
+    const l = inLine(k);
+    if (readyOf(k) + l.going + l.ready + carried(RAW[k]) < PER_BATCH) {
+      const has = (o: PrepLine) => readyOf(o) + inLine(o).going + inLine(o).ready + carried(RAW[o]) > 0;
+      const say: [string, string?] = has(k) ? [`Grab more ${k}`, `The pot takes ${PER_BATCH}`]
+        : has(PREP.find(o => o !== k)!) ? [`Now grab ${k} too`, 'The pot needs both'] : [`Grab ${k} here`];
+      return { at: down(BIN_PADS[k]), say };
+    }
+  }
+  for (const k of short) if (inLine(k).ready) return { at: machine(k), say: [LINE[k].take] };
+  for (const k of short) {
+    const l = inLine(k);
+    if (l.going) return { at: machine(k), say: [`${LINE[k].wait}… ${Math.max(1, Math.ceil(l.next))} s`, 'Then take them out'] };
+  }
+  return null;
+}
 /** The cheapest level at the shop counter. */
 const cheapestLevel = () => MODS.filter(m => m.stage === 3 && modOffered(m.id))
   .map(m => ({ m, c: modCost(m.id) ?? Infinity })).sort((a, b) => a.c - b.c)[0];
@@ -176,11 +227,9 @@ const STEPS: Step[] = [
     done: () => holding('rice', 'fish'), known: served,
   },
   {
-    // the line for what they're carrying: rice to the racks, fish to the barrels
-    id: 'prep', stage: 3, after: 'bins',
-    at: () => { const k = holding('rice') || !holding('fish') ? 'rice' : 'fish'; return down(machinePad(k, 0, F.lines[k].n)); },
-    say: () => (holding('rice') || !holding('fish') ? ['Rice dries on the rack'] : ['Fish goes in salt']),
-    done: () => holding('rrice', 'cfish') || F.pantry.rice + F.pantry.fish > 0, known: served,
+    // both lines, until there's a batch's worth of each ready: the pot takes rice and fish
+    id: 'prep', stage: 3, after: 'bins', stay: true, at: () => prepping()?.at ?? null, say: () => prepping()?.say ?? [''],
+    done: () => PREP.every(k => readyOf(k) >= PER_BATCH) || F.cooked.length > 0, known: served,
   },
   {
     id: 'pot', stage: 3, after: 'prep', stay: true, at: () => down(POT_PAD),

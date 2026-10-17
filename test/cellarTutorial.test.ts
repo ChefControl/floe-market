@@ -31,12 +31,14 @@ async function cellar(save: SaveFixture = {}) {
   const now = () => tut.lesson.now?.id ?? null;
   const said = () => $('coach').querySelector('b')!.textContent + ' / ' + $('coach').querySelector('small')!.textContent;
   const goal = () => ($('goal').hidden ? null : $('goal').textContent);
-  return { g, tut, plan, fight, stage, CY, at, F, draw, now, said, goal };
+  /** How many of a kind are in the player's arms, with what's still flying into them. */
+  const carrying = (kind: string) => g.player.back.all().filter(m => m.userData.kind === kind).length;
+  return { g, tut, plan, fight, stage, CY, at, F, draw, now, said, goal, carrying };
 }
 
 describe("the cellar's tutorial", () => {
   it('leads a new player from the bins to the stall, then saves up in chips for a level', async () => {
-    const { g, tut, plan, fight, CY, at, F, draw, now, said, goal } = await cellar({ money: 0 });
+    const { g, tut, plan, fight, CY, at, F, draw, now, said, goal, carrying } = await cellar({ money: 0 });
     at({ x: plan.BIN_PADS.rice.x - 3, z: plan.BIN_PADS.rice.z });
     g.run(0.1);
     // nothing from stage 1 again: the dumbwaiter first, and the arrow's down on the cellar's floor
@@ -47,21 +49,48 @@ describe("the cellar's tutorial", () => {
     expect(tut.guide.position).toMatchObject({ x: plan.BIN_PADS.rice.x, y: CY, z: plan.BIN_PADS.rice.z });
     expect(said()).toBe('Grab rice or fish here / Sent down from upstairs');
 
-    // rice in their arms: to the racks
+    // rice in their arms: to the racks, and how long it takes
     at(plan.BIN_PADS.rice);
     g.runUntil(() => now() === 'prep');
     draw();
-    const rack = plan.machinePad('rice', 0, F().lines.rice.n);
+    const rack = plan.machinePad('rice', 0, F().lines.rice.n), barrel = plan.machinePad('fish', 0, F().lines.fish.n);
     expect(tut.guide.position.x).toBe(rack.x);
-    expect(said()).toBe('Rice dries on the rack / ');
+    expect(said()).toBe('Rice dries on the rack / Ready in 8 s');
+    g.run(1); // (an armful: as much as the rack has room for)
     at(rack);
-    g.runUntil(() => now() !== 'prep', 20); // dried, and back in their arms
+    g.runUntil(() => carrying('rice') === 0);
+    g.run(0.1);
+    draw();
+    // the pot takes fish too: not to the pot yet, but for the fish
+    expect(now()).toBe('prep');
+    expect(tut.guide.position).toMatchObject({ x: plan.BIN_PADS.fish.x, z: plan.BIN_PADS.fish.z });
+    expect(said()).toBe('Now grab fish too / The pot needs both');
+    at(plan.BIN_PADS.fish);
+    g.runUntil(() => carrying('fish') > 0);
+    g.run(1);
+    draw();
+    expect(tut.guide.position.x).toBe(barrel.x);
+    expect(said()).toBe('Fish goes in salt / Ready in 8 s');
+    at(barrel);
+    g.runUntil(() => carrying('fish') === 0);
+    g.run(0.1);
+    draw();
+    // while it's going, how long until it's ready (the rice first, as it went in first)
+    expect(tut.guide.position.x).toBe(rack.x);
+    expect(said()).toMatch(/^Drying… [1-8] s \/ Then take them out$/);
+    at(rack);
+    g.runUntil(() => carrying('rrice') >= fight.PER_BATCH, 10);
+    g.run(0.1);
+    draw();
+    expect(tut.guide.position.x).toBe(barrel.x);
+    expect(said()).toMatch(/^(Salting… [1-8] s \/ Then take them out|Take the salted fish \/ )$/);
+    at(barrel);
+    g.runUntil(() => now() !== 'prep', 10); // a batch's worth of both in their arms
     expect(tut.learntLessons()).toContain('prep');
 
     // the pot: the bubble stays while they stand there, as it only cooks while they do
     g.run(0.1);
     expect(now()).toBe('pot');
-    F().pantry.fish = fight.PER_BATCH; // (the fish salted meanwhile)
     at(plan.POT_PAD);
     g.run(0.1);
     draw();
@@ -107,6 +136,19 @@ describe("the cellar's tutorial", () => {
     expect(tut.learntLessons()).toContain('bench');
     // (the gong's next, once it's a win: until then, nothing pointing at it)
     expect(now()).not.toBe('gong');
+  });
+
+  it('sends them back for more when a line has too few for a batch, never to a pot that would wait', async () => {
+    const { g, tut, plan, fight, F, at, draw, now, said } = await cellar({ learnt: [...STAGE1, 'bins'] });
+    // two dried rice in hand and a full batch of salted fish on the ledge
+    F().pantry.fish = fight.PER_BATCH;
+    F().pantry.rice = 2;
+    at({ x: plan.BIN_PADS.rice.x - 3, z: plan.BIN_PADS.rice.z });
+    g.run(0.1);
+    draw();
+    expect(now()).toBe('prep');
+    expect(tut.guide.position.x).toBe(plan.BIN_PADS.rice.x);
+    expect(said()).toBe(`Grab more rice / The pot takes ${fight.PER_BATCH}`);
   });
 
   it('points at the gong only once the forecast says the fight is won, and winning it completes the tutorial', async () => {
