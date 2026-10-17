@@ -1353,18 +1353,32 @@ describe('the swarm and the watch spot', () => {
     // nothing's set out on it, and no fan steps up to buy at it
     for (const h of plan.BAR_PLACES) expect(h.x > BAR.x0 + BAR.d || h.z < FLAP.z0).toBe(true);
     for (const s of plan.BAR_SPOTS) expect(s.z).toBeLessThan(FLAP.z0);
-    // a step away from it, it stays shut
-    p.set(BAR.x0 - 1.2, cellar.CY, z);
+    // a couple of steps away from it, it stays shut
+    p.set(BAR.x0 - cellar.FLAP_REACH.out - 0.3, cellar.CY, z);
     g.run(1);
     expect(cellar.flapK()).toBe(0);
-    // walked up to from the arena, it holds the player at the counter till it's open, then lets them into the square
+    // but it opens for a player passing well out from it in the arena, so it's found
+    p.set(BAR.x0 - cellar.FLAP_REACH.out + 0.2, cellar.CY, FLAP.z0 - 0.5);
+    g.run(0.5);
+    expect(cellar.flapOpen()).toBe(true);
+    p.set(BAR.x0 - 3, cellar.CY, z);
+    g.run(1);
+    expect(cellar.flapK()).toBe(0);
+    // and not for one serving inside the square, at the soup bar's pad
+    p.set(plan.BAR_PAD.x, cellar.CY, plan.BAR_PAD.z + plan.BAR_PAD.r * 0.9);
+    g.run(1);
+    expect(cellar.flapK()).toBe(0);
+    // walked up to from the arena, it's open by the time the player reaches the counter (it holds them there till it
+    // is), and lets them into the square
+    p.set(BAR.x0 - 3, cellar.CY, z);
+    g.run(1);
     let held = 0;
-    for (let i = 0; i < 90 && !plan.inSquare(p); i++) {
+    for (let i = 0; i < 120 && !plan.inSquare(p); i++) {
       p.x += 0.05;
       g.run(1 / 60);
-      if (!cellar.flapOpen()) { expect(p.x).toBeLessThanOrEqual(edge + 1e-6); held++; }
+      if (!cellar.flapOpen()) { expect(p.x).toBeLessThanOrEqual(edge + 1e-6); if (p.x >= edge - 1e-6) held++; }
     }
-    expect(held).toBeGreaterThan(0);
+    expect(held).toBe(0);
     expect(plan.inSquare(p)).toBe(true);
     // and back out the same way
     for (let i = 0; i < 90 && p.x > BAR.x0 - 0.5; i++) { p.x -= 0.05; g.run(1 / 60); }
@@ -1630,9 +1644,17 @@ describe("the workshop's crafting bench", () => {
     const rack = kitchen.built({ line: 'rice' });
     expect(rack).toHaveLength(1);
     expect(off(rack)).toBeLessThan(0.1);
+    // the menu steps out of the camera's way meanwhile, and buys nothing
+    expect($('shop').classList.contains('away')).toBe(true);
+    const racks = (await import('../src/fight')).F.lines.rice.n;
+    g.press('e'); g.run(0.1); g.press('e', 'keyup');
+    expect((await import('../src/fight')).F.lines.rice.n).toBe(racks);
     g.run(3);
     expect(view.close).toBe(1);
     expect(view.focus.equals(focus)).toBe(true);
+    // and comes back once it's over, the player still at the counter
+    expect($('shop').classList.contains('away')).toBe(false);
+    expect($('shop').hidden).toBe(false);
     // a hire: on him, from where he starts by the racks, followed (a step behind) as he sets off to work
     buy('washer');
     g.run(0.8);
