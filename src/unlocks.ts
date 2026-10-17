@@ -148,7 +148,7 @@ const UNLOCKS: Unlock[] = [
   ...ring('cook', 7.6, 5.9, '👨‍🍳', HIRES.cook.name, `Cooks while you're away: ${COOK_BATCH} bowls, not ${BATCH}`, HIRES.cook.beat, HIRES.cook.cost),
   ...[1, 2, 3].flatMap(i => ring(`tier${i}` as UnlockId, 1.6, 1.9, ['', '🏮', '🥁', '⛩️'][i], TIERS[i].name,
     `The venue grows to ${TIERS[i].seats} seats${i === 2 ? ', with taiko drummers' : ''}`, [0, 1, 3, 4][i], [0, 200, 900, 2500][i], undefined, i > 1 ? `tier${i - 1}` as UnlockId : undefined)),
-  { id: 'buyout', cost: BUYOUT * CHIP, ...below(7.55, -5.25), icon: '🐡', name: 'Buy back all his chips', desc: "The ring is yours: Mr. Fugu's 30% ends, the restaurant's till comes back, and stage 4 opens", stage: 3, gold: true, beat: BOSSES.length },
+  { id: 'buyout', cost: BUYOUT * CHIP, ...below(7.55, -5.25), icon: '🐡', name: 'Buy back all his chips', desc: "The ring is yours: Mr. Fugu's 30% ends, the till comes back", stage: 3, gold: true, beat: BOSSES.length },
   { id: 'korki', cost: 10, x: KORKI.x, z: KORKI.z, icon: '🛴', name: "Korki's golden statue", desc: 'In memory of a good scooter', stage: 1, always: true, everywhere: true },
   // the casino boat's other games, on its deck: fun extras, for sale from when the boat comes in
   { id: 'slots', cost: 250, ...GAMES.slots, icon: '🎰', name: 'Slot machine', desc: 'Pull the lever for three of a kind', stage: 1, always: true, everywhere: true, needs: 'roulette' },
