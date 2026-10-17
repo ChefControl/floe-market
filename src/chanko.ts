@@ -312,8 +312,8 @@ let stirring = false;
 interface Set {
   g: Group; knife: Group; row: Group; pieces: Object3D[]; guides: Group[];
   target: Group; shakers: Group[]; ladle: Group; bubbles: Mesh[]; mush: Object3D; rice: Object3D; broth: Mesh; fat: Mesh[];
-  /** What's being thrown, held together. */
-  hand: Group;
+  /** What's being thrown, held together; and the dotted arc it'll fly along, while it's aimed. */
+  hand: Group; dots: Mesh[];
 }
 let set: Set | null = null;
 /** The prep board's top, along its length (from the knife: it runs on well past both sides of the close shot), and
@@ -327,6 +327,23 @@ const slot = (i: number) => {
 };
 /** Where the mushroom and the rice wait on the board till it's their turn, right of the knife. */
 const MUSH_AT = V(BOARD.x + 0.8, BOARD.y + 0.07, BOARD.z - 0.05), RICE_AT = V(BOARD.x + 1.05, BOARD.y + 0.07, BOARD.z + 0.03);
+/** How many dots the aimed throw's arc is drawn with, and how high a throw flies (metres over the straight line). */
+const AIM_DOTS = 22, ARC = 0.55;
+/** Where along a throw from `a` to `b` it is `k` of the way (0 to 1): up in an arc between them. */
+const arcAt = (a: Vector3, b: Vector3, k: number, out = V(0, 0, 0)) => { out.lerpVectors(a, b, k); out.y += Math.sin(k * Math.PI) * ARC; return out; };
+/** Draws the dotted arc a throw from `a` would fly to `b`, the dots marching along it (`t`: seconds), in its colour
+ *  for landing in the pot or not; none for `b` null. */
+function aimArc(a: Vector3 | null, b: Vector3 | null, t = 0, inPot = true) {
+  set!.dots.forEach((d, j) => {
+    d.visible = !!a && !!b;
+    if (!a || !b) return;
+    const k = (j + (t * 1.6) % 1) / AIM_DOTS;
+    arcAt(a, b, k, d.position);
+    d.material = inPot ? d.userData.in : d.userData.out;
+    // (smaller at the hand, bigger coming down onto the stew)
+    d.scale.setScalar(0.015 + 0.01 * k);
+  });
+}
 const hops: { o: Object3D; a: Vector3; b: Vector3; t: number; up: number; dur: number; then?: () => void }[] = [];
 /** `o` hops off to `to` (in the world) in an arc `up` high, over `dur` seconds (a third of one), after `wait`; `then`
  *  when it's there. */
@@ -417,7 +434,7 @@ function build(): Set {
   for (let k = 0; k < 6; k++) add(zaru, mesh(new TorusGeometry(0.205 + k * 0.009, 0.003, 3, 28), 0xA9874F, 0, 0.012 + k * 0.01, 0)).rotation.x = Math.PI / 2;
   // where a throw's going to land, while it's aimed: a shadow on the stew
   const target = add(g, new Group());
-  add(target, mesh(new CylinderGeometry(0.11, 0.11, 0.004, 20), new MeshBasicMaterial({ color: 0x2A1810, transparent: true, opacity: 0.35, depthWrite: false })));
+  add(target, mesh(new CylinderGeometry(0.11, 0.11, 0.004, 20), new MeshBasicMaterial({ color: 0x2A1810, transparent: true, opacity: 0.45, depthWrite: false })));
   // the seasonings: a salt shaker, a bottle of soy, a tub of miso with its paddle
   const salt = new Group();
   add(salt, mesh(new CylinderGeometry(0.055, 0.06, 0.17, 12), 0xF4F1EA, 0, 0, 0, true));
@@ -452,8 +469,16 @@ function build(): Set {
   const mush = add(g, fit(newMushroom(), 0.2, 0.17, 0.2)), rice = add(g, driedRice());
   for (const o of [mush, rice]) { o.visible = false; o.userData.sc = o.scale.clone(); o.userData.ry = o.rotation.y; }
   const hand = add(g, new Group());
+  // (the arc's dots: cream while it'd land in the pot, red while it'd miss)
+  const dotIn = new MeshBasicMaterial({ color: 0xFFF8E6, transparent: true, opacity: 0.95, depthWrite: false });
+  const dots = Array.from({ length: AIM_DOTS }, () => {
+    const d = add(g, new Mesh(G.sphere, dotIn)); d.visible = false; d.renderOrder = 3;
+    d.userData.out = new MeshBasicMaterial({ color: 0xE0533F, transparent: true, opacity: 0.95, depthWrite: false });
+    d.userData.in = dotIn;
+    return d;
+  });
   g.visible = false;
-  return { g, knife, row, pieces, guides, target, shakers, ladle, bubbles, mush, rice, broth, fat, hand };
+  return { g, knife, row, pieces, guides, target, shakers, ladle, bubbles, mush, rice, broth, fat, hand, dots };
 }
 
 // ---------- the steps ----------
@@ -578,6 +603,8 @@ function throwStep(s: Set, cut: number[], got: number[]): Step {
   /** What's left in the basket once every throw's made: the rest of each thing cut. */
   let rest: Object3D[] = [];
   let drag: { x: number; y: number } | null = null, fly: { a: Vector3; b: Vector3; t: number } | null = null;
+  /** Where it'll land, while it's aimed (anywhere on the stew's level, in the pot or not). */
+  let aimAt: Vector3 | null = null;
   /** Where each piece is held to be thrown: on the board, right of the knife. */
   const REST = V(BOARD.x + 0.32, BOARD.y + 0.031, BOARD.z + 0.04);
   /** What was cut off each thing, one throw each: the piece off its end (up to its first line that was cut), or, no
@@ -656,8 +683,8 @@ function throwStep(s: Set, cut: number[], got: number[]): Step {
     st = 'wait'; wait = 0.3;
   }
   const this_: Step = {
-    name: 'Throw', kanji: '投', cap: 'Drag up, let go into the pot', shot: 'throw', stars: 0, done: false,
-    start() { s.target.visible = false; lay(i); next(); },
+    name: 'Throw', kanji: '投', cap: 'Drag up to aim, let go', shot: 'throw', stars: 0, done: false,
+    start() { s.target.visible = false; aimArc(null, null); lay(i); next(); },
     settle() { lay(Infinity); },
     update(dt) {
       t += dt;
@@ -666,11 +693,13 @@ function throwStep(s: Set, cut: number[], got: number[]): Step {
       else if (st === 'fly' && fly) {
         fly.t = Math.min(1, fly.t + dt / 0.55);
         const k = fly.t;
-        s.hand.position.lerpVectors(fly.a, fly.b, k); s.hand.position.y += Math.sin(k * Math.PI) * 0.55;
+        arcAt(fly.a, fly.b, k, s.hand.position);
         s.hand.rotation.x += dt * 9; s.hand.rotation.z += dt * 5;
         if (k >= 1) land();
       } else if (st === 'wait' && (wait -= dt) <= 0) { i++; next(); }
       else if (st === 'ready' && !drag) s.hand.position.y = REST.y + Math.abs(Math.sin(t * 5)) * 0.03;
+      // while it's aimed, the dotted arc it'll fly along, from where it's held to where it'll land
+      aimArc(drag && aimAt ? s.hand.position : null, drag ? aimAt : null, t, !!aimAt && Math.hypot(aimAt.x - POT.x, aimAt.z - POT.z) < STEW_R);
     },
     down(x, y) { if (st === 'ready') drag = { x, y }; },
     move(x, y) {
@@ -681,11 +710,12 @@ function throwStep(s: Set, cut: number[], got: number[]): Step {
       const b = y < drag.y - 14 ? onStew(drag.x + (x - drag.x) * 2.7, drag.y + (y - drag.y) * 2.7) : null;
       s.target.visible = !!b && Math.hypot(b.x - POT.x, b.z - POT.z) < STEW_R;
       if (b) s.target.position.set(b.x, STEW_Y + stewH(b.x, b.z) + 0.012, b.z);
+      aimAt = b;
     },
     up(x, y) {
       if (!drag || st !== 'ready') { drag = null; return; }
       const dx = x - drag.x, dy = y - drag.y, from = drag;
-      drag = null; s.target.visible = false;
+      drag = null; s.target.visible = false; aimAt = null; aimArc(null, null);
       // where the drag points, carried on 2.7 times as far
       if (dy > -14) { s.hand.position.copy(REST); callout('Drag it up', REST.clone().setY(REST.y + 0.25), 0.5); return; }
       const b = onStew(from.x + dx * 2.7, from.y + dy * 2.7);
@@ -894,7 +924,7 @@ export function startShow() {
   set ??= build();
   const s = set;
   s.g.visible = true;
-  [s.knife, s.target, s.ladle, ...s.shakers].forEach(o => { o.visible = false; });
+  [s.knife, s.target, s.ladle, ...s.shakers, ...s.dots].forEach(o => { o.visible = false; });
   // the row back on the board, whole, and the stew plain dashi with nothing in it (or as it was left)
   s.row.visible = true;
   s.pieces.forEach((p, i) => { s.row.add(p); p.visible = true; p.position.set(PIECES[i].x, p.userData.y, 0); p.rotation.set(0, 0, 0); });
@@ -1095,6 +1125,8 @@ $('showBack').addEventListener('click', stopShow);
 /** For tests: where the show is. */
 export const showState = () => (S ? {
   phase: S.phase, step: S.steps[S.i]?.name, stars: S.steps.map(s => s.stars), run: structuredClone(S.run), hidden: cleared.length,
+  /** The aimed throw's dotted arc: how many dots show, and how many of them are red (it'd miss the pot). */
+  aim: { dots: set!.dots.filter(d => d.visible).length, red: set!.dots.filter(d => d.visible && d.material !== d.userData.in).length },
   /** The stew: its colour, and how far below its top each thing in it is (metres; less than 0, under). */
   stew: { colour: B.now.getHex(), was: B.was.getHex(), in: bits.map(b => b.o.position.y - STEW_Y), rise: B.rise },
 } : null);

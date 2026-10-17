@@ -174,6 +174,28 @@ describe('the cooking show at the pot', () => {
     expect(show.showState()!.stew.in).toHaveLength(5 + 1 + 4);
   }, 60_000);
 
+  it('aiming a throw draws a dotted arc to where it\'ll land: cream into the pot, red off it, gone once it\'s let go', async () => {
+    const { show, run, ptr, onScreen, plan, cellar, open, cut, until } = await atPot();
+    open(); cut();
+    until('Throw');
+    run(0.45);
+    const P = plan.POT, CY = cellar.CY, from = onScreen(P.x, CY + 0.99, P.z + 1.38), mid = onScreen(P.x, CY + 1.37, P.z);
+    ptr('pointerdown', from.x, from.y);
+    expect(show.showState()!.aim.dots).toBe(0);
+    // aimed at the pot's middle
+    ptr('pointermove', from.x + (mid.x - from.x) / 2.7, from.y + (mid.y - from.y) / 2.7);
+    run(1 / 60);
+    expect(show.showState()!.aim).toEqual({ dots: 22, red: 0 });
+    // aimed well past the pot
+    const far = onScreen(P.x + 2.5, CY + 1.37, P.z - 1.5);
+    ptr('pointermove', from.x + (far.x - from.x) / 2.7, from.y + (far.y - from.y) / 2.7);
+    run(1 / 60);
+    expect(show.showState()!.aim).toEqual({ dots: 22, red: 22 });
+    ptr('pointerup', from.x + (far.x - from.x) / 2.7, from.y + (far.y - from.y) / 2.7);
+    run(1 / 60);
+    expect(show.showState()!.aim.dots).toBe(0);
+  }, 60_000);
+
   it('what\'s thrown in sinks into the stew, and the stir brings it back up', async () => {
     const { show, run, open, cut, throwOne, throwAll, season, stir, until } = await atPot();
     open(); cut();
