@@ -1,17 +1,20 @@
 // Cooking at the pot (stage 3): standing at the pot, the player presses Cook; the game holds still (game.ts) and the
 // camera comes in close on the real pot, framed by a hinoki cutting board (the scoreboard of the four steps along its top,
 // what to do along its foot). The four steps are played on a little set built at the hearth from the game's own things:
-// a block of tuna is cut on a prep board (tap as each gold line lights up under the knife), a piece of it, a mushroom
-// and a handful of dried rice are thrown in (drag up and let go: the nearer the pot's middle the better), salt, soy and
-// miso are poured to a line (hold, let go in the band), and the stew is stirred round in the boil band (one press, then
-// the ladle follows the mouse or finger). Each step gives up to 3 stars; the 12 buy the pot a bonus for a while
-// (fight.ts' showResult): bigger batches, and the cook's 70% of them. It takes what any batch takes, four of each off
-// the ledge, and cooks that batch into the pot at the size its stars bought (leaving it half way takes nothing). Press
-// Cook again once the bonus has run out. (In the code it's "the show".)
-import { Box3, CylinderGeometry, Group, type Mesh, MeshBasicMaterial, MeshLambertMaterial, type Object3D, Plane, Raycaster, SphereGeometry, Vector2, Vector3 } from 'three';
+// a block of tuna is cut on a prep board (tap as each gold line lights up under the knife), every piece it's cut into, a
+// mushroom and a handful of dried rice are thrown in (drag up and let go: the nearer the pot's middle the better), salt,
+// soy and miso are poured to a line (hold, let go in the band), and the stew is stirred round in the boil band (press
+// the soup to take the ladle, then it follows the mouse or finger). Each step gives up to 3 stars; the 12 buy the pot a
+// bonus for a while (fight.ts' showResult): bigger batches, and the cook's 70% of them. It's a bonus game and nothing
+// more: it takes nothing off the ledge and cooks no batch, and the pot goes on cooking from the ledge as it always does.
+// Left half way (✕), it's kept as it was (F.show, saved with the game): Cook carries it on at the same step, with the
+// stars already won, so a bad start can't be thrown away and played again. Press Cook for a new one once the bonus has
+// run out. A crew member or anything else standing between the camera and the set is put away until it's over. (In
+// the code it's "the show".)
+import { Box3, CylinderGeometry, Group, type Mesh, MeshBasicMaterial, MeshLambertMaterial, type Object3D, Plane, Ray, Raycaster, SphereGeometry, Vector2, Vector3 } from 'three';
 import { cellar, CY, lights, POT_TOP, potMesh } from './cellar';
 import { POT, POT_PAD } from './cellarPlan';
-import { BONUS_S, BONUS_TIERS, canCook, canShow, cookBowls, F, growOpen, ICON, inPot, showBatch, showResult } from './fight';
+import { batchBowls, BONUS_S, BONUS_TIERS, canShow, cookBowls, F, growOpen, showResult, type ShowRun } from './fight';
 import { chipsFx, pourFx, splashFx, steamFx, updFx } from './fx';
 import { keyHeld } from './input';
 import { newMushroom } from './items';
@@ -57,6 +60,36 @@ function aim(shot: Shot) {
   const asp = innerWidth / Math.max(1, innerHeight), back = asp < 1.25 ? 1 + (1.25 - asp) * 0.95 : 1;
   showCam.look.set(POT.x + shot.at[0], CY + shot.at[1], POT.z + shot.at[2]);
   showCam.pos.set(POT.x + shot.eye[0], CY + shot.eye[1], POT.z + shot.eye[2]).sub(showCam.look).multiplyScalar(back).add(showCam.look);
+  if (S) clearShot();
+}
+
+// ---------- keeping the shot clear ----------
+/** What's been put away for the show because it stood in the shot (a picker's straw hat over the board), and goes
+ *  back when it's over. */
+const cleared: Object3D[] = [];
+/** The biggest thing (metres, any way) that's put away: people and props, never the room. */
+const CLEAR_MAX = 2.6;
+const bb = new Box3(), sight = new Ray(), hit = V(0, 0, 0), size = V(0, 0, 0);
+/** What the shots are of: the prep board's top, the stew across the pot, and where the seasonings hang. */
+const subject = () => [
+  ...[-0.5, 0, 0.5].flatMap(x => [-0.18, 0.18].map(z => V(BOARD.x + x, BOARD.y + 0.05, BOARD.z + z))),
+  ...[[0, 0], [0.6, 0], [-0.6, 0], [0, 0.6], [0, -0.6]].map(([x, z]) => V(POT.x + x, STEW_Y + 0.05, POT.z + z)),
+  V(POT.x + 0.12, CY + 1.95, POT.z + 0.2),
+];
+/** Puts away whatever's in the cellar between the show's camera and its set (the crew, a prop): the game holds
+ *  still meanwhile, so it stays put away until gone() puts it back. */
+function clearShot() {
+  const eye = showCam.pos, marks = subject();
+  for (const o of cellar.children) {
+    if (!o.visible || o === set?.g || o === potMesh || o.name === 'potFlight' || o.name === 'potSteam') continue;
+    bb.setFromObject(o);
+    if (bb.isEmpty() || Math.max(...bb.getSize(size).toArray()) > CLEAR_MAX || marks.some(m => bb.containsPoint(m))) continue;
+    const blocks = marks.some(m => {
+      sight.set(eye, m.clone().sub(eye).normalize());
+      return !!sight.intersectBox(bb, hit) && hit.distanceTo(eye) < m.distanceTo(eye) - 0.05;
+    });
+    if (blocks) { o.visible = false; cleared.push(o); }
+  }
 }
 
 // ---------- the set ----------
@@ -101,6 +134,8 @@ function driedRice() {
 interface Set {
   g: Group; knife: Group; fillet: Group; pieces: Object3D[]; guides: Group[];
   target: Group; shakers: Group[]; ladle: Group; bubbles: Mesh[]; floats: Object3D[]; mush: Object3D; rice: Object3D;
+  /** The fillet as it's been cut, each run of pieces still joined held together, to be thrown in one at a time. */
+  chunks: Group[];
 }
 let set: Set | null = null;
 /** The set, built the first time the show's on: the prep board on its block, the knife, a fillet in four, the
@@ -164,18 +199,32 @@ function build(): Set {
   const mush = add(g, fit(newMushroom(), 0.2, 0.17, 0.2)), rice = add(g, driedRice());
   for (const o of [mush, rice]) { o.visible = false; o.userData.sc = o.scale.clone(); o.userData.ry = o.rotation.y; }
   g.visible = false;
-  return { g, knife, fillet, pieces, guides, target, shakers, ladle, bubbles, floats: [], mush, rice };
+  return { g, knife, fillet, pieces, guides, target, shakers, ladle, bubbles, floats: [], mush, rice, chunks: [] };
 }
 
 // ---------- the steps ----------
 interface Step {
   name: string; kanji: string; cap: string; shot: keyof typeof SHOTS;
   stars: number; done: boolean;
-  /** Holds and circles started while the step's name is up carry on into it. */
+  /** Holds started while the step's name is up carry on into it. */
   hold?: boolean;
   start(): void; update(dt: number): void;
   down?(x: number, y: number): void; move?(x: number, y: number): void; up?(x: number, y: number): void;
+  /** Space or E (instead of the pointer). */
+  key?(): void;
+  /** The show's left half way: what's under way is settled as it stands (a throw in the air lands, a pour stops), so
+   *  carrying on later can't play it again. */
+  leave?(): void;
 }
+/** Each step's stars, from what it's scored (ShowRun's got): the cuts' and the pours' scores added up, the throws'
+ *  averaged (however many pieces the fillet was cut into, it's three stars for all of them in the middle), and the
+ *  stir's share of its seconds in the band. */
+const STARS = [
+  (got: number[]) => Math.round(got.reduce((a, x) => a + Math.max(0, x), 0)),
+  (got: number[]) => (got.length ? Math.round(got.reduce((a, x) => a + x, 0) / got.length * 3) : 0),
+  (got: number[]) => Math.round(got.reduce((a, x) => a + x, 0)),
+  (got: number[]) => { const f = (got[1] ?? 0) / STIR_S; return f >= 0.75 ? 3 : f >= 0.5 ? 2 : f >= 0.25 ? 1 : 0; },
+];
 /** A word from the show at `at` in the world (Clean! Bullseye! Too much!): gold for a hit, red for a miss. */
 function callout(text: string, at: Vector3, score: number, big = false) {
   const el = document.createElement('div');
@@ -188,8 +237,14 @@ function callout(text: string, at: Vector3, score: number, big = false) {
 }
 const shake = { t: 0 };
 
-function cutStep(s: Set): Step {
-  const cuts = [0, 0, 0].map(() => ({ done: false, cut: false, score: 0 }));
+/** Where the fillet's pieces lie once `got`'s cuts are made: each cut opens it a little, pushing what's past it on. */
+const pieceX = (got: number[], i: number) => (i - 1.5) * 0.15 - 0.03 * got.filter((g, j) => g > 0 && j >= i).length;
+/** The cut: three lines, each cut or missed once (`got`: their scores, -1 for one still to come, kept by the run). Left
+ *  half way, what's cut stays cut and what's missed stays missed; the fillet comes back along for the lines still to
+ *  come. */
+function cutStep(s: Set, got: number[]): Step {
+  const cuts = [0, 1, 2].map(j => ({ done: got[j] >= 0, cut: got[j] > 0, score: Math.max(0, got[j]) }));
+  const mark = (j: number, score: number) => { const c = cuts[j]; c.done = true; c.cut = score > 0; c.score = score; got[j] = score; };
   let t = 0, chop = 0, end = 0;
   const knifeX = BOARD.x;
   const filletX = () => BOARD.x + lerp(CUT_FROM, CUT_TO, clamp(t / CUT_S, 0, 1));
@@ -204,8 +259,7 @@ function cutStep(s: Set): Step {
     const at = V(knifeX, BOARD.y + 0.1, BOARD.z);
     if (err >= RAGGED) { callout('Miss', at, 0); return; }
     const c = best.c;
-    c.done = c.cut = true;
-    c.score = err < CLEAN ? 1 : err < GOOD ? 0.6 : 0.2;
+    mark(best.j, err < CLEAN ? 1 : err < GOOD ? 0.6 : 0.2);
     callout(c.score === 1 ? 'Clean!' : c.score > 0.5 ? 'Good' : 'Ragged', at, c.score, c.score === 1);
     chipsFx(at);
     shake.t = 0.12;
@@ -216,7 +270,7 @@ function cutStep(s: Set): Step {
     start() {
       s.fillet.visible = s.knife.visible = true;
       s.pieces.forEach((p, i) => { p.visible = true; p.position.set((i - 1.5) * 0.15, 0.066, 0); p.rotation.set(0, 0, 0); });
-      s.guides.forEach(l => { l.visible = true; });
+      s.guides.forEach((l, j) => { l.visible = !cuts[j].done; });
       s.fillet.position.set(filletX(), BOARD.y, BOARD.z);
       s.knife.position.set(knifeX, BOARD.y + 0.2, BOARD.z);
     },
@@ -225,10 +279,10 @@ function cutStep(s: Set): Step {
       s.fillet.position.x = filletX();
       // (a cut opens the fillet there: the slice that's through the knife is pushed on away from it, and what's still to
       // cut stays put, so the next line comes up to the knife just as it was going to)
-      s.pieces.forEach((p, i) => { p.position.x = (i - 1.5) * 0.15 - 0.03 * cuts.filter((c, j) => c.cut && j >= i).length; });
+      s.pieces.forEach((p, i) => { p.position.x = pieceX(got, i); });
       // the knife comes down and goes back up
       s.knife.position.y = BOARD.y + 0.035 + 0.17 * (1 - Math.sin((1 - chop) * Math.PI) * (chop > 0 ? 1 : 0));
-      cuts.forEach((c, j) => { if (!c.done && lineX(j) < knifeX - RAGGED) { c.done = true; callout('Missed', V(knifeX, BOARD.y + 0.1, BOARD.z), 0); } });
+      cuts.forEach((c, j) => { if (!c.done && lineX(j) < knifeX - RAGGED) { mark(j, 0); callout('Missed', V(knifeX, BOARD.y + 0.1, BOARD.z), 0); } });
       // a line under the knife, near enough for a good cut, lights up and stands out: tap now
       s.guides.forEach((l, j) => {
         const lit = !cuts[j].done && Math.abs(lineX(j) - knifeX) < GOOD;
@@ -236,36 +290,81 @@ function cutStep(s: Set): Step {
         l.scale.set(lit ? 1.8 : 1, lit ? 2.5 : 1, 1);
       });
       if (cuts.every(c => c.done)) { if ((end += dt) > 0.5) this.done = true; }
-      else if (t > CUT_S + 0.3) this.done = true;
-      if (this.done) this.stars = Math.round(cuts.reduce((a, c) => a + c.score, 0));
+      else if (t > CUT_S + 0.3) { cuts.forEach((c, j) => { if (!c.done) mark(j, 0); }); this.done = true; }
+      if (this.done) this.stars = STARS[0](got);
     },
     down: tap,
   };
 }
 
-function throwStep(s: Set): Step {
-  // the second piece of fillet off the board, a mushroom, a handful of dried rice (before the grow room's open there are no
-  // mushrooms: a third piece of fillet goes in instead, so it's three throws either way)
-  const items = [s.pieces[1], growOpen() ? s.mush : s.pieces[2], s.rice];
-  const REST = V(BOARD.x, BOARD.y + 0.07, BOARD.z + 0.08);
-  let i = 0, t = 0, wait = 0, sum = 0;
+/** The fillet in the pieces `cut` cut it into (a missed line leaves its two pieces joined, thrown as one), each run held
+ *  together where it lies on the board, left of the knife. */
+function chunksOf(s: Set, cut: number[]) {
+  s.chunks.forEach(c => c.removeFromParent());
+  s.fillet.visible = true;
+  s.fillet.position.set(BOARD.x, BOARD.y, BOARD.z);
+  const runs: number[][] = [[0]];
+  for (let i = 1; i < 4; i++) { if (cut[i - 1] > 0) runs.push([i]); else runs[runs.length - 1].push(i); }
+  // (laid out from the board's left end, a hand's width apart, so it's plain how many there are)
+  let at = -0.55;
+  s.chunks = runs.map(run => {
+    const c = add(s.fillet, new Group()), len = run.length * 0.15;
+    c.position.set(at + len / 2, 0, 0); at += len + 0.05;
+    run.forEach((i, k) => { const p = s.pieces[i]; c.add(p); p.visible = true; p.position.set((k - (run.length - 1) / 2) * 0.15, 0.066, 0); p.rotation.set(0, p.userData.ry, 0); });
+    c.userData.len = len;
+    return c;
+  });
+  return s.chunks;
+}
+/** The throw: every piece the fillet was cut into, then a mushroom (once the grow room's open) and a handful of dried
+ *  rice, one after another (`got`: each one's score, kept by the run, so carrying on starts at the next one). */
+function throwStep(s: Set, cut: number[], got: number[]): Step {
+  let items: Object3D[] = [];
+  let i = got.length, t = 0, wait = 0;
   let st: 'ready' | 'fly' | 'wait' = 'ready';
   let drag: { x: number; y: number } | null = null, fly: { a: Vector3; b: Vector3; t: number } | null = null;
+  /** Where each one waits to be thrown: right of the fillet, on the board (a long piece a little further in). */
+  const rest = (o: Object3D) => V(BOARD.x + Math.min(0.3, 0.55 - (o.userData.len ?? 0.15) / 2), BOARD.y + 0.07, BOARD.z + 0.05);
   const put = (o: Object3D) => {
     // (out of the fillet's group and onto the set where it is, so it can fly)
     const w = o.getWorldPosition(V(0, 0, 0));
     s.g.add(o); o.position.copy(w); o.visible = true;
   };
+  /** Floats `o` on the stew at `at`, bobbing. */
+  const afloat = (o: Object3D, at: { x: number; z: number }) => {
+    if (o.parent !== s.g) put(o);
+    o.position.set(at.x, STEW_Y + 0.02, at.z); o.rotation.set(0, Math.random() * 6, 0);
+    s.floats.push(o);
+  };
   function next() {
-    if (i >= items.length) { this_.stars = Math.round(sum); this_.done = true; return; }
+    if (i >= items.length) { this_.stars = STARS[1](got); this_.done = true; return; }
     const o = items[i];
     put(o);
-    o.position.copy(REST);
+    o.position.copy(rest(o));
     st = 'ready';
+  }
+  /** The one in the air comes down where it was aimed: in the pot, and the nearer its middle the better. */
+  function land() {
+    if (!fly) return;
+    const o = items[i], d = Math.hypot(fly.b.x - POT.x, fly.b.z - POT.z) / STEW_R, inPot = d < 1;
+    const sc = !inPot ? 0 : d < 0.35 ? 1 : 0.6;
+    got.push(sc);
+    callout(sc === 1 ? 'Bullseye!' : sc ? 'In!' : 'Splash!', fly.b.clone().setY(STEW_Y + 0.25), sc, sc === 1);
+    if (inPot) { splashFx({ x: fly.b.x, z: fly.b.z }, STEW_Y); afloat(o, fly.b); } else o.visible = false;
+    fly = null;
+    st = 'wait'; wait = 0.45;
   }
   const this_: Step = {
     name: 'Throw', kanji: '投', cap: 'Drag up, let go into the pot', shot: 'throw', stars: 0, done: false,
-    start() { s.target.visible = false; s.knife.visible = false; s.fillet.position.x = BOARD.x - 0.25; next(); },
+    start() {
+      s.target.visible = false; s.knife.visible = false;
+      items = [...chunksOf(s, cut), ...(growOpen() ? [s.mush] : []), s.rice];
+      // (carrying on: what's in already floats on the stew, what splashed is gone)
+      items.slice(0, i).forEach((o, j) => {
+        if (got[j] > 0) { const a = Math.random() * 6, r = Math.random() * 0.4; afloat(o, { x: POT.x + Math.cos(a) * r, z: POT.z + Math.sin(a) * r }); } else o.visible = false;
+      });
+      next();
+    },
     update(dt) {
       t += dt;
       const o = items[Math.min(i, items.length - 1)];
@@ -274,21 +373,9 @@ function throwStep(s: Set): Step {
         const k = fly.t;
         o.position.lerpVectors(fly.a, fly.b, k); o.position.y += Math.sin(k * Math.PI) * 0.55;
         o.rotation.x += dt * 9; o.rotation.z += dt * 5;
-        if (k >= 1) {
-          // in the pot, and the nearer its middle the better
-          const d = Math.hypot(fly.b.x - POT.x, fly.b.z - POT.z) / STEW_R, inPot = d < 1;
-          const sc = !inPot ? 0 : d < 0.35 ? 1 : 0.6;
-          sum += sc;
-          callout(sc === 1 ? 'Bullseye!' : sc ? 'In!' : 'Splash!', fly.b.clone().setY(STEW_Y + 0.25), sc, sc === 1);
-          if (inPot) {
-            splashFx({ x: fly.b.x, z: fly.b.z }, STEW_Y);
-            o.position.set(fly.b.x, STEW_Y + 0.02, fly.b.z); o.rotation.set(0, Math.random() * 6, 0);
-            s.floats.push(o);
-          } else o.visible = false;
-          st = 'wait'; wait = 0.55;
-        }
+        if (k >= 1) land();
       } else if (st === 'wait' && (wait -= dt) <= 0) { i++; next(); }
-      else if (st === 'ready' && !drag) o.position.y = REST.y + Math.abs(Math.sin(t * 5)) * 0.03;
+      else if (st === 'ready' && !drag) o.position.y = rest(o).y + Math.abs(Math.sin(t * 5)) * 0.03;
       // what's floating bobs on the stew
       s.floats.forEach((f, j) => { f.position.y = STEW_Y + 0.02 + Math.sin(t * 2 + j) * 0.01; });
     },
@@ -296,32 +383,39 @@ function throwStep(s: Set): Step {
     move(x, y) {
       if (!drag || st !== 'ready') return;
       // (the piece follows the finger a little, up off the board, and its shadow shows where it'd land)
-      const o = items[i], dy = clamp((drag.y - y) / innerHeight, 0, 0.2);
-      o.position.set(REST.x + clamp((x - drag.x) / innerWidth, -0.15, 0.15) * 0.8, REST.y + dy * 0.6, REST.z - dy * 0.4);
+      const o = items[i], r = rest(o), dy = clamp((drag.y - y) / innerHeight, 0, 0.2);
+      o.position.set(r.x + clamp((x - drag.x) / innerWidth, -0.15, 0.15) * 0.8, r.y + dy * 0.6, r.z - dy * 0.4);
       const b = y < drag.y - 14 ? onStew(drag.x + (x - drag.x) * 2.7, drag.y + (y - drag.y) * 2.7) : null;
       s.target.visible = !!b && Math.hypot(b.x - POT.x, b.z - POT.z) < STEW_R;
       if (b) s.target.position.set(b.x, STEW_Y + 0.012, b.z);
     },
     up(x, y) {
       if (!drag || st !== 'ready') { drag = null; return; }
-      const dx = x - drag.x, dy = y - drag.y, from = drag;
+      const dx = x - drag.x, dy = y - drag.y, from = drag, r = rest(items[i]);
       drag = null; s.target.visible = false;
       // where the drag points, carried on 2.7 times as far
-      if (dy > -14) { items[i].position.copy(REST); callout('Drag it up', REST.clone().setY(REST.y + 0.2), 0.5); return; }
+      if (dy > -14) { items[i].position.copy(r); callout('Drag it up', r.setY(r.y + 0.2), 0.5); return; }
       const b = onStew(from.x + dx * 2.7, from.y + dy * 2.7);
       if (!b) return;
       fly = { a: items[i].position.clone(), b, t: 0 };
       st = 'fly';
+    },
+    leave() {
+      land();
+      if (got.length >= items.length) { this_.stars = STARS[1](got); this_.done = true; }
     },
   };
   return this_;
 }
 
 interface Season { name: string; color: number; size: number; c: number; level: number; score: number | null }
-function seasonStep(s: Set): Step {
-  const kinds: Season[] = [['Salt', 0xFFFFFF, 0.014], ['Soy', 0x3A1E14, 0.02], ['Miso', 0xB8772F, 0.03]].map(([name, color, size]) =>
-    ({ name: name as string, color: color as number, size: size as number, c: rnd(0.42, 0.78), level: 0, score: null }));
-  let i = 0, held = 0, wait = 0, tilt = 0;
+/** The seasoning: salt, soy and miso, each poured to its line once (`got`: their scores; `lines`: where the lines are,
+ *  rolled once a show, both kept by the run). */
+function seasonStep(s: Set, got: number[], lines: number[]): Step {
+  for (let j = lines.length; j < 3; j++) lines.push(rnd(0.42, 0.78));
+  const kinds: Season[] = [['Salt', 0xFFFFFF, 0.014], ['Soy', 0x3A1E14, 0.02], ['Miso', 0xB8772F, 0.03]].map(([name, color, size], j) =>
+    ({ name: name as string, color: color as number, size: size as number, c: lines[j], level: 0, score: got[j] ?? null }));
+  let i = got.length, held = 0, wait = 0, tilt = 0;
   let st: 'ready' | 'pour' | 'wait' = 'ready';
   const HANG = V(POT.x + 0.12, CY + 1.95, POT.z + 0.2);
   const show = () => { s.shakers.forEach((m, j) => { m.visible = j === i; m.position.copy(HANG); m.rotation.set(0, 0, 0); }); meter(kinds[i]); };
@@ -329,6 +423,7 @@ function seasonStep(s: Set): Step {
     if (st !== 'pour') return;
     const k = kinds[i], d = Math.abs(k.level - k.c);
     k.score = d < 0.025 ? 1 : d < 0.07 ? 0.6 : d < 0.13 ? 0.2 : 0;
+    got.push(k.score);
     callout(k.score === 1 ? 'Perfect!' : k.score > 0.5 ? 'Good' : k.score > 0 ? 'A bit off' : k.level > k.c ? 'Too much!' : 'Too little',
       V(POT.x, STEW_Y + 0.35, POT.z), k.score, k.score === 1);
     st = 'wait'; wait = 0.6;
@@ -348,40 +443,52 @@ function seasonStep(s: Set): Step {
         if (k.level >= 1) stop();
       } else if (st === 'wait' && (wait -= dt) <= 0) {
         i++; held = 0; tilt = 0;
-        if (i >= kinds.length) { this.stars = Math.round(kinds.reduce((a, q) => a + (q.score ?? 0), 0)); this.done = true; meter(null); s.shakers.forEach(x => { x.visible = false; }); }
+        if (i >= kinds.length) { this.stars = STARS[2](got); this.done = true; meter(null); s.shakers.forEach(x => { x.visible = false; }); }
         else { st = 'ready'; show(); }
       }
       if (!this.done) meter(kinds[i]);
     },
     down() { if (st === 'ready') { st = 'pour'; held = 0; } },
     up: stop,
+    leave() {
+      stop();
+      if (got.length >= kinds.length) { this.stars = STARS[2](got); this.done = true; }
+    },
   };
 }
 
-function stirStep(s: Set): Step {
-  let t = 0, acc = 0, speed = 0, last: number | null = null, ang = -Math.PI / 2, inBand = 0, on = false, swirl = 0, puff = 0;
+/** The stir: five seconds of circling in the band, from the first press on the soup (`got`: the seconds stirred and the
+ *  seconds of them in the band, kept by the run: carrying on, the ladle's taken up again and the clock goes on). */
+function stirStep(s: Set, got: number[]): Step {
+  if (got.length < 2) got.splice(0, got.length, 0, 0);
+  let acc = 0, speed = 0, last: number | null = null, ang = -Math.PI / 2, on = false, swirl = 0, puff = 0, idle = 0, spin = 0;
   const fill = potMesh.getObjectByName('potFill')!;
-  const centre = () => { const p = V(POT.x, STEW_Y, POT.z).project(camera); return { x: (p.x + 1) / 2 * innerWidth, y: (1 - p.y) / 2 * innerHeight }; };
+  const toScreen = (x: number, z: number) => { const p = V(x, STEW_Y, z).project(camera); return { x: (p.x + 1) / 2 * innerWidth, y: (1 - p.y) / 2 * innerHeight }; };
+  const centre = () => toScreen(POT.x, POT.z);
   // (the band drifts a little and slowly, and it's wide: a finger's circles are never even)
-  const band = () => 0.5 + Math.sin(t * 0.8) * 0.08;
-  return {
-    name: 'Stir', kanji: '混', cap: 'Tap once, then circle round the pot', shot: 'stir', stars: 0, done: false, hold: true,
-    start() { s.ladle.visible = true; boil(0, 0.5, ''); },
+  const band = () => 0.5 + Math.sin(got[0] * 0.8) * 0.08;
+  const this_: Step = {
+    name: 'Stir', kanji: '混', cap: 'Press the soup, then circle round', shot: 'stir', stars: 0, done: false,
+    start() { s.ladle.visible = true; boil(0, band(), ''); },
     update(dt) {
-      t += dt;
+      idle += dt;
+      // (nothing counts till the ladle's been taken up, on the soup)
+      if (on) got[0] += dt;
+      const t = got[0];
       const inst = acc / Math.max(dt, 1e-3); acc = 0;
       // (smoothed over about half a second, so an uneven circle or a frame without a move doesn't jolt the boil)
       speed += (inst - speed) * Math.min(1, dt * 2);
       speed *= Math.exp(-dt * 0.3);
       // (full boil at 1.6 turns a second: the band's middle, under one, is a pace a mouse keeps up too)
       const lv = clamp(speed / (Math.PI * 2 * 1.6), 0, 1.15), c = band(), ok = Math.abs(lv - c) < STIR_BAND;
-      if (t > STIR_GRACE && t <= STIR_GRACE + STIR_S && ok) inBand += dt;
-      boil(lv, c, t > STIR_GRACE ? (ok ? 'Nice simmer' : lv < c ? 'Faster!' : 'Boiling over!') : '');
-      // the ladle goes round with the finger, the stew turns with it, and it bubbles and steams the harder it boils
+      if (on && t > STIR_GRACE && t <= STIR_GRACE + STIR_S && ok) got[1] += dt;
+      boil(lv, c, !on ? '' : t > STIR_GRACE ? (ok ? 'Nice simmer' : lv < c ? 'Faster!' : 'Boiling over!') : '');
+      // the ladle goes round with the finger, the stew turns with it, and it bubbles and steams the harder it boils (and
+      // till it's taken up, it bobs where it lies, asking to be)
       if (last == null) ang += speed * dt;
       swirl += speed * dt * 0.35;
       fill.rotation.y = -swirl;
-      s.ladle.position.set(POT.x + Math.cos(ang) * 0.42, STEW_Y + 0.02, POT.z + Math.sin(ang) * 0.42);
+      s.ladle.position.set(POT.x + Math.cos(ang) * 0.42, STEW_Y + 0.02 + (on ? 0 : Math.abs(Math.sin(idle * 4)) * 0.05), POT.z + Math.sin(ang) * 0.42);
       s.ladle.rotation.set(Math.sin(ang) * 0.5, 0, -Math.cos(ang) * 0.5);
       s.bubbles.forEach((b, j) => {
         b.userData.t += dt * (0.6 + lv * 2.5);
@@ -392,13 +499,21 @@ function stirStep(s: Set): Step {
       });
       if ((puff -= dt) <= 0) { puff = 0.35 - lv * 0.25; steamFx(V(POT.x, STEW_Y + 0.1, POT.z), lv > 0.85 ? 3 : 1); }
       if (t >= STIR_GRACE + STIR_S) {
-        const f = inBand / STIR_S;
-        this.stars = f >= 0.75 ? 3 : f >= 0.5 ? 2 : f >= 0.25 ? 1 : 0;
-        callout(`${Math.round(f * 100)}% in the band`, V(POT.x, STEW_Y + 0.4, POT.z), this.stars / 3, this.stars === 3);
-        this.done = true; boil(null);
+        this_.stars = STARS[3](got);
+        callout(`${Math.round(got[1] / STIR_S * 100)}% in the band`, V(POT.x, STEW_Y + 0.4, POT.z), this_.stars / 3, this_.stars === 3);
+        this_.done = true; boil(null);
       }
     },
-    down(x, y) { const c = centre(); on = true; last = Math.hypot(x - c.x, y - c.y) > 4 ? Math.atan2(y - c.y, x - c.x) : null; },
+    down(x, y) {
+      // (the first press has to be on the soup: that's where the ladle is)
+      if (!on) {
+        const b = onStew(x, y);
+        if (!b || Math.hypot(b.x - POT.x, b.z - POT.z) > STEW_R) { callout('On the soup!', V(POT.x, STEW_Y + 0.3, POT.z), 0.5); return; }
+        on = true;
+      }
+      const c = centre();
+      last = Math.hypot(x - c.x, y - c.y) > 4 ? Math.atan2(y - c.y, x - c.x) : null;
+    },
     move(x, y) {
       if (!on) return;
       const c = centre(), a = Math.atan2(y - c.y, x - c.x);
@@ -414,7 +529,15 @@ function stirStep(s: Set): Step {
     },
     // (letting go doesn't stop it: the ladle goes on following the mouse; a finger lifted just leaves it there)
     up() { /* the next press picks the ladle up where it's pointed */ },
+    // (each press of the key takes the ladle a step round, on the soup half way out)
+    key() {
+      const c = centre(), e = toScreen(POT.x + STEW_R / 2, POT.z), r = Math.max(30, Math.hypot(e.x - c.x, e.y - c.y));
+      this_.down!(c.x + Math.cos(spin) * r, c.y + Math.sin(spin) * r);
+      spin += 1.4;
+      this_.move!(c.x + Math.cos(spin) * r, c.y + Math.sin(spin) * r);
+    },
   };
+  return this_;
 }
 
 // ---------- the broadcast's frame ----------
@@ -456,13 +579,17 @@ function bannerFor(st: Step) {
 // ---------- the run ----------
 const keyWas = V(0, 0, 0);
 type Phase = 'in' | 'intro' | 'banner' | 'play' | 'after' | 'result' | 'out';
-let S: { phase: Phase; t: number; i: number; steps: Step[]; downSent: boolean } | null = null;
+/** The show on screen: where it is, its steps, and the run they keep their scores in (F.show once it's begun). */
+let S: { phase: Phase; t: number; i: number; steps: Step[]; downSent: boolean; run: ShowRun } | null = null;
 /** Whether the show's on (the game holds still: game.ts), easing out included. */
 export const showing = () => !!S;
 
-/** Starts the show: the game holds still, and the camera cuts in to the pot. */
+/** A run from the start: no step played, no line cut yet. */
+const freshRun = (): ShowRun => ({ step: 0, got: [[-1, -1, -1], [], [], []], lines: [] });
+/** Starts the show, or carries on the one left half way (F.show): the game holds still, and the camera cuts in to the
+ *  pot. It takes nothing: it's played for the bonus alone. */
 export function startShow() {
-  if (S || !canShow() || !canCook()) return false;
+  if (S || !canShow()) return false;
   set ??= build();
   const s = set;
   s.g.visible = true;
@@ -470,8 +597,13 @@ export function startShow() {
   s.floats.length = 0;
   // the pieces back in the fillet, whole, and the rest off the stew
   s.pieces.forEach((p, i) => { s.fillet.add(p); p.position.set((i - 1.5) * 0.15, 0.066, 0); p.rotation.set(0, p.userData.ry, 0); p.scale.copy(p.userData.sc); });
+  s.chunks.forEach(c => c.removeFromParent()); s.chunks = [];
   for (const o of [s.mush, s.rice]) { o.visible = false; o.rotation.set(0, o.userData.ry, 0); o.scale.copy(o.userData.sc); }
-  S = { phase: 'in', t: 0, i: 0, steps: [cutStep(s), throwStep(s), seasonStep(s), stirStep(s)], downSent: false };
+  const was = F.show, run = was ?? freshRun(), g = run.got;
+  const steps = [cutStep(s, g[0]), throwStep(s, g[0], g[1]), seasonStep(s, g[2], run.lines), stirStep(s, g[3])];
+  // (carrying on: the steps already played are done, their stars as they were)
+  steps.forEach((st, j) => { if (j < run.step) { st.done = true; st.stars = STARS[j](g[j]); } });
+  S = { phase: 'in', t: 0, i: run.step, steps, downSent: false, run };
   aim(SHOTS.wide);
   // the pot full of stew for the camera, its ladle and tag put away, the player out of the shot
   const fill = potMesh.getObjectByName('potFill')!;
@@ -487,13 +619,21 @@ export function startShow() {
   document.body.classList.add('show');
   ui.root.hidden = false; ui.card.hidden = true; ui.intro.hidden = false;
   ui.cap.textContent = 'The game waits while you cook';
-  ui.intro.querySelector('.bonus')!.textContent = `${inPot().map(k => ICON[k]).join(' ')} ×4 → up to +${BONUS_TIERS[0].pct}% bowls`;
+  const sofar = steps.reduce((a, st) => a + (st.done ? st.stars : 0), 0);
+  ui.intro.querySelector('.sub')!.textContent = was
+    ? `★ ${sofar} so far · ${steps[Math.min(run.step, steps.length - 1)].name} next`
+    : '🔪 Cut · 🐟 Throw · 🧂 Season · 🥄 Stir';
+  ui.intro.querySelector('.bonus')!.textContent = `Up to +${BONUS_TIERS[0].pct}% bowls for ${BONUS_S} s`;
+  $('showGo').textContent = was ? 'Carry on' : 'Start';
   meter(null); boil(null);
   scoreboard();
   return true;
 }
 function begin() {
   if (!S) return;
+  // (it's kept from here on: leaving now carries on later from where it was left)
+  F.show = S.run;
+  if (S.i >= S.steps.length) { S.i = S.steps.length - 1; finish(); return; }
   const st = S.steps[S.i];
   S.phase = 'banner'; S.t = 0; S.downSent = false;
   aim(SHOTS[st.shot]);
@@ -504,22 +644,28 @@ function begin() {
 function finish() {
   if (!S) return;
   S.phase = 'result'; S.t = 0;
-  const total = S.steps.reduce((a, st) => a + st.stars, 0), tier = showResult(total), bowls = showBatch();
+  const total = S.steps.reduce((a, st) => a + st.stars, 0), tier = showResult(total);
   aim(SHOTS.wide);
   ui.cap.textContent = `${total} of 12 stars`;
   ui.card.hidden = false;
   ui.card.querySelector('.stars')!.textContent = `★ ${total} / 12`;
   ui.card.querySelector('.tier')!.textContent = tier.name;
   ui.card.querySelector('.bonus')!.textContent = tier.pct ? `+${tier.pct}% bowls · ${BONUS_S} s` : 'No bonus this time';
-  ui.card.querySelector('.sub')!.textContent = `🍲 ${bowls} into the pot${tier.pct && F.hires.cook ? ` · 👨‍🍳 ${cookBowls()} a batch` : ''}`;
+  ui.card.querySelector('.sub')!.textContent = tier.pct ? `🍲 ${batchBowls()} a batch${F.hires.cook ? ` · 👨‍🍳 ${cookBowls()}` : ''}` : 'Cook again any time';
   const hanko = ui.card.querySelector('.hanko')!;
   hanko.textContent = tier.pct >= 50 ? '極' : tier.pct >= 35 ? '旨' : tier.pct ? '良' : '薄';
   hanko.classList.remove('show'); void (hanko as HTMLElement).offsetWidth; hanko.classList.add('show');
   scoreboard();
 }
-/** Ends the show (a step left half done gets nothing): the camera eases back out to the player. */
+/** Ends the show: the camera eases back out to the player. Left half way, it's kept (F.show) as it stands, what's in
+ *  the air settled, to carry on from at the same step. */
 export function stopShow() {
   if (!S || S.phase === 'out') return;
+  if (S.phase === 'play') {
+    const st = S.steps[S.i];
+    st.leave?.();
+    if (st.done) S.run.step = S.i + 1;
+  }
   S.phase = 'out'; S.t = 0;
   ui.root.hidden = true;
   document.body.classList.remove('show');
@@ -533,6 +679,8 @@ function gone() {
   cellar.children.forEach(o => { if (o.name === 'potFlight') o.visible = true; });
   potMesh.getObjectByName('potFill')!.rotation.y = 0;
   player.g.visible = true;
+  // (and what was put away for the camera)
+  cleared.splice(0).forEach(o => { o.visible = true; });
   lights[3].position.copy(keyWas);
   showCam.k = 0;
   S = null;
@@ -553,7 +701,7 @@ export function updShow(dt: number) {
     if (pressed && st.hold) { S.downSent = true; st.down?.(innerWidth / 2, innerHeight / 2); }
   } else if (S.phase === 'play') {
     st.update(dt);
-    if (st.done) { S.phase = 'after'; S.t = 0; scoreboard(); }
+    if (st.done) { S.phase = 'after'; S.t = 0; S.run.step = S.i + 1; scoreboard(); }
   } else if (S.phase === 'after' && S.t > 0.9) {
     S.i++;
     if (S.i >= S.steps.length) { S.i = S.steps.length - 1; finish(); } else begin();
@@ -568,12 +716,12 @@ const atPot = () => stage.n === 3 && level.down && Math.hypot(player.g.position.
 const mmss = (s: number) => `${Math.floor(s / 60)}:${String(Math.ceil(s) % 60).padStart(2, '0')}`;
 /** Shows the Cook button while the player's at the pot (pressing E there works too), and the bonus while it lasts. */
 export function updCookButton() {
-  const here = atPot() && !S, ready = canShow() && canCook();
+  const here = atPot() && !S, ready = canShow();
   ui.btn.hidden = !here;
   if (here) {
     ui.btn.disabled = !ready;
-    // (waiting out the bonus, or on four of each for the batch)
-    ui.btn.querySelector('b')!.textContent = ready ? 'Cook' : !canShow() ? mmss(F.bonus.t) : '4 each';
+    // (waiting out the bonus)
+    ui.btn.querySelector('b')!.textContent = ready ? 'Cook' : mmss(F.bonus.t);
   }
   const e = keyHeld('e');
   if (here && ready && e && !eWas) startShow();
@@ -618,7 +766,6 @@ const lift = (e: PointerEvent) => {
 addEventListener('pointerup', lift);
 addEventListener('pointercancel', lift);
 // the keyboard: Space (or E) taps, holds and stirs; it starts the show from its ready card too
-let spin = 0;
 addEventListener('keydown', e => {
   if (!S || (e.code !== 'Space' && e.code !== 'KeyE')) return;
   e.preventDefault();
@@ -626,7 +773,7 @@ addEventListener('keydown', e => {
   if (S.phase === 'intro') { $('showGo').click(); return; }
   if (S.phase !== 'play') return;
   const st = S.steps[S.i];
-  if (st.name === 'Stir') { st.down?.(innerWidth / 2 + 100, innerHeight / 2); spin += 1.4; st.move?.(innerWidth / 2 + Math.cos(spin) * 100, innerHeight / 2 + Math.sin(spin) * 100); st.up?.(0, 0); }
+  if (st.key) st.key();
   else st.down?.(innerWidth / 2, innerHeight / 2);
 });
 addEventListener('keyup', e => {
@@ -639,5 +786,5 @@ $('showShut').addEventListener('click', stopShow);
 $('showBack').addEventListener('click', stopShow);
 
 /** For tests: where the show is. */
-export const showState = () => (S ? { phase: S.phase, step: S.steps[S.i]?.name, stars: S.steps.map(s => s.stars) } : null);
+export const showState = () => (S ? { phase: S.phase, step: S.steps[S.i]?.name, stars: S.steps.map(s => s.stars), run: structuredClone(S.run), hidden: cleared.length } : null);
 export { BONUS_TIERS };

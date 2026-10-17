@@ -73,8 +73,8 @@ export const WALK_IN = 6;
 export const PER_BATCH = 4, BATCH = 20, POT_CAP = 40, COUNTER_CAP = 40, STALL_CAP = 30, LEDGE_CAP = 40, LADLE = 0.1;
 /** The pot's the player's to work: a cook gets 70% of what they do out of the same four of each, a 14-bowl batch. */
 export const COOK_SHARE = 0.7, COOK_BATCH = Math.round(BATCH * COOK_SHARE);
-/** The cooking show at the pot (chanko.ts): its stars buy the pot bigger batches for a while (a cook's too, at 70%).
- *  Placeholders until the balancing pass. */
+/** The cooking show at the pot (chanko.ts), a bonus game: it takes nothing and cooks nothing, and its stars buy the pot
+ *  bigger batches for a while (a cook's too, at 70%). Placeholders until the balancing pass. */
 export const BONUS_S = 45;
 export const BONUS_TIERS = [{ min: 12, pct: 50, name: 'Perfect pot' }, { min: 9, pct: 35, name: 'Hearty' }, { min: 6, pct: 20, name: 'Tasty' }, { min: 0, pct: 0, name: 'Bland' }];
 /** Chips a bowl sells for (mushroom bowls pay double), and what Mr. Fugu leaves of it until he's bought out. */
@@ -171,6 +171,8 @@ export interface Fight {
   seed: number; cookT: number;
   /** The cooking show's bonus: how much bigger the pot's batches are (percent), and for how many more seconds. */
   bonus: { pct: number; t: number };
+  /** A cooking show left half way (chanko.ts), to carry on from, never to start over: null when there's none. */
+  show: ShowRun | null;
   /** The Undertow (undertow.ts): whether Mr. Fugu's given you his matchbook yet, whether the doorman's let you in through
    *  the door at the tunnel's mouth yet (southDoor.ts), whether the club's own doors have first opened (doorway.ts), and
    *  the bout Tommy last played monte in and how many rounds he played in it; Slick Eddie's fix on the next boss, and the
@@ -187,6 +189,10 @@ export interface Den {
   scandal: { cut: number; bouts: number };
   loan: Loan;
 }
+/** A cooking show under way: the step it's on (0 to 4: cut, throw, season, stir, all done), what each step's scored so
+ *  far (its cuts', throws' and pours' scores, 0 to 1, a cut not yet made -1; the stir's seconds stirred and seconds in
+ *  the band), and where the seasonings' lines are (rolled once a show). */
+export interface ShowRun { step: number; got: number[][]; lines: number[] }
 /** Hammerhead Harry's loan (loan.ts): chips still owed (0: none), and what was owed when it was made. */
 export interface Loan { owed: number; total: number }
 
@@ -200,7 +206,7 @@ export function blank(): Fight {
     pantry: { rice: 0, fish: 0, mush: 0 }, pot: [], potT: 0, counter: [], stall: [],
     queue: [], fed: [], cooked: [], full: [], fullAcc: 0, earned: [],
     rush: null, bout: freshBout(0),
-    seed: 3, cookT: 0, bonus: { pct: 0, t: 0 },
+    seed: 3, cookT: 0, bonus: { pct: 0, t: 0 }, show: null,
     den: {
       book: false, way: false, door: false, monte: { bout: -1, played: 0 }, eddie: { boss: -1, cut: 0, caught: false }, scandal: { cut: 0, bouts: 0 },
       loan: { owed: 0, total: 0 },
@@ -261,21 +267,14 @@ export const canCook = () => inPot().every(k => F.pantry[k] >= PER_BATCH);
 export const batchBowls = () => Math.round(BATCH * (1 + (F.bonus.t > 0 ? F.bonus.pct : 0) / 100));
 /** ...and in a cook's: 70% of it. */
 export const cookBowls = () => Math.round(batchBowls() * COOK_SHARE);
-/** Whether the cooking show can start: not while its bonus lasts. */
+/** Whether the cooking show can start (or carry on from where it was left): not while its bonus lasts. */
 export const canShow = () => F.bonus.t <= 0;
 /** The cooking show's result: `stars` of 12 buy the pot its bonus (none for a bland pot). Returns the tier. */
 export function showResult(stars: number) {
   const tier = BONUS_TIERS.find(x => stars >= x.min)!;
   F.bonus = tier.pct ? { pct: tier.pct, t: BONUS_S } : { pct: 0, t: 0 };
+  F.show = null;
   return tier;
-}
-/** The cooking show's batch: four of each, as any batch takes, cooked into the pot at the size its stars bought (a
- *  pot that's nearly full takes it all the same). The bowls it made, or 0 with too few on the ledge. */
-export function showBatch() {
-  if (!canCook()) return 0;
-  const n = batchBowls();
-  cookBatch(n);
-  return n;
 }
 /** No room in the pot for another batch. */
 export const potFull = () => F.pot.length + batchBowls() > POT_CAP;
@@ -852,6 +851,17 @@ export function saveFight(): Fight {
   return f;
 }
 const isNum = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
+/** A saved cooking show left half way, if it reads back (chanko.ts makes sense of its numbers). */
+function showFrom(v: unknown): ShowRun | null {
+  const r = v as Partial<ShowRun> | null;
+  if (!r || typeof r !== 'object' || !isNum(r.step) || !Array.isArray(r.got) || !Array.isArray(r.lines)) return null;
+  const nums = (a: unknown, n: number, lo: number, hi: number) => (Array.isArray(a) ? a.filter(isNum).slice(0, n).map(x => clamp(x, lo, hi)) : []);
+  return {
+    step: clamp(Math.floor(r.step), 0, 4),
+    got: [0, 1, 2, 3].map(j => nums(r.got![j], 8, -1, 60)),
+    lines: nums(r.lines, 3, 0, 1),
+  };
+}
 /** A saved cellar, whatever came out of storage: what reads back is kept, anything else starts fresh. */
 export function fightFrom(raw: unknown): Fight {
   const b = blank();
@@ -875,6 +885,7 @@ export function fightFrom(raw: unknown): Fight {
       fullAcc: num(r.fullAcc), earned: list<[number, number]>(r.earned, x => Array.isArray(x) && x.every(isNum)),
       seed: clamp(Math.floor(num(r.seed, 3)), 1, 2147483646), cookT: 0,
       bonus: BONUS_TIERS.some(x => x.pct && x.pct === r.bonus?.pct) && num(r.bonus?.t) > 0 ? { pct: r.bonus!.pct, t: clamp(num(r.bonus?.t), 0, BONUS_S) } : b.bonus,
+      show: showFrom(r.show),
       den: {
         // (a game saved before the door at the tunnel's mouth: the tunnel's open already, if the second boss was beaten)
         book: typeof r.den?.book === 'boolean' ? r.den.book : num(r.beaten) >= 2,
