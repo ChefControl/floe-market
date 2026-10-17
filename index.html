@@ -266,7 +266,8 @@ body{
 #shop .node.boss .ic, #shop .node.boss .txt{ filter:grayscale(1); opacity:.45; }
 #shop .node.boss .cost, #shop .node.needs .cost{ background:transparent; color:inherit; opacity:.7; padding-inline:2px; }
 #shop .node.gold:not(.done){ box-shadow:inset 0 0 0 2px color-mix(in srgb, var(--gold) 55%, transparent); }
-#shop .node .pips{ display:flex; gap:2px; }
+#shop .node .foot{ display:flex; align-items:center; gap:7px; flex:none; min-width:0; }
+#shop .node .pips{ display:flex; gap:3px; }
 #shop .pips i{ width:7px; height:7px; border-radius:50%; box-sizing:border-box; border:1.5px solid currentColor; opacity:.45; }
 #shop .pips i.on{ background:var(--gold); border-color:var(--gold); opacity:1; }
 #shop .node[aria-pressed="true"]{ box-shadow:inset 0 0 0 3px var(--coral); }
@@ -277,11 +278,12 @@ body{
 #shop.board .treeBody .node .ic{ grid-row:1 / 3; align-self:center; }
 #shop.board .treeBody .node .txt{ align-self:end; }
 #shop.board .treeBody .node .txt b{ font-size:12.5px; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; white-space:normal; }
-#shop.board .treeBody .node .cost{ justify-self:start; align-self:start; }
-#shop.board .treeBody .node .pips{ position:absolute; right:8px; top:8px; }
+#shop.board .treeBody .node .foot{ align-self:start; }
 /* (a ladder's node stands up: icon, name, dots, price, one under the other) */
 #shop.ladder .node:not(.lv){ flex-direction:column; justify-content:center; gap:3px; padding:5px 3px; text-align:center; }
 #shop.ladder .node:not(.lv) .txt{ flex:none; align-items:center; width:100%; }
+#shop.ladder .node:not(.lv) .foot{ flex-direction:column-reverse; gap:4px; }
+#shop.ladder .node .pips{ gap:2px; }
 #shop.ladder .node:not(.lv) .txt b{ font-size:11.5px; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; white-space:normal; }
 #shop.ladder .levels .node .cost{ display:none; }
 #shop .edge{ position:absolute; border-radius:2px; background:var(--go); opacity:.8; }

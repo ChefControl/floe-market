@@ -180,7 +180,8 @@ function nodeEl(it: Item, board: boolean) {
   e.className = `node ${it.state}${it.state === 'boss' || it.state === 'needs' ? ' locked' : ''}${it.tile?.gold ? ' gold' : ''}${it.level !== undefined ? ' lv' : ''}`;
   e.dataset.key = it.key;
   if (it.tile) e.dataset.tile = it.tile.id; else e.dataset.mod = it.key.slice(4);
-  e.innerHTML = `<span class="ic" aria-hidden="true"></span><span class="txt"><b></b></span>${board ? '<button type="button" class="cost"></button>' : '<span class="cost"></span>'}`;
+  // (the price, and a line's dots beside it: under the name on the board, under each other on the ladder)
+  e.innerHTML = `<span class="ic" aria-hidden="true"></span><span class="txt"><b></b></span><span class="foot">${board ? '<button type="button" class="cost"></button>' : '<span class="cost"></span>'}</span>`;
   e.children[0].textContent = it.icon;
   const name = e.children[1].children[0] as HTMLElement;
   name.textContent = it.label;
@@ -189,10 +190,10 @@ function nodeEl(it: Item, board: boolean) {
     const [n, max] = it.pips, dots = document.createElement('span');
     dots.className = 'pips'; dots.setAttribute('role', 'img'); dots.setAttribute('aria-label', `${n} of ${max}`);
     for (let i = 0; i < max; i++) { const d = document.createElement('i'); if (i < n) d.className = 'on'; dots.append(d); }
-    e.children[1].append(dots);
+    e.children[2].append(dots);
   }
   if (it.state === 'done' && !it.pips && it.level === undefined) { const tick = document.createElement('span'); tick.className = 'tick'; tick.textContent = '✓'; tick.setAttribute('aria-hidden', 'true'); e.append(tick); }
-  const c = e.lastElementChild!.classList.contains('tick') ? e.children[2] : e.lastElementChild!;
+  const c = e.querySelector('.cost')!;
   c.textContent = it.tag;
   if (board) {
     const b = c as HTMLButtonElement;
