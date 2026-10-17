@@ -14,7 +14,7 @@ describe.runIf(process.env.SIM)('balance', () => {
     const ring = process.env.SIM_STAGE === '3';
     const g = await loadGame(ring ? { tiles: tiles(...MARKET, 'sushi', ...FLOE_SUSHI, 'dohyo'), fugu: 2, level: 1, reviews: Array(20).fill(4.6) } : undefined);
     const minutes = Number(process.env.SIM_MINUTES || 60);
-    const { bought, samples, trace, fights } = play(g, minutes * 60, 0.05, ring ? await ringModules() : undefined);
+    const { bought, samples, trace, fights, best } = play(g, minutes * 60, 0.05, ring ? await ringModules() : undefined);
     const out: string[] = [];
     const log = (l: string) => out.push(l);
     let prev = 0;
@@ -25,8 +25,9 @@ describe.runIf(process.env.SIM)('balance', () => {
     }
     if (fights.length) {
       log('\nBOSS FIGHTS: bell over at, who, turned of his crowd (needed; the gong forecast as rung), bell used, bar empty');
-      for (const f of fights) log(`${mmss(f.t).padStart(6)}  ${f.boss.padEnd(16)} ${f.win ? 'WIN ' : 'LOSE'} ${String(f.turned).padStart(4)}/${f.n} (need ${f.need}; forecast ${f.forecast})  ${f.bell.toFixed(1)} s  dry ${f.dry.toFixed(1)} s`);
+      for (const f of fights) log(`${mmss(f.t).padStart(6)}  ${f.boss.padEnd(16)} ${f.win ? 'WIN ' : 'LOSE'} ${String(f.turned).padStart(4)}/${f.n} (need ${f.need}; forecast ${f.forecast})  ${f.bell.toFixed(1)} s  dry ${f.dry.toFixed(1)} s${f.waited ? '  (rung in a local fight)' : ''}`);
     }
+    if (best.size) log(`best forecasts: ${[...best].map(([b, n]) => `${b} ${n}`).join(', ')}`);
     log('\nEVERY MINUTE: money, earned in that minute, rating, stage');
     let last = 0;
     for (const s of samples.filter((_, i) => i % 6 === 5)) {
