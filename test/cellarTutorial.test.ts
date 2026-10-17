@@ -176,7 +176,7 @@ describe("the cellar's tutorial", () => {
     expect(fight.nextBoss()!.name).toBe('Hakkaku');
     expect(g.wallet.money - money).toBeGreaterThanOrEqual(35 * fight.CHIP);
     expect($('fightCard').textContent).toContain('PRACTICE WON');
-    expect($('fightCard').textContent).toContain('Next: Hakkaku 🐙 · hire a washer and salter.');
+    expect($('fightCard').textContent).toContain('Next: Hakkaku 🐙 · hire a washer and salter');
     g.run(0.1);
     expect(tut.learntLessons()).not.toContain('gong');
     $('fightCard').click();
