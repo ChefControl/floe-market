@@ -38,8 +38,8 @@ async function cellar(save: SaveFixture = {}) {
 
 describe("the cellar's tutorial", () => {
   it('leads a new player from the bins to the stall, saves up in chips for a level, then sends them to the gong', async () => {
-    // (just come down: the practice fight still to come)
-    const { g, tut, plan, fight, CY, at, F, draw, now, said, goal, carrying } = await cellar({ money: 0, ring: { practice: true } });
+    // (just come down: the doors shut till the first soup's out, and the practice fight still to come)
+    const { g, tut, plan, fight, CY, at, F, draw, now, said, goal, carrying } = await cellar({ money: 0, ring: { practice: true, quiet: true } });
     at({ x: plan.BIN_PADS.rice.x - 3, z: plan.BIN_PADS.rice.z });
     g.run(0.1);
     // nothing from stage 1 again: the dumbwaiter first, and the arrow's down on the cellar's floor
@@ -111,9 +111,16 @@ describe("the cellar's tutorial", () => {
     g.run(0.1);
     draw();
     expect(tut.guide.position.x).toBe(plan.BAR_PAD.x);
-    expect(said()).toBe('Drop them in the stall / Fans eat here');
+    expect(said()).toBe("Drop them in the stall / Fans come once it's out");
+    // all this while, the doors were shut: nobody's come, and there's been no fight
+    expect(F().quiet).toBe(true);
+    expect(F().bout).toMatchObject({ phase: 'prep', t: 0, came: 0 });
+    expect(F().queue).toEqual([]);
     at(plan.BAR_PAD);
     g.runUntil(() => tut.learntLessons().includes('bowls'));
+    // the first soup's out: the doors open, and the first local fight's fans come in for it
+    expect(F().quiet).toBe(false);
+    g.runUntil(() => F().bout.came > 0, 15);
 
     // the cheapest thing at the shop counter, saved up for in chips: another drying rack
     at({ x: 0, z: 0 });
@@ -149,6 +156,29 @@ describe("the cellar's tutorial", () => {
     draw();
     expect(tut.guide.position.x).toBe(plan.GONG_PAD.x);
     expect(said()).toBe('Ring the gong / A practice fight to start');
+  });
+
+  it('while the doors are shut, the champion trains by the teppo post, and the gong opens them too', async () => {
+    const { g, plan, fight, F, at } = await cellar({ ring: { practice: true, quiet: true }, learnt: [...STAGE1, 'bins', 'prep', 'pot', 'bowls', 'bench'] });
+    const { ring } = await import('../src/dohyo');
+    const { TEPPO } = plan;
+    at({ x: 0, z: 0 });
+    g.run(30);
+    // no fans, no fight: the ring's empty, the champion stamping beside his sparring partner
+    expect(F().bout).toMatchObject({ phase: 'prep', t: 0, came: 0 });
+    expect(ring.rival.visible).toBe(false);
+    expect(Math.hypot(ring.champ.position.x - TEPPO.x, ring.champ.position.z - TEPPO.z)).toBeLessThan(2.5);
+    expect(ring.partner.visible).toBe(true);
+    // a reload keeps them shut
+    g.saveMod.save();
+    expect(JSON.parse(localStorage.getItem('floe-market-v1')!).ring.quiet).toBe(true);
+    // the gong: his crowd comes in, doors or no doors
+    at(plan.GONG_PAD);
+    g.run(0.1);
+    expect(fight.ringGong()).toBe(true);
+    expect(F().quiet).toBe(false);
+    g.run(0.1);
+    expect(ring.rival.visible).toBe(true);
   });
 
   it('the practice fight: the sparring partner and a small crowd, and winning it completes the tutorial', async () => {
