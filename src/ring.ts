@@ -4,7 +4,7 @@
 import { CY, parts, showDen, showGrowRoom, showVenue, updBarFlap } from './cellar';
 import { BAR, GONG } from './cellarPlan';
 import { openRing, updDohyo } from './dohyo';
-import { CHIP, F, fightFrom, on, resetFight, step, strength } from './fight';
+import { CHIP, F, fightFrom, on, resetFight, step } from './fight';
 import { front } from './front';
 import { cardUp, showCard, updGong } from './gong';
 import { ARENA, DOORS, level, PASSAGE, PREP } from './layout';
@@ -20,7 +20,7 @@ import { save } from './save';
 import { chime, fanfare, gong, levelUp } from './sfx';
 import { spotlight } from './spotlight';
 import { staging } from './stage';
-import { updSwarm } from './swarm';
+import { inHall, updSwarm } from './swarm';
 import { popText, toast } from './ui';
 import { showProgress, visibleTiles } from './unlocks';
 import { addMoney } from './wallet';
@@ -106,8 +106,8 @@ export function loadCellar(raw: unknown) {
 /** The cellar, every frame (stage 3 only). */
 export function updRing(dt: number) {
   step(dt);
-  // the crowd's as loud as it's worked up and as big as the roar: a boss's crowd is all of it
-  crowd.size = F.rush && !F.rush.done ? 1 : Math.min(1, 0.35 + strength() / 60);
+  // the crowd's as loud as there are fans in the hall to make it: 60 or more is all of it, none is silence
+  crowd.size = Math.min(1, inHall() / 60);
   takingsT -= dt;
   if (takingsT <= 0) {
     takingsT = 1;

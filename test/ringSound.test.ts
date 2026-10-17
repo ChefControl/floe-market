@@ -118,6 +118,7 @@ describe('the crowd', () => {
   it('cheers a moment with a dozen people at once, each their own pitch', async () => {
     const s = await ringWithSound();
     s.play(0.5);
+    s.ringSound.crowd.size = 1; // (a hall full of them)
     const cheer = s.since(() => s.ringSound.react('win')).filter(p => p.type === 'custom');
     expect(cheer.length).toBeGreaterThanOrEqual(12);
     expect(new Set(cheer.map(p => Math.round(p.f))).size).toBeGreaterThanOrEqual(10);
@@ -125,8 +126,9 @@ describe('the crowd', () => {
 
   it('roars down in the cellar, and is only a murmur through the floor from the dock', async () => {
     const s = await ringWithSound();
-    const cellar = await import('../src/cellar');
+    const [cellar, fight] = await Promise.all([import('../src/cellar'), import('../src/fight')]);
     s.g.player.g.position.set(cellar.RING.x + 1, cellar.CY, cellar.RING.z + 5); // at the ringside
+    while (fight.toStall(false)); // (soup on the bar for the fans, so they stay to watch)
     s.play(27); // (into the first fight: the fans buy soup for 20 s, sit down for 5, then the charge)
     const ring = fake.played.find(p => p.loop && p.f === 520)!;
     const below = level(ring);
@@ -165,8 +167,9 @@ describe('the crowd', () => {
     // the murmur, the chant and the roar loop the whole time: no stopping and starting between moments
     for (const k of ['murmur', 'chant', 'roar']) expect(loop(k)).toBeTruthy();
     const chant = () => level(loop('chant')), roar = () => level(loop('roar'));
-    // from here, only the crowd's own clock runs (the game's own bouts would cheer over this one)
+    // from here, only the crowd's own clock runs (the game's own bouts would cheer over this one), with a full hall
     const run = (secs: number) => { for (let t = 0; t < secs; t += 1 / 60) { fake.now += 1 / 60; s.ringSound.updRingSound(1 / 60); } };
+    s.ringSound.crowd.size = 1; run(4);
     // the wrestlers step up: the chant builds, a beat louder on each stamp
     s.ringSound.react('billing'); run(0.3);
     const stepping = chant();
@@ -196,6 +199,35 @@ describe('the crowd', () => {
     // no synthesised babble with the recorded murmur in
     expect(s.since(() => s.play(3)).filter(p => p.type === 'custom' && p.bus === 'sfx')).toEqual([]);
   });
+
+  it("is silent in an empty hall but for the wrestlers' thuds, swells as the fans come in, and dies away as they go", async () => {
+    const s = await ringWithSound();
+    const [cellar, swarm, fight] = await Promise.all([import('../src/cellar'), import('../src/swarm'), import('../src/fight')]);
+    for (const k of ['murmur', 'chant', 'roar', 'applause', 'cheer1', 'cheer2', 'swell'] as const) s.audio.setClip(k, { duration: 10, name: k } as unknown as AudioBuffer);
+    s.g.player.g.position.set(cellar.RING.x + 1, cellar.CY, cellar.RING.z + 5); // at the ringside
+    const named = (p: Played) => (p.src as unknown as { buffer?: { name?: string } }).buffer?.name;
+    const murmur = () => level(fake.played.find(p => p.loop && named(p) === 'murmur')!);
+    // the cellar just opened: nobody's in yet, and there's no murmur
+    s.play(0.2);
+    expect(swarm.inHall()).toBe(0);
+    expect(murmur()).toBeLessThan(0.002);
+    // a moment of the fight then is only the ring's own thud: no cheer, no voices
+    expect(s.since(() => s.ringSound.react('win'))).toEqual([]);
+    const charge = s.since(() => s.ringSound.react('charge'));
+    expect(charge.length).toBeGreaterThan(0);
+    expect(charge.some(p => named(p) || p.type === 'custom')).toBe(false);
+    // the fans come in: the hall's murmur grows with them
+    const levels: number[] = [];
+    for (let i = 0; i < 3; i++) { s.play(3); levels.push(murmur()); }
+    expect(swarm.inHall()).toBeGreaterThan(0);
+    expect(levels[0]).toBeGreaterThan(0.01);
+    expect(levels[2]).toBeGreaterThan(levels[0]);
+    // nothing on the bar, so once they sit down the hungry ones all go home, and it dies away with them
+    for (let t = 0; t < 60 && !(fight.F.bout.phase !== 'prep' && swarm.inHall() === 0); t += 1) s.play(1);
+    expect(swarm.inHall()).toBe(0);
+    s.play(4);
+    expect(murmur()).toBeLessThan(0.002);
+  }, 60_000);
 
   it('carries the crowd by room: all of it at the ringside, half across the arena, low in the kitchen, lower in the prep hall, very low in the office', async () => {
     const s = await ringWithSound();
@@ -229,17 +261,19 @@ describe('the crowd', () => {
     const roar = () => level(fake.played.find(p => p.loop && (p.src as unknown as { buffer?: { name?: string } }).buffer?.name === 'roar')!);
     const run = (secs: number) => { for (let t = 0; t < secs; t += 1 / 60) { fake.now += 1 / 60; s.ringSound.updRingSound(1 / 60); } };
     s.g.player.g.position.set(cellar.RING.x + 1, cellar.CY, cellar.RING.z + 5);
-    s.play(0.2); s.ringSound.react('charge'); run(1);
+    // (a full hall: the room's the only thing that changes)
+    const full = () => { s.ringSound.crowd.size = 1; };
+    s.play(0.2); full(); run(4); s.ringSound.react('charge'); run(1);
     const ringside = roar();
     // into the kitchen: it eases down, rather than dropping at once
     s.g.player.g.position.set(plan.POT_PAD.x, cellar.CY, plan.POT_PAD.z);
-    s.play(1 / 60); s.ringSound.react('charge'); run(0.05);
+    s.play(1 / 60); full(); s.ringSound.react('charge'); run(0.05);
     expect(roar()).toBeGreaterThan(ringside * 0.4);
     run(2); s.ringSound.react('charge'); run(0.2);
     expect(roar()).toBeLessThan(ringside * 0.3); // (the hearth room hears about a quarter)
     // the office: next to nothing
     s.g.player.g.position.set(cellar.OFFICE.x, cellar.CY, cellar.OFFICE.z + 1.5);
-    s.play(2); s.ringSound.react('charge'); run(0.2);
+    s.play(2); full(); s.ringSound.react('charge'); run(0.2);
     expect(roar()).toBeLessThan(ringside * 0.1);
   });
 
