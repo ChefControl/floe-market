@@ -14,6 +14,9 @@ export const front = {
   mode: (readMode() as FrontMode),
   /** Mr. Fugu has been bought out: the till is the player's again. */
   boughtOut: false,
+  /** The cash the player had upstairs when they bought into the ring. It waits in the restaurant's till, out of reach,
+   *  till they buy Mr. Fugu out: the cellar starts from no chips, whatever stage 2 made. */
+  till: 0,
 };
 
 function readMode(): FrontMode {

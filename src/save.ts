@@ -5,6 +5,7 @@ import { C1, repriceFish, SLED, TAKEOUT, type Counter } from './counters';
 import { choice, readLook, setLook, type Choice } from './customize';
 import { MODS, mods, type ModId } from './economy';
 import { keepStage3 } from './flags';
+import { front } from './front';
 import { loadOffer, offer } from './offer';
 import { filletsInProgress } from './fishing';
 import { waiterPlates } from './garden';
@@ -18,7 +19,7 @@ import {
   fishTray, loadPlates, platePrice, register, repriceSushi, ricePot, STARTER_RICE, sushi, sushiStock,
 } from './restaurant';
 import { field, fieldStack, riceInField } from './rice';
-import { saveFight } from './fight';
+import { BOSSES, CHIP, F, nextBoss, PRACTICE, saveFight } from './fight';
 import { loadCellar } from './ring';
 import { runnersLoad } from './runner';
 import { season, SEASON_LEN, SEASONS, setSeason } from './season';
@@ -82,6 +83,9 @@ export interface SaveData {
   level: number;
   hands: Hands;
   ring: unknown;
+  /** Stage 3: the cash from upstairs waiting in the restaurant's till until the buyout (front.ts); null in a save from
+   *  before it, which brought that cash down into the cellar as chips. */
+  till: number | null;
   /** How the player looks (customize.ts). Older saves have none, and keep the device's. */
   look?: Choice;
   /** What the tutorial has shown this player (tutorial.ts), so it isn't shown again on another device; null in a save
@@ -149,6 +153,7 @@ export function migrate(raw: unknown): SaveData {
     presents: num(s.presents), presentPaid: Math.min(num(s.presentPaid), PRESENT.cost - 1),
     look: readLook(s.look) ?? undefined,
     learnt: Array.isArray(s.learnt) ? s.learnt.map(String) : null,
+    till: s.till == null ? null : num(s.till),
   };
   if (num(s.v) >= 4) {
     return {
@@ -255,6 +260,7 @@ export function save() {
     level: level.down ? 1 : 0,
     hands,
     ring: stage.n === 3 ? saveFight() : null,
+    till: front.till,
     presents: presents.n,
     presentPaid: PRESENT.paid,
     look: { ...choice },
@@ -337,10 +343,23 @@ export function load() {
   // (a game that's met Mr. Fugu keeps stage 3 open on this device, flag or no flag: flags.ts)
   if (s.fugu) keepStage3();
   loadOffer(s.fugu);
+  front.till = s.till ?? 0;
   if (stage.n === 3) loadRing(s);
+  if (s.till === null && stage.n === 3 && !F.boughtOut) tillWhatCameDown();
   // the tutorial: this player's lessons, or for a save from before it, what it has done (now it's all in place)
   loadLessons(s.learnt);
   return true;
+}
+
+/** A stage 3 save from before the till brought its stage 2 cash down as chips, and could buy the whole stage with
+ *  them. What the cellar can have paid it stays, the prizes won so far and the next one (room for the bowls sold
+ *  between fights); the rest goes into the till, to come back at the buyout. */
+function tillWhatCameDown() {
+  const won = (F.practice ? 0 : PRACTICE.prize) + BOSSES.slice(0, F.beaten).reduce((a, b) => a + b.prize, 0);
+  const keep = (won + (nextBoss()?.prize ?? 0)) * CHIP;
+  if (wallet.money <= keep) return;
+  front.till = wallet.money - keep;
+  wallet.money = keep;
 }
 
 /** Puts the cellar back as it was, what the player was carrying down there, and the player too, if that's where they
