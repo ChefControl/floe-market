@@ -3,7 +3,7 @@
 // a while, the cook's 70% of them too, and no new show until it's run out. It's a bonus game alone (it takes nothing
 // and cooks nothing), every piece that's cut is thrown in, the stir starts on the soup, a show left half way carries
 // on where it was (saved with the game too), and nothing stands in the camera's way.
-import { Vector3 } from 'three';
+import { Box3, Vector3 } from 'three';
 import { describe, expect, it } from 'vitest';
 import { bought, FLOE_SUSHI, loadGame, MARKET } from './helpers';
 
@@ -38,16 +38,16 @@ async function atPot() {
   const P = plan.POT, CY = cellar.CY;
   /** Opens the show from the Cook button, and starts (or carries on) from its card. */
   const open = () => { $('cook').click(); run(0.6); $('showGo').click(); };
-  /** The cut, from its start: a tap as each line meets the knife (they come along every 0.15 m at 0.72 m in 4.2 s),
-   *  or none for the lines `skip`ped. */
+  /** The cut, from its start: a tap as each line meets the knife, or none for the lines `skip`ped. */
   const cut = (skip: number[] = []) => {
     until('Cut');
     let at = 0;
-    [0.27, 0.42, 0.57].map(d => d * 4.2 / 0.72).forEach((when, j) => { run(when - at); at = when; if (!skip.includes(j)) { key('keydown'); key('keyup'); } });
+    show.cutTimes().forEach((when, j) => { run(when - at); at = when; if (!skip.includes(j)) { key('keydown'); key('keyup'); } });
   };
   /** One throw: dragged up from the board and let go, aimed at the pot's middle. */
   const throwOne = () => {
-    run(0.1);
+    // (the next handful hops up onto the board first)
+    run(0.45);
     const from = onScreen(P.x, CY + 0.99, P.z + 1.38), to = onScreen(P.x, CY + 1.37, P.z);
     ptr('pointerdown', from.x, from.y);
     ptr('pointermove', from.x + (to.x - from.x) / 2.7, from.y + (to.y - from.y) / 2.7);
@@ -140,25 +140,65 @@ describe('the cooking show at the pot', () => {
     expect(F().cooked.length).toBe(0);
   }, 60_000);
 
-  it('every piece the fish is cut into is thrown in, and the throws\' stars are their average', async () => {
+  it('the stew\'s cabbage, carrot and tofu are cut with the fish; every piece is thrown in, a handful at a time', async () => {
     const { show, open, cut, throwAll, until } = await atPot();
     open(); cut();
-    // three clean cuts: four slices, then the mushroom and the rice
+    // six clean cuts (one each through the cabbage, the carrot and the tofu, three through the fish): a handful of each,
+    // then the mushroom and the rice
+    expect(show.showState()!.run.got[0]).toEqual([1, 1, 1, 1, 1, 1]);
     expect(throwAll()).toBe(6);
     until('Season');
     const got = show.showState()!.run.got;
-    expect(got[0]).toEqual([1, 1, 1]);
     expect(got[1]).toHaveLength(6);
+    // (all ten pieces, the mushroom and the rice went in)
+    expect(show.showState()!.stew.in).toHaveLength(12);
     expect(show.showState()!.stars[1]).toBe(Math.round(got[1].reduce((a, b) => a + b, 0) / 6 * 3));
   }, 60_000);
 
-  it('a missed line leaves two slices joined, thrown as one; before the grow room\'s open, no mushroom', async () => {
-    const { show, open, cut, throwAll, F } = await atPot();
+  it('a missed line counts against the cut; before the grow room\'s open, no mushroom', async () => {
+    const { show, open, cut, throwAll, until, F } = await atPot();
     F().beaten = 0;
     open(); cut([1]);
-    // three pieces (the middle two joined), and the rice
-    expect(throwAll()).toBe(4);
-    expect(show.showState()!.run.got[0]).toEqual([1, 0, 1]);
+    until('Throw');
+    expect(show.showState()!.run.got[0]).toEqual([1, 0, 1, 1, 1, 1]);
+    expect(show.showState()!.stars[0]).toBe(Math.round(5 / 6 * 3));
+    // the four handfuls (the carrot in one piece), and the rice
+    expect(throwAll()).toBe(5);
+  }, 60_000);
+
+  it('what\'s thrown in sinks into the stew, and the stir brings it back up', async () => {
+    const { show, run, open, cut, throwOne, throwAll, season, stir, until } = await atPot();
+    open(); cut();
+    until('Throw');
+    throwOne();
+    run(1.5);
+    // (the cabbage's two pieces, down under the top)
+    const sunk = show.showState()!.stew.in;
+    expect(sunk).toHaveLength(2);
+    for (const y of sunk) expect(y).toBeLessThan(-0.08);
+    throwAll(); season(); stir();
+    run(1.2);
+    expect(show.showState()!.phase).toBe('result');
+    // (all back up at the top but the rice)
+    const up = show.showState()!.stew.in;
+    expect(up.filter(y => y > -0.05)).toHaveLength(up.length - 1);
+  }, 60_000);
+
+  it('each seasoning turns the stew its colour, soy darkest', async () => {
+    const { show, run, key, open, cut, throwAll, until } = await atPot();
+    open(); cut(); throwAll();
+    until('Season');
+    const lum = (hex: number) => ((hex >> 16) & 255) * 0.3 + ((hex >> 8) & 255) * 0.59 + (hex & 255) * 0.11;
+    const dashi = show.showState()!.stew.colour;
+    const pour = () => { run(0.1); key('keydown'); run(1.1); key('keyup'); run(0.8); };
+    pour();
+    const salted = show.showState()!.stew.colour;
+    pour();
+    const soy = show.showState()!.stew.colour;
+    expect(lum(salted)).toBeGreaterThanOrEqual(lum(dashi));
+    expect(lum(soy)).toBeLessThan(lum(salted) - 25);
+    pour();
+    expect(show.showState()!.stew.colour).not.toBe(soy);
   }, 60_000);
 
   it('the stir starts with the first press on the soup, not anywhere on the screen', async () => {
@@ -187,7 +227,7 @@ describe('the cooking show at the pot', () => {
     expect(show.showing()).toBe(false);
     const kept = structuredClone(F().show)!;
     expect(kept.step).toBe(1);
-    expect(kept.got[0]).toEqual([1, 1, 0]);
+    expect(kept.got[0]).toEqual([1, 1, 0, 1, 1, 1]);
     expect(kept.got[1]).toHaveLength(1);
     // no fresh show: Cook carries it on, at the throw, the cut's stars as they were
     run(0.1);
@@ -199,8 +239,8 @@ describe('the cooking show at the pot', () => {
     until('Throw');
     expect(show.showState()!.stars[0]).toBe(cutStars);
     expect(show.showState()!.run.got[1]).toEqual(kept.got[1]);
-    // (three pieces, the mushroom and the rice in all, less the one that's in already)
-    expect(throwAll()).toBe(4);
+    // (four handfuls, the mushroom and the rice in all, less the one that's in already)
+    expect(throwAll()).toBe(5);
     // ✕ half way through a pour: the pour stops where it is, and counts
     until('Season');
     run(0.1); key('keydown'); run(0.3);
@@ -256,7 +296,7 @@ describe('the cooking show at the pot', () => {
   it('a bland pot buys nothing, and a new show can start at once', async () => {
     const { show, run, open, until, F } = await atPot();
     // (a show with every step played, all misses)
-    F().show = { step: 4, got: [[0, 0, 0], [0, 0], [0, 0, 0], [5.6, 0]], lines: [0.5, 0.5, 0.5] };
+    F().show = { step: 4, got: [[0, 0, 0, 0, 0, 0], [0, 0], [0, 0, 0], [5.6, 0]], lines: [0.5, 0.5, 0.5] };
     open(); run(0.1);
     expect(show.showState()!.phase).toBe('result');
     expect($('showCard').textContent).toContain('Cook again any time');
@@ -268,26 +308,35 @@ describe('the cooking show at the pot', () => {
     expect($('showGo').textContent).toBe('Start');
     $('showGo').click();
     until('Cut');
-    expect(show.showState()!.run).toMatchObject({ step: 0, got: [[-1, -1, -1], [], [], [0, 0]] });
+    expect(show.showState()!.run).toMatchObject({ step: 0, got: [[-1, -1, -1, -1, -1, -1], [], [], [0, 0]] });
   }, 60_000);
 
   it('whoever stands between the camera and the set is put away while it\'s on, and comes back after', async () => {
     const { g, plan, fight, show, run, F } = await atPot();
-    const [{ Person }, { cellar }] = await Promise.all([import('../src/characters'), import('../src/cellar')]);
+    const [{ Person }, cellar] = await Promise.all([import('../src/characters'), import('../src/cellar')]);
     fight.hire('picker');
     run(0.1);
     // the picker, straw hat and all, right in front of the prep board
     const w = F().crew.find(c => c.role === 'picker')!;
     Object.assign(w, { x: plan.POT.x + 0.45, z: plan.POT.z + 2.05, path: [], steps: [], moving: false });
     g.game.tick(1 / 60);
-    const him = cellar.children.find(o => o instanceof Person && o.visible && Math.hypot(o.position.x - w.x, o.position.z - w.z) < 0.3)!;
+    const him = cellar.cellar.children.find(o => o instanceof Person && o.visible && Math.hypot(o.position.x - w.x, o.position.z - w.z) < 0.3)!;
     expect(him).toBeTruthy();
+    const before = cellar.cellar.children.filter(o => o.visible);
     $('cook').click();
     run(0.6);
     expect(him.visible).toBe(false);
-    // (and not the room: only a thing or two)
+    // (and not the room: the pot and the hearth stay; what's on the ledge behind the long board goes too)
     expect(show.showState()!.hidden).toBeGreaterThanOrEqual(1);
-    expect(show.showState()!.hidden).toBeLessThan(6);
+    expect(cellar.potMesh.visible).toBe(true);
+    // (the show's own: the pot's pad, its steam and what's flying off it)
+    const put = cellar.cellar.children.filter(o => before.includes(o) && !o.visible && !['potPad', 'potSteam', 'potFlight'].includes(o.name));
+    expect(put).toHaveLength(show.showState()!.hidden);
+    for (const o of put) {
+      const box = new Box3().setFromObject(o), c = box.getCenter(new Vector3());
+      expect(Math.hypot(c.x - plan.POT.x, c.z - plan.POT.z)).toBeLessThan(4);
+      expect(Math.max(...box.getSize(new Vector3()).toArray())).toBeLessThan(2.7);
+    }
     $('showShut').click();
     run(0.6);
     expect(show.showing()).toBe(false);
