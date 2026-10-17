@@ -140,19 +140,19 @@ describe('the cooking show at the pot', () => {
     expect(F().cooked.length).toBe(0);
   }, 60_000);
 
-  it('the stew\'s cabbage, carrot and tofu are cut with the fish; every piece is thrown in, one by one', async () => {
+  it('the stew\'s cabbage, carrot and tofu are cut with the fish; a piece off each is thrown in, one by one: six throws', async () => {
     const { show, open, cut, throwAll, until } = await atPot();
     open(); cut();
-    // six clean cuts (one each through the cabbage, the carrot and the tofu, three through the fish): ten pieces, each
+    // four clean cuts (one each through the cabbage, the carrot, the tofu and the fish): the four pieces cut off, each
     // thrown on its own, then the mushroom and the rice
-    expect(show.showState()!.run.got[0]).toEqual([1, 1, 1, 1, 1, 1]);
-    expect(throwAll()).toBe(12);
+    expect(show.showState()!.run.got[0]).toEqual([1, 1, 1, 1]);
+    expect(throwAll()).toBe(6);
     until('Season');
     const got = show.showState()!.run.got;
-    expect(got[1]).toHaveLength(12);
-    // (all ten pieces, the mushroom and the rice went in)
-    expect(show.showState()!.stew.in).toHaveLength(12);
-    expect(show.showState()!.stars[1]).toBe(Math.round(got[1].reduce((a, b) => a + b, 0) / 12 * 3));
+    expect(got[1]).toHaveLength(6);
+    // (the four pieces, the mushroom and the rice went in; the rest of each thing stayed in the basket)
+    expect(show.showState()!.stew.in).toHaveLength(6);
+    expect(show.showState()!.stars[1]).toBe(Math.round(got[1].reduce((a, b) => a + b, 0) / 6 * 3));
   }, 60_000);
 
   it('a missed line counts against the cut; before the grow room\'s open, no mushroom', async () => {
@@ -160,10 +160,11 @@ describe('the cooking show at the pot', () => {
     F().beaten = 0;
     open(); cut([1]);
     until('Throw');
-    expect(show.showState()!.run.got[0]).toEqual([1, 0, 1, 1, 1, 1]);
-    expect(show.showState()!.stars[0]).toBe(Math.round(5 / 6 * 3));
-    // the pieces one by one (the carrot's two joined, as one), and the rice
-    expect(throwAll()).toBe(2 + 1 + 2 + 4 + 1);
+    expect(show.showState()!.run.got[0]).toEqual([1, 0, 1, 1]);
+    expect(show.showState()!.stars[0]).toBe(Math.round(3 / 4 * 3));
+    // the pieces cut off one by one (the carrot whole, its line missed), and the rice
+    expect(throwAll()).toBe(4 + 1);
+    expect(show.showState()!.stew.in).toHaveLength(5 + 1);
   }, 60_000);
 
   it('what\'s thrown in sinks into the stew, and the stir brings it back up', async () => {
@@ -227,7 +228,7 @@ describe('the cooking show at the pot', () => {
     expect(show.showing()).toBe(false);
     const kept = structuredClone(F().show)!;
     expect(kept.step).toBe(1);
-    expect(kept.got[0]).toEqual([1, 1, 0, 1, 1, 1]);
+    expect(kept.got[0]).toEqual([1, 1, 0, 1]);
     expect(kept.got[1]).toHaveLength(1);
     // no fresh show: Cook carries it on, at the throw, the cut's stars as they were
     run(0.1);
@@ -239,8 +240,8 @@ describe('the cooking show at the pot', () => {
     until('Throw');
     expect(show.showState()!.stars[0]).toBe(cutStars);
     expect(show.showState()!.run.got[1]).toEqual(kept.got[1]);
-    // (the pieces, the tofu's two joined, the mushroom and the rice in all, less the one that's in already)
-    expect(throwAll()).toBe(2 + 2 + 1 + 4 + 1 + 1 - 1);
+    // (the four cut off, the tofu whole, then the mushroom and the rice, less the one that's in already)
+    expect(throwAll()).toBe(6 - 1);
     // ✕ half way through a pour: the pour stops where it is, and counts
     until('Season');
     run(0.1); key('keydown'); run(0.3);
@@ -296,7 +297,7 @@ describe('the cooking show at the pot', () => {
   it('a bland pot buys nothing, and a new show can start at once', async () => {
     const { show, run, open, until, F } = await atPot();
     // (a show with every step played, all misses)
-    F().show = { step: 4, got: [[0, 0, 0, 0, 0, 0], [0, 0], [0, 0, 0], [5.6, 0]], lines: [0.5, 0.5, 0.5] };
+    F().show = { step: 4, got: [[0, 0, 0, 0], [0, 0], [0, 0, 0], [5.6, 0]], lines: [0.5, 0.5, 0.5] };
     open(); run(0.1);
     expect(show.showState()!.phase).toBe('result');
     expect($('showCard').textContent).toContain('Cook again any time');
@@ -308,7 +309,7 @@ describe('the cooking show at the pot', () => {
     expect($('showGo').textContent).toBe('Start');
     $('showGo').click();
     until('Cut');
-    expect(show.showState()!.run).toMatchObject({ step: 0, got: [[-1, -1, -1, -1, -1, -1], [], [], [0, 0]] });
+    expect(show.showState()!.run).toMatchObject({ step: 0, got: [[-1, -1, -1, -1], [], [], [0, 0]] });
   }, 60_000);
 
   it('whoever stands between the camera and the set is put away while it\'s on, and comes back after', async () => {
