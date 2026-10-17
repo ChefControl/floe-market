@@ -452,7 +452,7 @@ describe('the Undertow', () => {
     E.pickCut(3);
     expect($('eddieFix').textContent).toBe('Fix 🐟 −66 fans · 30% caught');
     // (each size says what it costs)
-    expect($('eddie').querySelector('[data-cut="3"]')!.textContent).toBe('🐡 240');
+    expect($('eddie').querySelector('[data-cut="3"]')!.textContent).toBe('🐡240');
     expect(E.payEddie(3, () => 0.99)).toBe(true);
     expect(g.wallet.money).toBe(1000 * 1000 - 240 * 1000);
     expect(F().den.eddie).toEqual({ boss: 2, cut: 3, caught: false });
