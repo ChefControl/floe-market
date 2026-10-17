@@ -108,7 +108,8 @@ describe('buying into the ring', () => {
     expect($('season').hidden).toBe(true);
     expect($('cash').classList.contains('chips')).toBe(true);
     expect($('cash').textContent).toBe('🐡0');
-    expect(offered(g).sort()).toEqual(['barrel', 'rack', 'salter', 'washer']);
+    // (the two lines' hands wait for the practice fight: its prize hires them)
+    expect(offered(g).sort()).toEqual(['barrel', 'rack']);
   });
 
   it("however much stage 2 made, it waits in the till: it doesn't buy the cellar, and it's saved", async () => {
@@ -1176,76 +1177,72 @@ describe("the cellar's tiles", () => {
     expect(offered(g)).not.toContain('rack');
   });
 
-  it("the crafting bench sells every room's upgrades, under a heading each, with a price button that buys it", async () => {
+  it("the cookware shop sells it all on one board, a column a fight won, with a price that buys it on a click", async () => {
     const { g, plan, at, F } = await ring({ money: 10_000_000 });
-    // no tiles of their own on the rooms' floors
+    // no tiles of their own on the rooms' floors, or the arena's
     expect(g.unlocks.visibleTiles().filter(t => t.menu)).toEqual([]);
+    expect(g.unlocks.tiles.filter(t => t.id.startsWith('tier')).every(t => t.menu === 'venue')).toBe(true);
     at(plan.BENCH_PAD);
     g.run(0.1);
-    // (with a mouse and keys, it opens whole: no Craft button, no tabs, nothing to fold, one list)
+    // (with a mouse and keys, it opens whole: no Craft button, nothing to fold, the wide board)
     expect($('shop').hidden).toBe(false);
+    expect($('shop').classList.contains('board')).toBe(true);
     expect($('craft').hidden).toBe(true);
     expect($('shopShut').hidden).toBe(true);
     expect($('shopTabs').hidden).toBe(true);
     expect($('shopTitle').textContent).toBe('Cookware shop');
-    // (the ring's, the prep hall's, the grow room's and the hearth room's, each with its number key and how many things in
-    // it there are the chips for; the grow room, till it's found, says who opens it)
-    const heads = () => [...$('shopRows').querySelectorAll('.sect .nm')].map(h => h.textContent);
-    const counts = () => [...$('shopRows').querySelectorAll('.sect .cnt')].map(h => h.textContent);
-    expect(heads()).toEqual(['The ring', 'Prep hall', 'Grow room', 'Hearth room']);
-    expect([...$('shopRows').querySelectorAll('.sect kbd')].map(k => k.textContent)).toEqual(['1', '2', '3', '4']);
-    expect(counts()).toEqual(['3 to buy', '4 to buy', '', '']);
-    expect($('shopRows').querySelector('[data-of="grow"]')!.textContent).toBe('🔒 Found after beating Hakkaku 🐙');
     expect($('shopPurse').hidden).toBe(false);
     expect($('shopPurse').textContent).toBe('🐡 10k');
     expect($('shopKeys').hidden).toBe(false);
+    // the ring's three levels along the top, then every room's upgrade and the venue's tiers, and the buyout at the end
     expect([...$('shopRows').querySelectorAll('[data-mod]')].map(b => (b as HTMLElement).dataset.mod)).toEqual(['bowls', 'street', 'cellarcrew']);
-    expect([...$('shopRows').querySelectorAll<HTMLElement>('[data-tile]')].map(b => b.dataset.tile)).toEqual(['rack', 'washer', 'barrel', 'salter', 'steam', 'smoke', 'attendant', 'cook']);
-    const row = (id: string) => $('shopRows').querySelector<HTMLElement>(`[data-tile="${id}"]`)!;
-    const price = (id: string) => row(id).querySelector<HTMLButtonElement>('button.cost')!;
+    expect([...$('shopRows').querySelectorAll<HTMLElement>('[data-tile]')].map(b => b.dataset.tile)).toEqual(
+      ['rack', 'washer', 'steam', 'barrel', 'salter', 'smoke', 'bed', 'picker', 'shelves', 'attendant', 'cook', 'tier1', 'tier2', 'tier3', 'buyout']);
+    // a gate a column: the start, the practice fight (won: the fixture's sparred), then the bosses, Hakkaku next
+    const gates = () => [...$('shopRows').querySelectorAll<HTMLElement>('.gate')].map(h => h.className.replace('gate ', ''));
+    expect(gates()).toEqual(['start', 'won', 'next', 'later', 'later', 'later', 'later']);
+    expect($('shopRows').querySelector('.gate.next')!.textContent).toBe('🐙Next: Hakkaku');
+    const node = (id: string) => $('shopRows').querySelector<HTMLElement>(`[data-tile="${id}"]`)!;
+    const price = (id: string) => node(id).querySelector<HTMLButtonElement>('button.cost')!;
     // (a line's machines as dots)
-    expect(row('rack').querySelector('b')!.textContent).toBe('Drying rack');
-    expect(row('rack').querySelector('.pips')!.getAttribute('aria-label')).toBe('1 of 6');
-    expect(row('rack').querySelectorAll('.pips i.on').length).toBe(1);
-    expect(row('rack').textContent).toContain('More room on the rice line');
+    expect(node('rack').querySelector('b')!.textContent).toBe('Drying rack');
+    expect(node('rack').querySelector('.pips')!.getAttribute('aria-label')).toBe('1 of 6');
     expect(price('rack').textContent).toBe('🐡 10');
     expect(price('rack').disabled).toBe(false);
-    // the steam baskets wait on the second boss, and say so
-    expect(row('steam').classList.contains('locked')).toBe(true);
-    expect(row('steam').textContent).toContain('After beating Yokobashiri 🦀');
+    expect(node('rack').classList.contains('can')).toBe(true);
+    // the steam baskets wait on the second boss, dark, and the line under the board says so for the one under the mouse
+    expect(node('steam').classList.contains('boss')).toBe(true);
+    expect(price('steam').textContent).toBe('🔒 🦀');
     expect(price('steam').disabled).toBe(true);
-    // one click on its price buys it
+    node('steam').dispatchEvent(new Event('pointerover', { bubbles: true }));
+    g.run(0.1);
+    expect($('shopPick').textContent).toContain('Beat Yokobashiri 🦀 first');
+    // one click on its price buys it, or on the node
     price('rack').click();
     g.run(0.1);
     expect(F().lines.rice.n).toBe(2);
-    expect(row('rack').querySelector('.pips')!.getAttribute('aria-label')).toBe('2 of 6');
-    // what's done stays in its place, ticked
-    price('washer').click();
+    expect(node('rack').querySelector('.pips')!.getAttribute('aria-label')).toBe('2 of 6');
+    node('washer').click();
     g.run(0.1);
-    expect(row('washer').classList.contains('done')).toBe(true);
+    expect(F().hires.washer).toBe(true);
+    // what's done stays in its place, gold, ticked, and the line to it gold too
+    expect(node('washer').classList.contains('done')).toBe(true);
     expect(price('washer').textContent).toBe('✓');
-    // the grow room's things join in once the grow room's found
-    g.layout.found.grow = true;
+    expect($('shopRows').querySelectorAll('.edge.gold').length).toBe(1);
+    // the venue's tiers are here now: Hakkaku opens the first
+    expect(node('tier1').classList.contains('boss')).toBe(true);
+    F().beaten = 1;
     g.run(0.1);
-    expect(heads()).toEqual(['The ring', 'Prep hall', 'Grow room', 'Hearth room']);
-    expect($('shopRows').querySelector('[data-tile="bed"]')).not.toBeNull();
-    // a heading folds its room away, and so does its number key
-    const box = (t: string) => $('shopRows').querySelector<HTMLElement>(`[data-of="${t}"]`)!;
-    $('shopRows').querySelector<HTMLElement>('.sect[data-sect="ring"]')!.click();
-    expect(box('ring').hidden).toBe(true);
-    expect($('shopRows').querySelector('.sect[data-sect="ring"]')!.getAttribute('aria-expanded')).toBe('false');
-    window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Digit1' }));
-    expect(box('ring').hidden).toBe(false);
-    window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Digit2' }));
-    expect(box('prep').hidden).toBe(true);
-    window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Digit2' }));
-    expect(box('prep').hidden).toBe(false);
-    // E buys the line under the mouse
+    expect(gates()).toEqual(['start', 'won', 'won', 'next', 'later', 'later', 'later']);
+    price('tier1').click();
+    g.run(0.1);
+    expect(F().tier).toBe(1);
+    // E buys the one under the mouse
     const barrels = F().lines.fish.n;
-    row('barrel').querySelector('.sub')!.dispatchEvent(new Event('pointerover', { bubbles: true }));
+    node('barrel').querySelector('b')!.dispatchEvent(new Event('pointerover', { bubbles: true }));
     g.press('e'); g.run(0.1); g.press('e', 'keyup');
     expect(F().lines.fish.n).toBe(barrels + 1);
-    // and walking off the bench puts it away, off the screen as well as hidden (its docked layout never shows it)
+    // and walking off the bench puts it away, off the screen as well as hidden
     const css = document.head.appendChild(document.createElement('style'));
     css.textContent = [...indexHtml.matchAll(/<style>([\s\S]*?)<\/style>/g)].map(m => m[1]).join('\n');
     expect(getComputedStyle($('shop')).display).not.toBe('none');
@@ -1256,9 +1253,57 @@ describe("the cellar's tiles", () => {
     css.remove();
   });
 
+  it('the tree: the practice fight opens the two hands, and a line\'s big upgrade needs its hand first', async () => {
+    // a game that's just come down: the practice fight to come
+    const { g, F } = await ring({ money: 10_000_000, ring: { sparred: false, practice: true } });
+    g.run(0.1);
+    expect(offered(g)).toEqual(expect.arrayContaining(['rack', 'barrel']));
+    expect(offered(g)).not.toContain('washer');
+    expect(offered(g)).not.toContain('salter');
+    // (the tutorial's shop lesson points at the cheapest thing there: the drying rack, still at the start)
+    expect([...g.unlocks.menuOffer()].sort((a, b) => a.cost - b.cost)[0].id).toBe('rack');
+    F().practice = false; F().sparred = true;
+    g.run(0.1);
+    expect(offered(g)).toEqual(expect.arrayContaining(['washer', 'salter']));
+    // two bosses on: the steam baskets wait for the washer, the cook for the attendant
+    F().beaten = 3;
+    g.run(0.1);
+    expect(offered(g)).not.toContain('steam');
+    expect(offered(g)).not.toContain('smoke');
+    expect(offered(g)).not.toContain('cook');
+    expect(offered(g)).toContain('attendant');
+    expect(g.unlocks.buyFromMenu(g.unlocks.tiles.find(t => t.id === 'washer')!)).toBe(true);
+    expect(g.unlocks.buyFromMenu(g.unlocks.tiles.find(t => t.id === 'attendant')!)).toBe(true);
+    g.run(0.1);
+    expect(offered(g)).toEqual(expect.arrayContaining(['steam', 'cook']));
+    expect(offered(g)).not.toContain('smoke');
+  });
+
+  it("an older game keeps all it bought on the tree, even what it couldn't buy that way now", async () => {
+    // from before the practice fight and the tree's lines: steam baskets and a smokehouse with no hands, a cook with
+    // no attendant, the second tier, a ring level or two, and more racks
+    const { g, plan, at } = await ring({
+      money: 1_000_000, mods: { street: 3, bowls: 1 },
+      ring: { sparred: false, beaten: 3, tier: 2, hires: { cook: true }, lines: { rice: { n: 4, up: 1 }, fish: { n: 2, up: 1 } } },
+    });
+    at(plan.BENCH_PAD);
+    g.run(0.1);
+    const node = (id: string) => $('shopRows').querySelector<HTMLElement>(`[data-tile="${id}"]`)!;
+    for (const id of ['steam', 'smoke', 'cook', 'tier1', 'tier2']) expect(node(id).classList.contains('done')).toBe(true);
+    expect(node('rack').querySelector('.pips')!.getAttribute('aria-label')).toBe('4 of 6');
+    expect(node('barrel').querySelector('.pips')!.getAttribute('aria-label')).toBe('2 of 6');
+    // (its levels too)
+    expect($('shopRows').querySelector('[data-mod="street"] small')!.textContent).toBe('Level 3');
+    expect($('shopRows').querySelector('[data-mod="bowls"] small')!.textContent).toBe('Level 1');
+    // what it hasn't bought is where the tree says: the hands on sale (a boss beaten counts the practice won)
+    expect(node('washer').classList.contains('can')).toBe(true);
+    expect(node('attendant').classList.contains('can')).toBe(true);
+    expect(node('tier3').classList.contains('boss')).toBe(true);
+  });
+
   it('hires the crew, who run their lines and the pot by themselves', async () => {
     const { g, buy, F } = await ring({ money: 10_000_000, ring: { beaten: 3, hires: { picker: true }, lines: { mush: { n: 3 } } } });
-    for (const id of ['washer', 'salter', 'cook', 'attendant']) buy(id);
+    for (const id of ['washer', 'salter', 'attendant', 'cook']) buy(id);
     expect(F().crew.map(w => w.role).sort()).toEqual(['attendant', 'cook', 'picker', 'salter', 'washer']);
     g.placePlayer(0, 0);
     g.player.g.position.y = (await import('../src/cellar')).CY;
@@ -1279,6 +1324,10 @@ describe("the cellar's tiles", () => {
     expect(offered(g)).toContain('attendant');
     expect(offered(g)).not.toContain('cook');
     F().beaten = 3;
+    g.run(0.1);
+    // (the cook needs the attendant first, in the shop's tree)
+    expect(offered(g)).not.toContain('cook');
+    g.unlocks.buyFromMenu(g.unlocks.tiles.find(t => t.id === 'attendant')!);
     g.run(0.1);
     expect(offered(g)).toContain('cook');
   });
@@ -1636,8 +1685,8 @@ describe("the workshop's crafting bench", () => {
     expect($('shop').hidden).toBe(false);
   });
 
-  it('on a touch screen it opens folded, a Craft button out of the thumb\'s way, with a ✕ to fold it again', async () => {
-    const { g, plan, at } = await ring({ money: 10_000_000 });
+  it('on a touch screen it opens folded, a Shop button out of the thumb\'s way, then a ladder: tap to pick, then Buy', async () => {
+    const { g, plan, at, F } = await ring({ money: 10_000_000 });
     // (a first touch: the game's a touch screen's from then on)
     window.dispatchEvent(Object.assign(new Event('pointerdown'), { pointerType: 'touch' }));
     at(plan.BENCH_PAD);
@@ -1646,30 +1695,32 @@ describe("the workshop's crafting bench", () => {
     expect($('craft').hidden).toBe(false);
     expect(Number($('craftN').textContent)).toBeGreaterThan(0);
     $('craft').click();
+    g.run(0.1);
     expect($('shop').hidden).toBe(false);
+    expect($('shop').classList.contains('ladder')).toBe(true);
     expect($('craft').hidden).toBe(true);
     expect($('shopShut').hidden).toBe(false);
-    // (a tab each, opening on one with something to buy, a dot on each with something there are the chips for)
-    const tabs = () => [...$('shopTabs').querySelectorAll<HTMLButtonElement>('[data-tab]')];
-    expect(tabs().map(b => b.dataset.tab)).toEqual(['ring', 'prep', 'hearth']);
-    expect(tabs().find(b => b.getAttribute('aria-selected') === 'true')!.dataset.tab).toBe('prep');
-    expect(tabs().map(b => b.classList.contains('can'))).toEqual([true, true, false]);
-    // (a card each, in its place: the rice line's along the top, the fish line's under it)
-    const card = (id: string) => $('shopRows').querySelector<HTMLButtonElement>(`[data-tile="${id}"]`)!;
-    expect([...$('shopRows').querySelectorAll<HTMLButtonElement>('[data-tile]')].map(b => b.dataset.tile)).toEqual(['rack', 'washer', 'steam', 'barrel', 'salter', 'smoke']);
-    expect(card('rack').getAttribute('aria-pressed')).toBe('true');
-    expect($('shopPick').textContent).toContain('More room on the rice line');
+    // a column a room along the top, a bar a gate: the practice fight's won, Hakkaku's next
+    expect([...$('shopRows').querySelectorAll('.treeHead .laneName')].map(l => l.textContent)).toEqual(['🍚Rice', '🐟Fish', '🍄Grow', '🍲Hearth', '🏮Venue']);
+    expect([...$('shopRows').querySelectorAll<HTMLElement>('.bar')].map(b => b.className.replace('bar ', ''))).toEqual(['won', 'next', 'later', 'later', 'later', 'later']);
+    expect($('shopRows').querySelector('.bar.next')!.textContent).toBe('🔒 Beat Hakkaku 🐙');
+    const node = (id: string) => $('shopRows').querySelector<HTMLButtonElement>(`[data-tile="${id}"]`)!;
     const buy = () => $('shopPick').querySelector<HTMLButtonElement>('.buy')!;
-    card('steam').click();
-    expect($('shopPick').textContent).toContain('After beating Yokobashiri 🦀');
+    // (it starts on the first thing there are the chips for: the bowl price)
+    expect($('shopRows').querySelector('[data-mod="bowls"]')!.getAttribute('aria-pressed')).toBe('true');
+    node('steam').click();
+    g.run(0.1);
+    expect(node('steam').getAttribute('aria-pressed')).toBe('true');
+    expect($('shopPick').textContent).toContain('Beat Yokobashiri 🦀 first');
     expect(buy().disabled).toBe(true);
     // pick, then buy
-    card('rack').click();
+    node('rack').click();
+    g.run(0.1);
+    expect($('shopPick').textContent).toContain('More room on the rice line');
     buy().click();
     g.run(0.1);
-    expect(card('rack').textContent).toContain('2/6');
-    tabs()[2].click();
-    expect([...$('shopRows').querySelectorAll<HTMLButtonElement>('[data-tile]')].map(b => b.dataset.tile)).toEqual(['attendant', 'cook']);
+    expect(F().lines.rice.n).toBe(2);
+    expect(node('rack').textContent).toContain('🐡 15');
     $('shopShut').click();
     expect($('shop').hidden).toBe(true);
     expect($('craft').hidden).toBe(false);
