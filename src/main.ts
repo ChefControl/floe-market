@@ -10,6 +10,7 @@ import { initHint, updHint } from './hint';
 import { inputVec } from './input';
 import { hideAbove } from './levelCull';
 import { doorCam } from './doorway';
+import { showCam, showShake } from './chanko';
 import { drawOffer, offerCam } from './offer';
 import { updKofi } from './kofi';
 import { player } from './player';
@@ -95,6 +96,12 @@ function frame(now: number) {
   }
   // the Undertow's doorman looking you over the first time: the camera on the doors (doorway.ts)
   if (doorCam.k > 0) { const b = smooth(doorCam.k); camera.position.lerp(doorCam.pos, b); aim.lerp(doorCam.look, b); }
+  // the cooking show at the pot: its own camera on the stew (chanko.ts), jolting a little on a chop
+  if (showCam.k > 0) {
+    const b = smooth(showCam.k), s = reduceMotion.matches ? 0 : showShake();
+    camera.position.lerp(showCam.pos, b); aim.lerp(showCam.look, b);
+    if (s) camera.position.add(V(jitter(-s, s), jitter(-s, s), jitter(-s, s)));
+  }
   // tipsy: the view sways and rolls (not for players who'd rather less motion)
   const sway = tipsy.t > 0 && !reduceMotion.matches ? tipsyK() : 0;
   if (sway) { aim.x += Math.sin(now / 760) * 0.45 * sway; aim.z += Math.cos(now / 910) * 0.3 * sway; }

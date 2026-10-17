@@ -51,7 +51,7 @@ describe('the Undertow', () => {
     expect(F().beaten).toBe(2);
     // the card says there's a way south now; the room's not there yet
     expect($('fightCard').hidden).toBe(false);
-    expect($('fightCard').textContent).toContain('🔓 New: the cook, steam baskets, a way south');
+    expect($('fightCard').textContent).toContain('🔓 New: the attendant, steam baskets, a way south');
     expect(g.layout.found.den).toBe(false);
     // the card goes, his crowd goes home, the next bout begins: there it is
     $('fightCard').click();
@@ -469,8 +469,10 @@ describe('the Undertow', () => {
     // the gong: your chances if the fix holds (154 fans) and if it's caught (all 220), a word for each face of his coin
     at(plan.GONG_PAD);
     g.run(0.7);
-    const gong = await import('../src/gong'), dobu = fight.BOSSES[2], says = (v: Parameters<typeof gong.verdict>[1], n?: number) => gong.VERDICT[gong.verdict(dobu, v, n)];
-    expect([...$('gongCast').children].map(r => r.textContent)).toEqual([`Fix holds${says(fight.forecast(66)!, 154)}`, `Caught${says(fight.forecast()!)}`]);
+    // (each as the forecasts have it, a cooking bonus bought at the gong included)
+    const gong = await import('../src/gong'), dobu = fight.BOSSES[2];
+    const says = (kept: number) => gong.VERDICT[gong.verdict(dobu, fight.forecast(kept)!, dobu.crowd - kept, { at35: fight.forecast(kept, { bonus: 35 })!, at50: fight.forecast(kept, { bonus: 50 })! })];
+    expect([...$('gongCast').children].map(r => r.textContent)).toEqual([`Fix holds${says(66)}`, `Caught${says(0)}`]);
     expect($('gongCast').querySelectorAll('svg.mini use[href="#coinGrin"], svg.mini use[href="#coinGrimace"]')).toHaveLength(2);
     // rung: it held, and he walks in with 66 fewer; the fix is spent
     expect(fight.ringGong()).toBe(true);

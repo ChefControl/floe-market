@@ -17,7 +17,7 @@ import { decal, drawPad } from './decals';
 import { dustFx } from './fx';
 import { ringCam } from './dohyo';
 import {
-  type Boss, bossOf, BOSSES, BUYOUT, type Carry, F, type Forecast, fixOn, forecast, ICON, type Ing, keptHome, NAME, nextBoss, practiceDue, ringGong,
+  type Boss, bossOf, BOSSES, BUYOUT, canShow, type Carry, F, type Forecast, fixOn, forecast, ICON, type Ing, keptHome, NAME, nextBoss, practiceDue, ringGong,
   type Rush, sides, strength, toBeat, worstShort, you,
 } from './fight';
 import { kindOf } from './items';
@@ -67,12 +67,22 @@ export type Verdict = 'win' | 'likelywin' | 'maybe' | 'likelylose' | 'lose';
 export const VERDICT: Record<Verdict, string> = { win: 'Win', likelywin: 'Likely win', maybe: 'Maybe', likelylose: 'Likely lose', lose: 'Lose' };
 /**
  * Ringing now, in a word: the fans the forecast turns against the more-than-half that beats him (of `n`, with a fix's
- * fans kept home): 120% or more a win, from 100% likely, from 85% maybe, from 60% likely lost, and under that lost.
- * (When the cook's bonus comes in, its bands go by what the bonus could do: forecast(kept, { bonus }) at 35 and 50.)
+ * fans kept home): 120% or more a win, from 100% likely. Short of that, it goes by what a bonus from the cooking game at
+ * the pot (chanko.ts) could do, when `cooked` has the forecasts with one bought at the gong: maybe if +35% would win,
+ * likely lost if only +50% would, lost if not even that. (Without them: from 85% maybe, from 60% likely lost.)
  */
-export function verdict(boss: Boss, f: Forecast, n = boss.crowd): Verdict {
-  const r = f.turned / toBeat(boss, n);
-  return r >= 1.2 ? 'win' : r >= 1 ? 'likelywin' : r >= 0.85 ? 'maybe' : r >= 0.6 ? 'likelylose' : 'lose';
+export function verdict(boss: Boss, f: Forecast, n = boss.crowd, cooked?: { at35: Forecast; at50: Forecast }): Verdict {
+  const need = toBeat(boss, n), r = f.turned / need;
+  if (r >= 1) return r >= 1.2 ? 'win' : 'likelywin';
+  if (cooked) return cooked.at35.turned >= need ? 'maybe' : cooked.at50.turned >= need ? 'likelylose' : 'lose';
+  return r >= 0.85 ? 'maybe' : r >= 0.6 ? 'likelylose' : 'lose';
+}
+/** The forecasts with a cooking bonus bought at the gong, `kept` fans home: only while one could still be bought (not
+ *  while one's running, which the plain forecast already counts). */
+function cookedAt(kept = 0) {
+  if (!canShow()) return undefined;
+  const at35 = forecast(kept, { bonus: 35 }), at50 = forecast(kept, { bonus: 50 });
+  return at35 && at50 ? { at35, at50 } : undefined;
 }
 
 // ---------- the gong's panel ----------
@@ -105,8 +115,8 @@ function render() {
     if (f && fix) {
       // one for each way his coin could land: the fix holding, his boys keeping some home; or caught, all of them
       const kept = keptHome(b, fix.cut);
-      rows = [{ face: 'Grin', say: 'Fix holds', v: verdict(b, forecast(kept)!, b.crowd - kept) }, { face: 'Grimace', say: 'Caught', v: verdict(b, f) }];
-    } else if (f) rows = [{ say: 'Your chances', v: verdict(b, f) }];
+      rows = [{ face: 'Grin', say: 'Fix holds', v: verdict(b, forecast(kept)!, b.crowd - kept, cookedAt(kept)) }, { face: 'Grimace', say: 'Caught', v: verdict(b, f, b.crowd, cookedAt()) }];
+    } else if (f) rows = [{ say: 'Your chances', v: verdict(b, f, b.crowd, cookedAt()) }];
     if (R) button = 'Wait for the ring to clear';
   }
   const key = JSON.stringify([on?.name, chips, rows, button]);

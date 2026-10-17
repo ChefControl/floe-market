@@ -6,7 +6,7 @@
 // in the cellar, at the shop counter in the cookware shop, priced in Fugu Chips: pricier bowls, word on the street (fans)
 // and the cellar crew; and under them, everything each room has to buy, bought outright: the prep hall's (racks,
 // barrels, steamers, the smokehouse, the hires who run its lines), the grow room's (beds, the picker, shelves) and the
-// hearth room's (the cook and the attendant).
+// hearth room's (the attendant and the cook).
 import { touchBuy } from './buy';
 import { BENCH_PAD, type MenuRoom } from './cellarPlan';
 import { BOSSES, F, MACH } from './fight';
