@@ -42,7 +42,9 @@ function refresh() {
     el.setAttribute('aria-pressed', String(c === cut));
     el.disabled = busy;
     el.style.setProperty('--risk', riskColour(c));
-    if (b) el.textContent = `🐡 ${n(fixFee(b, c))}`;
+    // (the chip over its fee, each on a line of its own, both clear of the stripe)
+    if (b) el.replaceChildren(Object.assign(document.createElement('span'), { className: 'chip', textContent: '🐡' }),
+      Object.assign(document.createElement('span'), { className: 'fee', textContent: n(fixFee(b, c)) }));
   }
   if (!b) { odds.textContent = 'Nobody left to fix.'; odds.hidden = false; shake.hidden = true; return; }
   shake.hidden = false;
