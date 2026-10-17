@@ -54,8 +54,13 @@ async function atPot() {
     ptr('pointerup', from.x + (to.x - from.x) / 2.7, from.y + (to.y - from.y) / 2.7);
     run(1.1);
   };
-  /** Throws until the throw's done; how many it took. */
-  const throwAll = () => { until('Throw'); let n = 0; while (n < 16 && show.showState()?.step === 'Throw' && show.showState()?.phase === 'play') { throwOne(); n++; } return n; };
+  /** Throws until the throw's done (and the basket's tipped in); how many throws it took. */
+  const throwAll = () => {
+    until('Throw');
+    const was = show.showState()!.run.got[1].length;
+    for (let n = 0; n < 16 && show.showState()?.step === 'Throw' && show.showState()?.phase === 'play'; n++) throwOne();
+    return show.showState()!.run.got[1].length - was;
+  };
   /** Three pours, held a while. */
   const season = () => { until('Season'); for (let i = 0; i < 3; i++) { run(0.1); key('keydown'); run(0.7); key('keyup'); run(0.8); } };
   /** Circles round the pot at a steady pace for `s` seconds, from a first press at `x, y` (on the soup, if not given). */
@@ -150,8 +155,8 @@ describe('the cooking show at the pot', () => {
     until('Season');
     const got = show.showState()!.run.got;
     expect(got[1]).toHaveLength(6);
-    // (the four pieces, the mushroom and the rice went in; the rest of each thing stayed in the basket)
-    expect(show.showState()!.stew.in).toHaveLength(6);
+    // (the four pieces, the mushroom and the rice went in, and then what was left of each thing, tipped in from the basket)
+    expect(show.showState()!.stew.in).toHaveLength(6 + 4);
     expect(show.showState()!.stars[1]).toBe(Math.round(got[1].reduce((a, b) => a + b, 0) / 6 * 3));
   }, 60_000);
 
@@ -164,7 +169,8 @@ describe('the cooking show at the pot', () => {
     expect(show.showState()!.stars[0]).toBe(Math.round(3 / 4 * 3));
     // the pieces cut off one by one (the carrot whole, its line missed), and the rice
     expect(throwAll()).toBe(4 + 1);
-    expect(show.showState()!.stew.in).toHaveLength(5 + 1);
+    // (and then the rest of the three cut, tipped in)
+    expect(show.showState()!.stew.in).toHaveLength(5 + 1 + 3);
   }, 60_000);
 
   it('what\'s thrown in sinks into the stew, and the stir brings it back up', async () => {

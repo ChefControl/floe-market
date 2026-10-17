@@ -4,7 +4,8 @@
 // over a stew of its own that answers everything done to it: a napa cabbage, a carrot, a block of tofu and a block of
 // tuna slide along a long prep board under the knife (tap as each gold line lights up under it: one through each), the
 // cut pieces hopping into a basket; the four pieces cut off are thrown in one by one, then a mushroom and a handful of
-// dried rice (drag up and let go: the nearer the pot's middle the better), and sink into the stew; salt, soy and miso are
+// dried rice (drag up and let go: the nearer the pot's middle the better), and sink into the stew, and what's left in the
+// basket is tipped in after them; salt, soy and miso are
 // poured to a line (hold, let go in the band), each turning the stew its colour from where it goes in; and the stew is
 // stirred round in the boil band (press the soup to take the ladle, then it follows the mouse or finger), whirling with
 // the ladle, and what went in comes back up. Each step gives up to 3 stars; the 12 buy the pot a bonus for a while
@@ -147,7 +148,7 @@ type Cut = 'cabbage' | 'carrot' | 'tofu' | 'fish';
 /** What's laid on the board, in the order it comes under the knife: what goes in the stew with the fish (a napa
  *  cabbage, a carrot, a block of tofu: the stew's own cabbage, carrot and tofu), then the block of tuna; each `d` across
  *  the board and cut once, a piece `lens[0]` long off its end (that's what's thrown in) from the rest, `lens[1]` long
- *  (which goes back in the basket). */
+ *  (which waits in the basket, and is tipped in after the throws). */
 const ROW: { k: Cut; lens: [number, number]; d: number }[] = [
   { k: 'cabbage', lens: [0.08, 0.12], d: 0.16 }, { k: 'carrot', lens: [0.08, 0.12], d: 0.08 }, { k: 'tofu', lens: [0.08, 0.12], d: 0.13 },
   { k: 'fish', lens: [0.15, 0.3], d: 0.17 },
@@ -325,19 +326,21 @@ const slot = (i: number) => {
 };
 /** Where the mushroom and the rice wait on the board till it's their turn, right of the knife. */
 const MUSH_AT = V(BOARD.x + 0.8, BOARD.y + 0.07, BOARD.z - 0.05), RICE_AT = V(BOARD.x + 1.05, BOARD.y + 0.07, BOARD.z + 0.03);
-const hops: { o: Object3D; a: Vector3; b: Vector3; t: number; up: number }[] = [];
-/** `o` hops off to `to` (in the world) in an arc, over a third of a second. */
-function hop(o: Object3D, to: Vector3, up = 0.16) {
+const hops: { o: Object3D; a: Vector3; b: Vector3; t: number; up: number; dur: number; then?: () => void }[] = [];
+/** `o` hops off to `to` (in the world) in an arc `up` high, over `dur` seconds (a third of one), after `wait`; `then`
+ *  when it's there. */
+function hop(o: Object3D, to: Vector3, up = 0.16, { dur = 0.34, wait = 0, then }: { dur?: number; wait?: number; then?: () => void } = {}) {
   const a = o.getWorldPosition(V(0, 0, 0));
   set!.g.add(o); o.position.copy(a); o.visible = true;
-  hops.push({ o, a, b: to.clone(), t: 0, up });
+  hops.push({ o, a, b: to.clone(), t: -wait / dur, up, dur, then });
 }
 function updHops(dt: number) {
   for (let j = hops.length - 1; j >= 0; j--) {
     const h = hops[j];
-    h.t = Math.min(1, h.t + dt / 0.34);
+    h.t = Math.min(1, h.t + dt / h.dur);
+    if (h.t < 0) continue;
     h.o.position.lerpVectors(h.a, h.b, h.t); h.o.position.y += Math.sin(h.t * Math.PI) * h.up;
-    if (h.t >= 1) hops.splice(j, 1);
+    if (h.t >= 1) { hops.splice(j, 1); h.then?.(); }
   }
 }
 const cabbageRib = new MeshLambertMaterial({ color: 0xE8EFCB }), cabbageLeaf = new MeshLambertMaterial({ color: 0x8FC46A });
@@ -562,14 +565,16 @@ function cutStep(s: Set, got: number[]): Step {
 
 /** The throw: what was cut off each thing, one at a time (a thing whose line was missed goes in whole), the cabbage
  *  first and the tuna last, then a mushroom (once the grow room's open) and a handful of dried rice: six throws, five
- *  before the grow room (the rest of each thing stays in the basket). Each hops up from the basket
+ *  before the grow room; then the rest of each thing is tipped in from the basket. Each hops up from the basket
  *  onto the board right of the knife to be thrown, and what goes in sinks into the stew. `got`: each throw's score,
  *  kept by the run, so carrying on starts at the next one. */
 function throwStep(s: Set, cut: number[], got: number[]): Step {
   type Hand = { parts: Object3D[]; offs: Vector3[]; up: boolean };
   let hands: Hand[] = [];
   let i = got.length, t = 0, wait = 0;
-  let st: 'hop' | 'ready' | 'fly' | 'wait' = 'ready';
+  let st: 'hop' | 'ready' | 'fly' | 'wait' | 'tip' = 'ready';
+  /** What's left in the basket once every throw's made: the rest of each thing cut. */
+  let rest: Object3D[] = [];
   let drag: { x: number; y: number } | null = null, fly: { a: Vector3; b: Vector3; t: number } | null = null;
   /** Where each piece is held to be thrown: on the board, right of the knife. */
   const REST = V(BOARD.x + 0.32, BOARD.y + 0.031, BOARD.z + 0.04);
@@ -596,9 +601,28 @@ function throwStep(s: Set, cut: number[], got: number[]): Step {
       const a = rnd(0, 6), r = rnd(0, 0.4);
       h.parts.forEach(o => drown(o, POT.x + Math.cos(a) * r + rnd(-0.1, 0.1), POT.z + Math.sin(a) * r + rnd(-0.1, 0.1), h.up, true));
     });
+    const thrown = hands.flatMap(h => h.parts);
+    rest = s.pieces.filter(p => !thrown.includes(p));
+    // (every throw made: what was left in the basket went in after them)
+    if (n >= hands.length) rest.forEach((o, k) => { const [x, z] = tipAt(k); drown(o, x, z, true, true); });
   }
+  /** Where in the stew the basket's `k`th leftover goes. */
+  const tipAt = (k: number) => { const a = k * 2.1 + 0.4, r = 0.22 + (k % 3) * 0.13; return [POT.x + Math.cos(a) * r, POT.z + Math.sin(a) * r]; };
+  /** Every throw made, the basket's tipped into the pot: what's left of each thing flies in after the rest, one
+   *  after another, and sinks. (It's not scored: it just all goes in.) */
+  function tip() {
+    st = 'tip';
+    rest.forEach((o, k) => {
+      const [x, z] = tipAt(k);
+      hop(o, V(x, STEW_Y + 0.02, z), 0.55, {
+        dur: 0.5, wait: k * 0.14,
+        then: () => { wave(x, z, 0.03); splashFx({ x, z }, STEW_Y); drown(o, x, z); },
+      });
+    });
+  }
+  const finish = () => { this_.stars = STARS[1](got); this_.done = true; };
   function next() {
-    if (i >= hands.length) { this_.stars = STARS[1](got); this_.done = true; return; }
+    if (i >= hands.length) { if (rest.length) tip(); else finish(); return; }
     const h = hands[i];
     h.parts.forEach((o, k) => { o.rotation.set(0, 0, 0); hop(o, REST.clone().add(h.offs[k]), 0.22); });
     st = 'hop';
@@ -633,6 +657,7 @@ function throwStep(s: Set, cut: number[], got: number[]): Step {
     update(dt) {
       t += dt;
       if (st === 'hop' && !hops.some(x => hands[i].parts.includes(x.o))) grab();
+      else if (st === 'tip') { if (!hops.some(x => rest.includes(x.o))) finish(); }
       else if (st === 'fly' && fly) {
         fly.t = Math.min(1, fly.t + dt / 0.55);
         const k = fly.t;
@@ -665,7 +690,7 @@ function throwStep(s: Set, cut: number[], got: number[]): Step {
     },
     leave() {
       land();
-      if (got.length >= hands.length) { this_.stars = STARS[1](got); this_.done = true; }
+      if (got.length >= hands.length) finish();
     },
   };
   return this_;
