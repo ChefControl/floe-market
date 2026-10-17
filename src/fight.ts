@@ -144,8 +144,11 @@ export interface Bout { phase: Phase; t: number; win: boolean; tug: number; nois
 export interface Fight {
   t: number;
   beaten: number; tier: number; boughtOut: boolean;
-  /** The practice fight's still to come (a player who's just come down: ring.ts). */
+  /** The practice fight's still to come (a player who's just come down: ring.ts; or a game from before it, which hasn't
+   *  beaten a boss: owedPractice). */
   practice: boolean;
+  /** The practice fight's been won (so it's never owed again). */
+  sparred: boolean;
   /** The doors are shut: a player who's just come down, before their first soup's out on the stall (ring.ts). No fans
    *  come, and there's no local fight, until it is (or the gong's rung). */
   quiet: boolean;
@@ -192,7 +195,7 @@ const line = (n: number): Line => ({ n, up: 0, m: [] });
 const freshBout = (n: number): Bout => ({ phase: 'prep', t: 0, win: false, tug: 0, noise: 0, n, crowd: -1, came: 0, fed: 0 });
 export function blank(): Fight {
   return {
-    t: 0, beaten: 0, tier: 0, boughtOut: false, practice: false, quiet: false,
+    t: 0, beaten: 0, tier: 0, boughtOut: false, practice: false, sparred: false, quiet: false,
     lines: { rice: line(1), fish: line(1), mush: line(0) }, hires: {}, crew: [],
     pantry: { rice: 0, fish: 0, mush: 0 }, pot: [], potT: 0, counter: [], stall: [],
     queue: [], fed: [], cooked: [], full: [], fullAcc: 0, earned: [],
@@ -245,6 +248,12 @@ export const growOpen = () => F.beaten >= 1;
 /** What goes in the pot: four of each ingredient there is. */
 export const inPot = () => ING.filter(k => k !== 'mush' || growOpen());
 export const nextBoss = (): Boss | undefined => (practiceDue() ? PRACTICE : BOSSES[F.beaten]);
+/** A loaded game (save.ts) that's beaten no boss and never won the practice fight has it to come, a game from before
+ *  it too. `won`: it was won before this was kept (the save's tutorial learnt the gong on it). */
+export function owedPractice(won: boolean) {
+  if (won) F.sparred = true;
+  if (!F.sparred && F.beaten === 0) F.practice = true;
+}
 /** The gong calls in the sparring partner next, not a boss. */
 export const practiceDue = () => F.practice && F.beaten === 0;
 export const canCook = () => inPot().every(k => F.pantry[k] >= PER_BATCH);
@@ -462,6 +471,7 @@ function bossResult(R: Rush) {
   if (R.win && R.boss < 0) {
     // practice: his prize, and the first boss is next
     F.practice = false;
+    F.sparred = true;
     on.earn(PRACTICE.prize, 'prize');
   } else if (R.win) {
     const boss = BOSSES[R.boss];
@@ -854,7 +864,7 @@ export function fightFrom(raw: unknown): Fight {
       ...b,
       t: Math.max(0, num(r.t)),
       beaten: clamp(Math.floor(num(r.beaten)), 0, BOSSES.length), tier: clamp(Math.floor(num(r.tier)), 0, TIERS.length - 1),
-      boughtOut: !!r.boughtOut, practice: r.practice === true, quiet: r.quiet === true,
+      boughtOut: !!r.boughtOut, practice: r.practice === true, sparred: r.sparred === true, quiet: r.quiet === true,
       hires: Object.fromEntries((Object.keys(HIRES) as Role[]).filter(k => r.hires?.[k]).map(k => [k, true])),
       pantry: Object.fromEntries(ING.map(k => [k, clamp(Math.floor(num(r.pantry?.[k])), 0, LEDGE_CAP)])) as Record<Ing, number>,
       pot: list<boolean>(r.pot, x => typeof x === 'boolean').slice(0, POT_CAP),

@@ -14,9 +14,9 @@
 // the dumbwaiter's bins, the racks and barrels, standing at the pot to cook, the bowls from the counter out to the
 // stall, the cheapest thing at the shop counter (saved up for in 🐡), and the gong: the practice fight against the champion's
 // sparring partner (fight.ts), whose small crowd a full stall turns (so it's pointed at once the forecast says it's
-// won, and the stall until then); winning it is the end of it. (A
-// game that came down before the practice fight has the first boss instead, pointed at only once its forecast says
-// it's a win.) Then tips for later: the fans' chips and Fugu's cut, 💪, and the
+// won, and the stall until then); winning it is the end of it. Any game that's beaten no boss and never won it has it
+// to come, older ones too (fight.ts, owedPractice). (A game without one, a test's, has the first boss instead, pointed
+// at only once its forecast says it's a win.) Then tips for later: the fans' chips and Fugu's cut, 💪, and the
 // grow room's beds. A save from before the cellar's lessons counts what it has done down there already.
 import { Group, Mesh, MeshBasicMaterial, RingGeometry } from 'three';
 import { buyButtonShown, touchBuy } from './buy';

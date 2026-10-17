@@ -58,7 +58,8 @@ export async function loadGame(save?: SaveFixture | string, opts: { main?: boole
       v: 6, money: 0, tiles: [], reviews: [], pile: 0, back: 0, backRice: 0, c1: 0, c1c: 0, c2: 0, c2c: 0, fish: 0, rice: 0,
       plates: 0, cash: 0, boxes: 0, tcash: 0, field: 0, till: 0,
     };
-    localStorage.setItem('floe-market-v1', JSON.stringify({ ...empty, ...save }));
+    // (a test's cellar has had its practice fight, so its gong calls the first boss, unless the test says otherwise)
+    localStorage.setItem('floe-market-v1', JSON.stringify({ ...empty, ...save, ring: { sparred: true, ...save?.ring } }));
   }
   let frame: FrameRequestCallback | undefined;
   if (opts.main) {
