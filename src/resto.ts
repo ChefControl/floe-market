@@ -34,6 +34,7 @@ import { flatten, type Hood, mama, settle } from './family';
 import { F, on } from './fight';
 import { apart, dice } from './kit';
 import { lineShows, lineToMama, mamaLeg } from './bowlLine';
+import { contactShadows, type Smudge } from './contact';
 import { ARENA, CRAFT, DOORS, level, LOO, RESTO, stage, WING } from './layout';
 import { player } from './player';
 import { popIn } from './pop';
@@ -467,17 +468,28 @@ function buildRuin(base: Object3D): Ruin {
   const floor = (p: Object3D, m: Material, x: number, z: number, w: number, d: number, ry = 0) => {
     const o = add(p, new Mesh(new PlaneGeometry(w, d), m)); o.rotation.set(-Math.PI / 2, 0, ry); o.position.set(x, CY + 0.022, z); o.receiveShadow = true; return o;
   };
-  // the tables and stools knocked over where they stood, and the counter's stools
+  // the tables and stools knocked over where they stood, and the counter's stools; each on the floor, a soft shadow
+  // under it (contact.ts)
+  const smudges: Record<'wreck' | 'clearing' | 'patched', Smudge[]> = { wreck: [], clearing: [], patched: [] };
   TABLES.forEach((t, i) => {
+    // (its top down on one edge, the other propped on its pedestal, fallen under it)
     const s = i % 2 ? 1 : -1;
-    const top = cyl(wreck, M.top, t.x + 0.18 * s, 0.4, t.z + 0.05, 0.42, 0.04); top.rotation.z = 1.2 * s;
-    const leg = cyl(wreck, M.woodDark, t.x - 0.2 * s, 0.07, t.z, 0.06, 0.6); leg.rotation.z = Math.PI / 2;
+    const top = cyl(wreck, M.top, t.x + 0.1 * s, 0.2, t.z, 0.42, 0.04); top.rotation.z = 0.45 * s;
+    const leg = cyl(wreck, M.woodDark, t.x + 0.42 * s, 0.06, t.z + 0.05, 0.06, 0.6); leg.rotation.x = Math.PI / 2;
+    smudges.wreck.push({ x: t.x + 0.12 * s, z: t.z, rx: 0.55, rz: 0.48 });
     for (const k of [-1, 1]) {
-      const st = add(wreck, new Group()); st.position.set(t.x + k * TABLE_SEAT, CY, t.z + (k === s ? 0.15 : -0.1)); st.rotation.set(Math.PI / 2, 0, i + k);
-      cyl(st, M.woodDark, 0, 0.17 - CY, 0, 0.17, 0.05); cyl(st, M.iron, 0, -CY, 0, 0.03, 0.4);
+      // (a stool on its side: its seat's rim and its little foot on the floor, the leg sloping between, turned any which
+      // way)
+      const st = add(wreck, new Group()), yaw = i * 1.7 + k * 0.9, TIP = 0.2;
+      st.position.set(t.x + k * TABLE_SEAT, CY + 0.15, t.z + (k === s ? 0.15 : -0.1)); st.rotation.order = 'YXZ'; st.rotation.set(Math.PI / 2 - TIP, yaw, 0);
+      cyl(st, M.woodDark, 0, 0.2 - CY, 0, 0.19, 0.07); cyl(st, M.iron, 0, -CY, 0, 0.03, 0.4); cyl(st, M.iron, 0, -0.2 - CY, 0, 0.11, 0.02);
+      smudges.wreck.push({ x: st.position.x, z: st.position.z, rx: 0.18, rz: 0.32, ry: yaw });
     }
   });
-  for (const [i, s] of STOOLS.entries()) if (i % 2 === 0) { const st = cyl(wreck, M.woodDark, s.x + 0.1, 0.17, s.z, 0.17, 0.05); st.rotation.x = 1.4; }
+  for (const [i, s] of STOOLS.entries()) if (i % 2 === 0) {
+    const st = cyl(wreck, M.woodDark, s.x + 0.1, 0.17, s.z, 0.17, 0.05); st.rotation.x = 1.4;
+    smudges.wreck.push({ x: s.x + 0.1, z: s.z, rx: 0.22, rz: 0.12 });
+  }
   // broken planks and rubble along the walls, at 0; stacked neat at 1
   const WALLS = [
     { x: RESTO.x0 + 0.3, z: 10.1, ry: Math.PI / 2 }, { x: RESTO.x0 + 0.3, z: 11.1, ry: Math.PI / 2 }, { x: -2.2, z: RESTO.z1 - 0.3, ry: 0 },
@@ -492,14 +504,17 @@ function buildRuin(base: Object3D): Ruin {
       p.rotation.set((k % 2) * 0.15, w.ry + (k - 2) * 0.55 + i, 0);
     }
     for (let k = 0; k < 3; k++) box(wreck, PLASTER, w.x + ax * (k - 1) * 0.3 + 0.1, 0.07, w.z + az * (k - 1) * 0.3 + 0.1, 0.22 - k * 0.04, 0.14 - k * 0.03, 0.18).rotation.y = i + k;
+    smudges.wreck.push({ x: w.x, z: w.z, rx: 0.65, rz: 0.4, ry: w.ry });
   });
   for (const w of [WALLS[1], WALLS[4], WALLS[8]]) {
     for (let k = 0; k < 5; k++) box(clearing, k % 2 ? PLANK : M.woodDark, w.x, 0.04 + k * 0.07, w.z, 0.9, 0.07, 0.14).rotation.y = w.ry + Math.PI / 2 + (k % 2) * 0.06;
+    smudges.clearing.push({ x: w.x, z: w.z, rx: 0.2, rz: 0.55, ry: w.ry });
   }
   // a broom against the wing's east wall, a bucket by it
   const broom = add(clearing, new Group()); broom.position.set(WING.x1 - 0.2, CY, 12.8); broom.rotation.z = 0.22;
   cyl(broom, 0xB89A6A, 0, 0.6 - CY, 0, 0.018, 1.2, false); box(broom, 0xC9A060, 0, 0.06 - CY, 0, 0.08, 0.12, 0.26);
   cyl(clearing, M.steelDark, WING.x1 - 0.32, 0.13, 13.25, 0.13, 0.26); cyl(clearing, 0x2A3A44, WING.x1 - 0.32, 0.25, 13.25, 0.11, 0.01, false);
+  smudges.clearing.push({ x: WING.x1 - 0.32, z: 13.25, rx: 0.22 });
   // boards up out of the floor at 0 (dark gaps), new pale ones in their place from 1
   const GAPS = [{ x: -1.6, z: 10.95 }, { x: 5.6, z: 14.25 }, { x: 8.1, z: 13.95 }, { x: 3.7, z: 15.45 }];
   for (const g of GAPS) { floor(wreck, HOLE, g.x, g.z, 1.1, 0.16); floor(mended, PALE, g.x, g.z, 1.1, 0.16); floor(mended, PALE, g.x + 0.1, g.z + 0.17, 0.8, 0.15); }
@@ -514,8 +529,10 @@ function buildRuin(base: Object3D): Ruin {
       box(patched, CRATE, t.x, 0.3, t.z, 0.62, 0.6, 0.62);
       for (const k of [-1, 0, 1]) box(patched, M.woodDark, t.x, 0.15 + (k + 1) * 0.2, t.z + 0.315, 0.64, 0.025, 0.01, false);
       for (const sd of [-1, 1]) stool(patched, t.x + sd * TABLE_SEAT, t.z, 0.4);
+      smudges.patched.push({ x: t.x, z: t.z, rx: 0.48 });
     }
   });
+  for (const [k, g] of [['wreck', wreck], ['clearing', clearing], ['patched', patched]] as const) g.add(contactShadows(smudges[k], CY + 0.03));
   // cobwebs in the corners
   const web = new MeshLambertMaterial({
     side: DoubleSide, transparent: true, depthWrite: false, map: canvasTex(128, 128, (c, w) => {

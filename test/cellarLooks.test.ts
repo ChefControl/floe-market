@@ -51,15 +51,15 @@ describe('the cellar upgrades\' looks', () => {
   }, 60_000);
 
   it('swaps the soup square\'s bamboo for its own look, and stops at the fourth level', async () => {
-    const { g, cellar: c, shown, buy } = await cellar();
+    const { g, cellar: c, shown, buy, SPOT, SPOT_WAIT } = await cellar();
     expect(c.barFrame.visible).toBe(true);
     buy('bowls');
     expect(c.barFrame.visible).toBe(false);
     expect(shown('bowls')).toEqual([1, 1]);
     buy('bowls', 3);
     expect(shown('bowls')).toEqual([3, 4]);
-    // a fifth level's no new look, and no close-up
-    g.run(3);
+    // a fifth level's no new look, and no close-up (once the last one's over)
+    g.run(SPOT_WAIT + SPOT.over + SPOT.hold + SPOT.back + 0.3);
     buy('bowls');
     expect(shown('bowls')).toEqual([3, 4]);
     g.run(1.5);

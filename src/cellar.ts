@@ -3115,6 +3115,20 @@ export function collideCellar(p: XZ, machines?: Record<'rice' | 'fish' | 'mush',
 /** The vertex-coloured material the furniture's baked with, by side. */
 const bakedMats = new Map<Facing, MeshLambertMaterial>();
 const bakedMat = (side: Facing) => bakedMats.get(side) ?? bakedMats.set(side, new MeshLambertMaterial({ vertexColors: true, side })).get(side)!;
+/** The baked furniture's shading by the floor, as if light couldn't quite reach in under things (ambient occlusion,
+ *  baked once into its vertex colours, so it costs nothing to draw): darkest, `low` of its colour, where it meets the
+ *  floor, up to its full colour `up` metres over it; and its undersides a shade darker still. The floor itself, and
+ *  whatever lies flat on it, as it is. */
+const AO = { low: 0.6, up: 0.55, under: 0.85 };
+function occlude(g: BufferGeometry, lift: number) {
+  const pos = g.attributes.position, nor = g.attributes.normal, col = g.attributes.color;
+  for (let i = 0; i < pos.count; i++) {
+    const h = pos.getY(i) + lift, ny = nor.getY(i);
+    if (ny > 0.7 && h < 0.04) continue;
+    const k = Math.min(1, Math.max(0, h / AO.up)), f = (AO.low + (1 - AO.low) * k * k * (3 - 2 * k)) * (ny < -0.5 ? AO.under : 1);
+    col.setXYZ(i, col.getX(i) * f, col.getY(i) * f, col.getZ(i) * f);
+  }
+}
 /** Whether a mesh is plain furniture: one flat colour, nothing drawn on it, not glowing, not see-through. */
 const plain = (m: Material | Material[]): m is MeshLambertMaterial => !Array.isArray(m) && m instanceof MeshLambertMaterial
   && !m.map && !m.transparent && m.opacity === 1 && !m.vertexColors && m.emissive.getHex() === 0;
@@ -3126,7 +3140,7 @@ const plain = (m: Material | Material[]): m is MeshLambertMaterial => !Array.isA
  */
 function bakeStill(root: Object3D, keep: Set<Object3D>) {
   root.updateMatrixWorld(true);
-  const toRoot = root.matrixWorld.clone().invert(), m4 = new Matrix4();
+  const toRoot = root.matrixWorld.clone().invert(), m4 = new Matrix4(), lift = root.matrixWorld.elements[13] - CY;
   const bins = new Map<string, BufferGeometry[]>(), baked: Mesh[] = [];
   const walk = (o: Object3D) => {
     for (const c of o.children) {
@@ -3144,6 +3158,7 @@ function bakeStill(root: Object3D, keep: Set<Object3D>) {
         }
       }
       paint(g, m.material.color.getHex());
+      occlude(g, lift);
       const key = `${+m.castShadow}${+m.receiveShadow}${m.material.side}`;
       (bins.get(key) ?? bins.set(key, []).get(key)!).push(g);
       baked.push(m);

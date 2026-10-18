@@ -2091,6 +2091,32 @@ describe("the workshop's crafting bench", () => {
     }
   });
 
+  it("a close-up looks at what was built even as it pops in from nothing, and never at somewhere nowhere near the player", async () => {
+    const { g, cellar } = await ring({ ring: { beaten: 1 } });
+    const { BoxGeometry, Group, Mesh, MeshBasicMaterial, Vector3 } = await import('three');
+    const sp = await import('../src/spotlight');
+    const { view } = g.stage;
+    g.run(0.5);
+    const near = g.player.g.position.clone();
+    // laid out from the world's middle (its foot's 30 m over the cellar), and only just starting to pop in
+    const group = new Group(), m = new Mesh(new BoxGeometry(0.5, 0.5, 0.5), new MeshBasicMaterial());
+    m.position.set(near.x + 1.5, near.y, near.z); group.add(m); group.scale.setScalar(0.001);
+    cellar.cellar.add(group);
+    expect(sp.spotlight([group])).toBe(true);
+    g.run(sp.SPOT_WAIT + sp.SPOT.over + 0.3);
+    group.scale.setScalar(1);
+    expect(view.close).toBeLessThan(1);
+    expect(view.focus.distanceTo(m.getWorldPosition(new Vector3()))).toBeLessThan(0.3);
+    g.run(sp.SPOT.hold + sp.SPOT.back + 0.3);
+    // something far off from the player: no close-up at all
+    const far = new Mesh(new BoxGeometry(0.5, 0.5, 0.5), new MeshBasicMaterial());
+    far.position.set(near.x, near.y + 60, near.z); cellar.cellar.add(far);
+    sp.spotlight([far]);
+    g.run(sp.SPOT_WAIT + sp.SPOT.over + 0.3);
+    expect(view.close).toBe(1);
+    expect(sp.spotOn()).toBe(false);
+  }, 30_000);
+
   it('puts what it builds in the spotlight, as upstairs: the new rack, a hire, the racks swapped for steam baskets', async () => {
     const { g, plan, at, buy } = await ring({ money: 10_000_000, ring: { beaten: 2 } });
     const { Box3, Vector3 } = await import('three');
