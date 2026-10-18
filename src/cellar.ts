@@ -1378,9 +1378,13 @@ export function updBarFlap(dt: number, p: XZ | null) {
 /** Whether the flap's open enough to walk through, and how far open it is (for tests). */
 export const flapOpen = () => flap.k > 0.7;
 export const flapK = () => flap.k;
-/** Straw-wrapped sake barrels (komodaru), stacked against the east wall between the landing's door and the soup bar, the
- *  way a shrine stacks the ones it's given. */
-const KOMO = { x: ARENA.x1 - 0.35, z: 1.95 };
+/** Straw-wrapped sake barrels (komodaru), stacked against the east wall north of the landing's door, the way a shrine
+ *  stacks the ones it's given (south of the door, by the soup bar, is the bowl line's ramp: bowlLine.ts). */
+const KOMO = { x: ARENA.x1 - 0.35, z: -3.75 };
+/** The bowl line's ramp up onto the soup square's north counter from the ringside, by the east wall (bowlLine.ts): its
+ *  `x`, where the line turns south under the floor (`z0`), its hood's mouth on the floor (`foot`), and its top over the
+ *  counter (`z1`); and whether it's laid (it's in the way once it is). */
+export const lineRamp = { at: { x: ARENA.x1 - 0.4, z0: BAR.z0 - 2.25, foot: BAR.z0 - 1.75, z1: BAR.z0 + 0.15 }, up: false };
 later(() => {
   // two wraps, each with its crest on the side facing the arena and the one facing the camera
   const wrap = (i: number) => canvasTex(256, 128, (c, w, h) => {
@@ -1516,10 +1520,13 @@ export const potMesh = (() => {
   add(ladle, mesh(G.sphere, 0x9AA4AC, 0, -0.02, 0)).scale.set(0.13, 0.07, 0.13);
   return g;
 })();
+/** The counter the bowls come out on, once it's made (and hidden for good once the bowl line's bought: bowlLine.ts). */
+export const bowlTable: { g: Group | null } = { g: null };
 later(() => {
   // the counter the bowls come out on: a low table against the east wall in the corner south of the prep hall's door, a
   // cloth along it for the bowls, and on a shelf underneath, the empty ones stacked
   const t = add(cellar, new Group()); t.position.set(COUNTER.x, CY, COUNTER.z);
+  bowlTable.g = t;
   box(t, WOOD, 0, 0.76, 0, 1.0, 0.08, 1.4);
   for (const [x, z] of [[-0.42, -0.6], [0.42, -0.6], [-0.42, 0.6], [0.42, 0.6]]) box(t, WOOD_DARK, x, 0.36, z, 0.09, 0.72, 0.09);
   box(t, 0x2B3A67, 0.05, 0.81, 0, 0.75, 0.01, 1.3, false);
@@ -2981,6 +2988,8 @@ export function cellarBoxes(machines: Record<'rice' | 'fish' | 'mush', number> =
     [CASHIER.x, CASHIER.z, 0.65, 1.3],
     [TEPPO.x, TEPPO.z, 0.5, 0.5],
     [KOMO.x, KOMO.z, 0.5, 1.45],
+    // (the bowl line's ramp, hood to top, once it's laid)
+    ...(lineRamp.up ? [[lineRamp.at.x, (lineRamp.at.foot - 0.65 + BAR.z0) / 2, 0.38, (BAR.z0 - lineRamp.at.foot + 0.65) / 2] as [number, number, number, number]] : []),
     // the hearth room: the hearth and the counter behind it, and the bowl counter
     [HEARTH.x, (KITCHEN.z0 + HEARTH.z + HEARTH.d / 2 + 0.6) / 2, HEARTH.w / 2 + 0.3, (HEARTH.z + HEARTH.d / 2 + 0.6 - KITCHEN.z0) / 2 + 0.3],
     [COUNTER.x, COUNTER.z, 0.75, 0.95],
@@ -3233,9 +3242,10 @@ export function buildCellar() {
   const theirs = [cellar, ...Object.values(parts)].flatMap(g => g.children);
   apart(() => {
     for (const f of toBuild) f();
-    // (the gong's disc swings, the pot's stew changes colour, Mr. Fugu puffs up, the soup square's flap lifts; and the
-    // venue's parts, the grow room and the Undertow come and go, so each is baked on its own)
-    bakeStill(cellar, new Set<Object3D>([gongDisc, potMesh, boss, tankFish, barFrame, ...Object.values(parts), ...theirs, ...moving]));
+    // (the gong's disc swings, the pot's stew changes colour, Mr. Fugu puffs up, the soup square's flap lifts, the bowl
+    // counter goes once the bowl line's in; and the venue's parts, the grow room and the Undertow come and go, so each
+    // is baked on its own)
+    bakeStill(cellar, new Set<Object3D>([gongDisc, potMesh, boss, tankFish, barFrame, bowlTable.g!, ...Object.values(parts), ...theirs, ...moving]));
     for (const g of [...Object.values(parts), barFrame]) bakeStill(g, new Set(theirs));
     // (and the Undertow's lamps and glows, each kind merged into one: there are dozens of them)
     bakeAlike(parts.den, new Set(theirs));

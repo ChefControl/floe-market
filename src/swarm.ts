@@ -12,7 +12,7 @@
 // batches: a dozen looks, each one's body, arms and legs an instanced mesh (below). If frames run slow while it's
 // out, it stops casting shadows.
 import { BufferGeometry, CanvasTexture, Color, Float32BufferAttribute, InstancedMesh, Matrix4, Quaternion, Sprite, SpriteMaterial, Vector3 } from 'three';
-import { CY, cellarBoxes, parts, placeBuilt, places, RING } from './cellar';
+import { CY, cellarBoxes, lineRamp, parts, placeBuilt, places, RING } from './cellar';
 import { BAR, BAR_PAD, BAR_SPOTS, FLOOR, fromBar, GONG_PAD, nearBar, TUNNELS, WATCH } from './cellarPlan';
 import { crowdModel, PARKAS, SHIRT } from './characters';
 import { bossOf, F, REACH } from './fight';
@@ -100,10 +100,11 @@ const CROWD = { r0: 0.85, r1: 1.45 };
 const STAND_GAP = 0.55, SEAT_GAP = 0.6;
 /** Spots on the floor for up to `n` fans, packed to fit but never closer than STAND_GAP (so there may be fewer), nearest
  *  the square first: round it, then out across the floor. */
-const spotCache = new Map<number, { x: number; z: number }[]>();
+const spotCache = new Map<string, { x: number; z: number }[]>();
 function spots(n: number) {
   const size = n <= 60 ? 60 : n <= 150 ? 150 : MAX_FANS;
-  let out = spotCache.get(size);
+  const key = `${size}|${+lineRamp.up}`;
+  let out = spotCache.get(key);
   if (out) return out;
   // (none in the square, or anything else's footprint, or on the gong's pad: the player rings it from there)
   const { boxes } = navMap(), z0 = Math.min(FLOOR.z0, BAR.z0 - CROWD.r1), w = FLOOR.x1 - FLOOR.x0, h = FLOOR.z1 - z0;
@@ -126,7 +127,7 @@ function spots(n: number) {
     if (out.length >= size || gap * 0.97 < STAND_GAP) break;
   }
   out.sort((a, b) => fromBar(a) - fromBar(b));
-  spotCache.set(size, out);
+  spotCache.set(key, out);
   return out;
 }
 
@@ -137,7 +138,7 @@ function spots(n: number) {
 type Box = [number, number, number, number];
 const OUT = 0.4, CLEAR = 0.3, NEAR = 0.05;
 let nav: { key: string; boxes: Box[]; nodes: XZ[]; sees: boolean[][] } | null = null;
-const venueKey = () => `${+parts.bleachers.visible}${+parts.tier.visible}${+parts.vip.visible}${+parts.drums.visible}`;
+const venueKey = () => `${+parts.bleachers.visible}${+parts.tier.visible}${+parts.vip.visible}${+parts.drums.visible}${+lineRamp.up}`;
 const inArena = (q: XZ) => q.x > ARENA.x0 + 0.2 && q.x < ARENA.x1 - 0.2 && q.z > ARENA.z0 + 0.2 && q.z < ARENA.z1 - 0.2;
 function inBox(q: XZ, boxes: Box[], m: number) {
   return boxes.some(([cx, cz, hx, hz]) => Math.abs(q.x - cx) < hx + m && Math.abs(q.z - cz) < hz + m);

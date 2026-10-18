@@ -1603,15 +1603,20 @@ describe("the cellar's tiles", () => {
     expect(ladled()).toBeGreaterThanOrEqual(2 * alone - 1);
   }, 30_000);
 
-  it("once Mama Moray's is open, what the pot can't hold, with the ledge stocked, goes there for her cut; never while a boss is in", async () => {
+  it("once Mama Moray's is open and the bowl line's in, what the pot can't hold, with the ledge stocked, goes there for her cut; never while a boss is in", async () => {
     const { g, fight, F } = await ring({ ring: { beaten: 1 } });
     F().quiet = false; F().resto = 0;
     const stock = () => { F().pot = Array(fight.POT_CAP).fill(true); F().pantry = { rice: fight.LEDGE_CAP, fish: fight.LEDGE_CAP, mush: fight.LEDGE_CAP }; };
     stock();
-    // (a ruin out front till Word on the street's second level: nothing goes there)
+    // (a ruin out front till Word on the street opens her: nothing goes there; nor, open, till the bowl line's in to
+    // take it to her)
+    F().slide = true;
     g.economy.mods.street = fight.RESTO_OPENS - 1;
     expect(fight.restoWants()).toBe(false);
     g.economy.mods.street = fight.RESTO_OPENS;
+    F().slide = false;
+    expect(fight.restoWants()).toBe(false);
+    F().slide = true;
     expect(fight.restoWants()).toBe(true);
     const was = F().earned.length;
     fight.playerAtPot(0.6);
@@ -1639,29 +1644,37 @@ describe("the cellar's tiles", () => {
       g.economy.mods.street = n; g.run(0.2);
       expect(rs.restoShows()).toMatchObject({ stage: 1, mama: false, diners: 0, wreck: false, belt: false });
     }
+    // (open, with no bowl line in yet to bring her any, she's waiting on it; once it's in, she's open for business, and
+    // the line runs on past the stall to her)
+    F().slide = false;
     g.economy.mods.street = fight.RESTO_OPENS; g.run(0.2);
-    expect(rs.restoShows()).toMatchObject({ stage: 2, mama: true, says: rs.OPENING, belt: true });
+    expect(rs.restoShows()).toMatchObject({ stage: 2, mama: true, says: rs.WAITING, belt: false });
     expect(rs.restoShows()!.diners).toBeGreaterThan(0);
-    // and a batch for her goes in at the hatch by the hearth, along under the floor
+    F().slide = true; g.run(0.2);
+    expect(rs.restoShows()).toMatchObject({ stage: 2, says: rs.OPENING, belt: true });
+    // and a batch for her goes along the line, from the hopper by the pot
     F().quiet = false;
     fight.on.resto(fight.BATCH, 1);
     g.run(1.5);
     expect(rs.restoShows()!.under).toBeGreaterThan(0);
   }, 30_000);
 
-  it('the bowl slide sends bowls from the counter to the soup square by itself, on a belt under the floor', async () => {
-    const { g, plan, fight, at, F } = await ring({ ring: { beaten: 1 } });
+  it('the bowl slide is a bowl line in place of the counter, the pot to the soup square by itself, under the floor', async () => {
+    const { g, plan, fight, at, F, cellar } = await ring({ ring: { beaten: 1 } });
     const rk = await import('../src/ringKitchen');
+    const table = () => { let up = false; cellar.bowlTable.g!.traverse(o => { if ((o as import('three').Mesh).isMesh && o.visible) up = true; }); return up; };
     at(plan.WATCH);
     F().counter = Array(10).fill(false); F().stall = [];
     g.run(1);
     expect(F().stall.length).toBe(0);
     expect(rk.slideParts.visible).toBe(false);
+    expect(table()).toBe(true);
     fight.buySlide();
     g.run(0.5);
     expect(F().stall.length).toBeGreaterThan(3);
+    // (the line laid, the counter gone; bowls on their way, from the hopper by the pot to the soup square)
     expect(rk.slideParts.visible).toBe(true);
-    // (bowls on their way under the floor, from the hatch by the counter to the one in the soup square)
+    expect(table()).toBe(false);
     expect(rk.slideShows()).toBeGreaterThan(0);
     g.run(1);
     expect(F().counter.length).toBe(0);

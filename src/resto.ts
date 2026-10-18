@@ -1,7 +1,7 @@
 // Mama Moray's Honest Chanko (stage 3): the Family's chanko restaurant out front, through the arena's south doorway.
-// What the pot can't hold, once the ledge is stocked, goes to her (fight.ts, toResto): the bowls are tipped into a
-// hatch in the floor by the hearth, ride a belt under the floor (underBelt.ts) and come up through a slot in her
-// counter, and loop round it, and the fans on its stools take them as they pass; she keeps the till, and pays a cut of
+// What the pot can't hold, once the ledge is stocked, goes to her (fight.ts, toResto): the bowls ride the hearth
+// room's bowl line (bowlLine.ts; she gets none till it's bought) past the stall, under the arena's wall, and come up
+// through a slot in her counter, and loop round it, and the fans on its stools take them as they pass; she keeps the till, and pays a cut of
 // each bowl (the Family keeps the rest). The fans eat at the counter and at tables down the hall and its dining wing,
 // each table's nabe on its burner, as many of them in as there's been chanko lately.
 //
@@ -23,9 +23,9 @@ import {
   AdditiveBlending, CatmullRomCurve3, CylinderGeometry, DoubleSide, Group, type Material, Mesh, MeshBasicMaterial,
   MeshLambertMaterial, type Object3D, PlaneGeometry, RepeatWrapping, TorusGeometry, TubeGeometry, Vector3,
 } from 'three';
-import { cellar, CY, lights, POT_TOP, stallTape, WALL } from './cellar';
+import { cellar, CY, lights, stallTape, WALL } from './cellar';
 import {
-  BASINS, CLUB_DOOR, HEARTH, MAMA, POT, MAMA_COUNTER as K, RISE, STALL_DOOR, STALLS, STOOLS, TABLE_SEAT, TABLES, TILL,
+  BASINS, CLUB_DOOR, MAMA, MAMA_COUNTER as K, RISE, STALL_DOOR, STALLS, STOOLS, TABLE_SEAT, TABLES, TILL,
 } from './cellarPlan';
 import { belowGround, crowdModel, type Person } from './characters';
 import { stallDoor } from './doorway';
@@ -33,9 +33,9 @@ import { mods } from './economy';
 import { flatten, type Hood, mama, settle } from './family';
 import { F, on } from './fight';
 import { apart, dice } from './kit';
+import { lineShows, lineToMama, mamaLeg } from './bowlLine';
 import { ARENA, CRAFT, DOORS, level, LOO, RESTO, stage, WING } from './layout';
 import { player } from './player';
-import { fly } from './holder';
 import { popIn } from './pop';
 import { updRestoSound } from './restoSound';
 import { spotBusy, spotlight } from './spotlight';
@@ -43,7 +43,6 @@ import { staging } from './stage';
 import { canvasTex, FONT, G, mesh } from './render';
 import { bubble } from './speech';
 import { popText } from './ui';
-import { floorClear, type UnderBelt, underBelt } from './underBelt';
 import { crowdStyle } from './wardrobe';
 
 /** Everything here: in the cellar from the start, empty till stage 3's first dressed. */
@@ -181,11 +180,6 @@ function along(d: number, out: Vector3) {
   }
   return out.copy(FOOT);
 }
-/** The belt's way under the floor, from its hatch by the hearth to under her counter's slot. */
-// (square to the rooms: south down the hearth room's west side, west across it and the soup square's south end, then
-// south under the arena's wall)
-const UNDER_X = HEARTH.x - HEARTH.w / 2 - 0.45, UNDER_Z = ARENA.z1 - 0.7;
-const UNDER = [{ x: UNDER_X, z: HEARTH.z + 0.2 }, { x: UNDER_X, z: UNDER_Z }, { x: RISE.x, z: UNDER_Z }, { x: RISE.x, z: RISE.z }];
 /** How fast the belt runs (metres a second), how close the bowls ride, and how many laps one goes round before someone
  *  at a table's had it sent over. */
 const BELT_V = 0.32, GAP = 0.34, LAPS = 2;
@@ -207,14 +201,14 @@ interface Built {
   diners: Diner[]; mama: Hood; bowls: { o: Group; d: number }[]; looks: Group[];
   board: Mesh; boards: [Material, Material]; counter: Mesh; counters: [Material, Material];
   stallB: Group; tapeWhole: Group; tapeTorn: Group; bulb: Mesh; bulbOn: Material; bulbOff: Material; leak: Mesh;
-  under: UnderBelt; drops: { o: Group; busy: boolean }[];
+  
   tables: { g: Group; set: Group }[]; stools: Group; noren: Mesh; norens: Material[]; shopNoren: Mesh; shopNorens: Material[]; ruin: Ruin;
   says: ReturnType<typeof bubble>; opened: boolean;
   /** Where its close-up looks: the middle of the hall and its wing. */
   middle: Object3D;
 }
 /** What she says as she opens. */
-export const OPENING = 'Open for business, dear.';
+export const OPENING = 'Open for business, dear.', WAITING = 'Waiting on your belt, dear.';
 let B: Built | null = null;
 
 function build(): Built {
@@ -298,7 +292,7 @@ function build(): Built {
   menu.rotation.x = -0.12;
   for (const s of [-1, 1]) { const leg = box(still, M.woodDark, RESTO.x0 + 0.42 + s * 0.26 * Math.cos(0.55), 0.5, RESTO.z0 + 0.3 - s * 0.26 * Math.sin(0.55), 0.04, 1.0, 0.04); leg.rotation.x = 0.12; }
 
-  // ---- the counter, the belt round its top, the chute from the hatch ----
+  // ---- the counter, the belt round its top, and the slot the belt comes up through ----
   const counter = box(base, M.wood, (K.x0 + K.x1) / 2, K.h / 2, (K.z0 + K.z1) / 2, K.x1 - K.x0, K.h, K.z1 - K.z0);
   const counters: [Material, Material] = [M.wood, M.lacquer];
   box(still, M.top, (K.x0 + K.x1) / 2, K.h + 0.02, (K.z0 + K.z1) / 2, K.x1 - K.x0 + 0.12, 0.04, K.z1 - K.z0 + 0.12);
@@ -450,16 +444,11 @@ function build(): Built {
   // the bowls riding the belt
   const bowls = Array.from({ length: 16 }, () => { const o = bowlModel(); o.visible = false; base.add(o); return { o, d: -1 }; });
   flatten(still);
-  // the belt under the floor, from a hatch at the hearth's west end (each bowl ladled across into it) to her counter's
-  // slot: under the hearth room, the soup square and the arena's wall
-  const under = underBelt(UNDER, CY, { clear: floorClear, arrive: () => { due += 1; } });
-  base.add(under.group);
-  const drops = Array.from({ length: 4 }, () => { const o = add(base, bowlModel()); o.visible = false; return { o, busy: false }; });
   const ruin = buildRuin(base);
   // what she says, over her
   const says = bubble(base, 2.2); says.sprite.position.set(MAMA.x, CY + 2.35, MAMA.z);
   const middle = add(base, new Group()); middle.position.set(3.2, CY, 12.0);
-  return { middle, says, opened: false, diners, mama: mm, bowls, looks, board, boards, counter, counters, stallB, tapeWhole, tapeTorn, bulb, bulbOn, bulbOff, leak, under, drops, tables, stools, noren, norens, shopNoren, shopNorens, ruin };
+  return { middle, says, opened: false, diners, mama: mm, bowls, looks, board, boards, counter, counters, stallB, tapeWhole, tapeTorn, bulb, bulbOn, bulbOff, leak, tables, stools, noren, norens, shopNoren, shopNorens, ruin };
 }
 
 // ---------- before it opens (Word on the street 0 to 2) ----------
@@ -616,7 +605,7 @@ let made = false, t = 0;
  *  (bowls, wearing off), and the look it's dressed in (-1: not yet). */
 let due = 0, sending = 0, sendT = 0, chips = 0, chipsT = 0, busy = 0, dressed = -1;
 on.resto = (bowls, got) => {
-  // (a bowl down the belt for every few sold: ladled across from the pot into its hatch, under the floor to her counter)
+  // (a bowl down the belt for every few sold: ladled across from the pot onto it, under the floor to her counter)
   sending = Math.min(sending + bowls / 4, 12);
   chips += got;
   busy += bowls;
@@ -632,10 +621,10 @@ let LIGHT = -1;
 const tmp = V(0, 0, 0);
 
 /** How it is, as drawn, for tests: how far it's come (stageOf), whether Mama's in, what she's saying, the diners in,
- *  the wreck, whether her belt's laid (its hatch and grates), and the bowls on their way under the floor. */
+ *  the wreck, whether the bowl line's way on to her is laid, and the bowls on it for her. */
 export const restoShows = () => B && ({
   stage: stageOf(dressed), mama: B.mama.visible, says: B.says.text, diners: B.diners.filter(d => d.p.visible).length,
-  wreck: B.ruin.wreck.visible, belt: B.under.group.visible, under: B.under.riding(),
+  wreck: B.ruin.wreck.visible, belt: mamaLeg(), under: lineShows(true),
 });
 /** Dresses it for Word on the street's level `n`: from a wreck to the Family's front. `up`: bought just now (not just
  *  loaded), so what's new pops in. */
@@ -649,8 +638,6 @@ function dress(b: Built, n: number, up: boolean) {
   b.tables.forEach((t, i) => { show(t.g, cleared >= 2 && !(st === 2 && r.crates.includes(i))); t.set.visible = st >= 3; });
   show(b.stools, cleared >= 3);
   b.mama.visible = st >= 2;
-  // (and her belt from the hearth room, its hatch and grates, laid only as she opens)
-  show(b.under.group, st >= 2);
   b.noren.material = b.norens[st < 2 ? 0 : st === 2 ? 1 : 2];
   b.shopNoren.material = b.shopNorens[st < 2 ? 0 : 1];
   b.board.rotation.z = st < 2 ? 0.1 : 0;
@@ -662,8 +649,11 @@ function dress(b: Built, n: number, up: boolean) {
   b.looks.forEach((g, i) => { show(g, st >= 3 && i <= look); });
   b.board.material = b.boards[st >= 3 && look >= 2 ? 1 : 0];
   b.counter.material = b.counters[st >= 3 && look >= 2 ? 1 : 0];
-  // (and the moment she opens: a word from her)
-  if (up && st === 2 && !b.opened) { b.opened = true; b.says.say(OPENING); }
+  // (and the moment she opens: a word from her; or, with no bowl line in yet to bring her any, she's waiting on it)
+  if (st >= 2 && !up) b.opened = F.slide;
+  if (up && st === 2 && !b.opened) {
+    if (F.slide) { b.opened = true; b.says.say(OPENING); } else b.says.say(WAITING);
+  }
   // its own close-up, once the arena's is over (two goes, the arena first: cellarLooks.ts)
   if (lit.length) spotNext = { on: [b.middle], t: 0, seen: false };
 }
@@ -681,18 +671,10 @@ export function updResto(dt: number) {
   t += dt;
   // how far it's come, as Word on the street's dressed the arena
   if (mods.street !== dressed) { dress(b, mods.street, dressed >= 0 && mods.street > dressed); dressed = mods.street; }
-  // the bowls into the hatch by the hearth, a few a second, and along under the floor
+  // the bowls onto the bowl line, a few a second (her word, too, once it's in for her)
+  if (stageOf(dressed) >= 2 && !b.opened && F.slide) { b.opened = true; b.says.say(OPENING); }
   sendT -= dt;
-  if (sending >= 1 && sendT <= 0) {
-    const d = b.drops.find(o => !o.busy);
-    if (d) {
-      sending -= 1; sendT = 0.35; d.busy = true; d.o.visible = true;
-      d.o.position.set(POT.x - 0.4, CY + POT_TOP, POT.z);
-      const into = V(UNDER[0].x, CY - 0.15, UNDER[0].z);
-      fly(d.o, () => into, 0.5, 0.5, () => { d.busy = false; d.o.visible = false; b.under.send(false); });
-    }
-  }
-  b.under.update(dt);
+  if (sending >= 1 && sendT <= 0) { sending -= 1; sendT = 0.35; lineToMama(() => { due += 1; }); }
   // the bowls up out of the slot and round the counter: one in as there's room behind the last
   busy *= Math.exp(-dt / 90);
   const last = Math.min(...b.bowls.filter(w => w.d >= 0).map(w => w.d), Infinity);

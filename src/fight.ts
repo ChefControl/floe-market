@@ -402,7 +402,7 @@ export const RESTO_OPENS = 5;
 export const restoOpen = () => mods.street >= RESTO_OPENS;
 /** Mama Moray's takes a batch: she's open, the pot's full, and the ledge has a batch to spare of everything that goes
  *  in, over all but a batch of its room (and the doors are open, and no boss is in or called). */
-export const restoWants = () => restoOpen() && !F.rush && !F.called && !F.quiet && potFull() && inPot().every(k => F.pantry[k] >= LEDGE_CAP - PER_BATCH);
+export const restoWants = () => restoOpen() && F.slide && !F.rush && !F.called && !F.quiet && potFull() && inPot().every(k => F.pantry[k] >= LEDGE_CAP - PER_BATCH);
 /** Whether the pot can take a batch now: into the pot, or, with the pot full, up the belt to Mama Moray's. */
 export const canCookNow = () => canCook() && (!potFull() || restoWants());
 /** A batch of `bowls` cooked up the belt to Mama Moray's: the Family's price for them. */

@@ -13,8 +13,8 @@ import { animPerson, belowGround, Person } from './characters';
 import { COUNTER_CAP, F, inPot, POT_CAP, poured, slid, sold, type Machine, mach, potWaits, type Role, STALL_CAP, type Worker } from './fight';
 import { fly } from './holder';
 import { newBowl, newCuredFish, newMushroom, newReadyRice, newRice, newFillet } from './items';
-import { apart, Build, dice, K, quietly, rbox, tube } from './kit';
-import { floorClear, hatch, underBelt } from './underBelt';
+import { Build, K, quietly, rbox, tube } from './kit';
+import { hopperAt, lineParts, lineShows, lineToStall, updLine } from './bowlLine';
 import { FONT, G, mesh } from './render';
 import { fanAt, heading, turnedAt } from './swarm';
 import { V, type XZ } from './util';
@@ -314,59 +314,29 @@ function serveBowls() {
     b.position.set(POT.x + (j % 3 - 1) * 0.2, CY + POT_TOP + 0.1, POT.z);
     b.name = 'potFlight';
     inAir++;
-    fly(b, () => slot.position, 0.5, 1.1, () => { cellar.remove(b); inAir = Math.max(0, inAir - 1); });
+    // (into the bowl line's hopper, once it's in: bowlLine.ts)
+    fly(b, F.slide ? hopperAt : () => slot.position, 0.5, 1.1, () => { cellar.remove(b); inAir = Math.max(0, inAir - 1); });
   }
   seen = poured.n;
   inAir = Math.min(inAir, n);
-  showBowls(counterBowls, F.counter.slice(0, n - inAir));
+  showBowls(counterBowls, F.slide ? [] : F.counter.slice(0, n - inAir));
 }
 // ---------- the bowl slide ----------
-/** The bowl slide (once it's bought): the bowls it sends (fight.ts' `slid`) drop off the bowl counter's north end into
- *  a hatch in the floor, ride a belt under the kitchen and the wall (glimpsed under its grates, underBelt.ts), and come
- *  up through a hatch in the soup square's floor by the north counter's end, onto the counter. Its way: the hatch it
- *  drops into, and the one it comes up through. */
-// (square to the rooms: west under the hearth room, then north up the soup square's east side)
-const SLIDE_PATH: XZ[] = [{ x: COUNTER.x, z: COUNTER.z - 0.9 }, { x: BAR.x1 - 0.45, z: COUNTER.z - 0.9 }, { x: BAR.x1 - 0.45, z: BAR.z0 + BAR.d + 0.3 }];
-const SLIDE_UP = SLIDE_PATH[SLIDE_PATH.length - 1];
-/** Bowls in the air on the way: off the counter into the hatch, and up out of the other onto the counter. */
-const hops = apart(() => Array.from({ length: 12 }, (_, j) => {
-  const b = add(cellar, newBowl(j % 2 === 1)); b.scale.setScalar(0.78); b.visible = false; return { b, mush: j % 2 === 1, busy: false };
-}), dice(0x5711DF));
-function slideHop(mush: boolean, from: Vector3, to: Vector3, dur: number, done?: () => void) {
-  const h = hops.find(o => !o.busy && o.mush === mush);
-  if (!h) { done?.(); return; }
-  h.busy = true; h.b.position.copy(from); h.b.visible = true;
-  fly(h.b, () => to, dur, 0.25, () => { h.busy = false; h.b.visible = false; done?.(); });
-}
-const slideBelt = apart(() => underBelt(SLIDE_PATH, CY, {
-  speed: 3, clear: floorClear,
-  arrive: m => slideHop(m, V(SLIDE_UP.x, CY, SLIDE_UP.z), V(SLIDE_UP.x, CY + BAR.top + ON_TOP, BAR.z0 + BAR.d / 2), 0.35),
-}), dice(0x5711DE));
-// (made on dice of their own, so loading draws from the game's luck just what it did before the slide; and centred on
-// its first hatch, so it pops in from there)
-export const slideParts = apart(() => {
-  const g = add(cellar, new Group()), inner = add(g, new Group());
-  g.position.set(SLIDE_PATH[0].x, CY, SLIDE_PATH[0].z); inner.position.set(-SLIDE_PATH[0].x, -CY, -SLIDE_PATH[0].z);
-  inner.add(slideBelt.group, hatch(SLIDE_UP.x, SLIDE_UP.z, CY));
-  g.visible = false;
-  return g;
-}, dice(0x5711E0));
-/** The bowls on their way down the slide, under the floor, for tests. */
-export const slideShows = () => slideBelt.riding();
+/** The bowl slide (once it's bought) is the hearth room's bowl line (bowlLine.ts), in place of the counter: the bowls
+ *  it sends (fight.ts' `slid`) ride it from the hopper by the hearth, under the floor, up along the soup square's north
+ *  counter, and up onto it. */
+export const slideParts = lineParts;
+/** The bowls on the line, for tests. */
+export const slideShows = () => lineShows();
 let slidSeen = -1, dropT = 0;
 function drawSlide(dt: number) {
-  slideParts.visible = F.slide;
   if (slidSeen < 0 || slid.n < slidSeen) slidSeen = slid.n; // (a game just loaded: nothing on it)
   const fresh = Math.min(slid.n - slidSeen, F.stall.length);
   slidSeen = slid.n;
-  // (more go down it a second, at its best, than there's room to draw: one in a while is shown dropping in)
+  // (more go along it a second, at its best, than there's room to draw: one in a while is shown setting off)
   dropT -= dt;
-  if (fresh && dropT <= 0) {
-    dropT = 0.3;
-    const mush = F.stall[F.stall.length - 1];
-    slideHop(mush, V(COUNTER.x, CY + 0.86, COUNTER.z - 0.62), V(SLIDE_PATH[0].x, CY - 0.15, SLIDE_PATH[0].z), 0.3, () => slideBelt.send(mush));
-  }
-  slideBelt.update(dt);
+  if (fresh && dropT <= 0) { dropT = 0.3; lineToStall(F.stall[F.stall.length - 1]); }
+  updLine(dt);
 }
 
 /** The bowls out on the soup square, each in its own place on the counters: a mushroom bowl or a plain one, and whether
