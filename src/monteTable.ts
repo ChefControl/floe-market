@@ -214,8 +214,10 @@ const pad = gamePad(BOOTH_PADS.tommy, '🃏', panel, {
 }, {
   at: V(TOP.x, TOP.y, TOP.z), from: V(Math.sin(FACE) * 0.75, 0.95, Math.cos(FACE) * 0.75).normalize(), wide: 0.8, tall: 0.55,
 }, () => level.down && found.den && met('tommy'));
-// (its marking's the Undertow's own, undertow.ts's: this one's never put down)
+// (its marking's the Undertow's own, undertow.ts's: this one's taken back out of the scene, or it'd lie on the deck up
+// top, on every stage)
 pad.enable();
+pad.mark.removeFromParent();
 
 /** Tommy's table, every frame (once the Undertow's found): his pad, and the round in play. */
 export function updMonte(dt: number) {
