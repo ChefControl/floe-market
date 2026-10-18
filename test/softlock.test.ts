@@ -73,7 +73,12 @@ describe('no way to get stuck', () => {
     const g = await loadGame({ tiles: bought(...SUSHI, 'dohyo'), fugu: 2, level: 1 });
     expect(g.wallet.money).toBe(0);
     // by hand alone, with nothing bought: rice and fish through the machines, the pot, and bowls out to the fans
-    const { earned } = play(g, 4 * 60, 0.05, await ringModules());
+    // (played headless, the same game without its looks: headless.test.ts)
+    const { headless } = await import('../src/headless');
+    const ring = await ringModules();
+    headless.on = true;
+    let earned = 0;
+    try { earned = play(g, 4 * 60, 0.05, ring).earned; } finally { headless.on = false; }
     expect(earned).toBeGreaterThanOrEqual(10_000); // the first rack's price, ten chips
   });
 
