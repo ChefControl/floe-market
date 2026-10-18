@@ -100,8 +100,10 @@ const pad = apart(() => gamePad(BOOTH_PADS.eddie, '🤝', panel, {
 }, {
   at: V(BOOTHS.eddie.x + 0.45, CY + 0.95, BOOTHS.eddie.z), from: V(0.8, 0.75, 0.25).normalize(), wide: 1.5, tall: 1.2,
 }, () => level.down && found.den && met('eddie')), dice(0xED1E));
-// (its marking's the Undertow's own, undertow.ts's: this one's never put down)
+// (its marking's the Undertow's own, undertow.ts's: this one's taken back out of the scene, or it'd lie on the deck up
+// top, on every stage)
 pad.enable();
+pad.mark.removeFromParent();
 
 /** What the panel was last drawn for, so it's only redrawn when that changes. */
 let drawn = '';

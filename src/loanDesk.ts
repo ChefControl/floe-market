@@ -84,8 +84,10 @@ const pad = apart(() => gamePad(BOOTH_PADS.harry, '💰', panel, {
 }, {
   at: V(D.x - 0.35, CY + 1.05, D.z), from: V(0.75, 0.6, 0).normalize(), wide: 1.7, tall: 1.2,
 }, () => level.down && found.den && met('harry')), dice(0x4A221));
-// (its marking's the Undertow's own, undertow.ts's: this one's never put down)
+// (its marking's the Undertow's own, undertow.ts's: this one's taken back out of the scene, or it'd lie on the deck up
+// top, on every stage)
 pad.enable();
+pad.mark.removeFromParent();
 
 // ---------- the IOU in the HUD ----------
 const iou = $('iou'), iouN = $('iouN'), iouLeft = $('iouLeft'), iouBar = $('iouBar');

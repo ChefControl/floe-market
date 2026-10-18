@@ -231,6 +231,23 @@ describe('the Undertow', () => {
     expect(cellar.parts.den.visible).toBe(false);
   });
 
+  it("leaves no marking of the Family's pads up top, on the world over the cellar", async () => {
+    await loadGame({ tiles: bought(...MARKET, 'sushi') });
+    const [{ scene }, { BOOTH_PADS }, { CY }] = await Promise.all([import('../src/render'), import('../src/cellarPlan'), import('../src/cellar')]);
+    const { Mesh, Vector3 } = await import('three');
+    const shown = (o: import('three').Object3D) => { for (let p: typeof o | null = o; p; p = p.parent) if (!p.visible) return false; return true; };
+    const at = new Vector3();
+    for (const k of ['eddie', 'harry', 'tommy'] as const) {
+      const pad = BOOTH_PADS[k], up: string[] = [];
+      scene.traverse(o => {
+        if (!(o instanceof Mesh) || !shown(o)) return;
+        o.getWorldPosition(at);
+        if (at.y > CY + 3 && Math.hypot(at.x - pad.x, at.z - pad.z) < 0.01) up.push(o.name || o.uuid);
+      });
+      expect(up, k).toEqual([]);
+    }
+  });
+
   it("is there on loading a game that's beaten two, with each of the Family's pads clear to stand on and his table in the way", async () => {
     const { g, cellar, plan } = await ring({ ring: { beaten: 2, lines: { mush: { n: 1 } } } });
     expect(g.layout.found.den).toBe(true);
