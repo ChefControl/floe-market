@@ -287,7 +287,8 @@ describe("the cellar's tutorial", () => {
     expect(won.F().practice).toBe(false);
     expect(won.F().sparred).toBe(true);
     expect(won.fight.nextBoss()!.name).toBe('Hakkaku');
-  });
+    // (three games loaded, each its own: more than the default 15 s on a slow CI runner)
+  }, 45_000);
 
   it("a save from before the cellar's lessons counts what it has done down there", async () => {
     // two bosses beaten: everything's known

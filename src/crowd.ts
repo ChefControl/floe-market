@@ -26,6 +26,16 @@ interface Fish {
   hat?: 'fedora' | 'cloche' | 'cap'; hatColor?: number; band?: number;
   pearls?: boolean; monocle?: boolean; stripes?: number; lips?: number;
 }
+/** A stripe round a fish's head (`r` round `at`, its radii), `d` from its middle along its length and `w` wide, tipped
+ *  forward `tilt`: a slice of the head's own shape, a shade bigger, so it hugs the head instead of standing out of it
+ *  like a card; with `arch`, only over the top (a stripe across the back). */
+function band(h: Object3D, c: number, at: readonly number[], r: readonly number[], d: number, w: number, tilt = 0, arch = false) {
+  const slice = (z: number) => Math.sqrt(Math.max(0.04, 1 - (z / r[2]) ** 2)) * 1.03;
+  const geo = new CylinderGeometry(slice(d + w / 2), slice(d - w / 2), 1, 16, 1, false, arch ? Math.PI / 2 : 0, arch ? Math.PI : Math.PI * 2);
+  const b = put(h, mesh(geo, c, at[0], at[1] - d * Math.sin(tilt), at[2] + d * Math.cos(tilt)));
+  b.scale.set(r[0], w, r[1]); b.rotation.x = Math.PI / 2 + tilt;
+  return b;
+}
 /** One of the locals: a Hood in its coat, and a fish's head on it, `f`'s shape and colours, its hat and its trimmings. */
 function local(f: Fish) {
   const g = new Hood({ coat: f.coat, lapel: f.lapel, shirt: f.shirt, hand: f.skin }), h = g.head;
@@ -38,19 +48,19 @@ function local(f: Fish) {
     eyes(0.1, 0.25, 0.15, 0.05);
     const lip = put(h, mesh(new TorusGeometry(0.04, 0.018, 6, 12), f.lips ?? f.fin, 0, 0.14, 0.215)); lip.scale.set(1, 0.8, 1);
     fin(0, 0.42, -0.05, 0.02, 0.1, 0.12, -0.5);
-    if (f.shape === 'clown') for (const [y, z, sx] of [[0.2, 0.12, 0.21], [0.22, -0.08, 0.205]]) { const b = put(h, mesh(G.cyl, 0xF6F2EA, 0, y, z)); b.scale.set(sx, 0.4, 0.035); b.rotation.x = 0.15; }
+    if (f.shape === 'clown') for (const d of [0.1, -0.1]) band(h, 0xF6F2EA, [0, 0.2, 0.02], [0.2, 0.2, 0.21], d, 0.06, 0.15);
   } else if (f.shape === 'long') {
     put(h, mesh(G.sphere, f.skin, 0, 0.2, 0.06, true)).scale.set(0.15, 0.16, 0.27);
     put(h, mesh(G.sphere, f.belly, 0, 0.12, 0.1)).scale.set(0.12, 0.07, 0.22);
     const snout = put(h, mesh(G.cone, f.skin, 0, 0.18, 0.36)); snout.scale.set(0.07, 0.14, 0.06); snout.rotation.x = Math.PI / 2;
     put(h, mesh(G.box, 0x2A2A30, 0, 0.13, 0.3)).scale.set(0.08, 0.008, 0.09);
-    for (let i = 0; i < (f.stripes ?? 0); i++) { const s = put(h, mesh(G.box, f.fin, 0, 0.32 - i * 0.02, -0.1 + i * 0.09)); s.scale.set(0.22, 0.014, 0.02); s.rotation.x = 0.4; }
+    for (let i = 0; i < (f.stripes ?? 0); i++) band(h, f.fin, [0, 0.2, 0.06], [0.15, 0.16, 0.27], -0.2 + i * 0.075, 0.025, 0, true);
     eyes(0.1, 0.24, 0.2, 0.04);
     fin(0, 0.38, -0.05, 0.02, 0.12, 0.16, -0.6);
     top = 0.33;
   } else if (f.shape === 'tall' || f.shape === 'spiky') {
     put(h, mesh(G.sphere, f.skin, 0, 0.22, 0.03, true)).scale.set(0.13, 0.24, 0.2);
-    for (let i = 0; i < (f.stripes ?? 0); i++) { const s = put(h, mesh(G.box, f.fin, 0, 0.22, -0.1 + i * 0.1)); s.scale.set(0.27, 0.42 - Math.abs(i - 1) * 0.08, 0.025); }
+    for (let i = 0; i < (f.stripes ?? 0); i++) band(h, f.fin, [0, 0.22, 0.03], [0.13, 0.24, 0.2], -0.15 + i * 0.09, 0.03);
     eyes(0.08, 0.27, 0.15, 0.045);
     put(h, mesh(G.sphere, f.lips ?? 0x2A2A30, 0, 0.12, 0.21)).scale.set(0.035, 0.02, 0.015);
     if (f.shape === 'spiky') for (let i = 0; i < 5; i++) fin(0, 0.44 + (i % 2) * 0.03, -0.12 + i * 0.06, 0.012, 0.2, 0.012, -0.35 + i * 0.12);
