@@ -214,7 +214,7 @@ describe("the cellar's tutorial", () => {
     at(plan.BENCH_PAD);
     g.run(0.1);
     draw();
-    expect(said()).toBe('Pick an upgrade / Click one to buy it');
+    expect(said()).toBe('Pick an upgrade / Click a lit one to buy it');
     $('shopRows').querySelector<HTMLButtonElement>('[data-tile="rack"] button.cost')!.click();
     g.run(0.1);
     expect(tut.learntLessons()).toContain('bench');
