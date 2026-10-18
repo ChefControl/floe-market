@@ -33,7 +33,7 @@ import { mods } from './economy';
 import { flatten, type Hood, mama, settle } from './family';
 import { F, on } from './fight';
 import { apart, dice } from './kit';
-import { ARENA, CRAFT, level, LOO, RESTO, stage, WING } from './layout';
+import { ARENA, CRAFT, DOORS, level, LOO, RESTO, stage, WING } from './layout';
 import { player } from './player';
 import { fly } from './holder';
 import { popIn } from './pop';
@@ -208,7 +208,7 @@ interface Built {
   board: Mesh; boards: [Material, Material]; counter: Mesh; counters: [Material, Material];
   stallB: Group; tapeWhole: Group; tapeTorn: Group; bulb: Mesh; bulbOn: Material; bulbOff: Material; leak: Mesh;
   under: UnderBelt; drops: { o: Group; busy: boolean }[];
-  tables: { g: Group; set: Group }[]; stools: Group; noren: Mesh; norens: Material[]; ruin: Ruin;
+  tables: { g: Group; set: Group }[]; stools: Group; noren: Mesh; norens: Material[]; shopNoren: Mesh; shopNorens: Material[]; ruin: Ruin;
   says: ReturnType<typeof bubble>; opened: boolean;
   /** Where its close-up looks: the middle of the hall and its wing. */
   middle: Object3D;
@@ -250,6 +250,32 @@ function build(): Built {
   const noren = sign(base, DX, 1.68, RESTO.z0 - 0.02, NW, 0.62, 0, norenOf(false, false));
   const norens = [norenOf(true, false), norenOf(true, true), null].map(d => d ? new MeshLambertMaterial({ map: canvasTex(Math.round(NW * 220), Math.round(0.62 * 220), d).tex, side: DoubleSide, alphaTest: 0.5 }) : noren.material as Material);
   for (const x of [DOOR.x0 - 0.35, DOOR.x1 + 0.35]) lantern(base, M.red, x, 1.75, RESTO.z0 + 0.12, 0.25);
+  // ---- the cookware shop's back door, from the dining wing: a long noren, the shop's own (道具, tools), on the wing's
+  // side of its lintel; in rags, faded and torn, while she's shut, and whole once she's open ----
+  const SD = DOORS.find(d => d.a === 'wing' && d.b === 'craft')!, SW = SD.x1 - SD.x0 + 0.5, SH = 1.4;
+  const shopNorenOf = (torn: boolean) => (c: CanvasRenderingContext2D, w: number, h: number) => {
+    const n = 3, sw = w / n;
+    for (let i = 0; i < n; i++) {
+      c.fillStyle = torn ? '#3B4363' : '#23305A';
+      if (!torn) { c.fillRect(i * sw + 3, 0, sw - 6, h); continue; }
+      // a ragged hem, each strip torn off at its own length, the middle one shortest
+      const end = h * [0.82, 0.5, 0.68][i];
+      c.beginPath(); c.moveTo(i * sw + 3, 0); c.lineTo(i * sw + sw - 3, 0);
+      for (let k = 0; k <= 7; k++) c.lineTo(i * sw + sw - 3 - k * (sw - 6) / 7, end - ((k * 5 + i * 3) % 4) * h * 0.04);
+      c.closePath(); c.fill();
+    }
+    c.fillStyle = torn ? '#2A3048' : '#1A2444'; c.fillRect(0, 0, w, h * 0.08);
+    if (torn) {
+      // a hole worn through the first strip, and a stain down the last
+      c.clearRect(sw * 0.35, h * 0.5, sw * 0.25, h * 0.08);
+      c.fillStyle = 'rgba(40, 30, 20, 0.45)'; c.fillRect(sw * 2.3, h * 0.15, sw * 0.35, h * 0.35);
+    }
+    c.fillStyle = torn ? '#8E8A80' : '#F4F1EA'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.font = `800 ${Math.round(sw * 0.62)}px ${FONT}`;
+    c.fillText('道', sw / 2, h * 0.3); c.fillText('具', sw * 2.5, h * 0.3);
+    c.lineWidth = sw * 0.07; c.strokeStyle = c.fillStyle; c.beginPath(); c.arc(w / 2, h * 0.24, sw * 0.17, 0, Math.PI * 2); c.stroke();
+  };
+  const shopNorens = [true, false].map(t => new MeshLambertMaterial({ map: canvasTex(Math.round(SW * 160), Math.round(SH * 160), shopNorenOf(t)).tex, side: DoubleSide, alphaTest: 0.5 }));
+  const shopNoren = plane(base, shopNorens[0], (SD.x0 + SD.x1) / 2, 1.93 - SH / 2, (SD.z0 + SD.z1) / 2 + 0.15, SW, SH);
   // ---- the back wall behind Mama: a panel over the arena's low wall, the name board on it ----
   const BACK = { x0: K.x0 - 0.1, x1: RISE.x - 0.32 }, BZ = ARENA.z1 + 0.1;
   box(still, M.wood, (BACK.x0 + BACK.x1) / 2, WALL + 0.4, BZ, BACK.x1 - BACK.x0, 0.8, 0.1);
@@ -433,7 +459,7 @@ function build(): Built {
   // what she says, over her
   const says = bubble(base, 2.2); says.sprite.position.set(MAMA.x, CY + 2.35, MAMA.z);
   const middle = add(base, new Group()); middle.position.set(3.2, CY, 12.0);
-  return { middle, says, opened: false, diners, mama: mm, bowls, looks, board, boards, counter, counters, stallB, tapeWhole, tapeTorn, bulb, bulbOn, bulbOff, leak, under, drops, tables, stools, noren, norens, ruin };
+  return { middle, says, opened: false, diners, mama: mm, bowls, looks, board, boards, counter, counters, stallB, tapeWhole, tapeTorn, bulb, bulbOn, bulbOff, leak, under, drops, tables, stools, noren, norens, shopNoren, shopNorens, ruin };
 }
 
 // ---------- before it opens (Word on the street 0 to 2) ----------
@@ -624,6 +650,7 @@ function dress(b: Built, n: number, up: boolean) {
   show(b.stools, cleared >= 3);
   b.mama.visible = st >= 2;
   b.noren.material = b.norens[st < 2 ? 0 : st === 2 ? 1 : 2];
+  b.shopNoren.material = b.shopNorens[st < 2 ? 0 : 1];
   b.board.rotation.z = st < 2 ? 0.1 : 0;
   // (the lanterns dark till it opens; her light out while it's a wreck, a little more light in each step it's cleared)
   M.paper.emissiveIntensity = st < 2 ? 0 : 0.9; M.red.emissiveIntensity = st < 2 ? 0 : 1;
