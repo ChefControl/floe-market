@@ -1,7 +1,9 @@
 // The cooking show at the pot (chanko.ts): the Cook button at the pot, the game holding still while it's on, its four
 // steps (cut, throw, season, stir) and their stars, and the bonus the stars buy the pot (fight.ts): bigger batches for
-// a while, the cook's 70% of them too, and no new show until it's run out.
-import { Vector3 } from 'three';
+// a while, the cook's 70% of them too, and no new show until it's run out. It's a bonus game alone (it takes nothing
+// and cooks nothing), every piece that's cut is thrown in, the stir starts on the soup, a show left half way carries
+// on where it was (saved with the game too), and nothing stands in the camera's way.
+import { Box3, Vector3 } from 'three';
 import { describe, expect, it } from 'vitest';
 import { bought, FLOE_SUSHI, loadGame, MARKET } from './helpers';
 
@@ -33,7 +35,44 @@ async function atPot() {
   };
   /** Runs on until the show is playing `step`. */
   const until = (step: string) => { for (let i = 0; i < 1200 && !(show.showState()?.step === step && show.showState()?.phase === 'play'); i++) run(1 / 60); };
-  return { g, plan, cellar, fight, show, run, key, ptr, onScreen, until, F: () => fight.F };
+  const P = plan.POT, CY = cellar.CY;
+  /** Opens the show from the Cook button, and starts (or carries on) from its card. */
+  const open = () => { $('cook').click(); run(0.6); $('showGo').click(); };
+  /** The cut, from its start: a tap as each line meets the knife, or none for the lines `skip`ped. */
+  const cut = (skip: number[] = []) => {
+    until('Cut');
+    let at = 0;
+    show.cutTimes().forEach((when, j) => { run(when - at); at = when; if (!skip.includes(j)) { key('keydown'); key('keyup'); } });
+  };
+  /** One throw: dragged up from the board and let go, aimed at the pot's middle. */
+  const throwOne = () => {
+    // (the next piece hops up onto the board first)
+    run(0.45);
+    const from = onScreen(P.x, CY + 0.99, P.z + 1.38), to = onScreen(P.x, CY + 1.37, P.z);
+    ptr('pointerdown', from.x, from.y);
+    ptr('pointermove', from.x + (to.x - from.x) / 2.7, from.y + (to.y - from.y) / 2.7);
+    ptr('pointerup', from.x + (to.x - from.x) / 2.7, from.y + (to.y - from.y) / 2.7);
+    run(1.1);
+  };
+  /** Throws until the throw's done (and the basket's tipped in); how many throws it took. */
+  const throwAll = () => {
+    until('Throw');
+    const was = show.showState()!.run.got[1].length;
+    for (let n = 0; n < 16 && show.showState()?.step === 'Throw' && show.showState()?.phase === 'play'; n++) throwOne();
+    return show.showState()!.run.got[1].length - was;
+  };
+  /** Three pours, held a while. */
+  const season = () => { until('Season'); for (let i = 0; i < 3; i++) { run(0.1); key('keydown'); run(0.7); key('keyup'); run(0.8); } };
+  /** Circles round the pot at a steady pace for `s` seconds, from a first press at `x, y` (on the soup, if not given). */
+  const stir = (s = 6, at?: { x: number; y: number }) => {
+    until('Stir');
+    const c = onScreen(P.x, CY + 1.37, P.z), p = at ?? { x: c.x + 120, y: c.y };
+    ptr('pointerdown', p.x, p.y); ptr('pointerup', p.x, p.y);
+    let a = 0;
+    for (let i = 0; i < 60 * s; i++) { a += Math.PI * 2 * 0.8 / 60; ptr('pointermove', c.x + Math.cos(a) * 120, c.y + Math.sin(a) * 120, i >= 60 ? 'showSteps' : 'showPlay'); run(1 / 60); }
+    ptr('pointerup', c.x, c.y);
+  };
+  return { g, plan, cellar, fight, show, run, key, ptr, onScreen, until, open, cut, throwOne, throwAll, season, stir, F: () => fight.F };
 }
 
 describe('the cooking show at the pot', () => {
@@ -73,9 +112,9 @@ describe('the cooking show at the pot', () => {
   it('the gong\'s verdict goes by what a cooking bonus could do: maybe if +35% wins, likely lost if only +50% does', async () => {
     await atPot();
     const [fight, gong] = await Promise.all([import('../src/fight'), import('../src/gong')]);
-    // Dobu's 220: 111 beat him
+    // a crowd of 220: 111 beat him
     const boss = fight.BOSSES[2], f = (turned: number) => ({ boss, turned, worst: null, at: 0 });
-    const v = (base: number, at35: number, at50: number) => gong.verdict(boss, f(base), boss.crowd, { at35: f(at35), at50: f(at50) });
+    const v = (base: number, at35: number, at50: number) => gong.verdict(boss, f(base), 220, { at35: f(at35), at50: f(at50) });
     expect(v(134, 140, 150)).toBe('win');
     expect(v(111, 130, 140)).toBe('likelywin');
     expect(v(100, 111, 125)).toBe('maybe');
@@ -91,28 +130,248 @@ describe('the cooking show at the pot', () => {
     expect(F().pot.length + F().counter.length).toBe(30);
   });
 
-  it('the show takes four of each, as a batch does: no Cook without them', async () => {
-    const { show, run, F } = await atPot();
-    F().pantry = { rice: 4, fish: 3, mush: 4 };
-    run(0.1);
-    expect(($('cook') as HTMLButtonElement).disabled).toBe(true);
-    expect($('cook').textContent).toContain('4 each');
-    expect(show.startShow()).toBe(false);
-    F().pantry.fish = 4;
+  it('the show is a bonus game alone: it starts with nothing on the ledge, and takes nothing and cooks nothing', async () => {
+    const { show, run, open, cut, throwAll, season, stir, F } = await atPot();
+    F().pantry = { rice: 0, fish: 0, mush: 0 };
     run(0.1);
     expect(($('cook') as HTMLButtonElement).disabled).toBe(false);
-  });
+    expect($('cook').textContent).toContain('Cook');
+    expect($('showIntro').textContent).not.toContain('×4');
+    open(); cut(); throwAll(); season(); stir();
+    run(1.2);
+    expect(show.showState()!.phase).toBe('result');
+    expect(F().pantry).toEqual({ rice: 0, fish: 0, mush: 0 });
+    expect(F().pot.length).toBe(0);
+    expect(F().cooked.length).toBe(0);
+  }, 60_000);
 
-  it('no mushrooms before the grow room\'s open: the show needs none and doesn\'t show any', async () => {
-    const { show, run, F } = await atPot();
-    F().beaten = 0; F().pantry = { rice: 4, fish: 4, mush: 0 };
+  it('the stew\'s cabbage, carrot and tofu are cut with the fish; a piece off each is thrown in, one by one: six throws', async () => {
+    const { show, open, cut, throwAll, until } = await atPot();
+    open(); cut();
+    // five clean cuts (one each through the cabbage, the carrot and the tofu, two through the tuna, in three): a piece
+    // off each thrown on its own, then the mushroom and the rice
+    expect(show.showState()!.run.got[0]).toEqual([1, 1, 1, 1, 1]);
+    expect(throwAll()).toBe(6);
+    until('Season');
+    const got = show.showState()!.run.got;
+    expect(got[1]).toHaveLength(6);
+    // (the four pieces, the mushroom and the rice went in, and then what was left of each thing, tipped in from the
+    // basket: the rest of the cabbage, carrot and tofu, and two tuna slices)
+    expect(show.showState()!.stew.in).toHaveLength(6 + 5);
+    expect(show.showState()!.stars[1]).toBe(Math.round(got[1].reduce((a, b) => a + b, 0) / 6 * 3));
+  }, 60_000);
+
+  it('a missed line counts against the cut; before the grow room\'s open, no mushroom', async () => {
+    const { show, open, cut, throwAll, until, F } = await atPot();
+    F().beaten = 0;
+    open(); cut([1]);
+    until('Throw');
+    expect(show.showState()!.run.got[0]).toEqual([1, 0, 1, 1, 1]);
+    expect(show.showState()!.stars[0]).toBe(Math.round(4 / 5 * 3));
+    // the pieces cut off one by one (the carrot whole, its line missed), and the rice
+    expect(throwAll()).toBe(4 + 1);
+    // (and then the rest of the three cut, tipped in: the cabbage's, the tofu's, two tuna slices)
+    expect(show.showState()!.stew.in).toHaveLength(5 + 1 + 4);
+  }, 60_000);
+
+  it('aiming a throw draws a dotted arc to where it\'ll land: cream into the pot, red off it, gone once it\'s let go', async () => {
+    const { show, run, ptr, onScreen, plan, cellar, open, cut, until } = await atPot();
+    open(); cut();
+    until('Throw');
+    run(0.45);
+    const P = plan.POT, CY = cellar.CY, from = onScreen(P.x, CY + 0.99, P.z + 1.38), mid = onScreen(P.x, CY + 1.37, P.z);
+    ptr('pointerdown', from.x, from.y);
+    expect(show.showState()!.aim.dots).toBe(0);
+    // aimed at the pot's middle
+    ptr('pointermove', from.x + (mid.x - from.x) / 2.7, from.y + (mid.y - from.y) / 2.7);
+    run(1 / 60);
+    expect(show.showState()!.aim).toEqual({ dots: 22, red: 0 });
+    // aimed well past the pot
+    const far = onScreen(P.x + 2.5, CY + 1.37, P.z - 1.5);
+    ptr('pointermove', from.x + (far.x - from.x) / 2.7, from.y + (far.y - from.y) / 2.7);
+    run(1 / 60);
+    expect(show.showState()!.aim).toEqual({ dots: 22, red: 22 });
+    ptr('pointerup', from.x + (far.x - from.x) / 2.7, from.y + (far.y - from.y) / 2.7);
+    run(1 / 60);
+    expect(show.showState()!.aim.dots).toBe(0);
+  }, 60_000);
+
+  it('what\'s thrown in sinks into the stew, and the stir brings it back up', async () => {
+    const { show, run, open, cut, throwOne, throwAll, season, stir, until } = await atPot();
+    open(); cut();
+    until('Throw');
+    throwOne();
+    run(1.5);
+    // (the first piece of cabbage, down under the top)
+    const sunk = show.showState()!.stew.in;
+    expect(sunk).toHaveLength(1);
+    for (const y of sunk) expect(y).toBeLessThan(-0.08);
+    throwAll(); season(); stir();
+    run(1.2);
+    expect(show.showState()!.phase).toBe('result');
+    // (all back up at the top but the rice)
+    const up = show.showState()!.stew.in;
+    expect(up.filter(y => y > -0.05)).toHaveLength(up.length - 1);
+  }, 60_000);
+
+  it('each seasoning turns the stew its colour, soy darkest', async () => {
+    const { show, run, key, open, cut, throwAll, until } = await atPot();
+    open(); cut(); throwAll();
+    until('Season');
+    const lum = (hex: number) => ((hex >> 16) & 255) * 0.3 + ((hex >> 8) & 255) * 0.59 + (hex & 255) * 0.11;
+    const dashi = show.showState()!.stew.colour;
+    const pour = () => { run(0.1); key('keydown'); run(1.1); key('keyup'); run(0.8); };
+    pour();
+    const salted = show.showState()!.stew.colour;
+    pour();
+    const soy = show.showState()!.stew.colour;
+    expect(lum(salted)).toBeGreaterThanOrEqual(lum(dashi));
+    expect(lum(soy)).toBeLessThan(lum(salted) - 25);
+    pour();
+    expect(show.showState()!.stew.colour).not.toBe(soy);
+  }, 60_000);
+
+  it('the stir starts with the first press on the soup, not anywhere on the screen', async () => {
+    const { show, run, until, open, cut, throwAll, season, stir } = await atPot();
+    open(); cut(); throwAll(); season();
+    until('Stir');
+    // a press down in the corner, and circling: the ladle's not taken up, and the clock doesn't start
+    stir(7, { x: 4, y: innerHeight - 4 });
+    expect(show.showState()).toMatchObject({ step: 'Stir', phase: 'play' });
+    expect(show.showState()!.run.got[3]).toEqual([0, 0]);
+    // then on the soup: it's on, and five seconds later it's done
+    stir(6);
+    run(1.2);
+    expect(show.showState()!.phase).toBe('result');
+    expect(show.showState()!.stars[3]).toBeGreaterThanOrEqual(2);
+  }, 60_000);
+
+  it('left half way, it carries on from the same step with its stars, nothing played again', async () => {
+    const { show, run, key, open, cut, throwOne, throwAll, until, F } = await atPot();
+    open(); cut([2]);
+    until('Throw');
+    const cutStars = show.showState()!.stars[0];
+    throwOne();
+    $('showShut').click();
+    run(0.6);
+    expect(show.showing()).toBe(false);
+    const kept = structuredClone(F().show)!;
+    expect(kept.step).toBe(1);
+    expect(kept.got[0]).toEqual([1, 1, 0, 1, 1]);
+    expect(kept.got[1]).toHaveLength(1);
+    // no fresh show: Cook carries it on, at the throw, the cut's stars as they were
     run(0.1);
     expect(($('cook') as HTMLButtonElement).disabled).toBe(false);
+    $('cook').click(); run(0.6);
+    expect($('showGo').textContent).toBe('Carry on');
+    expect($('showIntro').textContent).toContain(`★ ${cutStars} so far · Throw next`);
+    $('showGo').click();
+    until('Throw');
+    expect(show.showState()!.stars[0]).toBe(cutStars);
+    expect(show.showState()!.run.got[1]).toEqual(kept.got[1]);
+    // (the four cut off, the tofu whole, then the mushroom and the rice, less the one that's in already)
+    expect(throwAll()).toBe(6 - 1);
+    // ✕ half way through a pour: the pour stops where it is, and counts
+    until('Season');
+    run(0.1); key('keydown'); run(0.3);
+    $('showShut').click();
+    key('keyup');
+    run(0.6);
+    expect(F().show!.step).toBe(2);
+    expect(F().show!.got[2]).toHaveLength(1);
+    const lines = [...F().show!.lines];
+    expect(lines).toHaveLength(3);
+    open();
+    until('Season');
+    // (the seasonings' lines are where they were)
+    expect(show.showState()!.run.lines).toEqual(lines);
+    expect(show.showState()!.run.got[2]).toHaveLength(1);
+  }, 60_000);
+
+  it('✕ with a throw in the air: it lands, and counts', async () => {
+    const { show, run, ptr, onScreen, plan, cellar, open, cut, until, F } = await atPot();
+    open(); cut();
+    until('Throw');
+    run(0.1);
+    const from = onScreen(plan.POT.x, cellar.CY + 0.99, plan.POT.z + 1.38), to = onScreen(plan.POT.x, cellar.CY + 1.37, plan.POT.z);
+    ptr('pointerdown', from.x, from.y);
+    ptr('pointerup', from.x + (to.x - from.x) / 2.7, from.y + (to.y - from.y) / 2.7);
+    run(0.1);
+    expect(show.showState()!.run.got[1]).toHaveLength(0);
+    $('showShut').click();
+    expect(F().show!.got[1]).toHaveLength(1);
+  }, 60_000);
+
+  it('a show left half way is saved with the game, and carries on after loading', async () => {
+    const { show, run, open, cut, throwAll, until, fight, F } = await atPot();
+    open(); cut(); throwAll();
+    until('Season');
+    const throwStars = show.showState()!.stars[1];
+    $('showShut').click(); run(0.6);
+    const saved = fight.saveFight();
+    expect(saved.show).toMatchObject({ step: 2 });
+    expect(fight.fightFrom(saved).show).toEqual(saved.show);
+    // (what doesn't read back starts it fresh; numbers out of range are kept in it)
+    expect(fight.fightFrom({ ...saved, show: 'junk' }).show).toBeNull();
+    expect(fight.fightFrom({ ...saved, show: { step: 9, got: [[5], 'x'], lines: [2] } }).show).toEqual({ step: 4, got: [[5], [], [], []], lines: [1] });
+    // loaded back in: Cook carries on at the seasoning, the stars as they were
+    fight.resetFight(fight.fightFrom(JSON.parse(JSON.stringify(saved))));
+    F().cookT = 1e9;
+    run(0.1);
+    open();
+    until('Season');
+    expect(show.showState()!.stars.slice(0, 2)).toEqual([3, throwStars]);
+  }, 60_000);
+
+  it('a bland pot buys nothing, and a new show can start at once', async () => {
+    const { show, run, open, until, F } = await atPot();
+    // (a show with every step played, all misses)
+    F().show = { step: 4, got: [[0, 0, 0, 0, 0], [0, 0], [0, 0, 0], [5.6, 0]], lines: [0.5, 0.5, 0.5] };
+    open(); run(0.1);
+    expect(show.showState()!.phase).toBe('result');
+    expect($('showCard').textContent).toContain('Cook again any time');
+    expect(F().show).toBeNull();
+    expect(F().bonus.t).toBe(0);
+    $('showBack').click(); run(0.7);
+    expect(($('cook') as HTMLButtonElement).disabled).toBe(false);
+    $('cook').click(); run(0.6);
+    expect($('showGo').textContent).toBe('Start');
+    $('showGo').click();
+    until('Cut');
+    expect(show.showState()!.run).toMatchObject({ step: 0, got: [[-1, -1, -1, -1, -1], [], [], [0, 0]] });
+  }, 60_000);
+
+  it('whoever stands between the camera and the set is put away while it\'s on, and comes back after', async () => {
+    const { g, plan, fight, show, run, F } = await atPot();
+    const [{ Person }, cellar] = await Promise.all([import('../src/characters'), import('../src/cellar')]);
+    fight.hire('picker');
+    run(0.1);
+    // the picker, straw hat and all, right in front of the prep board
+    const w = F().crew.find(c => c.role === 'picker')!;
+    Object.assign(w, { x: plan.POT.x + 0.45, z: plan.POT.z + 2.05, path: [], steps: [], moving: false });
+    g.game.tick(1 / 60);
+    const him = cellar.cellar.children.find(o => o instanceof Person && o.visible && Math.hypot(o.position.x - w.x, o.position.z - w.z) < 0.3)!;
+    expect(him).toBeTruthy();
+    const before = cellar.cellar.children.filter(o => o.visible);
     $('cook').click();
-    expect(show.showing()).toBe(true);
-    expect($('showIntro').textContent).not.toContain('🍄');
-    expect($('showIntro').textContent).toContain('🍚 🐟 ×4');
-  });
+    run(0.6);
+    expect(him.visible).toBe(false);
+    // (and not the room: the pot and the hearth stay; what's on the ledge behind the long board goes too)
+    expect(show.showState()!.hidden).toBeGreaterThanOrEqual(1);
+    expect(cellar.potMesh.visible).toBe(true);
+    // (the show's own: the pot's pad, its steam and what's flying off it)
+    const put = cellar.cellar.children.filter(o => before.includes(o) && !o.visible && !['potPad', 'potSteam', 'potFlight'].includes(o.name));
+    expect(put).toHaveLength(show.showState()!.hidden);
+    for (const o of put) {
+      const box = new Box3().setFromObject(o), c = box.getCenter(new Vector3());
+      expect(Math.hypot(c.x - plan.POT.x, c.z - plan.POT.z)).toBeLessThan(4);
+      expect(Math.max(...box.getSize(new Vector3()).toArray())).toBeLessThan(2.7);
+    }
+    $('showShut').click();
+    run(0.6);
+    expect(show.showing()).toBe(false);
+    expect(him.visible).toBe(true);
+  }, 60_000);
 
   it('Cook at the pot starts the show: the game holds still, and ✕ ends it with nothing', async () => {
     const { g, show, run, F } = await atPot();
@@ -138,46 +397,30 @@ describe('the cooking show at the pot', () => {
   });
 
   it('plays the four steps for stars, and the stars buy the bonus', async () => {
-    const { plan, cellar, fight, show, run, key, ptr, onScreen, until, F } = await atPot();
-    $('cook').click();
-    run(0.6);
-    $('showGo').click();
-    // cut: tap as each line meets the knife (they come along every 0.15 m at 0.72 m in 4.2 s)
-    until('Cut');
-    let at = 0;
-    for (const when of [0.27, 0.42, 0.57].map(d => d * 4.2 / 0.72)) { run(when - at); at = when; key('keydown'); key('keyup'); }
+    const { fight, show, run, until, open, cut, throwAll, season, stir, F } = await atPot();
+    open();
+    // cut: tap as each line meets the knife
+    cut();
     until('Throw');
     expect(show.showState()!.stars[0]).toBe(3);
     // throw: drag each one up from the board and let go, aimed at the pot's middle
-    const P = plan.POT, CY = cellar.CY;
-    for (let i = 0; i < 3; i++) {
-      run(0.1);
-      const from = onScreen(P.x, CY + 0.99, P.z + 1.38), to = onScreen(P.x, CY + 1.37, P.z);
-      ptr('pointerdown', from.x, from.y);
-      ptr('pointermove', from.x + (to.x - from.x) / 2.7, from.y + (to.y - from.y) / 2.7);
-      ptr('pointerup', from.x + (to.x - from.x) / 2.7, from.y + (to.y - from.y) / 2.7);
-      run(1.2);
-    }
+    throwAll();
     until('Season');
     expect(show.showState()!.stars[1]).toBeGreaterThanOrEqual(2);
     // season: three pours, held a while
-    for (let i = 0; i < 3; i++) { run(0.1); key('keydown'); run(0.7); key('keyup'); run(0.8); }
-    until('Stir');
+    season();
     // stir: circles round the pot at a steady pace (the mouse up over the step bar above after the first second)
-    const c = onScreen(P.x, CY + 1.37, P.z);
-    ptr('pointerdown', c.x + 120, c.y); ptr('pointerup', c.x + 120, c.y);
-    let a = 0;
-    for (let i = 0; i < 60 * 6; i++) { a += Math.PI * 2 * 0.8 / 60; ptr('pointermove', c.x + Math.cos(a) * 120, c.y + Math.sin(a) * 120, i >= 60 ? 'showSteps' : 'showPlay'); run(1 / 60); }
-    ptr('pointerup', c.x, c.y);
+    stir();
     run(1.2);
     const st = show.showState()!;
     expect(st.phase).toBe('result');
     expect(st.stars[3]).toBeGreaterThanOrEqual(2);
     const total = st.stars.reduce((a, b) => a + b, 0), tier = fight.BONUS_TIERS.find(x => total >= x.min)!;
     expect(F().bonus.pct).toBe(tier.pct);
-    // the batch it cooked: four of each off the ledge, its bowls in the pot (at the size the stars bought)
-    expect(F().pantry).toEqual({ rice: 4, fish: 4, mush: 4 });
-    expect(F().pot.length).toBe(fight.batchBowls());
+    // nothing off the ledge, nothing cooked: it's played for the bonus alone, and nothing's kept to carry on
+    expect(F().pantry).toEqual({ rice: 8, fish: 8, mush: 8 });
+    expect(F().pot.length).toBe(0);
+    expect(F().show).toBeNull();
     expect($('showCard').hidden).toBe(false);
     expect($('showCard').textContent).toContain(`★ ${total} / 12`);
     $('showBack').click();

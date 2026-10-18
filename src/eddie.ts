@@ -1,5 +1,5 @@
 // Slick Eddie's fixed fights (stage 3, the Undertow): step up to his table and he'll keep some of the next boss's fans
-// home, 10% to 50% of them, for the same share of that boss's prize in Fugu Chips, paid up front, win or lose. The
+// home, 10% to 50% of them, for 🐡 8 a fan (fight.ts's FIX_PER_FAN), paid up front, win or lose. The
 // bigger the fix, the likelier the papers get wind of it: 5% for a small one, 70% for half the hall. Whether they do
 // is rolled the moment it's paid for (outside the cellar's sim, which leaves nothing to chance, so the gong's forecast
 // stays exact) and saved, and only comes out at the gong: if the fix holds, the boss walks in with that many fewer
@@ -11,6 +11,7 @@ import { BOOTH_PADS, BOOTHS } from './cellarPlan';
 import { CHIP, F, FIX, fixFee, fixOn, keptHome, nextBoss, setFix } from './fight';
 import { apart, dice } from './kit';
 import { found, level } from './layout';
+import { met } from './meet';
 import { save } from './save';
 import { coin } from './sfx';
 import { V } from './util';
@@ -97,7 +98,7 @@ const pad = apart(() => gamePad(BOOTH_PADS.eddie, '🤝', panel, {
   away: '',
 }, {
   at: V(BOOTHS.eddie.x + 0.45, CY + 0.95, BOOTHS.eddie.z), from: V(0.8, 0.75, 0.25).normalize(), wide: 1.5, tall: 1.2,
-}, () => level.down && found.den), dice(0xED1E));
+}, () => level.down && found.den && met('eddie')), dice(0xED1E));
 // (its marking's the Undertow's own, undertow.ts's: this one's never put down)
 pad.enable();
 

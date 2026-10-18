@@ -4,17 +4,16 @@
 // press of E (buy), as it sells only the one thing. The HUD's top left lists every modifier in play, as a percentage:
 // Customers there is marketing and the rating together, as both bring customers in faster. Stage 3's square is down
 // in the cellar, at the shop counter in the cookware shop, priced in Fugu Chips: pricier bowls, word on the street (fans)
-// and the cellar crew; and under them, everything each room has to buy, bought outright: the prep hall's (racks,
-// barrels, steamers, the smokehouse, the hires who run its lines), the grow room's (beds, the picker, shelves) and the
-// hearth room's (the attendant and the cook).
+// and the cellar crew; and under them a tree of everything else, bought outright (shopTree.ts): each room's machines,
+// hires and big upgrades and the venue's tiers, in bands that open fight by fight (the practice fight, then each boss).
 import { touchBuy } from './buy';
 import { BENCH_PAD, type MenuRoom } from './cellarPlan';
-import { BOSSES, F, MACH } from './fight';
+import { F, MACH, NAME, practiceDue } from './fight';
 import { repriceFish } from './counters';
 import { decal, drawMenu } from './decals';
 import { boost, MOD, modCost, MODS, mods, type ModId } from './economy';
 import { buyHeld } from './input';
-import { CELLAR_Y, found, level, SHED_YARD, shedYard, stage, type StageN } from './layout';
+import { CELLAR_Y, level, SHED_YARD, shedYard, stage, type StageN } from './layout';
 import { player } from './player';
 import { demand } from './rating';
 import { repriceSushi, sushiBoost } from './restaurant';
@@ -23,12 +22,15 @@ import { levelUp } from './sfx';
 import { SHED_AT } from './shed';
 import { spotOn } from './spotlight';
 import { staging } from './stage';
-import { buyFromMenu, isDone, menuSeen, menuTiles, offered, type Tile } from './unlocks';
+import { GATES, gateOf, gateOpen, LANES, nextGate, type Place, PLACES } from './shopTree';
+import { buyFromMenu, isDone, menuSeen, offered, type Tile, tiles } from './unlocks';
 import { MAX_MACHINES } from './cellarPlan';
 import { toast } from './ui';
 import { chips, FY, price } from './util';
 import { wallet } from './wallet';
 
+/** The rooms whose upgrades the shop sells (all of them, in its tree). */
+const MENU_ROOMS: MenuRoom[] = ['prep', 'grow', 'hearth', 'venue'];
 /** Where each stage's square is: by the walk-up counter, in the restaurant's aisle by the kitchen line, and in front of
  *  the shop counter down in the cellar's cookware shop. */
 export const SHOPS = [{ x: 0.9, z: 5.4 }, { x: -3.6, z: 5.0 }, { x: BENCH_PAD.x, z: BENCH_PAD.z }];
@@ -76,7 +78,7 @@ export const modOffered = (id: ModId) => (!MOD[id].shed || shedYard.open) && (!M
 const sold = (q: Square) => MODS.filter(m => m.stage === q.stage && !!m.shed === q.shed && modOffered(m.id));
 
 const $ = (id: string) => document.getElementById(id)!;
-const panel = $('shop'), title = $('shopTitle'), rows = $('shopRows');
+const panel = $('shop'), title = $('shopTitle'), rows = $('shopRows'), tabsEl = $('shopTabs');
 const pct = (k: number) => (k >= 1 ? '+' : '−') + Math.round(Math.abs(k - 1) * 100) + '%';
 const EFFECT = { price: 'Prices', customers: 'Customers', speed: 'Speed', growth: 'Rice growth' } as const;
 const RING_EFFECT = { price: 'Bowl price', customers: 'Fans', speed: 'Crew', growth: 'Growth' } as const;
@@ -101,268 +103,325 @@ export function buyMod(id: ModId) {
   return true;
 }
 
-// ---------- a room's menu ----------
-/** Why a room's upgrade isn't on sale yet: the boss to beat first, or what to buy before it. */
-function lockedBy(t: Tile) {
-  if (F.beaten < (t.beat ?? 0)) { const b = BOSSES[t.beat! - 1]; return { tag: `🔒 ${b.face}`, why: `After beating ${b.name} ${b.face}` }; }
-  return { tag: '🔒', why: 'Not yet' };
+// ---------- the cookware shop's tree ----------
+/** How a node stands: bought (or its line full), on sale, waiting on another bought first, or behind a fight not won. */
+type NodeState = 'done' | 'open' | 'needs' | 'boss';
+/** What's still to win before a band opens. */
+function gateWhy(g: number) {
+  const { face, name } = GATES[g];
+  return { tag: `🔒 ${face}`, why: g === 1 ? 'Win the practice fight first' : `Beat ${name} ${face} first` };
 }
-/** The bench's menu is in tabs, one short list at a time (a phone has room for little more): the ring's upgrades, and
- *  each room's (the grow room's once it's found). */
-type BenchTab = 'ring' | MenuRoom;
-const TABS: { id: BenchTab; icon: string; label: string; heading: string }[] = [
-  { id: 'ring', icon: '🏷️', label: 'Ring', heading: 'The ring' }, { id: 'prep', icon: '🌾', label: 'Prep', heading: 'Prep hall' },
-  { id: 'grow', icon: '🍄', label: 'Grow', heading: 'Grow room' }, { id: 'hearth', icon: '🍲', label: 'Hearth', heading: 'Hearth room' },
-];
-const benchTabs = () => TABS.filter(t => t.id !== 'grow' || found.grow);
-const benchRooms = () => benchTabs().map(t => t.id).filter((t): t is MenuRoom => t !== 'ring');
-/** Every room's upgrade the bench sells. */
-const benchTiles = () => benchRooms().flatMap(r => menuTiles(r));
-/** The tab open, and whether there's something in a tab there are the chips for now (its dot). */
-let tab: BenchTab = 'prep';
-function affordable(t: BenchTab, q: Square) {
-  if (t === 'ring') return sold(q).some(m => { const c = modCost(m.id); return c !== null && wallet.money >= c; });
-  return menuTiles(t).some(x => !x.done && offered(x) && wallet.money >= x.cost);
-}
-const tabsEl = $('shopTabs');
-tabsEl.addEventListener('click', e => {
-  const b = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-tab]');
-  if (!b || !on?.bench) return;
-  tab = b.dataset.tab as BenchTab;
-  built = '';
-  syncRows(on);
-});
-/** One thing the bench sells, as its card and the line under the cards show it: the ring's next level of an upgrade,
- *  or a room's upgrade. */
+/** One thing the shop sells, as its node and the line under the tree show it: the ring's next level of an upgrade, or
+ *  a room's upgrade (or the buyout, sold at Mr. Fugu's office, at the end of the tree). */
 interface Item {
   key: string; icon: string; name: string; desc: string; tag: string; sale: boolean; done?: boolean; cost: number | null; buy: () => boolean;
-  /** A line's machine: its name without the count, and how many the line has of how many (the list's dots). */
-  plain?: string; pips?: [number, number];
+  state: NodeState;
+  /** Its name on its node: a ring level's effect, a tile's short name. */
+  label: string;
+  /** A ring level's level now. */
+  level?: number;
+  /** A line's machines: how many it has of how many (the node's dots). */
+  pips?: [number, number];
+  /** A room's upgrade: its tile, its place in the tree and the gate it's behind. */
+  tile?: Tile; place?: Place; gate?: number;
 }
 function modItem(m: (typeof MODS)[number]): Item {
   const cost = modCost(m.id), now = boost(m.id), lv = mods[m.id];
   const then = m.add ? now + m.per - 1 : now * m.per, what = m.kind === 'speed' ? 'Crew' : RING_EFFECT[m.kind];
   return {
-    key: 'mod:' + m.id, icon: m.icon, name: cost === null ? `${m.name} · ${levelName(m.id, lv)}` : `${m.name} ${lv + 1}`,
+    key: 'mod:' + m.id, icon: m.icon, name: cost === null ? `${m.name} · ${levelName(m.id, lv)}` : `${m.name} ${lv + 1}`, label: what, level: lv,
     desc: cost === null ? `${what} ${pct(now)} · fully upgraded` : `${m.levels ? levelName(m.id, lv + 1) + ': ' : ''}${what} ${pct(now)} → ${pct(then)}`,
-    tag: cost === null ? 'Max' : chips(cost, true), sale: cost !== null, cost, buy: () => buyMod(m.id),
+    tag: cost === null ? 'Max' : chips(cost, true), sale: cost !== null, done: cost === null, cost, buy: () => buyMod(m.id), state: cost === null ? 'done' : 'open',
   };
 }
 function tileItem(t: Tile): Item {
-  const sale = !t.done && offered(t), n = t.line ? F.lines[t.line].n : 0;
+  const place = PLACES[t.id] ?? {}, gate = gateOf(t), n = t.line ? F.lines[t.line].n : 0, label = place.label ?? t.name;
+  const state: NodeState = t.done ? 'done' : !gateOpen(gate) ? 'boss' : t.needs && !isDone(t.needs) ? 'needs' : offered(t) ? 'open' : 'boss';
+  const need = t.needs ? tiles.find(x => x.id === t.needs) : undefined, needName = need ? PLACES[need.id]?.label ?? need.name : '';
+  const lower = (s: string) => s.charAt(0).toLowerCase() + s.slice(1);
   return {
-    key: 'tile:' + t.id, icon: t.icon, name: t.line ? `${t.name.replace(/^Another (\w)/, (_, c: string) => c.toUpperCase())} ${n}/${MAX_MACHINES}` : t.name,
-    desc: t.done ? (t.line ? `The ${t.line === 'rice' ? 'rice' : t.line === 'fish' ? 'fish' : 'mushroom'} line is full` : t.desc)
-      : sale ? t.desc : `${lockedBy(t).why}: ${t.desc.charAt(0).toLowerCase()}${t.desc.slice(1)}`,
-    tag: t.done ? (t.line ? 'Max' : '✓') : sale ? chips(t.cost, true) : lockedBy(t).tag, sale, done: t.done, cost: t.cost,
-    buy: () => { const ok = buyFromMenu(t); if (ok) save(); return ok; },
-    plain: t.line ? t.name.replace(/^Another (\w)/, (_, c: string) => c.toUpperCase()) : undefined, pips: t.line ? [n, MAX_MACHINES] : undefined,
+    key: 'tile:' + t.id, icon: t.icon, name: t.line ? `${label} ${n}/${MAX_MACHINES}` : label, label, tile: t, place, gate, state,
+    desc: state === 'done' ? (t.line ? `The ${NAME[t.line]} line is full` : t.desc) : state === 'boss' ? `${gateWhy(gate).why}: ${lower(t.desc)}`
+      : state === 'needs' ? `Buy the ${lower(needName)} first` : t.gold ? "At Mr. Fugu's office" : t.desc,
+    tag: state === 'done' ? (t.line ? 'Max' : '✓') : state === 'boss' ? gateWhy(gate).tag : chips(t.cost, true),
+    sale: state === 'open' && !t.gold, done: state === 'done', cost: t.cost,
+    buy: () => { if (t.gold) return false; const ok = buyFromMenu(t); if (ok) save(); return ok; },
+    pips: t.line ? [n, MAX_MACHINES] : undefined,
   };
 }
-/** What a tab sells, each in its place whatever's bought (so the menu keeps its size and shape): the ring's three
- *  upgrades, or a room's, what's done ticked. */
-const itemsOf = (t: BenchTab, q: Square) => (t === 'ring' ? sold(q).map(modItem) : menuTiles(t).map(tileItem));
-function benchItems(q: Square): { items: Item[] } {
-  return { items: listMode() ? benchTabs().flatMap(t => itemsOf(t.id, q)) : itemsOf(tab, q) };
+/** Everything the shop sells, in its place whatever's bought (so the tree keeps its shape): the ring's three levels,
+ *  then the rooms' upgrades and the buyout. */
+const treeTiles = () => tiles.filter(t => t.stage === 3 && PLACES[t.id]);
+function benchItems(q: Square): { levels: Item[]; nodes: Item[]; items: Item[] } {
+  const levels = sold(q).map(modItem), nodes = treeTiles().map(tileItem);
+  return { levels, nodes, items: [...levels, ...nodes] };
 }
-/** With a mouse and keys there's room for it all: one list down the side, a heading for each tab's things (which folds
- *  them away, as its number key does), and a line for each with a price button that buys it there and then (no
- *  picking first: that's for a thumb on a phone). What's locked comes last in its room, thinner; the grow room, till
- *  it's found, is just a line saying who opens it. */
-const listMode = () => !touchBuy();
-/** The rooms folded away in the list. */
-const shut = new Set<BenchTab>();
-/** The line under the mouse, which E buys. */
+/** With a mouse there's room for the whole road: a wide board, a column a gate (Start, the practice fight, the five
+ *  bosses) and a row a room, its things bought with a click on their price. On a touch screen, a ladder down the
+ *  bottom sheet: a column a room, a bar a gate, a node picked with a tap and bought with the Buy button under it. */
+const boardMode = () => !touchBuy();
+/** The board's sizes, in pixels: the rooms' column, a gate's column, a node, the gates' heads, the gap between rows. */
+const BOARD = { lane: 64, col: 156, w: 148, h: 54, head: 50, gap: 6 };
+/** The ladder's: a node, a gate's bar, the gap between rows (across, it's a fifth of the sheet a room). */
+const LADDER = { h: 80, bar: 30, gap: 8 };
+/** The line under the mouse, which E buys and the line under the tree describes. */
 let hovered = '';
-const purseEl = $('shopPurse'), keysEl = $('shopKeys');
-function listRow(it: Item) {
-  const row = document.createElement('div');
-  row.className = 'mod row'; row.dataset.key = it.key;
-  if (it.key.startsWith('tile:')) row.dataset.tile = it.key.slice(5); else row.dataset.mod = it.key.slice(4);
-  if (it.done) row.classList.add('done'); else if (!it.sale) row.classList.add('locked');
-  row.innerHTML = '<span class="ic"></span><span class="txt"><b></b><span class="sub"></span></span><button type="button" class="cost"></button>';
-  row.children[0].textContent = it.icon;
-  const name = row.children[1].children[0];
-  name.textContent = it.plain ?? it.name;
+/** The node picked by a thumb, to show what it does and buy it: by default the first there are the chips for. */
+let picked = '';
+const canBuy = (it: Item) => it.sale && it.cost !== null && wallet.money >= it.cost;
+const purseEl = $('shopPurse'), keysEl = $('shopKeys'), pickEl = $('shopPick');
+/** A gate's look: won (stamped), the next fight (red), or later (dark). */
+const gateLook = (g: number) => (gateOpen(g) ? 'won' : g === nextGate() ? 'next' : 'later');
+const div = (cls: string, css: Partial<CSSStyleDeclaration> = {}) => { const e = document.createElement('div'); e.className = cls; Object.assign(e.style, css); return e; };
+/** A node: its icon, its name (a line's machines as dots under it) and its price, which a mouse clicks to buy it. */
+function nodeEl(it: Item, board: boolean) {
+  const e = document.createElement(board ? 'div' : 'button');
+  if (!board) { (e as HTMLButtonElement).type = 'button'; e.setAttribute('aria-pressed', String(it.key === picked)); }
+  e.className = `node ${it.state}${it.state === 'boss' || it.state === 'needs' ? ' locked' : ''}${it.tile?.gold ? ' gold' : ''}${it.level !== undefined ? ' lv' : ''}`;
+  e.dataset.key = it.key;
+  if (it.tile) e.dataset.tile = it.tile.id; else e.dataset.mod = it.key.slice(4);
+  // (the price, and a line's dots beside it: under the name on the board, under each other on the ladder)
+  e.innerHTML = `<span class="ic" aria-hidden="true"></span><span class="txt"><b></b></span><span class="foot">${board ? '<button type="button" class="cost"></button>' : '<span class="cost"></span>'}</span>`;
+  e.children[0].textContent = it.icon;
+  const name = e.children[1].children[0] as HTMLElement;
+  name.textContent = it.label;
+  if (it.level !== undefined) { const s = document.createElement('small'); s.textContent = `Level ${it.level}`; e.children[1].append(s); }
   if (it.pips) {
     const [n, max] = it.pips, dots = document.createElement('span');
     dots.className = 'pips'; dots.setAttribute('role', 'img'); dots.setAttribute('aria-label', `${n} of ${max}`);
     for (let i = 0; i < max; i++) { const d = document.createElement('i'); if (i < n) d.className = 'on'; dots.append(d); }
-    name.append(dots);
+    e.children[2].append(dots);
   }
-  const sub = row.children[1].children[1] as HTMLElement;
-  sub.textContent = it.desc; sub.title = it.desc;
-  const b = row.children[2] as HTMLButtonElement;
-  b.dataset.key = it.key; b.textContent = it.tag; b.disabled = !canBuy(it);
-  b.setAttribute('aria-label', it.sale ? `Buy ${it.name}, ${it.tag}` : `${it.name}: ${it.tag}`);
-  return row;
+  if (it.state === 'done' && !it.pips && it.level === undefined) { const tick = document.createElement('span'); tick.className = 'tick'; tick.textContent = '✓'; tick.setAttribute('aria-hidden', 'true'); e.append(tick); }
+  const c = e.querySelector('.cost')!;
+  c.textContent = it.tag;
+  if (board) {
+    const b = c as HTMLButtonElement;
+    b.dataset.key = it.key; b.disabled = !canBuy(it);
+    b.setAttribute('aria-label', it.sale ? `Buy ${it.name}, ${it.tag}` : `${it.name}: ${it.tag}`);
+  } else e.setAttribute('aria-label', `${it.name}: ${it.tag}`);
+  e.classList.toggle('can', canBuy(it));
+  return e;
 }
-function renderBenchList(q: Square) {
-  title.textContent = q.title;
-  panel.classList.add('side');
-  tabsEl.hidden = true; pickEl.hidden = true;
-  rows.classList.remove('cards');
-  const out: HTMLElement[] = [];
-  TABS.forEach((t, i) => {
-    const h = document.createElement('button');
-    h.type = 'button'; h.className = 'sect'; h.dataset.sect = t.id;
-    h.setAttribute('aria-expanded', String(!shut.has(t.id)));
-    h.innerHTML = '<span class="chev" aria-hidden="true">▾</span><span class="nm"></span><span class="cnt"></span><kbd></kbd>';
-    h.children[1].textContent = t.heading; h.children[3].textContent = String(i + 1);
-    const box = document.createElement('div');
-    box.className = 'sectRows'; box.dataset.of = t.id; box.hidden = shut.has(t.id);
-    if (t.id === 'grow' && !found.grow) {
-      const note = document.createElement('div'), b = BOSSES[0];
-      note.className = 'sectNote'; note.textContent = `🔒 Found after beating ${b.name} ${b.face}`;
-      box.append(note);
-    } else {
-      const its = itemsOf(t.id, q);
-      box.append(...[...its.filter(x => x.sale || x.done), ...its.filter(x => !x.sale && !x.done)].map(listRow));
+/** A line from the node a node needs to it: gold once it's bought, lit while it's on sale, dashed while it waits. */
+function edgeEl(it: Item, css: Partial<CSSStyleDeclaration>) {
+  return div(`edge ${it.state === 'done' ? 'gold' : it.state === 'open' ? 'lit' : 'dim'}`, css);
+}
+/** The ring's three levels, a strip above the tree. */
+function levelStrip(levels: Item[], board: boolean) {
+  const s = div('levels');
+  s.append(...levels.map(it => nodeEl(it, board)));
+  return s;
+}
+/** The board: the gates' heads along the top (stuck there as it scrolls), a row a room, and the buyout at the end. */
+function boardEl(nodes: Item[]) {
+  const B = BOARD, rowsOf = LANES.map(l => 1 + Math.max(0, ...nodes.filter(i => i.place?.lane === l.id).map(i => i.place?.sub ?? 0)));
+  const top: number[] = [];
+  let y = 6;
+  rowsOf.forEach((n, i) => { top[i] = y; y += n * (B.h + B.gap) + 6; });
+  const W = B.lane + GATES.length * B.col, H = y;
+  const head = div('treeHead', { width: W + 'px', height: B.head + 'px' }), body = div('treeBody', { width: W + 'px', height: H + 'px' });
+  GATES.forEach((g, i) => {
+    const look = i === 0 ? 'start' : gateLook(i), x = B.lane + i * B.col, h = div(`gate ${look}`, { left: x + 4 + 'px', width: B.col - 8 + 'px', height: B.head - 6 + 'px' });
+    h.dataset.gate = String(i);
+    h.innerHTML = '<span class="face" aria-hidden="true"></span><span class="nm"></span>';
+    h.children[0].textContent = g.face;
+    h.children[1].textContent = look === 'next' ? `Next: ${g.name}` : look === 'later' ? `🔒 ${g.name}` : g.name;
+    if (look === 'won') { const s = document.createElement('span'); s.className = 'hanko'; s.textContent = '勝'; s.setAttribute('aria-label', 'beaten'); h.children[0].append(s); }
+    head.append(h);
+    if (look === 'next' || look === 'later') body.append(div('shade', { left: x + 3 + 'px', width: B.col - 6 + 'px', top: '2px', height: H - 4 + 'px' }));
+    if (i > 0) body.append(div(`gateLine${look === 'next' ? ' next' : ''}`, { left: x + 'px', top: '0', height: H + 'px' }));
+  });
+  LANES.forEach((l, i) => {
+    const t = div('laneName', { left: '0', width: B.lane - 6 + 'px', top: top[i] + (rowsOf[i] * (B.h + B.gap) - B.gap) / 2 - 18 + 'px' });
+    t.innerHTML = '<span class="ic" aria-hidden="true"></span><span></span>';
+    t.children[0].textContent = l.icon; t.children[1].textContent = l.name;
+    body.append(t);
+  });
+  const at = new Map<string, { x: number; y: number }>();
+  for (const it of nodes) {
+    const li = it.place?.lane ? LANES.findIndex(l => l.id === it.place!.lane) : 2;
+    const x = B.lane + it.gate! * B.col + (B.col - B.w) / 2;
+    const yy = it.place?.lane ? top[li] + (it.place.sub ?? 0) * (B.h + B.gap) : top[li] + (rowsOf[li] * (B.h + B.gap) - B.gap - B.h) / 2;
+    at.set(it.tile!.id, { x, y: yy });
+  }
+  for (const it of nodes) {
+    const from = it.place?.from && at.get(it.place.from), to = at.get(it.tile!.id)!;
+    if (!from) continue;
+    body.append(from.x === to.x
+      ? edgeEl(it, { left: from.x + B.w / 2 - 1.5 + 'px', top: from.y + B.h + 'px', width: '3px', height: to.y - from.y - B.h + 'px' })
+      : edgeEl(it, { left: from.x + B.w + 'px', top: to.y + B.h / 2 - 1.5 + 'px', width: to.x - from.x - B.w + 'px', height: '3px' }));
+  }
+  for (const it of nodes) {
+    const p = at.get(it.tile!.id)!, e = nodeEl(it, true);
+    Object.assign(e.style, { left: p.x + 'px', top: p.y + 'px', width: B.w + 'px', height: B.h + 'px' });
+    body.append(e);
+  }
+  tree0 = { w: W, h: B.head + H };
+  return { els: [head, body], jump: () => {} };
+}
+/** The ladder: the rooms' names along the top (stuck there as it scrolls), then a band a gate, each under its bar. */
+function ladderEl(nodes: Item[]) {
+  const L = LADDER, head = div('treeHead');
+  LANES.forEach((l, i) => {
+    const t = div('laneName', { left: i * 20 + '%', width: '20%' });
+    t.innerHTML = '<span class="ic" aria-hidden="true"></span><span></span>';
+    t.children[0].textContent = l.icon; t.children[1].textContent = l.name;
+    head.append(t);
+  });
+  const body = div('treeBody'), band: number[] = [], at = new Map<string, { col: number; y: number }>();
+  let y = 6;
+  GATES.forEach((g, i) => {
+    if (i > 0) {
+      const look = gateLook(i), bar = div(`bar ${look}`, { top: y + 'px', height: L.bar - 6 + 'px' });
+      bar.dataset.gate = String(i);
+      bar.textContent = look === 'won' ? `${g.face} ${g.name}` : look === 'next' ? (i === 1 ? '🔒 Win the practice fight 🤼' : `🔒 Beat ${g.name} ${g.face}`) : `🔒 ${g.name} ${g.face}`;
+      if (look === 'won') { const s = document.createElement('span'); s.className = 'hanko'; s.textContent = '勝'; s.setAttribute('aria-label', 'beaten'); bar.append(s); }
+      body.append(bar);
+      y += L.bar;
     }
-    out.push(h, box);
+    band[i] = y;
+    const here = nodes.filter(n => n.gate === i);
+    for (const it of here) at.set(it.tile!.id, { col: it.place?.lane ? LANES.findIndex(l => l.id === it.place!.lane) : -1, y: y + (it.place?.sub ?? 0) * (L.h + L.gap) });
+    y += (here.length ? 1 + Math.max(0, ...here.map(n => n.place?.sub ?? 0)) : 0) * (L.h + L.gap) + 4;
   });
-  rows.replaceChildren(...out);  syncBench(q);
+  body.style.height = y + 'px';
+  for (const it of nodes) {
+    const from = it.place?.from && at.get(it.place.from), to = at.get(it.tile!.id)!;
+    if (from) body.append(edgeEl(it, { left: `calc(${to.col * 20 + 10}% - 1.5px)`, top: from.y + L.h + 'px', width: '3px', height: to.y - from.y - L.h + 'px' }));
+  }
+  for (const it of nodes) {
+    const p = at.get(it.tile!.id)!, e = nodeEl(it, false);
+    Object.assign(e.style, p.col < 0 ? { left: 'calc(30% + 3px)', width: 'calc(40% - 6px)' } : { left: `calc(${p.col * 20}% + 3px)`, width: 'calc(20% - 6px)' }, { top: p.y + 'px', height: L.h + 'px' });
+    body.append(e);
+  }
+  // (it opens at the newest band, with the bar above it in view)
+  return { els: [head, body], jump: (tree: HTMLElement) => { tree.scrollTop = Math.max(0, band[Math.max(0, nextGate() - 1)] - L.bar - 34); } };
 }
-/** Folds a room of the list away, or opens it again (and brings it into view). */
-function toggleRoom(t: BenchTab) {
-  if (shut.has(t)) shut.delete(t); else shut.add(t);
-  const h = rows.querySelector<HTMLElement>(`.sect[data-sect="${t}"]`), box = rows.querySelector<HTMLElement>(`.sectRows[data-of="${t}"]`);
-  h?.setAttribute('aria-expanded', String(!shut.has(t)));
-  if (box) box.hidden = shut.has(t);
-  if (!shut.has(t)) h?.scrollIntoView?.({ block: 'nearest' });
+/** The board's own size, before it's shrunk to fit. */
+let tree0 = { w: 0, h: 0 };
+/** The board never scrolls: it's shrunk to fit what the screen leaves it (the panel's tallest, less its title, the
+ *  ring's levels and the line under it), across and down. */
+function fitBoard() {
+  const tree = rows.querySelector<HTMLElement>('.tree');
+  if (!tree || !panel.classList.contains('board') || panel.hidden || !panel.offsetHeight) return;
+  const top = parseFloat(getComputedStyle(panel).top) || 76, room = innerHeight - top - 16;
+  tree.style.display = 'none';
+  const rest = panel.getBoundingClientRect().height + 8, across = panel.clientWidth - 20;
+  tree.style.display = '';
+  const k = Math.min(1, (room - rest - 4) / tree0.h, across / tree0.w);
+  tree.style.width = tree0.w + 'px';
+  tree.style.zoom = String(Math.max(0.4, k));
 }
-window.addEventListener('keydown', e => {
-  const i = /^Digit([1-4])$/.exec(e.code)?.[1];
-  if (!i || e.repeat || !on?.bench || !listMode() || panel.hidden || (e.target as HTMLElement).closest?.('input, textarea')) return;
-  toggleRoom(TABS[+i - 1].id);
-});
-/** The card picked, to show what it does and buy it: by default the first there are the chips for. */
-let picked = '';
-const canBuy = (it: Item) => it.sale && it.cost !== null && wallet.money >= it.cost;
-const pickEl = $('shopPick');
-/** The bench's menu, the same size whatever's in the tab: its tabs, the open one's cards (each with its price, its lock
- *  or its tick), and under them the picked card: what it does, and its Buy button. Two taps to buy (pick, then buy),
- *  so a thumb on a phone doesn't buy what it brushes past. */
+addEventListener('resize', fitBoard);
+/** Whether the next build of the tree scrolls to the newest band (on opening it), or keeps its scroll. */
+let jump = true;
+/** The shop's tree, the same shape whatever's bought: the ring's levels, the tree, and under it the line for the node
+ *  under the mouse (or picked): what it does, and its Buy button. */
 function renderBench(q: Square) {
-  if (listMode()) { renderBenchList(q); return; }
-  panel.classList.remove('side');
+  const board = boardMode();
+  panel.classList.toggle('board', board); panel.classList.toggle('ladder', !board);
   title.textContent = q.title;
-  tabsEl.hidden = false;
-  if (!benchTabs().some(t => t.id === tab)) tab = 'prep';
-  tabsEl.replaceChildren(...benchTabs().map(t => {
-    const b = document.createElement('button');
-    b.type = 'button'; b.setAttribute('role', 'tab'); b.dataset.tab = t.id;
-    b.setAttribute('aria-selected', String(t.id === tab)); b.setAttribute('aria-label', t.label);
-    b.innerHTML = '<span class="i" aria-hidden="true"></span><span class="l"></span><span class="dot" aria-hidden="true"></span>';
-    b.children[0].textContent = t.icon; b.children[1].textContent = t.label;
-    return b;
-  }));
-  const { items } = benchItems(q);
-  if (!items.some(it => it.key === picked)) picked = (items.find(canBuy) ?? items.find(x => !x.done) ?? items[0])?.key ?? '';
-  const out: HTMLElement[] = items.map(it => {
-    const b = document.createElement('button');
-    b.type = 'button'; b.className = 'card'; b.dataset.key = it.key;
-    if (it.key.startsWith('tile:')) b.dataset.tile = it.key.slice(5); else b.dataset.mod = it.key.slice(4);
-    b.setAttribute('aria-pressed', String(it.key === picked));
-    if (it.done) b.classList.add('done'); else if (!it.sale) b.classList.add('locked');
-    b.innerHTML = '<span class="ic"></span><b></b><span class="cost"></span>';
-    b.children[0].textContent = it.icon; b.children[1].textContent = it.name; b.children[2].textContent = it.tag;
-    return b;
-  });
-  rows.replaceChildren(...out);
-  rows.classList.add('cards');
-  const it = items.find(x => x.key === picked);
+  tabsEl.hidden = true;
+  rows.classList.remove('cards');
+  const { levels, nodes, items } = benchItems(q);
+  if (!board && !items.some(it => it.key === picked)) picked = (items.find(canBuy) ?? items.find(x => x.state === 'open') ?? items[0])?.key ?? '';
+  const old = rows.querySelector<HTMLElement>('.tree'), keep = old && !jump ? [old.scrollTop, old.scrollLeft] : null;
+  const tree = div('tree'), drawn = board ? boardEl(nodes) : ladderEl(nodes);
+  tree.append(...drawn.els);
+  rows.replaceChildren(levelStrip(levels, board), tree);
+  if (board) fitBoard();
+  else if (keep) { tree.scrollTop = keep[0]; tree.scrollLeft = keep[1]; } else drawn.jump(tree);
+  jump = false;
   pickEl.hidden = false;
   pickEl.replaceChildren();
   const txt = document.createElement('div'); txt.className = 'what';
   txt.innerHTML = '<b></b><span></span>';
-  txt.children[0].textContent = it?.name ?? ''; txt.children[1].textContent = it ? it.desc : '';
   const buy = document.createElement('button');
   buy.type = 'button'; buy.className = 'buy';
-  buy.textContent = !it ? '' : it.done ? 'Done ✓' : it.sale ? `Buy · ${it.tag}` : it.tag;
-  buy.hidden = !it;
   pickEl.append(txt, buy);
+  shownPick = '';
   syncBench(q);
 }
-/** What changes with the chips: which cards can be bought now, and whether the Buy button can. */
+/** The item the line under the tree is about: the node under the mouse, or picked by a thumb (else the first there
+ *  are the chips for). */
+function pickedItem(items: Item[]) {
+  const want = boardMode() ? hovered : picked;
+  return items.find(x => x.key === want) ?? (boardMode() ? items.find(canBuy) ?? items.find(x => x.state === 'open') : undefined);
+}
+/** What the line under the tree shows, to rewrite it only when it changes. */
+let shownPick = '';
+/** What changes with the chips: which nodes can be bought now, the purse, and the line under the tree. */
 function syncBench(q: Square) {
-  const { items } = benchItems(q);
-  if (listMode()) {
-    for (const b of rows.querySelectorAll<HTMLButtonElement>('button.cost')) {
-      const it = items.find(x => x.key === b.dataset.key), off = !it || !canBuy(it);
-      if (b.disabled !== off) b.disabled = off;
-    }
-    for (const h of rows.querySelectorAll<HTMLElement>('.sect')) {
-      const t = h.dataset.sect as BenchTab, n = t === 'grow' && !found.grow ? 0 : itemsOf(t, q).filter(canBuy).length;
-      const text = n ? `${n} to buy` : '', c = h.querySelector('.cnt')!;
-      if (c.textContent !== text) c.textContent = text;
-    }
-    const purse = chips(wallet.money);
-    if (purseEl.textContent !== purse) purseEl.textContent = purse;
-    return;
+  const { items } = benchItems(q), byKey = new Map(items.map(it => [it.key, it]));
+  for (const e of rows.querySelectorAll<HTMLElement>('.node[data-key]')) {
+    const it = byKey.get(e.dataset.key!), can = !!it && canBuy(it);
+    if (e.classList.contains('can') !== can) e.classList.toggle('can', can);
+    const b = e.querySelector<HTMLButtonElement>('button.cost');
+    if (b && b.disabled === can) b.disabled = !can;
   }
-  for (const b of rows.children as HTMLCollectionOf<HTMLButtonElement>) {
-    const it = items.find(x => x.key === b.dataset.key);
-    b.classList.toggle('can', !!it && canBuy(it));
+  const purse = chips(wallet.money);
+  if (purseEl.textContent !== purse) purseEl.textContent = purse;
+  const it = pickedItem(items), buy = pickEl.querySelector<HTMLButtonElement>('.buy');
+  const key = it ? `${it.key}|${it.name}|${it.desc}|${it.tag}|${it.state}` : '';
+  if (key !== shownPick && buy) {
+    shownPick = key;
+    const what = pickEl.querySelector('.what')!;
+    what.children[0].textContent = it?.name ?? ''; what.children[1].textContent = it?.desc ?? '';
+    buy.textContent = !it ? '' : it.state === 'done' ? (it.pips || it.level !== undefined ? 'Max' : 'Done ✓') : it.tile?.gold && it.state === 'open' ? 'At his office' : it.sale ? `Buy · ${it.tag}` : it.state === 'needs' ? '🔒' : it.tag;
+    buy.hidden = !it;
   }
-  const it = items.find(x => x.key === picked), buy = pickEl.querySelector<HTMLButtonElement>('.buy');
   if (buy) { const off = !it || !canBuy(it); if (buy.disabled !== off) buy.disabled = off; }
 }
 rows.addEventListener('click', e => {
   if (!on?.bench) return;
-  // (a computer's list: a heading folds its room, and a price button buys it)
-  const h = (e.target as HTMLElement).closest<HTMLElement>('.sect[data-sect]');
-  if (h) { toggleRoom(h.dataset.sect as BenchTab); return; }
-  const p = (e.target as HTMLElement).closest<HTMLButtonElement>('button.cost[data-key]');
-  if (p) {
-    const it = benchItems(on).items.find(x => x.key === p.dataset.key);
-    if (!p.disabled && it && canBuy(it) && it.buy()) { built = ''; syncRows(on); }
+  const t = e.target as HTMLElement, node = t.closest<HTMLElement>('.node[data-key]');
+  if (!node) return;
+  // (a computer's board: a click on a node, its price or not, buys it; a touch screen's ladder: a tap picks it)
+  if (boardMode()) {
+    const it = benchItems(on).items.find(x => x.key === node.dataset.key);
+    if (it && canBuy(it) && it.buy()) { built = ''; syncRows(on); }
     return;
   }
-  const c = (e.target as HTMLElement).closest<HTMLButtonElement>('.card');
-  if (!c) return;
-  picked = c.dataset.key!;
+  picked = node.dataset.key!;
   built = '';
   syncRows(on);
 });
-rows.addEventListener('pointerover', e => { hovered = (e.target as HTMLElement).closest<HTMLElement>('.mod.row')?.dataset.key ?? ''; });
+rows.addEventListener('pointerover', e => { hovered = (e.target as HTMLElement).closest<HTMLElement>('.node[data-key]')?.dataset.key ?? ''; });
 rows.addEventListener('pointerleave', () => { hovered = ''; });
 pickEl.addEventListener('click', e => {
   const b = (e.target as HTMLElement).closest<HTMLButtonElement>('.buy');
   if (!b || b.disabled || !on?.bench) return;
-  const it = benchItems(on).items.find(x => x.key === picked);
+  const it = pickedItem(benchItems(on).items);
   if (it && canBuy(it) && it.buy()) { built = ''; syncRows(on); }
 });
-/** Each tab's dot: lit while there's something in it there are the chips for; and, folded, how many things that is. */
-function syncDots(q: Square) {
-  for (const b of tabsEl.children as HTMLCollectionOf<HTMLButtonElement>) b.classList.toggle('can', affordable(b.dataset.tab as BenchTab, q));
-  const n = sold(q).filter(m => { const c = modCost(m.id); return c !== null && wallet.money >= c; }).length
-    + benchTiles().filter(x => !x.done && offered(x) && wallet.money >= x.cost).length;
-  const text = n ? String(n) : '';
+/** The Shop button's badge: how many things there are the chips for. */
+function syncCount(q: Square) {
+  const n = benchItems(q).items.filter(canBuy).length, text = n ? String(n) : '';
   if (countEl.textContent !== text) countEl.textContent = text;
 }
-/** On a touch screen the bench's menu opens folded: no panel, just a round Craft button where the Buy button goes, out
- *  of the way of a thumb coming down to walk off, until it's tapped (or E); ✕ folds it again. With a mouse and keys
- *  it opens whole, as the other squares' panels do, with nothing to fold. */
+/** On a touch screen the shop's tree opens folded: no panel, just a round Shop button where the Buy button goes, out
+ *  of the way of a thumb coming down to walk off, until it's tapped (or E). With a mouse it opens whole. Either way the
+ *  big red ✕ in its corner folds it away to the Shop button (and so does Esc), to see the cellar past the board. */
 let unfolded = false;
 const craftEl = $('craft'), countEl = $('craftN'), shutEl = $('shopShut');
 function fold(open: boolean) {
   unfolded = open;
-  panel.hidden = !open; craftEl.hidden = open; shutEl.hidden = !open || !touchBuy();
-  built = '';
+  panel.hidden = !open; craftEl.hidden = open; shutEl.hidden = !open;
+  built = ''; jump = true;
 }
 craftEl.addEventListener('click', () => fold(true));
 shutEl.addEventListener('click', () => fold(false));
-/** What the bench's rooms' part shows: each upgrade's state, its price, and the line's machines (for rebuilding the
- *  rows). */
-const tileKey = () => benchTiles().map(t => `${t.id}${t.done ? '+' : offered(t) ? '' : '-'}${t.cost}`).join() + F.beaten + MACH.rice[0].cap;
+window.addEventListener('keydown', e => { if (e.key === 'Escape' && on?.bench && unfolded) fold(false); });
+/** What the tree shows: each node's state and price, and the gates won (for rebuilding it). */
+const treeKey = () => treeTiles().map(t => `${t.id}${t.done ? '+' : offered(t) ? '' : '-'}${t.cost}`).join() + F.beaten + practiceDue() + MACH.rice[0].cap;
 
 // ---------- panel ----------
 /** One row per upgrade sold on square `q`: what the next level does, and its price on a button. */
 function renderRows(q: Square) {
-  purseEl.hidden = keysEl.hidden = !(q.bench && listMode());
+  purseEl.hidden = !q.bench; keysEl.hidden = !(q.bench && boardMode());
   if (q.bench) { renderBench(q); return; }
-  panel.classList.remove('side');
+  panel.classList.remove('board', 'ladder');
   rows.classList.remove('cards');
   pickEl.hidden = true;
   title.textContent = q.title;
@@ -394,9 +453,9 @@ let built = '';
  * replaced mid-tap loses its click): only a new level, an upgrade coming on sale, or another square rebuilds them.
  */
 function syncRows(q: Square) {
-  const key = q.title + (q.bench ? (listMode() ? 'list' : tab + picked) + tileKey() : '') + MODS.map(m => modOffered(m.id) ? mods[m.id] : '-').join();
-  if (q.bench) syncDots(q);
-  if (key !== built) { built = key; renderRows(q); if (q.bench) syncDots(q); return; }
+  const key = q.title + (q.bench ? (boardMode() ? 'board' : 'ladder' + picked) + treeKey() : '') + MODS.map(m => modOffered(m.id) ? mods[m.id] : '-').join();
+  if (q.bench) syncCount(q);
+  if (key !== built) { built = key; renderRows(q); return; }
   if (q.bench) { syncBench(q); return; }
   const tiles: Tile[] = [];
   for (const b of rows.children as HTMLCollectionOf<HTMLButtonElement>) {
@@ -463,16 +522,13 @@ export function updShop() {
     panel.hidden = !on;
     // (the bench's menu leaves the camera where it is: ui.ts's keepInSight slides the view for the rest)
     panel.dataset.still = (on as Square | null)?.bench ? '1' : '';
-    tabsEl.hidden = !(on as Square | null)?.bench;
-    if ((on as Square | null)?.bench) fold(listMode());
+    tabsEl.hidden = true;
+    if ((on as Square | null)?.bench) fold(boardMode());
     else { craftEl.hidden = shutEl.hidden = true; unfolded = false; }
-    // (the bench opens on its last tab if there's something in it to buy, or the first tab that has)
-    const q = on as Square | null;
-    if (q?.bench && !affordable(tab, q)) tab = benchTabs().find(t => affordable(t.id, q))?.id ?? tab;
-    built = '';
+    built = ''; jump = true;
   }
   const bench = !!(on as Square | null)?.bench;
-  if (bench) for (const r of benchRooms()) menuSeen.add(r);
+  if (bench) for (const r of MENU_ROOMS) menuSeen.add(r);
   // while what was just bought has the camera, the menu (and its Shop button) steps out of the way; E still buys (the
   // spotlight goes straight on over to the next one, spotlight.ts), as the shed's square sells a level a press
   const away = spotOn();
@@ -482,8 +538,8 @@ export function updShop() {
   if (on && press) {
     if (bench && !unfolded) fold(true);
     else if (bench) {
-      // E buys the picked card (with a mouse, the line under it), or else the first there are the chips for
-      const { items } = benchItems(on), want = listMode() ? hovered : picked;
+      // E buys the picked node (with a mouse, the one under it), or else the first there are the chips for
+      const { items } = benchItems(on), want = boardMode() ? hovered : picked;
       const it = items.find(x => x.key === want && canBuy(x)) ?? items.find(canBuy);
       if (it && it.buy()) built = '';
     } else {

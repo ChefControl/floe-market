@@ -45,12 +45,18 @@ export interface Boss {
   /** What beating him opens, as his result card says it: "🔓 New: …". */
   opens: string;
 }
+/** A rush is won by carrying bowls to the stall (test/capacity.sim.test.ts measures it): your own hands turn about 100
+ *  of a crowd in a 30 s bell, the attendant about 180, and each level of Cellar crew walks him faster. So each boss's
+ *  crowd sits on a step of that ladder, a little under what the step turns at best: Hakkaku (81 to turn) a stocked
+ *  kitchen by hand, Yokobashiri (151) the attendant, Dobu (225) Cellar crew 4, Samehada (366, a longer bell) crew 6,
+ *  and Fukure (541, a 60 s bell) crew 7 with the glowing shelves. Prizes are kept small, so a win's prize and the bowls his crowd buys
+ *  don't pay for the next boss on the spot (the balance pass of 2026-10-18, for a stage of about 45 minutes). */
 export const BOSSES: Boss[] = [
-  { face: '🐙', name: 'Hakkaku', crowd: 120, bell: 30, prize: 120, kind: 'octopus', opens: 'grow room, mushroom bowls, Back-Alley Ring' },
-  { face: '🦀', name: 'Yokobashiri', crowd: 180, bell: 30, prize: 300, kind: 'crab', opens: 'the attendant, steam baskets, a way south' },
-  { face: '🐟', name: 'Dobu', crowd: 220, bell: 30, prize: 800, kind: 'catfish', opens: 'Underground Arena, smokehouse, the cook' },
-  { face: '🦈', name: 'Samehada', crowd: 420, bell: 30, prize: 2000, kind: 'shark', opens: 'Grand Hall Below, glowing grow shelves' },
-  { face: '🐡', name: 'Fukure', crowd: 1000, bell: 60, prize: 10000, kind: 'puffer', opens: 'buy back all his chips' },
+  { face: '🐙', name: 'Hakkaku', crowd: 160, bell: 30, prize: 350, kind: 'octopus', opens: 'grow room, the attendant, Back-Alley Ring' },
+  { face: '🦀', name: 'Yokobashiri', crowd: 300, bell: 30, prize: 250, kind: 'crab', opens: 'steam baskets, a way south' },
+  { face: '🐟', name: 'Dobu', crowd: 448, bell: 30, prize: 300, kind: 'catfish', opens: 'Underground Arena, smokehouse, the cook' },
+  { face: '🦈', name: 'Samehada', crowd: 730, bell: 45, prize: 800, kind: 'shark', opens: 'Grand Hall Below, glowing grow shelves' },
+  { face: '🐡', name: 'Fukure', crowd: 1080, bell: 60, prize: 5000, kind: 'puffer', opens: 'buy back all his chips' },
 ];
 /** The practice fight before the first boss (once, for a player who's just come down): the champion's own sparring
  *  partner and a small crowd, so the gong's learnt on a fight that's won. His prize hires the two lines' hands, which is
@@ -73,9 +79,10 @@ export const WALK_IN = 6;
 export const PER_BATCH = 4, BATCH = 20, POT_CAP = 40, COUNTER_CAP = 40, STALL_CAP = 30, LEDGE_CAP = 40, LADLE = 0.1;
 /** The pot's the player's to work: a cook gets 70% of what they do out of the same four of each, a 14-bowl batch. */
 export const COOK_SHARE = 0.7, COOK_BATCH = Math.round(BATCH * COOK_SHARE);
-/** The cooking show at the pot (chanko.ts): its stars buy the pot bigger batches for a while (a cook's too, at 70%).
- *  Placeholders until the balancing pass. */
-export const BONUS_S = 45;
+/** The cooking show at the pot (chanko.ts), a bonus game: it takes nothing and cooks nothing, and its stars buy the pot
+ *  bigger batches for a while (a cook's too, at 70%): long enough to see a boss's rush through, Fukure's walk-in and his
+ *  60 s bell too. */
+export const BONUS_S = 70;
 export const BONUS_TIERS = [{ min: 12, pct: 50, name: 'Perfect pot' }, { min: 9, pct: 35, name: 'Hearty' }, { min: 6, pct: 20, name: 'Tasty' }, { min: 0, pct: 0, name: 'Bland' }];
 /** Chips a bowl sells for (mushroom bowls pay double), and what Mr. Fugu leaves of it until he's bought out. */
 export const PRICE = 1.6, CUT = 0.7;
@@ -85,20 +92,35 @@ export type WorkerRole = Role | 'you';
 export const HIRES: Record<Role, { line?: Ing; name: string; cost: number; beat: number }> = {
   washer: { line: 'rice', name: 'Rice washer', cost: 15, beat: 0 },
   salter: { line: 'fish', name: 'Fish salter', cost: 20, beat: 0 },
-  picker: { line: 'mush', name: 'Mushroom picker', cost: 120, beat: 1 },
+  picker: { line: 'mush', name: 'Mushroom picker', cost: 100, beat: 1 },
   // (serving's taken off the player's hands before the pot is: the pot's theirs)
-  attendant: { name: 'Attendant', cost: 250, beat: 2 },
+  attendant: { name: 'Attendant', cost: 150, beat: 1 },
   cook: { name: 'Cook', cost: 500, beat: 3 },
 };
 /** The machine upgrades: chips, and bosses to beat first. */
-export const UPS: Record<Ing, { cost: number; beat: number }> = { rice: { cost: 350, beat: 2 }, fish: { cost: 800, beat: 3 }, mush: { cost: 1500, beat: 4 } };
+export const UPS: Record<Ing, { cost: number; beat: number }> = { rice: { cost: 350, beat: 2 }, fish: { cost: 800, beat: 3 }, mush: { cost: 4000, beat: 4 } };
 /** Another machine: the first extra's chips, each next one 45% more. */
-export const MACH_COST: Record<Ing, number> = { rice: 10, fish: 12, mush: 25 }, MACH_STEP = 1.45;
-export const TIER_COST = [0, 200, 900, 2500], TIER_BEAT = [0, 1, 3, 4];
+export const MACH_COST: Record<Ing, number> = { rice: 10, fish: 12, mush: 15 }, MACH_STEP = 1.45;
+export const TIER_COST = [0, 120, 900, 2500], TIER_BEAT = [0, 1, 3, 4];
 export const BUYOUT = 12000;
 /** A bout's phases: preparation (the fans buy soup; on a boss night, as long as his bell), taking their seats, the
  *  fight, and the result. */
 export const BOUT = { prep: 20, sit: 5, fight: 15, pay: 7 };
+/** Seconds into a push-out's result that the loser lands off the mound (finishers/push.ts); a finisher's are its own
+ *  (finishers.ts's landsOf). Nothing that says who won is shown before it. */
+export const LANDS = 2.3;
+/** How much faster a local fight's result plays out after the fall, while a boss called in by the gong waits on it. */
+export const HURRY = 1.6;
+/** A result's length: a push-out's (a local's, or a plain boss fight's) BOUT.pay; a finisher's (finishers.ts) longer,
+ *  for the move and the getting up after it; and the epic, a perfect slam's (gong.ts), longer still. */
+export const FINISHER_PAY = 8.5, EPIC_PAY = 11;
+/** Whether this fight's result is the epic: a grand win with a perfect slam. */
+export const epic = (B: Bout = F.bout, R: Rush | null = F.rush) => !!R && B.finish === 'grand' && R.slam === 2;
+export const payLen = (B: Bout = F.bout, R: Rush | null = F.rush) => (epic(B, R) ? EPIC_PAY : R && B.finish !== 'push' ? FINISHER_PAY : BOUT.pay);
+/** The slam, a grand win's showy finish, the player's to land (gong.ts): offered once `share` of a boss's crowd was
+ *  turned; in the fight a ring closes on the champion's face over `lead` seconds to meet its mark `at` seconds in (the
+ *  belly bump), and a press within `perfect` of it is perfect, within `good` good: his prize, that much more. */
+export const SLAM = { share: 0.75, at: 9.6, lead: 1.6, perfect: 0.12, good: 0.3, bonus: [0, 0.1, 0.2] };
 /** How much of a local bout's preparation its fans take to walk in, and seconds each takes from their tunnel to the
  *  stall: nobody's served before they're at it (swarm.ts hurries anyone who'd be late). */
 const ARRIVE = 0.6;
@@ -135,12 +157,21 @@ export interface Rush {
   /** Slick Eddie's fix on it, if one was paid for (eddie.ts): how big (tenths of his crowd), and whether he was caught
    *  (then the boss brought them all); and how many of his fans it kept home. */
   fix: { cut: number; caught: boolean } | null; kept: number;
+  /** The slam, on a grand win: not tried (-1), missed (0), good (1) or perfect (2). */
+  slam: number;
 }
 export type Phase = 'prep' | 'sit' | 'fight' | 'pay';
 /** A bout: its phase and how long it's been in it, who wins (known once the fans sit down), the ring's tug (-1 his,
  *  +1 the champion's), its wobble, how many bouts so far; and a local bout's fans: how many are coming, how many have,
  *  and how many ate (the ones who stay to watch). */
-export interface Bout { phase: Phase; t: number; win: boolean; tug: number; noise: number; n: number; crowd: number; came: number; fed: number }
+export interface Bout {
+  phase: Phase; t: number; win: boolean; tug: number; noise: number; n: number; crowd: number; came: number; fed: number;
+  /** How it ends (finishers.ts): a push-out, or by how a boss's vote went, a tight one, a heavy loss, a grand win. */
+  finish: Finish;
+}
+/** How a fight ends: see finishOf. */
+export type Finish = 'push' | 'tight' | 'heavy' | 'grand';
+export const FINISHES: Finish[] = ['push', 'tight', 'heavy', 'grand'];
 export interface Fight {
   t: number;
   beaten: number; tier: number; boughtOut: boolean;
@@ -152,6 +183,9 @@ export interface Fight {
   /** The doors are shut: a player who's just come down, before their first soup's out on the stall (ring.ts). No fans
    *  come, and there's no local fight, until it is (or the gong's rung). */
   quiet: boolean;
+  /** The gong's been rung while a local fight was on: the champion finishes it, and the boss walks in once it's over
+   *  (not saved: a reload calls it off, and the gong can be rung again). */
+  called: boolean;
   lines: Record<Ing, Line>;
   hires: Partial<Record<Role, boolean>>;
   crew: Worker[];
@@ -171,6 +205,8 @@ export interface Fight {
   seed: number; cookT: number;
   /** The cooking show's bonus: how much bigger the pot's batches are (percent), and for how many more seconds. */
   bonus: { pct: number; t: number };
+  /** A cooking show left half way (chanko.ts), to carry on from, never to start over: null when there's none. */
+  show: ShowRun | null;
   /** The Undertow (undertow.ts): whether Mr. Fugu's given you his matchbook yet, whether the doorman's let you in through
    *  the door at the tunnel's mouth yet (southDoor.ts), whether the club's own doors have first opened (doorway.ts), and
    *  the bout Tommy last played monte in and how many rounds he played in it; Slick Eddie's fix on the next boss, and the
@@ -186,24 +222,30 @@ export interface Den {
   /** A fix that got out: tenths of the player's own fans who stay away, and for how many more local bouts. */
   scandal: { cut: number; bouts: number };
   loan: Loan;
+  /** Which of the Family have introduced themselves (meet.ts): once each, the first time the player steps up to him. */
+  met: { eddie: boolean; harry: boolean; tommy: boolean };
 }
+/** A cooking show under way: the step it's on (0 to 4: cut, throw, season, stir, all done), what each step's scored so
+ *  far (its cuts', throws' and pours' scores, 0 to 1, a cut not yet made -1; the stir's seconds stirred and seconds in
+ *  the band), and where the seasonings' lines are (rolled once a show). */
+export interface ShowRun { step: number; got: number[][]; lines: number[] }
 /** Hammerhead Harry's loan (loan.ts): chips still owed (0: none), and what was owed when it was made. */
 export interface Loan { owed: number; total: number }
 
 const line = (n: number): Line => ({ n, up: 0, m: [] });
 /** A bout's preparation, from the start (how many fans come is worked out as it starts: -1). */
-const freshBout = (n: number): Bout => ({ phase: 'prep', t: 0, win: false, tug: 0, noise: 0, n, crowd: -1, came: 0, fed: 0 });
+const freshBout = (n: number): Bout => ({ phase: 'prep', t: 0, win: false, tug: 0, noise: 0, n, crowd: -1, came: 0, fed: 0, finish: 'push' });
 export function blank(): Fight {
   return {
-    t: 0, beaten: 0, tier: 0, boughtOut: false, practice: false, sparred: false, quiet: false,
+    t: 0, beaten: 0, tier: 0, boughtOut: false, practice: false, sparred: false, quiet: false, called: false,
     lines: { rice: line(1), fish: line(1), mush: line(0) }, hires: {}, crew: [],
     pantry: { rice: 0, fish: 0, mush: 0 }, pot: [], potT: 0, counter: [], stall: [],
     queue: [], fed: [], cooked: [], full: [], fullAcc: 0, earned: [],
     rush: null, bout: freshBout(0),
-    seed: 3, cookT: 0, bonus: { pct: 0, t: 0 },
+    seed: 3, cookT: 0, bonus: { pct: 0, t: 0 }, show: null,
     den: {
       book: false, way: false, door: false, monte: { bout: -1, played: 0 }, eddie: { boss: -1, cut: 0, caught: false }, scandal: { cut: 0, bouts: 0 },
-      loan: { owed: 0, total: 0 },
+      loan: { owed: 0, total: 0 }, met: { eddie: false, harry: false, tommy: false },
     },
   };
 }
@@ -218,6 +260,8 @@ export const on = {
   earn: (_chips: number, _why: 'bowls' | 'prize') => {},
   /** A batch of bowls has come out of the pot. */
   cooked: () => {},
+  /** The gong's been rung (its boss walks in at once, or once the local fight that's on is over). */
+  gong: () => {},
   /** A boss's rush has begun or ended. */
   rush: (_r: Rush) => {},
   rushEnd: (_r: Rush) => {},
@@ -261,21 +305,17 @@ export const canCook = () => inPot().every(k => F.pantry[k] >= PER_BATCH);
 export const batchBowls = () => Math.round(BATCH * (1 + (F.bonus.t > 0 ? F.bonus.pct : 0) / 100));
 /** ...and in a cook's: 70% of it. */
 export const cookBowls = () => Math.round(batchBowls() * COOK_SHARE);
-/** Whether the cooking show can start: not while its bonus lasts. */
+/** Whether the cooking show can start (or carry on from where it was left): not while its bonus lasts. */
 export const canShow = () => F.bonus.t <= 0;
+/** Cooking shows played to the end since the game started (the tutorial's lesson at the pot is learnt by one). */
+export const showsDone = { n: 0 };
 /** The cooking show's result: `stars` of 12 buy the pot its bonus (none for a bland pot). Returns the tier. */
 export function showResult(stars: number) {
   const tier = BONUS_TIERS.find(x => stars >= x.min)!;
+  showsDone.n++;
   F.bonus = tier.pct ? { pct: tier.pct, t: BONUS_S } : { pct: 0, t: 0 };
+  F.show = null;
   return tier;
-}
-/** The cooking show's batch: four of each, as any batch takes, cooked into the pot at the size its stars bought (a
- *  pot that's nearly full takes it all the same). The bowls it made, or 0 with too few on the ledge. */
-export function showBatch() {
-  if (!canCook()) return 0;
-  const n = batchBowls();
-  cookBatch(n);
-  return n;
 }
 /** No room in the pot for another batch. */
 export const potFull = () => F.pot.length + batchBowls() > POT_CAP;
@@ -353,9 +393,10 @@ function tendPot(timer: { cookT: number }, dt: number, bowls = batchBowls()) {
   if (canCook() && !potFull()) { cookBatch(bowls); return true; }
   return false;
 }
-/** When the player last stood at the pot (F.t): the cook stands back while they're cooking. */
+/** When the player last stood at the pot (F.t): the cook stands back while they're cooking (in a forecast too, while
+ *  its "You" cooks). */
 let youCooked = -Infinity;
-const youCooking = () => real && F.t - youCooked >= 0 && F.t - youCooked < 0.25;
+const youCooking = () => F.t - youCooked >= 0 && F.t - youCooked < 0.25;
 
 /** The pot ladles its bowls out onto the counter, one at a time, while the counter has room. */
 function ladle(dt: number) {
@@ -398,9 +439,12 @@ export function sides() {
 /** For each size of fix (1 to 5 tenths of the boss's crowd kept home): the chance Eddie's caught, and how many local
  *  bouts the scandal then lasts (the player's own fans down by the same share). */
 export const FIX = { caught: [0.05, 0.15, 0.3, 0.5, 0.7], scandal: [1, 1, 2, 2, 3] };
-/** How many of `boss`'s fans a fix of `cut` tenths keeps home, and what it costs: the same share of his prize, in chips. */
+/** Chips Eddie charges for each fan he keeps home (a fan less to turn saves Cellar crew levels and shelves worth far
+ *  more than a boss's prize, so the fee goes by the fans, not the prize). */
+export const FIX_PER_FAN = 8;
+/** How many of `boss`'s fans a fix of `cut` tenths keeps home, and what it costs, in chips. */
 export const keptHome = (boss: Boss, cut: number) => Math.round(boss.crowd * cut / 10);
-export const fixFee = (boss: Boss, cut: number) => Math.round(boss.prize * cut / 10);
+export const fixFee = (boss: Boss, cut: number) => keptHome(boss, cut) * FIX_PER_FAN;
 /** The fix paid for on the next boss, if there is one. */
 export const fixOn = () => {
   const e = F.den.eddie;
@@ -408,7 +452,7 @@ export const fixOn = () => {
 };
 /** Pays for a fix on the next boss, `cut` tenths of his crowd, Eddie caught or not (rolled by the caller, eddie.ts). */
 export function setFix(cut: number, caught: boolean) {
-  if (!nextBoss() || practiceDue() || F.rush || fixOn()) return false;
+  if (!nextBoss() || practiceDue() || F.rush || F.called || fixOn()) return false;
   F.den.eddie = { boss: F.beaten, cut: clamp(Math.round(cut), 1, 5), caught };
   return true;
 }
@@ -420,17 +464,36 @@ function startRush(kept = 0, fix: Rush['fix'] = null) {
   F.quiet = false;
   F.rush = {
     boss: practiceDue() ? -1 : F.beaten, n: nextBoss()!.crowd - kept, turned: 0, walk: WALK_IN, t: 0, lastTurn: 0, short: { rice: 0, fish: 0, mush: 0 },
-    dryT: 0, done: false, win: false, fix, kept,
+    dryT: 0, done: false, win: false, fix, kept, slam: -1,
   };
   // his crowd takes the floor (a local bout's called off)
   F.queue = [];
   F.bout = { ...freshBout(F.bout.n), crowd: 0 };
   if (real) on.rush(F.rush);
 }
-/** Rings the gong: the next boss's rush begins. False if there's no boss left, or one's in already. */
+/** Whether the gong can be rung now: there's a boss to call in, and none's in or on his way. */
+export const canRing = () => !!nextBoss() && !F.rush && !F.called;
+/** Rings the gong: the next boss's rush begins. False if there's no boss left, or one's in already. A local fight
+ *  that's on is seen out first: the champion finishes it there and then (its result, the fall and the bow, a little
+ *  hurried after the fall), and the boss walks in as its fans go home. */
 export function ringGong() {
-  const boss = nextBoss();
-  if (!boss || F.rush) return false;
+  if (!canRing()) return false;
+  if (real) on.gong();
+  if (!seeOut()) callIn();
+  return true;
+}
+/** With a local fight on, the boss is called in for after it, and it's finished at once (the champion wins it). True
+ *  if there was one. */
+function seeOut() {
+  const B = F.bout;
+  if (F.quiet || (B.phase !== 'fight' && B.phase !== 'pay')) return false;
+  F.called = true;
+  if (B.phase === 'fight') { B.tug = 1; fightOver(); }
+  return true;
+}
+/** The next boss's rush begins. */
+function callIn() {
+  const boss = nextBoss()!;
   // Eddie's fix comes out now, on his coin (gong.ts): his boys kept the fans home, or the papers got it first (and the
   // player's own fans stay away for a bout or more after this one)
   const e = fixOn(), fix = e ? { cut: e.cut, caught: e.caught } : null;
@@ -438,7 +501,6 @@ export function ringGong() {
   if (fix?.caught) F.den.scandal = { cut: fix.cut, bouts: FIX.scandal[fix.cut - 1] };
   startRush(fix && !fix.caught ? keptHome(boss, fix.cut) : 0, fix);
   fc.clear();
-  return true;
 }
 /** A boss's preparation: his crowd walks in to the stall (the kitchen keeps cooking), and then until his bell (or his
  *  whole crowd's turned), each bowl at the stall turns one of his fans. */
@@ -456,13 +518,14 @@ function updRush(dt: number) {
   if (R.turned >= R.n || R.t >= bossOf(R.boss).bell) {
     // the stall shuts and his crowd sits down: more than half of them turned, and the champion wins
     R.done = true; R.win = R.turned * 2 > R.n;
-    toSeats(R.win);
+    toSeats(R.win, finishOf(R));
   }
 }
-/** The fans take their seats: the bout's result is settled now (whichever side is bigger), and shown in the fight. */
-function toSeats(win: boolean) {
+/** The fans take their seats: the bout's result is settled now (whichever side is bigger), and shown in the fight,
+ *  and how it ends. */
+function toSeats(win: boolean, finish: Finish = 'push') {
   const B = F.bout;
-  B.phase = 'sit'; B.t = 0; B.win = win; B.tug = 0;
+  B.phase = 'sit'; B.t = 0; B.win = win; B.tug = 0; B.finish = finish;
   if (real) on.bout('sit');
 }
 /** The result of a boss's bout, once the fight's over. */
@@ -472,15 +535,42 @@ function bossResult(R: Rush) {
     // practice: his prize, and the first boss is next
     F.practice = false;
     F.sparred = true;
-    on.earn(PRACTICE.prize, 'prize');
+    on.earn(PRACTICE.prize * (1 + SLAM.bonus[Math.max(0, R.slam)]), 'prize');
   } else if (R.win) {
     const boss = BOSSES[R.boss];
     F.beaten++;
-    on.earn(boss.prize, 'prize');
+    on.earn(boss.prize * (1 + SLAM.bonus[Math.max(0, R.slam)]), 'prize');
     if (F.beaten === 1) revealGrowRoom();
     if (F.beaten === 2) on.den();
   }
   on.rushEnd(R);
+}
+/** How close a vote is tight: within this share of the fans needed, either way. */
+export const TIGHT = 0.1;
+/** How a boss's fight ends (finishers.ts), from how his vote went: a grand win (the champion's big finisher, and the
+ *  slam), a heavy loss (under half the fans needed: the boss's big one), a tight one (a reversal at the straw, by
+ *  whoever wins it), or a push-out. */
+export function finishOf(R: Rush): Finish {
+  const need = toBeat(bossOf(R.boss), R.n);
+  if (grand(R)) return 'grand';
+  if (!R.win && R.turned * 2 < need) return 'heavy';
+  if (Math.abs(R.turned - need) <= Math.round(need * TIGHT)) return 'tight';
+  return 'push';
+}
+/** A grand win: three of every four of his crowd turned (the slam's on offer in the fight). */
+export const grand = (R: Rush) => R.win && R.turned >= Math.ceil(R.n * SLAM.share);
+/** The slam can be landed now: a grand win's fight, from when the ring starts closing till just after it's met its
+ *  mark, and not tried yet. */
+export function slamDue() {
+  const R = F.rush, B = F.bout;
+  return !!R && R.done && grand(R) && R.slam < 0 && B.phase === 'fight' && B.t >= SLAM.at - SLAM.lead && B.t <= SLAM.at + SLAM.good;
+}
+/** The player goes for the slam: how it went (0 missed, 1 good, 2 perfect), or -1 if it isn't on. */
+export function slam() {
+  if (!slamDue()) return -1;
+  const R = F.rush!, d = Math.abs(F.bout.t - SLAM.at);
+  R.slam = d <= SLAM.perfect ? 2 : d <= SLAM.good ? 1 : 0;
+  return R.slam;
 }
 /** The worst-jammed ingredient of a rush, if one held the pot up. */
 export const worstShort = (R: Rush) => ING.filter(k => R.short[k] > 0.5).sort((a, b) => R.short[b] - R.short[a])[0] ?? null;
@@ -521,10 +611,10 @@ const fc = new Map<string, { t: number; i: number; v: Forecast }>();
  */
 export function forecast(kept = 0, { bonus = 0 }: { bonus?: number } = {}): Forecast | null {
   const boss = nextBoss();
-  if (!boss || F.rush) return null;
+  if (!boss || F.rush || F.called) return null;
   const key = `${kept}|${bonus}`, was0 = fc.get(key);
   if (was0 && was0.i === F.beaten && was0.v.boss === boss && F.t - was0.t < 0.5 && F.t >= was0.t) return was0.v;
-  const was = F, me = you.now();
+  const was = F, me = you.now(), cooked = youCooked;
   F = structuredClone(was);
   real = false;
   try {
@@ -539,7 +629,13 @@ export function forecast(kept = 0, { bonus = 0 }: { bonus?: number } = {}): Fore
       else w.carry = null;
       F.crew.push(w);
     }
-    startRush(kept);
+    // (rung during a local fight, he walks in once it's over, the kitchen working on meanwhile: ringGong; with no
+    // fix of Eddie's in the copy, `kept` says how many stay home)
+    if (seeOut()) {
+      F.den.eddie = { boss: -1, cut: 0, caught: false };
+      for (let n = 0; n < 400 && F.called; n++) step(0.05);
+      F.rush!.n -= kept; F.rush!.kept = kept;
+    } else startRush(kept);
     for (let n = 0; n < 4000 && !F.rush!.done; n++) step(0.05);
     const R = F.rush!;
     const v: Forecast = { boss, turned: R.turned, worst: worstShort(R), at: R.t };
@@ -548,6 +644,7 @@ export function forecast(kept = 0, { bonus = 0 }: { bonus?: number } = {}): Fore
   } finally {
     F = was;
     real = true;
+    youCooked = cooked;
   }
 }
 
@@ -610,7 +707,8 @@ function thinkYou(w: Worker): Step[] | null {
   const opts: [number, () => Step[] | null][] = [];
   const stallLow = F.stall.length < 6, rush = !!F.rush && !F.rush.done;
   if (!F.hires.attendant && F.counter.length && F.stall.length < STALL_CAP) opts.push([3 + (stallLow ? 4 : 0) + (rush ? 4 : 0) + F.counter.length * 0.2, planBowls]);
-  if (!F.hires.cook && canCook() && !potFull()) opts.push([3 + (F.counter.length < BATCH ? 3 : 0), () => [{ to: POT_PAD, act: 'cook' }]]);
+  // (with a cook hired too: he stands back while they're at the pot, and their batches are full ones)
+  if (canCook() && !potFull()) opts.push([3 + (F.counter.length < BATCH ? 3 : 0), () => [{ to: POT_PAD, act: 'cook' }]]);
   for (const k of inPot()) {
     if (F.hires[k === 'rice' ? 'washer' : k === 'fish' ? 'salter' : 'picker']) continue;
     opts.push([2 + (F.pantry[k] < 2 ? 3 : 0) + (k === 'rice' ? 0.2 : k === 'fish' ? 0.1 : 0), () => planLine(w, k)]);
@@ -688,7 +786,7 @@ function updWorker(w: Worker, dt: number) {
   if (w.cooking > 0) {
     w.cooking -= dt;
     if (w.role === 'cook') { if (!youCooking()) tendPot(w, dt, cookBowls()); }
-    else if (!tendPot(w, dt)) w.cooking = 0;
+    else { youCooked = F.t; if (!tendPot(w, dt)) w.cooking = 0; }
     return;
   }
   if (w.dwell > 0) { w.dwell -= dt; return; }
@@ -731,6 +829,8 @@ function updBout(dt: number) {
   // (the doors still shut: no local fight yet, its preparation waiting at its start)
   if (F.quiet && !R) { B.t = 0; return; }
   B.t += dt;
+  // (a boss called in by the gong waits on this local's result: after the fall it hurries)
+  if (F.called && B.phase === 'pay' && B.t > LANDS) B.t += dt * (HURRY - 1);
   // (a boss's preparation lasts until his bell: updRush)
   if (B.phase === 'prep' && !R && B.t >= BOUT.prep) {
     // the stall shuts: the hungry go home, and the champion wins the free show
@@ -742,21 +842,26 @@ function updBout(dt: number) {
   } else if (B.phase === 'fight') {
     // the pair lean the way the crowd does, and wrestle it out to the side with more fans
     const { yours, theirs } = sides(), lean = (yours - theirs) / Math.max(1, yours + theirs) * 0.35;
-    const k = B.t / BOUT.fight, target = B.win ? 1 : -1, wobble = Math.sin(B.t * 1.7 + B.noise) * 0.4 * (1 - k);
+    // (a tight one goes the other way first: the winner's driven back to his own straw, and turns it there at the end)
+    const k = B.t / BOUT.fight, target = (B.win ? 1 : -1) * (B.finish === 'tight' ? -0.85 : 1), wobble = Math.sin(B.t * 1.7 + B.noise) * 0.4 * (1 - k);
     B.tug = clamp(lean + wobble + (target - lean) * ease(clamp((k - 0.35) / 0.6, 0, 1)), -1, 1);
-    if (B.t >= BOUT.fight) {
-      B.phase = 'pay'; B.t = 0; B.n++;
-      if (R) bossResult(R);
-      // (a local bout over: one fewer for a scandal to last)
-      else if (F.den.scandal.bouts > 0) F.den.scandal.bouts--;
-      if (real) on.bout('pay');
-    }
-  } else if (B.phase === 'pay' && B.t >= BOUT.pay) {
-    // the fans go home, and the next ones come in
+    if (B.t >= BOUT.fight) fightOver();
+  } else if (B.phase === 'pay' && B.t >= payLen()) {
+    // the fans go home, and the next ones come in (or the boss the gong called, his crowd)
     F.rush = null; F.queue = [];
     F.bout = freshBout(B.n);
-    if (real) on.bout('prep');
+    if (F.called) { F.called = false; callIn(); }
+    else if (real) on.bout('prep');
   }
+}
+/** The fight's over: its result. */
+function fightOver() {
+  const B = F.bout, R = F.rush;
+  B.phase = 'pay'; B.t = 0; B.n++;
+  if (R) bossResult(R);
+  // (a local bout over: one fewer for a scandal to last)
+  else if (F.den.scandal.bouts > 0) F.den.scandal.bouts--;
+  if (real) on.bout('pay');
 }
 
 // ---------- every frame ----------
@@ -849,9 +954,21 @@ export function saveFight(): Fight {
   // (and a fix that held on it holds again next time: the player's paid for it)
   if (f.rush?.fix && !f.rush.fix.caught) f.den.eddie = { boss: f.rush.boss, cut: f.rush.fix.cut, caught: false };
   if (f.rush) { f.rush = null; f.queue = []; f.bout = freshBout(f.bout.n); }
+  f.called = false;
   return f;
 }
 const isNum = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
+/** A saved cooking show left half way, if it reads back (chanko.ts makes sense of its numbers). */
+function showFrom(v: unknown): ShowRun | null {
+  const r = v as Partial<ShowRun> | null;
+  if (!r || typeof r !== 'object' || !isNum(r.step) || !Array.isArray(r.got) || !Array.isArray(r.lines)) return null;
+  const nums = (a: unknown, n: number, lo: number, hi: number) => (Array.isArray(a) ? a.filter(isNum).slice(0, n).map(x => clamp(x, lo, hi)) : []);
+  return {
+    step: clamp(Math.floor(r.step), 0, 4),
+    got: [0, 1, 2, 3].map(j => nums(r.got![j], 16, -1, 60)),
+    lines: nums(r.lines, 3, 0, 1),
+  };
+}
 /** A saved cellar, whatever came out of storage: what reads back is kept, anything else starts fresh. */
 export function fightFrom(raw: unknown): Fight {
   const b = blank();
@@ -875,6 +992,7 @@ export function fightFrom(raw: unknown): Fight {
       fullAcc: num(r.fullAcc), earned: list<[number, number]>(r.earned, x => Array.isArray(x) && x.every(isNum)),
       seed: clamp(Math.floor(num(r.seed, 3)), 1, 2147483646), cookT: 0,
       bonus: BONUS_TIERS.some(x => x.pct && x.pct === r.bonus?.pct) && num(r.bonus?.t) > 0 ? { pct: r.bonus!.pct, t: clamp(num(r.bonus?.t), 0, BONUS_S) } : b.bonus,
+      show: showFrom(r.show),
       den: {
         // (a game saved before the door at the tunnel's mouth: the tunnel's open already, if the second boss was beaten)
         book: typeof r.den?.book === 'boolean' ? r.den.book : num(r.beaten) >= 2,
@@ -885,6 +1003,15 @@ export function fightFrom(raw: unknown): Fight {
           : b.den.eddie,
         scandal: { cut: clamp(Math.round(num(r.den?.scandal?.cut)), 0, 5), bouts: clamp(Math.floor(num(r.den?.scandal?.bouts)), 0, 3) },
         loan: { owed: Math.max(0, num(r.den?.loan?.owed)), total: Math.max(0, num(r.den?.loan?.total), num(r.den?.loan?.owed)) },
+        // (a game saved before the Family introduced themselves: met, if it shows he's been used — a fix still to come
+        // or a scandal running, a loan owed, a game of monte played)
+        met: r.den?.met && typeof r.den.met === 'object'
+          ? { eddie: r.den.met.eddie === true, harry: r.den.met.harry === true, tommy: r.den.met.tommy === true }
+          : {
+            eddie: num(r.den?.eddie?.cut) >= 1 || num(r.den?.scandal?.bouts) > 0,
+            harry: num(r.den?.loan?.owed) > 0,
+            tommy: num(r.den?.monte?.bout, -1) >= 0,
+          },
       },
     };
     for (const k of ING) {
@@ -900,7 +1027,7 @@ export function fightFrom(raw: unknown): Fight {
     if (r.bout && ['prep', 'sit', 'fight', 'pay'].includes(r.bout.phase)) {
       const o = r.bout;
       f.bout = { ...b.bout, phase: o.phase, t: num(o.t), win: !!o.win, tug: clamp(num(o.tug), -1, 1), noise: num(o.noise), n: num(o.n),
-        crowd: Math.floor(num(o.crowd, -1)), came: Math.floor(num(o.came)), fed: Math.floor(num(o.fed)) };
+        crowd: Math.floor(num(o.crowd, -1)), came: Math.floor(num(o.came)), fed: Math.floor(num(o.fed)), finish: FINISHES.includes(o.finish) ? o.finish : 'push' };
     }
     // the crew start their jobs over, from where they stand
     for (const role of Object.keys(f.hires) as Role[]) {

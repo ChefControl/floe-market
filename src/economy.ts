@@ -72,12 +72,12 @@ export const MODS: Mod[] = [
     id: 'street', stage: 3, kind: 'customers', icon: '📣', name: 'Word on the street', what: 'More fans fill the seats',
     // (named for how the arena's dressed up as the word gets round: cellarLooks.ts)
     levels: ['Scrap walls', 'Sawdust & pallets', 'Fixed up', 'Banners', 'Stone floor', 'Panelled hall', 'Purple seats', 'Tournament dohyo'],
-    per: 1.2, cost: 20_000, step: 1.75, max: 8,
+    per: 1.105, cost: 20_000, step: 1.75, max: 8,
   },
   {
     id: 'cellarcrew', stage: 3, kind: 'speed', icon: '🧑‍🍳', name: 'Cellar crew', what: 'Hires walk and work faster',
     levels: ['Rags', 'Work clothes', 'Plaster walls', 'Crest hangings', 'Warm lamps', 'Chef whites', 'Stone floor', 'Panelled hall'],
-    per: 1.12, cost: 40_000, step: 1.75, max: 8,
+    per: 1.12, cost: 150_000, step: 1.45, max: 8,
   },
 ];
 export const MOD = Object.fromEntries(MODS.map(m => [m.id, m])) as Record<ModId, Mod>;
