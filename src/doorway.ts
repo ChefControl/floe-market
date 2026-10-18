@@ -36,9 +36,9 @@ const leaves = [-1, 1].map(s => {
   return { pivot, s };
 });
 // the frame round them: iron posts and a lintel, a caged lamp over it, and a pink glow under the doors from inside
-for (const z of [D.z0 - 0.07, D.z1 + 0.07]) { const post = new Mesh(new BoxGeometry(0.2, H + 0.15, 0.14), IRON); post.position.set(D.x, CY + (H + 0.15) / 2, z); parts.den.add(post); }
+for (const z of [D.z0 - 0.04, D.z1 + 0.04]) { const post = new Mesh(new BoxGeometry(0.12, H + 0.1, 0.08), IRON); post.position.set(D.x, CY + (H + 0.1) / 2, z); parts.den.add(post); }
 {
-  const lintel = new Mesh(new BoxGeometry(0.24, 0.2, D.z1 - D.z0 + 0.34), IRON); lintel.position.set(D.x, CY + H + 0.12, MID.z); parts.den.add(lintel);
+  const lintel = new Mesh(new BoxGeometry(0.14, 0.1, D.z1 - D.z0 + 0.16), IRON); lintel.position.set(D.x, CY + H + 0.05, MID.z); parts.den.add(lintel);
   const under = new Mesh(new PlaneGeometry(0.06, D.z1 - D.z0 - 0.1), new MeshBasicMaterial({ color: 0xFF5FA8, transparent: true, opacity: 0.85 }));
   under.position.set(D.x + 0.06, CY + 0.012, MID.z); under.rotation.x = -Math.PI / 2; parts.den.add(under);
 }

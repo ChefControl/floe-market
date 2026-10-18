@@ -19,15 +19,16 @@
 // thrash in the fight and he squirts ink at the straw and when he lands; Yokobashiri walks in and off sideways and
 // snaps his claws; Dobu's stamps shake the ring; Samehada grins (CHOMP!); and Fukure blows up for the glare, the charge
 // and whenever he's winning, and goes down like a balloon when he's beaten.
-import { CanvasTexture, Group, type Object3D, Sprite, SpriteMaterial, Vector3 } from 'three';
+import { CanvasTexture, type Object3D, Sprite, SpriteMaterial, Vector3 } from 'three';
 import { boss, CY, DRUMS, parts, PIT_STEPS, RING, RING_HALF, RING_R, RING_TOP } from './cellar';
 import { TEPPO } from './cellarPlan';
 import { belowGround, Person } from './characters';
+import { gyojiModel } from './gyoji';
 import { bossOf, BOUT, F } from './fight';
 import { LOOKS, SLAPS } from './creatures';
 import { dustFx, inkFx, saltFx } from './fx';
 import { isHigh } from './graphics';
-import { Build, K, quietly, shade } from './kit';
+import { apart, dice, quietly } from './kit';
 import { FONT, rr, scene } from './render';
 import { crowd, react } from './ringSound';
 import { CHAMP, CHAMP_BELT, LOCAL_BELTS, mixPose, type Pose, pose, RikishiModel } from './rikishi';
@@ -309,36 +310,17 @@ function resultAt(a: number): [At, At] {
 }
 
 // ---------- the referee (gyoji) ----------
-// In a purple robe with gold on it and a black lacquer cap, his war fan (gunbai) in his right hand.
-const gyoji = quietly(() => {
-  const root = new Group(), body = new Group(); root.add(body);
-  const b = new Build();
-  b.add(K.post, 0x6E3FA0, 0, 0.4, 0, null, [0.3, 0.8, 0.3]);
-  b.add(K.post, shade(0x6E3FA0, 0.8), 0, 0.03, 0, null, [0.36, 0.06, 0.36]);
-  b.add(K.post, 0xD9A63A, 0, 0.64, 0, null, [0.31, 0.06, 0.31]);
-  for (let i = 0; i < 5; i++) b.add(K.dot, 0xD9A63A, Math.cos(i * 1.3) * 0.2, 0.25 + (i % 3) * 0.12, 0.27, null, [0.04, 0.04, 0.02]);
-  b.add(K.ball, 0xF0C6A0, 0, 1.02, 0, null, [0.17, 0.17, 0.17]);
-  for (const s of [-1, 1]) b.add(K.dot, 0x1B2733, s * 0.06, 1.03, 0.15, null, [0.022, 0.026, 0.02]);
-  b.add(K.post, 0x111014, 0, 1.13, 0, null, [0.18, 0.04, 0.18]);
-  b.add(K.post, 0x111014, 0, 1.25, -0.02, [-0.25, 0, 0], [0.09, 0.22, 0.14]);
-  body.add(b.mesh(true));
-  const arms = [1, -1].map(s => {
-    const a = new Group(); a.position.set(s * 0.26, 0.82, 0); body.add(a);
-    const ab = new Build();
-    ab.add(K.post, 0x6E3FA0, 0, -0.15, 0, null, [0.11, 0.36, 0.11]);
-    ab.add(K.ball, 0xF0C6A0, 0, -0.36, 0, null, [0.06, 0.06, 0.06]);
-    if (s < 0) {
-      ab.add(K.post, 0x3A2A20, 0, -0.48, 0.04, null, [0.02, 0.24, 0.02]);
-      ab.add(K.post, 0xD9A63A, 0, -0.74, 0.04, [Math.PI / 2, 0, 0], [0.17, 0.025, 0.2]);
-      ab.add(K.post, 0x111014, 0, -0.74, 0.055, [Math.PI / 2, 0, 0], [0.1, 0.02, 0.12]);
-    }
-    a.add(ab.mesh(true));
-    return a;
-  });
-  root.visible = false;
-  scene.add(root);
-  return { root, body, arms, x: 0 };
-});
+// Mr. Fugu's own, in indigo with the house's crest, his robe and hakama and his tall black eboshi, his war fan
+// (gunbai) in his right hand (gyoji.ts).
+// (built on dice of its own; the one he replaced took 40 of the scenery's, so those are still drawn, and what's built
+// after him looks the same)
+const gyoji = apart(() => {
+  const g = { ...gyojiModel(), x: 0 };
+  g.root.visible = false;
+  scene.add(g.root);
+  return g;
+}, dice(0x6E0D1));
+quietly(() => { for (let i = 0; i < 40; i++) Math.random(); });
 
 // ---------- what you see on the watch spot: the hits ----------
 /** The camera's beats, for the watch spot (gong.ts): a shake, a punch in on `at`, and a white flash. */
@@ -598,6 +580,7 @@ function pose2(dt: number) {
   gyoji.root.position.set(RING.x + gyoji.x, CY + ground(gyoji.x, -1.75), RING.z - 1.75);
   const crouching = (ph === 'sit' && t > 0.6) || (ph === 'fight' && t < 0.4) ? 1 : 0, pointing = ph === 'pay' && t > 0.25 && t < 3.5;
   gyoji.body.position.y = -0.18 * crouching; gyoji.body.rotation.x = 0.25 * crouching;
+  gyoji.hakama.scale.set(1 + 0.12 * crouching, 1 - 0.3 * crouching, 1 + 0.12 * crouching);
   gyoji.root.rotation.y = pointing ? (B.win ? 0.9 : -0.9) : ph === 'fight' ? Math.sin(F.t * 0.8) * 0.2 : 0;
   gyoji.arms[1].rotation.set(pointing ? -1.4 : crouching ? -1.5 : ph === 'fight' ? -1.2 + Math.sin(F.t * 4) * 0.25 : -0.9, 0, pointing ? (B.win ? -0.6 : 0.6) : 0);
   gyoji.arms[0].rotation.x = crouching ? -0.6 : -0.15;
