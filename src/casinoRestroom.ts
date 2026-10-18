@@ -18,6 +18,8 @@ import { dice, quietly } from './kit';
 import { inSalon, pushOutOfBox, SALON, SHIP, UPPER } from './layout';
 import { player } from './player';
 import { bake, canvasTex, G, mesh, scene, type Part } from './render';
+import { lose } from './sfx';
+import { panel as kitPanel } from './uiKit';
 import { d2xz, money, V, type XZ } from './util';
 
 const GOLD = 0xE3B23C, PANEL = 0xF4EFE6, PORCELAIN = 0xFBFBF8;
@@ -158,13 +160,15 @@ function startCry() {
   cry.from.copy(player.g.position);
   losses.down = 0;
   player.held = true;
+  lose();
   // the camera comes in from the windows' side, over the near wall (which fades), to see them side on as they sit
   // facing the door
   takeSeat({ at: world(STALL.x0 + 0.85, UPPER + 0.75, (STALL.z0 + STALL.z1) / 2), from: V(-0.08, 0.62, 0.78).normalize(), wide: 2.6, tall: 2.2 }, panel);
   refresh();
 }
 cryBtn.addEventListener('click', startCry);
-window.addEventListener('keydown', e => { if (e.code === 'KeyE' && !e.repeat) startCry(); });
+// (E cries too: it's the panel's main button. Esc leaves the stall be till the player steps away.)
+const card = kitPanel(panel, { place: 'card', skin: 'casino', busy: () => cry.on });
 
 let shown = '';
 /** The panel's message and button, set only when they change. */
@@ -336,7 +340,7 @@ function updCry(dt: number) {
 /** Runs the stall: its panel by the door, a cry under way, and a puddle drying. */
 export function updRestroom(dt: number) {
   if (!room) return;
-  const near = cry.on || (byTheStall() && !atTable());
+  const near = cry.on || card.near(byTheStall() && !atTable());
   if (near !== !panel.hidden) { panel.hidden = !near; if (near) shown = ''; }
   if (near) refresh();
   room.sobs.upd(dt);

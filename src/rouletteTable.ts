@@ -16,6 +16,7 @@ import { colorOf, multiplier, resultLine, startRound, WHEEL, type Bet, type Roul
 import type { Moves } from './round';
 import { lose, tick, win } from './sfx';
 import { popText } from './ui';
+import { state } from './uiKit';
 import { money, V, type XZ } from './util';
 import { addMoney, wallet } from './wallet';
 
@@ -191,7 +192,7 @@ function refresh() {
     b.disabled = !!spin;
   });
   stakes.refresh(!!spin);
-  spinBtn.disabled = !!spin || !stakes.ok;
+  state(spinBtn, stakes.play(!!spin));
   spinBtn.textContent = spin ? 'Spinning…' : `Spin · ${stakes.label} on ${LABELS[bet]}`;
 }
 

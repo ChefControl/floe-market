@@ -760,74 +760,60 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
 @keyframes rise{ to{ transform:translate(-50%,-180%); opacity:0; } }
 @media (prefers-reduced-motion: reduce){ .pop{ animation-duration:.01s; } #cash{ transition:none; } #cash.broke{ animation:none; } }
 
-/* The casino games' controls (rouletteTable.ts, blackjackTable.ts, slotMachine.ts): the games themselves play out on
-   the tables, with the camera in close; this is a slim burgundy-and-gold bar of chips and buttons along the bottom. */
-.casino{
-  position:fixed; left:50%; bottom:calc(env(safe-area-inset-bottom,0px) + 10px); transform:translateX(-50%);
-  z-index:4; width:min(94vw,440px); box-sizing:border-box; display:flex; flex-direction:column; gap:10px;
-  background:#3E0E18; color:#FFF8EC; border-radius:22px; padding:10px 12px 12px;
-  box-shadow:0 0 0 2px #E3B23C, 0 5px 0 rgba(0,0,0,.35);
-}
-.casino[hidden], .casino [hidden]{ display:none !important; }
-.casino .msg{ margin:0; min-height:1.2em; text-align:center; font-size:17px; font-weight:800; line-height:1.2; }
-.casino button{
-  font:800 16px "Baloo 2","Trebuchet MS",system-ui,sans-serif; color:#2A0F16; border:0; cursor:pointer;
-  -webkit-tap-highlight-color:transparent;
-}
-.casino button:disabled{ opacity:.45; cursor:default; }
-.casino button:focus-visible{ outline:3px solid var(--coral); outline-offset:2px; }
-/* the stake: each tap on a chip puts one more down (holding it keeps going), its count in a gold tag on it; Undo takes the last back */
+/* The casino games' controls (rouletteTable.ts, blackjackTable.ts, slotMachine.ts, and the Undertow's tables): the
+   games themselves play out on the tables, with the camera in close; this is a card of the UI kit (uiKit.css) in its
+   casino skin along the bottom. What's here is only what's the casino's own: the chips, the bets, the cut and Eddie's
+   colours. */
+/* the stake: each tap on a chip puts one more down (holding it keeps going), its count in a gold tag on it; Undo takes
+   the last back. Chips are round, with a dashed ring inside the edge. */
 .casino .stakes{ display:flex; justify-content:space-between; gap:6px; }
-.casino .stakes button{
-  --c:#C8323F; position:relative; flex:0 1 50px; min-width:0; aspect-ratio:1; padding:0; border-radius:50%;
-  background:var(--c); color:#FFF8EC; font-size:14px; box-shadow:0 3px 0 rgba(0,0,0,.35); transition:transform .15s;
-  touch-action:manipulation; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none;
+.casino .stakes .k-btn{
+  --k-radius:50%; flex:0 1 50px; min-width:0; min-height:0; aspect-ratio:1; padding:0; font-size:14px;
+  --c-ink:#FFF8EC; --c-drop:rgba(0,0,0,.35);
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='38' fill='none' stroke='%23FFF8EC' stroke-opacity='.8' stroke-width='6' stroke-dasharray='11 9'/%3E%3C/svg%3E");
+  background-size:100% 100%;
 }
+.casino .stakes [data-stake="0"]{ --c:#C8323F; }
+.casino .stakes [data-stake="1"]{ --c:#22874A; }
+.casino .stakes [data-stake="2"]{ --c:#1F2A33; }
+.casino .stakes [data-stake="3"]{ --c:#6A3FA0; }
+.casino .stakes [data-stake="all"]{
+  --c:#E3B23C; --c-ink:#2A0F16;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='38' fill='none' stroke='%232A0F16' stroke-opacity='.45' stroke-width='6' stroke-dasharray='11 9'/%3E%3C/svg%3E");
+}
+.casino .stakes [data-stake="undo"]{ --k-fill:transparent; --k-text:#FFE7A8; --k-drop:transparent; --k-ring:inset 0 0 0 2px rgba(255,231,168,.55); background-image:none; font-size:13px; }
 .casino .stakes [data-n]::after{
   content:attr(data-n); position:absolute; top:-7px; right:-7px; min-width:22px; height:20px; padding:0 4px;
   box-sizing:border-box; border-radius:10px; background:#F2C14E; color:#2A0F16; font-size:12px; line-height:20px;
   box-shadow:0 0 0 2px #3E0E18;
 }
-.casino .stakes [data-stake="undo"]{ --c:transparent; color:#FFE7A8; font-size:13px; box-shadow:inset 0 0 0 2px rgba(255,231,168,.55); }
-.casino .stakes [data-stake="undo"]::before{ content:none; }
-.casino .stakes button::before{ content:""; position:absolute; inset:5px; border-radius:50%; border:3px dashed rgba(255,248,236,.8); }
-.casino .stakes [data-stake="1"]{ --c:#22874A; }
-.casino .stakes [data-stake="2"]{ --c:#1F2A33; }
-.casino .stakes [data-stake="3"]{ --c:#6A3FA0; }
-.casino .stakes [data-stake="all"]{ --c:#E3B23C; color:#2A0F16; }
-.casino .stakes [data-stake="all"]::before{ border-color:rgba(42,15,22,.45); }
-.casino .stakes [aria-pressed="true"]{ transform:translateY(-4px); box-shadow:0 0 0 3px #F2C14E, 0 5px 0 rgba(0,0,0,.4); }
-.casino .go{ height:50px; border-radius:16px; background:#F2C14E; box-shadow:0 4px 0 #A9761C; font-size:18px; }
-.casino .acts{ display:grid; grid-auto-flow:column; grid-auto-columns:minmax(0,1fr); gap:8px; }
-.casino .acts button{ height:50px; border-radius:14px; background:#FFF8EC; box-shadow:0 4px 0 #B9A98F; font-size:17px; }
-.casino .acts [aria-pressed="true"]{ background:#F2C14E; box-shadow:0 4px 0 #A9761C; }
-/* a panel's one caption: the rule its buttons' numbers can't show */
-.casino .odds{ margin:0; text-align:center; font-size:14px; font-weight:700; line-height:1.3; opacity:.8; }
+/* roulette's bets: red, black and green, what each pays under it */
+.casino .bets{ display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
+.casino .bets .k-btn{ min-height:48px; --c-ink:#FFF8EC; --c-drop:rgba(0,0,0,.35); display:flex; flex-direction:column; align-items:center; justify-content:center; line-height:1.05; }
+.casino .bets small{ font-size:13px; color:#FFE7A8; }
+.casino .bets .red{ --c:#C8323F; } .casino .bets .black{ --c:#1F2A33; } .casino .bets .green{ --c:#22874A; }
+/* (the bet picked stays clear through the spin, while the others fade) */
+.casino .bets .k-btn:disabled[aria-pressed="true"]{ opacity:1; }
+.casino .k-row .k-btn{ min-height:50px; font-size:17px; }
 /* Eddie's: the chance his fix gets out, the risk you're taking, big, with "caught" in red */
 /* (Eddie's sizes: each its price, the picked one in its risk's colour, green to red; the button under them says the rest) */
 #eddieMsg{ font-size:21px; font-weight:900; letter-spacing:.01em; }
-#eddie .acts button{
-  height:auto; min-height:56px; padding:6px 2px; display:flex; flex-direction:column; align-items:center;
-  justify-content:center; gap:3px; line-height:1;
+#eddie .k-row .k-btn{
+  min-height:56px; padding:6px 2px; display:flex; flex-direction:column; align-items:center;
+  justify-content:center; gap:3px; line-height:1; --pick:var(--risk); --pick-ink:#fff; --pick-drop:color-mix(in srgb, var(--risk) 60%, #000);
 }
-#eddie .acts .chip{ font-size:16px; }
-#eddie .acts .fee{ font-variant-numeric:tabular-nums; white-space:nowrap; }
-#eddie .acts [aria-pressed="true"]{ background:var(--risk); color:#fff; text-shadow:0 1px 0 rgba(0,0,0,.3); box-shadow:0 4px 0 color-mix(in srgb, var(--risk) 60%, #000); }
+#eddie .k-row [aria-pressed="true"]{ text-shadow:0 1px 0 rgba(0,0,0,.3); }
+#eddie .k-row .chip{ font-size:16px; }
+#eddie .k-row .fee{ font-variant-numeric:tabular-nums; white-space:nowrap; }
 #eddieFix .caught{ display:inline-block; padding:3px 10px; border-radius:999px; background:var(--risk); color:#fff; font-weight:900; text-shadow:0 1px 0 rgba(0,0,0,.3); }
-.casino .acts .gold{ background:#F2C14E; box-shadow:0 4px 0 #A9761C; }
+/* the cut card's slider (blackjack) and Harry's how-much slider */
 .casino .cut{ display:flex; align-items:center; gap:8px; font-size:13px; font-weight:800; color:#FFE7A8; }
 .casino .cut input{ flex:1; min-width:0; height:32px; margin:0; accent-color:#F5D03A; cursor:pointer; }
-.casino .cut .go{ padding:0 24px; }
-.casino .bets{ display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
-.casino .bets button{
-  height:48px; border-radius:14px; color:#FFF8EC; display:flex; flex-direction:column; align-items:center; justify-content:center;
-  line-height:1.05; box-shadow:0 4px 0 rgba(0,0,0,.35);
+.casino .cut .k-main{ padding:0 24px; }
+@media (max-height: 500px){
+  .casino .stakes .k-btn{ flex-basis:44px; font-size:13px; }
+  .casino .k-main, .casino .k-row .k-btn{ min-height:44px; }
 }
-.casino .bets small{ font-size:13px; color:#FFE7A8; }
-.casino .bets .red{ background:#C8323F; } .casino .bets .black{ background:#1F2A33; } .casino .bets .green{ background:#22874A; }
-.casino .bets [aria-pressed="true"]{ box-shadow:0 0 0 3px #F2C14E, 0 4px 0 rgba(0,0,0,.35); }
-.casino .bets button:disabled:not([aria-pressed="true"]){ opacity:.45; }
-.casino .bets button:disabled[aria-pressed="true"]{ opacity:1; }
 /* ---------- fight night (stage 3, gong.ts) ----------
    A TV sumo broadcast with an arcade's punch: a navy strip with the wrestlers' faces and a rope for the tug of war,
    a VS row on the gong, red seals for your chances, an 入場 banner as a boss walks in, a hanko on the result, and Slick
@@ -1215,7 +1201,7 @@ body.offer #wayAlert, body.way #wayAlert{ visibility:hidden; }
 /* Phones on their side: the upgrade and casino panels go down the right-hand side, and the view slides over to
    keep the player in sight beside them (ui.ts). */
 @media (max-height: 500px){
-  #shop, .casino, #look, #gong{
+  #shop, #look, #gong{
     left:auto; transform:none; right:max(10px, env(safe-area-inset-right,0px)); bottom:max(10px, env(safe-area-inset-bottom,0px));
     max-height:calc(100% - 112px); overflow-y:auto; touch-action:pan-y;
   }
@@ -1225,9 +1211,6 @@ body.offer #wayAlert, body.way #wayAlert{ visibility:hidden; }
   #coin .thud{ top:calc(32% + 50px); }
   #coin .say{ top:calc(32% + 86px); }
   #coin .tapon{ top:auto; bottom:max(10px, env(safe-area-inset-bottom,0px)); }
-  .casino{ width:min(46vw,380px); gap:8px; }
-  .casino .stakes button{ flex-basis:44px; font-size:13px; }
-  .casino .go, .casino .acts button{ height:44px; }
   #prompts{ bottom:max(12px, env(safe-area-inset-bottom,0px)); }
   #tip{ font-size:15px; padding:6px 14px; }
   #tip b{ font-size:17px; }
@@ -1478,100 +1461,100 @@ body.show #toss, body.show #cook, body.show #coach, body.show #hint, body.show #
   <div id="lookRows" role="tabpanel" aria-labelledby="lookTitle"></div>
 </section>
 <div id="roulette" class="casino" hidden>
-  <p id="rouletteMsg" class="msg" aria-live="polite"></p>
-  <div class="bets" id="betKinds" role="group" aria-label="Bet">
-    <button type="button" data-bet="red" class="red">Red<small>×2</small></button>
-    <button type="button" data-bet="black" class="black">Black<small>×2</small></button>
-    <button type="button" data-bet="green" class="green">Green<small>×36</small></button>
+  <p id="rouletteMsg" class="msg k-msg" aria-live="polite"></p>
+  <div class="bets k-keys" id="betKinds" role="group" aria-label="Bet">
+    <button type="button" data-bet="red" class="k-btn k-choice k-own red">Red<small>×2</small></button>
+    <button type="button" data-bet="black" class="k-btn k-choice k-own black">Black<small>×2</small></button>
+    <button type="button" data-bet="green" class="k-btn k-choice k-own green">Green<small>×36</small></button>
   </div>
-  <div class="stakes" role="group" aria-label="Stake">
-    <button type="button" data-stake="0">$5</button>
-    <button type="button" data-stake="1">$25</button>
-    <button type="button" data-stake="2">$100</button>
-    <button type="button" data-stake="3">$500</button>
-    <button type="button" data-stake="all">All in</button>
-    <button type="button" data-stake="undo" aria-label="Take back the last chip">Undo</button>
+  <div class="stakes k-keys" role="group" aria-label="Stake">
+    <button type="button" class="k-btn k-choice k-own" data-stake="0">$5</button>
+    <button type="button" class="k-btn k-choice k-own" data-stake="1">$25</button>
+    <button type="button" class="k-btn k-choice k-own" data-stake="2">$100</button>
+    <button type="button" class="k-btn k-choice k-own" data-stake="3">$500</button>
+    <button type="button" class="k-btn k-choice k-own" data-stake="all">All in</button>
+    <button type="button" class="k-btn k-plain" data-stake="undo" aria-label="Take back the last chip">Undo</button>
   </div>
-  <button type="button" id="spin" class="go"></button>
+  <button type="button" id="spin" class="go k-btn k-main"></button>
   <div id="history" class="sr" aria-label="Recent results"></div>
 </div>
 <div id="blackjack" class="casino" hidden>
-  <p id="bjMsg" class="msg" aria-live="polite"></p>
-  <div class="acts" id="bjActs" hidden>
-    <button type="button" id="hit">Hit</button>
-    <button type="button" id="stand">Stand</button>
-    <button type="button" id="double" class="gold">Double</button>
-    <button type="button" id="split" class="gold" hidden>Split</button>
+  <p id="bjMsg" class="msg k-msg" aria-live="polite"></p>
+  <div class="acts k-row k-keys" id="bjActs" hidden>
+    <button type="button" id="hit" class="k-btn k-plain">Hit</button>
+    <button type="button" id="stand" class="k-btn k-plain">Stand</button>
+    <button type="button" id="double" class="k-btn k-plain">Double</button>
+    <button type="button" id="split" class="k-btn k-plain" hidden>Split</button>
   </div>
-  <div class="acts" id="bjAsk" hidden>
-    <button type="button" id="insureYes" class="gold">Yes</button>
-    <button type="button" id="insureNo">No thanks</button>
+  <div class="acts k-row k-keys" id="bjAsk" hidden>
+    <button type="button" id="insureYes" class="k-btn k-plain">Yes</button>
+    <button type="button" id="insureNo" class="k-btn k-plain">No thanks</button>
   </div>
   <div class="cut" id="bjCut" hidden>
     <span aria-hidden="true">Top</span>
     <input type="range" id="cutAt" step="1" aria-label="Where to put the cut card: cards from the top">
     <span aria-hidden="true">Bottom</span>
-    <button type="button" id="cutBtn" class="go">Cut</button>
+    <button type="button" id="cutBtn" class="go k-btn k-main">Cut</button>
   </div>
-  <div class="stakes" role="group" aria-label="Stake">
-    <button type="button" data-stake="0">$5</button>
-    <button type="button" data-stake="1">$25</button>
-    <button type="button" data-stake="2">$100</button>
-    <button type="button" data-stake="3">$500</button>
-    <button type="button" data-stake="all">All in</button>
-    <button type="button" data-stake="undo" aria-label="Take back the last chip">Undo</button>
+  <div class="stakes k-keys" role="group" aria-label="Stake">
+    <button type="button" class="k-btn k-choice k-own" data-stake="0">$5</button>
+    <button type="button" class="k-btn k-choice k-own" data-stake="1">$25</button>
+    <button type="button" class="k-btn k-choice k-own" data-stake="2">$100</button>
+    <button type="button" class="k-btn k-choice k-own" data-stake="3">$500</button>
+    <button type="button" class="k-btn k-choice k-own" data-stake="all">All in</button>
+    <button type="button" class="k-btn k-plain" data-stake="undo" aria-label="Take back the last chip">Undo</button>
   </div>
-  <button type="button" id="deal" class="go"></button>
+  <button type="button" id="deal" class="go k-btn k-main"></button>
 </div>
 <div id="slots" class="casino" hidden>
-  <p id="slotsMsg" class="msg" aria-live="polite"></p>
+  <p id="slotsMsg" class="msg k-msg" aria-live="polite"></p>
   <div id="pays" class="sr" aria-label="What pays"></div>
-  <div class="stakes" role="group" aria-label="Stake">
-    <button type="button" data-stake="0">$5</button>
-    <button type="button" data-stake="1">$25</button>
-    <button type="button" data-stake="2">$100</button>
-    <button type="button" data-stake="3">$500</button>
-    <button type="button" data-stake="all">All in</button>
-    <button type="button" data-stake="undo" aria-label="Take back the last chip">Undo</button>
+  <div class="stakes k-keys" role="group" aria-label="Stake">
+    <button type="button" class="k-btn k-choice k-own" data-stake="0">$5</button>
+    <button type="button" class="k-btn k-choice k-own" data-stake="1">$25</button>
+    <button type="button" class="k-btn k-choice k-own" data-stake="2">$100</button>
+    <button type="button" class="k-btn k-choice k-own" data-stake="3">$500</button>
+    <button type="button" class="k-btn k-choice k-own" data-stake="all">All in</button>
+    <button type="button" class="k-btn k-plain" data-stake="undo" aria-label="Take back the last chip">Undo</button>
   </div>
-  <button type="button" id="pull" class="go"></button>
+  <button type="button" id="pull" class="go k-btn k-main"></button>
 </div>
 <div id="eddie" class="casino" hidden>
-  <p id="eddieMsg" class="msg" aria-live="polite"></p>
-  <div class="acts" role="group" aria-label="How big a fix, by what it costs">
-    <button type="button" data-cut="1">10%</button>
-    <button type="button" data-cut="2">20%</button>
-    <button type="button" data-cut="3">30%</button>
-    <button type="button" data-cut="4">40%</button>
-    <button type="button" data-cut="5">50%</button>
+  <p id="eddieMsg" class="msg k-msg" aria-live="polite"></p>
+  <div class="acts k-row k-keys" role="group" aria-label="How big a fix, by what it costs">
+    <button type="button" class="k-btn k-choice" data-cut="1">10%</button>
+    <button type="button" class="k-btn k-choice" data-cut="2">20%</button>
+    <button type="button" class="k-btn k-choice" data-cut="3">30%</button>
+    <button type="button" class="k-btn k-choice" data-cut="4">40%</button>
+    <button type="button" class="k-btn k-choice" data-cut="5">50%</button>
   </div>
-  <button type="button" id="eddieFix" class="go"></button>
-  <p id="eddieOdds" class="odds" hidden></p>
+  <button type="button" id="eddieFix" class="go k-btn k-main"></button>
+  <p id="eddieOdds" class="odds k-cap" hidden></p>
 </div>
 <div id="monte" class="casino" hidden>
-  <p id="monteMsg" class="msg" aria-live="polite"></p>
-  <div class="acts" id="montePick" role="group" aria-label="Where's the queen?" hidden>
-    <button type="button" data-card="0">Left</button>
-    <button type="button" data-card="1">Middle</button>
-    <button type="button" data-card="2">Right</button>
+  <p id="monteMsg" class="msg k-msg" aria-live="polite"></p>
+  <div class="acts k-row k-keys" id="montePick" role="group" aria-label="Where's the queen?" hidden>
+    <button type="button" class="k-btn k-plain" data-card="0">Left</button>
+    <button type="button" class="k-btn k-plain" data-card="1">Middle</button>
+    <button type="button" class="k-btn k-plain" data-card="2">Right</button>
   </div>
-  <div class="stakes" role="group" aria-label="Stake">
-    <button type="button" data-stake="0">🐡 1</button>
-    <button type="button" data-stake="1">🐡 5</button>
-    <button type="button" data-stake="2">🐡 25</button>
-    <button type="button" data-stake="3">🐡 100</button>
-    <button type="button" data-stake="all">Max</button>
-    <button type="button" data-stake="undo" aria-label="Take back the last chip">Undo</button>
+  <div class="stakes k-keys" role="group" aria-label="Stake">
+    <button type="button" class="k-btn k-choice k-own" data-stake="0">🐡 1</button>
+    <button type="button" class="k-btn k-choice k-own" data-stake="1">🐡 5</button>
+    <button type="button" class="k-btn k-choice k-own" data-stake="2">🐡 25</button>
+    <button type="button" class="k-btn k-choice k-own" data-stake="3">🐡 100</button>
+    <button type="button" class="k-btn k-choice k-own" data-stake="all">Max</button>
+    <button type="button" class="k-btn k-plain" data-stake="undo" aria-label="Take back the last chip">Undo</button>
   </div>
-  <button type="button" id="monteDeal" class="go"></button>
+  <button type="button" id="monteDeal" class="go k-btn k-main"></button>
 </div>
 <div id="tunnelShade" aria-hidden="true"></div>
 <div id="doorFlash" aria-hidden="true"></div>
 <div id="denBar" class="casino" hidden>
-  <p id="denBarMsg" class="msg" aria-live="polite"></p>
-  <div class="acts" role="group" aria-label="Drinks">
-    <button type="button" data-drink="tonic"></button>
-    <button type="button" data-drink="house" class="gold"></button>
+  <p id="denBarMsg" class="msg k-msg" aria-live="polite"></p>
+  <div class="acts k-row k-keys" role="group" aria-label="Drinks">
+    <button type="button" class="k-btn k-plain" data-drink="tonic"></button>
+    <button type="button" class="k-btn k-plain" data-drink="house"></button>
   </div>
 </div>
 <div id="loans" class="casino" hidden>
@@ -1579,21 +1562,21 @@ body.show #toss, body.show #cook, body.show #coach, body.show #hint, body.show #
     <span aria-hidden="true">🐡</span>
     <input type="range" id="loansAmount" aria-label="How much to borrow, in chips">
   </div>
-  <button type="button" id="loansBorrow" class="go"></button>
-  <button type="button" id="loansRepay" class="go" hidden></button>
-  <p id="loansMsg" class="odds" aria-live="polite"></p>
+  <button type="button" id="loansBorrow" class="go k-btn k-main"></button>
+  <button type="button" id="loansRepay" class="go k-btn k-main" hidden></button>
+  <p id="loansMsg" class="odds k-cap" aria-live="polite"></p>
 </div>
 <div id="denGus" class="casino" hidden>
-  <p id="denGusMsg" class="msg" aria-live="polite"></p>
-  <button type="button" id="buyGus" class="go"></button>
+  <p id="denGusMsg" class="msg k-msg" aria-live="polite"></p>
+  <button type="button" id="buyGus" class="go k-btn k-main"></button>
 </div>
 <div id="bubbly" class="casino" hidden>
-  <p id="bubblyMsg" class="msg" aria-live="polite"></p>
-  <button type="button" id="sip" class="go"></button>
+  <p id="bubblyMsg" class="msg k-msg" aria-live="polite"></p>
+  <button type="button" id="sip" class="go k-btn k-main"></button>
 </div>
 <div id="tears" class="casino" hidden>
-  <p id="tearsMsg" class="msg" aria-live="polite"></p>
-  <button type="button" id="cry" class="go"></button>
+  <p id="tearsMsg" class="msg k-msg" aria-live="polite"></p>
+  <button type="button" id="cry" class="go k-btn k-main"></button>
 </div>
 <section id="korki" hidden aria-label="Korki">
   <div class="btns">

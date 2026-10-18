@@ -27,6 +27,7 @@ import { canvasTex, FONT, mesh, rr, scene } from './render';
 import { cardLand, cardSlide, clack, deal as dealSound, lose, push as pushSound, win } from './sfx';
 import type { Moves } from './round';
 import { popText } from './ui';
+import { state } from './uiKit';
 import { money, V, type XZ } from './util';
 import { addMoney, wallet } from './wallet';
 
@@ -321,10 +322,10 @@ function refresh() {
   stakes.el.hidden = live() || busy();
   cutEl.hidden = prep?.phase !== 'cut';
   stakes.refresh(live());
-  dealBtn.disabled = !stakes.ok;
+  state(dealBtn, stakes.play(false));
   dealBtn.textContent = `Deal · ${stakes.label}`;
   if (h) {
-    dblBtn.disabled = !r!.canDouble(wallet.money);
+    state(dblBtn, r!.canDouble(wallet.money) ? 'ok' : r!.canDouble(Infinity) ? 'broke' : 'busy');
     splitBtn.hidden = !r!.canSplit(wallet.money);
     msg.textContent = `${r!.hands.length > 1 ? `Hand ${r!.active + 1}: ` : 'You have '}${label(h.cards)}. Hit or stand?`;
   }

@@ -38,6 +38,7 @@ import { updSpotlight } from './spotlight';
 import { staging, updLadder, updStage } from './stage';
 import { updTutorial } from './tutorial';
 import { toast } from './ui';
+import { paused } from './uiKit';
 import { updAuto, updStars } from './unlocks';
 import { updFloes } from './world';
 
@@ -46,6 +47,8 @@ let time = 0;
 export function tick(dt: number) {
   // the cooking show at the pot (chanko.ts): everything holds still but the show
   if (showing()) { updShow(dt); return; }
+  // a dialog of the UI kit over the game, dimming it (uiKit.ts): everything waits for the player
+  if (paused()) return;
   time += dt;
   // Through Mr. Fugu's scenes (offer.ts) the world holds still around him: nobody hauls, fishes, drives, eats or
   // grows, and the seasons wait. Only the light, the sea and its fish (and any catch already in the air, which lands),

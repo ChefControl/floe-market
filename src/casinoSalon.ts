@@ -22,6 +22,7 @@ import { DECKS, inSalon, pushOutOfBox, SALON, SHIP, stage, UPPER } from './layou
 import { player } from './player';
 import { bake, bakePainted, canvasTex, FONT, G, mesh, scene, type Part } from './render';
 import { drawReels, REELS_PX, slotRow } from './slotMachine';
+import { panel as kitPanel, state } from './uiKit';
 import { FY, money, V, type XZ } from './util';
 import { wallet } from './wallet';
 import { crowd, DRESSES, rng } from './wardrobe';
@@ -493,7 +494,8 @@ function buyChampagne() {
   refreshBubbly();
 }
 sipBtn.addEventListener('click', buyChampagne);
-window.addEventListener('keydown', e => { if (e.code === 'KeyE' && !e.repeat) buyChampagne(); });
+// (E pours one too: it's the panel's main button. Esc turns the waiter down till the player steps away.)
+const card = kitPanel(bubbly, { place: 'card', skin: 'casino', busy: () => !!salon?.crowd.pour });
 
 let shown = '';
 /** The panel's message and button, set only when they change. */
@@ -501,7 +503,7 @@ function refreshBubbly() {
   const c = salon!.crowd, text = c.pour ? 'Cheers! 🥂' : `Champagne · ${money(price())}`;
   const say = c.pour ? 'Bottoms up!' : wallet.money < price() ? `A glass is ${money(price())}`
     : c.buzz >= TOO_MANY - 1.5 ? 'Steady now… 🥂' : 'Champagne? 🥂';
-  sipBtn.disabled = !!c.pour || wallet.money < price();
+  state(sipBtn, c.pour ? 'busy' : wallet.money < price() ? 'broke' : 'ok');
   if (shown === text + say) return;
   shown = text + say;
   sipBtn.textContent = text; bubblyMsg.textContent = say;
@@ -702,7 +704,7 @@ function updCrowd(c: ReturnType<typeof buildCrowd>, dt: number, clock: number) {
   }
   // the waiter walks up and down with the tray, pausing at each end, and stops for the player to offer a glass
   const w = c.waiter, walk = c.walk, pp = player.g.position, wAt = waiterAt(c);
-  const near = !!c.pour || (inSalon(pp) && !atTable() && !byTheStall() && Math.hypot(pp.x - wAt.x, pp.z - wAt.z) < NEAR);
+  const near = !!c.pour || card.near(inSalon(pp) && !atTable() && !byTheStall() && Math.hypot(pp.x - wAt.x, pp.z - wAt.z) < NEAR);
   if (near !== !bubbly.hidden) { bubbly.hidden = !near; if (near) shown = ''; }
   if (near) refreshBubbly();
   c.waiterSay.upd(dt); c.hic.upd(dt);

@@ -4,6 +4,7 @@ import { front } from './front';
 import { level, type StageN } from './layout';
 import { rating } from './rating';
 import { camera, slideView } from './render';
+import { kitPanels } from './uiKit';
 import { amount, pick, rand, V } from './util';
 import { wallet } from './wallet';
 
@@ -66,8 +67,9 @@ phone?.addEventListener?.('change', () => { if (!modsPicked) showMods(!phone.mat
 stageEl.addEventListener('click', () => { modsPicked = true; showMods(modsEl.hidden !== false); });
 
 // ---------- keeping the player in sight ----------
-// (the casino boat's tables and the Undertow's: Eddie's, Tommy's, Harry's, Al's bar and Gus)
-const panels = [$('shop'), $('roulette'), $('blackjack'), $('slots'), $('look'), $('gong'), $('eddie'), $('monte'), $('loans'), $('denBar'), $('denGus')];
+// (every panel of the UI kit, uiKit.ts, and those not moved onto it yet: the shop, your look and the gong)
+const notKit = [$('shop'), $('look'), $('gong')];
+const panels = () => [...notKit, ...kitPanels()];
 const slid = { x: 0, y: 0 };
 /** How far a casino game slides the view to put its table in the middle of the space its controls leave (casinoKit.ts). */
 export const tableRoom = { on: false, x: 0, y: 0 };
@@ -82,7 +84,7 @@ export const topOfView = (h: number) => Math.min(document.getElementById('hud')?
 export function keepInSight(dt: number, away = 0) {
   const w = window.innerWidth, h = window.innerHeight;
   // (a panel that's stepped out of the spotlight's way, the shop's, leaves the whole screen to it)
-  const open = panels.find(p => !p.hidden && !p.classList.contains('away') && (!p.dataset.still || away > 0));
+  const open = panels().find(p => !p.hidden && !p.classList.contains('away') && (!p.dataset.still || away > 0));
   let x = 0, y = 0;
   if (open) {
     const r = open.getBoundingClientRect(), still = !!open.dataset.still;

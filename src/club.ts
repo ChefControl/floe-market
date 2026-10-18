@@ -15,7 +15,9 @@ import { buyHeld } from './input';
 import { found, inUndertow, level } from './layout';
 import { player } from './player';
 import { BUBBLE_Y, glass, type Regular, regularParts, regulars, updRegulars, velvetAt, where } from './regulars';
+import { coin } from './sfx';
 import { bubble, onlyVendor } from './speech';
+import { panel as kitPanel, state } from './uiKit';
 import { d2xz, V } from './util';
 import { wallet } from './wallet';
 
@@ -83,10 +85,10 @@ function refreshBar() {
   for (const b of drinkBtns) {
     const d = DRINKS[b.dataset.drink as Drink];
     b.textContent = `${d.name} · 🐡 ${d.cost}`;
-    b.disabled = !!pour || !afford(d.cost);
+    state(b, pour ? 'busy' : afford(d.cost) ? 'ok' : 'broke');
   }
   gusBtn.textContent = `Buy Gus a drink · 🐡 ${GUS_DRINK}`;
-  gusBtn.disabled = !afford(GUS_DRINK);
+  state(gusBtn, afford(GUS_DRINK) ? 'ok' : 'broke');
 }
 
 /** Orders `kind` at the bar: paid at once, and Al slides it over. */
@@ -94,6 +96,7 @@ export function buyDrink(kind: Drink) {
   const d = DRINKS[kind];
   if (pour || !afford(d.cost)) return false;
   wallet.money -= d.cost * CHIP;
+  coin();
   pour = { kind, t: 0 };
   glass.visible = true;
   say('al', d.says);
@@ -118,6 +121,7 @@ export const rumour = () => (F.beaten < BOSSES.length ? `${BOSSES[F.beaten].face
 export function buyGus() {
   if (!afford(GUS_DRINK)) return false;
   wallet.money -= GUS_DRINK * CHIP;
+  coin();
   const r = rumour();
   say('gus', r);
   gusMsg.textContent = `Gus leans in: "${r}"`;
@@ -139,6 +143,8 @@ const barPad = gamePad(DRINK_PAD, '🍸', barPanel, {
 // move (from `gusFrom`, where you stood to speak to him)
 const gus = BAR_STOOLS[3], gusView = { at: V(gus.x, CY + 1.2, gus.z + 0.1), from: V(0.7, 0.55, 0.75).normalize(), wide: 1.8, tall: 1.6 };
 let gusOpen = false;
+// (Esc, as moving off: he turns back to his mug)
+kitPanel(gusPanel, { place: 'card', skin: 'casino', close: () => openGus(false) });
 const gusFrom = V(0, 0, 0);
 function openGus(open: boolean) {
   if (open === gusOpen) return;
