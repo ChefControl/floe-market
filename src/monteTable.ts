@@ -13,6 +13,7 @@ import { QUEEN } from './family';
 import { CHIP, F } from './fight';
 import { heldFight } from './fullHouse';
 import { found, level } from './layout';
+import { met } from './meet';
 import { limitFor, type MonteRound, placesAfter, ROUNDS, START, startRound } from './monte';
 import { canvasTex, FONT } from './render';
 import { deal as dealSound, lose, win } from './sfx';
@@ -211,7 +212,7 @@ const pad = gamePad(BOOTH_PADS.tommy, '🃏', panel, {
   away: "Hey! The lady's still on the table.",
 }, {
   at: V(TOP.x, TOP.y, TOP.z), from: V(Math.sin(FACE) * 0.75, 0.95, Math.cos(FACE) * 0.75).normalize(), wide: 0.8, tall: 0.55,
-}, () => level.down && found.den);
+}, () => level.down && found.den && met('tommy'));
 // (its marking's the Undertow's own, undertow.ts's: this one's never put down)
 pad.enable();
 

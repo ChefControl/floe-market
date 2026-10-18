@@ -36,9 +36,9 @@ const leaves = [-1, 1].map(s => {
   return { pivot, s };
 });
 // the frame round them: iron posts and a lintel, a caged lamp over it, and a pink glow under the doors from inside
-for (const z of [D.z0 - 0.07, D.z1 + 0.07]) { const post = new Mesh(new BoxGeometry(0.2, H + 0.15, 0.14), IRON); post.position.set(D.x, CY + (H + 0.15) / 2, z); parts.den.add(post); }
+for (const z of [D.z0 - 0.04, D.z1 + 0.04]) { const post = new Mesh(new BoxGeometry(0.12, H + 0.1, 0.08), IRON); post.position.set(D.x, CY + (H + 0.1) / 2, z); parts.den.add(post); }
 {
-  const lintel = new Mesh(new BoxGeometry(0.24, 0.2, D.z1 - D.z0 + 0.34), IRON); lintel.position.set(D.x, CY + H + 0.12, MID.z); parts.den.add(lintel);
+  const lintel = new Mesh(new BoxGeometry(0.14, 0.1, D.z1 - D.z0 + 0.16), IRON); lintel.position.set(D.x, CY + H + 0.05, MID.z); parts.den.add(lintel);
   const under = new Mesh(new PlaneGeometry(0.06, D.z1 - D.z0 - 0.1), new MeshBasicMaterial({ color: 0xFF5FA8, transparent: true, opacity: 0.85 }));
   under.position.set(D.x + 0.06, CY + 0.012, MID.z); under.rotation.x = -Math.PI / 2; parts.den.add(under);
 }
@@ -170,7 +170,8 @@ export function updDoorway(dt: number) {
  *  room's wall); through the doors down the tunnel, louder the nearer you get (music.ts). */
 export function clubHeard(p: { x: number; z: number }) {
   if (!level.down || !found.den) return { k: 0, muffle: 1, vol: 1 };
-  if (p.x > DEN.x0 - 0.5 && p.x < D.x - 0.1 && p.z > DEN.z0 - 0.5 && p.z < DEN.z1 + 0.5) return { k: 1, muffle: 0, vol: 1 };
+  // (the club reaches right up to where the tunnel starts, at the doors: no step between them where neither hears it)
+  if (p.x > DEN.x0 - 0.5 && p.x < PASSAGE.x0 - 0.2 && p.z > DEN.z0 - 0.5 && p.z < DEN.z1 + 0.5) return { k: 1, muffle: 0, vol: 1 };
   if (p.x > LOANS.x0 - 0.5 && p.x <= DEN.x0 - 0.5 && p.z > LOANS.z0 - 0.5 && p.z < CARDS.z1 + 0.5) return { k: 1, muffle: 0.45, vol: 0.8 };
   if (p.x > VIP.x0 - 0.5 && p.x < VIP.x1 + 0.5 && p.z >= DEN.z1 + 0.5 && p.z < VIP.z1 + 0.5) return { k: 1, muffle: 0.45, vol: 0.8 };
   const a = along(V(p.x, 0, p.z));

@@ -25,6 +25,7 @@ import { aboard, casinoBoat, level, SHIP, stage } from './layout';
 import { eighth as loungeEighth, LOUNGE, LOUNGE_STEPS, loungeLevel, loungeMix, playLounge } from './lounge';
 import { club, eighth as noirEighth, NOIR, NOIR_STEPS, noirLevel, noirMix, playNoir } from './noir';
 import { offerPlaying } from './offer';
+import { potFading, potPlaying } from './potMusic';
 import { rainK } from './rain';
 import { current, type Season } from './season';
 import { staging } from './stage';
@@ -430,14 +431,26 @@ function updLounge(k: number, now: number) {
 }
 
 // ---------- the Undertow ----------
-/** The club's band's place, as the lounge band's: it starts from the top each time it comes in. */
+/**
+ * The club's band's place: the eighth it's on and when the next is due. It starts from the top the first time it's
+ * heard, and from then on plays on behind the club's doors whether anyone hears it or not (its notes left out where
+ * nobody does), so it's the same tune going on down the tunnel and in the club, and walking in or out never starts it
+ * over. (After a long stall, the page held up, it picks up where it would be by now.)
+ */
 let noir = { on: false, step: 0, next: 0 };
 function updNoir(k: number, muffle: number, vol: number, now: number) {
   noirLevel(Math.sin(k * Math.PI / 2) * vol, muffle);
-  if (k < 0.001) { noir.on = false; return; }
-  if (!noir.on || noir.next < now - 5) noir = { on: true, step: 0, next: now + 0.1 };
+  if (!noir.on) {
+    if (k < 0.001) return;
+    noir = { on: true, step: 0, next: now + 0.1 };
+  }
+  if (noir.next < now - 5) {
+    const skip = Math.ceil((now - noir.next) / noirEighth());
+    noir.next += skip * noirEighth();
+    noir.step = (noir.step + skip) % NOIR_STEPS;
+  }
   while (noir.next < now + 0.2) {
-    if (noir.next >= now && hushed < 2) playNoir(noir.step, noir.next - now);
+    if (noir.next >= now && hushed < 2 && k >= 0.001) playNoir(noir.step, noir.next - now);
     noir.next += noirEighth();
     noir.step = (noir.step + 1) % NOIR_STEPS;
   }
@@ -462,10 +475,8 @@ export function updMusic(dt: number) {
   const hush = (!level.down && (songWanted() || rainK > 0.05)) || staging() || offerPlaying();
   duck(hush ? 0 : 1, hush ? 1.5 : 3);
   hushed = hush ? hushed + dt : 0;
-  // the stage's music and the lounge band's, crossfading up the quay; down the Undertow's tunnel, the stage's and the
-  // club's band's (doorway.ts); the game's sounds in whichever key is on top
-  const harbor = harborK(), den = club.k, away = Math.max(harbor, den);
-  stageMix?.gain.setTargetAtTime(Math.cos(away * Math.PI / 2), ac.currentTime, 0.15);
+  // the game's sounds in the key of whichever music is on top (schedule crossfades them)
+  const harbor = harborK(), den = club.k;
   key.root = harbor > 0.5 ? LOUNGE.sounds : den > 0.5 ? NOIR.sounds : market() ? MARKET.sounds : cellar() ? GLOOP.sounds : band.key;
   schedule();
 }
@@ -473,7 +484,11 @@ export function updMusic(dt: number) {
 function schedule() {
   if (!ac) return;
   if (prefs.mute.music || ac.state !== 'running') { on = false; lounge.on = false; noir.on = false; return; }
-  const now = ac.currentTime, harbor = harborK(), den = club.k, away = Math.max(harbor, den);
+  const now = ac.currentTime, harbor = harborK(), den = club.k, away = Math.max(harbor, den), pot = potPlaying();
+  // the stage's music and the lounge band's crossfading up the quay, or down the Undertow's tunnel the stage's and the
+  // club's band's (doorway.ts); and the stage's all out under the cooking game's music at the pot (potMusic.ts),
+  // coming back slowly as that fades away
+  stageMix?.gain.setTargetAtTime(pot ? 0 : Math.cos(away * Math.PI / 2), now, potFading() ? 0.5 : 0.15);
   updLounge(harbor, now);
   updNoir(den, club.muffle, club.vol, now);
   // a fresh start: the first time, after the music was off or a long stall, and in a new stage (or down the ladder)
@@ -484,7 +499,7 @@ function schedule() {
   while (next < now + 0.2) {
     // faded right out (or crossfaded to the lounge band or the club's): no need to play notes nobody hears; and a step
     // whose time has gone by (the page was held up) is let go, so the music carries on on its beat rather than late
-    if (next >= now && hushed < 2 && away < 0.999) play(step, next - now);
+    if (next >= now && hushed < 2 && away < 0.999 && !pot) play(step, next - now);
     next += stepLen();
     if (++step === verseLen()) { step = 0; newVerse(); }
   }

@@ -726,10 +726,10 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
 #coach .dir{ display:none; position:absolute; left:50%; top:50%; width:0; height:0; }
 #coach.edge .dir{ display:block; }
 #coach .dir::after{ content:""; position:absolute; left:1px; top:-7px; border:7px solid transparent; border-left:20px solid #FFC34A; border-right:0; }
-/* the rating, while the tutorial talks about it */
-#stars.teach{ animation:teach 1.2s ease-in-out infinite; }
+/* the rating (and down in the cellar the 💪), while the tutorial talks about it */
+#stars.teach, #power.teach{ animation:teach 1.2s ease-in-out infinite; }
 @keyframes teach{ 50%{ box-shadow:0 3px 0 var(--shade), 0 0 0 5px rgba(255,195,74,.75); transform:scale(1.08); } }
-@media (prefers-reduced-motion: reduce){ #stars.teach{ animation:none; box-shadow:0 3px 0 var(--shade), 0 0 0 4px #FFC34A; } }
+@media (prefers-reduced-motion: reduce){ #stars.teach, #power.teach{ animation:none; box-shadow:0 3px 0 var(--shade), 0 0 0 4px #FFC34A; } }
 
 /* How to walk: shown once, below the player, then off into the settings gear (hint.ts). */
 #hint{
@@ -1089,19 +1089,23 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
 @media (prefers-reduced-motion: reduce){ #loading, #loading .fill{ transition:none; } }
 #err{ position:fixed; left:12px; right:12px; bottom:calc(env(safe-area-inset-bottom,0px) + 12px); z-index:9; color:#fff; background:#B3261E; border-radius:12px; padding:10px 14px; font:600 15px system-ui,sans-serif; display:none; }
 
-/* ---------- Mr. Fugu's offer (offer.ts), and the scenes on the way south (southDoor.ts), staged as it is ----------
+/* ---------- Mr. Fugu's offer (offer.ts), and the scenes on the way south (southDoor.ts) and the Family's introductions
+   (meet.ts), staged as it is ----------
    The HUD steps aside, everything but him dims, his lines come in a speech bubble and the answers are big buttons. */
-#offer, #way{ --fx:50%; --fy:40%; }
-#offer[hidden], #way[hidden]{ display:none; }
-#offerShade, #wayShade{
+#offer, #way, #meet{ --fx:50%; --fy:40%; }
+#offer[hidden], #way[hidden], #meet[hidden]{ display:none; }
+#offerShade, #wayShade, #meetShade{
   position:fixed; inset:0; z-index:2; pointer-events:none; opacity:0; transition:opacity .6s;
   background:radial-gradient(circle at var(--fx) var(--fy), rgba(15,34,48,0) 0, rgba(15,34,48,0) 16vmin, rgba(15,34,48,.74) 62vmin);
 }
-body.offer #offerShade, body.way #wayShade{ opacity:1; }
-body.offer #game, body.way #game{ filter:saturate(.8); }
+body.offer #offerShade, body.way #wayShade, body.meet #meetShade{ opacity:1; }
+/* (the club's dark already: a lighter dark round the edges) */
+body.meet #meetShade{ opacity:.6; }
+body.offer #game, body.way #game, body.meet #game{ filter:saturate(.8); }
 #hud, #corner, #pointers{ transition:opacity .3s; }
 body.offer #hud, body.offer #corner, body.offer #pointers, body.offer #tip, body.offer .pop,
-body.way #hud, body.way #corner, body.way #pointers, body.way #tip, body.way .pop{ opacity:0; visibility:hidden; }
+body.way #hud, body.way #corner, body.way #pointers, body.way #tip, body.way .pop,
+body.meet #hud, body.meet #corner, body.meet #pointers, body.meet #tip, body.meet .pop{ opacity:0; visibility:hidden; }
 #offerBlink{ position:fixed; inset:0; z-index:7; background:#0F2230; opacity:0; pointer-events:none; }
 #offerBlink.on{ opacity:1; }
 #offerBlink.slow{ transition:opacity .45s; }
@@ -1119,22 +1123,22 @@ body.way #hud, body.way #corner, body.way #pointers, body.way #tip, body.way .po
 #offerAlert.on, #wayAlert.on{ transform:scale(1); }
 /* (the way south's "!" waits out in the world, under the HUD and the panels) */
 #wayAlert{ z-index:1; }
-body.offer #wayAlert, body.way #wayAlert{ visibility:hidden; }
-#offerSay, #waySay{
+body.offer #wayAlert, body.way #wayAlert, body.meet #wayAlert{ visibility:hidden; }
+#offerSay, #waySay, #meetSay{
   position:fixed; left:0; top:0; z-index:5; box-sizing:border-box; width:min(66vw,300px);
   padding:14px 18px 12px; border-radius:20px; background:var(--pill); color:var(--pill-ink); box-shadow:0 4px 0 var(--shade);
   font-size:19px; font-weight:700; line-height:1.2; text-align:center; pointer-events:none;
   transform:translateY(-100%) scale(.85); transform-origin:var(--tail,50%) 100%; opacity:0; transition:opacity .15s, transform .2s;
 }
-#offerSay.on, #waySay.on{ opacity:1; transform:translateY(-100%); }
-#offerSay b, #waySay b{ position:absolute; top:-12px; left:50%; transform:translateX(-50%); white-space:nowrap; background:var(--hot); color:#fff; font-size:14px; font-weight:800; padding:1px 11px; border-radius:999px; }
-#offerSay p, #waySay p{ margin:0; min-height:1.2em; }
+#offerSay.on, #waySay.on, #meetSay.on{ opacity:1; transform:translateY(-100%); }
+#offerSay b, #waySay b, #meetSay b{ position:absolute; top:-12px; left:50%; transform:translateX(-50%); white-space:nowrap; background:var(--hot); color:#fff; font-size:14px; font-weight:800; padding:1px 11px; border-radius:999px; }
+#offerSay p, #waySay p, #meetSay p{ margin:0; min-height:1.2em; }
 /* the rest of the line, unseen till it's said, so the centred line stays put as it types */
-#offerLine::after, #wayLine::after{ content:attr(data-rest); visibility:hidden; }
+#offerLine::after, #wayLine::after, #meetLine::after{ content:attr(data-rest); visibility:hidden; }
 /* the tail points straight down at him, like everyone's speech bubbles */
-#offerSay::after, #waySay::after{ content:""; position:absolute; left:calc(var(--tail,50%) - 8px); bottom:-12px; border:8px solid transparent; border-top:13px solid var(--pill); border-bottom:0; }
-#offerSay i, #waySay i{ position:absolute; right:10px; bottom:4px; width:0; height:0; border:5px solid transparent; border-top:7px solid currentColor; border-bottom:0; opacity:0; }
-#offerSay.done i, #waySay.done i{ opacity:.55; animation:more .8s ease-in-out infinite; }
+#offerSay::after, #waySay::after, #meetSay::after{ content:""; position:absolute; left:calc(var(--tail,50%) - 8px); bottom:-12px; border:8px solid transparent; border-top:13px solid var(--pill); border-bottom:0; }
+#offerSay i, #waySay i, #meetSay i{ position:absolute; right:10px; bottom:4px; width:0; height:0; border:5px solid transparent; border-top:7px solid currentColor; border-bottom:0; opacity:0; }
+#offerSay.done i, #waySay.done i, #meetSay.done i{ opacity:.55; animation:more .8s ease-in-out infinite; }
 @keyframes more{ 50%{ transform:translateY(3px); } }
 #offerPick{
   position:fixed; left:50%; bottom:calc(env(safe-area-inset-bottom,0px) + 22px); transform:translateX(-50%); z-index:5;
@@ -1169,7 +1173,7 @@ body.offer #wayAlert, body.way #wayAlert{ visibility:hidden; }
 #wayLook .ic{ width:34px; height:34px; border-radius:50%; background:rgba(255,255,255,.22); display:grid; place-items:center; font-size:19px; }
 #wayLook button:focus-visible{ outline:3px solid var(--coral); outline-offset:2px; }
 @keyframes pickIn{ from{ transform:translateY(16px) scale(.8); opacity:0; } }
-@media (prefers-reduced-motion: reduce){ #offerAlert, #offerSay, #wayAlert, #waySay{ transition:none; } #offerPick button, #offerSay.done i, #waySay.done i{ animation:none; } }
+@media (prefers-reduced-motion: reduce){ #offerAlert, #offerSay, #wayAlert, #waySay, #meetSay{ transition:none; } #offerPick button, #offerSay.done i, #waySay.done i, #meetSay.done i{ animation:none; } }
 
 /* ---------- phones ----------
    The HUD shrinks to two short rows so it leaves the game in view (the stage chip opens the modifiers), and the
@@ -1485,7 +1489,7 @@ body.show #toss, body.show #cook, body.show #coach, body.show #hint, body.show #
     <div id="showBanner" aria-hidden="true"><div class="k"></div><div class="w"></div></div>
     <div id="showMeter" hidden><b></b><div class="tube"><i class="band"></i><i class="fill"></i><i class="line"></i></div><div class="dots"><i class="dot">Salt</i><i class="dot">Soy</i><i class="dot">Miso</i></div></div>
     <div id="showBoil" hidden><b></b><div class="tube"><i class="band"></i><i class="knob"></i></div><div class="ends"><span>Simmer</span><span>Boil</span></div></div>
-    <div id="showIntro" class="shCard"><div class="tier">Chanko time</div><div class="sub">🔪 Cut · 🐟 Throw · 🧂 Season · 🥄 Stir</div><div class="bonus">🍚 🐟 🍄 ×4 → up to +50% bowls</div><button id="showGo" type="button">Start</button></div>
+    <div id="showIntro" class="shCard"><div class="tier">Chanko time</div><div class="sub">🔪 Cut · 🐟 Throw · 🧂 Season · 🥄 Stir</div><div class="bonus">Up to +50% bowls for 45 s</div><button id="showGo" type="button">Start</button></div>
     <div id="showCard" class="shCard" hidden><div class="hanko" aria-hidden="true"></div><div class="stars"></div><div class="tier"></div><div class="bonus"></div><div class="sub"></div><button id="showBack" type="button">Back to the pot</button></div>
   </div>
   <footer class="shLower"><span id="showCap"></span></footer>
@@ -1732,6 +1736,12 @@ body.show #toss, body.show #cook, body.show #coach, body.show #hint, body.show #
   <div id="waySay" aria-hidden="true"><b id="wayWho">Mr. Fugu</b><p id="wayLine"></p><i></i></div>
   <div id="wayLook" hidden><p>↻ Drag to turn it</p><button id="wayPocket" type="button"><span class="ic" aria-hidden="true">✓</span><span>Pocket it</span></button></div>
   <p id="wayLive" class="sr" aria-live="polite"></p>
+</div>
+<!-- one of the Family introducing himself, the first time (meet.ts), staged as Mr. Fugu is -->
+<div id="meet" hidden>
+  <div id="meetShade"></div>
+  <div id="meetSay" aria-hidden="true"><b id="meetWho"></b><p id="meetLine"></p><i></i></div>
+  <p id="meetLive" class="sr" aria-live="polite"></p>
 </div>
 <script>
 // The loading screen. A build lists the game's scripts and their sizes in window.PRELOAD (see vite.config.ts): fetch
