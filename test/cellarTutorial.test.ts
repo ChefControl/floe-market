@@ -315,7 +315,8 @@ describe("the cellar's tutorial", () => {
     // a kitchen that would win it
     for (const k of ['rice', 'fish'] as const) for (let i = 0; i < 3; i++) fight.addMachine(k);
     for (const r of ['washer', 'salter', 'cook', 'attendant'] as const) fight.hire(r);
-    g.runUntil(() => { draw(); return said().startsWith('Ring the gong'); }, 120);
+    // (asking the lesson what it says, not drawing every step: a forecast a second is slow enough)
+    g.runUntil(() => tut.lesson.now?.say()[0].startsWith('Ring the gong') ?? false, 120);
     const f = fight.forecast()!;
     expect(f.turned).toBeGreaterThanOrEqual(fight.toBeat(f.boss));
     draw();
@@ -341,7 +342,8 @@ describe("the cellar's tutorial", () => {
     expect($('banner').classList.contains('on')).toBe(true);
     expect($('banner').textContent).toContain('Well done');
     expect($('banner').textContent).toContain('Four more bosses to go');
-  });
+    // (a kitchen run ahead in the forecast once a second for up to two minutes: more than the default 15 s on CI)
+  }, 45_000);
 
   it('a game from before the practice fight that has beaten no boss gets it too, but not one past Hakkaku or that won it', async () => {
     // (as a save from before it: no word in it of the practice fight)
