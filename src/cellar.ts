@@ -887,8 +887,9 @@ later(() => {
 const acrossX = (t: (typeof DOORS)[number]) => !Object.values(ROOMS).some(r => Math.abs(r.x1 - t.x0) < 0.01 || Math.abs(r.x0 - t.x1) < 0.01);
 later(() => {
   for (const t of DOORS) {
-    // (the way into the club, the out-of-order stall's back, is the doorman's door: southDoor.ts)
-    if (t.b === 'den') continue;
+    // (the way into the club, the out-of-order stall's back, is the doorman's door: southDoor.ts; and Mama Moray's
+    // hall opens wide into its dining wing, one room round the corner, with no frame)
+    if (t.b === 'den' || (t.a === 'resto' && t.b === 'wing')) continue;
     const ax = acrossX(t), cx = (t.x0 + t.x1) / 2, cz = (t.z0 + t.z1) / 2, w = (ax ? t.x1 - t.x0 : t.z1 - t.z0) + 0.6;
     const g = t.b === 'grow' ? parts.grow : t.b === 'loans' || t.b === 'vip' || t.b === 'cards' ? parts.den : cellar;
     for (const s of [-1, 1]) {
@@ -1851,19 +1852,23 @@ later(() => {
 
   // the shop's noren in the doorway from the hearth room: indigo, in three strips, 道 and 具 (tools, for the kitchen)
   // on the outer two in white and a white ring on the middle one; and a red lantern hung by it
-  const t = door('craft'), span = t.x1 - t.x0 + 0.6, x = (t.x0 + t.x1) / 2, z = (t.z0 + t.z1) / 2 + 0.06, ny = CY + FRAME_H - 0.27;
-  for (let i = -1; i <= 1; i++) {
-    const m = box(cellar, INDIGO, x + i * span / 3, ny, z, span / 3 - 0.04, 0.34, 0.02, false); m.receiveShadow = false;
+  // (and the same in its back doorway, from Mama Moray's dining wing, on the wing's side)
+  const ny = CY + FRAME_H - 0.27;
+  for (const t of [door('craft'), DOORS.find(d => d.a === 'wing' && d.b === 'craft')!]) {
+    const span = t.x1 - t.x0 + 0.6, x = (t.x0 + t.x1) / 2, z = (t.z0 + t.z1) / 2 + 0.06;
+    for (let i = -1; i <= 1; i++) {
+      const m = box(cellar, INDIGO, x + i * span / 3, ny, z, span / 3 - 0.04, 0.34, 0.02, false); m.receiveShadow = false;
+    }
+    add(cellar, mesh(new TorusGeometry(0.075, 0.02, 4, 16), PORCELAIN, x, ny, z + 0.015));
+    for (const [i, k] of [[-1, '道'], [1, '具']] as const) {
+      const letter = canvasTex(64, 64, (c, w, h) => {
+        c.fillStyle = '#F4F1EA'; c.font = `800 46px ${FONT}`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(k, w / 2, h / 2 + 2);
+      });
+      const m = add(cellar, new Mesh(new PlaneGeometry(0.22, 0.22), new MeshLambertMaterial({ map: letter.tex, transparent: true })));
+      m.position.set(x + i * span / 3, ny, z + 0.012);
+    }
   }
-  add(cellar, mesh(new TorusGeometry(0.075, 0.02, 4, 16), PORCELAIN, x, ny, z + 0.015));
-  for (const [i, k] of [[-1, '道'], [1, '具']] as const) {
-    const letter = canvasTex(64, 64, (c, w, h) => {
-      c.fillStyle = '#F4F1EA'; c.font = `800 46px ${FONT}`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(k, w / 2, h / 2 + 2);
-    });
-    const m = add(cellar, new Mesh(new PlaneGeometry(0.22, 0.22), new MeshLambertMaterial({ map: letter.tex, transparent: true })));
-    m.position.set(x + i * span / 3, ny, z + 0.012);
-  }
-  lantern(cellar, t.x1 + 0.6, CY + 2.2, CRAFT.z0 + 0.15, true);
+  lantern(cellar, door('craft').x1 + 0.6, CY + 2.2, CRAFT.z0 + 0.15, true);
 
   // a tansu chest in the corner by the counter, dark wood with black iron: a long drawer over two short ones over another
   // long one, iron pulls on round plates, corner plates, a lock plate, and a carrying ring on each end; a lucky cat on

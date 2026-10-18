@@ -506,12 +506,13 @@ describe('the rooms', () => {
     };
     // the walls' tops: every low one's rail at one height, just over the earth's cut (between rooms and round the
     // outside, the prep hall's stone back wall too); every tall one's cap at one height, just over the bank behind it
-    // (the arena's piles, north and west, and the office's own wall); and every doorway's lintel at one height
+    // (the arena's piles, north and west, and the office's own wall); and every doorway's lintel at one height (but
+    // Mama Moray's hall's wide way into its dining wing, which has none)
     const low = [[-5, L.ARENA.z1 + 0.1], [L.ARENA.x1 + 0.3, 2], [L.KITCHEN.x1 + 0.3, 2], [L.CRAFT.x0 + 0.5, L.WING.z1 + 0.1], [16, L.PREP.z1 + 0.1],
       [L.LIFT_ROOM.x1 + 0.1, 4.9], [13, L.PREP.z0 - 0.3], [L.OFFICE_ROOM.x1 + 0.3, -6]].map(([x, z]) => down(x, z)!);
     const tall = [[-5, L.ARENA.z0 - 0.75], [L.ARENA.x0 - 0.75, 0], [7, L.OFFICE_ROOM.z0 - 0.25]].map(([x, z]) => down(x, z)!);
     const secret = (d: (typeof L.DOORS)[number]) => d.b === 'grow' || d.b === 'den' || d.b === 'loans' || d.b === 'vip' || d.b === 'cards';
-    const lintels = [...L.DOORS.filter(d => !secret(d)).map(d => down((d.x0 + d.x1) / 2, (d.z0 + d.z1) / 2)!), ...plan.TUNNELS.map(t =>
+    const lintels = [...L.DOORS.filter(d => !secret(d) && !(d.a === 'resto' && d.b === 'wing')).map(d => down((d.x0 + d.x1) / 2, (d.z0 + d.z1) / 2)!), ...plan.TUNNELS.map(t =>
       t.side === 'w' ? down(L.ARENA.x0 - 0.08, t.at + 0.5)! : down(t.at + 0.5, L.ARENA.z0 - 0.08)!)];
     for (const h of low) expect(h).toBeCloseTo(low[0], 5);
     for (const h of tall) expect(h).toBeCloseTo(tall[0], 5);
