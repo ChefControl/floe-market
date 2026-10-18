@@ -182,7 +182,8 @@ let practised = false;
 let readyAt = -Infinity, ready = false;
 function gongReady() {
   const b = nextBoss();
-  if (!b || F.rush) return false;
+  // (rung already, the boss waiting on a local fight: fight.ts's F.called)
+  if (!b || F.rush || F.called) return false;
   if (F.t < readyAt || F.t - readyAt >= 1) {
     readyAt = F.t;
     const f = forecast();
@@ -311,12 +312,14 @@ const STEPS: Step[] = [
   {
     // the first fight (the practice one, or for a game from before it the first boss): the loop's next job till the
     // forecast says it's won, then the gong; while his fans are coming and eating, what wins it, back on the loop; once
-    // his bell's rung, off to watch the fight; learnt by winning it
+    // his bell's rung, off to watch the fight; learnt by winning it (rung while a local fight's on, he walks in after it)
     id: 'gong', stage: 3, after: 'fed',
     at: () => (F.rush?.done ? down(WATCH) : !F.rush && gongReady() ? down(GONG_PAD) : loop()?.at ?? (F.rush ? down(BAR_PAD) : null)),
     say: () => {
       if (F.rush?.done) return ['Go watch the fight', 'Stand on the 👁️ spot'];
       if (F.rush) return ['Feed his fans to win them', `Win ${target()} before the 🔔 rings`];
+      // (rung during a local fight: he walks in once it's over)
+      if (F.called) return ['He walks in after this fight', loop()?.say[0] ?? 'Keep the stall full'];
       if (gongReady()) return ['Ring the gong for a fight', 'A rival brings his own fans'];
       return [lost ? 'Fill the stall, then try again' : 'Fill the stall for a fight', loop()?.say[0]];
     },

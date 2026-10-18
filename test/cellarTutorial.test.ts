@@ -186,8 +186,15 @@ describe("the cellar's tutorial", () => {
     at(plan.GONG_PAD);
     g.run(0.1);
     expect(fight.ringGong()).toBe(true);
-    // during it, what wins it, back on the loop
+    // (rung while a local fight's on, he walks in once it's over)
     at({ x: 0, z: 0 });
+    if (F().called) {
+      g.run(0.1);
+      draw();
+      expect(said()).toMatch(/^He walks in after this fight \/ /);
+      g.runUntil(() => !!F().rush, fight.BOUT.fight + fight.BOUT.pay);
+    }
+    // during it, what wins it, back on the loop
     g.run(0.1);
     draw();
     expect(now()).toBe('gong');
