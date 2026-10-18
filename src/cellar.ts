@@ -1280,30 +1280,32 @@ later(() => {
     // (thin, and under the drop-off's marker on them: ringKitchen.ts lays it at 0.012)
     box(g, i % 2 ? 0x7A5638 : 0x6E4C30, Math.min(x + 0.11, ARENA.x1 + 0.09), CY + 0.004, (fz0 + fz1) / 2, 0.22, 0.004, fz1 - fz0, false).receiveShadow = true;
   }
-  // a bamboo pole at each corner, in lengths with a knot at each joint (the south two against the south wall)
+  // a bamboo pole at each corner, in lengths with a knot at each joint (the south two against the south wall) (all of
+  // it, to the name board, in barFrame: Pricier bowls swaps it for a look of its own, cellarLooks.ts)
   const POLE = 2.7, SEG = POLE / 3, C = [V(x0 + 0.08, 0, z0 + 0.08), V(x1 - 0.14, 0, z0 + 0.08), V(x1 - 0.14, 0, z1 - 0.12), V(x0 + 0.08, 0, z1 - 0.12)];
+  const f = add(g, barFrame);
   for (const p of C) {
     for (let k = 0; k < 3; k++) {
-      add(g, mesh(G.cyl, k % 2 ? 0x8FA552 : 0x7E9446, p.x, CY + (k + 0.5) * SEG, p.z, true)).scale.set(0.06, SEG, 0.06);
-      add(g, mesh(G.cyl, 0x5E6E30, p.x, CY + (k + 1) * SEG, p.z)).scale.set(0.072, 0.04, 0.072);
+      add(f, mesh(G.cyl, k % 2 ? 0x8FA552 : 0x7E9446, p.x, CY + (k + 0.5) * SEG, p.z, true)).scale.set(0.06, SEG, 0.06);
+      add(f, mesh(G.cyl, 0x5E6E30, p.x, CY + (k + 1) * SEG, p.z)).scale.set(0.072, 0.04, 0.072);
     }
   }
   // the lanterns strung between them round the back three sides, red and paper by turns, and a crossbar along the back
   const tops = C.map(p => V(p.x, CY + POLE - 0.1, p.z)), lit: Record<'red' | 'paper', BufferGeometry[]> = { red: [], paper: [] };
   for (const [i, j] of [[3, 0], [0, 1], [1, 2]]) {
     const along = sag(tops[i], tops[j], 0.3, 10);
-    add(g, mesh(new TubeGeometry(new CatmullRomCurve3(along), 20, 0.012, 4), 0x1A1614));
+    add(f, mesh(new TubeGeometry(new CatmullRomCurve3(along), 20, 0.012, 4), 0x1A1614));
     for (let k = 2; k < 10; k += 2) {
       const p = along[k], ball = copyGeo(G.sphere);
       ball.scale(0.14, 0.18, 0.14); ball.translate(p.x, p.y - 0.22, p.z);
       lit[(k / 2 + i) % 2 ? 'red' : 'paper'].push(ball);
-      for (const s of [-1, 1]) add(g, mesh(G.cyl, 0x1B2430, p.x, p.y - 0.22 + s * 0.175, p.z)).scale.set(0.07, 0.03, 0.07);
+      for (const s of [-1, 1]) add(f, mesh(G.cyl, 0x1B2430, p.x, p.y - 0.22 + s * 0.175, p.z)).scale.set(0.07, 0.03, 0.07);
     }
   }
-  add(g, new Mesh(mergeGeometries(lit.red)!, LANTERN_RED));
-  add(g, new Mesh(mergeGeometries(lit.paper)!, LANTERN_PAPER));
+  add(f, new Mesh(mergeGeometries(lit.red)!, LANTERN_RED));
+  add(f, new Mesh(mergeGeometries(lit.paper)!, LANTERN_PAPER));
   lit.red.concat(lit.paper).forEach(b => b.dispose());
-  const bar = add(g, mesh(G.cyl, 0x7E9446, (x0 + x1) / 2, CY + POLE - 0.04, z0 + 0.08));
+  const bar = add(f, mesh(G.cyl, 0x7E9446, (x0 + x1) / 2, CY + POLE - 0.04, z0 + 0.08));
   bar.scale.set(0.05, x1 - x0 - 0.1, 0.05); bar.rotation.z = Math.PI / 2;
   // its name board, standing on the crossbar, facing the room
   const name = canvasTex(256, 96, (c, w, h) => {
@@ -1312,7 +1314,7 @@ later(() => {
     c.fillStyle = '#F7EFE0'; c.font = `800 ${Math.round(h * 0.55)}px ${MINCHO}`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('ちゃんこ', w / 2, h / 2 + 2);
   });
   const edge = mat(WOOD_DARK);
-  add(g, new Mesh(new BoxGeometry(1.1, 0.41, 0.04), [edge, edge, edge, edge, new MeshBasicMaterial({ map: name.tex }), edge])).position.set((x0 + x1) / 2, CY + POLE + 0.2, z0 + 0.1);
+  add(f, new Mesh(new BoxGeometry(1.1, 0.41, 0.04), [edge, edge, edge, edge, new MeshBasicMaterial({ map: name.tex }), edge])).position.set((x0 + x1) / 2, CY + POLE + 0.2, z0 + 0.1);
   // a short indigo curtain in the doorway from the hearth room, a white crest on its middle strip, like the landing's
   const t = DOORS.find(o => o.a === 'kitchen' && o.b === 'arena')!, span = t.z1 - t.z0 + 0.6, cz = (t.z0 + t.z1) / 2, cx = (t.x0 + t.x1) / 2 - 0.06;
   for (let i = -1; i <= 1; i++) box(g, 0x2B3A67, cx, CY + FRAME_H - 0.35, cz + i * span / 3, 0.02, 0.5, span / 3 - 0.04, false).receiveShadow = false;
@@ -1328,6 +1330,9 @@ const BAR_BOXES: [number, number, number, number][] = (() => {
   ];
 })();
 const FLAP_BOX: [number, number, number, number] = [BAR.x0 + BAR.d / 2, (FLAP.z0 + FLAP.z1) / 2, BAR.d / 2 + 0.22, (FLAP.z1 - FLAP.z0) / 2];
+/** The soup square's bamboo poles, the lanterns strung between them and its name board: shown till the first level
+ *  of Pricier bowls, which dresses the square its own way (cellarLooks.ts); baked on its own, so it can go. */
+export const barFrame = new Group();
 /** What moves in the cellar's furniture, left out of its baking: the flap's lid and door. */
 const moving: Object3D[] = [];
 /** The flap: how far open it is (0 shut, 1 open), and its lid and door (once built). */
@@ -3181,8 +3186,8 @@ export function buildCellar() {
     for (const f of toBuild) f();
     // (the gong's disc swings, the pot's stew changes colour, Mr. Fugu puffs up, the soup square's flap lifts; and the
     // venue's parts, the grow room and the Undertow come and go, so each is baked on its own)
-    bakeStill(cellar, new Set<Object3D>([gongDisc, potMesh, boss, tankFish, ...Object.values(parts), ...theirs, ...moving]));
-    for (const g of Object.values(parts)) bakeStill(g, new Set(theirs));
+    bakeStill(cellar, new Set<Object3D>([gongDisc, potMesh, boss, tankFish, barFrame, ...Object.values(parts), ...theirs, ...moving]));
+    for (const g of [...Object.values(parts), barFrame]) bakeStill(g, new Set(theirs));
     // (and the Undertow's lamps and glows, each kind merged into one: there are dozens of them)
     bakeAlike(parts.den, new Set(theirs));
   }, dice(0xCE11A));
