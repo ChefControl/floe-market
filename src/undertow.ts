@@ -39,7 +39,7 @@ export const LINES: Record<Booth, string[]> = {
   ],
   tommy: [
     'Three-Card Tommy. Nobody ever follows the lady.',
-    'Find the queen, I pay double.',
+    'Find the queen, I pay half again.',
     "Honest game. The trick's in my hands.",
   ],
 };

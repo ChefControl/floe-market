@@ -1,5 +1,5 @@
 // Slick Eddie's fixed fights (stage 3, the Undertow): step up to his table and he'll keep some of the next boss's fans
-// home, 10% to 50% of them, for the same share of that boss's prize in Fugu Chips, paid up front, win or lose. The
+// home, 10% to 50% of them, for 🐡 8 a fan (fight.ts's FIX_PER_FAN), paid up front, win or lose. The
 // bigger the fix, the likelier the papers get wind of it: 5% for a small one, 70% for half the hall. Whether they do
 // is rolled the moment it's paid for (outside the cellar's sim, which leaves nothing to chance, so the gong's forecast
 // stays exact) and saved, and only comes out at the gong: if the fix holds, the boss walks in with that many fewer

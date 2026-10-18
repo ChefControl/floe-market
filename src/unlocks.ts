@@ -12,7 +12,7 @@ import { CY, showVenue } from './cellar';
 import { openSled, openTakeout } from './counters';
 import { decal, drawTile, type Decal } from './decals';
 import { boost } from './economy';
-import { addMachine, BATCH, BOSSES, BUYOUT, CHIP, COOK_BATCH, F, hire, HIRES, type Ing, MACH, MACH_COST, machineCost, on, practiceDue, setTier, TIERS, upgradeLine, UPS } from './fight';
+import { addMachine, BATCH, BOSSES, BUYOUT, CHIP, COOK_BATCH, F, hire, HIRES, type Ing, MACH, MACH_COST, machineCost, on, practiceDue, setTier, TIER_BEAT, TIER_COST, TIERS, upgradeLine, UPS } from './fight';
 import { tryCatch } from './fishing';
 import { addTables } from './garden';
 import { enableKorki, KORKI } from './korki';
@@ -147,7 +147,7 @@ const UNLOCKS: Unlock[] = [
   ...ring('attendant', 9.6, 5.9, '🍲', HIRES.attendant.name, 'Carries bowls from the counter to the soup bar', HIRES.attendant.beat, HIRES.attendant.cost),
   ...ring('cook', 7.6, 5.9, '👨‍🍳', HIRES.cook.name, `Cooks while you're away: ${COOK_BATCH} bowls, not ${BATCH}`, HIRES.cook.beat, HIRES.cook.cost),
   ...[1, 2, 3].flatMap(i => ring(`tier${i}` as UnlockId, 1.6, 1.9, ['', '🏮', '🥁', '⛩️'][i], TIERS[i].name,
-    `The venue grows to ${TIERS[i].seats} seats${i === 2 ? ', with taiko drummers' : ''}`, [0, 1, 3, 4][i], [0, 200, 900, 2500][i], undefined, i > 1 ? `tier${i - 1}` as UnlockId : undefined)),
+    `The venue grows to ${TIERS[i].seats} seats${i === 2 ? ', with taiko drummers' : ''}`, TIER_BEAT[i], TIER_COST[i], undefined, i > 1 ? `tier${i - 1}` as UnlockId : undefined)),
   { id: 'buyout', cost: BUYOUT * CHIP, ...below(7.55, -5.25), icon: '🐡', name: 'Buy back all his chips', desc: "The ring is yours: Mr. Fugu's 30% ends, the till comes back", stage: 3, gold: true, beat: BOSSES.length },
   { id: 'korki', cost: 10, x: KORKI.x, z: KORKI.z, icon: '🛴', name: "Korki's golden statue", desc: 'In memory of a good scooter', stage: 1, always: true, everywhere: true },
   // the casino boat's other games, on its deck: fun extras, for sale from when the boat comes in

@@ -31,14 +31,14 @@ export const INTRO: Record<Booth, string[]> = {
     'Close the door, kid. Sit.',
     "Hammerhead Harry. Samehada's my nephew.",
     'Short on chips? I lend.',
-    'You pay back a fifth more.',
+    'You pay back a quarter more.',
     "I take 30% of sales till it's paid.",
   ],
   tommy: [
     'Hey, new face! Step right up.',
     'Three-Card Tommy. Find the queen.',
     'I shuffle. You point. Simple.',
-    'Find her, I pay double.',
+    'Find her, I pay half again.',
     'Three rounds a fight. Ready?',
   ],
 };

@@ -71,9 +71,9 @@ export const MODS: Mod[] = [
   {
     id: 'street', stage: 3, kind: 'customers', icon: '📣', name: 'Word on the street', what: 'More fans fill the seats',
     levels: ['Chalk tags', 'Matchbooks', 'Whispers', 'Pirate radio', 'Neon arrow', 'Fight posters', 'Late-night TV', 'A blimp'],
-    per: 1.2, cost: 20_000, step: 1.75, max: 8,
+    per: 1.105, cost: 20_000, step: 1.75, max: 8,
   },
-  { id: 'cellarcrew', stage: 3, kind: 'speed', icon: '🧑‍🍳', name: 'Cellar crew', what: 'Hires walk and work faster', per: 1.12, cost: 40_000, step: 1.75, max: 8 },
+  { id: 'cellarcrew', stage: 3, kind: 'speed', icon: '🧑‍🍳', name: 'Cellar crew', what: 'Hires walk and work faster', per: 1.12, cost: 150_000, step: 1.45, max: 8 },
 ];
 export const MOD = Object.fromEntries(MODS.map(m => [m.id, m])) as Record<ModId, Mod>;
 
