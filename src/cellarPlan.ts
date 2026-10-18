@@ -305,6 +305,11 @@ export const HOME = {
   washer: { x: PREP.x0 + 0.9, z: PREP.z0 + 2.3 }, salter: { x: PREP.x0 + 0.9, z: PREP.z1 - 2.3 },
   picker: { x: (GROW.x0 + GROW.x1) / 2 + 1.6, z: GROW.z1 - 0.9 }, cook: COOK_AT, attendant: { x: COUNTER_PAD.x - 0.5, z: KITCHEN.z1 - 0.35 },
 } as const;
+/** Where the attendant works the bowl line's motor once it's in, in the bowl counter's place (bowlLine.ts): at its
+ *  west side, by its flywheel. */
+export const MOTOR_AT = { x: COUNTER.x - 0.8, z: COUNTER.z - 0.1 };
+/** Where a hire goes when there's nothing to do. */
+export const homeOf = (role: keyof typeof HOME, slide: boolean) => (role === 'attendant' && slide ? MOTOR_AT : HOME[role]);
 
 // ---------- getting about ----------
 type Rect = typeof ARENA;

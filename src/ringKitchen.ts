@@ -7,7 +7,7 @@
 // 🍄?), or over the bar when fans wait at it with nothing to eat, like the cooks upstairs.
 import { CanvasTexture, Color, Group, type Material, Mesh, MeshBasicMaterial, MeshLambertMaterial, type Object3D, PlaneGeometry, Sprite, SpriteMaterial, Vector3 } from 'three';
 import { cellar, CY, LIFT_LOOP, parts, POT_TOP, potMesh, potStew } from './cellar';
-import { BAR, BAR_PLACES, BAR_PAD, BIN_PADS, BINS, CHUTE, chuteY, COUNTER, COUNTER_PAD, HEARTH, type Ing, LEDGE, LIFTS, machineAt, machinePad, MAX_MACHINES, POT, POT_PAD, STORES } from './cellarPlan';
+import { BAR, BAR_PLACES, BAR_PAD, BIN_PADS, BINS, CHUTE, chuteY, COUNTER, COUNTER_PAD, HEARTH, type Ing, LEDGE, LIFTS, machineAt, machinePad, MAX_MACHINES, MOTOR_AT, POT, POT_PAD, STORES } from './cellarPlan';
 import { decal, drawPad } from './decals';
 import { animPerson, belowGround, Person } from './characters';
 import { COUNTER_CAP, F, inPot, POT_CAP, poured, slid, sold, type Machine, mach, potWaits, type Role, STALL_CAP, type Worker } from './fight';
@@ -185,7 +185,9 @@ function marker(at: XZ, icon: string, parent: Object3D = cellar) {
   return d.mesh;
 }
 for (const k of ['rice', 'fish'] as const) marker(BIN_PADS[k], k === 'rice' ? '🍚' : '🐟');
-marker(POT_PAD, '🍲').name = 'potPad'; marker(COUNTER_PAD, '🍲'); marker(BAR_PAD, '🏮');
+marker(POT_PAD, '🍲').name = 'potPad'; marker(BAR_PAD, '🏮');
+/** The counter's spot, to pick its bowls up at: gone once the bowl line's in, in its place (bowlLine.ts). */
+const counterPad = marker(COUNTER_PAD, '🍲');
 const MARK_ICON: Record<Ing, string> = { rice: '🌾', fish: '🐟', mush: '🍄' };
 // (a marker by each of the grow room's beds; one for all the racks, and one for all the barrels, which moves along the
 // row as it grows: cellarPlan.ts's machinePad)
@@ -592,6 +594,13 @@ function drawCrew(dt: number) {
     }
     animPerson(p, w.moving, dt, n > 0);
     if (w.cooking > 0) p.arms[1].rotation.x = -1.4 + Math.sin(F.t * 8) * 0.4;
+    // (the attendant at the bowl line's motor: facing its flywheel, a hand on its rim, the other now and then on the
+    // box, easing it along)
+    if (w.role === 'attendant' && F.slide && !w.moving && Math.hypot(w.x - MOTOR_AT.x, w.z - MOTOR_AT.z) < 0.3) {
+      p.rotation.y = Math.PI / 2;
+      p.arms[1].rotation.x = -1.25 + Math.sin(F.t * 5) * 0.22;
+      p.arms[0].rotation.x = -0.7 - Math.max(0, Math.sin(F.t * 0.9)) * 0.6;
+    }
   }
 }
 /** The Person for a hire, if they're in (for tests and pointing at them). */
@@ -660,6 +669,7 @@ export function updRingKitchen(dt: number) {
     mk.m.position.x = at.x; mk.m.position.z = at.z;
   }
   for (const k of ['rice', 'fish', 'mush'] as const) ledge[k].forEach((m, j) => { m.visible = j < F.pantry[k]; });
+  counterPad.visible = !F.slide;
   serveBowls();
   drawSlide(dt);
   drawBar();

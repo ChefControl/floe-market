@@ -1579,11 +1579,13 @@ describe("the cellar's tiles", () => {
     expect(offered(g)).not.toContain('cook');
     F().beaten = 3;
     g.run(0.1);
-    // (the cook needs the attendant first, in the shop's tree)
+    // (the cook needs the attendant first, in the shop's tree, and so does the bowl slide: it takes over his carrying)
     expect(offered(g)).not.toContain('cook');
+    expect(offered(g)).not.toContain('slide');
     g.unlocks.buyFromMenu(g.unlocks.tiles.find(t => t.id === 'attendant')!);
     g.run(0.1);
     expect(offered(g)).toContain('cook');
+    expect(offered(g)).toContain('slide');
   });
 
   it('a cook cooks full batches out of the pot, and ladles them out twice as fast', async () => {
@@ -1679,6 +1681,13 @@ describe("the cellar's tiles", () => {
     g.run(1);
     expect(F().counter.length).toBe(0);
     expect(F().stall.length).toBe(10);
+    // (the attendant, who carried them, goes over to work the line's motor, and carries no more)
+    fight.hire('attendant');
+    F().counter = Array(10).fill(false); F().stall = [];
+    g.run(8);
+    const p = rk.crewPerson('attendant')!.position;
+    expect(Math.hypot(p.x - plan.MOTOR_AT.x, p.z - plan.MOTOR_AT.z)).toBeLessThan(0.3);
+    expect(F().crew.find(w => w.role === 'attendant')!.carry).toBe(null);
   }, 30_000);
 
   it("with the player at the pot all through the rush, it turns at least what the gong promised", async () => {

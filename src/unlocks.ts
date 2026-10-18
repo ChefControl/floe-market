@@ -145,7 +145,7 @@ const UNLOCKS: Unlock[] = [
   ...ring('picker', 14.7, -3.95, '🧑‍🌾', HIRES.picker.name, 'Runs the mushroom line: picks the beds and carries mushrooms to the pot', HIRES.picker.beat, HIRES.picker.cost),
   ...ring('shelves', 16.1, -3.95, '✨', 'Glowing grow shelves', `Swaps every bed for glowing shelves: ${MACH.mush[1].cap} mushrooms, one every ${MACH.mush[1].time} s`, UPS.mush.beat, UPS.mush.cost),
   ...ring('attendant', 9.6, 5.9, '🍲', HIRES.attendant.name, 'Carries bowls from the counter to the soup bar', HIRES.attendant.beat, HIRES.attendant.cost),
-  ...ring('slide', 8.6, 5.9, '🛝', 'Bowl slide', `Sends bowls from the counter down to the soup bar by itself, ${SLIDE} a second`, SLIDE_BEAT, SLIDE_COST),
+  ...ring('slide', 8.6, 5.9, '🛝', 'Bowl slide', `A belt from the pot to the soup bar, ${SLIDE} bowls a second, the attendant at its motor`, SLIDE_BEAT, SLIDE_COST),
   ...ring('cook', 7.6, 5.9, '👨‍🍳', HIRES.cook.name, 'Cooks while you\'re away, full batches, and ladles twice as fast', HIRES.cook.beat, HIRES.cook.cost),
   ...[1, 2, 3].flatMap(i => ring(`tier${i}` as UnlockId, 1.6, 1.9, ['', '🏮', '🥁', '⛩️'][i], TIERS[i].name,
     `The venue grows to ${TIERS[i].seats} seats${i === 2 ? ', with taiko drummers' : ''}`, TIER_BEAT[i], TIER_COST[i], undefined, i > 1 ? `tier${i - 1}` as UnlockId : undefined)),
@@ -163,9 +163,10 @@ const MENU_OF: Partial<Record<UnlockId, MenuRoom>> = {
   rack: 'prep', barrel: 'prep', washer: 'prep', salter: 'prep', steam: 'prep', smoke: 'prep',
   bed: 'grow', picker: 'grow', shelves: 'grow', attendant: 'hearth', slide: 'hearth', cook: 'hearth', tier1: 'venue', tier2: 'venue', tier3: 'venue',
 };
-// The tree's lines: a line's big upgrade needs its hand first, and the cook the attendant (the tiers need the one
-// before, above). The two lines' hands wait for the practice fight, whose prize hires them.
-const NEEDS: Partial<Record<UnlockId, UnlockId>> = { steam: 'washer', smoke: 'salter', shelves: 'picker', cook: 'attendant' };
+// The tree's lines: a line's big upgrade needs its hand first (the bowl slide the attendant: it takes over his
+// carrying, and he works its motor), and the cook the attendant (the tiers need the one before, above). The two
+// lines' hands wait for the practice fight, whose prize hires them.
+const NEEDS: Partial<Record<UnlockId, UnlockId>> = { steam: 'washer', smoke: 'salter', shelves: 'picker', slide: 'attendant', cook: 'attendant' };
 for (const u of UNLOCKS) {
   const room = MENU_OF[u.id];
   if (room) Object.assign(u, { menu: room, ...below(ROOM_MENUS[room].x, ROOM_MENUS[room].z) });

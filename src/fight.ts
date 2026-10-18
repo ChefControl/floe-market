@@ -17,7 +17,7 @@
 //
 // Money is Fugu Chips 🐡 down here: 1 chip is $1,000 of the same wallet.
 import { boost, mods } from './economy';
-import { BAR_PAD, BIN_PADS, cellarWay, COOK_AT, COUNTER_PAD, HOME, type Ing, LEDGE, machinePad, MAX_MACHINES, POT_PAD } from './cellarPlan';
+import { BAR_PAD, BIN_PADS, cellarWay, COOK_AT, COUNTER_PAD, homeOf, type Ing, LEDGE, machinePad, MAX_MACHINES, POT_PAD } from './cellarPlan';
 import type { Kind } from './creatures';
 import type { XZ } from './util';
 
@@ -703,7 +703,7 @@ export function hire(role: Role) {
   F.crew.push(worker(role));
 }
 function worker(role: WorkerRole): Worker {
-  const at = role === 'you' ? { x: 0, z: 0 } : HOME[role];
+  const at = role === 'you' ? { x: 0, z: 0 } : homeOf(role, F.slide);
   return { role, x: at.x, z: at.z, h: 0, moving: false, path: [], steps: [], carry: null, dwell: 0, cooking: 0, cookT: 0, idle: 0 };
 }
 const lineOf = (w: Worker) => (w.role === 'you' ? undefined : HIRES[w.role].line);
@@ -774,7 +774,8 @@ function think(w: Worker): Step[] | null {
   const k = lineOf(w);
   if (k) return planLine(w, k);
   if (w.role === 'cook') return [{ to: COOK_AT, act: 'cook' }];
-  return F.counter.length && F.stall.length < STALL_CAP ? planBowls() : null;
+  // (the attendant carries bowls till the bowl line's in, then works its motor)
+  return !F.slide && F.counter.length && F.stall.length < STALL_CAP ? planBowls() : null;
 }
 /** Does a step's job; false means the rest of the job's off (nothing there to take). */
 function doAct(w: Worker, st: Step): boolean {
@@ -860,7 +861,7 @@ function updWorker(w: Worker, dt: number) {
     if (plan) { w.steps = plan; w.idle = 0; }
     else {
       w.idle += dt;
-      if (w.idle > 2.5 && w.role !== 'you') { w.idle = 0; const home = HOME[w.role]; if (Math.hypot(w.x - home.x, w.z - home.z) > 0.3) w.path = cellarWay(w, home); }
+      if (w.idle > 2.5 && w.role !== 'you') { w.idle = 0; const home = homeOf(w.role, F.slide); if (Math.hypot(w.x - home.x, w.z - home.z) > 0.3) w.path = cellarWay(w, home); }
     }
     return;
   }

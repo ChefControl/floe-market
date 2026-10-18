@@ -101,8 +101,8 @@ export function cellarWork(p: XZ, dt: number) {
     }
     playerAtPot(dt);
   }
-  // the counter: bowls
-  if (at(p, COUNTER_PAD)) {
+  // the counter: bowls (till the bowl line's in, in its place)
+  if (!F.slide && at(p, COUNTER_PAD)) {
     while (player.tPick <= 0 && back.hasRoom() && F.counter.length) {
       player.tPick += STEP;
       const m = newBowl(takeBowl()!); m.position.copy(counterAt());
@@ -161,7 +161,7 @@ export function cellarTip(p: XZ): TipContent | null {
     const show = F.bonus.t > 0 ? ` · 🔥 +${F.bonus.pct}%` : '';
     return { name: 'The pot · stand here to cook', desc: `${ledge} → 🍲 ${batchBowls()}${show} · ${F.pot.length}/${POT_CAP} in the pot` };
   }
-  if (at(p, COUNTER_PAD)) return { name: 'Bowls 🍲', desc: `${F.counter.length}/${COUNTER_CAP} → the soup bar` };
+  if (!F.slide && at(p, COUNTER_PAD)) return { name: 'Bowls 🍲', desc: `${F.counter.length}/${COUNTER_CAP} → the soup bar` };
   if (at(p, BAR_PAD)) {
     return { name: 'The soup bar', desc: `${F.stall.length}/${STALL_CAP} out · ${F.queue.length} waiting · a bowl pays 🐡 ${chips(bowlPrice(F.beaten >= 1))}` };
   }
