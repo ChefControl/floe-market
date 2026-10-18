@@ -186,8 +186,15 @@ describe("the cellar's tutorial", () => {
     at(plan.GONG_PAD);
     g.run(0.1);
     expect(fight.ringGong()).toBe(true);
-    // during it, what wins it, back on the loop
+    // (rung while a local fight's on, he walks in once it's over)
     at({ x: 0, z: 0 });
+    if (F().called) {
+      g.run(0.1);
+      draw();
+      expect(said()).toMatch(/^He walks in after this fight \/ /);
+      g.runUntil(() => !!F().rush, fight.BOUT.fight + fight.BOUT.pay);
+    }
+    // during it, what wins it, back on the loop
     g.run(0.1);
     draw();
     expect(now()).toBe('gong');
@@ -323,7 +330,7 @@ describe("the cellar's tutorial", () => {
     expect($('gong').hidden).toBe(false);
     expect($('coach').hidden).toBe(true);
     expect(fight.ringGong()).toBe(true);
-    g.runUntil(() => { while (F().rush!.turned + F().stall.length < 61 && fight.toStall(false)); return F().rush!.done; }, 31 + fight.WALK_IN);
+    g.runUntil(() => { while (F().rush!.turned + F().stall.length < 71 && fight.toStall(false)); return F().rush!.done; }, 31 + fight.WALK_IN);
     g.runUntil(() => F().beaten === 1, 30);
     // the fight's card first; then, once it's away, the tutorial's done
     expect($('fightCard').hidden).toBe(false);

@@ -7,7 +7,7 @@ import { BAR, GONG } from './cellarPlan';
 import { openRing, updDohyo } from './dohyo';
 import { CHIP, F, fightFrom, on, resetFight, step } from './fight';
 import { front } from './front';
-import { cardUp, showCard, updGong } from './gong';
+import { cardUp, showCard, updGong, walkIn } from './gong';
 import { DOORS, level, PREP } from './layout';
 import { collect } from './loan';
 import { updOffice } from './office';
@@ -24,7 +24,7 @@ import { chime, fanfare, gong, levelUp } from './sfx';
 import { spotlight } from './spotlight';
 import { staging } from './stage';
 import { inHall, updSwarm } from './swarm';
-import { popText, toast } from './ui';
+import { popText } from './ui';
 import { showProgress, visibleTiles } from './unlocks';
 import { addMoney } from './wallet';
 
@@ -38,26 +38,32 @@ on.earn = (chips, why) => {
   if (why === 'bowls') { takings += chips; return; }
   if (level.down) popText(`+🐡 ${Math.round(chips).toLocaleString('en-US')}`, { x: GONG.x, y: CY + 2.6, z: GONG.z });
 };
-/** Seconds till the crowd roars for a boss walking in: after the gong's second of silence (sfx.ts). */
-let roarT = 0;
-on.rush = () => {
+/** Seconds till the crowd roars for a boss walking in: after the gong's second of silence (sfx.ts). And when the gong
+ *  was last struck (the cellar's clock). */
+let roarT = 0, rangAt = -Infinity;
+on.gong = () => {
   gong({ x: GONG.x, y: CY, z: GONG.z });
-  // (the crowd roars once it's in: the gong's banner says who, gong.ts, after Eddie's coin if he's in on it)
-  roarT = 1.1;
+  rangAt = F.t;
+};
+on.rush = r => {
+  // (the crowd roars once it's in: the gong's banner says who, gong.ts, after Eddie's coin if he's in on it; walking
+  // in after a local fight, the gong's long since rung out)
+  roarT = Math.max(0.05, 1.1 - (F.t - rangAt));
+  walkIn(r);
 };
 on.rushEnd = r => {
-  showCard(r);
-  // a boss beaten: one more on the stage chip, and what he opened on offer
-  if (r.win) { showProgress(); visibleTiles(); }
-  if (r.win) { fanfare(3); chime(); } else levelUp();
+  // (its fanfare comes with the card, once the loser's down)
+  showCard(r, () => { if (r.win) { fanfare(3); chime(); } else levelUp(); });
+  // a boss beaten: one more on the stage chip, and what he opened on offer (quietly: the card says what's new)
+  if (r.win) { showProgress(); visibleTiles(true); }
   save();
 };
 on.grow = () => {
   showGrowRoom(true);
   popIn(parts.grow);
   const door = DOORS.find(d => d.b === 'grow')!;
+  // (no toast: Hakkaku's card says it, "🔓 New: grow room, mushroom bowls…")
   pointAt({ x: (door.x0 + door.x1) / 2, y: CY, z: PREP.z0 - 0.3 }, '🍄', () => level.down);
-  toast('🍄 A grow room opened: mushroom bowls pay double', 'grow', 4500);
 };
 // The second boss beaten: the way south. Not with his card still up, though, nor while his crowd's still going home:
 // once the next bout's begun and the player's down here and free, Mr. Fugu wants a word, a "!" over him at his desk: he

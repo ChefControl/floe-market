@@ -24,14 +24,18 @@ import { boss, CY, DRUMS, parts, PIT_STEPS, RING, RING_HALF, RING_R, RING_TOP } 
 import { TEPPO } from './cellarPlan';
 import { belowGround, Person } from './characters';
 import { gyojiModel } from './gyoji';
-import { bossOf, BOUT, F } from './fight';
+import { bossOf, BOUT, epic, F, payLen } from './fight';
+import { animOf, moveOf } from './finishers';
+import { aftermath, UP, type Ctx, drive as driveRig, type FinishMove, type Frame, type Fx, makeRing, type V3 } from './finishRig';
+import { epicOff, epicScreen, updEpic } from './epicFx';
 import { LOOKS, SLAPS } from './creatures';
-import { dustFx, inkFx, saltFx } from './fx';
+import { dustFx, inkFx, saltFx, slimeFx } from './fx';
 import { isHigh } from './graphics';
 import { apart, dice, quietly } from './kit';
 import { FONT, rr, scene } from './render';
 import { crowd, react } from './ringSound';
 import { CHAMP, CHAMP_BELT, LOCAL_BELTS, mixPose, type Pose, pose, RikishiModel } from './rikishi';
+import { BRACE, CHARGE, CROUCH, CROUCH1, DRIVE, GRIP, RISE, SHIKO_LOW, SQUAT, STAND, STANDOFF, shikoUp, sideways, slap, steps, walk } from './poses';
 
 /** The wrestlers' size, against the game's people. */
 const SIZE = 0.92;
@@ -70,53 +74,8 @@ function ground(x: number, z = 0) {
   return 0;
 }
 
-// ---------- the poses ----------
-const STAND = pose();
-const walk = (ph: number, amp = 0.42) => {
-  const s = Math.sin(ph);
-  return pose({ l0x: s * amp, l0k: Math.max(0, s) * 0.55, l1x: -s * amp, l1k: Math.max(0, -s) * 0.55, a0x: -s * 0.3, a1x: s * 0.3, a0z: 0.08, a1z: 0.08, up: Math.abs(Math.cos(ph)) * 0.025, bend: 0.1, side: s * 0.06 });
-};
-const SQUAT = pose({ l0x: 1.25, l0z: 0.75, l0k: 2.0, l1x: 1.25, l1z: 0.75, l1k: 2.0, bend: 0.12, head: -0.05, a0x: 0.55, a0z: 0.3, a0e: 0.55, a1x: 0.55, a1z: 0.3, a1e: 0.55 });
-const SHIKO_LOW = pose({ l0x: 0.95, l0z: 0.72, l0k: 1.2, l1x: 0.95, l1z: 0.72, l1k: 1.2, bend: 0.45, head: -0.4, a0x: 0.55, a0z: 0.42, a0e: 0.55, a1x: 0.55, a1z: 0.42, a1e: 0.55 });
-/** One leg up high to the side for the stamp, leaning over the other. */
-const shikoUp = (leg: number) => leg
-  ? pose({ bend: 0.3, head: -0.25, side: -0.38, a0x: 0.45, a1x: 0.45, a0z: 0.45, a1z: 0.45, a0e: 0.6, a1e: 0.6, l1x: 0.55, l1z: 1.3, l1k: 0.65, l0x: 0.12, l0z: 0.28, l0k: 0.2 })
-  : pose({ bend: 0.3, head: -0.25, side: 0.38, a0x: 0.45, a1x: 0.45, a0z: 0.45, a1z: 0.45, a0e: 0.6, a1e: 0.6, l0x: 0.55, l0z: 1.3, l0k: 0.65, l1x: 0.12, l1z: 0.28, l1k: 0.2 });
-const RISE = mixPose(SHIKO_LOW, STAND, 0.55);
-const CROUCH = pose({ l0x: 1.15, l0z: 0.55, l0k: 1.65, l1x: 1.15, l1z: 0.55, l1k: 1.65, bend: 1.0, head: -0.8, a0x: 1.15, a0z: 0.06, a0e: 0.1, a1x: 1.15, a1z: 0.06, a1e: 0.1 });
-const CROUCH1 = { ...CROUCH, a1x: 0.5, a1z: 0.35, a1e: 0.6 };
-const CHARGE = pose({ l0x: 0.75, l0z: 0.35, l0k: 0.9, l1x: -0.35, l1z: 0.3, l1k: 0.2, bend: 0.85, head: -0.6, a0x: 1.4, a0z: -0.05, a0e: 0.3, a1x: 1.4, a1z: -0.05, a1e: 0.3 });
-const GRIP = pose({ l0x: 0.55, l0z: 0.48, l0k: 0.85, l1x: 0.55, l1z: 0.48, l1k: 0.85, bend: 0.58, head: -0.35, side: 0.16, twist: 0.22, a0x: 1.1, a0z: -0.3, a0e: 0.85, a1x: 1.0, a1z: -0.2, a1e: 1.0 });
-const DRIVE = pose({ l0x: 0.8, l0z: 0.35, l0k: 1.0, l1x: -0.3, l1z: 0.3, l1k: 0.25, bend: 0.78, head: -0.55, side: 0.1, twist: 0.15, a0x: 1.3, a0z: -0.3, a0e: 0.6, a1x: 1.25, a1z: -0.2, a1e: 0.7 });
-const BRACE = pose({ l0x: 0.4, l0z: 0.58, l0k: 0.7, l1x: 0.4, l1z: 0.58, l1k: 0.7, bend: 0.3, head: -0.05, side: 0.16, twist: 0.22, a0x: 1.0, a0z: -0.25, a0e: 0.95, a1x: 0.95, a1z: -0.2, a1e: 1.0, pitch: -0.1 });
-const STANDOFF = pose({ l0x: 0.5, l0z: 0.5, l0k: 0.8, l1x: 0.5, l1z: 0.5, l1k: 0.8, bend: 0.35, head: -0.25 });
-const BOW = pose({ bend: 0.6, head: 0.15, a0x: 0.3, a1x: 0.3 });
-const SIT = pose({ l0x: 1.35, l0z: 0.35, l0k: 0.35, l1x: 1.15, l1z: 0.45, l1k: 0.6, bend: -0.12, head: 0.15, a0x: -0.55, a0z: 0.35, a0e: 0.1, a1x: -0.55, a1z: 0.35, a1e: 0.1, seat: 1 });
-const LIE = { ...SIT, pitch: -1.25, a0x: 2.2, a1x: 1.8, a0z: 0.9, a1z: 0.9, head: 0.3, l0x: 0.9, l1x: 1.3 };
-const FIST = pose({ l0z: 0.25, l1z: 0.25, a0x: 2.95, a0z: 0.12, a0e: 0.15, bend: -0.06, head: 0.2 });
-const SHOVE = pose({ l0x: 0.9, l0z: 0.35, l0k: 1.05, l1x: -0.45, l1z: 0.3, l1k: 0.1, bend: 0.8, head: -0.5, a0x: 1.6, a0z: -0.05, a0e: 0, a1x: 1.6, a1z: -0.05, a1e: 0 });
-const LIFT = { ...GRIP, bend: 0.3, side: 0, twist: 0.1, a0x: 1.15, a1x: 1.15, a0z: -0.3, a1z: -0.3, a0e: 1.3, a1e: 1.3, l0z: 0.6, l1z: 0.6, l0x: 0.45, l1x: 0.45, l0k: 0.6, l1k: 0.6 };
-const TIPPED = { ...BRACE, pitch: -0.28, bend: 0.2, l0x: 0.35, l1x: 0.15, l0k: 0.5, l1k: 0.3 };
-const teeter = (a: number) => pose({ bend: 0.5 + 0.12 * Math.sin(a * 9), head: -0.2, a0x: 2.3 + Math.sin(a * 16) * 0.6, a0z: 1.0, a0e: 0.2, a1x: 2.3 + Math.cos(a * 16) * 0.6, a1z: 1.0, a1e: 0.2, l0x: 0.35, l0k: 0.45, l1x: -0.2, l1z: 0.3, l1k: 0.15 });
-/** A slap: arm `i` shooting out `k` of the way, the other cocked. */
-function slap(i: number, k: number, base: Pose): Pose {
-  const o = { ...base, twist: (i ? 1 : -1) * 0.25 * k, side: 0, bend: 0.42, head: -0.3 };
-  if (i) { o.a1x = lerp(0.9, 1.6, k); o.a1z = lerp(0.2, -0.12, k); o.a1e = lerp(1.5, 0, k); o.a0x = 0.85; o.a0z = 0.15; o.a0e = 1.6; }
-  else { o.a0x = lerp(0.9, 1.6, k); o.a0z = lerp(0.2, -0.12, k); o.a0e = lerp(1.5, 0, k); o.a1x = 0.85; o.a1z = 0.15; o.a1e = 1.6; }
-  return o;
-}
-/** Steps on the spot: each foot lifting in turn, `amp` high. */
-/** The crab's walk: sideways, his feet stepping apart and together, his claws up. */
-const sideways = (ph: number) => {
-  const s = Math.sin(ph);
-  return pose({ l0z: 0.2 + 0.38 * Math.max(0, s), l1z: 0.2 + 0.38 * Math.max(0, -s), l0k: 0.25 * Math.max(0, s), l1k: 0.25 * Math.max(0, -s), l0x: 0.12, l1x: 0.12, bend: 0.2, a0x: 0.7, a1x: 0.7, a0z: 0.45, a1z: 0.45, a0e: 1.3, a1e: 1.3, up: Math.abs(s) * 0.03, side: s * 0.05 });
-};
 /** Whether `who` is the crab, who goes everywhere sideways. */
 const crab = (who: number) => who === 1 && rival.kind === 'crab';
-const steps = (p: Pose, ph: number, amp: number) => {
-  const s = Math.sin(ph);
-  return { ...p, l0x: p.l0x + Math.max(0, s) * amp, l0k: p.l0k + Math.max(0, s) * amp * 1.3, l1x: p.l1x + Math.max(0, -s) * amp, l1k: p.l1k + Math.max(0, -s) * amp * 1.3 };
-};
 
 // ---------- where they are ----------
 /** Where a wrestler stands (x east and z south of the ring's middle), which way he faces, how he stands, and how far
@@ -238,76 +197,47 @@ function fightAt(u: number): [At, At] {
   })) as [At, At];
 }
 
-// the result
-/** The finish runs slowed to about a third as he's tipped over the straw, and catches up after he lands. */
-const slow = (v: number) => v < 1 ? v : v < 1.9 ? 1 + (v - 1) * 0.39 : 1.351 + (v - 1.9) * ((BOUT.pay - 1.351) / (BOUT.pay - 1.9));
-const unslow = (a: number) => a < 1 ? a : a < 1.351 ? 1 + (a - 1) / 0.39 : 1.9 + (a - 1.351) * ((BOUT.pay - 1.9) / (BOUT.pay - 1.351));
+// the result: the finisher (finishers.ts; a push-out most nights), played on the pair by the rig (finishRig.ts), then
+// the same aftermath for all: up, the fist, the bow, the prize, the corners
+const rig = makeRing(RING_TOP, RING_HALF, RING_R, PIT_STEPS);
 /** Where the fight left them. */
 let end: [At, At] | null = null;
-function walkTo(s: At, from: number, to: number, k: number, who: number) {
-  s.x = lerp(from, to, ease(k)); s.p = k > 0 && k < 1 ? walk(k * 18) : STAND; s.yaw = to > from ? Math.PI / 2 : -Math.PI / 2;
-  if (crab(who) && k > 0 && k < 1) { s.p = sideways(k * 22); s.yaw = 0; }
+/** The result on: its move, what the move knows, and where the move left the winner and the loser (once it's done). */
+let res: { mv: FinishMove; name: string; epic: boolean; c: Ctx; left: [At, At] | null; last: [At, At] } | null = null;
+function startResult() {
+  const B = F.bout, mv = moveOf(F.rush, B.finish), w: 0 | 1 = B.win ? 0 : 1, l: 0 | 1 = B.win ? 1 : 0;
+  const [c0, o0] = end ?? fightAt(BOUT.fight), W0 = w ? o0 : c0, L0 = w ? c0 : o0;
+  const c: Ctx = {
+    t: 0, w, l, lSide: l ? -1 : 1, W0, L0, D: contact(), kind: rival.kind, slam: Math.max(0, F.rush?.slam ?? 0),
+    ring: rig, W: w ? rival : champ, L: w ? champ : rival, keep: new Map(),
+  };
+  res = { mv: animOf(F.rush, B.finish), name: mv?.name ?? '', epic: epic(), c, left: null, last: [W0, L0] };
 }
-/** After the fall: back to their marks, the bow, the winner squatting for his prize (three chops of the hand), and
- *  back to the corners. */
-function afterBout(v: number, W: At, L: At, w: number, l: number, wFrom: number, lFrom: number) {
-  const wm = (w ? -1 : 1) * MARK, lm = (l ? -1 : 1) * MARK, wc = (w ? -1 : 1) * CORNER, lc = (l ? -1 : 1) * CORNER;
-  if (v < 3.2) {
-    if (v > 1.7) walkTo(W, wFrom, wm, (v - 1.7) / 1.2, w);
-    if (v > 2.0) walkTo(L, lFrom, lm, (v - 2.0) / 1.2, l);
-    if (v > 2.9) { W.yaw = face(w); L.yaw = face(l); }
-  } else if (v < 4.1) {
-    W.x = wm; L.x = lm; W.yaw = face(w); L.yaw = face(l);
-    const b = Math.sin(((v - 3.2) / 0.9) * Math.PI); W.p = mixPose(STAND, BOW, b); L.p = mixPose(STAND, BOW, b);
-  } else {
-    W.x = wm; W.yaw = face(w);
-    const u = v - 4.1, n = Math.min(2, Math.max(0, Math.floor((u - 0.6) / 0.4))), chop = Math.max(0, Math.sin(((u - 0.6 - n * 0.4) / 0.35) * Math.PI));
-    W.p = u < 1.9 ? { ...mixPose(STAND, SQUAT, ease(clamp01(u / 0.5))), ...(u > 0.6 && u < 1.8 ? { a0x: 1.25 + chop * 0.2, a0z: [0.45, 0, -0.45][n], a0e: 0.1 } : {}) } : mixPose(SQUAT, STAND, ease(clamp01((u - 1.9) / 0.4)));
-    if (u > 2.3) walkTo(W, wm, wc, clamp01((u - 2.3) / 0.6), w);
-    walkTo(L, lm, lc, clamp01(u / 1.4), l);
+/** The result at `t`: the pair placed (their hands on the belts), and where each stands, the champion first. */
+function resultAt(t: number, dt: number): [At, At] {
+  if (!res) startResult();
+  const R = res!, { mv, c } = R;
+  let f: Frame;
+  if (t < mv.done) f = mv.frame({ ...c, t });
+  else {
+    R.left ??= R.last;
+    const [W, L] = aftermath(c, t - mv.done, payLen() - mv.done, R.left[0], R.left[1], mv.front);
+    f = { W, L };
   }
-}
-function resultAt(a: number): [At, At] {
-  const won = F.bout.win, dir = won ? -1 : 1, D = contact();
-  const [c0, o0] = end ?? fightAt(BOUT.fight);
-  const W0 = won ? c0 : o0, L0 = won ? o0 : c0, w = won ? 0 : 1, l = 1 - w;
-  const zk = 1 - ease(clamp01(a / 0.5));
-  const W = at(w, W0.x, DRIVE, { z: W0.z * zk }), L = at(l, L0.x, BRACE, { z: L0.z * zk });
-  const straw = dir * (RING_R + 0.05), wBase = straw - dir * D * 0.95, land = dir * (RING_HALF + 1.05);
-  if (a < 0.7) {
-    // heels on the straw: he gives ground an inch at a time
-    L.x = lerp(L0.x, straw, ease(a / 0.7)); W.x = L.x - dir * D;
-    W.p = steps(DRIVE, a * 16, 0.12);
-    L.p = { ...BRACE, pitch: -0.1 - 0.05 * Math.sin(a * 13), bend: 0.45 };
-  } else if (a < 1.0) {
-    // the lift by the belt: his heels leave the straw
-    const k = ease((a - 0.7) / 0.3);
-    L.x = straw + dir * 0.08 * k; W.x = L.x - dir * D * (1 - 0.05 * k);
-    W.p = mixPose(DRIVE, LIFT, k); L.air = 0.14 * k;
-    L.p = mixPose({ ...BRACE, pitch: -0.1, bend: 0.45 }, TIPPED, k);
-  } else if (a < 1.35) {
-    // the heave: tipped back over the straw
-    const k = (a - 1.0) / 0.35;
-    L.x = straw + dir * (0.08 + 0.3 * k * k); W.x = wBase + dir * (0.08 + 0.3 * ease(k));
-    W.p = mixPose(LIFT, SHOVE, ease(k)); L.air = 0.14 * (1 - k * k);
-    L.p = { ...TIPPED, pitch: lerp(-0.28, -0.7, k), bend: 0.2 * (1 - k), l0x: 0.35 + 0.4 * k, a0x: 2.0 + Math.sin(a * 18) * 0.5, a0z: 1.1, a1x: 2.2 + Math.cos(a * 18) * 0.5, a1z: 1.1 };
-  } else if (a < 1.78) {
-    // the fall: faster and faster, off the mound and down
-    const k = (a - 1.35) / 0.43, g = k * k;
-    L.x = lerp(straw + dir * 0.38, land, g);
-    L.p = mixPose({ ...TIPPED, pitch: -0.7, bend: 0, l0x: 0.75, a0x: 2.4, a0z: 1.2, a1x: 2.4, a1z: 1.2 }, LIE, g);
-    W.x = wBase + dir * (0.38 + 0.12 * ease(k)); W.p = mixPose(SHOVE, teeter(a), ease(clamp01(k * 2)));
-  } else {
-    // down with a bounce, on his back; the winner catches himself, steps back and raises a fist; then up
-    const b = a - 1.78, wx = wBase + dir * 0.5;
-    L.x = land; L.air = b < 0.22 ? 0.07 * Math.sin((b / 0.22) * Math.PI) : 0;
-    L.p = b < 0.14 ? { ...LIE, sq: 1 - 0.16 * Math.sin((b / 0.14) * Math.PI) } : a < 2.6 ? LIE : a < 3.0 ? mixPose(LIE, SIT, ease((a - 2.6) / 0.4)) : mixPose(SIT, STAND, ease(clamp01((a - 3.0) / 0.4)));
-    W.x = a < 2.3 ? wx : lerp(wx, wBase, ease(clamp01((a - 2.3) / 0.4)));
-    W.p = a < 2.15 ? mixPose(teeter(a), STAND, ease((a - 1.78) / 0.37)) : a < 2.3 ? STAND : a < 2.7 ? walk(a * 14, 0.3) : a < 3.5 ? mixPose(STAND, FIST, ease(clamp01((a - 2.7) / 0.25))) : STAND;
-    if (a > 3.5) afterBout(1.7 + (a - 3.5) * (5.3 / (BOUT.pay - 3.5)), W, L, w, l, wBase, land);
+  // (a result that started from somewhere else, a bout cut short, blends on from where they were)
+  if (from && since < blend) {
+    const k = ease(since / blend), mix = (a: At, b: At): At => ({ x: lerp(a.x, b.x, k), z: lerp(a.z, b.z, k), yaw: lerp(a.yaw, b.yaw, k), p: mixPose(a.p, b.p, k), air: lerp(a.air, b.air, k) });
+    f = { ...f, W: mix(from[c.w], f.W), L: mix(from[c.l], f.L) };
   }
-  return won ? [W, L] : [L, W];
+  if (c.kind === 'puffer' && f.puff !== undefined) rival.puffTo = rival.puff = f.puff;
+  if (f.agitate !== undefined) rival.agitate = f.agitate;
+  const cam = f.cam ?? {}, ease2 = Math.min(1, dt * 3);
+  ringCam.y += ((cam.y ?? 0) - ringCam.y) * ease2; ringCam.wide += ((cam.wide ?? 0) - ringCam.wide) * ease2; ringCam.take = !!cam.take;
+  const got = driveRig(f, c.W, c.L, ORIGIN, rig, dt);
+  if (t < mv.done) R.last = got;
+  return c.w ? [got[1], got[0]] : [got[0], got[1]];
 }
+const ORIGIN = new Vector3(RING.x, CY, RING.z);
 
 // ---------- the referee (gyoji) ----------
 // Mr. Fugu's own, in indigo with the house's crest, his robe and hakama and his tall black eboshi, his war fan
@@ -323,8 +253,9 @@ const gyoji = apart(() => {
 quietly(() => { for (let i = 0; i < 40; i++) Math.random(); });
 
 // ---------- what you see on the watch spot: the hits ----------
-/** The camera's beats, for the watch spot (gong.ts): a shake, a punch in on `at`, and a white flash. */
-export const ringCam = { shake: 0, punch: 0, flash: 0, at: { x: RING.x, z: RING.z } };
+/** The camera's beats, for the watch spot (gong.ts): a shake, a punch in on `at`, and a white flash; and for an epic
+ *  (a perfect slam's finisher), how far up to look, how far to pull back, and to take the camera to the ring. */
+export const ringCam = { shake: 0, punch: 0, flash: 0, at: { x: RING.x, z: RING.z }, y: 0, wide: 0, take: false };
 const hit = (shake: number, flash = 0, punch = 0) => {
   ringCam.shake = Math.max(ringCam.shake, shake); ringCam.flash = Math.max(ringCam.flash, flash); ringCam.punch = Math.max(ringCam.punch, punch);
 };
@@ -350,7 +281,7 @@ function word(text: string, p: Vector3, o: { fill?: string; size?: number; bubbl
     c.fillStyle = '#173042'; c.fillText(text, W / 2, 52, W - 30);
   } else {
     c.font = `800 ${text.length > 4 ? 60 : 72}px ${FONT}`; c.lineJoin = 'round'; c.lineWidth = 12;
-    c.strokeStyle = '#1B1210'; c.strokeText(text, W / 2, H / 2 + 6); c.fillStyle = o.fill ?? '#FFF0A0'; c.fillText(text, W / 2, H / 2 + 6);
+    c.strokeStyle = '#1B1210'; c.strokeText(text, W / 2, H / 2 + 6, W - 16); c.fillStyle = o.fill ?? '#FFF0A0'; c.fillText(text, W / 2, H / 2 + 6, W - 16);
   }
   w.tex.needsUpdate = true;
   w.s.position.copy(p); w.s.visible = true; w.t = 0; w.life = o.life ?? 0.7; w.size = o.size ?? 1; w.bubble = !!o.bubble;
@@ -431,6 +362,8 @@ function dressRival() {
 /** What was happening last frame, to catch the moments as the clock passes them; and where each wrestler was shown
  *  as the phase changed (they go on from there, so a bout cut short never jumps). */
 let was = { phase: '', t: 0 }, since = 0, edged = false, from: [At, At] | null = null, blend = 0.5;
+/** How the slam went, as last seen (fight.ts's Rush.slam): a landed one hits as it lands. */
+let slamWas = -1;
 const shown: [At, At] = [at(0, CORNER), at(1, -CORNER)];
 const BLEND = 0.5;
 /** The referee's calls, over his head. */
@@ -443,7 +376,8 @@ function moments(ph: string, t: number) {
     if (ph === 'prep') dressRival();
     if (ph === 'sit') react('crouch');
     if (ph === 'fight') { react('charge'); edged = false; dressRival(); sl.forEach(s => { s.arm = 0; s.n = 0; s.recoil = 0; s.snap = 0; }); }
-    if (ph === 'pay') react(F.rush ? (B.win ? 'upset' : 'win') : 'win');
+    if (ph === 'pay') { react(F.rush ? (B.win ? 'upset' : 'win') : 'win'); startResult(); }
+    else { res = null; epicOff(); }
   }
   if (ph === 'prep') {
     if (crossed(2)) react('billing');
@@ -476,19 +410,50 @@ function moments(ph: string, t: number) {
     }
     if (Math.abs(B.tug) < 0.5) edged = false;
     if (crossed(9.6)) { const m = mid().setY(CY + 1.6); word('BOMP!', m, { size: 1.3, fill: '#FF8A5A' }); burst(m, 1.4); champ.kick(5); rival.kick(5); hit(0.12); }
+    // a slam landed (gong.ts): a big hit, and the boss rocked back
+    const s = F.rush?.slam ?? -1;
+    if (s > 0 && slamWas <= 0) {
+      const m = mid().setY(CY + 1.9);
+      word('SLAM!', m, { size: s > 1 ? 1.6 : 1.2, fill: '#FFD34A', life: 1.0 }); burst(m, s > 1 ? 1.9 : 1.3);
+      rival.kick(s > 1 ? 10 : 6); champ.kick(3); hit(s > 1 ? 0.5 : 0.25, s > 1 ? 0.8 : 0.3, s > 1 ? 1.2 : 0.6); react('edge');
+    }
+    slamWas = s;
   }
   if (ph === 'pay') {
-    const L = B.win ? rival : champ, W = B.win ? champ : rival, passed = (a: number) => crossed(unslow(a));
+    if (!res) startResult();
+    const R = res!, mv = R.mv, L = B.win ? rival : champ, W = B.win ? champ : rival, len = payLen();
     if (crossed(0.3)) call(B.win ? `${CHAMP}!` : `${bossOn()?.name ?? 'The local'}!`, 1.4);
-    for (let a = 0.1; a < 0.7; a += 0.15) if (passed(a)) { dust(where(L.legs[0].foot), 3, 0.6); L.kick(0.8); }
-    if (passed(0.85)) { L.kick(2); W.kick(1.5); }
-    if (passed(1.0)) ringCam.punch = Math.max(ringCam.punch, 1.1);
-    if (passed(1.78)) { dust(where(L), 24, 1.8); L.kick(9); W.kick(2); hit(0.55, 0.3, 1.2); if (L.kind === 'octopus') inkFx(where(L.bellyAt), 34); }
-    // the puffer, beaten, goes down like a balloon
-    if (L.kind === 'puffer' && passed(1.4)) word('PFFFT', where(L.neck).setY(CY + 2.4), { size: 1.0, fill: '#F7EFD6', life: 1.0 });
-    if (crossed(unslow(3.5 + 1.5 * ((BOUT.pay - 3.5) / 5.3)))) react('bow');
+    // the finisher's name: over the ring, or for the epic across the screen
+    if (R.name && crossed(mv.nameAt ?? 0.6)) {
+      if (R.epic) epicScreen({ text: R.name, for: 1.8 });
+      else word(R.name, v3.set(RING.x, CY + RING_TOP + 3.2, RING.z).clone(), { size: 1.4, fill: '#FFD34A', life: 1.6 });
+    }
+    // its moments, and the thud as he lands
+    if (ph === was.phase && was.t < mv.done) mv.beats?.({ ...R.c, t }, FX, was.t, Math.min(t, mv.done));
+    if (crossed(mv.lands)) { dust(where(L), 24, 1.8); L.kick(9); W.kick(2); hit(0.55, 0.3, 1.2); if (L.kind === 'octopus') inkFx(where(L.bellyAt), 34); }
+    // the puffer, pushed out, goes down like a balloon
+    if (L.kind === 'puffer' && !R.name && crossed(1.4)) word('PFFFT', where(L.neck).setY(CY + 2.4), { size: 1.0, fill: '#F7EFD6', life: 1.0 });
+    // (the bow, in the aftermath)
+    if (crossed(mv.done + UP + 1.5 * ((len - mv.done - UP) / 5.3))) react('bow');
   }
 }
+/** What a finisher's moments (finishRig.ts's Fx) do here: its points are the ring's (x, z from its middle, y up from
+ *  the cellar's floor). */
+const toW = (p: V3) => new Vector3(RING.x + p[0], CY + p[1], RING.z + p[2]);
+const PART = { hips: (r: RikishiModel) => r.hips, belly: (r: RikishiModel) => r.bellyAt, chest: (r: RikishiModel) => r.chestAt, head: (r: RikishiModel) => r.neck, hand0: (r: RikishiModel) => r.arms[0].hand, hand1: (r: RikishiModel) => r.arms[1].hand, foot0: (r: RikishiModel) => r.legs[0].foot, foot1: (r: RikishiModel) => r.legs[1].foot };
+const who = (w: 'W' | 'L') => (res ? (w === 'W' ? res.c.W : res.c.L) : champ);
+const FX: Fx = {
+  word: (text, p, o) => word(text, toW(p), o),
+  dust: (p, n = 8, big = 1) => dust(toW(p), n, big),
+  burst: (p, size) => burst(toW(p), size),
+  hit,
+  ink: (p, n = 24) => inkFx(toW(p), n),
+  slime: p => slimeFx(toW(p)),
+  react,
+  kick: (w, v) => who(w).kick(v),
+  at: (w, part) => { const v = where(PART[part](who(w))); return [v.x - RING.x, v.y - CY, v.z - RING.z]; },
+  screen: o => epicScreen(o),
+};
 /** The slapping and the heaves, as the fight goes. */
 function fightBeats(u: number, dt: number) {
   const tug = F.bout.tug;
@@ -528,7 +493,7 @@ function temper(ph: string, t: number) {
   if (ph === 'prep') { const b = (t - 0.4 - 6.5) % BLOCK; return t > 6.9 && b > 6.8 && b < 9.6 ? 1 : 0; }
   if (ph === 'sit') return t > 4.2 ? 0.7 : 0;
   if (ph === 'fight') return t < 1.2 || F.bout.tug < -0.25 ? 1 : 0.3;
-  return !F.bout.win ? (t < 4 ? 1 : 0) : t < unslow(1.3) ? 0.8 : 0;
+  return !F.bout.win ? (t < 4 ? 1 : 0) : t < 1.6 ? 0.8 : 0;
 }
 let puffed = false;
 /** Where the champion trains while the doors are shut: by the teppo post, on the open floor just west of his sparring
@@ -563,13 +528,13 @@ function pose2(dt: number) {
   if (B.phase === 'prep') pair = [ritual(t, 0), ritual(t, 1)];
   else if (B.phase === 'sit') pair = [crouchAt(t, 0), crouchAt(t, 1)];
   else if (B.phase === 'fight') { fightBeats(t, dt); pair = fightAt(t); end = pair; }
-  else pair = resultAt(slow(t));
+  else pair = resultAt(t, dt);
   // a phase that started from somewhere else (a bout cut short, a rush rung mid-ritual) blends on from where they were
-  if (from && since < blend) {
+  if (B.phase !== 'pay' && from && since < blend) {
     const k = ease(since / blend);
     pair = pair.map((s, i) => ({ x: lerp(from![i].x, s.x, k), z: lerp(from![i].z, s.z, k), yaw: lerp(from![i].yaw, s.yaw, k), p: mixPose(from![i].p, s.p, k), air: lerp(from![i].air, s.air, k) })) as [At, At];
   }
-  place(champ, pair[0], dt); place(rival, pair[1], dt);
+  if (B.phase !== 'pay') { place(champ, pair[0], dt); place(rival, pair[1], dt); ringCam.y = ringCam.wide = 0; ringCam.take = false; }
   shown[0] = pair[0]; shown[1] = pair[1];
   ringCam.at.x = RING.x + (pair[0].x + pair[1].x) / 2; ringCam.at.z = RING.z + (pair[0].z + pair[1].z) / 2;
 
@@ -621,6 +586,7 @@ export function updDohyo(dt: number) {
   spar(dt);
   drums();
   updHits(dt);
+  updEpic(dt);
   // Mr. Fugu puffs up when the house roars
   boss.puffTo = crowd.excite > 1 ? 1 : 0;
   boss.update(dt);

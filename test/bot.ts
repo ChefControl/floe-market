@@ -18,12 +18,19 @@ const CASINO_GAMES = ['blackjack', 'slots'];
 
 export interface Purchase { t: number; id: string; cost: number; money: number; rating: number }
 export interface Sample { t: number; money: number; earned: number; rating: number; stage: number }
+/** A boss's rush (stage 3): when his bell ended, who, his crowd and the more-than-half to turn, how many were turned
+ *  (and what the gong forecast as it was rung), the bell's seconds used, and how long the soup bar stood empty. */
+export interface Fought { t: number; boss: string; n: number; need: number; turned: number; forecast: number; win: boolean; bell: number; dry: number; waited: boolean }
 
 /** Plays `g` for `seconds` of game time. Returns what it bought when, and samples of money and earnings. */
 export function play(g: Game, seconds: number, dt = 0.05, ring?: Ring) {
   const { player, wallet } = g;
   const p = player.g.position;
-  const bought: Purchase[] = [], samples: Sample[] = [];
+  const bought: Purchase[] = [], samples: Sample[] = [], fights: Fought[] = [];
+  const logged = new WeakSet<object>();
+  let rangFc = -1, wasCalled = false, waited = false;
+  /** The best the gong's forecast has said, for each boss (by name), whether rung or not. */
+  const best = new Map<string, number>();
   let t = 0, earned = 0, lastMoney = wallet.money, nextSample = 0, beaten = ring ? ring.fight.F.beaten : 0;
   let plan: { path: P[]; until: () => boolean; maxT: number; buy?: boolean } | null = null;
   /** Holding E, to buy the tile it's standing on. */
@@ -52,6 +59,16 @@ export function play(g: Game, seconds: number, dt = 0.05, ring?: Ring) {
         seen.set(m.id, n);
         bought.push({ t, id: `${m.id}${n}`, cost: Math.round(m.cost * m.step ** (n - 1)), money: wallet.money, rating: g.rating.rating() });
       }
+    }
+    // (and every boss's rush, once his bell's done)
+    const R = ring?.fight.F.rush;
+    // (whether he was called in during a local fight, and walked in after it)
+    if (ring && R && !R.done && R.walk === ring.fight.WALK_IN) waited = wasCalled;
+    wasCalled = !!ring?.fight.F.called;
+    if (ring && R?.done && !logged.has(R)) {
+      logged.add(R);
+      const b = ring.fight.bossOf(R.boss);
+      fights.push({ t, boss: b.name, n: R.n, need: ring.fight.toBeat(b, R.n), turned: R.turned, forecast: rangFc, win: R.win, bell: R.t, dry: R.dryT, waited });
     }
     // (down in the cellar, the bosses beaten, as if bought)
     if (ring && ring.fight.F.beaten > beaten) {
@@ -156,6 +173,8 @@ export function play(g: Game, seconds: number, dt = 0.05, ring?: Ring) {
   // it doesn't gamble: the casino boat's other games are fun extras, out of the balance (docs/balance.md)
   const nextTile = () => g.unlocks.visibleTiles().filter(x => !g.unlocks.locked(x) && !CASINO_GAMES.includes(x.id) && Math.abs((x.y ?? 0.15) - p.y) < 2)
     .sort((a, b) => (a.cost - a.paid) - (b.cost - b.paid))[0];
+  /** Down in the cellar, the cheapest upgrade on sale in the crafting bench's menus (none while a boss is in). */
+  const nextMenu = () => (ring && g.layout.level.down && !ring.fight.F.rush ? g.unlocks.menuOffer().sort((a, b) => a.cost - b.cost)[0] : undefined);
   /** The cheapest repeatable upgrade of this stage that isn't fully upgraded. */
   const nextMod = () => g.economy.MODS.filter(m => m.stage === g.layout.stage.n && g.economy.modCost(m.id) !== null && g.shop.modOffered(m.id))
     .sort((a, b) => g.economy.modCost(a.id)! - g.economy.modCost(b.id)!)[0];
@@ -165,6 +184,12 @@ export function play(g: Game, seconds: number, dt = 0.05, ring?: Ring) {
     const cash = cashSpots(), uncollected = cash.reduce((s, c) => s + c.v, 0);
     // (with a gold tile in sight, it saves up for that rather than buying more levels)
     const modCost = mod && !(tile?.gold) ? g.economy.modCost(mod.id)! : Infinity;
+    const menu = nextMenu();
+    if (ring && menu && wallet.money >= menu.cost && menu.cost <= modCost) {
+      const at = ring.plan.ROOM_MENUS[menu.menu!];
+      go(at, () => menu.done || (near(at, 0.6) && (g.unlocks.buyFromMenu(menu) || true)), 25);
+      return;
+    }
     if (mod && wallet.money >= modCost && (!tile || modCost < tile.cost - tile.paid)) {
       const at = mod.shed ? g.shed.SHED_AT : g.shop.SHOPS[g.layout.stage.n - 1], lv = g.economy.mods[mod.id];
       go(at, () => near(at, 0.6) && (g.shop.buyMod(mod.id) || true) || g.economy.mods[mod.id] > lv, 25);
@@ -194,15 +219,18 @@ export function play(g: Game, seconds: number, dt = 0.05, ring?: Ring) {
     // a boss, once the gong says his whole crowd will turn
     if (!F.rush && f.nextBoss()) {
       const fc = f.forecast();
+      if (fc) best.set(fc.boss.name, Math.max(best.get(fc.boss.name) ?? 0, fc.turned));
       // (the gong's panel says it from the gong: walk over, and ring it only if it still says so there)
       if (fc && fc.turned >= f.toBeat(fc.boss)) {
-        if (near(P.GONG_PAD, 0.3)) go(P.GONG_PAD, () => !!F.rush, 2, true);
+        rangFc = fc.turned;
+        if (near(P.GONG_PAD, 0.3)) go(P.GONG_PAD, () => !!F.rush || F.called, 2, true);
         else go(P.GONG_PAD, () => near(P.GONG_PAD, 0.3), 20);
         return;
       }
     }
     if (back.count('bowl') && F.stall.length < f.STALL_CAP) { go(P.BAR_PAD, () => !back.count('bowl') || F.stall.length >= f.STALL_CAP, 25); return; }
-    const carrying = () => f.inPot().some(k => back.count(READY[k]));
+    // (ready ones with room for them on the ledge: with it full, they're no use at the pot)
+    const carrying = () => f.inPot().some(k => back.count(READY[k]) && F.pantry[k] < f.LEDGE_CAP);
     if (carrying()) { go(P.POT_PAD, () => !carrying() && (!!F.hires.cook || !f.canCook() || f.potFull()), 25); return; }
     // raw ones for a line that's been hired out from under them: into the bin, so their arms are free for bowls
     const toss = () => { const bin = cellar.KITCHEN_BINS[0]; go({ x: bin.x + 0.95, z: bin.z }, () => back.n === 0, 10, true); };
@@ -288,7 +316,7 @@ export function play(g: Game, seconds: number, dt = 0.05, ring?: Ring) {
     if (plan) walk();
     step();
   }
-  return { bought, samples, earned, trace };
+  return { bought, samples, earned, trace, fights, best };
 }
 
 /**

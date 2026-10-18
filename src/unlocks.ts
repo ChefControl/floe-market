@@ -227,13 +227,14 @@ export const onOffer = () => [...before ?? []];
 
 /** At most two unpaid upgrades are offered at a time, in order, plus any that are always on offer or shown. (Down in
  *  the cellar, every one that's been found: the arena's tiers and the buyout on tiles, the rest in their rooms' menus.) */
-export function visibleTiles() {
+/** `quiet`: point the way to what's new, but say nothing (a boss's win card has said it already: gong.ts). */
+export function visibleTiles(quiet = false) {
   const next = tiles.filter(t => !t.done && !t.always && !t.shown && t.stage !== 3 && offered(t)).slice(0, 2);
   const v = tiles.filter(t => !t.done && !t.menu && (always(t) || ((t.shown || t.stage === 3) && offered(t)) || next.includes(t)));
   tiles.forEach(t => { t.d.mesh.visible = v.includes(t); });
   // (and what's on the rooms' menus, for saying what's new)
   const all = [...v, ...menuOffer()];
-  if (before) announce(all.filter(t => !before!.has(t)));
+  if (before) announce(all.filter(t => !before!.has(t)), quiet);
   before = new Set(all);
   return v;
 }
@@ -253,7 +254,7 @@ export function buyFromMenu(t: Tile) {
 
 /** Says what's newly on offer, and points the way to it until the player has seen it (a room's menu: until they've
  *  looked at it). */
-function announce(fresh: Tile[]) {
+function announce(fresh: Tile[], quiet = false) {
   for (const t of fresh) {
     if (t.menu) {
       const room = t.menu;
@@ -263,7 +264,7 @@ function announce(fresh: Tile[]) {
   }
   // the gold tile has its own message ("Floe Sushi is ready to open")
   const named = fresh.filter(t => !t.gold).map(t => t.name);
-  if (named.length) { toast(named.length === 1 ? `New upgrade: ${named[0]}` : `New upgrades: ${named.join(', ')}`); chime(); }
+  if (named.length && !quiet) { toast(named.length === 1 ? `New upgrade: ${named[0]}` : `New upgrades: ${named.join(', ')}`); chime(); }
 }
 
 /** How much of this stage's upgrades are bought, 0 to 1 (the music brings in more parts as it grows). Down in the
