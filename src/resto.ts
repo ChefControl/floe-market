@@ -5,12 +5,13 @@
 // each bowl (the Family keeps the rest). The fans eat at the counter and at tables down the hall and its dining wing,
 // each table's nabe on its burner, as many of them in as there's been chanko lately.
 //
-// It starts a wreck, and is put right level by level of Word on the street (stageOf, lookOf, dress): at 0 toppled
-// tables, rubble, gaps in the floor, cobwebs and a torn curtain, shut; at 1 being cleared, the rubble stacked, a broom
-// and a bucket, still shut; at 2 patched and open, Mama at her till ("Open for business, dear."), and only then does
-// she take her cut; then its looks go with the arena's (cellarLooks.ts): at 3 a back-street joint, plank walls, paper
-// lanterns and a plain counter; at 5 Mama's touch, framed sumo photos and the family's portrait, red lanterns strung
-// along the walls and checked cloths on the tables; at 7 the Family's front, dark panelling with a thin gold line, slim
+// It starts a wreck, and is put right level by level of Word on the street (stageOf, lookOf, dress): at 0 and 1 toppled
+// tables, rubble, gaps in the floor, cobwebs and a torn curtain, shut; from 2 to 4 being cleared, still shut: the
+// rubble stacked, a broom and a bucket, then the floor patched and the tables up, then the stools; at 5 patched and
+// open, Mama at her till ("Open for business, dear."), and only then does she take her cut (about when the second
+// boss falls, and the stall's way into the Undertow opens); then its looks: at 6 a back-street joint, plank walls,
+// paper lanterns and a plain counter; at 7 Mama's touch, framed sumo photos and the family's portrait, red lanterns strung
+// along the walls and checked cloths on the tables; at 8 the Family's front, dark panelling with a thin gold line, slim
 // purple banners with a gold fish, a lacquered board and a dark counter. Shut or open, its hall's always walkable, to
 // the restroom. Each level's close-up waits for the arena's (spotlight.ts, spotBusy). Its sound is restoSound.ts.
 //
@@ -594,11 +595,12 @@ on.resto = (bowls, got) => {
   chips += got;
   busy += bowls;
 };
-/** Where it is, for Word on the street's level: 0 a wreck, 1 being cleared, 2 open on a shoestring (Mama's in: fight.ts'
- *  RESTO_OPENS), 3 on its first look; and that look: 0 the back-street joint (levels 3 and 4), 1 Mama's touch (5 and 6),
- *  2 the Family's front (7 and 8). */
-const stageOf = (n: number) => Math.min(n, 3);
-const lookOf = (n: number) => (n >= 7 ? 2 : n >= 5 ? 1 : 0);
+/** Where it is, for Word on the street's level: 0 a wreck (levels 0 and 1), 1 being cleared (2 to 4, a bit more each
+ *  level: the rubble stacked, then the floor patched and the tables stood up, then the stools), 2 open on a shoestring
+ *  (5, Mama's in: fight.ts' RESTO_OPENS), 3 on its looks; and that look: 0 the back-street joint (6), 1 Mama's touch
+ *  (7), 2 the Family's front (8). */
+const stageOf = (n: number) => (n >= 6 ? 3 : n >= 5 ? 2 : n >= 2 ? 1 : 0);
+const lookOf = (n: number) => (n >= 8 ? 2 : n >= 7 ? 1 : 0);
 /** Her light's brightness, as made (none while it's a wreck, a little as it's cleared). */
 let LIGHT = -1;
 const tmp = V(0, 0, 0);
@@ -615,17 +617,19 @@ function dress(b: Built, n: number, up: boolean) {
   const st = stageOf(n), look = lookOf(n), r = b.ruin;
   const lit: Object3D[] = [];
   const show = (o: Object3D, on: boolean) => { if (on && !o.visible && up) lit.push(o); o.visible = on; };
-  show(r.wreck, st === 0); show(r.clearing, st === 1); show(r.patched, st === 2); show(r.mended, st === 1 || st === 2); r.closed.visible = st < 2;
-  b.tables.forEach((t, i) => { t.g.visible = st >= 1 && !(st === 2 && r.crates.includes(i)); t.set.visible = st >= 3; });
-  b.stools.visible = st >= 1;
+  // (being cleared, a step a level: the rubble stacked; then the floor patched and the tables up; then the stools)
+  const cleared = st === 1 ? n - 1 : st > 1 ? 3 : 0;
+  show(r.wreck, st === 0); show(r.clearing, st === 1); show(r.patched, st === 2); show(r.mended, cleared >= 2 && st <= 2); r.closed.visible = st < 2;
+  b.tables.forEach((t, i) => { show(t.g, cleared >= 2 && !(st === 2 && r.crates.includes(i))); t.set.visible = st >= 3; });
+  show(b.stools, cleared >= 3);
   b.mama.visible = st >= 2;
   b.noren.material = b.norens[st < 2 ? 0 : st === 2 ? 1 : 2];
   b.board.rotation.z = st < 2 ? 0.1 : 0;
-  // (the lanterns dark till it opens; her light out while it's a wreck, a little light in as it's cleared)
+  // (the lanterns dark till it opens; her light out while it's a wreck, a little more light in each step it's cleared)
   M.paper.emissiveIntensity = st < 2 ? 0 : 0.9; M.red.emissiveIntensity = st < 2 ? 0 : 1;
   M.paper.color.setHex(st < 2 ? 0x6E675A : 0xFFF1D6); M.red.color.setHex(st < 2 ? 0x5A2620 : 0xE0392B);
   if (LIGHT < 0) LIGHT = lights[13].intensity;
-  lights[13].intensity = st === 0 ? 0 : st === 1 ? LIGHT * 0.35 : LIGHT;
+  lights[13].intensity = st === 0 ? 0 : st === 1 ? LIGHT * (0.15 + 0.15 * cleared) : LIGHT;
   b.looks.forEach((g, i) => { show(g, st >= 3 && i <= look); });
   b.board.material = b.boards[st >= 3 && look >= 2 ? 1 : 0];
   b.counter.material = b.counters[st >= 3 && look >= 2 ? 1 : 0];

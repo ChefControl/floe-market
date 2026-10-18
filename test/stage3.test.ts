@@ -1627,13 +1627,17 @@ describe("the cellar's tiles", () => {
     expect(fight.restoWants()).toBe(false);
   }, 30_000);
 
-  it("Mama Moray's starts a wreck, is cleared up, and opens at Word on the street's second level, with a word from her", async () => {
+  it("Mama Moray's starts a wreck, is cleared up, and opens at Word on the street's fifth level, with a word from her", async () => {
     const { g, fight, F } = await ring({ ring: { beaten: 1 } });
     const rs = await import('../src/resto');
-    g.economy.mods.street = 0; g.run(0.2);
-    expect(rs.restoShows()).toMatchObject({ stage: 0, mama: false, diners: 0, wreck: true });
-    g.economy.mods.street = 1; g.run(0.2);
-    expect(rs.restoShows()).toMatchObject({ stage: 1, mama: false, diners: 0, wreck: false });
+    for (const n of [0, 1]) {
+      g.economy.mods.street = n; g.run(0.2);
+      expect(rs.restoShows()).toMatchObject({ stage: 0, mama: false, diners: 0, wreck: true });
+    }
+    for (let n = 2; n < fight.RESTO_OPENS; n++) {
+      g.economy.mods.street = n; g.run(0.2);
+      expect(rs.restoShows()).toMatchObject({ stage: 1, mama: false, diners: 0, wreck: false });
+    }
     g.economy.mods.street = fight.RESTO_OPENS; g.run(0.2);
     expect(rs.restoShows()).toMatchObject({ stage: 2, mama: true, says: rs.OPENING });
     expect(rs.restoShows()!.diners).toBeGreaterThan(0);

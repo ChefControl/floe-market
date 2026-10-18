@@ -52,8 +52,8 @@ export interface Boss {
  *  stage turns in its bell: Hakkaku (160) a stocked kitchen by hand, Yokobashiri (440) the attendant and a slide,
  *  Dobu (880, a 45 s bell) Cellar crew and the cook, Samehada (920, 45 s too) the smokehouse, and Fukure (1250, 60 s)
  *  the glowing shelves. Prizes are kept small, so a win's prize and the bowls his crowd buys don't pay for the next boss
- *  on the spot (tuned 2026-10-19 with the stage 3 bot: about 46 minutes to the buyout, a few more without the cooking
- *  show). */
+ *  on the spot (tuned 2026-10-19 with the stage 3 bot: about 47 minutes to the buyout, a minute or two more without the
+ *  cooking show). */
 export const BOSSES: Boss[] = [
   { face: '🐙', name: 'Hakkaku', crowd: 160, bell: 30, prize: 350, kind: 'octopus', opens: 'grow room, the attendant, Back-Alley Ring' },
   { face: '🦀', name: 'Yokobashiri', crowd: 440, bell: 30, prize: 250, kind: 'crab', opens: 'steam baskets, a way south' },
@@ -92,7 +92,7 @@ export const RESTO_SHARE = 0.12;
 export const BONUS_S = 70;
 export const BONUS_TIERS = [{ min: 12, pct: 50, name: 'Perfect pot' }, { min: 9, pct: 35, name: 'Hearty' }, { min: 6, pct: 20, name: 'Tasty' }, { min: 0, pct: 0, name: 'Bland' }];
 /** Chips a bowl sells for (mushroom bowls pay double), and what Mr. Fugu leaves of it until he's bought out. */
-export const PRICE = 0.85, CUT = 0.7;
+export const PRICE = 0.9, CUT = 0.7;
 export type Role = 'washer' | 'salter' | 'picker' | 'cook' | 'attendant';
 /** The player, in a forecast. */
 export type WorkerRole = Role | 'you';
@@ -395,8 +395,9 @@ function cookBatch(bowls: number) {
   F.cooked.push(F.t);
   if (real) on.cooked();
 }
-/** The level of Word on the street that opens Mama Moray's: before it, her place out front is a ruin, being cleared. */
-export const RESTO_OPENS = 2;
+/** The level of Word on the street that opens Mama Moray's (about when the second boss falls): before it, her place
+ *  out front is a ruin, being cleared. */
+export const RESTO_OPENS = 5;
 /** Whether Mama Moray's is open. */
 export const restoOpen = () => mods.street >= RESTO_OPENS;
 /** Mama Moray's takes a batch: she's open, the pot's full, and the ledge has a batch to spare of everything that goes

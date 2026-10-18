@@ -332,10 +332,11 @@ export function play(g: Game, seconds: number, dt = 0.05, ring?: Ring, style: St
       const open = free.reduce((sum, [, n]) => sum + n, 0);
       if (open > raw && room()) { go(P.BIN_PADS[k], () => back.count(k) >= open || !back.hasRoom(), 10); return; }
     }
-    // arms full of raw ones there's nowhere for: into the bin too (never ready ones: they wait at the pot for room on
-    // the ledge)
+    // arms full of raw ones there's nowhere for: into the bin too (not ready ones: they wait at the pot for room on
+    // the ledge; unless bowls on the counter want carrying to the stall, with the ledge full and nobody else to)
     const ready = () => f.inPot().some(k => back.count(READY[k]));
-    if (!room() && !back.count('bowl') && !carrying() && !ready()) { toss(); return; }
+    const bowlsWait = !F.hires.attendant && F.counter.length > 0 && F.stall.length < 6;
+    if (!room() && !back.count('bowl') && !carrying() && (!ready() || bowlsWait)) { toss(); return; }
     // (nothing to do: waiting by the pot)
     const t0 = t;
     go(P.POT_PAD, () => {
