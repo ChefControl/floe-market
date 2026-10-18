@@ -102,13 +102,19 @@ describe('the cellar upgrades\' looks', () => {
   }, 60_000);
 
   it('shows what a save had bought as it loads, without popping it in or a close-up', async () => {
-    const { g, shown, cellar: c, kitchen } = await cellar({ mods: { street: 8, bowls: 6, cellarcrew: 8 } });
+    const { g, looks, shown, cellar: c, kitchen } = await cellar({ mods: { street: 8, bowls: 6, cellarcrew: 8 } });
     expect(shown('street')).toEqual([1, 4, 5, 5, 6, 6, 7, 8]);
     expect(shown('bowls')).toEqual([3, 4]);
     expect(c.barFrame.visible).toBe(false);
     g.run(2);
     expect(g.stage.view.close).toBe(1);
     expect(kitchen.crewPerson('washer')!.color).toBe(0xF4F6F8);
+    // the crew's panelling goes round the hearth room and the cookware shop as well as the prep hall
+    const { KITCHEN, CRAFT, PREP } = await import('../src/layout');
+    const panels = new Box3().setFromObject(looks.looksOf('cellarcrew').find(l => l.from === 8)!.o);
+    expect(panels.min.x).toBeLessThan(KITCHEN.x0);
+    expect(panels.max.x).toBeGreaterThan(PREP.x0 + 3);
+    expect(panels.max.z).toBeGreaterThan(CRAFT.z0 + 2);
   }, 60_000);
 
   it('keeps clear of the soup square\'s flap and its counters\' bowls, the rice racks\' row and the doorways', async () => {

@@ -15,8 +15,8 @@
 //     looks stop at 4.)
 //   Cellar crew, the prep hall and the hires: 1 rags; 2 clean grey work clothes and white headscarves; 3 white plaster
 //     panels framed in dark wood on the hall's walls; 4 two indigo crest hangings; 5 three warm pendant lamps; 6 chef
-//     whites with indigo trim; 7 a polished dark stone floor with a wood border; 8 dark wood panels with gold trim, and
-//     purple collars with a gold crest.
+//     whites with indigo trim; 7 the arena's stone floor with a wood border; 8 dark wood panels with gold trim, round the
+//     hearth room and the cookware shop too, and purple collars with a gold crest.
 import { AdditiveBlending, type BufferGeometry, CatmullRomCurve3, CircleGeometry, CylinderGeometry, DoubleSide, Group, type Material, Matrix4, Mesh, MeshBasicMaterial, MeshLambertMaterial, type Object3D, PlaneGeometry, TorusGeometry, TubeGeometry, Vector3 } from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { barFrame, cellar, CY, parts, PIT_STEPS, type Place, places, RING, RING_HALF, RING_R, RING_TOP, WALL } from './cellar';
@@ -25,7 +25,7 @@ import { belowGround, Person } from './characters';
 import { mods } from './economy';
 import { F, type Role } from './fight';
 import { apart, Build, detail, dice, K, quietly, rbox, tube } from './kit';
-import { ARENA, DOORS, PREP, stage } from './layout';
+import { ARENA, CRAFT, DOORS, KITCHEN, PREP, stage } from './layout';
 import { player } from './player';
 import { popIn } from './pop';
 import { canvasTex, type CanvasTex, type Draw, FONT, G, mesh } from './render';
@@ -162,16 +162,6 @@ const stoneTiles = tiles(256, (c, w, h) => {
     const g = 118 + Math.floor(hash(i * 7 + j * 13) * 26);
     c.fillStyle = `rgb(${g},${g - 2},${g - 6})`; c.fillRect(i * s + 2, j * s + 2, s - 4, s - 4);
     c.fillStyle = 'rgba(255,255,255,.06)'; c.fillRect(i * s + 4, j * s + 4, s - 8, 4);
-  }
-});
-/** Polished dark slate, for the prep hall: smaller tiles, a cool sheen across each. */
-const slate = tiles(256, (c, w, h) => {
-  c.fillStyle = '#22272C'; c.fillRect(0, 0, w, h);
-  const n = 5, s = w / n;
-  for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
-    const g = 58 + Math.floor(hash(i * 5 + j * 11 + 3) * 14);
-    c.fillStyle = `rgb(${g - 4},${g + 2},${g + 10})`; c.fillRect(i * s + 2, j * s + 2, s - 4, s - 4);
-    c.fillStyle = 'rgba(200,220,240,.07)'; c.fillRect(i * s + 6, j * s + s * 0.3, s - 12, 3);
   }
 });
 /** Sawdust spilled on the dirt: pale shavings, thinning out at the edge. */
@@ -590,22 +580,31 @@ function buildBowls() {
 }
 
 // ---------- Cellar crew: the prep hall and the hires ----------
-/** The prep hall's walls the camera sees the inside of: the north one (stone till the grow room's found, then planks),
- *  up to the grow room's gate's frame, and the west one, the hearth room's, either side of the doorway. `face` is where
- *  a panel on it stands. */
-const HALL = (() => {
-  const gate = DOORS.find(o => o.b === 'grow')!, door = DOORS.find(o => o.a === 'kitchen' && o.b === 'prep')!;
+/** The walls the camera sees the inside of, where the crew's panelling goes: the prep hall's north one (stone till the
+ *  grow room's found, then planks), up to the grow room's gate's frame, and its west one, the hearth room's, either side
+ *  of the doorway; and (`hall` false: the panelling only, not the plaster) the hearth room's and the cookware shop's
+ *  north and west walls, round their doorways. `face` is where a panel on it stands. */
+const WALLS = (() => {
+  const door = (a: string, b: string) => DOORS.find(o => o.a === a && o.b === b)!;
+  const gate = door('prep', 'grow'), prep = door('kitchen', 'prep'), landing = door('landing', 'kitchen'), arena = door('kitchen', 'arena'), shop = door('kitchen', 'craft');
   return [
-    { side: 'n' as const, a0: PREP.x0 - 0.3, a1: gate.x0 - 0.9, face: PREP.z0 - 0.09 },
-    { side: 'w' as const, a0: PREP.z0 - 0.3, a1: door.z0 - 0.3, face: PREP.x0 - 0.2 },
-    { side: 'w' as const, a0: door.z1 + 0.3, a1: PREP.z1 + 0.1, face: PREP.x0 - 0.2 },
+    { hall: true, side: 'n' as const, a0: PREP.x0 - 0.3, a1: gate.x0 - 0.9, face: PREP.z0 - 0.09 },
+    { hall: true, side: 'w' as const, a0: PREP.z0 - 0.3, a1: prep.z0 - 0.3, face: PREP.x0 - 0.2 },
+    { hall: true, side: 'w' as const, a0: prep.z1 + 0.3, a1: PREP.z1 + 0.1, face: PREP.x0 - 0.2 },
+    { hall: false, side: 'n' as const, a0: KITCHEN.x0 - 0.3, a1: landing.x0 - 0.3, face: KITCHEN.z0 - 0.2 },
+    { hall: false, side: 'n' as const, a0: landing.x1 + 0.3, a1: KITCHEN.x1 + 0.3, face: KITCHEN.z0 - 0.2 },
+    { hall: false, side: 'w' as const, a0: KITCHEN.z0 - 0.3, a1: arena.z0 - 0.3, face: KITCHEN.x0 - 0.2 },
+    { hall: false, side: 'w' as const, a0: arena.z1 + 0.3, a1: KITCHEN.z1 + 0.3, face: KITCHEN.x0 - 0.2 },
+    { hall: false, side: 'n' as const, a0: CRAFT.x0 - 0.3, a1: shop.x0 - 0.3, face: CRAFT.z0 - 0.2 },
+    { hall: false, side: 'n' as const, a0: shop.x1 + 0.3, a1: CRAFT.x1 + 0.3, face: CRAFT.z0 - 0.2 },
+    { hall: false, side: 'w' as const, a0: CRAFT.z0 - 0.3, a1: CRAFT.z1 + 0.1, face: CRAFT.x0 },
   ];
 })();
-/** Panels along the hall's walls, below their rails: `fill` in a frame of `frame`, a post every metre or so, and (if
- *  `trim`) a thin line of it inset round each. */
-function wainscot(p: Object3D, fill: number, frame: number, trim?: number) {
+/** Panels along the hall's walls (or `all` of WALLS), below their rails: `fill` in a frame of `frame`, a post every metre
+ *  or so, and (if `trim`) a thin line of it inset round each. */
+function wainscot(p: Object3D, fill: number, frame: number, trim?: number, all = false) {
   const b = new Build(), y0 = 0.2, y1 = WALL - 0.08, h = y1 - y0;
-  for (const s of HALL) {
+  for (const s of WALLS.filter(w => all || w.hall)) {
     const len = s.a1 - s.a0, n = Math.max(1, Math.round(len / 1.2)), at = (a: number, out: number): [number, number] => s.side === 'n' ? [a, s.face + out] : [s.face + out, a];
     const piece = (a: number, y: number, w: number, hh: number, out: number, depth: number, c: number) => {
       const [x, z] = at(a, out);
@@ -627,9 +626,10 @@ const LAMPS = [13.8, 16.1, 18.4].map(x => V(x, CY + 2.7, (PREP.z0 + PREP.z1) / 2
 
 function buildCrew() {
   const t = tracks.cellarcrew, NX = (PREP.x0 + PREP.x1) / 2;
-  // 3–7: white plaster panels framed in dark wood; 8–: dark wood panels with thin gold trim
+  // 3–7: white plaster panels framed in dark wood; 8–: dark wood panels with thin gold trim, round the hearth room and
+  // the cookware shop too
   wainscot(look(t, 3, 8, NX, CY, PREP.z0), 0xEFEBE2, 0x3A2116);
-  wainscot(look(t, 8, 99, NX, CY, PREP.z0), 0x4A2618, 0x2E160E, 0xD2AA4A);
+  wainscot(look(t, 8, 99, KITCHEN.x1, CY, KITCHEN.z1), 0x4A2618, 0x2E160E, 0xD2AA4A, true);
   // 4–: two indigo hangings with the crest, standing on the north wall's rail beside the PREP sign (above the rice racks
   // that'll stand along it)
   {
@@ -665,10 +665,10 @@ function buildCrew() {
     }
     detail(null, add(g, pools));
   }
-  // 7–: a polished dark stone floor, a border of wood round it
+  // 7–: the arena's stone floor (as its level 5 lays), a border of dark wood round it
   {
     const g = look(t, 7, 99, NX, CY, (PREP.z0 + PREP.z1) / 2), w = PREP.x1 - PREP.x0, d = PREP.z1 - PREP.z0;
-    const f = add(g, new Mesh(new PlaneGeometry(w, d), new MeshLambertMaterial({ map: slate(w / 4, d / 4) })));
+    const f = add(g, new Mesh(new PlaneGeometry(w, d), new MeshLambertMaterial({ map: stoneTiles(w / 4, d / 4) })));
     f.rotation.x = -Math.PI / 2; f.position.set(NX, CY + 0.003, (PREP.z0 + PREP.z1) / 2); f.receiveShadow = true;
     const b = new Build(), B = 0.14;
     for (const s of [-1, 1]) {
