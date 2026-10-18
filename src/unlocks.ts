@@ -2,8 +2,9 @@
 // that opens Floe Sushi (stage 2), which has upgrades of its own; then, once Mr. Fugu's offer is taken, the gold tile
 // at his hatch that buys into the ring under the dock (stage 3). Down there they're priced in Fugu Chips 🐡 (still the
 // same wallet): another machine for a line (up to six, each dearer), the big machine upgrades, the hires and the
-// venue's tiers, each found only once the boss that reveals it is beaten; and once all five are, the gold tile in Mr.
-// Fugu's office: buying him out.
+// venue's tiers, all sold at the cookware shop as a tree whose bands open boss by boss (the practice fight opens the two
+// hires, then each boss the next band), some needing another bought first; and once all five are beaten, the gold tile in
+// Mr. Fugu's office: buying him out.
 import type { Group, Object3D, Vector3 } from 'three';
 import { enableBlackjack } from './blackjackTable';
 import { enableCasino } from './casino';
@@ -11,7 +12,7 @@ import { CY, showVenue } from './cellar';
 import { openSled, openTakeout } from './counters';
 import { decal, drawTile, type Decal } from './decals';
 import { boost } from './economy';
-import { addMachine, BATCH, BOSSES, BUYOUT, CHIP, COOK_BATCH, F, hire, HIRES, type Ing, MACH, MACH_COST, machineCost, on, setTier, TIERS, upgradeLine, UPS } from './fight';
+import { addMachine, BATCH, BOSSES, BUYOUT, CHIP, COOK_BATCH, F, hire, HIRES, type Ing, MACH, MACH_COST, machineCost, on, practiceDue, setTier, TIER_BEAT, TIER_COST, TIERS, upgradeLine, UPS } from './fight';
 import { tryCatch } from './fishing';
 import { addTables } from './garden';
 import { enableKorki, KORKI } from './korki';
@@ -72,6 +73,8 @@ interface Unlock {
   /** Down in the cellar (stage 3): how many bosses must be beaten before it's found (it's hidden till then), the line
    *  it adds another machine to (bought again and again, each dearer, up to six), and how big it is. */
   beat?: number;
+  /** Down in the cellar: on sale only once the practice fight's won (a game that's beaten a boss has). */
+  spar?: boolean;
   line?: Ing;
   size?: number;
   /** Sold on its room's upgrade square, in a menu with the room's other upgrades, rather than on a tile of its own. */
@@ -130,9 +133,8 @@ const UNLOCKS: Unlock[] = [
   // (just in front of his hatch, on the restaurant's side, where the player stands to meet him: any nearer the
   // restaurant and its eaves hide it from the camera)
   { id: 'dohyo', cost: 1_000_000, x: HATCH_AT.x, z: HATCH_AT.z + 1.65, size: 2.0, icon: '🐡', art: 'mrFugu', name: 'Buy into the ring', desc: "Stage 3: Mr. Fugu's sumo ring under the dock. Your cash stays in the till", stage: 2, gold: true },
-  // down in the cellar, priced in chips: the prep hall's rice things along one row and its fish along the next, the grow
-  // room's between its beds, the hearth room's hires by the pot, the venue's tiers in the arena by the bar, and the
-  // buyout in Mr. Fugu's office
+  // down in the cellar, priced in chips (all but the buyout sold at the cookware shop: these spots are only where their
+  // tiles were), and the buyout in Mr. Fugu's office
   ...ring('rack', 13.2, 3.9, '🌾', 'Another drying rack', 'More room on the rice line', 0, MACH_COST.rice, 'rice'),
   ...ring('washer', 14.8, 3.9, '🧺', HIRES.washer.name, 'Runs the rice line: fills the racks and carries rice to the pot', HIRES.washer.beat, HIRES.washer.cost),
   ...ring('steam', 16.4, 3.9, '♨️', MACH.rice[1].name, `Swaps every drying rack for steam baskets: ${MACH.rice[1].cap} rice every ${MACH.rice[1].time} s`, UPS.rice.beat, UPS.rice.cost),
@@ -145,24 +147,29 @@ const UNLOCKS: Unlock[] = [
   ...ring('attendant', 9.6, 5.9, '🍲', HIRES.attendant.name, 'Carries bowls from the counter to the soup bar', HIRES.attendant.beat, HIRES.attendant.cost),
   ...ring('cook', 7.6, 5.9, '👨‍🍳', HIRES.cook.name, `Cooks while you're away: ${COOK_BATCH} bowls, not ${BATCH}`, HIRES.cook.beat, HIRES.cook.cost),
   ...[1, 2, 3].flatMap(i => ring(`tier${i}` as UnlockId, 1.6, 1.9, ['', '🏮', '🥁', '⛩️'][i], TIERS[i].name,
-    `The venue grows to ${TIERS[i].seats} seats${i === 2 ? ', with taiko drummers' : ''}`, [0, 1, 3, 4][i], [0, 200, 900, 2500][i], undefined, i > 1 ? `tier${i - 1}` as UnlockId : undefined)),
-  { id: 'buyout', cost: BUYOUT * CHIP, ...below(7.55, -5.25), icon: '🐡', name: 'Buy back all his chips', desc: "The ring is yours: Mr. Fugu's 30% ends, the restaurant's till comes back, and stage 4 opens", stage: 3, gold: true, beat: BOSSES.length },
+    `The venue grows to ${TIERS[i].seats} seats${i === 2 ? ', with taiko drummers' : ''}`, TIER_BEAT[i], TIER_COST[i], undefined, i > 1 ? `tier${i - 1}` as UnlockId : undefined)),
+  { id: 'buyout', cost: BUYOUT * CHIP, ...below(7.55, -5.25), icon: '🐡', name: 'Buy back all his chips', desc: "The ring is yours: Mr. Fugu's 30% ends, the till comes back", stage: 3, gold: true, beat: BOSSES.length },
   { id: 'korki', cost: 10, x: KORKI.x, z: KORKI.z, icon: '🛴', name: "Korki's golden statue", desc: 'In memory of a good scooter', stage: 1, always: true, everywhere: true },
   // the casino boat's other games, on its deck: fun extras, for sale from when the boat comes in
   { id: 'slots', cost: 250, ...GAMES.slots, icon: '🎰', name: 'Slot machine', desc: 'Pull the lever for three of a kind', stage: 1, always: true, everywhere: true, needs: 'roulette' },
   { id: 'blackjack', cost: 400, ...GAMES.blackjack, icon: '🃏', name: 'Blackjack table', desc: 'Beat the dealer to 21', stage: 1, always: true, everywhere: true, needs: 'roulette' },
 ];
 
-// The cellar's rooms sell their upgrades from one square each, a menu of them (shop.ts): the prep hall's racks,
-// barrels, steamers, smokehouse and the two hires who run its lines; the grow room's beds, picker and shelves; the hearth
-// room's attendant and cook.
+// The cellar's rooms sell their upgrades at the cookware shop (shop.ts's tree): the prep hall's racks, barrels,
+// steamers, smokehouse and the two hires who run its lines; the grow room's beds, picker and shelves; the hearth room's
+// attendant and cook; and the venue's tiers.
 const MENU_OF: Partial<Record<UnlockId, MenuRoom>> = {
   rack: 'prep', barrel: 'prep', washer: 'prep', salter: 'prep', steam: 'prep', smoke: 'prep',
-  bed: 'grow', picker: 'grow', shelves: 'grow', attendant: 'hearth', cook: 'hearth',
+  bed: 'grow', picker: 'grow', shelves: 'grow', attendant: 'hearth', cook: 'hearth', tier1: 'venue', tier2: 'venue', tier3: 'venue',
 };
+// The tree's lines: a line's big upgrade needs its hand first, and the cook the attendant (the tiers need the one
+// before, above). The two lines' hands wait for the practice fight, whose prize hires them.
+const NEEDS: Partial<Record<UnlockId, UnlockId>> = { steam: 'washer', smoke: 'salter', shelves: 'picker', cook: 'attendant' };
 for (const u of UNLOCKS) {
   const room = MENU_OF[u.id];
   if (room) Object.assign(u, { menu: room, ...below(ROOM_MENUS[room].x, ROOM_MENUS[room].z) });
+  if (NEEDS[u.id]) u.needs = NEEDS[u.id];
+  if (u.id === 'washer' || u.id === 'salter') u.spar = true;
 }
 
 export const locked = (t: Tile) => !!t.stars && !t.open;
@@ -199,7 +206,7 @@ export const stageBuilt = built;
 
 export function offered(t: Tile) {
   // down in the cellar, once the bosses that reveal them are beaten (the buyout too)
-  if (t.stage === 3) return stage.n === 3 && !staging() && F.beaten >= (t.beat ?? 0) && (!t.needs || isDone(t.needs));
+  if (t.stage === 3) return stage.n === 3 && !staging() && F.beaten >= (t.beat ?? 0) && (!t.spar || !practiceDue()) && (!t.needs || isDone(t.needs));
   // the gold tiles, once their stage is built: stage 2's only once Mr. Fugu's offer has been taken
   if (t.gold) {
     if (t.stage !== stage.n || staging() || !built(t.stage)) return false;
@@ -220,13 +227,14 @@ export const onOffer = () => [...before ?? []];
 
 /** At most two unpaid upgrades are offered at a time, in order, plus any that are always on offer or shown. (Down in
  *  the cellar, every one that's been found: the arena's tiers and the buyout on tiles, the rest in their rooms' menus.) */
-export function visibleTiles() {
+/** `quiet`: point the way to what's new, but say nothing (a boss's win card has said it already: gong.ts). */
+export function visibleTiles(quiet = false) {
   const next = tiles.filter(t => !t.done && !t.always && !t.shown && t.stage !== 3 && offered(t)).slice(0, 2);
   const v = tiles.filter(t => !t.done && !t.menu && (always(t) || ((t.shown || t.stage === 3) && offered(t)) || next.includes(t)));
   tiles.forEach(t => { t.d.mesh.visible = v.includes(t); });
   // (and what's on the rooms' menus, for saying what's new)
   const all = [...v, ...menuOffer()];
-  if (before) announce(all.filter(t => !before!.has(t)));
+  if (before) announce(all.filter(t => !before!.has(t)), quiet);
   before = new Set(all);
   return v;
 }
@@ -246,7 +254,7 @@ export function buyFromMenu(t: Tile) {
 
 /** Says what's newly on offer, and points the way to it until the player has seen it (a room's menu: until they've
  *  looked at it). */
-function announce(fresh: Tile[]) {
+function announce(fresh: Tile[], quiet = false) {
   for (const t of fresh) {
     if (t.menu) {
       const room = t.menu;
@@ -256,7 +264,7 @@ function announce(fresh: Tile[]) {
   }
   // the gold tile has its own message ("Floe Sushi is ready to open")
   const named = fresh.filter(t => !t.gold).map(t => t.name);
-  if (named.length) { toast(named.length === 1 ? `New upgrade: ${named[0]}` : `New upgrades: ${named.join(', ')}`); chime(); }
+  if (named.length && !quiet) { toast(named.length === 1 ? `New upgrade: ${named[0]}` : `New upgrades: ${named.join(', ')}`); chime(); }
 }
 
 /** How much of this stage's upgrades are bought, 0 to 1 (the music brings in more parts as it grows). Down in the

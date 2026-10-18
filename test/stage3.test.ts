@@ -3,10 +3,11 @@
 // the pot, the counter, the soup bar) and the fans who pay for bowls, the gong and its forecast, a boss's rush and the
 // card after it, the cellar's tiles (machines again and again, hires, tiers) bought with Fugu Chips, the swarm on the
 // floor, the watch spot, the buyout, the restaurant upstairs as the front, and saving it all.
-import { BufferGeometry, ExtrudeGeometry, ShapeGeometry } from 'three';
+import { BufferGeometry, ExtrudeGeometry, ShapeGeometry, Vector3 } from 'three';
 import { describe, expect, it, vi } from 'vitest';
 import indexHtml from '../index.html?raw';
 import { bought, FLOE_SUSHI, loadGame, MARKET, RING_DONE, type SaveFixture } from './helpers';
+import { makeRing } from '../src/finishRig';
 
 const $ = (id: string) => document.getElementById(id)!;
 const SUSHI = [...MARKET, 'sushi', ...FLOE_SUSHI];
@@ -108,7 +109,8 @@ describe('buying into the ring', () => {
     expect($('season').hidden).toBe(true);
     expect($('cash').classList.contains('chips')).toBe(true);
     expect($('cash').textContent).toBe('🐡0');
-    expect(offered(g).sort()).toEqual(['barrel', 'rack', 'salter', 'washer']);
+    // (the two lines' hands wait for the practice fight: its prize hires them)
+    expect(offered(g).sort()).toEqual(['barrel', 'rack']);
   });
 
   it("however much stage 2 made, it waits in the till: it doesn't buy the cellar, and it's saved", async () => {
@@ -129,10 +131,10 @@ describe('buying into the ring', () => {
   });
 
   it('a stage 3 save from before the till keeps what the cellar can have paid it, and the rest goes in the till', async () => {
-    // (two bosses beaten: the practice, Hakkaku and Yokobashiri paid 35 + 120 + 300 chips, and Dobu's 800 is next)
+    // (two bosses beaten: the practice, Hakkaku and Yokobashiri paid 35 + 350 + 250 chips, and Dobu's 300 is next)
     const { front, F } = await ring({ money: 499_000_000, till: null, ring: { beaten: 2 } });
     expect(F().beaten).toBe(2);
-    const keep = (35 + 120 + 300 + 800) * 1000;
+    const keep = (35 + 350 + 250 + 300) * 1000;
     expect(front.front.till).toBe(499_000_000 - keep);
     expect((await import('../src/wallet')).wallet.money).toBe(keep);
   });
@@ -990,7 +992,7 @@ describe('the gong', () => {
     expect($('gong').hidden).toBe(false);
     // Chunkos against him, what he brings (his crowd, his bell, his prize), and your chances in a word
     expect($('gongBoss').textContent).toBe('Hakkaku');
-    expect([...$('gongCrowd').children].map(c => c.textContent)).toEqual(['👥 120', '🔔 30 s', '🐡 120']);
+    expect([...$('gongCrowd').children].map(c => c.textContent)).toEqual(['👥 160', '🔔 30 s', '🐡 350']);
     const said = gong.VERDICT[gong.verdict(fight.BOSSES[0], fight.forecast()!)];
     expect($('gongCast').textContent).toBe(`Your chances${said}`);
     expect($('gongCast').querySelector('.seal')!.className).toMatch(/^seal v-/);
@@ -1003,19 +1005,19 @@ describe('the gong', () => {
     g.press('e');
     g.run(0.1);
     g.press('e', 'keyup');
-    expect(F().rush).toMatchObject({ boss: 0, n: 120, turned: 0 });
+    expect(F().rush).toMatchObject({ boss: 0, n: 160, turned: 0 });
     expect(g.wallet.money).toBe(money);
     // 入場: his name, his crowd, and how many to turn
     expect($('fightBanner').hidden).toBe(false);
-    expect($('fightBanner').textContent).toBe('入場Hakkaku 🐙 · 120 fansTURN 61 TO WIN');
+    expect($('fightBanner').textContent).toBe('入場Hakkaku 🐙 · 160 fansTURN 81 TO WIN');
     expect($('rush').hidden).toBe(false);
     g.ui.hud(0);
     expect($('rushYou').textContent).toBe('Chunkos 0');
     expect($('rushBell').textContent).toBe('🔔 30');
-    expect($('rushThem').textContent).toBe('120 Hakkaku');
-    // (his goal marked on the rope: 61 of 120)
+    expect($('rushThem').textContent).toBe('160 Hakkaku');
+    // (his goal marked on the rope: 81 of 160)
     expect($('rushGoal').hidden).toBe(false);
-    expect($('rushGoal').style.left).toBe('50.8%');
+    expect($('rushGoal').style.left).toBe('50.6%');
     expect($('rushKnot').hidden).toBe(true);
     expect($('gongGo').hidden).toBe(true);
     // his bell waits for them all to walk in to the bar, and nobody buys on the way
@@ -1028,14 +1030,14 @@ describe('the gong', () => {
     g.ui.hud(0);
     expect(F().rush!.turned).toBe(1);
     expect($('rushYou').textContent).toBe('Chunkos 1');
-    expect($('rushThem').textContent).toBe('119 Hakkaku');
+    expect($('rushThem').textContent).toBe('159 Hakkaku');
     // (and the banner's gone by then)
     expect($('fightBanner').hidden).toBe(true);
     // (all of them round the bar by then, on the floor, but the one just turned, off to a spot at the bar for
-    // their bowl, and only yours once they've got it)
-    expect(swarm.ways().length).toBe(120);
-    expect(swarm.ways().filter(w => w.length === 1).length).toBeGreaterThanOrEqual(119);
-    expect(swarm.swarm()).toMatchObject({ n: 120, ours: 0 });
+    // their bowl, and only yours once they've got it; and a few waiting fans stepping along the bar to make room)
+    expect(swarm.ways().length).toBe(160);
+    expect(swarm.ways().filter(w => w.length === 1).length).toBeGreaterThanOrEqual(156);
+    expect(swarm.swarm()).toMatchObject({ n: 160, ours: 0 });
     g.runUntil(() => swarm.swarm().ours > 0, 3);
     expect(swarm.swarm().ours).toBeGreaterThan(0);
   });
@@ -1050,9 +1052,12 @@ describe('the gong', () => {
     const fc = f.forecast()!;
     expect(fc.boss.name).toBe('Hakkaku');
     expect(f.ringGong()).toBe(true);
+    // (a local fight on: he walks in once it's over, and the forecast knew)
+    expect(f.F.called).toBe(true);
+    while (f.F.called) f.step(0.05);
     for (let n = 0; n < 4000 && !f.F.rush!.done; n++) f.step(0.05);
     expect(f.F.rush!.turned).toBe(fc.turned);
-    expect(f.F.rush!.win).toBe(fc.turned >= 61);
+    expect(f.F.rush!.win).toBe(fc.turned >= f.toBeat(fc.boss));
   });
 
   it("the faces are rendered once from each wrestler's own model, close up, and never touch the luck", async () => {
@@ -1089,8 +1094,8 @@ describe('the gong', () => {
   it("your chances are a word, by how many the forecast turns of the more than half that beats him", async () => {
     const { fight, gong } = await ring({ level: 0 });
     const boss = fight.BOSSES[2], at = (turned: number, n?: number) => gong.verdict(boss, { boss, turned, worst: null, at: 0 }, n);
-    // Dobu's 220: 111 beat him
-    expect([134, 133, 111, 110, 95, 94, 67, 66, 0].map(t => at(t))).toEqual(
+    // a crowd of 220: 111 beat him
+    expect([134, 133, 111, 110, 95, 94, 67, 66, 0].map(t => at(t, 220))).toEqual(
       ['win', 'likelywin', 'likelywin', 'maybe', 'maybe', 'likelylose', 'likelylose', 'lose', 'lose']);
     // (with a fix holding, 66 of them kept home: 78 of 154 beat him)
     expect(at(78, 154)).toBe('likelywin');
@@ -1103,23 +1108,34 @@ describe('the gong', () => {
     g.run(0.1);
     expect(fight.ringGong()).toBe(true);
     const money = g.wallet.money;
-    // just enough: 61 of his 120, by the bell
-    g.runUntil(() => { while (F().rush!.turned + F().stall.length < 61 && fight.toStall(false)); return F().rush!.done; }, 31 + fight.WALK_IN);
-    expect(F().rush).toMatchObject({ turned: 61, win: true });
+    // just enough: 81 of his 160, by the bell
+    g.runUntil(() => { while (F().rush!.turned + F().stall.length < 81 && fight.toStall(false)); return F().rush!.done; }, 31 + fight.WALK_IN);
+    expect(F().rush).toMatchObject({ turned: 81, win: true });
     // his crowd sits down and the fight's on, but nothing's settled until it's over
     expect(F().bout.phase).toBe('sit');
     expect(F().beaten).toBe(0);
     expect($('fightCard').hidden).toBe(true);
     g.run(fight.BOUT.sit + 1);
     expect(F().bout.phase).toBe('fight');
-    expect(swarm.swarm()).toMatchObject({ n: 120, ours: 61 });
+    expect(swarm.swarm()).toMatchObject({ n: 160, ours: 81 });
     g.run(fight.BOUT.fight);
     expect(F().bout.phase).toBe('pay');
     expect(F().beaten).toBe(1);
     expect(g.wallet.money - money).toBeGreaterThanOrEqual(fight.BOSSES[0].prize * fight.CHIP);
+    // the card waits, unseen, for him to land off the mound (and the strip says nothing till then either)
+    expect($('fightCard').hidden).toBe(false);
+    expect($('fightCard').className).toBe('win wait');
+    // (a tight win, 81 of 160: the strip names the champion's reversal, not who won)
+    g.ui.hud(0);
+    expect($('rushBell').textContent).toBe('TENTACLE TWIST');
+    // (the card waits for his move's landing: finishers.ts)
+    const { landsOf } = await import('../src/finishers');
+    g.runUntil(() => F().bout.t >= landsOf(F().rush, F().bout.finish), 4);
+    expect($('fightCard').className).toBe('win wait');
+    g.run(0.5);
     expect($('fightCard').hidden).toBe(false);
     expect($('fightCard').className).toBe('win');
-    expect($('fightCard').textContent).toBe('勝YOU WIN🐡 120🔓 New: grow room, mushroom bowls, Back-Alley RingTap to close');
+    expect($('fightCard').textContent).toBe('勝YOU WIN🐡 350🔓 New: grow room, the attendant, Back-Alley RingTap to close');
     // the grow room: lit, walkable, with its first bed (its picker's sold on its square)
     expect(g.layout.found.grow).toBe(true);
     expect(cellar.lights[7].intensity).toBeGreaterThan(0);
@@ -1135,29 +1151,262 @@ describe('the gong', () => {
     // the next boss on the panel, and the tiles he opened
     g.run(1);
     expect($('gongBoss').textContent).toContain('Yokobashiri');
-    expect(offered(g)).toEqual(expect.arrayContaining(['bed', 'picker', 'tier1']));
+    expect(offered(g)).toEqual(expect.arrayContaining(['bed', 'picker', 'tier1', 'attendant']));
     // the card goes on a tap
     $('fightCard').click();
     expect($('fightCard').hidden).toBe(true);
-  });
+  }, 30_000);
 
   it('a lost rush says how short it was and why, and costs nothing: half his crowd is not enough', async () => {
     const { g, fight, F } = await ring();
     const money = g.wallet.money;
     expect(fight.ringGong()).toBe(true);
-    g.run(fight.WALK_IN + fight.BOSSES[0].bell + fight.BOUT.sit + fight.BOUT.fight + 0.5);
+    g.run(fight.WALK_IN + fight.BOSSES[0].bell + fight.BOUT.sit + fight.BOUT.fight + 3.9);
     expect(F().rush!.win).toBe(false);
     expect(F().beaten).toBe(0);
     expect(g.wallet.money).toBe(money);
     const card = $('fightCard').textContent!;
     expect($('fightCard').className).toBe('lose');
-    expect(card).toBe('負SHORT BY 61🍚 Pot waited on riceTap to close');
-    // his crowd clears, and the gong's ready again; a tie (60 of 120) still loses
+    expect(card).toBe('負SHORT BY 81🍚 Pot waited on riceTap to close');
+    // his crowd clears, and the gong's ready again; a tie (80 of 160) still loses
     g.runUntil(() => !F().rush, 20);
     expect(fight.ringGong()).toBe(true);
-    g.runUntil(() => { while (F().rush!.turned + F().stall.length < 60 && fight.toStall(false)); return F().rush!.done; }, 31 + fight.WALK_IN);
-    expect(F().rush).toMatchObject({ turned: 60, win: false });
+    g.runUntil(() => { while (F().rush!.turned + F().stall.length < 80 && fight.toStall(false)); return F().rush!.done; }, 31 + fight.WALK_IN);
+    expect(F().rush).toMatchObject({ turned: 80, win: false });
   }, 30_000);
+});
+
+describe('the slam', () => {
+  /** A rush on Hakkaku won with `n` of his 160 turned, up to the fight. */
+  async function wonBy(n: number) {
+    const r = await ring();
+    const { g, fight, F } = r;
+    expect(fight.ringGong()).toBe(true);
+    g.runUntil(() => { while (F().rush!.turned + F().stall.length < n && fight.toStall(false)); return F().rush!.done; }, 31 + fight.WALK_IN);
+    expect(F().rush).toMatchObject({ turned: n, win: true });
+    g.runUntil(() => F().bout.phase === 'fight', 10);
+    return r;
+  }
+
+  it('a grand win offers it in the fight: Space as the rings meet lands it, for a fifth more of his prize', async () => {
+    const { g, fight, gong, F } = await wonBy(120);
+    expect(gong.slamOffered()).toBe(true);
+    // (not till the ring starts closing on the champion's face)
+    expect($('slamGo').hidden).toBe(true);
+    g.runUntil(() => F().bout.t >= fight.SLAM.at - fight.SLAM.lead + 0.1, 12);
+    expect($('slamGo').hidden).toBe(false);
+    expect($('slamGo').textContent).toBe('SLAM! Space on gold');
+    expect($('slamRing').hidden).toBe(false);
+    g.runUntil(() => F().bout.t >= fight.SLAM.at - 0.02, 3);
+    const money = g.wallet.money;
+    g.press(' ');
+    g.run(1 / 30);
+    g.press(' ', 'keyup');
+    expect(F().rush!.slam).toBe(2);
+    expect($('slamGo').textContent).toBe('Perfect slam!');
+    expect($('slamRing').hidden).toBe(true);
+    // one try
+    expect(fight.slam()).toBe(-1);
+    g.runUntil(() => F().bout.phase === 'pay', 8);
+    expect(g.wallet.money - money).toBe(Math.round(350 * 1.2 * fight.CHIP));
+    g.run(fight.LANDS + 0.5);
+    expect($('fightCard').textContent).toBe('勝YOU WIN🐡 350💥 Slam +🐡 70🔓 New: grow room, the attendant, Back-Alley RingTap to close');
+  }, 30_000);
+
+  it('a good one is a tenth more; too soon is a miss; and a plain win offers none', async () => {
+    const { fight, F } = await wonBy(120);
+    F().bout.t = fight.SLAM.at - 0.25;
+    expect(fight.slam()).toBe(1);
+    const r2 = await wonBy(125);
+    r2.F().bout.t = r2.fight.SLAM.at - r2.fight.SLAM.lead + 0.2;
+    expect(r2.fight.slam()).toBe(0);
+    const money = r2.g.wallet.money;
+    r2.g.runUntil(() => r2.F().bout.phase === 'pay', 15);
+    expect(r2.g.wallet.money - money).toBe(350 * r2.fight.CHIP);
+    // 119 of 160 is a win, but not a grand one
+    const r3 = await wonBy(119);
+    expect(r3.gong.slamOffered()).toBe(false);
+    r3.g.runUntil(() => r3.F().bout.t >= r3.fight.SLAM.at, 12);
+    expect($('slamGo').hidden).toBe(true);
+    expect(r3.fight.slam()).toBe(-1);
+  }, 60_000);
+});
+
+describe('the finishers', () => {
+  it("how a boss's fight ends goes by his vote: a grand win, a heavy loss, a tight one, or a push-out", async () => {
+    const { fight } = await ring({ level: 0 });
+    const F2 = await import('../src/finishers');
+    // Hakkaku: 81 of his 160 to turn; tight is within 8 of that
+    const end = (turned: number, boss = 0) => {
+      const R = { boss, n: fight.bossOf(boss).crowd, turned, win: turned * 2 > fight.bossOf(boss).crowd, slam: -1 } as import('../src/fight').Rush;
+      const f = fight.finishOf(R);
+      return [f, F2.moveOf(R, f)?.name ?? null];
+    };
+    expect(end(120)).toEqual(['grand', 'BELT THROW']);
+    expect(end(119)).toEqual(['push', null]);
+    expect(end(89)).toEqual(['tight', 'TENTACLE TWIST']);
+    expect(end(81)).toEqual(['tight', 'TENTACLE TWIST']);
+    expect(end(80)).toEqual(['tight', 'INK ESCAPE']);
+    expect(end(73)).toEqual(['tight', 'INK ESCAPE']);
+    expect(end(72)).toEqual(['push', null]);
+    expect(end(41)).toEqual(['push', null]);
+    expect(end(40)).toEqual(['heavy', 'EIGHT-ARM WRAP']);
+    // every boss has his own, and the champion his own against each
+    for (const k of ['octopus', 'crab', 'catfish', 'shark', 'puffer'] as const) {
+      const m = F2.MOVES[k];
+      expect(new Set([m.tight.name, m.heavy.name, m.champTight.name, m.champGrand.name]).size).toBe(4);
+      for (const mv of Object.values(m)) expect(mv.name.split(' ').length).toBeLessThanOrEqual(3);
+    }
+    expect(end(0, 4)).toEqual(['heavy', 'PUFF BOUNCE']);
+    expect(end(810, 4)).toEqual(['grand', 'BIG SQUEEZE']);
+    // (the practice fight: the sparring partner's)
+    expect(end(30, -1)).toEqual(['grand', 'BELT THROW']);
+  });
+
+  /** Whether he's down: his middle low over the ground under him (lying, or sat). */
+  const down = (r: import('../src/rikishi').RikishiModel, c: typeof import('../src/cellar')) => {
+    const v = r.hips.getWorldPosition(new Vector3()), rg = makeRing(c.RING_TOP, c.RING_HALF, c.RING_R, c.PIT_STEPS);
+    return v.y - c.CY - rg.ground(v.x - c.RING.x, v.z - c.RING.z) < 0.45;
+  };
+  it('a tight win goes the wrong way first, then the champion turns it at his own straw', async () => {
+    const { g, fight, dohyo, cellar, F } = await ring();
+    expect(fight.ringGong()).toBe(true);
+    g.runUntil(() => { while (F().rush!.turned + F().stall.length < 82 && fight.toStall(false)); return F().rush!.done; }, 31 + fight.WALK_IN);
+    expect(F().bout.finish).toBe('tight');
+    g.runUntil(() => F().bout.phase === 'fight' && F().bout.t > fight.BOUT.fight - 0.3, 25);
+    // (the champion's the one at the straw: his own, east)
+    expect(F().bout.tug).toBeLessThan(-0.6);
+    expect(dohyo.ring.champ.position.x - cellar.RING.x).toBeGreaterThan(1);
+    g.runUntil(() => F().bout.phase === 'pay' && F().bout.t >= 0.6, 3);
+    g.ui.hud(0);
+    expect($('rushBell').textContent).toBe('TENTACLE TWIST');
+    // (down by the time the card shows: finishRig's own test checks how each move gets him there)
+    const { landsOf } = await import('../src/finishers');
+    g.runUntil(() => F().bout.t >= landsOf(F().rush, 'tight') + 0.2, 6);
+    expect(down(dohyo.ring.rival, cellar)).toBe(true);
+    g.run(1.2);
+    g.ui.hud(0);
+    expect($('rushBell').textContent).toBe('WIN!');
+    expect(F().beaten).toBe(1);
+  }, 30_000);
+
+  it("the crab's own: under half needed, his heavy finisher; just short, his tight one", async () => {
+    const { g, fight, dohyo, cellar, F } = await ring({ ring: { beaten: 1, lines: { mush: { n: 1 } } } });
+    const { landsOf } = await import('../src/finishers');
+    const lose = async (n: number) => {
+      g.runUntil(() => !F().rush, 30);
+      expect(fight.ringGong()).toBe(true);
+      g.runUntil(() => { while (F().rush!.turned + F().stall.length < n && fight.toStall(false)); return F().rush!.done; }, 31 + fight.WALK_IN);
+      g.runUntil(() => F().bout.phase === 'pay' && F().bout.t >= 0.6, 25);
+    };
+    // under half of the 151 needed: Crab shuffle
+    await lose(30);
+    expect(F().bout.finish).toBe('heavy');
+    g.ui.hud(0);
+    expect($('rushBell').textContent).toBe('CRAB SHUFFLE');
+    g.runUntil(() => F().bout.t >= landsOf(F().rush, 'heavy') + 0.2, 6);
+    expect(down(dohyo.ring.champ, cellar)).toBe(true);
+    // just short, 140 of 151: Side step
+    await lose(140);
+    expect(F().bout.finish).toBe('tight');
+    g.ui.hud(0);
+    expect($('rushBell').textContent).toBe('SIDE STEP');
+    g.runUntil(() => F().bout.t >= landsOf(F().rush, 'tight') + 0.2, 6);
+    expect(down(dohyo.ring.champ, cellar)).toBe(true);
+  }, 60_000);
+
+  it("a heavy loss ends with the boss's own move; a plain win with the push-out west", async () => {
+    const { g, fight, dohyo, cellar, F } = await ring();
+    expect(fight.ringGong()).toBe(true);
+    g.runUntil(() => { while (F().rush!.turned + F().stall.length < 20 && fight.toStall(false)); return F().rush!.done; }, 31 + fight.WALK_IN);
+    expect(F().bout.finish).toBe('heavy');
+    g.runUntil(() => F().bout.phase === 'pay' && F().bout.t >= 0.6, 25);
+    g.ui.hud(0);
+    expect($('rushBell').textContent).toBe('EIGHT-ARM WRAP');
+    const { landsOf } = await import('../src/finishers');
+    g.runUntil(() => F().bout.t >= landsOf(F().rush, 'heavy') + 0.2, 6);
+    expect(down(dohyo.ring.champ, cellar)).toBe(true);
+    g.runUntil(() => !F().rush, 15);
+    expect(fight.ringGong()).toBe(true);
+    g.runUntil(() => { while (F().rush!.turned + F().stall.length < 90 && fight.toStall(false)); return F().rush!.done; }, 31 + fight.WALK_IN);
+    expect(F().bout.finish).toBe('push');
+    g.runUntil(() => F().bout.phase === 'pay' && F().bout.t >= fight.LANDS + 0.2, 25);
+    expect(dohyo.ring.rival.position.x - cellar.RING.x).toBeLessThan(-cellar.RING_HALF);
+  }, 60_000);
+});
+
+describe('the gong during a local fight', () => {
+  it('waits for it: the champion finishes it there and then, and the boss walks in as its fans go home', async () => {
+    const { g, plan, fight, at, F } = await ring();
+    g.runUntil(() => F().bout.phase === 'fight' && F().bout.t > 4, 50);
+    const n = F().bout.n, t0 = F().t;
+    at(plan.GONG_PAD);
+    g.press('e');
+    g.run(0.05);
+    g.press('e', 'keyup');
+    // no boss yet: the local's result at once, the champion's, and the gong can't be rung twice
+    expect(F().rush).toBeNull();
+    expect(F().called).toBe(true);
+    expect(F().bout).toMatchObject({ phase: 'pay', win: true, n: n + 1 });
+    expect(fight.ringGong()).toBe(false);
+    expect(fight.forecast()).toBeNull();
+    expect($('gongCast').textContent).toBe('He walks in after this fight');
+    expect($('gongGo').hidden).toBe(true);
+    expect($('fightBanner').hidden).toBe(true);
+    // he lands; the rest of it (the bow, the prize, back to the corners) a little hurried
+    g.run(fight.LANDS - 0.2);
+    expect(F().rush).toBeNull();
+    g.runUntil(() => !!F().rush, 6);
+    const took = F().t - t0, want = fight.LANDS + (fight.BOUT.pay - fight.LANDS) / fight.HURRY;
+    expect(Math.abs(took - want)).toBeLessThan(0.3);
+    expect(took).toBeLessThan(fight.BOUT.pay);
+    // then he walks in, banner and all, and his rush starts from the top
+    expect(F().called).toBe(false);
+    expect(F().rush).toMatchObject({ boss: 0, n: 160, turned: 0, walk: fight.WALK_IN });
+    expect(F().bout).toMatchObject({ phase: 'prep', n: n + 1 });
+    expect($('fightBanner').hidden).toBe(false);
+    expect($('fightBanner').textContent).toBe('入場Hakkaku 🐙 · 160 fansTURN 81 TO WIN');
+  });
+
+  it('before the fight, he walks in at once; and a reload while he waits calls him off', async () => {
+    const { g, fight, F } = await ring();
+    g.runUntil(() => F().bout.phase === 'sit', 30);
+    expect(fight.ringGong()).toBe(true);
+    expect(F().rush).toMatchObject({ boss: 0, n: 160 });
+    g.runUntil(() => !F().rush, 120);
+    g.runUntil(() => F().bout.phase === 'fight', 50);
+    expect(fight.ringGong()).toBe(true);
+    expect(fight.saveFight().called).toBe(false);
+    expect(fight.fightFrom(fight.saveFight()).called).toBe(false);
+  }, 30_000);
+
+  it('a long name shrinks to fit its box on the gong and the strip, and takes two lines past that', async () => {
+    const { gong } = await ring({ level: 0 });
+    const el = document.createElement('span');
+    document.body.append(el);
+    el.textContent = 'Sparring partner';
+    let box = 150;
+    Object.defineProperty(el, 'clientWidth', { get: () => box });
+    Object.defineProperty(el, 'scrollWidth', { get: () => el.textContent!.length * (parseFloat(el.style.fontSize) || 16) * 0.6 });
+    gong.fit(el);
+    expect(parseFloat(el.style.fontSize)).toBeLessThan(16);
+    expect(el.scrollWidth).toBeLessThanOrEqual(150);
+    expect(el.classList.contains('two')).toBe(false);
+    box = 60;
+    gong.fit(el);
+    expect(el.classList.contains('two')).toBe(true);
+    expect(el.style.fontSize).toBe('');
+    box = 400;
+    gong.fit(el);
+    expect(el.style.fontSize).toBe('');
+    expect(el.classList.contains('two')).toBe(false);
+  });
+
+  it("the push-out's fall lands when fight.ts says it does", async () => {
+    const { fight } = await ring({ level: 0 });
+    const { PUSH } = await import('../src/finishers');
+    expect(PUSH.lands).toBe(fight.LANDS);
+  });
 });
 
 describe("the cellar's tiles", () => {
@@ -1176,76 +1425,81 @@ describe("the cellar's tiles", () => {
     expect(offered(g)).not.toContain('rack');
   });
 
-  it("the crafting bench sells every room's upgrades, under a heading each, with a price button that buys it", async () => {
+  it("the cookware shop sells it all on one board, a column a fight won, with a price that buys it on a click", async () => {
     const { g, plan, at, F } = await ring({ money: 10_000_000 });
-    // no tiles of their own on the rooms' floors
+    // no tiles of their own on the rooms' floors, or the arena's
     expect(g.unlocks.visibleTiles().filter(t => t.menu)).toEqual([]);
+    expect(g.unlocks.tiles.filter(t => t.id.startsWith('tier')).every(t => t.menu === 'venue')).toBe(true);
     at(plan.BENCH_PAD);
     g.run(0.1);
-    // (with a mouse and keys, it opens whole: no Craft button, no tabs, nothing to fold, one list)
+    // (with a mouse and keys, it opens whole, the wide board, with a red ✕ that folds it to the Shop button, as Esc does)
     expect($('shop').hidden).toBe(false);
+    expect($('shop').classList.contains('board')).toBe(true);
     expect($('craft').hidden).toBe(true);
-    expect($('shopShut').hidden).toBe(true);
+    expect($('shopShut').hidden).toBe(false);
+    $('shopShut').click();
+    expect($('shop').hidden).toBe(true);
+    expect($('craft').hidden).toBe(false);
+    $('craft').click();
+    expect($('shop').hidden).toBe(false);
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    expect($('shop').hidden).toBe(true);
+    $('craft').click();
+    g.run(0.1);
     expect($('shopTabs').hidden).toBe(true);
     expect($('shopTitle').textContent).toBe('Cookware shop');
-    // (the ring's, the prep hall's, the grow room's and the hearth room's, each with its number key and how many things in
-    // it there are the chips for; the grow room, till it's found, says who opens it)
-    const heads = () => [...$('shopRows').querySelectorAll('.sect .nm')].map(h => h.textContent);
-    const counts = () => [...$('shopRows').querySelectorAll('.sect .cnt')].map(h => h.textContent);
-    expect(heads()).toEqual(['The ring', 'Prep hall', 'Grow room', 'Hearth room']);
-    expect([...$('shopRows').querySelectorAll('.sect kbd')].map(k => k.textContent)).toEqual(['1', '2', '3', '4']);
-    expect(counts()).toEqual(['3 to buy', '4 to buy', '', '']);
-    expect($('shopRows').querySelector('[data-of="grow"]')!.textContent).toBe('🔒 Found after beating Hakkaku 🐙');
     expect($('shopPurse').hidden).toBe(false);
     expect($('shopPurse').textContent).toBe('🐡 10k');
     expect($('shopKeys').hidden).toBe(false);
+    // the ring's three levels along the top, then every room's upgrade and the venue's tiers, and the buyout at the end
     expect([...$('shopRows').querySelectorAll('[data-mod]')].map(b => (b as HTMLElement).dataset.mod)).toEqual(['bowls', 'street', 'cellarcrew']);
-    expect([...$('shopRows').querySelectorAll<HTMLElement>('[data-tile]')].map(b => b.dataset.tile)).toEqual(['rack', 'washer', 'barrel', 'salter', 'steam', 'smoke', 'attendant', 'cook']);
-    const row = (id: string) => $('shopRows').querySelector<HTMLElement>(`[data-tile="${id}"]`)!;
-    const price = (id: string) => row(id).querySelector<HTMLButtonElement>('button.cost')!;
+    expect([...$('shopRows').querySelectorAll<HTMLElement>('[data-tile]')].map(b => b.dataset.tile)).toEqual(
+      ['rack', 'washer', 'steam', 'barrel', 'salter', 'smoke', 'bed', 'picker', 'shelves', 'attendant', 'cook', 'tier1', 'tier2', 'tier3', 'buyout']);
+    // a gate a column: the start, the practice fight (won: the fixture's sparred), then the bosses, Hakkaku next
+    const gates = () => [...$('shopRows').querySelectorAll<HTMLElement>('.gate')].map(h => h.className.replace('gate ', ''));
+    expect(gates()).toEqual(['start', 'won', 'next', 'later', 'later', 'later', 'later']);
+    expect($('shopRows').querySelector('.gate.next')!.textContent).toBe('🐙Next: Hakkaku');
+    const node = (id: string) => $('shopRows').querySelector<HTMLElement>(`[data-tile="${id}"]`)!;
+    const price = (id: string) => node(id).querySelector<HTMLButtonElement>('button.cost')!;
     // (a line's machines as dots)
-    expect(row('rack').querySelector('b')!.textContent).toBe('Drying rack');
-    expect(row('rack').querySelector('.pips')!.getAttribute('aria-label')).toBe('1 of 6');
-    expect(row('rack').querySelectorAll('.pips i.on').length).toBe(1);
-    expect(row('rack').textContent).toContain('More room on the rice line');
+    expect(node('rack').querySelector('b')!.textContent).toBe('Drying rack');
+    expect(node('rack').querySelector('.pips')!.getAttribute('aria-label')).toBe('1 of 6');
     expect(price('rack').textContent).toBe('🐡 10');
     expect(price('rack').disabled).toBe(false);
-    // the steam baskets wait on the second boss, and say so
-    expect(row('steam').classList.contains('locked')).toBe(true);
-    expect(row('steam').textContent).toContain('After beating Yokobashiri 🦀');
+    expect(node('rack').classList.contains('can')).toBe(true);
+    // the steam baskets wait on the second boss, dark, and the line under the board says so for the one under the mouse
+    expect(node('steam').classList.contains('boss')).toBe(true);
+    expect(price('steam').textContent).toBe('🔒 🦀');
     expect(price('steam').disabled).toBe(true);
-    // one click on its price buys it
+    node('steam').dispatchEvent(new Event('pointerover', { bubbles: true }));
+    g.run(0.1);
+    expect($('shopPick').textContent).toContain('Beat Yokobashiri 🦀 first');
+    // one click on its price buys it, or on the node
     price('rack').click();
     g.run(0.1);
     expect(F().lines.rice.n).toBe(2);
-    expect(row('rack').querySelector('.pips')!.getAttribute('aria-label')).toBe('2 of 6');
-    // what's done stays in its place, ticked
-    price('washer').click();
+    expect(node('rack').querySelector('.pips')!.getAttribute('aria-label')).toBe('2 of 6');
+    node('washer').click();
     g.run(0.1);
-    expect(row('washer').classList.contains('done')).toBe(true);
+    expect(F().hires.washer).toBe(true);
+    // what's done stays in its place, gold, ticked, and the line to it gold too
+    expect(node('washer').classList.contains('done')).toBe(true);
     expect(price('washer').textContent).toBe('✓');
-    // the grow room's things join in once the grow room's found
-    g.layout.found.grow = true;
+    expect($('shopRows').querySelectorAll('.edge.gold').length).toBe(1);
+    // the venue's tiers are here now: Hakkaku opens the first
+    expect(node('tier1').classList.contains('boss')).toBe(true);
+    F().beaten = 1;
     g.run(0.1);
-    expect(heads()).toEqual(['The ring', 'Prep hall', 'Grow room', 'Hearth room']);
-    expect($('shopRows').querySelector('[data-tile="bed"]')).not.toBeNull();
-    // a heading folds its room away, and so does its number key
-    const box = (t: string) => $('shopRows').querySelector<HTMLElement>(`[data-of="${t}"]`)!;
-    $('shopRows').querySelector<HTMLElement>('.sect[data-sect="ring"]')!.click();
-    expect(box('ring').hidden).toBe(true);
-    expect($('shopRows').querySelector('.sect[data-sect="ring"]')!.getAttribute('aria-expanded')).toBe('false');
-    window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Digit1' }));
-    expect(box('ring').hidden).toBe(false);
-    window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Digit2' }));
-    expect(box('prep').hidden).toBe(true);
-    window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Digit2' }));
-    expect(box('prep').hidden).toBe(false);
-    // E buys the line under the mouse
+    expect(gates()).toEqual(['start', 'won', 'won', 'next', 'later', 'later', 'later']);
+    price('tier1').click();
+    g.run(0.1);
+    expect(F().tier).toBe(1);
+    // E buys the one under the mouse
     const barrels = F().lines.fish.n;
-    row('barrel').querySelector('.sub')!.dispatchEvent(new Event('pointerover', { bubbles: true }));
+    node('barrel').querySelector('b')!.dispatchEvent(new Event('pointerover', { bubbles: true }));
     g.press('e'); g.run(0.1); g.press('e', 'keyup');
     expect(F().lines.fish.n).toBe(barrels + 1);
-    // and walking off the bench puts it away, off the screen as well as hidden (its docked layout never shows it)
+    // and walking off the bench puts it away, off the screen as well as hidden
     const css = document.head.appendChild(document.createElement('style'));
     css.textContent = [...indexHtml.matchAll(/<style>([\s\S]*?)<\/style>/g)].map(m => m[1]).join('\n');
     expect(getComputedStyle($('shop')).display).not.toBe('none');
@@ -1256,9 +1510,57 @@ describe("the cellar's tiles", () => {
     css.remove();
   });
 
+  it('the tree: the practice fight opens the two hands, and a line\'s big upgrade needs its hand first', async () => {
+    // a game that's just come down: the practice fight to come
+    const { g, F } = await ring({ money: 10_000_000, ring: { sparred: false, practice: true } });
+    g.run(0.1);
+    expect(offered(g)).toEqual(expect.arrayContaining(['rack', 'barrel']));
+    expect(offered(g)).not.toContain('washer');
+    expect(offered(g)).not.toContain('salter');
+    // (the tutorial's shop lesson points at the cheapest thing there: the drying rack, still at the start)
+    expect([...g.unlocks.menuOffer()].sort((a, b) => a.cost - b.cost)[0].id).toBe('rack');
+    F().practice = false; F().sparred = true;
+    g.run(0.1);
+    expect(offered(g)).toEqual(expect.arrayContaining(['washer', 'salter']));
+    // two bosses on: the steam baskets wait for the washer, the cook for the attendant
+    F().beaten = 3;
+    g.run(0.1);
+    expect(offered(g)).not.toContain('steam');
+    expect(offered(g)).not.toContain('smoke');
+    expect(offered(g)).not.toContain('cook');
+    expect(offered(g)).toContain('attendant');
+    expect(g.unlocks.buyFromMenu(g.unlocks.tiles.find(t => t.id === 'washer')!)).toBe(true);
+    expect(g.unlocks.buyFromMenu(g.unlocks.tiles.find(t => t.id === 'attendant')!)).toBe(true);
+    g.run(0.1);
+    expect(offered(g)).toEqual(expect.arrayContaining(['steam', 'cook']));
+    expect(offered(g)).not.toContain('smoke');
+  });
+
+  it("an older game keeps all it bought on the tree, even what it couldn't buy that way now", async () => {
+    // from before the practice fight and the tree's lines: steam baskets and a smokehouse with no hands, a cook with
+    // no attendant, the second tier, a ring level or two, and more racks
+    const { g, plan, at } = await ring({
+      money: 1_000_000, mods: { street: 3, bowls: 1 },
+      ring: { sparred: false, beaten: 3, tier: 2, hires: { cook: true }, lines: { rice: { n: 4, up: 1 }, fish: { n: 2, up: 1 } } },
+    });
+    at(plan.BENCH_PAD);
+    g.run(0.1);
+    const node = (id: string) => $('shopRows').querySelector<HTMLElement>(`[data-tile="${id}"]`)!;
+    for (const id of ['steam', 'smoke', 'cook', 'tier1', 'tier2']) expect(node(id).classList.contains('done')).toBe(true);
+    expect(node('rack').querySelector('.pips')!.getAttribute('aria-label')).toBe('4 of 6');
+    expect(node('barrel').querySelector('.pips')!.getAttribute('aria-label')).toBe('2 of 6');
+    // (its levels too)
+    expect($('shopRows').querySelector('[data-mod="street"] small')!.textContent).toBe('Level 3');
+    expect($('shopRows').querySelector('[data-mod="bowls"] small')!.textContent).toBe('Level 1');
+    // what it hasn't bought is where the tree says: the hands on sale (a boss beaten counts the practice won)
+    expect(node('washer').classList.contains('can')).toBe(true);
+    expect(node('attendant').classList.contains('can')).toBe(true);
+    expect(node('tier3').classList.contains('boss')).toBe(true);
+  });
+
   it('hires the crew, who run their lines and the pot by themselves', async () => {
     const { g, buy, F } = await ring({ money: 10_000_000, ring: { beaten: 3, hires: { picker: true }, lines: { mush: { n: 3 } } } });
-    for (const id of ['washer', 'salter', 'cook', 'attendant']) buy(id);
+    for (const id of ['washer', 'salter', 'attendant', 'cook']) buy(id);
     expect(F().crew.map(w => w.role).sort()).toEqual(['attendant', 'cook', 'picker', 'salter', 'washer']);
     g.placePlayer(0, 0);
     g.player.g.position.y = (await import('../src/cellar')).CY;
@@ -1269,16 +1571,19 @@ describe("the cellar's tiles", () => {
     expect(g.wallet.money).toBeGreaterThan(money);
   }, 30_000);
 
-  it('serving is taken off the player\'s hands before the pot: the attendant after the second boss, the cook after the third', async () => {
+  it('serving is taken off the player\'s hands before the pot: the attendant after the first boss, the cook after the third', async () => {
     const { g, F } = await ring({ money: 10_000_000 });
-    F().beaten = 1;
     g.run(0.1);
     expect(offered(g)).not.toContain('attendant');
-    F().beaten = 2;
+    F().beaten = 1;
     g.run(0.1);
     expect(offered(g)).toContain('attendant');
     expect(offered(g)).not.toContain('cook');
     F().beaten = 3;
+    g.run(0.1);
+    // (the cook needs the attendant first, in the shop's tree)
+    expect(offered(g)).not.toContain('cook');
+    g.unlocks.buyFromMenu(g.unlocks.tiles.find(t => t.id === 'attendant')!);
     g.run(0.1);
     expect(offered(g)).toContain('cook');
   });
@@ -1463,7 +1768,7 @@ describe('the swarm and the watch spot', () => {
   it('a boss\'s crowd walks round the ring, the stands and the soup bar to its seats, never through them', async () => {
     const { g, fight, swarm, cellar, F } = await ring({ ring: { tier: 2 } });
     expect(fight.ringGong()).toBe(true);
-    g.runUntil(() => { while (F().rush!.turned + F().stall.length < 61 && fight.toStall(false)); return F().rush!.done; }, 31 + fight.WALK_IN);
+    g.runUntil(() => { while (F().rush!.turned + F().stall.length < 81 && fight.toStall(false)); return F().rush!.done; }, 31 + fight.WALK_IN);
     g.run(0.3);
     const A = g.layout.ARENA, boxes = cellar.cellarBoxes().filter(([cx, cz, hx, hz]) => cx + hx > A.x0 && cx - hx < A.x1 && cz + hz > A.z0 && cz - hz < A.z1);
     const inside = (x: number, z: number) => boxes.some(([cx, cz, hx, hz]) => Math.abs(x - cx) < hx - 0.02 && Math.abs(z - cz) < hz - 0.02);
@@ -1484,7 +1789,7 @@ describe('the swarm and the watch spot', () => {
     expect(legs).toBeGreaterThan(50);
     // and they all sit down, the benches first
     g.run(fight.BOUT.sit + 2);
-    expect(swarm.swarm()).toMatchObject({ n: 120, seated: 120 });
+    expect(swarm.swarm()).toMatchObject({ n: 160, seated: 160 });
     expect(swarm.swarm().benched).toBeGreaterThan(60);
   });
 
@@ -1636,8 +1941,8 @@ describe("the workshop's crafting bench", () => {
     expect($('shop').hidden).toBe(false);
   });
 
-  it('on a touch screen it opens folded, a Craft button out of the thumb\'s way, with a ✕ to fold it again', async () => {
-    const { g, plan, at } = await ring({ money: 10_000_000 });
+  it('on a touch screen it opens folded, a Shop button out of the thumb\'s way, then a ladder: tap to pick, then Buy', async () => {
+    const { g, plan, at, F } = await ring({ money: 10_000_000 });
     // (a first touch: the game's a touch screen's from then on)
     window.dispatchEvent(Object.assign(new Event('pointerdown'), { pointerType: 'touch' }));
     at(plan.BENCH_PAD);
@@ -1646,30 +1951,32 @@ describe("the workshop's crafting bench", () => {
     expect($('craft').hidden).toBe(false);
     expect(Number($('craftN').textContent)).toBeGreaterThan(0);
     $('craft').click();
+    g.run(0.1);
     expect($('shop').hidden).toBe(false);
+    expect($('shop').classList.contains('ladder')).toBe(true);
     expect($('craft').hidden).toBe(true);
     expect($('shopShut').hidden).toBe(false);
-    // (a tab each, opening on one with something to buy, a dot on each with something there are the chips for)
-    const tabs = () => [...$('shopTabs').querySelectorAll<HTMLButtonElement>('[data-tab]')];
-    expect(tabs().map(b => b.dataset.tab)).toEqual(['ring', 'prep', 'hearth']);
-    expect(tabs().find(b => b.getAttribute('aria-selected') === 'true')!.dataset.tab).toBe('prep');
-    expect(tabs().map(b => b.classList.contains('can'))).toEqual([true, true, false]);
-    // (a card each, in its place: the rice line's along the top, the fish line's under it)
-    const card = (id: string) => $('shopRows').querySelector<HTMLButtonElement>(`[data-tile="${id}"]`)!;
-    expect([...$('shopRows').querySelectorAll<HTMLButtonElement>('[data-tile]')].map(b => b.dataset.tile)).toEqual(['rack', 'washer', 'steam', 'barrel', 'salter', 'smoke']);
-    expect(card('rack').getAttribute('aria-pressed')).toBe('true');
-    expect($('shopPick').textContent).toContain('More room on the rice line');
+    // a column a room along the top, a bar a gate: the practice fight's won, Hakkaku's next
+    expect([...$('shopRows').querySelectorAll('.treeHead .laneName')].map(l => l.textContent)).toEqual(['🍚Rice', '🐟Fish', '🍄Grow', '🍲Hearth', '🏮Venue']);
+    expect([...$('shopRows').querySelectorAll<HTMLElement>('.bar')].map(b => b.className.replace('bar ', ''))).toEqual(['won', 'next', 'later', 'later', 'later', 'later']);
+    expect($('shopRows').querySelector('.bar.next')!.textContent).toBe('🔒 Beat Hakkaku 🐙');
+    const node = (id: string) => $('shopRows').querySelector<HTMLButtonElement>(`[data-tile="${id}"]`)!;
     const buy = () => $('shopPick').querySelector<HTMLButtonElement>('.buy')!;
-    card('steam').click();
-    expect($('shopPick').textContent).toContain('After beating Yokobashiri 🦀');
+    // (it starts on the first thing there are the chips for: the bowl price)
+    expect($('shopRows').querySelector('[data-mod="bowls"]')!.getAttribute('aria-pressed')).toBe('true');
+    node('steam').click();
+    g.run(0.1);
+    expect(node('steam').getAttribute('aria-pressed')).toBe('true');
+    expect($('shopPick').textContent).toContain('Beat Yokobashiri 🦀 first');
     expect(buy().disabled).toBe(true);
     // pick, then buy
-    card('rack').click();
+    node('rack').click();
+    g.run(0.1);
+    expect($('shopPick').textContent).toContain('More room on the rice line');
     buy().click();
     g.run(0.1);
-    expect(card('rack').textContent).toContain('2/6');
-    tabs()[2].click();
-    expect([...$('shopRows').querySelectorAll<HTMLButtonElement>('[data-tile]')].map(b => b.dataset.tile)).toEqual(['attendant', 'cook']);
+    expect(F().lines.rice.n).toBe(2);
+    expect(node('rack').textContent).toContain('🐡 15');
     $('shopShut').click();
     expect($('shop').hidden).toBe(true);
     expect($('craft').hidden).toBe(false);
@@ -1699,6 +2006,7 @@ describe("the workshop's crafting bench", () => {
     const { Box3, Vector3 } = await import('three');
     const kitchen = await import('../src/ringKitchen');
     const { view } = g.stage, focus = view.focus.clone();
+    const { SPOT_WAIT: W } = await import('../src/spotlight');
     type O = import('three').Object3D;
     /** How far the camera's spotlight is from the middle of `os`. */
     const off = (os: O[]) => {
@@ -1709,7 +2017,7 @@ describe("the workshop's crafting bench", () => {
     g.run(0.1);
     // a drying rack: the camera goes over to the new one (the second) and in close, then back to the player
     buy('rack');
-    g.run(0.8);
+    g.run(W + 0.8);
     expect(view.close).toBeCloseTo(0.6);
     const rack = kitchen.built({ line: 'rice' });
     expect(rack).toHaveLength(1);
@@ -1724,14 +2032,15 @@ describe("the workshop's crafting bench", () => {
     expect($('shop').hidden).toBe(false);
     // a hire: on him, from where he starts by the racks, followed (a step behind) as he sets off to work
     buy('washer');
-    g.run(0.8);
+    g.run(W + 0.8);
     expect(view.close).toBeCloseTo(0.6);
     expect(off([kitchen.crewPerson('washer')!])).toBeLessThan(1);
     g.run(3);
     // the steam baskets: on both the racks they're swapped for
     buy('steam');
-    g.run(0.8);
-    expect(off(kitchen.built({ line: 'rice', all: true }))).toBeLessThan(0.1);
+    g.run(W + 0.8);
+    // (a little off their boxes' middles: the washer's filling them as it plays)
+    expect(off(kitchen.built({ line: 'rice', all: true }))).toBeLessThan(0.25);
     expect(kitchen.built({ line: 'rice', all: true })).toHaveLength(2);
     g.run(3);
     // (and it goes in the middle of the space the bench's menu leaves: ui.test.ts)
@@ -1741,6 +2050,7 @@ describe("the workshop's crafting bench", () => {
   it("leaves the camera on the player while a boss is in, and ends a spotlight up or down the ladder", async () => {
     const { g, plan, at, buy, fight, stage, F } = await ring({ money: 10_000_000 });
     const { view } = g.stage;
+    const { SPOT_WAIT: W } = await import('../src/spotlight');
     at(plan.BENCH_PAD);
     g.run(0.1);
     // a boss's crowd coming in: what's bought pops in, but the camera stays on the player
@@ -1749,7 +2059,7 @@ describe("the workshop's crafting bench", () => {
     const kitchen = await import('../src/ringKitchen');
     buy('rack');
     expect(kitchen.built({ line: 'rice' })[0].scale.x).toBeLessThan(1); // popping in
-    g.run(0.8);
+    g.run(W + 0.8);
     expect(view.close).toBe(1);
     expect(view.k).toBe(0);
     g.runUntil(() => !F().rush, 60 + fight.WALK_IN);
@@ -1757,10 +2067,58 @@ describe("the workshop's crafting bench", () => {
     at(plan.BENCH_PAD);
     g.run(0.1);
     buy('rack');
-    g.run(0.8);
+    g.run(W + 0.8);
     expect(view.close).toBeCloseTo(0.6);
     stage.setLevel(false);
     g.run(0.05);
+    expect(view.close).toBe(1);
+    expect(view.k).toBe(0);
+  }, 60_000);
+
+  it('waits till the player has stopped buying: three salt barrels in a row get the one close-up, on all three', async () => {
+    const { g, plan, at, buy } = await ring({ money: 10_000_000, ring: { beaten: 2 } });
+    const { Box3, Vector3 } = await import('three');
+    const kitchen = await import('../src/ringKitchen');
+    const { SPOT, SPOT_WAIT } = await import('../src/spotlight');
+    const { view } = g.stage;
+    type O = import('three').Object3D;
+    const off = (os: O[]) => {
+      const mid = os.reduce((m, o) => m.add(new Box3().setFromObject(o).getCenter(new Vector3())), new Vector3()).divideScalar(os.length);
+      return view.focus.distanceTo(mid);
+    };
+    at(plan.BENCH_PAD);
+    g.run(0.1);
+    // bought one after another (each a click and a moment apart): the camera stays put, the menu with it, for the next
+    const shop = document.getElementById('shop')!;
+    for (let i = 0; i < 3; i++) {
+      buy('barrel');
+      expect(view.close).toBe(1);
+      expect(view.k).toBe(0);
+      expect(shop.classList.contains('away')).toBe(false);
+    }
+    // then, once the player's stopped for a moment, one close-up, framing the three new barrels
+    g.run(SPOT_WAIT + SPOT.over + 0.2);
+    expect(view.close).toBeCloseTo(0.6);
+    const barrels = kitchen.built({ line: 'fish', all: true }).slice(1);
+    expect(barrels).toHaveLength(3);
+    expect(off(barrels)).toBeLessThan(0.1);
+    expect(shop.classList.contains('away')).toBe(true);
+    // and only the one: it ends, and the camera stays on the player after
+    g.run(SPOT.hold + SPOT.back);
+    expect(view.close).toBe(1);
+    for (let i = 0; i < 20; i++) { g.run(0.2); expect(view.k).toBe(0); }
+    // things bought in a row that are far apart (a rack in the prep hall, the attendant by the pot): on the last
+    buy('rack');
+    buy('attendant');
+    g.run(SPOT_WAIT + SPOT.over + 0.2);
+    expect(view.close).toBeCloseTo(0.6);
+    expect(off([kitchen.crewPerson('attendant')!])).toBeLessThan(1);
+    // and up the ladder while it waits: no close-up at all
+    g.run(4);
+    const stage = await import('../src/stage');
+    buy('barrel');
+    stage.setLevel(false);
+    g.run(SPOT_WAIT + SPOT.over);
     expect(view.close).toBe(1);
     expect(view.k).toBe(0);
   }, 60_000);

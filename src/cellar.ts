@@ -869,10 +869,10 @@ later(() => {
 const acrossX = (t: (typeof DOORS)[number]) => !Object.values(ROOMS).some(r => Math.abs(r.x1 - t.x0) < 0.01 || Math.abs(r.x0 - t.x1) < 0.01);
 later(() => {
   for (const t of DOORS) {
-    // (the club's doors hang in a frame of their own: doorway.ts)
-    if (t.b === 'den') continue;
+    // (the club's doors hang in a frame of their own, doorway.ts, and so does the door at the tunnel's mouth, southDoor.ts)
+    if (t.b === 'den' || t.b === 'passage') continue;
     const ax = acrossX(t), cx = (t.x0 + t.x1) / 2, cz = (t.z0 + t.z1) / 2, w = (ax ? t.x1 - t.x0 : t.z1 - t.z0) + 0.6;
-    const g = t.b === 'grow' ? parts.grow : t.b === 'passage' || t.b === 'loans' || t.b === 'vip' || t.b === 'cards' ? parts.den : cellar;
+    const g = t.b === 'grow' ? parts.grow : t.b === 'loans' || t.b === 'vip' || t.b === 'cards' ? parts.den : cellar;
     for (const s of [-1, 1]) {
       ax ? box(g, WOOD_DARK, cx + s * w / 2, CY + FRAME_H / 2, cz, 0.2, FRAME_H, 0.22) : box(g, WOOD_DARK, cx, CY + FRAME_H / 2, cz + s * w / 2, 0.22, FRAME_H, 0.2);
     }
@@ -982,12 +982,16 @@ later(() => quietly(() => {
     b.add(rbox(0.42, top - 0.05, 1.25, 0.02), 0x6A4E32, x, (top - 0.05) / 2, 0);
     for (let j = 0; j < 5; j++) b.add(rbox(0.44, 0.04, 0.2, 0.01), j % 2 ? 0x9A7A52 : 0xA88760, x, top - 0.02, -0.6 + j * 0.3);
   }
-  // salt in a tin bucket, water in another, on the corners
-  const c = RING_HALF - 0.55;
+  // salt in a tin bucket, water in another, on the corners: each under a rolled rim, filled to just under it (the salt
+  // heaped), the tops a little over the bucket's own so the two never flicker
+  const c = RING_HALF - 0.55, lip = new TorusGeometry(1, 0.1, 5, 16);
   b.add(tube(0.2, 0.17, 0.32, 12), 0x8A9096, c, R + 0.16, -c);
-  thin.add(tube(0.18, 0.18, 0.02, 12), 0xF4F1EA, c, R + 0.31, -c);
+  thin.add(lip, 0x9AA0A6, c, R + 0.32, -c, [Math.PI / 2, 0, 0], 0.2);
+  thin.add(tube(0.185, 0.185, 0.02, 12), 0xF4F1EA, c, R + 0.322, -c);
+  thin.add(K.dome, 0xF4F1EA, c, R + 0.33, -c, null, [0.15, 0.05, 0.15]);
   b.add(tube(0.21, 0.18, 0.3, 12), 0x8A9096, -c, R + 0.15, c);
-  thin.add(tube(0.19, 0.19, 0.02, 12), 0x3C6E8F, -c, R + 0.29, c);
+  thin.add(lip, 0x9AA0A6, -c, R + 0.3, c, [Math.PI / 2, 0, 0], 0.21);
+  thin.add(tube(0.195, 0.195, 0.02, 12), 0x3C6E8F, -c, R + 0.302, c);
   b.add(tube(0.015, 0.015, 0.5, 5), WOOD, -c + 0.1, R + 0.4, c, [0, 0, 0.5]);
   // the chain round its foot, on steel pipes, open east and west for the wrestlers
   const H = CORDON, posts: [number, number][] = [[-H, -1], [-H, -H], [0, -H], [H, -H], [H, -1], [H, 1], [H, H], [0, H], [-H, H], [-H, 1]];
@@ -1280,30 +1284,32 @@ later(() => {
     // (thin, and under the drop-off's marker on them: ringKitchen.ts lays it at 0.012)
     box(g, i % 2 ? 0x7A5638 : 0x6E4C30, Math.min(x + 0.11, ARENA.x1 + 0.09), CY + 0.004, (fz0 + fz1) / 2, 0.22, 0.004, fz1 - fz0, false).receiveShadow = true;
   }
-  // a bamboo pole at each corner, in lengths with a knot at each joint (the south two against the south wall)
+  // a bamboo pole at each corner, in lengths with a knot at each joint (the south two against the south wall) (all of
+  // it, to the name board, in barFrame: Pricier bowls swaps it for a look of its own, cellarLooks.ts)
   const POLE = 2.7, SEG = POLE / 3, C = [V(x0 + 0.08, 0, z0 + 0.08), V(x1 - 0.14, 0, z0 + 0.08), V(x1 - 0.14, 0, z1 - 0.12), V(x0 + 0.08, 0, z1 - 0.12)];
+  const f = add(g, barFrame);
   for (const p of C) {
     for (let k = 0; k < 3; k++) {
-      add(g, mesh(G.cyl, k % 2 ? 0x8FA552 : 0x7E9446, p.x, CY + (k + 0.5) * SEG, p.z, true)).scale.set(0.06, SEG, 0.06);
-      add(g, mesh(G.cyl, 0x5E6E30, p.x, CY + (k + 1) * SEG, p.z)).scale.set(0.072, 0.04, 0.072);
+      add(f, mesh(G.cyl, k % 2 ? 0x8FA552 : 0x7E9446, p.x, CY + (k + 0.5) * SEG, p.z, true)).scale.set(0.06, SEG, 0.06);
+      add(f, mesh(G.cyl, 0x5E6E30, p.x, CY + (k + 1) * SEG, p.z)).scale.set(0.072, 0.04, 0.072);
     }
   }
   // the lanterns strung between them round the back three sides, red and paper by turns, and a crossbar along the back
   const tops = C.map(p => V(p.x, CY + POLE - 0.1, p.z)), lit: Record<'red' | 'paper', BufferGeometry[]> = { red: [], paper: [] };
   for (const [i, j] of [[3, 0], [0, 1], [1, 2]]) {
     const along = sag(tops[i], tops[j], 0.3, 10);
-    add(g, mesh(new TubeGeometry(new CatmullRomCurve3(along), 20, 0.012, 4), 0x1A1614));
+    add(f, mesh(new TubeGeometry(new CatmullRomCurve3(along), 20, 0.012, 4), 0x1A1614));
     for (let k = 2; k < 10; k += 2) {
       const p = along[k], ball = copyGeo(G.sphere);
       ball.scale(0.14, 0.18, 0.14); ball.translate(p.x, p.y - 0.22, p.z);
       lit[(k / 2 + i) % 2 ? 'red' : 'paper'].push(ball);
-      for (const s of [-1, 1]) add(g, mesh(G.cyl, 0x1B2430, p.x, p.y - 0.22 + s * 0.175, p.z)).scale.set(0.07, 0.03, 0.07);
+      for (const s of [-1, 1]) add(f, mesh(G.cyl, 0x1B2430, p.x, p.y - 0.22 + s * 0.175, p.z)).scale.set(0.07, 0.03, 0.07);
     }
   }
-  add(g, new Mesh(mergeGeometries(lit.red)!, LANTERN_RED));
-  add(g, new Mesh(mergeGeometries(lit.paper)!, LANTERN_PAPER));
+  add(f, new Mesh(mergeGeometries(lit.red)!, LANTERN_RED));
+  add(f, new Mesh(mergeGeometries(lit.paper)!, LANTERN_PAPER));
   lit.red.concat(lit.paper).forEach(b => b.dispose());
-  const bar = add(g, mesh(G.cyl, 0x7E9446, (x0 + x1) / 2, CY + POLE - 0.04, z0 + 0.08));
+  const bar = add(f, mesh(G.cyl, 0x7E9446, (x0 + x1) / 2, CY + POLE - 0.04, z0 + 0.08));
   bar.scale.set(0.05, x1 - x0 - 0.1, 0.05); bar.rotation.z = Math.PI / 2;
   // its name board, standing on the crossbar, facing the room
   const name = canvasTex(256, 96, (c, w, h) => {
@@ -1312,7 +1318,7 @@ later(() => {
     c.fillStyle = '#F7EFE0'; c.font = `800 ${Math.round(h * 0.55)}px ${MINCHO}`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('ちゃんこ', w / 2, h / 2 + 2);
   });
   const edge = mat(WOOD_DARK);
-  add(g, new Mesh(new BoxGeometry(1.1, 0.41, 0.04), [edge, edge, edge, edge, new MeshBasicMaterial({ map: name.tex }), edge])).position.set((x0 + x1) / 2, CY + POLE + 0.2, z0 + 0.1);
+  add(f, new Mesh(new BoxGeometry(1.1, 0.41, 0.04), [edge, edge, edge, edge, new MeshBasicMaterial({ map: name.tex }), edge])).position.set((x0 + x1) / 2, CY + POLE + 0.2, z0 + 0.1);
   // a short indigo curtain in the doorway from the hearth room, a white crest on its middle strip, like the landing's
   const t = DOORS.find(o => o.a === 'kitchen' && o.b === 'arena')!, span = t.z1 - t.z0 + 0.6, cz = (t.z0 + t.z1) / 2, cx = (t.x0 + t.x1) / 2 - 0.06;
   for (let i = -1; i <= 1; i++) box(g, 0x2B3A67, cx, CY + FRAME_H - 0.35, cz + i * span / 3, 0.02, 0.5, span / 3 - 0.04, false).receiveShadow = false;
@@ -1328,6 +1334,10 @@ const BAR_BOXES: [number, number, number, number][] = (() => {
   ];
 })();
 const FLAP_BOX: [number, number, number, number] = [BAR.x0 + BAR.d / 2, (FLAP.z0 + FLAP.z1) / 2, BAR.d / 2 + 0.22, (FLAP.z1 - FLAP.z0) / 2];
+/** The soup square's bamboo poles, the lanterns strung between them and its name board: shown till the first level
+ *  of Pricier bowls, which dresses the square its own way (cellarLooks.ts); baked on its own, so it can go. (Made on dice
+ *  of its own, so loading draws from the game's luck just what it did before it: see BUILT_WITH.) */
+export const barFrame = apart(() => new Group(), dice(0xBA4F));
 /** What moves in the cellar's furniture, left out of its baking: the flap's lid and door. */
 const moving: Object3D[] = [];
 /** The flap: how far open it is (0 shut, 1 open), and its lid and door (once built). */
@@ -1676,8 +1686,30 @@ later(() => {
     for (const x of [-0.2, 0, 0.2]) add(k, mesh(BAND, 0xA8894E, x, y, z)).rotation.y = Math.PI / 2;
     for (const x of [-0.32, 0.32]) add(k, mesh(CAP, 0xB89A5C, x, y, z)).rotation.z = Math.PI / 2;
   }
-  // a chalk board by the door, ruled into the three lines
-  box(cellar, 0x23302A, PREP.x0 + 0.2, CY + 1.5, 2.6, 0.06, 0.9, 1.3, false);
+  // a chalk board by the door, ruled into the three lines (rice, fish, mushrooms), each with its tally: standing on the
+  // rail of the wall to the kitchen, facing into the hall, in a timber frame
+  const chalk = canvasTex(256, 160, (cx, w, h) => {
+    cx.fillStyle = '#23302A'; cx.fillRect(0, 0, w, h);
+    cx.strokeStyle = 'rgba(236,232,220,.55)'; cx.lineWidth = 3;
+    for (const y of [h / 3, (h * 2) / 3]) { cx.beginPath(); cx.moveTo(10, y); cx.lineTo(w - 10, y); cx.stroke(); }
+    cx.beginPath(); cx.moveTo(62, 10); cx.lineTo(62, h - 10); cx.stroke();
+    cx.fillStyle = 'rgba(240,236,226,.85)'; cx.font = `800 36px ${MINCHO}`; cx.textAlign = 'center'; cx.textBaseline = 'middle';
+    ['米', '魚', '茸'].forEach((ch, i) => cx.fillText(ch, 32, (h / 3) * (i + 0.5) + 2));
+    cx.strokeStyle = 'rgba(240,236,226,.75)'; cx.lineWidth = 3;
+    [7, 5, 3].forEach((n, i) => {
+      const y = (h / 3) * (i + 0.5);
+      for (let j = 0; j < n; j++) {
+        const x = 80 + Math.floor(j / 5) * 64 + (j % 5) * 11;
+        cx.beginPath(); j % 5 === 4 ? (cx.moveTo(x - 50, y + 12), cx.lineTo(x + 6, y - 12)) : (cx.moveTo(x, y - 14), cx.lineTo(x, y + 14)); cx.stroke();
+      }
+    });
+  });
+  const bw = 0.9, bh = 0.56, bx = PREP.x0 - 0.3, by = CY + WALL + 0.08 + bh / 2 + 0.04, edge = mat(0x23302A);
+  add(cellar, new Mesh(new BoxGeometry(0.04, bh, bw), [new MeshLambertMaterial({ map: chalk.tex }), edge, edge, edge, edge, edge])).position.set(bx, by, 2.6);
+  for (const s of [-1, 1]) {
+    box(cellar, WOOD_DARK, bx, by + s * (bh / 2 + 0.02), 2.6, 0.06, 0.04, bw + 0.08, false);
+    box(cellar, WOOD_DARK, bx, by, 2.6 + s * (bw / 2 + 0.02), 0.06, bh, 0.04, false);
+  }
 });
 
 // ---------- the cookware shop: the shop counter, and a dōgu-ya's stock, as on Kappabashi street ----------
@@ -2179,10 +2211,10 @@ later(() => {
   // shoring: a frame of timber every so often along it, beams across the top, a lantern at its mouth, and pipes along its
   // east wall (one of them leaking steam: doorway.ts)
   for (let z = PASSAGE.z0 + 0.5; z < PASSAGE.z1 - 0.3; z += 1.25) {
-    // (none in front of the doors)
-    if (z > CLUB_DOOR.z0 - 0.25 && z < CLUB_DOOR.z1 + 0.25) continue;
-    for (const x of [PASSAGE.x0 + 0.05, PASSAGE.x1 - 0.05]) box(p, WOOD_DARK, x, CY + FRAME_H / 2, z, 0.18, FRAME_H, 0.18);
-    box(p, WOOD_DARK, (PASSAGE.x0 + PASSAGE.x1) / 2, CY + FRAME_H, z, PASSAGE.x1 - PASSAGE.x0 + 0.3, 0.18, 0.22);
+    // (none in front of the doors, nor just behind the south door, whose own frame is there)
+    if ((z > CLUB_DOOR.z0 - 0.25 && z < CLUB_DOOR.z1 + 0.25) || z < PASSAGE.z0 + 1) continue;
+    for (const x of [PASSAGE.x0 + 0.04, PASSAGE.x1 - 0.04]) box(p, WOOD_DARK, x, CY + FRAME_H / 2, z, 0.12, FRAME_H, 0.12);
+    box(p, WOOD_DARK, (PASSAGE.x0 + PASSAGE.x1) / 2, CY + FRAME_H, z, PASSAGE.x1 - PASSAGE.x0 + 0.16, 0.12, 0.14);
   }
   lantern(p, PASSAGE.x0 - 0.1, CY + 2.3, ARENA.z1 + 1.6, true);
   for (const [y, r] of [[1.35, 0.05], [1.55, 0.035]] as const) {
@@ -3181,8 +3213,8 @@ export function buildCellar() {
     for (const f of toBuild) f();
     // (the gong's disc swings, the pot's stew changes colour, Mr. Fugu puffs up, the soup square's flap lifts; and the
     // venue's parts, the grow room and the Undertow come and go, so each is baked on its own)
-    bakeStill(cellar, new Set<Object3D>([gongDisc, potMesh, boss, tankFish, ...Object.values(parts), ...theirs, ...moving]));
-    for (const g of Object.values(parts)) bakeStill(g, new Set(theirs));
+    bakeStill(cellar, new Set<Object3D>([gongDisc, potMesh, boss, tankFish, barFrame, ...Object.values(parts), ...theirs, ...moving]));
+    for (const g of [...Object.values(parts), barFrame]) bakeStill(g, new Set(theirs));
     // (and the Undertow's lamps and glows, each kind merged into one: there are dozens of them)
     bakeAlike(parts.den, new Set(theirs));
   }, dice(0xCE11A));

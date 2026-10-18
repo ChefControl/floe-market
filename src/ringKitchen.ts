@@ -522,6 +522,21 @@ const DRESS: Record<Role, () => Person> = {
 };
 interface Hand { p: Person; key: string; load: Mesh[] }
 const hands = new Map<Role, Hand>();
+/** The cellar crew's clothes for the level bought, worn by every hire in place of their own (cellarLooks.ts), if any. */
+let uniform: ((role: Role) => Person) | null = null;
+/** Dresses every hire in what `make` makes (null: their own clothes again), there and then, where they stand: the hires
+ *  as they now look, for the spotlight. */
+export function dressCrew(make: ((role: Role) => Person) | null): Object3D[] {
+  uniform = make;
+  return [...hands].map(([role, h]) => {
+    const p = add(cellar, make ? make(role) : DRESS[role]());
+    p.position.copy(h.p.position); p.rotation.copy(h.p.rotation);
+    h.p.removeFromParent();
+    // (what they carry goes with the old clothes: it's put in the new ones' arms next frame)
+    h.p = p; h.key = ''; h.load = [];
+    return p;
+  });
+}
 /** What a hire's carrying, as meshes in their arms: up to eight of it. */
 function loadFor(w: Worker): [string, () => Mesh, number] {
   const c = w.carry;
@@ -535,7 +550,7 @@ function handOf(w: Worker) {
   const role = w.role as Role;
   let h = hands.get(role);
   if (!h) {
-    const p = add(cellar, DRESS[role]());
+    const p = add(cellar, uniform ? uniform(role) : DRESS[role]());
     p.position.set(w.x, CY, w.z);
     h = { p, key: '', load: [] };
     hands.set(role, h);

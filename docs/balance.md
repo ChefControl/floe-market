@@ -151,47 +151,47 @@ What it shows:
 
 ## Stage 3: The Dohyo Below
 
-**What it's about:** fight night. The player runs the kitchen by hand (rice and fish from the bins into the racks and barrels, ready ones to the pot, bowls to the stall), hands each job over (washer, salter, cook, attendant), feeds each bout's fans while they buy soup, and rings the gong when the forecast says more than half of the next boss's crowd will turn. About 35 minutes from the buy-in to the buyout. Prices are in Fugu Chips (🐡 1 = $1,000).
+**What it's about:** fight night. The player runs the kitchen by hand (rice and fish from the bins into the racks and barrels, ready ones to the pot, bowls to the stall), hands each job over (washer, salter, attendant, cook), feeds each bout's fans while they buy soup, and rings the gong when the forecast says more than half of the next boss's crowd will turn. About 45 minutes from the buy-in to the buyout (stage 2 is about 42). Prices are in Fugu Chips (🐡 1 = $1,000).
 
-**The bottleneck it should rotate through:** your hands (racks and barrels by hand) → the lines (more machines, then the washer and salter) → mushrooms (the grow room, which Hakkaku's win plants to match the pot) → the pot (the cook) → the walk to the stall (the attendant) → the lines again (steam baskets, the smokehouse, the shelves) → the crowd (the tiers: more seats, more fans a minute between bosses).
+**What a boss rush is limited by:** carrying bowls to the stall, not cooking. With the pot, counter, stall and ledge full, your own hands turn about 100 of a crowd in a 30 s bell, whatever lines you have; the attendant turns about 180, and each level of Cellar crew walks him faster (30 fans a step in a 30 s bell). The glowing shelves count only in Fukure's 60 s bell. Steam baskets, the smokehouse, more machines and the cook refill the kitchen sooner between fights but don't raise any ceiling, and neither does the cooking show's bonus at a full kitchen (it helps a kitchen that isn't restocked yet). `SIM=1 SIM_STEPS=crew npx vitest run test/capacity.sim.test.ts` prints the ladder.
+
+**The ladder each boss sits on** (a little under what that step turns at best)
+
+| Boss | Crowd · to turn · bell · prize | Needs |
+|---|---|---|
+| 🤼 Sparring partner | 40 · 21 · 30 s · 🐡 35 | your hands (won without the cooking show) |
+| 🐙 Hakkaku | 160 · 81 · 30 s · 🐡 350 | a stocked kitchen, by hand (ceiling 100) |
+| 🦀 Yokobashiri | 300 · 151 · 30 s · 🐡 250 | the attendant (180), opened by Hakkaku |
+| 🐟 Dobu | 448 · 225 · 30 s · 🐡 300 | Cellar crew 4 (240; crew 3 turns 210) |
+| 🦈 Samehada | 730 · 366 · 45 s · 🐡 800 | Cellar crew 6 (390; crew 4 to 5 turn 360) |
+| 🐡 Fukure | 1,080 · 541 · 60 s · 🐡 5,000 | Cellar crew 7 and the glowing shelves (570) |
 
 **Principles for this stage**
-- No fee and no luck: the gong costs nothing, and its forecast is exact (it plays the rush ahead in a copy of the cellar, with the player in it). A loss only costs time, and its card says which ingredient held the pot up.
-- Each boss opens the next stretch: the grow room and the first tier (Hakkaku), the cook and steam baskets (Yokobashiri), the attendant, the smokehouse and the second tier (Dobu), the shelves and the last tier (Samehada), the buyout (Fukure).
-- Machines can be bought again and again (up to six a line), each 45% dearer, so the lines grow with the crowds.
+- No fee and no luck: the gong costs nothing, and its forecast is exact (it plays the rush ahead in a copy of the cellar, with the player in it, cooking at the pot even with a cook hired, as in play). A loss only costs time, and its card says which ingredient held the pot up.
+- Prizes are small. A win's prize and the bowls his crowd buys arrive as one lump, and at the old prizes (up to 🐡 10,000 for Fukure, 83% of the buyout) that lump paid for the next boss on the spot, so bosses came in pairs.
+- Cellar crew is the main sink (🐡 150, ×1.45 a level, 🐡 6,180 for all 8): it's what beats Dobu, Samehada and Fukure.
+- Word on the street adds 10.5% a level: all 8 levels bring fans, and the eighth fills every seat (at +20% a level, levels 6 to 8 brought no one).
+- The cooking show's bonus lasts 70 s: a boss's walk-in and bell, Fukure's 66 s included.
+- The Undertow favours the house: Tommy pays half again for the queen (4 to 12 swaps; the house wins unless you find her two times in three), Eddie charges 🐡 8 a fan he keeps home, Harry lends up to four full houses at 1.25×.
 
-**The tables** (`src/fight.ts`)
+**The rest of the tables** (`src/fight.ts`): a bowl 🐡 1.6 (a mushroom bowl twice that), less Mr. Fugu's 30% until the buyout; seats 24 / 48 / 90 / 150 (Back-Alley Ring 🐡 120 after Hakkaku, Underground Arena 900 after Dobu, Grand Hall 2,500 after Samehada); washer 15, salter 20 (after the practice fight), attendant 150 and picker 100 (after Hakkaku), steam baskets 350 (Yokobashiri), cook 500 and smokehouse 800 (Dobu), glowing shelves 4,000 (Samehada); racks 10, barrels 12, beds 15, each next one 45% more; the buyout 🐡 12,000.
 
-| | |
-|---|---|
-| Bosses | Hakkaku 120 fans, Yokobashiri 180, Dobu 220, Samehada 420 (a 30 s bell each, which starts once his crowd has walked in, 6 s), Fukure 1,000 (60 s); more than half beats each. Prizes 🐡 120, 300, 800, 2,000, 10,000 |
-| A bowl | 🐡 1.6 (a mushroom bowl twice that), less Mr. Fugu's 30% until the buyout; a batch is 5 bowls |
-| Machines | Rack and barrel: 2 every 8 s; steam baskets and smokehouse: 6 every 5 s. Mushroom bed: 2, one every 8 s; glowing shelf: 5, one every 4 s |
-| Seats | 24, 48, 90, 150 by tier; a local bout's fans are 45% of the seats, raised by word on the street, and they only buy in its 20 s of preparation (a bout is about 47 s) |
-| Hires | Washer 🐡 15, salter 20 (from the start), cook 250 (Yokobashiri), attendant 500 (Dobu); a hire carries 12 at a time, 48 once their line is upgraded |
+**When the bot gets there** (from the ladder down, `SIM_STAGE=3`, the median of four styles: the cooking show for Hearty or never or Perfect, slams on or off, helping hired lines or not; single runs swing ±2 minutes)
 
-**When the bot gets there** (from the buy-in, `SIM_STAGE=3`)
-
-| | Bot |
-|---|---|
-| Washer, salter | 5:27, 5:29 |
-| Beat Hakkaku | 6:15 |
-| Beat Yokobashiri | 7:39 |
-| The Back-Alley Ring | 11:48 |
-| Cook | 13:27 |
-| Beat Dobu | 14:32 |
-| Attendant | 14:51 |
-| Beat Samehada | 22:53 |
-| Beat Fukure | 30:46 |
-| Buy back all his chips | 32:32 |
-
-The design's targets were about 6, 13, 20, 27 and 33 minutes for the bosses and about 35 for the buyout.
+| | Before the pass (2026-10-18) | Now |
+|---|---|---|
+| Beat the sparring partner | 1:40 | 1:40 |
+| Beat Hakkaku | 4:00 | 4:10 |
+| Beat Yokobashiri | 9:00 | 13:27 |
+| Beat Dobu | 13:15 | 19:32 |
+| Beat Samehada | 22:45 | 30:37 |
+| Beat Fukure | 25:35 | 38:29 |
+| Buy back all his chips | 29:00 | 44:03 (43:32 to 44:31) |
 
 What it shows:
-- **Each boss is set by what you can carry before the hire he opens.** Before the cook, your hands turn about 90 of Yokobashiri's crowd in his bell (so he brings 180: 91 beat him); before the attendant, about 114 of Dobu's (220: 111; at 230 the bot only made 116 when it rang at a lucky moment). Samehada's 420 needs the attendant and the smokehouse; 460 was out of reach in 50 minutes.
-- **Local fans only buy in a bout's preparation,** so a bowl is 🐡 1.6 (double the first pass's) to keep the income.
-- **Yokobashiri falls soon after Hakkaku** (about a minute): he's capped by your hands, which are as fast at 6 minutes as at 13. Slowing him would need a later hire, not a bigger crowd.
-- **The forecast is the player's:** it plays your preparation from where you stand, at your pace, picking things up one at a time, with only the room left in your arms. The bot's first try at Hakkaku still turns fewer than it says (it plays the kitchen less well than the forecast does); from Yokobashiri on, the bot turns what the gong said.
+- **Between bosses the crowd, not the kitchen, sets the income.** A local fight's fans all eat and 35 to 90 bowls are left over, so only seats, Word on the street and Pricier bowls earn more then. From about the attendant on, the bot stands at a full pot for much of each minute (about 1,150 s of the 44 minutes; 640 s of the old 29). Making the stage longer with numbers stretches that waiting too: it's what side content (or a kitchen that matters between bosses) would fill.
+- **A player who never plays the cooking show** is about as fast (the median above includes one); the show mostly lets you ring before the kitchen has restocked.
+- **The bot's books** (style a): 🐡 29,169 from bowls and 6,735 from prizes; spent on the buyout 12,000, Cellar crew 6,180, Pricier bowls 5,448, line upgrades 5,150, the venue 3,520, Word on the street 2,319, hires 785, machines 445.
 
 ## Open work, in order
 
@@ -202,4 +202,4 @@ What it shows:
 5. **The Third runner:** left as is for now (stage 1 stays as it is). It adds nothing measurable and raises the gate to open the restaurant to ★4.2.
 6. **Re-run** the routes and payback for the new price list (the upgrade paths page still shows the old one), and update the tables here.
 7. **Stage 3: the rent or the trickle**, after a playtest (`?front=trickle`).
-8. **Stage 3's pace:** after a playtest, spread Yokobashiri out from Hakkaku (a later or dearer cook), and stretch the end towards 35 minutes; measure stage 3's bottlenecks as for stage 2.
+8. ~~**Stage 3's pace:** spread Yokobashiri out from Hakkaku and stretch the stage; measure its bottlenecks.~~ Done (the balance pass of 2026-10-18). Still open: the dead time between bosses, and a role in the rush for the steam baskets, the smokehouse and the cooking show.

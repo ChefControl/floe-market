@@ -13,7 +13,8 @@ import { QUEEN } from './family';
 import { CHIP, F } from './fight';
 import { heldFight } from './fullHouse';
 import { found, level } from './layout';
-import { limitFor, type MonteRound, placesAfter, ROUNDS, START, startRound } from './monte';
+import { met } from './meet';
+import { limitFor, type MonteRound, placesAfter, ROUNDS, START, startRound, SWAPS, WIN } from './monte';
 import { canvasTex, FONT } from './render';
 import { deal as dealSound, lose, win } from './sfx';
 import { popText } from './ui';
@@ -153,7 +154,7 @@ export function dealMonte(rng: () => number = Math.random) {
   const r = started.round;
   play = { round: r, phase: 'gather', t: 0, dur: T.swapSlow, from: [...lie], up: [...upNow] };
   // quicker the more swaps he makes: 4 slow ones, 10 in a blur
-  play.dur = T.swapSlow + (T.swapFast - T.swapSlow) * (r.swaps.length - 4) / 6;
+  play.dur = T.swapSlow + (T.swapFast - T.swapSlow) * (r.swaps.length - SWAPS.min) / (SWAPS.max - SWAPS.min);
   dealSound();
   msg.textContent = "Here's the lady…";
   refresh();
@@ -183,8 +184,8 @@ function done(walked = false) {
   play = null;
   if (walked) msg.textContent = idleLine();
   else if (r.won) {
-    msg.textContent = `Sharp eyes! You win ${chips(r.stake * 2)}.`;
-    popText(`+${chips(r.stake * 2)}`, { x: TOP.x, y: TOP.y + 0.6, z: TOP.z });
+    msg.textContent = `Sharp eyes! You win ${chips(r.stake * WIN)}.`;
+    popText(`+${chips(r.stake * WIN)}`, { x: TOP.x, y: TOP.y + 0.6, z: TOP.z });
     win();
     say('Sharp eyes, kid.');
   } else {
@@ -212,7 +213,7 @@ const pad = gamePad(BOOTH_PADS.tommy, '🃏', panel, {
   away: "Hey! The lady's still on the table.",
 }, {
   at: V(TOP.x, TOP.y, TOP.z), from: V(Math.sin(FACE) * 0.75, 0.95, Math.cos(FACE) * 0.75).normalize(), wide: 0.8, tall: 0.55,
-}, () => level.down && found.den);
+}, () => level.down && found.den && met('tommy'));
 // (its marking's the Undertow's own, undertow.ts's: this one's never put down)
 pad.enable();
 

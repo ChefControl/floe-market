@@ -18,6 +18,7 @@ import { level, stage } from './layout';
 import { updLooks } from './looks';
 import { updMusic } from './music';
 import { coinUp, updCoin } from './gong';
+import { meetPlaying } from './meet';
 import { offerPlaying, updOffer } from './offer';
 import { updRoomTone } from './roomTone';
 import { updNeeds } from './needs';
@@ -104,8 +105,9 @@ export function tick(dt: number) {
   updBakes(dt);
   updRoof(dt, player.g.position, staging());
   updOffer(dt);
-  // (and through his scenes, or the scenes on the way south in the cellar (southDoor.ts), the world's own sounds go quiet)
-  hushWorld(offerPlaying() || wayPlaying());
+  // (and through his scenes, the scenes on the way south in the cellar (southDoor.ts), and the Family introducing
+  // themselves (meet.ts), the world's own sounds go quiet)
+  hushWorld(offerPlaying() || wayPlaying() || meetPlaying());
   updAudio(dt, player.g.position);
   updAmbience();
   updMusic(dt);

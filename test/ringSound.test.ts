@@ -65,7 +65,8 @@ describe('the gloop ring', () => {
     expect(taiko.every(wet)).toBe(true);
     expect(shami.every(wet)).toBe(true);
     expect(bass.some(wet)).toBe(false);
-  }, 30_000);
+    // (it renders the music offline, boss by boss: 29.5 s on main's CI already, so more than 30 s on a slow runner)
+  }, 60_000);
 
   it('gives way to the café band up on the dock, and comes back down the ladder', async () => {
     const s = await ringWithSound(false);

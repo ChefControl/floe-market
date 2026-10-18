@@ -9,6 +9,7 @@ import { BOOTH_PADS, DESKS } from './cellarPlan';
 import { apart, dice } from './kit';
 import { CHIP } from './fight';
 import { found, inUndertow, level, stage } from './layout';
+import { met } from './meet';
 import { borrow, canBorrow, freezeLimit, LOAN_FLOOR, LOAN_STEP, maxLoan, owed, owedAtFirst, payBack, repay, SHARE } from './loan';
 import { player } from './player';
 import { coin } from './sfx';
@@ -82,7 +83,7 @@ const pad = apart(() => gamePad(BOOTH_PADS.harry, '💰', panel, {
   away: '',
 }, {
   at: V(D.x - 0.35, CY + 1.05, D.z), from: V(0.75, 0.6, 0).normalize(), wide: 1.7, tall: 1.2,
-}, () => level.down && found.den), dice(0x4A221));
+}, () => level.down && found.den && met('harry')), dice(0x4A221));
 // (its marking's the Undertow's own, undertow.ts's: this one's never put down)
 pad.enable();
 

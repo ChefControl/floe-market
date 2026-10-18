@@ -149,9 +149,10 @@ describe('upgrades', () => {
 describe('the spotlight on a new upgrade', () => {
   it('has the camera go over to what it built and come in close for a couple of seconds, then back to the player', async () => {
     const g = await loadGame({ tiles: bought('pack') });
+    const { SPOT_WAIT: W } = await import('../src/spotlight');
     const { view } = g.stage, focus = view.focus.clone();
     g.unlocks.applyUnlock('turret');
-    g.run(0.8);
+    g.run(W + 0.8);
     expect(view.k).toBeCloseTo(1);
     expect(view.close).toBeCloseTo(0.6);
     expect(Math.hypot(view.focus.x + 6.9, view.focus.z + 5.9)).toBeLessThan(0.6); // the harpoon by the north fence
@@ -167,8 +168,9 @@ describe('the spotlight on a new upgrade', () => {
   it('has the player in it when there is nothing new to see, like snow boots', async () => {
     const g = await loadGame({ tiles: bought('pack', 'turret', 'roulette', 'runner') });
     const p = g.player.g.position;
+    const { SPOT_WAIT: W } = await import('../src/spotlight');
     g.unlocks.applyUnlock('boots');
-    g.run(0.8);
+    g.run(W + 0.8);
     expect(g.stage.view.close).toBeLessThan(1);
     expect(Math.hypot(g.stage.view.focus.x - p.x, g.stage.view.focus.z - p.z)).toBeLessThan(0.1);
   });
@@ -176,12 +178,13 @@ describe('the spotlight on a new upgrade', () => {
   it('goes straight on to a second upgrade bought while it is still showing', async () => {
     const g = await loadGame({ tiles: bought('pack') });
     const { view } = g.stage, focus = view.focus.clone();
+    const { SPOT_WAIT: W } = await import('../src/spotlight');
     g.unlocks.applyUnlock('turret');
-    g.run(1);
+    g.run(W + 1);
     g.unlocks.applyUnlock('korki');
     g.run(0.1);
     expect(view.close).toBeCloseTo(0.6); // stays in close
-    g.run(1);
+    g.run(W + 1);
     const statue = g.korki.korkiStatue()!.position;
     expect(Math.hypot(view.focus.x - statue.x, view.focus.z - statue.z)).toBeLessThan(0.1);
     g.run(2);

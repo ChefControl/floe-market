@@ -1,7 +1,7 @@
 // The yardstick the Undertow's hosts measure the player by (stage 3): what a local fight takes at a full house, its
 // fans with a plain bowl each, at what a bowl sells for now. It only moves with an upgrade, and it's worked out as the
 // player walks into the Undertow and held while they're in, so nothing changes under them mid-deal. Harry lends up to
-// two of them (loan.ts), Tommy plays up to one (monte.ts).
+// four of them (loan.ts), Tommy plays up to one (monte.ts).
 import { bowlPrice, crowdNow } from './fight';
 
 /** A local fight's takings at a full house now, in chips. */

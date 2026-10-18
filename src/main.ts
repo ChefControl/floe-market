@@ -18,6 +18,7 @@ import { initReports, updReports } from './report';
 import { camera, camK, fog, OFF, renderer, scene, sun, sunOff } from './render';
 import { isStale, load, startAutosave, wipeSave } from './save';
 import { initScores } from './scores';
+import { drawMeet, meetCam } from './meet';
 import { drawWay, wayCam } from './southDoor';
 import './settings';
 import { view } from './stage';
@@ -98,6 +99,9 @@ function frame(now: number) {
   }
   // the way south: Mr. Fugu with his matchbook, and the doorman looking you over at his door (southDoor.ts)
   if (wayCam.k > 0) { const b = smooth(wayCam.k); camera.position.lerp(wayCam.pos, b); aim.lerp(wayCam.look, b); }
+  // one of the Family introducing himself in the Undertow (meet.ts)
+  drawMeet();
+  if (meetCam.k > 0) { const b = smooth(meetCam.k); camera.position.lerp(meetCam.pos, b); aim.lerp(meetCam.look, b); }
   // the cooking show at the pot: its own camera on the stew (chanko.ts), jolting a little on a chop
   if (showCam.k > 0) {
     const b = smooth(showCam.k), s = reduceMotion.matches ? 0 : showShake();

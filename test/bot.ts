@@ -2,8 +2,9 @@
 // it fishes, carries, sells, collects cash and buys the next upgrade as soon as it can afford it. It walks at the
 // player's speed and goes round obstacles by fixed waypoints, so its timings are close to a human's. Down in the
 // cellar (stage 3) it runs whichever lines have no hire yet (rice and fish from the bins into the racks and barrels,
-// ready ones to the pot), cooks, carries bowls to the bar, and rings the gong once it says the boss's whole crowd will
-// turn; it needs the cellar's modules for that (`ring`, see ringModules).
+// ready ones to the pot), cooks, carries bowls to the bar, and rings the gong once it says the boss is beaten (playing
+// the cooking show at the pot first when only its bonus would do it, and landing a good slam on a grand win); it needs
+// the cellar's modules for that (`ring`, see ringModules).
 import type { loadGame } from './helpers';
 
 type Game = Awaited<ReturnType<typeof loadGame>>;
@@ -17,13 +18,43 @@ interface P { x: number; z: number }
 const CASINO_GAMES = ['blackjack', 'slots'];
 
 export interface Purchase { t: number; id: string; cost: number; money: number; rating: number }
-export interface Sample { t: number; money: number; earned: number; rating: number; stage: number }
+export interface Sample { t: number; money: number; earned: number; rating: number; stage: number; idle: number; wait: number; bowls: number; prize: number; spent: number; fc: string }
+/** A boss's rush (stage 3): when his bell ended, who, his crowd and the more-than-half to turn, how many were turned
+ *  (and what the gong forecast as it was rung), the bell's seconds used, and how long the soup bar stood empty. */
+export interface Fought { t: number; boss: string; n: number; need: number; turned: number; forecast: number; win: boolean; bell: number; dry: number; waited: boolean; bonus: number; slam: number }
+/** How the bot plays the cellar: the cooking show's stars it earns, of 12 (0: it never plays it) and the
+ *  seconds of real time a show takes (the game holds still meanwhile, so they're added to the clock), and whether it
+ *  goes for the slam on a grand win, and lends the hired lines a hand when there's nothing else to do; `skip`, what it
+ *  never buys (an upgrade's id, or a level's with how many it stops at: `street5`), to see what they're worth. */
+export interface Style { show: number; showSecs: number; slam: boolean; help: boolean; skip?: string[] }
+export const STYLE: Style = { show: 9, showSecs: 40, slam: true, help: true };
+/** Stage 3's books: chips earned from bowls and prizes, spent by kind, the cooking shows played (and their seconds),
+ *  and the seconds the bot stood about by the pot: cooking there as it does (`wait`), or with nothing at all to do
+ *  (`idle`: the pot can't cook). */
+export interface Books { bowls: number; prize: number; spent: Record<string, number>; shows: number; showSecs: number; idle: number; wait: number; lines: string[]
+  /** Each local fight as its fans sat down: when, how many came, how many ate, and the bowls left over in the pot, on the counter and on the stall. */
+  locals: { t: number; crowd: number; fed: number; left: number }[] }
 
 /** Plays `g` for `seconds` of game time. Returns what it bought when, and samples of money and earnings. */
-export function play(g: Game, seconds: number, dt = 0.05, ring?: Ring) {
+export function play(g: Game, seconds: number, dt = 0.05, ring?: Ring, style: Style = STYLE) {
   const { player, wallet } = g;
   const p = player.g.position;
-  const bought: Purchase[] = [], samples: Sample[] = [];
+  const bought: Purchase[] = [], samples: Sample[] = [], fights: Fought[] = [];
+  const logged = new WeakSet<object>();
+  let rangFc = -1, wasCalled = false, waited = false;
+  const books: Books = { bowls: 0, prize: 0, spent: {}, shows: 0, showSecs: 0, idle: 0, wait: 0, lines: [], locals: [] };
+  const spend = (kind: string, v: number) => { if (kind === 'buyout' || !ring?.fight.F.boughtOut) books.spent[kind] = (books.spent[kind] ?? 0) + v; };
+  if (ring) {
+    const was = ring.fight.on.earn;
+    ring.fight.on.earn = (c, why) => { if (!ring.fight.F.boughtOut) books[why] += c; was(c, why); };
+  }
+  /** Machines on each line so far (stage 3: a line's tile is bought again and again). */
+  const machines = ring ? { rice: ring.fight.F.lines.rice.n, fish: ring.fight.F.lines.fish.n, mush: ring.fight.F.lines.mush.n } : null;
+  /** The best the gong's forecast has said, for each boss (by name), whether rung or not. */
+  const best = new Map<string, number>();
+  let rushBonus = 0;
+  /** What the gong said last, for the samples: the boss, turned of needed. */
+  let lastFc = '';
   let t = 0, earned = 0, lastMoney = wallet.money, nextSample = 0, beaten = ring ? ring.fight.F.beaten : 0;
   let plan: { path: P[]; until: () => boolean; maxT: number; buy?: boolean } | null = null;
   /** Holding E, to buy the tile it's standing on. */
@@ -44,22 +75,57 @@ export function play(g: Game, seconds: number, dt = 0.05, ring?: Ring) {
     track();
     t += dt;
     for (const x of g.unlocks.tiles) {
-      if (x.done && !seen.get(x.id)) { seen.set(x.id, 1); bought.push({ t, id: x.id, cost: x.cost, money: wallet.money, rating: g.rating.rating() }); }
+      if (x.done && !seen.get(x.id) && !(ring && x.line)) {
+        seen.set(x.id, 1); bought.push({ t, id: x.id, cost: x.cost, money: wallet.money, rating: g.rating.rating() });
+        if (ring && x.stage === 3) spend(x.id === 'buyout' ? 'buyout' : x.id.startsWith('tier') ? 'venue' : ['steam', 'smoke', 'shelves'].includes(x.id) ? 'line upgrades' : 'hires', x.cost / 1000);
+      }
+    }
+    if (ring && machines) for (const k of ['rice', 'fish', 'mush'] as const) {
+      const n = ring.fight.F.lines[k].n;
+      // (the grow room's first bed is Hakkaku's prize)
+      while (machines[k] < n) {
+        machines[k]++;
+        if (k === 'mush' && machines[k] === 1) continue;
+        const cost = Math.round(ring.fight.MACH_COST[k] * ring.fight.MACH_STEP ** (machines[k] - 2)) * 1000;
+        bought.push({ t, id: `${k}#${machines[k]}`, cost, money: wallet.money, rating: g.rating.rating() });
+        spend('machines', cost / 1000);
+      }
     }
     for (const m of g.economy.MODS) {
       const n = g.economy.mods[m.id];
       if (n > seen.get(m.id)!) {
         seen.set(m.id, n);
         bought.push({ t, id: `${m.id}${n}`, cost: Math.round(m.cost * m.step ** (n - 1)), money: wallet.money, rating: g.rating.rating() });
+        if (ring) spend(`level: ${m.id}`, Math.round(m.cost * m.step ** (n - 1)) / 1000);
       }
     }
+    // (and every boss's rush, once his bell's done)
+    const R = ring?.fight.F.rush;
+    // (whether he was called in during a local fight, and walked in after it)
+    if (ring && R && !R.done && R.walk === ring.fight.WALK_IN) waited = wasCalled;
+    wasCalled = !!ring?.fight.F.called;
+    if (ring && R?.done && !logged.has(R)) {
+      logged.add(R);
+      const b = ring.fight.bossOf(R.boss);
+      fights.push({ t, boss: b.name, n: R.n, need: ring.fight.toBeat(b, R.n), turned: R.turned, forecast: rangFc, win: R.win, bell: R.t, dry: R.dryT, waited, bonus: rushBonus, slam: R.slam });
+    }
+    // (the bonus the pot had as a boss walked in)
+    if (ring && R && !R.done && R.walk === ring.fight.WALK_IN) rushBonus = ring.fight.F.bonus.t > 0 ? ring.fight.F.bonus.pct : 0;
+    // a grand win's slam, a good one: a little after the rings meet
+    if (ring && style.slam && ring.fight.slamDue() && ring.fight.F.bout.t >= ring.fight.SLAM.at + 0.15) ring.fight.slam();
     // (down in the cellar, the bosses beaten, as if bought)
     if (ring && ring.fight.F.beaten > beaten) {
       beaten = ring.fight.F.beaten;
       bought.push({ t, id: `beat ${ring.fight.BOSSES[beaten - 1].name}`, cost: 0, money: wallet.money, rating: g.rating.rating() });
     }
+    if (ring && !ring.fight.F.rush && ring.fight.F.bout.phase === 'sit' && ring.fight.F.bout.crowd > 0 && ring.fight.F.bout.t <= dt + 1e-9 && !ring.fight.F.boughtOut) {
+      const F = ring.fight.F;
+      lastLocal = { crowd: F.bout.crowd, fed: F.bout.fed };
+      books.locals.push({ t, crowd: F.bout.crowd, fed: F.bout.fed, left: F.pot.length + F.counter.length + F.stall.length });
+    }
+    else if (ring && !ring.fight.F.rush && ring.fight.F.bout.phase === 'sit' && ring.fight.F.bout.crowd > 0) lastLocal = { crowd: ring.fight.F.bout.crowd, fed: ring.fight.F.bout.fed };
     if (t >= nextSample) {
-      samples.push({ t, money: wallet.money, earned, rating: g.rating.rating(), stage: g.layout.stage.n });
+      samples.push({ t, money: wallet.money, earned, rating: g.rating.rating(), stage: g.layout.stage.n, idle: books.idle, wait: books.wait, bowls: books.bowls, prize: books.prize, spent: Object.values(books.spent).reduce((a, b) => a + b, 0), fc: lastFc });
       nextSample += 10;
     }
   };
@@ -156,15 +222,36 @@ export function play(g: Game, seconds: number, dt = 0.05, ring?: Ring) {
   // it doesn't gamble: the casino boat's other games are fun extras, out of the balance (docs/balance.md)
   const nextTile = () => g.unlocks.visibleTiles().filter(x => !g.unlocks.locked(x) && !CASINO_GAMES.includes(x.id) && Math.abs((x.y ?? 0.15) - p.y) < 2)
     .sort((a, b) => (a.cost - a.paid) - (b.cost - b.paid))[0];
+  /** Down in the cellar, the cheapest upgrade on sale in the crafting bench's menus (none while a boss is in). */
+  const nextMenu = () => (ring && g.layout.level.down && !ring.fight.F.rush ? g.unlocks.menuOffer().filter(x => !style.skip?.includes(x.id)).sort((a, b) => a.cost - b.cost)[0] : undefined);
   /** The cheapest repeatable upgrade of this stage that isn't fully upgraded. */
-  const nextMod = () => g.economy.MODS.filter(m => m.stage === g.layout.stage.n && g.economy.modCost(m.id) !== null && g.shop.modOffered(m.id))
+  const nextMod = () => g.economy.MODS.filter(m => m.stage === g.layout.stage.n && g.economy.modCost(m.id) !== null && g.shop.modOffered(m.id) && useful(m.id))
     .sort((a, b) => g.economy.modCost(a.id)! - g.economy.modCost(b.id)!)[0];
 
+  /** Down in the cellar, a reasonable player doesn't speed up hires they haven't got, or bring in more fans while the
+   *  last local fight's already sent some home hungry. */
+  let lastLocal = { crowd: 0, fed: 0 };
+  const useful = (id: string) => {
+    if (!ring || !g.layout.level.down) return true;
+    if (style.skip?.some(k => k === id || (k.startsWith(id) && Number(k.slice(id.length)) <= g.economy.mods[id as 'street']))) return false;
+    if (id === 'cellarcrew') return ring.fight.F.crew.length > 0;
+    if (id === 'street') return lastLocal.fed >= lastLocal.crowd - 1;
+    return true;
+  };
   function decide() {
     const tile = nextTile(), mod = g.stage.staging() ? undefined : nextMod();
     const cash = cashSpots(), uncollected = cash.reduce((s, c) => s + c.v, 0);
     // (with a gold tile in sight, it saves up for that rather than buying more levels)
-    const modCost = mod && !(tile?.gold) ? g.economy.modCost(mod.id)! : Infinity;
+    let modCost = mod && !(tile?.gold) ? g.economy.modCost(mod.id)! : Infinity;
+    const menu = nextMenu();
+    // (down in the cellar, the shop's tree comes first: it saves up for its next node, and only buys a level of the
+    // ring's on the way if it's a small one next to it)
+    if (ring && menu && g.layout.level.down && modCost > menu.cost * 0.3) modCost = Infinity;
+    if (ring && menu && wallet.money >= menu.cost && menu.cost <= modCost) {
+      const at = ring.plan.ROOM_MENUS[menu.menu!];
+      go(at, () => menu.done || (near(at, 0.6) && (g.unlocks.buyFromMenu(menu) || true)), 25);
+      return;
+    }
     if (mod && wallet.money >= modCost && (!tile || modCost < tile.cost - tile.paid)) {
       const at = mod.shed ? g.shed.SHED_AT : g.shop.SHOPS[g.layout.stage.n - 1], lv = g.economy.mods[mod.id];
       go(at, () => near(at, 0.6) && (g.shop.buyMod(mod.id) || true) || g.economy.mods[mod.id] > lv, 25);
@@ -194,15 +281,30 @@ export function play(g: Game, seconds: number, dt = 0.05, ring?: Ring) {
     // a boss, once the gong says his whole crowd will turn
     if (!F.rush && f.nextBoss()) {
       const fc = f.forecast();
+      if (fc) best.set(fc.boss.name, Math.max(best.get(fc.boss.name) ?? 0, fc.turned));
+      if (fc) lastFc = `${fc.boss.face} ${fc.turned}/${f.toBeat(fc.boss)}`;
       // (the gong's panel says it from the gong: walk over, and ring it only if it still says so there)
       if (fc && fc.turned >= f.toBeat(fc.boss)) {
-        if (near(P.GONG_PAD, 0.3)) go(P.GONG_PAD, () => !!F.rush, 2, true);
+        rangFc = fc.turned;
+        if (near(P.GONG_PAD, 0.3)) go(P.GONG_PAD, () => !!F.rush || F.called, 2, true);
         else go(P.GONG_PAD, () => near(P.GONG_PAD, 0.3), 20);
+        return;
+      }
+      // not yet, but the cooking show's bonus would do it: play it at the pot first (the game holds still meanwhile)
+      const tier = f.BONUS_TIERS.find(x => style.show >= x.min)!;
+      const fb = tier.pct && f.canShow() && !F.called ? f.forecast(0, { bonus: tier.pct }) : null;
+      if (fb && fb.turned >= f.toBeat(fb.boss)) {
+        if (near(P.POT_PAD, 0.3)) {
+          f.showResult(style.show);
+          t += style.showSecs; books.shows++; books.showSecs += style.showSecs;
+          books.lines.push(`${mmss(t)}  cooking show before ${fb.boss.name}: +${tier.pct}% (forecast ${fc?.turned ?? 0} → ${fb.turned}, need ${f.toBeat(fb.boss)})`);
+        } else go(P.POT_PAD, () => near(P.POT_PAD, 0.3), 20);
         return;
       }
     }
     if (back.count('bowl') && F.stall.length < f.STALL_CAP) { go(P.BAR_PAD, () => !back.count('bowl') || F.stall.length >= f.STALL_CAP, 25); return; }
-    const carrying = () => f.inPot().some(k => back.count(READY[k]));
+    // (ready ones with room for them on the ledge: with it full, they're no use at the pot)
+    const carrying = () => f.inPot().some(k => back.count(READY[k]) && F.pantry[k] < f.LEDGE_CAP);
     if (carrying()) { go(P.POT_PAD, () => !carrying() && (!!F.hires.cook || !f.canCook() || f.potFull()), 25); return; }
     // raw ones for a line that's been hired out from under them: into the bin, so their arms are free for bowls
     const toss = () => { const bin = cellar.KITCHEN_BINS[0]; go({ x: bin.x + 0.95, z: bin.z }, () => back.n === 0, 10, true); };
@@ -212,9 +314,13 @@ export function play(g: Game, seconds: number, dt = 0.05, ring?: Ring) {
       return;
     }
     if (!F.hires.cook && f.canCook() && !f.potFull()) { go(P.POT_PAD, () => !f.canCook() || f.potFull(), 15); return; }
-    // the lines with no hire, the one the pot's shortest of first: ready ones out, raw ones in
-    for (const k of [...f.inPot()].sort((a, b) => F.pantry[a] - F.pantry[b])) {
-      if (F.hires[HIRE[k]]) continue;
+    // the lines with no hire, the one the pot's shortest of first: ready ones out, raw ones in; and with nothing else
+    // to do, a hand on the lines that have one (a player wouldn't stand about)
+    // (not in a boss's rush, though: then the pot's theirs)
+    const help = style.help && !back.count('bowl') && !F.rush;
+    for (const k of [...f.inPot()].sort((a, b) => F.pantry[a] - F.pantry[b]).flatMap(k => (help ? [[k, 0], [k, 1]] : [[k, 0]]) as [typeof k, number][])
+      .sort((a, b) => a[1] - b[1]).map(([k, pass]) => (pass && F.hires[HIRE[k]] && F.pantry[k] < f.LEDGE_CAP - 8 ? k : !pass && !F.hires[HIRE[k]] ? k : null))) {
+      if (!k) continue;
       const ms = F.lines[k].m;
       const ready = ms.map((m, i) => [i, f.doneCount(k, m)]).filter(([, d]) => d > 0).sort((a, b) => b[1] - a[1]);
       const raw = k === 'mush' ? 0 : back.count(k);
@@ -227,7 +333,12 @@ export function play(g: Game, seconds: number, dt = 0.05, ring?: Ring) {
     }
     // arms full of raw ones there's nowhere for: into the bin too
     if (!room() && !back.count('bowl') && !carrying()) { toss(); return; }
-    go(P.POT_PAD, () => true, 1);
+    // (nothing to do: waiting by the pot)
+    const t0 = t;
+    go(P.POT_PAD, () => {
+      if (near(P.POT_PAD, 0.3) && !F.boughtOut) { books.wait += dt; if (!f.canCook() || f.potFull()) books.idle += dt; }
+      return t - t0 >= 1;
+    }, 1);
   }
 
   const { pile, PILE, PAD } = g.stations;
@@ -288,7 +399,7 @@ export function play(g: Game, seconds: number, dt = 0.05, ring?: Ring) {
     if (plan) walk();
     step();
   }
-  return { bought, samples, earned, trace };
+  return { bought, samples, earned, trace, fights, best, books };
 }
 
 /**
