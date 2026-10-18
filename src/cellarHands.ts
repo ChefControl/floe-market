@@ -1,12 +1,12 @@
 // The player's work down in the cellar (stage 3), by standing in the right places, as upstairs: at the dumbwaiter's
 // bins, rice or fish into their arms; at a drying rack or a salt barrel, raw ones in and ready ones out; at a mushroom
 // bed, mushrooms; at the pot, ready ones onto the ledge, and the pot cooks full batches while they stand there (a
-// cook's are 70%); at the counter, bowls; inside the soup square, bowls out for the fans. What they carry is theirs: the cellar
+// cook's too); at the counter, bowls; inside the soup square, bowls out for the fans. What they carry is theirs: the cellar
 // (fight.ts) only sees what they hand in or take out. And what each place says while they stand at it.
 import { BAR_PAD, BIN_PADS, BINS, COUNTER_PAD, type Ing, machineAt, machinePad, type Pad, POT_PAD, WATCH } from './cellarPlan';
 import { CY } from './cellar';
 import {
-  batchBowls, bowlPrice, cookBowls, COUNTER_CAP, PER_BATCH, POT_CAP, F, fillMachine, ICON, inPot, lineRoom, mach, playerAtPot, STALL_CAP, takeBowl, takeReady,
+  batchBowls, bowlPrice, COUNTER_CAP, PER_BATCH, POT_CAP, F, fillMachine, ICON, inPot, lineRoom, mach, playerAtPot, STALL_CAP, takeBowl, takeReady,
   toLedge, toStall, doneCount,
 } from './fight';
 import { fly } from './holder';
@@ -158,9 +158,8 @@ export function cellarTip(p: XZ): TipContent | null {
   }
   if (at(p, POT_PAD)) {
     const ledge = inPot().map(k => `${ICON[k]} ${F.pantry[k]}/${PER_BATCH}`).join(' · ');
-    // (a cook gets fewer bowls out of a batch than the player does: they stand back while the player cooks)
-    const cook = F.hires.cook ? ` · 👨‍🍳 ${cookBowls()}` : '', show = F.bonus.t > 0 ? ` · 🔥 +${F.bonus.pct}%` : '';
-    return { name: 'The pot · stand here to cook', desc: `${ledge} → 🍲 ${batchBowls()}${cook}${show} · ${F.pot.length}/${POT_CAP} in the pot` };
+    const show = F.bonus.t > 0 ? ` · 🔥 +${F.bonus.pct}%` : '';
+    return { name: 'The pot · stand here to cook', desc: `${ledge} → 🍲 ${batchBowls()}${show} · ${F.pot.length}/${POT_CAP} in the pot` };
   }
   if (at(p, COUNTER_PAD)) return { name: 'Bowls 🍲', desc: `${F.counter.length}/${COUNTER_CAP} → the soup bar` };
   if (at(p, BAR_PAD)) {

@@ -1,5 +1,5 @@
-// The Undertow (stage 3): the Family's club, down a long tunnel out of the arena's south wall and through a pair of
-// doors with a doorman behind them, found when the second boss is beaten; the Family's three spread round the room,
+// The Undertow (stage 3): the Family's club, behind the out-of-order stall in Mama Moray's restroom, through its back,
+// the doorman's door, found when the second boss is beaten; the Family's three spread round the room,
 // each with a word for whoever steps up to his pad.
 import { describe, expect, it } from 'vitest';
 import { bought, FLOE_SUSHI, loadGame, MARKET, type SaveFixture } from './helpers';
@@ -24,23 +24,29 @@ const standable = (g: Awaited<ReturnType<typeof loadGame>>, cellar: typeof impor
   return Math.hypot(q.x - p.x, q.z - p.z) < 1e-6;
 };
 const middle = (r: { x0: number; x1: number; z0: number; z1: number }) => ({ x: (r.x0 + r.x1) / 2, z: (r.z0 + r.z1) / 2 });
-/** Where the club's doors stand, in the tunnel's side. */
+/** Where the doorman's door stands, the out-of-order stall's back; where to try the stall from, just outside its front;
+ *  and a step inside it. */
 const doorAt = (plan: typeof import('../src/cellarPlan')) => ({ x: plan.CLUB_DOOR.x, z: (plan.CLUB_DOOR.z0 + plan.CLUB_DOOR.z1) / 2 });
+const front = (plan: typeof import('../src/cellarPlan')) => ({ x: plan.STALLS.x + 0.25, z: doorAt(plan).z });
+const inside = (plan: typeof import('../src/cellarPlan')) => ({ x: plan.STALLS.x - 0.5, z: doorAt(plan).z });
 
 describe('the Undertow', () => {
-  it("is a secret until the second boss is beaten: a door across its tunnel in the arena's wall, nobody answering it, and nobody can walk in", async () => {
-    const { g, cellar, at } = await ring({ ring: { beaten: 1, lines: { mush: { n: 1 } } } });
+  it("is a secret until the second boss is beaten: the out-of-order stall in Mama Moray's restroom, out of order, and nobody can walk in", async () => {
+    const { g, cellar, plan, at } = await ring({ ring: { beaten: 1, lines: { mush: { n: 1 } } } });
     const S = await import('../src/southDoor');
     const L = g.layout;
     expect(L.found.den).toBe(false);
     expect(cellar.parts.den.visible).toBe(false);
     expect(cellar.parts.denHidden.visible).toBe(true);
-    expect(cellar.parts.denWall.visible).toBe(false);
     expect(cellar.lights[9].intensity).toBe(0);
-    for (const d of L.DOORS.filter(t => t.b === 'passage' || t.b === 'den')) expect(standable(g, cellar, middle(d))).toBe(false);
+    for (const d of L.DOORS.filter(t => t.b === 'den')) expect(standable(g, cellar, middle(d))).toBe(false);
     expect(standable(g, cellar, middle(L.DEN))).toBe(false);
-    // knock: nobody answers, and the door stays shut
-    at({ x: (L.PASSAGE.x0 + L.PASSAGE.x1) / 2, z: L.ARENA.z1 - 0.6 });
+    // the restroom's open to anyone, through the dining wing, but the stall's taped across
+    expect(standable(g, cellar, { x: L.LOO.x1 - 0.5, z: L.LOO.z0 + 1 })).toBe(true);
+    g.run(0.1);
+    expect(standable(g, cellar, { x: plan.STALLS.x, z: doorAt(plan).z })).toBe(false);
+    // try it: out of order, really, and its back stays shut
+    at(front(plan));
     g.runUntil(() => S.wayState().says === S.LINES.nobody, 3);
     expect(S.wayState().scene).toBeNull();
     expect(g.player.held).toBe(false);
@@ -49,10 +55,9 @@ describe('the Undertow', () => {
     expect(L.found.den).toBe(false);
   });
 
-  it("opens when Yokobashiri's beaten: Mr. Fugu hands over his matchbook, the doorman asks for the password, and the door swings in on the tunnel", async () => {
+  it("opens when Yokobashiri's beaten: Mr. Fugu hands over his matchbook, the doorman asks for the password, and the stall's back swings in on the club", async () => {
     const { g, plan, fight, cellar, at, F } = await ring({ ring: { beaten: 1, lines: { mush: { n: 1 } } } });
-    const S = await import('../src/southDoor'), { DESK_PAD } = await import('../src/office');
-    const front = { x: (g.layout.PASSAGE.x0 + g.layout.PASSAGE.x1) / 2, z: g.layout.ARENA.z1 - 0.6 };
+    const S = await import('../src/southDoor'), { DESK_PAD } = await import('../src/office'), { fogLeft } = await import('../src/clubFog');
     at(plan.GONG_PAD);
     g.run(0.1);
     expect(fight.ringGong()).toBe(true);
@@ -61,17 +66,17 @@ describe('the Undertow', () => {
     expect(F().rush!.win).toBe(true);
     g.run(fight.BOUT.sit + fight.BOUT.fight + 0.5);
     expect(F().beaten).toBe(2);
-    // the card says there's a way south now; the room's not there yet
+    // the card says there's a way in now; the room's not there yet
     expect($('fightCard').hidden).toBe(false);
-    expect($('fightCard').textContent).toContain('🔓 New: steam baskets, a way south');
+    expect($('fightCard').textContent).toContain('🔓 New: steam baskets, a way');
     expect(g.layout.found.den).toBe(false);
     // the card goes, his crowd goes home, the next bout begins: Mr. Fugu wants a word, a "!" over him
     $('fightCard').click();
     g.runUntil(() => S.wayState().calling, fight.EPIC_PAY + 1);
     expect(F().rush).toBeNull();
     expect(g.layout.found.den).toBe(false);
-    // knocking before he's had his word: "Password?", and nobody's let in
-    at(front);
+    // trying the stall before he's had his word: "Password?" through a slot in its back, and nobody's let in
+    at(front(plan));
     g.runUntil(() => S.wayState().says === S.LINES.ask, 3);
     g.runUntil(() => S.wayState().says === S.LINES.no, 3);
     expect(S.wayState().scene).toBeNull();
@@ -109,64 +114,72 @@ describe('the Undertow', () => {
     expect(F().den.book).toBe(true);
     expect(S.wayState().scene).toBeNull();
     expect(g.player.held).toBe(false);
-    // back at the door: the slot, "Password?", the matchbook, and in
-    at(front);
+    // back at the stall: the tape torn away, a step in, the slot, "Password?", the matchbook, and in; the club's smoke
+    // rolling back off it
+    at(front(plan));
     g.run(0.1);
     expect(S.wayState().scene).toBe('door');
     expect(g.player.held).toBe(true);
-    g.runUntil(() => S.wayState().says === S.LINES.ask, 3);
+    g.runUntil(() => S.wayState().says === S.LINES.ask, 4);
+    expect(g.player.g.position.x).toBeLessThan(plan.STALLS.x);
     g.runUntil(() => S.wayState().says === S.LINES.ok, 3);
     g.runUntil(() => g.layout.found.den, 3);
     expect(F().den.way).toBe(true);
+    expect(F().den.door).toBe(true);
     g.runUntil(() => S.wayState().scene === null, 4);
     expect(g.player.held).toBe(false);
     expect(S.wayState().open).toBeGreaterThan(0.9);
     expect(cellar.parts.den.visible).toBe(true);
     expect(cellar.parts.denHidden.visible).toBe(false);
     expect(cellar.lights[9].intensity).toBeGreaterThan(0);
-    // into the tunnel, down to the club's doors: shut, till you come up to them (below)
+    g.run(0.5);
+    expect(fogLeft()).toBeLessThan(1);
+    // through it and into the club; the stall's front open now
     const L = g.layout;
-    for (const d of L.DOORS.filter(t => t.b === 'passage')) expect(standable(g, cellar, middle(d))).toBe(true);
-    expect(standable(g, cellar, middle(L.PASSAGE))).toBe(true);
-    expect(standable(g, cellar, doorAt(plan))).toBe(false);
+    expect(standable(g, cellar, doorAt(plan))).toBe(true);
+    expect(standable(g, cellar, middle(plan.CLUB_WAY))).toBe(true);
+    expect(standable(g, cellar, { x: plan.STALLS.x, z: doorAt(plan).z })).toBe(true);
     expect(cellar.roomAt(middle(L.DEN))).toBe('den');
-    // the door shuts behind you, and opens as you come up to it again: from the arena, a good evening through the slot
-    at(middle(L.PASSAGE));
+    // the door shuts behind you, and opens as you come up to it again: from the restroom, a good evening through the slot
+    at(middle(L.DEN));
     g.run(0.5);
     at({ x: L.ARENA.x0 + 3, z: 0 });
     g.run(3);
     expect(S.wayState().open).toBeLessThan(0.1);
-    at(front);
+    expect(standable(g, cellar, doorAt(plan))).toBe(false);
+    at(inside(plan));
     g.run(0.2);
     expect(S.wayState().says).toBe(S.LINES.evening);
-    g.run(1.5);
-    expect(S.wayState().open).toBeGreaterThan(0.9);
+    g.runUntil(() => S.wayState().open > 0.9, 3);
     // (a whole bout, and the club built: longer than most)
   }, 40_000);
 
-  it('the way in: down a long dark tunnel to a pair of doors, the band louder through them; the first time they open on a burst of light and smoke', async () => {
+  it('the way in: the band through the out-of-order stall, louder nearer it; the first time it opens on the club, its smoke rolls back', async () => {
     const { g, plan, cellar, at, F } = await ring({ ring: { beaten: 2, lines: { mush: { n: 1 } }, den: { door: false } } });
-    const D = await import('../src/doorway'), { club } = await import('../src/noir'), { fogLeft } = await import('../src/clubFog');
-    const L = g.layout, x = (L.PASSAGE.x0 + L.PASSAGE.x1) / 2, door = doorAt(plan);
+    const D = await import('../src/doorway'), S = await import('../src/southDoor'), { club } = await import('../src/noir'), { fogLeft } = await import('../src/clubFog');
+    const L = g.layout, door = doorAt(plan);
     expect(F().den.door).toBe(false);
-    // down the tunnel: the band, muffled, louder as you go
-    at({ x, z: L.PASSAGE.z0 + 0.5 });
+    // in the restroom: the band, muffled, louder nearer the stall; and the view in a little closer
+    at({ x: L.LOO.x1 - 0.3, z: L.LOO.z0 + 0.5 });
     g.run(0.2);
     const far = club.k;
     expect(far).toBeGreaterThan(0);
-    at({ x, z: door.z - 2.2 });
+    at(front(plan));
     g.run(0.2);
     expect(club.k).toBeGreaterThan(far);
     expect(club.muffle).toBe(1);
     expect(standable(g, cellar, door)).toBe(false);
-    // till the doors open, the club behind them is under a bank of smoke
+    g.run(3);
+    expect(g.stage.view.close).toBeCloseTo(D.CLOSE.loo, 2);
+    // till it's open, the club behind it is under a bank of smoke
     expect(fogLeft()).toBe(1);
-    // up to the doors: they swing open, the band comes up clear
-    at({ x, z: door.z });
-    g.run(1);
+    // into the stall: a good evening through the slot, and its back swings open, the band coming through clear
+    at(inside(plan));
+    g.runUntil(() => S.wayState().open > 0.9, 3);
+    g.run(0.5);
     expect(F().den.door).toBe(true);
     expect(g.player.held).toBe(false);
-    expect(D.doorState().open).toBeGreaterThan(0.9);
+    expect(S.wayState().open).toBeGreaterThan(0.9);
     expect(standable(g, cellar, door)).toBe(true);
     expect(club.muffle).toBeLessThan(0.1);
     // the smoke rolls back off the room
@@ -187,26 +200,25 @@ describe('the Undertow', () => {
         expect(club.muffle, `${px}, ${pz}`).toBeGreaterThan(0);
       }
     }
-    // and in the club the camera's in closer than in the rest of the cellar (closer than down the tunnel)
+    // and in the club the camera's in closer than in the rest of the cellar (closer than in the restroom)
     at(middle(L.DEN));
     g.run(3);
     expect(g.stage.view.close).toBeCloseTo(D.CLOSE.club, 2);
-    expect(D.CLOSE.club).toBeLessThan(D.CLOSE.tunnel);
+    expect(D.CLOSE.club).toBeLessThan(D.CLOSE.loo);
     // and the player's stride as much shorter, so the club's as big on foot as it looks
     expect(g.player.stride).toBeCloseTo(D.CLOSE.club, 2);
     // (back to full out in the cellar)
     at(middle(L.ARENA));
     g.run(3);
     expect(g.player.stride).toBe(1);
-    // the doors shut behind you, and open as you come up to them again
-    at({ x, z: L.PASSAGE.z0 + 0.5 });
+    // the stall's back shuts behind you, and opens as you come up to it again
+    at({ x: L.LOO.x1 - 0.3, z: L.LOO.z0 + 0.5 });
     g.run(2);
-    expect(D.doorState().open).toBeLessThan(0.1);
+    expect(S.wayState().open).toBeLessThan(0.1);
     expect(standable(g, cellar, door)).toBe(false);
-    at({ x, z: door.z });
-    g.run(1);
-    expect(D.doorState().open).toBeGreaterThan(0.9);
-    // (and they're open for a game loaded later, the smoke long gone)
+    at(inside(plan));
+    g.runUntil(() => S.wayState().open > 0.9, 2);
+    // (and it's open for a game loaded later, the smoke long gone)
     expect(fogLeft()).toBe(0);
   });
 
@@ -426,9 +438,9 @@ describe('the Undertow', () => {
     const B = plan.DEN_BAR;
     expect(standable(g, cellar, { x: (B.x0 + B.x1) / 2, z: B.front - 0.2 })).toBe(false);
     for (const t of [...Object.values(plan.DEN_TABLES), plan.STAGE, ...Object.values(plan.BAND), plan.BAR_STOOLS[0]]) expect(standable(g, cellar, t)).toBe(false);
-    // and there's room to walk in from the doors, between the tables, to the bar and down to the far end of the room
+    // and there's room to walk in from the stall's back, between the tables, to the bar and down to the far end of the room
     const L = g.layout, z = doorAt(plan).z;
-    for (const p of [middle(plan.CLUB_WAY), { x: L.DEN.x1 - 0.5, z }, { x: L.DEN.x1 - 1.0, z }, { x: L.DEN.x1 - 1.3, z: plan.LOUNGE.z - 0.5 }, { x: L.DEN.x1 - 2.6, z: L.DEN.z0 + 3.4 }, { x: (plan.ARCHES[0] + plan.ARCHES[1]) / 2, z: L.DEN.z0 + 2.8 }, { x: (L.DEN.x0 + L.DEN.x1) / 2, z: L.DEN.z1 - 0.3 }]) {
+    for (const p of [{ x: L.DEN.x1 - 0.5, z }, { x: L.DEN.x1 - 1.0, z }, { x: L.DEN.x1 - 1.3, z: plan.LOUNGE.z - 0.5 }, { x: L.DEN.x1 - 2.6, z: L.DEN.z0 + 3.4 }, { x: (plan.ARCHES[0] + plan.ARCHES[1]) / 2, z: L.DEN.z0 + 2.8 }, { x: (L.DEN.x0 + L.DEN.x1) / 2, z: L.DEN.z1 - 0.3 }]) {
       expect(standable(g, cellar, p), JSON.stringify(p)).toBe(true);
     }
   });
@@ -595,30 +607,30 @@ describe('the Undertow', () => {
     at(plan.BOOTH_PADS.eddie);
     g.run(0.2);
     expect($('eddie').hidden).toBe(false);
-    // 30% of Dobu's 448 fans: 134 kept home, at 8 chips a fan; a 30% chance it gets out
+    // 30% of Dobu's 880 fans: 264 kept home, at 8 chips a fan; a 30% chance it gets out
     E.pickCut(3);
-    expect($('eddieFix').textContent).toBe('Fix 🐟 −134 fans · 30% caught');
+    expect($('eddieFix').textContent).toBe('Fix 🐟 −264 fans · 30% caught');
     // (each size says what it costs)
-    expect($('eddie').querySelector('[data-cut="3"]')!.textContent).toBe('🐡1,072');
+    expect($('eddie').querySelector('[data-cut="3"]')!.textContent).toBe('🐡2,112');
     expect(E.payEddie(3, () => 0.99)).toBe(true);
-    expect(g.wallet.money).toBe(5000 * 1000 - 1072 * 1000);
+    expect(g.wallet.money).toBe(5000 * 1000 - 2112 * 1000);
     expect(F().den.eddie).toEqual({ boss: 2, cut: 3, caught: false });
     // one fix a boss
     expect(E.payEddie(1, () => 0.99)).toBe(false);
     expect(E.eddieMsg()).toContain("You'll know at the gong");
     // saved as it's paid for: a reload doesn't undo it, or roll it again
     expect(fight.fightFrom(fight.saveFight()).den.eddie).toEqual({ boss: 2, cut: 3, caught: false });
-    // the gong: your chances if the fix holds (314 fans) and if it's caught (all 448), a word for each face of his coin
+    // the gong: your chances if the fix holds (616 fans) and if it's caught (all 880), a word for each face of his coin
     at(plan.GONG_PAD);
     g.run(0.7);
     // (each as the forecasts have it, a cooking bonus bought at the gong included)
     const gong = await import('../src/gong'), dobu = fight.BOSSES[2];
     const says = (kept: number) => gong.VERDICT[gong.verdict(dobu, fight.forecast(kept)!, dobu.crowd - kept, { at35: fight.forecast(kept, { bonus: 35 })!, at50: fight.forecast(kept, { bonus: 50 })! })];
-    expect([...$('gongCast').children].map(r => r.textContent)).toEqual([`Fix holds${says(134)}`, `Caught${says(0)}`]);
+    expect([...$('gongCast').children].map(r => r.textContent)).toEqual([`Fix holds${says(264)}`, `Caught${says(0)}`]);
     expect($('gongCast').querySelectorAll('svg.mini use[href="#coinGrin"], svg.mini use[href="#coinGrimace"]')).toHaveLength(2);
-    // rung: it held, and he walks in with 134 fewer; the fix is spent
+    // rung: it held, and he walks in with 264 fewer; the fix is spent
     expect(fight.ringGong()).toBe(true);
-    expect(F().rush).toMatchObject({ n: 314, kept: 134, fix: { cut: 3, caught: false } });
+    expect(F().rush).toMatchObject({ n: 616, kept: 264, fix: { cut: 3, caught: false } });
     expect(fight.fixOn()).toBeNull();
     expect(F().den.scandal.bouts).toBe(0);
     // (and a reload in the middle of it calls the rush off, but keeps the fix for next time: it was paid for)
@@ -640,7 +652,7 @@ describe('the Undertow', () => {
     expect($('fightBanner').hidden).toBe(true);
     expect($('rush').hidden).toBe(true);
     g.run(3);
-    expect(F().rush).toMatchObject({ n: 314, walk: fight.WALK_IN, t: 0 });
+    expect(F().rush).toMatchObject({ n: 616, walk: fight.WALK_IN, t: 0 });
     expect(F().t).toBe(t);
     expect(g.player.held).toBe(true);
     // (a tap before it's said its piece does nothing)
@@ -649,12 +661,12 @@ describe('the Undertow', () => {
     g.run(2.5);
     expect($('coin').className).toBe('hold ready');
     expect($('coinHead').textContent).toBe('THE FIX HOLDS');
-    expect($('coinSub').textContent).toBe('Dobu brings 314, not 448');
+    expect($('coinSub').textContent).toBe('Dobu brings 616, not 880');
     // tapped: he walks in
     $('coin').click();
     expect($('coin').hidden).toBe(true);
     expect(g.player.held).toBe(false);
-    expect($('fightBanner').textContent).toBe('入場Dobu 🐟 · 314 fansTURN 158 TO WIN');
+    expect($('fightBanner').textContent).toBe('入場Dobu 🐟 · 616 fansTURN 309 TO WIN');
     g.run(1);
     expect(F().rush!.walk).toBeLessThan(fight.WALK_IN);
     expect($('rush').hidden).toBe(false);
@@ -665,7 +677,7 @@ describe('the Undertow', () => {
     expect($('coin').className).toBe('caught');
     g.run(6);
     expect($('coinHead').textContent).toBe('🗞️ CAUGHT!');
-    expect($('coinSub').textContent).toBe('He brings all 448');
+    expect($('coinSub').textContent).toBe('He brings all 880');
     // (E does it too)
     g.press('e');
     g.run(0.1);
@@ -681,7 +693,7 @@ describe('the Undertow', () => {
     expect(E.payEddie(4, () => 0.2)).toBe(true); // (under 50%: caught)
     const fans = fight.crowdNow();
     expect(fight.ringGong()).toBe(true);
-    expect(F().rush).toMatchObject({ n: 448, kept: 0, fix: { cut: 4, caught: true } });
+    expect(F().rush).toMatchObject({ n: 880, kept: 0, fix: { cut: 4, caught: true } });
     // 40% of your own fans stay away, for the next 2 local bouts
     expect(F().den.scandal).toEqual({ cut: 4, bouts: 2 });
     expect(fight.crowdNow()).toBe(Math.round(fans * 0.6));

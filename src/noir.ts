@@ -3,7 +3,7 @@
 // harmon mute over brushes, the upright bass and a sparse piano; a smoky tenor sax joins it for the last A, vibes
 // harmonise the bridge, and each round of sixteen bars ends on the minor-major chord of every film noir.
 //
-// It plays into a mix of its own (music.ts fades it in down the tunnel and has it to itself in the club), through a
+// It plays into a mix of its own (music.ts fades it in in Mama Moray's restroom and has it to itself in the club), through a
 // small room's reverb, and through the club's doors: a low-pass that muffles it while they're shut, and opens with them.
 import { ac, buses, hz, noise, rnd, tone, type ToneVoice } from './audio';
 import { FORM } from './lounge';

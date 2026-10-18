@@ -434,7 +434,7 @@ function updLounge(k: number, now: number) {
 /**
  * The club's band's place: the eighth it's on and when the next is due. It starts from the top the first time it's
  * heard, and from then on plays on behind the club's doors whether anyone hears it or not (its notes left out where
- * nobody does), so it's the same tune going on down the tunnel and in the club, and walking in or out never starts it
+ * nobody does), so it's the same tune going on through the stall's back and in the club, and walking in or out never starts it
  * over. (After a long stall, the page held up, it picks up where it would be by now.)
  */
 let noir = { on: false, step: 0, next: 0 };

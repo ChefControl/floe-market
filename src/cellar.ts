@@ -18,10 +18,11 @@ import {
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import {
   ARCH_HALF, ARCHES, AUDIENCE, AUDIENCE_CHAIRS, BAR, BAR_STOOLS, BOOTH_SEAT, BOOTH_TABLE, CHAT, DANCE, DANCERS, inBooth, LOUNGE, WALL_BOOTHS, BARRELS, BENCH, BIN_PADS, BINS, BAND, BANDSTAND, BOOTHS, CASHIER, COAT_SPOT, GUARDS, CLUB_DOOR, CLUB_WAY, DEN_BAR, DEN_TABLES, DESKS, FLAP, LEDGER, STAGE, CHUTE, chuteY, COUNTER, GONG, HEARTH, LIFTS, machineAt, MAX_MACHINES, POT, STORES, TEPPO, TUNNEL_D, TUNNEL_W, TUNNELS,
+  BASINS, MAMA_COUNTER, STALL_DOOR, STALLS, STOOLS, TABLE_SEAT, TABLES,
 } from './cellarPlan';
 import { Fugu } from './fugu';
 import { apart, Build, dice, K, quietly, rbox, shade, shadowsOf, tube } from './kit';
-import { ARENA, CARDS, CELLAR_Y, type CellarRoom, CRAFT, DEN, DOORS, found, GROW, keepOnFloor, KITCHEN, LANDING, LIFT_ROOM, LOANS, OFFICE_ROOM, PASSAGE, PREP, pushOutOfBox, ROOMS, VIP, walkable } from './layout';
+import { ARENA, CARDS, CELLAR_Y, type CellarRoom, CRAFT, DEN, DOORS, found, GROW, keepOnFloor, KITCHEN, LANDING, LIFT_ROOM, LOANS, LOO, OFFICE_ROOM, PREP, pushOutOfBox, RESTO, ROOMS, VIP, walkable, WING } from './layout';
 import { type CanvasTex, canvasTex, copyGeo, type Draw, FONT, G, mat, mesh, OFF, paint, rr, scene } from './render';
 import type { XZ } from './util';
 
@@ -110,16 +111,16 @@ scene.add(cellar);
 /** Parts that come with the venue's tiers, shown when they're bought: the bleachers (the Back-Alley Ring), the upper
  *  tier and the taiko drums (the Underground Arena), and the VIP boxes (the Grand Hall Below). And the grow room, with
  *  the doorway into it, found when the first boss is beaten (until then, `hidden`: the prep hall's tall back wall); and
- *  the Undertow and its tunnel, found once the doorman lets you in (until then, `denHidden`: the earth over it); and
- *  `denWall`, the arena's wall across the tunnel's mouth, which the doorman's door stands in for (southDoor.ts). */
+ *  the Undertow, found once the doorman lets you in through the out-of-order stall (until then, `denHidden`: the earth
+ *  over it). */
 export const parts = {
   bleachers: new Group(), tier: new Group(), vip: new Group(), drums: new Group(), grow: new Group(), hidden: new Group(),
   // (the Undertow's made on dice of their own, so loading draws from the game's luck just what it did before it: see
   // BUILT_WITH)
-  ...apart(() => ({ den: new Group(), denHidden: new Group(), denWall: new Group() }), dice(0xDE4)),
+  ...apart(() => ({ den: new Group(), denHidden: new Group() }), dice(0xDE4)),
 };
 Object.values(parts).forEach(g => { g.visible = false; cellar.add(g); });
-parts.hidden.visible = parts.denHidden.visible = parts.denWall.visible = true;
+parts.hidden.visible = parts.denHidden.visible = true;
 
 // ---------- the rooms ----------
 const earth = tiling(256, 256, (c, w, h) => {
@@ -181,6 +182,23 @@ const denBoards = tiling(256, 256, (c, w, h) => {
     c.fillRect(((i * 97) % 200) + 20, i * h / 12, 2, h / 12);
     c.fillStyle = 'rgba(140,210,210,.06)'; c.fillRect(((i * 53) % 180) + 30, i * h / 12 + 6, 80, 3);
   }
+});
+/** Green and white checker tiles, for Mama Moray's restroom: grimy in the joints, a few cracked, one or two gone. */
+const looTiles = tiling(256, 256, (c, w, h) => {
+  const N = 8, T = w / N, hash = (i: number) => { const x = Math.sin(i * 51.37) * 43758.5453; return x - Math.floor(x); };
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    const i = y * N + x, gone = hash(i) > 0.965;
+    c.fillStyle = gone ? '#6A5A48' : (x + y) % 2 ? '#2E8A7E' : '#EDEBE2';
+    c.fillRect(x * T, y * T, T, T);
+    if (!gone) { c.fillStyle = 'rgba(70,60,40,.10)'; c.fillRect(x * T + T * hash(i + 9) * 0.5, y * T + T * hash(i + 3) * 0.5, T * 0.5, T * 0.4); }
+    // (a crack across it, now and then)
+    if (!gone && hash(i + 40) > 0.86) {
+      c.strokeStyle = 'rgba(40,34,28,.65)'; c.lineWidth = 1.5; c.beginPath();
+      c.moveTo(x * T + T * hash(i + 1), y * T); c.lineTo(x * T + T * hash(i + 2), y * T + T * 0.5); c.lineTo(x * T + T * hash(i + 5), y * T + T); c.stroke();
+    }
+  }
+  c.fillStyle = 'rgba(60,52,40,.55)';
+  for (let k = 0; k <= N; k++) { c.fillRect(k * T - 1, 0, 2, h); c.fillRect(0, k * T - 1, w, 2); }
 });
 const SIDE = mat(0x3A2C22);
 /** A floor over `r`, out to the middle of its walls, of earth or boards, its texture repeating every 4 m. */
@@ -461,7 +479,7 @@ later(() => {
   wall(LANDING, 'n', 0.3); wall(LANDING, 'w', 0.3); wall(LANDING, 'e', 0.3);
   wall(KITCHEN, 'n', 0.3); wall(KITCHEN, 'w', 0.3); wall(KITCHEN, 'e', 0.3); wall(KITCHEN, 's', 0.3);
   // the cookware shop, through the hearth room's south wall
-  floor(CRAFT, boards()); wall(CRAFT, 'w'); wall(CRAFT, 'e', 0.3); wall(CRAFT, 's');
+  floor(CRAFT, boards()); wall(CRAFT, 'w', 0.3); wall(CRAFT, 'e', 0.3); wall(CRAFT, 's', 0.3);
   wall(PREP, 'e', 0.3); wall(PREP, 's');
   // the lift room behind the prep hall's east wall, where nobody goes: just the dumbwaiters
   floor(LIFT_ROOM, flags()); wall(LIFT_ROOM, 'n', 0.3); wall(LIFT_ROOM, 'e'); wall(LIFT_ROOM, 's', 0.3);
@@ -474,20 +492,20 @@ later(() => {
     bars(parts.grow, (t.x0 + t.x1) / 2, PREP.z0 - 0.4, t.x1 - t.x0 + 0.1, 1.75, Math.PI / 2 - 0.15);
   }
   floor(GROW, earth(), 0.3, parts.grow); tallWall(GROW, 'n', parts.grow); wall(GROW, 'e', 0.1, parts.grow);
-  // the Undertow: a tunnel through the arena's south wall, into the Family's back room dug into the rock in front of the
-  // arena. Until the doorman lets you through his door across its mouth (southDoor.ts, which stands in for the arena's
-  // wall there, denWall), there's only earth behind it (denHidden).
-  {
-    const t = DOORS.find(d => d.b === 'passage')!;
-    planks(parts.denWall, true, line(ARENA, 's', 0.1), t.x0 - 0.3, t.x1 + 0.3);
-  }
-  // (the tunnel's dug back to the arena's own wall, and its floor runs from the arena's to the room's)
-  stands(PASSAGE, 'n', PASSAGE.z0 - line(ARENA, 's', 0.1));
-  floor({ x0: PASSAGE.x0, x1: PASSAGE.x1, z0: ARENA.z1 + 0.4, z1: PASSAGE.z1 + 0.1 }, earth(), 0.1, parts.den);
-  wall(PASSAGE, 'w', 0.1, parts.den); wall(PASSAGE, 'e', 0.1, parts.den); wall(PASSAGE, 's', 0.1, parts.den);
-  // (the short way through the rock from the tunnel to the club's doors: boarded, and walled either side; its boards run
-  // from the club's floor's edge to the tunnel's, meeting each without overlapping it, or the two flicker where they lie)
-  floor({ x0: DEN.x1 + 0.3, x1: PASSAGE.x0 - 0.1, z0: CLUB_WAY.z0 - 0.1, z1: CLUB_WAY.z1 + 0.1 }, denBoards(), 0, parts.den);
+  // Mama Moray's, through the arena's south wall (resto.ts dresses it): the front hall, back to back with the arena (its
+  // own wall the arena's), and the cookware shop's west wall between them; the dining wing round behind the shop; and
+  // the restroom, tiled, in the hall's far corner, off the wing. Boards as the hearth room's, its kitchen's.
+  stands(RESTO, 'n', RESTO.z0 - line(ARENA, 's', 0.1));
+  // (each floor out to the middle of the walls it shares and to the outer walls' faces, so they meet without overlapping)
+  floor({ x0: RESTO.x0 + 0.2, x1: RESTO.x1, z0: ARENA.z1 + 0.6, z1: RESTO.z1 }, boards());
+  floor({ x0: WING.x0, x1: WING.x1 - 0.2, z0: WING.z0, z1: WING.z1 - 0.2 }, boards());
+  floor({ x0: LOO.x0 + 0.2, x1: LOO.x1, z0: LOO.z0, z1: LOO.z1 - 0.2 }, looTiles());
+  wall(RESTO, 'w'); wall(RESTO, 's', 0.3); wall(LOO, 'w'); wall(LOO, 's'); wall(WING, 'w', 0.3); wall(WING, 'e'); wall(WING, 's');
+  // the Undertow, dug into the rock in front of the arena, through the restroom's west wall: until the doorman lets you
+  // through his door there (southDoor.ts), only earth behind it (denHidden)
+  // (the short way through the rock from the out-of-order stall to the club: boarded, and walled either side; its boards
+  // run from the club's floor's edge to the restroom's, meeting each without overlapping it, or the two flicker)
+  floor({ x0: DEN.x1 + 0.3, x1: LOO.x0 - 0.1, z0: CLUB_WAY.z0 - 0.1, z1: CLUB_WAY.z1 + 0.1 }, denBoards(), 0, parts.den);
   for (const z of [CLUB_WAY.z0 - 0.1, CLUB_WAY.z1 + 0.1]) planks(parts.den, true, z, CLUB_WAY.x0 + 0.1, CLUB_WAY.x1 - 0.1);
   floor(DEN, denBoards(), 0.3, parts.den);
   for (const side of ['n', 'w', 'e', 's'] as const) denWall(DEN, side);
@@ -588,14 +606,14 @@ const dug = (r: Rect): Box => {
 const within = (b: Box, x: number, z: number) => x > b.x0 && x < b.x1 && z > b.z0 && z < b.z1;
 /** The earth's meshes, once it's built: round the rooms (near the Undertow, lit once it's found and dark till then), and
  *  the secret rooms' places while they're secrets; the crags, and the kerbs round the rooms, round the grow room, round
- *  the Undertow, and along the arena's wall across the tunnel's mouth while it's a secret. */
-export const ground = {} as Record<'open' | 'nearDen' | 'nearDenShut' | 'hidden' | 'denHidden' | 'rocks' | 'kerb' | 'growKerb' | 'denKerb' | 'mouthKerb', Mesh>;
+ *  the Undertow, and along the stall's back while it's a secret. */
+export const ground = {} as Record<'open' | 'nearDen' | 'nearDenShut' | 'hidden' | 'denHidden' | 'rocks' | 'kerb' | 'growKerb' | 'denKerb' | 'shutKerb', Mesh>;
 later(() => {
   // (both sides drawn: a rock face seen from behind, past a wall's end, still shows as rock; and no light of the rooms'
   // on it at all, so none ever seems to come through a wall: its light is drawn into it, a facet at a time, by `bake`)
   const EARTH = new MeshBasicMaterial({ map: dirt().tex, vertexColors: true, side: DoubleSide });
   const rooms = [...Object.values(ROOMS), LIFT_ROOM, CLUB_WAY], holes = rooms.map(dug);
-  const grow = holes[rooms.indexOf(GROW)], den = [PASSAGE, DEN, CLUB_WAY, LOANS, VIP, CARDS].map(r => holes[rooms.indexOf(r)]);
+  const grow = holes[rooms.indexOf(GROW)], den = [DEN, CLUB_WAY, LOANS, VIP, CARDS].map(r => holes[rooms.indexOf(r)]);
   const A = dug(ARENA), O = dug(OFFICE_ROOM);
   /** The secret rooms: their holes, what they're shown in once found, and what covers them till then. */
   const secrets = [{ holes: [grow], open: parts.grow, shut: parts.hidden }, { holes: den, open: parts.den, shut: parts.denHidden }];
@@ -827,7 +845,7 @@ later(() => {
   // from above, each block its own length and a little its own height, lit like the rest out here but a good deal
   // lighter, so where every room stops reads at a glance (never along a bank, nor over a tunnel; round the grow room's
   // own walls only once it's found)
-  // (and the stretch of the arena's own across the tunnel's mouth, while the Undertow's a secret)
+  // (and along the earth over the Undertow, while it's a secret)
   const kerbs = new Map<Object3D, BufferGeometry[]>([[cellar, []], [parts.grow, []], [parts.den, []], [parts.denHidden, []]]);
   for (const h of holes) {
     const own = h === grow ? parts.grow : den.includes(h) ? parts.den : cellar;
@@ -855,13 +873,13 @@ later(() => {
     }
   }
   const KERB = new MeshBasicMaterial({ color: 0x6E6458, vertexColors: true });
-  const [kerb, growKerb, denKerb, mouthKerb] = [...kerbs].map(([parent, gs]) => {
+  const [kerb, growKerb, denKerb, shutKerb] = [...kerbs].map(([parent, gs]) => {
     const m = add(parent, new Mesh(mergeGeometries(gs)!, KERB));
     gs.forEach(g => g.dispose());
     return m;
   });
   const [hidden, denHidden] = secrets.map(s => hiddenSheets.get(s)!.mesh(s.shut));
-  Object.assign(ground, { open: far.mesh(cellar), nearDen: lit2.mesh(parts.den), nearDenShut: dark2.mesh(parts.denHidden), hidden, denHidden, rocks, kerb, growKerb, denKerb, mouthKerb });
+  Object.assign(ground, { open: far.mesh(cellar), nearDen: lit2.mesh(parts.den), nearDenShut: dark2.mesh(parts.denHidden), hidden, denHidden, rocks, kerb, growKerb, denKerb, shutKerb });
 });
 
 // the doorways: a timber frame in the wall, posts and a lintel
@@ -869,8 +887,8 @@ later(() => {
 const acrossX = (t: (typeof DOORS)[number]) => !Object.values(ROOMS).some(r => Math.abs(r.x1 - t.x0) < 0.01 || Math.abs(r.x0 - t.x1) < 0.01);
 later(() => {
   for (const t of DOORS) {
-    // (the club's doors hang in a frame of their own, doorway.ts, and so does the door at the tunnel's mouth, southDoor.ts)
-    if (t.b === 'den' || t.b === 'passage') continue;
+    // (the way into the club, the out-of-order stall's back, is the doorman's door: southDoor.ts)
+    if (t.b === 'den') continue;
     const ax = acrossX(t), cx = (t.x0 + t.x1) / 2, cz = (t.z0 + t.z1) / 2, w = (ax ? t.x1 - t.x0 : t.z1 - t.z0) + 0.6;
     const g = t.b === 'grow' ? parts.grow : t.b === 'loans' || t.b === 'vip' || t.b === 'cards' ? parts.den : cellar;
     for (const s of [-1, 1]) {
@@ -1716,10 +1734,11 @@ later(() => {
 /** Where the shop's things stand, for walking round them (the way from its doorway to the counter's square is kept
  *  clear): a tansu chest by the counter; crates of crockery and a pallet of clay pots against the north wall, east of
  *  the doorway; shelves of bowls along the east wall; a showcase of food samples in the middle; and along the south
- *  wall, towers of bamboo steamers, stock pots, and a crock of long spoons and ladles. */
+ *  wall, either side of its doorway to the dining wing, a crock of long spoons and ladles, then towers of bamboo
+ *  steamers and stock pots. */
 const TANSU = { x: CRAFT.x0 + 0.95, z: CRAFT.z0 + 0.25 }, CRATES = { x: 8.3, z: CRAFT.z0 + 0.42 }, DONABE = { x: 9.95, z: CRAFT.z0 + 0.4 };
 const SHELF = { x: CRAFT.x1 - 0.45, z: 9.75 }, SHOWCASE = { x: 8.85, z: 10.05 };
-const STEAMERS = { x: 6.3, z: CRAFT.z1 - 0.4 }, POTS = { x: 8.7, z: CRAFT.z1 - 0.4 }, CROCK = { x: CRAFT.x0 + 0.4, z: CRAFT.z1 - 0.3 };
+const STEAMERS = { x: 7.7, z: CRAFT.z1 - 0.4 }, POTS = { x: 9.3, z: CRAFT.z1 - 0.4 }, CROCK = { x: CRAFT.x0 + 0.4, z: CRAFT.z1 - 0.3 };
 /** The same picture on several faces, as one mesh: `geo` (facing +z) moved into place by each of `at`. */
 function pictures(geo: BufferGeometry, map: CanvasTex['tex'], at: Matrix4[]) {
   return add(cellar, new Mesh(mergeGeometries(at.map(m => copyGeo(geo).applyMatrix4(m)))!, new MeshLambertMaterial({ map })));
@@ -2104,9 +2123,8 @@ later(() => {
 
 // ---------- the Undertow: the Family's club ----------
 // A dark club dug out of the rock in front of the arena, after a gangster's bar in a city's undercity: near-black boards,
-// iron and neon. The way in is a long dark tunnel shored up like a mine's, out of the arena's south wall and down past
-// the club, pipes along its wall and beams overhead, to a pair of heavy doors in its side at the far end (the doors, the
-// doorman behind them and the tunnel's lights: doorway.ts). Laid out as a jazz club and a speakeasy are: along its back,
+// iron and neon. The way in is the out-of-order stall in Mama Moray's restroom out front: its back is the doorman's
+// door (southDoor.ts, doorway.ts). Laid out as a jazz club and a speakeasy are: along its back,
 // under a tall dark wall, the long bar at the west end (its front lit by tubes of amber and pink, bottles lit from under
 // their shelves in front of a gilt-framed mirror, lamps hung low along it, the club's name over it), then three pointed
 // iron arches hung with red velvet, iron columns between them with teal lamps at their tops, and the bandstand across
@@ -2207,22 +2225,8 @@ later(() => {
   }).tex);
   const p = parts.den, BRASS = 0xC9A23A, LEATHER = 0x6B1E22, IRONS = 0x262E33, PIPE = 0x3A454C, MAHOGANY = 0x5A2618;
   const face = line(DEN, 'n', 0.3) + 0.07;
-  // ---- the tunnel ----
-  // shoring: a frame of timber every so often along it, beams across the top, a lantern at its mouth, and pipes along its
-  // east wall (one of them leaking steam: doorway.ts)
-  for (let z = PASSAGE.z0 + 0.5; z < PASSAGE.z1 - 0.3; z += 1.25) {
-    // (none in front of the doors, nor just behind the south door, whose own frame is there)
-    if ((z > CLUB_DOOR.z0 - 0.25 && z < CLUB_DOOR.z1 + 0.25) || z < PASSAGE.z0 + 1) continue;
-    for (const x of [PASSAGE.x0 + 0.04, PASSAGE.x1 - 0.04]) box(p, WOOD_DARK, x, CY + FRAME_H / 2, z, 0.12, FRAME_H, 0.12);
-    box(p, WOOD_DARK, (PASSAGE.x0 + PASSAGE.x1) / 2, CY + FRAME_H, z, PASSAGE.x1 - PASSAGE.x0 + 0.16, 0.12, 0.14);
-  }
-  lantern(p, PASSAGE.x0 - 0.1, CY + 2.3, ARENA.z1 + 1.6, true);
-  for (const [y, r] of [[1.35, 0.05], [1.55, 0.035]] as const) {
-    const pipe = add(p, mesh(G.cyl, PIPE, PASSAGE.x1 - 0.12, CY + y, (PASSAGE.z0 + PASSAGE.z1) / 2)); pipe.scale.set(r, PASSAGE.z1 - PASSAGE.z0, r); pipe.rotation.x = Math.PI / 2;
-  }
-  for (let z = PASSAGE.z0 + 1.1; z < PASSAGE.z1; z += 2.4) add(p, mesh(new CylinderGeometry(0.075, 0.075, 0.08, 10), IRONS, PASSAGE.x1 - 0.12, CY + 1.35, z)).rotation.x = Math.PI / 2;
-  // a brass plate by the doors: members only
-  box(p, BRASS, PASSAGE.x0 + 0.02, CY + 1.55, CLUB_DOOR.z0 - 0.45, 0.02, 0.14, 0.32, false);
+  // a brass plate by the way in from the restroom: members only
+  box(p, BRASS, DEN.x1 - 0.12, CY + 1.55, CLUB_DOOR.z0 - 0.45, 0.02, 0.14, 0.32, false);
   // ---- the club's back wall: the columns and the three arches, each with its curtain ----
   const cols = [ARCHES[0] - ARCH_HALF, ...ARCHES.map(x => x + ARCH_HALF)];
   for (const x of cols) {
@@ -2892,12 +2896,12 @@ export function showVenue(t: number) {
   parts.tier.visible = parts.drums.visible = t >= 2;
   parts.vip.visible = t >= 3;
 }
-/** Whether the club's doors are shut (doorway.ts opens and shuts them): shut, they're in the way. */
-export const denDoor = { shut: true };
-/** Whether the doorman's door, across the tunnel's mouth in the arena's south wall, is shut (southDoor.ts opens and
+/** Whether the doorman's door, the out-of-order stall's back in the restroom's west wall, is shut (southDoor.ts opens and
  *  shuts it): shut, it's in the way. */
 export const southDoor = { shut: true };
-/** The Undertow's found: the arena's wall across the tunnel's mouth comes down, and through it the Family's back room.
+/** Whether the out-of-order stall's taped across (resto.ts keeps it): taped, its door's in the way. */
+export const stallTape = { up: true };
+/** The Undertow's found: the earth behind the restroom's west wall is gone, and through it the Family's club.
  *  (Its lamps' light is there all along, dark till then, as the grow room's is.) */
 export function showDen(on = true) {
   parts.den.visible = on;
@@ -2919,7 +2923,7 @@ export function showGrowRoom(on = true) {
 // ---------- light ----------
 /** The cellar's lights: the lamp over the ring, two lanterns' worth of warm light over the stands, the hearth's fire
  *  (lighting the hearth room), the hatch's daylight (the landing), the office's lamp, the dumbwaiter's lamp in the prep
- *  hall, (once it's found) the grow room's sickly glow, the cookware shop's lamp, and (once it's found) the Undertow's
+ *  hall, (once it's found) the grow room's sickly glow, the cookware shop's lamp, (once it's found) the Undertow's
  *  cold light over the room and its bar's warm glow. */
 export const lights = [
   new PointLight(0xFFD7A0, 16, 15, 1.2), new PointLight(0xFF9A5A, 9, 10, 1.5), new PointLight(0xFF9A5A, 9, 10, 1.5),
@@ -2928,6 +2932,8 @@ export const lights = [
   // (the Undertow's, on dice of their own, as its parts are: the club's teal over the room, the bar's amber, Harry's
   // lamp's warm light over his desk, and a low rosy one in Eddie's room)
   ...apart(() => [new PointLight(0xB8E6DE, 12, 13, 1.3), new PointLight(0xFFA27A, 7, 8, 1.4), new PointLight(0xFFD9A0, 7, 7, 1.4), new PointLight(0xFFC4A8, 7, 7, 1.4)], dice(0xDE11)),
+  // (and Mama Moray's warm light over her hall and its wing, on dice of its own too)
+  ...apart(() => [new PointLight(0xFFC080, 8, 11, 1.4)], dice(0x4E572)),
 ];
 lights[0].position.set(RING.x, CY + 5.35, RING.z);
 lights[1].position.set(RING.x, CY + 3.4, ARENA.z0 + 1.5);
@@ -2942,6 +2948,7 @@ lights[9].position.set((DEN.x0 + DEN.x1) / 2 + 1, CY + 3.0, DEN.z0 + 3.2);
 lights[10].position.set(DEN_BAR.x0 + 1.5, CY + 2.3, DEN.z0 + 3.4);
 lights[11].position.set(DESKS.harry.x + 0.6, CY + 2.3, DESKS.harry.z + 0.5);
 lights[12].position.set(DESKS.eddie.x + 1.0, CY + 2.3, DESKS.eddie.z);
+lights[13].position.set(RESTO.x1 - 1.0, CY + 2.7, RESTO.z1 + 0.3);
 const GROW_GLOW = lights[7].intensity, DEN_GLOW = [lights[9].intensity, lights[10].intensity, lights[11].intensity, lights[12].intensity];
 lights[7].intensity = lights[9].intensity = lights[10].intensity = lights[11].intensity = lights[12].intensity = 0;
 lights.forEach(l => { l.visible = false; scene.add(l); });
@@ -2989,6 +2996,20 @@ export function cellarBoxes(machines: Record<'rice' | 'fish' | 'mush', number> =
     [STEAMERS.x, STEAMERS.z, 0.75, 0.4],
     [POTS.x, POTS.z, 0.85, 0.45],
     [CROCK.x, CROCK.z, 0.45, 0.45],
+    // Mama Moray's (resto.ts): her counter and her behind it, the stools along its front, the tables and their stools,
+    // the restroom's basins and its stalls (the first shut; the second's front either side of its door, its south side
+    // and its toilet), and the out-of-order stall's tape till the doorman's let you in
+    [(MAMA_COUNTER.x0 + MAMA_COUNTER.x1) / 2, (RESTO.z0 + MAMA_COUNTER.z1) / 2, (MAMA_COUNTER.x1 - MAMA_COUNTER.x0) / 2 + 0.2, (MAMA_COUNTER.z1 - RESTO.z0) / 2 + 0.2],
+    [(STOOLS[0].x + STOOLS[STOOLS.length - 1].x) / 2, STOOLS[0].z, (STOOLS[STOOLS.length - 1].x - STOOLS[0].x) / 2 + 0.35, 0.35],
+    ...TABLES.map((t): [number, number, number, number] => [t.x, t.z, TABLE_SEAT + 0.35, 0.6]),
+    [RESTO.x0 + 0.42, RESTO.z0 + 0.3, 0.4, 0.3],
+    ...BASINS.map((b): [number, number, number, number] => [b.x, b.z, 0.4, 0.35]),
+    [(LOO.x0 + STALLS.x) / 2, (STALLS.a.z0 + STALLS.a.z1) / 2, (STALLS.x - LOO.x0) / 2 + 0.15, (STALLS.a.z1 - STALLS.a.z0) / 2 + 0.15],
+    [STALLS.x, (STALLS.b.z0 + STALL_DOOR.z0) / 2, 0.15, (STALL_DOOR.z0 - STALLS.b.z0) / 2 + 0.1],
+    [STALLS.x, (STALL_DOOR.z1 + STALLS.b.z1) / 2, 0.15, (STALLS.b.z1 - STALL_DOOR.z1) / 2 + 0.1],
+    [(LOO.x0 + STALLS.x) / 2, STALLS.b.z1, (STALLS.x - LOO.x0) / 2 + 0.15, 0.15],
+    [LOO.x0 + 0.62, STALLS.b.z1 - 0.23, 0.35, 0.25],
+    ...(!stallTape.up ? [] : [[STALLS.x, (STALL_DOOR.z0 + STALL_DOOR.z1) / 2, 0.15, (STALL_DOOR.z1 - STALL_DOOR.z0) / 2] as [number, number, number, number]]),
     // the office: the dais and the desk, the safe, the visitors' chairs, the cabinet, the fish tank, the plant and the rack
     [(DAIS.x0 + DAIS.x1) / 2, (DAIS.z0 + DAIS.z1) / 2, (DAIS.x1 - DAIS.x0) / 2 + 0.3, (DAIS.z1 - DAIS.z0) / 2 + 0.3],
     [VAULT.x, VAULT.z, 0.9, 0.85],
@@ -3001,7 +3022,7 @@ export function cellarBoxes(machines: Record<'rice' | 'fish' | 'mush', number> =
   // the Undertow, once it's found: the booths under the arches from the wall to the front of their tables, Eddie's room
   // (his banquette and table, his bodyguards, the champagne, the lamp and the palm), Harry's office, Tommy's card room (his
   // table, him behind it, his screen, his easel), the bar, the stools, the tables, the stage and the barrels; and the
-  // club's doors while they're shut, and the doorman's door at the tunnel's mouth while it is
+  // doorman's door, the out-of-order stall's back, while it's shut
   if (found.den) {
     const E = DESKS.eddie, H = DESKS.harry, T = DESKS.tommy;
     /** A box from z0 to z1, `hx` either side of x. */
@@ -3043,8 +3064,7 @@ export function cellarBoxes(machines: Record<'rice' | 'fish' | 'mush', number> =
     boxes.push([CHAT.x, CHAT.z, 0.3, 0.3], [CHAT.a.x, CHAT.a.z, 0.22, 0.22], [CHAT.b.x, CHAT.b.z, 0.22, 0.22]);
     for (const d of DANCERS) boxes.push([d.x, d.z, 0.5, 0.5]);
     boxes.push([STAGE.x, STAGE.z + STAGE.r / 2, STAGE.r + 0.15, STAGE.r / 2 + 0.15], [BARRELS.x, BARRELS.z, 0.5, 0.85]);
-    if (denDoor.shut) boxes.push(along(CLUB_DOOR.x, 0.2, CLUB_DOOR.z0, CLUB_DOOR.z1));
-    if (southDoor.shut) boxes.push([(PASSAGE.x0 + PASSAGE.x1) / 2, ARENA.z1 + 0.1, (PASSAGE.x1 - PASSAGE.x0) / 2 + 0.1, 0.15]);
+    if (southDoor.shut) boxes.push(along(CLUB_DOOR.x, 0.2, CLUB_DOOR.z0, CLUB_DOOR.z1));
   }
   for (const k of ['rice', 'fish', 'mush'] as const) {
     if (k === 'mush' && !found.grow) continue;

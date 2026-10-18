@@ -1,6 +1,6 @@
 // The cooking show at the pot (chanko.ts): the Cook button at the pot, the game holding still while it's on, its four
 // steps (cut, throw, season, stir) and their stars, and the bonus the stars buy the pot (fight.ts): bigger batches for
-// a while, the cook's 70% of them too, and no new show until it's run out. It's a bonus game alone (it takes nothing
+// a while, the cook's too, and no new show until it's run out. It's a bonus game alone (it takes nothing
 // and cooks nothing), every piece that's cut is thrown in, the stir starts on the soup, a show left half way carries
 // on where it was (saved with the game too), and nothing stands in the camera's way.
 import { Box3, Vector3 } from 'three';
@@ -76,16 +76,14 @@ async function atPot() {
 }
 
 describe('the cooking show at the pot', () => {
-  it('a bonus makes the pot\'s batches bigger for a while, the cook\'s too, and counts down', async () => {
+  it('a bonus makes the pot\'s batches bigger for a while (the cook\'s as well as the player\'s), and counts down', async () => {
     const { fight, F } = await atPot();
     expect(fight.batchBowls()).toBe(20);
-    expect(fight.cookBowls()).toBe(14);
     expect(fight.canShow()).toBe(true);
     expect(fight.showResult(5).pct).toBe(0);
     expect(F().bonus.t).toBe(0);
     expect(fight.showResult(9)).toMatchObject({ pct: 35, name: 'Hearty' });
     expect(fight.batchBowls()).toBe(27);
-    expect(fight.cookBowls()).toBe(19);
     expect(fight.canShow()).toBe(false);
     expect(fight.showResult(12).pct).toBe(50);
     expect(fight.batchBowls()).toBe(30);

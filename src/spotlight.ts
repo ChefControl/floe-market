@@ -75,6 +75,8 @@ function start(d: Due) {
     : { t: 0, on: on.map(lit), close: d.close, was: view.focus.clone(), cue: d.cue, snap: true, down: level.down };
 }
 
+/** Whether a close-up's on, or waiting to start (resto.ts lets the arena's go first). */
+export const spotBusy = () => !!shot || !!due;
 /** Whether something's in the spotlight now (the shop's menu steps out of the way meanwhile: shop.ts); not while it
  *  waits for the player to stop buying, so the menu's there for the next. */
 export const spotOn = () => !!shot;
