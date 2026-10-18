@@ -330,9 +330,9 @@ const STEPS: Step[] = [
     id: 'bench', stage: 3, after: 'gong', stay: true, at: () => down({ ...BENCH_PAD, r: 0.95 }),
     say: () => {
       if (!atSquare()) return ['Spend your prize here', F.hires.washer || F.hires.salter ? 'At the shop counter' : 'Hire a washer and salter'];
-      // (on a touch screen the menu opens folded, as its Shop button)
-      if (document.getElementById('craft')?.hidden === false) return ['Tap Shop', 'Then pick an upgrade'];
-      return ['Pick an upgrade', touchBuy() ? 'Tap one to buy it' : 'Click one to buy it'];
+      // (on a touch screen the shop's tree opens folded, as its Shop button, and folds there with its ✕ on a computer too)
+      if (document.getElementById('craft')?.hidden === false) return [touchBuy() ? 'Tap Shop' : 'Click Shop', 'Then pick an upgrade'];
+      return ['Pick an upgrade', touchBuy() ? 'Tap one, then Buy' : 'Click a lit one to buy it'];
     },
     done: boughtBelow, known: boughtBelow,
   },
