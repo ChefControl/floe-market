@@ -135,8 +135,8 @@ export const TUNNELS = [
 export const BENCH = { x: CRAFT.x0 + 0.55, z: (CRAFT.z0 + CRAFT.z1) / 2, w: 1.0, d: 2.4 };
 export const BENCH_PAD = { x: BENCH.x + 1.65, z: BENCH.z };
 /** Each room whose upgrades the bench sells (all of them at the bench now, so a room's tiles point there). */
-export type MenuRoom = 'prep' | 'grow' | 'hearth';
-export const ROOM_MENUS: Record<MenuRoom, XZ> = { prep: BENCH_PAD, grow: BENCH_PAD, hearth: BENCH_PAD };
+export type MenuRoom = 'prep' | 'grow' | 'hearth' | 'venue';
+export const ROOM_MENUS: Record<MenuRoom, XZ> = { prep: BENCH_PAD, grow: BENCH_PAD, hearth: BENCH_PAD, venue: BENCH_PAD };
 
 // ---------- the Undertow: the club, and the Family's three spread round it ----------
 /** The three pointed arches along the club's back wall, east of the bar (their middles, west to east), the bandstand
