@@ -11,6 +11,7 @@ import { clack, jackpot, lose, reelStop, win } from './sfx';
 import type { Moves } from './round';
 import { lineMultiplier, REEL, resultLine, startRound, THREE, TWO_CHERRIES, type SlotsRound } from './slots';
 import { popText } from './ui';
+import { state } from './uiKit';
 import { money, V, type XZ } from './util';
 import { addMoney, wallet } from './wallet';
 
@@ -170,7 +171,7 @@ function redraw(lit = false) {
 
 function refresh() {
   stakes.refresh(!!spin);
-  pullBtn.disabled = !!spin || !stakes.ok;
+  state(pullBtn, stakes.play(!!spin));
   pullBtn.textContent = spin ? 'Spinning…' : `Pull · ${stakes.label}`;
 }
 

@@ -1,0 +1,155 @@
+/* The game's UI kit (uiKit.ts): one frame for every panel the player presses things in, the same sizes, press, states
+   and keys everywhere, and four skins over it that change only colours, fonts and how round the corners are. The rules
+   are .claude/skills/game-ui/SKILL.md; ?ui=kit (dev and demo builds) shows every piece in every skin. */
+
+/* ---------- skins ---------- */
+.k-panel{
+  /* base: the game's white pills, green to go */
+  --k-font:"Baloo 2","Trebuchet MS",system-ui,sans-serif;
+  --k-bg:var(--pill); --k-ink:var(--pill-ink); --k-edge:transparent;
+  --k-main:var(--go); --k-main-ink:#fff; --k-main-drop:rgba(20,90,40,.45);
+  --k-plain:var(--chip); --k-plain-ink:var(--pill-ink); --k-plain-drop:var(--shade);
+  --k-danger:var(--hot); --k-danger-ink:#fff; --k-danger-drop:rgba(110,30,15,.45);
+  --k-pick:var(--coral); --k-pick-ink:#fff; --k-pick-drop:rgba(150,50,30,.45);
+  --k-grey:#C3CAD0; --k-grey-ink:#46525C;
+  --k-focus:var(--coral);
+  --k-radius:999px; --k-panel-radius:22px;
+  --k-key:rgba(23,48,66,.78); --k-key-ink:#fff;
+  font-family:var(--k-font); color:var(--k-ink);
+  counter-reset:k;
+}
+/* (base, in the dark: the grey a step down from the buttons, not up) */
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]) .k-panel[data-skin="base"]{ --k-grey:#33414D; --k-grey-ink:#A7B4BF; --k-key:#EAF6FB; --k-key-ink:#102432; }
+}
+:root[data-theme="dark"] .k-panel[data-skin="base"]{ --k-grey:#33414D; --k-grey-ink:#A7B4BF; --k-key:#EAF6FB; --k-key-ink:#102432; }
+/* the casino boat and the Undertow: burgundy and gold */
+.k-panel[data-skin="casino"]{
+  --k-bg:#3E0E18; --k-ink:#FFF8EC; --k-edge:#E3B23C;
+  --k-main:#F2C14E; --k-main-ink:#2A0F16; --k-main-drop:#A9761C;
+  --k-plain:#FFF8EC; --k-plain-ink:#2A0F16; --k-plain-drop:#B9A98F;
+  --k-pick:#F2C14E; --k-pick-ink:#2A0F16; --k-pick-drop:#A9761C;
+  --k-grey:#6B5A5E; --k-grey-ink:#EADFE0;
+  --k-radius:14px;
+  --k-key:#FFF8EC; --k-key-ink:#3E0E18;
+}
+/* fight night (gong.ts): a TV sumo broadcast */
+.k-panel[data-skin="fight"]{
+  --k-bg:#14203A; --k-ink:#F2EADB; --k-edge:#EDB94A;
+  --k-main:#EDB94A; --k-main-ink:#14203A; --k-main-drop:#A9761C;
+  --k-plain:#F2EADB; --k-plain-ink:#14203A; --k-plain-drop:#9C927F;
+  --k-danger:#D2382C; --k-danger-drop:#7E1F17;
+  --k-pick:#D2382C; --k-pick-ink:#fff; --k-pick-drop:#7E1F17;
+  --k-grey:#4A5568; --k-grey-ink:#DDE3EA;
+  --k-focus:#fff;
+  --k-radius:14px;
+  --k-key:#F2EADB; --k-key-ink:#14203A;
+}
+.k-panel[data-skin="fight"] .k-main{ font-family:"Bungee",var(--k-font); font-weight:400; letter-spacing:.02em; text-transform:uppercase; }
+/* the cooking at the pot (chanko.ts): hinoki wood and paper, red to go */
+.k-panel[data-skin="cooking"]{
+  --k-bg:#F6EBD3; --k-ink:#3B2716; --k-edge:#8A5A30;
+  --k-main:#B5332E; --k-main-ink:#FFF3E2; --k-main-drop:#7A1F1B;
+  --k-plain:#E3C38F; --k-plain-ink:#3B2716; --k-plain-drop:#A8814D;
+  --k-pick:#2E7D46; --k-pick-ink:#fff; --k-pick-drop:#1D5230;
+  --k-grey:#B9AE9C; --k-grey-ink:#4E4436;
+  --k-focus:#3B2716;
+  --k-radius:12px;
+  --k-key:#3B2716; --k-key-ink:#F6EBD3;
+}
+
+/* ---------- places ---------- */
+.k-panel[hidden], .k-panel [hidden]{ display:none !important; }
+/* a card along the bottom, for anything you walk up to; down the right-hand side on a phone held sideways */
+.k-card{
+  position:fixed; left:50%; bottom:calc(env(safe-area-inset-bottom,0px) + 10px); transform:translateX(-50%);
+  z-index:4; width:min(94vw,440px); box-sizing:border-box; display:flex; flex-direction:column; gap:10px;
+  background:var(--k-bg); border-radius:var(--k-panel-radius); padding:10px 12px 12px;
+  box-shadow:0 0 0 2px var(--k-edge), 0 5px 0 rgba(0,0,0,.35);
+}
+@media (max-height: 500px){
+  .k-card{
+    left:auto; transform:none; right:max(10px, env(safe-area-inset-right,0px)); bottom:max(10px, env(safe-area-inset-bottom,0px));
+    width:min(46vw,380px); gap:8px; max-height:calc(100% - 112px); overflow-y:auto; touch-action:pan-y;
+  }
+}
+/* a dialog in the middle, over the game dimmed (and paused); and the whole screen, for a game of its own */
+.k-dialog{
+  position:fixed; inset:0; z-index:8; display:grid; place-items:center; padding:16px; box-sizing:border-box;
+  background:rgba(23,48,66,.55);
+}
+.k-dialog > .k-sheet{
+  position:relative; width:min(100%,420px); max-height:100%; overflow-y:auto; box-sizing:border-box;
+  display:flex; flex-direction:column; gap:12px; padding:18px 18px 16px;
+  background:var(--k-bg); color:var(--k-ink); border-radius:24px; box-shadow:0 0 0 2px var(--k-edge), 0 6px 0 rgba(0,0,0,.3);
+}
+.k-full{ position:fixed; inset:0; z-index:8; display:flex; flex-direction:column; background:var(--k-bg); }
+/* what says the game's waiting behind */
+.k-paused{
+  position:absolute; top:12px; left:12px; z-index:1; padding:3px 10px; border-radius:999px;
+  background:var(--k-plain); color:var(--k-plain-ink); font:800 13px/1.3 var(--k-font);
+}
+.k-dialog > .k-paused{ top:max(12px, env(safe-area-inset-top,0px)); left:50%; transform:translateX(-50%); }
+/* the headline, the message and the one caption (≤8 words: the rule the buttons' numbers can't show) */
+.k-panel .k-title{ margin:0; font-size:20px; font-weight:800; line-height:1.15; text-align:center; }
+.k-panel .k-msg{ margin:0; min-height:1.2em; text-align:center; font-size:17px; font-weight:800; line-height:1.2; }
+.k-panel .k-cap{ margin:0; text-align:center; font-size:14px; font-weight:700; line-height:1.3; opacity:.8; }
+/* a row of buttons, sharing it */
+.k-row{ display:grid; grid-auto-flow:column; grid-auto-columns:minmax(0,1fr); gap:8px; }
+
+/* ---------- buttons ---------- */
+.k-btn{
+  --k-fill:var(--k-plain); --k-text:var(--k-plain-ink); --k-drop:var(--k-plain-drop); --k-ring:0 0 0 0 transparent; --k-lift:4px;
+  position:relative; box-sizing:border-box; min-height:44px; padding:4px 14px; margin:0;
+  border:0; border-radius:var(--k-radius); background:var(--k-fill); color:var(--k-text);
+  box-shadow:var(--k-ring), 0 var(--k-lift) 0 var(--k-drop);
+  font:800 16px/1.15 var(--k-font); cursor:pointer;
+  transition:transform .08s ease-out, box-shadow .08s ease-out;
+  touch-action:manipulation; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; -webkit-tap-highlight-color:transparent;
+}
+.k-main{ --k-fill:var(--k-main); --k-text:var(--k-main-ink); --k-drop:var(--k-main-drop); min-height:50px; font-size:18px; }
+.k-danger{ --k-fill:var(--k-danger); --k-text:var(--k-danger-ink); --k-drop:var(--k-danger-drop); }
+/* (armed: the first tap of two) */
+.k-danger[aria-pressed="true"]{ --k-ring:0 0 0 3px var(--k-ink); }
+/* a choice in its own colour (a chip, red or black) lifts with a ring when picked; any other fills */
+.k-choice{ --k-fill:var(--c, var(--k-plain)); --k-text:var(--c-ink, var(--k-plain-ink)); --k-drop:var(--c-drop, var(--k-plain-drop)); }
+.k-choice[aria-pressed="true"]{ --k-fill:var(--pick, var(--k-pick)); --k-text:var(--pick-ink, var(--k-pick-ink)); --k-drop:var(--pick-drop, var(--k-pick-drop)); }
+.k-choice.k-own[aria-pressed="true"]{ --k-fill:var(--c); --k-text:var(--c-ink, var(--k-plain-ink)); --k-drop:var(--c-drop, rgba(0,0,0,.35)); --k-ring:0 0 0 3px var(--k-pick); transform:translateY(-4px); }
+/* pressed: down onto its shadow */
+.k-btn:active:not(:disabled):not([data-state]){ transform:translateY(4px); --k-lift:0px; }
+@media (hover: hover) and (pointer: fine){
+  .k-btn:hover:not(:disabled):not([data-state]):not(:active){ transform:translateY(-1px); }
+  .k-choice.k-own[aria-pressed="true"]:hover:not(:active){ transform:translateY(-5px); }
+}
+.k-btn:focus-visible{ outline:3px solid var(--k-focus); outline-offset:2px; }
+/* busy (not now: a round's under way): faded */
+.k-btn:disabled{ opacity:.45; cursor:default; }
+/* can't afford, or not open yet: greyed, the price still there to read */
+.k-btn[data-state]{ --k-fill:var(--k-grey) !important; --k-text:var(--k-grey-ink) !important; --k-drop:rgba(0,0,0,.28) !important; --k-ring:0 0 0 0 transparent !important; transform:none !important; cursor:not-allowed; }
+.k-btn[data-state="locked"]::after{ content:"🔒 " attr(data-hint); display:block; font-size:12px; font-weight:700; }
+/* the ✕, on what you can't walk away from: always this one */
+.k-x{
+  position:absolute; top:10px; right:10px; width:36px; height:36px; min-height:0; padding:0; border-radius:50%;
+  --k-lift:2px; font-size:18px; line-height:36px;
+}
+@media (pointer: coarse){
+  .k-btn{ min-width:44px; }
+  .k-x{ width:44px; height:44px; line-height:44px; }
+}
+/* in the cash, a tap on something the player can't afford */
+#cash.nope{ animation:broke .45s ease-in-out 1; }
+#cash.nope .ic{ background:var(--hot); }
+@media (prefers-reduced-motion: reduce){ .k-btn{ transition:none; } #cash.nope{ animation:none; } }
+
+/* ---------- the keys, while Shift's held (on a mouse and keyboard): E on the main button, 1–9 along the rows ---------- */
+.k-keys > .k-btn{ counter-increment:k; }
+@media (hover: hover) and (pointer: fine){
+  .k-keys-on .k-keys > .k-btn::before, .k-keys-on .k-main::before{
+    position:absolute; top:-6px; left:-6px; z-index:1; min-width:18px; height:18px; padding:0 4px; box-sizing:border-box;
+    border-radius:6px; background:var(--k-key); color:var(--k-key-ink); box-shadow:0 0 0 2px var(--k-bg);
+    font:800 11px/18px var(--k-font); text-align:center; text-transform:none; letter-spacing:0; pointer-events:none;
+  }
+  .k-keys-on .k-keys > .k-btn::before{ content:counter(k); }
+  .k-keys-on .k-main::before{ content:"E"; }
+  .k-keys-on .k-btn:disabled::before, .k-keys-on .k-btn[data-state]::before{ opacity:.6; }
+}

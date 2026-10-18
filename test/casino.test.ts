@@ -10,6 +10,8 @@ import { bought, loadGame } from './helpers';
 const $ = (id: string) => document.getElementById(id)!;
 const click = (sel: string) => document.querySelector<HTMLButtonElement>(sel)!.click();
 const button = (sel: string) => document.querySelector<HTMLButtonElement>(sel)!;
+/** Whether a button's greyed: the player can't afford it (a tap only shakes the cash, uiKit.ts). */
+const greyed = (b: HTMLButtonElement) => b.dataset.state === 'broke' && !b.disabled;
 /** A card: 1 is an ace, 11 to 13 the faces. */
 const c = (rank: number, suit: Suit = '♠'): Card => ({ rank, suit });
 const saved = () => JSON.parse(localStorage.getItem('floe-market-v1')!).money;
@@ -190,7 +192,7 @@ describe('the casino boat', () => {
     expect(salon.salonView().says).toBe('Hic!');
     // with no money left for one, the button's greyed out; walking off closes it and the waiter carries on
     g.wallet.money = 10; g.run(0.1);
-    expect((document.getElementById('sip') as HTMLButtonElement).disabled).toBe(true);
+    expect(greyed(document.getElementById('sip') as HTMLButtonElement)).toBe(true);
     walkAway(g); g.run(2);
     expect(panel.hidden).toBe(true);
     expect(waiter().x).not.toBe(was);
@@ -406,7 +408,7 @@ describe('the roulette table', () => {
 
   it("won't take bets the player can't cover", async () => {
     const g = await at('roulette', 60);
-    expect(button('#roulette [data-stake="2"]').disabled).toBe(true);
+    expect(greyed(button('#roulette [data-stake="2"]'))).toBe(true);
     click('#roulette [data-stake="all"]');
     expect($('spin').textContent).toContain('$60');
     rig(15); // black: lose it all
@@ -462,7 +464,7 @@ describe('the roulette table', () => {
     expect($('spin').textContent).toBe('Spin · $325 on Red');
     expect([chip('1').dataset.n, chip('2').dataset.n, chip('3').dataset.n]).toEqual(['×1', '×3', undefined]);
     expect(chip('2').getAttribute('aria-pressed')).toBe('true');
-    expect(chip('3').disabled).toBe(true); // another $500 would be more than the player has
+    expect(greyed(chip('3'))).toBe(true); // another $500 would be more than the player has
     rig(32); // red
     click('#spin');
     expect(g.wallet.money).toBe(375);
@@ -530,7 +532,7 @@ describe('the roulette table', () => {
       // held till there's no cash for another: $25 + 19 × $100 is all $2,000
       press(chip, 'pointerdown'); vi.advanceTimersByTime(10_000);
       expect($('spin').textContent).toBe('Spin · $1,925 on Red');
-      expect(chip.disabled).toBe(true);
+      expect(greyed(chip)).toBe(true);
       press(chip, 'pointerup');
       // holding Undo takes them back the same way, down to nothing
       press(undo, 'pointerdown'); vi.advanceTimersByTime(10_000); press(undo, 'pointerup');
@@ -960,7 +962,7 @@ describe('the blackjack table', () => {
     click('#deal');
     dealt(g);
     expect(button('#split').hidden).toBe(true);
-    expect(button('#double').disabled).toBe(true);
+    expect(greyed(button('#double'))).toBe(true);
     click('#double');
     expect(g.wallet.money).toBe(15);
   });
@@ -1025,7 +1027,7 @@ describe('the blackjack table', () => {
   it('greets a broke player', async () => {
     await at('blackjack', 0, 'blackjack');
     expect($('bjMsg').textContent).toBe('Come back with some cash to play');
-    expect(button('#deal').disabled).toBe(true);
+    expect(greyed(button('#deal'))).toBe(true);
   });
 });
 
@@ -1080,6 +1082,6 @@ describe('the slot machine', () => {
   it('greets a broke player', async () => {
     await at('slots', 0, 'slots');
     expect($('slotsMsg').textContent).toBe('Come back with some cash to play');
-    expect(button('#pull').disabled).toBe(true);
+    expect(greyed(button('#pull'))).toBe(true);
   });
 });

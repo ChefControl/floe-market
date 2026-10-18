@@ -12,6 +12,7 @@ import { player } from './player';
 import { camera, canvasTex, FONT, mesh, rr } from './render';
 import type { Moves } from './round';
 import { besideView, tableRoom, topOfView } from './ui';
+import { panel as kitPanel, state, usable, type State } from './uiKit';
 import { d2xz, FY, type XZ } from './util';
 import { wallet } from './wallet';
 
@@ -46,6 +47,9 @@ export const GRACE = 10;
  *
  * `here` says whether the player's where the pad is: on the boat, unless it says otherwise (Tommy's table, down in the
  * Undertow).
+ *
+ * The panel's a card of the UI kit (uiKit.ts) in its casino skin: Esc shuts it as if the player had stepped off, till
+ * they do, or press E where they stand.
  */
 export function gamePad(
   at: XZ & { y?: number }, icon: string, panel: HTMLElement,
@@ -55,6 +59,7 @@ export function gamePad(
   const d = decal(1.9, (c, w, ht) => drawPad(c, w, ht, icon));
   d.mesh.position.set(at.x, (at.y ?? FY) + 0.01, at.z);
   d.mesh.visible = false;
+  const card = kitPanel(panel, { place: 'card', skin: 'casino' });
   // wait: seconds left for a player who stepped off mid-round (0 when nobody's being waited for)
   let enabled = false, open = false, greeted = -1, wait = 0;
   return {
@@ -63,7 +68,7 @@ export function gamePad(
     enable() { enabled = true; d.mesh.visible = true; },
     upd(dt: number) {
       if (!enabled) return false;
-      const near = here() && d2xz(player.g.position, at) < reach * reach;
+      const near = card.near(here() && d2xz(player.g.position, at) < reach * reach);
       if (near !== open) {
         open = near;
         panel.hidden = !open;
@@ -130,7 +135,7 @@ export class Stakes {
     el.addEventListener('pointerdown', e => {
       const b = this.button(e);
       this.owed = null;
-      if (!b || b.dataset.stake === 'all' || b.disabled || busy()) return;
+      if (!b || b.dataset.stake === 'all' || !usable(b) || busy()) return;
       this.release();
       this.held = this.owed = b;
       try { b.setPointerCapture(e.pointerId); } catch { /* pointer already gone */ }
@@ -172,7 +177,7 @@ export class Stakes {
   /** Goes again in `wait` ms while `b` is held, a little sooner each time, till it can't. */
   private repeat(b: HTMLButtonElement, wait: number, every: number) {
     this.timer = window.setTimeout(() => {
-      if (this.held !== b || b.disabled || this.busy()) return;
+      if (this.held !== b || !usable(b) || this.busy()) return;
       this.press(b);
       this.repeat(b, every, Math.max(HOLD.fastest, every * 0.85));
     }, wait);
@@ -192,23 +197,31 @@ export class Stakes {
   get ok() { return this.value > 0 && this.value <= this.most; }
   /** The stake to the dollar, never shortened: $10,250 isn't $10.2k when it's made of chips. */
   get label() { return this.rules.label(this.value); }
+  /** What the button that puts the stake down can do (uiKit.ts's states): nothing while `busy` or with nothing down,
+   *  greyed if it's more than the player has, and nothing if it's over the table's limit. */
+  play(busy: boolean): State {
+    if (busy || this.value <= 0) return 'busy';
+    if (this.value > wallet.money) return 'broke';
+    return this.value > this.rules.limit() ? 'busy' : 'ok';
+  }
 
-  /** Labels the chips for the stage, with how many of each are down, and greys out what the player can't add to the
-   *  stake (all of it while `busy`). */
+  /** Labels the chips for the stage, with how many of each are down: greyed, a chip the player hasn't the cash to add
+   *  (or All in with no cash at all); faded, any over the table's limit, and all of them while `busy`. */
   refresh(busy: boolean) {
     this.el.querySelectorAll<HTMLButtonElement>('[data-stake]').forEach(b => {
       const v = b.dataset.stake!;
       if (v === 'all') {
         b.setAttribute('aria-pressed', String(this.all));
-        b.disabled = busy || this.most <= 0;
-      } else if (v === 'undo') b.disabled = busy || !this.past.length;
+        state(b, busy ? 'busy' : wallet.money <= 0 ? 'broke' : this.most <= 0 ? 'busy' : 'ok');
+      } else if (v === 'undo') state(b, busy || !this.past.length ? 'busy' : 'ok');
       else {
         const amount = this.rules.chips()[Number(v)], n = this.all ? 0 : this.pile[Number(v)];
         b.textContent = this.rules.chip(amount);
         if (n) { b.dataset.n = `×${n}`; b.setAttribute('aria-label', `${this.rules.chip(amount)} ×${n}`); }
         else { delete b.dataset.n; b.removeAttribute('aria-label'); }
         b.setAttribute('aria-pressed', String(n > 0));
-        b.disabled = busy || (this.all ? 0 : this.value) + amount > this.most;
+        const after = (this.all ? 0 : this.value) + amount;
+        state(b, busy ? 'busy' : after > wallet.money ? 'broke' : after > this.rules.limit() ? 'busy' : 'ok');
         b.hidden = !!this.rules.hideOver && amount > this.rules.limit();
       }
     });

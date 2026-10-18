@@ -12,7 +12,9 @@ import { found, inUndertow, level, stage } from './layout';
 import { met } from './meet';
 import { borrow, canBorrow, freezeLimit, LOAN_FLOOR, LOAN_STEP, maxLoan, owed, owedAtFirst, payBack, repay, SHARE } from './loan';
 import { player } from './player';
+import { coin } from './sfx';
 import { popText } from './ui';
+import { state } from './uiKit';
 import { V } from './util';
 import { addMoney, wallet } from './wallet';
 
@@ -37,7 +39,7 @@ function refresh() {
   }
   borrowBtn.textContent = `Borrow ${fmt(wanted())} · Return ${fmt(payBack(wanted()))}`;
   repayBtn.textContent = `Pay off ${fmt(owed())}`;
-  repayBtn.disabled = wallet.money < owed() * CHIP - 1e-6;
+  state(repayBtn, wallet.money < owed() * CHIP - 1e-6 ? 'broke' : 'ok');
   msg.textContent = `${CUT} of your sales till it's paid`;
 }
 amount.addEventListener('input', () => refresh());
@@ -47,6 +49,7 @@ export function takeLoan(n = wanted()) {
   if (!canBorrow(n)) return false;
   const lent = borrow(n);
   addMoney(lent * CHIP);
+  coin();
   popText(`+${fmt(lent)}`, { x: DESKS.harry.x, y: CY + 1.4, z: DESKS.harry.z });
   say('Pleasure doing business, kid.');
   refresh();
@@ -57,6 +60,7 @@ export function payLoan() {
   const paid = repay(wallet.money / CHIP);
   if (!paid) return false;
   wallet.money -= paid * CHIP;
+  coin();
   say('Paid in full. Always a pleasure.');
   refresh();
   return true;

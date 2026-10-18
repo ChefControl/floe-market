@@ -18,6 +18,7 @@ import { limitFor, type MonteRound, placesAfter, ROUNDS, START, startRound, SWAP
 import { canvasTex, FONT } from './render';
 import { deal as dealSound, lose, win } from './sfx';
 import { popText } from './ui';
+import { state } from './uiKit';
 import { chips, V } from './util';
 import { addMoney, wallet } from './wallet';
 
@@ -129,7 +130,7 @@ export const roundsLeft = () => ROUNDS - (F.den.monte.bout === F.bout.n ? F.den.
 function refresh() {
   stakes.refresh(!!play);
   const left = roundsLeft();
-  dealBtn.disabled = !!play || left <= 0 || !stakes.ok;
+  state(dealBtn, play || left <= 0 ? 'busy' : stakes.play(false));
   dealBtn.textContent = play ? 'Watch the lady…' : left <= 0 ? 'Three rounds a fight' : `Deal · ${stakes.label}`;
   picks.hidden = play?.phase !== 'pick';
 }

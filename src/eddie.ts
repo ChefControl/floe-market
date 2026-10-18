@@ -14,6 +14,7 @@ import { found, level } from './layout';
 import { met } from './meet';
 import { save } from './save';
 import { coin } from './sfx';
+import { state } from './uiKit';
 import { V } from './util';
 import { wallet } from './wallet';
 
@@ -49,17 +50,17 @@ function refresh() {
   }
   if (!b) { odds.textContent = 'Nobody left to fix.'; odds.hidden = false; shake.hidden = true; return; }
   shake.hidden = false;
-  if (F.rush) { shake.disabled = true; shake.textContent = 'Not during a fight'; return; }
+  if (F.rush) { state(shake, 'busy'); shake.textContent = 'Not during a fight'; return; }
   if (on) {
     odds.textContent = "You'll know at the gong."; odds.hidden = false;
-    shake.disabled = true; shake.textContent = `Fixed 🤝 ${b.face} −${n(keptHome(b, on.cut))} fans`;
+    state(shake, 'busy'); shake.textContent = `Fixed 🤝 ${b.face} −${n(keptHome(b, on.cut))} fans`;
     return;
   }
   // (the risk in the picked size's colour, right on the button you shake on)
   const risk = document.createElement('b');
   risk.className = 'caught'; risk.textContent = `${pct(FIX.caught[cut - 1])} caught`;
   shake.style.setProperty('--risk', riskColour(cut));
-  shake.disabled = !afford(cut);
+  state(shake, afford(cut) ? 'ok' : 'broke');
   shake.replaceChildren(`Fix ${b.face} −${n(keptHome(b, cut))} fans · `, risk);
 }
 cuts.forEach(el => el.addEventListener('click', () => { cut = Number(el.dataset.cut); refresh(); }));

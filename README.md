@@ -397,6 +397,8 @@ Each deploy removes the last one's files, and GitHub Pages lets browsers keep th
 | `src/roomTone.ts` | The casino yacht's room tone: real recordings of a dining room, a bar and slot machines, following the player round the yacht |
 | `src/sounds/` | The casino yacht's recordings, looped and levelled (credits below; the ring's crowd is in `public/sounds`) |
 | `src/ui.ts` | HUD and stage chip (which folds the modifier list), toasts, tips, floating text, the stage-up banner and confetti, and sliding the view so an open panel never covers the player |
+| `src/uiKit.ts` / `src/uiKit.css` | The UI kit every panel the player presses things in is made of (the standard: `.claude/skills/game-ui/SKILL.md`): cards, dialogs and full screens, four skins, main/plain/danger/choice buttons and their states (greyed when you can't afford it), and the keys (Esc closes, E the main button, 1–9 along a row, Shift shows them) |
+| `src/uiShowcase.ts` | `?ui=kit` in dev and demo builds: every piece of the UI kit in each skin |
 | `src/save.ts` | Per-device save/load, migration, autosave, one-tab-at-a-time guard |
 | `src/cloud.ts` | Cloud saves: the sign-in button, syncing with the account, asking which game to keep |
 | `src/report.ts` | Report a bug or idea: its window, opened from the settings, the picture of the game, the notice of what's sent, and reports waiting for the cloud |

@@ -41,6 +41,8 @@ else {
 batchStill(scene);
 // the demo build's tool panel (demo.ts); the game itself never loads it
 if (import.meta.env.MODE === 'demo') void import('./demo');
+// the UI kit's showcase, ?ui=kit (uiShowcase.ts): in dev and demo builds only
+if ((import.meta.env.DEV || import.meta.env.MODE === 'demo') && new URLSearchParams(location.search).get('ui') === 'kit') void import('./uiShowcase');
 
 const restartBtn = document.getElementById('restart')!, restartText = document.getElementById('restartText')!;
 let armT: ReturnType<typeof setTimeout> | undefined;
