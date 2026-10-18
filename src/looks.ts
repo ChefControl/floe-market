@@ -5,9 +5,12 @@
 //   Chef's specials: a wooden menu tag over the kitchen line for each, a new dish on every one.
 //   Kitchen crew: the chefs' and cooks' toques grow taller.
 //   Rice fertilizer: a labelled sack of each kind on a pallet by the fertilizer shed (shed.ts).
+//   And stage 3's three, down in the cellar, from a slum to a hall: the arena, the soup square, and the prep hall and
+//   its hires (cellarLooks.ts).
 // A level bought puts what it changed in the spotlight (spotlight.ts): the camera goes over and in close on it.
 import { BoxGeometry, Group, Mesh, MeshLambertMaterial, type Object3D } from 'three';
 import { type Ad, marketAds, restaurantAds, updAds } from './ads';
+import { updCellarLooks } from './cellarLooks';
 import { C1 } from './counters';
 import { mods } from './economy';
 import { stage } from './layout';
@@ -167,5 +170,6 @@ export function updLooks(dt: number) {
   if (mods.crew > crew && !quiet) fresh.push(...[...sushi.chefs, ...sushi.cooks].map(p => p.g));
   crew = mods.crew;
   if (fresh.length) spotlight(fresh.splice(0));
+  updCellarLooks();
   updAds(dt);
 }

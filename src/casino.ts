@@ -284,7 +284,8 @@ let pieces: Object3D[] = [];
 export const casinoPieces = () => pieces;
 
 // ---------- the ship coming in ----------
-/** The spotlight on the ship (spotlight.ts): only a little closer, as big as it is, and it pops in as the camera gets there. */
+/** The spotlight on the ship (spotlight.ts): only a little closer, as big as it is, and it pops in as the camera gets there
+ *  (straight away: no waiting to see if another upgrade is bought). */
 const SHOW = { close: 0.85, popAt: 0.5 };
 
 /**
@@ -301,7 +302,7 @@ export function enableCasino(silent = false): Object3D[] {
   if (silent) return [];
   const waiting = [gangway, ship.g, ...roulette];
   const arrive = () => waiting.forEach(o => { o.visible = true; popIn(o); });
-  if (!spotlight([ship.g], { close: SHOW.close, cue: { at: SHOW.popAt, run: arrive } })) return [...pieces, ...roulette];
+  if (!spotlight([ship.g], { close: SHOW.close, cue: { at: SHOW.popAt, run: arrive }, wait: 0 })) return [...pieces, ...roulette];
   waiting.forEach(o => { o.visible = false; });
   return [quay];
 }
