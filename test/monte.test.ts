@@ -6,13 +6,13 @@ import { LIMIT_FLOOR, limitFor, placesAfter, ROUNDS, START, startRound, SWAPS, s
 const swapsOf = (...pairs: number[]) => { let i = 0; return () => (pairs[i++ % pairs.length] + 0.5) / 3; };
 
 describe("Tommy's monte", () => {
-  it('swaps 4 times for a little, 10 at the limit, and more the more is staked', () => {
+  it('swaps 4 times for a little, 12 at the limit, and more the more is staked', () => {
     expect(swapsFor(1, 100)).toBe(SWAPS.min);
     expect(swapsFor(100, 100)).toBe(SWAPS.max);
-    expect(swapsFor(50, 100)).toBe(7);
+    expect(swapsFor(50, 100)).toBe(8);
     for (let s = 1; s < 100; s++) expect(swapsFor(s + 1, 100)).toBeGreaterThanOrEqual(swapsFor(s, 100));
     expect(startRound(1, 1000, 100, swapsOf(0))!.round.swaps).toHaveLength(4);
-    expect(startRound(100, 1000, 100, swapsOf(0))!.round.swaps).toHaveLength(10);
+    expect(startRound(100, 1000, 100, swapsOf(0))!.round.swaps).toHaveLength(12);
   });
 
   it("follows the queen through his swaps: she starts in the middle and is always on the table", () => {

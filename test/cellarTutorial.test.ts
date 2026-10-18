@@ -407,7 +407,7 @@ describe("the cellar's tutorial", () => {
     expect(now()).toBe('cook');
     draw();
     expect(tut.guide.position).toMatchObject({ x: plan.POT_PAD.x, z: plan.POT_PAD.z });
-    expect(said()).toBe('Cook a bonus pot first / Bigger pots for 45 seconds');
+    expect(said()).toBe('Cook a bonus pot first / Bigger pots for 70 seconds');
     // at the pot, how to start it; the bubble stays, over the player's head
     at(plan.POT_PAD);
     g.run(0.1);

@@ -45,16 +45,18 @@ export interface Boss {
   /** What beating him opens, as his result card says it: "🔓 New: …". */
   opens: string;
 }
-/** Each boss's crowd is set so that turning more than half of it takes a kitchen played close to the gong's "good
- *  player" (fight.ts's forecast), or the cooking show's bonus: with the stage 3 bot, Yokobashiri's 96 to turn is just
- *  under the ~100 a kitchen with no attendant turns at best, and Fukure's 541 just under the ~560 of everything bought.
- *  (Raised from 120/180/220/420/1000 on 2026-10-17, the practice fight left as it was.) */
+/** A rush is won by carrying bowls to the stall (test/capacity.sim.test.ts measures it): your own hands turn about 100
+ *  of a crowd in a 30 s bell, the attendant about 180, and each level of Cellar crew walks him faster. So each boss's
+ *  crowd sits on a step of that ladder, a little under what the step turns at best: Hakkaku (81 to turn) a stocked
+ *  kitchen by hand, Yokobashiri (151) the attendant, Dobu (225) Cellar crew 4, Samehada (366, a longer bell) crew 6,
+ *  and Fukure (541, a 60 s bell) crew 7 with the glowing shelves. Prizes are kept small, so a win's prize and the bowls his crowd buys
+ *  don't pay for the next boss on the spot (the balance pass of 2026-10-18, for a stage of about 45 minutes). */
 export const BOSSES: Boss[] = [
-  { face: '🐙', name: 'Hakkaku', crowd: 140, bell: 30, prize: 120, kind: 'octopus', opens: 'grow room, mushroom bowls, Back-Alley Ring' },
-  { face: '🦀', name: 'Yokobashiri', crowd: 190, bell: 30, prize: 300, kind: 'crab', opens: 'the attendant, steam baskets, a way south' },
-  { face: '🐟', name: 'Dobu', crowd: 280, bell: 30, prize: 800, kind: 'catfish', opens: 'Underground Arena, smokehouse, the cook' },
-  { face: '🦈', name: 'Samehada', crowd: 480, bell: 30, prize: 2000, kind: 'shark', opens: 'Grand Hall Below, glowing grow shelves' },
-  { face: '🐡', name: 'Fukure', crowd: 1080, bell: 60, prize: 10000, kind: 'puffer', opens: 'buy back all his chips' },
+  { face: '🐙', name: 'Hakkaku', crowd: 160, bell: 30, prize: 350, kind: 'octopus', opens: 'grow room, the attendant, Back-Alley Ring' },
+  { face: '🦀', name: 'Yokobashiri', crowd: 300, bell: 30, prize: 250, kind: 'crab', opens: 'steam baskets, a way south' },
+  { face: '🐟', name: 'Dobu', crowd: 448, bell: 30, prize: 300, kind: 'catfish', opens: 'Underground Arena, smokehouse, the cook' },
+  { face: '🦈', name: 'Samehada', crowd: 730, bell: 45, prize: 800, kind: 'shark', opens: 'Grand Hall Below, glowing grow shelves' },
+  { face: '🐡', name: 'Fukure', crowd: 1080, bell: 60, prize: 5000, kind: 'puffer', opens: 'buy back all his chips' },
 ];
 /** The practice fight before the first boss (once, for a player who's just come down): the champion's own sparring
  *  partner and a small crowd, so the gong's learnt on a fight that's won. His prize hires the two lines' hands, which is
@@ -78,8 +80,9 @@ export const PER_BATCH = 4, BATCH = 20, POT_CAP = 40, COUNTER_CAP = 40, STALL_CA
 /** The pot's the player's to work: a cook gets 70% of what they do out of the same four of each, a 14-bowl batch. */
 export const COOK_SHARE = 0.7, COOK_BATCH = Math.round(BATCH * COOK_SHARE);
 /** The cooking show at the pot (chanko.ts), a bonus game: it takes nothing and cooks nothing, and its stars buy the pot
- *  bigger batches for a while (a cook's too, at 70%). Placeholders until the balancing pass. */
-export const BONUS_S = 45;
+ *  bigger batches for a while (a cook's too, at 70%): long enough to see a boss's rush through, Fukure's walk-in and his
+ *  60 s bell too. */
+export const BONUS_S = 70;
 export const BONUS_TIERS = [{ min: 12, pct: 50, name: 'Perfect pot' }, { min: 9, pct: 35, name: 'Hearty' }, { min: 6, pct: 20, name: 'Tasty' }, { min: 0, pct: 0, name: 'Bland' }];
 /** Chips a bowl sells for (mushroom bowls pay double), and what Mr. Fugu leaves of it until he's bought out. */
 export const PRICE = 1.6, CUT = 0.7;
@@ -89,16 +92,16 @@ export type WorkerRole = Role | 'you';
 export const HIRES: Record<Role, { line?: Ing; name: string; cost: number; beat: number }> = {
   washer: { line: 'rice', name: 'Rice washer', cost: 15, beat: 0 },
   salter: { line: 'fish', name: 'Fish salter', cost: 20, beat: 0 },
-  picker: { line: 'mush', name: 'Mushroom picker', cost: 120, beat: 1 },
+  picker: { line: 'mush', name: 'Mushroom picker', cost: 100, beat: 1 },
   // (serving's taken off the player's hands before the pot is: the pot's theirs)
-  attendant: { name: 'Attendant', cost: 250, beat: 2 },
+  attendant: { name: 'Attendant', cost: 150, beat: 1 },
   cook: { name: 'Cook', cost: 500, beat: 3 },
 };
 /** The machine upgrades: chips, and bosses to beat first. */
-export const UPS: Record<Ing, { cost: number; beat: number }> = { rice: { cost: 350, beat: 2 }, fish: { cost: 800, beat: 3 }, mush: { cost: 1500, beat: 4 } };
+export const UPS: Record<Ing, { cost: number; beat: number }> = { rice: { cost: 350, beat: 2 }, fish: { cost: 800, beat: 3 }, mush: { cost: 4000, beat: 4 } };
 /** Another machine: the first extra's chips, each next one 45% more. */
-export const MACH_COST: Record<Ing, number> = { rice: 10, fish: 12, mush: 25 }, MACH_STEP = 1.45;
-export const TIER_COST = [0, 200, 900, 2500], TIER_BEAT = [0, 1, 3, 4];
+export const MACH_COST: Record<Ing, number> = { rice: 10, fish: 12, mush: 15 }, MACH_STEP = 1.45;
+export const TIER_COST = [0, 120, 900, 2500], TIER_BEAT = [0, 1, 3, 4];
 export const BUYOUT = 12000;
 /** A bout's phases: preparation (the fans buy soup; on a boss night, as long as his bell), taking their seats, the
  *  fight, and the result. */
@@ -390,9 +393,10 @@ function tendPot(timer: { cookT: number }, dt: number, bowls = batchBowls()) {
   if (canCook() && !potFull()) { cookBatch(bowls); return true; }
   return false;
 }
-/** When the player last stood at the pot (F.t): the cook stands back while they're cooking. */
+/** When the player last stood at the pot (F.t): the cook stands back while they're cooking (in a forecast too, while
+ *  its "You" cooks). */
 let youCooked = -Infinity;
-const youCooking = () => real && F.t - youCooked >= 0 && F.t - youCooked < 0.25;
+const youCooking = () => F.t - youCooked >= 0 && F.t - youCooked < 0.25;
 
 /** The pot ladles its bowls out onto the counter, one at a time, while the counter has room. */
 function ladle(dt: number) {
@@ -435,9 +439,12 @@ export function sides() {
 /** For each size of fix (1 to 5 tenths of the boss's crowd kept home): the chance Eddie's caught, and how many local
  *  bouts the scandal then lasts (the player's own fans down by the same share). */
 export const FIX = { caught: [0.05, 0.15, 0.3, 0.5, 0.7], scandal: [1, 1, 2, 2, 3] };
-/** How many of `boss`'s fans a fix of `cut` tenths keeps home, and what it costs: the same share of his prize, in chips. */
+/** Chips Eddie charges for each fan he keeps home (a fan less to turn saves Cellar crew levels and shelves worth far
+ *  more than a boss's prize, so the fee goes by the fans, not the prize). */
+export const FIX_PER_FAN = 8;
+/** How many of `boss`'s fans a fix of `cut` tenths keeps home, and what it costs, in chips. */
 export const keptHome = (boss: Boss, cut: number) => Math.round(boss.crowd * cut / 10);
-export const fixFee = (boss: Boss, cut: number) => Math.round(boss.prize * cut / 10);
+export const fixFee = (boss: Boss, cut: number) => keptHome(boss, cut) * FIX_PER_FAN;
 /** The fix paid for on the next boss, if there is one. */
 export const fixOn = () => {
   const e = F.den.eddie;
@@ -607,7 +614,7 @@ export function forecast(kept = 0, { bonus = 0 }: { bonus?: number } = {}): Fore
   if (!boss || F.rush || F.called) return null;
   const key = `${kept}|${bonus}`, was0 = fc.get(key);
   if (was0 && was0.i === F.beaten && was0.v.boss === boss && F.t - was0.t < 0.5 && F.t >= was0.t) return was0.v;
-  const was = F, me = you.now();
+  const was = F, me = you.now(), cooked = youCooked;
   F = structuredClone(was);
   real = false;
   try {
@@ -637,6 +644,7 @@ export function forecast(kept = 0, { bonus = 0 }: { bonus?: number } = {}): Fore
   } finally {
     F = was;
     real = true;
+    youCooked = cooked;
   }
 }
 
@@ -699,7 +707,8 @@ function thinkYou(w: Worker): Step[] | null {
   const opts: [number, () => Step[] | null][] = [];
   const stallLow = F.stall.length < 6, rush = !!F.rush && !F.rush.done;
   if (!F.hires.attendant && F.counter.length && F.stall.length < STALL_CAP) opts.push([3 + (stallLow ? 4 : 0) + (rush ? 4 : 0) + F.counter.length * 0.2, planBowls]);
-  if (!F.hires.cook && canCook() && !potFull()) opts.push([3 + (F.counter.length < BATCH ? 3 : 0), () => [{ to: POT_PAD, act: 'cook' }]]);
+  // (with a cook hired too: he stands back while they're at the pot, and their batches are full ones)
+  if (canCook() && !potFull()) opts.push([3 + (F.counter.length < BATCH ? 3 : 0), () => [{ to: POT_PAD, act: 'cook' }]]);
   for (const k of inPot()) {
     if (F.hires[k === 'rice' ? 'washer' : k === 'fish' ? 'salter' : 'picker']) continue;
     opts.push([2 + (F.pantry[k] < 2 ? 3 : 0) + (k === 'rice' ? 0.2 : k === 'fish' ? 0.1 : 0), () => planLine(w, k)]);
@@ -777,7 +786,7 @@ function updWorker(w: Worker, dt: number) {
   if (w.cooking > 0) {
     w.cooking -= dt;
     if (w.role === 'cook') { if (!youCooking()) tendPot(w, dt, cookBowls()); }
-    else if (!tendPot(w, dt)) w.cooking = 0;
+    else { youCooked = F.t; if (!tendPot(w, dt)) w.cooking = 0; }
     return;
   }
   if (w.dwell > 0) { w.dwell -= dt; return; }

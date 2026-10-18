@@ -1,15 +1,15 @@
 // Three-Card Tommy's monte (the Undertow, stage 3): three cards face down on his table, one of them the queen. He shows
-// her, turns her down and swaps the cards about, and you tap where she went: find her and he pays double. His game is
-// straight, the queen's always on the table; the catch is his hands, quicker the more you stake: 4 slow swaps for a
-// little, a blur of 10 at his table's limit. A round is played here, free of the table and the wallet, so it's easy to
+// her, turns her down and swaps the cards about, and you tap where she went: find her and he pays half again. His game
+// is straight, the queen's always on the table; the catch is his hands, quicker the more you stake: 4 slow swaps for a
+// little, a blur of 12 at his table's limit. The house wins unless you find her two times in three. A round is played here, free of the table and the wallet, so it's easy to
 // test: the table animates it and applies the money it moves. The swaps are rolled outside the cellar's fight sim, so
 // the gong's forecast never sees them.
 import type { Moves } from './round';
 
 /** What finding the queen returns per chip staked, stake included. */
-export const WIN = 2;
+export const WIN = 1.5;
 /** Swaps at the smallest stake, and at the table's limit. */
-export const SWAPS = { min: 4, max: 10 };
+export const SWAPS = { min: 4, max: 12 };
 /** Rounds he'll play with you a bout. */
 export const ROUNDS = 3;
 /** His table's limit: one fight's takings at a full house (fullHouse.ts), in steps of this many chips, and never less
