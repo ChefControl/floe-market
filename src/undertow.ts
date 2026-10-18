@@ -1,7 +1,8 @@
 // The Undertow (stage 3): the Family's back room, through a tunnel out of the arena's south wall, found when the second
 // boss is beaten (cellar.ts builds it, ring.ts opens it). Each of the three stands at his booth with a pad in front of
 // his table: step up to it and he has a word for you, in a bubble over his head, his head bobbing as he says it (chatter.ts); step away
-// and come back for the next one. While you're in the room, each of them follows you with his eyes.
+// and come back for the next one. (The first time, he introduces himself instead: meet.ts.) While you're in the room,
+// each of them follows you with his eyes.
 import { updBand } from './band';
 import { CY, parts } from './cellar';
 import { updCrowd } from './crowd';
@@ -15,6 +16,7 @@ import { family, settle } from './family';
 import { guards } from './guards';
 import { found, inUndertow, level, VIP } from './layout';
 import { harrySays, updLoans } from './loanDesk';
+import { meetTalking, met, updMeet } from './meet';
 import { tommySays, updMonte } from './monteTable';
 import { player } from './player';
 import { bubble, onlyVendor } from './speech';
@@ -84,14 +86,19 @@ const FACE: Partial<Record<Booth, number>> = { eddie: 1.35, harry: 1.15 };
 /** Each host's controls, open while the player's sat at his table. */
 const PANELS: Record<Booth, HTMLElement> = { eddie: document.getElementById('eddie')!, harry: document.getElementById('loans')!, tommy: document.getElementById('monte')! };
 
-/** The Undertow, every frame (stage 3): the Family talking to whoever steps up, and watching them. */
-export function updUndertow(dt: number) {
+/** The Undertow, every frame (stage 3): the Family talking to whoever steps up, and watching them. While one of them
+ *  introduces himself (`held`: the cellar holds still, ring.ts), the room carries on round him, but nobody's table opens
+ *  and nobody else has a word. */
+export function updUndertow(dt: number, held = false) {
   updDoorway(dt);
-  updMonte(dt);
-  updEddie(dt);
-  updLoans(dt);
+  if (!held) {
+    updMonte(dt);
+    updEddie(dt);
+    updLoans(dt);
+  }
   updClub(dt);
   if (!found.den) return;
+  updMeet(dt);
   updBand(dt);
   updCrowd(dt);
   const p = player.g.position, here = level.down && inDen(p);
@@ -99,7 +106,7 @@ export function updUndertow(dt: number) {
   onlyVendor('family', booths.find(b => !PANELS[b.k].hidden)?.talk ?? null);
   for (const b of booths) {
     const on = level.down && d2xz(p, b.pad) < b.pad.r * b.pad.r;
-    if (on && !b.near) b.say(LINES[b.k][b.next++ % LINES[b.k].length]);
+    if (on && !b.near && !held && met(b.k)) b.say(LINES[b.k][b.next++ % LINES[b.k].length]);
     b.near = on;
     if (b.talk.upd(dt)) {
       const { x, y, z } = b.host.position;
@@ -107,7 +114,7 @@ export function updUndertow(dt: number) {
       b.talk.place(x, y + TALK_Y[b.k], z, face === undefined ? undefined : y + face);
     }
     if (b.voice.upd(dt)) b.host.syllable();
-    b.host.talking = b.voice.talking;
+    b.host.talking = b.voice.talking || meetTalking(b.k);
     b.host.watch = here && d2xz(p, b.host.position) < WATCH * WATCH ? p : null;
     b.host.update(dt);
   }

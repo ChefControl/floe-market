@@ -188,6 +188,8 @@ export interface Den {
   /** A fix that got out: tenths of the player's own fans who stay away, and for how many more local bouts. */
   scandal: { cut: number; bouts: number };
   loan: Loan;
+  /** Which of the Family have introduced themselves (meet.ts): once each, the first time the player steps up to him. */
+  met: { eddie: boolean; harry: boolean; tommy: boolean };
 }
 /** A cooking show under way: the step it's on (0 to 4: cut, throw, season, stir, all done), what each step's scored so
  *  far (its cuts', throws' and pours' scores, 0 to 1, a cut not yet made -1; the stir's seconds stirred and seconds in
@@ -209,7 +211,7 @@ export function blank(): Fight {
     seed: 3, cookT: 0, bonus: { pct: 0, t: 0 }, show: null,
     den: {
       book: false, way: false, door: false, monte: { bout: -1, played: 0 }, eddie: { boss: -1, cut: 0, caught: false }, scandal: { cut: 0, bouts: 0 },
-      loan: { owed: 0, total: 0 },
+      loan: { owed: 0, total: 0 }, met: { eddie: false, harry: false, tommy: false },
     },
   };
 }
@@ -269,9 +271,12 @@ export const batchBowls = () => Math.round(BATCH * (1 + (F.bonus.t > 0 ? F.bonus
 export const cookBowls = () => Math.round(batchBowls() * COOK_SHARE);
 /** Whether the cooking show can start (or carry on from where it was left): not while its bonus lasts. */
 export const canShow = () => F.bonus.t <= 0;
+/** Cooking shows played to the end since the game started (the tutorial's lesson at the pot is learnt by one). */
+export const showsDone = { n: 0 };
 /** The cooking show's result: `stars` of 12 buy the pot its bonus (none for a bland pot). Returns the tier. */
 export function showResult(stars: number) {
   const tier = BONUS_TIERS.find(x => stars >= x.min)!;
+  showsDone.n++;
   F.bonus = tier.pct ? { pct: tier.pct, t: BONUS_S } : { pct: 0, t: 0 };
   F.show = null;
   return tier;
@@ -896,6 +901,15 @@ export function fightFrom(raw: unknown): Fight {
           : b.den.eddie,
         scandal: { cut: clamp(Math.round(num(r.den?.scandal?.cut)), 0, 5), bouts: clamp(Math.floor(num(r.den?.scandal?.bouts)), 0, 3) },
         loan: { owed: Math.max(0, num(r.den?.loan?.owed)), total: Math.max(0, num(r.den?.loan?.total), num(r.den?.loan?.owed)) },
+        // (a game saved before the Family introduced themselves: met, if it shows he's been used — a fix still to come
+        // or a scandal running, a loan owed, a game of monte played)
+        met: r.den?.met && typeof r.den.met === 'object'
+          ? { eddie: r.den.met.eddie === true, harry: r.den.met.harry === true, tommy: r.den.met.tommy === true }
+          : {
+            eddie: num(r.den?.eddie?.cut) >= 1 || num(r.den?.scandal?.bouts) > 0,
+            harry: num(r.den?.loan?.owed) > 0,
+            tommy: num(r.den?.monte?.bout, -1) >= 0,
+          },
       },
     };
     for (const k of ING) {
