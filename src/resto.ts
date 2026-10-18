@@ -632,10 +632,10 @@ let LIGHT = -1;
 const tmp = V(0, 0, 0);
 
 /** How it is, as drawn, for tests: how far it's come (stageOf), whether Mama's in, what she's saying, the diners in,
- *  the wreck, and the bowls on their way under the floor. */
+ *  the wreck, whether her belt's laid (its hatch and grates), and the bowls on their way under the floor. */
 export const restoShows = () => B && ({
   stage: stageOf(dressed), mama: B.mama.visible, says: B.says.text, diners: B.diners.filter(d => d.p.visible).length,
-  wreck: B.ruin.wreck.visible, under: B.under.riding(),
+  wreck: B.ruin.wreck.visible, belt: B.under.group.visible, under: B.under.riding(),
 });
 /** Dresses it for Word on the street's level `n`: from a wreck to the Family's front. `up`: bought just now (not just
  *  loaded), so what's new pops in. */
@@ -649,6 +649,8 @@ function dress(b: Built, n: number, up: boolean) {
   b.tables.forEach((t, i) => { show(t.g, cleared >= 2 && !(st === 2 && r.crates.includes(i))); t.set.visible = st >= 3; });
   show(b.stools, cleared >= 3);
   b.mama.visible = st >= 2;
+  // (and her belt from the hearth room, its hatch and grates, laid only as she opens)
+  show(b.under.group, st >= 2);
   b.noren.material = b.norens[st < 2 ? 0 : st === 2 ? 1 : 2];
   b.shopNoren.material = b.shopNorens[st < 2 ? 0 : 1];
   b.board.rotation.z = st < 2 ? 0.1 : 0;

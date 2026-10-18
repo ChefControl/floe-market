@@ -1633,14 +1633,14 @@ describe("the cellar's tiles", () => {
     const rs = await import('../src/resto');
     for (const n of [0, 1]) {
       g.economy.mods.street = n; g.run(0.2);
-      expect(rs.restoShows()).toMatchObject({ stage: 0, mama: false, diners: 0, wreck: true });
+      expect(rs.restoShows()).toMatchObject({ stage: 0, mama: false, diners: 0, wreck: true, belt: false });
     }
     for (let n = 2; n < fight.RESTO_OPENS; n++) {
       g.economy.mods.street = n; g.run(0.2);
-      expect(rs.restoShows()).toMatchObject({ stage: 1, mama: false, diners: 0, wreck: false });
+      expect(rs.restoShows()).toMatchObject({ stage: 1, mama: false, diners: 0, wreck: false, belt: false });
     }
     g.economy.mods.street = fight.RESTO_OPENS; g.run(0.2);
-    expect(rs.restoShows()).toMatchObject({ stage: 2, mama: true, says: rs.OPENING });
+    expect(rs.restoShows()).toMatchObject({ stage: 2, mama: true, says: rs.OPENING, belt: true });
     expect(rs.restoShows()!.diners).toBeGreaterThan(0);
     // and a batch for her goes in at the hatch by the hearth, along under the floor
     F().quiet = false;
