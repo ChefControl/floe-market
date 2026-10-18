@@ -18,6 +18,7 @@ import { popIn } from './pop';
 import { built, updRingKitchen } from './ringKitchen';
 import { crowd, react } from './ringSound';
 import { save } from './save';
+import { meetPlaying } from './meet';
 import { callFugu, dressDoor, updSouthDoor, wayPlaying } from './southDoor';
 import { chime, fanfare, gong, levelUp } from './sfx';
 import { spotlight } from './spotlight';
@@ -109,11 +110,14 @@ export function updRing(dt: number) {
   // While a scene on the way south has the player (southDoor.ts), the cellar winds down and holds still: nothing goes on
   // in the fight, and so nobody new comes or goes and nobody's turn comes; but whoever's walking somewhere gets there,
   // the soup square's flap settles, and the wrestlers ease into where they were going.
-  if (wayPlaying()) {
+  // (and while one of the Family introduces himself in the Undertow, meet.ts, the club carries on round him)
+  const meeting = meetPlaying();
+  if (wayPlaying() || meeting) {
     updRingKitchen(dt);
     updBarFlap(dt, null);
     updDohyo(dt);
     updSwarm(dt);
+    if (meeting) updUndertow(dt, true);
     updSouthDoor(dt);
     return;
   }
