@@ -1331,8 +1331,9 @@ const BAR_BOXES: [number, number, number, number][] = (() => {
 })();
 const FLAP_BOX: [number, number, number, number] = [BAR.x0 + BAR.d / 2, (FLAP.z0 + FLAP.z1) / 2, BAR.d / 2 + 0.22, (FLAP.z1 - FLAP.z0) / 2];
 /** The soup square's bamboo poles, the lanterns strung between them and its name board: shown till the first level
- *  of Pricier bowls, which dresses the square its own way (cellarLooks.ts); baked on its own, so it can go. */
-export const barFrame = new Group();
+ *  of Pricier bowls, which dresses the square its own way (cellarLooks.ts); baked on its own, so it can go. (Made on dice
+ *  of its own, so loading draws from the game's luck just what it did before it: see BUILT_WITH.) */
+export const barFrame = apart(() => new Group(), dice(0xBA4F));
 /** What moves in the cellar's furniture, left out of its baking: the flap's lid and door. */
 const moving: Object3D[] = [];
 /** The flap: how far open it is (0 shut, 1 open), and its lid and door (once built). */

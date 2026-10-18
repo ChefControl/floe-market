@@ -35,7 +35,7 @@ import { staging } from './stage';
 
 /** Everything here, in the cellar from the start (so it's no furniture of the cellar's to bake: cellar.ts), but empty
  *  until stage 3's first wanted. */
-export const cellarLooks = new Group();
+export const cellarLooks = apart(() => new Group(), dice(0x100C4));
 cellar.add(cellarLooks);
 
 const V = (x: number, y: number, z: number) => new Vector3(x, y, z);
@@ -688,7 +688,8 @@ const RAGS: Record<Role, [number, number]> = {
 const wear = (p: Person, geo: BufferGeometry, c: number, x: number, y: number, z: number, s: [number, number, number], rx = 0) => {
   const m = mesh(geo, c, x, y, z); m.scale.set(...s); m.rotation.x = rx; p.body.add(m); return m;
 };
-const COLLAR = new TorusGeometry(0.19, 0.035, 5, 14);
+let collarGeo: TorusGeometry | null = null;
+const COLLAR = () => (collarGeo ??= new TorusGeometry(0.19, 0.035, 5, 14));
 /** Clothes for level `n` (from the outfit before, in the levels that change no clothes), or null for their own. */
 function uniform(n: number): ((role: Role) => Person) | null {
   if (n <= 0) return null;
@@ -708,7 +709,7 @@ function uniform(n: number): ((role: Role) => Person) | null {
     const p = belowGround(new Person(0xF4F6F8));
     p.headband(band);
     wear(p, G.cyl, 0xF4F6F8, 0, 1.21, 0.02, [0.18, 0.12, 0.18]);
-    wear(p, COLLAR, collar, 0, 0.9, 0.02, [1, 1, 1], Math.PI / 2);
+    wear(p, COLLAR(), collar, 0, 0.9, 0.02, [1, 1, 1], Math.PI / 2);
     if (n >= 8) wear(p, K.dot, 0xD2AA4A, 0.08, 0.72, 0.265, [0.035, 0.035, 0.012]);
     return p;
   };
