@@ -78,7 +78,8 @@ his table limit, `StakeRules.hideOver`).
 **Pausing.** If a panel dims the screen, the game pauses and says "Game paused". The kit adds that tag itself and
 game.ts waits on `paused()`. Cards never pause. Story scenes (Mr. Fugu, Eddie's coin) hold the world as they do now.
 
-**Sound.** There's no general click sound. Every main action makes a game sound: a chip clack, the gong, a coin, a
+**Sound.** Every button press already plays one quiet tick (sfx.ts `click()`, for any `<button>`). It stays: the owner
+chose to keep it (2026-10-18). Don't add another click sound on top. Besides the tick, every main action makes a game sound: a chip clack, the gong, a coin, a
 sizzle. A panel whose main action is silent is missing one. Reuse sfx.ts sounds where they fit. For a new sound,
 follow the no-pops rule: render it offline and scan it before it ships.
 
@@ -156,7 +157,7 @@ onto it, with what the 2026-10-18 survey found wrong:
 - [ ] Esc closes it (or it's forced). A ✕ only if you can't walk away, and only the kit's.
 - [ ] Money uses `broke`, round-in-progress uses `busy`, not-yet-open uses `locked`, never-here is hidden.
 - [ ] Dims the screen? It pauses. Card? It doesn't.
-- [ ] The main action makes a game sound.
+- [ ] The main action makes a game sound (besides the tick every button already plays).
 - [ ] Words: numbers on buttons, one caption ≤8 words, no "bout", no slang.
 - [ ] 44px targets on touch. Docks right on a phone held sideways (`max-height: 500px`).
 - [ ] Tests for the panel's keys and states, like test/uiKit.test.ts. Run only the related test files locally; the
