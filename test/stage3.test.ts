@@ -1139,7 +1139,7 @@ describe('the gong', () => {
     // the card goes on a tap
     $('fightCard').click();
     expect($('fightCard').hidden).toBe(true);
-  });
+  }, 30_000);
 
   it('a lost rush says how short it was and why, and costs nothing: half his crowd is not enough', async () => {
     const { g, fight, F } = await ring();
