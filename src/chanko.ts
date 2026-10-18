@@ -28,6 +28,7 @@ import { newMushroom } from './items';
 import { rbox } from './kit';
 import { level, stage } from './layout';
 import { player } from './player';
+import { potMusic } from './potMusic';
 import { camera, canvasTex, G, mesh } from './render';
 import { V } from './util';
 
@@ -962,6 +963,7 @@ export function startShow() {
   $('showGo').textContent = was ? 'Carry on' : 'Start';
   meter(null); boil(null);
   scoreboard();
+  potMusic(true);
   return true;
 }
 function begin() {
@@ -1005,6 +1007,7 @@ export function stopShow() {
   ui.root.hidden = true;
   document.body.classList.remove('show');
   meter(null); boil(null);
+  potMusic(false);
 }
 function gone() {
   const s = set!;
