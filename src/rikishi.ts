@@ -7,7 +7,8 @@
 // (dohyo.ts): a set of joint angles, mixed one into another as he moves.
 import { Group, type Mesh, type Object3D, SphereGeometry } from 'three';
 import { type Beast, BEASTS, type Kit, type Look } from './creatures';
-import { Build, K, quietly, shade } from './kit';
+import { isHigh, onQuality } from './graphics';
+import { Build, dice, K, quietly, shade } from './kit';
 
 const SKIN = 0xF3C9A4, HAIR = 0x15130F;
 /** The champion's name, and his belt: the player's colour. */
@@ -45,6 +46,8 @@ export function mixPose(a: Pose, b: Pose, k: number): Pose {
 export const THIGH = 0.26, SHIN = 0.24, ANKLE = 0.07;
 const ROUND = quietly(() => new SphereGeometry(1, 16, 12));
 const add = <T extends Object3D>(p: Object3D, o: T) => { p.add(o); return o; };
+/** The dice High's finer things are made on: their own, so the scenery's are drawn as they always were. */
+const fineDice = dice(0xF1E5);
 const bone = (p: Object3D, x: number, y: number, z: number) => { const g = add(p, new Group()); g.position.set(x, y, z); return g; };
 /** A baked part: the bone it's on, how it's made, and the mesh made. */
 interface Part { at: Object3D; make: (b: Build) => void; m?: Mesh }
@@ -68,6 +71,8 @@ export class RikishiModel extends Group {
   readonly bellyAt: Group;
   readonly chestAt: Group;
   private parts: { at: Group; make: Recipe; m?: Mesh }[] = [];
+  /** High's finer things (graphics.ts), each bone's in a mesh of its own: shown on High only. */
+  private fines: { at: Group; make: Recipe; m?: Mesh }[] = [];
   private skin: number;
   private belt: number;
   /** How he looks: his skin and belt, and the creature he is, if he's a boss. */
@@ -160,11 +165,34 @@ export class RikishiModel extends Group {
       });
       this.arms.push({ s, sh, el, hand });
     }
+    this.finer();
+    onQuality(() => { for (const p of this.fines) if (p.m) p.m.visible = isHigh(); });
     this.scale.setScalar(1.05);
     this.setWeight(150);
     this.apply(P0, 0);
   }
   private part(at: Group, make: Recipe) { this.parts.push({ at, make }); }
+  private fine(at: Group, make: Recipe) { this.fines.push({ at, make }); }
+  /** High's finer things on a man: ears, a nose and a glint in each eye, a navel, a thumb on each hand, toes, and a
+   *  darker cord round his belt (a creature has his own head, hands and feet, and only the cord). */
+  private finer() {
+    const man = () => !this.look.kind;
+    this.fine(this.neck, (b, sk) => {
+      if (!man()) return;
+      for (const s of [-1, 1]) {
+        b.add(K.ball, sk, s * 0.205, 0.13, -0.005, null, [0.035, 0.05, 0.03]);
+        b.add(K.dot, 0xFFFFFF, s * 0.07 + 0.009, 0.151, 0.2, null, 0.006);
+      }
+      b.add(K.ball, shade(sk, 0.94), 0, 0.105, 0.2, null, [0.032, 0.028, 0.03]);
+    });
+    this.fine(this.bellyAt, (b, sk, _, f) => { b.add(K.dot, shade(this.look.under ?? sk, 0.72), 0, -0.04, 0.375 * f, null, [0.018, 0.024, 0.01]); });
+    this.fine(this.hips, (b, _, bl, f) => { b.add(K.post, shade(bl, 0.7), 0, -0.06, 0, null, [0.41 * f, 0.016, 0.33 * f]); });
+    for (const L of this.legs) this.fine(L.foot, (b, sk) => {
+      if (!man()) return;
+      for (let i = 0; i < 4; i++) b.add(K.dot, shade(sk, 0.97), (i - 1.5) * 0.04 * L.s, -0.055, 0.185 - Math.abs(i - 1.5) * 0.01, null, [0.022, 0.02, 0.026]);
+    });
+    for (const A of this.arms) this.fine(A.el, (b, sk) => { if (this.hands) b.add(K.ball, sk, -A.s * 0.045, -0.23, 0.06, null, [0.03, 0.04, 0.03]); });
+  }
   /** Whether he has hands (an octopus has tentacles, a crab claws). */
   private hands = true;
   /** Bakes every bone's meshes afresh, in his skin and belt, at his weight, and builds the creature he is on them. */
@@ -198,6 +226,15 @@ export class RikishiModel extends Group {
         if (!b.empty) p.m = add(p.at, b.mesh(true));
       }
     });
+    // (High's finer things: small, so they cast no shadow)
+    quietly(() => {
+      for (const p of this.fines) {
+        if (p.m) { p.at.remove(p.m); p.m.geometry.dispose(); p.m = undefined; }
+        const b = new Build();
+        p.make(b, this.skin, this.belt, this.f);
+        if (!b.empty) { p.m = add(p.at, b.mesh(false)); p.m.visible = isHigh(); }
+      }
+    }, fineDice);
   }
   /** The creature he is, if he's a boss. */
   get kind() { return this.look.kind; }

@@ -1,0 +1,161 @@
+// Stage 3's graphics (the cellar), Low and High: High is the cellar as it was drawn, with the Undertow's figures and
+// the wrestlers finer; Low is the same place for less: four lamps standing in for fourteen, no shadows from the small
+// things or the fans, the figures a notch plainer. Down there the sun's shadows are cast only over what's on screen.
+// Neither touches the game's luck.
+import { type InstancedMesh, type Mesh, type Object3D, type PointLight } from 'three';
+import { describe, expect, it, vi } from 'vitest';
+import { bought, FLOE_SUSHI, loadGame, MARKET, type SaveFixture } from './helpers';
+
+const SUSHI = [...MARKET, 'sushi', ...FLOE_SUSHI];
+/** Whether `o` and everything it's in are showing. */
+const shown = (o: Object3D) => { for (let p: Object3D | null = o; p; p = p.parent) if (!p.visible) return false; return true; };
+/** The same seeded luck as setup.ts. */
+function seeded(seed: number) {
+  return () => {
+    seed = seed + 0x6D2B79F5 | 0;
+    let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+/** A game down in the cellar (the second boss beaten: the Undertow's open), the graphics already chosen on the device. */
+async function cellar(q: 'low' | 'high', save: SaveFixture = {}) {
+  const get = Storage.prototype.getItem;
+  const spy = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(function (this: Storage, k: string) {
+    return k === 'floe-market-graphics' ? q : get.call(this, k);
+  });
+  const g = await loadGame({
+    tiles: bought(...SUSHI, 'dohyo'), fugu: 2, level: 1, reviews: Array(20).fill(5),
+    ring: { beaten: 2, lines: { mush: { n: 1 } }, den: { book: true, way: true, door: true } }, ...save,
+  });
+  spy.mockRestore();
+  const [cellarMod, graphics, family, levelCull, render, plan] = await Promise.all([
+    import('../src/cellar'), import('../src/graphics'), import('../src/family'), import('../src/levelCull'), import('../src/render'),
+    import('../src/cellarPlan'),
+  ]);
+  /** Draws a frame as main.ts does: the camera and the sun over the player, what's up top hidden and the cellar's own
+   *  work done (levelCull.ts), then shown again. */
+  const draw = () => {
+    const p = g.player.g.position, { camera, sun, OFF } = render;
+    camera.position.copy(p).add(OFF); camera.lookAt(p); camera.updateMatrixWorld();
+    sun.target.position.copy(p);
+    render.scene.updateMatrixWorld();
+    levelCull.hideAbove()();
+  };
+  return { g, cellar: cellarMod, graphics, family, levelCull, render, plan, draw };
+}
+
+describe('stage 3, Low and High', () => {
+  it("builds the cellar off the game's luck: the same luck is left whichever graphics the device has", async () => {
+    // (loaded once first, so what's made the first time anything's loaded, three.js' own, is made before both)
+    await cellar('low');
+    const luck = vi.spyOn(Math, 'random').mockImplementation(seeded(1));
+    await cellar('high');
+    const high = [Math.random(), Math.random()];
+    luck.mockImplementation(seeded(1));
+    await cellar('low');
+    expect([Math.random(), Math.random()]).toEqual(high);
+  });
+
+  it('lights the cellar with all fourteen lamps on High, and four standing in for the nearest on Low', async () => {
+    const { cellar: C, graphics, draw } = await cellar('high');
+    const shownLights = () => { let n = 0; C.cellar.parent!.traverseVisible(o => { if ((o as PointLight).isPointLight && o.parent && shown(o)) n++; }); return n; };
+    expect(C.lights.every(l => l.visible)).toBe(true);
+    expect(C.standIns.every(l => !l.visible)).toBe(true);
+    const onHigh = shownLights();
+    graphics.choose('low');
+    draw();
+    expect(C.lights.every(l => !l.visible)).toBe(true);
+    expect(C.standIns.every(l => l.visible)).toBe(true);
+    expect(shownLights()).toBe(onHigh - C.lights.length + 4);
+    // each stands in for one of the lit lamps: its colour, reach and place, all the way faded in on the first frame
+    for (const s of C.standIns) {
+      const l = C.lights.find(x => x.position.equals(s.position))!;
+      expect(l.intensity).toBeGreaterThan(0);
+      expect([s.color.getHex(), s.distance, s.intensity]).toEqual([l.color.getHex(), l.distance, l.intensity]);
+    }
+    graphics.choose('high');
+    expect(C.lights.every(l => l.visible)).toBe(true);
+    expect(C.standIns.every(l => !l.visible)).toBe(true);
+  });
+
+  it('casts no shadow from the small things or the fans on Low, and every one of them again on High', async () => {
+    const { cellar: C, graphics, g, render } = await cellar('high');
+    const casters = () => { let n = 0; C.cellar.traverse(o => { if ((o as Mesh).isMesh && (o as Mesh).castShadow) n++; }); return n; };
+    const slight = () => { let n = 0; C.cellar.traverse(o => { if (o.userData.slight) n++; }); return n; };
+    const onHigh = casters();
+    expect(slight()).toBe(0);
+    graphics.choose('low');
+    expect(slight()).toBeGreaterThan(20);
+    expect(casters()).toBe(onHigh - slight());
+    graphics.choose('high');
+    expect(slight()).toBe(0);
+    expect(casters()).toBe(onHigh);
+    // a boss's crowd: their shadows from a plainer copy on High (after their own shape), none on Low
+    const { ringGong } = await import('../src/fight');
+    ringGong();
+    g.run(8);
+    const fans = () => { const out: InstancedMesh[] = []; render.scene.traverse(o => { if ((o as InstancedMesh).isInstancedMesh && o.userData.casts !== undefined) out.push(o as InstancedMesh); }); return out; };
+    expect(fans().length).toBeGreaterThan(0);
+    const casting = fans().filter(f => f.userData.casts);
+    expect(casting.every(f => f.castShadow && f.userData.shadowFrom === f.geometry.drawRange.count)).toBe(true);
+    expect(casting.every(f => f.geometry.attributes.position.count > f.userData.shadowFrom)).toBe(true);
+    // (the trim, the small things on them, never casts)
+    expect(fans().filter(f => !f.userData.casts).every(f => !f.castShadow)).toBe(true);
+    graphics.choose('low');
+    g.run(0.5);
+    expect(fans().every(f => !f.castShadow)).toBe(true);
+  });
+
+  it("draws the Undertow's figures finer on High and a notch plainer on Low, each in a few meshes, the same pose", async () => {
+    const { family, graphics } = await cellar('high');
+    const eddie = family.family.eddie;
+    const meshes = (q: 'low' | 'high') => {
+      graphics.choose(q);
+      const out: Mesh[] = [];
+      eddie.traverse(o => { if ((o as Mesh).isMesh && shown(o)) out.push(o as Mesh); });
+      return out;
+    };
+    const tris = (ms: Mesh[]) => ms.reduce((n, m) => n + Math.min(m.geometry.drawRange.count, m.geometry.index?.count ?? m.geometry.attributes.position.count) / 3, 0);
+    const high = meshes('high'), low = meshes('low');
+    // (each moving part merged: a handful of meshes, on either)
+    expect(high.length).toBeLessThan(20);
+    expect(low.length).toBe(high.length);
+    // High's has the finer pieces Low's hasn't; both far fewer triangles than a ball of 252 for every piece
+    expect(tris(high)).toBeGreaterThan(tris(low));
+    expect(tris(high)).toBeLessThan(12000);
+    // and each casts its shadow from a plainer copy after its own triangles
+    for (const m of [...high, ...low].filter(x => x.castShadow && x.userData.noBatch)) expect(m.geometry.attributes.position.count).toBeGreaterThan(m.geometry.drawRange.count);
+  });
+
+  it('dresses the wrestlers finer on High only: ears, a nose, toes, thumbs', async () => {
+    const { graphics } = await cellar('high');
+    const { RikishiModel } = await import('../src/rikishi');
+    const r = new RikishiModel(0xE0552F);
+    const visible = () => { let n = 0; r.traverse(o => { if ((o as Mesh).isMesh && shown(o)) n++; }); return n; };
+    const onHigh = visible();
+    graphics.choose('low');
+    expect(visible()).toBeLessThan(onHigh);
+    graphics.choose('high');
+    expect(visible()).toBe(onHigh);
+  });
+
+  it("fits the sun's shadows to the floor on screen down here, and puts its box back up top", async () => {
+    const { levelCull, draw, g, plan, cellar: C } = await cellar('high');
+    const up = levelCull.shadowBox();
+    g.player.g.position.set(plan.BAR_PAD.x, C.CY, plan.BAR_PAD.z);
+    g.run(1);
+    draw();
+    const down = levelCull.shadowBox();
+    expect(down).not.toEqual(up);
+    // (narrower than the square across the world it was: as wide as the screen's strip of floor)
+    expect(down.right - down.left).toBeLessThan(up.right - up.left);
+    // the Undertow's figures, off screen from the bar, cast no shadow; in the club, the ones in sight do
+    const casting = levelCull.figuresCasting();
+    const { DEN } = await import('../src/layout');
+    g.player.g.position.set((DEN.x0 + DEN.x1) / 2, C.CY, (DEN.z0 + DEN.z1) / 2 + 2);
+    g.run(2);
+    draw();
+    expect(levelCull.figuresCasting()).toBeGreaterThan(casting);
+  });
+});
