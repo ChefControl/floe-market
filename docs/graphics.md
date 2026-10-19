@@ -127,6 +127,27 @@ The effects (src/fx.ts) show on High only and are visual only: they never change
 
 The DOM interface (the HUD, menus, toasts) isn't drawn in three.js and isn't part of High or Low. Emoji drawn into the 3D world are vector icons (src/icons.ts, `drawIcon`), on both settings, so they look the same on every phone.
 
+## Stage 3 (the cellar)
+
+Stage 3 was built after the rework, at High's detail, so there **High is the cellar as it was drawn** and Low is a cut-down copy of it for phones: the same place, the same layout, for less. (The rule above, "Low is the old version", doesn't apply down there; the owner decided this on 2026-10-19.) The one exception is the Undertow's figures (family.ts's `Hood`, and the wrestlers and referee): their old look is Low's, and High is finer.
+
+What Low leaves out down there:
+
+- **Lamps:** four stand-in lamps (cellar.ts `standIns`) take the colour, strength, reach and place of the four that light where the camera looks most, fading as they swap; High has all fourteen (`lights`). Every light is worked out for every pixel of everything drawn, so this is most of Low's saving on the graphics chip.
+- **Small shadows:** anything under half a metre, or rod-thin, casts none (cellar.ts `sweepShadows`); the fans cast none (swarm.ts); the figures cast only their bigger pieces (family.ts `castAs`).
+- **The figures** are a notch plainer: their balls have fewer sides (family.ts `shapeFor`), and High's finer pieces (`fine`, `finePiece`) aren't drawn.
+- **The hatch's smoke:** half the puffs (hatchFx.ts).
+
+On both settings, while the player's down there (levelCull.ts):
+
+- **The sun's shadow box is fitted to the floor on screen,** turned square to the screen. Up top it's a fixed square, and down here that square took in rooms off screen and drew them all again for their shadows.
+- **The Undertow's figures cast their shadows only while they, or their shadow, could be on screen** (`castsWhenSeen`).
+- **`eachDrawing(f)`** runs `f` each time the cellar's drawn, whatever the game's doing (a scene, a menu): Low's lamps are set there.
+
+The fans cast their shadow from a copy of themselves snapped to a 4 cm grid (swarm.ts `withShadow`), and what isn't merged is looked at one frame in eight (batch.ts `TURNS`).
+
+Measure stage 3 in Fukure's rush with the biggest crowd and in the Undertow's club: the demo build's `?stage3=on&cellar&beaten=4&chips=50000&full` (everything bought) and ring the gong. Tests: `test/stage3Graphics.test.ts`.
+
 ## Keeping it fast on phones
 
 The bar: an iPhone 16 holds 55–60 fps on High in the busiest scene (inside the stage 2 hall), and Auto never drops to Low there. On a CPU slowed 4× (an older phone), both settings hold 60 fps today. Don't let a change undo that.

@@ -42,7 +42,8 @@ describe('the gloop ring', () => {
     expect(full.some(p => p.f === 784)).toBe(true); // the clappers
     expect(full.some(p => p.type === 'custom' && p.f > hz(57) && p.f < hz(76))).toBe(true); // the shamisen
     expect(full.some(p => p.type === 'triangle' && p.f < 110)).toBe(true); // the low drone
-  }, 30_000);
+  // (it plays the ring's whole music through, in a cellar loaded twice: about 30 s on CI under coverage)
+  }, 60_000);
 
   it("plays in the cellar's damp room: a reverb and an echo on the drums, the tune and the bubbles, but not on the bass", async () => {
     const s = await ringWithSound(true, RING_DONE);

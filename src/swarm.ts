@@ -10,13 +10,13 @@
 // They're meant to pass for the game's people, so they're made the same way, from the same wardrobe, and walk, sit and
 // cheer as people do. But there can be 500 of them, and a Person is six draw calls of its own, so the swarm is drawn in
 // batches: a dozen looks, each one's body, arms and legs an instanced mesh (below). If frames run slow while it's
-// out, it stops casting shadows.
+// out, it stops casting shadows, and on Low it casts none; their shadows are a plainer copy of them (withShadow).
 import { BufferGeometry, CanvasTexture, Color, Float32BufferAttribute, InstancedMesh, Matrix4, Quaternion, Sprite, SpriteMaterial, Vector3 } from 'three';
 import { CY, cellarBoxes, lineRamp, parts, placeBuilt, places, RING } from './cellar';
 import { BAR, BAR_PAD, BAR_SPOTS, FLOOR, fromBar, GONG_PAD, nearBar, TUNNELS, WATCH } from './cellarPlan';
 import { crowdModel, PARKAS, SHIRT } from './characters';
 import { bossOf, F, REACH } from './fight';
-import { onQuality } from './graphics';
+import { isHigh, onQuality } from './graphics';
 import { ARENA, inUndertow, level, pushOutOfBox } from './layout';
 import { player } from './player';
 import { FONT, painted, rr, scene } from './render';
@@ -67,13 +67,46 @@ function split(g: BufferGeometry): [BufferGeometry | null, BufferGeometry | null
     return geo;
   }) as [BufferGeometry | null, BufferGeometry | null];
 }
+/** A grid the shadows' copies are snapped to: a fan's shadow is a few pixels of the shadow map, and smaller than this
+ *  shows nothing in it. */
+const SNAP = 0.04;
+/** `g` (unindexed) with a plainer copy of itself after its own triangles, drawn only in the shadow pass (as kit.ts' baked
+ *  meshes are): its corners snapped to a 4 cm grid, and the triangles that fold away to nothing left out (the eyes,
+ *  the buttons, the round of a sleeve's ends). */
+function withShadow(g: BufferGeometry) {
+  const pos = g.attributes.position, col = g.attributes.color, nor = g.attributes.normal, n = pos.count;
+  const snap = (v: number) => Math.round(v / SNAP) * SNAP;
+  const p: number[] = [];
+  for (let t = 0; t < n; t += 3) {
+    const v = [0, 1, 2].map(i => [snap(pos.getX(t + i)), snap(pos.getY(t + i)), snap(pos.getZ(t + i))]);
+    const same = (a: number[], b: number[]) => a[0] === b[0] && a[1] === b[1] && a[2] === b[2];
+    if (same(v[0], v[1]) || same(v[1], v[2]) || same(v[0], v[2])) continue;
+    p.push(...v[0], ...v[1], ...v[2]);
+  }
+  const m = p.length / 3, out = new BufferGeometry();
+  const all = (a: { array: ArrayLike<number> }, extra: number[]) => { const f = new Float32Array(n * 3 + m * 3); f.set(a.array as Float32Array); f.set(extra, n * 3); return f; };
+  out.setAttribute('position', new Float32BufferAttribute(all(pos, p), 3));
+  out.setAttribute('color', new Float32BufferAttribute(all(col, new Array(m * 3).fill(0)), 3));
+  out.setAttribute('normal', new Float32BufferAttribute(all(nor, new Array(m * 3).fill(0)), 3));
+  out.setDrawRange(0, n);
+  g.dispose();
+  return out;
+}
 function makeLooks() {
   looks = Array.from({ length: LOOKS }, (_, k) => {
     const p = crowdModel(crowdStyle(100_000 + k), k % 2 ? 'hooligan' : 'yakuza'), b = p.baked();
     const halves = (g: BufferGeometry) => split(g).map((x, i) => [x, i === 0] as const).filter((x): x is [BufferGeometry, boolean] => !!x[0]);
-    const pieces = (geos: BufferGeometry[], per: number) => geos.flatMap(halves).map(([g, shirt]) => {
-      const im = new InstancedMesh(g, painted, PER * per);
-      im.count = 0; im.castShadow = shadows; im.receiveShadow = false; im.frustumCulled = false;
+    const pieces = (geos: BufferGeometry[], per: number) => geos.flatMap(g => halves(g).map(h => [...h, !b.body.includes(g) || g === b.casts] as const)).map(([g, shirt, casts]) => {
+      const im = new InstancedMesh(casts ? withShadow(g) : g, painted, PER * per);
+      // (on Low, none of them casts a shadow: hundreds of fans drawn again, for a few pixels each)
+      im.count = 0; im.castShadow = casts && shadows && isHigh(); im.receiveShadow = false; im.frustumCulled = false;
+      im.userData.casts = casts;
+      if (casts) {
+        const own = im.geometry.drawRange.count;
+        im.userData.shadowFrom = own; // (where its shadow's copy starts, as kit.ts has it)
+        im.onBeforeShadow = () => im.geometry.setDrawRange(own, Infinity);
+        im.onAfterShadow = () => im.geometry.setDrawRange(0, own);
+      }
       if (shirt) im.setColorAt(0, OURS);
       scene.add(im);
       return { im, shirt };
@@ -502,7 +535,7 @@ export function updSwarm(dt: number) {
 }
 function setShadows(on: boolean) {
   shadows = on;
-  allMeshes().forEach(im => { im.castShadow = on; });
+  allMeshes().forEach(im => { im.castShadow = on && im.userData.casts && isHigh(); });
 }
 // ---------- what they say ----------
 // Now and then someone in the crowd shouts something, in a speech bubble over their head that goes where they go: the

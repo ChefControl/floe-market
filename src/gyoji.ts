@@ -5,7 +5,7 @@
 // on his chest and sleeves; and his war fan (gunbai), lacquered, gold-rimmed, a cord and tassel off its handle, in his
 // right hand. He's Mr. Fugu's own: his crest, a puffer, is on the robe and on the fan. The hakama is on its own, so it can shorten and spread as he crouches (dohyo.ts).
 import { CylinderGeometry, Group, Matrix4, SphereGeometry, TorusGeometry, type BufferGeometry } from 'three';
-import { Build, K, rbox, shade, tube } from './kit';
+import { Build, detail, dice, K, quietly, rbox, shade, tube } from './kit';
 import { G } from './render';
 
 /** Mr. Fugu's own referee: in indigo with a white pattern, gold tassels and trim, the house's crest (a puffer in a white
@@ -97,6 +97,19 @@ export function gyojiModel() {
   put(b, G.box, 0x2E2C34, turned(0, HEAD.y + 0.27, HEAD.z - 0.012, 0, -0.36, 0.012, 0.24, 0.01));
   put(b, cordGeo, shade(robe, 0.6), turned(0, HEAD.y - 0.03, HEAD.z + 0.02, 0, Math.PI, 1.04, 1.12, 1));
   body.add(b.mesh(true));
+  // High's finer things (graphics.ts), on dice of their own: the bow his sash is tied in, its ends hanging, and a pleat
+  // of white at his collar's back
+  const fine = quietly(() => {
+    const f = new Build();
+    for (const s of [-1, 1]) {
+      f.add(K.ball, shade(PATTERN, 0.8), s * 0.045, HAKAMA.top + 0.025, 0.285, [0, 0, s * 0.5], [0.04, 0.022, 0.014]);
+      f.add(G.box, shade(PATTERN, 0.8), s * 0.03, HAKAMA.top - 0.05, 0.288, [0, 0, s * 0.15], [0.022, 0.1, 0.008]);
+    }
+    f.add(K.ball, WHITE, 0, 0.93, -0.18, null, [0.08, 0.025, 0.03]);
+    return f.mesh(false);
+  }, dice(0x6501));
+  body.add(fine);
+  detail(null, fine);
 
   // ---- the arms: wide square sleeves, hanging behind and under them; a hand out of each ----
   const arms = [1, -1].map(s => {
@@ -128,6 +141,10 @@ export function gyojiModel() {
       ab.add(tube(0.012, 0.025, 0.07, 6), GOLD, 0.05, -0.72, -0.02);
     }
     a.add(ab.mesh(true));
+    // (and on High, a thumb)
+    const thumb = quietly(() => new Build().add(K.ball, SKIN, -s * 0.035, -0.32, 0.07, null, [0.022, 0.03, 0.022]).mesh(false), dice(0x6502 + s));
+    a.add(thumb);
+    detail(null, thumb);
     return a;
   });
   return { root, body, hakama, arms };

@@ -71,7 +71,7 @@ describe('presents for her', () => {
     expect(top).toBeGreaterThan(2);
     expect(top).toBeLessThan(2.7); // the eaves
     expect(await height(5000)).toBe(top);
-  });
+  }, 30_000); // 10.9 s of 15 on CI under coverage
 
   it("doesn't rebuild a full pile for presents that only get counted", async () => {
     const { g, presents } = await atHerDoor({ presents: 2000 });

@@ -72,7 +72,7 @@ describe("Mr. Fugu's offer", () => {
     expect(g.player.g.position.z).toBeGreaterThan(offer.HATCH.z + 1.5);
     // ...and comes on behind the blinks, for the lid opening
     expect(lit()).toBe(lights + 1);
-  });
+  }, 30_000); // 14.7 s of 15 on CI under coverage
 
   it('first he peeks out from under the lid: "Not now" leaves him there till the player walks off and comes back', async () => {
     const { g, offer, $, hearHimOut, answer, answers } = await setup({ money: 1_000_000 });

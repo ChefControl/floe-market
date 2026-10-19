@@ -83,7 +83,7 @@ describe('saving progress', () => {
     expect(await after({ tiles: bought('sushi', 'paddy', 'porter'), field: 2 }, g => g.rice.porter!.back.items.length === 2)).toMatchObject({ field: 2 });
     expect(await after({ tiles: bought('sushi'), fish: 1, rice: 1 }, g => g.restaurant.sushi.chefs[0].state === 'slice')).toMatchObject({ fish: 1, rice: 1 });
     expect(await after({ tiles: bought('sushi', 'kiosk'), boxes: 5 }, g => (g.counters.TAKEOUT.queue[0]?.hands.n ?? 0) > 0)).toMatchObject({ boxes: 5 });
-  });
+  }, 30_000); // 13.7 s of 15 on CI under coverage
 
   it("loses nothing mid-meal: diners' plates and unpaid bills are saved", async () => {
     const g = await loadGame({ tiles: bought('sushi'), plates: 16 });
