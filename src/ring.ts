@@ -15,7 +15,9 @@ import { updUndertow } from './undertow';
 import { player } from './player';
 import { pointAt } from './pointers';
 import { popIn } from './pop';
-import { built, updRingKitchen } from './ringKitchen';
+import { built, slideParts, updRingKitchen } from './ringKitchen';
+import { headless } from './headless';
+import { updResto } from './resto';
 import { crowd, react } from './ringSound';
 import { save } from './save';
 import { meetPlaying } from './meet';
@@ -36,6 +38,8 @@ on.earn = (chips, why) => {
   if (why === 'bowls') chips -= collect(chips);
   addMoney(Math.round(chips * CHIP));
   if (why === 'bowls') { takings += chips; return; }
+  // (Mama Moray's cut pops up over her till: resto.ts)
+  if (why === 'resto') return;
   if (level.down) popText(`+🐡 ${Math.round(chips).toLocaleString('en-US')}`, { x: GONG.x, y: CY + 2.6, z: GONG.z });
 };
 /** Seconds till the crowd roars for a boss walking in: after the gong's second of silence (sfx.ts). And when the gong
@@ -67,7 +71,7 @@ on.grow = () => {
 };
 // The second boss beaten: the way south. Not with his card still up, though, nor while his crowd's still going home:
 // once the next bout's begun and the player's down here and free, Mr. Fugu wants a word, a "!" over him at his desk: he
-// has his matchbook for the doorman at the door at the tunnel's mouth (southDoor.ts).
+// has his matchbook for the doorman behind the out-of-order stall in Mama Moray's restroom (southDoor.ts).
 let denDue = false;
 on.den = () => { denDue = true; };
 // An upgrade bought at the shop counter gets its moment on camera, as upstairs: what it built pops in, and the camera
@@ -75,7 +79,7 @@ on.den = () => { denDue = true; };
 // leaves; several bought in a row get the one close-up, once the player's done. Never while a boss is in (his rush
 // waits for nobody) or a scene has the player, up or down the ladder or in Mr. Fugu's office: then it just pops in.
 on.built = what => {
-  const os = 'tier' in what ? [what.tier === 1 ? parts.bleachers : what.tier === 2 ? parts.tier : parts.vip] : built(what);
+  const os = 'tier' in what ? [what.tier === 1 ? parts.bleachers : what.tier === 2 ? parts.tier : parts.vip] : 'slide' in what ? [slideParts] : built(what);
   os.forEach(popIn);
   // (asked again as the close-up starts: it waits till the player's stopped buying, spotlight.ts)
   const free = () => !F.rush && !player.held && !staging();
@@ -121,6 +125,7 @@ export function updRing(dt: number) {
     updSwarm(dt);
     if (meeting) updUndertow(dt, true);
     updSouthDoor(dt);
+    updResto(dt);
     return;
   }
   step(dt);
@@ -133,13 +138,15 @@ export function updRing(dt: number) {
     takings = 0;
   }
   if (roarT > 0 && (roarT -= dt) <= 0) react('charge');
-  updRingKitchen(dt);
+  // (the balance sims leave out the kitchen, the wrestlers and the crowd as drawn: headless.ts)
+  if (!headless.on) updRingKitchen(dt);
   updBarFlap(dt, level.down ? player.g.position : null);
-  updDohyo(dt);
+  if (!headless.on) updDohyo(dt);
   updOffice(dt);
   if (denDue && !F.rush && !cardUp() && level.down && !player.held && !staging()) { denDue = false; callFugu(); }
   updUndertow(dt);
   updSouthDoor(dt);
-  updSwarm(dt);
+  updResto(dt);
+  if (!headless.on) updSwarm(dt);
   updGong(dt);
 }

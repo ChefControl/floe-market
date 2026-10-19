@@ -31,7 +31,7 @@ export const STYLE: Style = { show: 9, showSecs: 40, slam: true, help: true };
 /** Stage 3's books: chips earned from bowls and prizes, spent by kind, the cooking shows played (and their seconds),
  *  and the seconds the bot stood about by the pot: cooking there as it does (`wait`), or with nothing at all to do
  *  (`idle`: the pot can't cook). */
-export interface Books { bowls: number; prize: number; spent: Record<string, number>; shows: number; showSecs: number; idle: number; wait: number; lines: string[]
+export interface Books { bowls: number; prize: number; resto: number; spent: Record<string, number>; shows: number; showSecs: number; idle: number; wait: number; lines: string[]
   /** Each local fight as its fans sat down: when, how many came, how many ate, and the bowls left over in the pot, on the counter and on the stall. */
   locals: { t: number; crowd: number; fed: number; left: number }[] }
 
@@ -42,7 +42,7 @@ export function play(g: Game, seconds: number, dt = 0.05, ring?: Ring, style: St
   const bought: Purchase[] = [], samples: Sample[] = [], fights: Fought[] = [];
   const logged = new WeakSet<object>();
   let rangFc = -1, wasCalled = false, waited = false;
-  const books: Books = { bowls: 0, prize: 0, spent: {}, shows: 0, showSecs: 0, idle: 0, wait: 0, lines: [], locals: [] };
+  const books: Books = { bowls: 0, prize: 0, resto: 0, spent: {}, shows: 0, showSecs: 0, idle: 0, wait: 0, lines: [], locals: [] };
   const spend = (kind: string, v: number) => { if (kind === 'buyout' || !ring?.fight.F.boughtOut) books.spent[kind] = (books.spent[kind] ?? 0) + v; };
   if (ring) {
     const was = ring.fight.on.earn;
@@ -280,7 +280,7 @@ export function play(g: Game, seconds: number, dt = 0.05, ring?: Ring, style: St
     const READY = { rice: 'rrice', fish: 'cfish', mush: 'mush' } as const, HIRE = { rice: 'washer', fish: 'salter', mush: 'picker' } as const;
     // a boss, once the gong says his whole crowd will turn
     if (!F.rush && f.nextBoss()) {
-      const fc = f.forecast();
+      const fc = f.forecast(0, { need: f.toBeat(f.nextBoss()!) });
       if (fc) best.set(fc.boss.name, Math.max(best.get(fc.boss.name) ?? 0, fc.turned));
       if (fc) lastFc = `${fc.boss.face} ${fc.turned}/${f.toBeat(fc.boss)}`;
       // (the gong's panel says it from the gong: walk over, and ring it only if it still says so there)
@@ -292,7 +292,7 @@ export function play(g: Game, seconds: number, dt = 0.05, ring?: Ring, style: St
       }
       // not yet, but the cooking show's bonus would do it: play it at the pot first (the game holds still meanwhile)
       const tier = f.BONUS_TIERS.find(x => style.show >= x.min)!;
-      const fb = tier.pct && f.canShow() && !F.called ? f.forecast(0, { bonus: tier.pct }) : null;
+      const fb = tier.pct && f.canShow() && !F.called ? f.forecast(0, { bonus: tier.pct, need: f.toBeat(f.nextBoss()!) }) : null;
       if (fb && fb.turned >= f.toBeat(fb.boss)) {
         if (near(P.POT_PAD, 0.3)) {
           f.showResult(style.show);
@@ -305,7 +305,7 @@ export function play(g: Game, seconds: number, dt = 0.05, ring?: Ring, style: St
     if (back.count('bowl') && F.stall.length < f.STALL_CAP) { go(P.BAR_PAD, () => !back.count('bowl') || F.stall.length >= f.STALL_CAP, 25); return; }
     // (ready ones with room for them on the ledge: with it full, they're no use at the pot)
     const carrying = () => f.inPot().some(k => back.count(READY[k]) && F.pantry[k] < f.LEDGE_CAP);
-    if (carrying()) { go(P.POT_PAD, () => !carrying() && (!!F.hires.cook || !f.canCook() || f.potFull()), 25); return; }
+    if (carrying()) { go(P.POT_PAD, () => !carrying() && (!!F.hires.cook || !f.canCookNow()), 25); return; }
     // raw ones for a line that's been hired out from under them: into the bin, so their arms are free for bowls
     const toss = () => { const bin = cellar.KITCHEN_BINS[0]; go({ x: bin.x + 0.95, z: bin.z }, () => back.n === 0, 10, true); };
     if ((['rice', 'fish'] as const).some(k => F.hires[HIRE[k]] && back.count(k)) && !back.count('bowl') && !carrying()) { toss(); return; }
@@ -313,7 +313,8 @@ export function play(g: Game, seconds: number, dt = 0.05, ring?: Ring, style: St
       go(P.COUNTER_PAD, () => !back.hasRoom() || !F.counter.length, 15);
       return;
     }
-    if (!F.hires.cook && f.canCook() && !f.potFull()) { go(P.POT_PAD, () => !f.canCook() || f.potFull(), 15); return; }
+    // (with the pot full and the ledge too, a batch goes up the belt to Mama Moray's)
+    if (!F.hires.cook && f.canCookNow()) { go(P.POT_PAD, () => !f.canCookNow(), 15); return; }
     // the lines with no hire, the one the pot's shortest of first: ready ones out, raw ones in; and with nothing else
     // to do, a hand on the lines that have one (a player wouldn't stand about)
     // (not in a boss's rush, though: then the pot's theirs)
@@ -331,12 +332,15 @@ export function play(g: Game, seconds: number, dt = 0.05, ring?: Ring, style: St
       const open = free.reduce((sum, [, n]) => sum + n, 0);
       if (open > raw && room()) { go(P.BIN_PADS[k], () => back.count(k) >= open || !back.hasRoom(), 10); return; }
     }
-    // arms full of raw ones there's nowhere for: into the bin too
-    if (!room() && !back.count('bowl') && !carrying()) { toss(); return; }
+    // arms full of raw ones there's nowhere for: into the bin too (not ready ones: they wait at the pot for room on
+    // the ledge; unless bowls on the counter want carrying to the stall, with the ledge full and nobody else to)
+    const ready = () => f.inPot().some(k => back.count(READY[k]));
+    const bowlsWait = !F.hires.attendant && F.counter.length > 0 && F.stall.length < 6;
+    if (!room() && !back.count('bowl') && !carrying() && (!ready() || bowlsWait)) { toss(); return; }
     // (nothing to do: waiting by the pot)
     const t0 = t;
     go(P.POT_PAD, () => {
-      if (near(P.POT_PAD, 0.3) && !F.boughtOut) { books.wait += dt; if (!f.canCook() || f.potFull()) books.idle += dt; }
+      if (near(P.POT_PAD, 0.3) && !F.boughtOut) { books.wait += dt; if (!f.canCookNow()) books.idle += dt; }
       return t - t0 >= 1;
     }, 1);
   }
@@ -395,6 +399,8 @@ export function play(g: Game, seconds: number, dt = 0.05, ring?: Ring, style: St
 
   const end = t + seconds;
   while (t < end) {
+    // (in the cellar, done ten seconds after the buyout: nothing after it is reported)
+    if (ring?.fight.F.boughtOut) { const out = bought.find(b => b.id === 'buyout'); if (out && t - out.t > 10) break; }
     if (!plan) decide();
     if (plan) walk();
     step();

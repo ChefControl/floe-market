@@ -2,7 +2,8 @@
 // the last diners' bills at the register, which the crew brings in a moment later: then he knocks, and the arrow
 // points the way. Or, with ?cellar in the address, down in his cellar (stage 3) with chips to spend, to try fight
 // night (&chips=N for N chips, not 2,000; &beaten=N with N of the bosses beaten already, and what they open open: from
-// 2, Mr. Fugu with his matchbook for the door at the tunnel's mouth, or with &south already through it; &pot to start
+// 2, Mr. Fugu with his matchbook for the out-of-order stall in Mama Moray's restroom, or with &south already
+// through it; &pot to start
 // at the pot, for its cooking game).
 // Nothing is kept, so every visit starts over, the tutorial included.
 import { POT_PAD } from './cellarPlan';

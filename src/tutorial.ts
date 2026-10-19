@@ -202,6 +202,7 @@ const cookKey = () => (touchBuy() ? 'Tap Cook' : 'Press E or Cook');
 /** The bowls in the kitchen, on their way to the stall: in the player's arms, on the counter, or still in the pot. */
 function bowling(): { at: Spot; say: [string, string?] } | null {
   if (holding('bowl')) return { at: down(BAR_PAD), say: ['Set the bowls out here', 'Walk in through the kitchen door'] };
+  if (F.slide) return null;
   if (F.counter.length) return { at: down(COUNTER_PAD), say: ['Pick up the bowls'] };
   if (F.pot.length) return { at: down(COUNTER_PAD), say: ['Bowls come out here'] };
   return null;

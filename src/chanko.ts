@@ -9,7 +9,7 @@
 // let go in the band), each turning the stew its colour from where it goes in; and the stew is
 // stirred round in the boil band (press the soup to take the ladle, then it follows the mouse or finger), whirling with
 // the ladle, and what went in comes back up. Each step gives up to 3 stars; the 12 buy the pot a bonus for a while
-// (fight.ts' showResult): bigger batches, and the cook's 70% of them. It's a bonus game and nothing more: it takes
+// (fight.ts' showResult): bigger batches, the cook's too. It's a bonus game and nothing more: it takes
 // nothing off the ledge and cooks no batch, and the pot goes on cooking from the ledge as it always does. Left half way
 // (✕), it's kept as it was (F.show, saved with the game): Cook carries it on at the same step, with the stars already
 // won, so a bad start can't be thrown away and played again. Press Cook for a new one once the bonus has run out. A crew
@@ -21,7 +21,7 @@ import {
 } from 'three';
 import { cellar, CY, lights, POT_TOP, potMesh } from './cellar';
 import { POT, POT_PAD } from './cellarPlan';
-import { batchBowls, BONUS_S, BONUS_TIERS, canShow, cookBowls, F, growOpen, showResult, type ShowRun } from './fight';
+import { batchBowls, BONUS_S, BONUS_TIERS, canShow, F, growOpen, showResult, type ShowRun } from './fight';
 import { chipsFx, pourFx, splashFx, steamFx, updFx } from './fx';
 import { keyHeld } from './input';
 import { newMushroom } from './items';
@@ -988,7 +988,7 @@ function finish() {
   ui.card.querySelector('.stars')!.textContent = `★ ${total} / 12`;
   ui.card.querySelector('.tier')!.textContent = tier.name;
   ui.card.querySelector('.bonus')!.textContent = tier.pct ? `+${tier.pct}% bowls · ${BONUS_S} s` : 'No bonus this time';
-  ui.card.querySelector('.sub')!.textContent = tier.pct ? `🍲 ${batchBowls()} a batch${F.hires.cook ? ` · 👨‍🍳 ${cookBowls()}` : ''}` : 'Cook again any time';
+  ui.card.querySelector('.sub')!.textContent = tier.pct ? `🍲 ${batchBowls()} a batch` : 'Cook again any time';
   const hanko = ui.card.querySelector('.hanko')!;
   hanko.textContent = tier.pct >= 50 ? '極' : tier.pct >= 35 ? '旨' : tier.pct ? '良' : '薄';
   hanko.classList.remove('show'); void (hanko as HTMLElement).offsetWidth; hanko.classList.add('show');

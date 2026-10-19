@@ -1,7 +1,7 @@
 // Where everything is down in the cellar (stage 3), as plain floor positions (x, z; the floor is CELLAR_Y): the stations
 // of the kitchen's lines, the pot and its ledge, the bowl counter, the soup square, the gong, and the way between rooms.
 // Kept apart from the cellar's meshes (cellar.ts) so the fight night's simulation (fight.ts) can use it without them.
-import { ARENA, CARDS, type CellarRoom, CRAFT, DEN, DOORS, GROW, KITCHEN, LIFT_ROOM, LOANS, OFFICE_ROOM, PASSAGE, PREP, ROOMS, VIP } from './layout';
+import { ARENA, CARDS, type CellarRoom, CRAFT, DEN, DOORS, GROW, KITCHEN, LIFT_ROOM, LOANS, LOO, OFFICE_ROOM, PREP, ROOMS, VIP, WING } from './layout';
 import type { XZ } from './util';
 
 export type Ing = 'rice' | 'fish' | 'mush';
@@ -49,7 +49,7 @@ export const POT = { x: HEARTH.x, z: HEARTH.z };
 export const LEDGE: Record<Ing, XZ> = {
   rice: { x: HEARTH.x - 0.7, z: HEARTH.z + 1.0 }, fish: { x: HEARTH.x, z: HEARTH.z + 1.0 }, mush: { x: HEARTH.x + 0.7, z: HEARTH.z + 1.0 },
 };
-/** Where ingredients are dropped off, and where standing keeps the pot cooking (full batches: a cook's are 70%). */
+/** Where ingredients are dropped off, and where standing keeps the pot cooking (full batches, as a cook's are). */
 export const POT_PAD = pad(HEARTH.x, HEARTH.z + 1.95, 0.9);
 export const COOK_AT = { x: HEARTH.x + 1.45, z: HEARTH.z + 1.6 };
 /** The counter the bowls come out on: a low table against the east wall, in the corner south of the prep hall's door,
@@ -263,10 +263,37 @@ export const DEN_TABLES = {
  *  barrels, its back to the front wall, turned to watch the room. */
 export const COAT_SPOT = { x: DEN.x1 - 1.45, z: DEN.z1 - 0.55, face: Math.PI + 0.6 };
 export const BARRELS = { x: DEN.x1 - 0.6, z: DEN.z1 - 0.8 };
-/** The club's doors: a pair across the short way through the rock from near the far end of the tunnel to the club's
- *  east wall (`way`), hung at the tunnel's side (`x`), swinging in towards the club. */
-export const CLUB_DOOR = { x: PASSAGE.x0 - 0.15, z0: PASSAGE.z1 - 1.8, z1: PASSAGE.z1 - 0.2 };
-export const CLUB_WAY = { x0: DEN.x1, x1: PASSAGE.x0, z0: CLUB_DOOR.z0, z1: CLUB_DOOR.z1 };
+/** The way into the club: the out-of-order stall's back (`x`, `z0` to `z1`), the doorman's door (southDoor.ts), through
+ *  the restroom's west wall and the club's east one; and the short way through the rock between them (`CLUB_WAY`). */
+export const CLUB_DOOR = (() => { const d = DOORS.find(t => t.b === 'den')!; return { x: (d.x0 + d.x1) / 2, z0: d.z0, z1: d.z1 }; })();
+export const CLUB_WAY = { x0: DEN.x1, x1: LOO.x0, z0: CLUB_DOOR.z0, z1: CLUB_DOOR.z1 };
+
+// ---------- Mama Moray's, out front (resto.ts) ----------
+/** Her counter, in the front hall, the belt looped round its top: Mama behind it at her till (`MAMA`, `TILL`), stools
+ *  along its front (`STOOLS`), facing it. The belt comes up under the floor from the hearth (resto.ts, underBelt.ts) and
+ *  through a slot in the counter's top at its east end (`RISE`), inside the loop. */
+export const MAMA_COUNTER = { x0: -0.3, x1: 3.2, z0: 8.7, z1: 9.75, h: 1.0 };
+export const MAMA = { x: 0.9, z: 8.3 };
+export const TILL = { x: 1.75, z: (MAMA_COUNTER.z0 + MAMA_COUNTER.z1) / 2 };
+export const RISE = { x: 2.75, z: (MAMA_COUNTER.z0 + MAMA_COUNTER.z1) / 2 };
+export const STOOLS: XZ[] = [0.15, 0.85, 1.55, 2.25, 2.95].map(x => ({ x, z: MAMA_COUNTER.z1 + 0.42 }));
+/** The tables, each with its nabe on a burner and a stool either side (east and west, `TABLE_SEAT` out): one in the
+ *  hall, two rows of four down the dining wing, staggered (each a metre clear of the doorways). */
+export const TABLES: XZ[] = [
+  { x: -2.1, z: 10.6 },
+  // (none in front of the doorway through to the cookware shop)
+  ...[4.5, 8.0, 9.6].map(x => ({ x, z: WING.z0 + 1.0 })),
+  ...[3.0, 5.0, 7.0, 9.0].map(x => ({ x, z: WING.z1 - 1.0 })),
+];
+export const TABLE_SEAT = 0.62;
+/** The restroom's two stalls along its west wall, their fronts at `x`; the second's out of order, its back the doorman's
+ *  door (`CLUB_DOOR`), and its own door the gap `door` (z0 to z1) in its front. */
+export const STALLS = { x: LOO.x0 + 1.35, a: { z0: LOO.z0 - 0.15, z1: CLUB_DOOR.z0 - 0.13 }, b: { z0: CLUB_DOOR.z0 - 0.1, z1: CLUB_DOOR.z1 + 0.35 } };
+export const STALL_DOOR = { z0: (CLUB_DOOR.z0 + CLUB_DOOR.z1) / 2 - 0.4, z1: (CLUB_DOOR.z0 + CLUB_DOOR.z1) / 2 + 0.4 };
+/** The out-of-order stall's floor, from the restroom's west wall out to its front. */
+export const STALL = { x0: LOO.x0, x1: STALLS.x, z0: STALLS.b.z0, z1: STALLS.b.z1 };
+/** The basins along the restroom's north wall, east of the stalls. */
+export const BASINS: XZ[] = [{ x: -0.95, z: LOO.z0 + 0.25 }, { x: -0.15, z: LOO.z0 + 0.25 }];
 
 // ---------- the landing and the office ----------
 /** Stage 3's upgrade square: the shop counter's. */
@@ -278,6 +305,11 @@ export const HOME = {
   washer: { x: PREP.x0 + 0.9, z: PREP.z0 + 2.3 }, salter: { x: PREP.x0 + 0.9, z: PREP.z1 - 2.3 },
   picker: { x: (GROW.x0 + GROW.x1) / 2 + 1.6, z: GROW.z1 - 0.9 }, cook: COOK_AT, attendant: { x: COUNTER_PAD.x - 0.5, z: KITCHEN.z1 - 0.35 },
 } as const;
+/** Where the attendant works the bowl line's motor once it's in, in the bowl counter's place (bowlLine.ts): at its
+ *  west side, by its flywheel. */
+export const MOTOR_AT = { x: COUNTER.x - 0.8, z: COUNTER.z - 0.1 };
+/** Where a hire goes when there's nothing to do. */
+export const homeOf = (role: keyof typeof HOME, slide: boolean) => (role === 'attendant' && slide ? MOTOR_AT : HOME[role]);
 
 // ---------- getting about ----------
 type Rect = typeof ARENA;

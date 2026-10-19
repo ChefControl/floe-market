@@ -5,15 +5,16 @@
 // counter and in the soup square's counters, steaming while there are any; the dumbwaiter's trays going round;
 // the hires at their work, carrying what they carry; and a bubble over the pot when it waits on something (🌾? 🐟?
 // 🍄?), or over the bar when fans wait at it with nothing to eat, like the cooks upstairs.
-import { CanvasTexture, Color, Group, type Material, Mesh, MeshBasicMaterial, MeshLambertMaterial, type Object3D, PlaneGeometry, Sprite, SpriteMaterial, type Vector3 } from 'three';
+import { CanvasTexture, Color, Group, type Material, Mesh, MeshBasicMaterial, MeshLambertMaterial, type Object3D, PlaneGeometry, Sprite, SpriteMaterial, Vector3 } from 'three';
 import { cellar, CY, LIFT_LOOP, parts, POT_TOP, potMesh, potStew } from './cellar';
-import { BAR, BAR_PLACES, BAR_PAD, BIN_PADS, BINS, CHUTE, chuteY, COUNTER, COUNTER_PAD, HEARTH, type Ing, LEDGE, LIFTS, machineAt, machinePad, MAX_MACHINES, POT, POT_PAD, STORES } from './cellarPlan';
+import { BAR, BAR_PLACES, BAR_PAD, BIN_PADS, BINS, CHUTE, chuteY, COUNTER, COUNTER_PAD, HEARTH, type Ing, LEDGE, LIFTS, machineAt, machinePad, MAX_MACHINES, MOTOR_AT, POT, POT_PAD, STORES } from './cellarPlan';
 import { decal, drawPad } from './decals';
 import { animPerson, belowGround, Person } from './characters';
-import { COUNTER_CAP, F, inPot, POT_CAP, poured, sold, type Machine, mach, potWaits, type Role, STALL_CAP, type Worker } from './fight';
+import { COUNTER_CAP, F, inPot, POT_CAP, poured, slid, sold, type Machine, mach, potWaits, type Role, STALL_CAP, type Worker } from './fight';
 import { fly } from './holder';
 import { newBowl, newCuredFish, newMushroom, newReadyRice, newRice, newFillet } from './items';
 import { Build, K, quietly, rbox, tube } from './kit';
+import { hopperAt, lineParts, lineShows, lineToStall, updLine } from './bowlLine';
 import { FONT, G, mesh } from './render';
 import { fanAt, heading, turnedAt } from './swarm';
 import { V, type XZ } from './util';
@@ -184,7 +185,9 @@ function marker(at: XZ, icon: string, parent: Object3D = cellar) {
   return d.mesh;
 }
 for (const k of ['rice', 'fish'] as const) marker(BIN_PADS[k], k === 'rice' ? '🍚' : '🐟');
-marker(POT_PAD, '🍲').name = 'potPad'; marker(COUNTER_PAD, '🍲'); marker(BAR_PAD, '🏮');
+marker(POT_PAD, '🍲').name = 'potPad'; marker(BAR_PAD, '🏮');
+/** The counter's spot, to pick its bowls up at: gone once the bowl line's in, in its place (bowlLine.ts). */
+const counterPad = marker(COUNTER_PAD, '🍲');
 const MARK_ICON: Record<Ing, string> = { rice: '🌾', fish: '🐟', mush: '🍄' };
 // (a marker by each of the grow room's beds; one for all the racks, and one for all the barrels, which moves along the
 // row as it grows: cellarPlan.ts's machinePad)
@@ -313,12 +316,31 @@ function serveBowls() {
     b.position.set(POT.x + (j % 3 - 1) * 0.2, CY + POT_TOP + 0.1, POT.z);
     b.name = 'potFlight';
     inAir++;
-    fly(b, () => slot.position, 0.5, 1.1, () => { cellar.remove(b); inAir = Math.max(0, inAir - 1); });
+    // (into the bowl line's hopper, once it's in: bowlLine.ts)
+    fly(b, F.slide ? hopperAt : () => slot.position, 0.5, 1.1, () => { cellar.remove(b); inAir = Math.max(0, inAir - 1); });
   }
   seen = poured.n;
   inAir = Math.min(inAir, n);
-  showBowls(counterBowls, F.counter.slice(0, n - inAir));
+  showBowls(counterBowls, F.slide ? [] : F.counter.slice(0, n - inAir));
 }
+// ---------- the bowl slide ----------
+/** The bowl slide (once it's bought) is the hearth room's bowl line (bowlLine.ts), in place of the counter: the bowls
+ *  it sends (fight.ts' `slid`) ride it from the hopper by the hearth, under the floor, up along the soup square's north
+ *  counter, and up onto it. */
+export const slideParts = lineParts;
+/** The bowls on the line, for tests. */
+export const slideShows = () => lineShows();
+let slidSeen = -1, dropT = 0;
+function drawSlide(dt: number) {
+  if (slidSeen < 0 || slid.n < slidSeen) slidSeen = slid.n; // (a game just loaded: nothing on it)
+  const fresh = Math.min(slid.n - slidSeen, F.stall.length);
+  slidSeen = slid.n;
+  // (more go along it a second, at its best, than there's room to draw: one in a while is shown setting off)
+  dropT -= dt;
+  if (fresh && dropT <= 0) { dropT = 0.3; lineToStall(F.stall[F.stall.length - 1]); }
+  updLine(dt);
+}
+
 /** The bowls out on the soup square, each in its own place on the counters: a mushroom bowl or a plain one, and whether
  *  it's sold (waiting there for the fan who bought it, on their way to the bar). When the fan gets there, the bowl
  *  nearest them hops into their hands. (A boss's big crowd is drawn a figure for a few fans: each who comes takes the
@@ -572,6 +594,13 @@ function drawCrew(dt: number) {
     }
     animPerson(p, w.moving, dt, n > 0);
     if (w.cooking > 0) p.arms[1].rotation.x = -1.4 + Math.sin(F.t * 8) * 0.4;
+    // (the attendant at the bowl line's motor: facing its flywheel, a hand on its rim, the other now and then on the
+    // box, easing it along)
+    if (w.role === 'attendant' && F.slide && !w.moving && Math.hypot(w.x - MOTOR_AT.x, w.z - MOTOR_AT.z) < 0.3) {
+      p.rotation.y = Math.PI / 2;
+      p.arms[1].rotation.x = -1.25 + Math.sin(F.t * 5) * 0.22;
+      p.arms[0].rotation.x = -0.7 - Math.max(0, Math.sin(F.t * 0.9)) * 0.6;
+    }
   }
 }
 /** The Person for a hire, if they're in (for tests and pointing at them). */
@@ -640,7 +669,9 @@ export function updRingKitchen(dt: number) {
     mk.m.position.x = at.x; mk.m.position.z = at.z;
   }
   for (const k of ['rice', 'fish', 'mush'] as const) ledge[k].forEach((m, j) => { m.visible = j < F.pantry[k]; });
+  counterPad.visible = !F.slide;
   serveBowls();
+  drawSlide(dt);
   drawBar();
   drawBarSteam(dt);
   drawPot(dt);

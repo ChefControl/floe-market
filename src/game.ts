@@ -9,6 +9,7 @@ import { calm, COUNTERS, postCustomers, updCounter, updLeaving } from './counter
 import { updFarm } from './farm';
 import { updFx } from './fx';
 import { updGarden } from './garden';
+import { headless } from './headless';
 import { updRoof } from './hall';
 import { updChopper, updFish, updHooks } from './fishing';
 import { updFlights } from './holder';
@@ -56,25 +57,27 @@ export function tick(dt: number) {
   // the sound and the scene itself go on.
   // (as they do while Slick Eddie's coin is up at the gong, gong.ts: the boss's crowd waits at the door, and his bell)
   const coin = coinUp(), held = offerPlaying() || coin;
+  // (the balance sims leave out what only draws, moves or sounds: headless.ts)
+  const live = !headless.on;
   if (coin) updCoin(dt);
   updPlayer(dt);
-  updFish(dt, time);
-  updHooks(dt);
+  if (live) updFish(dt, time);
+  if (live) updHooks(dt);
   if (!held) {
-    updCasino(dt);
-    updKorki(dt);
-    updHouse(dt);
+    if (live) updCasino(dt);
+    if (live) updKorki(dt);
+    if (live) updHouse(dt);
     updAuto(dt);
-    updChopper(dt);
-    updRunners(dt);
-    updRice(dt);
-    updRestaurant(dt);
-    updNeeds(dt);
-    updGarden(dt);
+    if (live) updChopper(dt);
+    if (live) updRunners(dt);
+    if (live) updRice(dt);
+    if (live) updRestaurant(dt);
+    if (live) updNeeds(dt);
+    if (live) updGarden(dt);
     // stage 3: the ring under the dock, and the ladder down to it
     if (stage.n === 3) {
       updRing(dt);
-      updRingSound(dt);
+      if (live) updRingSound(dt);
       updLadder(dt);
       updCookButton();
     }
@@ -82,34 +85,34 @@ export function tick(dt: number) {
   // While he's on, the world winds down rather than stopping dead: what's in the air lands, and the cars finish their
   // drive (nobody new pulls in, or passes by, and nobody waiting loses patience); everyone else holds still.
   calm.on = held;
-  COUNTERS.forEach(C => updCounter(C, dt));
-  updLeaving(dt);
-  postCustomers(dt);
+  if (live) COUNTERS.forEach(C => updCounter(C, dt));
+  if (live) updLeaving(dt);
+  if (live) postCustomers(dt);
   updStars();
   updFlights(dt);
-  updPops(dt);
-  updFx(dt);
-  updHorizon(dt);
-  updFloes(time, player.g.position);
+  if (live) updPops(dt);
+  if (live) updFx(dt);
+  if (live) updHorizon(dt);
+  if (live) updFloes(time, player.g.position);
   if (!held) {
     // (nothing falls in the cellar)
     // the seasons turn up in the world; down in the cellar, nobody hears about it
     if (updSeason(dt, player.g.position, level.down ? 1 : rainK) && !level.down) { toast(SEASON_INFO[current()].news, 'season'); seasonSting(current()); }
-    updFarm(dt);
+    if (live) updFarm(dt);
   }
   updStage(dt);
-  updSpotlight(dt);
+  if (live) updSpotlight(dt);
   updShop();
   if (!held) updTutorial(dt);
-  updLooks(dt);
-  updBakes(dt);
-  updRoof(dt, player.g.position, staging());
+  if (live) updLooks(dt);
+  if (live) updBakes(dt);
+  if (live) updRoof(dt, player.g.position, staging());
   updOffer(dt);
   // (and through his scenes, the scenes on the way south in the cellar (southDoor.ts), and the Family introducing
   // themselves (meet.ts), the world's own sounds go quiet)
   hushWorld(offerPlaying() || wayPlaying() || meetPlaying());
-  updAudio(dt, player.g.position);
-  updAmbience();
-  updMusic(dt);
-  updRoomTone();
+  if (live) updAudio(dt, player.g.position);
+  if (live) updAmbience();
+  if (live) updMusic(dt);
+  if (live) updRoomTone();
 }

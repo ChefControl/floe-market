@@ -188,8 +188,10 @@ export interface TipContent { name: string; desc: string }
 const tipEl = $('tip');
 let tipFor: TipContent | null = null;
 export function setTip(t: TipContent | null) {
-  if (t === tipFor) return;
+  // (rewritten only when what it says changes: the same tip comes back every frame)
+  const same = t === tipFor || (!!t && !!tipFor && t.name === tipFor.name && t.desc === tipFor.desc);
   tipFor = t;
+  if (same) return;
   if (t) {
     tipEl.innerHTML = '<b></b><span></span>';
     tipEl.firstChild!.textContent = t.name;

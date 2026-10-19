@@ -1,10 +1,10 @@
-// The fog over the Undertow's club (stage 3), until its doors first open: from the tunnel and the arena, the room
+// The fog over the Undertow's club (stage 3), until its door first opens: from the restroom and the arena, the room
 // behind them is a bank of dark, slowly drifting smoke, the band heard through it but nothing seen. When the doorman
 // lets you in, it rolls back from the doors across the room and is gone for good (a game loaded after that never sees
 // it). It's a stack of flat sheets one over another, up to the back wall's height, each a cloud of its own with soft,
 // ragged edges out over the rock round the room, so from the camera's slant it reads as a bank of smoke; on the
-// tunnel's side it stops short at the doors, so they and the tunnel stay in plain sight. (The camera looks down from
-// the south-east, so a sheet hides what's under it and behind it, never the tunnel in front of it.)
+// restroom's side it stops short at the door, so it and the restroom stay in plain sight. (The camera looks down from
+// the south-east, so a sheet hides what's under it and behind it, never the restroom in front of it.)
 import { Color, DataTexture, Group, LinearFilter, Mesh, PlaneGeometry, RepeatWrapping, RGBAFormat, ShaderMaterial, Vector2, Vector4 } from 'three';
 import { CY, parts } from './cellar';
 import { CLUB_DOOR } from './cellarPlan';

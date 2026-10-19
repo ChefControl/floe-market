@@ -239,6 +239,63 @@ function tommy() {
   return g;
 }
 
+/** Mama Moray, who runs the chanko restaurant out front (resto.ts): a round, motherly moray, Eddie's kind but softer,
+ *  in a flowered headscarf knotted on top, a string of pearls, and a white apron over a purple dress; a wide smile,
+ *  rosy cheeks and big lashed eyes. Built when it's wanted (made on the dice it's made on there, never at load). */
+export function mama() {
+  const EEL = 0x7E9A3A, THROAT = 0xB4C46A, SPOT = 0xDCD47A, CHEEK = 0xE88A8A, APRON = 0xF6F2EA;
+  const g = new Hood({ coat: 0x7A3E8E, lapel: 0x5A2A6E, shirt: APRON, hand: EEL });
+  // (a little rounder than the men: the coat's her dress, let out)
+  g.body.children[0].scale.set(1.3, 1, 1.22);
+  // the apron, its bib and its strings
+  const apron = put(g.body, mesh(G.sphere, APRON, 0, 0.5, 0.215)); apron.scale.set(0.24, 0.3, 0.06);
+  put(g.body, mesh(G.sphere, APRON, 0, 0.78, 0.235)).scale.set(0.13, 0.12, 0.03);
+  for (const s of [-1, 1]) { const strap = put(g.body, mesh(G.box, APRON, s * 0.1, 0.87, 0.2)); strap.scale.set(0.03, 0.12, 0.1); strap.rotation.x = -0.5; }
+  put(g.body, mesh(G.box, APRON, 0, 0.62, 0)).scale.set(0.6, 0.03, 0.5);
+  // the pearls, round her neck
+  const PEARL = new MeshLambertMaterial({ color: 0xF6EEE2, emissive: 0x2A2620 });
+  for (let i = 0; i < 11; i++) {
+    const a = -1.2 + (2.4 * i) / 10;
+    put(g.body, mesh(G.sphere, PEARL, Math.sin(a) * 0.15, 0.9 - Math.cos(a) * 0.035, Math.cos(a) * 0.15 + 0.03)).scale.setScalar(0.022);
+  }
+  const h = put(g.head, new Group());
+  put(h, mesh(G.cyl, EEL, 0, 0.15, 0, true)).scale.set(0.17, 0.32, 0.16);
+  put(h, mesh(G.cyl, THROAT, 0, 0.13, 0.05)).scale.set(0.13, 0.27, 0.12);
+  put(h, mesh(G.sphere, EEL, 0, 0.37, 0.07, true)).scale.set(0.19, 0.16, 0.28);
+  const jaw = put(h, mesh(G.sphere, THROAT, 0, 0.3, 0.1)); jaw.scale.set(0.15, 0.06, 0.24);
+  for (const [a, y] of [[0.5, 0.06], [-0.7, 0.13], [1.3, 0.21], [-1.4, 0.03]]) {
+    const sp = put(h, mesh(G.sphere, SPOT, Math.sin(a) * 0.17, y, Math.cos(a) * 0.16)); sp.scale.set(0.022, 0.022, 0.006);
+    sp.quaternion.setFromUnitVectors(new Vector3(0, 0, 1), new Vector3(Math.sin(a), 0, Math.cos(a)).normalize());
+  }
+  // a wide smile (a frown's arc the other way up), and rosy cheeks
+  const smile = put(h, mesh(frownGeo, 0x3A1A1A, 0, 0.33, 0.33)); smile.scale.set(1.15, 0.55, 1); smile.rotation.set(-0.25, 0, Math.PI);
+  for (const s of [-1, 1]) put(h, mesh(G.sphere, CHEEK, s * 0.12, 0.35, 0.27)).scale.set(0.04, 0.025, 0.02);
+  const glint = new MeshBasicMaterial({ color: 0xFFFFFF });
+  for (const s of [-1, 1]) {
+    const x = s * 0.085;
+    put(h, mesh(G.sphere, 0xF4E27A, x, 0.44, 0.28)).scale.setScalar(0.04);
+    put(h, mesh(G.sphere, 0x111111, x, 0.44, 0.316)).scale.set(0.016, 0.02, 0.006);
+    put(h, mesh(G.sphere, glint, x + 0.008, 0.447, 0.321)).scale.setScalar(0.005);
+    const lid = put(h, mesh(lidGeo, EEL, x, 0.44, 0.28)); lid.scale.setScalar(0.046); lid.rotation.x = -0.75;
+    // (three lashes off each lid's edge)
+    for (const k of [-1, 0, 1]) { const lash = put(h, mesh(G.box, 0x1A1A1A, x + s * 0.02 + k * 0.014, 0.478, 0.3)); lash.scale.set(0.004, 0.022, 0.004); lash.rotation.z = -s * 0.4 - k * 0.3; }
+  }
+  // the headscarf: a flowered cloth over the top of her head and down to her neck behind, knotted on top
+  const FLOWERS = cloth((c, w, hh) => {
+    c.fillStyle = '#D85A8A'; c.fillRect(0, 0, w, hh);
+    for (const [fx, fy, col] of [[14, 14, '#F6E27A'], [46, 22, '#FFFFFF'], [26, 46, '#F6E27A'], [54, 54, '#FFFFFF'], [6, 38, '#FFFFFF']] as const) {
+      c.fillStyle = col;
+      for (let k = 0; k < 5; k++) { const a = (k / 5) * Math.PI * 2; c.beginPath(); c.arc(fx + Math.cos(a) * 4, fy + Math.sin(a) * 4, 3, 0, Math.PI * 2); c.fill(); }
+      c.fillStyle = '#E8902A'; c.beginPath(); c.arc(fx, fy, 2, 0, Math.PI * 2); c.fill();
+    }
+  }, 3, 2);
+  const scarf = put(h, mesh(lidGeo, FLOWERS, 0, 0.42, 0.02, true)); scarf.scale.set(0.205, 0.17, 0.27); scarf.rotation.x = -0.3;
+  put(h, mesh(G.sphere, FLOWERS, 0, 0.3, -0.12)).scale.set(0.17, 0.16, 0.12);
+  for (const s of [-1, 1]) { const knot = put(h, mesh(G.sphere, FLOWERS, s * 0.06, 0.6, -0.02)); knot.scale.set(0.08, 0.05, 0.05); knot.rotation.z = s * 0.6; }
+  put(h, mesh(G.sphere, FLOWERS, 0, 0.6, -0.02)).scale.setScalar(0.04);
+  return g;
+}
+
 /** The Family, each built once. */
 export const family: Record<Host, Hood> = { eddie: eddie(), harry: harry(), tommy: tommy() };
 

@@ -5,13 +5,17 @@
 // close-up once the player's done, on all of them if they're close together, or else on the last.
 import { Box3, type Object3D, type Vector3 } from 'three';
 import { level } from './layout';
+import { player } from './player';
 import { view } from './stage';
 import { V } from './util';
 
 /** Seconds easing over and in, holding on it, and easing back out to the player. */
 export const SPOT = { over: 0.6, hold: 1.6, back: 0.7 };
-/** Seconds after a purchase before its close-up starts, in case the player buys another (each one waits again). */
-export const SPOT_WAIT = 0.7;
+/** Seconds after a purchase before its close-up starts (and the shop's menu steps aside for it), in case the player
+ *  buys another (each one waits again). */
+export const SPOT_WAIT = 2.0;
+/** How far from the player a close-up can look (further, and it's not what was built: no close-up). */
+const STRAY = 30;
 /** How far apart (across the floor) what a run of purchases built can be and still all be in the one close-up. */
 const TOGETHER = 4.5;
 /** How close the camera comes in: its distance, as a share of the usual (the casino boat, being big, comes in less). */
@@ -35,9 +39,14 @@ const mid = V(0, 0, 0), tmp = V(0, 0, 0), box = new Box3();
  * foot: as it will be once it's popped in, as popping in (pop.ts) grows it from its foot.
  */
 function lit(o: Object3D): Lit {
-  const foot = o.getWorldPosition(V(0, 0, 0)), k = o.scale.x;
-  if (box.setFromObject(o).isEmpty() || k <= 0) return { o, up: V(0, 0, 0) };
-  return { o, up: box.getCenter(V(0, 0, 0)).sub(foot).divideScalar(k) };
+  // (measured at its full size: one still popping in, or only just started, is too small to measure, or nothing at
+  // all, and then the camera would look at its foot, which for a group laid out from the world's middle is nowhere)
+  // (popping in, pop.ts, is the same scale every way, up to 1)
+  const k = o.scale.x, popping = k < 1 && o.scale.y === k && o.scale.z === k;
+  if (popping) { o.scale.setScalar(1); o.updateMatrixWorld(true); }
+  const foot = o.getWorldPosition(V(0, 0, 0)), empty = box.setFromObject(o).isEmpty(), up = empty ? V(0, 0, 0) : box.getCenter(V(0, 0, 0)).sub(foot);
+  if (popping) { o.scale.setScalar(k); o.updateMatrixWorld(true); }
+  return { o, up };
 }
 
 /**
@@ -68,13 +77,21 @@ function start(d: Due) {
   due = null;
   if (d.down !== level.down || (d.when && !d.when())) { d.cue?.run(); return; }
   const on = together(d.on);
+  // (nowhere near the player: not what was built, whatever it is, so no close-up)
+  const lits = on.map(lit);
+  mid.set(0, 0, 0);
+  for (const { o, up } of lits) mid.add(o.getWorldPosition(tmp)).add(up);
+  mid.divideScalar(lits.length);
+  if (mid.distanceTo(player.g.position) > STRAY) { d.cue?.run(); return; }
   // a second upgrade while one's still showing: the camera stays in close and goes straight on over to the new one
   shot?.cue?.run();
   shot = shot
-    ? { t: Math.min(shot.t, SPOT.over), on: on.map(lit), close: d.close, was: shot.was, cue: d.cue, snap: false, down: level.down }
-    : { t: 0, on: on.map(lit), close: d.close, was: view.focus.clone(), cue: d.cue, snap: true, down: level.down };
+    ? { t: Math.min(shot.t, SPOT.over), on: lits, close: d.close, was: shot.was, cue: d.cue, snap: false, down: level.down }
+    : { t: 0, on: lits, close: d.close, was: view.focus.clone(), cue: d.cue, snap: true, down: level.down };
 }
 
+/** Whether a close-up's on, or waiting to start (resto.ts lets the arena's go first). */
+export const spotBusy = () => !!shot || !!due;
 /** Whether something's in the spotlight now (the shop's menu steps out of the way meanwhile: shop.ts); not while it
  *  waits for the player to stop buying, so the menu's there for the next. */
 export const spotOn = () => !!shot;

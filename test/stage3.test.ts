@@ -290,7 +290,7 @@ describe('the rooms', () => {
     // a wall between the rooms, and a way through each doorway (but the grow room's and the Undertow's and its side rooms', not yet found)
     expect(floorAt((L.ARENA.x1 + L.KITCHEN.x0) / 2, 2)).toBe(false);
     expect(floorAt((L.KITCHEN.x1 + L.PREP.x0) / 2, 2)).toBe(false);
-    for (const d of L.DOORS) expect(floorAt((d.x0 + d.x1) / 2, (d.z0 + d.z1) / 2)).toBe(d.b !== 'grow' && d.b !== 'passage' && d.b !== 'den' && d.b !== 'loans' && d.b !== 'vip' && d.b !== 'cards');
+    for (const d of L.DOORS) expect(floorAt((d.x0 + d.x1) / 2, (d.z0 + d.z1) / 2)).toBe(d.b !== 'grow' && d.b !== 'den' && d.b !== 'loans' && d.b !== 'vip' && d.b !== 'cards');
     expect(floorAt(16, -4)).toBe(false);
     // where everything is
     expect(cellar.roomAt(cellar.RING)).toBe('arena');
@@ -506,12 +506,13 @@ describe('the rooms', () => {
     };
     // the walls' tops: every low one's rail at one height, just over the earth's cut (between rooms and round the
     // outside, the prep hall's stone back wall too); every tall one's cap at one height, just over the bank behind it
-    // (the arena's piles, north and west, and the office's own wall); and every doorway's lintel at one height
-    const low = [[-5, L.ARENA.z1 + 0.1], [L.ARENA.x1 + 0.3, 2], [L.KITCHEN.x1 + 0.3, 2], [L.CRAFT.x0 + 0.5, L.CRAFT.z1 + 0.1], [16, L.PREP.z1 + 0.1],
+    // (the arena's piles, north and west, and the office's own wall); and every doorway's lintel at one height (but
+    // Mama Moray's hall's wide way into its dining wing, which has none)
+    const low = [[-5, L.ARENA.z1 + 0.1], [L.ARENA.x1 + 0.3, 2], [L.KITCHEN.x1 + 0.3, 2], [L.CRAFT.x0 + 0.5, L.WING.z1 + 0.1], [16, L.PREP.z1 + 0.1],
       [L.LIFT_ROOM.x1 + 0.1, 4.9], [13, L.PREP.z0 - 0.3], [L.OFFICE_ROOM.x1 + 0.3, -6]].map(([x, z]) => down(x, z)!);
     const tall = [[-5, L.ARENA.z0 - 0.75], [L.ARENA.x0 - 0.75, 0], [7, L.OFFICE_ROOM.z0 - 0.25]].map(([x, z]) => down(x, z)!);
-    const secret = (d: (typeof L.DOORS)[number]) => d.b === 'grow' || d.b === 'passage' || d.b === 'den' || d.b === 'loans' || d.b === 'vip' || d.b === 'cards';
-    const lintels = [...L.DOORS.filter(d => !secret(d)).map(d => down((d.x0 + d.x1) / 2, (d.z0 + d.z1) / 2)!), ...plan.TUNNELS.map(t =>
+    const secret = (d: (typeof L.DOORS)[number]) => d.b === 'grow' || d.b === 'den' || d.b === 'loans' || d.b === 'vip' || d.b === 'cards';
+    const lintels = [...L.DOORS.filter(d => !secret(d) && !(d.a === 'resto' && d.b === 'wing')).map(d => down((d.x0 + d.x1) / 2, (d.z0 + d.z1) / 2)!), ...plan.TUNNELS.map(t =>
       t.side === 'w' ? down(L.ARENA.x0 - 0.08, t.at + 0.5)! : down(t.at + 0.5, L.ARENA.z0 - 0.08)!)];
     for (const h of low) expect(h).toBeCloseTo(low[0], 5);
     for (const h of tall) expect(h).toBeCloseTo(tall[0], 5);
@@ -538,17 +539,17 @@ describe('the rooms', () => {
       expect(down(x, z, ground.hidden), `${x}, ${z}`).toBeNull();
     }
     // (broken ground like the rest, level with the walls round it at its edges)
-    for (const [x, z, m] of [...open(L.GROW).map(([x, z]) => [x, z, ground.hidden] as const), ...[L.PASSAGE, L.DEN].flatMap(open).map(([x, z]) => [x, z, ground.denHidden] as const)]) {
+    for (const [x, z, m] of [...open(L.GROW).map(([x, z]) => [x, z, ground.hidden] as const), ...[L.DEN].flatMap(open).map(([x, z]) => [x, z, ground.denHidden] as const)]) {
       const h = down(x, z, m)!;
       expect(h, `${x}, ${z}`).toBeGreaterThan(GROUND.cut - 0.45);
       expect(h, `${x}, ${z}`).toBeLessThan(GROUND.cut + 0.85);
     }
     // out past the walls, broken ground about the cut (level with it right at the walls, lumpy further out); behind the
     // back walls, banked up; and no edge to it anywhere the camera sees
-    for (const [x, z] of [[-5, L.ARENA.z1 + 0.35], [7.5, L.CRAFT.z1 + 0.35], [16, L.PREP.z1 + 0.35]]) {
+    for (const [x, z] of [[-5, L.ARENA.z1 + 0.35], [7.5, L.WING.z1 + 0.35], [16, L.PREP.z1 + 0.35]]) {
       expect(earthAt(x, z), `${x}, ${z}`).toBeCloseTo(GROUND.cut, 2);
     }
-    for (const [x, z] of [[-5, L.ARENA.z1 + 1], [7.5, L.CRAFT.z1 + 1], [16, L.PREP.z1 + 1], [L.LIFT_ROOM.x1 + 1, 5], [L.GROW.x1 + 1, -5], [L.LOANS.x0 - 1, L.ARENA.z1 + 3]]) {
+    for (const [x, z] of [[-5, L.ARENA.z1 + 1], [7.5, L.WING.z1 + 1], [16, L.PREP.z1 + 1], [L.LIFT_ROOM.x1 + 1, 5], [L.GROW.x1 + 1, -5], [L.LOANS.x0 - 1, L.ARENA.z1 + 3]]) {
       const h = earthAt(x, z)!;
       expect(h, `${x}, ${z}`).toBeGreaterThan(GROUND.cut - 0.45);
       expect(h, `${x}, ${z}`).toBeLessThan(GROUND.cut + 0.85);
@@ -566,8 +567,8 @@ describe('the rooms', () => {
     }
     // none of it is lit by the rooms' lights (its light's drawn into it), and a kerb of stone runs along the earth's
     // edge round every room, just past the low walls' rails (round the grow room's own walls, only once it's found)
-    for (const m of [ground.open, ground.hidden, ground.denHidden, ground.nearDen, ground.nearDenShut, ground.rocks, ground.kerb, ground.growKerb, ground.denKerb, ground.mouthKerb]) expect((m.material as import('three').Material).type).toBe('MeshBasicMaterial');
-    for (const [x, z] of [[-5, L.ARENA.z1 + 0.35], [7.5, L.CRAFT.z1 + 0.35], [16, L.PREP.z1 + 0.35], [L.LIFT_ROOM.x1 + 0.35, 5]]) {
+    for (const m of [ground.open, ground.hidden, ground.denHidden, ground.nearDen, ground.nearDenShut, ground.rocks, ground.kerb, ground.growKerb, ground.denKerb, ground.shutKerb]) expect((m.material as import('three').Material).type).toBe('MeshBasicMaterial');
+    for (const [x, z] of [[-5, L.ARENA.z1 + 0.35], [7.5, L.WING.z1 + 0.35], [16, L.PREP.z1 + 0.35], [L.LIFT_ROOM.x1 + 0.35, 5]]) {
       const h = down(x, z, ground.kerb)!;
       expect(h, `${x}, ${z}`).toBeGreaterThan(low[0]);
       expect(h, `${x}, ${z}`).toBeLessThan(low[0] + 0.1);
@@ -611,15 +612,12 @@ describe('the rooms', () => {
     expect(down(L.GROW.x1 + 0.1, -5)).toBeCloseTo(low[0], 5);
     expect(down(13, L.PREP.z0 - 0.3)).toBeCloseTo(low[0], 5);
     expect(down(L.GROW.x1 + 0.35, -5, ground.growKerb)! - low[0]).toBeGreaterThan(0);
-    // and while the Undertow's a secret, the doorman's door stands across its tunnel's mouth (its lintel up over the
-    // low wall: southDoor.ts), kerbed in front; when it's found, the tunnel and the room are dug out, lit, kerbed round
-    const mouth = (L.PASSAGE.x0 + L.PASSAGE.x1) / 2;
-    expect(down(mouth, L.ARENA.z1 + 0.1)).toBeGreaterThan(low[0] + 0.8);
-    expect(down(mouth, L.ARENA.z1 + 0.35, ground.mouthKerb)! - low[0]).toBeGreaterThan(0);
+    // and while the Undertow's a secret, the doorman's door stands as the out-of-order stall's back, in the restroom's
+    // west wall (its lintel up over the low wall: southDoor.ts); when it's found, the room is dug out, lit, kerbed round
+    const stall = { x: plan.CLUB_DOOR.x, z: (plan.CLUB_DOOR.z0 + plan.CLUB_DOOR.z1) / 2 };
+    expect(down(stall.x, stall.z)).toBeGreaterThan(low[0] + 0.6);
     cellar.showDen();
-    expect(down(mouth, L.ARENA.z1 + 0.1)).not.toBeCloseTo(low[0], 2);
-    expect(down(mouth, L.ARENA.z1 + 0.35, ground.mouthKerb)).toBeNull();
-    for (const [x, z] of [L.PASSAGE, L.DEN, L.VIP].flatMap(open)) {
+    for (const [x, z] of [L.DEN, L.VIP].flatMap(open)) {
       expect(earthAt(x, z), `${x}, ${z}`).toBeNull();
       expect(down(x, z, ground.nearDen), `${x}, ${z}`).toBeNull();
     }
@@ -1258,7 +1256,7 @@ describe('the finishers', () => {
       for (const mv of Object.values(m)) expect(mv.name.split(' ').length).toBeLessThanOrEqual(3);
     }
     expect(end(0, 4)).toEqual(['heavy', 'PUFF BOUNCE']);
-    expect(end(810, 4)).toEqual(['grand', 'BIG SQUEEZE']);
+    expect(end(940, 4)).toEqual(['grand', 'BIG SQUEEZE']);
     // (the practice fight: the sparring partner's)
     expect(end(30, -1)).toEqual(['grand', 'BELT THROW']);
   });
@@ -1299,15 +1297,15 @@ describe('the finishers', () => {
       g.runUntil(() => { while (F().rush!.turned + F().stall.length < n && fight.toStall(false)); return F().rush!.done; }, 31 + fight.WALK_IN);
       g.runUntil(() => F().bout.phase === 'pay' && F().bout.t >= 0.6, 25);
     };
-    // under half of the 151 needed: Crab shuffle
+    // under half of the 221 needed: Crab shuffle
     await lose(30);
     expect(F().bout.finish).toBe('heavy');
     g.ui.hud(0);
     expect($('rushBell').textContent).toBe('CRAB SHUFFLE');
     g.runUntil(() => F().bout.t >= landsOf(F().rush, 'heavy') + 0.2, 6);
     expect(down(dohyo.ring.champ, cellar)).toBe(true);
-    // just short, 140 of 151: Side step
-    await lose(140);
+    // just short, 210 of 221: Side step
+    await lose(210);
     expect(F().bout.finish).toBe('tight');
     g.ui.hud(0);
     expect($('rushBell').textContent).toBe('SIDE STEP');
@@ -1454,7 +1452,7 @@ describe("the cellar's tiles", () => {
     // the ring's three levels along the top, then every room's upgrade and the venue's tiers, and the buyout at the end
     expect([...$('shopRows').querySelectorAll('[data-mod]')].map(b => (b as HTMLElement).dataset.mod)).toEqual(['bowls', 'street', 'cellarcrew']);
     expect([...$('shopRows').querySelectorAll<HTMLElement>('[data-tile]')].map(b => b.dataset.tile)).toEqual(
-      ['rack', 'washer', 'steam', 'barrel', 'salter', 'smoke', 'bed', 'picker', 'shelves', 'attendant', 'cook', 'tier1', 'tier2', 'tier3', 'buyout']);
+      ['rack', 'washer', 'steam', 'barrel', 'salter', 'smoke', 'bed', 'picker', 'shelves', 'attendant', 'slide', 'cook', 'tier1', 'tier2', 'tier3', 'buyout']);
     // a gate a column: the start, the practice fight (won: the fixture's sparred), then the bosses, Hakkaku next
     const gates = () => [...$('shopRows').querySelectorAll<HTMLElement>('.gate')].map(h => h.className.replace('gate ', ''));
     expect(gates()).toEqual(['start', 'won', 'next', 'later', 'later', 'later', 'later']);
@@ -1581,30 +1579,131 @@ describe("the cellar's tiles", () => {
     expect(offered(g)).not.toContain('cook');
     F().beaten = 3;
     g.run(0.1);
-    // (the cook needs the attendant first, in the shop's tree)
+    // (the cook needs the attendant first, in the shop's tree, and so does the bowl slide: it takes over his carrying)
     expect(offered(g)).not.toContain('cook');
+    expect(offered(g)).not.toContain('slide');
     g.unlocks.buyFromMenu(g.unlocks.tiles.find(t => t.id === 'attendant')!);
     g.run(0.1);
     expect(offered(g)).toContain('cook');
+    expect(offered(g)).toContain('slide');
   });
 
-  it('a cook gets 70% of the player\'s batch out of the pot, and stands back while the player cooks', async () => {
+  it('a cook cooks full batches out of the pot, and ladles them out twice as fast', async () => {
     const { g, plan, fight, at, F } = await ring({ ring: { beaten: 3 } });
-    expect(fight.COOK_BATCH).toBe(14);
     at(plan.WATCH);
+    // the pot ladled out onto the counter, a bowl every LADLE seconds, with nobody else there
+    const ladled = () => { F().pot = Array(fight.BATCH).fill(true); F().counter = []; F().pantry = { rice: 0, fish: 0, mush: 0 }; g.run(fight.LADLE * 8 + 0.01); return F().counter.length; };
+    const alone = ladled();
+    expect(alone).toBeGreaterThan(4);
+    // (the cook walks over to the pot, and cooks a batch: as many bowls as the player's)
     fight.hire('cook');
-    // (the cook walks over to the pot, and cooks a batch: 14 bowls)
+    F().pot = []; F().counter = []; F().cooked = [];
     F().pantry = { rice: 4, fish: 4, mush: 4 };
     g.runUntil(() => F().cooked.length > 0, 20);
-    expect(F().pot.length + F().counter.length).toBe(fight.COOK_BATCH);
-    // the player at the pot cooks a full one, the cook standing back
-    F().pot = []; F().counter = []; F().cooked = [];
-    at(plan.POT_PAD);
-    g.run(0.1);
-    F().pantry = { rice: 8, fish: 8, mush: 8 };
-    g.runUntil(() => F().cooked.length >= 2, 5);
-    expect(F().pot.length + F().counter.length).toBe(2 * fight.BATCH);
+    expect(F().pot.length + F().counter.length).toBe(fight.BATCH);
+    // and with him at it, the pot's ladled out twice as fast
+    expect(ladled()).toBeGreaterThanOrEqual(2 * alone - 1);
   }, 30_000);
+
+  it("once Mama Moray's is open and the bowl line's in, what the pot can't hold, with the ledge stocked, goes there for her cut; never while a boss is in", async () => {
+    const { g, fight, F } = await ring({ ring: { beaten: 1 } });
+    F().quiet = false; F().resto = 0;
+    const stock = () => { F().pot = Array(fight.POT_CAP).fill(true); F().pantry = { rice: fight.LEDGE_CAP, fish: fight.LEDGE_CAP, mush: fight.LEDGE_CAP }; };
+    stock();
+    // (a ruin out front till Word on the street opens her: nothing goes there; nor, open, till the bowl line's in to
+    // take it to her)
+    F().slide = true;
+    g.economy.mods.street = fight.RESTO_OPENS - 1;
+    expect(fight.restoWants()).toBe(false);
+    g.economy.mods.street = fight.RESTO_OPENS;
+    F().slide = false;
+    expect(fight.restoWants()).toBe(false);
+    F().slide = true;
+    expect(fight.restoWants()).toBe(true);
+    const was = F().earned.length;
+    fight.playerAtPot(0.6);
+    // (a whole batch up the belt, out of the ledge, and her cut of each bowl in the takings)
+    expect(F().resto).toBe(fight.BATCH);
+    expect(F().pantry.rice).toBe(fight.LEDGE_CAP - fight.PER_BATCH);
+    expect(F().earned.length).toBe(was + 1);
+    expect(F().earned[F().earned.length - 1][1]).toBeCloseTo(fight.bowlPrice(true) * fight.RESTO_SHARE * fight.BATCH);
+    // a boss in: the pot keeps it all for his crowd
+    stock();
+    expect(fight.ringGong()).toBe(true);
+    while (F().called) fight.step(0.05);
+    stock();
+    expect(fight.restoWants()).toBe(false);
+  }, 30_000);
+
+  it("Mama Moray's starts a wreck, is cleared up, and opens at Word on the street's fifth level, with a word from her", async () => {
+    const { g, fight, F } = await ring({ ring: { beaten: 1 } });
+    const rs = await import('../src/resto');
+    for (const n of [0, 1]) {
+      g.economy.mods.street = n; g.run(0.2);
+      expect(rs.restoShows()).toMatchObject({ stage: 0, mama: false, diners: 0, wreck: true, belt: false });
+    }
+    for (let n = 2; n < fight.RESTO_OPENS; n++) {
+      g.economy.mods.street = n; g.run(0.2);
+      expect(rs.restoShows()).toMatchObject({ stage: 1, mama: false, diners: 0, wreck: false, belt: false });
+    }
+    // (open, with no bowl line in yet to bring her any, she's waiting on it; once it's in, she's open for business, and
+    // the line runs on past the stall to her)
+    F().slide = false;
+    g.economy.mods.street = fight.RESTO_OPENS; g.run(0.2);
+    expect(rs.restoShows()).toMatchObject({ stage: 2, mama: true, says: rs.WAITING, belt: false });
+    expect(rs.restoShows()!.diners).toBeGreaterThan(0);
+    F().slide = true; g.run(0.2);
+    expect(rs.restoShows()).toMatchObject({ stage: 2, says: rs.OPENING, belt: true });
+    // and a batch for her goes along the line, from the hopper by the pot
+    F().quiet = false;
+    fight.on.resto(fight.BATCH, 1);
+    g.run(1.5);
+    expect(rs.restoShows()!.under).toBeGreaterThan(0);
+  }, 30_000);
+
+  it('the bowl slide is a bowl line in place of the counter, the pot to the soup square by itself, under the floor', async () => {
+    const { g, plan, fight, at, F, cellar } = await ring({ ring: { beaten: 1 } });
+    const rk = await import('../src/ringKitchen');
+    const table = () => { let up = false; cellar.bowlTable.g!.traverse(o => { if ((o as import('three').Mesh).isMesh && o.visible) up = true; }); return up; };
+    at(plan.WATCH);
+    F().counter = Array(10).fill(false); F().stall = [];
+    g.run(1);
+    expect(F().stall.length).toBe(0);
+    expect(rk.slideParts.visible).toBe(false);
+    expect(table()).toBe(true);
+    fight.buySlide();
+    g.run(0.5);
+    expect(F().stall.length).toBeGreaterThan(3);
+    // (the line laid, the counter gone; bowls on their way, from the hopper by the pot to the soup square)
+    expect(rk.slideParts.visible).toBe(true);
+    expect(table()).toBe(false);
+    expect(rk.slideShows()).toBeGreaterThan(0);
+    g.run(1);
+    expect(F().counter.length).toBe(0);
+    expect(F().stall.length).toBe(10);
+    // (the attendant, who carried them, goes over to work the line's motor, and carries no more)
+    fight.hire('attendant');
+    F().counter = Array(10).fill(false); F().stall = [];
+    g.run(8);
+    const p = rk.crewPerson('attendant')!.position;
+    expect(Math.hypot(p.x - plan.MOTOR_AT.x, p.z - plan.MOTOR_AT.z)).toBeLessThan(0.3);
+    expect(F().crew.find(w => w.role === 'attendant')!.carry).toBe(null);
+  }, 30_000);
+
+  it("with the player at the pot all through the rush, it turns at least what the gong promised", async () => {
+    const { fight: f, plan, at } = await ring({ level: 0 });
+    f.resetFight();
+    for (const k of ['rice', 'fish'] as const) for (let i = 0; i < 3; i++) f.addMachine(k);
+    for (const r of ['washer', 'salter', 'cook', 'attendant'] as const) f.hire(r);
+    for (let t = 0; t < 90; t += 0.05) f.step(0.05);
+    at(plan.POT_PAD);
+    const fc = f.forecast()!;
+    expect(f.ringGong()).toBe(true);
+    const tick = () => { f.step(0.05); f.playerAtPot(0.05); };
+    while (f.F.called) tick();
+    for (let n = 0; n < 4000 && !f.F.rush!.done; n++) tick();
+    expect(f.F.rush!.turned).toBeGreaterThanOrEqual(fc.turned);
+  });
 
   it('opens with the bosses: the tiers build the venue up and bring more fans', async () => {
     const { g, buy, F, fight, cellar } = await ring({ money: 10_000_000 });
@@ -2001,6 +2100,32 @@ describe("the workshop's crafting bench", () => {
     }
   });
 
+  it("a close-up looks at what was built even as it pops in from nothing, and never at somewhere nowhere near the player", async () => {
+    const { g, cellar } = await ring({ ring: { beaten: 1 } });
+    const { BoxGeometry, Group, Mesh, MeshBasicMaterial, Vector3 } = await import('three');
+    const sp = await import('../src/spotlight');
+    const { view } = g.stage;
+    g.run(0.5);
+    const near = g.player.g.position.clone();
+    // laid out from the world's middle (its foot's 30 m over the cellar), and only just starting to pop in
+    const group = new Group(), m = new Mesh(new BoxGeometry(0.5, 0.5, 0.5), new MeshBasicMaterial());
+    m.position.set(near.x + 1.5, near.y, near.z); group.add(m); group.scale.setScalar(0.001);
+    cellar.cellar.add(group);
+    expect(sp.spotlight([group])).toBe(true);
+    g.run(sp.SPOT_WAIT + sp.SPOT.over + 0.3);
+    group.scale.setScalar(1);
+    expect(view.close).toBeLessThan(1);
+    expect(view.focus.distanceTo(m.getWorldPosition(new Vector3()))).toBeLessThan(0.3);
+    g.run(sp.SPOT.hold + sp.SPOT.back + 0.3);
+    // something far off from the player: no close-up at all
+    const far = new Mesh(new BoxGeometry(0.5, 0.5, 0.5), new MeshBasicMaterial());
+    far.position.set(near.x, near.y + 60, near.z); cellar.cellar.add(far);
+    sp.spotlight([far]);
+    g.run(sp.SPOT_WAIT + sp.SPOT.over + 0.3);
+    expect(view.close).toBe(1);
+    expect(sp.spotOn()).toBe(false);
+  }, 30_000);
+
   it('puts what it builds in the spotlight, as upstairs: the new rack, a hire, the racks swapped for steam baskets', async () => {
     const { g, plan, at, buy } = await ring({ money: 10_000_000, ring: { beaten: 2 } });
     const { Box3, Vector3 } = await import('three');
@@ -2174,13 +2299,13 @@ describe('saving the cellar', () => {
 
   it('cleans up a bad cellar in a save, and starts an old design\'s ring over', async () => {
     const g = await loadGame();
-    const { fightFrom } = await import('../src/fight');
+    const { fightFrom, LEDGE_CAP } = await import('../src/fight');
     const f = fightFrom({ beaten: 99, tier: -4, lines: { rice: { n: 40, m: [{ items: [5, 'x', -1] }] } }, pantry: { rice: 1e9 }, counter: 'no', hires: { cook: 1, wizard: true } });
     expect(f.beaten).toBe(5);
     expect(f.tier).toBe(0);
     expect(f.lines.rice.n).toBe(6);
     expect(f.lines.rice.m[0].items).toEqual([1, 0]);
-    expect(f.pantry.rice).toBe(40);
+    expect(f.pantry.rice).toBe(LEDGE_CAP);
     expect(f.counter).toEqual([]);
     expect(Object.keys(f.hires)).toEqual(['cook']);
     expect(fightFrom('junk').beaten).toBe(0);

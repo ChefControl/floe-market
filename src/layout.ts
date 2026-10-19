@@ -34,11 +34,16 @@ export const GROW = { x0: 11.6, x1: 20.6, z0: -9.5, z1: 0.3 };
  *  ROOMS's): what comes down them slides down a wooden chute each into a store, which keeps a tray by the wall full,
  *  handed over it to whoever stands at the circle on the hall's side. */
 export const LIFT_ROOM = { x0: 21.2, x1: 24.8, z0: 1.9, z1: 7.9 };
-/** The Undertow, the Family's club, nobody knows is there until the second boss is beaten: a long dark tunnel out
- *  through the arena's south wall, between the ring and the soup square, down past the club's east wall to a door in it
- *  at the far end; and the club, a big smoky room dug into the rock in front of the arena (the camera's side, like the
- *  cookware shop), from a little west of the arena's west wall, and deep. */
-export const PASSAGE = { x0: -1.9, x1: -0.7, z0: 8.0, z1: 15.6 };
+/** Mama Moray's, the Family's chanko restaurant out front (resto.ts), open from the first night: through the arena's
+ *  south wall, between the ring and the soup square. Its front hall (the counter, the belt round it from the soup
+ *  square, and tables), the dining wing round the back of the cookware shop, and in the hall's far corner, against the
+ *  club's wall, the restroom: two stalls, and the one that's out of order is the way into the Undertow. */
+export const RESTO = { x0: -2.9, x1: 3.5, z0: 8.0, z1: 11.6 };
+export const WING = { x0: 1.0, x1: 10.6, z0: 12.2, z1: 16.2 };
+export const LOO = { x0: -2.9, x1: 0.4, z0: 12.2, z1: 16.2 };
+/** The Undertow, the Family's club, nobody knows is there until the second boss is beaten: a big smoky room dug into
+ *  the rock in front of the arena (the camera's side, like the cookware shop), from a little west of the arena's west
+ *  wall, and deep, its east wall back to back with the restroom's. */
 export const DEN = { x0: -15.5, x1: -3.4, z0: 10.2, z1: 22.0 };
 /** Hammerhead Harry's office, a side room through the club's west wall: where the loans are made and the books kept. */
 export const LOANS = { x0: DEN.x0 - 5.1, x1: DEN.x0 - 0.6, z0: DEN.z0, z1: DEN.z0 + 4.4 };
@@ -47,9 +52,10 @@ export const LOANS = { x0: DEN.x0 - 5.1, x1: DEN.x0 - 0.6, z0: DEN.z0, z1: DEN.z
 export const VIP = { x0: DEN.x0 + 3.3, x1: DEN.x0 + 8.7, z0: DEN.z1 + 0.6, z1: DEN.z1 + 4.2 };
 /** Three-Card Tommy's card room, through the club's west wall south of Harry's office: his table and his screen. */
 export const CARDS = { x0: LOANS.x0, x1: LOANS.x1, z0: LOANS.z1 + 0.6, z1: LOANS.z1 + 4.0 };
-export type CellarRoom = 'arena' | 'landing' | 'office' | 'kitchen' | 'prep' | 'grow' | 'craft' | 'passage' | 'den' | 'loans' | 'vip' | 'cards';
+export type CellarRoom = 'arena' | 'landing' | 'office' | 'kitchen' | 'prep' | 'grow' | 'craft' | 'resto' | 'wing' | 'loo' | 'den' | 'loans' | 'vip' | 'cards';
 export const ROOMS: Record<CellarRoom, typeof ARENA> = {
-  arena: ARENA, landing: LANDING, office: OFFICE_ROOM, kitchen: KITCHEN, prep: PREP, grow: GROW, craft: CRAFT, passage: PASSAGE, den: DEN, loans: LOANS, vip: VIP, cards: CARDS,
+  arena: ARENA, landing: LANDING, office: OFFICE_ROOM, kitchen: KITCHEN, prep: PREP, grow: GROW, craft: CRAFT, resto: RESTO, wing: WING, loo: LOO,
+  den: DEN, loans: LOANS, vip: VIP, cards: CARDS,
 };
 /** The doorways through the walls: the two rooms each joins, and its floor (across the wall). */
 export const DOORS: { a: CellarRoom; b: CellarRoom; x0: number; x1: number; z0: number; z1: number }[] = [
@@ -63,9 +69,15 @@ export const DOORS: { a: CellarRoom; b: CellarRoom; x0: number; x1: number; z0: 
   { a: 'kitchen', b: 'craft', x0: 6.0, x1: 7.2, z0: KITCHEN.z1, z1: CRAFT.z0 },
   // (at the east end of the prep hall's back wall, past the racks along it)
   { a: 'prep', b: 'grow', x0: 18.5, x1: 19.7, z0: GROW.z1, z1: PREP.z0 },
-  // (the tunnel: through the arena's south wall, and at its far end through the Undertow's east wall)
-  { a: 'arena', b: 'passage', x0: PASSAGE.x0, x1: PASSAGE.x1, z0: ARENA.z1, z1: PASSAGE.z0 },
-  { a: 'passage', b: 'den', x0: DEN.x1, x1: PASSAGE.x0, z0: PASSAGE.z1 - 1.8, z1: PASSAGE.z1 - 0.2 },
+  // (Mama Moray's: its front door through the arena's south wall, the wide way through to its dining wing, the
+  // restroom's door off the wing, and the out-of-order stall's back, through to the Undertow, which the doorman opens:
+  // southDoor.ts)
+  { a: 'arena', b: 'resto', x0: -1.9, x1: -0.7, z0: ARENA.z1, z1: RESTO.z0 },
+  { a: 'resto', b: 'wing', x0: WING.x0, x1: RESTO.x1, z0: RESTO.z1, z1: WING.z0 },
+  { a: 'wing', b: 'loo', x0: LOO.x1, x1: WING.x0, z0: LOO.z0 + 1.3, z1: LOO.z0 + 2.5 },
+  // (and from the dining wing into the cookware shop, through its south wall, right below the shop counter's square)
+  { a: 'wing', b: 'craft', x0: 5.7, x1: 6.9, z0: CRAFT.z1, z1: WING.z0 },
+  { a: 'loo', b: 'den', x0: DEN.x1, x1: LOO.x0, z0: LOO.z1 - 2.25, z1: LOO.z1 - 1.05 },
   // (Harry's office, through the club's west wall, south of the bar)
   { a: 'den', b: 'loans', x0: LOANS.x1, x1: DEN.x0, z0: DEN.z0 + 2.4, z1: DEN.z0 + 3.6 },
   // (Tommy's card room, through the club's west wall south of Harry's office, near the front)
@@ -76,10 +88,10 @@ export const DOORS: { a: CellarRoom; b: CellarRoom; x0: number; x1: number; z0: 
 /** Whether `p` is in the Undertow: the club, or one of its side rooms (Harry's office, Tommy's card room, Eddie's room). */
 export const inUndertow = (p: { x: number; z: number }) =>
   [DEN, LOANS, VIP, CARDS].some(r => p.x > r.x0 - 0.5 && p.x < r.x1 + 0.5 && p.z > r.z0 - 0.5 && p.z < r.z1 + 0.5);
-/** Which of the cellar's rooms have been found: the grow room once the first boss is beaten, the Undertow (its tunnel
- *  and Harry's office too) once the second is. */
+/** Which of the cellar's rooms have been found: the grow room once the first boss is beaten, the Undertow (and its side
+ *  rooms) once the doorman lets you in. */
 export const found = { grow: false, den: false };
-const shown = (r: CellarRoom) => (r !== 'grow' || found.grow) && ((r !== 'den' && r !== 'passage' && r !== 'loans' && r !== 'vip' && r !== 'cards') || found.den);
+const shown = (r: CellarRoom) => (r !== 'grow' || found.grow) && ((r !== 'den' && r !== 'loans' && r !== 'vip' && r !== 'cards') || found.den);
 /** How far a walker's middle keeps from a cellar wall: about their width, so they stop at its face, not halfway in. */
 const BODY = 0.2;
 const cellarFloors = () => [
