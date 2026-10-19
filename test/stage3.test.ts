@@ -1212,6 +1212,22 @@ describe('the slam', () => {
     expect($('fightCard').textContent).toBe('勝YOU WIN🐡 350💥 Slam +🐡 70🔓 New: grow room, the attendant, Back-Alley RingTap to close');
   }, 30_000);
 
+  it('on a phone, a tap anywhere as the rings meet lands it, and the button says to tap', async () => {
+    vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue('Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Mobile/15E148');
+    const { g, fight, F } = await wonBy(120);
+    const tap = () => window.dispatchEvent(Object.assign(new Event('pointerdown'), { pointerType: 'touch' }));
+    tap(); // (too early: nothing)
+    expect(F().rush!.slam).toBe(-1);
+    g.runUntil(() => F().bout.t >= fight.SLAM.at - fight.SLAM.lead + 0.1, 12);
+    expect($('slamGo').textContent).toBe('SLAM! Tap on gold');
+    g.runUntil(() => F().bout.t >= fight.SLAM.at - 0.02, 3);
+    tap();
+    expect(F().rush!.slam).toBe(2);
+    $('slamGo').click(); // (the button's own click, after the finger: one try)
+    g.run(1 / 30);
+    expect([F().rush!.slam, $('slamGo').textContent]).toEqual([2, 'Perfect slam!']);
+  }, 30_000);
+
   it('a good one is a tenth more; too soon is a miss; and a plain win offers none', async () => {
     const { fight, F } = await wonBy(120);
     F().bout.t = fight.SLAM.at - 0.25;

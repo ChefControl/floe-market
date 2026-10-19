@@ -1,5 +1,5 @@
 // Graphics, Auto, Low or High: Low draws people as they were before the detail, Auto (the default) has the game pick by
-// the frame rate, and the player's choice in the settings is kept for the device.
+// the frame rate and its stutters, and the player's choice in the settings is kept for the device.
 import { Mesh } from 'three';
 import { describe, expect, it, vi } from 'vitest';
 import type { Person } from '../src/characters';
@@ -16,6 +16,13 @@ const vertices = (p: Person) => {
 /** Frames drawn `sec` apart for `seconds`. */
 const frames = (frameDrawn: (s: number) => void, sec: number, seconds: number) => {
   for (let t = 0; t < seconds; t += sec) frameDrawn(sec);
+};
+/** Frames at 60 a second for `seconds`, with a 0.1 s hitch every `every` seconds. */
+const stutter = (frameDrawn: (s: number) => void, every: number, seconds: number) => {
+  for (let t = 0, next = every; t < seconds;) {
+    const sec = t >= next ? (next += every, 0.1) : 1 / 60;
+    frameDrawn(sec); t += sec;
+  }
 };
 
 describe('graphics', () => {
@@ -66,10 +73,12 @@ describe('graphics', () => {
     expect(vertices(chef)).toBe(before);
   });
 
-  it('on Auto, drops to Low when the frame rate stays under 45 for six seconds, but not for a moment or a pause', async () => {
+  it('on Auto, drops to Low when four of the last five two-second looks are slow or stutter, not for a moment or a pause', async () => {
     await loadGame();
     const { frameDrawn, gfx, choose } = await graphics();
     frames(frameDrawn, 1 / 60, 20);
+    expect(gfx.quality).toBe('high');
+    stutter(frameDrawn, 5, 20); // a hitch now and then is fine
     expect(gfx.quality).toBe('high');
     frames(frameDrawn, 1 / 30, 2.5); // a slow moment
     frames(frameDrawn, 1 / 60, 3);
@@ -78,10 +87,16 @@ describe('graphics', () => {
     frameDrawn(2); // the tab was hidden: settles again after
     frames(frameDrawn, 1 / 30, 2.9);
     expect(gfx.quality).toBe('high');
-    frames(frameDrawn, 1 / 30, 8);
+    frames(frameDrawn, 1 / 30, 6);
+    expect(gfx.quality).toBe('high');
+    frames(frameDrawn, 1 / 30, 3);
     expect(gfx.quality).toBe('low');
     frames(frameDrawn, 1 / 60, 10); // it doesn't go back up by itself
     expect(gfx.quality).toBe('low');
+    // and starts on Low on this device from now on
+    expect(localStorage.getItem('floe-market-graphics-auto')).toBe('low');
+    vi.resetModules();
+    expect((await graphics()).gfx).toEqual({ quality: 'low', picked: false });
     // the player's choice stands, however slow it gets
     choose('high');
     frames(frameDrawn, 1 / 20, 20);
@@ -90,7 +105,21 @@ describe('graphics', () => {
     choose('low');
     choose('auto');
     expect(gfx).toEqual({ quality: 'high', picked: false });
-    frames(frameDrawn, 1 / 30, 10); // settling, then six seconds
+    expect(localStorage.getItem('floe-market-graphics-auto')).toBeNull();
+    frames(frameDrawn, 1 / 30, 12); // settling, then four looks
+    expect(gfx.quality).toBe('low');
+  });
+
+  it('on Auto, drops to Low for stutters at a smooth frame rate, and a hitch along the way starts nothing over', async () => {
+    await loadGame();
+    const { frameDrawn, gfx } = await graphics();
+    frames(frameDrawn, 1 / 60, 3.05); // settling
+    // 60 a second, but a hitch every half second: the slowest frame in 100 is slow. Three looks of it
+    stutter(frameDrawn, 0.5, 6.5);
+    expect(gfx.quality).toBe('high');
+    frameDrawn(0.6); // loading something: a slow frame, not a pause
+    expect(gfx.quality).toBe('high');
+    stutter(frameDrawn, 0.5, 1.5); // the fourth
     expect(gfx.quality).toBe('low');
   });
 
