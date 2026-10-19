@@ -4,7 +4,7 @@
 // cook's too); at the counter, bowls; inside the soup square, bowls out for the fans. What they carry is theirs: the cellar
 // (fight.ts) only sees what they hand in or take out. And what each place says while they stand at it.
 import { BAR_PAD, BIN_PADS, BINS, COUNTER_PAD, type Ing, machineAt, machinePad, type Pad, POT_PAD, WATCH } from './cellarPlan';
-import { CY, updLamps } from './cellar';
+import { CY } from './cellar';
 import {
   batchBowls, bowlPrice, COUNTER_CAP, PER_BATCH, POT_CAP, F, fillMachine, ICON, inPot, lineRoom, mach, playerAtPot, STALL_CAP, takeBowl, takeReady,
   toLedge, toStall, doneCount,
@@ -12,7 +12,7 @@ import {
 import { fly } from './holder';
 import { type Kind, newBowl, newCuredFish, newMushroom, newReadyRice, newRice, newFillet } from './items';
 import { player } from './player';
-import { scene, sun } from './render';
+import { scene } from './render';
 import { barAt, counterAt, ledgeAt, machineSpot } from './ringKitchen';
 import { pick, put } from './sfx';
 import type { TipContent } from './ui';
@@ -56,8 +56,6 @@ function handIn(kind: Kind, to: () => ReturnType<typeof V>) {
 
 /** The cellar's work, every frame the player's down there. */
 export function cellarWork(p: XZ, dt: number) {
-  // (Low's four lamps, round where the camera looks)
-  updLamps(sun.target.position, dt);
   player.tPick -= dt; player.tDrop -= dt;
   const back = player.back;
   // the dumbwaiter's plates: rice or fish, only as much as the racks (or the barrels) have room for

@@ -42,6 +42,9 @@ export function hideAbove(): () => void {
   if (!level.down) { if (wasDown) { unfit(); seenAll(); } wasDown = false; last = 0; return show; }
   fitShadows();
   cullFigures();
+  const now = performance.now(), dt = Math.min(0.1, (now - drawnAt) / 1000);
+  drawnAt = now;
+  for (const f of beforeDrawing) f(dt);
   const kids = scene.children;
   if (!wasDown) { kids.forEach(judge); wasDown = true; }
   else for (let i = 0; i < Math.min(PER_FRAME, kids.length); i++) judge(kids[next = (next + 1) % kids.length]);
@@ -51,6 +54,11 @@ export function hideAbove(): () => void {
   last = hidden.length;
   return show;
 }
+/** What's done each time the cellar's drawn (`dt` seconds since the last time), whatever the game's doing: Low's lamps
+ *  (cellar.ts), which have to be right in a scene, a menu or a game held still as much as in play. */
+const beforeDrawing: ((dt: number) => void)[] = [];
+let drawnAt = performance.now();
+export const eachDrawing = (f: (dt: number) => void) => { beforeDrawing.push(f); };
 /** How many things the last render left out (for tests). */
 export const leftOut = () => last;
 

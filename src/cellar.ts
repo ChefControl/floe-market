@@ -24,7 +24,8 @@ import { Fugu } from './fugu';
 import { isHigh, onQuality } from './graphics';
 import { apart, Build, dice, K, quietly, rbox, shade, shadowsOf, tube } from './kit';
 import { ARENA, CARDS, CELLAR_Y, type CellarRoom, CRAFT, DEN, DOORS, found, GROW, keepOnFloor, KITCHEN, LANDING, LIFT_ROOM, LOANS, LOO, OFFICE_ROOM, PREP, pushOutOfBox, RESTO, ROOMS, VIP, walkable, WING } from './layout';
-import { type CanvasTex, canvasTex, copyGeo, type Draw, FONT, G, mat, mesh, OFF, paint, rr, scene } from './render';
+import { type CanvasTex, canvasTex, copyGeo, type Draw, FONT, G, mat, mesh, OFF, paint, rr, scene, sun } from './render';
+import { eachDrawing } from './levelCull';
 import type { XZ } from './util';
 
 export { cellarWay, roomAt } from './cellarPlan';
@@ -2995,10 +2996,16 @@ onQuality(showLamps);
 export function updLamps(at: XZ, dt: number) {
   sweepNowAndThen(dt);
   if (isHigh() || !lit) return;
-  // (the lamps held now count a metre nearer, so two about as near don't swap back and forth)
+  // (the ones that light the spot most, their strength falling off over their reach, and a little light still from
+  // those it's out of reach of, nearest first; the lamps held now count a fifth more, so two about as bright there
+  // don't swap back and forth)
   const held = new Set(holds.map(h => h.i));
-  const far = lights.map((l, i) => (l.intensity > 0 ? Math.hypot(l.position.x - at.x, l.position.z - at.z) - (held.has(i) ? 1 : 0) : Infinity));
-  const want = far.map((_, i) => i).filter(i => far[i] < Infinity).sort((a, b) => far[a] - far[b]).slice(0, STAND_INS);
+  const lit_ = lights.map((l, i) => {
+    if (l.intensity <= 0) return -1;
+    const d = Math.hypot(l.position.x - at.x, l.position.z - at.z), k = Math.max(0, 1 - d / (l.distance || 20));
+    return (l.intensity * k * k + 0.01 / (1 + d)) * (held.has(i) ? 1.2 : 1);
+  });
+  const want = lit_.map((_, i) => i).filter(i => lit_[i] >= 0).sort((a, b) => lit_[b] - lit_[a]).slice(0, STAND_INS);
   // (all of them at once the first time: just come down, or just switched to Low)
   const first = holds.every(h => h.i < 0);
   for (const [n, h] of holds.entries()) {
@@ -3013,6 +3020,8 @@ export function updLamps(at: XZ, dt: number) {
   }
 }
 onQuality(() => { for (const h of holds) { h.i = -1; h.k = 0; } });
+// (each time the cellar's drawn, round where the camera looks)
+eachDrawing(dt => updLamps(sun.target.position, dt));
 
 // ---------- Low: the small things cast no shadows ----------
 // Every shadow is the thing drawn again, so on Low only the big things down here cast one: the walls, the ring, the

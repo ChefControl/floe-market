@@ -4,10 +4,9 @@
 // chips; Three-Card Tommy, a catfish in tweed and a flat cap with the queen tucked in its band, runs the monte. As on
 // their rap sheets (the Undertow Files). Each stands at his booth, breathes, turns his head to whoever's in front of
 // him, and bobs his head to his words as he talks (chatter.ts).
-import { type BufferGeometry, CylinderGeometry, DoubleSide, Group, type Material, Matrix4, type Mesh, MeshBasicMaterial, MeshLambertMaterial, type Object3D, PlaneGeometry, RepeatWrapping, SphereGeometry, TorusGeometry, Vector3 } from 'three';
+import { type BufferGeometry, CylinderGeometry, DoubleSide, Group, type Material, Matrix4, Mesh, MeshBasicMaterial, MeshLambertMaterial, type Object3D, PlaneGeometry, RepeatWrapping, SphereGeometry, TorusGeometry, Vector3 } from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { isHigh } from './graphics';
-import { apart, dice, quietly } from './kit';
+import { apart, detail, dice, quietly } from './kit';
 import { castsWhenSeen } from './levelCull';
 import { canvasTex, copyGeo, G, mesh, paint, painted } from './render';
 import type { XZ } from './util';
@@ -15,6 +14,20 @@ import type { XZ } from './util';
 export type Host = 'eddie' | 'harry' | 'tommy';
 
 const GOLD = 0xF2C14E, SHADES = 0x15181D, TROUSERS = 0x24242C, SHOES = 0x15151A;
+/** High's finer things' colours: a trouser's crease (a shade lighter) and cuff, a shoe's sole, a pocket square. */
+const CREASE = 0x34343F, CUFF = 0x2C2C36, SOLE = 0x0A0A0C, POCKET = 0xF2EEE2;
+/** The coat's front, `y` up: how far out of his middle (it's a cone, 0.3 round at the hem to 0.22 at the top, made a
+ *  little deeper). */
+const coatAt = (y: number) => (0.3 - (y - 0.3) / 0.6 * 0.08) * 1.05;
+/** The dice High's finer pieces and each version's shapes are made on (flatten, below): their own, off the game's luck. */
+const shapeDice = dice(0x5AD0F), fineDice = dice(0xF1AE);
+/** High's finer pieces' materials, their own (render.ts' shared ones are made when they always were). */
+const fineMats = new Map<number, MeshLambertMaterial>();
+const [cuffGeo, hemGeo, trouserGeo, cuffRingGeo] = apart(() => [
+  new TorusGeometry(0.058, 0.011, 5, 12), new TorusGeometry(0.3, 0.012, 4, 24),
+  // (a trouser leg, round, as wide as Low's block at the hip and narrowing a little to the cuff, and the cuff's turn-up)
+  new CylinderGeometry(0.072, 0.064, 0.3, 10), new TorusGeometry(0.064, 0.012, 4, 14),
+], dice(0xC0FF));
 /** The top half of a ball, for eyelids. */
 const lidGeo = new SphereGeometry(1, 14, 6, 0, Math.PI * 2, 0, Math.PI / 2);
 const chainGeo = new TorusGeometry(0.11, 0.012, 4, 12, Math.PI);
@@ -71,8 +84,11 @@ export class Hood extends Group {
     for (const s of [-1, 1]) {
       const l = put(this, new Group()); l.position.set(s * 0.1, 0.3, 0);
       this.legs.push(l);
-      l.add(mesh(G.leg, TROUSERS, 0, -0.15, 0, true));
-      put(l, mesh(G.box, SHOES, 0, -0.28, 0.04, true)).scale.set(0.13, 0.06, 0.22);
+      const leg = put(l, mesh(G.leg, TROUSERS, 0, -0.15, 0, true));
+      const shoe = put(l, mesh(G.box, SHOES, 0, -0.28, 0.04, true)); shoe.scale.set(0.13, 0.06, 0.22);
+      // (Low's block of a trouser leg and shoe: High's are round, dressLeg)
+      leg.userData.lowOnly = shoe.userData.lowOnly = true;
+      this.dressLeg(l, leg, shoe, true);
     }
     this.add(this.body);
     const coat = put(this.body, mesh(G.body, d.coat, 0, 0.6, 0, true)); coat.scale.set(1.12, 1, 1.05);
@@ -88,9 +104,38 @@ export class Hood extends Group {
       put(a, mesh(G.sphere, d.coat, 0, -0.32, 0)).scale.set(0.066, 0.03, 0.066);
       put(a, mesh(G.sphere, d.hand, 0, -0.36, 0.01, true)).scale.setScalar(0.05);
       this.arms.push(a);
+      // High's: the shirt's cuff showing at the sleeve's end, and a thumb
+      const af = fine(a);
+      finePiece(af, cuffGeo, d.shirt, 0, -0.335, 0).rotation.x = Math.PI / 2;
+      finePiece(af, G.sphere, d.hand, -s * 0.026, -0.352, 0.04).scale.set(0.02, 0.026, 0.02);
     }
     this.head.position.set(0, 0.92, 0);
     this.body.add(this.head);
+    // High's: the coat's buttons, its front edge and hem, flaps over its pockets and a square in the breast pocket
+    const bf = fine(this.body), trim = d.lapel;
+    for (const y of [0.52, 0.62]) finePiece(bf, G.sphere, trim, 0, y, coatAt(y) + 0.004).scale.set(0.017, 0.017, 0.008);
+    finePiece(bf, G.box, trim, 0, 0.47, coatAt(0.47) - 0.002).scale.set(0.007, 0.34, 0.006);
+    const hem = finePiece(bf, hemGeo, trim, 0, 0.315, 0, true); hem.rotation.x = Math.PI / 2; hem.scale.set(1.12, 1.05, 1);
+    for (const s of [-1, 1]) {
+      const flap = finePiece(bf, G.box, trim, s * 0.17, 0.5, coatAt(0.5) * 0.84); flap.scale.set(0.1, 0.022, 0.012); flap.rotation.y = s * 0.6;
+    }
+    const sq = finePiece(bf, G.box, POCKET, 0.17, 0.81, coatAt(0.81) * 0.79); sq.scale.set(0.045, 0.022, 0.01); sq.rotation.set(-0.1, 0.62, 0.1);
+  }
+  /** High's leg (`l`, in place of Low's trouser `leg` and `shoe`, blocks): a trouser leg tapering to its cuff, with a
+   *  crease down the front (`standing`), and a rounded shoe on a sole; each placed on Low's as they are, so they move
+   *  with them when he sits. */
+  private dressLeg(l: Group, leg: Mesh, shoe: Mesh, standing: boolean) {
+    l.children.filter(c => c.userData.fine).forEach(c => c.removeFromParent());
+    const lf = fine(l);
+    leg.updateMatrix(); shoe.updateMatrix();
+    const on = (o: Object3D, at: Object3D) => { o.updateMatrix(); o.applyMatrix4(at.matrix); };
+    // (in the trouser's own size: a box 0.13 by 0.3 by 0.15)
+    if (standing) { const crease = finePiece(lf, G.box, CREASE, 0, 0.02, 0.068); crease.scale.set(0.006, 0.22, 0.004); on(crease, leg); }
+    on(finePiece(lf, trouserGeo, TROUSERS, 0, 0, 0, true), leg);
+    const cuff = finePiece(lf, cuffRingGeo, CUFF, 0, -0.128, 0); cuff.rotation.x = Math.PI / 2; on(cuff, leg);
+    // (in the shoe's: a box a unit each way)
+    const toe = finePiece(lf, G.sphere, SHOES, 0, 0.05, 0.04, true); toe.scale.set(0.5, 0.62, 0.52); on(toe, shoe);
+    const sole = finePiece(lf, G.box, SOLE, 0, -0.42, 0.02, true); sole.scale.set(1.0, 0.24, 1.04); on(sole, shoe);
   }
   /** Sits him down on a seat `h` up (where he's put is where his seat is): his thighs out in front of him, a shin
    *  hanging from each knee, his shoes at their feet. */
@@ -98,7 +143,9 @@ export class Hood extends Group {
     for (const l of this.legs) {
       l.rotation.x = -Math.PI / 2; l.position.y = h; l.position.z = 0.02;
       const shin = put(l, mesh(G.leg, TROUSERS, 0, -0.28, -0.15, true)); shin.rotation.x = Math.PI / 2;
-      const shoe = l.children[1]; shoe.position.set(0, -0.33, -0.31); shoe.rotation.x = Math.PI / 2;
+      shin.userData.lowOnly = true;
+      const shoe = l.children[1] as Mesh; shoe.position.set(0, -0.33, -0.31); shoe.rotation.x = Math.PI / 2;
+      this.dressLeg(l, shin, shoe, false);
     }
     this.body.position.y = h - 0.3;
     return this;
@@ -304,60 +351,110 @@ export function mama() {
 export const family: Record<Host, Hood> = { eddie: eddie(), harry: harry(), tommy: tommy() };
 
 // ---------- merging a figure's still parts ----------
-// A figure's shadow is cast by a plainer copy of the pieces that were made to cast one (fewer sides, as kit.ts' baked
-// meshes cast theirs), after its own triangles in the same mesh; on Low (graphics.ts), only by the bigger of them, not
-// the eyes, buttons, whiskers and chains. (Made on dice of their own, off the game's luck and the scenery's.)
-const shadowDice = dice(0x5AD0F);
-const plainers = new WeakMap<BufferGeometry, BufferGeometry>();
-/** `geo`'s shadow shape: a round one with fewer sides, anything else itself. */
-function plainer(geo: BufferGeometry) {
-  let p = plainers.get(geo);
+// A figure is drawn as a few merged meshes (flatten), one for each part that moves, in two versions (graphics.ts):
+// High, as it was built, with each round piece given as many sides as its size wants (a glint a few millimetres
+// across was a ball of 252 triangles), and the finer pieces only High has (`fine`: the cuffs, the buttons, the shoes'
+// soles...); and Low, the same pieces as it was built, a notch plainer. Its shadow is cast by a plainer copy still of
+// the pieces made to cast one (fewer sides, as kit.ts' baked meshes cast theirs), after its own triangles in the same
+// mesh; on Low only by the bigger of them, not the eyes, buttons, whiskers and chains. (Made on dice of their own, off
+// the game's luck and the scenery's; Low's merged mesh is made just as the one mesh was, so the luck's drawn as it was.)
+type Detail = 'high' | 'low' | 'shadow';
+/** Sides round and rings down a ball, by its size across (metres), for each version: above 25 cm, 10 cm, 4 cm, under. */
+const BALL: Record<Detail, [number, number][]> = {
+  // (above 25 cm: on High as built, on Low half the sides, but no fewer than 10 by 7)
+  high: [[Infinity, Infinity], [12, 8], [9, 6], [6, 4]],
+  low: [[10, 7], [9, 6], [7, 5], [5, 3]],
+  shadow: [[6, 4], [6, 4], [5, 3], [4, 3]],
+};
+const tier = (d: number) => (d >= 0.25 ? 0 : d >= 0.1 ? 1 : d >= 0.04 ? 2 : 3);
+const shapes = new WeakMap<BufferGeometry, Map<string, BufferGeometry>>();
+/** `geo` in `detail`, `across` metres at its widest where it's put: a round one with the sides its size wants, any other
+ *  itself. */
+function shapeFor(geo: BufferGeometry, detail: Detail, across: number) {
+  if (!(geo instanceof SphereGeometry || geo instanceof TorusGeometry || geo instanceof CylinderGeometry)) return geo;
+  const t = tier(across), key = `${detail}${t}`;
+  let all = shapes.get(geo);
+  if (!all) shapes.set(geo, all = new Map());
+  let p = all.get(key);
   if (p) return p;
   p = quietly(() => {
-    if (geo instanceof SphereGeometry) { const a = geo.parameters; return new SphereGeometry(a.radius, 6, 4, a.phiStart, a.phiLength, a.thetaStart, a.thetaLength); }
-    if (geo instanceof TorusGeometry) { const a = geo.parameters; return new TorusGeometry(a.radius, a.tube, 3, 8, a.arc); }
-    if (geo instanceof CylinderGeometry) { const a = geo.parameters; return new CylinderGeometry(a.radiusTop, a.radiusBottom, a.height, 6, 1, a.openEnded, a.thetaStart, a.thetaLength); }
-    return geo;
-  }, shadowDice);
-  plainers.set(geo, p);
+    if (geo instanceof SphereGeometry) {
+      const a = geo.parameters;
+      let [w, h] = BALL[detail][t];
+      if (detail === 'low' && t === 0) { w = Math.max(w, Math.round(a.widthSegments / 2)); h = Math.max(h, Math.round(a.heightSegments / 2)); }
+      return w >= a.widthSegments && h >= a.heightSegments ? geo : new SphereGeometry(a.radius, Math.min(w, a.widthSegments), Math.min(h, a.heightSegments), a.phiStart, a.phiLength, a.thetaStart, a.thetaLength);
+    }
+    if (geo instanceof TorusGeometry) {
+      const a = geo.parameters, most = { high: [6, 16], low: [4, 10], shadow: [3, 8] }[detail];
+      return a.radialSegments <= most[0] && a.tubularSegments <= most[1] ? geo : new TorusGeometry(a.radius, a.tube, Math.min(a.radialSegments, most[0]), Math.min(a.tubularSegments, most[1]), a.arc);
+    }
+    const a = (geo as CylinderGeometry).parameters, most = { high: 12, low: 8, shadow: 6 }[detail];
+    return a.radialSegments <= most ? geo : new CylinderGeometry(a.radiusTop, a.radiusBottom, a.height, most, 1, a.openEnded, a.thetaStart, a.thetaLength);
+  }, shapeDice);
+  all.set(key, p);
   return p;
 }
 /** Under this (in metres, its biggest side), or this thin in two directions (a whisker, a chain), a piece casts no
  *  shadow on Low. */
 const SMALL = 0.12, ROD = 0.03;
 const size = new Vector3();
-/** Gives `o`, a figure's merged pieces, `shadow`, the plainer copies of those that cast, after its own triangles: on
- *  High all of them, on Low the bigger ones. */
+const big = (g: BufferGeometry) => {
+  g.computeBoundingBox();
+  const d = g.boundingBox!.getSize(size).toArray().sort((a, b) => a - b);
+  return d[2] >= SMALL && d[1] >= ROD;
+};
+/** Gives `o`, a figure's merged pieces, `shadow` (the plainer copies of those that cast), after its own triangles, drawn
+ *  only in the shadow pass. */
 function castAs(o: Mesh, shadow: BufferGeometry[]) {
-  const big = shadow.filter(g => {
-    g.computeBoundingBox();
-    const d = g.boundingBox!.getSize(size).toArray().sort((a, b) => a - b);
-    return d[2] >= SMALL && d[1] >= ROD;
-  });
+  // (its drawing's its own: never merged with others, batch.ts)
+  o.userData.noBatch = true;
+  if (!shadow.length) { o.castShadow = false; return; }
   const own = o.geometry.attributes.position.count;
   for (const g of shadow) paint(g, 0);
-  const all = mergeGeometries([o.geometry, ...shadow, ...big])!, hi = shadow.reduce((n, g) => n + g.attributes.position.count, 0);
-  const lo = big.reduce((n, g) => n + g.attributes.position.count, 0);
+  const all = mergeGeometries([o.geometry, ...shadow])!;
   shadow.forEach(g => g.dispose());
   o.geometry.dispose();
   o.geometry = all;
   all.setDrawRange(0, own);
-  o.onBeforeShadow = () => { if (isHigh()) all.setDrawRange(own, hi); else all.setDrawRange(own + hi, lo); };
+  o.onBeforeShadow = () => all.setDrawRange(own, Infinity);
   o.onAfterShadow = () => all.setDrawRange(0, own);
-  // (its drawing's its own: never merged with others, batch.ts)
-  o.userData.noBatch = true;
+}
+/** The finer pieces only High draws: a group of them, under `parent` (merged with it by flatten, into High's mesh). */
+export function fine(parent: Object3D) {
+  const g = quietly(() => new Group(), fineDice);
+  g.userData.fine = true;
+  parent.add(g);
+  return g;
+}
+/** Adds a piece to High's finer ones: `geo` in colour `c` at (x, y, z), off the game's luck (made on dice of their own,
+ *  in materials of their own, so render.ts' shared ones are made when they always were). */
+export function finePiece(to: Object3D, geo: BufferGeometry, c: number, x: number, y: number, z: number, cast = false) {
+  return quietly(() => {
+    let m = fineMats.get(c);
+    if (!m) fineMats.set(c, m = new MeshLambertMaterial({ color: c }));
+    const o = new Mesh(geo, m);
+    o.position.set(x, y, z); o.castShadow = cast;
+    to.add(o);
+    return o;
+  }, fineDice);
 }
 const plain = (m: Material | Material[]): m is MeshLambertMaterial => !Array.isArray(m) && m instanceof MeshLambertMaterial
   && !m.map && !m.transparent && !m.vertexColors && m.emissive.getHex() === 0;
-/** Merges the plain meshes under `root` (but not into `keep`) into one, in `root`'s own space, its colours painted on. */
+/** Merges the plain meshes under `root` (but not into `keep`) into one for each version (High and Low), in `root`'s own
+ *  space, its colours painted on; the others (glowing, see-through, drawn on), each material's lot into one. */
 export function flatten(root: Object3D, keep: Set<Object3D> = new Set()) {
   root.updateMatrixWorld(true);
   const toRoot = root.matrixWorld.clone().invert(), m4 = new Matrix4();
-  /** `m`'s geometry (or `geo` in its place) in `root`'s space, keeping only `attrs`. */
-  const placed = (m: Mesh, attrs: string[], geo = m.geometry) => {
+  /** `m`'s geometry (or its shape in `detail`) in `root`'s space, keeping only `attrs`. */
+  const placed = (m: Mesh, attrs: string[], detail?: Detail) => {
+    m4.multiplyMatrices(toRoot, m.matrixWorld);
+    let geo = m.geometry;
+    if (detail) {
+      if (!geo.boundingSphere) geo.computeBoundingSphere();
+      geo = shapeFor(geo, detail, 2 * geo.boundingSphere!.radius * m4.getMaxScaleOnAxis());
+    }
     const g = geo.index ? geo.toNonIndexed() : copyGeo(geo);
     for (const k of Object.keys(g.attributes)) if (!attrs.includes(k)) g.deleteAttribute(k);
-    m4.multiplyMatrices(toRoot, m.matrixWorld);
     g.applyMatrix4(m4);
     if (m4.determinant() < 0) {
       for (const a of [g.attributes.position, g.attributes.normal]) {
@@ -366,25 +463,37 @@ export function flatten(root: Object3D, keep: Set<Object3D> = new Set()) {
     }
     return g;
   };
-  // (the plain ones painted into one; the others, glowing or see-through, merged with any that share their material)
-  const flat: Mesh[] = [], alike = new Map<Material, Mesh[]>();
-  const walk = (o: Object3D) => {
+  // (the plain ones painted into one; the others, glowing or see-through, merged with any that share their material;
+  // the finer ones High's alone)
+  const flat: Mesh[] = [], finer: Mesh[] = [], alike = new Map<Material, Mesh[]>();
+  const walk = (o: Object3D, isFine: boolean) => {
     for (const c of o.children) {
       if (keep.has(c)) continue;
-      const m = c as Mesh;
-      if (!m.isMesh || c.children.length) { walk(c); continue; }
-      if (plain(m.material)) flat.push(m);
+      const m = c as Mesh, f = isFine || !!c.userData.fine;
+      if (!m.isMesh || c.children.length) { walk(c, f); continue; }
+      if (f) { if (plain(m.material)) finer.push(m); }
+      else if (plain(m.material)) flat.push(m);
       else if (!Array.isArray(m.material) && !(m.material as MeshLambertMaterial).vertexColors) (alike.get(m.material) ?? alike.set(m.material, []).get(m.material)!).push(m);
     }
   };
-  walk(root);
+  walk(root, false);
   if (flat.length) {
-    const geos = flat.map(m => paint(placed(m, ['position', 'normal']), (m.material as MeshLambertMaterial).color.getHex()));
-    for (const m of flat) m.removeFromParent();
-    const o = put(root, mesh(mergeGeometries(geos)!, painted, 0, 0, 0, true));
+    const colour = (m: Mesh) => (m.material as MeshLambertMaterial).color.getHex();
+    // Low's: made just as the one mesh was, on the game's luck
+    const geos = flat.map(m => paint(placed(m, ['position', 'normal'], 'low'), colour(m)));
+    const low = put(root, mesh(mergeGeometries(geos)!, painted, 0, 0, 0, true));
     geos.forEach(g => g.dispose());
-    quietly(() => castAs(o, flat.filter(m => m.castShadow).map(m => placed(m, ['position', 'normal'], plainer(m.geometry)))), shadowDice);
-  }
+    quietly(() => {
+      castAs(low, flat.filter(m => m.castShadow).map(m => placed(m, ['position', 'normal'], 'shadow')).filter(big));
+      // High's, and its finer pieces
+      const all = [...flat.filter(m => !m.userData.lowOnly), ...finer], hg = all.map(m => paint(placed(m, ['position', 'normal'], 'high'), colour(m)));
+      const high = put(root, mesh(mergeGeometries(hg)!, painted, 0, 0, 0, true));
+      hg.forEach(g => g.dispose());
+      castAs(high, all.filter(m => m.castShadow).map(m => placed(m, ['position', 'normal'], 'shadow')));
+      detail(low, high);
+    }, shapeDice);
+    for (const m of [...flat, ...finer]) m.removeFromParent();
+  } else for (const m of finer) m.removeFromParent();
   for (const [mat, ms] of alike) {
     if (ms.length < 2) continue;
     const uv = ms.every(m => m.geometry.attributes.uv), geos = ms.map(m => placed(m, uv ? ['position', 'normal', 'uv'] : ['position', 'normal']));

@@ -8,6 +8,7 @@ import {
   type Object3D, Quaternion, RepeatWrapping, SphereGeometry, TorusGeometry, TubeGeometry, Vector3,
 } from 'three';
 import { Hood } from './family';
+import { apart, dice } from './kit';
 import { bake, canvasTex, G, mat, mesh, type Part } from './render';
 
 const put = <T extends Object3D>(parent: Object3D, m: T) => { parent.add(m); return m; };
@@ -21,6 +22,9 @@ const browGeo = new TorusGeometry(0.05, 0.05 * 0.011 / 0.084, 6, 16, Math.PI * 0
 const GLINT = new MeshBasicMaterial({ color: 0xFFFFFF });
 /** A smoother ball for his big sleek head. */
 const smooth = new SphereGeometry(1, 36, 22);
+/** A small ball, for the specks baked together (his freckles, nostrils, buttons): a few sides is round enough at a
+ *  centimetre across. (On dice of its own: the game's luck is drawn as it was.) */
+const DOT = apart(() => new SphereGeometry(1, 6, 4), dice(0xD07));
 
 const SKIN = 0x667C90, DARK = 0x4A5D71, BELLY = 0xD3DAD8, LIP = 0x56697D, MOUTH = 0x231820, FRECKLE = 0xB4C6D3;
 const SHIRT = 0xF3EFE6, VEST = 0x7E2236, VEST_DARK = 0x5A1726, BOW = 0x1D1A22, GARTER = 0xB0303F, GOLD = 0xE8B94A;
@@ -100,9 +104,9 @@ export function angler(): { g: Hood; lure: Object3D; lids: Object3D[] } {
   /** A point on the waistcoat's front, `a` round from the middle, at height `y`, `out` off it. */
   const facet = (a: number) => Math.cos(Math.PI / 10) / Math.cos(((a % (Math.PI / 5)) + Math.PI / 5) % (Math.PI / 5) - Math.PI / 10);
   const onVest = (a: number, y: number, out = 0) => new Vector3(Math.sin(a) * (vx(y) * facet(a) + out), y, Math.cos(a) * (vz(y) * facet(a) + out));
-  const buttons = bake([0.42, 0.5, 0.58].map(y => ({ geo: G.sphere, at: onVest(0, y, 0.004).toArray() as [number, number, number], scale: [0.016, 0.016, 0.01] as [number, number, number] })));
+  const buttons = bake([0.42, 0.5, 0.58].map(y => ({ geo: DOT, at: onVest(0, y, 0.004).toArray() as [number, number, number], scale: [0.016, 0.016, 0.01] as [number, number, number] })));
   put(b, mesh(buttons, GOLD));
-  const welts = bake([-1, 1].map(s => aimed(G.sphere, onVest(s * 0.6, 0.5, 0.002), new Vector3(Math.sin(s * 0.6), 0, Math.cos(s * 0.6)), [0.055, 0.011, 0.012], FRONT)));
+  const welts = bake([-1, 1].map(s => aimed(DOT, onVest(s * 0.6, 0.5, 0.002), new Vector3(Math.sin(s * 0.6), 0, Math.cos(s * 0.6)), [0.055, 0.011, 0.012], FRONT)));
   put(b, mesh(welts, VEST_DARK));
   tube(b, GOLD, [onVest(0, 0.5, 0.008), onVest(0.18, 0.455, 0.012), onVest(0.38, 0.45, 0.012), onVest(0.55, 0.485, 0.008), onVest(0.6, 0.5, -0.004)], 0.0055, 0.0055, 20, 5);
   // the watch's bow and crown peeking out of the pocket
@@ -144,7 +148,7 @@ export function angler(): { g: Hood; lure: Object3D; lids: Object3D[] } {
     put(h, mesh(G.sphere, DARK, ...pts[pts.length - 1].toArray())).scale.setScalar(0.0105);
   }
   // two small nostrils over the moustache
-  put(h, mesh(bake([-1, 1].map(s => { const { p, n } = skin(s * 0.07, 0.305, -0.002); return aimed(G.sphere, p, n, [0.009, 0.012, 0.005], FRONT); })), DARK));
+  put(h, mesh(bake([-1, 1].map(s => { const { p, n } = skin(s * 0.07, 0.305, -0.002); return aimed(DOT, p, n, [0.009, 0.012, 0.005], FRONT); })), DARK));
   // big half-lidded eyes, and brows, the right one a little raised
   const lids: Object3D[] = [];
   for (const s of [-1, 1]) {
@@ -157,7 +161,7 @@ export function angler(): { g: Hood; lure: Object3D; lids: Object3D[] } {
   }
   // the freckles: across his cheeks under the eyes, and over his crown and down the back of his head
   const dots: Part[] = [];
-  const spot = (a: number, y: number, size: number) => { const { p, n } = skin(a, y, -0.001); dots.push(aimed(G.sphere, p, n, [size, size, size * 0.3], FRONT)); };
+  const spot = (a: number, y: number, size: number) => { const { p, n } = skin(a, y, -0.001); dots.push(aimed(DOT, p, n, [size, size, size * 0.3], FRONT)); };
   for (const s of [-1, 1]) for (const [a, y, z] of [[0.62, 0.31, 0.009], [0.7, 0.29, 0.007], [0.55, 0.29, 0.007], [0.78, 0.32, 0.008], [0.66, 0.335, 0.006]]) spot(s * a, y, z);
   for (const [a, y, z] of [[0.3, 0.47, 0.01], [-0.35, 0.48, 0.009], [0.9, 0.44, 0.011], [-0.95, 0.42, 0.01], [1.6, 0.4, 0.012], [-1.7, 0.43, 0.011], [2.3, 0.42, 0.012], [-2.4, 0.38, 0.011], [3.0, 0.45, 0.012], [2.7, 0.3, 0.01], [-2.8, 0.27, 0.01], [1.9, 0.27, 0.009], [-1.4, 0.3, 0.009], [3.1, 0.22, 0.01]]) spot(a, y, z);
   put(h, mesh(bake(dots), FRECKLE));
