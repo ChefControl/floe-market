@@ -737,6 +737,14 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
 #coach .dir{ display:none; position:absolute; left:50%; top:50%; width:0; height:0; }
 #coach.edge .dir{ display:block; }
 #coach .dir::after{ content:""; position:absolute; left:1px; top:-7px; border:7px solid transparent; border-left:20px solid #FFC34A; border-right:0; }
+/* on a phone, three quarters the size */
+@media (max-width: 720px), (max-height: 500px){
+  #coach{ max-width:min(180px, calc(100vw - 32px)); padding:5px 11px 6px; border-radius:12px; box-shadow:0 2px 0 var(--shade), 0 0 0 2px #FFC34A; }
+  #coach b{ font-size:13.5px; }
+  #coach small{ font-size:10.5px; }
+  #coach::after{ margin:2px 0 0 -7px; border-width:8px 7px 0; }
+  #coach .dir::after{ top:-5px; border-width:5px 0 5px 15px; }
+}
 /* the rating (and down in the cellar the 💪), while the tutorial talks about it */
 #stars.teach, #power.teach{ animation:teach 1.2s ease-in-out infinite; }
 @keyframes teach{ 50%{ box-shadow:0 3px 0 var(--shade), 0 0 0 5px rgba(255,195,74,.75); transform:scale(1.08); } }

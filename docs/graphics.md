@@ -10,7 +10,7 @@ The player picks **Auto**, **Low** or **High** in the ✨ row of the settings.
 
 - **High** draws the world the way the people are drawn: low poly but rounded, with small details, a rolling sea, cloud shadows, seasonal snow, petals and leaves, and the effects.
 - **Low** draws everything exactly as it was before the rework, with a lighter renderer (a half-size shadow map with hard edges, at most 1.5 pixels a point). It's for phones that can't keep up.
-- **Auto**, the default, starts each visit on High and drops to Low for the rest of the visit if the frame rate stays under 45 for six seconds. It never switches back up by itself.
+- **Auto**, the default, starts on High and watches the frames in two-second looks. A look is bad if it ran under 50 fps, or it stuttered: its p95 frame slower than 25 ms or its p99 slower than 50 ms. When four of the last five looks are bad it drops to Low, and it starts on Low on that device from then on (`localStorage` key `floe-market-graphics-auto`). A hitch counts as a slow frame; only a gap of over a second (the tab hidden, the phone locked) makes it settle and start watching again. It never switches back up by itself; choosing Auto in the settings starts it on High again.
 
 The choice is kept on the device (`localStorage` key `floe-market-graphics`), never in the save or the cloud.
 

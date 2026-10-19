@@ -20,6 +20,7 @@ import {
   type Boss, bossOf, BOSSES, BUYOUT, canRing, canShow, type Carry, F, type Forecast, fixOn, forecast, ICON, type Ing, keptHome, NAME, nextBoss, practiceDue, ringGong,
   grand, type Rush, sides, slam, SLAM, slamDue, strength, toBeat, worstShort, you,
 } from './fight';
+import { isTouch } from './hint';
 import { kindOf } from './items';
 import { buyHeld, keyHeld } from './input';
 import { level, stage } from './layout';
@@ -320,9 +321,14 @@ function renderBout() {
 
 // ---------- the slam ----------
 // A grand win (fight.ts's SLAM): in the fight, a white ring closes on the champion's face on the strip to meet a gold
-// one at the belly bump, and Space (or a tap of the button) as they meet lands the slam: perfect or good, for more of
-// his prize. One try. What it came to stays on the button for a moment.
+// one at the belly bump, and Space (or a click of the button) as they meet lands the slam: perfect or good, for more of
+// his prize. On a phone a tap anywhere lands it, counted as the finger touches. One try. What it came to stays on the
+// button for a moment.
 const slamRing = $('slamRing'), slamClose = slamRing.querySelector('b')!, slamGo = $('slamGo') as HTMLButtonElement;
+/** Whether this is a touch screen (or a finger's been seen on it): the button says tap, not Space. */
+let touch = isTouch();
+const slamAsk = () => touch ? 'SLAM! Tap on gold' : 'SLAM! <kbd>Space</kbd> on gold';
+slamGo.innerHTML = slamAsk();
 /** Seconds the button keeps saying how the slam went. */
 let slamSaid = 0, spaceHeld = false;
 const SLAM_SAYS = ['Missed', 'Good slam!', 'Perfect slam!'];
@@ -335,6 +341,15 @@ function goSlam() {
   if (q > 0) chime();
 }
 slamGo.addEventListener('click', goSlam);
+// (a finger, or a pen, anywhere on the screen; the button's own click after it finds the slam already tried)
+window.addEventListener('pointerdown', e => {
+  if (e.pointerType === 'mouse') return;
+  if (!touch) {
+    touch = true;
+    if (!slamGo.classList.contains('said')) slamGo.innerHTML = slamAsk();
+  }
+  if (!rushEl.hidden && slamDue()) goSlam();
+}, { capture: true });
 function updSlam(dt: number) {
   const space = keyHeld(' '), press = space && !spaceHeld;
   spaceHeld = space;
@@ -347,7 +362,7 @@ function updSlam(dt: number) {
   if (show === slamGo.hidden) slamGo.hidden = !show;
   if (!show && slamGo.classList.contains('said')) {
     slamGo.classList.remove('said');
-    slamGo.innerHTML = 'SLAM! <kbd>Space</kbd> on gold';
+    slamGo.innerHTML = slamAsk();
   }
 }
 /** Whether a rush is a grand win with the slam still to try (for tests). */
