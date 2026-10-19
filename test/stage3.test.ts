@@ -128,7 +128,8 @@ describe('buying into the ring', () => {
     const g2 = await loadGame(localStorage.getItem('floe-market-v1')!);
     expect(g2.wallet.money).toBe(0);
     expect((await import('../src/front')).front.till).toBe(499_000_000);
-  });
+  // (a stage 2 and a stage 3 game loaded: about 15 s on CI under coverage)
+  }, 30_000);
 
   it('a stage 3 save from before the till keeps what the cellar can have paid it, and the rest goes in the till', async () => {
     // (two bosses beaten: the practice, Hakkaku and Yokobashiri paid 35 + 350 + 250 chips, and Dobu's 300 is next)
