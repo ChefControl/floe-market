@@ -628,7 +628,11 @@ export class Person extends Group {
   /** What's drawn of them now: the body's meshes, and an arm and a leg as each hangs from its pivot (for drawing a crowd
    *  of them in batches: swarm.ts). */
   baked() {
-    return { body: [this.shell.geometry, this.trim.geometry].filter(g => g !== NOTHING), arm: this.limbs[0].geometry, leg: this.limbs[2].geometry };
+    return {
+      body: [this.shell.geometry, this.trim.geometry].filter(g => g !== NOTHING), arm: this.limbs[0].geometry, leg: this.limbs[2].geometry,
+      // (what of the body casts a shadow: the trim, the small things on it, doesn't)
+      casts: this.shell.geometry,
+    };
   }
 
   /** Puts on the clothes for the season (none of them while disguised), and bakes what's worn. */

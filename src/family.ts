@@ -4,9 +4,11 @@
 // chips; Three-Card Tommy, a catfish in tweed and a flat cap with the queen tucked in its band, runs the monte. As on
 // their rap sheets (the Undertow Files). Each stands at his booth, breathes, turns his head to whoever's in front of
 // him, and bobs his head to his words as he talks (chatter.ts).
-import { CylinderGeometry, DoubleSide, Group, type Material, Matrix4, type Mesh, MeshBasicMaterial, MeshLambertMaterial, type Object3D, PlaneGeometry, RepeatWrapping, SphereGeometry, TorusGeometry, Vector3 } from 'three';
+import { type BufferGeometry, CylinderGeometry, DoubleSide, Group, type Material, Matrix4, type Mesh, MeshBasicMaterial, MeshLambertMaterial, type Object3D, PlaneGeometry, RepeatWrapping, SphereGeometry, TorusGeometry, Vector3 } from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { apart, dice } from './kit';
+import { isHigh } from './graphics';
+import { apart, dice, quietly } from './kit';
+import { castsWhenSeen } from './levelCull';
 import { canvasTex, copyGeo, G, mesh, paint, painted } from './render';
 import type { XZ } from './util';
 
@@ -64,6 +66,8 @@ export class Hood extends Group {
   private said = 0;
   constructor(d: Dress) {
     super();
+    // (a few thousand triangles of shadow each: cast only while he could be seen, levelCull.ts)
+    castsWhenSeen(this);
     for (const s of [-1, 1]) {
       const l = put(this, new Group()); l.position.set(s * 0.1, 0.3, 0);
       this.legs.push(l);
@@ -300,15 +304,58 @@ export function mama() {
 export const family: Record<Host, Hood> = { eddie: eddie(), harry: harry(), tommy: tommy() };
 
 // ---------- merging a figure's still parts ----------
+// A figure's shadow is cast by a plainer copy of the pieces that were made to cast one (fewer sides, as kit.ts' baked
+// meshes cast theirs), after its own triangles in the same mesh; on Low (graphics.ts), only by the bigger of them, not
+// the eyes, buttons, whiskers and chains. (Made on dice of their own, off the game's luck and the scenery's.)
+const shadowDice = dice(0x5AD0F);
+const plainers = new WeakMap<BufferGeometry, BufferGeometry>();
+/** `geo`'s shadow shape: a round one with fewer sides, anything else itself. */
+function plainer(geo: BufferGeometry) {
+  let p = plainers.get(geo);
+  if (p) return p;
+  p = quietly(() => {
+    if (geo instanceof SphereGeometry) { const a = geo.parameters; return new SphereGeometry(a.radius, 6, 4, a.phiStart, a.phiLength, a.thetaStart, a.thetaLength); }
+    if (geo instanceof TorusGeometry) { const a = geo.parameters; return new TorusGeometry(a.radius, a.tube, 3, 8, a.arc); }
+    if (geo instanceof CylinderGeometry) { const a = geo.parameters; return new CylinderGeometry(a.radiusTop, a.radiusBottom, a.height, 6, 1, a.openEnded, a.thetaStart, a.thetaLength); }
+    return geo;
+  }, shadowDice);
+  plainers.set(geo, p);
+  return p;
+}
+/** Under this (in metres, its biggest side), or this thin in two directions (a whisker, a chain), a piece casts no
+ *  shadow on Low. */
+const SMALL = 0.12, ROD = 0.03;
+const size = new Vector3();
+/** Gives `o`, a figure's merged pieces, `shadow`, the plainer copies of those that cast, after its own triangles: on
+ *  High all of them, on Low the bigger ones. */
+function castAs(o: Mesh, shadow: BufferGeometry[]) {
+  const big = shadow.filter(g => {
+    g.computeBoundingBox();
+    const d = g.boundingBox!.getSize(size).toArray().sort((a, b) => a - b);
+    return d[2] >= SMALL && d[1] >= ROD;
+  });
+  const own = o.geometry.attributes.position.count;
+  for (const g of shadow) paint(g, 0);
+  const all = mergeGeometries([o.geometry, ...shadow, ...big])!, hi = shadow.reduce((n, g) => n + g.attributes.position.count, 0);
+  const lo = big.reduce((n, g) => n + g.attributes.position.count, 0);
+  shadow.forEach(g => g.dispose());
+  o.geometry.dispose();
+  o.geometry = all;
+  all.setDrawRange(0, own);
+  o.onBeforeShadow = () => { if (isHigh()) all.setDrawRange(own, hi); else all.setDrawRange(own + hi, lo); };
+  o.onAfterShadow = () => all.setDrawRange(0, own);
+  // (its drawing's its own: never merged with others, batch.ts)
+  o.userData.noBatch = true;
+}
 const plain = (m: Material | Material[]): m is MeshLambertMaterial => !Array.isArray(m) && m instanceof MeshLambertMaterial
   && !m.map && !m.transparent && !m.vertexColors && m.emissive.getHex() === 0;
 /** Merges the plain meshes under `root` (but not into `keep`) into one, in `root`'s own space, its colours painted on. */
 export function flatten(root: Object3D, keep: Set<Object3D> = new Set()) {
   root.updateMatrixWorld(true);
   const toRoot = root.matrixWorld.clone().invert(), m4 = new Matrix4();
-  /** `m`'s geometry in `root`'s space, keeping only `attrs`. */
-  const placed = (m: Mesh, attrs: string[]) => {
-    const g = m.geometry.index ? m.geometry.toNonIndexed() : copyGeo(m.geometry);
+  /** `m`'s geometry (or `geo` in its place) in `root`'s space, keeping only `attrs`. */
+  const placed = (m: Mesh, attrs: string[], geo = m.geometry) => {
+    const g = geo.index ? geo.toNonIndexed() : copyGeo(geo);
     for (const k of Object.keys(g.attributes)) if (!attrs.includes(k)) g.deleteAttribute(k);
     m4.multiplyMatrices(toRoot, m.matrixWorld);
     g.applyMatrix4(m4);
@@ -334,8 +381,9 @@ export function flatten(root: Object3D, keep: Set<Object3D> = new Set()) {
   if (flat.length) {
     const geos = flat.map(m => paint(placed(m, ['position', 'normal']), (m.material as MeshLambertMaterial).color.getHex()));
     for (const m of flat) m.removeFromParent();
-    put(root, mesh(mergeGeometries(geos)!, painted, 0, 0, 0, true));
+    const o = put(root, mesh(mergeGeometries(geos)!, painted, 0, 0, 0, true));
     geos.forEach(g => g.dispose());
+    quietly(() => castAs(o, flat.filter(m => m.castShadow).map(m => placed(m, ['position', 'normal'], plainer(m.geometry)))), shadowDice);
   }
   for (const [mat, ms] of alike) {
     if (ms.length < 2) continue;

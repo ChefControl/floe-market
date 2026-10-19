@@ -6,6 +6,7 @@
 import {
   AdditiveBlending, BackSide, Color, CylinderGeometry, Mesh, ShaderMaterial, Sprite, SpriteMaterial, type Texture, Vector3,
 } from 'three';
+import { isHigh } from './graphics';
 import { quietly } from './kit';
 import { canvasTex, scene } from './render';
 
@@ -93,9 +94,11 @@ export class HatchFx {
 
   private rnd() { return (this.seed = (this.seed * 16807) % 2147483647) / 2147483647; }
 
-  /** Puffs of smoke (or dust) out of the hatch. */
+  /** Puffs of smoke (or dust) out of the hatch: half as many on Low (graphics.ts), each a see-through sprite drawn
+   *  over the ones behind it. */
   emit(o: Emit) {
-    for (let i = 0; i < o.n; i++) {
+    const n = isHigh() ? o.n : Math.ceil(o.n / 2);
+    for (let i = 0; i < n; i++) {
       const s = this.free.pop();
       if (!s) return;
       const a = this.rnd() * Math.PI * 2, out = (o.out[0] + this.rnd() * (o.out[1] - o.out[0])) * (Math.sin(a) > 0 ? o.toCam ?? 1 : 1);

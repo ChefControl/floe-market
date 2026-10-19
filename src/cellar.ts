@@ -11,7 +11,7 @@
 // This module is the rooms and their furniture; where things are is cellarPlan.ts, and the kitchen's lines, the bouts
 // and the swarm draw themselves (ringKitchen.ts, dohyo.ts, swarm.ts).
 import {
-  AdditiveBlending, BackSide, BoxGeometry, BufferGeometry, CatmullRomCurve3, CircleGeometry, Color, ConeGeometry, CylinderGeometry, DoubleSide, Float32BufferAttribute, Group, IcosahedronGeometry,
+  AdditiveBlending, BackSide, Box3, BoxGeometry, BufferGeometry, CatmullRomCurve3, CircleGeometry, Color, ConeGeometry, CylinderGeometry, DoubleSide, Float32BufferAttribute, Group, IcosahedronGeometry, type InstancedMesh,
   type Material, Matrix4, Mesh, MeshBasicMaterial, MeshLambertMaterial, type Object3D, PlaneGeometry, PointLight, type Side as Facing, TorusGeometry,
   TubeGeometry, Vector3,
 } from 'three';
@@ -21,6 +21,7 @@ import {
   BASINS, MAMA_COUNTER, STALL_DOOR, STALLS, STOOLS, TABLE_SEAT, TABLES,
 } from './cellarPlan';
 import { Fugu } from './fugu';
+import { isHigh, onQuality } from './graphics';
 import { apart, Build, dice, K, quietly, rbox, shade, shadowsOf, tube } from './kit';
 import { ARENA, CARDS, CELLAR_Y, type CellarRoom, CRAFT, DEN, DOORS, found, GROW, keepOnFloor, KITCHEN, LANDING, LIFT_ROOM, LOANS, LOO, OFFICE_ROOM, PREP, pushOutOfBox, RESTO, ROOMS, VIP, walkable, WING } from './layout';
 import { type CanvasTex, canvasTex, copyGeo, type Draw, FONT, G, mat, mesh, OFF, paint, rr, scene } from './render';
@@ -2969,7 +2970,82 @@ export function showCellar() { buildCellar(); cellar.visible = true; }
 /** The cellar's lights on while the player's down there, off above (each light costs every material in the scene). */
 // (the grow room's glow is there all along, dark till it's found: lighting a new light mid-bout would recompile every
 // material in the scene)
-export function cellarLights(on: boolean) { lights.forEach(l => { l.visible = on; }); }
+export function cellarLights(on: boolean) { lit = on; showLamps(); }
+
+// ---------- Low: four lamps for fourteen ----------
+// Every light is worked out for every pixel of everything drawn, so on Low (graphics.ts) the cellar is lit by four
+// lamps standing in for the four of its own nearest where the camera looks, each with that lamp's colour, strength,
+// reach and place; High has all fourteen. A lamp that's no longer among the four fades out before its stand-in takes
+// the next one, which fades in, so nothing pops as the player goes from room to room. (Switching between them
+// recompiles the materials once, as the lights' count changes.)
+const STAND_INS = 4, SWAP = 0.3;
+/** The stand-ins (on dice of their own, as the Undertow's lamps are). */
+export const standIns = apart(() => Array.from({ length: STAND_INS }, () => new PointLight(0xFFFFFF, 0)), dice(0x1A4B5));
+/** Which lamp each stands in for (-1: none), and how far faded in. */
+const holds = standIns.map(() => ({ i: -1, k: 0 }));
+standIns.forEach(l => { l.visible = false; scene.add(l); });
+let lit = false;
+function showLamps() {
+  const low = !isHigh();
+  lights.forEach(l => { l.visible = lit && !low; });
+  standIns.forEach(l => { l.visible = lit && low; });
+}
+onQuality(showLamps);
+/** On Low, the four lit lamps nearest `at` (where the camera looks), every frame the player's down there. */
+export function updLamps(at: XZ, dt: number) {
+  sweepNowAndThen(dt);
+  if (isHigh() || !lit) return;
+  // (the lamps held now count a metre nearer, so two about as near don't swap back and forth)
+  const held = new Set(holds.map(h => h.i));
+  const far = lights.map((l, i) => (l.intensity > 0 ? Math.hypot(l.position.x - at.x, l.position.z - at.z) - (held.has(i) ? 1 : 0) : Infinity));
+  const want = far.map((_, i) => i).filter(i => far[i] < Infinity).sort((a, b) => far[a] - far[b]).slice(0, STAND_INS);
+  // (all of them at once the first time: just come down, or just switched to Low)
+  const first = holds.every(h => h.i < 0);
+  for (const [n, h] of holds.entries()) {
+    if (h.i >= 0 && want.includes(h.i)) h.k = Math.min(1, h.k + dt / SWAP);
+    else if ((h.k = Math.max(0, h.k - dt / SWAP)) === 0) {
+      h.i = want.find(i => !holds.some(o => o.i === i)) ?? -1;
+      if (first) h.k = 1;
+    }
+    const s = standIns[n], l = lights[h.i];
+    if (!l) { s.intensity = 0; continue; }
+    s.color.copy(l.color); s.distance = l.distance; s.decay = l.decay; s.position.copy(l.position); s.intensity = l.intensity * h.k;
+  }
+}
+onQuality(() => { for (const h of holds) { h.i = -1; h.k = 0; } });
+
+// ---------- Low: the small things cast no shadows ----------
+// Every shadow is the thing drawn again, so on Low only the big things down here cast one: the walls, the ring, the
+// stands, the counters, the machines, people. What's small (under half a metre every way) or thin like a rod (a rail,
+// a chair's leg, a rope) casts none. (The furniture baked into one mesh keeps its shadow whole: it's one thing to
+// draw either way. Figures merged into a few meshes, family.ts, leave theirs out themselves.)
+const SMALL = 0.5, ROD = 0.08, box3 = new Box3(), dims = new Vector3();
+let sweepT = 0;
+/** Small or rod-thin, where it stands. */
+function slight(m: Mesh) {
+  const g = m.geometry;
+  if (!g.boundingBox) g.computeBoundingBox();
+  const d = box3.copy(g.boundingBox!).applyMatrix4(m.matrixWorld).getSize(dims).toArray().sort((a, b) => a - b);
+  return d[2] < SMALL || d[1] < ROD;
+}
+/** Puts each small thing's shadow out (Low) or back (High). */
+function sweepShadows() {
+  const low = !isHigh();
+  cellar.updateMatrixWorld();
+  cellar.traverse(o => {
+    const m = o as Mesh;
+    if (!m.isMesh || (m as unknown as InstancedMesh).isInstancedMesh || m.onBeforeShadow !== Mesh.prototype.onBeforeShadow) return;
+    if (low && m.castShadow && slight(m)) { m.castShadow = false; m.userData.slight = true; }
+    else if (!low && m.userData.slight) { m.castShadow = true; delete m.userData.slight; }
+  });
+}
+onQuality(sweepShadows);
+/** On Low, now and then, for what's come into the cellar since (bowls, the machines bought). */
+function sweepNowAndThen(dt: number) {
+  if (isHigh() || (sweepT -= dt) > 0) return;
+  sweepT = 2;
+  sweepShadows();
+}
 
 // ---------- walking ----------
 /** What a walker can't walk through down here, as boxes (centre and half-sizes, a walker's width included): the ring,

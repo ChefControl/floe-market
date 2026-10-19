@@ -20,17 +20,24 @@ const STILL = 1, SETTLED = 20;
 const BUDGET = 40000;
 /** Times out (fading over half a minute each) before something's left out (it keeps moving or blinking). */
 const RESTLESS = 2;
+/** What isn't merged is looked at in turns, one frame in this many (its own frame, a few frames apart from the rest):
+ *  thousands of things stand about unmerged (the world up top, hidden while the player's in the cellar; what moves),
+ *  and all that's lost is a few frames before something that's stood still a second is merged. What's merged is
+ *  looked at every frame: it has to drop out the moment it moves or hides. */
+const TURNS = 8;
 
 type State = 'out' | 'joining' | 'in';
 interface Member {
   o: Mesh; geo: BufferGeometry; mat: Material; cast: boolean; recv: boolean; ver: number; at: number[]; colour: number;
   still: number; moves: number; strikes: number; state: State; batch: Batch | null; mask: number;
+  /** Its turn (of TURNS), and the seconds since it was last looked at. */
+  turn: number; since: number;
 }
 interface Batch { key: string; mat: Material; cast: boolean; recv: boolean; members: Set<Member>; mesh: Mesh | null; now: boolean }
 
 const members = new Set<Member>(), known = new WeakSet<Object3D>(), batches = new Map<string, Batch>(), dirty = new Set<Batch>();
 const plain = Mesh.prototype, centre = new Vector3(), tint = new Color();
-let root: Object3D, drawn: Group, last = 0, scan = 0, rebuilds = 0;
+let root: Object3D, drawn: Group, last = 0, scan = 0, rebuilds = 0, frame = 0, turns = 0;
 
 /** Starts merging what stands still in `scene`, before each time it's drawn. */
 export function batchStill(scene: Object3D) {
@@ -88,7 +95,7 @@ function discover() {
     if (!fits(o)) return;
     const m: Member = {
       o, geo: o.geometry, mat: o.material as Material, cast: o.castShadow, recv: o.receiveShadow, ver: -1, at: [], colour: 0,
-      still: 0, moves: 0, strikes: 0, state: 'out', batch: null, mask: o.layers.mask,
+      still: 0, moves: 0, strikes: 0, state: 'out', batch: null, mask: o.layers.mask, turn: turns++ % TURNS, since: 0,
     };
     snap(m);
     members.add(m);
@@ -103,7 +110,7 @@ function snap(m: Member) {
 }
 function moved(m: Member) {
   const o = m.o, e = o.matrixWorld.elements;
-  if (o.geometry !== m.geo || o.material !== m.mat || o.castShadow !== m.cast || o.receiveShadow !== m.recv) return true;
+  if (o.geometry !== m.geo || o.material !== m.mat) return true;
   if (version(m.geo) !== m.ver || colourOf(m.mat) !== m.colour) return true;
   for (let i = 0; i < 16; i++) if (e[i] !== m.at[i]) return true;
   return false;
@@ -212,19 +219,31 @@ function sync() {
   const now = performance.now(), dt = Math.min(0.1, (now - last) / 1000);
   last = now;
   if ((scan -= dt) <= 0) { scan = 0.5; discover(); }
+  frame = (frame + 1) % TURNS;
   quietly(() => {
     for (const m of members) {
-      m.strikes = Math.max(0, m.strikes - dt / 30);
+      if (m.state === 'out' && m.turn !== frame) { m.since += dt; continue; }
+      const step = dt + m.since;
+      m.since = 0;
+      m.strikes = Math.max(0, m.strikes - step / 30);
       const seen = shown(m.o);
       if (seen === null) { leave(m); members.delete(m); known.delete(m.o); continue; }
       const move = moved(m);
+      // (its shadow put out or back, as Low does the small things' in the cellar: into a batch that casts or doesn't,
+      // as soon as it's looked at again, with no strike against it: it hasn't moved)
+      if (!move && seen && (m.o.castShadow !== m.cast || m.o.receiveShadow !== m.recv)) {
+        if (m.state !== 'out') { leave(m); m.strikes--; }
+        snap(m);
+        m.still = m.moves ? SETTLED : STILL;
+        continue;
+      }
       if (move || !seen || (m.mat as Material).transparent || !m.mat.visible) {
         if (m.state !== 'out') leave(m);
         if (move) { snap(m); m.moves++; }
         m.still = 0;
         continue;
       }
-      if (m.state !== 'out' || (m.still += dt) < (m.moves ? SETTLED : STILL) || m.strikes >= RESTLESS) continue;
+      if (m.state !== 'out' || (m.still += step) < (m.moves ? SETTLED : STILL) || m.strikes >= RESTLESS) continue;
       join(m);
     }
     let budget = BUDGET;
