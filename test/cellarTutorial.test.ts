@@ -227,7 +227,7 @@ describe("the cellar's tutorial", () => {
     expect(tut.learntLessons()).toContain('bench');
     expect($('banner').textContent).toContain('Tutorial complete');
     expect($('banner').textContent).toContain('Now take on Hakkaku 🐙');
-  }, 30_000);
+  }, 60_000); // 22.7 s of 30 on CI under coverage
 
   it('while the doors are shut, the champion trains by the teppo post, and the gong opens them too', async () => {
     const { g, plan, fight, F, at } = await cellar({ ring: { practice: true, quiet: true }, learnt: [...STAGE1, 'bins', 'prep', 'pot', 'bowls', 'bench'] });
@@ -289,7 +289,7 @@ describe("the cellar's tutorial", () => {
     // and the practice is over for good, saved
     g.saveMod.save();
     expect(JSON.parse(localStorage.getItem('floe-market-v1')!).ring.practice).toBe(false);
-  });
+  }, 30_000); // 13.0 s of 15 on CI under coverage
 
   it('sends them back for more when a line has too few for a batch, never to a pot that would wait', async () => {
     const { g, tut, plan, fight, F, at, draw, now, said } = await cellar({ learnt: [...STAGE1, 'arrive', 'bins'] });

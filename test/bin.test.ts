@@ -54,7 +54,7 @@ describe('the bins', () => {
     expect(ring.player.back.n).toBe(3);
     ring.press('e'); ring.run(0.1); ring.press('e', 'keyup');
     expect(ring.player.back.n).toBe(0);
-  });
+  }, 30_000); // 10.8 s of 15 on CI under coverage
 
   it('holding E down at a bin throws away once: what you pick up after stays', async () => {
     const g = await loadGame({ back: 3 });
