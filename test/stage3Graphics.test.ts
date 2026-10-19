@@ -46,6 +46,7 @@ async function cellar(q: 'low' | 'high', save: SaveFixture = {}) {
 }
 
 describe('stage 3, Low and High', () => {
+  // (four games loaded, a few seconds each under coverage on CI: more time than the usual 15 s, here and below)
   it("builds the cellar off the game's luck: the same luck is left whichever graphics the device has", async () => {
     // (loaded once first, so what's made the first time anything's loaded, three.js' own, is made before both)
     await cellar('low');
@@ -55,7 +56,7 @@ describe('stage 3, Low and High', () => {
     luck.mockImplementation(seeded(1));
     await cellar('low');
     expect([Math.random(), Math.random()]).toEqual(high);
-  });
+  }, 60_000);
 
   it('lights the cellar with all fourteen lamps on High, and four standing in for the nearest on Low', async () => {
     const { cellar: C, graphics, draw } = await cellar('high');
@@ -77,7 +78,7 @@ describe('stage 3, Low and High', () => {
     graphics.choose('high');
     expect(C.lights.every(l => l.visible)).toBe(true);
     expect(C.standIns.every(l => !l.visible)).toBe(true);
-  });
+  }, 30_000);
 
   it('casts no shadow from the small things or the fans on Low, and every one of them again on High', async () => {
     const { cellar: C, graphics, g, render } = await cellar('high');
@@ -105,7 +106,7 @@ describe('stage 3, Low and High', () => {
     graphics.choose('low');
     g.run(0.5);
     expect(fans().every(f => !f.castShadow)).toBe(true);
-  });
+  }, 30_000);
 
   it("draws the Undertow's figures finer on High and a notch plainer on Low, each in a few meshes, the same pose", async () => {
     const { family, graphics } = await cellar('high');
@@ -126,7 +127,7 @@ describe('stage 3, Low and High', () => {
     expect(tris(high)).toBeLessThan(12000);
     // and each casts its shadow from a plainer copy after its own triangles
     for (const m of [...high, ...low].filter(x => x.castShadow && x.userData.noBatch)) expect(m.geometry.attributes.position.count).toBeGreaterThan(m.geometry.drawRange.count);
-  });
+  }, 30_000);
 
   it('dresses the wrestlers finer on High only: ears, a nose, toes, thumbs', async () => {
     const { graphics } = await cellar('high');
@@ -138,7 +139,7 @@ describe('stage 3, Low and High', () => {
     expect(visible()).toBeLessThan(onHigh);
     graphics.choose('high');
     expect(visible()).toBe(onHigh);
-  });
+  }, 30_000);
 
   it("fits the sun's shadows to the floor on screen down here, and puts its box back up top", async () => {
     const { levelCull, draw, g, plan, cellar: C } = await cellar('high');
@@ -157,5 +158,5 @@ describe('stage 3, Low and High', () => {
     g.run(2);
     draw();
     expect(levelCull.figuresCasting()).toBeGreaterThan(casting);
-  });
+  }, 30_000);
 });
