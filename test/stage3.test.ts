@@ -154,18 +154,19 @@ describe('buying into the ring', () => {
 });
 
 describe('the ladder', () => {
-  it("down in the cellar, the player's under the road: the drivers up top don't stop for them", async () => {
-    const { g, cellar } = await ring({ level: 1 });
-    const { TAKEOUT } = g.counters, { HOUSE_PATH_Z } = await import('../src/layout');
+  it("down in the cellar, the player's under the road: the drivers up top wait where they are, and don't stop for them", async () => {
+    const { g, cellar } = await ring({ level: 0 });
+    const { TAKEOUT } = g.counters, { HOUSE_PATH_Z } = await import('../src/layout'), { setLevel } = await import('../src/stage');
     for (let i = 0; i < 12; i++) TAKEOUT.stock.put(g.items.newBox(30, false));
-    // (right under the road on a takeout driver's way home, where they'd be held up and get out to boop them)
-    const under = () => g.player.g.position.set(g.world.ROAD2_X, cellar.CY, HOUSE_PATH_Z + 0.4);
-    g.runUntil(() => { under(); return TAKEOUT.queue[0]?.got > 0; }, 40);
-    const c = TAKEOUT.queue[0];
-    let held = 0;
-    g.runUntil(() => { under(); held = Math.max(held, c.held); return c.g.position.z > HOUSE_PATH_Z + 2; }, 30);
-    expect(held).toBe(0);
-    expect(g.player.booped).toBeNull();
+    g.runUntil(() => TAKEOUT.queue[0]?.got > 0, 40);
+    // (right under the road on a takeout driver's way home, where they'd be held up and get out to boop them; but up
+    // top holds still while the player's down: game.ts)
+    setLevel(true);
+    const c = TAKEOUT.queue[0], at = c.g.position.clone();
+    g.player.g.position.set(g.world.ROAD2_X, cellar.CY, HOUSE_PATH_Z + 0.4);
+    g.run(10);
+    expect(c.g.position.equals(at)).toBe(true);
+    expect([c.held, g.player.booped]).toEqual([0, null]);
   });
 
   it("doesn't draw the world up top while the player's down in the cellar, and puts it all back after", async () => {

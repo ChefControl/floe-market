@@ -146,6 +146,15 @@ On both settings, while the player's down there (levelCull.ts):
 
 The fans cast their shadow from a copy of themselves snapped to a 4 cm grid (swarm.ts `withShadow`), and what isn't merged is looked at one frame in eight (batch.ts `TURNS`).
 
+### One level at a time
+
+In stage 3 only the level the player's on is drawn and runs; the other holds still, as it was left, and pays by a formula instead:
+
+- **Up top** (the dock, the restaurant, the casino boat), the cellar isn't drawn: levelCull.ts hides what's marked `userData.below` (the cellar's group, the fans' meshes, which are never frustum culled) and whatever's wholly below `CELLAR_Y + 15`, for each frame's render. With no boss in or called, it doesn't run either (ring.ts `restingUp`). What it makes on its own comes in at a steady rate instead: fight.ts `idleRate()` runs a copy of the cellar 5 minutes ahead with nobody in it, as the gong's forecast runs a rush, and counts what its bowls and Mama Moray's take. It's worked out as the player climbs up (about 11 ms), and paid a chip at a time, Harry taking his share; near the hatch a "+🐡" pops over it every 3 s. With a boss in or called, the cellar runs as it is, undrawn.
+- **Down in the cellar**, the world up top isn't drawn (`hideAbove`), and its fishing, boats, customers, crew, counters, farm, sea and roof don't run (game.ts `away`). Its tills pay the player's share (`tillShare`) of what its customers were paying a second over the last 3 minutes it ran (front.ts `tillRate`, `updTills`): none while it's Mr. Fugu's rent, all of it once he's bought out. Not kept in the save.
+
+Anything new on one level that has to go on while the player's on the other (a timer, a sound) goes outside those updates. Tests: `test/stage3Away.test.ts`.
+
 Measure stage 3 in Fukure's rush with the biggest crowd and in the Undertow's club: the demo build's `?stage3=on&cellar&beaten=4&chips=50000&full` (everything bought) and ring the gong. Tests: `test/stage3Graphics.test.ts`.
 
 ## Keeping it fast on phones

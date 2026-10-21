@@ -101,6 +101,7 @@ function makeLooks() {
       // (on Low, none of them casts a shadow: hundreds of fans drawn again, for a few pixels each)
       im.count = 0; im.castShadow = casts && shadows && isHigh(); im.receiveShadow = false; im.frustumCulled = false;
       im.userData.casts = casts;
+      im.userData.below = true; // (only ever in the cellar: hidden while the player's upstairs, levelCull.ts)
       if (casts) {
         const own = im.geometry.drawRange.count;
         im.userData.shadowFrom = own; // (where its shadow's copy starts, as kit.ts has it)
