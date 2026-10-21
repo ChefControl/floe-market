@@ -1755,6 +1755,28 @@ describe('the swarm and the watch spot', () => {
     expect(Math.min(...stood.map(p => plan.fromBar(p)))).toBeLessThan(1.5);
   });
 
+  it('a local fan late for the bar runs there, no faster than a person can', async () => {
+    // (a busy kitchen, its hands all hired, four bosses down: a crowd that comes in fast)
+    const { g, swarm } = await ring({ ring: {
+      beaten: 4, tier: 3, slide: true, resto: 3, pantry: { rice: 40, fish: 40, mush: 40 },
+      hires: { washer: true, salter: true, picker: true, attendant: true, cook: true },
+      lines: { rice: { n: 6, up: 1 }, fish: { n: 6, up: 1 }, mush: { n: 6, up: 1 } },
+    } });
+    const dt = 1 / 60, was = new Map<number, { x: number; z: number; seen: number }>();
+    let fastest = 0;
+    for (let i = 0; i < 20 / dt; i++) {
+      g.run(dt, dt);
+      for (const f of swarm.whereabouts()) {
+        const p = was.get(f.key);
+        // (from half a second after they're first seen: a new fan is set in place in their tunnel before they set off)
+        if (p && p.seen > 0.5) fastest = Math.max(fastest, Math.hypot(f.x - p.x, f.z - p.z) / dt);
+        was.set(f.key, { x: f.x, z: f.z, seen: (p?.seen ?? 0) + dt });
+      }
+    }
+    expect(fastest).toBeGreaterThan(2);
+    expect(fastest).toBeLessThan(7); // (swarm.ts RUN, 6 m/s: a person running, not 58 as late ones were)
+  }, 30_000);
+
   it('a bowl sold waits on the soup square for the fan who bought it, and hops to them when they get there', async () => {
     const { g, swarm, fight, F } = await ring();
     const { barShows } = await import('../src/ringKitchen');

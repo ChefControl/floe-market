@@ -424,8 +424,9 @@ const ROUTES_A_FRAME = 200;
 let slow = 0, shadows = true;
 /** How far a seated fan's legs come up in front of them, as a diner's do (ads.ts), and how fast they sit and stand. */
 const SIT_LEGS = -1.45, SIT_RATE = 5;
-/** How fast fans walk home (before the bar's open, they walk in at the same pace). */
-const HOME_PACE = 2.6;
+/** How fast fans walk home (before the bar's open, they walk in at the same pace), and the fastest a local fan late
+ *  for the bar runs (metres a second): one due there sooner than that gets there late, served on the way. */
+const HOME_PACE = 2.6, RUN = 6;
 /** Where the fans who got their bowl this frame were when they did (for tests). */
 const turned: (XZ & { key: number })[] = [];
 export const turnedAt = () => turned;
@@ -458,8 +459,9 @@ export function updSwarm(dt: number) {
       // anyone running late hurries)
       let v = (f.out ? HOME_PACE : pace) * f.speed * dt;
       if (f.out) { /* (at a walk) */ } else if (R && R.walk > 0 && !f.seat) v = Math.max(v, (d + wayLeft(f)) / Math.max(dt, R.walk) * dt);
-      // (and so does a local fan who'd get to the bar after they're due at it, or one with their bowl waiting)
-      else if (!R && !f.seat && f.due > 0) v = Math.max(v, (d + wayLeft(f)) / Math.max(dt, f.due - F.t) * dt);
+      // (and so does a local fan who'd get to the bar after they're due at it, or one with their bowl waiting: at a run,
+      // never faster, however late)
+      else if (!R && !f.seat && f.due > 0) v = Math.max(v, Math.min(RUN * dt, (d + wayLeft(f)) / Math.max(dt, f.due - F.t) * dt));
       else if (f.via) v = Math.max(v, 3.2 * f.speed * dt);
       // (the last step onto a bench climbs it)
       const last = f.way.length === 1, ty = last && f.seat ? f.seat.y : 0;
