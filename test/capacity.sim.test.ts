@@ -8,7 +8,7 @@ import { describe, it } from 'vitest';
 import { bought, FLOE_SUSHI, loadGame, MARKET } from './helpers';
 
 type Lines = [number, number, number, 0 | 1, 0 | 1, 0 | 1];
-interface Step { name: string; beaten: number; lines: Lines; hires: string[]; crew: number }
+interface Step { name: string; beaten: number; lines: Lines; hires: string[]; crew: number; slide?: boolean }
 const STEPS: Step[] = [
   { name: 'hands, 1 rack, 1 barrel', beaten: 0, lines: [1, 1, 0, 0, 0, 0], hires: [], crew: 0 },
   { name: 'hands, 3 racks, 3 barrels', beaten: 0, lines: [3, 3, 0, 0, 0, 0], hires: [], crew: 0 },
@@ -34,17 +34,32 @@ const CREW: Step[] = [0, 1, 2, 3, 4, 5, 6, 7, 8].flatMap(c => [
   { name: `  + shelves, cook`, beaten: 4, lines: [6, 6, 6, 1, 1, 1] as Lines, hires: [...ALL, 'cook'], crew: c },
 ]);
 
+/** SIM_STEPS=bosses: each boss against everything beating the one before him has opened (every machine, line upgrade,
+ *  hire and the bowl slide), at every level of Cellar crew, in his own bell: what turns with no cooking show and with a
+ *  perfect one (SIM_BONUS, 0 and 50 by default), beside his crowd and the half of it that wins. */
+const OPEN: Omit<Step, 'name' | 'crew'>[] = [
+  { beaten: 0, lines: [6, 6, 0, 0, 0, 0], hires: ['washer', 'salter'] },
+  { beaten: 1, lines: [6, 6, 6, 0, 0, 0], hires: ['washer', 'salter', 'picker', 'attendant'] },
+  { beaten: 2, lines: [6, 6, 6, 1, 0, 0], hires: ['washer', 'salter', 'picker', 'attendant'], slide: true },
+  { beaten: 3, lines: [6, 6, 6, 1, 1, 0], hires: ['washer', 'salter', 'picker', 'attendant', 'cook'], slide: true },
+  { beaten: 4, lines: [6, 6, 6, 1, 1, 1], hires: ['washer', 'salter', 'picker', 'attendant', 'cook'], slide: true },
+];
+const BOSS_STEPS: Step[] = OPEN.flatMap(o => [0, 1, 2, 3, 4, 5, 6, 7, 8].map(c => ({ ...o, name: `crew ${c}`, crew: c })));
+
 describe.runIf(process.env.SIM)('capacity', () => {
   it('measures what the kitchen turns at best', async () => {
-    const BELLS = (process.env.SIM_BELLS ?? '30,45,60,90').split(',').map(Number), BONUS = (process.env.SIM_BONUS ?? '0,35').split(',').map(Number);
-    const out = [`THE GONG'S CEILINGS: fans turned at best in a bell of ${BELLS.join(' / ')} s, with the cooking show's bonus at ${BONUS.join(' / ')}%`, ''];
-    out.push('step'.padEnd(28) + BONUS.map(b => `+${b}%`.padStart(4 + 6 * BELLS.length)).join(''));
-    for (const s of process.env.SIM_STEPS === 'crew' ? CREW : STEPS) {
+    const bosses = process.env.SIM_STEPS === 'bosses';
+    const BELLS = (process.env.SIM_BELLS ?? '30,45,60,90').split(',').map(Number), BONUS = (process.env.SIM_BONUS ?? (bosses ? '0,50' : '0,35')).split(',').map(Number);
+    const out = bosses
+      ? [`EACH BOSS, everything before him bought: fans turned at best in his bell, with the cooking show's bonus at ${BONUS.join(' / ')}%`, '']
+      : [`THE GONG'S CEILINGS: fans turned at best in a bell of ${BELLS.join(' / ')} s, with the cooking show's bonus at ${BONUS.join(' / ')}%`, ''];
+    if (!bosses) out.push('step'.padEnd(28) + BONUS.map(b => `+${b}%`.padStart(4 + 6 * BELLS.length)).join(''));
+    for (const s of bosses ? BOSS_STEPS : process.env.SIM_STEPS === 'crew' ? CREW : STEPS) {
       const [r, f, m, ru, fu, mu] = s.lines;
       const g = await loadGame({
         tiles: bought(...MARKET, 'sushi', ...FLOE_SUSHI, 'dohyo'), fugu: 2, level: 1, mods: { cellarcrew: s.crew },
         ring: {
-          beaten: s.beaten, quiet: false,
+          beaten: s.beaten, quiet: false, slide: !!s.slide,
           lines: { rice: { n: r, up: ru, m: [] }, fish: { n: f, up: fu, m: [] }, mush: { n: m, up: mu, m: [] } },
           hires: Object.fromEntries(s.hires.map(h => [h, true])),
           pantry: { rice: 40, fish: 40, mush: s.beaten ? 40 : 0 },
@@ -60,17 +75,21 @@ describe.runIf(process.env.SIM)('capacity', () => {
       g.player.g.position.x = plan.GONG_PAD.x; g.player.g.position.z = plan.GONG_PAD.z;
       const boss = fight.BOSSES[s.beaten], was = { crowd: boss.crowd, bell: boss.bell };
       const cells: string[] = [];
+      if (bosses && s.crew === 0) {
+        out.push('', `${boss.face} ${boss.name}: ${boss.crowd} fans, ${Math.floor(boss.crowd / 2) + 1} to win, ${boss.bell} s bell`);
+        out.push('  ' + 'crew'.padEnd(10) + BONUS.map(b => `+${b}%`.padStart(8)).join(''));
+      }
       for (const bonus of BONUS) {
         const got: number[] = [];
-        for (const bell of BELLS) {
+        for (const bell of bosses ? [was.bell] : BELLS) {
           // (a second on each time: the gong keeps its forecasts for half a second)
           boss.crowd = 5000; boss.bell = bell; F.t += 1;
           got.push(fight.forecast(0, { bonus })!.turned);
         }
-        cells.push(got.map(n => String(n).padStart(6)).join('').padStart(4 + 6 * BELLS.length));
+        cells.push(bosses ? String(got[0]).padStart(8) : got.map(n => String(n).padStart(6)).join('').padStart(4 + 6 * BELLS.length));
       }
       Object.assign(boss, was);
-      out.push(s.name.padEnd(28) + cells.join(''));
+      out.push(bosses ? '  ' + s.name.padEnd(10) + cells.join('') : s.name.padEnd(28) + cells.join(''));
     }
     writeFileSync(process.env.SIM_OUT || `${tmpdir()}/floe-caps.txt`, out.join('\n') + '\n');
   }, 600_000);
