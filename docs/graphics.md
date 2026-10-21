@@ -191,9 +191,9 @@ Each frame, the scene only works out world positions for what's showing (render.
 - **Look at it on both settings, in winter and summer, on a phone-sized and a desktop-sized screen.** Force a setting with `localStorage.setItem('floe-market-graphics', 'high')` before the game loads; otherwise Auto may drop to Low in a slow headless browser. Make sure Low looks exactly as it did on main.
 - **The demo build:** `npx vite build --mode demo` adds a 🛠 panel with:
   - the frame rate, draw calls and triangles;
-  - Low/High buttons and any season;
-  - each effect;
-  - jumps into a ready stage 1 or stage 2 game.
+  - Low/High buttons;
+  - jumps into a ready stage 1, 2 or 3 game, and for stage 3 how many bosses are beaten and whether the cellar is as won or all bought (the playtest build, `VITE_FUGU_DEMO=1`, only);
+  - money to add (chips down in the cellar).
 
   It's the one to try on a real phone. The panel is loaded only in that mode (main.ts), never in the game itself.
 - **Measure the cost.** Measure in the stage 2 hall at iPhone size (393×852), on both settings, after 20 s of customers:
