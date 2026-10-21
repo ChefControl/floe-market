@@ -55,8 +55,8 @@ export interface Boss {
  *  on the spot (tuned 2026-10-19 with the stage 3 bot: about 47 minutes to the buyout, a minute or two more without the
  *  cooking show). */
 export const BOSSES: Boss[] = [
-  { face: '🐙', name: 'Hakkaku', crowd: 160, bell: 30, prize: 350, kind: 'octopus', opens: 'grow room, the attendant, Back-Alley Ring' },
-  { face: '🦀', name: 'Yokobashiri', crowd: 440, bell: 30, prize: 250, kind: 'crab', opens: 'steam baskets, a way south' },
+  { face: '🐙', name: 'Hakkaku', crowd: 160, bell: 30, prize: 350, kind: 'octopus', opens: 'grow room, the attendant' },
+  { face: '🦀', name: 'Yokobashiri', crowd: 440, bell: 30, prize: 250, kind: 'crab', opens: 'Back-Alley Ring, bowl slide, steam baskets, a way south' },
   { face: '🐟', name: 'Dobu', crowd: 880, bell: 45, prize: 300, kind: 'catfish', opens: 'Underground Arena, smokehouse, the cook' },
   { face: '🦈', name: 'Samehada', crowd: 920, bell: 45, prize: 800, kind: 'shark', opens: 'Grand Hall Below, glowing grow shelves' },
   { face: '🐡', name: 'Fukure', crowd: 1250, bell: 60, prize: 5000, kind: 'puffer', opens: 'buy back all his chips' },
@@ -81,7 +81,7 @@ export const WALK_IN = 6;
  *  as fast with a cook ladling too); the counter holds two batches too, and the ledge six batches of each. */
 export const PER_BATCH = 4, BATCH = 20, POT_CAP = 40, COUNTER_CAP = 40, STALL_CAP = 30, LEDGE_CAP = 24, LADLE = 0.1;
 /** The bowl slide (a hearth room upgrade): bowls a second it sends from the counter down to the soup bar by itself. */
-export const SLIDE = 12, SLIDE_COST = 150, SLIDE_BEAT = 1;
+export const SLIDE = 12, SLIDE_COST = 150, SLIDE_BEAT = 2;
 /** Mama Moray's (resto.ts), the chanko restaurant out front: what the pot can't hold goes to her. A batch cooked with
  *  the pot full and a batch to spare on the ledge of everything goes up the belt to her counter instead, and pays this share of what
  *  its bowls would at the stall (the Family keeps the rest). Never in a boss's rush, or before the doors open. */
@@ -108,7 +108,7 @@ export const HIRES: Record<Role, { line?: Ing; name: string; cost: number; beat:
 export const UPS: Record<Ing, { cost: number; beat: number }> = { rice: { cost: 350, beat: 2 }, fish: { cost: 800, beat: 3 }, mush: { cost: 4000, beat: 4 } };
 /** Another machine: the first extra's chips, each next one 45% more. */
 export const MACH_COST: Record<Ing, number> = { rice: 10, fish: 12, mush: 15 }, MACH_STEP = 1.45;
-export const TIER_COST = [0, 120, 900, 2500], TIER_BEAT = [0, 1, 3, 4];
+export const TIER_COST = [0, 120, 900, 2500], TIER_BEAT = [0, 2, 3, 4];
 export const BUYOUT = 12000;
 /** A bout's phases: preparation (the fans buy soup; on a boss night, as long as his bell), taking their seats, the
  *  fight, and the result. */

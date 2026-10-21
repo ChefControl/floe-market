@@ -174,7 +174,7 @@ What it shows:
 - The cooking show's bonus lasts 70 s: a boss's walk-in and bell, Fukure's 66 s included.
 - The Undertow favours the house: Tommy pays half again for the queen (4 to 12 swaps; the house wins unless you find her two times in three), Eddie charges 🐡 8 a fan he keeps home, Harry lends up to four full houses at 1.25×.
 
-**The rest of the tables** (`src/fight.ts`): a bowl 🐡 1.6 (a mushroom bowl twice that), less Mr. Fugu's 30% until the buyout; seats 24 / 48 / 90 / 150 (Back-Alley Ring 🐡 120 after Hakkaku, Underground Arena 900 after Dobu, Grand Hall 2,500 after Samehada); washer 15, salter 20 (after the practice fight), attendant 150 and picker 100 (after Hakkaku), steam baskets 350 (Yokobashiri), cook 500 and smokehouse 800 (Dobu), glowing shelves 4,000 (Samehada); racks 10, barrels 12, beds 15, each next one 45% more; the buyout 🐡 12,000.
+**The rest of the tables** (`src/fight.ts`): a bowl 🐡 1.6 (a mushroom bowl twice that), less Mr. Fugu's 30% until the buyout; seats 24 / 48 / 90 / 150 (Back-Alley Ring 🐡 120 after Yokobashiri, Underground Arena 900 after Dobu, Grand Hall 2,500 after Samehada); washer 15, salter 20 (after the practice fight), attendant 150 and picker 100 (after Hakkaku), the bowl slide 150 (Yokobashiri, once the attendant's hired) and steam baskets 350 (Yokobashiri), cook 500 and smokehouse 800 (Dobu), glowing shelves 4,000 (Samehada); racks 10, barrels 12, beds 15, each next one 45% more; the buyout 🐡 12,000.
 
 **When the bot gets there** (from the ladder down, `SIM_STAGE=3`, the median of four styles: the cooking show for Hearty or never or Perfect, slams on or off, helping hired lines or not; single runs swing ±2 minutes)
 

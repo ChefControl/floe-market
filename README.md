@@ -183,7 +183,8 @@ Far out past the road, a path leaves the market (through the east fence in stage
 | 🍄 Another mushroom bed | 🐡 15, then 45% more each | Hakkaku | One more in the grow room (it comes with one) |
 | 🧑‍🌾 Mushroom picker | 🐡 100 | Hakkaku | Runs the mushroom line: picks the beds and carries mushrooms to the ledge |
 | 🍲 Attendant | 🐡 150 | Hakkaku | Carries bowls from the counter to the soup bar |
-| 🏮 The Back-Alley Ring | 🐡 120 | Hakkaku | Bleachers: 48 seats (24 to start) |
+| 🏮 The Back-Alley Ring | 🐡 120 | Yokobashiri | Bleachers: 48 seats (24 to start) |
+| 🛝 Bowl slide | 🐡 150 | Yokobashiri, and the attendant | A belt from the pot to the soup bar, 12 bowls a second, the attendant at its motor |
 | ♨️ Steam baskets | 🐡 350 | Yokobashiri | Every rack becomes a steam basket: 10 rice every 5 s |
 | 👨‍🍳 Cook | 🐡 500 | Dobu | Keeps the pot cooking while you're away (70% batches) |
 | 🏚️ Smokehouse | 🐡 800 | Dobu | Every barrel becomes a smokehouse: 10 fish every 5 s |

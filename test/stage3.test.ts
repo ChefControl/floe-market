@@ -1134,7 +1134,7 @@ describe('the gong', () => {
     g.run(0.5);
     expect($('fightCard').hidden).toBe(false);
     expect($('fightCard').className).toBe('win');
-    expect($('fightCard').textContent).toBe('勝YOU WIN🐡 350🔓 New: grow room, the attendant, Back-Alley RingTap to close');
+    expect($('fightCard').textContent).toBe('勝YOU WIN🐡 350🔓 New: grow room, the attendantTap to close');
     // the grow room: lit, walkable, with its first bed (its picker's sold on its square)
     expect(g.layout.found.grow).toBe(true);
     expect(cellar.lights[7].intensity).toBeGreaterThan(0);
@@ -1150,7 +1150,9 @@ describe('the gong', () => {
     // the next boss on the panel, and the tiles he opened
     g.run(1);
     expect($('gongBoss').textContent).toContain('Yokobashiri');
-    expect(offered(g)).toEqual(expect.arrayContaining(['bed', 'picker', 'tier1', 'attendant']));
+    expect(offered(g)).toEqual(expect.arrayContaining(['bed', 'picker', 'attendant']));
+    // (the Back-Alley Ring and the bowl slide wait for Yokobashiri)
+    expect(offered(g)).not.toContain('tier1');
     // the card goes on a tap
     $('fightCard').click();
     expect($('fightCard').hidden).toBe(true);
@@ -1209,7 +1211,7 @@ describe('the slam', () => {
     g.runUntil(() => F().bout.phase === 'pay', 8);
     expect(g.wallet.money - money).toBe(Math.round(350 * 1.2 * fight.CHIP));
     g.run(fight.LANDS + 0.5);
-    expect($('fightCard').textContent).toBe('勝YOU WIN🐡 350💥 Slam +🐡 70🔓 New: grow room, the attendant, Back-Alley RingTap to close');
+    expect($('fightCard').textContent).toBe('勝YOU WIN🐡 350💥 Slam +🐡 70🔓 New: grow room, the attendantTap to close');
   }, 30_000);
 
   it('on a phone, a tap anywhere as the rings meet lands it, and the button says to tap', async () => {
@@ -1501,11 +1503,14 @@ describe("the cellar's tiles", () => {
     expect(node('washer').classList.contains('done')).toBe(true);
     expect(price('washer').textContent).toBe('✓');
     expect($('shopRows').querySelectorAll('.edge.gold').length).toBe(1);
-    // the venue's tiers are here now: Hakkaku opens the first
+    // the venue's tiers are here now: Yokobashiri opens the first
     expect(node('tier1').classList.contains('boss')).toBe(true);
     F().beaten = 1;
     g.run(0.1);
     expect(gates()).toEqual(['start', 'won', 'won', 'next', 'later', 'later', 'later']);
+    expect(price('tier1').textContent).toBe('🔒 🦀');
+    F().beaten = 2;
+    g.run(0.1);
     price('tier1').click();
     g.run(0.1);
     expect(F().tier).toBe(1);
@@ -1603,6 +1608,21 @@ describe("the cellar's tiles", () => {
     g.run(0.1);
     expect(offered(g)).toContain('cook');
     expect(offered(g)).toContain('slide');
+  });
+
+  it('the bowl slide waits for Yokobashiri, attendant or not (his crowd is beaten with the attendant carrying), and a save that has it keeps it', async () => {
+    const { g, F } = await ring({ money: 10_000_000, ring: { beaten: 1, hires: { attendant: true } } });
+    g.run(0.1);
+    expect(offered(g)).not.toContain('slide');
+    F().beaten = 2;
+    g.run(0.1);
+    expect(offered(g)).toContain('slide');
+    // (a game saved from when Hakkaku opened them keeps the slide and the Back-Alley Ring, done in the tree)
+    const old = await ring({ ring: { beaten: 1, tier: 1, slide: true, hires: { attendant: true } } });
+    old.g.run(0.1);
+    expect(old.F().slide).toBe(true);
+    expect(old.F().tier).toBe(1);
+    expect(old.g.unlocks.tiles.filter(t => t.id === 'slide' || t.id === 'tier1').every(t => t.done)).toBe(true);
   });
 
   it('a cook cooks full batches out of the pot, and ladles them out twice as fast', async () => {
@@ -1727,6 +1747,9 @@ describe("the cellar's tiles", () => {
     expect(offered(g)).not.toContain('tier1');
     expect(offered(g)).not.toContain('cook');
     F().beaten = 1;
+    g.run(0.1);
+    expect(offered(g)).not.toContain('tier1');
+    F().beaten = 2;
     g.run(0.1);
     expect(offered(g)).toContain('tier1');
     const before = fight.crowdNow();
