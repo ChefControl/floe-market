@@ -5,10 +5,11 @@
 import { CY, parts, showDen, showGrowRoom, showVenue, updBarFlap } from './cellar';
 import { BAR, GONG } from './cellarPlan';
 import { openRing, updDohyo } from './dohyo';
-import { CHIP, F, fightFrom, on, resetFight, step } from './fight';
+import { CHIP, F, fightFrom, idleRate, on, resetFight, step } from './fight';
 import { front } from './front';
 import { cardUp, showCard, updGong, walkIn } from './gong';
-import { DOORS, level, PREP } from './layout';
+import { DOORS, HATCH_AT, level, PREP, stage } from './layout';
+import { cellarAway } from './levelCull';
 import { collect } from './loan';
 import { updOffice } from './office';
 import { updUndertow } from './undertow';
@@ -28,6 +29,7 @@ import { staging } from './stage';
 import { inHall, updSwarm } from './swarm';
 import { popText } from './ui';
 import { showProgress, visibleTiles } from './unlocks';
+import { FY } from './util';
 import { addMoney } from './wallet';
 
 /** Chips taken at the soup bar since the last "+🐡" over it (one a second, not one a bowl). */
@@ -112,7 +114,38 @@ export function loadCellar(raw: unknown) {
 }
 
 /** The cellar, every frame (stage 3 only). */
+// ---------- upstairs ----------
+// Upstairs, with no boss in or called, the cellar holds still and isn't drawn (levelCull.ts): what it would make on its
+// own, its hands, its fans and Mama Moray's, comes in at a steady rate instead, worked out as the player climbs up
+// (fight.ts, idleRate), a chip at a time, Harry taking his share as at the stall; and near the hatch, a "+🐡" over it
+// every few seconds. Back down, it's all as it was left.
+/** Chips a second the cellar makes on its own (-1 till it's worked out), what's come in since it was last paid, what's
+ *  been paid since the last "+🐡", and when that's next. */
+let idle = -1, owed = 0, paid = 0, popT = 0;
+const POP_EVERY = 3, POP_NEAR = 10;
+// (and isn't drawn, a boss in or not, unless the stage-up's show is taking the player down)
+cellarAway.now = () => stage.n === 3 && !level.down && !staging();
+/** Whether the cellar's holding still for the player being upstairs. */
+export const restingUp = () => !level.down && !staging() && !F.rush && !F.called;
+function upstairs(dt: number) {
+  if (idle < 0) { idle = idleRate(); popT = POP_EVERY; }
+  owed += idle * dt;
+  if (owed >= 1) {
+    const got = owed - collect(owed);
+    addMoney(Math.round(got * CHIP));
+    paid += got; owed = 0;
+  }
+  if ((popT -= dt) > 0) return;
+  popT = POP_EVERY;
+  const p = player.g.position;
+  if (paid >= 1 && Math.hypot(p.x - HATCH_AT.x, p.z - HATCH_AT.z) < POP_NEAR) popText(`+🐡 ${Math.round(paid).toLocaleString('en-US')}`, { x: HATCH_AT.x, y: FY + 1.4, z: HATCH_AT.z });
+  paid = 0;
+}
+
 export function updRing(dt: number) {
+  // (the gong's side of the HUD goes on up top: the 💪 chip giving way to the season's, a card or banner timing out)
+  if (restingUp()) { upstairs(dt); updGong(dt); return; }
+  idle = -1; owed = 0;
   // While a scene on the way south has the player (southDoor.ts), the cellar winds down and holds still: nothing goes on
   // in the fight, and so nobody new comes or goes and nobody's turn comes; but whoever's walking somewhere gets there,
   // the soup square's flap settles, and the wrestlers ease into where they were going.

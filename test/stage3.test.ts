@@ -154,18 +154,19 @@ describe('buying into the ring', () => {
 });
 
 describe('the ladder', () => {
-  it("down in the cellar, the player's under the road: the drivers up top don't stop for them", async () => {
-    const { g, cellar } = await ring({ level: 1 });
-    const { TAKEOUT } = g.counters, { HOUSE_PATH_Z } = await import('../src/layout');
+  it("down in the cellar, the player's under the road: the drivers up top wait where they are, and don't stop for them", async () => {
+    const { g, cellar } = await ring({ level: 0 });
+    const { TAKEOUT } = g.counters, { HOUSE_PATH_Z } = await import('../src/layout'), { setLevel } = await import('../src/stage');
     for (let i = 0; i < 12; i++) TAKEOUT.stock.put(g.items.newBox(30, false));
-    // (right under the road on a takeout driver's way home, where they'd be held up and get out to boop them)
-    const under = () => g.player.g.position.set(g.world.ROAD2_X, cellar.CY, HOUSE_PATH_Z + 0.4);
-    g.runUntil(() => { under(); return TAKEOUT.queue[0]?.got > 0; }, 40);
-    const c = TAKEOUT.queue[0];
-    let held = 0;
-    g.runUntil(() => { under(); held = Math.max(held, c.held); return c.g.position.z > HOUSE_PATH_Z + 2; }, 30);
-    expect(held).toBe(0);
-    expect(g.player.booped).toBeNull();
+    g.runUntil(() => TAKEOUT.queue[0]?.got > 0, 40);
+    // (right under the road on a takeout driver's way home, where they'd be held up and get out to boop them; but up
+    // top holds still while the player's down: game.ts)
+    setLevel(true);
+    const c = TAKEOUT.queue[0], at = c.g.position.clone();
+    g.player.g.position.set(g.world.ROAD2_X, cellar.CY, HOUSE_PATH_Z + 0.4);
+    g.run(10);
+    expect(c.g.position.equals(at)).toBe(true);
+    expect([c.held, g.player.booped]).toEqual([0, null]);
   });
 
   it("doesn't draw the world up top while the player's down in the cellar, and puts it all back after", async () => {
@@ -1754,6 +1755,28 @@ describe('the swarm and the watch spot', () => {
     // (the ones at the front of the crowd are round it, not off across the floor)
     expect(Math.min(...stood.map(p => plan.fromBar(p)))).toBeLessThan(1.5);
   });
+
+  it('a local fan late for the bar runs there, no faster than a person can', async () => {
+    // (a busy kitchen, its hands all hired, four bosses down: a crowd that comes in fast)
+    const { g, swarm } = await ring({ ring: {
+      beaten: 4, tier: 3, slide: true, resto: 3, pantry: { rice: 40, fish: 40, mush: 40 },
+      hires: { washer: true, salter: true, picker: true, attendant: true, cook: true },
+      lines: { rice: { n: 6, up: 1 }, fish: { n: 6, up: 1 }, mush: { n: 6, up: 1 } },
+    } });
+    const dt = 1 / 60, was = new Map<number, { x: number; z: number; seen: number }>();
+    let fastest = 0;
+    for (let i = 0; i < 20 / dt; i++) {
+      g.run(dt, dt);
+      for (const f of swarm.whereabouts()) {
+        const p = was.get(f.key);
+        // (from half a second after they're first seen: a new fan is set in place in their tunnel before they set off)
+        if (p && p.seen > 0.5) fastest = Math.max(fastest, Math.hypot(f.x - p.x, f.z - p.z) / dt);
+        was.set(f.key, { x: f.x, z: f.z, seen: (p?.seen ?? 0) + dt });
+      }
+    }
+    expect(fastest).toBeGreaterThan(2);
+    expect(fastest).toBeLessThan(7); // (swarm.ts RUN, 6 m/s: a person running, not 58 as late ones were)
+  }, 30_000);
 
   it('a bowl sold waits on the soup square for the fan who bought it, and hops to them when they get there', async () => {
     const { g, swarm, fight, F } = await ring();
