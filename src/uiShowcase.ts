@@ -86,7 +86,8 @@ function dialog(skin: Skin) {
 }
 
 const css = `
-#kitShow.k-full{ position:fixed; inset:0; z-index:2; display:block; overflow-y:auto; touch-action:pan-y; user-select:text; -webkit-user-select:text;
+#kitShow.k-full, #kitShow.k-full :not(button, button *){ user-select:text; -webkit-user-select:text; }
+#kitShow.k-full{ position:fixed; inset:0; z-index:2; display:block; overflow-y:auto; touch-action:pan-y;
   background:var(--bg); padding:calc(env(safe-area-inset-top,0px) + 250px) 16px 40px; box-sizing:border-box; }
 #kitShow h1{ margin:0 0 4px; font-size:28px; }
 #kitShow .lede{ margin:0 0 18px; font-weight:600; opacity:.8; }

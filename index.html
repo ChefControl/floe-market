@@ -66,6 +66,17 @@ body{
   color:var(--pill-ink);
   touch-action:none; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none;
 }
+/* A long press or a long drag selects nothing and opens none of the browser's menus ("Copy / Find in Page", "Save
+   image"), on every element, not only by way of the body's (noMenus.ts covers what CSS can't). Typing, links and the
+   texts meant to be copied keep theirs. */
+*, *::before, *::after{
+  user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; -webkit-tap-highlight-color:transparent;
+}
+input, textarea, select, [contenteditable]:not([contenteditable="false"]), #korki .memo, #korki .memo *{
+  user-select:text; -webkit-user-select:text; -webkit-touch-callout:default;
+}
+input[type="range"], input[type="checkbox"]{ user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; }
+a[href]{ -webkit-touch-callout:default; }
 #game{ position:fixed; top:0; left:0; width:100%; height:100%; display:block; touch-action:none; }
 /* read out by screen readers, not shown */
 .sr{ position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
