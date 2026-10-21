@@ -20,7 +20,8 @@ export interface Issues {
   /** An issue whose text holds `text`, among the newest ones. */
   find(text: string): Promise<number | null>;
   create(title: string, body: string, labels: string[]): Promise<number>;
-  read(n: number): Promise<string>;
+  /** The issue's text, or null if it was deleted. */
+  read(n: number): Promise<string | null>;
   edit(n: number, body: string): Promise<void>;
 }
 export type FileName = 'shot.jpg' | 'ui.jpg' | 'save.json';
@@ -63,7 +64,8 @@ export async function run(store: Store, issues: Issues, files: Files, now = Date
 
   // a week on: the issue keeps the note, and says the picture and the save are gone
   for (const old of await store.expired(now - KEEP_MS)) {
-    if (old.issue) await issues.edit(old.issue, expired(await issues.read(old.issue)));
+    const text = old.issue ? await issues.read(old.issue) : null;
+    if (old.issue && text !== null) await issues.edit(old.issue, expired(text));
     await store.remove(old.id);
     done.expired++;
   }

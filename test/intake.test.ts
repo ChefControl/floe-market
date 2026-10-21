@@ -29,7 +29,7 @@ function services(reports: StoredReport[], old: { id: string; issue?: number }[]
   const issues: Issues = {
     async find(text) { return [...existing].find(([, b]) => b.includes(text))?.[0] ?? null; },
     async create(t, b, labels) { made.push({ title: t, body: b, labels }); existing.set(100 + made.length, b); return 100 + made.length; },
-    async read(n) { return existing.get(n) ?? ''; },
+    async read(n) { return existing.get(n) ?? null; },
     async edit(n, b) { edits.set(n, b); },
   };
   const put: string[] = [], log: string[] = [];
@@ -99,6 +99,13 @@ describe('the intake', () => {
     expect((await run(s.store, s.issues, s.files, NOW)).expired).toBe(2);
     expect(s.edits.get(3)).toBe('_Picture deleted after 7 days._');
     expect(s.removed).toEqual(['old', 'lost']);
+  });
+
+  it('a week on, still deletes the report when its issue was deleted by hand', async () => {
+    const s = services([], [{ id: 'gone', issue: 2 }, { id: 'old', issue: 3 }]);
+    expect((await run(s.store, s.issues, s.files, NOW)).expired).toBe(2);
+    expect([...s.edits.keys()]).toEqual([3]);
+    expect(s.removed).toEqual(['gone', 'old']);
   });
 });
 
