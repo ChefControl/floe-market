@@ -16,6 +16,7 @@ const css = `
 #demo>button{width:44px;height:44px;border-radius:50%;border:0;background:#fff;box-shadow:0 3px 0 rgba(0,0,0,.18);font-size:20px}
 #demo .box{position:absolute;bottom:52px;left:0;width:min(300px,calc(100vw - 16px));background:#fff;border-radius:16px;
   padding:10px 12px;box-shadow:0 4px 0 rgba(0,0,0,.18);display:grid;gap:8px}
+#demo .box[hidden]{display:none}
 #demo .row{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
 #demo .row b{width:62px}
 #demo .row button{border:0;border-radius:10px;padding:7px 10px;background:#E8F1F6;font:inherit;color:inherit}

@@ -7,7 +7,7 @@
 // at the pot, for its cooking game; &full with all of the cellar bought, the Grand Hall's stands and every hand, line and
 // level, for the biggest crowd: beaten=4&full is Fukure's rush, for timing the graphics).
 // Nothing is kept, so every visit starts over, the tutorial included.
-import { MAX_MACHINES, POT_PAD } from './cellarPlan';
+import { GONG_PAD, MAX_MACHINES, POT_PAD } from './cellarPlan';
 import { F, LEDGE_CAP } from './fight';
 import { player } from './player';
 import { REGISTER } from './restaurant';
@@ -48,5 +48,7 @@ export function startDemo() {
   load();
   if (!cellar) player.g.position.set(REGISTER.x - 1.6, FY, REGISTER.z - 1.4);
   // (with a full ledge, so the show can be played again and again)
+  // (on the gong's pad, to ring the next boss in)
+  else if (q.has('gong')) player.g.position.set(GONG_PAD.x, player.g.position.y, GONG_PAD.z);
   else if (q.has('pot')) { player.g.position.set(POT_PAD.x, player.g.position.y, POT_PAD.z); F.pantry = { rice: LEDGE_CAP, fish: LEDGE_CAP, mush: LEDGE_CAP }; }
 }
