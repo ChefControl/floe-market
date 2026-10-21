@@ -11,9 +11,12 @@ export function github(repo: string, token: string): Issues {
       },
       body: init.body ? JSON.stringify(init.body) : undefined,
     });
+    if (res.status === 404 || res.status === 410) throw new Gone();
     if (!res.ok) throw new Error(`GitHub ${init.method ?? 'GET'} ${path}: ${res.status} ${await res.text()}`);
     return res.json() as Promise<T>;
   }
+  // an issue deleted by hand answers 410 (404 if the repo can't see it any more)
+  class Gone extends Error {}
   type Issue = { number: number; body: string | null };
   return {
     async find(text) {
@@ -23,7 +26,9 @@ export function github(repo: string, token: string): Issues {
     async create(title, body, labels) {
       return (await call<Issue>('/issues', { method: 'POST', body: { title, body, labels } })).number;
     },
-    async read(n) { return (await call<Issue>(`/issues/${n}`)).body ?? ''; },
+    async read(n) {
+      try { return (await call<Issue>(`/issues/${n}`)).body ?? ''; } catch (e) { if (e instanceof Gone) return null; throw e; }
+    },
     async edit(n, body) { await call(`/issues/${n}`, { method: 'PATCH', body: { body } }); },
   };
 }
