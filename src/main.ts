@@ -1,4 +1,5 @@
 import './errors'; // must stay first: catches errors thrown while the other modules build the scene
+import './noMenus';
 import { batchStill } from './batch';
 import { tableView, tipsy, tipsyK } from './casinoKit';
 import { initCloud } from './cloud';
