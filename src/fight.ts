@@ -9,7 +9,7 @@
 // and word on the street bring, the ones who ate sit down to watch (the hungry give up and go home), and the champion
 // wins. Ring the gong and the next boss walks in with his crowd instead, a horde that floods the floor in his colour:
 // each one who eats a bowl before his bell switches sides, and the fight is a tug of war between his fans and yours,
-// which the bigger side wins, every time: turning more than half of them beats him. Nothing in here is left to chance, so the gong can copy the whole cellar and run the
+// which you win, every time, once enough of them are turned (more than half, or his own share for a stronger boss). Nothing in here is left to chance, so the gong can copy the whole cellar and run the
 // rush ahead in the copy to say exactly how it would go (forecast). That's why it's
 // all plain data: the hires' jobs are lists of steps, never closures. The player isn't in it: what they carry is
 // theirs, and they hand things in through the functions at the bottom (cellarHands.ts). Only the forecast puts them in,
@@ -46,6 +46,10 @@ export interface Boss {
   kind?: Kind;
   /** What beating him opens, as his result card says it: "🔓 New: …". */
   opens: string;
+  /** The share of his crowd to turn to beat him (half, if not given): above all the kitchen the boss before him left
+   *  could turn, so what beating that boss opened has to be bought first, and under what the kitchen with it all turns
+   *  with no cooking show (test/capacity.sim.test.ts, SIM_STEPS=window). */
+  share?: number;
 }
 /** A rush is won by carrying bowls to the stall, and since the kitchen holds the rush (the pot, the counter, the slide
  *  down to the soup bar and the ledges all full when the gong goes), a boss's crowd is all a kitchen turns in his bell
@@ -58,9 +62,9 @@ export interface Boss {
  *  minutes to the buyout). */
 export const BOSSES: Boss[] = [
   { face: '🐙', name: 'Hakkaku', crowd: 100, bell: 30, prize: 350, kind: 'octopus', opens: 'grow room, the attendant' },
-  { face: '🦀', name: 'Yokobashiri', crowd: 210, bell: 30, prize: 250, kind: 'crab', opens: 'Back-Alley Ring, bowl slide, steam baskets, a way south' },
-  { face: '🐟', name: 'Dobu', crowd: 498, bell: 45, prize: 300, kind: 'catfish', opens: 'Underground Arena, smokehouse, the cook' },
-  { face: '🦈', name: 'Samehada', crowd: 571, bell: 45, prize: 800, kind: 'shark', opens: 'Grand Hall Below, glowing grow shelves' },
+  { face: '🦀', name: 'Yokobashiri', crowd: 210, bell: 30, prize: 250, share: 0.71, kind: 'crab', opens: 'Back-Alley Ring, bowl slide, steam baskets, a way south' },
+  { face: '🐟', name: 'Dobu', crowd: 498, bell: 45, prize: 300, share: 0.8, kind: 'catfish', opens: 'Underground Arena, smokehouse, the cook' },
+  { face: '🦈', name: 'Samehada', crowd: 571, bell: 45, prize: 800, share: 0.935, kind: 'shark', opens: 'Grand Hall Below, glowing grow shelves' },
   { face: '🐡', name: 'Fukure', crowd: 751, bell: 60, prize: 5000, kind: 'puffer', opens: 'buy back all his chips' },
 ];
 /** The practice fight before the first boss (once, for a player who's just come down): the champion's own sparring
@@ -126,10 +130,10 @@ export const FINISHER_PAY = 8.5, EPIC_PAY = 11;
 /** Whether this fight's result is the epic: a grand win with a perfect slam. */
 export const epic = (B: Bout = F.bout, R: Rush | null = F.rush) => !!R && B.finish === 'grand' && R.slam === 2;
 export const payLen = (B: Bout = F.bout, R: Rush | null = F.rush) => (epic(B, R) ? EPIC_PAY : R && B.finish !== 'push' ? FINISHER_PAY : BOUT.pay);
-/** The slam, a grand win's showy finish, the player's to land (gong.ts): offered once `share` of a boss's crowd was
+/** The slam, a grand win's showy finish, the player's to land (gong.ts): offered on a grand win (`grand`)
  *  turned; in the fight a ring closes on the champion's face over `lead` seconds to meet its mark `at` seconds in (the
  *  belly bump), and a press within `perfect` of it is perfect, within `good` good: his prize, that much more. */
-export const SLAM = { share: 0.75, at: 9.6, lead: 1.6, perfect: 0.12, good: 0.3, bonus: [0, 0.1, 0.2] };
+export const SLAM = { at: 9.6, lead: 1.6, perfect: 0.12, good: 0.3, bonus: [0, 0.1, 0.2] };
 /** How much of a local bout's preparation its fans take to walk in, and seconds each takes from their tunnel to the
  *  stall: nobody's served before they're at it (swarm.ts hurries anyone who'd be late). */
 const ARRIVE = 0.6;
@@ -553,8 +557,8 @@ function updRush(dt: number) {
     if (!canCook()) for (const k of inPot()) if (F.pantry[k] < PER_BATCH) R.short[k] += dt;
   }
   if (R.turned >= R.n || R.t >= bossOf(R.boss).bell) {
-    // the stall shuts and his crowd sits down: more than half of them turned, and the champion wins
-    R.done = true; R.win = R.turned * 2 > R.n;
+    // the stall shuts and his crowd sits down: enough of them turned (his share), and the champion wins
+    R.done = true; R.win = R.turned >= toBeat(bossOf(R.boss), R.n);
     toSeats(R.win, finishOf(R));
   }
 }
@@ -594,8 +598,9 @@ export function finishOf(R: Rush): Finish {
   if (Math.abs(R.turned - need) <= Math.round(need * TIGHT)) return 'tight';
   return 'push';
 }
-/** A grand win: three of every four of his crowd turned (the slam's on offer in the fight). */
-export const grand = (R: Rush) => R.win && R.turned >= Math.ceil(R.n * SLAM.share);
+/** A grand win: half way from his share to his whole crowd (three of every four, where half wins) turned: the slam's
+ *  on offer in the fight. */
+export const grand = (R: Rush) => R.win && R.turned >= Math.ceil(R.n * (1 + (bossOf(R.boss).share ?? 0.5)) / 2);
 /** The slam can be landed now: a grand win's fight, from when the ring starts closing till just after it's met its
  *  mark, and not tried yet. */
 export function slamDue() {
@@ -611,8 +616,9 @@ export function slam() {
 }
 /** The worst-jammed ingredient of a rush, if one held the pot up. */
 export const worstShort = (R: Rush) => ING.filter(k => R.short[k] > 0.5).sort((a, b) => R.short[b] - R.short[a])[0] ?? null;
-/** More than half: how many of `boss`'s fans have to be turned to beat him (`n` of them, if a fix kept some home). */
-export const toBeat = (boss: Boss, n = boss.crowd) => Math.floor(n / 2) + 1;
+/** More than his share (half, for most): how many of `boss`'s fans have to be turned to beat him (`n` of them, if a fix
+ *  kept some home). */
+export const toBeat = (boss: Boss, n = boss.crowd) => Math.min(n, Math.floor(n * (boss.share ?? 0.5)) + 1);
 /** Batches a minute a kitchen needs, with a full stall, to turn enough of `boss`'s crowd before the bell. */
 export const needRate = (boss: Boss, n = boss.crowd) => Math.ceil(Math.max(0, toBeat(boss, n) - STALL_CAP) * 60 / boss.bell / BATCH);
 
@@ -893,8 +899,10 @@ function updBout(dt: number) {
     B.phase = 'fight'; B.t = 0; B.noise = rnd() * 6;
     if (real) on.bout('fight');
   } else if (B.phase === 'fight') {
-    // the pair lean the way the crowd does, and wrestle it out to the side with more fans
-    const { yours, theirs } = sides(), lean = (yours - theirs) / Math.max(1, yours + theirs) * 0.35;
+    // the pair lean the way the crowd does (against the boss's line: past it, the champion's way), and wrestle it out
+    // to the winner's side
+    const { yours, theirs } = sides(), all = Math.max(1, yours + theirs), line = all * ((R && bossOf(R.boss).share) || 0.5);
+    const lean = (yours - line) / all * 0.7;
     // (a tight one goes the other way first: the winner's driven back to his own straw, and turns it there at the end)
     const k = B.t / BOUT.fight, target = (B.win ? 1 : -1) * (B.finish === 'tight' ? -0.85 : 1), wobble = Math.sin(B.t * 1.7 + B.noise) * 0.4 * (1 - k);
     B.tug = clamp(lean + wobble + (target - lean) * ease(clamp((k - 0.35) / 0.6, 0, 1)), -1, 1);

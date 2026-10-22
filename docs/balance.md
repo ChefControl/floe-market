@@ -151,22 +151,22 @@ What it shows:
 
 ## Stage 3: The Dohyo Below
 
-**What it's about:** fight night. The player runs the kitchen by hand (rice and fish from the bins into the racks and barrels, ready ones to the pot, bowls to the stall), hands each job over (washer, salter, attendant, cook), feeds each bout's fans while they buy soup, and rings the gong when the forecast says more than half of the next boss's crowd will turn. About 45 minutes from the buy-in to the buyout (stage 2 is about 42). Prices are in Fugu Chips (🐡 1 = $1,000).
+**What it's about:** fight night. The player runs the kitchen by hand (rice and fish from the bins into the racks and barrels, ready ones to the pot, bowls to the stall), hands each job over (washer, salter, attendant, cook), feeds each bout's fans while they buy soup, and rings the gong when the forecast says enough of the next boss's crowd will turn (more than half, or his own share). About 45 minutes from the buy-in to the buyout (stage 2 is about 42). Prices are in Fugu Chips (🐡 1 = $1,000).
 
 **What a boss rush is limited by:** carrying bowls to the stall, not cooking. With the pot, counter, stall and ledge full, your own hands turn about 100 of a crowd in a 30 s bell, whatever lines you have; the attendant turns about 180, and each level of Cellar crew walks him faster (30 fans a step in a 30 s bell). The glowing shelves count only in Fukure's 60 s bell. Steam baskets, the smokehouse, more machines and the cook refill the kitchen sooner between fights but don't raise any ceiling, and neither does the cooking show's bonus at a full kitchen (it helps a kitchen that isn't restocked yet). `SIM=1 SIM_STEPS=crew npx vitest run test/capacity.sim.test.ts` prints the ladder.
 
 **The ladder each boss sits on.** The rule: with everything beating the boss before him has opened (every machine and line upgrade, the hires, the bowl slide once it's open, and the Cellar crew levels open by then: 0, 2, 4, 6 and 8) and the cooking show aced, the kitchen turns his whole crowd; with no cooking show it still wins by a margin. So his crowd is what that kitchen turns at best (`SIM=1 SIM_STEPS=bosses npx vitest run test/capacity.sim.test.ts`, which prints every crew level).
 
-| Boss | Crowd · to turn · bell · prize | What's open | Turned: no show, crew 0 → 8 | Turned: perfect show, at his open crew |
+| Boss | Crowd · to turn (share) · bell · prize | What's open | Turned: no show, crew 0 → 8 | Turned: perfect show, at his open crew |
 |---|---|---|---|---|
 | 🤼 Sparring partner | 40 · 21 · 30 s · 🐡 35 | your hands | | |
 | 🐙 Hakkaku | 100 · 51 · 30 s · 🐡 350 | racks, barrels, washer, salter | 100 → 100 | 100 |
-| 🦀 Yokobashiri | 210 · 106 · 30 s · 🐡 250 | + beds, picker, the attendant, crew 2 | 180 → 300 | 210 |
-| 🐟 Dobu | 498 · 250 · 45 s · 🐡 300 | + the bowl slide, steam baskets | 410 → 508 | 498 |
-| 🦈 Samehada | 571 · 286 · 45 s · 🐡 800 | + the cook, the smokehouse | 427 → 571 | 571 |
+| 🦀 Yokobashiri | 210 · 150 (71%) · 30 s · 🐡 250 | + beds, picker, the attendant, crew 2 | 180 → 300 | 210 |
+| 🐟 Dobu | 498 · 399 (80%) · 45 s · 🐡 300 | + the bowl slide, steam baskets | 410 → 508 | 498 |
+| 🦈 Samehada | 571 · 534 (93.5%) · 45 s · 🐡 800 | + the cook, the smokehouse | 427 → 571 | 571 |
 | 🐡 Fukure | 751 · 376 · 60 s · 🐡 5,000 | + glowing shelves | 621 → 751 | 751 |
 
-Before the bowl slide the bowls are carried, so the cooking show adds nothing to Hakkaku's or Yokobashiri's ceiling (and at crew 7 to 8 a perfect show turns a few fewer than none: 293 of Yokobashiri's 300, 498 against 508 for Dobu). Even at crew 0 with no show, every boss is beaten by a wide margin, so Cellar crew now buys income and margin rather than a win.
+Before the bowl slide the bowls are carried, so the cooking show adds nothing to Hakkaku's or Yokobashiri's ceiling (and at crew 7 to 8 a perfect show turns a few fewer than none: 293 of Yokobashiri's 300, 498 against 508 for Dobu). **Each boss's win line** (his share of the crowd to turn) sits above the most the kitchen the boss before him left can turn, even with a perfect show, so what beating that boss opened has to be bought, and under what everything open turns with no show (`SIM_STEPS=window`): Yokobashiri above 100 (the attendant), Dobu above 300 (the bowl slide), Samehada above 498 (the cook, the smokehouse, crew). Hakkaku and Fukure stay at more than half: Hakkaku's kitchen is your hands either way, and by Fukure the bowl slide's 12 bowls a second is the limit, which Samehada's kitchen already reaches.
 
 **Principles for this stage**
 - No fee and no luck: the gong costs nothing, and its forecast is exact (it plays the rush ahead in a copy of the cellar, with the player in it, cooking at the pot even with a cook hired, as in play). A loss only costs time, and its card says which ingredient held the pot up.

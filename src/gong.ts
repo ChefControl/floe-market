@@ -82,14 +82,14 @@ you.now = () => {
 export type Verdict = 'win' | 'likelywin' | 'maybe' | 'likelylose' | 'lose';
 export const VERDICT: Record<Verdict, string> = { win: 'Win', likelywin: 'Likely win', maybe: 'Maybe', likelylose: 'Likely lose', lose: 'Lose' };
 /**
- * Ringing now, in a word: the fans the forecast turns against the more-than-half that beats him (of `n`, with a fix's
+ * Ringing now, in a word: the fans the forecast turns against the share that beats him (of `n`, with a fix's
  * fans kept home): 120% or more a win, from 100% likely. Short of that, it goes by what a bonus from the cooking game at
  * the pot (chanko.ts) could do, when `cooked` has the forecasts with one bought at the gong: maybe if +35% would win,
  * likely lost if only +50% would, lost if not even that. (Without them: from 85% maybe, from 60% likely lost.)
  */
 export function verdict(boss: Boss, f: Forecast, n = boss.crowd, cooked?: { at35: Forecast; at50: Forecast }): Verdict {
   const need = toBeat(boss, n), r = f.turned / need;
-  if (r >= 1) return r >= 1.2 ? 'win' : 'likelywin';
+  if (r >= 1) return r >= 1.2 || f.turned >= n ? 'win' : 'likelywin';
   if (cooked) return cooked.at35.turned >= need ? 'maybe' : cooked.at50.turned >= need ? 'likelylose' : 'lose';
   return r >= 0.85 ? 'maybe' : r >= 0.6 ? 'likelylose' : 'lose';
 }

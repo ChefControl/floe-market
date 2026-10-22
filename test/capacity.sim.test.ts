@@ -14,6 +14,8 @@ interface Step {
   empty?: 'front' | 'ledge';
   /** The first of a boss's rows (factors): print his heading over it. */
   head?: boolean;
+  /** A bell of this many seconds instead of his own. */
+  bell?: number;
 }
 const STEPS: Step[] = [
   { name: 'hands, 1 rack, 1 barrel', beaten: 0, lines: [1, 1, 0, 0, 0, 0], hires: [], crew: 0 },
@@ -75,16 +77,31 @@ function factors(): Step[] {
   });
 }
 
+/** SIM_STEPS=window: where each boss's win line can go. Everything open at him (his gate's crew) against the kitchen
+ *  the boss before him left (that boss's open things and crew): the line wants to be above the second's best, so what
+ *  beating the last boss opened has to be bought, and under the first with no show, so it's won without the cooking
+ *  show. SIM_BELLS2=4:60,75,90 tries other bells for a boss (his index). */
+function windows(): Step[] {
+  const extra = new Map((process.env.SIM_BELLS2 ?? '').split(';').filter(Boolean).map(s => { const [k, b] = s.split(':'); return [Number(k), b.split(',').map(Number)] as const; }));
+  return OPEN.slice(1).flatMap((o, i) => {
+    const k = i + 1;
+    return (extra.get(k) ?? [0]).flatMap(bell => [
+      { ...o, name: `everything open${bell ? ` @${bell}s` : ''}`, crew: 2 * k, head: true, bell: bell || undefined },
+      { ...OPEN[k - 1], beaten: k, name: `last boss's kitchen${bell ? ` @${bell}s` : ''}`, crew: 2 * (k - 1), bell: bell || undefined },
+    ]);
+  });
+}
+
 describe.runIf(process.env.SIM)('capacity', () => {
   it('measures what the kitchen turns at best', async () => {
-    const fac = process.env.SIM_STEPS === 'factors', bosses = process.env.SIM_STEPS === 'bosses' || fac;
+    const win = process.env.SIM_STEPS === 'window', fac = process.env.SIM_STEPS === 'factors' || win, bosses = process.env.SIM_STEPS === 'bosses' || fac;
     const BELLS = (process.env.SIM_BELLS ?? '30,45,60,90').split(',').map(Number), BONUS = (process.env.SIM_BONUS ?? (bosses ? '0,50' : '0,35')).split(',').map(Number);
     const out = bosses
       ? [fac ? `WHAT DECIDES EACH BOSS: fans turned in his bell, from everything open at him, a thing at a time; the cooking show's bonus at ${BONUS.join(' / ')}%`
         : `EACH BOSS, everything before him bought: fans turned at best in his bell, with the cooking show's bonus at ${BONUS.join(' / ')}%`, '']
       : [`THE GONG'S CEILINGS: fans turned at best in a bell of ${BELLS.join(' / ')} s, with the cooking show's bonus at ${BONUS.join(' / ')}%`, ''];
     if (!bosses) out.push('step'.padEnd(28) + BONUS.map(b => `+${b}%`.padStart(4 + 6 * BELLS.length)).join(''));
-    for (const s of fac ? factors() : bosses ? BOSS_STEPS : process.env.SIM_STEPS === 'crew' ? CREW : STEPS) {
+    for (const s of win ? windows() : fac ? factors() : bosses ? BOSS_STEPS : process.env.SIM_STEPS === 'crew' ? CREW : STEPS) {
       const [r, f, m, ru, fu, mu] = s.lines;
       const g = await loadGame({
         tiles: bought(...MARKET, 'sushi', ...FLOE_SUSHI, 'dohyo'), fugu: 2, level: 1, mods: { cellarcrew: s.crew },
@@ -111,7 +128,7 @@ describe.runIf(process.env.SIM)('capacity', () => {
       }
       for (const bonus of BONUS) {
         const got: number[] = [];
-        for (const bell of bosses ? [was.bell] : BELLS) {
+        for (const bell of bosses ? [s.bell ?? was.bell] : BELLS) {
           // (a second on each time: the gong keeps its forecasts for half a second)
           boss.crowd = 5000; boss.bell = bell; F.t += 1;
           got.push(fight.forecast(0, { bonus })!.turned);

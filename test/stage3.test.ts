@@ -1092,7 +1092,7 @@ describe('the gong', () => {
 
   it("your chances are a word, by how many the forecast turns of the more than half that beats him", async () => {
     const { fight, gong } = await ring({ level: 0 });
-    const boss = fight.BOSSES[2], at = (turned: number, n?: number) => gong.verdict(boss, { boss, turned, worst: null, at: 0 }, n);
+    const boss = fight.BOSSES[0], at = (turned: number, n?: number) => gong.verdict(boss, { boss, turned, worst: null, at: 0 }, n);
     // a crowd of 220: 111 beat him
     expect([134, 133, 111, 110, 95, 94, 67, 66, 0].map(t => at(t, 220))).toEqual(
       ['win', 'likelywin', 'likelywin', 'maybe', 'maybe', 'likelylose', 'likelylose', 'lose', 'lose']);
@@ -1250,6 +1250,19 @@ describe('the slam', () => {
 });
 
 describe('the finishers', () => {
+  it('a stronger boss wants more than half: his own share of his crowd, and a grand win half way from it to all of them', async () => {
+    const { fight } = await ring({ level: 0 });
+    const [hakkaku, , dobu] = fight.BOSSES;
+    expect(fight.toBeat(hakkaku)).toBe(51);
+    expect(fight.toBeat(dobu)).toBe(399);
+    // (a fix's fans kept home: the same share of the rest)
+    expect(fight.toBeat(dobu, 349)).toBe(280);
+    const R = (turned: number) => ({ boss: 2, n: 498, turned, win: turned >= 399, slam: -1 }) as import('../src/fight').Rush;
+    expect([fight.grand(R(448)), fight.grand(R(449))]).toEqual([false, true]);
+    expect(fight.finishOf(R(300))).toBe('push');
+    expect(fight.finishOf(R(398))).toBe('tight');
+  });
+
   it("how a boss's fight ends goes by his vote: a grand win, a heavy loss, a tight one, or a push-out", async () => {
     const { fight } = await ring({ level: 0 });
     const F2 = await import('../src/finishers');
@@ -1316,15 +1329,15 @@ describe('the finishers', () => {
       g.runUntil(() => { while (F().rush!.turned + F().stall.length < n && fight.toStall(false)); return F().rush!.done; }, 31 + fight.WALK_IN);
       g.runUntil(() => F().bout.phase === 'pay' && F().bout.t >= 0.6, 25);
     };
-    // under half of the 106 needed: Crab shuffle
+    // under half of the 150 needed: Crab shuffle
     await lose(30);
     expect(F().bout.finish).toBe('heavy');
     g.ui.hud(0);
     expect($('rushBell').textContent).toBe('CRAB SHUFFLE');
     g.runUntil(() => F().bout.t >= landsOf(F().rush, 'heavy') + 0.2, 6);
     expect(down(dohyo.ring.champ, cellar)).toBe(true);
-    // just short, 100 of 106: Side step
-    await lose(100);
+    // just short, 140 of 150: Side step
+    await lose(140);
     expect(F().bout.finish).toBe('tight');
     g.ui.hud(0);
     expect($('rushBell').textContent).toBe('SIDE STEP');
