@@ -1329,15 +1329,15 @@ describe('the finishers', () => {
       g.runUntil(() => { while (F().rush!.turned + F().stall.length < n && fight.toStall(false)); return F().rush!.done; }, 31 + fight.WALK_IN);
       g.runUntil(() => F().bout.phase === 'pay' && F().bout.t >= 0.6, 25);
     };
-    // under half of the 150 needed: Crab shuffle
+    // under half of the 110 needed: Crab shuffle
     await lose(30);
     expect(F().bout.finish).toBe('heavy');
     g.ui.hud(0);
     expect($('rushBell').textContent).toBe('CRAB SHUFFLE');
     g.runUntil(() => F().bout.t >= landsOf(F().rush, 'heavy') + 0.2, 6);
     expect(down(dohyo.ring.champ, cellar)).toBe(true);
-    // just short, 140 of 150: Side step
-    await lose(140);
+    // just short, 105 of 110: Side step
+    await lose(105);
     expect(F().bout.finish).toBe('tight');
     g.ui.hud(0);
     expect($('rushBell').textContent).toBe('SIDE STEP');
@@ -1999,7 +1999,7 @@ describe('the swarm and the watch spot', () => {
 
 describe('the buyout, and the front', () => {
   it("buying Mr. Fugu out: he goes, his share ends, the restaurant's till comes back, and stage 4 is hinted at", async () => {
-    const { g, cellar, front, fight, buy } = await ring({ money: 12_500_000, ring: RING_DONE, till: 300_000_000 });
+    const { g, cellar, front, fight, buy } = await ring({ money: 7_000_000, ring: RING_DONE, till: 300_000_000 });
     buy('buyout');
     expect(front.front.boughtOut).toBe(true);
     // the cash from upstairs comes out of the till
