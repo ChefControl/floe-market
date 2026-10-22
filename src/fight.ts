@@ -61,11 +61,11 @@ export interface Boss {
  *  what it all turns with no show (SIM_STEPS=window). Their prices set the time between bosses (tuned 2026-10-22 with
  *  the stage 3 bot: seven to nine minutes each, about 45 to the buyout). */
 export const BOSSES: Boss[] = [
-  { face: '🐙', name: 'Hakkaku', crowd: 100, bell: 30, prize: 350, kind: 'octopus', opens: 'grow room, the attendant' },
-  { face: '🦀', name: 'Yokobashiri', crowd: 210, bell: 30, prize: 250, share: 0.52, kind: 'crab', opens: 'Back-Alley Ring, bowl slide, steam baskets, a way south' },
+  { face: '🐙', name: 'Hakkaku', crowd: 100, bell: 30, prize: 100, kind: 'octopus', opens: 'grow room, the attendant' },
+  { face: '🦀', name: 'Yokobashiri', crowd: 210, bell: 30, prize: 250, share: 0.495, kind: 'crab', opens: 'Back-Alley Ring, bowl slide, steam baskets, a way south' },
   { face: '🐟', name: 'Dobu', crowd: 498, bell: 45, prize: 300, share: 0.8, kind: 'catfish', opens: 'Underground Arena, smokehouse, the cook' },
   { face: '🦈', name: 'Samehada', crowd: 571, bell: 45, prize: 800, share: 0.935, kind: 'shark', opens: 'Grand Hall Below, glowing shelves, faster belt' },
-  { face: '🐡', name: 'Fukure', crowd: 1100, bell: 60, prize: 5000, share: 0.74, kind: 'puffer', opens: 'buy back all his chips' },
+  { face: '🐡', name: 'Fukure', crowd: 1100, bell: 60, prize: 1500, share: 0.74, kind: 'puffer', opens: 'buy back all his chips' },
 ];
 /** The practice fight before the first boss (once, for a player who's just come down): the champion's own sparring
  *  partner and a small crowd, so the gong's learnt on a fight that's won. His prize hires the two lines' hands, which is
@@ -87,10 +87,10 @@ export const WALK_IN = 6;
  *  as fast with a cook ladling too); the counter holds two batches too, and the ledge six batches of each. */
 export const PER_BATCH = 4, BATCH = 20, POT_CAP = 40, COUNTER_CAP = 40, STALL_CAP = 30, LEDGE_CAP = 24, LADLE = 0.1;
 /** The bowl slide (a hearth room upgrade): bowls a second it sends from the counter down to the soup bar by itself. */
-export const SLIDE = 12, SLIDE_COST = 100, SLIDE_BEAT = 2;
+export const SLIDE = 12, SLIDE_COST = 145, SLIDE_BEAT = 2;
 /** Its faster belt (a hearth room upgrade beating Samehada opens): bowls a second the slide sends once it's bought. By
  *  Fukure the slide's what limits a rush (the stall's 30 and SLIDE a second of his bell), so this is what beats him. */
-export const FAST_SLIDE = 18, FAST_COST = 1000, FAST_BEAT = 4;
+export const FAST_SLIDE = 18, FAST_COST = 1700, FAST_BEAT = 4;
 /** Mama Moray's (resto.ts), the chanko restaurant out front: what the pot can't hold goes to her. A batch cooked with
  *  the pot full and a batch to spare on the ledge of everything goes up the belt to her counter instead, and pays this share of what
  *  its bowls would at the stall (the Family keeps the rest). Never in a boss's rush, or before the doors open. */
@@ -110,15 +110,15 @@ export const HIRES: Record<Role, { line?: Ing; name: string; cost: number; beat:
   salter: { line: 'fish', name: 'Fish salter', cost: 20, beat: 0 },
   picker: { line: 'mush', name: 'Mushroom picker', cost: 100, beat: 1 },
   // (serving's taken off the player's hands before the pot is: the pot's theirs)
-  attendant: { name: 'Attendant', cost: 30, beat: 1 },
-  cook: { name: 'Cook', cost: 750, beat: 3 },
+  attendant: { name: 'Attendant', cost: 190, beat: 1 },
+  cook: { name: 'Cook', cost: 340, beat: 3 },
 };
 /** The machine upgrades: chips, and bosses to beat first. */
 export const UPS: Record<Ing, { cost: number; beat: number }> = { rice: { cost: 350, beat: 2 }, fish: { cost: 800, beat: 3 }, mush: { cost: 4000, beat: 4 } };
 /** Another machine: the first extra's chips, each next one 45% more. */
 export const MACH_COST: Record<Ing, number> = { rice: 10, fish: 12, mush: 15 }, MACH_STEP = 1.45;
 export const TIER_COST = [0, 120, 900, 2500], TIER_BEAT = [0, 2, 3, 4];
-export const BUYOUT = 6500;
+export const BUYOUT = 7000;
 /** A bout's phases: preparation (the fans buy soup; on a boss night, as long as his bell), taking their seats, the
  *  fight, and the result. */
 export const BOUT = { prep: 20, sit: 5, fight: 15, pay: 7 };

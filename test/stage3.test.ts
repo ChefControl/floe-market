@@ -132,10 +132,10 @@ describe('buying into the ring', () => {
   }, 30_000);
 
   it('a stage 3 save from before the till keeps what the cellar can have paid it, and the rest goes in the till', async () => {
-    // (two bosses beaten: the practice, Hakkaku and Yokobashiri paid 35 + 350 + 250 chips, and Dobu's 300 is next)
+    // (two bosses beaten: the practice, Hakkaku and Yokobashiri paid 35 + 100 + 250 chips, and Dobu's 300 is next)
     const { front, F } = await ring({ money: 499_000_000, till: null, ring: { beaten: 2 } });
     expect(F().beaten).toBe(2);
-    const keep = (35 + 350 + 250 + 300) * 1000;
+    const keep = (35 + 100 + 250 + 300) * 1000;
     expect(front.front.till).toBe(499_000_000 - keep);
     expect((await import('../src/wallet')).wallet.money).toBe(keep);
   });
@@ -991,7 +991,7 @@ describe('the gong', () => {
     expect($('gong').hidden).toBe(false);
     // Chunkos against him, what he brings (his crowd, his bell, his prize), and your chances in a word
     expect($('gongBoss').textContent).toBe('Hakkaku');
-    expect([...$('gongCrowd').children].map(c => c.textContent)).toEqual(['👥 100', '💪 51', '🔔 30 s', '🐡 350']);
+    expect([...$('gongCrowd').children].map(c => c.textContent)).toEqual(['👥 100', '💪 51', '🔔 30 s', '🐡 100']);
     const said = gong.VERDICT[gong.verdict(fight.BOSSES[0], fight.forecast()!)];
     expect($('gongCast').textContent).toBe(`Your chances${said}`);
     expect($('gongCast').querySelector('.seal')!.className).toMatch(/^seal v-/);
@@ -1134,7 +1134,7 @@ describe('the gong', () => {
     g.run(0.5);
     expect($('fightCard').hidden).toBe(false);
     expect($('fightCard').className).toBe('win');
-    expect($('fightCard').textContent).toBe('勝YOU WIN🐡 350🔓 New: grow room, the attendantTap to close');
+    expect($('fightCard').textContent).toBe('勝YOU WIN🐡 100🔓 New: grow room, the attendantTap to close');
     // the grow room: lit, walkable, with its first bed (its picker's sold on its square)
     expect(g.layout.found.grow).toBe(true);
     expect(cellar.lights[7].intensity).toBeGreaterThan(0);
@@ -1209,9 +1209,9 @@ describe('the slam', () => {
     // one try
     expect(fight.slam()).toBe(-1);
     g.runUntil(() => F().bout.phase === 'pay', 8);
-    expect(g.wallet.money - money).toBe(Math.round(350 * 1.2 * fight.CHIP));
+    expect(g.wallet.money - money).toBe(Math.round(100 * 1.2 * fight.CHIP));
     g.run(fight.LANDS + 0.5);
-    expect($('fightCard').textContent).toBe('勝YOU WIN🐡 350💥 Slam +🐡 70🔓 New: grow room, the attendantTap to close');
+    expect($('fightCard').textContent).toBe('勝YOU WIN🐡 100💥 Slam +🐡 20🔓 New: grow room, the attendantTap to close');
   }, 30_000);
 
   it('on a phone, a tap anywhere as the rings meet lands it, and the button says to tap', async () => {
@@ -1239,7 +1239,7 @@ describe('the slam', () => {
     expect(r2.fight.slam()).toBe(0);
     const money = r2.g.wallet.money;
     r2.g.runUntil(() => r2.F().bout.phase === 'pay', 15);
-    expect(r2.g.wallet.money - money).toBe(350 * r2.fight.CHIP);
+    expect(r2.g.wallet.money - money).toBe(100 * r2.fight.CHIP);
     // 83 of 100 is a win, but not a grand one (his 💪 51, and the top third of the way to all 100 from 84)
     const r3 = await wonBy(83);
     expect(r3.gong.slamOffered()).toBe(false);
@@ -1333,15 +1333,15 @@ describe('the finishers', () => {
       g.runUntil(() => { while (F().rush!.turned + F().stall.length < n && fight.toStall(false)); return F().rush!.done; }, 31 + fight.WALK_IN);
       g.runUntil(() => F().bout.phase === 'pay' && F().bout.t >= 0.6, 25);
     };
-    // under half of the 110 needed: Crab shuffle
+    // under half of his 💪 104: Crab shuffle
     await lose(30);
     expect(F().bout.finish).toBe('heavy');
     g.ui.hud(0);
     expect($('rushBell').textContent).toBe('CRAB SHUFFLE');
     g.runUntil(() => F().bout.t >= landsOf(F().rush, 'heavy') + 0.2, 6);
     expect(down(dohyo.ring.champ, cellar)).toBe(true);
-    // just short, 105 of 110: Side step
-    await lose(105);
+    // just short, 100 of 104: Side step
+    await lose(100);
     expect(F().bout.finish).toBe('tight');
     g.ui.hud(0);
     expect($('rushBell').textContent).toBe('SIDE STEP');
@@ -2003,7 +2003,7 @@ describe('the swarm and the watch spot', () => {
 
 describe('the buyout, and the front', () => {
   it("buying Mr. Fugu out: he goes, his share ends, the restaurant's till comes back, and stage 4 is hinted at", async () => {
-    const { g, cellar, front, fight, buy } = await ring({ money: 7_000_000, ring: RING_DONE, till: 300_000_000 });
+    const { g, cellar, front, fight, buy } = await ring({ money: 7_500_000, ring: RING_DONE, till: 300_000_000 });
     buy('buyout');
     expect(front.front.boughtOut).toBe(true);
     // the cash from upstairs comes out of the till

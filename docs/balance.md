@@ -160,11 +160,11 @@ What it shows:
 | Boss | Crowd · 💪 to beat him (share) · bell · prize | What's open | Turned: no show, crew 0 → 8 | Turned: perfect show, at his open crew |
 |---|---|---|---|---|
 | 🤼 Sparring partner | 40 · 21 · 30 s · 🐡 35 | your hands | | |
-| 🐙 Hakkaku | 100 · 51 · 30 s · 🐡 350 | racks, barrels, washer, salter | 100 → 100 | 100 |
-| 🦀 Yokobashiri | 210 · 110 (52%) · 30 s · 🐡 250 | + beds, picker, the attendant, crew 2 | 180 → 300 | 210 |
+| 🐙 Hakkaku | 100 · 51 · 30 s · 🐡 100 | racks, barrels, washer, salter | 100 → 100 | 100 |
+| 🦀 Yokobashiri | 210 · 104 (49.5%) · 30 s · 🐡 250 | + beds, picker, the attendant, crew 2 | 180 → 300 | 210 |
 | 🐟 Dobu | 498 · 399 (80%) · 45 s · 🐡 300 | + the bowl slide, steam baskets | 410 → 508 | 498 |
 | 🦈 Samehada | 571 · 534 (93.5%) · 45 s · 🐡 800 | + the cook, the smokehouse | 427 → 571 | 571 |
-| 🐡 Fukure | 1,100 · 815 (74%) · 60 s · 🐡 5,000 | + glowing shelves, the faster belt | 947 at crew 8 | 1,100 |
+| 🐡 Fukure | 1,100 · 815 (74%) · 60 s · 🐡 1,500 | + glowing shelves, the faster belt | 947 at crew 8 | 1,100 |
 
 Before the bowl slide the bowls are carried, so the cooking show adds nothing to Hakkaku's or Yokobashiri's ceiling (and at crew 7 to 8 a perfect show turns a few fewer than none: 293 of Yokobashiri's 300, 498 against 508 for Dobu). **Each boss's strength** (💪, the fans to turn to beat him: his share of the crowd, shown on the gong's card and the fight's banner as one number that grows boss to boss, never a percentage) sits above the most the kitchen the boss before him left can turn, even with a perfect show, so what beating that boss opened has to be bought, and under what everything open turns with no show (`SIM_STEPS=window`): Yokobashiri above 100 (the attendant), Dobu above 300 (the bowl slide), Samehada above 498 (the cook, the smokehouse, crew). Fukure above 751 (the faster belt, opened by Samehada: by then the slide's 12 bowls a second was the limit, which Samehada's kitchen already reached, so his faster one at 18 is what beats Fukure, with the glowing shelves). Hakkaku stays at more than half: his kitchen is your hands either way. A win's finisher goes by thirds of the room between his 💪 and his whole crowd (tight, push-out, grand with the slam), so every boss has all three however near his 💪 is to all of them; a loss by his 💪 (under half: heavy, within a tenth: tight).
 
@@ -177,21 +177,21 @@ Before the bowl slide the bowls are carried, so the cooking show adds nothing to
 - The cooking show's bonus lasts 70 s: a boss's walk-in and bell, Fukure's 66 s included.
 - The Undertow favours the house: Tommy pays half again for the queen (4 to 12 swaps; the house wins unless you find her two times in three), Eddie charges 🐡 8 a fan he keeps home, Harry lends up to four full houses at 1.25×.
 
-**The rest of the tables** (`src/fight.ts`): a bowl 🐡 1.6 (a mushroom bowl twice that), less Mr. Fugu's 30% until the buyout; seats 24 / 48 / 90 / 150 (Back-Alley Ring 🐡 120 after Yokobashiri, Underground Arena 900 after Dobu, Grand Hall 2,500 after Samehada); washer 15, salter 20 (after the practice fight), attendant 30 and picker 100 (after Hakkaku), the bowl slide 100 (Yokobashiri, once the attendant's hired) and steam baskets 350 (Yokobashiri), cook 750 and smokehouse 800 (Dobu), glowing shelves 4,000 and the faster belt 1,000 (Samehada, once the slide's in); racks 10, barrels 12, beds 15, each next one 45% more; the buyout 🐡 6,500.
+**The rest of the tables** (`src/fight.ts`): a bowl 🐡 1.6 (a mushroom bowl twice that), less Mr. Fugu's 30% until the buyout; seats 24 / 48 / 90 / 150 (Back-Alley Ring 🐡 120 after Yokobashiri, Underground Arena 900 after Dobu, Grand Hall 2,500 after Samehada); washer 15, salter 20 (after the practice fight), attendant 190 and picker 100 (after Hakkaku), the bowl slide 145 (Yokobashiri, once the attendant's hired) and steam baskets 350 (Yokobashiri), cook 340 and smokehouse 800 (Dobu), glowing shelves 4,000 and the faster belt 1,700 (Samehada, once the slide's in); racks 10, barrels 12, beds 15, each next one 45% more; the buyout 🐡 7,000.
 
 **When the bot gets there** (from the ladder down, `SIM_STAGE=3`, the median of four styles: the cooking show for Hearty or never or Perfect, slams on or off, helping hired lines or not; single runs swing ±2 minutes)
 
-| | Before the pass (2026-10-18) | After the pass | Kitchen holds the rush (2026-10-19) | Levels and win lines by boss, prices for even stretches (2026-10-22) |
+| | Before the pass (2026-10-18) | After the pass | Kitchen holds the rush (2026-10-19) | Levels, 💪 and key upgrades by boss (2026-10-22) |
 |---|---|---|---|---|
 | Beat the sparring partner | 1:40 | 1:40 | 1:40 | 1:40 |
 | Beat Hakkaku | 4:00 | 4:10 | 4:36 | 3:10 |
-| Beat Yokobashiri | 9:00 | 13:27 | 22:05 | 11:40 (+8:30) |
-| Beat Dobu | 13:15 | 19:32 | 24:09 | 20:05 (+8:25) |
-| Beat Samehada | 22:45 | 30:37 | 26:14 | 27:26 (+7:21) |
-| Beat Fukure | 25:35 | 38:29 | 28:41 | 36:57 (+9:31) |
-| Buy back all his chips | 29:00 | 44:03 (43:32 to 44:31) | 47:09 | 45:09 (+8:12; 40:46 to 45:39) |
+| Beat Yokobashiri | 9:00 | 13:27 | 22:05 | 10:58 (+7:48) |
+| Beat Dobu | 13:15 | 19:32 | 24:09 | 19:31 (+8:33) |
+| Beat Samehada | 22:45 | 30:37 | 26:14 | 29:54 (+10:23) |
+| Beat Fukure | 25:35 | 38:29 | 28:41 | 37:17 (+7:23) |
+| Buy back all his chips | 29:00 | 44:03 (43:32 to 44:31) | 47:09 | 45:25 (+8:08; 40:22 to 47:15 with the cooking show) |
 
-Each stretch from Yokobashiri on now waits on money: what the boss before him opened has to be bought (the attendant, the bowl slide, the cook, the faster belt) before his win line can be reached, so their prices set the stretches. The bot buys the cheapest open thing first, so a key upgrade's price is set against what else is open: the attendant 🐡 30 and the slide 🐡 100 come before the machines and the venue, the faster belt 🐡 1,000 before the smokehouse and the second venue. Tune with the capacity probe (`SIM_STEPS=window`, `factors`) for the lines and the balance sim for the times.
+The last column is the median of eight styles (`run8`: the four above, the show for Tasty, slams off, never the show and no help, Perfect), a style that never finishes counted at 60 minutes. The bot saves for what the next boss needs first (test/bot.ts's KEY: the attendant, the slide, the cook and the smokehouse, the faster belt; with every boss beaten, the buyout), as a player reads it off the gong, then the cheapest thing on sale, and never leaves a boss's rush to shop. Each stretch from Yokobashiri on waits on that upgrade's price, so prices set the time between bosses; prizes are kept under the next key upgrade's price (Hakkaku 🐡 100, Fukure 🐡 1,500), or the lump pays for it on the spot and the stretch falls off a cliff. **A player who never plays the cooking show is much slower late on:** both such styles reach Samehada at about 40 minutes and one never beats Fukure inside the hour, since without the show his 💪 needs nearly everything open bought, crew 6 included.
 
 What it shows:
 - **Between bosses the crowd, not the kitchen, sets the income.** A local fight's fans all eat and 35 to 90 bowls are left over, so only seats, Word on the street and Pricier bowls earn more then. From about the attendant on, the bot stands at a full pot for much of each minute (about 1,150 s of the 44 minutes; 640 s of the old 29). Making the stage longer with numbers stretches that waiting too: it's what side content (or a kitchen that matters between bosses) would fill.
