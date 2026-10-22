@@ -68,7 +68,7 @@ describe('the Undertow', () => {
     expect(F().beaten).toBe(2);
     // the card says there's a way in now; the room's not there yet
     expect($('fightCard').hidden).toBe(false);
-    expect($('fightCard').textContent).toContain('🔓 New: steam baskets, a way');
+    expect($('fightCard').textContent).toContain('🔓 New: Back-Alley Ring, bowl slide, steam baskets, a way');
     expect(g.layout.found.den).toBe(false);
     // the card goes, his crowd goes home, the next bout begins: Mr. Fugu wants a word, a "!" over him
     $('fightCard').click();
@@ -624,30 +624,30 @@ describe('the Undertow', () => {
     at(plan.BOOTH_PADS.eddie);
     g.run(0.2);
     expect($('eddie').hidden).toBe(false);
-    // 30% of Dobu's 880 fans: 264 kept home, at 8 chips a fan; a 30% chance it gets out
+    // 30% of Dobu's 498 fans: 149 kept home, at 8 chips a fan; a 30% chance it gets out
     E.pickCut(3);
-    expect($('eddieFix').textContent).toBe('Fix 🐟 −264 fans · 30% caught');
+    expect($('eddieFix').textContent).toBe('Fix 🐟 −149 fans · 30% caught');
     // (each size says what it costs)
-    expect($('eddie').querySelector('[data-cut="3"]')!.textContent).toBe('🐡2,112');
+    expect($('eddie').querySelector('[data-cut="3"]')!.textContent).toBe('🐡1,192');
     expect(E.payEddie(3, () => 0.99)).toBe(true);
-    expect(g.wallet.money).toBe(5000 * 1000 - 2112 * 1000);
+    expect(g.wallet.money).toBe(5000 * 1000 - 1192 * 1000);
     expect(F().den.eddie).toEqual({ boss: 2, cut: 3, caught: false });
     // one fix a boss
     expect(E.payEddie(1, () => 0.99)).toBe(false);
     expect(E.eddieMsg()).toContain("You'll know at the gong");
     // saved as it's paid for: a reload doesn't undo it, or roll it again
     expect(fight.fightFrom(fight.saveFight()).den.eddie).toEqual({ boss: 2, cut: 3, caught: false });
-    // the gong: your chances if the fix holds (616 fans) and if it's caught (all 880), a word for each face of his coin
+    // the gong: your chances if the fix holds (349 fans) and if it's caught (all 498), a word for each face of his coin
     at(plan.GONG_PAD);
     g.run(0.7);
     // (each as the forecasts have it, a cooking bonus bought at the gong included)
     const gong = await import('../src/gong'), dobu = fight.BOSSES[2];
     const says = (kept: number) => gong.VERDICT[gong.verdict(dobu, fight.forecast(kept)!, dobu.crowd - kept, { at35: fight.forecast(kept, { bonus: 35 })!, at50: fight.forecast(kept, { bonus: 50 })! })];
-    expect([...$('gongCast').children].map(r => r.textContent)).toEqual([`Fix holds${says(264)}`, `Caught${says(0)}`]);
+    expect([...$('gongCast').children].map(r => r.textContent)).toEqual([`Fix holds${says(149)}`, `Caught${says(0)}`]);
     expect($('gongCast').querySelectorAll('svg.mini use[href="#coinGrin"], svg.mini use[href="#coinGrimace"]')).toHaveLength(2);
-    // rung: it held, and he walks in with 264 fewer; the fix is spent
+    // rung: it held, and he walks in with 149 fewer; the fix is spent
     expect(fight.ringGong()).toBe(true);
-    expect(F().rush).toMatchObject({ n: 616, kept: 264, fix: { cut: 3, caught: false } });
+    expect(F().rush).toMatchObject({ n: 349, kept: 149, fix: { cut: 3, caught: false } });
     expect(fight.fixOn()).toBeNull();
     expect(F().den.scandal.bouts).toBe(0);
     // (and a reload in the middle of it calls the rush off, but keeps the fix for next time: it was paid for)
@@ -669,7 +669,7 @@ describe('the Undertow', () => {
     expect($('fightBanner').hidden).toBe(true);
     expect($('rush').hidden).toBe(true);
     g.run(3);
-    expect(F().rush).toMatchObject({ n: 616, walk: fight.WALK_IN, t: 0 });
+    expect(F().rush).toMatchObject({ n: 349, walk: fight.WALK_IN, t: 0 });
     expect(F().t).toBe(t);
     expect(g.player.held).toBe(true);
     // (a tap before it's said its piece does nothing)
@@ -678,12 +678,12 @@ describe('the Undertow', () => {
     g.run(2.5);
     expect($('coin').className).toBe('hold ready');
     expect($('coinHead').textContent).toBe('THE FIX HOLDS');
-    expect($('coinSub').textContent).toBe('Dobu brings 616, not 880');
+    expect($('coinSub').textContent).toBe('Dobu brings 349, not 498');
     // tapped: he walks in
     $('coin').click();
     expect($('coin').hidden).toBe(true);
     expect(g.player.held).toBe(false);
-    expect($('fightBanner').textContent).toBe('入場Dobu 🐟 · 616 fansTURN 309 TO WIN');
+    expect($('fightBanner').textContent).toBe('入場Dobu 🐟 · 349 fansTURN 175 TO WIN');
     g.run(1);
     expect(F().rush!.walk).toBeLessThan(fight.WALK_IN);
     expect($('rush').hidden).toBe(false);
@@ -694,7 +694,7 @@ describe('the Undertow', () => {
     expect($('coin').className).toBe('caught');
     g.run(6);
     expect($('coinHead').textContent).toBe('🗞️ CAUGHT!');
-    expect($('coinSub').textContent).toBe('He brings all 880');
+    expect($('coinSub').textContent).toBe('He brings all 498');
     // (E does it too)
     g.press('e');
     g.run(0.1);
@@ -710,7 +710,7 @@ describe('the Undertow', () => {
     expect(E.payEddie(4, () => 0.2)).toBe(true); // (under 50%: caught)
     const fans = fight.crowdNow();
     expect(fight.ringGong()).toBe(true);
-    expect(F().rush).toMatchObject({ n: 880, kept: 0, fix: { cut: 4, caught: true } });
+    expect(F().rush).toMatchObject({ n: 498, kept: 0, fix: { cut: 4, caught: true } });
     // 40% of your own fans stay away, for the next 2 local bouts
     expect(F().den.scandal).toEqual({ cut: 4, bouts: 2 });
     expect(fight.crowdNow()).toBe(Math.round(fans * 0.6));

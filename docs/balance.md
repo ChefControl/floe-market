@@ -155,21 +155,23 @@ What it shows:
 
 **What a boss rush is limited by:** carrying bowls to the stall, not cooking. With the pot, counter, stall and ledge full, your own hands turn about 100 of a crowd in a 30 s bell, whatever lines you have; the attendant turns about 180, and each level of Cellar crew walks him faster (30 fans a step in a 30 s bell). The glowing shelves count only in Fukure's 60 s bell. Steam baskets, the smokehouse, more machines and the cook refill the kitchen sooner between fights but don't raise any ceiling, and neither does the cooking show's bonus at a full kitchen (it helps a kitchen that isn't restocked yet). `SIM=1 SIM_STEPS=crew npx vitest run test/capacity.sim.test.ts` prints the ladder.
 
-**The ladder each boss sits on** (a little under what that step turns at best)
+**The ladder each boss sits on.** The rule: with everything beating the boss before him has opened (every machine and line upgrade, the hires, the bowl slide once it's open, Cellar crew 8) and the cooking show aced, the kitchen turns his whole crowd; with no cooking show it still wins by a margin. So his crowd is what that kitchen turns at best (`SIM=1 SIM_STEPS=bosses npx vitest run test/capacity.sim.test.ts`, which prints every crew level).
 
-| Boss | Crowd · to turn · bell · prize | Needs |
-|---|---|---|
-| 🤼 Sparring partner | 40 · 21 · 30 s · 🐡 35 | your hands (won without the cooking show) |
-| 🐙 Hakkaku | 160 · 81 · 30 s · 🐡 350 | a stocked kitchen, by hand (ceiling 100) |
-| 🦀 Yokobashiri | 300 · 151 · 30 s · 🐡 250 | the attendant (180), opened by Hakkaku |
-| 🐟 Dobu | 448 · 225 · 30 s · 🐡 300 | Cellar crew 4 (240; crew 3 turns 210) |
-| 🦈 Samehada | 730 · 366 · 45 s · 🐡 800 | Cellar crew 6 (390; crew 4 to 5 turn 360) |
-| 🐡 Fukure | 1,080 · 541 · 60 s · 🐡 5,000 | Cellar crew 7 and the glowing shelves (570) |
+| Boss | Crowd · to turn · bell · prize | What's open | Turned: no show, crew 0 → 8 | Turned: perfect show, crew 8 |
+|---|---|---|---|---|
+| 🤼 Sparring partner | 40 · 21 · 30 s · 🐡 35 | your hands | | |
+| 🐙 Hakkaku | 100 · 51 · 30 s · 🐡 350 | racks, barrels, washer, salter | 100 → 100 | 100 |
+| 🦀 Yokobashiri | 300 · 151 · 30 s · 🐡 250 | + beds, picker, the attendant | 180 → 300 | 293 |
+| 🐟 Dobu | 498 · 250 · 45 s · 🐡 300 | + the bowl slide, steam baskets | 410 → 508 | 498 |
+| 🦈 Samehada | 571 · 286 · 45 s · 🐡 800 | + the cook, the smokehouse | 427 → 571 | 571 |
+| 🐡 Fukure | 751 · 376 · 60 s · 🐡 5,000 | + glowing shelves | 621 → 751 | 751 |
+
+Before the bowl slide the bowls are carried, so the cooking show adds nothing to Hakkaku's or Yokobashiri's ceiling (and at crew 7 to 8 a perfect show turns a few fewer than none: 293 of Yokobashiri's 300, 498 against 508 for Dobu). Even at crew 0 with no show, every boss is beaten by a wide margin, so Cellar crew now buys income and margin rather than a win.
 
 **Principles for this stage**
 - No fee and no luck: the gong costs nothing, and its forecast is exact (it plays the rush ahead in a copy of the cellar, with the player in it, cooking at the pot even with a cook hired, as in play). A loss only costs time, and its card says which ingredient held the pot up.
 - Prizes are small. A win's prize and the bowls his crowd buys arrive as one lump, and at the old prizes (up to 🐡 10,000 for Fukure, 83% of the buyout) that lump paid for the next boss on the spot, so bosses came in pairs.
-- Cellar crew is the main sink (🐡 150, ×1.45 a level, 🐡 6,180 for all 8): it's what beats Dobu, Samehada and Fukure.
+- Cellar crew is the main sink (🐡 150, ×1.45 a level, 🐡 6,180 for all 8): it walks the attendant faster, so it raises every boss's ceiling and the bowls a rush sells, though no boss needs it to be beaten.
 - Word on the street adds 10.5% a level: all 8 levels bring fans, and the eighth fills every seat (at +20% a level, levels 6 to 8 brought no one).
 - The cooking show's bonus lasts 70 s: a boss's walk-in and bell, Fukure's 66 s included.
 - The Undertow favours the house: Tommy pays half again for the queen (4 to 12 swaps; the house wins unless you find her two times in three), Eddie charges 🐡 8 a fan he keeps home, Harry lends up to four full houses at 1.25×.
@@ -178,15 +180,15 @@ What it shows:
 
 **When the bot gets there** (from the ladder down, `SIM_STAGE=3`, the median of four styles: the cooking show for Hearty or never or Perfect, slams on or off, helping hired lines or not; single runs swing ±2 minutes)
 
-| | Before the pass (2026-10-18) | Now |
-|---|---|---|
-| Beat the sparring partner | 1:40 | 1:40 |
-| Beat Hakkaku | 4:00 | 4:10 |
-| Beat Yokobashiri | 9:00 | 13:27 |
-| Beat Dobu | 13:15 | 19:32 |
-| Beat Samehada | 22:45 | 30:37 |
-| Beat Fukure | 25:35 | 38:29 |
-| Buy back all his chips | 29:00 | 44:03 (43:32 to 44:31) |
+| | Before the pass (2026-10-18) | After the pass | Kitchen holds the rush (2026-10-19) | Crowds at the ceilings, slide and Back-Alley Ring at Yokobashiri (2026-10-22) |
+|---|---|---|---|---|
+| Beat the sparring partner | 1:40 | 1:40 | 1:40 | 1:40 |
+| Beat Hakkaku | 4:00 | 4:10 | 4:36 | 3:10 |
+| Beat Yokobashiri | 9:00 | 13:27 | 22:05 | 19:26 |
+| Beat Dobu | 13:15 | 19:32 | 24:09 | 20:48 |
+| Beat Samehada | 22:45 | 30:37 | 26:14 | 22:10 |
+| Beat Fukure | 25:35 | 38:29 | 28:41 | 23:49 |
+| Buy back all his chips | 29:00 | 44:03 (43:32 to 44:31) | 47:09 | 44:45 (44:25 to 45:09) |
 
 What it shows:
 - **Between bosses the crowd, not the kitchen, sets the income.** A local fight's fans all eat and 35 to 90 bowls are left over, so only seats, Word on the street and Pricier bowls earn more then. From about the attendant on, the bot stands at a full pot for much of each minute (about 1,150 s of the 44 minutes; 640 s of the old 29). Making the stage longer with numbers stretches that waiting too: it's what side content (or a kitchen that matters between bosses) would fill.
