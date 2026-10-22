@@ -1268,7 +1268,7 @@ describe('the finishers', () => {
     const F2 = await import('../src/finishers');
     // Hakkaku: 51 of his 100 to turn; tight is within 5 of that
     const end = (turned: number, boss = 0) => {
-      const R = { boss, n: fight.bossOf(boss).crowd, turned, win: turned * 2 > fight.bossOf(boss).crowd, slam: -1 } as import('../src/fight').Rush;
+      const R = { boss, n: fight.bossOf(boss).crowd, turned, win: turned >= fight.toBeat(fight.bossOf(boss)), slam: -1 } as import('../src/fight').Rush;
       const f = fight.finishOf(R);
       return [f, F2.moveOf(R, f)?.name ?? null];
     };
@@ -1288,7 +1288,7 @@ describe('the finishers', () => {
       for (const mv of Object.values(m)) expect(mv.name.split(' ').length).toBeLessThanOrEqual(3);
     }
     expect(end(0, 4)).toEqual(['heavy', 'PUFF BOUNCE']);
-    expect(end(940, 4)).toEqual(['grand', 'BIG SQUEEZE']);
+    expect(end(1000, 4)).toEqual(['grand', 'BIG SQUEEZE']);
     // (the practice fight: the sparring partner's)
     expect(end(30, -1)).toEqual(['grand', 'BELT THROW']);
   });
@@ -1484,7 +1484,7 @@ describe("the cellar's tiles", () => {
     // the ring's three levels along the top, then every room's upgrade and the venue's tiers, and the buyout at the end
     expect([...$('shopRows').querySelectorAll('[data-mod]')].map(b => (b as HTMLElement).dataset.mod)).toEqual(['bowls', 'street', 'cellarcrew']);
     expect([...$('shopRows').querySelectorAll<HTMLElement>('[data-tile]')].map(b => b.dataset.tile)).toEqual(
-      ['rack', 'washer', 'steam', 'barrel', 'salter', 'smoke', 'bed', 'picker', 'shelves', 'attendant', 'slide', 'cook', 'tier1', 'tier2', 'tier3', 'buyout']);
+      ['rack', 'washer', 'steam', 'barrel', 'salter', 'smoke', 'bed', 'picker', 'shelves', 'attendant', 'slide', 'cook', 'fastslide', 'tier1', 'tier2', 'tier3', 'buyout']);
     // a gate a column: the start, the practice fight (won: the fixture's sparred), then the bosses, Hakkaku next
     const gates = () => [...$('shopRows').querySelectorAll<HTMLElement>('.gate')].map(h => h.className.replace('gate ', ''));
     expect(gates()).toEqual(['start', 'won', 'next', 'later', 'later', 'later', 'later']);
@@ -1636,6 +1636,31 @@ describe("the cellar's tiles", () => {
     expect(old.F().slide).toBe(true);
     expect(old.F().tier).toBe(1);
     expect(old.g.unlocks.tiles.filter(t => t.id === 'slide' || t.id === 'tier1').every(t => t.done)).toBe(true);
+  });
+
+  it("the slide's faster belt waits for Samehada and the slide, and sends half as many bowls again", async () => {
+    const { g, fight, F } = await ring({ money: 10_000_000, ring: { beaten: 3, hires: { attendant: true } } });
+    g.run(0.1);
+    expect(offered(g)).not.toContain('fastslide');
+    F().beaten = 4;
+    g.run(0.1);
+    // (the slide first)
+    expect(offered(g)).not.toContain('fastslide');
+    g.unlocks.buyFromMenu(g.unlocks.tiles.find(t => t.id === 'slide')!);
+    g.run(0.1);
+    expect(offered(g)).toContain('fastslide');
+    // a second of it, with the counter full and room at the bar: SLIDE bowls down, then FAST_SLIDE once it's bought
+    const sent = () => { F().counter = Array(fight.COUNTER_CAP).fill(true); F().stall = []; F().slideAcc = 0; for (let i = 0; i < 20; i++) fight.step(0.05); return F().stall.length; };
+    F().quiet = true;
+    const slow = sent();
+    g.unlocks.buyFromMenu(g.unlocks.tiles.find(t => t.id === 'fastslide')!);
+    expect(F().fast).toBe(true);
+    const fast = sent();
+    // (give or take the one still on its way)
+    expect(Math.abs(slow - fight.SLIDE)).toBeLessThanOrEqual(1);
+    expect(Math.abs(fast - fight.FAST_SLIDE)).toBeLessThanOrEqual(1);
+    // (saved and loaded with the slide)
+    expect(fight.fightFrom(fight.saveFight()).fast).toBe(true);
   });
 
   it('a cook cooks full batches out of the pot, and ladles them out twice as fast', async () => {

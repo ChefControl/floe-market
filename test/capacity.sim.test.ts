@@ -9,7 +9,7 @@ import { bought, FLOE_SUSHI, loadGame, MARKET } from './helpers';
 
 type Lines = [number, number, number, 0 | 1, 0 | 1, 0 | 1];
 interface Step {
-  name: string; beaten: number; lines: Lines; hires: string[]; crew: number; slide?: boolean;
+  name: string; beaten: number; lines: Lines; hires: string[]; crew: number; slide?: boolean; fast?: boolean;
   /** Not ready for him: the pot, counter and stall empty (`front`), or the ledge and the machines (`ledge`). */
   empty?: 'front' | 'ledge';
   /** The first of a boss's rows (factors): print his heading over it. */
@@ -50,7 +50,7 @@ const OPEN: Omit<Step, 'name' | 'crew'>[] = [
   { beaten: 1, lines: [6, 6, 6, 0, 0, 0], hires: ['washer', 'salter', 'picker', 'attendant'] },
   { beaten: 2, lines: [6, 6, 6, 1, 0, 0], hires: ['washer', 'salter', 'picker', 'attendant'], slide: true },
   { beaten: 3, lines: [6, 6, 6, 1, 1, 0], hires: ['washer', 'salter', 'picker', 'attendant', 'cook'], slide: true },
-  { beaten: 4, lines: [6, 6, 6, 1, 1, 1], hires: ['washer', 'salter', 'picker', 'attendant', 'cook'], slide: true },
+  { beaten: 4, lines: [6, 6, 6, 1, 1, 1], hires: ['washer', 'salter', 'picker', 'attendant', 'cook'], slide: true, fast: true },
 ];
 const BOSS_STEPS: Step[] = OPEN.flatMap(o => [0, 1, 2, 3, 4, 5, 6, 7, 8].map(c => ({ ...o, name: `crew ${c}`, crew: c })));
 
@@ -68,7 +68,8 @@ function factors(): Step[] {
     if (o.lines.slice(3).some(Boolean)) v('no line upgrades', { lines: [...o.lines.slice(0, 3), 0, 0, 0] as Lines });
     v('no line hands', { hires: o.hires.filter(h => !['washer', 'salter', 'picker'].includes(h)) });
     if (o.hires.includes('cook')) v('no cook', { hires: o.hires.filter(h => h !== 'cook') });
-    if (o.slide) v('no slide', { slide: false });
+    if (o.fast) v('no faster belt', { fast: false });
+    if (o.slide) v('no slide', { slide: false, fast: false });
     if (o.hires.includes('attendant')) v(o.slide ? 'no slide, no attendant' : 'no attendant', { slide: false, hires: o.hires.filter(h => h !== 'attendant') });
     if (!o.slide && k < 4) v('+ the slide', { slide: true, hires: [...new Set([...o.hires, 'attendant'])] });
     v('pot, counter, stall empty', { empty: 'front' });
@@ -106,7 +107,7 @@ describe.runIf(process.env.SIM)('capacity', () => {
       const g = await loadGame({
         tiles: bought(...MARKET, 'sushi', ...FLOE_SUSHI, 'dohyo'), fugu: 2, level: 1, mods: { cellarcrew: s.crew },
         ring: {
-          beaten: s.beaten, quiet: false, slide: !!s.slide,
+          beaten: s.beaten, quiet: false, slide: !!s.slide, fast: !!s.fast,
           lines: { rice: { n: r, up: ru, m: [] }, fish: { n: f, up: fu, m: [] }, mush: { n: m, up: mu, m: [] } },
           hires: Object.fromEntries(s.hires.map(h => [h, true])),
           pantry: s.empty === 'ledge' ? { rice: 0, fish: 0, mush: 0 } : { rice: 40, fish: 40, mush: s.beaten ? 40 : 0 },

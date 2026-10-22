@@ -40,7 +40,7 @@ export const PLACES: Partial<Record<UnlockId, Place>> = {
   rack: { lane: 'rice', label: 'Drying rack' }, washer: { lane: 'rice', from: 'rack' }, steam: { lane: 'rice', from: 'washer' },
   barrel: { lane: 'fish', label: 'Salt barrel' }, salter: { lane: 'fish', from: 'barrel' }, smoke: { lane: 'fish', from: 'salter' },
   bed: { lane: 'mush', label: 'Mushroom bed' }, picker: { lane: 'mush', sub: 1, from: 'bed' }, shelves: { lane: 'mush', from: 'picker', label: 'Glowing shelves' },
-  attendant: { lane: 'hearth' }, slide: { lane: 'hearth', sub: 1, from: 'attendant' }, cook: { lane: 'hearth', from: 'attendant' },
+  attendant: { lane: 'hearth' }, slide: { lane: 'hearth', sub: 1, from: 'attendant' }, cook: { lane: 'hearth', from: 'attendant' }, fastslide: { lane: 'hearth', from: 'slide', label: 'Faster belt' },
   tier1: { lane: 'venue', label: 'Back-Alley Ring' }, tier2: { lane: 'venue', from: 'tier1', label: 'Underground Arena' }, tier3: { lane: 'venue', from: 'tier2', label: 'Grand Hall Below' },
   buyout: { label: 'Buy him out' },
 };
