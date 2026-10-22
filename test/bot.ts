@@ -8,6 +8,10 @@
 import type { loadGame } from './helpers';
 
 type Game = Awaited<ReturnType<typeof loadGame>>;
+/** What each boss needs bought before his strength (💪) can be reached, by how many are beaten: what beating the boss
+ *  before him opened (test/capacity.sim.test.ts, SIM_STEPS=window). A player sees it at the gong: "Lose" with the
+ *  kitchen full, and that boss's card said what's new. */
+const KEY: Record<number, string> = { 1: 'attendant', 2: 'slide', 3: 'cook', 4: 'fastslide' };
 /** The modules the bot plays the ring with. */
 export async function ringModules() {
   const [cellar, plan, fight] = await Promise.all([import('../src/cellar'), import('../src/cellarPlan'), import('../src/fight')]);
@@ -222,8 +226,13 @@ export function play(g: Game, seconds: number, dt = 0.05, ring?: Ring, style: St
   // it doesn't gamble: the casino boat's other games are fun extras, out of the balance (docs/balance.md)
   const nextTile = () => g.unlocks.visibleTiles().filter(x => !g.unlocks.locked(x) && !CASINO_GAMES.includes(x.id) && Math.abs((x.y ?? 0.15) - p.y) < 2)
     .sort((a, b) => (a.cost - a.paid) - (b.cost - b.paid))[0];
-  /** Down in the cellar, the cheapest upgrade on sale in the crafting bench's menus (none while a boss is in). */
-  const nextMenu = () => (ring && g.layout.level.down && !ring.fight.F.rush ? g.unlocks.menuOffer().filter(x => !style.skip?.includes(x.id)).sort((a, b) => a.cost - b.cost)[0] : undefined);
+  /** Down in the cellar, the upgrade to save for at the crafting bench's menus (none while a boss is in): what the next
+   *  boss needs first, as a player reads it off the gong (KEY), then the cheapest on sale. */
+  const nextMenu = () => {
+    if (!ring || !g.layout.level.down || ring.fight.F.rush) return undefined;
+    const on = g.unlocks.menuOffer().filter(x => !style.skip?.includes(x.id)), key = KEY[ring.fight.F.beaten];
+    return on.find(x => x.id === key) ?? on.sort((a, b) => a.cost - b.cost)[0];
+  };
   /** The cheapest repeatable upgrade of this stage that isn't fully upgraded. */
   const nextMod = () => g.economy.MODS.filter(m => m.stage === g.layout.stage.n && g.economy.modCost(m.id) !== null && g.shop.modOffered(m.id) && g.shop.modOpen(m.id) && useful(m.id))
     .sort((a, b) => g.economy.modCost(a.id)! - g.economy.modCost(b.id)!)[0];
