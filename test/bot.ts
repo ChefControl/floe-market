@@ -229,7 +229,8 @@ export function play(g: Game, seconds: number, dt = 0.05, ring?: Ring, style: St
   /** Down in the cellar, the upgrade to save for at the crafting bench's menus (none while a boss is in): what the next
    *  boss needs first, as a player reads it off the gong (KEY), then the cheapest on sale. */
   const nextMenu = () => {
-    if (!ring || !g.layout.level.down || ring.fight.F.rush) return undefined;
+    // (with all the bosses beaten, the buyout's what's next: it saves for that, not what's left in the shop)
+    if (!ring || !g.layout.level.down || ring.fight.F.rush || ring.fight.F.beaten >= ring.fight.BOSSES.length) return undefined;
     const on = g.unlocks.menuOffer().filter(x => !style.skip?.includes(x.id)), keys = KEY[ring.fight.F.beaten] ?? [];
     return keys.map(k => on.find(x => x.id === k)).find(Boolean) ?? on.sort((a, b) => a.cost - b.cost)[0];
   };
