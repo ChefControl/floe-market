@@ -105,10 +105,12 @@ The money curve follows idle games ([the math of idle games](https://www.gamedev
 
   | | Stage 1 | Stage 2 | Stage 3 | Each level | Price |
   | --- | --- | --- | --- | --- | --- |
-  | Better product | 🐟 Fine fillets | 🍣 Chef's specials | 🏷️ Pricier bowls | Prices +25% (in stage 3, of a bowl's base price) | ×1.6 a level, no limit |
+  | Better product | 🐟 Fine fillets | 🍣 Chef's specials | 🏷️ Pricier bowls | Prices +25% (in stage 3, of a bowl's base price) | ×1.6 a level, no limit (8 levels in stage 3) |
   | Marketing | 📣 Posters, flyers, radio, social media, ... TV ad | 📣 Menu boards, lantern signs, ... world famous | 📣 Word on the street | Customers (fans) +20% (+10.5% in stage 3), longer queues | ×1.75 a level, 8 levels |
   | Crew | 💪 Crew training, once the first runner is hired: fishing, chopping and the runners (up to twice as fast) | 🧑‍🍳 Kitchen crew: chefs, the runners, farm workers, waiters (not how fast rice grows) | 🧑‍🍳 Cellar crew: the hires walk and work faster | Speed +15% (+12% in stage 3) | ×1.75 a level (×1.45 in stage 3), 8 levels |
   | Fertilizer | | 🌿 Rice fertilizer: compost, fish meal, spring minerals (from the takeout kiosk on) | | Rice growth +50% | ×2 a level, 3 levels |
+
+In stage 3 the three open with the bosses, two levels of each at a time: beating Hakkaku opens levels 1 and 2, Yokobashiri 3 and 4, Dobu 5 and 6, and Samehada 7 and 8, so everything is on sale before Fukure. A level not open yet shows a lock and the boss who opens it.
 
   They start at $40, $60 and $80 in stage 1, $500, $800 and $1,000 in stage 2 (fertilizer at $20,000), and 🐡 30, 20 and 150 in stage 3. In stage 3 the fans only fill the seats there are: word on the street's eighth level brings in a full house. Each level in stages 1 and 2 shows in the world:
 

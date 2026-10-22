@@ -22,7 +22,7 @@ import { levelUp } from './sfx';
 import { SHED_AT } from './shed';
 import { spotOn } from './spotlight';
 import { staging } from './stage';
-import { GATES, gateOf, gateOpen, LANES, nextGate, type Place, PLACES } from './shopTree';
+import { GATES, gateOf, gateOpen, LANES, levelGate, nextGate, type Place, PLACES } from './shopTree';
 import { buyFromMenu, isDone, menuSeen, offered, type Tile, tiles } from './unlocks';
 import { MAX_MACHINES } from './cellarPlan';
 import { toast } from './ui';
@@ -74,6 +74,8 @@ let on: Square | null = null;
 export const atSquare = () => on !== null;
 /** Whether an upgrade can be bought yet: fertilizer once the shed is open, crew training once there's a crew. */
 export const modOffered = (id: ModId) => (!MOD[id].shed || shedYard.open) && (!MOD[id].needs || isDone(MOD[id].needs));
+/** Whether an upgrade's next level is open: the ring's wait on the bosses, two levels each (shopTree.ts's levelGate). */
+export const modOpen = (id: ModId) => MOD[id].stage !== 3 || gateOpen(levelGate(mods[id] + 1));
 /** The upgrades on sale on a square. */
 const sold = (q: Square) => MODS.filter(m => m.stage === q.stage && !!m.shed === q.shed && modOffered(m.id));
 
@@ -92,7 +94,7 @@ function levelName(id: ModId, n: number) {
 /** Buys the next level of an upgrade, if there's money for it. Returns whether it did. */
 export function buyMod(id: ModId) {
   const cost = modCost(id);
-  if (cost === null || wallet.money < cost || !modOffered(id)) return false;
+  if (cost === null || wallet.money < cost || !modOffered(id) || !modOpen(id)) return false;
   wallet.money -= cost;
   mods[id]++;
   repriceFish(); repriceSushi();
@@ -128,10 +130,14 @@ interface Item {
 function modItem(m: (typeof MODS)[number]): Item {
   const cost = modCost(m.id), now = boost(m.id), lv = mods[m.id];
   const then = m.add ? now + m.per - 1 : now * m.per, what = m.kind === 'speed' ? 'Crew' : RING_EFFECT[m.kind];
+  // (its next level behind a boss not beaten yet: locked, saying who)
+  const shut = cost !== null && !modOpen(m.id), gate = levelGate(lv + 1);
+  const next = `${m.levels ? levelName(m.id, lv + 1) + ': ' : ''}${what} ${pct(now)} → ${pct(then)}`;
   return {
     key: 'mod:' + m.id, icon: m.icon, name: cost === null ? `${m.name} · ${levelName(m.id, lv)}` : `${m.name} ${lv + 1}`, label: what, level: lv,
-    desc: cost === null ? `${what} ${pct(now)} · fully upgraded` : `${m.levels ? levelName(m.id, lv + 1) + ': ' : ''}${what} ${pct(now)} → ${pct(then)}`,
-    tag: cost === null ? 'Max' : chips(cost, true), sale: cost !== null, done: cost === null, cost, buy: () => buyMod(m.id), state: cost === null ? 'done' : 'open',
+    desc: cost === null ? `${what} ${pct(now)} · fully upgraded` : shut ? `${gateWhy(gate).why}: ${next}` : next,
+    tag: cost === null ? 'Max' : shut ? gateWhy(gate).tag : chips(cost, true), sale: cost !== null && !shut, done: cost === null, cost, buy: () => buyMod(m.id),
+    state: cost === null ? 'done' : shut ? 'boss' : 'open',
   };
 }
 function tileItem(t: Tile): Item {

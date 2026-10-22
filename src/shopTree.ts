@@ -13,6 +13,11 @@ export const GATES: Gate[] = [{ face: '🏁', name: 'Start' }, { face: '🤼', n
 export const gateOpen = (g: number) => g === 0 || (g === 1 ? !practiceDue() : F.beaten >= g - 1);
 /** The gate a node waits behind. */
 export const gateOf = (t: Tile) => (t.spar ? 1 : t.beat ? t.beat + 1 : 0);
+/** The ring's levels (Pricier bowls, Word on the street, Cellar crew) open two at a time: each boss beaten opens the
+ *  next two of each, Hakkaku the first two and Samehada the last, so all eight are on sale before Fukure. */
+export const LEVELS_A_BOSS = 2;
+/** The gate a ring level (`n`, from 1) waits behind. */
+export const levelGate = (n: number) => Math.ceil(n / LEVELS_A_BOSS) + 1;
 /** The gate still to win next (one past the last band, once every boss is beaten). */
 export const nextGate = () => { const g = GATES.findIndex((_, i) => !gateOpen(i)); return g < 0 ? GATES.length : g; };
 

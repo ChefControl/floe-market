@@ -172,6 +172,7 @@ Before the bowl slide the bowls are carried, so the cooking show adds nothing to
 - No fee and no luck: the gong costs nothing, and its forecast is exact (it plays the rush ahead in a copy of the cellar, with the player in it, cooking at the pot even with a cook hired, as in play). A loss only costs time, and its card says which ingredient held the pot up.
 - Prizes are small. A win's prize and the bowls his crowd buys arrive as one lump, and at the old prizes (up to 🐡 10,000 for Fukure, 83% of the buyout) that lump paid for the next boss on the spot, so bosses came in pairs.
 - Cellar crew is the main sink (🐡 150, ×1.45 a level, 🐡 6,180 for all 8): it walks the attendant faster, so it raises every boss's ceiling and the bowls a rush sells, though no boss needs it to be beaten.
+- The ring's levels (Pricier bowls, Word on the street, Cellar crew, eight each) open with the bosses, two of each a boss beaten (Hakkaku 1–2 … Samehada 7–8), so every lever is tied to a boss and the sims can be balanced boss by boss.
 - Word on the street adds 10.5% a level: all 8 levels bring fans, and the eighth fills every seat (at +20% a level, levels 6 to 8 brought no one).
 - The cooking show's bonus lasts 70 s: a boss's walk-in and bell, Fukure's 66 s included.
 - The Undertow favours the house: Tommy pays half again for the queen (4 to 12 swaps; the house wins unless you find her two times in three), Eddie charges 🐡 8 a fan he keeps home, Harry lends up to four full houses at 1.25×.

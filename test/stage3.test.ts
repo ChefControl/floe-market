@@ -2101,8 +2101,9 @@ describe("the workshop's crafting bench", () => {
     expect($('shopRows').querySelector('.bar.next')!.textContent).toBe('🔒 Beat Hakkaku 🐙');
     const node = (id: string) => $('shopRows').querySelector<HTMLButtonElement>(`[data-tile="${id}"]`)!;
     const buy = () => $('shopPick').querySelector<HTMLButtonElement>('.buy')!;
-    // (it starts on the first thing there are the chips for: the bowl price)
-    expect($('shopRows').querySelector('[data-mod="bowls"]')!.getAttribute('aria-pressed')).toBe('true');
+    // (it starts on the first thing there are the chips for: a drying rack, since the ring's levels wait for Hakkaku)
+    expect($('shopRows').querySelector('[data-mod="bowls"]')!.classList.contains('locked')).toBe(true);
+    expect(node('rack').getAttribute('aria-pressed')).toBe('true');
     node('steam').click();
     g.run(0.1);
     expect(node('steam').getAttribute('aria-pressed')).toBe('true');
@@ -2127,6 +2128,30 @@ describe("the workshop's crafting bench", () => {
     g.run(0.1);
     expect($('shop').hidden).toBe(true);
     expect($('craft').hidden).toBe(false);
+  });
+
+  it("opens the ring's levels two at a time, a boss beaten each, all eight before Fukure; a save past that keeps its levels", async () => {
+    const { g, F } = await ring({ money: 100_000_000 });
+    const shop = g.shop, eco = g.economy;
+    for (const id of ['bowls', 'street', 'cellarcrew'] as const) {
+      // (nothing before Hakkaku)
+      expect(shop.buyMod(id)).toBe(false);
+      for (let b = 1; b <= 4; b++) {
+        F().beaten = b;
+        expect(shop.buyMod(id)).toBe(true);
+        expect(shop.buyMod(id)).toBe(true);
+        expect(shop.buyMod(id)).toBe(false);
+        expect(eco.mods[id]).toBe(2 * b);
+      }
+      // (eight's the most, Pricier bowls too)
+      F().beaten = 5;
+      expect(shop.buyMod(id)).toBe(false);
+      F().beaten = 0;
+    }
+    const old = await ring({ money: 100_000_000, mods: { street: 5 }, ring: { beaten: 1 } });
+    expect(old.g.economy.mods.street).toBe(5);
+    expect(old.g.shop.buyMod('street')).toBe(false);
+    expect(old.g.shop.modOpen('bowls')).toBe(true);
   });
 
   it('has nothing to buy on the landing or in the rooms any more', async () => {

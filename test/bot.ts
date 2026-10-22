@@ -225,7 +225,7 @@ export function play(g: Game, seconds: number, dt = 0.05, ring?: Ring, style: St
   /** Down in the cellar, the cheapest upgrade on sale in the crafting bench's menus (none while a boss is in). */
   const nextMenu = () => (ring && g.layout.level.down && !ring.fight.F.rush ? g.unlocks.menuOffer().filter(x => !style.skip?.includes(x.id)).sort((a, b) => a.cost - b.cost)[0] : undefined);
   /** The cheapest repeatable upgrade of this stage that isn't fully upgraded. */
-  const nextMod = () => g.economy.MODS.filter(m => m.stage === g.layout.stage.n && g.economy.modCost(m.id) !== null && g.shop.modOffered(m.id) && useful(m.id))
+  const nextMod = () => g.economy.MODS.filter(m => m.stage === g.layout.stage.n && g.economy.modCost(m.id) !== null && g.shop.modOffered(m.id) && g.shop.modOpen(m.id) && useful(m.id))
     .sort((a, b) => g.economy.modCost(a.id)! - g.economy.modCost(b.id)!)[0];
 
   /** Down in the cellar, a reasonable player doesn't speed up hires they haven't got, or bring in more fans while the

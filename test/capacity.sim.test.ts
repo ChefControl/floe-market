@@ -8,7 +8,13 @@ import { describe, it } from 'vitest';
 import { bought, FLOE_SUSHI, loadGame, MARKET } from './helpers';
 
 type Lines = [number, number, number, 0 | 1, 0 | 1, 0 | 1];
-interface Step { name: string; beaten: number; lines: Lines; hires: string[]; crew: number; slide?: boolean }
+interface Step {
+  name: string; beaten: number; lines: Lines; hires: string[]; crew: number; slide?: boolean;
+  /** Not ready for him: the pot, counter and stall empty (`front`), or the ledge and the machines (`ledge`). */
+  empty?: 'front' | 'ledge';
+  /** The first of a boss's rows (factors): print his heading over it. */
+  head?: boolean;
+}
 const STEPS: Step[] = [
   { name: 'hands, 1 rack, 1 barrel', beaten: 0, lines: [1, 1, 0, 0, 0, 0], hires: [], crew: 0 },
   { name: 'hands, 3 racks, 3 barrels', beaten: 0, lines: [3, 3, 0, 0, 0, 0], hires: [], crew: 0 },
@@ -46,15 +52,39 @@ const OPEN: Omit<Step, 'name' | 'crew'>[] = [
 ];
 const BOSS_STEPS: Step[] = OPEN.flatMap(o => [0, 1, 2, 3, 4, 5, 6, 7, 8].map(c => ({ ...o, name: `crew ${c}`, crew: c })));
 
+/** SIM_STEPS=factors: what decides each boss's fight. From everything open at him (the Cellar crew levels his gate
+ *  allows: two a boss beaten), one thing at a time taken away or added, so each row says what that thing is worth. */
+function factors(): Step[] {
+  return OPEN.flatMap((o, k) => {
+    const base: Step = { ...o, name: 'everything open', crew: 2 * k, head: true }, out: Step[] = [base];
+    const v = (name: string, s: Partial<Step>) => out.push({ ...base, head: false, name, ...s });
+    if (base.crew > 0) v('crew -2', { crew: base.crew - 2 });
+    if (base.crew < 8) v('crew +2', { crew: base.crew + 2 });
+    v('crew 8', { crew: 8 });
+    v('3 of each machine', { lines: o.lines.map((n, i) => (i < 3 ? Math.min(n, 3) : n)) as Lines });
+    v('1 of each machine', { lines: o.lines.map((n, i) => (i < 3 ? Math.min(n, 1) : n)) as Lines });
+    if (o.lines.slice(3).some(Boolean)) v('no line upgrades', { lines: [...o.lines.slice(0, 3), 0, 0, 0] as Lines });
+    v('no line hands', { hires: o.hires.filter(h => !['washer', 'salter', 'picker'].includes(h)) });
+    if (o.hires.includes('cook')) v('no cook', { hires: o.hires.filter(h => h !== 'cook') });
+    if (o.slide) v('no slide', { slide: false });
+    if (o.hires.includes('attendant')) v(o.slide ? 'no slide, no attendant' : 'no attendant', { slide: false, hires: o.hires.filter(h => h !== 'attendant') });
+    if (!o.slide && k < 4) v('+ the slide', { slide: true, hires: [...new Set([...o.hires, 'attendant'])] });
+    v('pot, counter, stall empty', { empty: 'front' });
+    v('ledge and machines empty', { empty: 'ledge' });
+    return out;
+  });
+}
+
 describe.runIf(process.env.SIM)('capacity', () => {
   it('measures what the kitchen turns at best', async () => {
-    const bosses = process.env.SIM_STEPS === 'bosses';
+    const fac = process.env.SIM_STEPS === 'factors', bosses = process.env.SIM_STEPS === 'bosses' || fac;
     const BELLS = (process.env.SIM_BELLS ?? '30,45,60,90').split(',').map(Number), BONUS = (process.env.SIM_BONUS ?? (bosses ? '0,50' : '0,35')).split(',').map(Number);
     const out = bosses
-      ? [`EACH BOSS, everything before him bought: fans turned at best in his bell, with the cooking show's bonus at ${BONUS.join(' / ')}%`, '']
+      ? [fac ? `WHAT DECIDES EACH BOSS: fans turned in his bell, from everything open at him, a thing at a time; the cooking show's bonus at ${BONUS.join(' / ')}%`
+        : `EACH BOSS, everything before him bought: fans turned at best in his bell, with the cooking show's bonus at ${BONUS.join(' / ')}%`, '']
       : [`THE GONG'S CEILINGS: fans turned at best in a bell of ${BELLS.join(' / ')} s, with the cooking show's bonus at ${BONUS.join(' / ')}%`, ''];
     if (!bosses) out.push('step'.padEnd(28) + BONUS.map(b => `+${b}%`.padStart(4 + 6 * BELLS.length)).join(''));
-    for (const s of bosses ? BOSS_STEPS : process.env.SIM_STEPS === 'crew' ? CREW : STEPS) {
+    for (const s of fac ? factors() : bosses ? BOSS_STEPS : process.env.SIM_STEPS === 'crew' ? CREW : STEPS) {
       const [r, f, m, ru, fu, mu] = s.lines;
       const g = await loadGame({
         tiles: bought(...MARKET, 'sushi', ...FLOE_SUSHI, 'dohyo'), fugu: 2, level: 1, mods: { cellarcrew: s.crew },
@@ -62,7 +92,7 @@ describe.runIf(process.env.SIM)('capacity', () => {
           beaten: s.beaten, quiet: false, slide: !!s.slide,
           lines: { rice: { n: r, up: ru, m: [] }, fish: { n: f, up: fu, m: [] }, mush: { n: m, up: mu, m: [] } },
           hires: Object.fromEntries(s.hires.map(h => [h, true])),
-          pantry: { rice: 40, fish: 40, mush: s.beaten ? 40 : 0 },
+          pantry: s.empty === 'ledge' ? { rice: 0, fish: 0, mush: 0 } : { rice: 40, fish: 40, mush: s.beaten ? 40 : 0 },
         },
       });
       const fight = await import('../src/fight');
@@ -70,14 +100,14 @@ describe.runIf(process.env.SIM)('capacity', () => {
       g.game.tick(0.05);
       const F = fight.F, mush = s.beaten > 0;
       // (ready for him: everything full, every machine's ready ones waiting)
-      F.pot = Array(fight.POT_CAP).fill(mush); F.counter = Array(fight.COUNTER_CAP).fill(mush); F.stall = Array(fight.STALL_CAP).fill(mush);
-      for (const k of fight.ING) for (const mc of F.lines[k].m) { if (k === 'mush') mc.ready = fight.mach(k).cap; else mc.items = Array(fight.mach(k).cap).fill(1); }
+      if (s.empty !== 'front') { F.pot = Array(fight.POT_CAP).fill(mush); F.counter = Array(fight.COUNTER_CAP).fill(mush); F.stall = Array(fight.STALL_CAP).fill(mush); }
+      if (s.empty !== 'ledge') for (const k of fight.ING) for (const mc of F.lines[k].m) { if (k === 'mush') mc.ready = fight.mach(k).cap; else mc.items = Array(fight.mach(k).cap).fill(1); }
       g.player.g.position.x = plan.GONG_PAD.x; g.player.g.position.z = plan.GONG_PAD.z;
       const boss = fight.BOSSES[s.beaten], was = { crowd: boss.crowd, bell: boss.bell };
       const cells: string[] = [];
-      if (bosses && s.crew === 0) {
-        out.push('', `${boss.face} ${boss.name}: ${boss.crowd} fans, ${Math.floor(boss.crowd / 2) + 1} to win, ${boss.bell} s bell`);
-        out.push('  ' + 'crew'.padEnd(10) + BONUS.map(b => `+${b}%`.padStart(8)).join(''));
+      if (bosses && (fac ? s.head : s.crew === 0)) {
+        out.push('', `${boss.face} ${boss.name}: ${boss.crowd} fans, ${Math.floor(boss.crowd / 2) + 1} to win, ${boss.bell} s bell${fac ? `; open: crew ${s.crew}` : ''}`);
+        out.push('  ' + (fac ? '' : 'crew').padEnd(fac ? 28 : 10) + BONUS.map(b => `+${b}%`.padStart(8)).join(''));
       }
       for (const bonus of BONUS) {
         const got: number[] = [];
@@ -89,7 +119,7 @@ describe.runIf(process.env.SIM)('capacity', () => {
         cells.push(bosses ? String(got[0]).padStart(8) : got.map(n => String(n).padStart(6)).join('').padStart(4 + 6 * BELLS.length));
       }
       Object.assign(boss, was);
-      out.push(bosses ? '  ' + s.name.padEnd(10) + cells.join('') : s.name.padEnd(28) + cells.join(''));
+      out.push(bosses ? '  ' + s.name.padEnd(fac ? 28 : 10) + cells.join('') : s.name.padEnd(28) + cells.join(''));
     }
     writeFileSync(process.env.SIM_OUT || `${tmpdir()}/floe-caps.txt`, out.join('\n') + '\n');
   }, 600_000);
