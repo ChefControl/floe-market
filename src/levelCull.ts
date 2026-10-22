@@ -8,6 +8,11 @@
 // anything that comes down (a dumbwaiter's tray, what the player carries) shows the moment it's below. The effects'
 // and the fans' instanced meshes are never hidden: they're drawn on both levels, wherever their instances are.
 //
+// Upstairs in stage 3 it's the other way round: the cellar's 30 m down, under the dock's floor, and the fans' meshes
+// (never culled: they're drawn wherever their instances are) and everything else wholly down there would still be
+// gone through and drawn. So while the player's up top, all of that is hidden for the render too: what's marked as
+// the cellar's own (`userData.below`) and whatever's wholly below. (It holds still meanwhile: ring.ts.)
+//
 // And down there, the sun's shadows are cast only over what's on screen: its shadow box, a fixed square 36 m across up
 // in the world, is fitted to the floor the camera sees (and a little round it, for what stands off screen and throws
 // its shadow on). Otherwise everything in that square is drawn again for the shadows, seen or not: from the ring, the
@@ -19,18 +24,36 @@ import { Box3, Frustum, type InstancedMesh, Matrix4, type Mesh, type Object3D, R
 import { CELLAR_Y, level } from './layout';
 import { camera, scene, sun, sunOff } from './render';
 
-/** Anything wholly above this is up in the world. */
+/** Anything wholly above this is up in the world, and anything wholly below it down in the cellar. */
 const ABOVE = CELLAR_Y + 15;
+/** Whether the cellar's out of sight now: stage 3, the player upstairs, and no stage-up show taking them down (ring.ts
+ *  says). */
+export const cellarAway = { now: () => false };
 /** Things whose bounds are looked at again each frame. */
 const PER_FRAME = 48;
-const up = new WeakMap<Object3D, boolean>(), box = new Box3(), hidden: Object3D[] = [];
-let next = 0, wasDown = false, last = 0;
+const up = new WeakMap<Object3D, boolean>(), below = new WeakMap<Object3D, boolean>(), box = new Box3(), hidden: Object3D[] = [];
+let next = 0, wasDown = false, last = 0, nextBelow = 0, wasAway = false;
 
 function judge(o: Object3D) {
   box.setFromObject(o);
   const v = !(o as InstancedMesh).isInstancedMesh && !box.isEmpty() && box.min.y > ABOVE;
   up.set(o, v);
   return v;
+}
+function judgeBelow(o: Object3D) {
+  box.setFromObject(o);
+  const v = !!o.userData.below || (!(o as InstancedMesh).isInstancedMesh && !box.isEmpty() && box.max.y < ABOVE);
+  below.set(o, v);
+  return v;
+}
+/** Upstairs: hides the cellar for this frame's render. */
+function hideBelow() {
+  const kids = scene.children;
+  if (!wasAway) { kids.forEach(judgeBelow); wasAway = true; }
+  else for (let i = 0; i < Math.min(PER_FRAME, kids.length); i++) judgeBelow(kids[nextBelow = (nextBelow + 1) % kids.length]);
+  for (const o of kids) {
+    if (o.visible && (below.get(o) ?? judgeBelow(o))) { o.visible = false; hidden.push(o); }
+  }
 }
 const show = () => {
   for (const o of hidden) o.visible = true;
@@ -39,7 +62,13 @@ const show = () => {
 /** Hides what's up in the world while the player's down in the cellar, for this frame's render; call what it
  *  returns once it's drawn. */
 export function hideAbove(): () => void {
-  if (!level.down) { if (wasDown) { unfit(); seenAll(); } wasDown = false; last = 0; return show; }
+  if (!level.down) {
+    if (wasDown) { unfit(); seenAll(); }
+    wasDown = false; last = 0;
+    if (cellarAway.now()) hideBelow(); else wasAway = false;
+    return show;
+  }
+  wasAway = false;
   fitShadows();
   cullFigures();
   const now = performance.now(), dt = Math.min(0.1, (now - drawnAt) / 1000);

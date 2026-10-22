@@ -7,6 +7,7 @@ import { showing, updCookButton, updShow } from './chanko';
 import { updBakes } from './characters';
 import { calm, COUNTERS, postCustomers, updCounter, updLeaving } from './counters';
 import { updFarm } from './farm';
+import { updTills } from './front';
 import { updFx } from './fx';
 import { updGarden } from './garden';
 import { headless } from './headless';
@@ -59,21 +60,26 @@ export function tick(dt: number) {
   const coin = coinUp(), held = offerPlaying() || coin;
   // (the balance sims leave out what only draws, moves or sounds: headless.ts)
   const live = !headless.on;
+  // Down in the cellar in stage 3, the world up top holds still: nobody sees it (levelCull.ts), so its fishing, boats,
+  // customers, crew, counters and farm wait where they are, and what its tills would take comes in at a steady rate
+  // instead (front.ts). As the cellar does while the player's up there (ring.ts).
+  const away = stage.n === 3 && level.down && !staging(), world = live && !away;
+  updTills(dt, away);
   if (coin) updCoin(dt);
   updPlayer(dt);
-  if (live) updFish(dt, time);
-  if (live) updHooks(dt);
+  if (world) updFish(dt, time);
+  if (world) updHooks(dt);
   if (!held) {
-    if (live) updCasino(dt);
-    if (live) updKorki(dt);
-    if (live) updHouse(dt);
-    updAuto(dt);
-    if (live) updChopper(dt);
-    if (live) updRunners(dt);
-    if (live) updRice(dt);
-    if (live) updRestaurant(dt);
-    if (live) updNeeds(dt);
-    if (live) updGarden(dt);
+    if (world) updCasino(dt);
+    if (world) updKorki(dt);
+    if (world) updHouse(dt);
+    if (!away) updAuto(dt);
+    if (world) updChopper(dt);
+    if (world) updRunners(dt);
+    if (world) updRice(dt);
+    if (world) updRestaurant(dt);
+    if (world) updNeeds(dt);
+    if (world) updGarden(dt);
     // stage 3: the ring under the dock, and the ladder down to it
     if (stage.n === 3) {
       updRing(dt);
@@ -85,28 +91,29 @@ export function tick(dt: number) {
   // While he's on, the world winds down rather than stopping dead: what's in the air lands, and the cars finish their
   // drive (nobody new pulls in, or passes by, and nobody waiting loses patience); everyone else holds still.
   calm.on = held;
-  if (live) COUNTERS.forEach(C => updCounter(C, dt));
-  if (live) updLeaving(dt);
-  if (live) postCustomers(dt);
+  if (world) COUNTERS.forEach(C => updCounter(C, dt));
+  if (world) updLeaving(dt);
+  if (world) postCustomers(dt);
   updStars();
   updFlights(dt);
   if (live) updPops(dt);
   if (live) updFx(dt);
-  if (live) updHorizon(dt);
-  if (live) updFloes(time, player.g.position);
+  if (world) updHorizon(dt);
+  if (world) updFloes(time, player.g.position);
   if (!held) {
     // (nothing falls in the cellar)
     // the seasons turn up in the world; down in the cellar, nobody hears about it
     if (updSeason(dt, player.g.position, level.down ? 1 : rainK) && !level.down) { toast(SEASON_INFO[current()].news, 'season'); seasonSting(current()); }
-    if (live) updFarm(dt);
+    if (world) updFarm(dt);
   }
   updStage(dt);
   if (live) updSpotlight(dt);
   updShop();
   if (!held) updTutorial(dt);
+  // (both levels' upgrades: the cellar's too)
   if (live) updLooks(dt);
   if (live) updBakes(dt);
-  if (live) updRoof(dt, player.g.position, staging());
+  if (world) updRoof(dt, player.g.position, staging());
   updOffer(dt);
   // (and through his scenes, the scenes on the way south in the cellar (southDoor.ts), and the Family introducing
   // themselves (meet.ts), the world's own sounds go quiet)
