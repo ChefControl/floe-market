@@ -39,7 +39,7 @@ describe('the cellar, with the player upstairs', () => {
     // at the rate it worked out, a chip at a time, and within a few percent of the cellar running for those 5 minutes
     expect(paid).toBeCloseTo(rate * 300, -1);
     expect(Math.abs(paid - running) / running).toBeLessThan(0.08);
-  }, 60_000);
+  }, 180_000); // (ten minutes of a busy cellar: over the minute under coverage on CI)
 
   it('pays nothing before there are hands to work it, as it makes nothing on its own', async () => {
     const { g, fight } = await game(0, { beaten: 1, lines: { mush: { n: 1 } } });
