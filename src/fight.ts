@@ -9,7 +9,7 @@
 // and word on the street bring, the ones who ate sit down to watch (the hungry give up and go home), and the champion
 // wins. Ring the gong and the next boss walks in with his crowd instead, a horde that floods the floor in his colour:
 // each one who eats a bowl before his bell switches sides, and the fight is a tug of war between his fans and yours,
-// which you win, every time, once enough of them are turned (more than half, or his own share for a stronger boss). Nothing in here is left to chance, so the gong can copy the whole cellar and run the
+// which you win, every time, once you've turned as many as his strength (💪: more than half, for the first, more for each stronger one). Nothing in here is left to chance, so the gong can copy the whole cellar and run the
 // rush ahead in the copy to say exactly how it would go (forecast). That's why it's
 // all plain data: the hires' jobs are lists of steps, never closures. The player isn't in it: what they carry is
 // theirs, and they hand things in through the functions at the bottom (cellarHands.ts). Only the forecast puts them in,
@@ -562,7 +562,7 @@ function updRush(dt: number) {
     if (!canCook()) for (const k of inPot()) if (F.pantry[k] < PER_BATCH) R.short[k] += dt;
   }
   if (R.turned >= R.n || R.t >= bossOf(R.boss).bell) {
-    // the stall shuts and his crowd sits down: enough of them turned (his share), and the champion wins
+    // the stall shuts and his crowd sits down: as many turned as his strength (💪), and the champion wins
     R.done = true; R.win = R.turned >= toBeat(bossOf(R.boss), R.n);
     toSeats(R.win, finishOf(R));
   }
@@ -593,19 +593,19 @@ function bossResult(R: Rush) {
 }
 /** How close a vote is tight: within this share of the fans needed, either way. */
 export const TIGHT = 0.1;
-/** How a boss's fight ends (finishers.ts), from how his vote went: a grand win (the champion's big finisher, and the
- *  slam), a heavy loss (under half the fans needed: the boss's big one), a tight one (a reversal at the straw, by
- *  whoever wins it), or a push-out. */
+/** How a boss's fight ends (finishers.ts), from how his vote went. A win, by where it lands between his strength (💪,
+ *  the fans that beat him) and his whole crowd, in thirds: a tight one (a reversal at the straw), a push-out, or a
+ *  grand win (the champion's big finisher, and the slam). A loss: a heavy one (under half his 💪: the boss's big one),
+ *  a tight one (within TIGHT of it), or a push-out. */
 export function finishOf(R: Rush): Finish {
   const need = toBeat(bossOf(R.boss), R.n);
-  if (grand(R)) return 'grand';
-  if (!R.win && R.turned * 2 < need) return 'heavy';
-  if (Math.abs(R.turned - need) <= Math.round(need * TIGHT)) return 'tight';
+  if (R.win) return grand(R) ? 'grand' : R.turned >= need + Math.ceil((R.n - need + 1) / 3) ? 'push' : 'tight';
+  if (R.turned * 2 < need) return 'heavy';
+  if (need - R.turned <= Math.round(need * TIGHT)) return 'tight';
   return 'push';
 }
-/** A grand win: half way from his share to his whole crowd (three of every four, where half wins) turned: the slam's
- *  on offer in the fight. */
-export const grand = (R: Rush) => R.win && R.turned >= Math.ceil(R.n * (1 + (bossOf(R.boss).share ?? 0.5)) / 2);
+/** A grand win: in the top third of the room between his 💪 and his whole crowd (the slam's on offer in the fight). */
+export const grand = (R: Rush) => { const need = toBeat(bossOf(R.boss), R.n); return R.win && R.turned >= R.n - Math.floor((R.n - need + 1) / 3); };
 /** The slam can be landed now: a grand win's fight, from when the ring starts closing till just after it's met its
  *  mark, and not tried yet. */
 export function slamDue() {
@@ -621,8 +621,8 @@ export function slam() {
 }
 /** The worst-jammed ingredient of a rush, if one held the pot up. */
 export const worstShort = (R: Rush) => ING.filter(k => R.short[k] > 0.5).sort((a, b) => R.short[b] - R.short[a])[0] ?? null;
-/** More than his share (half, for most): how many of `boss`'s fans have to be turned to beat him (`n` of them, if a fix
- *  kept some home). */
+/** His strength (💪): how many of `boss`'s fans have to be turned to beat him, more than his share of them (half, for
+ *  the first) (`n` of them, if a fix kept some home). */
 export const toBeat = (boss: Boss, n = boss.crowd) => Math.min(n, Math.floor(n * (boss.share ?? 0.5)) + 1);
 /** Batches a minute a kitchen needs, with a full stall, to turn enough of `boss`'s crowd before the bell. */
 export const needRate = (boss: Boss, n = boss.crowd) => Math.ceil(Math.max(0, toBeat(boss, n) - STALL_CAP) * 60 / boss.bell / BATCH);

@@ -261,7 +261,7 @@ describe("the cellar's tutorial", () => {
     // the gong calls him in, not Hakkaku, and the bubble keeps out of its panel's way
     expect($('gong').hidden).toBe(false);
     expect($('gongBoss').textContent).toBe('Sparring partner');
-    expect([...$('gongCrowd').children].map(c => c.textContent)).toEqual(['🤼 Practice', '👥 40', '🔔 30 s', '🐡 35']);
+    expect([...$('gongCrowd').children].map(c => c.textContent)).toEqual(['🤼 Practice', '👥 40', '💪 21', '🔔 30 s', '🐡 35']);
     expect($('coach').hidden).toBe(true);
     expect(fight.ringGong()).toBe(true);
     expect(F().rush!.n).toBe(40);
