@@ -155,13 +155,13 @@ What it shows:
 
 **What a boss rush is limited by:** carrying bowls to the stall, not cooking. With the pot, counter, stall and ledge full, your own hands turn about 100 of a crowd in a 30 s bell, whatever lines you have; the attendant turns about 180, and each level of Cellar crew walks him faster (30 fans a step in a 30 s bell). The glowing shelves count only in Fukure's 60 s bell. Steam baskets, the smokehouse, more machines and the cook refill the kitchen sooner between fights but don't raise any ceiling, and neither does the cooking show's bonus at a full kitchen (it helps a kitchen that isn't restocked yet). `SIM=1 SIM_STEPS=crew npx vitest run test/capacity.sim.test.ts` prints the ladder.
 
-**The ladder each boss sits on.** The rule: with everything beating the boss before him has opened (every machine and line upgrade, the hires, the bowl slide once it's open, Cellar crew 8) and the cooking show aced, the kitchen turns his whole crowd; with no cooking show it still wins by a margin. So his crowd is what that kitchen turns at best (`SIM=1 SIM_STEPS=bosses npx vitest run test/capacity.sim.test.ts`, which prints every crew level).
+**The ladder each boss sits on.** The rule: with everything beating the boss before him has opened (every machine and line upgrade, the hires, the bowl slide once it's open, and the Cellar crew levels open by then: 0, 2, 4, 6 and 8) and the cooking show aced, the kitchen turns his whole crowd; with no cooking show it still wins by a margin. So his crowd is what that kitchen turns at best (`SIM=1 SIM_STEPS=bosses npx vitest run test/capacity.sim.test.ts`, which prints every crew level).
 
-| Boss | Crowd · to turn · bell · prize | What's open | Turned: no show, crew 0 → 8 | Turned: perfect show, crew 8 |
+| Boss | Crowd · to turn · bell · prize | What's open | Turned: no show, crew 0 → 8 | Turned: perfect show, at his open crew |
 |---|---|---|---|---|
 | 🤼 Sparring partner | 40 · 21 · 30 s · 🐡 35 | your hands | | |
 | 🐙 Hakkaku | 100 · 51 · 30 s · 🐡 350 | racks, barrels, washer, salter | 100 → 100 | 100 |
-| 🦀 Yokobashiri | 300 · 151 · 30 s · 🐡 250 | + beds, picker, the attendant | 180 → 300 | 293 |
+| 🦀 Yokobashiri | 210 · 106 · 30 s · 🐡 250 | + beds, picker, the attendant, crew 2 | 180 → 300 | 210 |
 | 🐟 Dobu | 498 · 250 · 45 s · 🐡 300 | + the bowl slide, steam baskets | 410 → 508 | 498 |
 | 🦈 Samehada | 571 · 286 · 45 s · 🐡 800 | + the cook, the smokehouse | 427 → 571 | 571 |
 | 🐡 Fukure | 751 · 376 · 60 s · 🐡 5,000 | + glowing shelves | 621 → 751 | 751 |

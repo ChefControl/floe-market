@@ -50,15 +50,15 @@ export interface Boss {
 /** A rush is won by carrying bowls to the stall, and since the kitchen holds the rush (the pot, the counter, the slide
  *  down to the soup bar and the ledges all full when the gong goes), a boss's crowd is all a kitchen turns in his bell
  *  with everything beating the boss before him opens bought (every machine and line upgrade, the hires, the slide once
- *  it's open, Cellar crew 8) and the cooking show aced: a perfect pot turns every fan, and with no show at all the same
+ *  it's open, the Cellar crew levels open by then: two a boss beaten) and the cooking show aced: a perfect pot turns every fan, and with no show at all the same
  *  kitchen still wins by a margin (test/capacity.sim.test.ts, SIM_STEPS=bosses). Hakkaku (100) a stocked kitchen by
- *  hand, Yokobashiri (300) the attendant, Dobu (498, a 45 s bell) the slide and steam baskets, Samehada (571, 45 s too)
+ *  hand, Yokobashiri (210) the attendant at crew 2, Dobu (498, a 45 s bell) the slide and steam baskets, Samehada (571, 45 s too)
  *  the cook and the smokehouse, and Fukure (751, 60 s) the glowing shelves. Prizes are kept small, so a win's prize and
  *  the bowls his crowd buys don't pay for the next boss on the spot (tuned 2026-10-22 with the stage 3 bot: about 45
  *  minutes to the buyout). */
 export const BOSSES: Boss[] = [
   { face: '🐙', name: 'Hakkaku', crowd: 100, bell: 30, prize: 350, kind: 'octopus', opens: 'grow room, the attendant' },
-  { face: '🦀', name: 'Yokobashiri', crowd: 300, bell: 30, prize: 250, kind: 'crab', opens: 'Back-Alley Ring, bowl slide, steam baskets, a way south' },
+  { face: '🦀', name: 'Yokobashiri', crowd: 210, bell: 30, prize: 250, kind: 'crab', opens: 'Back-Alley Ring, bowl slide, steam baskets, a way south' },
   { face: '🐟', name: 'Dobu', crowd: 498, bell: 45, prize: 300, kind: 'catfish', opens: 'Underground Arena, smokehouse, the cook' },
   { face: '🦈', name: 'Samehada', crowd: 571, bell: 45, prize: 800, kind: 'shark', opens: 'Grand Hall Below, glowing grow shelves' },
   { face: '🐡', name: 'Fukure', crowd: 751, bell: 60, prize: 5000, kind: 'puffer', opens: 'buy back all his chips' },

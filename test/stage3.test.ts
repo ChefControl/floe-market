@@ -1316,15 +1316,15 @@ describe('the finishers', () => {
       g.runUntil(() => { while (F().rush!.turned + F().stall.length < n && fight.toStall(false)); return F().rush!.done; }, 31 + fight.WALK_IN);
       g.runUntil(() => F().bout.phase === 'pay' && F().bout.t >= 0.6, 25);
     };
-    // under half of the 151 needed: Crab shuffle
+    // under half of the 106 needed: Crab shuffle
     await lose(30);
     expect(F().bout.finish).toBe('heavy');
     g.ui.hud(0);
     expect($('rushBell').textContent).toBe('CRAB SHUFFLE');
     g.runUntil(() => F().bout.t >= landsOf(F().rush, 'heavy') + 0.2, 6);
     expect(down(dohyo.ring.champ, cellar)).toBe(true);
-    // just short, 140 of 151: Side step
-    await lose(140);
+    // just short, 100 of 106: Side step
+    await lose(100);
     expect(F().bout.finish).toBe('tight');
     g.ui.hud(0);
     expect($('rushBell').textContent).toBe('SIDE STEP');
