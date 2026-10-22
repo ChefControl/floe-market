@@ -11,7 +11,7 @@ type Game = Awaited<ReturnType<typeof loadGame>>;
 /** What each boss needs bought before his strength (💪) can be reached, by how many are beaten: what beating the boss
  *  before him opened (test/capacity.sim.test.ts, SIM_STEPS=window). A player sees it at the gong: "Lose" with the
  *  kitchen full, and that boss's card said what's new. */
-const KEY: Record<number, string> = { 1: 'attendant', 2: 'slide', 3: 'cook', 4: 'fastslide' };
+const KEY: Record<number, string[]> = { 1: ['attendant'], 2: ['slide'], 3: ['cook', 'smoke'], 4: ['fastslide'] };
 /** The modules the bot plays the ring with. */
 export async function ringModules() {
   const [cellar, plan, fight] = await Promise.all([import('../src/cellar'), import('../src/cellarPlan'), import('../src/fight')]);
@@ -230,8 +230,8 @@ export function play(g: Game, seconds: number, dt = 0.05, ring?: Ring, style: St
    *  boss needs first, as a player reads it off the gong (KEY), then the cheapest on sale. */
   const nextMenu = () => {
     if (!ring || !g.layout.level.down || ring.fight.F.rush) return undefined;
-    const on = g.unlocks.menuOffer().filter(x => !style.skip?.includes(x.id)), key = KEY[ring.fight.F.beaten];
-    return on.find(x => x.id === key) ?? on.sort((a, b) => a.cost - b.cost)[0];
+    const on = g.unlocks.menuOffer().filter(x => !style.skip?.includes(x.id)), keys = KEY[ring.fight.F.beaten] ?? [];
+    return keys.map(k => on.find(x => x.id === k)).find(Boolean) ?? on.sort((a, b) => a.cost - b.cost)[0];
   };
   /** The cheapest repeatable upgrade of this stage that isn't fully upgraded. */
   const nextMod = () => g.economy.MODS.filter(m => m.stage === g.layout.stage.n && g.economy.modCost(m.id) !== null && g.shop.modOffered(m.id) && g.shop.modOpen(m.id) && useful(m.id))
