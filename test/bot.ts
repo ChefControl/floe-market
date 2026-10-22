@@ -239,7 +239,8 @@ export function play(g: Game, seconds: number, dt = 0.05, ring?: Ring, style: St
     return true;
   };
   function decide() {
-    const tile = nextTile(), mod = g.stage.staging() ? undefined : nextMod();
+    // (nor a ring level while a boss is in: the shop's across the cellar, and the rush wants the player's hands)
+    const tile = nextTile(), mod = g.stage.staging() || ring?.fight.F.rush ? undefined : nextMod();
     const cash = cashSpots(), uncollected = cash.reduce((s, c) => s + c.v, 0);
     // (with a gold tile in sight, it saves up for that rather than buying more levels)
     let modCost = mod && !(tile?.gold) ? g.economy.modCost(mod.id)! : Infinity;
