@@ -19,9 +19,12 @@ const WORDS = 34;
 /** The least any bubble's words (the crowd's too, swarm.ts) are ever drawn on screen, in CSS px: far off, or on a
  *  phone, a bubble kept to its size in the room would be too small to read. The demo takes &words=N to try another. */
 export const LEAST_WORDS = (import.meta.env.VITE_FUGU_DEMO === '1' && Number(new URLSearchParams(location.search).get('words'))) || 10;
-/** Where the bubbles placed this frame are on the screen (NDC: middle and half sizes), so the next keeps clear of them;
- *  and when that was. */
-let placed: { x: number; y: number; hx: number; hy: number }[] = [], placedAt = -1;
+/** Where the bubbles placed this frame are on the screen (NDC: middle and half sizes), each under its own bubble, so the
+ *  next keeps clear of them. The game's loop clears it at the start of each frame (`newBubbleFrame`); a bubble never
+ *  keeps clear of itself, so one placed twice, or seen again the next frame, stays put. */
+const placed = new Map<object, { x: number; y: number; hx: number; hy: number }>();
+/** A new frame: the bubbles placed in the last one no longer count (main.ts, at the top of each frame). */
+export function newBubbleFrame() { placed.clear(); }
 
 const at = new Vector3(), tip = new Vector3(), fwd = new Vector3(), up = new Vector3();
 
@@ -78,7 +81,7 @@ export function bubble(parent: Object3D, width = 2.6) {
       if (!sprite.visible) return false;
       left -= dt;
       mat.opacity = hiddenBy(self) ? 0 : Math.max(0, Math.min(1, (total - left) / FADE, left / FADE));
-      if (left <= 0) { sprite.visible = false; this.text = ''; }
+      if (left <= 0) { sprite.visible = false; this.text = ''; placed.delete(self); }
       return sprite.visible;
     },
     /**
@@ -107,16 +110,14 @@ export function bubble(parent: Object3D, width = 2.6) {
       // (out in the room, it stays where it is, over the speaker)
       const cx = r.close ? Math.max(-1 + EDGE + hx, Math.min(1 - EDGE - hx, c.x)) : c.x;
       let cy = r.close ? Math.max(r.bottom + hy, Math.min(r.top - hy, c.y)) : c.y;
-      // (out from under one already up this frame: above it if there's room, else below)
-      const now = performance.now();
-      if (now - placedAt > 8) placed = [];
-      placedAt = now;
-      for (const o of hiddenBy(this) || !r.close ? [] : placed) {
+      // (out from under another one already up this frame: above it if there's room, else below)
+      placed.delete(self);
+      for (const o of hiddenBy(self) || !r.close ? [] : placed.values()) {
         if (Math.abs(cx - o.x) >= hx + o.hx || Math.abs(cy - o.y) >= hy + o.hy) continue;
         const above = o.y + o.hy + hy, below = o.y - o.hy - hy;
         cy = above <= r.top - hy ? above : below;
       }
-      if (!hiddenBy(this)) placed.push({ x: cx, y: cy, hx, hy });
+      if (!hiddenBy(self)) placed.set(self, { x: cx, y: cy, hx, hy });
       if (cx !== c.x || cy !== c.y) {
         const moved = new Vector3(cx, cy, c.z).unproject(camera);
         sprite.position.copy(sprite.parent ? sprite.parent.worldToLocal(moved) : moved);
@@ -126,7 +127,7 @@ export function bubble(parent: Object3D, width = 2.6) {
       if (t !== tail || u !== tailUp) { tail = t; tailUp = u; if (this.text) redraw(this.text); }
     },
     /** Takes it away at once. */
-    hush() { left = 0; sprite.visible = false; this.text = ''; },
+    hush() { left = 0; sprite.visible = false; this.text = ''; placed.delete(self); },
   };
   return self;
 }
