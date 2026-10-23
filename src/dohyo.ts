@@ -355,7 +355,8 @@ function dressRival() {
   const b = bossOn(), key = b ? b.name : 'local' + (F.bout.n % LOCAL_BELTS.length);
   if (key === dressedAs) return;
   dressedAs = key;
-  if (b?.kind) rival.dressAs(LOOKS[b.kind], b.crowd >= 500 ? 200 : 160 + F.rush!.boss * 8);
+  // (the three last bosses at full weight, the first two a little lighter)
+  if (b?.kind) rival.dressAs(LOOKS[b.kind], F.rush!.boss >= 2 ? 200 : 160 + F.rush!.boss * 8);
   else if (b) { rival.dress(PARTNER_BELT); rival.setWeight(140); }
   else { rival.dress(LOCAL_BELTS[F.bout.n % LOCAL_BELTS.length]); rival.setWeight(130 + (F.bout.n * 13) % 30); }
 }

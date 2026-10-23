@@ -112,6 +112,49 @@ const ROUND = quietly(() => ({
   bill: bill.fit(rbox(0.4, 0.06, 0.24, 0.012)),
 }));
 
+// ---------- Fugu Chips (stage 3, chipPiles.ts) ----------
+/** A Fugu Chip's face: a casino chip in its colour, white inlays round the rim and a ring inside them, and a puffer in
+ *  the middle, spines out, looking right. */
+const chipFace = (face: string, inlay: string, ink: string) => (c: CanvasRenderingContext2D, w: number, h: number) => {
+  const x = w / 2, y = h / 2, R = w / 2;
+  c.fillStyle = face; c.fillRect(0, 0, w, h);
+  c.fillStyle = inlay;
+  for (let i = 0; i < 8; i++) {
+    c.save(); c.translate(x, y); c.rotate(i * Math.PI / 4); c.fillRect(-R * 0.13, -R * 0.99, R * 0.26, R * 0.24); c.restore();
+  }
+  c.strokeStyle = inlay; c.lineWidth = w * 0.035;
+  c.beginPath(); c.arc(x, y, R * 0.64, 0, Math.PI * 2); c.stroke();
+  // (the puffer: its tail fin, spines all round, the body, an eye)
+  c.fillStyle = ink;
+  c.beginPath(); c.moveTo(x - R * 0.22, y); c.lineTo(x - R * 0.48, y - R * 0.16); c.lineTo(x - R * 0.48, y + R * 0.16); c.fill();
+  for (let i = 0; i < 12; i++) {
+    const a = i * Math.PI / 6, r0 = R * 0.26, r1 = R * 0.38, d = 0.16;
+    c.beginPath();
+    c.moveTo(x + 0.04 * R + Math.cos(a - d) * r0, y + Math.sin(a - d) * r0);
+    c.lineTo(x + 0.04 * R + Math.cos(a) * r1, y + Math.sin(a) * r1);
+    c.lineTo(x + 0.04 * R + Math.cos(a + d) * r0, y + Math.sin(a + d) * r0);
+    c.fill();
+  }
+  c.beginPath(); c.arc(x + 0.04 * R, y, R * 0.28, 0, Math.PI * 2); c.fill();
+  c.fillStyle = inlay; c.beginPath(); c.arc(x + R * 0.16, y - R * 0.08, R * 0.08, 0, Math.PI * 2); c.fill();
+  c.fillStyle = ink; c.beginPath(); c.arc(x + R * 0.18, y - R * 0.08, R * 0.04, 0, Math.PI * 2); c.fill();
+};
+/** A chip's size: across, and thick. */
+export const CHIP_R = 0.11, CHIP_H = 0.03;
+// (made quietly: these come after the scenery's luck is drawn, and mustn't change it)
+const CHIPS = quietly(() => {
+  const skin = (face: string, inlay: string, ink: string, side: string) => {
+    const k = oneSkin(new CylinderGeometry(CHIP_R, CHIP_R, CHIP_H, 20), [1, 2], side, 96, 96, chipFace(face, inlay, ink));
+    return { low: k, high: { geo: k.fit(roundSlice(CHIP_R, CHIP_H, 0.006, 20)), mat: k.mat } };
+  };
+  return { pink: skin('#E0567F', '#FFF4F6', '#8E1F45', '#D04A72'), gold: skin('#F2C14E', '#FFF8E2', '#8A5A12', '#E0AE3C') };
+});
+/** A Fugu Chip, pink or gold. */
+export function newChip(gold = false) {
+  const k = gold ? CHIPS.gold : CHIPS.pink;
+  return looks(mesh(k.low.geo, k.low.mat), k.low, k.high);
+}
+
 /** What a carried or stocked item is, so mixed stacks can be sorted at drop-offs. */
 export type Kind = 'fish' | 'rice' | 'box' | 'bowl' | 'rrice' | 'cfish' | 'mush';
 export const kindOf = (m: Object3D): Kind | undefined => m.userData.kind;

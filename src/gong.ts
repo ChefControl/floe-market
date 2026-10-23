@@ -82,14 +82,14 @@ you.now = () => {
 export type Verdict = 'win' | 'likelywin' | 'maybe' | 'likelylose' | 'lose';
 export const VERDICT: Record<Verdict, string> = { win: 'Win', likelywin: 'Likely win', maybe: 'Maybe', likelylose: 'Likely lose', lose: 'Lose' };
 /**
- * Ringing now, in a word: the fans the forecast turns against the more-than-half that beats him (of `n`, with a fix's
+ * Ringing now, in a word: the fans the forecast turns against his strength (💪, the fans that beat him) (of `n`, with a fix's
  * fans kept home): 120% or more a win, from 100% likely. Short of that, it goes by what a bonus from the cooking game at
  * the pot (chanko.ts) could do, when `cooked` has the forecasts with one bought at the gong: maybe if +35% would win,
  * likely lost if only +50% would, lost if not even that. (Without them: from 85% maybe, from 60% likely lost.)
  */
 export function verdict(boss: Boss, f: Forecast, n = boss.crowd, cooked?: { at35: Forecast; at50: Forecast }): Verdict {
   const need = toBeat(boss, n), r = f.turned / need;
-  if (r >= 1) return r >= 1.2 ? 'win' : 'likelywin';
+  if (r >= 1) return r >= 1.2 || f.turned >= n ? 'win' : 'likelywin';
   if (cooked) return cooked.at35.turned >= need ? 'maybe' : cooked.at50.turned >= need ? 'likelylose' : 'lose';
   return r >= 0.85 ? 'maybe' : r >= 0.6 ? 'likelylose' : 'lose';
 }
@@ -117,20 +117,20 @@ function render() {
   const practice = R && !R.done ? R.boss < 0 : practiceDue();
   let chips: string[] = [], rows: Row[] = [], button: string | null = 'Ring the gong';
   if (R && !R.done) {
-    chips = [`👥 ${R.n}`, `🔔 ${on!.bell} s`, `🐡 ${amount(on!.prize)}`];
+    chips = [`👥 ${R.n}`, `💪 ${toBeat(on!, R.n)}`, `🔔 ${on!.bell} s`, `🐡 ${amount(on!.prize)}`];
     if (practice) chips.unshift('🤼 Practice');
     rows = [{ say: 'Keep the bowls coming!' }];
     button = null;
   } else if (b && F.called) {
     // (rung while a local fight was on: he walks in once it's over)
-    chips = [`👥 ${b.crowd}`, `🔔 ${b.bell} s`, `🐡 ${amount(b.prize)}`];
+    chips = [`👥 ${b.crowd}`, `💪 ${toBeat(b)}`, `🔔 ${b.bell} s`, `🐡 ${amount(b.prize)}`];
     rows = [{ say: 'He walks in after this fight' }];
     button = null;
   } else if (!b) {
     rows = [{ say: 'All five beaten' }, { say: `Buy Mr. Fugu out: 🐡 ${amount(BUYOUT)}` }];
     button = null;
   } else {
-    chips = [`👥 ${b.crowd}`, `🔔 ${b.bell} s`, `🐡 ${amount(b.prize)}`];
+    chips = [`👥 ${b.crowd}`, `💪 ${toBeat(b)}`, `🔔 ${b.bell} s`, `🐡 ${amount(b.prize)}`];
     if (practice) chips.unshift('🤼 Practice');
     // (no forecast while the last boss's crowd is still on the floor: the gong can't be rung until it clears)
     const f = R ? null : forecast(), fix = fixOn();
@@ -184,7 +184,7 @@ let bannerT = 0;
 function banner(R: Rush) {
   const boss = bossOf(R.boss);
   bannerWho.textContent = `${boss.name} ${boss.face} · ${R.n} fans`;
-  bannerGoal.textContent = `TURN ${toBeat(boss, R.n)} TO WIN`;
+  bannerGoal.textContent = `💪 ${toBeat(boss, R.n)} TO WIN`;
   bannerEl.classList.remove('on');
   bannerEl.hidden = false;
   void bannerEl.offsetWidth; // (so the animation starts over)

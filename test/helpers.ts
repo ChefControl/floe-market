@@ -37,10 +37,18 @@ export interface SaveFixture {
 /** Floe Sushi's upgrades (stage 2), in order. */
 export const FLOE_SUSHI = ['paddy', 'seats', 'chef', 'farmer', 'porter', 'plot2', 'tables', 'chef3', 'tables2', 'plot3', 'kiosk', 'premium'];
 /** A cellar (stage 3) with all five bosses beaten and the venue built up: its last stretch, before the buyout. */
-export const RING_DONE = { beaten: 5, tier: 3, slide: true, hires: { washer: true, salter: true, picker: true, cook: true, attendant: true } };
+export const RING_DONE = { beaten: 5, tier: 3, slide: true, fast: true, hires: { washer: true, salter: true, picker: true, cook: true, attendant: true } };
 
 /** Tiles entries for already-bought upgrades. */
 export const bought = (...ids: string[]) => ids.map(id => ({ id, paid: 999, done: true }));
+/** Puts the camera high over the cellar's hall, all of it in view (the game moves it each frame, which tests don't run):
+ *  only fans you can see say anything. */
+export async function overHall() {
+  const { camera } = await import('../src/render'), { RING } = await import('../src/cellar');
+  camera.position.set(RING.x, RING.y + 70, RING.z + 45);
+  camera.lookAt(RING);
+  camera.updateMatrixWorld();
+}
 /** Stage 1's nine market upgrades, in order. */
 export const MARKET = ['pack', 'turret', 'roulette', 'runner', 'boots', 'sled', 'runner2', 'net', 'runner3'];
 

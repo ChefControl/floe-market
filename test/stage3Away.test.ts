@@ -19,21 +19,20 @@ async function game(level: 0 | 1, ring: object, save: SaveFixture = {}) {
   ]);
   return { g, fight, levelCull, render, cellar, layout, F: () => fight.F };
 }
-/** Chips made over `s` seconds. */
-const chipsOver = (g: Awaited<ReturnType<typeof game>>['g'], s: number) => {
-  const m0 = g.wallet.money;
+/** Chips made over `s` seconds: into the wallet, or piled up on the cellar's floor to be scooped (chipPiles.ts). */
+const chipsOver = ({ g, F }: Awaited<ReturnType<typeof game>>, s: number) => {
+  const held = () => g.wallet.money / 1000 + F().piles.bar + F().piles.mama, m0 = held();
   for (let i = 0; i < s; i++) g.run(1);
-  return (g.wallet.money - m0) / 1000;
+  return held() - m0;
 };
 
 describe('the cellar, with the player upstairs', () => {
   it('holds still, and pays what it makes on its own, as much as it makes running', async () => {
-    const down = await game(1, BUSY);
-    const running = chipsOver(down.g, 300);
-    const { g, F, fight } = await game(0, BUSY);
+    const running = chipsOver(await game(1, BUSY), 300);
+    const up = await game(0, BUSY), { F, fight } = up;
     const rate = fight.idleRate(), t = F().t, crew = JSON.stringify(F().crew);
     expect(rate * 60).toBeGreaterThan(100);
-    const paid = chipsOver(g, 300);
+    const paid = chipsOver(up, 300);
     // (nothing moves down there: its clock, its hands)
     expect([F().t, JSON.stringify(F().crew)]).toEqual([t, crew]);
     // at the rate it worked out, a chip at a time, and within a few percent of the cellar running for those 5 minutes
@@ -42,9 +41,9 @@ describe('the cellar, with the player upstairs', () => {
   }, 180_000); // (ten minutes of a busy cellar: over the minute under coverage on CI)
 
   it('pays nothing before there are hands to work it, as it makes nothing on its own', async () => {
-    const { g, fight } = await game(0, { beaten: 1, lines: { mush: { n: 1 } } });
-    expect(fight.idleRate()).toBe(0);
-    expect(chipsOver(g, 60)).toBe(0);
+    const up = await game(0, { beaten: 1, lines: { mush: { n: 1 } } });
+    expect(up.fight.idleRate()).toBe(0);
+    expect(chipsOver(up, 60)).toBe(0);
   }, 30_000);
 
   it('runs as ever with a boss called, up top or not', async () => {

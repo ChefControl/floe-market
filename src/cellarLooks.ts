@@ -3,7 +3,7 @@
 // (dark wood, thin gold, purple). Nothing's put on the floor where anyone walks or anything's built later, nothing in
 // front of a doorway, a pad or the soup square's flap, and nothing moves. Each level puts what it changed in the
 // spotlight (spotlight.ts), as a level bought upstairs does (looks.ts).
-//   Word on the street, the arena: 1 scrap tin on the back walls, a hand-painted ARENA board, bare bulbs on a wire;
+//   Fix up the arena: 1 scrap tin on the back walls, a hand-painted ARENA board, bare bulbs on a wire;
 //     2 sawdust, pallets and cardboard on the dirt, the ring mended with rope, plank scraps, a sack of salt; 3 fixed up:
 //     fresh plank walls, a plank walkway to the ring, navy cushions, a salt box; 4 nobori banners along the walls and a
 //     scroll over the tunnel; 5 a stone floor, a polished walkway and a deck round the ring; 6 dark panelled walls with
@@ -201,7 +201,7 @@ const crestCloth = () => (indigoCloth ??= new MeshLambertMaterial({
   }).tex,
 }));
 
-// ---------- Word on the street: the arena ----------
+// ---------- Fix up the arena ----------
 const R = RING_TOP;
 /** The arena's tall back walls, north and west: the stretches each side of its fans' tunnel, and over the tunnel (from
  *  its frame up). `face` is where a sheet on it hangs, just in front of its piles' beams. */
