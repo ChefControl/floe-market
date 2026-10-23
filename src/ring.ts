@@ -3,6 +3,7 @@
 // the card after a rush, the grow room coming to light, Mr. Fugu's word about the way south to the Undertow, his
 // office lighting up for the buyout.
 import { CY, parts, showDen, showGrowRoom, showVenue, updBarFlap } from './cellar';
+import { pileUp, updPiles } from './chipPiles';
 import { BAR, GONG } from './cellarPlan';
 import { openRing, updDohyo } from './dohyo';
 import { CHIP, F, fightFrom, idleRate, on, resetFight, step } from './fight';
@@ -38,10 +39,11 @@ let takings = 0, takingsT = 0;
 on.earn = (chips, why) => {
   // (while there's a loan of Harry's to pay off, he takes his share of the stall's sales: loan.ts)
   if (why === 'bowls') chips -= collect(chips);
+  // the fans' chips pile up on the hearth room's floor and Mama Moray's cut on her hall's, to be scooped up
+  // (chipPiles.ts; hers pops up over her till: resto.ts); a prize goes straight to the wallet
+  if (why === 'bowls') { pileUp('bar', chips); takings += chips; return; }
+  if (why === 'resto') { pileUp('mama', chips); return; }
   addMoney(Math.round(chips * CHIP));
-  if (why === 'bowls') { takings += chips; return; }
-  // (Mama Moray's cut pops up over her till: resto.ts)
-  if (why === 'resto') return;
   if (level.down) popText(`+🐡 ${Math.round(chips).toLocaleString('en-US')}`, { x: GONG.x, y: CY + 2.6, z: GONG.z });
 };
 /** Seconds till the crowd roars for a boss walking in: after the gong's second of silence (sfx.ts). And when the gong
@@ -180,6 +182,6 @@ export function updRing(dt: number) {
   updUndertow(dt);
   updSouthDoor(dt);
   updResto(dt);
-  if (!headless.on) updSwarm(dt);
+  if (!headless.on) { updSwarm(dt); updPiles(); }
   updGong(dt);
 }

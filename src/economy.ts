@@ -66,10 +66,11 @@ export const MODS: Mod[] = [
     per: 1.5, cost: 20000, step: 2, max: 3,
   },
   // stage 3, down in the cellar, priced in Fugu Chips (1 chip is $1,000): Pricier bowls adds a quarter of the base
-  // price a level (fight.ts's listPrice), rather than multiplying it
-  { id: 'bowls', stage: 3, kind: 'price', icon: '🏷️', name: 'Pricier bowls', what: 'Each level adds 25% of a bowl\'s base price', per: 1.25, cost: 30_000, step: 1.6, add: true },
+  // price a level (fight.ts's listPrice), rather than multiplying it; like the other two, eight levels, two opened by
+  // each boss (shopTree.ts's levelGate)
+  { id: 'bowls', stage: 3, kind: 'price', icon: '🏷️', name: 'Pricier bowls', what: 'Each level adds 25% of a bowl\'s base price', per: 1.25, cost: 30_000, step: 1.6, add: true, max: 8 },
   {
-    id: 'street', stage: 3, kind: 'customers', icon: '📣', name: 'Word on the street', what: 'More fans fill the seats',
+    id: 'street', stage: 3, kind: 'customers', icon: '🔨', name: 'Fix up the arena', what: 'Each level fixes the arena up, and more fans come',
     // (named for how the arena's dressed up as the word gets round: cellarLooks.ts)
     levels: ['Scrap walls', 'Sawdust & pallets', 'Fixed up', 'Banners', 'Stone floor', 'Panelled hall', 'Purple seats', 'Tournament dohyo'],
     per: 1.105, cost: 20_000, step: 1.75, max: 8,

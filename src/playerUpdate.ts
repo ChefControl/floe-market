@@ -4,6 +4,7 @@ import { updBuy } from './buy';
 import { collideCasino } from './casino';
 import { tipsy, tipsyK } from './casinoKit';
 import { collideCellar } from './cellar';
+import { scoop } from './chipPiles';
 import { cellarTip, cellarWork } from './cellarHands';
 import { animPerson } from './characters';
 import { COUNTERS } from './counters';
@@ -62,7 +63,7 @@ function stationTip(p: XZ): TipContent | null {
 
 /** Where cash piles up. A closed counter's cash stays collectable until it's all picked up. */
 function cashSpots() {
-  // (down in the cellar, the fans' chips go straight into the wallet)
+  // (down in the cellar, chips pile up apart: chipPiles.ts)
   if (level.down) return [];
   const s = COUNTERS.filter(C => C.enabled || C.cash.n).map(C => ({ pos: C.cashPos as XZ, cash: C.cash }));
   if (sushi.built) s.push({ pos: REGISTER, cash: register });
@@ -127,6 +128,8 @@ export function updPlayer(dt: number) {
   }
   if (player.tDrop < 0) player.tDrop = 0;
   // collect cash
+  // (down in the cellar, the piles of chips: chipPiles.ts)
+  if (level.down) scoop(p, dt);
   for (const s of cashSpots()) {
     if (d2xz(p, s.pos) >= 1.5 * 1.5) continue;
     player.tCash -= dt;
