@@ -12,18 +12,20 @@
 // rating, which only comes up after a few more upgrades, is a tip for later, outside the tutorial proper.
 // Stage 3 has a tutorial of its own, the same way, for what's new down in the cellar (nothing stage 1 already taught),
 // done first and explained as it happens: a card on arriving saying what it's all about (no arrow: it's read where the
-// player stands); then the dumbwaiter's bins, the racks and barrels, the pot, the bowls from the counter out to the stall;
-// once the first fan's eaten, what fans and 💪 are (and a tip that they pay in 🐡); then the fight: the loop's next job
-// (whatever fills the stall) till the gong's forecast says it's won, the cooking game at the pot just before it (played
-// once, a bonus game, so not one of the basics), the gong, and during the fight what wins it, back on the loop; a lost
-// one says to fill the stall and try again. It's the practice fight against the champion's sparring partner (fight.ts),
-// for any game that's beaten no boss and never won it, older ones too (fight.ts, owedPractice); a game without one, a
-// test's, has the first boss instead. Winning it, its prize is spent at the shop counter, and that's the end of it. Then
-// tips for later: the grow room's beds. A save from before the cellar's lessons counts what it has done down there
-// already, and one from before the arriving and fans cards skips them if it's served soup.
+// player stands); then the dumbwaiter's bins, the racks and barrels, the pot, the bowls from the counter out to the
+// stall; once the first fan's eaten, what fans and 💪 are, then collecting their 🐡 chips off the floor (and a tip that
+// Fugu keeps 30%); then the fight: the loop's next job (whatever fills the stall) till the gong's forecast says it's
+// won, the cooking game at the pot just before it (played once, a bonus game, so not one of the basics), the gong, and
+// during the fight what wins it, back on the loop; a lost one says to fill the stall and try again. It's the practice
+// fight against the champion's sparring partner (fight.ts), for any game that's beaten no boss and never won it, older
+// ones too (fight.ts, owedPractice); a game without one, a test's, has the first boss instead. Winning it, its prize is
+// spent at the shop counter, and that's the end of it. Then tips for later: the grow room's beds, and Mama Moray's
+// chips in her hall. A save from before the cellar's lessons counts what it has done down there already, and one from
+// before the arriving and fans cards skips them if it's served soup.
 import { Group, Mesh, MeshBasicMaterial, RingGeometry } from 'three';
 import { buyButtonShown, touchBuy } from './buy';
-import { BAR_PAD, BENCH_PAD, BIN_PADS, COUNTER_PAD, GONG_PAD, machinePad, POT_PAD, type Pad, WATCH } from './cellarPlan';
+import { BAR_PAD, BENCH_PAD, BIN_PADS, CHIP_SPOT, COUNTER_PAD, GONG_PAD, machinePad, MAMA_CHIPS, POT_PAD, type Pad, WATCH } from './cellarPlan';
+import { PILE_REACH, scooped } from './chipPiles';
 import { C1 } from './counters';
 import { modCost, MODS, mods } from './economy';
 import {
@@ -46,11 +48,12 @@ import { chips, d2xz, FY, price, type XZ } from './util';
 import { wallet } from './wallet';
 
 export type Lesson = 'fish' | 'pick' | 'sell' | 'cash' | 'buy' | 'shop' | 'harpoon' | 'stars'
-  | 'arrive' | 'bins' | 'prep' | 'pot' | 'bowls' | 'fed' | 'cook' | 'gong' | 'bench' | 'chips' | 'power' | 'grow';
+  | 'arrive' | 'bins' | 'prep' | 'pot' | 'bowls' | 'fed' | 'cook' | 'gong' | 'bench' | 'chips' | 'power' | 'grow'
+  | 'scoop' | 'mamaChips';
 // ('power' was a tip for later, before the fans card said it: kept, so a save's copy of it isn't dropped)
 const LESSONS: Lesson[] = [
   'fish', 'pick', 'sell', 'cash', 'buy', 'shop', 'harpoon', 'stars',
-  'arrive', 'bins', 'prep', 'pot', 'bowls', 'fed', 'cook', 'gong', 'bench', 'chips', 'power', 'grow',
+  'arrive', 'bins', 'prep', 'pot', 'bowls', 'fed', 'cook', 'gong', 'bench', 'chips', 'power', 'grow', 'scoop', 'mamaChips',
 ];
 /** Device storage for what's been learnt (the save keeps a copy too). */
 const KEY = 'floe-market-tutorial';
@@ -297,8 +300,23 @@ const STEPS: Step[] = [
     say: () => ['Fans eat, then cheer your wrestler', '💪 up top counts them'], known: served,
   },
   {
-    id: 'chips', stage: 3, after: 'fed', read: READ, later: true, at: () => (sold.n > 0 ? down(BAR_PAD, 0) : null),
+    // the fans' chips, piled up on the hearth room's floor: walked over, they're collected (as cash is up top); never
+    // pointed at while a boss's fight is on. A tip, so it never brings the banner back: a game from before the piles
+    // has never seen them, so it learns it too.
+    id: 'scoop', stage: 3, after: 'fed', later: true,
+    at: () => (F.piles.bar > 0 && !F.rush && !F.called ? down({ ...CHIP_SPOT, r: PILE_REACH }) : null),
+    say: () => ['Collect your 🐡 chips', 'Walk over the pile'], done: () => scooped.bar > 0, known: () => false,
+  },
+  {
+    id: 'chips', stage: 3, after: 'scoop', read: READ, later: true, at: () => down({ ...CHIP_SPOT, r: 0 }),
     say: () => ['Fans pay in 🐡 chips', 'Fugu keeps 30%'], known: served,
+  },
+  {
+    // Mama Moray's cut, piled up on her hall's floor the first time (once her place is bought): in another room, so
+    // easily missed
+    id: 'mamaChips', stage: 3, after: 'scoop', later: true,
+    at: () => (F.piles.mama > 0 && !F.rush && !F.called ? down({ ...MAMA_CHIPS, r: PILE_REACH }) : null),
+    say: () => ['Mama pays your cut here', 'Walk over it to collect'], done: () => scooped.mama > 0, known: () => false,
   },
   {
     // the cooking game at the pot, played through once, just before the fight so its bonus helps: a bonus game, so not

@@ -240,7 +240,7 @@ export interface Fight {
   mama: boolean; hall: boolean;
   /** Bowls sent up the belt to Mama Moray's, all told. */
   resto: number;
-  /** Chips piled up to be scooped (chipPiles.ts): the fans' at the soup square, Mama Moray's cut at her till. */
+  /** Chips piled up to be scooped (chipPiles.ts): the fans' in the hearth room, Mama Moray's cut in her hall. */
   piles: Record<Pile, number>;
   /** A cooking show left half way (chanko.ts), to carry on from, never to start over: null when there's none. */
   show: ShowRun | null;
@@ -268,7 +268,7 @@ export interface Den {
 export interface ShowRun { step: number; got: number[][]; lines: number[] }
 /** Hammerhead Harry's loan (loan.ts): chips still owed (0: none), and what was owed when it was made. */
 export interface Loan { owed: number; total: number }
-/** Where chips pile up to be scooped (chipPiles.ts): the soup square, Mama Moray's till. */
+/** Where chips pile up to be scooped (chipPiles.ts): the hearth room's floor, Mama Moray's hall's. */
 export type Pile = 'bar' | 'mama';
 
 const line = (n: number): Line => ({ n, up: 0, m: [] });

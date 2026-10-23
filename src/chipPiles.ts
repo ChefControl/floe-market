@@ -50,6 +50,8 @@ const piles = quietly(() => Object.fromEntries((Object.keys(PILE_AT) as Pile[]).
 
 /** Tokens a pile of `chips` is drawn with. */
 const tokensFor = (chips: number) => (chips > 0 ? Math.min(TOWERS.length * STACK, Math.ceil(chips / TOKEN)) : 0);
+/** Chips scooped up from each pile since the page opened (the tutorial's lessons in collecting them). */
+export const scooped: Record<Pile, number> = { bar: 0, mama: 0 };
 /** Adds `chips` to a pile (the fans' at the soup square, or Mama Moray's cut). */
 export function pileUp(k: Pile, chips: number) { if (chips > 0) F.piles[k] += chips; }
 
@@ -63,6 +65,7 @@ export function scoop(p: XZ, dt: number) {
       player.tCash += 0.025;
       const take = Math.min(F.piles[k], Math.max(TOKEN, F.piles[k] / tokensFor(F.piles[k])));
       F.piles[k] = F.piles[k] - take < 1e-6 ? 0 : F.piles[k] - take;
+      scooped[k] += take;
       addMoney(Math.round(take * CHIP));
       if (headless.on) continue;
       // (a chip off the top, up into their hands)

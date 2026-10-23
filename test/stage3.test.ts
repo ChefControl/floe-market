@@ -1626,7 +1626,7 @@ describe("the cellar's tiles", () => {
     g.run(120, 1 / 30);
     expect(F().stall.length + F().fed.length).toBeGreaterThan(0);
     expect(F().cooked.length).toBeGreaterThan(0);
-    // (their chips piled up at the soup square, for the player to scoop)
+    // (their chips piled up in the hearth room, for the player to scoop)
     expect(F().piles.bar).toBeGreaterThan(0);
     expect(g.wallet.money).toBe(money);
   }, 30_000);
@@ -1714,7 +1714,7 @@ describe("the cellar's tiles", () => {
     expect(fight.fightFrom({ ...before, slide: false }).mama).toBe(false);
   });
 
-  it("chips pile up to be scooped: the fans' at the soup square, Mama Moray's cut at her till; a prize goes straight to the wallet", async () => {
+  it("chips pile up to be scooped: the fans' in the hearth room, Mama Moray's cut in her hall; a prize goes straight to the wallet", async () => {
     const { g, fight, F, at } = await ring({ money: 0, ring: { beaten: 2 } });
     const { PILE_AT, pilesNow } = await import('../src/chipPiles');
     fight.on.earn(12, 'bowls');
@@ -1725,7 +1725,7 @@ describe("the cellar's tiles", () => {
     expect(pilesNow().tokens).toEqual({ bar: 6, mama: 3 });
     // (kept with the save)
     expect(fight.fightFrom(fight.saveFight()).piles).toEqual({ bar: 12, mama: 5 });
-    // walking over Mama's (from the end of her counter) scoops hers, not the soup square's
+    // walking over Mama's (a step off it) scoops hers, not the hearth room's
     at({ x: PILE_AT.mama.x + 1.2, z: PILE_AT.mama.z });
     g.run(1);
     expect(F().piles).toEqual({ bar: 12, mama: 0 });
