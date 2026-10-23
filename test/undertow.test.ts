@@ -2,7 +2,7 @@
 // the doorman's door, found when the second boss is beaten; the Family's three spread round the room,
 // each with a word for whoever steps up to his pad.
 import { describe, expect, it } from 'vitest';
-import { bought, FLOE_SUSHI, loadGame, MARKET, type SaveFixture } from './helpers';
+import { bought, FLOE_SUSHI, loadGame, MARKET, overHall, type SaveFixture } from './helpers';
 
 const $ = (id: string) => document.getElementById(id)!;
 const SUSHI = [...MARKET, 'sushi', ...FLOE_SUSHI];
@@ -274,6 +274,7 @@ describe('the Undertow', () => {
     }
     // back in the arena, they're heard again
     at({ x: cellar.RING.x + 4, z: cellar.RING.z + 3 });
+    await overHall();
     const heard = new Set<string>();
     for (let i = 0; i < 80 && !heard.size; i++) { g.run(0.1); swarm.said().forEach(t => heard.add(t)); }
     expect(heard.size).toBeGreaterThan(0);

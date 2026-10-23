@@ -6,7 +6,7 @@
 import { BufferGeometry, ExtrudeGeometry, ShapeGeometry, Vector3 } from 'three';
 import { describe, expect, it, vi } from 'vitest';
 import indexHtml from '../index.html?raw';
-import { bought, FLOE_SUSHI, loadGame, MARKET, RING_DONE, type SaveFixture } from './helpers';
+import { bought, FLOE_SUSHI, loadGame, MARKET, overHall, RING_DONE, type SaveFixture } from './helpers';
 import { makeRing } from '../src/finishRig';
 
 const $ = (id: string) => document.getElementById(id)!;
@@ -970,6 +970,7 @@ describe('the crowd', () => {
   it('shouts in speech bubbles: an empty soup bar gets them asking for their chanko', async () => {
     const { g, swarm, fight, F } = await ring();
     F().stall.length = 0;
+    await overHall();
     const heard = new Set<string>();
     for (let i = 0; i < 120 && F().bout.phase === 'prep'; i++) { g.run(0.1); swarm.said().forEach(t => heard.add(t)); }
     expect([...heard].some(t => /chanko|soup|starving|chef/i.test(t))).toBe(true);
@@ -979,6 +980,20 @@ describe('the crowd', () => {
     g.runUntil(() => F().bout.phase === 'prep' && F().bout.fed > 5, 60);
     heard.clear();
     for (let i = 0; i < 100 && F().bout.phase === 'prep'; i++) { g.run(0.1); swarm.said().forEach(t => heard.add(t)); }
+    expect(heard.size).toBeGreaterThan(0);
+  });
+
+  it("only fans you can see say anything: with the view turned away from the hall, no bubbles", async () => {
+    const { g, swarm, F } = await ring();
+    F().stall.length = 0;
+    const { camera } = await import('../src/render'), { RING } = await import('../src/cellar');
+    camera.position.set(RING.x + 500, RING.y + 70, RING.z);
+    camera.lookAt(RING.x + 600, RING.y, RING.z);
+    camera.updateMatrixWorld();
+    for (let i = 0; i < 60; i++) { g.run(0.1); expect(swarm.said()).toEqual([]); }
+    await overHall();
+    const heard = new Set<string>();
+    for (let i = 0; i < 80 && !heard.size; i++) { g.run(0.1); swarm.said().forEach(t => heard.add(t)); }
     expect(heard.size).toBeGreaterThan(0);
   });
 });

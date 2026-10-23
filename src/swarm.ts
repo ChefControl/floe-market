@@ -21,6 +21,7 @@ import { ARENA, inUndertow, level, pushOutOfBox } from './layout';
 import { player } from './player';
 import { camera, FONT, painted, rr, scene } from './render';
 import { CHAMP } from './rikishi';
+import { LEAST_WORDS } from './speech';
 import { crowdStyle } from './wardrobe';
 import type { XZ } from './util';
 
@@ -582,10 +583,15 @@ const speech: Speech[] = Array.from({ length: 4 }, () => {
 });
 /** Seconds a bubble stays up, and until the next one. */
 const SAY_FOR = 2.4;
-/** The least a bubble's ever drawn on screen, in CSS px high (its words then about 10 px; the demo takes &bubble=N to try another): far off, or on a phone, a
- *  bubble kept to its size in the hall would be too small to read. */
-const LEAST_PX = (import.meta.env.VITE_FUGU_DEMO === '1' && Number(new URLSearchParams(location.search).get('bubble'))) || 36;
+/** The least a bubble's ever drawn on screen, in CSS px high: its words no smaller than any other bubble's (speech.ts),
+ *  44 px of its 160. */
+const LEAST_PX = LEAST_WORDS * 160 / 44;
 const bubbleAt = new Vector3(), ahead = new Vector3();
+/** Whether a fan's in the view: only one you can see says anything (their bubble's drawn over everything, walls too). */
+const inView = (f: Fan) => {
+  bubbleAt.set(f.x, CY + f.y + 1.3 - 0.3 * f.sit, f.z).project(camera);
+  return bubbleAt.z < 1 && Math.abs(bubbleAt.x) <= 1 && Math.abs(bubbleAt.y) <= 1;
+};
 let nextSay = 1;
 function draw(sp: Speech, text: string) {
   const c = sp.c.getContext('2d')!, w = sp.c.width, h = sp.c.height;
@@ -607,7 +613,7 @@ function talk(dt: number) {
   if (on && nextSay <= 0) {
     // busier when the crowd's bigger, and in the fight
     nextSay = (F.bout.phase === 'fight' ? 0.5 : 1) * (0.6 + rnd() * 0.9) * (fans.size > 60 ? 0.7 : 1);
-    const free = speech.find(sp => !sp.fan), all = [...fans.values()].filter(f => f.t > 0 && !speech.some(sp => sp.fan === f));
+    const free = speech.find(sp => !sp.fan), all = [...fans.values()].filter(f => f.t > 0 && !speech.some(sp => sp.fan === f) && inView(f));
     if (free && all.length) {
       const f = all[Math.floor(rnd() * all.length)], boss = F.rush ? bossOf(F.rush.boss).name : 'the local';
       // (never the same thing twice on screen at once)
@@ -618,7 +624,7 @@ function talk(dt: number) {
   const up: { x: number; y: number; hx: number; hy: number }[] = [];
   for (const sp of speech) {
     const f = sp.fan;
-    if (f && (!on || sp.t >= SAY_FOR || !fans.has(f.key))) sp.fan = null;
+    if (f && (!on || sp.t >= SAY_FOR || !fans.has(f.key) || !inView(f))) sp.fan = null;
     sp.s.visible = !!sp.fan;
     if (!sp.fan || !f) continue;
     sp.t += dt;
@@ -629,7 +635,7 @@ function talk(dt: number) {
     const depth = Math.max(0.1, bubbleAt.copy(sp.s.position).sub(camera.position).dot(ahead));
     const viewH = 2 * depth * Math.tan(camera.fov * Math.PI / 360), h = Math.max(0.9, LEAST_PX * viewH / innerHeight), w = h * 2.9 / 0.9;
     sp.s.scale.set(w * k, h * k, 1);
-    // (and, that big, kept on screen: a fan at the edge of the view has theirs at the edge, its tail off to them; and
+    // (and, that big, kept on screen: a fan at the edge of the view has theirs at the edge; and
     // stacked over one already up rather than on it)
     bubbleAt.copy(sp.s.position).project(camera);
     const hx = w / (viewH * camera.aspect), hy = h / viewH, keep = (v: number, m: number) => Math.min(1 - m, Math.max(m - 1, v));

@@ -41,6 +41,14 @@ export const RING_DONE = { beaten: 5, tier: 3, slide: true, fast: true, hires: {
 
 /** Tiles entries for already-bought upgrades. */
 export const bought = (...ids: string[]) => ids.map(id => ({ id, paid: 999, done: true }));
+/** Puts the camera high over the cellar's hall, all of it in view (the game moves it each frame, which tests don't run):
+ *  only fans you can see say anything. */
+export async function overHall() {
+  const { camera } = await import('../src/render'), { RING } = await import('../src/cellar');
+  camera.position.set(RING.x, RING.y + 70, RING.z + 45);
+  camera.lookAt(RING);
+  camera.updateMatrixWorld();
+}
 /** Stage 1's nine market upgrades, in order. */
 export const MARKET = ['pack', 'turret', 'roulette', 'runner', 'boots', 'sled', 'runner2', 'net', 'runner3'];
 
