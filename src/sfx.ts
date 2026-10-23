@@ -286,35 +286,30 @@ document.addEventListener('click', e => {
   if ((e.target as Element | null)?.closest?.('button')) click();
 });
 
-// ---------- a grand win's counters (fight.ts's COUNTER) ----------
-/** The boss winds up to slap: a whoosh as he rears back under a bright "shing", the warning. */
-export function counterTell() {
-  noise({ f: 700, f2: 1500, q: 0.9, a: 0.04, d: 0.3, v: 0.1 });
-  tone({ f: 1250, f2: 1650, type: 'triangle', a: 0.01, d: 0.3, v: 0.1 });
-  tone({ t: 0.02, f: 1900, f2: 2200, a: 0.01, d: 0.22, v: 0.04 });
-  noise({ f: 2600, q: 2.5, a: 0.01, d: 0.16, v: 0.05 });
-}
-/** His slap countered: a heavy smack, and a bright knock on top for a perfect one. */
-export function counterHit(perfect: boolean) {
-  tone({ f: 125, f2: 72, type: 'triangle', a: 0.008, d: 0.28, v: 0.3 });
-  noise({ f: 1500, q: 1, a: 0.008, d: 0.07, v: 0.16 });
-  if (perfect) tone({ t: 0.012, f: 660, f2: 560, type: 'triangle', a: 0.008, d: 0.08, v: 0.08 });
-}
-/** His slap landed: a dull thud. */
-export function counterMiss() {
-  tone({ f: 105, f2: 70, type: 'triangle', a: 0.008, d: 0.18, v: 0.22 });
-  noise({ f: 450, kind: 'lowpass', q: 0.7, a: 0.008, d: 0.09, v: 0.1 });
-}
-/** A press with nothing coming: a swish through the air. */
-export function whiff() { noise({ f: 1200, q: 0.7, a: 0.015, d: 0.16, v: 0.06 }); }
-/** The final blow: time slows, with a low sweep down. */
-export function slowMo() {
+// ---------- a grand win's finish (fight.ts's FINISH) ----------
+/** The finish's scene cuts in: a low sweep, as if time's stood still. */
+export function sceneIn() {
   tone({ f: 180, f2: 60, a: 0.06, d: 1.3, v: 0.14 });
   noise({ f: 480, q: 0.5, a: 0.08, d: 1.1, v: 0.045 });
 }
-/** The final blow's slam: a boom (bigger for a perfect one), or the thud of a miss. */
-export function slamHit(q: number) {
-  if (q === 0) { counterMiss(); return; }
+/** A shove at the straw: a heavy smack of bodies. */
+export function shoveSound() {
+  tone({ f: 125, f2: 72, type: 'triangle', a: 0.008, d: 0.22, v: 0.26 });
+  noise({ f: 1300, q: 1, a: 0.008, d: 0.06, v: 0.12 });
+}
+/** The lift: a whoosh rising under a bright "shing", to time the throw by. */
+export function liftSound() {
+  noise({ f: 600, f2: 1600, q: 0.9, a: 0.05, d: 0.9, v: 0.08 });
+  tone({ t: 0.75, f: 1250, f2: 1650, type: 'triangle', a: 0.01, d: 0.3, v: 0.09 });
+  tone({ t: 0.77, f: 1900, f2: 2200, a: 0.01, d: 0.22, v: 0.035 });
+}
+/** The throw: a boom (bigger for a perfect one), or the thud of him slipping back to his feet. */
+export function throwSound(q: number) {
+  if (q === 0) {
+    tone({ f: 105, f2: 70, type: 'triangle', a: 0.008, d: 0.18, v: 0.22 });
+    noise({ f: 450, kind: 'lowpass', q: 0.7, a: 0.008, d: 0.09, v: 0.1 });
+    return;
+  }
   tone({ f: 95, f2: 50, type: 'triangle', a: 0.01, d: q > 1 ? 0.7 : 0.5, v: q > 1 ? 0.4 : 0.32 });
   noise({ f: 900, q: 0.6, a: 0.01, d: q > 1 ? 0.3 : 0.2, v: q > 1 ? 0.2 : 0.14 });
 }

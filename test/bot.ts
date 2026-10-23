@@ -3,7 +3,7 @@
 // player's speed and goes round obstacles by fixed waypoints, so its timings are close to a human's. Down in the
 // cellar (stage 3) it runs whichever lines have no hire yet (rice and fish from the bins into the racks and barrels,
 // ready ones to the pot), cooks, carries bowls to the bar, and rings the gong once it says the boss is beaten (playing
-// the cooking show at the pot first when only its bonus would do it, and countering a grand win's slaps and landing its slam, well); it needs
+// the cooking show at the pot first when only its bonus would do it, and playing a grand win's finish well); it needs
 // the cellar's modules for that (`ring`, see ringModules). Or, as a try-hard (Style.tryhard), it plays the cellar to
 // win as fast as it can: it buys by the numbers and rings as soon as the gong says it wins with the show aced.
 import type { loadGame } from './helpers';
@@ -38,11 +38,11 @@ export interface Sample { t: number; money: number; earned: number; rating: numb
 export interface Fought { t: number; boss: string; n: number; need: number; turned: number; forecast: number; win: boolean; bell: number; dry: number; waited: boolean; bonus: number; slam: number }
 /** How the bot plays the cellar: the cooking show's stars it earns, of 12 (0: it never plays it) and the
  *  seconds of real time a show takes (the game holds still meanwhile, so they're added to the clock), and whether it
- *  plays a grand win's counters (COUNTER), and lends the hired lines a hand when there's nothing else to do; `skip`, what it
+ *  plays a grand win's finish (FINISH), and lends the hired lines a hand when there's nothing else to do; `skip`, what it
  *  never buys (an upgrade's id, or a level's with how many it stops at: `street5`), to see what they're worth. */
 export interface Style { show: number; showSecs: number; slam: boolean; help: boolean; skip?: string[]
   /** Plays to win as fast as it can (SIM_TRY=1): the cooking show aced (+50%) before every boss, the gong rung as soon as
-   *  its forecast with that says Win, perfect counters and slam, and down in the cellar it buys by the numbers, not the gong's
+   *  its forecast with that says Win, a perfect finish, and down in the cellar it buys by the numbers, not the gong's
    *  word: the cheapest way to a Win (each upgrade tried in a copy of the cellar, its kitchen stocked, with the gong's
    *  own forecast), and an upgrade that brings in more chips only when it pays for itself before that way's afforded
    *  (or, with nothing in the way of the next boss, inside five minutes). */
@@ -72,7 +72,7 @@ export function play(g: Game, seconds: number, dt = 0.05, ring?: Ring, style: St
   const machines = ring ? { rice: ring.fight.F.lines.rice.n, fish: ring.fight.F.lines.fish.n, mush: ring.fight.F.lines.mush.n } : null;
   /** The best the gong's forecast has said, for each boss (by name), whether rung or not. */
   const best = new Map<string, number>();
-  let rushBonus = 0;
+  let rushBonus = 0, pushes = 0;
   /** Where to walk to scoop each pile of chips (chipPiles.ts): onto it, on the hearth room's floor or by Mama Moray's
    *  counter. */
   const PILE_STAND = ring ? { bar: ring.plan.CHIP_SPOT, mama: ring.plan.MAMA_CHIPS } : { bar: { x: 0, z: 0 }, mama: { x: 0, z: 0 } };
@@ -136,14 +136,14 @@ export function play(g: Game, seconds: number, dt = 0.05, ring?: Ring, style: St
     }
     // (the bonus the pot had as a boss walked in)
     if (ring && R && !R.done && R.walk === ring.fight.WALK_IN) rushBonus = ring.fight.F.bonus.t > 0 ? ring.fight.F.bonus.pct : 0;
-    // a grand win's counters, good ones: each slap countered half way through his wind-up, and the final blow's slam a
-    // little after the mark's flash (the try-hard's, perfect: late in the wind-up, and on the flash)
-    const Q = ring && style.slam ? ring.fight.qte() : null;
-    if (Q && ring) {
-      const C = ring.fight.COUNTER, i = ring.fight.tellOf(Q), bt = ring.fight.F.bout.t;
-      if (Q.final >= 0) { if (Q.hit < 0 && Q.final >= C.grow + (style.tryhard ? 0 : 0.15)) ring.fight.press(); }
-      else if (i >= 0 && Q.at[i] - bt <= (style.tryhard ? 0.2 : C.tell - 0.4)) ring.fight.press();
-    }
+    // a grand win's finish, played well: shoves at six a second (the try-hard's at ten), and the throw a little after the
+    // lift peaks (the try-hard's, on it)
+    const fin = ring && style.slam ? ring.fight.finish() : null;
+    if (fin && ring) {
+      const C = ring.fight.FINISH;
+      if (fin.step === 'push' && fin.t * (style.tryhard ? 10 : 6) >= pushes + 1) { pushes++; ring.fight.push(); }
+      if (fin.step === 'lift' && fin.lift >= C.lift + (style.tryhard ? 0 : 0.2)) ring.fight.heave();
+    } else pushes = 0;
     // (down in the cellar, the bosses beaten, as if bought)
     if (ring && ring.fight.F.beaten > beaten) {
       beaten = ring.fight.F.beaten;
