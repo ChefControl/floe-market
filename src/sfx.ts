@@ -285,3 +285,37 @@ export function click() {
 document.addEventListener('click', e => {
   if ((e.target as Element | null)?.closest?.('button')) click();
 });
+
+// ---------- a win's finish (fight.ts's FINISH) ----------
+/** The finish's scene cuts in: a low sweep, as if time's stood still. */
+export function sceneIn() {
+  tone({ f: 180, f2: 60, a: 0.06, d: 1.3, v: 0.14 });
+  noise({ f: 480, q: 0.5, a: 0.08, d: 1.1, v: 0.045 });
+}
+/** A shove at the straw: a heavy smack of bodies. */
+export function shoveSound() {
+  tone({ f: 125, f2: 72, type: 'triangle', a: 0.008, d: 0.22, v: 0.26 });
+  noise({ f: 1300, q: 1, a: 0.008, d: 0.06, v: 0.12 });
+}
+/** His finisher slows to a crawl: a low sweep, and a bright "shing" as it holds, the moment to slam him. */
+export function slowSound() {
+  tone({ f: 170, f2: 70, a: 0.06, d: 1.3, v: 0.12 });
+  noise({ f: 600, f2: 1500, q: 0.9, a: 0.08, d: 1.3, v: 0.06 });
+  tone({ t: 1.35, f: 1250, f2: 1650, type: 'triangle', a: 0.01, d: 0.3, v: 0.09 });
+  tone({ t: 1.37, f: 1900, f2: 2200, a: 0.01, d: 0.22, v: 0.035 });
+}
+/** The flick down: a short whoosh, the slam on its way (its boom is as he hits). */
+export function swooshSound() {
+  noise({ f: 2200, f2: 500, q: 0.8, a: 0.02, d: 0.22, v: 0.1 });
+  tone({ f: 260, f2: 120, a: 0.02, d: 0.2, v: 0.05 });
+}
+/** The slam: a boom (bigger for a perfect one). */
+export function throwSound(q: number) {
+  if (q === 0) {
+    tone({ f: 105, f2: 70, type: 'triangle', a: 0.008, d: 0.18, v: 0.22 });
+    noise({ f: 450, kind: 'lowpass', q: 0.7, a: 0.008, d: 0.09, v: 0.1 });
+    return;
+  }
+  tone({ f: 95, f2: 50, type: 'triangle', a: 0.01, d: q > 1 ? 0.7 : 0.5, v: q > 1 ? 0.4 : 0.32 });
+  noise({ f: 900, q: 0.6, a: 0.01, d: q > 1 ? 0.3 : 0.2, v: q > 1 ? 0.2 : 0.14 });
+}

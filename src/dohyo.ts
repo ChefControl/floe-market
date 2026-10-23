@@ -24,7 +24,7 @@ import { boss, CY, DRUMS, parts, PIT_STEPS, RING, RING_HALF, RING_R, RING_TOP } 
 import { TEPPO } from './cellarPlan';
 import { belowGround, Person } from './characters';
 import { gyojiModel } from './gyoji';
-import { bossOf, BOUT, epic, F, payLen } from './fight';
+import { bossOf, BOUT, epic, F, FINISH, finish, payLen, slamLanded, slamOn } from './fight';
 import { animOf, moveOf } from './finishers';
 import { aftermath, UP, type Ctx, drive as driveRig, type FinishMove, type Frame, type Fx, makeRing, type V3 } from './finishRig';
 import { epicOff, epicScreen, updEpic } from './epicFx';
@@ -32,7 +32,7 @@ import { LOOKS, SLAPS } from './creatures';
 import { dustFx, inkFx, saltFx, slimeFx } from './fx';
 import { isHigh } from './graphics';
 import { apart, dice, quietly } from './kit';
-import { FONT, rr, scene } from './render';
+import { camera, FONT, rr, scene } from './render';
 import { crowd, react } from './ringSound';
 import { CHAMP, CHAMP_BELT, LOCAL_BELTS, mixPose, type Pose, pose, RikishiModel } from './rikishi';
 import { BRACE, CHARGE, CROUCH, CROUCH1, DRIVE, GRIP, RISE, SHIKO_LOW, SQUAT, STAND, STANDOFF, shikoUp, sideways, slap, steps, walk } from './poses';
@@ -267,8 +267,8 @@ const words = quietly(() => Array.from({ length: 6 }, () => {
   return { s, c, tex, t: 0, life: 0, size: 1, bubble: false };
 }));
 let wordAt = 0;
-function word(text: string, p: Vector3, o: { fill?: string; size?: number; bubble?: boolean; life?: number } = {}) {
-  if (!o.bubble && !isHigh()) return;
+function word(text: string, p: Vector3, o: { fill?: string; size?: number; bubble?: boolean; life?: number; always?: boolean } = {}) {
+  if (!o.bubble && !o.always && !isHigh()) return;
   const w = words[wordAt++ % words.length], c = w.c.getContext('2d')!, W = w.c.width, H = w.c.height;
   c.clearRect(0, 0, W, H);
   c.textAlign = 'center'; c.textBaseline = 'middle';
@@ -330,6 +330,89 @@ const where = (o: Object3D) => o.getWorldPosition(new Vector3());
 const mid = () => where(champ).lerp(where(rival), 0.5);
 const dust = (p: Vector3, n: number, big = 1) => dustFx(v3.set(p.x, p.y + 0.05, p.z), n, big);
 
+
+// ---------- a win's finish (fight.ts's FINISH) ----------
+// A scene of its own. The push: the camera cuts in low and close on the pair at his straw and creeps in as it goes;
+// each shove lands with weight (a jolt, a kick of the camera, dust at his heels, the crowd); between them he leans
+// back into it. Then his finisher, the camera going with them (an epic's own camera for his flight), slowing to a crawl
+// just before his big impact, the camera on him alone and a white ring closing on him, and holding there with him in
+// the air: slammed (a whoosh), he's driven down and hits with a boom, a flash, a shake and a roar; left, he falls on his
+// own.
+const mark = quietly(() => {
+  const c = document.createElement('canvas'); c.width = c.height = 256;
+  const x = c.getContext('2d');
+  if (x) { x.lineWidth = 34; x.strokeStyle = '#2A0F16'; x.beginPath(); x.arc(128, 128, 92, 0, Math.PI * 2); x.stroke(); x.lineWidth = 20; x.strokeStyle = '#fff'; x.stroke(); }
+  const m = new Sprite(new SpriteMaterial({ map: new CanvasTexture(c), depthTest: false, transparent: true }));
+  m.visible = false; m.renderOrder = 7; scene.add(m);
+  return m;
+});
+/** The finish's own camera (main.ts blends it in by `k`): where it is and what it looks at. */
+export const finishCam = { k: 0, pos: new Vector3(), look: new Vector3() };
+/** The presses as last seen, and whether the slam had come down. */
+let nWas = 0, landWas = false;
+const GOLD = 0xFFD34A;
+function finishFx(dt: number) {
+  const f = finish(), pushing = f?.step === 'push';
+  // (the slow motion, the hold and the slam's fall: on him alone)
+  const onHim = !!f && (slamOn(f) || f.step === 'slammed');
+  // (an epic's own camera, looking up after him, has his flight till then)
+  const want = !f ? 0 : pushing || onHim || !ringCam.take ? 1 : 0;
+  finishCam.k = Math.max(0, Math.min(1, finishCam.k + (finishCam.k < want ? dt * 4 : -dt * 1.5)));
+  mark.visible = false;
+  if (!f) { nWas = 0; landWas = false; return; }
+  if (!pushing) {
+    // his finisher: the camera stays in close and goes with him as he's thrown, both of them in it, his side nearer the
+    // middle; in the slow motion it comes round onto him alone, and creeps in
+    const c = where(champ.chestAt), b = where(rival.chestAt), m = onHim ? b.clone() : c.clone().lerp(b, 0.65);
+    const slow = slamOn(f) ? 1 - Math.max(0, f.holdAt - F.bout.t) / FINISH.slowFor : onHim ? 1 : 0;
+    const base = camera.aspect < 1 ? 6.2 : 4.6;
+    const far = (onHim ? base * (1 - 0.2 * slow) : Math.max(base, c.distanceTo(b) * (camera.aspect < 1 ? 1.5 : 1.1) + 2));
+    // (on him, from higher up and looking down on him: thrown out among the crowd, the front rows aren't in the way)
+    const look = new Vector3(m.x, m.y - 0.1, m.z);
+    const pos = onHim ? new Vector3(m.x, m.y + far * 0.8, m.z + far * 0.65) : new Vector3(m.x + (c.x - b.x) * 0.2, m.y + far * 0.4, m.z + far);
+    // (coming back from an epic's own camera: from where that one is)
+    if (finishCam.k < 0.05) { finishCam.pos.copy(camera.position); finishCam.look.copy(look); }
+    const k = 1 - Math.exp(-dt * (onHim ? 9 : 6));
+    finishCam.look.lerp(look, k);
+    finishCam.pos.lerp(pos, k);
+  }
+  if (pushing) {
+    // the camera, low and close, from the front of the ring a little round on the champion's side, creeping in
+    // (further back on a phone held upright, so both of them fit across it)
+    const c = where(champ.chestAt), b = where(rival.chestAt), m = c.clone().lerp(b, 0.5);
+    const far = (camera.aspect < 1 ? 6.2 : 4.6) * (1 - 0.25 * f.n / FINISH.need);
+    finishCam.look.set(m.x, m.y - 0.1, m.z);
+    finishCam.pos.set(m.x + (c.x - b.x) * 0.3, m.y + far * 0.36, m.z + far);
+    if (f.n > nWas + 0.5) {
+      champ.kick(5); rival.kick(4); dust(where(rival.legs[0].foot), 10, 1.2); burst(m, 0.8); hit(0.2, 0.06, 0.35);
+      if (Math.floor(f.n) % 3 === 0) react('edge');
+    }
+    nWas = f.n;
+    return;
+  }
+  // his finisher's last moment: a ring closing on him in the slow motion, white as it holds
+  if (slamOn(f)) {
+    const left = Math.max(0, f.holdAt - F.bout.t) / FINISH.slowFor;
+    mark.visible = true;
+    mark.position.copy(where(rival.bellyAt));
+    mark.scale.setScalar(1 + 1.6 * left);
+    mark.material.color.setHex(left <= 0 ? 0xFFFFFF : GOLD);
+  }
+  // the slam, as he hits: the boom, the dust, the shake, the word
+  const land = slamLanded(f);
+  if (land && !landWas) {
+    const p = where(rival.chestAt);
+    burst(p, f.slam > 1 ? 2.2 : 1.6); dust(p.clone().setY(CY + RING_TOP), 24, 1.8);
+    hit(f.slam > 1 ? 0.7 : 0.45, f.slam > 1 ? 0.9 : 0.5, 1.3); react('edge');
+    word(f.slam > 1 ? 'SLAM!!' : 'SLAM!', p.setY(p.y + 0.6), { size: f.slam > 1 ? 1.7 : 1.3, fill: '#FFD34A', life: 1.1, always: true });
+  }
+  landWas = land;
+}
+/** The push's poses: the champion driving him at the straw, him bracing against it. */
+function finishPose(pair: [At, At]) {
+  if (finish()?.step !== 'push') return;
+  pair[0].p = mixPose(pair[0].p, DRIVE, 0.8); pair[1].p = mixPose(pair[1].p, BRACE, 0.8);
+}
 // ---------- the drummers (the Underground Arena's) ----------
 const drummers: Person[] = [];
 function drums() {
@@ -363,8 +446,6 @@ function dressRival() {
 /** What was happening last frame, to catch the moments as the clock passes them; and where each wrestler was shown
  *  as the phase changed (they go on from there, so a bout cut short never jumps). */
 let was = { phase: '', t: 0 }, since = 0, edged = false, from: [At, At] | null = null, blend = 0.5;
-/** How the slam went, as last seen (fight.ts's Rush.slam): a landed one hits as it lands. */
-let slamWas = -1;
 const shown: [At, At] = [at(0, CORNER), at(1, -CORNER)];
 const BLEND = 0.5;
 /** The referee's calls, over his head. */
@@ -411,14 +492,6 @@ function moments(ph: string, t: number) {
     }
     if (Math.abs(B.tug) < 0.5) edged = false;
     if (crossed(9.6)) { const m = mid().setY(CY + 1.6); word('BOMP!', m, { size: 1.3, fill: '#FF8A5A' }); burst(m, 1.4); champ.kick(5); rival.kick(5); hit(0.12); }
-    // a slam landed (gong.ts): a big hit, and the boss rocked back
-    const s = F.rush?.slam ?? -1;
-    if (s > 0 && slamWas <= 0) {
-      const m = mid().setY(CY + 1.9);
-      word('SLAM!', m, { size: s > 1 ? 1.6 : 1.2, fill: '#FFD34A', life: 1.0 }); burst(m, s > 1 ? 1.9 : 1.3);
-      rival.kick(s > 1 ? 10 : 6); champ.kick(3); hit(s > 1 ? 0.5 : 0.25, s > 1 ? 0.8 : 0.3, s > 1 ? 1.2 : 0.6); react('edge');
-    }
-    slamWas = s;
   }
   if (ph === 'pay') {
     if (!res) startResult();
@@ -528,7 +601,11 @@ function pose2(dt: number) {
   let pair: [At, At];
   if (B.phase === 'prep') pair = [ritual(t, 0), ritual(t, 1)];
   else if (B.phase === 'sit') pair = [crouchAt(t, 0), crouchAt(t, 1)];
-  else if (B.phase === 'fight') { fightBeats(t, dt); pair = fightAt(t); end = pair; }
+  else if (B.phase === 'fight') {
+    fightBeats(t, dt); pair = fightAt(t);
+    finishPose(pair);
+    end = pair;
+  }
   else pair = resultAt(t, dt);
   // a phase that started from somewhere else (a bout cut short, a rush rung mid-ritual) blends on from where they were
   if (B.phase !== 'pay' && from && since < blend) {
@@ -587,6 +664,7 @@ export function updDohyo(dt: number) {
   spar(dt);
   drums();
   updHits(dt);
+  finishFx(dt);
   updEpic(dt);
   // Mr. Fugu puffs up when the house roars
   boss.puffTo = crowd.excite > 1 ? 1 : 0;

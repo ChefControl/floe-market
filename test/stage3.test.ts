@@ -1199,77 +1199,6 @@ describe('the gong', () => {
   }, 30_000);
 });
 
-describe('the slam', () => {
-  /** A rush on Hakkaku won with `n` of his 100 turned, up to the fight. */
-  async function wonBy(n: number) {
-    const r = await ring();
-    const { g, fight, F } = r;
-    expect(fight.ringGong()).toBe(true);
-    g.runUntil(() => { while (F().rush!.turned + F().stall.length < n && fight.toStall(false)); return F().rush!.done; }, 31 + fight.WALK_IN);
-    expect(F().rush).toMatchObject({ turned: n, win: true });
-    g.runUntil(() => F().bout.phase === 'fight', 10);
-    return r;
-  }
-
-  it('a grand win offers it in the fight: Space as the rings meet lands it, for a fifth more of his prize', async () => {
-    const { g, fight, gong, F } = await wonBy(90);
-    expect(gong.slamOffered()).toBe(true);
-    // (not till the ring starts closing on the champion's face)
-    expect($('slamGo').hidden).toBe(true);
-    g.runUntil(() => F().bout.t >= fight.SLAM.at - fight.SLAM.lead + 0.1, 12);
-    expect($('slamGo').hidden).toBe(false);
-    expect($('slamGo').textContent).toBe('SLAM! Space on gold');
-    expect($('slamRing').hidden).toBe(false);
-    g.runUntil(() => F().bout.t >= fight.SLAM.at - 0.02, 3);
-    const money = g.wallet.money;
-    g.press(' ');
-    g.run(1 / 30);
-    g.press(' ', 'keyup');
-    expect(F().rush!.slam).toBe(2);
-    expect($('slamGo').textContent).toBe('Perfect slam!');
-    expect($('slamRing').hidden).toBe(true);
-    // one try
-    expect(fight.slam()).toBe(-1);
-    g.runUntil(() => F().bout.phase === 'pay', 8);
-    expect(g.wallet.money - money).toBe(Math.round(100 * 1.2 * fight.CHIP));
-    g.run(fight.LANDS + 0.5);
-    expect($('fightCard').textContent).toBe('勝YOU WIN🐡 100💥 Slam +🐡 20🔓 New: grow room, the attendantTap to close');
-  }, 30_000);
-
-  it('on a phone, a tap anywhere as the rings meet lands it, and the button says to tap', async () => {
-    vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue('Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Mobile/15E148');
-    const { g, fight, F } = await wonBy(90);
-    const tap = () => window.dispatchEvent(Object.assign(new Event('pointerdown'), { pointerType: 'touch' }));
-    tap(); // (too early: nothing)
-    expect(F().rush!.slam).toBe(-1);
-    g.runUntil(() => F().bout.t >= fight.SLAM.at - fight.SLAM.lead + 0.1, 12);
-    expect($('slamGo').textContent).toBe('SLAM! Tap on gold');
-    g.runUntil(() => F().bout.t >= fight.SLAM.at - 0.02, 3);
-    tap();
-    expect(F().rush!.slam).toBe(2);
-    $('slamGo').click(); // (the button's own click, after the finger: one try)
-    g.run(1 / 30);
-    expect([F().rush!.slam, $('slamGo').textContent]).toEqual([2, 'Perfect slam!']);
-  }, 30_000);
-
-  it('a good one is a tenth more; too soon is a miss; and a plain win offers none', async () => {
-    const { fight, F } = await wonBy(90);
-    F().bout.t = fight.SLAM.at - 0.25;
-    expect(fight.slam()).toBe(1);
-    const r2 = await wonBy(95);
-    r2.F().bout.t = r2.fight.SLAM.at - r2.fight.SLAM.lead + 0.2;
-    expect(r2.fight.slam()).toBe(0);
-    const money = r2.g.wallet.money;
-    r2.g.runUntil(() => r2.F().bout.phase === 'pay', 15);
-    expect(r2.g.wallet.money - money).toBe(100 * r2.fight.CHIP);
-    // 83 of 100 is a win, but not a grand one (his 💪 51, and the top third of the way to all 100 from 84)
-    const r3 = await wonBy(83);
-    expect(r3.gong.slamOffered()).toBe(false);
-    r3.g.runUntil(() => r3.F().bout.t >= r3.fight.SLAM.at, 12);
-    expect($('slamGo').hidden).toBe(true);
-    expect(r3.fight.slam()).toBe(-1);
-  }, 60_000);
-});
 
 describe('the finishers', () => {
   it('a stronger boss wants more than half: his own share of his crowd, and a grand win half way from it to all of them', async () => {
@@ -1329,11 +1258,12 @@ describe('the finishers', () => {
     expect(fight.ringGong()).toBe(true);
     g.runUntil(() => { while (F().rush!.turned + F().stall.length < 52 && fight.toStall(false)); return F().rush!.done; }, 31 + fight.WALK_IN);
     expect(F().bout.finish).toBe('tight');
-    g.runUntil(() => F().bout.phase === 'fight' && F().bout.t > fight.BOUT.fight - 0.3, 25);
-    // (the champion's the one at the straw: his own, east)
+    // (as the win's finish begins, finish.test.ts: the champion's the one at the straw, his own, east)
+    g.runUntil(() => !!fight.finish(), 25);
     expect(F().bout.tug).toBeLessThan(-0.6);
     expect(dohyo.ring.champ.position.x - cellar.RING.x).toBeGreaterThan(1);
-    g.runUntil(() => F().bout.phase === 'pay' && F().bout.t >= 0.6, 3);
+    // (not pushed: the finish the fans gave it)
+    g.runUntil(() => F().bout.phase === 'pay' && F().bout.t >= 0.6, fight.FINISH.settle + fight.FINISH.push + 3);
     g.ui.hud(0);
     expect($('rushBell').textContent).toBe('TENTACLE TWIST');
     // (down by the time the card shows: finishRig's own test checks how each move gets him there)

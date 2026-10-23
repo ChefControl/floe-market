@@ -144,12 +144,14 @@
 /* ---------- the keys, while Shift's held (on a mouse and keyboard): E on the main button, 1–9 along the rows ---------- */
 .k-keys > .k-btn{ counter-increment:k; }
 @media (hover: hover) and (pointer: fine){
-  .k-keys-on .k-keys > .k-btn::before, .k-keys-on .k-main::before{
+  .k-keys-on .k-keys > .k-btn::before, .k-keys-on .k-main::before, .k-keys-on .k-btn[data-key]::before{
     position:absolute; top:-6px; left:-6px; z-index:1; min-width:18px; height:18px; padding:0 4px; box-sizing:border-box;
     border-radius:6px; background:var(--k-key); color:var(--k-key-ink); box-shadow:0 0 0 2px var(--k-bg);
     font:800 11px/18px var(--k-font); text-align:center; text-transform:none; letter-spacing:0; pointer-events:none;
   }
   .k-keys-on .k-keys > .k-btn::before{ content:counter(k); }
   .k-keys-on .k-main::before{ content:"E"; }
+  /* (a button with a key of its own, outside any panel: the watch button's V) */
+  .k-keys-on .k-btn[data-key]::before{ content:attr(data-key); }
   .k-keys-on .k-btn:disabled::before, .k-keys-on .k-btn[data-state]::before{ opacity:.6; }
 }
