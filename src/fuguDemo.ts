@@ -20,7 +20,7 @@ export const DEMO = import.meta.env.VITE_FUGU_DEMO === '1';
 
 /** A cellar with all of it bought (&full): every hand, six of each machine upgraded, the slide, the Grand Hall's stands. */
 const FULL = (beaten: number) => ({
-  beaten, tier: 3, slide: true, resto: 3, pantry: { rice: LEDGE_CAP, fish: LEDGE_CAP, mush: LEDGE_CAP },
+  beaten, tier: 3, slide: true, fast: true, mama: beaten >= 2, hall: beaten >= 5, resto: 3, pantry: { rice: LEDGE_CAP, fish: LEDGE_CAP, mush: LEDGE_CAP },
   hires: { washer: true, salter: true, picker: true, attendant: true, cook: true },
   lines: { rice: { n: MAX_MACHINES, up: 1 }, fish: { n: MAX_MACHINES, up: 1 }, mush: { n: MAX_MACHINES, up: 1 } },
   den: { book: beaten >= 2, way: beaten >= 2, door: beaten >= 2, met: { eddie: beaten >= 2, harry: beaten >= 2, tommy: beaten >= 2 } },
@@ -46,7 +46,8 @@ export function startDemo() {
   const q = new URLSearchParams(location.search), cellar = q.has('cellar');
   // (?stage=1: a stage 1 market instead, from the 🛠 panel)
   if (!cellar && q.get('stage') === '1') { deviceStore.write(marketSave(1)); load(); return; }
-  const chips = Math.max(0, Number(q.get('chips')) || 2_000), beaten = Math.max(0, Math.floor(Number(q.get('beaten')) || 0));
+  // (&chips=0 is broke, as coming down from the buy-in leaves you)
+  const c = q.get('chips'), chips = Math.max(0, c !== null && c !== '' && Number.isFinite(Number(c)) ? Number(c) : 2_000), beaten = Math.max(0, Math.floor(Number(q.get('beaten')) || 0));
   const south = q.has('south'), full = cellar && q.has('full');
   deviceStore.write(JSON.stringify({
     v: 4, savedAt: Date.now(), money: cellar ? chips * 1_000 : 999_900,

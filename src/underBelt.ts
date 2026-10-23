@@ -4,9 +4,9 @@
 // mouth (a brass edge on its lip) that slopes away into the floor, or going down into one; under the floor between,
 // out of sight. The bowls on it show on its stretches, rising out of a hood and dipping into the next. It's all low,
 // nothing anyone bumps into.
-import { ExtrudeGeometry, Group, Mesh, MeshLambertMaterial, RepeatWrapping, Shape, type Texture } from 'three';
+import { ExtrudeGeometry, Group, InstancedMesh, Matrix4, Mesh, MeshLambertMaterial, RepeatWrapping, Shape, type Texture } from 'three';
 import { newBowl } from './items';
-import { canvasTex, G, mesh } from './render';
+import { canvasTex, G, mat, mesh } from './render';
 import type { XZ } from './util';
 
 const STEEL = 0x5E676E, STEEL_DARK = 0x33393D, HOLE = 0x0B0C0D, ROLLER = 0x6C7378, BRASS = 0xB8923A;
@@ -21,8 +21,9 @@ const cheek = () => cheekGeo ??= (() => {
   g.translate(0, 0, -0.025); g.rotateY(-Math.PI / 2);
   return g;
 })();
-/** How far from a hood a bowl's dipped right into it. */
-const DIP = 0.18;
+/** How far from a hood a bowl's dipped right into it. And the metres of belt (along the floor) to one run of the
+ *  rubber's pattern, and between a climbing stretch's cleats. */
+const DIP = 0.18, TILE = 1, CLEAT = 0.22, cleatAt = new Matrix4();
 
 /** A stretch of it on the floor, `from` and `to` metres along it (on one straight leg of its path): `up` out of a hood
  *  at its start, `down` into one at its end (or else a roller there); and, with `rise`, climbing that high by its end,
@@ -32,17 +33,18 @@ export interface Stretch { from: number; to: number; up?: boolean; down?: boolea
 export interface UnderBelt {
   /** Its stretches on the floor, and the bowls on them. */
   group: Group;
-  /** Each stretch's own: its belt, and its hoods (to show or not as the caller has it). */
-  parts: { g: Group; up: Group | null; down: Group | null }[];
+  /** Each stretch's own: where it is, its belt's rubber, and its hoods (to show or not as the caller has it). */
+  parts: { s: Stretch; g: Group; belt: Mesh; up: Group | null; down: Group | null }[];
   /** A bowl set down on it at its start (the caller has it land there), taken off `leave` metres along (or at its end),
    *  `off` then called. */
   send(mush: boolean, leave: number | undefined, off: (mush: boolean) => void): void;
   update(dt: number): void;
   /** Where `d` metres along it is. */
   at(d: number): { x: number; z: number; ry: number };
-  /** How long it is, and how high a bowl rides on it (over the floor). */
+  /** How long it is, how high a bowl rides on it (over the floor), and how fast (metres a second along the floor). */
   length: number;
   ride: number;
+  speed: number;
   /** How many bowls are on it (on show or under the floor): of those taken off `past` metres along or further, or all. */
   riding(past?: number): number;
 }
@@ -60,6 +62,15 @@ function rubberTex() {
   }).tex;
   rubber.wrapS = rubber.wrapT = RepeatWrapping;
   return rubber;
+}
+
+/** A stretch's rubber (a box, its top face drawn with the pattern) for `run` metres along the floor: the pattern's
+ *  running along the belt, the way it goes (a box's own top runs the other way), once every TILE of the floor it
+ *  covers, so it keeps pace with the bowls on a climbing stretch too. */
+function rubberTop(run: number) {
+  const g = G.box.clone(), uv = g.getAttribute('uv'), pos = g.getAttribute('position'), nor = g.getAttribute('normal');
+  for (let i = 0; i < uv.count; i++) if (nor.getY(i) > 0.5) uv.setY(i, (pos.getZ(i) + 0.5) * run / TILE);
+  return g;
 }
 
 /**
@@ -105,6 +116,20 @@ export function underBelt(path: XZ[], y: number, { speed = 1.6, gap = 0.3, stret
     box(STEEL_DARK, 0, 0.015, hz + back * (HOOD.d + 0.02), HOOD.w + 0.03, 0.03, 0.06);
     return g;
   };
+  /** The climbing stretches' cleats, how long each stretch's belt is and how far it runs along the floor. */
+  const cleats: { cl: InstancedMesh; len: number; run: number }[] = [];
+  let moved = 0;
+  const placeCleats = () => {
+    for (const { cl, len, run } of cleats) {
+      // (each going round on its own: out of sight under the rollers between the ends)
+      const k = moved * len / run, loop = cl.count * CLEAT;
+      for (let i = 0; i < cl.count; i++) {
+        cleatAt.makeScale(BELT.w - 0.04, 0.025, 0.025).setPosition(0, BELT.top + 0.012, 0.1 + ((i * CLEAT + k) % loop));
+        cl.setMatrixAt(i, cleatAt);
+      }
+      cl.instanceMatrix.needsUpdate = true;
+    }
+  };
   const parts = stretches.map(s => {
     const p = at(s.from), run = s.to - s.from, rise = s.rise ?? 0, g = new Group();
     g.position.set(p.x, y, p.z); g.rotation.y = p.ry;
@@ -117,23 +142,27 @@ export function underBelt(path: XZ[], y: number, { speed = 1.6, gap = 0.3, stret
     };
     // the frame either side, the rubber between, and a roller at each end (under a hood, where there's one)
     for (const k of [-1, 1]) box(tilt, STEEL_DARK, k * (BELT.w / 2 + 0.03), BELT.top / 2 + 0.005, len / 2, 0.06, BELT.top + 0.01, len);
-    const belt = new Mesh(G.box, rubberMat);
+    const belt = new Mesh(rubberTop(run), rubberMat);
     belt.position.set(0, BELT.top - 0.01, len / 2); belt.scale.set(BELT.w, 0.02, len);
     tilt.add(belt);
     for (const z of [0.02, len - 0.02]) {
       const r = mesh(G.cyl, ROLLER, 0, BELT.top - 0.03, z, false); r.scale.set(0.05, BELT.w + 0.04, 0.05); r.rotation.z = Math.PI / 2; tilt.add(r);
     }
     if (rise) {
-      // cleats across it to hold the bowls, rails along its sides, and legs down to the floor
-      for (let z = 0.25; z < len - 0.1; z += 0.22) box(tilt, STEEL_DARK, 0, BELT.top + 0.012, z, BELT.w - 0.04, 0.025, 0.025);
+      // cleats across it to hold the bowls, going round with the rubber (in one draw: they never stand still to be
+      // merged, batch.ts), rails along its sides, and legs down to the floor
+      const cl = new InstancedMesh(G.box, mat(STEEL_DARK), Math.max(1, Math.floor((len - 0.2) / CLEAT)));
+      cl.castShadow = cl.receiveShadow = true; cl.frustumCulled = false; tilt.add(cl);
+      cleats.push({ cl, len, run });
       for (const k of [-1, 1]) box(tilt, STEEL, k * (BELT.w / 2 + 0.05), BELT.top + 0.07, len / 2 + 0.05, 0.025, 0.05, len - 0.1);
       for (const f of [0.4, 0.75]) for (const k of [-1, 1]) {
         const h = rise * f;
         box(g, STEEL_DARK, k * (BELT.w / 2 + 0.03), h / 2, run * f, 0.04, h, 0.04);
       }
     }
-    return { g, up: s.up ? hood(g, 0, -1) : null, down: s.down ? hood(g, run, 1) : null };
+    return { s, g, belt, up: s.up ? hood(g, 0, -1) : null, down: s.down ? hood(g, run, 1) : null };
   });
+  placeCleats();
   // the bowls on show, a few of each kind, given each frame to whichever riders are on a stretch
   const ride = BELT.top + 0.035;
   const room = Math.ceil(stretches.reduce((n, s) => n + s.to - s.from, 0) / gap) + 1;
@@ -151,11 +180,14 @@ export function underBelt(path: XZ[], y: number, { speed = 1.6, gap = 0.3, stret
     return Math.max(down, up);
   };
   return {
-    group, parts, at, length, ride,
+    group, parts, at, length, ride, speed,
     send(mush, leave, off) { waiting.push({ d: 0, mush, leave: Math.min(leave ?? length, length), off }); if (waiting.length > 40) waiting.shift()!.off(false); },
     riding: past => [...riders, ...waiting].filter(r => past === undefined || r.leave >= past).length,
     update(dt) {
-      tex.offset.y -= speed * dt / 0.5;
+      // the rubber (and a climbing stretch's cleats) going along at the bowls' pace: `speed` along the floor
+      moved += speed * dt;
+      tex.offset.y = -(moved / TILE) % 1;
+      placeCleats();
       const last = Math.min(...riders.map(r => r.d), Infinity);
       if (waiting.length && last >= gap) riders.push(waiting.shift()!);
       for (let i = riders.length - 1; i >= 0; i--) {

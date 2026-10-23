@@ -123,6 +123,8 @@ export function lineToMama(done: () => void) {
 }
 /** The bowls on the line (for tests): all of them, or those going on to Mama's. */
 export const lineShows = (mama = false) => (mama ? line.riding() - line.riding(line.length) + toMama.riding() : line.riding() + toMama.riding());
+/** The line's belts (for tests): to the stall, and on to Mama's. */
+export const belts = [line, toMama];
 /** Whether the line's laid, and whether it takes bowls on to Mama's (once she's open). */
 export const lineLaid = () => lineParts.visible;
 export const mamaLeg = () => lineParts.visible && restoOpen();

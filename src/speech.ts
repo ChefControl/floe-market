@@ -14,6 +14,11 @@ export const readFor = (text: string) => 2.5 + text.length * 0.1;
 /** The most of the view's height and width a bubble takes, and how far in from the edges of the view it's kept (all
  *  of the view, -1 to 1 across). */
 const MOST = 0.13, MOST_WIDE = 0.5, EDGE = 0.03;
+/** How big its words are drawn on it, in its own px. */
+const WORDS = 34;
+/** The least any bubble's words (the crowd's too, swarm.ts) are ever drawn on screen, in CSS px: far off, or on a
+ *  phone, a bubble kept to its size in the room would be too small to read. The demo takes &words=N to try another. */
+export const LEAST_WORDS = (import.meta.env.VITE_FUGU_DEMO === '1' && Number(new URLSearchParams(location.search).get('words'))) || 10;
 /** Where the bubbles placed this frame are on the screen (NDC: middle and half sizes), so the next keeps clear of them;
  *  and when that was. */
 let placed: { x: number; y: number; hx: number; hy: number }[] = [], placedAt = -1;
@@ -89,7 +94,7 @@ export function bubble(parent: Object3D, width = 2.6) {
       const depth = Math.max(0.1, at.clone().sub(camera.position).dot(fwd));
       const viewH = 2 * depth * Math.tan(camera.fov * Math.PI / 360);
       const k = Math.min(1, MOST * viewH / (width * H / W), MOST_WIDE * viewH * camera.aspect / width);
-      const w = width * k, hgt = w * H / W;
+      const w = Math.max(width * k, LEAST_WORDS * H / WORDS * viewH / (window.innerHeight || 1) * W / H), hgt = w * H / W;
       sprite.scale.set(w, hgt, 1);
       // (in the view's own terms: where it is, how big, and where its tail's tip would be)
       up.set(0, 1, 0).applyQuaternion(camera.quaternion);
@@ -137,7 +142,7 @@ function draw(c: CanvasRenderingContext2D, text: string, tail = 0, tailUp = fals
   if (tailUp) { c.moveTo(x - 18, 36); c.lineTo(x, 6); c.lineTo(x + 18, 36); }
   else { c.moveTo(x - 18, H - 36); c.lineTo(x, H - 6); c.lineTo(x + 18, H - 36); }
   c.fill();
-  c.font = `800 34px ${FONT}`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillStyle = '#173042';
+  c.font = `800 ${WORDS}px ${FONT}`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillStyle = '#173042';
   const lines: string[] = [];
   for (const word of text.split(' ')) {
     const l = lines.length ? `${lines[lines.length - 1]} ${word}` : word;

@@ -1,5 +1,6 @@
 // Stage 3's tutorial: the gold arrow and bubble again, down in the cellar, for what's new there (a card on arriving,
-// then the bins, the racks and barrels, the pot, the bowls, the fans and 💪 once one's fed, the fight: the loop till it's
+// then the bins, the racks and barrels, the pot, the bowls, the fans and 💪 once one's fed, collecting their chips off
+// the floor, the fight: the loop till it's
 // won, the cooking game, the gong, what wins it; then its prize at the shop counter), never what stage 1 taught; each
 // idea explained as it happens. A save from before it counts what it has done down there.
 import { describe, expect, it } from 'vitest';
@@ -155,9 +156,23 @@ describe("the cellar's tutorial", () => {
     expect(now()).toBe('fed');
     wait(1.5);
     expect($('power').classList.contains('teach')).toBe(false);
-    // then that they pay in chips (a tip), and no "Next goal" in chips to save up for
-    expect(now()).toBe('chips');
+    // then their chips, piled up on the hearth room's floor: walk over them to collect them, and no "Next goal" in
+    // chips to save up for
+    g.runUntil(() => F().piles.bar > 0, 30);
+    expect(now()).toBe('scoop');
+    draw();
+    expect(said()).toBe('Collect your 🐡 chips / Walk over the pile');
+    expect(tut.guide.position).toMatchObject({ x: plan.CHIP_SPOT.x, y: CY, z: plan.CHIP_SPOT.z });
     expect(goal()).toBe(null);
+    const had = g.wallet.money;
+    at(plan.CHIP_SPOT);
+    g.run(1);
+    expect(g.wallet.money).toBeGreaterThan(had);
+    expect(tut.learntLessons()).toContain('scoop');
+    // then that they pay in chips, Fugu keeping 30% (a tip, read there)
+    expect(now()).toBe('chips');
+    draw();
+    expect(said()).toBe('Fans pay in 🐡 chips / Fugu keeps 30%');
     wait(10.5);
     expect(tut.learntLessons()).toContain('chips');
 
@@ -261,7 +276,7 @@ describe("the cellar's tutorial", () => {
     // the gong calls him in, not Hakkaku, and the bubble keeps out of its panel's way
     expect($('gong').hidden).toBe(false);
     expect($('gongBoss').textContent).toBe('Sparring partner');
-    expect([...$('gongCrowd').children].map(c => c.textContent)).toEqual(['🤼 Practice', '👥 40', '🔔 30 s', '🐡 35']);
+    expect([...$('gongCrowd').children].map(c => c.textContent)).toEqual(['🤼 Practice', '👥 40', '💪 21', '🔔 30 s', '🐡 35']);
     expect($('coach').hidden).toBe(true);
     expect(fight.ringGong()).toBe(true);
     expect(F().rush!.n).toBe(40);
@@ -393,6 +408,44 @@ describe("the cellar's tutorial", () => {
     fresh.g.run(0.1);
     expect(fresh.now()).toBe('arrive');
     // (two games loaded)
+  }, 30_000);
+
+  it("Mama Moray's chips: once her place is bought, the first time her cut's piled up in her hall, a tip to collect it", async () => {
+    const { g, tut, plan, F, CY, at, draw, now, said } = await cellar({
+      ring: { beaten: 2, slide: true, mama: true }, learnt: [...STAGE1, ...NEWER, 'bins', 'prep', 'pot', 'bowls', 'cook', 'gong', 'bench', 'scoop', 'chips'],
+    });
+    at({ x: 0, z: 0 });
+    g.run(0.1);
+    expect(now()).not.toBe('mamaChips');
+    F().piles.mama = 6;
+    g.run(0.1);
+    expect(now()).toBe('mamaChips');
+    draw();
+    expect(said()).toBe('Mama pays your cut here / Walk over it to collect');
+    expect(tut.guide.position).toMatchObject({ x: plan.MAMA_CHIPS.x, y: CY, z: plan.MAMA_CHIPS.z });
+    at(plan.MAMA_CHIPS);
+    g.run(1);
+    expect(F().piles.mama).toBe(0);
+    expect(tut.learntLessons()).toContain('mamaChips');
+    // (once only)
+    F().piles.mama = 6;
+    at({ x: 0, z: 0 });
+    g.run(0.1);
+    expect(now()).not.toBe('mamaChips');
+  }, 30_000);
+
+  it('a game from before the chip piles learns to collect them too, without the banner again', async () => {
+    const { g, tut, plan, F, at, now } = await cellar({
+      ring: { beaten: 2 }, learnt: [...STAGE1, ...NEWER, 'bins', 'prep', 'pot', 'bowls', 'cook', 'gong', 'bench', 'chips', 'grow'],
+    });
+    at({ x: 0, z: 0 });
+    F().piles.bar = 10;
+    g.run(0.1);
+    expect(now()).toBe('scoop');
+    at(plan.CHIP_SPOT);
+    g.run(1);
+    expect(tut.learntLessons()).toContain('scoop');
+    expect($('banner').textContent).not.toContain('Tutorial complete');
   }, 30_000);
 
   it('the cooking game at the pot, just before a fight the stall would win: played through once, never toward the banner', async () => {
