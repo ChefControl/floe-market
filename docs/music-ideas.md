@@ -1,6 +1,6 @@
 # Music saved for later
 
-Music that was tried for the game, liked, and kept for a stage that didn't exist yet. The game's music itself is in `src/music.ts` and described in the README. The gloop ring is now the music of stage 3's cellar; it's kept here as it was found, with its porting notes.
+Music that was tried for the game, liked, and kept for a stage that didn't exist yet. The game's music itself is in `src/music.ts` and described in [game.md](game.md). The gloop ring is now the music of stage 3's cellar; it's kept here as it was found, with its porting notes.
 
 ## 8-bit market: for a future, futuristic stage
 
