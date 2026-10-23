@@ -19,7 +19,7 @@ import { bossOf, F, REACH } from './fight';
 import { isHigh, onQuality } from './graphics';
 import { ARENA, inUndertow, level, pushOutOfBox } from './layout';
 import { player } from './player';
-import { FONT, painted, rr, scene } from './render';
+import { camera, FONT, painted, rr, scene } from './render';
 import { CHAMP } from './rikishi';
 import { crowdStyle } from './wardrobe';
 import type { XZ } from './util';
@@ -582,6 +582,10 @@ const speech: Speech[] = Array.from({ length: 4 }, () => {
 });
 /** Seconds a bubble stays up, and until the next one. */
 const SAY_FOR = 2.4;
+/** The least a bubble's ever drawn on screen, in CSS px high (its words then about 16 px): far off, or on a phone, a
+ *  bubble kept to its size in the hall would be too small to read. */
+const LEAST_PX = 60;
+const bubbleAt = new Vector3(), ahead = new Vector3();
 let nextSay = 1;
 function draw(sp: Speech, text: string) {
   const c = sp.c.getContext('2d')!, w = sp.c.width, h = sp.c.height;
@@ -611,6 +615,7 @@ function talk(dt: number) {
       if (lines.length) { draw(free, lines[Math.floor(rnd() * lines.length)]); free.fan = f; free.t = 0; }
     }
   }
+  const up: { x: number; y: number; hx: number; hy: number }[] = [];
   for (const sp of speech) {
     const f = sp.fan;
     if (f && (!on || sp.t >= SAY_FOR || !fans.has(f.key))) sp.fan = null;
@@ -619,8 +624,25 @@ function talk(dt: number) {
     sp.t += dt;
     // (popping up, and over their head wherever they go)
     const k = Math.min(1, sp.t / 0.15);
-    sp.s.scale.set(2.9 * k, 0.9 * k, 1);
     sp.s.position.set(f.x, CY + f.y + 2.2 - 0.3 * f.sit, f.z);
+    camera.getWorldDirection(ahead);
+    const depth = Math.max(0.1, bubbleAt.copy(sp.s.position).sub(camera.position).dot(ahead));
+    const viewH = 2 * depth * Math.tan(camera.fov * Math.PI / 360), h = Math.max(0.9, LEAST_PX * viewH / innerHeight), w = h * 2.9 / 0.9;
+    sp.s.scale.set(w * k, h * k, 1);
+    // (and, that big, kept on screen: a fan at the edge of the view has theirs at the edge, its tail off to them; and
+    // stacked over one already up rather than on it)
+    bubbleAt.copy(sp.s.position).project(camera);
+    const hx = w / (viewH * camera.aspect), hy = h / viewH, keep = (v: number, m: number) => Math.min(1 - m, Math.max(m - 1, v));
+    const x = keep(bubbleAt.x, hx);
+    let y = keep(bubbleAt.y, hy);
+    for (let i = 0, moves = 0; i < up.length && moves < 8; i++) {
+      const o = up[i];
+      if (Math.abs(x - o.x) >= hx + o.hx || Math.abs(y - o.y) >= hy + o.hy) continue;
+      y = o.y + o.hy + hy <= 1 ? o.y + o.hy + hy : o.y - o.hy - hy;
+      i = -1; moves++;
+    }
+    up.push({ x, y, hx, hy });
+    if (x !== bubbleAt.x || y !== bubbleAt.y) sp.s.position.copy(bubbleAt.set(x, y, bubbleAt.z).unproject(camera));
   }
 }
 /** What the crowd's saying now, for tests. */
