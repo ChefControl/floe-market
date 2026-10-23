@@ -7,7 +7,7 @@
 //
 // They're fetched the first time the player walks out towards the yacht, and play on the ambience bus (built again if
 // its guard finds something gone wrong there, as the beds are). Credits (the slot machines' recording asks for one)
-// are under Credits & Copyrights in the settings, and in the README.
+// are under Credits & Copyrights in the settings, and in docs/game.md.
 import { ac, buses, onBroken, panOf, prefs, rnd } from './audio';
 import { BAR, ROW } from './casinoSalon';
 import { harborK } from './music';

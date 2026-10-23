@@ -261,7 +261,7 @@ function signInError(e: unknown) {
   const code = (e as { code?: string } | null)?.code ?? '';
   if (code.includes('popup-blocked')) return 'Allow pop-ups to sign in';
   if (code.includes('popup-closed') || code.includes('cancelled')) return 'Sign-in cancelled';
-  // the site's domain isn't in Firebase's authorized domains (see the README)
+  // the site's domain isn't in Firebase's authorized domains (see docs/game.md)
   if (code.includes('unauthorized-domain')) return "Sign-in isn't set up for this site yet";
   return "Couldn't sign in. Try again";
 }

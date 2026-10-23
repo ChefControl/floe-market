@@ -1,4 +1,4 @@
-// The Firebase project that cloud saves use (see "Cloud saves" in the README). These values are public by design:
+// The Firebase project that cloud saves use (see "Cloud saves" in docs/game.md). These values are public by design:
 // they only name the project, and the rules in firestore.rules are what keep each player's save to themselves.
 // The web app's config comes from the Firebase console (Project settings, Your apps). With an empty apiKey, cloud
 // saves are off and the sign-in button stays hidden.

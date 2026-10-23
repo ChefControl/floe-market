@@ -1,4 +1,4 @@
-// Mr. Fugu's offer: once Floe Sushi is fully built and the cash passes a million, a hatch turns up in the dock. Walk up
+// Mr. Fugu's offer: once Floe Sushi is fully built (every stage 2 upgrade), a hatch turns up in the dock. Walk up
 // to it and he peeks out from under the lid ("come back tonight"); wait for nightfall, and he climbs out with a short
 // pitch, and the player answers.
 import type { PointLight } from 'three';
@@ -11,7 +11,7 @@ const FLOE_SUSHI = ['sushi', 'paddy', 'seats', 'chef', 'farmer', 'porter', 'plot
 async function setup(save: Parameters<typeof loadGame>[0] = {}) {
   const g = await loadGame({ tiles: bought(...MARKET, ...FLOE_SUSHI), money: 999_950, ...(save as object) });
   const offer = await import('../src/offer');
-  // he's waiting under the hatch once there's a million: walk up to it
+  // he's waiting under the hatch once the restaurant's built: walk up to it
   g.run(0.1);
   g.placePlayer(offer.HATCH.x, offer.HATCH.z + 1.2);
   const $ = (id: string) => document.getElementById(id)!;
@@ -29,7 +29,7 @@ async function setup(save: Parameters<typeof loadGame>[0] = {}) {
 }
 
 describe("Mr. Fugu's offer", () => {
-  it('waits for the restaurant to be fully built and the cash to pass a million', async () => {
+  it('waits for the restaurant to be fully built, whatever the cash', async () => {
     // his hatch is in the dock from the start, shut, and quiet: in stage 1...
     const first = await loadGame({ money: 5_000_000 });
     const { Hatch } = await import('../src/fugu');
@@ -39,7 +39,7 @@ describe("Mr. Fugu's offer", () => {
     expect(hatches()[0].openTo).toBe(0);
     first.run(3);
     expect(document.getElementById('offerAlert')!.classList.contains('on')).toBe(false);
-    // ...and in stage 2 before the restaurant's built, even with the million: nothing knocks, nobody peeks
+    // ...and in stage 2 before the restaurant's built, even with millions: nothing knocks, nobody peeks
     const early = await loadGame({ tiles: bought(...MARKET, 'sushi'), money: 5_000_000 });
     early.run(3);
     expect(document.getElementById('offerAlert')!.classList.contains('on')).toBe(false);
@@ -47,19 +47,20 @@ describe("Mr. Fugu's offer", () => {
     early.run(2);
     expect(early.player.held).toBe(false);
 
-    const { g, offer, $ } = await setup();
+    // one upgrade short, and broke
+    const { g, offer, $ } = await setup({ tiles: bought(...MARKET, ...FLOE_SUSHI.filter(t => t !== 'premium')), money: 0 });
     g.placePlayer(0, -2);
     g.run(3);
     expect($('offerAlert').classList.contains('on')).toBe(false);
     const { scene } = await import('../src/render');
     const lit = () => { let n = 0; scene.traverseVisible(o => { if ((o as PointLight).isPointLight) n++; }); return n; };
     const lights = lit();
-    g.wallet.money += 100;
+    g.unlocks.applyUnlock('premium');
     g.run(0.1);
     // the hatch turns up with a "!" over it, and an arrow points the way; nothing happens until the player gets there
     expect($('offerAlert').classList.contains('on')).toBe(true);
     expect($('pointers').children).toHaveLength(1);
-    // its glow stays off while it knocks (a new light would recompile every material: a freeze as the million comes in)
+    // its glow stays off while it knocks (a new light would recompile every material: a freeze as the last upgrade goes in)
     expect(lit()).toBe(lights);
     g.run(3);
     expect(g.player.held).toBe(false);
@@ -167,7 +168,7 @@ describe("Mr. Fugu's offer", () => {
     // the buy-in is on offer, gold, beside the hatch
     const buyIn = g.unlocks.tiles.find(t => t.id === 'dohyo')!;
     expect(g.unlocks.visibleTiles()).toContain(buyIn);
-    expect(buyIn).toMatchObject({ gold: true, cost: 1_000_000 });
+    expect(buyIn).toMatchObject({ gold: true, cost: 100_000 });
     expect(Math.hypot(buyIn.x - offer.HATCH.x, buyIn.z - offer.HATCH.z)).toBeLessThan(3.5);
     // standing on the open hatch no longer brings him back up
     g.placePlayer(offer.HATCH.x, offer.HATCH.z);
@@ -188,10 +189,9 @@ describe("Mr. Fugu's offer", () => {
     const { g, offer } = await setup();
     const [counters, { fly }, items, { scene }] = await Promise.all([import('../src/counters'), import('../src/holder'), import('../src/items'), import('../src/render')]);
     const T = counters.TAKEOUT;
-    // a few cars at the takeout window first, away from the hatch, then the million, and up to it
+    // a few cars at the takeout window first, away from the hatch, then up to it
     g.placePlayer(0, -2);
     g.runUntil(() => T.queue.length > 0, 60);
-    g.wallet.money = 1_000_000;
     g.run(0.1);
     g.placePlayer(offer.HATCH.x, offer.HATCH.z + 1.2);
     g.runUntil(() => offer.offerPlaying(), 10);
@@ -302,7 +302,7 @@ describe('stage 3 behind its flag (flags.ts)', () => {
         scene.traverse(o => { if (o instanceof Hatch) n++; });
         return n;
       };
-      // the restaurant built and a million in the till: on main's own terms, all quiet
+      // the restaurant built and millions in the till: on main's own terms, all quiet
       const g = await loadGame({ tiles: bought(...MARKET, ...FLOE_SUSHI), money: 5_000_000 });
       const flags = await import('../src/flags');
       expect(flags.stage3On()).toBe(false);

@@ -70,7 +70,7 @@ describe('buying into the ring', () => {
     g.press('e', 'keyup');
     // what stage 2 made stays upstairs in the restaurant's till: the cellar starts from no chips
     expect(g.wallet.money).toBe(0);
-    expect((await import('../src/front')).front.till).toBe(100_000);
+    expect((await import('../src/front')).front.till).toBe(1_100_000 - gold.cost);
     expect($('banner').textContent).toBe('Stage 2 completeFloe Sushi');
     expect(g.player.held).toBe(true);
     expect(offered(g)).toEqual([]); // the cellar's tiles wait for the show
@@ -123,11 +123,11 @@ describe('buying into the ring', () => {
     g.run(6);
     const { front } = await import('../src/front');
     expect(g.wallet.money).toBe(0);
-    expect(front.till).toBe(499_000_000);
+    expect(front.till).toBe(500_000_000 - gold.cost);
     g.saveMod.save();
     const g2 = await loadGame(localStorage.getItem('floe-market-v1')!);
     expect(g2.wallet.money).toBe(0);
-    expect((await import('../src/front')).front.till).toBe(499_000_000);
+    expect((await import('../src/front')).front.till).toBe(500_000_000 - gold.cost);
   // (a stage 2 and a stage 3 game loaded: about 15 s on CI under coverage)
   }, 30_000);
 

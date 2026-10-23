@@ -1,5 +1,4 @@
-// The demo build of Mr. Fugu's offer (VITE_FUGU_DEMO=1): Floe Sushi fully built, the cash $100 short of a million and
-// the last diners' bills at the register, which the crew brings in a moment later: then he knocks, and the arrow
+// The demo build of Mr. Fugu's offer (VITE_FUGU_DEMO=1): Floe Sushi fully built, so he knocks at once, and the arrow
 // points the way. Or, with ?cellar in the address, down in his cellar (stage 3) with chips to spend, to try fight
 // night (&chips=N for N chips, not 2,000; &beaten=N with N of the bosses beaten already, and what they open open: from
 // 2, Mr. Fugu with his matchbook for the out-of-order stall in Mama Moray's restroom, or with &south already through

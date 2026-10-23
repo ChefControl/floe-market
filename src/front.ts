@@ -1,8 +1,9 @@
 // The front: in stage 3, Floe Sushi upstairs carries on as the respectable face of the ring under the dock. Its diners
 // still eat and its crew still works, but until the player buys Mr. Fugu out, its takings are his: the ring's rent.
-// The playtest tries a second way of doing it, switched with ?front=trickle in the page's address: a slow trickle of
-// the takings (laundered money) reaches the till instead of none. Reviews of the restaurant stop counting in stage 3:
-// upstairs just ticks over for Mr. Fugu while the player's below, where there's no rating at all.
+// The playtest tries a second way of doing it, switched with ?front=trickle in the page's address (in the dev server and
+// the demo build only): a slow trickle of the takings (laundered money) reaches the till instead of none. Reviews of the
+// restaurant stop counting in stage 3: upstairs just ticks over for Mr. Fugu while the player's below, where there's no
+// rating at all.
 import { stage } from './layout';
 import { addReview } from './rating';
 import { addMoney } from './wallet';
@@ -21,6 +22,8 @@ export const front = {
 };
 
 function readMode(): FrontMode {
+  // (a playtest switch: the live game is always rent)
+  if (!import.meta.env.DEV && import.meta.env.MODE !== 'demo') return 'rent';
   try { return new URLSearchParams(location.search).get('front') === 'trickle' ? 'trickle' : 'rent'; } catch { return 'rent'; }
 }
 

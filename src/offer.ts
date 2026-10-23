@@ -1,4 +1,4 @@
-// Mr. Fugu's offer. Once Floe Sushi is fully built and the cash passes $1,000,000, a hatch turns up in the dock with a
+// Mr. Fugu's offer. Once Floe Sushi is fully built (every stage 2 upgrade bought), a hatch turns up in the dock with a
 // "!" over it, knocking, and an arrow at the edge of the screen points the way. Walking up to it, the screen blinks,
 // the lid lifts a crack, and a pair of shades in the dark under it asks the chef to come back at night. Waiting for
 // nightfall, night falls over the dock, and then the encounter, staged as the stage 3 teaser is: shoves at the lid
@@ -20,11 +20,9 @@ import { camera, camK, scene } from './render';
 import { save } from './save';
 import { nightK, setNight, staging } from './stage';
 import { toast } from './ui';
-import { stageBuilt } from './unlocks';
-import { d2xz, FY, V, type XZ } from './util';
-import { wallet } from './wallet';
+import { stageBuilt, tiles } from './unlocks';
+import { d2xz, FY, money, V, type XZ } from './util';
 
-export const MILLION = 1_000_000;
 /** The hatch in the dock planks, and where the player stands to hear him out, facing it: on the restaurant's side. */
 export const HATCH = V(HATCH_AT.x, FY, HATCH_AT.z);
 const STAND = V(HATCH_AT.x - 0.5, FY, HATCH_AT.z + 2.1);
@@ -115,7 +113,7 @@ const pitch = (again: boolean): Line[] => again
   ]
   : [
     { f: 'Hello, Chef.' },
-    { f: 'A million bucks off raw fish and rice. Honest money. Slow money.' },
+    { f: 'All this off raw fish and rice. Honest money. Slow money.' },
     { f: 'Downstairs, the big boys wrestle. Sumo. No refs, no rules, no refunds.', fx: ['glint'] },
     { f: 'Legal? Not even close.', fx: ['puff', 'shake'] },
     { f: "But the crowd's starving. Cook 'em chanko, take on my boys, I keep thirty percent. You in?", fx: ['calm'] },
@@ -470,7 +468,7 @@ function finish(answer: 1 | 2) {
   if (answer === 2) {
     // the deal's struck: the ring's drums under the dock, and his price, at the hatch
     for (const t of [0.5, 0.95, 1.4]) at(t, () => { sfx.taiko(); offerCam.shake = 0.35; });
-    at(2.2, () => leave('Deal. Buy into the ring at the hatch: $1,000,000'));
+    at(2.2, () => leave(`Deal. Buy into the ring at the hatch: ${money(tiles.find(t => t.id === 'dohyo')!.cost)}`));
   } else {
     at(0.55, () => { hatch!.openTo = 0; sfx.bang(); });
     at(1.2, () => leave("Mr. Fugu's hatch stays on the dock. Stand on it to hear him out again"));
@@ -520,7 +518,7 @@ export function updOffer(dt: number) {
     const clear = offer.answer === 0 ? CLEAR : ON + 0.4;
     if (d > clear * clear) armed = true;
     if (offer.answer === 0) {
-      if (!waiting && wallet.money >= MILLION && stage.n === 2 && !staging() && stageBuilt(2)) summon();
+      if (!waiting && stage.n === 2 && !staging() && stageBuilt(2)) summon();
       if (waiting) {
         knock(dt);
         if (armed && free() && d < RANGE * RANGE) peek();
@@ -606,8 +604,8 @@ export function loadOffer(answer: number) {
   h.light.visible = h.openTo > 0;
   h.update(0);
 }
-// The hatch is always in the dock, shut, from the very start: nobody knocks on it till there's a million to be made
-// (stage 2, with the restaurant all built). Until stage 3 is open (flags.ts), there's no hatch at all.
+// The hatch is always in the dock, shut, from the very start: nobody knocks on it till the restaurant's all built
+// (stage 2). Until stage 3 is open (flags.ts), there's no hatch at all.
 if (stage3On()) placeHatch();
 
 window.addEventListener('keydown', e => {

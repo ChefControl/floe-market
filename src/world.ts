@@ -299,7 +299,8 @@ function batchGroup(b: Batch) {
     g.add(m);
   });
   const low = quietly(() => new Group());
-  low.add(...g.children);
+  // (a batch the luck left with no trees has nothing to move, and three.js logs an error for an empty add)
+  if (g.children.length) low.add(...g.children);
   g.add(low);
   high(g, () => {
     // baked in patches of ground, so the ones off screen (and outside the sun's shadow) aren't drawn at all
