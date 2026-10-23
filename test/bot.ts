@@ -456,12 +456,13 @@ export function play(g: Game, seconds: number, dt = 0.05, ring?: Ring, style: St
     const F = f.F, back = player.back, room = () => back.cap - back.n;
     const READY = { rice: 'rrice', fish: 'cfish', mush: 'mush' } as const, HIRE = { rice: 'washer', fish: 'salter', mush: 'picker' } as const;
     // the try-hard: as soon as the gong says he's beaten with the cooking show aced, the show (with none running) and
-    // the gong
+    // the gong; with one running, the gong as it is (what's left of the bonus, and of a local fight he'd wait out), and
+    // if that's short now, the show again once it's run out
     if (style.tryhard && !F.rush && !F.called && f.nextBoss()) {
-      const need = f.toBeat(f.nextBoss()!), fc = f.forecast(0, { bonus: 50, need });
+      const need = f.toBeat(f.nextBoss()!), running = F.bonus.t > 0, fc = f.forecast(0, running ? { need } : { bonus: 50, need });
       if (fc) { best.set(fc.boss.name, Math.max(best.get(fc.boss.name) ?? 0, fc.turned)); lastFc = `${fc.boss.face} ${fc.turned}/${need}`; }
       if (fc && fc.turned >= need) {
-        if (F.bonus.pct === 50 && F.bonus.t > 20) {
+        if (running) {
           rangFc = fc.turned;
           if (near(P.GONG_PAD, 0.3)) go(P.GONG_PAD, () => !!F.rush || F.called, 2, true);
           else go(P.GONG_PAD, () => near(P.GONG_PAD, 0.3), 20);

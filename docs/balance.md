@@ -185,7 +185,7 @@ The slide's price moves Dobu's stretch hard (🐡 145 to 500 is 4 to 17 minutes)
 | **150 · 200 (taken)** | **3:10 / 7:47 / 7:55 / 8:02 / 7:40 / 4:49** | **39:25** | **8 · 0** |
 | 200 · 100 | 3:10 / 7:47 / 6:53 / 9:17 / 6:03 / 5:02 | 38:14 | 8 · 2 |
 
-The styles buy out 37:58 to 57:03. The try-hard buys out at 34:44 (Samehada 15:36, Fukure 24:13), borrowing 🐡 30, 375 and 425; it buys Mama's later (13:40) than the regular bot (about 13:00), reckoning her at half the stall's takings before she's taken any. It lost one fight: Samehada rung during a local fight, the gong saying 538 for 534 needed, and 495 turned; the forecast for a boss called in mid-fight wants a look.
+The styles buy out 37:58 to 57:03. The try-hard buys out at 33:01 (Samehada 14:34, Fukure 17:34), borrowing 🐡 60 and 1,325, and loses no fight. A first go lost Samehada, rung during a local fight on a forecast of 538 for 534 needed, with 495 turned: the gong was right (its forecast of the cellar as it was said 495), but the try-hard had asked it what a fresh show would do with 35 s of one already gone. With a bonus running it now goes by the gong as it is, and plays the show again once it's run out.
 
 What it shows:
 - **Rice is the theme again.** It's the main limit through the early restaurant (up to half the time, with the chefs waiting for rice two thirds of it), and short again once the second row of garden tables comes in, which is what the third terrace fixes. The kiosk then takes the surplus, and rice runs short once more.
