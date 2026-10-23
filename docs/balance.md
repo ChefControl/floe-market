@@ -187,6 +187,15 @@ The slide's price moves Dobu's stretch hard (🐡 145 to 500 is 4 to 17 minutes)
 
 The styles buy out 37:58 to 57:03. The try-hard buys out at 33:01 (Samehada 14:34, Fukure 17:34), borrowing 🐡 60 and 1,325, and loses no fight. A first go lost Samehada, rung during a local fight on a forecast of 538 for 534 needed, with 495 turned: the gong was right (its forecast of the cellar as it was said 495), but the try-hard had asked it what a fresh show would do with 35 s of one already gone. With a bonus running it now goes by the gong as it is, and plays the show again once it's run out.
 
+**Chips pile up** (2026-10-23): the soup bar's chips and Mama Moray's cut now pile up to be scooped, as cash does up top (chipPiles.ts); a boss's prize still goes straight to the wallet. The bot picks the soup square's pile up whenever it sets bowls out (the crate is within reach of the pad), and walks round behind Mama's stools for hers, never in a boss's rush. A first run had no style buying out in an hour: Mama's pile was meant to be scooped from the end of her counter, which is in the wall, so the bots walked at it for good.
+
+| | Stretches (median of 8) | Buyout | Styles finishing · fights lost |
+|---|---|---|---|
+| Straight to the wallet (before) | 3:10 / 7:47 / 7:55 / 8:02 / 7:40 / 4:49 | 39:25 | 8 · 0 |
+| **Piled up** | **3:10 / 7:53 / 7:46 / 11:20 / 6:12 / 4:59** | **41:22** | **8 · 0** |
+
+The walks cost about two minutes in all. Samehada's stretch is the one that moved, but it was the noisiest before too (5 to 17 minutes by style, since the show often lands a chip or two short of his 534): with the piles it runs 5:39 to 16:09. The styles buy out 38:02 to 58:26. The try-hard buys out at 37:12 (Samehada 13:10, Fukure 29:42): a 🐡 660 loan for the cook and the steamers before Samehada was still being paid off after him, so it couldn't borrow for the fast slide till 27:29.
+
 What it shows:
 - **Rice is the theme again.** It's the main limit through the early restaurant (up to half the time, with the chefs waiting for rice two thirds of it), and short again once the second row of garden tables comes in, which is what the third terrace fixes. The kiosk then takes the surplus, and rice runs short once more.
 - **The garden works, and the waiters set its pace.** Garden diners are served several tables a trip, but from the first garden tables on, the waiters are what they wait on most.
