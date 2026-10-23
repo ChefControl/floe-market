@@ -960,6 +960,11 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
 #slamGo[hidden]{ display:none; }
 #slamGo kbd{ font:800 13px/1 "Baloo 2","Trebuchet MS",system-ui,sans-serif; background:#2A0F16; color:var(--fn-gold); border-radius:4px; padding:3px 6px 2px; }
 #slamGo.said{ background:var(--fn-navy); color:var(--fn-gold); box-shadow:0 0 0 2px var(--fn-gold); cursor:default; }
+/* The watch button, on a boss's fight: under the strip's right end, gold; navy with a gold ring while it's on. */
+#watchWrap{ position:absolute; right:0; top:calc(100% + 8px); pointer-events:auto; }
+#watchGo{ --c:var(--fn-gold); --c-ink:var(--fn-navy); --c-drop:#A9761C; --pick:var(--fn-navy); --pick-ink:var(--fn-gold); --pick-drop:#0A1120;
+  --k-ring:0 0 0 0 transparent; white-space:nowrap; }
+#watchGo[aria-pressed="true"]{ --k-ring:0 0 0 3px var(--fn-gold); }
 
 /* A boss walking in: 入場, his name and crowd, and how many to turn, across the screen on speed lines. */
 #fightBanner{ position:fixed; left:0; right:0; top:34%; z-index:4; pointer-events:none; display:grid; justify-items:center; }
@@ -1689,6 +1694,7 @@ body.show #toss, body.show #cook, body.show #coach, body.show #hint, body.show #
   <i class="port" id="rushThemP" aria-hidden="true"></i>
   <i id="slamRing" aria-hidden="true" hidden><b></b></i>
   <button type="button" id="slamGo" hidden>SLAM! <kbd>Space</kbd> on gold</button>
+  <div class="k-panel" data-skin="fight" id="watchWrap"><button type="button" class="k-btn k-choice" id="watchGo" data-key="V" aria-pressed="false" hidden>👁️ Watch</button></div>
 </div>
 <div id="fightBanner" role="status" hidden><div class="lines"></div><div class="in"><div class="kan" aria-hidden="true">入場</div><div class="txt"><b id="bannerWho"></b><span id="bannerGoal"></span></div></div></div>
 <div id="fightCard" role="dialog" aria-live="polite" hidden></div>

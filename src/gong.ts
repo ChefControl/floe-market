@@ -9,7 +9,8 @@
 // along the top follows every boss's fight (and a local's, from the watch spot): the faces, the fans each way, his bell
 // running down, then the fight, a tug of war on a rope in their colours. After a boss's fight a card stamps the result:
 // the prize and what's new, or how short and the one thing that cost it. The HUD's 💪 is the fans fed in this fight's
-// preparation. And the watch spot 👁️ by the ring: stand on it and the camera closes in on the fight.
+// preparation. And the watch spot 👁️ by the ring: stand on it and the camera closes in on the fight (on a boss's fight,
+// the watch button under the strip does it from anywhere).
 import { AdditiveBlending, DoubleSide, Mesh, MeshBasicMaterial, NormalBlending, RingGeometry, Vector3 } from 'three';
 import { cellar, CY, gongBronze, gongDisc, RING } from './cellar';
 import { GONG, GONG_PAD, WATCH } from './cellarPlan';
@@ -378,14 +379,39 @@ function renderPower() {
   if (show && n !== shownPower) { shownPower = n; powerN.textContent = String(n); }
 }
 
+// ---------- the watch button ----------
+// A boss's fight (or the practice one), from his fans sitting down till its result: a button under the strip, or V,
+// does what standing on the watch spot does, wherever the player is. Pressed again, or once the fight's over, the
+// camera comes back to them. A local's fight is still watched from the spot.
+const watchGo = $('watchGo') as HTMLButtonElement;
+/** The button's on (for this fight only), and whether V was down last frame. */
+let watchOn = false, vHeld = false;
+/** Whether the watch button's offered: a fight the gong called, its fans sat down. */
+export const watchOffered = () => level.down && stage.n === 3 && !!F.rush && F.bout.phase !== 'prep' && !coinUp();
+watchGo.addEventListener('click', () => { if (watchOffered()) watchOn = !watchOn; });
+function updWatchGo() {
+  const v = keyHeld('v'), press = v && !vHeld;
+  vHeld = v;
+  const offered = watchOffered();
+  if (!offered) watchOn = false;
+  else if (press) watchOn = !watchOn;
+  if (offered === watchGo.hidden) watchGo.hidden = !offered;
+  // (standing on the spot watches too, and says so)
+  const shown = watchOn || on(WATCH);
+  if (watchGo.getAttribute('aria-pressed') !== String(shown)) {
+    watchGo.setAttribute('aria-pressed', String(shown));
+    watchGo.textContent = shown ? '👁️ Watching' : '👁️ Watch';
+  }
+}
+
 // ---------- the watch spot ----------
 /** How far the camera's closed in on the ring, 0 to 1. */
 let watch = 0;
 const flashEl = document.getElementById('ringFlash')!;
 const lessMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)') ?? { matches: false };
 function updWatch(dt: number) {
-  // (an epic, dohyo.ts, may take the camera even off the watch spot)
-  const want = on(WATCH) || ringCam.take ? 1 : 0;
+  // (an epic, dohyo.ts, may take the camera even off the watch spot; and the watch button, wherever the player is)
+  const want = on(WATCH) || ringCam.take || watchOn ? 1 : 0;
   view.shake = 0;
   if (want === 0 && watch === 0) { flashEl.style.opacity = '0'; epicFx.watch = 0; return; }
   watch += (want - watch) * Math.min(1, dt * 2.5);
@@ -485,6 +511,7 @@ export function updGong(dt: number) {
   renderBout();
   updSlam(dt);
   renderPower();
+  updWatchGo();
   updWatch(dt);
   // the stroke's jolt (on top of the ring's, if the camera's on it)
   if (since < 0.6) view.shake = Math.max(view.shake, 0.45 * (1 - since / 0.6) ** 2);

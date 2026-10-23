@@ -72,6 +72,7 @@ his table limit, `StakeRules.hideOver`).
 - **1–9** press the buttons in the panel's `k-keys` rows, in order. A panel has at most 9 of them showing at once.
 - **Enter / Space** press the focused button (the browser's own behaviour) and advance speech lines.
 - No Z.
+- A button with a key of its own, outside any panel, carries `data-key` (the watch button over a boss's fight: `V`).
 - **Holding Shift** shows each button's key on it. It is never shown otherwise.
 - Keys typed into a text box are left to that box.
 
