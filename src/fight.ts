@@ -91,7 +91,7 @@ export const WALK_IN = 6;
  *  as fast with a cook ladling too); the counter holds two batches too, and the ledge six batches of each. */
 export const PER_BATCH = 4, BATCH = 20, POT_CAP = 40, COUNTER_CAP = 40, STALL_CAP = 30, LEDGE_CAP = 24, LADLE = 0.1;
 /** The bowl slide (a hearth room upgrade): bowls a second it sends from the counter down to the soup bar by itself. */
-export const SLIDE = 12, SLIDE_COST = 300, SLIDE_BEAT = 2;
+export const SLIDE = 12, SLIDE_COST = 150, SLIDE_BEAT = 2;
 /** Its faster belt (a hearth room upgrade beating Samehada opens): bowls a second the slide sends once it's bought. By
  *  Fukure the slide's what limits a rush (the stall's 30 and SLIDE a second of his bell), so this is what beats him. */
 export const FAST_SLIDE = 18, FAST_COST = 1700, FAST_BEAT = 4;
@@ -105,7 +105,7 @@ export const RESTO_SHARE = 0.12;
 export const HALL_SHARE = 0.5, HALL_COST = 1000;
 /** Mama Moray's itself (a hearth room upgrade beating Yokobashiri opens, once the slide's in: her bowls ride its line),
  *  bought as the takeout kiosk is up top: what it costs, and the bosses it waits for. Till then her place is shut. */
-export const MAMA_COST = 300, MAMA_BEAT = 2;
+export const MAMA_COST = 200, MAMA_BEAT = 2;
 /** The cooking show at the pot (chanko.ts), a bonus game: it takes nothing and cooks nothing, and its stars buy the pot
  *  bigger batches for a while (a cook's too): long enough to see a boss's rush through, Fukure's walk-in and his
  *  60 s bell too. */

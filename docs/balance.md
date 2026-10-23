@@ -176,6 +176,17 @@ Income keeps rising mostly from the repeatable upgrades. The bottleneck turns ov
 
 The slide's price moves Dobu's stretch hard (🐡 145 to 500 is 4 to 17 minutes), since Mama's opens with it. The one fight lost at 300 · 400 was a close call the gong had flagged (535 forecast for 534 needed, a "Likely win"; it turned 529). The styles' buyouts run 34:49 to 58:22, the two that never play the show the slowest. The try-hard buys out at 30:36 (Samehada 13:42, Fukure 16:46), borrowing 🐡 180 and 1,185.
 
+**Mama Moray's bought** (2026-10-23): her place is a tile now, 🍜 in the hearth room after the slide, as the takeout kiosk is up top, and shut till it's bought. Priced on its own it lengthened Dobu's stretch (🐡 200: 11:23, 300: 13:18, 500: 22:31), since she'd come free with the slide; the slide came down to make room:
+
+| Slide · Mama's (🐡) | Stretches (median of 8) | Buyout | Styles finishing · fights lost |
+|---|---|---|---|
+| 300 · free (before) | 3:10 / 7:47 / 8:17 / 7:54 / 6:47 / 5:08 | 39:04 | 8 · 1 |
+| 145 · 150 | 3:10 / 7:47 / 6:45 / 10:23 / 6:11 / 5:23 | 39:41 | 8 · 1 |
+| **150 · 200 (taken)** | **3:10 / 7:47 / 7:55 / 8:02 / 7:40 / 4:49** | **39:25** | **8 · 0** |
+| 200 · 100 | 3:10 / 7:47 / 6:53 / 9:17 / 6:03 / 5:02 | 38:14 | 8 · 2 |
+
+The styles buy out 37:58 to 57:03. The try-hard buys out at 34:44 (Samehada 15:36, Fukure 24:13), borrowing 🐡 30, 375 and 425; it buys Mama's later (13:40) than the regular bot (about 13:00), reckoning her at half the stall's takings before she's taken any. It lost one fight: Samehada rung during a local fight, the gong saying 538 for 534 needed, and 495 turned; the forecast for a boss called in mid-fight wants a look.
+
 What it shows:
 - **Rice is the theme again.** It's the main limit through the early restaurant (up to half the time, with the chefs waiting for rice two thirds of it), and short again once the second row of garden tables comes in, which is what the third terrace fixes. The kiosk then takes the surplus, and rice runs short once more.
 - **The garden works, and the waiters set its pace.** Garden diners are served several tables a trip, but from the first garden tables on, the waiters are what they wait on most.
@@ -219,7 +230,7 @@ Before the bowl slide the bowls are carried, so the cooking show adds nothing to
 - The cooking show's bonus lasts 70 s: a boss's walk-in and bell, Fukure's 66 s included.
 - The Undertow favours the house: Tommy pays half again for the queen (4 to 12 swaps; the house wins unless you find her two times in three), Eddie charges the boss's stake for each tenth of his crowd he keeps home, Harry lends up to five stakes at 1.25×. A stake is set per boss at about a minute of what the stall takes in that boss's stretch on the tuned run (🐡 70 Dobu, 300 Samehada, 600 Fukure; Hakkaku 20 and Yokobashiri 30 come before the Undertow opens): it was a local fight's takings at a full house, which fell far behind once the bosses' rushes and the faster lines made most of the money (after Yokobashiri a full house was 🐡 12 against 🐡 67 a minute, so Harry's loan bought nothing the gong asked for and Eddie's 10% on Dobu cost more than the cook). It moves only when a boss is beaten, never with the last few minutes' takings, which come in lumps.
 
-**The rest of the tables** (`src/fight.ts`): a bowl 🐡 1.6 (a mushroom bowl twice that), less Mr. Fugu's 30% until the buyout; seats 24 / 48 / 90 / 150 (Back-Alley Ring 🐡 120 after Yokobashiri, Underground Arena 900 after Dobu, Grand Hall 2,500 after Samehada); washer 15, salter 20 (after the practice fight), attendant 190 and picker 100 (after Hakkaku), the bowl slide 300 (Yokobashiri, once the attendant's hired; Mama Moray's opens with it) and steam baskets 350 (Yokobashiri), cook 340 and smokehouse 400 (Dobu), glowing shelves 4,000 and the faster belt 1,700 (Samehada, once the slide's in); racks 10, barrels 12, beds 15, each next one 45% more; the buyout 🐡 7,000.
+**The rest of the tables** (`src/fight.ts`): a bowl 🐡 1.6 (a mushroom bowl twice that), less Mr. Fugu's 30% until the buyout; seats 24 / 48 / 90 / 150 (Back-Alley Ring 🐡 120 after Yokobashiri, Underground Arena 900 after Dobu, Grand Hall 2,500 after Samehada); washer 15, salter 20 (after the practice fight), attendant 190 and picker 100 (after Hakkaku), the bowl slide 150 (Yokobashiri, once the attendant's hired) and Mama Moray's 200 (after it) and steam baskets 350 (Yokobashiri), cook 340 and smokehouse 400 (Dobu), glowing shelves 4,000 and the faster belt 1,700 (Samehada, once the slide's in); racks 10, barrels 12, beds 15, each next one 45% more; the buyout 🐡 7,000.
 
 **When the bot gets there** (from the ladder down, `SIM_STAGE=3`, the median of four styles: the cooking show for Hearty or never or Perfect, slams on or off, helping hired lines or not; single runs swing ±2 minutes)
 

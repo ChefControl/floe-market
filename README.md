@@ -186,14 +186,15 @@ Far out past the road, a path leaves the market (through the east fence in stage
 | 🧑‍🌾 Mushroom picker | 🐡 100 | Hakkaku | Runs the mushroom line: picks the beds and carries mushrooms to the ledge |
 | 🍲 Attendant | 🐡 190 | Hakkaku | Carries bowls from the counter to the soup bar |
 | 🏮 The Back-Alley Ring | 🐡 120 | Yokobashiri | Bleachers: 48 seats (24 to start) |
-| 🛝 Bowl slide | 🐡 300 | Yokobashiri, and the attendant | A belt from the pot to the soup bar, 12 bowls a second, the attendant at its motor |
+| 🛝 Bowl slide | 🐡 150 | Yokobashiri, and the attendant | A belt from the pot to the soup bar, 12 bowls a second, the attendant at its motor |
 | ♨️ Steam baskets | 🐡 350 | Yokobashiri | Every rack becomes a steam basket: 10 rice every 5 s |
 | 👨‍🍳 Cook | 🐡 340 | Dobu | Keeps the pot cooking while you're away (70% batches) |
 | 🏚️ Smokehouse | 🐡 400 | Dobu | Every barrel becomes a smokehouse: 10 fish every 5 s |
 | 🥁 The Underground Arena | 🐡 900 | Dobu | An upper tier and the taiko drummers: 90 seats |
 | ✨ Glowing grow shelves | 🐡 4,000 | Samehada | Every bed becomes a shelf: 9 mushrooms, one every 4 s |
 | ⏩ Faster belt | 🐡 1,700 | Samehada, and the bowl slide | The bowl slide runs at 18 bowls a second, not 12 |
-| 🍜 Mama's dining hall | 🐡 1,000 | Fukure, and the faster belt | Mama Moray pays 50% of a bowl, not 12% |
+| 🍜 Mama Moray's | 🐡 200 | Yokobashiri, and the bowl slide | Opens her chanko place out front: what the pot can't hold goes there, 12% of a bowl to you |
+| 🍽️ Mama's dining hall | 🐡 1,000 | Fukure, and Mama Moray's | Mama Moray pays 50% of a bowl, not 12% |
 | ⛩️ The Grand Hall Below | 🐡 2,500 | Samehada | The VIP boxes (box seats with cushions, right by the ring): 150 seats |
 | 🐡 Buy back all his chips | 🐡 7,000 | all five bosses | Stage 3 complete: his 30% ends, the restaurant's till comes back, and a lead to stage 4 |
 
