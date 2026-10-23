@@ -59,7 +59,11 @@ jobs:
       # Unit tests gate the deploy: a failing test (in any shard) or coverage below the thresholds (over all of them,
       # merged) stops here.
       - run: npx vitest run --merge-reports=.vitest/blob --coverage
+      # Stage 3 is open to players (src/flags.ts). To take it back, set 'off' and push: saves that have met Mr. Fugu
+      # keep it on.
       - run: npm run build
+        env:
+          VITE_STAGE3: 'on'
       - if: github.event_name != 'pull_request'
         uses: actions/configure-pages@v6
       - if: github.event_name != 'pull_request'

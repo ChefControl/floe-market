@@ -1,8 +1,9 @@
-// Features still being made, kept from players until they're ready. Stage 3 (Mr. Fugu's hatch in the dock and the
-// ring under it) is on in the dev server, the tests and the playtest build (VITE_FUGU_DEMO=1); in the live game, only
-// on a device switched on by opening it with ?stage3=on in the address (?stage3=off switches it back off). A save
-// that's already been down there switches it on too, so a game played on one device carries on on another.
-// VITE_STAGE3=on or off at build time overrides the build's own default (a playtest of the live game: off).
+// Features that can be kept from players. Stage 3 (Mr. Fugu's hatch in the dock and the ring under it) is on in the
+// dev server, the tests and the playtest build (VITE_FUGU_DEMO=1), and in the live game, which deploy.yml builds with
+// VITE_STAGE3=on (VITE_STAGE3=on or off at build time overrides the build's own default, which is off). In a build
+// with it off, a device is switched on by opening it with ?stage3=on in the address (?stage3=off switches it back
+// off). A save that's already been down there switches it on too, so a game played on one device carries on on
+// another, and keeps it if stage 3 is ever taken back.
 const KEY = 'floe-market-stage3';
 
 const built = import.meta.env.VITE_STAGE3 as string | undefined;
