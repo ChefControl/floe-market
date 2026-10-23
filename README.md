@@ -312,7 +312,7 @@ Each deploy removes the last one's files, and GitHub Pages lets browsers keep th
 | `src/sea.ts` | On High: the rolling, glinting sea, foam on the shore and round the floes and posts, cloud shadows |
 | `src/fx.ts` | On High: splashes, chips, coins, glints, sparkles, chimney smoke and steam, each kind one pooled mesh |
 | `src/icons.ts` | The drawn icons for floor tiles, pads, signs, menu tags and faces, in place of emoji |
-| `src/demo.ts` | The demo build's tool panel (`vite build --mode demo`): frame rate, Low/High, seasons, effects, a stage 1 or 2 game, or a market with everything to buy |
+| `src/demo.ts` | The demo build's tool panel (`vite build --mode demo`): frame rate, Low/High, a stage 1, 2 or 3 game (stage 3 with N bosses beaten, as won or all bought), and money to add |
 | `src/fuguDemo.ts` | The Mr. Fugu demo (`VITE_FUGU_DEMO=1`): Floe Sushi built and the till one bill short of a million, so he knocks a moment in; nothing is kept |
 | `src/render.ts` | Renderer, scene, camera, lights, shared materials/geometry, canvas helpers |
 | `src/world.ts` | Static scenery: water, the dock (both stages'), fences, roads, trees |

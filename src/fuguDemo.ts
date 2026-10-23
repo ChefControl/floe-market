@@ -2,12 +2,12 @@
 // the last diners' bills at the register, which the crew brings in a moment later: then he knocks, and the arrow
 // points the way. Or, with ?cellar in the address, down in his cellar (stage 3) with chips to spend, to try fight
 // night (&chips=N for N chips, not 2,000; &beaten=N with N of the bosses beaten already, and what they open open: from
-// 2, Mr. Fugu with his matchbook for the out-of-order stall in Mama Moray's restroom, or with &south already
-// through it; &pot to start
-// at the pot, for its cooking game; &full with all of the cellar bought, the Grand Hall's stands and every hand, line and
-// level, for the biggest crowd: beaten=4&full is Fukure's rush, for timing the graphics).
+// 2, Mr. Fugu with his matchbook for the out-of-order stall in Mama Moray's restroom, or with &south already through
+// it; &pot to start at the pot, for its cooking game; &gong on the gong's pad; &full with all of the cellar bought, the
+// Grand Hall's stands and every hand, line and level, for the biggest crowd: beaten=4&full is Fukure's rush, for timing
+// the graphics). Or ?stage=1 for a stage 1 market instead (the 🛠 panel's buttons, demo.ts, open these).
 // Nothing is kept, so every visit starts over, the tutorial included.
-import { MAX_MACHINES, POT_PAD } from './cellarPlan';
+import { GONG_PAD, MAX_MACHINES, POT_PAD } from './cellarPlan';
 import { F, LEDGE_CAP } from './fight';
 import { player } from './player';
 import { REGISTER } from './restaurant';
@@ -26,10 +26,26 @@ const FULL = (beaten: number) => ({
   den: { book: beaten >= 2, way: beaten >= 2, door: beaten >= 2, met: { eddie: beaten >= 2, harry: beaten >= 2, tommy: beaten >= 2 } },
 });
 
+/** A market game for the 🛠 panel (demo.ts): stage 1 built (Floe Sushi to come), or stages 1 and 2 with none of the
+ *  ring's tiles (they wait for Mr. Fugu's offer). */
+export function marketSave(stage: 1 | 2) {
+  const done = (t: { id: string; stage: number }) => (stage === 2 ? t.stage < 3 && t.id !== 'dohyo' : t.stage === 1 && t.id !== 'sushi');
+  return JSON.stringify({
+    v: 4, savedAt: Date.now(), money: stage === 2 ? 300_000 : 9_000, best: 300_000,
+    tiles: tiles.map(t => ({ id: t.id, paid: done(t) ? t.cost : 0, done: done(t), open: true })),
+    mods: stage === 2 ? { fillets: 6, marketing: 8, training: 8, specials: 8, promo: 8, crew: 8 } : { fillets: 4, marketing: 5, crew: 3 },
+    reviews: Array(20).fill(5), pile: 20, back: 0, backRice: 0, c1: 5, c1c: 0, c2: 4, c2c: 0, fish: 8, rice: 8, plates: 6,
+    cash: 0, boxes: 2, tcash: 0, field: 6, season: 0, seasonT: 30, presents: 2, presentPaid: 0,
+    learnt: ['fish', 'pick', 'sell', 'cash', 'buy', 'shop', 'harpoon', 'stars'],
+  });
+}
+
 export function startDemo() {
   // (and the tutorial's lessons from a visit before, which the device keeps apart from the save)
   forgetLessons();
   const q = new URLSearchParams(location.search), cellar = q.has('cellar');
+  // (?stage=1: a stage 1 market instead, from the 🛠 panel)
+  if (!cellar && q.get('stage') === '1') { deviceStore.write(marketSave(1)); load(); return; }
   // (&chips=0 is broke, as coming down from the buy-in leaves you)
   const c = q.get('chips'), chips = Math.max(0, c !== null && c !== '' && Number.isFinite(Number(c)) ? Number(c) : 2_000), beaten = Math.max(0, Math.floor(Number(q.get('beaten')) || 0));
   const south = q.has('south'), full = cellar && q.has('full');
@@ -49,5 +65,7 @@ export function startDemo() {
   load();
   if (!cellar) player.g.position.set(REGISTER.x - 1.6, FY, REGISTER.z - 1.4);
   // (with a full ledge, so the show can be played again and again)
+  // (on the gong's pad, to ring the next boss in)
+  else if (q.has('gong')) player.g.position.set(GONG_PAD.x, player.g.position.y, GONG_PAD.z);
   else if (q.has('pot')) { player.g.position.set(POT_PAD.x, player.g.position.y, POT_PAD.z); F.pantry = { rice: LEDGE_CAP, fish: LEDGE_CAP, mush: LEDGE_CAP }; }
 }

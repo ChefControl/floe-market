@@ -109,6 +109,9 @@ function tiling(w: number, h: number, draw: Draw) {
 /** The whole cellar, hidden until stage 3. Everything in it is placed in world coordinates (y from CY). */
 export const cellar = new Group();
 cellar.visible = false;
+// (it reaches up the ladder's shaft to the dock, so it's marked as the cellar's: hidden while the player's upstairs,
+// levelCull.ts)
+cellar.userData.below = true;
 scene.add(cellar);
 /** Parts that come with the venue's tiers, shown when they're bought: the bleachers (the Back-Alley Ring), the upper
  *  tier and the taiko drums (the Underground Arena), and the VIP boxes (the Grand Hall Below). And the grow room, with

@@ -443,7 +443,7 @@ function toResto(bowls: number) {
   for (const k of inPot()) F.pantry[k] -= PER_BATCH;
   const got = bowlPrice(growOpen()) * restoShare() * bowls;
   F.resto += bowls;
-  F.cooked.push(F.t); F.earned.push([F.t, got]);
+  F.cooked.push(F.t); F.earned.push([F.t, got]); made += got;
   if (real) { on.cooked(); on.resto(bowls, got); on.earn(got, 'resto'); }
 }
 /** Cooks a batch every half second while someone's at the pot, if there's four of each and room for the bowls (or
@@ -482,7 +482,7 @@ export const slid = { n: 0 };
 function sell(n: number) {
   let got = 0;
   for (let i = 0; i < n && F.stall.length; i++) { got += bowlPrice(F.stall.shift()!); F.fed.push(F.t); if (real) sold.n++; }
-  F.earned.push([F.t, got]);
+  F.earned.push([F.t, got]); made += got;
   if (real && got) on.earn(got, 'bowls');
   return got;
 }
@@ -690,6 +690,30 @@ export function forecast(kept = 0, { bonus = 0, need }: { bonus?: number; need?:
   const v = runs.reduce((a, b) => (b.turned < a.turned ? b : a));
   fc.set(key, { t: F.t, i: F.beaten, v });
   return v;
+}
+/** Chips the stall's bowls and Mama Moray's have made, in this cellar or a copy of it (idleRate). */
+let made = 0;
+/** Seconds of the cellar run ahead to say what it makes on its own. */
+const IDLE_S = 300;
+/**
+ * Chips a second the cellar makes on its own, with nobody else in it: its hands, its fans, its local fights and Mama
+ * Moray's, run ahead in a copy for IDLE_S seconds from now, as the forecast runs a rush (exact: nothing down here is
+ * left to chance). While the player's upstairs, the cellar holds still and pays this instead (ring.ts). None while a
+ * boss is in or called: then the cellar runs as it is.
+ */
+export function idleRate() {
+  if (F.rush || F.called) return 0;
+  const was = F, made0 = made;
+  F = structuredClone(was);
+  real = false;
+  try {
+    for (let t = 0; t < IDLE_S; t += 0.05) step(0.05);
+    return (made - made0) / IDLE_S;
+  } finally {
+    F = was;
+    real = true;
+    made = made0;
+  }
 }
 /** Whether the crew does everything without the player: both lines hired, the mushrooms too once they grow, and the
  *  bowls carried out (or slid) to the soup square. */
