@@ -50,6 +50,9 @@ export interface Boss {
    *  could turn, so what beating that boss opened has to be bought first, and under what the kitchen with it all turns
    *  with no cooking show (test/capacity.sim.test.ts, SIM_STEPS=window). */
   share?: number;
+  /** What the Undertow's hosts measure you by while he's next (stake.ts), in chips: about a minute of what the stall
+   *  takes in his stretch on the tuned run (the stage 3 bot), so it moves only when a boss is beaten. */
+  stake: number;
 }
 /** A rush is won by carrying bowls to the stall, and since the kitchen holds the rush (the pot, the counter, the slide
  *  down to the soup bar and the ledges all full when the gong goes), a boss's crowd is all a kitchen turns in his bell
@@ -61,16 +64,16 @@ export interface Boss {
  *  what it all turns with no show (SIM_STEPS=window). Their prices set the time between bosses (tuned 2026-10-22 with
  *  the stage 3 bot: seven to nine minutes each; with Mama's dining hall after Fukure, about 43 to the buyout). */
 export const BOSSES: Boss[] = [
-  { face: '🐙', name: 'Hakkaku', crowd: 100, bell: 30, prize: 100, kind: 'octopus', opens: 'grow room, the attendant' },
-  { face: '🦀', name: 'Yokobashiri', crowd: 210, bell: 30, prize: 250, share: 0.495, kind: 'crab', opens: 'Back-Alley Ring, bowl slide, steam baskets, a way south' },
-  { face: '🐟', name: 'Dobu', crowd: 498, bell: 45, prize: 300, share: 0.8, kind: 'catfish', opens: 'Underground Arena, smokehouse, the cook' },
-  { face: '🦈', name: 'Samehada', crowd: 571, bell: 45, prize: 800, share: 0.935, kind: 'shark', opens: 'Grand Hall Below, glowing shelves, faster belt' },
-  { face: '🐡', name: 'Fukure', crowd: 1100, bell: 60, prize: 1500, share: 0.74, kind: 'puffer', opens: "Mama's dining hall, buy back all his chips" },
+  { face: '🐙', name: 'Hakkaku', crowd: 100, bell: 30, prize: 100, stake: 20, kind: 'octopus', opens: 'grow room, the attendant' },
+  { face: '🦀', name: 'Yokobashiri', crowd: 210, bell: 30, prize: 250, stake: 30, share: 0.495, kind: 'crab', opens: 'Back-Alley Ring, bowl slide, steam baskets, a way south' },
+  { face: '🐟', name: 'Dobu', crowd: 498, bell: 45, prize: 300, stake: 70, share: 0.8, kind: 'catfish', opens: 'Underground Arena, smokehouse, the cook' },
+  { face: '🦈', name: 'Samehada', crowd: 571, bell: 45, prize: 800, stake: 300, share: 0.935, kind: 'shark', opens: 'Grand Hall Below, glowing shelves, faster belt' },
+  { face: '🐡', name: 'Fukure', crowd: 1100, bell: 60, prize: 1500, stake: 600, share: 0.74, kind: 'puffer', opens: "Mama's dining hall, buy back all his chips" },
 ];
 /** The practice fight before the first boss (once, for a player who's just come down): the champion's own sparring
  *  partner and a small crowd, so the gong's learnt on a fight that's won. His prize hires the two lines' hands, which is
  *  what it takes to beat Hakkaku. It isn't a boss: nothing's counted beaten. */
-export const PRACTICE: Boss = { face: '🤼', name: 'Sparring partner', crowd: 40, bell: 30, prize: 35, opens: '' };
+export const PRACTICE: Boss = { face: '🤼', name: 'Sparring partner', crowd: 40, bell: 30, prize: 35, stake: 10, opens: '' };
 /** A rush's boss: one of the five, or (-1) the sparring partner. */
 export const bossOf = (i: number) => (i < 0 ? PRACTICE : BOSSES[i]);
 export const TIERS = [
@@ -493,12 +496,10 @@ export function sides() {
 /** For each size of fix (1 to 5 tenths of the boss's crowd kept home): the chance Eddie's caught, and how many local
  *  bouts the scandal then lasts (the player's own fans down by the same share). */
 export const FIX = { caught: [0.05, 0.15, 0.3, 0.5, 0.7], scandal: [1, 1, 2, 2, 3] };
-/** Chips Eddie charges for each fan he keeps home (a fan less to turn saves Cellar crew levels and shelves worth far
- *  more than a boss's prize, so the fee goes by the fans, not the prize). */
-export const FIX_PER_FAN = 8;
-/** How many of `boss`'s fans a fix of `cut` tenths keeps home, and what it costs, in chips. */
+/** How many of `boss`'s fans a fix of `cut` tenths keeps home, and what it costs, in chips: his stake (stake.ts) a
+ *  tenth, so a fix costs about a minute of the stall's takings a tenth whoever he is. */
 export const keptHome = (boss: Boss, cut: number) => Math.round(boss.crowd * cut / 10);
-export const fixFee = (boss: Boss, cut: number) => keptHome(boss, cut) * FIX_PER_FAN;
+export const fixFee = (boss: Boss, cut: number) => boss.stake * cut;
 /** The fix paid for on the next boss, if there is one. */
 export const fixOn = () => {
   const e = F.den.eddie;

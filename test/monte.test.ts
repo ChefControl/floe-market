@@ -1,6 +1,6 @@
 // Three-Card Tommy's monte, played without his table: the swaps, where the queen ends up, and the money a round moves.
 import { describe, expect, it } from 'vitest';
-import { LIMIT_FLOOR, limitFor, placesAfter, ROUNDS, START, startRound, SWAPS, swapsFor, WIN } from '../src/monte';
+import { placesAfter, ROUNDS, START, startRound, SWAPS, swapsFor, WIN } from '../src/monte';
 
 /** Random numbers that pick these swaps in turn (0 left and middle, 1 middle and right, 2 the ends). */
 const swapsOf = (...pairs: number[]) => { let i = 0; return () => (pairs[i++ % pairs.length] + 0.5) / 3; };
@@ -51,10 +51,7 @@ describe("Tommy's monte", () => {
     expect(startRound(100, 500, 100)).not.toBeNull();
   });
 
-  it("has a limit of a fight's takings at a full house, in fives, never below the floor, and plays 3 rounds a fight", () => {
-    expect(limitFor(0)).toBe(LIMIT_FLOOR);
-    expect(limitFor(300)).toBe(300);
-    expect(limitFor(123.4)).toBe(120);
+  it('plays 3 rounds a fight', () => {
     expect(ROUNDS).toBe(3);
   });
 });

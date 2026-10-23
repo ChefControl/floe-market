@@ -397,16 +397,14 @@ describe('the Undertow', () => {
     at(plan.BOOTH_PADS.tommy);
     g.run(0.2);
     expect($('monte').hidden).toBe(false);
-    // his limit's a fight's takings at a full house (here, the floor's 20 chips), and he'll play 3 rounds; the chips
-    // over it aren't on his table
-    const H = await import('../src/fullHouse'), Mo = await import('../src/monte');
-    expect(Mo.limitFor(H.heldFight())).toBe(20);
-    expect(M.monteMsg()).toContain('limit 🐡 20');
+    // his limit's the next boss's stake (Dobu's 🐡 70), and he'll play 3 rounds; the chips over it aren't on his table
+    expect((await import('../src/stake')).heldStake()).toBe(70);
+    expect(M.monteMsg()).toContain('limit 🐡 70');
     expect(M.monteMsg()).toContain('3 rounds left');
     const chip = (i: number) => $('monte').querySelector<HTMLButtonElement>(`[data-stake="${i}"]`)!;
-    expect([0, 1, 2, 3].map(i => chip(i).hidden)).toEqual([false, false, true, true]);
+    expect([0, 1, 2, 3].map(i => chip(i).hidden)).toEqual([false, false, false, true]);
     // over his limit, he won't deal
-    M.stakeMonte(25);
+    M.stakeMonte(75);
     expect(M.dealMonte()).toBe(false);
     // 5 chips: taken as he deals; he shows her, swaps (4 to 12 times), and waits for a pick
     M.stakeMonte(5);
@@ -504,17 +502,17 @@ describe('the Undertow', () => {
     expect(club.buyDrink('tonic')).toBe(false);
   });
 
-  it("Harry lends up to four bouts' takings at a full house, held from when you walk in, and takes 30% of the stall's sales till it's paid", async () => {
+  it("Harry lends up to five of the next boss's stakes, held from when you walk in, and takes 30% of the stall's sales till it's paid", async () => {
     const { g, plan, at, fight } = await ring({ money: 50 * 1000, ring: { beaten: 2, lines: { mush: { n: 1 } } } });
     const D = await import('../src/loanDesk'), Lo = await import('../src/loan'), L = g.layout;
-    // his limit's worked out as you walk in: four bouts at a full house, a plain bowl each
+    // his limit's worked out as you walk in: five of the next boss's stakes (Dobu's 🐡 70)
     at({ x: (L.DEN.x0 + L.DEN.x1) / 2, z: (L.DEN.z0 + L.DEN.z1) / 2 });
     g.run(0.1);
-    const max = Lo.maxLoan(), full = fight.crowdNow() * fight.bowlPrice(false);
-    expect(max).toBe(Math.max(10, Math.floor(4 * full / 5) * 5));
-    // ...and held while you're in, whatever the stall does meanwhile
-    fight.F.tier++;
-    expect((await import('../src/fullHouse')).fullFight()).not.toBe(full);
+    const max = Lo.maxLoan();
+    expect(max).toBe(350);
+    // ...and held while you're in, whatever happens in the arena meanwhile
+    fight.F.beaten++;
+    expect((await import('../src/stake')).stakeNow()).toBe(300);
     at(plan.BOOTH_PADS.harry);
     g.run(0.2);
     expect(Lo.maxLoan()).toBe(max);
@@ -618,19 +616,19 @@ describe('the Undertow', () => {
     g.runUntil(() => club.SONG.includes(club.clubSays('velvet')), 12);
   });
 
-  it("Slick Eddie fixes the next boss: his fans kept home for 🐡 8 each, up front; the gong shows both ways it could go", async () => {
+  it("Slick Eddie fixes the next boss: his fans kept home for the boss's stake a tenth, up front; the gong shows both ways it could go", async () => {
     const { g, plan, fight, at, F } = await ring({ money: 5000 * 1000, ring: { beaten: 2, lines: { mush: { n: 1 } } } });
     const E = await import('../src/eddie');
     at(plan.BOOTH_PADS.eddie);
     g.run(0.2);
     expect($('eddie').hidden).toBe(false);
-    // 30% of Dobu's 498 fans: 149 kept home, at 8 chips a fan; a 30% chance it gets out
+    // 30% of Dobu's 498 fans: 149 kept home, at his stake (🐡 70) a tenth; a 30% chance it gets out
     E.pickCut(3);
     expect($('eddieFix').textContent).toBe('Fix 🐟 −149 fans · 30% caught');
     // (each size says what it costs)
-    expect($('eddie').querySelector('[data-cut="3"]')!.textContent).toBe('🐡1,192');
+    expect($('eddie').querySelector('[data-cut="3"]')!.textContent).toBe('🐡210');
     expect(E.payEddie(3, () => 0.99)).toBe(true);
-    expect(g.wallet.money).toBe(5000 * 1000 - 1192 * 1000);
+    expect(g.wallet.money).toBe(5000 * 1000 - 210 * 1000);
     expect(F().den.eddie).toEqual({ boss: 2, cut: 3, caught: false });
     // one fix a boss
     expect(E.payEddie(1, () => 0.99)).toBe(false);
