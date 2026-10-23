@@ -19,7 +19,7 @@ import { dustFx } from './fx';
 import { ringCam } from './dohyo';
 import {
   type Boss, bossOf, BOSSES, BUYOUT, canRing, canShow, type Carry, F, type Forecast, fixOn, forecast, ICON, type Ing, keptHome, NAME, nextBoss, practiceDue, ringGong,
-  finish, FINISH, push, ringRate, type Rush, sides, SLAM, slamDown, slamOn, strength, toBeat, worstShort, you,
+  finish, FINISH, push, ringRate, type Rush, sides, SLAM, slamDown, slamLanded, slamOn, strength, toBeat, worstShort, you,
 } from './fight';
 import { isTouch } from './hint';
 import { kindOf } from './items';
@@ -30,7 +30,7 @@ import { landsOf, moveOf } from './finishers';
 import { epicFx } from './epicFx';
 import { showFace } from './portraits';
 import { CHAMP } from './rikishi';
-import { chime, coinDrop, coinEdge, coinPing, lose, sceneIn, shoveSound, slowSound, throwSound, win } from './sfx';
+import { chime, coinDrop, coinEdge, coinPing, lose, sceneIn, shoveSound, slowSound, swooshSound, throwSound, win } from './sfx';
 import { CELLAR_ZOOM, view } from './stage';
 import { d2xz } from './util';
 
@@ -337,10 +337,10 @@ const finEl = $('finish'), finSay = $('finSay'), finIcon = $('finIcon'), finMete
 /** Whether this is a touch screen (or a finger's been seen on it): the pictures are a finger's, not keys. */
 let touch = isTouch();
 /** The finish as it was last frame, for its sounds and the blink; and where a finger went down, for a flick down. */
-let stepWas = '', sayWas = '', slowWas = false, down: { x: number; y: number } | null = null;
+let stepWas = '', sayWas = '', slowWas = false, landWas = false, down: { x: number; y: number } | null = null;
 const bump = (e: HTMLElement) => { e.classList.remove('hit'); void e.offsetWidth; e.classList.add('hit'); };
 function goPush() { if (push() !== null) { shoveSound(); bump(finIcon); } }
-function goSlam() { const q = slamDown(); if (q !== null) { throwSound(q); bump(finIcon); } }
+function goSlam() { if (slamDown() !== null) { swooshSound(); bump(finIcon); } }
 // (a finger, a pen or the mouse's main button, anywhere but on something of its own to press: down, a shove; dragged
 // down, the slam)
 window.addEventListener('pointerdown', e => {
@@ -371,11 +371,13 @@ function updFinish() {
   if (!!step !== !!stepWas) { finBlink.classList.remove('go'); void finBlink.offsetWidth; finBlink.classList.add('go'); if (step) sceneIn(); }
   finEl.classList.toggle('on', !!f);
   document.body.classList.toggle('cine', !!f);
+  const land = slamLanded(f);
   if (slow && !slowWas) slowSound();
-  stepWas = step; slowWas = slow;
+  if (land && !landWas) throwSound(f!.slam);
+  stepWas = step; slowWas = slow; landWas = land;
   // what to do, in a picture and a few words: the push, then the slam (and how it went)
   const what = f?.step === 'push' ? 'push' : slow ? 'slam' : '';
-  const say = what === 'push' ? 'Push him out!' : what === 'slam' ? 'Slam him down!' : f?.step === 'slammed' && f.slam > 0 ? (f.slam > 1 ? 'PERFECT SLAM!' : 'SLAM!') : '';
+  const say = what === 'push' ? 'Push him out!' : what === 'slam' ? 'Slam him down!' : land ? (f!.slam > 1 ? 'PERFECT SLAM!' : 'SLAM!') : '';
   if (say !== sayWas) {
     sayWas = say; finSay.textContent = say;
     finIcon.className = what ? `${what} ${touch ? 'finger' : 'key'}` : '';

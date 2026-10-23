@@ -53,4 +53,6 @@ export function moveOf(R: Rush | null, finish: Finish): Move | null {
 export const animOf = (R: Rush | null, finish: Finish) => moveOf(R, finish)?.anim ?? push;
 /** Seconds into the result that the loser's down (the card waits for it). */
 export const landsOf = (R: Rush | null, finish: Finish) => animOf(R, finish).lands;
-finishers.landsOf = landsOf;
+/** Seconds into the result of his big impact (where a grand win's slam lands, fight.ts's FINISH). */
+export const hitsOf = (R: Rush | null, finish: Finish) => { const a = animOf(R, finish); return a.hits ?? a.lands; };
+finishers.hitsOf = hitsOf;

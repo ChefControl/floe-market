@@ -24,7 +24,7 @@ import { boss, CY, DRUMS, parts, PIT_STEPS, RING, RING_HALF, RING_R, RING_TOP } 
 import { TEPPO } from './cellarPlan';
 import { belowGround, Person } from './characters';
 import { gyojiModel } from './gyoji';
-import { bossOf, BOUT, epic, F, FINISH, finish, payLen, slamOn } from './fight';
+import { bossOf, BOUT, epic, F, FINISH, finish, payLen, slamLanded, slamOn } from './fight';
 import { animOf, moveOf } from './finishers';
 import { aftermath, UP, type Ctx, drive as driveRig, type FinishMove, type Frame, type Fx, makeRing, type V3 } from './finishRig';
 import { epicOff, epicScreen, updEpic } from './epicFx';
@@ -334,9 +334,10 @@ const dust = (p: Vector3, n: number, big = 1) => dustFx(v3.set(p.x, p.y + 0.05, 
 // ---------- a grand win's finish (fight.ts's FINISH) ----------
 // A scene of its own. The push: the camera cuts in low and close on the pair at his straw and creeps in as it goes;
 // each shove lands with weight (a jolt, a kick of the camera, dust at his heels, the crowd); between them he leans
-// back into it. Then his finisher, from the usual camera, slowing to a crawl just before he lands, a white ring closing
-// on him as it does, and holding there with him in the air: slammed, he's driven into the floor with a flash, a
-// shake and a roar; left, he falls on his own.
+// back into it. Then his finisher, the camera going with them (an epic's own camera for his flight), slowing to a crawl
+// just before his big impact, the camera on him alone and a white ring closing on him, and holding there with him in
+// the air: slammed (a whoosh), he's driven down and hits with a boom, a flash, a shake and a roar; left, he falls on his
+// own.
 const mark = quietly(() => {
   const c = document.createElement('canvas'); c.width = c.height = 256;
   const x = c.getContext('2d');
@@ -347,23 +348,33 @@ const mark = quietly(() => {
 });
 /** The finish's own camera (main.ts blends it in by `k`): where it is and what it looks at. */
 export const finishCam = { k: 0, pos: new Vector3(), look: new Vector3() };
-/** The presses as last seen, and the slam as last seen. */
-let nWas = 0, slamWas = -1;
+/** The presses as last seen, and whether the slam had come down. */
+let nWas = 0, landWas = false;
 const GOLD = 0xFFD34A;
 function finishFx(dt: number) {
   const f = finish(), pushing = f?.step === 'push';
-  finishCam.k = Math.max(0, Math.min(1, finishCam.k + (f ? dt * 4 : -dt * 1.5)));
+  // (the slow motion, the hold and the slam's fall: on him alone)
+  const onHim = !!f && (slamOn(f) || f.step === 'slammed');
+  // (an epic's own camera, looking up after him, has his flight till then)
+  const want = !f ? 0 : pushing || onHim || !ringCam.take ? 1 : 0;
+  finishCam.k = Math.max(0, Math.min(1, finishCam.k + (finishCam.k < want ? dt * 4 : -dt * 1.5)));
   mark.visible = false;
-  if (!f) { nWas = 0; slamWas = -1; return; }
+  if (!f) { nWas = 0; landWas = false; return; }
   if (!pushing) {
     // his finisher: the camera stays in close and goes with him as he's thrown, both of them in it, his side nearer the
-    // middle; creeping in on him in the slow motion
-    const c = where(champ.chestAt), b = where(rival.chestAt), m = c.clone().lerp(b, 0.65);
-    const slow = slamOn(f) ? 1 - Math.max(0, f.holdAt - F.bout.t) / FINISH.slowFor : 0;
-    const far = Math.max(camera.aspect < 1 ? 6.2 : 4.6, c.distanceTo(b) * (camera.aspect < 1 ? 1.5 : 1.1) + 2) * (1 - 0.2 * slow);
-    const k = 1 - Math.exp(-dt * 6);
-    finishCam.look.lerp(new Vector3(m.x, m.y - 0.1, m.z), k);
-    finishCam.pos.lerp(new Vector3(m.x + (c.x - b.x) * 0.2, m.y + far * 0.4, m.z + far), k);
+    // middle; in the slow motion it comes round onto him alone, and creeps in
+    const c = where(champ.chestAt), b = where(rival.chestAt), m = onHim ? b.clone() : c.clone().lerp(b, 0.65);
+    const slow = slamOn(f) ? 1 - Math.max(0, f.holdAt - F.bout.t) / FINISH.slowFor : onHim ? 1 : 0;
+    const base = camera.aspect < 1 ? 6.2 : 4.6;
+    const far = (onHim ? base * (1 - 0.2 * slow) : Math.max(base, c.distanceTo(b) * (camera.aspect < 1 ? 1.5 : 1.1) + 2));
+    // (on him, from higher up and looking down on him: thrown out among the crowd, the front rows aren't in the way)
+    const look = new Vector3(m.x, m.y - 0.1, m.z);
+    const pos = onHim ? new Vector3(m.x, m.y + far * 0.8, m.z + far * 0.65) : new Vector3(m.x + (c.x - b.x) * 0.2, m.y + far * 0.4, m.z + far);
+    // (coming back from an epic's own camera: from where that one is)
+    if (finishCam.k < 0.05) { finishCam.pos.copy(camera.position); finishCam.look.copy(look); }
+    const k = 1 - Math.exp(-dt * (onHim ? 9 : 6));
+    finishCam.look.lerp(look, k);
+    finishCam.pos.lerp(pos, k);
   }
   if (pushing) {
     // the camera, low and close, from the front of the ring a little round on the champion's side, creeping in
@@ -387,13 +398,15 @@ function finishFx(dt: number) {
     mark.scale.setScalar(1 + 1.6 * left);
     mark.material.color.setHex(left <= 0 ? 0xFFFFFF : GOLD);
   }
-  if (f.slam !== slamWas && f.slam > 0) {
+  // the slam, as he hits: the boom, the dust, the shake, the word
+  const land = slamLanded(f);
+  if (land && !landWas) {
     const p = where(rival.chestAt);
     burst(p, f.slam > 1 ? 2.2 : 1.6); dust(p.clone().setY(CY + RING_TOP), 24, 1.8);
     hit(f.slam > 1 ? 0.7 : 0.45, f.slam > 1 ? 0.9 : 0.5, 1.3); react('edge');
     word(f.slam > 1 ? 'SLAM!!' : 'SLAM!', p.setY(p.y + 0.6), { size: f.slam > 1 ? 1.7 : 1.3, fill: '#FFD34A', life: 1.1, always: true });
   }
-  slamWas = f.slam;
+  landWas = land;
 }
 /** The push's poses: the champion driving him at the straw, him bracing against it. */
 function finishPose(pair: [At, At]) {

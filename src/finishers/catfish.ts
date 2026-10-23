@@ -569,7 +569,7 @@ function epicFrame(c: Ctx): Frame {
 }
 
 export const epic: FinishMove = {
-  lands: realAt(EK, SKIP3), done: realAt(EK, SKIP3) + 0.65, nameAt: 1.12, frame: epicFrame,
+  lands: realAt(EK, SKIP3), done: realAt(EK, SKIP3) + 0.65, nameAt: 1.12, hits: QUAKE_REAL, frame: epicFrame,
   beats(c, fx, t0, t1) {
     const a = tauX(t0), b = tauX(t1);
     if (crossed(a, b, 0.1)) fx.kick('L', 2);

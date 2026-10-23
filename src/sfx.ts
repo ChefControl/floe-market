@@ -304,6 +304,11 @@ export function slowSound() {
   tone({ t: 1.35, f: 1250, f2: 1650, type: 'triangle', a: 0.01, d: 0.3, v: 0.09 });
   tone({ t: 1.37, f: 1900, f2: 2200, a: 0.01, d: 0.22, v: 0.035 });
 }
+/** The flick down: a short whoosh, the slam on its way (its boom is as he hits). */
+export function swooshSound() {
+  noise({ f: 2200, f2: 500, q: 0.8, a: 0.02, d: 0.22, v: 0.1 });
+  tone({ f: 260, f2: 120, a: 0.02, d: 0.2, v: 0.05 });
+}
 /** The slam: a boom (bigger for a perfect one). */
 export function throwSound(q: number) {
   if (q === 0) {

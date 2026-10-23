@@ -661,6 +661,8 @@ export function push() {
 }
 /** The slow motion of his finisher's last moment is on (or it's holding there): the slam's to try. */
 export const slamOn = (f = finish()) => !!f && f.step === 'move' && F.bout.phase === 'pay' && f.holdAt >= 0 && F.bout.t >= f.holdAt - FINISH.slowFor;
+/** The slam's come down: his big impact, after a flick down (its boom and its word go off then). */
+export const slamLanded = (f = finish()) => !!f && f.step === 'slammed' && f.slam > 0 && F.bout.t >= f.holdAt + FINISH.before;
 /** The player flicks down to slam him: how it went, or null if it isn't on. */
 export function slamDown() {
   const f = finish();
@@ -670,16 +672,16 @@ export function slamDown() {
   slamWith(f, d <= FINISH.perfect ? 2 : 1);
   return f.slam;
 }
-/** Seconds into a fight's result that the loser lands (finishers.ts fills it in: its moves are drawn things this
- *  module has no need of). */
-export const finishers = { landsOf: (_R: Rush, _f: Finish) => LANDS };
+/** Seconds into a fight's result of the loser's big impact, where the slam lands (finishers.ts fills it in: its moves
+ *  are drawn things this module has no need of). */
+export const finishers = { hitsOf: (_R: Rush, _f: Finish) => LANDS };
 /** The push is over (all the way, or out of time): the fight's over, and his finisher plays, holding for the slam just
  *  before he lands. */
 function toMove(f: Fin) {
   f.step = 'move';
   f.pushed = f.n >= FINISH.need ? 2 : f.n >= FINISH.half ? 1 : 0;
   F.bout.t = BOUT.fight; fightOver();
-  f.holdAt = Math.max(FINISH.slowFor + 0.3, finishers.landsOf(F.rush!, F.bout.finish) - FINISH.before);
+  f.holdAt = Math.max(FINISH.slowFor + 0.3, finishers.hitsOf(F.rush!, F.bout.finish) - FINISH.before);
 }
 /** The slam goes `q`: the slam the prize pays on, and its bonus on top of the prize (paid as he won). */
 function slamWith(f: Fin, q: number) {

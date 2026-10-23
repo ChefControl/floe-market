@@ -65,6 +65,12 @@ describe('the finish', () => {
     expect(F().bout.t).toBe(held);
     key('ArrowDown');
     expect([f.step, f.slam, F().rush!.slam]).toEqual(['slammed', 2, 2]);
+    // (on its way down, quick: the words, the boom and the word over the ring as he hits)
+    expect(fight.ringRate()).toBe(C.fast);
+    expect([fight.slamLanded(), gong.finishSaid()]).toEqual([false, '']);
+    g.runUntil(() => fight.slamLanded(), 1);
+    expect(F().bout.t).toBeCloseTo(f.holdAt + C.before, 1);
+    g.run(1 / 30);
     expect(gong.finishSaid()).toBe('PERFECT SLAM!');
     expect(g.wallet.money - money).toBe(Math.round(100 * 1.2 * fight.CHIP));
     // once he's down the bars open again, and the card says the slam
@@ -98,6 +104,12 @@ describe('the finish', () => {
     expect(f2.held).toBeGreaterThan(C.holdFor);
     r.g.runUntil(() => !r.fight.finish(), 3);
     expect(r.F().bout.phase).toBe('pay');
+    // (a move's slam is on its big impact: the catfish's epic, the crash into the ring before his skips, not the last
+    // skip, where he's down for good)
+    const { animOf, hitsOf, landsOf, EPIC } = await import('../src/finishers');
+    expect(hitsOf(null, 'push')).toBe(landsOf(null, 'push'));
+    expect(EPIC.catfish.hits).toBeLessThan(EPIC.catfish.lands - 0.5);
+    expect(animOf(r.F().rush, 'grand').hits).toBeUndefined();
     // and 83 of 100 is a win, but not a grand one: no finish
     const r3 = await wonBy(83);
     r3.g.runUntil(() => r3.F().bout.phase === 'pay', 20);
