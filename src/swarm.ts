@@ -582,9 +582,9 @@ const speech: Speech[] = Array.from({ length: 4 }, () => {
 });
 /** Seconds a bubble stays up, and until the next one. */
 const SAY_FOR = 2.4;
-/** The least a bubble's ever drawn on screen, in CSS px high (its words then about 16 px): far off, or on a phone, a
+/** The least a bubble's ever drawn on screen, in CSS px high (its words then about 12 px): far off, or on a phone, a
  *  bubble kept to its size in the hall would be too small to read. */
-const LEAST_PX = 60;
+const LEAST_PX = 44;
 const bubbleAt = new Vector3(), ahead = new Vector3();
 let nextSay = 1;
 function draw(sp: Speech, text: string) {
