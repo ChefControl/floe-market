@@ -30,7 +30,8 @@ export function startDemo() {
   // (and the tutorial's lessons from a visit before, which the device keeps apart from the save)
   forgetLessons();
   const q = new URLSearchParams(location.search), cellar = q.has('cellar');
-  const chips = Math.max(0, Number(q.get('chips')) || 2_000), beaten = Math.max(0, Math.floor(Number(q.get('beaten')) || 0));
+  // (&chips=0 is broke, as coming down from the buy-in leaves you)
+  const c = q.get('chips'), chips = Math.max(0, c !== null && c !== '' && Number.isFinite(Number(c)) ? Number(c) : 2_000), beaten = Math.max(0, Math.floor(Number(q.get('beaten')) || 0));
   const south = q.has('south'), full = cellar && q.has('full');
   deviceStore.write(JSON.stringify({
     v: 4, savedAt: Date.now(), money: cellar ? chips * 1_000 : 999_900,
