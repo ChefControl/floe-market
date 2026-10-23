@@ -73,9 +73,9 @@ export function play(g: Game, seconds: number, dt = 0.05, ring?: Ring, style: St
   /** The best the gong's forecast has said, for each boss (by name), whether rung or not. */
   const best = new Map<string, number>();
   let rushBonus = 0;
-  /** Where to stand to scoop each pile of chips (chipPiles.ts): where the bowls are set out, by the soup square's crate,
-   *  and behind the stools along Mama Moray's counter, across from her till. */
-  const PILE_STAND = ring ? { bar: { x: ring.plan.BAR_PAD.x, z: ring.plan.BAR_PAD.z }, mama: { x: ring.piles.PILE_AT.mama.x + 0.3, z: ring.plan.STOOLS[0].z + 0.6 } } : { bar: { x: 0, z: 0 }, mama: { x: 0, z: 0 } };
+  /** Where to walk to scoop each pile of chips (chipPiles.ts): onto it, on the hearth room's floor or by Mama Moray's
+   *  counter. */
+  const PILE_STAND = ring ? { bar: ring.plan.CHIP_SPOT, mama: ring.plan.MAMA_CHIPS } : { bar: { x: 0, z: 0 }, mama: { x: 0, z: 0 } };
   /** The try-hard's takings, a second apart over the last two minutes: chips from the stall and from Mama Moray's. */
   const takings: { t: number; stall: number; resto: number }[] = [];
   /** What the gong said last, for the samples: the boss, turned of needed. */
@@ -244,8 +244,8 @@ export function play(g: Game, seconds: number, dt = 0.05, ring?: Ring, style: St
       if (v > 0) out.push({ pos, v });
     };
     for (const C of g.counters.COUNTERS) if (C.enabled || C.cash.n) add(C.cashPos, C.cash.items);
-    // (down in the cellar, the piles of chips: where to stand to scoop each, by the soup square's crate or behind Mama
-    // Moray's stools; never in a boss's rush, when the kitchen wants every hand)
+    // (down in the cellar, the piles of chips: where to walk to scoop each, on the hearth room's floor or by Mama
+    // Moray's counter; never in a boss's rush, when the kitchen wants every hand)
     if (g.layout.level.down) {
       if (!ring || ring.fight.F.rush || ring.fight.F.called) return [];
       const F = ring.fight.F;

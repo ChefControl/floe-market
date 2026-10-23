@@ -1,7 +1,7 @@
 // Where everything is down in the cellar (stage 3), as plain floor positions (x, z; the floor is CELLAR_Y): the stations
 // of the kitchen's lines, the pot and its ledge, the bowl counter, the soup square, the gong, and the way between rooms.
 // Kept apart from the cellar's meshes (cellar.ts) so the fight night's simulation (fight.ts) can use it without them.
-import { ARENA, CARDS, type CellarRoom, CRAFT, DEN, DOORS, GROW, KITCHEN, LIFT_ROOM, LOANS, LOO, OFFICE_ROOM, PREP, ROOMS, VIP, WING } from './layout';
+import { ARENA, CARDS, type CellarRoom, CRAFT, DEN, DOORS, GROW, KITCHEN, LIFT_ROOM, LOANS, LOO, OFFICE_ROOM, PREP, RESTO, ROOMS, VIP, WING } from './layout';
 import type { XZ } from './util';
 
 export type Ing = 'rice' | 'fish' | 'mush';
@@ -57,6 +57,9 @@ export const COOK_AT = { x: HEARTH.x + 1.45, z: HEARTH.z + 1.6 };
  *  small circle right against its side, so only someone who walks up to the counter takes any, not anyone going by. */
 export const COUNTER = { x: KITCHEN.x1 - 0.65, z: KITCHEN.z1 - 0.75 };
 export const COUNTER_PAD = pad(COUNTER.x - 0.95, COUNTER.z, 0.5);
+/** Where the fans' chips pile up on the floor (chipPiles.ts): against the hearth room's west wall, between its north
+ *  end and the doorway to the soup square, in sight of the pot. Nothing stops you walking over them. */
+export const CHIP_SPOT = { x: KITCHEN.x0 + 0.4, z: KITCHEN.z0 + 2.0 };
 
 // ---------- the arena: the soup square, the gong and its window, the watch spot ----------
 /** The soup square: two painted clay counters at right angles, closing in a corner of the arena against the hearth
@@ -76,9 +79,6 @@ export const BAR = (() => {
 export const FLAP = { z0: BAR.z1 - 0.9, z1: BAR.z1 };
 /** Where to stand to set the bowls out: the square's floor, inside its counters. */
 export const BAR_PAD = pad(2.2, 5.6, 0.8);
-/** The till crate the fans' chips pile up on (chipPiles.ts): in the square's north-east corner, against the north
- *  counter and clear of the hearth room's doorway, within reach of where the bowls are set out. */
-export const CHIP_CRATE = { x: 3.1, z: 4.6, w: 0.5, d: 0.42, h: 0.36 };
 /** How far a point is from the square's outside (0 on or inside it). */
 export const fromBar = (p: XZ) => Math.hypot(Math.max(BAR.x0 - p.x, 0, p.x - BAR.x1), Math.max(BAR.z0 - p.z, 0, p.z - BAR.z1));
 /** The nearest point of the square's outside to `p` (where a fan waiting there looks). */
@@ -279,6 +279,9 @@ export const MAMA_COUNTER = { x0: -0.3, x1: 3.2, z0: 8.7, z1: 9.75, h: 1.0 };
 export const MAMA = { x: 0.9, z: 8.3 };
 export const TILL = { x: 1.75, z: (MAMA_COUNTER.z0 + MAMA_COUNTER.z1) / 2 };
 export const RISE = { x: 2.75, z: (MAMA_COUNTER.z0 + MAMA_COUNTER.z1) / 2 };
+/** Where her cut piles up on the floor (chipPiles.ts): against her hall's west wall, between the doorway from the arena
+ *  and the table. */
+export const MAMA_CHIPS = { x: RESTO.x0 + 0.4, z: RESTO.z0 + 1.2 };
 export const STOOLS: XZ[] = [0.15, 0.85, 1.55, 2.25, 2.95].map(x => ({ x, z: MAMA_COUNTER.z1 + 0.42 }));
 /** The tables, each with its nabe on a burner and a stool either side (east and west, `TABLE_SEAT` out): one in the
  *  hall, two rows of four down the dining wing, staggered (each a metre clear of the doorways). */

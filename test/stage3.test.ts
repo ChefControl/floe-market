@@ -767,15 +767,13 @@ describe('the kitchen, by hand', () => {
     at(plan.BAR_PAD);
     g.run(2);
     expect(back.count('bowl')).toBe(0);
-    // the fans walk in and eat: each bowl's chips, less Mr. Fugu's 30%, pile up in the soup square's crate (the player
-    // across the square meanwhile), and the crate's within reach of the bowls' pad: back there, they're scooped up into
-    // the wallet
-    at({ x: plan.BAR_PAD.x - 1, z: plan.BAR_PAD.z + 1.2 });
+    // the fans walk in and eat: each bowl's chips, less Mr. Fugu's 30%, pile up on the hearth room's floor, and walking
+    // over them scoops them up into the wallet
     g.runUntil(() => F().stall.length === 0, 200);
     g.run(0.1);
     expect(g.wallet.money).toBe(money);
     expect(F().piles.bar).toBeCloseTo(n * fight.PRICE * fight.CUT, 5);
-    at(plan.BAR_PAD);
+    at(plan.CHIP_SPOT);
     g.run(1);
     expect(F().piles.bar).toBe(0);
     expect(g.wallet.money - money).toBeCloseTo(n * fight.PRICE * fight.CUT * fight.CHIP, -1);

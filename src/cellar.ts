@@ -18,7 +18,7 @@ import {
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import {
   ARCH_HALF, ARCHES, AUDIENCE, AUDIENCE_CHAIRS, BAR, BAR_STOOLS, BOOTH_SEAT, BOOTH_TABLE, CHAT, DANCE, DANCERS, inBooth, LOUNGE, WALL_BOOTHS, BARRELS, BENCH, BIN_PADS, BINS, BAND, BANDSTAND, BOOTHS, CASHIER, COAT_SPOT, GUARDS, CLUB_DOOR, CLUB_WAY, DEN_BAR, DEN_TABLES, DESKS, FLAP, LEDGER, STAGE, CHUTE, chuteY, COUNTER, GONG, HEARTH, LIFTS, machineAt, MAX_MACHINES, POT, STORES, TEPPO, TUNNEL_D, TUNNEL_W, TUNNELS,
-  BASINS, CHIP_CRATE, MAMA_COUNTER, STALL_DOOR, STALLS, STOOLS, TABLE_SEAT, TABLES,
+  BASINS, MAMA_COUNTER, STALL_DOOR, STALLS, STOOLS, TABLE_SEAT, TABLES,
 } from './cellarPlan';
 import { Fugu } from './fugu';
 import { isHigh, onQuality } from './graphics';
@@ -3070,8 +3070,6 @@ export function cellarBoxes(machines: Record<'rice' | 'fish' | 'mush', number> =
     // (the flap's shut to everyone but the player, and to them till it's open)
     ...(player && flapOpen() ? [] : [FLAP_BOX]),
     [GONG.x, GONG.z, 1.15, 0.45],
-    // (the soup square's till crate, chipPiles.ts)
-    [CHIP_CRATE.x, CHIP_CRATE.z, CHIP_CRATE.w / 2, CHIP_CRATE.d / 2],
     [CASHIER.x, CASHIER.z, 0.65, 1.3],
     [TEPPO.x, TEPPO.z, 0.5, 0.5],
     [KOMO.x, KOMO.z, 0.5, 1.45],
