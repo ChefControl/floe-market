@@ -136,11 +136,11 @@ export function play(g: Game, seconds: number, dt = 0.05, ring?: Ring, style: St
     }
     // (the bonus the pot had as a boss walked in)
     if (ring && R && !R.done && R.walk === ring.fight.WALK_IN) rushBonus = ring.fight.F.bonus.t > 0 ? ring.fight.F.bonus.pct : 0;
-    // a grand win's finish, played well: shoves at six a second (the try-hard's at ten), and the slam a little after his
-    // finisher holds (the try-hard's, on it)
+    // a grand win's finish, played well: shoves at five a second, one finger's mashing, all the way (the try-hard's at
+    // ten), and the slam a little after his finisher holds (the try-hard's, on it)
     const fin = ring && style.slam ? ring.fight.finish() : null;
     if (fin && ring) {
-      if (fin.step === 'push' && fin.t * (style.tryhard ? 10 : 6) >= pushes + 1) { pushes++; ring.fight.push(); }
+      if (fin.step === 'push' && fin.t * (style.tryhard ? 10 : 5) >= pushes + 1) { pushes++; ring.fight.push(); }
       if (ring.fight.slamOn(fin) && fin.held >= (style.tryhard ? 0 : 0.3)) ring.fight.slamDown();
     } else pushes = 0;
     // (down in the cellar, the bosses beaten, as if bought)

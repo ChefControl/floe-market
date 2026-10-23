@@ -45,9 +45,11 @@ describe('the finish', () => {
     // (↓ in the push: nothing)
     key('ArrowDown');
     expect(f.step).toBe('push');
-    // the push: ten a second drives him over before it runs out, and the fight's over: his finisher, the epic
+    // the push: five a second (one finger's mashing) drives him over before it runs out, and the fight's over: his
+    // finisher, the epic
     const money = g.wallet.money;
-    mash(16, 10);
+    mash(17, 5);
+    g.runUntil(() => f.step !== 'push', 1);
     expect([f.step, f.pushed, F().bout.phase]).toEqual(['move', 2, 'pay']);
     expect(fight.epic()).toBe(true);
     expect(gong.finishSaid()).toBe('');
@@ -85,9 +87,9 @@ describe('the finish', () => {
     const C = fight.FINISH;
     g.runUntil(() => !!fight.finish(), C.at + 1);
     const f = fight.finish()!;
-    // (five a second: he pushes back, and the push runs out half way: the plain grand finisher)
+    // (three a second: he pushes back, and the push runs out half way: the plain grand finisher)
     const money = g.wallet.money;
-    mash(13, 5);
+    mash(10, 3);
     g.runUntil(() => f.step === 'move', 2);
     expect(f.pushed).toBe(1);
     expect(fight.epic()).toBe(false);
@@ -99,7 +101,7 @@ describe('the finish', () => {
     const r = await wonBy(90);
     r.g.runUntil(() => !!r.fight.finish(), C.at + 1);
     const f2 = r.fight.finish()!;
-    r.g.runUntil(() => f2.step === 'slammed', C.push + 8);
+    r.g.runUntil(() => f2.step === 'slammed', C.settle + C.push + 8);
     expect([f2.pushed, f2.slam, r.F().rush!.slam]).toEqual([0, 0, 0]);
     expect(f2.held).toBeGreaterThan(C.holdFor);
     r.g.runUntil(() => !r.fight.finish(), 3);
@@ -129,7 +131,7 @@ describe('the finish', () => {
     expect(f.n).toBe(0);
     ev('pointerdown', 500); ev('pointerup', 500);
     expect(f.n).toBeGreaterThan(0.9);
-    g.runUntil(() => fight.slamOn(), fight.FINISH.push + 6);
+    g.runUntil(() => fight.slamOn(), fight.FINISH.settle + fight.FINISH.push + 6);
     expect($('finIcon').className).toBe('slam finger');
     // (a swipe up: nothing)
     ev('pointerdown', 500); ev('pointermove', 420); ev('pointerup', 420);

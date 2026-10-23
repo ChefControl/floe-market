@@ -150,13 +150,14 @@ export const SLAM = { bonus: [0, 0.1, 0.2] };
 /** The finish, a grand win's last moment made the player's, as a scene (gong.ts, dohyo.ts). `at` seconds into the
  *  fight, with the boss at his straw, the ring holds and the camera cuts in close: the push. Each press shoves him back,
  *  he pushes back at `back` presses a second, and `need` of them in hand drives him over (`half` is half way), for
- *  `push` seconds at most. Then his own finisher, the champion's grand move against him (the epic, gone wild, for a push
+ *  `push` seconds at most, from once the scene's bars have closed, `settle` seconds in (a press before then counts,
+ *  and he doesn't push back yet): about five a second fills it. Then his own finisher, the champion's grand move against him (the epic, gone wild, for a push
  *  all the way: finishers.ts), and just before he hits the floor it slows to `slow` of its speed for its last `slowFor`
  *  seconds and holds there, him in the air, for `holdFor` seconds of the player's: a flick down (a swipe, or ↓ or S)
  *  slams him into it, perfect within `perfect` of the moment it holds, good any other time from the slow motion on.
  *  Not in time, he falls on his own. Slammed, the move runs on `fast` as quick to the landing. The slam the prize
  *  pays on: perfect for the push all the way and a perfect slam, good for half way and the slam landed. */
-export const FINISH = { at: 12, push: 2.5, need: 12, half: 6, back: 1.5, before: 0.45, slowFor: 0.35, slow: 0.25, holdFor: 1.2, perfect: 0.15, fast: 1.6 };
+export const FINISH = { at: 12, settle: 0.4, push: 3, need: 12, half: 6, back: 1, before: 0.45, slowFor: 0.35, slow: 0.25, holdFor: 1.2, perfect: 0.15, fast: 1.6 };
 /** A grand win's finish: the player's seconds into it, its step, how far he's driven (in presses) and how far it got
  *  (0 short, 1 half way, 2 all the way); in his finisher, the moment it holds at (its clock: -1 till the finisher's
  *  known, dohyo.ts), the player's seconds since it got there (-1 not yet), and how the slam went (-1 to come, 0 he fell
@@ -709,9 +710,9 @@ function updFinish(dt: number) {
   const f = R.fin;
   if (!f) return;
   f.t += dt;
-  if (f.step === 'push' && B.phase === 'fight') {
-    f.n = Math.max(0, f.n - FINISH.back * dt);
-    if (f.t >= FINISH.push) toMove(f);
+  if (f.step === 'push' && B.phase === 'fight' && f.t > FINISH.settle) {
+    f.n = Math.max(0, f.n - FINISH.back * Math.min(dt, f.t - FINISH.settle));
+    if (f.t >= FINISH.settle + FINISH.push) toMove(f);
   } else if (f.step === 'move' && B.phase === 'pay' && f.holdAt >= 0 && B.t >= f.holdAt) {
     f.held = Math.max(0, f.held) + dt;
     if (f.held > FINISH.holdFor) slamWith(f, 0);
