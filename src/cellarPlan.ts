@@ -59,7 +59,7 @@ export const COUNTER = { x: KITCHEN.x1 - 0.65, z: KITCHEN.z1 - 0.75 };
 export const COUNTER_PAD = pad(COUNTER.x - 0.95, COUNTER.z, 0.5);
 /** Where the fans' chips pile up on the floor (chipPiles.ts): against the hearth room's west wall, between its north
  *  end and the doorway to the soup square, in sight of the pot. Nothing stops you walking over them. */
-export const CHIP_SPOT = { x: KITCHEN.x0 + 0.4, z: KITCHEN.z0 + 2.0 };
+export const CHIP_SPOT = { x: KITCHEN.x0 + 0.5, z: KITCHEN.z0 + 2.0 };
 
 // ---------- the arena: the soup square, the gong and its window, the watch spot ----------
 /** The soup square: two painted clay counters at right angles, closing in a corner of the arena against the hearth
@@ -281,7 +281,7 @@ export const TILL = { x: 1.75, z: (MAMA_COUNTER.z0 + MAMA_COUNTER.z1) / 2 };
 export const RISE = { x: 2.75, z: (MAMA_COUNTER.z0 + MAMA_COUNTER.z1) / 2 };
 /** Where her cut piles up on the floor (chipPiles.ts): against her hall's west wall, between the doorway from the arena
  *  and the table. */
-export const MAMA_CHIPS = { x: RESTO.x0 + 0.4, z: RESTO.z0 + 1.2 };
+export const MAMA_CHIPS = { x: RESTO.x0 + 0.5, z: RESTO.z0 + 1.2 };
 export const STOOLS: XZ[] = [0.15, 0.85, 1.55, 2.25, 2.95].map(x => ({ x, z: MAMA_COUNTER.z1 + 0.42 }));
 /** The tables, each with its nabe on a burner and a stool either side (east and west, `TABLE_SEAT` out): one in the
  *  hall, two rows of four down the dining wing, staggered (each a metre clear of the doorways). */
