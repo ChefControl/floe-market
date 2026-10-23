@@ -134,6 +134,70 @@ Income keeps rising mostly from the repeatable upgrades. The bottleneck turns ov
 
 "Bought at" is from the balance sim, re-run on 8 October 2026 after the fertilizer shed went in (with the farmer's sweep and the porter's bigger loads, the middle of stage 2 also comes about a minute and a half sooner). The "income after" and "main limit after" columns are still from 7 October, apart from the fertilizer's. "Income after" and "main limit after" are five minutes of play right after each purchase, with the repeatable upgrades the bot typically has by then, so income also rises from those. "The waiter" means garden diners waiting while plates go round the bar: the waiters, not the kitchen, are what they wait on.
 
+**Mama's dining hall** (2026-10-23): after Fukure there's no boss's crowd left to buy what the kitchen makes, so the stretch to the buyout leaned on the stall alone. A cellar with all of it bought and no cooking show sold about 190 bowls a minute at the stall (🐡 725) while the pot sat full 92% of the time and some 500 bowls a minute went up the belt to Mama Moray at 12% (🐡 227): 🐡 952 a minute, so growing more barely paid. Beating Fukure now opens her dining hall (🐡 1,000, hearth room, after the faster belt): she pays 50%, and the same cellar earns 🐡 1,670 a minute. At 35% for 🐡 1,500 it took over three minutes to pay its way and saved about half a minute; at 50% for 🐡 1,000 the median from Fukure to the buyout went from 8:06 to 5:06, and every style that finishes was quicker.
+
+**The try-hard** (`SIM_TRY=1`, 2026-10-23, with Mama's dining hall): a bot that plays the cellar to win as fast as it can. Before every boss it plays the cooking show and aces it (+50%), and it rings as soon as the gong's forecast with that says Win, landing a perfect slam. It buys by the numbers. For the next boss it takes the cheapest set of upgrades that gets a Win: everything on sale, tried in a copy of the cellar with its kitchen stocked and the gong's own forecast, then whatever can be left out with the gong still saying Win, dearest first. A money upgrade (Pricier bowls, Fix up the arena, the venue, Mama's hall) is bought, quickest payback first, when it gets everything still to buy (that set and the buyout) afforded sooner.
+
+| | Regular bot (median of 8) | Try-hard |
+|---|---|---|
+| Beat Hakkaku | 3:10 | 3:40 |
+| Beat Yokobashiri | 10:58 | 6:02 |
+| Beat Dobu | 19:31 | 8:46 |
+| Beat Samehada | 29:54 | 12:19 |
+| Beat Fukure | 37:17 | 41:38 |
+| Buy back all his chips | 42:38 | 46:13 |
+
+- **The first four bosses fall far sooner when a player goes straight for them.** Each needs one or two things, and his prize and his crowd's bowls pay for the next boss's: the attendant for Yokobashiri, the slide for Dobu, the cook for Samehada, all on the way at once.
+- **Fukure is the wall.** Rushing leaves the arena small (45 fans a local fight after Samehada, 🐡 100 to 250 a minute), and the faster belt (🐡 1,700), the smokehouse and the Underground Arena all have to be saved for from that: 29 minutes from Samehada to Fukure, against the regular bot's 7. In all, the try-hard is no faster than the regular bot.
+
+**The rusher's bridge** (2026-10-23): two ways through that wall for a player who's rushed. Mama Moray's opens with the bowl slide (beating Yokobashiri opens it), not at Fix up the arena 5, so a kitchen built for the bosses has somewhere for its spare bowls while the arena's still small; her place is dressed as open from then (fight.ts's restoLevel). And the try-hard borrows from Harry (the next boss's stake five times over) when a loan buys the rest of its way to a Win at once.
+
+| | Try-hard before | Try-hard with the bridge | Regular bot before (median of 8) | Regular bot with the bridge |
+|---|---|---|---|---|
+| Beat Dobu | 8:46 | 9:28 | 19:31 | 15:05 |
+| Beat Samehada | 12:19 | 12:53 | 29:54 | 30:19 |
+| Beat Fukure | 41:38 | 16:12 | 37:17 | 37:00 |
+| Buy back all his chips | 46:13 | 30:19 | 42:38 | 42:27 |
+
+- Mama did most of it: 🐡 3,806 from her over the try-hard's game, and Harry's loans came to 🐡 475 (25, 110, and 340 to finish the faster belt the minute Samehada fell).
+- The regular bot finishes as before, and the two styles that never play the cooking show now buy out inside the hour (55:55 and 57:05; they never did). Dobu falls sooner, so the stretch from Dobu to Samehada is now about 15 minutes against 4 before it: a re-tune of Samehada's stretch is due.
+
+**Evened out again** (2026-10-23): Mama's money now comes in from the slide on, so Dobu's stretch was 4 minutes and Samehada's 15 (the cook and the smokehouse, and without a perfect show Cellar crew levels on top). The slide went up and the smokehouse down, over six price pairs on the eight styles:
+
+| Slide · smokehouse (🐡) | Stretches (median of 8) | Buyout | Styles finishing · fights lost |
+|---|---|---|---|
+| 145 · 800 (before) | 3:10 / 7:47 / 4:07 / 15:14 / 6:41 / 5:27 | 42:27 | 8 · 0 |
+| 400 · 500 | 3:10 / 7:47 / 11:23 / 7:03 / 6:29 / 5:08 | 41:01 | 8 · 2 |
+| 500 · 400, cook 250 | 3:10 / 7:47 / 17:28 / 3:26 / 6:16 / 5:02 | 43:11 | 7 · 1 |
+| 350 · 300 | 3:10 / 7:47 / 9:12 / 5:59 / 7:43 / 5:34 | 39:27 | 7 · 0 |
+| **300 · 400 (taken)** | **3:10 / 7:47 / 8:17 / 7:54 / 6:47 / 5:08** | **39:04** | **8 · 1** |
+| 300 · 500 | 3:10 / 7:47 / 8:17 / 7:56 / 7:33 / 5:02 | 39:46 | 7 · 0 |
+| 250 · 400 | 3:10 / 7:47 / 6:48 / 9:16 / 6:12 / 5:40 | 38:54 | 8 · 0 |
+
+The slide's price moves Dobu's stretch hard (🐡 145 to 500 is 4 to 17 minutes), since Mama's opens with it. The one fight lost at 300 · 400 was a close call the gong had flagged (535 forecast for 534 needed, a "Likely win"; it turned 529). The styles' buyouts run 34:49 to 58:22, the two that never play the show the slowest. The try-hard buys out at 30:36 (Samehada 13:42, Fukure 16:46), borrowing 🐡 180 and 1,185.
+
+**Mama Moray's bought** (2026-10-23): her place is a tile now, 🍜 in the hearth room after the slide, as the takeout kiosk is up top, and shut till it's bought. Priced on its own it lengthened Dobu's stretch (🐡 200: 11:23, 300: 13:18, 500: 22:31), since she'd come free with the slide; the slide came down to make room:
+
+| Slide · Mama's (🐡) | Stretches (median of 8) | Buyout | Styles finishing · fights lost |
+|---|---|---|---|
+| 300 · free (before) | 3:10 / 7:47 / 8:17 / 7:54 / 6:47 / 5:08 | 39:04 | 8 · 1 |
+| 145 · 150 | 3:10 / 7:47 / 6:45 / 10:23 / 6:11 / 5:23 | 39:41 | 8 · 1 |
+| **150 · 200 (taken)** | **3:10 / 7:47 / 7:55 / 8:02 / 7:40 / 4:49** | **39:25** | **8 · 0** |
+| 200 · 100 | 3:10 / 7:47 / 6:53 / 9:17 / 6:03 / 5:02 | 38:14 | 8 · 2 |
+
+The styles buy out 37:58 to 57:03. The try-hard buys out at 33:01 (Samehada 14:34, Fukure 17:34), borrowing 🐡 60 and 1,325, and loses no fight. A first go lost Samehada, rung during a local fight on a forecast of 538 for 534 needed, with 495 turned: the gong was right (its forecast of the cellar as it was said 495), but the try-hard had asked it what a fresh show would do with 35 s of one already gone. With a bonus running it now goes by the gong as it is, and plays the show again once it's run out.
+
+**Chips pile up** (2026-10-23): the soup bar's chips and Mama Moray's cut now pile up to be scooped, as cash does up top (chipPiles.ts); a boss's prize still goes straight to the wallet. The bot walks over to a pile when it's worth 20 chips or would pay for its next buy, never in a boss's rush. A first run had no style buying out in an hour: Mama's pile was meant to be scooped from the end of her counter, which is in the wall, so the bots walked at it for good.
+
+| | Stretches (median of 8) | Buyout | Styles finishing · fights lost |
+|---|---|---|---|
+| Straight to the wallet (before) | 3:10 / 7:47 / 7:55 / 8:02 / 7:40 / 4:49 | 39:25 | 8 · 0 |
+| Piled up, in a crate by the soup square's bowls | 3:10 / 7:53 / 7:46 / 11:20 / 6:12 / 4:59 | 41:22 | 8 · 0 |
+| **Piled up on the floor, hearth room's west wall (taken)** | **3:20 / 9:24 / 7:44 / 12:23 / 8:21 / 4:13** | **45:26** | **8 · 1** |
+| Piled up on the floor, hearth room's east wall, by the pot | 3:10 / 7:43 / 8:31 / 9:45 / 9:10 / 5:20 | 43:41 | 7 · 0 |
+
+In the crate by the bowls' pad, collecting came almost free (about two minutes in all); on the floor against the hearth room's west wall each collect is a walk from the pot, about six minutes in all. Walking over only when a pile pays for the next buy is worse (6 of 8 styles finish): the early buys wait. The one fight lost at the west wall was a close call (536 forecast for 534 needed; it turned 519). Samehada's stretch is the one that moved, but it was the noisiest before too (5 to 17 minutes by style, since the show often lands a chip or two short of his 534): with the piles it runs 5:39 to 16:09. The styles buy out 38:02 to 58:26. The try-hard buys out at 37:12 (Samehada 13:10, Fukure 29:42): a 🐡 660 loan for the cook and the steamers before Samehada was still being paid off after him, so it couldn't borrow for the fast slide till 27:29.
+
 What it shows:
 - **Rice is the theme again.** It's the main limit through the early restaurant (up to half the time, with the chefs waiting for rice two thirds of it), and short again once the second row of garden tables comes in, which is what the third terrace fixes. The kiosk then takes the surplus, and rice runs short once more.
 - **The garden works, and the waiters set its pace.** Garden diners are served several tables a trip, but from the first garden tables on, the waiters are what they wait on most.
@@ -151,47 +215,52 @@ What it shows:
 
 ## Stage 3: The Dohyo Below
 
-**What it's about:** fight night. The player runs the kitchen by hand (rice and fish from the bins into the racks and barrels, ready ones to the pot, bowls to the stall), hands each job over (washer, salter, attendant, cook), feeds each bout's fans while they buy soup, and rings the gong when the forecast says more than half of the next boss's crowd will turn. About 45 minutes from the buy-in to the buyout (stage 2 is about 42). Prices are in Fugu Chips (🐡 1 = $1,000).
+**What it's about:** fight night. The player runs the kitchen by hand (rice and fish from the bins into the racks and barrels, ready ones to the pot, bowls to the stall), hands each job over (washer, salter, attendant, cook), feeds each bout's fans while they buy soup, and rings the gong when the forecast says enough of the next boss's crowd will turn (more than half, or his own share). About 45 minutes from the buy-in to the buyout (stage 2 is about 42). Prices are in Fugu Chips (🐡 1 = $1,000).
 
 **What a boss rush is limited by:** carrying bowls to the stall, not cooking. With the pot, counter, stall and ledge full, your own hands turn about 100 of a crowd in a 30 s bell, whatever lines you have; the attendant turns about 180, and each level of Cellar crew walks him faster (30 fans a step in a 30 s bell). The glowing shelves count only in Fukure's 60 s bell. Steam baskets, the smokehouse, more machines and the cook refill the kitchen sooner between fights but don't raise any ceiling, and neither does the cooking show's bonus at a full kitchen (it helps a kitchen that isn't restocked yet). `SIM=1 SIM_STEPS=crew npx vitest run test/capacity.sim.test.ts` prints the ladder.
 
-**The ladder each boss sits on** (a little under what that step turns at best)
+**The ladder each boss sits on.** The rule: with everything beating the boss before him has opened (every machine and line upgrade, the hires, the bowl slide once it's open, and the Cellar crew levels open by then: 0, 2, 4, 6 and 8) and the cooking show aced, the kitchen turns his whole crowd; with no cooking show it still wins by a margin. So his crowd is what that kitchen turns at best (`SIM=1 SIM_STEPS=bosses npx vitest run test/capacity.sim.test.ts`, which prints every crew level).
 
-| Boss | Crowd · to turn · bell · prize | Needs |
-|---|---|---|
-| 🤼 Sparring partner | 40 · 21 · 30 s · 🐡 35 | your hands (won without the cooking show) |
-| 🐙 Hakkaku | 160 · 81 · 30 s · 🐡 350 | a stocked kitchen, by hand (ceiling 100) |
-| 🦀 Yokobashiri | 300 · 151 · 30 s · 🐡 250 | the attendant (180), opened by Hakkaku |
-| 🐟 Dobu | 448 · 225 · 30 s · 🐡 300 | Cellar crew 4 (240; crew 3 turns 210) |
-| 🦈 Samehada | 730 · 366 · 45 s · 🐡 800 | Cellar crew 6 (390; crew 4 to 5 turn 360) |
-| 🐡 Fukure | 1,080 · 541 · 60 s · 🐡 5,000 | Cellar crew 7 and the glowing shelves (570) |
+| Boss | Crowd · 💪 to beat him (share) · bell · prize | What's open | Turned: no show, crew 0 → 8 | Turned: perfect show, at his open crew |
+|---|---|---|---|---|
+| 🤼 Sparring partner | 40 · 21 · 30 s · 🐡 35 | your hands | | |
+| 🐙 Hakkaku | 100 · 51 · 30 s · 🐡 100 | racks, barrels, washer, salter | 100 → 100 | 100 |
+| 🦀 Yokobashiri | 210 · 104 (49.5%) · 30 s · 🐡 250 | + beds, picker, the attendant, crew 2 | 180 → 300 | 210 |
+| 🐟 Dobu | 498 · 399 (80%) · 45 s · 🐡 300 | + the bowl slide, steam baskets | 410 → 508 | 498 |
+| 🦈 Samehada | 571 · 534 (93.5%) · 45 s · 🐡 800 | + the cook, the smokehouse | 427 → 571 | 571 |
+| 🐡 Fukure | 1,100 · 815 (74%) · 60 s · 🐡 1,500 | + glowing shelves, the faster belt | 947 at crew 8 | 1,100 |
+
+Before the bowl slide the bowls are carried, so the cooking show adds nothing to Hakkaku's or Yokobashiri's ceiling (and at crew 7 to 8 a perfect show turns a few fewer than none: 293 of Yokobashiri's 300, 498 against 508 for Dobu). **Each boss's strength** (💪, the fans to turn to beat him: his share of the crowd, shown on the gong's card and the fight's banner as one number that grows boss to boss, never a percentage) sits above the most the kitchen the boss before him left can turn, even with a perfect show, so what beating that boss opened has to be bought, and under what everything open turns with no show (`SIM_STEPS=window`): Yokobashiri above 100 (the attendant), Dobu above 300 (the bowl slide), Samehada above 498 (the cook, the smokehouse, crew). Fukure above 751 (the faster belt, opened by Samehada: by then the slide's 12 bowls a second was the limit, which Samehada's kitchen already reached, so his faster one at 18 is what beats Fukure, with the glowing shelves). Hakkaku stays at more than half: his kitchen is your hands either way. A win's finisher goes by thirds of the room between his 💪 and his whole crowd (tight, push-out, grand with the slam), so every boss has all three however near his 💪 is to all of them; a loss by his 💪 (under half: heavy, within a tenth: tight).
 
 **Principles for this stage**
 - No fee and no luck: the gong costs nothing, and its forecast is exact (it plays the rush ahead in a copy of the cellar, with the player in it, cooking at the pot even with a cook hired, as in play). A loss only costs time, and its card says which ingredient held the pot up.
 - Prizes are small. A win's prize and the bowls his crowd buys arrive as one lump, and at the old prizes (up to 🐡 10,000 for Fukure, 83% of the buyout) that lump paid for the next boss on the spot, so bosses came in pairs.
-- Cellar crew is the main sink (🐡 150, ×1.45 a level, 🐡 6,180 for all 8): it's what beats Dobu, Samehada and Fukure.
-- Word on the street adds 10.5% a level: all 8 levels bring fans, and the eighth fills every seat (at +20% a level, levels 6 to 8 brought no one).
+- Cellar crew is the main sink (🐡 150, ×1.45 a level, 🐡 6,180 for all 8): it walks the attendant faster, so it raises every boss's ceiling and the bowls a rush sells, though no boss needs it to be beaten.
+- The ring's levels (Pricier bowls, Fix up the arena, Cellar crew, eight each) open with the bosses, two of each a boss beaten (Hakkaku 1–2 … Samehada 7–8), so every lever is tied to a boss and the sims can be balanced boss by boss.
+- Fix up the arena adds 10.5% a level: all 8 levels bring fans, and the eighth fills every seat (at +20% a level, levels 6 to 8 brought no one).
 - The cooking show's bonus lasts 70 s: a boss's walk-in and bell, Fukure's 66 s included.
-- The Undertow favours the house: Tommy pays half again for the queen (4 to 12 swaps; the house wins unless you find her two times in three), Eddie charges 🐡 8 a fan he keeps home, Harry lends up to four full houses at 1.25×.
+- The Undertow favours the house: Tommy pays half again for the queen (4 to 12 swaps; the house wins unless you find her two times in three), Eddie charges the boss's stake for each tenth of his crowd he keeps home, Harry lends up to five stakes at 1.25×. A stake is set per boss at about a minute of what the stall takes in that boss's stretch on the tuned run (🐡 70 Dobu, 300 Samehada, 600 Fukure; Hakkaku 20 and Yokobashiri 30 come before the Undertow opens): it was a local fight's takings at a full house, which fell far behind once the bosses' rushes and the faster lines made most of the money (after Yokobashiri a full house was 🐡 12 against 🐡 67 a minute, so Harry's loan bought nothing the gong asked for and Eddie's 10% on Dobu cost more than the cook). It moves only when a boss is beaten, never with the last few minutes' takings, which come in lumps.
 
-**The rest of the tables** (`src/fight.ts`): a bowl 🐡 1.6 (a mushroom bowl twice that), less Mr. Fugu's 30% until the buyout; seats 24 / 48 / 90 / 150 (Back-Alley Ring 🐡 120 after Hakkaku, Underground Arena 900 after Dobu, Grand Hall 2,500 after Samehada); washer 15, salter 20 (after the practice fight), attendant 150 and picker 100 (after Hakkaku), steam baskets 350 (Yokobashiri), cook 500 and smokehouse 800 (Dobu), glowing shelves 4,000 (Samehada); racks 10, barrels 12, beds 15, each next one 45% more; the buyout 🐡 12,000.
+**The rest of the tables** (`src/fight.ts`): a bowl 🐡 1.6 (a mushroom bowl twice that), less Mr. Fugu's 30% until the buyout; seats 24 / 48 / 90 / 150 (Back-Alley Ring 🐡 120 after Yokobashiri, Underground Arena 900 after Dobu, Grand Hall 2,500 after Samehada); washer 15, salter 20 (after the practice fight), attendant 190 and picker 100 (after Hakkaku), the bowl slide 150 (Yokobashiri, once the attendant's hired) and Mama Moray's 200 (after it) and steam baskets 350 (Yokobashiri), cook 340 and smokehouse 400 (Dobu), glowing shelves 4,000 and the faster belt 1,700 (Samehada, once the slide's in); racks 10, barrels 12, beds 15, each next one 45% more; the buyout 🐡 7,000.
 
 **When the bot gets there** (from the ladder down, `SIM_STAGE=3`, the median of four styles: the cooking show for Hearty or never or Perfect, slams on or off, helping hired lines or not; single runs swing ±2 minutes)
 
-| | Before the pass (2026-10-18) | Now |
-|---|---|---|
-| Beat the sparring partner | 1:40 | 1:40 |
-| Beat Hakkaku | 4:00 | 4:10 |
-| Beat Yokobashiri | 9:00 | 13:27 |
-| Beat Dobu | 13:15 | 19:32 |
-| Beat Samehada | 22:45 | 30:37 |
-| Beat Fukure | 25:35 | 38:29 |
-| Buy back all his chips | 29:00 | 44:03 (43:32 to 44:31) |
+| | Before the pass (2026-10-18) | After the pass | Kitchen holds the rush (2026-10-19) | Levels, 💪 and key upgrades by boss (2026-10-22) |
+|---|---|---|---|---|
+| Beat the sparring partner | 1:40 | 1:40 | 1:40 | 1:40 |
+| Beat Hakkaku | 4:00 | 4:10 | 4:36 | 3:10 |
+| Beat Yokobashiri | 9:00 | 13:27 | 22:05 | 10:58 (+7:48) |
+| Beat Dobu | 13:15 | 19:32 | 24:09 | 19:31 (+8:33) |
+| Beat Samehada | 22:45 | 30:37 | 26:14 | 29:54 (+10:23) |
+| Beat Fukure | 25:35 | 38:29 | 28:41 | 37:17 (+7:23) |
+| Buy back all his chips | 29:00 | 44:03 (43:32 to 44:31) | 47:09 | 45:25 (+8:08; 40:22 to 47:15 with the cooking show); with Mama's dining hall 42:38 (+5:06; 39:41 to 46:28) |
+
+The last column is the median of eight styles (`run8`: the four above, the show for Tasty, slams off, never the show and no help, Perfect), a style that never finishes counted at 60 minutes. The bot saves for what the next boss needs first (test/bot.ts's KEY: the attendant, the slide, the cook and the smokehouse, the faster belt; with every boss beaten, Mama's dining hall, then the buyout), as a player reads it off the gong, then the cheapest thing on sale, and never leaves a boss's rush to shop. Each stretch from Yokobashiri on waits on that upgrade's price, so prices set the time between bosses; prizes are kept under the next key upgrade's price (Hakkaku 🐡 100, Fukure 🐡 1,500), or the lump pays for it on the spot and the stretch falls off a cliff. **A player who never plays the cooking show is much slower late on:** both such styles reach Samehada at about 40 minutes and one never beats Fukure inside the hour, since without the show his 💪 needs nearly everything open bought, crew 6 included.
 
 What it shows:
-- **Between bosses the crowd, not the kitchen, sets the income.** A local fight's fans all eat and 35 to 90 bowls are left over, so only seats, Word on the street and Pricier bowls earn more then. From about the attendant on, the bot stands at a full pot for much of each minute (about 1,150 s of the 44 minutes; 640 s of the old 29). Making the stage longer with numbers stretches that waiting too: it's what side content (or a kitchen that matters between bosses) would fill.
+- **Between bosses the crowd, not the kitchen, sets the income.** A local fight's fans all eat and 35 to 90 bowls are left over, so only seats, Fix up the arena and Pricier bowls earn more then. From about the attendant on, the bot stands at a full pot for much of each minute (about 1,150 s of the 44 minutes; 640 s of the old 29). Making the stage longer with numbers stretches that waiting too: it's what side content (or a kitchen that matters between bosses) would fill.
 - **A player who never plays the cooking show** is about as fast (the median above includes one); the show mostly lets you ring before the kitchen has restocked.
-- **The bot's books** (style a): 🐡 29,169 from bowls and 6,735 from prizes; spent on the buyout 12,000, Cellar crew 6,180, Pricier bowls 5,448, line upgrades 5,150, the venue 3,520, Word on the street 2,319, hires 785, machines 445.
+- **The bot's books** (style a): 🐡 29,169 from bowls and 6,735 from prizes; spent on the buyout 12,000, Cellar crew 6,180, Pricier bowls 5,448, line upgrades 5,150, the venue 3,520, Fix up the arena 2,319, hires 785, machines 445.
 
 ## Open work, in order
 

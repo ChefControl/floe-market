@@ -2,8 +2,8 @@
 // card table. Standing on his pad brings the camera in over the table and opens the controls: pick a stake and deal. He
 // gathers the cards, shows the queen, turns her down and swaps them about, quicker the more is staked, then waits for
 // you to tap where she went: your card turns over, then the other two. He plays 3 rounds a fight with you, the stake
-// capped at his table's limit (one fight's takings at a full house, held from when you walked in; the chips over it
-// aren't on his table). The stake's taken as he deals and a win's paid the
+// capped at his table's limit (the next boss's stake, stake.ts: about a minute of the stall's takings, held from when
+// you walked in; the chips over it aren't on his table). The stake's taken as he deals and a win's paid the
 // moment you pick, so a save mid-round never gets a stake back; walking off before picking leaves it on his table.
 import { BoxGeometry, Group, Mesh, MeshLambertMaterial } from 'three';
 import { gamePad, type StakeRules, Stakes } from './casinoKit';
@@ -11,12 +11,12 @@ import { CY, parts } from './cellar';
 import { BOOTH_PADS, BOOTHS, DESKS } from './cellarPlan';
 import { QUEEN } from './family';
 import { CHIP, F } from './fight';
-import { heldFight } from './fullHouse';
 import { found, level } from './layout';
 import { met } from './meet';
-import { limitFor, type MonteRound, placesAfter, ROUNDS, START, startRound, SWAPS, WIN } from './monte';
+import { type MonteRound, placesAfter, ROUNDS, START, startRound, SWAPS, WIN } from './monte';
 import { canvasTex, FONT } from './render';
 import { deal as dealSound, lose, win } from './sfx';
+import { heldStake } from './stake';
 import { popText } from './ui';
 import { state } from './uiKit';
 import { chips, V } from './util';
@@ -123,7 +123,7 @@ const RULES: StakeRules = {
 const stakes = new Stakes(panel.querySelector<HTMLElement>('.stakes')!, () => !!play, () => refresh(), RULES);
 
 /** His table's limit now, in dollars. */
-const limit = () => limitFor(heldFight()) * CHIP;
+const limit = () => heldStake() * CHIP;
 /** Rounds he'll still play this bout. */
 export const roundsLeft = () => ROUNDS - (F.den.monte.bout === F.bout.n ? F.den.monte.played : 0);
 

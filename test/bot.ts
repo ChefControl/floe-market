@@ -4,14 +4,28 @@
 // cellar (stage 3) it runs whichever lines have no hire yet (rice and fish from the bins into the racks and barrels,
 // ready ones to the pot), cooks, carries bowls to the bar, and rings the gong once it says the boss is beaten (playing
 // the cooking show at the pot first when only its bonus would do it, and landing a good slam on a grand win); it needs
-// the cellar's modules for that (`ring`, see ringModules).
+// the cellar's modules for that (`ring`, see ringModules). Or, as a try-hard (Style.tryhard), it plays the cellar to
+// win as fast as it can: it buys by the numbers and rings as soon as the gong says it wins with the show aced.
 import type { loadGame } from './helpers';
 
 type Game = Awaited<ReturnType<typeof loadGame>>;
+/** What each boss needs bought before his strength (💪) can be reached, by how many are beaten: what beating the boss
+ *  before him opened (test/capacity.sim.test.ts, SIM_STEPS=window). A player sees it at the gong: "Lose" with the
+ *  kitchen full, and that boss's card said what's new. */
+const KEY: Record<number, string[]> = { 1: ['attendant'], 2: ['slide', 'mama'], 3: ['cook', 'smoke'], 4: ['fastslide'], 5: ['hall'] };
+/** Seconds the try-hard's walk to Harry's desk and back takes (through the doorman's door and the club). */
+const LOAN_WALK = 40;
+/** What each of the cellar's upgrades does to the fight, for the try-hard's sums (a line's machines aside: addMachine). */
+const BOSS_UP: Record<string, (f: Ring['fight']) => void> = {
+  washer: f => f.hire('washer'), salter: f => f.hire('salter'), picker: f => f.hire('picker'), attendant: f => f.hire('attendant'), cook: f => f.hire('cook'),
+  steam: f => f.upgradeLine('rice'), smoke: f => f.upgradeLine('fish'), shelves: f => f.upgradeLine('mush'), slide: f => f.buySlide(), fastslide: f => f.buyFastSlide(),
+};
 /** The modules the bot plays the ring with. */
 export async function ringModules() {
-  const [cellar, plan, fight] = await Promise.all([import('../src/cellar'), import('../src/cellarPlan'), import('../src/fight')]);
-  return { cellar, plan, fight };
+  const [cellar, plan, fight, loan, loanDesk, piles] = await Promise.all([
+    import('../src/cellar'), import('../src/cellarPlan'), import('../src/fight'), import('../src/loan'), import('../src/loanDesk'), import('../src/chipPiles'),
+  ]);
+  return { cellar, plan, fight, loan, loanDesk, piles };
 }
 type Ring = Awaited<ReturnType<typeof ringModules>>;
 interface P { x: number; z: number }
@@ -26,7 +40,13 @@ export interface Fought { t: number; boss: string; n: number; need: number; turn
  *  seconds of real time a show takes (the game holds still meanwhile, so they're added to the clock), and whether it
  *  goes for the slam on a grand win, and lends the hired lines a hand when there's nothing else to do; `skip`, what it
  *  never buys (an upgrade's id, or a level's with how many it stops at: `street5`), to see what they're worth. */
-export interface Style { show: number; showSecs: number; slam: boolean; help: boolean; skip?: string[] }
+export interface Style { show: number; showSecs: number; slam: boolean; help: boolean; skip?: string[]
+  /** Plays to win as fast as it can (SIM_TRY=1): the cooking show aced (+50%) before every boss, the gong rung as soon as
+   *  its forecast with that says Win, a perfect slam, and down in the cellar it buys by the numbers, not the gong's
+   *  word: the cheapest way to a Win (each upgrade tried in a copy of the cellar, its kitchen stocked, with the gong's
+   *  own forecast), and an upgrade that brings in more chips only when it pays for itself before that way's afforded
+   *  (or, with nothing in the way of the next boss, inside five minutes). */
+  tryhard?: boolean }
 export const STYLE: Style = { show: 9, showSecs: 40, slam: true, help: true };
 /** Stage 3's books: chips earned from bowls and prizes, spent by kind, the cooking shows played (and their seconds),
  *  and the seconds the bot stood about by the pot: cooking there as it does (`wait`), or with nothing at all to do
@@ -53,6 +73,11 @@ export function play(g: Game, seconds: number, dt = 0.05, ring?: Ring, style: St
   /** The best the gong's forecast has said, for each boss (by name), whether rung or not. */
   const best = new Map<string, number>();
   let rushBonus = 0;
+  /** Where to walk to scoop each pile of chips (chipPiles.ts): onto it, on the hearth room's floor or by Mama Moray's
+   *  counter. */
+  const PILE_STAND = ring ? { bar: ring.plan.CHIP_SPOT, mama: ring.plan.MAMA_CHIPS } : { bar: { x: 0, z: 0 }, mama: { x: 0, z: 0 } };
+  /** The try-hard's takings, a second apart over the last two minutes: chips from the stall and from Mama Moray's. */
+  const takings: { t: number; stall: number; resto: number }[] = [];
   /** What the gong said last, for the samples: the boss, turned of needed. */
   let lastFc = '';
   let t = 0, earned = 0, lastMoney = wallet.money, nextSample = 0, beaten = ring ? ring.fight.F.beaten : 0;
@@ -112,7 +137,8 @@ export function play(g: Game, seconds: number, dt = 0.05, ring?: Ring, style: St
     // (the bonus the pot had as a boss walked in)
     if (ring && R && !R.done && R.walk === ring.fight.WALK_IN) rushBonus = ring.fight.F.bonus.t > 0 ? ring.fight.F.bonus.pct : 0;
     // a grand win's slam, a good one: a little after the rings meet
-    if (ring && style.slam && ring.fight.slamDue() && ring.fight.F.bout.t >= ring.fight.SLAM.at + 0.15) ring.fight.slam();
+    // (the try-hard's, a perfect one: on the beat)
+    if (ring && style.slam && ring.fight.slamDue() && ring.fight.F.bout.t >= ring.fight.SLAM.at + (style.tryhard ? 0.02 : 0.15)) ring.fight.slam();
     // (down in the cellar, the bosses beaten, as if bought)
     if (ring && ring.fight.F.beaten > beaten) {
       beaten = ring.fight.F.beaten;
@@ -124,6 +150,10 @@ export function play(g: Game, seconds: number, dt = 0.05, ring?: Ring, style: St
       books.locals.push({ t, crowd: F.bout.crowd, fed: F.bout.fed, left: F.pot.length + F.counter.length + F.stall.length });
     }
     else if (ring && !ring.fight.F.rush && ring.fight.F.bout.phase === 'sit' && ring.fight.F.bout.crowd > 0) lastLocal = { crowd: ring.fight.F.bout.crowd, fed: ring.fight.F.bout.fed };
+    if (style.tryhard && t >= (takings[takings.length - 1]?.t ?? -1) + 1) {
+      takings.push({ t, stall: books.bowls, resto: books.resto });
+      while (takings.length > 2 && takings[1].t < t - 120) takings.shift();
+    }
     if (t >= nextSample) {
       samples.push({ t, money: wallet.money, earned, rating: g.rating.rating(), stage: g.layout.stage.n, idle: books.idle, wait: books.wait, bowls: books.bowls, prize: books.prize, spent: Object.values(books.spent).reduce((a, b) => a + b, 0), fc: lastFc });
       nextSample += 10;
@@ -214,18 +244,152 @@ export function play(g: Game, seconds: number, dt = 0.05, ring?: Ring, style: St
       if (v > 0) out.push({ pos, v });
     };
     for (const C of g.counters.COUNTERS) if (C.enabled || C.cash.n) add(C.cashPos, C.cash.items);
-    // (down in the cellar, chips go straight into the wallet)
-    if (g.layout.level.down) return [];
+    // (down in the cellar, the piles of chips: where to walk to scoop each, on the hearth room's floor or by Mama
+    // Moray's counter; never in a boss's rush, when the kitchen wants every hand)
+    if (g.layout.level.down) {
+      if (!ring || ring.fight.F.rush || ring.fight.F.called) return [];
+      const F = ring.fight.F;
+      return (['bar', 'mama'] as const).filter(k => F.piles[k] > 0).map(k => ({ pos: PILE_STAND[k], v: F.piles[k] * 1000 })).sort((a, b) => b.v - a.v);
+    }
     if (g.restaurant.sushi.built) add(g.restaurant.REGISTER, g.restaurant.register.items);
     return out.sort((a, b) => b.v - a.v);
   };
   // it doesn't gamble: the casino boat's other games are fun extras, out of the balance (docs/balance.md)
   const nextTile = () => g.unlocks.visibleTiles().filter(x => !g.unlocks.locked(x) && !CASINO_GAMES.includes(x.id) && Math.abs((x.y ?? 0.15) - p.y) < 2)
     .sort((a, b) => (a.cost - a.paid) - (b.cost - b.paid))[0];
-  /** Down in the cellar, the cheapest upgrade on sale in the crafting bench's menus (none while a boss is in). */
-  const nextMenu = () => (ring && g.layout.level.down && !ring.fight.F.rush ? g.unlocks.menuOffer().filter(x => !style.skip?.includes(x.id)).sort((a, b) => a.cost - b.cost)[0] : undefined);
+  // ---------- the try-hard's sums (style.tryhard) ----------
+  /** Something to buy in the cellar: a menu's upgrade, or a level of the ring's (its price in chips). */
+  interface Up { id: string; cost: number; tile?: (typeof g.unlocks.tiles)[number]; mod?: (typeof g.economy.MODS)[number]['id']; apply?: () => void; gain?: number }
+  /** Chips a minute from the stall and from Mama Moray's, over the last two minutes. */
+  const rates = () => {
+    const a = takings[0], b = takings[takings.length - 1], m = a && b && b.t > a.t ? (b.t - a.t) / 60 : 0;
+    return m > 0.25 ? { stall: (b.stall - a.stall) / m, resto: (b.resto - a.resto) / m } : { stall: 0, resto: 0 };
+  };
+  /** `read` with `ups` bought, in the cellar as it is but its kitchen stocked (as the kitchen holds the rush, once it's
+   *  restocked); then everything put back as it was. */
+  function whatIf<T>(f: Ring['fight'], ups: Up[], read: () => T): T {
+    const F = f.F, mods = { ...g.economy.mods };
+    const keep = {
+      hires: { ...F.hires }, crew: F.crew.slice(), slide: F.slide, fast: F.fast, pantry: { ...F.pantry }, pot: F.pot.slice(), counter: F.counter.slice(), stall: F.stall.slice(),
+      lines: (['rice', 'fish', 'mush'] as const).map(k => ({ k, n: F.lines[k].n, up: F.lines[k].up, m: F.lines[k].m.slice(), items: F.lines[k].m.map(m => m.items) })),
+    };
+    try {
+      for (const k of f.ING) F.pantry[k] = f.LEDGE_CAP;
+      while (F.pot.length < f.POT_CAP) F.pot.push(f.growOpen());
+      while (F.counter.length < f.COUNTER_CAP) F.counter.push(f.growOpen());
+      while (F.stall.length < f.STALL_CAP) F.stall.push(f.growOpen());
+      for (const u of ups) u.apply!();
+      return read();
+    } finally {
+      Object.assign(F, { hires: keep.hires, crew: keep.crew, slide: keep.slide, fast: keep.fast, pantry: keep.pantry, pot: keep.pot, counter: keep.counter, stall: keep.stall });
+      for (const l of keep.lines) { const L = F.lines[l.k]; L.n = l.n; L.up = l.up; L.m = l.m; l.m.forEach((m, i) => { m.items = l.items[i]; }); }
+      Object.assign(g.economy.mods, mods);
+    }
+  }
+  /** (each forecast asked a little differently, so the gong's never hands back one it worked out for another cellar) */
+  let asked = 0;
+  /** How many of the next boss's crowd the gong says turn, with the cooking show aced, given `ups`. */
+  const turnedWith = (f: Ring['fight'], ups: Up[]) => whatIf(f, ups, () => f.forecast(0, { bonus: 50, need: f.toBeat(f.nextBoss()!) + ++asked * 1e-9 })?.turned ?? 0);
+  /** What there is to buy that could help in a boss's rush: the menus' upgrades, every machine still to come on each
+   *  line (the next first, as they'd be bought), and the Cellar crew levels open now. */
+  function forBoss(f: Ring['fight']): Up[] {
+    const F = f.F, out: Up[] = [];
+    for (const x of g.unlocks.menuOffer()) {
+      if (style.skip?.includes(x.id)) continue;
+      if (x.line) {
+        const k = x.line;
+        for (let n = F.lines[k].n; n < ring!.plan.MAX_MACHINES; n++) out.push({ id: `${x.id}#${n + 1}`, cost: Math.round(f.MACH_COST[k] * f.MACH_STEP ** Math.max(0, n - 1)), tile: x, apply: () => f.addMachine(k) });
+      } else if (BOSS_UP[x.id]) out.push({ id: x.id, cost: x.cost / 1000, tile: x, apply: () => BOSS_UP[x.id](f) });
+    }
+    // (a level's price and whether it's open go by the levels before it)
+    const E = g.economy, lv = E.mods.cellarcrew;
+    try {
+      for (let i = 0; i < 2 && !style.skip?.includes('cellarcrew'); i++) {
+        const c = E.modCost('cellarcrew');
+        if (c === null || !g.shop.modOffered('cellarcrew') || !g.shop.modOpen('cellarcrew')) break;
+        out.push({ id: `cellarcrew${E.mods.cellarcrew + 1}`, cost: c / 1000, mod: 'cellarcrew', apply: () => { E.mods.cellarcrew++; } });
+        E.mods.cellarcrew++;
+      }
+    } finally { E.mods.cellarcrew = lv; }
+    return out;
+  }
+  /** The cheapest way to a Win over the next boss: everything there is to buy for it, then (dearest first) whatever
+   *  can be left out with the gong still saying Win; and what it all costs. If even everything won't do, all of it,
+   *  cheapest first. */
+  function wayToWin(f: Ring['fight']) {
+    const need = f.toBeat(f.nextBoss()!);
+    if (turnedWith(f, []) >= need) return { ups: [] as Up[], cost: 0, wins: true };
+    let ups = forBoss(f);
+    const wins = turnedWith(f, ups) >= need;
+    if (wins) for (const u of [...ups].sort((a, b) => b.cost - a.cost)) {
+      const without = ups.filter(o => o !== u);
+      if (turnedWith(f, without) >= need) ups = without;
+    }
+    // (a line's machines in the order they come, the rest cheapest first)
+    ups.sort((a, b) => a.cost - b.cost);
+    if (process.env.SIM_DEBUG) console.log(`${mmss(t)} way to ${need}: ${wins ? 'wins' : "won't"} with ${ups.map(u => u.id).join(', ')}`);
+    return { ups, cost: ups.reduce((a, u) => a + u.cost, 0), wins };
+  }
+  /** What brings in more chips, and how many more a minute: Pricier bowls, Fix up the arena (while every fan's fed),
+   *  the venue's next tier, Mama Moray's and her dining hall. */
+  function forChips(f: Ring['fight']): Up[] {
+    const F = f.F, r = rates(), out: Up[] = [], E = g.economy, fedAll = lastLocal.fed >= lastLocal.crowd - 1;
+    const crowd = (seats: number, street: number) => Math.round(seats * Math.min(1, 0.45 * E.MOD.street.per ** street));
+    const c0 = f.crowdNow(), levelOk = (id: 'bowls' | 'street') => E.modCost(id) !== null && g.shop.modOffered(id) && g.shop.modOpen(id) && !style.skip?.some(k => k === id || (k.startsWith(id) && Number(k.slice(id.length)) <= E.mods[id]));
+    if (levelOk('bowls')) out.push({ id: 'bowls', cost: E.modCost('bowls')! / 1000, mod: 'bowls', gain: (r.stall + r.resto) * (E.MOD.bowls.per - 1) / (1 + (E.MOD.bowls.per - 1) * E.mods.bowls) });
+    if (levelOk('street') && fedAll && c0 > 0) out.push({ id: 'street', cost: E.modCost('street')! / 1000, mod: 'street', gain: r.stall * (crowd(f.TIERS[F.tier].seats, E.mods.street + 1) - c0) / c0 });
+    for (const x of g.unlocks.menuOffer()) {
+      if (x.id.startsWith('tier') && fedAll && c0 > 0) out.push({ id: x.id, cost: x.cost / 1000, tile: x, gain: r.stall * (crowd(f.TIERS[Number(x.id.slice(4))].seats, E.mods.street) - c0) / c0 });
+      if (x.id === 'hall') out.push({ id: x.id, cost: x.cost / 1000, tile: x, gain: r.resto * (f.HALL_SHARE / f.RESTO_SHARE - 1) });
+      // (Mama Moray's, before she's taken any: about half what the stall takes, as she has in the runs so far)
+      if (x.id === 'mama') out.push({ id: x.id, cost: x.cost / 1000, tile: x, gain: r.stall * 0.5 });
+    }
+    return out.filter(u => u.gain! > 0 && !style.skip?.includes(u.id));
+  }
+  /** The try-hard's next buy, or null to save (for the buyout, with every boss beaten): the next step of the way to a
+   *  Win, unless something that brings in more chips pays for itself before that's afforded. Worked out again every ten
+   *  seconds, or once anything's bought or a boss beaten. */
+  let dbgAt = 0;
+  let way: { at: number; key: string; ups: Up[]; cost: number } | null = null;
+  function tryWant(f: Ring['fight']): Up | null {
+    const F = f.F, key = `${bought.length}|${F.beaten}`;
+    if (F.rush || F.called) return null;
+    if (!way || way.key !== key || t >= way.at + 10) way = { at: t, key, ...(f.nextBoss() ? wayToWin(f) : { ups: [], cost: 0 }) };
+    // (what's piled up to be scooped counts: it's a walk away)
+    const m = (wallet.money + cashSpots().reduce((s, c) => s + c.v, 0)) / 1000, r = rates(), rate = r.stall + r.resto;
+    if (way.ups.length && m >= way.ups[0].cost) return way.ups[0];
+    // (Harry's bridge, once the Undertow's open: a loan, when it buys the rest of the way at once; a walk to his desk
+    // and back)
+    // (his limit's worked out as you walk in: freezeLimit)
+    const L = ring!.loan, short = way.cost - m, max = way.ups.length && F.beaten >= 2 && L.owed() <= 0 && short > 0 ? L.freezeLimit() : 0;
+    if (short <= max) {
+      const n = Math.min(max, Math.max(L.LOAN_FLOOR, Math.ceil(short / L.LOAN_STEP) * L.LOAN_STEP));
+      if (ring!.loanDesk.takeLoan(n)) {
+        t += LOAN_WALK;
+        bought.push({ t, id: `loan ${n}`, cost: 0, money: wallet.money, rating: g.rating.rating() });
+        books.lines.push(`${mmss(t)}  borrowed 🐡 ${n} from Harry (back 🐡 ${L.owed()}) for ${way.ups.map(u => u.id).join(', ')}`);
+        return way.ups[0];
+      }
+    }
+    // (an upgrade that brings in more chips, if it gets everything still to buy afforded sooner: the way and the
+    // buyout, a minute's takings at a time; of those, the one that pays for itself soonest)
+    const left = way.cost + f.BUYOUT, soon = (c: number, more: number) => (c > m ? (c - m) / rate : 0) + (left - Math.max(0, m - c)) / (rate + more);
+    const chips = rate > 0 ? forChips(f).map(u => ({ u, at: soon(u.cost, u.gain!) })).filter(x => x.at < (left - m) / rate).sort((a, b) => a.u.cost / a.u.gain! - b.u.cost / b.u.gain!)[0] : undefined;
+    if (process.env.SIM_DEBUG && t >= dbgAt) { dbgAt = t + 30; console.log(`${mmss(t)} m ${m.toFixed(0)} rate ${rate.toFixed(0)} left ${left.toFixed(0)} A ${((left - m) / rate).toFixed(1)} | ${forChips(f).map(u => `${u.id} ${u.cost.toFixed(0)}/${u.gain!.toFixed(0)} → ${soon(u.cost, u.gain!).toFixed(1)}`).join(' ')} | way ${way.ups.map(u => u.id).join(',')} → ${(chips?.u ?? way.ups[0])?.id}`); }
+    return chips?.u ?? way.ups[0] ?? null;
+  }
+  /** Down in the cellar, the upgrade to save for at the crafting bench's menus (none while a boss is in): what the next
+   *  boss needs first, as a player reads it off the gong (KEY), then the cheapest on sale. */
+  const nextMenu = () => {
+    if (!ring || !g.layout.level.down || ring.fight.F.rush) return undefined;
+    const on = g.unlocks.menuOffer().filter(x => !style.skip?.includes(x.id)), keys = KEY[ring.fight.F.beaten] ?? [];
+    const key = keys.map(k => on.find(x => x.id === k)).find(Boolean);
+    // (with all the bosses beaten, the buyout's what's next: it saves for that, not what's left in the shop, past
+    // Mama's dining hall, which pays its way towards it)
+    return ring.fight.F.beaten >= ring.fight.BOSSES.length ? key : key ?? on.sort((a, b) => a.cost - b.cost)[0];
+  };
   /** The cheapest repeatable upgrade of this stage that isn't fully upgraded. */
-  const nextMod = () => g.economy.MODS.filter(m => m.stage === g.layout.stage.n && g.economy.modCost(m.id) !== null && g.shop.modOffered(m.id) && useful(m.id))
+  const nextMod = () => g.economy.MODS.filter(m => m.stage === g.layout.stage.n && g.economy.modCost(m.id) !== null && g.shop.modOffered(m.id) && g.shop.modOpen(m.id) && useful(m.id))
     .sort((a, b) => g.economy.modCost(a.id)! - g.economy.modCost(b.id)!)[0];
 
   /** Down in the cellar, a reasonable player doesn't speed up hires they haven't got, or bring in more fans while the
@@ -239,7 +403,36 @@ export function play(g: Game, seconds: number, dt = 0.05, ring?: Ring, style: St
     return true;
   };
   function decide() {
-    const tile = nextTile(), mod = g.stage.staging() ? undefined : nextMod();
+    // (the try-hard, down in the cellar, buys by its sums: tryWant)
+    if (ring && style.tryhard && g.layout.level.down) {
+      const want = tryWant(ring.fight), tile = nextTile(), cash = cashSpots(), held = cash.reduce((s, c) => s + c.v, 0);
+      // (its chips in a pile, when they'd buy what it wants, or there are a lot of them: scooped first)
+      const short = want ? want.cost * 1000 - wallet.money : tile ? tile.cost - tile.paid - wallet.money : Infinity;
+      if (cash.length && ((short > 0 && held >= short) || held > 150_000)) {
+        const c = cash[0];
+        go(c.pos, () => near(c.pos, 1.2) && cashSpots().every(x => x.pos !== c.pos), 30);
+        return;
+      }
+      if (want && wallet.money >= want.cost * 1000) {
+        const x = want.tile;
+        if (x) {
+          const at = ring.plan.ROOM_MENUS[x.menu!];
+          go(at, () => x.done || (near(at, 0.6) && (g.unlocks.buyFromMenu(x) || true)), 25);
+        } else {
+          const id = want.mod!, at = g.shop.SHOPS[g.layout.stage.n - 1], lv = g.economy.mods[id];
+          go(at, () => (near(at, 0.6) && (g.shop.buyMod(id) || true)) || g.economy.mods[id] > lv, 25);
+        }
+        return;
+      }
+      if (!want && tile && wallet.money >= tile.cost - tile.paid) {
+        const was = tile.paid;
+        go(tile, () => tile.done || tile.paid < was, 25, true);
+        return;
+      }
+      return decide3(ring);
+    }
+    // (nor a ring level while a boss is in: the shop's across the cellar, and the rush wants the player's hands)
+    const tile = nextTile(), mod = g.stage.staging() || ring?.fight.F.rush ? undefined : nextMod();
     const cash = cashSpots(), uncollected = cash.reduce((s, c) => s + c.v, 0);
     // (with a gold tile in sight, it saves up for that rather than buying more levels)
     let modCost = mod && !(tile?.gold) ? g.economy.modCost(mod.id)! : Infinity;
@@ -263,7 +456,9 @@ export function play(g: Game, seconds: number, dt = 0.05, ring?: Ring, style: St
       return;
     }
     const target = Math.min(tile ? tile.cost - tile.paid : Infinity, modCost) - wallet.money;
-    if (cash.length && (uncollected >= Math.min(target, 40) || uncollected > 150)) {
+    // (down in the cellar, a pile's worth the walk at 20 chips, or at 150 whatever's wanted)
+    const [low, high] = g.layout.level.down ? [20_000, 150_000] : [40, 150];
+    if (cash.length && (uncollected >= Math.min(target, low) || uncollected > high)) {
       const c = cash[0];
       go(c.pos, () => near(c.pos, 1.2) && cashSpots().every(x => x.pos !== c.pos), 20);
       return;
@@ -278,8 +473,31 @@ export function play(g: Game, seconds: number, dt = 0.05, ring?: Ring, style: St
   function decide3({ cellar, plan: P, fight: f }: Ring) {
     const F = f.F, back = player.back, room = () => back.cap - back.n;
     const READY = { rice: 'rrice', fish: 'cfish', mush: 'mush' } as const, HIRE = { rice: 'washer', fish: 'salter', mush: 'picker' } as const;
+    // the try-hard: as soon as the gong says he's beaten with the cooking show aced, the show (with none running) and
+    // the gong; with one running, the gong as it is (what's left of the bonus, and of a local fight he'd wait out), and
+    // if that's short now, the show again once it's run out
+    if (style.tryhard && !F.rush && !F.called && f.nextBoss()) {
+      const need = f.toBeat(f.nextBoss()!), running = F.bonus.t > 0, fc = f.forecast(0, running ? { need } : { bonus: 50, need });
+      if (fc) { best.set(fc.boss.name, Math.max(best.get(fc.boss.name) ?? 0, fc.turned)); lastFc = `${fc.boss.face} ${fc.turned}/${need}`; }
+      if (fc && fc.turned >= need) {
+        if (running) {
+          rangFc = fc.turned;
+          if (near(P.GONG_PAD, 0.3)) go(P.GONG_PAD, () => !!F.rush || F.called, 2, true);
+          else go(P.GONG_PAD, () => near(P.GONG_PAD, 0.3), 20);
+          return;
+        }
+        if (f.canShow()) {
+          if (near(P.POT_PAD, 0.3)) {
+            f.showResult(12);
+            t += style.showSecs; books.shows++; books.showSecs += style.showSecs;
+            books.lines.push(`${mmss(t)}  cooking show before ${fc.boss.name}: +50% (forecast ${fc.turned}, need ${need})`);
+          } else go(P.POT_PAD, () => near(P.POT_PAD, 0.3), 20);
+          return;
+        }
+      }
+    }
     // a boss, once the gong says his whole crowd will turn
-    if (!F.rush && f.nextBoss()) {
+    if (!style.tryhard && !F.rush && f.nextBoss()) {
       const fc = f.forecast(0, { need: f.toBeat(f.nextBoss()!) });
       if (fc) best.set(fc.boss.name, Math.max(best.get(fc.boss.name) ?? 0, fc.turned));
       if (fc) lastFc = `${fc.boss.face} ${fc.turned}/${f.toBeat(fc.boss)}`;
