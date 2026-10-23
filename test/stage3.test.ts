@@ -1704,15 +1704,12 @@ describe("the cellar's tiles", () => {
     F().quiet = false; F().resto = 0;
     const stock = () => { F().pot = Array(fight.POT_CAP).fill(true); F().pantry = { rice: fight.LEDGE_CAP, fish: fight.LEDGE_CAP, mush: fight.LEDGE_CAP }; };
     stock();
-    // (a ruin out front till Word on the street opens her: nothing goes there; nor, open, till the bowl line's in to
-    // take it to her)
-    F().slide = true;
-    g.economy.mods.street = fight.RESTO_OPENS - 1;
-    expect(fight.restoWants()).toBe(false);
-    g.economy.mods.street = fight.RESTO_OPENS;
+    // (shut out front till the bowl line's in to take her bowls, however far the word's got; then open, however little)
     F().slide = false;
+    g.economy.mods.street = fight.RESTO_OPENS;
     expect(fight.restoWants()).toBe(false);
     F().slide = true;
+    g.economy.mods.street = 0;
     expect(fight.restoWants()).toBe(true);
     const was = F().earned.length;
     fight.playerAtPot(0.6);
@@ -1729,7 +1726,7 @@ describe("the cellar's tiles", () => {
     expect(fight.restoWants()).toBe(false);
   }, 30_000);
 
-  it("Mama Moray's starts a wreck, is cleared up, and opens at Word on the street's fifth level, with a word from her", async () => {
+  it("Mama Moray's starts a wreck, is cleared up as the word gets round, and opens with the bowl slide, with a word from her", async () => {
     const { g, fight, F } = await ring({ ring: { beaten: 1 } });
     const rs = await import('../src/resto');
     for (const n of [0, 1]) {
@@ -1740,14 +1737,15 @@ describe("the cellar's tiles", () => {
       g.economy.mods.street = n; g.run(0.2);
       expect(rs.restoShows()).toMatchObject({ stage: 1, mama: false, diners: 0, wreck: false, belt: false });
     }
-    // (open, with no bowl line in yet to bring her any, she's waiting on it; once it's in, she's open for business, and
-    // the line runs on past the stall to her)
-    F().slide = false;
-    g.economy.mods.street = fight.RESTO_OPENS; g.run(0.2);
-    expect(rs.restoShows()).toMatchObject({ stage: 2, mama: true, says: rs.WAITING, belt: false });
-    expect(rs.restoShows()!.diners).toBeGreaterThan(0);
+    // (and no further without the bowl line, however far the word's got)
+    g.economy.mods.street = fight.RESTO_OPENS + 1; g.run(0.2);
+    expect(rs.restoShows()).toMatchObject({ stage: 1, mama: false, diners: 0, wreck: false, belt: false });
+    // the bowl line in, she's open for business, however little the word's got round, and the line runs on past the
+    // stall to her
+    g.economy.mods.street = 0;
     F().slide = true; g.run(0.2);
-    expect(rs.restoShows()).toMatchObject({ stage: 2, says: rs.OPENING, belt: true });
+    expect(rs.restoShows()).toMatchObject({ stage: 2, mama: true, says: rs.OPENING, belt: true });
+    expect(rs.restoShows()!.diners).toBeGreaterThan(0);
     // and a batch for her goes along the line, from the hopper by the pot
     F().quiet = false;
     fight.on.resto(fight.BATCH, 1);

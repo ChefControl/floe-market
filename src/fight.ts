@@ -414,13 +414,16 @@ function cookBatch(bowls: number) {
   F.cooked.push(F.t);
   if (real) on.cooked();
 }
-/** The level of Word on the street that opens Mama Moray's (about when the second boss falls): before it, her place
- *  out front is a ruin, being cleared. */
+/** Mama Moray's opens with the bowl slide (her bowls ride its line), so a player who's rushed the bosses and left the
+ *  arena small still has somewhere for what the kitchen makes. Her place is dressed by Word on the street's level
+ *  (resto.ts), as patched and open from this one: open, it looks this far along at least; shut, never this far. */
 export const RESTO_OPENS = 5;
 /** What Mama Moray pays of a bowl's price: more once her dining hall's bought. */
 export const restoShare = () => (F.hall ? HALL_SHARE : RESTO_SHARE);
 /** Whether Mama Moray's is open. */
-export const restoOpen = () => mods.street >= RESTO_OPENS;
+export const restoOpen = () => F.slide;
+/** The level of Word on the street her place is dressed for: its own, but open from RESTO_OPENS, and shut till then. */
+export const restoLevel = () => (restoOpen() ? Math.max(mods.street, RESTO_OPENS) : Math.min(mods.street, RESTO_OPENS - 1));
 /** Mama Moray's takes a batch: she's open, the pot's full, and the ledge has a batch to spare of everything that goes
  *  in, over all but a batch of its room (and the doors are open, and no boss is in or called). */
 export const restoWants = () => restoOpen() && F.slide && !F.rush && !F.called && !F.quiet && potFull() && inPot().every(k => F.pantry[k] >= LEDGE_CAP - PER_BATCH);

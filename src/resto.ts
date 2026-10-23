@@ -8,8 +8,9 @@
 // It starts a wreck, and is put right level by level of Word on the street (stageOf, lookOf, dress): at 0 and 1 toppled
 // tables, rubble, gaps in the floor, cobwebs and a torn curtain, shut; from 2 to 4 being cleared, still shut: the
 // rubble stacked, a broom and a bucket, then the floor patched and the tables up, then the stools; at 5 patched and
-// open, Mama at her till ("Open for business, dear."), and only then does she take her cut (about when the second
-// boss falls, and the stall's way into the Undertow opens); then its looks: at 6 a back-street joint, plank walls,
+// open, Mama at her till ("Open for business, dear."), and only then does she take her cut. She opens with the bowl
+// slide (beating the second boss opens it), whatever the word on the street, and her place is dressed to match
+// (fight.ts's restoLevel: 5 at least once she's open, 4 at most till then); then its looks: at 6 a back-street joint, plank walls,
 // paper lanterns and a plain counter; at 7 Mama's touch, framed sumo photos and the family's portrait, red lanterns strung
 // along the walls and checked cloths on the tables; at 8 the Family's front, dark panelling with a thin gold line, slim
 // purple banners with a gold fish, a lacquered board and a dark counter. Shut or open, its hall's always walkable, to
@@ -29,9 +30,8 @@ import {
 } from './cellarPlan';
 import { belowGround, crowdModel, type Person } from './characters';
 import { stallDoor } from './doorway';
-import { mods } from './economy';
 import { flatten, type Hood, mama, settle } from './family';
-import { F, on } from './fight';
+import { F, on, restoLevel } from './fight';
 import { apart, dice } from './kit';
 import { lineShows, lineToMama, mamaLeg } from './bowlLine';
 import { contactShadows, type Smudge } from './contact';
@@ -209,7 +209,7 @@ interface Built {
   middle: Object3D;
 }
 /** What she says as she opens. */
-export const OPENING = 'Open for business, dear.', WAITING = 'Waiting on your belt, dear.';
+export const OPENING = 'Open for business, dear.';
 let B: Built | null = null;
 
 function build(): Built {
@@ -666,11 +666,9 @@ function dress(b: Built, n: number, up: boolean) {
   b.looks.forEach((g, i) => { show(g, st >= 3 && i <= look); });
   b.board.material = b.boards[st >= 3 && look >= 2 ? 1 : 0];
   b.counter.material = b.counters[st >= 3 && look >= 2 ? 1 : 0];
-  // (and the moment she opens: a word from her; or, with no bowl line in yet to bring her any, she's waiting on it)
-  if (st >= 2 && !up) b.opened = F.slide;
-  if (up && st === 2 && !b.opened) {
-    if (F.slide) { b.opened = true; b.says.say(OPENING); } else b.says.say(WAITING);
-  }
+  // (and the moment she opens, with the bowl line in to bring her bowls: a word from her)
+  if (st >= 2 && !up) b.opened = true;
+  if (up && st === 2 && !b.opened) { b.opened = true; b.says.say(OPENING); }
   // its own close-up, once the arena's is over (two goes, the arena first: cellarLooks.ts)
   if (lit.length) spotNext = { on: [b.middle], t: 0, seen: false };
 }
@@ -687,7 +685,8 @@ export function updResto(dt: number) {
   const b = B!;
   t += dt;
   // how far it's come, as Word on the street's dressed the arena
-  if (mods.street !== dressed) { dress(b, mods.street, dressed >= 0 && mods.street > dressed); dressed = mods.street; }
+  const lv = restoLevel();
+  if (lv !== dressed) { dress(b, lv, dressed >= 0 && lv > dressed); dressed = lv; }
   // the bowls onto the bowl line, a few a second (her word, too, once it's in for her)
   if (stageOf(dressed) >= 2 && !b.opened && F.slide) { b.opened = true; b.says.say(OPENING); }
   sendT -= dt;
@@ -712,7 +711,7 @@ export function updResto(dt: number) {
     if (w.d > CHUTE + LAP * LAPS) { w.d = -1; w.o.visible = false; }
   }
   // the diners, once it's open: as many in as it's been busy (a couple of regulars always), eating
-  const n = stageOf(mods.street) < 2 ? 0 : Math.min(b.diners.length, 2 + Math.round(busy / 8));
+  const n = stageOf(restoLevel()) < 2 ? 0 : Math.min(b.diners.length, 2 + Math.round(busy / 8));
   b.diners.forEach((d, i) => {
     const want = i < n;
     if (want !== d.p.visible) { d.p.visible = want; if (want) popIn(d.p); }
@@ -729,7 +728,7 @@ export function updResto(dt: number) {
   b.mama.watch = level.down && Math.abs(pp.x - MAMA.x) < 3 && pp.z > RESTO.z0 && pp.z < RESTO.z1 + 0.5 ? pp : null;
   b.mama.update(dt);
   b.says.upd(dt);
-  updRestoSound(dt, stageOf(mods.street) >= 2, Math.min(1, busy / 60));
+  updRestoSound(dt, stageOf(restoLevel()) >= 2, Math.min(1, busy / 60));
   if (spotNext) {
     spotNext.t += dt;
     if (spotBusy()) spotNext.seen = true;

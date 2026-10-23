@@ -13,6 +13,8 @@ type Game = Awaited<ReturnType<typeof loadGame>>;
  *  before him opened (test/capacity.sim.test.ts, SIM_STEPS=window). A player sees it at the gong: "Lose" with the
  *  kitchen full, and that boss's card said what's new. */
 const KEY: Record<number, string[]> = { 1: ['attendant'], 2: ['slide'], 3: ['cook', 'smoke'], 4: ['fastslide'], 5: ['hall'] };
+/** Seconds the try-hard's walk to Harry's desk and back takes (through the doorman's door and the club). */
+const LOAN_WALK = 40;
 /** What each of the cellar's upgrades does to the fight, for the try-hard's sums (a line's machines aside: addMachine). */
 const BOSS_UP: Record<string, (f: Ring['fight']) => void> = {
   washer: f => f.hire('washer'), salter: f => f.hire('salter'), picker: f => f.hire('picker'), attendant: f => f.hire('attendant'), cook: f => f.hire('cook'),
@@ -20,8 +22,10 @@ const BOSS_UP: Record<string, (f: Ring['fight']) => void> = {
 };
 /** The modules the bot plays the ring with. */
 export async function ringModules() {
-  const [cellar, plan, fight] = await Promise.all([import('../src/cellar'), import('../src/cellarPlan'), import('../src/fight')]);
-  return { cellar, plan, fight };
+  const [cellar, plan, fight, loan, loanDesk] = await Promise.all([
+    import('../src/cellar'), import('../src/cellarPlan'), import('../src/fight'), import('../src/loan'), import('../src/loanDesk'),
+  ]);
+  return { cellar, plan, fight, loan, loanDesk };
 }
 type Ring = Awaited<ReturnType<typeof ringModules>>;
 interface P { x: number; z: number }
@@ -343,6 +347,19 @@ export function play(g: Game, seconds: number, dt = 0.05, ring?: Ring, style: St
     if (!way || way.key !== key || t >= way.at + 10) way = { at: t, key, ...(f.nextBoss() ? wayToWin(f) : { ups: [], cost: 0 }) };
     const m = wallet.money / 1000, r = rates(), rate = r.stall + r.resto;
     if (way.ups.length && m >= way.ups[0].cost) return way.ups[0];
+    // (Harry's bridge, once the Undertow's open: a loan, when it buys the rest of the way at once; a walk to his desk
+    // and back)
+    // (his limit's worked out as you walk in: freezeLimit)
+    const L = ring!.loan, short = way.cost - m, max = way.ups.length && F.beaten >= 2 && L.owed() <= 0 && short > 0 ? L.freezeLimit() : 0;
+    if (short <= max) {
+      const n = Math.min(max, Math.max(L.LOAN_FLOOR, Math.ceil(short / L.LOAN_STEP) * L.LOAN_STEP));
+      if (ring!.loanDesk.takeLoan(n)) {
+        t += LOAN_WALK;
+        bought.push({ t, id: `loan ${n}`, cost: 0, money: wallet.money, rating: g.rating.rating() });
+        books.lines.push(`${mmss(t)}  borrowed 🐡 ${n} from Harry (back 🐡 ${L.owed()}) for ${way.ups.map(u => u.id).join(', ')}`);
+        return way.ups[0];
+      }
+    }
     // (an upgrade that brings in more chips, if it gets everything still to buy afforded sooner: the way and the
     // buyout, a minute's takings at a time; of those, the one that pays for itself soonest)
     const left = way.cost + f.BUYOUT, soon = (c: number, more: number) => (c > m ? (c - m) / rate : 0) + (left - Math.max(0, m - c)) / (rate + more);

@@ -150,6 +150,18 @@ Income keeps rising mostly from the repeatable upgrades. The bottleneck turns ov
 - **The first four bosses fall far sooner when a player goes straight for them.** Each needs one or two things, and his prize and his crowd's bowls pay for the next boss's: the attendant for Yokobashiri, the slide for Dobu, the cook for Samehada, all on the way at once.
 - **Fukure is the wall.** Rushing leaves the arena small (45 fans a local fight after Samehada, 🐡 100 to 250 a minute), and the faster belt (🐡 1,700), the smokehouse and the Underground Arena all have to be saved for from that: 29 minutes from Samehada to Fukure, against the regular bot's 7. In all, the try-hard is no faster than the regular bot.
 
+**The rusher's bridge** (2026-10-23): two ways through that wall for a player who's rushed. Mama Moray's opens with the bowl slide (beating Yokobashiri opens it), not at Word on the street 5, so a kitchen built for the bosses has somewhere for its spare bowls while the arena's still small; her place is dressed as open from then (fight.ts's restoLevel). And the try-hard borrows from Harry (the next boss's stake five times over) when a loan buys the rest of its way to a Win at once.
+
+| | Try-hard before | Try-hard with the bridge | Regular bot before (median of 8) | Regular bot with the bridge |
+|---|---|---|---|---|
+| Beat Dobu | 8:46 | 9:28 | 19:31 | 15:05 |
+| Beat Samehada | 12:19 | 12:53 | 29:54 | 30:19 |
+| Beat Fukure | 41:38 | 16:12 | 37:17 | 37:00 |
+| Buy back all his chips | 46:13 | 30:19 | 42:38 | 42:27 |
+
+- Mama did most of it: 🐡 3,806 from her over the try-hard's game, and Harry's loans came to 🐡 475 (25, 110, and 340 to finish the faster belt the minute Samehada fell).
+- The regular bot finishes as before, and the two styles that never play the cooking show now buy out inside the hour (55:55 and 57:05; they never did). Dobu falls sooner, so the stretch from Dobu to Samehada is now about 15 minutes against 4 before it: a re-tune of Samehada's stretch is due.
+
 What it shows:
 - **Rice is the theme again.** It's the main limit through the early restaurant (up to half the time, with the chefs waiting for rice two thirds of it), and short again once the second row of garden tables comes in, which is what the third terrace fixes. The kiosk then takes the surplus, and rice runs short once more.
 - **The garden works, and the waiters set its pace.** Garden diners are served several tables a trip, but from the first garden tables on, the waiters are what they wait on most.
