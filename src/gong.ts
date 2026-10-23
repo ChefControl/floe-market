@@ -16,7 +16,7 @@ import { cellar, CY, gongBronze, gongDisc, RING } from './cellar';
 import { GONG, GONG_PAD, WATCH } from './cellarPlan';
 import { decal, drawPad } from './decals';
 import { dustFx } from './fx';
-import { ringCam } from './dohyo';
+import { ringCam, tellAt } from './dohyo';
 import {
   type Boss, bossOf, BOSSES, BUYOUT, canRing, canShow, type Carry, F, type Forecast, fixOn, forecast, ICON, type Ing, keptHome, NAME, nextBoss, practiceDue, ringGong,
   finalOn, type Rush, press, qte, ringSpeed, sides, SLAM, streak, strength, tellOf, toBeat, worstShort, you,
@@ -32,6 +32,7 @@ import { showFace } from './portraits';
 import { CHAMP } from './rikishi';
 import { chime, coinDrop, coinEdge, coinPing, counterHit, counterMiss, counterTell, lose, slamHit, slowMo, whiff, win } from './sfx';
 import { CELLAR_ZOOM, view } from './stage';
+import { camera } from './render';
 import { d2xz } from './util';
 
 const $ = (id: string) => document.getElementById(id)!;
@@ -321,12 +322,13 @@ function renderBout() {
 }
 
 // ---------- the counter ----------
-// A grand win's fight (fight.ts's COUNTER), as the Batman games do it: four times the boss winds up to slap, gold sparks
-// over his head (dohyo.ts) and a "shing", and a press counters him: Space, or a tap or a click anywhere (not on a
+// A grand win's fight (fight.ts's COUNTER), as the Batman games do it: four times the boss winds up to slap, rearing
+// back with gold sparks over his head (dohyo.ts), a red "!" pinned over him on the screen, the screen's edges flashing
+// red and a "shing", and a press counters him: Space, or a tap or a click anywhere (not on a
 // button). A press with no warning up, the champion flinches. Then the final blow, in slow motion, the screen's edges
 // darkening: a mark swells on him, and a press on its flash is the slam. Words only on his first wind-up and for the
 // final blow; the counters in a row under the strip. The camera's on the ring all the while (updWatch).
-const qteSay = $('qteSay'), qteStreak = $('qteStreak'), slowFx = $('slowFx');
+const qteSay = $('qteSay'), qteStreak = $('qteStreak'), slowFx = $('slowFx'), qteTell = $('qteTell'), tellFx = $('tellFx');
 /** Whether this is a touch screen (or a finger's been seen on it): the words say tap, not Space. */
 let touch = isTouch();
 /** What the counter was last frame, for its sounds: his wind-up, how each slap went, the final blow on. */
@@ -356,8 +358,21 @@ function updCounter() {
   const Q = rushEl.hidden ? null : qte();
   // what he does, heard: the wind-up, a slap that lands, the final blow
   const tell = Q ? tellOf(Q) : -1;
-  if (tell >= 0 && tell !== tellWas) counterTell();
+  if (tell >= 0 && tell !== tellWas) {
+    counterTell();
+    // (the screen's edges flash red, and the warning pops up over him)
+    for (const e of [tellFx, qteTell]) { e.classList.remove('go'); void e.offsetWidth; e.classList.add('go'); }
+  }
   tellWas = tell;
+  // the warning over his head, pinned there on the screen (big, whatever's in the way in the world)
+  qteTell.hidden = tell < 0;
+  if (tell >= 0) {
+    const p = tellAt.clone().setY(tellAt.y + 0.55).project(camera);
+    // (kept on the screen, clear of its edges, if he's near one)
+    const W = innerWidth, H = innerHeight, r = qteTell.offsetWidth / 2 + 10;
+    qteTell.style.left = `${Math.min(W - r, Math.max(r, (p.x + 1) / 2 * W)).toFixed(1)}px`;
+    qteTell.style.top = `${Math.min(H - 10, Math.max(2 * r, (1 - p.y) / 2 * H)).toFixed(1)}px`;
+  }
   if (Q) { Q.got.forEach((g, i) => { if (g === 0 && gotWas[i] !== 0) counterMiss(); }); gotWas = [...Q.got]; } else gotWas = [];
   const final = !!Q && Q.final >= 0;
   if (final && !finalWas) slowMo();
@@ -431,9 +446,11 @@ function updWatch(dt: number) {
   // (a grand win's counters keep the pair in the middle: on a phone held upright the ring's wider than the screen, and
   // the boss's warning has to be seen)
   follow += ((qte() ? 1 : 0) - follow) * Math.min(1, dt * 3);
-  const k = Math.max(0.6 * punch, follow * watch);
+  const k = Math.max(0.6 * punch, follow * watch), f = follow * watch * 0.4;
+  // (the counters' aim leans toward the boss: his warning's what to watch)
+  const ax = ringCam.at.x + (ringCam.boss.x - ringCam.at.x) * f, az = ringCam.at.z + (ringCam.boss.z - ringCam.at.z) * f;
   // (and an epic looks up after a man thrown high, and pulls back to keep it all in)
-  view.focus.set(RING.x + (ringCam.at.x - RING.x) * k, CY + 0.4 + ringCam.y * watch, RING.z + (ringCam.at.z - RING.z) * k);
+  view.focus.set(RING.x + (ax - RING.x) * k, CY + 0.4 + ringCam.y * watch, RING.z + (az - RING.z) * k);
   view.k = 0.85 * watch;
   view.zoom = CELLAR_ZOOM * (1 - 0.45 * watch) * (1 - 0.25 * punch) * (1 + 0.8 * ringCam.wide * watch);
   view.shake = ringCam.shake * watch;

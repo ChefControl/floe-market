@@ -287,11 +287,12 @@ document.addEventListener('click', e => {
 });
 
 // ---------- a grand win's counters (fight.ts's COUNTER) ----------
-/** The boss winds up to slap: a bright "shing", the warning. */
+/** The boss winds up to slap: a whoosh as he rears back under a bright "shing", the warning. */
 export function counterTell() {
-  tone({ f: 1250, f2: 1650, type: 'triangle', a: 0.01, d: 0.24, v: 0.06 });
-  tone({ t: 0.02, f: 1900, f2: 2200, a: 0.01, d: 0.18, v: 0.025 });
-  noise({ f: 2600, q: 2.5, a: 0.01, d: 0.14, v: 0.035 });
+  noise({ f: 700, f2: 1500, q: 0.9, a: 0.04, d: 0.3, v: 0.1 });
+  tone({ f: 1250, f2: 1650, type: 'triangle', a: 0.01, d: 0.3, v: 0.1 });
+  tone({ t: 0.02, f: 1900, f2: 2200, a: 0.01, d: 0.22, v: 0.04 });
+  noise({ f: 2600, q: 2.5, a: 0.01, d: 0.16, v: 0.05 });
 }
 /** His slap countered: a heavy smack, and a bright knock on top for a perfect one. */
 export function counterHit(perfect: boolean) {

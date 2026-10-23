@@ -255,7 +255,7 @@ quietly(() => { for (let i = 0; i < 40; i++) Math.random(); });
 // ---------- what you see on the watch spot: the hits ----------
 /** The camera's beats, for the watch spot (gong.ts): a shake, a punch in on `at`, and a white flash; and for an epic
  *  (a perfect slam's finisher), how far up to look, how far to pull back, and to take the camera to the ring. */
-export const ringCam = { shake: 0, punch: 0, flash: 0, at: { x: RING.x, z: RING.z }, y: 0, wide: 0, take: false };
+export const ringCam = { shake: 0, punch: 0, flash: 0, at: { x: RING.x, z: RING.z }, boss: { x: RING.x, z: RING.z }, y: 0, wide: 0, take: false };
 const hit = (shake: number, flash = 0, punch = 0) => {
   ringCam.shake = Math.max(ringCam.shake, shake); ringCam.flash = Math.max(ringCam.flash, flash); ringCam.punch = Math.max(ringCam.punch, punch);
 };
@@ -377,7 +377,9 @@ const qfx = quietly(() => {
 });
 /** How far the champion's shoved the boss (+) or been shoved (−) by the counters, easing off; and the counters as last
  *  seen, the move each is playing, and how long it's been playing. */
-let shove = 0, gotWas: number[] = [], move: 'counter' | 'hit' | null = null, moveT = 0;
+let shove = 0, gotWas: number[] = [], move: 'counter' | 'hit' | null = null, moveT = 0, tellWas = -1;
+/** Where his head is while he winds up (gong.ts pins the warning over it on the screen). */
+export const tellAt = new Vector3();
 const GOLD = 0xFFD34A;
 function counters(dt: number) {
   const Q = qte() ?? (F.bout.phase === 'fight' ? F.rush?.qte ?? null : null);
@@ -403,17 +405,22 @@ function counters(dt: number) {
     }
   });
   gotWas = [...Q.got];
-  // his wind-up: the sparks over his head (flickering), the glow on him
+  // his wind-up: the sparks over his head (flickering), a glow on him that flares as it starts and throbs after, the
+  // camera nudged in on him and the crowd's "ooh"
   const i = tellOf(Q), k = i >= 0 ? 1 - (Q.at[i] - F.bout.t) / COUNTER.tell : 0;
+  if (i >= 0 && i !== tellWas) { hit(0.12, 0, 0.55); react('edge'); }
+  tellWas = i;
   sparks.visible = glow.visible = i >= 0;
   if (i >= 0) {
     const head = where(rival.neck);
+    tellAt.copy(head);
     sparks.position.set(head.x, head.y + 0.45, head.z);
-    sparks.scale.setScalar((1.15 + 0.25 * k) * (0.92 + 0.16 * Math.random()));
+    sparks.scale.setScalar((1.3 + 0.35 * k) * (0.92 + 0.16 * Math.random()));
     sparks.material.opacity = Math.random() < 0.15 ? 0.6 : 1;
     glow.position.copy(where(rival.chestAt));
-    glow.scale.setScalar(2.2 + 0.6 * k);
-    glow.material.opacity = 0.5 + 0.4 * k;
+    const flare = Math.max(0, 1 - k * 5), throb = 0.5 + 0.5 * Math.sin(F.t * 26);
+    glow.scale.setScalar(2.6 + 1.6 * flare + 0.4 * throb);
+    glow.material.opacity = Math.min(1, 0.75 + 0.25 * throb + flare);
   }
   // the final blow's mark on his belly
   mark.visible = finalOn(Q);
@@ -428,8 +435,12 @@ function counters(dt: number) {
 function counterPose(pair: [At, At], Q: NonNullable<ReturnType<typeof qte>>) {
   const i = tellOf(Q);
   if (i >= 0) {
-    const k = ease(clamp01(1 - (Q.at[i] - F.bout.t) / COUNTER.tell)), o = pair[1].p;
-    pair[1].p = { ...o, a1x: lerp(o.a1x, 2.7, k), a1z: lerp(o.a1z, 0.55, k), a1e: lerp(o.a1e, 1.3, k), twist: lerp(o.twist, -0.35, k), bend: lerp(o.bend, -0.05, k) };
+    // (rearing back and up, his arm drawn high over his head, the other flung out: there's no missing it)
+    const k = ease(clamp01((1 - (Q.at[i] - F.bout.t) / COUNTER.tell) * 2.5)), o = pair[1].p;
+    pair[1].p = { ...o, a1x: lerp(o.a1x, 2.9, k), a1z: lerp(o.a1z, 0.6, k), a1e: lerp(o.a1e, 1.2, k), a0x: lerp(o.a0x, 0.9, k), a0z: lerp(o.a0z, 1.1, k), a0e: lerp(o.a0e, 0.3, k), twist: lerp(o.twist, -0.45, k), bend: lerp(o.bend, -0.3, k), head: lerp(o.head, 0.25, k) };
+    pair[1].air += 0.12 * k;
+    const away = pair[1].x < pair[0].x ? -1 : 1;
+    pair[1].x += away * 0.18 * k;
   }
   if (!move) return;
   const k = Math.sin(clamp01(moveT / 0.4) * Math.PI);
@@ -650,6 +661,7 @@ function pose2(dt: number) {
   if (B.phase !== 'pay') { place(champ, pair[0], dt); place(rival, pair[1], dt); ringCam.y = ringCam.wide = 0; ringCam.take = false; }
   shown[0] = pair[0]; shown[1] = pair[1];
   ringCam.at.x = RING.x + (pair[0].x + pair[1].x) / 2; ringCam.at.z = RING.z + (pair[0].z + pair[1].z) / 2;
+  ringCam.boss.x = RING.x + pair[1].x; ringCam.boss.z = RING.z + pair[1].z;
 
   // the referee follows the pair from behind, crouches with them, and points his fan at the winner
   const ph = B.phase, middle = (pair[0].x + pair[1].x) / 2;

@@ -35,12 +35,14 @@ describe('the counter', () => {
     expect(Q.flinch).toBeGreaterThan(F().bout.t);
     for (let i = 0; i < 4; i++) {
       g.runUntil(() => F().bout.t >= Q.at[i] - 0.2, 4);
-      // (words on his first wind-up only)
+      // (words on his first wind-up only; the "!" over him on every one)
       expect(gong.counterSaid()).toBe(i === 0 ? 'Space or click to counter' : '');
+      expect($('qteTell').hidden).toBe(false);
       space();
       expect(Q.got[i]).toBe(2);
     }
     expect($('qteStreak').textContent).toBe('×4');
+    expect($('qteTell').hidden).toBe(true);
     // the final blow: the ring slows to a quarter, and the words say when
     g.runUntil(() => Q.final >= 0, 4);
     expect(fight.ringSpeed()).toBe(C.slow);
