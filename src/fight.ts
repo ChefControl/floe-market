@@ -62,7 +62,8 @@ export interface Boss {
  *  571 (45 s too), Fukure 1100 (60 s). His `share` is what beats him: above all the kitchen the boss before him left
  *  turns, so what that boss opened has to be bought (the attendant, the slide, the cook, the faster belt), and under
  *  what it all turns with no show (SIM_STEPS=window). Their prices set the time between bosses (tuned 2026-10-22 with
- *  the stage 3 bot: seven to nine minutes each; with Mama's dining hall after Fukure, about 43 to the buyout). */
+ *  the stage 3 bot: seven to nine minutes each; re-tuned 2026-10-23 with Mama's opening with the slide and her dining
+ *  hall after Fukure, about 39 to the buyout). */
 export const BOSSES: Boss[] = [
   { face: '🐙', name: 'Hakkaku', crowd: 100, bell: 30, prize: 100, stake: 20, kind: 'octopus', opens: 'grow room, the attendant' },
   { face: '🦀', name: 'Yokobashiri', crowd: 210, bell: 30, prize: 250, stake: 30, share: 0.495, kind: 'crab', opens: 'Back-Alley Ring, bowl slide, steam baskets, a way south' },
@@ -90,7 +91,7 @@ export const WALK_IN = 6;
  *  as fast with a cook ladling too); the counter holds two batches too, and the ledge six batches of each. */
 export const PER_BATCH = 4, BATCH = 20, POT_CAP = 40, COUNTER_CAP = 40, STALL_CAP = 30, LEDGE_CAP = 24, LADLE = 0.1;
 /** The bowl slide (a hearth room upgrade): bowls a second it sends from the counter down to the soup bar by itself. */
-export const SLIDE = 12, SLIDE_COST = 145, SLIDE_BEAT = 2;
+export const SLIDE = 12, SLIDE_COST = 300, SLIDE_BEAT = 2;
 /** Its faster belt (a hearth room upgrade beating Samehada opens): bowls a second the slide sends once it's bought. By
  *  Fukure the slide's what limits a rush (the stall's 30 and SLIDE a second of his bell), so this is what beats him. */
 export const FAST_SLIDE = 18, FAST_COST = 1700, FAST_BEAT = 4;
@@ -121,7 +122,7 @@ export const HIRES: Record<Role, { line?: Ing; name: string; cost: number; beat:
   cook: { name: 'Cook', cost: 340, beat: 3 },
 };
 /** The machine upgrades: chips, and bosses to beat first. */
-export const UPS: Record<Ing, { cost: number; beat: number }> = { rice: { cost: 350, beat: 2 }, fish: { cost: 800, beat: 3 }, mush: { cost: 4000, beat: 4 } };
+export const UPS: Record<Ing, { cost: number; beat: number }> = { rice: { cost: 350, beat: 2 }, fish: { cost: 400, beat: 3 }, mush: { cost: 4000, beat: 4 } };
 /** Another machine: the first extra's chips, each next one 45% more. */
 export const MACH_COST: Record<Ing, number> = { rice: 10, fish: 12, mush: 15 }, MACH_STEP = 1.45;
 export const TIER_COST = [0, 120, 900, 2500], TIER_BEAT = [0, 2, 3, 4];
