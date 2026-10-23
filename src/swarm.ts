@@ -15,7 +15,7 @@ import { BufferGeometry, CanvasTexture, Color, Float32BufferAttribute, Instanced
 import { CY, cellarBoxes, lineRamp, parts, placeBuilt, places, RING } from './cellar';
 import { BAR, BAR_PAD, BAR_SPOTS, FLOOR, fromBar, GONG_PAD, nearBar, TUNNELS, WATCH } from './cellarPlan';
 import { crowdModel, PARKAS, SHIRT } from './characters';
-import { bossOf, F, REACH } from './fight';
+import { bossOf, F, finish, REACH } from './fight';
 import { isHigh, onQuality } from './graphics';
 import { ARENA, inUndertow, level, pushOutOfBox } from './layout';
 import { player } from './player';
@@ -610,8 +610,9 @@ function draw(sp: Speech, text: string) {
   sp.text = text;
 }
 function talk(dt: number) {
-  // (none heard in the Undertow: its walls are between, though a bubble's drawn over everything)
-  const on = level.down && fans.size > 0 && !inUndertow(player.g.position) && !shot.quiet;
+  // (none heard in the Undertow: its walls are between, though a bubble's drawn over everything; and none in a grand
+  // win's finish, its scene: they'd be over the pair)
+  const on = level.down && fans.size > 0 && !inUndertow(player.g.position) && !shot.quiet && !finish();
   nextSay -= dt;
   if (on && nextSay <= 0) {
     // busier when the crowd's bigger, and in the fight

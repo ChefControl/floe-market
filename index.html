@@ -958,14 +958,33 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
 #finish::before{ top:0; height:14%; transform:translateY(-100%); }
 #finish::after{ bottom:0; height:24%; transform:translateY(100%); }
 #finish.on::before, #finish.on::after{ transform:none; }
-#finSay{ position:absolute; left:0; right:0; bottom:calc(24% - 62px); z-index:1; text-align:center; font:400 34px/1 var(--fn-arcade); color:#fff;
-  text-shadow:3px 3px 0 #2A0F16; opacity:0; transition:opacity .2s; }
-#finish.on #finSay{ opacity:1; }
-#finSay.lift{ color:var(--fn-gold); animation:finBeat .3s ease-in-out infinite alternate; }
-#finSay kbd{ font:800 22px/1 "Baloo 2","Trebuchet MS",system-ui,sans-serif; background:var(--fn-gold); color:#2A0F16; border-radius:6px; padding:5px 9px 3px; vertical-align:middle; }
-@keyframes finBeat{ to{ scale:1.08; } }
-#finMeter{ position:absolute; left:50%; translate:-50% 0; bottom:calc(24% - 110px); z-index:1; width:min(70vw,420px); height:22px; border-radius:11px;
-  background:#1C2740; box-shadow:0 0 0 3px #fff; overflow:hidden; }
+#finBox{ position:absolute; left:0; right:0; bottom:0; height:24%; z-index:1; display:flex; flex-direction:column; align-items:center;
+  justify-content:center; gap:10px; opacity:0; transition:opacity .2s; }
+#finish.on #finBox{ opacity:1; }
+#finSay{ font:400 30px/1 var(--fn-arcade); color:#fff; text-shadow:3px 3px 0 #2A0F16; min-height:30px; }
+/* the picture of what to do: a finger tapping (or the Space key pressed, over and over) for the push, a finger swiping
+   down (or ↓) for the slam; it jumps on each press */
+#finIcon{ position:relative; height:76px; display:grid; place-items:center; }
+#finIcon:empty{ display:none; }
+#finIcon i{ font-style:normal; font-size:58px; line-height:1; filter:drop-shadow(2px 3px 0 #2A0F16); }
+#finIcon.push.finger i{ animation:finTap .3s ease-in-out infinite; }
+#finIcon.push.finger::before{ content:""; position:absolute; left:50%; top:4px; width:46px; height:46px; margin-left:-23px; border-radius:50%;
+  border:4px solid var(--fn-gold); animation:finRipple .3s ease-out infinite; }
+#finIcon.slam.finger i{ animation:finSwipe .9s ease-in infinite; }
+#finIcon.slam.finger::before{ content:""; position:absolute; left:50%; top:0; width:8px; height:70px; margin-left:-4px; border-radius:4px;
+  background:linear-gradient(var(--fn-gold),rgba(237,185,74,0)); animation:finTrail .9s ease-in infinite; }
+#finIcon kbd{ font:400 30px/1 var(--fn-arcade); background:var(--fn-gold); color:#2A0F16; border-radius:12px; padding:14px 26px 10px;
+  box-shadow:0 7px 0 #8A6420; display:inline-block; }
+#finIcon.push.key kbd{ animation:finKey .3s ease-in-out infinite; }
+#finIcon.slam.key kbd{ animation:finKey .6s ease-in-out infinite; }
+#finIcon.hit{ animation:finHit .18s ease-out; }
+@keyframes finTap{ 0%,100%{ translate:0 -6px; } 50%{ translate:0 8px; } }
+@keyframes finRipple{ from{ scale:.5; opacity:1; } to{ scale:1.5; opacity:0; } }
+@keyframes finSwipe{ 0%{ translate:0 -22px; opacity:0; } 20%{ opacity:1; } 100%{ translate:0 30px; opacity:0; } }
+@keyframes finTrail{ 0%{ scale:1 0; transform-origin:top; opacity:0; } 30%{ opacity:1; } 100%{ scale:1 1; opacity:0; } }
+@keyframes finKey{ 0%,100%{ translate:0 0; box-shadow:0 7px 0 #8A6420; } 50%{ translate:0 6px; box-shadow:0 1px 0 #8A6420; } }
+@keyframes finHit{ from{ scale:1.25; } to{ scale:1; } }
+#finMeter{ position:relative; width:min(70vw,420px); height:22px; border-radius:11px; background:#1C2740; box-shadow:0 0 0 3px #fff; overflow:hidden; }
 #finMeter[hidden]{ display:none; }
 #finMeter b{ position:absolute; inset:0 auto 0 0; width:0; background:linear-gradient(90deg,var(--fn-champ),#FF9A4A); transition:width .08s; }
 #finMeter.half b{ background:linear-gradient(90deg,var(--fn-champ),var(--fn-gold)); }
@@ -974,7 +993,7 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
 #finBlink.go{ animation:finBlink .45s ease-out; }
 @keyframes finBlink{ 0%{ opacity:0; } 25%{ opacity:1; } 100%{ opacity:0; } }
 body.cine #hud, body.cine #rush{ visibility:hidden; }
-@media (prefers-reduced-motion: reduce){ #finSay.lift{ animation:none; } #finish::before, #finish::after{ transition:none; } }
+@media (prefers-reduced-motion: reduce){ #finIcon i, #finIcon kbd, #finIcon::before, #finIcon.hit{ animation:none !important; } #finish::before, #finish::after{ transition:none; } }
 /* The watch button, on a boss's fight: under the strip's right end, gold; navy with a gold ring while it's on. */
 #watchWrap{ position:absolute; right:0; top:calc(100% + 8px); pointer-events:auto; }
 #watchGo{ --c:var(--fn-gold); --c-ink:var(--fn-navy); --c-drop:#A9761C; --pick:var(--fn-navy); --pick-ink:var(--fn-gold); --pick-drop:#0A1120;
@@ -1242,7 +1261,6 @@ body.offer #wayAlert, body.way #wayAlert, body.meet #wayAlert{ visibility:hidden
   #rush{ top:calc(env(safe-area-inset-top,0px) + 104px); gap:8px; padding:6px 8px; width:min(calc(100vw - 16px),420px); }
   #rush .port{ width:40px; height:40px; font-size:20px; border-width:2px; }
   #finSay{ font-size:24px; }
-  #finSay kbd{ font-size:16px; }
   #rush .row{ font-size:14px; gap:6px; }
   #rush .row b{ font-size:15px; }
   #gong .vs{ grid-template-columns:1fr 42px 1fr; height:60px; }
@@ -1695,7 +1713,7 @@ body.show #toss, body.show #cook, body.show #coach, body.show #hint, body.show #
 <div id="err" role="alert"><span id="errMsg"></span><button id="errReport" type="button" hidden>Report this</button></div>
 
 <div id="ringFlash" aria-hidden="true"></div>
-<div id="finish" role="status"><div id="finSay"></div><div id="finMeter" hidden><b></b><i></i></div></div>
+<div id="finish" role="status"><div id="finBox"><div id="finSay"></div><div id="finIcon"></div><div id="finMeter" hidden><b></b><i></i></div></div></div>
 <div id="finBlink" aria-hidden="true"></div>
 <div id="epic" hidden aria-hidden="true"><div class="lines"></div><div class="flash"></div><div class="words"></div></div>
 <section id="gong" aria-label="The gong" hidden>

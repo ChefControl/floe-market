@@ -297,13 +297,14 @@ export function shoveSound() {
   tone({ f: 125, f2: 72, type: 'triangle', a: 0.008, d: 0.22, v: 0.26 });
   noise({ f: 1300, q: 1, a: 0.008, d: 0.06, v: 0.12 });
 }
-/** The lift: a whoosh rising under a bright "shing", to time the throw by. */
-export function liftSound() {
-  noise({ f: 600, f2: 1600, q: 0.9, a: 0.05, d: 0.9, v: 0.08 });
-  tone({ t: 0.75, f: 1250, f2: 1650, type: 'triangle', a: 0.01, d: 0.3, v: 0.09 });
-  tone({ t: 0.77, f: 1900, f2: 2200, a: 0.01, d: 0.22, v: 0.035 });
+/** His finisher slows to a crawl: a low sweep, and a bright "shing" as it holds, the moment to slam him. */
+export function slowSound() {
+  tone({ f: 170, f2: 70, a: 0.06, d: 1.3, v: 0.12 });
+  noise({ f: 600, f2: 1500, q: 0.9, a: 0.08, d: 1.3, v: 0.06 });
+  tone({ t: 1.35, f: 1250, f2: 1650, type: 'triangle', a: 0.01, d: 0.3, v: 0.09 });
+  tone({ t: 1.37, f: 1900, f2: 2200, a: 0.01, d: 0.22, v: 0.035 });
 }
-/** The throw: a boom (bigger for a perfect one), or the thud of him slipping back to his feet. */
+/** The slam: a boom (bigger for a perfect one). */
 export function throwSound(q: number) {
   if (q === 0) {
     tone({ f: 105, f2: 70, type: 'triangle', a: 0.008, d: 0.18, v: 0.22 });

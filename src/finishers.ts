@@ -1,11 +1,11 @@
 // The finishers (stage 3): how a boss's fight ends, by how the vote went. A push-out to the straw most nights; but a
 // tight one (within a tenth of the fans needed, either way) ends at the straw, the man about to go out turning it, and
 // a heavy one with a big move: each boss has his own for a tight win and for a heavy one, and the champion has his own
-// against each, for a tight win and a grand one; and a grand one with a perfect slam (gong.ts) is the epic, the
+// against each, for a tight win and a grand one; and a grand one whose finish was pushed all the way (fight.ts's FINISH) is the epic, the
 // champion's grand move gone wild. Who wins never changes: the bigger side does. Each boss's moves are in his own file
 // (finishers/), made with finishRig.ts; dohyo.ts plays them, and the strip (gong.ts) names them.
 import type { Kind } from './creatures';
-import { bossOf, type Finish, type Rush } from './fight';
+import { bossOf, type Finish, finishers, type Rush } from './fight';
 import type { FinishMove } from './finishRig';
 import * as catfish from './finishers/catfish';
 import * as crab from './finishers/crab';
@@ -44,7 +44,8 @@ export { push as PUSH };
 export function moveOf(R: Rush | null, finish: Finish): Move | null {
   if (!R || finish === 'push') return null;
   const k = bossOf(R.boss).kind ?? 'partner', m = MOVES[k];
-  if (finish === 'grand') return R.slam === 2 ? { name: m.champGrand.name, anim: EPIC[k] } : m.champGrand;
+  // (the epic for a grand win's finish pushed all the way, fight.ts's FINISH; or, from before it, a perfect slam)
+  if (finish === 'grand') return (R.fin ? R.fin.pushed === 2 : R.slam === 2) ? { name: m.champGrand.name, anim: EPIC[k] } : m.champGrand;
   if (finish === 'heavy') return m.heavy;
   return R.win ? m.champTight : m.tight;
 }
@@ -52,3 +53,4 @@ export function moveOf(R: Rush | null, finish: Finish): Move | null {
 export const animOf = (R: Rush | null, finish: Finish) => moveOf(R, finish)?.anim ?? push;
 /** Seconds into the result that the loser's down (the card waits for it). */
 export const landsOf = (R: Rush | null, finish: Finish) => animOf(R, finish).lands;
+finishers.landsOf = landsOf;

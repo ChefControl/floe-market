@@ -19,7 +19,7 @@ import { dustFx } from './fx';
 import { ringCam } from './dohyo';
 import {
   type Boss, bossOf, BOSSES, BUYOUT, canRing, canShow, type Carry, F, type Forecast, fixOn, forecast, ICON, type Ing, keptHome, NAME, nextBoss, practiceDue, ringGong,
-  finish, FINISH, heave, push, type Rush, sides, SLAM, strength, toBeat, worstShort, you,
+  finish, FINISH, push, ringRate, type Rush, sides, SLAM, slamDown, slamOn, strength, toBeat, worstShort, you,
 } from './fight';
 import { isTouch } from './hint';
 import { kindOf } from './items';
@@ -30,7 +30,7 @@ import { landsOf, moveOf } from './finishers';
 import { epicFx } from './epicFx';
 import { showFace } from './portraits';
 import { CHAMP } from './rikishi';
-import { chime, coinDrop, coinEdge, coinPing, liftSound, lose, sceneIn, shoveSound, throwSound, win } from './sfx';
+import { chime, coinDrop, coinEdge, coinPing, lose, sceneIn, shoveSound, slowSound, throwSound, win } from './sfx';
 import { CELLAR_ZOOM, view } from './stage';
 import { d2xz } from './util';
 
@@ -274,13 +274,20 @@ export function showCard(R: Rush, sting?: () => void) {
   if (R.win && R.boss < 0) kids.push(el('h2', '', 'PRACTICE WON'), el('div', 'prize', `🐡 ${amount(boss.prize)}`), el('div', 'unlock', `Next: ${next.name} ${next.face} · hire a washer and salter`));
   else if (R.win) kids.push(el('h2', '', 'YOU WIN'), el('div', 'prize', `🐡 ${amount(boss.prize)}`), el('div', 'unlock', `🔓 New: ${boss.opens}`));
   else kids.push(el('h2', '', `SHORT BY ${toBeat(boss, R.n) - R.turned}`), el('span', 'fchip reason', lossReason(R)));
-  // (a slam landed: its bonus)
-  if (R.win && R.slam > 0) kids.splice(kids.findIndex(k => k.className === 'prize') + 1, 0, el('span', 'fchip slam', `💥 Slam +🐡 ${amount(boss.prize * SLAM.bonus[R.slam] + 0.5)}`));
   kids.push(el('div', 'tap', 'Tap to close'));
   card.className = `${R.win ? 'win' : 'lose'} wait`;
   card.replaceChildren(...kids);
   card.hidden = false;
-  cardIn = landsOf(R, F.bout.finish) + 0.35; cardSting = sting ?? null;
+  cardIn = landsOf(R, F.bout.finish) + 0.35; cardSting = sting ?? null; cardR = R;
+}
+/** The rush the card's for, and its slam's bonus under the prize, as it comes up (a grand win's is known by then). */
+let cardR: Rush | null = null;
+function slamChip() {
+  const R = cardR;
+  if (!R?.win || R.slam <= 0 || card.querySelector('.slam')) return;
+  const prize = card.querySelector('.prize'), chip = document.createElement('span');
+  chip.className = 'fchip slam'; chip.textContent = `💥 Slam +🐡 ${amount(bossOf(R.boss).prize * SLAM.bonus[R.slam] + 0.5)}`;
+  prize?.after(chip);
 }
 /** What the strip said last, so it's only rewritten when something in it changes. */
 let barSaid = '';
@@ -322,57 +329,63 @@ function renderBout() {
 
 // ---------- the finish ----------
 // A grand win's last moment (fight.ts's FINISH), shown as a scene, as Mr. Fugu's are: the screen blinks, black bars
-// close in top and bottom, and the camera's in low and close on the pair at his straw (dohyo.ts). Words in the bottom
-// bar say what to do, the push's meter under them. Push: every press shoves him (a tap or a click anywhere, or Space).
-// The lift: a flick up (a swipe, or ↑ or W) as he's at the top throws him. The bars open again for the fight's result.
-const finEl = $('finish'), finSay = $('finSay'), finMeter = $('finMeter'), finFill = finMeter.querySelector('b')!, finBlink = $('finBlink');
-/** Whether this is a touch screen (or a finger's been seen on it): the words say tap and swipe, not keys. */
+// close in top and bottom, and the camera's in low and close on the pair at his straw (dohyo.ts). The bottom bar shows
+// what to do with a big picture of it, a finger tapping (or the Space key) and the push's meter; then, as his finisher
+// slows to a crawl just before he lands, a finger swiping down (or the ↓ key). Push: every press shoves him (a tap or a
+// click anywhere, or Space). The slam: a flick down (a swipe, a drag, or ↓ or S). The bars open once he's down.
+const finEl = $('finish'), finSay = $('finSay'), finIcon = $('finIcon'), finMeter = $('finMeter'), finFill = finMeter.querySelector('b')!, finBlink = $('finBlink');
+/** Whether this is a touch screen (or a finger's been seen on it): the pictures are a finger's, not keys. */
 let touch = isTouch();
-/** The finish as it was last frame, for its sounds and the blink; and where a finger went down, for a flick up. */
-let stepWas = '', sayWas = '', down: { x: number; y: number; t: number } | null = null;
-function goPush() { if (push() !== null) shoveSound(); }
-function goHeave() { const q = heave(); if (q !== null) throwSound(q); }
+/** The finish as it was last frame, for its sounds and the blink; and where a finger went down, for a flick down. */
+let stepWas = '', sayWas = '', slowWas = false, down: { x: number; y: number } | null = null;
+const bump = (e: HTMLElement) => { e.classList.remove('hit'); void e.offsetWidth; e.classList.add('hit'); };
+function goPush() { if (push() !== null) { shoveSound(); bump(finIcon); } }
+function goSlam() { const q = slamDown(); if (q !== null) { throwSound(q); bump(finIcon); } }
 // (a finger, a pen or the mouse's main button, anywhere but on something of its own to press: down, a shove; dragged
-// up, the throw)
+// down, the slam)
 window.addEventListener('pointerdown', e => {
   if (e.pointerType !== 'mouse') touch = true;
   if (!finish() || (e.pointerType === 'mouse' && e.button !== 0)) return;
   if ((e.target as Element | null)?.closest?.('button, a, input, select, textarea, label, .k-panel')) return;
-  down = { x: e.clientX, y: e.clientY, t: performance.now() };
+  down = { x: e.clientX, y: e.clientY };
   goPush();
 }, { capture: true });
 window.addEventListener('pointermove', e => {
   if (!down || !finish()) return;
-  if (down.y - e.clientY > 40 && Math.abs(e.clientX - down.x) < down.y - e.clientY) { down = null; goHeave(); }
+  const dy = e.clientY - down.y;
+  if (dy > 40 && Math.abs(e.clientX - down.x) < dy) { down = null; goSlam(); }
 }, { capture: true });
 window.addEventListener('pointerup', () => { down = null; }, { capture: true });
-// (keys as they go down, however short the press: Space shoves, ↑ or W throws; and while the finish is on they're its,
+// (keys as they go down, however short the press: Space shoves, ↓ or S slams; and while the finish is on they're its,
 // never a press of whatever button has the focus)
 window.addEventListener('keydown', e => {
   if (!finish()) return;
-  const k = e.code === 'Space' || e.key === ' ' ? 'push' : e.code === 'ArrowUp' || e.key === 'ArrowUp' || e.code === 'KeyW' || e.key === 'w' ? 'heave' : '';
+  const k = e.code === 'Space' || e.key === ' ' ? 'push' : e.code === 'ArrowDown' || e.key === 'ArrowDown' || e.code === 'KeyS' || e.key === 's' ? 'slam' : '';
   if (!k) return;
   e.preventDefault();
-  if (!e.repeat) (k === 'push' ? goPush : goHeave)();
+  if (!e.repeat) (k === 'push' ? goPush : goSlam)();
 }, { capture: true });
 function updFinish() {
-  const f = finish(), step = f?.step ?? '';
+  const f = finish(), step = f?.step ?? '', slow = slamOn(f);
   // in and out: a blink, and the bars
   if (!!step !== !!stepWas) { finBlink.classList.remove('go'); void finBlink.offsetWidth; finBlink.classList.add('go'); if (step) sceneIn(); }
   finEl.classList.toggle('on', !!f);
   document.body.classList.toggle('cine', !!f);
-  if (f?.step === 'lift' && stepWas === 'push') liftSound();
-  stepWas = step;
-  // the words, and the push's meter
-  const say = !f ? '' : f.step === 'push' ? (touch ? 'Tap fast to push!' : 'Mash <kbd>Space</kbd> to push!')
-    : f.step === 'lift' ? (touch ? 'Swipe up to throw!' : '<kbd>↑</kbd> to throw!')
-    : f.throw > 0 ? (f.throw > 1 ? 'PERFECT THROW!' : 'THROWN!') : 'He slipped!';
-  if (say !== sayWas) { sayWas = say; finSay.innerHTML = say; finSay.className = f?.step ?? ''; }
-  finMeter.hidden = !f || f.step !== 'push';
+  if (slow && !slowWas) slowSound();
+  stepWas = step; slowWas = slow;
+  // what to do, in a picture and a few words: the push, then the slam (and how it went)
+  const what = f?.step === 'push' ? 'push' : slow ? 'slam' : '';
+  const say = what === 'push' ? 'Push him out!' : what === 'slam' ? 'Slam him down!' : f?.step === 'slammed' && f.slam > 0 ? (f.slam > 1 ? 'PERFECT SLAM!' : 'SLAM!') : '';
+  if (say !== sayWas) {
+    sayWas = say; finSay.textContent = say;
+    finIcon.className = what ? `${what} ${touch ? 'finger' : 'key'}` : '';
+    finIcon.innerHTML = !what ? '' : touch ? '<i>👆</i>' : `<kbd>${what === 'push' ? 'SPACE' : '↓'}</kbd>`;
+  }
+  finMeter.hidden = what !== 'push';
   if (f) { finFill.style.width = `${(f.n / FINISH.need * 100).toFixed(1)}%`; finMeter.classList.toggle('half', f.n >= FINISH.half); }
 }
-/** The words in the finish's bottom bar now, for tests. */
-export const finishSaid = () => (finEl.classList.contains('on') ? finSay.textContent ?? '' : '');
+/** What the finish says to do (or how it went), as shown. */
+export const finishSaid = () => sayWas;
 
 // ---------- 💪 ----------
 const power = $('power'), powerN = $('powerN'), seasonChip = $('season');
@@ -523,7 +536,7 @@ export function updGong(dt: number) {
   updWatch(dt);
   // the stroke's jolt (on top of the ring's, if the camera's on it)
   if (since < 0.6) view.shake = Math.max(view.shake, 0.45 * (1 - since / 0.6) ** 2);
-  if (cardIn > 0 && (cardIn -= dt) <= 0) { cardIn = 0; card.classList.remove('wait'); cardT = 10; cardSting?.(); cardSting = null; }
+  if (cardIn > 0 && (cardIn -= dt * ringRate()) <= 0) { cardIn = 0; slamChip(); card.classList.remove('wait'); cardT = 10; cardSting?.(); cardSting = null; }
   else if (cardT > 0) { cardT -= dt; if (cardT <= 0) card.hidden = true; }
   if (bannerT > 0) { bannerT -= dt; if (bannerT <= 0) { bannerEl.hidden = true; bannerEl.classList.remove('on'); } }
 }
