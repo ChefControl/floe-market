@@ -1503,7 +1503,7 @@ describe("the cellar's tiles", () => {
     // the ring's three levels along the top, then every room's upgrade and the venue's tiers, and the buyout at the end
     expect([...$('shopRows').querySelectorAll('[data-mod]')].map(b => (b as HTMLElement).dataset.mod)).toEqual(['bowls', 'street', 'cellarcrew']);
     expect([...$('shopRows').querySelectorAll<HTMLElement>('[data-tile]')].map(b => b.dataset.tile)).toEqual(
-      ['rack', 'washer', 'steam', 'barrel', 'salter', 'smoke', 'bed', 'picker', 'shelves', 'attendant', 'slide', 'cook', 'fastslide', 'hall', 'tier1', 'tier2', 'tier3', 'buyout']);
+      ['rack', 'washer', 'steam', 'barrel', 'salter', 'smoke', 'bed', 'picker', 'shelves', 'attendant', 'slide', 'cook', 'fastslide', 'mama', 'hall', 'tier1', 'tier2', 'tier3', 'buyout']);
     // a gate a column: the start, the practice fight (won: the fixture's sparred), then the bosses, Hakkaku next
     const gates = () => [...$('shopRows').querySelectorAll<HTMLElement>('.gate')].map(h => h.className.replace('gate ', ''));
     expect(gates()).toEqual(['start', 'won', 'next', 'later', 'later', 'later', 'later']);
@@ -1682,8 +1682,32 @@ describe("the cellar's tiles", () => {
     expect(fight.fightFrom(fight.saveFight()).fast).toBe(true);
   });
 
-  it("Mama's dining hall waits for Fukure and the faster belt, and she pays half a bowl, not an eighth", async () => {
-    const { g, fight, F } = await ring({ money: 10_000_000, ring: { beaten: 4, slide: true, fast: true, hires: { attendant: true } } });
+  it("Mama Moray's waits for Yokobashiri and the slide, and buying her opens her place; a game saved before had her open", async () => {
+    const { g, fight, F } = await ring({ money: 10_000_000, ring: { beaten: 1, hires: { attendant: true } } });
+    g.run(0.1);
+    expect(offered(g)).not.toContain('mama');
+    F().beaten = 2;
+    g.run(0.1);
+    // (the slide first: her bowls ride its line)
+    expect(offered(g)).not.toContain('mama');
+    g.unlocks.buyFromMenu(g.unlocks.tiles.find(t => t.id === 'slide')!);
+    g.run(0.1);
+    expect(offered(g)).toContain('mama');
+    expect(fight.restoOpen()).toBe(false);
+    const money = g.wallet.money;
+    g.unlocks.buyFromMenu(g.unlocks.tiles.find(t => t.id === 'mama')!);
+    expect(g.wallet.money).toBe(money - fight.MAMA_COST * 1000);
+    expect(F().mama).toBe(true);
+    expect(fight.restoOpen()).toBe(true);
+    expect(fight.fightFrom(fight.saveFight()).mama).toBe(true);
+    // (a save from before she was for sale: open with the slide, as she was then)
+    const { mama: _, ...before } = fight.saveFight();
+    expect(fight.fightFrom(before).mama).toBe(true);
+    expect(fight.fightFrom({ ...before, slide: false }).mama).toBe(false);
+  });
+
+  it("Mama's dining hall waits for Fukure and Mama Moray's, and she pays half a bowl, not an eighth", async () => {
+    const { g, fight, F } = await ring({ money: 10_000_000, ring: { beaten: 4, slide: true, fast: true, mama: true, hires: { attendant: true } } });
     g.run(0.1);
     expect(offered(g)).not.toContain('hall');
     F().beaten = 5;
@@ -1719,11 +1743,11 @@ describe("the cellar's tiles", () => {
     F().quiet = false; F().resto = 0;
     const stock = () => { F().pot = Array(fight.POT_CAP).fill(true); F().pantry = { rice: fight.LEDGE_CAP, fish: fight.LEDGE_CAP, mush: fight.LEDGE_CAP }; };
     stock();
-    // (shut out front till the bowl line's in to take her bowls, however far the word's got; then open, however little)
-    F().slide = false;
+    // (shut out front till she's bought, however fixed up the arena; then open, however little)
+    F().slide = true; F().mama = false;
     g.economy.mods.street = fight.RESTO_OPENS;
     expect(fight.restoWants()).toBe(false);
-    F().slide = true;
+    F().mama = true;
     g.economy.mods.street = 0;
     expect(fight.restoWants()).toBe(true);
     const was = F().earned.length;
@@ -1741,7 +1765,7 @@ describe("the cellar's tiles", () => {
     expect(fight.restoWants()).toBe(false);
   }, 30_000);
 
-  it("Mama Moray's starts a wreck, is cleared up as the word gets round, and opens with the bowl slide, with a word from her", async () => {
+  it("Mama Moray's starts a wreck, is cleared up as the arena's fixed up, and opens once she's bought, with a word from her", async () => {
     const { g, fight, F } = await ring({ ring: { beaten: 1 } });
     const rs = await import('../src/resto');
     for (const n of [0, 1]) {
@@ -1752,13 +1776,13 @@ describe("the cellar's tiles", () => {
       g.economy.mods.street = n; g.run(0.2);
       expect(rs.restoShows()).toMatchObject({ stage: 1, mama: false, diners: 0, wreck: false, belt: false });
     }
-    // (and no further without the bowl line, however far the word's got)
+    // (and no further till she's bought, however fixed up the arena, the slide in or not)
+    F().slide = true;
     g.economy.mods.street = fight.RESTO_OPENS + 1; g.run(0.2);
-    expect(rs.restoShows()).toMatchObject({ stage: 1, mama: false, diners: 0, wreck: false, belt: false });
-    // the bowl line in, she's open for business, however little the word's got round, and the line runs on past the
-    // stall to her
+    expect(rs.restoShows()).toMatchObject({ stage: 1, mama: false, diners: 0, wreck: false });
+    // bought, she's open for business, however little the arena's fixed up, and the line runs on past the stall to her
     g.economy.mods.street = 0;
-    F().slide = true; g.run(0.2);
+    F().mama = true; g.run(0.2);
     expect(rs.restoShows()).toMatchObject({ stage: 2, mama: true, says: rs.OPENING, belt: true });
     expect(rs.restoShows()!.diners).toBeGreaterThan(0);
     // and a batch for her goes along the line, from the hopper by the pot

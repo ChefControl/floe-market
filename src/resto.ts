@@ -5,11 +5,11 @@
 // each bowl (the Family keeps the rest). The fans eat at the counter and at tables down the hall and its dining wing,
 // each table's nabe on its burner, as many of them in as there's been chanko lately.
 //
-// It starts a wreck, and is put right level by level of Word on the street (stageOf, lookOf, dress): at 0 and 1 toppled
+// It starts a wreck, and is put right level by level of Fix up the arena (stageOf, lookOf, dress): at 0 and 1 toppled
 // tables, rubble, gaps in the floor, cobwebs and a torn curtain, shut; from 2 to 4 being cleared, still shut: the
 // rubble stacked, a broom and a bucket, then the floor patched and the tables up, then the stools; at 5 patched and
 // open, Mama at her till ("Open for business, dear."), and only then does she take her cut. She opens with the bowl
-// slide (beating the second boss opens it), whatever the word on the street, and her place is dressed to match
+// slide (beating the second boss opens it), however fixed up the arena, and her place is dressed to match
 // (fight.ts's restoLevel: 5 at least once she's open, 4 at most till then); then its looks: at 6 a back-street joint, plank walls,
 // paper lanterns and a plain counter; at 7 Mama's touch, framed sumo photos and the family's portrait, red lanterns strung
 // along the walls and checked cloths on the tables; at 8 the Family's front, dark panelling with a thin gold line, slim
@@ -452,8 +452,8 @@ function build(): Built {
   return { middle, says, opened: false, diners, mama: mm, bowls, looks, board, boards, counter, counters, stallB, tapeWhole, tapeTorn, bulb, bulbOn, bulbOff, leak, tables, stools, noren, norens, shopNoren, shopNorens, ruin };
 }
 
-// ---------- before it opens (Word on the street 0 to 2) ----------
-/** What's out front before Mama Moray's opens, and as it does, by Word on the street's level: at 0 a wreck (its tables
+// ---------- before it opens (Fix up the arena 0 to 2) ----------
+/** What's out front before Mama Moray's opens, and as it does, by Fix up the arena's level: at 0 a wreck (its tables
  *  and stools knocked over where they stood, broken planks along the walls, boards up out of the floor, cobwebs in the
  *  corners, the restroom's floor cracked); at 1 being cleared (the tables stood back up, the rubble in neat stacks by
  *  the walls, a broom and a bucket, new pale boards in the floor and nailed over the walls, tape round the broken
@@ -627,7 +627,7 @@ on.resto = (bowls, got) => {
   chips += got;
   busy += bowls;
 };
-/** Where it is, for Word on the street's level: 0 a wreck (levels 0 and 1), 1 being cleared (2 to 4, a bit more each
+/** Where it is, for Fix up the arena's level: 0 a wreck (levels 0 and 1), 1 being cleared (2 to 4, a bit more each
  *  level: the rubble stacked, then the floor patched and the tables stood up, then the stools), 2 open on a shoestring
  *  (5, Mama's in: fight.ts' RESTO_OPENS), 3 on its looks; and that look: 0 the back-street joint (6), 1 Mama's touch
  *  (7), 2 the Family's front (8). */
@@ -643,7 +643,7 @@ export const restoShows = () => B && ({
   stage: stageOf(dressed), mama: B.mama.visible, says: B.says.text, diners: B.diners.filter(d => d.p.visible).length,
   wreck: B.ruin.wreck.visible, belt: mamaLeg(), under: lineShows(true),
 });
-/** Dresses it for Word on the street's level `n`: from a wreck to the Family's front. `up`: bought just now (not just
+/** Dresses it for Fix up the arena's level `n`: from a wreck to the Family's front. `up`: bought just now (not just
  *  loaded), so what's new pops in. */
 function dress(b: Built, n: number, up: boolean) {
   const st = stageOf(n), look = lookOf(n), r = b.ruin;
@@ -684,7 +684,7 @@ export function updResto(dt: number) {
   if (!made) { made = true; B = apart(build, dice(0x4E571)); }
   const b = B!;
   t += dt;
-  // how far it's come, as Word on the street's dressed the arena
+  // how far it's come, as the arena's been fixed up
   const lv = restoLevel();
   if (lv !== dressed) { dress(b, lv, dressed >= 0 && lv > dressed); dressed = lv; }
   // the bowls onto the bowl line, a few a second (her word, too, once it's in for her)

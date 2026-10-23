@@ -70,7 +70,7 @@ export const MODS: Mod[] = [
   // each boss (shopTree.ts's levelGate)
   { id: 'bowls', stage: 3, kind: 'price', icon: '🏷️', name: 'Pricier bowls', what: 'Each level adds 25% of a bowl\'s base price', per: 1.25, cost: 30_000, step: 1.6, add: true, max: 8 },
   {
-    id: 'street', stage: 3, kind: 'customers', icon: '📣', name: 'Word on the street', what: 'More fans fill the seats',
+    id: 'street', stage: 3, kind: 'customers', icon: '🔨', name: 'Fix up the arena', what: 'Each level fixes the arena up, and more fans come',
     // (named for how the arena's dressed up as the word gets round: cellarLooks.ts)
     levels: ['Scrap walls', 'Sawdust & pallets', 'Fixed up', 'Banners', 'Stone floor', 'Panelled hall', 'Purple seats', 'Tournament dohyo'],
     per: 1.105, cost: 20_000, step: 1.75, max: 8,

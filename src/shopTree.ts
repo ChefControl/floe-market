@@ -13,7 +13,7 @@ export const GATES: Gate[] = [{ face: '🏁', name: 'Start' }, { face: '🤼', n
 export const gateOpen = (g: number) => g === 0 || (g === 1 ? !practiceDue() : F.beaten >= g - 1);
 /** The gate a node waits behind. */
 export const gateOf = (t: Tile) => (t.spar ? 1 : t.beat ? t.beat + 1 : 0);
-/** The ring's levels (Pricier bowls, Word on the street, Cellar crew) open two at a time: each boss beaten opens the
+/** The ring's levels (Pricier bowls, Fix up the arena, Cellar crew) open two at a time: each boss beaten opens the
  *  next two of each, Hakkaku the first two and Samehada the last, so all eight are on sale before Fukure. */
 export const LEVELS_A_BOSS = 2;
 /** The gate a ring level (`n`, from 1) waits behind. */
@@ -40,7 +40,7 @@ export const PLACES: Partial<Record<UnlockId, Place>> = {
   rack: { lane: 'rice', label: 'Drying rack' }, washer: { lane: 'rice', from: 'rack' }, steam: { lane: 'rice', from: 'washer' },
   barrel: { lane: 'fish', label: 'Salt barrel' }, salter: { lane: 'fish', from: 'barrel' }, smoke: { lane: 'fish', from: 'salter' },
   bed: { lane: 'mush', label: 'Mushroom bed' }, picker: { lane: 'mush', sub: 1, from: 'bed' }, shelves: { lane: 'mush', from: 'picker', label: 'Glowing shelves' },
-  attendant: { lane: 'hearth' }, slide: { lane: 'hearth', sub: 1, from: 'attendant' }, cook: { lane: 'hearth', from: 'attendant' }, fastslide: { lane: 'hearth', from: 'slide', label: 'Faster belt' }, hall: { lane: 'hearth', from: 'fastslide', label: "Mama's hall" },
+  attendant: { lane: 'hearth' }, slide: { lane: 'hearth', sub: 1, from: 'attendant' }, cook: { lane: 'hearth', from: 'attendant' }, fastslide: { lane: 'hearth', from: 'slide', label: 'Faster belt' }, mama: { lane: 'hearth', from: 'slide', label: "Mama Moray's" }, hall: { lane: 'hearth', from: 'mama', label: "Mama's hall" },
   tier1: { lane: 'venue', label: 'Back-Alley Ring' }, tier2: { lane: 'venue', from: 'tier1', label: 'Underground Arena' }, tier3: { lane: 'venue', from: 'tier2', label: 'Grand Hall Below' },
   buyout: { label: 'Buy him out' },
 };

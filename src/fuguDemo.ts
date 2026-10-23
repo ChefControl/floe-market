@@ -20,7 +20,7 @@ export const DEMO = import.meta.env.VITE_FUGU_DEMO === '1';
 
 /** A cellar with all of it bought (&full): every hand, six of each machine upgraded, the slide, the Grand Hall's stands. */
 const FULL = (beaten: number) => ({
-  beaten, tier: 3, slide: true, fast: true, hall: beaten >= 5, resto: 3, pantry: { rice: LEDGE_CAP, fish: LEDGE_CAP, mush: LEDGE_CAP },
+  beaten, tier: 3, slide: true, fast: true, mama: beaten >= 2, hall: beaten >= 5, resto: 3, pantry: { rice: LEDGE_CAP, fish: LEDGE_CAP, mush: LEDGE_CAP },
   hires: { washer: true, salter: true, picker: true, attendant: true, cook: true },
   lines: { rice: { n: MAX_MACHINES, up: 1 }, fish: { n: MAX_MACHINES, up: 1 }, mush: { n: MAX_MACHINES, up: 1 } },
   den: { book: beaten >= 2, way: beaten >= 2, door: beaten >= 2, met: { eddie: beaten >= 2, harry: beaten >= 2, tommy: beaten >= 2 } },

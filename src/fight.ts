@@ -6,7 +6,7 @@
 //
 // Every bout goes the same way: the fans come in and buy soup at the stall (preparation), take their seats round the
 // ring, watch the fight, and go home. Between boss nights it's a local, the free show: as many fans come as the seats
-// and word on the street bring, the ones who ate sit down to watch (the hungry give up and go home), and the champion
+// and the arena's fix-up bring, the ones who ate sit down to watch (the hungry give up and go home), and the champion
 // wins. Ring the gong and the next boss walks in with his crowd instead, a horde that floods the floor in his colour:
 // each one who eats a bowl before his bell switches sides, and the fight is a tug of war between his fans and yours,
 // which you win, every time, once you've turned as many as his strength (💪: more than half, for the first, more for each stronger one). Nothing in here is left to chance, so the gong can copy the whole cellar and run the
@@ -103,6 +103,9 @@ export const RESTO_SHARE = 0.12;
  *  no boss's crowd left to buy what the kitchen makes over what the stall sells, the stretch to the buyout leaned on
  *  the stall alone; this makes the kitchen's spare bowls (and so the grow room's) pay again. */
 export const HALL_SHARE = 0.5, HALL_COST = 1000;
+/** Mama Moray's itself (a hearth room upgrade beating Yokobashiri opens, once the slide's in: her bowls ride its line),
+ *  bought as the takeout kiosk is up top: what it costs, and the bosses it waits for. Till then her place is shut. */
+export const MAMA_COST = 300, MAMA_BEAT = 2;
 /** The cooking show at the pot (chanko.ts), a bonus game: it takes nothing and cooks nothing, and its stars buy the pot
  *  bigger batches for a while (a cook's too): long enough to see a boss's rush through, Fukure's walk-in and his
  *  60 s bell too. */
@@ -233,8 +236,8 @@ export interface Fight {
   /** The bowl slide's bought, and how many bowls it's due to send down (it sends SLIDE a second), and its faster belt
    *  (FAST_SLIDE a second). */
   slide: boolean; slideAcc: number; fast: boolean;
-  /** Mama's dining hall's bought: she pays HALL_SHARE of a bowl, not RESTO_SHARE. */
-  hall: boolean;
+  /** Mama Moray's is bought (open), and her dining hall: she pays HALL_SHARE of a bowl, not RESTO_SHARE. */
+  mama: boolean; hall: boolean;
   /** Bowls sent up the belt to Mama Moray's, all told. */
   resto: number;
   /** A cooking show left half way (chanko.ts), to carry on from, never to start over: null when there's none. */
@@ -274,7 +277,7 @@ export function blank(): Fight {
     pantry: { rice: 0, fish: 0, mush: 0 }, pot: [], potT: 0, counter: [], stall: [],
     queue: [], fed: [], cooked: [], full: [], fullAcc: 0, earned: [],
     rush: null, bout: freshBout(0),
-    seed: 3, cookT: 0, bonus: { pct: 0, t: 0 }, show: null, slide: false, slideAcc: 0, fast: false, hall: false, resto: 0,
+    seed: 3, cookT: 0, bonus: { pct: 0, t: 0 }, show: null, slide: false, slideAcc: 0, fast: false, mama: false, hall: false, resto: 0,
     den: {
       book: false, way: false, door: false, monte: { bout: -1, played: 0 }, eddie: { boss: -1, cut: 0, caught: false }, scandal: { cut: 0, bouts: 0 },
       loan: { owed: 0, total: 0 }, met: { eddie: false, harry: false, tommy: false },
@@ -358,7 +361,7 @@ export const sold = { n: 0 };
 export const kitchenRate = () => F.cooked.length / Math.max(0.25, 1 - F.full.length / 60);
 /** 💪: fans fed in this bout's preparation, a local's or a boss's (the ones who sit on the champion's side). */
 export const strength = () => sides().yours;
-/** Seats in the venue, and how many fans are in on a normal night: the seats, filled by word on the street. */
+/** Seats in the venue, and how many fans are in on a normal night: the seats, filled as the arena's fixed up. */
 export const seats = () => TIERS[F.tier].seats;
 export const crowdNow = () => {
   const n = Math.round(seats() * Math.min(1, 0.45 * boost('street'))), s = F.den.scandal;
@@ -415,15 +418,16 @@ function cookBatch(bowls: number) {
   F.cooked.push(F.t);
   if (real) on.cooked();
 }
-/** Mama Moray's opens with the bowl slide (her bowls ride its line), so a player who's rushed the bosses and left the
- *  arena small still has somewhere for what the kitchen makes. Her place is dressed by Word on the street's level
- *  (resto.ts), as patched and open from this one: open, it looks this far along at least; shut, never this far. */
+/** Mama Moray's opens once she's bought (MAMA_COST, after the bowl slide: her bowls ride its line), so a player who's
+ *  rushed the bosses and left the arena small still has somewhere for what the kitchen makes. Her place is dressed by
+ *  Fix up the arena's level (resto.ts), as patched and open from this one: open, it looks this far along at least;
+ *  shut, never this far. */
 export const RESTO_OPENS = 5;
 /** What Mama Moray pays of a bowl's price: more once her dining hall's bought. */
 export const restoShare = () => (F.hall ? HALL_SHARE : RESTO_SHARE);
 /** Whether Mama Moray's is open. */
-export const restoOpen = () => F.slide;
-/** The level of Word on the street her place is dressed for: its own, but open from RESTO_OPENS, and shut till then. */
+export const restoOpen = () => F.mama;
+/** The level of Fix up the arena her place is dressed for: its own, but open from RESTO_OPENS, and shut till then. */
 export const restoLevel = () => (restoOpen() ? Math.max(mods.street, RESTO_OPENS) : Math.min(mods.street, RESTO_OPENS - 1));
 /** Mama Moray's takes a batch: she's open, the pot's full, and the ledge has a batch to spare of everything that goes
  *  in, over all but a batch of its room (and the doors are open, and no boss is in or called). */
@@ -1027,6 +1031,7 @@ export function setTier(t: number) { F.tier = Math.max(F.tier, t); }
 export function buyOut() { F.boughtOut = true; }
 export function buySlide() { F.slide = true; }
 export function buyFastSlide() { F.fast = true; }
+export function buyMama() { F.mama = true; }
 export function buyHall() { F.hall = true; }
 
 // ---------- saving ----------
@@ -1075,7 +1080,8 @@ export function fightFrom(raw: unknown): Fight {
       seed: clamp(Math.floor(num(r.seed, 3)), 1, 2147483646), cookT: 0,
       bonus: BONUS_TIERS.some(x => x.pct && x.pct === r.bonus?.pct) && num(r.bonus?.t) > 0 ? { pct: r.bonus!.pct, t: clamp(num(r.bonus?.t), 0, BONUS_S) } : b.bonus,
       show: showFrom(r.show),
-      slide: r.slide === true, slideAcc: 0, fast: r.slide === true && r.fast === true, hall: r.hall === true, resto: Math.max(0, Math.floor(num(r.resto))),
+      slide: r.slide === true, slideAcc: 0, fast: r.slide === true && r.fast === true, // (a game saved before she was bought had her open with the slide)
+      mama: r.slide === true && (typeof r.mama === 'boolean' ? r.mama : true), hall: r.hall === true, resto: Math.max(0, Math.floor(num(r.resto))),
       den: {
         // (a game saved before the doorman's door: the way's open already, if the second boss was beaten)
         book: typeof r.den?.book === 'boolean' ? r.den.book : num(r.beaten) >= 2,

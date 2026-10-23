@@ -3,7 +3,7 @@
 // water wheel (shed.ts) once the takeout kiosk opens, whose square sells rice fertilizer the same way, or with a
 // press of E (buy), as it sells only the one thing. The HUD's top left lists every modifier in play, as a percentage:
 // Customers there is marketing and the rating together, as both bring customers in faster. Stage 3's square is down
-// in the cellar, at the shop counter in the cookware shop, priced in Fugu Chips: pricier bowls, word on the street (fans)
+// in the cellar, at the shop counter in the cookware shop, priced in Fugu Chips: pricier bowls, fix up the arena (fans)
 // and the cellar crew; and under them a tree of everything else, bought outright (shopTree.ts): each room's machines,
 // hires and big upgrades and the venue's tiers, in bands that open fight by fight (the practice fight, then each boss).
 import { touchBuy } from './buy';
@@ -487,7 +487,7 @@ let shown = '';
  */
 function modifiers(): [icon: string, label: string, k: number][] {
   if (stage.n === 1) return [['🐟', 'Prices', boost('fillets')], ['📣', 'Customers', boost('marketing') * demand()], ['💪', 'Speed', boost('training')]];
-  // stage 3 has no rating: word on the street alone brings the fans
+  // stage 3 has no rating: fixing up the arena alone brings the fans
   if (stage.n === 3) return [['🏷️', 'Bowl price', boost('bowls')], ['📣', 'Fans', boost('street')], ['🧑‍🍳', 'Crew', boost('cellarcrew')]];
   const out: [string, string, number][] = [['🍣', 'Prices', sushiBoost()], ['📣', 'Customers', boost('promo') * demand()], ['🧑‍🍳', 'Kitchen', boost('crew')]];
   if (shedYard.open) out.push(['🌿', 'Rice growth', boost('fertilizer')]);

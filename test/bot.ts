@@ -12,7 +12,7 @@ type Game = Awaited<ReturnType<typeof loadGame>>;
 /** What each boss needs bought before his strength (💪) can be reached, by how many are beaten: what beating the boss
  *  before him opened (test/capacity.sim.test.ts, SIM_STEPS=window). A player sees it at the gong: "Lose" with the
  *  kitchen full, and that boss's card said what's new. */
-const KEY: Record<number, string[]> = { 1: ['attendant'], 2: ['slide'], 3: ['cook', 'smoke'], 4: ['fastslide'], 5: ['hall'] };
+const KEY: Record<number, string[]> = { 1: ['attendant'], 2: ['slide', 'mama'], 3: ['cook', 'smoke'], 4: ['fastslide'], 5: ['hall'] };
 /** Seconds the try-hard's walk to Harry's desk and back takes (through the doorman's door and the club). */
 const LOAN_WALK = 40;
 /** What each of the cellar's upgrades does to the fight, for the try-hard's sums (a line's machines aside: addMachine). */
@@ -322,8 +322,8 @@ export function play(g: Game, seconds: number, dt = 0.05, ring?: Ring, style: St
     if (process.env.SIM_DEBUG) console.log(`${mmss(t)} way to ${need}: ${wins ? 'wins' : "won't"} with ${ups.map(u => u.id).join(', ')}`);
     return { ups, cost: ups.reduce((a, u) => a + u.cost, 0), wins };
   }
-  /** What brings in more chips, and how many more a minute: Pricier bowls, Word on the street (while every fan's fed),
-   *  the venue's next tier, Mama's dining hall. */
+  /** What brings in more chips, and how many more a minute: Pricier bowls, Fix up the arena (while every fan's fed),
+   *  the venue's next tier, Mama Moray's and her dining hall. */
   function forChips(f: Ring['fight']): Up[] {
     const F = f.F, r = rates(), out: Up[] = [], E = g.economy, fedAll = lastLocal.fed >= lastLocal.crowd - 1;
     const crowd = (seats: number, street: number) => Math.round(seats * Math.min(1, 0.45 * E.MOD.street.per ** street));
@@ -333,6 +333,8 @@ export function play(g: Game, seconds: number, dt = 0.05, ring?: Ring, style: St
     for (const x of g.unlocks.menuOffer()) {
       if (x.id.startsWith('tier') && fedAll && c0 > 0) out.push({ id: x.id, cost: x.cost / 1000, tile: x, gain: r.stall * (crowd(f.TIERS[Number(x.id.slice(4))].seats, E.mods.street) - c0) / c0 });
       if (x.id === 'hall') out.push({ id: x.id, cost: x.cost / 1000, tile: x, gain: r.resto * (f.HALL_SHARE / f.RESTO_SHARE - 1) });
+      // (Mama Moray's, before she's taken any: about half what the stall takes, as she has in the runs so far)
+      if (x.id === 'mama') out.push({ id: x.id, cost: x.cost / 1000, tile: x, gain: r.stall * 0.5 });
     }
     return out.filter(u => u.gain! > 0 && !style.skip?.includes(u.id));
   }

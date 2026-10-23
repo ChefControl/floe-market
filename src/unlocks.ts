@@ -12,7 +12,7 @@ import { CY, showVenue } from './cellar';
 import { openSled, openTakeout } from './counters';
 import { decal, drawTile, type Decal } from './decals';
 import { boost } from './economy';
-import { addMachine, BOSSES, BUYOUT, buyFastSlide, buyHall, buySlide, CHIP, FAST_BEAT, FAST_COST, FAST_SLIDE, F, HALL_COST, HALL_SHARE, hire, HIRES, type Ing, MACH, MACH_COST, machineCost, on, practiceDue, RESTO_SHARE, setTier, SLIDE, SLIDE_BEAT, SLIDE_COST, TIER_BEAT, TIER_COST, TIERS, upgradeLine, UPS } from './fight';
+import { addMachine, BOSSES, BUYOUT, buyFastSlide, buyHall, buyMama, buySlide, CHIP, FAST_BEAT, FAST_COST, FAST_SLIDE, F, HALL_COST, HALL_SHARE, hire, HIRES, type Ing, MACH, MACH_COST, machineCost, MAMA_BEAT, MAMA_COST, on, practiceDue, RESTO_SHARE, setTier, SLIDE, SLIDE_BEAT, SLIDE_COST, TIER_BEAT, TIER_COST, TIERS, upgradeLine, UPS } from './fight';
 import { tryCatch } from './fishing';
 import { addTables } from './garden';
 import { enableKorki, KORKI } from './korki';
@@ -43,7 +43,7 @@ export type UnlockId =
   | 'paddy' | 'seats' | 'chef' | 'farmer' | 'porter' | 'plot2' | 'tables' | 'chef3' | 'tables2' | 'plot3' | 'kiosk'
   | 'premium' | 'korki' | 'blackjack' | 'slots'
   | 'dohyo' | 'rack' | 'barrel' | 'bed' | 'washer' | 'salter' | 'picker' | 'cook' | 'attendant' | 'steam' | 'smoke' | 'shelves'
-  | 'slide' | 'fastslide' | 'hall' | 'tier1' | 'tier2' | 'tier3' | 'buyout';
+  | 'slide' | 'fastslide' | 'mama' | 'hall' | 'tier1' | 'tier2' | 'tier3' | 'buyout';
 interface Unlock {
   id: UnlockId;
   cost: number;
@@ -148,7 +148,8 @@ const UNLOCKS: Unlock[] = [
   ...ring('slide', 8.6, 5.9, '🛝', 'Bowl slide', `A belt from the pot to the soup bar, ${SLIDE} bowls a second, the attendant at its motor`, SLIDE_BEAT, SLIDE_COST),
   ...ring('cook', 7.6, 5.9, '👨‍🍳', HIRES.cook.name, 'Cooks while you\'re away, full batches, and ladles twice as fast', HIRES.cook.beat, HIRES.cook.cost),
   ...ring('fastslide', 6.6, 5.9, '⏩', 'Faster belt', `The bowl slide runs at ${FAST_SLIDE} bowls a second, not ${SLIDE}`, FAST_BEAT, FAST_COST),
-  ...ring('hall', 5.6, 5.9, '🍜', "Mama's dining hall", `Mama Moray pays ${HALL_SHARE * 100}% of a bowl, not ${RESTO_SHARE * 100}%`, BOSSES.length, HALL_COST),
+  ...ring('mama', 5.6, 5.9, '🍜', "Mama Moray's", `Opens her chanko place out front: what the pot can't hold goes there, ${RESTO_SHARE * 100}% of a bowl to you`, MAMA_BEAT, MAMA_COST),
+  ...ring('hall', 4.6, 5.9, '🍽️', "Mama's dining hall", `Mama Moray pays ${HALL_SHARE * 100}% of a bowl, not ${RESTO_SHARE * 100}%`, BOSSES.length, HALL_COST),
   ...[1, 2, 3].flatMap(i => ring(`tier${i}` as UnlockId, 1.6, 1.9, ['', '🏮', '🥁', '⛩️'][i], TIERS[i].name,
     `The venue grows to ${TIERS[i].seats} seats${i === 2 ? ', with taiko drummers' : ''}`, TIER_BEAT[i], TIER_COST[i], undefined, i > 1 ? `tier${i - 1}` as UnlockId : undefined)),
   { id: 'buyout', cost: BUYOUT * CHIP, ...below(7.55, -5.25), icon: '🐡', name: 'Buy back all his chips', desc: "The ring is yours: Mr. Fugu's 30% ends, the till comes back", stage: 3, gold: true, beat: BOSSES.length },
@@ -163,12 +164,12 @@ const UNLOCKS: Unlock[] = [
 // attendant and cook; and the venue's tiers.
 const MENU_OF: Partial<Record<UnlockId, MenuRoom>> = {
   rack: 'prep', barrel: 'prep', washer: 'prep', salter: 'prep', steam: 'prep', smoke: 'prep',
-  bed: 'grow', picker: 'grow', shelves: 'grow', attendant: 'hearth', slide: 'hearth', cook: 'hearth', fastslide: 'hearth', hall: 'hearth', tier1: 'venue', tier2: 'venue', tier3: 'venue',
+  bed: 'grow', picker: 'grow', shelves: 'grow', attendant: 'hearth', slide: 'hearth', cook: 'hearth', fastslide: 'hearth', mama: 'hearth', hall: 'hearth', tier1: 'venue', tier2: 'venue', tier3: 'venue',
 };
 // The tree's lines: a line's big upgrade needs its hand first (the bowl slide the attendant: it takes over his
 // carrying, and he works its motor), and the cook the attendant (the tiers need the one before, above). The two
 // lines' hands wait for the practice fight, whose prize hires them.
-const NEEDS: Partial<Record<UnlockId, UnlockId>> = { steam: 'washer', smoke: 'salter', shelves: 'picker', slide: 'attendant', cook: 'attendant', fastslide: 'slide', hall: 'fastslide' };
+const NEEDS: Partial<Record<UnlockId, UnlockId>> = { steam: 'washer', smoke: 'salter', shelves: 'picker', slide: 'attendant', cook: 'attendant', fastslide: 'slide', mama: 'slide', hall: 'mama' };
 for (const u of UNLOCKS) {
   const room = MENU_OF[u.id];
   if (room) Object.assign(u, { menu: room, ...below(ROOM_MENUS[room].x, ROOM_MENUS[room].z) });
@@ -392,6 +393,7 @@ function ringUnlock(t: Tile) {
     if (id === 'slide') buySlide(); else buyFastSlide();
     on.built({ slide: true });
   }
+  if (id === 'mama') buyMama();
   if (id === 'hall') buyHall();
   if (id === 'tier1' || id === 'tier2' || id === 'tier3') {
     const n = Number(id.slice(4));
@@ -411,7 +413,7 @@ function syncRingTile(t: Tile) {
     const id = t.id;
     t.done = id === 'washer' || id === 'salter' || id === 'picker' || id === 'cook' || id === 'attendant' ? !!F.hires[id]
       : id === 'steam' ? F.lines.rice.up === 1 : id === 'smoke' ? F.lines.fish.up === 1 : id === 'shelves' ? F.lines.mush.up === 1
-      : id === 'slide' ? F.slide : id === 'fastslide' ? F.fast : id === 'hall' ? F.hall : id.startsWith('tier') ? F.tier >= Number(id.slice(4)) : t.done;
+      : id === 'slide' ? F.slide : id === 'fastslide' ? F.fast : id === 'mama' ? F.mama : id === 'hall' ? F.hall : id.startsWith('tier') ? F.tier >= Number(id.slice(4)) : t.done;
   }
   t.tip = tipOf(t);
   if (t.done) t.d.mesh.visible = false;
