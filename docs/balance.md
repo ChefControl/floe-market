@@ -205,9 +205,9 @@ What it shows:
 - **The end game had a rice shortage, which fertilizer fixes.** With every upgrade bought and the kitchen crew maxed, the kitchen eats about 2.35 bags a second, against 1.8 from three planted terraces. Before the fertilizer shed, the chefs stood idle with no rice 39% of the time from the kiosk on, with about 19 diners waiting and the rating sliding to ★3.6–4.0, at about $875,000 a minute 77 minutes in. Fertilizer alone wasn't enough: the farmer (about 1.8 bags a second) and then the porter (about 2) became the limit, which the farmer's sweep and the porter's 18-bag loads fix. With +20% a level, the chefs were still short 12–15% of the time until the third level was in, so each level is now +50%: the chefs are out of rice 0% of the time from the second level on (about a minute after the kiosk), with the rating at ★4.6–5.0 and about $1.6 million a minute 77 minutes in. Without the fertilizer, the same farmer and porter still leave the chefs short 33–36% of the time.
 - **Stage 2 is long:** about 42 minutes, against 33 before the garden and the slower terraces. The bot buys the cheaper repeatable upgrades before each tile, which leaves two gaps of about 8 minutes between tiles (the terrace to More seats, the Second chef to the farmer), and the rating dips to ★2.6 to ★2.8 in the second, while rice is carried in by hand.
 
-## The stage-up: Buy into the ring ($1,000,000)
+## The stage-up: Buy into the ring ($100,000)
 
-**What it's about:** Mr. Fugu's offer is the reward for finishing Floe Sushi (he turns up once the till passes a million), and his buy-in is stage 2's capstone. It leaves the player nearly broke at the foot of the ladder.
+**What it's about:** Mr. Fugu's offer is the reward for finishing Floe Sushi (he knocks once every stage 2 upgrade is bought, whatever the cash), and his buy-in is stage 2's capstone. At $100,000 it's under a minute of the finished restaurant's income, so building it all is what ends stage 2, not saving up; whatever's left waits in the till. The cellar starts from no chips either way.
 
 **Principles**
 - The restaurant keeps running upstairs as the front, but its takings are Mr. Fugu's rent until the buyout. Otherwise stage 2's income (over $250,000 a minute by then) would make stage 3's first prices meaningless. The playtest also tries a trickle (`?front=trickle`, a fifth of the takings).

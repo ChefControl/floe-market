@@ -132,7 +132,7 @@ const UNLOCKS: Unlock[] = [
   // by Mr. Fugu's hatch, once the player has said yes to him
   // (just in front of his hatch, on the restaurant's side, where the player stands to meet him: any nearer the
   // restaurant and its eaves hide it from the camera)
-  { id: 'dohyo', cost: 1_000_000, x: HATCH_AT.x, z: HATCH_AT.z + 1.65, size: 2.0, icon: '🐡', art: 'mrFugu', name: 'Buy into the ring', desc: "Stage 3: Mr. Fugu's sumo ring under the dock. Your cash stays in the till", stage: 2, gold: true },
+  { id: 'dohyo', cost: 100_000, x: HATCH_AT.x, z: HATCH_AT.z + 1.65, size: 2.0, icon: '🐡', art: 'mrFugu', name: 'Buy into the ring', desc: "Stage 3: Mr. Fugu's sumo ring under the dock. Your cash stays in the till", stage: 2, gold: true },
   // down in the cellar, priced in chips (all but the buyout sold at the cookware shop: these spots are only where their
   // tiles were), and the buyout in Mr. Fugu's office
   ...ring('rack', 13.2, 3.9, '🌾', 'Another drying rack', 'More room on the rice line', 0, MACH_COST.rice, 'rice'),
