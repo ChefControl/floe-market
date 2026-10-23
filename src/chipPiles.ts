@@ -1,11 +1,11 @@
 // Fugu Chips piling up in the cellar (stage 3), as bills do on the counters up top: the fans' chips in a till crate in
-// the soup square's north-east corner, a step from where the bowls are set out, and Mama Moray's cut on her counter by
-// her till. Walk over a pile to scoop it up (playerUpdate.ts); a boss's prize goes straight to the wallet (ring.ts).
+// the soup square's north-east corner, a step from where the bowls are set out (CHIP_CRATE), and Mama Moray's cut on
+// her counter by her till. Walk over a pile to scoop it up (playerUpdate.ts); a boss's prize goes straight to the wallet (ring.ts).
 // What's in each is the fight's (F.piles, saved with it); this draws it, a token for every TOKEN chips, MOST at most,
 // in stacks of STACK.
 import { BoxGeometry, CylinderGeometry, Group } from 'three';
 import { cellar, CY } from './cellar';
-import { MAMA_COUNTER, TILL } from './cellarPlan';
+import { CHIP_CRATE, MAMA_COUNTER, TILL } from './cellarPlan';
 import { CHIP, F, type Pile } from './fight';
 import { fly } from './holder';
 import { headless } from './headless';
@@ -17,7 +17,7 @@ import { addMoney } from './wallet';
 
 /** Where each pile is (`y`, the top it sits on), and from how far it's scooped up. */
 export const PILE_AT: Record<Pile, XZ & { y: number }> = {
-  bar: { x: 3.55, z: 4.75, y: CY + 0.36 },
+  bar: { x: CHIP_CRATE.x, z: CHIP_CRATE.z, y: CY + CHIP_CRATE.h },
   mama: { x: TILL.x + 0.55, z: TILL.z + 0.25, y: CY + MAMA_COUNTER.h },
 };
 export const PILE_REACH = 1.5;
@@ -32,7 +32,7 @@ const piles = Object.fromEntries((Object.keys(PILE_AT) as Pile[]).map(k => {
   const at = PILE_AT[k], g = new Group();
   g.position.set(at.x, at.y, at.z);
   // (the soup square's stands on a crate; Mama's on her counter)
-  if (k === 'bar') g.add(mesh(new BoxGeometry(0.5, 0.36, 0.42), 0x7A5634, 0, -0.18, 0, true));
+  if (k === 'bar') g.add(mesh(new BoxGeometry(CHIP_CRATE.w, CHIP_CRATE.h, CHIP_CRATE.d), 0x7A5634, 0, -CHIP_CRATE.h / 2, 0, true));
   const tokens = Array.from({ length: MOST }, (_, i) => {
     const [x, z] = SPOTS[Math.floor(i / STACK) % SPOTS.length];
     const m = mesh(tokenGeo, i % 2 ? GOLD : PINK, x, T / 2 + (i % STACK) * T, z, true);

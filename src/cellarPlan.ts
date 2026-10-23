@@ -76,6 +76,9 @@ export const BAR = (() => {
 export const FLAP = { z0: BAR.z1 - 0.9, z1: BAR.z1 };
 /** Where to stand to set the bowls out: the square's floor, inside its counters. */
 export const BAR_PAD = pad(2.2, 5.6, 0.8);
+/** The till crate the fans' chips pile up on (chipPiles.ts): in the square's north-east corner, against the north
+ *  counter and clear of the hearth room's doorway, within reach of where the bowls are set out. */
+export const CHIP_CRATE = { x: 3.1, z: 4.6, w: 0.5, d: 0.42, h: 0.36 };
 /** How far a point is from the square's outside (0 on or inside it). */
 export const fromBar = (p: XZ) => Math.hypot(Math.max(BAR.x0 - p.x, 0, p.x - BAR.x1), Math.max(BAR.z0 - p.z, 0, p.z - BAR.z1));
 /** The nearest point of the square's outside to `p` (where a fan waiting there looks). */
