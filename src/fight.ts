@@ -240,6 +240,8 @@ export interface Fight {
   mama: boolean; hall: boolean;
   /** Bowls sent up the belt to Mama Moray's, all told. */
   resto: number;
+  /** Chips piled up to be scooped (chipPiles.ts): the fans' at the soup square, Mama Moray's cut at her till. */
+  piles: Record<Pile, number>;
   /** A cooking show left half way (chanko.ts), to carry on from, never to start over: null when there's none. */
   show: ShowRun | null;
   /** The Undertow (undertow.ts): whether Mr. Fugu's given you his matchbook yet, whether the doorman's let you in through
@@ -266,6 +268,8 @@ export interface Den {
 export interface ShowRun { step: number; got: number[][]; lines: number[] }
 /** Hammerhead Harry's loan (loan.ts): chips still owed (0: none), and what was owed when it was made. */
 export interface Loan { owed: number; total: number }
+/** Where chips pile up to be scooped (chipPiles.ts): the soup square, Mama Moray's till. */
+export type Pile = 'bar' | 'mama';
 
 const line = (n: number): Line => ({ n, up: 0, m: [] });
 /** A bout's preparation, from the start (how many fans come is worked out as it starts: -1). */
@@ -277,7 +281,7 @@ export function blank(): Fight {
     pantry: { rice: 0, fish: 0, mush: 0 }, pot: [], potT: 0, counter: [], stall: [],
     queue: [], fed: [], cooked: [], full: [], fullAcc: 0, earned: [],
     rush: null, bout: freshBout(0),
-    seed: 3, cookT: 0, bonus: { pct: 0, t: 0 }, show: null, slide: false, slideAcc: 0, fast: false, mama: false, hall: false, resto: 0,
+    seed: 3, cookT: 0, bonus: { pct: 0, t: 0 }, show: null, slide: false, slideAcc: 0, fast: false, mama: false, hall: false, resto: 0, piles: { bar: 0, mama: 0 },
     den: {
       book: false, way: false, door: false, monte: { bout: -1, played: 0 }, eddie: { boss: -1, cut: 0, caught: false }, scandal: { cut: 0, bouts: 0 },
       loan: { owed: 0, total: 0 }, met: { eddie: false, harry: false, tommy: false },
@@ -1082,6 +1086,7 @@ export function fightFrom(raw: unknown): Fight {
       show: showFrom(r.show),
       slide: r.slide === true, slideAcc: 0, fast: r.slide === true && r.fast === true, // (a game saved before she was bought had her open with the slide)
       mama: r.slide === true && (typeof r.mama === 'boolean' ? r.mama : true), hall: r.hall === true, resto: Math.max(0, Math.floor(num(r.resto))),
+      piles: { bar: Math.max(0, num(r.piles?.bar)), mama: Math.max(0, num(r.piles?.mama)) },
       den: {
         // (a game saved before the doorman's door: the way's open already, if the second boss was beaten)
         book: typeof r.den?.book === 'boolean' ? r.den.book : num(r.beaten) >= 2,

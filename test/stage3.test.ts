@@ -767,10 +767,17 @@ describe('the kitchen, by hand', () => {
     at(plan.BAR_PAD);
     g.run(2);
     expect(back.count('bowl')).toBe(0);
-    // the fans walk in and eat: each bowl's chips, less Mr. Fugu's 30%, go into the wallet
+    // the fans walk in and eat: each bowl's chips, less Mr. Fugu's 30%, pile up in the soup square's crate (the player
+    // a step from it, at the bowls' pad), and walking over them scoops them into the wallet
     g.runUntil(() => F().stall.length === 0, 200);
     g.run(0.1);
-    expect(g.wallet.money - money).toBeCloseTo(n * fight.PRICE * fight.CUT * fight.CHIP, 0);
+    expect(g.wallet.money).toBe(money);
+    expect(F().piles.bar).toBeCloseTo(n * fight.PRICE * fight.CUT, 5);
+    const { PILE_AT } = await import('../src/chipPiles');
+    at(PILE_AT.bar);
+    g.run(1);
+    expect(F().piles.bar).toBe(0);
+    expect(g.wallet.money - money).toBeCloseTo(n * fight.PRICE * fight.CUT * fight.CHIP, -1);
     // (💪: the fans fed in this bout's preparation, which may not be all of them: the first came in an earlier bout)
     expect(fight.strength()).toBe(F().bout.fed);
     expect(fight.strength()).toBeGreaterThan(0);
@@ -1620,7 +1627,9 @@ describe("the cellar's tiles", () => {
     g.run(120, 1 / 30);
     expect(F().stall.length + F().fed.length).toBeGreaterThan(0);
     expect(F().cooked.length).toBeGreaterThan(0);
-    expect(g.wallet.money).toBeGreaterThan(money);
+    // (their chips piled up at the soup square, for the player to scoop)
+    expect(F().piles.bar).toBeGreaterThan(0);
+    expect(g.wallet.money).toBe(money);
   }, 30_000);
 
   it('serving is taken off the player\'s hands before the pot: the attendant after the first boss, the cook after the third', async () => {
@@ -1704,6 +1713,24 @@ describe("the cellar's tiles", () => {
     const { mama: _, ...before } = fight.saveFight();
     expect(fight.fightFrom(before).mama).toBe(true);
     expect(fight.fightFrom({ ...before, slide: false }).mama).toBe(false);
+  });
+
+  it("chips pile up to be scooped: the fans' at the soup square, Mama Moray's cut at her till; a prize goes straight to the wallet", async () => {
+    const { g, fight, F, at } = await ring({ money: 0, ring: { beaten: 2 } });
+    const { PILE_AT, pilesNow } = await import('../src/chipPiles');
+    fight.on.earn(12, 'bowls');
+    fight.on.earn(5, 'resto');
+    fight.on.earn(100, 'prize');
+    expect(F().piles).toEqual({ bar: 12, mama: 5 });
+    expect(g.wallet.money).toBe(100_000);
+    expect(pilesNow().tokens).toEqual({ bar: 6, mama: 3 });
+    // (kept with the save)
+    expect(fight.fightFrom(fight.saveFight()).piles).toEqual({ bar: 12, mama: 5 });
+    // walking over Mama's (from the end of her counter) scoops hers, not the soup square's
+    at({ x: PILE_AT.mama.x + 1.2, z: PILE_AT.mama.z });
+    g.run(1);
+    expect(F().piles).toEqual({ bar: 12, mama: 0 });
+    expect(g.wallet.money).toBe(105_000);
   });
 
   it("Mama's dining hall waits for Fukure and Mama Moray's, and she pays half a bowl, not an eighth", async () => {

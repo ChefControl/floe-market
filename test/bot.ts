@@ -22,10 +22,10 @@ const BOSS_UP: Record<string, (f: Ring['fight']) => void> = {
 };
 /** The modules the bot plays the ring with. */
 export async function ringModules() {
-  const [cellar, plan, fight, loan, loanDesk] = await Promise.all([
-    import('../src/cellar'), import('../src/cellarPlan'), import('../src/fight'), import('../src/loan'), import('../src/loanDesk'),
+  const [cellar, plan, fight, loan, loanDesk, piles] = await Promise.all([
+    import('../src/cellar'), import('../src/cellarPlan'), import('../src/fight'), import('../src/loan'), import('../src/loanDesk'), import('../src/chipPiles'),
   ]);
-  return { cellar, plan, fight, loan, loanDesk };
+  return { cellar, plan, fight, loan, loanDesk, piles };
 }
 type Ring = Awaited<ReturnType<typeof ringModules>>;
 interface P { x: number; z: number }
@@ -73,6 +73,9 @@ export function play(g: Game, seconds: number, dt = 0.05, ring?: Ring, style: St
   /** The best the gong's forecast has said, for each boss (by name), whether rung or not. */
   const best = new Map<string, number>();
   let rushBonus = 0;
+  /** Where to stand to scoop each pile of chips (chipPiles.ts): at the soup square's crate, and at the end of Mama
+   *  Moray's counter by her till. */
+  const PILE_STAND = ring ? { bar: { x: ring.piles.PILE_AT.bar.x, z: ring.piles.PILE_AT.bar.z }, mama: { x: ring.plan.MAMA_COUNTER.x1 + 0.35, z: ring.piles.PILE_AT.mama.z } } : { bar: { x: 0, z: 0 }, mama: { x: 0, z: 0 } };
   /** The try-hard's takings, a second apart over the last two minutes: chips from the stall and from Mama Moray's. */
   const takings: { t: number; stall: number; resto: number }[] = [];
   /** What the gong said last, for the samples: the boss, turned of needed. */
@@ -241,8 +244,13 @@ export function play(g: Game, seconds: number, dt = 0.05, ring?: Ring, style: St
       if (v > 0) out.push({ pos, v });
     };
     for (const C of g.counters.COUNTERS) if (C.enabled || C.cash.n) add(C.cashPos, C.cash.items);
-    // (down in the cellar, chips go straight into the wallet)
-    if (g.layout.level.down) return [];
+    // (down in the cellar, the piles of chips: where to stand to scoop each, by the soup square's crate or at the end of
+    // Mama Moray's counter; never in a boss's rush, when the kitchen wants every hand)
+    if (g.layout.level.down) {
+      if (!ring || ring.fight.F.rush || ring.fight.F.called) return [];
+      const F = ring.fight.F;
+      return (['bar', 'mama'] as const).filter(k => F.piles[k] > 0).map(k => ({ pos: PILE_STAND[k], v: F.piles[k] * 1000 })).sort((a, b) => b.v - a.v);
+    }
     if (g.restaurant.sushi.built) add(g.restaurant.REGISTER, g.restaurant.register.items);
     return out.sort((a, b) => b.v - a.v);
   };
@@ -347,7 +355,8 @@ export function play(g: Game, seconds: number, dt = 0.05, ring?: Ring, style: St
     const F = f.F, key = `${bought.length}|${F.beaten}`;
     if (F.rush || F.called) return null;
     if (!way || way.key !== key || t >= way.at + 10) way = { at: t, key, ...(f.nextBoss() ? wayToWin(f) : { ups: [], cost: 0 }) };
-    const m = wallet.money / 1000, r = rates(), rate = r.stall + r.resto;
+    // (what's piled up to be scooped counts: it's a walk away)
+    const m = (wallet.money + cashSpots().reduce((s, c) => s + c.v, 0)) / 1000, r = rates(), rate = r.stall + r.resto;
     if (way.ups.length && m >= way.ups[0].cost) return way.ups[0];
     // (Harry's bridge, once the Undertow's open: a loan, when it buys the rest of the way at once; a walk to his desk
     // and back)
@@ -396,7 +405,14 @@ export function play(g: Game, seconds: number, dt = 0.05, ring?: Ring, style: St
   function decide() {
     // (the try-hard, down in the cellar, buys by its sums: tryWant)
     if (ring && style.tryhard && g.layout.level.down) {
-      const want = tryWant(ring.fight), tile = nextTile();
+      const want = tryWant(ring.fight), tile = nextTile(), cash = cashSpots(), held = cash.reduce((s, c) => s + c.v, 0);
+      // (its chips in a pile, when they'd buy what it wants, or there are a lot of them: scooped first)
+      const short = want ? want.cost * 1000 - wallet.money : tile ? tile.cost - tile.paid - wallet.money : Infinity;
+      if (cash.length && ((short > 0 && held >= short) || held > 150_000)) {
+        const c = cash[0];
+        go(c.pos, () => near(c.pos, 1.2) && cashSpots().every(x => x.pos !== c.pos), 30);
+        return;
+      }
       if (want && wallet.money >= want.cost * 1000) {
         const x = want.tile;
         if (x) {
@@ -440,7 +456,9 @@ export function play(g: Game, seconds: number, dt = 0.05, ring?: Ring, style: St
       return;
     }
     const target = Math.min(tile ? tile.cost - tile.paid : Infinity, modCost) - wallet.money;
-    if (cash.length && (uncollected >= Math.min(target, 40) || uncollected > 150)) {
+    // (down in the cellar, a pile's worth the walk at 20 chips, or at 150 whatever's wanted)
+    const [low, high] = g.layout.level.down ? [20_000, 150_000] : [40, 150];
+    if (cash.length && (uncollected >= Math.min(target, low) || uncollected > high)) {
       const c = cash[0];
       go(c.pos, () => near(c.pos, 1.2) && cashSpots().every(x => x.pos !== c.pos), 20);
       return;

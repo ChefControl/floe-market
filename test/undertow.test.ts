@@ -534,9 +534,9 @@ describe('the Undertow', () => {
     expect($('iou').hidden).toBe(false);
     expect($('iouLeft').textContent).toBe('30% of sales');
     // he takes three chips in ten of what the stall sells, not of a prize
-    const due = Lo.owed(), before = g.wallet.money;
+    const due = Lo.owed(), before = fight.F.piles.bar;
     fight.on.earn(10, 'bowls');
-    expect(g.wallet.money).toBe(before + 7000);
+    expect(fight.F.piles.bar).toBeCloseTo(before + 7);
     expect(Lo.owed()).toBeCloseTo(due - 3);
     fight.on.earn(10, 'prize');
     expect(Lo.owed()).toBeCloseTo(due - 3);
@@ -549,10 +549,10 @@ describe('the Undertow', () => {
     expect($('iou').hidden).toBe(true);
     // or let the sales pay it: he never takes more than's owed
     expect(D.takeLoan(10)).toBe(true);
-    const owing = Lo.owed(), had = g.wallet.money;
+    const owing = Lo.owed(), had = fight.F.piles.bar;
     fight.on.earn(100, 'bowls');
     expect(Lo.owed()).toBe(0);
-    expect(g.wallet.money).toBe(had + (100 - owing) * 1000);
+    expect(fight.F.piles.bar).toBeCloseTo(had + 100 - owing);
   });
 
   it("Gus, the blobfish at the bar, tells you what he's heard about the next boss for a drink", async () => {

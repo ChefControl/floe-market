@@ -40,7 +40,9 @@ export const PLACES: Partial<Record<UnlockId, Place>> = {
   rack: { lane: 'rice', label: 'Drying rack' }, washer: { lane: 'rice', from: 'rack' }, steam: { lane: 'rice', from: 'washer' },
   barrel: { lane: 'fish', label: 'Salt barrel' }, salter: { lane: 'fish', from: 'barrel' }, smoke: { lane: 'fish', from: 'salter' },
   bed: { lane: 'mush', label: 'Mushroom bed' }, picker: { lane: 'mush', sub: 1, from: 'bed' }, shelves: { lane: 'mush', from: 'picker', label: 'Glowing shelves' },
-  attendant: { lane: 'hearth' }, slide: { lane: 'hearth', sub: 1, from: 'attendant' }, cook: { lane: 'hearth', from: 'attendant' }, fastslide: { lane: 'hearth', from: 'slide', label: 'Faster belt' }, mama: { lane: 'hearth', from: 'slide', label: "Mama Moray's" }, hall: { lane: 'hearth', from: 'mama', label: "Mama's hall" },
+  attendant: { lane: 'hearth' }, slide: { lane: 'hearth', sub: 1, from: 'attendant' }, cook: { lane: 'hearth', from: 'attendant' }, fastslide: { lane: 'hearth', sub: 1, from: 'slide', label: 'Faster belt' },
+  // (Mama Moray's and her hall a row of their own, so no link crosses a node on its way)
+  mama: { lane: 'hearth', sub: 2, from: 'slide', label: "Mama Moray's" }, hall: { lane: 'hearth', sub: 2, from: 'mama', label: "Mama's hall" },
   tier1: { lane: 'venue', label: 'Back-Alley Ring' }, tier2: { lane: 'venue', from: 'tier1', label: 'Underground Arena' }, tier3: { lane: 'venue', from: 'tier2', label: 'Grand Hall Below' },
   buyout: { label: 'Buy him out' },
 };

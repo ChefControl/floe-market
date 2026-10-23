@@ -262,7 +262,8 @@ body{
 #shop .laneName .ic{ font-size:17px; line-height:1.1; }
 #shop .node{
   position:absolute; box-sizing:border-box; display:flex; align-items:center; gap:7px; padding:5px 8px; border:0; border-radius:14px;
-  background:var(--chip); color:inherit; text-align:left; font:600 12px "Baloo 2","Trebuchet MS",system-ui,sans-serif; cursor:default;
+  /* (solid, so a link passing behind one never shows through it) */
+  background:linear-gradient(var(--chip), var(--chip)), var(--bg); color:inherit; text-align:left; font:600 12px "Baloo 2","Trebuchet MS",system-ui,sans-serif; cursor:default;
 }
 #shop .levels .node{ position:relative; padding:5px 7px; min-height:44px; }
 #shop .node .ic{ font-size:22px; line-height:1; flex:none; }
