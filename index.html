@@ -951,16 +951,15 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
 #rush .rope u{ position:absolute; top:-5px; left:50%; width:22px; height:22px; border-radius:50%; background:#F4ECDC; border:3px solid var(--fn-navy);
   box-sizing:border-box; translate:-50% 0; transition:left .2s; }
 #rush .rope em[hidden], #rush .rope u[hidden]{ display:none; }
-/* The slam, on a grand win: a white ring closing on the champion's face to meet the gold one, and the button. */
-#slamRing{ position:absolute; left:9px; top:50%; width:52px; height:52px; translate:0 -50%; border-radius:50%; pointer-events:none;
-  box-shadow:0 0 0 4px var(--fn-gold), 0 0 14px 4px rgba(237,185,74,.6); }
-#slamRing[hidden]{ display:none; }
-#slamRing b{ position:absolute; inset:-3px; border-radius:50%; border:3px solid #fff; }
-#slamGo{ position:absolute; left:50%; translate:-50% 0; top:calc(100% + 8px); pointer-events:auto; cursor:pointer; border:0; border-radius:8px;
-  background:var(--fn-gold); color:#2A0F16; font:400 16px/1 var(--fn-arcade); padding:9px 12px 7px; box-shadow:0 3px 0 #A9761C; white-space:nowrap; }
-#slamGo[hidden]{ display:none; }
-#slamGo kbd{ font:800 13px/1 "Baloo 2","Trebuchet MS",system-ui,sans-serif; background:#2A0F16; color:var(--fn-gold); border-radius:4px; padding:3px 6px 2px; }
-#slamGo.said{ background:var(--fn-navy); color:var(--fn-gold); box-shadow:0 0 0 2px var(--fn-gold); cursor:default; }
+/* A grand win's counters (gong.ts): the words under the strip (on his first wind-up, and for the final blow), the
+   counters in a row at its left, and the final blow's slow motion darkening the screen's edges. */
+#qteSay{ position:absolute; left:50%; translate:-50% 0; top:calc(100% + 8px); border-radius:8px; background:var(--fn-seal); color:#fff;
+  font:800 17px/1 "Baloo 2","Trebuchet MS",system-ui,sans-serif; padding:9px 13px 6px; box-shadow:0 3px 0 #7E1F17; white-space:nowrap; }
+#qteSay[hidden], #qteStreak[hidden]{ display:none; }
+#qteSay kbd{ font:800 13px/1 "Baloo 2","Trebuchet MS",system-ui,sans-serif; background:#2A0F16; color:var(--fn-gold); border-radius:4px; padding:3px 6px 2px; }
+#qteStreak{ position:absolute; left:6px; top:calc(100% + 6px); font:400 26px/1 var(--fn-arcade); color:var(--fn-gold); text-shadow:2px 2px 0 #2A0F16; }
+#slowFx{ position:fixed; inset:0; pointer-events:none; z-index:1; opacity:0; transition:opacity .35s;
+  background:radial-gradient(ellipse at 50% 50%, rgba(8,12,24,0) 35%, rgba(8,12,24,.75) 100%); }
 /* The watch button, on a boss's fight: under the strip's right end, gold; navy with a gold ring while it's on. */
 #watchWrap{ position:absolute; right:0; top:calc(100% + 8px); pointer-events:auto; }
 #watchGo{ --c:var(--fn-gold); --c-ink:var(--fn-navy); --c-drop:#A9761C; --pick:var(--fn-navy); --pick-ink:var(--fn-gold); --pick-drop:#0A1120;
@@ -1227,7 +1226,8 @@ body.offer #wayAlert, body.way #wayAlert, body.meet #wayAlert{ visibility:hidden
   #iou .bar{ display:none; }
   #rush{ top:calc(env(safe-area-inset-top,0px) + 104px); gap:8px; padding:6px 8px; width:min(calc(100vw - 16px),420px); }
   #rush .port{ width:40px; height:40px; font-size:20px; border-width:2px; }
-  #slamRing{ left:8px; width:40px; height:40px; }
+  #qteSay{ font-size:15px; }
+  #qteStreak{ font-size:21px; }
   #rush .row{ font-size:14px; gap:6px; }
   #rush .row b{ font-size:15px; }
   #gong .vs{ grid-template-columns:1fr 42px 1fr; height:60px; }
@@ -1680,6 +1680,7 @@ body.show #toss, body.show #cook, body.show #coach, body.show #hint, body.show #
 <div id="err" role="alert"><span id="errMsg"></span><button id="errReport" type="button" hidden>Report this</button></div>
 
 <div id="ringFlash" aria-hidden="true"></div>
+<div id="slowFx" aria-hidden="true"></div>
 <div id="epic" hidden aria-hidden="true"><div class="lines"></div><div class="flash"></div><div class="words"></div></div>
 <section id="gong" aria-label="The gong" hidden>
   <div class="vs"><div class="you"><i class="port" id="gongYouP" aria-hidden="true"></i><span class="name">Chunkos</span></div><b class="x" aria-hidden="true">VS</b><div class="them"><span class="name" id="gongBoss"></span><i class="port" id="gongThemP" aria-hidden="true"></i></div></div>
@@ -1693,8 +1694,8 @@ body.show #toss, body.show #cook, body.show #coach, body.show #hint, body.show #
   <i class="port" id="rushYouP" aria-hidden="true"></i>
   <div class="mid"><div class="row"><span id="rushYou"></span><b id="rushBell"></b><span id="rushThem"></span></div><div class="rope" aria-hidden="true"><i id="rushBar"></i><em id="rushGoal"></em><u id="rushKnot"></u></div></div>
   <i class="port" id="rushThemP" aria-hidden="true"></i>
-  <i id="slamRing" aria-hidden="true" hidden><b></b></i>
-  <button type="button" id="slamGo" hidden>SLAM! <kbd>Space</kbd> on gold</button>
+  <div id="qteSay" role="status" hidden></div>
+  <b id="qteStreak" aria-hidden="true" hidden></b>
   <div class="k-panel" data-skin="fight" id="watchWrap"><button type="button" class="k-btn k-choice" id="watchGo" data-key="V" aria-pressed="false" hidden>👁️ Watch</button></div>
 </div>
 <div id="fightBanner" role="status" hidden><div class="lines"></div><div class="in"><div class="kan" aria-hidden="true">入場</div><div class="txt"><b id="bannerWho"></b><span id="bannerGoal"></span></div></div></div>

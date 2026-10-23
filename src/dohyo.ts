@@ -19,12 +19,12 @@
 // thrash in the fight and he squirts ink at the straw and when he lands; Yokobashiri walks in and off sideways and
 // snaps his claws; Dobu's stamps shake the ring; Samehada grins (CHOMP!); and Fukure blows up for the glare, the charge
 // and whenever he's winning, and goes down like a balloon when he's beaten.
-import { CanvasTexture, type Object3D, Sprite, SpriteMaterial, Vector3 } from 'three';
+import { AdditiveBlending, CanvasTexture, type Object3D, Sprite, SpriteMaterial, Vector3 } from 'three';
 import { boss, CY, DRUMS, parts, PIT_STEPS, RING, RING_HALF, RING_R, RING_TOP } from './cellar';
 import { TEPPO } from './cellarPlan';
 import { belowGround, Person } from './characters';
 import { gyojiModel } from './gyoji';
-import { bossOf, BOUT, epic, F, payLen } from './fight';
+import { bossOf, BOUT, COUNTER, epic, F, finalOn, payLen, qte, tellOf } from './fight';
 import { animOf, moveOf } from './finishers';
 import { aftermath, UP, type Ctx, drive as driveRig, type FinishMove, type Frame, type Fx, makeRing, type V3 } from './finishRig';
 import { epicOff, epicScreen, updEpic } from './epicFx';
@@ -184,7 +184,7 @@ function standOff(u: number, cx: number, D: number): [At, At] {
   return pair;
 }
 function fightAt(u: number): [At, At] {
-  const D = contact(), cx = -F.bout.tug * PUSH;
+  const D = contact(), cx = -(F.bout.tug + shove) * PUSH;
   if (u < 0.36) {
     // the charge, out of the crouch and into each other
     const k = ease(u / 0.36), p = mixPose(CROUCH, CHARGE, Math.min(1, k * 1.6));
@@ -267,8 +267,8 @@ const words = quietly(() => Array.from({ length: 6 }, () => {
   return { s, c, tex, t: 0, life: 0, size: 1, bubble: false };
 }));
 let wordAt = 0;
-function word(text: string, p: Vector3, o: { fill?: string; size?: number; bubble?: boolean; life?: number } = {}) {
-  if (!o.bubble && !isHigh()) return;
+function word(text: string, p: Vector3, o: { fill?: string; size?: number; bubble?: boolean; life?: number; always?: boolean } = {}) {
+  if (!o.bubble && !o.always && !isHigh()) return;
   const w = words[wordAt++ % words.length], c = w.c.getContext('2d')!, W = w.c.width, H = w.c.height;
   c.clearRect(0, 0, W, H);
   c.textAlign = 'center'; c.textBaseline = 'middle';
@@ -329,6 +329,113 @@ const v3 = new Vector3();
 const where = (o: Object3D) => o.getWorldPosition(new Vector3());
 const mid = () => where(champ).lerp(where(rival), 0.5);
 const dust = (p: Vector3, n: number, big = 1) => dustFx(v3.set(p.x, p.y + 0.05, p.z), n, big);
+
+
+// ---------- a grand win's counters (fight.ts's COUNTER) ----------
+// His wind-up: his slapping arm drawn back high over his head, gold sparks flickering above it and a glow on him, the
+// warning (shown on any graphics: it's what the player answers). Countered, the champion swats the arm aside and
+// shoves him back a step: a hit, a burst, the camera kicked. Not countered, his slap snaps the champion's head round
+// and drives him back. The final blow: a gold mark swells on his belly, white as it's time to press; and the slam
+// lands as ever (moments).
+const spark = (c: CanvasRenderingContext2D, W: number) => {
+  c.lineCap = 'round'; c.lineJoin = 'round';
+  for (const [w, col] of [[16, '#2A0F16'], [8, '#FFE27A']] as const) {
+    c.strokeStyle = col; c.lineWidth = w; c.beginPath();
+    for (let i = 0; i < 7; i++) {
+      const a = -Math.PI / 2 + (i - 3) * 0.42, r0 = W * 0.18, r1 = W * 0.44, m = (r0 + r1) / 2;
+      c.moveTo(W / 2 + Math.cos(a) * r0, W / 2 + Math.sin(a) * r0);
+      c.lineTo(W / 2 + Math.cos(a) * m + Math.cos(a + 1.6) * W * 0.04, W / 2 + Math.sin(a) * m + Math.sin(a + 1.6) * W * 0.04);
+      c.lineTo(W / 2 + Math.cos(a) * r1, W / 2 + Math.sin(a) * r1);
+    }
+    c.stroke();
+  }
+};
+const qfx = quietly(() => {
+  const tex = (draw: (c: CanvasRenderingContext2D, W: number) => void) => {
+    const c = document.createElement('canvas'); c.width = c.height = 256;
+    const x = c.getContext('2d');
+    if (x) draw(x, 256);
+    return new CanvasTexture(c);
+  };
+  const sprite = (map: CanvasTexture, add = false) => {
+    const m = new Sprite(new SpriteMaterial({ map, depthTest: false, transparent: true, blending: add ? AdditiveBlending : undefined }));
+    m.visible = false; m.renderOrder = 7; scene.add(m);
+    return m;
+  };
+  return {
+    sparks: sprite(tex(spark)),
+    glow: sprite(tex((c, W) => {
+      const g = c.createRadialGradient(W / 2, W / 2, 0, W / 2, W / 2, W / 2);
+      g.addColorStop(0, 'rgba(255,214,90,0.75)'); g.addColorStop(1, 'rgba(255,214,90,0)');
+      c.fillStyle = g; c.fillRect(0, 0, W, W);
+    }), true),
+    mark: sprite(tex((c, W) => {
+      c.lineWidth = 34; c.strokeStyle = '#2A0F16'; c.beginPath(); c.arc(W / 2, W / 2, W * 0.36, 0, Math.PI * 2); c.stroke();
+      c.lineWidth = 20; c.strokeStyle = '#fff'; c.stroke();
+    })),
+  };
+});
+/** How far the champion's shoved the boss (+) or been shoved (−) by the counters, easing off; and the counters as last
+ *  seen, the move each is playing, and how long it's been playing. */
+let shove = 0, gotWas: number[] = [], move: 'counter' | 'hit' | null = null, moveT = 0;
+const GOLD = 0xFFD34A;
+function counters(dt: number) {
+  const Q = qte() ?? (F.bout.phase === 'fight' ? F.rush?.qte ?? null : null);
+  shove *= Math.exp(-dt * 1.2);
+  moveT += dt;
+  if (moveT > 0.5) move = null;
+  const { sparks, glow, mark } = qfx;
+  if (!Q) { sparks.visible = glow.visible = mark.visible = false; gotWas = []; return; }
+  // how each slap went
+  Q.got.forEach((g, i) => {
+    if (g === gotWas[i] || g < 0) return;
+    // (low, at their chests: the camera has them high on the screen, under the strip)
+    const p = where(champ.chestAt).lerp(where(rival.chestAt), 0.6);
+    if (g > 0) {
+      move = 'counter'; moveT = 0; shove = Math.min(0.3, shove + (g > 1 ? 0.24 : 0.18));
+      burst(p, g > 1 ? 1.5 : 1.1); rival.kick(g > 1 ? 10 : 7); champ.kick(3); sl[1].snap = 1;
+      hit(g > 1 ? 0.35 : 0.25, g > 1 ? 0.35 : 0.15, g > 1 ? 0.9 : 0.6); react('edge');
+      word(g > 1 ? 'PERFECT!' : 'COUNTER!', p.setY(p.y + 0.1), { size: g > 1 ? 1.3 : 1.1, fill: '#FFD34A', life: 0.9, always: true });
+    } else {
+      move = 'hit'; moveT = 0; shove = Math.max(-0.25, shove - 0.16);
+      burst(p, 0.9); champ.kick(8); sl[0].snap = 1; hit(0.22, 0, 0.5);
+      word(rival.kind ? SLAPS[rival.kind][0] : 'SLAP!', p.setY(p.y + 0.1), { size: 1.0, fill: '#FF8A7A', life: 0.8, always: true });
+    }
+  });
+  gotWas = [...Q.got];
+  // his wind-up: the sparks over his head (flickering), the glow on him
+  const i = tellOf(Q), k = i >= 0 ? 1 - (Q.at[i] - F.bout.t) / COUNTER.tell : 0;
+  sparks.visible = glow.visible = i >= 0;
+  if (i >= 0) {
+    const head = where(rival.neck);
+    sparks.position.set(head.x, head.y + 0.45, head.z);
+    sparks.scale.setScalar((1.15 + 0.25 * k) * (0.92 + 0.16 * Math.random()));
+    sparks.material.opacity = Math.random() < 0.15 ? 0.6 : 1;
+    glow.position.copy(where(rival.chestAt));
+    glow.scale.setScalar(2.2 + 0.6 * k);
+    glow.material.opacity = 0.5 + 0.4 * k;
+  }
+  // the final blow's mark on his belly
+  mark.visible = finalOn(Q);
+  if (mark.visible) {
+    const g = Math.min(1, Q.final / COUNTER.grow), now = Math.abs(Q.final - COUNTER.grow) <= COUNTER.perfectSlam;
+    mark.position.copy(where(rival.bellyAt));
+    mark.scale.setScalar(0.5 + 1.3 * g);
+    mark.material.color.setHex(now ? 0xFFFFFF : GOLD);
+  }
+}
+/** The counters' poses on the pair: his arm drawn back as he winds up, his slap, the champion's swat. */
+function counterPose(pair: [At, At], Q: NonNullable<ReturnType<typeof qte>>) {
+  const i = tellOf(Q);
+  if (i >= 0) {
+    const k = ease(clamp01(1 - (Q.at[i] - F.bout.t) / COUNTER.tell)), o = pair[1].p;
+    pair[1].p = { ...o, a1x: lerp(o.a1x, 2.7, k), a1z: lerp(o.a1z, 0.55, k), a1e: lerp(o.a1e, 1.3, k), twist: lerp(o.twist, -0.35, k), bend: lerp(o.bend, -0.05, k) };
+  }
+  if (!move) return;
+  const k = Math.sin(clamp01(moveT / 0.4) * Math.PI);
+  if (move === 'counter') pair[0].p = slap(0, k, pair[0].p);
+  else pair[1].p = slap(1, k, pair[1].p);
+}
 
 // ---------- the drummers (the Underground Arena's) ----------
 const drummers: Person[] = [];
@@ -411,11 +518,11 @@ function moments(ph: string, t: number) {
     }
     if (Math.abs(B.tug) < 0.5) edged = false;
     if (crossed(9.6)) { const m = mid().setY(CY + 1.6); word('BOMP!', m, { size: 1.3, fill: '#FF8A5A' }); burst(m, 1.4); champ.kick(5); rival.kick(5); hit(0.12); }
-    // a slam landed (gong.ts): a big hit, and the boss rocked back
-    const s = F.rush?.slam ?? -1;
+    // the final blow's slam landed (fight.ts's COUNTER): a big hit, and the boss rocked back
+    const s = F.rush?.qte?.hit ?? -1;
     if (s > 0 && slamWas <= 0) {
       const m = mid().setY(CY + 1.9);
-      word('SLAM!', m, { size: s > 1 ? 1.6 : 1.2, fill: '#FFD34A', life: 1.0 }); burst(m, s > 1 ? 1.9 : 1.3);
+      word('SLAM!', m, { size: s > 1 ? 1.6 : 1.2, fill: '#FFD34A', life: 1.0, always: true }); burst(m, s > 1 ? 1.9 : 1.3);
       rival.kick(s > 1 ? 10 : 6); champ.kick(3); hit(s > 1 ? 0.5 : 0.25, s > 1 ? 0.8 : 0.3, s > 1 ? 1.2 : 0.6); react('edge');
     }
     slamWas = s;
@@ -528,7 +635,12 @@ function pose2(dt: number) {
   let pair: [At, At];
   if (B.phase === 'prep') pair = [ritual(t, 0), ritual(t, 1)];
   else if (B.phase === 'sit') pair = [crouchAt(t, 0), crouchAt(t, 1)];
-  else if (B.phase === 'fight') { fightBeats(t, dt); pair = fightAt(t); end = pair; }
+  else if (B.phase === 'fight') {
+    fightBeats(t, dt); pair = fightAt(t);
+    const Q = F.rush?.qte;
+    if (Q) counterPose(pair, Q);
+    end = pair;
+  }
   else pair = resultAt(t, dt);
   // a phase that started from somewhere else (a bout cut short, a rush rung mid-ritual) blends on from where they were
   if (B.phase !== 'pay' && from && since < blend) {
@@ -587,6 +699,7 @@ export function updDohyo(dt: number) {
   spar(dt);
   drums();
   updHits(dt);
+  counters(dt);
   updEpic(dt);
   // Mr. Fugu puffs up when the house roars
   boss.puffTo = crowd.excite > 1 ? 1 : 0;

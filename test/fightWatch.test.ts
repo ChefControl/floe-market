@@ -19,13 +19,14 @@ async function ring() {
 const btn = () => $('watchGo') as HTMLButtonElement;
 
 describe('the watch button', () => {
+  // (a plain win: a grand one's counters keep the camera on the ring, counter.test.ts)
   it("shows once a boss's fans sit down, and closes the camera in on the ring from the bar", async () => {
     const { g, fight, gong, stage, F } = await ring();
     expect(fight.ringGong()).toBe(true);
     // (not while his crowd's eating: the player's at the kitchen)
     g.run(1);
     expect(btn().hidden).toBe(true);
-    g.runUntil(() => { while (F().rush!.turned + F().stall.length < 120 && fight.toStall(false)); return F().rush!.done; }, 31 + fight.WALK_IN);
+    g.runUntil(() => { while (F().rush!.turned + F().stall.length < 70 && fight.toStall(false)); return F().rush!.done; }, 31 + fight.WALK_IN);
     g.run(0.1);
     expect(F().bout.phase).toBe('sit');
     expect(btn().hidden).toBe(false);
@@ -46,7 +47,7 @@ describe('the watch button', () => {
   it('V does it too, and once the fight is over the camera comes back on its own', async () => {
     const { g, fight, gong, F } = await ring();
     fight.ringGong();
-    g.runUntil(() => { while (F().rush!.turned + F().stall.length < 100 && fight.toStall(false)); return F().rush!.done; }, 31 + fight.WALK_IN);
+    g.runUntil(() => { while (F().rush!.turned + F().stall.length < 70 && fight.toStall(false)); return F().rush!.done; }, 31 + fight.WALK_IN);
     g.run(0.1);
     g.press('v'); g.run(1 / 30); g.press('v', 'keyup');
     g.runUntil(() => F().bout.phase === 'fight', 10);

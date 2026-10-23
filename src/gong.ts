@@ -19,7 +19,7 @@ import { dustFx } from './fx';
 import { ringCam } from './dohyo';
 import {
   type Boss, bossOf, BOSSES, BUYOUT, canRing, canShow, type Carry, F, type Forecast, fixOn, forecast, ICON, type Ing, keptHome, NAME, nextBoss, practiceDue, ringGong,
-  grand, type Rush, sides, slam, SLAM, slamDue, strength, toBeat, worstShort, you,
+  finalOn, type Rush, press, qte, ringSpeed, sides, SLAM, streak, strength, tellOf, toBeat, worstShort, you,
 } from './fight';
 import { isTouch } from './hint';
 import { kindOf } from './items';
@@ -30,7 +30,7 @@ import { landsOf, moveOf } from './finishers';
 import { epicFx } from './epicFx';
 import { showFace } from './portraits';
 import { CHAMP } from './rikishi';
-import { chime, coinDrop, coinEdge, coinPing, lose, win } from './sfx';
+import { chime, coinDrop, coinEdge, coinPing, counterHit, counterMiss, counterTell, lose, slamHit, slowMo, whiff, win } from './sfx';
 import { CELLAR_ZOOM, view } from './stage';
 import { d2xz } from './util';
 
@@ -320,54 +320,59 @@ function renderBout() {
   rushKnot.hidden = knot < 0; rushKnot.style.left = Math.round(knot * 10) / 10 + '%';
 }
 
-// ---------- the slam ----------
-// A grand win (fight.ts's SLAM): in the fight, a white ring closes on the champion's face on the strip to meet a gold
-// one at the belly bump, and Space (or a click of the button) as they meet lands the slam: perfect or good, for more of
-// his prize. On a phone a tap anywhere lands it, counted as the finger touches. One try. What it came to stays on the
-// button for a moment.
-const slamRing = $('slamRing'), slamClose = slamRing.querySelector('b')!, slamGo = $('slamGo') as HTMLButtonElement;
-/** Whether this is a touch screen (or a finger's been seen on it): the button says tap, not Space. */
+// ---------- the counter ----------
+// A grand win's fight (fight.ts's COUNTER), as the Batman games do it: four times the boss winds up to slap, gold sparks
+// over his head (dohyo.ts) and a "shing", and a press counters him: Space, or a tap or a click anywhere (not on a
+// button). A press with no warning up, the champion flinches. Then the final blow, in slow motion, the screen's edges
+// darkening: a mark swells on him, and a press on its flash is the slam. Words only on his first wind-up and for the
+// final blow; the counters in a row under the strip. The camera's on the ring all the while (updWatch).
+const qteSay = $('qteSay'), qteStreak = $('qteStreak'), slowFx = $('slowFx');
+/** Whether this is a touch screen (or a finger's been seen on it): the words say tap, not Space. */
 let touch = isTouch();
-const slamAsk = () => touch ? 'SLAM! Tap on gold' : 'SLAM! <kbd>Space</kbd> on gold';
-slamGo.innerHTML = slamAsk();
-/** Seconds the button keeps saying how the slam went. */
-let slamSaid = 0, spaceHeld = false;
-const SLAM_SAYS = ['Missed', 'Good slam!', 'Perfect slam!'];
-function goSlam() {
-  const q = slam();
-  if (q < 0) return;
-  slamGo.textContent = SLAM_SAYS[q];
-  slamGo.classList.add('said');
-  slamSaid = 1.2;
-  if (q > 0) chime();
+/** What the counter was last frame, for its sounds: his wind-up, how each slap went, the final blow on. */
+let tellWas = -1, gotWas: number[] = [], finalWas = false, sayWas = '';
+function goPress() {
+  const r = press();
+  if (!r) return;
+  if (r.what === 'flinch') whiff();
+  else if (r.what === 'counter') { counterHit(r.q === 2); gotWas = [...(F.rush?.qte?.got ?? [])]; }
+  else slamHit(r.q);
 }
-slamGo.addEventListener('click', goSlam);
-// (a finger, or a pen, anywhere on the screen; the button's own click after it finds the slam already tried)
+// (a finger, a pen or the mouse's main button, anywhere but on something of its own to press)
 window.addEventListener('pointerdown', e => {
-  if (e.pointerType === 'mouse') return;
-  if (!touch) {
-    touch = true;
-    if (!slamGo.classList.contains('said')) slamGo.innerHTML = slamAsk();
-  }
-  if (!rushEl.hidden && slamDue()) goSlam();
+  if (e.pointerType !== 'mouse') touch = true;
+  if (rushEl.hidden || !qte() || (e.pointerType === 'mouse' && e.button !== 0)) return;
+  if ((e.target as Element | null)?.closest?.('button, a, input, select, textarea, label, .k-panel')) return;
+  goPress();
 }, { capture: true });
-function updSlam(dt: number) {
-  const space = keyHeld(' '), press = space && !spaceHeld;
-  spaceHeld = space;
-  const on = !rushEl.hidden && slamDue();
-  if (on && press) goSlam();
-  if (slamSaid > 0) slamSaid -= dt;
-  const show = !rushEl.hidden && (slamDue() || slamSaid > 0);
-  slamRing.hidden = !slamDue() || rushEl.hidden;
-  if (!slamRing.hidden) slamClose.style.transform = `scale(${(1 + 1.4 * Math.max(0, SLAM.at - F.bout.t) / SLAM.lead).toFixed(3)})`;
-  if (show === slamGo.hidden) slamGo.hidden = !show;
-  if (!show && slamGo.classList.contains('said')) {
-    slamGo.classList.remove('said');
-    slamGo.innerHTML = slamAsk();
-  }
+// (Space as it goes down, however short the press: on a slow phone a quick one can fall between two frames. And while
+// the counter's on, it's the counter's, never a press of whatever button has the focus.)
+window.addEventListener('keydown', e => {
+  if ((e.key !== ' ' && e.code !== 'Space') || !qte() || rushEl.hidden) return;
+  e.preventDefault();
+  if (!e.repeat) goPress();
+}, { capture: true });
+function updCounter() {
+  const Q = rushEl.hidden ? null : qte();
+  // what he does, heard: the wind-up, a slap that lands, the final blow
+  const tell = Q ? tellOf(Q) : -1;
+  if (tell >= 0 && tell !== tellWas) counterTell();
+  tellWas = tell;
+  if (Q) { Q.got.forEach((g, i) => { if (g === 0 && gotWas[i] !== 0) counterMiss(); }); gotWas = [...Q.got]; } else gotWas = [];
+  const final = !!Q && Q.final >= 0;
+  if (final && !finalWas) slowMo();
+  finalWas = final;
+  // the words: on his first wind-up, and for the final blow
+  const say = !Q ? '' : finalOn(Q) ? (touch ? 'Final blow! Tap on the flash' : 'Final blow! <kbd>Space</kbd> on the flash')
+    : tell === 0 ? (touch ? 'Tap to counter' : '<kbd>Space</kbd> or click to counter') : '';
+  if (say !== sayWas) { sayWas = say; qteSay.innerHTML = say; qteSay.hidden = !say; }
+  const n = Q ? streak(Q) : 0, x = n > 0 ? `×${n}` : '';
+  if (qteStreak.textContent !== x) { qteStreak.textContent = x; qteStreak.hidden = !x; }
+  const slow = Q && ringSpeed() < 1 ? '1' : '0';
+  if (slowFx.style.opacity !== slow) slowFx.style.opacity = slow;
 }
-/** Whether a rush is a grand win with the slam still to try (for tests). */
-export const slamOffered = () => !!F.rush && grand(F.rush) && F.rush.slam < 0;
+/** The words over the fight now, for tests. */
+export const counterSaid = () => (qteSay.hidden ? '' : qteSay.textContent ?? '');
 
 // ---------- 💪 ----------
 const power = $('power'), powerN = $('powerN'), seasonChip = $('season');
@@ -395,9 +400,11 @@ function updWatchGo() {
   const offered = watchOffered();
   if (!offered) watchOn = false;
   else if (press) watchOn = !watchOn;
-  if (offered === watchGo.hidden) watchGo.hidden = !offered;
-  // (standing on the spot watches too, and says so)
-  const shown = watchOn || on(WATCH);
+  // (and out of the way while a grand win's counters hold the camera on the ring anyway)
+  const show = offered && !qte();
+  if (show === watchGo.hidden) watchGo.hidden = !show;
+  // (standing on the spot watches too, and so do a grand win's counters, and it says so)
+  const shown = watchOn || on(WATCH) || !!qte();
   if (watchGo.getAttribute('aria-pressed') !== String(shown)) {
     watchGo.setAttribute('aria-pressed', String(shown));
     watchGo.textContent = shown ? '👁️ Watching' : '👁️ Watch';
@@ -405,13 +412,14 @@ function updWatchGo() {
 }
 
 // ---------- the watch spot ----------
-/** How far the camera's closed in on the ring, 0 to 1. */
-let watch = 0;
+/** How far the camera's closed in on the ring, 0 to 1; and how far it's following the pair, for the counters. */
+let watch = 0, follow = 0;
 const flashEl = document.getElementById('ringFlash')!;
 const lessMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)') ?? { matches: false };
 function updWatch(dt: number) {
-  // (an epic, dohyo.ts, may take the camera even off the watch spot; and the watch button, wherever the player is)
-  const want = on(WATCH) || ringCam.take || watchOn ? 1 : 0;
+  // (an epic, dohyo.ts, may take the camera even off the watch spot; and the watch button, or a grand win's counters,
+  // wherever the player is)
+  const want = on(WATCH) || ringCam.take || watchOn || !!qte() ? 1 : 0;
   view.shake = 0;
   if (want === 0 && watch === 0) { flashEl.style.opacity = '0'; epicFx.watch = 0; return; }
   watch += (want - watch) * Math.min(1, dt * 2.5);
@@ -420,8 +428,12 @@ function updWatch(dt: number) {
   // The ring's big hits (dohyo.ts): the camera punches in on the pair, shakes, and the screen flashes white. (0.4 up:
   // the camera aims at the middle of what it's on, main.ts, so this is where it aimed over the player's feet.)
   const punch = Math.min(1, ringCam.punch) * watch;
+  // (a grand win's counters keep the pair in the middle: on a phone held upright the ring's wider than the screen, and
+  // the boss's warning has to be seen)
+  follow += ((qte() ? 1 : 0) - follow) * Math.min(1, dt * 3);
+  const k = Math.max(0.6 * punch, follow * watch);
   // (and an epic looks up after a man thrown high, and pulls back to keep it all in)
-  view.focus.set(RING.x + (ringCam.at.x - RING.x) * 0.6 * punch, CY + 0.4 + ringCam.y * watch, RING.z + (ringCam.at.z - RING.z) * 0.6 * punch);
+  view.focus.set(RING.x + (ringCam.at.x - RING.x) * k, CY + 0.4 + ringCam.y * watch, RING.z + (ringCam.at.z - RING.z) * k);
   view.k = 0.85 * watch;
   view.zoom = CELLAR_ZOOM * (1 - 0.45 * watch) * (1 - 0.25 * punch) * (1 + 0.8 * ringCam.wide * watch);
   view.shake = ringCam.shake * watch;
@@ -509,7 +521,7 @@ export function updGong(dt: number) {
   if (atGong && press) ring();
   updStroke(dt);
   renderBout();
-  updSlam(dt);
+  updCounter();
   renderPower();
   updWatchGo();
   updWatch(dt);
