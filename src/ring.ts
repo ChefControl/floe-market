@@ -39,8 +39,8 @@ let takings = 0, takingsT = 0;
 on.earn = (chips, why) => {
   // (while there's a loan of Harry's to pay off, he takes his share of the stall's sales: loan.ts)
   if (why === 'bowls') chips -= collect(chips);
-  // the fans' chips pile up at the soup square and Mama Moray's cut at her till, to be scooped up (chipPiles.ts; hers
-  // pops up over her till: resto.ts); a prize goes straight to the wallet
+  // the fans' chips pile up on the hearth room's floor and Mama Moray's cut on her hall's, to be scooped up
+  // (chipPiles.ts; hers pops up over her till: resto.ts); a prize goes straight to the wallet
   if (why === 'bowls') { pileUp('bar', chips); takings += chips; return; }
   if (why === 'resto') { pileUp('mama', chips); return; }
   addMoney(Math.round(chips * CHIP));
