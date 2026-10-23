@@ -331,7 +331,7 @@ const mid = () => where(champ).lerp(where(rival), 0.5);
 const dust = (p: Vector3, n: number, big = 1) => dustFx(v3.set(p.x, p.y + 0.05, p.z), n, big);
 
 
-// ---------- a grand win's finish (fight.ts's FINISH) ----------
+// ---------- a win's finish (fight.ts's FINISH) ----------
 // A scene of its own. The push: the camera cuts in low and close on the pair at his straw and creeps in as it goes;
 // each shove lands with weight (a jolt, a kick of the camera, dust at his heels, the crowd); between them he leans
 // back into it. Then his finisher, the camera going with them (an epic's own camera for his flight), slowing to a crawl

@@ -286,7 +286,7 @@ document.addEventListener('click', e => {
   if ((e.target as Element | null)?.closest?.('button')) click();
 });
 
-// ---------- a grand win's finish (fight.ts's FINISH) ----------
+// ---------- a win's finish (fight.ts's FINISH) ----------
 /** The finish's scene cuts in: a low sweep, as if time's stood still. */
 export function sceneIn() {
   tone({ f: 180, f2: 60, a: 0.06, d: 1.3, v: 0.14 });

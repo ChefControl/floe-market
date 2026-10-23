@@ -1,4 +1,4 @@
-// A grand win's last moment, the player's (fight.ts's FINISH, gong.ts, dohyo.ts): a scene at the straw, the ring held,
+// A win's last moment, the player's (fight.ts's FINISH, gong.ts, dohyo.ts): a scene at the straw, the ring held,
 // where presses shove the boss back over it; then his finisher slows to a crawl and holds just before he lands, for a
 // flick down to slam him.
 import { describe, expect, it, vi } from 'vitest';
@@ -25,8 +25,39 @@ async function wonBy(n: number) {
   return { g, fight, gong, dohyo, F, key, mash };
 }
 
+/** A rush on Hakkaku lost with `n` of his 100 turned, up to the fight. */
+async function lostBy(n: number) {
+  const g = await loadGame({ tiles: bought(...SUSHI, 'dohyo'), fugu: 2, level: 1, reviews: Array(20).fill(5) });
+  const [cellar, plan, fight] = await Promise.all([import('../src/cellar'), import('../src/cellarPlan'), import('../src/fight')]);
+  g.player.g.position.set(plan.BAR_PAD.x, cellar.CY, plan.BAR_PAD.z);
+  const F = () => fight.F;
+  expect(fight.ringGong()).toBe(true);
+  g.runUntil(() => { while (F().rush!.turned + F().stall.length < n && fight.toStall(false)); return F().rush!.done; }, 31 + fight.WALK_IN);
+  expect(F().rush).toMatchObject({ turned: n, win: false });
+  return { g, fight, F };
+}
+
 describe('the finish', () => {
-  it('a grand win ends in a scene: mash to drive him over, slam his finisher down as it holds: a fifth more, and the epic', async () => {
+  it("is every win's, whatever the fans gave it; the push picks the finisher; and a loss has none", async () => {
+    // (a push-out by the fans: pushed half way, the champion's grand move)
+    const { g, fight, F, mash } = await wonBy(70);
+    expect(F().bout.finish).toBe('push');
+    g.runUntil(() => !!fight.finish(), fight.FINISH.at + 1);
+    mash(10, 3);
+    g.runUntil(() => F().bout.phase === 'pay', 2);
+    expect([F().rush!.fin!.pushed, F().bout.finish, fight.epic()]).toEqual([1, 'grand', false]);
+    // (a tight one, just over his 💪: not pushed, the reversal the fans gave it)
+    const r = await wonBy(53);
+    expect(r.F().bout.finish).toBe('tight');
+    r.g.runUntil(() => r.F().bout.phase === 'pay', r.fight.FINISH.at + r.fight.FINISH.settle + r.fight.FINISH.push + 1);
+    expect([r.F().rush!.fin!.pushed, r.F().bout.finish]).toEqual([0, 'tight']);
+    // (a loss: no finish of the player's)
+    const r2 = await lostBy(40);
+    r2.g.runUntil(() => r2.F().bout.phase === 'pay', 40);
+    expect(r2.F().rush!.fin).toBe(null);
+  }, 60_000);
+
+  it('a grand win ends in a scene: mash to drive him over, slam his finisher down as it holds: a little more, and the epic', async () => {
     const { g, fight, gong, dohyo, F, key, mash } = await wonBy(90);
     const C = fight.FINISH;
     // (not before its moment, near the fight's end)
@@ -74,15 +105,15 @@ describe('the finish', () => {
     expect(F().bout.t).toBeCloseTo(f.holdAt + C.before, 1);
     g.run(1 / 30);
     expect(gong.finishSaid()).toBe('PERFECT SLAM!');
-    expect(g.wallet.money - money).toBe(Math.round(100 * 1.2 * fight.CHIP));
+    expect(g.wallet.money - money).toBe(Math.round(100 * 1.06 * fight.CHIP));
     // once he's down the bars open again, and the card says the slam
     g.run(1.5);
     expect($('finish').classList.contains('on')).toBe(false);
     g.run(3);
-    expect($('fightCard').textContent).toContain('💥 Slam +🐡 20');
+    expect($('fightCard').textContent).toContain('💥 Slam +🐡 6');
   }, 30_000);
 
-  it('a slow push only gets him half way; then a slam held too long is a tenth more, and none at all is no bonus', async () => {
+  it('a slow push only gets him half way; then a slam held too long is a little less, and none at all is no bonus', async () => {
     const { g, fight, F, mash, key } = await wonBy(90);
     const C = fight.FINISH;
     g.runUntil(() => !!fight.finish(), C.at + 1);
@@ -96,7 +127,7 @@ describe('the finish', () => {
     g.runUntil(() => f.held > C.perfect + 0.2, 6);
     key('s');
     expect([f.slam, F().rush!.slam]).toEqual([1, 1]);
-    expect(g.wallet.money - money).toBe(Math.round(100 * 1.1 * fight.CHIP));
+    expect(g.wallet.money - money).toBe(Math.round(100 * 1.03 * fight.CHIP));
     // the next: no push and no slam, and he falls on his own once it's held long enough
     const r = await wonBy(90);
     r.g.runUntil(() => !!r.fight.finish(), C.at + 1);
@@ -112,10 +143,7 @@ describe('the finish', () => {
     expect(hitsOf(null, 'push')).toBe(landsOf(null, 'push'));
     expect(EPIC.catfish.hits).toBeLessThan(EPIC.catfish.lands - 0.5);
     expect(animOf(r.F().rush, 'grand').hits).toBeUndefined();
-    // and 83 of 100 is a win, but not a grand one: no finish
-    const r3 = await wonBy(83);
-    r3.g.runUntil(() => r3.F().bout.phase === 'pay', 20);
-    expect(r3.F().rush!.fin).toBe(null);
+
   }, 60_000);
 
   it("on a phone: taps push and a swipe down slams, and a finger shows how; a tap on a button is the button's", async () => {

@@ -44,7 +44,8 @@ export { push as PUSH };
 export function moveOf(R: Rush | null, finish: Finish): Move | null {
   if (!R || finish === 'push') return null;
   const k = bossOf(R.boss).kind ?? 'partner', m = MOVES[k];
-  // (the epic for a grand win's finish pushed all the way, fight.ts's FINISH; or, from before it, a perfect slam)
+  // (the epic for a win's finish pushed all the way, fight.ts's FINISH, which makes it grand; or, from before it, a
+  // perfect slam)
   if (finish === 'grand') return (R.fin ? R.fin.pushed === 2 : R.slam === 2) ? { name: m.champGrand.name, anim: EPIC[k] } : m.champGrand;
   if (finish === 'heavy') return m.heavy;
   return R.win ? m.champTight : m.tight;
@@ -53,6 +54,6 @@ export function moveOf(R: Rush | null, finish: Finish): Move | null {
 export const animOf = (R: Rush | null, finish: Finish) => moveOf(R, finish)?.anim ?? push;
 /** Seconds into the result that the loser's down (the card waits for it). */
 export const landsOf = (R: Rush | null, finish: Finish) => animOf(R, finish).lands;
-/** Seconds into the result of his big impact (where a grand win's slam lands, fight.ts's FINISH). */
+/** Seconds into the result of his big impact (where a win's slam lands, fight.ts's FINISH). */
 export const hitsOf = (R: Rush | null, finish: Finish) => { const a = animOf(R, finish); return a.hits ?? a.lands; };
 finishers.hitsOf = hitsOf;

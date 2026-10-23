@@ -156,7 +156,7 @@ export interface Fx {
 export interface FinishMove {
   /** Seconds into the result the loser's down for good (the card and the strip wait for it). */
   lands: number;
-  /** When his big impact is, for a grand win's slam (fight.ts's FINISH), if it isn't `lands`: the crash before the
+  /** When his big impact is, for a win's slam (fight.ts's FINISH), if it isn't `lands`: the crash before the
    *  skips that bring him to a stop, say. */
   hits?: number;
   /** When the move's done and the aftermath takes over (from wherever the move left them): at least `lands`; at most

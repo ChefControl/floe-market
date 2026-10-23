@@ -141,13 +141,14 @@ export const HURRY = 1.6;
 /** A result's length: a push-out's (a local's, or a plain boss fight's) BOUT.pay; a finisher's (finishers.ts) longer,
  *  for the move and the getting up after it; and the epic, a perfect slam's (FINISH), longer still. */
 export const FINISHER_PAY = 8.5, EPIC_PAY = 11;
-/** Whether this fight's result is the epic: a grand win with a perfect slam. */
+/** Whether this fight's result is the epic: a win whose push went all the way (FINISH; from before it, a grand win with a
+ *  perfect slam). */
 export const epic = (B: Bout = F.bout, R: Rush | null = F.rush) => !!R && B.finish === 'grand' && (R.fin ? R.fin.pushed === 2 : R.slam === 2);
 export const payLen = (B: Bout = F.bout, R: Rush | null = F.rush) => (epic(B, R) ? EPIC_PAY : R && B.finish !== 'push' ? FINISHER_PAY : BOUT.pay);
-/** The slam, a grand win's showy finish (`grand`), the player's to earn at the fight's end (FINISH): his prize, that much
- *  more, good or perfect. */
-export const SLAM = { bonus: [0, 0.1, 0.2] };
-/** The finish, a grand win's last moment made the player's, as a scene (gong.ts, dohyo.ts). `at` seconds into the
+/** The slam, a win's showy finish, the player's to earn at the fight's end (FINISH): his prize, that much more, good or
+ *  perfect. */
+export const SLAM = { bonus: [0, 0.03, 0.06] };
+/** The finish, a win's last moment made the player's (any win, whatever the fans gave it; never a loss), as a scene (gong.ts, dohyo.ts). `at` seconds into the
  *  fight, with the boss at his straw, the ring holds and the camera cuts in close: the push. Each press shoves him back,
  *  he pushes back at `back` presses a second, and `need` of them in hand drives him over (`half` is half way), for
  *  `push` seconds at most, from once the scene's bars have closed, `settle` seconds in (a press before then counts,
@@ -158,7 +159,7 @@ export const SLAM = { bonus: [0, 0.1, 0.2] };
  *  Not in time, he falls on his own. Slammed, the move runs on `fast` as quick to the landing. The slam the prize
  *  pays on: perfect for the push all the way and a perfect slam, good for half way and the slam landed. */
 export const FINISH = { at: 12, settle: 0.4, push: 3, need: 12, half: 6, back: 1, before: 0.45, slowFor: 0.35, slow: 0.25, holdFor: 1.2, perfect: 0.15, fast: 1.6 };
-/** A grand win's finish: the player's seconds into it, its step, how far he's driven (in presses) and how far it got
+/** A win's finish: the player's seconds into it, its step, how far he's driven (in presses) and how far it got
  *  (0 short, 1 half way, 2 all the way); in his finisher, the moment it holds at (its clock: -1 till the finisher's
  *  known, dohyo.ts), the player's seconds since it got there (-1 not yet), and how the slam went (-1 to come, 0 he fell
  *  on his own, 1 good, 2 perfect). */
@@ -200,9 +201,9 @@ export interface Rush {
   /** Slick Eddie's fix on it, if one was paid for (eddie.ts): how big (tenths of his crowd), and whether he was caught
    *  (then the boss brought them all); and how many of his fans it kept home. */
   fix: { cut: number; caught: boolean } | null; kept: number;
-  /** The slam, on a grand win: not tried (-1), missed (0), good (1) or perfect (2). */
+  /** The slam, on a win: not tried (-1), missed (0), good (1) or perfect (2). */
   slam: number;
-  /** A grand win's finish, once it's begun (FINISH). */
+  /** A win's finish, once it's begun (FINISH). */
   fin: Fin | null;
 }
 export type Phase = 'prep' | 'sit' | 'fight' | 'pay';
@@ -633,8 +634,8 @@ function bossResult(R: Rush) {
 export const TIGHT = 0.1;
 /** How a boss's fight ends (finishers.ts), from how his vote went. A win, by where it lands between his strength (💪,
  *  the fans that beat him) and his whole crowd, in thirds: a tight one (a reversal at the straw), a push-out, or a
- *  grand win (the champion's big finisher, and the slam). A loss: a heavy one (under half his 💪: the boss's big one),
- *  a tight one (within TIGHT of it), or a push-out. */
+ *  grand win (the champion's big finisher); any win's push (FINISH) can make it bigger. A loss: a heavy one (under
+ *  half his 💪: the boss's big one), a tight one (within TIGHT of it), or a push-out. */
 export function finishOf(R: Rush): Finish {
   const need = toBeat(bossOf(R.boss), R.n);
   if (R.win) return grand(R) ? 'grand' : R.turned >= need + Math.ceil((R.n - need + 1) / 3) ? 'push' : 'tight';
@@ -642,10 +643,10 @@ export function finishOf(R: Rush): Finish {
   if (need - R.turned <= Math.round(need * TIGHT)) return 'tight';
   return 'push';
 }
-/** A grand win: in the top third of the room between his 💪 and his whole crowd (the slam's on offer in the fight). */
+/** A grand win: in the top third of the room between his 💪 and his whole crowd. */
 export const grand = (R: Rush) => { const need = toBeat(bossOf(R.boss), R.n); return R.win && R.turned >= R.n - Math.floor((R.n - need + 1) / 3); };
 // ---------- the finish ----------
-/** A grand win's finish, while its scene is on: the push in the fight, then his finisher till he's down. */
+/** A win's finish, while its scene is on: the push in the fight, then his finisher till he's down. */
 export function finish() {
   const R = F.rush, B = F.bout;
   if (!R?.fin) return null;
@@ -676,11 +677,13 @@ export function slamDown() {
 /** Seconds into a fight's result of the loser's big impact, where the slam lands (finishers.ts fills it in: its moves
  *  are drawn things this module has no need of). */
 export const finishers = { hitsOf: (_R: Rush, _f: Finish) => LANDS };
-/** The push is over (all the way, or out of time): the fight's over, and his finisher plays, holding for the slam just
- *  before he lands. */
+/** The push is over (all the way, or out of time): the fight's over, and a finisher plays, holding for the slam just
+ *  before he lands. The push picks it: all the way, the epic; half way, the champion's grand move; short of that, the
+ *  one the fans gave (a push-out, or the reversal of a tight one). */
 function toMove(f: Fin) {
   f.step = 'move';
   f.pushed = f.n >= FINISH.need ? 2 : f.n >= FINISH.half ? 1 : 0;
+  if (f.pushed > 0) F.bout.finish = 'grand';
   F.bout.t = BOUT.fight; fightOver();
   f.holdAt = Math.max(FINISH.slowFor + 0.3, finishers.hitsOf(F.rush!, F.bout.finish) - FINISH.before);
 }
@@ -706,7 +709,7 @@ export function ringRate() {
 function updFinish(dt: number) {
   const R = F.rush, B = F.bout;
   if (!R) return;
-  if (B.phase === 'fight' && !R.fin && grand(R) && B.t >= FINISH.at) R.fin = { t: 0, step: 'push', n: 0, pushed: 0, holdAt: -1, held: -1, slam: -1 };
+  if (B.phase === 'fight' && !R.fin && R.win && B.t >= FINISH.at) R.fin = { t: 0, step: 'push', n: 0, pushed: 0, holdAt: -1, held: -1, slam: -1 };
   const f = R.fin;
   if (!f) return;
   f.t += dt;
@@ -1015,7 +1018,7 @@ function updBout(dt: number) {
   const B = F.bout, R = F.rush;
   // (the doors still shut: no local fight yet, its preparation waiting at its start)
   if (F.quiet && !R) { B.t = 0; return; }
-  // (a grand win's finish holds and slows the ring's clock while its scene plays)
+  // (a win's finish holds and slows the ring's clock while its scene plays)
   B.t += dt * ringRate();
   updFinish(dt);
   // (a boss called in by the gong waits on this local's result: after the fall it hurries)

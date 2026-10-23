@@ -101,7 +101,7 @@ function frame(now: number) {
     aim.lerp(offerCam.look, b);
     if (s) camera.position.add(V((Math.random() - 0.5) * s, (Math.random() - 0.5) * s, 0));
   }
-  // a grand win's finish, close and low on the pair at the straw (dohyo.ts)
+  // a win's finish, close and low on the pair at the straw (dohyo.ts)
   if (finishCam.k > 0) { const b = smooth(finishCam.k); camera.position.lerp(finishCam.pos, b); aim.lerp(finishCam.look, b); }
   // the way south: Mr. Fugu with his matchbook, and the doorman looking you over at his door (southDoor.ts)
   if (wayCam.k > 0) { const b = smooth(wayCam.k); camera.position.lerp(wayCam.pos, b); aim.lerp(wayCam.look, b); }

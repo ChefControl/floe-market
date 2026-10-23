@@ -280,7 +280,7 @@ export function showCard(R: Rush, sting?: () => void) {
   card.hidden = false;
   cardIn = landsOf(R, F.bout.finish) + 0.35; cardSting = sting ?? null; cardR = R;
 }
-/** The rush the card's for, and its slam's bonus under the prize, as it comes up (a grand win's is known by then). */
+/** The rush the card's for, and its slam's bonus under the prize, as it comes up (a win's is known by then). */
 let cardR: Rush | null = null;
 function slamChip() {
   const R = cardR;
@@ -328,7 +328,7 @@ function renderBout() {
 }
 
 // ---------- the finish ----------
-// A grand win's last moment (fight.ts's FINISH), shown as a scene, as Mr. Fugu's are: the screen blinks, black bars
+// A win's last moment (fight.ts's FINISH), shown as a scene, as Mr. Fugu's are: the screen blinks, black bars
 // close in top and bottom, and the camera's in low and close on the pair at his straw (dohyo.ts). The bottom bar shows
 // what to do with a big picture of it, a finger tapping (or the Space key) and the push's meter; then, as his finisher
 // slows to a crawl just before he lands, a finger swiping down (or the ↓ key). Push: every press shoves him (a tap or a
@@ -415,7 +415,7 @@ function updWatchGo() {
   const offered = watchOffered();
   if (!offered) watchOn = false;
   else if (press) watchOn = !watchOn;
-  // (and out of the way while a grand win's finish has the screen)
+  // (and out of the way while a win's finish has the screen)
   const show = offered && !finish();
   if (show === watchGo.hidden) watchGo.hidden = !show;
   // (standing on the spot watches too, and it says so)
@@ -432,7 +432,7 @@ let watch = 0;
 const flashEl = document.getElementById('ringFlash')!;
 const lessMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)') ?? { matches: false };
 function updWatch(dt: number) {
-  // (an epic, dohyo.ts, may take the camera even off the watch spot; and the watch button, or a grand win's finish,
+  // (an epic, dohyo.ts, may take the camera even off the watch spot; and the watch button, or a win's finish,
   // wherever the player is)
   const want = on(WATCH) || ringCam.take || watchOn || !!finish() ? 1 : 0;
   view.shake = 0;

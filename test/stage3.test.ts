@@ -1258,11 +1258,12 @@ describe('the finishers', () => {
     expect(fight.ringGong()).toBe(true);
     g.runUntil(() => { while (F().rush!.turned + F().stall.length < 52 && fight.toStall(false)); return F().rush!.done; }, 31 + fight.WALK_IN);
     expect(F().bout.finish).toBe('tight');
-    g.runUntil(() => F().bout.phase === 'fight' && F().bout.t > fight.BOUT.fight - 0.3, 25);
-    // (the champion's the one at the straw: his own, east)
+    // (as the win's finish begins, finish.test.ts: the champion's the one at the straw, his own, east)
+    g.runUntil(() => !!fight.finish(), 25);
     expect(F().bout.tug).toBeLessThan(-0.6);
     expect(dohyo.ring.champ.position.x - cellar.RING.x).toBeGreaterThan(1);
-    g.runUntil(() => F().bout.phase === 'pay' && F().bout.t >= 0.6, 3);
+    // (not pushed: the finish the fans gave it)
+    g.runUntil(() => F().bout.phase === 'pay' && F().bout.t >= 0.6, fight.FINISH.settle + fight.FINISH.push + 3);
     g.ui.hud(0);
     expect($('rushBell').textContent).toBe('TENTACLE TWIST');
     // (down by the time the card shows: finishRig's own test checks how each move gets him there)
