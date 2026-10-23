@@ -136,6 +136,20 @@ Income keeps rising mostly from the repeatable upgrades. The bottleneck turns ov
 
 **Mama's dining hall** (2026-10-23): after Fukure there's no boss's crowd left to buy what the kitchen makes, so the stretch to the buyout leaned on the stall alone. A cellar with all of it bought and no cooking show sold about 190 bowls a minute at the stall (🐡 725) while the pot sat full 92% of the time and some 500 bowls a minute went up the belt to Mama Moray at 12% (🐡 227): 🐡 952 a minute, so growing more barely paid. Beating Fukure now opens her dining hall (🐡 1,000, hearth room, after the faster belt): she pays 50%, and the same cellar earns 🐡 1,670 a minute. At 35% for 🐡 1,500 it took over three minutes to pay its way and saved about half a minute; at 50% for 🐡 1,000 the median from Fukure to the buyout went from 8:06 to 5:06, and every style that finishes was quicker.
 
+**The try-hard** (`SIM_TRY=1`, 2026-10-23, with Mama's dining hall): a bot that plays the cellar to win as fast as it can. Before every boss it plays the cooking show and aces it (+50%), and it rings as soon as the gong's forecast with that says Win, landing a perfect slam. It buys by the numbers. For the next boss it takes the cheapest set of upgrades that gets a Win: everything on sale, tried in a copy of the cellar with its kitchen stocked and the gong's own forecast, then whatever can be left out with the gong still saying Win, dearest first. A money upgrade (Pricier bowls, Word on the street, the venue, Mama's hall) is bought, quickest payback first, when it gets everything still to buy (that set and the buyout) afforded sooner.
+
+| | Regular bot (median of 8) | Try-hard |
+|---|---|---|
+| Beat Hakkaku | 3:10 | 3:40 |
+| Beat Yokobashiri | 10:58 | 6:02 |
+| Beat Dobu | 19:31 | 8:46 |
+| Beat Samehada | 29:54 | 12:19 |
+| Beat Fukure | 37:17 | 41:38 |
+| Buy back all his chips | 42:38 | 46:13 |
+
+- **The first four bosses fall far sooner when a player goes straight for them.** Each needs one or two things, and his prize and his crowd's bowls pay for the next boss's: the attendant for Yokobashiri, the slide for Dobu, the cook for Samehada, all on the way at once.
+- **Fukure is the wall.** Rushing leaves the arena small (45 fans a local fight after Samehada, 🐡 100 to 250 a minute), and the faster belt (🐡 1,700), the smokehouse and the Underground Arena all have to be saved for from that: 29 minutes from Samehada to Fukure, against the regular bot's 7. In all, the try-hard is no faster than the regular bot.
+
 What it shows:
 - **Rice is the theme again.** It's the main limit through the early restaurant (up to half the time, with the chefs waiting for rice two thirds of it), and short again once the second row of garden tables comes in, which is what the third terrace fixes. The kiosk then takes the surplus, and rice runs short once more.
 - **The garden works, and the waiters set its pace.** Garden diners are served several tables a trip, but from the first garden tables on, the waiters are what they wait on most.

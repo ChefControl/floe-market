@@ -6,7 +6,9 @@
 //   SIM=1 SIM_STAGE=3 SIM_MINUTES=40 SIM_OUT=sim3.txt npx vitest run test/balance.sim.test.ts
 // How the bot plays the cellar (bot.ts's STYLE): SIM_SHOW=0..12 the cooking show's stars it earns (0: never
 // plays it), SIM_SHOW_SECS its real seconds, SIM_SLAM=0 never slams, SIM_HELP=0 never helps a hired line,
-// SIM_SKIP=cellarcrew,street5,tier3 never buys those (a level's id with the level it stops at). The cellar's played
+// SIM_SKIP=cellarcrew,street5,tier3 never buys those (a level's id with the level it stops at), SIM_TRY=1 plays to win
+// as fast as it can (bot.ts's Style.tryhard: buys by the numbers, the show aced before every boss; SIM_DEBUG=1 logs
+// its sums). The cellar's played
 // headless (src/headless.ts) unless SIM_FULL=1, and stops ten seconds after the buyout.
 import { writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -24,7 +26,8 @@ describe.runIf(process.env.SIM)('balance', () => {
     const minutes = Number(process.env.SIM_MINUTES || 60), E = process.env;
     // (the cellar's played without its looks, the same game many times faster: headless.ts; SIM_FULL=1 draws it all)
     if (ring && E.SIM_FULL !== '1') (await import('../src/headless')).headless.on = true;
-    const style = { show: Number(E.SIM_SHOW ?? STYLE.show), showSecs: Number(E.SIM_SHOW_SECS ?? STYLE.showSecs), slam: E.SIM_SLAM !== '0', help: E.SIM_HELP !== '0', skip: E.SIM_SKIP?.split(',') };
+    const tryhard = E.SIM_TRY === '1';
+    const style = { show: tryhard ? 12 : Number(E.SIM_SHOW ?? STYLE.show), showSecs: Number(E.SIM_SHOW_SECS ?? STYLE.showSecs), slam: E.SIM_SLAM !== '0', help: E.SIM_HELP !== '0', skip: E.SIM_SKIP?.split(','), tryhard };
     const { bought, samples, trace, fights, best, books } = play(g, minutes * 60, 0.05, ring ? await ringModules() : undefined, style);
     const out: string[] = [];
     const log = (l: string) => out.push(l);
