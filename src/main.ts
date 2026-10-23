@@ -24,6 +24,7 @@ import { drawMeet, meetCam } from './meet';
 import { drawWay, wayCam } from './southDoor';
 import './settings';
 import { view } from './stage';
+import { newBubbleFrame } from './speech';
 import { drawTutorial } from './tutorial';
 import { hud, keepInSight } from './ui';
 import { jitter } from './kit';
@@ -75,6 +76,7 @@ function frame(now: number) {
   frameDrawn((now - last) / 1000);
   const dt = Math.max(0, Math.min(0.05, (now - last) / 1000)); // a first frame can be stamped before boot
   last = now;
+  newBubbleFrame();
   if (!isStale()) { tick(dt); updKofi(dt); updReports(dt); }
 
   // Follow the player; the stage-up pulls back to look over the whole map for a moment, a new upgrade has the camera
