@@ -59,13 +59,13 @@ export interface Boss {
  *  571 (45 s too), Fukure 1100 (60 s). His `share` is what beats him: above all the kitchen the boss before him left
  *  turns, so what that boss opened has to be bought (the attendant, the slide, the cook, the faster belt), and under
  *  what it all turns with no show (SIM_STEPS=window). Their prices set the time between bosses (tuned 2026-10-22 with
- *  the stage 3 bot: seven to nine minutes each, about 45 to the buyout). */
+ *  the stage 3 bot: seven to nine minutes each; with Mama's dining hall after Fukure, about 43 to the buyout). */
 export const BOSSES: Boss[] = [
   { face: '🐙', name: 'Hakkaku', crowd: 100, bell: 30, prize: 100, kind: 'octopus', opens: 'grow room, the attendant' },
   { face: '🦀', name: 'Yokobashiri', crowd: 210, bell: 30, prize: 250, share: 0.495, kind: 'crab', opens: 'Back-Alley Ring, bowl slide, steam baskets, a way south' },
   { face: '🐟', name: 'Dobu', crowd: 498, bell: 45, prize: 300, share: 0.8, kind: 'catfish', opens: 'Underground Arena, smokehouse, the cook' },
   { face: '🦈', name: 'Samehada', crowd: 571, bell: 45, prize: 800, share: 0.935, kind: 'shark', opens: 'Grand Hall Below, glowing shelves, faster belt' },
-  { face: '🐡', name: 'Fukure', crowd: 1100, bell: 60, prize: 1500, share: 0.74, kind: 'puffer', opens: 'buy back all his chips' },
+  { face: '🐡', name: 'Fukure', crowd: 1100, bell: 60, prize: 1500, share: 0.74, kind: 'puffer', opens: "Mama's dining hall, buy back all his chips" },
 ];
 /** The practice fight before the first boss (once, for a player who's just come down): the champion's own sparring
  *  partner and a small crowd, so the gong's learnt on a fight that's won. His prize hires the two lines' hands, which is
@@ -95,6 +95,10 @@ export const FAST_SLIDE = 18, FAST_COST = 1700, FAST_BEAT = 4;
  *  the pot full and a batch to spare on the ledge of everything goes up the belt to her counter instead, and pays this share of what
  *  its bowls would at the stall (the Family keeps the rest). Never in a boss's rush, or before the doors open. */
 export const RESTO_SHARE = 0.12;
+/** Mama's dining hall (a hearth room upgrade beating Fukure opens): her share once it's bought, and its price. With
+ *  no boss's crowd left to buy what the kitchen makes over what the stall sells, the stretch to the buyout leaned on
+ *  the stall alone; this makes the kitchen's spare bowls (and so the grow room's) pay again. */
+export const HALL_SHARE = 0.5, HALL_COST = 1000;
 /** The cooking show at the pot (chanko.ts), a bonus game: it takes nothing and cooks nothing, and its stars buy the pot
  *  bigger batches for a while (a cook's too): long enough to see a boss's rush through, Fukure's walk-in and his
  *  60 s bell too. */
@@ -225,6 +229,8 @@ export interface Fight {
   /** The bowl slide's bought, and how many bowls it's due to send down (it sends SLIDE a second), and its faster belt
    *  (FAST_SLIDE a second). */
   slide: boolean; slideAcc: number; fast: boolean;
+  /** Mama's dining hall's bought: she pays HALL_SHARE of a bowl, not RESTO_SHARE. */
+  hall: boolean;
   /** Bowls sent up the belt to Mama Moray's, all told. */
   resto: number;
   /** A cooking show left half way (chanko.ts), to carry on from, never to start over: null when there's none. */
@@ -264,7 +270,7 @@ export function blank(): Fight {
     pantry: { rice: 0, fish: 0, mush: 0 }, pot: [], potT: 0, counter: [], stall: [],
     queue: [], fed: [], cooked: [], full: [], fullAcc: 0, earned: [],
     rush: null, bout: freshBout(0),
-    seed: 3, cookT: 0, bonus: { pct: 0, t: 0 }, show: null, slide: false, slideAcc: 0, fast: false, resto: 0,
+    seed: 3, cookT: 0, bonus: { pct: 0, t: 0 }, show: null, slide: false, slideAcc: 0, fast: false, hall: false, resto: 0,
     den: {
       book: false, way: false, door: false, monte: { bout: -1, played: 0 }, eddie: { boss: -1, cut: 0, caught: false }, scandal: { cut: 0, bouts: 0 },
       loan: { owed: 0, total: 0 }, met: { eddie: false, harry: false, tommy: false },
@@ -408,6 +414,8 @@ function cookBatch(bowls: number) {
 /** The level of Word on the street that opens Mama Moray's (about when the second boss falls): before it, her place
  *  out front is a ruin, being cleared. */
 export const RESTO_OPENS = 5;
+/** What Mama Moray pays of a bowl's price: more once her dining hall's bought. */
+export const restoShare = () => (F.hall ? HALL_SHARE : RESTO_SHARE);
 /** Whether Mama Moray's is open. */
 export const restoOpen = () => mods.street >= RESTO_OPENS;
 /** Mama Moray's takes a batch: she's open, the pot's full, and the ledge has a batch to spare of everything that goes
@@ -418,7 +426,7 @@ export const canCookNow = () => canCook() && (!potFull() || restoWants());
 /** A batch of `bowls` cooked up the belt to Mama Moray's: the Family's price for them. */
 function toResto(bowls: number) {
   for (const k of inPot()) F.pantry[k] -= PER_BATCH;
-  const got = bowlPrice(growOpen()) * RESTO_SHARE * bowls;
+  const got = bowlPrice(growOpen()) * restoShare() * bowls;
   F.resto += bowls;
   F.cooked.push(F.t); F.earned.push([F.t, got]);
   if (real) { on.cooked(); on.resto(bowls, got); on.earn(got, 'resto'); }
@@ -1014,6 +1022,7 @@ export function setTier(t: number) { F.tier = Math.max(F.tier, t); }
 export function buyOut() { F.boughtOut = true; }
 export function buySlide() { F.slide = true; }
 export function buyFastSlide() { F.fast = true; }
+export function buyHall() { F.hall = true; }
 
 // ---------- saving ----------
 /** The cellar, for saving: a rush cut short by closing the page is called off (no win, no loss). */
@@ -1061,7 +1070,7 @@ export function fightFrom(raw: unknown): Fight {
       seed: clamp(Math.floor(num(r.seed, 3)), 1, 2147483646), cookT: 0,
       bonus: BONUS_TIERS.some(x => x.pct && x.pct === r.bonus?.pct) && num(r.bonus?.t) > 0 ? { pct: r.bonus!.pct, t: clamp(num(r.bonus?.t), 0, BONUS_S) } : b.bonus,
       show: showFrom(r.show),
-      slide: r.slide === true, slideAcc: 0, fast: r.slide === true && r.fast === true, resto: Math.max(0, Math.floor(num(r.resto))),
+      slide: r.slide === true, slideAcc: 0, fast: r.slide === true && r.fast === true, hall: r.hall === true, resto: Math.max(0, Math.floor(num(r.resto))),
       den: {
         // (a game saved before the doorman's door: the way's open already, if the second boss was beaten)
         book: typeof r.den?.book === 'boolean' ? r.den.book : num(r.beaten) >= 2,

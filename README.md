@@ -193,6 +193,7 @@ Far out past the road, a path leaves the market (through the east fence in stage
 | 🥁 The Underground Arena | 🐡 900 | Dobu | An upper tier and the taiko drummers: 90 seats |
 | ✨ Glowing grow shelves | 🐡 4,000 | Samehada | Every bed becomes a shelf: 9 mushrooms, one every 4 s |
 | ⏩ Faster belt | 🐡 1,700 | Samehada, and the bowl slide | The bowl slide runs at 18 bowls a second, not 12 |
+| 🍜 Mama's dining hall | 🐡 1,000 | Fukure, and the faster belt | Mama Moray pays 50% of a bowl, not 12% |
 | ⛩️ The Grand Hall Below | 🐡 2,500 | Samehada | The VIP boxes (box seats with cushions, right by the ring): 150 seats |
 | 🐡 Buy back all his chips | 🐡 7,000 | all five bosses | Stage 3 complete: his 30% ends, the restaurant's till comes back, and a lead to stage 4 |
 

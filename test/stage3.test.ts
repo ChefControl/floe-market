@@ -146,10 +146,10 @@ describe('buying into the ring', () => {
     expect((await import('../src/wallet')).wallet.money).toBe(400_000);
   });
 
-  it('the stage chip says when all five bosses are beaten, and the buyout is all that is on offer', async () => {
+  it("the stage chip says when all five bosses are beaten, and the buyout and Mama's dining hall are what's new on offer", async () => {
     const { g } = await ring({ ring: RING_DONE });
     expect($('stageCount').textContent).toBe('Buyout ready');
-    expect(offered(g).filter(id => !['rack', 'barrel', 'bed'].includes(id)).sort()).toEqual(['buyout', 'shelves', 'smoke', 'steam']);
+    expect(offered(g).filter(id => !['rack', 'barrel', 'bed'].includes(id)).sort()).toEqual(['buyout', 'hall', 'shelves', 'smoke', 'steam']);
   });
 });
 
@@ -1488,7 +1488,7 @@ describe("the cellar's tiles", () => {
     // the ring's three levels along the top, then every room's upgrade and the venue's tiers, and the buyout at the end
     expect([...$('shopRows').querySelectorAll('[data-mod]')].map(b => (b as HTMLElement).dataset.mod)).toEqual(['bowls', 'street', 'cellarcrew']);
     expect([...$('shopRows').querySelectorAll<HTMLElement>('[data-tile]')].map(b => b.dataset.tile)).toEqual(
-      ['rack', 'washer', 'steam', 'barrel', 'salter', 'smoke', 'bed', 'picker', 'shelves', 'attendant', 'slide', 'cook', 'fastslide', 'tier1', 'tier2', 'tier3', 'buyout']);
+      ['rack', 'washer', 'steam', 'barrel', 'salter', 'smoke', 'bed', 'picker', 'shelves', 'attendant', 'slide', 'cook', 'fastslide', 'hall', 'tier1', 'tier2', 'tier3', 'buyout']);
     // a gate a column: the start, the practice fight (won: the fixture's sparred), then the bosses, Hakkaku next
     const gates = () => [...$('shopRows').querySelectorAll<HTMLElement>('.gate')].map(h => h.className.replace('gate ', ''));
     expect(gates()).toEqual(['start', 'won', 'next', 'later', 'later', 'later', 'later']);
@@ -1665,6 +1665,21 @@ describe("the cellar's tiles", () => {
     expect(Math.abs(fast - fight.FAST_SLIDE)).toBeLessThanOrEqual(1);
     // (saved and loaded with the slide)
     expect(fight.fightFrom(fight.saveFight()).fast).toBe(true);
+  });
+
+  it("Mama's dining hall waits for Fukure and the faster belt, and she pays half a bowl, not an eighth", async () => {
+    const { g, fight, F } = await ring({ money: 10_000_000, ring: { beaten: 4, slide: true, fast: true, hires: { attendant: true } } });
+    g.run(0.1);
+    expect(offered(g)).not.toContain('hall');
+    F().beaten = 5;
+    g.run(0.1);
+    expect(offered(g)).toContain('hall');
+    expect(fight.restoShare()).toBe(fight.RESTO_SHARE);
+    g.unlocks.buyFromMenu(g.unlocks.tiles.find(t => t.id === 'hall')!);
+    expect(F().hall).toBe(true);
+    expect(fight.restoShare()).toBe(fight.HALL_SHARE);
+    // (saved and loaded)
+    expect(fight.fightFrom(fight.saveFight()).hall).toBe(true);
   });
 
   it('a cook cooks full batches out of the pot, and ladles them out twice as fast', async () => {

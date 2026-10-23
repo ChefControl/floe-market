@@ -11,7 +11,7 @@ type Game = Awaited<ReturnType<typeof loadGame>>;
 /** What each boss needs bought before his strength (💪) can be reached, by how many are beaten: what beating the boss
  *  before him opened (test/capacity.sim.test.ts, SIM_STEPS=window). A player sees it at the gong: "Lose" with the
  *  kitchen full, and that boss's card said what's new. */
-const KEY: Record<number, string[]> = { 1: ['attendant'], 2: ['slide'], 3: ['cook', 'smoke'], 4: ['fastslide'] };
+const KEY: Record<number, string[]> = { 1: ['attendant'], 2: ['slide'], 3: ['cook', 'smoke'], 4: ['fastslide'], 5: ['hall'] };
 /** The modules the bot plays the ring with. */
 export async function ringModules() {
   const [cellar, plan, fight] = await Promise.all([import('../src/cellar'), import('../src/cellarPlan'), import('../src/fight')]);
@@ -229,10 +229,12 @@ export function play(g: Game, seconds: number, dt = 0.05, ring?: Ring, style: St
   /** Down in the cellar, the upgrade to save for at the crafting bench's menus (none while a boss is in): what the next
    *  boss needs first, as a player reads it off the gong (KEY), then the cheapest on sale. */
   const nextMenu = () => {
-    // (with all the bosses beaten, the buyout's what's next: it saves for that, not what's left in the shop)
-    if (!ring || !g.layout.level.down || ring.fight.F.rush || ring.fight.F.beaten >= ring.fight.BOSSES.length) return undefined;
+    if (!ring || !g.layout.level.down || ring.fight.F.rush) return undefined;
     const on = g.unlocks.menuOffer().filter(x => !style.skip?.includes(x.id)), keys = KEY[ring.fight.F.beaten] ?? [];
-    return keys.map(k => on.find(x => x.id === k)).find(Boolean) ?? on.sort((a, b) => a.cost - b.cost)[0];
+    const key = keys.map(k => on.find(x => x.id === k)).find(Boolean);
+    // (with all the bosses beaten, the buyout's what's next: it saves for that, not what's left in the shop, past
+    // Mama's dining hall, which pays its way towards it)
+    return ring.fight.F.beaten >= ring.fight.BOSSES.length ? key : key ?? on.sort((a, b) => a.cost - b.cost)[0];
   };
   /** The cheapest repeatable upgrade of this stage that isn't fully upgraded. */
   const nextMod = () => g.economy.MODS.filter(m => m.stage === g.layout.stage.n && g.economy.modCost(m.id) !== null && g.shop.modOffered(m.id) && g.shop.modOpen(m.id) && useful(m.id))
