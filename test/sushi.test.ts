@@ -47,7 +47,7 @@ describe('the kitchen', () => {
     g.runUntil(() => sushi.slots.some(Boolean), 10);
     g.run(5);
     expect(sushi.slots.filter(Boolean)).toHaveLength(2); // a bag of rice makes two plates, then it's out
-    expect(sushi.slots.find(Boolean)!.userData.value).toBe(30);
+    expect(sushi.slots.find(Boolean)!.userData.value).toBe(300);
     expect([fishTray.n, ricePot.n, sushi.portions]).toEqual([1, 0, 0]);
     expect(sushi.chefs[0].state).toBe('idle');
     expect(sushi.cooks[0].g.arms[1].rotation.x).toBeCloseTo(-0.9);
@@ -66,7 +66,7 @@ describe('diners', () => {
     g.runUntil(() => d.state === 'eat', 30);
     expect(d.bubble.visible).toBe(false);
     g.runUntil(() => d.state === 'leave', 30);
-    const total = d.want * 30;
+    const total = d.want * 300;
     expect(g.rating.reviews[0]).toBe(5);
     expect(d.stack).toHaveLength(0);
     g.runUntil(() => g.cashAt({ cash: register }) >= total);
@@ -85,18 +85,18 @@ describe('diners', () => {
     sushi.spawnT = Infinity; // just the one, so the plate is theirs
     g.runUntil(() => g.rating.reviews.length > 0, 70);
     expect(g.rating.reviews[0]).toBe(1);
-    g.runUntil(() => g.cashAt({ cash: register }) === 30);
+    g.runUntil(() => g.cashAt({ cash: register }) === 300);
     sushi.spawnT = 0;
     g.runUntil(() => g.rating.reviews.length > 2, 120); // the next ones eat nothing and leave without paying
     g.run(2);
-    expect(g.cashAt({ cash: register })).toBe(30);
+    expect(g.cashAt({ cash: register })).toBe(300);
   });
 
   it('fold bills into the top one when the register is full', async () => {
-    const g = await open({ plates: 30, cash: 30 });
+    const g = await open({ plates: 30, cash: 300 });
     const { register } = g.restaurant;
     register.cap = register.items.length;
-    g.runUntil(() => g.cashAt({ cash: register }) > 30, 60);
+    g.runUntil(() => g.cashAt({ cash: register }) > 300, 60);
     expect(register.items).toHaveLength(1);
   });
 });
@@ -114,10 +114,10 @@ describe('restaurant upgrades', () => {
     expect(sushi.chefs).toHaveLength(3);
     expect(new Set(sushi.chefs.map(c => c.q)).size).toBe(3); // each puts plates on its own stretch of belt
     g.unlocks.applyUnlock('premium');
-    expect(TAKEOUT.price).toBe(56);
+    expect(TAKEOUT.price).toBe(560);
     g.runUntil(() => sushi.slots.some(Boolean) && TAKEOUT.stock.items.length > 0, 15);
-    expect(sushi.slots.find(Boolean)!.userData.value).toBe(48);
-    expect(TAKEOUT.stock.items[0].userData.value).toBe(56);
+    expect(sushi.slots.find(Boolean)!.userData.value).toBe(480);
+    expect(TAKEOUT.stock.items[0].userData.value).toBe(560);
   });
 
   it('diners find their way to the extra seats, round either end of the bar', async () => {
