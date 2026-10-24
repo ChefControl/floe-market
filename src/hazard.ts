@@ -6,8 +6,9 @@
 // different taste on a coated zombie pops a technique (🔥 on ❄️ is Brûléed), which jumps once to the zombies around it
 // wearing the same coat and drops a garnish that boosts the gun's next shots. Each taste is an element: three stick on
 // the first hit (Fire, Poison, Acid) and three fill a ring at the zombie's feet until it goes off (Freeze, Electric,
-// Lure). The horde only has HP, which grows with the clock (Fresh, Stale, Expired, BIOHAZARD); a special zombie shows an
-// order ticket of two tastes, shrugs off everything else, and goes down to the technique its ticket makes.
+// Lure). The horde only has HP, which grows with the clock (Fresh, Stale, Expired, BIOHAZARD); a special zombie has four
+// times as much, and shows an order ticket of two tastes: shots wear it down like any zombie, but its ticket, hit in
+// order, cooks it on the spot.
 
 export type Taste = 'spicy' | 'bitter' | 'sour' | 'salty' | 'sweet' | 'umami';
 
@@ -234,21 +235,20 @@ function goOff(run: Run, z: Zombie, taste: Taste) {
   } else z.lureT = 3;
 }
 
-/** A hit on a special zombie: only the next taste on its ticket gets through; the wrong one makes it hurry. */
+/**
+ * A hit on a special zombie: it hurts as on any zombie (it just has a lot more to get through), and the next taste on
+ * its ticket ticks that off: the whole ticket cooks it on the spot. A taste that isn't next makes it hurry.
+ */
 function ticketHit(run: Run, z: Zombie, dmg: number, taste: Taste | null) {
   const ticket = z.ticket!;
-  if (taste && taste === ticket[z.step]) {
-    z.step++;
-    if (z.step === ticket.length) {
-      const name = cook(run, z, ticket[0], ticket[1], true);
-      if (!z.dead) { z.dead = true; run.kills++; }
-      return name;
-    }
-    return null;
-  }
-  hurt(run, z, dmg * 0.1);
-  if (taste) z.hasteT = 2;
-  return null;
+  hurt(run, z, dmg);
+  if (z.dead || !taste) return null;
+  if (taste !== ticket[z.step]) { z.hasteT = 2; return null; }
+  z.step++;
+  if (z.step < ticket.length) return null;
+  const name = cook(run, z, ticket[0], ticket[1], true);
+  if (!z.dead) { z.dead = true; run.kills++; }
+  return name;
 }
 
 // ---------- techniques ----------

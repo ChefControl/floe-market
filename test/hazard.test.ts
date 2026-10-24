@@ -147,17 +147,24 @@ describe('tastes and techniques', () => {
 });
 
 describe('special zombies', () => {
-  it('shrug off anything but their ticket, hurry at a wrong taste, and go down to the ticket in order', () => {
-    const run = quiet(), z = zombie(run, 300, 300, { ticket: ['umami', 'spicy'] });
+  it('take damage from any shot, hurry at a wrong taste, and go down at once to their ticket in order', () => {
+    const run = quiet(), z = zombie(run, 300, 300, { ticket: ['umami', 'spicy'], hp: 400, maxHp: 400 });
     hit(run, z, 50, null);
-    expect(z.hp).toBe(95);
+    expect(z.hp).toBe(350);
     hit(run, z, 10, 'spicy');
-    expect([z.step, z.hasteT > 0]).toEqual([0, true]);
+    expect([z.step, z.hasteT > 0, z.hp]).toEqual([0, true, 340]);
     hit(run, z, 10, 'umami');
     expect(z.step).toBe(1);
     expect(hit(run, z, 10, 'spicy')).toBe('BARBECUED!');
     expect(z.dead).toBe(true);
     expect(run.kills).toBe(1);
+  });
+
+  it('can be shot down without their ticket, too', () => {
+    const run = quiet(), z = zombie(run, 300, 300, { ticket: ['umami', 'spicy'], hp: 40, maxHp: 40 });
+    for (let i = 0; i < 4; i++) hit(run, z, 10, null);
+    expect(z.dead).toBe(true);
+    expect([run.kills, run.cooked]).toEqual([1, 0]);
   });
 
   it('turn up now and then with a ticket of two different tastes', () => {
