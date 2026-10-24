@@ -93,7 +93,12 @@ describe('bug reports', () => {
     // the picture of the screen only goes with the one of just the game
     await assertFails(send(db, Object.fromEntries(Object.entries(report()).filter(([k]) => k !== 'shot'))));
     await assertFails(send(db, report({ errors: 5 })));
-    await assertSucceeds(send(db, report({ text: 'x'.repeat(1000) })));
+    // how many days it's kept: up to 30, a whole number (reports from older builds don't say)
+    await assertFails(send(db, report({ keep: 31 })));
+    await assertFails(send(db, report({ keep: 0 })));
+    await assertFails(send(db, report({ keep: 7.5 })));
+    await assertFails(send(db, report({ keep: '30' })));
+    await assertSucceeds(send(db, report({ text: 'x'.repeat(1000), keep: 30 })));
   });
 });
 

@@ -32,6 +32,8 @@ export interface Report {
   shot?: string;
   /** The picture as the player saw it, with what's shown over the game (`shot` is just the game). */
   ui?: string;
+  /** How many days the player was told the picture and game state are kept: the intake deletes them after that. */
+  keep?: number;
 }
 /** What cloud saves need from the service behind them: firebase.ts, or a fake one in the tests. */
 export interface CloudBackend {

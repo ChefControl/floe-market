@@ -25,6 +25,9 @@ import { toast } from './ui';
 export const TEXT_MAX = 1000;
 /** Biggest picture (each of the two) and save a report carries (firestore.rules checks them too). */
 export const SHOT_MAX = 200_000, SAVE_MAX = 100_000;
+/** How many days the picture and game state are kept, as the window tells the player (index.html's "Kept 30 days").
+    Each report carries it, so the intake keeps it as long as that player was told; firestore.rules allow up to 30. */
+export const KEEP_DAYS = 30;
 /** How wide the picture is, in pixels. */
 const SHOT_W = 640;
 /**
@@ -362,7 +365,7 @@ async function send() {
   const pic = shotOn.checked && !!shot, opened = opens;
   const r: Report = {
     id: newId(), kind, text: note.slice(0, TEXT_MAX), build: __BUILD__, device: device(),
-    errors: JSON.stringify(recentErrors),
+    errors: JSON.stringify(recentErrors), keep: KEEP_DAYS,
     ...(stateOn.checked ? { live: live(), save: saveNow() } : {}),
     ...(pic ? { shot } : {}),
   };
