@@ -14,7 +14,7 @@ import {
 import { GRIP } from '../src/poses';
 import { RikishiModel } from '../src/rikishi';
 
-/** The ring's numbers (cellar.ts's: stage3.test.ts checks they're the same). */
+/** The ring's numbers (cellar.ts's: stage3Gong.test.ts checks they're the same). */
 export const DOHYO = { top: 0.6, half: 3.3, r: 2.6, steps: [{ out: 0.28, top: 0.42 }, { out: 0.74, top: 0.22 }] };
 const rig = makeRing(DOHYO.top, DOHYO.half, DOHYO.r, DOHYO.steps);
 const ORIGIN = new Vector3();

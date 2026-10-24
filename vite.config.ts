@@ -1,5 +1,6 @@
 import type { Plugin } from 'vite';
 import { configDefaults, defineConfig } from 'vitest/config';
+import { ShardSequencer } from './test/shards.ts';
 
 /**
  * The loading screen (index.html) counts the game's scripts in as they download, so it needs their names and sizes
@@ -50,6 +51,8 @@ export default defineConfig({
     // Loading the game builds both the Low and the High models (graphics.ts), and some tests load it several times.
     testTimeout: 15_000,
     unstubGlobals: true,
+    // CI's shards split the files by how long they take (test/shards.ts)
+    sequence: { sequencer: ShardSequencer },
     coverage: {
       provider: 'v8',
       include: ['src/**'],
