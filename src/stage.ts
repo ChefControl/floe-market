@@ -24,7 +24,6 @@ import { houseStage2 } from './rain';
 import { mix, onBlend, type Swatch } from './season';
 import { furniture, handOver, openRestaurant } from './restaurant';
 import { fieldStack, plantPatch } from './rice';
-import { retireRunners } from './runner';
 import { fanfare } from './sfx';
 import { pile } from './stations';
 import { cellarKnown } from './tutorial';
@@ -250,10 +249,8 @@ export function enterStage2(silent: boolean, onMove = () => {}) {
   // Korki's statue goes out with the old stage and comes back in its new spot.
   const movers = [korkiStatue()].filter((o): o is Group => o !== null);
   const move = () => { moveKorki(); onMove(); };
-  // the restaurant keeps two of the market's runners; any more go with the market
-  const retired = retireRunners();
+  // (the market's runners stay on: in the restaurant they carry its fish, and its rice once there's a farmer)
   const outs: [Object3D, Axis][] = [
-    ...retired.map((o): [Object3D, Axis] => [o, 'all']),
     ...[...C1.meshes, ...SLED.meshes].filter(m => m.visible).map((m): [Object3D, Axis] => [m, 'all']),
     [marketLooks, 'y'], [stage1Only.fence, 'y'], [stage1Only.road, 'x'], [stage1Only.trees, 'y'],
     ...movers.map((o): [Object3D, Axis] => [o, 'all']),
