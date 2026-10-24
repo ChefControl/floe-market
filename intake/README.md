@@ -12,7 +12,9 @@ This folder is kept in the game's repo, under `intake/`, so it's reviewed alongs
    - It puts each report's pictures and `save.json` on the `files` branch, in a folder named after the report: `ui.jpg` is the screen as the player saw it, with the game's panels and buttons, and `shot.jpg` is just the game.
    - It opens one issue per report, labelled `bug` or `idea` plus `new`. The picture shows at the top, and `save.json` is linked.
    - It marks the report filed and drops its picture and save from Firestore.
-3. **After 7 days:** the next run drops the report's folder from the `files` branch and removes the report from Firestore. It also edits the issue to say the picture and save are gone. The note, device and errors stay in the issue.
+3. **After 30 days:** the next run drops the report's folder from the `files` branch and removes the report from Firestore. It also edits the issue to say the picture and save are gone. The note, device and errors stay in the issue.
+   - Each report carries `keep`, the days the game told its player (30). Reports from older builds don't, and get the 7 days those builds promised. The intake never keeps one longer than it says.
+   - The `files` branch's `until.json` says when each folder goes. It replaced `index.json` (when each was filed, all kept 7 days), which the first run of the new intake turns into it.
 
 **The `files` branch:** each run rebuilds it as a single commit with no history, so a dropped file isn't kept in the branch's past. GitHub can still keep unreachable copies for a while before its own cleanup. The repo is private.
 

@@ -43,7 +43,7 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/config/reports).data.open == true
         && request.resource.data.keys().hasAll(['uid', 'at', 'status', 'kind', 'text', 'build', 'device', 'errors'])
         && request.resource.data.keys().hasOnly(['uid', 'at', 'status', 'kind', 'text', 'build', 'device', 'errors',
-          'live', 'save', 'shot', 'ui'])
+          'live', 'save', 'shot', 'ui', 'keep'])
         && request.resource.data.at == request.time
         && request.resource.data.status == 'new'
         && request.resource.data.kind in ['bug', 'idea']
@@ -56,6 +56,9 @@ service cloud.firestore {
         && (!('shot' in request.resource.data) || jpeg(request.resource.data.shot))
         // the picture as the player saw it, with the panels over the game: only with the one of just the game
         && (!('ui' in request.resource.data) || ('shot' in request.resource.data && jpeg(request.resource.data.ui)))
+        // how many days the player was told the picture and game state are kept (reports from before it: 7)
+        && (!('keep' in request.resource.data)
+          || (request.resource.data.keep is int && request.resource.data.keep >= 1 && request.resource.data.keep <= 30))
         // sent together with the player's count, which the rules below keep to 20 an hour
         && getAfter(/databases/$(database)/documents/limits/$(request.auth.uid)).data.last == request.time;
     }

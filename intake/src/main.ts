@@ -9,4 +9,4 @@ const repo = need('GITHUB_REPOSITORY');
 const done = await run(firestore(need('FIREBASE_PROJECT')), github(repo, need('GITHUB_TOKEN')), filesBranch(repo));
 // counts only: the run's log shouldn't hold anything a player wrote
 console.log(`Filed ${done.filed.length} report(s)${done.filed.length ? ` (#${done.filed.join(', #')})` : ''}, `
-  + `cleared ${done.expired} older than 7 days, skipped ${done.skipped.length} with a bad name.`);
+  + `cleared ${done.expired} whose time was up, skipped ${done.skipped.length} with a bad name.`);
