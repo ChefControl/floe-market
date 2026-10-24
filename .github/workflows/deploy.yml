@@ -17,8 +17,8 @@ concurrency:
 
 jobs:
   # The unit tests, in four shards side by side, each on a runner of its own: most of them load the whole game, some
-  # hundreds of times, which on one runner took over ten minutes. Each shard keeps its results and coverage in a blob
-  # for build to merge.
+  # hundreds of times, which on one runner took over ten minutes. The shards split the files by how long each takes
+  # (test/shards.ts). Each shard keeps its results and coverage in a blob for build to merge.
   test:
     runs-on: ubuntu-latest
     strategy:
@@ -31,7 +31,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npx vitest run --coverage --shard=${{ matrix.shard }}/${{ strategy.job-total }} --reporter=default --reporter=blob
+      # (a worker for each of the runner's four cores: Vitest's own count leaves one spare)
+      - run: npx vitest run --coverage --shard=${{ matrix.shard }}/${{ strategy.job-total }} --maxWorkers=4 --reporter=default --reporter=blob
         env:
           VITEST_SHARD: ${{ matrix.shard }}
       - uses: actions/upload-artifact@v7
@@ -57,8 +58,14 @@ jobs:
           path: .vitest/blob/
           merge-multiple: true
       # Unit tests gate the deploy: a failing test (in any shard) or coverage below the thresholds (over all of them,
-      # merged) stops here.
-      - run: npx vitest run --merge-reports=.vitest/blob --coverage
+      # merged) stops here. It also writes how long each file took, for the shards' split (test/shards.ts).
+      - run: npx vitest run --merge-reports=.vitest/blob --coverage --reporter=default --reporter=./test/shards.ts
+      - uses: actions/upload-artifact@v7
+        with:
+          name: test-times
+          path: .vitest/times.json
+          include-hidden-files: true
+          retention-days: 30
       # Stage 3 is open to players (src/flags.ts). To take it back, set 'off' and push: saves that have met Mr. Fugu
       # keep it on.
       - run: npm run build
