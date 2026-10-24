@@ -429,7 +429,7 @@ describe('saving the cellar', () => {
     const carried = g.player.back.count('fish');
     g.saveMod.save();
     const raw = JSON.parse(localStorage.getItem('floe-market-v1')!);
-    expect(raw.v).toBe(6);
+    expect(raw.v).toBe(7);
     const r2 = await ring(raw);
     const f = r2.F();
     expect(r2.g.layout.level.down).toBe(true);
@@ -475,7 +475,7 @@ describe('saving the cellar', () => {
     const s = g.saveMod.migrate({ v: 5, money: 5, ring: { names: ['Big Al'], kg: [150] }, level: 7 });
     expect(s.ring).toBeNull();
     expect(s.level).toBe(1);
-    expect(s.v).toBe(6);
+    expect(s.v).toBe(7);
   });
 });
 

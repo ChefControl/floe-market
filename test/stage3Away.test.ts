@@ -109,7 +109,8 @@ describe('the world up top, with the player down in the cellar', () => {
     m0 = g.wallet.money;
     g.run(60);
     expect(g.wallet.money - m0).toBeGreaterThan(rate * 60 - 2);
-    expect(g.wallet.money - m0).toBeLessThanOrEqual(rate * 60 + 1);
+    // (and up to a tick's worth over: sixty seconds of 1/60 s ticks can come to one tick more)
+    expect(g.wallet.money - m0).toBeLessThanOrEqual(rate * (60 + 1 / 60) + 1);
     expect(front.tillRate()).toBe(rate);
   }, 60_000);
 });
