@@ -1,0 +1,48 @@
+/* Cooking Hazard's greybox (hazardPlay.ts): the loadout pick and the result on the kit's full screen, the street drawn
+   on a canvas under the game's own HUD pills, and the dish slots as round action buttons along the bottom right. */
+#hazard .hz-pick, #hazard .hz-over{
+  margin:auto; width:min(560px, calc(100% - 32px)); display:flex; flex-direction:column; gap:12px; padding:16px 0;
+}
+#hazard .hz-stats{ display:flex; gap:8px; justify-content:center; flex-wrap:wrap; }
+#hazard .hz-play{ position:absolute; inset:0; background:#1b2430; overflow:hidden; }
+#hazard[data-mode="play"] .k-paused{ display:none; }
+#hazard canvas{ position:absolute; inset:0; width:100%; height:100%; display:block; cursor:crosshair; touch-action:none; }
+
+#hazard .hz-hud{
+  position:absolute; left:12px; top:12px; display:flex; flex-direction:column; align-items:flex-start; gap:8px;
+  pointer-events:none; font-family:"Baloo 2","Trebuchet MS",system-ui,sans-serif;
+}
+#hazard .hz-hud .pill{ font-size:15px; padding:4px 14px 4px 4px; }
+#hazard .hz-ic{
+  width:30px; height:30px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:16px;
+  background:var(--chip);
+}
+#hazard .hz-bar{ width:120px; height:10px; border-radius:5px; background:var(--chip); overflow:hidden; }
+#hazard .hz-bar > i{ display:block; height:100%; background:var(--hot); }
+
+/* the difficulty strip: the words slide right to left past a fixed marker; the gap to the next is the time left */
+#hazard .hz-strip{ position:relative; width:240px; height:30px; border-radius:15px; overflow:hidden; background:var(--chip); }
+#hazard .hz-track{ position:absolute; left:0; top:0; height:30px; display:flex; will-change:transform; }
+#hazard .hz-track > b{ width:120px; height:30px; display:flex; align-items:center; justify-content:center; font-size:15px; }
+#hazard .hz-track > b:nth-child(1){ background:#49c25b; color:var(--ink); }
+#hazard .hz-track > b:nth-child(2){ background:#e0702a; color:var(--ink); }
+#hazard .hz-track > b:nth-child(3){ background:var(--hot); color:#fff; }
+#hazard .hz-track > b:nth-child(4){ width:240px; background:var(--ink); color:#ffc34a; letter-spacing:1px; }
+#hazard .hz-mark{ position:absolute; left:59px; top:0; width:3px; height:30px; background:#fff; box-shadow:0 0 0 1px var(--ink); }
+
+#hazard .hz-dishes{ position:absolute; right:24px; bottom:24px; display:flex; gap:12px; pointer-events:none; }
+#hazard .hz-slot{
+  position:relative; width:84px; height:84px; border-radius:50%; display:flex; flex-direction:column; align-items:center;
+  justify-content:center; line-height:1.05; font:800 18px/1.05 "Baloo 2","Trebuchet MS",system-ui,sans-serif;
+  background:var(--c); color:var(--c-ink, var(--ink)); box-shadow:0 4px 0 rgba(0,0,0,.35);
+}
+#hazard .hz-slot > span{ font-size:26px; }
+#hazard .hz-slot > b{
+  position:absolute; right:-4px; top:-4px; min-width:26px; height:26px; border-radius:13px; display:flex;
+  align-items:center; justify-content:center; background:var(--go); color:#fff; font-size:15px;
+}
+#hazard .hz-slot.empty{ background:#c3cad0; color:#46525c; box-shadow:none; }
+#hazard .hz-slot.empty > b{ background:#46525c; }
+#hazard .hz-slot.on{ box-shadow:0 4px 0 rgba(0,0,0,.35), 0 0 0 4px #ffc34a; }
+#hazard .hz-slot.locked{ background:#c3cad0; color:#46525c; box-shadow:none; font-size:14px; }
+#hazard .hz-slot.locked > span{ font-size:22px; }

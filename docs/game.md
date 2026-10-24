@@ -408,6 +408,8 @@ Each deploy removes the last one's files, and GitHub Pages lets browsers keep th
 | `src/ui.ts` | HUD and stage chip (which folds the modifier list), toasts, tips, floating text, the stage-up banner and confetti, and sliding the view so an open panel never covers the player |
 | `src/uiKit.ts` / `src/uiKit.css` | The UI kit every panel the player presses things in is made of (the standard: `.claude/skills/game-ui/SKILL.md`): cards, dialogs and full screens, four skins, main/plain/danger/choice buttons and their states (greyed when you can't afford it), and the keys (Esc closes, E the main button, 1–9 along a row, Shift shows them) |
 | `src/uiShowcase.ts` | `?ui=kit` in dev and demo builds: every piece of the UI kit in each skin |
+| `src/hazard.ts` | Cooking Hazard, the arcade cabinet's game to come: the rules of its fight (six tastes as elements, a coat and a second taste cooking a zombie into one of 15 techniques, dishes served by a recipe code, special zombies' order tickets, the Fresh → Stale → Expired → BIOHAZARD clock) |
+| `src/hazardPlay.ts` / `src/hazard.css` | `?arcade=on` in dev and demo builds: a greybox of that fight on a full screen over the game, mouse and keyboard only (WASD, aim and hold to fire, F shove, R reload, hold 1–2 and type a dish's code, then click to throw; Esc leaves) |
 | `src/save.ts` | Per-device save/load, migration, autosave, one-tab-at-a-time guard |
 | `src/cloud.ts` | Cloud saves: the sign-in button, syncing with the account, asking which game to keep |
 | `src/report.ts` | Report a bug or idea: its window, opened from the settings, the picture of the game, the notice of what's sent, and reports waiting for the cloud |
