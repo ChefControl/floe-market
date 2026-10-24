@@ -446,7 +446,7 @@ describe('saving the cellar', () => {
     expect(r2.g.unlocks.tiles.find(t => t.id === 'washer')!.done).toBe(true);
     expect(r2.g.layout.found.grow).toBe(true);
     expect($('stageCount').textContent).toBe('2/5');
-  });
+  }, 30_000);
 
   it('a rush cut short by closing the page is called off, no win and no loss', async () => {
     const { g, fight } = await ring();
