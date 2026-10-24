@@ -133,7 +133,7 @@ describe('reporting a bug or an idea', () => {
       "Your game state: your saved game (progress, look and settings), and where you're standing, what's open on screen, the season and how long you've played this visit.",
       "Always: the game's version, your device type (graphics setting, frame rate, screen size, touch or not, browser) and the last few errors the game hit.",
       'Never: your name or email. Your account is only used to stop too many reports at once.',
-      'Kept 7 days: the picture and game state are deleted after that. Everything goes to the developer, only to find and fix the problem.',
+      'Kept 30 days: the picture and game state are deleted after that. Everything goes to the developer, only to find and fix the problem.',
     ]);
     expect($('reportWarn').hidden).toBe(true);
     expect($('reportCount').textContent).toBe('0 / 1000');
@@ -163,14 +163,14 @@ describe('reporting a bug or an idea', () => {
     expect($('reportWarn').textContent).toBe('Without the picture, it may be hard to see what went wrong.');
     expect($('reportNotice').textContent).toBe('your note and your game state');
     expect($('whatShot').hidden).toBe(true);
-    expect($('whatKept').textContent).toMatch(/^Kept 7 days: the game state is deleted/);
+    expect($('whatKept').textContent).toMatch(/^Kept 30 days: the game state is deleted/);
     tick('reportStateOn', false);
     expect($('reportWarn').textContent).toBe('Without the picture, it may be hard to see what went wrong. Without your '
       + 'game state, the developer may not be able to make it happen again to fix it.');
     expect($('reportNotice').textContent).toBe('your note');
     expect($('whatKept').hidden && $('whatState').hidden).toBe(true);
     tick('reportShotOn', true);
-    expect($('whatKept').textContent).toMatch(/^Kept 7 days: the picture is deleted/);
+    expect($('whatKept').textContent).toMatch(/^Kept 30 days: the picture is deleted/);
     expect($('reportWarn').textContent).not.toContain('picture');
     // both start ticked again the next time it opens
     $('reportClose').click(); $('reportCat').click();
@@ -216,7 +216,8 @@ describe('reporting a bug or an idea', () => {
     await vi.waitFor(() => expect(fake.reports).toHaveLength(1));
     const { uid, r } = fake.reports[0];
     expect(uid).toBe('u1');
-    expect(r).toMatchObject({ kind: 'idea', text: 'More fish, please', build: __BUILD__, shot: SHOT, ui: SHOT });
+    // the days the window says it's kept, so the intake keeps it that long
+    expect(r).toMatchObject({ kind: 'idea', text: 'More fish, please', build: __BUILD__, shot: SHOT, ui: SHOT, keep: 30 });
     expect(String(r.id)).toMatch(/^[A-Za-z0-9]{20}$/);
     expect(JSON.parse(String(r.save))).toMatchObject({ money: 77 }); // saved the moment it was sent
     expect(JSON.parse(String(r.live))).toMatchObject({ stage: 1, cellar: false, season: 'winter', open: [], cloud: 'saved' });
@@ -276,7 +277,7 @@ describe('reporting a bug or an idea', () => {
     write('The sled got stuck');
     $('reportSend').click();
     await vi.waitFor(() => expect(fake.reports).toHaveLength(1));
-    expect(Object.keys(fake.reports[0].r).sort()).toEqual(['build', 'device', 'errors', 'id', 'kind', 'text']);
+    expect(Object.keys(fake.reports[0].r).sort()).toEqual(['build', 'device', 'errors', 'id', 'keep', 'kind', 'text']);
     // a bug gets squashed as it goes
     expect($('sendFx').className).toBe('bug');
     expect($('sendFx').querySelector('.swatter')).not.toBeNull();

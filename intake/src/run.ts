@@ -1,7 +1,8 @@
 // One run of the intake: every new report becomes an issue, with its pictures and save on the `files` branch, and
-// reports filed more than 7 days ago lose their pictures and save, in the issue, on the branch and in Firestore.
+// reports kept as long as the player was told (30 days, or 7 for reports from before) lose their pictures and save,
+// in the issue, on the branch and in Firestore.
 // The services are passed in (main.ts makes the real ones), so the tests can use stand-ins.
-import { body, expired, ID, jpeg, KEEP_MS, marker, reporter, title, type Links, type StoredReport } from './issue.ts';
+import { body, DAY, expired, ID, jpeg, keepDays, marker, reporter, title, type Links, type StoredReport } from './issue.ts';
 
 /** Firestore's reports, as the intake's service account sees them. */
 export interface Store {
@@ -9,10 +10,10 @@ export interface Store {
   pending(): Promise<StoredReport[]>;
   /** Marks a report as being filed, so a run that stops halfway doesn't open a second issue for it. */
   filing(id: string): Promise<void>;
-  /** Marks a report filed as issue `issue` at `at`, and drops its pictures and save from Firestore. */
-  filed(id: string, issue: number, at: number): Promise<void>;
-  /** Reports filed before `before`: their issue number, if they have one. */
-  expired(before: number): Promise<{ id: string; issue?: number }[]>;
+  /** Marks a report filed as issue `issue` at `at`, to be deleted at `until`, and drops its pictures and save from Firestore. */
+  filed(id: string, issue: number, at: number, until: number): Promise<void>;
+  /** Reports due to be deleted by `now`: their issue number, if they have one, and the days they said they'd be kept. */
+  expired(now: number): Promise<{ id: string; issue?: number; keep?: number }[]>;
   remove(id: string): Promise<void>;
 }
 /** The reports repo's issues. */
@@ -25,11 +26,12 @@ export interface Issues {
   edit(n: number, body: string): Promise<void>;
 }
 export type FileName = 'shot.jpg' | 'ui.jpg' | 'save.json';
-/** The `files` branch: a folder per report, rebuilt each run as one commit holding only the last 7 days. */
+/** The `files` branch: a folder per report, rebuilt each run as one commit holding only the reports still kept. */
 export interface Files {
-  put(id: string, name: FileName, data: Uint8Array | string, at: number): void;
-  /** Drops the folders of reports filed before `before`. */
-  prune(before: number): void;
+  /** Adds a report's file, to be dropped at `until`. */
+  put(id: string, name: FileName, data: Uint8Array | string, until: number): void;
+  /** Drops the folders of reports due to go by `now`. */
+  prune(now: number): void;
   url(id: string, name: FileName): string;
   /** Pushes the branch, if anything changed. */
   save(): Promise<void>;
@@ -42,30 +44,30 @@ export async function run(store: Store, issues: Issues, files: Files, now = Date
   const reports = await store.pending();
 
   // the picture and the save go up first, so the issues show them from the start
-  const ready: { r: StoredReport; links: Links }[] = [];
+  const ready: { r: StoredReport; links: Links; until: number }[] = [];
   for (const r of reports) {
     if (!ID.test(r.id)) { done.skipped.push(r.id); await store.remove(r.id); continue; }
     if (r.status === 'new') await store.filing(r.id);
-    const links: Links = {}, shot = jpeg(r.shot), ui = jpeg(r.ui);
-    if (shot) { files.put(r.id, 'shot.jpg', shot, now); links.shot = files.url(r.id, 'shot.jpg'); }
-    if (shot && ui) { files.put(r.id, 'ui.jpg', ui, now); links.ui = files.url(r.id, 'ui.jpg'); }
-    if (r.save) { files.put(r.id, 'save.json', r.save, now); links.save = files.url(r.id, 'save.json'); }
-    ready.push({ r, links });
+    const links: Links = {}, shot = jpeg(r.shot), ui = jpeg(r.ui), until = now + keepDays(r.keep) * DAY;
+    if (shot) { files.put(r.id, 'shot.jpg', shot, until); links.shot = files.url(r.id, 'shot.jpg'); }
+    if (shot && ui) { files.put(r.id, 'ui.jpg', ui, until); links.ui = files.url(r.id, 'ui.jpg'); }
+    if (r.save) { files.put(r.id, 'save.json', r.save, until); links.save = files.url(r.id, 'save.json'); }
+    ready.push({ r, links, until });
   }
-  files.prune(now - KEEP_MS);
+  files.prune(now);
   await files.save();
 
-  for (const { r, links } of ready) {
+  for (const { r, links, until } of ready) {
     const n = (r.status === 'filing' ? await issues.find(marker(r.id)) : null)
       ?? await issues.create(title(r), body(r, links, await reporter(r.uid)), [r.kind === 'idea' ? 'idea' : 'bug', 'new']);
-    await store.filed(r.id, n, now);
+    await store.filed(r.id, n, now, until);
     done.filed.push(n);
   }
 
-  // a week on: the issue keeps the note, and says the picture and the save are gone
-  for (const old of await store.expired(now - KEEP_MS)) {
+  // once its time is up: the issue keeps the note, and says the picture and the save are gone
+  for (const old of await store.expired(now)) {
     const text = old.issue ? await issues.read(old.issue) : null;
-    if (old.issue && text !== null) await issues.edit(old.issue, expired(text));
+    if (old.issue && text !== null) await issues.edit(old.issue, expired(text, keepDays(old.keep)));
     await store.remove(old.id);
     done.expired++;
   }

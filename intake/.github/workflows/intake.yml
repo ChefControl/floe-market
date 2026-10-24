@@ -1,6 +1,6 @@
 # Turns Floe Market's in-game reports into issues here. Every 30 minutes it reads new reports from Firestore, puts
-# each one's picture and save on the `files` branch, opens an issue, and clears out pictures and saves older than 7
-# days. Setup: README.md.
+# each one's picture and save on the `files` branch, opens an issue, and clears out pictures and saves once they've
+# been kept as long as the player was told (30 days; 7 for older reports). Setup: README.md.
 name: Reports to issues
 
 on:

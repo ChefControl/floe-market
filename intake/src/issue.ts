@@ -16,6 +16,8 @@ export interface StoredReport {
   shot?: string;
   /** The picture as the player saw it, with the panels over the game (`shot` is just the game). */
   ui?: string;
+  /** How many days the game told the player the picture and save are kept (reports from before it said: 7). */
+  keep?: number;
   /** When it was sent, in ms. */
   at: number;
   status: 'new' | 'filing' | 'filed';
@@ -25,8 +27,11 @@ export interface StoredReport {
 /** Where the pictures and the save of a report are, on the reports repo's `files` branch. */
 export interface Links { shot?: string; ui?: string; save?: string }
 
-/** How long the picture and the save are kept, in ms. */
-export const KEEP_MS = 7 * 86_400_000;
+export const DAY = 86_400_000;
+/** How long the picture and the save are kept, in days: what the report says the player was told, else 7, as the
+    game said before reports carried it. Never longer than firestore.rules let a report ask for. */
+export const keepDays = (keep: unknown) => Number.isInteger(keep) && (keep as number) >= 1 && (keep as number) <= 30
+  ? keep as number : 7;
 /** A report's name, as the game makes them: anything else is left alone. */
 export const ID = /^[A-Za-z0-9]{20}$/;
 const ZW = '​';
@@ -83,7 +88,7 @@ export function body(r: StoredReport, links: Links, who: string) {
     fenced(defang(r.text)),
     '',
     '### Game state',
-    links.save ? `[save.json](${links.save}) (kept 7 days) ${SAVE_TAG}` : '_Left out by the player._',
+    links.save ? `[save.json](${links.save}) (kept ${keepDays(r.keep)} days) ${SAVE_TAG}` : '_Left out by the player._',
     ...(r.live ? ['', json(r.live)] : []),
     '',
     '### Device',
@@ -96,12 +101,12 @@ export function body(r: StoredReport, links: Links, who: string) {
   ].join('\n');
 }
 
-/** The issue's text once the picture and the save have been deleted. */
-export function expired(text: string) {
+/** The issue's text once the picture and the save have been deleted, `days` after it was filed. */
+export function expired(text: string, days: number) {
   return text.split('\n').map(l =>
-    l.endsWith(SHOT_TAG) ? '_Picture deleted after 7 days._'
-      : l.endsWith(UI_TAG) ? '_Picture of the screen deleted after 7 days._'
-      : l.endsWith(SAVE_TAG) ? '_save.json deleted after 7 days._' : l).join('\n');
+    l.endsWith(SHOT_TAG) ? `_Picture deleted after ${days} days._`
+      : l.endsWith(UI_TAG) ? `_Picture of the screen deleted after ${days} days._`
+      : l.endsWith(SAVE_TAG) ? `_save.json deleted after ${days} days._` : l).join('\n');
 }
 
 /** A picture's bytes, if it really is a JPEG. */
