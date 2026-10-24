@@ -31,7 +31,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npx vitest run --coverage --shard=${{ matrix.shard }}/${{ strategy.job-total }} --reporter=default --reporter=blob
+      # (a worker for each of the runner's four cores: Vitest's own count leaves one spare)
+      - run: npx vitest run --coverage --shard=${{ matrix.shard }}/${{ strategy.job-total }} --maxWorkers=4 --reporter=default --reporter=blob
         env:
           VITEST_SHARD: ${{ matrix.shard }}
       - uses: actions/upload-artifact@v7
