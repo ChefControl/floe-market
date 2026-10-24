@@ -55,8 +55,9 @@ export interface Books { bowls: number; prize: number; resto: number; spent: Rec
   /** Each local fight as its fans sat down: when, how many came, how many ate, and the bowls left over in the pot, on the counter and on the stall. */
   locals: { t: number; crowd: number; fed: number; left: number }[] }
 
-/** Plays `g` for `seconds` of game time. Returns what it bought when, and samples of money and earnings. */
-export function play(g: Game, seconds: number, dt = 0.05, ring?: Ring, style: Style = STYLE) {
+/** Plays `g` for `seconds` of game time. Returns what it bought when, and samples of money and earnings. `onTick`, if
+ *  given, is called after every tick with the game time, to measure what's going on (a sim's bottlenecks). */
+export function play(g: Game, seconds: number, dt = 0.05, ring?: Ring, style: Style = STYLE, onTick?: (t: number) => void) {
   const { player, wallet } = g;
   const p = player.g.position;
   const bought: Purchase[] = [], samples: Sample[] = [], fights: Fought[] = [];
@@ -568,6 +569,8 @@ export function play(g: Game, seconds: number, dt = 0.05, ring?: Ring, style: St
   }
 
   const { pile, PILE, PAD } = g.stations;
+  /** Where to stand to use the bin on the dock, behind the fish pile (bin.ts). */
+  const DOCK_BIN = { x: 4.0, z: -6.0 };
   const fishFrom = () => {
     if (pile.items.length >= Math.min(6, player.back.cap - player.back.n) && player.back.hasRoom()) {
       go({ x: PILE.x, z: PILE.z + 1.1 }, () => !player.back.hasRoom() || !pile.items.length, 15);
@@ -614,6 +617,8 @@ export function play(g: Game, seconds: number, dt = 0.05, ring?: Ring, style: St
         return;
       }
     }
+    // arms full of fish the kitchen line has no room for, with the rice pot wanting filling: into the bin by the pile
+    if (!room && fish && !r.fishTray.hasRoom() && r.ricePot.n < r.ricePot.cap / 2) { go(DOCK_BIN, () => !player.back.count('fish'), 20, true); return; }
     // the runner keeps the fish tray stocked; only help out when it's running low
     if (r.fishTray.cap - r.fishTray.n >= Math.min(8, room) && room) fishFrom();
     else go(r.FISH_DROP, () => true, 1);
@@ -626,6 +631,7 @@ export function play(g: Game, seconds: number, dt = 0.05, ring?: Ring, style: St
     if (!plan) decide();
     if (plan) walk();
     step();
+    onTick?.(t);
   }
   return { bought, samples, earned, trace, fights, best, books };
 }

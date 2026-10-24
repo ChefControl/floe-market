@@ -7,7 +7,9 @@ import { boost } from './economy';
 import { carrySlot, Holder } from './holder';
 import { newFillet } from './items';
 import { scene } from './render';
-import { FISH_DROP, fishTray, sushi } from './restaurant';
+import { groundY } from './layout';
+import { FISH_DROP, fishTray, ricePot, sushi } from './restaurant';
+import { farmer, fieldStack, stackStand, TO_POT } from './rice';
 import { PILE_STAND, pile } from './stations';
 import { FY, V, type XZ } from './util';
 
@@ -19,7 +21,10 @@ interface Runner extends Walker {
   /** Which runner this is: they stand side by side, the first in the middle. */
   i: number;
   back: Holder;
-  state: 'toPile' | 'load' | 'toTarget' | 'unload';
+  state: 'toPile' | 'load' | 'toTarget' | 'unload' | 'toStack' | 'loadRice' | 'toRice' | 'unloadRice';
+  /** Waypoints left on a rice trip (stage 2), and the bags it's gone for (-1: taking them back). */
+  path: XZ[];
+  bags: number;
   /** Per-item transfer cooldown. */
   t: number;
   /** Time spent at the pile without picking anything up. */
@@ -49,7 +54,7 @@ export const runners: Runner[] = [];
 export function hireRunner(): Runner {
   const r: Runner = {
     g: new Person(SHIRTS[runners.length]), i: runners.length, h: 0, speed: 3.3, moving: false,
-    state: 'toPile', t: 0, wait: 0, target: null,
+    state: 'toPile', t: 0, wait: 0, target: null, path: [], bags: 0,
     back: new Holder(i => carrySlot(r, i), 8),
   };
   r.g.position.copy(beside(r, PILE_STAND));
@@ -86,6 +91,16 @@ export const runnersLoad = () => runners.reduce((n, r) => n + r.back.n, 0);
  */
 const pace = () => Math.min(2, boost(sushi.built ? 'crew' : 'training'));
 
+/** Stage 2: a runner whose fish the kitchen line has no room for carries in the farmer's rice instead, while the stack
+ *  has a load in it and the rice pot room for it. */
+const riceWanted = () => sushi.built && !!farmer && fishTray.cap - fishTray.n < 8 && fieldStack.items.length >= 4;
+
+/** Room left in the rice pot, less the bags runners are already bringing it. */
+const riceRoom = () => ricePot.cap - ricePot.n - runners.reduce((n, r) => n + (r.bags <= 0 ? 0 : r.state === 'toRice' || r.state === 'unloadRice' ? r.back.n : r.bags), 0);
+/** Room on the kitchen line's fish tray, less the fish the other runners are bringing it. */
+const fishRoom = (me: Runner) => fishTray.cap - fishTray.n - runners.reduce((n, r) => n + (r !== me && (r.state === 'toTarget' || r.state === 'unload') ? r.back.n : 0), 0);
+const toStack = (r: Runner) => [...TO_POT].reverse().slice(1).map(v => ({ x: v.x, z: v.z })).concat([stackStand(1 + r.i)]);
+
 export function updRunners(dt: number) {
   for (const r of runners) updRunner(r, dt);
 }
@@ -100,12 +115,40 @@ function updRunner(r: Runner, dt: number) {
   }
   if (r.state === 'toPile') {
     if (moveEnt(r, beside(r, PILE_STAND), dt)) { r.state = 'load'; r.wait = 0; }
+  } else if (r.state === 'load' && r.bags < 0) {
+    // (fish the kitchen line had no room for, back on the pile)
+    r.h = Math.PI; r.t -= dt;
+    if (r.t <= 0 && r.back.items.length && pile.hasRoom()) { r.t = 0.08 / k; pile.receive(r.back.take()!, 0.25, 0.7); }
+    if (!r.back.n || !pile.hasRoom()) r.bags = 0;
+  } else if (r.state === 'load' && !r.back.n && riceRoom() >= 4 && riceWanted()) {
+    r.bags = Math.min(r.back.cap, riceRoom());
+    r.state = 'toStack'; r.path = toStack(r);
+  } else if (r.state === 'toStack' || r.state === 'toRice') {
+    if (moveEnt(r, r.path[0], dt)) r.path.shift();
+    if (!r.path.length) { r.state = r.state === 'toStack' ? 'loadRice' : 'unloadRice'; r.wait = 0; }
+  } else if (r.state === 'loadRice') {
+    r.h = 0; r.t -= dt; r.wait += dt;
+    // (bags it couldn't get into the rice pot go back on the stack first)
+    if (r.t <= 0 && r.bags < 0 && r.back.items.length && fieldStack.hasRoom()) { r.t = 0.08 / k; fieldStack.receive(r.back.take()!, 0.25, 0.7); r.wait = 0; }
+    else if (r.t <= 0 && r.bags > r.back.n && fieldStack.items.length) { r.t = 0.08 / k; r.back.receive(fieldStack.take()!, 0.25, 0.7); r.wait = 0; }
+    if (r.bags < 0 ? !r.back.n || r.wait > 1.2 : r.back.n >= r.bags || (r.wait > 1.2 && !fieldStack.items.length)) {
+      if (r.back.n && r.bags > 0) { r.state = 'toRice'; r.path = TO_POT.map(v => ({ x: v.x + SIDE[r.i] * 0.5, z: v.z })); }
+      else { r.bags = 0; r.state = 'toPile'; }
+    }
+  } else if (r.state === 'unloadRice') {
+    r.h = 0; r.t -= dt; r.wait += dt;
+    if (r.t <= 0 && r.back.items.length && ricePot.hasRoom()) { r.t = 0.08 / k; ricePot.receive(r.back.take()!, 0.25, 0.8); r.wait = 0; }
+    if (r.back.n === 0) { r.bags = 0; r.state = 'toPile'; }
+    // (someone else filled the pot meanwhile: the rest goes back on the stack, so the fish isn't held up)
+    else if (r.wait > 3) { r.bags = -1; r.state = 'toStack'; r.path = toStack(r); }
   } else if (r.state === 'load') {
     r.h = Math.PI; r.t -= dt; r.wait += dt;
-    if (r.t <= 0 && r.back.hasRoom() && pile.items.length) {
+    // (in stage 2, only what the kitchen line has room for: fish held at a full tray holds up the rice)
+    const want = !sushi.built || fishRoom(r) > r.back.n;
+    if (r.t <= 0 && r.back.hasRoom() && pile.items.length && want) {
       r.t = 0.08 / k; r.back.receive(pile.take()!, 0.25, 0.7); r.wait = 0;
     }
-    if (!r.back.hasRoom() || (r.back.n > 0 && r.wait > 1.2 && !pile.items.length)) {
+    if (!r.back.hasRoom() || (r.back.n > 0 && r.wait > 1.2 && (!pile.items.length || !want))) {
       r.target = pickTarget(r); r.state = 'toTarget';
     }
   } else if (r.state === 'toTarget') {
@@ -113,12 +156,15 @@ function updRunner(r: Runner, dt: number) {
   } else {
     const tg = r.target!;
     r.h = tg.h; r.t -= dt;
+    r.wait += dt;
     if (r.t <= 0 && r.back.items.length && tg.stock.hasRoom()) {
-      r.t = 0.08 / k; tg.stock.receive(r.back.take()!, 0.25, 0.8);
+      r.t = 0.08 / k; tg.stock.receive(r.back.take()!, 0.25, 0.8); r.wait = 0;
     }
     if (r.back.n === 0) r.state = 'toPile';
+    // (stage 2: with the tray full and rice waiting on the stack, the rest of the fish goes back on the pile)
+    else if (sushi.built && r.wait > 2 && !tg.stock.hasRoom() && riceWanted()) { r.bags = -1; r.state = 'toPile'; }
   }
-  r.g.position.y = FY;
+  r.g.position.y = sushi.built ? groundY(r.g.position) : FY;
   r.g.rotation.y = r.h;
   animPerson(r.g, r.moving, dt, r.back.n > 0);
   r.back.layout(r.h);

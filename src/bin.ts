@@ -84,7 +84,9 @@ function bin(at: Vector3, s: StageN, down: boolean, make: (g: Group) => Group, t
 export const BINS: Bin[] = [
   bin(V(3.1, FY, -6.0), 1, false, pedal, -0.4),
   bin(V(-11.7, 0.06, -2.6), 2, false, pedal, Math.PI / 2),
-  bin(V(-11.7, 0.06, 5.4), 2, false, pedal, Math.PI / 2),
+  // (the patch's: in the snow under the bottom terrace's wall, just off the path, so the path stays clear to the
+  // fertilizer shed's yard)
+  bin(V(-12.9, 0, 5.35), 2, false, pedal, Math.PI / 2),
   ...KITCHEN_BINS.map((at, i) => bin(at, 3, true, drum, 0.6 + i)),
 ];
 
