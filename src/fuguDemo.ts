@@ -30,7 +30,7 @@ const FULL = (beaten: number) => ({
 export function marketSave(stage: 1 | 2) {
   const done = (t: { id: string; stage: number }) => (stage === 2 ? t.stage < 3 && t.id !== 'dohyo' : t.stage === 1 && t.id !== 'sushi');
   return JSON.stringify({
-    v: 4, savedAt: Date.now(), money: stage === 2 ? 300_000 : 9_000, best: 300_000,
+    v: 7, savedAt: Date.now(), money: stage === 2 ? 3_000_000 : 9_000, best: 3_000_000,
     tiles: tiles.map(t => ({ id: t.id, paid: done(t) ? t.cost : 0, done: done(t), open: true })),
     mods: stage === 2 ? { fillets: 6, marketing: 8, training: 8, specials: 8, promo: 8, crew: 8 } : { fillets: 4, marketing: 5, crew: 3 },
     reviews: Array(20).fill(5), pile: 20, back: 0, backRice: 0, c1: 5, c1c: 0, c2: 4, c2c: 0, fish: 8, rice: 8, plates: 6,

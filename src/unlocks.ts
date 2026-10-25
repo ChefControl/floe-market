@@ -112,27 +112,35 @@ const UNLOCKS: Unlock[] = [
   { id: 'sled', cost: 900, x: 6.55, z: -1.0, icon: '🚗', name: 'Drive-up window', desc: 'Drivers on the road buy fish in bulk, for half as much again', stars: 3.8, stage: 1 },
   { id: 'runner2', cost: 1200, x: -4.0, z: 3.6, icon: '🏃', name: 'Second runner', desc: 'Another runner carrying fish to your counters', stars: 3.9, needs: 'runner', stage: 1 },
   { id: 'net', cost: 1600, x: -1.9, z: -4.4, icon: '🥅', name: 'Ice net', desc: 'Hauls in fish nonstop', stars: 4.0, stage: 1 },
-  { id: 'runner3', cost: 3500, x: -4.0, z: 3.6, icon: '🏃', name: 'Third runner', desc: 'A third runner carrying fish to your counters', stars: 4.2, needs: 'runner2', stage: 1 },
   { id: 'sushi', cost: 12000, x: -1.6, z: 1.4, icon: '🏯', name: 'Open Floe Sushi', desc: 'Stage 2: rebuild the market as a sushi restaurant, with rice terraces to the west', stage: 1, gold: true },
-  { id: 'paddy', cost: 800, ...onTerrace(0), z: -1.4 /* north of the starting patch */, icon: '🌾', name: 'Rice terrace', desc: 'Plant the rest of the bottom terrace round your patch: three times the rice', stage: 2 },
-  { id: 'seats', cost: 2500, x: -8.0, z: 9.0, icon: '🪑', name: 'More seats', desc: 'Eight more seats at the bar', stars: 3.6, stage: 2 },
-  { id: 'chef', cost: 3000, x: 8.0, z: 9.0, icon: '🔪', name: 'Second chef', desc: 'Another chef at the bar', stars: 3.6, shown: true, stage: 2 },
+  // Stage 2's money is ten times stage 1's (a plate sells for $300), so its prices are too. The farmer comes straight
+  // after the terrace, so rice is carried by hand only for the first few minutes: from then on the runners carry it in
+  // whenever the kitchen line is shorter of rice than fish. More room for diners comes before each terrace, so rice
+  // runs short just before a terrace fixes it, and the porter comes with the kiosk, once the fertilizer outgrows the
+  // runners.
+  { id: 'paddy', cost: 5000, ...onTerrace(0), z: -1.4 /* north of the starting patch */, icon: '🌾', name: 'Rice terrace', desc: 'Plant the rest of the bottom terrace round your patch: three times the rice', stage: 2 },
   // out on the deck by the west end of the kitchen line, where rice comes in from the farm door: in the open (the
   // restaurant's west wall and roof hide the farm path from most of the room) and passed on every trip for rice
-  { id: 'farmer', cost: 6000, x: -6.4, z: 0.6, icon: '🧑‍🌾', name: 'Hire a farmer', desc: 'Harvests the terraces onto a stack on the path', stars: 3.9, needs: 'paddy', stage: 2 },
-  // the porter carries from the farmer's stack, which only the farmer fills
-  { id: 'porter', cost: 12000, x: -8.2, z: 5.0, icon: '🧺', name: 'Rice porter', desc: 'Carries harvested rice in to the kitchen line', stars: 4.1, needs: 'farmer', stage: 2 },
-  { id: 'plot2', cost: 15000, ...onTerrace(1), icon: '🌱', name: 'Second terrace', desc: 'Plant the middle terrace: rice for more diners', stars: 4.1, needs: 'paddy', stage: 2 },
-  { id: 'tables', cost: 20000, x: 6.2, z: 17.7, y: 0.02, icon: '⛱️', name: 'Garden tables', desc: 'Four tables in the front garden, and a waiter to serve them', stars: 4.2, stage: 2 },
-  { id: 'chef3', cost: 25000, x: 8.0, z: 11.8, icon: '🔪', name: 'Third chef', desc: 'A third chef at the bar', stars: 4.3, needs: 'chef', shown: true, stage: 2 },
-  { id: 'tables2', cost: 32000, x: -2.6, z: 21.2, y: 0.02, icon: '⛱️', name: 'More garden tables', desc: 'Four more tables west of the path, and a second waiter', stars: 4.3, needs: 'tables', stage: 2 },
-  { id: 'plot3', cost: 40000, ...onTerrace(2), icon: '🌱', name: 'Third terrace', desc: 'Rice right up to the hot spring, for a full garden', stars: 4.4, needs: 'plot2', stage: 2 },
-  { id: 'kiosk', cost: 50000, x: 8.2, z: 3.6, icon: '🥡', name: 'Takeout kiosk', desc: 'Drivers on the road buy boxes of sushi with the rice to spare; the chefs pack them', stars: 4.4, stage: 2 },
-  { id: 'premium', cost: 60000, x: -6.2, z: 13.6, icon: '🏮', name: 'Premium menu', desc: 'Everything sells for 60% more', stars: 4.5, stage: 2 },
+  { id: 'farmer', cost: 8000, x: -6.4, z: 0.6, icon: '🧑‍🌾', name: 'Hire a farmer', desc: 'Harvests the terraces onto a stack on the path, and your runners carry it in', needs: 'paddy', stage: 2 },
+  { id: 'seats', cost: 15000, x: -8.0, z: 9.0, icon: '🪑', name: 'More seats', desc: 'Eight more seats at the bar', stars: 3.6, stage: 2 },
+  { id: 'chef', cost: 30000, x: 8.0, z: 9.0, icon: '🔪', name: 'Second chef', desc: 'Another chef at the bar', stars: 3.6, shown: true, stage: 2 },
+  { id: 'tables', cost: 80000, x: 6.2, z: 17.7, y: 0.02, icon: '⛱️', name: 'Garden tables', desc: 'Four tables in the front garden, and a waiter to serve them', stars: 4.2, stage: 2 },
+  { id: 'plot2', cost: 120000, ...onTerrace(1), icon: '🌱', name: 'Second terrace', desc: 'Plant the middle terrace: rice for more diners', stars: 4.1, needs: 'paddy', stage: 2 },
+  // (a market upgrade till the market's runners turned out to have nothing more to carry; out on the deck east of
+  // the fish drop-off, where the runners come in)
+  { id: 'runner3', cost: 180000, x: 4.8, z: -0.5, icon: '🏃', name: 'Third runner', desc: 'Another pair of hands carrying fish and rice to the kitchen line', needs: 'runner2', stage: 2 },
+  { id: 'chef3', cost: 250000, x: 8.0, z: 11.8, icon: '🔪', name: 'Third chef', desc: 'A third chef at the bar', stars: 4.3, needs: 'chef', shown: true, stage: 2 },
+  { id: 'tables2', cost: 320000, x: -2.6, z: 21.2, y: 0.02, icon: '⛱️', name: 'More garden tables', desc: 'Four more tables west of the path, and a second waiter', stars: 4.3, needs: 'tables', stage: 2 },
+  { id: 'plot3', cost: 400000, ...onTerrace(2), icon: '🌱', name: 'Third terrace', desc: 'Rice right up to the hot spring, for a full garden', stars: 4.4, needs: 'plot2', stage: 2 },
+  { id: 'kiosk', cost: 500000, x: 8.2, z: 3.6, icon: '🥡', name: 'Takeout kiosk', desc: 'Drivers on the road buy boxes of sushi with the rice to spare; the chefs pack them', stars: 4.4, stage: 2 },
+  // the porter carries from the farmer's stack, which only the farmer fills; with the fertilizer (the kiosk opens its
+  // shed) the terraces grow more than the runners can carry
+  { id: 'porter', cost: 300000, x: -8.2, z: 5.0, icon: '🧺', name: 'Rice porter', desc: 'Carries harvested rice in to the kitchen line, 18 bags a trip', stars: 4.1, needs: 'kiosk', stage: 2 },
+  { id: 'premium', cost: 600000, x: -6.2, z: 13.6, icon: '🏮', name: 'Premium menu', desc: 'Everything sells for 60% more', stars: 4.5, stage: 2 },
   // by Mr. Fugu's hatch, once the player has said yes to him
   // (just in front of his hatch, on the restaurant's side, where the player stands to meet him: any nearer the
   // restaurant and its eaves hide it from the camera)
-  { id: 'dohyo', cost: 100_000, x: HATCH_AT.x, z: HATCH_AT.z + 1.65, size: 2.0, icon: '🐡', art: 'mrFugu', name: 'Buy into the ring', desc: "Stage 3: Mr. Fugu's sumo ring under the dock. Your cash stays in the till", stage: 2, gold: true },
+  { id: 'dohyo', cost: 1_000_000, x: HATCH_AT.x, z: HATCH_AT.z + 1.65, size: 2.0, icon: '🐡', art: 'mrFugu', name: 'Buy into the ring', desc: "Stage 3: Mr. Fugu's sumo ring under the dock. Your cash stays in the till", stage: 2, gold: true },
   // down in the cellar, priced in chips (all but the buyout sold at the cookware shop: these spots are only where their
   // tiles were), and the buyout in Mr. Fugu's office
   ...ring('rack', 13.2, 3.9, '🌾', 'Another drying rack', 'More room on the rice line', 0, MACH_COST.rice, 'rice'),
