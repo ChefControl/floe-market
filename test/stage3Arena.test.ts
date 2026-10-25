@@ -457,7 +457,7 @@ describe('saving the cellar', () => {
     expect(r2.F().rush).toBeNull();
     expect(r2.F().beaten).toBe(0);
     expect(r2.fight.ringGong()).toBe(true);
-  });
+  }, 30_000); // (9.4 s of 15 on CI under coverage, and over 15 on a slow runner)
 
   it('cleans up a bad cellar in a save, and starts an old design\'s ring over', async () => {
     const g = await loadGame();
