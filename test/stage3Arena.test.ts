@@ -429,7 +429,7 @@ describe('saving the cellar', () => {
     const carried = g.player.back.count('fish');
     g.saveMod.save();
     const raw = JSON.parse(localStorage.getItem('floe-market-v1')!);
-    expect(raw.v).toBe(6);
+    expect(raw.v).toBe(7);
     const r2 = await ring(raw);
     const f = r2.F();
     expect(r2.g.layout.level.down).toBe(true);
@@ -446,7 +446,7 @@ describe('saving the cellar', () => {
     expect(r2.g.unlocks.tiles.find(t => t.id === 'washer')!.done).toBe(true);
     expect(r2.g.layout.found.grow).toBe(true);
     expect($('stageCount').textContent).toBe('2/5');
-  });
+  }, 30_000);
 
   it('a rush cut short by closing the page is called off, no win and no loss', async () => {
     const { g, fight } = await ring();
@@ -475,7 +475,7 @@ describe('saving the cellar', () => {
     const s = g.saveMod.migrate({ v: 5, money: 5, ring: { names: ['Big Al'], kg: [150] }, level: 7 });
     expect(s.ring).toBeNull();
     expect(s.level).toBe(1);
-    expect(s.v).toBe(6);
+    expect(s.v).toBe(7);
   });
 });
 

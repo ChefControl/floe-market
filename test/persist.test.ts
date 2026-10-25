@@ -1,6 +1,6 @@
 // Per-device progress: what's saved, migration, damaged saves, and multiple tabs.
 import { describe, expect, it, vi } from 'vitest';
-import { bought, loadGame, MARKET } from './helpers';
+import { bought, FLOE_SUSHI, loadGame, MARKET } from './helpers';
 
 const KEY = 'floe-market-v1';
 const stored = () => JSON.parse(localStorage.getItem(KEY)!);
@@ -13,7 +13,7 @@ describe('saving progress', () => {
       cash: 30, boxes: 2, tcash: 18, field: 3,
     });
     g1.saveMod.save();
-    expect(stored().v).toBe(6);
+    expect(stored().v).toBe(7);
 
     const g2 = await loadGame(localStorage.getItem(KEY)!);
     const { restaurant: r, counters: { TAKEOUT } } = g2;
@@ -91,7 +91,7 @@ describe('saving progress', () => {
     g.runUntil(() => sushi.diners.some(d => d.bill.length > 0 && d.plate), 60);
     g.saveMod.save();
     const s = stored();
-    expect(s.plates + s.cash / 30).toBe(16);
+    expect(s.plates + s.cash / 300).toBe(16);
   });
 
   it('turns plates that no longer fit on the belt back into fish and rice', async () => {
@@ -125,7 +125,7 @@ describe('loading', () => {
   it('sanitises saves', async () => {
     const { saveMod } = await loadGame();
     const s = saveMod.migrate({ v: 4, money: '12', tiles: [{ id: 'pack', paid: 25, done: true }, null], pile: -3, reviews: [5, '4', 9, null] });
-    expect(s).toMatchObject({ v: 6, money: 12, pile: 0, back: 0, reviews: [5, 4], tiles: [{ id: 'pack', paid: 25, done: true, open: false }] });
+    expect(s).toMatchObject({ v: 7, money: 12, pile: 0, back: 0, reviews: [5, 4], tiles: [{ id: 'pack', paid: 25, done: true, open: false }] });
     expect(() => saveMod.migrate('nope')).toThrow();
     expect(() => saveMod.migrate([])).toThrow();
   });
@@ -141,7 +141,7 @@ describe('loading', () => {
     };
     const s = saveMod.migrate(old);
     expect(s).toMatchObject({
-      v: 6, money: 100 + 300, pile: 4, back: 2, backRice: 0, c1: 0, c1c: 0, c2: 0, c2c: 0, fish: 5 + 3 + 6, rice: 6,
+      v: 7, money: 100 + 300, pile: 4, back: 2, backRice: 0, c1: 0, c1c: 0, c2: 0, c2c: 0, fish: 5 + 3 + 6, rice: 6,
       plates: 7, cash: 24 + 12 + 18, boxes: 0, tcash: 0, field: 0, reviews: [5, 5],
     });
     expect(s.tiles.map(t => t.id)).toEqual([...MARKET, 'sushi', 'seats']);
@@ -151,11 +151,29 @@ describe('loading', () => {
     const { saveMod } = await loadGame();
     const OLD_MARKET = ['pack', 'turret', 'roulette', 'runner', 'boots', 'sled', 'net'];
     const ids = (tiles: { id: string }[]) => saveMod.migrate({ v: 4, tiles }).tiles.filter(t => t.done).map(t => t.id);
-    expect(ids(bought(...OLD_MARKET, 'sushi', 'paddy'))).toEqual([...OLD_MARKET, 'sushi', 'paddy', 'runner2', 'runner3']);
-    // half paid for the third runner already: it's free now
+    expect(ids(bought(...OLD_MARKET, 'sushi', 'paddy'))).toEqual([...OLD_MARKET, 'sushi', 'paddy', 'runner2']);
+    // (the third runner's a stage 2 upgrade now: it's bought there, not given)
     expect(ids([...bought(...OLD_MARKET, 'runner2', 'sushi'), { id: 'runner3', paid: 900, done: false }]))
-      .toEqual([...OLD_MARKET, 'runner2', 'sushi', 'runner3']);
+      .toEqual([...OLD_MARKET, 'runner2', 'sushi']);
     expect(ids(bought('pack', 'runner'))).toEqual(['pack', 'runner']); // still in the market: they're for sale
+  });
+
+  it("multiplies a save's cash by ten when it's in the middle of stage 2 from before stage 2's money went up", async () => {
+    const { saveMod } = await loadGame();
+    const mid = { v: 6, money: 4000, best: 9000, cash: 300, tcash: 70, tiles: [...bought(...MARKET, 'runner3', 'sushi', 'paddy'), { id: 'farmer', paid: 1200, done: false }] };
+    const s = saveMod.migrate(mid);
+    expect(s).toMatchObject({ money: 40_000, best: 90_000, cash: 3000, tcash: 700 });
+    expect(s.tiles.find(t => t.id === 'farmer')!.paid).toBe(12_000);
+    expect(s.tiles.find(t => t.id === 'runner3')!.done).toBe(true);
+    // the market, the ring, and saves written since are as they were
+    expect(saveMod.migrate({ ...mid, tiles: bought('pack') }).money).toBe(4000);
+    expect(saveMod.migrate({ ...mid, tiles: bought(...MARKET, 'sushi', ...FLOE_SUSHI, 'dohyo') }).money).toBe(4000);
+    expect(saveMod.migrate({ ...mid, v: 7 }).money).toBe(4000);
+  });
+
+  it('a save that bought the third runner at the market keeps all three in the restaurant', async () => {
+    const g = await loadGame({ tiles: bought(...MARKET, 'runner3', 'sushi', 'paddy') });
+    expect(g.runner.runners).toHaveLength(3);
   });
 
   it('keeps everyone else in stage 1, refunding the old restaurant, its cash and its plates', async () => {
@@ -165,7 +183,7 @@ describe('loading', () => {
       tiles: [...bought('pack', 'runner'), { id: 'sushi', paid: 1200, done: true }, { id: 'seats', paid: 300, done: false }],
     };
     expect(saveMod.migrate(old)).toMatchObject({
-      v: 6, money: 3 + 1200 + 300 + 10 + 2 * 12, pile: 4 + 3, c1: 2, c1c: 5, c2: 1, c2c: 6, fish: 0, rice: 0, plates: 0, cash: 0,
+      v: 7, money: 3 + 1200 + 300 + 10 + 2 * 12, pile: 4 + 3, c1: 2, c1c: 5, c2: 1, c2c: 6, fish: 0, rice: 0, plates: 0, cash: 0,
       tiles: [{ id: 'pack' }, { id: 'runner' }],
     });
     // v1 and v2 saves were only ever the market
@@ -188,7 +206,7 @@ describe('loading', () => {
     const g = await loadGame('{broken');
     expect(localStorage.getItem('floe-market-backup')).toBe('{broken');
     g.saveMod.save();
-    expect(stored().v).toBe(6);
+    expect(stored().v).toBe(7);
     expect(localStorage.getItem('floe-market-backup')).toBe('{broken');
   });
 
