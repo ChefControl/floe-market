@@ -6,7 +6,7 @@ import { cellar, KITCHEN_BINS } from './cellar';
 import { isTouch } from './hint';
 import { fly } from './holder';
 import { keyHeld } from './input';
-import { level, pushOutOfBox, stage, type StageN } from './layout';
+import { level, pushOutOfBox, stage, type StageN, TERRACES } from './layout';
 import { player } from './player';
 import { G, mesh, scene } from './render';
 import { toss as clunk } from './sfx';
@@ -84,7 +84,9 @@ function bin(at: Vector3, s: StageN, down: boolean, make: (g: Group) => Group, t
 export const BINS: Bin[] = [
   bin(V(3.1, FY, -6.0), 1, false, pedal, -0.4),
   bin(V(-11.7, 0.06, -2.6), 2, false, pedal, Math.PI / 2),
-  bin(V(-11.7, 0.06, 5.4), 2, false, pedal, Math.PI / 2),
+  // (the patch's: on the corner of the bottom terrace by the path, past the patch's last clump, so the path stays clear
+  // to the fertilizer shed's yard)
+  bin(V(-12.65, TERRACES[0].top, 4.7), 2, false, pedal, Math.PI / 2),
   ...KITCHEN_BINS.map((at, i) => bin(at, 3, true, drum, 0.6 + i)),
 ];
 

@@ -232,12 +232,14 @@ interface Porter extends Walker {
   path: Vector3[];
 }
 export let porter: Porter | null = null;
+/** Where someone stands to load at the stack (the porter there, the runners lending a hand a step north of them). */
+export const stackStand = (i = 0) => V(STACK_STAND.x, 0, STACK_STAND.z - 0.6 * i);
 /** Bags the porter carries a trip. */
 const PORTER_LOAD = 18;
 const STACK_STAND = V(STACK.x, 0, STACK.z - 0.85);
 const DOOR_Z = (FARM_DOOR.z0 + FARM_DOOR.z1) / 2;
 /** From the stack, over the bridge and in through the farm door, then round the kitchen line to the rice. */
-const TO_POT = [V(PX, 0, DOOR_Z), V(HALL_BOX.x0 + 0.6, 0, DOOR_Z), V(-6.8, 0, 1.45), V(RICE_DROP.x, 0, RICE_DROP.z - 0.1)];
+export const TO_POT = [V(PX, 0, DOOR_Z), V(HALL_BOX.x0 + 0.6, 0, DOOR_Z), V(-6.8, 0, 1.45), V(RICE_DROP.x, 0, RICE_DROP.z - 0.1)];
 
 export function hireRicePorter() {
   const g = new Person(0x4E7FBF);

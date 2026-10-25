@@ -74,9 +74,9 @@ describe('runner', () => {
     expect(Math.min(...xs.slice(1).map(x => Math.abs(x - xs[0])))).toBeGreaterThan(0.6); // not on top of each other
   });
 
-  it('keeps the kitchen line stocked with two of them in the restaurant', async () => {
+  it('all stay on in the restaurant, keeping the kitchen line stocked', async () => {
     const g = await loadGame({ tiles: bought('runner', 'runner2', 'runner3', 'sushi'), pile: 30 });
-    expect(g.runner.runners).toHaveLength(2);
+    expect(g.runner.runners).toHaveLength(3);
     g.runUntil(() => g.restaurant.fishTray.n >= 24, 20);
   });
 
@@ -109,12 +109,24 @@ describe('runner', () => {
     expect(g.stations.pile.items).toHaveLength(0);
   });
 
-  it('waits with its load while the tray is full', async () => {
-    const g = await loadGame({ tiles: bought('sushi'), pile: 4, fish: 48 });
+  it('leaves the fish on the pile while the tray has no room for a load', async () => {
+    const g = await loadGame({ tiles: bought('sushi'), pile: 8, fish: 46 });
     const r = g.runner.hireRunner();
+    g.runUntil(() => r.state === 'load');
+    g.run(3);
+    expect(r.back.n).toBe(0);
+    expect(g.stations.pile.n).toBe(8);
+  });
+
+  it('with no farmer to carry rice for, waits with its load at a full tray', async () => {
+    const g = await loadGame({ tiles: bought('sushi'), pile: 8, fish: 40 });
+    const r = g.runner.hireRunner();
+    g.runUntil(() => r.state === 'toTarget');
+    const { fishTray } = g.restaurant;
+    while (fishTray.hasRoom()) fishTray.put(g.items.newFillet());
     g.runUntil(() => r.state === 'unload');
-    g.run(2);
-    expect(r.back.n).toBe(4);
+    g.run(3);
+    expect(r.back.n).toBe(8);
   });
 });
 
@@ -144,14 +156,14 @@ describe('takeout kiosk', () => {
   });
 
   it('folds payment into the top bill when the cash stack is full', async () => {
-    const g = await open(10, { tcash: 35 });
+    const g = await open(10, { tcash: 350 });
     const { TAKEOUT } = g.counters;
     TAKEOUT.cash.cap = TAKEOUT.cash.items.length;
     g.runUntil(() => TAKEOUT.queue.length > 0);
     const first = TAKEOUT.queue[0];
-    g.runUntil(() => g.cashAt(TAKEOUT) > 35);
+    g.runUntil(() => g.cashAt(TAKEOUT) > 350);
     expect(TAKEOUT.cash.items).toHaveLength(1);
-    expect(g.cashAt(TAKEOUT)).toBe(35 + first.want * 35);
+    expect(g.cashAt(TAKEOUT)).toBe(350 + first.want * 350);
   });
 
   it('the chefs pack every other order into a box while the kiosk has room', async () => {
@@ -160,6 +172,6 @@ describe('takeout kiosk', () => {
     TAKEOUT.maxQ = 0;
     sushi.spawnT = Infinity; // no diners to eat the plates
     g.runUntil(() => TAKEOUT.stock.items.length === 2 && sushi.slots.filter(Boolean).length === 2, 20);
-    expect(g.cashAt({ cash: TAKEOUT.stock })).toBe(70);
+    expect(g.cashAt({ cash: TAKEOUT.stock })).toBe(2 * 350);
   });
 });
