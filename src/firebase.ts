@@ -1,5 +1,6 @@
 // Cloud saves on Firebase: Google sign-in, and each player's save as one Firestore document, saves/{uid}. The
-// scoreboard is one more document per player, scores/{uid}, which anyone can read. A bug report is a document in
+// scoreboard is one more document per player, scores/{uid}, which anyone can read, and so is the wall of shame,
+// shame/{uid}. A bug report is a document in
 // reports/, which no player can read back; limits/{uid} counts each player's reports, 20 an hour (firestore.rules).
 // The loading screen downloads this with the game (index.html); cloud.ts starts it only once cloud saves are in use.
 import { initializeApp } from 'firebase/app';
@@ -19,6 +20,7 @@ export function createBackend(): CloudBackend {
   const auth = getAuth(app), db = getFirestore(app);
   const ref = (uid: string) => doc(db, 'saves', uid);
   const scoreRef = (uid: string) => doc(db, 'scores', uid);
+  const shameRef = (uid: string) => doc(db, 'shame', uid);
   return {
     onUser: cb => { onAuthStateChanged(auth, u => cb(u && { uid: u.uid, name: u.displayName || u.email || 'you' })); },
     signIn: async () => { await signInWithPopup(auth, new GoogleAuthProvider()); },
@@ -45,6 +47,23 @@ export function createBackend(): CloudBackend {
       return q.docs.map(d => {
         const v = d.data();
         return { uid: d.id, name: String(v.name), best: Number(v.best) || 0, stage: v.stage === 3 ? 3 : v.stage === 2 ? 2 : 1 };
+      });
+    },
+    async postShame({ uid, ...s }) {
+      // a worse bet on another device stays up
+      await runTransaction(db, async tx => {
+        if (Number((await tx.get(shameRef(uid))).data()?.lost) >= s.lost) return;
+        tx.set(shameRef(uid), { ...Object.fromEntries(Object.entries(s).filter(([, v]) => v !== undefined)), updated: serverTimestamp() });
+      });
+    },
+    async topShame(n) {
+      const q = await getDocs(query(collection(db, 'shame'), orderBy('lost', 'desc'), limit(n)));
+      return q.docs.map(d => {
+        const v = d.data(), game = (['roulette', 'blackjack', 'slots'] as const).find(g => g === v.game) ?? 'slots';
+        return {
+          uid: d.id, name: String(v.name), lost: Number(v.lost) || 0, game, ...(typeof v.on === 'string' ? { on: v.on } : {}),
+          broke: v.broke === true, at: Number(v.at) || 0,
+        };
       });
     },
     async sendReport(uid, { id, ...r }) {

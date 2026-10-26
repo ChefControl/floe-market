@@ -2,12 +2,14 @@ rules_version = '2';
 
 // Cloud saves (src/cloud.ts, src/firebase.ts): each player's save is one document, saves/{uid}, which only that
 // signed-in player can read or write. The scoreboard (src/scores.ts) is one document per player, scores/{uid}: anyone
-// can read it, a page of at most 50 at a time, and only that signed-in player can write it. A bug report (src/report.ts)
-// is a document in reports/, which a player signed in with Google can add but no player can read, change or delete;
-// the intake workflow (intake/) reads them with its own service account, which these rules don't apply to. Each
-// report goes with an update to limits/{uid}, which counts a player's reports: up to 20 in an hour, at least a second
-// apart, and the count starts again an hour after its first. config/reports, made by hand in the console, switches
-// reports on ({open: true}) and off. Paste these into Firestore's Rules tab in the Firebase console (tests: test/rules/).
+// can read it, a page of at most 50 at a time, and only that signed-in player can write it. The wall of shame
+// (src/wallOfShame.ts) is the same, shame/{uid}: each player's worst bet, only ever swapped for a worse one. A bug
+// report (src/report.ts) is a document in reports/, which a player signed in with Google can add but no player can
+// read, change or delete; the intake workflow (intake/) reads them with its own service account, which these rules
+// don't apply to. Each report goes with an update to limits/{uid}, which counts a player's reports: up to 20 in an
+// hour, at least a second apart, and the count starts again an hour after its first. config/reports, made by hand in
+// the console, switches reports on ({open: true}) and off. Paste these into Firestore's Rules tab in the Firebase
+// console (tests: test/rules/).
 service cloud.firestore {
   match /databases/{database}/documents {
     match /saves/{uid} {
@@ -28,6 +30,21 @@ service cloud.firestore {
         && request.resource.data.best is number
         && request.resource.data.best >= 0
         && request.resource.data.stage in [1, 2, 3];
+    }
+    match /shame/{uid} {
+      allow get: if true;
+      allow list: if request.query.limit <= 50;
+      allow create, update: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.keys().hasAll(['name', 'lost', 'game', 'broke', 'at'])
+        && request.resource.data.keys().hasOnly(['name', 'lost', 'game', 'on', 'broke', 'at', 'updated'])
+        && str(request.resource.data.name, 40)
+        && request.resource.data.lost is number
+        && request.resource.data.lost > 0
+        && (resource == null || request.resource.data.lost >= resource.data.lost)
+        && request.resource.data.game in ['roulette', 'blackjack', 'slots']
+        && (!('on' in request.resource.data) || str(request.resource.data.on, 12))
+        && request.resource.data.broke is bool
+        && request.resource.data.at is number;
     }
 
     function googleUser(uid) {

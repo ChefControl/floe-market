@@ -242,6 +242,16 @@ The 🏆 button (top right) lists the 20 players who have held the most cash at 
 - **Data:** one Firestore document per player, `scores/{your account id}`, with that name, the best and the stage. Anyone can read the scoreboard; only you can write your own entry (`firestore.rules`). A project set up before the scoreboard needs `firestore.rules` pasted and published again, or the scoreboard says it can't load; so does one set up before stage 3, whose rules only accept stages 1 and 2 (a stage 3 player's entry would be refused).
 - **Quota:** opening the scoreboard reads up to 20 documents. A signed-in player writes their entry at most once per sync, and only when their best or stage changed.
 
+### Wall of shame
+
+On the casino boat, a sign hangs from the wall behind the bar, over its window end: the worst bet ever made at the boat's games, and whose it was. Step on the 💔 pad in front of the bar by it, and **Wall of shame** opens the ten worst bets of all, each with who made it, the amount, what it was on and the date.
+
+- **A bet:** one round at roulette, blackjack or the slots, and what it lost: everything staked on it (blackjack's doubles, splits and insurance too) less whatever it paid back. Each player is on the wall once, with their worst.
+- **Getting on it:** sign in. Your worst goes up the moment you make it, and only ever gets worse: a smaller loss, another device or a Restart doesn't replace it. Not signed in, your worst is kept on this device and shows among the rest only to you, with a button to sign in.
+- **Data:** one Firestore document per player, `shame/{your account id}`, with your name (as on the scoreboard), the amount, the game, what it was on, whether it left you broke, and when. Anyone can read it; only you can write your own entry, and only with a bigger loss (`firestore.rules`). A project set up before the wall needs `firestore.rules` pasted and published again, or the wall can't load and nobody's bets go up.
+- **Quota:** the wall reads up to 10 documents when the player boards the salon, once a minute while they're in it, and each time they open it. A signed-in player writes their entry with each new worst bet, and at most once per sync.
+- **Demo build:** it never goes online, so the wall only has the player's own; `&shame` in the address puts up ten made-up bets (`src/fuguDemo.ts`).
+
 ### Reports
 
 **Report a bug or idea** (🐞 in the settings, under About) sends a note to the developer. It shows once cloud saves are set up. Signed out, the row says "Sign in to send a report" and signs in. Signed in, it closes the settings and opens a window of its own over the dimmed game. ✕, Cancel, a tap on the game around it or Escape close it, and a note not yet sent is still there next time.
