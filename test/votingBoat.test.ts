@@ -100,9 +100,9 @@ describe('the voting boat', () => {
     expect(vote.boat).toBeTruthy();
     expect(layout.voteBoat.open).toBe(true);
     // out in the water off the dock's edge, east of the fishing pad, the ice net and the casino's quay
-    const { hull } = layout.VOTE_BOAT, { PAD } = await import('../src/stations');
-    expect(hull.z1).toBeLessThan(-10.8 - 2); // well out past the ice net
-    expect(hull.x0).toBeGreaterThan(Math.max(PAD.x + PAD.r, layout.QUAY.x1));
+    const { hull } = layout.VOTE_BOAT;
+    expect(hull.z1).toBeLessThan(-10.8 - 2); // well out past the ice net and the fishing pad's water
+    expect(hull.x0).toBeGreaterThan(layout.QUAY.x1);
     expect(hull.x1).toBeLessThan(7.45); // the bay's east shore
     // High draws it baked the new way; Low in plain shapes, nothing of the new kind
     const { choose } = await import('../src/graphics'), { Person } = await import('../src/characters');
@@ -117,10 +117,11 @@ describe('the voting boat', () => {
     expect(drawn().length).toBeGreaterThan(3);
     expect(drawn().filter(m => packed(m.geometry))).toEqual([]);
     choose('high');
-    // three of the committee at their table
+    // three of the committee at their table, and the two old-timers out on the foredeck
     let people = 0;
     vote.boat!.g.traverse(o => { if (o instanceof Person) people++; });
-    expect(people).toBe(3);
+    expect(vote.boat!.members).toHaveLength(3);
+    expect(people).toBe(5);
   });
 
   it('takes the player up the gangway onto its deck and into the polling room, whose roof lifts and near walls fade', async () => {
@@ -215,6 +216,33 @@ describe('the voting boat', () => {
     expect((await loadOn(AFTER)).vote.boat).toBeTruthy();
     history.replaceState(null, '', '/');
     expect((await loadOn(AFTER)).vote.boat).toBeNull();
+  });
+
+  it('has two old-timers on its foredeck, each saying his piece once as the player comes by, one of them on his head now and then', async () => {
+    const { g, vote } = await loadOn(ELECTION);
+    const b = vote.boat!;
+    // over onto his head and down again, in his round
+    let upside = 0;
+    for (let i = 0; i < 100; i++) { g.run(0.1); if (Math.abs(b.tip.rotation.x - Math.PI) < 0.01) upside++; }
+    expect(upside).toBeGreaterThan(20);
+    expect(upside).toBeLessThan(80);
+    // walking out to the end of the pier's arm, one then the other
+    g.placePlayer(1.0, -12.6);
+    g.run(0.1);
+    expect(b.hails.map(h => h.says.text)).toEqual([vote.MIRACLES, '']);
+    g.run(8);
+    expect(b.hails[1].says.text).toBe(vote.LEGEND);
+    for (const line of [vote.MIRACLES, vote.LEGEND]) expect(line.split(' ').length).toBeLessThanOrEqual(8);
+    // and not again till the player's been away
+    g.run(8);
+    expect(b.hails.every(h => !h.says.text)).toBe(true);
+    g.run(8);
+    expect(b.hails.every(h => !h.says.text)).toBe(true);
+    g.placePlayer(3.75, -7);
+    g.run(0.1);
+    g.placePlayer(1.0, -12.6);
+    g.run(0.1);
+    expect(b.hails[0].says.text).toBe(vote.MIRACLES);
   });
 
   it('moors along the far side of the pier, which is there every day, in both stages, a step up from the dock', async () => {

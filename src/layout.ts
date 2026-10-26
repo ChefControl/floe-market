@@ -228,15 +228,17 @@ export const inSalon = (p: XZ & { y: number }) => aboard(p) && p.y > FY + 1.0;
  * The voting boat (votingBoat.ts), for Israel's election day only: a white houseboat moored alongside the pier's arm,
  * on its far side, its bow west towards the open water, so it sails off forwards. A short gangway crosses from the pier to its side deck, in
  * front of the cabin's door: the cabin is the polling room. Its walls, from the outside: `x0` to `x1`, and `z1` (the
- * pier's side) to `z0`. The hull runs `hull` along and across. It's laid out as if alongside the dock's edge, bow
- * east, and moored `dz` further out along the pier, turned end for end along its arm (`voteX`).
+ * pier's side) to `z0`. The hull runs `hull` along and across, `fore` of it an open foredeck before the cabin, at the
+ * bow. It's laid out as if alongside the dock's edge, bow east, and moored `dz` further out along the pier, turned end
+ * for end along its arm (`voteX`).
  */
 const DZ = PIER.arm.z0 - PIER.edge;
 /** Where `x` on the boat, laid out bow east, lies with it moored: turned end for end, its bow west, along the arm. */
 export const voteX = (x: number) => 1.1 + 7.35 - x - 1.7;
+const FORE = 3.4;
 export const VOTE_BOAT = {
-  dz: DZ,
-  hull: { x0: voteX(7.35), x1: voteX(1.1), z0: -10.45 + DZ, z1: -6.85 + DZ },
+  dz: DZ, fore: FORE,
+  hull: { x0: voteX(7.35) - FORE, x1: voteX(1.1), z0: -10.45 + DZ, z1: -6.85 + DZ },
   cabin: { x0: voteX(6.4), x1: voteX(1.6), z0: -10.1 + DZ, z1: -7.75 + DZ, h: 2.2 },
   /** The gangway's width along the pier, and the door it leads to, straight across the side deck. */
   gangway: { x0: voteX(4.1), x1: voteX(3.4) },
