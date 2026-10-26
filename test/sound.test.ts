@@ -505,6 +505,65 @@ describe('music', () => {
     expect(m.harborK({ x: SHIP.x, z: SHIP.z })).toBe(1);
   }, 30_000);
 
+  it("plays Hatikvah on and near the voting boat on election day, the stage's music going out under it, and away from it the stage's own", async () => {
+    vi.useFakeTimers({ toFake: ['Date'], now: new Date(2026, 9, 27, 12) });
+    try {
+      const s = await withSound({ tiles: bought(...MARKET) });
+      const m = await import('../src/music'), h = await import('../src/hatikvah'), { VOTE_BOAT, voteBoat } = s.g.layout;
+      expect(voteBoat.open).toBe(true);
+      // where the player starts: the market's music alone
+      s.g.placePlayer(-1.5, -2);
+      s.play(2);
+      expect(m.voteK()).toBe(0);
+      expect(h.hatikvahMix()).toBe(0);
+      expect(m.musicMix().stage).toBeCloseTo(1, 3);
+      // on the dock in front of the boat: coming in, the market's music still under it
+      s.g.placePlayer((VOTE_BOAT.gangway.x0 + VOTE_BOAT.gangway.x1) / 2, -5.5);
+      s.play(1);
+      expect(m.voteK()).toBeGreaterThan(0.3);
+      expect(m.voteK()).toBeLessThan(1);
+      expect(h.hatikvahMix()).toBeGreaterThan(0.3);
+      expect(m.musicMix().stage).toBeGreaterThan(0.01);
+      // in the polling room: Hatikvah alone, from the top, its celesta on the tune's first notes (D, E, F an octave up)
+      // over the D minor pad and bass, in the game's sounds' key, nothing shrill
+      const { cabin } = VOTE_BOAT;
+      s.g.placePlayer((cabin.x0 + cabin.x1) / 2, (cabin.z0 + cabin.z1) / 2);
+      s.play(2);
+      expect(m.voteK()).toBe(1);
+      expect(h.hatikvahMix()).toBeCloseTo(1, 3);
+      expect(m.musicMix().stage).toBeLessThan(0.001);
+      expect(s.audio.key.root).toBe(65);
+      s.g.placePlayer(-1.5, -2);
+      s.play(3);
+      s.g.placePlayer((cabin.x0 + cabin.x1) / 2, (cabin.z0 + cabin.z1) / 2);
+      const heard = music(s.since(() => s.play(4)));
+      for (const n of [74, 76, 77]) expect(heard.some(p => near(p.f, hz(n))), `celesta ${n}`).toBe(true);
+      expect(heard.some(p => p.type === 'triangle' && near(p.f, hz(57)))).toBe(true);
+      expect(heard.some(p => near(p.f, hz(50)))).toBe(true);
+      expect(heard.filter(p => p.kind === 'tone' && p.type !== 'triangle').every(p => p.f < 4000)).toBe(true);
+      // back to the market: it fades away and the market's music comes back
+      s.g.placePlayer(-1.5, -2);
+      s.play(2);
+      expect(h.hatikvahMix()).toBeLessThan(0.001);
+      expect(m.musicMix().stage).toBeCloseTo(1, 3);
+    } finally { vi.useRealTimers(); }
+  }, 30_000);
+
+  it('plays no Hatikvah on a day the voting boat is gone, even where it was moored', async () => {
+    vi.useFakeTimers({ toFake: ['Date'], now: new Date(2026, 9, 29, 12) });
+    try {
+      const s = await withSound({ tiles: bought(...MARKET) });
+      const m = await import('../src/music'), h = await import('../src/hatikvah'), { VOTE_BOAT, voteBoat } = s.g.layout;
+      expect(voteBoat.open).toBe(false);
+      s.g.placePlayer((VOTE_BOAT.gangway.x0 + VOTE_BOAT.gangway.x1) / 2, -5.5);
+      s.play(4);
+      expect(m.voteK()).toBe(0);
+      expect(m.voteK({ x: (VOTE_BOAT.cabin.x0 + VOTE_BOAT.cabin.x1) / 2, z: -9 })).toBe(0);
+      expect(h.hatikvahMix()).toBe(0);
+      expect(m.musicMix().stage).toBeCloseTo(1, 3);
+    } finally { vi.useRealTimers(); }
+  }, 30_000);
+
   it("the Undertow's band, down in the stage 3 cellar: through the out-of-order stall in Mama Moray's restroom, and the music in the club", async () => {
     const s = await withSound({
       tiles: bought(...MARKET, 'sushi', ...FLOE_SUSHI, 'dohyo'), fugu: 2, level: 1, reviews: Array(20).fill(5),
