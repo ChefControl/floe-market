@@ -121,8 +121,8 @@ const BOAT: StakeRules = {
   chips: () => CHIPS[stage.n], limit: () => Infinity, chip: chipLabel, label: v => '$' + v.toLocaleString('en-US'),
 };
 
-/** Holding a chip (or Undo) down: how long before it starts going on its own, how often it goes at first, and how
- *  often at most, as it speeds up. In ms. */
+/** Holding a chip down: how long before it starts going on its own (or Undo clears the stake), how often it goes at
+ *  first, and how often at most, as it speeds up. In ms. */
 export const HOLD = { wait: 400, first: 180, fastest: 45 };
 
 /** What's down: how many of each chip, or all in. */
@@ -131,8 +131,8 @@ interface Down { pile: number[]; all: boolean }
 /**
  * The stake in a game's panel, made up as at a real table: each tap on a chip puts one more of it down (three $1k chips
  * make $3k), and holding one keeps putting them down, faster and faster, till it's let go or there's no cash for
- * another. Undo takes back the last change (a chip, or All in), and holding it takes them back the same way; All in
- * puts down everything. What's down is kept as how many of each chip (one of the second, to start with), so it grows
+ * another. Undo takes back the last change (a chip, or All in), and holding it takes the whole stake back at once (a
+ * player's idea, report 19); All in puts down everything. What's down is kept as how many of each chip (one of the second, to start with), so it grows
  * with the stage at the stage-up, and it stays down from one round to the next. Changing it calls `picked`; nothing
  * while `busy`.
  */
@@ -159,6 +159,11 @@ export class Stakes {
       try { b.setPointerCapture(e.pointerId); } catch { /* pointer already gone */ }
       this.press(b);
       this.repeat(b, HOLD.wait, HOLD.first);
+    });
+    // Undo's key held down, as with a finger (uiKit.ts)
+    el.addEventListener('k-hold', e => {
+      const b = this.button(e);
+      if (b?.dataset.stake === 'undo' && usable(b) && !busy()) this.clear();
     });
     for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) el.addEventListener(ev, () => this.release());
     // a long press shouldn't bring up the browser's menu
@@ -192,10 +197,18 @@ export class Stakes {
     this.picked();
   }
 
-  /** Goes again in `wait` ms while `b` is held, a little sooner each time, till it can't. */
+  /** Takes the whole stake back: nothing down, and nothing left for Undo to take back. */
+  private clear() {
+    this.past = []; this.pile = [0, 0, 0, 0]; this.all = false;
+    clack();
+    this.picked();
+  }
+
+  /** Goes again in `wait` ms while `b` is held, a little sooner each time, till it can't; Undo held clears instead. */
   private repeat(b: HTMLButtonElement, wait: number, every: number) {
     this.timer = window.setTimeout(() => {
       if (this.held !== b || !usable(b) || this.busy()) return;
+      if (b.dataset.stake === 'undo') { this.clear(); return; }
       this.press(b);
       this.repeat(b, every, Math.max(HOLD.fastest, every * 0.85));
     }, wait);
