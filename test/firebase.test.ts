@@ -89,6 +89,36 @@ describe('the Firebase backend', () => {
     expect(fs.query).toHaveBeenCalledWith({ col: 'scores' }, { orderBy: ['best', 'desc'] }, { limit: 20 });
   });
 
+  it("keeps the wall of shame in shame/{uid}, never swapping a player's worst bet for a smaller one", async () => {
+    const { createBackend } = await import('../src/firebase');
+    const b = createBackend();
+    const bet = { uid: 'u1', name: 'Pat Smith', lost: 900, game: 'roulette' as const, on: 'black', broke: true, at: 42 };
+    await b.postShame(bet);
+    expect(sdk.set).toEqual([[{ path: 'shame/u1' }, {
+      name: 'Pat Smith', lost: 900, game: 'roulette', on: 'black', broke: true, at: 42, updated: 'server-time',
+    }]]);
+    sdk.score = { lost: 5_000 };
+    await b.postShame({ ...bet, lost: 4_000 });
+    expect(sdk.set).toHaveLength(1);
+    sdk.score = { lost: 900 };
+    await b.postShame({ ...bet, lost: 1_000, game: 'slots', on: undefined });
+    expect(sdk.set[1]).toEqual([{ path: 'shame/u1' }, { name: 'Pat Smith', lost: 1_000, game: 'slots', broke: true, at: 42, updated: 'server-time' }]);
+  });
+
+  it('reads the top of the wall of shame, the most lost first', async () => {
+    const fs = await import('firebase/firestore');
+    const { createBackend } = await import('../src/firebase');
+    sdk.scores = [
+      { id: 'u2', data: { name: 'Sam', lost: 8_000, game: 'roulette', on: 'green', broke: false, at: 7 } },
+      { id: 'u1', data: { name: 'Pat Smith', lost: 90, game: 'blackjack', broke: true, at: 9 } },
+    ];
+    expect(await createBackend().topShame(10)).toEqual([
+      { uid: 'u2', name: 'Sam', lost: 8_000, game: 'roulette', on: 'green', broke: false, at: 7 },
+      { uid: 'u1', name: 'Pat Smith', lost: 90, game: 'blackjack', broke: true, at: 9 },
+    ]);
+    expect(fs.query).toHaveBeenCalledWith({ col: 'shame' }, { orderBy: ['lost', 'desc'] }, { limit: 10 });
+  });
+
   it("files a report in reports/ together with the player's count in limits/{uid}", async () => {
     const { createBackend } = await import('../src/firebase');
     const b = createBackend();

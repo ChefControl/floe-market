@@ -1,10 +1,14 @@
 // What the kitchen is waiting on, said in speech bubbles like the customers' orders (bubble.ts): when the chefs stand
 // idle for want of fish or rice, the cook at that pad on the kitchen line asks for it, right where it's dropped off.
+// And on the dock, why the rod's stopped: the fish pile has no room for another catch.
 import { Sprite, SpriteMaterial, type Object3D } from 'three';
 import { drawNeed, type OrderIcon } from './bubble';
-import { canvasTex } from './render';
+import { pileHasRoom } from './fishing';
+import { canvasTex, scene } from './render';
 import { fishTray, ricePot, sushi } from './restaurant';
 import { staging } from './stage';
+import { PAD } from './stations';
+import { FY } from './util';
 
 /** Seconds something has to stay short before its bubble comes up, so a moment between deliveries shows nothing. */
 export const NEED_AFTER = 1.5;
@@ -48,4 +52,15 @@ export function updNeeds(dt: number) {
     if (cook && a.sprite.parent !== cook) { cook.add(a.sprite); a.sprite.position.set(0, 1.95, 0); }
     show(a, waiting && !!cook, dt);
   });
+}
+
+/** Over the fishing pad, while the player stands on it and the rod can't catch: the fish pile has no room for another
+ *  (report 20: nothing said why fishing had stopped). Only there and only then, so it's no alarm anywhere else. */
+export const pileFull: Need = { sprite: needSprite('fish', 'full'), t: 0, short: () => !pileHasRoom() };
+pileFull.sprite.position.set(PAD.x, FY + 2.1, PAD.z);
+scene.add(pileFull.sprite);
+
+/** The fishing pad's bubble, every frame: `fishing` while the player's standing on the pad, up in the world. */
+export function updPileFull(dt: number, fishing: boolean) {
+  show(pileFull, fishing, dt);
 }

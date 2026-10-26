@@ -30,6 +30,7 @@ import { popText } from './ui';
 import { state } from './uiKit';
 import { money, V, type XZ } from './util';
 import { addMoney, wallet } from './wallet';
+import { scoreBet } from './worstBet';
 
 const AT = GAMES.blackjack;
 const TABLE = { x: AT.x, z: AT.z - 1.75 };
@@ -595,6 +596,7 @@ function payChips(r: BlackjackRound) {
 function payOut() {
   const r = round!, back = r.paid, staked = r.staked;
   apply(r.settle());
+  scoreBet('blackjack', staked, back);
   payChips(r);
   if (back > staked) { popText('+' + money(back), { x: TABLE.x, y: AT.y + 1.2, z: TABLE.z }); win(); cheer(); }
   else if (back === staked) pushSound();
@@ -794,6 +796,7 @@ const pad = gamePad(AT, '🃏', panel, {
   live: () => live() || !!prep,
   say: text => table!.voice.say(text),
   away: "I'll wait!",
+  ask: $('blackjackAsk'),
 }, {
   at: V(TABLE.x, AT.y + TOP + 0.3, TABLE.z - 0.12), from: V(0, 1.05, 1).normalize(), wide: 1.45, tall: 1.2,
 });

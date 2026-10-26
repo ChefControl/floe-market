@@ -21,6 +21,8 @@ const h = vi.hoisted(() => {
     async write() {},
     async postScore() {},
     async topScores() { return []; },
+    async postShame() {},
+    async topShame() { return []; },
     async sendReport(uid: string, r: Record<string, unknown>) {
       if (fake.hang) return new Promise<void>(() => {});
       if (fake.fail) throw fake.fail;
@@ -181,7 +183,10 @@ describe('reporting a bug or an idea', () => {
   it("lists the panels open over the game in the game state, every casino game's included", async () => {
     await start();
     const casino = [...document.querySelectorAll<HTMLElement>('.casino')];
-    expect(casino.map(p => p.id)).toEqual(['roulette', 'blackjack', 'slots', 'eddie', 'monte', 'denBar', 'loans', 'denGus', 'bubbly', 'arcade', 'tears']);
+    expect(casino.map(p => p.id)).toEqual([
+      'rouletteAsk', 'roulette', 'blackjackAsk', 'blackjack', 'slotsAsk', 'slots', 'eddie', 'monteAsk', 'monte', 'denBar', 'loans',
+      'denGus', 'bubbly', 'arcade', 'shameCard', 'shame', 'tears',
+    ]);
     casino.forEach(p => { p.hidden = false; });
     $('reportCat').click();
     write('Stuck on the boat');
