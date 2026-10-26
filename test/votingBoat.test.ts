@@ -202,14 +202,27 @@ describe('the voting boat', () => {
     g.placePlayer(vote.SCREEN_SPOT.x, vote.SCREEN_SPOT.z);
     g.run(0.1);
     expect($('voteSlips').hidden).toBe(true);
-    // stepping off and coming back, they can vote again; the sticker stays on
+    // stepping off, the camera comes in on the sticker a moment, the player held facing it, then lets them go
     g.placePlayer(0, 0);
     g.run(0.1);
     expect(vote.voting.voted).toBe(false);
     expect(vote.boat!.sticker.visible).toBe(true);
+    expect(g.player.held).toBe(true);
+    g.run(0.8);
+    expect(vote.stickerCam.k).toBe(1);
+    g.run(2);
+    expect(g.player.held).toBe(false);
+    expect(vote.stickerCam.k).toBe(0);
+    // coming back, they can vote again; the sticker stays on
     g.placePlayer(vote.SCREEN_SPOT.x, vote.SCREEN_SPOT.z);
     g.run(0.1);
     expect($('voteSlips').hidden).toBe(false);
+    // and the camera shows it off only the first time (voting again, then stepping off)
+    vote.voting.voted = true;
+    g.placePlayer(0, 0);
+    g.run(0.1);
+    expect(g.player.held).toBe(false);
+    expect(vote.stickerCam.k).toBe(0);
     // and nothing paid or saved
     expect(g.wallet.money).toBe(money);
     expect(localStorage.getItem('floe-market-v1')).toBe(saved);

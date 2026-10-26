@@ -8,8 +8,9 @@
 // on the camera's side fade while the player's inside.
 // Walking in, the chair greets you; behind the screen you pick a slip (a dish or a fish: it's for voting itself, never
 // a party or anyone on a ballot) and carry it out in a blue envelope; at the ballot box it drops in through the slot,
-// the committee thanks you, and an "I voted" sticker stays on your chest for the visit. Once each time aboard. Nothing
-// of it is saved, and on any other day nothing of it is built, so the game is just as it was.
+// the committee thanks you, and an "I voted" sticker (הצבעתי) stays on your chest for the visit, the camera coming in
+// on it the first time you step off. Once each time aboard. Nothing of it is saved, and on any other day nothing of it
+// is built, so the game is just as it was.
 import {
   BoxGeometry, CylinderGeometry, ExtrudeGeometry, Group, type Material, Mesh, MeshLambertMaterial, PlaneGeometry, Shape,
   SphereGeometry,
@@ -25,7 +26,7 @@ import { buyHeld } from './input';
 import { inPollingRoom, level, onVoteBoat, PIER, pushOutOfBox, VOTE_BOAT, voteBoat, voteX as X } from './layout';
 import { C } from './palette';
 import { player } from './player';
-import { bakePainted, camera, camK, canvasTex, FONT, G, mesh, painted, type Part, rr, scene } from './render';
+import { bakePainted, camera, camK, canvasTex, FONT, G, mesh, OFF as VIEW, painted, type Part, rr, scene } from './render';
 import { pick, put, shipHorn } from './sfx';
 import { bubble } from './speech';
 import { panel as kitPanel } from './uiKit';
@@ -499,15 +500,22 @@ function build() {
   const flying = mesh(BOX, ENVELOPE);
   flying.scale.set(0.16, 0.02, 0.11); flying.visible = false; flying.userData.noBatch = true;
   scene.add(flying);
-  // ---- the sticker: a round blue "I voted" on the chest ----
-  const stickerTex = canvasTex(128, 128, (c, w, h) => {
-    c.fillStyle = '#0038B8'; c.beginPath(); c.arc(w / 2, h / 2, w / 2 - 2, 0, 7); c.fill();
-    c.strokeStyle = '#fff'; c.lineWidth = 6; c.beginPath(); c.arc(w / 2, h / 2, w / 2 - 12, 0, 7); c.stroke();
-    c.fillStyle = '#fff'; c.font = `800 26px ${FONT}`; c.textAlign = 'center'; c.textBaseline = 'middle';
-    c.fillText('I', w / 2, h / 2 - 16); c.fillText('voted', w / 2, h / 2 + 12);
+  // ---- the sticker on the chest: a round blue הצבעתי ("I voted"), as the polling stations hand out, a white ring
+  // round it and a ballot going into a box over the word ----
+  const stickerTex = canvasTex(256, 256, (c, w, h) => {
+    c.fillStyle = '#0038B8'; c.beginPath(); c.arc(w / 2, h / 2, w / 2 - 4, 0, 7); c.fill();
+    c.strokeStyle = '#fff'; c.lineWidth = 10; c.beginPath(); c.arc(w / 2, h / 2, w / 2 - 22, 0, 7); c.stroke();
+    c.fillStyle = '#fff';
+    c.fillRect(w / 2 - 34, 78, 68, 40);
+    c.fillStyle = '#0038B8'; c.fillRect(w / 2 - 22, 76, 44, 8);
+    c.fillStyle = '#fff'; c.fillRect(w / 2 - 14, 46, 28, 34);
+    c.font = `800 54px ${FONT}, Arial, sans-serif`; c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.direction = 'rtl';
+    c.fillText('הצבעתי', w / 2, h / 2 + 34);
   });
-  const sticker = new Mesh(new PlaneGeometry(0.14, 0.14), new MeshLambertMaterial({ map: stickerTex.tex, transparent: true }));
-  sticker.position.set(0.1, 0.78, 0.25); sticker.visible = false;
+  // (on the right of the chest, clear of a scarf's hanging end)
+  const sticker = new Mesh(new PlaneGeometry(0.16, 0.16), new MeshLambertMaterial({ map: stickerTex.tex, transparent: true }));
+  sticker.position.set(-0.12, 0.74, 0.255); sticker.visible = false;
   player.g.body.add(sticker);
 
   // out at sea till it sails in (updVoting)
@@ -548,7 +556,7 @@ const cast = boat ? card('voteCast', '', [['🗳️ Cast your vote', 'k-main']],
 // ---------- voting ----------
 /** This visit aboard: the slip in the envelope in hand (if one's picked), whether they've voted, whether the chair's
  *  greeted them; and for the whole visit to the game, the sticker. Nothing of it is saved. */
-export const voting = { slip: null as string | null, voted: false, greeted: false, sticker: false, drop: -1, inside: false };
+export const voting = { slip: null as string | null, voted: false, greeted: false, sticker: false, shown: false, drop: -1, inside: false };
 
 slips?.btns.forEach((b, i) => b.addEventListener('click', () => {
   if (!boat || voting.slip || voting.voted) return;
@@ -678,6 +686,8 @@ export function updVoting(dt: number) {
   const p = player.g.position, aboard = onVoteBoat(p) && p.z < VOTE_BOAT.hull.z1 + 0.2;
   // stepping off ends the visit aboard: coming back, they can vote again
   if (!aboard && (voting.voted || voting.slip || voting.greeted)) {
+    // (and the first time off after voting, the sticker shown off)
+    if (voting.voted && !voting.shown) showOff();
     Object.assign(voting, { slip: null, voted: false, greeted: false });
     boat.inHand.visible = false;
   }
@@ -718,9 +728,40 @@ export function updVoting(dt: number) {
       put();
     }
   }
+  showSticker(dt);
   if (boat.says.text) boat.says.place(MEMBERS_X[1], VOTE_BOAT.y + 2.0, MEMBER_Z);
   boat.says.upd(dt);
   foredeck(dt);
+}
+
+// ---------- the sticker, shown off ----------
+/** Stepping off after voting, the first time in a visit to the game, the camera comes in close on the sticker on the
+ *  player's chest, the player turned to face it, holds a moment, and goes back: seconds coming in, held, going back. */
+const SHOW = { in: 0.6, hold: 1.6, out: 0.6 };
+/** The camera's view of the sticker, blended in by `k` (main.ts); seconds into the shot (-1: none). */
+export const stickerCam = { k: 0, pos: V(0, 0, 0), look: V(0, 0, 0) };
+let showing = -1;
+function showOff() {
+  voting.shown = true;
+  showing = 0;
+  player.held = true; player.moving = false;
+  player.h = Math.atan2(VIEW.x, VIEW.z); player.g.rotation.y = player.h;
+}
+function showSticker(dt: number) {
+  if (showing < 0) return;
+  showing += dt;
+  const t = showing, back = SHOW.in + SHOW.hold;
+  stickerCam.k = t < SHOW.in ? t / SHOW.in : t < back ? 1 : Math.max(0, 1 - (t - back) / SHOW.out);
+  if (t >= back && player.held) player.held = false;
+  if (t >= back + SHOW.out) showing = -1;
+}
+/** Puts the camera's view of the sticker in place for this frame (main.ts): a metre in front of it, a little above,
+ *  from the game camera's side; further back on a phone held upright. */
+export function drawSticker() {
+  if (!boat || stickerCam.k <= 0) return;
+  boat.sticker.getWorldPosition(stickerCam.look);
+  const d = Math.hypot(VIEW.x, VIEW.z), far = camK > 1 ? 1.35 : 1.05;
+  stickerCam.pos.set(stickerCam.look.x + VIEW.x / d * far, stickerCam.look.y + 0.3, stickerCam.look.z + VIEW.z / d * far);
 }
 
 /** The acrobat's round (spoken to, he comes down onto his feet and stays there till he's done), and speaking to the

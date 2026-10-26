@@ -29,7 +29,7 @@ import { drawTutorial } from './tutorial';
 import { hud, keepInSight } from './ui';
 import { jitter } from './kit';
 import { V } from './util';
-import { drawElders, elderCam } from './votingBoat';
+import { drawElders, drawSticker, elderCam, stickerCam } from './votingBoat';
 
 // ---------- save / restart ----------
 // The Mr. Fugu demo build (VITE_FUGU_DEMO=1) starts from a game that's one bill short of meeting him, and keeps nothing.
@@ -114,6 +114,9 @@ function frame(now: number) {
   // speaking to one of the old-timers on the voting boat's foredeck (votingBoat.ts)
   drawElders();
   if (elderCam.k > 0) { const b = smooth(elderCam.k); camera.position.lerp(elderCam.pos, b); aim.lerp(elderCam.look, b); }
+  // and the "I voted" sticker on the player's chest, stepping off it after voting
+  drawSticker();
+  if (stickerCam.k > 0) { const b = smooth(stickerCam.k); camera.position.lerp(stickerCam.pos, b); aim.lerp(stickerCam.look, b); }
   // the cooking show at the pot: its own camera on the stew (chanko.ts), jolting a little on a chop
   if (showCam.k > 0) {
     const b = smooth(showCam.k), s = reduceMotion.matches ? 0 : showShake();
