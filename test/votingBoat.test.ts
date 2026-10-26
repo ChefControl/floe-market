@@ -247,7 +247,7 @@ describe('the voting boat', () => {
     g.placePlayer(cabin.x0 - 0.4, mid);
     g.run(1);
     expect(vote.elderState().who).toBe(-1);
-    g.placePlayer(hull.x0 + 2.3 + 0.9, mid + 0.2);
+    g.placePlayer(vote.HEADSTAND.x + 0.9, vote.HEADSTAND.z);
     g.runUntil(() => Math.abs(b.tip.rotation.x - Math.PI) < 0.01, 10);
     g.run(0.1);
     expect(document.getElementById('buy')!.textContent).toContain('Talk');
@@ -256,7 +256,9 @@ describe('the voting boat', () => {
     expect(g.player.held).toBe(true);
     g.run(1);
     expect(vote.elderCam.k).toBe(1);
-    expect(vote.elderState().says.length).toBeGreaterThan(0);
+    // (down off his head and onto his feet first, then he speaks)
+    g.runUntil(() => vote.elderState().says.length > 0, 3);
+    expect(b.tip.rotation.x).toBe(0);
     expect(vote.MIRACLES.startsWith(vote.elderState().says)).toBe(true);
     // he comes down onto his feet to say it, and stays there till he's done
     g.runUntil(() => vote.elderState().says === vote.MIRACLES, 6);

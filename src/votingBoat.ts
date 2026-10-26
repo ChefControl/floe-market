@@ -19,7 +19,7 @@ import { offerTalk } from './buy';
 import { crowdModel, type Person } from './characters';
 import { electionDay, voteParam, votingBoatOn } from './flags';
 import { drawIcon } from './icons';
-import { apart, Build, detail, dice, rbox } from './kit';
+import { apart, Build, detail, dice, K, rbox } from './kit';
 import { buyHeld } from './input';
 import { inPollingRoom, level, onVoteBoat, PIER, pushOutOfBox, VOTE_BOAT, voteBoat, voteX as X } from './layout';
 import { C } from './palette';
@@ -41,14 +41,16 @@ const T = 0.08, DOOR = { x0: X(4.15), x1: X(3.35), h: 1.85 };
 const BOW = HULL.x0 + 1.15, MID = (HULL.z0 + HULL.z1) / 2;
 /** Out on the foredeck, two old-timers who happen to be aboard (nobody names them): one stands on his head now and then,
  *  the other leans on the rail looking out to sea. Each says his piece when the player speaks to him (E, or Talk). */
-const HEADSTAND = { x: HULL.x0 + 2.3, z: MID + 0.2 }, DREAMER = { x: HULL.x0 + 1.75, z: HULL.z1 - 0.36, face: -0.3 };
+export const HEADSTAND = { x: HULL.x0 + 3.0, z: MID + 0.3 }, DREAMER = { x: HULL.x0 + 1.75, z: HULL.z1 - 0.36, face: -0.3 };
 /** On the foredeck, the backgammon table (its chairs either side) and the cool box. */
 const TB = { x: HULL.x0 + 3.25, z: MID - 0.8 }, BOXC = { x: HULL.x0 + 3.3, z: HULL.z1 - 0.45 };
 export const MIRACLES = "Whoever doesn't believe in miracles is no realist", LEGEND = 'If you will it, it is no legend';
 /** How near him the player stands to speak to one. */
 const TALK_NEAR = 1.5;
-/** Seconds in the acrobat's round; the top of a person's head, at their own height 1 (characters.ts). */
-const ROUND = 9, HEAD_TOP = 1.24;
+/** The acrobat's round, in seconds: on his feet; a crouch; over onto his head, turning about his middle with a little hop;
+ *  balancing there; back over onto his feet; and a "ta-da", arms up, to the end of the round. And the top of a person's
+ *  head, at their own height 1 (characters.ts). */
+const CROUCH = 2.6, OVER = 3.0, UP = 3.7, DOWN = 7.8, LAND = 8.5, ROUND = 9, HEAD_TOP = 1.24;
 /** The committee's table along the back wall, and the three at it (the chair in the middle) with the box at its end. */
 export const TABLE = { x0: X(6.15), x1: X(4.2), z0: -9.35 + DZ, z1: -8.75 + DZ, top: 0.72 };
 const MEMBERS_X = [X(4.85), X(5.35), X(5.85)], MEMBER_Z = -9.72 + DZ;
@@ -329,11 +331,19 @@ function build() {
     p.restyle(coat, st);
     return p;
   };
-  // the short one with the white hair round his bald top, who stands on his head on the deck now and then
+  // the short one, bald on top with two great white tufts standing out at the sides of his head, who stands on his head
+  // on the deck now and then (turning about his middle: `tip`)
   const acrobat = oldTimer(270_101, 0xE9E1CF, 'fancy', st => Object.assign(st, { cut: 'bald', hair: 0xF2F0EA, face: 'bare', legs: 0xD9C9A3, neckC: 0xE9E1CF, height: 0.92 }));
+  const tufts = new Build();
+  for (const k of [-1, 1]) {
+    tufts.add(K.ball, 0xF2F0EA, k * 0.23, 1.0, -0.04, [0, 0, k * 0.35], [0.12, 0.085, 0.13]);
+    tufts.add(K.ball, 0xF2F0EA, k * 0.29, 1.05, -0.06, [0, 0, k * 0.5], [0.08, 0.06, 0.1]);
+    tufts.add(K.ball, 0xF2F0EA, k * 0.17, 1.02, -0.16, [0, 0, k * 0.2], [0.09, 0.08, 0.08]);
+  }
+  acrobat.add(tufts.mesh());
   const tip = new Group();
-  tip.position.set(HEADSTAND.x, HEAD_TOP * 0.92, HEADSTAND.z);
-  acrobat.position.y = -HEAD_TOP * 0.92;
+  tip.position.set(HEADSTAND.x, HEAD_TOP * 0.92 / 2, HEADSTAND.z);
+  acrobat.position.y = -HEAD_TOP * 0.92 / 2;
   tip.add(acrobat);
   g.add(tip);
   // the tall one in a black coat over a white shirt, his dark hair combed back and a long, full dark beard, leaning on
@@ -704,15 +714,23 @@ export function updVoting(dt: number) {
 function foredeck(dt: number) {
   const b = boat!;
   if (talk?.i !== 0) b.act = (b.act + dt) % ROUND;
-  else if (b.act >= 8 && b.act < 8.8) b.act = Math.min(8.8, b.act + dt);
+  else if (b.act >= DOWN) { b.act += dt; if (b.act >= ROUND) b.act = 0; }
   else b.act = 0;
-  const t = b.act, ease = (k: number) => k * k * (3 - 2 * k);
-  const k = t < 3 ? 0 : t < 3.8 ? ease((t - 3) / 0.8) : t < 8 ? 1 : t < 8.8 ? 1 - ease((t - 8) / 0.8) : 0;
-  const top = HEAD_TOP * 0.92;
+  const t = b.act, ease = (k: number) => k * k * (3 - 2 * k), bump = (a: number, z: number) => t >= a && t < z ? Math.sin(Math.PI * (t - a) / (z - a)) : 0;
+  // how far over he is (0 on his feet, 1 on his head); his crouch before, and his "ta-da" after
+  const k = t < OVER ? 0 : t < UP ? ease((t - OVER) / (UP - OVER)) : t < DOWN ? 1 : t < LAND ? 1 - ease((t - DOWN) / (LAND - DOWN)) : 0;
+  const crouch = bump(CROUCH, OVER), tada = bump(LAND, ROUND);
+  // over, about his middle, a hop lifting him clear of the deck; on his head, swaying a little as he keeps his balance
   b.tip.rotation.x = k * Math.PI;
-  b.tip.position.y = top * (1 - k);
-  for (const a of b.acrobat.arms) a.rotation.x = -k * (Math.PI - 0.35);
-  for (const [i, l] of b.acrobat.legs.entries()) l.rotation.x = k * Math.sin(t * 2.2 + i) * 0.08;
+  b.tip.position.y = HEAD_TOP * 0.92 / 2 + Math.sin(Math.PI * k) * 0.22 - (crouch + tada) * 0.07;
+  b.tip.rotation.z = t >= UP && t < DOWN ? Math.sin((t - UP) * 2.3) * 0.05 * Math.min(1, (t - UP) * 2) : 0;
+  // his arms: forward for the crouch, over his head to the deck for the headstand, and up and out for the "ta-da"
+  for (const [i, a] of b.acrobat.arms.entries()) {
+    a.rotation.x = t < OVER ? -1.1 * crouch : t < LAND ? -k * (Math.PI - 0.35) : -2.6 * tada;
+    a.rotation.z = (i ? 1 : -1) * 0.45 * tada;
+  }
+  // his legs scissoring slowly up in the air
+  for (const [i, l] of b.acrobat.legs.entries()) l.rotation.x = k * (i ? 1 : -1) * (0.16 + 0.1 * Math.sin(t * 1.7));
   talking(dt);
 }
 
@@ -754,7 +772,7 @@ function begin(i: number) {
   talk = { i, t: 0, n: 0, wait: 0 };
   // (on his head, or going over: down again from where he is)
   const b = boat!;
-  if (i === 0 && b.act >= 3 && b.act < 8) b.act = b.act < 3.8 ? 8 + (3.8 - b.act) : 8;
+  if (i === 0 && b.act >= OVER && b.act < DOWN) b.act = b.act < UP ? DOWN + (UP - b.act) : DOWN;
   shot = i; creep = 0;
   player.held = true; player.moving = false;
   // (facing him)
@@ -809,7 +827,7 @@ function talking(dt: number) {
     s.t += dt;
     elderCam.k = Math.min(1, elderCam.k + dt / 0.7);
     creep = Math.min(1, creep + dt / 10);
-    if (s.t >= LEAD && b.tip.rotation.x === 0 && s.n < o.line.length) {
+    if (s.t >= LEAD && (s.i !== 0 || b.act === 0) && s.n < o.line.length) {
       el.say.classList.add('on');
       s.wait -= dt;
       while (s.wait <= 0 && s.n < o.line.length) {
@@ -836,9 +854,9 @@ const nearer = V(0, 0, 0), face = V(0, 0, 0);
 export function drawElders() {
   if (!boat || elderCam.k <= 0) return;
   const o = OLD[shot], back = camK > 1 ? 1.35 : 1, y = VOTE_BOAT.y;
-  // (the short one's face, standing or on his head)
-  const up = boat.tip.rotation.x / Math.PI;
-  face.set(o.at.x, y + (shot === 0 ? 0.95 * (1 - up) + 0.2 * up : 1.15), o.at.z);
+  // (the short one's face, as he's turned about his middle)
+  const t = boat.tip, mid = HEAD_TOP * 0.92 / 2;
+  face.set(o.at.x, y + (shot === 0 ? t.position.y + (0.95 - mid) * Math.cos(t.rotation.x) : 1.15), o.at.z);
   const fx = Math.sin(o.face), fz = Math.cos(o.face), sx = 0.9 * o.side;
   elderCam.pos.set(o.at.x + (fx * 2.7 - fz * sx) * back, y + 1.9 * back, o.at.z + (fz * 2.7 + fx * sx) * back);
   elderCam.look.set(o.at.x, face.y - 0.1, o.at.z);
