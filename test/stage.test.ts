@@ -83,7 +83,7 @@ describe('the stage-up', () => {
     expect(pad.visible).toBe(false);
     expect(stall.visible && stall.scale.x === 1).toBe(true);
     expect(stall.children).toHaveLength(parts + 1); // the sign
-    expect(stall.children.at(-1)!.scale.x).toBe(1);
+    expect(stall.children[stall.children.length - 1].scale.x).toBe(1);
     g.unlocks.applyUnlock('kiosk');
     expect(stall.visible).toBe(false);
   });
