@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { UnlockId } from '../src/unlocks';
 import { bought, loadGame, MARKET } from './helpers';
 
-const STAGE2: UnlockId[] = ['paddy', 'seats', 'chef', 'farmer', 'porter', 'plot2', 'tables', 'chef3', 'tables2', 'plot3', 'kiosk', 'premium'];
+const STAGE2: UnlockId[] = ['paddy', 'farmer', 'seats', 'chef', 'tables', 'plot2', 'runner3', 'chef3', 'tables2', 'plot3', 'kiosk', 'porter', 'premium'];
 const offer = (g: Awaited<ReturnType<typeof loadGame>>) => g.unlocks.visibleTiles().map(t => t.id);
 const $ = (id: string) => document.getElementById(id)!;
 
@@ -18,9 +18,9 @@ describe('what is on offer', () => {
   });
 
   it('the gold Floe Sushi tile only once the whole market is built, on its own', async () => {
-    const g = await loadGame({ tiles: bought(...MARKET.filter(id => id !== 'runner3'), 'slots', 'blackjack') });
-    expect(offer(g)).toEqual(['runner3', 'korki']);
-    g.unlocks.applyUnlock('runner3');
+    const g = await loadGame({ tiles: bought(...MARKET.filter(id => id !== 'net'), 'slots', 'blackjack') });
+    expect(offer(g)).toEqual(['net', 'korki']);
+    g.unlocks.applyUnlock('net');
     expect(offer(g)).toEqual(['sushi', 'korki']);
     const gold = g.unlocks.tiles.find(t => t.id === 'sushi')!;
     expect(gold.half).toBeGreaterThan(1);
@@ -32,16 +32,19 @@ describe('what is on offer', () => {
     expect(offer(g)).toEqual(['paddy', 'seats', 'chef', 'korki']);
     g.unlocks.applyUnlock('chef');
     expect(offer(g)).toEqual(['paddy', 'seats', 'chef3', 'korki']);
+    // the farmer comes straight after the terrace
     g.unlocks.applyUnlock('paddy');
-    expect(offer(g)).toEqual(['seats', 'farmer', 'chef3', 'korki']);
-    // the porter carries from the farmer's stack, so it waits for the farmer
-    g.unlocks.applyUnlock('seats');
-    expect(offer(g)).toEqual(['farmer', 'plot2', 'chef3', 'korki']);
+    expect(offer(g)).toEqual(['farmer', 'seats', 'chef3', 'korki']);
     g.unlocks.applyUnlock('farmer');
-    expect(offer(g)).toEqual(['porter', 'plot2', 'chef3', 'korki']);
+    expect(offer(g)).toEqual(['seats', 'tables', 'chef3', 'korki']);
+    // the porter waits for the kiosk, whose fertilizer outgrows the runners
+    for (const id of ['seats', 'tables', 'plot2', 'runner3', 'tables2', 'plot3'] as UnlockId[]) g.unlocks.applyUnlock(id);
+    expect(offer(g)).toEqual(['chef3', 'kiosk', 'premium', 'korki']);
+    g.unlocks.applyUnlock('kiosk');
+    expect(offer(g)).toEqual(['chef3', 'porter', 'premium', 'korki']);
   });
 
-  it('the second and third runners after the first, at its spot', async () => {
+  it('the second runner after the first, at its spot; the third in the restaurant', async () => {
     const g = await loadGame({ tiles: bought('pack', 'turret', 'roulette', 'boots', 'sled', 'korki', 'slots', 'blackjack') });
     expect(offer(g)).toEqual(['runner', 'net']);
     g.unlocks.applyUnlock('runner');
@@ -50,7 +53,10 @@ describe('what is on offer', () => {
     expect([r2.x, r2.z]).toEqual([r1.x, r1.z]);
     g.unlocks.applyUnlock('runner2');
     g.unlocks.applyUnlock('net');
-    expect(offer(g)).toEqual(['runner3']);
+    expect(offer(g)).toEqual(['sushi']);
+    g.unlocks.applyUnlock('sushi', true);
+    for (const id of ['paddy', 'farmer', 'seats', 'tables', 'plot2'] as UnlockId[]) g.unlocks.applyUnlock(id, true);
+    expect(offer(g)).toContain('runner3');
     g.unlocks.applyUnlock('runner3');
     expect(g.runner.runners).toHaveLength(3);
   });
@@ -65,12 +71,12 @@ describe('what is on offer', () => {
 describe('stage progress', () => {
   it('counts the market upgrades, then the restaurant ones', async () => {
     const g = await loadGame({ tiles: bought('pack', 'korki') });
-    expect([$('stageNum').textContent, $('stageName').textContent, $('stageCount').textContent]).toEqual(['1', 'Fish Market', '1/9']);
+    expect([$('stageNum').textContent, $('stageName').textContent, $('stageCount').textContent]).toEqual(['1', 'Fish Market', '1/8']);
     MARKET.slice(1).forEach(id => g.unlocks.applyUnlock(id as UnlockId, true));
     expect($('stageCount').textContent).toBe('Floe Sushi ready');
     expect($('stage').classList.contains('ready')).toBe(true);
     g.unlocks.applyUnlock('sushi', true);
-    expect([$('stageNum').textContent, $('stageName').textContent, $('stageCount').textContent]).toEqual(['2', 'Floe Sushi', '0/12']);
+    expect([$('stageNum').textContent, $('stageName').textContent, $('stageCount').textContent]).toEqual(['2', 'Floe Sushi', '0/13']);
     expect($('stage').classList.contains('s2')).toBe(true);
     STAGE2.forEach(id => g.unlocks.applyUnlock(id, true));
     expect($('stageCount').textContent).toBe('Complete');

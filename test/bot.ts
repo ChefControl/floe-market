@@ -46,7 +46,10 @@ export interface Style { show: number; showSecs: number; slam: boolean; help: bo
    *  word: the cheapest way to a Win (each upgrade tried in a copy of the cellar, its kitchen stocked, with the gong's
    *  own forecast), and an upgrade that brings in more chips only when it pays for itself before that way's afforded
    *  (or, with nothing in the way of the next boss, inside five minutes). */
-  tryhard?: boolean }
+  tryhard?: boolean
+  /** Up in stage 2, false: it leaves the rice to the farmer and the runners once there's a farmer (SIM_RICE=0), to see
+   *  whether the restaurant gets its rice without the player's hands. */
+  riceHands?: boolean }
 export const STYLE: Style = { show: 9, showSecs: 40, slam: true, help: true };
 /** Stage 3's books: chips earned from bowls and prizes, spent by kind, the cooking shows played (and their seconds),
  *  and the seconds the bot stood about by the pot: cooking there as it does (`wait`), or with nothing at all to do
@@ -55,8 +58,9 @@ export interface Books { bowls: number; prize: number; resto: number; spent: Rec
   /** Each local fight as its fans sat down: when, how many came, how many ate, and the bowls left over in the pot, on the counter and on the stall. */
   locals: { t: number; crowd: number; fed: number; left: number }[] }
 
-/** Plays `g` for `seconds` of game time. Returns what it bought when, and samples of money and earnings. */
-export function play(g: Game, seconds: number, dt = 0.05, ring?: Ring, style: Style = STYLE) {
+/** Plays `g` for `seconds` of game time. Returns what it bought when, and samples of money and earnings. `onTick`, if
+ *  given, is called after every tick with the game time, to measure what's going on (a sim's bottlenecks). */
+export function play(g: Game, seconds: number, dt = 0.05, ring?: Ring, style: Style = STYLE, onTick?: (t: number) => void) {
   const { player, wallet } = g;
   const p = player.g.position;
   const bought: Purchase[] = [], samples: Sample[] = [], fights: Fought[] = [];
@@ -568,6 +572,8 @@ export function play(g: Game, seconds: number, dt = 0.05, ring?: Ring, style: St
   }
 
   const { pile, PILE, PAD } = g.stations;
+  /** Where to stand to use the bin on the dock, behind the fish pile (bin.ts). */
+  const DOCK_BIN = { x: 4.0, z: -6.0 };
   const fishFrom = () => {
     if (pile.items.length >= Math.min(6, player.back.cap - player.back.n) && player.back.hasRoom()) {
       go({ x: PILE.x, z: PILE.z + 1.1 }, () => !player.back.hasRoom() || !pile.items.length, 15);
@@ -586,12 +592,12 @@ export function play(g: Game, seconds: number, dt = 0.05, ring?: Ring, style: St
   }
 
   function decide2() {
-    const r = g.restaurant, rice = g.rice;
+    const r = g.restaurant, rice = g.rice, hands = style.riceHands !== false || !rice.farmer;
     const fish = player.back.count('fish'), bags = player.back.count('rice'), room = player.back.cap - player.back.n;
     // out in the field with room for more: harvest the rest of what's ripe before carrying it in
     const ripeHere = rice.field.cells.filter(c => c.grow >= 1 && !c.taken)
       .sort((a, b) => (a.x - p.x) ** 2 + (a.z - p.z) ** 2 - ((b.x - p.x) ** 2 + (b.z - p.z) ** 2));
-    if (inFarm(p) && room && ripeHere.length && r.ricePot.hasRoom()) {
+    if (hands && inFarm(p) && room && ripeHere.length && r.ricePot.hasRoom()) {
       const c = ripeHere[0];
       go({ x: c.x, z: c.z }, () => !player.back.hasRoom() || c.grow < 1, 10);
       return;
@@ -599,7 +605,7 @@ export function play(g: Game, seconds: number, dt = 0.05, ring?: Ring, style: St
     if (fish && r.fishTray.hasRoom()) { go(r.FISH_DROP, () => !player.back.count('fish') || !r.fishTray.hasRoom(), 25); return; }
     if (bags && r.ricePot.hasRoom()) { go(r.RICE_DROP, () => !player.back.count('rice') || !r.ricePot.hasRoom(), 25); return; }
     const needFish = r.fishTray.n / r.fishTray.cap, needRice = r.ricePot.n / r.ricePot.cap;
-    if (needRice <= needFish && r.ricePot.hasRoom()) {
+    if (hands && needRice <= needFish && r.ricePot.hasRoom()) {
       const ripe = rice.field.cells.filter(c => c.grow >= 1 && !c.taken);
       const enough = Math.min(room, 6);
       if (room && rice.fieldStack.items.length >= enough) {
@@ -614,6 +620,8 @@ export function play(g: Game, seconds: number, dt = 0.05, ring?: Ring, style: St
         return;
       }
     }
+    // arms full of fish the kitchen line has no room for, with the rice pot wanting filling: into the bin by the pile
+    if (!room && fish && !r.fishTray.hasRoom() && r.ricePot.n < r.ricePot.cap / 2) { go(DOCK_BIN, () => !player.back.count('fish'), 20, true); return; }
     // the runner keeps the fish tray stocked; only help out when it's running low
     if (r.fishTray.cap - r.fishTray.n >= Math.min(8, room) && room) fishFrom();
     else go(r.FISH_DROP, () => true, 1);
@@ -626,6 +634,7 @@ export function play(g: Game, seconds: number, dt = 0.05, ring?: Ring, style: St
     if (!plan) decide();
     if (plan) walk();
     step();
+    onTick?.(t);
   }
   return { bought, samples, earned, trace, fights, best, books };
 }

@@ -88,11 +88,11 @@ describe('new upgrades', () => {
   });
 
   it('come out together with one message; the gold tile has its own', async () => {
-    const { g } = await setup({ tiles: bought(...MARKET.filter(id => id !== 'runner3'), 'korki') });
+    const { g } = await setup({ tiles: bought(...MARKET.filter(id => id !== 'net'), 'korki') });
     g.unlocks.visibleTiles();
-    g.unlocks.applyUnlock('runner3');
+    g.unlocks.applyUnlock('net');
     g.unlocks.visibleTiles();
-    expect($('toast').textContent).toBe('Third runner unlocked');
+    expect($('toast').textContent).toBe('Ice net unlocked');
     vi.advanceTimersByTime(2000);
     expect($('toast').textContent).toBe('Floe Sushi is ready to open');
     vi.advanceTimersByTime(2000);

@@ -19,7 +19,7 @@ import { bossOf, F, finish, REACH } from './fight';
 import { isHigh, onQuality } from './graphics';
 import { ARENA, inUndertow, level, pushOutOfBox } from './layout';
 import { player } from './player';
-import { camera, FONT, painted, rr, scene } from './render';
+import { camera, ctx2d, FONT, painted, rr, scene } from './render';
 import { CHAMP } from './rikishi';
 import { LEAST_WORDS } from './speech';
 import { crowdStyle } from './wardrobe';
@@ -597,7 +597,7 @@ const inView = (f: Fan) => {
 };
 let nextSay = 1;
 function draw(sp: Speech, text: string) {
-  const c = sp.c.getContext('2d')!, w = sp.c.width, h = sp.c.height;
+  const c = ctx2d(sp.c), w = sp.c.width, h = sp.c.height;
   c.clearRect(0, 0, w, h);
   c.font = `800 44px ${FONT}`;
   const bw = Math.min(w - 8, c.measureText(text).width + 52), x = (w - bw) / 2;

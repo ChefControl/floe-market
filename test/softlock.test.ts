@@ -2,6 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import { play, ringModules } from './bot';
 import { bought, FLOE_SUSHI, loadGame, MARKET } from './helpers';
+import { ring } from './stage3Ring';
 
 const SUSHI = [...MARKET, 'sushi', ...FLOE_SUSHI];
 
@@ -81,6 +82,37 @@ describe('no way to get stuck', () => {
     try { earned = play(g, 4 * 60, 0.05, ring).earned; } finally { headless.on = false; }
     expect(earned).toBeGreaterThanOrEqual(10_000); // the first rack's price, ten chips
   });
+
+  it('the cellar: arms full of ready rice, the ledge full and the counter full, the counter swaps the rice for bowls', async () => {
+    // (report 22: the pot can't cook with the counter full, the counter waits on free arms, the ledge on the pot)
+    const { g, plan, fight, at, F } = await ring({
+      hands: { rrice: 40 }, ring: { pantry: { rice: 24, fish: 15 }, counter: Array(40).fill(false), pot: Array(31).fill(false) },
+    });
+    const back = g.player.back;
+    expect(F().pantry.rice).toBe(fight.LEDGE_CAP);
+    expect(back.count('rrice')).toBe(back.cap);
+    expect(fight.canCookNow()).toBe(false);
+    at(plan.POT_PAD);
+    g.run(1);
+    expect(back.count('rrice')).toBe(back.cap); // nowhere to put it down at the pot
+    at(plan.COUNTER_PAD);
+    g.run(2);
+    expect(back.count('rrice')).toBe(0); // in the bin...
+    expect(back.count('bowl')).toBe(back.cap); // ...for an armful of bowls
+    expect(F().pot.length + F().counter.length).toBe(31 + 40 - back.cap); // (the pot ladles more onto the counter)
+    at(plan.BAR_PAD);
+    g.run(2);
+    expect(back.count('bowl')).toBe(0);
+  }, 30_000);
+
+  it('the cellar: ready ones the ledge still has room for stay in your arms at the counter', async () => {
+    const { g, plan, at, F } = await ring({ hands: { rrice: 40 }, ring: { pantry: { rice: 10, fish: 15 }, counter: Array(40).fill(false) } });
+    const back = g.player.back, n = back.count('rrice');
+    at(plan.COUNTER_PAD);
+    g.run(2);
+    expect(back.count('rrice')).toBe(n);
+    expect(F().counter).toHaveLength(40);
+  }, 30_000);
 
   it('a whole game never stalls: something new is bought at least every six minutes', async () => {
     const g = await loadGame();

@@ -15,7 +15,7 @@ import { fly } from './holder';
 import { newBowl, newCuredFish, newMushroom, newReadyRice, newRice, newFillet } from './items';
 import { Build, K, quietly, rbox, tube } from './kit';
 import { hopperAt, lineParts, lineShows, lineToStall, updLine } from './bowlLine';
-import { FONT, G, mesh } from './render';
+import { ctx2d, FONT, G, mesh } from './render';
 import { fanAt, heading, turnedAt } from './swarm';
 import { V, type XZ } from './util';
 
@@ -419,7 +419,7 @@ function drawTally(n: number) {
   tally.visible = cord.visible = n > 0;
   if (n === tallyN) return;
   tallyN = n;
-  const c = tallyCv.getContext('2d')!;
+  const c = ctx2d(tallyCv);
   c.clearRect(0, 0, 192, 96);
   c.fillStyle = '#3A2616'; c.beginPath(); c.roundRect(4, 4, 184, 88, 16); c.fill();
   c.fillStyle = '#5C3C22'; c.beginPath(); c.roundRect(10, 10, 172, 76, 12); c.fill();
@@ -620,7 +620,7 @@ export function built(what: { line: Ing; all?: boolean } | { role: Role }): Obje
 /** A white speech bubble with `text` in it (an emoji and a question mark). */
 function bubble(text: string) {
   const cv = document.createElement('canvas'); cv.width = cv.height = 128;
-  const c = cv.getContext('2d')!;
+  const c = ctx2d(cv);
   c.fillStyle = '#fff'; c.beginPath(); c.arc(64, 58, 52, 0, 7); c.fill();
   c.beginPath(); c.moveTo(52, 104); c.lineTo(64, 124); c.lineTo(76, 104); c.fill();
   c.font = '800 46px ' + FONT; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillStyle = '#173042';

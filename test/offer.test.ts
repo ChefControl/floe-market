@@ -6,7 +6,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { fake, installFakeAudio, nameBuses } from './fakeAudio';
 import { bought, loadGame, MARKET } from './helpers';
 
-const FLOE_SUSHI = ['sushi', 'paddy', 'seats', 'chef', 'farmer', 'porter', 'plot2', 'tables', 'chef3', 'tables2', 'plot3', 'kiosk', 'premium'];
+const FLOE_SUSHI = ['sushi', 'paddy', 'farmer', 'seats', 'chef', 'tables', 'plot2', 'runner3', 'chef3', 'tables2', 'plot3', 'kiosk', 'porter', 'premium'];
 
 async function setup(save: Parameters<typeof loadGame>[0] = {}) {
   const g = await loadGame({ tiles: bought(...MARKET, ...FLOE_SUSHI), money: 999_950, ...(save as object) });
@@ -168,7 +168,7 @@ describe("Mr. Fugu's offer", () => {
     // the buy-in is on offer, gold, beside the hatch
     const buyIn = g.unlocks.tiles.find(t => t.id === 'dohyo')!;
     expect(g.unlocks.visibleTiles()).toContain(buyIn);
-    expect(buyIn).toMatchObject({ gold: true, cost: 100_000 });
+    expect(buyIn).toMatchObject({ gold: true, cost: 1_000_000 });
     expect(Math.hypot(buyIn.x - offer.HATCH.x, buyIn.z - offer.HATCH.z)).toBeLessThan(3.5);
     // standing on the open hatch no longer brings him back up
     g.placePlayer(offer.HATCH.x, offer.HATCH.z);

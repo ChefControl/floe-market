@@ -32,7 +32,7 @@ import { LOOKS, SLAPS } from './creatures';
 import { dustFx, inkFx, saltFx, slimeFx } from './fx';
 import { isHigh } from './graphics';
 import { apart, dice, quietly } from './kit';
-import { camera, FONT, rr, scene } from './render';
+import { camera, ctx2d, FONT, rr, scene } from './render';
 import { crowd, react } from './ringSound';
 import { CHAMP, CHAMP_BELT, LOCAL_BELTS, mixPose, type Pose, pose, RikishiModel } from './rikishi';
 import { BRACE, CHARGE, CROUCH, CROUCH1, DRIVE, GRIP, RISE, SHIKO_LOW, SQUAT, STAND, STANDOFF, shikoUp, sideways, slap, steps, walk } from './poses';
@@ -269,7 +269,7 @@ const words = quietly(() => Array.from({ length: 6 }, () => {
 let wordAt = 0;
 function word(text: string, p: Vector3, o: { fill?: string; size?: number; bubble?: boolean; life?: number; always?: boolean } = {}) {
   if (!o.bubble && !o.always && !isHigh()) return;
-  const w = words[wordAt++ % words.length], c = w.c.getContext('2d')!, W = w.c.width, H = w.c.height;
+  const w = words[wordAt++ % words.length], c = ctx2d(w.c), W = w.c.width, H = w.c.height;
   c.clearRect(0, 0, W, H);
   c.textAlign = 'center'; c.textBaseline = 'middle';
   if (o.bubble) {
@@ -288,7 +288,7 @@ function word(text: string, p: Vector3, o: { fill?: string; size?: number; bubbl
 }
 const bursts = quietly(() => {
   const c = document.createElement('canvas'); c.width = c.height = 128;
-  const x = c.getContext('2d')!;
+  const x = ctx2d(c);
   x.strokeStyle = '#FFF6D0'; x.lineWidth = 9; x.beginPath(); x.arc(64, 64, 50, 0, Math.PI * 2); x.stroke();
   for (let i = 0; i < 10; i++) { const a = (i / 10) * Math.PI * 2; x.beginPath(); x.moveTo(64 + Math.cos(a) * 30, 64 + Math.sin(a) * 30); x.lineTo(64 + Math.cos(a) * 62, 64 + Math.sin(a) * 62); x.stroke(); }
   const tex = new CanvasTexture(c);
@@ -340,7 +340,7 @@ const dust = (p: Vector3, n: number, big = 1) => dustFx(v3.set(p.x, p.y + 0.05, 
 // own.
 const mark = quietly(() => {
   const c = document.createElement('canvas'); c.width = c.height = 256;
-  const x = c.getContext('2d');
+  const x = ctx2d(c);
   if (x) { x.lineWidth = 34; x.strokeStyle = '#2A0F16'; x.beginPath(); x.arc(128, 128, 92, 0, Math.PI * 2); x.stroke(); x.lineWidth = 20; x.strokeStyle = '#fff'; x.stroke(); }
   const m = new Sprite(new SpriteMaterial({ map: new CanvasTexture(c), depthTest: false, transparent: true }));
   m.visible = false; m.renderOrder = 7; scene.add(m);

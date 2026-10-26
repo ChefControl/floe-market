@@ -8,9 +8,10 @@ import type { UnlockId } from './unlocks';
 
 import type { StageN } from './layout';
 
-/** Base prices: stage 1's fish (walk-up counter, sled window), stage 2's plates and takeout boxes. */
+/** Base prices: stage 1's fish (walk-up counter, sled window), stage 2's plates and takeout boxes. Stage 2's money is
+ *  ten times stage 1's, so the restaurant out-earns the market from its first minutes (docs/balance.md). */
 export const FISH_PRICE = { walk: 4, sled: 6 };
-export const SUSHI_PRICE = { plate: 30, box: 35 };
+export const SUSHI_PRICE = { plate: 300, box: 350 };
 /** The premium menu's multiplier on sushi prices. */
 export const PREMIUM = 1.6;
 
@@ -51,19 +52,19 @@ export const MODS: Mod[] = [
     per: 1.2, cost: 60, step: 1.75, max: 8,
   },
   { id: 'training', stage: 1, kind: 'speed', icon: '💪', name: 'Crew training', what: 'Fishing, chopping and the runners go faster', needs: 'runner', per: 1.15, cost: 80, step: 1.75, max: 8 },
-  { id: 'specials', stage: 2, kind: 'price', icon: '🍣', name: "Chef's specials", what: 'Sushi sells for more', per: 1.25, cost: 500, step: 1.6 },
+  { id: 'specials', stage: 2, kind: 'price', icon: '🍣', name: "Chef's specials", what: 'Sushi sells for more', per: 1.25, cost: 5000, step: 1.6 },
   {
     id: 'promo', stage: 2, kind: 'customers', icon: '📣', name: 'Marketing', what: 'More diners and drivers',
     levels: ['Menu boards', 'Lantern signs', 'Social media', 'Food critic', 'Magazine', 'Cooking show', 'Gourmet guide', 'World famous'],
-    per: 1.2, cost: 800, step: 1.75, max: 8,
+    per: 1.2, cost: 8000, step: 1.75, max: 8,
   },
-  { id: 'crew', stage: 2, kind: 'speed', icon: '🧑‍🍳', name: 'Kitchen crew', what: 'Chefs, the runners and the farm work faster', per: 1.15, cost: 1000, step: 1.75, max: 8 },
+  { id: 'crew', stage: 2, kind: 'speed', icon: '🧑‍🍳', name: 'Kitchen crew', what: 'Chefs, the runners and the farm work faster', per: 1.15, cost: 10000, step: 1.75, max: 8 },
   // Once all three terraces are planted there's nowhere left to grow more rice, and the takeout kiosk eats into it:
   // the fertilizer shed (open with the kiosk) makes the terraces ripen faster instead.
   {
     id: 'fertilizer', stage: 2, kind: 'growth', shed: true, icon: '🌿', name: 'Rice fertilizer', what: 'Rice ripens faster on the terraces',
     levels: ['Compost', 'Fish meal', 'Spring minerals'],
-    per: 1.5, cost: 20000, step: 2, max: 3,
+    per: 1.5, cost: 200_000, step: 2, max: 3,
   },
   // stage 3, down in the cellar, priced in Fugu Chips (1 chip is $1,000): Pricier bowls adds a quarter of the base
   // price a level (fight.ts's listPrice), rather than multiplying it; like the other two, eight levels, two opened by
