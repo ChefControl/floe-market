@@ -19,6 +19,7 @@ import { billValue, newBill, type Kind } from './items';
 import { boost } from './economy';
 import { buyHeld, inputVec } from './input';
 import { korkiStatue, STATUE } from './korki';
+import { updPileFull } from './needs';
 import { groundY, keepOnFloor, level, onHarbor, pushOutOfBox, stage, walkable } from './layout';
 import { BOOP_SECS, player } from './player';
 import { collidePresents, givePresents, onPresentTile, PRESENT, redrawPresentTile } from './presents';
@@ -115,6 +116,7 @@ export function updPlayer(dt: number) {
   if (player.booped) p.y = gy + Math.sin(Math.PI * player.booped.t) * 0.45;
   if (level.down) cellarWork(p, dt);
   else upstairsWork(p, dt);
+  updPileFull(dt, !level.down && d2xz(p, PAD) < PAD.r * PAD.r);
 
   // drop fish at the counters, or fish and rice off for the chefs
   player.tDrop -= dt;

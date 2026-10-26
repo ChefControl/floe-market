@@ -6,7 +6,7 @@
 import { Color, type Group, type Object3D } from 'three';
 import { boss, CELLAR_SKY, cellarLights, LADDER_FOOT, LADDER_PAD, showCellar } from './cellar';
 import { stowCarried } from './cellarHands';
-import { C1, closeMarket, marketLeftovers, SLED } from './counters';
+import { C1, closeMarket, marketLeftovers, shutSledWindow, SLED } from './counters';
 import { farmPieces, showFarm, springLamp } from './farm';
 import { front } from './front';
 import { glowMats, hallPieces, lamps, showHall } from './hall';
@@ -249,9 +249,11 @@ export function enterStage2(silent: boolean, onMove = () => {}) {
   // Korki's statue goes out with the old stage and comes back in its new spot.
   const movers = [korkiStatue()].filter((o): o is Group => o !== null);
   const move = () => { moveKorki(); onMove(); };
-  // (the market's runners stay on: in the restaurant they carry its fish, and its rice once there's a farmer)
+  // (the market's runners stay on: in the restaurant they carry its fish, and its rice once there's a farmer; and the
+  // sled window stays up, shut, with a sign for the takeout to come)
+  const sign = shutSledWindow();
   const outs: [Object3D, Axis][] = [
-    ...[...C1.meshes, ...SLED.meshes].filter(m => m.visible).map((m): [Object3D, Axis] => [m, 'all']),
+    ...[...C1.meshes, ...SLED.meshes].filter(m => m.visible && m !== SLED.meshes[0]).map((m): [Object3D, Axis] => [m, 'all']),
     [marketLooks, 'y'], [stage1Only.fence, 'y'], [stage1Only.road, 'x'], [stage1Only.trees, 'y'],
     ...movers.map((o): [Object3D, Axis] => [o, 'all']),
   ];
@@ -276,6 +278,7 @@ export function enterStage2(silent: boolean, onMove = () => {}) {
     [stage2Only.road, 'x', 0.1],
     ...farmPieces.map((o): [Object3D, Axis, number] => [o, 'all', 0.14]),
     ...patch.map((o): [Object3D, Axis, number] => [o, 'all', 0.05]),
+    ...(sign ? [[sign, 'all', 0.05] as [Object3D, Axis, number]] : []),
     [stage2Only.trees, 'y', 0],
   ];
   let t0 = 1.5;

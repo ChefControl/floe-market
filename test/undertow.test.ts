@@ -397,6 +397,8 @@ describe('the Undertow', () => {
     const { wallet } = g;
     at(plan.BOOTH_PADS.tommy);
     g.run(0.2);
+    expect($('monteAsk').hidden).toBe(false); // his table asks first
+    g.play();
     expect($('monte').hidden).toBe(false);
     // his limit's the next boss's stake (Dobu's 🐡 70), and he'll play 3 rounds; the chips over it aren't on his table
     expect((await import('../src/stake')).heldStake()).toBe(70);

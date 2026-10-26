@@ -75,12 +75,15 @@ const hooks: Hook[] = [];
 /** Fillets still on their way: fish being reeled in or chopped. */
 export function filletsInProgress() { return incomingFish * 3; }
 
+/** Whether the fish pile has room for another catch's slices (counting what's still being reeled in and chopped). */
+export const pileHasRoom = () => pile.n + filletsInProgress() + 3 <= pile.cap;
+
 /**
  * Hooks the nearest free fish in range and reels it to the chopping block.
  * `origin` is re-read every frame so the rope follows a moving fisher.
  */
 export function tryCatch(origin: () => Vector3, src: CatchSource): Fish | null {
-  if (pile.n + filletsInProgress() + 3 > pile.cap) return null;
+  if (!pileHasRoom()) return null;
   const from = origin();
   let best: Fish | null = null, bd = 1e9;
   for (const f of fish) {

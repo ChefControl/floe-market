@@ -83,6 +83,17 @@ describe('the cellar, with the player upstairs', () => {
     expect([cellar.cellar.visible, fans.every(o => o.visible)]).toEqual([true, true]);
     show2();
   }, 30_000);
+
+  it('keeps its wrestlers down in it, loaded with the player up top', async () => {
+    // (they're only moved to the ring by its frames, which don't run while it holds still: shown where they were made,
+    // they stood in the middle of the restaurant)
+    const { g, layout } = await game(0, { beaten: 1, lines: { mush: { n: 1 } } });
+    g.run(2);
+    const { ring } = await import('../src/dohyo');
+    const shown = [ring.champ, ring.rival, ring.partner, ring.gyoji].filter(o => o.visible);
+    expect(shown.length).toBeGreaterThan(0);
+    for (const o of shown) expect(new Box3().setFromObject(o).max.y).toBeLessThan(layout.CELLAR_Y + 15);
+  }, 30_000);
 });
 
 describe('the world up top, with the player down in the cellar', () => {

@@ -125,6 +125,11 @@ export async function loadGame(save?: SaveFixture | string, opts: { main?: boole
     throw new Error(`condition not met within ${maxSeconds}s`);
   };
   const placePlayer = (x: number, z: number) => player.g.position.set(x, util.FY, z);
+  /** Presses Play on the card a game's pad shows first (casinoKit.ts gamePad), if one's asking, and runs a moment. */
+  const play = () => {
+    document.querySelector<HTMLButtonElement>('[id$="Ask"]:not([hidden]) .k-main')?.click();
+    run(0.05);
+  };
   const cashAt = (C: { cash: { items: import('three').Object3D[] } }) =>
     C.cash.items.reduce((s, b) => s + items.billValue(b), 0);
   const press = (key: string, type: 'keydown' | 'keyup' = 'keydown') => {
@@ -140,6 +145,6 @@ export async function loadGame(save?: SaveFixture | string, opts: { main?: boole
     game, saveMod, stations, counters, fishing, runner, unlocks, ui, input, render, items, util,
     rating, rice, restaurant, world, layout, stage, hall, farm, korki, casino, shop, economy, looks, shed,
     player, wallet, frame: () => frame,
-    run, runUntil, placePlayer, cashAt, press, rate,
+    run, runUntil, placePlayer, play, cashAt, press, rate,
   };
 }

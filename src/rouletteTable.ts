@@ -19,6 +19,7 @@ import { popText } from './ui';
 import { state } from './uiKit';
 import { money, V, type XZ } from './util';
 import { addMoney, wallet } from './wallet';
+import { scoreBet } from './worstBet';
 
 const AT = GAMES.roulette;
 const TABLE = { x: AT.x, y: AT.y + 0.5, z: AT.z - 1.65 };
@@ -257,6 +258,7 @@ function settle() {
   if (table) { table.face.rotation.y = -angle; placeBall(s, SPIN_TIME); }
   const { pocket, win: won, bet: on } = s.round;
   apply(s.round.settle());
+  scoreBet('roulette', s.round.stake, won, on);
   if (won > 0) { popText('+' + money(won), TABLE); win(); cheer(); } else lose();
   if (won > 0 && on === 'green') table!.voice.say('Green!');
   payChips(s);
@@ -295,6 +297,7 @@ const pad = gamePad(AT, '🎡', panel, {
   live: () => !!spin,
   say: text => table!.voice.say(text),
   away: 'Still rolling!',
+  ask: $('rouletteAsk'),
 }, {
   at: V(TABLE.x, AT.y + TOP + 0.12, TABLE.z - 0.02), from: V(0, 1.7, 1).normalize(), wide: 1.6, tall: 1.25,
 });
