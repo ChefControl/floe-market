@@ -46,7 +46,7 @@ export const UI_WAIT = 4000;
  *  the picture of just the game. */
 const NOT_SHOWN = new Set(['report', 'draw', 'sendFx', 'game']);
 /** The panels that can be open over the game, for the report's `live` state. */
-const PANELS = ['shop', 'look', 'roulette', 'blackjack', 'slots', 'bubbly', 'tears', 'korki', 'scores', 'cloudPick', 'stale', 'hint',
+const PANELS = ['shop', 'look', 'roulette', 'blackjack', 'slots', 'bubbly', 'arcade', 'tears', 'korki', 'scores', 'cloudPick', 'stale', 'hint',
   'gong', 'coin', 'fightCard', 'offer', 'eddie', 'monte', 'loans', 'denBar', 'denGus'];
 
 const $ = (id: string) => document.getElementById(id)!;
