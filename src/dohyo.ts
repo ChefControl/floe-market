@@ -24,6 +24,7 @@ import { boss, CY, DRUMS, parts, PIT_STEPS, RING, RING_HALF, RING_R, RING_TOP } 
 import { TEPPO } from './cellarPlan';
 import { belowGround, Person } from './characters';
 import { gyojiModel } from './gyoji';
+import { headless } from './headless';
 import { bossOf, BOUT, epic, F, FINISH, finish, payLen, slamLanded, slamOn } from './fight';
 import { animOf, moveOf } from './finishers';
 import { aftermath, UP, type Ctx, drive as driveRig, type FinishMove, type Frame, type Fx, makeRing, type V3 } from './finishRig';
@@ -642,10 +643,16 @@ function spar(dt: number) {
 }
 
 // ---------- every frame ----------
-/** The 'dohyo' stage-up, or a stage 3 save: the referee in the ring, and the wrestlers. */
+/** The 'dohyo' stage-up, or a stage 3 save: the referee in the ring, and the wrestlers. They're put where they stand
+ *  now at once: only the cellar's frames move them, and a save loaded upstairs has none till the player goes down
+ *  (ring.ts), which left them standing where they were made, in the middle of the restaurant. (The balance sims, which
+ *  never draw them, leave them be: headless.ts.) */
 export function openRing() {
   gyoji.root.visible = champ.visible = rival.visible = partner.visible = true;
   gyoji.root.position.set(RING.x, CY + RING_TOP, RING.z - 1.75);
+  if (headless.on) return;
+  pose2(0);
+  spar(0);
 }
 
 /** Whether the doors were shut last frame: opening, the champion walks over from the teppo post to his corner. */
