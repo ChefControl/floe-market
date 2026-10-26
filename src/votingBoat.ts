@@ -40,8 +40,9 @@ const T = 0.08, DOOR = { x0: X(4.15), x1: X(3.35), h: 1.85 };
 /** Where the hull's sides start drawing in to the bow, and the middle of its width. */
 const BOW = HULL.x0 + 1.15, MID = (HULL.z0 + HULL.z1) / 2;
 /** Out on the foredeck, two old-timers who happen to be aboard (nobody names them): one stands on his head now and then,
- *  the other leans on the rail looking out to sea. Each says his piece when the player speaks to him (E, or Talk). */
-export const HEADSTAND = { x: HULL.x0 + 3.0, z: MID + 0.3 }, DREAMER = { x: HULL.x0 + 1.75, z: HULL.z1 - 0.36, face: -0.3 };
+ *  in the bow's far corner by the flag (in from the rail, so his feet clear it as he goes over), the other leans on the
+ *  near rail looking out to sea. Each says his piece when the player speaks to him (E, or Talk). */
+export const HEADSTAND = { x: HULL.x0 + 1.7, z: HULL.z0 + 0.9 }, DREAMER = { x: HULL.x0 + 1.75, z: HULL.z1 - 0.36, face: -0.3 };
 /** On the foredeck, the backgammon table (its chairs either side) and the cool box. */
 const TB = { x: HULL.x0 + 3.25, z: MID - 0.8 }, BOXC = { x: HULL.x0 + 3.3, z: HULL.z1 - 0.45 };
 export const MIRACLES = "Whoever doesn't believe in miracles is no realist", LEGEND = 'If you will it, it is no legend';

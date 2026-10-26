@@ -149,7 +149,7 @@ describe('the voting boat', () => {
     expect(g.player.g.position.z).toBeGreaterThan(vote.TABLE.z1);
     // out again, along the side deck and round onto the foredeck, where the roof stays on
     const { hull, cabin } = VOTE_BOAT;
-    for (const [x, z] of [[X(5.5), -7.35 + dz], [cabin.x0 - 0.4, hull.z1 - 0.6], [hull.x0 + 1.5, (hull.z0 + hull.z1) / 2 - 0.6]]) {
+    for (const [x, z] of [[X(5.5), -7.35 + dz], [cabin.x0 - 0.4, hull.z1 - 0.6], [hull.x0 + 1.5, (hull.z0 + hull.z1) / 2 + 0.4]]) {
       g.placePlayer(x, z);
       g.run(1);
       expect(g.player.g.position.x).toBeCloseTo(x, 1);
