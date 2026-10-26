@@ -30,6 +30,7 @@ import { popText } from './ui';
 import { state } from './uiKit';
 import { money, V, type XZ } from './util';
 import { addMoney, wallet } from './wallet';
+import { scoreBet } from './worstBet';
 
 const AT = GAMES.blackjack;
 const TABLE = { x: AT.x, z: AT.z - 1.75 };
@@ -595,6 +596,7 @@ function payChips(r: BlackjackRound) {
 function payOut() {
   const r = round!, back = r.paid, staked = r.staked;
   apply(r.settle());
+  scoreBet('blackjack', staked, back);
   payChips(r);
   if (back > staked) { popText('+' + money(back), { x: TABLE.x, y: AT.y + 1.2, z: TABLE.z }); win(); cheer(); }
   else if (back === staked) pushSound();

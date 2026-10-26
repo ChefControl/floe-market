@@ -4,10 +4,11 @@
 // under a round mirror and a roll of paper on the wall. A 😭 pad in front of its door opens a panel saying what the player's
 // down since their last cry, with a button to cry it out: they go in, the door shuts, they sit on the lid and sob, hands
 // over their face, then wailing with tears squirting from their eyes, and a puddle spreads across the floor and seeps
-// out under the door. Then they come out feeling better, and the puddle dries. Moving cuts it short. None of it
-// touches the game's luck: it's built on its own dice and runs on none.
+// out under the door. Then they come out feeling better, and the puddle dries. Moving cuts it short. Beside the pad, a
+// sign on an easel shows the player's worst bet today (worstBet.ts), to tease them. None of it touches the game's luck:
+// it's built on its own dice and runs on none.
 import {
-  CanvasTexture, CircleGeometry, Group, InstancedMesh, Matrix4, Mesh, MeshBasicMaterial, MeshLambertMaterial,
+  BoxGeometry, CanvasTexture, CircleGeometry, Group, InstancedMesh, Matrix4, Mesh, MeshBasicMaterial, MeshLambertMaterial,
   PlaneGeometry, RepeatWrapping, SphereGeometry, Vector3,
 } from 'three';
 import { atTable, easeInOut, easeOut, leaveSeat, losses, speaker, takeSeat } from './casinoKit';
@@ -17,10 +18,11 @@ import { inputVec } from './input';
 import { dice, quietly } from './kit';
 import { inSalon, pushOutOfBox, SALON, SHIP, UPPER } from './layout';
 import { player } from './player';
-import { bake, canvasTex, G, mesh, scene, type Part } from './render';
+import { bake, canvasTex, FONT, G, mesh, scene, type Part } from './render';
 import { lose } from './sfx';
 import { panel as kitPanel } from './uiKit';
 import { d2xz, money, V, type XZ } from './util';
+import { worstToday } from './worstBet';
 
 const GOLD = 0xE3B23C, PANEL = 0xF4EFE6, PORCELAIN = 0xFBFBF8;
 /** The stall, in the ship's own space: from its west partition to the salon's east wall, and from its north partition
@@ -37,6 +39,10 @@ const PAD = { x: STALL.x0 - 0.62, z: DOOR_Z };
 const TOILET = { z: DOOR_Z, seat: 0.42 };
 const SIT = { x: STALL.x1 - 0.52, y: TOILET.seat - 0.335 };
 const SINK = { x: 2.6 };
+/** The sign: where its easel stands, west of the pad by the windows; turned to the room's door end, where the camera
+ *  looks in from; and how far its board leans back. Its board's size, and its card's in pixels. */
+const SIGN = { x: 0.55, z: 2.72, turn: 0.55, lean: 0.2 };
+const BOARD = { w: 0.84, h: 1.02, y: 1.08 }, CARD = { w: 256, h: 312 };
 /** How close to the pad's middle the panel opens. */
 const REACH = 0.6;
 
@@ -117,7 +123,28 @@ function build(g: Group) {
   const tears = new InstancedMesh(new SphereGeometry(0.038, 6, 4), new MeshBasicMaterial({ color: 0x6FD0FF }), DROPS);
   tears.count = 0; tears.frustumCulled = false; tears.userData.noBatch = true;
   scene.add(tears);
-  return { door, pad, wet, pool, seep, tears, sobs: speaker(player.g, 1.75) };
+  // the sign: a cream card in a gold frame on a wooden easel, leaning back, two legs in front and one behind
+  const card = canvasTex(CARD.w, CARD.h, drawSign);
+  const easel = new Group();
+  easel.position.set(SIGN.x, UPPER, SIGN.z); easel.rotation.y = SIGN.turn;
+  const WOOD = 0x6B4226, legH = BOARD.y + BOARD.h / 2 + 0.06;
+  for (const x of [-0.26, 0.26]) {
+    const leg = mesh(G.box, WOOD, x, legH / 2, 0, true); leg.scale.set(0.035, legH, 0.035); leg.rotation.x = -SIGN.lean;
+    easel.add(leg);
+  }
+  const back = mesh(G.box, WOOD, 0, legH / 2 - 0.05, -0.2, true); back.scale.set(0.035, legH - 0.1, 0.035); back.rotation.x = 0.35;
+  easel.add(back);
+  const board = new Group();
+  // (just in front of the legs where they pass it, leaning back with them)
+  board.position.set(0, BOARD.y, 0.03 - Math.sin(SIGN.lean) * (BOARD.y - legH / 2)); board.rotation.x = -SIGN.lean;
+  board.add(mesh(new BoxGeometry(BOARD.w + 0.06, BOARD.h + 0.06, 0.03), GOLD, 0, 0, 0, true));
+  const face = new Mesh(new PlaneGeometry(BOARD.w, BOARD.h), new MeshLambertMaterial({ map: card.tex }));
+  face.position.z = 0.017; board.add(face);
+  const ledge = mesh(G.box, WOOD, 0, -BOARD.h / 2 - 0.05, 0.04, true); ledge.scale.set(BOARD.w + 0.1, 0.03, 0.07);
+  board.add(ledge);
+  easel.add(board);
+  g.add(easel);
+  return { door, pad, wet, pool, seep, tears, sobs: speaker(player.g, 1.75), card, signFor: '' };
 }
 
 /** The 😭 on the door, as a little round sign. */
@@ -127,6 +154,41 @@ function badge(): CanvasTexture {
     drawIcon(c, '😭', w / 2, w / 2, 50);
   });
   return tex;
+}
+
+/** Writes `text` centred at `y`, `size` px, shrunk to fit the card's width. */
+function line(c: CanvasRenderingContext2D, text: string, y: number, size: number, colour: string, weight = 800) {
+  c.font = `${weight} ${size}px ${FONT}`;
+  const k = Math.min(1, (CARD.w - 36) / Math.max(1, c.measureText(text).width));
+  c.save(); c.translate(CARD.w / 2, y); c.scale(k, k);
+  c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillStyle = colour; c.fillText(text, 0, 0);
+  c.restore();
+}
+/** The sign's card: the worst bet today, what it was on, and a word for it; or, with nothing lost yet, a warning. */
+function drawSign(c: CanvasRenderingContext2D, w: number, h: number) {
+  const bet = worstToday(), INK = '#2A0F16', RED = '#8E1F2F';
+  c.fillStyle = '#F4EFE6'; c.fillRect(0, 0, w, h);
+  c.strokeStyle = '#E3B23C'; c.lineWidth = 6; c.strokeRect(12, 12, w - 24, h - 24);
+  drawIcon(c, '😭', w / 2, 52, 46);
+  line(c, 'WORST BET TODAY', 100, 26, RED);
+  if (bet) {
+    line(c, money(bet.lost), 160, 80, INK);
+    const on = bet.on ? `on ${bet.on[0].toUpperCase()}${bet.on.slice(1)}` : bet.game === 'slots' ? 'at the slots' : `at ${bet.game}`;
+    line(c, on, 218, 34, INK, 700);
+    line(c, bet.broke ? 'All in. All gone.' : 'Bold. Wrong.', 264, 32, RED);
+  } else {
+    line(c, '$0', 160, 80, INK);
+    line(c, 'Nothing lost yet', 218, 34, INK, 700);
+    line(c, 'Give it time.', 264, 32, RED);
+  }
+}
+/** Redraws the sign if what it says has changed (a worse bet, or a new day). */
+function updSign() {
+  const r = room!, bet = worstToday(), now = bet ? `${bet.day}|${bet.lost}` : '';
+  if (now === r.signFor) return;
+  r.signFor = now;
+  drawSign(r.card.ctx, CARD.w, CARD.h);
+  r.card.tex.needsUpdate = true;
 }
 
 interface Drop { at: Vector3; v: Vector3 }
@@ -338,8 +400,10 @@ function updCry(dt: number) {
 }
 
 /** Runs the stall: its panel by the door, a cry under way, and a puddle drying. */
+let signT = 0;
 export function updRestroom(dt: number) {
   if (!room) return;
+  if ((signT -= dt) <= 0) { signT = 1; updSign(); }
   const near = cry.on || card.near(byTheStall() && !atTable());
   if (near !== !panel.hidden) { panel.hidden = !near; if (near) shown = ''; }
   if (near) refresh();
@@ -358,6 +422,8 @@ export function collideRestroom(p: XZ) {
   if (!room || cry.on) return;
   const { x0, x1, z0, z1 } = STALL;
   pushOutOfBox(p, SHIP.x + (x0 + x1) / 2, SHIP.z + (z0 + z1) / 2, (x1 - x0) / 2 + 0.3, (z1 - z0) / 2 + 0.3);
+  // and the sign's easel
+  pushOutOfBox(p, SHIP.x + SIGN.x, SHIP.z + SIGN.z, 0.5, 0.45);
 }
 
 /** For tests: whether a cry's under way and how far in, what the player's saying, how big the puddle is, how far the
