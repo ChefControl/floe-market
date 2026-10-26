@@ -11,6 +11,7 @@ import { level, stage, type StageN } from './layout';
 import { player } from './player';
 import { camera, canvasTex, FONT, mesh, rr } from './render';
 import type { Moves } from './round';
+import { clack } from './sfx';
 import { besideView, tableRoom, topOfView } from './ui';
 import { panel as kitPanel, state, usable, type State } from './uiKit';
 import { d2xz, FY, type XZ } from './util';
@@ -50,25 +51,42 @@ export const GRACE = 10;
  *
  * The panel's a card of the UI kit (uiKit.ts) in its casino skin: Esc shuts it as if the player had stepped off, till
  * they do, or press E where they stand.
+ *
+ * A game's pad asks first (`ask`, a card with the game's name and a Play button): stepping on it doesn't sit the player
+ * down at the table till they press Play (or E). Back on the pad before a round they walked off from is played out,
+ * they go straight back to it.
  */
 export function gamePad(
   at: XZ & { y?: number }, icon: string, panel: HTMLElement,
-  h: { opened(): void; closed(): void; greet(): void; live(): boolean; say(text: string): void; away: string },
+  h: { opened(): void; closed(): void; greet(): void; live(): boolean; say(text: string): void; away: string; ask?: HTMLElement },
   view: Seat, here: () => boolean = () => !level.down, reach = REACH,
 ) {
   const d = decal(1.9, (c, w, ht) => drawPad(c, w, ht, icon));
   d.mesh.position.set(at.x, (at.y ?? FY) + 0.01, at.z);
   d.mesh.visible = false;
   const card = kitPanel(panel, { place: 'card', skin: 'casino' });
-  // wait: seconds left for a player who stepped off mid-round (0 when nobody's being waited for)
-  let enabled = false, open = false, greeted = -1, wait = 0;
+  const ask = h.ask ? kitPanel(h.ask, { place: 'card', skin: 'casino' }) : null;
+  // wait: seconds left for a player who stepped off mid-round (0 when nobody's being waited for); playing: they've
+  // pressed Play since they stepped on (always, for a pad that doesn't ask)
+  let enabled = false, open = false, greeted = -1, wait = 0, playing = !ask;
+  h.ask?.querySelector<HTMLButtonElement>('.k-main')?.addEventListener('click', () => {
+    playing = true; h.ask!.hidden = true;
+    clack();
+  });
   return {
     /** The marking on the deck. */
     mark: d.mesh,
     enable() { enabled = true; d.mesh.visible = true; },
     upd(dt: number) {
       if (!enabled) return false;
-      const near = card.near(here() && d2xz(player.g.position, at) < reach * reach);
+      const on = here() && d2xz(player.g.position, at) < reach * reach;
+      if (ask) {
+        if (!on) playing = false;
+        else if (wait > 0) playing = true;
+        const asking = ask.near(on && !playing);
+        if (asking !== !h.ask!.hidden) h.ask!.hidden = !asking;
+      }
+      const near = card.near(on && playing);
       if (near !== open) {
         open = near;
         panel.hidden = !open;
@@ -103,9 +121,19 @@ const BOAT: StakeRules = {
   chips: () => CHIPS[stage.n], limit: () => Infinity, chip: chipLabel, label: v => '$' + v.toLocaleString('en-US'),
 };
 
-/** Holding a chip (or Undo) down: how long before it starts going on its own, how often it goes at first, and how
- *  often at most, as it speeds up. In ms. */
+/** Holding a chip down: how long before it starts going on its own (or Undo clears the stake), how often it goes at
+ *  first, and how often at most, as it speeds up. In ms. */
 export const HOLD = { wait: 400, first: 180, fastest: 45 };
+
+/** Whether the player has taken a whole stake back by holding Undo yet: till they have, a HOLD tag on Undo says they
+ *  can. Kept on the device, as the tutorial's lessons are, so it's gone for good once learnt. */
+const HOLD_KEY = 'floe-market-hold-undo';
+export const holdTip = { learnt: (() => { try { return localStorage.getItem(HOLD_KEY) === '1'; } catch { return false; } })() };
+/** For the demo build, which keeps nothing, and the tests: the tag comes back. */
+export function forgetHold() {
+  holdTip.learnt = false;
+  try { localStorage.removeItem(HOLD_KEY); } catch { /* nothing kept */ }
+}
 
 /** What's down: how many of each chip, or all in. */
 interface Down { pile: number[]; all: boolean }
@@ -113,8 +141,8 @@ interface Down { pile: number[]; all: boolean }
 /**
  * The stake in a game's panel, made up as at a real table: each tap on a chip puts one more of it down (three $1k chips
  * make $3k), and holding one keeps putting them down, faster and faster, till it's let go or there's no cash for
- * another. Undo takes back the last change (a chip, or All in), and holding it takes them back the same way; All in
- * puts down everything. What's down is kept as how many of each chip (one of the second, to start with), so it grows
+ * another. Undo takes back the last change (a chip, or All in), and holding it takes the whole stake back at once (a
+ * player's idea, report 19); All in puts down everything. What's down is kept as how many of each chip (one of the second, to start with), so it grows
  * with the stage at the stage-up, and it stays down from one round to the next. Changing it calls `picked`; nothing
  * while `busy`.
  */
@@ -141,6 +169,11 @@ export class Stakes {
       try { b.setPointerCapture(e.pointerId); } catch { /* pointer already gone */ }
       this.press(b);
       this.repeat(b, HOLD.wait, HOLD.first);
+    });
+    // Undo's key held down, as with a finger (uiKit.ts)
+    el.addEventListener('k-hold', e => {
+      const b = this.button(e);
+      if (b?.dataset.stake === 'undo' && usable(b) && !busy()) this.clear();
     });
     for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) el.addEventListener(ev, () => this.release());
     // a long press shouldn't bring up the browser's menu
@@ -174,10 +207,22 @@ export class Stakes {
     this.picked();
   }
 
-  /** Goes again in `wait` ms while `b` is held, a little sooner each time, till it can't. */
+  /** Takes the whole stake back: nothing down, and nothing left for Undo to take back. */
+  private clear() {
+    this.past = []; this.pile = [0, 0, 0, 0]; this.all = false;
+    clack();
+    if (!holdTip.learnt) {
+      holdTip.learnt = true;
+      try { localStorage.setItem(HOLD_KEY, '1'); } catch { /* kept for this visit */ }
+    }
+    this.picked();
+  }
+
+  /** Goes again in `wait` ms while `b` is held, a little sooner each time, till it can't; Undo held clears instead. */
   private repeat(b: HTMLButtonElement, wait: number, every: number) {
     this.timer = window.setTimeout(() => {
       if (this.held !== b || !usable(b) || this.busy()) return;
+      if (b.dataset.stake === 'undo') { this.clear(); return; }
       this.press(b);
       this.repeat(b, every, Math.max(HOLD.fastest, every * 0.85));
     }, wait);
@@ -213,7 +258,12 @@ export class Stakes {
       if (v === 'all') {
         b.setAttribute('aria-pressed', String(this.all));
         state(b, busy ? 'busy' : wallet.money <= 0 ? 'broke' : this.most <= 0 ? 'busy' : 'ok');
-      } else if (v === 'undo') state(b, busy || !this.past.length ? 'busy' : 'ok');
+      } else if (v === 'undo') {
+        const s: State = busy || !this.past.length ? 'busy' : 'ok';
+        state(b, s);
+        // (the HOLD tag, till the player's cleared a stake by holding it once; only while there's something to take back)
+        if (!holdTip.learnt && s === 'ok') b.dataset.hold = 'Hold'; else delete b.dataset.hold;
+      }
       else {
         const amount = this.rules.chips()[Number(v)], n = this.all ? 0 : this.pile[Number(v)];
         b.textContent = this.rules.chip(amount);

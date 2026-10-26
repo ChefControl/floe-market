@@ -2,11 +2,11 @@
 // and a casino yacht is moored along it, bow towards the dock: a navy hull with a raked bow, bulwarks that sweep up
 // towards it and its name in gold, a lower deck banded in dark glass, and the salon on top (casinoSalon.ts: walled in
 // glass under a hardtop with a wheelhouse, a radar mast, a hot tub, loungers and the CASINO sign; guests, a bar and
-// more machines inside, and a restroom stall in the corner by the door, to cry in: casinoRestroom.ts). A gangway takes
-// you aboard through a gap in the bulwark onto the foredeck, where a staircase climbs to the salon's door. The
-// 'roulette' unlock brings it all in with the roulette table; the blackjack table and the slot machines are upgrades of
-// their own, bought in the salon. It stays put through the stage-up. The games themselves are in rouletteTable.ts,
-// blackjackTable.ts and slotMachine.ts.
+// more machines inside, the wall of shame behind the bar (wallOfShame.ts), and a restroom stall in the corner by the
+// door, to cry in: casinoRestroom.ts). A gangway takes you aboard through a gap in the bulwark onto the foredeck,
+// where a staircase climbs to the salon's door. The 'roulette' unlock brings it all in with the roulette table; the
+// blackjack table and the slot machines are upgrades of their own, bought in the salon. It stays put through the
+// stage-up. The games themselves are in rouletteTable.ts, blackjackTable.ts and slotMachine.ts.
 import {
   BoxGeometry, BufferGeometry, CylinderGeometry, Float32BufferAttribute, Group, Mesh, MeshBasicMaterial,
   MeshLambertMaterial, MeshPhongMaterial, PlaneGeometry, Shape, ShapeGeometry, SphereGeometry, Vector2,
@@ -16,6 +16,7 @@ import { collideBlackjack, updBlackjack } from './blackjackTable';
 import { updTweens, visits } from './casinoKit';
 import { buildArcade, collideArcade, updArcade } from './casinoArcade';
 import { buildRestroom, collideRestroom, updRestroom } from './casinoRestroom';
+import { buildShame, updShame } from './wallOfShame';
 import { buildSalon, carpet, collideSalon, JACK, oblong, slab, strut, updSalon } from './casinoSalon';
 import { arcadeOn } from './flags';
 import { aboard, casinoBoat, DECKS, hullHalf, pushOutOfBox, QUAY, SHIP, UPPER } from './layout';
@@ -253,6 +254,7 @@ function buildShip() {
   buildSalon(g);
   buildRestroom(g);
   if (arcadeOn()) buildArcade(g);
+  buildShame(g);
   return { g };
 }
 
@@ -331,6 +333,7 @@ export function updCasino(dt: number) {
   updSalon(dt, player.g.position, staging());
   updRestroom(dt);
   updArcade(dt);
+  updShame(dt);
   updTweens(dt);
   updRoulette(dt);
   updBlackjack(dt);

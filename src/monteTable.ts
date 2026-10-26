@@ -211,6 +211,7 @@ const pad = gamePad(BOOTH_PADS.tommy, '🃏', panel, {
   live: () => !!play,
   say: text => say(text),
   away: "Hey! The lady's still on the table.",
+  ask: $('monteAsk'),
 }, {
   at: V(TOP.x, TOP.y, TOP.z), from: V(Math.sin(FACE) * 0.75, 0.95, Math.cos(FACE) * 0.75).normalize(), wide: 0.8, tall: 0.55,
 }, () => level.down && found.den && met('tommy'));

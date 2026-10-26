@@ -23,6 +23,9 @@ and holding Shift shows the keys.
 **Places.** A panel sits in one of three places:
 - **Card** along the bottom, for anything you walk up to (casino tables, vendors, the shop, the gong). It docks on the
   right on a phone held sideways. It never pauses the game.
+  - A game's pad asks first: stepping on it shows a card with the game's name and a **Play** main button (casinoKit's
+    `gamePad`, its `ask`; `#rouletteAsk` in index.html). Only Play (or E) sits the player down at the table and brings
+    the camera in. Coming back to a round they walked off from skips the question.
 - **Dialog** in the middle over the dimmed game, for menus and forms (report, scores, saves).
 - **Full screen**, for mini-games and result cards.
 

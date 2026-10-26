@@ -35,4 +35,31 @@ describe("the kitchen's needs", () => {
     expect(g.restaurant.sushi.chefs[0].state).not.toBe('idle');
     expect(asks.map(a => a.sprite.visible)).toEqual([false, false]);
   });
+
+  it("on the fishing pad, says the fish pile has no room once the rod's stopped, and only there (report 20)", async () => {
+    const g = await loadGame({ pile: 60 });
+    const { pileFull, NEED_AFTER } = await import('../src/needs');
+    const { PAD, PILE, pile } = g.stations;
+    expect(pile.n).toBe(pile.cap);
+    g.placePlayer(PILE.x + 3, PILE.z + 3); // off the pad: nothing, however full
+    g.run(NEED_AFTER + 0.5);
+    expect(pileFull.sprite.visible).toBe(false);
+    g.placePlayer(PAD.x, PAD.z);
+    g.run(NEED_AFTER - 0.3);
+    expect(pileFull.sprite.visible).toBe(false); // a moment's wait shows nothing
+    g.run(0.5);
+    expect(pileFull.sprite.visible).toBe(true);
+    g.placePlayer(PAD.x + 3, PAD.z + 3);
+    g.run(0.1);
+    expect(pileFull.sprite.visible).toBe(false); // gone as they step off
+  });
+
+  it('on the fishing pad with room on the pile, the rod fishes and nothing is said', async () => {
+    const g = await loadGame();
+    const { pileFull, NEED_AFTER } = await import('../src/needs');
+    const { PAD } = g.stations;
+    g.placePlayer(PAD.x, PAD.z);
+    g.run(NEED_AFTER + 0.5);
+    expect(pileFull.sprite.visible).toBe(false);
+  });
 });

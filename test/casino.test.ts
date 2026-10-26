@@ -17,12 +17,13 @@ const c = (rank: number, suit: Suit = '♠'): Card => ({ rank, suit });
 const saved = () => JSON.parse(localStorage.getItem('floe-market-v1')!).money;
 
 type Game = Awaited<ReturnType<typeof loadGame>>;
-/** Stands the player on a game's pad, on a save with the boat (and `more` games) bought. */
+/** Stands the player on a game's pad and presses Play, on a save with the boat (and `more` games) bought. */
 async function at(game: 'roulette' | 'blackjack' | 'slots', money: number, ...more: string[]) {
   const g = await loadGame({ money, tiles: bought('roulette', ...more) });
   const p = g.layout.GAMES[game];
   g.placePlayer(p.x, p.z);
   g.run(0.05);
+  g.play();
   return g;
 }
 const walkAway = (g: Game) => { g.placePlayer(-15.7, -4.4); g.run(0.05); };
@@ -254,7 +255,7 @@ describe('the casino boat', () => {
     expect($('tearsMsg').textContent).toBe('Nothing to cry about… yet');
     expect(button('#cry').disabled).toBe(true);
     // a round lost at roulette
-    g.placePlayer(GAMES.roulette.x, GAMES.roulette.z); g.run(0.05);
+    g.placePlayer(GAMES.roulette.x, GAMES.roulette.z); g.run(0.05); g.play();
     expect($('tears').hidden).toBe(true);
     rig(0);
     click('#spin'); g.run(7);
@@ -534,11 +535,43 @@ describe('the roulette table', () => {
       expect($('spin').textContent).toBe('Spin · $1,925 on Red');
       expect(greyed(chip)).toBe(true);
       press(chip, 'pointerup');
-      // holding Undo takes them back the same way, down to nothing
-      press(undo, 'pointerdown'); vi.advanceTimersByTime(10_000); press(undo, 'pointerup');
+      // a tap on Undo takes back one chip; held, it takes the whole stake back at once (reports#19). Till the player's
+      // done that once, a HOLD tag on it says they can.
+      expect(undo.dataset.hold).toBe('Hold');
+      press(undo, 'pointerdown'); press(undo, 'pointerup'); tap(undo); vi.advanceTimersByTime(5000);
+      expect(undo.dataset.hold).toBe('Hold');
+      expect($('spin').textContent).toBe('Spin · $1,825 on Red');
+      press(undo, 'pointerdown');
+      expect($('spin').textContent).toBe('Spin · $1,725 on Red');
+      vi.advanceTimersByTime(HOLD.wait - 1);
+      expect($('spin').textContent).toBe('Spin · $1,725 on Red');
+      vi.advanceTimersByTime(1);
       expect(button('#spin').disabled).toBe(true);
-      expect(undo.disabled).toBe(true);
+      expect(chip.dataset.n).toBeUndefined();
+      expect(undo.disabled).toBe(true); // nothing left to take back
+      vi.advanceTimersByTime(5000); press(undo, 'pointerup'); tap(undo);
+      expect(button('#spin').disabled).toBe(true);
+      // learnt: the tag's gone for good, kept on the device
+      click('#roulette [data-stake="1"]');
+      expect(undo.disabled).toBe(false);
+      expect(undo.dataset.hold).toBeUndefined();
+      expect(localStorage.getItem('floe-market-hold-undo')).toBe('1');
     } finally { vi.useRealTimers(); }
+  });
+
+  it("clears the whole stake when Undo's key is held down", async () => {
+    await at('roulette', 2000);
+    // Undo is the roulette panel's 9th numbered button, after red, black, green, the four chips and All in
+    const key = (repeat: boolean) =>
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: '9', code: 'Digit9', repeat, cancelable: true }));
+    click('#roulette [data-stake="3"]'); click('#roulette [data-stake="3"]');
+    expect($('spin').textContent).toBe('Spin · $1,025 on Red');
+    expect(button('#roulette .k-keys > [data-stake="undo"]')).toBeTruthy();
+    key(false); // a press: one chip back
+    expect($('spin').textContent).toBe('Spin · $525 on Red');
+    key(true); // and the key's held: the lot
+    expect(button('#spin').disabled).toBe(true);
+    expect(button('#roulette [data-stake="undo"]').disabled).toBe(true);
   });
 
   it('has bigger chips in stage 2, and keeps the chips down through the stage-up', async () => {
@@ -548,7 +581,7 @@ describe('the roulette table', () => {
     expect($('spin').textContent).toBe('Spin · $1,005 on Red');
     walkAway(g);
     g.unlocks.applyUnlock('sushi', true);
-    g.placePlayer(g.layout.GAMES.roulette.x, g.layout.GAMES.roulette.z); g.run(0.05);
+    g.placePlayer(g.layout.GAMES.roulette.x, g.layout.GAMES.roulette.z); g.run(0.05); g.play();
     expect([...document.querySelectorAll('#roulette [data-stake]')].map(b => b.textContent)).toEqual(['$50', '$250', '$1k', '$5k', 'All in', 'Undo']);
     expect($('spin').textContent).toBe('Spin · $10,050 on Red');
   });
@@ -649,7 +682,7 @@ describe('the blackjack table', () => {
     expect(ui.tableRoom.on).toBe(false);
     // and straight there, for players who prefer less motion
     vi.stubGlobal('matchMedia', () => ({ matches: true }));
-    g.placePlayer(g.layout.GAMES.blackjack.x, g.layout.GAMES.blackjack.z); g.run(0.05);
+    g.placePlayer(g.layout.GAMES.blackjack.x, g.layout.GAMES.blackjack.z); g.run(0.05); g.play();
     expect(kit.tableView(0.01).k).toBe(1);
   });
 
@@ -815,14 +848,14 @@ describe('the blackjack table', () => {
     let g = await at('blackjack', 100, 'blackjack');
     walkAway(g);
     expect((await felt()).shuffle).toBe('due');
-    g.placePlayer(g.layout.GAMES.blackjack.x, g.layout.GAMES.blackjack.z); g.run(0.05);
+    g.placePlayer(g.layout.GAMES.blackjack.x, g.layout.GAMES.blackjack.z); g.run(0.05); g.play();
     expect($('bjMsg').textContent).toBe('A fresh shoe: the dealer shuffles…');
     g.run(3);
     walkAway(g);
     g.run(GRACE);
     expect(await felt()).toMatchObject({ shuffle: '', stack: 0, cutCard: false, discards: 1 });
     expect(await inShoe()).toHaveLength(311);
-    g.placePlayer(g.layout.GAMES.blackjack.x, g.layout.GAMES.blackjack.z); g.run(0.05);
+    g.placePlayer(g.layout.GAMES.blackjack.x, g.layout.GAMES.blackjack.z); g.run(0.05); g.play();
     expect($('deal').hidden).toBe(false);
     g = await at('blackjack', 0, 'blackjack'); // a broke player isn't shuffled for
     g.run(SHUFFLE);
@@ -1012,7 +1045,7 @@ describe('the blackjack table', () => {
     expect(await says()).toBe('');
     const { GAMES } = g.layout;
     g.placePlayer(GAMES.slots.x, GAMES.slots.z); g.run(0.05); // still aboard
-    g.placePlayer(GAMES.blackjack.x, GAMES.blackjack.z); g.run(0.05);
+    g.placePlayer(GAMES.blackjack.x, GAMES.blackjack.z); g.run(0.05); g.play();
     expect(await says()).toBe('');
     click('#deal');
     dealt(g);
@@ -1020,7 +1053,7 @@ describe('the blackjack table', () => {
     g.run(0.8);
     expect(await says()).toBe('Bust!');
     walkAway(g); g.run(3); // off the boat: a new visit
-    g.placePlayer(GAMES.blackjack.x, GAMES.blackjack.z); g.run(0.05);
+    g.placePlayer(GAMES.blackjack.x, GAMES.blackjack.z); g.run(0.05); g.play();
     expect(await says()).toBe('Good luck!');
   });
 

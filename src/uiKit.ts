@@ -156,7 +156,10 @@ window.addEventListener('keydown', e => {
   const n = digit(e);
   if (n && p) {
     const b = numbered(p.el)[n - 1];
-    // (a chip can be held down on its key, as with a finger; anything else goes once)
-    if (b && (!e.repeat || b.dataset.stake)) { b.click(); e.preventDefault(); }
+    // (a chip can be held down on its key, as with a finger, and Undo held clears the stake; anything else goes once)
+    if (b && e.repeat && b.dataset.stake === 'undo') {
+      b.dispatchEvent(new Event('k-hold', { bubbles: true }));
+      e.preventDefault();
+    } else if (b && (!e.repeat || b.dataset.stake)) { b.click(); e.preventDefault(); }
   }
 });
