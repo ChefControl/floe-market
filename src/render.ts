@@ -138,11 +138,19 @@ export interface CanvasTex {
 }
 export type Draw = (c: CanvasRenderingContext2D, w: number, h: number) => void;
 
+/**
+ * A canvas's drawing context for a texture, kept in the computer's own memory rather than the graphics chip's: a phone
+ * can drop or scramble what's on a canvas held on the graphics chip (iOS, Firefox on Android, after a while in the
+ * background), and a texture sent up after that comes out blank (black, or not there at all) or with another's
+ * picture. (Only a canvas's first context counts: ask for it this way before any other.)
+ */
+export const ctx2d = (c: HTMLCanvasElement) => c.getContext('2d', { willReadFrequently: true })!;
+
 export function canvasTex(w: number, h: number, draw: Draw): CanvasTex {
   const c = document.createElement('canvas');
   c.width = w;
   c.height = h;
-  const ctx = c.getContext('2d')!;
+  const ctx = ctx2d(c);
   draw(ctx, w, h);
   const tex = new CanvasTexture(c);
   tex.anisotropy = 4;
