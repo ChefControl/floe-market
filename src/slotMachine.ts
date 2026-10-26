@@ -230,6 +230,7 @@ const pad = gamePad(AT, '🎰', panel, {
   live: () => !!spin,
   say: text => bank!.sign.say(text),
   away: 'Still spinning!',
+  ask: $('slotsAsk'),
 }, {
   at: V(BANK.x + 0.08, AT.y + 1.1, BANK.z + 0.3), from: V(0, 0.4, 1).normalize(), wide: 1.0, tall: 1.35,
 });

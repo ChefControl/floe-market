@@ -19,6 +19,7 @@ async function atRoulette(money: number) {
   const p = g.layout.GAMES.roulette;
   g.placePlayer(p.x, p.z);
   g.run(0.05);
+  g.play();
   return { g, p };
 }
 
@@ -36,8 +37,35 @@ describe('the UI kit at a casino table', () => {
     expect($('roulette').hidden).toBe(false);
     esc(); g.run(0.05);
     g.placePlayer(-15.7, -4.4); g.run(0.05);
+    // back on the pad, it asks again before the player's sat down
     g.placePlayer(p.x, p.z); g.run(0.05);
+    expect($('roulette').hidden).toBe(true);
+    expect($('rouletteAsk').hidden).toBe(false);
+    g.play();
     expect($('roulette').hidden).toBe(false);
+  });
+
+  it("asks on the pad before sitting the player down: Play or E sits them, Esc leaves them be till they step off", async () => {
+    const g = await loadGame({ money: 100, tiles: bought('roulette') });
+    const kit = await import('../src/casinoKit');
+    const p = g.layout.GAMES.roulette;
+    g.placePlayer(p.x, p.z); g.run(0.05);
+    expect($('rouletteAsk').hidden).toBe(false);
+    expect($('rouletteAsk').textContent).toContain('Roulette');
+    expect($('roulette').hidden).toBe(true);
+    expect(kit.atTable()).toBe(false);
+    g.run(2);
+    expect(kit.atTable()).toBe(false); // standing there doesn't sit them down
+    esc(); g.run(0.05);
+    expect($('rouletteAsk').hidden).toBe(true);
+    g.run(1);
+    expect($('rouletteAsk').hidden).toBe(true);
+    key('KeyE', 'e'); g.run(0.05);
+    expect($('rouletteAsk').hidden).toBe(false);
+    key('KeyE', 'e'); g.run(0.05);
+    expect($('rouletteAsk').hidden).toBe(true);
+    expect($('roulette').hidden).toBe(false);
+    expect(kit.atTable()).toBe(true);
   });
 
   it('plays a spin out after Esc, as after walking off, and pays', async () => {

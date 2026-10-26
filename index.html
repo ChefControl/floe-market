@@ -1595,6 +1595,10 @@ body.show #toss, body.show #cook, body.show #coach, body.show #hint, body.show #
   <div id="lookTabs" role="tablist" aria-label="Your look"><button type="button" role="tab" aria-controls="lookRows">Body</button><button type="button" role="tab" aria-controls="lookRows">Face</button><button type="button" role="tab" aria-controls="lookRows">Hair</button><button type="button" role="tab" aria-controls="lookRows">Extras</button><button type="button" role="tab" aria-controls="lookRows">Clothes</button></div>
   <div id="lookRows" role="tabpanel" aria-labelledby="lookTitle"></div>
 </section>
+<div id="rouletteAsk" class="casino" hidden>
+  <p class="msg k-msg">🎡 Roulette</p>
+  <button type="button" class="go k-btn k-main">Play</button>
+</div>
 <div id="roulette" class="casino" hidden>
   <p id="rouletteMsg" class="msg k-msg" aria-live="polite"></p>
   <div class="bets k-keys" id="betKinds" role="group" aria-label="Bet">
@@ -1612,6 +1616,10 @@ body.show #toss, body.show #cook, body.show #coach, body.show #hint, body.show #
   </div>
   <button type="button" id="spin" class="go k-btn k-main"></button>
   <div id="history" class="sr" aria-label="Recent results"></div>
+</div>
+<div id="blackjackAsk" class="casino" hidden>
+  <p class="msg k-msg">🃏 Blackjack</p>
+  <button type="button" class="go k-btn k-main">Play</button>
 </div>
 <div id="blackjack" class="casino" hidden>
   <p id="bjMsg" class="msg k-msg" aria-live="polite"></p>
@@ -1641,6 +1649,10 @@ body.show #toss, body.show #cook, body.show #coach, body.show #hint, body.show #
   </div>
   <button type="button" id="deal" class="go k-btn k-main"></button>
 </div>
+<div id="slotsAsk" class="casino" hidden>
+  <p class="msg k-msg">🎰 Slots</p>
+  <button type="button" class="go k-btn k-main">Play</button>
+</div>
 <div id="slots" class="casino" hidden>
   <p id="slotsMsg" class="msg k-msg" aria-live="polite"></p>
   <div id="pays" class="sr" aria-label="What pays"></div>
@@ -1665,6 +1677,10 @@ body.show #toss, body.show #cook, body.show #coach, body.show #hint, body.show #
   </div>
   <button type="button" id="eddieFix" class="go k-btn k-main"></button>
   <p id="eddieOdds" class="odds k-cap" hidden></p>
+</div>
+<div id="monteAsk" class="casino" hidden>
+  <p class="msg k-msg">🃏 Tommy's monte</p>
+  <button type="button" class="go k-btn k-main">Play</button>
 </div>
 <div id="monte" class="casino" hidden>
   <p id="monteMsg" class="msg k-msg" aria-live="polite"></p>

@@ -297,6 +297,7 @@ const pad = gamePad(AT, '🎡', panel, {
   live: () => !!spin,
   say: text => table!.voice.say(text),
   away: 'Still rolling!',
+  ask: $('rouletteAsk'),
 }, {
   at: V(TABLE.x, AT.y + TOP + 0.12, TABLE.z - 0.02), from: V(0, 1.7, 1).normalize(), wide: 1.6, tall: 1.25,
 });
