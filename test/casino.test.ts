@@ -535,8 +535,11 @@ describe('the roulette table', () => {
       expect($('spin').textContent).toBe('Spin · $1,925 on Red');
       expect(greyed(chip)).toBe(true);
       press(chip, 'pointerup');
-      // a tap on Undo takes back one chip; held, it takes the whole stake back at once (reports#19)
+      // a tap on Undo takes back one chip; held, it takes the whole stake back at once (reports#19). Till the player's
+      // done that once, a HOLD tag on it says they can.
+      expect(undo.dataset.hold).toBe('Hold');
       press(undo, 'pointerdown'); press(undo, 'pointerup'); tap(undo); vi.advanceTimersByTime(5000);
+      expect(undo.dataset.hold).toBe('Hold');
       expect($('spin').textContent).toBe('Spin · $1,825 on Red');
       press(undo, 'pointerdown');
       expect($('spin').textContent).toBe('Spin · $1,725 on Red');
@@ -548,6 +551,11 @@ describe('the roulette table', () => {
       expect(undo.disabled).toBe(true); // nothing left to take back
       vi.advanceTimersByTime(5000); press(undo, 'pointerup'); tap(undo);
       expect(button('#spin').disabled).toBe(true);
+      // learnt: the tag's gone for good, kept on the device
+      click('#roulette [data-stake="1"]');
+      expect(undo.disabled).toBe(false);
+      expect(undo.dataset.hold).toBeUndefined();
+      expect(localStorage.getItem('floe-market-hold-undo')).toBe('1');
     } finally { vi.useRealTimers(); }
   });
 

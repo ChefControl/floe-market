@@ -125,6 +125,16 @@ const BOAT: StakeRules = {
  *  first, and how often at most, as it speeds up. In ms. */
 export const HOLD = { wait: 400, first: 180, fastest: 45 };
 
+/** Whether the player has taken a whole stake back by holding Undo yet: till they have, a HOLD tag on Undo says they
+ *  can. Kept on the device, as the tutorial's lessons are, so it's gone for good once learnt. */
+const HOLD_KEY = 'floe-market-hold-undo';
+export const holdTip = { learnt: (() => { try { return localStorage.getItem(HOLD_KEY) === '1'; } catch { return false; } })() };
+/** For the demo build, which keeps nothing, and the tests: the tag comes back. */
+export function forgetHold() {
+  holdTip.learnt = false;
+  try { localStorage.removeItem(HOLD_KEY); } catch { /* nothing kept */ }
+}
+
 /** What's down: how many of each chip, or all in. */
 interface Down { pile: number[]; all: boolean }
 
@@ -201,6 +211,10 @@ export class Stakes {
   private clear() {
     this.past = []; this.pile = [0, 0, 0, 0]; this.all = false;
     clack();
+    if (!holdTip.learnt) {
+      holdTip.learnt = true;
+      try { localStorage.setItem(HOLD_KEY, '1'); } catch { /* kept for this visit */ }
+    }
     this.picked();
   }
 
@@ -244,7 +258,12 @@ export class Stakes {
       if (v === 'all') {
         b.setAttribute('aria-pressed', String(this.all));
         state(b, busy ? 'busy' : wallet.money <= 0 ? 'broke' : this.most <= 0 ? 'busy' : 'ok');
-      } else if (v === 'undo') state(b, busy || !this.past.length ? 'busy' : 'ok');
+      } else if (v === 'undo') {
+        const s: State = busy || !this.past.length ? 'busy' : 'ok';
+        state(b, s);
+        // (the HOLD tag, till the player's cleared a stake by holding it once; only while there's something to take back)
+        if (!holdTip.learnt && s === 'ok') b.dataset.hold = 'Hold'; else delete b.dataset.hold;
+      }
       else {
         const amount = this.rules.chips()[Number(v)], n = this.all ? 0 : this.pile[Number(v)];
         b.textContent = this.rules.chip(amount);

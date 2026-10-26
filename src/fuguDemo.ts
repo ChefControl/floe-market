@@ -10,6 +10,7 @@
 // Any of them with &shame puts ten made-up players' worst bets on the casino's wall of shame (the demo never goes
 // online for the real one).
 // Nothing is kept, so every visit starts over, the tutorial included.
+import { forgetHold } from './casinoKit';
 import { GONG_PAD, machinePad, MAX_MACHINES, POT_PAD } from './cellarPlan';
 import { F, LEDGE_CAP } from './fight';
 import { player } from './player';
@@ -59,8 +60,8 @@ export function marketSave(stage: 1 | 2) {
 }
 
 export function startDemo() {
-  // (and the tutorial's lessons from a visit before, which the device keeps apart from the save)
-  forgetLessons();
+  // (and the tutorial's lessons from a visit before, which the device keeps apart from the save, and Undo's HOLD tag)
+  forgetLessons(); forgetHold();
   const q = new URLSearchParams(location.search), cellar = q.has('cellar');
   if (q.has('shame')) fakeWall(SHAMED);
   // (?stage=1: a stage 1 market instead, from the 🛠 panel)
