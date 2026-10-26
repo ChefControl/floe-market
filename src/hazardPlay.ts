@@ -1,13 +1,25 @@
-// ?arcade=on (dev and demo builds only, main.ts): the greybox of Cooking Hazard's fight, the arcade cabinet's game, on
-// the UI kit's full screen over the game, which waits behind it. Pick a gun and two dishes, then hold the street till the
-// horde gets you; Esc leaves. The rules are hazard.ts; this draws a run on a canvas and feeds it the keys and mouse.
-// Mouse and keyboard only, for now: WASD to walk, the mouse to aim, hold the button to fire, F to shove, R to reload.
-// Hold 1 or 2 to serve a dish: the chef stops while its code goes in on WASD or the arrows; let go, then click to throw.
+// Cooking Hazard, the arcade cabinet's game (casinoArcade.ts, or ?arcade=play in dev and demo builds, main.ts), on the
+// UI kit's full screen over the game, which waits behind it. Pick a gun and two dishes, then hold the street till the
+// horde gets you. The rules are hazard.ts; the street they're played on is hazardSet.ts, in 3D, drawn in the game's
+// place (render.ts takeover). This feeds the run the keys, the mouse or the fingers, and puts on the screen what floats
+// over the street: the tastes on the zombies, the specials' tickets (an arrow at the edge for one off the screen), the
+// technique stamps and the recipe ticket over the chef while a dish's code goes in, with the HUD and the dish buttons.
+//
+// Keyboard and mouse: WASD to walk, the mouse to aim, hold the button to fire, F to shove, R to reload. Hold 1 or 2 to
+// serve a dish: the chef stops while its code goes in on WASD or the arrows; let go, then click to throw.
+// Touch (sideways only: it goes full screen and locks the screen sideways where the phone lets it, and asks to turn the
+// phone where it doesn't): a stick wherever a thumb lands, the left half to walk, the right half to aim and fire. Hold a
+// dish button (on the left), swipe its code with the other thumb, one swipe a move, then tap where it lands. Shove is a
+// button on the right; the gun reloads by itself when it's empty, and a tap on the ammo reloads early.
+// Esc or ✕ mid-run holds it still and asks first: Keep going, or Leave.
 import './hazard.css';
 import {
-  DISHES, GUNS, H, LEVELS, MOVES, TASTES, W, letGo, newRun, press, reload, shove, startServe, step, stripPos, throwDish,
-  type Dir, type DishId, type GunId, type Run,
+  DISHES, GUNS, LEVELS, MOVES, TASTES, letGo, newRun, press, reload, shove, startServe, step, stripPos, throwDish,
+  type Dir, type DishId, type GunId, type Input, type Run, type Stamp, type Zombie,
 } from './hazard';
+import { drawSet, dressChef, headOf, renderSet, resetView, toArena, toScreen } from './hazardSet';
+import { dice } from './kit';
+import { takeover } from './render';
 import { chime, clack, lose, pop, throwSound } from './sfx';
 import { panel } from './uiKit';
 
@@ -28,16 +40,26 @@ root.innerHTML = `
     <div class="k-row"><button class="k-btn k-main hz-start">Start run</button></div>
   </div>
   <div class="hz-play" hidden>
-    <canvas></canvas>
+    <div class="hz-tags"></div>
     <div class="hz-hud">
       <div class="pill"><span class="hz-ic" style="background:var(--hot)">❤️</span><span class="hz-bar"><i class="hz-hp"></i></span><span class="hz-hpn"></span></div>
       <div class="pill"><span class="hz-ic" style="background:#e0702a">⏱️</span><span class="hz-time"></span>
         <span class="hz-strip"><span class="hz-track">${LEVELS.map(l => `<b>${l === 'BIOHAZARD' ? '☣️ ' : ''}${l}</b>`).join('')}</span><span class="hz-mark"></span></span></div>
-      <div class="pill"><span class="hz-ic hz-gun"></span><span class="hz-ammo"></span></div>
+      <div class="pill hz-ammo-pill"><span class="hz-ic hz-gun"></span><span class="hz-ammo"></span></div>
       <div class="pill"><span class="hz-ic" style="background:#49c25b">🧟</span><span class="hz-score"></span></div>
       <div class="pill hz-boost" hidden><span class="hz-ic" style="background:#49c25b">🌿</span><span class="hz-boostn"></span></div>
     </div>
     <div class="hz-dishes"></div>
+    <button type="button" class="k-btn hz-shove">💪 Shove</button>
+    <div class="hz-stick hz-move"><i></i></div>
+    <div class="hz-stick hz-aim"><i></i></div>
+    <div class="hz-leave" hidden>
+      <div class="hz-card">
+        <h2 class="k-title">Leave the run?</h2>
+        <div class="k-row"><button type="button" class="k-btn k-plain hz-quit">Leave</button><button type="button" class="k-btn k-main hz-stay">Keep going</button></div>
+      </div>
+    </div>
+    <div class="hz-turn"><span>📱↻</span><p class="k-title">Turn your phone sideways</p></div>
   </div>
   <div class="hz-over" hidden>
     <h2 class="k-title">The horde got you</h2>
@@ -46,14 +68,13 @@ root.innerHTML = `
       <button class="k-btn k-plain hz-change">Change loadout</button>
       <button class="k-btn k-main hz-again">Run again</button>
     </div>
-  </div>`;
+  </div>
+  <button type="button" class="k-btn k-plain k-x hz-x" aria-label="Leave">✕</button>`;
 document.body.append(root);
-panel(root, { place: 'full', close: closeHazard });
+panel(root, { place: 'full', close: escape });
 
 const $ = <T extends HTMLElement>(sel: string) => root.querySelector<T>(sel)!;
-const pick = $('.hz-pick'), play = $('.hz-play'), over = $('.hz-over');
-const canvas = $<HTMLCanvasElement>('canvas');
-const ctx = canvas.getContext('2d')!;
+const pick = $('.hz-pick'), play = $('.hz-play'), over = $('.hz-over'), leave = $('.hz-leave'), tagLayer = $('.hz-tags');
 
 // ---------- the loadout ----------
 let gun: GunId = 'spud';
@@ -74,6 +95,9 @@ root.addEventListener('click', e => {
   }
   if (b.classList.contains('hz-start') || b.classList.contains('hz-again')) startRun();
   if (b.classList.contains('hz-change')) mode('pick');
+  if (b.classList.contains('hz-x')) escape();
+  if (b.classList.contains('hz-stay')) leaving(false);
+  if (b.classList.contains('hz-quit')) closeHazard();
   showPick();
 });
 
@@ -87,10 +111,23 @@ function mode(m: 'pick' | 'play' | 'over') {
 /** The current run, if one's under way or just over (for the tests). */
 export const hazardRun = () => run;
 
+/** Whether the device is played by touch (a phone or a tablet). */
+const coarse = () => !!window.matchMedia?.('(pointer: coarse)').matches;
+/** A phone held upright: the run waits till it's turned sideways. */
+const upright = () => coarse() && window.innerHeight > window.innerWidth;
+/** The run holds still: the player's been asked whether to leave, or the phone's upright. */
+const holding = () => !leave.hidden || upright();
+
 export function openHazard() {
   root.hidden = false;
+  root.dataset.touch = coarse() ? '1' : '0';
+  takeover.on = true;
+  document.body.classList.add('hz-on');
   mode('pick');
+  leaving(false);
   showPick();
+  resetView(null);
+  if (coarse()) void sideways();
   last = performance.now();
   cancelAnimationFrame(raf);
   raf = requestAnimationFrame(frame);
@@ -98,16 +135,33 @@ export function openHazard() {
 
 export function closeHazard() {
   root.hidden = true;
+  takeover.on = false;
+  document.body.classList.remove('hz-on');
   run = null;
-  held.clear();
-  firing = false;
+  letGoAll();
+  clearTags();
+  screenBack();
   cancelAnimationFrame(raf);
 }
 
+/** Esc or ✕: mid-run, asks first (and Esc again keeps going); otherwise, leaves. */
+function escape() {
+  if (root.dataset.mode === 'play' && run && !run.over) leaving(!!leave.hidden);
+  else closeHazard();
+}
+function leaving(on: boolean) {
+  leave.hidden = !on;
+  if (on) letGoAll();
+}
+
 function startRun() {
-  run = newRun({ gun, dishes: [...dishes] });
+  run = newRun({ gun, dishes: [...dishes] }, dice(Date.now() >>> 0));
   seen = { cooked: 0, servings: run.servings.join() };
+  lastAim = { x: run.player.x + 100, y: run.player.y };
+  dressChef();
+  resetView(run);
   mode('play');
+  leaving(false);
   dishBar();
 }
 
@@ -123,31 +177,56 @@ function finish(r: Run) {
     chip(`🧟 ${r.kills}`), chip(`🍳 ${r.cooked} cooked`),
     chip(isBest ? '🏆 New best' : `🏆 Best ${clock(best)}`),
   ].join('');
+  letGoAll();
+  clearTags();
   mode('over');
 }
 
 const clock = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 
+// ---------- sideways, on a phone ----------
+type Lockable = { lock?: (o: string) => Promise<void>; unlock?: () => void };
+let wentFull = false;
+/** Full screen, locked sideways, where the phone lets a page do that (not iPhones: they're asked to turn instead). */
+async function sideways() {
+  try {
+    if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
+      await document.documentElement.requestFullscreen();
+      wentFull = true;
+    }
+    await (screen.orientation as Lockable | undefined)?.lock?.('landscape');
+  } catch { /* the phone won't: the turn-your-phone screen asks instead */ }
+}
+function screenBack() {
+  try { (screen.orientation as Lockable | undefined)?.unlock?.(); } catch { /* never locked */ }
+  if (wentFull && document.fullscreenElement) void document.exitFullscreen?.().catch(() => {});
+  wentFull = false;
+}
+
 // ---------- keys and mouse ----------
 const held = new Set<string>();
 let firing = false;
-const aim = { x: W / 2, y: H / 2 };
+/** The mouse, on the screen (it's turned into a spot on the street each frame, as the camera follows the chef). */
+let mouse: { x: number; y: number } | null = null;
+/** Where the chef last aimed, kept when nothing's aiming. */
+let lastAim = { x: 0, y: 0 };
 const DIRS: Record<string, Dir> = {
   KeyW: 'up', ArrowUp: 'up', KeyS: 'down', ArrowDown: 'down', KeyA: 'left', ArrowLeft: 'left', KeyD: 'right', ArrowRight: 'right',
 };
 /** A dish slot's key (1 to 4), or -1. */
 const slotKey = (code: string) => { const m = /^(?:Digit|Numpad)([1-4])$/.exec(code); return m ? Number(m[1]) - 1 : -1; };
 
+/** A step of a dish's code went in (or slipped). */
+function typed(got: ReturnType<typeof press>) {
+  if (got === 'done') chime(); else if (got) clack();
+}
+
 window.addEventListener('keydown', e => {
-  if (root.hidden || root.dataset.mode !== 'play' || !run || run.over) return;
+  if (root.hidden || root.dataset.mode !== 'play' || !run || run.over || holding()) return;
   const dir = DIRS[e.code], slot = slotKey(e.code);
   if (dir || slot >= 0 || e.code === 'KeyF' || e.code === 'KeyR') e.preventDefault();
   if (e.repeat) return;
-  if (dir && run.serving && !run.serving.ready) {
-    const got = press(run, dir);
-    if (got === 'done') chime(); else clack();
-    return;
-  }
+  if (dir && run.serving && !run.serving.ready) { typed(press(run, dir)); return; }
   if (dir) held.add(e.code);
   if (slot >= 0) startServe(run, slot);
   if (e.code === 'KeyF') shove(run);
@@ -157,26 +236,114 @@ window.addEventListener('keyup', e => {
   held.delete(e.code);
   if (run && slotKey(e.code) >= 0) letGo(run);
 });
-window.addEventListener('blur', () => { held.clear(); firing = false; });
+window.addEventListener('blur', letGoAll);
 
-/** Where the mouse is, in the street's own units. */
-function toStreet(e: { clientX: number; clientY: number }) {
-  const rect = canvas.getBoundingClientRect(), { s, ox, oy } = fit();
-  aim.x = (e.clientX - rect.left - ox) / s; aim.y = (e.clientY - rect.top - oy) / s;
+// ---------- fingers ----------
+/** A stick under a thumb: where it went down, and how far it's pushed (-1 to 1 each way, `k` how far altogether). */
+interface Stick { id: number | null; ox: number; oy: number; x: number; y: number; k: number; el: HTMLElement }
+const stick = (el: HTMLElement): Stick => ({ id: null, ox: 0, oy: 0, x: 0, y: 0, k: 0, el });
+const moveStick = stick($('.hz-move')), aimStick = stick($('.hz-aim'));
+/** How far a stick's knob goes, and how far a swipe goes to count as one move of a code (CSS pixels). */
+const REACH = 56, SWIPE = 34;
+/** The finger holding a dish's button, and the one swiping its code. */
+let dishFinger: number | null = null;
+let swipe: { id: number; x: number; y: number } | null = null;
+
+const pid = (e: PointerEvent) => e.pointerId ?? -1;
+const isTouch = (e: PointerEvent) => e.pointerType === 'touch' || e.pointerType === 'pen';
+
+function stickTo(s: Stick, e: PointerEvent) {
+  let dx = e.clientX - s.ox, dy = e.clientY - s.oy;
+  const d = Math.hypot(dx, dy);
+  if (d > REACH) { dx *= REACH / d; dy *= REACH / d; }
+  s.x = dx / REACH; s.y = dy / REACH; s.k = Math.min(1, d / REACH);
+  (s.el.firstElementChild as HTMLElement).style.transform = `translate(${dx}px,${dy}px)`;
 }
-canvas.addEventListener('pointermove', toStreet);
-canvas.addEventListener('pointerdown', e => {
-  if (!run || e.button !== 0) return;
-  toStreet(e);
-  if (run.serving?.ready) { if (throwDish(run, aim)) throwSound(0); return; }
-  firing = true;
-});
-window.addEventListener('pointerup', () => { firing = false; });
+function endStick(s: Stick) {
+  s.id = null; s.x = s.y = s.k = 0;
+  s.el.classList.remove('on');
+}
+function letGoAll() {
+  held.clear();
+  firing = false;
+  endStick(moveStick); endStick(aimStick);
+  swipe = null;
+  if (dishFinger !== null && run) letGo(run);
+  dishFinger = null;
+}
 
-function input() {
-  const x = (held.has('KeyD') || held.has('ArrowRight') ? 1 : 0) - (held.has('KeyA') || held.has('ArrowLeft') ? 1 : 0);
-  const y = (held.has('KeyS') || held.has('ArrowDown') ? 1 : 0) - (held.has('KeyW') || held.has('ArrowUp') ? 1 : 0);
-  return { move: { x, y }, aim, fire: firing };
+play.addEventListener('pointerdown', e => {
+  if (!run || run.over || holding()) return;
+  const touch = isTouch(e), t = e.target as Element;
+  root.dataset.touch = touch ? '1' : '0';
+  const slot = t.closest<HTMLElement>('.hz-slot');
+  if (slot?.dataset.slot) {
+    if (startServe(run, Number(slot.dataset.slot))) { dishFinger = pid(e); dishBar(); }
+    e.preventDefault();
+    return;
+  }
+  if (t.closest('.hz-shove')) { shove(run); return; }
+  if (t.closest('.hz-ammo-pill')) { reload(run); return; }
+  if (t.closest('button')) return;
+  // a dish in hand goes where the tap or click is
+  if (run.serving?.ready) {
+    const at = toArena(e.clientX, e.clientY);
+    if (at && throwDish(run, at)) throwSound(0);
+    return;
+  }
+  if (!touch) {
+    if (e.button !== 0) return;
+    mouse = { x: e.clientX, y: e.clientY };
+    firing = true;
+    return;
+  }
+  // a code going in: any other finger swipes it
+  if (run.serving) { swipe = { id: pid(e), x: e.clientX, y: e.clientY }; return; }
+  const s = e.clientX < window.innerWidth / 2 ? moveStick : aimStick;
+  if (s.id !== null) return;
+  s.id = pid(e); s.ox = e.clientX; s.oy = e.clientY; s.x = s.y = s.k = 0;
+  s.el.style.left = `${e.clientX}px`; s.el.style.top = `${e.clientY}px`;
+  (s.el.firstElementChild as HTMLElement).style.transform = '';
+  s.el.classList.add('on');
+  try { play.setPointerCapture(e.pointerId); } catch { /* the finger's already gone */ }
+});
+window.addEventListener('pointermove', e => {
+  if (root.hidden) return;
+  const id = pid(e);
+  if (id === moveStick.id) stickTo(moveStick, e);
+  else if (id === aimStick.id) stickTo(aimStick, e);
+  else if (swipe && id === swipe.id) {
+    const dx = e.clientX - swipe.x, dy = e.clientY - swipe.y;
+    if (Math.hypot(dx, dy) < SWIPE || !run) return;
+    typed(press(run, Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up')));
+    swipe.x = e.clientX; swipe.y = e.clientY;
+  } else if (!isTouch(e)) mouse = { x: e.clientX, y: e.clientY };
+});
+function fingerUp(e: PointerEvent) {
+  const id = pid(e);
+  if (id === moveStick.id) endStick(moveStick);
+  if (id === aimStick.id) endStick(aimStick);
+  if (swipe?.id === id) swipe = null;
+  if (dishFinger !== null && id === dishFinger) { dishFinger = null; if (run) letGo(run); }
+  if (!isTouch(e)) firing = false;
+}
+window.addEventListener('pointerup', fingerUp);
+window.addEventListener('pointercancel', fingerUp);
+
+/** Where the chef aims now, in the rules' units: the aiming stick, else the mouse, else where they aimed last. */
+function aimNow() {
+  if (!run) return null;
+  if (aimStick.id !== null && aimStick.k > 0.2) lastAim = { x: run.player.x + aimStick.x * 400, y: run.player.y + aimStick.y * 400 };
+  else if (mouse) lastAim = toArena(mouse.x, mouse.y) ?? lastAim;
+  return lastAim;
+}
+
+function input(r: Run): Input {
+  // (a stick barely pushed is a thumb resting on it)
+  const pushed = moveStick.k > 0.15;
+  const x = (held.has('KeyD') || held.has('ArrowRight') ? 1 : 0) - (held.has('KeyA') || held.has('ArrowLeft') ? 1 : 0) + (pushed ? moveStick.x : 0);
+  const y = (held.has('KeyS') || held.has('ArrowDown') ? 1 : 0) - (held.has('KeyW') || held.has('ArrowUp') ? 1 : 0) + (pushed ? moveStick.y : 0);
+  return { move: { x, y }, aim: aimNow()!, fire: firing || (aimStick.k > 0.3 && !r.serving) };
 }
 
 // ---------- the loop ----------
@@ -190,16 +357,23 @@ function frame(now: number) {
   raf = requestAnimationFrame(frame);
 }
 
-/** One frame: the run moves on `dt` seconds and the screen catches up. */
+/** One frame: the run moves on `dt` seconds (unless it's holding still), and the street and the screen catch up. */
 export function advance(dt: number) {
-  if (!run || root.dataset.mode !== 'play') return;
-  step(run, dt, input());
-  if (run.cooked > seen.cooked) pop();
-  seen.cooked = run.cooked;
-  draw(run);
-  hud(run);
-  if (seen.servings !== run.servings.join() || run.serving) dishBar();
-  if (run.over) finish(run);
+  root.dataset.upright = String(upright());
+  const playing = !!run && root.dataset.mode === 'play', still = !playing || holding();
+  if (playing && !still) {
+    step(run!, dt, input(run!));
+    if (run!.cooked > seen.cooked) pop();
+    seen.cooked = run!.cooked;
+  }
+  drawSet(root.dataset.mode === 'pick' ? null : run, still ? 0 : dt, { aim: playing ? aimNow() : null });
+  if (playing) {
+    tags(run!);
+    hud(run!);
+    if (seen.servings !== run!.servings.join() || run!.serving) dishBar();
+    if (run!.over) finish(run!);
+  }
+  renderSet();
 }
 
 // ---------- the HUD ----------
@@ -229,123 +403,74 @@ function dishBar() {
     const d = DISHES[id], t = TASTES[d.taste], n = r.servings[i];
     const cls = n <= 0 ? ' empty' : r.serving?.slot === i ? ' on' : '';
     const ink = d.taste === 'spicy' || d.taste === 'bitter' || d.taste === 'umami' ? '#fff' : 'var(--ink)';
-    return `<div class="hz-slot${cls}" style="--c:${t.color};--c-ink:${ink}"><span>${d.emoji}</span>${d.name.split(' ')[0]}<b>${n}</b></div>`;
+    return `<div class="hz-slot${cls}" data-slot="${i}" style="--c:${t.color};--c-ink:${ink}"><span>${d.emoji}</span>${d.name.split(' ')[0]}<b>${n}</b></div>`;
   }).join('');
 }
 
-// ---------- drawing ----------
-/** How the street fits the screen: its scale and where it starts. */
-function fit() {
-  const cw = canvas.clientWidth || W, ch = canvas.clientHeight || H, s = Math.min(cw / W, ch / H);
-  return { s, ox: (cw - W * s) / 2, oy: (ch - H * s) / 2, cw, ch };
+// ---------- what floats over the street ----------
+interface Tag { el: HTMLElement; html: string; used: boolean }
+const tagged = new Map<object, Tag>();
+/** The recipe ticket over the chef has this key. */
+const SERVING = {};
+/** How far in from the screen's edge an arrow to a special off it sits (its middle), and a ticket on it at least. */
+const EDGE = 64, MARGIN = 44;
+
+/** Puts the tag for `key` (made the first time) at screen point (x, y), showing `html`. */
+function tag(key: object, cls: string, html: string, x: number, y: number) {
+  let t = tagged.get(key);
+  if (!t) {
+    const el = document.createElement('div');
+    tagLayer.append(el);
+    t = { el, html: '', used: true };
+    tagged.set(key, t);
+  }
+  t.used = true;
+  if (t.el.className !== cls) t.el.className = cls;
+  if (t.html !== html) { t.html = html; t.el.innerHTML = html; }
+  t.el.style.transform = `translate(${x.toFixed(1)}px,${y.toFixed(1)}px)`;
+}
+function clearTags() {
+  for (const t of tagged.values()) t.el.remove();
+  tagged.clear();
 }
 
-const emoji = (e: string, x: number, y: number, size: number) => {
-  ctx.font = `${size}px system-ui, "Apple Color Emoji", "Segoe UI Emoji", sans-serif`;
-  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillText(e, x, y);
-};
-const disc = (x: number, y: number, r: number, fill: string) => { ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fillStyle = fill; ctx.fill(); };
-const ring = (x: number, y: number, r: number, stroke: string, w: number, from = 0, to = Math.PI * 2) => {
-  ctx.beginPath(); ctx.arc(x, y, r, from, to); ctx.strokeStyle = stroke; ctx.lineWidth = w; ctx.stroke();
-};
+const ticketHtml = (z: Zombie) => z.ticket!.map((t, i) => `<i${i < z.step ? ' class="done"' : ''}>${TASTES[t].icon}</i>`).join('')
+  + `<u style="width:${Math.max(0, Math.round(z.hp / z.maxHp * 100))}%"></u>`;
 
-function draw(r: Run) {
-  const { s, ox, oy, cw, ch } = fit(), dpr = window.devicePixelRatio || 1;
-  if (canvas.width !== Math.round(cw * dpr) || canvas.height !== Math.round(ch * dpr)) {
-    canvas.width = Math.round(cw * dpr); canvas.height = Math.round(ch * dpr);
-  }
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  ctx.fillStyle = '#1b2430'; ctx.fillRect(0, 0, cw, ch);
-  ctx.setTransform(dpr * s, 0, 0, dpr * s, dpr * ox, dpr * oy);
-
-  // the street: asphalt between two pavements, a dashed line down the middle
-  ctx.fillStyle = '#2c3a47'; ctx.fillRect(0, 0, W, H);
-  ctx.fillStyle = '#5b6b78'; ctx.fillRect(0, 0, W, 110); ctx.fillRect(0, H - 110, W, 110);
-  ctx.fillStyle = '#c9a66b';
-  for (let x = 20; x < W; x += 120) ctx.fillRect(x, H / 2 - 4, 70, 8);
-
-  for (const z of r.zones) {
-    const c = z.kind === 'smoke' ? 'rgba(106,63,160,.35)' : z.kind === 'caramel' ? 'rgba(224,57,43,.3)' : z.kind === 'battery' ? 'rgba(127,196,224,.3)' : 'rgba(240,139,176,.35)';
-    disc(z.x, z.y, z.r, c);
-  }
-  for (const g of r.garnishes) emoji('🌿', g.x, g.y, 26);
-
+function tags(r: Run) {
+  for (const t of tagged.values()) t.used = false;
+  const w = window.innerWidth, h = window.innerHeight;
   for (const z of r.zombies) {
-    // shadow, then the coat's ring at the feet (and how full a building taste's ring is)
-    ctx.beginPath(); ctx.ellipse(z.x, z.y + z.r * 0.8, z.r, z.r * 0.4, 0, 0, Math.PI * 2); ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.fill();
-    if (z.coat) {
-      const t = TASTES[z.coat], fade = Math.min(1, z.coatT);
-      ctx.globalAlpha = 0.35 + 0.65 * fade;
-      ring(z.x, z.y, z.r + 6, t.color, 3);
-      if (t.builds) ring(z.x, z.y, z.r + 11, t.color, 4, -Math.PI / 2, -Math.PI / 2 + z.meter * Math.PI * 2);
-      emoji(t.icon, z.x, z.y - z.r - 14, 16);
-      ctx.globalAlpha = 1;
+    if (!z.ticket && !z.coat) continue;
+    const s = toScreen(z.x, z.y, headOf(z)), mid = toScreen(z.x, z.y, 0.8);
+    const off = mid.behind || mid.x < 0 || mid.x > w || mid.y < 0 || mid.y > h;
+    if (z.ticket && off) {
+      // a special off the screen: an arrow at the edge (on its outer side), pointing at it, with its ticket
+      let dx = mid.x - w / 2, dy = mid.y - h / 2;
+      if (mid.behind) { dx = -dx; dy = -dy; }
+      const k = Math.min((w / 2 - EDGE) / Math.max(1e-6, Math.abs(dx)), (h / 2 - EDGE) / Math.max(1e-6, Math.abs(dy)));
+      tag(z, `hz-tag hz-edge${dx > 0 ? ' right' : ''}`, `<b style="transform:rotate(${Math.atan2(dy, dx).toFixed(2)}rad)">➤</b><span class="hz-ticket">${ticketHtml(z)}</span>`,
+        w / 2 + dx * k, h / 2 + dy * k);
+    } else if (z.ticket) {
+      // (kept on the screen when its head's just off it)
+      tag(z, 'hz-tag hz-ticket', ticketHtml(z), Math.max(MARGIN, Math.min(w - MARGIN, s.x)), Math.max(MARGIN, s.y));
     }
-    const body = z.freezeT > 0 ? '#f08bb0' : z.ticket ? '#7a8a6a' : '#8a9a7a';
-    disc(z.x, z.y, z.r, body);
-    if (z.burnT > 0) ring(z.x, z.y, z.r - 2, '#e0702a', 3);
-    if (z.poison > 0) ring(z.x, z.y, z.r - 5, '#6a3fa0', 2);
-    if (z.meltT > 0) ring(z.x, z.y, z.r - 8 > 2 ? z.r - 8 : 2, '#6fa83a', 2);
-    emoji('🧟', z.x, z.y, z.r * 1.5);
-    if (z.ticket) {
-      // its order ticket: done tastes ticked
-      const w = 74;
-      ctx.fillStyle = '#fff8ec'; ctx.fillRect(z.x - w / 2, z.y - z.r - 44, w, 28);
-      ctx.fillStyle = '#c93f25'; ctx.fillRect(z.x - w / 2, z.y - z.r - 44, w, 4);
-      z.ticket.forEach((t, i) => {
-        ctx.globalAlpha = i < z.step ? 0.35 : 1;
-        emoji(TASTES[t].icon, z.x - 16 + i * 32, z.y - z.r - 28, 18);
-        ctx.globalAlpha = 1;
-      });
-    }
-    if (z.hp < z.maxHp) {
-      ctx.fillStyle = 'rgba(0,0,0,.4)'; ctx.fillRect(z.x - z.r, z.y + z.r + 6, z.r * 2, 4);
-      ctx.fillStyle = '#c93f25'; ctx.fillRect(z.x - z.r, z.y + z.r + 6, z.r * 2 * Math.max(0, z.hp / z.maxHp), 4);
-    }
+    else tag(z, 'hz-tag hz-coat', TASTES[z.coat!].icon, s.x, s.y);
+    const t = tagged.get(z)!;
+    t.el.style.opacity = !z.ticket ? String(0.35 + 0.65 * Math.min(1, z.coatT)) : '';
   }
-
-  for (const sh of r.shots) disc(sh.x, sh.y, 4, sh.taste ? TASTES[sh.taste].color : '#f6ebd3');
-  for (const th of r.thrown) {
-    // in the air: from the chef to where it lands, up in an arc
-    const k = 1 - th.t / 0.5, x = th.fromX + (th.x - th.fromX) * k, y = th.fromY + (th.y - th.fromY) * k - Math.sin(k * Math.PI) * 60;
-    ring(th.x, th.y, DISHES[th.dish].r, 'rgba(255,195,74,.6)', 2);
-    emoji(DISHES[th.dish].emoji, x, y, 28);
+  for (const st of r.stamps) stamp(st);
+  if (r.serving) {
+    const s = r.serving, code = DISHES[r.loadout.dishes[s.slot]].code, at = toScreen(r.player.x, r.player.y, 2.2);
+    tag(SERVING, `hz-tag hz-serve${s.smudge > 0 ? ' smudged' : ''}`,
+      code.map((d, i) => `<i${s.ready || i < s.typed ? ' class="done"' : ''}>${MOVES[d]}</i>`).join(''), at.x, at.y);
   }
-
-  const p = r.player;
-  disc(p.x, p.y, 20, '#ffffff');
-  emoji('🧑‍🍳', p.x, p.y, 26);
-  if (r.serving) serveTicket(r);
-  if (r.serving?.ready) {
-    ring(aim.x, aim.y, DISHES[r.loadout.dishes[r.serving.slot]].r, '#ffc34a', 3);
-    disc(aim.x, aim.y, 4, '#ffc34a');
-  }
-
-  for (const st of r.stamps) {
-    ctx.save();
-    ctx.globalAlpha = Math.min(1, st.t * 2);
-    ctx.translate(st.x, st.y); ctx.rotate(-0.15);
-    ctx.font = '800 26px "Baloo 2", "Trebuchet MS", system-ui, sans-serif';
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    const w = ctx.measureText(st.text).width + 20;
-    ctx.fillStyle = '#fff8ec'; ctx.fillRect(-w / 2, -18, w, 36);
-    ctx.strokeStyle = '#c93f25'; ctx.lineWidth = 3; ctx.strokeRect(-w / 2, -18, w, 36);
-    ctx.fillStyle = '#c93f25'; ctx.fillText(st.text, 0, 1);
-    ctx.restore();
-  }
+  for (const [k, t] of tagged) if (!t.used) { t.el.remove(); tagged.delete(k); }
 }
 
-/** The recipe ticket over the chef while a dish's code goes in: done steps filled, a slip smudges it. */
-function serveTicket(r: Run) {
-  const s = r.serving!, code = DISHES[r.loadout.dishes[s.slot]].code, p = r.player;
-  const w = code.length * 34 + 12, x0 = p.x - w / 2, y0 = p.y - 84;
-  ctx.fillStyle = s.smudge > 0 ? '#e3c38f' : '#fff8ec'; ctx.fillRect(x0, y0, w, 44);
-  ctx.fillStyle = '#c93f25'; ctx.fillRect(x0, y0, w, 5);
-  code.forEach((d, i) => {
-    const x = x0 + 6 + i * 34;
-    ctx.fillStyle = s.ready || i < s.typed ? '#c93f25' : 'rgba(23,48,66,.09)';
-    ctx.fillRect(x, y0 + 9, 30, 30);
-    emoji(MOVES[d], x + 15, y0 + 24, 18);
-  });
+/** A technique's stamp, rising and fading where it popped. */
+function stamp(st: Stamp) {
+  const at = toScreen(st.x, st.y + 40, 2.2);
+  tag(st, 'hz-tag hz-stamp', `<b style="color:${st.color};border-color:${st.color}">${st.text}</b>`, at.x, at.y - (1.2 - st.t) * 30);
+  tagged.get(st)!.el.style.opacity = String(Math.min(1, st.t * 2));
 }

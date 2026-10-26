@@ -17,7 +17,7 @@ import { updKofi } from './kofi';
 import { player } from './player';
 import { updPointers } from './pointers';
 import { initReports, updReports } from './report';
-import { camera, camK, fog, OFF, renderer, scene, sun, sunOff } from './render';
+import { camera, camK, fog, OFF, renderer, scene, sun, sunOff, takeover } from './render';
 import { isStale, load, startAutosave, wipeSave } from './save';
 import { initScores } from './scores';
 import { drawMeet, meetCam } from './meet';
@@ -133,10 +133,12 @@ function frame(now: number) {
   updPointers(dt);
   drawTutorial(dt);
   hud(dt);
-  // (down in the cellar, the world up top isn't drawn: levelCull.ts)
-  const showAbove = hideAbove();
-  renderer.render(scene, camera);
-  showAbove();
+  // (down in the cellar, the world up top isn't drawn: levelCull.ts; nor is any of it under Cooking Hazard's street)
+  if (!takeover.on) {
+    const showAbove = hideAbove();
+    renderer.render(scene, camera);
+    showAbove();
+  }
   drawWay();
   if (loading) {
     const el = loading;

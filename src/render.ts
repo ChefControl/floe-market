@@ -49,6 +49,10 @@ export const fog = new Fog(0xCFEAF5, 34, 70);
 scene.fog = fog;
 
 export const camera = new PerspectiveCamera(40, 1, 0.1, 200);
+/** Something with a scene of its own has the screen (Cooking Hazard's street, hazardSet.ts): it draws itself, and the
+ *  game's world isn't drawn under it. */
+export const takeover = { on: false };
+
 /** Camera offset from the player. */
 export const OFF = V(5, 15, 12);
 export const CAM_YAW = Math.atan2(OFF.x, OFF.z);
