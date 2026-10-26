@@ -14,9 +14,11 @@ import {
 } from 'three';
 import { collideBlackjack, updBlackjack } from './blackjackTable';
 import { updTweens, visits } from './casinoKit';
+import { buildArcade, collideArcade, updArcade } from './casinoArcade';
 import { buildRestroom, collideRestroom, updRestroom } from './casinoRestroom';
 import { buildShame, updShame } from './wallOfShame';
 import { buildSalon, carpet, collideSalon, JACK, oblong, slab, strut, updSalon } from './casinoSalon';
+import { arcadeOn } from './flags';
 import { aboard, casinoBoat, DECKS, hullHalf, pushOutOfBox, QUAY, SHIP, UPPER } from './layout';
 import { player } from './player';
 import { popIn } from './pop';
@@ -251,6 +253,7 @@ function buildShip() {
   g.add(mesh(new SphereGeometry(0.06, 10, 8), GOLD, JACK.x, JACK.y, 0));
   buildSalon(g);
   buildRestroom(g);
+  if (arcadeOn()) buildArcade(g);
   buildShame(g);
   return { g };
 }
@@ -320,7 +323,7 @@ function updVisit() {
 /** Keeps the player out of the games' tables and machines, and the quay's booth and crates. */
 export function collideCasino(p: XZ) {
   if (!ship) return;
-  collideRoulette(p); collideBlackjack(p); collideSlots(p); collideSalon(p); collideRestroom(p);
+  collideRoulette(p); collideBlackjack(p); collideSlots(p); collideSalon(p); collideRestroom(p); collideArcade(p);
   for (const o of [BOOTH, CRATES]) pushOutOfBox(p, o.x, o.z, o.w / 2 + 0.3, o.d / 2 + 0.3);
 }
 
@@ -329,6 +332,7 @@ export function updCasino(dt: number) {
   updVisit();
   updSalon(dt, player.g.position, staging());
   updRestroom(dt);
+  updArcade(dt);
   updShame(dt);
   updTweens(dt);
   updRoulette(dt);

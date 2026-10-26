@@ -24,3 +24,20 @@ export function keepStage3() {
   on = true;
   try { localStorage.setItem(KEY, '1'); } catch { /* on for this visit */ }
 }
+
+// Cooking Hazard's arcade cabinet on the casino yacht (casinoArcade.ts), while its game is being built: on in the dev
+// server, the tests and the playtest build (VITE_FUGU_DEMO=1), off in the live game (VITE_ARCADE=on or off at build
+// time overrides that). A device switches it on with ?arcade=on in the address, for good (?arcade=off switches it back
+// off). With it off, the salon has its two guests' slot machines by the door, as before.
+const ARCADE = 'floe-market-arcade';
+const builtArcade = import.meta.env.VITE_ARCADE as string | undefined;
+let arcade = builtArcade ? builtArcade === 'on' : import.meta.env.DEV || import.meta.env.VITE_FUGU_DEMO === '1';
+try {
+  const asked = new URLSearchParams(location.search).get('arcade');
+  if (asked === 'on') localStorage.setItem(ARCADE, '1');
+  if (asked === 'off') localStorage.removeItem(ARCADE);
+  arcade ||= localStorage.getItem(ARCADE) === '1';
+} catch { /* storage unavailable: as built */ }
+
+/** Whether the arcade cabinet stands in the casino yacht's salon on this device. */
+export const arcadeOn = () => arcade;

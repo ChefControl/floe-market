@@ -6,7 +6,8 @@
 // walls on the camera's side fade while the player is inside. The games stand along the back wall, leaving the floor
 // open from the door to them, and round them it's full of life: a long bar across the stern with two bartenders and
 // guests on the stools (and the wall of shame hung over its window end, wallOfShame.ts), a short row of slot machines
-// by the door with guests playing them (now and then one wins), a
+// by the door with guests playing them (now and then one wins; with the arcade flag on, Cooking Hazard's arcade
+// cabinet, casinoArcade.ts, stands where the one nearer the door was), a
 // palm (in the restroom stall in the corner by the door, casinoRestroom.ts), a guest at the roulette table who cheers when the player wins, and a waiter carrying champagne along the
 // windows, who doesn't block the way and stops to toast with the player over a glass. None of it touches the game's
 // luck: the guests run on their own dice.
@@ -19,6 +20,7 @@ import { atTable, CHIPS, easeInOut, leaveSeat, onCheer, speaker, takeSeat, tipsy
 import { clink } from './sfx';
 import { animPerson, Person, SUITS } from './characters';
 import { byTheStall, STALL } from './casinoRestroom';
+import { arcadeOn } from './flags';
 import { atTheWall } from './wallOfShame';
 import { DECKS, inSalon, pushOutOfBox, SALON, SHIP, stage, UPPER } from './layout';
 import { player } from './player';
@@ -36,12 +38,12 @@ const WIN = { pitch: 1.3, w: 1.2, sill: 0.45, head: 2.0 };
 /** The door at the top of the stairs. */
 const DOOR = DECKS.stairs.half + 0.2;
 /** The salon's layout, in the ship's own space. The games stand along the back (north) wall (layout.ts). The bar runs
- *  the length of the stern, its counter at `x`, the back bar against the wall and stools out front; a short row of
- *  the guests' slot machines stands against the bow wall beside the door, facing aft; the waiter walks along the
- *  windows. */
+ *  the length of the stern, its counter at `x`, the back bar against the wall and stools out front; the guests' slot
+ *  machine stands against the bow wall in the corner beyond the door, facing aft (the arcade cabinet stands between it
+ *  and the door, where a second machine used to be: casinoArcade.ts); the waiter walks along the windows. */
 export const BAR = { x: SALON.x0 + 1.1, z0: -2.75, z1: 2.55, stools: [-2.1, -1.05, 0, 1.05, 2.1] };
 const STOOL_X = BAR.x + 0.55;
-export const ROW = { x: SALON.x1 - 0.42, zs: [-2.55, -1.7] };
+export const ROW = { x: SALON.x1 - 0.42, zs: arcadeOn() ? [-2.55] : [-2.55, -1.7] };
 /** A little potted palm in the corner by the door on the windows' side, beside the toilet in the restroom stall there
  *  (casinoRestroom.ts). */
 const PALMS = [[SALON.x1 - 0.26, SALON.side - 0.24]];
@@ -367,7 +369,7 @@ const SPIN = 1.6, STOPS = [0.9, 1.25, 1.6];
 interface Gambler { p: Person; m: Machine; wait: number; t: number; joy: number; say: ReturnType<typeof speaker> }
 
 function buildCrowd(g: Group) {
-  // the slot machines against the bow wall, facing aft (the row's turned a quarter round: along it is across)
+  // the slot machine against the bow wall, facing aft (the row's turned a quarter round: along it is across)
   const screens = ROW.zs.map((_, i) => {
     const { ctx, tex } = canvasTex(REELS_PX.w, REELS_PX.h, () => {});
     const pos = [i * 3, i * 7 + 2, i * 5 + 4];
@@ -378,12 +380,15 @@ function buildCrowd(g: Group) {
   row.g.position.set(ROW.x, UPPER, 0); row.g.rotation.y = -Math.PI / 2;
   g.add(row.g);
   const machines: Machine[] = screens.map((s, i) => ({ lever: row.levers[i], ctx: s.ctx, tex: s.tex, from: s.pos, to: s.pos, spin: 0 }));
-  const gamblers: Gambler[] = [0, 1].map((m, i) => {
+  const gamblers: Gambler[] = ROW.zs.map((_, m) => m).map((m, i) => {
     const p = guest(i);
     p.position.set(ROW.x - 0.75, UPPER, ROW.zs[m]); p.rotation.y = Math.PI / 2;
     g.add(p);
     return { p, m: machines[m], wait: 1 + i * 1.7, t: 0, joy: 0, say: speaker(p, 2.1) };
   });
+  // (the guest who played the machine where the arcade cabinet stands: still dressed, though not there, so everyone
+  // after looks just as they do without it)
+  if (ROW.zs.length < 2) guest(1);
   // the bar: two bartenders behind it, one polishing a glass and one shaking a cocktail, and guests on three stools
   const bartenders = [-1.1, 1.3].map(z => {
     const b = new Person(0x1F1F1F, 'waiter');
@@ -760,7 +765,7 @@ export const pourTo = (t: number) => { if (salon?.crowd.pour) salon.crowd.pour.t
 /** For tests: how far the roof is up (1) or lifted away (0), what the fan by the tables is saying, how many guests
  *  there are, how far the radar has turned, and where the fan and the waiter are (in the ship's own space). */
 export const salonView = () => ({
-  roof: salon?.roofK ?? 1, fan: salon?.crowd.fanSay.text ?? '', guests: salon ? 2 + 3 + 2 + 1 + 1 + 2 : 0,
+  roof: salon?.roofK ?? 1, fan: salon?.crowd.fanSay.text ?? '', guests: salon ? ROW.zs.length + 3 + 2 + 1 + 1 + 2 : 0,
   waiter: salon?.crowd.waiterSay.text ?? '', drinking: !!salon?.crowd.pour, says: salon?.crowd.hic.text ?? '',
   radar: salon?.roof.radar.rotation.y ?? 0,
   staff: salon ? [salon.crowd.fan.position, salon.crowd.waiter.position] : [],

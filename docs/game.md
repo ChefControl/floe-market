@@ -296,6 +296,8 @@ TypeScript + [three.js r186](https://threejs.org/), bundled with [Vite](https://
 
 `src/flags.ts` can keep stage 3 from players: with it off there's no hatch in the dock and Mr. Fugu never knocks. It's open in the live game, since the deploy builds with `VITE_STAGE3=on` (`.github/workflows/deploy.yml`); setting that to `off` takes it back. It's on in the dev server, the tests and the playtest build (`VITE_FUGU_DEMO=1`). In a build without it, open the game once with `?stage3=on` in the address to switch it on for that device (`?stage3=off` switches it back off). A save that has met Mr. Fugu switches it on wherever it's loaded, so a cloud save carries on on another device, and a player who's been down there keeps stage 3 even if it's taken back.
 
+`src/flags.ts` also keeps Cooking Hazard's arcade cabinet ([design](cooking-hazard.md)) off the casino yacht while its game is being built: it's on in the dev server, the tests and the playtest build, and off in the live game unless `VITE_ARCADE=on` at build time, or a device opens the game once with `?arcade=on` (`?arcade=off` switches it back off). With it off, the salon is as it was: two guests' slot machines by the door.
+
 [docs/balance.md](balance.md) sets out the principles the game is balanced by, stage by stage, the numbers that show when something is off, and where each upgrade stands.
 
 [docs/graphics.md](graphics.md) is the guide to drawing anything new: the Graphics setting and its menu row, building High and Low versions, keeping the game's luck intact, staying fast on phones, and checking the result. Agents get it through the `graphics` skill (`.claude/skills/graphics`).
@@ -419,7 +421,8 @@ Each deploy removes the last one's files, and GitHub Pages lets browsers keep th
 | `src/uiKit.ts` / `src/uiKit.css` | The UI kit every panel the player presses things in is made of (the standard: `.claude/skills/game-ui/SKILL.md`): cards, dialogs and full screens, four skins, main/plain/danger/choice buttons and their states (greyed when you can't afford it), and the keys (Esc closes, E the main button, 1–9 along a row, Shift shows them) |
 | `src/uiShowcase.ts` | `?ui=kit` in dev and demo builds: every piece of the UI kit in each skin |
 | `src/hazard.ts` | Cooking Hazard, the arcade cabinet's game to come ([design](cooking-hazard.md)): the rules of its fight (six tastes as elements, a coat and a second taste cooking a zombie into one of 15 techniques, dishes served by a recipe code, special zombies' order tickets, the Fresh → Stale → Expired → BIOHAZARD clock) |
-| `src/hazardPlay.ts` / `src/hazard.css` | `?arcade=on` in dev and demo builds: a greybox of that fight on a full screen over the game, mouse and keyboard only (WASD, aim and hold to fire, F shove, R reload, hold 1–2 and type a dish's code, then click to throw; Esc leaves) |
+| `src/casinoArcade.ts` | Cooking Hazard's arcade cabinet in the casino yacht's salon, beside the door (behind the arcade flag): its attract screen, the 🕹️ pad that brings the camera onto its face, and the card with the best run and Play |
+| `src/hazardPlay.ts` / `src/hazard.css` | Played from the cabinet (or `?arcade=play` straight away, in dev and demo builds): a greybox of that fight on a full screen over the game, mouse and keyboard only (WASD, aim and hold to fire, F shove, R reload, hold 1–2 and type a dish's code, then click to throw; Esc leaves) |
 | `src/save.ts` | Per-device save/load, migration, autosave, one-tab-at-a-time guard |
 | `src/cloud.ts` | Cloud saves: the sign-in button, syncing with the account, asking which game to keep |
 | `src/report.ts` | Report a bug or idea: its window, opened from the settings, the picture of the game, the notice of what's sent, and reports waiting for the cloud |
