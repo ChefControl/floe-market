@@ -5,7 +5,10 @@
 // it; &pot to start at the pot, for its cooking game; &gong on the gong's pad; &full with all of the cellar bought, the
 // Grand Hall's stands and every hand, line and level, for the biggest crowd: beaten=4&full is Fukure's rush, for timing
 // the graphics; &stuck as report 22 left a player, by the salt barrels with an armful of rice, the ledge, the pot and
-// the bowl counter all full). Or ?stage=1 for a stage 1 market instead (the 🛠 panel's buttons, demo.ts, open these).
+// the bowl counter all full). Or ?stage=1 for a stage 1 market instead (the 🛠 panel's buttons, demo.ts, open these), or
+// ?upto=ID for Floe Sushi built up to the upgrade ID, the rest still to buy (upto=chef: the third chef's tile on offer).
+// Any of them with &shame puts ten made-up players' worst bets on the casino's wall of shame (the demo never goes
+// online for the real one).
 // Nothing is kept, so every visit starts over, the tutorial included.
 import { GONG_PAD, machinePad, MAX_MACHINES, POT_PAD } from './cellarPlan';
 import { F, LEDGE_CAP } from './fight';
@@ -15,6 +18,7 @@ import { deviceStore, load } from './save';
 import { forgetLessons } from './tutorial';
 import { tiles } from './unlocks';
 import { FY } from './util';
+import { fakeWall } from './wallOfShame';
 
 export const DEMO = import.meta.env.VITE_FUGU_DEMO === '1';
 
@@ -25,6 +29,13 @@ const FULL = (beaten: number) => ({
   lines: { rice: { n: MAX_MACHINES, up: 1 }, fish: { n: MAX_MACHINES, up: 1 }, mush: { n: MAX_MACHINES, up: 1 } },
   den: { book: beaten >= 2, way: beaten >= 2, door: beaten >= 2, met: { eddie: beaten >= 2, harry: beaten >= 2, tommy: beaten >= 2 } },
 });
+
+/** Ten made-up worst bets for the wall of shame (&shame), the worst first, a few days apart. */
+const SHAMED = ['Dana Levi', 'Sam Okafor', 'Yuki Tanaka', 'Noa Ben-David', 'Chris P.', 'Avery Quinn', 'Mo Haddad', 'Lior',
+  'Rin Sato', 'Jordan Blake'].map((name, i) => ({
+  uid: `demo${i}`, name, lost: Math.round(9_900_000 / (1 + i * i * 0.6)), game: (['roulette', 'blackjack', 'slots'] as const)[i % 3],
+  ...(i % 3 === 0 ? { on: ['black', 'red'][i % 2] } : {}), broke: i % 4 === 0, at: Date.now() - i * 3 * 86_400_000,
+}));
 
 /** A market game for the 🛠 panel (demo.ts): stage 1 built (Floe Sushi to come), or stages 1 and 2 with none of the
  *  ring's tiles (they wait for Mr. Fugu's offer). */
@@ -51,15 +62,19 @@ export function startDemo() {
   // (and the tutorial's lessons from a visit before, which the device keeps apart from the save)
   forgetLessons();
   const q = new URLSearchParams(location.search), cellar = q.has('cellar');
+  if (q.has('shame')) fakeWall(SHAMED);
   // (?stage=1: a stage 1 market instead, from the 🛠 panel)
   if (!cellar && q.get('stage') === '1') { deviceStore.write(marketSave(1)); load(); return; }
   // (&chips=0 is broke, as coming down from the buy-in leaves you)
   const c = q.get('chips'), chips = Math.max(0, c !== null && c !== '' && Number.isFinite(Number(c)) ? Number(c) : 2_000), beaten = Math.max(0, Math.floor(Number(q.get('beaten')) || 0));
   const south = q.has('south'), full = cellar && q.has('full'), stuck = cellar && q.has('stuck');
+  // (?upto=ID: Floe Sushi's upgrades after ID still to buy)
+  const sushi: string[] = tiles.filter(t => t.stage === 2).map(t => t.id), upto = cellar ? -1 : sushi.indexOf(q.get('upto') ?? '');
+  const toBuy = (t: { id: string; stage: number }) => upto >= 0 && t.stage === 2 && sushi.indexOf(t.id) > upto;
   deviceStore.write(JSON.stringify({
     v: 4, savedAt: Date.now(), money: cellar ? chips * 1_000 : 999_900,
     // (stages 1 and 2 built; the ring's own tiles, its $1M buy-in included, wait for his offer)
-    tiles: tiles.filter(t => (t.stage < 3 && t.id !== 'dohyo') || (cellar && t.id === 'dohyo') || (full && t.stage === 3 && !t.gold))
+    tiles: tiles.filter(t => (t.stage < 3 && t.id !== 'dohyo' && !toBuy(t)) || (cellar && t.id === 'dohyo') || (full && t.stage === 3 && !t.gold))
       .map(t => ({ id: t.id, paid: t.cost, done: true, open: true })),
     mods: { fillets: 6, marketing: 8, training: 8, specials: 8, promo: 8, crew: 8, ...(full ? { bowls: 8, street: 8, cellarcrew: 8 } : {}) },
     reviews: Array(20).fill(5), pile: 20, back: 0, backRice: 0, c1: 0, c1c: 0, c2: 0, c2c: 0,

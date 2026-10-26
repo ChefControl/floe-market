@@ -242,6 +242,16 @@ The 🏆 button (top right) lists the 20 players who have held the most cash at 
 - **Data:** one Firestore document per player, `scores/{your account id}`, with that name, the best and the stage. Anyone can read the scoreboard; only you can write your own entry (`firestore.rules`). A project set up before the scoreboard needs `firestore.rules` pasted and published again, or the scoreboard says it can't load; so does one set up before stage 3, whose rules only accept stages 1 and 2 (a stage 3 player's entry would be refused).
 - **Quota:** opening the scoreboard reads up to 20 documents. A signed-in player writes their entry at most once per sync, and only when their best or stage changed.
 
+### Wall of shame
+
+On the casino boat, a sign hangs from the wall behind the bar, over its window end: the worst bet ever made at the boat's games, and whose it was. Step on the 💔 pad in front of the bar by it, and **Wall of shame** opens the ten worst bets of all, each with who made it, the amount, what it was on and the date.
+
+- **A bet:** one round at roulette, blackjack or the slots, and what it lost: everything staked on it (blackjack's doubles, splits and insurance too) less whatever it paid back. Each player is on the wall once, with their worst.
+- **Getting on it:** sign in. Your worst goes up the moment you make it, and only ever gets worse: a smaller loss, another device or a Restart doesn't replace it. Not signed in, your worst is kept on this device and shows among the rest only to you, with a button to sign in.
+- **Data:** one Firestore document per player, `shame/{your account id}`, with your name (as on the scoreboard), the amount, the game, what it was on, whether it left you broke, and when. Anyone can read it; only you can write your own entry, and only with a bigger loss (`firestore.rules`). A project set up before the wall needs `firestore.rules` pasted and published again, or the wall can't load and nobody's bets go up.
+- **Quota:** the wall reads up to 10 documents when the player boards the salon, once a minute while they're in it, and each time they open it. A signed-in player writes their entry with each new worst bet, and at most once per sync.
+- **Demo build:** it never goes online, so the wall only has the player's own; `&shame` in the address puts up ten made-up bets (`src/fuguDemo.ts`).
+
 ### Reports
 
 **Report a bug or idea** (🐞 in the settings, under About) sends a note to the developer. It shows once cloud saves are set up. Signed out, the row says "Sign in to send a report" and signs in. Signed in, it closes the settings and opens a window of its own over the dimmed game. ✕, Cancel, a tap on the game around it or Escape close it, and a note not yet sent is still there next time.
@@ -408,6 +418,8 @@ Each deploy removes the last one's files, and GitHub Pages lets browsers keep th
 | `src/ui.ts` | HUD and stage chip (which folds the modifier list), toasts, tips, floating text, the stage-up banner and confetti, and sliding the view so an open panel never covers the player |
 | `src/uiKit.ts` / `src/uiKit.css` | The UI kit every panel the player presses things in is made of (the standard: `.claude/skills/game-ui/SKILL.md`): cards, dialogs and full screens, four skins, main/plain/danger/choice buttons and their states (greyed when you can't afford it), and the keys (Esc closes, E the main button, 1–9 along a row, Shift shows them) |
 | `src/uiShowcase.ts` | `?ui=kit` in dev and demo builds: every piece of the UI kit in each skin |
+| `src/hazard.ts` | Cooking Hazard, the arcade cabinet's game to come ([design](cooking-hazard.md)): the rules of its fight (six tastes as elements, a coat and a second taste cooking a zombie into one of 15 techniques, dishes served by a recipe code, special zombies' order tickets, the Fresh → Stale → Expired → BIOHAZARD clock) |
+| `src/hazardPlay.ts` / `src/hazard.css` | `?arcade=on` in dev and demo builds: a greybox of that fight on a full screen over the game, mouse and keyboard only (WASD, aim and hold to fire, F shove, R reload, hold 1–2 and type a dish's code, then click to throw; Esc leaves) |
 | `src/save.ts` | Per-device save/load, migration, autosave, one-tab-at-a-time guard |
 | `src/cloud.ts` | Cloud saves: the sign-in button, syncing with the account, asking which game to keep |
 | `src/report.ts` | Report a bug or idea: its window, opened from the settings, the picture of the game, the notice of what's sent, and reports waiting for the cloud |

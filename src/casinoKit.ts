@@ -11,6 +11,7 @@ import { level, stage, type StageN } from './layout';
 import { player } from './player';
 import { camera, canvasTex, FONT, mesh, rr } from './render';
 import type { Moves } from './round';
+import { clack } from './sfx';
 import { besideView, tableRoom, topOfView } from './ui';
 import { panel as kitPanel, state, usable, type State } from './uiKit';
 import { d2xz, FY, type XZ } from './util';
@@ -50,25 +51,42 @@ export const GRACE = 10;
  *
  * The panel's a card of the UI kit (uiKit.ts) in its casino skin: Esc shuts it as if the player had stepped off, till
  * they do, or press E where they stand.
+ *
+ * A game's pad asks first (`ask`, a card with the game's name and a Play button): stepping on it doesn't sit the player
+ * down at the table till they press Play (or E). Back on the pad before a round they walked off from is played out,
+ * they go straight back to it.
  */
 export function gamePad(
   at: XZ & { y?: number }, icon: string, panel: HTMLElement,
-  h: { opened(): void; closed(): void; greet(): void; live(): boolean; say(text: string): void; away: string },
+  h: { opened(): void; closed(): void; greet(): void; live(): boolean; say(text: string): void; away: string; ask?: HTMLElement },
   view: Seat, here: () => boolean = () => !level.down, reach = REACH,
 ) {
   const d = decal(1.9, (c, w, ht) => drawPad(c, w, ht, icon));
   d.mesh.position.set(at.x, (at.y ?? FY) + 0.01, at.z);
   d.mesh.visible = false;
   const card = kitPanel(panel, { place: 'card', skin: 'casino' });
-  // wait: seconds left for a player who stepped off mid-round (0 when nobody's being waited for)
-  let enabled = false, open = false, greeted = -1, wait = 0;
+  const ask = h.ask ? kitPanel(h.ask, { place: 'card', skin: 'casino' }) : null;
+  // wait: seconds left for a player who stepped off mid-round (0 when nobody's being waited for); playing: they've
+  // pressed Play since they stepped on (always, for a pad that doesn't ask)
+  let enabled = false, open = false, greeted = -1, wait = 0, playing = !ask;
+  h.ask?.querySelector<HTMLButtonElement>('.k-main')?.addEventListener('click', () => {
+    playing = true; h.ask!.hidden = true;
+    clack();
+  });
   return {
     /** The marking on the deck. */
     mark: d.mesh,
     enable() { enabled = true; d.mesh.visible = true; },
     upd(dt: number) {
       if (!enabled) return false;
-      const near = card.near(here() && d2xz(player.g.position, at) < reach * reach);
+      const on = here() && d2xz(player.g.position, at) < reach * reach;
+      if (ask) {
+        if (!on) playing = false;
+        else if (wait > 0) playing = true;
+        const asking = ask.near(on && !playing);
+        if (asking !== !h.ask!.hidden) h.ask!.hidden = !asking;
+      }
+      const near = card.near(on && playing);
       if (near !== open) {
         open = near;
         panel.hidden = !open;

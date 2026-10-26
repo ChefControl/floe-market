@@ -26,6 +26,15 @@ const stutter = (frameDrawn: (s: number) => void, every: number, seconds: number
 };
 
 describe('graphics', () => {
+  it("keeps the textures' canvases in the computer's memory, where a phone can't wipe them (reports 16-18, 20)", async () => {
+    await loadGame();
+    const { canvasTex } = await import('../src/render');
+    const asked = vi.spyOn(HTMLCanvasElement.prototype, 'getContext');
+    canvasTex(8, 8, () => {});
+    expect(asked).toHaveBeenCalledWith('2d', { willReadFrequently: true });
+    asked.mockRestore();
+  });
+
   it('draws people plainer on Low: blocks for arms and legs, no ears, nose or buttons', async () => {
     const g = await loadGame();
     const { Person, LIMBS } = await import('../src/characters');
