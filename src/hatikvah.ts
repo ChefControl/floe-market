@@ -8,7 +8,8 @@
 // four bars again, as it's sung, softer in the verses and fullest at the end; then a bar's breath, and round again.
 // While it plays, the game's sounds are on F major pentatonic (the same notes as D minor pentatonic).
 //
-// It plays into a mix of its own (music.ts fades it in as you walk up to the boat), through a room's reverb. As with the
+// It plays into a mix of its own (music.ts fades it in as you walk out along the pier to the boat, once it's moored),
+// through a room's reverb. As with the
 // rest of the music: every note starts over at least 8 ms, nothing is bright above about 4 kHz, and nothing drops fast.
 import { ac, buses, hz, noise, rnd, tone, type ToneVoice } from './audio';
 

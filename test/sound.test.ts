@@ -505,11 +505,15 @@ describe('music', () => {
     expect(m.harborK({ x: SHIP.x, z: SHIP.z })).toBe(1);
   }, 30_000);
 
-  it("plays Hatikvah on and near the voting boat on election day, the stage's music going out under it, and away from it the stage's own", async () => {
+  it("plays Hatikvah on and near the voting boat, moored on election day, the stage's music going out under it, and away from it the stage's own", async () => {
     vi.useFakeTimers({ toFake: ['Date'], now: new Date(2026, 9, 27, 12) });
     try {
       const s = await withSound({ tiles: bought(...MARKET) });
-      const m = await import('../src/music'), h = await import('../src/hatikvah'), { VOTE_BOAT, voteBoat } = s.g.layout;
+      const m = await import('../src/music'), h = await import('../src/hatikvah'), { PIER, VOTE_BOAT, voteBoat } = s.g.layout;
+      // (moored already, rather than sailing in)
+      const { boat } = await import('../src/votingBoat');
+      Object.assign(boat!, { sail: 'in', t: 1e3 });
+      s.play(0.5);
       expect(voteBoat.open).toBe(true);
       // where the player starts: the market's music alone
       s.g.placePlayer(-1.5, -2);
@@ -517,8 +521,8 @@ describe('music', () => {
       expect(m.voteK()).toBe(0);
       expect(h.hatikvahMix()).toBe(0);
       expect(m.musicMix().stage).toBeCloseTo(1, 3);
-      // on the dock in front of the boat: coming in, the market's music still under it
-      s.g.placePlayer((VOTE_BOAT.gangway.x0 + VOTE_BOAT.gangway.x1) / 2, -5.5);
+      // out along the pier: coming in, the market's music still under it
+      s.g.placePlayer((PIER.x0 + PIER.x1) / 2, VOTE_BOAT.hull.z1 + 4);
       s.play(1);
       expect(m.voteK()).toBeGreaterThan(0.3);
       expect(m.voteK()).toBeLessThan(1);
@@ -555,10 +559,10 @@ describe('music', () => {
       const s = await withSound({ tiles: bought(...MARKET) });
       const m = await import('../src/music'), h = await import('../src/hatikvah'), { VOTE_BOAT, voteBoat } = s.g.layout;
       expect(voteBoat.open).toBe(false);
-      s.g.placePlayer((VOTE_BOAT.gangway.x0 + VOTE_BOAT.gangway.x1) / 2, -5.5);
+      s.g.placePlayer((VOTE_BOAT.gangway.x0 + VOTE_BOAT.gangway.x1) / 2, VOTE_BOAT.hull.z1 + 1);
       s.play(4);
       expect(m.voteK()).toBe(0);
-      expect(m.voteK({ x: (VOTE_BOAT.cabin.x0 + VOTE_BOAT.cabin.x1) / 2, z: -9 })).toBe(0);
+      expect(m.voteK({ x: (VOTE_BOAT.cabin.x0 + VOTE_BOAT.cabin.x1) / 2, z: (VOTE_BOAT.cabin.z0 + VOTE_BOAT.cabin.z1) / 2 })).toBe(0);
       expect(h.hatikvahMix()).toBe(0);
       expect(m.musicMix().stage).toBeCloseTo(1, 3);
     } finally { vi.useRealTimers(); }

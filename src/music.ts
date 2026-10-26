@@ -17,7 +17,7 @@
 // - The casino yacht: its lounge band (lounge.ts), a piano trio in 5/4, in a key of its own. It comes in as you walk
 //   up the quay to the yacht, the stage's music going out under it, and has the music to itself aboard.
 // - The voting boat, on Israel's election day only: Hatikvah, the anthem (hatikvah.ts), in the game's own sound. It
-//   comes in the same way as you walk up the dock to the boat, and has the music to itself aboard.
+//   comes in the same way as you walk out along the pier to the boat, moored, and has the music to itself aboard.
 //
 // Each tune plays twice, and after every two tunes a verse leaves the tune out, for a rest (not the gloop ring's). The music fades away
 // under the songs (her house, Korki's statue), the rain and the stage-up's fanfare. The game's own sounds are on the
@@ -434,12 +434,12 @@ function updLounge(k: number, now: number) {
 }
 
 // ---------- the voting boat ----------
-/** How far out from the voting boat's hull Hatikvah starts to be heard, in metres: the strip of the dock in front of it
- *  (any further, and it would be over the market's own music where the player starts). */
-const BOAT_FADE = 3.5;
+/** How far out from the voting boat's hull Hatikvah starts to be heard, in metres: along the pier, from its foot at the
+ *  dock's edge (the market keeps its own music). */
+const BOAT_FADE = 8;
 /**
- * How far Hatikvah has taken over, 0 to 1: nothing away from the boat (or on any day it isn't in), coming in as you
- * walk up the dock to it, and all of it on the gangway and aboard.
+ * How far Hatikvah has taken over, 0 to 1: nothing away from the boat (or on any day it isn't in, or while it's sailing
+ * in or away), coming in as you walk out along the pier to it, and all of it on the gangway and aboard.
  */
 export function voteK(p: XZ = ear) {
   if (!voteBoat.open || level.down) return 0;
@@ -516,7 +516,7 @@ function schedule() {
   if (!ac) return;
   if (prefs.mute.music || ac.state !== 'running') { on = false; lounge.on = false; noir.on = false; anthem.on = false; return; }
   const now = ac.currentTime, harbor = harborK(), den = club.k, vote = voteK(), away = Math.max(harbor, den, vote), pot = potPlaying();
-  // the stage's music and the lounge band's crossfading up the quay, or Hatikvah's up the dock to the voting boat, or
+  // the stage's music and the lounge band's crossfading up the quay, or Hatikvah's out along the pier to the voting boat, or
   // down the Undertow's tunnel the stage's and the club's band's (doorway.ts); and the stage's all out under the cooking game's music at the pot (potMusic.ts),
   // coming back slowly as that fades away
   stageMix?.gain.setTargetAtTime(pot ? 0 : Math.cos(away * Math.PI / 2), now, potFading() ? 0.5 : 0.15);
