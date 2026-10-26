@@ -501,7 +501,7 @@ function build() {
   flying.scale.set(0.16, 0.02, 0.11); flying.visible = false; flying.userData.noBatch = true;
   scene.add(flying);
   // ---- the sticker on the chest: a round blue הצבעתי ("I voted"), as the polling stations hand out, a white ring
-  // round it and a blue heart edged in white over the word ----
+  // round it and a white heart over the word ----
   const stickerTex = canvasTex(256, 256, (c, w, h) => {
     c.fillStyle = '#0038B8'; c.beginPath(); c.arc(w / 2, h / 2, w / 2 - 4, 0, 7); c.fill();
     c.strokeStyle = '#fff'; c.lineWidth = 10; c.beginPath(); c.arc(w / 2, h / 2, w / 2 - 22, 0, 7); c.stroke();
@@ -515,7 +515,7 @@ function build() {
       c.bezierCurveTo(x + r * 0.2, top - r * 0.15, x + r * 0.8, top - r * 0.15, x + r, top + r * 0.25);
       c.bezierCurveTo(x + r * 1.15, top + r * 0.6, x + r * 0.75, bottom - r * 0.55, x, bottom);
     };
-    heart(w / 2, 90, 36); c.fillStyle = `#${C.sea.toString(16).padStart(6, '0')}`; c.fill(); c.lineWidth = 7; c.stroke();
+    heart(w / 2, 90, 36); c.fillStyle = '#fff'; c.fill();
     c.fillStyle = '#fff';
     c.font = `800 54px ${FONT}, Arial, sans-serif`; c.textAlign = 'center'; c.textBaseline = 'middle';
     c.direction = 'rtl';
