@@ -298,8 +298,7 @@ export function enterStage2(silent: boolean, onMove = () => {}) {
       },
       { t: 1.7, run: () => banner(null) },
       { t: 2.2, run: () => { banner('Stage 2', 'Floe Sushi'); confetti(); fanfare(2); } },
-      // (what became of the fish stall, which a player asked after: report 15)
-      { t: 5.4, run: () => { banner(null); toast('Your fish stall is now Floe Sushi'); toast('Rice grows on the terrace, out the west door'); } },
+      { t: 5.4, run: () => { banner(null); toast('Rice grows on the terrace, out the west door'); } },
     ],
   };
   updStage(0);

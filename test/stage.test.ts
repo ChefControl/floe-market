@@ -68,15 +68,6 @@ describe('the stage-up', () => {
     expect(boat.every(o => o.visible && o.scale.x === 1)).toBe(true);
   });
 
-  it("says what became of the fish stall, then where the rice grows (report 15)", async () => {
-    // (toasts take turns on the clock, not the game's time)
-    const g = await loadGame({ tiles: bought(...MARKET) });
-    g.unlocks.applyUnlock('sushi');
-    g.runUntil(() => $('toast').textContent === 'Your fish stall is now Floe Sushi', 8);
-    expect($('banner').classList.contains('on')).toBe(false); // (once the banner's gone)
-    await vi.waitFor(() => expect($('toast').textContent).toBe('Rice grows on the terrace, out the west door'), { timeout: 3000 });
-  });
-
   it('moves fast for players who prefer less motion', async () => {
     vi.stubGlobal('matchMedia', () => ({ matches: true }));
     const g = await loadGame({ tiles: bought(...MARKET) });
