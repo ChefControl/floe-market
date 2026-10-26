@@ -14,6 +14,7 @@ import { popText } from './ui';
 import { state } from './uiKit';
 import { money, V, type XZ } from './util';
 import { addMoney, wallet } from './wallet';
+import { scoreBet } from './worstBet';
 
 const AT = GAMES.slots;
 /** The middle machine; the other two stand either side of it. */
@@ -206,6 +207,7 @@ function settle() {
   pos = [...s.to];
   const { line: syms, win: won } = s.round;
   apply(s.round.settle());
+  scoreBet('slots', s.round.stake, won);
   if (won > 0) {
     popText('+' + money(won), { x: BANK.x, y: AT.y + 1.9, z: BANK.z });
     if (lineMultiplier(syms) === THREE['7']) jackpot(); else win();
@@ -228,6 +230,7 @@ const pad = gamePad(AT, '🎰', panel, {
   live: () => !!spin,
   say: text => bank!.sign.say(text),
   away: 'Still spinning!',
+  ask: $('slotsAsk'),
 }, {
   at: V(BANK.x + 0.08, AT.y + 1.1, BANK.z + 0.3), from: V(0, 0.4, 1).normalize(), wide: 1.0, tall: 1.35,
 });

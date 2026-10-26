@@ -5,7 +5,8 @@
 // each side of the ship below the salon, its bulbs chasing round it. As in the restaurant, the roof lifts away and the
 // walls on the camera's side fade while the player is inside. The games stand along the back wall, leaving the floor
 // open from the door to them, and round them it's full of life: a long bar across the stern with two bartenders and
-// guests on the stools, a short row of slot machines by the door with guests playing them (now and then one wins), a
+// guests on the stools (and the wall of shame hung over its window end, wallOfShame.ts), a short row of slot machines
+// by the door with guests playing them (now and then one wins), a
 // palm (in the restroom stall in the corner by the door, casinoRestroom.ts), a guest at the roulette table who cheers when the player wins, and a waiter carrying champagne along the
 // windows, who doesn't block the way and stops to toast with the player over a glass. None of it touches the game's
 // luck: the guests run on their own dice.
@@ -18,6 +19,7 @@ import { atTable, CHIPS, easeInOut, leaveSeat, onCheer, speaker, takeSeat, tipsy
 import { clink } from './sfx';
 import { animPerson, Person, SUITS } from './characters';
 import { byTheStall, STALL } from './casinoRestroom';
+import { atTheWall } from './wallOfShame';
 import { DECKS, inSalon, pushOutOfBox, SALON, SHIP, stage, UPPER } from './layout';
 import { player } from './player';
 import { bake, bakePainted, canvasTex, FONT, G, mesh, scene, type Part } from './render';
@@ -704,7 +706,7 @@ function updCrowd(c: ReturnType<typeof buildCrowd>, dt: number, clock: number) {
   }
   // the waiter walks up and down with the tray, pausing at each end, and stops for the player to offer a glass
   const w = c.waiter, walk = c.walk, pp = player.g.position, wAt = waiterAt(c);
-  const near = !!c.pour || card.near(inSalon(pp) && !atTable() && !byTheStall() && Math.hypot(pp.x - wAt.x, pp.z - wAt.z) < NEAR);
+  const near = !!c.pour || card.near(inSalon(pp) && !atTable() && !byTheStall() && !atTheWall() && Math.hypot(pp.x - wAt.x, pp.z - wAt.z) < NEAR);
   if (near !== !bubbly.hidden) { bubbly.hidden = !near; if (near) shown = ''; }
   if (near) refreshBubbly();
   c.waiterSay.upd(dt); c.hic.upd(dt);

@@ -4,18 +4,22 @@
 // it wins; if both have (two devices played since), the player picks which game to keep. Firebase itself
 // (firebase.ts, downloaded by the loading screen) is only started while cloud saves are on: at once for a signed-in
 // device, otherwise a few seconds after the game starts, so the sign-in window can open the moment the button is tapped. Signed-in players also put
-// their best on the scoreboard (scores.ts), and can send a bug report or an idea (report.ts).
+// their best on the scoreboard (scores.ts) and their worst bet on the wall of shame (wallOfShame.ts), and can send a
+// bug report or an idea (report.ts).
 import { firebaseConfig } from './cloud.config';
 import type { StageN } from './layout';
 import { deviceStore, isStale, replaceSave, type SaveData } from './save';
 import { toast } from './ui';
 import { money } from './util';
+import { worstBet, type Game } from './worstBet';
 
 export interface CloudUser { uid: string; name: string }
 /** A save as the cloud keeps it: save.ts's JSON, and when it was made. */
 export interface CloudSave { data: string; savedAt: number }
 /** A player on the scoreboard: the most cash they've held at once, in any game, and the furthest stage reached. */
 export interface Score { uid: string; name: string; best: number; stage: StageN }
+/** A player on the wall of shame (wallOfShame.ts): the most one round at the casino's games ever lost them. */
+export interface Shame { uid: string; name: string; lost: number; game: Game; on?: string; broke: boolean; at: number }
 /**
  * A bug report or an idea, as the player sends it (report.ts). The game state and the picture are left out when the
  * player unticks them. `device`, `errors` and `live` are JSON. `id` names it, so sending it again can't make two.
@@ -46,6 +50,10 @@ export interface CloudBackend {
   postScore(s: Score): Promise<void>;
   /** The scoreboard's top `n`, best first. */
   topScores(n: number): Promise<Score[]>;
+  /** Puts a player's worst bet on the wall of shame, unless they'd already lost more in one round. */
+  postShame(s: Shame): Promise<void>;
+  /** The wall of shame's top `n`, the most lost first. */
+  topShame(n: number): Promise<Shame[]>;
   /** Files a report for the signed-in player. Refused (`permission-denied`) if it came too soon after the last. */
   sendReport(uid: string, r: Report): Promise<void>;
 }
@@ -155,6 +163,7 @@ export async function sync(ask = true) {
     }
     cloud.state = 'saved'; cloud.syncedAt = Date.now();
     await postScore().catch(() => { /* the scoreboard can wait for the next sync */ });
+    await postShame().catch(() => { /* and so can the wall of shame */ });
   } catch {
     cloud.state = 'offline';
   } finally {
@@ -191,6 +200,21 @@ export async function postScore() {
   await b.postScore(s);
   posted = key;
 }
+
+/** What this device last put on the wall of shame. */
+let shamed = '';
+/** Puts this device's worst bet on the wall of shame, for a signed-in player. */
+export async function postShame() {
+  const u = cloud.user, b = backend, w = worstBet();
+  if (!u || !b || !w) return;
+  const s: Shame = { uid: u.uid, name: publicName(u.name), ...w };
+  const key = JSON.stringify(s);
+  if (key === shamed) return;
+  await b.postShame(s);
+  shamed = key;
+}
+/** The wall of shame's top `n`, if the cloud's been started (it isn't asked to start just for this); null if not. */
+export const topShame = (n: number) => backend?.topShame(n) ?? Promise.resolve(null);
 
 /** Swaps this device's game for the account's, and restarts the page to play it. */
 function adopt(link: Link, remote: CloudSave) {

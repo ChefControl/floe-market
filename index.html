@@ -649,6 +649,18 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
   position:absolute; right:12px; top:12px; width:36px; height:36px; border:0; border-radius:50%; background:var(--chip);
   color:inherit; font-size:18px; line-height:1; cursor:pointer;
 }
+#shameList{ list-style:none; margin:0; padding:0; overflow-y:auto; touch-action:pan-y; display:flex; flex-direction:column; gap:4px; }
+#shameList li{
+  display:grid; grid-template-columns:24px minmax(0,1fr) auto; column-gap:8px; align-items:baseline;
+  padding:6px 10px; border-radius:12px; font-size:16px; font-weight:700;
+}
+#shameList li:nth-child(odd){ background:rgba(255,248,236,.08); }
+#shameList li.me{ box-shadow:inset 0 0 0 2px #E3B23C; }
+#shameList .rank{ text-align:right; font-weight:800; opacity:.7; }
+#shameList li:nth-child(-n+3) .rank{ color:#F2C14E; opacity:1; }
+#shameList .name{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+#shameList .lost{ font-weight:800; color:#F2C14E; }
+#shameList .what{ grid-column:2 / 4; font-size:13px; font-weight:700; opacity:.75; }
 #scoresList{ list-style:none; margin:0; padding:0; overflow-y:auto; touch-action:pan-y; }
 #scoresList li{ display:flex; align-items:center; gap:8px; padding:6px 10px; border-radius:12px; font-size:16px; font-weight:600; }
 #scoresList li:nth-child(odd){ background:var(--chip); }
@@ -1583,6 +1595,10 @@ body.show #toss, body.show #cook, body.show #coach, body.show #hint, body.show #
   <div id="lookTabs" role="tablist" aria-label="Your look"><button type="button" role="tab" aria-controls="lookRows">Body</button><button type="button" role="tab" aria-controls="lookRows">Face</button><button type="button" role="tab" aria-controls="lookRows">Hair</button><button type="button" role="tab" aria-controls="lookRows">Extras</button><button type="button" role="tab" aria-controls="lookRows">Clothes</button></div>
   <div id="lookRows" role="tabpanel" aria-labelledby="lookTitle"></div>
 </section>
+<div id="rouletteAsk" class="casino" hidden>
+  <p class="msg k-msg">🎡 Roulette</p>
+  <button type="button" class="go k-btn k-main">Play</button>
+</div>
 <div id="roulette" class="casino" hidden>
   <p id="rouletteMsg" class="msg k-msg" aria-live="polite"></p>
   <div class="bets k-keys" id="betKinds" role="group" aria-label="Bet">
@@ -1600,6 +1616,10 @@ body.show #toss, body.show #cook, body.show #coach, body.show #hint, body.show #
   </div>
   <button type="button" id="spin" class="go k-btn k-main"></button>
   <div id="history" class="sr" aria-label="Recent results"></div>
+</div>
+<div id="blackjackAsk" class="casino" hidden>
+  <p class="msg k-msg">🃏 Blackjack</p>
+  <button type="button" class="go k-btn k-main">Play</button>
 </div>
 <div id="blackjack" class="casino" hidden>
   <p id="bjMsg" class="msg k-msg" aria-live="polite"></p>
@@ -1629,6 +1649,10 @@ body.show #toss, body.show #cook, body.show #coach, body.show #hint, body.show #
   </div>
   <button type="button" id="deal" class="go k-btn k-main"></button>
 </div>
+<div id="slotsAsk" class="casino" hidden>
+  <p class="msg k-msg">🎰 Slots</p>
+  <button type="button" class="go k-btn k-main">Play</button>
+</div>
 <div id="slots" class="casino" hidden>
   <p id="slotsMsg" class="msg k-msg" aria-live="polite"></p>
   <div id="pays" class="sr" aria-label="What pays"></div>
@@ -1653,6 +1677,10 @@ body.show #toss, body.show #cook, body.show #coach, body.show #hint, body.show #
   </div>
   <button type="button" id="eddieFix" class="go k-btn k-main"></button>
   <p id="eddieOdds" class="odds k-cap" hidden></p>
+</div>
+<div id="monteAsk" class="casino" hidden>
+  <p class="msg k-msg">🃏 Tommy's monte</p>
+  <button type="button" class="go k-btn k-main">Play</button>
 </div>
 <div id="monte" class="casino" hidden>
   <p id="monteMsg" class="msg k-msg" aria-live="polite"></p>
@@ -1697,6 +1725,18 @@ body.show #toss, body.show #cook, body.show #coach, body.show #hint, body.show #
   <p id="bubblyMsg" class="msg k-msg" aria-live="polite"></p>
   <button type="button" id="sip" class="go k-btn k-main"></button>
 </div>
+<div id="shameCard" class="casino" hidden>
+  <p id="shameCardMsg" class="msg k-msg" aria-live="polite"></p>
+  <button type="button" id="shameOpen" class="go k-btn k-main">Wall of shame 💔</button>
+</div>
+<div id="shame" class="casino" role="dialog" aria-modal="true" aria-labelledby="shameTitle" hidden><div class="k-sheet">
+  <button type="button" id="shameClose" class="k-btn k-plain k-x" aria-label="Close the wall of shame"><span aria-hidden="true">✕</span></button>
+  <h2 id="shameTitle" class="k-title">💔 Wall of shame 💔</h2>
+  <p class="k-cap">The worst bets ever made here</p>
+  <ol id="shameList" aria-label="The most lost in one round"></ol>
+  <p id="shameMe" class="k-cap" role="status"></p>
+  <button type="button" id="shameJoin" class="k-btn k-plain" hidden>Sign in to join</button>
+</div></div>
 <div id="tears" class="casino" hidden>
   <p id="tearsMsg" class="msg k-msg" aria-live="polite"></p>
   <button type="button" id="cry" class="go k-btn k-main"></button>

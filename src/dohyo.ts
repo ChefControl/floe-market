@@ -24,6 +24,7 @@ import { boss, CY, DRUMS, parts, PIT_STEPS, RING, RING_HALF, RING_R, RING_TOP } 
 import { TEPPO } from './cellarPlan';
 import { belowGround, Person } from './characters';
 import { gyojiModel } from './gyoji';
+import { headless } from './headless';
 import { bossOf, BOUT, epic, F, FINISH, finish, payLen, slamLanded, slamOn } from './fight';
 import { animOf, moveOf } from './finishers';
 import { aftermath, UP, type Ctx, drive as driveRig, type FinishMove, type Frame, type Fx, makeRing, type V3 } from './finishRig';
@@ -32,7 +33,7 @@ import { LOOKS, SLAPS } from './creatures';
 import { dustFx, inkFx, saltFx, slimeFx } from './fx';
 import { isHigh } from './graphics';
 import { apart, dice, quietly } from './kit';
-import { camera, FONT, rr, scene } from './render';
+import { camera, ctx2d, FONT, rr, scene } from './render';
 import { crowd, react } from './ringSound';
 import { CHAMP, CHAMP_BELT, LOCAL_BELTS, mixPose, type Pose, pose, RikishiModel } from './rikishi';
 import { BRACE, CHARGE, CROUCH, CROUCH1, DRIVE, GRIP, RISE, SHIKO_LOW, SQUAT, STAND, STANDOFF, shikoUp, sideways, slap, steps, walk } from './poses';
@@ -269,7 +270,7 @@ const words = quietly(() => Array.from({ length: 6 }, () => {
 let wordAt = 0;
 function word(text: string, p: Vector3, o: { fill?: string; size?: number; bubble?: boolean; life?: number; always?: boolean } = {}) {
   if (!o.bubble && !o.always && !isHigh()) return;
-  const w = words[wordAt++ % words.length], c = w.c.getContext('2d')!, W = w.c.width, H = w.c.height;
+  const w = words[wordAt++ % words.length], c = ctx2d(w.c), W = w.c.width, H = w.c.height;
   c.clearRect(0, 0, W, H);
   c.textAlign = 'center'; c.textBaseline = 'middle';
   if (o.bubble) {
@@ -288,7 +289,7 @@ function word(text: string, p: Vector3, o: { fill?: string; size?: number; bubbl
 }
 const bursts = quietly(() => {
   const c = document.createElement('canvas'); c.width = c.height = 128;
-  const x = c.getContext('2d')!;
+  const x = ctx2d(c);
   x.strokeStyle = '#FFF6D0'; x.lineWidth = 9; x.beginPath(); x.arc(64, 64, 50, 0, Math.PI * 2); x.stroke();
   for (let i = 0; i < 10; i++) { const a = (i / 10) * Math.PI * 2; x.beginPath(); x.moveTo(64 + Math.cos(a) * 30, 64 + Math.sin(a) * 30); x.lineTo(64 + Math.cos(a) * 62, 64 + Math.sin(a) * 62); x.stroke(); }
   const tex = new CanvasTexture(c);
@@ -340,7 +341,7 @@ const dust = (p: Vector3, n: number, big = 1) => dustFx(v3.set(p.x, p.y + 0.05, 
 // own.
 const mark = quietly(() => {
   const c = document.createElement('canvas'); c.width = c.height = 256;
-  const x = c.getContext('2d');
+  const x = ctx2d(c);
   if (x) { x.lineWidth = 34; x.strokeStyle = '#2A0F16'; x.beginPath(); x.arc(128, 128, 92, 0, Math.PI * 2); x.stroke(); x.lineWidth = 20; x.strokeStyle = '#fff'; x.stroke(); }
   const m = new Sprite(new SpriteMaterial({ map: new CanvasTexture(c), depthTest: false, transparent: true }));
   m.visible = false; m.renderOrder = 7; scene.add(m);
@@ -642,10 +643,16 @@ function spar(dt: number) {
 }
 
 // ---------- every frame ----------
-/** The 'dohyo' stage-up, or a stage 3 save: the referee in the ring, and the wrestlers. */
+/** The 'dohyo' stage-up, or a stage 3 save: the referee in the ring, and the wrestlers. They're put where they stand
+ *  now at once: only the cellar's frames move them, and a save loaded upstairs has none till the player goes down
+ *  (ring.ts), which left them standing where they were made, in the middle of the restaurant. (The balance sims, which
+ *  never draw them, leave them be: headless.ts.) */
 export function openRing() {
   gyoji.root.visible = champ.visible = rival.visible = partner.visible = true;
   gyoji.root.position.set(RING.x, CY + RING_TOP, RING.z - 1.75);
+  if (headless.on) return;
+  pose2(0);
+  spar(0);
 }
 
 /** Whether the doors were shut last frame: opening, the champion walks over from the teppo post to his corner. */
