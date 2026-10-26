@@ -39,6 +39,8 @@ const h = vi.hoisted(() => {
       if (fake.offline || fake.boardDown) throw new Error('offline');
       return [...fake.scores.values()].sort((a, b) => b.best - a.best).slice(0, n);
     },
+    async postShame() {},
+    async topShame() { return []; },
   };
   const config = { apiKey: 'test-key', authDomain: 'test', projectId: 'test', appId: 'test' };
   return { fake, backend, config };
