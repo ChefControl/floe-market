@@ -1,0 +1,19 @@
+{
+  "name": "floe-market-electron-spike",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Throwaway spike (#158): Floe Market's demo build in Electron 45",
+  "main": "main.js",
+  "scripts": {
+    "build-game": "cd ../.. && VITE_FUGU_DEMO=1 npx vite build --mode demo --outDir spike/electron/app --emptyOutDir",
+    "start": "electron .",
+    "package-win": "electron-packager . FloeMarketSpike --platform=win32 --arch=x64 --out=out --overwrite --ignore=^/out --ignore=^/node_modules/electron$ --ignore=^/run-.*bat --ignore=^/README.md && cp run-bench.bat run-steam.bat out/FloeMarketSpike-win32-x64/"
+  },
+  "dependencies": {
+    "steamworks-ffi-node": "0.11.3"
+  },
+  "devDependencies": {
+    "@electron/packager": "19.0.1",
+    "electron": "45.0.0"
+  }
+}
