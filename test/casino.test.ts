@@ -17,12 +17,13 @@ const c = (rank: number, suit: Suit = '♠'): Card => ({ rank, suit });
 const saved = () => JSON.parse(localStorage.getItem('floe-market-v1')!).money;
 
 type Game = Awaited<ReturnType<typeof loadGame>>;
-/** Stands the player on a game's pad, on a save with the boat (and `more` games) bought. */
+/** Stands the player on a game's pad and presses Play, on a save with the boat (and `more` games) bought. */
 async function at(game: 'roulette' | 'blackjack' | 'slots', money: number, ...more: string[]) {
   const g = await loadGame({ money, tiles: bought('roulette', ...more) });
   const p = g.layout.GAMES[game];
   g.placePlayer(p.x, p.z);
   g.run(0.05);
+  g.play();
   return g;
 }
 const walkAway = (g: Game) => { g.placePlayer(-15.7, -4.4); g.run(0.05); };
@@ -254,7 +255,7 @@ describe('the casino boat', () => {
     expect($('tearsMsg').textContent).toBe('Nothing to cry about… yet');
     expect(button('#cry').disabled).toBe(true);
     // a round lost at roulette
-    g.placePlayer(GAMES.roulette.x, GAMES.roulette.z); g.run(0.05);
+    g.placePlayer(GAMES.roulette.x, GAMES.roulette.z); g.run(0.05); g.play();
     expect($('tears').hidden).toBe(true);
     rig(0);
     click('#spin'); g.run(7);
@@ -548,7 +549,7 @@ describe('the roulette table', () => {
     expect($('spin').textContent).toBe('Spin · $1,005 on Red');
     walkAway(g);
     g.unlocks.applyUnlock('sushi', true);
-    g.placePlayer(g.layout.GAMES.roulette.x, g.layout.GAMES.roulette.z); g.run(0.05);
+    g.placePlayer(g.layout.GAMES.roulette.x, g.layout.GAMES.roulette.z); g.run(0.05); g.play();
     expect([...document.querySelectorAll('#roulette [data-stake]')].map(b => b.textContent)).toEqual(['$50', '$250', '$1k', '$5k', 'All in', 'Undo']);
     expect($('spin').textContent).toBe('Spin · $10,050 on Red');
   });
@@ -649,7 +650,7 @@ describe('the blackjack table', () => {
     expect(ui.tableRoom.on).toBe(false);
     // and straight there, for players who prefer less motion
     vi.stubGlobal('matchMedia', () => ({ matches: true }));
-    g.placePlayer(g.layout.GAMES.blackjack.x, g.layout.GAMES.blackjack.z); g.run(0.05);
+    g.placePlayer(g.layout.GAMES.blackjack.x, g.layout.GAMES.blackjack.z); g.run(0.05); g.play();
     expect(kit.tableView(0.01).k).toBe(1);
   });
 
@@ -815,14 +816,14 @@ describe('the blackjack table', () => {
     let g = await at('blackjack', 100, 'blackjack');
     walkAway(g);
     expect((await felt()).shuffle).toBe('due');
-    g.placePlayer(g.layout.GAMES.blackjack.x, g.layout.GAMES.blackjack.z); g.run(0.05);
+    g.placePlayer(g.layout.GAMES.blackjack.x, g.layout.GAMES.blackjack.z); g.run(0.05); g.play();
     expect($('bjMsg').textContent).toBe('A fresh shoe: the dealer shuffles…');
     g.run(3);
     walkAway(g);
     g.run(GRACE);
     expect(await felt()).toMatchObject({ shuffle: '', stack: 0, cutCard: false, discards: 1 });
     expect(await inShoe()).toHaveLength(311);
-    g.placePlayer(g.layout.GAMES.blackjack.x, g.layout.GAMES.blackjack.z); g.run(0.05);
+    g.placePlayer(g.layout.GAMES.blackjack.x, g.layout.GAMES.blackjack.z); g.run(0.05); g.play();
     expect($('deal').hidden).toBe(false);
     g = await at('blackjack', 0, 'blackjack'); // a broke player isn't shuffled for
     g.run(SHUFFLE);
@@ -1012,7 +1013,7 @@ describe('the blackjack table', () => {
     expect(await says()).toBe('');
     const { GAMES } = g.layout;
     g.placePlayer(GAMES.slots.x, GAMES.slots.z); g.run(0.05); // still aboard
-    g.placePlayer(GAMES.blackjack.x, GAMES.blackjack.z); g.run(0.05);
+    g.placePlayer(GAMES.blackjack.x, GAMES.blackjack.z); g.run(0.05); g.play();
     expect(await says()).toBe('');
     click('#deal');
     dealt(g);
@@ -1020,7 +1021,7 @@ describe('the blackjack table', () => {
     g.run(0.8);
     expect(await says()).toBe('Bust!');
     walkAway(g); g.run(3); // off the boat: a new visit
-    g.placePlayer(GAMES.blackjack.x, GAMES.blackjack.z); g.run(0.05);
+    g.placePlayer(GAMES.blackjack.x, GAMES.blackjack.z); g.run(0.05); g.play();
     expect(await says()).toBe('Good luck!');
   });
 

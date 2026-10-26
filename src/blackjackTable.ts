@@ -794,6 +794,7 @@ const pad = gamePad(AT, '🃏', panel, {
   live: () => live() || !!prep,
   say: text => table!.voice.say(text),
   away: "I'll wait!",
+  ask: $('blackjackAsk'),
 }, {
   at: V(TABLE.x, AT.y + TOP + 0.3, TABLE.z - 0.12), from: V(0, 1.05, 1).normalize(), wide: 1.45, tall: 1.2,
 });
