@@ -4,6 +4,7 @@ import { boost } from './economy';
 import { bodyMat, newFish } from './fishModel';
 import { newFillet } from './items';
 import { chipsFx, splashFx } from './fx';
+import { PIER, VOTE_BOAT, voteBoat } from './layout';
 import { G, mesh, scene } from './render';
 import { cast, chop, flop, splash } from './sfx';
 import { BLADE_HOME, BLADE_Y, blade, CHOP, chopTop, pile } from './stations';
@@ -18,13 +19,26 @@ export interface Fish {
   state: 'swim' | 'hooked' | 'gone';
   /** Respawn countdown while gone. */
   re: number;
+  /** How far it's dipped down to pass under the pier or the voting boat, 0 to 1. */
+  dive: number;
 }
 
 const FISH_BOX = { x0: -15, x1: 6, z0: -16, z1: -7.6 };
+/** How high they swim, their backs and fins out of the water, bobbing by SWIM_BOB; and how deep they dip to pass under
+ *  the pier (layout.ts PIER) or the voting boat, their dorsal fins clear under the boards, starting DIP_NEAR before. */
+const SWIM_Y = 0.04, SWIM_BOB = 0.03, DIP_Y = -0.16, DIP_NEAR = 1.0;
+/** Whether `p` is under (or near) the pier, or the voting boat while it's moored. */
+function underDeck(p: Vector3) {
+  const near = (x0: number, x1: number, z0: number, z1: number) =>
+    p.x > x0 - DIP_NEAR && p.x < x1 + DIP_NEAR && p.z > z0 - DIP_NEAR && p.z < z1 + DIP_NEAR;
+  const { x0, x1, edge, arm } = PIER, hull = VOTE_BOAT.hull;
+  return near(x0, x1, arm.z0, edge) || near(arm.x0, x1, arm.z0, arm.z1) || (voteBoat.open && near(hull.x0, hull.x1, hull.z0, hull.z1));
+}
 const fish: Fish[] = [];
 
 function placeFish(f: Fish, far = false) {
-  f.g.position.set(rand(FISH_BOX.x0, FISH_BOX.x1), 0.04, far ? rand(-16, -12) : rand(FISH_BOX.z0, FISH_BOX.z1));
+  f.g.position.set(rand(FISH_BOX.x0, FISH_BOX.x1), SWIM_Y, far ? rand(-16, -12) : rand(FISH_BOX.z0, FISH_BOX.z1));
+  f.dive = underDeck(f.g.position) ? 1 : 0;
   f.h = rand(0, Math.PI * 2); f.state = 'swim'; f.g.visible = true; f.g.scale.setScalar(1); f.g.rotation.set(0, 0, 0);
   // whole again, after being chopped
   f.body.material = bodyMat;
@@ -32,7 +46,7 @@ function placeFish(f: Fish, far = false) {
 }
 
 for (let i = 0; i < 16; i++) {
-  const f: Fish = { ...newFish(), h: 0, sp: rand(.7, 1.3), state: 'swim', re: 0 };
+  const f: Fish = { ...newFish(), h: 0, sp: rand(.7, 1.3), state: 'swim', re: 0, dive: 0 };
   scene.add(f.g); placeFish(f); fish.push(f);
 }
 
@@ -47,7 +61,8 @@ export function updFish(dt: number, time: number) {
         f.h += Math.sin(want - f.h) * dt * 3;
       }
       p.x += Math.cos(f.h) * f.sp * dt; p.z += Math.sin(f.h) * f.sp * dt;
-      p.y = 0.04 + Math.sin(time * 3 + f.sp * 7) * 0.03;
+      f.dive += ((underDeck(p) ? 1 : 0) - f.dive) * Math.min(1, dt * 5);
+      p.y = SWIM_Y + (DIP_Y - SWIM_Y) * f.dive + Math.sin(time * 3 + f.sp * 7) * SWIM_BOB;
       f.g.rotation.y = -f.h;
       f.tail.rotation.y = Math.sin(time * 12 + f.sp * 5) * 0.45;
     } else if (f.state === 'gone') {

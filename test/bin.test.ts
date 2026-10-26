@@ -82,6 +82,14 @@ describe('the bins', () => {
       expect(L.groundY(b.at, b.down)).toBeCloseTo(b.at.y, 1);
       if (!b.down) expect(Math.hypot(b.at.x - L.HATCH_AT.x, b.at.z - L.HATCH_AT.z)).toBeGreaterThanOrEqual(3);
     }
+    // and none where a tile is bought (up top): standing on one never also offers a bin's E
+    const { tiles } = await import('../src/unlocks');
+    for (const b of BINS.filter(b => !b.down)) {
+      for (const t of tiles.filter(t => t.stage <= 2 && t.stage >= b.stage && !t.menu)) {
+        const dx = Math.max(0, Math.abs(b.at.x - t.x) - t.half), dz = Math.max(0, Math.abs(b.at.z - t.z) - t.half);
+        expect(Math.hypot(dx, dz), t.id).toBeGreaterThan(1.1);
+      }
+    }
     L.level.down = false;
   });
 });

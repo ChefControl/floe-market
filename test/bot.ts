@@ -573,7 +573,7 @@ export function play(g: Game, seconds: number, dt = 0.05, ring?: Ring, style: St
 
   const { pile, PILE, PAD } = g.stations;
   /** Where to stand to use the bin on the dock, by its east fence (bin.ts). */
-  const DOCK_BIN = { x: 6.0, z: -1.3 };
+  const DOCK_BIN = { x: 6.0, z: 1.2 };
   const fishFrom = () => {
     if (pile.items.length >= Math.min(6, player.back.cap - player.back.n) && player.back.hasRoom()) {
       go({ x: PILE.x, z: PILE.z + 1.1 }, () => !player.back.hasRoom() || !pile.items.length, 15);
