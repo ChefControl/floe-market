@@ -441,6 +441,16 @@ function present(c: Ctx) {
   solid(c, DEEP_GOLD, () => dot(c, 0, -25, 6));
 }
 
+/** 🗳️ A ballot box, a slip going in at its slot (the voting booth's, votingBooth.ts). */
+function ballot(c: Ctx) {
+  solid(c, CREAM, () => poly(c, -14, -6, -10, -46, 18, -44, 14, -4));
+  line(c, BLUE, 3, () => { c.moveTo(-5, -36); c.lineTo(10, -35); c.moveTo(-6, -27); c.lineTo(5, -26); });
+  solid(c, BLUE, () => box(c, -40, -10, 80, 50, 6));
+  solid(c, SKY, () => box(c, -44, -16, 88, 12, 4));
+  flat(c, INK, () => box(c, -16, -12, 32, 4, 2));
+  flat(c, 'rgba(255,255,255,.3)', () => box(c, -32, 0, 10, 32, 4));
+}
+
 /** 🔒 The padlock on a tile whose rating hasn't been reached yet. */
 function lock(c: Ctx) {
   bar(c, '#9AA7B0', 7, () => { c.moveTo(-14, -2); c.lineTo(-14, -18); c.arc(0, -18, 14, Math.PI, TAU); c.lineTo(14, -2); });
@@ -696,7 +706,7 @@ const DRAWINGS: Record<string, Drawing> = {
   '📈': upgrade, '🍳': pan, '🌿': sprig,
   '🎒': backpack, '🎯': target, '🏃': runner, '🥾': boot, '🥅': net, '🏯': torii,
   '🌾': sheaf, '🪑': stool, '🔪': knife, '🧑‍🌾': farmer, '🧺': basket, '🌱': seedling, '⛱️': parasol, '⛱': parasol,
-  '🥡': takeout, '🏮': lantern, '🎁': present, '🔒': lock,
+  '🥡': takeout, '🏮': lantern, '🎁': present, '🔒': lock, '🗳️': ballot, '🗳': ballot,
   '😐': meh, '😠': angry, '😭': sob,
   '🍤': tempura, '🍙': onigiri, '🦐': prawn, '🐙': octopus, '🦑': squid, '🦀': crab, '🍱': bento, '🐡': puffer,
   '🍥': naruto, '🍢': oden, '🍵': tea, '🍶': sake, '🍲': chanko, '🍄': mushroom,

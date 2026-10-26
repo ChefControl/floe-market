@@ -43,6 +43,7 @@ import { updTutorial } from './tutorial';
 import { toast } from './ui';
 import { paused } from './uiKit';
 import { updAuto, updStars } from './unlocks';
+import { updBooth } from './votingBooth';
 import { updFloes } from './world';
 
 let time = 0;
@@ -73,6 +74,7 @@ export function tick(dt: number) {
     if (world) updCasino(dt);
     if (world) updKorki(dt);
     if (world) updHouse(dt);
+    if (world) updBooth(dt);
     if (!away) updAuto(dt);
     if (world) updChopper(dt);
     if (world) updRunners(dt);

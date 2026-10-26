@@ -223,10 +223,11 @@ describe('eye candy', () => {
     const before = batchInfo().rebuilds;
     frame();
     expect(merged()).toHaveLength(0); // not until they've stood still a moment
-    // (what isn't merged is looked at one frame in eight, so it's merged a few frames after its second's up)
-    for (let i = 0; i < 20; i++) frame();
+    // (what isn't merged is looked at one frame in eight, so it's merged a few frames after its second's up: which
+    // frames are theirs depends on how many meshes the rest of the scene has, so this looks just short of the second)
+    for (let i = 0; i < 16; i++) frame();
     expect(merged()).toHaveLength(0);
-    for (let i = 0; i < 20; i++) frame();
+    for (let i = 0; i < 24; i++) frame();
     // the plain colours in one mesh, painted; the lamp (it glows) in its own; the person not at all
     expect(merged()).toHaveLength(2);
     expect(parts.map(p => p.layers.mask)).toEqual([0, 0, 0, 0]);
