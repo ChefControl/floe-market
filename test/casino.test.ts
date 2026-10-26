@@ -535,11 +535,43 @@ describe('the roulette table', () => {
       expect($('spin').textContent).toBe('Spin · $1,925 on Red');
       expect(greyed(chip)).toBe(true);
       press(chip, 'pointerup');
-      // holding Undo takes them back the same way, down to nothing
-      press(undo, 'pointerdown'); vi.advanceTimersByTime(10_000); press(undo, 'pointerup');
+      // a tap on Undo takes back one chip; held, it takes the whole stake back at once (reports#19). Till the player's
+      // done that once, a HOLD tag on it says they can.
+      expect(undo.dataset.hold).toBe('Hold');
+      press(undo, 'pointerdown'); press(undo, 'pointerup'); tap(undo); vi.advanceTimersByTime(5000);
+      expect(undo.dataset.hold).toBe('Hold');
+      expect($('spin').textContent).toBe('Spin · $1,825 on Red');
+      press(undo, 'pointerdown');
+      expect($('spin').textContent).toBe('Spin · $1,725 on Red');
+      vi.advanceTimersByTime(HOLD.wait - 1);
+      expect($('spin').textContent).toBe('Spin · $1,725 on Red');
+      vi.advanceTimersByTime(1);
       expect(button('#spin').disabled).toBe(true);
-      expect(undo.disabled).toBe(true);
+      expect(chip.dataset.n).toBeUndefined();
+      expect(undo.disabled).toBe(true); // nothing left to take back
+      vi.advanceTimersByTime(5000); press(undo, 'pointerup'); tap(undo);
+      expect(button('#spin').disabled).toBe(true);
+      // learnt: the tag's gone for good, kept on the device
+      click('#roulette [data-stake="1"]');
+      expect(undo.disabled).toBe(false);
+      expect(undo.dataset.hold).toBeUndefined();
+      expect(localStorage.getItem('floe-market-hold-undo')).toBe('1');
     } finally { vi.useRealTimers(); }
+  });
+
+  it("clears the whole stake when Undo's key is held down", async () => {
+    await at('roulette', 2000);
+    // Undo is the roulette panel's 9th numbered button, after red, black, green, the four chips and All in
+    const key = (repeat: boolean) =>
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: '9', code: 'Digit9', repeat, cancelable: true }));
+    click('#roulette [data-stake="3"]'); click('#roulette [data-stake="3"]');
+    expect($('spin').textContent).toBe('Spin · $1,025 on Red');
+    expect(button('#roulette .k-keys > [data-stake="undo"]')).toBeTruthy();
+    key(false); // a press: one chip back
+    expect($('spin').textContent).toBe('Spin · $525 on Red');
+    key(true); // and the key's held: the lot
+    expect(button('#spin').disabled).toBe(true);
+    expect(button('#roulette [data-stake="undo"]').disabled).toBe(true);
   });
 
   it('has bigger chips in stage 2, and keeps the chips down through the stage-up', async () => {

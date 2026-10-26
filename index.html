@@ -858,6 +858,12 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='38' fill='none' stroke='%232A0F16' stroke-opacity='.45' stroke-width='6' stroke-dasharray='11 9'/%3E%3C/svg%3E");
 }
 .casino .stakes [data-stake="undo"]{ --k-fill:transparent; --k-text:#FFE7A8; --k-drop:transparent; --k-ring:inset 0 0 0 2px rgba(255,231,168,.55); background-image:none; font-size:13px; }
+/* Undo's HOLD tag, till the player's once held it to take the whole stake back (casinoKit.ts holdTip) */
+.casino .stakes [data-hold]::after{
+  content:attr(data-hold); position:absolute; top:-8px; left:50%; transform:translateX(-50%); height:16px; padding:0 6px;
+  box-sizing:border-box; border-radius:8px; background:#F2C14E; color:#2A0F16; font-size:10px; font-weight:800; line-height:16px;
+  letter-spacing:.06em; text-transform:uppercase; box-shadow:0 0 0 2px #3E0E18; pointer-events:none;
+}
 .casino .stakes [data-n]::after{
   content:attr(data-n); position:absolute; top:-7px; right:-7px; min-width:22px; height:20px; padding:0 4px;
   box-sizing:border-box; border-radius:10px; background:#F2C14E; color:#2A0F16; font-size:12px; line-height:20px;
@@ -1612,7 +1618,7 @@ body.show #toss, body.show #cook, body.show #coach, body.show #hint, body.show #
     <button type="button" class="k-btn k-choice k-own" data-stake="2">$100</button>
     <button type="button" class="k-btn k-choice k-own" data-stake="3">$500</button>
     <button type="button" class="k-btn k-choice k-own" data-stake="all">All in</button>
-    <button type="button" class="k-btn k-plain" data-stake="undo" aria-label="Take back the last chip">Undo</button>
+    <button type="button" class="k-btn k-plain" data-stake="undo" aria-label="Take back the last chip, or hold to clear" title="Hold to clear">Undo</button>
   </div>
   <button type="button" id="spin" class="go k-btn k-main"></button>
   <div id="history" class="sr" aria-label="Recent results"></div>
@@ -1645,7 +1651,7 @@ body.show #toss, body.show #cook, body.show #coach, body.show #hint, body.show #
     <button type="button" class="k-btn k-choice k-own" data-stake="2">$100</button>
     <button type="button" class="k-btn k-choice k-own" data-stake="3">$500</button>
     <button type="button" class="k-btn k-choice k-own" data-stake="all">All in</button>
-    <button type="button" class="k-btn k-plain" data-stake="undo" aria-label="Take back the last chip">Undo</button>
+    <button type="button" class="k-btn k-plain" data-stake="undo" aria-label="Take back the last chip, or hold to clear" title="Hold to clear">Undo</button>
   </div>
   <button type="button" id="deal" class="go k-btn k-main"></button>
 </div>
@@ -1662,7 +1668,7 @@ body.show #toss, body.show #cook, body.show #coach, body.show #hint, body.show #
     <button type="button" class="k-btn k-choice k-own" data-stake="2">$100</button>
     <button type="button" class="k-btn k-choice k-own" data-stake="3">$500</button>
     <button type="button" class="k-btn k-choice k-own" data-stake="all">All in</button>
-    <button type="button" class="k-btn k-plain" data-stake="undo" aria-label="Take back the last chip">Undo</button>
+    <button type="button" class="k-btn k-plain" data-stake="undo" aria-label="Take back the last chip, or hold to clear" title="Hold to clear">Undo</button>
   </div>
   <button type="button" id="pull" class="go k-btn k-main"></button>
 </div>
@@ -1695,7 +1701,7 @@ body.show #toss, body.show #cook, body.show #coach, body.show #hint, body.show #
     <button type="button" class="k-btn k-choice k-own" data-stake="2">🐡 25</button>
     <button type="button" class="k-btn k-choice k-own" data-stake="3">🐡 100</button>
     <button type="button" class="k-btn k-choice k-own" data-stake="all">Max</button>
-    <button type="button" class="k-btn k-plain" data-stake="undo" aria-label="Take back the last chip">Undo</button>
+    <button type="button" class="k-btn k-plain" data-stake="undo" aria-label="Take back the last chip, or hold to clear" title="Hold to clear">Undo</button>
   </div>
   <button type="button" id="monteDeal" class="go k-btn k-main"></button>
 </div>
