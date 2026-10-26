@@ -13,7 +13,8 @@
 // rest of the music: every note starts over at least 8 ms, nothing is bright above about 4 kHz, and nothing drops fast.
 import { ac, buses, hz, noise, rnd, tone, type ToneVoice } from './audio';
 
-export const HATIKVAH = { key: 62, sounds: 65, bpm: 70 };
+/** At 88 beats a minute, up from the 70 it was picked at, for more energy: a round is just under a minute. */
+export const HATIKVAH = { key: 62, sounds: 65, bpm: 88 };
 
 // ---------- the tune ----------
 /** A bar of tune is [the eighth it starts on (0–7), its note, how many eighths it lasts]. */
