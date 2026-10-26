@@ -181,7 +181,7 @@ describe('reporting a bug or an idea', () => {
   it("lists the panels open over the game in the game state, every casino game's included", async () => {
     await start();
     const casino = [...document.querySelectorAll<HTMLElement>('.casino')];
-    expect(casino.map(p => p.id)).toEqual(['roulette', 'blackjack', 'slots', 'eddie', 'monte', 'denBar', 'loans', 'denGus', 'bubbly', 'tears']);
+    expect(casino.map(p => p.id)).toEqual(['roulette', 'blackjack', 'slots', 'eddie', 'monte', 'denBar', 'loans', 'denGus', 'bubbly', 'arcade', 'tears']);
     casino.forEach(p => { p.hidden = false; });
     $('reportCat').click();
     write('Stuck on the boat');
