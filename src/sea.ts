@@ -137,7 +137,7 @@ const sheets: Mesh[] = [];
  * The clouds' shadows, laid over the ground at height `y`: a sheet that darkens what's under it where the clouds are,
  * sliding with the wind. It follows the camera (updSea), so it only has to cover what's on screen.
  */
-export function cloudShadows(y: number) {
+export function cloudShadows(y: number, size?: { w: number; d: number }) {
   const m = new ShaderMaterial({
     uniforms: { map: { value: cloudTex.tex }, focus, drift, strength },
     vertexShader: /* glsl */`
@@ -154,12 +154,12 @@ export function cloudShadows(y: number) {
     transparent: true, depthWrite: false,
     blending: CustomBlending, blendSrc: ZeroFactor, blendDst: SrcColorFactor,
   });
-  const sheet = new Mesh(new PlaneGeometry(70, 70), m);
+  const sheet = new Mesh(new PlaneGeometry(size?.w ?? 70, size?.d ?? 70), m);
   sheet.rotation.x = -Math.PI / 2;
   sheet.position.y = y;
   sheet.renderOrder = 5;
   sheet.frustumCulled = false;
-  sheets.push(sheet);
+  if (!size) sheets.push(sheet); // the big one follows the camera; one `size` across stays over what it's laid on
   return sheet;
 }
 

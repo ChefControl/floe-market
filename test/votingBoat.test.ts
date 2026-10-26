@@ -1,6 +1,6 @@
-// The voting boat at the dock: in only on Israel's election day and a day either side (or with ?vote=on), its polling
-// room aboard, and voting in it: the greeting, a slip behind the screen, the envelope into the box and the thanks. Off
-// the game's luck, and nothing saved.
+// The voting boat at the dock: in only on Israel's election day (or with ?vote=on), sailing in once the game opens and
+// away once the day's over; its polling room aboard, and voting in it: the greeting, a slip behind the screen, the
+// envelope into the box and the thanks. Off the game's luck, and nothing saved.
 import { type BufferGeometry, Mesh, type Object3D } from 'three';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { loadGame } from './helpers';
@@ -16,33 +16,83 @@ function seeded(seed: number) {
 }
 
 const $ = (id: string) => document.getElementById(id)!;
-/** Election day, local noon; and the day after the boat's gone. */
-const ELECTION = new Date(2026, 9, 27, 12), AFTER = new Date(2026, 9, 29, 12);
+/** Election day, local noon; and the day after, when the boat's gone. */
+const ELECTION = new Date(2026, 9, 27, 12), AFTER = new Date(2026, 9, 28, 12);
 /** Whether `o` and everything it's in are showing. */
 const shown = (o: Object3D) => { for (let p: Object3D | null = o; p; p = p.parent) if (!p.visible) return false; return true; };
 /** Baked the new way (kit.ts pack): a byte per normal. */
 const packed = (g: BufferGeometry) => g.attributes.normal?.array instanceof Int8Array;
 
-/** Loads the game on `date`, and runs it a moment. */
-async function loadOn(date: Date) {
+/** Loads the game on `date`, and runs it a moment; with the boat already moored, unless it's to `sail` in. */
+async function loadOn(date: Date, sail = false) {
   vi.useFakeTimers({ toFake: ['Date'], now: date });
   const g = await loadGame({});
+  const vote = await import('../src/votingBoat');
+  if (vote.boat && !sail) Object.assign(vote.boat, { sail: 'in', t: 1e3 });
   g.run(0.1);
-  return { g, vote: await import('../src/votingBoat'), layout: g.layout };
+  return { g, vote, layout: g.layout };
 }
 
 afterEach(() => { history.replaceState(null, '', '/'); });
 
 describe('the voting boat', () => {
-  it('is in from the 26th to the 28th of October 2026, by the local date', async () => {
+  it('is in on the 27th of October 2026 only, by the local date', async () => {
     const { votingBoatOn, ELECTION_DAYS } = await import('../src/flags');
-    expect(ELECTION_DAYS).toEqual({ from: '2026-10-26', to: '2026-10-28' });
-    expect(votingBoatOn(new Date(2026, 9, 25, 23, 59))).toBe(false);
-    expect(votingBoatOn(new Date(2026, 9, 26, 0, 0))).toBe(true);
+    expect(ELECTION_DAYS).toEqual({ from: '2026-10-27', to: '2026-10-27' });
+    expect(votingBoatOn(new Date(2026, 9, 26, 23, 59))).toBe(false);
+    expect(votingBoatOn(new Date(2026, 9, 27, 0, 0))).toBe(true);
     expect(votingBoatOn(ELECTION)).toBe(true);
-    expect(votingBoatOn(new Date(2026, 9, 28, 23, 59))).toBe(true);
-    expect(votingBoatOn(new Date(2026, 9, 29, 0, 0))).toBe(false);
+    expect(votingBoatOn(new Date(2026, 9, 27, 23, 59))).toBe(true);
+    expect(votingBoatOn(new Date(2026, 9, 28, 0, 0))).toBe(false);
     expect(votingBoatOn(new Date(2027, 9, 27, 12))).toBe(false);
+  });
+
+  it('sails in from the sea once the game opens, and only lets the player aboard once it has moored', async () => {
+    const { g, vote, layout } = await loadOn(ELECTION, true);
+    const b = vote.boat!;
+    // out at sea a moment, then coming in, nobody aboard yet
+    expect([b.sail, b.ship.visible, layout.voteBoat.open]).toEqual(['out', false, false]);
+    g.run(3, 0.05);
+    expect([b.sail, b.ship.visible, layout.voteBoat.open, b.plank.visible]).toEqual(['in', true, false, false]);
+    expect(b.ship.position.z).toBeLessThan(layout.VOTE_BOAT.hull.z0);
+    const { dz } = layout.VOTE_BOAT, X = layout.voteX;
+    g.placePlayer(X(3.75), -7.3 + dz);
+    g.run(0.1);
+    expect(g.player.g.position.z).toBeGreaterThan(layout.PIER.arm.z0); // no further than the pier
+    // lined up off the pier, bow west, then edged onto it, the gangway out
+    g.run(13, 0.05);
+    expect(b.sail).toBe('in');
+    expect(Math.abs(b.ship.rotation.y)).toBeLessThan(0.05);
+    expect(b.ship.position.z).toBeLessThan((layout.VOTE_BOAT.hull.z0 + layout.VOTE_BOAT.hull.z1) / 2 - 0.5);
+    g.run(4, 0.05);
+    expect([b.sail, layout.voteBoat.open, b.plank.visible]).toEqual(['moored', true, true]);
+    expect(b.ship.position.x).toBeCloseTo((layout.VOTE_BOAT.hull.x0 + layout.VOTE_BOAT.hull.x1) / 2);
+    expect(b.ship.rotation.y).toBeCloseTo(0);
+    g.placePlayer(X(3.75), -7.3 + dz);
+    g.run(0.5);
+    expect(g.player.g.position.z).toBeCloseTo(-7.3 + dz);
+  });
+
+  it("sails away once election day's over, once the player's off it, and is gone", async () => {
+    const { g, vote, layout } = await loadOn(ELECTION);
+    const b = vote.boat!, { dz } = layout.VOTE_BOAT, X = layout.voteX;
+    g.placePlayer(X(3), -8.6 + dz);
+    g.run(0.1);
+    vi.setSystemTime(new Date(2026, 9, 28, 0, 0, 5));
+    g.run(1, 0.05);
+    expect(b.sail).toBe('moored'); // not with the player aboard
+    g.placePlayer(0, -3);
+    g.run(0.1);
+    expect([b.sail, layout.voteBoat.open, b.plank.visible]).toEqual(['going', false, false]);
+    g.run(4, 0.05);
+    expect(b.ship.position.z).toBeLessThan((layout.VOTE_BOAT.hull.z0 + layout.VOTE_BOAT.hull.z1) / 2 - 1); // edged off the pier
+    g.run(6, 0.05);
+    expect(b.ship.position.x).toBeLessThan(0); // and away west, bow first
+    g.run(7, 0.05);
+    expect([b.sail, b.ship.visible]).toEqual(['gone', false]);
+    g.placePlayer(X(3.75), -8.6 + dz);
+    g.run(0.1);
+    expect(g.player.g.position.z).toBeGreaterThan(layout.PIER.arm.z0);
   });
 
   it('moors at the dock on election day, drawn on Low and High, clear of the fishing and the casino', async () => {
@@ -51,8 +101,8 @@ describe('the voting boat', () => {
     expect(layout.voteBoat.open).toBe(true);
     // out in the water off the dock's edge, east of the fishing pad, the ice net and the casino's quay
     const { hull } = layout.VOTE_BOAT, { PAD } = await import('../src/stations');
-    expect(hull.z1).toBeLessThan(-6.65);
-    expect(hull.x0).toBeGreaterThan(Math.max(PAD.x + PAD.r, -1.2 + 1.75, layout.QUAY.x1));
+    expect(hull.z1).toBeLessThan(-10.8 - 2); // well out past the ice net
+    expect(hull.x0).toBeGreaterThan(Math.max(PAD.x + PAD.r, layout.QUAY.x1));
     expect(hull.x1).toBeLessThan(7.45); // the bay's east shore
     // High draws it baked the new way; Low in plain shapes, nothing of the new kind
     const { choose } = await import('../src/graphics'), { Person } = await import('../src/characters');
@@ -75,32 +125,32 @@ describe('the voting boat', () => {
 
   it('takes the player up the gangway onto its deck and into the polling room, whose roof lifts and near walls fade', async () => {
     const { g, vote, layout } = await loadOn(ELECTION);
-    const { VOTE_BOAT } = layout;
-    g.placePlayer(3.75, -7.3);
+    const { VOTE_BOAT } = layout, { dz } = VOTE_BOAT, X = layout.voteX;
+    g.placePlayer(X(3.75), -7.3 + dz);
     g.run(1);
-    expect(g.player.g.position.z).toBeCloseTo(-7.3);
+    expect(g.player.g.position.z).toBeCloseTo(-7.3 + dz);
     expect(g.player.g.position.y).toBeCloseTo(VOTE_BOAT.y, 2);
     expect(vote.boat!.roofK).toBe(1);
-    g.placePlayer(3, -8.6);
+    g.placePlayer(X(3), -8.6 + dz);
     g.run(1);
-    expect(g.player.g.position).toMatchObject({ x: 3, z: -8.6 });
+    expect(g.player.g.position).toMatchObject({ x: X(3), z: -8.6 + dz });
     expect(layout.inPollingRoom(g.player.g.position)).toBe(true);
     expect(vote.boat!.roofK).toBeLessThan(0.05);
     expect(vote.boat!.roof.visible).toBe(false);
     // but not off the side of the gangway into the water, nor through the committee's table
-    g.placePlayer(2.5, -6.9);
+    g.placePlayer(X(2.5), -6.9 + dz);
     g.run(0.1);
-    expect(Math.abs(g.player.g.position.x - 3.75) < 0.3 || g.player.g.position.z > -6.3).toBe(true);
-    g.placePlayer(5.35, -8.6);
+    expect(Math.abs(g.player.g.position.x - X(3.75)) < 0.3 || g.player.g.position.z > layout.PIER.arm.z0).toBe(true);
+    g.placePlayer(X(5.35), -8.6 + dz);
     g.run(0.1);
     expect(g.player.g.position.z).toBeGreaterThan(vote.TABLE.z1);
   });
 
   it('greets the voter, has them pick a slip behind the screen and cast it, thanks them, and saves nothing', async () => {
-    const { g, vote } = await loadOn(ELECTION);
+    const { g, vote, layout } = await loadOn(ELECTION);
     const money = g.wallet.money, saved = localStorage.getItem('floe-market-v1');
     // walking in, the chair greets them
-    g.placePlayer(3.75, -8.3);
+    g.placePlayer(layout.voteX(3.75), -8.3 + layout.VOTE_BOAT.dz);
     g.run(0.1);
     expect(vote.boat!.says.text).toBe(vote.GREETING);
     // nothing to cast yet: the box's card stays shut
@@ -148,15 +198,15 @@ describe('the voting boat', () => {
     expect(localStorage.getItem('floe-market-v1')).toBe(saved);
   });
 
-  it("isn't there before or after, and the dock's edge is the water's again", async () => {
-    for (const date of [new Date(2026, 9, 25, 12), AFTER]) {
+  it("isn't there before or after, and the pier's edge is the water's again", async () => {
+    for (const date of [new Date(2026, 9, 26, 12), AFTER]) {
       const { g, vote, layout } = await loadOn(date);
       expect(vote.boat).toBeNull();
       expect(layout.voteBoat.open).toBe(false);
       expect($('voteSlips')).toBeNull();
-      g.placePlayer(3.75, -8.6);
+      g.placePlayer(layout.voteX(3.75), -8.6 + layout.VOTE_BOAT.dz);
       g.run(0.1);
-      expect(g.player.g.position.z).toBeGreaterThanOrEqual(-6.25);
+      expect(g.player.g.position.z).toBeGreaterThan(layout.PIER.arm.z0);
     }
   });
 
@@ -165,6 +215,40 @@ describe('the voting boat', () => {
     expect((await loadOn(AFTER)).vote.boat).toBeTruthy();
     history.replaceState(null, '', '/');
     expect((await loadOn(AFTER)).vote.boat).toBeNull();
+  });
+
+  it('moors along the far side of the pier, which is there every day, in both stages, a step up from the dock', async () => {
+    const { g, layout } = await loadOn(AFTER);
+    const { PIER, VOTE_BOAT } = layout;
+    expect(VOTE_BOAT.hull.z1).toBeLessThan(PIER.arm.z0 - 0.3);
+    expect(VOTE_BOAT.hull.z1).toBeGreaterThan(PIER.arm.z0 - 0.6);
+    // walked up in stage 1: out along the stem, up its ramp, along the arm west to its end
+    g.placePlayer(3.75, -6.95);
+    g.run(0.05);
+    expect(g.player.g.position.y).toBeGreaterThan(0.15);
+    expect(g.player.g.position.y).toBeLessThan(PIER.y);
+    for (const [x, z] of [[3.75, -9], [3.75, -12.6], [1.0, -12.6]]) {
+      g.placePlayer(x, z);
+      g.run(1);
+      expect(g.player.g.position).toMatchObject({ x, z });
+      expect(g.player.g.position.y).toBeCloseTo(PIER.y, 2);
+    }
+    // and in both stages, it's there and only it: not off its sides, nor out past it
+    for (const n of [1, 2] as const) {
+      layout.stage.n = n;
+      for (const [x, z] of [[3.75, -9], [1.0, -12.6]]) {
+        const q = { x, z };
+        layout.keepOnFloor(q, layout.walkable());
+        expect(q).toEqual({ x, z });
+        expect(layout.groundY(q)).toBeCloseTo(PIER.y, 2);
+      }
+      for (const [x, z] of [[2.0, -9], [5.5, -9], [6.0, -12.6], [-0.5, -12.6], [2.0, -14.5]]) {
+        const q = { x, z };
+        layout.keepOnFloor(q, layout.walkable());
+        expect(Math.hypot(q.x - x, q.z - z)).toBeGreaterThan(0.3);
+      }
+    }
+    layout.stage.n = 1;
   });
 
   it("is built off the game's luck: the same luck and scenery are left whether it's in or not", async () => {

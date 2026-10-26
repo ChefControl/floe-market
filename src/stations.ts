@@ -80,7 +80,7 @@ export const blade = new Group();
 }
 scene.add(blade);
 
-export const PILE = { x: 2.7, z: -5.0 };
+export const PILE = { x: 2.1, z: -5.0 };
 export const pile = new Holder(i => {
   const j = i % 9;
   return V(PILE.x + ((j % 3) - 1) * 0.42, FY + 0.05 + Math.floor(i / 9) * 0.085, PILE.z + (Math.floor(j / 3) - 1) * 0.42);

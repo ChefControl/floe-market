@@ -26,14 +26,24 @@ export function keepStage3() {
 }
 
 // ---------- the voting boat ----------
-/** Israel's election day, 27 October 2026, and a day either side: the voting boat (votingBoat.ts) is moored at the
- *  dock from the first of these days to the last, by the device's own date, and is gone after. */
-export const ELECTION_DAYS = { from: '2026-10-26', to: '2026-10-28' };
+/** Israel's election day, 27 October 2026: the voting boat (votingBoat.ts) sails in to the dock when the game opens on
+ *  it, by the device's own date, and sails away when it ends. */
+export const ELECTION_DAYS = { from: '2026-10-27', to: '2026-10-27' };
 
-/** Whether the voting boat's in on `now`'s date. ?vote=on in the address brings it in on any date, for a look at it
- *  (for that visit only: nothing's kept). */
-export function votingBoatOn(now = new Date()) {
-  try { if (new URLSearchParams(location.search).get('vote') === 'on') return true; } catch { /* no address: by date */ }
+/** ?vote= in the address: `on` brings the boat in on any date, for a look at it; `bye` too, and it sails away a minute
+ *  after it's moored, for a look at that (for that visit only: nothing's kept). */
+export function voteParam() {
+  try { return new URLSearchParams(location.search).get('vote'); } catch { return null; } // no address: by date
+}
+
+/** Whether `now` is on election day, by the device's own date. */
+export function electionDay(now = new Date()) {
   const day = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
   return day >= ELECTION_DAYS.from && day <= ELECTION_DAYS.to;
+}
+
+/** Whether the voting boat comes in, opening the game on `now`: on election day, or with ?vote=on or bye. */
+export function votingBoatOn(now = new Date()) {
+  const v = voteParam();
+  return v === 'on' || v === 'bye' || electionDay(now);
 }

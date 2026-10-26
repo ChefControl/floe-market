@@ -76,13 +76,12 @@ function bin(at: Vector3, s: StageN, down: boolean, make: (g: Group) => Group, t
   (down ? cellar : scene).add(g);
   return { at, stage: s, down, g, lid, open: 0, hold: 0 };
 }
-/** Beside the places things are picked up: on the dock, the fish pile (behind it, by the water: out of the way to the
- *  counter, and well away from Mr. Fugu's hatch, and
- *  none by the harpoon at the fishing spot); on the farm path (stage 2), the farmer's stack of rice and the patch; in the cellar's kitchen (stage
+/** Beside the places things are picked up: on the dock, by its east fence south of Mr. Fugu's hatch (out of the way to
+ *  the counter, well away from the hatch and clear of the ring's tile, and none by the harpoon at the fishing spot); on the farm path (stage 2), the farmer's stack of rice and the patch; in the cellar's kitchen (stage
  *  3), old oil drums by the arena's door and the dumbwaiter's crate. Each far enough from its
  *  station that the station's own tip still shows there. */
 export const BINS: Bin[] = [
-  bin(V(3.1, FY, -6.0), 1, false, pedal, -0.4),
+  bin(V(6.95, FY, -1.3), 1, false, pedal, -Math.PI / 3),
   bin(V(-11.7, 0.06, -2.6), 2, false, pedal, Math.PI / 2),
   // (the patch's: on the corner of the bottom terrace by the path, past the patch's last clump, so the path stays clear
   // to the fertilizer shed's yard)
