@@ -21,7 +21,7 @@ import {
 import { field, fieldStack, riceInField } from './rice';
 import { BOSSES, CHIP, F, nextBoss, owedPractice, PRACTICE, saveFight } from './fight';
 import { loadCellar } from './ring';
-import { runnersLoad } from './runner';
+import { runnersLoad, runnersRice } from './runner';
 import { season, SEASON_LEN, SEASONS, setSeason } from './season';
 import { goBelow } from './stage';
 import { pile } from './stations';
@@ -33,7 +33,7 @@ import { wallet } from './wallet';
 export const SAVE_KEY = 'floe-market-v1';
 /** An unreadable save is copied here before starting over, so it can still be recovered by hand. */
 export const BACKUP_KEY = 'floe-market-backup';
-const VERSION = 6;
+const VERSION = 7;
 
 export interface SaveData {
   v: number;
@@ -115,8 +115,13 @@ export const deviceStore = {
 
 /** The market's upgrades, and v3's restaurant and its upgrades, for migrating old saves. */
 const MARKET = ['pack', 'turret', 'roulette', 'runner', 'boots', 'sled', 'net'];
-/** The market's upgrades added since then. Saves that had finished the market before get them free. */
-const LATER = ['runner2', 'runner3'];
+/** The market's upgrades added since then. Saves that had finished the market before get them free. (The third runner
+ *  was one too, till it moved to stage 2.) */
+const LATER = ['runner2'];
+/** Stage 2's upgrades, and what v7 multiplied all stage 2's money by: a save from before, in the middle of stage 2,
+ *  has its cash (and what it's paid toward a tile) multiplied too, so it keeps its place. */
+const STAGE2 = ['paddy', 'farmer', 'seats', 'chef', 'tables', 'plot2', 'runner3', 'chef3', 'tables2', 'plot3', 'kiosk', 'porter', 'premium', 'dohyo'];
+const STAGE2_RAISE = 10;
 const OLD_SUSHI = ['sushi', 'seats', 'chef', 'premium'];
 /** What v3's restaurant charged for a plate. */
 const OLD_PLATE = 12;
@@ -156,11 +161,13 @@ export function migrate(raw: unknown): SaveData {
     till: s.till == null ? null : num(s.till),
   };
   if (num(s.v) >= 4) {
+    const k = num(s.v) < 7 && done('sushi') && !done('dohyo') ? STAGE2_RAISE : 1;
     return {
-      ...base, money: num(s.money), best: Math.max(num(s.best), num(s.money)), tiles: tileList, backRice: num(s.backRice),
+      ...base, money: num(s.money) * k, best: Math.max(num(s.best), num(s.money)) * k,
+      tiles: k === 1 ? tileList : tileList.map(t => (STAGE2.includes(t.id) && !t.done ? { ...t, paid: t.paid * k } : t)), backRice: num(s.backRice),
       c1: num(s.c1), c1c: num(s.c1c), c2: num(s.c2), c2c: num(s.c2c),
-      fish: num(s.fish), rice: num(s.rice), plates: num(s.plates), cash: num(s.cash),
-      boxes: num(s.boxes), tcash: num(s.tcash), field: num(s.field),
+      fish: num(s.fish), rice: num(s.rice), plates: num(s.plates), cash: num(s.cash) * k,
+      boxes: num(s.boxes), tcash: num(s.tcash) * k, field: num(s.field),
     };
   }
   // v1–v3 were the fish market, with (v3) an optional restaurant west of the dock and its upgrades. Players who
@@ -253,7 +260,7 @@ export function save() {
     // Boxes customers are holding but haven't paid for yet go back on the counter.
     boxes: onCounter(TAKEOUT),
     tcash: cashSum(TAKEOUT.cash),
-    field: riceInField(),
+    field: riceInField() + runnersRice(),
     season: season.i,
     seasonT: Math.floor(season.t),
     fugu: offer.answer,

@@ -35,7 +35,7 @@ export interface SaveFixture {
   till?: number | null;
 }
 /** Floe Sushi's upgrades (stage 2), in order. */
-export const FLOE_SUSHI = ['paddy', 'seats', 'chef', 'farmer', 'porter', 'plot2', 'tables', 'chef3', 'tables2', 'plot3', 'kiosk', 'premium'];
+export const FLOE_SUSHI = ['paddy', 'farmer', 'seats', 'chef', 'tables', 'plot2', 'runner3', 'chef3', 'tables2', 'plot3', 'kiosk', 'porter', 'premium'];
 /** A cellar (stage 3) with all five bosses beaten and the venue built up: its last stretch, before the buyout. */
 export const RING_DONE = { beaten: 5, tier: 3, slide: true, fast: true, hires: { washer: true, salter: true, picker: true, cook: true, attendant: true } };
 
@@ -49,8 +49,8 @@ export async function overHall() {
   camera.lookAt(RING);
   camera.updateMatrixWorld();
 }
-/** Stage 1's nine market upgrades, in order. */
-export const MARKET = ['pack', 'turret', 'roulette', 'runner', 'boots', 'sled', 'runner2', 'net', 'runner3'];
+/** Stage 1's eight market upgrades, in order. */
+export const MARKET = ['pack', 'turret', 'roulette', 'runner', 'boots', 'sled', 'runner2', 'net'];
 
 /**
  * Loads a fresh copy of the whole game (new module instances, fresh DOM), optionally from a save.
@@ -63,7 +63,7 @@ export async function loadGame(save?: SaveFixture | string, opts: { main?: boole
   if (typeof save === 'string') localStorage.setItem('floe-market-v1', save);
   else if (save) {
     const empty = {
-      v: 6, money: 0, tiles: [], reviews: [], pile: 0, back: 0, backRice: 0, c1: 0, c1c: 0, c2: 0, c2c: 0, fish: 0, rice: 0,
+      v: 7, money: 0, tiles: [], reviews: [], pile: 0, back: 0, backRice: 0, c1: 0, c1c: 0, c2: 0, c2c: 0, fish: 0, rice: 0,
       plates: 0, cash: 0, boxes: 0, tcash: 0, field: 0, till: 0,
     };
     // (a test's cellar has had its practice fight, so its gong calls the first boss, and the Family have introduced

@@ -4,9 +4,9 @@
 // cook's too); at the counter, bowls; inside the soup square, bowls out for the fans. What they carry is theirs: the cellar
 // (fight.ts) only sees what they hand in or take out. And what each place says while they stand at it.
 import { BAR_PAD, BIN_PADS, BINS, COUNTER_PAD, type Ing, machineAt, machinePad, type Pad, POT_PAD, WATCH } from './cellarPlan';
-import { CY } from './cellar';
+import { CY, KITCHEN_BINS } from './cellar';
 import {
-  batchBowls, bowlPrice, COUNTER_CAP, PER_BATCH, POT_CAP, F, fillMachine, ICON, inPot, lineRoom, mach, playerAtPot, STALL_CAP, takeBowl, takeReady,
+  batchBowls, bowlPrice, COUNTER_CAP, LEDGE_CAP, PER_BATCH, POT_CAP, F, fillMachine, ICON, inPot, lineRoom, mach, playerAtPot, STALL_CAP, takeBowl, takeReady,
   toLedge, toStall, doneCount,
 } from './fight';
 import { fly } from './holder';
@@ -14,7 +14,7 @@ import { type Kind, newBowl, newCuredFish, newMushroom, newReadyRice, newRice, n
 import { player } from './player';
 import { scene } from './render';
 import { barAt, counterAt, ledgeAt, machineSpot } from './ringKitchen';
-import { pick, put } from './sfx';
+import { pick, put, toss } from './sfx';
 import type { TipContent } from './ui';
 import { d2xz, V, type XZ } from './util';
 
@@ -54,9 +54,23 @@ function handIn(kind: Kind, to: () => ReturnType<typeof V>) {
   put();
 }
 
+/** Seconds till the bin clunks again (once for an armful thrown in). */
+let clunk = 0;
+/** Throws one ready ingredient the ledge has no room for from the player's arms into the hearth room's bin, if they
+ *  have one. */
+function binSpare() {
+  const k = (Object.keys(READY) as Ing[]).find(i => F.pantry[i] >= LEDGE_CAP && player.back.count(READY[i]));
+  if (!k) return false;
+  const m = player.back.takeKind(READY[k])!, b = KITCHEN_BINS[0];
+  fly(m, () => V(b.x, b.y + 0.8, b.z), 0.28, 0.6, () => scene.remove(m));
+  if (clunk <= 0) toss(b);
+  clunk = 0.4;
+  return true;
+}
+
 /** The cellar's work, every frame the player's down there. */
 export function cellarWork(p: XZ, dt: number) {
-  player.tPick -= dt; player.tDrop -= dt;
+  player.tPick -= dt; player.tDrop -= dt; clunk -= dt;
   const back = player.back;
   // the dumbwaiter's plates: rice or fish, only as much as the racks (or the barrels) have room for
   for (const k of ['rice', 'fish'] as const) {
@@ -101,9 +115,10 @@ export function cellarWork(p: XZ, dt: number) {
     }
     playerAtPot(dt);
   }
-  // the counter: bowls (till the bowl line's in, in its place)
+  // the counter: bowls (till the bowl line's in, in its place); with full arms, what the ledge has no room for goes
+  // in the hearth room's bin, one for each bowl, so a full ledge and a full counter never leave them stuck
   if (!F.slide && at(p, COUNTER_PAD)) {
-    while (player.tPick <= 0 && back.hasRoom() && F.counter.length) {
+    while (player.tPick <= 0 && F.counter.length && (back.hasRoom() || binSpare())) {
       player.tPick += STEP;
       const m = newBowl(takeBowl()!); m.position.copy(counterAt());
       back.receive(m, 0.22, 0.7);

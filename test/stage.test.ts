@@ -7,25 +7,24 @@ import { bought, loadGame, MARKET } from './helpers';
 const $ = (id: string) => document.getElementById(id)!;
 
 describe('the stage-up', () => {
-  it('keeps two of the market\'s three runners for the restaurant: the third hands its fish back and goes', async () => {
+  it("keeps all the market's runners for the restaurant, fish and all", async () => {
     const g = await loadGame({ tiles: bought(...MARKET), money: 12000 });
     const { runners } = g.runner;
-    expect(runners).toHaveLength(3);
-    const third = runners[2];
-    for (let i = 0; i < 3; i++) third.back.put(g.items.newFillet());
-    const pile = g.stations.pile.n;
+    expect(runners).toHaveLength(2);
+    const second = runners[1];
+    for (let i = 0; i < 3; i++) second.back.put(g.items.newFillet());
     const gold = g.unlocks.tiles.find(t => t.id === 'sushi')!;
     g.placePlayer(gold.x, gold.z);
     g.press('e');
     g.runUntil(() => g.layout.stage.n === 2, 5);
     g.press('e', 'keyup');
-    expect(runners).toHaveLength(2);
-    expect(g.stations.pile.n).toBe(pile + 3); // nothing lost
     g.run(4);
-    expect(third.g.visible).toBe(false); // gone with the market
+    expect(runners).toHaveLength(2);
+    expect(second.g.visible).toBe(true);
+    g.runUntil(() => g.restaurant.fishTray.n >= 3, 20); // its fish goes to the kitchen line
   });
 
-  it('loads a restaurant with two runners, whatever the market had', async () => {
+  it('loads a restaurant with the runners the market had', async () => {
     const g = await loadGame({ tiles: bought(...MARKET, 'sushi') });
     expect(g.runner.runners).toHaveLength(2);
   });

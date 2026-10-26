@@ -111,10 +111,10 @@ describe('the upgrade square', () => {
     g.placePlayer(at.x, at.z);
     g.run(0.05);
     expect($('shopTitle').textContent).toBe('Restaurant upgrades');
-    expect(rowsText()[2]).toBe('🧑‍🍳Kitchen crew · level 1Kitchen +0% → +15%$1,000');
+    expect(rowsText()[2]).toBe('🧑‍🍳Kitchen crew · level 1Kitchen +0% → +15%$10k');
     g.shop.buyMod('specials');
-    expect(g.restaurant.platePrice()).toBe(Math.round(30 * 1.25 * 1.6));
-    expect(g.counters.TAKEOUT.price).toBe(Math.round(35 * 1.25 * 1.6));
+    expect(g.restaurant.platePrice()).toBe(Math.round(300 * 1.25 * 1.6));
+    expect(g.counters.TAKEOUT.price).toBe(Math.round(350 * 1.25 * 1.6));
     for (let i = 0; i < 8; i++) g.shop.buyMod('promo');
     expect($('toast').textContent).toBe('Marketing: World famous');
     g.run(0.05);
