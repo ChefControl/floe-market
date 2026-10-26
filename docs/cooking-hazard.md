@@ -97,6 +97,20 @@ The rules learnt from Path of Exile 2's elements: rings that show their "nearly 
 - Touch: twin sticks where the thumbs land, the left half to walk and the right half to aim and fire. The dish buttons are on the left: hold one (the chef stops), swipe its code with the right thumb, one swipe a move, then tap where it lands. Shove is a button on the right. The gun reloads by itself when empty, and tapping the ammo reloads early.
 - Leaving: ✕ (or Esc) pauses and asks "Leave the run?", Keep going or Leave.
 
+### A whole run (grilled 26 October 2026)
+
+- **The map:** one food quarter made by hand (`src/hazardMap.ts`), 64 × 40 m. Market Street and Baker Lane cross in its middle; a grocery, café, butcher's and bakery face Market Street, with a lane behind them; to the south are the corner supermarket and its car park, a square with a dry fountain, and houses. Brick walls close it in, with barricades across the streets' ends. More maps (destinations) come with the content.
+- **Each run picks** its crates (14 food, 3 ammo, 1 gold), the safe zone (of 3) and the drop-off (of 4, a good way from the zone) from fixed spots.
+- **What blocks what:** buildings, walls and cars block walking and shots. Barricades, the fountain and bins block walking but are shot over. Closed crates block walking. Dishes fly over everything.
+- **The horde** finds the shortest way round buildings to the chef, and turns up just off the screen around them (14 to 24 m away), specials too. The clock spends 90 seconds on each word.
+- **The drop-off:** the van pulls up outside a barricade and the chef hops over it into the street (two seconds; a key or tap skips it).
+- **Crates** open as the chef walks up and show a card over them: one button for each thing inside (1 to 3), taken with a click or tap, or the best with E (cookware first, then the highest grade). What isn't taken stays there.
+- **Food crates** hold one real ingredient per taste for now (chili, coffee beans, lemon, sea salt, sugar, mushroom), graded wilted, fresh or premium, better the later the crate's opened; a crate's shop hints at what's in it. Ammo crates add 2 spare magazines (the gun starts with 4 and holds 8 at most; an empty gun leaves shoving and dishes). The gold crate holds a piece of cookware (stand-ins: a cast-iron pan, a wok, a stockpot).
+- **The bag** holds 8 ingredients. Full, a crate's card shows each swap ("Swap 🍄 Wilted → 🍋 Premium"): taking one gives up the bag's lowest grade (the oldest of those) back into the crate, and anything no better shows "Bag full".
+- **The safe zone:** a ring with a tall radio mast, and an arrow at the screen's edge from Stale on. Hold E (or Radio on touch) for a second to call the van. Then hold the ring for 30 seconds, counted only inside it, with a rush coming. The van screeches in and waits 10 seconds with its doors open: walk in to get out. Missed, it backs out, and has to be called again.
+- **Coming home:** everything carried comes home, kept on this device (the pantry) until the safe house keeps it in the save. Dying loses it all, cookware too.
+- **Bests:** the most loot brought home (wilted 1, fresh 2, premium 3, cookware 10), shown on the cabinet, and the longest survived. No minimap.
+
 ## Not decided yet
 
 - What each piece of cookware unlocks (the cooking methods), and the dish roster.
@@ -110,7 +124,7 @@ Later, not in v1: survivors who move into the safe house, an online scoreboard (
 1. ✅ The fight's greybox (PR #137), and this doc.
 2. ✅ The cabinet on the casino yacht, behind the arcade flag (`src/flags.ts`): against the bow wall beside the door, where the guests' second slot machine stood (the only spot in the salon a player can reach that's off the way from the door to the games), its attract screen, the camera coming onto its face from its pad (it faces away from the game's camera), and its card with the best run and Play. Trophies come with step 7.
 3. ✅ The fight in 3D on the main renderer (`src/hazardSet.ts`, a set of its own and a camera), poly zombies and chef, and touch controls, as grilled under "The fight in 3D" above.
-4. A whole run: the van, crates and loot, the safe zone hold-out and extraction, dying.
+4. ✅ A whole run: the van, crates and loot, the safe zone hold-out and extraction, dying, as grilled under "A whole run" above.
 5. The safe house: the three counters and their timing tap, the recipe book, the armory and the van, all kept in the save.
 6. Content: cookware and dishes (after grilling the open questions above), special zombies and their tickets, destinations, bosses.
 7. Sound and music (through audition pages, checked for pops), the balance numbers (a headless run like the stage sims), trophies.

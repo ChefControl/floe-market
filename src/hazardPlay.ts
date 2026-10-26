@@ -14,8 +14,9 @@
 // Esc or ✕ mid-run holds it still and asks first: Keep going, or Leave.
 import './hazard.css';
 import {
-  DISHES, GUNS, LEVELS, MOVES, TASTES, letGo, newRun, press, reload, shove, startServe, step, stripPos, throwDish,
-  type Dir, type DishId, type GunId, type Input, type Run, type Stamp, type Zombie,
+  BAG, DISHES, GRADES, GUNS, INGREDIENTS, LEVELS, MOVES, TASTES, ZONE_R, bestIn, crateAt, haul, letGo, level,
+  newRun, press, reload, shove, startServe, step, stripPos, take, throwDish, worstInBag, wouldTake,
+  type Crate, type Dir, type DishId, type GunId, type Input, type Item, type Run, type Stamp, type Zombie,
 } from './hazard';
 import { drawSet, dressChef, headOf, renderSet, resetView, toArena, toScreen } from './hazardSet';
 import { dice } from './kit';
@@ -23,7 +24,10 @@ import { takeover } from './render';
 import { chime, clack, lose, pop, throwSound } from './sfx';
 import { panel } from './uiKit';
 
-const BEST = 'floe-market-hazard-best';
+/** The bests kept on this device: the longest survived (seconds), and the most loot brought home (hazard.ts haul). */
+const BEST = 'floe-market-hazard-best', HAUL = 'floe-market-hazard-haul';
+/** What's been brought home, kept on this device till the safe house keeps it in the save. */
+const PANTRY = 'floe-market-hazard-pantry';
 const GUN_IDS = Object.keys(GUNS) as GunId[];
 const DISH_IDS = Object.keys(DISHES) as DishId[];
 const SLOTS = 4;
@@ -47,10 +51,13 @@ root.innerHTML = `
         <span class="hz-strip"><span class="hz-track">${LEVELS.map(l => `<b>${l === 'BIOHAZARD' ? '☣️ ' : ''}${l}</b>`).join('')}</span><span class="hz-mark"></span></span></div>
       <div class="pill hz-ammo-pill"><span class="hz-ic hz-gun"></span><span class="hz-ammo"></span></div>
       <div class="pill"><span class="hz-ic" style="background:#49c25b">🧟</span><span class="hz-score"></span></div>
+      <div class="pill hz-bag-pill"><span class="hz-ic" style="background:#c9a66b">🎒</span><span class="hz-bag"></span></div>
+      <div class="pill hz-zone-pill" hidden><span class="hz-ic" style="background:#1e8fc0">📻</span><span class="hz-zone"></span></div>
       <div class="pill hz-boost" hidden><span class="hz-ic" style="background:#49c25b">🌿</span><span class="hz-boostn"></span></div>
     </div>
     <div class="hz-dishes"></div>
     <button type="button" class="k-btn hz-shove">💪 Shove</button>
+    <button type="button" class="k-btn hz-use" hidden>📻 Radio</button>
     <div class="hz-stick hz-move"><i></i></div>
     <div class="hz-stick hz-aim"><i></i></div>
     <div class="hz-leave" hidden>
@@ -62,7 +69,8 @@ root.innerHTML = `
     <div class="hz-turn"><span>📱↻</span><p class="k-title">Turn your phone sideways</p></div>
   </div>
   <div class="hz-over" hidden>
-    <h2 class="k-title">The horde got you</h2>
+    <h2 class="k-title hz-verdict"></h2>
+    <div class="hz-haul"></div>
     <div class="hz-stats"></div>
     <div class="k-row">
       <button class="k-btn k-plain hz-change">Change loadout</button>
@@ -155,7 +163,7 @@ function leaving(on: boolean) {
 }
 
 function startRun() {
-  run = newRun({ gun, dishes: [...dishes] }, dice(Date.now() >>> 0));
+  run = newRun({ gun, dishes: [...dishes] }, dice(Date.now() >>> 0), { intro: true });
   seen = { cooked: 0, servings: run.servings.join() };
   lastAim = { x: run.player.x + 100, y: run.player.y };
   dressChef();
@@ -165,17 +173,34 @@ function startRun() {
   dishBar();
 }
 
+const stored = (k: string) => { try { return Number(localStorage.getItem(k)) || 0; } catch { return 0; } };
+const store = (k: string, v: string) => { try { localStorage.setItem(k, v); } catch { /* kept for this visit only */ } };
+
+/** Puts what the run brought home in the pantry (on this device, for now). */
+function bank(r: Run) {
+  let pantry: { food: Record<string, number>; cookware: Record<string, number> } = { food: {}, cookware: {} };
+  try { pantry = { ...pantry, ...JSON.parse(localStorage.getItem(PANTRY) ?? '{}') }; } catch { /* a fresh pantry */ }
+  for (const f of r.bag) pantry.food[`${f.taste}:${f.grade}`] = (pantry.food[`${f.taste}:${f.grade}`] ?? 0) + 1;
+  for (const c of r.cookware) pantry.cookware[c.name] = (pantry.cookware[c.name] ?? 0) + 1;
+  store(PANTRY, JSON.stringify(pantry));
+}
+
 function finish(r: Run) {
-  lose();
-  let best = 0;
-  try { best = Number(localStorage.getItem(BEST)) || 0; } catch { /* no storage: no best */ }
-  const time = Math.floor(r.t), isBest = time > best;
-  if (isBest) try { localStorage.setItem(BEST, String(time)); } catch { /* kept for this visit only */ }
+  if (r.extracted) { chime(); bank(r); } else lose();
+  const time = Math.floor(r.t), best = stored(BEST), isBest = time > best;
+  const got = haul(r), bestHaul = stored(HAUL), isHaul = got > bestHaul;
+  if (isBest) store(BEST, String(time));
+  if (isHaul) store(HAUL, String(got));
   const chip = (s: string) => `<span class="pill">${s}</span>`;
+  $('.hz-verdict').textContent = r.extracted ? 'You got out!' : 'The horde got you';
+  const carried = [...r.cookware.map(c => c.emoji), ...r.bag.map(f => TASTES[f.taste].food)].join(' ');
+  $('.hz-haul').innerHTML = carried ? `<span class="${r.extracted ? '' : 'lost'}">${carried}</span>` : '';
   $('.hz-stats').innerHTML = [
     chip(`⏱️ ${clock(time)} · ${LEVELS[Math.min(3, Math.floor(stripPos(r.t)))]}`),
     chip(`🧟 ${r.kills}`), chip(`🍳 ${r.cooked} cooked`),
-    chip(isBest ? '🏆 New best' : `🏆 Best ${clock(best)}`),
+    chip(`🧺 Haul ${got}`),
+    chip(isHaul ? '🏆 New best haul' : `🏆 Best haul ${bestHaul}`),
+    chip(isBest ? '⏱️ Longest yet' : `⏱️ Longest ${clock(best)}`),
   ].join('');
   letGoAll();
   clearTags();
@@ -221,8 +246,24 @@ function typed(got: ReturnType<typeof press>) {
   if (got === 'done') chime(); else if (got) clack();
 }
 
+/** Takes the best thing in the crate the chef's at (E, or the use button). */
+function takeBest(r: Run) {
+  const c = crateAt(r);
+  if (c) took(take(r, c, bestIn(c)));
+}
+function took(got: ReturnType<typeof take>) {
+  if (got === 'took' || got === 'swapped') pop(); else if (got === 'full') clack();
+}
+
 window.addEventListener('keydown', e => {
   if (root.hidden || root.dataset.mode !== 'play' || !run || run.over || holding()) return;
+  // (any key skips the drop-off)
+  if (run.dropT > 0) { run.dropT = 0; return; }
+  if (e.code === 'KeyE') {
+    if (!e.repeat) takeBest(run);
+    held.add('KeyE');
+    return;
+  }
   const dir = DIRS[e.code], slot = slotKey(e.code);
   if (dir || slot >= 0 || e.code === 'KeyF' || e.code === 'KeyR') e.preventDefault();
   if (e.repeat) return;
@@ -248,6 +289,8 @@ const REACH = 56, SWIPE = 34;
 /** The finger holding a dish's button, and the one swiping its code. */
 let dishFinger: number | null = null;
 let swipe: { id: number; x: number; y: number } | null = null;
+/** The finger holding the use button (radioing the van). */
+let useFinger: number | null = null;
 
 const pid = (e: PointerEvent) => e.pointerId ?? -1;
 const isTouch = (e: PointerEvent) => e.pointerType === 'touch' || e.pointerType === 'pen';
@@ -268,6 +311,7 @@ function letGoAll() {
   firing = false;
   endStick(moveStick); endStick(aimStick);
   swipe = null;
+  useFinger = null;
   if (dishFinger !== null && run) letGo(run);
   dishFinger = null;
 }
@@ -276,6 +320,14 @@ play.addEventListener('pointerdown', e => {
   if (!run || run.over || holding()) return;
   const touch = isTouch(e), t = e.target as Element;
   root.dataset.touch = touch ? '1' : '0';
+  if (run.dropT > 0) { run.dropT = 0; return; }
+  const item = t.closest<HTMLElement>('.hz-loot [data-item]');
+  if (item) {
+    const c = run.crates.find(o => o.id === Number(item.dataset.crate));
+    if (c) took(take(run, c, Number(item.dataset.item)));
+    return;
+  }
+  if (t.closest('.hz-use')) { useFinger = pid(e); takeBest(run); return; }
   const slot = t.closest<HTMLElement>('.hz-slot');
   if (slot?.dataset.slot) {
     if (startServe(run, Number(slot.dataset.slot))) { dishFinger = pid(e); dishBar(); }
@@ -325,6 +377,7 @@ function fingerUp(e: PointerEvent) {
   if (id === aimStick.id) endStick(aimStick);
   if (swipe?.id === id) swipe = null;
   if (dishFinger !== null && id === dishFinger) { dishFinger = null; if (run) letGo(run); }
+  if (id === useFinger) useFinger = null;
   if (!isTouch(e)) firing = false;
 }
 window.addEventListener('pointerup', fingerUp);
@@ -343,7 +396,7 @@ function input(r: Run): Input {
   const pushed = moveStick.k > 0.15;
   const x = (held.has('KeyD') || held.has('ArrowRight') ? 1 : 0) - (held.has('KeyA') || held.has('ArrowLeft') ? 1 : 0) + (pushed ? moveStick.x : 0);
   const y = (held.has('KeyS') || held.has('ArrowDown') ? 1 : 0) - (held.has('KeyW') || held.has('ArrowUp') ? 1 : 0) + (pushed ? moveStick.y : 0);
-  return { move: { x, y }, aim: aimNow()!, fire: firing || (aimStick.k > 0.3 && !r.serving) };
+  return { move: { x, y }, aim: aimNow()!, fire: firing || (aimStick.k > 0.3 && !r.serving), use: held.has('KeyE') || useFinger !== null };
 }
 
 // ---------- the loop ----------
@@ -387,8 +440,17 @@ function hud(r: Run) {
   const ic = $('.hz-gun');
   ic.textContent = g.emoji;
   ic.style.background = g.taste ? TASTES[g.taste].color : '';
-  $('.hz-ammo').textContent = r.reloadT > 0 ? 'Reloading' : `${r.ammo} / ${g.mag}`;
+  $('.hz-ammo').textContent = r.reloadT > 0 ? 'Reloading' : r.ammo + r.spare === 0 ? 'Empty' : `${r.ammo} / ${g.mag} · ×${r.spare}`;
   $('.hz-score').textContent = `${r.kills} · 🍳 ${r.cooked}`;
+  $('.hz-bag').textContent = `${r.bag.length} / ${BAG}${r.cookware.length ? ` · ${r.cookware.map(c => c.emoji).join('')}` : ''}`;
+  // the safe zone: calling the van, holding the ring, hopping in
+  const inZone = Math.hypot(r.player.x - r.zone.x, r.player.y - r.zone.y) <= ZONE_R;
+  const zone = r.stage === 'hold' ? (inZone ? `Hold on ${clock(Math.ceil(r.holdT))}` : 'Get back in the ring!')
+    : r.stage === 'van' ? `🚐 Hop in! ${clock(Math.ceil(r.vanT))}`
+    : inZone ? (r.radioT > 0 ? 'Calling the van…' : root.dataset.touch === '1' ? 'Hold Radio to call the van' : 'Hold E to call the van') : '';
+  $('.hz-zone-pill').hidden = !zone;
+  $('.hz-zone').textContent = zone;
+  $('.hz-use').hidden = !(root.dataset.touch === '1' && r.stage === 'run' && inZone);
   $('.hz-boost').hidden = r.boost <= 0;
   $('.hz-boostn').textContent = `Boost ×${r.boost}`;
 }
@@ -437,21 +499,41 @@ function clearTags() {
 const ticketHtml = (z: Zombie) => z.ticket!.map((t, i) => `<i${i < z.step ? ' class="done"' : ''}>${TASTES[t].icon}</i>`).join('')
   + `<u style="width:${Math.max(0, Math.round(z.hp / z.maxHp * 100))}%"></u>`;
 
+/** Whether a point is off the screen. */
+const offScreen = (s: ReturnType<typeof toScreen>) => s.behind || s.x < 0 || s.x > window.innerWidth || s.y < 0 || s.y > window.innerHeight;
+/** An arrow at the screen's edge (on its outer side) pointing at `at`, which is off it, with `html` beside it. */
+function edge(key: object, at: ReturnType<typeof toScreen>, html: string) {
+  const w = window.innerWidth, h = window.innerHeight;
+  let dx = at.x - w / 2, dy = at.y - h / 2;
+  if (at.behind) { dx = -dx; dy = -dy; }
+  const k = Math.min((w / 2 - EDGE) / Math.max(1e-6, Math.abs(dx)), (h / 2 - EDGE) / Math.max(1e-6, Math.abs(dy)));
+  tag(key, `hz-tag hz-edge${dx > 0 ? ' right' : ''}`, `<b style="transform:rotate(${Math.atan2(dy, dx).toFixed(2)}rad)">➤</b>${html}`,
+    w / 2 + dx * k, h / 2 + dy * k);
+}
+/** The arrows' keys for the safe zone and the van. */
+const ZONE = {}, VAN = {}, LOOT = {};
+
+const itemName = (it: Item) => (it.kind === 'food' ? `${TASTES[it.taste].food} ${INGREDIENTS[it.taste]}`
+  : it.kind === 'cookware' ? `${it.emoji} ${it.name}` : `📦 +${it.mags} magazines`);
+/** An open crate's card: a button for each thing in it; with the bag full, what it would swap (or that it's full). */
+function lootHtml(r: Run, c: Crate) {
+  return c.items.map((it, i) => {
+    const how = wouldTake(r, c, i), worst = how === 'swap' ? r.bag[worstInBag(r)] : null;
+    const label = worst && it.kind === 'food'
+      ? `Swap ${TASTES[worst.taste].food} ${GRADES[worst.grade]} → ${TASTES[it.taste].food} ${GRADES[it.grade]}`
+      : `${itemName(it)}${it.kind === 'food' ? ` <small class="g${it.grade}">${GRADES[it.grade]}</small>` : ''}`;
+    return `<button type="button" class="k-btn${how === 'full' ? ' full' : ''}" data-crate="${c.id}" data-item="${i}">${label}${how === 'full' ? '<small>Bag full</small>' : ''}</button>`;
+  }).join('');
+}
+
 function tags(r: Run) {
   for (const t of tagged.values()) t.used = false;
-  const w = window.innerWidth, h = window.innerHeight;
+  const w = window.innerWidth;
   for (const z of r.zombies) {
     if (!z.ticket && !z.coat) continue;
     const s = toScreen(z.x, z.y, headOf(z)), mid = toScreen(z.x, z.y, 0.8);
-    const off = mid.behind || mid.x < 0 || mid.x > w || mid.y < 0 || mid.y > h;
-    if (z.ticket && off) {
-      // a special off the screen: an arrow at the edge (on its outer side), pointing at it, with its ticket
-      let dx = mid.x - w / 2, dy = mid.y - h / 2;
-      if (mid.behind) { dx = -dx; dy = -dy; }
-      const k = Math.min((w / 2 - EDGE) / Math.max(1e-6, Math.abs(dx)), (h / 2 - EDGE) / Math.max(1e-6, Math.abs(dy)));
-      tag(z, `hz-tag hz-edge${dx > 0 ? ' right' : ''}`, `<b style="transform:rotate(${Math.atan2(dy, dx).toFixed(2)}rad)">➤</b><span class="hz-ticket">${ticketHtml(z)}</span>`,
-        w / 2 + dx * k, h / 2 + dy * k);
-    } else if (z.ticket) {
+    if (z.ticket && offScreen(mid)) edge(z, mid, `<span class="hz-ticket">${ticketHtml(z)}</span>`);
+    else if (z.ticket) {
       // (kept on the screen when its head's just off it)
       tag(z, 'hz-tag hz-ticket', ticketHtml(z), Math.max(MARGIN, Math.min(w - MARGIN, s.x)), Math.max(MARGIN, s.y));
     }
@@ -460,6 +542,13 @@ function tags(r: Run) {
     t.el.style.opacity = !z.ticket ? String(0.35 + 0.65 * Math.min(1, z.coatT)) : '';
   }
   for (const st of r.stamps) stamp(st);
+  // the open crate the chef's at: what's in it
+  const c = crateAt(r);
+  if (c) { const at = toScreen(c.x, c.y, 1); tag(LOOT, 'hz-tag hz-loot', lootHtml(r, c), at.x, at.y); }
+  // the safe zone (from Stale on, or once the van's called) and the van, when they're off the screen
+  const z = toScreen(r.zone.x, r.zone.y, 0.5);
+  if ((level(r.t) >= 1 || r.stage === 'hold') && r.stage !== 'van' && offScreen(z)) edge(ZONE, z, `<span class="hz-ticket">📻 ${r.stage === 'hold' ? clock(Math.ceil(r.holdT)) : 'Safe zone'}</span>`);
+  if (r.stage === 'van' && offScreen(z)) edge(VAN, z, '<span class="hz-ticket">🚐 Van</span>');
   if (r.serving) {
     const s = r.serving, code = DISHES[r.loadout.dishes[s.slot]].code, at = toScreen(r.player.x, r.player.y, 2.2);
     tag(SERVING, `hz-tag hz-serve${s.smudge > 0 ? ' smudged' : ''}`,

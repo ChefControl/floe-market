@@ -1,6 +1,13 @@
-// Cooking Hazard, the arcade cabinet's game: a greybox prototype of its fight (?arcade=on in dev and demo builds,
-// hazardPlay.ts). These are its rules, free of the screen, so they're easy to test; hazardPlay.ts draws a run and feeds
-// it the player's keys and mouse.
+// Cooking Hazard, the arcade cabinet's game (casinoArcade.ts, hazardPlay.ts): the rules of a run, free of the screen,
+// so they're easy to test; hazardPlay.ts feeds a run the player's keys, mouse or fingers, and hazardSet.ts draws it.
+//
+// A run: the van drops the chef off at the edge of the food quarter (hazardMap.ts). Crates open as the chef walks up,
+// holding one to three ingredients, graded better as the clock climbs (or ammo, or in the gold crate, cookware); the chef
+// takes what they want into a bag of eight, a full bag swapping its worst ingredient for a better one. The clock climbs
+// Fresh, Stale, Expired, BIOHAZARD; the horde spawns just off the screen around the chef and finds its way round
+// buildings to them. In the safe zone the chef radios the van (holding the use key a second), then holds the zone for
+// 30 seconds, counted only while they're in its ring, with a rush coming; the van screeches in and waits ten seconds to
+// be hopped into, then leaves (call it again). Getting in brings everything carried home; dying loses it all.
 //
 // The zombie is the dish. The chef's gun seasons zombies with a taste, and a dish thrown on top cooks them: a second,
 // different taste on a coated zombie pops a technique (🔥 on ❄️ is Brûléed), which jumps once to the zombies around it
@@ -9,6 +16,8 @@
 // Lure). The horde only has HP, which grows with the clock (Fresh, Stale, Expired, BIOHAZARD); a special zombie has four
 // times as much, and shows an order ticket of two tastes: shots wear it down like any zombie, but its ticket, hit in
 // order, cooks it on the spot.
+
+import { Nav, QUARTER, U, pushOut, wallAlong, type DropSpot, type Shop, type Spot, type Town, type ZoneSpot } from './hazardMap';
 
 export type Taste = 'spicy' | 'bitter' | 'sour' | 'salty' | 'sweet' | 'umami';
 
@@ -30,9 +39,36 @@ export const TASTES: Record<Taste, TasteInfo> = {
 };
 export const TASTE_LIST = Object.keys(TASTES) as Taste[];
 
+// ---------- loot ----------
+/** An ingredient's grade: wilted, fresh or premium. */
+export type Grade = 0 | 1 | 2;
+export const GRADES = ['Wilted', 'Fresh', 'Premium'] as const;
+/** One real ingredient for each taste, for now (the full list comes with the content). */
+export const INGREDIENTS: Record<Taste, string> = {
+  spicy: 'Chili', bitter: 'Coffee beans', sour: 'Lemon', salty: 'Sea salt', sweet: 'Sugar', umami: 'Mushroom',
+};
+/** The gold crate's jackpot (stand-ins, till the cookware's decided). */
+export const COOKWARE = [{ name: 'Cast-iron pan', emoji: '🍳' }, { name: 'Wok', emoji: '🥘' }, { name: 'Stockpot', emoji: '🫕' }];
+export interface Food { kind: 'food'; taste: Taste; grade: Grade; got: number }
+export interface Cookware { kind: 'cookware'; name: string; emoji: string }
+export interface Ammo { kind: 'ammo'; mags: number }
+export type Item = Food | Cookware | Ammo;
+export interface Crate { id: number; x: number; y: number; kind: 'food' | 'ammo' | 'gold'; shop: Shop; open: boolean; items: Item[] }
+/** What a crate's shop mostly has (the rest of the time, anything). */
+const SHOP_TASTES: Record<Shop, Taste[]> = {
+  grocery: ['sour', 'spicy'], cafe: ['bitter', 'sweet'], butcher: ['umami', 'salty'], bakery: ['sweet', 'salty'],
+  market: TASTE_LIST, any: TASTE_LIST,
+};
+/** The odds of a wilted, then of a wilted or fresh ingredient, at each word of the clock: they get better as it climbs. */
+const GRADE_ODDS = [[0.6, 0.95], [0.35, 0.85], [0.15, 0.65], [0.05, 0.45]];
+/** The bag's ingredients; spare magazines to start with, and at most. */
+export const BAG = 8, SPARE_MAGS = 4, MAX_MAGS = 8;
+/** How many food, ammo and gold crates a run has. */
+const CRATES = { food: 14, ammo: 3, gold: 1 };
+
 // ---------- tuning ----------
 /** The arena: one street, in its own units (the screen scales it to fit). */
-export const W = 1280, H = 720;
+export const W = QUARTER.w, H = QUARTER.h;
 /** How long a taste stays on a zombie without being topped up. */
 export const COAT_TIME = 4;
 /** How long a zombie can't be cooked again after a technique pops on it. */
@@ -40,10 +76,17 @@ export const IMMUNE_TIME = 1;
 /** How near a zombie wearing the same coat has to be for a technique to jump to it. */
 export const SPREAD_R = 140;
 /** Each difficulty word lasts this long (a prototype's minute; the real game would take longer). */
-export const LEVEL_TIME = 60;
+export const LEVEL_TIME = 90;
 export const LEVELS = ['Fresh', 'Stale', 'Expired', 'BIOHAZARD'] as const;
 const LURE_R = 220, BITE_DPS = 6, CONTACT_DPS = 12, POP_DMG = 12, GARNISH_SHOTS = 5, GARNISH_K = 1.5;
-const PLAYER_SPEED = 230, PLAYER_HP = 100;
+const PLAYER_SPEED = 230, PLAYER_HP = 100, PLAYER_R = 18;
+/** A crate's size, and how near the chef opens it (and can take from it). */
+export const CRATE_R = 0.45 * U, OPEN_R = 1.5 * U;
+/** The safe zone's ring; how long the use key's held to radio the van; how long the zone's held; how long the van waits;
+ *  how near its doors the chef gets in; how long the drop-off takes. */
+export const ZONE_R = 3 * U, RADIO_TIME = 1, HOLD_TIME = 30, VAN_WAIT = 10, VAN_R = 1.6 * U, DROP_TIME = 2;
+/** How far from the chef the horde turns up: just off the screen. */
+const SPAWN_NEAR = 14 * U, SPAWN_FAR = 24 * U;
 
 // ---------- the loadout ----------
 export type GunId = 'spud' | 'salt' | 'chili';
@@ -109,6 +152,21 @@ export interface Serving {
 export interface Run {
   loadout: Loadout;
   t: number; over: boolean;
+  town: Town; nav: Nav;
+  /** Till the van's called; holding the zone; the van waiting. */
+  stage: 'run' | 'hold' | 'van';
+  /** Seconds left of the drop-off (the clock waits). */
+  dropT: number;
+  zone: ZoneSpot; drop: DropSpot;
+  radioT: number; holdT: number; vanT: number;
+  /** Got into the van: everything carried comes home. */
+  extracted: boolean;
+  crates: Crate[];
+  bag: Food[]; cookware: Cookware[];
+  /** Spare magazines. */
+  spare: number;
+  /** Things taken so far (an ingredient's `got` is its place in that order). */
+  got: number;
   player: { x: number; y: number; hp: number };
   ammo: number; reloadT: number; cooldown: number;
   servings: number[];
@@ -124,12 +182,42 @@ export interface Input {
   move: { x: number; y: number };
   aim: { x: number; y: number };
   fire: boolean;
+  /** The use key held (E, or the touch button): radioing the van from the safe zone. */
+  use?: boolean;
 }
 
-export function newRun(loadout: Loadout, rng: () => number = Math.random): Run {
+export interface RunOptions {
+  /** The map (the food quarter, unless it's for trying the rules out). */
+  town?: Town;
+  /** Where the chef starts (where the van drops them off, unless it's for trying the rules out). */
+  at?: { x: number; y: number };
+  /** With the van's drop-off first. */
+  intro?: boolean;
+}
+
+const pick = <T>(rng: () => number, list: readonly T[]) => list[Math.floor(rng() * list.length)];
+/** `n` of `list`, picked at random. */
+function some<T>(rng: () => number, list: readonly T[], n: number) {
+  const left = [...list], out: T[] = [];
+  while (out.length < n && left.length) out.push(left.splice(Math.floor(rng() * left.length), 1)[0]);
+  return out;
+}
+
+export function newRun(loadout: Loadout, rng: () => number = Math.random, opts: RunOptions = {}): Run {
+  const town = opts.town ?? QUARTER;
+  // the safe zone, and a drop-off a good way from it
+  const zone = pick(rng, town.zones), away = town.drops.filter(d => dist(d, zone) >= 25 * U);
+  const drop = pick(rng, away.length ? away : town.drops), at = opts.at ?? drop.chef;
+  let id = 1;
+  const crates = (kind: Crate['kind'], spots: readonly Spot[], n: number): Crate[] =>
+    some(rng, spots, n).map(s => ({ id: id++, x: s.x, y: s.y, kind, shop: s.shop, open: false, items: [] }));
   return {
     loadout, t: 0, over: false,
-    player: { x: W / 2, y: H / 2, hp: PLAYER_HP },
+    town, nav: new Nav(town), stage: 'run', dropT: opts.intro ? DROP_TIME : 0,
+    zone, drop, radioT: 0, holdT: 0, vanT: 0, extracted: false,
+    crates: [...crates('food', town.crates, CRATES.food), ...crates('ammo', town.ammo, CRATES.ammo), ...crates('gold', town.gold, CRATES.gold)],
+    bag: [], cookware: [], spare: SPARE_MAGS, got: 0,
+    player: { x: at.x, y: at.y, hp: PLAYER_HP },
     ammo: GUNS[loadout.gun].mag, reloadT: 0, cooldown: 0,
     servings: loadout.dishes.map(d => DISHES[d].servings),
     serving: null, boost: 0,
@@ -150,11 +238,24 @@ export const hordeHp = (t: number) => Math.round(30 * (1 + 0.6 * t / LEVEL_TIME)
 const hordeSpeed = (t: number) => Math.min(120, 55 + 0.25 * t);
 const spawnGap = (t: number) => Math.max(0.35, 1.6 - 0.008 * t);
 
+/** Where a zombie turns up: somewhere open just off the screen around the chef, that walks to them. */
+function spawnAt(run: Run) {
+  const p = run.player, nav = run.nav, { w, h } = run.town;
+  for (let k = 0; k < 40; k++) {
+    const a = run.rng() * Math.PI * 2, d = SPAWN_NEAR + run.rng() * (SPAWN_FAR - SPAWN_NEAR);
+    const x = p.x + Math.cos(a) * d, y = p.y + Math.sin(a) * d;
+    if (x < U || y < U || x > w - U || y > h - U) continue;
+    const i = nav.cell(x, y);
+    if (nav.open[i] && nav.dist[i] > 0) return nav.middle(i);
+  }
+  // (hemmed in a corner: the farthest place that walks to them)
+  let far = nav.cell(p.x, p.y);
+  for (let i = 0; i < nav.dist.length; i++) if (nav.dist[i] > nav.dist[far]) far = i;
+  return nav.middle(far);
+}
+
 function spawn(run: Run, special: boolean) {
-  // from one end of the street or the other, or a side alley
-  const side = Math.floor(run.rng() * 4), along = run.rng();
-  const x = side === 0 ? -20 : side === 1 ? W + 20 : along * W;
-  const y = side === 0 || side === 1 ? along * H : side === 2 ? -20 : H + 20;
+  const { x, y } = spawnAt(run);
   const hp = special ? hordeHp(run.t) * 4 : hordeHp(run.t);
   let ticket: Taste[] | null = null;
   if (special) {
@@ -187,6 +288,15 @@ const near = (run: Run, at: { x: number; y: number }, r: number, but?: Zombie) =
 /** The `n` nearest living zombies to `z`, within `r`. */
 const nearest = (run: Run, z: Zombie, n: number, r: number) =>
   near(run, z, r, z).sort((a, b) => dist(a, z) - dist(b, z)).slice(0, n);
+
+/** Pushes a circle at `p` (radius `r`) off a closed crate. */
+function pushOff(p: { x: number; y: number }, r: number, c: Crate) {
+  const d = dist(p, c), overlap = r + CRATE_R - d;
+  if (overlap <= 0) return;
+  // (right on top of it: off to one side)
+  if (d < 1e-6) p.x += overlap;
+  else { p.x += (p.x - c.x) / d * overlap; p.y += (p.y - c.y) / d * overlap; }
+}
 
 /** Takes `dmg` off `z`: half again with its armour melted (Acid). Down at 0. */
 function hurt(run: Run, z: Zombie, dmg: number) {
@@ -363,9 +473,9 @@ export function shove(run: Run) {
   }
 }
 
-/** Reload (R), unless the magazine's full or it's already reloading. */
+/** Reload (R), unless the magazine's full, it's already reloading, or there's no spare magazine left. */
 export function reload(run: Run) {
-  if (run.reloadT > 0 || run.ammo === GUNS[run.loadout.gun].mag) return;
+  if (run.reloadT > 0 || run.ammo === GUNS[run.loadout.gun].mag || run.spare <= 0) return;
   run.reloadT = GUNS[run.loadout.gun].reload;
 }
 
@@ -388,25 +498,111 @@ function fire(run: Run, aim: { x: number; y: number }) {
   if (run.ammo === 0) reload(run);
 }
 
+// ---------- crates ----------
+/** What's in a crate, put in as it opens (so the later it's opened, the better the grades). */
+function fill(run: Run, c: Crate) {
+  const food = (taste: Taste): Food => {
+    const odds = GRADE_ODDS[level(run.t)], r = run.rng();
+    return { kind: 'food', taste, grade: r < odds[0] ? 0 : r < odds[1] ? 1 : 2, got: 0 };
+  };
+  const taste = () => (run.rng() < 0.7 ? pick(run.rng, SHOP_TASTES[c.shop]) : pick(run.rng, TASTE_LIST));
+  if (c.kind === 'ammo') c.items = [{ kind: 'ammo', mags: 2 }];
+  else if (c.kind === 'gold') c.items = [{ kind: 'cookware', ...pick(run.rng, COOKWARE) }, food(taste())];
+  else c.items = Array.from({ length: 1 + Math.floor(run.rng() * 3) }, () => food(taste()));
+}
+
+/** The bag's worst ingredient (the lowest grade, and of those the one picked up first): what a swap gives up. */
+export function worstInBag(run: Run) {
+  let w = -1;
+  run.bag.forEach((f, i) => { if (w < 0 || f.grade < run.bag[w].grade || (f.grade === run.bag[w].grade && f.got < run.bag[w].got)) w = i; });
+  return w;
+}
+
+/** What taking item `i` of `c` would do: take it, swap the bag's worst for it, or nothing (the bag's full of better). */
+export function wouldTake(run: Run, c: Crate, i: number): 'take' | 'swap' | 'full' {
+  const it = c.items[i];
+  if (it.kind !== 'food' || run.bag.length < BAG) return 'take';
+  return run.bag[worstInBag(run)].grade < it.grade ? 'swap' : 'full';
+}
+
+/** The best thing in a crate (cookware, then the highest grade): what the use key takes. */
+export function bestIn(c: Crate) {
+  const worth = (it: Item) => (it.kind === 'cookware' ? 9 : it.kind === 'ammo' ? 5 : it.grade);
+  let b = 0;
+  c.items.forEach((it, i) => { if (worth(it) > worth(c.items[b])) b = i; });
+  return c.items.length ? b : -1;
+}
+
+/** The open crate the chef's at with something in it, if any (the nearest). */
+export function crateAt(run: Run) {
+  let best: Crate | null = null;
+  for (const c of run.crates) if (c.open && c.items.length && dist(c, run.player) <= OPEN_R + U && (!best || dist(c, run.player) < dist(best, run.player))) best = c;
+  return best;
+}
+
+/** Takes item `i` of crate `c` (the chef has to be at it): into the bag (or the gun, or the cookware), swapping the
+ *  bag's worst ingredient back into the crate when it's full. */
+export function take(run: Run, c: Crate, i: number): 'took' | 'swapped' | 'full' | null {
+  const it = c.items[i];
+  if (!it || run.over || dist(c, run.player) > OPEN_R + U) return null;
+  const how = wouldTake(run, c, i);
+  if (how === 'full') return 'full';
+  if (it.kind === 'ammo') run.spare = Math.min(MAX_MAGS, run.spare + it.mags);
+  else if (it.kind === 'cookware') run.cookware.push(it);
+  else if (how === 'swap') {
+    const w = worstInBag(run);
+    c.items[i] = run.bag[w];
+    run.bag[w] = { ...it, got: run.got++ };
+    return 'swapped';
+  } else run.bag.push({ ...it, got: run.got++ });
+  c.items.splice(i, 1);
+  return 'took';
+}
+
+/** What a run brought home: a point for each grade of each ingredient (wilted 1, premium 3), ten for cookware. None if
+ *  the chef didn't get out. */
+export const haul = (run: Run) => (run.extracted ? run.bag.reduce((n, f) => n + f.grade + 1, 0) + run.cookware.length * 10 : 0);
+
 export function step(run: Run, dt: number, input: Input) {
   if (run.over) return;
+  // (the van's dropping the chef off: the clock waits)
+  if (run.dropT > 0) { run.dropT = Math.max(0, run.dropT - dt); return; }
   run.t += dt;
-  const p = run.player, gun = GUNS[run.loadout.gun];
+  const p = run.player, gun = GUNS[run.loadout.gun], blocks = run.town.blocks;
 
   // the chef: stands still while a code goes in, otherwise walks and fires (a dish in hand is thrown instead)
   if (!run.serving || run.serving.ready) {
     const m = Math.hypot(input.move.x, input.move.y);
     if (m > 0) { p.x += input.move.x / m * PLAYER_SPEED * dt; p.y += input.move.y / m * PLAYER_SPEED * dt; }
-    p.x = Math.max(20, Math.min(W - 20, p.x)); p.y = Math.max(20, Math.min(H - 20, p.y));
+    pushOut(p, PLAYER_R, blocks);
+    for (const c of run.crates) if (!c.open) pushOff(p, PLAYER_R, c);
+    p.x = Math.max(PLAYER_R, Math.min(run.town.w - PLAYER_R, p.x)); p.y = Math.max(PLAYER_R, Math.min(run.town.h - PLAYER_R, p.y));
   }
+  // crates open as the chef walks up
+  for (const c of run.crates) if (!c.open && dist(c, p) <= OPEN_R) { c.open = true; fill(run, c); }
   if (run.serving) run.serving.smudge = Math.max(0, run.serving.smudge - dt);
   run.cooldown = Math.max(0, run.cooldown - dt);
-  if (run.reloadT > 0) { run.reloadT -= dt; if (run.reloadT <= 0) { run.reloadT = 0; run.ammo = gun.mag; } }
+  if (run.reloadT > 0) { run.reloadT -= dt; if (run.reloadT <= 0) { run.reloadT = 0; run.ammo = gun.mag; run.spare--; } }
   if (input.fire && !run.serving) fire(run, input.aim);
 
-  // the horde keeps coming, faster and tougher; now and then a special with a ticket
+  // the safe zone: radio the van, hold the ring till it comes, get in before it leaves
+  const inZone = dist(p, run.zone) <= ZONE_R;
+  if (run.stage === 'run') {
+    run.radioT = input.use && inZone ? run.radioT + dt : 0;
+    if (run.radioT >= RADIO_TIME) { run.stage = 'hold'; run.holdT = HOLD_TIME; run.radioT = 0; run.spawnT = 0; }
+  } else if (run.stage === 'hold') {
+    if (inZone) run.holdT -= dt;
+    if (run.holdT <= 0) { run.stage = 'van'; run.vanT = VAN_WAIT; }
+  } else {
+    run.vanT -= dt;
+    if (dist(p, run.zone) <= VAN_R) { run.extracted = true; run.over = true; return; }
+    if (run.vanT <= 0) run.stage = 'run';
+  }
+
+  // the horde keeps coming, faster and tougher (and three times as fast while the zone's held); now and then a special
+  run.nav.towards(p.x, p.y);
   run.spawnT -= dt;
-  if (run.spawnT <= 0) { spawn(run, false); run.spawnT = spawnGap(run.t); }
+  if (run.spawnT <= 0) { spawn(run, false); run.spawnT = spawnGap(run.t) / (run.stage === 'hold' ? 3 : 1); }
   run.specialT -= dt;
   if (run.specialT <= 0) { spawn(run, true); run.specialT = 40; }
 
@@ -415,8 +611,11 @@ export function step(run: Run, dt: number, input: Input) {
   for (const s of run.shots) {
     const x0 = s.x, y0 = s.y;
     s.x += s.vx * dt; s.y += s.vy * dt; s.life -= dt;
+    // (a wall stops it where it meets it)
+    const wall = wallAlong(x0, y0, s.x, s.y, blocks);
+    if (wall !== null) { s.x = x0 + (s.x - x0) * wall; s.y = y0 + (s.y - y0) * wall; }
     const z = run.zombies.find(o => !o.dead && toSegment(o, x0, y0, s.x, s.y) <= o.r + 4);
-    if (z) { s.life = 0; hit(run, z, s.dmg, s.taste); }
+    if (z) { s.life = 0; hit(run, z, s.dmg, s.taste); } else if (wall !== null) s.life = 0;
   }
   run.shots = run.shots.filter(s => s.life > 0);
 
@@ -458,7 +657,11 @@ export function step(run: Run, dt: number, input: Input) {
     if (z.freezeT > 0 || z.twitchT > 0) speed = 0;
     // (a little past touching: they don't stand in each other, so they'd never quite get there)
     const d = dist(z, target), reach = z.r + (bait ? bait.r : 18) + 2;
-    if (d > reach) { z.x += (target.x - z.x) / d * speed * dt; z.y += (target.y - z.y) / d * speed * dt; }
+    if (d > reach) {
+      // straight at it when nothing's in the way; otherwise the shortest way round
+      const way = bait || run.nav.clear(z, target) ? target : run.nav.next(z.x, z.y) ?? target, wd = dist(z, way) || 1;
+      z.x += (way.x - z.x) / wd * speed * dt; z.y += (way.y - z.y) / wd * speed * dt;
+    }
     else if (speed > 0) {
       if (bait) hurt(run, bait, BITE_DPS * (bait.marinateT > 0 ? 3 : 1) * dt);
       else p.hp -= CONTACT_DPS * dt;
@@ -469,6 +672,11 @@ export function step(run: Run, dt: number, input: Input) {
   for (let i = 0; i < live.length; i++) for (let j = i + 1; j < live.length; j++) {
     const a = live[i], b = live[j], d = dist(a, b) || 0.01, overlap = a.r + b.r - d;
     if (overlap > 0) { const k = overlap / d / 2; a.x -= (b.x - a.x) * k; a.y -= (b.y - a.y) * k; b.x += (b.x - a.x) * k; b.y += (b.y - a.y) * k; }
+  }
+  // (nor in walls, cars or crates)
+  for (const z of live) {
+    pushOut(z, z.r, blocks);
+    for (const c of run.crates) if (!c.open) pushOff(z, z.r, c);
   }
   run.zombies = run.zombies.filter(z => !z.dead);
 

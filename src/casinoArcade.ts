@@ -3,7 +3,7 @@
 // with the six tastes' colours down its sides, its name lit on the marquee, a joystick and four buttons, and on its
 // screen the game's attract loop: zombies shambling past with their tastes over their heads. It faces aft, away from
 // the camera, so stepping on the 🕹️ pad in front of it brings the camera round onto its face (as at the slot machines),
-// and opens a card (the casino's skin) with the best run so far and Play, which opens the game itself over the whole screen
+// and opens a card (the casino's skin) with the best haul so far and Play, which opens the game itself over the whole screen
 // (hazardPlay.ts, loaded the first time it's played). Built on its own dice, so none of it touches the game's luck.
 import { BoxGeometry, CylinderGeometry, Group, Mesh, MeshBasicMaterial, PlaneGeometry, SphereGeometry } from 'three';
 import { atTable, leaveSeat, takeSeat, type Seat } from './casinoKit';
@@ -21,8 +21,8 @@ export const CABINET = { x: SALON.x1 - 0.42, z: -1.7 };
 const PAD = { x: CABINET.x - 0.93, z: CABINET.z };
 /** How close to the pad's middle the card opens. */
 const REACH = 0.6;
-/** The best run so far, kept on this device by the game (hazardPlay.ts). */
-const BEST = 'floe-market-hazard-best';
+/** The best haul so far (the most loot brought home in one run), kept on this device by the game (hazardPlay.ts). */
+const BEST = 'floe-market-hazard-haul';
 const NAVY = 0x14203A, BLUE = 0x1E8FC0, INK = 0x1B2430, STEEL = 0x9AA4AC, GOLD = 0xE3B23C;
 /** How often the screen's picture moves on: a cabinet's attract loop doesn't need more. */
 const FRAME = 1 / 12;
@@ -39,7 +39,7 @@ const SIGN = canvasTex(256, 96, (c, w) => {
 });
 
 /** The screen's attract loop, `t` seconds in: zombies shambling across, each with a taste over its head, the title, the
- *  best run, and PRESS E blinking. */
+ *  best haul, and PRESS E blinking. */
 function attract(c: CanvasRenderingContext2D, w: number, h: number, t: number, best: number) {
   c.fillStyle = '#2C3A47'; c.fillRect(0, 0, w, h);
   c.fillStyle = '#4A5560'; c.fillRect(0, h * 0.62, w, h * 0.38);
@@ -52,12 +52,10 @@ function attract(c: CanvasRenderingContext2D, w: number, h: number, t: number, b
     c.font = '18px serif'; c.fillText(TASTES[TASTE_LIST[(i * 2 + Math.floor(t / 3)) % 6]].icon, x, y - 30);
   }
   c.font = `800 16px ${FONT}`; c.fillStyle = '#FFE7A8';
-  c.fillText(best ? `BEST ${clock(best)}` : 'NO BEST YET', w / 2, h - 34);
+  c.fillText(best ? `BEST HAUL ${best}` : 'NO BEST YET', w / 2, h - 34);
   if (Math.floor(t * 2) % 2 === 0) { c.fillStyle = '#FFF8EC'; c.fillText('PRESS E', w / 2, h - 14); }
 }
-const clock = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
-
-/** The best run on this device, in whole seconds (0 for none yet). */
+/** The best haul on this device (0 for none yet). */
 function best() {
   try { return Number(localStorage.getItem(BEST)) || 0; } catch { return 0; }
 }
@@ -142,7 +140,7 @@ export function updArcade(dt: number) {
     panel.hidden = !near;
     if (near) takeSeat(VIEW, panel); else leaveSeat(panel);
     const b = best();
-    if (near) bestEl.textContent = b ? `🏆 Best ${clock(b)}` : '🏆 No best yet';
+    if (near) bestEl.textContent = b ? `🏆 Best haul ${b}` : '🏆 No best yet';
   }
   cab.t += dt; cab.tick += dt;
   if (cab.tick < FRAME) return;
