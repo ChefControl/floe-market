@@ -14,14 +14,17 @@ import {
   BoxGeometry, CylinderGeometry, ExtrudeGeometry, Group, type Material, Mesh, MeshLambertMaterial, PlaneGeometry, Shape,
   type Vector3,
 } from 'three';
+import { between, tone } from './audio';
+import { offerTalk } from './buy';
 import { crowdModel, type Person } from './characters';
 import { electionDay, voteParam, votingBoatOn } from './flags';
 import { drawIcon } from './icons';
 import { apart, Build, detail, dice, rbox } from './kit';
+import { buyHeld } from './input';
 import { inPollingRoom, level, onVoteBoat, PIER, pushOutOfBox, VOTE_BOAT, voteBoat, voteX as X } from './layout';
 import { C } from './palette';
 import { player } from './player';
-import { bakePainted, canvasTex, FONT, G, mesh, painted, type Part, rr, scene } from './render';
+import { bakePainted, camera, camK, canvasTex, FONT, G, mesh, painted, type Part, rr, scene } from './render';
 import { pick, put, shipHorn } from './sfx';
 import { bubble } from './speech';
 import { panel as kitPanel } from './uiKit';
@@ -30,18 +33,20 @@ import { crowdStyle, type Style } from './wardrobe';
 
 // ---------- the plan ----------
 const { hull: HULL, cabin: CAB, gangway: GW, deck: DECK, dz: DZ } = VOTE_BOAT;
-/** The flag's own blue. */
-const BLUE = 0x0038B8;
+/** The flag's own blue; and the pale green a school's walls are painted to waist height. */
+const BLUE = 0x0038B8, SCHOOL = 0xB7D6C6;
 /** The cabin's walls' thickness, and the door in its dock-side wall. */
 const T = 0.08, DOOR = { x0: X(4.15), x1: X(3.35), h: 1.85 };
 /** Where the hull's sides start drawing in to the bow, and the middle of its width. */
 const BOW = HULL.x0 + 1.15, MID = (HULL.z0 + HULL.z1) / 2;
 /** Out on the foredeck, two old-timers who happen to be aboard (nobody names them): one stands on his head now and then,
- *  the other sits on the deck's edge looking out to sea. Each says his piece as the player comes by. */
-const HEADSTAND = { x: HULL.x0 + 2.3, z: MID + 0.45 }, DREAMER = { x: HULL.x0 + 1.55, z: HULL.z1 - 0.1 };
-export const MIRACLES = 'To be a realist, believe in miracles', LEGEND = 'If you will it, it is no legend';
-/** How near the player comes for them to speak, and how far off before they'll speak again. */
-const HAIL = 4.2, AGAIN = 6;
+ *  the other leans on the rail looking out to sea. Each says his piece when the player speaks to him (E, or Talk). */
+const HEADSTAND = { x: HULL.x0 + 2.3, z: MID + 0.2 }, DREAMER = { x: HULL.x0 + 1.75, z: HULL.z1 - 0.36, face: -0.3 };
+/** On the foredeck, the backgammon table (its chairs either side) and the cool box. */
+const TB = { x: HULL.x0 + 3.25, z: MID - 0.8 }, BOXC = { x: HULL.x0 + 3.3, z: HULL.z1 - 0.45 };
+export const MIRACLES = "Whoever doesn't believe in miracles is no realist", LEGEND = 'If you will it, it is no legend';
+/** How near him the player stands to speak to one. */
+const TALK_NEAR = 1.5;
 /** Seconds in the acrobat's round; the top of a person's head, at their own height 1 (characters.ts). */
 const ROUND = 9, HEAD_TOP = 1.24;
 /** The committee's table along the back wall, and the three at it (the chair in the middle) with the box at its end. */
@@ -57,8 +62,8 @@ export const SCREEN_SPOT = { x: X(2.12), z: -8.95 + DZ };
 const BERTH = { x: (HULL.x0 + HULL.x1) / 2, z: MID };
 /** How near a spot the player has to stand for its card. */
 const REACH = 0.5;
-/** The queue ropes either side of the landing, along the side deck: their posts. */
-const ROPES_X = [[X(2.75), X(3.3)], [X(4.2), X(4.75)]], ROPE_Z = -7.3 + DZ;
+/** The queue ropes on the pier, a lane up to the gangway's foot: where each side's posts stand, and how far out. */
+const ROPES_X = [GW.x0 - 0.25, GW.x1 + 0.25], ROPE_Z = [VOTE_BOAT.ramp + 0.1, VOTE_BOAT.ramp + 0.9];
 /** The slips to pick from: the game's own dishes and fish. */
 export const SLIPS = [['🍣', 'Sushi'], ['🐟', 'Fish'], ['🍚', 'Rice'], ['🍲', 'Chanko'], ['🍤', 'Tempura']] as const;
 /** What the committee says. */
@@ -179,14 +184,18 @@ function build() {
       along(s, [a.x, -a.y], [b.x, -b.y], 0, 0.28, 0.06, C.snow);
       along(s, [a.x, -a.y], [b.x, -b.y], 0.28, 0.04, 0.1, C.deck);
     }
-    // the queue ropes: chrome posts on heavy feet, a blue rope sagging between
-    for (const [a, b] of ROPES_X) {
-      for (const x of [a, b]) { s(0.04, 0.9, 0.04, C.steel, x, 0.45, ROPE_Z); s(0.2, 0.04, 0.2, C.iron, x, 0.02, ROPE_Z); }
-      for (let i = 0; i < 4; i++) {
-        const xa = a + (b - a) * i / 4, xb = a + (b - a) * (i + 1) / 4, sag = (t: number) => 0.82 - 0.12 * 4 * t * (1 - t);
-        along(s, [xa, ROPE_Z], [xb, ROPE_Z], sag((i + 0.5) / 4) - 0.015, 0.03, 0.03, BLUE);
+    // round the foredeck, a rail at the height of a balcony's: stanchions and a varnished top rail
+    for (let i = 1; i < pts.length; i++) {
+      const a = pts[i - 1], b = pts[i], len = a.distanceTo(b);
+      if (len < 0.01 || Math.max(a.x, b.x) > x0 + 0.05) continue;
+      along(s, [a.x, -a.y], [b.x, -b.y], 0.9, 0.04, 0.05, C.deck2);
+      for (let k = 0, n = Math.max(1, Math.round(len / 0.6)); k < n; k++) {
+        const t = k / n;
+        s(0.035, 0.6, 0.035, C.steel, a.x + (b.x - a.x) * t, 0.6, -(a.y + (b.y - a.y) * t));
       }
     }
+    // portholes along the hull's side, under the deck
+    for (let x = HULL.x0 + 1.6; x < HULL.x1 - 0.4; x += 0.9) s(0.14, 0.14, 0.02, 0x1E3A5F, x, -0.17, HULL.z1 + 0.012);
     // the back wall and the stern's wall, white outside and pale inside, a blue band round the room at the windows' sills
     s(x1 - x0, CH, T, C.snow, (x0 + x1) / 2, CH / 2, z0 + T / 2);
     s(T, CH, z1 - z0, C.snow, x0 + T / 2, CH / 2, (z0 + z1) / 2);
@@ -194,6 +203,27 @@ function build() {
     s(0.01, CH - 0.05, z1 - z0 - 2 * T, C.paper, x0 + T + 0.005, CH / 2, (z0 + z1) / 2);
     s(x1 - x0 - 2 * T, 0.1, 0.02, BLUE, (x0 + x1) / 2, 0.85, z0 + T + 0.01);
     s(0.02, 0.1, z1 - z0 - 2 * T, BLUE, x0 + T + 0.01, 0.85, (z0 + z1) / 2);
+    // the walls' lower half painted a school's pale green, as in a classroom polling station
+    s(x1 - x0 - 2 * T, 0.95, 0.012, SCHOOL, (x0 + x1) / 2, 0.475, z0 + T + 0.012);
+    s(0.012, 0.95, z1 - z0 - 2 * T, SCHOOL, x0 + T + 0.012, 0.475, (z0 + z1) / 2);
+    // a cork notice board over the screen, with the committee's notices pinned on it
+    const nb = (SCREEN.x0 + SCREEN.x1) / 2;
+    s(0.74, 0.5, 0.02, 0xB98A5A, nb, 1.82, z0 + T + 0.02);
+    for (const [dx, dy, w, h] of [[-0.2, 0.05, 0.22, 0.3], [0.06, 0.09, 0.2, 0.24], [0.24, -0.08, 0.16, 0.2]]) {
+      s(w, h, 0.006, C.paper, nb + dx, 1.82 + dy, z0 + T + 0.033);
+      s(0.03, 0.03, 0.01, C.tomato, nb + dx, 1.82 + dy + h / 2 - 0.03, z0 + T + 0.04);
+    }
+    // a standing fan in the corner by the door, turned to the committee
+    const fan = { x: x1 - T - 0.35, z: z1 - T - 0.4 };
+    s(0.3, 0.03, 0.3, C.snow, fan.x, 0.015, fan.z);
+    s(0.035, 1.0, 0.035, C.snow, fan.x, 0.5, fan.z);
+    s(0.12, 0.12, 0.14, C.snow, fan.x, 1.05, fan.z);
+    s(0.03, 0.36, 0.36, 0x9FC9E0, fan.x - 0.1, 1.05, fan.z);
+    // on the committee's table, a red thermos and paper cups; and a bench for whoever's waiting, by the window
+    s(0.1, 0.26, 0.1, C.tomato, TABLE.x0 + 0.12, TABLE.top + 0.13, TABLE.z0 + 0.15);
+    for (let i = 0; i < 3; i++) s(0.05, 0.08, 0.05, C.snow, TABLE.x0 + 0.26 + i * 0.07, TABLE.top + 0.04, TABLE.z0 + 0.18);
+    s(1.0, 0.05, 0.32, C.deck2, x0 + 0.95, 0.42, z1 - T - 0.3);
+    for (const dx of [-0.42, 0.42]) s(0.05, 0.4, 0.28, C.frame, x0 + 0.95 + dx, 0.2, z1 - T - 0.3);
     // the room's floor, pale, over the deck
     s(x1 - x0 - 2 * T, 0.01, z1 - z0 - 2 * T, C.enamel, (x0 + x1) / 2, 0.005, (z0 + z1) / 2);
     // the committee's table: a white cloth with a blue edge over it, three chairs behind, the register open in front of
@@ -253,7 +283,6 @@ function build() {
   twin(g, still);
   // ---- the foredeck: a backgammon board out on a table between two white plastic chairs, matkot paddles and their
   // ball against the far rail, and a blue cool box ----
-  const TB = { x: HULL.x0 + 3.25, z: MID - 0.8 }, BOXC = { x: HULL.x0 + 3.3, z: HULL.z1 - 0.45 };
   twin(g, blocks(s => {
     s(0.62, 0.04, 0.46, C.post, TB.x, 0.5, TB.z);
     for (const dx of [-0.26, 0.26]) for (const dz of [-0.18, 0.18]) s(0.04, 0.48, 0.04, C.frame, TB.x + dx, 0.24, TB.z + dz);
@@ -292,32 +321,35 @@ function build() {
   boardTop.rotation.x = -Math.PI / 2;
   g.add(ball, boardTop);
   // ---- the two old-timers ----
-  const oldTimer = (seed: number, coat: number, f: (st: Style) => void) => {
+  const oldTimer = (seed: number, coat: number, look: 'fancy' | 'yakuza', f: (st: Style) => void) => {
     const st = crowdStyle(seed);
     Object.assign(st, { woman: false, skirt: null, hat: 'bare', glasses: null, neck: 'tie' });
     f(st);
-    const p = crowdModel(st, 'fancy');
+    const p = crowdModel(st, look);
     p.restyle(coat, st);
     return p;
   };
   // the short one with the white hair round his bald top, who stands on his head on the deck now and then
-  const acrobat = oldTimer(270_101, 0xE9E1CF, st => Object.assign(st, { cut: 'bald', hair: 0xF2F0EA, face: 'bare', legs: 0xD9C9A3, neckC: 0xE9E1CF, height: 0.92 }));
+  const acrobat = oldTimer(270_101, 0xE9E1CF, 'fancy', st => Object.assign(st, { cut: 'bald', hair: 0xF2F0EA, face: 'bare', legs: 0xD9C9A3, neckC: 0xE9E1CF, height: 0.92 }));
   const tip = new Group();
   tip.position.set(HEADSTAND.x, HEAD_TOP * 0.92, HEADSTAND.z);
   acrobat.position.y = -HEAD_TOP * 0.92;
   tip.add(acrobat);
   g.add(tip);
-  // the tall one with the full dark beard, sitting on the deck's edge, looking out to sea
-  const dreamer = oldTimer(270_202, 0x23232B, st => Object.assign(st, { cut: 'short', hair: 0x1E1B1A, face: 'beard', legs: 0x23232B, neckC: 0xF4F1EA, height: 1.08 }));
-  dreamer.position.set(DREAMER.x, 0.36 - 0.325 * 1.08, DREAMER.z);
-  dreamer.rotation.y = -0.45;
-  for (const l of dreamer.legs) l.rotation.x = -1.1;
-  for (const a of dreamer.arms) a.rotation.x = -0.35;
+  // the tall one in a black coat over a white shirt, his dark hair combed back and a long, full dark beard, leaning on
+  // the rail with his arms on it, gazing out over the water, as on a hotel balcony once (the dark suit's look, without
+  // its sunglasses or its chain)
+  const dreamer = oldTimer(270_202, 0x1C1C22, 'yakuza', st => Object.assign(st, {
+    cut: 'short', hair: 0x17120F, face: 'beard', neck: 'bow', neckC: 0xF4F1EA, summer: 'sunhat', eyes: 'dot', mouth: 'none', height: 1.1,
+  }));
+  dreamer.position.set(DREAMER.x, 0, DREAMER.z);
+  dreamer.rotation.order = 'YXZ';
+  dreamer.rotation.set(0.12, DREAMER.face, 0);
+  for (const [i, a] of dreamer.arms.entries()) { a.rotation.x = -1.3; a.rotation.z = (i ? 1 : -1) * 0.3; }
+  const beard = mesh(G.sphere, 0x17120F, 0, 0.83, 0.22);
+  beard.scale.set(0.14, 0.17, 0.09);
+  dreamer.add(beard);
   g.add(dreamer);
-  const hails = [
-    { at: HEADSTAND, line: MIRACLES, says: bubble(scene, 2.2), heard: false, y: 2.1 },
-    { at: DREAMER, line: LEGEND, says: bubble(scene, 2.2), heard: false, y: 1.9 },
-  ];
   // the gangway: planks across from the pier's edge to the side deck, with a rope rail each side (run out once it's moored)
   const plank = new Group();
   g.add(plank);
@@ -327,6 +359,15 @@ function build() {
     for (const x of [GW.x0, GW.x1]) {
       for (const z of [foot - 0.15, DECK.z1]) s(0.04, 0.7, 0.04, C.post, x, up(z) + 0.35, z);
       s(Math.hypot(run - 0.15, up(foot - 0.15)), 0.025, 0.025, C.rope, x, (up(foot - 0.15) + 1.36) / 2, (foot - 0.15 + DECK.z1) / 2, Math.PI / 2, slope);
+    }
+    // the queue ropes: chrome posts on heavy feet, a blue rope sagging between
+    for (const x of ROPES_X) {
+      const [a, b] = ROPE_Z;
+      for (const z of [a, b]) { s(0.04, 0.9, 0.04, C.steel, x, 0.45, z); s(0.2, 0.04, 0.2, C.iron, x, 0.02, z); }
+      for (let i = 0; i < 4; i++) {
+        const za = a + (b - a) * i / 4, zb = a + (b - a) * (i + 1) / 4, sag = (t: number) => 0.82 - 0.12 * 4 * t * (1 - t);
+        along(s, [x, za], [x, zb], sag((i + 0.5) / 4) - 0.015, 0.03, 0.03, BLUE);
+      }
     }
   }));
   g.add(mesh(bakePainted(pennants), painted));
@@ -339,6 +380,22 @@ function build() {
   const tent = sign('קלפי 1', 0.34, 0.12, '#FFFFFF', '#0038B8');
   tent.position.set(MEMBERS_X[2], TABLE.top + 0.07, -8.853 + DZ);
   g.add(boxLabel, tent);
+  // the floor: speckled terrazzo tiles, as in an old school's classroom (its own dice for the speckles)
+  const tiles = canvasTex(512, 256, (c, w, h) => {
+    let seed = 7;
+    const rnd = () => (seed = seed * 16807 % 2147483647) / 2147483647;
+    c.fillStyle = '#E4DACB'; c.fillRect(0, 0, w, h);
+    for (let i = 0; i < 2600; i++) {
+      c.fillStyle = ['#8C7B6B', '#B5A28E', '#5E5248', '#C9B79F'][i % 4];
+      c.fillRect(rnd() * w, rnd() * h, 2 + rnd() * 2, 2 + rnd() * 2);
+    }
+    c.strokeStyle = 'rgba(90,75,60,.35)'; c.lineWidth = 2;
+    for (let x = 0; x <= w; x += w / 12) { c.beginPath(); c.moveTo(x, 0); c.lineTo(x, h); c.stroke(); }
+    for (let y = 0; y <= h; y += h / 6) { c.beginPath(); c.moveTo(0, y); c.lineTo(w, y); c.stroke(); }
+  });
+  const floor = mesh(new PlaneGeometry(CAB.x1 - CAB.x0 - 2 * T, CAB.z1 - CAB.z0 - 2 * T), new MeshLambertMaterial({ map: tiles.tex }), (CAB.x0 + CAB.x1) / 2, 0.012, (CAB.z0 + CAB.z1) / 2);
+  floor.rotation.x = -Math.PI / 2;
+  g.add(floor);
 
   // ---- the walls on the camera's side (the dock's, with the door and its sign, and the bow's), which fade ----
   const near = new MeshLambertMaterial({ vertexColors: true, transparent: true }), nearMats: Material[] = [near];
@@ -355,6 +412,17 @@ function build() {
     }
     for (const k of [0, 1]) s(0.06, DOOR.h, T + 0.03, BLUE, k ? DOOR.x1 : DOOR.x0, DOOR.h / 2, zw);
     s(DOOR.x1 - DOOR.x0 + 0.06, 0.06, T + 0.03, BLUE, (DOOR.x0 + DOOR.x1) / 2, DOOR.h, zw);
+    // varnished boards along the wall's foot, either side of the door
+    s(DOOR.x0 - x0, 0.34, T + 0.02, C.deck2, (x0 + DOOR.x0) / 2, 0.17, zw);
+    s(x1 - DOOR.x1, 0.34, T + 0.02, C.deck2, (DOOR.x1 + x1) / 2, 0.17, zw);
+    // blue shutters either side of each window, and a box of red geraniums under it
+    for (const wx of [X(2.45), X(5.35)]) {
+      for (const k of [-1, 1]) s(0.2, 0.6, 0.03, BLUE, wx + k * 0.52, 1.3, zw + T / 2 + 0.03);
+      s(0.82, 0.14, 0.16, C.deck2, wx, 0.92, zw + T / 2 + 0.08);
+      for (let i = 0; i < 6; i++) s(0.1, 0.08, 0.1, i % 2 ? 0xE0392B : 0x3E8E4E, wx - 0.3 + i * 0.12, 1.02, zw + T / 2 + 0.08);
+    }
+    // a striped awning, blue and white, over the door
+    for (let i = 0; i < 4; i++) s(DOOR.x1 - DOOR.x0 + 0.4, 0.025, 0.12, i % 2 ? C.snow : BLUE, (DOOR.x0 + DOOR.x1) / 2, DOOR.h + 0.2 - i * 0.04, zw + 0.1 + i * 0.11);
     // the bow's end: a round window
     s(T, CH, z1 - z0, C.snow, x1 - T / 2, CH / 2, (z0 + z1) / 2);
     s(T + 0.02, 0.1, z1 - z0, BLUE, x1 - T / 2, 0.85, (z0 + z1) / 2);
@@ -373,6 +441,12 @@ function build() {
     s(x1 - x0 + 0.2, 0.08, z1 - z0 + 0.2, C.snow, (x0 + x1) / 2, CH + 0.04, (z0 + z1) / 2);
     s(x1 - x0 + 0.22, 0.06, z1 - z0 + 0.22, BLUE, (x0 + x1) / 2, CH + 0.005, (z0 + z1) / 2);
     s(0.9, 0.18, 0.6, C.snow, X(2.4), CH + 0.17, (z0 + z1) / 2);
+    // a white rail round the roof's edge
+    for (const [a, b] of [[[x0, z1], [x1, z1]], [[x1, z1], [x1, z0]], [[x1, z0], [x0, z0]], [[x0, z0], [x0, z1]]] as [number, number][][]) {
+      along(s, a as [number, number], b as [number, number], CH + 0.38, 0.03, 0.03, C.snow);
+      const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+      for (let k = 0, n = Math.max(1, Math.round(len / 0.8)); k < n; k++) s(0.03, 0.3, 0.03, C.snow, a[0] + (b[0] - a[0]) * k / n, CH + 0.23, a[1] + (b[1] - a[1]) * k / n);
+    }
     bunting(s, roofPennants, [x0, CH + 0.02, z1 + 0.1], [x1, CH + 0.02, z1 + 0.1]);
   }), true, roofMat);
   const roofPen = mesh(bakePainted(roofPennants), new MeshLambertMaterial({ vertexColors: true, transparent: true }));
@@ -415,7 +489,7 @@ function build() {
   // out at sea till it sails in (updVoting)
   ship.visible = plank.visible = false;
   return {
-    ship, g, plank, roof, roofMats, nearMats, members, says, inHand, flying, sticker, roofK: 1, acrobat, tip, dreamer, hails,
+    ship, g, plank, roof, roofMats, nearMats, members, says, inHand, flying, sticker, roofK: 1, acrobat, tip, dreamer,
     /** Seconds into the acrobat's round: standing a moment, over onto his head, holding it, and down again. */
     act: 0,
     /** Where it is: out at sea, coming in, moored, going, or gone; and the seconds it's been that. */
@@ -583,7 +657,7 @@ export function updVoting(dt: number) {
     Object.assign(voting, { slip: null, voted: false, greeted: false });
     boat.inHand.visible = false;
   }
-  const inside = !level.down && p.z < CAB.z1 + 0.15 && onVoteBoat(p);
+  const inside = !level.down && (inPollingRoom(p) || (p.x > GW.x0 && p.x < GW.x1 && p.z < CAB.z1 + 0.15 && onVoteBoat(p)));
   voting.inside = inside;
   boat.roofK += ((inside ? 0 : 1) - boat.roofK) * Math.min(1, dt * 8);
   if (!inside && boat.roofK > 0.995) boat.roofK = 1;
@@ -625,11 +699,13 @@ export function updVoting(dt: number) {
   foredeck(dt);
 }
 
-/** The acrobat's round, and the two old-timers each saying his piece as the player comes by (once each time they come
- *  near, and only while the boat's moored; one at a time). */
+/** The acrobat's round (spoken to, he comes down onto his feet and stays there till he's done), and speaking to the
+ *  old-timers. */
 function foredeck(dt: number) {
   const b = boat!;
-  b.act = (b.act + dt) % ROUND;
+  if (talk?.i !== 0) b.act = (b.act + dt) % ROUND;
+  else if (b.act >= 8 && b.act < 8.8) b.act = Math.min(8.8, b.act + dt);
+  else b.act = 0;
   const t = b.act, ease = (k: number) => k * k * (3 - 2 * k);
   const k = t < 3 ? 0 : t < 3.8 ? ease((t - 3) / 0.8) : t < 8 ? 1 : t < 8.8 ? 1 - ease((t - 8) / 0.8) : 0;
   const top = HEAD_TOP * 0.92;
@@ -637,19 +713,161 @@ function foredeck(dt: number) {
   b.tip.position.y = top * (1 - k);
   for (const a of b.acrobat.arms) a.rotation.x = -k * (Math.PI - 0.35);
   for (const [i, l] of b.acrobat.legs.entries()) l.rotation.x = k * Math.sin(t * 2.2 + i) * 0.08;
-  const p = player.g.position;
-  for (const h of b.hails) {
-    const d = Math.hypot(p.x - h.at.x, p.z - h.at.z);
-    if (h.heard && d > AGAIN) h.heard = false;
-    if (!h.heard && d < HAIL && b.sail === 'moored' && !b.hails.some(o => o.says.text)) { h.heard = true; h.says.say(h.line); }
-    if (h.says.text) h.says.place(h.at.x, VOTE_BOAT.y + h.y, h.at.z);
-    h.says.upd(dt);
+  talking(dt);
+}
+
+// ---------- speaking to the old-timers ----------
+// Staged as the Family's introductions are in the Undertow (meet.ts, whose bubble and shade it borrows, with nobody's
+// name on it): the camera eases in on him from in front, creeping closer, and his line comes a letter at a time in
+// blips of his own voice, his head nodding with it. A tap or a key: the rest of it at once, or back to the game.
+
+/** Each old-timer: where he stands and which way he faces, which side of him the camera comes in from (the short one's
+ *  from his right, so the tall one's not in the way), his line, the top of his head over the deck, and his voice: the
+ *  short one's quick and high, the tall one's slow and low. On the scene's bus, as the Family's are. */
+const OLD = [
+  {
+    at: HEADSTAND, face: 0, side: -1, line: MIRACLES, top: 1.2, letter: 0.038,
+    syl: () => tone({ f: between(185, 225), d: 0.06, type: 'triangle', a: 0.006, v: 0.26, bus: 'cue' }),
+    stop: () => tone({ f: between(160, 168), f2: 142, d: 0.15, type: 'triangle', a: 0.006, v: 0.26, bus: 'cue' }),
+  },
+  {
+    at: DREAMER, face: DREAMER.face, side: 1, line: LEGEND, top: 1.35, letter: 0.058,
+    syl: () => tone({ f: between(92, 112), d: 0.11, type: 'triangle', lp: 700, a: 0.01, v: 0.32, bus: 'cue' }),
+    stop: () => tone({ f: between(84, 88), f2: 74, d: 0.24, type: 'triangle', lp: 650, a: 0.01, v: 0.32, bus: 'cue' }),
+  },
+];
+/** Seconds before his line starts, as the camera comes in. */
+const LEAD = 0.6;
+/** The one being spoken to: which, seconds in, how much of his line's said, and the wait for the next letter. */
+let talk: { i: number; t: number; n: number; wait: number } | null = null;
+/** The camera's view of him, blended in by `k` (main.ts); whose shot it is (kept as it eases back), how far it's crept
+ *  in, his nod on each syllable, and whether E was down last frame. */
+export const elderCam = { k: 0, pos: V(0, 0, 0), look: V(0, 0, 0) };
+let shot = 0, creep = 0, nod = 0, pressed = false;
+/** What's going on, for tests: who's talking (0 or 1) and what he's said so far. */
+export const elderState = () => ({ who: talk?.i ?? -1, says: talk ? OLD[talk.i].line.slice(0, talk.n) : '' });
+
+const $ = (id: string) => document.getElementById(id)!;
+const talkEl = boat ? { root: $('meet'), say: $('meetSay'), who: $('meetWho'), line: $('meetLine'), live: $('meetLive') } : null;
+
+function begin(i: number) {
+  talk = { i, t: 0, n: 0, wait: 0 };
+  // (on his head, or going over: down again from where he is)
+  const b = boat!;
+  if (i === 0 && b.act >= 3 && b.act < 8) b.act = b.act < 3.8 ? 8 + (3.8 - b.act) : 8;
+  shot = i; creep = 0;
+  player.held = true; player.moving = false;
+  // (facing him)
+  const at = OLD[i].at, p = player.g.position;
+  player.h = Math.atan2(at.x - p.x, at.z - p.z); player.g.rotation.y = player.h;
+  const el = talkEl!;
+  el.who.textContent = ''; el.line.textContent = ''; el.line.dataset.rest = OLD[i].line;
+  el.say.classList.remove('on', 'done');
+  el.live.textContent = OLD[i].line;
+  el.root.hidden = false;
+  document.body.classList.add('meet');
+}
+function end() {
+  talk = null;
+  player.held = false;
+  const el = talkEl!;
+  el.say.classList.remove('on', 'done');
+  el.root.hidden = true;
+  document.body.classList.remove('meet');
+}
+/** A tap or a key: the rest of his line at once, or back to the game. */
+function advance() {
+  if (!talk || !talkEl!.say.classList.contains('on')) return;
+  const line = OLD[talk.i].line;
+  if (talk.n < line.length) { talk.n = line.length; talkEl!.line.textContent = line; talkEl!.line.dataset.rest = ''; talkEl!.say.classList.add('done'); }
+  else end();
+}
+if (boat) {
+  window.addEventListener('keydown', e => {
+    if (!talk || e.repeat) return;
+    if ([' ', 'Enter', 'z', 'Z', 'e', 'E'].includes(e.key)) { e.preventDefault(); advance(); }
+  });
+  window.addEventListener('pointerdown', () => { if (talk) advance(); });
+}
+
+/** Offers Talk beside either of them while the boat's moored, starts it on E (or Talk), and goes through his line. */
+function talking(dt: number) {
+  const b = boat!, p = player.g.position, press = buyHeld() && !pressed;
+  pressed = buyHeld();
+  if (!talk) {
+    elderCam.k = Math.max(0, elderCam.k - dt / 0.8);
+    let near = -1;
+    if (b.sail === 'moored' && !player.held && onVoteBoat(p) && p.x < CAB.x0) {
+      for (const [i, o] of OLD.entries()) if (Math.hypot(p.x - o.at.x, p.z - o.at.z) < TALK_NEAR && (near < 0 || d2xz(p, o.at) < d2xz(p, OLD[near].at))) near = i;
+    }
+    offerTalk(near >= 0, 'boat');
+    if (near >= 0 && press) begin(near);
   }
+  if (talk) {
+    offerTalk(false, 'boat');
+    const s = talk, o = OLD[s.i], el = talkEl!;
+    s.t += dt;
+    elderCam.k = Math.min(1, elderCam.k + dt / 0.7);
+    creep = Math.min(1, creep + dt / 10);
+    if (s.t >= LEAD && b.tip.rotation.x === 0 && s.n < o.line.length) {
+      el.say.classList.add('on');
+      s.wait -= dt;
+      while (s.wait <= 0 && s.n < o.line.length) {
+        const ch = o.line[s.n++];
+        // (the end of the line: a lower note)
+        if (s.n === o.line.length) { o.stop(); nod = 0.1; break; }
+        s.wait += ch === ',' ? 0.12 : o.letter;
+        if (/[a-z0-9]/i.test(ch) && s.n % 2) { o.syl(); nod = 0.07; }
+      }
+      el.line.textContent = o.line.slice(0, s.n);
+      el.line.dataset.rest = o.line.slice(s.n);
+      if (s.n >= o.line.length) el.say.classList.add('done');
+    }
+  }
+  // his head nodding with what he says, settling
+  nod += -nod * Math.min(1, dt * 9);
+  b.acrobat.rotation.x = shot === 0 ? nod : 0;
+  b.dreamer.rotation.x = 0.12 + (shot === 1 ? nod : 0);
+}
+
+const nearer = V(0, 0, 0), face = V(0, 0, 0);
+/** Puts the camera's view of him and his bubble in place for this frame (main.ts, before the camera's drawn): from in
+ *  front of him, a little to one side and up, creeping in as he talks; further back on a phone held upright. */
+export function drawElders() {
+  if (!boat || elderCam.k <= 0) return;
+  const o = OLD[shot], back = camK > 1 ? 1.35 : 1, y = VOTE_BOAT.y;
+  // (the short one's face, standing or on his head)
+  const up = boat.tip.rotation.x / Math.PI;
+  face.set(o.at.x, y + (shot === 0 ? 0.95 * (1 - up) + 0.2 * up : 1.15), o.at.z);
+  const fx = Math.sin(o.face), fz = Math.cos(o.face), sx = 0.9 * o.side;
+  elderCam.pos.set(o.at.x + (fx * 2.7 - fz * sx) * back, y + 1.9 * back, o.at.z + (fz * 2.7 + fx * sx) * back);
+  elderCam.look.set(o.at.x, face.y - 0.1, o.at.z);
+  elderCam.pos.lerp(nearer.copy(elderCam.look), 0.18 * creep);
+  if (!talk || !talkEl!.say.classList.contains('on')) return;
+  // over his head, its tail pointing down at him (kept on the screen); the dark round the edges, clear round his face
+  const el = talkEl!;
+  const toScreen = (v: Vector3) => { v.project(camera); return { x: (v.x + 1) / 2 * window.innerWidth, y: (1 - v.y) / 2 * window.innerHeight }; };
+  const h = toScreen(V(o.at.x, y + o.top, o.at.z)), f = toScreen(face.clone());
+  const w = el.say.offsetWidth, x = Math.max(12, Math.min(h.x - w / 2, window.innerWidth - w - 12));
+  el.say.style.left = x + 'px'; el.say.style.top = Math.max(el.say.offsetHeight + 16, h.y) + 'px';
+  el.say.style.setProperty('--tail', Math.max(22, Math.min(w - 22, h.x - x)) + 'px');
+  el.root.style.setProperty('--fx', f.x + 'px'); el.root.style.setProperty('--fy', f.y + 'px');
 }
 /** Keeps the player out of the committee's table (and from behind it) and the screen's. */
 export function collideVoting(p: XZ) {
-  if (!boat || !inPollingRoom(p)) return;
-  const tx = (TABLE.x0 + TABLE.x1) / 2, tz = (TABLE.z1 + CAB.z0) / 2;
-  pushOutOfBox(p, tx, tz, (TABLE.x1 - TABLE.x0) / 2 + 0.3, (TABLE.z1 - CAB.z0) / 2 + 0.3);
-  pushOutOfBox(p, (SCREEN.x0 + SCREEN.x1) / 2, (SCREEN.z0 + SCREEN.z1) / 2, (SCREEN.x1 - SCREEN.x0) / 2 + 0.3, (SCREEN.z1 - SCREEN.z0) / 2 + 0.3);
+  if (!boat) return;
+  if (inPollingRoom(p)) {
+    const tx = (TABLE.x0 + TABLE.x1) / 2, tz = (TABLE.z1 + CAB.z0) / 2;
+    pushOutOfBox(p, tx, tz, (TABLE.x1 - TABLE.x0) / 2 + 0.3, (TABLE.z1 - CAB.z0) / 2 + 0.3);
+    pushOutOfBox(p, (SCREEN.x0 + SCREEN.x1) / 2, (SCREEN.z0 + SCREEN.z1) / 2, (SCREEN.x1 - SCREEN.x0) / 2 + 0.3, (SCREEN.z1 - SCREEN.z0) / 2 + 0.3);
+    // the bench by the window and the fan in the corner
+    pushOutOfBox(p, CAB.x0 + T + 0.95, CAB.z1 - T - 0.3, 0.75, 0.4);
+    pushOutOfBox(p, CAB.x1 - T - 0.35, CAB.z1 - T - 0.4, 0.4, 0.4);
+  } else if (onVoteBoat(p) && p.x < CAB.x0) {
+    // out on the foredeck: the backgammon table and its chairs, the cool box, and the two old-timers
+    pushOutOfBox(p, TB.x, TB.z, 1.05, 0.5);
+    pushOutOfBox(p, BOXC.x, BOXC.z, 0.5, 0.42);
+    pushOutOfBox(p, HEADSTAND.x, HEADSTAND.z, 0.45, 0.45);
+    pushOutOfBox(p, DREAMER.x, DREAMER.z, 0.4, 0.4);
+  }
 }

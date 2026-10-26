@@ -29,6 +29,7 @@ import { drawTutorial } from './tutorial';
 import { hud, keepInSight } from './ui';
 import { jitter } from './kit';
 import { V } from './util';
+import { drawElders, elderCam } from './votingBoat';
 
 // ---------- save / restart ----------
 // The Mr. Fugu demo build (VITE_FUGU_DEMO=1) starts from a game that's one bill short of meeting him, and keeps nothing.
@@ -110,6 +111,9 @@ function frame(now: number) {
   // one of the Family introducing himself in the Undertow (meet.ts)
   drawMeet();
   if (meetCam.k > 0) { const b = smooth(meetCam.k); camera.position.lerp(meetCam.pos, b); aim.lerp(meetCam.look, b); }
+  // speaking to one of the old-timers on the voting boat's foredeck (votingBoat.ts)
+  drawElders();
+  if (elderCam.k > 0) { const b = smooth(elderCam.k); camera.position.lerp(elderCam.pos, b); aim.lerp(elderCam.look, b); }
   // the cooking show at the pot: its own camera on the stew (chanko.ts), jolting a little on a chop
   if (showCam.k > 0) {
     const b = smooth(showCam.k), s = reduceMotion.matches ? 0 : showShake();

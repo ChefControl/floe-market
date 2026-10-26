@@ -138,13 +138,29 @@ describe('the voting boat', () => {
     expect(layout.inPollingRoom(g.player.g.position)).toBe(true);
     expect(vote.boat!.roofK).toBeLessThan(0.05);
     expect(vote.boat!.roof.visible).toBe(false);
-    // but not off the side of the gangway into the water, nor through the committee's table
+    // but not off the side of the gangway into the water (onto the side deck, or back on the pier), nor through the
+    // committee's table
     g.placePlayer(X(2.5), -6.9 + dz);
-    g.run(0.1);
-    expect(Math.abs(g.player.g.position.x - X(3.75)) < 0.3 || g.player.g.position.z > layout.PIER.arm.z0).toBe(true);
+    g.run(1);
+    expect(g.player.g.position.y).toBeCloseTo(layout.PIER.y, 2);
+    expect(layout.onVoteBoat(g.player.g.position) || g.player.g.position.z > layout.PIER.arm.z0).toBe(true);
     g.placePlayer(X(5.35), -8.6 + dz);
     g.run(0.1);
     expect(g.player.g.position.z).toBeGreaterThan(vote.TABLE.z1);
+    // out again, along the side deck and round onto the foredeck, where the roof stays on
+    const { hull, cabin } = VOTE_BOAT;
+    for (const [x, z] of [[X(5.5), -7.35 + dz], [cabin.x0 - 0.4, hull.z1 - 0.6], [hull.x0 + 1.5, (hull.z0 + hull.z1) / 2 - 0.6]]) {
+      g.placePlayer(x, z);
+      g.run(1);
+      expect(g.player.g.position.x).toBeCloseTo(x, 1);
+      expect(g.player.g.position.z).toBeCloseTo(z, 1);
+      expect(layout.onVoteBoat(g.player.g.position)).toBe(true);
+      expect(vote.boat!.roofK).toBe(1);
+    }
+    // but not over the bow's rail, nor through the backgammon table
+    g.placePlayer(hull.x0 + 0.3, (hull.z0 + hull.z1) / 2);
+    g.run(0.1);
+    expect(g.player.g.position.x).toBeGreaterThan(hull.x0 + 0.9);
   });
 
   it('greets the voter, has them pick a slip behind the screen and cast it, thanks them, and saves nothing', async () => {
@@ -218,31 +234,52 @@ describe('the voting boat', () => {
     expect((await loadOn(AFTER)).vote.boat).toBeNull();
   });
 
-  it('has two old-timers on its foredeck, each saying his piece once as the player comes by, one of them on his head now and then', async () => {
-    const { g, vote } = await loadOn(ELECTION);
-    const b = vote.boat!;
+  it('has two old-timers on its foredeck who say their piece when spoken to, the camera in on them, one of them on his head now and then', async () => {
+    const { g, vote, layout } = await loadOn(ELECTION);
+    const b = vote.boat!, { hull, cabin } = layout.VOTE_BOAT, mid = (hull.z0 + hull.z1) / 2;
     // over onto his head and down again, in his round
     let upside = 0;
     for (let i = 0; i < 100; i++) { g.run(0.1); if (Math.abs(b.tip.rotation.x - Math.PI) < 0.01) upside++; }
     expect(upside).toBeGreaterThan(20);
     expect(upside).toBeLessThan(80);
-    // walking out to the end of the pier's arm, one then the other
-    g.placePlayer(1.0, -12.6);
-    g.run(0.1);
-    expect(b.hails.map(h => h.says.text)).toEqual([vote.MIRACLES, '']);
-    g.run(8);
-    expect(b.hails[1].says.text).toBe(vote.LEGEND);
     for (const line of [vote.MIRACLES, vote.LEGEND]) expect(line.split(' ').length).toBeLessThanOrEqual(8);
-    // and not again till the player's been away
-    g.run(8);
-    expect(b.hails.every(h => !h.says.text)).toBe(true);
-    g.run(8);
-    expect(b.hails.every(h => !h.says.text)).toBe(true);
-    g.placePlayer(3.75, -7);
+    // walking by, nothing; beside the short one (on his head), Talk comes up, and E starts him
+    g.placePlayer(cabin.x0 - 0.4, mid);
+    g.run(1);
+    expect(vote.elderState().who).toBe(-1);
+    g.placePlayer(hull.x0 + 2.3 + 0.9, mid + 0.2);
+    g.runUntil(() => Math.abs(b.tip.rotation.x - Math.PI) < 0.01, 10);
     g.run(0.1);
-    g.placePlayer(1.0, -12.6);
+    expect(document.getElementById('buy')!.textContent).toContain('Talk');
+    g.press('e'); g.run(0.05); g.press('e', 'keyup');
+    expect(vote.elderState().who).toBe(0);
+    expect(g.player.held).toBe(true);
+    g.run(1);
+    expect(vote.elderCam.k).toBe(1);
+    expect(vote.elderState().says.length).toBeGreaterThan(0);
+    expect(vote.MIRACLES.startsWith(vote.elderState().says)).toBe(true);
+    // he comes down onto his feet to say it, and stays there till he's done
+    g.runUntil(() => vote.elderState().says === vote.MIRACLES, 6);
+    expect(b.tip.rotation.x).toBe(0);
+    g.run(10);
+    expect(b.tip.rotation.x).toBe(0);
+    expect(document.getElementById('meetLine')!.textContent).toBe(vote.MIRACLES);
+    // a key, and back to the game, the camera easing back
+    g.press(' ');
+    expect(vote.elderState().who).toBe(-1);
+    expect(g.player.held).toBe(false);
+    g.run(1);
+    expect(vote.elderCam.k).toBe(0);
+    // the tall one at the rail, his line typed out and skipped to the end with a tap
+    g.placePlayer(hull.x0 + 1.75 + 0.8, hull.z1 - 0.6);
     g.run(0.1);
-    expect(b.hails[0].says.text).toBe(vote.MIRACLES);
+    g.press('e'); g.run(0.05); g.press('e', 'keyup');
+    expect(vote.elderState().who).toBe(1);
+    g.run(1);
+    window.dispatchEvent(new Event('pointerdown'));
+    expect(vote.elderState().says).toBe(vote.LEGEND);
+    window.dispatchEvent(new Event('pointerdown'));
+    expect(vote.elderState().who).toBe(-1);
   });
 
   it('moors along the far side of the pier, which is there every day, in both stages, a step up from the dock', async () => {

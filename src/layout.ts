@@ -255,9 +255,13 @@ const VOTE_AREAS = [
   area(VB.gangway.x0 + 0.1, VB.gangway.x1 - 0.1, VB.cabin.z1 - WALL_T - 0.3, -6.0 + VB.dz),
   // the polling room, inside its walls
   area(VB.cabin.x0 + WALL_T + 0.22, VB.cabin.x1 - WALL_T - 0.22, VB.cabin.z0 + WALL_T + 0.22, VB.cabin.z1 - WALL_T - 0.22),
+  // the side deck along the pier's side of the cabin, out to the foredeck
+  area(VB.cabin.x0 - 0.3, VB.cabin.x1 - 0.15, VB.cabin.z1 + 0.13, VB.deck.z1 - 0.05),
+  // the foredeck, inside its rails
+  area(VB.hull.x0 + 1.0, VB.cabin.x0 - 0.15, VB.hull.z0 + 0.35, VB.hull.z1 - 0.35),
 ];
 const voteAreas = () => voteBoat.open ? VOTE_AREAS : [];
-/** On the voting boat: the way in or the polling room (never from down in the cellar). */
+/** On the voting boat: the way in, the polling room, the side deck or the foredeck (never from down in the cellar). */
 export const onVoteBoat = (p: XZ) => voteBoat.open && !level.down && VOTE_AREAS.some(a => inside(a, p));
 /** The ground on the voting boat's way in: the pier's, over the gangway, then its deck. */
 const voteY = (p: XZ) => PIER.y + (VB.y - PIER.y) * Math.max(0, Math.min(1, (VB.ramp - p.z) / (VB.ramp - VB.deck.z1)));
