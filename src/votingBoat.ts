@@ -737,7 +737,7 @@ function foredeck(dt: number) {
 // ---------- speaking to the old-timers ----------
 // Staged as the Family's introductions are in the Undertow (meet.ts, whose bubble and shade it borrows, with nobody's
 // name on it): the camera eases in on him from in front, creeping closer, and his line comes a letter at a time in
-// blips of his own voice, his head nodding with it. A tap or a key: the rest of it at once, or back to the game.
+// blips of his own voice (he stands still: his head's one piece with him). A tap or a key: the rest of it at once, or back to the game.
 
 /** Each old-timer: where he stands and which way he faces, which side of him the camera comes in from (the short one's
  *  from his right, so the tall one's not in the way), his line, the top of his head over the deck, and his voice: the
@@ -759,9 +759,9 @@ const LEAD = 0.6;
 /** The one being spoken to: which, seconds in, how much of his line's said, and the wait for the next letter. */
 let talk: { i: number; t: number; n: number; wait: number } | null = null;
 /** The camera's view of him, blended in by `k` (main.ts); whose shot it is (kept as it eases back), how far it's crept
- *  in, his nod on each syllable, and whether E was down last frame. */
+ *  in, and whether E was down last frame. */
 export const elderCam = { k: 0, pos: V(0, 0, 0), look: V(0, 0, 0) };
-let shot = 0, creep = 0, nod = 0, pressed = false;
+let shot = 0, creep = 0, pressed = false;
 /** What's going on, for tests: who's talking (0 or 1) and what he's said so far. */
 export const elderState = () => ({ who: talk?.i ?? -1, says: talk ? OLD[talk.i].line.slice(0, talk.n) : '' });
 
@@ -833,19 +833,15 @@ function talking(dt: number) {
       while (s.wait <= 0 && s.n < o.line.length) {
         const ch = o.line[s.n++];
         // (the end of the line: a lower note)
-        if (s.n === o.line.length) { o.stop(); nod = 0.1; break; }
+        if (s.n === o.line.length) { o.stop(); break; }
         s.wait += ch === ',' ? 0.12 : o.letter;
-        if (/[a-z0-9]/i.test(ch) && s.n % 2) { o.syl(); nod = 0.07; }
+        if (/[a-z0-9]/i.test(ch) && s.n % 2) o.syl();
       }
       el.line.textContent = o.line.slice(0, s.n);
       el.line.dataset.rest = o.line.slice(s.n);
       if (s.n >= o.line.length) el.say.classList.add('done');
     }
   }
-  // his head nodding with what he says, settling
-  nod += -nod * Math.min(1, dt * 9);
-  b.acrobat.rotation.x = shot === 0 ? nod : 0;
-  b.dreamer.rotation.x = 0.12 + (shot === 1 ? nod : 0);
 }
 
 const nearer = V(0, 0, 0), face = V(0, 0, 0);
