@@ -33,7 +33,7 @@ import { CHOP, PAD, PILE, pile } from './stations';
 import { setTip, type TipContent } from './ui';
 import { applyUnlock, locked, redrawTile, visibleTiles, type Tile } from './unlocks';
 import { d2xz, FY, V, type XZ } from './util';
-import { collideBooth } from './votingBooth';
+import { collideVoting } from './votingBoat';
 import { addMoney, wallet } from './wallet';
 
 /** Anything bought by holding buy on it: an upgrade tile, or the present tile at her house. */
@@ -102,7 +102,7 @@ export function updPlayer(dt: number) {
     collide(p);
     collideGarden(p);
     collidePresents(p);
-    collideBooth(p);
+    collideVoting(p);
     collideBins(p);
     collideCasino(p);
     if (stage.n >= 2 && korkiStatue()) pushOutOfBox(p, STATUE.x, STATUE.z, 1.25, 0.8);

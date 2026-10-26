@@ -172,7 +172,13 @@ Whenever a new upgrade comes on offer, a message says what it is, and while its 
 
 Far out past the road, a path leaves the market (through the east fence in stage 1, and through a door in the restaurant's east wall in stage 2), crosses the road at a zebra crossing and ends at a little rose-coloured house with its windows lit. Stand in the 💔 circle in front of it and it starts to rain: the sky goes grey, you turn into the singer, Ofer Levy (navy cap, short grey beard, olive field jacket over a white T-shirt, gold chain and watch), face her window and cry, and his "מאוהב בגשם" (live at Caesarea, via YouTube) plays from the line "מול ביתך עומד בגשם נרטב". Walk away and the rain clears and the song fades out; come back and it starts again from the same line. The 🔊 button on the song's banner mutes it (it starts muted on iPhone and iPad, where web pages can't fade sound). It's there from the start, free.
 
-🗳️ For Israel's election day (27 October 2026), from the 26th to the 28th a voting booth stands in her yard, by the street lamp: a curtained booth in blue and white, a ballot box on a table beside it, small Israeli flags on its roof and blue-and-white bunting to her house. Walk up to it and a bubble says "Every vote counts!". It celebrates voting, not any party, and does nothing else.
+🗳️ **The voting boat.** For Israel's election day (27 October 2026), from the 26th to the 28th a white houseboat dressed in blue-and-white bunting is moored along the dock's water edge, east of the fish pile. A gangway leads up between two queue ropes to the door of its cabin, a polling room (קלפי) like a real Israeli polling station's:
+- the committee's three at their table, with the register open and a tent card with the station's number;
+- a sealed blue ballot box;
+- the cardboard voting screen in the corner, with the slips and the blue envelopes behind it;
+- a flag and a clock on the wall.
+
+As in the casino's salon, the roof lifts away and the near walls fade while you're inside. Walk in and the chair says "Shalom! Your ID, please". Step behind the screen to pick a slip (🍣 Sushi, 🐟 Fish, 🍚 Rice, 🍲 Chanko or 🍤 Tempura: never a party or a person), and you carry it in a blue envelope. At the ballot box, **E** (or Cast your vote) drops it through the slot, the committee says "Thank you for voting!", and an "I voted" sticker stays on your chest for the rest of the visit. You vote once each time aboard. Nothing of it is paid or saved.
 
 🛴 **Korki's golden statue** ($10) is on offer from the start, outside the queue: a gold NAMI Klima One on a pedestal, in memory of Korki. Stand on its pad to read his story; stay a few seconds and his song ("Car Alarm (extended reprise)" by pat's soundhouse, via YouTube) fades in quietly, and fades out when you leave. The story's ✕ closes it while you stay on the pad, song and all; it's back the next time you step on. On phones the story is smaller, to leave the game in view.
 
@@ -298,7 +304,7 @@ TypeScript + [three.js r186](https://threejs.org/), bundled with [Vite](https://
 
 `src/flags.ts` can keep stage 3 from players: with it off there's no hatch in the dock and Mr. Fugu never knocks. It's open in the live game, since the deploy builds with `VITE_STAGE3=on` (`.github/workflows/deploy.yml`); setting that to `off` takes it back. It's on in the dev server, the tests and the playtest build (`VITE_FUGU_DEMO=1`). In a build without it, open the game once with `?stage3=on` in the address to switch it on for that device (`?stage3=off` switches it back off). A save that has met Mr. Fugu switches it on wherever it's loaded, so a cloud save carries on on another device, and a player who's been down there keeps stage 3 even if it's taken back.
 
-It also dates the voting booth in her yard: `ELECTION_DAYS` puts it up from 26 to 28 October 2026 by the device's own date, and nothing of it is built on any other day. `?vote=on` in the address puts it up on any date, for that visit only.
+It also dates the voting boat: `ELECTION_DAYS` brings it in from 26 to 28 October 2026 by the device's own date, and nothing of it is built on any other day. `?vote=on` in the address brings it in on any date, for that visit only.
 
 [docs/balance.md](balance.md) sets out the principles the game is balanced by, stage by stage, the numbers that show when something is off, and where each upgrade stands.
 
@@ -395,7 +401,7 @@ Each deploy removes the last one's files, and GitHub Pages lets browsers keep th
 | `src/slots.ts` / `src/slotMachine.ts` | Slot machine rules / the bank of machines, the reels on the middle one's screen and the paytable on its glass |
 | `src/korki.ts` | Korki's golden statue (a NAMI Klima One) and its memoir panel |
 | `src/rain.ts` | Her house, the path to it, and the rain, tears and song in the circle out front |
-| `src/votingBooth.ts` | The voting booth in her yard for Israel's election day (26–28 October 2026, or `?vote=on`): the booth, ballot box, flags and bunting, and its bubble |
+| `src/votingBoat.ts` | The voting boat at the dock for Israel's election day (26–28 October 2026, or `?vote=on`): the houseboat and its polling room, the committee, and voting (the slip card, the ballot box's card, the envelope, the thanks and the sticker). Its plan and decks are `VOTE_BOAT` in `src/layout.ts` |
 | `src/singer.ts` | The singer's look, swapped onto the player in the rain |
 | `src/youtube.ts` | Songs played through YouTube's embedded player: one API load, fades, mute buttons |
 | `src/holder.ts` | Item stacks and arcing item flights |

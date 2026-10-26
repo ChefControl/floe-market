@@ -201,6 +201,40 @@ export const aboard = (p: XZ) => !level.down &&
 /** In the salon: aboard, on the upper deck. */
 export const inSalon = (p: XZ & { y: number }) => aboard(p) && p.y > FY + 1.0;
 
+// ---------- the voting boat ----------
+/**
+ * The voting boat (votingBoat.ts), for Israel's election day only: a white houseboat moored alongside the dock's water
+ * edge, east of the fish pile, its bow towards the bay's east shore. A short gangway crosses from the dock to its side
+ * deck, in front of the cabin's door: the cabin is the polling room. Its walls, from the outside: `x0` to `x1`, and
+ * `z1` (the dock's side) to `z0`. The hull runs `hull` along and across.
+ */
+export const VOTE_BOAT = {
+  hull: { x0: 1.1, x1: 7.35, z0: -10.45, z1: -6.85 },
+  cabin: { x0: 1.6, x1: 6.4, z0: -10.1, z1: -7.75, h: 2.2 },
+  /** The gangway's width along the dock, and the door it leads to, straight across the side deck. */
+  gangway: { x0: 3.4, x1: 4.1 },
+  /** The side deck between the bulwark and the cabin, along the dock's side (queue ropes either side of the landing). */
+  deck: { z0: -7.65, z1: -7.05 },
+  /** How high its deck is: a step up from the dock, clear of the fish's backs in the water under it. The gangway
+   *  ramps up to it from the dock's edge (`ramp`, the gangway's foot on the dock). */
+  y: FY + 0.15, ramp: -6.15,
+};
+export const voteBoat = { open: false };
+const VB = VOTE_BOAT, WALL_T = 0.08;
+const VOTE_AREAS = [
+  // the way in: from the dock's edge over the gangway, across the side deck between the ropes and through the door
+  area(VB.gangway.x0 + 0.1, VB.gangway.x1 - 0.1, VB.cabin.z1 - WALL_T - 0.3, -6.0),
+  // the polling room, inside its walls
+  area(VB.cabin.x0 + WALL_T + 0.22, VB.cabin.x1 - WALL_T - 0.22, VB.cabin.z0 + WALL_T + 0.22, VB.cabin.z1 - WALL_T - 0.22),
+];
+const voteAreas = () => voteBoat.open ? VOTE_AREAS : [];
+/** On the voting boat: the way in or the polling room (never from down in the cellar). */
+export const onVoteBoat = (p: XZ) => voteBoat.open && !level.down && VOTE_AREAS.some(a => inside(a, p));
+/** The ground on the voting boat's way in: the dock's, up the gangway, then its deck. */
+const voteY = (p: XZ) => FY + (VB.y - FY) * Math.max(0, Math.min(1, (VB.ramp - p.z) / (VB.ramp - VB.deck.z1)));
+/** In the polling room, inside the cabin's walls. */
+export const inPollingRoom = (p: XZ) => voteBoat.open && !level.down && inside(VOTE_AREAS[1], p);
+
 const DOCK2 = area(-7.4, 7.4, -6.25, 1.9);
 const HALL = area(HALL_BOX.x0 + 0.4, HALL_BOX.x1 - 0.4, 1.8, HALL_BOX.z1 - 0.4);
 /** Inside the booth, up to the back of the counter. */
@@ -220,8 +254,8 @@ const housePath = () => area(stage.n === 1 ? 7.3 : HALL.x1 - 0.2, YARD.x0 + 0.3,
 /** Where the player can walk in the current stage. Earlier areas win where they overlap. */
 export const walkable = (): Area[] =>
   level.down ? cellarFloors()
-  : stage.n === 1 ? [DECK, ...casinoAreas(), housePath(), YARD]
-  : [DOCK2, ...casinoAreas(), HALL, GATEWAY, GARDEN, BRIDGE, PATH, ...FIELDS, ...(shedYard.open ? [SHED_YARD] : []),
+  : stage.n === 1 ? [DECK, ...casinoAreas(), ...voteAreas(), housePath(), YARD]
+  : [DOCK2, ...casinoAreas(), ...voteAreas(), HALL, GATEWAY, GARDEN, BRIDGE, PATH, ...FIELDS, ...(shedYard.open ? [SHED_YARD] : []),
     ...(kioskBooth.open ? [BOOTH] : []), housePath(), YARD];
 
 const inside = (a: Area, p: XZ) => p.x >= a.x0 && p.x <= a.x1 && p.z >= a.z0 && p.z <= a.z1;
@@ -232,6 +266,7 @@ export function groundY(p: XZ, down = false) {
   if (down) return CELLAR_Y;
   const casino = casinoY(p);
   if (casino !== null) return casino;
+  if (onVoteBoat(p)) return voteY(p);
   const house = inside(housePath(), p) || inside(YARD, p);
   if (stage.n === 1) return inside(DECK, p) || house ? FY : 0;
   for (const a of FIELDS) if (inside(a, p)) return a.y;

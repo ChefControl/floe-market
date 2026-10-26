@@ -441,7 +441,7 @@ function present(c: Ctx) {
   solid(c, DEEP_GOLD, () => dot(c, 0, -25, 6));
 }
 
-/** 🗳️ A ballot box, a slip going in at its slot (the voting booth's, votingBooth.ts). */
+/** 🗳️ A ballot box, a slip going in at its slot (the voting boat's, votingBoat.ts). */
 function ballot(c: Ctx) {
   solid(c, CREAM, () => poly(c, -14, -6, -10, -46, 18, -44, 14, -4));
   line(c, BLUE, 3, () => { c.moveTo(-5, -36); c.lineTo(10, -35); c.moveTo(-6, -27); c.lineTo(5, -26); });

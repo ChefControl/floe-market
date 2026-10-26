@@ -25,14 +25,14 @@ export function keepStage3() {
   try { localStorage.setItem(KEY, '1'); } catch { /* on for this visit */ }
 }
 
-// ---------- the voting booth ----------
-/** Israel's election day, 27 October 2026, and a day either side: the voting booth by her house (votingBooth.ts)
- *  stands from the first of these days to the last, by the device's own date, and is gone after. */
+// ---------- the voting boat ----------
+/** Israel's election day, 27 October 2026, and a day either side: the voting boat (votingBoat.ts) is moored at the
+ *  dock from the first of these days to the last, by the device's own date, and is gone after. */
 export const ELECTION_DAYS = { from: '2026-10-26', to: '2026-10-28' };
 
-/** Whether the voting booth stands on `now`'s date. ?vote=on in the address puts it up on any date, for a look at it
+/** Whether the voting boat's in on `now`'s date. ?vote=on in the address brings it in on any date, for a look at it
  *  (for that visit only: nothing's kept). */
-export function votingBoothOn(now = new Date()) {
+export function votingBoatOn(now = new Date()) {
   try { if (new URLSearchParams(location.search).get('vote') === 'on') return true; } catch { /* no address: by date */ }
   const day = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
   return day >= ELECTION_DAYS.from && day <= ELECTION_DAYS.to;
