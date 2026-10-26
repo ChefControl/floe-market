@@ -1,11 +1,13 @@
 // Counters and the customers who queue at them. Stage 1 has the walk-up fish counter and the sled window, where
-// snowmobiles buy fish in bulk; both close at the stage-up. Stage 2 has the takeout kiosk by the restaurant,
+// snowmobiles buy fish in bulk; both close at the stage-up, and the sled window stays up, shut, with a sign for the
+// takeout to come till the takeout kiosk opens. Stage 2 has the takeout kiosk by the restaurant,
 // where snowmobiles buy boxes of sushi. Each road has a lane each way: customers keep to the one by their counter,
 // and now and then someone comes the other way up the far lane and drives on by.
-import { BoxGeometry, Group, Object3D, Sprite, SpriteMaterial, Vector3 } from 'three';
+import { BoxGeometry, Group, Mesh, MeshBasicMaterial, Object3D, PlaneGeometry, Sprite, SpriteMaterial, Vector3 } from 'three';
 import { drawBubble, moodMat, newMoodSprite, patienceStep, type OrderIcon } from './bubble';
 import { animPerson, makeSled, moveEnt, PARKAS, Person, type Walker } from './characters';
 import { decal, drawPad } from './decals';
+import { drawIcon } from './icons';
 import { boost, FISH_PRICE, mods, priced, SUSHI_PRICE, type ModId } from './economy';
 import { KIOSK } from './hall';
 import { glint } from './fx';
@@ -18,7 +20,7 @@ import { stall } from './props';
 import { demand, starsFor } from './rating';
 import { frontReview, toTill } from './front';
 import { boop, honk, review, till } from './sfx';
-import { canvasTex, mesh, scene, type CanvasTex } from './render';
+import { canvasTex, FONT, mesh, rr, scene, type CanvasTex } from './render';
 import { popStars, popText } from './ui';
 import { FY, money, pick, rand, randi, V, type XZ } from './util';
 import { crowd } from './wardrobe';
@@ -209,8 +211,53 @@ export function openSled() {
   return open(SLED);
 }
 
-/** The 'kiosk' unlock (stage 2) opens the takeout kiosk by the road. */
-export const openTakeout = () => open(TAKEOUT);
+/** The 'kiosk' unlock (stage 2) opens the takeout kiosk by the road, and the old sled window comes down. */
+export function openTakeout() {
+  if (shut) { shut.visible = false; shut = null; }
+  return open(TAKEOUT);
+}
+
+/** The old sled window, stood shut in stage 2 till the takeout kiosk opens (null once it's down, or if never built). */
+let shut: Object3D | null = null;
+/**
+ * The stage-up: the sled window stays up by the dock's east edge, shut, with a sign on its counter for what's to come
+ * (a player asked what became of the old business, report 15): "Sushi takeout · Coming soon". The takeout kiosk takes
+ * over from it (`openTakeout`). Returns the sign, if the window was built, for the stage-up to bring in.
+ */
+export function shutSledWindow() {
+  const stall = SLED.meshes[0];
+  if (!stall.visible || shut) return null;
+  const { tex } = canvasTex(320, 150, (c, w, h) => {
+    c.fillStyle = '#C0392B'; rr(c, 4, 4, w - 8, h - 8, 18); c.fill();
+    c.strokeStyle = '#F2C14E'; c.lineWidth = 6; rr(c, 12, 12, w - 24, h - 24, 12); c.stroke();
+    c.fillStyle = '#FFF4E6'; c.beginPath(); c.arc(62, h / 2, 38, 0, Math.PI * 2); c.fill();
+    drawIcon(c, '🥡', 62, h / 2, 54);
+    // the two lines, each shrunk to fit beside the badge
+    const line = (text: string, y: number, size: number, colour: string) => {
+      c.font = `800 ${size}px ${FONT}`;
+      const k = Math.min(1, 186 / c.measureText(text).width);
+      c.save(); c.translate(206, y); c.scale(k, k);
+      c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillStyle = colour; c.fillText(text, 0, 0);
+      c.restore();
+    };
+    line('Sushi takeout', 58, 40, '#FFF4E6');
+    line('Coming soon', 102, 36, '#F2C14E');
+  });
+  // a board on two legs, stood on the counter and turned to the camera (the window's turned a quarter, to the road)
+  const sign = new Group();
+  sign.position.y = 0.94; sign.rotation.y = SIGN_TURN - stall.rotation.y;
+  // (lit by itself, as the restaurant's signs are, so it reads in the restaurant's shade)
+  const board = new Mesh(new PlaneGeometry(1.6, 0.75), new MeshBasicMaterial({ map: tex }));
+  board.position.y = 0.6;
+  const back = mesh(new BoxGeometry(1.66, 0.81, 0.04), 0x7A1F17, 0, 0.6, -0.025, true);
+  sign.add(board, back);
+  for (const x of [-0.5, 0.5]) sign.add(mesh(new BoxGeometry(0.05, 0.25, 0.05), 0x5A3A22, x, 0.12, -0.03, true));
+  stall.add(sign);
+  shut = stall;
+  return sign;
+}
+/** How the sign on the shut window is turned: square to the camera, which looks from the south-east (render.ts OFF). */
+const SIGN_TURN = Math.atan2(5, 12);
 
 // ---------- customers ----------
 /** Customers on their way home, and drivers going by. */
