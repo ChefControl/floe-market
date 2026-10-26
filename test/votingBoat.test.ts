@@ -273,7 +273,7 @@ describe('the voting boat', () => {
     g.run(1);
     expect(vote.elderCam.k).toBe(0);
     // the tall one at the rail, his line typed out and skipped to the end with a tap
-    g.placePlayer(hull.x0 + 1.75 + 0.8, hull.z1 - 0.6);
+    g.placePlayer(hull.x0 + 1.1, vote.DREAMER.z);
     g.run(0.1);
     g.press('e'); g.run(0.05); g.press('e', 'keyup');
     expect(vote.elderState().who).toBe(1);

@@ -24,7 +24,7 @@ import { buyHeld } from './input';
 import { inPollingRoom, level, onVoteBoat, PIER, pushOutOfBox, VOTE_BOAT, voteBoat, voteX as X } from './layout';
 import { C } from './palette';
 import { player } from './player';
-import { bakePainted, camera, camK, canvasTex, FONT, G, mesh, painted, type Part, rr, scene } from './render';
+import { bakePainted, camera, camK, canvasTex, FONT, G, mesh, OFF as VIEW, painted, type Part, rr, scene } from './render';
 import { pick, put, shipHorn } from './sfx';
 import { bubble } from './speech';
 import { panel as kitPanel } from './uiKit';
@@ -40,9 +40,10 @@ const T = 0.08, DOOR = { x0: X(4.15), x1: X(3.35), h: 1.85 };
 /** Where the hull's sides start drawing in to the bow, and the middle of its width. */
 const BOW = HULL.x0 + 1.15, MID = (HULL.z0 + HULL.z1) / 2;
 /** Out on the foredeck, two old-timers who happen to be aboard (nobody names them): one stands on his head now and then,
- *  in the bow's far corner by the flag (in from the rail, so his feet clear it as he goes over), the other leans on the
- *  near rail looking out to sea. Each says his piece when the player speaks to him (E, or Talk). */
-export const HEADSTAND = { x: HULL.x0 + 1.7, z: HULL.z0 + 0.9 }, DREAMER = { x: HULL.x0 + 1.75, z: HULL.z1 - 0.36, face: -0.3 };
+ *  in the bow's far corner by the flag (in from the rail, so his feet clear it as he goes over); the other leans on the
+ *  rail round the bow's near side, facing out west over the water, which the camera sees side-on, as in the photo
+ *  on the hotel balcony. Each says his piece when the player speaks to him (E, or Talk). */
+export const HEADSTAND = { x: HULL.x0 + 1.7, z: HULL.z0 + 0.9 }, DREAMER = { x: HULL.x0 + 0.55, z: MID + 1.0, face: -1.18 };
 /** On the foredeck, the backgammon table (its chairs either side) and the cool box. */
 const TB = { x: HULL.x0 + 3.25, z: MID - 0.8 }, BOXC = { x: HULL.x0 + 3.3, z: HULL.z1 - 0.45 };
 export const MIRACLES = "Whoever doesn't believe in miracles is no realist", LEGEND = 'If you will it, it is no legend';
@@ -348,7 +349,7 @@ function build() {
   tip.add(acrobat);
   g.add(tip);
   // the tall one in a black coat over a white shirt, his dark hair combed back and a long, full dark beard, leaning on
-  // the rail with his arms on it, gazing out over the water, as on a hotel balcony once (the dark suit's look, without
+  // the bow's rail with his arms on it, gazing out west over the water, as on a hotel balcony once (the dark suit's look, without
   // its sunglasses or its chain)
   const dreamer = oldTimer(270_202, 0x1C1C22, 'yakuza', st => Object.assign(st, {
     cut: 'short', hair: 0x17120F, face: 'beard', neck: 'bow', neckC: 0xF4F1EA, summer: 'sunhat', eyes: 'dot', mouth: 'none', height: 1.1,
@@ -740,17 +741,19 @@ function foredeck(dt: number) {
 // name on it): the camera eases in on him from in front, creeping closer, and his line comes a letter at a time in
 // blips of his own voice (he stands still: his head's one piece with him). A tap or a key: the rest of it at once, or back to the game.
 
-/** Each old-timer: where he stands and which way he faces, which side of him the camera comes in from (the short one's
- *  from his right, so the tall one's not in the way), his line, the top of his head over the deck, and his voice: the
+/** Each old-timer: where he stands, the way the camera looks at him from and which side of that it comes in from (the
+ *  short one's from in front and a little to his right; the tall one's from the game's own camera's side, so he's seen
+ *  side-on at the rail, as in the photo, the shot looking a little ahead of him, out to sea, which leaves him on its
+ *  right and the player out of it), his line, the top of his head over the deck, and his voice: the
  *  short one's quick and high, the tall one's slow and low. On the scene's bus, as the Family's are. */
 const OLD = [
   {
-    at: HEADSTAND, face: 0, side: -1, line: MIRACLES, top: 1.2, letter: 0.038,
+    at: HEADSTAND, view: 0, side: -1, ahead: [0, 0], line: MIRACLES, top: 1.2, letter: 0.038,
     syl: () => tone({ f: between(185, 225), d: 0.06, type: 'triangle', a: 0.006, v: 0.26, bus: 'cue' }),
     stop: () => tone({ f: between(160, 168), f2: 142, d: 0.15, type: 'triangle', a: 0.006, v: 0.26, bus: 'cue' }),
   },
   {
-    at: DREAMER, face: DREAMER.face, side: 1, line: LEGEND, top: 1.35, letter: 0.058,
+    at: DREAMER, view: Math.atan2(VIEW.x, VIEW.z), side: 0, ahead: [Math.sin(DREAMER.face) * 0.5, Math.cos(DREAMER.face) * 0.5], line: LEGEND, top: 1.35, letter: 0.058,
     syl: () => tone({ f: between(92, 112), d: 0.11, type: 'triangle', lp: 700, a: 0.01, v: 0.32, bus: 'cue' }),
     stop: () => tone({ f: between(84, 88), f2: 74, d: 0.24, type: 'triangle', lp: 650, a: 0.01, v: 0.32, bus: 'cue' }),
   },
@@ -854,9 +857,10 @@ export function drawElders() {
   // (the short one's face, as he's turned about his middle)
   const t = boat.tip, mid = HEAD_TOP * 0.92 / 2;
   face.set(o.at.x, y + (shot === 0 ? t.position.y + (0.95 - mid) * Math.cos(t.rotation.x) : 1.15), o.at.z);
-  const fx = Math.sin(o.face), fz = Math.cos(o.face), sx = 0.9 * o.side;
-  elderCam.pos.set(o.at.x + (fx * 2.7 - fz * sx) * back, y + 1.9 * back, o.at.z + (fz * 2.7 + fx * sx) * back);
-  elderCam.look.set(o.at.x, face.y - 0.1, o.at.z);
+  const fx = Math.sin(o.view), fz = Math.cos(o.view), sx = 0.9 * o.side;
+  const ax = o.at.x + o.ahead[0], az = o.at.z + o.ahead[1];
+  elderCam.pos.set(ax + (fx * 2.7 - fz * sx) * back, y + 1.9 * back, az + (fz * 2.7 + fx * sx) * back);
+  elderCam.look.set(ax, face.y - 0.1, az);
   elderCam.pos.lerp(nearer.copy(elderCam.look), 0.18 * creep);
   if (!talk || !talkEl!.say.classList.contains('on')) return;
   // over his head, its tail pointing down at him (kept on the screen); the dark round the edges, clear round his face
