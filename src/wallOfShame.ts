@@ -23,9 +23,9 @@ export const TOP = 10;
  *  size in pixels. */
 export const SHAME_WALL = { x: SALON.x0 + 0.74, z: 2.5, w: 1.3, h: 0.84, y: 1.66 };
 const CARD = { w: 390, h: 252 };
-/** The 💔 pad, in front of the bar by the sign (the bar's stools stand between), clear of where the waiter turns back
- *  (casinoSalon.ts); and how close to its middle the card opens. */
-export const SHAME_PAD = { x: SALON.x0 + 2.6, z: 1.2 };
+/** The 💔 pad, in front of the bar by the sign (the bar's stools stand between), level with the 😭 pad at the salon's
+ *  other end (casinoRestroom.ts); and how close to its middle the card opens. */
+export const SHAME_PAD = { x: SALON.x0 + 2.6, z: 2.34 };
 const REACH = 0.6;
 /** Seconds between fetches of the wall while the player's in the salon. */
 const FETCH_EVERY = 60;
