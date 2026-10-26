@@ -5,7 +5,8 @@
 // each side of the ship below the salon, its bulbs chasing round it. As in the restaurant, the roof lifts away and the
 // walls on the camera's side fade while the player is inside. The games stand along the back wall, leaving the floor
 // open from the door to them, and round them it's full of life: a long bar across the stern with two bartenders and
-// guests on the stools (and the wall of shame over its window end, wallOfShame.ts), a short row of slot machines by the door with guests playing them (now and then one wins), a
+// guests on the stools (and the wall of shame hung over its window end, wallOfShame.ts), a short row of slot machines
+// by the door with guests playing them (now and then one wins), a
 // palm (in the restroom stall in the corner by the door, casinoRestroom.ts), a guest at the roulette table who cheers when the player wins, and a waiter carrying champagne along the
 // windows, who doesn't block the way and stops to toast with the player over a glass. None of it touches the game's
 // luck: the guests run on their own dice.
@@ -18,7 +19,7 @@ import { atTable, CHIPS, easeInOut, leaveSeat, onCheer, speaker, takeSeat, tipsy
 import { clink } from './sfx';
 import { animPerson, Person, SUITS } from './characters';
 import { byTheStall, STALL } from './casinoRestroom';
-import { atTheWall, SHAME_WALL } from './wallOfShame';
+import { atTheWall } from './wallOfShame';
 import { DECKS, inSalon, pushOutOfBox, SALON, SHIP, stage, UPPER } from './layout';
 import { player } from './player';
 import { bake, bakePainted, canvasTex, FONT, G, mesh, scene, type Part } from './render';
@@ -318,15 +319,14 @@ function buildBar(g: Group) {
   ];
   g.add(mesh(bake(brass), GOLD));
   // the back bar against the stern wall: shelves of bottles under a long mirror, lit from above
-  // (all but the window end, where the wall of shame hangs over the counter: wallOfShame.ts)
-  const bx = SALON.x0 + 0.22, wide = len - 0.2, s0 = z0 + 0.2, s1 = SHAME_WALL.z - SHAME_WALL.w / 2 - 0.12;
+  const bx = SALON.x0 + 0.22, wide = len - 0.2;
   g.add(mesh(new BoxGeometry(0.3, 0.9, wide), wood, bx, UPPER + 0.45, mid, true));
-  g.add(mesh(new BoxGeometry(0.02, 0.9, s1 - s0 - 0.2), 0xBFD4DC, bx - 0.05, UPPER + 1.6, (s0 + s1) / 2 + 0.1));
+  g.add(mesh(new BoxGeometry(0.02, 0.9, wide - 0.6), 0xBFD4DC, bx - 0.05, UPPER + 1.6, mid));
   g.add(mesh(new BoxGeometry(0.05, 0.04, wide - 0.4), new MeshBasicMaterial({ color: 0xFFD98A }), bx + 0.05, UPPER + 2.12, mid));
   const shelf: Part[] = [], bottles: Part[][] = [[], [], []];
-  for (const y of [1.25, 1.75]) shelf.push({ geo: G.box, at: [bx + 0.02, UPPER + y, (s0 + s1) / 2], scale: [0.26, 0.04, s1 - s0] });
+  for (const y of [1.25, 1.75]) shelf.push({ geo: G.box, at: [bx + 0.02, UPPER + y, mid], scale: [0.26, 0.04, wide] });
   let n = 0;
-  for (const y of [0.9, 1.27, 1.77]) for (let z = z0 + 0.2; z <= (y < 1 ? z1 : s1) - 0.2; z += 0.22) {
+  for (const y of [0.9, 1.27, 1.77]) for (let z = z0 + 0.2; z <= z1 - 0.2; z += 0.22) {
     bottles[n++ % 3].push({ geo: G.cyl, at: [bx + 0.02, UPPER + y + 0.13, z], scale: [0.045, 0.24, 0.045] });
   }
   g.add(mesh(bake(shelf), wood));
