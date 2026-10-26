@@ -91,7 +91,9 @@ describe('the UI kit at a casino table', () => {
     expect($('spin').textContent).toBe('Spin · $225 on Black');
     key('Digit9', '9'); // Undo
     expect($('spin').textContent).toBe('Spin · $125 on Black');
-    key('Digit9', '9', true); // (Undo held goes again, as a chip does)
+    key('Digit9', '9', true); // Undo held: the whole stake back (reports#19)
+    expect(button('#spin').disabled).toBe(true);
+    key('Digit5', '5'); // a $25 chip
     expect($('spin').textContent).toBe('Spin · $25 on Black');
     rig(15); // black
     key('KeyE', 'e');
