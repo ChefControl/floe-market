@@ -12,6 +12,7 @@
 // of it is saved, and on any other day nothing of it is built, so the game is just as it was.
 import {
   BoxGeometry, CylinderGeometry, ExtrudeGeometry, Group, type Material, Mesh, MeshLambertMaterial, PlaneGeometry, Shape,
+  SphereGeometry,
   type Vector3,
 } from 'three';
 import { between, tone } from './audio';
@@ -24,7 +25,7 @@ import { buyHeld } from './input';
 import { inPollingRoom, level, onVoteBoat, PIER, pushOutOfBox, VOTE_BOAT, voteBoat, voteX as X } from './layout';
 import { C } from './palette';
 import { player } from './player';
-import { bakePainted, camera, camK, canvasTex, FONT, G, mesh, OFF as VIEW, painted, type Part, rr, scene } from './render';
+import { bakePainted, camera, camK, canvasTex, FONT, G, mesh, painted, type Part, rr, scene } from './render';
 import { pick, put, shipHorn } from './sfx';
 import { bubble } from './speech';
 import { panel as kitPanel } from './uiKit';
@@ -43,7 +44,11 @@ const BOW = HULL.x0 + 1.15, MID = (HULL.z0 + HULL.z1) / 2;
  *  in the bow's far corner by the flag (in from the rail, so his feet clear it as he goes over); the other leans on the
  *  rail round the bow's near side, facing out west over the water, which the camera sees side-on, as in the photo
  *  on the hotel balcony. Each says his piece when the player speaks to him (E, or Talk). */
-export const HEADSTAND = { x: HULL.x0 + 1.7, z: HULL.z0 + 0.9 }, DREAMER = { x: HULL.x0 + 0.55, z: MID + 1.0, face: -1.18 };
+export const HEADSTAND = { x: HULL.x0 + 1.7, z: HULL.z0 + 0.9 }, DREAMER = { x: HULL.x0 + 0.69, z: MID + 0.95, face: -1.18 };
+/** The tall one's hair and beard, dark brown. */
+const BEARD = 0x2A1C14;
+/** The top of the foredeck's rail: the tall one's hands, his arms out and a little down, rest on it from where he stands. */
+const RAIL_TOP = 0.74;
 /** On the foredeck, the backgammon table (its chairs either side) and the cool box. */
 const TB = { x: HULL.x0 + 3.25, z: MID - 0.8 }, BOXC = { x: HULL.x0 + 3.3, z: HULL.z1 - 0.45 };
 export const MIRACLES = "Whoever doesn't believe in miracles is no realist", LEGEND = 'If you will it, it is no legend';
@@ -188,14 +193,14 @@ function build() {
       along(s, [a.x, -a.y], [b.x, -b.y], 0, 0.28, 0.06, C.snow);
       along(s, [a.x, -a.y], [b.x, -b.y], 0.28, 0.04, 0.1, C.deck);
     }
-    // round the foredeck, a rail at the height of a balcony's: stanchions and a varnished top rail
+    // round the foredeck, a rail at everyone's waist (RAIL_TOP): stanchions and a varnished top rail
     for (let i = 1; i < pts.length; i++) {
       const a = pts[i - 1], b = pts[i], len = a.distanceTo(b);
       if (len < 0.01 || Math.max(a.x, b.x) > x0 + 0.05) continue;
-      along(s, [a.x, -a.y], [b.x, -b.y], 0.9, 0.04, 0.05, C.deck2);
+      along(s, [a.x, -a.y], [b.x, -b.y], RAIL_TOP - 0.04, 0.04, 0.05, C.deck2);
       for (let k = 0, n = Math.max(1, Math.round(len / 0.6)); k < n; k++) {
         const t = k / n;
-        s(0.035, 0.6, 0.035, C.steel, a.x + (b.x - a.x) * t, 0.6, -(a.y + (b.y - a.y) * t));
+        s(0.035, RAIL_TOP - 0.32, 0.035, C.steel, a.x + (b.x - a.x) * t, (RAIL_TOP + 0.24) / 2, -(a.y + (b.y - a.y) * t));
       }
     }
     // portholes along the hull's side, under the deck
@@ -348,19 +353,26 @@ function build() {
   acrobat.position.y = -HEAD_TOP * 0.92 / 2;
   tip.add(acrobat);
   g.add(tip);
-  // the tall one in a black coat over a white shirt, his dark hair combed back and a long, full dark beard, leaning on
+  // the tall one in a black coat over a white shirt, his dark hair combed back and a long, full dark-brown beard (his own:
+  // full along the jaw, falling to a spade's point on his chest, a drooping moustache over a hint of lip), leaning on
   // the bow's rail with his arms on it, gazing out west over the water, as on a hotel balcony once (the dark suit's look, without
   // its sunglasses or its chain)
   const dreamer = oldTimer(270_202, 0x1C1C22, 'yakuza', st => Object.assign(st, {
-    cut: 'short', hair: 0x17120F, face: 'beard', neck: 'bow', neckC: 0xF4F1EA, summer: 'sunhat', eyes: 'dot', mouth: 'none', height: 1.1,
+    cut: 'short', hair: BEARD, face: 'bare', neck: 'bow', neckC: 0xF4F1EA, summer: 'sunhat', eyes: 'dot', mouth: 'none', height: 1.1,
   }));
   dreamer.position.set(DREAMER.x, 0, DREAMER.z);
   dreamer.rotation.order = 'YXZ';
   dreamer.rotation.set(0.12, DREAMER.face, 0);
-  for (const [i, a] of dreamer.arms.entries()) { a.rotation.x = -1.3; a.rotation.z = (i ? 1 : -1) * 0.3; }
-  const beard = mesh(G.sphere, 0x17120F, 0, 0.83, 0.22);
-  beard.scale.set(0.14, 0.17, 0.09);
-  dreamer.add(beard);
+  for (const [i, a] of dreamer.arms.entries()) { a.rotation.x = -1.4; a.rotation.z = (i ? -1 : 1) * 0.45; }
+  // (along his jaw: round the lower half of his head from under his nose; characters.ts's heads are 0.21 round, 1.03 up)
+  const jaw = new SphereGeometry(0.215, 14, 8, Math.PI / 2 - 1.25, 2.5, Math.PI * 0.56, Math.PI * 0.32);
+  const beard = new Build()
+    .add(jaw, BEARD, 0, 1.03, 0.04)
+    .add(K.ball, BEARD, 0, 0.82, 0.235, null, [0.13, 0.12, 0.07])
+    .add(K.ball, BEARD, 0, 0.71, 0.25, null, [0.075, 0.07, 0.05])
+    .add(K.ball, 0xB9776E, 0, 0.945, 0.262, null, [0.028, 0.011, 0.01]);
+  for (const k of [-1, 1]) beard.add(K.ball, BEARD, k * 0.05, 0.975, 0.262, [0, 0, -k * 0.3], [0.06, 0.024, 0.03]);
+  dreamer.add(beard.mesh());
   g.add(dreamer);
   // the gangway: planks across from the pier's edge to the side deck, with a rope rail each side (run out once it's moored)
   const plank = new Group();
@@ -753,7 +765,7 @@ const OLD = [
     stop: () => tone({ f: between(160, 168), f2: 142, d: 0.15, type: 'triangle', a: 0.006, v: 0.26, bus: 'cue' }),
   },
   {
-    at: DREAMER, view: Math.atan2(VIEW.x, VIEW.z), side: 0, ahead: [Math.sin(DREAMER.face) * 0.5, Math.cos(DREAMER.face) * 0.5], line: LEGEND, top: 1.35, letter: 0.058,
+    at: DREAMER, view: -0.4, side: 0, ahead: [Math.sin(DREAMER.face) * 0.45, Math.cos(DREAMER.face) * 0.45], line: LEGEND, top: 1.35, letter: 0.058,
     syl: () => tone({ f: between(92, 112), d: 0.11, type: 'triangle', lp: 700, a: 0.01, v: 0.32, bus: 'cue' }),
     stop: () => tone({ f: between(84, 88), f2: 74, d: 0.24, type: 'triangle', lp: 650, a: 0.01, v: 0.32, bus: 'cue' }),
   },
