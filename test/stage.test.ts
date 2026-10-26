@@ -68,6 +68,34 @@ describe('the stage-up', () => {
     expect(boat.every(o => o.visible && o.scale.x === 1)).toBe(true);
   });
 
+  it('leaves the sled window up, shut, with a sign for the takeout to come, till the takeout kiosk opens', async () => {
+    const g = await loadGame({ tiles: bought(...MARKET), money: 12000 });
+    const { SLED } = g.counters, [stall, pad] = SLED.meshes;
+    const parts = stall.children.length;
+    const gold = g.unlocks.tiles.find(t => t.id === 'sushi')!;
+    g.placePlayer(gold.x, gold.z);
+    g.press('e');
+    g.runUntil(() => g.layout.stage.n === 2, 5);
+    g.press('e', 'keyup');
+    g.run(8);
+    expect(g.stage.staging()).toBe(false);
+    expect(SLED.enabled).toBe(false);
+    expect(pad.visible).toBe(false);
+    expect(stall.visible && stall.scale.x === 1).toBe(true);
+    expect(stall.children).toHaveLength(parts + 1); // the sign
+    expect(stall.children[stall.children.length - 1].scale.x).toBe(1);
+    g.unlocks.applyUnlock('kiosk');
+    expect(stall.visible).toBe(false);
+  });
+
+  it('loads the shut sled window into stage 2, or not once the takeout kiosk is open', async () => {
+    let g = await loadGame({ tiles: bought(...MARKET, 'sushi') });
+    expect(g.counters.SLED.meshes[0].visible).toBe(true);
+    g = await loadGame({ tiles: bought(...MARKET, 'sushi', 'kiosk') });
+    expect(g.counters.SLED.meshes[0].visible).toBe(false);
+    expect(g.counters.TAKEOUT.meshes.every(m => m.visible)).toBe(true);
+  });
+
   it('moves fast for players who prefer less motion', async () => {
     vi.stubGlobal('matchMedia', () => ({ matches: true }));
     const g = await loadGame({ tiles: bought(...MARKET) });
