@@ -1,5 +1,5 @@
 // Per-frame player logic: movement plus every station interaction.
-import { binTip, collideBins, updBins } from './bin';
+import { binTip, collideBins, mayPick, updBins } from './bin';
 import { updBuy } from './buy';
 import { collideCasino } from './casino';
 import { tipsy, tipsyK } from './casinoKit';
@@ -185,7 +185,7 @@ function upstairsWork(p: Vector3, dt: number) {
 
   // pick up fish slices
   player.tPick -= dt;
-  if (d2xz(p, PILE) < 1.45 * 1.45) {
+  if (mayPick(d2xz(p, PILE) < 1.45 * 1.45)) {
     while (player.tPick <= 0 && player.back.hasRoom() && pile.items.length) {
       player.tPick += 0.06;
       player.back.receive(pile.take()!, 0.22, 0.7);
@@ -193,7 +193,7 @@ function upstairsWork(p: Vector3, dt: number) {
     }
   }
   // take bags off the farmer's stack on the path
-  if (field.built && d2xz(p, STACK_AT) < 0.9 * 0.9) {
+  if (mayPick(field.built && d2xz(p, STACK_AT) < 0.9 * 0.9)) {
     while (player.tPick <= 0 && player.back.hasRoom() && fieldStack.items.length) {
       player.tPick += 0.06;
       player.back.receive(fieldStack.take()!, 0.22, 0.7);
@@ -209,7 +209,7 @@ function upstairsWork(p: Vector3, dt: number) {
       if (pile.hasRoom()) pile.receive(f, 0.6, 3);
       else scene.remove(f);
     }
-    harvestNear(p, player.back, dt);
+    if (mayPick(ripeNear(p))) harvestNear(p, player.back, dt);
   }
 }
 

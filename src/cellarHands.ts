@@ -3,6 +3,7 @@
 // bed, mushrooms; at the pot, ready ones onto the ledge, and the pot cooks full batches while they stand there (a
 // cook's too); at the counter, bowls; inside the soup square, bowls out for the fans. What they carry is theirs: the cellar
 // (fight.ts) only sees what they hand in or take out. And what each place says while they stand at it.
+import { mayPick } from './bin';
 import { BAR_PAD, BIN_PADS, BINS, COUNTER_PAD, type Ing, machineAt, machinePad, type Pad, POT_PAD, WATCH } from './cellarPlan';
 import { CY, KITCHEN_BINS } from './cellar';
 import {
@@ -74,7 +75,7 @@ export function cellarWork(p: XZ, dt: number) {
   const back = player.back;
   // the dumbwaiter's plates: rice or fish, only as much as the racks (or the barrels) have room for
   for (const k of ['rice', 'fish'] as const) {
-    if (!at(p, BIN_PADS[k])) continue;
+    if (!mayPick(at(p, BIN_PADS[k]))) continue;
     // (counting what's still flying into their arms)
     while (player.tPick <= 0 && back.hasRoom() && back.all().filter(m => m.userData.kind === RAW[k]).length < lineRoom(k)) {
       player.tPick += STEP;
@@ -89,9 +90,10 @@ export function cellarWork(p: XZ, dt: number) {
   const here = machineHere(p);
   if (here) {
     const { k } = here;
+    const take = mayPick(true);
     for (const i of machinesNear(p, here)) {
       const m = F.lines[k].m[i];
-      while (player.tPick <= 0 && m && doneCount(k, m) > 0) {
+      while (take && player.tPick <= 0 && m && doneCount(k, m) > 0) {
         const swap = !back.hasRoom();
         if (swap && (k === 'mush' || !back.count(RAW[k as 'rice' | 'fish']))) break;
         takeReady(k, i);
@@ -117,7 +119,7 @@ export function cellarWork(p: XZ, dt: number) {
   }
   // the counter: bowls (till the bowl line's in, in its place); with full arms, what the ledge has no room for goes
   // in the hearth room's bin, one for each bowl, so a full ledge and a full counter never leave them stuck
-  if (!F.slide && at(p, COUNTER_PAD)) {
+  if (!F.slide && mayPick(at(p, COUNTER_PAD))) {
     while (player.tPick <= 0 && F.counter.length && (back.hasRoom() || binSpare())) {
       player.tPick += STEP;
       const m = newBowl(takeBowl()!); m.position.copy(counterAt());
