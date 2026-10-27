@@ -440,6 +440,9 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
 /* the Ko-fi link, to buy the maker a coffee: a settings row like the others, opening Ko-fi in a window of its own (kofi.ts) */
 #kofi{ box-sizing:border-box; text-decoration:none; }
 #kofi i{ margin-left:auto; font-style:normal; opacity:.6; }
+/* the privacy notice (public/privacy.html), in a tab of its own: in every build, Steam's too */
+#privacy{ box-sizing:border-box; text-decoration:none; }
+#privacy i{ margin-left:auto; font-style:normal; opacity:.6; }
 /* the categories (Graphics, Sound, Credits & Copyrights): a row with a chevron, opening into a panel under it */
 #settings .cat .chev{ margin:0 4px 4px auto; width:9px; height:9px; flex:none; border-right:2.5px solid currentColor; border-bottom:2.5px solid currentColor; transform:rotate(45deg); transition:transform .2s; }
 #settings .cat[aria-expanded="true"] .chev{ transform:translateY(4px) rotate(-135deg); }
@@ -1494,6 +1497,7 @@ body.show #toss, body.show #cook, body.show #coach, body.show #hint, body.show #
   <h2 class="sgroup">About</h2>
   <button id="reportCat" type="button" aria-haspopup="dialog" hidden><span class="ic" aria-hidden="true">🐞</span><span id="reportName">Report a bug or idea</span><i aria-hidden="true">›</i></button>
   <a id="kofi" href="https://ko-fi.com/chefcontrol" target="_blank" rel="noopener"><span class="ic" aria-hidden="true">☕</span>Buy me a coffee<i aria-hidden="true">↗</i></a>
+  <a id="privacy" href="privacy.html" target="_blank" rel="noopener"><span class="ic" aria-hidden="true">🛡️</span>Privacy notice<i aria-hidden="true">↗</i></a>
   <button id="creditsBtn" class="cat" type="button" aria-expanded="false" aria-controls="creditsCard"><span class="ic" aria-hidden="true">©</span>Credits &amp; Copyrights<i class="chev" aria-hidden="true"></i></button>
   <div id="creditsCard" class="catPanel" role="region" aria-labelledby="creditsBtn" hidden>
     <h3>Music</h3>
