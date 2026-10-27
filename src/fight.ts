@@ -75,7 +75,7 @@ export const BOSSES: Boss[] = [
 /** The practice fight before the first boss (once, for a player who's just come down): the champion's own sparring
  *  partner and a small crowd, so the gong's learnt on a fight that's won. His prize hires the two lines' hands, which is
  *  what it takes to beat Hakkaku. It isn't a boss: nothing's counted beaten. */
-export const PRACTICE: Boss = { face: '🤼', name: 'Sparring partner', crowd: 40, bell: 30, prize: 35, stake: 10, opens: '' };
+export const PRACTICE: Boss = { face: FACE.practice, name: 'Sparring partner', crowd: 40, bell: 30, prize: 35, stake: 10, opens: '' };
 /** A rush's boss: one of the five, or (-1) the sparring partner. */
 export const bossOf = (i: number) => (i < 0 ? PRACTICE : BOSSES[i]);
 export const TIERS = [

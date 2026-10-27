@@ -1,29 +1,29 @@
-// The five fight-night bosses' own faces (fight.ts' BOSSES), apart from the emoji the game uses for the same creatures
-// elsewhere: 🐙 and 🦀 on the sushi menu, 🐟 the fish, 🐡 Fugu Chips, 🦈 Harry's loan. Each is a character of its own
-// in the emoji font, from Unicode's private use area, so the page and the canvas write it like any emoji.
-// They're one set, the fight poster's villains: each faces you head-on, fills the box, glares out from under a heavy
-// ink brow slanting down to the middle, bares its teeth, and carries an old fight on it (a stitched scar, a chipped
-// claw, a snapped whisker, a bitten fin, a broken spine). Colours from each one's 3D look (creatures.ts).
+// The fight-night faces: the five bosses (fight.ts' BOSSES) and the sparring partner before them (PRACTICE), apart from
+// the emoji the game uses for the same creatures elsewhere: 🐙 and 🦀 on the sushi menu, 🐟 the fish, 🐡 Fugu Chips, 🦈
+// Harry's loan. Each is a character of its own in the emoji font, from Unicode's private use area, so the page and the
+// canvas write it like any emoji.
+// The bosses are one set, the fight poster's villains: each faces you head-on, fills the box, glares out from under a
+// heavy ink brow slanting down to the middle and bares its teeth. Only Samehada carries an old fight on him, a stitched
+// scar across his eye. The sparring partner is the friendly one: a sumo trainee in his head guard, ready for the
+// warm-up. Colours from each one's 3D look (creatures.ts).
 import {
-  type Ctx, type Drawing, CREAM, DEEP_RED, GOLD, INK, TAU,
+  type Ctx, type Drawing, BLUE, CREAM, DEEP_RED, GOLD, INK, NIGHT, SKIN, TAU,
   bar, blob, box, dot, flat, inside, line, oval, poly, solid,
 } from './kit';
 
-/** The bosses' characters, by kind. */
-export const FACE = { octopus: '\uE001', crab: '\uE002', catfish: '\uE003', shark: '\uE004', puffer: '\uE005' } as const;
+/** The fight-night characters, by kind (`practice`: the sparring partner). */
+export const FACE = {
+  octopus: '', crab: '', catfish: '', shark: '', puffer: '', practice: '',
+} as const;
 
 /** An old scar: pale, healed, stitched across. */
 const SCAR = '#F3D3CB';
 
 // ---------- the set's shared parts ----------
 
-/** A narrowed eye at (x, y): its white, the pupil turned in at you, and an ink brow over its top slanting down to the
- *  middle (`s` is the side: -1 left, 1 right). `bar` draws the pupil as an octopus's slot. */
-function glare(c: Ctx, s: number, x: number, y: number, rx: number, ry: number, opts: { iris?: string; bar?: boolean } = {}) {
-  solid(c, opts.iris ?? '#fff', () => oval(c, s * x, y, rx, ry));
-  if (opts.bar) flat(c, INK, () => box(c, s * x - rx * 0.7 - s * 1.5, y + ry * 0.05, rx * 1.4, ry * 0.42, ry * 0.2));
-  else flat(c, INK, () => dot(c, s * (x - rx * 0.25), y + ry * 0.2, Math.min(rx, ry) * 0.5));
-  // the brow: thick at the middle, thinning out to the side, cutting the eye's top on the slant
+/** The brow over an eye at (x, y): ink, thick at the middle, thinning out to the side, cutting the eye's top on the
+ *  slant (`s` is the side: -1 left, 1 right). */
+function brow(c: Ctx, s: number, x: number, y: number, rx: number, ry: number) {
   solid(c, INK, () => poly(c,
     s * (x + rx * 1.25), y - ry * 1.15,
     s * (x - rx * 1.2), y - ry * 0.35,
@@ -31,13 +31,11 @@ function glare(c: Ctx, s: number, x: number, y: number, rx: number, ry: number, 
     s * (x + rx * 1.15), y - ry * 0.55));
 }
 
-/** A scar from (x0, y0) to (x1, y1), `n` stitches across it. */
-function scar(c: Ctx, x0: number, y0: number, x1: number, y1: number, n = 2) {
-  line(c, SCAR, 4, () => { c.moveTo(x0, y0); c.lineTo(x1, y1); });
-  const dx = x1 - x0, dy = y1 - y0, l = Math.hypot(dx, dy), nx = (-dy / l) * 4.5, ny = (dx / l) * 4.5;
-  line(c, SCAR, 2.5, () => {
-    for (let i = 1; i <= n; i++) { const t = i / (n + 1), x = x0 + dx * t, y = y0 + dy * t; c.moveTo(x - nx, y - ny); c.lineTo(x + nx, y + ny); }
-  });
+/** A narrowed eye at (x, y): its white (or `iris`), the pupil turned in at you, and the brow over it. */
+function glare(c: Ctx, s: number, x: number, y: number, rx: number, ry: number, iris = '#fff') {
+  solid(c, iris, () => oval(c, s * x, y, rx, ry));
+  flat(c, INK, () => dot(c, s * (x - rx * 0.25), y + ry * 0.2, Math.min(rx, ry) * 0.5));
+  brow(c, s, x, y, rx, ry);
 }
 
 /** Gritted teeth in a frown: a cream band from x0 to x1, its corners pulled down, ink gaps between `n` teeth. */
@@ -57,95 +55,113 @@ function grit(c: Ctx, x0: number, x1: number, y: number, h: number, n: number, b
   });
 }
 
+/** A scar from (x0, y0) to (x1, y1), `n` stitches across it. */
+function scar(c: Ctx, x0: number, y0: number, x1: number, y1: number, n = 2) {
+  line(c, SCAR, 4, () => { c.moveTo(x0, y0); c.lineTo(x1, y1); });
+  const dx = x1 - x0, dy = y1 - y0, l = Math.hypot(dx, dy), nx = (-dy / l) * 4.5, ny = (dx / l) * 4.5;
+  line(c, SCAR, 2.5, () => {
+    for (let i = 1; i <= n; i++) { const t = i / (n + 1), x = x0 + dx * t, y = y0 + dy * t; c.moveTo(x - nx, y - ny); c.lineTo(x + nx, y + ny); }
+  });
+}
+
+/** A whisker: a tapering shape along a curve from (x0, y0) by (ax, ay) and (bx, by) to (x1, y1), `w0` wide at the root
+ *  and `w1` at the tip. */
+function whisker(c: Ctx, color: string, [x0, y0, ax, ay, bx, by, x1, y1]: number[], w0: number, w1: number, paint = solid) {
+  const N = 16, l: number[] = [], r: number[] = [];
+  for (let i = 0; i <= N; i++) {
+    const t = i / N, u = 1 - t;
+    const x = u * u * u * x0 + 3 * u * u * t * ax + 3 * u * t * t * bx + t * t * t * x1;
+    const y = u * u * u * y0 + 3 * u * u * t * ay + 3 * u * t * t * by + t * t * t * y1;
+    const dx = 3 * u * u * (ax - x0) + 6 * u * t * (bx - ax) + 3 * t * t * (x1 - bx);
+    const dy = 3 * u * u * (ay - y0) + 6 * u * t * (by - ay) + 3 * t * t * (y1 - by), d = Math.hypot(dx, dy) || 1;
+    const w = (w0 + (w1 - w0) * t) / 2;
+    l.push(x - (dy / d) * w, y + (dx / d) * w); r.unshift(x + (dy / d) * w, y - (dx / d) * w);
+  }
+  paint(c, color, () => poly(c, ...l, ...r));
+}
+
 // ---------- the bosses ----------
 
-/** Hakkaku, the octopus: a big mauve mantle, slot-pupilled eyes glaring under his brow, teeth gritted, a stitched
- *  scar over his dome, and thick tentacles curled out under him. */
+/** Hakkaku, the octopus: a big mauve mantle, gold eyes with an octopus's flat bar of a pupil glaring under his brow,
+ *  teeth gritted, and thick tentacles curled out under him. */
 function hakkaku(c: Ctx) {
   const SK = '#C9739F', DK = '#9E5079';
   for (const [x0, cx, x1, k] of [[-22, -38, -30, -1], [-8, -16, -16, -1], [8, 16, 16, 1], [22, 38, 30, 1]]) {
     bar(c, SK, 12, () => { c.moveTo(x0, 6); c.quadraticCurveTo(cx, 24, x1, 33); c.quadraticCurveTo(x1 + k * 4, 38, x1 + k * 7, 32); });
   }
   solid(c, SK, () => { c.moveTo(-32, 16); c.bezierCurveTo(-42, -10, -35, -42, 0, -42); c.bezierCurveTo(35, -42, 42, -10, 32, 16); c.quadraticCurveTo(0, 30, -34, 16); c.closePath(); });
-  flat(c, DK, () => { dot(c, -18, -34, 4.5); dot(c, -4, -39, 3.5); dot(c, -27, -22, 3.5); });
-  scar(c, 11, -37, 24, -18);
-  for (const s of [-1, 1]) glare(c, s, 15, -4, 10, 8, { bar: true });
+  flat(c, DK, () => { dot(c, -18, -34, 4.5); dot(c, -4, -39, 3.5); dot(c, -27, -22, 3.5); dot(c, 16, -33, 3.5); });
+  // the eyes: gold, a thick bar of a pupil across the middle, the brow pressing down on them
+  for (const s of [-1, 1]) {
+    const x = 15, y = -3, rx = 10.5, ry = 11, ball = () => oval(c, s * x, y, rx, ry);
+    solid(c, GOLD, ball);
+    flat(c, INK, () => box(c, s * x - rx * 0.62, y + ry * 0.22, rx * 1.24, ry * 0.4, ry * 0.2));
+    brow(c, s, x, y, rx, ry);
+  }
   grit(c, -15, 15, 12, 10, 4, 3);
 }
 
-/** Yokobashiri, the crab: a dark red spiked shell, eyes on stalks under their brows, gritted teeth, one huge fiddler's
- *  claw up and the other chipped. */
+/** Yokobashiri, the crab: a dark red shell spiked round its rim, eyes on stalks glaring under their brows, gritted
+ *  teeth, and one huge fiddler's claw up beside a small one. Drawn back to front, each piece's outline clear of the
+ *  next: legs, arms, claws, then the shell and its eye stalks as one. */
 function yokobashiri(c: Ctx) {
   const SH = DEEP_RED, TIP = '#F4E2C8';
   for (const s of [-1, 1]) {
-    for (const [y, dy] of [[14, 22], [22, 32]]) bar(c, SH, 6, () => { c.moveTo(s * 24, y); c.lineTo(s * 36, y + 2); c.lineTo(s * 40, dy + 10); });
+    bar(c, SH, 6, () => { c.moveTo(s * 26, 14); c.lineTo(s * 39, 17); c.lineTo(s * 43, 31); });
+    bar(c, SH, 6, () => { c.moveTo(s * 20, 26); c.lineTo(s * 31, 33); c.lineTo(s * 33, 44); });
   }
-  // the arms up to the claws: the right one huge
-  bar(c, SH, 8, () => { c.moveTo(-18, 4); c.lineTo(-28, -14); });
-  bar(c, SH, 10, () => { c.moveTo(20, 4); c.lineTo(28, -12); });
-  // the small claw, the tip of one finger snapped off
-  solid(c, SH, () => {
-    const x = -30, y = -25, r = 13, at = (a: number, k: number) => c.lineTo(x + Math.cos(a) * r * k, y + Math.sin(a) * r * k);
-    c.moveTo(x, y);
-    at(-Math.PI / 2 + 0.55, 0.62); at(-Math.PI / 2 + 1.05, 1);
-    c.arc(x, y, r, -Math.PI / 2 + 1.05, -Math.PI / 2 - 0.5 + TAU);
-    c.closePath();
+  // the arms up to the claws: the right one heavier
+  bar(c, SH, 8, () => { c.moveTo(-22, 6); c.lineTo(-31, -16); });
+  bar(c, SH, 10, () => { c.moveTo(22, 6); c.lineTo(30, -14); });
+  // a claw: a round palm with its two fingers open at the top, the gap turned in towards the face
+  const claw = (x: number, y: number, r: number, a0: number, a1: number) => solid(c, SH, () => {
+    c.moveTo(x, y - r * 0.1); c.arc(x, y, r, a1, a0 + TAU); c.closePath();
   });
-  // the big claw
-  solid(c, SH, () => { const x = 26, y = -24, r = 18; c.moveTo(x, y); c.arc(x, y, r, -Math.PI / 2 + 0.2, -Math.PI / 2 - 0.55 + TAU); c.closePath(); });
-  flat(c, TIP, () => { dot(c, 21, -38, 3); dot(c, 33, -37, 3); dot(c, -36, -34, 2.5); });
-  // the shell, spiked round its top
+  claw(-33, -29, 12, -Math.PI / 2 - 0.05, -Math.PI / 2 + 0.45);
+  claw(31, -28, 16, -Math.PI / 2 - 0.5, -Math.PI / 2 + 0.05);
+  flat(c, TIP, () => { dot(c, 24, -41, 3); dot(c, 33, -42, 3); dot(c, -36, -39, 2.5); dot(c, -28, -39, 2.5); });
+  // the shell, spiked round its rim, and the eye stalks standing up out of it, under one outline
   blob(c, SH, () => {
     oval(c, 0, 14, 34, 22);
-    for (let i = -3; i <= 3; i++) { const x = i * 10, y = -6 + Math.abs(i) * Math.abs(i) * 1.2; c.moveTo(x - 5, y + 4); c.lineTo(x, y - 7); c.lineTo(x + 5, y + 4); c.closePath(); }
+    for (const t of [0.5, 0.95, 1.4]) for (const s of [-1, 1]) {
+      const a = -Math.PI / 2 + s * t, px = Math.cos(a) * 34, py = 14 + Math.sin(a) * 22;
+      const nx = Math.cos(a) * 22, ny = Math.sin(a) * 34, nl = Math.hypot(nx, ny), ux = nx / nl, uy = ny / nl;
+      poly(c, px - uy * 5.5, py + ux * 5.5, px + ux * 9, py + uy * 9, px + uy * 5.5, py - ux * 5.5);
+    }
+    for (const s of [-1, 1]) box(c, s * 8 - 2.5, -14, 5, 18, 2.5);
   });
-  scar(c, -26, 6, -10, 28, 1);
-  // eyes on stalks
-  for (const s of [-1, 1]) {
-    bar(c, SH, 5, () => { c.moveTo(s * 6, 0); c.lineTo(s * 9, -12); });
-    glare(c, s, 10, -17, 7, 6.5);
-  }
+  for (const s of [-1, 1]) glare(c, s, 8.5, -15, 7, 6.5);
   grit(c, -14, 14, 16, 10, 4, 3);
 }
 
-/** A whisker: a tapering shape along a curve from (x0, y0) by (cx, cy) to (x1, y1), `w0` wide at the root and `w1` at
- *  the tip (a blunt tip is one snapped off). */
-function whisker(c: Ctx, color: string, x0: number, y0: number, cx: number, cy: number, x1: number, y1: number, w0: number, w1: number) {
-  const N = 12, l: number[] = [], r: number[] = [];
-  for (let i = 0; i <= N; i++) {
-    const t = i / N, u = 1 - t;
-    const x = u * u * x0 + 2 * u * t * cx + t * t * x1, y = u * u * y0 + 2 * u * t * cy + t * t * y1;
-    const dx = 2 * u * (cx - x0) + 2 * t * (x1 - cx), dy = 2 * u * (cy - y0) + 2 * t * (y1 - cy), d = Math.hypot(dx, dy) || 1;
-    const w = (w0 + (w1 - w0) * t) / 2;
-    l.push(x - (dy / d) * w, y + (dx / d) * w); r.unshift(x + (dy / d) * w, y - (dx / d) * w);
-  }
-  solid(c, color, () => poly(c, ...l, ...r));
-}
-
-/** Dobu, the catfish: a wide, flat, murky olive head, little gold eyes set wide under their brows, a mouth from ear to
- *  ear lined with teeth, and long whiskers drooping from its corners, the right one snapped short. */
+/** Dobu, the catfish: a wide, flat, murky olive head, thick pale lips from ear to ear drawn back off small teeth,
+ *  little gold eyes set wide on top under their brows, and long dark whiskers sweeping out from the corners of his
+ *  mouth. */
 function dobu(c: Ctx) {
-  const SK = '#6B6748', DK = '#4C4931', UNDER = '#CFC29C', WHISK = '#CFC29C';
-  const head = () => { c.moveTo(-42, 6); c.bezierCurveTo(-42, -22, -24, -32, 0, -32); c.bezierCurveTo(24, -32, 42, -22, 42, 6); c.bezierCurveTo(42, 22, 24, 28, 0, 28); c.bezierCurveTo(-24, 28, -42, 22, -42, 6); c.closePath(); };
+  const SK = '#6B6748', DK = '#4C4931', UNDER = '#CFC29C';
+  // the low fin down his back, behind his head, and his side fins
+  solid(c, DK, () => { c.moveTo(-12, -24); c.quadraticCurveTo(-4, -40, 10, -38); c.quadraticCurveTo(8, -30, 12, -24); c.closePath(); });
+  for (const s of [-1, 1]) solid(c, DK, () => { c.moveTo(s * 30, 8); c.quadraticCurveTo(s * 46, 14, s * 46, 30); c.quadraticCurveTo(s * 36, 26, s * 24, 18); c.closePath(); });
+  // the head: broad, flat on top, widest at the jaw
+  const head = () => { c.moveTo(-38, -4); c.bezierCurveTo(-38, -24, -30, -30, 0, -30); c.bezierCurveTo(30, -30, 38, -24, 38, -4); c.bezierCurveTo(38, 12, 24, 20, 0, 20); c.bezierCurveTo(-24, 20, -38, 12, -38, -4); c.closePath(); };
   solid(c, SK, head);
   inside(c, head, () => {
-    flat(c, UNDER, () => oval(c, 0, 30, 40, 13));
-    flat(c, DK, () => { dot(c, -18, -24, 4); dot(c, 2, -27, 3.5); dot(c, 22, -23, 3); dot(c, -33, -8, 3); dot(c, 34, -6, 2.5); });
+    flat(c, UNDER, () => oval(c, 0, 22, 32, 10));
+    flat(c, DK, () => { dot(c, -8, -23, 3.5); dot(c, 8, -25, 3); dot(c, 0, -16, 2.5); });
   });
   c.beginPath(); head(); c.stroke();
-  scar(c, -6, -31, 6, -14, 1);
-  // the mouth from ear to ear, down at the corners, a row of small teeth along its top
-  solid(c, '#2A1E1A', () => { c.moveTo(-34, 14); c.quadraticCurveTo(0, -4, 34, 14); c.quadraticCurveTo(0, 26, -34, 14); c.closePath(); });
+  // the mouth from ear to ear, down at the corners, pale lips drawn back off a row of small teeth
+  solid(c, UNDER, () => { c.moveTo(-33, 4); c.quadraticCurveTo(0, -18, 33, 4); c.quadraticCurveTo(0, 28, -33, 4); c.closePath(); });
+  solid(c, '#2A1E1A', () => { c.moveTo(-25, 4); c.quadraticCurveTo(0, -6, 25, 4); c.quadraticCurveTo(0, 14, -25, 4); c.closePath(); });
   flat(c, CREAM, () => {
-    for (let i = 0; i < 9; i++) {
-      const x = -22 + i * 5.5, t = x / 34, y = 14 - 9 * (1 - t * t);
-      c.moveTo(x - 3, y - 1); c.lineTo(x, y + 5); c.lineTo(x + 3, y - 1); c.closePath();
+    for (let i = 0; i < 7; i++) {
+      const x = -15 + i * 5, t = x / 25, y = 4 - 5 * (1 - t * t) + 1;
+      c.moveTo(x - 2.5, y - 1); c.lineTo(x, y + 4); c.lineTo(x + 2.5, y - 1); c.closePath();
     }
   });
-  for (const s of [-1, 1]) glare(c, s, 23, -12, 7, 6, { iris: GOLD });
-  // the whiskers from the corners of his mouth, the right one snapped short
-  whisker(c, WHISK, -30, 13, -50, 18, -40, 44, 8, 2);
-  whisker(c, WHISK, 30, 13, 44, 16, 43, 28, 8, 5.5);
+  // the long whiskers from the corners of his lips, out over his cheeks and drooping
+  for (const s of [-1, 1]) whisker(c, UNDER, [s * 29, 3, s * 50, -6, s * 36, 30, s * 48, 42], 10, 4.5);
+  for (const s of [-1, 1]) glare(c, s, 21, -15, 6.5, 6, GOLD);
 }
 
 /** Samehada, the shark: a blue-grey head coming straight at you, jaws wide on two rows of teeth, eyes narrowed under a
@@ -175,33 +191,59 @@ function samehada(c: Ctx) {
   scar(c, 13, -30, 28, -2, 2);
 }
 
-/** Fukure, the pufferfish: blown up into a ball, every spine out (one snapped short), olive over a pale belly, big gold
- *  eyes under heavy brows, thick lips drawn back off his beak, a scar on his brow. */
+/** Fukure, the pufferfish, blown up for the fight: a big olive ball with a rim of thick spines, darker over his back,
+ *  pale under, big gold eyes under angry brows and a wide set of gritted teeth. */
 function fukure(c: Ctx) {
-  const SK = '#8E8358', BK = '#6E6542', UNDER = '#F2EEE2', QUILL = '#F3EEE0', LIP = '#EADCC6', cy = 2;
-  blob(c, QUILL, () => {
-    for (let i = 0; i < 15; i++) {
-      const a = (i / 15) * TAU - Math.PI / 2 + TAU / 30, b = 0.3;
-      const at = (t: number, r: number) => c.lineTo(Math.cos(a + t) * r, cy + Math.sin(a + t) * r);
-      c.moveTo(Math.cos(a - b) * 25, cy + Math.sin(a - b) * 25);
-      if (i === 12) { at(-0.1, 37); at(0.07, 34); } else at(0, 44);
-      at(b, 25);
+  const SK = '#8E8358', UNDER = '#F2EEE2', IRIS = '#E8C640', cy = 2, R = 32, N = 12;
+  const ball = () => {
+    dot(c, 0, cy, R);
+    for (let i = 0; i < N; i++) {
+      const a = (i / N) * TAU - Math.PI / 2, b = 0.2, at = (t: number, r: number) => [Math.cos(a + t) * r, cy + Math.sin(a + t) * r];
+      poly(c, ...at(-b, R - 3), ...at(0, 46), ...at(b, R - 3));
     }
+  };
+  blob(c, SK, ball);
+  inside(c, ball, () => {
+    flat(c, UNDER, () => oval(c, 0, cy + 30, 27, 13));
+    flat(c, '#2A2116', () => { dot(c, -16, -20, 2.8); dot(c, 0, -24, 2.8); dot(c, 16, -20, 2.8); });
   });
-  const body = () => dot(c, 0, cy, 32);
-  solid(c, SK, body);
-  inside(c, body, () => {
-    flat(c, BK, () => oval(c, 0, cy - 32, 38, 17));
-    flat(c, UNDER, () => oval(c, 0, cy + 30, 30, 16));
-    flat(c, '#2A2116', () => { dot(c, -18, -18, 2.8); dot(c, -4, -25, 2.5); dot(c, 12, -22, 2.5); dot(c, -26, 0, 2.5); dot(c, 26, -6, 2.5); });
+  for (const s of [-1, 1]) glare(c, s, 14, -3, 10.5, 9.5, IRIS);
+  grit(c, -17, 17, 17, 12, 4, 4);
+}
+
+/** The sparring partner: a round, friendly sumo trainee in a blue padded head guard over his black hair and topknot,
+ *  brows set and grinning, ready for the warm-up. */
+function sparring(c: Ctx) {
+  const PAD = BLUE, SEAM = '#24447A', MOUTH = '#5A1E26', cy = 8;
+  const face = () => oval(c, 0, cy, 37, 36);
+  solid(c, SKIN, face);
+  inside(c, face, () => {
+    // his hair, slicked back, its line low on his brow and down his cheeks
+    flat(c, NIGHT, () => {
+      c.moveTo(-44, cy - 50); c.lineTo(44, cy - 50); c.lineTo(44, cy + 4); c.lineTo(31, cy + 4);
+      c.quadraticCurveTo(30, cy - 11, 20, cy - 12); c.quadraticCurveTo(0, cy - 8, -20, cy - 12);
+      c.quadraticCurveTo(-30, cy - 11, -31, cy + 4); c.lineTo(-44, cy + 4); c.closePath();
+    });
+    flat(c, 'rgba(255,255,255,.3)', () => oval(c, -16, cy - 31, 7, 2.6, -0.35));
   });
-  c.beginPath(); body(); c.stroke();
-  scar(c, -24, -22, -10, -2, 1);
-  for (const s of [-1, 1]) glare(c, s, 15, -4, 10, 9, { iris: '#E8C640' });
-  // thick lips in a scowl, the beak's teeth bared between them
-  solid(c, LIP, () => { c.moveTo(-17, 22); c.quadraticCurveTo(0, 6, 17, 22); c.quadraticCurveTo(0, 36, -17, 22); c.closePath(); });
-  solid(c, CREAM, () => { c.moveTo(-10, 20); c.quadraticCurveTo(0, 13, 10, 20); c.lineTo(10, 25); c.quadraticCurveTo(0, 29, -10, 25); c.closePath(); });
-  line(c, INK, 2.5, () => { c.moveTo(-9, 22.5); c.quadraticCurveTo(0, 19, 9, 22.5); c.moveTo(0, 16); c.lineTo(0, 27); });
+  c.beginPath(); face(); c.stroke();
+  // his topknot, folded forward on the crown
+  solid(c, NIGHT, () => oval(c, 0, cy - 39, 11, 6.5));
+  flat(c, 'rgba(255,255,255,.3)', () => oval(c, -4, cy - 41, 4, 1.8, -0.2));
+  // the head guard: a padded band round his forehead and pads over his ears
+  solid(c, PAD, () => box(c, -33, cy - 26, 66, 9, 4.5));
+  for (const s of [-1, 1]) solid(c, PAD, () => oval(c, s * 38, cy + 2, 8, 11));
+  line(c, SEAM, 2.5, () => { for (const x of [-13, 13]) { c.moveTo(x, cy - 23.5); c.lineTo(x, cy - 19.5); } });
+  // set brows, eyes, a grin and rosy cheeks
+  for (const s of [-1, 1]) {
+    line(c, INK, 5, () => { c.moveTo(s * 21, cy - 5); c.lineTo(s * 8, cy - 2); });
+    flat(c, INK, () => dot(c, s * 13, cy + 5, 4.5));
+    flat(c, 'rgba(229,72,77,.35)', () => dot(c, s * 24, cy + 16, 6));
+  }
+  const grin = () => { c.moveTo(-14, cy + 15); c.quadraticCurveTo(0, cy + 18, 14, cy + 15); c.quadraticCurveTo(12, cy + 30, 0, cy + 30); c.quadraticCurveTo(-12, cy + 30, -14, cy + 15); c.closePath(); };
+  solid(c, MOUTH, grin);
+  inside(c, grin, () => flat(c, CREAM, () => box(c, -16, cy + 12, 32, 8.5, 2)));
+  c.beginPath(); grin(); c.stroke();
 }
 
 export const BOSS: Record<string, Drawing> = {
@@ -210,4 +252,5 @@ export const BOSS: Record<string, Drawing> = {
   [FACE.catfish]: dobu,
   [FACE.shark]: samehada,
   [FACE.puffer]: fukure,
+  [FACE.practice]: sparring,
 };

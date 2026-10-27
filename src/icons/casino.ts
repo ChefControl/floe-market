@@ -1,7 +1,7 @@
 // Icons for the casino, the Undertow and fight night, keyed by the emoji they stand for (icons.ts gathers them). Drawn with the kit (kit.ts), the
 // design book's Icons section has the rules.
 import {
-  type Ctx, type Drawing, CREAM, DARK_WOOD, DEEP_GOLD, DEEP_GREEN, DEEP_RED, GOLD, INK, NIGHT, PINK, RED, SKIN, TAU,
+  type Ctx, type Drawing, CREAM, DARK_WOOD, DEEP_GOLD, DEEP_GREEN, DEEP_RED, GOLD, INK, NIGHT, RED, TAU,
   bar, box, dot, drum, flat, heartPath, inside, line, oval, poly, solid,
 } from './kit';
 
@@ -103,35 +103,32 @@ function moneyBag(c: Ctx) {
   flat(c, 'rgba(255,255,255,.35)', () => oval(c, -24, 0, 6, 12, 0.3));
 }
 
-/** 🦈 Samehada, and Harry the loan shark: a mean grey shark, brow down over a narrowed eye, a scar, and a wide grin of teeth. */
+/** 🦈 Samehada, and Harry the loan shark: a mean grey shark, thick fins, a heavy brow over one narrowed eye, a wide grin of teeth. */
 function shark(c: Ctx) {
   const S = '#6E8798', S_DEEP = '#4F6575';
-  c.save(); c.translate(-1, 4); c.rotate(-0.12);
-  // the dorsal fin, a bite out of its back edge
-  solid(c, S_DEEP, () => poly(c, -10, -17, 0, -45, 8, -32, 5, -28, 16, -18));
+  c.save(); c.translate(-1, 3); c.rotate(-0.1);
+  // the dorsal fin, tall and thick
+  solid(c, S_DEEP, () => { c.moveTo(-14, -18); c.quadraticCurveTo(-4, -34, 4, -46); c.quadraticCurveTo(10, -30, 18, -19); c.closePath(); });
   const body = () => {
-    c.moveTo(47, -4); c.quadraticCurveTo(38, -24, 8, -21); c.quadraticCurveTo(-20, -18, -31, -4);
-    c.lineTo(-46, -27); c.lineTo(-39, 0); c.lineTo(-44, 21); c.lineTo(-29, 6);
-    c.quadraticCurveTo(-6, 24, 22, 21); c.quadraticCurveTo(42, 16, 47, -4); c.closePath();
+    c.moveTo(45, -2); c.quadraticCurveTo(40, -26, 8, -24); c.quadraticCurveTo(-18, -21, -30, -6);
+    c.lineTo(-46, -30); c.lineTo(-38, 0); c.lineTo(-46, 26); c.lineTo(-29, 7);
+    c.quadraticCurveTo(-6, 27, 22, 24); c.quadraticCurveTo(42, 19, 45, -2); c.closePath();
   };
   solid(c, S, body);
-  inside(c, body, () => flat(c, CREAM, () => oval(c, 14, 22, 32, 9)));
+  inside(c, body, () => flat(c, CREAM, () => oval(c, 8, 30, 36, 11)));
   c.beginPath(); body(); c.stroke();
-  solid(c, S_DEEP, () => poly(c, -2, 14, -16, 34, 14, 17));
-  line(c, S_DEEP, 2.5, () => { for (const x of [0, 6]) { c.moveTo(x, -8); c.lineTo(x - 2, 6); } });
-  // the grin: a wide white crescent, its teeth zigzagging shut
-  solid(c, '#fff', () => { c.moveTo(45, -1); c.quadraticCurveTo(30, 5, 12, 3); c.quadraticCurveTo(26, 22, 45, -1); c.closePath(); });
-  line(c, INK, 2.5, () => {
-    c.moveTo(14, 5);
-    for (let i = 1; i <= 8; i++) { const x = 14 + i * 3.8; c.lineTo(x, (i % 2 ? 11 : 4) - i * 0.6); }
+  // the pectoral fin, broad
+  solid(c, S_DEEP, () => { c.moveTo(-6, 13); c.quadraticCurveTo(-14, 30, -20, 40); c.quadraticCurveTo(2, 34, 16, 19); c.closePath(); });
+  // the grin: a wide white band, one bold zigzag of teeth through it
+  solid(c, '#fff', () => { c.moveTo(44, 3); c.quadraticCurveTo(30, 9, 10, 7); c.quadraticCurveTo(28, 34, 44, 3); c.closePath(); });
+  line(c, INK, 3.5, () => {
+    c.moveTo(12, 9);
+    for (let i = 1; i <= 5; i++) { const x = 12 + i * 6.2; c.lineTo(x, (i % 2 ? 18 : 9) - i * 0.9); }
   });
-  // a scar across the head, stitched
-  line(c, PINK, 3.5, () => { c.moveTo(4, -20); c.lineTo(12, -7); });
-  line(c, PINK, 2.5, () => { c.moveTo(5, -12); c.lineTo(11, -15); });
-  // the eye, narrowed under a heavy brow slanting down to the snout
-  solid(c, '#fff', () => { c.moveTo(18, -14); c.lineTo(37, -7); c.quadraticCurveTo(27, 2, 18, -14); c.closePath(); });
-  flat(c, INK, () => dot(c, 31, -5, 2.8));
-  line(c, INK, 5, () => { c.moveTo(16, -21); c.lineTo(38, -10); });
+  // one eye, narrowed under a heavy brow slanting down to the snout
+  solid(c, '#fff', () => { c.moveTo(11, -15); c.lineTo(35, -7); c.quadraticCurveTo(22, 12, 11, -15); c.closePath(); });
+  flat(c, INK, () => dot(c, 26, -3, 4));
+  line(c, INK, 6.5, () => { c.moveTo(8, -22); c.lineTo(38, -11); });
   c.restore();
 }
 
@@ -142,42 +139,6 @@ function bell(c: Ctx) {
   solid(c, DEEP_GOLD, () => box(c, -40, 20, 80, 10, 5));
   solid(c, NIGHT, () => dot(c, 0, 36, 7));
   flat(c, 'rgba(255,255,255,.4)', () => oval(c, -14, -12, 6, 14, 0.2));
-}
-
-/**
- * 🤼 The sparring partner: two sumo wrestlers clashing, strictly side on, leaning in, heads tucked down a little apart,
- * bellies touching; each one's near arm runs round the other's back to his belt (a blue belt, and a red).
- */
-function wrestlers(c: Ctx) {
-  const who = [{ m: 1, belt: '#355C9E', skin: SKIN }, { m: -1, belt: DEEP_RED, skin: '#E3AE82' }];
-  c.save(); c.translate(0, -2);
-  for (const { m, skin } of who) {
-    bar(c, skin, 11, () => {
-      c.moveTo(m * -30, 18); c.lineTo(m * -42, 30); c.lineTo(m * -41, 44);
-      c.moveTo(m * -15, 22); c.lineTo(m * -20, 33); c.lineTo(m * -15, 44);
-    });
-  }
-  for (const { m, belt, skin } of who) {
-    const body = () => oval(c, m * -22, 8, 20, 25, m * 0.55);
-    solid(c, skin, body);
-    inside(c, body, () => flat(c, belt, () => { c.save(); c.translate(m * -22, 8); c.rotate(m * 0.55); c.rect(-30, 8, 60, 13); c.restore(); }));
-    c.beginPath(); body(); c.stroke();
-  }
-  // the red one's arm, low, under; the blue one's from his shoulder, over the red one's shoulder and down his back
-  // (the heads go on top, so it leaves from under his head and passes behind the red one's)
-  bar(c, '#E3AE82', 7, () => { c.moveTo(12, 8); c.quadraticCurveTo(-10, 18, -32, 17); });
-  bar(c, SKIN, 8, () => { c.moveTo(-20, -7); c.quadraticCurveTo(4, -11, 32, 4); });
-  solid(c, SKIN, () => dot(c, 33, 6, 6));
-  // heads down, a little apart, in profile: hair and topknot at the back, one eye at the front
-  for (const { m, skin } of who) {
-    const head = () => dot(c, m * -15, -17, 11);
-    solid(c, NIGHT, () => oval(c, m * -26, -26, 5.5, 4, m * -0.9));
-    solid(c, skin, head);
-    inside(c, head, () => flat(c, NIGHT, () => oval(c, m * -25, -23, 9, 8, m * -0.9)));
-    c.beginPath(); head(); c.stroke();
-    flat(c, INK, () => dot(c, m * -9, -18, 2.8));
-  }
-  c.restore();
 }
 
 /** 🥁 The ring's second tier: a red taiko drum with its tacks, two sticks crossed on its head. */
@@ -253,5 +214,5 @@ function unlocked(c: Ctx) {
 
 export const CASINO: Record<string, Drawing> = {
   '🃏': cards, '🎡': rouletteWheel, '🎟': ticket, '💎': gem, '💰': moneyBag, '🦈': shark, '🔔': bell,
-  '🤼': wrestlers, '🥁': taiko, '⛩': shrineGate, '🏁': chequered, '🔓': unlocked,
+  '🥁': taiko, '⛩': shrineGate, '🏁': chequered, '🔓': unlocked,
 };

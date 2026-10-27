@@ -127,19 +127,26 @@ function die(c: Ctx) {
   flat(c, INK, () => { oval(c, 29, -12, 3, 4); oval(c, 29, 18, 3, 4); });
 }
 
-/** 🐞 Report a bug: a red ladybird from above, black spots and head. */
+/** 🐞 Report a bug: a chubby red ladybird from above, a big black head with two friendly eyes, four big spots. */
 function ladybird(c: Ctx) {
-  line(c, INK, 4, () => {
-    for (const s of [-1, 1]) { c.moveTo(s * 30, -6); c.lineTo(s * 44, -12); c.moveTo(s * 32, 12); c.lineTo(s * 44, 16); c.moveTo(s * 24, 28); c.lineTo(s * 34, 40); }
-    c.moveTo(-6, -40); c.lineTo(-12, -48 + 2); c.moveTo(6, -40); c.lineTo(12, -46);
+  // stubby legs and two curled feelers, under everything
+  line(c, INK, 5, () => {
+    for (const s of [-1, 1]) { c.moveTo(s * 32, 6); c.lineTo(s * 45, 2); c.moveTo(s * 30, 30); c.lineTo(s * 42, 38); }
   });
-  solid(c, NIGHT, () => oval(c, 0, -30, 16, 12));
-  const shell = () => oval(c, 0, 6, 32, 36);
+  line(c, INK, 4, () => { for (const s of [-1, 1]) { c.moveTo(s * 7, -36); c.quadraticCurveTo(s * 10, -46, s * 20, -44); } });
+  flat(c, INK, () => { dot(c, -20, -43, 4.5); dot(c, 20, -43, 4.5); });
+  const shell = () => oval(c, 0, 12, 40, 33);
   solid(c, RED, shell);
-  inside(c, shell, () => flat(c, NIGHT, () => { dot(c, -16, -6, 6); dot(c, 16, -6, 6); dot(c, -14, 20, 5.5); dot(c, 14, 20, 5.5); dot(c, 0, 38, 6); }));
-  line(c, INK, 4, () => { c.moveTo(0, -30); c.lineTo(0, 42); });
-  flat(c, SHINE, () => oval(c, -16, -14, 4, 7, 0.4));
-  flat(c, CREAM, () => { dot(c, -7, -34, 3); dot(c, 7, -34, 3); });
+  inside(c, shell, () => flat(c, NIGHT, () => { dot(c, -21, 8, 8.5); dot(c, 21, 8, 8.5); dot(c, -16, 31, 7.5); dot(c, 16, 31, 7.5); }));
+  line(c, INK, 4, () => { c.moveTo(0, -6); c.lineTo(0, 45); });
+  flat(c, SHINE, () => oval(c, -25, -6, 5, 8, 0.7));
+  solid(c, NIGHT, () => oval(c, 0, -20, 22, 17));
+  for (const s of [-1, 1]) {
+    solid(c, '#fff', () => dot(c, s * 9, -22, 6.5));
+    flat(c, INK, () => dot(c, s * 9 + 1, -21, 3.5));
+    flat(c, '#fff', () => dot(c, s * 9 - 0.5, -23.5, 1.3));
+  }
+  flat(c, 'rgba(232,96,122,.75)', () => { oval(c, -15, -11, 4, 2.6); oval(c, 15, -11, 4, 2.6); });
 }
 
 /** 🖍️ Draw-a-Bug: a red crayon at a slant, its paper wrapper banded dark. */

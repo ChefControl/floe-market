@@ -2,11 +2,11 @@
 // design book's Icons section has the rules.
 import {
   type Ctx, type Drawing, CREAM, DEEP_GOLD, DEEP_RED, GOLD, PINK, RED, SKIN, TAU,
-  bar, blob, box, dot, flat, heartPath, line, oval, poly, solid,
+  bar, blob, box, dot, flat, heartPath, inside, line, oval, poly, solid,
 } from './kit';
 
-// colours of their own: an orange for flames and autumn leaves, ice for frost, blossom pink, and a hand's shading
-const ORANGE = '#F08A3C', DEEP_ORANGE = '#D9622B', ICE = '#BFE8F7', BLOSSOM = '#F9B4C6', SKIN_LINE = '#C98E62';
+// colours of their own: an orange for flames and autumn leaves, ice for frost, blossom pink (and its deeper base), and a hand's shading
+const ORANGE = '#F08A3C', DEEP_ORANGE = '#D9622B', ICE = '#BFE8F7', BLOSSOM = '#F9B4C6', PETAL_BASE = '#F38BA6', SKIN_LINE = '#C98E62';
 
 /** A star with `n` points, from radius `r` to `ri` between them, its first point at angle `a0`. */
 function starPath(c: Ctx, x: number, y: number, n: number, r: number, ri: number, a0 = -Math.PI / 2) {
@@ -32,22 +32,31 @@ function sun(c: Ctx) {
   flat(c, 'rgba(255,255,255,.45)', () => oval(c, -10, -11, 9, 6, -0.7));
 }
 
-/** 🌸 Spring: a cherry blossom, five notched pink petals round a deep-pink heart. */
+/** 🌸 Spring: a cherry blossom, five round pink petals apart, each with its notch, round a deep-pink heart and stamens. */
 function blossom(c: Ctx) {
-  blob(c, BLOSSOM, () => {
-    for (let i = 0; i < 5; i++) {
-      c.save(); c.translate(0, 3); c.rotate((i * TAU) / 5);
-      c.moveTo(0, 0);
-      c.bezierCurveTo(-26, -8, -28, -40, -11, -45);
-      c.lineTo(0, -37); c.lineTo(11, -45);
-      c.bezierCurveTo(28, -40, 26, -8, 0, 0);
-      c.closePath();
-      c.restore();
-    }
+  c.translate(0, 3); c.rotate(-0.12);
+  const petal = () => {
+    c.moveTo(0, -4);
+    c.bezierCurveTo(-16, -10, -27, -30, -15, -42);
+    c.quadraticCurveTo(-7, -48, 0, -38);
+    c.quadraticCurveTo(7, -48, 15, -42);
+    c.bezierCurveTo(27, -30, 16, -10, 0, -4);
+    c.closePath();
+  };
+  for (let i = 0; i < 5; i++) {
+    c.save(); c.rotate((i * TAU) / 5);
+    solid(c, BLOSSOM, petal);
+    inside(c, petal, () => flat(c, PETAL_BASE, () => oval(c, 0, -8, 9, 14)));
+    c.beginPath(); petal(); c.stroke();
+    c.restore();
+  }
+  solid(c, PINK, () => dot(c, 0, 0, 12));
+  line(c, DEEP_RED, 3, () => {
+    for (let i = 0; i < 5; i++) { const a = -Math.PI / 2 + ((i + 0.5) * TAU) / 5; c.moveTo(Math.cos(a) * 6, Math.sin(a) * 6); c.lineTo(Math.cos(a) * 19, Math.sin(a) * 19); }
   });
-  flat(c, PINK, () => starPath(c, 0, 3, 5, 15, 7));
-  flat(c, DEEP_GOLD, () => { for (let i = 0; i < 5; i++) { const a = -Math.PI / 2 + (i * TAU) / 5; dot(c, Math.cos(a) * 15, 3 + Math.sin(a) * 15, 3.5); } });
-  flat(c, GOLD, () => dot(c, 0, 3, 6));
+  flat(c, DEEP_GOLD, () => { for (let i = 0; i < 5; i++) { const a = -Math.PI / 2 + ((i + 0.5) * TAU) / 5; dot(c, Math.cos(a) * 19, Math.sin(a) * 19, 4); } });
+  flat(c, DEEP_RED, () => dot(c, 0, 0, 5));
+  flat(c, 'rgba(255,255,255,.45)', () => oval(c, -9, -30, 4, 7, -0.5));
 }
 
 /** One fallen leaf, `len` long, its stalk at (x, y), pointing at `a`. */

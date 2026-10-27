@@ -18,7 +18,7 @@ import { decal, drawPad } from './decals';
 import { dustFx } from './fx';
 import { ringCam } from './dohyo';
 import {
-  type Boss, bossOf, BOSSES, BUYOUT, canRing, canShow, type Carry, F, type Forecast, fixOn, forecast, ICON, type Ing, keptHome, NAME, nextBoss, practiceDue, ringGong,
+  type Boss, bossOf, BOSSES, BUYOUT, canRing, canShow, type Carry, F, type Forecast, fixOn, forecast, ICON, type Ing, keptHome, NAME, nextBoss, practiceDue, PRACTICE, ringGong,
   finish, FINISH, push, ringRate, type Rush, sides, SLAM, slamDown, slamLanded, slamOn, strength, toBeat, worstShort, you,
 } from './fight';
 import { isTouch } from './hint';
@@ -119,7 +119,7 @@ function render() {
   let chips: string[] = [], rows: Row[] = [], button: string | null = 'Ring the gong';
   if (R && !R.done) {
     chips = [`👥 ${R.n}`, `💪 ${toBeat(on!, R.n)}`, `🔔 ${on!.bell} s`, `🐡 ${amount(on!.prize)}`];
-    if (practice) chips.unshift('🤼 Practice');
+    if (practice) chips.unshift(`${PRACTICE.face} Practice`);
     rows = [{ say: 'Keep the bowls coming!' }];
     button = null;
   } else if (b && F.called) {
@@ -132,7 +132,7 @@ function render() {
     button = null;
   } else {
     chips = [`👥 ${b.crowd}`, `💪 ${toBeat(b)}`, `🔔 ${b.bell} s`, `🐡 ${amount(b.prize)}`];
-    if (practice) chips.unshift('🤼 Practice');
+    if (practice) chips.unshift(`${PRACTICE.face} Practice`);
     // (no forecast while the last boss's crowd is still on the floor: the gong can't be rung until it clears)
     const f = R ? null : forecast(), fix = fixOn();
     if (f && fix) {

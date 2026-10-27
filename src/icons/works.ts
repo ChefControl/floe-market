@@ -10,6 +10,8 @@ const SHINE = 'rgba(255,255,255,.4)';
 const BAMBOO = '#E3B87A', DEEP_BAMBOO = '#C3875D';
 /** Smoke and the darker steel of tools. */
 const SMOKE = '#9AA7B0', IRON = '#55636F';
+/** A newspaper's inside pages, a shade darker than the front. */
+const NEWSPRINT = '#E6DDC4';
 
 /** A drawing scaled by `k` and moved by (dx, dy), to sit it inside the box. */
 const fit = (draw: Drawing, k: number, dx = 0, dy = 0): Drawing => c => { c.translate(dx, dy); c.scale(k, k); draw(c); };
@@ -152,19 +154,23 @@ function megaphone(c: Ctx) {
   c.restore();
 }
 
-/** 🗞️ The fix made the papers: a rolled-up newspaper, its headlines out, held by a red band. */
+/** 🗞️ The fix made the papers: a folded newspaper at a slant, the inside pages peeking out behind its front page:
+ * a big black headline, a photo and columns of grey lines. */
 function paper(c: Ctx) {
-  c.save(); c.rotate(-0.55);
-  const roll = () => box(c, -42, -18, 80, 36, 6);
-  solid(c, CREAM, roll);
-  inside(c, roll, () => {
-    flat(c, NIGHT, () => c.rect(-30, -12, 36, 7));
-    line(c, SMOKE, 3, () => { for (const y of [2, 10]) { c.moveTo(-30, y); c.lineTo(20, y); } });
+  c.save(); c.translate(-1, 1); c.rotate(-0.16);
+  // the pages under it, their edges showing to the right and below
+  solid(c, NEWSPRINT, () => poly(c, -30, -36, 40, -36, 40, 42, -30, 42));
+  line(c, SMOKE, 2.5, () => { c.moveTo(-26, 37); c.lineTo(36, 37); c.moveTo(35, -31); c.lineTo(35, 36); });
+  // the front page
+  const page = () => poly(c, -38, -42, 32, -42, 32, 34, -38, 34);
+  solid(c, CREAM, page);
+  flat(c, NIGHT, () => box(c, -31, -35, 56, 11, 2));
+  line(c, INK, 2.5, () => { c.moveTo(-31, -19); c.lineTo(25, -19); });
+  solid(c, SMOKE, () => c.rect(-30, -11, 22, 18));
+  line(c, SMOKE, 3.5, () => {
+    for (const y of [-10, -2, 6]) { c.moveTo(-1, y); c.lineTo(25, y); }
+    for (const y of [16, 25]) { c.moveTo(-31, y); c.lineTo(25, y); }
   });
-  c.beginPath(); roll(); c.stroke();
-  solid(c, '#E8E1CC', () => oval(c, 38, 0, 9, 18));
-  line(c, SMOKE, 2.5, () => { c.arc(38, 0, 5, 0, TAU * 0.8); });
-  solid(c, RED, () => c.rect(10, -19, 7, 38));
   c.restore();
 }
 

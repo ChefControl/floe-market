@@ -69,23 +69,45 @@ function rod(c: Ctx) {
 
 /** 🐟 The bubbles' fish. */
 const fish = boxed(fishIcon, [10, 38, 54, 32], 88);
-/** 🍚 A sack of rice as it's carried (the bubbles' sack, bigger): cream, tied at the neck, 米 on a red band. */
+/** 🍚 A sack of rice as it's carried: one cloth sack, gathered and tied at the neck with a red cord, 米 on a red seal. */
 function rice(c: Ctx) {
-  solid(c, '#E6DBC0', () => poly(c, -14, -26, -22, -44, 0, -36, 22, -44, 14, -26));
-  const body = () => box(c, -32, -28, 64, 68, 16);
-  solid(c, '#E6DBC0', body);
-  inside(c, body, () => flat(c, DEEP_RED, () => c.rect(-40, -6, 80, 26)));
-  c.beginPath(); body(); c.stroke();
-  solid(c, DEEP_RED, () => box(c, -13, -32, 26, 8, 3));
+  solid(c, '#E6DBC0', () => {
+    // the frilled top, the neck, then the full body (one sack, one outline)
+    c.moveTo(-10, -26); c.lineTo(-22, -44); c.lineTo(-11, -38); c.lineTo(0, -45); c.lineTo(11, -38); c.lineTo(22, -44);
+    c.lineTo(10, -26);
+    c.bezierCurveTo(30, -18, 38, 2, 37, 22); c.quadraticCurveTo(37, 42, 18, 42);
+    c.lineTo(-18, 42); c.quadraticCurveTo(-37, 42, -37, 22); c.bezierCurveTo(-38, 2, -30, -18, -10, -26);
+    c.closePath();
+  });
+  bar(c, DEEP_RED, 6, () => { c.moveTo(-13, -26); c.lineTo(13, -26); });
+  flat(c, 'rgba(255,255,255,.4)', () => oval(c, -25, 4, 4.5, 12, 0.2));
+  flat(c, DEEP_RED, () => dot(c, 2, 14, 18));
   // 米, brushed in strokes (an icon carries no text: it's a glyph in the emoji font too)
-  line(c, CREAM, 3.5, () => {
-    c.moveTo(-9, 7); c.lineTo(9, 7); c.moveTo(0, -3); c.lineTo(0, 18);
-    c.moveTo(-7, -1); c.lineTo(-4, 3); c.moveTo(7, -1); c.lineTo(4, 3);
-    c.moveTo(-1, 9); c.lineTo(-8, 16); c.moveTo(1, 9); c.lineTo(8, 16);
+  line(c, CREAM, 4, () => {
+    c.moveTo(-9, 14); c.lineTo(13, 14); c.moveTo(2, 1); c.lineTo(2, 27);
+    c.moveTo(-6, 4); c.lineTo(-2, 9); c.moveTo(10, 4); c.lineTo(6, 9);
+    c.moveTo(0, 17); c.lineTo(-8, 25); c.moveTo(4, 17); c.lineTo(12, 25);
   });
 }
-/** 🥡 The takeout box. */
-const takeout = boxed(boxIcon, [18, 40, 52, 34], 86);
+/** 🥡 The takeout kiosk's box: a white folded pail, wider at the top, its flaps closed into a roof, a wire handle and a red stripe. */
+function takeout(c: Ctx) {
+  c.save(); c.translate(2, 3);
+  bar(c, STEEL, 3, () => { c.moveTo(-31, -18); c.quadraticCurveTo(-4, -70, 26, -20); });
+  // the front, wider at the top; the right side, narrower and shaded
+  const front = () => poly(c, -40, -6, 8, -6, 2, 40, -32, 40);
+  const side = () => poly(c, 8, -6, 34, -18, 26, 28, 2, 40);
+  solid(c, CREAM, front);
+  inside(c, front, () => flat(c, RED, () => c.rect(-50, 6, 70, 9)));
+  c.beginPath(); front(); c.stroke();
+  solid(c, '#DCE4EA', side);
+  inside(c, side, () => flat(c, DEEP_RED, () => poly(c, 0, 6, 40, -14, 40, -5, 0, 15)));
+  c.beginPath(); side(); c.stroke();
+  // the flaps on top: the front one folded back to the ridge, the gable end on the side
+  solid(c, '#DCE4EA', () => poly(c, 8, -6, 34, -18, 22, -32));
+  solid(c, CREAM, () => poly(c, -40, -6, 8, -6, 22, -32, -26, -32));
+  line(c, '#DCE4EA', 3, () => { c.moveTo(-16, -9); c.lineTo(-6, -29); });
+  c.restore();
+}
 
 /** 🚗 A little red car, side on. */
 function car(c: Ctx) {
@@ -390,68 +412,152 @@ function angry(c: Ctx) {
 /** 😭 The casino's restroom, for a good cry: eyes squeezed shut, mouth wide open, tears streaming down both cheeks. */
 function sob(c: Ctx) {
   solid(c, '#F7D038', () => dot(c, 0, 0, 44));
-  solid(c, '#6EC3F0', () => { box(c, -29, -8, 15, 48, 7.5); box(c, 14, -8, 15, 48, 7.5); });
-  line(c, INK, 6, () => { c.moveTo(-30, -9); c.quadraticCurveTo(-19, -21, -8, -9); c.moveTo(8, -9); c.quadraticCurveTo(19, -21, 30, -9); });
-  solid(c, '#8E2B2B', () => oval(c, 0, 17, 13, 12));
-  flat(c, '#E8607A', () => oval(c, 0, 24, 8, 4));
+  // two streams gushing from the eyes, widening as they run down the cheeks and off the chin
+  const stream = (s: number) => {
+    c.moveTo(s * -27, -8); c.quadraticCurveTo(s * -19, -16, s * -11, -8);
+    c.bezierCurveTo(s * -11, 8, s * -20, 20, s * -18, 38);
+    c.quadraticCurveTo(s * -29, 50, s * -42, 40);
+    c.bezierCurveTo(s * -38, 20, s * -26, 8, s * -27, -8); c.closePath();
+  };
+  solid(c, '#6EC3F0', () => { stream(1); stream(-1); });
+  line(c, 'rgba(255,255,255,.5)', 3, () => {
+    c.moveTo(-24, 0); c.quadraticCurveTo(-27, 14, -31, 26); c.moveTo(16, 0); c.quadraticCurveTo(17, 10, 20, 20);
+  });
+  line(c, INK, 6, () => { c.moveTo(-30, -10); c.quadraticCurveTo(-19, -22, -8, -10); c.moveTo(8, -10); c.quadraticCurveTo(19, -22, 30, -10); });
+  solid(c, '#8E2B2B', () => { c.moveTo(-11, 6); c.quadraticCurveTo(0, 2, 11, 6); c.quadraticCurveTo(16, 30, 0, 31); c.quadraticCurveTo(-16, 30, -11, 6); c.closePath(); });
+  flat(c, '#E8607A', () => oval(c, 0, 25, 8, 4));
 }
 
 // ---------- chef's specials: the dishes on the menu tags ----------
 
-/** 🍤 A tempura prawn: bumpy golden batter and a red tail. */
+/** A spine that bends as it goes: its points, each with its heading `th` and half-width `w`. */
+type Spine = { x: number; y: number; th: number; w: number }[];
+/**
+ * The spine of a tapering, bending thing (a leg curling at its tip, a prawn's back): from (x, y) heading `a`, `len`
+ * long, turning `curl` radians by its end (more of the turn near the end as `p` grows), `w0` wide at the start and `w1`
+ * at the end.
+ */
+function spine(x: number, y: number, a: number, len: number, curl: number, w0: number, w1: number, p = 2): Spine {
+  const n = 32, s: Spine = [];
+  for (let i = 0; i <= n; i++) {
+    const t = i / n, th = a + curl * t ** p;
+    s.push({ x, y, th, w: (w0 + (w1 - w0) * t) / 2 });
+    x += Math.cos(th) * len / n; y += Math.sin(th) * len / n;
+  }
+  return s;
+}
+/** A point beside spine point `q`: `f` along it and `g` across it (positive to its right as it goes). */
+const along = (q: Spine[number], f: number, g: number) =>
+  [q.x + Math.cos(q.th) * f - Math.sin(q.th) * g, q.y + Math.sin(q.th) * f + Math.cos(q.th) * g];
+/** Adds a spine's shape to the path, round at both ends, always wound the same way (so blob can join several). */
+function spinePath(c: Ctx, s: Spine) {
+  const pts: number[][] = [], cap = (q: Spine[number], from: number) => {
+    for (let k = 1; k < 8; k++) { const b = from - k * Math.PI / 8; pts.push([q.x + Math.cos(b) * q.w, q.y + Math.sin(b) * q.w]); }
+  };
+  for (const q of s) pts.push(along(q, 0, q.w));
+  cap(s[s.length - 1], s[s.length - 1].th + Math.PI / 2);
+  for (let i = s.length - 1; i >= 0; i--) pts.push(along(s[i], 0, -s[i].w));
+  cap(s[0], s[0].th - Math.PI / 2);
+  let area = 0;
+  for (let i = 0; i < pts.length; i++) { const [x0, y0] = pts[i], [x1, y1] = pts[(i + 1) % pts.length]; area += x0 * y1 - x1 * y0; }
+  if (area < 0) pts.reverse();
+  poly(c, ...pts.flat());
+}
+/** A prawn's tail fan, two lobes spread out past the end of spine `s`, `k` big. */
+function tailFan(c: Ctx, s: Spine, k = 1) {
+  const e = s[s.length - 1];
+  const p = (f: number, g: number) => along(e, f * k, g * k);
+  solid(c, RED, () => poly(c, ...p(-5, -5), ...p(15, -19), ...p(18, -8), ...p(25, 0), ...p(18, 8), ...p(15, 19), ...p(-5, 5)));
+  line(c, DEEP_RED, 3, () => { const [x0, y0] = p(2, 0), [x1, y1] = p(16, 0); c.moveTo(x0, y0); c.lineTo(x1, y1); });
+}
+
+/** 🍤 A tempura prawn: a long, gently curved body in crunchy golden batter, its red tail fanned out of one end. */
 function tempura(c: Ctx) {
-  c.save(); c.rotate(-0.6);
-  solid(c, RED, () => { c.moveTo(22, 0); c.lineTo(42, -13); c.quadraticCurveTo(36, 0, 42, 13); c.closePath(); });
-  blob(c, '#F2B33D', () => { for (const [x, y, r] of [[-32, 0, 11], [-19, -1, 13], [-5, 0, 14], [9, 0, 13], [21, 1, 10]]) dot(c, x, y, r); });
-  flat(c, '#D9922A', () => { dot(c, -22, -4, 2.5); dot(c, -6, 5, 2.5); dot(c, 8, -5, 2.5); dot(c, -30, 4, 2); dot(c, 16, 4, 2); });
-  c.restore();
-}
-
-/** 🍙 A rice ball with its strip of nori. */
-function onigiri(c: Ctx) {
-  c.beginPath(); poly(c, 0, -32, 34, 28, -34, 28);
-  c.lineWidth = 18 + OUT * 2; c.stroke();
-  c.lineWidth = 18; c.strokeStyle = CREAM; c.stroke();
-  c.fillStyle = CREAM; c.fill();
-  c.lineWidth = OUT; c.strokeStyle = INK;
-  solid(c, '#1E2A26', () => box(c, -14, 10, 28, 27, 3));
-}
-
-/** 🦐 A pink prawn curled into a C. */
-function prawn(c: Ctx) {
-  const P = '#FF8A5C';
-  solid(c, RED, () => poly(c, -21, 4, -42, -8, -38, 16));
-  bar(c, P, 20, () => c.arc(0, 0, 22, -0.3 * Math.PI, 0.95 * Math.PI));
-  line(c, '#FFD2BC', 3, () => {
-    for (const a of [0.05, 0.25, 0.45, 0.65]) {
-      const x = Math.cos(a * Math.PI), y = Math.sin(a * Math.PI);
-      c.moveTo(x * 13, y * 13); c.lineTo(x * 31, y * 31);
+  const s = spine(-30, 27, -0.15, 62, -1.25, 26, 13, 1.2);
+  tailFan(c, s, 1.1);
+  blob(c, '#F2B33D', () => {
+    spinePath(c, s);
+    for (let i = 2; i < s.length - 2; i += 4) {
+      const q = s[i], r = 4 + (i % 8 ? 1.5 : 0);
+      dot(c, ...(along(q, 0, q.w) as [number, number]), r);
+      dot(c, ...(along(q, 2, -q.w) as [number, number]), 9.5 - r);
     }
   });
-  solid(c, P, () => oval(c, 14, -20, 14, 11, 0.4));
-  flat(c, INK, () => dot(c, 19, -24, 2.8));
-  line(c, INK, 2, () => { c.moveTo(24, -26); c.quadraticCurveTo(40, -42, 46, -24); c.moveTo(26, -22); c.quadraticCurveTo(44, -30, 44, -8); });
+  flat(c, '#D9922A', () => { for (const [i, g] of [[5, -6], [11, 5], [17, -3], [23, 4], [27, -4], [8, 1]]) { const [x, y] = along(s[i], 0, g); dot(c, x, y, 2.6); } });
+  flat(c, 'rgba(255,255,255,.4)', () => { for (const [i, g] of [[6, -10], [14, -8]]) { const [x, y] = along(s[i], 0, g); oval(c, x, y, 6, 3.5, s[i].th); } });
 }
 
-/** 🐙 An octopus, its legs curled. */
+/** 🍙 A rice ball, a soft rounded triangle with puffy sides, wrapped at the bottom in its strip of nori. */
+function onigiri(c: Ctx) {
+  const ball = () => {
+    c.moveTo(-9, -36); c.quadraticCurveTo(0, -46, 9, -36);
+    c.quadraticCurveTo(30, -14, 39, 14); c.quadraticCurveTo(46, 36, 22, 38);
+    c.quadraticCurveTo(0, 41, -22, 38); c.quadraticCurveTo(-46, 36, -39, 14);
+    c.quadraticCurveTo(-30, -14, -9, -36); c.closePath();
+  };
+  solid(c, CREAM, ball);
+  inside(c, ball, () => flat(c, '#1E2A26', () => box(c, -18, 6, 36, 40, 4)));
+  c.beginPath(); ball(); c.stroke();
+  flat(c, 'rgba(255,255,255,.4)', () => oval(c, 7, 22, 2.5, 7, 0.1));
+  flat(c, '#E9E2CF', () => { dot(c, -24, 18, 2.5); dot(c, 22, 8, 2.5); dot(c, -6, -18, 2.5); });
+}
+
+/** 🦐 A pink prawn curled up, head high on the right, its tail fan tucked in under its chin. */
+function prawn(c: Ctx) {
+  const P = '#FF8A5C', LIGHT = '#FFD2BC';
+  // the back runs from the head (upper right) up over the top, down the left and round under, the tail fan tucked
+  // in pointing back up at the head; its legs on the inside of the curl (to its left as it goes)
+  const s = spine(10, -20, -2.62, 92, -4.1, 24, 10, 1.25), h = s[0];
+  tailFan(c, s, 0.8);
+  solid(c, P, () => spinePath(c, s));
+  line(c, LIGHT, 3, () => { for (const i of [6, 11, 16, 21, 26]) { const [x0, y0] = along(s[i], 0, s[i].w - 3), [x1, y1] = along(s[i], 0, -s[i].w + 3); c.moveTo(x0, y0); c.lineTo(x1, y1); } });
+  // the head: its shell, the spike on its brow, an eye, and two feelers swept back up over its back
+  const [hx, hy] = along(h, -10, 0);
+  solid(c, P, () => { const [a, b] = along(h, -18, 6), [d, e] = along(h, -29, 4), [f, g] = along(h, -18, 0); c.moveTo(a, b); c.lineTo(d, e); c.lineTo(f, g); c.closePath(); });
+  solid(c, P, () => oval(c, hx, hy, 15, 12.5, h.th));
+  { const [x, y] = along(h, -15, 4.5); flat(c, INK, () => dot(c, x, y, 3.4)); }
+  line(c, INK, 2.5, () => {
+    const [x, y] = along(h, -22, -1);
+    c.moveTo(x, y); c.bezierCurveTo(x + 14, y - 22, x - 2, y - 40, x - 30, y - 34);
+    c.moveTo(x, y); c.bezierCurveTo(x + 18, y - 12, x + 16, y - 30, x + 4, y - 40);
+  });
+}
+
+/** 🐙 An octopus: a big round head with its eyes low on it, over eight legs curling out, suckers showing. */
 function octopus(c: Ctx) {
-  for (const [x0, cx, x1] of [[-20, -36, -30], [-8, -16, -18], [8, 16, 18], [20, 36, 30]]) {
-    bar(c, PINK, 10, () => { c.moveTo(x0, 6); c.quadraticCurveTo(cx, 28, x1, 40); c.quadraticCurveTo(x1 + Math.sign(x1) * 6, 44, x1 + Math.sign(x1) * 8, 38); });
-  }
-  solid(c, PINK, () => oval(c, 0, -12, 30, 28));
-  flat(c, '#F59AAA', () => { dot(c, -12, -27, 4); dot(c, 8, -31, 3); dot(c, 17, -20, 3); });
-  eye(c, -10, -6, 6.5); eye(c, 10, -6, 6.5);
-  solid(c, '#C0475E', () => oval(c, 0, 8, 5, 4));
+  const BACK = '#C0475E', SUCK = '#F7B3C0';
+  const leg = (x: number, y: number, a: number, len: number, curl: number, w: number) => [spine(x, y, a, len, curl, w, 4, 2.5), spine(-x, y, Math.PI - a, len, -curl, w, 4, 2.5)];
+  // the legs behind, darker; then the four in front, joined to the head as one body
+  for (const s of leg(-9, -4, 1.72, 44, -2.4, 11)) solid(c, BACK, () => spinePath(c, s));
+  const front = [...leg(-17, -8, 2.1, 33, 2.5, 12), ...leg(-6, -4, 1.82, 44, 2.3, 12)];
+  blob(c, PINK, () => { c.ellipse(0, -22, 26, 24, 0, 0, TAU); for (const s of front) spinePath(c, s); });
+  flat(c, SUCK, () => { for (const s of front) for (const i of [20, 24, 27]) { const q = s[i], [x, y] = along(q, 0, Math.sign(s[32].th - s[0].th) * q.w * 0.3); dot(c, x, y, 2.6); } });
+  flat(c, '#F59AAA', () => { dot(c, -12, -34, 4.5); dot(c, 7, -39, 3.5); dot(c, 16, -28, 3.5); });
+  flat(c, 'rgba(255,255,255,.4)', () => oval(c, -13, -36, 5, 8, 0.6));
+  eye(c, -10, -6, 6.5, 1); eye(c, 10, -6, 6.5, -1);
 }
 
-/** 🦑 A squid: its pointed fin, its long body, and its legs. */
+/** 🦑 A squid: its long body narrowing up to the fin it ends in, big eyes, and its legs and two long arms. */
 function squid(c: Ctx) {
-  const S = '#F2A7B8';
-  for (const x of [-12, -4, 4, 12]) bar(c, S, 6, () => { c.moveTo(x, 8); c.quadraticCurveTo(x * 1.6 + 6, 26, x * 1.3, 44); });
-  solid(c, S, () => poly(c, 0, -48, -24, -22, 24, -22));
-  solid(c, S, () => box(c, -15, -36, 30, 50, 14));
-  flat(c, '#E07A92', () => { dot(c, -6, -24, 3); dot(c, 5, -16, 2.5); dot(c, -4, -8, 2.5); });
-  eye(c, -8, 4, 5.5); eye(c, 8, 4, 5.5);
+  const S = '#F2A7B8', DEEP = '#E07A92';
+  // the two long arms with their club tips, then the eight short legs
+  for (const sd of [-1, 1]) {
+    const s = spine(sd * 10, 16, Math.PI / 2 - sd * 0.4, 27, -sd * 0.6, 5, 5, 1.5);
+    blob(c, S, () => { spinePath(c, s); const e = s[s.length - 1]; oval(c, e.x, e.y, 7.5, 4.5, e.th); });
+  }
+  for (const [x, a, curl] of [[-9, 1.9, 0.5], [-3, 1.67, 0.35], [3, 1.47, -0.35], [9, 1.24, -0.5]]) solid(c, S, () => spinePath(c, spine(x, 14, a, 26, curl, 8, 4)));
+  // the body and its fin as one shape, and the head below
+  blob(c, S, () => {
+    c.moveTo(0, -47);
+    c.quadraticCurveTo(10, -38, 25, -27); c.quadraticCurveTo(27, -20, 20, -18); c.quadraticCurveTo(14, -17, 13, -13);
+    c.lineTo(15, 8); c.quadraticCurveTo(0, 14, -15, 8);
+    c.lineTo(-13, -13); c.quadraticCurveTo(-14, -17, -20, -18); c.quadraticCurveTo(-27, -20, -25, -27);
+    c.quadraticCurveTo(-10, -38, 0, -47); c.closePath();
+    c.moveTo(16, 13); c.ellipse(0, 13, 16, 9, 0, 0, TAU);
+  });
+  flat(c, DEEP, () => { dot(c, -5, -24, 3); dot(c, 6, -14, 3); dot(c, -5, -4, 3); dot(c, 3, -34, 2.5); });
+  flat(c, 'rgba(255,255,255,.4)', () => oval(c, -8, -14, 3.5, 9));
+  eye(c, -8, 12, 6); eye(c, 8, 12, 6);
 }
 
 /** 🦀 A red crab, claws up. */
@@ -479,35 +585,32 @@ function bento(c: Ctx) {
   solid(c, '#F7D038', () => box(c, 21, 3, 14, 22, 4));
 }
 
-/** 🐡 A puffer fish spoiling for a fight: puffed up, spines bristling (one snapped), brow down, teeth gritted. */
+/**
+ * 🐡 Fugu Chips, the cellar's money: a round gold puffer, spikes out all round, one mean eye under a heavy brow, teeth
+ * bared. Kept to big shapes, since it mostly sits on a HUD pill at 18 pixels.
+ */
 function puffer(c: Ctx) {
-  const FIN = '#E3B448', SPINE = '#F6E7B4', SCAR = '#B5364A', cx = -2, cy = 2;
-  // the tail, fanned out behind
-  solid(c, FIN, () => { c.moveTo(-28, 2); c.lineTo(-46, -17); c.quadraticCurveTo(-39, 2, -46, 21); c.closePath(); });
-  // the spines all round, broad and sharp; the one on top snapped off short
-  solid(c, SPINE, () => {
-    for (let i = 0; i < 13; i++) {
-      const a = (i / 13) * TAU - Math.PI / 2 + 0.24, b = 0.2;
-      if (Math.cos(a) < -0.88) continue;
-      const at = (t: number, r: number) => c.lineTo(cx + Math.cos(a + t) * r, cy + Math.sin(a + t) * r);
-      c.moveTo(cx + Math.cos(a - b) * 26, cy + Math.sin(a - b) * 26);
-      if (i) at(0, 43); else { at(-0.1, 37); at(0, 33); at(0.1, 36); }
-      at(b, 26);
+  const cx = 2, cy = 2, R = 30;
+  solid(c, DEEP_GOLD, () => { c.moveTo(-24, 2); c.lineTo(-45, -15); c.quadraticCurveTo(-39, 2, -45, 19); c.closePath(); });
+  solid(c, DEEP_GOLD, () => {
+    for (let i = 0; i < 11; i++) {
+      const a = (i / 11) * TAU - Math.PI / 2, b = 0.25;
+      if (Math.cos(a) < -0.8) continue;
+      c.moveTo(cx + Math.cos(a - b) * (R - 4), cy + Math.sin(a - b) * (R - 4));
+      c.lineTo(cx + Math.cos(a) * 45, cy + Math.sin(a) * 45);
+      c.lineTo(cx + Math.cos(a + b) * (R - 4), cy + Math.sin(a + b) * (R - 4));
     }
   });
-  solid(c, GOLD, () => dot(c, cx, cy, 31));
-  flat(c, '#FFF4D6', () => oval(c, cx + 2, cy + 19, 22, 10));
-  flat(c, '#B07A3A', () => { dot(c, -23, -4, 3); dot(c, -22, 9, 2.5); dot(c, -19, -15, 2.5); });
-  // a scar across the back of the head, stitched
-  line(c, SCAR, 3.5, () => { c.moveTo(-6, -27); c.lineTo(-14, -6); });
-  line(c, SCAR, 2.5, () => { c.moveTo(-13, -20); c.lineTo(-5, -17); c.moveTo(-15, -13); c.lineTo(-7, -10); });
-  // the eye, narrowed under a heavy brow that slants down to the front
-  solid(c, '#fff', () => oval(c, 13, -5, 9, 8));
-  flat(c, INK, () => dot(c, 16, -3, 4.5));
-  solid(c, INK, () => poly(c, -1, -21, 29, -10, 27, -4, 1, -13));
-  // gritted teeth at the front, the corners pulled down
-  solid(c, CREAM, () => { c.moveTo(8, 14); c.quadraticCurveTo(19, 7, 29, 10); c.lineTo(29, 20); c.quadraticCurveTo(19, 18, 9, 22); c.closePath(); });
-  line(c, INK, 2.5, () => { c.moveTo(9, 18); c.quadraticCurveTo(19, 12.5, 29, 15); c.moveTo(16, 11); c.lineTo(16, 20); c.moveTo(23, 9.5); c.lineTo(23, 19); });
+  solid(c, GOLD, () => dot(c, cx, cy, R));
+  flat(c, '#FFF4D6', () => oval(c, cx + 3, cy + 18, 20, 9));
+  flat(c, 'rgba(255,255,255,.45)', () => oval(c, -14, -13, 6, 10, 0.5));
+  // one big eye, narrowed under a brow that slants down to the front
+  solid(c, '#fff', () => oval(c, 13, -4, 10, 9));
+  flat(c, INK, () => dot(c, 16, -2, 5.5));
+  solid(c, INK, () => poly(c, -4, -22, 32, -11, 30, -3, -2, -13));
+  // teeth bared at the front
+  solid(c, CREAM, () => poly(c, 8, 13, 31, 9, 31, 21, 9, 22));
+  line(c, INK, 3, () => { c.moveTo(16, 11); c.lineTo(16, 22); c.moveTo(24, 10); c.lineTo(24, 21); });
 }
 
 /**
@@ -581,26 +684,52 @@ function oden(c: Ctx) {
   c.restore();
 }
 
-/** 🍵 A cup of green tea. */
+/** 🍵 Green tea in a yunomi: a tall cup with no handle, bright green tea at the brim, a green band and steam. */
 function tea(c: Ctx) {
   line(c, STEEL, 4, () => {
-    c.moveTo(-8, -26); c.quadraticCurveTo(-16, -34, -8, -42); c.quadraticCurveTo(0, -48, -6, -54);
-    c.moveTo(10, -26); c.quadraticCurveTo(2, -34, 10, -42);
+    c.moveTo(-8, -24); c.quadraticCurveTo(-15, -31, -8, -38); c.quadraticCurveTo(-1, -44, -7, -48);
+    c.moveTo(9, -24); c.quadraticCurveTo(2, -31, 9, -38);
   });
-  solid(c, '#4E8FB5', () => { c.moveTo(-32, -16); c.lineTo(32, -16); c.lineTo(25, 34); c.quadraticCurveTo(0, 42, -25, 34); c.closePath(); });
-  flat(c, '#7DB5D6', () => c.rect(-30, 2, 60, 8));
-  solid(c, '#7DBB4A', () => oval(c, 0, -16, 32, 8));
+  const cup = () => {
+    c.moveTo(-26, -16); c.lineTo(26, -16); c.quadraticCurveTo(29, 14, 24, 34); c.quadraticCurveTo(22, 42, 14, 42);
+    c.lineTo(-14, 42); c.quadraticCurveTo(-22, 42, -24, 34); c.quadraticCurveTo(-29, 14, -26, -16); c.closePath();
+  };
+  solid(c, CREAM, cup);
+  // a green glaze poured over the top half, running down in drips
+  inside(c, cup, () => flat(c, DEEP_GREEN, () => {
+    c.moveTo(-40, -20); c.lineTo(40, -20); c.lineTo(40, 10);
+    c.quadraticCurveTo(26, 6, 20, 12); c.quadraticCurveTo(14, 24, 8, 12); c.quadraticCurveTo(-4, 4, -10, 14);
+    c.quadraticCurveTo(-16, 22, -22, 10); c.quadraticCurveTo(-30, 6, -40, 10); c.closePath();
+  }));
+  c.beginPath(); cup(); c.stroke();
+  flat(c, 'rgba(255,255,255,.4)', () => box(c, -19, -6, 6, 14, 3));
+  solid(c, CREAM, () => oval(c, 0, -16, 26, 8));
+  flat(c, '#9BD15A', () => oval(c, 0, -15, 20, 5));
 }
 
-/** 🍶 Sake: a white flask with a blue band, and its little cup. */
+/** 🍶 Sake: a tokkuri flask (narrow neck, round body) with a blue band, and its little ochoko cup beside it. */
 function sake(c: Ctx) {
-  const flask = () => { oval(c, -10, 14, 24, 27); box(c, -19, -44, 18, 40, 6); };
-  blob(c, CREAM, flask);
-  inside(c, flask, () => flat(c, BLUE, () => c.rect(-40, -2, 60, 9)));
-  flat(c, '#E3EAF0', () => oval(c, -10, -42, 7, 2.5));
-  solid(c, CREAM, () => poly(c, 14, 20, 40, 20, 36, 40, 18, 40));
-  flat(c, BLUE, () => c.rect(16, 30, 22, 4));
-  solid(c, '#E3EAF0', () => oval(c, 27, 20, 13, 3.5));
+  const x = -12;
+  const flask = () => {
+    c.moveTo(x - 9, -44); c.lineTo(x + 9, -44);
+    c.quadraticCurveTo(x + 5, -38, x + 5, -28);
+    c.bezierCurveTo(x + 5, -14, x + 28, -8, x + 28, 14);
+    c.bezierCurveTo(x + 28, 32, x + 18, 40, x + 14, 42);
+    c.lineTo(x - 14, 42);
+    c.bezierCurveTo(x - 18, 40, x - 28, 32, x - 28, 14);
+    c.bezierCurveTo(x - 28, -8, x - 5, -14, x - 5, -28);
+    c.quadraticCurveTo(x - 5, -38, x - 9, -44); c.closePath();
+  };
+  solid(c, CREAM, flask);
+  inside(c, flask, () => flat(c, BLUE, () => c.rect(x - 40, 6, 80, 11)));
+  c.beginPath(); flask(); c.stroke();
+  flat(c, INK, () => oval(c, x, -42, 5, 1.8));
+  flat(c, '#E3EAF0', () => oval(c, x - 16, 26, 4, 8, 0.3));
+  const cup = () => { c.moveTo(18, 22); c.lineTo(44, 22); c.quadraticCurveTo(43, 38, 36, 42); c.lineTo(26, 42); c.quadraticCurveTo(19, 38, 18, 22); c.closePath(); };
+  solid(c, CREAM, cup);
+  inside(c, cup, () => flat(c, BLUE, () => c.rect(10, 31, 40, 5)));
+  c.beginPath(); cup(); c.stroke();
+  solid(c, '#E3EAF0', () => oval(c, 31, 22, 13, 3.5));
 }
 
 /** 🍲 Chanko: an iron pot of orange stew, with a bit of fish, a slice of carrot and greens, and steam over it. */

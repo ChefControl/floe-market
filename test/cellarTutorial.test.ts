@@ -4,6 +4,7 @@
 // won, the cooking game, the gong, what wins it; then its prize at the shop counter), never what stage 1 taught; each
 // idea explained as it happens. A save from before it counts what it has done down there.
 import { describe, expect, it } from 'vitest';
+import { PRACTICE } from '../src/fight';
 import { FACE } from '../src/icons/bosses';
 import { bought, FLOE_SUSHI, loadGame, MARKET, type SaveFixture } from './helpers';
 
@@ -277,7 +278,7 @@ describe("the cellar's tutorial", () => {
     // the gong calls him in, not Hakkaku, and the bubble keeps out of its panel's way
     expect($('gong').hidden).toBe(false);
     expect($('gongBoss').textContent).toBe('Sparring partner');
-    expect([...$('gongCrowd').children].map(c => c.textContent)).toEqual(['🤼 Practice', '👥 40', '💪 21', '🔔 30 s', '🐡 35']);
+    expect([...$('gongCrowd').children].map(c => c.textContent)).toEqual([`${PRACTICE.face} Practice`, '👥 40', '💪 21', '🔔 30 s', '🐡 35']);
     expect($('coach').hidden).toBe(true);
     expect(fight.ringGong()).toBe(true);
     expect(F().rush!.n).toBe(40);

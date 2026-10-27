@@ -9,6 +9,8 @@ import {
 const FACE = '#F7D038', TEAR = '#6EC3F0', BLUSH = 'rgba(229,72,77,.35)', HAIR = '#3B2A20';
 /** A zombie's sickly green, light and deep. */
 const ZOMBIE = '#9BCB6A', DEEP_ZOMBIE = '#6E9E48';
+/** Eddie's purple suit (🤝), as on his 3D model (family.ts). */
+const SUIT = '#5E3A7E';
 /** A shine on the upper left. */
 const SHINE = 'rgba(255,255,255,.4)';
 
@@ -43,10 +45,18 @@ function flex(c: Ctx) {
   blob(c, SKIN, () => {
     box(c, -36, 14, 74, 28, 14);
     oval(c, -8, 10, 21, 18);
-    box(c, 18, -24, 24, 60, 12);
+    box(c, 18, -22, 24, 58, 12);
   });
-  solid(c, SKIN, () => box(c, 10, -45, 34, 29, 14));
-  line(c, INK, 3, () => { c.moveTo(10, -36); c.lineTo(20, -36); c.moveTo(10, -27); c.lineTo(20, -27); });
+  // the fist: a round knob, its curled fingers' knuckles bumping out towards the head, the thumb across their front
+  blob(c, SKIN, () => {
+    box(c, 16, -46, 30, 34, 14);
+    dot(c, 15, -38, 8); dot(c, 13, -26, 8); dot(c, 16, -15, 7);
+  });
+  line(c, INK, 3, () => {
+    c.moveTo(8, -32); c.quadraticCurveTo(14, -33, 20, -31);
+    c.moveTo(7, -20); c.quadraticCurveTo(13, -20, 19, -18);
+  });
+  solid(c, SKIN, () => oval(c, 28, -36, 14, 7, 0.45));
   flat(c, SHINE, () => oval(c, -14, 2, 9, 5, -0.3));
   solid(c, CREAM, () => box(c, -46, 8, 16, 38, 6));
 }
@@ -142,18 +152,34 @@ function police(c: Ctx) {
   solid(c, LIGHT_BLUE, () => box(c, 0, -36, 16, 10, 4));
 }
 
-/** 🤝 Shaking on it: two hands clasped from the side, the chef's from a white cuff and Eddie's from his dark suit. */
+/** 🤝 Shaking on it: two hands clasped, seen from the side, the arms coming up from either corner: Eddie's from his
+ * dark suit and white shirt cuff on the left, the chef's from his white sleeve on the right, the chef's fingers wrapped
+ * over the back of Eddie's hand and Eddie's thumb on top. */
 function shake(c: Ctx) {
-  const SUIT = '#2E2B33';
-  c.translate(0, 5); c.rotate(-0.12);
-  // Eddie's, in from the upper right, behind; the chef's, in from the lower left, its fingers curled up over his
-  solid(c, SKIN, () => box(c, -22, -32, 52, 28, 14));
-  solid(c, SUIT, () => box(c, 26, -38, 20, 38, 6));
-  solid(c, SKIN, () => box(c, -30, -8, 52, 28, 14));
-  solid(c, CREAM, () => box(c, -46, -10, 20, 38, 6));
-  bar(c, SKIN, 8, () => { c.moveTo(-2, -12); c.lineTo(-20, -10); });
-  solid(c, SKIN, () => box(c, 4, -26, 20, 40, 10));
-  line(c, INK, 3, () => { c.moveTo(4, -14); c.lineTo(13, -14); c.moveTo(4, -3); c.lineTo(13, -3); });
+  const TILT = 0.62;
+  const thumb = () => { c.moveTo(4, -11); c.quadraticCurveTo(14, -21, 28, -19); c.quadraticCurveTo(33, -16, 28, -12); c.quadraticCurveTo(18, -12, 12, -7); c.closePath(); };
+  const eddie = () => { c.translate(-12, 14); c.rotate(-TILT); };
+  c.translate(0, -3); c.scale(1.1, 1.1);
+  // Eddie's arm, up from the lower left: his hand with its back to us, then his sleeve and shirt cuff
+  c.save(); eddie();
+  blob(c, SKIN, () => box(c, -10, -13, 40, 26, 12));
+  solid(c, SUIT, () => box(c, -30, -14, 18, 28, 4));
+  solid(c, CREAM, () => box(c, -15, -12, 7, 24, 2.5));
+  c.restore();
+  // the chef's arm, up from the lower right: his palm, his four fingers stacked over Eddie's knuckles, then his sleeve
+  c.save(); c.translate(12, 14); c.rotate(TILT); c.scale(-1, 1);
+  blob(c, SKIN, () => {
+    box(c, -10, -13, 24, 26, 11);
+    box(c, 2, -14, 30, 8, 4); box(c, 2, -7, 33, 8, 4); box(c, 2, 0, 31, 8, 4); box(c, 2, 7, 26, 7, 3.5);
+  });
+  line(c, INK, 3, () => { for (const y of [-6.5, 0.5, 7.2]) { c.moveTo(10, y); c.lineTo(30, y); } });
+  solid(c, CREAM, () => box(c, -30, -14, 18, 28, 4));
+  line(c, STEEL, 3, () => { c.moveTo(-18, -12); c.lineTo(-18, 12); });
+  c.restore();
+  // Eddie's thumb, on top of it all
+  c.save(); eddie();
+  solid(c, SKIN, thumb);
+  c.restore();
 }
 
 /** 🧟 The arcade's horde: a cute green zombie, arms out, one eye bigger than the other. */
