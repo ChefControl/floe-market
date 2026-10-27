@@ -61,6 +61,7 @@ describe('the matkot beach', () => {
     g.placePlayer(beach.PAD.x, beach.PAD.z);
     g.run(0.1);
     expect($('matkot').hidden).toBe(false);
+    expect($('matkot').textContent).toContain('🏓 Paddle');
   });
 
   it('has the regular and his game in spring and summer only; the sand stays, under snow in winter', async () => {
@@ -105,6 +106,7 @@ describe('the matkot beach', () => {
     g.run(0.1);
     // on the pad, the card asks; E plays
     expect($('matkot').hidden).toBe(false);
+    expect($('matkot').textContent).toContain('🏓 Matkot');
     expect($('matkot').textContent).toContain('Play');
     E();
     expect(rally.state).toBe('serve');

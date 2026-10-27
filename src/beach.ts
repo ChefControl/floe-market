@@ -230,7 +230,8 @@ export let sands: Built | null = null;
 function card() {
   const el = document.createElement('div');
   el.id = 'matkot'; el.hidden = true;
-  const title = document.createElement('p'); title.className = 'k-title'; title.textContent = '🏓 Matkot';
+  // matkot on election day, with the voting boat; plain paddle ball any other
+  const title = document.createElement('p'); title.className = 'k-title'; title.textContent = boat ? '🏓 Matkot' : '🏓 Paddle';
   const msg = document.createElement('p'); msg.className = 'k-msg';
   const row = document.createElement('div'); row.className = 'k-row';
   const button = (label: string) => {
