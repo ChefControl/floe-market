@@ -1,20 +1,19 @@
 // The matkot beach, from stage 2 (layout.ts BEACH: in stage 1 the road runs a step from the water): a strip of sand
 // between the sea and the road, along the water north of the dock and east of its fence, through the old drive-up
 // window's gap in it, with a lifeguard's tower at the north end; snow lies on it in winter. In spring and summer
-// there are umbrellas by the water with towels under them and two beachgoers sitting it out, and a cool box; on
-// Israel's election day (flags.ts votingBoatOn) the umbrellas are blue and white and flags fly on poles and on the
-// tower, and on any other day the umbrellas and the tower's roof are canvas and straw and there are no flags. By the water a beach regular,
-// tanned, in a sun hat, bounces a ball on his paddle: step on the pad in front of him and Play, and the two of you
-// knock it back and forth, matkot as on every Israeli beach, the camera in from the side. Press Hit (E) as the ball
-// reaches you: each one counts and the ball comes back faster, and a miss (too soon or too late) ends the rally. In
-// autumn and winter he's gone, and the umbrellas and everyone with him (a rally under way plays out first). The best
-// rally is saved (layout.ts beach.best); nothing else of it is.
+// there are umbrellas by the water with towels under them and two beachgoers sitting it out, and a cool box. On
+// Israel's election day (with the voting boat, votingBoat.ts) the umbrellas and the tower's roof are blue and white
+// and flags fly on poles and on the tower; on any other day they're canvas and straw and there are no flags. By the
+// water a beach regular, tanned, in a sun hat, bounces a ball on his paddle: step on the pad in front of him and Play,
+// and the two of you knock it back and forth, matkot as on every Israeli beach, the camera in from the side. Press
+// Hit (E) as the ball reaches you: each one counts and the ball comes back faster, and a miss (too soon or too late)
+// ends the rally. In autumn and winter he's gone, and the umbrellas and everyone with him (a rally under way plays out
+// first). The best rally is saved (layout.ts beach.best); nothing else of it is.
 import {
   ConeGeometry, CylinderGeometry, Group, type Mesh, MeshBasicMaterial, MeshLambertMaterial, PlaneGeometry, Vector3,
 } from 'three';
 import { crowdModel, type Person } from './characters';
 import { decal, drawPad } from './decals';
-import { votingBoatOn } from './flags';
 import { apart, Build, detail, dice, jitter, K, seasonLayer } from './kit';
 import { BEACH, beach, level, pushOutOfBox, stage } from './layout';
 import { C } from './palette';
@@ -26,7 +25,7 @@ import { thud, tock } from './sfx';
 import { bubble } from './speech';
 import { panel as kitPanel, state } from './uiKit';
 import { d2xz, V, type XZ } from './util';
-import { type Add, BLUE, blocks, flag, twin } from './votingBoat';
+import { type Add, BLUE, blocks, boat, flag, twin } from './votingBoat';
 import { crowdStyle } from './wardrobe';
 import { gapLogs, treeSpots } from './world';
 
@@ -128,7 +127,7 @@ function sand(w: number, d: number) {
 }
 
 function build(): Built {
-  const g = new Group(), fair = new Group(), flags = votingBoatOn();
+  const g = new Group(), fair = new Group(), flags = boat !== null;
   g.visible = false;
   g.add(fair);
   scene.add(g);
@@ -222,8 +221,9 @@ function build(): Built {
   return { g, fair, flags, snow, him, his, yours, ball, shadow, shadowMat, pad, says };
 }
 
-/** The beach, built off the game's luck, on dice of its own for the scenery's too, so neither moves on for it. */
-export const sands: Built | null = apart(build, dice(0xBEAC4));
+/** The beach, built the first time it's up (from stage 2, up top: a game that never gets there never pays for it),
+ *  off the game's luck, on dice of its own for the scenery's too, so neither moves on for it. */
+export let sands: Built | null = null;
 
 // ---------- the card ----------
 /** The card at the pad: what's up (the best, the rally so far), and Play, or Hit while the ball's in play. */
@@ -244,9 +244,15 @@ function card() {
   document.body.append(el);
   return { el, msg, play, hit, kit: kitPanel(el, { place: 'card', close: () => { stop(); court!.kit.shut = true; } }) };
 }
-const court = sands ? card() : null;
-court?.play.addEventListener('click', () => start());
-court?.hit.addEventListener('click', () => swing());
+let court: ReturnType<typeof card> | null = null;
+/** Builds the beach and its card, once. */
+function lay() {
+  if (sands) return;
+  sands = apart(build, dice(0xBEAC4));
+  court = card();
+  court.play.addEventListener('click', () => start());
+  court.hit.addEventListener('click', () => swing());
+}
 
 // ---------- playing ----------
 /** The ball's flight: from where it was hit, to the other paddle; and after a miss, which way it was going. */
@@ -308,12 +314,14 @@ function stop() {
 export const beachCam = { k: 0, pos: V(0, 0, 0), look: V(0, 0, 0) };
 
 export function updBeach(dt: number) {
-  if (!sands || !court) return;
-  const b = sands, up = stage.n >= 2 && !level.down;
-  b.g.visible = up;
+  const up = stage.n >= 2 && !level.down;
   beach.open = stage.n >= 2;
   // the old drive-up window's gap in the dock's fence, open onto the sand
   if (stage.n >= 2) for (const l of gapLogs) if (l.visible) l.visible = false;
+  if (up) lay();
+  if (!sands || !court) return;
+  const b = sands;
+  b.g.visible = up;
   // the regular's out in spring and summer: a rally under way, and his word on it, play out before he goes
   const fair = up && (beachSeason() || rally.state !== 'idle' || b.says.text !== '');
   b.fair.visible = fair; b.ball.visible = fair; b.shadow.visible = fair;

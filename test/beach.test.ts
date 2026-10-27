@@ -47,7 +47,8 @@ describe('the matkot beach', () => {
 
   it('is not there in stage 1 (the road runs by the water)', async () => {
     const one = await loadOn(ELECTION, { tiles: bought(...MARKET), season: SUMMER });
-    expect(one.beach.sands!.g.visible).toBe(false);
+    expect(one.beach.sands).toBeNull(); // not even built
+    expect(document.getElementById('matkot')).toBeNull();
     expect(one.layout.onBeach({ x: 10, z: -10 })).toBe(false);
   });
 
