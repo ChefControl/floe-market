@@ -12,8 +12,8 @@ import { G, mat } from './render';
 
 /** The chefs' own colours (characters.ts): their whites, cloth buttons, neckerchief and hair. */
 const SKIN = 0xE0A97F, WHITES = 0xF4F6F8, BUTTON = 0xB8C0C8, SCARF = 0xE5484D, HAIR = 0x1E1B1A;
-/** The flowers: their stems and leaves, and five heads. */
-const STEM = 0x4E7A3A, PETALS = [C.red, C.gold, 0xB07CC6, C.gold, C.red];
+/** The flowers' stems and leaves, and the tulips' lilac. */
+const STEM = 0x4E7A3A, LILAC = 0xB07CC6;
 
 /** A little heavier than the parka: the jacket is this much wider, and the arms sit this much further out. */
 const BUILD = 1.1;
@@ -58,10 +58,50 @@ function along(b: Build, geo: BufferGeometry, c: number, at: Vector3, dir: Vecto
   b.pieces.push({ geo, c, m: new Matrix4().compose(at, turn.setFromUnitVectors(up, dir), new Vector3(...scale)) });
 }
 
+type Flower = 'rose' | 'daisy' | 'tulip';
+/** Round the edge of the bunch, then the one in the middle. */
+const BUNCH: Flower[] = ['rose', 'daisy', 'tulip', 'daisy', 'rose'];
+
+/**
+ * One flower's head, facing along its own +y, its base where the stem ends: a green cup under it, then on High its
+ * petals, each a flattened ball tipped out from the middle (a rose's two rings cupped round a tight bud, a daisy's ring
+ * laid open round its brown middle, a tulip's six standing up into a cup). Low draws each as one rounded shape.
+ */
+function bloom(kind: Flower, hi: boolean) {
+  const f = new Build();
+  f.add(K.ball, STEM, 0, 0.004, 0, null, [0.018, 0.014, 0.018]);
+  /** `n` petals `w` wide and `l` long, `r` out from the middle at height `y`, tipped `tilt` up from lying flat. */
+  const ring = (n: number, c: number, r: number, y: number, tilt: number, w: number, l: number, start = 0) => {
+    for (let i = 0; i < n; i++) {
+      const a = start + i * Math.PI * 2 / n;
+      addTurned(f, K.ball, c, [Math.sin(a) * r, y, Math.cos(a) * r], [-tilt, a, 0], 'YXZ', [w, 0.006, l]);
+    }
+  };
+  if (kind === 'rose') {
+    if (!hi) { f.add(K.ball, C.red, 0, 0.03, 0, null, [0.04, 0.032, 0.04]); return f; }
+    f.add(K.ball, shade(C.red, 0.78), 0, 0.034, 0, null, [0.02, 0.024, 0.02]);
+    ring(5, shade(C.red, 0.9), 0.018, 0.03, 1.15, 0.022, 0.028);
+    ring(5, C.red, 0.032, 0.022, 0.65, 0.026, 0.034, Math.PI / 5);
+  } else if (kind === 'daisy') {
+    if (!hi) {
+      f.add(K.ball, C.gold, 0, 0.012, 0, null, [0.05, 0.01, 0.05]);
+      f.add(K.dot, C.timber, 0, 0.02, 0, null, [0.018, 0.01, 0.018]);
+      return f;
+    }
+    ring(10, C.gold, 0.034, 0.012, 0.2, 0.011, 0.026);
+    f.add(K.dome, C.timber, 0, 0.012, 0, null, [0.02, 0.014, 0.02]);
+  } else {
+    if (!hi) { f.add(K.ball, LILAC, 0, 0.035, 0, null, [0.028, 0.04, 0.028]); return f; }
+    ring(3, shade(LILAC, 0.9), 0.012, 0.035, 1.35, 0.022, 0.04);
+    ring(3, LILAC, 0.018, 0.033, 1.25, 0.024, 0.042, Math.PI / 3);
+  }
+  return f;
+}
+
 /**
  * The bunch of flowers in the hand at the end of an arm, hanging down and a little forward: a paper cone gripped by
- * its tip, greenery in its mouth, and five stems fanning out of it, each with its head on the end. High adds a red ribbon round the
- * cone and leaves round its mouth.
+ * its tip, greenery in its mouth, and five stems fanning out of it, each with its flower on the end. High adds a red
+ * ribbon round the cone and leaves round its mouth.
  */
 function flowers(b: Build, hi: boolean) {
   const bunch = new Build();
@@ -70,20 +110,19 @@ function flowers(b: Build, hi: boolean) {
   const mouth = WRAP.tip + WRAP.h;
   // greenery filling its mouth, that the stems come up through
   bunch.add(K.dome, STEM, 0, mouth - 0.005, 0, null, [WRAP.r * 0.92, 0.03, WRAP.r * 0.92]);
-  PETALS.forEach((c, i) => {
+  BUNCH.forEach((kind, i) => {
     // four round the edge and one in the middle, each stem from inside the cone out past its mouth
     const a = i * Math.PI / 2 + Math.PI / 4, k = i < 4 ? 0.32 : 0;
     const dir = new Vector3(Math.sin(a) * k, 1, Math.cos(a) * k).normalize();
     const from = new Vector3(dir.x * 0.02, mouth - 0.08, dir.z * 0.02), to = from.clone().addScaledVector(dir, STEM_LEN);
     along(bunch, K.post, STEM, from.clone().lerp(to, 0.5), dir, [0.009, STEM_LEN, 0.009]);
-    along(bunch, K.ball, c, to.clone().addScaledVector(dir, 0.02), dir, [0.05, 0.034, 0.05]);
-    along(bunch, K.dot, C.gold, to.clone().addScaledVector(dir, 0.05), dir, [0.018, 0.01, 0.018]);
+    bunch.addAll(bloom(kind, hi), new Matrix4().compose(to, turn.setFromUnitVectors(up, dir), new Vector3(1, 1, 1)));
     if (hi && i < 4) {
       const out = new Vector3(Math.sin(a + Math.PI / 4), 1.2, Math.cos(a + Math.PI / 4)).normalize();
       along(bunch, K.ball, STEM, new Vector3(out.x * 0.07, mouth + 0.01, out.z * 0.07), out, [0.018, 0.05, 0.008]);
     }
   });
-  if (hi) bunch.add(K.post, C.red, 0, 0.09, 0, null, [0.044, 0.022, 0.044]);
+  if (hi) bunch.add(K.post, C.red, 0, 0.06, 0, null, [0.042, 0.022, 0.042]);
   // in the fist (the hand's ball, below), hanging down and forward
   const hang = new Vector3(0, -0.72, 0.7).normalize();
   b.addAll(bunch, new Matrix4().compose(new Vector3(0, -0.32, 0.01), turn.setFromUnitVectors(up, hang), new Vector3(1, 1, 1)));
