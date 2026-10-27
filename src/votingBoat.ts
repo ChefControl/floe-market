@@ -1,6 +1,7 @@
 // The voting boat, for Israel's election day (flags.ts ELECTION_DAYS, or ?vote=on): a white houseboat that sails in
-// from the sea once the game opens, sounding its horn, and moors alongside the pier's arm (layout.ts VOTE_BOAT),
-// dressed in blue-and-white bunting with a flag at its bow; once the day's over, it sails away again. A gangway
+// from the sea once the game opens, sounding its horn, and moors alongside the pier's arm (layout.ts VOTE_BOAT): built
+// like a house in Tel Aviv's White City, a white cabin with a rounded corner and a band of windows under a ledge, a flat
+// roof, one blue stripe on its hull and a flag at its bow; once the day's over, it sails away again. A gangway
 // crosses to its side deck, between two queue ropes, to the door of its one cabin: the polling room, a kalpi like a
 // real Israeli polling station's. The committee's three at their table with the register open and the station's number
 // on a tent card, the blue ballot box sealed on it, the cardboard voting screen in the corner with the slips and the
@@ -12,7 +13,7 @@
 // on it the first time you step off. Once each time aboard. Nothing of it is saved, and on any other day nothing of it
 // is built, so the game is just as it was.
 import {
-  BoxGeometry, CylinderGeometry, ExtrudeGeometry, Group, type Material, Mesh, MeshLambertMaterial, PlaneGeometry, Shape,
+  BoxGeometry, CylinderGeometry, ExtrudeGeometry, Group, type Material, Mesh, MeshLambertMaterial, PlaneGeometry, Shape, ShapeGeometry,
   SphereGeometry,
   type Vector3,
 } from 'three';
@@ -41,6 +42,11 @@ export const BLUE = 0x0038B8;
 const SCHOOL = 0xB7D6C6;
 /** The cabin's walls' thickness, and the door in its dock-side wall. */
 const T = 0.08, DOOR = { x0: X(4.15), x1: X(3.35), h: 1.85 };
+/** How round the cabin's corners are (outside), Tel Aviv's White City style: the one the camera sees, between the dock
+ *  side and the stern, sweeps round wide; the others just soften, clear of the room's screen and bench inside. */
+const CORNERS = { se: 0.6, ne: 0.25, nw: 0.25, sw: 0.25 };
+/** Its band of windows, along the dock side and round the stern, under a ledge running all round at the door's top. */
+const SILL = 1.05, HEAD = 1.75, LEDGE = DOOR.h + 0.025;
 /** Where the hull's sides start drawing in to the bow, and the middle of its width. */
 const BOW = HULL.x0 + 1.15, MID = (HULL.z0 + HULL.z1) / 2;
 /** Out on the foredeck, two old-timers who happen to be aboard (nobody names them): one stands on his head now and then,
@@ -128,6 +134,37 @@ function slab(grow: number, y0: number, y1: number) {
   return new ExtrudeGeometry(outline(grow), { depth: y1 - y0, bevelEnabled: false, curveSegments: 8 }).rotateX(-Math.PI / 2).translate(0, y0, 0);
 }
 
+/** The cabin's outline, `grow` out from its walls' outer faces, its corners rounded (CORNERS, grown with it), in the
+ *  shape's own plane (x along, -z across) as the hull's outline is. */
+function cabinOutline(grow: number) {
+  const s = new Shape(), { x0, x1, z0, z1 } = CAB, X0 = x0 - grow, X1 = x1 + grow, Y0 = -(z1 + grow), Y1 = -(z0 - grow);
+  const r = (k: keyof typeof CORNERS) => CORNERS[k] + grow;
+  s.moveTo(X0 + r('sw'), Y0);
+  s.lineTo(X1 - r('se'), Y0); s.absarc(X1 - r('se'), Y0 + r('se'), r('se'), -Math.PI / 2, 0, false);
+  s.lineTo(X1, Y1 - r('ne')); s.absarc(X1 - r('ne'), Y1 - r('ne'), r('ne'), 0, Math.PI / 2, false);
+  s.lineTo(X0 + r('nw'), Y1); s.absarc(X0 + r('nw'), Y1 - r('nw'), r('nw'), Math.PI / 2, Math.PI, false);
+  s.lineTo(X0, Y0 + r('sw')); s.absarc(X0 + r('sw'), Y0 + r('sw'), r('sw'), Math.PI, Math.PI * 1.5, false);
+  return s;
+}
+/** A rounded corner of the cabin's walls, `T` thick and the cabin's height: a quarter ring about (cx, cz), radius `r`
+ *  outside, from `a0` round a quarter turn (in the shape's plane). */
+function corner(cx: number, cz: number, r: number, a0: number) {
+  const s = new Shape();
+  s.absarc(cx, -cz, r, a0, a0 + Math.PI / 2, false);
+  s.absarc(cx, -cz, r - T, a0 + Math.PI / 2, a0, true);
+  return new ExtrudeGeometry(s, { depth: CAB.h, bevelEnabled: false, curveSegments: 12 }).rotateX(-Math.PI / 2);
+}
+/** Curved white pieces of the cabin (its rounded corners, the ledge, the roof): plain shapes, the same on both, as
+ *  the hull is. */
+const curved = (geos: ExtrudeGeometry[], material: Material = painted) =>
+  mesh(bakePainted(geos.map(geo => ({ geo, c: C.snow, at: [0, 0, 0] })) as (Part & { c: number })[]), material, 0, 0, 0, true);
+/** A flat slab of the cabin's outline grown `out` (less `inset` in from that, if a ring), `h` thick from `y`. */
+function ring(out: number, inset: number | null, y: number, h: number) {
+  const s = cabinOutline(out);
+  if (inset !== null) s.holes.push(cabinOutline(out - inset));
+  return new ExtrudeGeometry(s, { depth: h, bevelEnabled: false, curveSegments: 12 }).rotateX(-Math.PI / 2).translate(0, y, 0);
+}
+
 /** A small Israeli flag, `w` wide, its middle at (x, y, z), facing along +z: white, its two blue stripes, and the Star
  *  of David between them, two triangles of thin bars. */
 export function flag(s: Add, w: number, x: number, y: number, z: number) {
@@ -179,10 +216,10 @@ function build() {
   BOX = new BoxGeometry(1, 1, 1);
   PEN = new CylinderGeometry(PENNANT, PENNANT, 0.006, 3).rotateX(Math.PI / 2);
   const { x0, x1, z0, z1, h: CH } = CAB, LIFT = VOTE_BOAT.y - PIER.y;
-  // ---- the hull: white sides, a blue band at the waterline and a wooden deck; the same on both ----
+  // ---- the hull: white sides, its one blue stripe along them under the deck, and a wooden deck; the same on both ----
   g.add(mesh(bakePainted([
     { geo: slab(0, -0.45, -0.05), c: C.snow, at: [0, 0, 0] },
-    { geo: slab(0.015, -0.3, -0.22), c: BLUE, at: [0, 0, 0] },
+    { geo: slab(0.015, -0.26, -0.11), c: BLUE, at: [0, 0, 0] },
     { geo: slab(-0.02, -0.05, 0), c: C.deck, at: [0, 0, 0] },
   ] as (Part & { c: number })[]), painted, 0, 0, 0, true));
   // ---- what stands still: the bulwark (open at the gangway) and its rail, the gangway, the queue ropes, the cabin's
@@ -200,24 +237,24 @@ function build() {
     for (let i = 1; i < pts.length; i++) {
       const a = pts[i - 1], b = pts[i], len = a.distanceTo(b);
       if (len < 0.01 || Math.max(a.x, b.x) > x0 + 0.05) continue;
-      along(s, [a.x, -a.y], [b.x, -b.y], RAIL_TOP - 0.04, 0.04, 0.05, C.deck2);
+      along(s, [a.x, -a.y], [b.x, -b.y], RAIL_TOP - 0.04, 0.04, 0.05, C.snow);
       for (let k = 0, n = Math.max(1, Math.round(len / 0.6)); k < n; k++) {
         const t = k / n;
-        s(0.035, RAIL_TOP - 0.32, 0.035, C.steel, a.x + (b.x - a.x) * t, (RAIL_TOP + 0.24) / 2, -(a.y + (b.y - a.y) * t));
+        s(0.035, RAIL_TOP - 0.32, 0.035, C.snow, a.x + (b.x - a.x) * t, (RAIL_TOP + 0.24) / 2, -(a.y + (b.y - a.y) * t));
       }
     }
-    // portholes along the hull's side, under the deck
-    for (let x = HULL.x0 + 1.6; x < HULL.x1 - 0.4; x += 0.9) s(0.14, 0.14, 0.02, 0x1E3A5F, x, -0.17, HULL.z1 + 0.012);
-    // the back wall and the stern's wall, white outside and pale inside, a blue band round the room at the windows' sills
-    s(x1 - x0, CH, T, C.snow, (x0 + x1) / 2, CH / 2, z0 + T / 2);
-    s(T, CH, z1 - z0, C.snow, x0 + T / 2, CH / 2, (z0 + z1) / 2);
-    s(x1 - x0 - 2 * T, CH - 0.05, 0.01, C.paper, (x0 + x1) / 2, CH / 2, z0 + T + 0.005);
-    s(0.01, CH - 0.05, z1 - z0 - 2 * T, C.paper, x0 + T + 0.005, CH / 2, (z0 + z1) / 2);
-    s(x1 - x0 - 2 * T, 0.1, 0.02, BLUE, (x0 + x1) / 2, 0.85, z0 + T + 0.01);
-    s(0.02, 0.1, z1 - z0 - 2 * T, BLUE, x0 + T + 0.01, 0.85, (z0 + z1) / 2);
+    // the back wall and the bow end's wall, plain white outside (between the rounded corners) and pale inside, a blue
+    // band round the room at the windows' sills
+    const bx0 = x0 + CORNERS.nw, bx1 = x1 - CORNERS.ne, ez0 = z0 + CORNERS.nw, ez1 = z1 - CORNERS.sw;
+    s(bx1 - bx0, CH, T, C.snow, (bx0 + bx1) / 2, CH / 2, z0 + T / 2);
+    s(T, CH, ez1 - ez0, C.snow, x0 + T / 2, CH / 2, (ez0 + ez1) / 2);
+    s(bx1 - bx0, CH - 0.05, 0.01, C.paper, (bx0 + bx1) / 2, CH / 2, z0 + T + 0.005);
+    s(0.01, CH - 0.05, ez1 - ez0, C.paper, x0 + T + 0.005, CH / 2, (ez0 + ez1) / 2);
+    s(bx1 - bx0, 0.1, 0.02, BLUE, (bx0 + bx1) / 2, 0.85, z0 + T + 0.01);
+    s(0.02, 0.1, ez1 - ez0, BLUE, x0 + T + 0.01, 0.85, (ez0 + ez1) / 2);
     // the walls' lower half painted a school's pale green, as in a classroom polling station
-    s(x1 - x0 - 2 * T, 0.95, 0.012, SCHOOL, (x0 + x1) / 2, 0.475, z0 + T + 0.012);
-    s(0.012, 0.95, z1 - z0 - 2 * T, SCHOOL, x0 + T + 0.012, 0.475, (z0 + z1) / 2);
+    s(bx1 - bx0, 0.95, 0.012, SCHOOL, (bx0 + bx1) / 2, 0.475, z0 + T + 0.012);
+    s(0.012, 0.95, ez1 - ez0, SCHOOL, x0 + T + 0.012, 0.475, (ez0 + ez1) / 2);
     // a cork notice board over the screen, with the committee's notices pinned on it
     const nb = (SCREEN.x0 + SCREEN.x1) / 2;
     s(0.74, 0.5, 0.02, 0xB98A5A, nb, 1.82, z0 + T + 0.02);
@@ -236,8 +273,6 @@ function build() {
     for (let i = 0; i < 3; i++) s(0.05, 0.08, 0.05, C.snow, TABLE.x0 + 0.26 + i * 0.07, TABLE.top + 0.04, TABLE.z0 + 0.18);
     s(1.0, 0.05, 0.32, C.deck2, x0 + 0.95, 0.42, z1 - T - 0.3);
     for (const dx of [-0.42, 0.42]) s(0.05, 0.4, 0.28, C.frame, x0 + 0.95 + dx, 0.2, z1 - T - 0.3);
-    // the room's floor, pale, over the deck
-    s(x1 - x0 - 2 * T, 0.01, z1 - z0 - 2 * T, C.enamel, (x0 + x1) / 2, 0.005, (z0 + z1) / 2);
     // the committee's table: a white cloth with a blue edge over it, three chairs behind, the register open in front of
     // the chair, and the tent card with the station's number facing the room
     const tx = (TABLE.x0 + TABLE.x1) / 2, tz = (TABLE.z0 + TABLE.z1) / 2, tw = TABLE.x1 - TABLE.x0, td = TABLE.z1 - TABLE.z0;
@@ -278,12 +313,14 @@ function build() {
     // on the back wall: the flag between the screen and the table, and the clock over the chair
     flag(s, 0.66, X(3.15), 1.5, z0 + T + 0.02);
     s(0.025, 0.55, 0.025, C.gold, X(3.15) + 0.345, 1.5, z0 + T + 0.03);
-    // the bow: a mast with a flag flying, and bunting from it to the cabin roof's corners
+    // the bow: a mast with a flag flying, and one string of bunting from it to the roof's corner on the dock side
     const mast = HULL.x0 + 0.45;
     s(0.05, 1.7, 0.05, C.steel, mast, 0.85, MID);
     flag(s, 0.42, mast + 0.235, 1.48, MID);
-    for (const z of [z1, z0]) bunting(s, pennants, [mast, 1.6, MID], [x0, CH + 0.08, z]);
+    bunting(s, pennants, [mast, 1.6, MID], [x0 + 0.12, CH + 0.1, z1 - 0.12]);
   });
+  // the far corner, round between the back wall and the bow end's
+  g.add(curved([corner(x0 + CORNERS.nw, z0 + CORNERS.nw, CORNERS.nw, Math.PI / 2)]));
   const clock = new Group();
   clock.position.set(MEMBERS_X[1], 1.75, z0 + T + 0.03);
   clock.rotation.x = Math.PI / 2;
@@ -420,65 +457,66 @@ function build() {
     for (let x = 0; x <= w; x += w / 12) { c.beginPath(); c.moveTo(x, 0); c.lineTo(x, h); c.stroke(); }
     for (let y = 0; y <= h; y += h / 6) { c.beginPath(); c.moveTo(0, y); c.lineTo(w, y); c.stroke(); }
   });
-  const floor = mesh(new PlaneGeometry(CAB.x1 - CAB.x0 - 2 * T, CAB.z1 - CAB.z0 - 2 * T), new MeshLambertMaterial({ map: tiles.tex }), (CAB.x0 + CAB.x1) / 2, 0.012, (CAB.z0 + CAB.z1) / 2);
-  floor.rotation.x = -Math.PI / 2;
+  // (inside the walls, round the rounded corners; the tiles laid square across it)
+  const floorGeo = new ShapeGeometry(cabinOutline(-T), 12), uv = floorGeo.attributes.uv, fw = CAB.x1 - CAB.x0 - 2 * T, fd = CAB.z1 - CAB.z0 - 2 * T;
+  for (let i = 0; i < uv.count; i++) uv.setXY(i, (uv.getX(i) - CAB.x0 - T) / fw, (uv.getY(i) + CAB.z1 - T) / fd);
+  const floor = mesh(floorGeo.rotateX(-Math.PI / 2), new MeshLambertMaterial({ map: tiles.tex }), 0, 0.012, 0);
   g.add(floor);
 
-  // ---- the walls on the camera's side (the dock's, with the door and its sign, and the bow's), which fade ----
+  // ---- the walls on the camera's side (the dock's, with the door and its sign, and the stern's), which fade: plain
+  // white between rounded corners, a band of windows along them under a ledge that runs all round the cabin ----
   const near = new MeshLambertMaterial({ vertexColors: true, transparent: true }), nearMats: Material[] = [near];
+  const sx0 = x0 + CORNERS.sw, sx1 = x1 - CORNERS.se, ez0 = z0 + CORNERS.ne, ez1 = z1 - CORNERS.se;
   twin(g, blocks(s => {
-    const zw = z1 - T / 2;
-    // the dock's side: either side of the door and over it, a window each side, a blue band, the door's frame
-    s(DOOR.x0 - x0, CH, T, C.snow, (x0 + DOOR.x0) / 2, CH / 2, zw);
-    s(x1 - DOOR.x1, CH, T, C.snow, (DOOR.x1 + x1) / 2, CH / 2, zw);
+    const zw = z1 - T / 2, xw = x1 - T / 2;
+    // the dock's side, either side of the door and over it; and the stern's
+    s(DOOR.x0 - sx0, CH, T, C.snow, (sx0 + DOOR.x0) / 2, CH / 2, zw);
+    s(sx1 - DOOR.x1, CH, T, C.snow, (DOOR.x1 + sx1) / 2, CH / 2, zw);
     s(DOOR.x1 - DOOR.x0, CH - DOOR.h, T, C.snow, (DOOR.x0 + DOOR.x1) / 2, (CH + DOOR.h) / 2, zw);
-    s(x1 - x0, 0.1, T + 0.02, BLUE, (x0 + x1) / 2, 0.85, zw);
-    for (const wx of [X(2.45), X(5.35)]) {
-      s(0.8, 0.6, T + 0.03, C.snow, wx, 1.3, zw);
-      s(0.68, 0.48, T + 0.04, 0x9FC9E0, wx, 1.3, zw);
+    s(T, CH, ez1 - ez0, C.snow, xw, CH / 2, (ez0 + ez1) / 2);
+    // the windows: glass through the wall, from sill to head, with slim white mullions
+    const panes: [number, number, boolean][] = [[sx0 + 0.2, DOOR.x0 - 0.2, true], [DOOR.x1 + 0.2, sx1 - 0.15, true], [ez0 + 0.2, ez1 - 0.15, false]];
+    for (const [a, b, along] of panes) {
+      const m = (a + b) / 2, len = b - a, n = Math.max(1, Math.round(len / 0.7));
+      if (along) s(len, HEAD - SILL, T + 0.02, 0x9FC9E0, m, (SILL + HEAD) / 2, zw);
+      else s(T + 0.02, HEAD - SILL, len, 0x9FC9E0, xw, (SILL + HEAD) / 2, m);
+      for (let k = 1; k < n; k++) {
+        const at = a + len * k / n;
+        if (along) s(0.04, HEAD - SILL, T + 0.04, C.snow, at, (SILL + HEAD) / 2, zw);
+        else s(T + 0.04, HEAD - SILL, 0.04, C.snow, xw, (SILL + HEAD) / 2, at);
+      }
     }
-    for (const k of [0, 1]) s(0.06, DOOR.h, T + 0.03, BLUE, k ? DOOR.x1 : DOOR.x0, DOOR.h / 2, zw);
-    s(DOOR.x1 - DOOR.x0 + 0.06, 0.06, T + 0.03, BLUE, (DOOR.x0 + DOOR.x1) / 2, DOOR.h, zw);
-    // varnished boards along the wall's foot, either side of the door
-    s(DOOR.x0 - x0, 0.34, T + 0.02, C.deck2, (x0 + DOOR.x0) / 2, 0.17, zw);
-    s(x1 - DOOR.x1, 0.34, T + 0.02, C.deck2, (DOOR.x1 + x1) / 2, 0.17, zw);
-    // blue shutters either side of each window, and a box of red geraniums under it
-    for (const wx of [X(2.45), X(5.35)]) {
-      for (const k of [-1, 1]) s(0.2, 0.6, 0.03, BLUE, wx + k * 0.52, 1.3, zw + T / 2 + 0.03);
-      s(0.82, 0.14, 0.16, C.deck2, wx, 0.92, zw + T / 2 + 0.08);
-      for (let i = 0; i < 6; i++) s(0.1, 0.08, 0.1, i % 2 ? 0xE0392B : 0x3E8E4E, wx - 0.3 + i * 0.12, 1.02, zw + T / 2 + 0.08);
-    }
-    // a striped awning, blue and white, over the door
-    for (let i = 0; i < 4; i++) s(DOOR.x1 - DOOR.x0 + 0.4, 0.025, 0.12, i % 2 ? C.snow : BLUE, (DOOR.x0 + DOOR.x1) / 2, DOOR.h + 0.2 - i * 0.04, zw + 0.1 + i * 0.11);
-    // the bow's end: a round window
-    s(T, CH, z1 - z0, C.snow, x1 - T / 2, CH / 2, (z0 + z1) / 2);
-    s(T + 0.02, 0.1, z1 - z0, BLUE, x1 - T / 2, 0.85, (z0 + z1) / 2);
-    s(T + 0.03, 0.5, 0.5, 0x9FC9E0, x1 - T / 2, 1.35, MID);
   }), true, near);
+  // the near corners, the wide sweep the camera sees and the two small ones; and the ledge, all round at the door's top
+  g.add(curved([
+    corner(x1 - CORNERS.se, z1 - CORNERS.se, CORNERS.se, -Math.PI / 2),
+    corner(x1 - CORNERS.ne, z0 + CORNERS.ne, CORNERS.ne, 0),
+    corner(x0 + CORNERS.sw, z1 - CORNERS.sw, CORNERS.sw, Math.PI),
+    ring(0.16, 0.16, LEDGE - 0.025, 0.05),
+  ], near));
   const door = sign('קלפי', 0.62, 0.2, '#0038B8', '#FFFFFF', nearMats);
   door.position.set((DOOR.x0 + DOOR.x1) / 2, (CH + DOOR.h) / 2 + 0.01, z1 + 0.005);
   g.add(door);
 
-  // ---- the roof: white, a blue edge, bunting along the dock's side; it lifts away while the player's inside ----
+  // ---- the roof: a flat white slab overhanging the walls all round, with a slim rail round its edge; it lifts away
+  // while the player's inside ----
   const roofMat = new MeshLambertMaterial({ vertexColors: true, transparent: true });
   const roof = new Group();
   g.add(roof);
-  const roofPennants: (Part & { c: number })[] = [];
+  roof.add(curved([ring(0.18, null, CH, 0.1)], roofMat));
   twin(roof, blocks(s => {
-    s(x1 - x0 + 0.2, 0.08, z1 - z0 + 0.2, C.snow, (x0 + x1) / 2, CH + 0.04, (z0 + z1) / 2);
-    s(x1 - x0 + 0.22, 0.06, z1 - z0 + 0.22, BLUE, (x0 + x1) / 2, CH + 0.005, (z0 + z1) / 2);
-    s(0.9, 0.18, 0.6, C.snow, X(2.4), CH + 0.17, (z0 + z1) / 2);
-    // a white rail round the roof's edge
-    for (const [a, b] of [[[x0, z1], [x1, z1]], [[x1, z1], [x1, z0]], [[x1, z0], [x0, z0]], [[x0, z0], [x0, z1]]] as [number, number][][]) {
-      along(s, a as [number, number], b as [number, number], CH + 0.38, 0.03, 0.03, C.snow);
-      const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
-      for (let k = 0, n = Math.max(1, Math.round(len / 0.8)); k < n; k++) s(0.03, 0.3, 0.03, C.snow, a[0] + (b[0] - a[0]) * k / n, CH + 0.23, a[1] + (b[1] - a[1]) * k / n);
+    const pts = cabinOutline(0.06).getPoints(4);
+    for (let i = 1; i < pts.length; i++) {
+      const a = pts[i - 1], b = pts[i], len = a.distanceTo(b);
+      if (len < 0.01) continue;
+      for (const y of [CH + 0.38, CH + 0.62]) along(s, [a.x, -a.y], [b.x, -b.y], y, 0.03, 0.03, C.snow);
     }
-    bunting(s, roofPennants, [x0, CH + 0.02, z1 + 0.1], [x1, CH + 0.02, z1 + 0.1]);
+    const { x0: ox0, x1: ox1, z0: oz0, z1: oz1 } = { x0: x0 - 0.06, x1: x1 + 0.06, z0: z0 - 0.06, z1: z1 + 0.06 };
+    for (const [px, pz] of [[ox0 + 0.6, oz1], [ox1 - 1.2, oz1], [(ox0 + ox1) / 2, oz1], [ox0 + 0.6, oz0], [ox1 - 0.6, oz0], [(ox0 + ox1) / 2, oz0], [ox0, MID], [ox1, MID]]) {
+      s(0.03, 0.55, 0.03, C.snow, px, CH + 0.37, pz);
+    }
   }), true, roofMat);
-  const roofPen = mesh(bakePainted(roofPennants), new MeshLambertMaterial({ vertexColors: true, transparent: true }));
-  roof.add(roofPen);
-  const roofMats = [roofMat, roofPen.material as Material];
+  const roofMats = [roofMat];
 
   // ---- the committee: three of the game's own people, seated behind the table, facing the room ----
   const members: Person[] = MEMBERS_X.map((x, i) => {
