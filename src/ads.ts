@@ -5,7 +5,7 @@
 //   the front page, and a TV playing the market's commercial.
 //   Restaurant: a chalk menu board, big paper lanterns, a phone on a ring light filming the bar, a food critic at
 //   a table, a magazine rack with the restaurant on the covers, a TV camera filming the chefs, the gourmet guide's
-//   stars over a pedestal, and flags from all over the world strung across the room.
+//   stars over a pedestal, and flags from all over the world strung across the room (Israel's in the middle).
 // On High graphics (graphics.ts) each one's frame or body is drawn the way the people are (propsAds.ts): its plain Low
 // parts sit in a group of their own beside it, while the canvas faces, the glowing parts and whatever moves are shared.
 import {
@@ -545,7 +545,7 @@ function gourmetGuide(): Ad {
   };
 }
 
-/** Flags from all over the world, strung across the dining room. */
+/** Flags from all over the world, strung across the dining room, eight round and round, and Israel's in the middle. */
 function worldFlags(): Ad {
   const g = spot(0, FY, 13.0, 0);
   const W = 64, H = 42;
@@ -565,21 +565,40 @@ function worldFlags(): Ad {
     },
     c => { c.fillStyle = '#D63A2A'; c.fillRect(0, 0, W, H); c.fillStyle = '#FFFFFF'; c.fillRect(W / 4, 0, W / 2, H); c.fillStyle = '#D63A2A'; c.fillRect(W / 2 - 6, H / 2 - 8, 12, 16); },
     c => { c.fillStyle = '#1F5FA8'; c.fillRect(0, 0, W, H); c.fillStyle = '#F2C14E'; c.fillRect(W * 0.3, 0, 9, H); c.fillRect(0, H / 2 - 4, W, 9); },
+    // Israel's: two blue stripes and the Star of David between them, two triangles (as votingBoat.ts flag draws it)
+    c => {
+      c.fillStyle = '#FFFFFF'; c.fillRect(0, 0, W, H); c.fillStyle = c.strokeStyle = '#0038B8';
+      for (const k of [-1, 1]) c.fillRect(0, H / 2 + k * H * 0.335 - H * 0.075, W, H * 0.15);
+      c.lineWidth = H * 0.045; c.lineJoin = 'miter';
+      for (const turn of [0, Math.PI]) {
+        c.beginPath();
+        for (let i = 0; i < 3; i++) { const a = turn - Math.PI / 2 + i * Math.PI * 2 / 3; c.lineTo(W / 2 + Math.cos(a) * H * 0.2, H / 2 + Math.sin(a) * H * 0.2); }
+        c.closePath(); c.stroke();
+      }
+    },
   ];
-  const atlas = canvasTex(W * 4, H * 2, c => flags.forEach((f, i) => {
+  /** The eight strung round and round; Israel's is the last. */
+  const ROUND = 8, ISRAEL = 8;
+  const atlas = canvasTex(W * 4, H * 3, c => flags.forEach((f, i) => {
     c.save(); c.translate((i % 4) * W, Math.floor(i / 4) * H); c.beginPath(); c.rect(0, 0, W, H); c.clip(); f(c, W, H); c.restore();
   })).tex;
   // each flag design is a little plane whose texture coordinates pick its cell of the atlas
   const cell = (p: PlaneGeometry, i: number) => {
-    const uv = p.attributes.uv, u0 = (i % 4) / 4, v0 = 1 - (Math.floor(i / 4) + 1) / 2;
-    for (let j = 0; j < uv.count; j++) uv.setXY(j, u0 + uv.getX(j) / 4, v0 + uv.getY(j) / 2);
+    const uv = p.attributes.uv, u0 = (i % 4) / 4, v0 = 1 - (Math.floor(i / 4) + 1) / 3;
+    for (let j = 0; j < uv.count; j++) uv.setXY(j, u0 + uv.getX(j) / 4, v0 + uv.getY(j) / 3);
     return p;
   };
   const cells = flags.map((_, i) => cell(new PlaneGeometry(0.32, 0.21), i));
   const X = HALL_BOX.x1 - 0.3, y = (x: number) => 3.2 - 0.5 * (1 - (x / X) ** 2);
   const parts: Part[] = [];
   let i = 0;
-  for (let x = -X + 0.3; x < X - 0.2; x += 0.44, i++) parts.push({ geo: cells[(i * 3) % cells.length], at: [x, y(x) - 0.12, 0] });
+  /** Which flag hangs at each place on the string. */
+  const order: number[] = [];
+  for (let x = -X + 0.3; x < X - 0.2; x += 0.44, i++) {
+    const f = Math.abs(x) < 0.22 ? ISRAEL : (i * 3) % ROUND;
+    order.push(f);
+    parts.push({ geo: cells[f], at: [x, y(x) - 0.12, 0] });
+  }
   const strung = new Mesh(bake(parts), new MeshLambertMaterial({ map: atlas, side: DoubleSide }));
   g.add(strung);
   const string = new CatmullRomCurve3([-X, -X / 2, 0, X / 2, X].map(x => V(x, y(x), 0)));
@@ -587,7 +606,7 @@ function worldFlags(): Ad {
   // High: the same flags rippling, pegged to the string, which is tied off on a bracket at each wall
   highIn(g, strung, () => {
     const waving = flags.map((_, k) => rippled(cell(new PlaneGeometry(0.32, 0.21, 8, 2), k), 0.32));
-    const m = new Mesh(bake(parts.map((p, k) => ({ ...p, geo: waving[(k * 3) % waving.length] }))), strung.material);
+    const m = new Mesh(bake(parts.map((p, k) => ({ ...p, geo: waving[order[k]] }))), strung.material);
     m.add(flagPegs(parts.map(p => [p.at[0], p.at[1] + 0.105]), X, y(X), HALL_BOX.x1).mesh(false));
     return m;
   });

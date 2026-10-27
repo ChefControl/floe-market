@@ -91,7 +91,7 @@ export interface SaveData {
   /** What the tutorial has shown this player (tutorial.ts), so it isn't shown again on another device; null in a save
    *  from before the tutorial, whose lessons are counted from what it has done. */
   learnt: string[] | null;
-  /** The best rally of matkot on the election-day beach (beach.ts); none in a save from before it. */
+  /** The best rally of matkot on the beach (beach.ts); none in a save from before it. */
   matkot?: number;
 }
 export type Hands = Record<'rice' | 'fish' | 'rrice' | 'cfish' | 'mush' | 'bowl' | 'mbowl', number>;
