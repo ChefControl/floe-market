@@ -1,6 +1,7 @@
 // A contact sheet of the game's icon drawings, to look at while drawing them: each at 96, 40 and 20 pixels on a white
 // pill, a navy pill and wood, next to the computer's own emoji for reference. Headless Chrome takes the picture.
 //   node --import ./scripts/icons/resolve.mjs scripts/icons/sheet.ts out.png [emoji…]   (no emoji: every drawing)
+// A character with no emoji of its own (a boss's face, icons/bosses.ts) can be named by its code point: U+E001.
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -8,7 +9,8 @@ import { DRAWINGS } from '../../src/icons.ts';
 import { svgOf } from './svg.ts';
 
 const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
-const [out, ...asked] = process.argv.slice(2);
+const [out, ...named] = process.argv.slice(2);
+const asked = named.map(a => /^U\+[0-9A-F]+$/i.test(a) ? String.fromCodePoint(parseInt(a.slice(2), 16)) : a);
 const list = asked.length ? asked : Object.keys(DRAWINGS).filter(e => e !== 'mrFugu');
 const missing = list.filter(e => !DRAWINGS[e]);
 if (missing.length) console.error('no drawing yet:', missing.join(' '));

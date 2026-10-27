@@ -16,6 +16,7 @@ import { CASINO } from './icons/casino';
 import { PEOPLE } from './icons/people';
 import { WORKS } from './icons/works';
 import { ARCADE } from './icons/arcade';
+import { BOSS } from './icons/bosses';
 
 // ---------- the bubbles' own icons (shared with bubble.ts, drawn in its coordinates) ----------
 
@@ -478,22 +479,35 @@ function bento(c: Ctx) {
   solid(c, '#F7D038', () => box(c, 21, 3, 14, 22, 4));
 }
 
-/** 🐡 A puffer fish, puffed up and spiky. */
+/** 🐡 A puffer fish spoiling for a fight: puffed up, spines bristling (one snapped), brow down, teeth gritted. */
 function puffer(c: Ctx) {
-  solid(c, '#E3B448', () => poly(c, -30, 0, -46, -14, -46, 14));
-  solid(c, '#E3B448', () => {
-    for (let i = 0; i < 14; i++) {
-      const a = (i / 14) * TAU, b = 0.16;
-      c.moveTo(Math.cos(a - b) * 28, Math.sin(a - b) * 28);
-      c.lineTo(Math.cos(a) * 40, Math.sin(a) * 40);
-      c.lineTo(Math.cos(a + b) * 28, Math.sin(a + b) * 28);
+  const FIN = '#E3B448', SPINE = '#F6E7B4', SCAR = '#B5364A', cx = -2, cy = 2;
+  // the tail, fanned out behind
+  solid(c, FIN, () => { c.moveTo(-28, 2); c.lineTo(-46, -17); c.quadraticCurveTo(-39, 2, -46, 21); c.closePath(); });
+  // the spines all round, broad and sharp; the one on top snapped off short
+  solid(c, SPINE, () => {
+    for (let i = 0; i < 13; i++) {
+      const a = (i / 13) * TAU - Math.PI / 2 + 0.24, b = 0.2;
+      if (Math.cos(a) < -0.88) continue;
+      const at = (t: number, r: number) => c.lineTo(cx + Math.cos(a + t) * r, cy + Math.sin(a + t) * r);
+      c.moveTo(cx + Math.cos(a - b) * 26, cy + Math.sin(a - b) * 26);
+      if (i) at(0, 43); else { at(-0.1, 37); at(0, 33); at(0.1, 36); }
+      at(b, 26);
     }
   });
-  solid(c, '#F7D038', () => dot(c, 0, 0, 31));
-  flat(c, '#FFF4D6', () => oval(c, 4, 14, 22, 11));
-  flat(c, '#B07A3A', () => { dot(c, -14, -14, 3.5); dot(c, -2, -22, 3); dot(c, -18, 0, 3); });
-  eye(c, 14, -8, 7.5, 2);
-  line(c, INK, 3, () => dot(c, 27, 6, 3));
+  solid(c, GOLD, () => dot(c, cx, cy, 31));
+  flat(c, '#FFF4D6', () => oval(c, cx + 2, cy + 19, 22, 10));
+  flat(c, '#B07A3A', () => { dot(c, -23, -4, 3); dot(c, -22, 9, 2.5); dot(c, -19, -15, 2.5); });
+  // a scar across the back of the head, stitched
+  line(c, SCAR, 3.5, () => { c.moveTo(-6, -27); c.lineTo(-14, -6); });
+  line(c, SCAR, 2.5, () => { c.moveTo(-13, -20); c.lineTo(-5, -17); c.moveTo(-15, -13); c.lineTo(-7, -10); });
+  // the eye, narrowed under a heavy brow that slants down to the front
+  solid(c, '#fff', () => oval(c, 13, -5, 9, 8));
+  flat(c, INK, () => dot(c, 16, -3, 4.5));
+  solid(c, INK, () => poly(c, -1, -21, 29, -10, 27, -4, 1, -13));
+  // gritted teeth at the front, the corners pulled down
+  solid(c, CREAM, () => { c.moveTo(8, 14); c.quadraticCurveTo(19, 7, 29, 10); c.lineTo(29, 20); c.quadraticCurveTo(19, 18, 9, 22); c.closePath(); });
+  line(c, INK, 2.5, () => { c.moveTo(9, 18); c.quadraticCurveTo(19, 12.5, 29, 15); c.moveTo(16, 11); c.lineTo(16, 20); c.moveTo(23, 9.5); c.lineTo(23, 19); });
 }
 
 /**
@@ -624,7 +638,7 @@ export const DRAWINGS: Record<string, Drawing> = {
   // (a drawing of its own, with no emoji: the buy-in tile's, unlocks.ts' `art`)
   'mrFugu': mrFugu,
   // (the rest, drawn by theme: src/icons/*.ts)
-  ...HUD, ...NATURE, ...FOOD, ...CASINO, ...PEOPLE, ...WORKS, ...ARCADE,
+  ...HUD, ...NATURE, ...FOOD, ...CASINO, ...PEOPLE, ...WORKS, ...ARCADE, ...BOSS,
 };
 /** The emoji that have a drawing (the contact sheet goes through them all). */
 export const DRAWN = Object.keys(DRAWINGS);

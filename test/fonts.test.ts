@@ -3,6 +3,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fileOf, svgOf } from '../scripts/icons/svg';
 import { emojiIn, minchoIn, sources } from '../scripts/fonts/used';
+import { BOSSES } from '../src/fight';
 import { DRAWINGS } from '../src/icons';
 import bundled from '../src/fonts.json';
 
@@ -13,6 +14,13 @@ describe('the bundled fonts', () => {
 
   it('have a drawing for every emoji the game shows (src/icons; the design book\'s Icons section)', () => {
     expect(emojiIn(texts).filter(e => !DRAWINGS[bare(e)] && !DRAWINGS[e])).toEqual([]);
+  });
+
+  it("have a face of their own for every boss, apart from the menu's and the money's emoji", () => {
+    for (const b of BOSSES) {
+      expect(DRAWINGS[b.face], b.name).toBeDefined();
+      expect(b.face.codePointAt(0)).toBeGreaterThanOrEqual(0xE000); // (private use: the emoji font's own character)
+    }
   });
 
   it('carry every emoji the game shows (run scripts/fonts/build.py after drawing one)', () => {

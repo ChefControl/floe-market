@@ -19,6 +19,7 @@
 import { boost, mods } from './economy';
 import { BAR_PAD, BIN_PADS, cellarWay, COOK_AT, COUNTER_PAD, homeOf, type Ing, LEDGE, machinePad, MAX_MACHINES, POT_PAD } from './cellarPlan';
 import type { Kind } from './creatures';
+import { FACE } from './icons/bosses';
 import type { XZ } from './util';
 
 export type { Ing };
@@ -65,11 +66,11 @@ export interface Boss {
  *  the stage 3 bot: seven to nine minutes each; re-tuned 2026-10-23 with Mama's opening with the slide and her dining
  *  hall after Fukure, about 39 to the buyout). */
 export const BOSSES: Boss[] = [
-  { face: '🐙', name: 'Hakkaku', crowd: 100, bell: 30, prize: 100, stake: 20, kind: 'octopus', opens: 'grow room, the attendant' },
-  { face: '🦀', name: 'Yokobashiri', crowd: 210, bell: 30, prize: 250, stake: 30, share: 0.495, kind: 'crab', opens: 'Back-Alley Ring, bowl slide, steam baskets, a way south' },
-  { face: '🐟', name: 'Dobu', crowd: 498, bell: 45, prize: 300, stake: 70, share: 0.8, kind: 'catfish', opens: 'Underground Arena, smokehouse, the cook' },
-  { face: '🦈', name: 'Samehada', crowd: 571, bell: 45, prize: 800, stake: 300, share: 0.935, kind: 'shark', opens: 'Grand Hall Below, glowing shelves, faster belt' },
-  { face: '🐡', name: 'Fukure', crowd: 1100, bell: 60, prize: 1500, stake: 600, share: 0.74, kind: 'puffer', opens: "Mama's dining hall, buy back all his chips" },
+  { face: FACE.octopus, name: 'Hakkaku', crowd: 100, bell: 30, prize: 100, stake: 20, kind: 'octopus', opens: 'grow room, the attendant' },
+  { face: FACE.crab, name: 'Yokobashiri', crowd: 210, bell: 30, prize: 250, stake: 30, share: 0.495, kind: 'crab', opens: 'Back-Alley Ring, bowl slide, steam baskets, a way south' },
+  { face: FACE.catfish, name: 'Dobu', crowd: 498, bell: 45, prize: 300, stake: 70, share: 0.8, kind: 'catfish', opens: 'Underground Arena, smokehouse, the cook' },
+  { face: FACE.shark, name: 'Samehada', crowd: 571, bell: 45, prize: 800, stake: 300, share: 0.935, kind: 'shark', opens: 'Grand Hall Below, glowing shelves, faster belt' },
+  { face: FACE.puffer, name: 'Fukure', crowd: 1100, bell: 60, prize: 1500, stake: 600, share: 0.74, kind: 'puffer', opens: "Mama's dining hall, buy back all his chips" },
 ];
 /** The practice fight before the first boss (once, for a player who's just come down): the champion's own sparring
  *  partner and a small crowd, so the gong's learnt on a fight that's won. His prize hires the two lines' hands, which is

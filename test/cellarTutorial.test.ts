@@ -4,6 +4,7 @@
 // won, the cooking game, the gong, what wins it; then its prize at the shop counter), never what stage 1 taught; each
 // idea explained as it happens. A save from before it counts what it has done down there.
 import { describe, expect, it } from 'vitest';
+import { FACE } from '../src/icons/bosses';
 import { bought, FLOE_SUSHI, loadGame, MARKET, type SaveFixture } from './helpers';
 
 const $ = (id: string) => document.getElementById(id)!;
@@ -241,7 +242,7 @@ describe("the cellar's tutorial", () => {
     g.run(0.1);
     expect(tut.learntLessons()).toContain('bench');
     expect($('banner').textContent).toContain('Tutorial complete');
-    expect($('banner').textContent).toContain('Now take on Hakkaku 🐙');
+    expect($('banner').textContent).toContain(`Now take on Hakkaku ${FACE.octopus}`);
   }, 60_000); // 22.7 s of 30 on CI under coverage
 
   it('while the doors are shut, the champion trains by the teppo post, and the gong opens them too', async () => {
@@ -292,7 +293,7 @@ describe("the cellar's tutorial", () => {
     expect(fight.nextBoss()!.name).toBe('Hakkaku');
     expect(g.wallet.money - money).toBeGreaterThanOrEqual(35 * fight.CHIP);
     expect($('fightCard').textContent).toContain('PRACTICE WON');
-    expect($('fightCard').textContent).toContain('Next: Hakkaku 🐙 · hire a washer and salter');
+    expect($('fightCard').textContent).toContain(`Next: Hakkaku ${FACE.octopus} · hire a washer and salter`);
     g.run(0.1);
     expect(tut.learntLessons()).not.toContain('gong');
     $('fightCard').click();
@@ -300,7 +301,7 @@ describe("the cellar's tutorial", () => {
     expect(tut.learntLessons()).toContain('gong');
     expect($('banner').textContent).toContain('Well done');
     expect($('banner').textContent).toContain('Tutorial complete');
-    expect($('banner').textContent).toContain('Now take on Hakkaku 🐙');
+    expect($('banner').textContent).toContain(`Now take on Hakkaku ${FACE.octopus}`);
     // and the practice is over for good, saved
     g.saveMod.save();
     expect(JSON.parse(localStorage.getItem('floe-market-v1')!).ring.practice).toBe(false);

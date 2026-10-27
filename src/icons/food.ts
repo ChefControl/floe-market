@@ -1,7 +1,7 @@
 // Icons for food and drink, keyed by the emoji they stand for (icons.ts gathers them). Drawn with the kit (kit.ts), the
 // design book's Icons section has the rules.
 import {
-  type Ctx, type Drawing, CREAM, DARK_WOOD, DEEP_GOLD, DEEP_GREEN, DEEP_RED, GOLD, GREEN, INK, PINK, RED, SKY, STEEL, WOOD,
+  type Ctx, type Drawing, CREAM, DEEP_GREEN, DEEP_RED, GOLD, GREEN, INK, PINK, RED, SKY, STEEL, WOOD,
   bar, blob, box, dot, flat, inside, leaf, line, oval, poly, solid,
 } from './kit';
 
@@ -9,6 +9,8 @@ import {
 const LEMON = '#F7D038', DEEP_LEMON = '#D9B21F';
 /** Glass: a pale blue-white. */
 const GLASS = '#E3EAF0';
+/** Darker, runny honey (the pot itself is GOLD). */
+const HONEY = '#E8952A';
 /** Potato skin and its eyes. */
 const SPUD = '#D2A064', DEEP_SPUD = '#A9773F';
 const SHINE = 'rgba(255,255,255,.4)';
@@ -111,21 +113,22 @@ function candy(c: Ctx) {
   c.restore();
 }
 
-/** 🍯 Syrup Spill: a pot of honey, dripping over its rim, a wooden dipper in it. */
+/** 🍯 Syrup Spill: a bright honey-gold pot, darker honey dripping from under its wooden lid, the dipper poking out. */
 function honey(c: Ctx) {
-  bar(c, WOOD, 6, () => { c.moveTo(6, -22); c.lineTo(28, -44); });
-  solid(c, DEEP_GOLD, () => {
-    c.moveTo(-24, -18); c.lineTo(24, -18);
-    c.bezierCurveTo(48, -4, 46, 40, 0, 42); c.bezierCurveTo(-46, 40, -48, -4, -24, -18); c.closePath();
-  });
+  bar(c, WOOD, 6, () => { c.moveTo(10, -20); c.lineTo(34, -44); });
   solid(c, GOLD, () => {
-    c.moveTo(-30, -20); c.lineTo(30, -20); c.lineTo(30, -8);
-    c.quadraticCurveTo(26, -2, 22, -8); c.lineTo(22, 4); c.quadraticCurveTo(17, 10, 12, 4); c.lineTo(12, -6);
-    c.quadraticCurveTo(4, -2, -4, -6); c.lineTo(-4, 10); c.quadraticCurveTo(-10, 17, -16, 10); c.lineTo(-16, -6);
-    c.quadraticCurveTo(-24, -2, -30, -8); c.closePath();
+    c.moveTo(-24, -16); c.lineTo(24, -16);
+    c.bezierCurveTo(50, -2, 46, 42, 0, 42); c.bezierCurveTo(-46, 42, -50, -2, -24, -16); c.closePath();
   });
-  solid(c, DARK_WOOD, () => box(c, -28, -28, 56, 10, 4));
-  flat(c, SHINE, () => oval(c, -26, 20, 4, 9, 0.3));
+  solid(c, HONEY, () => {
+    c.moveTo(-30, -18); c.lineTo(30, -18); c.lineTo(30, -6);
+    c.quadraticCurveTo(26, 0, 22, -6); c.lineTo(22, 6); c.quadraticCurveTo(17, 13, 12, 6); c.lineTo(12, -4);
+    c.quadraticCurveTo(4, 0, -4, -4); c.lineTo(-4, 14); c.quadraticCurveTo(-10, 21, -16, 14); c.lineTo(-16, -4);
+    c.quadraticCurveTo(-24, 0, -30, -6); c.closePath();
+  });
+  flat(c, 'rgba(255,255,255,.45)', () => { oval(c, -26, 22, 4.5, 10, 0.3); dot(c, -10, 10, 2.5); });
+  solid(c, WOOD, () => { c.moveTo(-34, -16); c.quadraticCurveTo(-32, -34, 0, -34); c.quadraticCurveTo(32, -34, 34, -16); c.closePath(); });
+  solid(c, WOOD, () => dot(c, 0, -38, 6));
 }
 
 /** 🍸 The Undertow's bar: a cocktail glass, an olive on a pick. */

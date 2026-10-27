@@ -2,7 +2,7 @@
 // design book's Icons section has the rules.
 import {
   type Ctx, type Drawing, CREAM, DARK_WOOD, DEEP_GOLD, DEEP_GREEN, DEEP_RED, GOLD, INK, NIGHT, PINK, RED, SKIN, TAU,
-  bar, blob, box, dot, drum, flat, heartPath, inside, line, oval, poly, solid,
+  bar, box, dot, drum, flat, heartPath, inside, line, oval, poly, solid,
 } from './kit';
 
 /** A five-pointed star, `r` out to its points. */
@@ -103,45 +103,36 @@ function moneyBag(c: Ctx) {
   flat(c, 'rgba(255,255,255,.35)', () => oval(c, -24, 0, 6, 12, 0.3));
 }
 
-/** 🦈 Harry the loan shark, and Samehada: a grey shark side on, fin up, grinning with its teeth. */
+/** 🦈 Samehada, and Harry the loan shark: a mean grey shark, brow down over a narrowed eye, a scar, and a wide grin of teeth. */
 function shark(c: Ctx) {
-  const S = '#7D96A8', S_DEEP = '#5E7789';
-  c.save(); c.translate(0, 5);
-  solid(c, S_DEEP, () => { c.moveTo(-10, -16); c.quadraticCurveTo(-2, -30, 6, -44); c.quadraticCurveTo(8, -26, 18, -16); c.closePath(); });
+  const S = '#6E8798', S_DEEP = '#4F6575';
+  c.save(); c.translate(-1, 4); c.rotate(-0.12);
+  // the dorsal fin, a bite out of its back edge
+  solid(c, S_DEEP, () => poly(c, -10, -17, 0, -45, 8, -32, 5, -28, 16, -18));
   const body = () => {
-    c.moveTo(46, 0); c.quadraticCurveTo(30, -22, 0, -18); c.quadraticCurveTo(-24, -15, -34, -2);
-    c.lineTo(-45, -24); c.lineTo(-40, 2); c.lineTo(-45, 24); c.lineTo(-32, 6);
-    c.quadraticCurveTo(-8, 22, 20, 18); c.quadraticCurveTo(38, 14, 46, 0); c.closePath();
+    c.moveTo(47, -4); c.quadraticCurveTo(38, -24, 8, -21); c.quadraticCurveTo(-20, -18, -31, -4);
+    c.lineTo(-46, -27); c.lineTo(-39, 0); c.lineTo(-44, 21); c.lineTo(-29, 6);
+    c.quadraticCurveTo(-6, 24, 22, 21); c.quadraticCurveTo(42, 16, 47, -4); c.closePath();
   };
   solid(c, S, body);
-  inside(c, body, () => flat(c, CREAM, () => oval(c, 18, 18, 30, 9)));
+  inside(c, body, () => flat(c, CREAM, () => oval(c, 14, 22, 32, 9)));
   c.beginPath(); body(); c.stroke();
-  solid(c, S_DEEP, () => { c.moveTo(0, 12); c.lineTo(-12, 32); c.lineTo(14, 16); c.closePath(); });
-  line(c, S_DEEP, 2.5, () => { for (const x of [10, 15]) { c.moveTo(x, -6); c.lineTo(x - 2, 6); } });
-  // the grin, and its teeth
-  solid(c, '#fff', () => { c.moveTo(42, 4); c.quadraticCurveTo(34, 12, 22, 8); c.quadraticCurveTo(32, 6, 42, 4); });
-  line(c, INK, 2.5, () => { c.moveTo(27, 8); c.lineTo(29, 11); c.moveTo(33, 8); c.lineTo(35, 10); });
-  flat(c, INK, () => dot(c, 30, -6, 3.5));
-  flat(c, 'rgba(255,255,255,.35)', () => oval(c, 0, -10, 12, 3.5, -0.1));
-  c.restore();
-}
-
-/** 🐀 A boss on the odds board: a grey dock rat, side on, its pink tail curled up behind it. */
-function rat(c: Ctx) {
-  const R = '#8E8C94', R_DEEP = '#6E6C75';
-  bar(c, PINK, 4, () => { c.moveTo(-28, 22); c.bezierCurveTo(-52, 28, -50, -6, -34, -16); });
-  for (const x of [-14, 18]) solid(c, PINK, () => oval(c, x, 34, 7, 4));
-  blob(c, R, () => {
-    oval(c, -6, 12, 28, 21);
-    c.moveTo(4, -6); c.quadraticCurveTo(30, -6, 45, 12); c.quadraticCurveTo(30, 24, 6, 28); c.closePath();
+  solid(c, S_DEEP, () => poly(c, -2, 14, -16, 34, 14, 17));
+  line(c, S_DEEP, 2.5, () => { for (const x of [0, 6]) { c.moveTo(x, -8); c.lineTo(x - 2, 6); } });
+  // the grin: a wide white crescent, its teeth zigzagging shut
+  solid(c, '#fff', () => { c.moveTo(45, -1); c.quadraticCurveTo(30, 5, 12, 3); c.quadraticCurveTo(26, 22, 45, -1); c.closePath(); });
+  line(c, INK, 2.5, () => {
+    c.moveTo(14, 5);
+    for (let i = 1; i <= 8; i++) { const x = 14 + i * 3.8; c.lineTo(x, (i % 2 ? 11 : 4) - i * 0.6); }
   });
-  flat(c, '#B8B6BD', () => oval(c, 2, 24, 20, 7));
-  solid(c, R, () => dot(c, 12, -10, 11));
-  flat(c, PINK, () => dot(c, 12, -10, 6));
-  flat(c, R_DEEP, () => oval(c, -16, 6, 8, 12, 0.3));
-  solid(c, PINK, () => dot(c, 44, 11, 4));
-  flat(c, INK, () => dot(c, 28, 4, 3.5));
-  line(c, INK, 2.5, () => { c.moveTo(38, 16); c.lineTo(46, 22); });
+  // a scar across the head, stitched
+  line(c, PINK, 3.5, () => { c.moveTo(4, -20); c.lineTo(12, -7); });
+  line(c, PINK, 2.5, () => { c.moveTo(5, -12); c.lineTo(11, -15); });
+  // the eye, narrowed under a heavy brow slanting down to the snout
+  solid(c, '#fff', () => { c.moveTo(18, -14); c.lineTo(37, -7); c.quadraticCurveTo(27, 2, 18, -14); c.closePath(); });
+  flat(c, INK, () => dot(c, 31, -5, 2.8));
+  line(c, INK, 5, () => { c.moveTo(16, -21); c.lineTo(38, -10); });
+  c.restore();
 }
 
 /** 🔔 The gong's bell: a gold bell with its clapper, hung from a red cord. */
@@ -153,29 +144,40 @@ function bell(c: Ctx) {
   flat(c, 'rgba(255,255,255,.4)', () => oval(c, -14, -12, 6, 14, 0.2));
 }
 
-/** 🤼 The sparring partner: two sumo wrestlers locked head to head, a blue belt and a red. */
+/**
+ * 🤼 The sparring partner: two sumo wrestlers clashing, strictly side on, leaning in, heads tucked down a little apart,
+ * bellies touching; each one's near arm runs round the other's back to his belt (a blue belt, and a red).
+ */
 function wrestlers(c: Ctx) {
-  const BELT = ['#355C9E', DEEP_RED];
-  for (const s of [-1, 1]) {
-    bar(c, SKIN, 10, () => { c.moveTo(s * 20, 22); c.lineTo(s * 30, 42); c.moveTo(s * 34, 18); c.lineTo(s * 40, 42); });
+  const who = [{ m: 1, belt: '#355C9E', skin: SKIN }, { m: -1, belt: DEEP_RED, skin: '#E3AE82' }];
+  c.save(); c.translate(0, -2);
+  for (const { m, skin } of who) {
+    bar(c, skin, 11, () => {
+      c.moveTo(m * -30, 18); c.lineTo(m * -42, 30); c.lineTo(m * -41, 44);
+      c.moveTo(m * -15, 22); c.lineTo(m * -20, 33); c.lineTo(m * -15, 44);
+    });
   }
-  for (const [i, s] of [-1, 1].entries()) {
-    const body = () => oval(c, s * 24, 6, 20, 25, s * 0.5);
-    solid(c, SKIN, body);
-    inside(c, body, () => flat(c, BELT[i], () => { c.save(); c.translate(s * 24, 6); c.rotate(s * 0.5); c.rect(-30, 4, 60, 16); c.restore(); }));
+  for (const { m, belt, skin } of who) {
+    const body = () => oval(c, m * -22, 8, 20, 25, m * 0.55);
+    solid(c, skin, body);
+    inside(c, body, () => flat(c, belt, () => { c.save(); c.translate(m * -22, 8); c.rotate(m * 0.55); c.rect(-30, 8, 60, 13); c.restore(); }));
     c.beginPath(); body(); c.stroke();
   }
-  // arms round each other, hands on the other's belt
-  bar(c, SKIN, 9, () => { c.moveTo(18, 4); c.quadraticCurveTo(0, 18, -22, 14); });
-  bar(c, SKIN, 9, () => { c.moveTo(-20, -8); c.quadraticCurveTo(4, -22, 30, -10); });
-  for (const s of [-1, 1]) {
-    solid(c, NIGHT, () => oval(c, s * 20, -36, 6, 4.5, s * 0.4));
-    const head = () => dot(c, s * 10, -26, 12);
-    solid(c, SKIN, head);
-    inside(c, head, () => flat(c, NIGHT, () => oval(c, s * 17, -35, 13, 10, s * 0.5)));
+  // the red one's arm, low, under; the blue one's from his shoulder, over the red one's shoulder and down his back
+  // (the heads go on top, so it leaves from under his head and passes behind the red one's)
+  bar(c, '#E3AE82', 7, () => { c.moveTo(12, 8); c.quadraticCurveTo(-10, 18, -32, 17); });
+  bar(c, SKIN, 8, () => { c.moveTo(-20, -7); c.quadraticCurveTo(4, -11, 32, 4); });
+  solid(c, SKIN, () => dot(c, 33, 6, 6));
+  // heads down, a little apart, in profile: hair and topknot at the back, one eye at the front
+  for (const { m, skin } of who) {
+    const head = () => dot(c, m * -15, -17, 11);
+    solid(c, NIGHT, () => oval(c, m * -26, -26, 5.5, 4, m * -0.9));
+    solid(c, skin, head);
+    inside(c, head, () => flat(c, NIGHT, () => oval(c, m * -25, -23, 9, 8, m * -0.9)));
     c.beginPath(); head(); c.stroke();
-    flat(c, INK, () => dot(c, s * 4, -23, 2.5));
+    flat(c, INK, () => dot(c, m * -9, -18, 2.8));
   }
+  c.restore();
 }
 
 /** 🥁 The ring's second tier: a red taiko drum with its tacks, two sticks crossed on its head. */
@@ -198,23 +200,21 @@ function taiko(c: Ctx) {
   bar(c, '#C3875D', 6, () => { c.moveTo(-38, -42); c.lineTo(18, -12); c.moveTo(38, -42); c.lineTo(-18, -12); });
 }
 
-/** ⛩ The ring's third tier: the grand shrine gate, black and gold, a straw rope with paper streamers hung across it. */
+/** ⛩ The ring's third tier: a grand stone shrine gate, its posts leaning in, a dark cap on its swept-up top beam, a gold plaque. */
 function shrineGate(c: Ctx) {
-  for (const x of [-28, 28]) {
-    solid(c, GOLD, () => c.rect(x - 5, -24, 10, 62));
-    solid(c, NIGHT, () => box(c, x - 8, 34, 16, 9, 2));
+  const STONE = '#A9B4BC', STONE_DEEP = '#8996A0';
+  for (const s of [-1, 1]) {
+    solid(c, STONE, () => poly(c, s * 19, -30, s * 29, -30, s * 34, 38, s * 21, 38));
+    solid(c, NIGHT, () => box(c, s * 27.5 - 9, 36, 18, 7, 2));
   }
-  solid(c, DEEP_GOLD, () => c.rect(-40, -16, 80, 8));
-  solid(c, NIGHT, () => box(c, -8, -29, 16, 13, 2));
+  solid(c, GOLD, () => box(c, -9, -32, 18, 22, 3));
+  flat(c, DEEP_GOLD, () => box(c, -4, -27, 8, 12, 1.5));
+  solid(c, STONE, () => c.rect(-42, -14, 84, 9));
+  solid(c, STONE_DEEP, () => { c.moveTo(-42, -36); c.quadraticCurveTo(0, -30, 42, -36); c.lineTo(42, -28); c.quadraticCurveTo(0, -22, -42, -28); c.closePath(); });
   solid(c, NIGHT, () => {
-    c.moveTo(-48, -44); c.quadraticCurveTo(0, -32, 48, -44);
-    c.lineTo(44, -30); c.quadraticCurveTo(0, -22, -44, -30); c.closePath();
+    c.moveTo(-48, -47); c.quadraticCurveTo(0, -36, 48, -47);
+    c.lineTo(45, -37); c.quadraticCurveTo(0, -30, -45, -37); c.closePath();
   });
-  line(c, GOLD, 3, () => { c.moveTo(-44, -37); c.quadraticCurveTo(0, -26, 44, -37); });
-  // the shimenawa, sagging between the posts, and its zigzag paper
-  for (const x of [-10, 10]) bar(c, CREAM, 4, () => { c.moveTo(x, 8); c.lineTo(x + 5, 14); c.lineTo(x - 3, 20); c.lineTo(x + 3, 27); });
-  bar(c, '#EBD9A8', 9, () => { c.moveTo(-32, -2); c.quadraticCurveTo(0, 16, 32, -2); });
-  line(c, '#B99A52', 2.5, () => { for (const x of [-20, -8, 4, 16]) { const y = -2 + 18 * (1 - ((x + 2) / 32) ** 2) * 0.5; c.moveTo(x, y - 3); c.lineTo(x + 5, y + 3); } });
 }
 
 /** 🏁 The tech tree's Start: a chequered flag waving from its pole. */
@@ -252,6 +252,6 @@ function unlocked(c: Ctx) {
 }
 
 export const CASINO: Record<string, Drawing> = {
-  '🃏': cards, '🎡': rouletteWheel, '🎟': ticket, '💎': gem, '💰': moneyBag, '🦈': shark, '🐀': rat, '🔔': bell,
+  '🃏': cards, '🎡': rouletteWheel, '🎟': ticket, '💎': gem, '💰': moneyBag, '🦈': shark, '🔔': bell,
   '🤼': wrestlers, '🥁': taiko, '⛩': shrineGate, '🏁': chequered, '🔓': unlocked,
 };

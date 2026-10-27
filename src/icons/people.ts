@@ -1,7 +1,7 @@
 // Icons for people and faces, keyed by the emoji they stand for (icons.ts gathers them). Drawn with the kit (kit.ts), the
 // design book's Icons section has the rules.
 import {
-  type Ctx, type Drawing, BLUE, CREAM, GOLD, INK, NIGHT, PINK, RED, SKIN, SKY, STEEL, TAU,
+  type Ctx, type Drawing, BLUE, CREAM, DEEP_RED, GOLD, INK, NIGHT, PINK, RED, SKIN, SKY, STEEL, TAU,
   bar, blob, box, dot, flat, inside, line, oval, poly, solid,
 } from './kit';
 
@@ -37,18 +37,18 @@ const face = (c: Ctx) => solid(c, FACE, () => dot(c, 0, 0, 44));
 
 // ---------- the drawings ----------
 
-/** 💪 Fans fed this fight: the wrestler's arm, flexed, bicep bulging, fist up. */
+/** 💪 Fans fed this fight: the wrestler's arm, flexed: a white sleeve at the shoulder, the upper arm out flat with
+ * its bicep bulging, the forearm straight up and the fist on top. */
 function flex(c: Ctx) {
-  c.translate(3, 0); c.scale(0.9, 0.9);
   blob(c, SKIN, () => {
-    box(c, -46, 14, 72, 30, 15);
-    oval(c, -12, 12, 25, 21, -0.15);
-    c.save(); c.translate(14, 28); c.rotate(-0.1); box(c, -12, -50, 25, 56, 12); c.restore();
-    oval(c, 8, -30, 17, 15, -0.3);
+    box(c, -36, 14, 74, 28, 14);
+    oval(c, -8, 10, 21, 18);
+    box(c, 18, -24, 24, 60, 12);
   });
-  line(c, INK, 3, () => { c.moveTo(-8, -34); c.quadraticCurveTo(-2, -30, 4, -34); c.moveTo(-7, -25); c.quadraticCurveTo(-1, -21, 5, -25); });
-  line(c, INK, 3, () => { c.moveTo(-6, 30); c.quadraticCurveTo(4, 22, 6, 10); });
-  flat(c, SHINE, () => oval(c, -18, 4, 10, 6, -0.3));
+  solid(c, SKIN, () => box(c, 10, -45, 34, 29, 14));
+  line(c, INK, 3, () => { c.moveTo(10, -36); c.lineTo(20, -36); c.moveTo(10, -27); c.lineTo(20, -27); });
+  flat(c, SHINE, () => oval(c, -14, 2, 9, 5, -0.3));
+  solid(c, CREAM, () => box(c, -46, 8, 16, 38, 6));
 }
 
 /** 👥 The fight's crowd: two people side by side, one a step behind. */
@@ -88,13 +88,14 @@ function crew(c: Ctx) {
   chef(-14, 4, 1);
 }
 
-/** 😋 Yummy: eyes shut with delight, a big smile and the tongue out, licking the lips. */
+/** 😋 Yummy: eyes shut happy, a big smile, and the tongue out at the corner, licking the lip. */
 function yum(c: Ctx) {
   face(c);
-  line(c, INK, 6, () => { c.moveTo(-26, -6); c.quadraticCurveTo(-16, -18, -6, -6); c.moveTo(6, -6); c.quadraticCurveTo(16, -18, 26, -6); });
-  solid(c, PINK, () => oval(c, 12, 22, 10, 12, -0.4));
-  line(c, INK, 6, () => { c.moveTo(-24, 12); c.quadraticCurveTo(0, 32, 24, 12); });
-  flat(c, BLUSH, () => { dot(c, -28, 10, 6); dot(c, 28, 10, 6); });
+  line(c, INK, 5, () => { c.moveTo(-26, -6); c.quadraticCurveTo(-16, -20, -6, -6); c.moveTo(6, -6); c.quadraticCurveTo(16, -20, 26, -6); });
+  flat(c, BLUSH, () => { dot(c, -29, 10, 6); dot(c, 29, 10, 6); });
+  solid(c, PINK, () => { c.moveTo(6, 18); c.quadraticCurveTo(10, 38, 22, 36); c.quadraticCurveTo(34, 32, 26, 12); c.closePath(); });
+  line(c, DEEP_RED, 3, () => { c.moveTo(16, 21); c.quadraticCurveTo(20, 27, 21, 31); });
+  line(c, INK, 5, () => { c.moveTo(-26, 10); c.quadraticCurveTo(0, 30, 28, 12); });
 }
 
 /** 😢 Down at the casino: sad brows, a frown, and one tear on the cheek (😭's face, before the sobbing). */
@@ -141,18 +142,18 @@ function police(c: Ctx) {
   solid(c, LIGHT_BLUE, () => box(c, 0, -36, 16, 10, 4));
 }
 
-/** 🤝 Shaking on it: two hands clasped, the chef's in a white sleeve from the left, the other's in a dark one. */
+/** 🤝 Shaking on it: two hands clasped from the side, the chef's from a white cuff and Eddie's from his dark suit. */
 function shake(c: Ctx) {
   const SUIT = '#2E2B33';
-  c.rotate(-0.1); c.scale(0.94, 0.94);
-  // the other's hand, from the right, behind; the chef's in front, its thumb along the top, its fingers curled round
-  solid(c, SKIN, () => box(c, -12, -22, 46, 30, 14));
-  solid(c, SUIT, () => box(c, 28, -24, 18, 36, 5));
-  solid(c, SKIN, () => box(c, -32, -8, 44, 30, 14));
-  solid(c, CREAM, () => box(c, -46, -10, 18, 36, 5));
-  bar(c, SKIN, 8, () => { c.moveTo(-22, -10); c.quadraticCurveTo(-8, -16, 6, -12); });
-  for (let i = 0; i < 4; i++) solid(c, SKIN, () => box(c, 4, -12 + i * 8, 22, 9, 4.5));
-  flat(c, SHINE, () => oval(c, -16, 4, 7, 4));
+  c.translate(0, 5); c.rotate(-0.12);
+  // Eddie's, in from the upper right, behind; the chef's, in from the lower left, its fingers curled up over his
+  solid(c, SKIN, () => box(c, -22, -32, 52, 28, 14));
+  solid(c, SUIT, () => box(c, 26, -38, 20, 38, 6));
+  solid(c, SKIN, () => box(c, -30, -8, 52, 28, 14));
+  solid(c, CREAM, () => box(c, -46, -10, 20, 38, 6));
+  bar(c, SKIN, 8, () => { c.moveTo(-2, -12); c.lineTo(-20, -10); });
+  solid(c, SKIN, () => box(c, 4, -26, 20, 40, 10));
+  line(c, INK, 3, () => { c.moveTo(4, -14); c.lineTo(13, -14); c.moveTo(4, -3); c.lineTo(13, -3); });
 }
 
 /** 🧟 The arcade's horde: a cute green zombie, arms out, one eye bigger than the other. */

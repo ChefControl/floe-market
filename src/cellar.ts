@@ -24,6 +24,7 @@ import { Fugu } from './fugu';
 import { isHigh, onQuality } from './graphics';
 import { apart, Build, dice, K, quietly, rbox, shade, shadowsOf, tube } from './kit';
 import { ARENA, CARDS, CELLAR_Y, type CellarRoom, CRAFT, DEN, DOORS, found, GROW, keepOnFloor, KITCHEN, LANDING, LIFT_ROOM, LOANS, LOO, OFFICE_ROOM, PREP, pushOutOfBox, RESTO, ROOMS, VIP, walkable, WING } from './layout';
+import { FACE } from './icons/bosses';
 import { type CanvasTex, canvasTex, copyGeo, type Draw, FONT, G, mat, mesh, MINCHO, OFF, paint, rr, scene, sun } from './render';
 import { eachDrawing } from './levelCull';
 import type { XZ } from './util';
@@ -2204,7 +2205,7 @@ later(() => {
     c.fillStyle = '#1F2A24'; c.fillRect(7, 7, w - 14, h - 14);
     c.fillStyle = '#E8E4D8'; c.font = `800 17px ${FONT}`; c.textAlign = 'center'; c.fillText('THE CARD', w / 2, 26);
     c.font = `600 14px ${FONT}`;
-    ['🐙 2-1', '🦀 3-1', '🐀 4-1', '🦈 6-1', '🐡 10-1'].forEach((t, i) => { c.textAlign = 'left'; c.fillText(t, 22 + (i % 2) * 82, 50 + Math.floor(i / 2) * 24); });
+    [`${FACE.octopus} 2-1`, `${FACE.crab} 3-1`, `${FACE.catfish} 4-1`, `${FACE.shark} 6-1`, `${FACE.puffer} 10-1`].forEach((t, i) => { c.textAlign = 'left'; c.fillText(t, 22 + (i % 2) * 82, 50 + Math.floor(i / 2) * 24); });
     c.strokeStyle = 'rgba(232,228,216,.5)'; c.lineWidth = 2; c.beginPath(); c.moveTo(20, 33); c.lineTo(w - 20, 33); c.stroke();
   });
   /** Harry's board: cork, with IOUs pinned all over it. */

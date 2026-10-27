@@ -165,30 +165,36 @@ function burst(c: Ctx) {
   flat(c, CREAM, () => dot(c, 0, 0, 8));
 }
 
-/** ✋ Press (an arcade move): an open hand, fingers up. */
+/** ✋ Press (an arcade move): a friendly open palm facing us, fingers a little spread, thumb out, in the chef's white cuff. */
 function hand(c: Ctx) {
-  c.save(); c.translate(4, 0);
+  c.save(); c.translate(3, -2);
   blob(c, SKIN, () => {
-    box(c, -24, -8, 48, 52, 16);
-    ([[-24, -36], [-11, -44], [2, -42], [15, -30]] as const).forEach(([x, top]) => box(c, x, top, 12, 30 - top, 6));
-    c.save(); c.translate(-20, 18); c.rotate(-0.75); box(c, -7, -34, 14, 36, 7); c.restore();
+    box(c, -22, -6, 44, 42, 16);
+    // index, middle, ring, little finger: each fanned out a touch from its knuckle
+    ([[-16, 34, -0.26], [-5.5, 41, -0.09], [5.5, 37, 0.09], [16, 27, 0.26]] as const).forEach(([x, len, a]) => {
+      c.save(); c.translate(x, 6); c.rotate(a); box(c, -5.5, -len, 11, len + 6, 5.5); c.restore();
+    });
+    c.save(); c.translate(-18, 22); c.rotate(-0.95); box(c, -6, -30, 12, 32, 6); c.restore();
   });
-  flat(c, 'rgba(255,255,255,.35)', () => oval(c, -6, -30, 3, 7));
+  flat(c, 'rgba(255,255,255,.3)', () => oval(c, -8, 12, 7, 10, 0.3));
+  solid(c, CREAM, () => box(c, -21, 34, 42, 13, 5));
   c.restore();
 }
 
-/** 👆 The touch hint: a hand, its finger pointing up to tap, in the chef's white cuff. */
+/** 👆 The touch hint: a fist from the back, three knuckles and the thumb folded across, its index finger up to tap. */
 function pointUp(c: Ctx) {
-  c.save(); c.translate(2, 0);
+  c.save(); c.translate(2, 0); c.rotate(-0.12);
   blob(c, SKIN, () => {
-    box(c, -22, -6, 44, 40, 14);
-    box(c, -16, -46, 15, 54, 7.5);
+    box(c, -28, -10, 56, 38, 14);
+    box(c, -26, -46, 13, 50, 6.5);
+    for (const x of [-4, 10, 22]) dot(c, x, -9, 8);
   });
-  // the curled fingers and the thumb
-  line(c, SKIN_LINE, 3, () => { c.moveTo(2, -4); c.lineTo(2, 10); c.moveTo(12, -4); c.lineTo(12, 10); });
-  c.save(); c.translate(-6, 14); c.rotate(-0.22); solid(c, SKIN, () => box(c, -16, -7, 30, 14, 7)); c.restore();
-  flat(c, 'rgba(255,255,255,.35)', () => oval(c, -11, -32, 3, 7));
-  solid(c, CREAM, () => box(c, -24, 30, 48, 16, 5));
+  // the gaps between the curled fingers, and the index finger's nail
+  line(c, SKIN_LINE, 3, () => { for (const x of [3, 16]) { c.moveTo(x, -10); c.lineTo(x, 2); } });
+  flat(c, '#FBE3D0', () => box(c, -23, -43, 7, 9, 3.5));
+  // the thumb, folded across the front of the fist
+  solid(c, SKIN, () => box(c, -30, 6, 40, 14, 7));
+  solid(c, CREAM, () => box(c, -24, 26, 48, 16, 5));
   c.restore();
 }
 

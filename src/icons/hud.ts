@@ -167,24 +167,45 @@ function bin(c: Ctx) {
   solid(c, STEEL, () => box(c, -38, -32, 76, 11, 5));
 }
 
-/** 🛒 Buy: a shopping trolley, its wire basket, handle and two black wheels. */
+/** 🛒 Buy: a shopping trolley, its red wire basket on a steel frame, the handle up the back and two black wheels. */
 function trolley(c: Ctx) {
-  bar(c, STEEL, 6, () => { c.moveTo(-46, -36); c.lineTo(-34, -36); c.lineTo(-20, 22); c.lineTo(34, 22); });
-  const basket = () => poly(c, -32, -24, 44, -24, 36, 12, -24, 12);
+  c.save(); c.translate(2, -1); c.scale(0.92, 0.92);
+  // the basket: its back edge runs along the frame, its floor level with the bottom rail
+  const TL = [-28, -26], TR = [44, -26], BR = [36, 12], BL = [-18, 12];
+  const back = (y: number) => TL[0] + (BL[0] - TL[0]) * (y - TL[1]) / (BL[1] - TL[1]);
+  // the frame: the handle's grip, down the basket's back edge, along the bottom rail and up to the basket's front
+  bar(c, STEEL, 6, () => {
+    c.moveTo(-42, -36); c.lineTo(back(-36), -36); c.lineTo(back(24), 24); c.lineTo(BR[0], 24); c.lineTo(BR[0], BR[1]);
+  });
+  const basket = () => poly(c, TL[0], TL[1], TR[0], TR[1], BR[0], BR[1], BL[0], BL[1]);
   solid(c, RED, basket);
   inside(c, basket, () => line(c, DEEP_RED, 3.5, () => {
-    for (const x of [-10, 10, 28]) { c.moveTo(x, -24); c.lineTo(x - 2, 12); }
-    c.moveTo(-40, -6); c.lineTo(50, -6);
+    for (const f of [0.25, 0.5, 0.75]) {
+      c.moveTo(TL[0] + (TR[0] - TL[0]) * f, TL[1]); c.lineTo(BL[0] + (BR[0] - BL[0]) * f, BL[1]);
+    }
+    c.moveTo(-50, -7); c.lineTo(50, -7);
   }));
   c.beginPath(); basket(); c.stroke();
-  for (const x of [-14, 28]) { solid(c, NIGHT, () => dot(c, x, 34, 8)); flat(c, STEEL, () => dot(c, x, 34, 3)); }
+  // the wheels, evenly under the rail
+  for (const x of [back(24) + 8, BR[0] - 8]) { solid(c, NIGHT, () => dot(c, x, 34, 8)); flat(c, STEEL, () => dot(c, x, 34, 3)); }
+  c.restore();
 }
 
-/** 💬 Talk: a white speech bubble, its tail down to the left, three dots inside. */
+/** 💬 Talk: a white speech bubble, its tail down to the left, three dots inside: bubble and tail one outlined shape. */
 function talk(c: Ctx) {
-  blob(c, CREAM, () => { box(c, -44, -36, 88, 60, 22); c.moveTo(-28, 16); c.quadraticCurveTo(-24, 34, -36, 42); c.quadraticCurveTo(-14, 40, -4, 20); c.closePath(); });
-  flat(c, INK, () => { dot(c, -18, -6, 5.5); dot(c, 0, -6, 5.5); dot(c, 18, -6, 5.5); });
-  flat(c, SHINE, () => oval(c, -26, -24, 9, 4, -0.2));
+  const L = -44, R = 44, T = -36, B = 22, r = 20;
+  solid(c, CREAM, () => {
+    c.moveTo(L + r, T);
+    c.arcTo(R, T, R, B, r); c.arcTo(R, B, L, B, r);
+    // along the bottom to the tail, out to its tip and back
+    c.lineTo(-6, B);
+    c.quadraticCurveTo(-14, 36, -36, 44);
+    c.quadraticCurveTo(-24, 34, -22, B);
+    c.arcTo(L, B, L, T, r); c.arcTo(L, T, R, T, r);
+    c.closePath();
+  });
+  flat(c, INK, () => { dot(c, -18, -7, 5.5); dot(c, 0, -7, 5.5); dot(c, 18, -7, 5.5); });
+  flat(c, SHINE, () => oval(c, -26, -25, 9, 4, -0.2));
 }
 
 export const HUD: Record<string, Drawing> = {

@@ -1,7 +1,7 @@
 // Icons for the arcade, ads and the beach, keyed by the emoji they stand for (icons.ts gathers them). Drawn with the kit (kit.ts), the
 // design book's Icons section has the rules.
 import {
-  type Ctx, type Drawing, BLUE, SKY, CREAM, DARK_WOOD, GOLD, INK, NIGHT, PINK, RED, STEEL, TAU,
+  type Ctx, type Drawing, BLUE, SKY, CREAM, DEEP_RED, GOLD, INK, NIGHT, PINK, RED, STEEL, TAU,
   bar, blob, box, dot, flat, heartPath, inside, line, oval, poly, solid,
 } from './kit';
 
@@ -11,7 +11,7 @@ const LIME = '#A3D94A', DEEP_LIME = '#6FA83A';
 const YELLOW = '#F7D038', ORANGE = '#F08A24';
 const SHINE = 'rgba(255,255,255,.4)';
 /** A matkot paddle's light wood (the beach's paddles, C.endGrain). */
-const BLADE = '#D9A877';
+const BLADE = '#D9A877', GRAIN = '#B9875A';
 
 /** ☠ Poison: a friendly cartoon skull, big round eyes with a glint, over two crossed bones. */
 function skull(c: Ctx) {
@@ -120,21 +120,24 @@ function reefFish(c: Ctx) {
   flat(c, INK, () => dot(c, 31, -6, 3.2));
 }
 
-/** 🏓 Matkot: two wooden beach paddles crossed at their handles, and the red ball between them. */
+/**
+ * 🏓 Matkot: two flat plywood beach paddles, face-on, and the ball: a red-painted one behind and a plain wooden one in
+ * front, each a flat disc with a thin rim line on a short, straight, flat handle.
+ */
 function matkot(c: Ctx) {
-  const paddle = (x: number, y: number, a: number) => {
+  const paddle = (x: number, y: number, a: number, r: number, face: string, rim: string, grain: boolean) => {
     c.save(); c.translate(x, y); c.rotate(a);
-    bar(c, DARK_WOOD, 9, () => { c.moveTo(0, 18); c.lineTo(0, 46); });
-    const blade = () => oval(c, 0, -2, 19, 22);
-    solid(c, BLADE, blade);
-    inside(c, blade, () => line(c, '#B9875A', 3, () => oval(c, 0, -2, 14, 17)));
-    flat(c, SHINE, () => oval(c, -7, -11, 4.5, 7, 0.4));
+    solid(c, BLADE, () => box(c, -7, r - 4, 14, 22, 2));
+    const disc = () => dot(c, 0, 0, r);
+    solid(c, face, disc);
+    if (grain) inside(c, disc, () => line(c, rim, 2.5, () => { for (const gx of [-12, -2, 9, 18]) { c.moveTo(gx, -r); c.lineTo(gx, r); } }));
+    line(c, rim, 3, () => dot(c, 0, 0, r - 5));
+    c.beginPath(); disc(); c.stroke();
     c.restore();
   };
-  paddle(-21, -8, -0.42);
-  paddle(21, -8, 0.42);
-  solid(c, RED, () => dot(c, 0, -34, 11));
-  flat(c, 'rgba(255,255,255,.5)', () => dot(c, -4, -38, 3.5));
+  paddle(-17, -13, 0.35, 23, RED, DEEP_RED, false);
+  paddle(12, 2, -0.35, 25, BLADE, GRAIN, true);
+  solid(c, GOLD, () => dot(c, 35, -35, 8));
 }
 
 export const ARCADE: Record<string, Drawing> = {
