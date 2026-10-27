@@ -5,7 +5,7 @@ import {
   bar, blob, box, dot, flat, inside, line, oval, poly, solid,
 } from './kit';
 
-/** The faces' yellow (😐 😭 in icons.ts), their tears' blue, and the cheeks' blush. */
+/** The faces' yellow (😐 in icons.ts), their tears' blue, and the cheeks' blush. */
 const FACE = '#F7D038', TEAR = '#6EC3F0', BLUSH = 'rgba(229,72,77,.35)', HAIR = '#3B2A20';
 /** A zombie's sickly green, light and deep. */
 const ZOMBIE = '#9BCB6A', DEEP_ZOMBIE = '#6E9E48';
@@ -103,23 +103,13 @@ function yum(c: Ctx) {
   line(c, INK, 5, () => { c.moveTo(-26, 10); c.quadraticCurveTo(0, 30, 28, 12); });
 }
 
-/** 😢 Down at the casino: sad brows, a frown, and one tear on the cheek (😭's face, before the sobbing). */
+/** 😢 Down at the casino, and the restroom to cry it out in: sad brows, a frown, and one tear on the cheek. */
 function sad(c: Ctx) {
   face(c);
   line(c, INK, 5, () => { c.moveTo(-28, -18); c.lineTo(-10, -24); c.moveTo(28, -18); c.lineTo(10, -24); });
   flat(c, INK, () => { oval(c, -15, -6, 5, 7); oval(c, 15, -6, 5, 7); });
   line(c, INK, 5, () => c.arc(0, 32, 13, -0.82 * Math.PI, -0.18 * Math.PI));
   solid(c, TEAR, () => { c.moveTo(-17, 2); c.quadraticCurveTo(-26, 16, -26, 21); c.arc(-17, 21, 9, Math.PI, 0, true); c.quadraticCurveTo(-8, 16, -17, 2); c.closePath(); });
-}
-
-/** 😭 The casino's restroom, for a good cry: 😢's face with both eyes squeezed shut and a big tear falling from each. */
-function sob(c: Ctx) {
-  face(c);
-  line(c, INK, 5, () => { c.moveTo(-28, -18); c.lineTo(-10, -24); c.moveTo(28, -18); c.lineTo(10, -24); });
-  line(c, INK, 5, () => { c.moveTo(-23, -4); c.quadraticCurveTo(-15, -11, -7, -4); c.moveTo(7, -4); c.quadraticCurveTo(15, -11, 23, -4); });
-  line(c, INK, 5, () => c.arc(0, 36, 13, -0.82 * Math.PI, -0.18 * Math.PI));
-  const drop = (s: number) => { c.moveTo(s * 27, 0); c.quadraticCurveTo(s * 36, 14, s * 36, 19); c.arc(s * 27, 19, 9, 0, Math.PI); c.quadraticCurveTo(s * 18, 14, s * 27, 0); c.closePath(); };
-  solid(c, TEAR, () => { drop(-1); drop(1); });
 }
 
 /** 🙂 A local fighter, nobody special: a plain, friendly smile. */
@@ -229,6 +219,6 @@ function look(c: Ctx) {
 }
 
 export const PEOPLE: Record<string, Drawing> = {
-  '💪': flex, '👥': crowd, '👨‍🍳': cook, '🧑‍🍳': crew, '😋': yum, '😢': sad, '😭': sob, '🙂': smile, '🚶': walk, '🚔': police,
+  '💪': flex, '👥': crowd, '👨‍🍳': cook, '🧑‍🍳': crew, '😋': yum, '😢': sad, '🙂': smile, '🚶': walk, '🚔': police,
   '🤝': shake, '🧟': zombie, '👁': look,
 };

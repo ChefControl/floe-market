@@ -339,7 +339,7 @@ describe('the casino boat', () => {
     expect(room.restroomView().puddle).toBeGreaterThan(0.3);
     expect(said).toContain('My $25…');
     // pressing does nothing while they're in there, but moving would get them out early (another test)
-    expect($('tearsMsg').textContent).toBe('Let it all out… 😭');
+    expect($('tearsMsg').textContent).toBe('Let it all out… 😢');
     // then they come out onto the pad feeling better, with nothing left to cry about
     g.run(5.5);
     expect(room.restroomView().crying).toBe(false);
