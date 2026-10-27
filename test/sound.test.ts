@@ -740,11 +740,11 @@ describe('music', () => {
     }
   }, 30_000);
 
-  it('the casino yacht\'s room: the dining room faint below anywhere aboard, the bar and the slot machines up close', async () => {
+  it('the casino yacht\'s room: the dining room faint below anywhere aboard, the bar up close, and each guest\'s spin from their machine', async () => {
     const fetch = vi.fn(() => Promise.resolve({ arrayBuffer: () => Promise.resolve(new ArrayBuffer(8)) }));
     vi.stubGlobal('fetch', fetch);
     const s = await withSound({ tiles: bought('roulette') });
-    const { roomTones } = await import('../src/roomTone'), { BAR } = await import('../src/casinoSalon');
+    const { roomTones } = await import('../src/roomTone'), { BAR, ROW, SPINS } = await import('../src/casinoSalon');
     const { GAMES, SHIP } = s.g.layout, settle = () => new Promise(r => setTimeout(r, 0));
     s.g.placePlayer(0, -3);
     s.play(1);
@@ -754,24 +754,30 @@ describe('music', () => {
     expect(fetch).toHaveBeenCalledTimes(3);
     for (let i = 0; i < 4; i++) await settle();
     s.play(0.2);
-    const lv = () => Object.fromEntries((['dining', 'bar', 'slots'] as const).map(k => [k, +roomTones[k]!.g.gain.value.toFixed(3)]));
-    expect(lv()).toEqual({ dining: 0, bar: 0, slots: 0 }); // on the quay
+    const lv = () => Object.fromEntries((['dining', 'bar'] as const).map(k => [k, +roomTones[k]!.g.gain.value.toFixed(3)]));
+    expect(lv()).toEqual({ dining: 0, bar: 0 }); // on the quay
     s.g.placePlayer(SHIP.x + 6, SHIP.z + 0.3); // aboard, on the foredeck at the foot of the stairs
     s.play(0.5);
-    expect(lv()).toEqual({ dining: 0.08, bar: 0, slots: 0 });
-    s.g.placePlayer(SHIP.x + BAR.x + 1.2, SHIP.z); // up at the bar
-    s.play(0.5);
+    expect(lv()).toEqual({ dining: 0.08, bar: 0 });
+    // up at the bar: the guests at the slot machines by the door are too far off to hear
+    s.g.placePlayer(SHIP.x + BAR.x + 1.2, SHIP.z);
+    const spins = (ps: Played[]) => ps.filter(p => p.kind === 'noise' && !p.loop && p.bus === 'amb' && SPINS.some(k => k.at === (p.src as unknown as { offset: number }).offset));
+    expect(spins(s.since(() => s.play(8)))).toEqual([]);
     expect(lv().bar).toBeGreaterThan(0.24);
-    expect(lv().slots).toBe(0);
     expect(lv().dining).toBe(0.08);
-    s.g.placePlayer(GAMES.slots.x, GAMES.slots.z); // at the slot machines
+    s.g.placePlayer(GAMES.slots.x, GAMES.slots.z); // at the player's own machine
     s.play(0.5);
     expect(lv().bar).toBe(0);
-    expect(lv().slots).toBeGreaterThan(0.15);
-    s.g.placePlayer(GAMES.roulette.x + 1.2, GAMES.roulette.z + 1.5); // the middle of the floor: a little of each
-    s.play(0.5);
-    expect(lv().bar + lv().slots).toBeLessThan(0.3);
-    // if the ambience's guard finds something wrong, each recording plays again from a new source, as loud as before
+    // beside the guests' row: each pull plays the machine's next spin from the recording, from that machine
+    s.g.placePlayer(SHIP.x + ROW.x - 0.75, SHIP.z + (ROW.zs[0] + ROW.zs[1]) / 2);
+    const heard = spins(s.since(() => s.play(16)));
+    expect(heard.length).toBeGreaterThanOrEqual(3);
+    const at = heard.map(p => (p.src as unknown as { offset: number }).offset);
+    expect(new Set(at)).toEqual(new Set(SPINS.map(k => k.at))); // the machines go through all three
+    // (each through its low-pass to its gain, set as it starts)
+    const loud = (p: Played) => (p.src.outs[0].outs[0] as unknown as { gain: { first: number } }).gain.first;
+    for (const p of heard) expect(loud(p)).toBeCloseTo(0.15, 1);
+    // if the ambience's guard finds something wrong, each loop plays again from a new source, as loud as before
     const was = lv(), old = roomTones.bar!.src as unknown as { stopped: boolean };
     s.audio.broken('amb');
     expect(old.stopped).toBe(true);
@@ -794,8 +800,8 @@ describe('music', () => {
     const dining = recording(4_111_488, 48_000), cut = loopable(dining).getChannelData(0);
     expect(cut).toHaveLength(4_111_487);
     expect([cut[0], cut[1234], cut[4_111_486]]).toEqual([0, 1234 % 997 / 997, 4_111_486 % 997 / 997].map(Math.fround));
-    // the bar's and the slot machines' loop as they are, so they're kept as they are
-    for (const n of [4_371_213, 5_805_440]) {
+    // the bar's loops as it is, so it's kept as it is
+    for (const n of [4_371_213]) {
       const r = recording(n, 48_000);
       expect(loopable(r)).toBe(r);
     }
