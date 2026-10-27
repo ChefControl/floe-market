@@ -42,18 +42,11 @@ addEventListener('error', function (e) {
 </script>
 <meta name="apple-mobile-web-app-title" content="Floe Market">
 <!-- The game's fonts come with it (public/fonts, scripts/fonts/build.py): it never fetches one from the web. Fetched at
-     once, alongside the game's scripts; fonts.ts adds the emoji, and waits for them all before the game draws. -->
+     once, alongside the game's scripts; fonts.ts adds the emoji (the game's own icons), and waits for them all before
+     the game draws. -->
 <link rel="preload" href="fonts/baloo2-800.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/baloo2-600.woff2" as="font" type="font/woff2" crossorigin>
-<script>
-// (not in Safari, nor on an iPhone: it keeps Apple's own emoji there, fonts.ts)
-(function (ua) {
-  if (/AppleWebKit/.test(ua) && !/Chrome\//.test(ua)) return;
-  var l = document.createElement('link');
-  l.rel = 'preload'; l.href = 'fonts/emoji.woff2'; l.as = 'font'; l.type = 'font/woff2'; l.crossOrigin = '';
-  document.head.appendChild(l);
-})(navigator.userAgent);
-</script>
+<link rel="preload" href="fonts/emoji.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/mincho.woff2" as="font" type="font/woff2" crossorigin>
 <style>
 @font-face{ font-family:"Baloo 2"; font-weight:600; font-display:swap; src:url(/fonts/baloo2-600.woff2) format("woff2"); }
@@ -1521,8 +1514,7 @@ body.show #toss, body.show #cook, body.show #coach, body.show #hint, body.show #
       <li>Baloo 2, © 2019 The Baloo 2 Project Authors, <a href="fonts/OFL-Baloo2.txt" target="_blank" rel="noopener">SIL Open Font License 1.1</a>.</li>
       <li>Bungee, © 2023 The Bungee Project Authors, <a href="fonts/OFL-Bungee.txt" target="_blank" rel="noopener">SIL Open Font License 1.1</a>.</li>
       <li>Shippori Mincho B1, © 2021 The Shippori Mincho Project Authors, <a href="fonts/OFL-ShipporiMinchoB1.txt" target="_blank" rel="noopener">SIL Open Font License 1.1</a>.</li>
-      <li>Noto Color Emoji, © 2013 Google LLC, <a href="fonts/OFL-NotoColorEmoji.txt" target="_blank" rel="noopener">SIL Open Font License 1.1</a>.</li>
-      <li>Each cut down to the letters and emoji the game uses.</li>
+      <li>Each cut down to the letters the game uses. The emoji are the game's own drawings.</li>
     </ul>
     <h3>The casino yacht's room sound</h3>
     <ul>

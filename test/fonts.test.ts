@@ -1,15 +1,30 @@
-// The game's fonts come with it (#148): none from the web, every emoji and kanji it writes in the bundled fonts, and
-// the game waits for them before it paints anything.
+// The game's fonts come with it (#148): none from the web, every emoji it shows one of its own drawings (the Floe Emoji
+// font), every kanji in the brush font, and the game waits for them before it paints anything.
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import indexHtml from '../index.html?raw';
+import { fileOf, svgOf } from '../scripts/icons/svg';
 import { emojiIn, minchoIn, sources } from '../scripts/fonts/used';
+import { DRAWINGS } from '../src/icons';
 import bundled from '../src/fonts.json';
 
 describe('the bundled fonts', () => {
   const texts = sources();
 
-  it('carry every emoji the game shows (run scripts/fonts/build.py when one is new)', () => {
+  const bare = (e: string) => e.replace(/\uFE0F/g, '');
+
+  it('have a drawing for every emoji the game shows (src/icons; the design book\'s Icons section)', () => {
+    expect(emojiIn(texts).filter(e => !DRAWINGS[bare(e)] && !DRAWINGS[e])).toEqual([]);
+  });
+
+  it('carry every emoji the game shows (run scripts/fonts/build.py after drawing one)', () => {
     expect(emojiIn(texts).filter(e => !bundled.emoji.includes(e))).toEqual([]);
+  });
+
+  it('turn every drawing into a glyph: flat shapes, no text and no fading', () => {
+    for (const e of Object.keys(DRAWINGS).filter(e => e !== 'mrFugu')) {
+      expect(svgOf(e), e).toMatch(/^<svg [^>]*viewBox="0 0 100 100">.*<path /);
+    }
+    expect(fileOf('🧑‍🍳')).toBe('emoji_u1f9d1_200d_1f373.svg');
+    expect(fileOf('❄️')).toBe('emoji_u2744.svg');
   });
 
   it('carry every kanji and kana the game writes (run scripts/fonts/build.py when one is new)', () => {
@@ -34,9 +49,8 @@ describe('loadFonts', () => {
     get status() { return status; }
     load() { return load(); }
   }
-  function stub(ua = 'Mozilla/5.0 (Macintosh) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0 Safari/537.36') {
+  function stub() {
     vi.stubGlobal('FontFace', Face);
-    vi.stubGlobal('navigator', { userAgent: ua });
     const fonts = { add: (f: FontFace) => added.push(f), delete: (f: FontFace) => deleted.push(f), load: vi.fn(async (_font: string) => [] as FontFace[]) };
     Object.defineProperty(document, 'fonts', { value: fonts, configurable: true });
     return fonts;
@@ -59,20 +73,6 @@ describe('loadFonts', () => {
     expect(emoji.descriptors.unicodeRange).toBe(bundled.emojiRange);
     expect(emoji.descriptors.unicodeRange).not.toMatch(/U\+(20|30|41)\b/); // no space, digits or letters
     expect(deleted).toEqual([]);
-  });
-
-  it('keeps Apple\'s own emoji in Safari and on an iPhone, which draw this font in blocks', async () => {
-    const { loadFonts, webkit } = await import('../src/fonts');
-    for (const ua of ['Mozilla/5.0 (iPhone; CPU iPhone OS 27_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/152.0 Mobile/15E148 Safari/604.1',
-      'Mozilla/5.0 (Macintosh; Intel Mac OS X 15_0) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.0 Safari/605.1.15']) {
-      expect(webkit(ua)).toBe(true);
-    }
-    expect(webkit('Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0 Electron/40.0 Safari/537.36')).toBe(false);
-    expect(webkit('Mozilla/5.0 (Windows NT 10.0; rv:140.0) Gecko/20100101 Firefox/140.0')).toBe(false);
-    const fonts = stub('Mozilla/5.0 (Macintosh; Intel Mac OS X 15_0) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.0 Safari/605.1.15');
-    await loadFonts();
-    expect(added).toEqual([]);
-    expect(fonts.load).toHaveBeenCalledTimes(3);
   });
 
   it("starts anyway when a font doesn't come, and leaves the emoji out so they don't change halfway", async () => {
@@ -111,19 +111,5 @@ describe('boot', () => {
     vi.doMock('../src/main', () => { throw new Error('boom'); });
     await (await import('../src/boot')).started;
     expect(document.getElementById('errMsg')!.textContent).toContain('Something broke');
-  });
-});
-
-describe("index.html's preload of the emoji font", () => {
-  const src = /<script>\s*\/\/ \(not in Safari[\s\S]*?<\/script>/.exec(indexHtml)![0].replace(/<\/?script>/g, '');
-  const run = (ua: string) => {
-    document.head.querySelectorAll('link[href="fonts/emoji.woff2"]').forEach(l => l.remove());
-    new Function('navigator', src)({ userAgent: ua });
-    return document.head.querySelector<HTMLLinkElement>('link[href="fonts/emoji.woff2"]');
-  };
-
-  it('fetches it at once where it is used, and not in Safari', () => {
-    expect(run('Mozilla/5.0 (Windows NT 10.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0 Safari/537.36')?.as).toBe('font');
-    expect(run('Mozilla/5.0 (iPhone) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.0 Mobile Safari/604.1')).toBeNull();
   });
 });

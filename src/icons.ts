@@ -4,16 +4,18 @@
 // own colours, here with a dark outline so they read at a glance on a white badge or a wooden tag.
 // Each is keyed by the emoji it replaces, so the tiles and squares keep their emoji for the page (the tip, the arrows
 // at the edge of the screen) and the canvas draws the picture instead.
-type Ctx = CanvasRenderingContext2D;
-type Drawing = (c: Ctx) => void;
-
-/** The outline's colour and width (in the drawings' units: each is drawn in a box from -50 to 50 each way). */
-const INK = '#1B2733', OUT = 4;
-const TAU = Math.PI * 2;
-
-const RED = '#E5484D', DEEP_RED = '#C0392B', GOLD = '#F2C14E', DEEP_GOLD = '#C99A22', CREAM = '#FFFDF5';
-const GREEN = '#49C25B', DEEP_GREEN = '#3FA34D', WOOD = '#8A5A3B', DARK_WOOD = '#6B4A35', STEEL = '#B9C6CF';
-const NIGHT = '#22262B', BLUE = '#355C9E', SKY = '#5FA8C8', SKIN = '#F2C9A0', PINK = '#E8607A';
+import {
+  type Ctx, type Drawing, BLUE, CREAM, DARK_WOOD, DEEP_GOLD, DEEP_GREEN, DEEP_RED, GOLD, GREEN, INK, NIGHT, OUT, PINK,
+  RED, SKIN, SKY, STEEL, TAU, WOOD,
+  bar, blob, box, boxed, dot, drum, eye, flat, heartPath, inside, leaf, line, oval, poly, solid,
+} from './icons/kit';
+import { HUD } from './icons/hud';
+import { NATURE } from './icons/nature';
+import { FOOD } from './icons/food';
+import { CASINO } from './icons/casino';
+import { PEOPLE } from './icons/people';
+import { WORKS } from './icons/works';
+import { ARCADE } from './icons/arcade';
 
 // ---------- the bubbles' own icons (shared with bubble.ts, drawn in its coordinates) ----------
 
@@ -49,101 +51,6 @@ export function sushiIcon(c: Ctx) {
   c.beginPath(); c.moveTo(34, 47); c.lineTo(39, 57); c.moveTo(47, 47); c.lineTo(52, 57); c.stroke();
 }
 
-/** One of the bubbles' icons, moved from its box in the bubble ([x, y, w, h]) into the middle of ours, `k` wide. */
-const boxed = (draw: Drawing, [x, y, w, h]: [number, number, number, number], k = 92): Drawing => c => {
-  const s = k / w;
-  c.scale(s, s); c.translate(-(x + w / 2), -(y + h / 2));
-  draw(c);
-};
-
-// ---------- drawing helpers ----------
-
-/** Adds a circle to the path, as its own shape. */
-function dot(c: Ctx, x: number, y: number, r: number) { c.moveTo(x + r, y); c.arc(x, y, r, 0, TAU); }
-/** Adds an ellipse to the path, as its own shape. */
-function oval(c: Ctx, x: number, y: number, rx: number, ry: number, rot = 0) {
-  c.moveTo(x + Math.cos(rot) * rx, y + Math.sin(rot) * rx); c.ellipse(x, y, rx, ry, rot, 0, TAU);
-}
-/** Adds a rounded rectangle to the path, as its own shape (unlike render.ts' rr, which starts a new path). */
-function box(c: Ctx, x: number, y: number, w: number, h: number, r: number) {
-  c.moveTo(x + r, y);
-  c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r);
-  c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r);
-  c.closePath();
-}
-/** Adds a closed polygon to the path. */
-function poly(c: Ctx, ...pts: number[]) {
-  c.moveTo(pts[0], pts[1]);
-  for (let i = 2; i < pts.length; i += 2) c.lineTo(pts[i], pts[i + 1]);
-  c.closePath();
-}
-
-/** Fills a shape in `color`, outlined. */
-function solid(c: Ctx, color: string, path: () => void) {
-  c.beginPath(); path(); c.fillStyle = color; c.fill(); c.stroke();
-}
-/** Fills a shape without its outline: markings on another shape. */
-function flat(c: Ctx, color: string, path: () => void) {
-  c.beginPath(); path(); c.fillStyle = color; c.fill();
-}
-/**
- * Fills several overlapping shapes as one, with a single outline round the lot (a bumpy batter, a bottle and its
- * neck): the outline is stroked twice as wide underneath, and the fill covers its inner half.
- */
-function blob(c: Ctx, color: string, path: () => void) {
-  c.beginPath(); path();
-  c.lineWidth = OUT * 2; c.stroke(); c.lineWidth = OUT;
-  c.fillStyle = color; c.fill();
-}
-/** A thick line (a rod, a leg, a stalk) `w` wide in `color`, outlined. */
-function bar(c: Ctx, color: string, w: number, path: () => void) {
-  c.beginPath(); path();
-  c.lineWidth = w + OUT * 2; c.stroke();
-  c.lineWidth = w; c.strokeStyle = color; c.stroke();
-  c.lineWidth = OUT; c.strokeStyle = INK;
-}
-/** A plain line, no outline. */
-function line(c: Ctx, color: string, w: number, path: () => void) {
-  c.beginPath(); path();
-  c.lineWidth = w; c.strokeStyle = color; c.stroke();
-  c.lineWidth = OUT; c.strokeStyle = INK;
-}
-/** Draws `f` clipped to `path`. */
-function inside(c: Ctx, path: () => void, f: () => void) {
-  c.save(); c.beginPath(); path(); c.clip(); f(); c.restore();
-}
-/** A leaf `len` long and `w` wide, from (x, y) pointing at `a`. */
-function leaf(c: Ctx, color: string, x: number, y: number, a: number, len: number, w: number) {
-  c.save(); c.translate(x, y); c.rotate(a);
-  solid(c, color, () => { c.moveTo(0, 0); c.quadraticCurveTo(len / 2, -w, len, 0); c.quadraticCurveTo(len / 2, w, 0, 0); });
-  line(c, 'rgba(255,255,255,.35)', 2.5, () => { c.moveTo(len * 0.15, 0); c.lineTo(len * 0.75, 0); });
-  c.restore();
-}
-/** An upright cylinder: its side, then its top, `h` tall from `top` down. */
-function drum(c: Ctx, x: number, top: number, rx: number, ry: number, h: number, side: string, lid: string) {
-  solid(c, side, () => {
-    c.moveTo(x - rx, top); c.lineTo(x - rx, top + h);
-    c.ellipse(x, top + h, rx, ry, 0, Math.PI, 0, true);
-    c.lineTo(x + rx, top);
-  });
-  solid(c, lid, () => oval(c, x, top, rx, ry));
-}
-/** A heart, its point at the bottom. */
-function heartPath(c: Ctx) {
-  c.moveTo(0, 38);
-  c.bezierCurveTo(-30, 18, -46, 2, -46, -16);
-  c.bezierCurveTo(-46, -34, -30, -42, -21, -42);
-  c.bezierCurveTo(-9, -42, -2, -34, 0, -26);
-  c.bezierCurveTo(2, -34, 9, -42, 21, -42);
-  c.bezierCurveTo(30, -42, 46, -34, 46, -16);
-  c.bezierCurveTo(46, 2, 30, 18, 0, 38);
-  c.closePath();
-}
-/** An eye: white with a dark pupil looking `dx` sideways. */
-function eye(c: Ctx, x: number, y: number, r: number, dx = 0) {
-  solid(c, '#fff', () => dot(c, x, y, r));
-  flat(c, INK, () => dot(c, x + dx, y, r * 0.5));
-}
 
 // ---------- the market: pads, squares and stage 1's tiles ----------
 
@@ -169,8 +76,12 @@ function rice(c: Ctx) {
   inside(c, body, () => flat(c, DEEP_RED, () => c.rect(-40, -6, 80, 26)));
   c.beginPath(); body(); c.stroke();
   solid(c, DEEP_RED, () => box(c, -13, -32, 26, 8, 3));
-  c.fillStyle = CREAM; c.font = 'bold 22px sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
-  c.fillText('米', 0, 8);
+  // 米, brushed in strokes (an icon carries no text: it's a glyph in the emoji font too)
+  line(c, CREAM, 3.5, () => {
+    c.moveTo(-9, 7); c.lineTo(9, 7); c.moveTo(0, -3); c.lineTo(0, 18);
+    c.moveTo(-7, -1); c.lineTo(-4, 3); c.moveTo(7, -1); c.lineTo(4, 3);
+    c.moveTo(-1, 9); c.lineTo(-8, 16); c.moveTo(1, 9); c.lineTo(8, 16);
+  });
 }
 /** 🥡 The takeout box. */
 const takeout = boxed(boxIcon, [18, 40, 52, 34], 86);
@@ -701,7 +612,7 @@ function mushroom(c: Ctx) {
 }
 
 /** Every drawing, by the emoji it stands in for. */
-const DRAWINGS: Record<string, Drawing> = {
+export const DRAWINGS: Record<string, Drawing> = {
   '🎣': rod, '🐟': fish, '🍚': rice, '🚗': car, '🎰': roulette, '🛴': scooter, '💔': brokenHeart,
   '📈': upgrade, '🍳': pan, '🌿': sprig,
   '🎒': backpack, '🎯': target, '🏃': runner, '🥾': boot, '🥅': net, '🏯': torii,
@@ -712,6 +623,8 @@ const DRAWINGS: Record<string, Drawing> = {
   '🍥': naruto, '🍢': oden, '🍵': tea, '🍶': sake, '🍲': chanko, '🍄': mushroom,
   // (a drawing of its own, with no emoji: the buy-in tile's, unlocks.ts' `art`)
   'mrFugu': mrFugu,
+  // (the rest, drawn by theme: src/icons/*.ts)
+  ...HUD, ...NATURE, ...FOOD, ...CASINO, ...PEOPLE, ...WORKS, ...ARCADE,
 };
 /** The emoji that have a drawing (the contact sheet goes through them all). */
 export const DRAWN = Object.keys(DRAWINGS);
@@ -724,7 +637,7 @@ let spare: HTMLCanvasElement | null = null;
  * transform and opacity. An emoji with no picture is written as it was.
  */
 export function drawIcon(c: Ctx, icon: string, x: number, y: number, size: number) {
-  const draw = DRAWINGS[icon];
+  const draw = DRAWINGS[icon] ?? DRAWINGS[icon.replace(/\uFE0F/g, '')];
   if (!draw) {
     c.font = `${size}px "Floe Emoji",serif`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(icon, x, y);
     return;
