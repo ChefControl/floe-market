@@ -69,3 +69,16 @@ Median fps, with the lowest second in brackets:
 Everything holds 60 fps except stage 3 with every boss beaten and everything bought on High (1413 draw calls, 585k
 triangles), which drops to about 50. Low holds 60 there, so the Deck should default to Low or get a lighter High for
 the late cellar.
+
+The same Deck running the native Linux build (OpenGL 4.6 through ANGLE on radeonsi, no Proton), launched from Game
+Mode the same day:
+
+| Scene | Proton Low | Native Low | Proton High | Native High |
+| --- | --- | --- | --- | --- |
+| stage1 | 60 (55) | 60 (44, one hitch) | 60 (59) | 60 (60) |
+| stage2 | 60 (53) | 60 (56) | 60 (60) | 60 (60) |
+| cellar | 60 (60) | 60 (57) | 60 (60) | 60 (60) |
+| cellar-full | 60 (55) | 60 (58) | **50 (42)** | **60 (58)** |
+
+Native holds 60 fps everywhere, High included: skipping Proton's two translation layers (Direct3D 11 to Vulkan) is
+worth about 10 fps in the heaviest scene. The cost is a second build to ship and test, and the sandbox question above.
