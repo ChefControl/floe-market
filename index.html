@@ -1149,7 +1149,7 @@ body.cine #hud, body.cine #rush{ visibility:hidden; }
   user-select:text; -webkit-user-select:text;
 }
 #korki[hidden]{ display:none; }
-#korki h2{ margin:0 92px 0 0; font-size:30px; font-weight:800; line-height:1; color:#C98F1B; }
+#korki h2{ margin:0 46px 0 0; font-size:30px; font-weight:800; line-height:1; color:#C98F1B; }
 #korki .sub{ margin:2px 0 10px; font-size:14px; font-weight:600; opacity:.75; }
 #korki p{ margin:0 0 9px; font-size:16px; font-weight:600; line-height:1.35; }
 #korki .sign{ margin:12px 0 0; font-weight:800; }
@@ -1161,22 +1161,13 @@ body.cine #hud, body.cine #rush{ visibility:hidden; }
 #korki .btns button:focus-visible{ outline:3px solid #E3A92B; outline-offset:2px; }
 #korkiClose{ font-weight:800; }
 #korki .song{ margin:10px 0 0; font-size:13px; opacity:.7; }
-#korki .song a{ color:inherit; text-decoration:underline; text-underline-offset:2px; }
-#korki .song a:focus-visible{ outline:3px solid #E3A92B; outline-offset:2px; border-radius:4px; }
 
 #rain{
   position:fixed; left:50%; top:calc(env(safe-area-inset-top,0px) + 118px); transform:translateX(-50%);
-  z-index:4; font-size:17px; padding:4px 16px 4px 4px; white-space:nowrap; box-shadow:0 3px 0 var(--shade), inset 0 0 0 3px #7D8995;
+  z-index:4; font-size:17px; padding:8px 18px; white-space:nowrap; box-shadow:0 3px 0 var(--shade), inset 0 0 0 3px #7D8995;
   flex-wrap:wrap; justify-content:center; row-gap:4px; width:max-content; max-width:min(92vw,400px); box-sizing:border-box;
 }
-#rain:has(#rainHint:not([hidden])){ border-radius:22px; padding:6px 14px 8px 6px; }
-#rainHint{ flex-basis:100%; text-align:center; white-space:normal; font-size:14px; font-weight:600; line-height:1.25; }
-#rainHint[hidden]{ display:none; }
 #rain[hidden]{ display:none; }
-#rainMute{ width:34px; height:34px; border:0; border-radius:50%; background:var(--chip); color:inherit; font-size:17px; line-height:1; cursor:pointer; }
-#rainMute:focus-visible{ outline:3px solid #7D8995; outline-offset:2px; }
-#rain a{ color:inherit; text-decoration:underline; text-underline-offset:2px; }
-#rain a:focus-visible{ outline:3px solid #7D8995; outline-offset:2px; border-radius:4px; }
 
 /* The loading screen: the game's scripts coming in, counted in bytes, then the world being built. Gone on the first frame. */
 #loading{ position:fixed; inset:0; z-index:8; display:grid; place-items:center; align-content:center; gap:22px; background:var(--bg); color:var(--pill-ink); transition:opacity .4s; }
@@ -1363,7 +1354,6 @@ body.offer #wayAlert, body.way #wayAlert, body.meet #wayAlert{ visibility:hidden
   #cloudMenu button{ min-height:38px; }
   #settings > button, #settings > a{ min-height:44px; }
   #look .word{ min-height:40px; }
-  #rainMute{ width:40px; height:40px; }
   #korki .btns button{ width:42px; height:42px; }
 }
 
@@ -1508,9 +1498,7 @@ body.show #toss, body.show #cook, body.show #coach, body.show #hint, body.show #
   <div id="creditsCard" class="catPanel" role="region" aria-labelledby="creditsBtn" hidden>
     <h3>Music</h3>
     <ul>
-      <li>The game's own music and sound effects are original, made in your browser as you play. © ChefControl.</li>
-      <li>At her house: <a href="https://www.youtube.com/watch?v=OQE1efu22BM" target="_blank" rel="noopener">“<bdi lang="he">מאוהב בגשם</bdi>”</a> by Ofer Levy (live at Caesarea), played from YouTube. © its rights holders.</li>
-      <li>At Korki's statue: <a href="https://www.youtube.com/watch?v=jcutNFPwXPE" target="_blank" rel="noopener">“Car Alarm (extended reprise)”</a> by pat's soundhouse, played from YouTube. © its rights holders.</li>
+      <li>The game's own music and sound effects are original, made in your browser as you play, the songs at her house and at Korki's statue too. © ChefControl.</li>
     </ul>
     <h3>The casino yacht's room sound</h3>
     <ul>
@@ -1751,7 +1739,6 @@ body.show #toss, body.show #cook, body.show #coach, body.show #hint, body.show #
 </div>
 <section id="korki" hidden aria-label="Korki">
   <div class="btns">
-    <button type="button" id="korkiMute" aria-label="Mute Korki's song"></button>
     <button type="button" id="korkiClose" aria-label="Close Korki's story">✕</button>
   </div>
   <div class="memo">
@@ -1761,13 +1748,11 @@ body.show #toss, body.show #cook, body.show #coach, body.show #hint, body.show #
   <p>Together we rode 5,000 kilometers, an eighth of the way around the earth, one Tel Aviv street at a time. Your brakes never let me down, and when I opened the throttle you made the whole city feel small.</p>
   <p>Then someone took you, never knowing your name. So here you stand, in gold, where nobody can take you. Thank you for every kilometer.</p>
   <p class="sign">Love,<br>Oran</p>
-  <p class="song">♪ Stay a while: <a href="https://www.youtube.com/watch?v=jcutNFPwXPE" target="_blank" rel="noopener">Car Alarm (extended reprise), by pat’s soundhouse</a></p>
+  <p class="song">♪ Stay a while: 5,000 km</p>
   </div>
 </section>
 <div id="rain" class="pill" hidden>
-  <button type="button" id="rainMute" aria-label="Mute the song"></button>
-  <a id="rainSong" href="https://www.youtube.com/watch?v=OQE1efu22BM&amp;t=107s" target="_blank" rel="noopener" lang="he" dir="rtl">♪ מאוהב בגשם · עופר לוי</a>
-  <span id="rainHint" role="status" hidden></span>
+  <span id="rainSong">♪ Caesarea</span>
 </div>
 <div id="stick"><div id="knob"></div></div>
 <div id="err" role="alert"><span id="errMsg"></span><button id="errReport" type="button" hidden>Report this</button></div>

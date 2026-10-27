@@ -332,11 +332,9 @@ describe('settings', () => {
     expect([card.hidden, row.getAttribute('aria-expanded')]).toEqual([false, 'true']);
     expect(card.textContent).toContain('Dirk-Jan Hanegraaff');
     expect(card.querySelector('a[href="https://creativecommons.org/licenses/by/3.0"]')).not.toBeNull();
-    expect(card.textContent).toContain('Ofer Levy');
-    // the songs played from YouTube link to their videos, the same ones the game plays
-    const { SONG } = await import('../src/rain');
-    expect(card.querySelector(`a[href="https://www.youtube.com/watch?v=${SONG.id}"]`)).not.toBeNull();
-    expect(card.querySelector('a[href="https://www.youtube.com/watch?v=jcutNFPwXPE"]')).not.toBeNull();
+    // the songs at her house and Korki's statue are the game's own now: nothing from YouTube
+    expect(card.textContent).toContain("the songs at her house and at Korki's statue too");
+    expect(card.querySelector('a[href*="youtube"]')).toBeNull();
     row.click();
     expect([card.hidden, row.getAttribute('aria-expanded')]).toEqual([true, 'false']);
     expect($('soundPanel').textContent).not.toContain('Hanegraaff');
