@@ -1,6 +1,7 @@
 import type { Plugin } from 'vite';
 import { configDefaults, defineConfig } from 'vitest/config';
 import { ShardSequencer } from './test/shards.ts';
+import { licences } from './tools/licences.ts';
 
 /**
  * The loading screen (index.html) counts the game's scripts in as they download, so it needs their names and sizes
@@ -57,7 +58,7 @@ export default defineConfig({
     chunkSizeWarningLimit: 1000,
     rolldownOptions: { output: { codeSplitting: { groups: [{ name: 'three', test: /node_modules[\\/]three[\\/]/ }] } } },
   },
-  plugins: [kofiToggle(), preloadManifest()],
+  plugins: [kofiToggle(), licences(), preloadManifest()],
   // the commit the game was built from (GitHub Actions sets it), which bug reports carry (report.ts)
   define: { __BUILD__: JSON.stringify(process.env.GITHUB_SHA ?? 'dev') },
   test: {
