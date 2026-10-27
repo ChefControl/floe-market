@@ -1,5 +1,5 @@
 // Per-frame player logic: movement plus every station interaction.
-import { binTip, collideBins, updBins } from './bin';
+import { binTip, collideBins, mayPick, updBins } from './bin';
 import { updBuy } from './buy';
 import { collideCasino } from './casino';
 import { tipsy, tipsyK } from './casinoKit';
@@ -33,6 +33,8 @@ import { CHOP, PAD, PILE, pile } from './stations';
 import { setTip, type TipContent } from './ui';
 import { applyUnlock, locked, redrawTile, visibleTiles, type Tile } from './unlocks';
 import { d2xz, FY, V, type XZ } from './util';
+import { collideVoting } from './votingBoat';
+import { collideBeach } from './beach';
 import { addMoney, wallet } from './wallet';
 
 /** Anything bought by holding buy on it: an upgrade tile, or the present tile at her house. */
@@ -101,11 +103,13 @@ export function updPlayer(dt: number) {
     collide(p);
     collideGarden(p);
     collidePresents(p);
+    collideVoting(p);
+    collideBeach(p);
     collideBins(p);
     collideCasino(p);
     if (stage.n >= 2 && korkiStatue()) pushOutOfBox(p, STATUE.x, STATUE.z, 1.25, 0.8);
-    // chopper block collision
-    if (p.x > CHOP.x - 1.0 && p.x < CHOP.x + 1.0 && p.z < CHOP.z + 0.8) {
+    // chopper block collision (to the dock's edge behind it: not out on the pier or the voting boat)
+    if (p.x > CHOP.x - 1.0 && p.x < CHOP.x + 1.0 && p.z < CHOP.z + 0.8 && p.z > CHOP.z - 0.8) {
       const ex = p.x < CHOP.x ? CHOP.x - 1.0 : CHOP.x + 1.0;
       if (Math.abs(p.x - ex) < Math.abs(p.z - (CHOP.z + 0.8))) p.x = ex; else p.z = CHOP.z + 0.8;
     }
@@ -183,7 +187,7 @@ function upstairsWork(p: Vector3, dt: number) {
 
   // pick up fish slices
   player.tPick -= dt;
-  if (d2xz(p, PILE) < 1.45 * 1.45) {
+  if (mayPick(d2xz(p, PILE) < 1.45 * 1.45)) {
     while (player.tPick <= 0 && player.back.hasRoom() && pile.items.length) {
       player.tPick += 0.06;
       player.back.receive(pile.take()!, 0.22, 0.7);
@@ -191,7 +195,7 @@ function upstairsWork(p: Vector3, dt: number) {
     }
   }
   // take bags off the farmer's stack on the path
-  if (field.built && d2xz(p, STACK_AT) < 0.9 * 0.9) {
+  if (mayPick(field.built && d2xz(p, STACK_AT) < 0.9 * 0.9)) {
     while (player.tPick <= 0 && player.back.hasRoom() && fieldStack.items.length) {
       player.tPick += 0.06;
       player.back.receive(fieldStack.take()!, 0.22, 0.7);
@@ -207,7 +211,7 @@ function upstairsWork(p: Vector3, dt: number) {
       if (pile.hasRoom()) pile.receive(f, 0.6, 3);
       else scene.remove(f);
     }
-    harvestNear(p, player.back, dt);
+    harvestNear(p, player.back, dt, mayPick(ripeNear(p)));
   }
 }
 

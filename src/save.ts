@@ -11,7 +11,7 @@ import { filletsInProgress } from './fishing';
 import { waiterPlates } from './garden';
 import type { Holder } from './holder';
 import { addBillValue, billValue, kindOf, newBill, newBowl, newBox, newCuredFish, newMushroom, newReadyRice, newRice, newFillet } from './items';
-import { level, stage } from './layout';
+import { beach, level, stage } from './layout';
 import { player } from './player';
 import { givePresents, PRESENT, presents, redrawPresentTile } from './presents';
 import { addReview, reviews, WINDOW } from './rating';
@@ -91,6 +91,8 @@ export interface SaveData {
   /** What the tutorial has shown this player (tutorial.ts), so it isn't shown again on another device; null in a save
    *  from before the tutorial, whose lessons are counted from what it has done. */
   learnt: string[] | null;
+  /** The best rally of matkot on the election-day beach (beach.ts); none in a save from before it. */
+  matkot?: number;
 }
 export type Hands = Record<'rice' | 'fish' | 'rrice' | 'cfish' | 'mush' | 'bowl' | 'mbowl', number>;
 const HANDS: (keyof Hands)[] = ['rice', 'fish', 'rrice', 'cfish', 'mush', 'bowl', 'mbowl'];
@@ -158,6 +160,7 @@ export function migrate(raw: unknown): SaveData {
     presents: num(s.presents), presentPaid: Math.min(num(s.presentPaid), PRESENT.cost - 1),
     look: readLook(s.look) ?? undefined,
     learnt: Array.isArray(s.learnt) ? s.learnt.map(String) : null,
+    matkot: num(s.matkot),
     till: s.till == null ? null : num(s.till),
   };
   if (num(s.v) >= 4) {
@@ -272,6 +275,7 @@ export function save() {
     presentPaid: PRESENT.paid,
     look: { ...choice },
     learnt: learntLessons(),
+    matkot: beach.best,
   };
   const raw = JSON.stringify(data);
   if (deviceStore.write(raw)) lastSeen = raw;
@@ -355,6 +359,7 @@ export function load() {
   if (s.till === null && stage.n === 3 && !F.boughtOut) tillWhatCameDown();
   // the tutorial: this player's lessons, or for a save from before it, what it has done (now it's all in place)
   loadLessons(s.learnt);
+  beach.best = s.matkot ?? 0;
   return true;
 }
 

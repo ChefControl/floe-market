@@ -70,6 +70,27 @@ describe('the bins', () => {
     g.press('e', 'keyup');
   });
 
+  it("what's thrown away by the fish pile doesn't come straight back: picking up waits till they step out and back in", async () => {
+    const g = await loadGame({ back: 6 }); // (arms full: nothing's flying into them as they toss)
+    const { BINS } = await import('../src/bin');
+    const { PILE, pile } = await import('../src/stations');
+    const items = await import('../src/items');
+    for (let i = 0; i < 4; i++) pile.put(items.newFillet());
+    const bin = BINS[0];
+    // in reach of both the bin and the pile
+    g.placePlayer(bin.at.x - 0.2, bin.at.z + 0.95);
+    g.press('e'); g.run(0.1); g.press('e', 'keyup');
+    expect(g.player.back.n).toBe(0);
+    g.run(1);
+    expect(g.player.back.n).toBe(0);
+    expect(pile.items.length).toBe(4);
+    // out of the pile's reach, and back
+    g.placePlayer(PILE.x, PILE.z + 2.2); g.run(0.2);
+    expect(g.player.back.n).toBe(0);
+    g.placePlayer(bin.at.x - 0.2, bin.at.z + 0.95); g.run(0.5);
+    expect(g.player.back.n).toBeGreaterThan(0);
+  });
+
   it('all stand on their own floors, out of the way, and well away from the cellar hatch', async () => {
     const g = await loadGame({ tiles: bought(...MARKET, 'sushi', ...FLOE_SUSHI, 'dohyo'), fugu: 2 });
     const { BINS } = await import('../src/bin');
@@ -81,6 +102,14 @@ describe('the bins', () => {
       expect([q.x, q.z]).toEqual([b.at.x, b.at.z]);
       expect(L.groundY(b.at, b.down)).toBeCloseTo(b.at.y, 1);
       if (!b.down) expect(Math.hypot(b.at.x - L.HATCH_AT.x, b.at.z - L.HATCH_AT.z)).toBeGreaterThanOrEqual(3);
+    }
+    // and none where a tile is bought (up top): standing on one never also offers a bin's E
+    const { tiles } = await import('../src/unlocks');
+    for (const b of BINS.filter(b => !b.down)) {
+      for (const t of tiles.filter(t => t.stage <= 2 && t.stage >= b.stage && !t.menu)) {
+        const dx = Math.max(0, Math.abs(b.at.x - t.x) - t.half), dz = Math.max(0, Math.abs(b.at.z - t.z) - t.half);
+        expect(Math.hypot(dx, dz), t.id).toBeGreaterThan(1.1);
+      }
     }
     L.level.down = false;
   });

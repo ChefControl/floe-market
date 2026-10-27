@@ -76,13 +76,13 @@ function bin(at: Vector3, s: StageN, down: boolean, make: (g: Group) => Group, t
   (down ? cellar : scene).add(g);
   return { at, stage: s, down, g, lid, open: 0, hold: 0 };
 }
-/** Beside the places things are picked up: on the dock, the fish pile (behind it, by the water: out of the way to the
- *  counter, and well away from Mr. Fugu's hatch, and
- *  none by the harpoon at the fishing spot); on the farm path (stage 2), the farmer's stack of rice and the patch; in the cellar's kitchen (stage
+/** Beside the places things are picked up: on the dock, the fish pile (behind it, by the water, just short of the
+ *  pier's foot: out of the way to the counter and onto the pier, well away from Mr. Fugu's hatch, and none by the
+ *  harpoon at the fishing spot); on the farm path (stage 2), the farmer's stack of rice and the patch; in the cellar's kitchen (stage
  *  3), old oil drums by the arena's door and the dumbwaiter's crate. Each far enough from its
  *  station that the station's own tip still shows there. */
 export const BINS: Bin[] = [
-  bin(V(3.1, FY, -6.0), 1, false, pedal, -0.4),
+  bin(V(2.65, FY, -5.95), 1, false, pedal, -0.4),
   bin(V(-11.7, 0.06, -2.6), 2, false, pedal, Math.PI / 2),
   // (the patch's: on the corner of the bottom terrace by the path, past the patch's last clump, so the path stays clear
   // to the fertilizer shed's yard)
@@ -93,6 +93,18 @@ export const BINS: Bin[] = [
 /** The bin the player's standing at, if any (on their level, and there in this stage). */
 export const binAt = (p: XZ) => BINS.find(b => b.down === level.down && stage.n >= b.stage && d2xz(p, b.at) < NEAR * NEAR) ?? null;
 
+// ---------- no picking straight back up ----------
+// Each bin stands by a place things are picked up (the dock's right by the fish pile), so what's thrown away would come
+// straight back into the player's arms: after a toss, nothing's picked up till the player's stepped out of the place's
+// reach, and back in.
+let tossed = false, inReach = false;
+/** Whether the player, `inside` the reach of a place things are picked up, may pick up there: not since a toss, till
+ *  they've been out of every such place's reach. */
+export function mayPick(inside: boolean) {
+  if (inside) inReach = true;
+  return inside && !tossed;
+}
+
 /** Throws everything the player's carrying into `b`. */
 export function toss(b: Bin) {
   let i = 0;
@@ -102,6 +114,7 @@ export function toss(b: Bin) {
     i++;
   }
   if (!i) return;
+  tossed = true;
   player.back.layout(player.h);
   b.hold = 0.7;
   clunk(b.at);
@@ -128,6 +141,9 @@ btn.addEventListener('contextmenu', e => e.preventDefault());
 let wasE = false;
 
 export function updBins(dt: number) {
+  // (out of every place's reach since the last frame: free to pick up again)
+  if (!inReach) tossed = false;
+  inReach = false;
   for (const b of BINS) {
     b.g.visible = stage.n >= b.stage;
     b.hold = Math.max(0, b.hold - dt);

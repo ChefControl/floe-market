@@ -5,7 +5,7 @@ import {
   RepeatWrapping, type Vector3,
 } from 'three';
 import { at as atXZ, Build, detail, jitter, quietly, seasonLayer } from './kit';
-import { HOUSE_PATH_Z, QUAY } from './layout';
+import { HOUSE_PATH_Z, PIER, QUAY } from './layout';
 import {
   bollard, deckBoards, fenceLog, FLOES, lifeRing, logSnow, piling, pilingSnow, ropeCoil, scatter,
 } from './props';
@@ -159,12 +159,70 @@ high(scene, () => {
   }
   g.add(wood.mesh(), seasonLayer(snow.mesh(false), SNOWY));
   const deco = new Build();
-  for (const x of [-2.6, 4.3, 6.9]) deco.addAll(bollard(), atXZ(x, FY, -6.38));
+  for (const x of [-2.6, 5.3, 6.9]) deco.addAll(bollard(), atXZ(x, FY, -6.38));
   deco.addAll(ropeCoil(), atXZ(4.85, FY, -6.0));
   deco.addAll(lifeRing(), atXZ(7.6, FY + 0.62, -4.6, Math.PI / 2));
   g.add(deco.mesh());
   return g;
 }, posts);
+
+// ---------- the pier ----------
+// An upside-down L of the dock's own boards, the same size, out over the water a step up from the dock (layout.ts
+// PIER): its stem north from the dock's edge, its first two rows a ramp, and its arm west along the water, where the
+// voting boat moors on election day. Low: boxes with the dock's planks painted on, on round posts. High: the dock's boards, with leaves
+// in autumn and petals in spring; rounded pilings lashed with rope, snow-capped in winter, in rings of foam; and two
+// bollards along the arm's far edge.
+{
+  const { x0, x1, edge, ramp, row, arm } = PIER, W = x1 - x0, SLAB = 0.15;
+  /** A stretch of it, `w` by `d` (`d / row` rows of boards), its top's middle at (x, y, z), tilted `tilt` up to the north. */
+  const stretch = (x: number, z: number, w: number, d: number, y: number, tilt: number, leaves: boolean) => {
+    const g = quietly(() => new Group());
+    g.position.set(x, y, z); g.rotation.x = tilt;
+    scene.add(g);
+    const rx = w / 4, ry = Math.round(d / row) / 8;
+    const top = new MeshLambertMaterial({ map: planks('#C3875D', '#CF946A', rx, ry) });
+    const m = new Mesh(new BoxGeometry(w, SLAB, d), [deckSide, deckSide, top, deckSide, deckSide, deckSide]);
+    m.position.y = -SLAB / 2; m.receiveShadow = true; g.add(m);
+    high(g, () => {
+      const hi = new Group();
+      // the clouds' shadows pass over it as over the dock (their sheet over the dock lies under its boards)
+      hi.add(deckBoards(w, d, 0, rx, ry).mesh(false), cloudShadows(0.013, { w, d }));
+      if (leaves) {
+        hi.add(seasonLayer(scatter(w - 0.3, d - 0.3, 0.004, Math.round(w * d / 1.1), [0xE0812E, 0xC2562B, 0xF2B640, 0xB8642C]).mesh(false), FALLEN));
+        hi.add(seasonLayer(scatter(w - 0.3, d - 0.3, 0.004, Math.round(w * d / 1.6), [0xFF9EC4, 0xFFB7D3, 0xF78FB3]).mesh(false), PETALS));
+      }
+      return hi;
+    }, m);
+  };
+  const cx = (x0 + x1) / 2, rise = PIER.y - FY, stem = edge - ramp - arm.z1;
+  stretch(cx, edge - ramp / 2, W, Math.hypot(ramp, rise), (FY + PIER.y) / 2, Math.atan2(rise, ramp), false);
+  stretch(cx, edge - ramp - stem / 2, W, stem, PIER.y, 0, true);
+  stretch((arm.x0 + x1) / 2, (arm.z1 + arm.z0) / 2, x1 - arm.x0, arm.z1 - arm.z0, PIER.y, 0, true);
+  // its pilings: down both sides of the stem, round the arm's corners and along it
+  const out = 0.05, at: [number, number][] = [
+    [x0 - out, -8.0], [x1 + out, -8.0], [x0 - out, -10.3], [x1 + out, -10.3],
+    [x1 + out, arm.z0 - out], [2.5, arm.z0 - out], [arm.x0 - out, arm.z0 - out], [1.9, arm.z1 + out], [arm.x0 - out, arm.z1 + out],
+  ];
+  const posts = quietly(() => new Group());
+  scene.add(posts);
+  for (const [x, z] of at) {
+    const p = mesh(G.cyl, 0x8A5A3B, x, -0.1 + rise, z, true);
+    p.scale.set(0.18, 0.6, 0.18); posts.add(p);
+  }
+  high(scene, () => {
+    const g = new Group(), wood = new Build(), snow = new Build(), PH = 0.52 + rise;
+    for (const [x, z] of at) {
+      wood.addAll(piling(PH), atXZ(x, -0.3, z));
+      snow.addAll(pilingSnow(PH), atXZ(x, -0.3, z));
+      const ring = foamRing(0.32); ring.position.set(x, SEA_Y + 0.05, z); g.add(ring);
+    }
+    g.add(wood.mesh(), seasonLayer(snow.mesh(false), SNOWY));
+    const deco = new Build();
+    for (const x of [0.95, 3.4]) deco.addAll(bollard(), atXZ(x, PIER.y, arm.z0 + 0.13));
+    g.add(deco.mesh());
+    return g;
+  }, posts);
+}
 
 // ---------- fences ----------
 // Low: plain logs. High: rounded logs, their end grain on top (snow on it in winter), lashed together with rope.
@@ -358,11 +416,14 @@ function treeOK2(x: number, z: number) {
 }
 
 const both = newBatch(), only1 = newBatch(), only2 = newBatch();
+/** Where the trees stand, and in which stages (the matkot beach, beach.ts, keeps the player out of those on its sand). */
+export const treeSpots: { x: number; z: number; one: boolean; two: boolean }[] = [];
 for (let i = 0, placed = 0; i < 900 && placed < 96; i++) {
   const x = rand(-44, 34), z = rand(-8, 40);
   const a = treeOK1(x, z), b = treeOK2(x, z);
   if (!a && !b) continue;
   addTree(a && b ? both : a ? only1 : only2, x, z, rand(.8, 1.3));
+  treeSpots.push({ x, z, one: a, two: b });
   placed++;
 }
 for (let i = 0; i < 40; i++) {
