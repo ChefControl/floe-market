@@ -9,8 +9,9 @@ const h = vi.hoisted(() => {
   const fake = {
     signedIn: false,
     user: { uid: 'u1', name: 'Pat Smith' },
-    store: new Map<string, { data: string; savedAt: number }>(),
+    store: new Map<string, { data: string; savedAt: number; hidden?: boolean }>(),
     scores: new Map<string, Score>(),
+    shame: new Map<string, { uid: string; name: string; lost: number }>(),
     scoreWrites: 0,
     boardDown: false,
     reads: 0,
@@ -27,7 +28,12 @@ const h = vi.hoisted(() => {
     async read(uid: string) { fake.reads++; if (fake.offline) throw new Error('offline'); return fake.store.get(uid) ?? null; },
     async write(uid: string, s: { data: string; savedAt: number }) {
       if (fake.offline) throw new Error('offline');
-      fake.writes++; fake.store.set(uid, { ...s });
+      fake.writes++; fake.store.set(uid, { ...fake.store.get(uid), ...s });
+    },
+    async hide(uid: string, hidden: boolean) {
+      if (fake.offline) throw new Error('offline');
+      fake.store.set(uid, { ...fake.store.get(uid)!, hidden });
+      if (hidden) { fake.scores.delete(uid); fake.shame.delete(uid); }
     },
     async postScore(s: Score) {
       if (fake.offline) throw new Error('offline');
@@ -39,7 +45,7 @@ const h = vi.hoisted(() => {
       if (fake.offline || fake.boardDown) throw new Error('offline');
       return [...fake.scores.values()].sort((a, b) => b.best - a.best).slice(0, n);
     },
-    async postShame() {},
+    async postShame(s: { uid: string; name: string; lost: number }) { fake.shame.set(s.uid, { ...s }); },
     async topShame() { return []; },
   };
   const config = { apiKey: 'test-key', authDomain: 'test', projectId: 'test', appId: 'test' };
@@ -87,6 +93,7 @@ beforeEach(() => {
   });
   fake.store.clear();
   fake.scores.clear();
+  fake.shame.clear();
   h.config.apiKey = 'test-key';
 });
 
@@ -357,10 +364,10 @@ describe('the scoreboard', () => {
     await vi.waitFor(() => expect($('scoresList').querySelector('.stage')?.getAttribute('title')).toBe('The Dohyo Below'));
   });
 
-  it('a signed-in player goes on it as the game syncs: full name, best cash and stage', async () => {
+  it('a signed-in player goes on it as the game syncs: first name and initial, best cash and stage', async () => {
     const { g, c } = await board({ money: 300, tiles: bought(...MARKET, 'sushi') });
     $('cloud').click();
-    await vi.waitFor(() => expect(fake.scores.get('u1')).toEqual({ uid: 'u1', name: 'Pat Smith', best: 300, stage: 2 }));
+    await vi.waitFor(() => expect(fake.scores.get('u1')).toEqual({ uid: 'u1', name: 'Pat S.', best: 300, stage: 2 }));
     // spending doesn't lower it; nothing new, nothing written
     g.wallet.money = 40; g.saveMod.save();
     await c.sync();
@@ -383,7 +390,7 @@ describe('the scoreboard', () => {
     expect($('board').getAttribute('aria-expanded')).toBe('true');
     expect(document.activeElement).toBe($('scoresClose'));
     await vi.waitFor(() => expect(rows()).toEqual([
-      '1Mia KowalskiStage 2$52k', '2Pat Smith (you)Stage 1$5,000', '3OlaStage 1$900',
+      '1Mia KowalskiStage 2$52k', '2Pat S. (you)Stage 1$5,000', '3OlaStage 1$900',
     ]));
     expect($('scoresList').children[1].classList.contains('me')).toBe(true);
     expect($('scoresMe').textContent).toBe('');
@@ -443,15 +450,91 @@ describe('the scoreboard', () => {
     expect($('scoresList').hasAttribute('aria-busy')).toBe(false);
   });
 
-  it('shows full names, never an email', async () => {
+  it('shows a first name and the initial of the last, never a full name or an email', async () => {
     const { c } = await start();
-    expect(c.publicName('Pat Smith')).toBe('Pat Smith');
-    expect(c.publicName('  Ana  de la cruz ')).toBe('Ana de la cruz');
+    expect(c.publicName('Pat Smith')).toBe('Pat S.');
+    expect(c.publicName('  Ana  de la cruz ')).toBe('Ana C.');
     expect(c.publicName('Sam')).toBe('Sam');
+    expect(c.publicName('Pat S.')).toBe('Pat S.');
+    expect(c.publicName('דן כהן')).toBe('דן כ.');
+    expect(c.publicName('Zoë 𝒵eta')).toBe('Zoë 𝒵.');
     expect(c.publicName('pat@example.com')).toBe('A player');
     expect(c.publicName(' ')).toBe('A player');
-    const long = c.publicName('Bartholomew ' + 'Q'.repeat(60));
+    const long = c.publicName('Q'.repeat(60) + ' Smith');
     expect(long).toHaveLength(c.NAME_MAX);
     expect(long.endsWith('…')).toBe(true);
+  });
+});
+
+describe('showing on the scoreboards', () => {
+  const toggle = () => $('boardsToggle') as HTMLButtonElement;
+  /** A signed-in player with a best and a worst bet, both up, and the cloud's menu open. */
+  async function onBoth() {
+    const started = await start({ money: 300 });
+    const { scoreBet } = await import('../src/worstBet');
+    scoreBet('roulette', 9_000, 0);
+    await signIn(started.c);
+    await vi.waitFor(() => expect(fake.shame.get('u1')?.name).toBe('Pat S.'));
+    expect(fake.scores.get('u1')?.name).toBe('Pat S.');
+    $('cloud').click();
+    return started;
+  }
+
+  it('starts on, saying how the player shows', async () => {
+    await onBoth();
+    expect(toggle().getAttribute('aria-checked')).toBe('true');
+    expect(toggle().disabled).toBe(false);
+    expect($('boardsNote').textContent).toBe('As Pat S.');
+  });
+
+  it('off takes both entries down and puts nothing new up; on puts them back', async () => {
+    const { g, c } = await onBoth();
+    toggle().click();
+    await vi.waitFor(() => expect(toggle().getAttribute('aria-checked')).toBe('false'));
+    expect(fake.scores.has('u1')).toBe(false);
+    expect(fake.shame.has('u1')).toBe(false);
+    expect(fake.store.get('u1')?.hidden).toBe(true);
+    expect($('boardsNote').textContent).toBe('Hidden from other players');
+    // a new best, synced: still off
+    const { addMoney } = await import('../src/wallet');
+    addMoney(5000); g.saveMod.save();
+    await c.sync();
+    await c.postScore(); await c.postShame();
+    expect(fake.scores.has('u1')).toBe(false);
+    expect(fake.shame.has('u1')).toBe(false);
+    // and back on
+    toggle().click();
+    await vi.waitFor(() => expect(fake.scores.get('u1')).toMatchObject({ name: 'Pat S.', best: 5300 }));
+    expect(fake.shame.get('u1')).toMatchObject({ name: 'Pat S.', lost: 9_000 });
+    expect(fake.store.get('u1')?.hidden).toBe(false);
+    expect(toggle().getAttribute('aria-checked')).toBe('true');
+  });
+
+  it("another device follows the account's choice", async () => {
+    fake.store.set('u1', { data: await otherGame(0), savedAt: 0, hidden: true });
+    const { c } = await start({ money: 700 });
+    await signIn(c);
+    await vi.waitFor(() => expect(c.cloud.state).toBe('saved'));
+    expect(fake.scores.has('u1')).toBe(false);
+    expect(fake.store.get('u1')?.hidden).toBe(true); // the save went up, the choice stayed
+    $('cloud').click();
+    expect(toggle().getAttribute('aria-checked')).toBe('false');
+  });
+
+  it("can't reach the cloud: stays as it was, and says so", async () => {
+    await onBoth();
+    fake.offline = true;
+    toggle().click();
+    await vi.waitFor(() => expect($('toast').textContent).toBe("Couldn't reach the cloud. Try again"));
+    expect(toggle().getAttribute('aria-checked')).toBe('true');
+    expect(toggle().disabled).toBe(false);
+    expect(fake.scores.has('u1')).toBe(true);
+  });
+
+  it("can't be switched until the account's been read", async () => {
+    const { c } = await start();
+    c.initCloud();
+    expect(toggle().disabled).toBe(true);
+    expect($('boardsNote').textContent).toBe('');
   });
 });

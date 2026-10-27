@@ -457,20 +457,21 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
 #settings .cat[aria-expanded="true"] .chev{ transform:translateY(4px) rotate(-135deg); }
 #settings .catPanel{ display:flex; flex-direction:column; gap:8px; padding:8px 10px 10px; border-radius:14px; background:var(--chip); }
 #settings .catPanel[hidden]{ display:none; }
-/* Controls opens into How to play (the controls card, hint.ts) and a switch for the Buy button on a computer */
+/* Controls opens into How to play (the controls card, hint.ts) and a switch for the Buy button on a computer; the
+   cloud's menu holds one for showing on the scoreboards (cloud.ts) */
 #controls{ display:flex; align-items:center; min-height:40px; padding:4px 12px; border:0; border-radius:12px; background:var(--pill); color:var(--pill-ink); font:700 15px "Floe Emoji","Baloo 2","Trebuchet MS",system-ui,sans-serif; text-align:left; cursor:pointer; box-shadow:0 2px 0 var(--shade); }
 #controls i{ margin-left:auto; font-style:normal; font-size:20px; line-height:1; opacity:.6; }
-#controlsPanel .toggle{ display:flex; align-items:center; gap:10px; padding:2px 2px 0 4px; font:700 15px "Floe Emoji","Baloo 2","Trebuchet MS",system-ui,sans-serif; }
-#controlsPanel .toggle > span{ display:flex; flex-direction:column; line-height:1.15; min-width:0; }
-#buyBtnNote{ font-size:12px; opacity:.6; }
-#buyBtnNote:empty{ display:none; }
-#buyBtnToggle{ position:relative; flex:none; margin-left:auto; width:52px; height:30px; padding:0; border:0; border-radius:999px; background:rgba(127,140,150,.45); cursor:pointer; transition:background .15s; }
-#buyBtnToggle::after{ content:""; position:absolute; top:3px; left:3px; width:24px; height:24px; border-radius:50%; background:#fff; box-shadow:0 1px 3px rgba(0,0,0,.3); transition:transform .15s; }
-#buyBtnToggle[aria-checked="true"]{ background:var(--coral); }
-#buyBtnToggle[aria-checked="true"]::after{ transform:translateX(22px); }
-#buyBtnToggle:disabled{ opacity:.55; cursor:default; }
-#controls:focus-visible, #buyBtnToggle:focus-visible{ outline:3px solid var(--coral); outline-offset:2px; }
-@media (prefers-reduced-motion: reduce){ #buyBtnToggle, #buyBtnToggle::after{ transition:none; } }
+#settings .toggle{ display:flex; align-items:center; gap:10px; padding:2px 2px 0 4px; font:700 15px "Floe Emoji","Baloo 2","Trebuchet MS",system-ui,sans-serif; }
+#settings .toggle > span{ display:flex; flex-direction:column; line-height:1.15; min-width:0; }
+#settings .toggle small{ font-size:12px; opacity:.6; }
+#settings .toggle small:empty{ display:none; }
+#settings .switch{ position:relative; flex:none; margin:0 0 0 auto; width:52px; height:30px; min-height:0; padding:0; border:0; border-radius:999px; background:rgba(127,140,150,.45); cursor:pointer; transition:background .15s; }
+#settings .switch::after{ content:""; position:absolute; top:3px; left:3px; width:24px; height:24px; border-radius:50%; background:#fff; box-shadow:0 1px 3px rgba(0,0,0,.3); transition:transform .15s; }
+#settings .switch[aria-checked="true"]{ background:var(--coral); }
+#settings .switch[aria-checked="true"]::after{ transform:translateX(22px); }
+#settings .switch:disabled{ opacity:.55; cursor:default; }
+#controls:focus-visible, #settings .switch:focus-visible{ outline:3px solid var(--coral); outline-offset:2px; }
+@media (prefers-reduced-motion: reduce){ #settings .switch, #settings .switch::after{ transition:none; } }
 /* Sound opens into a mute button and a 0-10 slider for each kind of sound, sized for fingers */
 /* Report a bug or idea (report.ts): the settings row (signed out, it signs in instead) opens a window of its own over
    the dimmed game, with a note, the picture of the game, a tickbox each for the picture and the game state, and a
@@ -632,6 +633,7 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
 #cloudMenu{ display:flex; flex-direction:column; align-items:flex-start; gap:4px; padding:0 12px 4px; font-size:14px; line-height:1.25; }
 #cloudMenu[hidden]{ display:none; }
 #cloudMenu b{ font-weight:800; }
+#cloudMenu .toggle{ align-self:stretch; margin-top:4px; padding:0; }
 #cloudMenu button{ margin-top:4px; font:800 15px "Floe Emoji","Baloo 2","Trebuchet MS",system-ui,sans-serif; background:var(--chip); color:var(--pill-ink); border:0; border-radius:999px; padding:4px 14px; cursor:pointer; }
 #cloudPick{ position:fixed; inset:0; z-index:8; display:grid; place-items:center; background:rgba(23,48,66,.55); }
 #cloudPick[hidden]{ display:none; }
@@ -1485,7 +1487,7 @@ body.show #toss, body.show #cook, body.show #coach, body.show #hint, body.show #
 <section id="settings" class="pill" aria-label="Settings" hidden>
   <h2 class="sgroup">You</h2>
   <button id="cloud" type="button" hidden><span class="ic" aria-hidden="true">☁️</span><span><span id="cloudName">Sign in</span><span class="wide" aria-hidden="true"> with Google</span></span><i aria-hidden="true"></i></button>
-  <div id="cloudMenu" hidden><b id="cloudWho"></b><span id="cloudStatus"></span><button type="button" id="cloudOut">Sign out</button></div>
+  <div id="cloudMenu" hidden><b id="cloudWho"></b><span id="cloudStatus"></span><div class="toggle" id="boards"><span><span id="boardsName">Show me on the scoreboards</span><small id="boardsNote"></small></span><button id="boardsToggle" class="switch" type="button" role="switch" aria-checked="true" aria-labelledby="boardsName" aria-describedby="boardsNote"></button></div><button type="button" id="cloudOut">Sign out</button></div>
   <button id="lookOpen" type="button"><span class="ic" aria-hidden="true">👕</span>Your look</button>
   <h2 class="sgroup">Graphics &amp; sound</h2>
   <button id="gfxCat" class="cat" type="button" aria-expanded="false" aria-controls="gfx"><span class="ic" aria-hidden="true">✨</span><span id="gfxName">Graphics</span><small id="gfxPick"></small><i class="chev" aria-hidden="true"></i></button>
@@ -1500,7 +1502,7 @@ body.show #toss, body.show #cook, body.show #coach, body.show #hint, body.show #
   <button id="controlsCat" class="cat" type="button" aria-expanded="false" aria-controls="controlsPanel"><span class="ic" aria-hidden="true">🕹️</span>Controls<i class="chev" aria-hidden="true"></i></button>
   <div id="controlsPanel" class="catPanel" role="group" aria-label="Controls" hidden>
     <button id="controls" type="button">How to play<i aria-hidden="true">›</i></button>
-    <div class="toggle"><span><span id="buyBtnName">Buy button on screen</span><small id="buyBtnNote"></small></span><button id="buyBtnToggle" type="button" role="switch" aria-checked="true" aria-labelledby="buyBtnName" aria-describedby="buyBtnNote"></button></div>
+    <div class="toggle"><span><span id="buyBtnName">Buy button on screen</span><small id="buyBtnNote"></small></span><button id="buyBtnToggle" class="switch" type="button" role="switch" aria-checked="true" aria-labelledby="buyBtnName" aria-describedby="buyBtnNote"></button></div>
   </div>
   <button id="restart" type="button"><span class="ic" aria-hidden="true">↺</span><span id="restartText">Restart</span></button>
   <h2 class="sgroup">About</h2>
