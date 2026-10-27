@@ -35,8 +35,10 @@ import { crowdStyle, type Style } from './wardrobe';
 
 // ---------- the plan ----------
 const { hull: HULL, cabin: CAB, gangway: GW, deck: DECK, dz: DZ } = VOTE_BOAT;
-/** The flag's own blue; and the pale green a school's walls are painted to waist height. */
-const BLUE = 0x0038B8, SCHOOL = 0xB7D6C6;
+/** The flag's own blue (the beach's too, beach.ts). */
+export const BLUE = 0x0038B8;
+/** The pale green a school's walls are painted to waist height. */
+const SCHOOL = 0xB7D6C6;
 /** The cabin's walls' thickness, and the door in its dock-side wall. */
 const T = 0.08, DOOR = { x0: X(4.15), x1: X(3.35), h: 1.85 };
 /** Where the hull's sides start drawing in to the bow, and the middle of its width. */
@@ -83,8 +85,8 @@ export const GREETING = 'Shalom! Your ID, please', THANKS = 'Thank you for votin
 /** A block, `w` by `h` by `d`, painted `c`, its middle at (x, y, z) (y from the deck), turned `ry` about the vertical
  *  and `rz` across. */
 interface Block { w: number; h: number; d: number; c: number; x: number; y: number; z: number; ry: number; rz: number }
-type Add = (w: number, h: number, d: number, c: number, x: number, y: number, z: number, ry?: number, rz?: number) => void;
-function blocks(f: (s: Add) => void) {
+export type Add = (w: number, h: number, d: number, c: number, x: number, y: number, z: number, ry?: number, rz?: number) => void;
+export function blocks(f: (s: Add) => void) {
   const out: Block[] = [];
   f((w, h, d, c, x, y, z, ry = 0, rz = 0) => out.push({ w, h, d, c, x, y, z, ry, rz }));
   return out;
@@ -93,7 +95,7 @@ function blocks(f: (s: Add) => void) {
 let BOX: BoxGeometry, PEN: CylinderGeometry;
 /** `bs` as a Low mesh (plain boxes, `painted`) and a High one (the kit's bevelled boxes, the thin ones plain), shown by
  *  the setting, in `g`; drawn with `material` (one that fades) if given. */
-function twin(g: Group, bs: Block[], cast = true, material: MeshLambertMaterial = painted) {
+export function twin(g: Group, bs: Block[], cast = true, material: MeshLambertMaterial = painted) {
   const lo = mesh(bakePainted(bs.map(b => ({ geo: BOX, c: b.c, at: [b.x, b.y, b.z], rot: [0, b.ry, b.rz], scale: [b.w, b.h, b.d] }))), material, 0, 0, 0, cast);
   const hi = new Build();
   for (const b of bs) {
@@ -128,7 +130,7 @@ function slab(grow: number, y0: number, y1: number) {
 
 /** A small Israeli flag, `w` wide, its middle at (x, y, z), facing along +z: white, its two blue stripes, and the Star
  *  of David between them, two triangles of thin bars. */
-function flag(s: Add, w: number, x: number, y: number, z: number) {
+export function flag(s: Add, w: number, x: number, y: number, z: number) {
   const h = w * 0.73, R = h * 0.19, bar = h * 0.036;
   s(w, h, 0.012, C.snow, x, y, z);
   for (const k of [-1, 1]) s(w, h * 0.15, 0.016, BLUE, x, y + k * h * 0.335, z);

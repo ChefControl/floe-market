@@ -268,6 +268,29 @@ const voteY = (p: XZ) => PIER.y + (VB.y - PIER.y) * Math.max(0, Math.min(1, (VB.
 /** In the polling room, inside the cabin's walls. */
 export const inPollingRoom = (p: XZ) => voteBoat.open && !level.down && inside(VOTE_AREAS[1], p);
 
+// ---------- the matkot beach ----------
+/**
+ * The matkot beach (beach.ts), on election day with the voting boat, from stage 2 (stage 1's road runs a step from the
+ * water): a strip of sand between the sea and the road, along the sea's edge north of the dock (`x0`, out to `z0`)
+ * and east of the dock's fence (`fence`) south of its water edge (`shore`), to `x1` (short of the road's kerb) and `z1`
+ * (the kiosk booth's north wall). The old drive-up window's gap in the dock's east fence (`gap`, world.ts gapLogs) opens
+ * onto it. The sand is a step down from the dock, at the ground's own level.
+ */
+export const BEACH = { x0: 7.45, x1: 12.6, z0: -19, z1: 1.3, fence: 7.85, shore: -6.25, gap: { z0: -2.4, z1: 0 } };
+/** Whether it's there to walk on, and the player's best rally of matkot on it (saved). */
+export const beach = { open: false, best: 0 };
+const BEACH_AREAS = [
+  // along the water, north of the dock
+  area(BEACH.x0 + 0.3, BEACH.x1 - 0.3, BEACH.z0 + 0.3, BEACH.shore - 0.2, 0),
+  // east of the dock's fence
+  area(BEACH.fence + 0.3, BEACH.x1 - 0.3, BEACH.shore - 0.2, BEACH.z1 - 0.3, 0),
+  // through the gap in the fence, off the dock
+  area(7.3, BEACH.fence + 0.35, BEACH.gap.z0 + 0.35, BEACH.gap.z1 - 0.35, 0),
+];
+const beachAreas = () => beach.open && stage.n >= 2 ? BEACH_AREAS : [];
+/** On the beach's sand (or in the gap in the fence onto it). */
+export const onBeach = (p: XZ) => beach.open && stage.n >= 2 && !level.down && BEACH_AREAS.some(a => inside(a, p));
+
 const DOCK2 = area(-7.4, 7.4, -6.25, 1.9);
 const HALL = area(HALL_BOX.x0 + 0.4, HALL_BOX.x1 - 0.4, 1.8, HALL_BOX.z1 - 0.4);
 /** Inside the booth, up to the back of the counter. */
@@ -289,7 +312,7 @@ export const walkable = (): Area[] =>
   level.down ? cellarFloors()
   : stage.n === 1 ? [DECK, ...PIER_AREAS, ...casinoAreas(), ...voteAreas(), housePath(), YARD]
   : [DOCK2, ...PIER_AREAS, ...casinoAreas(), ...voteAreas(), HALL, GATEWAY, GARDEN, BRIDGE, PATH, ...FIELDS, ...(shedYard.open ? [SHED_YARD] : []),
-    ...(kioskBooth.open ? [BOOTH] : []), housePath(), YARD];
+    ...(kioskBooth.open ? [BOOTH] : []), housePath(), YARD, ...beachAreas()];
 
 const inside = (a: Area, p: XZ) => p.x >= a.x0 && p.x <= a.x1 && p.z >= a.z0 && p.z <= a.z1;
 

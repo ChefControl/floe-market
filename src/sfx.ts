@@ -262,6 +262,16 @@ export function swish(at: XZ) {
   noise({ at, f: 1400, f2: 500, q: 1.2, a: 0.02, d: 0.12, v: 0.05 });
 }
 
+/** A matkot paddle hitting the ball (beach.ts): a hollow wooden tock, the player's a little higher than his. */
+export function tock(at: XZ, yours: boolean) {
+  tone({ at, f: yours ? 540 : 450, f2: yours ? 380 : 320, type: 'triangle', a: 0.003, d: 0.07, v: 0.2 });
+  noise({ at, f: 1500, q: 2, a: 0.002, d: 0.03, v: 0.07 });
+}
+/** The ball dropping in the sand. */
+export function thud(at: XZ) {
+  noise({ at, f: 500, kind: 'lowpass', q: 0.6, a: 0.004, d: 0.08, v: 0.08 });
+}
+
 /** A driver's horn: two short beeps, or one long one when they're cross. */
 export function honk(at: XZ, cross = false) {
   const beep = (t: number, hold: number) => {

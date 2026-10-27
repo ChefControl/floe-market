@@ -34,6 +34,7 @@ import { setTip, type TipContent } from './ui';
 import { applyUnlock, locked, redrawTile, visibleTiles, type Tile } from './unlocks';
 import { d2xz, FY, V, type XZ } from './util';
 import { collideVoting } from './votingBoat';
+import { collideBeach } from './beach';
 import { addMoney, wallet } from './wallet';
 
 /** Anything bought by holding buy on it: an upgrade tile, or the present tile at her house. */
@@ -103,6 +104,7 @@ export function updPlayer(dt: number) {
     collideGarden(p);
     collidePresents(p);
     collideVoting(p);
+    collideBeach(p);
     collideBins(p);
     collideCasino(p);
     if (stage.n >= 2 && korkiStatue()) pushOutOfBox(p, STATUE.x, STATUE.z, 1.25, 0.8);
@@ -209,7 +211,7 @@ function upstairsWork(p: Vector3, dt: number) {
       if (pile.hasRoom()) pile.receive(f, 0.6, 3);
       else scene.remove(f);
     }
-    if (mayPick(ripeNear(p))) harvestNear(p, player.back, dt);
+    harvestNear(p, player.back, dt, mayPick(ripeNear(p)));
   }
 }
 

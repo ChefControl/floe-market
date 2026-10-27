@@ -13,4 +13,6 @@ export const C = {
   snow: 0xFFFFFF, paper: 0xF4F1EA, enamel: 0xE8F1F6, ice: 0xD5ECF5,
   // the sea and sky
   sea: 0x1E8FC0, shallows: 0x36BEDB, sky: 0xCFEAF5, counterTop: 0x5FA8C8,
+  // the beach (the matkot beach on election day): dry sand, and wet by the water
+  sand: 0xE8D3A2, wetSand: 0xC9AE7C,
 } as const;

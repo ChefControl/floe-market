@@ -331,10 +331,11 @@ describe('the voting boat', () => {
     layout.stage.n = 1;
   });
 
-  it("is built off the game's luck: the same luck and scenery are left whether it's in or not", async () => {
+  it("is built off the game's luck: the same luck and scenery are left whether it's in or not (the beach too)", async () => {
     await loadOn(ELECTION);
     const up = [Math.random(), Math.random(), (await import('../src/kit')).jitter(0, 1)];
     expect((await import('../src/votingBoat')).boat).toBeTruthy();
+    expect((await import('../src/beach')).sands).toBeTruthy();
     // same seed again (setup.ts), the day after
     vi.spyOn(Math, 'random').mockImplementation(seeded(1));
     const { vote } = await loadOn(AFTER);

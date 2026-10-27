@@ -416,11 +416,14 @@ function treeOK2(x: number, z: number) {
 }
 
 const both = newBatch(), only1 = newBatch(), only2 = newBatch();
+/** Where the trees stand, and in which stages (the matkot beach, beach.ts, keeps the player out of those on its sand). */
+export const treeSpots: { x: number; z: number; one: boolean; two: boolean }[] = [];
 for (let i = 0, placed = 0; i < 900 && placed < 96; i++) {
   const x = rand(-44, 34), z = rand(-8, 40);
   const a = treeOK1(x, z), b = treeOK2(x, z);
   if (!a && !b) continue;
   addTree(a && b ? both : a ? only1 : only2, x, z, rand(.8, 1.3));
+  treeSpots.push({ x, z, one: a, two: b });
   placed++;
 }
 for (let i = 0; i < 40; i++) {
