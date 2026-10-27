@@ -55,12 +55,17 @@ function grit(c: Ctx, x0: number, x1: number, y: number, h: number, n: number, b
   });
 }
 
-/** A scar from (x0, y0) to (x1, y1), `n` stitches across it. */
-function scar(c: Ctx, x0: number, y0: number, x1: number, y1: number, n = 2) {
-  line(c, SCAR, 4, () => { c.moveTo(x0, y0); c.lineTo(x1, y1); });
-  const dx = x1 - x0, dy = y1 - y0, l = Math.hypot(dx, dy), nx = (-dy / l) * 4.5, ny = (dx / l) * 4.5;
-  line(c, SCAR, 2.5, () => {
-    for (let i = 1; i <= n; i++) { const t = i / (n + 1), x = x0 + dx * t, y = y0 + dy * t; c.moveTo(x - nx, y - ny); c.lineTo(x + nx, y + ny); }
+/** A healed scar: one pale curve from (x0, y0) bowed through (cx, cy) to (x1, y1), a neat stitch across it at each
+ *  of `ts` (0 to 1 along it). */
+function scar(c: Ctx, [x0, y0, cx, cy, x1, y1]: number[], ts: number[]) {
+  line(c, SCAR, 4.5, () => { c.moveTo(x0, y0); c.quadraticCurveTo(cx, cy, x1, y1); });
+  line(c, SCAR, 3, () => {
+    for (const t of ts) {
+      const u = 1 - t, x = u * u * x0 + 2 * u * t * cx + t * t * x1, y = u * u * y0 + 2 * u * t * cy + t * t * y1;
+      const dx = 2 * u * (cx - x0) + 2 * t * (x1 - cx), dy = 2 * u * (cy - y0) + 2 * t * (y1 - cy), l = Math.hypot(dx, dy);
+      const nx = (-dy / l) * 4.5, ny = (dx / l) * 4.5;
+      c.moveTo(x - nx, y - ny); c.lineTo(x + nx, y + ny);
+    }
   });
 }
 
@@ -120,15 +125,32 @@ function yokobashiri(c: Ctx) {
   claw(-33, -29, 12, -Math.PI / 2 - 0.05, -Math.PI / 2 + 0.45);
   claw(31, -28, 16, -Math.PI / 2 - 0.5, -Math.PI / 2 + 0.05);
   flat(c, TIP, () => { dot(c, 24, -41, 3); dot(c, 33, -42, 3); dot(c, -36, -39, 2.5); dot(c, -28, -39, 2.5); });
-  // the shell, spiked round its rim, and the eye stalks standing up out of it, under one outline
-  blob(c, SH, () => {
-    oval(c, 0, 14, 34, 22);
-    for (const t of [0.5, 0.95, 1.4]) for (const s of [-1, 1]) {
-      const a = -Math.PI / 2 + s * t, px = Math.cos(a) * 34, py = 14 + Math.sin(a) * 22;
-      const nx = Math.cos(a) * 22, ny = Math.sin(a) * 34, nl = Math.hypot(nx, ny), ux = nx / nl, uy = ny / nl;
-      poly(c, px - uy * 5.5, py + ux * 5.5, px + ux * 9, py + uy * 9, px + uy * 5.5, py - ux * 5.5);
+  // the shell, spiked round its rim, and the eye stalks standing up out of it: one shape traced round in a single
+  // line, so no seam of an inner oval shows through the red
+  const RX = 34, RY = 22, CY = 14, at = (a: number) => [Math.cos(a) * RX, CY + Math.sin(a) * RY];
+  type Bump = [number, number, () => void];
+  const bumps: Bump[] = [];
+  for (const t of [0.5, 0.95, 1.4]) for (const s of [-1, 1]) {
+    const a = -Math.PI / 2 + s * t, [px, py] = at(a);
+    const nx = Math.cos(a) * RY, ny = Math.sin(a) * RX, nl = Math.hypot(nx, ny);
+    const d = 5.5 / Math.hypot(Math.sin(a) * RX, Math.cos(a) * RY);
+    bumps.push([a - d, a + d, () => c.lineTo(px + (nx / nl) * 9, py + (ny / nl) * 9)]);
+  }
+  for (const s of [-1, 1]) {
+    const x0 = s * 8 - 2.5, x1 = s * 8 + 2.5;
+    bumps.push([-Math.acos(x0 / RX), -Math.acos(x1 / RX), () => { c.lineTo(x0, -11.5); c.arc(s * 8, -11.5, 2.5, Math.PI, TAU); }]);
+  }
+  bumps.sort((p, q) => p[0] - q[0]);
+  solid(c, SH, () => {
+    // round from the bottom, so every bump (all on the top half) falls inside one turn
+    let a = Math.PI / 2;
+    c.moveTo(...(at(a) as [number, number]));
+    for (const [a0, a1, tip] of bumps) {
+      if (a0 + TAU > a) c.ellipse(0, CY, RX, RY, 0, a, a0 + TAU); // spikes side by side can meet at the base
+      tip(); c.lineTo(...(at(a1) as [number, number])); a = a1 + TAU;
     }
-    for (const s of [-1, 1]) box(c, s * 8 - 2.5, -14, 5, 18, 2.5);
+    c.ellipse(0, CY, RX, RY, 0, a, Math.PI / 2 + TAU);
+    c.closePath();
   });
   for (const s of [-1, 1]) glare(c, s, 8.5, -15, 7, 6.5);
   grit(c, -14, 14, 16, 10, 4, 3);
@@ -188,7 +210,13 @@ function samehada(c: Ctx) {
   });
   c.beginPath(); mouth(); c.stroke();
   for (const s of [-1, 1]) glare(c, s, 20, -14, 8, 6.5);
-  scar(c, 13, -30, 28, -2, 2);
+  // the old scar down through his left brow, cutting a notch in it, over the eye's rim but not the eye itself, and on
+  // down his cheek
+  inside(c, () => {
+    c.rect(-50, -50, 100, 100);
+    c.moveTo(28, -14); c.ellipse(20, -14, 8, 6.5, 0, 0, TAU, true); // the eye's white, left out…
+    poly(c, 29.2, -15.6, 10.4, -10.7, 10.4, -16.3, 30, -21.5); // …but not where the brow lies over it
+  }, () => scar(c, [13, -31, 25, -19, 27, -1], [0.16, 0.87]));
 }
 
 /** Fukure, the pufferfish, blown up for the fight: a big olive ball with a rim of thick spines, darker over his back,
@@ -207,7 +235,13 @@ function fukure(c: Ctx) {
     flat(c, UNDER, () => oval(c, 0, cy + 30, 27, 13));
     flat(c, '#2A2116', () => { dot(c, -16, -20, 2.8); dot(c, 0, -24, 2.8); dot(c, 16, -20, 2.8); });
   });
-  for (const s of [-1, 1]) glare(c, s, 14, -3, 10.5, 9.5, IRIS);
+  // the eyes, and thin brows slanting down to the middle just over them, clear of the pupils
+  for (const s of [-1, 1]) {
+    const x = 14, y = -3, rx = 10.5, ry = 9.5;
+    solid(c, IRIS, () => oval(c, s * x, y, rx, ry));
+    flat(c, INK, () => dot(c, s * (x - rx * 0.25), y + ry * 0.2, ry * 0.5));
+    solid(c, INK, () => poly(c, s * 1.5, -10, s * 27.5, -17.5, s * 26.5, -14, s * 2, -7));
+  }
   grit(c, -17, 17, 17, 12, 4, 4);
 }
 

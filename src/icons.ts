@@ -92,7 +92,8 @@ function rice(c: Ctx) {
 /** 🥡 The takeout kiosk's box: a white folded pail, wider at the top, its flaps closed into a roof, a wire handle and a red stripe. */
 function takeout(c: Ctx) {
   c.save(); c.translate(2, 3);
-  bar(c, STEEL, 3, () => { c.moveTo(-31, -18); c.quadraticCurveTo(-4, -70, 26, -20); });
+  // a small wire loop, rising out of the ridge
+  bar(c, STEEL, 2.5, () => { c.moveTo(-15, -28); c.quadraticCurveTo(-3, -60, 9, -28); });
   // the front, wider at the top; the right side, narrower and shaded
   const front = () => poly(c, -40, -6, 8, -6, 2, 40, -32, 40);
   const side = () => poly(c, 8, -6, 34, -18, 26, 28, 2, 40);
@@ -411,21 +412,27 @@ function angry(c: Ctx) {
 
 /** 😭 The casino's restroom, for a good cry: eyes squeezed shut, mouth wide open, tears streaming down both cheeks. */
 function sob(c: Ctx) {
-  solid(c, '#F7D038', () => dot(c, 0, 0, 44));
-  // two streams gushing from the eyes, widening as they run down the cheeks and off the chin
+  const face = () => dot(c, 0, 0, 44);
+  solid(c, '#F7D038', face);
+  // a stream of tears from under each eye, widening a little as it runs down the cheek to the chin's edge, a shine down
+  // its left side; the face's own outline closes them off at the bottom
   const stream = (s: number) => {
-    c.moveTo(s * -27, -8); c.quadraticCurveTo(s * -19, -16, s * -11, -8);
-    c.bezierCurveTo(s * -11, 8, s * -20, 20, s * -18, 38);
-    c.quadraticCurveTo(s * -29, 50, s * -42, 40);
-    c.bezierCurveTo(s * -38, 20, s * -26, 8, s * -27, -8); c.closePath();
+    c.moveTo(s * 12, -13); c.lineTo(s * 26, -13);
+    c.bezierCurveTo(s * 27, 8, s * 30, 26, s * 33, 50);
+    c.lineTo(s * 12, 50);
+    c.bezierCurveTo(s * 13, 24, s * 12, 6, s * 12, -13); c.closePath();
   };
-  solid(c, '#6EC3F0', () => { stream(1); stream(-1); });
-  line(c, 'rgba(255,255,255,.5)', 3, () => {
-    c.moveTo(-24, 0); c.quadraticCurveTo(-27, 14, -31, 26); c.moveTo(16, 0); c.quadraticCurveTo(17, 10, 20, 20);
+  inside(c, face, () => {
+    solid(c, '#6EC3F0', () => { stream(1); stream(-1); });
+    line(c, 'rgba(255,255,255,.55)', 3.5, () => {
+      c.moveTo(-21.5, -4); c.bezierCurveTo(-22, 10, -24, 24, -26, 40); c.moveTo(16.5, -4); c.bezierCurveTo(16.5, 10, 17, 24, 17.5, 40);
+    });
   });
-  line(c, INK, 6, () => { c.moveTo(-30, -10); c.quadraticCurveTo(-19, -22, -8, -10); c.moveTo(8, -10); c.quadraticCurveTo(19, -22, 30, -10); });
-  solid(c, '#8E2B2B', () => { c.moveTo(-11, 6); c.quadraticCurveTo(0, 2, 11, 6); c.quadraticCurveTo(16, 30, 0, 31); c.quadraticCurveTo(-16, 30, -11, 6); c.closePath(); });
-  flat(c, '#E8607A', () => oval(c, 0, 25, 8, 4));
+  line(c, INK, OUT, face);
+  line(c, INK, 6, () => { c.moveTo(-31, -10); c.quadraticCurveTo(-19, -23, -7, -10); c.moveTo(7, -10); c.quadraticCurveTo(19, -23, 31, -10); });
+  const mouth = () => { c.moveTo(-9, 5); c.quadraticCurveTo(0, 3, 9, 5); c.quadraticCurveTo(13, 32, 0, 32); c.quadraticCurveTo(-13, 32, -9, 5); c.closePath(); };
+  solid(c, '#8E2B2B', mouth);
+  inside(c, mouth, () => flat(c, '#E8607A', () => oval(c, 0, 31, 9, 6)));
 }
 
 // ---------- chef's specials: the dishes on the menu tags ----------
@@ -684,27 +691,26 @@ function oden(c: Ctx) {
   c.restore();
 }
 
-/** 🍵 Green tea in a yunomi: a tall cup with no handle, bright green tea at the brim, a green band and steam. */
+/** 🍵 Green tea in a yunomi: a cream cup with no handle, gently tapered, a green band round it, the tea at the brim and steam. */
 function tea(c: Ctx) {
   line(c, STEEL, 4, () => {
     c.moveTo(-8, -24); c.quadraticCurveTo(-15, -31, -8, -38); c.quadraticCurveTo(-1, -44, -7, -48);
     c.moveTo(9, -24); c.quadraticCurveTo(2, -31, 9, -38);
   });
+  solid(c, '#DCE4EA', () => box(c, -15, 34, 30, 8, 3));
   const cup = () => {
-    c.moveTo(-26, -16); c.lineTo(26, -16); c.quadraticCurveTo(29, 14, 24, 34); c.quadraticCurveTo(22, 42, 14, 42);
-    c.lineTo(-14, 42); c.quadraticCurveTo(-22, 42, -24, 34); c.quadraticCurveTo(-29, 14, -26, -16); c.closePath();
+    c.moveTo(-29, -16); c.lineTo(29, -16); c.bezierCurveTo(29, 8, 26, 28, 18, 36);
+    c.quadraticCurveTo(14, 39, 8, 39); c.lineTo(-8, 39); c.quadraticCurveTo(-14, 39, -18, 36);
+    c.bezierCurveTo(-26, 28, -29, 8, -29, -16); c.closePath();
   };
   solid(c, CREAM, cup);
-  // a green glaze poured over the top half, running down in drips
+  // one glaze band, curving round the cup
   inside(c, cup, () => flat(c, DEEP_GREEN, () => {
-    c.moveTo(-40, -20); c.lineTo(40, -20); c.lineTo(40, 10);
-    c.quadraticCurveTo(26, 6, 20, 12); c.quadraticCurveTo(14, 24, 8, 12); c.quadraticCurveTo(-4, 4, -10, 14);
-    c.quadraticCurveTo(-16, 22, -22, 10); c.quadraticCurveTo(-30, 6, -40, 10); c.closePath();
+    c.moveTo(-40, 10); c.quadraticCurveTo(0, 16, 40, 10); c.lineTo(40, 19); c.quadraticCurveTo(0, 25, -40, 19); c.closePath();
   }));
   c.beginPath(); cup(); c.stroke();
-  flat(c, 'rgba(255,255,255,.4)', () => box(c, -19, -6, 6, 14, 3));
-  solid(c, CREAM, () => oval(c, 0, -16, 26, 8));
-  flat(c, '#9BD15A', () => oval(c, 0, -15, 20, 5));
+  solid(c, CREAM, () => oval(c, 0, -16, 29, 8));
+  flat(c, '#9BD15A', () => oval(c, 0, -15, 23, 5));
 }
 
 /** 🍶 Sake: a tokkuri flask (narrow neck, round body) with a blue band, and its little ochoko cup beside it. */

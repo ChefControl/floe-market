@@ -1,7 +1,7 @@
 // Icons for people and faces, keyed by the emoji they stand for (icons.ts gathers them). Drawn with the kit (kit.ts), the
 // design book's Icons section has the rules.
 import {
-  type Ctx, type Drawing, BLUE, CREAM, DEEP_RED, GOLD, INK, NIGHT, PINK, RED, SKIN, SKY, STEEL, TAU,
+  type Ctx, type Drawing, BLUE, CREAM, DEEP_RED, GOLD, INK, NIGHT, OUT, PINK, RED, SKIN, SKY, STEEL, TAU,
   bar, blob, box, dot, flat, inside, line, oval, poly, solid,
 } from './kit';
 
@@ -45,18 +45,11 @@ function flex(c: Ctx) {
   blob(c, SKIN, () => {
     box(c, -36, 14, 74, 28, 14);
     oval(c, -8, 10, 21, 18);
-    box(c, 18, -22, 24, 58, 12);
+    box(c, 18, -24, 24, 60, 12);
   });
-  // the fist: a round knob, its curled fingers' knuckles bumping out towards the head, the thumb across their front
-  blob(c, SKIN, () => {
-    box(c, 16, -46, 30, 34, 14);
-    dot(c, 15, -38, 8); dot(c, 13, -26, 8); dot(c, 16, -15, 7);
-  });
-  line(c, INK, 3, () => {
-    c.moveTo(8, -32); c.quadraticCurveTo(14, -33, 20, -31);
-    c.moveTo(7, -20); c.quadraticCurveTo(13, -20, 19, -18);
-  });
-  solid(c, SKIN, () => oval(c, 28, -36, 14, 7, 0.45));
+  // the fist: one round knob, two of its curled fingers' creases on the front, towards the head
+  solid(c, SKIN, () => box(c, 10, -46, 34, 30, 14));
+  line(c, INK, 3, () => { c.moveTo(10, -36); c.quadraticCurveTo(16, -37, 21, -34); c.moveTo(10, -26); c.quadraticCurveTo(16, -27, 21, -24); });
   flat(c, SHINE, () => oval(c, -14, 2, 9, 5, -0.3));
   solid(c, CREAM, () => box(c, -46, 8, 16, 38, 6));
 }
@@ -152,34 +145,35 @@ function police(c: Ctx) {
   solid(c, LIGHT_BLUE, () => box(c, 0, -36, 16, 10, 4));
 }
 
-/** 🤝 Shaking on it: two hands clasped, seen from the side, the arms coming up from either corner: Eddie's from his
- * dark suit and white shirt cuff on the left, the chef's from his white sleeve on the right, the chef's fingers wrapped
- * over the back of Eddie's hand and Eddie's thumb on top. */
+/** 🤝 Shaking on it: Eddie fixing a fight. Two hands meet side-on in the middle: Eddie's from his purple suit and white
+ * shirt cuff on the left, the back of his hand to us and his fingers laid down across the chef's; the chef's from his
+ * white sleeve on the right, behind, his thumb along the top of Eddie's hand. */
 function shake(c: Ctx) {
-  const TILT = 0.62;
-  const thumb = () => { c.moveTo(4, -11); c.quadraticCurveTo(14, -21, 28, -19); c.quadraticCurveTo(33, -16, 28, -12); c.quadraticCurveTo(18, -12, 12, -7); c.closePath(); };
-  const eddie = () => { c.translate(-12, 14); c.rotate(-TILT); };
-  c.translate(0, -3); c.scale(1.1, 1.1);
-  // Eddie's arm, up from the lower left: his hand with its back to us, then his sleeve and shirt cuff
-  c.save(); eddie();
-  blob(c, SKIN, () => box(c, -10, -13, 40, 26, 12));
-  solid(c, SUIT, () => box(c, -30, -14, 18, 28, 4));
-  solid(c, CREAM, () => box(c, -15, -12, 7, 24, 2.5));
-  c.restore();
-  // the chef's arm, up from the lower right: his palm, his four fingers stacked over Eddie's knuckles, then his sleeve
-  c.save(); c.translate(12, 14); c.rotate(TILT); c.scale(-1, 1);
+  /** A sleeve centred at (x, 0), its outer end dipping `a`, with a cuff on its inner side (side: 1 left, -1 right). */
+  const sleeve = (x: number, a: number, side: number, cloth: string, cuff?: string) => {
+    c.save(); c.translate(x, 0); c.rotate(a * side); c.scale(side, 1);
+    solid(c, cloth, () => box(c, -9, -20, 18, 40, 5));
+    if (cuff) solid(c, cuff, () => box(c, 2, -19, 8, 38, 3));
+    c.restore();
+  };
+  // the chef's hand, behind, and his sleeve
+  solid(c, SKIN, () => box(c, -4, -22, 38, 42, 16));
+  sleeve(37, 0.15, -1, CREAM);
+  // Eddie's hand, in front: the back of it and his fingers as one shape, laid down across the chef's; then his sleeve
   blob(c, SKIN, () => {
-    box(c, -10, -13, 24, 26, 11);
-    box(c, 2, -14, 30, 8, 4); box(c, 2, -7, 33, 8, 4); box(c, 2, 0, 31, 8, 4); box(c, 2, 7, 26, 7, 3.5);
+    c.moveTo(-32, -17); c.lineTo(-8, -20); c.quadraticCurveTo(3, -21, 9, -17); c.lineTo(26, -1);
+    c.quadraticCurveTo(32, 6, 27, 13); c.quadraticCurveTo(22, 19, 14, 17); c.lineTo(-4, 20); c.lineTo(-30, 20); c.lineTo(-36, 15); c.closePath();
   });
-  line(c, INK, 3, () => { for (const y of [-6.5, 0.5, 7.2]) { c.moveTo(10, y); c.lineTo(30, y); } });
-  solid(c, CREAM, () => box(c, -30, -14, 18, 28, 4));
-  line(c, STEEL, 3, () => { c.moveTo(-18, -12); c.lineTo(-18, 12); });
-  c.restore();
-  // Eddie's thumb, on top of it all
-  c.save(); eddie();
-  solid(c, SKIN, thumb);
-  c.restore();
+  line(c, INK, 3, () => { c.moveTo(20, 9); c.lineTo(7, 0); c.moveTo(14, 15); c.lineTo(2, 7); });
+  sleeve(-37, 0.15, 1, SUIT, CREAM);
+  // the chef's thumb along the top of Eddie's hand, its root hidden in the chef's own hand (so no outline there)
+  const thumb = () => {
+    c.moveTo(16, -22); c.lineTo(-6, -22); c.quadraticCurveTo(-18, -22, -18, -14);
+    c.quadraticCurveTo(-18, -6, -9, -6); c.quadraticCurveTo(4, -6, 12.6, -13.6);
+  };
+  flat(c, SKIN, () => { thumb(); c.lineTo(17, -18); c.closePath(); });
+  line(c, INK, OUT, thumb);
+  flat(c, SHINE, () => oval(c, -22, 8, 5, 3.5, -0.2));
 }
 
 /** 🧟 The arcade's horde: a cute green zombie, arms out, one eye bigger than the other. */

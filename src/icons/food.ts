@@ -34,23 +34,42 @@ function coffee(c: Ctx) {
 
 /** 🌶️ A red chili, its tip curling, under a green cap and stalk (the spicy taste; the Chili Sprayer). */
 function chili(c: Ctx) {
+  // the pod is one smooth width swept along a hooked spine (a cubic curve): plump under the cap, tapering to a fine
+  // tip that lifts at the end
+  const P = [-24, -17, -20, 14, 4, 42, 44, 19];
+  const at = (t: number) => {
+    const u = 1 - t, a = u * u * u, b = 3 * u * u * t, d = 3 * u * t * t, e = t * t * t;
+    return [a * P[0] + b * P[2] + d * P[4] + e * P[6], a * P[1] + b * P[3] + d * P[5] + e * P[7]];
+  };
+  const half = (t: number) => 17.5 * Math.pow(1 - t, 0.85) * (1 + 0.18 * Math.sin(Math.PI * Math.min(1, t * 2.4))) + 0.9;
+  const n = 40, left: number[] = [], right: number[] = [];
+  for (let i = 0; i <= n; i++) {
+    const t = i / n, [x, y] = at(t), [x2, y2] = at(Math.min(1, t + 0.01)), [x1, y1] = at(Math.max(0, t - 0.01));
+    const dx = x2 - x1, dy = y2 - y1, l = Math.hypot(dx, dy), w = half(t);
+    left.push(x + dy / l * w, y - dx / l * w); right.push(x - dy / l * w, y + dx / l * w);
+  }
+  const tilt = Math.atan2(P[3] - P[1], P[2] - P[0]) - Math.PI / 2;
   solid(c, RED, () => {
-    c.moveTo(-36, -24);
-    c.bezierCurveTo(-42, -2, -30, 20, -8, 32);
-    c.bezierCurveTo(8, 41, 30, 42, 40, 32);
-    c.quadraticCurveTo(45, 26, 41, 24);
-    c.bezierCurveTo(30, 30, 14, 24, 4, 12);
-    c.bezierCurveTo(-4, 2, -4, -12, -8, -24);
-    c.bezierCurveTo(-14, -31, -29, -31, -36, -24);
+    c.moveTo(left[0], left[1]);
+    c.quadraticCurveTo(P[0] + Math.sin(tilt) * 14, P[1] - Math.cos(tilt) * 14, right[0], right[1]);
+    for (let i = 2; i < right.length; i += 2) c.lineTo(right[i], right[i + 1]);
+    for (let i = left.length - 2; i >= 0; i -= 2) c.lineTo(left[i], left[i + 1]);
     c.closePath();
   });
-  line(c, 'rgba(255,255,255,.4)', 5, () => { c.moveTo(-29, -10); c.bezierCurveTo(-30, 4, -22, 14, -12, 21); });
-  bar(c, DEEP_GREEN, 5, () => { c.moveTo(-22, -30); c.bezierCurveTo(-22, -40, -18, -44, -8, -45); });
-  solid(c, GREEN, () => {
-    c.moveTo(-41, -21); c.quadraticCurveTo(-38, -35, -23, -33); c.quadraticCurveTo(-7, -35, -3, -23);
-    c.quadraticCurveTo(-9, -26, -13, -19); c.quadraticCurveTo(-18, -26, -24, -20);
-    c.quadraticCurveTo(-30, -27, -33, -18); c.quadraticCurveTo(-36, -24, -41, -21); c.closePath();
+  line(c, 'rgba(255,255,255,.4)', 5, () => {
+    const [ax, ay] = at(0.12), [bx, by] = at(0.3), [ex, ey] = at(0.48);
+    const k = 8;
+    c.moveTo(ax - k, ay - 1); c.quadraticCurveTo(bx - k - 3, by + 2, ex - 2, ey + k - 1);
   });
+  // the cap and stalk, turned to sit square on the shoulder
+  c.save(); c.translate(P[0], P[1]); c.rotate(tilt);
+  bar(c, DEEP_GREEN, 5, () => { c.moveTo(0, -6); c.bezierCurveTo(0, -16, 4, -21, 14, -22); });
+  solid(c, GREEN, () => {
+    c.moveTo(-19, 4); c.quadraticCurveTo(-16, -10, -1, -9); c.quadraticCurveTo(15, -10, 19, 2);
+    c.quadraticCurveTo(13, -1, 9, 6); c.quadraticCurveTo(4, -1, -2, 5);
+    c.quadraticCurveTo(-8, -2, -11, 7); c.quadraticCurveTo(-14, 1, -19, 4); c.closePath();
+  });
+  c.restore();
 }
 
 /** 🍋 A lemon with its stalk and a leaf (the sour taste; a slot reel's symbol). */
@@ -86,22 +105,25 @@ function cherries(c: Ctx) {
 
 /** 🍜 Mama Moray's: a red bowl of ramen with an egg and a naruto slice, chopsticks lifting wavy noodles. */
 function noodles(c: Ctx) {
-  solid(c, DEEP_RED, () => box(c, -16, 30, 32, 10, 3));
-  solid(c, RED, () => { c.moveTo(-44, -2); c.bezierCurveTo(-42, 28, -20, 36, 0, 36); c.bezierCurveTo(20, 36, 42, 28, 44, -2); c.closePath(); });
-  flat(c, SHINE, () => oval(c, -28, 14, 4, 9, -0.5));
-  const broth = () => oval(c, 0, -2, 44, 11);
-  solid(c, '#E8B45A', broth);
+  // the bowl: its foot, its red side, then the rim with the broth sitting just below it
+  solid(c, DEEP_RED, () => box(c, -16, 30, 32, 9, 3));
+  solid(c, RED, () => { c.moveTo(-45, -6); c.bezierCurveTo(-43, 24, -20, 34, 0, 34); c.bezierCurveTo(20, 34, 43, 24, 45, -6); c.closePath(); });
+  flat(c, SHINE, () => oval(c, -29, 10, 4, 9, -0.5));
+  solid(c, DEEP_RED, () => oval(c, 0, -6, 45, 12));
+  const broth = () => oval(c, 0, -4, 40, 9);
+  flat(c, '#E8B45A', broth);
   inside(c, broth, () => line(c, NOODLE, 3.5, () => {
     for (const y of [-6, 1]) { c.moveTo(-40, y); for (let x = -40; x < 40; x += 10) c.quadraticCurveTo(x + 5, y - 4, x + 10, y); }
   }));
-  solid(c, CREAM, () => oval(c, -24, -4, 10, 7));
-  flat(c, GOLD, () => dot(c, -23, -4, 4.5));
-  solid(c, CREAM, () => oval(c, 24, -3, 8, 5));
+  solid(c, CREAM, () => oval(c, -24, -4, 9, 5));
+  flat(c, GOLD, () => oval(c, -23, -4, 4, 3));
+  solid(c, CREAM, () => oval(c, 24, -3, 8, 4.5));
   flat(c, PINK, () => oval(c, 24, -3, 3.5, 2));
+  // chopsticks lifting a short bit of noodle just clear of the rim
   bar(c, NOODLE, 4, () => {
-    for (const x of [-4, 6]) { c.moveTo(x + 2, -30); c.bezierCurveTo(x - 6, -24, x + 8, -18, x, -12); c.quadraticCurveTo(x - 5, -8, x, -4); }
+    for (const x of [-5, 3]) { c.moveTo(x, -20); c.bezierCurveTo(x - 5, -15, x + 5, -11, x, -5); }
   });
-  bar(c, WOOD, 4.5, () => { c.moveTo(-5, -31); c.lineTo(16, -47); c.moveTo(-1, -27); c.lineTo(38, -41); });
+  bar(c, WOOD, 4, () => { c.moveTo(-7, -21); c.lineTo(20, -39); c.moveTo(-1, -19); c.lineTo(38, -32); });
 }
 
 /** 🍣 Nigiri: a slice of salmon draped over a block of rice, like the restaurant's. */
