@@ -98,7 +98,7 @@ describe('her house', () => {
     expect(rain.rainK).toBeGreaterThan(0.3);
     expect(rain.rainK).toBeLessThan(0.5);
     expect(tears.every(t => t.visible)).toBe(true);
-    expect(top()).toBe(0x5F7A3B); // in the singer's olive jacket
+    expect(top()).toBe(0xF4F6F8); // in the crooner's chef's whites
     expect(document.querySelector('.pop')!.textContent).toBe('😢');
     g.run(2);
     expect(rain.rainK).toBe(1);

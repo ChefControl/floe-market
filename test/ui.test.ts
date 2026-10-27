@@ -1,5 +1,7 @@
 // DOM overlay and controls.
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import indexHtml from '../index.html?raw';
+import { withoutKofi } from '../vite.config';
 import { loadGame } from './helpers';
 
 const $ = (id: string) => document.getElementById(id)!;
@@ -341,9 +343,36 @@ describe('settings', () => {
 });
 
 describe('Ko-fi', () => {
+  // on only where the game's built with it on, as the live web game is (flags.ts)
+  beforeEach(() => { vi.stubEnv('VITE_KOFI', 'on'); });
+  afterEach(() => { vi.unstubAllEnvs(); });
+
+  it('is off unless the build says on (the Steam build): no row or link in the page, and no nudge', async () => {
+    const page = withoutKofi(indexHtml);
+    expect(page).not.toMatch(/ko-?fi|coffee/i);
+    expect(indexHtml.length - page.length).toBeLessThan(600); // only the row and its CSS
+    expect(page).toContain('<button id="creditsBtn"');
+    expect(() => withoutKofi(page)).toThrow(/no Ko-fi row/); // the markup moved: the build stops, not ships the link
+    for (const env of [undefined, 'off']) {
+      vi.unstubAllEnvs();
+      if (env) vi.stubEnv('VITE_KOFI', env);
+      await loadGame();
+      $('kofi').remove(); // as the page is built
+      const kofi = await import('../src/kofi');
+      expect((await import('../src/flags')).kofiOn()).toBe(false);
+      vi.useFakeTimers();
+      kofi.updKofi(kofi.NUDGE_AFTER + 1);
+      expect($('toast').classList.contains('on')).toBe(false);
+      expect($('gear').classList.contains('ping')).toBe(false);
+      expect(localStorage.getItem('floe-market-kofi')).toBeNull();
+      vi.useRealTimers();
+    }
+  });
+
   it('opens Ko-fi from the settings in a pop-up window of its own, leaving the game where it is', async () => {
     await loadGame();
     await import('../src/kofi');
+    expect((await import('../src/flags')).kofiOn()).toBe(true);
     const win = { opener: {} as unknown };
     const open = vi.spyOn(window, 'open').mockReturnValue(win as Window);
     $('gear').click();

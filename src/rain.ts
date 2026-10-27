@@ -1,7 +1,7 @@
 // Her house, far out past the road, at the end of a path from the market's east fence (in stage 2, from the
 // restaurant's east door). Standing in the circle out
-// front makes it rain: the sky goes grey, the player turns into the singer, Ofer Levy, and cries facing her window,
-// and his "מאוהב בגשם" plays from the line "מול ביתך עומד בגשם נרטב". Walking off lets the rain stop and the song fade out.
+// front makes it rain: the sky goes grey, the player turns into a heartbroken chef and cries facing her window,
+// and "מאוהב בגשם" plays from the line "מול ביתך עומד בגשם נרטב". Walking off lets the rain stop and the song fade out.
 import {
   BoxGeometry, BufferAttribute, BufferGeometry, Color, ExtrudeGeometry, Group, LineBasicMaterial, LineSegments,
   type Matrix4, Mesh, MeshBasicMaterial, MeshLambertMaterial, type Object3D, Shape, SphereGeometry,
@@ -241,7 +241,7 @@ const tears = [0, 1, 2, 3].map(i => {
 const TEAR = 0.8;
 let cryT = 0, sobT = 0;
 export let crying = false;
-/** In the rain he becomes the singer: black hair and stubble, black shirt, gold chain. */
+/** In the rain he becomes a heartbroken chef: his whites, a red neckerchief, a toque and a bunch of wilting flowers. */
 const dressAsSinger = singerLook(player.g);
 
 function updCrying(dt: number) {
