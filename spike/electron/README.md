@@ -43,3 +43,17 @@ MacBook Air M4, 1280x800, Electron 45.0.0 / Chromium 156 (2026-10-27):
 
 The M4 is far faster than the targets, so these only prove the wrapper works. The numbers that matter come from a
 weak Windows laptop and the Deck.
+
+Steam Deck (AMD Van Gogh, Direct3D 11 through ANGLE), the Windows build run through Proton, 1280x800 (2026-10-27).
+Median fps, with the lowest second in brackets:
+
+| Scene | Low | High |
+| --- | --- | --- |
+| stage1 | 60 (55) | 60 (59) |
+| stage2 | 60 (53) | 60 (60) |
+| cellar | 60 (60) | 60 (60) |
+| cellar-full | 60 (55) | **50 (42)** |
+
+Everything holds 60 fps except stage 3 with every boss beaten and everything bought on High (1413 draw calls, 585k
+triangles), which drops to about 50. Low holds 60 there, so the Deck should default to Low or get a lighter High for
+the late cellar.
