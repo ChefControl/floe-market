@@ -31,6 +31,18 @@ A bench waits 10 seconds on each of Low and High, then reads the demo panel's fr
 On the Deck, in Desktop Mode: copy the folder over, add `FloeMarketSpike.exe` to Steam as a non-Steam game, set
 Compatibility to Proton, and add `--bench --scene=all` as its launch options for a bench run.
 
+## Native Linux (the Deck without Proton)
+
+`npm run package-linux` makes `out/FloeMarketSpike-linux-x64/`; pack it with `tar -czf` (a zip can drop the files'
+run permission). It needs `@koromix/koffi-linux-x64` installed next to the other koffi packages for Steamworks.
+
+- `play.sh` plays the game, `run-bench.sh` benches every scene (results on `~/Desktop`), `run-steam.sh` tries
+  Steamworks (the SDK's `redistributable_bin/linux64/libsteam_api.so` is used; log in `steam-log.txt`).
+- Every script passes `--no-sandbox`: Electron's Chrome sandbox needs a helper owned by root, which an unpacked folder
+  (and Steam's Linux runtime) doesn't have. The real wrapper (#159) has to settle this.
+- On the Deck, in Desktop Mode: unpack it, add `run-bench.sh` (or `play.sh`) to Steam as a non-Steam game, leave
+  Compatibility off so it runs natively, and launch it from Game Mode.
+
 ## Results so far
 
 MacBook Air M4, 1280x800, Electron 45.0.0 / Chromium 156 (2026-10-27):
