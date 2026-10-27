@@ -1,34 +1,37 @@
-// The casino yacht's room tone: three real recordings, looped, under the lounge band. Everything else the game plays
-// is synthesised, but a room full of people is the one thing synthesis never makes convincing, so these are real:
+// The casino yacht's room tone: three real recordings under the lounge band. Everything else the game plays is
+// synthesised, but a room full of people is the one thing synthesis never makes convincing, so these are real:
 //
-// - the dining room below: a restaurant's murmur, very faint and muffled, as if through the deck, anywhere aboard;
-// - the bar: chatter and laughter, coming up as you walk over to the bar across the stern;
-// - the slot machines: their jingles and bells, coming up as you near a machine (the games' bank or the guests' row).
+// - the dining room below: a restaurant's murmur, looped, very faint and muffled, as if through the deck, anywhere aboard;
+// - the bar: chatter and laughter, looped, coming up as you walk over to the bar across the stern;
+// - the slot machines: a real machine's spins, one each time a guest by the door pulls a lever (casinoSalon.ts), from
+//   that machine, while its reels go round.
 //
-// They're fetched the first time the player walks out towards the yacht, and play on the ambience bus (built again if
-// its guard finds something gone wrong there, as the beds are). Credits (the slot machines' recording asks for one)
-// are under Credits & Copyrights in the settings, and in docs/game.md.
+// They're fetched the first time the player walks out towards the yacht, and play on the ambience bus (the loops built
+// again if its guard finds something gone wrong there, as the beds are). Credits (the slot machines' recording asks for
+// one) are under Credits & Copyrights in the settings, and in docs/game.md.
 import { ac, buses, onBroken, panOf, prefs, rnd } from './audio';
-import { BAR, ROW } from './casinoSalon';
+import { BAR, onGuestPull, ROW, SPINS } from './casinoSalon';
 import { harborK } from './music';
 import { player } from './player';
 import { aboard, casinoBoat, SHIP } from './layout';
-import { BANK } from './slotMachine';
 import { FY, type XZ } from './util';
 import diningUrl from './sounds/dining.mp3';
 import barUrl from './sounds/bar.mp3';
 import slotsUrl from './sounds/slots.mp3';
 
-type Room = 'dining' | 'bar' | 'slots';
-/** Each recording, and how loud it is at its loudest: next to the bar or a machine about as loud as the restaurant's
- *  diners, and the dining room below well under that. */
+type Room = 'dining' | 'bar';
+/** Each looped recording, and how loud it is at its loudest: next to the bar about as loud as the restaurant's diners,
+ *  and the dining room below well under that. */
 const ROOMS: Record<Room, { url: string; v: number; lp: number }> = {
   dining: { url: diningUrl, v: 0.08, lp: 420 },
   bar: { url: barUrl, v: 0.25, lp: 6000 },
-  slots: { url: slotsUrl, v: 0.22, lp: 6000 },
 };
-/** Each recording's level and pan, once it's loaded (and for the tests). */
+/** Each loop's level and pan, once it's loaded (and for the tests). */
 export const roomTones: Partial<Record<Room, { g: GainNode; pan: StereoPannerNode; src: AudioBufferSourceNode }>> = {};
+/** The slot machines' recording, once it's loaded: its spins are louder than the old loop was, so they play at this,
+ *  next to the machine a little over where the loop sat; and a spin's fade, after its sound ends. */
+let slots: AudioBuffer | null = null;
+const SLOTS_V = 0.15, FADE = 0.15;
 let loading = false;
 
 /**
@@ -67,6 +70,8 @@ function load() {
     fetch(r.url).then(res => res.arrayBuffer()).then(b => ac!.decodeAudioData(b)).then(buf => play(name, loopable(buf)))
       .catch(() => { /* offline, or no such file: the yacht without its room tone */ });
   }
+  fetch(slotsUrl).then(res => res.arrayBuffer()).then(b => ac!.decodeAudioData(b)).then(buf => { slots = buf; })
+    .catch(() => { /* the guests' machines spin without it */ });
 }
 onBroken(bus => {
   if (bus !== 'amb') return;
@@ -88,12 +93,10 @@ function nearest(p: XZ, a: XZ, b: XZ): XZ {
   return { x: a.x + t * dx, z: a.z + t * dz };
 }
 const dist = (a: XZ, b: XZ) => Math.hypot(a.x - b.x, a.z - b.z);
-/** The bar's counter, and the two banks of slot machines, along the floor. */
+/** The bar's counter along the floor. */
 const COUNTER = [{ x: SHIP.x + BAR.x, z: SHIP.z + BAR.z0 }, { x: SHIP.x + BAR.x, z: SHIP.z + BAR.z1 }] as const;
-const BANKS = [
-  [{ x: BANK.x - BANK.gap, z: BANK.z }, { x: BANK.x + BANK.gap, z: BANK.z }],
-  [{ x: SHIP.x + ROW.x, z: SHIP.z + ROW.zs[0] }, { x: SHIP.x + ROW.x, z: SHIP.z + ROW.zs[ROW.zs.length - 1] }],
-] as const;
+/** Whether the player's up in the salon. */
+const upstairs = (p: { x: number; y: number; z: number }) => aboard(p) && p.y > FY + 1.0;
 
 function set(name: Room, k: number, from?: XZ) {
   const r = roomTones[name];
@@ -106,10 +109,27 @@ function set(name: Room, k: number, from?: XZ) {
 export function updRoomTone() {
   if (!ac || !casinoBoat.open || prefs.mute.amb) return;
   if (!loading && harborK() > 0) load();
-  const p = player.g.position, on = aboard(p), upstairs = on && p.y > FY + 1.0;
-  set('dining', on ? 1 : 0);
+  const p = player.g.position;
+  set('dining', aboard(p) ? 1 : 0);
   const bar = nearest(p, ...COUNTER);
-  set('bar', upstairs ? closeness(dist(p, bar)) : 0, bar);
-  const slots = BANKS.map(([a, b]) => nearest(p, a, b)).sort((a, b) => dist(p, a) - dist(p, b))[0];
-  set('slots', upstairs ? closeness(dist(p, slots)) : 0, slots);
+  set('bar', upstairs(p) ? closeness(dist(p, bar)) : 0, bar);
 }
+
+/** A guest pulls the lever of `machine` along the row: its spin `k` from the recording, from that machine, as loud as
+ *  the player's close to it, for as long as its reels go round. */
+function spin(machine: number, k: number) {
+  if (!ac || !slots || prefs.mute.amb) return;
+  const p = player.g.position, at = { x: SHIP.x + ROW.x, z: SHIP.z + ROW.zs[machine] };
+  const v = upstairs(p) ? SLOTS_V * closeness(dist(p, at)) : 0;
+  if (v <= 0) return;
+  const c = ac, { at: from, len } = SPINS[k], t = c.currentTime;
+  const src = c.createBufferSource(), lp = c.createBiquadFilter(), g = c.createGain(), pan = c.createStereoPanner();
+  src.buffer = slots;
+  lp.type = 'lowpass'; lp.frequency.value = 6000;
+  g.gain.setValueAtTime(v, t); g.gain.setTargetAtTime(0, t + len, FADE / 3);
+  pan.pan.value = panOf(at);
+  src.connect(lp); lp.connect(g); g.connect(pan); pan.connect(buses.amb);
+  src.start(t, from, len + FADE);
+  src.onended = () => pan.disconnect();
+}
+onGuestPull.push(spin);
