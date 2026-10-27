@@ -19,7 +19,7 @@ export function showErr(m: string) {
 window.addEventListener('error', e => {
   const m = 'Something broke: ' + (e.message || e);
   note(m + (e.filename ? ` (${e.filename.split('/').pop()}:${e.lineno})` : ''));
-  // another site's script failing (YouTube's player, or one the browser puts in the page itself): the browser hides
+  // another site's script failing (one the browser or an extension puts in the page): the browser hides
   // what went wrong and the game carries on, so a report keeps it, but there's no box (reports#8)
   if (e.message === 'Script error.' && !e.filename) return;
   showErr(m);

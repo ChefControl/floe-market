@@ -1,7 +1,7 @@
 // Her house, far out past the road, at the end of a path from the market's east fence (in stage 2, from the
 // restaurant's east door). Standing in the circle out
 // front makes it rain: the sky goes grey, the player turns into a heartbroken chef and cries facing her window,
-// and "מאוהב בגשם" plays from the line "מול ביתך עומד בגשם נרטב". Walking off lets the rain stop and the song fade out.
+// and the song fades in (rainTune.ts; music.ts plays it). Walking off lets the rain stop and the song fade out.
 import {
   BoxGeometry, BufferAttribute, BufferGeometry, Color, ExtrudeGeometry, Group, LineBasicMaterial, LineSegments,
   type Matrix4, Mesh, MeshBasicMaterial, MeshLambertMaterial, type Object3D, Shape, SphereGeometry,
@@ -18,7 +18,6 @@ import { house, type Lit, mailbox, pathEdging, picketFence, streetLamp } from '.
 import { popText } from './ui';
 import { d2xz, FY, V } from './util';
 import { ROAD1_X, ROAD2_X, ROAD_HALF, treeGroup } from './world';
-import { Song, type SongStatus } from './youtube';
 
 // ---------- layout ----------
 /** Her house: front wall faces west, toward the market. */
@@ -267,23 +266,14 @@ function updCrying(dt: number) {
 }
 
 // ---------- the song ----------
-/** "מאוהב בגשם" by Ofer Levy (live at Caesarea, 2011), and the second in the video where "מול ביתך עומד בגשם נרטב" begins. */
-export const SONG = { id: 'OQE1efu22BM', start: 107 }; // 1:47
+/** Seconds for the song to fade in; it fades out with the rain. It comes in from the top whenever it had faded right out. */
+const SONG_IN = 2;
+/** How far the song has faded in, 0 to 1. */
+let songK = 0;
+/** How far the song has faded in, 0 to 1, for music.ts. */
+export const rainSongK = () => songK;
+/** The banner naming the song, while the player stands in the rain. */
 const panel = document.getElementById('rain')!;
-const hint = document.getElementById('rainHint')!;
-/** What the banner says when the song can't be heard, by what's stopping it. */
-const HINTS: Record<SongStatus, string> = {
-  ok: '',
-  muted: 'Tap 🔇 to hear the song',
-  tap: 'Tap anywhere to hear the song',
-  unavailable: "YouTube won't play this song here. Tap its name to listen on YouTube",
-  offline: "Couldn't load YouTube's player. Check your connection, or allow YouTube in your ad blocker",
-};
-const song = new Song({
-  id: SONG.id, start: SONG.start, vol: 60, fadeIn: 2, fadeOut: RAIN_OUT,
-  muteKey: 'floe-market-rain-muted', muteBtn: document.getElementById('rainMute') as HTMLButtonElement,
-  onStatus: s => { hint.textContent = HINTS[s]; hint.hidden = s === 'ok'; },
-});
 
 /** Rain, tears and the song while the player stands in the circle in front of her house. */
 export function updHouse(dt: number) {
@@ -296,5 +286,5 @@ export function updHouse(dt: number) {
   }
   updRain(dt, on);
   updCrying(dt);
-  song.update(on, dt);
+  songK = on ? Math.min(1, songK + dt / SONG_IN) : Math.max(0, songK - dt / RAIN_OUT);
 }
