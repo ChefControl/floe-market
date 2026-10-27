@@ -20,6 +20,7 @@ import {
 import { between, tone } from './audio';
 import { offerTalk } from './buy';
 import { crowdModel, type Person } from './characters';
+import { course } from './course';
 import { electionDay, voteParam, votingBoatOn } from './flags';
 import { drawIcon } from './icons';
 import { apart, Build, detail, dice, K, rbox } from './kit';
@@ -641,34 +642,10 @@ const HORN_IN = 0.6;
 const BYE = 60, VOTE = voteParam();
 const dayOver = (moored: number) => VOTE === 'bye' ? moored >= BYE : VOTE !== 'on' && !electionDay();
 
-/** The curve through `c` measured along its length: how far along it each of its STEPS points is, so the ship goes
- *  at the pace it's eased to, not faster where the curve's points are spread out. */
-const STEPS = 64;
-function measure(c: Vector3[]) {
-  const len = [0];
-  let x = c[0].x, z = c[0].z;
-  for (let i = 1; i <= STEPS; i++) {
-    const [nx, nz] = curve(c, i / STEPS);
-    len.push(len[i - 1] + Math.hypot(nx - x, nz - z));
-    x = nx; z = nz;
-  }
-  return len;
-}
-/** The point `k` of the way along the curve through `c` (a cubic Bézier), and which way it's heading there. */
-function curve(c: Vector3[], k: number) {
-  const j = 1 - k, w = [j * j * j, 3 * k * j * j, 3 * k * k * j, k * k * k], d = [-j * j, j * j - 2 * k * j, 2 * k * j - k * k, k * k];
-  let x = 0, z = 0, dx = 0, dz = 0;
-  c.forEach((p, i) => { x += w[i] * p.x; z += w[i] * p.z; dx += d[i] * p.x; dz += d[i] * p.z; });
-  return [x, z, dx, dz];
-}
-const IN_LEN = measure(IN), OUT_LEN = measure(OUT);
-/** Puts the ship `f` of the way along the curve through `c` (by its length, `len`), its bow along it. */
-function steer(c: Vector3[], len: number[], f: number) {
-  const want = f * len[STEPS];
-  let i = 1;
-  while (i < STEPS && len[i] < want) i++;
-  const k = (i - 1 + (want - len[i - 1]) / Math.max(1e-6, len[i] - len[i - 1])) / STEPS;
-  const [x, z, dx, dz] = curve(c, k), s = boat!.ship;
+const IN_COURSE = course(IN), OUT_COURSE = course(OUT);
+/** Puts the ship `f` of the way along `along` (course.ts), its bow along it. */
+function steer(along: ReturnType<typeof course>, f: number) {
+  const { x, z, dx, dz } = along(f), s = boat!.ship;
   s.position.set(x, 0, z);
   s.rotation.y = Math.atan2(dz, -dx); // its bow's to the west (-x) as it's built
 }
@@ -688,13 +665,13 @@ function sail(dt: number) {
   const past = (t: number) => t0 < t && b.t >= t;
   switch (b.sail) {
     case 'out':
-      steer(IN, IN_LEN, 0);
+      steer(IN_COURSE, 0);
       if (b.t >= WAIT) { b.sail = 'in'; b.t = 0; b.ship.visible = true; }
       break;
     case 'in': {
       // in at a steady speed, easing off as it lines up, then edging onto the pier
       b.ship.visible = true;
-      if (b.t < ARRIVE) steer(IN, IN_LEN, 1 - (1 - b.t / ARRIVE) ** 2);
+      if (b.t < ARRIVE) steer(IN_COURSE, 1 - (1 - b.t / ARRIVE) ** 2);
       else edge(Math.min(1, (b.t - ARRIVE) / EDGE_T));
       if (past(HORN_IN * ARRIVE)) horn(true);
       if (b.t >= ARRIVE + EDGE_T) {
@@ -716,7 +693,7 @@ function sail(dt: number) {
       if (b.t < EDGE_T) edge(1 - b.t / EDGE_T);
       else {
         const u = Math.min(1, (b.t - EDGE_T) / LEAVE);
-        steer(OUT, OUT_LEN, u * u);
+        steer(OUT_COURSE, u * u);
         if (u >= 1) { b.sail = 'gone'; b.ship.visible = false; }
       }
       break;

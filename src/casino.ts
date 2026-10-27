@@ -4,9 +4,9 @@
 // glass under a hardtop with a wheelhouse, a radar mast, a hot tub, loungers and the CASINO sign; guests, a bar and
 // more machines inside, the wall of shame behind the bar (wallOfShame.ts), and a restroom stall in the corner by the
 // door, to cry in: casinoRestroom.ts). A gangway takes you aboard through a gap in the bulwark onto the foredeck,
-// where a staircase climbs to the salon's door. The 'roulette' unlock brings it all in with the roulette table; the
-// blackjack table and the slot machines are upgrades of their own, bought in the salon. It stays put through the
-// stage-up. The games themselves are in rouletteTable.ts, blackjackTable.ts and slotMachine.ts.
+// where a staircase climbs to the salon's door. The 'roulette' unlock is a ticket aboard (the casino isn't the
+// player's): the quay comes in at once and the yacht sails in to it, once, with the roulette table; the blackjack table
+// and the slot machines are passes of their own, bought in the salon. It stays put through the stage-up. The games themselves are in rouletteTable.ts, blackjackTable.ts and slotMachine.ts.
 import {
   BoxGeometry, BufferGeometry, CylinderGeometry, Float32BufferAttribute, Group, Mesh, MeshBasicMaterial,
   MeshLambertMaterial, MeshPhongMaterial, PlaneGeometry, Shape, ShapeGeometry, SphereGeometry, Vector2,
@@ -16,14 +16,16 @@ import { collideBlackjack, updBlackjack } from './blackjackTable';
 import { updTweens, visits } from './casinoKit';
 import { buildRestroom, collideRestroom, updRestroom } from './casinoRestroom';
 import { buildShame, updShame } from './wallOfShame';
+import { course } from './course';
 import { buildSalon, carpet, collideSalon, JACK, oblong, slab, strut, updSalon } from './casinoSalon';
 import { aboard, casinoBoat, DECKS, hullHalf, pushOutOfBox, QUAY, SHIP, UPPER } from './layout';
+import { headless } from './headless';
 import { player } from './player';
-import { popIn } from './pop';
 import { bake, canvasTex, FONT, G, mat, mesh, scene, type Part } from './render';
 import { collideRoulette, enableRoulette, updRoulette } from './rouletteTable';
+import { shipHorn } from './sfx';
 import { collideSlots, updSlots } from './slotMachine';
-import { spotlight } from './spotlight';
+import { SPOT, spotlight } from './spotlight';
 import { staging } from './stage';
 import { FY, V, type XZ } from './util';
 import { openQuayGap, planks } from './world';
@@ -256,17 +258,17 @@ function buildShip() {
 }
 
 /** The gangway from the quay over the bulwark's gap onto the foredeck, and the mooring ropes from the quay's bollards
- *  to the bulwarks. */
+ *  to the bulwarks. The plank's in a group of its own at the ship's end, to run out from there (`plank.scale.z`). */
 function buildGangway() {
   const x = SHIP.x + DECKS.gangway, z0 = SHIP.z + hullHalf(DECKS.gangway) - 0.2, z1 = QUAY.z0 + 0.4, cz = (z0 + z1) / 2;
-  const g = piece(x, cz);
-  put(g, mesh(new BoxGeometry(0.9, 0.08, z1 - z0), TEAK, 0, 0, 0, true), x, FY + 0.12, cz);
+  const g = piece(x, cz), plank = put(g, new Group(), x, 0, z0);
+  plank.add(mesh(new BoxGeometry(0.9, 0.08, z1 - z0), TEAK, 0, FY + 0.12, (z1 - z0) / 2, true));
   const rails: Part[] = [];
   for (const s of [-1, 1]) {
-    rails.push(strut(V(s * 0.45, FY + 0.75, z0 - cz), V(s * 0.45, FY + 0.75, z1 - cz), 0.025));
-    for (const z of [z0, z1]) rails.push({ geo: G.cyl, at: [s * 0.45, FY + 0.45, z - cz], scale: [0.03, 0.66, 0.03] });
+    rails.push(strut(V(s * 0.45, FY + 0.75, 0), V(s * 0.45, FY + 0.75, z1 - z0), 0.025));
+    for (const z of [z0, z1]) rails.push({ geo: G.cyl, at: [s * 0.45, FY + 0.45, z - z0], scale: [0.03, 0.66, 0.03] });
   }
-  g.add(mesh(bake(rails), GOLD, 0, 0, 0, true));
+  plank.add(mesh(bake(rails), GOLD, 0, 0, 0, true));
   const ropes: Part[] = [];
   for (const dx of [-L + 1.3, SHIP.sides - 0.2]) {
     // each rope runs from its fairlead on the bulwark out to the bollard nearest a little way past it
@@ -276,36 +278,95 @@ function buildGangway() {
     const lead = V(SHIP.x + dx - x, sheer(dx) - 0.05, SHIP.z + hullHalf(dx) - cz);
     ropes.push(strut(bollard, lead, 0.025));
   }
-  g.add(mesh(bake(ropes), 0xE3C26B));
-  return g;
+  const tied = mesh(bake(ropes), 0xE3C26B);
+  g.add(tied);
+  return { g, plank, ropes: tied };
 }
 
 let ship: ReturnType<typeof buildShip> | null = null;
+let gangway: ReturnType<typeof buildGangway> | null = null;
 let pieces: Object3D[] = [];
 /** The quay, the gangway and the ship, once they're in. */
 export const casinoPieces = () => pieces;
 
-// ---------- the ship coming in ----------
-/** The spotlight on the ship (spotlight.ts): only a little closer, as big as it is, and it pops in as the camera gets there
- *  (straight away: no waiting to see if another upgrade is bought). */
-const SHOW = { close: 0.85, popAt: 0.5 };
+// ---------- the ship sailing in ----------
+/** Seconds: sailing in from the open sea, edging sideways onto the quay, and running the gangway out. */
+const ARRIVE = 9, EDGE_T = 3, PLANK_T = 0.8;
+/** How far off the quay it lines up before edging onto it. */
+const OFF = 3;
+/** In from the open sea to the north-west: heading south, then round to face the dock, lined up off the quay. */
+const IN = course([V(SHIP.x - 18, 0, -27), V(SHIP.x - 18, 0, SHIP.z - OFF - 3), V(SHIP.x - 9, 0, SHIP.z - OFF), V(SHIP.x, 0, SHIP.z - OFF)]);
+/** When it sounds its horn coming in (how far in); a short one as it moors. */
+const HORN_IN = 0.6;
+/** The spotlight on the ship (spotlight.ts), following it in till the gangway's out: further out than usual, not in
+ *  close, as big as it is, to see the sea round it and the quay it's making for. Walking hands the camera back; the ship
+ *  sails on in all the same. */
+const SHOW = { close: 1.3 };
+const smooth = (k: number) => k * k * (3 - 2 * k);
+
+/** The ship coming in, once, right after the ticket's bought: seconds since it set off, or null once it's moored (and
+ *  straight away when loading a save, so a game saved or left mid-arrival comes back with it moored). What else is
+ *  aboard but built in the world's space (the roulette table and its pad) rides along in the ship's group meanwhile. */
+let sailing: { t: number; riders: Object3D[] } | null = null;
+
+/** Puts the ship where it is `t` seconds into sailing in, and the gangway as far out as it's got. */
+function place(t: number) {
+  const g = ship!.g, { plank } = gangway!;
+  if (t < ARRIVE) {
+    // in at a steady speed, easing off as it lines up
+    const { x, z, dx, dz } = IN(1 - (1 - t / ARRIVE) ** 2);
+    g.position.set(x, 0, z);
+    g.rotation.y = Math.atan2(-dz, dx); // its bow's to the east (+x) as it's built
+  } else {
+    g.position.set(SHIP.x, 0, SHIP.z - OFF * (1 - smooth(Math.min(1, (t - ARRIVE) / EDGE_T))));
+    g.rotation.y = 0;
+  }
+  plank.scale.z = Math.max(0.01, smooth(Math.min(1, Math.max(0, t - ARRIVE - EDGE_T) / PLANK_T)));
+  plank.visible = t > ARRIVE + EDGE_T;
+  gangway!.ropes.visible = t >= ARRIVE + EDGE_T;
+}
+
+/** Moored at the quay, the gangway out, and aboard open to the player. */
+function moor() {
+  place(Infinity);
+  ship!.g.updateMatrixWorld(true);
+  sailing?.riders.forEach(o => scene.attach(o));
+  sailing = null;
+  casinoBoat.docked = true;
+}
+
+function sail(dt: number) {
+  const s = sailing!, t0 = s.t;
+  s.t += dt;
+  const past = (t: number) => t0 < t && s.t >= t;
+  // (the stage-up's show finds it moored)
+  if (staging() || s.t >= ARRIVE + EDGE_T + PLANK_T) { moor(); return; }
+  place(s.t);
+  if (past(HORN_IN * ARRIVE)) shipHorn(ship!.g.position, true);
+  if (past(ARRIVE + EDGE_T)) shipHorn(ship!.g.position, false);
+}
 
 /**
- * The 'roulette' unlock: the quay and the ship come in, with the roulette table. Returns what pops in at once (the
- * quay). Unless `silent` (loading a save), the camera then goes over to the ship in the spotlight, and it pops in with
- * its gangway and table as the camera gets there; with reduced motion it all pops in straight away instead.
+ * The 'roulette' unlock, the ticket to the casino boat: the quay comes in at once, and the ship with the roulette
+ * table. Returns what pops in (the quay). Unless `silent` (loading a save: it's moored), the ship then sails in from
+ * the open sea, the camera following it, and moors at the quay, sounding its horn, and the gangway runs out to it;
+ * with reduced motion (or in the balance sims) it all pops in moored instead.
  */
 export function enableCasino(silent = false): Object3D[] {
   casinoBoat.open = true;
   openQuayGap();
-  const quay = buildQuay(), gangway = buildGangway(), roulette = enableRoulette();
+  const quay = buildQuay(), roulette = enableRoulette();
+  gangway = buildGangway();
   ship = buildShip();
-  pieces = [quay, gangway, ship.g];
-  if (silent) return [];
-  const waiting = [gangway, ship.g, ...roulette];
-  const arrive = () => waiting.forEach(o => { o.visible = true; popIn(o); });
-  if (!spotlight([ship.g], { close: SHOW.close, cue: { at: SHOW.popAt, run: arrive }, wait: 0 })) return [...pieces, ...roulette];
-  waiting.forEach(o => { o.visible = false; });
+  pieces = [quay, gangway.g, ship.g];
+  if (silent) { moor(); return []; }
+  const show = !headless.on && spotlight([ship.g], {
+    close: SHOW.close, wait: 0, hold: ARRIVE + EDGE_T + PLANK_T - SPOT.over, leave: () => player.moving,
+  });
+  if (!show) { moor(); return [...pieces, ...roulette]; }
+  roulette.forEach(o => ship!.g.attach(o));
+  sailing = { t: 0, riders: roulette };
+  place(0);
   return [quay];
 }
 
@@ -326,6 +387,7 @@ export function collideCasino(p: XZ) {
 
 export function updCasino(dt: number) {
   if (!ship) return;
+  if (sailing) sail(dt);
   updVisit();
   updSalon(dt, player.g.position, staging());
   updRestroom(dt);

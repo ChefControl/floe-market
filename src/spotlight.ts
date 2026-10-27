@@ -25,12 +25,15 @@ const ease = (k: number) => k < .5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2
 interface Cue { at: number; run: () => void }
 /** Something in the spotlight, and how far its middle is from its own position (measured once, as it's put there). */
 interface Lit { o: Object3D; up: Vector3 }
-interface Shot { t: number; on: Lit[]; close: number; was: Vector3; cue: Cue | null; snap: boolean; down: boolean }
+/** How long a close-up holds (SPOT.hold, or longer for the casino boat sailing in), and what ends it early (the
+ *  player walking off). */
+interface Hold { hold: number; leave: (() => boolean) | null }
+interface Shot extends Hold { t: number; on: Lit[]; close: number; was: Vector3; cue: Cue | null; snap: boolean; down: boolean }
 let shot: Shot | null = null;
 /** A run of purchases waiting for its close-up: what each one built, oldest first; seconds since the last, and how
  *  long to wait; and
  *  what has to hold still for it to play then (up or down the ladder since, it's off). */
-interface Due { on: Object3D[][]; t: number; wait: number; close: number; cue: Cue | null; when: (() => boolean) | null; down: boolean }
+interface Due extends Hold { on: Object3D[][]; t: number; wait: number; close: number; cue: Cue | null; when: (() => boolean) | null; down: boolean }
 let due: Due | null = null;
 const mid = V(0, 0, 0), tmp = V(0, 0, 0), box = new Box3();
 
@@ -53,14 +56,19 @@ function lit(o: Object3D): Lit {
  * Puts what an upgrade built in the spotlight, once the player's stopped buying for a moment (SPOT_WAIT): the camera
  * looks at the middle of `on`, coming in to `close`. `cue` runs once, `at` seconds into the close-up (the casino boat
  * comes in as the camera gets there: it doesn't wait, `wait` 0). `when`, if given, is asked again as it starts (not with
- * a boss in, say): if it's no then, there's no close-up. Nothing plays for players who'd rather less motion: returns
- * whether it does.
+ * a boss in, say): if it's no then, there's no close-up. `hold` keeps it on for longer, and `leave` (asked each
+ * frame) sends the camera back early. Nothing plays for players who'd rather less motion: returns whether it does.
  */
-export function spotlight(on: Object3D[], { close = SPOT_CLOSE, cue, when, wait = SPOT_WAIT }: { close?: number; cue?: Cue; when?: () => boolean; wait?: number } = {}) {
+export function spotlight(on: Object3D[], { close = SPOT_CLOSE, cue, when, wait = SPOT_WAIT, hold = SPOT.hold, leave }: {
+  close?: number; cue?: Cue; when?: () => boolean; wait?: number; hold?: number; leave?: () => boolean;
+} = {}) {
   if (!on.length || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return false;
   // (one bought before it that had a cue of its own: that's done at once, as its close-up's now this one's)
   due?.cue?.run();
-  due = { on: [...(due && due.down === level.down ? due.on : []), on], t: 0, wait, close, cue: cue ?? null, when: when ?? null, down: level.down };
+  due = {
+    on: [...(due && due.down === level.down ? due.on : []), on], t: 0, wait, close, cue: cue ?? null, when: when ?? null, down: level.down,
+    hold, leave: leave ?? null,
+  };
   if (wait <= 0) start(due);
   return true;
 }
@@ -85,9 +93,10 @@ function start(d: Due) {
   if (mid.distanceTo(player.g.position) > STRAY) { d.cue?.run(); return; }
   // a second upgrade while one's still showing: the camera stays in close and goes straight on over to the new one
   shot?.cue?.run();
+  const { hold, leave } = d;
   shot = shot
-    ? { t: Math.min(shot.t, SPOT.over), on: lits, close: d.close, was: shot.was, cue: d.cue, snap: false, down: level.down }
-    : { t: 0, on: lits, close: d.close, was: view.focus.clone(), cue: d.cue, snap: true, down: level.down };
+    ? { t: Math.min(shot.t, SPOT.over), on: lits, close: d.close, was: shot.was, cue: d.cue, snap: false, down: level.down, hold, leave }
+    : { t: 0, on: lits, close: d.close, was: view.focus.clone(), cue: d.cue, snap: true, down: level.down, hold, leave };
 }
 
 /** Whether a close-up's on, or waiting to start (resto.ts lets the arena's go first). */
@@ -103,12 +112,15 @@ export function updSpotlight(dt: number) {
   if (!s) return;
   if (s.down !== level.down) { s.cue?.run(); view.k = 0; view.close = 1; view.focus.copy(s.was); shot = null; return; }
   s.t += dt;
+  const { over, back } = SPOT;
+  // sent back early: it eases back out from as far in as it's got (the ease is the same both ways round)
+  if (s.leave && s.t < over + s.hold && s.leave()) { s.t = over + back * (1 - Math.min(1, s.t / over)); s.hold = 0; s.leave = null; }
   if (s.cue && s.t >= s.cue.at) { s.cue.run(); s.cue = null; }
   mid.set(0, 0, 0);
   for (const { o, up } of s.on) mid.add(o.getWorldPosition(tmp)).add(up);
   mid.divideScalar(s.on.length);
   if (s.snap) { view.focus.copy(mid); s.snap = false; } else view.focus.lerp(mid, Math.min(1, dt * 6));
-  const { over, hold, back } = SPOT;
+  const { hold } = s;
   const k = s.t < over + hold ? ease(Math.min(1, s.t / over)) : 1 - ease(Math.min(1, (s.t - over - hold) / back));
   view.k = k;
   view.close = 1 - (1 - s.close) * k;

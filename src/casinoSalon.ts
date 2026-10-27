@@ -17,7 +17,7 @@ import {
 } from 'three';
 import { atTable, CHIPS, easeInOut, leaveSeat, onCheer, speaker, takeSeat, tipsy } from './casinoKit';
 import { clink } from './sfx';
-import { animPerson, Person, SUITS } from './characters';
+import { allYear, animPerson, Person, SUITS } from './characters';
 import { byTheStall, STALL } from './casinoRestroom';
 import { atTheWall } from './wallOfShame';
 import { DECKS, inSalon, pushOutOfBox, SALON, SHIP, stage, UPPER } from './layout';
@@ -356,7 +356,7 @@ function buildBar(g: Group) {
 function guest(i: number, hatless = false) {
   const who = crowd();
   if (hatless) who.hat = 'bare';
-  return new Person(who.woman ? DRESSES[i % DRESSES.length] : SUITS[i % SUITS.length], 'fancy', who);
+  return allYear(new Person(who.woman ? DRESSES[i % DRESSES.length] : SUITS[i % SUITS.length], 'fancy', who));
 }
 
 /** One of the salon's slot machines, its reels spinning when a guest plays it. */
@@ -386,7 +386,7 @@ function buildCrowd(g: Group) {
   });
   // the bar: two bartenders behind it, one polishing a glass and one shaking a cocktail, and guests on three stools
   const bartenders = [-1.1, 1.3].map(z => {
-    const b = new Person(0x1F1F1F, 'waiter');
+    const b = allYear(new Person(0x1F1F1F, 'waiter'));
     b.position.set(BAR.x - 0.5, UPPER, z); b.rotation.y = Math.PI / 2;
     g.add(b);
     return b;
@@ -398,7 +398,7 @@ function buildCrowd(g: Group) {
     return { p, t: 2 + i * 2.5 };
   });
   // a waiter carrying a tray of champagne up and down along the windows, who stops to serve the player a glass
-  const waiter = new Person(0x24476B, 'waiter');
+  const waiter = allYear(new Person(0x24476B, 'waiter'));
   waiter.position.set(WAITER.x0, UPPER, WAITER.z);
   // the tray sits flat on the palm of the hand held out in front (the arm's turned to level, so the tray's turned back)
   const tray = new Group(); tray.position.set(0, -0.33, 0.07); tray.rotation.x = TRAY_ARM; waiter.arms[0].add(tray);

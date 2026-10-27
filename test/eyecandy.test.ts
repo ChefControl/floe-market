@@ -2,7 +2,7 @@
 // shadows and little effects; on Low, everything is drawn exactly as before, and the renderer is lighter. Neither
 // touches the game's luck.
 import {
-  BoxGeometry, type BufferGeometry, CylinderGeometry, ExtrudeGeometry, InstancedMesh, Mesh, MeshLambertMaterial,
+  Box3, BoxGeometry, type BufferGeometry, CylinderGeometry, ExtrudeGeometry, InstancedMesh, Mesh, MeshLambertMaterial,
   type Object3D, Shape, ShapeGeometry, SphereGeometry,
 } from 'three';
 import { describe, expect, it, vi } from 'vitest';
@@ -91,17 +91,26 @@ describe('eye candy', () => {
     const { choose } = await import('../src/graphics');
     const seas: Mesh[] = [];
     g.render.scene.traverse(o => { if (o instanceof Mesh && (o.material as { customProgramCacheKey?: () => string }).customProgramCacheKey?.() === 'sea') seas.push(o); });
-    expect(seas).toHaveLength(1);
-    expect(shown(seas[0])).toBe(true);
-    // its edges stay straight, so it meets the shore where the flat sea did
+    // the bay as it always was, and the rest of it west and out to sea, far enough that the casino yacht sailing in
+    // never shows its edge
+    expect(seas).toHaveLength(3);
+    expect(seas.every(shown)).toBe(true);
+    const box = new Box3();
+    for (const s of seas) box.union(new Box3().setFromObject(s));
+    expect(box.min.x).toBeLessThan(-90);
+    expect(box.min.z).toBeLessThan(-62);
+    // its edges stay straight, so it meets the shore where the flat sea did, and the points along them on the grid, so
+    // the pieces meet point to point
     const { seaGeometry } = await import('../src/sea');
-    const geo = seaGeometry(10, 6), p = geo.attributes.position;
+    const geo = seaGeometry(9, 5.4), p = geo.attributes.position;
     for (let i = 0; i < p.count; i++) {
       const x = p.getX(i), y = p.getY(i);
-      expect(Math.abs(x) <= 5.0001 && Math.abs(y) <= 3.0001).toBe(true);
+      expect(Math.abs(x) <= 4.5001 && Math.abs(y) <= 2.7001).toBe(true);
+      if (Math.abs(Math.abs(x) - 4.5) < 1e-3) expect((y + 2.7) / 0.9).toBeCloseTo(Math.round((y + 2.7) / 0.9), 5);
+      if (Math.abs(Math.abs(y) - 2.7) < 1e-3) expect((x + 4.5) / 0.9).toBeCloseTo(Math.round((x + 4.5) / 0.9), 5);
     }
     choose('low');
-    expect(shown(seas[0])).toBe(false);
+    expect(seas.some(shown)).toBe(false);
     g.run(1); // and the floes still bob
   });
 
