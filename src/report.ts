@@ -116,7 +116,7 @@ export async function takeUi(world: HTMLCanvasElement) {
       backgroundColor: null, logging: false, scale: world.width / (r.width || innerWidth),
       x: r.left + scrollX, y: r.top + scrollY, width: r.width || innerWidth, height: r.height || innerHeight,
       windowWidth: innerWidth, windowHeight: innerHeight,
-      // the songs' YouTube players are out of sight, and can't be drawn anyway
+      // (another site's frame, put in the page by the browser or an extension, can't be drawn anyway)
       ignoreElements: el => NOT_SHOWN.has(el.id) || el.tagName === 'IFRAME',
       onclone: doc => {
         // the page's own colour is behind the game, not over it

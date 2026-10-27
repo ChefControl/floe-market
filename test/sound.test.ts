@@ -461,19 +461,37 @@ describe('music', () => {
     expect(music(fake.played.slice(n)).filter(p => p.at < at)).toEqual([]);
   });
 
-  it('makes way for the rain at her house, and comes back after', async () => {
+  it("plays the song in the rain at her house, from the top, the stage's music going out under it, and comes back after", async () => {
     const s = await withSound();
+    const m = await import('../src/music'), rt = await import('../src/rainTune');
     s.play(2);
+    expect(rt.rainMix()).toBe(0);
+    // a second in the circle: coming in, the market's music still under it
     s.g.placePlayer(s.rain.RAIN_PAD.x, s.rain.RAIN_PAD.z);
     s.play(1);
-    expect(s.audio.buses.music.gain.value).toBe(0);
-    s.play(3);
-    expect(music(s.since(() => s.play(2)))).toHaveLength(0);
+    expect(rt.rainMix()).toBeGreaterThan(0.3);
+    expect(rt.rainMix()).toBeLessThan(1);
+    expect(m.musicMix().stage).toBeGreaterThan(0.01);
+    s.play(2);
+    expect(rt.rainMix()).toBeCloseTo(1, 3);
+    expect(m.musicMix().stage).toBeLessThan(0.001);
+    expect(s.audio.key.root).toBe(68); // A♭ major pentatonic: F minor's notes
+    // away and back: from the top, the strings held on F minor (A♭, C, F) alone for a bar, then the band's theme, its
+    // first notes F, G, A♭ in unison; nothing shrill
     s.g.placePlayer(15, s.rain.RAIN_PAD.z);
     s.play(4);
-    expect(s.audio.buses.music.gain.value).toBe(1);
+    expect(rt.rainMix()).toBeLessThan(0.001);
+    s.g.placePlayer(s.rain.RAIN_PAD.x, s.rain.RAIN_PAD.z);
+    const heard = music(s.since(() => s.play(4)));
+    for (const n of [56, 60, 65, 77, 79, 80]) expect(heard.some(p => near(p.f, hz(n))), `note ${n}`).toBe(true);
+    expect(heard.filter(p => p.kind === 'tone').every(p => p.f < 4000)).toBe(true);
+    // walking off: it fades with the rain and the market's music comes back
+    s.g.placePlayer(15, s.rain.RAIN_PAD.z);
+    s.play(4);
+    expect(rt.rainMix()).toBeLessThan(0.001);
+    expect(m.musicMix().stage).toBeCloseTo(1, 3);
     expect(music(s.since(() => s.play(2))).length).toBeGreaterThan(0);
-  });
+  }, 30_000);
 
   it('brings the lounge band in up the quay to the casino yacht, in a key of its own, and gives it the music aboard', async () => {
     const s = await withSound({ tiles: bought(...MARKET) });
@@ -551,6 +569,37 @@ describe('music', () => {
       expect(h.hatikvahMix()).toBeLessThan(0.001);
       expect(m.musicMix().stage).toBeCloseTo(1, 3);
     } finally { vi.useRealTimers(); }
+  }, 30_000);
+
+  it("plays Korki's tune once the player lingers on his statue's pad, from the top, the stage's music going out under it", async () => {
+    const s = await withSound({ tiles: bought('korki') });
+    const m = await import('../src/music'), kt = await import('../src/korkiTune'), { KORKI } = await import('../src/korki');
+    s.g.placePlayer(KORKI.x, KORKI.z);
+    s.play(2.5);
+    expect(kt.korkiMix()).toBe(0);
+    expect(m.musicMix().stage).toBeCloseTo(1, 3);
+    // three seconds on the pad, then half its fade in: coming in, the market's music still under it
+    s.play(3.5);
+    expect(kt.korkiMix()).toBeGreaterThan(0.3);
+    expect(kt.korkiMix()).toBeLessThan(1);
+    expect(m.musicMix().stage).toBeGreaterThan(0.01);
+    s.play(4);
+    expect(kt.korkiMix()).toBeCloseTo(1, 3);
+    expect(m.musicMix().stage).toBeLessThan(0.001);
+    expect(s.audio.key.root).toBe(62); // D major pentatonic: B minor's notes
+    // away and back: from the top, the felt piano on B2 and the tune's first notes (D, C#, B), nothing shrill
+    s.g.placePlayer(0, 0);
+    s.play(3);
+    expect(kt.korkiMix()).toBeLessThan(0.001);
+    s.g.placePlayer(KORKI.x, KORKI.z);
+    const heard = music(s.since(() => s.play(6)));
+    for (const n of [47, 74, 73, 71]) expect(heard.some(p => near(p.f, hz(n))), `note ${n}`).toBe(true);
+    expect(heard.filter(p => p.kind === 'tone').every(p => p.f < 4000)).toBe(true);
+    // walking off: it fades away and the market's music comes back
+    s.g.placePlayer(0, 0);
+    s.play(4);
+    expect(kt.korkiMix()).toBeLessThan(0.001);
+    expect(m.musicMix().stage).toBeCloseTo(1, 3);
   }, 30_000);
 
   it('plays no Hatikvah on a day the voting boat is gone, even where it was moored', async () => {
@@ -820,7 +869,7 @@ describe('ambience', () => {
     const s = await withSound();
     s.g.placePlayer(s.rain.RAIN_PAD.x, s.rain.RAIN_PAD.z);
     s.play(3);
-    expect(s.bed(2200)).toBeCloseTo(0.5);
+    expect(s.bed(2200)).toBeCloseTo(0.2); // softer than the rest of the weather, so the song comes through
   });
 
   it('murmurs with diners in the restaurant, under crickets at dusk', async () => {
