@@ -25,6 +25,16 @@ export function keepStage3() {
   try { localStorage.setItem(KEY, '1'); } catch { /* on for this visit */ }
 }
 
+// ---------- Ko-fi ----------
+// "Buy me a coffee" in the settings and its one-time nudge (kofi.ts) are only in a game built (or served) with
+// VITE_KOFI=on, as the live web game is (deploy.yml). Anything else, the default included, leaves the settings row, and
+// with it the ko-fi.com link, out of the page itself (vite.config.ts), so a build that forgets the switch is safe. The
+// Steam build (#160) must never set it on: Steam doesn't allow links to payment pages outside Steam.
+const kofi = import.meta.env.VITE_KOFI === 'on';
+
+/** Whether this build has the Ko-fi row and nudge (the live web game's do; the Steam build's don't). */
+export const kofiOn = () => kofi;
+
 // ---------- the voting boat ----------
 /** Israel's election day, 27 October 2026: the voting boat (votingBoat.ts) sails in to the dock when the game opens on
  *  it, by the device's own date, and sails away when it ends. */
