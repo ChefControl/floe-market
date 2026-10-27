@@ -505,17 +505,18 @@ function build() {
   const stickerTex = canvasTex(256, 256, (c, w, h) => {
     c.fillStyle = '#0038B8'; c.beginPath(); c.arc(w / 2, h / 2, w / 2 - 4, 0, 7); c.fill();
     c.strokeStyle = '#fff'; c.lineWidth = 10; c.beginPath(); c.arc(w / 2, h / 2, w / 2 - 22, 0, 7); c.stroke();
-    // (a heart `r` across, its middle at x, y)
+    // (the classic heart, 2r across, its middle at x, y: a square on its corner with a round lobe on each upper
+    // side, the lower sides running straight into the point)
     const heart = (x: number, y: number, r: number) => {
-      const top = y - r * 0.55, bottom = y + r * 0.6;
+      const d = r / (1 + Math.SQRT2), lobe = d * Math.SQRT2, mid = y + d / 2;
       c.beginPath();
-      c.moveTo(x, bottom);
-      c.bezierCurveTo(x - r * 0.75, bottom - r * 0.55, x - r * 1.15, top + r * 0.6, x - r, top + r * 0.25);
-      c.bezierCurveTo(x - r * 0.8, top - r * 0.15, x - r * 0.2, top - r * 0.15, x, top + r * 0.3);
-      c.bezierCurveTo(x + r * 0.2, top - r * 0.15, x + r * 0.8, top - r * 0.15, x + r, top + r * 0.25);
-      c.bezierCurveTo(x + r * 1.15, top + r * 0.6, x + r * 0.75, bottom - r * 0.55, x, bottom);
+      c.moveTo(x, mid + 2 * d);
+      c.lineTo(x - 2 * d, mid);
+      c.arc(x - d, mid - d, lobe, Math.PI * 0.75, Math.PI * 1.75);
+      c.arc(x + d, mid - d, lobe, Math.PI * 1.25, Math.PI * 2.25);
+      c.closePath();
     };
-    heart(w / 2, 90, 36); c.fillStyle = '#fff'; c.fill();
+    heart(w / 2, 88, 40); c.fillStyle = '#fff'; c.fill();
     c.fillStyle = '#fff';
     c.font = `800 54px ${FONT}, Arial, sans-serif`; c.textAlign = 'center'; c.textBaseline = 'middle';
     c.direction = 'rtl';
