@@ -270,8 +270,8 @@ export const inPollingRoom = (p: XZ) => voteBoat.open && !level.down && inside(V
 
 // ---------- the matkot beach ----------
 /**
- * The matkot beach (beach.ts), on election day with the voting boat, from stage 2 (stage 1's road runs a step from the
- * water): a strip of sand between the sea and the road, along the sea's edge north of the dock (`x0`, out to `z0`)
+ * The matkot beach (beach.ts), from stage 2 (stage 1's road runs a step from the water), its game in spring and
+ * summer: a strip of sand between the sea and the road, along the sea's edge north of the dock (`x0`, out to `z0`)
  * and east of the dock's fence (`fence`) south of its water edge (`shore`), to `x1` (short of the road's kerb) and `z1`
  * (the kiosk booth's north wall). The old drive-up window's gap in the dock's east fence (`gap`, world.ts gapLogs) opens
  * onto it. The sand is a step down from the dock, at the ground's own level.

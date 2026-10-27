@@ -97,11 +97,13 @@ export function blocks(f: (s: Add) => void) {
   f((w, h, d, c, x, y, z, ry = 0, rz = 0) => out.push({ w, h, d, c, x, y, z, ry, rz }));
   return out;
 }
-/** The unit box and the pennant every block and pennant is drawn with (made with the boat, off the luck). */
+/** The unit box and the pennant every block and pennant is drawn with (made with the boat, off the luck; the box
+ *  with the beach's blocks, beach.ts, on a day without the boat). */
 let BOX: BoxGeometry, PEN: CylinderGeometry;
 /** `bs` as a Low mesh (plain boxes, `painted`) and a High one (the kit's bevelled boxes, the thin ones plain), shown by
  *  the setting, in `g`; drawn with `material` (one that fades) if given. */
 export function twin(g: Group, bs: Block[], cast = true, material: MeshLambertMaterial = painted) {
+  if (!BOX) BOX = new BoxGeometry(1, 1, 1);
   const lo = mesh(bakePainted(bs.map(b => ({ geo: BOX, c: b.c, at: [b.x, b.y, b.z], rot: [0, b.ry, b.rz], scale: [b.w, b.h, b.d] }))), material, 0, 0, 0, cast);
   const hi = new Build();
   for (const b of bs) {
