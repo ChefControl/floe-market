@@ -171,6 +171,17 @@ describe('the casino boat', () => {
     expect(g.stage.view.k).toBe(0);
   });
 
+  it('dresses everyone aboard for indoors all year: no winter scarf', async () => {
+    const g = await loadGame({ tiles: bought('roulette', 'blackjack', 'slots'), season: 0 });
+    const { Person } = await import('../src/characters'), { current } = await import('../src/season');
+    expect(current()).toBe('winter');
+    const aboard: InstanceType<typeof Person>[] = [];
+    g.render.scene.traverse(o => { if (o instanceof Person && g.layout.aboard(o.getWorldPosition(o.position.clone()))) aboard.push(o); });
+    // the croupier, the dealer, the bartenders, the waiter and the guests (at the bar, the slots and in the hot tub)
+    expect(aboard.length).toBeGreaterThanOrEqual(10);
+    expect(aboard.every(p => p.season === 'spring')).toBe(true);
+  });
+
   it('walls its upper deck in as a salon, whose roof lifts and near walls fade while the player is inside', async () => {
     const g = await at('roulette', 100);
     const salon = await import('../src/casinoSalon');

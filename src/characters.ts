@@ -796,12 +796,15 @@ onQuality(() => {
   for (const p of people) p.redress();
 });
 
-/** Dresses someone who works down in the cellar for good: the seasons don't reach it. */
-export function belowGround<T extends Person>(p: T) {
+/** Dresses someone for good where the seasons don't reach: down in the cellar, or aboard the casino yacht (indoors, or
+ *  in its hot tub), where nobody wears a scarf. */
+export function allYear<T extends Person>(p: T) {
   p.season = 'spring';
   p.wear();
   return p;
 }
+/** Dresses someone who works down in the cellar for good: the seasons don't reach it. */
+export const belowGround = allYear;
 
 /** The colour a crowd model's shirt is made in, to find it by (nothing anyone wears is this magenta). */
 export const SHIRT = 0xFF00FF;
