@@ -6,7 +6,7 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, onAuthStateChanged, signInWithPopup, signOut } from 'firebase/auth';
 import {
-  collection, doc, getDoc, getDocs, getFirestore, limit, orderBy, query, runTransaction, serverTimestamp, setDoc,
+  collection, doc, getDoc, getDocs, initializeFirestore, limit, orderBy, query, runTransaction, serverTimestamp, setDoc,
   writeBatch, type Timestamp,
 } from 'firebase/firestore';
 import type { CloudBackend } from './cloud';
@@ -17,7 +17,9 @@ import type { StageN } from './layout';
 
 export function createBackend(): CloudBackend {
   const app = initializeApp(firebaseConfig);
-  const auth = getAuth(app), db = getFirestore(app);
+  // Long-polling, every time: left to choose its connection itself, Firestore sometimes picks one Safari (iPhones,
+  // Brave there too) holds an answer back on until the request times out, and a read took 30s instead of 0.2s
+  const auth = getAuth(app), db = initializeFirestore(app, { experimentalForceLongPolling: true });
   const ref = (uid: string) => doc(db, 'saves', uid);
   const scoreRef = (uid: string) => doc(db, 'scores', uid);
   const shameRef = (uid: string) => doc(db, 'shame', uid);
