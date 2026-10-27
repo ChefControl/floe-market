@@ -3,7 +3,7 @@
 // window's gap in it, with a lifeguard's tower at the north end; snow lies on it in winter. In spring and summer
 // there are umbrellas by the water with towels under them and two beachgoers sitting it out, and a cool box; on
 // Israel's election day (flags.ts votingBoatOn) the umbrellas are blue and white and flags fly on poles and on the
-// tower, and on any other day the umbrellas are canvas and straw and there are no flags. By the water a beach regular,
+// tower, and on any other day the umbrellas and the tower's roof are canvas and straw and there are no flags. By the water a beach regular,
 // tanned, in a sun hat, bounces a ball on his paddle: step on the pad in front of him and Play, and the two of you
 // knock it back and forth, matkot as on every Israeli beach, the camera in from the side. Press Hit (E) as the ball
 // reaches you: each one counts and the ball comes back faster, and a miss (too soon or too late) ends the rally. In
@@ -158,16 +158,17 @@ function build(): Built {
     s(0.57, 0.08, 0.4, C.snow, COOL.x, 0.39, COOL.z);
   }));
   twin(g, blocks((s: Add) => {
-    // the lifeguard's tower: four legs, a deck, a hut with its window to the sea and a roof, a ladder up its south side
-    const { x, z } = TOWER, top = 1.5;
+    // the lifeguard's tower: four legs, a deck, a hut with its window to the sea and a roof (blue on election day, straw
+    // like the umbrellas any other), a ladder up its south side
+    const { x, z } = TOWER, top = 1.5, roof = flags ? BLUE : C.rope;
     for (const [dx, dz] of [[-0.55, -0.55], [0.55, -0.55], [-0.55, 0.55], [0.55, 0.55]]) s(0.1, top, 0.1, C.post, x + dx, top / 2, z + dz);
     s(1.4, 0.08, 1.4, C.plank, x, top, z);
     s(1.2, 0.95, 0.06, C.snow, x, top + 0.5, z - 0.6);
     s(1.2, 0.95, 0.06, C.snow, x, top + 0.5, z + 0.6);
     s(0.06, 0.95, 1.2, C.snow, x + 0.6, top + 0.5, z);
     s(0.06, 0.3, 1.2, C.snow, x - 0.6, top + 0.18, z);
-    s(1.55, 0.08, 1.55, BLUE, x, top + 1.0, z);
-    s(0.9, 0.12, 0.1, BLUE, x + 0.05, top + 0.85, z + 0.64);
+    s(1.55, 0.08, 1.55, roof, x, top + 1.0, z);
+    s(0.9, 0.12, 0.1, roof, x + 0.05, top + 0.85, z + 0.64);
     for (let r = 0; r < 5; r++) s(0.5, 0.04, 0.06, C.post, x, 0.25 + r * 0.3, z + 0.95 - r * 0.03);
     for (const k of [-1, 1]) s(0.05, top + 0.1, 0.05, C.post, x + k * 0.26, (top + 0.1) / 2, z + 0.92, 0, 0);
     // on election day, the flags, on their poles, and one on the tower's roof
