@@ -18,7 +18,7 @@ vi.mock('firebase/auth', () => ({
   signOut: vi.fn(async () => {}),
 }));
 vi.mock('firebase/firestore', () => ({
-  getFirestore: vi.fn(() => ({ name: 'db' })),
+  initializeFirestore: vi.fn(() => ({ name: 'db' })),
   doc: vi.fn((_db: unknown, col: string, id: string) => ({ path: `${col}/${id}` })),
   getDoc: vi.fn(async () => ({ exists: () => sdk.doc !== null, data: () => sdk.doc })),
   setDoc: vi.fn(async (ref: unknown, data: unknown) => { sdk.set.push([ref, data]); }),
@@ -55,6 +55,13 @@ describe('the Firebase backend', () => {
     expect(auth.signInWithPopup).toHaveBeenCalledWith({ name: 'auth' }, expect.any(auth.GoogleAuthProvider));
     await b.signOut();
     expect(auth.signOut).toHaveBeenCalled();
+  });
+
+  it('always long-polls Firestore, so a read never waits 30s on an answer Safari held back', async () => {
+    const fs = await import('firebase/firestore');
+    const { createBackend } = await import('../src/firebase');
+    createBackend();
+    expect(fs.initializeFirestore).toHaveBeenCalledWith({ name: 'app' }, { experimentalForceLongPolling: true });
   });
 
   it("keeps each player's save in saves/{uid}", async () => {
