@@ -11,6 +11,8 @@ const FACE = '#F7D038', TEAR = '#6EC3F0', BLUSH = 'rgba(229,72,77,.35)', HAIR = 
 const ZOMBIE = '#9BCB6A', DEEP_ZOMBIE = '#6E9E48';
 /** Eddie's purple suit (🤝), as on his 3D model (family.ts). */
 const SUIT = '#5E3A7E';
+/** A deeper skin for the hand behind in a handshake (🤝), so the two hands part. */
+const DEEP_SKIN = '#E0A97C';
 /** A shine on the upper left. */
 const SHINE = 'rgba(255,255,255,.4)';
 
@@ -110,6 +112,16 @@ function sad(c: Ctx) {
   solid(c, TEAR, () => { c.moveTo(-17, 2); c.quadraticCurveTo(-26, 16, -26, 21); c.arc(-17, 21, 9, Math.PI, 0, true); c.quadraticCurveTo(-8, 16, -17, 2); c.closePath(); });
 }
 
+/** 😭 The casino's restroom, for a good cry: 😢's face with both eyes squeezed shut and a big tear falling from each. */
+function sob(c: Ctx) {
+  face(c);
+  line(c, INK, 5, () => { c.moveTo(-28, -18); c.lineTo(-10, -24); c.moveTo(28, -18); c.lineTo(10, -24); });
+  line(c, INK, 5, () => { c.moveTo(-23, -4); c.quadraticCurveTo(-15, -11, -7, -4); c.moveTo(7, -4); c.quadraticCurveTo(15, -11, 23, -4); });
+  line(c, INK, 5, () => c.arc(0, 36, 13, -0.82 * Math.PI, -0.18 * Math.PI));
+  const drop = (s: number) => { c.moveTo(s * 27, 0); c.quadraticCurveTo(s * 36, 14, s * 36, 19); c.arc(s * 27, 19, 9, 0, Math.PI); c.quadraticCurveTo(s * 18, 14, s * 27, 0); c.closePath(); };
+  solid(c, TEAR, () => { drop(-1); drop(1); });
+}
+
 /** 🙂 A local fighter, nobody special: a plain, friendly smile. */
 function smile(c: Ctx) {
   face(c);
@@ -145,35 +157,49 @@ function police(c: Ctx) {
   solid(c, LIGHT_BLUE, () => box(c, 0, -36, 16, 10, 4));
 }
 
-/** 🤝 Shaking on it: Eddie fixing a fight. Two hands meet side-on in the middle: Eddie's from his purple suit and white
- * shirt cuff on the left, the back of his hand to us and his fingers laid down across the chef's; the chef's from his
- * white sleeve on the right, behind, his thumb along the top of Eddie's hand. */
+/** 🤝 Shaking on it: Eddie fixing a fight, the chef joining the fights. Drawn the way emoji draw a handshake: two hands
+ * meet at a gentle slant, Eddie's in front from his purple suit and white shirt cuff on the left, its four fingers as
+ * bands wrapped over the chef's hand; the chef's from his white sleeve on the right, behind, his fingertips peeking out
+ * under Eddie's palm and his thumb across the back of it. */
 function shake(c: Ctx) {
-  /** A sleeve centred at (x, 0), its outer end dipping `a`, with a cuff on its inner side (side: 1 left, -1 right). */
-  const sleeve = (x: number, a: number, side: number, cloth: string, cuff?: string) => {
-    c.save(); c.translate(x, 0); c.rotate(a * side); c.scale(side, 1);
-    solid(c, cloth, () => box(c, -9, -20, 18, 40, 5));
-    if (cuff) solid(c, cuff, () => box(c, 2, -19, 8, 38, 3));
+  const B = 8.5, TIPS = [38, 39, 34, 27];
+  c.save(); c.translate(0, -3);
+  /** Eddie's fingers' frame: from the index finger's root, pointing down-right, the other fingers stacked below it. */
+  const F = (f: () => void) => { c.save(); c.translate(-8, -20); c.rotate(0.62); f(); c.restore(); };
+  // the chef's hand, behind: the back of it on the right, and his fingertips curled round under Eddie's palm
+  blob(c, DEEP_SKIN, () => {
+    c.moveTo(34, -22); c.lineTo(2, -22); c.lineTo(-8, 8); c.lineTo(2, 24); c.quadraticCurveTo(8, 27, 14, 22);
+    c.lineTo(30, 8); c.quadraticCurveTo(34, 5, 34, 0); c.closePath();
+  });
+  F(() => { for (let i = 0; i < 4; i++) solid(c, DEEP_SKIN, () => box(c, 1 + i * 7.4, 26, 7.4, 16 - i * 0.5, 3.7)); });
+  // Eddie's hand in front: palm and four fingers as one shape, the fingers parted by three creases
+  blob(c, SKIN, () => {
+    c.moveTo(-34, -22); c.lineTo(-6, -22); c.lineTo(-6, 0); c.lineTo(-30, 10); c.lineTo(-34, 6); c.closePath();
+    F(() => {
+      c.moveTo(-2, 0); c.lineTo(TIPS[0] - B / 2, 0);
+      TIPS.forEach((t, i) => c.arc(t - B / 2, i * B + B / 2, B / 2, -Math.PI / 2, Math.PI / 2));
+      c.lineTo(-2, 4 * B); c.closePath();
+    });
+  });
+  F(() => line(c, INK, 3, () => { for (let i = 1; i < 4; i++) { c.moveTo(16, i * B); c.lineTo(TIPS[i] - 7, i * B); } }));
+  // the chef's thumb across the back of Eddie's hand, its root hidden in the chef's palm (no outline there)
+  const thumb = () => {
+    c.moveTo(18, -22); c.lineTo(-8, -26); c.quadraticCurveTo(-20, -28, -20, -19);
+    c.quadraticCurveTo(-20, -12, -10, -12); c.lineTo(12, -10);
+  };
+  flat(c, DEEP_SKIN, () => { thumb(); c.lineTo(22, -16); c.closePath(); });
+  line(c, INK, OUT, thumb);
+  flat(c, SHINE, () => oval(c, -22, -10, 5, 3.5, -0.3));
+  // the sleeves: Eddie's purple with a white shirt cuff, the chef's white
+  const sleeve = (side: number, cloth: string, cuff?: string) => {
+    c.save(); c.scale(side, 1); c.translate(-38, -8); c.rotate(-0.12);
+    solid(c, cloth, () => box(c, -8, -19, 16, 36, 4));
+    if (cuff) solid(c, cuff, () => box(c, 3, -18, 6, 34, 3));
     c.restore();
   };
-  // the chef's hand, behind, and his sleeve
-  solid(c, SKIN, () => box(c, -4, -22, 38, 42, 16));
-  sleeve(37, 0.15, -1, CREAM);
-  // Eddie's hand, in front: the back of it and his fingers as one shape, laid down across the chef's; then his sleeve
-  blob(c, SKIN, () => {
-    c.moveTo(-32, -17); c.lineTo(-8, -20); c.quadraticCurveTo(3, -21, 9, -17); c.lineTo(26, -1);
-    c.quadraticCurveTo(32, 6, 27, 13); c.quadraticCurveTo(22, 19, 14, 17); c.lineTo(-4, 20); c.lineTo(-30, 20); c.lineTo(-36, 15); c.closePath();
-  });
-  line(c, INK, 3, () => { c.moveTo(20, 9); c.lineTo(7, 0); c.moveTo(14, 15); c.lineTo(2, 7); });
-  sleeve(-37, 0.15, 1, SUIT, CREAM);
-  // the chef's thumb along the top of Eddie's hand, its root hidden in the chef's own hand (so no outline there)
-  const thumb = () => {
-    c.moveTo(16, -22); c.lineTo(-6, -22); c.quadraticCurveTo(-18, -22, -18, -14);
-    c.quadraticCurveTo(-18, -6, -9, -6); c.quadraticCurveTo(4, -6, 12.6, -13.6);
-  };
-  flat(c, SKIN, () => { thumb(); c.lineTo(17, -18); c.closePath(); });
-  line(c, INK, OUT, thumb);
-  flat(c, SHINE, () => oval(c, -22, 8, 5, 3.5, -0.2));
+  sleeve(1, SUIT, CREAM);
+  sleeve(-1, CREAM);
+  c.restore();
 }
 
 /** 🧟 The arcade's horde: a cute green zombie, arms out, one eye bigger than the other. */
@@ -203,6 +229,6 @@ function look(c: Ctx) {
 }
 
 export const PEOPLE: Record<string, Drawing> = {
-  '💪': flex, '👥': crowd, '👨‍🍳': cook, '🧑‍🍳': crew, '😋': yum, '😢': sad, '🙂': smile, '🚶': walk, '🚔': police,
+  '💪': flex, '👥': crowd, '👨‍🍳': cook, '🧑‍🍳': crew, '😋': yum, '😢': sad, '😭': sob, '🙂': smile, '🚶': walk, '🚔': police,
   '🤝': shake, '🧟': zombie, '👁': look,
 };

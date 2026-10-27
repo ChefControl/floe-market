@@ -410,31 +410,6 @@ function angry(c: Ctx) {
   line(c, INK, 6, () => c.arc(0, 34, 15, -0.82 * Math.PI, -0.18 * Math.PI));
 }
 
-/** 😭 The casino's restroom, for a good cry: eyes squeezed shut, mouth wide open, tears streaming down both cheeks. */
-function sob(c: Ctx) {
-  const face = () => dot(c, 0, 0, 44);
-  solid(c, '#F7D038', face);
-  // a stream of tears from under each eye, widening a little as it runs down the cheek to the chin's edge, a shine down
-  // its left side; the face's own outline closes them off at the bottom
-  const stream = (s: number) => {
-    c.moveTo(s * 12, -13); c.lineTo(s * 26, -13);
-    c.bezierCurveTo(s * 27, 8, s * 30, 26, s * 33, 50);
-    c.lineTo(s * 12, 50);
-    c.bezierCurveTo(s * 13, 24, s * 12, 6, s * 12, -13); c.closePath();
-  };
-  inside(c, face, () => {
-    solid(c, '#6EC3F0', () => { stream(1); stream(-1); });
-    line(c, 'rgba(255,255,255,.55)', 3.5, () => {
-      c.moveTo(-21.5, -4); c.bezierCurveTo(-22, 10, -24, 24, -26, 40); c.moveTo(16.5, -4); c.bezierCurveTo(16.5, 10, 17, 24, 17.5, 40);
-    });
-  });
-  line(c, INK, OUT, face);
-  line(c, INK, 6, () => { c.moveTo(-31, -10); c.quadraticCurveTo(-19, -23, -7, -10); c.moveTo(7, -10); c.quadraticCurveTo(19, -23, 31, -10); });
-  const mouth = () => { c.moveTo(-9, 5); c.quadraticCurveTo(0, 3, 9, 5); c.quadraticCurveTo(13, 32, 0, 32); c.quadraticCurveTo(-13, 32, -9, 5); c.closePath(); };
-  solid(c, '#8E2B2B', mouth);
-  inside(c, mouth, () => flat(c, '#E8607A', () => oval(c, 0, 31, 9, 6)));
-}
-
 // ---------- chef's specials: the dishes on the menu tags ----------
 
 /** A spine that bends as it goes: its points, each with its heading `th` and half-width `w`. */
@@ -767,7 +742,7 @@ export const DRAWINGS: Record<string, Drawing> = {
   '🎒': backpack, '🎯': target, '🏃': runner, '🥾': boot, '🥅': net, '🏯': torii,
   '🌾': sheaf, '🪑': stool, '🔪': knife, '🧑‍🌾': farmer, '🧺': basket, '🌱': seedling, '⛱️': parasol, '⛱': parasol,
   '🥡': takeout, '🏮': lantern, '🎁': present, '🔒': lock, '🗳️': ballot, '🗳': ballot,
-  '😐': meh, '😠': angry, '😭': sob,
+  '😐': meh, '😠': angry,
   '🍤': tempura, '🍙': onigiri, '🦐': prawn, '🐙': octopus, '🦑': squid, '🦀': crab, '🍱': bento, '🐡': puffer,
   '🍥': naruto, '🍢': oden, '🍵': tea, '🍶': sake, '🍲': chanko, '🍄': mushroom,
   // (a drawing of its own, with no emoji: the buy-in tile's, unlocks.ts' `art`)
