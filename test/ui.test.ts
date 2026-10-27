@@ -334,7 +334,6 @@ describe('settings', () => {
     // the songs played from YouTube link to their videos, the same ones the game plays
     const { SONG } = await import('../src/rain');
     expect(card.querySelector(`a[href="https://www.youtube.com/watch?v=${SONG.id}"]`)).not.toBeNull();
-    expect(card.querySelector('a[href="https://www.youtube.com/watch?v=jcutNFPwXPE"]')).not.toBeNull();
     row.click();
     expect([card.hidden, row.getAttribute('aria-expanded')]).toEqual([true, 'false']);
     expect($('soundPanel').textContent).not.toContain('Hanegraaff');

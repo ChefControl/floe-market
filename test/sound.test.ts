@@ -553,6 +553,37 @@ describe('music', () => {
     } finally { vi.useRealTimers(); }
   }, 30_000);
 
+  it("plays Korki's tune once the player lingers on his statue's pad, from the top, the stage's music going out under it", async () => {
+    const s = await withSound({ tiles: bought('korki') });
+    const m = await import('../src/music'), kt = await import('../src/korkiTune'), { KORKI } = await import('../src/korki');
+    s.g.placePlayer(KORKI.x, KORKI.z);
+    s.play(2.5);
+    expect(kt.korkiMix()).toBe(0);
+    expect(m.musicMix().stage).toBeCloseTo(1, 3);
+    // three seconds on the pad, then half its fade in: coming in, the market's music still under it
+    s.play(3.5);
+    expect(kt.korkiMix()).toBeGreaterThan(0.3);
+    expect(kt.korkiMix()).toBeLessThan(1);
+    expect(m.musicMix().stage).toBeGreaterThan(0.01);
+    s.play(4);
+    expect(kt.korkiMix()).toBeCloseTo(1, 3);
+    expect(m.musicMix().stage).toBeLessThan(0.001);
+    expect(s.audio.key.root).toBe(62); // D major pentatonic: B minor's notes
+    // away and back: from the top, the felt piano on B2 and the tune's first notes (D, C#, B), nothing shrill
+    s.g.placePlayer(0, 0);
+    s.play(3);
+    expect(kt.korkiMix()).toBeLessThan(0.001);
+    s.g.placePlayer(KORKI.x, KORKI.z);
+    const heard = music(s.since(() => s.play(6)));
+    for (const n of [47, 74, 73, 71]) expect(heard.some(p => near(p.f, hz(n))), `note ${n}`).toBe(true);
+    expect(heard.filter(p => p.kind === 'tone').every(p => p.f < 4000)).toBe(true);
+    // walking off: it fades away and the market's music comes back
+    s.g.placePlayer(0, 0);
+    s.play(4);
+    expect(kt.korkiMix()).toBeLessThan(0.001);
+    expect(m.musicMix().stage).toBeCloseTo(1, 3);
+  }, 30_000);
+
   it('plays no Hatikvah on a day the voting boat is gone, even where it was moored', async () => {
     vi.useFakeTimers({ toFake: ['Date'], now: new Date(2026, 9, 29, 12) });
     try {

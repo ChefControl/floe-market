@@ -19,11 +19,16 @@
 // - The voting boat, on Israel's election day only: Hatikvah, the anthem (hatikvah.ts), in the game's own sound. It
 //   comes in the same way as you walk out along the pier to the boat, moored, and has the music to itself aboard.
 //
+// - Korki's golden statue: his tune, "5,000 km" (korkiTune.ts), comes in as you linger on the statue's pad, the stage's
+//   music going out under it.
+//
 // Each tune plays twice, and after every two tunes a verse leaves the tune out, for a rest (not the gloop ring's). The music fades away
-// under the songs (her house, Korki's statue), the rain and the stage-up's fanfare. The game's own sounds are on the
+// under the song at her house, the rain and the stage-up's fanfare. The game's own sounds are on the
 // major pentatonic of the music's key (F for stage 1's D minor: the same notes), so they ring along with it.
 import { ac, buses, duck, ear, hz, key, noise, onAudio, onBroken, onTick, prefs, rnd, tone, type Voice } from './audio';
 import { eighth as anthemEighth, HATIKVAH, HATIKVAH_STEPS, hatikvahLevel, playHatikvah } from './hatikvah';
+import { korkiK } from './korki';
+import { eighth as korkiEighth, KORKI_STEPS, KORKI_TUNE, korkiLevel, playKorki } from './korkiTune';
 import { aboard, casinoBoat, level, onVoteBoat, SHIP, stage, VOTE_BOAT, voteBoat } from './layout';
 import { eighth as loungeEighth, LOUNGE, LOUNGE_STEPS, loungeLevel, loungeMix, playLounge } from './lounge';
 import { club, eighth as noirEighth, NOIR, NOIR_STEPS, noirLevel, noirMix, playNoir } from './noir';
@@ -461,6 +466,20 @@ function updAnthem(k: number, now: number) {
   }
 }
 
+// ---------- Korki's statue ----------
+/** His tune's place: the eighth it's on and when the next is due; it starts from the top each time it comes in. */
+let statue = { on: false, step: 0, next: 0 };
+function updKorkiTune(k: number, now: number) {
+  korkiLevel(Math.sin(k * Math.PI / 2));
+  if (k < 0.001) { statue.on = false; return; }
+  if (!statue.on || statue.next < now - 5) statue = { on: true, step: 0, next: now + 0.1 };
+  while (statue.next < now + 0.2) {
+    if (statue.next >= now && hushed < 2) playKorki(statue.step, statue.next - now);
+    statue.next += korkiEighth();
+    statue.step = (statue.step + 1) % KORKI_STEPS;
+  }
+}
+
 // ---------- the Undertow ----------
 /**
  * The club's band's place: the eighth it's on and when the next is due. It starts from the top the first time it's
@@ -507,21 +526,24 @@ export function updMusic(dt: number) {
   duck(hush ? 0 : 1, hush ? 1.5 : 3);
   hushed = hush ? hushed + dt : 0;
   // the game's sounds in the key of whichever music is on top (schedule crossfades them)
-  const harbor = harborK(), den = club.k, vote = voteK();
-  key.root = harbor > 0.5 ? LOUNGE.sounds : vote > 0.5 ? HATIKVAH.sounds : den > 0.5 ? NOIR.sounds : market() ? MARKET.sounds : cellar() ? GLOOP.sounds : band.key;
+  const harbor = harborK(), den = club.k, vote = voteK(), korki = korkiK();
+  key.root = harbor > 0.5 ? LOUNGE.sounds : vote > 0.5 ? HATIKVAH.sounds : korki > 0.5 ? KORKI_TUNE.sounds : den > 0.5 ? NOIR.sounds : market() ? MARKET.sounds : cellar() ? GLOOP.sounds : band.key;
   schedule();
 }
 /** Queues the music's next steps on the audio clock: on every frame, and on the timer between them (onTick). */
 function schedule() {
   if (!ac) return;
-  if (prefs.mute.music || ac.state !== 'running') { on = false; lounge.on = false; noir.on = false; anthem.on = false; return; }
-  const now = ac.currentTime, harbor = harborK(), den = club.k, vote = voteK(), away = Math.max(harbor, den, vote), pot = potPlaying();
-  // the stage's music and the lounge band's crossfading up the quay, or Hatikvah's out along the pier to the voting boat, or
+  if (prefs.mute.music || ac.state !== 'running') { on = false; lounge.on = false; noir.on = false; anthem.on = false; statue.on = false; return; }
+  const now = ac.currentTime, harbor = harborK(), den = club.k, vote = voteK(), korki = korkiK(), pot = potPlaying();
+  const away = Math.max(harbor, den, vote, korki);
+  // the stage's music and the lounge band's crossfading up the quay, or Hatikvah's out along the pier to the voting boat,
+  // or Korki's tune's on his statue's pad, or
   // down the Undertow's tunnel the stage's and the club's band's (doorway.ts); and the stage's all out under the cooking game's music at the pot (potMusic.ts),
   // coming back slowly as that fades away
   stageMix?.gain.setTargetAtTime(pot ? 0 : Math.cos(away * Math.PI / 2), now, potFading() ? 0.5 : 0.15);
   updLounge(harbor, now);
   updAnthem(vote, now);
+  updKorkiTune(korki, now);
   updNoir(den, club.muffle, club.vol, now);
   // a fresh start: the first time, after the music was off or a long stall, and in a new stage (or down the ladder)
   if (!on || next < now - 5 || playingStage !== which()) {
@@ -529,7 +551,7 @@ function schedule() {
     newVerse();
   }
   while (next < now + 0.2) {
-    // faded right out (or crossfaded to the lounge band, Hatikvah or the club's): no need to play notes nobody hears; and a step
+    // faded right out (or crossfaded to the lounge band, Hatikvah, Korki's tune or the club's): no need to play notes nobody hears; and a step
     // whose time has gone by (the page was held up) is let go, so the music carries on on its beat rather than late
     if (next >= now && hushed < 2 && away < 0.999 && !pot) play(step, next - now);
     next += stepLen();
