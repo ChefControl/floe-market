@@ -2,7 +2,7 @@
 // double-breasted jacket down to his knees, the chefs' red neckerchief knotted at the front, their puffy toque, black
 // hair poking out under it, and a bunch of wilting flowers in a paper cone in his other hand.
 // Swapped in while the player stands in the rain outside her house.
-import { CylinderGeometry, Mesh, SphereGeometry, type BufferGeometry, type Object3D } from 'three';
+import { CylinderGeometry, Matrix4, Mesh, Quaternion, SphereGeometry, Vector3, type BufferGeometry, type Object3D } from 'three';
 import type { Person } from './characters';
 import { isHigh, onQuality } from './graphics';
 import { Build, K, quietly, rbox, shade, tube } from './kit';
@@ -12,8 +12,8 @@ import { G, mat } from './render';
 
 /** The chefs' own colours (characters.ts): their whites, cloth buttons, neckerchief and hair. */
 const SKIN = 0xE0A97F, WHITES = 0xF4F6F8, BUTTON = 0xB8C0C8, SCARF = 0xE5484D, HAIR = 0x1E1B1A;
-/** The flowers, drooping: their stems and leaves, and three heads. */
-const STEM = 0x4E7A3A, PETALS = [C.red, C.gold, 0xB07CC6];
+/** The flowers: their stems and leaves, and five heads. */
+const STEM = 0x4E7A3A, PETALS = [C.red, C.gold, 0xB07CC6, C.gold, C.red];
 
 /** A little heavier than the parka: the jacket is this much wider, and the arms sit this much further out. */
 const BUILD = 1.1;
@@ -50,19 +50,43 @@ function apart(b: Build, cast: boolean) {
   });
 }
 
+/** The bunch, built along its own +y from the end in his fist (0) out to the heads, then set in the hand. */
+const STEM_LEN = 0.17, WRAP = { r: 0.075, h: 0.22, tip: -0.05 };
+const up = new Vector3(0, 1, 0), turn = new Quaternion();
+/** A piece of `geo` at `at`, its +y turned to `dir`, sized by `scale`. */
+function along(b: Build, geo: BufferGeometry, c: number, at: Vector3, dir: Vector3, scale: [number, number, number]) {
+  b.pieces.push({ geo, c, m: new Matrix4().compose(at, turn.setFromUnitVectors(up, dir), new Vector3(...scale)) });
+}
+
 /**
- * The bunch of flowers, in the hand at the end of an arm: a paper cone held tip up, and out of its mouth the stems and
- * three heads flopping over, down toward the ground. High adds the leaves.
+ * The bunch of flowers in the hand at the end of an arm, hanging down and a little forward: a paper cone gripped by
+ * its tip, greenery in its mouth, and five stems fanning out of it, each with its head on the end. High adds a red ribbon round the
+ * cone and leaves round its mouth.
  */
 function flowers(b: Build, hi: boolean) {
-  b.add(G.cone, C.paper, 0, -0.38, 0.08, [-0.9, 0, 0], [0.08, 0.26, 0.08]);
+  const bunch = new Build();
+  // the cone, its tip in his fist and its mouth open toward the heads
+  bunch.add(G.cone, C.paper, 0, WRAP.tip + WRAP.h / 2, 0, [Math.PI, 0, 0], [WRAP.r, WRAP.h, WRAP.r]);
+  const mouth = WRAP.tip + WRAP.h;
+  // greenery filling its mouth, that the stems come up through
+  bunch.add(K.dome, STEM, 0, mouth - 0.005, 0, null, [WRAP.r * 0.92, 0.03, WRAP.r * 0.92]);
   PETALS.forEach((c, i) => {
-    const x = (i - 1) * 0.06, z = 0.2 + (i % 2) * 0.03;
-    b.add(tube(0.01, 0.01, 0.12, 5), STEM, x, -0.47, z, [0.9, 0, (i - 1) * 0.5]);
-    b.add(K.ball, c, x * 1.6, -0.53 - (i % 2) * 0.03, z + 0.04, null, [0.055, 0.04, 0.055]);
-    b.add(K.dot, C.gold, x * 1.6, -0.565 - (i % 2) * 0.03, z + 0.045, null, 0.018);
-    if (hi) b.add(K.ball, STEM, x * 1.3, -0.45, z - 0.02, [0, 0, (i - 1) * 0.8], [0.02, 0.05, 0.01]);
+    // four round the edge and one in the middle, each stem from inside the cone out past its mouth
+    const a = i * Math.PI / 2 + Math.PI / 4, k = i < 4 ? 0.32 : 0;
+    const dir = new Vector3(Math.sin(a) * k, 1, Math.cos(a) * k).normalize();
+    const from = new Vector3(dir.x * 0.02, mouth - 0.08, dir.z * 0.02), to = from.clone().addScaledVector(dir, STEM_LEN);
+    along(bunch, K.post, STEM, from.clone().lerp(to, 0.5), dir, [0.009, STEM_LEN, 0.009]);
+    along(bunch, K.ball, c, to.clone().addScaledVector(dir, 0.02), dir, [0.05, 0.034, 0.05]);
+    along(bunch, K.dot, C.gold, to.clone().addScaledVector(dir, 0.05), dir, [0.018, 0.01, 0.018]);
+    if (hi && i < 4) {
+      const out = new Vector3(Math.sin(a + Math.PI / 4), 1.2, Math.cos(a + Math.PI / 4)).normalize();
+      along(bunch, K.ball, STEM, new Vector3(out.x * 0.07, mouth + 0.01, out.z * 0.07), out, [0.018, 0.05, 0.008]);
+    }
   });
+  if (hi) bunch.add(K.post, C.red, 0, 0.09, 0, null, [0.044, 0.022, 0.044]);
+  // in the fist (the hand's ball, below), hanging down and forward
+  const hang = new Vector3(0, -0.72, 0.7).normalize();
+  b.addAll(bunch, new Matrix4().compose(new Vector3(0, -0.32, 0.01), turn.setFromUnitVectors(up, hang), new Vector3(1, 1, 1)));
 }
 
 /**
