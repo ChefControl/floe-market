@@ -1,6 +1,6 @@
 // The settings menu, behind the gear in the top corner, in four groups: You (signing in for cloud saves, cloud.ts, and
 // your look), Graphics & sound (graphics.ts, audio.ts), Game (how to walk, hint.ts, and Restart, main.ts), and About
-// (Report a bug or idea, report.ts; Ko-fi; and last, the Credits & Copyrights for the music and sound). Controls, Graphics, Sound and the credits each
+// (Report a bug or idea, report.ts; Ko-fi, kofi.ts, only in builds with it on; and last, the Credits & Copyrights for the music and sound). Controls, Graphics, Sound and the credits each
 // open with a click: Controls into How to play and a switch for the Buy button on a computer; Graphics into Auto, Low
 // or High; Sound into the effects, the ambience and the music, each with a mute button
 // and a 0 to 10 slider, big enough for a finger; and the credits into the notices.

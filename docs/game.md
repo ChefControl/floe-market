@@ -312,6 +312,8 @@ TypeScript + [three.js r186](https://threejs.org/), bundled with [Vite](https://
 
 `src/flags.ts` can keep stage 3 from players: with it off there's no hatch in the dock and Mr. Fugu never knocks. It's open in the live game, since the deploy builds with `VITE_STAGE3=on` (`.github/workflows/deploy.yml`); setting that to `off` takes it back. It's on in the dev server, the tests and the playtest build (`VITE_FUGU_DEMO=1`). In a build without it, open the game once with `?stage3=on` in the address to switch it on for that device (`?stage3=off` switches it back off). A save that has met Mr. Fugu switches it on wherever it's loaded, so a cloud save carries on on another device, and a player who's been down there keeps stage 3 even if it's taken back.
 
+It also decides whether there's **Buy me a coffee** (Ko-fi): only a game built or served with `VITE_KOFI=on` has the settings row and the 10-minute nudge, as the live game does (the deploy sets it). Without it, the default included, the row and its ko-fi.com link are left out of the page itself (`vite.config.ts`), so the Steam build, which mustn't link to payment pages outside Steam, never sets it. To see the row in the dev server, run `VITE_KOFI=on npm run dev`.
+
 It also dates the voting boat: `ELECTION_DAYS` brings it in on 27 October 2026 by the device's own date, and nothing of it is built on any other day. `?vote=on` in the address brings it in on any date, for that visit only, and `?vote=bye` does too and sails it away a minute after it's moored.
 
 [docs/balance.md](balance.md) sets out the principles the game is balanced by, stage by stage, the numbers that show when something is off, and where each upgrade stands.

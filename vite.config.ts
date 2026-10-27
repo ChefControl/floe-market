@@ -29,6 +29,24 @@ function preloadManifest(): Plugin {
   };
 }
 
+/** The page without the Ko-fi settings row (its link and its CSS), for a build without Ko-fi (flags.ts). */
+export function withoutKofi(page: string) {
+  const row = /[ \t]*<a id="kofi"[^>]*>[\s\S]*?<\/a>\n/, css = /\/\* the Ko-fi link[^*]*\*\/\n#kofi\{[^}]*\}\n#kofi i\{[^}]*\}\n/;
+  if (!row.test(page) || !css.test(page)) throw new Error('index.html: no Ko-fi row to leave out');
+  return page.replace(row, '').replace(css, '');
+}
+
+/** Leaves the Ko-fi row out of the page unless the game's built (or served) with VITE_KOFI=on: hiding it isn't enough,
+ *  as the Steam build mustn't carry a link to a payment page outside Steam at all. */
+function kofiToggle(): Plugin {
+  let off = true;
+  return {
+    name: 'floe-kofi-toggle',
+    configResolved(c) { off = c.env.VITE_KOFI !== 'on'; },
+    transformIndexHtml: { order: 'pre', handler: page => off ? withoutKofi(page) : page },
+  };
+}
+
 export default defineConfig({
   // Relative base so the build works from any path (e.g. GitHub Pages' /floe-market/).
   base: './',
@@ -39,7 +57,7 @@ export default defineConfig({
     chunkSizeWarningLimit: 1000,
     rolldownOptions: { output: { codeSplitting: { groups: [{ name: 'three', test: /node_modules[\\/]three[\\/]/ }] } } },
   },
-  plugins: [preloadManifest()],
+  plugins: [kofiToggle(), preloadManifest()],
   // the commit the game was built from (GitHub Actions sets it), which bug reports carry (report.ts)
   define: { __BUILD__: JSON.stringify(process.env.GITHUB_SHA ?? 'dev') },
   test: {

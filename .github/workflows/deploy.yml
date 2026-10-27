@@ -68,10 +68,12 @@ jobs:
           include-hidden-files: true
           retention-days: 30
       # Stage 3 is open to players (src/flags.ts). To take it back, set 'off' and push: saves that have met Mr. Fugu
-      # keep it on.
+      # keep it on. The web game has Buy me a coffee (Ko-fi, src/flags.ts); it's off in any build that doesn't say so,
+      # the Steam build's included.
       - run: npm run build
         env:
           VITE_STAGE3: 'on'
+          VITE_KOFI: 'on'
       - if: github.event_name != 'pull_request'
         uses: actions/configure-pages@v6
       - if: github.event_name != 'pull_request'
