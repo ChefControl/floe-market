@@ -9,7 +9,7 @@ import {
 } from 'three';
 import { every } from './audio';
 import { cheer, chipStack, gamePad, greeting, settleTweens, slide, speaker, Stakes, tally, tween } from './casinoKit';
-import { Person, SUITS } from './characters';
+import { allYear, Person, SUITS } from './characters';
 import { GAMES, pushOutOfBox } from './layout';
 import { bake, canvasTex, FONT, G, mat, mesh, rr, scene, type Part } from './render';
 import { colorOf, multiplier, resultLine, startRound, WHEEL, type Bet, type RouletteRound } from './roulette';
@@ -156,7 +156,7 @@ function buildTable() {
   const screen = new Mesh(new PlaneGeometry(BOARD_AT.w - 0.02, 2 * (BOARD_AT.w - 0.02)), new MeshBasicMaterial({ map: boardTex.tex }));
   screen.position.set(0, BOARD_AT.y, 0.027); board.add(screen);
   board.rotation.y = -0.25;
-  const croupier = new Person(SUITS[2], 'fancy');
+  const croupier = allYear(new Person(SUITS[2], 'fancy'));
   croupier.position.set(0, 0, -1.15);
   g.add(croupier);
   const voice = speaker(g, 2.0);

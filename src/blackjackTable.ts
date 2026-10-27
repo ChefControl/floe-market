@@ -21,7 +21,7 @@ import {
   BlackjackRound, CUT_CARD, DECKS, handValue, isBust, isRed, PLAYER_CUT, rankName, resultLine, Shoe, type Card,
 } from './blackjack';
 import { badge, cheer, chipStack, easeInOut, easeOut, gamePad, greeting, settleTweens, slide, speaker, Stakes, tally, tween } from './casinoKit';
-import { Person, SUITS } from './characters';
+import { allYear, Person, SUITS } from './characters';
 import { GAMES, pushOutOfBox } from './layout';
 import { canvasTex, FONT, mesh, rr, scene } from './render';
 import { cardLand, cardSlide, clack, deal as dealSound, lose, push as pushSound, win } from './sfx';
@@ -201,7 +201,7 @@ function buildTable() {
   [[-0.24, 0xC8323F, 6], [-0.12, 0x22874A, 4], [0, 0x1F2A33, 7], [0.12, 0x6A3FA0, 3], [0.24, 0xC8323F, 5]].forEach(([x, c, n]) => {
     const s = mesh(chip, c, x, TOP + n * 0.0065, RACK.z - 0.04, true); s.scale.y = n * 0.013; g.add(s);
   });
-  const dealer = new Person(SUITS[0], 'fancy');
+  const dealer = allYear(new Person(SUITS[0], 'fancy'));
   dealer.position.set(0, 0, -0.95);
   g.add(dealer);
   // close up, smaller than most: the dealer's top hat reaches the top of the view, and their bubble comes down over it
