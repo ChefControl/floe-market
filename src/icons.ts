@@ -726,7 +726,7 @@ let spare: HTMLCanvasElement | null = null;
 export function drawIcon(c: Ctx, icon: string, x: number, y: number, size: number) {
   const draw = DRAWINGS[icon];
   if (!draw) {
-    c.font = size + 'px serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(icon, x, y);
+    c.font = `${size}px "Floe Emoji",serif`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(icon, x, y);
     return;
   }
   // see-through, the overlapping shapes would show through each other: draw it whole on the spare, then fade that

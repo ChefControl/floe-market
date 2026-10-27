@@ -6,7 +6,7 @@ import { BoxGeometry, CanvasTexture, CylinderGeometry, Group, Mesh, MeshBasicMat
 import { every } from './audio';
 import { cheer, gamePad, greeting, speaker, Stakes, tally } from './casinoKit';
 import { GAMES, pushOutOfBox } from './layout';
-import { bake, bakePainted, canvasTex, FONT, G, mesh, painted, rr, scene, type Part } from './render';
+import { bake, bakePainted, canvasTex, EMOJI, FONT, G, mesh, painted, rr, scene, type Part } from './render';
 import { clack, jackpot, lose, reelStop, win } from './sfx';
 import type { Moves } from './round';
 import { lineMultiplier, REEL, resultLine, startRound, THREE, TWO_CHERRIES, type SlotsRound } from './slots';
@@ -41,7 +41,7 @@ export function drawReels(c: CanvasRenderingContext2D, pos: readonly number[], l
     for (let i = Math.floor(p) - 2; i <= Math.floor(p) + 2; i++) {
       const y = H / 2 + (p - i) * CELL, s = REEL[mod(i, N)];
       if (s === '7') { c.font = `800 46px ${FONT}`; c.fillStyle = '#D8394B'; }
-      else { c.font = '38px serif'; c.fillStyle = '#000'; }
+      else { c.font = `38px ${EMOJI}`; c.fillStyle = '#000'; }
       c.fillText(s, x + REEL_W / 2, y + 2);
     }
     // shading top and bottom, so the reels look round
@@ -122,7 +122,7 @@ const PAYS = canvasTex(330, 120, (c, w, h) => {
   c.textBaseline = 'middle';
   PAYTABLE.forEach(([syms, m], i) => {
     const x = 12 + (i % 3) * 106, y = 22 + Math.floor(i / 3) * 38;
-    c.font = '17px serif'; c.textAlign = 'left'; c.fillStyle = '#fff';
+    c.font = `17px ${EMOJI}`; c.textAlign = 'left'; c.fillStyle = '#fff';
     c.fillText(syms.join(''), x, y + 2);
     c.font = `800 18px ${FONT}`; c.fillStyle = '#F2C14E'; c.textAlign = 'right';
     c.fillText(`×${m}`, x + 98, y + 2);

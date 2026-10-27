@@ -24,7 +24,7 @@ import { Fugu } from './fugu';
 import { isHigh, onQuality } from './graphics';
 import { apart, Build, dice, K, quietly, rbox, shade, shadowsOf, tube } from './kit';
 import { ARENA, CARDS, CELLAR_Y, type CellarRoom, CRAFT, DEN, DOORS, found, GROW, keepOnFloor, KITCHEN, LANDING, LIFT_ROOM, LOANS, LOO, OFFICE_ROOM, PREP, pushOutOfBox, RESTO, ROOMS, VIP, walkable, WING } from './layout';
-import { type CanvasTex, canvasTex, copyGeo, type Draw, FONT, G, mat, mesh, OFF, paint, rr, scene, sun } from './render';
+import { type CanvasTex, canvasTex, copyGeo, type Draw, FONT, G, mat, mesh, MINCHO, OFF, paint, rr, scene, sun } from './render';
 import { eachDrawing } from './levelCull';
 import type { XZ } from './util';
 
@@ -959,7 +959,6 @@ later(() => {
 // chain over the middle (the cellar's lamp over the ring, lights[0]), its light falling in a cone; a chain on steel pipes
 // round its foot keeps the crowd back, open east and west, and a sign leans on it. Salt in a tin bucket and water in
 // another, on the corners. (Built with the scenery's own dice: kit.ts.)
-const MINCHO = '"Hiragino Mincho ProN","Yu Mincho","Noto Serif JP",serif';
 /** A point every 1/`n` of the way along a string hung from `a` to `b`, sagging `drop` in the middle. */
 const sag = (a: Vector3, b: Vector3, drop: number, n: number) => Array.from({ length: n + 1 }, (_, i) => {
   const t = i / n, p = a.clone().lerp(b, t); p.y -= drop * 4 * t * (1 - t); return p;
@@ -1554,7 +1553,7 @@ function inkBoard(parent: Object3D, ch: string, y: number, z: number) {
     // the grain, down the board
     c.strokeStyle = 'rgba(140,96,56,.3)'; c.lineWidth = 2;
     for (const gx of [12, 30, 49, 67, 84]) { c.beginPath(); c.moveTo(gx, 0); c.bezierCurveTo(gx + 5, h * 0.35, gx - 5, h * 0.65, gx + 2, h); c.stroke(); }
-    c.fillStyle = '#1B1612'; c.font = '900 72px serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.fillStyle = '#1B1612'; c.font = `900 72px ${MINCHO}`; c.textAlign = 'center'; c.textBaseline = 'middle';
     c.fillText(ch, w / 2, h / 2 - 8);
     c.fillStyle = '#B23A2E'; c.fillRect(w - 28, h - 30, 16, 16);
   });
