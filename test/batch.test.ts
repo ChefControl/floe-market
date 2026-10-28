@@ -1,5 +1,5 @@
 // batch.ts `sync`: what's merged is looked at every frame, cheaply. What render.ts `place` walked shows, and has moved
-// only if `place` worked out its world matrix since (`movedAt`); only then are its 16 numbers compared. Anything that
+// only if `place` worked out its world matrix since (`placed.movedAt`); only then are its 16 numbers compared. Anything that
 // moves, hides, goes, changes shape or colour still drops out the same frame.
 import { BoxGeometry, Group, Mesh, MeshLambertMaterial, type Object3D, PerspectiveCamera } from 'three';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
