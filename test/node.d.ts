@@ -1,4 +1,4 @@
-// The few Node APIs the balance simulation, the rules tests and the build's licences (tools/licences.ts) use (the project
+// The few Node APIs the balance simulation, the rules tests and the build's licences (scripts/licences.ts) use (the project
 // doesn't depend on @types/node).
 declare const process: { env: Record<string, string | undefined>; argv: string[] };
 declare module 'node:fs' {

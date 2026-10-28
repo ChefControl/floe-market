@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, readFileSync, realpathSync, writeFileSync } fro
 import { tmpdir } from 'node:os';
 import { build, type Rolldown } from 'vite';
 import { describe, expect, it } from 'vitest';
-import { licences, verdict } from '../tools/licences';
+import { licences, verdict } from '../scripts/licences';
 
 describe('which licences can ship', () => {
   it('takes permissive ones, stops copyleft and unknown ones', () => {
@@ -23,7 +23,7 @@ describe('the build', () => {
   /** A little game that imports these packages, built for real: what reaches the bundle is what gets credited. */
   async function buildWith(packages: Record<string, string>, opts?: Parameters<typeof licences>[0]) {
     const root = realpathSync(mkdtempSync(`${tmpdir()}/floe-licences-`));
-    writeFileSync(`${root}/index.html`, '<ul>\n<!-- licences: listed by the build (tools/licences.ts) -->\n</ul>\n<script type="module" src="./main.js"></script>\n');
+    writeFileSync(`${root}/index.html`, '<ul>\n<!-- licences: listed by the build (scripts/licences.ts) -->\n</ul>\n<script type="module" src="./main.js"></script>\n');
     writeFileSync(`${root}/main.js`, Object.keys(packages).map((name, i) => `import f${i} from '${name}'; f${i}();`).join('\n'));
     for (const [name, licence] of Object.entries(packages)) {
       mkdirSync(`${root}/node_modules/${name}`, { recursive: true });
@@ -65,7 +65,7 @@ describe('the build', () => {
   });
 
   it("has the game's credits ready for the list, and the Apache licence's text for Firebase, which ships none", () => {
-    expect(readFileSync('index.html', 'utf8')).toContain('<!-- licences: listed by the build (tools/licences.ts) -->');
-    expect(readFileSync('tools/licences/Apache-2.0.txt', 'utf8')).toContain('Apache License');
+    expect(readFileSync('index.html', 'utf8')).toContain('<!-- licences: listed by the build (scripts/licences.ts) -->');
+    expect(readFileSync('scripts/licences/Apache-2.0.txt', 'utf8')).toContain('Apache License');
   });
 });

@@ -296,6 +296,8 @@ On the casino boat, a sign hangs from the wall behind the bar, over its window e
 
 TypeScript + [three.js r186](https://threejs.org/), bundled with [Vite](https://vite.dev/). All textures are drawn at runtime on canvas. The fonts and the emoji ship with the game (`public/fonts`, cut down to what it writes by `scripts/fonts/build.py`), so it fetches none from the web.
 
+**Open-source licences.** The build credits the third-party code it actually bundles (`scripts/licences.ts`): it writes each package's licence text to `licences.txt` beside the game and lists the packages under Credits & Copyrights. It's what's bundled, not `package.json`, so dev tools never show, and a build without Firebase leaves it out. The build stops on a GPL, LGPL or AGPL licence, or one it can't read, until the owner approves that package and licence in `APPROVED` (Steam needs Valve's agreement before a game ships GPL or LGPL code). The Electron build hands in its own notices (Electron, Chromium, ffmpeg) as `licences({ extra })`, checked the same way.
+
 | Command | What it does |
 | --- | --- |
 | `npm run dev` | Dev server with hot reload |

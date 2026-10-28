@@ -1,7 +1,7 @@
 import type { Plugin } from 'vite';
 import { configDefaults, defineConfig } from 'vitest/config';
 import { ShardSequencer } from './test/shards.ts';
-import { licences } from './tools/licences.ts';
+import { licences } from './scripts/licences.ts';
 
 /**
  * The loading screen (index.html) counts the game's scripts in as they download, so it needs their names and sizes

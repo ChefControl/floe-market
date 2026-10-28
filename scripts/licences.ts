@@ -69,7 +69,7 @@ function repoUrl(repo: unknown) {
 const tidy = (text: string) => text.replace(/^(\s*\n)+/, '').trimEnd();
 
 /** The package in a folder of node_modules: its licence from package.json, and its text from its LICENSE (or COPYING,
- *  or NOTICE) files, or, for a package that ships none (Firebase's), the licence's standard text from tools/licences/. */
+ *  or NOTICE) files, or, for a package that ships none (Firebase's), the licence's standard text from scripts/licences/. */
 export function readPackage(dir: string): Notice {
   const pkg = JSON.parse(readFileSync(`${dir}/package.json`, 'utf8'));
   const licence: string = typeof pkg.license === 'string' ? pkg.license : pkg.license?.type
@@ -137,7 +137,7 @@ export function licencesList(notices: Notice[]) {
 }
 
 /** Where index.html's credits take the list. */
-const MARK = '<!-- licences: listed by the build (tools/licences.ts) -->';
+const MARK = '<!-- licences: listed by the build (scripts/licences.ts) -->';
 
 /** The build's licences: what's in the bundle, plus `extra` notices; checked, written to licences.txt and listed in the
  *  credits. The dev server lists none, as it bundles nothing. */
@@ -164,7 +164,7 @@ export function licences({ extra = [] as Notice[], approved = APPROVED } = {}): 
       if (strays.length) this.error(`can't tell which package this code comes from, to credit it:\n  ${strays.join('\n  ')}`);
       const notices = [...[...dirs].map(readPackage), ...extra];
       const refused = refusals(notices, approved);
-      if (refused.length) this.error(`these can't ship until the owner approves them (APPROVED in tools/licences.ts):\n  ${refused.join('\n  ')}`);
+      if (refused.length) this.error(`these can't ship until the owner approves them (APPROVED in scripts/licences.ts):\n  ${refused.join('\n  ')}`);
       this.emitFile({ type: 'asset', fileName: 'licences.txt', source: licencesText(notices) });
       const html = bundle['index.html'];
       if (html?.type === 'asset') html.source = String(html.source).replace(MARK, licencesList(notices));
