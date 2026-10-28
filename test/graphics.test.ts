@@ -267,6 +267,24 @@ describe('Potato', () => {
     expect([$('toast').textContent, $('gfxNow').textContent, $('gfxReload').hidden]).toEqual(['🥔 Switched to Potato graphics', 'Auto is on Potato now', true]);
   });
 
+  it('draws the floor markings at half size on Low and Potato loads, the same drawing scaled', async () => {
+    /** The floor markings' canvas sizes (decals.ts). */
+    const sizes = async (q: 'potato' | 'low' | 'high') => {
+      const g = await loadWith(q), out = new Set<number>();
+      g.render.scene.traverse(o => {
+        const m = o as Mesh;
+        if (m.isMesh && m.renderOrder === 1 && m.geometry.type === 'PlaneGeometry') {
+          const img = (m.material as { map?: { image?: HTMLCanvasElement } }).map?.image;
+          if (img instanceof HTMLCanvasElement) out.add(img.width);
+        }
+      });
+      return [...out];
+    };
+    expect(await sizes('high')).toEqual([256]);
+    expect(await sizes('low')).toEqual([128]);
+    expect(await sizes('potato')).toEqual([128]);
+  }, 60_000);
+
   it('never builds High: its baked shapes are let go, the effects have no room, and leaving it takes a reload', async () => {
     /** The kit's baked meshes, and how many of them hold no shape. */
     const baked = (scene: Object3D) => {
