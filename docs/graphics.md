@@ -101,7 +101,7 @@ Each scene file has a small helper that builds High off the game's luck and call
 | hall.ts | `hiLo(group, build, keep?, wrap?)` | Moves what's already in a piece into a Low group and adds `build()`'s High beside it. `keep` is for things both show |
 | ads.ts | `highIn(to, low, build)`, `lowIn(to)` | The same, for campaigns |
 | propsMachines.ts | `detailMarked(low, high)` | For things made over and over (the drive-up sleds): marks them instead of adding a listener each, so old ones aren't kept alive |
-| items.ts | `looks(mesh, low, high)` | For items that come and go by the hundred: one mesh that swaps its geometry and material when drawn, rather than two meshes each |
+| items.ts | `looks(mesh, low, high)` | For items that come and go by the hundred: one mesh that swaps its geometry and material when drawn, rather than two meshes each (and drawn pooled, pooled.ts, which does that swap as it fills its pools) |
 
 Wrap the High and Low versions in groups under the thing's own group, so pop-ins and scaling still happen about the same centre.
 
@@ -183,13 +183,27 @@ Whatever has stood still for a second is drawn merged with its neighbours: one m
   - `ShaderMaterial` and any material with `onBeforeCompile` (its shader may use the mesh's own coordinates, like the sea);
   - meshes with an `onBeforeRender`, a `renderOrder`, `frustumCulled = false`, several materials, morph targets or a draw range;
   - instanced and skinned meshes;
-  - anything under an object with `userData.noBatch = true`, as people have.
+  - anything under an object with `userData.noBatch = true`, as people have, and what's drawn pooled (below).
 
   Use `noBatch` for anything that moves all the time. People who stay put for good (the casino yacht's staff and
   guests) call `standStill()` (characters.ts): no `noBatch` and no breathing, so they're merged while they hold still,
   and an arm that moves drops out of the merge while it does. On the yacht that took about 85 draw calls off the frame
   at the quay.
-- **Lots of moving copies:** use one `InstancedMesh` instead, as the effects and the foam rings (sea.ts) do.
+- **Lots of moving copies:** use one `InstancedMesh` instead, as the effects and the foam rings (sea.ts) do, or draw them pooled (below).
+
+### Things made by the hundred (src/pooled.ts)
+
+What's carried and stacked (every item made in items.ts: plates and their nigiri, takeout boxes, fillets, rice bags, bills, the cellar's bowls and ingredients, Fugu Chips) and the whole fish (fishModel.ts `newFish`) come and go by the hundred and keep moving, so the merging can't take them; drawn one by one, they were about 180 calls of Floe Sushi's 1,200. So they're drawn **pooled**: a call for each kind of piece, however many there are.
+
+- **`pooled(o)`** marks something (and every mesh in it then) as drawn pooled, and leaves it out of the merging (`noBatch`). Call it as the thing's made; nothing else changes for the game. Holders, flights, counters and the save move it, hide it, scale it and take it away as before.
+- **`drawPooled(scene)`** (main.ts, after `batchStill`) runs just before each frame's drawn, once the world's matrices are worked out: every piece that's showing, of everything pooled that's in the scene, is copied, where it is, into an `InstancedMesh` for its shape, its material and its shadows. Its own mesh is left out of the drawing (`layers.mask = 0`, as batch.ts does). Whatever it does as it's drawn (`onBeforeRender`: its look for the graphics, items.ts `looks`, and the cellar ledge's darker copies, ringKitchen.ts) is done as it's copied.
+- **The pools** draw copies of the pieces' materials (three.js keys a shader on whether it's instanced), are never culled (they're drawn wherever their instances are; so off-screen items are drawn too, at a few triangles each), have no bounds (so levelCull.ts never hides them, three.js never works them out over every instance, and rays pass through them), are sent up afresh each frame they draw (`DynamicDrawUsage`), and are made as they're first needed, on dice of their own, in one group (`pooled`) put in the scene at the start. A pool doubles when it fills.
+- **A piece that draws its own way draws itself** while it does, and goes back into its pool after: one cut with a clipping plane (the fish on the chopping block, fishing.ts), see-through, with a draw order, several materials, a shadow of its own (`onBeforeShadow`, a baked shadow copy), a draw range or morphs, or turned inside out.
+- **Something in a group that's taken out of the scene** (its own `removed` never fires) is let go of after 600 frames out, and draws itself if that group's ever put back.
+- **Share shapes between pooled things:** a pool is kept for every shape it's drawn, so a shape made afresh for each one is a pool each, kept for good (items.ts `noriGeo`).
+- **Recolour a pooled thing by giving it another material,** as ringKitchen.ts does its ledge's things. Changing the colour of a material it shares in place doesn't reach its pool's copy.
+
+Tests: `test/pooled.test.ts`.
 
 ### Hidden things aren't placed
 
