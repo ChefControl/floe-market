@@ -10,7 +10,7 @@ The player picks **Auto**, **Low** or **High** in the ✨ row of the settings.
 
 - **High** draws the world the way the people are drawn: low poly but rounded, with small details, a rolling sea, cloud shadows, seasonal snow, petals and leaves, and the effects.
 - **Low** draws everything exactly as it was before the rework, with a lighter renderer (a half-size shadow map with hard edges, at most 1.5 pixels a point). It's for phones that can't keep up.
-- **Auto**, the default, starts on High and watches the frames in two-second looks. A look is bad if it ran under 50 fps, or it stuttered: its p95 frame slower than 25 ms or its p99 slower than 50 ms. When four of the last five looks are bad it drops to Low, and it starts on Low on that device from then on (`localStorage` key `floe-market-graphics-auto`). A hitch counts as a slow frame; only a gap of over a second (the tab hidden, the phone locked) makes it settle and start watching again. It never switches back up by itself; choosing Auto in the settings starts it on High again.
+- **Auto**, the default, starts on High and watches the frames in two-second looks. A look is bad if it ran under 50 fps, or it stuttered: its p95 frame slower than 25 ms or its p99 slower than 50 ms. When four of the last five looks are bad it drops to Low, and it starts on Low on that device from then on (`localStorage` key `floe-market-graphics-auto`). A hitch counts as a slow frame; only a gap of over a second (the tab hidden, the phone locked) makes it settle and start watching again. It never switches back up by itself; choosing Auto in the settings starts it on High again. It also drops to Low for good when the browser takes the 3D view away while the game's on screen (a WebGL context loss: a phone short of graphics memory, or its graphics chip restarting), since Low needs about half the memory (`lowAfterLoss`, called by render.ts). If the view isn't back within 3 seconds, or the browser won't make one at all, a dialog (`#glLost`, errors.ts) says so and offers a reload.
 
 The choice is kept on the device (`localStorage` key `floe-market-graphics`), never in the save or the cloud.
 
@@ -180,7 +180,10 @@ Whatever has stood still for a second is drawn merged with its neighbours: one m
   - instanced and skinned meshes;
   - anything under an object with `userData.noBatch = true`, as people have.
 
-  Use `noBatch` for anything that moves all the time.
+  Use `noBatch` for anything that moves all the time. People who stay put for good (the casino yacht's staff and
+  guests) call `standStill()` (characters.ts): no `noBatch` and no breathing, so they're merged while they hold still,
+  and an arm that moves drops out of the merge while it does. On the yacht that took about 85 draw calls off the frame
+  at the quay.
 - **Lots of moving copies:** use one `InstancedMesh` instead, as the effects and the foam rings (sea.ts) do.
 
 ### Hidden things aren't placed

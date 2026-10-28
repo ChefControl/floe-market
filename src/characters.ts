@@ -200,6 +200,8 @@ export class Person extends Group {
   phase = 0;
   /** Seconds of breathing, from somewhere different for each of them, so a queue doesn't breathe as one. */
   breath: number;
+  /** Stays where they're put for good, and doesn't breathe (standStill). */
+  still = false;
   /** A chef's toque: its band, which grows taller, and the puff on top. */
   private toqueBand?: Mesh;
   private toquePuff?: Mesh;
@@ -251,6 +253,18 @@ export class Person extends Group {
       this.body.add(this.shell, this.trim);
       this.dress();
     } finally { Math.random = luck; }
+  }
+
+  /**
+   * Stays where they're put for good (the casino yacht's staff and guests): without the breathing, which no one sees
+   * from the game's camera, they hold still and are drawn merged with the scenery round them (batch.ts), a dozen people
+   * in a few draw calls instead of six each and as many again for their shadows. An arm that moves (a lever pulled, a
+   * glass raised) drops out of the merge while it does, and back in after.
+   */
+  standStill() {
+    this.still = true;
+    delete this.userData.noBatch;
+    return this;
   }
 
   /** How far out from the middle the arms hang: a woman's a little closer in. */
@@ -861,7 +875,7 @@ export function animPerson(p: Person, moving: boolean, dt: number, carrying: boo
   b.position.y = -0.3 * (1 - Math.cos(swing));
   b.rotation.x += ((moving ? LEAN : 0) - b.rotation.x) * Math.min(1, dt * 8);
   b.rotation.z = moving ? s * ROCK : 0;
-  b.scale.y = moving ? 1 : 1 + Math.sin(p.breath * 2.4) * BREATH;
+  b.scale.y = moving || p.still ? 1 : 1 + Math.sin(p.breath * 2.4) * BREATH;
 }
 
 const glass = new MeshLambertMaterial({ color: 0xBDEBFA, transparent: true, opacity: .65 });

@@ -47,7 +47,7 @@ export const UI_WAIT = 4000;
 const NOT_SHOWN = new Set(['report', 'draw', 'sendFx', 'game']);
 /** The panels that can be open over the game, for the report's `live` state. */
 const PANELS = ['shop', 'look', 'rouletteAsk', 'roulette', 'blackjackAsk', 'blackjack', 'slotsAsk', 'slots', 'bubbly', 'tears',
-  'shameCard', 'shame', 'korki', 'scores', 'cloudPick', 'stale', 'hint', 'gong', 'coin', 'fightCard', 'offer', 'eddie',
+  'shameCard', 'shame', 'korki', 'scores', 'cloudPick', 'stale', 'glLost', 'hint', 'gong', 'coin', 'fightCard', 'offer', 'eddie',
   'monteAsk', 'monte', 'loans', 'denBar', 'denGus'];
 
 const $ = (id: string) => document.getElementById(id)!;

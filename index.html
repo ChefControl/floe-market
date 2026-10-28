@@ -836,12 +836,14 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
 @keyframes press{ 0%,20%{ background:var(--coral); color:#fff; transform:translateY(2px); box-shadow:none; } 25%,100%{ background:var(--chip); color:inherit; transform:none; } }
 @media (prefers-reduced-motion: reduce){ #hint{ transition:opacity .3s; } #hint .stick, #hint kbd{ animation:none; } }
 
-#stale{ position:fixed; inset:0; z-index:8; display:grid; place-items:center; background:rgba(23,48,66,.55); }
-#stale[hidden]{ display:none; }
-#stale .card{ text-align:center; background:var(--pill); color:var(--pill-ink); padding:22px 26px; border-radius:24px; max-width:min(86vw,360px); box-shadow:0 4px 0 var(--shade); }
-#stale p{ margin:0 0 14px; font-size:19px; font-weight:600; }
-#stale button{ font:800 18px "Floe Emoji","Baloo 2","Trebuchet MS",system-ui,sans-serif; background:var(--hot); color:#fff; border:0; border-radius:999px; padding:8px 22px; cursor:pointer; box-shadow:0 3px 0 rgba(150,45,25,.45); }
-#stale button:focus-visible{ outline:3px solid var(--pill-ink); outline-offset:2px; }
+#stale, #glLost{ position:fixed; inset:0; z-index:8; display:grid; place-items:center; background:rgba(23,48,66,.55); }
+/* (the 3D view gone, errors.ts: over the loading screen too, as it can go before the game's loaded) */
+#glLost{ z-index:10; }
+#stale[hidden], #glLost[hidden]{ display:none; }
+:is(#stale, #glLost) .card{ text-align:center; background:var(--pill); color:var(--pill-ink); padding:22px 26px; border-radius:24px; max-width:min(86vw,360px); box-shadow:0 4px 0 var(--shade); }
+:is(#stale, #glLost) p{ margin:0 0 14px; font-size:19px; font-weight:600; }
+:is(#stale, #glLost) button{ font:800 18px "Floe Emoji","Baloo 2","Trebuchet MS",system-ui,sans-serif; background:var(--hot); color:#fff; border:0; border-radius:999px; padding:8px 22px; cursor:pointer; box-shadow:0 3px 0 rgba(150,45,25,.45); }
+:is(#stale, #glLost) button:focus-visible{ outline:3px solid var(--pill-ink); outline-offset:2px; }
 
 #stick{
   position:fixed; width:110px; height:110px; margin:-55px 0 0 -55px; border-radius:50%;
@@ -1639,6 +1641,7 @@ body.show #toss, body.show #cook, body.show #coach, body.show #hint, body.show #
 </section>
 <div id="hint" class="pill" role="status" hidden><div class="art" aria-hidden="true"></div><p></p></div>
 <div id="stale" role="alertdialog" aria-modal="true" aria-labelledby="staleWhy" hidden><div class="card"><p id="staleWhy">Floe Market is open in another tab, so this one stopped saving.</p><button type="button">Play here instead</button></div></div>
+<div id="glLost" role="alertdialog" aria-modal="true" aria-labelledby="glLostWhy" hidden><div class="card"><p id="glLostWhy"></p><button type="button">Reload</button></div></div>
 <section id="shop" hidden aria-label="Upgrades"><div class="shead"><h2 id="shopTitle"></h2><span id="shopPurse" hidden></span><div id="shopTabs" role="tablist" aria-label="Upgrades" hidden></div><button id="shopShut" type="button" aria-label="Fold the menu away" hidden>✕</button></div><div id="shopRows"></div><div id="shopPick" hidden></div><div id="shopKeys" hidden><span>Click a lit one to buy it</span><span><kbd>E</kbd> buys the one under the mouse</span><span><kbd>Esc</kbd> or walk off to close</span></div></section>
 <section id="look" hidden aria-labelledby="lookTitle">
   <div class="lhead"><h2 id="lookTitle">Your look</h2><button id="lookDice" type="button" aria-label="Surprise me" title="Surprise me"><span aria-hidden="true">🎲</span></button><button id="lookDone" type="button">Done</button></div>

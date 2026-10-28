@@ -182,6 +182,22 @@ describe('the casino boat', () => {
     expect(aboard.every(p => p.season === 'spring')).toBe(true);
   });
 
+  it('draws everyone aboard who stays put merged with the yacht, not one by one: all but the waiter', async () => {
+    const g = await loadGame({ tiles: bought('roulette', 'blackjack', 'slots') });
+    const { Person } = await import('../src/characters');
+    const aboard: InstanceType<typeof Person>[] = [];
+    g.render.scene.traverse(o => { if (o instanceof Person && g.layout.aboard(o.getWorldPosition(o.position.clone()))) aboard.push(o); });
+    const walking = aboard.filter(p => !p.still);
+    expect(walking).toHaveLength(1); // the waiter, with his tray
+    expect(walking[0].userData.noBatch).toBe(true);
+    const still = aboard.filter(p => p.still);
+    expect(still.length).toBeGreaterThanOrEqual(10);
+    expect(still.every(p => !p.userData.noBatch)).toBe(true);
+    // and they hold still while they stand: no breathing
+    g.run(2);
+    expect(still.every(p => p.body.scale.y === 1)).toBe(true);
+  });
+
   it('walls its upper deck in as a salon, whose roof lifts and near walls fade while the player is inside', async () => {
     const g = await at('roulette', 100);
     const salon = await import('../src/casinoSalon');

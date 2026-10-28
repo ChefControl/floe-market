@@ -43,6 +43,15 @@ export function choose(c: Choice) {
   setQuality(c === 'auto' ? 'high' : c);
 }
 
+/** The browser took the 3D view away (render.ts), most often as a phone ran low on graphics memory. On Auto, Low from
+ *  now on, as if it had been slow: half the memory, so the view it gives back (or the next visit's) is likelier to
+ *  last. A player's own pick stays. */
+export function lowAfterLoss() {
+  if (gfx.picked) return;
+  try { localStorage.setItem(AUTO_KEY, 'low'); } catch { /* Low for this visit */ }
+  if (gfx.quality !== 'low') setQuality('low');
+}
+
 /** Seconds to let the game settle (loading, or coming back to the tab) before timing it; then how long each look lasts. */
 const SETTLE = 3, SPAN = 2;
 /** A look is a bad one if it ran under 50 frames a second, or it stuttered: one frame in 20 (its p95) slower than
