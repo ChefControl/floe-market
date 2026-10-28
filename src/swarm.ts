@@ -25,6 +25,7 @@ import { CHAMP } from './rikishi';
 import { LEAST_WORDS } from './speech';
 import { crowdStyle } from './wardrobe';
 import type { XZ } from './util';
+import { viewSize } from './viewSize';
 
 /** The most figures the arena's drawn with (a bigger crowd is drawn one figure for every two fans: Fukure's 1,000),
  *  and fewer still if it doesn't seat that many a comfortable step apart (room()). */
@@ -329,8 +330,10 @@ function sync() {
   const R = F.rush, B = F.bout, prep = B.phase === 'prep';
   const want = new Map<number, { c: Color; seat: Seat | null; spot: XZ; due: number }>();
   // (`at` is their place on the floor: a local's queue moves up as the ones ahead are served, a boss's crowd stays put)
-  const place = (key: number, i: number, mine: boolean, n: number, theirsAt: number, c: Color, at = theirsAt, due = -1) => {
-    const seats = seatsFor(n), floor = spots(n);
+  // (the seats and spots for a crowd of `n`, looked up once for them all: each lookup builds its key)
+  let seats: Seat[] = [], floor: XZ[] = [];
+  const crowdOf = (n: number) => { seats = seatsFor(n); floor = spots(n); };
+  const place = (key: number, i: number, mine: boolean, theirsAt: number, c: Color, at = theirsAt, due = -1) => {
     let seat: Seat | null;
     if (R) {
       // (a boss's crowd: each fan has a seat of their own, the champion's from the front and his from the back; in the
@@ -341,13 +344,15 @@ function sync() {
   };
   if (R) {
     const n = Math.min(figures(R.n), room()), ours = Math.min(n, Math.round(R.turned * n / R.n));
-    for (let i = 0; i < n; i++) place(-1 - (B.n * 10000 + i), i, i < ours, n, i - ours, i < ours ? OURS : BOSS_COLOR, i);
+    if (n > 0) crowdOf(n);
+    for (let i = 0; i < n; i++) place(-1 - (B.n * 10000 + i), i, i < ours, i - ours, i < ours ? OURS : BOSS_COLOR, i);
   } else {
-    const n = Math.max(B.crowd, B.came);
-    for (let i = 0; i < (prep ? B.came : B.fed); i++) {
+    const n = Math.max(B.crowd, B.came), out = prep ? B.came : B.fed;
+    if (out > 0) crowdOf(n);
+    for (let i = 0; i < out; i++) {
       const mine = i < B.fed;
       const due = mine ? -1 : (F.queue[i - B.fed] ?? -1) + REACH;
-      place(B.n * 10000 + i, i, mine, n, i - B.fed, mine ? OURS : PALETTE[(i * 7) % PALETTE.length], i - B.fed, due);
+      place(B.n * 10000 + i, i, mine, i - B.fed, mine ? OURS : PALETTE[(i * 7) % PALETTE.length], i - B.fed, due);
     }
   }
   // the last bout's fans go home
@@ -633,6 +638,8 @@ function talk(dt: number) {
     }
   }
   const up: { x: number; y: number; hx: number; hy: number }[] = [];
+  // (which way the camera looks, worked out for the first bubble up: it's the same for them all)
+  let aimed = false;
   for (const sp of speech) {
     const f = sp.fan;
     if (f && (!on || sp.t >= SAY_FOR || !fans.has(f.key) || !inView(f))) sp.fan = null;
@@ -642,9 +649,9 @@ function talk(dt: number) {
     // (popping up, and over their head wherever they go)
     const k = Math.min(1, sp.t / 0.15);
     sp.s.position.set(f.x, CY + f.y + 2.2 - 0.3 * f.sit, f.z);
-    camera.getWorldDirection(ahead);
+    if (!aimed) { camera.getWorldDirection(ahead); aimed = true; }
     const depth = Math.max(0.1, bubbleAt.copy(sp.s.position).sub(camera.position).dot(ahead));
-    const viewH = 2 * depth * Math.tan(camera.fov * Math.PI / 360), h = Math.max(0.9, LEAST_PX * viewH / innerHeight), w = h * 2.9 / 0.9;
+    const viewH = 2 * depth * Math.tan(camera.fov * Math.PI / 360), h = Math.max(0.9, LEAST_PX * viewH / viewSize.h), w = h * 2.9 / 0.9;
     sp.s.scale.set(w * k, h * k, 1);
     // (and, that big, kept on screen: a fan at the edge of the view has theirs at the edge; and
     // stacked over one already up rather than on it)

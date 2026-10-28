@@ -33,6 +33,7 @@ import { pick, put, shipHorn } from './sfx';
 import { bubble } from './speech';
 import { panel as kitPanel } from './uiKit';
 import { d2xz, V, type XZ } from './util';
+import { viewSize } from './viewSize';
 import { crowdStyle, type Style } from './wardrobe';
 
 // ---------- the plan ----------
@@ -946,9 +947,9 @@ export function drawElders() {
   if (!talk || !talkEl!.say.classList.contains('on')) return;
   // over his head, its tail pointing down at him (kept on the screen); the dark round the edges, clear round his face
   const el = talkEl!;
-  const toScreen = (v: Vector3) => { v.project(camera); return { x: (v.x + 1) / 2 * window.innerWidth, y: (1 - v.y) / 2 * window.innerHeight }; };
+  const toScreen = (v: Vector3) => { v.project(camera); return { x: (v.x + 1) / 2 * viewSize.w, y: (1 - v.y) / 2 * viewSize.h }; };
   const h = toScreen(V(o.at.x, y + o.top, o.at.z)), f = toScreen(face.clone());
-  const w = el.say.offsetWidth, x = Math.max(12, Math.min(h.x - w / 2, window.innerWidth - w - 12));
+  const w = el.say.offsetWidth, x = Math.max(12, Math.min(h.x - w / 2, viewSize.w - w - 12));
   el.say.style.left = x + 'px'; el.say.style.top = Math.max(el.say.offsetHeight + 16, h.y) + 'px';
   el.say.style.setProperty('--tail', Math.max(22, Math.min(w - 22, h.x - x)) + 'px');
   el.root.style.setProperty('--fx', f.x + 'px'); el.root.style.setProperty('--fy', f.y + 'px');
