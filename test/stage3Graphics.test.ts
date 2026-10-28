@@ -2,7 +2,7 @@
 // the wrestlers finer; Low is the same place for less: four lamps standing in for fourteen, no shadows from the small
 // things or the fans, the figures a notch plainer. Down there the sun's shadows are cast only over what's on screen.
 // Neither touches the game's luck.
-import { type InstancedMesh, type Mesh, type Object3D, type PointLight } from 'three';
+import { BoxGeometry, type InstancedMesh, Mesh, type Object3D, type PointLight } from 'three';
 import { describe, expect, it, vi } from 'vitest';
 import { bought, FLOE_SUSHI, loadGame, MARKET, type SaveFixture } from './helpers';
 
@@ -59,7 +59,7 @@ describe('stage 3, Low and High', () => {
   }, 60_000);
 
   it('lights the cellar with all fourteen lamps on High, four standing in for the nearest on Low, and two on Potato', async () => {
-    const { cellar: C, graphics, draw } = await cellar('high');
+    const { cellar: C, graphics, draw, render } = await cellar('high');
     const shownLights = () => { let n = 0; C.cellar.parent!.traverseVisible(o => { if ((o as PointLight).isPointLight && o.parent && shown(o)) n++; }); return n; };
     expect(C.lights.every(l => l.visible)).toBe(true);
     expect(C.standIns.every(l => !l.visible)).toBe(true);
@@ -85,6 +85,20 @@ describe('stage 3, Low and High', () => {
       expect(s.intensity).toBeGreaterThan(0);
       expect(four).toContain(s.position.toArray().join());
     }
+    // walking off to the far end and back: each time the two shown hand over to the lamps there, all the way faded in
+    // (the two not shown take none of them, or the ones shown would be left waiting with nothing)
+    const two = C.standIns.slice(0, 2).map(s => s.position.toArray().join()).sort();
+    const at = render.sun.target.position.clone(), far = C.lights.filter(l => l.intensity > 0)
+      .sort((a, b) => b.position.distanceTo(at) - a.position.distanceTo(at))[0].position;
+    for (const to of [far, at]) {
+      for (let i = 0; i < 30; i++) C.updLamps({ x: to.x, z: to.z }, 0.1);
+      expect(C.standIns.slice(2).map(s => s.intensity)).toEqual([0, 0]);
+      for (const s of C.standIns.slice(0, 2)) {
+        const l = C.lights.find(x => x.position.equals(s.position))!;
+        expect(s.intensity).toBe(l.intensity);
+      }
+    }
+    expect(C.standIns.slice(0, 2).map(s => s.position.toArray().join()).sort()).toEqual(two);
     graphics.choose('high');
     expect(C.lights.every(l => l.visible)).toBe(true);
     expect(C.standIns.every(l => !l.visible)).toBe(true);
@@ -130,7 +144,11 @@ describe('stage 3, Low and High', () => {
     // Potato: High's copies hold no shapes
     const potato = figures((await cellar('potato')).cellar);
     expect(potato.bytes).toBeLessThan(bytes * 0.7);
-    expect(potato.out.filter(m => !m.geometry.attributes.position.count).length).toBeGreaterThan(out.length * 0.4);
+    const emptied = potato.out.filter(m => !m.geometry.attributes.position.count);
+    expect(emptied.length).toBeGreaterThan(out.length * 0.4);
+    // (and no hook on their shadows: the hooks hold the merged shape, kit.ts letGo)
+    const { onBeforeShadow, onAfterShadow } = Mesh.prototype;
+    expect(emptied.filter(m => m.onBeforeShadow !== onBeforeShadow || m.onAfterShadow !== onAfterShadow)).toEqual([]);
   }, 60_000);
 
   it('casts no shadow from the small things or the fans on Low, and every one of them again on High', async () => {
@@ -172,6 +190,23 @@ describe('stage 3, Low and High', () => {
     graphics.choose('low');
     g.run(0.5);
     expect(fans().every(f => !f.castShadow)).toBe(true);
+    // Potato looks the same to them as Low: nothing's made again between the two
+    const onLow = fans();
+    graphics.choose('potato');
+    g.run(0.5);
+    expect(fans().length === onLow.length && fans().every((f, i) => f === onLow[i])).toBe(true);
+  }, 30_000);
+
+  it("doesn't sweep the small things' shadows on Potato, which casts none, and catches up on the change to Low", async () => {
+    const { cellar: C, graphics } = await cellar('potato');
+    const crumb = new Mesh(new BoxGeometry(0.04, 0.04, 0.04));
+    crumb.castShadow = true;
+    crumb.position.set(C.RING.x, C.CY, C.RING.z);
+    C.cellar.add(crumb);
+    for (let t = 0; t < 5; t += 0.1) C.updLamps(C.RING, 0.1); // (each frame the player's down there)
+    expect(crumb.castShadow).toBe(true);
+    graphics.choose('low');
+    expect([crumb.castShadow, crumb.userData.slight]).toEqual([false, true]);
   }, 30_000);
 
   it("draws the Undertow's figures finer on High and a notch plainer on Low, each in a few meshes, the same pose", async () => {
