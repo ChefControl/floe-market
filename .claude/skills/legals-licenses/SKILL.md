@@ -29,8 +29,7 @@ it doesn't copy someone else's (a real tune's melody, a real logo).
   build lists the packages it actually bundles (dev tools never ship; the Steam build leaves Firebase out), writes
   `dist/licences.txt` and fills the `<!-- licences: listed by the build (scripts/licences.ts) -->` list under
   **Open-source licences** in `#creditsCard`. It stops on GPL, LGPL, AGPL or a licence it can't read, unless the package
-  is in `APPROVED`; `PERMISSIVE` lists what passes. Tests: `test/licences.test.ts`. If `gh pr view 209 --json state`
-  isn't `MERGED`, read them from its branch: `git show origin/claude/licences-list-149-5b7b29:scripts/licences.ts`.
+  is in `APPROVED`; `PERMISSIVE` lists what passes. Tests: `test/licences.test.ts`.
 - **Fonts**: `public/fonts/*.woff2`, each with its licence beside it (`OFL-*.txt`), built from pinned upstream files by
   `scripts/fonts/build.py`; credited under **Fonts** in `#creditsCard`. From PR #210 (#148).
 - **Emoji and icons**: every emoji is the game's own drawing (`src/icons.ts`, `src/icons/*.ts`, built into Floe Emoji,
