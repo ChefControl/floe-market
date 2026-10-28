@@ -8,7 +8,7 @@ import {
   MeshLambertMaterial, type Object3D, Quaternion, TorusGeometry, TubeGeometry, Vector3,
 } from 'three';
 import { isHigh, onQuality } from './graphics';
-import { baked, Build, dice, K, letGo, pack, quietly, rbox, shade, tube } from './kit';
+import { baked, Build, dice, K, letGo, type Piece, quietly, rbox, shade, tube } from './kit';
 import { painted, scene } from './render';
 
 const ROPE = 0xE3C26B, SNOW = 0xFFFFFF, BRASS = 0xC9A04A;
@@ -281,12 +281,13 @@ const sledDice = dice(0x51ED);
 export const sledQuietly = <T>(f: () => T) => quietly(f, sledDice);
 const RUBBER = 0x1F262E, CHROME = 0xC9D1D8, SKI = 0x2C3A47, SEAT = 0x5B4636;
 /**
- * A snowmobile's parts on High, shared by every sled (one set built for each stayed on the GPU after it drove off):
- * `paint` is the bodywork in shades of white, drawn in the sled's colour (sledPaint); `trim` the seat, bumpers,
- * lights and handlebars; `skis` for winter, `wheels` for the rest of the year; `screen` the rounded windscreen.
+ * A snowmobile's parts on High, shared by every sled, as pieces to bake (characters.ts makeSled bakes them into one, for
+ * each colour and season): `paint` is the bodywork in shades of white, tinted the sled's colour; `trim` the seat,
+ * bumpers, lights and handlebars; `skis` for winter, `wheels` for the rest of the year; and `screen`, the rounded
+ * windscreen's shape.
  */
 export const sledParts = (() => {
-  let parts: { paint: BufferGeometry; trim: BufferGeometry; skis: BufferGeometry; wheels: BufferGeometry; screen: BufferGeometry } | null = null;
+  let parts: { paint: Piece[]; trim: Piece[]; skis: Piece[]; wheels: Piece[]; screen: BufferGeometry } | null = null;
   return () => parts ??= sledQuietly(() => {
     const paint = new Build(), trim = new Build(), skis = new Build(), wheels = new Build(), X = Math.PI / 2;
     // the bodywork: a rounded hull, the nose, a cowl sloping down to it, and a darker skirt along the bottom
@@ -331,21 +332,12 @@ export const sledParts = (() => {
         }
       }
     }
-    const pieces = (b: Build) => pack(b.pieces);
     return {
-      paint: pieces(paint), trim: pieces(trim), skis: pieces(skis), wheels: pieces(wheels),
+      paint: paint.pieces, trim: trim.pieces, skis: skis.pieces, wheels: wheels.pieces,
       screen: rbox(0.78, 0.36, 0.04, 0.02),
     };
   });
 })();
-const paints = new Map<number, MeshLambertMaterial>();
-/** The sled's bodywork material: its colour, shaded by the white-to-grey paint baked into the shapes. */
-export function sledPaint(c: number) {
-  let m = paints.get(c);
-  if (!m) { m = sledQuietly(() => new MeshLambertMaterial({ vertexColors: true, color: c })); paints.set(c, m); }
-  return m;
-}
-
 // ---------- baking a model as it is ----------
 /**
  * The meshes under `root` baked as they stand, for High: everything in one plain material (each colour of `mat`, or

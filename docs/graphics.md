@@ -137,7 +137,7 @@ Stage 3 was built after the rework, at High's detail, so there **High is the cel
 What Low leaves out down there:
 
 - **Lamps:** four stand-in lamps (two on Potato; cellar.ts `standIns`) take the colour, strength, reach and place of the four that light where the camera looks most, fading as they swap; High has all fourteen (`lights`). Every light is worked out for every pixel of everything drawn, so this is most of Low's saving on the graphics chip.
-- **Small shadows:** anything under half a metre, or rod-thin, casts none (cellar.ts `sweepShadows`); the fans cast none (swarm.ts); the figures cast only their bigger pieces (family.ts `castAs`).
+- **Small shadows:** anything under half a metre, or rod-thin, casts none (cellar.ts `sweepShadows`); the fans cast none (swarm.ts); the figures cast only their bigger pieces (family.ts `castAs`); people drawn as one cast from their body's pieces only, not their arms' and legs' (`limbShadows`, set by the same sweep).
 - **The figures** are a notch plainer: their balls have fewer sides (family.ts `shapeFor`), and High's finer pieces (`fine`, `finePiece`) aren't drawn.
 
 On every setting, the figures' merged meshes (family.ts `flatten`, used for the Undertow, the casino's tables and band, the wrestlers) keep each corner once, by index, with their normals and colours in a byte a channel (kit.ts `compact`), as the kit's baked meshes do. Merged as plain floats with every corner of every triangle, the cellar's figures took 54 MB while hidden upstairs; now 12 MB. `flatten` copies each shape with `new BufferGeometry().copy(geo)`, one new geometry as `toNonIndexed` made, so the luck is what it was. On Potato, the figures' High copies give up their shapes too.
@@ -190,6 +190,39 @@ Whatever has stood still for a second is drawn merged with its neighbours: one m
   and an arm that moves drops out of the merge while it does. On the yacht that took about 85 draw calls off the frame
   at the quay.
 - **Lots of moving copies:** use one `InstancedMesh` instead, as the effects and the foam rings (sea.ts) do.
+
+### People and sleds (src/characters.ts)
+
+Someone who moves is drawn as **one mesh** (`Jointed`, a three.js `SkinnedMesh`): everything they wear, baked as the
+rest of the people are, each corner marked with what it hangs from (`Piece.bone`: the body, an arm, a leg, the toque's
+band or puff, the headband). Their `arms`, `legs`, the toque's and the headband's groups are still where they always
+were, and animate as before (`animPerson`, an arm set on its own, a headband popping in); the graphics chip moves each
+corner by its bone's matrix, read in the body's own space (`Joints`), and sent up only on a frame one of them moved.
+That's one draw call and one for the shadow, where a person in pieces took six and five. Its shadow is the same mesh:
+the pieces that cast none come first, then the arms', legs' and toque band's (all of an arm's or leg's cast, as each
+did as a mesh of its own), then the body's, and the shadow pass draws from the first that casts (from the body's, on
+Low in the cellar, where those were too slight to cast: `limbShadows`). It's drawn there with a depth material of its
+own: three.js keys a material's shader on whether it draws a skinned mesh, and the shadow pass draws in no order. So:
+
+- **Anything worn goes in as a piece,** never as a mesh added to the body: `piece()` inside the class, `sew(mesh)` from
+  outside it (the cellar hires' patches, cellarLooks.ts), which bakes the mesh in and leaves it off the scene.
+- **A bone only moves and turns what hangs from it, or sizes it evenly** (the headband popping in): the graphics
+  chip turns its corners' normals by the bone's matrix as it is, so a squashed ball's would lean. Squash the piece
+  (the toque's puff), or stretch only what has straight sides along it (the toque's band, growing taller).
+- **Hiding a group doesn't hide what hangs from it.** Take the pieces off and wear again (a disguise leaves out the
+  person's own body, head and arms: singer.ts).
+- **Its box is worked out where it stands** (each bone's pieces' box, moved by that bone), so `Box3.setFromObject` and
+  the spotlight frame them as before; its sphere for culling is a fixed one round all they can reach.
+- **The graphics chip's copy of where their bones are** is let go by the same sweep as the clothes nobody wears
+  (`updBakes`), and sent again if they come back.
+
+Someone who stands still for good (`standStill`) is drawn in six meshes as before (the body's two and one for each arm
+and leg), so the batcher merges them with the scenery round them; it can't merge a skinned mesh.
+
+A **sled** is one mesh and its see-through windscreen on each setting (`sledBody`), the skis or the wheels baked in
+for the season and swapped when it changes (on the sleds' own dice: a season changing never draws on the luck). Low's parts are still made as meshes, in the same order, on the game's
+luck, then baked; Low's shadow is a copy of the parts that cast one after the rest (as the kit's), High's is all of it.
+High's paint is baked in the sled's colour (`tinted`). The bakes are shared by every sled of a colour.
 
 ### Hidden things aren't placed
 

@@ -1,9 +1,10 @@
 import {
-  BoxGeometry, BufferAttribute, BufferGeometry, Color, ConeGeometry, CylinderGeometry, Group, Matrix3, Mesh, MeshLambertMaterial, Object3D, SphereGeometry,
-  TorusGeometry, Vector3,
+  type Bone, Box3, BoxGeometry, BufferAttribute, BufferGeometry, Color, ConeGeometry, CylinderGeometry, DetachedBindMode, Group, Matrix3, Matrix4, Mesh,
+  MeshDepthMaterial, MeshLambertMaterial, Object3D, Skeleton, SkinnedMesh, Sphere, SphereGeometry, TorusGeometry, Vector3, type Vector4,
 } from 'three';
-import { isHigh, onQuality } from './graphics';
-import { detailMarked, sledPaint, sledParts, sledQuietly } from './propsMachines';
+import { highBuilt, isHigh, onQuality } from './graphics';
+import { pack, type Piece as KitPiece } from './kit';
+import { detailMarked, sledParts, sledQuietly } from './propsMachines';
 import { G, mat, mesh, painted, scene } from './render';
 import { current, onSeason, type Season } from './season';
 import type { XZ } from './util';
@@ -108,7 +109,18 @@ export interface Piece {
   o: Object3D;
   /** Clothes, hair and the like: worn in these seasons only, and not under a disguise. */
   seasons?: Season[];
+  /** What it hangs from (`o` places it there): the body, an arm or a leg, the toque's band or puff, or a headband. */
+  bone: number;
 }
+/** What a person's pieces hang from (Piece.bone): the body, the arms (1 and 2) and legs (3 and 4), and a chef's toque
+ *  (its band and its puff) and a headband, once they're worn. */
+const BODY = 0, TOQUE = 5, PUFF = 6, TIED = 7, BONES = 8;
+const isLimb = (b: number) => b >= 1 && b <= 4;
+/** What of someone drawn as one is too slight to cast a shadow on Low in the cellar (cellar.ts sweepShadows): their
+ *  arms, legs and toque's band, each once a mesh of its own, under half a metre. */
+const slight = (b: number) => isLimb(b) || b === TOQUE;
+/** Whether a piece casts a shadow: an arm's or leg's all do (each was one mesh, cast whole), the rest as they're made. */
+const casts = (p: Piece) => isLimb(p.bone) || p.o.castShadow;
 
 // three.js names everything it makes (a group, a mesh, a geometry) with Math.random, which is the game's luck: the
 // orders, the fish, the customers. Dressing someone makes dozens of things, so it borrows the looks' own dice for
@@ -121,45 +133,61 @@ function quietly<T>(f: () => T): T {
   try { return f(); } finally { Math.random = luck; }
 }
 
-// People are drawn baked: everything on the body in two meshes (what casts a shadow, and what doesn't: the head, eyes
-// and hood never have), and each arm and leg in one, so a person costs 6 draw calls rather than 14 or more. Vertex
+// People are drawn baked. Someone who moves is one mesh (Jointed, below): everything they wear, its arms, legs, toque
+// and headband moved on the graphics chip as they swing, so a person costs a draw call and one for their shadow. Someone
+// who stands still for good (standStill) is the body in two meshes (what casts a shadow, and what doesn't: the head,
+// eyes and hood never have) and each arm and leg in one, which the batcher merges with the scenery round them. Vertex
 // colours shade exactly like the per-colour materials (render.ts painted). The bakes are shared by everyone wearing
 // the same thing, and kept: the crowd's mixes are many, but each is small.
 const bakes = new Map<string, BufferGeometry>();
 const NOTHING = new BufferGeometry();
-function baked(pieces: Piece[]) {
+/** `pieces` in one geometry; `skin`, each with what it hangs from (and kept in that one's own space); `lift` puts a
+ *  piece on what it hangs from where that stands now (a toque baked into a still person's body). */
+function baked(pieces: Piece[], skin = false, lift?: (p: Piece) => Object3D | undefined) {
   if (!pieces.length) return NOTHING;
-  for (const p of pieces) p.o.updateMatrix();
-  const key = pieces.map(p => `${p.geo.id},${p.c},${p.o.matrix.elements.join()}`).join(';');
+  const at = pieces.map(p => {
+    p.o.updateMatrix();
+    const on = lift?.(p);
+    if (!on) return p.o.matrix;
+    on.updateMatrix();
+    return new Matrix4().multiplyMatrices(on.matrix, p.o.matrix);
+  });
+  const key = (skin ? 'J' : '') + pieces.map((p, i) => `${skin ? `${p.bone},${+p.o.castShadow},` : ''}${p.geo.id},${p.c},${at[i].elements.join()}`).join(';');
   let g = bakes.get(key);
-  if (!g) { g = merge(pieces); bakes.set(key, g); }
+  if (!g) { g = merge(pieces, at, skin); bakes.set(key, g); }
   return g;
 }
 
 const v = new Vector3(), nm = new Matrix3(), tint = new Color();
 /**
- * Merges pieces into one geometry, each moved into place and painted its colour, writing straight into the finished
- * arrays: no copies of each piece along the way, so a crowd changing clothes for the season doesn't stall the frame.
- * Packed small for a phone's memory: no texture coordinates (people are painted, never textured), and colours and
- * normals a byte each rather than a float, 18 bytes a vertex instead of 44.
+ * Merges pieces into one geometry, each moved into place by `at` and painted its colour, writing straight into the
+ * finished arrays: no copies of each piece along the way, so a crowd changing clothes for the season doesn't stall the
+ * frame. Packed small for a phone's memory: no texture coordinates (people are painted, never textured), and colours
+ * and normals a byte each rather than a float, 18 bytes a vertex instead of 44. With `skin`, each corner also says
+ * which bone it hangs from (8 bytes more), and the box round each bone's pieces is kept (`userData.boxes`).
  */
-function merge(pieces: Piece[]) {
+function merge(pieces: Piece[], ats: Matrix4[], skin: boolean) {
   let verts = 0, idx = 0;
   for (const p of pieces) { verts += p.geo.attributes.position.count; idx += p.geo.index!.count; }
   const pos = new Float32Array(verts * 3), nor = new Int8Array(verts * 3), col = new Uint8Array(verts * 3);
   const index = verts > 65535 ? new Uint32Array(idx) : new Uint16Array(idx);
+  const bone = skin ? new Uint8Array(verts * 4) : null, weight = skin ? new Uint8Array(verts * 4) : null;
+  const boxes: (Box3 | undefined)[] = [];
   let at = 0, ia = 0;
-  for (const p of pieces) {
-    const P = p.geo.attributes.position, N = p.geo.attributes.normal, I = p.geo.index!, m = p.o.matrix;
+  for (const [j, p] of pieces.entries()) {
+    const P = p.geo.attributes.position, N = p.geo.attributes.normal, I = p.geo.index!, m = ats[j];
     nm.getNormalMatrix(m);
+    const box = skin ? (boxes[p.bone] ??= new Box3()) : null;
     tint.setHex(p.c);
     const r = Math.round(tint.r * 255), gr = Math.round(tint.g * 255), b = Math.round(tint.b * 255);
     for (let i = 0; i < P.count; i++, at++) {
       v.fromBufferAttribute(P, i).applyMatrix4(m);
       pos[at * 3] = v.x; pos[at * 3 + 1] = v.y; pos[at * 3 + 2] = v.z;
+      box?.expandByPoint(v);
       v.fromBufferAttribute(N, i).applyMatrix3(nm).normalize();
       nor[at * 3] = Math.round(v.x * 127); nor[at * 3 + 1] = Math.round(v.y * 127); nor[at * 3 + 2] = Math.round(v.z * 127);
       col[at * 3] = r; col[at * 3 + 1] = gr; col[at * 3 + 2] = b;
+      if (bone) { bone[at * 4] = p.bone; weight![at * 4] = 255; }
     }
     const base = at - P.count;
     for (let k = 0; k < I.count; k++) index[ia++] = I.getX(k) + base;
@@ -168,6 +196,11 @@ function merge(pieces: Piece[]) {
   g.setAttribute('position', new BufferAttribute(pos, 3));
   g.setAttribute('normal', new BufferAttribute(nor, 3, true));
   g.setAttribute('color', new BufferAttribute(col, 3, true));
+  if (bone) {
+    g.setAttribute('skinIndex', new BufferAttribute(bone, 4));
+    g.setAttribute('skinWeight', new BufferAttribute(weight!, 4, true));
+    g.userData.boxes = boxes;
+  }
   g.setIndex(new BufferAttribute(index, 1));
   return g;
 }
@@ -184,12 +217,100 @@ let sweepT = SWEEP;
 export function updBakes(dt: number) {
   if ((sweepT -= dt) > 0) return;
   sweepT = SWEEP;
-  const worn = new Set<BufferGeometry>();
-  scene.traverse(o => { if (o instanceof Mesh) worn.add(o.geometry); });
+  const worn = new Set<BufferGeometry>(), here = new Set<Skeleton>();
+  scene.traverse(o => {
+    if (!(o instanceof Mesh)) return;
+    worn.add(o.geometry);
+    if (o instanceof Jointed) here.add(o.skeleton);
+  });
   for (const [k, g] of bakes) if (!worn.has(g)) { g.dispose(); bakes.delete(k); }
+  // (and the graphics chip's copy of where the arms and legs of anyone gone are: sent again if they come back)
+  for (const j of drawn) if (!here.has(j)) { j.boneTexture?.dispose(); drawn.delete(j); }
 }
 /** How many baked shapes are kept now. */
 export const bakesKept = () => bakes.size;
+
+/** Those drawn as one (Jointed) since the last sweep, whose bones the graphics chip holds. */
+const drawn = new Set<Joints>();
+/** The shadow pass's material for everyone drawn as one: their own (made on the looks' dice). */
+const depthOfJointed = quietly(() => new MeshDepthMaterial());
+const ONE = new Matrix4(), boneAt = new Matrix4();
+/**
+ * Where a moving person's pieces hang from, for the graphics chip: each bone's own matrix (where it stands on the
+ * body, and so in the body's mesh), read as it is each frame they're drawn and sent up only when one's moved (an arm
+ * swinging; not breathing, or walking off with them all still). three.js' skeletons work in the world instead, so
+ * their bones change whenever anyone moves, and each takes inverting a matrix a frame.
+ */
+class Joints extends Skeleton {
+  constructor(private readonly at: (Object3D | undefined)[]) {
+    super(new Array<Bone>(BONES));
+    this.computeBoneTexture();
+    for (let i = 0; i < BONES; i++) ONE.toArray(this.boneMatrices!, i * 16);
+  }
+  override update() {
+    const m = this.boneMatrices!;
+    let moved = false;
+    for (let i = 1; i < BONES; i++) {
+      const b = this.at[i];
+      if (!b) continue;
+      const e = b.matrix.elements;
+      for (let k = 0, o = i * 16; k < 16; k++, o++) {
+        const x = Math.fround(e[k]);
+        if (m[o] !== x) { m[o] = x; moved = true; }
+      }
+    }
+    if (moved) this.boneTexture!.needsUpdate = true;
+    drawn.add(this);
+  }
+}
+/**
+ * A moving person in one mesh (see `baked`): drawn with three.js' skinning, each corner moved by the bone it hangs
+ * from. Its shadow is the same mesh, drawn from where the pieces that cast one start: pieces that cast none first, then
+ * the arms' and legs', then the body's (and only the body's, `limbShadows` off: the cellar on Low, cellar.ts).
+ */
+class Jointed extends SkinnedMesh {
+  limbShadows = true;
+  private readonly box = new Box3();
+  constructor(private readonly at: (Object3D | undefined)[]) {
+    super(NOTHING, painted);
+    this.bindMode = DetachedBindMode;
+    this.skeleton = new Joints(at);
+    this.castShadow = this.receiveShadow = true;
+    // (three.js keys a depth material's shader on whether it draws a skinned mesh, and the shadow pass draws in no
+    // order: sharing its own with everything else would have it look the shader up again at every switch)
+    this.customDepthMaterial = depthOfJointed;
+    // (round all they could reach: their arms up, the tallest toque)
+    this.boundingSphere = new Sphere(new Vector3(0, 1, 0), 1.4);
+    // placed as anything else is (render.ts place): its bind matrices never change, so it needn't invert one each frame
+    this.updateMatrixWorld = Object3D.prototype.updateMatrixWorld;
+    this.onBeforeShadow = (_r, _s, _c, _l, g) => { g.setDrawRange(this.limbShadows ? g.userData.casts : g.userData.bodyCasts, Infinity); };
+    this.onAfterShadow = (_r, _s, _c, _l, g) => { g.setDrawRange(0, Infinity); };
+  }
+  /** Where corner `index` is, in the mesh's own space (for a ray, three.js Raycaster). */
+  override applyBoneTransform(index: number, target: Vector3): Vector3;
+  override applyBoneTransform(index: number, target: Vector4): Vector4;
+  override applyBoneTransform(index: number, target: Vector3 | Vector4) {
+    const b = this.geometry.attributes.skinIndex.getX(index);
+    if (b) (target as Vector3).applyMatrix4(boneAt.fromArray(this.skeleton.boneMatrices!, b * 16));
+    return target;
+  }
+  /** The box round them as they stand: each bone's pieces' box, where that bone is (as their meshes in pieces were). */
+  posed() {
+    const boxes = this.geometry.userData.boxes as (Box3 | undefined)[] | undefined;
+    this.box.makeEmpty();
+    boxes?.forEach((b, i) => {
+      if (!b) return;
+      const on = i ? this.at[i] : undefined;
+      part.copy(b);
+      if (on) part.applyMatrix4(boneAt.compose(on.position, on.quaternion, on.scale));
+      this.box.union(part);
+    });
+    return this.box;
+  }
+}
+const part = new Box3();
+// (its box is worked out from where its bones are each time it's asked for: three.js keeps the first it's worked out)
+Object.defineProperty(Jointed.prototype, 'boundingBox', { get(this: Jointed) { return this.posed(); }, set() {} });
 
 /** A walker with swinging limbs. */
 export class Person extends Group {
@@ -202,11 +323,13 @@ export class Person extends Group {
   breath: number;
   /** Stays where they're put for good, and doesn't breathe (standStill). */
   still = false;
-  /** A chef's toque: its band, which grows taller, and the puff on top. */
-  private toqueBand?: Mesh;
-  private toquePuff?: Mesh;
-  /** A headband, once one's been tied on. */
+  /** How tall a chef's toque is (`toque`). */
+  private toqueLevel = 0;
+  /** A headband, once one's been tied on: what it hangs from (popped in, looks.ts), and its colour while it's on. */
   band?: Group;
+  private bandColor: number | null = null;
+  /** Things sewn on over their clothes (`sew`). */
+  private extras: Mesh[] = [];
   /** Wearing someone else's look (the singer's), over everything seasonal and in place of their own body and head. */
   disguised = false;
   /** Dressed for this season instead of the one it is: the player trying a look on (customize.ts), or all year round
@@ -215,7 +338,11 @@ export class Person extends Group {
   /** Everything on the body, and on each limb (arms, then legs). */
   private pieces: Piece[] = [];
   private limbPieces: Piece[][] = [[], [], [], []];
-  /** The body's two meshes, and the arms' and legs' (the first thing on each pivot). */
+  /** What their pieces hang from (Piece.bone): the body, the arms, the legs, the toque's band and puff, the headband. */
+  private readonly bones: (Object3D | undefined)[] = [];
+  /** Everything they wear in one mesh, while they move; */
+  private joint!: Jointed;
+  /** and while they stand still for good, the body's two meshes and the arms' and legs' (the first thing on each pivot). */
   private shell = mesh(NOTHING, painted, 0, 0, 0, true);
   private trim = mesh(NOTHING, painted);
   private limbs: Mesh[] = [];
@@ -250,7 +377,10 @@ export class Person extends Group {
         this.body.add(a); this.arms.push(a);
       }
       for (const l of [...this.arms, ...this.legs]) { const m = mesh(NOTHING, painted, 0, 0, 0, true); l.add(m); this.limbs.push(m); }
-      this.body.add(this.shell, this.trim);
+      this.bones.push(this.body, ...this.arms, ...this.legs);
+      this.bones.length = BONES;
+      this.joint = new Jointed(this.bones);
+      this.body.add(this.shell, this.trim, this.joint);
       this.dress();
     } finally { Math.random = luck; }
   }
@@ -264,8 +394,13 @@ export class Person extends Group {
   standStill() {
     this.still = true;
     delete this.userData.noBatch;
+    this.wear();
     return this;
   }
+
+  /** Whether their arms and legs cast a shadow with their body (drawn as one: the cellar on Low has them cast none). */
+  get limbShadows() { return this.joint.limbShadows; }
+  set limbShadows(on: boolean) { this.joint.limbShadows = on; }
 
   /** How far out from the middle the arms hang: a woman's a little closer in. */
   get armSpread() { return this.style.woman ? 0.28 : 0.3; }
@@ -329,18 +464,23 @@ export class Person extends Group {
     if (this.mixed) this.features(st, look === 'parka' && st.summer === 'shades', look === 'yakuza' && st.summer !== 'sunhat');
     // a scarf for the cold, over the suit or the farmer's shirt
     if (look === 'fancy' || look === 'farmer') this.scarf(['winter', 'fall'], look === 'fancy' ? 0xF4EBDD : KNITS[n % KNITS.length]);
+    if (this.bandColor !== null) this.tied(this.bandColor);
+    for (const m of this.extras) {
+      this.pieces.push({ geo: m.geometry, c: (m.material as MeshLambertMaterial).color.getHex(), o: m, bone: BODY });
+    }
     this.scale.setScalar(st.height);
     this.wear();
   }
 
   /**
-   * Adds a piece on `on` (the body, an arm or a leg), worn all the time or in `seasons` only. Returns what poses it, to
-   * turn and size it as a mesh would be; wear() bakes it in. `userData.own` on it marks the body and head.
+   * Adds a piece on `on` (the body, an arm or a leg, the toque's band or puff, a headband), worn all the time or in
+   * `seasons` only. Returns what poses it, to turn and size it as a mesh would be; wear() bakes it in. `userData.own`
+   * on it marks the body and head.
    */
   private piece(geo: BufferGeometry, c: number, x: number, y: number, z: number, cast = false, on: Object3D = this, seasons?: Season[]) {
     const o = new Object3D(); o.position.set(x, y, z); o.castShadow = cast;
-    const limb = [...this.arms, ...this.legs].indexOf(on as Group);
-    (limb < 0 ? this.pieces : this.limbPieces[limb]).push({ geo: coarsening ? coarse(geo) : geo, c, o, seasons });
+    const bone = Math.max(BODY, this.bones.indexOf(on));
+    (isLimb(bone) ? this.limbPieces[bone - 1] : this.pieces).push({ geo: coarsening ? coarse(geo) : geo, c, o, seasons, bone });
     return o;
   }
 
@@ -642,10 +782,11 @@ export class Person extends Group {
   /** What's drawn of them now: the body's meshes, and an arm and a leg as each hangs from its pivot (for drawing a crowd
    *  of them in batches: swarm.ts). */
   baked() {
+    const { shell, trim, limbs } = quietly(() => this.inPieces(this.worn()));
     return {
-      body: [this.shell.geometry, this.trim.geometry].filter(g => g !== NOTHING), arm: this.limbs[0].geometry, leg: this.limbs[2].geometry,
+      body: [shell, trim].filter(g => g !== NOTHING), arm: limbs[0], leg: limbs[2],
       // (what of the body casts a shadow: the trim, the small things on it, doesn't)
-      casts: this.shell.geometry,
+      casts: shell,
     };
   }
 
@@ -653,19 +794,35 @@ export class Person extends Group {
   wear() { quietly(() => this.bake()); }
 
   private bake() {
-    const worn = this.worn();
-    const body = worn.filter(p => this.pieces.includes(p));
-    this.shell.geometry = baked(body.filter(p => p.o.castShadow));
-    this.trim.geometry = baked(body.filter(p => !p.o.castShadow));
-    this.shell.visible = this.shell.geometry !== NOTHING;
-    this.trim.visible = this.trim.geometry !== NOTHING;
-    this.limbs.forEach((m, i) => { m.geometry = baked(this.limbPieces[i].filter(p => worn.includes(p))); });
+    const worn = this.worn(), still = this.still;
+    const parts = still ? this.inPieces(worn) : { shell: NOTHING, trim: NOTHING, limbs: this.limbs.map(() => NOTHING) };
+    const put = (m: Mesh, g: BufferGeometry) => { m.geometry = g; m.visible = g !== NOTHING; };
+    put(this.shell, parts.shell); put(this.trim, parts.trim);
+    this.limbs.forEach((m, i) => put(m, parts.limbs[i]));
+    // Moving, in one: what casts no shadow first, then the slight things that do (arms, legs, the toque's band), then the
+    // body's (Jointed)
+    const j = this.joint, off = worn.filter(p => !casts(p)), limbs = worn.filter(p => casts(p) && slight(p.bone));
+    const order = still ? [] : [...off, ...limbs, ...worn.filter(p => casts(p) && !slight(p.bone))];
+    put(j, baked(order, true));
+    if (j.visible) Object.assign(j.geometry.userData, { casts: indices(off), bodyCasts: indices(off) + indices(limbs) });
+    j.castShadow = order.length > off.length;
   }
 
-  /** The pieces being worn now, on the body and the limbs. */
+  /** What's worn in pieces, as someone standing still is drawn: the body's that cast a shadow, and that don't (its
+   *  toque and headband on it where they stand), and each arm's and leg's. */
+  private inPieces(worn: Piece[]) {
+    const body = worn.filter(p => !isLimb(p.bone)), lift = (p: Piece) => (p.bone > BODY ? this.bones[p.bone] : undefined);
+    return {
+      shell: baked(body.filter(p => p.o.castShadow), false, lift),
+      trim: baked(body.filter(p => !p.o.castShadow), false, lift),
+      limbs: [1, 2, 3, 4].map(b => baked(worn.filter(p => p.bone === b))),
+    };
+  }
+
+  /** The pieces being worn now, on the body and the limbs (a disguise has its own arms). */
   worn() {
     const s = this.season ?? current();
-    return [...this.pieces, ...this.limbPieces.flat()].filter(p => p.o.userData.disguise
+    return [...this.pieces, ...(this.disguised ? this.limbPieces.slice(2) : this.limbPieces).flat()].filter(p => p.o.userData.disguise
       ? this.disguised
       : !(this.disguised && (p.o.userData.own || p.seasons)) && (!p.seasons || p.seasons.includes(s)));
   }
@@ -746,12 +903,20 @@ export class Person extends Group {
 
   /** Puffy chef's hat and a red neckerchief. */
   private chefWhites() {
-    if (!this.toqueBand) {
-      this.toqueBand = mesh(G.cyl, 0xFFFFFF, 0, 0, 0.03, true); this.toqueBand.scale.set(0.19, 1, 0.19);
-      this.toquePuff = mesh(G.sphere, 0xFFFFFF, 0, 0, 0.03, true); this.toquePuff.scale.set(0.25, 0.16, 0.25);
-      this.body.add(this.toqueBand, this.toquePuff);
-      this.toque(0);
+    // (the toque's band, which grows taller, and its puff on top: each hangs from one of its own, which toque() moves)
+    if (!this.bones[TOQUE]) {
+      mat(0xFFFFFF); // (made when its meshes once were, so its name's drawn from the same dice)
+      const band = new Object3D(), puff = new Object3D();
+      band.position.z = puff.position.z = 0.03;
+      band.scale.set(0.19, 1, 0.19);
+      this.body.add(band, puff);
+      this.bones[TOQUE] = band; this.bones[PUFF] = puff;
+      this.toque(this.toqueLevel, true);
     }
+    this.piece(G.cyl, 0xFFFFFF, 0, 0, 0, true, this.bones[TOQUE]);
+    // (the puff squashed as a piece, not by what it hangs from: the graphics chip turns a bone's corners' normals by its
+    // matrix as it is, which would lean a squashed ball's sideways; the band's straight sides and flat ends don't mind)
+    this.piece(G.sphere, 0xFFFFFF, 0, 0, 0, true, this.bones[PUFF]).scale.set(0.25, 0.16, 0.25);
     const scarf = this.piece(G.hood, 0xE5484D, 0, 0.88, 0.02); scarf.rotation.x = Math.PI / 2; scarf.scale.setScalar(1.15);
     // double-breasted: two rows of cloth buttons (on High)
     if (this.high) for (const x of [-0.06, 0.06]) for (const y of [0.76, 0.66, 0.56]) {
@@ -760,33 +925,59 @@ export class Person extends Group {
   }
 
   /** Makes a chef's toque taller, the way head chefs' are: `level` 0 is the everyday one. */
-  toque(level: number) {
-    if (!this.toqueBand || !this.toquePuff) return;
+  toque(level: number, now = false) {
+    if (level === this.toqueLevel && !now) return;
+    this.toqueLevel = level;
+    const band = this.bones[TOQUE], puff = this.bones[PUFF];
+    if (!band || !puff) return;
     const h = 0.12 + level * 0.06;
-    this.toqueBand.scale.y = h; this.toqueBand.position.y = 1.16 + h / 2;
-    this.toquePuff.position.y = 1.16 + h + 0.08;
+    band.scale.y = h; band.position.y = 1.16 + h / 2;
+    puff.position.y = 1.16 + h + 0.08;
+    // (one standing still is baked as they stand, toque and all)
+    if (this.still && !now) this.wear();
   }
 
   /** Ties a headband round the hood in `color`, with its two ends trailing behind; null takes it off. */
   headband(color: number | null) { quietly(() => this.tie(color)); }
 
+  /** The headband's colour, while one's on. */
+  get bandOn() { return this.bandColor; }
+
   private tie(color: number | null) {
-    if (color === null) { if (this.band) this.band.visible = false; return; }
-    if (!this.band) {
-      this.band = new Group(); this.band.position.set(0, 1.1, 0.0);
-      const ring = mesh(BAND, color); ring.rotation.x = Math.PI / 2; this.band.add(ring);
-      for (const s of [-1, 1]) {
-        const end = mesh(G.box, color, s * 0.06, -0.08, -0.27); end.scale.set(0.06, 0.16, 0.025); end.rotation.z = s * 0.35;
-        this.band.add(end);
+    this.bandColor = color;
+    this.pieces = this.pieces.filter(p => p.bone !== TIED);
+    if (color === null) { if (this.band) this.band.visible = false; }
+    else {
+      if (!this.band) {
+        this.band = new Group(); this.band.position.set(0, 1.1, 0.0);
+        this.body.add(this.band);
+        this.bones[TIED] = this.band;
       }
-      this.body.add(this.band);
+      this.band.visible = true;
+      mat(color); // (made when its meshes' material once was, so its name's drawn from the same dice)
+      this.tied(color);
     }
-    this.band.visible = true;
-    this.band.traverse(o => { if ('material' in o) (o as Mesh).material = mat(color); });
+    this.bake();
+  }
+
+  /** The headband's pieces, on what it hangs from. */
+  private tied(color: number) {
+    this.piece(BAND, color, 0, 0, 0, false, this.band).rotation.x = Math.PI / 2;
+    for (const s of [-1, 1]) {
+      const end = this.piece(G.box, color, s * 0.06, -0.08, -0.27, false, this.band); end.scale.set(0.06, 0.16, 0.025); end.rotation.z = s * 0.35;
+    }
+  }
+
+  /** Sews `m` onto them, over their clothes (a patch, a collar: a hire's uniform, cellarLooks.ts), baked in with the rest. */
+  sew(m: Mesh) {
+    this.extras.push(m);
+    this.redress();
   }
 }
 
 const BAND = new TorusGeometry(0.24, 0.035, 6, 18);
+/** How many corners `pieces` draw, by index. */
+const indices = (pieces: Piece[]) => pieces.reduce((n, p) => n + p.geo.index!.count, 0);
 /** The yakuza's dark suit trousers, and the hooligans' tracksuit stripes (not quite white: white's the shirt a crowd
  *  tints, swarm.ts). */
 const SUIT_LEGS = 0x1E1F26, STRIPE = 0xEDEAE2;
@@ -801,6 +992,7 @@ function onlyIn(o: Object3D, seasons: Season[]) {
 // Everyone changes clothes when the season does, and the snowmobiles swap their skis for wheels and back.
 onSeason(() => scene.traverse(o => {
   if (o instanceof Person) o.wear();
+  else if (o.userData.bySeason) o.userData.bySeason();
   else if (o.userData.seasons) o.visible = (o.userData.seasons as Season[]).includes(current());
 }));
 // Everyone on the scene redrawn in the new graphics' detail; anyone off it is when they're next walked (animPerson).
@@ -885,10 +1077,61 @@ const TYRE = new CylinderGeometry(0.17, 0.17, 0.12, 14), HUB = new CylinderGeome
 const HULL = new BoxGeometry(0.9, 0.38, 1.5), NOSE = new BoxGeometry(0.86, 0.24, 0.5);
 const SCREEN = new BoxGeometry(0.78, 0.36, 0.05), SEAT = new BoxGeometry(0.82, 0.08, 0.62);
 const OUT_OF_WINTER: Season[] = ['spring', 'summer', 'fall'];
+/** `c` (the paint's white or grey) in the sled's colour `k`, as a material of that colour would shade it. */
+const tinted = (c: number, k: number) => {
+  const ch = (s: number) => Math.round(((c >> s) & 255) * ((k >> s) & 255) / 255);
+  return ch(16) << 16 | ch(8) << 8 | ch(0);
+};
+/** The solid parts under `low` (not its windscreen) for winter or the rest of the year, as pieces to bake: those that
+ *  cast a shadow, and those that don't. */
+function solidsOf(low: Object3D, winter: boolean) {
+  low.updateMatrixWorld(true);
+  const out: { cast: KitPiece[]; off: KitPiece[] } = { cast: [], off: [] };
+  low.traverse(o => {
+    if (!(o instanceof Mesh) || o.material === glass) return;
+    for (let p: Object3D | null = o; p && p !== low; p = p.parent) {
+      if ((p.userData.seasons as Season[] | undefined)?.includes(winter ? 'winter' : 'summer') === false) return;
+    }
+    (o.castShadow ? out.cast : out.off).push({ geo: o.geometry, c: (o.material as MeshLambertMaterial).color.getHex(), m: o.matrixWorld.clone() });
+  });
+  return out;
+}
+/** A sled's solid parts in one geometry (shared by every sled of the colour, swept as people's clothes are): `copy`,
+ *  with those that cast a shadow again after the rest, to cast it (as kit.ts baked does; batch.ts keeps it when it
+ *  merges a sled that's stopped); without, all of it casting. */
+function sledBake(key: string, pieces: KitPiece[] | { cast: KitPiece[]; off: KitPiece[] }, copy: boolean) {
+  let g = bakes.get(key);
+  if (g) return g;
+  if (Array.isArray(pieces)) g = pack(pieces);
+  else {
+    const all = [...pieces.cast, ...pieces.off], own = pack.count(all);
+    g = pack(copy ? [...all, ...pieces.cast] : all);
+    if (copy) { g.userData.own = own; g.setDrawRange(0, own); }
+  }
+  bakes.set(key, g);
+  return g;
+}
+/** A sled's body in one mesh: `bake(winter)` on skis in winter, on wheels the rest of the year, swapped when the season
+ *  changes (characters.ts onSeason). */
+function sledBody(bake: (winter: boolean) => BufferGeometry) {
+  const m = new Mesh(NOTHING, painted);
+  m.castShadow = m.receiveShadow = true;
+  m.userData.bySeason = () => {
+    // (baked on the sleds' own dice: a season changing never draws on the luck)
+    const g = m.geometry = sledQuietly(() => bake(current() === 'winter')), own: number | undefined = g.userData.own;
+    if (own === undefined) return;
+    m.userData.shadowFrom = own; // (where its shadow's copy starts, as kit.ts has it)
+    m.onBeforeShadow = () => g.setDrawRange(own, Infinity);
+    m.onAfterShadow = () => g.setDrawRange(0, own);
+  };
+  m.userData.bySeason();
+  return m;
+}
 /**
  * A snowmobile and its driver (dressed in `style`, or plainly). Out of winter it runs on four wheels instead of its skis: a little car, in effect,
  * still called a snowmobile in the code. Low: boxes. High: rounded bodywork with bumpers, headlights, handlebars and
- * a grab rail, its skis' tips turned up and its wheels hubbed (propsMachines.ts), all shared between sleds but the paint.
+ * a grab rail, its skis' tips turned up and its wheels hubbed (propsMachines.ts). Each is drawn as one mesh (sledBody)
+ * and its see-through windscreen, shared between sleds of a colour.
  */
 export function makeSled(color: number, driverColor: number, style?: Style) {
   const g = new Group();
@@ -907,12 +1150,17 @@ export function makeSled(color: number, driverColor: number, style?: Style) {
   const ws = mesh(SCREEN, glass, 0, 0.68, 0.62); ws.rotation.x = -0.45; low.add(ws);
   low.add(mesh(SEAT, 0x5B4636, 0, 0.56, -0.52));
   sledQuietly(() => {
+    // Low's parts, made as they always were (on the game's luck, which they draw from as they did), baked into one: what
+    // casts a shadow cast as it did, by a copy after the rest (kit.ts baked)
+    const [winter, rest] = [true, false].map(w => solidsOf(low, w));
+    low.clear();
+    low.add(ws, sledBody(w => sledBake(`sled low ${color} ${w}`, w ? winter : rest, true)));
+    // High's: the bodywork painted the sled's colour, the trim, and the skis or the wheels (not made on Potato, kit.ts letGo)
     const parts = sledParts(), high = new Group();
     const screen = mesh(parts.screen, glass, 0, 0.68, 0.62); screen.rotation.x = -0.45;
-    high.add(
-      mesh(parts.paint, sledPaint(color), 0, 0, 0, true), mesh(parts.trim, painted, 0, 0, 0, true), screen,
-      onlyIn(mesh(parts.skis, painted, 0, 0, 0, true), ['winter']), onlyIn(mesh(parts.wheels, painted, 0, 0, 0, true), OUT_OF_WINTER),
-    );
+    high.add(screen);
+    const paint = parts.paint.map(p => ({ ...p, c: tinted(p.c, color) }));
+    if (highBuilt) high.add(sledBody(w => sledBake(`sled high ${color} ${w}`, [...paint, ...parts.trim, ...(w ? parts.skis : parts.wheels)], false)));
     g.add(high);
     detailMarked(low, high);
   });
