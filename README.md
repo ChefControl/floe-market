@@ -25,4 +25,4 @@ How the game works, running it locally, the tests and the feature flags are all 
 
 Copyright © 2026 ChefControl. All rights reserved. The source is public to read, but you may not copy, modify or redistribute it without permission. See [LICENSE](LICENSE).
 
-The recorded sounds are other people's work under their own licenses (CC BY and CC0), credited in [public/sounds/CREDITS.md](public/sounds/CREDITS.md) and under Credits & Copyrights in the game.
+The recorded sounds are other people's work under their own licenses (CC BY and CC0), credited in [public/sounds/CREDITS.md](public/sounds/CREDITS.md) and under Credits & Copyrights in the game. The fonts in [public/fonts](public/fonts) are under the SIL Open Font License 1.1, with their texts beside them. The open-source libraries built into the game (three.js, html2canvas, Firebase and the code they bring) keep their own licenses: the build lists them under Credits & Copyrights and writes their full texts to `licences.txt` ([scripts/licences.ts](scripts/licences.ts)).
