@@ -227,6 +227,100 @@ describe('pooled drawing', () => {
     expect(bowl.layers.mask).toBe(0);
   });
 
+  it('sends up only the places that changed, and nothing when nothing moved', async () => {
+    const { g, scene, frame, placesOf, poolsNow } = await setUp();
+    const bowls = [0, 1, 2].map(i => { const b = g.items.newBowl(false) as Mesh; b.position.set(FAR + i, 1, 0); scene.add(b); return b; });
+    frame(); frame();
+    const pool = poolsNow().find(p => p.geo === bowls[0].geometry && p.mat === bowls[0].material)!.mesh, a = pool.instanceMatrix;
+    /** As three.js does once it's sent them. */
+    const sent = () => a.clearUpdateRanges();
+    sent();
+    const v = a.version;
+    frame(); frame();
+    expect(a.version).toBe(v);
+    expect(a.updateRanges).toHaveLength(0);
+    // one moved: just its place, where it is now
+    bowls[1].position.y = 2; frame();
+    expect(a.version).toBe(v + 1);
+    const k = instances(pool).findIndex(p => p.distanceTo(at(bowls[1])) < 1e-4);
+    expect(a.updateRanges).toEqual([{ start: k * 16, count: 16 }]);
+    sent(); frame();
+    expect(a.version).toBe(v + 1);
+    // two moved over two frames, not sent between: one range over both
+    bowls[0].position.y = 2; frame();
+    bowls[2].position.y = 2; frame();
+    const ks = [0, 2].map(i => instances(pool).findIndex(p => p.distanceTo(at(bowls[i])) < 1e-4)).sort((x, y) => x - y);
+    expect(a.updateRanges).toEqual([{ start: ks[0] * 16, count: (ks[1] - ks[0] + 1) * 16 }]);
+    sent();
+    // one hidden: those after it move up a place, and are sent
+    const k0 = instances(pool).findIndex(p => p.distanceTo(at(bowls[0])) < 1e-4);
+    bowls[0].visible = false; frame();
+    expect(placesOf(bowls[1])).toHaveLength(2);
+    expect(a.updateRanges).toEqual([{ start: k0 * 16, count: 32 }]);
+    // drawn again without the scene placed first (no marks to go by): every place sent, to be safe
+    sent(); bowls[0].visible = true; frame();
+    sent();
+    scene.onBeforeRender(g.render.renderer, scene, g.render.camera, null!, null!, null!);
+    expect(a.updateRanges).toEqual([{ start: 0, count: pool.count * 16 }]);
+    expect(placesOf(bowls[0]).length).toBe(3);
+  });
+
+  it('keeps every place right where it sends nothing: grown, through Low and back, emptied and filled', async () => {
+    const { g, scene, frame, poolsNow } = await setUp();
+    const { choose } = await import('../src/graphics');
+    /** Every showing piece of these is in its pool, as it is now. */
+    const right = (things: Object3D[]) => {
+      for (const m of things.flatMap(meshesIn)) {
+        if (m.layers.mask) continue;
+        const p = poolsNow().find(p => p.geo === m.geometry && p.mat === m.material && p.cast === m.castShadow && p.recv === m.receiveShadow)!;
+        const e = m.matrixWorld.elements, mm = new Matrix4();
+        const found = Array.from({ length: p.mesh.count }, (_, i) => i).some(i => {
+          p.mesh.getMatrixAt(i, mm);
+          return mm.elements.every((x, j) => Math.abs(x - e[j]) < 1e-3); // (sent as 32-bit numbers)
+        });
+        expect(found).toBe(true);
+      }
+    };
+    const chips = Array.from({ length: 20 }, (_, i) => {
+      const c = g.items.newChip(false); c.position.set(FAR + i * 0.3, 1, 0); scene.add(c); return c;
+    });
+    const plates = [0, 1].map(i => { const p = g.items.newPlate(10, i > 0); p.position.set(FAR + i, 2, 0); scene.add(p); return p; });
+    frame(); frame(); right([...chips, ...plates]);
+    choose('low'); frame(); right(plates);
+    choose('high'); frame(); right(plates);
+    choose('low'); frame(); frame(); right(plates);
+    choose('high'); frame();
+    chips.forEach(c => { c.visible = false; }); frame();
+    chips.forEach(c => { c.visible = true; }); frame(); frame(); right(chips);
+    // turned inside out by what it's in: its nigiri too
+    const nigiri = plates[0].children[0] as Mesh;
+    plates[0].scale.x = -1; frame();
+    expect([plates[0].layers.mask, nigiri.layers.mask]).toEqual([1, 1]);
+    plates[0].scale.x = 1; frame(); frame();
+    expect([plates[0].layers.mask, nigiri.layers.mask]).toEqual([0, 0]);
+    right([...chips, ...plates]);
+  });
+
+  it("looks up a piece's pool again only when what it's drawn with changes", async () => {
+    const { g, scene, frame } = await setUp();
+    const { lookups } = await import('../src/pooled');
+    const plate = g.items.newPlate(10, false) as Mesh;
+    plate.position.set(FAR, 1, 0); scene.add(plate);
+    frame();
+    const n = lookups.n;
+    plate.position.x = FAR + 1; frame(); frame();
+    expect(lookups.n).toBe(n);
+    plate.castShadow = !plate.castShadow; frame();
+    expect(lookups.n).toBe(n + 1);
+    plate.material = (plate.material as MeshLambertMaterial).clone(); frame();
+    expect(lookups.n).toBe(n + 2);
+    // turned inside out and back: no look up, but drawn by itself meanwhile
+    plate.scale.x = -1; frame();
+    expect([plate.layers.mask, lookups.n]).toEqual([1, n + 2]);
+    plate.scale.x = 1; frame();
+    expect([plate.layers.mask, lookups.n]).toEqual([0, n + 2]);
+  });
+
   it('makes room as more come, all of them drawn', async () => {
     const { g, scene, frame, placesOf } = await setUp();
     const chips = Array.from({ length: 70 }, (_, i) => {
