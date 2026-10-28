@@ -1,5 +1,5 @@
 // firestore.rules for the wall of shame, against the Firestore emulator: `npm run test:rules` (needs Java). Anyone can
-// read it; a signed-in player can only put up their own worst bet, and only ever swap it for a worse one.
+// read it; a signed-in player can only put up their own worst bet, only ever swap it for a worse one, and take it down.
 import { readFileSync } from 'node:fs';
 import {
   assertFails, assertSucceeds, initializeTestEnvironment, type RulesTestEnvironment,
@@ -7,7 +7,7 @@ import {
 import {
   collection, deleteDoc, doc, getDoc, getDocs, limit, orderBy, query, serverTimestamp, setDoc, type Firestore,
 } from 'firebase/firestore';
-import { afterAll, beforeAll, beforeEach, describe, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 let env: RulesTestEnvironment;
 beforeAll(async () => {
@@ -40,7 +40,14 @@ describe('the wall of shame', () => {
     await assertFails(setDoc(shame(db), bet({ lost: 499 })));
     await assertSucceeds(setDoc(shame(db), bet({ lost: 500, name: 'Pat' })));
     await assertSucceeds(setDoc(shame(db), bet({ lost: 2_000 })));
-    await assertFails(deleteDoc(shame(db)));
+  });
+
+  it("a signed-in player can take their own down, but nobody else's", async () => {
+    await assertSucceeds(setDoc(shame(player()), bet()));
+    await assertFails(deleteDoc(shame(player('u2'), 'u1')));
+    await assertFails(deleteDoc(shame(nobody(), 'u1')));
+    await assertSucceeds(deleteDoc(shame(player())));
+    expect((await getDoc(shame(nobody()))).exists()).toBe(false);
   });
 
   it('turns away a bet that is missing something, has something extra, or is wrong', async () => {

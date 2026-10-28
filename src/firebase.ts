@@ -1,6 +1,6 @@
-// Cloud saves on Firebase: Google sign-in, and each player's save as one Firestore document, saves/{uid}. The
-// scoreboard is one more document per player, scores/{uid}, which anyone can read, and so is the wall of shame,
-// shame/{uid}. A bug report is a document in
+// Cloud saves on Firebase: Google sign-in, and each player's save as one Firestore document, saves/{uid}, which also
+// says whether they keep off the scoreboards (`hidden`). The scoreboard is one more document per player, scores/{uid},
+// which anyone can read, and so is the wall of shame, shame/{uid}. A bug report is a document in
 // reports/, which no player can read back; limits/{uid} counts each player's reports, 20 an hour (firestore.rules).
 // The loading screen downloads this with the game (index.html); cloud.ts starts it only once cloud saves are in use.
 import { initializeApp } from 'firebase/app';
@@ -31,9 +31,17 @@ export function createBackend(): CloudBackend {
       const s = await getDoc(ref(uid));
       if (!s.exists()) return null;
       const d = s.data();
-      return { data: String(d.data), savedAt: Number(d.savedAt) };
+      return { data: String(d.data), savedAt: Number(d.savedAt), hidden: d.hidden === true };
     },
-    write: (uid, s) => setDoc(ref(uid), { data: s.data, savedAt: s.savedAt, updated: serverTimestamp() }),
+    // merged, so the player's choice about the scoreboards stays
+    write: (uid, s) => setDoc(ref(uid), { data: s.data, savedAt: s.savedAt, updated: serverTimestamp() }, { merge: true }),
+    async hide(uid, hidden) {
+      // the choice and taking the entries down go together: both, or neither
+      const b = writeBatch(db);
+      b.set(ref(uid), { hidden, updated: serverTimestamp() }, { merge: true });
+      if (hidden) { b.delete(scoreRef(uid)); b.delete(shameRef(uid)); }
+      await b.commit();
+    },
     async postScore(s) {
       // a Restart starts the game over, but not the player's place on the scoreboard
       await runTransaction(db, async tx => {
