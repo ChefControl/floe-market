@@ -359,10 +359,18 @@ function guest(i: number, hatless = false) {
   return allYear(new Person(who.woman ? DRESSES[i % DRESSES.length] : SUITS[i % SUITS.length], 'fancy', who));
 }
 
-/** One of the salon's slot machines, its reels spinning when a guest plays it. */
-interface Machine { lever: Group; ctx: CanvasRenderingContext2D; tex: CanvasTexture; from: number[]; to: number[]; spin: number }
-/** How long a guest's spin takes, and when each reel stops. */
-const SPIN = 1.6, STOPS = [0.9, 1.25, 1.6];
+/** One of the salon's slot machines (`i` along the row), its reels spinning when a guest plays it: for `len` seconds,
+ *  and which of the recording's spins it plays next. */
+interface Machine { i: number; lever: Group; ctx: CanvasRenderingContext2D; tex: CanvasTexture; from: number[]; to: number[]; spin: number; len: number; next: number }
+/**
+ * The guests' spins, as recorded (src/sounds/slots.mp3, which roomTone.ts plays from the machine as its lever's pulled):
+ * where each starts in the recording, at the chime as the lever comes down, and how long till its sound ends, which is
+ * when the last reel stops. The reels stop left to right, at these shares of that.
+ */
+export const SPINS = [{ at: 0.35, len: 3.8 }, { at: 5.35, len: 3.55 }, { at: 9.75, len: 3.7 }];
+const STOPS = [0.56, 0.78, 1];
+/** Called as a guest pulls a lever, with the machine along the row and the spin it plays (roomTone.ts plays it). */
+export const onGuestPull: ((machine: number, spin: number) => void)[] = [];
 /** A guest at a slot machine: pulls the lever every few seconds, the reels spin, and now and then they win. */
 interface Gambler { p: Person; m: Machine; wait: number; t: number; joy: number; say: ReturnType<typeof speaker> }
 
@@ -377,7 +385,7 @@ function buildCrowd(g: Group) {
   const row = slotRow(ROW.zs, screens.map(s => new MeshBasicMaterial({ map: s.tex })));
   row.g.position.set(ROW.x, UPPER, 0); row.g.rotation.y = -Math.PI / 2;
   g.add(row.g);
-  const machines: Machine[] = screens.map((s, i) => ({ lever: row.levers[i], ctx: s.ctx, tex: s.tex, from: s.pos, to: s.pos, spin: 0 }));
+  const machines: Machine[] = screens.map((s, i) => ({ i, lever: row.levers[i], ctx: s.ctx, tex: s.tex, from: s.pos, to: s.pos, spin: 0, len: SPINS[0].len, next: i % SPINS.length }));
   const gamblers: Gambler[] = [0, 1].map((m, i) => {
     const p = guest(i);
     p.position.set(ROW.x - 0.75, UPPER, ROW.zs[m]); p.rotation.y = Math.PI / 2;
@@ -668,7 +676,11 @@ function updCrowd(c: ReturnType<typeof buildCrowd>, dt: number, clock: number) {
     gm.wait -= dt;
     if (gm.wait <= 0 && m.spin <= 0) {
       gm.wait = 3 + dice() * 5;
-      m.spin = SPIN; gm.t = 0;
+      // the machine plays its next spin from the recording, and the reels go round for as long as it sounds
+      const k = m.next;
+      m.next = (k + 1) % SPINS.length;
+      m.spin = m.len = SPINS[k].len; gm.t = 0;
+      onGuestPull.forEach(f => f(m.i, k));
       // where the reels will stop: now and then three of a kind, a win
       const win = dice() < 0.18, same = Math.floor(dice() * 20);
       m.from = m.to.map(Math.round);
@@ -680,7 +692,7 @@ function updCrowd(c: ReturnType<typeof buildCrowd>, dt: number, clock: number) {
       m.spin -= dt;
       m.lever.rotation.x = Math.sin(Math.min(1, gm.t / 0.4) * Math.PI) * 1.1;
       // each reel slows to a stop, left to right
-      const shown = m.from.map((f, i) => f + (m.to[i] - f) * (1 - Math.pow(1 - Math.min(1, gm.t / STOPS[i]), 3)));
+      const shown = m.from.map((f, i) => f + (m.to[i] - f) * (1 - Math.pow(1 - Math.min(1, gm.t / (STOPS[i] * m.len)), 3)));
       if (Math.floor(clock * 20) % 2 === 0 || m.spin <= 0) { drawReels(m.ctx, shown); m.tex.needsUpdate = true; }
       if (m.spin <= 0 && gm.joy < 0) { gm.joy = 1.4; gm.say.say(dice() < 0.25 ? 'Jackpot!' : 'Yes!'); }
     }

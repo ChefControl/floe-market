@@ -11,7 +11,7 @@ import { addMoney } from './wallet';
 
 const css = `
 #demo{position:fixed;left:max(8px,env(safe-area-inset-left));bottom:max(8px,env(safe-area-inset-bottom));z-index:60;
-  font:600 13px/1.3 "Baloo 2",system-ui,sans-serif;color:#1B2430}
+  font:600 13px/1.3 "Floe Emoji","Baloo 2",system-ui,sans-serif;color:#1B2430}
 #demo>button{width:44px;height:44px;border-radius:50%;border:0;background:#fff;box-shadow:0 3px 0 rgba(0,0,0,.18);font-size:20px}
 #demo .box{position:absolute;bottom:52px;left:0;width:min(300px,calc(100vw - 16px));background:#fff;border-radius:16px;
   padding:10px 12px;box-shadow:0 4px 0 rgba(0,0,0,.18);display:grid;gap:8px}

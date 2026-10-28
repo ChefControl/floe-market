@@ -1,7 +1,7 @@
 // The corner of tears: a restroom stall in the salon's corner by the door, for a player who's lost money at the games
 // to go and have a good cry in. Its partitions come up to a little over head height, so the camera sees in over them;
 // inside, on a tiled floor, there's a toilet facing the door, a little potted palm beside it (casinoSalon.ts), a sink
-// under a round mirror and a roll of paper on the wall. A 😭 pad in front of its door opens a panel saying what the player's
+// under a round mirror and a roll of paper on the wall. A 😢 pad in front of its door opens a panel saying what the player's
 // down since their last cry, with a button to cry it out: they go in, the door shuts, they sit on the lid and sob, hands
 // over their face, then wailing with tears squirting from their eyes, and a puddle spreads across the floor and seeps
 // out under the door. Then they come out feeling better, and the puddle dries. Moving cuts it short. None of it
@@ -26,7 +26,7 @@ const GOLD = 0xE3B23C, PANEL = 0xF4EFE6, PORCELAIN = 0xFBFBF8;
 /** The stall, in the ship's own space: from its west partition to the salon's east wall, and from its north partition
  *  to the windows (both walls' inner faces), and how tall its partitions are. */
 export const STALL = { x0: 2.0, x1: SALON.x1 - 0.06, z0: 1.45, z1: SALON.side - 0.06, h: 1.7 };
-/** The door in the west partition, hung at its south end and opening inwards; and the 😭 pad in front of it. */
+/** The door in the west partition, hung at its south end and opening inwards; and the 😢 pad in front of it. */
 const DOOR = { z0: 1.98, z1: 2.7, h: 1.55 };
 const DOOR_Z = (DOOR.z0 + DOOR.z1) / 2;
 /** How far the door swings open: square, flat against the windows' end, out of the way in. */
@@ -98,7 +98,7 @@ function build(g: Group) {
   ];
   g.add(mesh(bake(white), PORCELAIN, 0, 0, 0, true), mesh(bake(gold), GOLD));
   g.add(mesh(bake([{ geo: G.cyl, at: [SINK.x, UPPER + 1.3, z0 + 0.042], rot: [Math.PI / 2, 0, 0], scale: [0.18, 0.01, 0.18] }]), 0xBFD4DC));
-  // the door, on its hinge, with a gold knob each side and the 😭 on the outside
+  // the door, on its hinge, with a gold knob each side and the 😢 on the outside
   const door = new Group(); door.position.set(x0, UPPER, DOOR.z1); g.add(door);
   const w = DOOR.z1 - DOOR.z0 - 0.02;
   door.add(mesh(bake([{ geo: G.box, at: [0, 0.04 + DOOR.h / 2, -w / 2 - 0.01], scale: [0.04, DOOR.h - 0.04, w] }]), PANEL, 0, 0, 0, true));
@@ -106,7 +106,7 @@ function build(g: Group) {
   const sign = new Mesh(new PlaneGeometry(0.22, 0.22), new MeshBasicMaterial({ map: badge(), transparent: true }));
   sign.position.set(-0.025, 1.25, -w / 2 - 0.01); sign.rotation.y = -Math.PI / 2; door.add(sign);
   // the pad in front of the door
-  const pad = decal(1.15, (c, cw, ch) => drawPad(c, cw, ch, '😭'));
+  const pad = decal(1.15, (c, cw, ch) => drawPad(c, cw, ch, '😢'));
   pad.mesh.position.set(PAD.x, UPPER + 0.01, PAD.z); g.add(pad.mesh);
   // the puddle: on the floor in front of the toilet, and the bit that seeps out under the door
   const wet = new MeshLambertMaterial({ color: 0x8FD6F5, transparent: true, opacity: 0, depthWrite: false });
@@ -120,11 +120,11 @@ function build(g: Group) {
   return { door, pad, wet, pool, seep, tears, sobs: speaker(player.g, 1.75) };
 }
 
-/** The 😭 on the door, as a little round sign. */
+/** The 😢 on the door, as a little round sign. */
 function badge(): CanvasTexture {
   const { tex } = canvasTex(64, 64, (c, w) => {
     c.fillStyle = '#E3B23C'; c.beginPath(); c.arc(w / 2, w / 2, w / 2 - 1, 0, Math.PI * 2); c.fill();
-    drawIcon(c, '😭', w / 2, w / 2, 50);
+    drawIcon(c, '😢', w / 2, w / 2, 50);
   });
   return tex;
 }
@@ -174,8 +174,8 @@ let shown = '';
 /** The panel's message and button, set only when they change. */
 function refresh() {
   const down = losses.down;
-  const say = cry.on ? 'Let it all out… 😭' : down > 0 ? `Down ${money(down)} 😢` : 'Nothing to cry about… yet';
-  const text = cry.on ? 'Sniff…' : 'Cry it out 😭';
+  const say = cry.on ? 'Let it all out… 😢' : down > 0 ? `Down ${money(down)} 😢` : 'Nothing to cry about… yet';
+  const text = cry.on ? 'Sniff…' : 'Cry it out 😢';
   cryBtn.disabled = cry.on || down <= 0;
   if (shown === say + text + cryBtn.disabled) return;
   shown = say + text + cryBtn.disabled;

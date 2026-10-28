@@ -330,14 +330,15 @@ describe('settings', () => {
     expect([card.hidden, row.getAttribute('aria-expanded')]).toEqual([true, 'false']);
     row.click();
     expect([card.hidden, row.getAttribute('aria-expanded')]).toEqual([false, 'true']);
-    expect(card.textContent).toContain('Dirk-Jan Hanegraaff');
-    expect(card.querySelector('a[href="https://creativecommons.org/licenses/by/3.0"]')).not.toBeNull();
+    // the slot machines' recording, which asks for a credit
+    expect(card.textContent).toContain('“WOF_slots6” by fugacious');
+    expect(card.querySelector('a[href="https://freesound.org/s/145539/"]')).not.toBeNull();
     // the songs at her house and Korki's statue are the game's own now: nothing from YouTube
     expect(card.textContent).toContain("the songs at her house and at Korki's statue too");
     expect(card.querySelector('a[href*="youtube"]')).toBeNull();
     row.click();
     expect([card.hidden, row.getAttribute('aria-expanded')]).toEqual([true, 'false']);
-    expect($('soundPanel').textContent).not.toContain('Hanegraaff');
+    expect($('soundPanel').textContent).not.toContain('fugacious');
   });
 });
 
