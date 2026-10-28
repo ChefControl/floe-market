@@ -285,20 +285,55 @@ describe('Potato', () => {
     expect(await sizes('potato')).toEqual([128]);
   }, 60_000);
 
-  it('never builds High: its baked shapes are let go, the effects have no room, and leaving it takes a reload', async () => {
-    /** The kit's baked meshes, and how many of them hold no shape. */
-    const baked = (scene: Object3D) => {
-      let all = 0, empty = 0;
-      scene.traverse(o => { if (o instanceof Mesh && o.userData.baked) { all++; if (!o.geometry.attributes.position.count) empty++; } });
-      return { all, empty };
+  it("bakes the presents' High pile on Potato too, for the scenery's dice, but doesn't keep it", async () => {
+    const pile = async (q: 'potato' | 'high') => {
+      const g = await loadWith(q);
+      const [{ givePresents }, { Build }] = await Promise.all([import('../src/presents'), import('../src/kit')]);
+      const shapes = () => {
+        let n = 0;
+        g.render.scene.traverse(o => {
+          if (o instanceof Mesh && o.userData.baked && o.geometry.attributes.position.count) n++;
+        });
+        return n;
+      };
+      const before = shapes(), baking = vi.spyOn(Build.prototype, 'mesh');
+      givePresents(3, true);
+      givePresents(1);
+      const baked = baking.mock.calls.length;
+      baking.mockRestore();
+      return { kept: shapes() - before, baked };
     };
-    const high = await loadWith('high');
-    expect(baked(high.render.scene).empty).toBe(0);
+    const high = await pile('high'), potato = await pile('potato');
+    expect(high.kept).toBe(2); // the pile, and the newest popping in
+    expect(potato.kept).toBe(0);
+    // (baked all the same, so the scenery's dice roll as they would on High)
+    expect(high.baked).toBeGreaterThan(0);
+    expect(potato.baked).toBe(high.baked);
+  });
+
+  it('never builds High: its baked shapes are let go, the effects have no room, and leaving it takes a reload', async () => {
+    /** The kit's baked meshes, how many of them hold no shape, and how many have shadow hooks of their own (which hold
+     *  the shape they swap the drawing of: `baked`, family.ts `castAs`). */
+    const baked = (scene: Object3D) => {
+      let all = 0, empty = 0, hooked = 0, emptyHooked = 0;
+      scene.traverse(o => {
+        if (!(o instanceof Mesh && o.userData.baked)) return;
+        const none = !o.geometry.attributes.position.count, hook = o.onBeforeShadow !== Mesh.prototype.onBeforeShadow
+          || o.onAfterShadow !== Mesh.prototype.onAfterShadow;
+        all++; if (none) empty++; if (hook) hooked++; if (none && hook) emptyHooked++;
+      });
+      return { all, empty, hooked, emptyHooked };
+    };
+    const onHigh = baked((await loadWith('high')).render.scene);
+    expect(onHigh.empty).toBe(0);
+    expect(onHigh.hooked).toBeGreaterThan(0);
     const g = await loadWith('potato');
     const { choose, gfx, highBuilt, isHigh } = await graphics();
     expect([gfx.quality, highBuilt, isHigh()]).toEqual(['potato', false, false]);
-    const { empty, all } = baked(g.render.scene);
+    const { empty, all, emptyHooked } = baked(g.render.scene);
     expect(empty).toBeGreaterThan(all * 0.4);
+    // (a High mesh let go of keeps no hook on its shadow, or the hook would keep the shape it gave up)
+    expect(emptyHooked).toBe(0);
     const fx = g.render.scene.children.filter((o): o is InstancedMesh => o instanceof InstancedMesh && o.name === 'fx');
     expect(fx.length).toBeGreaterThan(0);
     expect(fx.every(m => m.instanceMatrix.count === 0)).toBe(true);
@@ -307,6 +342,10 @@ describe('Potato', () => {
     expect(gfx).toEqual({ quality: 'low', choice: 'high', picked: true, reload: true });
     choose('auto');
     expect([gfx.quality, gfx.reload]).toEqual(['low', true]);
+    // and once Auto steps back down to Potato, there's nothing left to reload for
+    const { lowAfterLoss } = await graphics();
+    lowAfterLoss();
+    expect([gfx.quality, gfx.reload]).toEqual(['potato', false]);
     choose('potato');
     expect([gfx.quality, gfx.reload]).toEqual(['potato', false]);
   });
