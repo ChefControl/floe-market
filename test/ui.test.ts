@@ -342,16 +342,39 @@ describe('settings', () => {
     expect($('soundPanel').textContent).not.toContain('fugacious');
   });
 
-  it('links the privacy notice in a tab of its own, in every build: the Ko-fi switch leaves it in', async () => {
+  it("opens Privacy into the notice's short version, and the whole notice over the game: in every build", async () => {
     await loadGame();
-    const a = $('privacy') as HTMLAnchorElement;
-    expect([a.getAttribute('href'), a.target, a.rel, a.textContent]).toEqual(['privacy.html', '_blank', 'noopener', '🛡️Privacy notice↗']);
-    // in About, before Credits & Copyrights, which opens at the menu's foot
-    expect(a.compareDocumentPosition($('reportCat')) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
-    expect(a.compareDocumentPosition($('creditsBtn')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(withoutKofi(indexHtml)).toContain('<a id="privacy" href="privacy.html"');
-    // the page itself, published with the site from public/: who to ask, and both versions
+    await import('../src/settings');
+    const { paused } = await import('../src/uiKit');
+    const row = $('privacyBtn'), card = $('privacyCard'), dialog = $('privacyDialog'), frame = $('privacyFrame') as HTMLIFrameElement;
+    // in About, before Credits & Copyrights, which opens at the menu's foot; nothing in the menu leaves the game
+    expect(row.compareDocumentPosition($('reportCat')) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
+    expect(row.compareDocumentPosition($('creditsBtn')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect($('settings').querySelector('a[href="privacy.html"]')).toBeNull();
+    expect(withoutKofi(indexHtml)).toContain('id="privacyBtn"');
+    // the short version, word for word as the notice has it
     const page = readFileSync('public/privacy.html', 'utf8');
+    const notice = new DOMParser().parseFromString(page, 'text/html');
+    const short = (root: ParentNode) => [...root.querySelectorAll('li')].map(li => li.innerHTML.trim());
+    expect(short(card)).toEqual(short(notice.querySelector('.short')!));
+    expect(card.hidden).toBe(true);
+    $('gear').click();
+    row.click();
+    expect([card.hidden, row.getAttribute('aria-expanded')]).toEqual([false, 'true']);
+    // the whole notice, fetched only once it's asked for; the game waits behind it
+    expect(frame.getAttribute('src')).toBeNull();
+    $('privacyFull').click();
+    expect([dialog.hidden, frame.getAttribute('src'), paused()]).toEqual([false, 'privacy.html', true]);
+    expect(document.activeElement).toBe($('privacyClose'));
+    // a tap on it leaves the menu open behind; Escape closes just the notice, and the ✕ too
+    dialog.querySelector('.k-sheet')!.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', cancelable: true }));
+    expect([dialog.hidden, $('settings').hidden, paused()]).toEqual([true, false, false]);
+    expect(document.activeElement).toBe($('privacyFull'));
+    $('privacyFull').click();
+    $('privacyClose').click();
+    expect(dialog.hidden).toBe(true);
+    // the page itself, published with the site from public/: who to ask, and both versions
     expect(page).toContain('oran.dan@outlook.com');
     expect(page).toContain('<h2>The web game</h2>');
     expect(page).toContain('<h2>The Steam version</h2>');
