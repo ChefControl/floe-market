@@ -5,4 +5,9 @@ is granted to copy, modify, distribute, or use any of it, in whole or in part, w
 copyright holder.
 
 Recorded sounds by others are used under their own licenses, listed in public/sounds/CREDITS.md and in the game's
-Credits & Copyrights; those licenses apply to those files.
+Credits & Copyrights; those licenses apply to those files. The fonts in public/fonts are under the SIL Open Font
+License 1.1, whose texts sit beside them.
+
+The open-source libraries built into the game (three.js, html2canvas, Firebase and the code they bring) are not part of
+this repository and keep their own licenses. The built game lists them under Credits & Copyrights, with their full
+texts in licences.txt.
