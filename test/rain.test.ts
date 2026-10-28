@@ -139,7 +139,9 @@ describe('her house', () => {
       expect($('rain').hidden).toBe(false);
       expect($('rain').textContent!.trim()).toBe('♪ Caesarea');
       expect($('rain').querySelector('a, button')).toBeNull();
-      expect(document.querySelector('iframe, script[src*="youtube"]')).toBeNull();
+      // (the one frame in the game is the privacy notice's, our own page, shown only when asked for)
+      expect(document.querySelector('iframe:not(#privacyFrame), script[src*="youtube"]')).toBeNull();
+      expect(($('privacyFrame') as HTMLIFrameElement).getAttribute('src')).toBeNull();
       g.placePlayer(15, rain.RAIN_PAD.z);
       g.run(0.1);
       expect($('rain').hidden).toBe(true);
