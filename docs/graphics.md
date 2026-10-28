@@ -191,6 +191,8 @@ Whatever has stood still for a second is drawn merged with its neighbours: one m
   at the quay.
 - **Lots of moving copies:** use one `InstancedMesh` instead, as the effects and the foam rings (sea.ts) do.
 
+What's merged is looked at every frame, so it drops out the moment it moves or hides, and that look is cheap. It reads `place`'s marks (below). Walked this pass (`walkedAt`), it's showing. It can only have moved if its world matrix was worked out since it was last looked at (`movedAt`). Only then are its 16 numbers compared with where it was merged, so a false alarm (a matrix built again where it stands) costs a compare, never a merge. What `place` didn't walk is hidden, taken away, in something that places itself its own way, or under `matrixWorldAutoUpdate = false`, and is looked at the long way: up through its parents, and its numbers compared. Its shape, material and colour are checked every frame too: each geometry's version once a frame however many things share it, the colour as its three numbers (and as a hex only when they've changed, so a change too small to show isn't one). What isn't merged is looked at in turns, one frame in eight (`TURNS`). Tests: `test/batch.test.ts`.
+
 ### Hidden things aren't placed, nor still ones
 
 Each frame, the scene only works out world positions for what's showing (render.ts `place`), not for the hidden copies of the other setting. A hidden object's `matrixWorld` can be out of date. If you need where something hidden is, call `o.updateWorldMatrix(true, false)` first, or use `getWorldPosition`, which does that itself.
