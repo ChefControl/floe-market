@@ -215,7 +215,25 @@ function talk(c: Ctx) {
   flat(c, SHINE, () => oval(c, -26, -25, 9, 4, -0.2));
 }
 
+/** 🛡️ The privacy notice: a blue shield, its left half lighter, with a gold tick across it. */
+function shield(c: Ctx) {
+  const path = () => {
+    c.moveTo(0, -44);
+    c.quadraticCurveTo(20, -34, 40, -34); c.lineTo(40, -6);
+    c.quadraticCurveTo(38, 28, 0, 46); c.quadraticCurveTo(-38, 28, -40, -6);
+    c.lineTo(-40, -34); c.quadraticCurveTo(-20, -34, 0, -44);
+    c.closePath();
+  };
+  solid(c, BLUE, path);
+  inside(c, path, () => flat(c, SKY, () => c.rect(-50, -50, 50, 100)));
+  // the outline again, over the lighter half
+  c.beginPath(); path(); c.stroke();
+  bar(c, GOLD, 8, () => { c.moveTo(-18, 0); c.lineTo(-5, 14); c.lineTo(20, -14); });
+  flat(c, SHINE, () => oval(c, -24, -24, 8, 4, -0.4));
+}
+
 export const HUD: Record<string, Drawing> = {
   '⚙': gear, '🏆': trophy, '🔊': loud, '🔇': muted, '☁': cloud, '✨': sparkles, '🕹': joystick,
   '👕': tshirt, '🎲': die, '🐞': ladybird, '🖍': crayon, '🗑': bin, '🛒': trolley, '💬': talk,
+  '🛡': shield,
 };

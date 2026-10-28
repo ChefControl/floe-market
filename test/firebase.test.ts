@@ -21,7 +21,7 @@ vi.mock('firebase/firestore', () => ({
   initializeFirestore: vi.fn(() => ({ name: 'db' })),
   doc: vi.fn((_db: unknown, col: string, id: string) => ({ path: `${col}/${id}` })),
   getDoc: vi.fn(async () => ({ exists: () => sdk.doc !== null, data: () => sdk.doc })),
-  setDoc: vi.fn(async (ref: unknown, data: unknown) => { sdk.set.push([ref, data]); }),
+  setDoc: vi.fn(async (ref: unknown, data: unknown, opts?: unknown) => { sdk.set.push(opts ? [ref, data, opts] : [ref, data]); }),
   serverTimestamp: vi.fn(() => 'server-time'),
   collection: vi.fn((_db: unknown, col: string) => ({ col })),
   orderBy: vi.fn((field: string, dir: string) => ({ orderBy: [field, dir] })),
@@ -30,7 +30,11 @@ vi.mock('firebase/firestore', () => ({
   getDocs: vi.fn(async () => ({ docs: sdk.scores.map(s => ({ id: s.id, data: () => s.data })) })),
   writeBatch: vi.fn(() => {
     const sets: unknown[] = [];
-    return { set: (ref: unknown, data: unknown) => { sets.push([ref, data]); }, commit: async () => { sdk.batch.push(sets); } };
+    return {
+      set: (ref: unknown, data: unknown, opts?: unknown) => { sets.push(opts ? [ref, data, opts] : [ref, data]); },
+      delete: (ref: unknown) => { sets.push([ref, 'deleted']); },
+      commit: async () => { sdk.batch.push(sets); },
+    };
   }),
   runTransaction: vi.fn(async (_db: unknown, fn: (tx: unknown) => Promise<void>) => fn({
     get: async () => ({ data: () => sdk.score }),
@@ -64,14 +68,30 @@ describe('the Firebase backend', () => {
     expect(fs.initializeFirestore).toHaveBeenCalledWith({ name: 'app' }, { experimentalForceLongPolling: true });
   });
 
-  it("keeps each player's save in saves/{uid}", async () => {
+  it("keeps each player's save in saves/{uid}, leaving their choice about the scoreboards be", async () => {
     const { createBackend } = await import('../src/firebase');
     const b = createBackend();
     expect(await b.read('u1')).toBeNull();
     sdk.doc = { data: '{"v":4}', savedAt: 42 };
-    expect(await b.read('u1')).toEqual({ data: '{"v":4}', savedAt: 42 });
+    expect(await b.read('u1')).toEqual({ data: '{"v":4}', savedAt: 42, hidden: false });
+    sdk.doc = { data: '{"v":4}', savedAt: 42, hidden: true } as never;
+    expect(await b.read('u1')).toEqual({ data: '{"v":4}', savedAt: 42, hidden: true });
     await b.write('u1', { data: '{"v":4}', savedAt: 43 });
-    expect(sdk.set).toEqual([[{ path: 'saves/u1' }, { data: '{"v":4}', savedAt: 43, updated: 'server-time' }]]);
+    expect(sdk.set).toEqual([[{ path: 'saves/u1' }, { data: '{"v":4}', savedAt: 43, updated: 'server-time' }, { merge: true }]]);
+  });
+
+  it('keeping off the scoreboards takes both entries down with it, at once; coming back takes nothing down', async () => {
+    const { createBackend } = await import('../src/firebase');
+    const b = createBackend();
+    await b.hide('u1', true);
+    await b.hide('u1', false);
+    expect(sdk.batch).toEqual([
+      [
+        [{ path: 'saves/u1' }, { hidden: true, updated: 'server-time' }, { merge: true }],
+        [{ path: 'scores/u1' }, 'deleted'], [{ path: 'shame/u1' }, 'deleted'],
+      ],
+      [[{ path: 'saves/u1' }, { hidden: false, updated: 'server-time' }, { merge: true }]],
+    ]);
   });
 
   it('keeps the scoreboard in scores/{uid}, never lowering a best a player already had', async () => {

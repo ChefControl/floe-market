@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<title>Floe Market Privacy Notice</title>
+<style>
+/* the game's own Baloo 2 (public/fonts), so this page fetches nothing from another site either */
+@font-face{ font-family:"Baloo 2"; font-weight:800; font-display:swap; src:url(fonts/baloo2-800.woff2) format("woff2"); }
+/* A white pill card on the game's sky, the way the game's own menus sit over the world (design system: pill, chip, ink, go). */
+:root{
+  --bg:#CFEAF5; --pill:#FFFFFF; --ink:#173042; --soft:#3D5566; --chip:rgba(23,48,66,.07); --line:rgba(23,48,66,.14);
+  --shade:rgba(23,48,66,.22); --go:#23803A; --gold:#8F6511;
+  --sans:"Baloo 2","Trebuchet MS",system-ui,sans-serif; --body:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#0F2230; --pill:#102432; --ink:#EAF6FB; --soft:#B5CAD6; --chip:rgba(255,255,255,.07); --line:rgba(255,255,255,.14);
+  --shade:rgba(0,0,0,.4); --go:#5BD27A; --gold:#F2C14E; color-scheme:dark; } }
+:root[data-theme="dark"]{
+  --bg:#0F2230; --pill:#102432; --ink:#EAF6FB; --soft:#B5CAD6; --chip:rgba(255,255,255,.07); --line:rgba(255,255,255,.14);
+  --shade:rgba(0,0,0,.4); --go:#5BD27A; --gold:#F2C14E; color-scheme:dark; }
+body{ margin:0; background:var(--bg); color:var(--ink); font:400 16px/1.55 var(--body);
+  padding-left:max(16px, env(safe-area-inset-left, 0px)); padding-right:max(16px, env(safe-area-inset-right, 0px)); padding-block:24px 48px; }
+main{ max-width:720px; margin:0 auto; background:var(--pill); border-radius:20px; box-shadow:0 4px 0 var(--shade);
+  padding-block:28px 32px; padding-inline:clamp(18px, 5vw, 40px); }
+h1,h2,h3{ font-family:var(--sans); font-weight:800; line-height:1.15; text-wrap:balance; margin:0; }
+h1{ font-size:clamp(28px, 6vw, 36px); }
+h2{ font-size:22px; margin-top:36px; padding-top:20px; border-top:2px solid var(--line); }
+h3{ font-size:18px; margin-top:24px; }
+p, ul{ margin:10px 0 0; max-width:65ch; }
+ul{ padding-left:20px; } li{ margin:4px 0; }
+a{ color:var(--go); font-weight:600; text-underline-offset:2px; }
+a:focus-visible{ outline:3px solid var(--go); outline-offset:2px; border-radius:4px; }
+.meta{ color:var(--soft); font-size:14px; margin-top:6px; }
+.short{ margin-top:20px; background:var(--chip); border-radius:16px; padding:14px 18px; }
+.short h2{ margin:0; padding:0; border:0; font-size:18px; }
+.short ul{ margin-top:6px; }
+.items{ display:grid; gap:10px; margin-top:12px; }
+.item{ background:var(--chip); border-radius:14px; padding:12px 16px; min-width:0; }
+.item > b{ font-family:var(--sans); font-weight:800; font-size:17px; }
+.item dl{ display:grid; grid-template-columns:max-content 1fr; gap:2px 12px; margin:6px 0 0; font-size:15px; }
+.item dt{ color:var(--soft); font-weight:600; }
+.item dd{ margin:0; min-width:0; }
+@media (max-width:480px){ .item dl{ grid-template-columns:1fr; } .item dt{ margin-top:4px; } }
+.back{ max-width:720px; margin:0 auto 12px; font:800 16px var(--sans); }
+.back a{ color:var(--ink); text-decoration:none; }
+.back a:hover{ text-decoration:underline; }
+/* inside the game's own dialog (Settings, Privacy): just the card, filling it */
+.framed body{ padding:0; background:var(--pill); }
+.framed main{ max-width:none; border-radius:0; box-shadow:none; }
+</style>
+</head>
+<body>
+<p class="back"><a href="./">Play Floe Market ›</a></p>
+<main>
+<h1>Floe Market privacy notice</h1>
+<p class="meta">Last changed 28 October 2026. This covers the web game and the Steam version.</p>
+
+<section class="short" aria-labelledby="short">
+  <h2 id="short">The short version</h2>
+  <ul>
+    <li><b>Web game, not signed in:</b> your game stays on your device.</li>
+    <li><b>Web game, signed in with Google:</b> your save, your first name and initial on the scoreboards (you can turn that off), and any report you send are kept with Google Firebase.</li>
+    <li><b>Steam version:</b> the game sends nothing to me. Steam keeps your saves and scores.</li>
+    <li>No ads, no analytics, no tracking. I don't sell your data.</li>
+    <li>To see or delete your data, email <a href="mailto:oran.dan@outlook.com">oran.dan@outlook.com</a>.</li>
+  </ul>
+</section>
+
+<h2>Who I am</h2>
+<p>I make Floe Market on my own, as a sole proprietor in Israel, under the name ChefControl. In this notice “I” means me, Oran Dan. I decide what happens to your data.</p>
+<p>Contact: <a href="mailto:oran.dan@outlook.com">oran.dan@outlook.com</a></p>
+
+<h2>The web game</h2>
+<p>The web game is at <a href="https://chefcontrol.github.io/floe-market/">chefcontrol.github.io/floe-market</a>.</p>
+
+<h3>If you don't sign in</h3>
+<ul>
+  <li><b>Your game stays on your device.</b> The save, a backup, your settings and a few small notes (like which tips you've seen) are kept in your browser's storage. They never leave your device. Clearing the site's data in your browser deletes them.</li>
+  <li><b>The website is hosted by GitHub Pages.</b> When your browser loads the game, GitHub sees your IP address and browser, like any website. GitHub may keep these in its logs for security. I don't get them.</li>
+  <li><b>The game connects to Google Firebase</b> a few seconds after it starts, so sign-in opens fast, and when you open the scoreboard or the wall of shame. Google sees your IP address and browser when it does. Nothing about you is stored there until you sign in.</li>
+</ul>
+
+<h3>If you sign in with Google</h3>
+<p>Signing in turns on cloud saves, the scoreboard, the wall of shame and reports. To stay off the scoreboard and the wall of shame, open Settings, open Privacy and turn off <i>Show me on the scoreboards</i>. That takes your entries down at once and puts nothing new up, on every device you sign in on. Turning it back on puts you back. This is what's kept:</p>
+<div class="items">
+  <div class="item"><b>Your sign-in</b><dl>
+    <dt>What</dt><dd>An account number, your Google name, email address and profile picture link, and when you signed in.</dd>
+    <dt>Why</dt><dd>To know which save is yours.</dd>
+    <dt>Who sees it</dt><dd>Me, and Google, who runs Firebase. Never other players.</dd>
+    <dt>Kept</dt><dd>Until you ask me to delete it.</dd></dl></div>
+  <div class="item"><b>Your save</b><dl>
+    <dt>What</dt><dd>Your game: progress, money, upgrades, look and settings, and when you saved. It syncs every 30 seconds while you play. It also keeps whether you show on the scoreboards.</dd>
+    <dt>Why</dt><dd>So your game follows you to any device.</dd>
+    <dt>Who sees it</dt><dd>Only you. I can see it as the owner of the project, but I don't look.</dd>
+    <dt>Kept</dt><dd>Until you ask me to delete it.</dd></dl></div>
+  <div class="item"><b>🏆 The scoreboard</b><dl>
+    <dt>What</dt><dd>Your first name and the first letter of your last name, the most cash you've held at once, and the furthest stage you've reached.</dd>
+    <dt>Why</dt><dd>To show the best players.</dd>
+    <dt>Who sees it</dt><dd><b>Everyone who plays.</b> It shows your Google name cut short, so “Pat Smith” shows as “Pat S.”. If that name looks like an email address, it shows “A player” instead.</dd>
+    <dt>Kept</dt><dd>Until you turn off <i>Show me on the scoreboards</i>, which deletes it at once, or ask me to delete it.</dd></dl></div>
+  <div class="item"><b>💔 The wall of shame</b><dl>
+    <dt>What</dt><dd>Your first name and the first letter of your last name, the most you've lost in one round at the casino, which game, whether it left you broke, and when.</dd>
+    <dt>Why</dt><dd>For fun, in the casino's bar.</dd>
+    <dt>Who sees it</dt><dd><b>Everyone who plays</b>, the same way as the scoreboard.</dd>
+    <dt>Kept</dt><dd>The same as the scoreboard: until you turn off <i>Show me on the scoreboards</i>, or ask me to delete it.</dd></dl></div>
+  <div class="item"><b>Your report count</b><dl>
+    <dt>What</dt><dd>How many reports you've sent in the last hour.</dd>
+    <dt>Why</dt><dd>To stop more than 20 reports an hour.</dd>
+    <dt>Who sees it</dt><dd>Me and Google.</dd>
+    <dt>Kept</dt><dd>It starts again each hour, and is deleted with your account.</dd></dl></div>
+</div>
+
+<h3>Reports (Report a bug or idea)</h3>
+<p>Only signed-in players can send one. The report window lists what goes before you press Send.</p>
+<ul>
+  <li><b>Always sent:</b> your note, whether it's a bug or an idea, the game's version, your device type (graphics setting, frame rate, screen size, touch or not, browser) and the last few errors the game hit.</li>
+  <li><b>Sent unless you untick it:</b> two pictures of the game screen, and your game state (your save and where you are in the game).</li>
+  <li><b>Never sent:</b> your name or email. The report carries your account number only to keep to 20 an hour.</li>
+</ul>
+<p>The report goes to Firebase. Then a script copies it into a private place on GitHub that only I can see, as a to-do item. There, you show up as a scrambled code, not your account number.</p>
+<p><b>Kept:</b> the pictures and your game state are deleted after 30 days. Your note, device type and errors stay with the to-do item for as long as they help me fix and improve the game.</p>
+
+<h3>Links to other sites</h3>
+<p>Settings has links to other websites, like Ko-fi and the credits for the game's sounds. They're plain links. If you open one, that site's own privacy policy applies.</p>
+
+<h2>The Steam version</h2>
+<ul>
+  <li><b>The game sends nothing to me.</b> There's no Firebase, no Google sign-in and no server of mine.</li>
+  <li><b>Saves</b> are kept on your computer. If Steam Cloud is on, Steam copies them to your Steam account.</li>
+  <li><b>Leaderboards and achievements</b> are kept by Steam with your Steam account. Other players see your Steam name and score on the leaderboards.</li>
+  <li><b>Reports</b> are written to a file on your computer, with recent crash logs. The file only reaches me if you post it on the game's Steam forum or email it to me. Forum posts are public. I delete the pictures and game state in emailed reports after 30 days.</li>
+  <li><b>What Steam tells me:</b> sales and play totals, like how many people bought the game and in which countries, and the leaderboard entries everyone can see. Steam doesn't tell me who you are.</li>
+</ul>
+<p>Steam is run by Valve. What Steam keeps is covered by <a href="https://store.steampowered.com/privacy_agreement/">Valve's privacy policy</a>.</p>
+
+<h2>Why I'm allowed to use it</h2>
+<ul>
+  <li><b>Sign-in, cloud saves, the scoreboard and the wall of shame:</b> to give you the features you turned on by signing in (GDPR article 6(1)(b)).</li>
+  <li><b>Reports:</b> you choose to send each one (article 6(1)(a)). You can ask me to delete it any time.</li>
+  <li><b>The report limit and website logs:</b> to keep the game working and safe from abuse (article 6(1)(f)).</li>
+</ul>
+
+<h2>Who else handles it</h2>
+<ul>
+  <li><b>Google</b> runs Firebase, which keeps sign-ins, saves, scores and reports for the web game. <a href="https://firebase.google.com/support/privacy">Firebase privacy</a>.</li>
+  <li><b>GitHub</b> hosts the website and the private place where reports end up. <a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement">GitHub's privacy statement</a>.</li>
+  <li><b>Valve</b> runs Steam, for the Steam version.</li>
+</ul>
+<p>No one else gets your data. Google and GitHub may keep it in the USA or other countries, under the EU's standard contract terms and the EU–US Data Privacy Framework. I'm in Israel, which the EU recognises as protecting personal data well enough.</p>
+
+<h2>Your rights</h2>
+<p>You can ask me to:</p>
+<ul>
+  <li>show you the data I have about you, and send you a copy;</li>
+  <li>correct it;</li>
+  <li>delete it: your sign-in, save, scoreboard and wall of shame entries, report count and reports (you can take your scoreboard and wall of shame entries down yourself, with <i>Show me on the scoreboards</i> under Privacy in Settings);</li>
+  <li>stop using it, or use it less.</li>
+</ul>
+<p><b>How to ask:</b> email <a href="mailto:oran.dan@outlook.com">oran.dan@outlook.com</a>. For the web game, say which Google account you sign in with. I answer within a month.</p>
+<p>You can also sign out at any time from the ☁️ row in Settings. Signing out stops syncing but doesn't delete anything; ask me for that.</p>
+<p>If you're unhappy with how I handle your data, you can complain to the data protection authority where you live, or to <a href="https://www.gov.il/en/departments/the_privacy_protection_authority">Israel's Privacy Protection Authority</a>.</p>
+
+<h2>Children</h2>
+<p>Signing in, the scoreboards and reports are for players 13 and older, or older where your country's law says so (up to 16 in some EU countries), unless a parent agrees. Google and Steam set their own minimum ages for accounts. If you think a child has sent me data, email me and I'll delete it.</p>
+
+<h2>Changes to this notice</h2>
+<p>When this notice changes, the date at the top changes too. Every older version stays in the game's public code on <a href="https://github.com/ChefControl/floe-market/commits/main/public/privacy.html">GitHub</a>.</p>
+</main>
+<script>
+// Opened inside the game (Settings, Privacy): the game's already there behind it, and a link opens in a tab of its own
+if (window.self !== window.top) {
+  document.documentElement.classList.add('framed');
+  document.querySelector('.back')?.remove();
+  for (const a of document.querySelectorAll('a[href^="http"]')) { a.target = '_blank'; a.rel = 'noopener'; }
+}
+</script>
+</body>
+</html>

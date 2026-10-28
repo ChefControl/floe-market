@@ -8,6 +8,7 @@
 // bug report or an idea (report.ts).
 import { firebaseConfig } from './cloud.config';
 import type { StageN } from './layout';
+import { publicName } from './publicName';
 import { deviceStore, isStale, replaceSave, type SaveData } from './save';
 import { toast } from './ui';
 import { money } from './util';
@@ -16,6 +17,8 @@ import { worstBet, type Game } from './worstBet';
 export interface CloudUser { uid: string; name: string }
 /** A save as the cloud keeps it: save.ts's JSON, and when it was made. */
 export interface CloudSave { data: string; savedAt: number }
+/** The account's copy as read back: the save, and whether the player keeps off the scoreboards (unset: shows). */
+export interface CloudAccount extends CloudSave { hidden?: boolean }
 /** A player on the scoreboard: the most cash they've held at once, in any game, and the furthest stage reached. */
 export interface Score { uid: string; name: string; best: number; stage: StageN }
 /** A player on the wall of shame (wallOfShame.ts): the most one round at the casino's games ever lost them. */
@@ -44,8 +47,11 @@ export interface CloudBackend {
   onUser(cb: (u: CloudUser | null) => void): void;
   signIn(): Promise<void>;
   signOut(): Promise<void>;
-  read(uid: string): Promise<CloudSave | null>;
+  read(uid: string): Promise<CloudAccount | null>;
+  /** Writes the save, keeping the account's other fields. */
   write(uid: string, s: CloudSave): Promise<void>;
+  /** Keeps the player off the scoreboard and the wall of shame, taking their entries down, or lets them back on. */
+  hide(uid: string, hidden: boolean): Promise<void>;
   /** Puts a player's score on the scoreboard, keeping their best and furthest stage if those were higher before. */
   postScore(s: Score): Promise<void>;
   /** The scoreboard's top `n`, best first. */
@@ -71,6 +77,8 @@ export const cloud = {
   state: 'idle' as 'idle' | 'syncing' | 'saved' | 'offline',
   /** When the cloud last had this device's game. */
   syncedAt: 0,
+  /** Whether the signed-in player keeps off the scoreboards, as the account last said; null until it's been read. */
+  hidden: null as boolean | null,
   /** Reloads the page to start from a save just fetched from the cloud (stubbed in the tests). */
   reload: () => location.reload(),
 };
@@ -129,7 +137,7 @@ export function connect() {
 }
 
 async function onUser(u: CloudUser | null) {
-  cloud.user = u;
+  cloud.user = u; cloud.hidden = null;
   const link = readLink();
   if (u) {
     writeLink({ ...(link?.uid === u.uid ? link : { uid: u.uid, base: 0, sum: '' }), on: true });
@@ -147,7 +155,9 @@ export async function sync(ask = true) {
   busy = true;
   cloud.state = 'syncing'; render();
   try {
-    const remote = await b.read(u.uid);
+    const asked = chose, remote = await b.read(u.uid);
+    // (unless the player switched it while this read was on its way)
+    if (asked === chose) cloud.hidden = !!remote?.hidden;
     const sum = digest(raw), moved = sum !== link.sum;
     if (!remote || remote.savedAt === link.base) {
       // nobody else has saved to the account since this device last synced
@@ -178,21 +188,14 @@ async function push(b: CloudBackend, u: CloudUser, raw: string) {
 }
 
 // ---------- the scoreboard ----------
-/** Longest name the scoreboard keeps (firestore.rules checks it too). */
-export const NAME_MAX = 40;
-/** How a player shows on the scoreboard, which everyone can see: their full name, never an email. */
-export function publicName(name: string) {
-  const full = name.trim().replace(/\s+/g, ' ');
-  if (!full || full.includes('@')) return 'A player';
-  return full.length > NAME_MAX ? full.slice(0, NAME_MAX - 1).trimEnd() + '…' : full;
-}
+export { NAME_MAX, publicName } from './publicName';
 
 /** What this device last put on the scoreboard, so it only writes again when something changed. */
 let posted = '';
-/** Puts this device's game on the scoreboard, for a signed-in player. */
+/** Puts this device's game on the scoreboard, for a signed-in player who shows on it. */
 export async function postScore() {
   const u = cloud.user, b = backend, raw = deviceStore.read();
-  if (!u || !b || raw === null) return;
+  if (!u || !b || raw === null || cloud.hidden !== false) return;
   const f = facts(raw);
   const s: Score = { uid: u.uid, name: publicName(u.name), best: f.best, stage: f.stage };
   const key = JSON.stringify(s);
@@ -203,10 +206,10 @@ export async function postScore() {
 
 /** What this device last put on the wall of shame. */
 let shamed = '';
-/** Puts this device's worst bet on the wall of shame, for a signed-in player. */
+/** Puts this device's worst bet on the wall of shame, for a signed-in player who shows on it. */
 export async function postShame() {
   const u = cloud.user, b = backend, w = worstBet();
-  if (!u || !b || !w) return;
+  if (!u || !b || !w || cloud.hidden !== false) return;
   const s: Shame = { uid: u.uid, name: publicName(u.name), ...w };
   const key = JSON.stringify(s);
   if (key === shamed) return;
@@ -215,6 +218,32 @@ export async function postShame() {
 }
 /** The wall of shame's top `n`, if the cloud's been started (it isn't asked to start just for this); null if not. */
 export const topShame = (n: number) => backend?.topShame(n) ?? Promise.resolve(null);
+
+/** Times the player has switched showing on the scoreboards, so a sync's read from before a switch can't undo it. */
+let chose = 0;
+/**
+ * Puts the signed-in player on the scoreboard and the wall of shame, or takes them off both, entries and all. The
+ * choice is kept with the account, so every device follows it. Throws if the cloud didn't take it.
+ */
+export async function showOnBoards(on: boolean) {
+  const u = cloud.user, b = backend, was = cloud.hidden;
+  if (!u || !b) return;
+  chose++;
+  // nothing more goes up from the moment they say no
+  if (!on) cloud.hidden = true;
+  try {
+    await b.hide(u.uid, !on);
+  } catch (e) {
+    chose++; cloud.hidden = was; render();
+    throw e;
+  }
+  cloud.hidden = !on; posted = shamed = '';
+  render();
+  if (on) {
+    await postScore().catch(() => { /* it goes up at the next sync */ });
+    await postShame().catch(() => { /* and so does this */ });
+  }
+}
 
 /** Swaps this device's game for the account's, and restarts the page to play it. */
 function adopt(link: Link, remote: CloudSave) {
@@ -263,6 +292,13 @@ function render() {
   $('cloudWho').textContent = u ? `Signed in as ${u.name}` : '';
   $('cloudStatus').textContent = cloud.state === 'offline' ? "Can't reach the cloud right now. Your game is still saved on this device."
     : cloud.syncedAt ? `Saved to the cloud ${ago(cloud.syncedAt)}` : 'Syncing with the cloud…';
+  // under Privacy in the settings, for a signed-in player
+  $('boards').hidden = !u;
+  const boards = $('boardsToggle') as HTMLButtonElement, shown = cloud.hidden === false;
+  boards.setAttribute('aria-checked', String(shown));
+  // not known until the account's been read
+  boards.disabled = cloud.hidden === null;
+  $('boardsNote').textContent = !u || cloud.hidden === null ? '' : shown ? `As ${publicName(u.name)}` : 'Hidden from other players';
   if (!u) menu.hidden = true;
   watchers.forEach(f => f());
 }
@@ -314,6 +350,13 @@ export function initCloud() {
   btn.hidden = false;
   btn.addEventListener('click', () => { void tap(); });
   $('cloudOut').addEventListener('click', () => { void signOut(); });
+  const boards = $('boardsToggle') as HTMLButtonElement;
+  boards.addEventListener('click', () => {
+    boards.disabled = true;
+    showOnBoards(cloud.hidden !== false)
+      .catch(() => toast("Couldn't reach the cloud. Try again", 'cloud'))
+      .finally(render);
+  });
   const note = deviceStore.read(NOTE_KEY);
   if (note) { deviceStore.remove(NOTE_KEY); toast(note); }
   if (readLink()?.on) connect().catch(() => { cloud.state = 'offline'; render(); });
