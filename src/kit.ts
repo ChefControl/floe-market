@@ -6,7 +6,7 @@ import {
   type ExtrudeGeometryOptions, Float32BufferAttribute, IcosahedronGeometry, LatheGeometry, type Material, Matrix3, Matrix4,
   Mesh, MeshLambertMaterial, type Object3D, Quaternion, SphereGeometry, TorusGeometry, TubeGeometry, Vector3,
 } from 'three';
-import { isHigh, onQuality } from './graphics';
+import { highBuilt, isHigh, onQuality } from './graphics';
 import { painted } from './render';
 import { amount, onBlend, type Swatch } from './season';
 
@@ -187,6 +187,20 @@ export function pack(pieces: Piece[]) {
 /** How many indices `pack(pieces)` draws. */
 pack.count = (pieces: Piece[]) => pieces.reduce((n, p) => n + (p.geo.index?.count ?? p.geo.attributes.position.count), 0);
 
+/**
+ * Packs a merged geometry's normals and colours (floats, as three.js' mergeGeometries leaves them) into a byte a
+ * channel, in place, as `pack` stores them: a third of the memory, and drawn the same with `painted`. It makes no new
+ * geometry, so it never draws from the luck. Anything else is left as it is.
+ */
+export function compact(g: BufferGeometry) {
+  const N = g.attributes.normal, C = g.attributes.color;
+  if (!N || !C || C.itemSize !== 3 || !(N.array instanceof Float32Array) || !(C.array instanceof Float32Array)) return;
+  const ns = N.array, cs = C.array, nor = new Int8Array(ns.length), col = new Uint8Array(cs.length);
+  for (let i = 0; i < ns.length; i++) { nor[i] = Math.round(ns[i] * 127); col[i] = Math.round(cs[i] * 255); }
+  g.setAttribute('normal', new BufferAttribute(nor, 3, true));
+  g.setAttribute('color', new BufferAttribute(col, 3, true));
+}
+
 // ---------- shadows ----------
 // The sun's shadow map is a couple of centimetres a pixel, blurred over a few, so a shadow never shows the bevels,
 // the round of a ball or a stud on a lid. Each baked mesh carries a plainer copy of itself after its own triangles
@@ -248,12 +262,14 @@ export function baked(pieces: Piece[], cast: boolean, material: Material = paint
   if (!cast) {
     const m = new Mesh(pack(pieces), material);
     m.receiveShadow = true;
+    m.userData.baked = true;
     return m;
   }
   const g = pack([...pieces, ...shadowOf(pieces)]), own = pack.count(pieces);
   g.setDrawRange(0, own);
   const m = new Mesh(g, material);
   m.castShadow = m.receiveShadow = true;
+  m.userData.baked = true;
   m.userData.shadowFrom = own; // where its shadow's copy starts (batch.ts keeps it when it merges this)
   m.onBeforeShadow = () => g.setDrawRange(own, Infinity);
   m.onAfterShadow = () => g.setDrawRange(0, own);
@@ -293,6 +309,7 @@ export const at = (x: number, y: number, z: number, ry = 0) =>
  * two are usually groups under something that shows and hides itself (a counter that's open), which this leaves alone.
  */
 export function detail(low: Object3D | null, high: Object3D | null) {
+  if (high) letGo(high);
   const show = () => {
     const h = isHigh();
     if (low) low.visible = !h;
@@ -300,6 +317,22 @@ export function detail(low: Object3D | null, high: Object3D | null) {
   };
   show();
   onQuality(show);
+}
+
+/** What a High mesh holds on Potato, which never draws High (graphics.ts `highBuilt`): nothing (no corners at all, but
+ *  a list of them, which batch.ts looks at). Made the first time it's needed, on dice of its own, so it takes nothing
+ *  from the luck or the scenery's dice. */
+let nothing: BufferGeometry | undefined;
+/**
+ * On Potato, lets go of the shapes `high` was built with, so a phone short of memory doesn't keep a world it'll never
+ * draw. Only baked meshes give theirs up (the kit's, and the figures' merged ones, family.ts), since they never change
+ * once made; the meshes and groups stay where they are, so anything that asks where a High piece is still gets an
+ * answer.
+ */
+export function letGo(high: Object3D) {
+  if (highBuilt) return;
+  nothing ??= quietly(() => new BufferGeometry().setAttribute('position', new Float32BufferAttribute([], 3)), dice(0x5907A70));
+  high.traverse(o => { if (o instanceof Mesh && o.userData.baked) o.geometry = nothing!; });
 }
 
 // ---------- the seasons ----------

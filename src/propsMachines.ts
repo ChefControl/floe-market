@@ -8,7 +8,7 @@ import {
   MeshLambertMaterial, type Object3D, Quaternion, TorusGeometry, TubeGeometry, Vector3,
 } from 'three';
 import { isHigh, onQuality } from './graphics';
-import { baked, Build, dice, K, pack, quietly, rbox, shade, tube } from './kit';
+import { baked, Build, dice, K, letGo, pack, quietly, rbox, shade, tube } from './kit';
 import { painted, scene } from './render';
 
 const ROPE = 0xE3C26B, SNOW = 0xFFFFFF, BRASS = 0xC9A04A;
@@ -386,6 +386,7 @@ export function bakeByMaterial(root: Object3D) {
  */
 export function detailMarked(low: Object3D, high: Object3D) {
   low.userData.gfx = 'low'; high.userData.gfx = 'high';
+  letGo(high);
   low.visible = !isHigh(); high.visible = isHigh();
 }
 onQuality(() => scene.traverse(o => { if (o.userData.gfx) o.visible = (o.userData.gfx === 'high') === isHigh(); }));

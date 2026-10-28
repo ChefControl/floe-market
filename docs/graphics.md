@@ -6,11 +6,12 @@ The graphics were reworked in #37 (the people) and #39 (everything else). The ru
 
 ## The Graphics setting
 
-The player picks **Auto**, **Low** or **High** in the ✨ row of the settings.
+The player picks **Auto**, **🥔 Potato**, **Low** or **High** in the ✨ row of the settings.
 
 - **High** draws the world the way the people are drawn: low poly but rounded, with small details, a rolling sea, cloud shadows, seasonal snow, petals and leaves, and the effects.
 - **Low** draws everything exactly as it was before the rework, with a lighter renderer (a half-size shadow map with hard edges, at most 1.5 pixels a point). It's for phones that can't keep up.
-- **Auto**, the default, starts on High and watches the frames in two-second looks. A look is bad if it ran under 50 fps, or it stuttered: its p95 frame slower than 25 ms or its p99 slower than 50 ms. When four of the last five looks are bad it drops to Low, and it starts on Low on that device from then on (`localStorage` key `floe-market-graphics-auto`). A hitch counts as a slow frame; only a gap of over a second (the tab hidden, the phone locked) makes it settle and start watching again. It never switches back up by itself; choosing Auto in the settings starts it on High again. It also drops to Low for good when the browser takes the 3D view away while the game's on screen (a WebGL context loss: a phone short of graphics memory, or its graphics chip restarting), since Low needs about half the memory (`lowAfterLoss`, called by render.ts). If the view isn't back within 3 seconds, or the browser won't make one at all, a dialog (`#glLost`, errors.ts) says so and offers a reload.
+- **Potato** draws exactly what Low draws, for the least the renderer can do, on very low-end phones: no shadows (the sun casts none and no shadow map is held), one pixel a point, no smoothing of edges (`antialias`, only set when the 3D view is made), at most 30 frames a second (main.ts), and two stand-in lamps in the cellar instead of four. **High isn't built on a load that starts on Potato** (`highBuilt` in graphics.ts): the kit's baked meshes under a High version give up their shapes as they're made (`letGo`, kit.ts, called by `detail` and `detailMarked`), and the effect pools get no room. So going from Potato to Low or High takes a reload, and so does going into it if the memory's to be freed: a pick into or out of Potato shows a "Reload to apply" button under the choices (`gfx.reload`). Until then, a pick of High on a Potato load draws Low.
+- **Auto**, the default, starts on High and watches the frames in two-second looks. A look is bad if it ran under 50 fps, or it stuttered: its p95 frame slower than 25 ms or its p99 slower than 50 ms. When four of the last five looks are bad it drops to Low, and it starts on Low on that device from then on (`localStorage` key `floe-market-graphics-auto`). A hitch counts as a slow frame; only a gap of over a second (the tab hidden, the phone locked) makes it settle and start watching again. On Low it keeps watching, by a lower bar kept for a phone that's still struggling: a look is bad if it ran under 25 fps or its p95 frame was slower than 50 ms (under 20 fps the game itself slows down, main.ts). Four of five drop it to Potato, for good on that device too (the same key, `potato`), and a toast says "🥔 Switched to Potato graphics", once. It never switches back up by itself; choosing Auto in the settings starts it on High again. It also drops a step for good each time the browser takes the 3D view away while the game's on screen (a WebGL context loss: a phone short of graphics memory, or its graphics chip restarting): High to Low, which needs about half the memory, and Low to Potato (`lowAfterLoss`, called by render.ts). If the view isn't back within 3 seconds, or the browser won't make one at all, a dialog (`#glLost`, errors.ts) says so and offers a reload.
 
 The choice is kept on the device (`localStorage` key `floe-market-graphics`), never in the save or the cloud.
 
@@ -18,24 +19,26 @@ The choice is kept on the device (`localStorage` key `floe-market-graphics`), ne
 
 | Where | What |
 |---|---|
-| `src/graphics.ts` | The state: `gfx.quality` (`'low'` or `'high'`), `gfx.picked`, `isHigh()`, `onQuality(f)`, `choose(c)`, and Auto's watch, `frameDrawn(sec)`, called by main.ts each frame |
-| `index.html` | The ✨ category in the settings' Graphics & sound group: the `#gfxCat` row (its name, the current choice in `#gfxPick` and a chevron) opens `<div id="gfx">` under it, with one `<button data-q="…">` per choice and `#gfxNow` under them ("Auto is on High now" or "Auto is on Low now" while on Auto). Its styles are under `#gfx` in the same file |
-| `src/settings.ts` | Wires it: `category` opens and closes the panel with a click, like Sound; each button calls `choose(button.dataset.q)`; and `showGfx` (run on every `onQuality`) presses the right button and fills in `#gfxPick` and `#gfxNow` |
-| `src/render.ts` | `fitRenderer()`: the shadow map size and softness and the pixel ratio for each setting, run again on every change |
-| `src/demo.ts` | The demo build's 🛠 panel has its own Low/High buttons, which call `choose` |
+| `src/graphics.ts` | The state: `gfx.quality` (`'potato'`, `'low'` or `'high'`), `gfx.choice`, `gfx.picked`, `gfx.reload`, `highBuilt`, `isHigh()`, `isPotato()`, `onQuality(f)`, `choose(c)`, and Auto's watch, `frameDrawn(sec)`, called by main.ts each frame |
+| `index.html` | The ✨ category in the settings' Graphics & sound group: the `#gfxCat` row (its name, the current choice in `#gfxPick` and a chevron) opens `<div id="gfx">` under it, with one `<button data-q="…">` per choice, `#gfxNow` under them ("Auto is on High now", "… Low now" or "… Potato now" while on Auto), and `#gfxReload` ("Reload to apply", shown while `gfx.reload`). Its styles are under `#gfx` in the same file |
+| `src/settings.ts` | Wires it: `category` opens and closes the panel with a click, like Sound; each button calls `choose(button.dataset.q)`; and `showGfx` (run on every `onQuality`) presses the right button, fills in `#gfxPick` and `#gfxNow`, shows `#gfxReload`, and toasts when Auto drops to Potato |
+| `src/render.ts` | `fitRenderer()`: the shadow map size and softness, the sun's shadow (none on Potato) and the pixel ratio for each setting, run again on every change; and the renderer's `antialias`, off on a Potato load |
+| `src/kit.ts` | `letGo(high)`: on a Potato load, a High version's baked meshes give up their shapes |
+| `src/main.ts` | Potato's 30-frames-a-second cap, at the top of `frame` |
+| `src/demo.ts` | The demo build's 🛠 panel has its own Potato/Low/High buttons, which call `choose` |
 
 ### Reacting to the setting
 
-Anything that looks different on Low and High reads `isHigh()` when it's built and listens with `onQuality(f)` for changes. Most things don't call these directly; they use `detail` (below). Changing the setting never rebuilds anything: both versions are built up front and one of them is hidden. The switch is instant, at the cost of building both.
+Anything that looks different on Low and High reads `isHigh()` when it's built and listens with `onQuality(f)` for changes. Most things don't call these directly; they use `detail` (below). Changing the setting never rebuilds anything: both versions are built up front and one of them is hidden. The switch is instant, at the cost of building both. Potato is Low to everything that asks `isHigh()`; only the renderer, the main loop and the cellar's lamps ask `isPotato()`. On a Potato load High is still made, so the game's luck and the scenery's dice stay in step, and its shapes are let go at once (the empty shape they're given is made on its first use, on dice of its own, so it takes nothing from the luck either): anything new with a High version goes through `detail` (or a helper that calls it), or calls `letGo` on it, so Potato drops it too.
 
 ### Adding a level (say, Medium)
 
-`Quality` is a pair today, and nearly 30 files ask a yes-or-no question of it (`isHigh()`, `onQuality`, `detail`). Before adding a level:
+`Quality` has three levels today, Potato, Low and High, but nearly 30 files ask a yes-or-no question of it (`isHigh()`, `onQuality`, `detail`). Before adding a level:
 
 1. Find every consumer: `grep -rn "isHigh\|onQuality\|detail(\|detailMarked\|userData.gfx" src`. Decide for each what the new level shows. A level in between usually means some things take High's look and others Low's, so a yes/no question won't do for everything. Add a small helper in graphics.ts (for example `atLeast('medium')`) rather than comparing strings all over.
 2. Add it to `Quality`, to the line that reads the saved choice, and to `choose`.
 3. Add a `<button data-q="medium">` to the row in index.html, between Low and High. settings.ts picks it up without changes, but `showGfx`'s `#gfxPick` and "Auto is on … now" texts need the new name.
-4. Decide what Auto does with it. Today it only drops from High to Low (`setQuality('low')` in `frameDrawn`).
+4. Decide what Auto does with it. Today it drops from High to Low and from Low to Potato (`drop` in `frameDrawn` and `lowAfterLoss`), each with its own bar (`BAR`).
 5. Give it renderer settings in `fitRenderer`.
 6. Add it to the demo panel's Graphics row (demo.ts).
 7. Test it in `test/graphics.test.ts` (the choice, Auto) and `test/eyecandy.test.ts` (what shows).
@@ -133,9 +136,11 @@ Stage 3 was built after the rework, at High's detail, so there **High is the cel
 
 What Low leaves out down there:
 
-- **Lamps:** four stand-in lamps (cellar.ts `standIns`) take the colour, strength, reach and place of the four that light where the camera looks most, fading as they swap; High has all fourteen (`lights`). Every light is worked out for every pixel of everything drawn, so this is most of Low's saving on the graphics chip.
+- **Lamps:** four stand-in lamps (two on Potato; cellar.ts `standIns`) take the colour, strength, reach and place of the four that light where the camera looks most, fading as they swap; High has all fourteen (`lights`). Every light is worked out for every pixel of everything drawn, so this is most of Low's saving on the graphics chip.
 - **Small shadows:** anything under half a metre, or rod-thin, casts none (cellar.ts `sweepShadows`); the fans cast none (swarm.ts); the figures cast only their bigger pieces (family.ts `castAs`).
 - **The figures** are a notch plainer: their balls have fewer sides (family.ts `shapeFor`), and High's finer pieces (`fine`, `finePiece`) aren't drawn.
+
+On every setting, the figures' merged meshes (family.ts `flatten`, used for the Undertow, the casino's tables and band, the wrestlers) keep each corner once, by index, with their normals and colours in a byte a channel (kit.ts `compact`), as the kit's baked meshes do. Merged as plain floats with every corner of every triangle, the cellar's figures took 54 MB while hidden upstairs; now 12 MB. `flatten` copies each shape with `new BufferGeometry().copy(geo)`, one new geometry as `toNonIndexed` made, so the luck is what it was. On Potato, the figures' High copies give up their shapes too.
 - **The hatch's smoke:** half the puffs (hatchFx.ts).
 
 On both settings, while the player's down there (levelCull.ts):

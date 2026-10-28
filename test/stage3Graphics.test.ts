@@ -19,7 +19,7 @@ function seeded(seed: number) {
   };
 }
 /** A game down in the cellar (the second boss beaten: the Undertow's open), the graphics already chosen on the device. */
-async function cellar(q: 'low' | 'high', save: SaveFixture = {}) {
+async function cellar(q: 'potato' | 'low' | 'high', save: SaveFixture = {}) {
   const get = Storage.prototype.getItem;
   const spy = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(function (this: Storage, k: string) {
     return k === 'floe-market-graphics' ? q : get.call(this, k);
@@ -58,7 +58,7 @@ describe('stage 3, Low and High', () => {
     expect([Math.random(), Math.random()]).toEqual(high);
   }, 60_000);
 
-  it('lights the cellar with all fourteen lamps on High, and four standing in for the nearest on Low', async () => {
+  it('lights the cellar with all fourteen lamps on High, four standing in for the nearest on Low, and two on Potato', async () => {
     const { cellar: C, graphics, draw } = await cellar('high');
     const shownLights = () => { let n = 0; C.cellar.parent!.traverseVisible(o => { if ((o as PointLight).isPointLight && o.parent && shown(o)) n++; }); return n; };
     expect(C.lights.every(l => l.visible)).toBe(true);
@@ -75,10 +75,63 @@ describe('stage 3, Low and High', () => {
       expect(l.intensity).toBeGreaterThan(0);
       expect([s.color.getHex(), s.distance, s.intensity]).toEqual([l.color.getHex(), l.distance, l.intensity]);
     }
+    // Potato: two of them, for two of those four
+    const four = C.standIns.map(s => s.position.toArray().join());
+    graphics.choose('potato');
+    draw();
+    expect(C.standIns.map(s => s.visible)).toEqual([true, true, false, false]);
+    expect(shownLights()).toBe(onHigh - C.lights.length + 2);
+    for (const s of C.standIns.slice(0, 2)) {
+      expect(s.intensity).toBeGreaterThan(0);
+      expect(four).toContain(s.position.toArray().join());
+    }
     graphics.choose('high');
     expect(C.lights.every(l => l.visible)).toBe(true);
     expect(C.standIns.every(l => !l.visible)).toBe(true);
   }, 30_000);
+
+  it("keeps the figures small: each corner once, normals and colours in bytes, and none of High's on Potato", async () => {
+    /** The figures' merged meshes in the cellar (family.ts flatten), the bytes of their shapes, and what those would
+     *  take with every corner of every triangle as floats (position, normal and colour), as they once were. */
+    const figures = (C: typeof import('../src/cellar')) => {
+      const out: Mesh[] = [], seen = new Set<unknown>();
+      let bytes = 0, floats = 0;
+      C.cellar.traverse(o => {
+        const m = o as Mesh;
+        if (!m.isMesh || !m.userData.baked || !m.userData.noBatch) return;
+        out.push(m);
+        if (seen.has(m.geometry)) return;
+        seen.add(m.geometry);
+        for (const a of Object.values(m.geometry.attributes)) bytes += (a.array as ArrayLike<number> & { byteLength: number }).byteLength;
+        bytes += m.geometry.index?.array.byteLength ?? 0;
+        floats += (m.geometry.index?.count ?? 0) * 36;
+      });
+      return { out, bytes, floats };
+    };
+    const { cellar: C } = await cellar('low');
+    const { out, bytes, floats } = figures(C);
+    expect(out.length).toBeGreaterThan(100);
+    for (const m of out) {
+      const g = m.geometry;
+      expect(g.index).not.toBeNull();
+      expect([g.attributes.normal.array.constructor, g.attributes.color.array.constructor]).toEqual([Int8Array, Uint8Array]);
+      expect(g.attributes.position.count).toBeLessThan(g.index!.count); // corners shared
+      // its shadow's copy after its own triangles: drawn only in the shadow pass
+      if (m.castShadow) {
+        const own = g.drawRange.count;
+        expect(own).toBeLessThan(g.index!.count);
+        m.onBeforeShadow(null!, null!, null!, null!, g, null!, null!);
+        expect([g.drawRange.start, g.drawRange.count]).toEqual([own, Infinity]);
+        m.onAfterShadow(null!, null!, null!, null!, g, null!, null!);
+        expect([g.drawRange.start, g.drawRange.count]).toEqual([0, own]);
+      }
+    }
+    expect(bytes).toBeLessThan(floats * 0.25);
+    // Potato: High's copies hold no shapes
+    const potato = figures((await cellar('potato')).cellar);
+    expect(potato.bytes).toBeLessThan(bytes * 0.7);
+    expect(potato.out.filter(m => !m.geometry.attributes.position.count).length).toBeGreaterThan(out.length * 0.4);
+  }, 60_000);
 
   it('casts no shadow from the small things or the fans on Low, and every one of them again on High', async () => {
     const { cellar: C, graphics, g, render } = await cellar('high');
@@ -126,7 +179,7 @@ describe('stage 3, Low and High', () => {
     expect(tris(high)).toBeGreaterThan(tris(low));
     expect(tris(high)).toBeLessThan(12000);
     // and each casts its shadow from a plainer copy after its own triangles
-    for (const m of [...high, ...low].filter(x => x.castShadow && x.userData.noBatch)) expect(m.geometry.attributes.position.count).toBeGreaterThan(m.geometry.drawRange.count);
+    for (const m of [...high, ...low].filter(x => x.castShadow && x.userData.noBatch)) expect(m.geometry.index!.count).toBeGreaterThan(m.geometry.drawRange.count);
   }, 30_000);
 
   it('dresses the wrestlers finer on High only: ears, a nose, toes, thumbs', async () => {

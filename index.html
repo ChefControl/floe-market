@@ -618,10 +618,12 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
 #gfxPick{ margin-left:auto; font-size:13px; font-weight:700; opacity:.6; }
 #settings #gfxCat .chev{ margin-left:8px; }
 #gfx .seg{ display:flex; gap:2px; padding:3px; border-radius:12px; background:rgba(127,140,150,.22); }
-#gfx .seg button{ flex:1; min-height:38px; padding:0 7px; border:0; border-radius:9px; background:transparent; color:var(--pill-ink); font:700 15px "Floe Emoji","Baloo 2","Trebuchet MS",system-ui,sans-serif; cursor:pointer; }
+#gfx .seg button{ flex:1; min-height:38px; padding:0 5px; white-space:nowrap; border:0; border-radius:9px; background:transparent; color:var(--pill-ink); font:700 15px "Floe Emoji","Baloo 2","Trebuchet MS",system-ui,sans-serif; cursor:pointer; }
 #gfx .seg button[aria-pressed="true"]{ background:var(--coral); color:#fff; box-shadow:0 2px 0 var(--shade); }
 #gfxNow{ font-size:12px; font-weight:700; opacity:.6; text-align:center; }
 #gfxNow[hidden]{ display:none; }
+#gfxReload{ align-self:center; min-height:38px; padding:0 16px; border:0; border-radius:999px; background:var(--go); color:#fff; font:800 15px "Floe Emoji","Baloo 2","Trebuchet MS",system-ui,sans-serif; box-shadow:0 2px 0 rgba(20,90,40,.4); cursor:pointer; }
+#gfxReload[hidden]{ display:none; }
 .vol{ display:grid; grid-template-columns:44px 1fr auto; align-items:center; column-gap:10px; row-gap:2px; }
 .vol .mute{ grid-row:1 / span 2; width:44px; height:44px; padding:0; border:0; border-radius:50%; background:var(--pill); color:var(--pill-ink); font-size:20px; line-height:1; cursor:pointer; box-shadow:0 2px 0 var(--shade); }
 .vol label{ font:700 15px "Floe Emoji","Baloo 2","Trebuchet MS",system-ui,sans-serif; }
@@ -1502,7 +1504,7 @@ body.show #toss, body.show #cook, body.show #coach, body.show #hint, body.show #
   <button id="lookOpen" type="button"><span class="ic" aria-hidden="true">👕</span>Your look</button>
   <h2 class="sgroup">Graphics &amp; sound</h2>
   <button id="gfxCat" class="cat" type="button" aria-expanded="false" aria-controls="gfx"><span class="ic" aria-hidden="true">✨</span><span id="gfxName">Graphics</span><small id="gfxPick"></small><i class="chev" aria-hidden="true"></i></button>
-  <div id="gfx" class="catPanel" role="group" aria-labelledby="gfxName" hidden><span class="seg"><button type="button" data-q="auto" aria-pressed="true">Auto</button><button type="button" data-q="low" aria-pressed="false">Low</button><button type="button" data-q="high" aria-pressed="false">High</button></span><small id="gfxNow" aria-live="polite"></small></div>
+  <div id="gfx" class="catPanel" role="group" aria-labelledby="gfxName" hidden><span class="seg"><button type="button" data-q="auto" aria-pressed="true">Auto</button><button type="button" data-q="potato" aria-pressed="false">🥔 Potato</button><button type="button" data-q="low" aria-pressed="false">Low</button><button type="button" data-q="high" aria-pressed="false">High</button></span><small id="gfxNow" aria-live="polite"></small><button id="gfxReload" type="button" hidden>Reload to apply</button></div>
   <button id="soundCat" class="cat" type="button" aria-expanded="false" aria-controls="soundPanel"><span class="ic" aria-hidden="true">🔊</span>Sound<i class="chev" aria-hidden="true"></i></button>
   <div id="soundPanel" class="catPanel" role="group" aria-label="Sound" hidden>
     <div class="vol"><button type="button" class="mute" id="muteSfx" aria-pressed="false" aria-label="Mute effects"></button><label for="volSfx">Effects</label><output id="volSfxN" for="volSfx">7</output><input type="range" id="volSfx" min="0" max="10" step="1" value="7"></div>
