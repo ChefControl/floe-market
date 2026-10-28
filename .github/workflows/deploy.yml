@@ -69,7 +69,8 @@ jobs:
           retention-days: 30
       # Stage 3 is open to players (src/flags.ts). To take it back, set 'off' and push: saves that have met Mr. Fugu
       # keep it on. The web game has Buy me a coffee (Ko-fi, src/flags.ts); it's off in any build that doesn't say so,
-      # the Steam build's included.
+      # the Steam build's included. The build also lists the open-source licences of what it bundled, and stops on a GPL,
+      # LGPL or AGPL one, or one it can't read, that the owner hasn't approved (scripts/licences.ts).
       - run: npm run build
         env:
           VITE_STAGE3: 'on'
