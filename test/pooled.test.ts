@@ -118,6 +118,81 @@ describe('pooled drawing', () => {
     expect(placesOf(plate)).toHaveLength(1);
   });
 
+  it("lets go of a piece taken out (a plate's sushi, eaten), and pools one put in", async () => {
+    const { g, scene, frame, placesOf } = await setUp();
+    const { renderer, camera } = g.render;
+    const plate = g.items.newPlate(10, false) as Mesh, nigiri = plate.children[0] as Mesh;
+    const other = g.items.newPlate(10, false) as Mesh;
+    plate.position.set(FAR, 1, 0); other.position.set(FAR + 2, 1, 0);
+    scene.add(plate, other);
+    frame();
+    expect(placesOf(nigiri)).toHaveLength(2);
+    // eaten (restaurant.ts finishPlate): the plate's left, and its sushi isn't drawn where it was
+    plate.clear(); frame();
+    expect(placesOf(plate)).toHaveLength(2);
+    expect(placesOf(nigiri).map(v => v.x)).toEqual([expect.closeTo(FAR + 2)]);
+    // (and not when the frame's drawn again without the scene placed first: looked at the long way)
+    scene.onBeforeRender(renderer, scene, camera, null!, null!, null!);
+    expect(placesOf(nigiri)).toHaveLength(1);
+    // put down by itself, it draws itself
+    expect(nigiri.layers.mask).toBe(1);
+    nigiri.position.set(FAR + 4, 1, 0); scene.add(nigiri); frame();
+    expect([nigiri.layers.mask, placesOf(nigiri).length]).toEqual([1, 1]);
+    // put on the other plate, it's pooled with that one's
+    nigiri.position.set(0, 0.1, 0); other.add(nigiri); frame();
+    expect([nigiri.layers.mask, placesOf(nigiri).length]).toEqual([0, 2]);
+    expect(placesOf(nigiri).some(v => v.distanceTo(at(nigiri)) < 1e-4)).toBe(true);
+    // and onto the first again, straight from the other: drawn once, on it
+    nigiri.position.set(0, 0.1, 0); plate.add(nigiri); frame();
+    expect(nigiri.layers.mask).toBe(0);
+    expect(placesOf(nigiri).filter(v => v.distanceTo(at(nigiri)) < 1e-4)).toHaveLength(1);
+    // a mesh put in later is pooled, and let go of when it's taken out; something pooled itself put in is drawn once
+    const extra = new Mesh(new BoxGeometry(), new MeshLambertMaterial());
+    plate.add(extra); frame();
+    expect([extra.layers.mask, placesOf(extra).length]).toEqual([0, 1]);
+    plate.remove(extra); frame();
+    expect([extra.layers.mask, placesOf(extra).length]).toEqual([1, 0]);
+    const chip = g.items.newChip(true);
+    plate.add(chip); frame();
+    expect([chip.layers.mask, placesOf(chip).length]).toEqual([0, 1]);
+    // a whole part taken out (a fish's tail): every mesh in it let go of
+    const { newFish } = await import('../src/fishModel');
+    const fish = newFish();
+    fish.g.position.set(FAR + 6, 1, 0); scene.add(fish.g); frame();
+    const tail = fish.tail.children[0] as Mesh;
+    fish.g.remove(fish.tail); frame();
+    expect([tail.layers.mask, placesOf(tail).length]).toEqual([1, 0]);
+  });
+
+  it('draws a piece moved from one to another once, whichever was changed first, on the layers it had', async () => {
+    const { g, scene, frame, placesOf } = await setUp();
+    const a = g.items.newPlate(10, false) as Mesh, b = g.items.newPlate(10, false) as Mesh, nigiri = a.children[0] as Mesh;
+    a.position.set(FAR, 1, 0); b.position.set(FAR + 2, 1, 0);
+    scene.add(a, b);
+    frame();
+    // b changed first, then the nigiri moved from a to b
+    const extra = new Mesh(new BoxGeometry(), new MeshLambertMaterial());
+    extra.layers.enable(3);
+    nigiri.position.x = 0.3; b.add(extra); b.add(nigiri); frame();
+    expect(nigiri.layers.mask).toBe(0);
+    expect(placesOf(nigiri).filter(v => v.distanceTo(at(nigiri)) < 1e-4)).toHaveLength(1);
+    expect(placesOf(nigiri)).toHaveLength(2);
+    // taken out, it's back on the layers it had when first pooled
+    b.remove(extra); frame();
+    expect(extra.layers.mask).toBe(1 | 1 << 3);
+    // into one that's been let go of (in a group thrown away, and put back): it draws itself, as that one does
+    const carrier = new Group(); scene.add(carrier); carrier.add(b); frame();
+    scene.remove(carrier);
+    for (let i = 0; i < 600; i++) frame();
+    scene.add(carrier); frame();
+    expect(b.layers.mask).toBe(1);
+    const back = g.items.newPlate(10, false).children[0] as Mesh;
+    a.add(back); frame();
+    expect(back.layers.mask).toBe(0);
+    back.position.x = -0.3; b.add(extra); b.add(back); frame();
+    expect([back.layers.mask, placesOf(back).filter(v => v.distanceTo(at(back)) < 1e-4).length]).toEqual([1, 0]);
+  });
+
   it("draws a piece by itself while it draws its own way, and back in its pool after", async () => {
     const { g, scene, frame, placesOf } = await setUp();
     const { newFish } = await import('../src/fishModel');
