@@ -3014,6 +3014,8 @@ export function updLamps(at: XZ, dt: number) {
   // (all of them at once the first time: just come down, or just switched to Low)
   const first = holds.every(h => h.i < 0);
   for (const [n, h] of holds.entries()) {
+    // (a stand-in not shown, on Potato, holds nothing: it'd take the lamp the one shown is waiting for)
+    if (n >= standing()) { h.i = -1; h.k = 0; standIns[n].intensity = 0; continue; }
     if (h.i >= 0 && want.includes(h.i)) h.k = Math.min(1, h.k + dt / SWAP);
     else if ((h.k = Math.max(0, h.k - dt / SWAP)) === 0) {
       h.i = want.find(i => !holds.some(o => o.i === i)) ?? -1;
@@ -3054,9 +3056,10 @@ function sweepShadows() {
   });
 }
 onQuality(sweepShadows);
-/** On Low, now and then, for what's come into the cellar since (bowls, the machines bought). */
+/** On Low, now and then, for what's come into the cellar since (bowls, the machines bought). Not on Potato, which casts
+ *  no shadows: the sweep when it changes to Low catches up. */
 function sweepNowAndThen(dt: number) {
-  if (isHigh() || (sweepT -= dt) > 0) return;
+  if (isHigh() || isPotato() || (sweepT -= dt) > 0) return;
   sweepT = 2;
   sweepShadows();
 }

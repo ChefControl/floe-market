@@ -46,7 +46,9 @@ export function fit(el: HTMLElement, least = Number(el.dataset.least) || 0.7) {
   if (el.scrollWidth > el.clientWidth + 0.5) { el.style.fontSize = ''; el.classList.add('two'); }
 }
 const fitted: HTMLElement[] = [];
-const refit = () => fitted.forEach(fit);
+// (each passed alone: forEach would hand fit its index as `least`, the first name shrinking without a floor and the
+// rest not at all)
+const refit = () => fitted.forEach(el => fit(el));
 document.fonts?.ready.then(refit);
 // (and as any font comes in later: the strip's own, Bungee, only loads once it's first shown, fonts.ts, and the names
 // are fitted only when the strip's words change, not every frame)
