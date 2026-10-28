@@ -20,6 +20,7 @@ import { clink } from './sfx';
 import { allYear, animPerson, Person, SUITS } from './characters';
 import { byTheStall, STALL } from './casinoRestroom';
 import { atTheWall } from './wallOfShame';
+import { K } from './kit';
 import { DECKS, inSalon, pushOutOfBox, SALON, SHIP, stage, UPPER } from './layout';
 import { player } from './player';
 import { bake, bakePainted, canvasTex, FONT, G, mesh, scene, type Part } from './render';
@@ -171,7 +172,8 @@ const SIGN_TEX = canvasTex(512, 160, (c, w, h) => {
   c.lineJoin = 'round'; c.lineWidth = 14; c.strokeStyle = '#2A0F16'; c.strokeText('CASINO', w / 2, h / 2 + 6);
   c.fillStyle = '#FFD24A'; c.fillText('CASINO', w / 2, h / 2 + 6);
 });
-/** The marquee's bulbs, in two sets that take turns to light: the chase round the CASINO sign. */
+/** The marquee's bulbs, in two sets that take turns to light: the chase round the CASINO sign. Flat colours, so a
+ *  bulb a few pixels across is a dot whatever its shape: the kit's small ball (56 triangles, not 252). */
 const bulbsOn = new MeshBasicMaterial({ color: 0xFFE08A }), bulbsOff = new MeshBasicMaterial({ color: 0xB07A2A });
 /** The top of the jackstaff at the bow (casino.ts), which the strings of lights run down to from the mast. */
 export const JACK = { x: SHIP.bow - 0.55, y: FY + 3.0 };
@@ -278,7 +280,7 @@ function buildRoof() {
   for (const s of [-1, 1]) {
     for (let k = 1; k < 18; k++) {
       const t = k / 18, tx = MAST.x + 0.07, ty = mastTop - 0.4;
-      strings.push({ geo: G.sphere, at: [JACK.x + (tx - JACK.x) * t, JACK.y + (ty - JACK.y) * t - Math.sin(Math.PI * t) * 0.1, s * MAST.spread * t], scale: [0.06, 0.06, 0.06] });
+      strings.push({ geo: K.ball, at: [JACK.x + (tx - JACK.x) * t, JACK.y + (ty - JACK.y) * t - Math.sin(Math.PI * t) * 0.1, s * MAST.spread * t], scale: [0.06, 0.06, 0.06] });
     }
   }
   const lights = mesh(bake(strings), bulbsOn);
@@ -298,7 +300,7 @@ function buildSigns(g: Group) {
     face.position.set(SIGN.x, SIGN.y, z + side * 0.015); if (side < 0) face.rotation.y = Math.PI;
     g.add(face);
     let i = 0;
-    const bulb = (x: number, y: number) => sets[i++ % 2].push({ geo: G.sphere, at: [x, y, z + side * 0.02], scale: [0.04, 0.04, 0.04] });
+    const bulb = (x: number, y: number) => sets[i++ % 2].push({ geo: K.ball, at: [x, y, z + side * 0.02], scale: [0.04, 0.04, 0.04] });
     for (let x = -SIGN.w / 2; x <= SIGN.w / 2 + 0.01; x += SIGN.w / 14) { bulb(SIGN.x + x, SIGN.y + SIGN.h / 2 + 0.06); bulb(SIGN.x + x, SIGN.y - SIGN.h / 2 - 0.06); }
     for (const e of [-1, 1]) for (let y = -SIGN.h / 2 + 0.14; y < SIGN.h / 2 - 0.08; y += 0.2) bulb(SIGN.x + e * (SIGN.w / 2 + 0.06), SIGN.y + y);
   }
