@@ -614,7 +614,7 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
 #creditsCard li{ margin:2px 0; }
 #creditsCard a{ color:inherit; }
 #creditsCard .copy{ margin:8px 0 0; font-weight:700; }
-/* Graphics opens into Auto, Low or High, and on Auto, which one the game is using; the row shows the choice */
+/* Graphics opens into Auto, Potato, Low or High, and on Auto, which one the game is using; the row shows the choice */
 #gfxPick{ margin-left:auto; font-size:13px; font-weight:700; opacity:.6; }
 #settings #gfxCat .chev{ margin-left:8px; }
 #gfx .seg{ display:flex; gap:2px; padding:3px; border-radius:12px; background:rgba(127,140,150,.22); }
@@ -623,6 +623,8 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
 #gfxNow{ font-size:12px; font-weight:700; opacity:.6; text-align:center; }
 #gfxNow[hidden]{ display:none; }
 #gfxReload{ align-self:center; min-height:38px; padding:0 16px; border:0; border-radius:999px; background:var(--go); color:#fff; font:800 15px "Floe Emoji","Baloo 2","Trebuchet MS",system-ui,sans-serif; box-shadow:0 2px 0 rgba(20,90,40,.4); cursor:pointer; }
+#gfxReload:active{ transform:translateY(2px); box-shadow:none; }
+@media (hover: hover) and (pointer: fine){ #gfxReload:hover:not(:active){ transform:translateY(-1px); } }
 #gfxReload[hidden]{ display:none; }
 .vol{ display:grid; grid-template-columns:44px 1fr auto; align-items:center; column-gap:10px; row-gap:2px; }
 .vol .mute{ grid-row:1 / span 2; width:44px; height:44px; padding:0; border:0; border-radius:50%; background:var(--pill); color:var(--pill-ink); font-size:20px; line-height:1; cursor:pointer; box-shadow:0 2px 0 var(--shade); }
@@ -1379,7 +1381,7 @@ body.offer #wayAlert, body.way #wayAlert, body.meet #wayAlert{ visibility:hidden
 /* fingers need bigger targets than a mouse */
 @media (pointer: coarse){
   #cloudMenu button{ min-height:38px; }
-  #settings > button, #settings > a{ min-height:44px; }
+  #settings > button, #settings > a, #gfx .seg button, #gfxReload{ min-height:44px; }
   #look .word{ min-height:40px; }
   #korki .btns button{ width:42px; height:42px; }
 }
