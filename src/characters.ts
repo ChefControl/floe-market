@@ -295,7 +295,7 @@ class Jointed extends SkinnedMesh {
     return target;
   }
   /** The box round them as they stand: each bone's pieces' box, where that bone is (as their meshes in pieces were). */
-  posed() {
+  boxWhereStands() {
     const boxes = this.geometry.userData.boxes as (Box3 | undefined)[] | undefined;
     this.box.makeEmpty();
     boxes?.forEach((b, i) => {
@@ -310,7 +310,7 @@ class Jointed extends SkinnedMesh {
 }
 const part = new Box3();
 // (its box is worked out from where its bones are each time it's asked for: three.js keeps the first it's worked out)
-Object.defineProperty(Jointed.prototype, 'boundingBox', { get(this: Jointed) { return this.posed(); }, set() {} });
+Object.defineProperty(Jointed.prototype, 'boundingBox', { get(this: Jointed) { return this.boxWhereStands(); }, set() {} });
 
 /** A walker with swinging limbs. */
 export class Person extends Group {
