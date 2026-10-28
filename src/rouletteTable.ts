@@ -156,7 +156,7 @@ function buildTable() {
   const screen = new Mesh(new PlaneGeometry(BOARD_AT.w - 0.02, 2 * (BOARD_AT.w - 0.02)), new MeshBasicMaterial({ map: boardTex.tex }));
   screen.position.set(0, BOARD_AT.y, 0.027); board.add(screen);
   board.rotation.y = -0.25;
-  const croupier = allYear(new Person(SUITS[2], 'fancy'));
+  const croupier = allYear(new Person(SUITS[2], 'fancy')).standStill();
   croupier.position.set(0, 0, -1.15);
   g.add(croupier);
   const voice = speaker(g, 2.0);

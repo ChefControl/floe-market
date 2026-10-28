@@ -180,7 +180,10 @@ Whatever has stood still for a second is drawn merged with its neighbours: one m
   - instanced and skinned meshes;
   - anything under an object with `userData.noBatch = true`, as people have.
 
-  Use `noBatch` for anything that moves all the time.
+  Use `noBatch` for anything that moves all the time. People who stay put for good (the casino yacht's staff and
+  guests) call `standStill()` (characters.ts): no `noBatch` and no breathing, so they're merged while they hold still,
+  and an arm that moves drops out of the merge while it does. On the yacht that took about 85 draw calls off the frame
+  at the quay.
 - **Lots of moving copies:** use one `InstancedMesh` instead, as the effects and the foam rings (sea.ts) do.
 
 ### Hidden things aren't placed

@@ -356,7 +356,8 @@ function buildBar(g: Group) {
 function guest(i: number, hatless = false) {
   const who = crowd();
   if (hatless) who.hat = 'bare';
-  return allYear(new Person(who.woman ? DRESSES[i % DRESSES.length] : SUITS[i % SUITS.length], 'fancy', who));
+  // (they all stay where they're put: the gamblers at the machines, the drinkers on their stools, the fan by the tables)
+  return allYear(new Person(who.woman ? DRESSES[i % DRESSES.length] : SUITS[i % SUITS.length], 'fancy', who)).standStill();
 }
 
 /** One of the salon's slot machines (`i` along the row), its reels spinning when a guest plays it: for `len` seconds,
@@ -394,7 +395,7 @@ function buildCrowd(g: Group) {
   });
   // the bar: two bartenders behind it, one polishing a glass and one shaking a cocktail, and guests on three stools
   const bartenders = [-1.1, 1.3].map(z => {
-    const b = allYear(new Person(0x1F1F1F, 'waiter'));
+    const b = allYear(new Person(0x1F1F1F, 'waiter')).standStill();
     b.position.set(BAR.x - 0.5, UPPER, z); b.rotation.y = Math.PI / 2;
     g.add(b);
     return b;
