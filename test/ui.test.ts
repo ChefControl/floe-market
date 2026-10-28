@@ -337,6 +337,8 @@ describe('settings', () => {
     // the songs at her house and Korki's statue are the game's own now: nothing from YouTube
     expect(card.textContent).toContain("the songs at her house and at Korki's statue too");
     expect(card.querySelector('a[href*="youtube"]')).toBeNull();
+    // and the game's own copyright, last
+    expect(card.lastElementChild!.textContent).toBe('Floe Market © 2026 ChefControl. All rights reserved.');
     row.click();
     expect([card.hidden, row.getAttribute('aria-expanded')]).toEqual([true, 'false']);
     expect($('soundPanel').textContent).not.toContain('fugacious');

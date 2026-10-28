@@ -1,13 +1,16 @@
 Copyright (c) 2026 ChefControl. All rights reserved.
 
-The source code, art, music and other content in this repository are made public so they can be read. No license
-is granted to copy, modify, distribute, or use any of it, in whole or in part, without written permission from the
-copyright holder.
+The source code, art (the emoji drawings in public/fonts/emoji.woff2 included), music and other content in this
+repository are made public so they can be read. No license is granted to copy, modify, distribute, or use any of it, in
+whole or in part, without written permission from the copyright holder.
+
+Playing the game is another matter: anyone may play the web game for free, and buying the Steam version gives you a
+license to play it under the Steam Subscriber Agreement.
 
 Recorded sounds by others are used under their own licenses, listed in public/sounds/CREDITS.md and in the game's
-Credits & Copyrights; those licenses apply to those files. The fonts in public/fonts are under the SIL Open Font
-License 1.1, whose texts sit beside them.
+Credits & Copyrights; those licenses apply to those files. The text fonts in public/fonts (Baloo 2, Bungee and Shippori
+Mincho B1) are under the SIL Open Font License 1.1, whose texts sit beside them.
 
-The open-source libraries built into the game (three.js, html2canvas, Firebase and the code they bring) are not part of
-this repository and keep their own licenses. The built game lists them under Credits & Copyrights, with their full
+The open-source libraries built into the game, in the web game and in the Steam version alike, are not part of this
+repository and keep their own licenses. Each build lists the ones it carries under Credits & Copyrights, with their full
 texts in licences.txt.
