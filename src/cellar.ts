@@ -3047,6 +3047,9 @@ function sweepShadows() {
   const low = !isHigh();
   cellar.updateMatrixWorld();
   cellar.traverse(o => {
+    // (someone drawn as one, characters.ts: their arms and legs are as slight as ever, so they cast with the body's alone;
+    // asked by name, as importing people here would make their shapes as the cellar loads, on its luck)
+    if ('limbShadows' in o) (o as { limbShadows: boolean }).limbShadows = !low;
     const m = o as Mesh;
     if (!m.isMesh || (m as unknown as InstancedMesh).isInstancedMesh || m.onBeforeShadow !== Mesh.prototype.onBeforeShadow) return;
     if (low && m.castShadow && slight(m)) { m.castShadow = false; m.userData.slight = true; }
