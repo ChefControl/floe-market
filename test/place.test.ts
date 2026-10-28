@@ -1,5 +1,5 @@
 // render.ts `place`: each frame, world matrices are worked out only for what shows and only for what's moved, and the
-// marks it leaves (`walkedAt`, `movedAt`, `placePass`) say which, for batch.ts.
+// marks it leaves on each thing's record (`placed.walkedAt`, `placed.movedAt`, with `placePass`) say which, for batch.ts.
 import { Box3, BoxGeometry, Group, Matrix4, Mesh, Object3D, PerspectiveCamera, Vector3 } from 'three';
 import { afterEach, describe, expect, it } from 'vitest';
 import * as render from '../src/render';
@@ -32,7 +32,7 @@ const fresh = () => { const t = tree(); made.push(t.root); return t; };
 describe('placing what shows (render.ts place)', () => {
   it('places everything that shows, right, the first time', () => {
     const { root, mid, leaf } = fresh();
-    for (const o of [root, mid, leaf]) { right(o); expect(o.walkedAt).toBe(render.placePass); expect(o.movedAt).toBe(render.placePass); }
+    for (const o of [root, mid, leaf]) { right(o); expect(o.placed!.walkedAt).toBe(render.placePass); expect(o.placed!.movedAt).toBe(render.placePass); }
   });
 
   it('counts each placing of the scene, and marks what it walks every time', () => {
@@ -40,7 +40,7 @@ describe('placing what shows (render.ts place)', () => {
     const n = render.placePass;
     place(); place();
     expect(render.placePass).toBe(n + 2);
-    expect(leaf.walkedAt).toBe(n + 2);
+    expect(leaf.placed!.walkedAt).toBe(n + 2);
   });
 
   it('leaves what stands still alone: no matrix built, no world matrix worked out', () => {
@@ -54,8 +54,32 @@ describe('placing what shows (render.ts place)', () => {
     };
     try { place(); place(); } finally { Matrix4.prototype.compose = compose; }
     expect(built).toBe(0);
-    for (const o of [root, mid, leaf]) expect(o.movedAt).toBe(at);
+    for (const o of [root, mid, leaf]) expect(o.placed!.movedAt).toBe(at);
     expect(leaf.matrixWorld.equals(before)).toBe(true);
+  });
+
+  it('writes nothing on what stands still but its record, and only `walkedAt` there', () => {
+    const { root, mid, leaf } = fresh();
+    const hidden = new Group();
+    hidden.visible = false;
+    mid.add(hidden);
+    place();
+    // every write of a mark three.js keeps on the thing itself, counted, and no mark of place's own added to it
+    let writes = 0;
+    const keys = [root, mid, leaf, hidden].map(o => Object.keys(o).join());
+    const kept = [root, mid, leaf, hidden].map(o => {
+      let v = o.matrixWorldNeedsUpdate;
+      Object.defineProperty(o, 'matrixWorldNeedsUpdate', { get: () => v, set: (x: boolean) => { writes++; v = x; }, configurable: true, enumerable: true });
+      return () => Object.defineProperty(o, 'matrixWorldNeedsUpdate', { value: v, writable: true, configurable: true, enumerable: true });
+    });
+    const was = [root, mid, leaf].map(o => ({ ...o.placed! }));
+    try { place(); place(); } finally { for (const put of kept) put(); }
+    expect(writes).toBe(0);
+    expect([root, mid, leaf, hidden].map(o => Object.keys(o).join())).toEqual(keys);
+    [root, mid, leaf].forEach((o, i) => {
+      expect({ ...o.placed!, walkedAt: was[i].walkedAt }).toEqual(was[i]);
+      expect(o.placed!.in).toBe(was[i].in);
+    });
   });
 
   it('picks up a move, a turn or a resize, and carries what stands still in it along', () => {
@@ -65,23 +89,23 @@ describe('placing what shows (render.ts place)', () => {
       change();
       place();
       for (const o of [root, mid, leaf]) right(o);
-      expect(leaf.movedAt).toBe(render.placePass);
+      expect(leaf.placed!.movedAt).toBe(render.placePass);
     }
     // only what moved, and what's in it
     leaf.position.y = 4;
     place();
-    expect(leaf.movedAt).toBe(render.placePass);
-    expect(mid.movedAt).toBeLessThan(render.placePass);
+    expect(leaf.placed!.movedAt).toBe(render.placePass);
+    expect(mid.placed!.movedAt).toBeLessThan(render.placePass);
   });
 
   it('places something again the moment it shows, if it or what it is in moved while hidden', () => {
     const { root, mid, leaf } = fresh();
     mid.visible = false;
     place();
-    const seen = leaf.walkedAt!;
+    const seen = leaf.placed!.walkedAt;
     root.position.x = 9; mid.position.y = 5; leaf.position.z = 2;
     place();
-    expect(leaf.walkedAt).toBe(seen); // hidden: not walked
+    expect(leaf.placed!.walkedAt).toBe(seen); // hidden: not walked
     mid.visible = true;
     place();
     for (const o of [root, mid, leaf]) right(o);
@@ -117,7 +141,7 @@ describe('placing what shows (render.ts place)', () => {
     mid.add(leaf);
     place();
     right(leaf);
-    expect(leaf.movedAt).toBe(render.placePass);
+    expect(leaf.placed!.movedAt).toBe(render.placePass);
     // a frame in a hidden group, asked where it is there
     const shed = new Group();
     shed.position.set(50, 0, 0); shed.visible = false;
@@ -151,17 +175,17 @@ describe('placing what shows (render.ts place)', () => {
     o.matrix.makeTranslation(0, 0, 6);
     place();
     expect(near(o.matrixWorld, want())).toBe(true);
-    expect(o.movedAt).toBe(render.placePass);
+    expect(o.placed!.movedAt).toBe(render.placePass);
     // changed, marked, and placed by three.js before the frame: right, and marked as moved for batch.ts
     o.matrix.makeTranslation(0, 0, 9);
     o.matrixWorldNeedsUpdate = true;
     o.updateMatrixWorld();
     place();
     expect(near(o.matrixWorld, want())).toBe(true);
-    expect(o.movedAt).toBe(render.placePass);
+    expect(o.placed!.movedAt).toBe(render.placePass);
     // left alone, it stands still
     place();
-    expect(o.movedAt).toBe(render.placePass - 1);
+    expect(o.placed!.movedAt).toBe(render.placePass - 1);
     // and built from its pose again once it builds its own
     o.matrixAutoUpdate = true;
     place();
@@ -182,9 +206,9 @@ describe('placing what shows (render.ts place)', () => {
 
   it('asking where something still is (getWorldPosition) leaves it standing still', () => {
     const { leaf } = fresh();
-    const at = leaf.movedAt;
+    const at = leaf.placed!.movedAt;
     for (let i = 0; i < 3; i++) { leaf.getWorldPosition(new Vector3()); place(); }
-    expect(leaf.movedAt).toBe(at);
+    expect(leaf.placed!.movedAt).toBe(at);
   });
 
   it('places again what three.js placed from another pose, even when put back before the frame is drawn', () => {

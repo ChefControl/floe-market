@@ -20,7 +20,7 @@ import {
   type ShaderMaterial, Sphere, type WebGLRenderer,
 } from 'three';
 import { dice, quietly } from './kit';
-import { placePass, scene as drawnScene } from './render';
+import { type Placed, placePass, scene as drawnScene } from './render';
 
 /** Instances a pool makes room for at first; it doubles when it fills. */
 const ROOM = 16;
@@ -38,9 +38,14 @@ interface Piece {
   m: Mesh; pool: Pool | null; geo?: BufferGeometry; mat?: Material | Material[]; cast: boolean; recv: boolean; order: number;
   clear: boolean; seen: boolean; cuts: number; shadow?: Mesh['onBeforeShadow']; from?: unknown; start: number; count: number;
   flipped: boolean; moved: number;
+  /** What `place` keeps on it (render.ts), once it's made: kept here, as it's read every frame, and reading it off
+   *  the mesh, of many kinds, is slow. */
+  placed: Placed | undefined;
 }
+/** Something drawn pooled: its pieces, and what `place` keeps on it, as a piece's. */
+interface Item { o: Object3D; pieces: Piece[]; placed: Placed | undefined }
 
-const pieces = new WeakMap<Object3D, Piece[]>(), live = new Set<Object3D>(), strays = new Map<Object3D, number>();
+const items = new WeakMap<Object3D, Item>(), live = new Set<Item>(), strays = new Map<Item, number>();
 /** Each piece's layers when it draws itself (as they were when it was first pooled). */
 const masks = new WeakMap<Mesh, number>();
 /** Things something's been put into or taken out of since they were last looked at, and what's in each one's watched
@@ -60,18 +65,21 @@ let root: Object3D | null = null, drawn: Group, walked = false, lastPass = -1;
  * it, standing still or not). For things made over and over that move about; returns it.
  */
 export function pooled<T extends Object3D>(o: T): T {
-  pieces.set(o, piecesOf(o).map(newPiece));
+  if (items.has(o)) return o;
+  const it: Item = { o, pieces: [], placed: undefined };
+  items.set(o, it);
+  it.pieces = piecesOf(o).map(newPiece);
   o.userData.noBatch = true;
-  o.addEventListener('added', () => live.add(o));
-  o.addEventListener('removed', () => { live.delete(o); strays.delete(o); });
-  if (o.parent) live.add(o);
+  o.addEventListener('added', () => live.add(it));
+  o.addEventListener('removed', () => { live.delete(it); strays.delete(it); });
+  if (o.parent) live.add(it);
   return o;
 }
 
 /** The meshes in `o` now (not those of anything pooled itself that's put in it: that draws them), its own and
  *  everything in it watched for what's put in or taken out. */
 function piecesOf(o: Object3D, c: Object3D = o, list: Mesh[] = []) {
-  if (c !== o && pieces.has(c)) return list;
+  if (c !== o && items.has(c)) return list;
   if (watched.get(c) !== o) {
     if (!watched.has(c)) {
       c.addEventListener('childadded', heard);
@@ -96,7 +104,7 @@ function heard(this: Object3D) {
 }
 const newPiece = (m: Mesh): Piece => ({
   m, pool: null, cast: false, recv: false, order: 0, clear: false, seen: false, cuts: 0, start: 0, count: 0,
-  flipped: false, moved: NaN,
+  flipped: false, moved: NaN, placed: undefined,
 });
 /** Draws a piece itself again, as it did before it was pooled. */
 const letGo = (m: Mesh) => { m.layers.mask = masks.get(m)!; };
@@ -212,7 +220,7 @@ function fill(renderer: WebGLRenderer, scene: Scene, camera: Camera) {
   // what's been put in or taken out: looked at again. A piece taken out draws itself (one put in something else
   // that's pooled, and showing, goes back into a pool below, as it's drawn)
   for (const o of changed) {
-    const was = new Map(pieces.get(o)!.map(c => [c.m, c])), now = piecesOf(o).map(m => {
+    const it = items.get(o)!, was = new Map(it.pieces.map(c => [c.m, c])), now = piecesOf(o).map(m => {
       const c = was.get(m);
       was.delete(m);
       return c ?? newPiece(m);
@@ -221,7 +229,7 @@ function fill(renderer: WebGLRenderer, scene: Scene, camera: Camera) {
       letGo(m);
       if (watched.get(m) === o) watched.delete(m);
     }
-    pieces.set(o, now);
+    it.pieces = now;
   }
   changed.clear();
   // walked by `place` just now: it, and everything it's in, is showing (`place` walks only what is, and the scene's
@@ -230,32 +238,33 @@ function fill(renderer: WebGLRenderer, scene: Scene, camera: Camera) {
   // way, so it's looked at the long way.
   const fast = walked && placePass !== lastPass && root!.visible;
   lastPass = placePass;
-  for (const o of live) {
-    const v = fast && o.walkedAt === placePass ? 1 : inView(o);
+  for (const it of live) {
+    const o = it.o, r = fast ? it.placed ??= o.placed : undefined;
+    const v = r && r.walkedAt === placePass ? 1 : inView(o);
     if (v < 0) {
       // (in a group that's out of the scene: let go of after a while, so a group thrown away isn't kept for good)
-      const n = (strays.get(o) ?? 0) + 1;
-      if (n < STRAY) strays.set(o, n);
-      else { strays.delete(o); live.delete(o); for (const c of pieces.get(o)!) letGo(c.m); }
+      const n = (strays.get(it) ?? 0) + 1;
+      if (n < STRAY) strays.set(it, n);
+      else { strays.delete(it); live.delete(it); for (const c of it.pieces) letGo(c.m); }
       continue;
     }
-    if (strays.size) strays.delete(o);
+    if (strays.size) strays.delete(it);
     if (!v) continue;
-    for (const c of pieces.get(o)!) {
-      const m = c.m, marked = fast && m.walkedAt === placePass;
+    for (const c of it.pieces) {
+      const m = c.m, q = fast ? c.placed ??= m.placed : undefined, marked = q !== undefined && q.walkedAt === placePass;
       if (!marked && !showing(m, o)) continue;
       // (what it does as it's drawn: its look for the graphics, items.ts, and anything put on top of that)
       if (m.onBeforeRender !== plain.onBeforeRender) m.onBeforeRender(renderer, scene, camera, m.geometry, m.material as Material, null!);
       // (its world matrix not worked out since it was last looked at: `place`'s marks hold only for what it walked)
-      const p = poolFor(c, marked && m.movedAt === c.moved);
-      c.moved = marked ? m.movedAt! : NaN;
+      const p = poolFor(c, marked && q.movedAt === c.moved);
+      c.moved = marked ? q.movedAt : NaN;
       if (!p) { letGo(m); continue; }
       m.layers.mask = 0;
       if (p.n === p.mesh.instanceMatrix.count) grow(p);
       // the same piece in the same place as when it was last put there, and not moved since: it's there already
       const k = p.n++;
       used.add(p);
-      if (marked && p.who[k] === m && m.movedAt! <= p.at[k]) continue;
+      if (marked && p.who[k] === m && q.movedAt <= p.at[k]) continue;
       p.mesh.instanceMatrix.array.set(m.matrixWorld.elements, k * 16);
       p.who[k] = m; p.at[k] = marked ? placePass : -Infinity;
       if (k < p.lo) p.lo = k;
