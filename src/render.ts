@@ -5,7 +5,8 @@ import {
   TorusGeometry, Vector3, WebGLRenderer,
 } from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { isHigh, onQuality } from './graphics';
+import { glBack, glGone } from './errors';
+import { isHigh, lowAfterLoss, onQuality } from './graphics';
 import { V } from './util';
 
 // ---------- renderer / scene ----------
@@ -15,7 +16,27 @@ ColorManagement.enabled = false;
 
 export const canvas = document.getElementById('game') as HTMLCanvasElement;
 // (a stencil buffer for the hole under Mr. Fugu's hatch, fugu.ts, which shows the shaft below the deck through it)
-export const renderer = new WebGLRenderer({ canvas, antialias: true, stencil: true });
+export const renderer = (() => {
+  try {
+    return new WebGLRenderer({ canvas, antialias: true, stencil: true });
+  } catch (e) {
+    // the browser won't give the game a 3D view (errors.ts): the game can't go on, but the dialog says why
+    glGone('start', (e as Error).message);
+    throw e;
+  }
+})();
+// The browser can take the 3D view back mid-game (errors.ts). three.js asks for it back and, once it's back, sends
+// everything up again; if it isn't back LOST_WAIT seconds into the game being on screen, the dialog offers a reload.
+// Taken while the game's on screen, it's the phone running short (not just the tab put away): Low from now on.
+const LOST_WAIT = 3;
+let lostT: ReturnType<typeof setTimeout> | undefined;
+const waitForIt = () => { lostT = setTimeout(() => (document.hidden ? waitForIt() : glGone('lost')), LOST_WAIT * 1000); };
+canvas.addEventListener('webglcontextlost', () => {
+  if (!document.hidden) lowAfterLoss();
+  clearTimeout(lostT);
+  waitForIt();
+});
+canvas.addEventListener('webglcontextrestored', () => { clearTimeout(lostT); glBack(); });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
 renderer.outputColorSpace = LinearSRGBColorSpace;
 // the fish on the chopping block is cut with a clipping plane (fishing.ts)
