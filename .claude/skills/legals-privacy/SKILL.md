@@ -28,9 +28,8 @@ Read the changed files whole where the diff touches data, not just the hunks.
   *Changes to this notice*. The `<p class="meta">` line carries **Last changed**. Added by PR #211 (#150).
 - **The short version in Settings**: About → 🛡️ Privacy opens `#privacyCard` in `index.html`, with **Read the full notice**
   (`#privacyFull`) opening the page in `#privacyDialog` (wired in `src/settings.ts`). Its list must match the notice's
-  `.short` list word for word; `test/ui.test.ts` ("opens Privacy into the notice's short version…") checks it. This came
-  in PR #214 (#213). If `gh pr view 214 --json state` isn't `MERGED`, main still has the older `<a id="privacy">` link
-  row: read #214's version with `gh pr diff 214`.
+  `.short` list word for word; `test/ui.test.ts` ("opens Privacy into the notice's short version…") checks it. From
+  PR #214 (#213).
 - **The report dialog's "What's sent" list**: `#reportWhat` in `index.html`, its kept-for line filled in by
   `src/report.ts`. It's a privacy notice too, so it has to agree with the notice's *Reports* part.
 - **docs/game.md**: *Privacy notice* (the rules above) and *Reports* (every Firestore collection and the intake's 30 days).
@@ -47,7 +46,7 @@ Search the feature's changed files (and anything new they call) for:
 | --- | --- | --- |
 | Firestore: a new collection, a new field, a longer keep, a delete | `src/firebase.ts`, `src/cloud.ts`, `firestore.rules` (`saves/`, `scores/`, `shame/`, `reports/`, `limits/`, `config/`); `setDoc`, `updateDoc`, `addDoc`, `writeBatch`, `deleteDoc` | If you sign in with Google; Your rights |
 | Sign-in, the account, what's read from Google | `src/firebase.ts`, `src/cloud.ts` | If you sign in with Google |
-| A name or anything else other players see | `src/publicName.ts` ("Pat S.", from PR #214), scoreboards in `src/cloud.ts`, `src/wallOfShame.ts`, `src/worstBet.ts` | The short version; If you sign in |
+| A name or anything else other players see | `src/publicName.ts` ("Pat S."), the "Show me on the scoreboards" switch (`saves/{uid}.hidden`), scoreboards in `src/cloud.ts`, `src/wallOfShame.ts`, `src/worstBet.ts` | The short version; If you sign in |
 | Reports: what goes, the picture, the save, how long | `src/report.ts`, `intake/` (private repo `ChefControl/floe-market-reports`) | Reports; `#reportWhat` |
 | What stays on the device | `localStorage`, `sessionStorage`, IndexedDB, cookies (`src/save.ts`, `src/settings.ts`, `src/flags.ts` and others: `grep -rn localStorage src`) | If you don't sign in; The Steam version |
 | A request to another site | `fetch(`, `XMLHttpRequest`, `new WebSocket`, `<script src=`, `<link href=`, `<iframe`, an image or font from another host, `window.open`, a new SDK in `package.json` | Links to other sites; Who else handles it |
