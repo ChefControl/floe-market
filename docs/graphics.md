@@ -191,9 +191,18 @@ Whatever has stood still for a second is drawn merged with its neighbours: one m
   at the quay.
 - **Lots of moving copies:** use one `InstancedMesh` instead, as the effects and the foam rings (sea.ts) do.
 
-### Hidden things aren't placed
+### Hidden things aren't placed, nor still ones
 
 Each frame, the scene only works out world positions for what's showing (render.ts `place`), not for the hidden copies of the other setting. A hidden object's `matrixWorld` can be out of date. If you need where something hidden is, call `o.updateWorldMatrix(true, false)` first, or use `getWorldPosition`, which does that itself.
+
+Nor does it work them out again for what stands still. Each object keeps the position, rotation and scale its matrix was last built from (`posed`) and the parent it was placed in. Its matrix is built again only when they've changed, and its world matrix only then, when its parent's has changed since, or when it's marked to be (`matrixWorldNeedsUpdate`). So:
+
+- **Move things with `position`, `rotation`/`quaternion` and `scale`,** as ever. Don't write `o.matrix` by hand on something that builds its own (`matrixAutoUpdate`): it used to be overwritten each frame, and now it's kept. With `matrixAutoUpdate = false`, the matrix you set is placed whenever it changes, marked or not (`held` keeps a copy).
+- **Placing something yourself is fine** (`getWorldPosition`, `updateMatrixWorld(true)`, `localToWorld`, `Box3.setFromObject`). If three.js builds a matrix from another pose or in another parent than `place` last did (posed for a measure and put back, or measured while taken out of its group), `place` builds it again on its next pass (render.ts wraps `Object3D.updateMatrix` for that). On something still it costs nothing more.
+- **three.js's `pivot`:** something with one is built again every pass.
+- **The marks it leaves** (for batch.ts): `placePass` counts each placing of the scene, `o.walkedAt` is the pass that last walked an object, and `o.movedAt` the pass its world matrix was last worked out (it moved, or something it's in did). What's hidden, and what places itself its own way (cameras, skinned meshes, and what's in them), isn't walked and isn't marked.
+
+Tests: `test/place.test.ts`.
 
 ## Checking your work
 

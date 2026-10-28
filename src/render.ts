@@ -50,23 +50,75 @@ scene.background = new Color(0xCFEAF5);
 // Where things are is worked out afresh each frame, but only for what shows: three.js would do it for everything,
 // hidden or not, and the setting not in use (graphics.ts) is built and hidden beside the one that is. Something
 // hidden is marked to be placed again the moment it shows (its own world matrix, and so everything in it).
-const placeAll = Object3D.prototype.updateMatrixWorld;
+// And only for what's moved: most of what shows stands still, and three.js would build its matrix again every frame,
+// and multiply it into its parent's, to come out the same. Each thing keeps the position, rotation and scale it was
+// last built from (`posed`), and the parent it was placed in: its matrix is built only when they've changed, and its
+// world matrix worked out only then, or when its parent's has been since it last was (or it was marked to be).
+declare module 'three' {
+  interface Object3D {
+    /** The `placePass` that last placed it, set on everything `place` walks itself (not what's hidden, nor what
+     *  places itself its own way, and so not what's in those). */
+    walkedAt?: number;
+    /** The `placePass` in which `place` last worked out its world matrix (it moved, or something it's in did): -1
+     *  before it has. Set with `walkedAt`. */
+    movedAt?: number;
+    /** What `place` last built its matrix from: position, quaternion, scale. */
+    posed?: Float64Array;
+    /** For one whose matrix is set by hand (`matrixAutoUpdate` off): that matrix, as `place` last placed it. */
+    held?: Float64Array;
+    /** The parent `place` last placed it in. */
+    placedIn?: Object3D | null;
+  }
+}
+/** How many times the scene's been placed: once each time it's drawn, and again whenever something asks. */
+export let placePass = 0;
+const placeAll = Object3D.prototype.updateMatrixWorld, buildMatrix = Object3D.prototype.updateMatrix;
+const posedAs = (o: Object3D, p: Float64Array) => {
+  const a = o.position, q = o.quaternion, s = o.scale;
+  return p[0] === a.x && p[1] === a.y && p[2] === a.z && p[3] === q.x && p[4] === q.y && p[5] === q.z && p[6] === q.w
+    && p[7] === s.x && p[8] === s.y && p[9] === s.z;
+};
+const pose = (o: Object3D, p: Float64Array) => {
+  const a = o.position, q = o.quaternion, s = o.scale;
+  p[0] = a.x; p[1] = a.y; p[2] = a.z; p[3] = q.x; p[4] = q.y; p[5] = q.z; p[6] = q.w; p[7] = s.x; p[8] = s.y; p[9] = s.z;
+};
+// Something built by three.js itself (getWorldPosition, updateMatrixWorld(true), Box3.setFromObject) from another
+// pose than `place`'s, or in another parent (or none), leaves its world matrix there, even if it's put back before the
+// frame's drawn: `place` builds it again.
+Object3D.prototype.updateMatrix = function (this: Object3D) {
+  if (this.posed && (this.parent !== this.placedIn || !posedAs(this, this.posed))) this.posed[0] = NaN;
+  buildMatrix.call(this);
+};
 function place(o: Object3D, force: boolean) {
-  if (o.matrixAutoUpdate) o.updateMatrix();
-  if (o.matrixWorldNeedsUpdate || force) {
-    if (o.parent) o.matrixWorld.multiplyMatrices(o.parent.matrixWorld, o.matrix);
+  let p = o.posed;
+  if (!p) { p = o.posed = new Float64Array(10).fill(NaN); o.movedAt = -1; o.placedIn = undefined; }
+  o.walkedAt = placePass;
+  if (o.matrixAutoUpdate) {
+    if (!posedAs(o, p)) { buildMatrix.call(o); pose(o, p); }
+    // (three.js's pivot moves the matrix too, unseen: one with a pivot is built again next time)
+    if (o.pivot !== null) p[0] = NaN;
+  } else {
+    // a matrix set by hand: placed whenever it's changed, marked or not (as it was when everything was placed)
+    const e = o.matrix.elements, h = o.held ??= new Float64Array(16).fill(NaN);
+    p[0] = NaN;
+    for (let i = 0; i < 16; i++) if (e[i] !== h[i]) { h.set(e); o.matrixWorldNeedsUpdate = true; break; }
+  }
+  const up = o.parent;
+  if (o.matrixWorldNeedsUpdate || force || o.placedIn !== up || (up && up.movedAt! > o.movedAt!)) {
+    if (up) o.matrixWorld.multiplyMatrices(up.matrixWorld, o.matrix);
     else o.matrixWorld.copy(o.matrix);
     o.matrixWorldNeedsUpdate = false;
-    force = true;
+    o.placedIn = up;
+    o.movedAt = placePass;
   }
   for (const c of o.children) {
     if (!c.matrixWorldAutoUpdate) continue;
     if (!c.visible) c.matrixWorldNeedsUpdate = true;
-    else if (c.updateMatrixWorld !== placeAll) c.updateMatrixWorld(force); // one that places itself its own way
+    else if (c.updateMatrixWorld !== placeAll) c.updateMatrixWorld(o.movedAt === placePass); // one that places itself its own way
     else place(c, force);
   }
 }
-scene.updateMatrixWorld = (force = false) => place(scene, force);
+scene.updateMatrixWorld = (force = false) => { placePass++; place(scene, force); };
 export const fog = new Fog(0xCFEAF5, 34, 70);
 scene.fog = fog;
 
