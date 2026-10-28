@@ -28,7 +28,7 @@ import { apart, Build, detail, dice, K, quietly, rbox, tube } from './kit';
 import { ARENA, CRAFT, DOORS, KITCHEN, PREP, stage } from './layout';
 import { player } from './player';
 import { popIn } from './pop';
-import { canvasTex, type CanvasTex, type Draw, FONT, G, mesh } from './render';
+import { canvasTex, type CanvasTex, type Draw, FONT, G, MINCHO, mesh } from './render';
 import { dressCrew } from './ringKitchen';
 import { spotlight } from './spotlight';
 import { staging } from './stage';
@@ -39,7 +39,6 @@ export const cellarLooks = apart(() => new Group(), dice(0x100C4));
 cellar.add(cellarLooks);
 
 const V = (x: number, y: number, z: number) => new Vector3(x, y, z);
-const MINCHO = '"Hiragino Mincho ProN","Yu Mincho","Noto Serif JP",serif';
 const glow = (color: number, emissive: number) => new MeshLambertMaterial({ color, emissive, emissiveIntensity: 1 });
 /** A texture drawn once, repeating every `w` by `h` metres where it's laid. */
 function tiles(px: number, draw: Draw) {

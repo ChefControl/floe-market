@@ -1,5 +1,5 @@
-// The matkot beach, on election day from stage 2: sand between the sea and the road, through the old drive-up
-// window's gap in the dock's fence, and a rally of matkot with the regular there, the best of it saved.
+// The matkot beach, from stage 2: sand between the sea and the road, through the old drive-up window's gap in the
+// dock's fence, and in spring and summer a rally of matkot with the regular there, the best of it saved.
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { bought, FLOE_SUSHI, loadGame, MARKET } from './helpers';
 
@@ -13,9 +13,11 @@ const E = () => key('KeyE', 'e');
 /** Election day, local noon; and the day after. */
 const ELECTION = new Date(2026, 9, 27, 12), AFTER = new Date(2026, 9, 28, 12);
 const STAGE2 = bought(...MARKET, 'sushi', ...FLOE_SUSHI);
+/** The seasons, as saved. */
+const WINTER = 0, SUMMER = 2, AUTUMN = 3;
 
-/** Loads a game on `date` (in stage 2 unless it's the market's `tiles`), and runs it a moment. */
-async function loadOn(date: Date, save: Parameters<typeof loadGame>[0] = { tiles: STAGE2 }) {
+/** Loads a game on `date` (in stage 2 in summer unless the save says otherwise), and runs it a moment. */
+async function loadOn(date: Date, save: Parameters<typeof loadGame>[0] = { tiles: STAGE2, season: SUMMER }) {
   vi.useFakeTimers({ toFake: ['Date'], now: date });
   const g = await loadGame(save);
   const beach = await import('../src/beach');
@@ -43,15 +45,59 @@ describe('the matkot beach', () => {
     expect(walk(13.5, -10).x).toBeLessThan(12.6);
   });
 
-  it('is not there in stage 1 (the road runs by the water), nor on any other day', async () => {
-    const one = await loadOn(ELECTION, { tiles: bought(...MARKET) });
-    expect(one.beach.sands!.g.visible).toBe(false);
-    expect(one.layout.onBeach({ x: 10, z: -10 })).toBe(false);
-    const after = await loadOn(AFTER);
-    expect(after.beach.sands).toBeNull();
+  it('is not there in stage 1 (the road runs by the water)', async () => {
+    const one = await loadOn(ELECTION, { tiles: bought(...MARKET), season: SUMMER });
+    expect(one.beach.sands).toBeNull(); // not even built
     expect(document.getElementById('matkot')).toBeNull();
-    expect(after.layout.onBeach({ x: 10, z: -10 })).toBe(false);
+    expect(one.layout.onBeach({ x: 10, z: -10 })).toBe(false);
   });
+
+  it('is there on any other day too, its flags only on election day', async () => {
+    const vote = await loadOn(ELECTION);
+    expect(vote.beach.sands!.flags).toBe(true);
+    const { g, beach, layout } = await loadOn(AFTER);
+    expect([beach.sands!.g.visible, beach.sands!.fair.visible, beach.sands!.flags]).toEqual([true, true, false]);
+    expect(layout.onBeach(beach.PAD)).toBe(true);
+    g.placePlayer(beach.PAD.x, beach.PAD.z);
+    g.run(0.1);
+    expect($('matkot').hidden).toBe(false);
+    expect($('matkot').textContent).toContain('🏓 Paddle');
+  });
+
+  it('has the regular and his game in spring and summer only; the sand stays, under snow in winter', async () => {
+    for (const season of [WINTER, AUTUMN]) {
+      const { g, beach, layout } = await loadOn(AFTER, { tiles: STAGE2, season });
+      expect([beach.sands!.g.visible, beach.sands!.fair.visible, beach.sands!.ball.visible]).toEqual([true, false, false]);
+      // still there to walk on, through the gap in the fence, but no game on the pad
+      expect(layout.onBeach(beach.PAD)).toBe(true);
+      g.placePlayer(beach.PAD.x, beach.PAD.z);
+      g.run(0.1);
+      expect($('matkot').hidden).toBe(true);
+      E();
+      g.run(0.1);
+      expect([beach.rally.state, g.player.held]).toEqual(['idle', false]);
+      // the snow on the sand: in winter only
+      expect(beach.sands!.snow.visible).toBe(season === WINTER);
+    }
+  });
+
+  it('lets a rally under way play out when autumn comes, then the regular goes', async () => {
+    const { g, beach } = await loadOn(AFTER);
+    const { setSeason } = await import('../src/season');
+    const { rally, PAD } = beach;
+    g.placePlayer(PAD.x, PAD.z);
+    g.run(0.1);
+    E();
+    g.run(1.0);
+    expect(rally.state).toBe('toYou');
+    setSeason(AUTUMN);
+    g.run(0.1);
+    expect([beach.sands!.fair.visible, $('matkot').hidden]).toEqual([true, false]);
+    // let it go by: the rally's over, he has his word on it, and then he's gone and the player's free
+    g.runUntil(() => rally.state === 'idle' && beach.sands!.says.text === '', 10);
+    g.run(0.1);
+    expect([beach.sands!.fair.visible, $('matkot').hidden, g.player.held]).toEqual([false, true, false]);
+  }, 30_000);
 
   it('plays a rally with the regular: Hit as the ball comes counts, too soon misses, and the best is saved', async () => {
     const { g, beach } = await loadOn(ELECTION);
@@ -60,6 +106,7 @@ describe('the matkot beach', () => {
     g.run(0.1);
     // on the pad, the card asks; E plays
     expect($('matkot').hidden).toBe(false);
+    expect($('matkot').textContent).toContain('🏓 Matkot');
     expect($('matkot').textContent).toContain('Play');
     E();
     expect(rally.state).toBe('serve');
@@ -95,7 +142,7 @@ describe('the matkot beach', () => {
   }, 30_000);
 
   it('misses a ball let go by, ends the rally on Esc, and loads the best from the save', async () => {
-    const { g, beach } = await loadOn(ELECTION, { tiles: STAGE2, matkot: 12 } as Parameters<typeof loadGame>[0]);
+    const { g, beach } = await loadOn(ELECTION, { tiles: STAGE2, season: SUMMER, matkot: 12 } as Parameters<typeof loadGame>[0]);
     const { rally, PAD } = beach;
     expect(g.layout.beach.best).toBe(12);
     g.placePlayer(PAD.x, PAD.z);

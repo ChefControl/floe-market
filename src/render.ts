@@ -168,7 +168,13 @@ export function rr(c: CanvasRenderingContext2D, x: number, y: number, w: number,
   c.closePath();
 }
 
-export const FONT = '"Baloo 2","Trebuchet MS",system-ui,sans-serif';
+/** The game's fonts on canvas (index.html loads them; fonts.ts waits for them before the game draws anything). The
+ *  bundled emoji go first: they're only ever picked for emoji. */
+export const FONT = '"Floe Emoji","Baloo 2","Trebuchet MS",system-ui,sans-serif';
+/** The brush lettering: Shippori Mincho B1 carries the kanji and kana the game writes (scripts/fonts/build.py). */
+export const MINCHO = '"Shippori Mincho B1","Hiragino Mincho ProN","Yu Mincho","Noto Serif JP",serif';
+/** An emoji on its own, as a picture. */
+export const EMOJI = '"Floe Emoji",serif';
 
 /** One copy of a shape for `bake`: where it goes, and optionally its rotation (Euler XYZ) and scale. */
 export interface Part {

@@ -281,7 +281,7 @@ function ladderEl(nodes: Item[]) {
     if (i > 0) {
       const look = gateLook(i), bar = div(`bar ${look}`, { top: y + 'px', height: L.bar - 6 + 'px' });
       bar.dataset.gate = String(i);
-      bar.textContent = look === 'won' ? `${g.face} ${g.name}` : look === 'next' ? (i === 1 ? '🔒 Win the practice fight 🤼' : `🔒 Beat ${g.name} ${g.face}`) : `🔒 ${g.name} ${g.face}`;
+      bar.textContent = look === 'won' ? `${g.face} ${g.name}` : look === 'next' ? (i === 1 ? `🔒 Win the practice fight ${g.face}` : `🔒 Beat ${g.name} ${g.face}`) : `🔒 ${g.name} ${g.face}`;
       if (look === 'won') { const s = document.createElement('span'); s.className = 'hanko'; s.textContent = '勝'; s.setAttribute('aria-label', 'beaten'); bar.append(s); }
       body.append(bar);
       y += L.bar;

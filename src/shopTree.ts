@@ -2,12 +2,12 @@
 // through the practice fight and the five bosses, each opening once it's won; the rooms' lines run across them (on a
 // computer, a wide board of columns, one a gate; on a touch screen, a ladder of bands, a column a room). What a node
 // needs first is drawn as a line to it (unlocks.ts's `needs`, and the line's first machine before its hand).
-import { BOSSES, F, practiceDue } from './fight';
+import { BOSSES, F, PRACTICE, practiceDue } from './fight';
 import type { Tile, UnlockId } from './unlocks';
 
 export interface Gate { face: string; name: string }
 /** The bands' gates: the start (always open), the practice fight, and the five bosses. */
-export const GATES: Gate[] = [{ face: '🏁', name: 'Start' }, { face: '🤼', name: 'Practice' }, ...BOSSES.map(b => ({ face: b.face, name: b.name }))];
+export const GATES: Gate[] = [{ face: '🏁', name: 'Start' }, { face: PRACTICE.face, name: 'Practice' }, ...BOSSES.map(b => ({ face: b.face, name: b.name }))];
 /** Whether a band is open: the start always, the practice band once that fight's won (a game that's beaten a boss
  *  has), and a boss's once he's beaten. */
 export const gateOpen = (g: number) => g === 0 || (g === 1 ? !practiceDue() : F.beaten >= g - 1);
