@@ -1,4 +1,5 @@
 // DOM overlay and controls.
+import { readFileSync } from 'node:fs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import indexHtml from '../index.html?raw';
 import { withoutKofi } from '../vite.config';
@@ -339,6 +340,21 @@ describe('settings', () => {
     row.click();
     expect([card.hidden, row.getAttribute('aria-expanded')]).toEqual([true, 'false']);
     expect($('soundPanel').textContent).not.toContain('fugacious');
+  });
+
+  it('links the privacy notice in a tab of its own, in every build: the Ko-fi switch leaves it in', async () => {
+    await loadGame();
+    const a = $('privacy') as HTMLAnchorElement;
+    expect([a.getAttribute('href'), a.target, a.rel, a.textContent]).toEqual(['privacy.html', '_blank', 'noopener', '🛡️Privacy notice↗']);
+    // in About, before Credits & Copyrights, which opens at the menu's foot
+    expect(a.compareDocumentPosition($('reportCat')) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
+    expect(a.compareDocumentPosition($('creditsBtn')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(withoutKofi(indexHtml)).toContain('<a id="privacy" href="privacy.html"');
+    // the page itself, published with the site from public/: who to ask, and both versions
+    const page = readFileSync('public/privacy.html', 'utf8');
+    expect(page).toContain('oran.dan@outlook.com');
+    expect(page).toContain('<h2>The web game</h2>');
+    expect(page).toContain('<h2>The Steam version</h2>');
   });
 });
 
