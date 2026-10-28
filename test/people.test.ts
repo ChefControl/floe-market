@@ -3,7 +3,7 @@
 import { Box3, BoxGeometry, Mesh, SkinnedMesh, Vector3 } from 'three';
 import { describe, expect, it, vi } from 'vitest';
 import type { Person } from '../src/characters';
-import { loadGame } from './helpers';
+import { bought, loadGame } from './helpers';
 
 const characters = () => import('../src/characters');
 /** How many pieces in `geo` they have on, and in which colours. */
@@ -254,6 +254,26 @@ describe('people', () => {
     expect(chef.worn().some(w => w.o === patch)).toBe(true);
     expect(patch.parent).toBeNull();
     g.render.scene.remove(chef);
+  });
+
+  it("pleats the sushi chefs' and cooks' toques on High, in with the rest of them, and puts the plain one back on Low", async () => {
+    const g = await loadGame({ tiles: bought('sushi') });
+    const { Person } = await characters();
+    const { choose } = await import('../src/graphics');
+    const { G } = g.render, { sushi } = g.restaurant;
+    const toque = (p: Person) => [5, 6].map(b => p.worn().find(w => w.bone === b)!.geo);
+    const chefs = [...sushi.chefs.map(c => c.g), ...sushi.cooks.map(c => c.g)];
+    expect(chefs).toHaveLength(3);
+    const [band, puff] = toque(chefs[0]);
+    expect([band, puff]).not.toContain(G.cyl);
+    expect([band, puff]).not.toContain(G.sphere);
+    for (const p of chefs) expect(toque(p)).toEqual([band, puff]);
+    // (anyone else in whites keeps the plain one: the cellar's cook)
+    expect(toque(new Person(0xF4F6F8, 'chef'))).toEqual([G.cyl, G.sphere]);
+    choose('low');
+    for (const p of chefs) expect(toque(p)).toEqual([G.cyl, G.sphere]);
+    choose('high');
+    for (const p of chefs) expect(toque(p)).toEqual([band, puff]);
   });
 
   it('boxes someone drawn as one where they stand: an arm held out reaches further', async () => {

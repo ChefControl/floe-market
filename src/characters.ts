@@ -328,6 +328,8 @@ export class Person extends Group {
   /** A headband, once one's been tied on: what it hangs from (popped in, looks.ts), and its colour while it's on. */
   band?: Group;
   private bandColor: number | null = null;
+  /** The toque's band and puff on High, when it's pleated (pleat()). */
+  private pleats?: [BufferGeometry, BufferGeometry];
   /** Things sewn on over their clothes (`sew`). */
   private extras: Mesh[] = [];
   /** Wearing someone else's look (the singer's), over everything seasonal and in place of their own body and head. */
@@ -913,15 +915,22 @@ export class Person extends Group {
       this.bones[TOQUE] = band; this.bones[PUFF] = puff;
       this.toque(this.toqueLevel, true);
     }
-    this.piece(G.cyl, 0xFFFFFF, 0, 0, 0, true, this.bones[TOQUE]);
+    const [cyl, ball] = this.high && this.pleats || [G.cyl, G.sphere];
+    this.piece(cyl, 0xFFFFFF, 0, 0, 0, true, this.bones[TOQUE]);
     // (the puff squashed as a piece, not by what it hangs from: the graphics chip turns a bone's corners' normals by its
     // matrix as it is, which would lean a squashed ball's sideways; the band's straight sides and flat ends don't mind)
-    this.piece(G.sphere, 0xFFFFFF, 0, 0, 0, true, this.bones[PUFF]).scale.set(0.25, 0.16, 0.25);
+    this.piece(ball, 0xFFFFFF, 0, 0, 0, true, this.bones[PUFF]).scale.set(0.25, 0.16, 0.25);
     const scarf = this.piece(G.hood, 0xE5484D, 0, 0.88, 0.02); scarf.rotation.x = Math.PI / 2; scarf.scale.setScalar(1.15);
     // double-breasted: two rows of cloth buttons (on High)
     if (this.high) for (const x of [-0.06, 0.06]) for (const y of [0.76, 0.66, 0.56]) {
       this.piece(dotGeo, 0xB8C0C8, x, y, bodyZ(x, y) + 0.004, true).scale.set(0.017, 0.017, 0.01);
     }
+  }
+
+  /** Pleats their toque on High, in `band` and `puff` (propsKitchen.ts pleatToque, the sushi chefs'); Low's stays plain. */
+  pleat(band: BufferGeometry, puff: BufferGeometry) {
+    this.pleats = [band, puff];
+    if (this.high) this.redress(); // (on Low, the graphics going High dresses them again)
   }
 
   /** Makes a chef's toque taller, the way head chefs' are: `level` 0 is the everyday one. */
