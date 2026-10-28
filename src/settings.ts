@@ -3,8 +3,9 @@
 // (Report a bug or idea, report.ts; Ko-fi, kofi.ts, only in builds with it on; Privacy; and last, the Credits & Copyrights for the music and sound). Controls, Graphics, Sound, Privacy and the credits each
 // open with a click: Controls into How to play and a switch for the Buy button on a computer; Graphics into Auto, Low
 // or High; Sound into the effects, the ambience and the music, each with a mute button
-// and a 0 to 10 slider, big enough for a finger; Privacy into the notice's short version, with a button for the whole
-// notice in a dialog over the game; and the credits into the notices.
+// and a 0 to 10 slider, big enough for a finger; Privacy into, signed in, the switch for showing on the scoreboards
+// (cloud.ts), then the notice's short version, with a button for the whole notice in a dialog over the game; and the
+// credits into the notices.
 import { every, prefs, setLevel, setMute, type Bus } from './audio';
 import { choose, gfx, onQuality, type Choice } from './graphics';
 import { touchBuy } from './buy';

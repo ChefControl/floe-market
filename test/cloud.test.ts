@@ -480,8 +480,10 @@ describe('showing on the scoreboards', () => {
     return started;
   }
 
-  it('starts on, saying how the player shows', async () => {
+  it('starts on, saying how the player shows, under Privacy in the settings', async () => {
     await onBoth();
+    expect($('privacyCard').contains(toggle())).toBe(true);
+    expect($('boards').hidden).toBe(false);
     expect(toggle().getAttribute('aria-checked')).toBe('true');
     expect(toggle().disabled).toBe(false);
     expect($('boardsNote').textContent).toBe('As Pat S.');
@@ -531,9 +533,10 @@ describe('showing on the scoreboards', () => {
     expect(fake.scores.has('u1')).toBe(true);
   });
 
-  it("can't be switched until the account's been read", async () => {
+  it("isn't there signed out, and can't be switched until the account's been read", async () => {
     const { c } = await start();
     c.initCloud();
+    expect($('boards').hidden).toBe(true);
     expect(toggle().disabled).toBe(true);
     expect($('boardsNote').textContent).toBe('');
   });

@@ -292,6 +292,8 @@ function render() {
   $('cloudWho').textContent = u ? `Signed in as ${u.name}` : '';
   $('cloudStatus').textContent = cloud.state === 'offline' ? "Can't reach the cloud right now. Your game is still saved on this device."
     : cloud.syncedAt ? `Saved to the cloud ${ago(cloud.syncedAt)}` : 'Syncing with the cloud…';
+  // under Privacy in the settings, for a signed-in player
+  $('boards').hidden = !u;
   const boards = $('boardsToggle') as HTMLButtonElement, shown = cloud.hidden === false;
   boards.setAttribute('aria-checked', String(shown));
   // not known until the account's been read
