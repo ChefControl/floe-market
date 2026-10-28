@@ -10,7 +10,7 @@ import {
   type ShaderMaterial, Vector3,
 } from 'three';
 import { quietly } from './kit';
-import { painted, placePass, scene as drawnScene } from './render';
+import { painted, type Placed as PlaceRecord, placePass, scene as drawnScene } from './render';
 
 /** Metres across a patch of the map: merged meshes are still left out where they're off screen, a patch at a time. */
 const CELL = 12;
@@ -25,7 +25,7 @@ const RESTLESS = 2;
  *  and all that's lost is a few frames before something that's stood still a second is merged. What's merged is
  *  looked at every frame: it has to drop out the moment it moves or hides. That's cheap for what render.ts `place`
  *  walked: it shows, and it can only have moved if `place` worked out its world matrix since it was last looked at
- *  (`movedAt`); only then are its 16 numbers compared. Anything `place` didn't walk is looked at the long way. */
+ *  (`placed.movedAt`); only then are its 16 numbers compared. Anything `place` didn't walk is looked at the long way. */
 const TURNS = 8;
 
 type State = 'out' | 'joining' | 'in';
@@ -36,8 +36,9 @@ interface Member {
   still: number; moves: number; strikes: number; state: State; batch: Batch | null; mask: number;
   /** Its turn (of TURNS), and the seconds since it was last looked at. */
   turn: number; since: number;
-  /** The `placePass` it was last looked at in. */
-  pass: number;
+  /** The `placePass` it was last looked at in, and `place`'s record of it (kept here once it's made: it's never
+   *  replaced, and reading it off the mesh, of many kinds, is slow). */
+  pass: number; placed: PlaceRecord | undefined;
 }
 interface Batch { key: string; mat: Material; cast: boolean; recv: boolean; members: Set<Member>; mesh: Mesh | null; now: boolean }
 
@@ -104,7 +105,7 @@ function discover() {
     if (!fits(o)) return;
     const m: Member = {
       o, geo: o.geometry, mat: o.material as Material, cast: o.castShadow, recv: o.receiveShadow, ver: -1, at: [], colour: 0, r: 0, g: 0, b: 0,
-      still: 0, moves: 0, strikes: 0, state: 'out', batch: null, mask: o.layers.mask, turn: turns++ % TURNS, since: 0, pass: -1,
+      still: 0, moves: 0, strikes: 0, state: 'out', batch: null, mask: o.layers.mask, turn: turns++ % TURNS, since: 0, pass: -1, placed: undefined,
     };
     snap(m);
     members.add(m);
@@ -262,7 +263,8 @@ function sync() {
       // looked at (and comes out different: a false alarm costs the compare, never a merge). Not walked: it's hidden,
       // taken away, or in something that places itself its own way, so it's looked at the long way.
       let seen: boolean | null = true, move: boolean;
-      if (fast && o.walkedAt === placePass) move = changed(m) || (o.movedAt! > m.pass && moved(m));
+      const r = fast ? m.placed ??= o.placed : undefined;
+      if (r && r.walkedAt === placePass) move = changed(m) || (r.movedAt > m.pass && moved(m));
       else {
         seen = shown(o);
         if (seen === null) { leave(m); members.delete(m); known.delete(o); continue; }
