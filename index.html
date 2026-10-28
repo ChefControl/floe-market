@@ -449,9 +449,17 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
 /* the Ko-fi link, to buy the maker a coffee: a settings row like the others, opening Ko-fi in a window of its own (kofi.ts) */
 #kofi{ box-sizing:border-box; text-decoration:none; }
 #kofi i{ margin-left:auto; font-style:normal; opacity:.6; }
-/* the privacy notice (public/privacy.html), in a tab of its own: in every build, Steam's too */
-#privacy{ box-sizing:border-box; text-decoration:none; }
-#privacy i{ margin-left:auto; font-style:normal; opacity:.6; }
+/* Privacy, in every build (Steam's too): the notice's short version under the row, and a button for the whole notice
+   (public/privacy.html), which opens in a dialog of its own over the game (settings.ts) */
+#settings #privacyCard{ color:var(--pill-ink); font-size:12px; line-height:1.4; font-weight:500; }
+#privacyCard ul{ margin:0; padding-left:16px; }
+#privacyCard li{ margin:2px 0; }
+#privacyCard a{ color:inherit; }
+#privacyCard a:focus-visible{ outline:3px solid var(--coral); outline-offset:2px; }
+#privacyDialog{ padding-top:max(44px, calc(env(safe-area-inset-top,0px) + 38px)); }
+#privacyDialog > .k-sheet{ width:min(100%,760px); height:100%; padding:14px; }
+#privacyDialog .k-title{ padding:4px 44px 0; }
+#privacyDialog iframe{ flex:1; min-height:0; width:100%; border:0; border-radius:16px; }
 /* the categories (Graphics, Sound, Credits & Copyrights): a row with a chevron, opening into a panel under it */
 #settings .cat .chev{ margin:0 4px 4px auto; width:9px; height:9px; flex:none; border-right:2.5px solid currentColor; border-bottom:2.5px solid currentColor; transform:rotate(45deg); transition:transform .2s; }
 #settings .cat[aria-expanded="true"] .chev{ transform:translateY(4px) rotate(-135deg); }
@@ -459,8 +467,8 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
 #settings .catPanel[hidden]{ display:none; }
 /* Controls opens into How to play (the controls card, hint.ts) and a switch for the Buy button on a computer; the
    cloud's menu holds one for showing on the scoreboards (cloud.ts) */
-#controls{ display:flex; align-items:center; min-height:40px; padding:4px 12px; border:0; border-radius:12px; background:var(--pill); color:var(--pill-ink); font:700 15px "Floe Emoji","Baloo 2","Trebuchet MS",system-ui,sans-serif; text-align:left; cursor:pointer; box-shadow:0 2px 0 var(--shade); }
-#controls i{ margin-left:auto; font-style:normal; font-size:20px; line-height:1; opacity:.6; }
+#controls, #privacyFull{ display:flex; align-items:center; min-height:40px; padding:4px 12px; border:0; border-radius:12px; background:var(--pill); color:var(--pill-ink); font:700 15px "Floe Emoji","Baloo 2","Trebuchet MS",system-ui,sans-serif; text-align:left; cursor:pointer; box-shadow:0 2px 0 var(--shade); }
+#controls i, #privacyFull i{ margin-left:auto; font-style:normal; font-size:20px; line-height:1; opacity:.6; }
 #settings .toggle{ display:flex; align-items:center; gap:10px; padding:2px 2px 0 4px; font:700 15px "Floe Emoji","Baloo 2","Trebuchet MS",system-ui,sans-serif; }
 #settings .toggle > span{ display:flex; flex-direction:column; line-height:1.15; min-width:0; }
 #settings .toggle small{ font-size:12px; opacity:.6; }
@@ -470,7 +478,7 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
 #settings .switch[aria-checked="true"]{ background:var(--coral); }
 #settings .switch[aria-checked="true"]::after{ transform:translateX(22px); }
 #settings .switch:disabled{ opacity:.55; cursor:default; }
-#controls:focus-visible, #settings .switch:focus-visible{ outline:3px solid var(--coral); outline-offset:2px; }
+#controls:focus-visible, #privacyFull:focus-visible, #settings .switch:focus-visible{ outline:3px solid var(--coral); outline-offset:2px; }
 @media (prefers-reduced-motion: reduce){ #settings .switch, #settings .switch::after{ transition:none; } }
 /* Sound opens into a mute button and a 0-10 slider for each kind of sound, sized for fingers */
 /* Report a bug or idea (report.ts): the settings row (signed out, it signs in instead) opens a window of its own over
@@ -1508,7 +1516,18 @@ body.show #toss, body.show #cook, body.show #coach, body.show #hint, body.show #
   <h2 class="sgroup">About</h2>
   <button id="reportCat" type="button" aria-haspopup="dialog" hidden><span class="ic" aria-hidden="true">🐞</span><span id="reportName">Report a bug or idea</span><i aria-hidden="true">›</i></button>
   <a id="kofi" href="https://ko-fi.com/chefcontrol" target="_blank" rel="noopener"><span class="ic" aria-hidden="true">☕</span>Buy me a coffee<i aria-hidden="true">↗</i></a>
-  <a id="privacy" href="privacy.html" target="_blank" rel="noopener"><span class="ic" aria-hidden="true">🛡️</span>Privacy notice<i aria-hidden="true">↗</i></a>
+  <button id="privacyBtn" class="cat" type="button" aria-expanded="false" aria-controls="privacyCard"><span class="ic" aria-hidden="true">🛡️</span>Privacy<i class="chev" aria-hidden="true"></i></button>
+  <div id="privacyCard" class="catPanel" role="region" aria-labelledby="privacyBtn" hidden>
+    <!-- the notice's short version, word for word (public/privacy.html; test/ui.test.ts keeps them the same) -->
+    <ul>
+      <li><b>Web game, not signed in:</b> your game stays on your device.</li>
+      <li><b>Web game, signed in with Google:</b> your save, your first name and initial on the scoreboards (you can turn that off), and any report you send are kept with Google Firebase.</li>
+      <li><b>Steam version:</b> the game sends nothing to me. Steam keeps your saves and scores.</li>
+      <li>No ads, no analytics, no tracking. I don't sell your data.</li>
+      <li>To see or delete your data, email <a href="mailto:oran.dan@outlook.com">oran.dan@outlook.com</a>.</li>
+    </ul>
+    <button id="privacyFull" type="button" aria-haspopup="dialog">Read the full notice<i aria-hidden="true">›</i></button>
+  </div>
   <button id="creditsBtn" class="cat" type="button" aria-expanded="false" aria-controls="creditsCard"><span class="ic" aria-hidden="true">©</span>Credits &amp; Copyrights<i class="chev" aria-hidden="true"></i></button>
   <div id="creditsCard" class="catPanel" role="region" aria-labelledby="creditsBtn" hidden>
     <h3>Music</h3>
@@ -1535,6 +1554,11 @@ body.show #toss, body.show #cook, body.show #coach, body.show #hint, body.show #
     </ul>
   </div>
 </section>
+<div id="privacyDialog" role="dialog" aria-modal="true" aria-labelledby="privacyTitle" hidden><div class="k-sheet">
+  <button type="button" id="privacyClose" class="k-btn k-plain k-x" aria-label="Close the privacy notice"><span aria-hidden="true">✕</span></button>
+  <h2 id="privacyTitle" class="k-title">🛡️ Privacy notice</h2>
+  <iframe id="privacyFrame" title="Floe Market privacy notice"></iframe>
+</div></div>
 <div id="report" role="dialog" aria-modal="true" aria-labelledby="reportTitle" hidden><div class="card">
   <h2 id="reportTitle">Report a bug or idea</h2>
   <button type="button" id="reportClose" aria-label="Close the report"><span aria-hidden="true">✕</span></button>

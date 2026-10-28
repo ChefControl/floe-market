@@ -47,6 +47,9 @@ a:focus-visible{ outline:3px solid var(--go); outline-offset:2px; border-radius:
 .back{ max-width:720px; margin:0 auto 12px; font:800 16px var(--sans); }
 .back a{ color:var(--ink); text-decoration:none; }
 .back a:hover{ text-decoration:underline; }
+/* inside the game's own dialog (Settings, Privacy): just the card, filling it */
+.framed body{ padding:0; background:var(--pill); }
+.framed main{ max-width:none; border-radius:0; box-shadow:none; }
 </style>
 </head>
 <body>
@@ -166,5 +169,13 @@ a:focus-visible{ outline:3px solid var(--go); outline-offset:2px; border-radius:
 <h2>Changes to this notice</h2>
 <p>When this notice changes, the date at the top changes too. Every older version stays in the game's public code on <a href="https://github.com/ChefControl/floe-market/commits/main/public/privacy.html">GitHub</a>.</p>
 </main>
+<script>
+// Opened inside the game (Settings, Privacy): the game's already there behind it, and a link opens in a tab of its own
+if (window.self !== window.top) {
+  document.documentElement.classList.add('framed');
+  document.querySelector('.back')?.remove();
+  for (const a of document.querySelectorAll('a[href^="http"]')) { a.target = '_blank'; a.rel = 'noopener'; }
+}
+</script>
 </body>
 </html>

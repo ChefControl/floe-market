@@ -1,17 +1,19 @@
 // The settings menu, behind the gear in the top corner, in four groups: You (signing in for cloud saves, cloud.ts, and
 // your look), Graphics & sound (graphics.ts, audio.ts), Game (how to walk, hint.ts, and Restart, main.ts), and About
-// (Report a bug or idea, report.ts; Ko-fi, kofi.ts, only in builds with it on; and last, the Credits & Copyrights for the music and sound). Controls, Graphics, Sound and the credits each
+// (Report a bug or idea, report.ts; Ko-fi, kofi.ts, only in builds with it on; Privacy; and last, the Credits & Copyrights for the music and sound). Controls, Graphics, Sound, Privacy and the credits each
 // open with a click: Controls into How to play and a switch for the Buy button on a computer; Graphics into Auto, Low
 // or High; Sound into the effects, the ambience and the music, each with a mute button
-// and a 0 to 10 slider, big enough for a finger; and the credits into the notices.
+// and a 0 to 10 slider, big enough for a finger; Privacy into the notice's short version, with a button for the whole
+// notice in a dialog over the game; and the credits into the notices.
 import { every, prefs, setLevel, setMute, type Bus } from './audio';
 import { choose, gfx, onQuality, type Choice } from './graphics';
 import { touchBuy } from './buy';
 import { buyButton, setBuyButton, showHint } from './hint';
 import { coin } from './sfx';
+import { panel as kitPanel } from './uiKit';
 
 const $ = (id: string) => document.getElementById(id)!;
-const gear = $('gear'), menu = $('settings');
+const gear = $('gear'), menu = $('settings'), notice = $('privacyDialog');
 
 export function openSettings(open: boolean) {
   menu.hidden = !open;
@@ -22,10 +24,11 @@ gear.addEventListener('click', () => openSettings(gear.getAttribute('aria-expand
 // A tap anywhere else closes it, and so does Escape; drawing on a report's picture (sketch.ts) isn't anywhere else.
 window.addEventListener('pointerdown', e => {
   const t = e.target as Element;
-  if (!menu.hidden && !menu.contains(t) && !gear.contains(t) && !t.closest?.('#draw')) openSettings(false);
+  if (!menu.hidden && !menu.contains(t) && !gear.contains(t) && !t.closest?.('#draw, #privacyDialog')) openSettings(false);
 }, true);
 window.addEventListener('keydown', e => {
-  if (e.key !== 'Escape' || menu.hidden) return;
+  // (Escape over the privacy notice closes just the notice)
+  if (e.key !== 'Escape' || menu.hidden || e.defaultPrevented || !notice.hidden) return;
   openSettings(false);
   gear.focus();
 });
@@ -45,7 +48,28 @@ function category(row: HTMLElement, panel: HTMLElement) {
 category($('controlsCat'), $('controlsPanel'));
 category($('gfxCat'), $('gfx'));
 category($('soundCat'), $('soundPanel'));
+category($('privacyBtn'), $('privacyCard'));
 category($('creditsBtn'), $('creditsCard'));
+
+/**
+ * The whole privacy notice (public/privacy.html), in a dialog over the paused game rather than a page of its own, so
+ * reading it never takes the player out of the game. It's fetched the first time it's opened.
+ */
+const frame = $('privacyFrame') as HTMLIFrameElement;
+export function openNotice() {
+  if (!frame.getAttribute('src')) frame.src = 'privacy.html';
+  notice.hidden = false;
+  $('privacyClose').focus();
+}
+function closeNotice() {
+  if (notice.hidden) return;
+  notice.hidden = true;
+  $('privacyFull').focus();
+}
+kitPanel(notice, { place: 'dialog', skin: 'base', close: closeNotice });
+$('privacyFull').addEventListener('click', openNotice);
+$('privacyClose').addEventListener('click', closeNotice);
+notice.addEventListener('click', e => { if (e.target === notice) closeNotice(); });
 
 /**
  * A kind of sound's row: its mute button, and its slider with the level beside it. Muted, the slider sits at 0, and
