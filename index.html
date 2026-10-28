@@ -349,7 +349,7 @@ a[href]{ -webkit-touch-callout:default; }
 #shop .gate .hanko{ position:absolute; right:-16px; bottom:-4px; }
 #shop .hanko{
   display:inline-grid; place-items:center; width:18px; height:18px; border-radius:4px; transform:rotate(-8deg);
-  background:var(--hot); color:#fff; font:800 12px/1 "Shippori Mincho B1","Hiragino Mincho ProN",serif; box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.55);
+  background:var(--hot); color:#fff; font:800 12px/1 var(--fn-brush); box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.55);
 }
 #shop .shade{ position:absolute; background:var(--chip); border-radius:12px; }
 #shop .gateLine{ position:absolute; width:0; border-left:2px dashed var(--shade); }
@@ -927,7 +927,7 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
    Eddie's coin. Bungee for the big words, Shippori Mincho for the brush lettering. */
 :root{
   --fn-navy:#14203A; --fn-seal:#D2382C; --fn-gold:#EDB94A; --fn-paper:#F2EADB; --fn-champ:#E0552F; --fn-boss:#7A4BB0;
-  --fn-brush:"Shippori Mincho B1","Hiragino Mincho ProN","Yu Mincho",serif; --fn-arcade:"Floe Emoji","Bungee","Arial Black",Impact,sans-serif;
+  --fn-brush:"Floe Emoji","Shippori Mincho B1","Hiragino Mincho ProN","Yu Mincho",serif; --fn-arcade:"Floe Emoji","Bungee","Arial Black",Impact,sans-serif;
 }
 /* a wrestler's face, rendered from his model (portraits.ts); his emoji until it is */
 .port{ display:grid; place-items:center; flex:none; border-radius:50%; border:3px solid #fff; box-shadow:0 3px 0 rgba(0,0,0,.4);
@@ -1063,8 +1063,15 @@ body.cine #hud, body.cine #rush{ visibility:hidden; }
 #fightBanner .lines{ position:absolute; inset:0; transform:skewY(-5deg);
   background:repeating-linear-gradient(100deg,transparent 0 26px,rgba(255,255,255,.16) 26px 30px), linear-gradient(90deg,transparent,var(--fn-navy) 14% 86%,transparent); }
 #fightBanner .in{ position:relative; display:flex; align-items:center; gap:16px; padding:20px 12px; }
-#fightBanner .kan{ font:800 46px/1 var(--fn-brush); color:#fff; background:var(--fn-seal); padding:10px 10px 8px; }
-#fightBanner .txt{ display:grid; gap:10px; }
+#fightBanner .kan{ flex:none; font:800 46px/1 var(--fn-brush); color:#fff; background:var(--fn-seal); padding:10px 10px 8px; }
+/* (his badge: the VS row's boss portrait, his face in a white ring with a gold halo, and his place on a gold tag) */
+#fightBanner .badge{ flex:none; position:relative; width:100px; height:100px; box-sizing:border-box; display:grid; place-items:center; border-radius:50%;
+  background:linear-gradient(160deg,var(--fn-boss),#5B2F96); border:4px solid #fff; box-shadow:0 0 0 4px var(--fn-gold),0 10px 22px rgba(0,0,0,.5); }
+/* (lifted: his line is the brush font's, whose middle sits .09em below the middle of the emoji's drawing) */
+#fightBanner .face{ font:400 58px/1 var(--fn-brush); translate:0 -.09em; }
+#fightBanner .tag{ position:absolute; left:50%; bottom:-13px; transform:translateX(-50%); white-space:nowrap; font:400 11px/1 var(--fn-arcade); color:#2A0F16;
+  background:var(--fn-gold); border-radius:999px; padding:5px 9px 3px; box-shadow:0 3px 0 #A9761C; }
+#fightBanner .txt{ min-width:0; display:grid; gap:10px; }
 #fightBanner b{ display:block; font:800 44px/1 var(--fn-brush); color:#fff; white-space:nowrap; }
 #fightBanner span{ display:block; font:400 20px/1 var(--fn-arcade); color:var(--fn-gold); }
 
@@ -1324,9 +1331,12 @@ body.offer #wayAlert, body.way #wayAlert, body.meet #wayAlert{ visibility:hidden
   .fchip{ font-size:15px; padding:3px 10px; }
   #gong button{ font-size:18px; padding:11px 10px 9px; }
   #fightBanner .kan{ font-size:28px; padding:8px 7px 6px; }
-  #fightBanner b{ font-size:26px; }
+  #fightBanner b{ font-size:26px; line-height:1.1; white-space:normal; } /* (a long name takes two lines on a narrow phone) */
   #fightBanner span{ font-size:13px; }
   #fightBanner .in{ gap:10px; padding:16px 10px; }
+  #fightBanner .badge{ width:62px; height:62px; border-width:3px; box-shadow:0 0 0 3px var(--fn-gold),0 6px 14px rgba(0,0,0,.5); }
+  #fightBanner .face{ font-size:36px; }
+  #fightBanner .tag{ bottom:-10px; font-size:9px; padding:4px 6px 2px; box-shadow:0 2px 0 #A9761C; }
   #fightCard .hanko{ width:108px; height:108px; font-size:70px; }
   #fightCard h2{ font-size:32px; }
   #fightCard .prize{ font-size:28px; }
@@ -1832,7 +1842,7 @@ body.show #toss, body.show #cook, body.show #coach, body.show #hint, body.show #
   <i class="port" id="rushThemP" aria-hidden="true"></i>
   <div class="k-panel" data-skin="fight" id="watchWrap"><button type="button" class="k-btn k-choice" id="watchGo" data-key="V" aria-pressed="false" hidden>👁️ Watch</button></div>
 </div>
-<div id="fightBanner" role="status" hidden><div class="lines"></div><div class="in"><div class="kan" aria-hidden="true">入場</div><div class="txt"><b id="bannerWho"></b><span id="bannerGoal"></span></div></div></div>
+<div id="fightBanner" role="status" hidden><div class="lines"></div><div class="in"><div class="kan" aria-hidden="true">入場</div><div class="badge" aria-hidden="true"><div class="face" id="bannerFace"></div><div class="tag" id="bannerTag"></div></div><div class="txt"><b id="bannerWho"></b><span id="bannerGoal"></span></div></div></div>
 <div id="fightCard" role="dialog" aria-live="polite" hidden></div>
 <div id="coin" role="dialog" aria-label="Eddie's coin" hidden>
   <div class="flash"></div><div class="thud"></div>

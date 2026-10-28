@@ -180,11 +180,15 @@ go.addEventListener('click', () => { if (!go.disabled) ring(); });
 
 // ---------- the banner: a boss walks in ----------
 const bannerEl = $('fightBanner'), bannerWho = $('bannerWho'), bannerGoal = $('bannerGoal');
+const bannerFace = $('bannerFace'), bannerTag = $('bannerTag');
 let bannerT = 0;
-/** 入場: his name, the crowd he's brought, and how many of them to turn, across the screen for a few seconds. */
+/** 入場: his badge (his face, and which boss he is), his name, the crowd he's brought, and how many of them to turn,
+ *  across the screen for a few seconds. */
 function banner(R: Rush) {
   const boss = bossOf(R.boss);
-  bannerWho.textContent = `${boss.name} ${boss.face} · ${R.n} fans`;
+  bannerFace.textContent = boss.face;
+  bannerTag.textContent = R.boss < 0 ? 'PRACTICE' : `BOSS ${R.boss + 1}`;
+  bannerWho.textContent = `${boss.name} · ${R.n}\u00a0fans`; // (on a narrow phone it breaks after the ·)
   bannerGoal.textContent = `💪 ${toBeat(boss, R.n)} TO WIN`;
   bannerEl.classList.remove('on');
   bannerEl.hidden = false;

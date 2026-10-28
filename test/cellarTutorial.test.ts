@@ -284,6 +284,7 @@ describe("the cellar's tutorial", () => {
     expect(F().rush!.n).toBe(40);
     g.run(0.1);
     expect(ring.partner.visible).toBe(false); // (in the ring, not at the teppo post)
+    expect($('fightBanner').textContent).toBe(`入場${PRACTICE.face}PRACTICESparring partner · 40\u00a0fans💪 21 TO WIN`);
     // 21 of his 40, by the bell
     g.runUntil(() => { while (F().rush!.turned + F().stall.length < 21 && fight.toStall(false)); return F().rush!.done; }, 31 + fight.WALK_IN);
     expect(F().rush!.win).toBe(true);

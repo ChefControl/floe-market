@@ -685,7 +685,7 @@ describe('the Undertow', () => {
     $('coin').click();
     expect($('coin').hidden).toBe(true);
     expect(g.player.held).toBe(false);
-    expect($('fightBanner').textContent).toBe(`入場Dobu ${FACE.catfish} · 349 fans💪 280 TO WIN`);
+    expect($('fightBanner').textContent).toBe(`入場${FACE.catfish}BOSS 3Dobu · 349\u00a0fans💪 280 TO WIN`);
     g.run(1);
     expect(F().rush!.walk).toBeLessThan(fight.WALK_IN);
     expect($('rush').hidden).toBe(false);
