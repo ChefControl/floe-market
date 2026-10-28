@@ -2,7 +2,7 @@
 // are drawn (characters.ts, kit.ts): low poly but rounded, with the small details, a rolling sea, cloud shadows,
 // seasonal layers and effects. Low is everything as it was before those, with a lighter renderer, for phones that
 // can't keep up. Potato is Low's look with the least the renderer can do (no shadows, one pixel a point, no smoothing
-// of edges, 30 frames a second), and High isn't built at all, for phones that run short of memory. Auto, the default,
+// of edges, 30 frames a second), and High's shapes aren't kept, for phones that run short of memory. Auto, the default,
 // lets the game pick: it starts on High and watches each two seconds' frames, and if four of the last five were slow
 // or stuttered, it drops to Low; on Low it keeps watching, by a lower bar, and drops to Potato only if the phone's
 // still struggling (or the browser takes the 3D view away again). It starts there on that device from then on. The
@@ -25,7 +25,8 @@ try {
   if (isQuality(q)) Object.assign(gfx, { quality: q, choice: q, picked: true });
   else if (a === 'low' || a === 'potato') gfx.quality = a;
 } catch { /* storage blocked: Auto */ }
-/** Whether High was built on this load. Potato never builds it, so leaving Potato for Low or High takes a reload. */
+/** Whether High was built on this load. Potato lets its shapes go (kit.ts `letGo`), so leaving Potato for Low or High
+ *  takes a reload. */
 export const highBuilt = gfx.quality !== 'potato';
 
 const listeners: (() => void)[] = [];
@@ -54,9 +55,11 @@ export function choose(c: Choice) {
   setQuality(c === 'auto' ? 'high' : c);
 }
 
-/** Auto drops a step, to `q`, and starts there on this device from then on. */
+/** Auto drops a step, to `q`, and starts there on this device from then on. It never asks for a reload: whatever a
+ *  pick was waiting on (Auto on a Potato load, to build High) it's stepped down from. */
 function drop(q: 'low' | 'potato') {
   try { localStorage.setItem(AUTO_KEY, q); } catch { /* for this visit */ }
+  gfx.reload = false;
   watchAgain();
   setQuality(q);
 }

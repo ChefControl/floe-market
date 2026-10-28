@@ -327,12 +327,18 @@ let nothing: BufferGeometry | undefined;
  * On Potato, lets go of the shapes `high` was built with, so a phone short of memory doesn't keep a world it'll never
  * draw. Only baked meshes give theirs up (the kit's, and the figures' merged ones, family.ts), since they never change
  * once made; the meshes and groups stay where they are, so anything that asks where a High piece is still gets an
- * answer.
+ * answer. Their shadow's hooks go too: they hold the shape they swap the drawing of (`baked`, family.ts `castAs`), and
+ * would keep it.
  */
 export function letGo(high: Object3D) {
   if (highBuilt) return;
   nothing ??= quietly(() => new BufferGeometry().setAttribute('position', new Float32BufferAttribute([], 3)), dice(0x5907A70));
-  high.traverse(o => { if (o instanceof Mesh && o.userData.baked) o.geometry = nothing!; });
+  high.traverse(o => {
+    if (!(o instanceof Mesh && o.userData.baked)) return;
+    o.geometry = nothing!;
+    o.onBeforeShadow = Mesh.prototype.onBeforeShadow;
+    o.onAfterShadow = Mesh.prototype.onAfterShadow;
+  });
 }
 
 // ---------- the seasons ----------

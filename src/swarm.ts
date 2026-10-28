@@ -119,8 +119,12 @@ function makeLooks() {
     };
   });
 }
-// the graphics changing (High or Low): the looks are made again, in the new detail, the next time the swarm's drawn
+// the graphics changing (High or Low): the looks are made again, in the new detail, the next time the swarm's drawn.
+// (Low and Potato look the same: nothing to make again between them.)
+let madeHigh = isHigh();
 onQuality(() => {
+  if (isHigh() === madeHigh) return;
+  madeHigh = isHigh();
   for (const im of allMeshes()) { scene.remove(im); im.geometry.dispose(); im.dispose(); }
   looks = null;
 });
