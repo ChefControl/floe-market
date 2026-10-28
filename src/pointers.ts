@@ -3,6 +3,7 @@
 // (tutorial.ts) uses the same edge of the screen.
 import { camera } from './render';
 import { V } from './util';
+import { viewSize } from './viewSize';
 
 interface Mark {
   at: { x: number; y: number; z: number };
@@ -37,7 +38,7 @@ export function pointAt(at: { x: number; y: number; z: number }, icon: string, a
 /** Where something in the world is on screen: `x`, `y` in pixels if it's `inView`, or else at the edge of the screen
  *  towards it, clear of the HUD; `angle` is the way to it from the middle of the screen. */
 export function onScreen(at: { x: number; y: number; z: number }) {
-  const w = window.innerWidth, h = window.innerHeight, cx = w / 2, cy = h / 2;
+  const w = viewSize.w, h = viewSize.h, cx = w / 2, cy = h / 2;
   const v = V(at.x, at.y, at.z).project(camera);
   // behind the camera, the projection comes out mirrored
   const s = v.z > 1 ? -1 : 1;

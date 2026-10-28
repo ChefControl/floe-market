@@ -8,6 +8,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { glBack, glGone } from './errors';
 import { highBuilt, isHigh, isPotato, lowAfterLoss, onQuality } from './graphics';
 import { V } from './util';
+import { viewSize } from './viewSize';
 
 // ---------- renderer / scene ----------
 // The art was tuned for three.js' pre-r152 color pipeline: hex colors and canvas textures used as-is,
@@ -78,7 +79,7 @@ export const CAM_YAW = Math.atan2(OFF.x, OFF.z);
 export let camK = 1;
 
 function resize() {
-  const w = window.innerWidth, h = window.innerHeight;
+  const w = viewSize.w, h = viewSize.h;
   renderer.setSize(w, h, false);
   camera.aspect = w / h;
   const portrait = camera.aspect < 0.8;
@@ -95,7 +96,7 @@ export function slideView(x: number, y: number) {
     if (camera.view?.enabled) camera.clearViewOffset();
     return;
   }
-  const w = window.innerWidth, h = window.innerHeight;
+  const w = viewSize.w, h = viewSize.h;
   camera.setViewOffset(w, h, x, y, w, h);
 }
 

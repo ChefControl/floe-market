@@ -6,6 +6,7 @@ import { rating } from './rating';
 import { camera, slideView } from './render';
 import { kitPanels } from './uiKit';
 import { amount, pick, rand, V } from './util';
+import { viewSize } from './viewSize';
 import { wallet } from './wallet';
 
 const $ = (id: string) => document.getElementById(id)!;
@@ -82,7 +83,7 @@ export const topOfView = (h: number) => Math.min(document.getElementById('hud')?
  *  leaves the player where they are. Eases there and back. While the camera's on something else instead (`away` of the
  *  way: a new upgrade in the spotlight), that goes in the middle of the space the panel leaves, a still one's too. */
 export function keepInSight(dt: number, away = 0) {
-  const w = window.innerWidth, h = window.innerHeight;
+  const w = viewSize.w, h = viewSize.h;
   // (a panel that's stepped out of the spotlight's way, the shop's, leaves the whole screen to it)
   const open = panels().find(p => !p.hidden && !p.classList.contains('away') && (!p.dataset.still || away > 0));
   let x = 0, y = 0;
@@ -131,7 +132,7 @@ export function confetti() {
   if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
   const k = Math.min(window.devicePixelRatio || 1, 2);
   confettiEl.hidden = false;
-  const w = confettiEl.width = window.innerWidth * k, h = confettiEl.height = window.innerHeight * k;
+  const w = confettiEl.width = viewSize.w * k, h = confettiEl.height = viewSize.h * k;
   for (let i = 0; i < 160; i++) {
     bits.push({
       x: w / 2 + rand(-w * .2, w * .2), y: h * .45, vx: rand(-1, 1) * w * .5, vy: rand(-1.2, -.4) * h,
@@ -207,8 +208,8 @@ export function popText(txt: string, wp: { x: number; y?: number; z: number }, c
   const el = document.createElement('div');
   el.className = cls ? 'pop ' + cls : 'pop';
   el.textContent = txt;
-  el.style.left = ((v.x + 1) / 2 * window.innerWidth) + 'px';
-  el.style.top = ((1 - v.y) / 2 * window.innerHeight) + 'px';
+  el.style.left = ((v.x + 1) / 2 * viewSize.w) + 'px';
+  el.style.top = ((1 - v.y) / 2 * viewSize.h) + 'px';
   document.body.appendChild(el);
   setTimeout(() => el.remove(), 950);
 }
