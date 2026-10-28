@@ -41,12 +41,19 @@ addEventListener('error', function (e) {
 }, true);
 </script>
 <meta name="apple-mobile-web-app-title" content="Floe Market">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&family=Bungee&display=swap" rel="stylesheet">
-<!-- (the fight's brush lettering: only the kanji it uses, and the letters of the names) -->
-<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@800&display=swap&text=%E5%8B%9D%E8%B2%A0%E5%85%A5%E5%A0%B4ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789%C2%B7.%27-%20" rel="stylesheet">
+<!-- The game's fonts come with it (public/fonts, scripts/fonts/build.py): it never fetches one from the web. Fetched at
+     once, alongside the game's scripts; fonts.ts adds the emoji (the game's own icons), and waits for them all before
+     the game draws. -->
+<link rel="preload" href="fonts/baloo2-800.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/baloo2-600.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/emoji.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/mincho.woff2" as="font" type="font/woff2" crossorigin>
 <style>
+@font-face{ font-family:"Baloo 2"; font-weight:600; font-display:swap; src:url(/fonts/baloo2-600.woff2) format("woff2"); }
+@font-face{ font-family:"Baloo 2"; font-weight:800; font-display:swap; src:url(/fonts/baloo2-800.woff2) format("woff2"); }
+@font-face{ font-family:"Bungee"; font-display:swap; src:url(/fonts/bungee.woff2) format("woff2"); }
+/* (the fight's brush lettering: Latin, and only the kanji and kana the game writes) */
+@font-face{ font-family:"Shippori Mincho B1"; font-weight:800; font-display:swap; src:url(/fonts/mincho.woff2) format("woff2"); }
 :root{
   --ink:#173042;
   --pill:rgba(255,255,255,.94);
@@ -74,10 +81,12 @@ addEventListener('error', function (e) {
 html{ scroll-padding-top:env(safe-area-inset-top,0px); height:100%; }
 html,body{ margin:0; height:100%; overflow:hidden; background:var(--bg); }
 body{
-  font-family:"Baloo 2","Trebuchet MS",system-ui,sans-serif;
+  font-family:"Floe Emoji","Baloo 2","Trebuchet MS",system-ui,sans-serif;
   color:var(--pill-ink);
   touch-action:none; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none;
 }
+/* the icon buttons (🏆, ⚙️, 🔊) keep the browser's own font, with the game's emoji */
+button{ font-family:"Floe Emoji",Arial,sans-serif; }
 /* A long press or a long drag selects nothing and opens none of the browser's menus ("Copy / Find in Page", "Save
    image"), on every element, not only by way of the body's (noMenus.ts covers what CSS can't). Typing, links and the
    texts meant to be copied keep theirs. */
@@ -177,7 +186,7 @@ a[href]{ -webkit-touch-callout:default; }
   background:repeating-conic-gradient(rgba(255,255,255,.85) 0deg 1.2deg, transparent 1.2deg 6.5deg, rgba(255,255,255,.5) 6.5deg 7.1deg, transparent 7.1deg 11deg);
   -webkit-mask:radial-gradient(circle, transparent 0 17vmax, #000 34vmax); mask:radial-gradient(circle, transparent 0 17vmax, #000 34vmax); }
 #epic .flash{ position:absolute; inset:0; opacity:0; }
-#epic .words{ position:absolute; left:0; right:0; top:26%; text-align:center; opacity:0; font:400 clamp(44px, 9vw, 120px)/1 Bungee,"Arial Black",Impact,sans-serif;
+#epic .words{ position:absolute; left:0; right:0; top:26%; text-align:center; opacity:0; font:400 clamp(44px, 9vw, 120px)/1 "Floe Emoji",Bungee,"Arial Black",Impact,sans-serif;
   color:#FFD34A; -webkit-text-stroke:5px #1B1210; paint-order:stroke fill; letter-spacing:.02em; transform:skewX(-10deg); text-shadow:0 6px 0 #C0392B, 0 10px 18px rgba(0,0,0,.6); }
 #epic .words.in{ animation:epicIn .32s cubic-bezier(.2,1.6,.4,1) both; }
 @keyframes epicIn{ from{ transform:skewX(-10deg) scale(2.6); } to{ transform:skewX(-10deg) scale(1); } }
@@ -221,7 +230,7 @@ a[href]{ -webkit-touch-callout:default; }
 #shopPick .what span{ font-size:12.5px; opacity:.85; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
 #shopPick .buy{
   flex:none; min-height:40px; padding:0 16px; border:0; border-radius:999px; cursor:pointer;
-  background:var(--go); color:#fff; font:800 15px "Baloo 2","Trebuchet MS",system-ui,sans-serif; box-shadow:0 2px 0 rgba(20,90,40,.4);
+  background:var(--go); color:#fff; font:800 15px "Floe Emoji","Baloo 2","Trebuchet MS",system-ui,sans-serif; box-shadow:0 2px 0 rgba(20,90,40,.4);
 }
 #shopPick .buy:disabled{ background:rgba(23,48,66,.35); box-shadow:none; cursor:default; }
 #shopPick .buy:focus-visible{ outline:3px solid var(--coral); outline-offset:2px; }
@@ -230,7 +239,7 @@ a[href]{ -webkit-touch-callout:default; }
    tabs folds it again */
 #shopShut{
   flex:none; width:38px; height:38px; border:0; border-radius:50%; cursor:pointer; background:#E5484D; color:#fff;
-  font:800 17px "Baloo 2","Trebuchet MS",system-ui,sans-serif; box-shadow:0 2px 0 rgba(140,30,30,.5);
+  font:800 17px "Floe Emoji","Baloo 2","Trebuchet MS",system-ui,sans-serif; box-shadow:0 2px 0 rgba(140,30,30,.5);
 }
 #shopShut:active{ transform:translateY(2px); box-shadow:none; }
 #shopShut[hidden]{ display:none; }
@@ -238,7 +247,7 @@ a[href]{ -webkit-touch-callout:default; }
 #shop .doneLine{ flex-basis:100%; font-size:12px; font-weight:600; opacity:.6; line-height:1.3; }
 #shop .mod{
   display:flex; align-items:center; gap:8px; width:100%; text-align:left; cursor:pointer;
-  font:600 13px "Baloo 2","Trebuchet MS",system-ui,sans-serif; color:inherit;
+  font:600 13px "Floe Emoji","Baloo 2","Trebuchet MS",system-ui,sans-serif; color:inherit;
   background:var(--chip); border:0; border-radius:14px; padding:5px 8px;
 }
 #shop .mod .ic{ font-size:22px; width:28px; text-align:center; flex:none; }
@@ -252,11 +261,11 @@ a[href]{ -webkit-touch-callout:default; }
 /* a cellar room's upgrade that isn't on sale yet (a boss to beat first), or one that's done */
 #shop .mod.locked .txt, #shop .mod.locked .ic{ opacity:.6; }
 #shop .mod:focus-visible{ outline:3px solid var(--coral); outline-offset:1px; }
-#shop kbd{ font:800 11px "Baloo 2","Trebuchet MS",system-ui,sans-serif; background:var(--chip); border-radius:5px; padding:0 5px; border-bottom:2px solid var(--shade); }
-#shopPurse{ margin-left:auto; flex:none; font:800 14px "Baloo 2","Trebuchet MS",system-ui,sans-serif; background:var(--chip); border-radius:999px; padding:1px 10px; }
+#shop kbd{ font:800 11px "Floe Emoji","Baloo 2","Trebuchet MS",system-ui,sans-serif; background:var(--chip); border-radius:5px; padding:0 5px; border-bottom:2px solid var(--shade); }
+#shopPurse{ margin-left:auto; flex:none; font:800 14px "Floe Emoji","Baloo 2","Trebuchet MS",system-ui,sans-serif; background:var(--chip); border-radius:999px; padding:1px 10px; }
 #shopPurse[hidden], #shopKeys[hidden]{ display:none; }
 #shopKeys{ display:flex; flex-wrap:wrap; gap:4px 12px; margin-top:6px; padding:8px 4px 0; border-top:1px solid var(--chip); font-size:12px; font-weight:600; opacity:.8; }
-#shop button.cost{ border:0; cursor:pointer; font-family:"Baloo 2","Trebuchet MS",system-ui,sans-serif; }
+#shop button.cost{ border:0; cursor:pointer; font-family:"Floe Emoji","Baloo 2","Trebuchet MS",system-ui,sans-serif; }
 #shop button.cost:hover:not(:disabled){ filter:brightness(1.08); }
 #shop button.cost:active:not(:disabled){ transform:translateY(2px); box-shadow:none; }
 #shop button.cost:disabled{ background:rgba(23,48,66,.35); box-shadow:none; cursor:default; }
@@ -281,25 +290,25 @@ a[href]{ -webkit-touch-callout:default; }
 #shop .treeHead{ position:sticky; top:0; z-index:3; background:linear-gradient(var(--pill), var(--pill)), var(--bg); }
 #shop.ladder .treeHead{ height:38px; border-bottom:1px solid var(--chip); }
 #shop .treeBody{ position:relative; }
-#shop .laneName{ position:absolute; display:flex; flex-direction:column; align-items:center; text-align:center; font:800 11.5px/1.1 "Baloo 2","Trebuchet MS",system-ui,sans-serif; opacity:.75; }
+#shop .laneName{ position:absolute; display:flex; flex-direction:column; align-items:center; text-align:center; font:800 11.5px/1.1 "Floe Emoji","Baloo 2","Trebuchet MS",system-ui,sans-serif; opacity:.75; }
 #shop .laneName .ic{ font-size:17px; line-height:1.1; }
 #shop .node{
   position:absolute; box-sizing:border-box; display:flex; align-items:center; gap:7px; padding:5px 8px; border:0; border-radius:14px;
   /* (solid, so a link passing behind one never shows through it) */
-  background:linear-gradient(var(--chip), var(--chip)), var(--bg); color:inherit; text-align:left; font:600 12px "Baloo 2","Trebuchet MS",system-ui,sans-serif; cursor:default;
+  background:linear-gradient(var(--chip), var(--chip)), var(--bg); color:inherit; text-align:left; font:600 12px "Floe Emoji","Baloo 2","Trebuchet MS",system-ui,sans-serif; cursor:default;
 }
 #shop .levels .node{ position:relative; padding:5px 7px; min-height:44px; }
 #shop .node .ic{ font-size:22px; line-height:1; flex:none; }
 #shop .node .txt{ flex:1; min-width:0; display:flex; flex-direction:column; gap:2px; line-height:1.05; }
 #shop .node .txt b{ font-size:13px; font-weight:800; overflow:hidden; text-overflow:ellipsis; }
 #shop .node .txt small{ font-size:11px; opacity:.7; }
-#shop .node .cost{ flex:none; font:800 12.5px/1 "Baloo 2","Trebuchet MS",system-ui,sans-serif; border-radius:999px; padding:4px 8px 3px; background:rgba(23,48,66,.35); color:#fff; white-space:nowrap; }
+#shop .node .cost{ flex:none; font:800 12.5px/1 "Floe Emoji","Baloo 2","Trebuchet MS",system-ui,sans-serif; border-radius:999px; padding:4px 8px 3px; background:rgba(23,48,66,.35); color:#fff; white-space:nowrap; }
 #shop .node.can .cost{ background:var(--go); box-shadow:0 2px 0 rgba(20,90,40,.4); }
 #shop .node.can{ box-shadow:inset 0 0 0 2px var(--go); cursor:pointer; }
 #shop .node.open:not(.can){ box-shadow:inset 0 0 0 1.5px var(--shade); }
 #shop .node.done{ background:color-mix(in srgb, var(--gold) 16%, transparent); box-shadow:inset 0 0 0 2px var(--gold); }
 #shop .node.done .cost{ background:transparent; color:inherit; padding-inline:2px; }
-#shop .node .tick{ position:absolute; right:-5px; top:-5px; width:18px; height:18px; border-radius:50%; background:var(--gold); color:var(--pill); font:800 12px/19px "Baloo 2",system-ui,sans-serif; text-align:center; }
+#shop .node .tick{ position:absolute; right:-5px; top:-5px; width:18px; height:18px; border-radius:50%; background:var(--gold); color:var(--pill); font:800 12px/19px "Floe Emoji","Baloo 2",system-ui,sans-serif; text-align:center; }
 #shop .node.needs{ opacity:.6; }
 #shop .node.boss{ background:transparent; box-shadow:inset 0 0 0 1px var(--chip); }
 #shop .node.boss .ic, #shop .node.boss .txt{ filter:grayscale(1); opacity:.45; }
@@ -331,7 +340,7 @@ a[href]{ -webkit-touch-callout:default; }
 #shop .edge.gold{ background:var(--gold); opacity:1; }
 #shop .edge.dim{ background:repeating-linear-gradient(90deg, var(--shade) 0 5px, transparent 5px 9px); opacity:1; }
 #shop.ladder .edge.dim{ background:repeating-linear-gradient(180deg, var(--shade) 0 5px, transparent 5px 9px); }
-#shop .gate{ position:absolute; top:2px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; border-radius:12px; font:800 12.5px/1.05 "Baloo 2","Trebuchet MS",system-ui,sans-serif; text-align:center; }
+#shop .gate{ position:absolute; top:2px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; border-radius:12px; font:800 12.5px/1.05 "Floe Emoji","Baloo 2","Trebuchet MS",system-ui,sans-serif; text-align:center; }
 #shop .gate .face{ position:relative; font-size:22px; line-height:1; }
 #shop .gate.won, #shop .gate.start{ opacity:.75; }
 #shop .gate.next{ background:var(--hot); color:#fff; }
@@ -345,7 +354,7 @@ a[href]{ -webkit-touch-callout:default; }
 #shop .shade{ position:absolute; background:var(--chip); border-radius:12px; }
 #shop .gateLine{ position:absolute; width:0; border-left:2px dashed var(--shade); }
 #shop .gateLine.next{ border-left:3px solid var(--hot); }
-#shop .bar{ position:absolute; z-index:1; left:0; right:0; display:flex; align-items:center; gap:8px; padding:0 10px; box-sizing:border-box; border-radius:10px; font:800 13px/1 "Baloo 2","Trebuchet MS",system-ui,sans-serif; white-space:nowrap; }
+#shop .bar{ position:absolute; z-index:1; left:0; right:0; display:flex; align-items:center; gap:8px; padding:0 10px; box-sizing:border-box; border-radius:10px; font:800 13px/1 "Floe Emoji","Baloo 2","Trebuchet MS",system-ui,sans-serif; white-space:nowrap; }
 #shop .bar.won{ color:color-mix(in srgb, var(--pill-ink) 65%, transparent); border-top:1.5px solid var(--shade); border-radius:0; }
 #shop .bar.next{ background:var(--hot); color:#fff; }
 #shop .bar.later{ background:linear-gradient(var(--chip), var(--chip)), var(--pill); color:color-mix(in srgb, var(--pill-ink) 60%, transparent); }
@@ -361,7 +370,7 @@ a[href]{ -webkit-touch-callout:default; }
 #look[hidden]{ display:none; }
 /* the how-to-walk card sits under the player, where the panel goes: it waits until the panel's closed */
 body:has(#look:not([hidden])) #hint{ visibility:hidden; }
-#look button{ font:700 15px "Baloo 2","Trebuchet MS",system-ui,sans-serif; color:var(--pill-ink); border:0; cursor:pointer; }
+#look button{ font:700 15px "Floe Emoji","Baloo 2","Trebuchet MS",system-ui,sans-serif; color:var(--pill-ink); border:0; cursor:pointer; }
 #look button:focus-visible{ outline:3px solid var(--coral); outline-offset:2px; }
 #look .lhead{ display:flex; align-items:center; gap:8px; }
 #look h2{ margin:0 auto 0 4px; font-size:17px; font-weight:800; line-height:1; }
@@ -429,11 +438,11 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
 #settings[hidden]{ display:none; }
 #settings > button, #settings > a{
   display:flex; align-items:center; gap:10px; width:100%; min-height:40px; padding:6px 12px; border:0; border-radius:14px;
-  background:var(--chip); color:var(--pill-ink); font:700 16px "Baloo 2","Trebuchet MS",system-ui,sans-serif; text-align:left; cursor:pointer;
+  background:var(--chip); color:var(--pill-ink); font:700 16px "Floe Emoji","Baloo 2","Trebuchet MS",system-ui,sans-serif; text-align:left; cursor:pointer;
 }
 #settings > button[hidden]{ display:none; }
 /* the menu's groups: a small heading over each (You, Graphics & sound, Game, About) */
-#settings .sgroup{ margin:6px 4px -2px; font:800 11px/1 "Baloo 2","Trebuchet MS",system-ui,sans-serif; letter-spacing:.08em; text-transform:uppercase; opacity:.6; }
+#settings .sgroup{ margin:6px 4px -2px; font:800 11px/1 "Floe Emoji","Baloo 2","Trebuchet MS",system-ui,sans-serif; letter-spacing:.08em; text-transform:uppercase; opacity:.6; }
 #settings .sgroup:first-child{ margin-top:0; }
 #settings .ic{ width:24px; text-align:center; font-size:18px; }
 #settings button:focus-visible, #settings > a:focus-visible, #creditsCard a:focus-visible{ outline:3px solid var(--coral); outline-offset:2px; }
@@ -446,9 +455,9 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
 #settings .catPanel{ display:flex; flex-direction:column; gap:8px; padding:8px 10px 10px; border-radius:14px; background:var(--chip); }
 #settings .catPanel[hidden]{ display:none; }
 /* Controls opens into How to play (the controls card, hint.ts) and a switch for the Buy button on a computer */
-#controls{ display:flex; align-items:center; min-height:40px; padding:4px 12px; border:0; border-radius:12px; background:var(--pill); color:var(--pill-ink); font:700 15px "Baloo 2","Trebuchet MS",system-ui,sans-serif; text-align:left; cursor:pointer; box-shadow:0 2px 0 var(--shade); }
+#controls{ display:flex; align-items:center; min-height:40px; padding:4px 12px; border:0; border-radius:12px; background:var(--pill); color:var(--pill-ink); font:700 15px "Floe Emoji","Baloo 2","Trebuchet MS",system-ui,sans-serif; text-align:left; cursor:pointer; box-shadow:0 2px 0 var(--shade); }
 #controls i{ margin-left:auto; font-style:normal; font-size:20px; line-height:1; opacity:.6; }
-#controlsPanel .toggle{ display:flex; align-items:center; gap:10px; padding:2px 2px 0 4px; font:700 15px "Baloo 2","Trebuchet MS",system-ui,sans-serif; }
+#controlsPanel .toggle{ display:flex; align-items:center; gap:10px; padding:2px 2px 0 4px; font:700 15px "Floe Emoji","Baloo 2","Trebuchet MS",system-ui,sans-serif; }
 #controlsPanel .toggle > span{ display:flex; flex-direction:column; line-height:1.15; min-width:0; }
 #buyBtnNote{ font-size:12px; opacity:.6; }
 #buyBtnNote:empty{ display:none; }
@@ -471,10 +480,10 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
   max-height:calc(100dvh - 24px); overflow-y:auto; overscroll-behavior:contain; touch-action:pan-y; padding:18px 18px 16px;
   border-radius:24px; background:var(--pill); color:var(--pill-ink); box-shadow:0 4px 0 var(--shade); font-weight:600;
 }
-#report h2{ margin:0 44px 2px; font:800 22px "Baloo 2","Trebuchet MS",system-ui,sans-serif; text-align:center; }
+#report h2{ margin:0 44px 2px; font:800 22px "Floe Emoji","Baloo 2","Trebuchet MS",system-ui,sans-serif; text-align:center; }
 #reportClose{ position:absolute; right:12px; top:12px; width:36px; height:36px; border:0; border-radius:50%; background:var(--chip); color:inherit; font-size:18px; line-height:1; cursor:pointer; }
 #reportKind{ display:flex; gap:2px; padding:3px; border-radius:12px; background:rgba(127,140,150,.22); }
-#reportKind button{ flex:1; min-height:38px; border:0; border-radius:9px; background:transparent; color:var(--pill-ink); font:700 15px "Baloo 2","Trebuchet MS",system-ui,sans-serif; cursor:pointer; }
+#reportKind button{ flex:1; min-height:38px; border:0; border-radius:9px; background:transparent; color:var(--pill-ink); font:700 15px "Floe Emoji","Baloo 2","Trebuchet MS",system-ui,sans-serif; cursor:pointer; }
 #reportKind button[aria-checked="true"]{ background:var(--coral); color:#fff; box-shadow:0 2px 0 var(--shade); }
 #reportText{ box-sizing:border-box; width:100%; min-height:96px; padding:8px 10px; border:0; border-radius:12px; background:var(--chip); color:var(--pill-ink); font:500 16px/1.3 system-ui,sans-serif; resize:vertical; }
 #reportCount{ margin-top:-4px; font-size:12px; opacity:.6; text-align:right; }
@@ -482,7 +491,7 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
 #reportShot{ display:block; width:100%; max-height:min(260px,34dvh); object-fit:contain; background:rgba(0,0,0,.25); border-radius:12px; box-shadow:0 2px 0 var(--shade); transition:opacity .15s; }
 #reportShot[hidden]{ display:none; }
 #reportShot.off{ opacity:.3; }
-#report .tick{ display:flex; align-items:flex-start; gap:8px; font:700 15px/1.2 "Baloo 2","Trebuchet MS",system-ui,sans-serif; cursor:pointer; }
+#report .tick{ display:flex; align-items:flex-start; gap:8px; font:700 15px/1.2 "Floe Emoji","Baloo 2","Trebuchet MS",system-ui,sans-serif; cursor:pointer; }
 #report .tick input{ flex:none; width:20px; height:20px; margin:0; accent-color:var(--coral); }
 #report .tick span{ display:flex; flex-direction:column; }
 #report .tick small{ font-size:12px; font-weight:600; opacity:.65; }
@@ -495,7 +504,7 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
 #reportWhat li{ margin:3px 0; }
 #reportWhat li[hidden]{ display:none; }
 #report .btns{ display:flex; gap:8px; }
-#report .btns button{ flex:1; min-height:44px; border:0; border-radius:999px; font:800 16px "Baloo 2","Trebuchet MS",system-ui,sans-serif; cursor:pointer; background:var(--chip); color:var(--pill-ink); }
+#report .btns button{ flex:1; min-height:44px; border:0; border-radius:999px; font:800 16px "Floe Emoji","Baloo 2","Trebuchet MS",system-ui,sans-serif; cursor:pointer; background:var(--chip); color:var(--pill-ink); }
 #report .btns #reportSend{ background:var(--go); color:#fff; }
 #report button:focus-visible, #reportText:focus-visible, #report .tick input:focus-visible, #reportWhat summary:focus-visible{ outline:3px solid var(--coral); outline-offset:2px; }
 @media (prefers-reduced-motion: reduce){ #reportShot{ transition:none; } }
@@ -504,7 +513,7 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
 #reportDraw{
   position:absolute; right:10px; bottom:10px; display:flex; align-items:center; gap:6px; min-height:40px; padding:4px 14px 4px 10px;
   border:0; border-radius:999px; background:#E8332E; color:#fff; box-shadow:0 3px 0 #9E1E1A, 0 6px 14px rgba(0,0,0,.3);
-  font:800 16px "Baloo 2","Trebuchet MS",system-ui,sans-serif; cursor:pointer; transition:transform .15s;
+  font:800 16px "Floe Emoji","Baloo 2","Trebuchet MS",system-ui,sans-serif; cursor:pointer; transition:transform .15s;
 }
 #reportDraw[hidden]{ display:none; }
 #reportDraw .crayon{ font-size:20px; line-height:1; display:inline-block; }
@@ -524,7 +533,7 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
 #sendFx{ position:fixed; left:50%; top:44%; z-index:9; width:220px; transform:translate(-50%,-50%); display:flex; flex-direction:column; align-items:center; pointer-events:none; animation:fxIn 3s ease both; }
 #sendFx[hidden]{ display:none; }
 #sendFx svg{ width:180px; height:auto; overflow:visible; }
-#sendFx b{ margin-top:4px; font:800 26px "Baloo 2","Trebuchet MS",system-ui,sans-serif; color:#fff; text-shadow:0 2px 0 rgba(0,0,0,.35), 0 0 12px rgba(0,0,0,.35); opacity:0; animation:fxWord 3s ease both; }
+#sendFx b{ margin-top:4px; font:800 26px "Floe Emoji","Baloo 2","Trebuchet MS",system-ui,sans-serif; color:#fff; text-shadow:0 2px 0 rgba(0,0,0,.35), 0 0 12px rgba(0,0,0,.35); opacity:0; animation:fxWord 3s ease both; }
 @keyframes fxIn{ 0%{ opacity:0; transform:translate(-50%,-50%) scale(.6); } 6%{ opacity:1; transform:translate(-50%,-50%) scale(1); } 88%{ opacity:1; transform:translate(-50%,-50%) scale(1); } 100%{ opacity:0; transform:translate(-50%,-58%) scale(.96); } }
 @keyframes fxWord{ 0%, 19.3%{ opacity:0; transform:translateY(6px) scale(.8); } 24.9%{ opacity:1; transform:translateY(0) scale(1.08); } 29.5%, 100%{ opacity:1; transform:none; } }
 #sendFx.bug b{ animation-name:fxWordBug; }
@@ -575,10 +584,10 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
 #draw{ position:fixed; inset:0; z-index:10; display:grid; place-items:center; padding:12px; background:rgba(23,48,66,.7); }
 #draw[hidden]{ display:none; }
 #draw .card{ display:flex; flex-direction:column; gap:10px; max-width:min(96vw,900px); padding:12px; border-radius:20px; background:var(--pill); color:var(--pill-ink); box-shadow:0 4px 0 var(--shade); }
-#drawTitle{ margin:0; font:800 17px "Baloo 2","Trebuchet MS",system-ui,sans-serif; text-align:center; }
+#drawTitle{ margin:0; font:800 17px "Floe Emoji","Baloo 2","Trebuchet MS",system-ui,sans-serif; text-align:center; }
 #drawCanvas{ display:block; max-width:100%; max-height:calc(100dvh - 150px); width:auto; height:auto; margin:0 auto; border-radius:12px; touch-action:none; cursor:crosshair; }
 #draw .btns{ display:flex; gap:8px; }
-#draw .btns button{ flex:1; min-height:44px; border:0; border-radius:999px; background:var(--chip); color:var(--pill-ink); font:800 15px "Baloo 2","Trebuchet MS",system-ui,sans-serif; cursor:pointer; }
+#draw .btns button{ flex:1; min-height:44px; border:0; border-radius:999px; background:var(--chip); color:var(--pill-ink); font:800 15px "Floe Emoji","Baloo 2","Trebuchet MS",system-ui,sans-serif; cursor:pointer; }
 #draw .btns #drawDone{ background:var(--go); color:#fff; }
 #draw .btns button:disabled{ opacity:.4; cursor:default; }
 #draw button:focus-visible, #reportDraw:focus-visible{ outline:3px solid var(--coral); outline-offset:2px; }
@@ -586,7 +595,7 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
 #errReport[hidden]{ display:none; }
 /* Credits & Copyrights, the menu's last row, opening into the music's and the sounds' notices */
 #settings #creditsCard{ gap:0; color:var(--pill-ink); font-size:12px; line-height:1.4; font-weight:500; }
-#creditsCard h3{ margin:6px 0 2px; font:800 13px "Baloo 2","Trebuchet MS",system-ui,sans-serif; }
+#creditsCard h3{ margin:6px 0 2px; font:800 13px "Floe Emoji","Baloo 2","Trebuchet MS",system-ui,sans-serif; }
 #creditsCard h3:first-child{ margin-top:0; }
 #creditsCard ul{ margin:0; padding-left:16px; }
 #creditsCard li{ margin:2px 0; }
@@ -595,14 +604,14 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
 #gfxPick{ margin-left:auto; font-size:13px; font-weight:700; opacity:.6; }
 #settings #gfxCat .chev{ margin-left:8px; }
 #gfx .seg{ display:flex; gap:2px; padding:3px; border-radius:12px; background:rgba(127,140,150,.22); }
-#gfx .seg button{ flex:1; min-height:38px; padding:0 7px; border:0; border-radius:9px; background:transparent; color:var(--pill-ink); font:700 15px "Baloo 2","Trebuchet MS",system-ui,sans-serif; cursor:pointer; }
+#gfx .seg button{ flex:1; min-height:38px; padding:0 7px; border:0; border-radius:9px; background:transparent; color:var(--pill-ink); font:700 15px "Floe Emoji","Baloo 2","Trebuchet MS",system-ui,sans-serif; cursor:pointer; }
 #gfx .seg button[aria-pressed="true"]{ background:var(--coral); color:#fff; box-shadow:0 2px 0 var(--shade); }
 #gfxNow{ font-size:12px; font-weight:700; opacity:.6; text-align:center; }
 #gfxNow[hidden]{ display:none; }
 .vol{ display:grid; grid-template-columns:44px 1fr auto; align-items:center; column-gap:10px; row-gap:2px; }
 .vol .mute{ grid-row:1 / span 2; width:44px; height:44px; padding:0; border:0; border-radius:50%; background:var(--pill); color:var(--pill-ink); font-size:20px; line-height:1; cursor:pointer; box-shadow:0 2px 0 var(--shade); }
-.vol label{ font:700 15px "Baloo 2","Trebuchet MS",system-ui,sans-serif; }
-.vol output{ font:800 16px "Baloo 2","Trebuchet MS",system-ui,sans-serif; font-variant-numeric:tabular-nums; min-width:2ch; text-align:right; }
+.vol label{ font:700 15px "Floe Emoji","Baloo 2","Trebuchet MS",system-ui,sans-serif; }
+.vol output{ font:800 16px "Floe Emoji","Baloo 2","Trebuchet MS",system-ui,sans-serif; font-variant-numeric:tabular-nums; min-width:2ch; text-align:right; }
 .vol input{ grid-column:2 / span 2; width:100%; height:32px; margin:0; background:transparent; cursor:pointer; touch-action:none; -webkit-appearance:none; appearance:none; }
 .vol input::-webkit-slider-runnable-track{ height:8px; border-radius:999px; background:linear-gradient(to right, var(--coral) var(--fill,66%), rgba(127,140,150,.35) var(--fill,66%)); }
 .vol input::-webkit-slider-thumb{ -webkit-appearance:none; appearance:none; width:28px; height:28px; margin-top:-10px; border-radius:50%; background:#fff; border:3px solid var(--coral); box-shadow:0 2px 4px rgba(0,0,0,.25); }
@@ -620,13 +629,13 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
 #cloudMenu{ display:flex; flex-direction:column; align-items:flex-start; gap:4px; padding:0 12px 4px; font-size:14px; line-height:1.25; }
 #cloudMenu[hidden]{ display:none; }
 #cloudMenu b{ font-weight:800; }
-#cloudMenu button{ margin-top:4px; font:800 15px "Baloo 2","Trebuchet MS",system-ui,sans-serif; background:var(--chip); color:var(--pill-ink); border:0; border-radius:999px; padding:4px 14px; cursor:pointer; }
+#cloudMenu button{ margin-top:4px; font:800 15px "Floe Emoji","Baloo 2","Trebuchet MS",system-ui,sans-serif; background:var(--chip); color:var(--pill-ink); border:0; border-radius:999px; padding:4px 14px; cursor:pointer; }
 #cloudPick{ position:fixed; inset:0; z-index:8; display:grid; place-items:center; background:rgba(23,48,66,.55); }
 #cloudPick[hidden]{ display:none; }
 #cloudPick .card{ background:var(--pill); color:var(--pill-ink); padding:20px 22px; border-radius:24px; max-width:min(90vw,400px); box-shadow:0 4px 0 var(--shade); text-align:center; }
 #cloudPick p{ margin:0 0 14px; font-size:18px; font-weight:600; line-height:1.25; }
 #cloudPick button{ display:flex; flex-direction:column; width:100%; margin-top:10px; padding:10px 16px; border:0; border-radius:16px; cursor:pointer; text-align:left;
-  font:600 14px "Baloo 2","Trebuchet MS",system-ui,sans-serif; background:var(--chip); color:var(--pill-ink); }
+  font:600 14px "Floe Emoji","Baloo 2","Trebuchet MS",system-ui,sans-serif; background:var(--chip); color:var(--pill-ink); }
 #cloudPick button b{ font-size:17px; font-weight:800; }
 #cloudPick button:focus-visible{ outline:3px solid var(--coral); outline-offset:2px; }
 #settings #restart.armed{ background:var(--hot); color:#fff; }
@@ -674,7 +683,7 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
 #scoresList .best{ flex:none; min-width:76px; text-align:right; font-weight:800; color:var(--up); font-variant-numeric:tabular-nums; }
 #scoresMe{ margin:10px 0 0; text-align:center; font-weight:600; }
 #scoresMe:empty{ display:none; }
-#scoresJoin{ margin:10px auto 0; font:800 15px "Baloo 2","Trebuchet MS",system-ui,sans-serif; background:var(--go); color:#fff; border:0; border-radius:999px; padding:6px 16px; cursor:pointer; }
+#scoresJoin{ margin:10px auto 0; font:800 15px "Floe Emoji","Baloo 2","Trebuchet MS",system-ui,sans-serif; background:var(--go); color:#fff; border:0; border-radius:999px; padding:6px 16px; cursor:pointer; }
 #scoresJoin[hidden]{ display:none; }
 #scoresClose:focus-visible, #scoresJoin:focus-visible{ outline:3px solid var(--coral); outline-offset:2px; }
 
@@ -690,13 +699,13 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
 #buyHint.touch{ position:fixed; z-index:3; right:max(16px, env(safe-area-inset-right,0px)); bottom:calc(env(safe-area-inset-bottom,0px) + 196px); }
 #buyHint kbd{
   display:inline-grid; place-items:center; min-width:30px; height:30px; padding:0 6px; border-radius:7px; background:var(--hot); color:#fff;
-  box-shadow:0 3px 0 rgba(150,45,25,.45); font:800 17px "Baloo 2","Trebuchet MS",system-ui,sans-serif; animation:keytap 1.2s infinite;
+  box-shadow:0 3px 0 rgba(150,45,25,.45); font:800 17px "Floe Emoji","Baloo 2","Trebuchet MS",system-ui,sans-serif; animation:keytap 1.2s infinite;
 }
 @keyframes keytap{ 0%,35%{ transform:translateY(3px); box-shadow:none; } 45%,100%{ transform:none; } }
 #buy, #toss, #craft, #cook{
   position:fixed; right:max(16px, env(safe-area-inset-right,0px)); bottom:calc(env(safe-area-inset-bottom,0px) + 100px); z-index:4;
   width:84px; height:84px; border:0; border-radius:50%; background:var(--hot); color:#fff; cursor:pointer;
-  display:grid; place-items:center; align-content:center; font:800 18px/1 "Baloo 2","Trebuchet MS",system-ui,sans-serif;
+  display:grid; place-items:center; align-content:center; font:800 18px/1 "Floe Emoji","Baloo 2","Trebuchet MS",system-ui,sans-serif;
   box-shadow:0 4px 0 rgba(150,45,25,.45); touch-action:none; -webkit-user-select:none; user-select:none;
 }
 #buy[hidden], #toss[hidden], #craft[hidden], #cook[hidden]{ display:none; }
@@ -705,7 +714,7 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
 #craft:focus-visible{ outline:3px solid var(--pill-ink); outline-offset:3px; }
 #craft b{
   position:absolute; top:-2px; right:-2px; min-width:26px; height:26px; padding:0 6px; box-sizing:border-box; border-radius:999px;
-  background:var(--go); color:#fff; font:800 15px/26px "Baloo 2","Trebuchet MS",system-ui,sans-serif; box-shadow:0 2px 0 rgba(20,90,40,.4);
+  background:var(--go); color:#fff; font:800 15px/26px "Floe Emoji","Baloo 2","Trebuchet MS",system-ui,sans-serif; box-shadow:0 2px 0 rgba(20,90,40,.4);
 }
 #craft b:empty{ display:none; }
 #toss{ background:#4E5A66; box-shadow:0 4px 0 rgba(20,28,36,.45); }
@@ -714,7 +723,7 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
 #buy:focus-visible{ outline:3px solid var(--pill-ink); outline-offset:3px; }
 @media (prefers-reduced-motion: reduce){ #buyHint kbd{ animation:none; } }
 #hint small.buyline{ margin-top:6px; }
-#hint small kbd{ display:inline-grid; place-items:center; min-width:20px; height:20px; padding:0 4px; border-radius:5px; background:var(--chip); box-shadow:0 2px 0 var(--shade); font:800 13px "Baloo 2","Trebuchet MS",system-ui,sans-serif; }
+#hint small kbd{ display:inline-grid; place-items:center; min-width:20px; height:20px; padding:0 4px; border-radius:5px; background:var(--chip); box-shadow:0 2px 0 var(--shade); font:800 13px "Floe Emoji","Baloo 2","Trebuchet MS",system-ui,sans-serif; }
 #tip{
   text-align:center; max-width:100%;
   font-size:17px; font-weight:600; padding:8px 18px; border-radius:16px;
@@ -805,7 +814,7 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
 @keyframes drag{ 0%,100%{ transform:translate(0,-15px); } 25%{ transform:translate(15px,0); } 50%{ transform:translate(0,15px); } 75%{ transform:translate(-15px,0); } }
 /* keys: W A S D, pressed in turn */
 #hint .keys{ position:absolute; inset:0; display:grid; grid-template-columns:repeat(3,20px); grid-template-rows:repeat(2,20px); gap:3px; place-content:center; }
-#hint kbd{ display:grid; place-items:center; border-radius:5px; background:var(--chip); box-shadow:0 2px 0 var(--shade); font:800 12px "Baloo 2","Trebuchet MS",system-ui,sans-serif; animation:press 2.4s infinite; }
+#hint kbd{ display:grid; place-items:center; border-radius:5px; background:var(--chip); box-shadow:0 2px 0 var(--shade); font:800 12px "Floe Emoji","Baloo 2","Trebuchet MS",system-ui,sans-serif; animation:press 2.4s infinite; }
 #hint kbd:nth-child(1){ grid-area:1 / 2; }
 #hint kbd:nth-child(2){ grid-area:2 / 1; animation-delay:1.8s; }
 #hint kbd:nth-child(3){ grid-area:2 / 2; animation-delay:1.2s; }
@@ -817,7 +826,7 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
 #stale[hidden]{ display:none; }
 #stale .card{ text-align:center; background:var(--pill); color:var(--pill-ink); padding:22px 26px; border-radius:24px; max-width:min(86vw,360px); box-shadow:0 4px 0 var(--shade); }
 #stale p{ margin:0 0 14px; font-size:19px; font-weight:600; }
-#stale button{ font:800 18px "Baloo 2","Trebuchet MS",system-ui,sans-serif; background:var(--hot); color:#fff; border:0; border-radius:999px; padding:8px 22px; cursor:pointer; box-shadow:0 3px 0 rgba(150,45,25,.45); }
+#stale button{ font:800 18px "Floe Emoji","Baloo 2","Trebuchet MS",system-ui,sans-serif; background:var(--hot); color:#fff; border:0; border-radius:999px; padding:8px 22px; cursor:pointer; box-shadow:0 3px 0 rgba(150,45,25,.45); }
 #stale button:focus-visible{ outline:3px solid var(--pill-ink); outline-offset:2px; }
 
 #stick{
@@ -902,7 +911,7 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
    Eddie's coin. Bungee for the big words, Shippori Mincho for the brush lettering. */
 :root{
   --fn-navy:#14203A; --fn-seal:#D2382C; --fn-gold:#EDB94A; --fn-paper:#F2EADB; --fn-champ:#E0552F; --fn-boss:#7A4BB0;
-  --fn-brush:"Shippori Mincho B1","Hiragino Mincho ProN","Yu Mincho",serif; --fn-arcade:"Bungee","Arial Black",Impact,sans-serif;
+  --fn-brush:"Shippori Mincho B1","Hiragino Mincho ProN","Yu Mincho",serif; --fn-arcade:"Floe Emoji","Bungee","Arial Black",Impact,sans-serif;
 }
 /* a wrestler's face, rendered from his model (portraits.ts); his emoji until it is */
 .port{ display:grid; place-items:center; flex:none; border-radius:50%; border:3px solid #fff; box-shadow:0 3px 0 rgba(0,0,0,.4);
@@ -918,7 +927,7 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
 .seal.v-maybe{ background:#E0A526; color:#2A0F16; box-shadow:3px 3px 0 #8A6212; }
 .seal.v-likelylose{ background:#E0702A; box-shadow:3px 3px 0 #85401A; }
 .seal.v-lose{ background:var(--fn-seal); box-shadow:3px 3px 0 #7A1A12; }
-.fchip{ display:inline-flex; align-items:center; gap:6px; border-radius:999px; padding:3px 12px; font:800 17px/1.2 "Baloo 2","Trebuchet MS",system-ui,sans-serif;
+.fchip{ display:inline-flex; align-items:center; gap:6px; border-radius:999px; padding:3px 12px; font:800 17px/1.2 "Floe Emoji","Baloo 2","Trebuchet MS",system-ui,sans-serif;
   white-space:nowrap; background:#22324F; color:var(--fn-paper); }
 
 /* The gong: who you'd face, what he brings, your chances, and the button. */
@@ -946,7 +955,7 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
 #gongCast:empty{ display:none; }
 #gongCast .odds{ display:grid; grid-template-columns:1fr auto; align-items:center; gap:10px; }
 #gongCast .odds.fix{ grid-template-columns:auto 1fr auto; }
-#gongCast .lbl{ font:800 19px/1.15 "Baloo 2","Trebuchet MS",system-ui,sans-serif; }
+#gongCast .lbl{ font:800 19px/1.15 "Floe Emoji","Baloo 2","Trebuchet MS",system-ui,sans-serif; }
 #gongCast .mini{ width:38px; height:38px; display:block; }
 #gongCast .seal{ justify-self:end; }
 #gong button{
@@ -969,7 +978,7 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
 @keyframes stripIn{ from{ opacity:0; translate:0 -24px; } to{ opacity:1; translate:0 0; } }
 #rush .port{ width:52px; height:52px; font-size:26px; }
 #rush .mid{ display:grid; gap:7px; min-width:0; }
-#rush .row{ display:grid; grid-template-columns:1fr auto 1fr; align-items:baseline; gap:8px; font:800 17px/1.1 "Baloo 2","Trebuchet MS",system-ui,sans-serif;
+#rush .row{ display:grid; grid-template-columns:1fr auto 1fr; align-items:baseline; gap:8px; font:800 17px/1.1 "Floe Emoji","Baloo 2","Trebuchet MS",system-ui,sans-serif;
   font-variant-numeric:tabular-nums; white-space:nowrap; }
 #rush .row>span{ overflow:hidden; text-overflow:ellipsis; }
 #rush .row>span.two{ white-space:normal; font-size:.8em; line-height:1.05; }
@@ -1063,12 +1072,12 @@ body.cine #hud, body.cine #rush{ visibility:hidden; }
 @keyframes stamp{ 0%{ opacity:0; transform:scale(2.6) rotate(-14deg); } 70%{ opacity:1; transform:scale(.94) rotate(-8deg); } 100%{ opacity:1; transform:scale(1) rotate(-8deg); } }
 #fightCard h2{ margin:0; font:400 50px/1 var(--fn-arcade); color:#fff; text-shadow:4px 4px 0 #8A2E1E; }
 #fightCard.lose h2{ text-shadow:4px 4px 0 #3E2A66; }
-#fightCard .prize{ font:800 38px/1.1 "Baloo 2","Trebuchet MS",system-ui,sans-serif; color:#2A0F16; background:var(--fn-gold); border-radius:999px; padding:4px 24px 2px; box-shadow:0 5px 0 #A9761C; }
+#fightCard .prize{ font:800 38px/1.1 "Floe Emoji","Baloo 2","Trebuchet MS",system-ui,sans-serif; color:#2A0F16; background:var(--fn-gold); border-radius:999px; padding:4px 24px 2px; box-shadow:0 5px 0 #A9761C; }
 #fightCard .slam{ background:var(--fn-navy); border:2px solid var(--fn-gold); font-size:19px; padding:4px 14px; }
 #fightCard .reason{ background:var(--fn-navy); border:2px solid #3B4B6B; font-size:19px; padding:4px 14px; }
-#fightCard .unlock{ font:800 19px/1.25 "Baloo 2","Trebuchet MS",system-ui,sans-serif; color:#fff; background:rgba(20,32,58,.85); border:2px solid var(--fn-gold);
+#fightCard .unlock{ font:800 19px/1.25 "Floe Emoji","Baloo 2","Trebuchet MS",system-ui,sans-serif; color:#fff; background:rgba(20,32,58,.85); border:2px solid var(--fn-gold);
   border-radius:12px; padding:6px 14px; max-width:min(90vw,520px); box-sizing:border-box; text-wrap:balance; }
-#fightCard .tap{ font:600 15px "Baloo 2","Trebuchet MS",system-ui,sans-serif; color:rgba(242,234,219,.75); }
+#fightCard .tap{ font:600 15px "Floe Emoji","Baloo 2","Trebuchet MS",system-ui,sans-serif; color:rgba(242,234,219,.75); }
 
 /* Slick Eddie's coin, tossed at the gong with his fix on: it spins up, comes down spinning on its edge, his two faces
    flicking past slower and slower, drops flat on one, and a second later says what it means. Then it waits for a tap. */
@@ -1094,8 +1103,8 @@ body.cine #hud, body.cine #rush{ visibility:hidden; }
 @keyframes coinSay{ from{ opacity:0; transform:translateY(12px) scale(.9); } to{ opacity:1; transform:none; } }
 #coin .say b{ font:400 36px/1 var(--fn-arcade); color:#fff; background:var(--fn-navy); padding:13px 20px 11px; border-radius:12px; box-shadow:0 0 0 4px var(--fn-gold),0 10px 24px rgba(0,0,0,.5); }
 #coin.caught .say b{ background:var(--fn-seal); box-shadow:0 0 0 4px #fff,0 10px 24px rgba(0,0,0,.5); }
-#coin .say span{ font:800 19px/1.2 "Baloo 2","Trebuchet MS",system-ui,sans-serif; color:#fff; text-shadow:0 2px 6px #000; }
-#coin .tapon{ position:absolute; left:0; right:0; top:calc(38% + 230px); text-align:center; font:800 19px/1 "Baloo 2","Trebuchet MS",system-ui,sans-serif;
+#coin .say span{ font:800 19px/1.2 "Floe Emoji","Baloo 2","Trebuchet MS",system-ui,sans-serif; color:#fff; text-shadow:0 2px 6px #000; }
+#coin .tapon{ position:absolute; left:0; right:0; top:calc(38% + 230px); text-align:center; font:800 19px/1 "Floe Emoji","Baloo 2","Trebuchet MS",system-ui,sans-serif;
   color:#fff; text-shadow:0 2px 6px #000; opacity:0; transition:opacity .3s; }
 #coin.ready .tapon{ opacity:1; animation:coinPulse 1.4s ease-in-out infinite; }
 @keyframes coinPulse{ 0%,100%{ opacity:1; } 50%{ opacity:.45; } }
@@ -1204,7 +1213,7 @@ body.meet #hud, body.meet #corner, body.meet #pointers, body.meet #tip, body.mee
 /* the hatch bursting open (offer.ts): a warm flash from the hole */
 #offerBlink.flash{ background:#FFB070; }
 /* a caption over the scene, as in a film ("That night…") */
-#offerCaption{ position:fixed; left:50%; bottom:22%; transform:translateX(-50%); z-index:6; pointer-events:none; color:#F4EEDD; font:700 26px "Baloo 2","Trebuchet MS",system-ui,sans-serif; letter-spacing:.04em; text-shadow:0 2px 12px rgba(0,0,0,.6); opacity:0; transition:opacity .8s; white-space:nowrap; }
+#offerCaption{ position:fixed; left:50%; bottom:22%; transform:translateX(-50%); z-index:6; pointer-events:none; color:#F4EEDD; font:700 26px "Floe Emoji","Baloo 2","Trebuchet MS",system-ui,sans-serif; letter-spacing:.04em; text-shadow:0 2px 12px rgba(0,0,0,.6); opacity:0; transition:opacity .8s; white-space:nowrap; }
 #offerCaption.on{ opacity:1; }
 #offerAlert, #wayAlert{
   position:fixed; left:0; top:0; z-index:5; width:46px; height:46px; margin:-23px 0 0 -23px; border-radius:50%;
@@ -1241,7 +1250,7 @@ body.offer #wayAlert, body.way #wayAlert, body.meet #wayAlert{ visibility:hidden
 #offerPick[hidden]{ display:none; }
 #offerPick button{
   display:inline-flex; align-items:center; gap:8px; border:0; border-radius:999px; padding:6px 20px 6px 7px; cursor:pointer;
-  font:800 19px "Baloo 2","Trebuchet MS",system-ui,sans-serif; background:var(--pill); color:var(--pill-ink);
+  font:800 19px "Floe Emoji","Baloo 2","Trebuchet MS",system-ui,sans-serif; background:var(--pill); color:var(--pill-ink);
   box-shadow:0 3px 0 var(--shade); animation:pickIn .3s cubic-bezier(.2,1.5,.4,1) backwards;
 }
 #offerPick button:nth-child(2){ animation-delay:.06s; }
@@ -1257,12 +1266,12 @@ body.offer #wayAlert, body.way #wayAlert, body.meet #wayAlert{ visibility:hidden
 #wayLook p{
   position:absolute; left:50%; top:calc(env(safe-area-inset-top,0px) + 18px); transform:translateX(-50%); margin:0; pointer-events:none;
   padding:6px 16px; border-radius:999px; background:var(--pill); color:var(--pill-ink); box-shadow:0 3px 0 var(--shade);
-  font:800 17px "Baloo 2","Trebuchet MS",system-ui,sans-serif; white-space:nowrap;
+  font:800 17px "Floe Emoji","Baloo 2","Trebuchet MS",system-ui,sans-serif; white-space:nowrap;
 }
 #wayLook button{
   position:absolute; left:50%; bottom:calc(env(safe-area-inset-bottom,0px) + 22px); transform:translateX(-50%);
   display:inline-flex; align-items:center; gap:8px; border:0; border-radius:999px; padding:6px 20px 6px 7px; cursor:pointer;
-  font:800 19px "Baloo 2","Trebuchet MS",system-ui,sans-serif; background:var(--go); color:#fff; box-shadow:0 3px 0 rgba(20,90,40,.45);
+  font:800 19px "Floe Emoji","Baloo 2","Trebuchet MS",system-ui,sans-serif; background:var(--go); color:#fff; box-shadow:0 3px 0 rgba(20,90,40,.45);
 }
 #wayLook .ic{ width:34px; height:34px; border-radius:50%; background:rgba(255,255,255,.22); display:grid; place-items:center; font-size:19px; }
 #wayLook button:focus-visible{ outline:3px solid var(--coral); outline-offset:2px; }
@@ -1369,7 +1378,7 @@ body.show #toss, body.show #cook, body.show #coach, body.show #hint, body.show #
 #show{
   --wood:#E3C38F; --wood2:#D9B27A; --rim:#8A5A30; --rim2:#6E4523; --ink:#3B2716; --paper:#F6EBD3; --red:#B5332E; --red2:#7A1F1B; --leaf:#2E7D46;
   position:fixed; inset:0; z-index:6; display:flex; flex-direction:column; color:var(--ink);
-  font-family:"Baloo 2","Trebuchet MS",system-ui,sans-serif; -webkit-user-select:none; user-select:none;
+  font-family:"Floe Emoji","Baloo 2","Trebuchet MS",system-ui,sans-serif; -webkit-user-select:none; user-select:none;
   box-shadow:inset 0 0 0 6px var(--rim);
 }
 #show[hidden]{ display:none; }
@@ -1430,7 +1439,7 @@ body.show #toss, body.show #cook, body.show #coach, body.show #hint, body.show #
 #show .shCard .stars{ font-size:28px; font-weight:800; color:var(--red); font-variant-numeric:tabular-nums; line-height:1; }
 #show .shCard .bonus{ font-size:20px; font-weight:800; font-variant-numeric:tabular-nums; }
 #show .shCard .sub{ font-size:15px; font-weight:600; font-variant-numeric:tabular-nums; }
-#show .shCard button{ font:800 19px "Baloo 2","Trebuchet MS",system-ui,sans-serif; border:0; border-radius:12px; padding:7px 24px 5px; margin-top:6px; cursor:pointer;
+#show .shCard button{ font:800 19px "Floe Emoji","Baloo 2","Trebuchet MS",system-ui,sans-serif; border:0; border-radius:12px; padding:7px 24px 5px; margin-top:6px; cursor:pointer;
   background:var(--red); color:#FFF3E2; box-shadow:0 4px 0 var(--red2); }
 #show .shCard button:active{ transform:translateY(3px); box-shadow:0 1px 0 var(--red2); }
 #show .shCard button:focus-visible, #showShut:focus-visible{ outline:3px solid var(--ink); outline-offset:3px; }
@@ -1499,6 +1508,13 @@ body.show #toss, body.show #cook, body.show #coach, body.show #hint, body.show #
     <h3>Music</h3>
     <ul>
       <li>The game's own music and sound effects are original, made in your browser as you play, the songs at her house and at Korki's statue too. © ChefControl.</li>
+    </ul>
+    <h3>Fonts</h3>
+    <ul>
+      <li>Baloo 2, © 2019 The Baloo 2 Project Authors, <a href="fonts/OFL-Baloo2.txt" target="_blank" rel="noopener">SIL Open Font License 1.1</a>.</li>
+      <li>Bungee, © 2023 The Bungee Project Authors, <a href="fonts/OFL-Bungee.txt" target="_blank" rel="noopener">SIL Open Font License 1.1</a>.</li>
+      <li>Shippori Mincho B1, © 2021 The Shippori Mincho Project Authors, <a href="fonts/OFL-ShipporiMinchoB1.txt" target="_blank" rel="noopener">SIL Open Font License 1.1</a>.</li>
+      <li>Each cut down to the letters the game uses. The emoji are the game's own drawings.</li>
     </ul>
     <h3>The casino yacht's room sound</h3>
     <ul>
@@ -1904,6 +1920,6 @@ body.show #toss, body.show #cook, body.show #coach, body.show #hint, body.show #
   Promise.all(P.files.map(load)).then(start, start);
 })();
 </script>
-<script type="module" src="/src/main.ts"></script>
+<script type="module" src="/src/boot.ts"></script>
 </body>
 </html>

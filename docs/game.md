@@ -294,7 +294,7 @@ On the casino boat, a sign hangs from the wall behind the bar, over its window e
 
 ## Development
 
-TypeScript + [three.js r186](https://threejs.org/), bundled with [Vite](https://vite.dev/). All textures are drawn at runtime on canvas; the Baloo 2 font comes from Google Fonts.
+TypeScript + [three.js r186](https://threejs.org/), bundled with [Vite](https://vite.dev/). All textures are drawn at runtime on canvas. The fonts and the emoji ship with the game (`public/fonts`, cut down to what it writes by `scripts/fonts/build.py`), so it fetches none from the web.
 
 | Command | What it does |
 | --- | --- |

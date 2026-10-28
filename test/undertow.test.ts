@@ -2,6 +2,7 @@
 // the doorman's door, found when the second boss is beaten; the Family's three spread round the room,
 // each with a word for whoever steps up to his pad.
 import { describe, expect, it } from 'vitest';
+import { FACE } from '../src/icons/bosses';
 import { bought, FLOE_SUSHI, loadGame, MARKET, overHall, type SaveFixture } from './helpers';
 
 const $ = (id: string) => document.getElementById(id)!;
@@ -627,7 +628,7 @@ describe('the Undertow', () => {
     expect($('eddie').hidden).toBe(false);
     // 30% of Dobu's 498 fans: 149 kept home, at his stake (🐡 70) a tenth; a 30% chance it gets out
     E.pickCut(3);
-    expect($('eddieFix').textContent).toBe('Fix 🐟 −149 fans · 30% caught');
+    expect($('eddieFix').textContent).toBe(`Fix ${FACE.catfish} −149 fans · 30% caught`);
     // (each size says what it costs)
     expect($('eddie').querySelector('[data-cut="3"]')!.textContent).toBe('🐡210');
     expect(E.payEddie(3, () => 0.99)).toBe(true);
@@ -684,7 +685,7 @@ describe('the Undertow', () => {
     $('coin').click();
     expect($('coin').hidden).toBe(true);
     expect(g.player.held).toBe(false);
-    expect($('fightBanner').textContent).toBe('入場Dobu 🐟 · 349 fans💪 280 TO WIN');
+    expect($('fightBanner').textContent).toBe(`入場Dobu ${FACE.catfish} · 349 fans💪 280 TO WIN`);
     g.run(1);
     expect(F().rush!.walk).toBeLessThan(fight.WALK_IN);
     expect($('rush').hidden).toBe(false);

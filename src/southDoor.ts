@@ -33,7 +33,7 @@ import { club } from './noir';
 import { DESK_PAD } from './office';
 import { player } from './player';
 import { pointAt } from './pointers';
-import { camera, camK, canvasTex, G, mesh } from './render';
+import { camera, camK, canvasTex, EMOJI, G, mesh } from './render';
 import { save } from './save';
 import { chime } from './sfx';
 import { staging } from './stage';
@@ -138,7 +138,7 @@ function bookModel() {
     c.lineWidth = 2; c.strokeRect(24, 24, w - 48, h - 48);
     c.fillStyle = '#E8C46A'; c.textAlign = 'center'; c.textBaseline = 'middle';
     c.font = '700 30px Georgia,"Times New Roman",serif'; c.fillText('THE', w / 2, 70); c.fillText('UNDERTOW', w / 2, 104);
-    c.font = '96px serif'; c.fillText('🐡', w / 2, 196);
+    c.font = `96px ${EMOJI}`; c.fillText('🐡', w / 2, 196);
     c.font = '700 15px Georgia,serif'; c.fillText('MEMBERS ONLY', w / 2, 268);
     // (the flap's fold, low down, where the cover tucks in)
     c.fillStyle = 'rgba(0,0,0,.35)'; c.fillRect(24, h - 52, w - 48, 4);
