@@ -174,6 +174,12 @@ describe('stage 3, Low and High', () => {
     expect(casting.every(f => f.geometry.attributes.position.count > f.userData.shadowFrom)).toBe(true);
     // (the trim, the small things on them, never casts)
     expect(fans().filter(f => !f.userData.casts).every(f => !f.castShadow)).toBe(true);
+    // their own materials, not the plain meshes' painted, one for shirts coloured each and one for the rest, so three.js
+    // never switches a material's shader between them
+    const mats = (shirts: boolean) => new Set(fans().filter(f => !!f.instanceColor === shirts).map(f => f.material));
+    expect([mats(true).size, mats(false).size]).toEqual([1, 1]);
+    expect([...mats(true), ...mats(false)]).not.toContain(render.painted);
+    expect([...mats(true)][0]).not.toBe([...mats(false)][0]);
     graphics.choose('low');
     g.run(0.5);
     expect(fans().every(f => !f.castShadow)).toBe(true);

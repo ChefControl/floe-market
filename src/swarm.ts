@@ -11,12 +11,13 @@
 // cheer as people do. But there can be 500 of them, and a Person is six draw calls of its own, so the swarm is drawn in
 // batches: a dozen looks, each one's body, arms and legs an instanced mesh (below). If frames run slow while it's
 // out, it stops casting shadows, and on Low it casts none; their shadows are a plainer copy of them (withShadow).
-import { BufferGeometry, CanvasTexture, Color, Float32BufferAttribute, InstancedMesh, Matrix4, Quaternion, Sprite, SpriteMaterial, Vector3 } from 'three';
+import { BufferGeometry, CanvasTexture, Color, Float32BufferAttribute, InstancedMesh, Matrix4, type MeshLambertMaterial, Quaternion, Sprite, SpriteMaterial, Vector3 } from 'three';
 import { CY, cellarBoxes, lineRamp, parts, placeBuilt, places, RING } from './cellar';
 import { BAR, BAR_PAD, BAR_SPOTS, FLOOR, fromBar, GONG_PAD, nearBar, TUNNELS, WATCH } from './cellarPlan';
 import { crowdModel, PARKAS, SHIRT } from './characters';
 import { bossOf, F, finish, REACH } from './fight';
 import { isHigh, onQuality } from './graphics';
+import { dice, quietly } from './kit';
 import { ARENA, inUndertow, level, pushOutOfBox } from './layout';
 import { player } from './player';
 import { camera, ctx2d, FONT, painted, rr, scene } from './render';
@@ -93,12 +94,18 @@ function withShadow(g: BufferGeometry) {
   g.dispose();
   return out;
 }
+/** The fans' own copies of `painted`, one for those whose shirts are coloured each and one for the rest: three.js keys a
+ *  material's shader on whether what it draws is instanced (and coloured each), so sharing `painted` with the cellar's
+ *  plain meshes had it look the shader up again at every switch, dozens of times a frame. Made the first time the
+ *  fans are, on dice of their own (off the luck, and off the scenery's dice). */
+let fanPaint: { plain: MeshLambertMaterial; shirts: MeshLambertMaterial } | null = null;
 function makeLooks() {
+  fanPaint ??= quietly(() => ({ plain: painted.clone(), shirts: painted.clone() }), dice(0xFA45));
   looks = Array.from({ length: LOOKS }, (_, k) => {
     const p = crowdModel(crowdStyle(100_000 + k), k % 2 ? 'hooligan' : 'yakuza'), b = p.baked();
     const halves = (g: BufferGeometry) => split(g).map((x, i) => [x, i === 0] as const).filter((x): x is [BufferGeometry, boolean] => !!x[0]);
     const pieces = (geos: BufferGeometry[], per: number) => geos.flatMap(g => halves(g).map(h => [...h, !b.body.includes(g) || g === b.casts] as const)).map(([g, shirt, casts]) => {
-      const im = new InstancedMesh(casts ? withShadow(g) : g, painted, PER * per);
+      const im = new InstancedMesh(casts ? withShadow(g) : g, shirt ? fanPaint!.shirts : fanPaint!.plain, PER * per);
       // (on Low, none of them casts a shadow: hundreds of fans drawn again, for a few pixels each)
       im.count = 0; im.castShadow = casts && shadows && isHigh(); im.receiveShadow = false; im.frustumCulled = false;
       im.userData.casts = casts;
