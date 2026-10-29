@@ -5,7 +5,7 @@ import {
   TorusGeometry, Vector3, WebGLRenderer,
 } from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { glBack, glGone } from './errors';
+import { glBack, glGone, view3d } from './errors';
 import { highBuilt, isHigh, isPotato, lowAfterLoss, onQuality } from './graphics';
 import { V } from './util';
 import { viewSize } from './viewSize';
@@ -34,11 +34,21 @@ const LOST_WAIT = 3;
 let lostT: ReturnType<typeof setTimeout> | undefined;
 const waitForIt = () => { lostT = setTimeout(() => (document.hidden ? waitForIt() : glGone('lost')), LOST_WAIT * 1000); };
 canvas.addEventListener('webglcontextlost', () => {
-  if (!document.hidden) lowAfterLoss();
+  if (document.hidden) view3d.lostHidden++;
+  else { view3d.lost++; lowAfterLoss(); }
   clearTimeout(lostT);
   waitForIt();
 });
 canvas.addEventListener('webglcontextrestored', () => { clearTimeout(lostT); glBack(); });
+/** The graphics chip's name, as the browser gives it, for bug reports. Firefox says it plainly (if vaguely); Chrome and
+ *  Safari only say "WebKit WebGL", and give the real name through their debug extension (Safari's "Apple GPU"). Read
+ *  now, while the view's sure to be there. */
+export const gpu = (() => {
+  const gl = renderer.getContext(), plain = String(gl.getParameter(gl.RENDERER) ?? '');
+  if (plain && plain !== 'WebKit WebGL') return plain.slice(0, 120);
+  const ext = gl.getExtension('WEBGL_debug_renderer_info');
+  return String((ext && gl.getParameter(ext.UNMASKED_RENDERER_WEBGL)) || plain).slice(0, 120);
+})();
 renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
 renderer.outputColorSpace = LinearSRGBColorSpace;
 // the fish on the chopping block is cut with a clipping plane (fishing.ts)

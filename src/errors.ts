@@ -54,8 +54,10 @@ window.addEventListener('vite:preloadError', e => { if (reloadOnce()) e.preventD
 const glDialog = document.getElementById('glLost')!, glWhy = document.getElementById('glLostWhy')!;
 /** What the dialog says: the 3D view couldn't start, or it stopped and didn't come back. */
 export const GL_SAYS = { start: 'Restart your browser to bring back the 3D', lost: 'The 3D view stopped. Your game is saved.' };
-/** Whether the 3D view's gone, and the dialog's up. */
-export const view3d = { down: false };
+/** Whether the 3D view's gone, and the dialog's up; and how many times this visit the browser's taken it back (render.ts),
+ *  whether it gave it back or not, for bug reports: while the game was on screen (a black screen behind the HUD), and
+ *  while the tab was put away (Android does that to a tab in the background; it's back before the player is). */
+export const view3d = { down: false, lost: 0, lostHidden: 0 };
 glDialog.querySelector('button')!.addEventListener('click', () => page.reload());
 
 /** The 3D view's gone: it couldn't start (`start`), or the browser took it back and hasn't given it back (`lost`). */
