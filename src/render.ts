@@ -6,8 +6,9 @@ import {
 } from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { glBack, glGone } from './errors';
-import { isHigh, lowAfterLoss, onQuality } from './graphics';
+import { highBuilt, isHigh, isPotato, lowAfterLoss, onQuality } from './graphics';
 import { V } from './util';
+import { viewSize } from './viewSize';
 
 // ---------- renderer / scene ----------
 // The art was tuned for three.js' pre-r152 color pipeline: hex colors and canvas textures used as-is,
@@ -18,7 +19,8 @@ export const canvas = document.getElementById('game') as HTMLCanvasElement;
 // (a stencil buffer for the hole under Mr. Fugu's hatch, fugu.ts, which shows the shaft below the deck through it)
 export const renderer = (() => {
   try {
-    return new WebGLRenderer({ canvas, antialias: true, stencil: true });
+    // (Potato smooths no edges: smoothing takes several times the drawing's memory, and it's only chosen as the view's made)
+    return new WebGLRenderer({ canvas, antialias: highBuilt, stencil: true });
   } catch (e) {
     // the browser won't give the game a 3D view (errors.ts): the game can't go on, but the dialog says why
     glGone('start', (e as Error).message);
@@ -49,23 +51,84 @@ scene.background = new Color(0xCFEAF5);
 // Where things are is worked out afresh each frame, but only for what shows: three.js would do it for everything,
 // hidden or not, and the setting not in use (graphics.ts) is built and hidden beside the one that is. Something
 // hidden is marked to be placed again the moment it shows (its own world matrix, and so everything in it).
-const placeAll = Object3D.prototype.updateMatrixWorld;
-function place(o: Object3D, force: boolean) {
-  if (o.matrixAutoUpdate) o.updateMatrix();
-  if (o.matrixWorldNeedsUpdate || force) {
-    if (o.parent) o.matrixWorld.multiplyMatrices(o.parent.matrixWorld, o.matrix);
+// And only for what's moved: most of what shows stands still, and three.js would build its matrix again every frame,
+// and multiply it into its parent's, to come out the same. Each thing keeps a record (`placed`) of the position,
+// rotation and scale it was last built from, and of what it was placed in: its matrix is built only when they've
+// changed, and its world matrix worked out only then, or when its parent's has been since it last was (or it was
+// marked to be). All `place` keeps on a thing is in that one record, so what it reads and writes there each frame is
+// always laid out the same way (the things themselves are of many kinds).
+/** What `place` keeps on each thing it walks. */
+export class Placed {
+  /** The `placePass` that last placed it. */
+  walkedAt = -1;
+  /** The `placePass` in which `place` last worked out its world matrix (it moved, or something it's in did): -1
+   *  before it has. */
+  movedAt = -1;
+  /** The record of the parent `place` last placed it in (undefined for the scene, null before it's placed). */
+  in: Placed | null | undefined = null;
+  /** What `place` last built its matrix from: position, quaternion, scale (NaN to build it again). */
+  px = NaN; py = NaN; pz = NaN; qx = NaN; qy = NaN; qz = NaN; qw = NaN; sx = NaN; sy = NaN; sz = NaN;
+  /** For one whose matrix is set by hand (`matrixAutoUpdate` off): that matrix, as `place` last placed it. */
+  held: Float64Array | null = null;
+}
+declare module 'three' {
+  interface Object3D {
+    /** What `place` keeps on it, made the first time it's walked: set on everything `place` walks itself (not what's
+     *  hidden, nor what places itself its own way, and so not what's in those). */
+    placed?: Placed;
+  }
+}
+/** How many times the scene's been placed: once each time it's drawn, and again whenever something asks. */
+export let placePass = 0;
+const placeAll = Object3D.prototype.updateMatrixWorld, buildMatrix = Object3D.prototype.updateMatrix;
+const posedAs = (o: Object3D, r: Placed) => {
+  const a = o.position, q = o.quaternion, s = o.scale;
+  return r.px === a.x && r.py === a.y && r.pz === a.z && r.qx === q.x && r.qy === q.y && r.qz === q.z && r.qw === q.w
+    && r.sx === s.x && r.sy === s.y && r.sz === s.z;
+};
+const pose = (o: Object3D, r: Placed) => {
+  const a = o.position, q = o.quaternion, s = o.scale;
+  r.px = a.x; r.py = a.y; r.pz = a.z; r.qx = q.x; r.qy = q.y; r.qz = q.z; r.qw = q.w; r.sx = s.x; r.sy = s.y; r.sz = s.z;
+};
+// Something built by three.js itself (getWorldPosition, updateMatrixWorld(true), Box3.setFromObject) from another
+// pose than `place`'s, or in another parent (or none), leaves its world matrix there, even if it's put back before the
+// frame's drawn: `place` builds it again.
+Object3D.prototype.updateMatrix = function (this: Object3D) {
+  const r = this.placed;
+  if (r && (this.parent?.placed !== r.in || !posedAs(this, r))) r.px = NaN;
+  buildMatrix.call(this);
+};
+/** Places `o`, whose parent's record is `up` (undefined for the scene). */
+function place(o: Object3D, force: boolean, up: Placed | undefined) {
+  const r = o.placed ??= new Placed();
+  r.walkedAt = placePass;
+  if (o.matrixAutoUpdate) {
+    if (!posedAs(o, r)) { buildMatrix.call(o); pose(o, r); }
+    // (three.js's pivot moves the matrix too, unseen: one with a pivot is built again next time)
+    if (o.pivot !== null) r.px = NaN;
+  } else {
+    // a matrix set by hand: placed whenever it's changed, marked or not (as it was when everything was placed)
+    const e = o.matrix.elements, h = r.held ??= new Float64Array(16).fill(NaN);
+    r.px = NaN;
+    for (let i = 0; i < 16; i++) if (e[i] !== h[i]) { h.set(e); o.matrixWorldNeedsUpdate = true; break; }
+  }
+  const marked = o.matrixWorldNeedsUpdate;
+  if (marked || force || r.in !== up || (up && up.movedAt > r.movedAt)) {
+    const p = o.parent;
+    if (p) o.matrixWorld.multiplyMatrices(p.matrixWorld, o.matrix);
     else o.matrixWorld.copy(o.matrix);
-    o.matrixWorldNeedsUpdate = false;
-    force = true;
+    if (marked) o.matrixWorldNeedsUpdate = false;
+    r.in = up;
+    r.movedAt = placePass;
   }
   for (const c of o.children) {
     if (!c.matrixWorldAutoUpdate) continue;
-    if (!c.visible) c.matrixWorldNeedsUpdate = true;
-    else if (c.updateMatrixWorld !== placeAll) c.updateMatrixWorld(force); // one that places itself its own way
-    else place(c, force);
+    if (!c.visible) { if (!c.matrixWorldNeedsUpdate) c.matrixWorldNeedsUpdate = true; }
+    else if (c.updateMatrixWorld !== placeAll) c.updateMatrixWorld(r.movedAt === placePass); // one that places itself its own way
+    else place(c, force, r);
   }
 }
-scene.updateMatrixWorld = (force = false) => place(scene, force);
+scene.updateMatrixWorld = (force = false) => { placePass++; place(scene, force, undefined); };
 export const fog = new Fog(0xCFEAF5, 34, 70);
 scene.fog = fog;
 
@@ -77,7 +140,7 @@ export const CAM_YAW = Math.atan2(OFF.x, OFF.z);
 export let camK = 1;
 
 function resize() {
-  const w = window.innerWidth, h = window.innerHeight;
+  const w = viewSize.w, h = viewSize.h;
   renderer.setSize(w, h, false);
   camera.aspect = w / h;
   const portrait = camera.aspect < 0.8;
@@ -94,7 +157,7 @@ export function slideView(x: number, y: number) {
     if (camera.view?.enabled) camera.clearViewOffset();
     return;
   }
-  const w = window.innerWidth, h = window.innerHeight;
+  const w = viewSize.w, h = viewSize.h;
   camera.setViewOffset(w, h, x, y, w, h);
 }
 
@@ -119,12 +182,14 @@ export const shadowSize = { px: 1024 };
 /**
  * Fits the renderer to the graphics (graphics.ts). High: soft-edged shadows, up to two pixels a point. Low, for phones
  * that can't keep up: a shadow map half the size with hard edges, and no more than one and a half pixels a point.
+ * Potato: no shadows at all (and no shadow map held), and one pixel a point.
  */
 export function fitRenderer() {
-  const high = isHigh(), px = high ? shadowSize.px : shadowSize.px / 2;
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, high ? 2 : 1.5));
+  const high = isHigh(), potato = isPotato(), px = high ? shadowSize.px : shadowSize.px / 2;
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, high ? 2 : potato ? 1 : 1.5));
   sun.shadow.radius = high ? 3 : 1;
-  if (sun.shadow.mapSize.x !== px) {
+  sun.castShadow = !potato;
+  if (sun.shadow.mapSize.x !== px || potato) {
     sun.shadow.mapSize.set(px, px);
     sun.shadow.map?.dispose();
     sun.shadow.map = null;

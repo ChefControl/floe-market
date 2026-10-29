@@ -17,6 +17,7 @@ import { save } from './save';
 import { staging } from './stage';
 import { wayPlaying } from './southDoor';
 import { d2xz, V } from './util';
+import { viewSize } from './viewSize';
 
 /** What each says, a line at a time (a few words each: his panel has the numbers). */
 export const INTRO: Record<Booth, string[]> = {
@@ -183,9 +184,9 @@ export function drawMeet() {
   meetCam.pos.lerp(near.copy(meetCam.look), 0.18 * creep);
   if (!scene || scene.line < 0) return;
   // over his head, its tail pointing down at him (kept on the screen)
-  const toScreen = (y: number) => { const v = V(b.x, y, b.z).project(camera); return { x: (v.x + 1) / 2 * window.innerWidth, y: (1 - v.y) / 2 * window.innerHeight }; };
+  const toScreen = (y: number) => { const v = V(b.x, y, b.z).project(camera); return { x: (v.x + 1) / 2 * viewSize.w, y: (1 - v.y) / 2 * viewSize.h }; };
   const { x: hx, y: hy } = toScreen(face + OVER), f = toScreen(face);
-  const w = sayEl.offsetWidth, x = Math.max(12, Math.min(hx - w / 2, window.innerWidth - w - 12));
+  const w = sayEl.offsetWidth, x = Math.max(12, Math.min(hx - w / 2, viewSize.w - w - 12));
   sayEl.style.left = x + 'px'; sayEl.style.top = Math.max(sayEl.offsetHeight + 16, hy) + 'px';
   sayEl.style.setProperty('--tail', Math.max(22, Math.min(w - 22, hx - x)) + 'px');
   // (the dark round the edges, clear round his face)

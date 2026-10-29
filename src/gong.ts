@@ -46,8 +46,13 @@ export function fit(el: HTMLElement, least = Number(el.dataset.least) || 0.7) {
   if (el.scrollWidth > el.clientWidth + 0.5) { el.style.fontSize = ''; el.classList.add('two'); }
 }
 const fitted: HTMLElement[] = [];
-const refit = () => fitted.forEach(fit);
+// (each passed alone: forEach would hand fit its index as `least`, the first name shrinking without a floor and the
+// rest not at all)
+const refit = () => fitted.forEach(el => fit(el));
 document.fonts?.ready.then(refit);
+// (and as any font comes in later: the strip's own, Bungee, only loads once it's first shown, fonts.ts, and the names
+// are fitted only when the strip's words change, not every frame)
+document.fonts?.addEventListener?.('loadingdone', refit);
 window.addEventListener('resize', refit);
 
 // ---------- the pads ----------
@@ -293,8 +298,10 @@ function slamChip() {
   chip.className = 'fchip slam'; chip.textContent = `💥 Slam +🐡 ${amount(bossOf(R.boss).prize * SLAM.bonus[R.slam] + 0.5)}`;
   prize?.after(chip);
 }
-/** What the strip said last, so it's only rewritten when something in it changes. */
-let barSaid = '';
+/** What the strip said last, so it's only rewritten when something in it changes; and its words the names were last
+ *  fitted to (fitting measures them, which lays the page out: not every frame the knot moves, only when the names or
+ *  the middle between them, whose width their boxes share, change). */
+let barSaid = '', fitSaid = '';
 /** The strip along the top, every boss's fight (and a local's, from the watch spot): the champion's face and his fans
  *  on the left, the other's on the right; the bell (or the fight, or how it went) between; and the rope, orange for his
  *  fans, purple for theirs: his goal marked on it while his crowd's turning, and in the fight the knot, pulled one way
@@ -303,7 +310,7 @@ function renderBout() {
   // (a local's from the watch spot only once the doors are open: before, there's no fight to show)
   const R = F.rush, show = level.down && stage.n === 3 && !coinUp() && (!!R || (watch > 0.5 && !F.quiet));
   if (show === rushEl.hidden) { rushEl.hidden = !show; rushEl.classList.toggle('in', show); }
-  if (!show) { barSaid = ''; return; }
+  if (!show) { barSaid = fitSaid = ''; return; }
   const B = F.bout, boss = R ? bossOf(R.boss) : null, name = boss ? boss.name : 'Local', move = moveOf(R, B.finish), lands = landsOf(R, B.finish);
   const { yours, theirs } = sides();
   let left = `${CHAMP} ${yours}`, right = `${theirs} ${name}`, mid: string, fill = yours + theirs ? yours / (yours + theirs) : 0.5, goal = -1;
@@ -325,7 +332,8 @@ function renderBout() {
   showFace(rushYouP, 'champ', '🍙');
   if (boss) showFace(rushThemP, boss.kind ?? 'local', boss.face); else showFace(rushThemP, 'local', '🙂');
   rushYou.textContent = left; rushBell.textContent = mid; rushThem.textContent = right;
-  fit(rushYou); fit(rushThem);
+  const words = [left, mid, right].join('|');
+  if (words !== fitSaid) { fitSaid = words; fit(rushYou); fit(rushThem); }
   rushBar.style.width = Math.round(fill * 1000) / 10 + '%';
   rushGoal.hidden = goal < 0; rushGoal.style.left = Math.round(goal * 1000) / 10 + '%';
   rushKnot.hidden = knot < 0; rushKnot.style.left = Math.round(knot * 10) / 10 + '%';

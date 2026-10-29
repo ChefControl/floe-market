@@ -7,6 +7,7 @@
 // as you're beside them.
 import { buyButton, isTouch } from './hint';
 import { buyHeld, holdBuyButton } from './input';
+import { viewSize } from './viewSize';
 import { wallet } from './wallet';
 
 const btn = document.getElementById('buy')!, reminder = document.getElementById('buyHint')!;
@@ -62,7 +63,7 @@ export function updBuy(onTile: boolean, dt: number) {
   btn.hidden = !(buyButtonShown() && (onTile || talking));
   if (!btn.hidden) {
     // the button (and its reminder) sit above the tip, however tall the tip's description makes it
-    const bottom = Math.max(100, innerHeight - prompts.getBoundingClientRect().top + 12);
+    const bottom = Math.max(100, viewSize.h - prompts.getBoundingClientRect().top + 12);
     btn.style.bottom = bottom + 'px';
     reminder.style.bottom = bottom + 96 + 'px';
   }
