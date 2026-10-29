@@ -31,7 +31,7 @@ describe('the gong', () => {
     expect(g.wallet.money).toBe(money);
     // 入場: his name, his crowd, and how many to turn
     expect($('fightBanner').hidden).toBe(false);
-    expect($('fightBanner').textContent).toBe(`入場Hakkaku ${FACE.octopus} · 100 fans💪 51 TO WIN`);
+    expect($('fightBanner').textContent).toBe(`入場${FACE.octopus}BOSS 1Hakkaku · 100\u00a0fans💪 51 TO WIN`);
     expect($('rush').hidden).toBe(false);
     g.ui.hud(0);
     expect($('rushYou').textContent).toBe('Chunkos 0');
@@ -351,7 +351,7 @@ describe('the gong during a local fight', () => {
     expect(F().rush).toMatchObject({ boss: 0, n: 100, turned: 0, walk: fight.WALK_IN });
     expect(F().bout).toMatchObject({ phase: 'prep', n: n + 1 });
     expect($('fightBanner').hidden).toBe(false);
-    expect($('fightBanner').textContent).toBe(`入場Hakkaku ${FACE.octopus} · 100 fans💪 51 TO WIN`);
+    expect($('fightBanner').textContent).toBe(`入場${FACE.octopus}BOSS 1Hakkaku · 100\u00a0fans💪 51 TO WIN`);
   });
 
   it('before the fight, he walks in at once; and a reload while he waits calls him off', async () => {
