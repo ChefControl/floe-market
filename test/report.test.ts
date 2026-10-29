@@ -229,8 +229,8 @@ describe('reporting a bug or an idea', () => {
     } finally {
       delete (navigator as Navigator & { deviceMemory?: number }).deviceMemory;
     }
-    // (taken while the game was on screen: Auto stepped down, render.ts)
-    expect(JSON.parse(String(fake.reports[0].r.device))).toMatchObject({ graphics: 'auto low', lost3d: 2, lost3dHidden: 1, gpu: 'Test GPU', memory: '4 GB' });
+    // (taken twice while the game was on screen: Auto stepped down twice, to Low and then Potato, render.ts)
+    expect(JSON.parse(String(fake.reports[0].r.device))).toMatchObject({ graphics: 'auto potato', lost3d: 2, lost3dHidden: 1, gpu: 'Test GPU', memory: '4 GB' });
   });
 
   it('sends the note, the picture and the game state, and thanks the player', async () => {
