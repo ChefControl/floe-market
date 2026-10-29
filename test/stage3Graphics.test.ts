@@ -155,14 +155,21 @@ describe('stage 3, Low and High', () => {
     const { cellar: C, graphics, g, render } = await cellar('high');
     const casters = () => { let n = 0; C.cellar.traverse(o => { if ((o as Mesh).isMesh && (o as Mesh).castShadow) n++; }); return n; };
     const slight = () => { let n = 0; C.cellar.traverse(o => { if (o.userData.slight) n++; }); return n; };
+    // someone down there drawn as one (characters.ts): their arms and legs, as slight as anything, cast with the body's
+    const { Person } = await import('../src/characters');
+    const hire = new Person(0x8E6BB5);
+    C.cellar.add(hire);
     const onHigh = casters();
     expect(slight()).toBe(0);
     graphics.choose('low');
     expect(slight()).toBeGreaterThan(20);
     expect(casters()).toBe(onHigh - slight());
+    expect(hire.limbShadows).toBe(false);
     graphics.choose('high');
     expect(slight()).toBe(0);
     expect(casters()).toBe(onHigh);
+    expect(hire.limbShadows).toBe(true);
+    hire.removeFromParent();
     // a boss's crowd: their shadows from a plainer copy on High (after their own shape), none on Low
     const { ringGong } = await import('../src/fight');
     ringGong();

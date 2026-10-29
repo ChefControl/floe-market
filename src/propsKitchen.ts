@@ -5,12 +5,11 @@
 // restaurant.ts and items.ts put them beside their Low versions. Call these inside `quietly` (kit.ts), so building
 // them never touches the game's luck.
 import {
-  BufferAttribute, BufferGeometry, CylinderGeometry, ExtrudeGeometry, LatheGeometry, type Mesh, Shape, SphereGeometry,
+  BufferAttribute, BufferGeometry, CylinderGeometry, ExtrudeGeometry, LatheGeometry, Shape, SphereGeometry,
   Vector2, Vector3, type Path,
 } from 'three';
-import { onQuality, isHigh } from './graphics';
+import type { Person } from './characters';
 import { Build, K, mix, quietly, rbox, shade, tube } from './kit';
-import { G } from './render';
 
 const STEEL = 0xB8C4CC, STEEL_TOP = 0xE9EEF2, CHROME = 0xD5DEE5, WOOD = 0xB5774A, HINOKI = 0xE9D9C0, KNIFE_GRIP = 0x4A2F22;
 
@@ -236,22 +235,8 @@ const PUFF = quietly(() => {
   g.computeVertexNormals();
   return g;
 });
-/**
- * Pleats a chef's toque on High (the band and puff keep their size, place and growing: only their shape changes),
- * and puts the plain one back on Low.
- */
-export function pleatToque(p: object) {
-  const t = p as { toqueBand?: Mesh; toquePuff?: Mesh };
-  const band = t.toqueBand, puff = t.toquePuff;
-  if (!band || !puff) return;
-  const show = () => {
-    const h = isHigh();
-    band.geometry = h ? PLEATED : G.cyl;
-    puff.geometry = h ? PUFF : G.sphere;
-  };
-  show();
-  onQuality(show);
-}
+/** Pleats a chef's toque on High (the band and puff keep their size, place and growing: only their shape changes). */
+export function pleatToque(p: Person) { p.pleat(PLEATED, PUFF); }
 
 // ---------- the dishes ----------
 /**
