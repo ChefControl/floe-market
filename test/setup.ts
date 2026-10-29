@@ -26,6 +26,11 @@ vi.mock('three', async importOriginal => {
     setPixelRatio() {}
     setSize() {}
     render() {}
+    /** (only for what the chip's called, render.ts `gpu`) */
+    getContext() {
+      const RENDERER = 0x1F01;
+      return { RENDERER, getParameter: (p: number) => (p === RENDERER ? 'Test GPU' : null), getExtension: () => null };
+    }
   }
   return { ...three, WebGLRenderer };
 });

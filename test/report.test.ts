@@ -133,7 +133,7 @@ describe('reporting a bug or an idea', () => {
       "Your note, and whether it's a bug or an idea.",
       'This picture: the game as it was when you opened this, and anything you drew on it. It goes twice: as you saw it, and once more without the panels and buttons over the game.',
       "Your game state: your saved game (progress, look and settings), and where you're standing, what's open on screen, the season and how long you've played this visit.",
-      "Always: the game's version, your device type (graphics setting, frame rate, screen size, touch or not, browser) and the last few errors the game hit.",
+      "Always: the game's version, your device type (graphics setting, frame rate, screen size, touch or not, browser, graphics chip and memory, and how often the 3D view stopped this visit) and the last few errors the game hit.",
       'Never: your name or email. Your account is only used to stop too many reports at once.',
       'Kept 30 days: the picture and game state are deleted after that. Everything goes to the developer, only to find and fix the problem.',
     ]);
@@ -206,6 +206,31 @@ describe('reporting a bug or an idea', () => {
     const live = JSON.parse(String(fake.reports[0].r.live));
     expect(live).toMatchObject({ stage: 3, cellar: true });
     expect(live.open).toEqual(expect.arrayContaining(panels));
+  });
+
+  it('says how many times the 3D view was taken away this visit, and the graphics chip and memory', async () => {
+    await start();
+    // (only browsers built on Chrome say how much memory a device has: jsdom doesn't)
+    Object.defineProperty(navigator, 'deviceMemory', { value: 4, configurable: true });
+    try {
+      const canvas = $('game'), lose = () => {
+        canvas.dispatchEvent(new Event('webglcontextlost'));
+        canvas.dispatchEvent(new Event('webglcontextrestored'));
+      };
+      lose(); lose();
+      // and once with the tab put away, which the player never saw
+      const hidden = vi.spyOn(document, 'hidden', 'get').mockReturnValue(true);
+      lose();
+      hidden.mockRestore();
+      $('reportCat').click();
+      write('The screen went black');
+      $('reportSend').click();
+      await vi.waitFor(() => expect(fake.reports).toHaveLength(1));
+    } finally {
+      delete (navigator as Navigator & { deviceMemory?: number }).deviceMemory;
+    }
+    // (taken while the game was on screen: Auto stepped down, render.ts)
+    expect(JSON.parse(String(fake.reports[0].r.device))).toMatchObject({ graphics: 'auto low', lost3d: 2, lost3dHidden: 1, gpu: 'Test GPU', memory: '4 GB' });
   });
 
   it('sends the note, the picture and the game state, and thanks the player', async () => {

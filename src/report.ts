@@ -9,11 +9,11 @@
 // reports came is told once, a few seconds into their game, that they can report from the menu now.
 import { prefs } from './audio';
 import { cloud, cloudEnabled, onCloud, sendReport, type Report, type Sent } from './cloud';
-import { recentErrors } from './errors';
+import { recentErrors, view3d } from './errors';
 import { frameRate, gfx } from './graphics';
 import { level, stage } from './layout';
 import { player } from './player';
-import { camera, renderer, scene } from './render';
+import { camera, gpu, renderer, scene } from './render';
 import { deviceStore, save, SAVE_KEY } from './save';
 import { current } from './season';
 import { openSettings } from './settings';
@@ -192,11 +192,19 @@ function live() {
   });
 }
 
-/** The device, briefly: enough to tell a phone from a computer, and how well it's running the game. */
+/** The device, briefly: enough to tell a phone from a computer, and how well it's running the game: its graphics chip,
+ *  its memory (Chrome rounds it to a few sizes, and only browsers built on Chrome say), and how many times this visit
+ *  the browser took the 3D view away (errors.ts `view3d`): on screen, which is what a black screen behind the HUD is,
+ *  and with the tab put away. */
 function device() {
+  const memory = (navigator as Navigator & { deviceMemory?: number }).deviceMemory;
   return JSON.stringify({
     graphics: gfx.picked ? gfx.quality : 'auto ' + gfx.quality,
     fps: Math.round(frameRate.fps),
+    lost3d: view3d.lost,
+    lost3dHidden: view3d.lostHidden,
+    gpu,
+    memory: memory ? `${memory} GB` : null,
     screen: `${innerWidth}x${innerHeight}@${Math.round(devicePixelRatio * 100) / 100}`,
     touch: window.matchMedia?.('(pointer: coarse)').matches ?? false,
     browser: navigator.userAgent.slice(0, 200),
