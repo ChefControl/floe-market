@@ -1,14 +1,18 @@
-import { BoxGeometry, type BufferGeometry, CylinderGeometry, type Material, type Mesh, MeshLambertMaterial, Object3D } from 'three';
+import {
+  BoxGeometry, type BufferGeometry, CylinderGeometry, type Material, MathUtils, type Mesh, MeshLambertMaterial, Object3D,
+} from 'three';
 import { isHigh, onQuality } from './graphics';
-import { type Build, pack, quietly, rbox } from './kit';
+import { type Build, dice, pack, quietly, rbox } from './kit';
+import { pooled } from './pooled';
 import { boxLid, boxTray, nigiri as roundNigiri, plate as roundPlate, roundSlice } from './propsKitchen';
 import { bakePainted, canvasTex, type Draw, G, mesh, painted, scene } from './render';
 import { rand } from './util';
 
-// Stacks hold up to 90 of these, so each draws in one call. three.js draws a mesh once per face group, even when
-// the groups share a material, so a box with a picture on top and plain sides would cost six. Instead each item has
-// one texture: the top's picture, a few rows repeating its bottom edge (so it blurs into itself, as at the clamped
-// edge it had before), then a strip of the side colour that every other face samples from its middle.
+// Stacks hold up to 90 of these, so each draws in one call (and every one of a kind in the same call: pooled.ts).
+// three.js draws a mesh once per face group, even when the groups share a material, so a box with a picture on top and
+// plain sides would cost six. Instead each item has one texture: the top's picture, a few rows repeating its bottom
+// edge (so it blurs into itself, as at the clamped edge it had before), then a strip of the side colour that every
+// other face samples from its middle.
 const GUTTER = 4, STRIP = 8;
 
 /**
@@ -152,7 +156,7 @@ const CHIPS = quietly(() => {
 /** A Fugu Chip, pink or gold. */
 export function newChip(gold = false) {
   const k = gold ? CHIPS.gold : CHIPS.pink;
-  return looks(mesh(k.low.geo, k.low.mat), k.low, k.high);
+  return pooled(looks(mesh(k.low.geo, k.low.mat), k.low, k.high));
 }
 
 /** What a carried or stocked item is, so mixed stacks can be sorted at drop-offs. */
@@ -163,7 +167,7 @@ export const kindOf = (m: Object3D): Kind | undefined => m.userData.kind;
 export function newFillet() {
   const m = looks(mesh(fillet.geo, fillet.mat), fillet, { geo: ROUND.fillet, mat: fillet.mat });
   m.userData.kind = 'fish';
-  return m;
+  return pooled(m);
 }
 
 const sack = oneSkin(new BoxGeometry(0.3, 0.08, 0.24), [2], '#E6DBC0', 64, 64, c => {
@@ -178,7 +182,7 @@ const roundSack = quietly(() => sack.fit(rbox(0.3, 0.08, 0.24, 0.032)));
 export function newRice() {
   const m = looks(mesh(sack.geo, sack.mat, 0, 0, 0, true), sack, { geo: roundSack, mat: sack.mat });
   m.userData.kind = 'rice';
-  return m;
+  return pooled(m);
 }
 
 const boxGeo = new BoxGeometry(0.34, 0.08, 0.26), lidGeo = new BoxGeometry(0.35, 0.025, 0.27);
@@ -196,7 +200,7 @@ export function newBox(value: number, premium: boolean) {
   m.add(looks(lid, { geo: lidGeo, mat: lid.material as Material }, premium ? BOX.gold : BOX.lid));
   m.userData.kind = 'box';
   m.userData.value = value;
-  return m;
+  return pooled(m);
 }
 
 const bowlGeo = new CylinderGeometry(0.17, 0.11, 0.1, 14), stewGeo = new CylinderGeometry(0.155, 0.155, 0.01, 14);
@@ -211,39 +215,43 @@ export function newBowl(mush = false) {
   if (mush) m.add(mesh(capGeo, 0x7A5236, 0.04, 0.075, 0.06));
   m.userData.kind = 'bowl';
   m.userData.mush = mush;
-  return m;
+  return pooled(m);
 }
 
 // The cellar's ingredients once a line has done its work: a ball of washed, dried rice; a salted fish, gone brown; a
 // mushroom from the grow room.
 const ballGeo = new CylinderGeometry(0.1, 0.12, 0.09, 10);
 const stemGeo = new CylinderGeometry(0.035, 0.04, 0.08, 7), bigCapGeo = new CylinderGeometry(0.04, 0.13, 0.07, 10);
+/** The rice ball's strip of nori: one shape for them all (pooled.ts draws a call for each shape), made off the luck. */
+const noriGeo = quietly(() => new BoxGeometry(0.06, 0.092, 0.02), dice(0x2051));
 /** Rice off the racks, ready for the pot. */
 export function newReadyRice() {
   const m = mesh(ballGeo, 0xFFFBEF, 0, 0, 0, true);
-  m.add(mesh(new BoxGeometry(0.06, 0.092, 0.02), 0x2E3A2E, 0, 0, 0.11));
+  // (each used to make its strip's shape afresh, which drew its name from the luck: drawn still, so the luck's the same)
+  MathUtils.generateUUID();
+  m.add(mesh(noriGeo, 0x2E3A2E, 0, 0, 0.11));
   m.userData.kind = 'rrice';
-  return m;
+  return pooled(m);
 }
 /** Fish out of the salt barrels: the market's fillet, cured brown. */
 export function newCuredFish() {
   const m = looks(mesh(cured.geo, cured.mat, 0, 0, 0, true), cured, { geo: ROUND.cured, mat: cured.mat });
   m.userData.kind = 'cfish';
-  return m;
+  return pooled(m);
 }
 /** A mushroom, picked. */
 export function newMushroom() {
   const m = mesh(stemGeo, 0xEDE2CC, 0, 0, 0, true);
   m.add(mesh(bigCapGeo, 0x8C6542, 0, 0.06, 0));
   m.userData.kind = 'mush';
-  return m;
+  return pooled(m);
 }
 
 export function newBill(v: number) {
   const m = looks(mesh(bill.geo, bill.mat), bill, { geo: ROUND.bill, mat: bill.mat });
   m.userData.value = v;
   m.rotation.y = rand(-.15, .15);
-  return m;
+  return pooled(m);
 }
 
 /** Cash value carried by a bill mesh. */
@@ -272,5 +280,5 @@ export function newPlate(value: number, premium: boolean) {
   const n = mesh(premium ? NIGIRI.premium : NIGIRI.plain, painted);
   p.add(looks(n, { geo: n.geometry, mat: painted }, premium ? PLATE.premiumNigiri : PLATE.nigiri));
   p.userData.value = value;
-  return p;
+  return pooled(p);
 }

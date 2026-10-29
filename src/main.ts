@@ -16,6 +16,7 @@ import { finishCam } from './dohyo';
 import { updKofi } from './kofi';
 import { player } from './player';
 import { updPointers } from './pointers';
+import { drawPooled } from './pooled';
 import { initReports, updReports } from './report';
 import { camera, camK, fog, OFF, renderer, scene, sun, sunOff } from './render';
 import { isStale, load, startAutosave, wipeSave } from './save';
@@ -44,6 +45,8 @@ else {
   initScores();
 }
 batchStill(scene);
+// (the items, chips and fish: a call for each kind, pooled.ts)
+drawPooled(scene);
 // the demo build's tool panel (demo.ts); the game itself never loads it
 if (import.meta.env.MODE === 'demo') void import('./demo');
 // the UI kit's showcase, ?ui=kit (uiShowcase.ts): in dev and demo builds only
