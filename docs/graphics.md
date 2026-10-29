@@ -6,11 +6,12 @@ The graphics were reworked in #37 (the people) and #39 (everything else). The ru
 
 ## The Graphics setting
 
-The player picks **Auto**, **Low** or **High** in the ✨ row of the settings.
+The player picks **Auto**, **🥔 Potato**, **Low** or **High** in the ✨ row of the settings.
 
 - **High** draws the world the way the people are drawn: low poly but rounded, with small details, a rolling sea, cloud shadows, seasonal snow, petals and leaves, and the effects.
-- **Low** draws everything exactly as it was before the rework, with a lighter renderer (a half-size shadow map with hard edges, at most 1.5 pixels a point). It's for phones that can't keep up.
-- **Auto**, the default, starts on High and watches the frames in two-second looks. A look is bad if it ran under 50 fps, or it stuttered: its p95 frame slower than 25 ms or its p99 slower than 50 ms. When four of the last five looks are bad it drops to Low, and it starts on Low on that device from then on (`localStorage` key `floe-market-graphics-auto`). A hitch counts as a slow frame; only a gap of over a second (the tab hidden, the phone locked) makes it settle and start watching again. It never switches back up by itself; choosing Auto in the settings starts it on High again. It also drops to Low for good when the browser takes the 3D view away while the game's on screen (a WebGL context loss: a phone short of graphics memory, or its graphics chip restarting), since Low needs about half the memory (`lowAfterLoss`, called by render.ts). If the view isn't back within 3 seconds, or the browser won't make one at all, a dialog (`#glLost`, errors.ts) says so and offers a reload.
+- **Low** draws everything exactly as it was before the rework, with a lighter renderer (a half-size shadow map with hard edges, at most 1.5 pixels a point). It's for phones that can't keep up. On a load that starts on Low or Potato, the floor markings (decals.ts, 80-odd of them) are drawn on 128-pixel canvases instead of 256, scaled so the same drawing fits: 5 MB instead of 22.
+- **Potato** draws exactly what Low draws, for the least the renderer can do, on very low-end phones: no shadows (the sun casts none and no shadow map is held), one pixel a point, no smoothing of edges (`antialias`, only set when the 3D view is made), at most 30 frames a second (main.ts), and two stand-in lamps in the cellar instead of four. **High isn't kept on a load that starts on Potato** (`highBuilt` in graphics.ts): it's still made, to keep the luck in step (below), but the kit's baked meshes under a High version give up their shapes as they're made (`letGo`, kit.ts, called by `detail` and `detailMarked`), and the effect pools get no room. So going from Potato to Low or High takes a reload, and so does going into it if the memory's to be freed: a pick into or out of Potato shows a "Reload to apply" button under the choices (`gfx.reload`). Until then, a pick of High on a Potato load draws Low.
+- **Auto**, the default, starts on High and watches the frames in two-second looks. A look is bad if it ran under 50 fps, or it stuttered: its p95 frame slower than 25 ms or its p99 slower than 50 ms. When four of the last five looks are bad it drops to Low, and it starts on Low on that device from then on (`localStorage` key `floe-market-graphics-auto`). A hitch counts as a slow frame; only a gap of over a second (the tab hidden, the phone locked) makes it settle and start watching again. On Low it keeps watching, by a lower bar kept for a phone that's still struggling: a look is bad if it ran under 25 fps or its p95 frame was slower than 50 ms (under 20 fps the game itself slows down, main.ts). Four of five drop it to Potato, for good on that device too (the same key, `potato`), and a toast says "🥔 Switched to Potato graphics", once. It never switches back up by itself; choosing Auto in the settings starts it on High again. It also drops a step for good each time the browser takes the 3D view away while the game's on screen (a WebGL context loss: a phone short of graphics memory, or its graphics chip restarting): High to Low, which needs about half the memory, and Low to Potato (`lowAfterLoss`, called by render.ts). If the view isn't back within 3 seconds, or the browser won't make one at all, a dialog (`#glLost`, errors.ts) says so and offers a reload.
 
 The choice is kept on the device (`localStorage` key `floe-market-graphics`), never in the save or the cloud.
 
@@ -18,24 +19,26 @@ The choice is kept on the device (`localStorage` key `floe-market-graphics`), ne
 
 | Where | What |
 |---|---|
-| `src/graphics.ts` | The state: `gfx.quality` (`'low'` or `'high'`), `gfx.picked`, `isHigh()`, `onQuality(f)`, `choose(c)`, and Auto's watch, `frameDrawn(sec)`, called by main.ts each frame |
-| `index.html` | The ✨ category in the settings' Graphics & sound group: the `#gfxCat` row (its name, the current choice in `#gfxPick` and a chevron) opens `<div id="gfx">` under it, with one `<button data-q="…">` per choice and `#gfxNow` under them ("Auto is on High now" or "Auto is on Low now" while on Auto). Its styles are under `#gfx` in the same file |
-| `src/settings.ts` | Wires it: `category` opens and closes the panel with a click, like Sound; each button calls `choose(button.dataset.q)`; and `showGfx` (run on every `onQuality`) presses the right button and fills in `#gfxPick` and `#gfxNow` |
-| `src/render.ts` | `fitRenderer()`: the shadow map size and softness and the pixel ratio for each setting, run again on every change |
-| `src/demo.ts` | The demo build's 🛠 panel has its own Low/High buttons, which call `choose` |
+| `src/graphics.ts` | The state: `gfx.quality` (`'potato'`, `'low'` or `'high'`), `gfx.choice`, `gfx.picked`, `gfx.reload`, `highBuilt`, `isHigh()`, `isPotato()`, `onQuality(f)`, `choose(c)`, and Auto's watch, `frameDrawn(sec)`, called by main.ts each frame |
+| `index.html` | The ✨ category in the settings' Graphics & sound group: the `#gfxCat` row (its name, the current choice in `#gfxPick` and a chevron) opens `<div id="gfx">` under it, with one `<button data-q="…">` per choice, `#gfxNow` under them ("Auto is on High now", "… Low now" or "… Potato now" while on Auto), and `#gfxReload` ("Reload to apply", shown while `gfx.reload`). Its styles are under `#gfx` in the same file |
+| `src/settings.ts` | Wires it: `category` opens and closes the panel with a click, like Sound; each button calls `choose(button.dataset.q)`; and `showGfx` (run on every `onQuality`) presses the right button, fills in `#gfxPick` and `#gfxNow`, shows `#gfxReload`, and toasts when Auto drops to Potato |
+| `src/render.ts` | `fitRenderer()`: the shadow map size and softness, the sun's shadow (none on Potato) and the pixel ratio for each setting, run again on every change; and the renderer's `antialias`, off on a Potato load |
+| `src/kit.ts` | `letGo(high)`: on a Potato load, a High version's baked meshes give up their shapes, and their shadow's hooks, which would keep them |
+| `src/main.ts` | Potato's 30-frames-a-second cap, at the top of `frame` |
+| `src/demo.ts` | The demo build's 🛠 panel has its own Potato/Low/High buttons, which call `choose` |
 
 ### Reacting to the setting
 
-Anything that looks different on Low and High reads `isHigh()` when it's built and listens with `onQuality(f)` for changes. Most things don't call these directly; they use `detail` (below). Changing the setting never rebuilds anything: both versions are built up front and one of them is hidden. The switch is instant, at the cost of building both.
+Anything that looks different on Low and High reads `isHigh()` when it's built and listens with `onQuality(f)` for changes. Most things don't call these directly; they use `detail` (below). Changing the setting never rebuilds anything: both versions are built up front and one of them is hidden. The switch is instant, at the cost of building both. Potato is Low to everything that asks `isHigh()`; only the renderer, the main loop, the cellar's lamps and its shadow sweep ask `isPotato()`. On a Potato load High is still made, so the game's luck and the scenery's dice stay in step, and its shapes are let go at once (the empty shape they're given is made on its first use, on dice of its own, so it takes nothing from the luck either): anything new with a High version goes through `detail` (or a helper that calls it), or calls `letGo` on it, so Potato drops it too.
 
 ### Adding a level (say, Medium)
 
-`Quality` is a pair today, and nearly 30 files ask a yes-or-no question of it (`isHigh()`, `onQuality`, `detail`). Before adding a level:
+`Quality` has three levels today, Potato, Low and High, but nearly 30 files ask a yes-or-no question of it (`isHigh()`, `onQuality`, `detail`). Before adding a level:
 
 1. Find every consumer: `grep -rn "isHigh\|onQuality\|detail(\|detailMarked\|userData.gfx" src`. Decide for each what the new level shows. A level in between usually means some things take High's look and others Low's, so a yes/no question won't do for everything. Add a small helper in graphics.ts (for example `atLeast('medium')`) rather than comparing strings all over.
 2. Add it to `Quality`, to the line that reads the saved choice, and to `choose`.
 3. Add a `<button data-q="medium">` to the row in index.html, between Low and High. settings.ts picks it up without changes, but `showGfx`'s `#gfxPick` and "Auto is on … now" texts need the new name.
-4. Decide what Auto does with it. Today it only drops from High to Low (`setQuality('low')` in `frameDrawn`).
+4. Decide what Auto does with it. Today it drops from High to Low and from Low to Potato (`drop` in `frameDrawn` and `lowAfterLoss`), each with its own bar (`BAR`).
 5. Give it renderer settings in `fitRenderer`.
 6. Add it to the demo panel's Graphics row (demo.ts).
 7. Test it in `test/graphics.test.ts` (the choice, Auto) and `test/eyecandy.test.ts` (what shows).
@@ -98,7 +101,7 @@ Each scene file has a small helper that builds High off the game's luck and call
 | hall.ts | `hiLo(group, build, keep?, wrap?)` | Moves what's already in a piece into a Low group and adds `build()`'s High beside it. `keep` is for things both show |
 | ads.ts | `highIn(to, low, build)`, `lowIn(to)` | The same, for campaigns |
 | propsMachines.ts | `detailMarked(low, high)` | For things made over and over (the drive-up sleds): marks them instead of adding a listener each, so old ones aren't kept alive |
-| items.ts | `looks(mesh, low, high)` | For items that come and go by the hundred: one mesh that swaps its geometry and material when drawn, rather than two meshes each |
+| items.ts | `looks(mesh, low, high)` | For items that come and go by the hundred: one mesh that swaps its geometry and material when drawn, rather than two meshes each (and drawn pooled, pooled.ts, which does that swap as it fills its pools) |
 
 Wrap the High and Low versions in groups under the thing's own group, so pop-ins and scaling still happen about the same centre.
 
@@ -133,9 +136,11 @@ Stage 3 was built after the rework, at High's detail, so there **High is the cel
 
 What Low leaves out down there:
 
-- **Lamps:** four stand-in lamps (cellar.ts `standIns`) take the colour, strength, reach and place of the four that light where the camera looks most, fading as they swap; High has all fourteen (`lights`). Every light is worked out for every pixel of everything drawn, so this is most of Low's saving on the graphics chip.
-- **Small shadows:** anything under half a metre, or rod-thin, casts none (cellar.ts `sweepShadows`); the fans cast none (swarm.ts); the figures cast only their bigger pieces (family.ts `castAs`).
+- **Lamps:** four stand-in lamps (two on Potato; cellar.ts `standIns`) take the colour, strength, reach and place of the four that light where the camera looks most, fading as they swap; High has all fourteen (`lights`). Every light is worked out for every pixel of everything drawn, so this is most of Low's saving on the graphics chip.
+- **Small shadows:** anything under half a metre, or rod-thin, casts none (cellar.ts `sweepShadows`); the fans cast none (swarm.ts); the figures cast only their bigger pieces (family.ts `castAs`); people drawn as one cast from their body's pieces only, not their arms' and legs' (`limbShadows`, set by the same sweep).
 - **The figures** are a notch plainer: their balls have fewer sides (family.ts `shapeFor`), and High's finer pieces (`fine`, `finePiece`) aren't drawn.
+
+On every setting, the figures' merged meshes (family.ts `flatten`, used for the Undertow, the casino's tables and band, the wrestlers) keep each corner once, by index, with their normals and colours in a byte a channel (kit.ts `compact`), as the kit's baked meshes do. Merged as plain floats with every corner of every triangle, the cellar's figures took 54 MB while hidden upstairs; now 12 MB. `flatten` copies each shape with `new BufferGeometry().copy(geo)`, one new geometry as `toNonIndexed` made, so the luck is what it was. On Potato, the figures' High copies give up their shapes too.
 - **The hatch's smoke:** half the puffs (hatchFx.ts).
 
 On both settings, while the player's down there (levelCull.ts):
@@ -144,13 +149,13 @@ On both settings, while the player's down there (levelCull.ts):
 - **The Undertow's figures cast their shadows only while they, or their shadow, could be on screen** (`castsWhenSeen`).
 - **`eachDrawing(f)`** runs `f` each time the cellar's drawn, whatever the game's doing (a scene, a menu): Low's lamps are set there.
 
-The fans cast their shadow from a copy of themselves snapped to a 4 cm grid (swarm.ts `withShadow`), and what isn't merged is looked at one frame in eight (batch.ts `TURNS`).
+The fans cast their shadow from a copy of themselves snapped to a 4 cm grid (swarm.ts `withShadow`), and what isn't merged is looked at one frame in eight (batch.ts `TURNS`). The fans draw with their own copies of `painted` (`fanPaint`), one for the shirts coloured each and one for the rest: three.js keys a material's shader on whether what it draws is instanced or coloured each, so an instanced mesh sharing a material with plain meshes has the shader looked up again at every switch (50 times a frame in the cellar, when they shared `painted`). Give anything instanced a material of its own.
 
 ### One level at a time
 
 In stage 3 only the level the player's on is drawn and runs; the other holds still, as it was left, and pays by a formula instead:
 
-- **Up top** (the dock, the restaurant, the casino boat), the cellar isn't drawn: levelCull.ts hides what's marked `userData.below` (the cellar's group, the fans' meshes, which are never frustum culled) and whatever's wholly below `CELLAR_Y + 15`, for each frame's render. With no boss in or called, it doesn't run either (ring.ts `restingUp`). What it makes on its own comes in at a steady rate instead: fight.ts `idleRate()` runs a copy of the cellar 5 minutes ahead with nobody in it, as the gong's forecast runs a rush, and counts what its bowls and Mama Moray's take. It's worked out as the player climbs up (about 11 ms), and paid a chip at a time, Harry taking his share; near the hatch a "+🐡" pops over it every 3 s. With a boss in or called, the cellar runs as it is, undrawn.
+- **Up top** (the dock, the restaurant, the casino boat), the cellar isn't drawn: levelCull.ts hides what's marked `userData.below` (the cellar's group, the fans' meshes, which are never frustum culled) and whatever's wholly below `CELLAR_Y + 15`, for each frame's render. Each thing's bounds are taken as three.js' `Box3.setFromObject` takes them, a few dozen things a frame, but given up at the first piece that settles it (`bounds`): the cellar's group is thousands of pieces, and its first one down on the floor says it isn't wholly up top. What's marked `below` and the instanced meshes aren't measured at all. With no boss in or called, it doesn't run either (ring.ts `restingUp`). What it makes on its own comes in at a steady rate instead: fight.ts `idleRate()` runs a copy of the cellar 5 minutes ahead with nobody in it, as the gong's forecast runs a rush, and counts what its bowls and Mama Moray's take. It's worked out as the player climbs up (about 11 ms), and paid a chip at a time, Harry taking his share; near the hatch a "+🐡" pops over it every 3 s. With a boss in or called, the cellar runs as it is, undrawn.
 - **Down in the cellar**, the world up top isn't drawn (`hideAbove`), and its fishing, boats, customers, crew, counters, farm, sea and roof don't run (game.ts `away`). Its tills pay the player's share (`tillShare`) of what its customers were paying a second over the last 3 minutes it ran (front.ts `tillRate`, `updTills`): none while it's Mr. Fugu's rent, all of it once he's bought out. Not kept in the save.
 
 Anything new on one level that has to go on while the player's on the other (a timer, a sound) goes outside those updates. Tests: `test/stage3Away.test.ts`.
@@ -167,6 +172,15 @@ The bar: an iPhone 16 holds 55–60 fps on High in the busiest scene (inside the
 - **Triangles** cost the phone's graphics chip. The hall on High is about 575k triangles a frame, the shadow pass included. Use the kit's shapes at their sizes. Don't raise segment counts: a ball is 7×5 and a small one is `K.dot`. Leave out detail that's smaller than a few centimetres.
 - **Shadows** draw a second time everything that casts. `mesh(false)` for flat or thin things (boards, snow layers, decals, foam). A mesh baked with `cast` carries a plainer copy of itself that only the shadow pass draws: boxes without bevels, round things with fewer sides, anything under 7 cm left out. You get this for free from `Build.mesh()` and `baked()`. Don't set `castShadow` on a baked mesh by hand.
 
+### Don't make the page lay itself out mid-frame
+
+The HUD, the strip, the bubbles and the panels are the page's own elements, and the game changes them every frame. Asked for a size after that (`window.innerWidth` or `innerHeight`, an element's `clientWidth`, `scrollWidth`, `offsetWidth` or `getBoundingClientRect()`, `getComputedStyle`), the browser lays the whole page out again there and then to answer; asked again after another change, again. In the cellar's rush that was several layouts a frame, billed to the code that asked: the HUD's `keepInSight`, the fans' bubbles and the strip's `fit` came to about 5% of the CPU in the profile of 2026-10-28.
+
+- **The window's size:** read `viewSize` (src/viewSize.ts), kept from the window's `resize` (and the visual viewport's), never the window itself. (A test that sets the window's size calls `resizeTo(w, h)` in test/helpers.ts, so the game sees it.)
+- **An element's size:** in new code, measure it only when what's in it has changed, not every frame: as gong.ts' strip fits its names only when they or the words between them change (and again on a resize, or a font coming in). Some older code still measures every frame (speech.ts' `room`, the bubbles' `offsetWidth` in meet.ts, offer.ts, southDoor.ts and the rest, an open panel's rect in `keepInSight`), so a layout a frame is still forced when they run.
+
+`test/cellarFrame.test.ts` checks that a frame in the rush never reads the window's size, and that the strip measures its names only when they change.
+
 ### Merging what stands still (src/batch.ts)
 
 Whatever has stood still for a second is drawn merged with its neighbours: one mesh per material in each 12 m patch of the map, with all the plain colours (`mat(c)`) as one, painted on. Anything that moves, hides, changes material or is taken away drops out at once and is drawn by itself again. Something seen to move waits 20 s before it's merged again, and something that keeps moving is left out. This works on both settings without anything to call. To get the most from it:
@@ -178,17 +192,79 @@ Whatever has stood still for a second is drawn merged with its neighbours: one m
   - `ShaderMaterial` and any material with `onBeforeCompile` (its shader may use the mesh's own coordinates, like the sea);
   - meshes with an `onBeforeRender`, a `renderOrder`, `frustumCulled = false`, several materials, morph targets or a draw range;
   - instanced and skinned meshes;
-  - anything under an object with `userData.noBatch = true`, as people have.
+  - anything under an object with `userData.noBatch = true`, as people have, and what's drawn pooled (below).
 
   Use `noBatch` for anything that moves all the time. People who stay put for good (the casino yacht's staff and
   guests) call `standStill()` (characters.ts): no `noBatch` and no breathing, so they're merged while they hold still,
   and an arm that moves drops out of the merge while it does. On the yacht that took about 85 draw calls off the frame
   at the quay.
-- **Lots of moving copies:** use one `InstancedMesh` instead, as the effects and the foam rings (sea.ts) do.
+- **Lots of moving copies:** use one `InstancedMesh` instead, as the effects and the foam rings (sea.ts) do, or draw them pooled (below).
 
-### Hidden things aren't placed
+What's merged is looked at every frame, so it drops out the moment it moves or hides, and that look is cheap. It reads `place`'s marks (below). Walked this pass (`placed.walkedAt`), it's showing. It can only have moved if its world matrix was worked out since it was last looked at (`placed.movedAt`). Only then are its 16 numbers compared with where it was merged, so a false alarm (a matrix built again where it stands) costs a compare, never a merge. What `place` didn't walk is hidden, taken away, in something that places itself its own way, or under `matrixWorldAutoUpdate = false`, and is looked at the long way: up through its parents, and its numbers compared. Its shape, material and colour are checked every frame too: each geometry's version once a frame however many things share it, the colour as its three numbers (and as a hex only when they've changed, so a change too small to show isn't one). What isn't merged is looked at in turns, one frame in eight (`TURNS`). Tests: `test/batch.test.ts`.
+
+### Things made by the hundred (src/pooled.ts)
+
+What's carried and stacked (every item made in items.ts: plates and their nigiri, takeout boxes, fillets, rice bags, bills, the cellar's bowls and ingredients, Fugu Chips) and the whole fish (fishModel.ts `newFish`) come and go by the hundred and keep moving, so the merging can't take them; drawn one by one, they were about 180 calls of Floe Sushi's 1,200. So they're drawn **pooled**: a call for each kind of piece, however many there are.
+
+- **`pooled(o)`** marks something (and every mesh in it) as drawn pooled, and leaves it out of the merging (`noBatch`). Call it as the thing's made; nothing else changes for the game. Holders, flights, counters and the save move it, hide it, scale it and take it away as before.
+- **Take things out of it, and put new things in.** It hears it (`childadded`, `childremoved`, on everything in it) and looks again before the next frame. A mesh taken out (a plate's nigiri, eaten: restaurant.ts `finishPlate` clears it) is let go of: it draws itself again wherever it's put, or is pooled with what it's put in if that's pooled. A mesh put in is pooled with it. Something pooled itself that's put in draws its own pieces, so they're never drawn twice. Don't put in a mesh that's stood in the world by itself: the merging may have it (batch.ts looks at whether something's pooled only when it first finds it), and it'd be drawn twice.
+- **Never set a pooled piece's world matrix by hand** (`matrixWorld.copy`): its pool sends it up only when `place` has worked it out afresh (`placed.movedAt`). Move it with its position, rotation and scale.
+- **Hide it, or take it out, before the frame's drawn,** not as it is (in `scene.onBeforeRender` or a piece's `onBeforeRender`): what's showing is read from `place`'s marks, so it'd be drawn that frame where it was.
+- **`drawPooled(scene)`** (main.ts, after `batchStill`) runs just before each frame's drawn, once the world's matrices are worked out: every piece that's showing, of everything pooled that's in the scene, is copied, where it is, into an `InstancedMesh` for its shape, its material and its shadows. Whether it's showing is read from `place`'s marks, as the merging does (below): walked this pass (`placed.walkedAt`), it is. What `place` didn't walk is looked at the long way, up through its parents. Its own mesh is left out of the drawing (`layers.mask = 0`, as batch.ts does). Whatever it does as it's drawn (`onBeforeRender`: its look for the graphics, items.ts `looks`, and the cellar ledge's darker copies, ringKitchen.ts) is done as it's copied.
+- **The pools** draw copies of the pieces' materials (three.js keys a shader on whether it's instanced), are never culled (they're drawn wherever their instances are; so off-screen items are drawn too, at a few triangles each), have no bounds (so levelCull.ts never hides them, three.js never works them out over every instance, and rays pass through them), send up only the places whose piece changed or moved since it was put there (each pool keeps which piece it drew in each place, and the `placePass` it was put there in, against `place`'s `placed.movedAt`; a piece `place` didn't walk, in something that places itself its own way, is sent every frame). So a stack that stands still costs nothing to send, while nothing before it in the pool comes or goes (one hidden or taken away moves those after it up a place, sent once). They're `DynamicDrawUsage`, and are made as they're first needed, on dice of their own, in one group (`pooled`) put in the scene at the start. A pool doubles when it fills.
+- **Each piece keeps the pool it's drawn in,** and what it was worked out from (its shape, material, shadows, draw order, the material's see-through, showing and cutting planes, its own shadow, the shape's draw range). It's looked up again only when one of those changes, and whether it's turned inside out only when it's moved. A shape's morphs, and a material's being a shader or changing its own (`onBeforeCompile`), are looked at only then too: set them as it's made.
+- **A piece that draws its own way draws itself** while it does, and goes back into its pool after: one cut with a clipping plane (the fish on the chopping block, fishing.ts), see-through, with a draw order, several materials, a shadow of its own (`onBeforeShadow`, a baked shadow copy), a draw range or morphs, or turned inside out.
+- **Something in a group that's taken out of the scene** (its own `removed` never fires) is let go of after 600 frames out, and draws itself if that group's ever put back.
+- **Share shapes between pooled things:** a pool is kept for every shape it's drawn, so a shape made afresh for each one is a pool each, kept for good (items.ts `noriGeo`).
+- **Recolour a pooled thing by giving it another material,** as ringKitchen.ts does its ledge's things. Changing the colour of a material it shares in place doesn't reach its pool's copy.
+
+Tests: `test/pooled.test.ts`.
+
+### People and sleds (src/characters.ts)
+
+Someone who moves is drawn as **one mesh** (`Jointed`, a three.js `SkinnedMesh`): everything they wear, baked as the
+rest of the people are, each corner marked with what it hangs from (`Piece.bone`: the body, an arm, a leg, the toque's
+band or puff, the headband). Their `arms`, `legs`, the toque's and the headband's groups are still where they always
+were, and animate as before (`animPerson`, an arm set on its own, a headband popping in); the graphics chip moves each
+corner by its bone's matrix, read in the body's own space (`Joints`), and sent up only on a frame one of them moved.
+That's one draw call and one for the shadow, where a person in pieces took six and five. Its shadow is the same mesh:
+the pieces that cast none come first, then the arms', legs' and toque band's (all of an arm's or leg's cast, as each
+did as a mesh of its own), then the body's, and the shadow pass draws from the first that casts (from the body's, on
+Low in the cellar, where those were too slight to cast: `limbShadows`). It's drawn there with a depth material of its
+own: three.js keys a material's shader on whether it draws a skinned mesh, and the shadow pass draws in no order. So:
+
+- **Anything worn goes in as a piece,** never as a mesh added to the body: `piece()` inside the class, `sew(mesh)` from
+  outside it (the cellar hires' patches, cellarLooks.ts), which bakes the mesh in and leaves it off the scene.
+- **A bone only moves and turns what hangs from it, or sizes it evenly** (the headband popping in): the graphics
+  chip turns its corners' normals by the bone's matrix as it is, so a squashed ball's would lean. Squash the piece
+  (the toque's puff), or stretch only what has straight sides along it (the toque's band, growing taller).
+- **Hiding a group doesn't hide what hangs from it.** Take the pieces off and wear again (a disguise leaves out the
+  person's own body, head and arms: singer.ts).
+- **Its box is worked out where it stands** (each bone's pieces' box, moved by that bone), so `Box3.setFromObject` and
+  the spotlight frame them as before; its sphere for culling is a fixed one round all they can reach.
+- **The graphics chip's copy of where their bones are** is let go by the same sweep as the clothes nobody wears
+  (`updBakes`), and sent again if they come back.
+
+Someone who stands still for good (`standStill`) is drawn in six meshes as before (the body's two and one for each arm
+and leg), so the batcher merges them with the scenery round them; it can't merge a skinned mesh.
+
+A **sled** is one mesh and its see-through windscreen on each setting (`sledBody`), the skis or the wheels baked in
+for the season and swapped when it changes (on the sleds' own dice: a season changing never draws on the luck). Low's parts are still made as meshes, in the same order, on the game's
+luck, then baked; Low's shadow is a copy of the parts that cast one after the rest (as the kit's), High's is all of it.
+High's paint is baked in the sled's colour (`tinted`). The bakes are shared by every sled of a colour.
+
+### Hidden things aren't placed, nor still ones
 
 Each frame, the scene only works out world positions for what's showing (render.ts `place`), not for the hidden copies of the other setting. A hidden object's `matrixWorld` can be out of date. If you need where something hidden is, call `o.updateWorldMatrix(true, false)` first, or use `getWorldPosition`, which does that itself.
+
+Nor does it work them out again for what stands still. Each object keeps a record (`o.placed`, a `Placed`) of the position, rotation and scale its matrix was last built from and of the parent it was placed in. Its matrix is built again only when they've changed, and its world matrix only then, when its parent's has changed since, or when it's marked to be (`matrixWorldNeedsUpdate`). So:
+
+- **Move things with `position`, `rotation`/`quaternion` and `scale`,** as ever. Don't write `o.matrix` by hand on something that builds its own (`matrixAutoUpdate`): it used to be overwritten each frame, and now it's kept. With `matrixAutoUpdate = false`, the matrix you set is placed whenever it changes, marked or not (the record's `held` keeps a copy).
+- **Placing something yourself is fine** (`getWorldPosition`, `updateMatrixWorld(true)`, `localToWorld`, `Box3.setFromObject`). If three.js builds a matrix from another pose or in another parent than `place` last did (posed for a measure and put back, or measured while taken out of its group), `place` builds it again on its next pass (render.ts wraps `Object3D.updateMatrix` for that). On something still it costs nothing more.
+- **three.js's `pivot`:** something with one is built again every pass.
+- **The marks it leaves** (for batch.ts and pooled.ts): `placePass` counts each placing of the scene, `o.placed.walkedAt` is the pass that last walked an object, and `o.placed.movedAt` the pass its world matrix was last worked out (it moved, or something it's in did). What's hidden, and what places itself its own way (cameras, three.js's own skinned meshes, and what's in them), isn't walked and isn't marked (`o.placed` stays as it was, or isn't there). Everything `place` keeps is in that one record, made the first time it walks an object, because the objects are of many kinds and laid out differently: writing a property onto each of them is slow, while the records are all alike. So `place` writes nothing else on what stands still (it reads `matrixWorldNeedsUpdate` first, and writes it only to change it), and anything new it needs to keep goes in `Placed`. A moving person (`Jointed`, characters.ts) is a skinned mesh too, but `place` walks and marks it like anything else: its `updateMatrixWorld` is the plain `Object3D` one, as its bind matrix never changes and there's nothing to invert.
+
+Tests: `test/place.test.ts`.
 
 ## Checking your work
 

@@ -6,6 +6,32 @@ import { emojiIn, minchoIn, sources } from '../scripts/fonts/used';
 import { BOSSES } from '../src/fight';
 import { DRAWINGS } from '../src/icons';
 import bundled from '../src/fonts.json';
+import { readdirSync, readFileSync } from 'node:fs';
+
+/** The fonts that come with the game: cut down to what it writes, so none of them draws an emoji of its own. */
+const BUNDLED = ['Floe Emoji', 'Baloo 2', 'Bungee', 'Shippori Mincho B1'];
+/** Rules in the computer's own font, with no emoji in them: the player's words in a report, and the crash message. */
+const PLAIN = ['#reportText', '#errReport', '#err'];
+
+/** Every font the page's CSS sets (index.html's <style>, src's .css), by rule: its families in order, var()s filled. */
+function fontRules() {
+  const page = readFileSync('index.html', 'utf8').split('<style>')[1].split('</style>')[0];
+  const css = [page, ...readdirSync('src').filter(f => f.endsWith('.css')).map(f => readFileSync(`src/${f}`, 'utf8'))]
+    .join('\n').replace(/\/\*[\s\S]*?\*\//g, '');
+  const vars = new Map([...css.matchAll(/(--[\w-]+):([^;}]+)/g)].map(([, name, value]) => [name, value.trim()]));
+  const fill = (v: string): string => v.replace(/var\((--[\w-]+)\)/g, (_, name: string) => fill(vars.get(name) ?? ''));
+  const rules: [string, string[]][] = [];
+  for (const [, sel, body] of css.matchAll(/([^{};]*)\{([^{}]*)\}/g)) {
+    if (sel.trim() === '@font-face') continue;
+    for (const [, value] of body.matchAll(/(?:^|[;\s])font(?:-family)?:([^;]+)/g)) {
+      // (a font: shorthand's weight, size and line height come before the families)
+      const families = fill(value).trim().replace(/^(?:\d{3}\s+)?(?:clamp\([^)]*\)|[\d.]+(?:px|em|rem|%|vw))(?:\/\S+)?\s+/, '')
+        .split(',').map(f => f.trim().replace(/^"(.*)"$/, '$1'));
+      if (families[0] !== 'inherit') rules.push([sel.trim(), families]);
+    }
+  }
+  return rules;
+}
 
 describe('the bundled fonts', () => {
   const texts = sources();
@@ -37,6 +63,17 @@ describe('the bundled fonts', () => {
 
   it('carry every kanji and kana the game writes (run scripts/fonts/build.py when one is new)', () => {
     expect([...minchoIn(texts)].filter(c => !bundled.mincho.includes(c))).toEqual([]);
+  });
+
+  it("lead every font on the page with the emoji, ahead of the computer's own fonts (a boss's face in the brush font was a blank box)", () => {
+    const rules = fontRules(), of = (sel: string) => rules.find(([s]) => s === sel)?.[1][0];
+    const bad = rules.filter(([sel, families]) => {
+      const lead = families.indexOf('Floe Emoji');
+      return !PLAIN.includes(sel) && (lead < 0 || families.slice(0, lead).some(f => !BUNDLED.includes(f)));
+    });
+    expect(bad).toEqual([]);
+    // (the boss's face: on the 入場 banner's badge and name, the VS row till his portrait's in, the strip, the gong's chips)
+    for (const sel of ['#fightBanner b', '#fightBanner .face', '#gong .you, #gong .them', '#rush .row', '.fchip']) expect(of(sel), sel).toBe('Floe Emoji');
   });
 
   it('come with the game: nothing is fetched from Google Fonts', () => {

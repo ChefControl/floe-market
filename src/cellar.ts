@@ -21,7 +21,7 @@ import {
   BASINS, MAMA_COUNTER, STALL_DOOR, STALLS, STOOLS, TABLE_SEAT, TABLES,
 } from './cellarPlan';
 import { Fugu } from './fugu';
-import { isHigh, onQuality } from './graphics';
+import { isHigh, isPotato, onQuality } from './graphics';
 import { apart, Build, dice, K, quietly, rbox, shade, shadowsOf, tube } from './kit';
 import { ARENA, CARDS, CELLAR_Y, type CellarRoom, CRAFT, DEN, DOORS, found, GROW, keepOnFloor, KITCHEN, LANDING, LIFT_ROOM, LOANS, LOO, OFFICE_ROOM, PREP, pushOutOfBox, RESTO, ROOMS, VIP, walkable, WING } from './layout';
 import { FACE } from './icons/bosses';
@@ -2983,6 +2983,8 @@ export function cellarLights(on: boolean) { lit = on; showLamps(); }
 // the next one, which fades in, so nothing pops as the player goes from room to room. (Switching between them
 // recompiles the materials once, as the lights' count changes.)
 const STAND_INS = 4, SWAP = 0.3;
+/** How many stand-ins light the cellar: two on Potato. */
+const standing = () => (isPotato() ? 2 : STAND_INS);
 /** The stand-ins (on dice of their own, as the Undertow's lamps are). */
 export const standIns = apart(() => Array.from({ length: STAND_INS }, () => new PointLight(0xFFFFFF, 0)), dice(0x1A4B5));
 /** Which lamp each stands in for (-1: none), and how far faded in. */
@@ -2992,10 +2994,10 @@ let lit = false;
 function showLamps() {
   const low = !isHigh();
   lights.forEach(l => { l.visible = lit && !low; });
-  standIns.forEach(l => { l.visible = lit && low; });
+  standIns.forEach((l, n) => { l.visible = lit && low && n < standing(); });
 }
 onQuality(showLamps);
-/** On Low, the four lit lamps nearest `at` (where the camera looks), every frame the player's down there. */
+/** On Low, the four lit lamps nearest `at` (where the camera looks; two on Potato), every frame the player's down there. */
 export function updLamps(at: XZ, dt: number) {
   sweepNowAndThen(dt);
   if (isHigh() || !lit) return;
@@ -3008,10 +3010,12 @@ export function updLamps(at: XZ, dt: number) {
     const d = Math.hypot(l.position.x - at.x, l.position.z - at.z), k = Math.max(0, 1 - d / (l.distance || 20));
     return (l.intensity * k * k + 0.01 / (1 + d)) * (held.has(i) ? 1.2 : 1);
   });
-  const want = lit_.map((_, i) => i).filter(i => lit_[i] >= 0).sort((a, b) => lit_[b] - lit_[a]).slice(0, STAND_INS);
+  const want = lit_.map((_, i) => i).filter(i => lit_[i] >= 0).sort((a, b) => lit_[b] - lit_[a]).slice(0, standing());
   // (all of them at once the first time: just come down, or just switched to Low)
   const first = holds.every(h => h.i < 0);
   for (const [n, h] of holds.entries()) {
+    // (a stand-in not shown, on Potato, holds nothing: it'd take the lamp the one shown is waiting for)
+    if (n >= standing()) { h.i = -1; h.k = 0; standIns[n].intensity = 0; continue; }
     if (h.i >= 0 && want.includes(h.i)) h.k = Math.min(1, h.k + dt / SWAP);
     else if ((h.k = Math.max(0, h.k - dt / SWAP)) === 0) {
       h.i = want.find(i => !holds.some(o => o.i === i)) ?? -1;
@@ -3045,6 +3049,9 @@ function sweepShadows() {
   const low = !isHigh();
   cellar.updateMatrixWorld();
   cellar.traverse(o => {
+    // (someone drawn as one, characters.ts: their arms and legs are as slight as ever, so they cast with the body's alone;
+    // asked by name, as importing people here would make their shapes as the cellar loads, on its luck)
+    if ('limbShadows' in o) (o as { limbShadows: boolean }).limbShadows = !low;
     const m = o as Mesh;
     if (!m.isMesh || (m as unknown as InstancedMesh).isInstancedMesh || m.onBeforeShadow !== Mesh.prototype.onBeforeShadow) return;
     if (low && m.castShadow && slight(m)) { m.castShadow = false; m.userData.slight = true; }
@@ -3052,9 +3059,10 @@ function sweepShadows() {
   });
 }
 onQuality(sweepShadows);
-/** On Low, now and then, for what's come into the cellar since (bowls, the machines bought). */
+/** On Low, now and then, for what's come into the cellar since (bowls, the machines bought). Not on Potato, which casts
+ *  no shadows: the sweep when it changes to Low catches up. */
 function sweepNowAndThen(dt: number) {
-  if (isHigh() || (sweepT -= dt) > 0) return;
+  if (isHigh() || isPotato() || (sweepT -= dt) > 0) return;
   sweepT = 2;
   sweepShadows();
 }

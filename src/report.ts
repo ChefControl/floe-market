@@ -20,6 +20,7 @@ import { openSettings } from './settings';
 import { celebrate } from './sendFx';
 import { INK, paint, sketch, type Stroke } from './sketch';
 import { toast } from './ui';
+import { viewSize } from './viewSize';
 
 /** Longest note (firestore.rules checks it too). */
 export const TEXT_MAX = 1000;
@@ -113,9 +114,9 @@ export async function takeUi(world: HTMLCanvasElement) {
     const { default: html2canvas } = await (pageKit ??= import('html2canvas').catch(e => { pageKit = undefined; throw e; }));
     const r = renderer.domElement.getBoundingClientRect();
     const layer = await html2canvas(document.body, {
-      backgroundColor: null, logging: false, scale: world.width / (r.width || innerWidth),
-      x: r.left + scrollX, y: r.top + scrollY, width: r.width || innerWidth, height: r.height || innerHeight,
-      windowWidth: innerWidth, windowHeight: innerHeight,
+      backgroundColor: null, logging: false, scale: world.width / (r.width || viewSize.w),
+      x: r.left + scrollX, y: r.top + scrollY, width: r.width || viewSize.w, height: r.height || viewSize.h,
+      windowWidth: viewSize.w, windowHeight: viewSize.h,
       // (another site's frame, put in the page by the browser or an extension, can't be drawn anyway)
       ignoreElements: el => NOT_SHOWN.has(el.id) || el.tagName === 'IFRAME',
       onclone: doc => {
@@ -205,7 +206,7 @@ function device() {
     lost3dHidden: view3d.lostHidden,
     gpu,
     memory: memory ? `${memory} GB` : null,
-    screen: `${innerWidth}x${innerHeight}@${Math.round(devicePixelRatio * 100) / 100}`,
+    screen: `${viewSize.w}x${viewSize.h}@${Math.round(devicePixelRatio * 100) / 100}`,
     touch: window.matchMedia?.('(pointer: coarse)').matches ?? false,
     browser: navigator.userAgent.slice(0, 200),
   });

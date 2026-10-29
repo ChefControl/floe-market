@@ -7,6 +7,7 @@
 // turned to where it would have been, over the speaker. Out in the room it stays over the speaker, on screen or off.
 import { type Object3D, Sprite, SpriteMaterial, Vector3 } from 'three';
 import { camera, canvasTex, FONT, rr } from './render';
+import { viewSize } from './viewSize';
 
 const W = 512, H = 200, FADE = 0.25;
 /** How long a line stays up: a few seconds, and longer the longer it is (time enough for a slow reader). */
@@ -39,7 +40,7 @@ const hiddenBy = (b: Bubble) => { for (const v of vendors.values()) if (v && v !
  *  casino panel's open, his controls): under the HUD (and a fight's bar) at the top, and over the panel along the
  *  bottom. */
 function room() {
-  const h = window.innerHeight || 1;
+  const h = viewSize.h || 1;
   let hud = Math.min(document.getElementById('hud')?.getBoundingClientRect().bottom ?? 0, h * 0.14);
   // (and under the fight's strip along the top, while it's up)
   const strip = document.getElementById('rush');
@@ -49,7 +50,7 @@ function room() {
     const r = p.getBoundingClientRect();
     if (!r.height) continue;
     close = true;
-    if (r.left < window.innerWidth * 0.4) bottom = Math.min(bottom, r.top);
+    if (r.left < viewSize.w * 0.4) bottom = Math.min(bottom, r.top);
   }
   return { close, top: 1 - 2 * hud / h - EDGE, bottom: 1 - 2 * bottom / h + EDGE };
 }
@@ -97,7 +98,7 @@ export function bubble(parent: Object3D, width = 2.6) {
       const depth = Math.max(0.1, at.clone().sub(camera.position).dot(fwd));
       const viewH = 2 * depth * Math.tan(camera.fov * Math.PI / 360);
       const k = Math.min(1, MOST * viewH / (width * H / W), MOST_WIDE * viewH * camera.aspect / width);
-      const w = Math.max(width * k, LEAST_WORDS * H / WORDS * viewH / (window.innerHeight || 1) * W / H), hgt = w * H / W;
+      const w = Math.max(width * k, LEAST_WORDS * H / WORDS * viewH / (viewSize.h || 1) * W / H), hgt = w * H / W;
       sprite.scale.set(w, hgt, 1);
       // (in the view's own terms: where it is, how big, and where its tail's tip would be)
       up.set(0, 1, 0).applyQuaternion(camera.quaternion);

@@ -186,14 +186,12 @@ function build(p: Person, hi: boolean) {
 
 /** Builds the crooner's look onto `p`, hidden; returns a switch between it and their own clothes. */
 export function singerLook(p: Person) {
-  const own: Object3D[] = p.arms.map(a => a.children[0]);
   const side = p.arms.map(a => Math.sign(a.position.x));
-  // (their body and head, the hood and the rest of the season's clothes come off with p.disguised)
+  // (their body, head and arms, the hood and the rest of the season's clothes come off with p.disguised)
   const low = quietly(() => build(p, false)), high = quietly(() => build(p, true));
   let wearing = false;
   const show = () => {
     const h = isHigh();
-    for (const o of own) o.visible = !wearing;
     for (const o of low) o.visible = wearing && !h;
     for (const o of high) o.visible = wearing && h;
   };

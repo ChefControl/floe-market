@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { rankName, Shoe, type Card, type Suit } from '../src/blackjack';
 import { GRACE } from '../src/casinoKit';
 import { WHEEL } from '../src/roulette';
-import { bought, loadGame } from './helpers';
+import { bought, loadGame, resizeTo } from './helpers';
 
 const $ = (id: string) => document.getElementById(id)!;
 const click = (sel: string) => document.querySelector<HTMLButtonElement>(sel)!.click();
@@ -671,7 +671,7 @@ describe('the roulette table', () => {
     const { camera, scene, slideView } = await import('../src/render'), { tableRoom, topOfView } = await import('../src/ui');
     const t = await import('../src/rouletteTable'), kit = await import('../src/casinoKit');
     for (const [w, h, panel] of [[1024, 768, 200], [390, 844, 250]]) {
-      vi.stubGlobal('innerWidth', w); vi.stubGlobal('innerHeight', h);
+      await resizeTo(w, h);
       camera.aspect = w / h; camera.updateProjectionMatrix();
       const controls = h - panel - 10, pw = Math.min(w * 0.94, 440);
       vi.spyOn($('roulette'), 'getBoundingClientRect').mockReturnValue({ left: (w - pw) / 2, top: controls, width: pw, height: panel } as DOMRect);
@@ -750,7 +750,7 @@ describe('the blackjack table', () => {
     // down the side of a phone held sideways: the table goes to the left, with the camera refitted
     rect({ left: 600, top: 100, width: 400, height: 600 });
     window.dispatchEvent(new Event('resize'));
-    vi.stubGlobal('innerWidth', 1000);
+    await resizeTo(1000, innerHeight);
     v = kit.tableView(0.1);
     expect(ui.tableRoom.x).toBeGreaterThan(0);
     expect(v.eye.distanceTo(v.at)).not.toBeCloseTo(near, 3);
@@ -848,7 +848,7 @@ describe('the blackjack table', () => {
     const { camera, scene, slideView } = await import('../src/render'), { tableRoom } = await import('../src/ui');
     const kit = await import('../src/casinoKit');
     for (const [w, h, panel] of [[1024, 768, 200], [800, 600, 200], [844, 390, 170], [390, 844, 250]]) {
-      vi.stubGlobal('innerWidth', w); vi.stubGlobal('innerHeight', h);
+      await resizeTo(w, h);
       camera.aspect = w / h; camera.updateProjectionMatrix();
       const pw = Math.min(w * 0.94, 440);
       vi.spyOn($('blackjack'), 'getBoundingClientRect').mockReturnValue({ left: (w - pw) / 2, top: h - panel - 10, width: pw, height: panel } as DOMRect);

@@ -31,6 +31,7 @@ import { player } from './player';
 import { potMusic } from './potMusic';
 import { camera, canvasTex, G, mesh } from './render';
 import { V } from './util';
+import { viewSize } from './viewSize';
 
 // ---------- the numbers ----------
 /** Seconds of the stirring (after a moment to get going). */
@@ -65,7 +66,7 @@ const SHOTS: Record<'wide' | 'cut' | 'throw' | 'season' | 'stir', Shot> = {
 };
 /** Points the show's camera along `shot`; a tall, narrow screen (a phone held upright) has it stand further back. */
 function aim(shot: Shot) {
-  const asp = innerWidth / Math.max(1, innerHeight), back = asp < 1.25 ? 1 + (1.25 - asp) * 0.95 : 1;
+  const asp = viewSize.w / Math.max(1, viewSize.h), back = asp < 1.25 ? 1 + (1.25 - asp) * 0.95 : 1;
   showCam.look.set(POT.x + shot.at[0], CY + shot.at[1], POT.z + shot.at[2]);
   showCam.pos.set(POT.x + shot.eye[0], CY + shot.eye[1], POT.z + shot.eye[2]).sub(showCam.look).multiplyScalar(back).add(showCam.look);
   if (S) clearShot();
@@ -706,8 +707,8 @@ function throwStep(s: Set, cut: number[], got: number[]): Step {
     move(x, y) {
       if (!drag || st !== 'ready') return;
       // (it follows the finger a little, up off the board, and its shadow shows where it'd land)
-      const dy = clamp((drag.y - y) / innerHeight, 0, 0.2);
-      s.hand.position.set(REST.x + clamp((x - drag.x) / innerWidth, -0.15, 0.15) * 0.8, REST.y + dy * 0.6, REST.z - dy * 0.4);
+      const dy = clamp((drag.y - y) / viewSize.h, 0, 0.2);
+      s.hand.position.set(REST.x + clamp((x - drag.x) / viewSize.w, -0.15, 0.15) * 0.8, REST.y + dy * 0.6, REST.z - dy * 0.4);
       const b = y < drag.y - 14 ? onStew(drag.x + (x - drag.x) * 2.7, drag.y + (y - drag.y) * 2.7) : null;
       s.target.visible = !!b && Math.hypot(b.x - POT.x, b.z - POT.z) < STEW_R;
       if (b) s.target.position.set(b.x, STEW_Y + stewH(b.x, b.z) + 0.012, b.z);
@@ -798,7 +799,7 @@ function seasonStep(s: Set, got: number[], lines: number[]): Step {
 function stirStep(s: Set, got: number[]): Step {
   if (got.length < 2) got.splice(0, got.length, 0, 0);
   let acc = 0, speed = 0, last: number | null = null, ang = -Math.PI / 2, on = false, idle = 0, spin = 0, wake = 0;
-  const toScreen = (x: number, z: number) => { const p = V(x, STEW_Y, z).project(camera); return { x: (p.x + 1) / 2 * innerWidth, y: (1 - p.y) / 2 * innerHeight }; };
+  const toScreen = (x: number, z: number) => { const p = V(x, STEW_Y, z).project(camera); return { x: (p.x + 1) / 2 * viewSize.w, y: (1 - p.y) / 2 * viewSize.h }; };
   const centre = () => toScreen(POT.x, POT.z);
   // (the band drifts a little and slowly, and it's wide: a finger's circles are never even)
   const band = () => 0.5 + Math.sin(got[0] * 0.8) * 0.08;
@@ -1038,7 +1039,7 @@ export function updShow(dt: number) {
   const st = S.steps[S.i];
   if (S.phase === 'banner' && S.t > 0.85) {
     S.phase = 'play'; S.t = 0;
-    if (pressed && st.hold) { S.downSent = true; st.down?.(innerWidth / 2, innerHeight / 2); }
+    if (pressed && st.hold) { S.downSent = true; st.down?.(viewSize.w / 2, viewSize.h / 2); }
   } else if (S.phase === 'play') {
     st.update(dt);
     if (st.done) { S.phase = 'after'; S.t = 0; S.run.step = S.i + 1; scoreboard(); }
@@ -1076,7 +1077,7 @@ ui.btn.addEventListener('click', () => { if (atPot()) startShow(); });
 const ray = new Raycaster(), ndc = new Vector2(), stewTop = new Plane(V(0, 1, 0), -STEW_Y);
 /** Where a point on the screen falls on the stew's surface. */
 function onStew(x: number, y: number) {
-  ndc.set(x / innerWidth * 2 - 1, -(y / innerHeight) * 2 + 1);
+  ndc.set(x / viewSize.w * 2 - 1, -(y / viewSize.h) * 2 + 1);
   ray.setFromCamera(ndc, camera);
   return ray.ray.intersectPlane(stewTop, V(0, 0, 0));
 }
@@ -1114,7 +1115,7 @@ addEventListener('keydown', e => {
   if (S.phase !== 'play') return;
   const st = S.steps[S.i];
   if (st.key) st.key();
-  else st.down?.(innerWidth / 2, innerHeight / 2);
+  else st.down?.(viewSize.w / 2, viewSize.h / 2);
 });
 addEventListener('keyup', e => {
   if (S?.phase !== 'play' || (e.code !== 'Space' && e.code !== 'KeyE')) return;

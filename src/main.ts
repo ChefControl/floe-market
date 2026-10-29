@@ -6,7 +6,7 @@ import { initCloud } from './cloud';
 import { CLOSE, CLOSE_AIM, closeUp } from './customize';
 import { DEMO, startDemo } from './fuguDemo';
 import { tick } from './game';
-import { frameDrawn } from './graphics';
+import { frameDrawn, isPotato } from './graphics';
 import { initHint, updHint } from './hint';
 import { inputVec } from './input';
 import { hideAbove } from './levelCull';
@@ -16,6 +16,7 @@ import { finishCam } from './dohyo';
 import { updKofi } from './kofi';
 import { player } from './player';
 import { updPointers } from './pointers';
+import { drawPooled } from './pooled';
 import { initReports, updReports } from './report';
 import { camera, camK, fog, OFF, renderer, scene, sun, sunOff } from './render';
 import { isStale, load, startAutosave, wipeSave } from './save';
@@ -44,6 +45,8 @@ else {
   initScores();
 }
 batchStill(scene);
+// (the items, chips and fish: a call for each kind, pooled.ts)
+drawPooled(scene);
 // the demo build's tool panel (demo.ts); the game itself never loads it
 if (import.meta.env.MODE === 'demo') void import('./demo');
 // the UI kit's showcase, ?ui=kit (uiShowcase.ts): in dev and demo builds only
@@ -76,7 +79,12 @@ const smooth = (k: number) => k * k * (3 - 2 * k);
 let last = performance.now();
 const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)') ?? { matches: false };
 
+/** Potato draws at most 30 frames a second (graphics.ts): steadier on a phone that can't hold 60, and cooler. A frame
+ *  comes a little early now and then, so it allows a couple of milliseconds. */
+const POTATO_MS = 1000 / 30 - 2;
+
 function frame(now: number) {
+  if (isPotato() && now - last < POTATO_MS) { requestAnimationFrame(frame); return; }
   frameDrawn((now - last) / 1000);
   const dt = Math.max(0, Math.min(0.05, (now - last) / 1000)); // a first frame can be stamped before boot
   last = now;
