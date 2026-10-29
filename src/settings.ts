@@ -1,8 +1,8 @@
 // The settings menu, behind the gear in the top corner, in four groups: You (signing in for cloud saves, cloud.ts, and
 // your look), Graphics & sound (graphics.ts, audio.ts), Game (how to walk, hint.ts, and Restart, main.ts), and About
 // (Report a bug or idea, report.ts; Ko-fi, kofi.ts, only in builds with it on; Privacy; and last, the Credits & Copyrights for the music and sound). Controls, Graphics, Sound, Privacy and the credits each
-// open with a click: Controls into How to play and a switch for the Buy button on a computer; Graphics into Auto, Low
-// or High; Sound into the effects, the ambience and the music, each with a mute button
+// open with a click: Controls into How to play and a switch for the Buy button on a computer; Graphics into Auto,
+// Potato, Low or High; Sound into the effects, the ambience and the music, each with a mute button
 // and a 0 to 10 slider, big enough for a finger; Privacy into, signed in, the switch for showing on the scoreboards
 // (cloud.ts), then the notice's short version, with a button for the whole notice in a dialog over the game; and the
 // credits into the notices.
@@ -11,6 +11,7 @@ import { choose, gfx, onQuality, type Choice } from './graphics';
 import { touchBuy } from './buy';
 import { buyButton, setBuyButton, showHint } from './hint';
 import { coin } from './sfx';
+import { toast } from './ui';
 import { panel as kitPanel } from './uiKit';
 
 const $ = (id: string) => document.getElementById(id)!;
@@ -103,17 +104,24 @@ soundRow('sfx', 'Sfx');
 soundRow('amb', 'Amb');
 soundRow('music', 'Music');
 
-// Graphics: Auto, Low or High, shown on the row while it's closed. On Auto, which one the game is using shows under
-// the choices.
-const gfxButtons = [...$('gfx').querySelectorAll('button')], gfxNow = $('gfxNow'), gfxPick = $('gfxPick');
+// Graphics: Auto, Potato, Low or High, shown on the row while it's closed. On Auto, which one the game is using shows
+// under the choices. A pick into or out of Potato offers a reload to finish it (graphics.ts), and when Auto drops to
+// Potato by itself, a toast says so, once.
+const gfxButtons = [...$('gfx').querySelectorAll<HTMLButtonElement>('.seg button')], gfxNow = $('gfxNow'), gfxPick = $('gfxPick');
+const gfxReload = $('gfxReload') as HTMLButtonElement;
+const GFX_NAMES: Record<Choice, string> = { auto: 'Auto', potato: 'Potato', low: 'Low', high: 'High' };
+let gfxWas = gfx.quality;
 function showGfx() {
-  const on = gfx.picked ? gfx.quality : 'auto';
-  for (const b of gfxButtons) b.setAttribute('aria-pressed', String(b.dataset.q === on));
-  gfxPick.textContent = on === 'auto' ? 'Auto' : on === 'high' ? 'High' : 'Low';
+  for (const b of gfxButtons) b.setAttribute('aria-pressed', String(b.dataset.q === gfx.choice));
+  gfxPick.textContent = GFX_NAMES[gfx.choice];
   gfxNow.hidden = gfx.picked;
-  gfxNow.textContent = gfx.quality === 'high' ? 'Auto is on High now' : 'Auto is on Low now';
+  gfxNow.textContent = `Auto is on ${GFX_NAMES[gfx.quality]} now`;
+  gfxReload.hidden = !gfx.reload;
+  if (gfx.quality === 'potato' && gfxWas !== 'potato' && !gfx.picked) toast('🥔 Switched to Potato graphics');
+  gfxWas = gfx.quality;
 }
 for (const b of gfxButtons) b.addEventListener('click', () => choose(b.dataset.q as Choice));
+gfxReload.addEventListener('click', () => location.reload());
 onQuality(showGfx);
 showGfx();
 

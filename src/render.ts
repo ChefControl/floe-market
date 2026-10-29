@@ -6,7 +6,7 @@ import {
 } from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { glBack, glGone } from './errors';
-import { isHigh, lowAfterLoss, onQuality } from './graphics';
+import { highBuilt, isHigh, isPotato, lowAfterLoss, onQuality } from './graphics';
 import { V } from './util';
 
 // ---------- renderer / scene ----------
@@ -18,7 +18,8 @@ export const canvas = document.getElementById('game') as HTMLCanvasElement;
 // (a stencil buffer for the hole under Mr. Fugu's hatch, fugu.ts, which shows the shaft below the deck through it)
 export const renderer = (() => {
   try {
-    return new WebGLRenderer({ canvas, antialias: true, stencil: true });
+    // (Potato smooths no edges: smoothing takes several times the drawing's memory, and it's only chosen as the view's made)
+    return new WebGLRenderer({ canvas, antialias: highBuilt, stencil: true });
   } catch (e) {
     // the browser won't give the game a 3D view (errors.ts): the game can't go on, but the dialog says why
     glGone('start', (e as Error).message);
@@ -119,12 +120,14 @@ export const shadowSize = { px: 1024 };
 /**
  * Fits the renderer to the graphics (graphics.ts). High: soft-edged shadows, up to two pixels a point. Low, for phones
  * that can't keep up: a shadow map half the size with hard edges, and no more than one and a half pixels a point.
+ * Potato: no shadows at all (and no shadow map held), and one pixel a point.
  */
 export function fitRenderer() {
-  const high = isHigh(), px = high ? shadowSize.px : shadowSize.px / 2;
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, high ? 2 : 1.5));
+  const high = isHigh(), potato = isPotato(), px = high ? shadowSize.px : shadowSize.px / 2;
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, high ? 2 : potato ? 1 : 1.5));
   sun.shadow.radius = high ? 3 : 1;
-  if (sun.shadow.mapSize.x !== px) {
+  sun.castShadow = !potato;
+  if (sun.shadow.mapSize.x !== px || potato) {
     sun.shadow.mapSize.set(px, px);
     sun.shadow.map?.dispose();
     sun.shadow.map = null;

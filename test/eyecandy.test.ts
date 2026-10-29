@@ -24,7 +24,7 @@ function seeded(seed: number) {
 }
 
 /** Loads the game with the graphics already chosen on this device. */
-async function loadWith(q: 'low' | 'high') {
+async function loadWith(q: 'potato' | 'low' | 'high') {
   const get = Storage.prototype.getItem;
   const spy = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(function (this: Storage, k: string) {
     return k === 'floe-market-graphics' ? q : get.call(this, k);
@@ -59,6 +59,28 @@ describe('eye candy', () => {
     vi.spyOn(Math, 'random').mockImplementation(seeded(1));
     await loadWith('low');
     expect([Math.random(), Math.random()]).toEqual(high);
+    // and Potato, which never builds High
+    vi.spyOn(Math, 'random').mockImplementation(seeded(1));
+    await loadWith('potato');
+    expect([Math.random(), Math.random()]).toEqual(high);
+  });
+
+  it('draws on Potato exactly what Low draws', async () => {
+    /** Each showing mesh's shape: its corners and where it is. */
+    const drawn = (scene: Object3D) => {
+      const out: string[] = [];
+      scene.updateMatrixWorld(true);
+      scene.traverse(o => {
+        if (o instanceof Mesh && shown(o)) out.push(`${o.geometry.attributes.position?.count} ${o.matrixWorld.elements.map(e => e.toFixed(3))}`);
+      });
+      return out.sort();
+    };
+    vi.spyOn(Math, 'random').mockImplementation(seeded(1));
+    const low = drawn((await loadWith('low')).render.scene);
+    vi.spyOn(Math, 'random').mockImplementation(seeded(1));
+    const potato = drawn((await loadWith('potato')).render.scene);
+    expect(potato.length).toBeGreaterThan(100);
+    expect(potato).toEqual(low);
   });
 
   it("copies the shapes it bakes without building a spare one first, taking the luck three.js' own copy took", async () => {

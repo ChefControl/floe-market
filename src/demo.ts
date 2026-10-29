@@ -1,6 +1,6 @@
 // The demo build's tool panel (`vite build --mode demo`), for trying the game on a phone: the frame rate and how much
-// is drawn, Low or High, a stage 1, 2 or 3 game to jump into (stage 3 with as many of its bosses beaten as you like,
-// and the cellar as won or all bought), and money to spend. The game itself never loads this (main.ts).
+// is drawn, Potato, Low or High, a stage 1, 2 or 3 game to jump into (stage 3 with as many of its bosses beaten as you
+// like, and the cellar as won or all bought), and money to spend. The game itself never loads this (main.ts).
 import { CHIP, BOSSES } from './fight';
 import { DEMO, marketSave } from './fuguDemo';
 import { choose, gfx } from './graphics';
@@ -34,7 +34,7 @@ el.id = 'demo';
 el.innerHTML = `<style>${css}</style><button type="button" aria-label="Demo tools">🛠</button>
 <div class="box" hidden>
   <div class="stats" id="demoStats">…</div>
-  <div class="row" id="demoGfx"><b>Graphics</b><button data-q="low">Low</button><button data-q="high">High</button></div>
+  <div class="row" id="demoGfx"><b>Graphics</b><button data-q="potato">Potato</button><button data-q="low">Low</button><button data-q="high">High</button></div>
   <div class="row" id="demoGame"><b>Game</b><button data-g="1">Stage 1</button><button data-g="2">Stage 2</button>
     <button data-g="3" ${DEMO ? '' : 'hidden'}>Stage 3</button></div>
   <div class="sub" ${DEMO ? '' : 'hidden'}>Stage 3</div>
@@ -63,7 +63,7 @@ function marks() {
 }
 el.querySelector('#demoGfx')!.addEventListener('click', e => {
   const q = (e.target as HTMLElement).dataset.q;
-  if (q === 'low' || q === 'high') { choose(q); marks(); }
+  if (q === 'potato' || q === 'low' || q === 'high') { choose(q); marks(); }
 });
 
 /** Starts over in stage 3's cellar with `beaten` of its bosses beaten, as won or with all of it bought. */
