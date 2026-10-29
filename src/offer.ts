@@ -22,6 +22,7 @@ import { nightK, setNight, staging } from './stage';
 import { toast } from './ui';
 import { stageBuilt, tiles } from './unlocks';
 import { d2xz, FY, money, V, type XZ } from './util';
+import { viewSize } from './viewSize';
 
 /** The hatch in the dock planks, and where the player stands to hear him out, facing it: on the restaurant's side. */
 export const HATCH = V(HATCH_AT.x, FY, HATCH_AT.z);
@@ -554,7 +555,7 @@ export function updOffer(dt: number) {
 // over the water, with the sea behind him; it pulls back a little on a phone held upright.
 const toScreen = (p: Vector3) => {
   const v = p.clone().project(camera);
-  return { x: (v.x + 1) / 2 * window.innerWidth, y: (1 - v.y) / 2 * window.innerHeight };
+  return { x: (v.x + 1) / 2 * viewSize.w, y: (1 - v.y) / 2 * viewSize.h };
 };
 const near = V(0, 0, 0), ots = V(0, 0, 0);
 /** Puts the camera's view and the "!", speech bubble and spotlight in place for this frame (main.ts). */
@@ -590,7 +591,7 @@ export function drawOffer() {
   root.style.setProperty('--fx', head.x + 'px');
   root.style.setProperty('--fy', head.y + 'px');
   // over his head, like everyone's speech bubbles, with its tail pointing down at him (kept on the screen)
-  const w = sayEl.offsetWidth, x = Math.max(12, Math.min(head.x - w / 2, window.innerWidth - w - 12));
+  const w = sayEl.offsetWidth, x = Math.max(12, Math.min(head.x - w / 2, viewSize.w - w - 12));
   sayEl.style.left = x + 'px'; sayEl.style.top = Math.max(sayEl.offsetHeight + 16, head.y - 70) + 'px';
   sayEl.style.setProperty('--tail', Math.max(22, Math.min(w - 22, head.x - x)) + 'px');
 }

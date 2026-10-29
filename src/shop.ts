@@ -27,6 +27,7 @@ import { buyFromMenu, isDone, menuSeen, offered, type Tile, tiles } from './unlo
 import { MAX_MACHINES } from './cellarPlan';
 import { toast } from './ui';
 import { chips, FY, price } from './util';
+import { viewSize } from './viewSize';
 import { wallet } from './wallet';
 
 /** The rooms whose upgrades the shop sells (all of them, in its tree). */
@@ -311,7 +312,7 @@ let tree0 = { w: 0, h: 0 };
 function fitBoard() {
   const tree = rows.querySelector<HTMLElement>('.tree');
   if (!tree || !panel.classList.contains('board') || panel.hidden || !panel.offsetHeight) return;
-  const top = parseFloat(getComputedStyle(panel).top) || 76, room = innerHeight - top - 16;
+  const top = parseFloat(getComputedStyle(panel).top) || 76, room = viewSize.h - top - 16;
   tree.style.display = 'none';
   const rest = panel.getBoundingClientRect().height + 8, across = panel.clientWidth - 20;
   tree.style.display = '';

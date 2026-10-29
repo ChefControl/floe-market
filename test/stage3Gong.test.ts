@@ -388,6 +388,34 @@ describe('the gong during a local fight', () => {
     expect(el.classList.contains('two')).toBe(false);
   });
 
+  it('a resize refits every name to its own floor: shrunk a little, or on two lines past it', async () => {
+    await ring({ level: 0 });
+    const names = ['gongBoss', 'rushYou', 'rushThem'].map(id => document.getElementById(id)!);
+    let squeeze = 0.9;
+    for (const el of names) {
+      el.textContent = 'Sparring partner';
+      const natural = 'Sparring partner'.length * 16 * 0.6;
+      Object.defineProperty(el, 'clientWidth', { configurable: true, get: () => natural * squeeze });
+      Object.defineProperty(el, 'scrollWidth', { configurable: true, get: () => el.textContent!.length * (parseFloat(el.style.fontSize) || 16) * 0.6 });
+    }
+    window.dispatchEvent(new Event('resize'));
+    for (const el of names) {
+      expect(el.classList.contains('two'), el.id).toBe(false);
+      expect(parseFloat(el.style.fontSize), el.id).toBeLessThan(16);
+    }
+    squeeze = 0.78; // under the strip's floor (0.85), over the gong's (0.7)
+    window.dispatchEvent(new Event('resize'));
+    expect(names[0].classList.contains('two')).toBe(false);
+    expect(parseFloat(names[0].style.fontSize)).toBeLessThan(16 * 0.8);
+    for (const el of names.slice(1)) expect(el.classList.contains('two'), el.id).toBe(true);
+    squeeze = 0.5;
+    window.dispatchEvent(new Event('resize'));
+    for (const el of names) {
+      expect(el.classList.contains('two'), el.id).toBe(true);
+      expect(el.style.fontSize, el.id).toBe('');
+    }
+  });
+
   it("the push-out's fall lands when fight.ts says it does", async () => {
     const { fight } = await ring({ level: 0 });
     const { PUSH } = await import('../src/finishers');

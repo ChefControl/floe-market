@@ -45,6 +45,7 @@ import { PAD, pile, PILE } from './stations';
 import { banner, confetti, toast } from './ui';
 import { locked, onOffer, tiles, type Tile } from './unlocks';
 import { chips, d2xz, FY, price, type XZ } from './util';
+import { viewSize } from './viewSize';
 import { wallet } from './wallet';
 
 export type Lesson = 'fish' | 'pick' | 'sell' | 'cash' | 'buy' | 'shop' | 'harpoon' | 'stars'
@@ -561,11 +562,11 @@ export function drawTutorial(dt: number) {
   bubble.classList.toggle('edge', !o.inView);
   // the whole bubble stays on the screen (at the edge, with room for its badge)
   const bw = bubble.offsetWidth / 2, bh = bubble.offsetHeight / 2, m = o.inView ? 8 : 22;
-  const x = Math.min(Math.max(o.x, bw + m), innerWidth - bw - m);
+  const x = Math.min(Math.max(o.x, bw + m), viewSize.w - bw - m);
   let y = o.y;
   if (o.inView) y = Math.max(y, bh * 2 + m); // over the arrow, it sits above the point
   else {
-    y = Math.min(Math.max(y, bh + m), innerHeight - bh - m);
+    y = Math.min(Math.max(y, bh + m), viewSize.h - bh - m);
     // the badge goes where the way out of the bubble meets its rim
     const c = Math.cos(o.angle), sn = Math.sin(o.angle);
     const r = Math.min(bw / Math.max(Math.abs(c), 1e-6), bh / Math.max(Math.abs(sn), 1e-6));

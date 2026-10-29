@@ -356,6 +356,7 @@ Each deploy removes the last one's files, and GitHub Pages lets browsers keep th
 | `src/demo.ts` | The demo build's tool panel (`vite build --mode demo`): frame rate, Potato/Low/High, a stage 1, 2 or 3 game (stage 3 with N bosses beaten, as won or all bought), and money to add |
 | `src/fuguDemo.ts` | The Mr. Fugu demo (`VITE_FUGU_DEMO=1`): Floe Sushi built, so he knocks at once; nothing is kept |
 | `src/render.ts` | Renderer, scene, camera, lights, shared materials/geometry, canvas helpers |
+| `src/viewSize.ts` | The window's size, kept as it's resized: read it from here, never from `window.innerWidth`/`innerHeight` (asking the window makes the browser lay the page out) |
 | `src/world.ts` | Static scenery: water, the dock (both stages') and its pier (`PIER` in `src/layout.ts`), fences, roads, trees |
 | `src/layout.ts` | The current stage and level (the world, or the cellar), where people can walk in each (the cellar's rooms and doorways too), and the ground height (terraces, bridge, garden) |
 | `src/stage.ts` | The stage-up shows (banner, camera pull-back, pieces in and out; down the hatch; the buyout), the ladder between the levels, and the light: each season's sky, by day, at stage 2's dusk and at night (Mr. Fugu's), and the cellar's |
