@@ -18,7 +18,7 @@ import { decal, drawPad } from './decals';
 import { dustFx } from './fx';
 import { ringCam } from './dohyo';
 import {
-  type Boss, bossOf, BOSSES, BUYOUT, canRing, canShow, type Carry, F, type Forecast, fixOn, forecast, ICON, type Ing, keptHome, NAME, nextBoss, practiceDue, ringGong,
+  type Boss, bossOf, BOSSES, BUYOUT, canRing, canShow, type Carry, F, type Forecast, fixOn, forecast, ICON, type Ing, keptHome, NAME, nextBoss, practiceDue, PRACTICE, ringGong,
   finish, FINISH, push, ringRate, type Rush, sides, SLAM, slamDown, slamLanded, slamOn, strength, toBeat, worstShort, you,
 } from './fight';
 import { isTouch } from './hint';
@@ -46,8 +46,13 @@ export function fit(el: HTMLElement, least = Number(el.dataset.least) || 0.7) {
   if (el.scrollWidth > el.clientWidth + 0.5) { el.style.fontSize = ''; el.classList.add('two'); }
 }
 const fitted: HTMLElement[] = [];
-const refit = () => fitted.forEach(fit);
+// (each passed alone: forEach would hand fit its index as `least`, the first name shrinking without a floor and the
+// rest not at all)
+const refit = () => fitted.forEach(el => fit(el));
 document.fonts?.ready.then(refit);
+// (and as any font comes in later: the strip's own, Bungee, only loads once it's first shown, fonts.ts, and the names
+// are fitted only when the strip's words change, not every frame)
+document.fonts?.addEventListener?.('loadingdone', refit);
 window.addEventListener('resize', refit);
 
 // ---------- the pads ----------
@@ -119,7 +124,7 @@ function render() {
   let chips: string[] = [], rows: Row[] = [], button: string | null = 'Ring the gong';
   if (R && !R.done) {
     chips = [`👥 ${R.n}`, `💪 ${toBeat(on!, R.n)}`, `🔔 ${on!.bell} s`, `🐡 ${amount(on!.prize)}`];
-    if (practice) chips.unshift('🤼 Practice');
+    if (practice) chips.unshift(`${PRACTICE.face} Practice`);
     rows = [{ say: 'Keep the bowls coming!' }];
     button = null;
   } else if (b && F.called) {
@@ -132,7 +137,7 @@ function render() {
     button = null;
   } else {
     chips = [`👥 ${b.crowd}`, `💪 ${toBeat(b)}`, `🔔 ${b.bell} s`, `🐡 ${amount(b.prize)}`];
-    if (practice) chips.unshift('🤼 Practice');
+    if (practice) chips.unshift(`${PRACTICE.face} Practice`);
     // (no forecast while the last boss's crowd is still on the floor: the gong can't be rung until it clears)
     const f = R ? null : forecast(), fix = fixOn();
     if (f && fix) {
@@ -180,11 +185,15 @@ go.addEventListener('click', () => { if (!go.disabled) ring(); });
 
 // ---------- the banner: a boss walks in ----------
 const bannerEl = $('fightBanner'), bannerWho = $('bannerWho'), bannerGoal = $('bannerGoal');
+const bannerFace = $('bannerFace'), bannerTag = $('bannerTag');
 let bannerT = 0;
-/** 入場: his name, the crowd he's brought, and how many of them to turn, across the screen for a few seconds. */
+/** 入場: his badge (his face, and which boss he is), his name, the crowd he's brought, and how many of them to turn,
+ *  across the screen for a few seconds. */
 function banner(R: Rush) {
   const boss = bossOf(R.boss);
-  bannerWho.textContent = `${boss.name} ${boss.face} · ${R.n} fans`;
+  bannerFace.textContent = boss.face;
+  bannerTag.textContent = R.boss < 0 ? 'PRACTICE' : `BOSS ${R.boss + 1}`;
+  bannerWho.textContent = `${boss.name} · ${R.n}\u00a0fans`; // (on a narrow phone it breaks after the ·)
   bannerGoal.textContent = `💪 ${toBeat(boss, R.n)} TO WIN`;
   bannerEl.classList.remove('on');
   bannerEl.hidden = false;
@@ -289,8 +298,10 @@ function slamChip() {
   chip.className = 'fchip slam'; chip.textContent = `💥 Slam +🐡 ${amount(bossOf(R.boss).prize * SLAM.bonus[R.slam] + 0.5)}`;
   prize?.after(chip);
 }
-/** What the strip said last, so it's only rewritten when something in it changes. */
-let barSaid = '';
+/** What the strip said last, so it's only rewritten when something in it changes; and its words the names were last
+ *  fitted to (fitting measures them, which lays the page out: not every frame the knot moves, only when the names or
+ *  the middle between them, whose width their boxes share, change). */
+let barSaid = '', fitSaid = '';
 /** The strip along the top, every boss's fight (and a local's, from the watch spot): the champion's face and his fans
  *  on the left, the other's on the right; the bell (or the fight, or how it went) between; and the rope, orange for his
  *  fans, purple for theirs: his goal marked on it while his crowd's turning, and in the fight the knot, pulled one way
@@ -299,7 +310,7 @@ function renderBout() {
   // (a local's from the watch spot only once the doors are open: before, there's no fight to show)
   const R = F.rush, show = level.down && stage.n === 3 && !coinUp() && (!!R || (watch > 0.5 && !F.quiet));
   if (show === rushEl.hidden) { rushEl.hidden = !show; rushEl.classList.toggle('in', show); }
-  if (!show) { barSaid = ''; return; }
+  if (!show) { barSaid = fitSaid = ''; return; }
   const B = F.bout, boss = R ? bossOf(R.boss) : null, name = boss ? boss.name : 'Local', move = moveOf(R, B.finish), lands = landsOf(R, B.finish);
   const { yours, theirs } = sides();
   let left = `${CHAMP} ${yours}`, right = `${theirs} ${name}`, mid: string, fill = yours + theirs ? yours / (yours + theirs) : 0.5, goal = -1;
@@ -321,7 +332,8 @@ function renderBout() {
   showFace(rushYouP, 'champ', '🍙');
   if (boss) showFace(rushThemP, boss.kind ?? 'local', boss.face); else showFace(rushThemP, 'local', '🙂');
   rushYou.textContent = left; rushBell.textContent = mid; rushThem.textContent = right;
-  fit(rushYou); fit(rushThem);
+  const words = [left, mid, right].join('|');
+  if (words !== fitSaid) { fitSaid = words; fit(rushYou); fit(rushThem); }
   rushBar.style.width = Math.round(fill * 1000) / 10 + '%';
   rushGoal.hidden = goal < 0; rushGoal.style.left = Math.round(goal * 1000) / 10 + '%';
   rushKnot.hidden = knot < 0; rushKnot.style.left = Math.round(knot * 10) / 10 + '%';

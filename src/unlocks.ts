@@ -17,7 +17,7 @@ import { tryCatch } from './fishing';
 import { addTables } from './garden';
 import { enableKorki, KORKI } from './korki';
 import { unlockFx } from './fx';
-import { GAMES, HATCH_AT, stage, TERRACES, type StageN } from './layout';
+import { casinoBoat, GAMES, HATCH_AT, stage, TERRACES, type StageN } from './layout';
 import { buildNet, buildTurret } from './machines';
 import { player } from './player';
 import { offer } from './offer';
@@ -105,8 +105,9 @@ function ring(id: UnlockId, x: number, z: number, icon: string, name: string, de
 const UNLOCKS: Unlock[] = [
   { id: 'pack', cost: 30, x: -1.3, z: 6.0, icon: '🎒', name: 'Bigger arms', desc: 'Carry 14 things at once', stage: 1 },
   { id: 'turret', cost: 90, x: -6.0, z: -3.3, icon: '🎯', name: 'Auto harpoon', desc: 'Keeps catching fish while you are away', stage: 1 },
-  // by the gap in the west fence the jetty goes out through, so the jetty builds out from where you stand
-  { id: 'roulette', cost: 150, x: -6.3, z: -1.2, icon: '🛳️', name: 'Casino boat', desc: 'A casino moored off the dock, with a roulette table', stage: 1 },
+  // by the gap in the west fence the jetty goes out through, so the jetty builds out from where you stand; a ticket
+  // aboard, not the boat: the casino isn't yours, so its takings aren't either (report 24)
+  { id: 'roulette', cost: 150, x: -6.3, z: -1.2, icon: '🎟️', name: 'Casino boat ticket', desc: 'Board Lady Luck and play roulette', stage: 1 },
   { id: 'runner', cost: 300, x: -4.0, z: 3.6, icon: '🏃', name: 'Hire a runner', desc: 'Carries fish from the pile to your counters', stars: 3.5, stage: 1 },
   { id: 'boots', cost: 500, x: -6.0, z: 6.2, icon: '🥾', name: 'Snow boots', desc: 'Walk faster', stage: 1 },
   { id: 'sled', cost: 900, x: 6.55, z: -1.0, icon: '🚗', name: 'Drive-up window', desc: 'Drivers on the road buy fish in bulk, for half as much again', stars: 3.8, stage: 1 },
@@ -162,9 +163,10 @@ const UNLOCKS: Unlock[] = [
     `The venue grows to ${TIERS[i].seats} seats${i === 2 ? ', with taiko drummers' : ''}`, TIER_BEAT[i], TIER_COST[i], undefined, i > 1 ? `tier${i - 1}` as UnlockId : undefined)),
   { id: 'buyout', cost: BUYOUT * CHIP, ...below(7.55, -5.25), icon: '🐡', name: 'Buy back all his chips', desc: "The ring is yours: Mr. Fugu's 30% ends, the till comes back", stage: 3, gold: true, beat: BOSSES.length },
   { id: 'korki', cost: 10, x: KORKI.x, z: KORKI.z, icon: '🛴', name: "Korki's golden statue", desc: 'In memory of a good scooter', stage: 1, always: true, everywhere: true },
-  // the casino boat's other games, on its deck: fun extras, for sale from when the boat comes in
-  { id: 'slots', cost: 250, ...GAMES.slots, icon: '🎰', name: 'Slot machine', desc: 'Pull the lever for three of a kind', stage: 1, always: true, everywhere: true, needs: 'roulette' },
-  { id: 'blackjack', cost: 400, ...GAMES.blackjack, icon: '🃏', name: 'Blackjack table', desc: 'Beat the dealer to 21', stage: 1, always: true, everywhere: true, needs: 'roulette' },
+  // the casino boat's other games, on its deck: fun extras, for sale from when the boat's moored; passes, as the boat
+  // isn't yours (the staff open the table for you)
+  { id: 'slots', cost: 250, ...GAMES.slots, icon: '🎰', name: 'Slots pass', desc: 'Opens a slot machine for you', stage: 1, always: true, everywhere: true, needs: 'roulette' },
+  { id: 'blackjack', cost: 400, ...GAMES.blackjack, icon: '🃏', name: 'Blackjack pass', desc: 'Opens a blackjack table for you', stage: 1, always: true, everywhere: true, needs: 'roulette' },
 ];
 
 // The cellar's rooms sell their upgrades at the cookware shop (shop.ts's tree): the prep hall's racks, barrels,
@@ -230,8 +232,10 @@ export function offered(t: Tile) {
   return !t.needs || isDone(t.needs);
 }
 
-/** Upgrades on offer all through the current stage (or every stage), once the stage-up's show is over and what they need is bought. */
-const always = (t: Tile) => t.always && !staging() && (!t.needs || isDone(t.needs)) && (t.everywhere || t.stage === stage.n);
+/** Upgrades on offer all through the current stage (or every stage), once the stage-up's show is over and what they need is bought
+ *  (the casino boat's games: and it's sailed in, as their tiles are on its deck). */
+const always = (t: Tile) => t.always && !staging() && (!t.needs || isDone(t.needs)) && (t.everywhere || t.stage === stage.n)
+  && (t.needs !== 'roulette' || casinoBoat.docked);
 
 /** The tiles on offer last time, to spot new ones; null before the first look (at a fresh start or a loaded save). */
 let before: Set<Tile> | null = null;
@@ -363,13 +367,13 @@ export function applyUnlock(id: UnlockId, silent = false) {
   if (id === 'buyout') finishStage3(silent);
   showProgress();
   if (silent || t.gold) return;
-  toast(t.name + ' unlocked');
+  toast(id === 'roulette' ? 'Ticket bought: Lady Luck sails in' : t.name + ' unlocked');
   if (id === 'kiosk') toast('New: the Fertilizer shed, by the water wheel');
   if (id === 'runner') toast('New at the Upgrade square: Crew training');
   unlock();
   unlockFx(t, 1.1, (t.y ?? FY) + 0.05);
   // a moment on camera for what it built, or for the player with nothing new to see (boots, bigger arms); the casino
-  // boat has its own, out to the ship as it comes in, and the cellar's have theirs (ring.ts's on.built)
+  // boat has its own, following the ship as it sails in, and the cellar's have theirs (ring.ts's on.built)
   if (id !== 'roulette' && t.stage !== 3) spotlight(shown.length ? shown : [player.g]);
   if (t.always || !goal(t.stage).every(x => x.done)) return;
   toast(t.stage === 1 ? 'Floe Sushi is ready to open' : 'Floe Sushi is fully built');

@@ -41,7 +41,7 @@ import { popIn } from './pop';
 import { updRestoSound } from './restoSound';
 import { spotBusy, spotlight } from './spotlight';
 import { staging } from './stage';
-import { canvasTex, FONT, G, mesh } from './render';
+import { canvasTex, FONT, G, MINCHO, mesh } from './render';
 import { bubble } from './speech';
 import { popText } from './ui';
 import { crowdStyle } from './wardrobe';
@@ -51,7 +51,6 @@ export const resto = apart(() => new Group(), dice(0x4E570));
 cellar.add(resto);
 
 const V = (x: number, y: number, z: number) => new Vector3(x, y, z);
-const MINCHO = '"Hiragino Mincho ProN","Yu Mincho","Noto Serif JP",serif';
 const lam = (color: number, emissive = 0) => new MeshLambertMaterial({ color, emissive });
 const add = <T extends Object3D>(p: Object3D, o: T) => { p.add(o); return o; };
 /** A box `sx` by `sy` by `sz` with its middle at (x, y, z), y up from the cellar's floor. */

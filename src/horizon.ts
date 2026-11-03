@@ -7,11 +7,10 @@ import {
   MeshLambertMaterial, Points, PointsMaterial, Sprite, SpriteMaterial,
 } from 'three';
 import { quietly } from './kit';
+import { BAY } from './layout';
 import { canvasTex, scene } from './render';
 import { rng } from './wardrobe';
 
-/** The bay's own sea (world.ts) runs to these edges: west of x0, and north of z0, the open sea takes over. */
-const BAY = { x0: -51.05, x1: 7.45, z0: -40.5, shore: -6.62 };
 /** How far out the open sea goes: past the fog's far end (render.ts), so it fades into the sky rather than stopping. */
 const OUT = 160;
 /** The bay's water at its far edge (world.ts' water gradient), which the open sea carries on in. */
@@ -32,7 +31,8 @@ quietly(() => {
     g.add(m);
   };
   sheet(BAY.x0, BAY.x1, BAY.z0 - OUT, BAY.z0);
-  sheet(BAY.x0 - OUT, BAY.x0, BAY.z0 - OUT, BAY.shore);
+  // (the bay's own sea, world.ts, runs to layout.ts' BAY: west of it, and north of it, the open sea takes over)
+  sheet(BAY.x0 - OUT, BAY.x0, BAY.z0 - OUT, BAY.shore - 0.12);
 
   // ---------- islands, far out ----------
   // low hills of rock and pine, hazy blue-green with the distance (the fog does the rest)

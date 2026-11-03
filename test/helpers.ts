@@ -49,6 +49,13 @@ export async function overHall() {
   camera.lookAt(RING);
   camera.updateMatrixWorld();
 }
+/** Makes the window `w` × `h` for the game loaded last: the game reads its size from viewSize.ts, which follows the
+ *  window's `resize`, so a size stubbed on its own isn't seen. (Only the size: no `resize` is sent, so nothing else
+ *  refits.) */
+export async function resizeTo(w: number, h: number) {
+  vi.stubGlobal('innerWidth', w); vi.stubGlobal('innerHeight', h);
+  Object.assign((await import('../src/viewSize')).viewSize, { w, h });
+}
 /** Stage 1's eight market upgrades, in order. */
 export const MARKET = ['pack', 'turret', 'roulette', 'runner', 'boots', 'sled', 'runner2', 'net'];
 

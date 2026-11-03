@@ -41,3 +41,36 @@ try {
 
 /** Whether the arcade cabinet stands in the casino yacht's salon on this device. */
 export const arcadeOn = () => arcade;
+
+// ---------- Ko-fi ----------
+// "Buy me a coffee" in the settings and its one-time nudge (kofi.ts) are only in a game built (or served) with
+// VITE_KOFI=on, as the live web game is (deploy.yml). Anything else, the default included, leaves the settings row, and
+// with it the ko-fi.com link, out of the page itself (vite.config.ts), so a build that forgets the switch is safe. The
+// Steam build (#160) must never set it on: Steam doesn't allow links to payment pages outside Steam.
+const kofi = import.meta.env.VITE_KOFI === 'on';
+
+/** Whether this build has the Ko-fi row and nudge (the live web game's do; the Steam build's don't). */
+export const kofiOn = () => kofi;
+
+// ---------- the voting boat ----------
+/** Israel's election day, 27 October 2026: the voting boat (votingBoat.ts) sails in to the dock when the game opens on
+ *  it, by the device's own date, and sails away when it ends. */
+export const ELECTION_DAYS = { from: '2026-10-27', to: '2026-10-27' };
+
+/** ?vote= in the address: `on` brings the boat in on any date, for a look at it; `bye` too, and it sails away a minute
+ *  after it's moored, for a look at that (for that visit only: nothing's kept). */
+export function voteParam() {
+  try { return new URLSearchParams(location.search).get('vote'); } catch { return null; } // no address: by date
+}
+
+/** Whether `now` is on election day, by the device's own date. */
+export function electionDay(now = new Date()) {
+  const day = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  return day >= ELECTION_DAYS.from && day <= ELECTION_DAYS.to;
+}
+
+/** Whether the voting boat comes in, opening the game on `now`: on election day, or with ?vote=on or bye. */
+export function votingBoatOn(now = new Date()) {
+  const v = voteParam();
+  return v === 'on' || v === 'bye' || electionDay(now);
+}

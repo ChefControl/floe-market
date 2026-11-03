@@ -461,19 +461,37 @@ describe('music', () => {
     expect(music(fake.played.slice(n)).filter(p => p.at < at)).toEqual([]);
   });
 
-  it('makes way for the rain at her house, and comes back after', async () => {
+  it("plays the song in the rain at her house, from the top, the stage's music going out under it, and comes back after", async () => {
     const s = await withSound();
+    const m = await import('../src/music'), rt = await import('../src/rainTune');
     s.play(2);
+    expect(rt.rainMix()).toBe(0);
+    // a second in the circle: coming in, the market's music still under it
     s.g.placePlayer(s.rain.RAIN_PAD.x, s.rain.RAIN_PAD.z);
     s.play(1);
-    expect(s.audio.buses.music.gain.value).toBe(0);
-    s.play(3);
-    expect(music(s.since(() => s.play(2)))).toHaveLength(0);
+    expect(rt.rainMix()).toBeGreaterThan(0.3);
+    expect(rt.rainMix()).toBeLessThan(1);
+    expect(m.musicMix().stage).toBeGreaterThan(0.01);
+    s.play(2);
+    expect(rt.rainMix()).toBeCloseTo(1, 3);
+    expect(m.musicMix().stage).toBeLessThan(0.001);
+    expect(s.audio.key.root).toBe(68); // A♭ major pentatonic: F minor's notes
+    // away and back: from the top, the strings held on F minor (A♭, C, F) alone for a bar, then the band's theme, its
+    // first notes F, G, A♭ in unison; nothing shrill
     s.g.placePlayer(15, s.rain.RAIN_PAD.z);
     s.play(4);
-    expect(s.audio.buses.music.gain.value).toBe(1);
+    expect(rt.rainMix()).toBeLessThan(0.001);
+    s.g.placePlayer(s.rain.RAIN_PAD.x, s.rain.RAIN_PAD.z);
+    const heard = music(s.since(() => s.play(4)));
+    for (const n of [56, 60, 65, 77, 79, 80]) expect(heard.some(p => near(p.f, hz(n))), `note ${n}`).toBe(true);
+    expect(heard.filter(p => p.kind === 'tone').every(p => p.f < 4000)).toBe(true);
+    // walking off: it fades with the rain and the market's music comes back
+    s.g.placePlayer(15, s.rain.RAIN_PAD.z);
+    s.play(4);
+    expect(rt.rainMix()).toBeLessThan(0.001);
+    expect(m.musicMix().stage).toBeCloseTo(1, 3);
     expect(music(s.since(() => s.play(2))).length).toBeGreaterThan(0);
-  });
+  }, 30_000);
 
   it('brings the lounge band in up the quay to the casino yacht, in a key of its own, and gives it the music aboard', async () => {
     const s = await withSound({ tiles: bought(...MARKET) });
@@ -503,6 +521,100 @@ describe('music', () => {
     s.play(2);
     expect(m.musicMix()).toEqual({ stage: 1, lounge: 0, noir: 0 });
     expect(m.harborK({ x: SHIP.x, z: SHIP.z })).toBe(1);
+  }, 30_000);
+
+  it("plays Hatikvah on and near the voting boat, moored on election day, the stage's music going out under it, and away from it the stage's own", async () => {
+    vi.useFakeTimers({ toFake: ['Date'], now: new Date(2026, 9, 27, 12) });
+    try {
+      const s = await withSound({ tiles: bought(...MARKET) });
+      const m = await import('../src/music'), h = await import('../src/hatikvah'), { PIER, VOTE_BOAT, voteBoat } = s.g.layout;
+      // (moored already, rather than sailing in)
+      const { boat } = await import('../src/votingBoat');
+      Object.assign(boat!, { sail: 'in', t: 1e3 });
+      s.play(0.5);
+      expect(voteBoat.open).toBe(true);
+      // where the player starts: the market's music alone
+      s.g.placePlayer(-1.5, -2);
+      s.play(2);
+      expect(m.voteK()).toBe(0);
+      expect(h.hatikvahMix()).toBe(0);
+      expect(m.musicMix().stage).toBeCloseTo(1, 3);
+      // out along the pier: coming in, the market's music still under it
+      s.g.placePlayer((PIER.x0 + PIER.x1) / 2, VOTE_BOAT.hull.z1 + 4);
+      s.play(1);
+      expect(m.voteK()).toBeGreaterThan(0.3);
+      expect(m.voteK()).toBeLessThan(1);
+      expect(h.hatikvahMix()).toBeGreaterThan(0.3);
+      expect(m.musicMix().stage).toBeGreaterThan(0.01);
+      // in the polling room: Hatikvah alone, from the top, its celesta on the tune's first notes (D, E, F an octave up)
+      // over the D minor pad and bass, in the game's sounds' key, nothing shrill
+      const { cabin } = VOTE_BOAT;
+      s.g.placePlayer((cabin.x0 + cabin.x1) / 2, (cabin.z0 + cabin.z1) / 2);
+      s.play(2);
+      expect(m.voteK()).toBe(1);
+      expect(h.hatikvahMix()).toBeCloseTo(1, 3);
+      expect(m.musicMix().stage).toBeLessThan(0.001);
+      expect(s.audio.key.root).toBe(65);
+      s.g.placePlayer(-1.5, -2);
+      s.play(3);
+      s.g.placePlayer((cabin.x0 + cabin.x1) / 2, (cabin.z0 + cabin.z1) / 2);
+      const heard = music(s.since(() => s.play(4)));
+      for (const n of [74, 76, 77]) expect(heard.some(p => near(p.f, hz(n))), `celesta ${n}`).toBe(true);
+      expect(heard.some(p => p.type === 'triangle' && near(p.f, hz(57)))).toBe(true);
+      expect(heard.some(p => near(p.f, hz(50)))).toBe(true);
+      expect(heard.filter(p => p.kind === 'tone' && p.type !== 'triangle').every(p => p.f < 4000)).toBe(true);
+      // back to the market: it fades away and the market's music comes back
+      s.g.placePlayer(-1.5, -2);
+      s.play(2);
+      expect(h.hatikvahMix()).toBeLessThan(0.001);
+      expect(m.musicMix().stage).toBeCloseTo(1, 3);
+    } finally { vi.useRealTimers(); }
+  }, 30_000);
+
+  it("plays Korki's tune once the player lingers on his statue's pad, from the top, the stage's music going out under it", async () => {
+    const s = await withSound({ tiles: bought('korki') });
+    const m = await import('../src/music'), kt = await import('../src/korkiTune'), { KORKI } = await import('../src/korki');
+    s.g.placePlayer(KORKI.x, KORKI.z);
+    s.play(2.5);
+    expect(kt.korkiMix()).toBe(0);
+    expect(m.musicMix().stage).toBeCloseTo(1, 3);
+    // three seconds on the pad, then half its fade in: coming in, the market's music still under it
+    s.play(3.5);
+    expect(kt.korkiMix()).toBeGreaterThan(0.3);
+    expect(kt.korkiMix()).toBeLessThan(1);
+    expect(m.musicMix().stage).toBeGreaterThan(0.01);
+    s.play(4);
+    expect(kt.korkiMix()).toBeCloseTo(1, 3);
+    expect(m.musicMix().stage).toBeLessThan(0.001);
+    expect(s.audio.key.root).toBe(62); // D major pentatonic: B minor's notes
+    // away and back: from the top, the felt piano on B2 and the tune's first notes (D, C#, B), nothing shrill
+    s.g.placePlayer(0, 0);
+    s.play(3);
+    expect(kt.korkiMix()).toBeLessThan(0.001);
+    s.g.placePlayer(KORKI.x, KORKI.z);
+    const heard = music(s.since(() => s.play(6)));
+    for (const n of [47, 74, 73, 71]) expect(heard.some(p => near(p.f, hz(n))), `note ${n}`).toBe(true);
+    expect(heard.filter(p => p.kind === 'tone').every(p => p.f < 4000)).toBe(true);
+    // walking off: it fades away and the market's music comes back
+    s.g.placePlayer(0, 0);
+    s.play(4);
+    expect(kt.korkiMix()).toBeLessThan(0.001);
+    expect(m.musicMix().stage).toBeCloseTo(1, 3);
+  }, 30_000);
+
+  it('plays no Hatikvah on a day the voting boat is gone, even where it was moored', async () => {
+    vi.useFakeTimers({ toFake: ['Date'], now: new Date(2026, 9, 29, 12) });
+    try {
+      const s = await withSound({ tiles: bought(...MARKET) });
+      const m = await import('../src/music'), h = await import('../src/hatikvah'), { VOTE_BOAT, voteBoat } = s.g.layout;
+      expect(voteBoat.open).toBe(false);
+      s.g.placePlayer((VOTE_BOAT.gangway.x0 + VOTE_BOAT.gangway.x1) / 2, VOTE_BOAT.hull.z1 + 1);
+      s.play(4);
+      expect(m.voteK()).toBe(0);
+      expect(m.voteK({ x: (VOTE_BOAT.cabin.x0 + VOTE_BOAT.cabin.x1) / 2, z: (VOTE_BOAT.cabin.z0 + VOTE_BOAT.cabin.z1) / 2 })).toBe(0);
+      expect(h.hatikvahMix()).toBe(0);
+      expect(m.musicMix().stage).toBeCloseTo(1, 3);
+    } finally { vi.useRealTimers(); }
   }, 30_000);
 
   it("the Undertow's band, down in the stage 3 cellar: through the out-of-order stall in Mama Moray's restroom, and the music in the club", async () => {
@@ -628,11 +740,11 @@ describe('music', () => {
     }
   }, 30_000);
 
-  it('the casino yacht\'s room: the dining room faint below anywhere aboard, the bar and the slot machines up close', async () => {
+  it('the casino yacht\'s room: the dining room faint below anywhere aboard, the bar up close, and each guest\'s spin from their machine', async () => {
     const fetch = vi.fn(() => Promise.resolve({ arrayBuffer: () => Promise.resolve(new ArrayBuffer(8)) }));
     vi.stubGlobal('fetch', fetch);
     const s = await withSound({ tiles: bought('roulette') });
-    const { roomTones } = await import('../src/roomTone'), { BAR } = await import('../src/casinoSalon');
+    const { roomTones } = await import('../src/roomTone'), { BAR, ROW, SPINS } = await import('../src/casinoSalon');
     const { GAMES, SHIP } = s.g.layout, settle = () => new Promise(r => setTimeout(r, 0));
     s.g.placePlayer(0, -3);
     s.play(1);
@@ -642,24 +754,30 @@ describe('music', () => {
     expect(fetch).toHaveBeenCalledTimes(3);
     for (let i = 0; i < 4; i++) await settle();
     s.play(0.2);
-    const lv = () => Object.fromEntries((['dining', 'bar', 'slots'] as const).map(k => [k, +roomTones[k]!.g.gain.value.toFixed(3)]));
-    expect(lv()).toEqual({ dining: 0, bar: 0, slots: 0 }); // on the quay
+    const lv = () => Object.fromEntries((['dining', 'bar'] as const).map(k => [k, +roomTones[k]!.g.gain.value.toFixed(3)]));
+    expect(lv()).toEqual({ dining: 0, bar: 0 }); // on the quay
     s.g.placePlayer(SHIP.x + 6, SHIP.z + 0.3); // aboard, on the foredeck at the foot of the stairs
     s.play(0.5);
-    expect(lv()).toEqual({ dining: 0.08, bar: 0, slots: 0 });
-    s.g.placePlayer(SHIP.x + BAR.x + 1.2, SHIP.z); // up at the bar
-    s.play(0.5);
+    expect(lv()).toEqual({ dining: 0.08, bar: 0 });
+    // up at the bar: the guests at the slot machines by the door are too far off to hear
+    s.g.placePlayer(SHIP.x + BAR.x + 1.2, SHIP.z);
+    const spins = (ps: Played[]) => ps.filter(p => p.kind === 'noise' && !p.loop && p.bus === 'amb' && SPINS.some(k => k.at === (p.src as unknown as { offset: number }).offset));
+    expect(spins(s.since(() => s.play(8)))).toEqual([]);
     expect(lv().bar).toBeGreaterThan(0.24);
-    expect(lv().slots).toBe(0);
     expect(lv().dining).toBe(0.08);
-    s.g.placePlayer(GAMES.slots.x, GAMES.slots.z); // at the slot machines
+    s.g.placePlayer(GAMES.slots.x, GAMES.slots.z); // at the player's own machine
     s.play(0.5);
     expect(lv().bar).toBe(0);
-    expect(lv().slots).toBeGreaterThan(0.15);
-    s.g.placePlayer(GAMES.roulette.x + 1.2, GAMES.roulette.z + 1.5); // the middle of the floor: a little of each
-    s.play(0.5);
-    expect(lv().bar + lv().slots).toBeLessThan(0.3);
-    // if the ambience's guard finds something wrong, each recording plays again from a new source, as loud as before
+    // beside the guests' row: each pull plays the machine's next spin from the recording, from that machine
+    s.g.placePlayer(SHIP.x + ROW.x - 0.75, SHIP.z + (ROW.zs[0] + ROW.zs[1]) / 2);
+    const heard = spins(s.since(() => s.play(16)));
+    expect(heard.length).toBeGreaterThanOrEqual(3);
+    const at = heard.map(p => (p.src as unknown as { offset: number }).offset);
+    expect(new Set(at)).toEqual(new Set(SPINS.map(k => k.at))); // the machines go through all three
+    // (each through its low-pass to its gain, set as it starts)
+    const loud = (p: Played) => (p.src.outs[0].outs[0] as unknown as { gain: { first: number } }).gain.first;
+    for (const p of heard) expect(loud(p)).toBeCloseTo(0.15, 1);
+    // if the ambience's guard finds something wrong, each loop plays again from a new source, as loud as before
     const was = lv(), old = roomTones.bar!.src as unknown as { stopped: boolean };
     s.audio.broken('amb');
     expect(old.stopped).toBe(true);
@@ -682,8 +800,8 @@ describe('music', () => {
     const dining = recording(4_111_488, 48_000), cut = loopable(dining).getChannelData(0);
     expect(cut).toHaveLength(4_111_487);
     expect([cut[0], cut[1234], cut[4_111_486]]).toEqual([0, 1234 % 997 / 997, 4_111_486 % 997 / 997].map(Math.fround));
-    // the bar's and the slot machines' loop as they are, so they're kept as they are
-    for (const n of [4_371_213, 5_805_440]) {
+    // the bar's loops as it is, so it's kept as it is
+    for (const n of [4_371_213]) {
       const r = recording(n, 48_000);
       expect(loopable(r)).toBe(r);
     }
@@ -757,7 +875,7 @@ describe('ambience', () => {
     const s = await withSound();
     s.g.placePlayer(s.rain.RAIN_PAD.x, s.rain.RAIN_PAD.z);
     s.play(3);
-    expect(s.bed(2200)).toBeCloseTo(0.5);
+    expect(s.bed(2200)).toBeCloseTo(0.2); // softer than the rest of the weather, so the song comes through
   });
 
   it('murmurs with diners in the restaurant, under crickets at dusk', async () => {

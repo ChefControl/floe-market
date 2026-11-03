@@ -4,9 +4,9 @@
 // chips; Three-Card Tommy, a catfish in tweed and a flat cap with the queen tucked in its band, runs the monte. As on
 // their rap sheets (the Undertow Files). Each stands at his booth, breathes, turns his head to whoever's in front of
 // him, and bobs his head to his words as he talks (chatter.ts).
-import { type BufferGeometry, CylinderGeometry, DoubleSide, Group, type Material, Matrix4, Mesh, MeshBasicMaterial, MeshLambertMaterial, type Object3D, PlaneGeometry, RepeatWrapping, SphereGeometry, TorusGeometry, Vector3 } from 'three';
+import { BufferGeometry, CylinderGeometry, DoubleSide, Group, type Material, Matrix4, Mesh, MeshBasicMaterial, MeshLambertMaterial, type Object3D, PlaneGeometry, RepeatWrapping, SphereGeometry, TorusGeometry, Vector3 } from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { apart, detail, dice, quietly } from './kit';
+import { apart, compact, detail, dice, quietly } from './kit';
 import { castsWhenSeen } from './levelCull';
 import { canvasTex, copyGeo, G, mesh, paint, painted } from './render';
 import type { XZ } from './util';
@@ -409,7 +409,7 @@ function castAs(o: Mesh, shadow: BufferGeometry[]) {
   // (its drawing's its own: never merged with others, batch.ts)
   o.userData.noBatch = true;
   if (!shadow.length) { o.castShadow = false; return; }
-  const own = o.geometry.attributes.position.count;
+  const own = o.geometry.index!.count;
   for (const g of shadow) paint(g, 0);
   const all = mergeGeometries([o.geometry, ...shadow])!;
   shadow.forEach(g => g.dispose());
@@ -453,13 +453,14 @@ export function flatten(root: Object3D, keep: Set<Object3D> = new Set()) {
       if (!geo.boundingSphere) geo.computeBoundingSphere();
       geo = shapeFor(geo, detail, 2 * geo.boundingSphere!.radius * m4.getMaxScaleOnAxis());
     }
-    const g = geo.index ? geo.toNonIndexed() : copyGeo(geo);
+    // (each corner kept once, by index: one new geometry, as a copy without one took; one that had none gets one)
+    const g = geo.index ? new BufferGeometry().copy(geo) : copyGeo(geo);
+    if (!g.index) g.setIndex(Array.from({ length: g.attributes.position.count }, (_, i) => i));
     for (const k of Object.keys(g.attributes)) if (!attrs.includes(k)) g.deleteAttribute(k);
     g.applyMatrix4(m4);
     if (m4.determinant() < 0) {
-      for (const a of [g.attributes.position, g.attributes.normal]) {
-        for (let i = 0; i < a.count; i += 3) for (let j = 0; j < 3; j++) { const t = a.array[(i + 1) * 3 + j]; a.array[(i + 1) * 3 + j] = a.array[(i + 2) * 3 + j]; a.array[(i + 2) * 3 + j] = t; }
-      }
+      const ix = g.index!.array;
+      for (let i = 0; i < ix.length; i += 3) { const t = ix[i + 1]; ix[i + 1] = ix[i + 2]; ix[i + 2] = t; }
     }
     return g;
   };
@@ -490,7 +491,11 @@ export function flatten(root: Object3D, keep: Set<Object3D> = new Set()) {
       const high = put(root, mesh(mergeGeometries(hg)!, painted, 0, 0, 0, true));
       hg.forEach(g => g.dispose());
       castAs(high, all.filter(m => m.castShadow).map(m => placed(m, ['position', 'normal'], 'shadow')));
+      // (both with their normals and colours in bytes, as the kit's are; and High's let go of on Potato, kit.ts)
+      low.userData.baked = high.userData.baked = true;
       detail(low, high);
+      compact(low.geometry);
+      compact(high.geometry);
     }, shapeDice);
     for (const m of [...flat, ...finer]) m.removeFromParent();
   } else for (const m of finer) m.removeFromParent();

@@ -3,6 +3,8 @@
 // never get the nudge. The minutes played are a per-device convenience, so they live outside the save.
 // The settings row opens Ko-fi in a pop-up window of its own, so nobody is taken out of their game (a new tab where
 // pop-ups are blocked, or on phones).
+// Only a build with Ko-fi on (flags.ts: the live web game) has the row and the nudge; the Steam build has neither.
+import { kofiOn } from './flags';
 import { openSettings } from './settings';
 import { toast } from './ui';
 
@@ -16,8 +18,8 @@ const gear = document.getElementById('gear')!, menu = document.getElementById('s
 const bannerEl = document.getElementById('banner')!;
 
 /** Seconds played so far, or -1 once the nudge is done with (shown, or the link was used). */
-let played = 0;
-try { played = Number(localStorage.getItem(KEY)) || 0; } catch { /* storage unavailable: count from now */ }
+let played = -1; // (never due where Ko-fi's off)
+if (kofiOn()) try { played = Number(localStorage.getItem(KEY)) || 0; } catch { played = 0; /* storage unavailable: count from now */ }
 let unsaved = 0;
 
 function store() {
@@ -26,8 +28,8 @@ function store() {
 }
 function done() { played = -1; store(); }
 
-const link = document.getElementById('kofi') as HTMLAnchorElement;
-link.addEventListener('click', e => {
+const link = document.getElementById('kofi') as HTMLAnchorElement | null;
+link?.addEventListener('click', e => {
   done();
   openSettings(false);
   const left = window.screenX + (window.outerWidth - WIN_W) / 2, top = window.screenY + (window.outerHeight - WIN_H) / 2;

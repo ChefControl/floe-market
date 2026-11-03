@@ -34,15 +34,37 @@ const PER_FRAME = 48;
 const up = new WeakMap<Object3D, boolean>(), below = new WeakMap<Object3D, boolean>(), box = new Box3(), hidden: Object3D[] = [];
 let next = 0, wasDown = false, last = 0, nextBelow = 0, wasAway = false;
 
+const piece = new Box3();
+/** `box.setFromObject(o)`, piece by piece in the same order, each placed as it's come to (`updateWorldMatrix`), but
+ *  given up as soon as `settled()` says what the whole would: the cellar's group is thousands of pieces, and the first
+ *  of them down on its floor says it isn't wholly up top. False if it gave up. */
+function bounds(o: Object3D, settled: () => boolean): boolean {
+  o.updateWorldMatrix(false, false);
+  const geo = (o as Mesh).geometry;
+  if (geo !== undefined) {
+    // (an instanced mesh's own box, round all its copies, as three.js' Box3 takes it)
+    const im = o as InstancedMesh;
+    if (im.boundingBox !== undefined) { if (im.boundingBox === null) im.computeBoundingBox(); piece.copy(im.boundingBox!); }
+    else { if (geo.boundingBox === null) geo.computeBoundingBox(); piece.copy(geo.boundingBox!); }
+    box.union(piece.applyMatrix4(o.matrixWorld));
+    if (settled()) return false;
+  }
+  for (const c of o.children) if (!bounds(c, settled)) return false;
+  return true;
+}
+/** Whether something reaches down out of the world, or up out of the cellar: what it reaches so far, past ABOVE. */
+const reachesDown = () => box.min.y <= ABOVE, reachesUp = () => box.max.y >= ABOVE;
 function judge(o: Object3D) {
-  box.setFromObject(o);
-  const v = !(o as InstancedMesh).isInstancedMesh && !box.isEmpty() && box.min.y > ABOVE;
+  // (the effects' and the fans' instanced meshes are drawn on both levels: never measured)
+  box.makeEmpty();
+  const v = !(o as InstancedMesh).isInstancedMesh && bounds(o, reachesDown) && !box.isEmpty() && box.min.y > ABOVE;
   up.set(o, v);
   return v;
 }
 function judgeBelow(o: Object3D) {
-  box.setFromObject(o);
-  const v = !!o.userData.below || (!(o as InstancedMesh).isInstancedMesh && !box.isEmpty() && box.max.y < ABOVE);
+  // (what's marked as the cellar's own needn't be measured)
+  box.makeEmpty();
+  const v = !!o.userData.below || (!(o as InstancedMesh).isInstancedMesh && bounds(o, reachesUp) && !box.isEmpty() && box.max.y < ABOVE);
   below.set(o, v);
   return v;
 }
@@ -90,11 +112,15 @@ let drawnAt = performance.now();
 export const eachDrawing = (f: (dt: number) => void) => { beforeDrawing.push(f); };
 /** How many things the last render left out (for tests). */
 export const leftOut = () => last;
+/** Whether `o` is taken to be wholly up top, and wholly down in the cellar (for tests). */
+export const judged = (o: Object3D) => ({ up: judge(o), below: judgeBelow(o) });
 
 // ---------- the shadows, fitted to the screen ----------
 /** Heights over the floor the screen's edges are taken at (the floor, and the tops of the walls it sees), and how far
  *  past them a shadow's caster may stand (a 3 m wall's shadow, with the sun as high as it is). */
 const LEVELS = [0, 3.2], MARGIN = 2.5, STEP = 0.5, MOST = 24;
+/** The screen's corners (in the camera's -1 to 1 across and up). */
+const CORNERS = [[-1, -1], [1, -1], [1, 1], [-1, 1]] as const;
 const shadowCam = sun.shadow.camera, kept = { left: 0, right: 0, top: 0, bottom: 0 };
 let fitted = false;
 const ray = new Ray(), hit = new Vector3(), ax = new Vector3(), ay = new Vector3(), az = new Vector3(), d = new Vector3();
@@ -109,7 +135,7 @@ function fitShadows() {
   az.copy(sunOff).normalize(); ax.copy(shadowCam.up).cross(az).normalize(); ay.copy(az).cross(ax);
   let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
   for (const h of LEVELS) {
-    for (const [u, v] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
+    for (const [u, v] of CORNERS) {
       ray.origin.setFromMatrixPosition(camera.matrixWorld);
       ray.direction.set(u, v, 0.5).unproject(camera).sub(ray.origin).normalize();
       // (a corner that misses the floor, over the horizon: as far as the fog)

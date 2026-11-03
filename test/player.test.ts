@@ -139,7 +139,8 @@ describe('stations', () => {
     expect(p.y).toBeCloseTo(0.15, 2); // level with the restaurant's floor
     g.press('d', 'keyup');
     const at = (x: number, z: number) => { g.placePlayer(x, z); g.run(0.02); return [p.x, p.z]; };
-    expect(at(11, 1.0)[1]).toBeCloseTo(KIOSK_BOOTH.z0 + 0.45); // its north wall, in line with the restaurant's
+    // its north wall, in line with the restaurant's (the beach's sand, beach.ts, starts a step beyond it)
+    expect(at(11, 1.6)[1]).toBeCloseTo(KIOSK_BOOTH.z0 + 0.45);
     expect(at(11, 4.9)[1]).toBeCloseTo(KIOSK_BOOTH.z1 - 0.45); // and its south wall
   });
 

@@ -4,6 +4,7 @@
 // Each has a dark fill, a dark edge round its white dashed line and a white badge behind its icon, so it stands out
 // on boards, snow and grass alike.
 import { Mesh, MeshBasicMaterial, PlaneGeometry } from 'three';
+import { isHigh } from './graphics';
 import { drawIcon } from './icons';
 import { CAM_YAW, canvasTex, FONT, rr, scene, type CanvasTex, type Draw } from './render';
 import { chips, price } from './util';
@@ -12,8 +13,13 @@ export interface Decal extends CanvasTex {
   mesh: Mesh;
 }
 
+/** A marking's canvas, pixels a side: 256, or on Low and Potato (as the game loads) 128, a quarter of the memory for
+ *  the 80-odd of them. Either way it's drawn as if 256 (its 2D context scaled to fit), so the drawings and redraws
+ *  (unlocks.ts, presents.ts) needn't know. */
+const PX = isHigh() ? 256 : 128;
+
 export function decal(size: number, draw: Draw): Decal {
-  const ct = canvasTex(256, 256, draw);
+  const ct = canvasTex(PX, PX, c => { c.scale(PX / 256, PX / 256); draw(c, 256, 256); });
   const m = new Mesh(
     new PlaneGeometry(size, size),
     new MeshBasicMaterial({ map: ct.tex, transparent: true, depthWrite: false }),

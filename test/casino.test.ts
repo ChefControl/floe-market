@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { rankName, Shoe, type Card, type Suit } from '../src/blackjack';
 import { GRACE } from '../src/casinoKit';
 import { WHEEL } from '../src/roulette';
-import { bought, loadGame } from './helpers';
+import { bought, loadGame, resizeTo } from './helpers';
 
 const $ = (id: string) => document.getElementById(id)!;
 const click = (sel: string) => document.querySelector<HTMLButtonElement>(sel)!.click();
@@ -38,6 +38,7 @@ describe('the casino boat', () => {
     expect(g.world.quayLogs.every(l => l.visible)).toBe(true);
     g.unlocks.applyUnlock('roulette');
     expect(g.world.quayLogs.some(l => l.visible)).toBe(false);
+    g.run(13); // (sailing in)
     const stairs = DECKS.stairs, mid = SHIP.x + (stairs.x0 + stairs.x1) / 2;
     // the quay, the gangway, the foredeck at the foot of the stairs, halfway up them, and the upper deck
     for (const [x, z, y] of [
@@ -69,6 +70,8 @@ describe('the casino boat', () => {
     const extras = () => g.unlocks.visibleTiles().map(t => t.id).filter(id => id === 'slots' || id === 'blackjack');
     expect(extras()).toEqual([]);
     g.unlocks.applyUnlock('roulette');
+    expect(extras()).toEqual([]); // not while it's sailing in: their tiles are on its deck
+    g.run(13);
     expect(extras()).toEqual(['slots', 'blackjack']);
     const tile = g.unlocks.tiles.find(t => t.id === 'blackjack')!;
     expect([tile.x, tile.z]).toEqual([g.layout.GAMES.blackjack.x, g.layout.GAMES.blackjack.z]);
@@ -89,26 +92,75 @@ describe('the casino boat', () => {
     }
   });
 
-  it('comes in with the camera looking over at it, from a tile by the fence', async () => {
+  it('sails in from the open sea and moors at the quay, the camera following it in', async () => {
     const g = await loadGame({ tiles: bought('pack', 'turret') });
     const tile = g.unlocks.tiles.find(t => t.id === 'roulette')!;
     expect(tile.x).toBeLessThan(-6);
-    const { view } = g.stage, focus = view.focus.clone();
+    const { view } = g.stage, { SHIP, casinoBoat, onHarbor } = g.layout, focus = view.focus.clone();
+    g.placePlayer(tile.x, tile.z);
     g.unlocks.applyUnlock('roulette');
-    const [quay, , boat] = g.casino.casinoPieces();
-    expect(quay.visible).toBe(true);
-    expect(boat.visible).toBe(false);
-    g.run(0.3);
-    expect(view.k).toBeGreaterThan(0);
-    expect(boat.visible).toBe(false);
-    g.run(0.4);
-    expect(boat.visible).toBe(true);
-    expect(view.focus.x).toBeLessThan(-15);
-    expect(view.close).toBeLessThan(1); // in close on it
-    g.run(2.5);
+    const [quay, gangway, boat] = g.casino.casinoPieces();
+    // the quay's there at once, the ship out at sea to the north-west, and no way aboard yet
+    expect(quay.visible && boat.visible).toBe(true);
+    expect(boat.position.x).toBeLessThan(SHIP.x - 10);
+    expect(boat.position.z).toBeLessThan(SHIP.z - 10);
+    expect(casinoBoat.docked).toBe(false);
+    expect(onHarbor({ x: SHIP.x + 6.1, z: -6.9 })).toBe(false); // the gangway's foot
+    g.run(1);
+    expect(view.k).toBe(1);
+    expect(view.close).toBeGreaterThan(1); // further out, to see the sea round it
+    expect(Math.hypot(view.focus.x - boat.position.x, view.focus.z - boat.position.z)).toBeLessThan(2);
+    g.run(10.5);
+    // lined up off the quay, edging onto it, the camera still on it
+    expect(boat.position.x).toBeCloseTo(SHIP.x);
+    expect(boat.position.z).toBeLessThan(SHIP.z);
+    expect(boat.rotation.y).toBe(0);
+    expect(view.k).toBe(1);
+    expect(casinoBoat.docked).toBe(false);
+    g.run(1.5);
+    expect([boat.position.x, boat.position.z]).toEqual([SHIP.x, SHIP.z]);
+    expect(gangway.children.every(o => o.visible && o.scale.z === 1)).toBe(true);
+    expect(casinoBoat.docked).toBe(true);
+    expect(onHarbor({ x: SHIP.x + 6.1, z: -6.9 })).toBe(true);
+    g.run(1);
     expect(view.k).toBe(0);
     expect(view.close).toBe(1);
     expect(view.focus.equals(focus)).toBe(true);
+  });
+
+  it('hands the camera back when the player walks, and sails in all the same', async () => {
+    const g = await loadGame({ tiles: bought('pack', 'turret') });
+    const { view } = g.stage, { SHIP, casinoBoat } = g.layout;
+    g.unlocks.applyUnlock('roulette');
+    g.run(2);
+    expect(view.k).toBe(1);
+    g.press('d'); g.run(1); g.press('d', 'keyup');
+    expect(view.k).toBe(0);
+    g.run(11);
+    expect(casinoBoat.docked).toBe(true);
+    expect(g.casino.casinoPieces()[2].position.x).toBe(SHIP.x);
+    expect(view.k).toBe(0);
+  });
+
+  it('is moored when a game saved mid-arrival is loaded, and through the stage-up', async () => {
+    const g = await loadGame({ tiles: bought('pack', 'turret') });
+    g.unlocks.applyUnlock('roulette');
+    g.run(3);
+    g.saveMod.save();
+    const back = await loadGame(localStorage.getItem('floe-market-v1')!);
+    const { SHIP, casinoBoat } = back.layout, boat = back.casino.casinoPieces()[2];
+    expect([boat.position.x, boat.position.z, boat.rotation.y]).toEqual([SHIP.x, SHIP.z, 0]);
+    expect(casinoBoat.docked).toBe(true);
+    back.run(0.1);
+    expect(back.stage.view.k).toBe(0); // no show
+    // bought just before the stage-up: the stage-up's show finds it moored
+    const up = await loadGame({ tiles: bought('pack', 'turret', 'runner', 'boots', 'sled', 'runner2', 'net') });
+    up.unlocks.applyUnlock('roulette');
+    up.run(2);
+    up.unlocks.applyUnlock('sushi');
+    up.run(0.1);
+    expect(up.layout.casinoBoat.docked).toBe(true);
+    expect(up.casino.casinoPieces()[2].position.x).toBe(up.layout.SHIP.x);
   });
 
   it('comes in at once for players who prefer less motion', async () => {
@@ -117,6 +169,33 @@ describe('the casino boat', () => {
     g.unlocks.applyUnlock('roulette');
     expect(g.casino.casinoPieces().every(o => o.visible)).toBe(true);
     expect(g.stage.view.k).toBe(0);
+  });
+
+  it('dresses everyone aboard for indoors all year: no winter scarf', async () => {
+    const g = await loadGame({ tiles: bought('roulette', 'blackjack', 'slots'), season: 0 });
+    const { Person } = await import('../src/characters'), { current } = await import('../src/season');
+    expect(current()).toBe('winter');
+    const aboard: InstanceType<typeof Person>[] = [];
+    g.render.scene.traverse(o => { if (o instanceof Person && g.layout.aboard(o.getWorldPosition(o.position.clone()))) aboard.push(o); });
+    // the croupier, the dealer, the bartenders, the waiter and the guests (at the bar, the slots and in the hot tub)
+    expect(aboard.length).toBeGreaterThanOrEqual(10);
+    expect(aboard.every(p => p.season === 'spring')).toBe(true);
+  });
+
+  it('draws everyone aboard who stays put merged with the yacht, not one by one: all but the waiter', async () => {
+    const g = await loadGame({ tiles: bought('roulette', 'blackjack', 'slots') });
+    const { Person } = await import('../src/characters');
+    const aboard: InstanceType<typeof Person>[] = [];
+    g.render.scene.traverse(o => { if (o instanceof Person && g.layout.aboard(o.getWorldPosition(o.position.clone()))) aboard.push(o); });
+    const walking = aboard.filter(p => !p.still);
+    expect(walking).toHaveLength(1); // the waiter, with his tray
+    expect(walking[0].userData.noBatch).toBe(true);
+    const still = aboard.filter(p => p.still);
+    expect(still.length).toBeGreaterThanOrEqual(10);
+    expect(still.every(p => !p.userData.noBatch)).toBe(true);
+    // and they hold still while they stand: no breathing
+    g.run(2);
+    expect(still.every(p => p.body.scale.y === 1)).toBe(true);
   });
 
   it('walls its upper deck in as a salon, whose roof lifts and near walls fade while the player is inside', async () => {
@@ -276,7 +355,7 @@ describe('the casino boat', () => {
     expect(room.restroomView().puddle).toBeGreaterThan(0.3);
     expect(said).toContain('My $25…');
     // pressing does nothing while they're in there, but moving would get them out early (another test)
-    expect($('tearsMsg').textContent).toBe('Let it all out… 😭');
+    expect($('tearsMsg').textContent).toBe('Let it all out… 😢');
     // then they come out onto the pad feeling better, with nothing left to cry about
     g.run(5.5);
     expect(room.restroomView().crying).toBe(false);
@@ -592,7 +671,7 @@ describe('the roulette table', () => {
     const { camera, scene, slideView } = await import('../src/render'), { tableRoom, topOfView } = await import('../src/ui');
     const t = await import('../src/rouletteTable'), kit = await import('../src/casinoKit');
     for (const [w, h, panel] of [[1024, 768, 200], [390, 844, 250]]) {
-      vi.stubGlobal('innerWidth', w); vi.stubGlobal('innerHeight', h);
+      await resizeTo(w, h);
       camera.aspect = w / h; camera.updateProjectionMatrix();
       const controls = h - panel - 10, pw = Math.min(w * 0.94, 440);
       vi.spyOn($('roulette'), 'getBoundingClientRect').mockReturnValue({ left: (w - pw) / 2, top: controls, width: pw, height: panel } as DOMRect);
@@ -671,7 +750,7 @@ describe('the blackjack table', () => {
     // down the side of a phone held sideways: the table goes to the left, with the camera refitted
     rect({ left: 600, top: 100, width: 400, height: 600 });
     window.dispatchEvent(new Event('resize'));
-    vi.stubGlobal('innerWidth', 1000);
+    await resizeTo(1000, innerHeight);
     v = kit.tableView(0.1);
     expect(ui.tableRoom.x).toBeGreaterThan(0);
     expect(v.eye.distanceTo(v.at)).not.toBeCloseTo(near, 3);
@@ -769,7 +848,7 @@ describe('the blackjack table', () => {
     const { camera, scene, slideView } = await import('../src/render'), { tableRoom } = await import('../src/ui');
     const kit = await import('../src/casinoKit');
     for (const [w, h, panel] of [[1024, 768, 200], [800, 600, 200], [844, 390, 170], [390, 844, 250]]) {
-      vi.stubGlobal('innerWidth', w); vi.stubGlobal('innerHeight', h);
+      await resizeTo(w, h);
       camera.aspect = w / h; camera.updateProjectionMatrix();
       const pw = Math.min(w * 0.94, 440);
       vi.spyOn($('blackjack'), 'getBoundingClientRect').mockReturnValue({ left: (w - pw) / 2, top: h - panel - 10, width: pw, height: panel } as DOMRect);

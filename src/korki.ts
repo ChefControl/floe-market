@@ -1,6 +1,6 @@
 // Korki's golden statue: a memorial to a NAMI Klima One, bought on a $10 tile.
 // Standing on its pad opens the memoir panel; walking off closes it, and so does its ✕ (until the player steps back on).
-// Lingering there fades in his song.
+// Lingering there fades in his tune (korkiTune.ts; music.ts plays it).
 import {
   BoxGeometry, BufferGeometry, CylinderGeometry, ExtrudeGeometry, Group, Material, Mesh, MeshPhongMaterial, Shape, TorusGeometry,
 } from 'three';
@@ -11,7 +11,6 @@ import { player } from './player';
 import { bakeByMaterial } from './propsMachines';
 import { CAM_YAW, canvasTex, FONT, mat, mesh, rr, scene } from './render';
 import { d2xz, FY } from './util';
-import { Song } from './youtube';
 
 /**
  * Statue centre, out on the snow past the bottom fence where no one walks, and its heading:
@@ -254,25 +253,26 @@ export function enableKorki() {
 }
 
 // ---------- music ----------
-/** Seconds on the pad before the song starts. */
+/** Seconds on the pad before his tune starts. */
 const LINGER = 3;
 /**
- * "Car Alarm (extended reprise)" by pat's soundhouse: kept low, it's background. The fade out is shorter than
- * LINGER, so stepping back on the pad always lets the song fade all the way out before it fades in again from silence.
+ * Seconds for his tune to fade in, and out. The fade out is shorter than LINGER, so stepping back on the pad always
+ * lets it fade all the way out before it comes in again, from the top.
  */
-const song = new Song({
-  id: 'jcutNFPwXPE', vol: 10, fadeIn: 6, fadeOut: 2.5, loop: true,
-  muteKey: 'floe-market-korki-muted', muteBtn: document.getElementById('korkiMute') as HTMLButtonElement,
-});
+const FADE_IN = 6, FADE_OUT = 2.5;
 /** Seconds the player has been on the pad. */
 let stood = 0;
+/** How far his tune has faded in, 0 to 1. */
+let tuneK = 0;
+/** How far his tune has faded in, 0 to 1, for music.ts. */
+export const korkiK = () => tuneK;
 
-/** Shows the memoir while the player stands on the pad, and plays his song if they stay. */
+/** Shows the memoir while the player stands on the pad, and plays his tune if they stay. */
 export function updKorki(dt: number) {
   if (!statue) return;
   const near = !level.down && d2xz(player.g.position, KORKI) < 0.95 * 0.95;
   if (!near) shut = false;
-  // on a phone the memoir covers much of the view, so its ✕ lets the player stay on the pad (and hear the song) without it
+  // on a phone the memoir covers much of the view, so its ✕ lets the player stay on the pad (and hear the tune) without it
   const show = near && !shut;
   if (show !== open) {
     open = show;
@@ -280,5 +280,5 @@ export function updKorki(dt: number) {
     if (open) memo.scrollTop = 0;
   }
   stood = near ? stood + dt : 0;
-  song.update(stood >= LINGER, dt);
+  tuneK = stood >= LINGER ? Math.min(1, tuneK + dt / FADE_IN) : Math.max(0, tuneK - dt / FADE_OUT);
 }

@@ -5,6 +5,7 @@ import {
   BufferAttribute, type BufferGeometry, Color, DoubleSide, Group, LatheGeometry, MathUtils, Mesh, MeshLambertMaterial,
   Shape, ShapeGeometry, SphereGeometry, Vector2,
 } from 'three';
+import { pooled } from './pooled';
 import { bake, bakePainted, painted } from './render';
 
 const BACK = 0x2B4C86, BELLY = 0xDCE6EE, FIN = 0x23406F, GOLD = 0xF2C14E;
@@ -70,7 +71,8 @@ const EYES = bakePainted([-1, 1].flatMap(s => [
   { geo: eyeGeo, c: 0xF4F6F8, at: [0, 0.05, s * 0.1] }, { geo: pupilGeo, c: 0x111820, at: [0.015, 0.05, s * 0.125] },
 ]));
 
-/** A new whole fish: the group, its body (for clipping when it's chopped) and its tail (to wiggle as it swims). */
+/** A new whole fish: the group, its body (for clipping when it's chopped) and its tail (to wiggle as it swims). Drawn
+ *  pooled (pooled.ts), a call for each part of every fish. */
 export function newFish() {
   const g = new Group();
   const b = new Mesh(body, bodyMat); g.add(b);
@@ -78,5 +80,5 @@ export function newFish() {
   tail.add(new Mesh(tailGeo, finMat));
   const parts = [[BACK_FINLETS, goldMat, -0.4], [FRONT_FINS, finsMat, -0.3], [PECTORALS, finMat, 0.28], [EYES, painted, 0.47]] as const;
   for (const [geo, m, x] of parts) { const part = new Mesh(geo, m); part.position.x = x; g.add(part); }
-  return { g, body: b, tail };
+  return { g: pooled(g), body: b, tail };
 }

@@ -3,7 +3,7 @@
 // boards underfoot, little bells for money and news, and filtered noise for water, snow and swishing rice. Sounds out
 // in the world (a customer paying, a driver's horn) are placed where they happen, and fade with distance.
 import type { StageN } from './layout';
-import { ac, bell, between, buses, deg, every, hushFor, marimba, noise, onBroken, pluck, rnd, streak, tone } from './audio';
+import { ac, bell, between, buses, deg, every, hushFor, marimba, noise, onAudio, onBroken, pluck, rnd, streak, tone } from './audio';
 import type { Season } from './season';
 import type { XZ } from './util';
 
@@ -262,6 +262,16 @@ export function swish(at: XZ) {
   noise({ at, f: 1400, f2: 500, q: 1.2, a: 0.02, d: 0.12, v: 0.05 });
 }
 
+/** A matkot paddle hitting the ball (beach.ts): a hollow wooden tock, the player's a little higher than his. */
+export function tock(at: XZ, yours: boolean) {
+  tone({ at, f: yours ? 540 : 450, f2: yours ? 380 : 320, type: 'triangle', a: 0.003, d: 0.07, v: 0.2 });
+  noise({ at, f: 1500, q: 2, a: 0.002, d: 0.03, v: 0.07 });
+}
+/** The ball dropping in the sand. */
+export function thud(at: XZ) {
+  noise({ at, f: 500, kind: 'lowpass', q: 0.6, a: 0.004, d: 0.08, v: 0.08 });
+}
+
 /** A driver's horn: two short beeps, or one long one when they're cross. */
 export function honk(at: XZ, cross = false) {
   const beep = (t: number, hold: number) => {
@@ -271,6 +281,38 @@ export function honk(at: XZ, cross = false) {
   if (cross) beep(0, 0.5);
   else { beep(0, 0.07); beep(0.16, 0.07); }
 }
+
+/** A ship's horn (the voting boat's, votingBoat.ts), like a harbour ferry's: two notes a minor third apart in a brassy
+ *  buzz (a soft sawtooth's first 14 harmonics) that scoops up onto its pitch, swells, holds and dies away, echoing off
+ *  the water; a prolonged blast, or a short one. */
+export function shipHorn(at: XZ, long = true) {
+  if (!ac || !brass) return;
+  const sends: [AudioNode, number][] = [[waterEcho(), 0.35]], hold = long ? 1.4 : 0.35;
+  for (const [f, v] of [[110, 0.08], [130.8, 0.065]]) for (const detune of [-7, 7]) {
+    tone({ at, sends, f, wave: brass, scoop: 0.95, detune, lp: 1000, q: 0.7, a: 0.09, hold, d: 0.6, v: v * 0.7 });
+  }
+}
+let brass: PeriodicWave | null = null;
+onAudio(() => {
+  const n = 14, re = new Float32Array(n + 1), im = new Float32Array(n + 1);
+  for (let k = 1; k <= n; k++) im[k] = 1 / k ** 0.9;
+  brass = ac!.createPeriodicWave(re, im);
+});
+/** The horn's echo off the water: a soft tail, with a slap back off the shore a third of a second on. */
+let echo: ConvolverNode | null = null;
+function waterEcho() {
+  if (echo) return echo;
+  const c = ac!, n = Math.floor(c.sampleRate * 2.6), ir = c.createBuffer(2, n, c.sampleRate);
+  for (let ch = 0; ch < 2; ch++) {
+    const d = ir.getChannelData(ch), slap = Math.floor(c.sampleRate * (0.32 + ch * 0.03));
+    let lp = 0;
+    for (let i = 0; i < n; i++) { lp += 0.15 * (rnd() * 2 - 1 - lp); d[i] = lp * (1 - i / n) ** 3; }
+    for (let i = 0; i < 2400; i++) d[slap + i] += 0.5 * (rnd() * 2 - 1) * (1 - i / 2400) ** 2;
+  }
+  echo = c.createConvolver(); echo.buffer = ir; echo.connect(buses.sfx);
+  return echo;
+}
+onBroken(bus => { if (bus === 'sfx' && echo) { echo.disconnect(); echo = null; } });
 
 /** A driver booping you off the road: a soft, rubbery boop that drops an octave, over a little thump. */
 export function boop(at: XZ) {

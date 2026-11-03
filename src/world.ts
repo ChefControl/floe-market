@@ -4,8 +4,8 @@ import {
   BoxGeometry, Group, type Material, Mesh, MeshBasicMaterial, MeshLambertMaterial, type Object3D, PlaneGeometry,
   RepeatWrapping, type Vector3,
 } from 'three';
-import { at as atXZ, Build, detail, jitter, quietly, seasonLayer } from './kit';
-import { HOUSE_PATH_Z, QUAY } from './layout';
+import { apart, at as atXZ, Build, detail, dice, jitter, quietly, seasonLayer } from './kit';
+import { BAY, HOUSE_PATH_Z, PIER, QUAY } from './layout';
 import {
   bollard, deckBoards, fenceLog, FLOES, lifeRing, logSnow, piling, pilingSnow, ropeCoil, scatter,
 } from './props';
@@ -50,28 +50,48 @@ const waterTex = canvasTex(4, 256, (c, w, h) => {
 const ground = mesh(new PlaneGeometry(220, 220), seasonal(PAL.ground));
 ground.rotation.x = -Math.PI / 2; ground.position.y = -0.02; scene.add(ground);
 
-// The bay runs from far west of the farm to just past the dock's east edge; the roads stay on land.
+// The bay runs from far west of the farm to just past the dock's east edge; the roads stay on land. It goes on west and
+// out to sea well past what the game's camera sees (layout.ts BAY), so the casino yacht sailing in from out at sea
+// (casino.ts) never shows its edge; its colour runs from the shore out to deep water over the first SHADE metres, as
+// it always has, wherever it ends (pinned).
+/** The bay as it always was. */
+const SEA = { ...BAY.sea, x1: BAY.x1, z1: BAY.shore }, SHADE = 34;
+/** A piece of the bay from z0 to z1 (north to south), its colour pinned to where it lies: deep beyond SHADE. */
+function pinned(g: PlaneGeometry, z0: number, z1: number) {
+  const p = g.attributes.position, uv = g.attributes.uv, cz = (z0 + z1) / 2;
+  // (lying flat, its own y runs north: the shore's at v 0)
+  for (let i = 0; i < p.count; i++) uv.setY(i, (SEA.z1 - (cz - p.getY(i))) / SHADE);
+  return g;
+}
 // Low: a flat sea with a strip of foam along the shore and down the dock's side.
 const flatSea = quietly(() => new Group());
 scene.add(flatSea);
-const water = new Mesh(new PlaneGeometry(58.5, 34), new MeshLambertMaterial({ map: waterTex.tex }));
-water.rotation.x = -Math.PI / 2; water.position.set(-21.8, 0.01, -23.5); water.receiveShadow = true; flatSea.add(water);
+const bayW = SEA.x1 - BAY.x0, bayD = SEA.z1 - BAY.z0;
+const water = new Mesh(pinned(new PlaneGeometry(bayW, bayD), BAY.z0, SEA.z1), new MeshLambertMaterial({ map: waterTex.tex }));
+water.rotation.x = -Math.PI / 2; water.position.set((BAY.x0 + SEA.x1) / 2, 0.01, (BAY.z0 + SEA.z1) / 2); water.receiveShadow = true; flatSea.add(water);
 const foamMat = new MeshBasicMaterial({ color: 0xFFFFFF, transparent: true, opacity: .75 });
-const foam = new Mesh(new PlaneGeometry(58.5, 0.35), foamMat);
-foam.rotation.x = -Math.PI / 2; foam.position.set(-21.8, 0.02, -6.62); flatSea.add(foam);
-const sideFoam = new Mesh(new PlaneGeometry(0.35, 34), foamMat);
-sideFoam.rotation.x = -Math.PI / 2; sideFoam.position.set(7.45, 0.02, -23.5); flatSea.add(sideFoam);
+const foam = new Mesh(new PlaneGeometry(bayW, 0.35), foamMat);
+foam.rotation.x = -Math.PI / 2; foam.position.set((BAY.x0 + SEA.x1) / 2, 0.02, -6.62); flatSea.add(foam);
+const sideFoam = new Mesh(new PlaneGeometry(0.35, bayD), foamMat);
+sideFoam.rotation.x = -Math.PI / 2; sideFoam.position.set(SEA.x1, 0.02, (BAY.z0 + SEA.z1) / 2); flatSea.add(sideFoam);
 // High: the sea rolls, its facets glinting; foam laps the shore and the dock's side; clouds' shadows drift over it all.
 /** The level the sea rolls about on High: high enough that its troughs stay over the ground under it. */
 const SEA_Y = 0.045;
+/** A rolling piece of the bay from (x0, z0) to (x1, z1) (the bay as it always was is pinned as it's made). */
+function rolling(x0: number, x1: number, z0: number, z1: number) {
+  const g = seaGeometry(x1 - x0, z1 - z0), sea = new Mesh(z0 === SEA.z0 && x0 === SEA.x0 ? g : pinned(g, z0, z1), seaMaterial(waterTex.tex));
+  sea.rotation.x = -Math.PI / 2; sea.position.set((x0 + x1) / 2, SEA_Y, (z0 + z1) / 2); sea.receiveShadow = true;
+  return sea;
+}
 high(scene, () => {
   const g = new Group();
-  const sea = new Mesh(seaGeometry(58.5, 34), seaMaterial(waterTex.tex));
-  sea.rotation.x = -Math.PI / 2; sea.position.set(-21.8, SEA_Y, -23.5); sea.receiveShadow = true; g.add(sea);
+  g.add(rolling(SEA.x0, SEA.x1, SEA.z0, SEA.z1));
+  // (the rest of the bay on dice of its own, so nothing built after it changes: west of it, and out to sea beyond both)
+  g.add(...apart(() => [rolling(BAY.x0, SEA.x0, SEA.z0, SEA.z1), rolling(BAY.x0, SEA.x1, BAY.z0, SEA.z0)], dice(0xBA7)));
   for (const lap of [0, 0.32]) {
-    const shore = foamStrip(58.5, 0.3, lap); shore.position.set(-21.8, SEA_Y + 0.07 + lap * 0.02, -6.62);
+    const shore = foamStrip(bayW, 0.3, lap); shore.position.set((BAY.x0 + SEA.x1) / 2, SEA_Y + 0.07 + lap * 0.02, -6.62);
     shore.rotation.z = Math.PI; // its wobbling edge out to sea
-    const side = foamStrip(34, 0.3, lap); side.position.set(7.45, SEA_Y + 0.07 + lap * 0.02, -23.5);
+    const side = foamStrip(bayD, 0.3, lap); side.position.set(SEA.x1, SEA_Y + 0.07 + lap * 0.02, (BAY.z0 + SEA.z1) / 2);
     side.rotation.z = -Math.PI / 2;
     g.add(shore, side);
   }
@@ -159,12 +179,70 @@ high(scene, () => {
   }
   g.add(wood.mesh(), seasonLayer(snow.mesh(false), SNOWY));
   const deco = new Build();
-  for (const x of [-2.6, 4.3, 6.9]) deco.addAll(bollard(), atXZ(x, FY, -6.38));
+  for (const x of [-2.6, 5.3, 6.9]) deco.addAll(bollard(), atXZ(x, FY, -6.38));
   deco.addAll(ropeCoil(), atXZ(4.85, FY, -6.0));
   deco.addAll(lifeRing(), atXZ(7.6, FY + 0.62, -4.6, Math.PI / 2));
   g.add(deco.mesh());
   return g;
 }, posts);
+
+// ---------- the pier ----------
+// An upside-down L of the dock's own boards, the same size, out over the water a step up from the dock (layout.ts
+// PIER): its stem north from the dock's edge, its first two rows a ramp, and its arm west along the water, where the
+// voting boat moors on election day. Low: boxes with the dock's planks painted on, on round posts. High: the dock's boards, with leaves
+// in autumn and petals in spring; rounded pilings lashed with rope, snow-capped in winter, in rings of foam; and two
+// bollards along the arm's far edge.
+{
+  const { x0, x1, edge, ramp, row, arm } = PIER, W = x1 - x0, SLAB = 0.15;
+  /** A stretch of it, `w` by `d` (`d / row` rows of boards), its top's middle at (x, y, z), tilted `tilt` up to the north. */
+  const stretch = (x: number, z: number, w: number, d: number, y: number, tilt: number, leaves: boolean) => {
+    const g = quietly(() => new Group());
+    g.position.set(x, y, z); g.rotation.x = tilt;
+    scene.add(g);
+    const rx = w / 4, ry = Math.round(d / row) / 8;
+    const top = new MeshLambertMaterial({ map: planks('#C3875D', '#CF946A', rx, ry) });
+    const m = new Mesh(new BoxGeometry(w, SLAB, d), [deckSide, deckSide, top, deckSide, deckSide, deckSide]);
+    m.position.y = -SLAB / 2; m.receiveShadow = true; g.add(m);
+    high(g, () => {
+      const hi = new Group();
+      // the clouds' shadows pass over it as over the dock (their sheet over the dock lies under its boards)
+      hi.add(deckBoards(w, d, 0, rx, ry).mesh(false), cloudShadows(0.013, { w, d }));
+      if (leaves) {
+        hi.add(seasonLayer(scatter(w - 0.3, d - 0.3, 0.004, Math.round(w * d / 1.1), [0xE0812E, 0xC2562B, 0xF2B640, 0xB8642C]).mesh(false), FALLEN));
+        hi.add(seasonLayer(scatter(w - 0.3, d - 0.3, 0.004, Math.round(w * d / 1.6), [0xFF9EC4, 0xFFB7D3, 0xF78FB3]).mesh(false), PETALS));
+      }
+      return hi;
+    }, m);
+  };
+  const cx = (x0 + x1) / 2, rise = PIER.y - FY, stem = edge - ramp - arm.z1;
+  stretch(cx, edge - ramp / 2, W, Math.hypot(ramp, rise), (FY + PIER.y) / 2, Math.atan2(rise, ramp), false);
+  stretch(cx, edge - ramp - stem / 2, W, stem, PIER.y, 0, true);
+  stretch((arm.x0 + x1) / 2, (arm.z1 + arm.z0) / 2, x1 - arm.x0, arm.z1 - arm.z0, PIER.y, 0, true);
+  // its pilings: down both sides of the stem, round the arm's corners and along it
+  const out = 0.05, at: [number, number][] = [
+    [x0 - out, -8.0], [x1 + out, -8.0], [x0 - out, -10.3], [x1 + out, -10.3],
+    [x1 + out, arm.z0 - out], [2.5, arm.z0 - out], [arm.x0 - out, arm.z0 - out], [1.9, arm.z1 + out], [arm.x0 - out, arm.z1 + out],
+  ];
+  const posts = quietly(() => new Group());
+  scene.add(posts);
+  for (const [x, z] of at) {
+    const p = mesh(G.cyl, 0x8A5A3B, x, -0.1 + rise, z, true);
+    p.scale.set(0.18, 0.6, 0.18); posts.add(p);
+  }
+  high(scene, () => {
+    const g = new Group(), wood = new Build(), snow = new Build(), PH = 0.52 + rise;
+    for (const [x, z] of at) {
+      wood.addAll(piling(PH), atXZ(x, -0.3, z));
+      snow.addAll(pilingSnow(PH), atXZ(x, -0.3, z));
+      const ring = foamRing(0.32); ring.position.set(x, SEA_Y + 0.05, z); g.add(ring);
+    }
+    g.add(wood.mesh(), seasonLayer(snow.mesh(false), SNOWY));
+    const deco = new Build();
+    for (const x of [0.95, 3.4]) deco.addAll(bollard(), atXZ(x, PIER.y, arm.z0 + 0.13));
+    g.add(deco.mesh());
+    return g;
+  }, posts);
+}
 
 // ---------- fences ----------
 // Low: plain logs. High: rounded logs, their end grain on top (snow on it in winter), lashed together with rope.
@@ -358,11 +436,14 @@ function treeOK2(x: number, z: number) {
 }
 
 const both = newBatch(), only1 = newBatch(), only2 = newBatch();
+/** Where the trees stand, and in which stages (the matkot beach, beach.ts, keeps the player out of those on its sand). */
+export const treeSpots: { x: number; z: number; one: boolean; two: boolean }[] = [];
 for (let i = 0, placed = 0; i < 900 && placed < 96; i++) {
   const x = rand(-44, 34), z = rand(-8, 40);
   const a = treeOK1(x, z), b = treeOK2(x, z);
   if (!a && !b) continue;
   addTree(a && b ? both : a ? only1 : only2, x, z, rand(.8, 1.3));
+  treeSpots.push({ x, z, one: a, two: b });
   placed++;
 }
 for (let i = 0; i < 40; i++) {

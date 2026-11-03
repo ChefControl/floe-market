@@ -1,6 +1,6 @@
 // The demo build's tool panel (`vite build --mode demo`), for trying the game on a phone: the frame rate and how much
-// is drawn, Low or High, a stage 1, 2 or 3 game to jump into (stage 3 with as many of its bosses beaten as you like,
-// and the cellar as won or all bought), and money to spend. The game itself never loads this (main.ts).
+// is drawn, Potato, Low or High, a stage 1, 2 or 3 game to jump into (stage 3 with as many of its bosses beaten as you
+// like, and the cellar as won or all bought), and money to spend. The game itself never loads this (main.ts).
 import { CHIP, BOSSES } from './fight';
 import { DEMO, marketSave } from './fuguDemo';
 import { choose, gfx } from './graphics';
@@ -11,7 +11,7 @@ import { addMoney } from './wallet';
 
 const css = `
 #demo{position:fixed;left:max(8px,env(safe-area-inset-left));bottom:max(8px,env(safe-area-inset-bottom));z-index:60;
-  font:600 13px/1.3 "Baloo 2",system-ui,sans-serif;color:#1B2430}
+  font:600 13px/1.3 "Floe Emoji","Baloo 2",system-ui,sans-serif;color:#1B2430}
 #demo>button{width:44px;height:44px;border-radius:50%;border:0;background:#fff;box-shadow:0 3px 0 rgba(0,0,0,.18);font-size:20px}
 #demo .box{position:absolute;bottom:52px;left:0;width:min(300px,calc(100vw - 16px));background:#fff;border-radius:16px;
   padding:10px 12px;box-shadow:0 4px 0 rgba(0,0,0,.18);display:grid;gap:8px}
@@ -34,7 +34,7 @@ el.id = 'demo';
 el.innerHTML = `<style>${css}</style><button type="button" aria-label="Demo tools">🛠</button>
 <div class="box" hidden>
   <div class="stats" id="demoStats">…</div>
-  <div class="row" id="demoGfx"><b>Graphics</b><button data-q="low">Low</button><button data-q="high">High</button></div>
+  <div class="row" id="demoGfx"><b>Graphics</b><button data-q="potato">Potato</button><button data-q="low">Low</button><button data-q="high">High</button></div>
   <div class="row" id="demoGame"><b>Game</b><button data-g="1">Stage 1</button><button data-g="2">Stage 2</button>
     <button data-g="3" ${DEMO ? '' : 'hidden'}>Stage 3</button></div>
   <div class="sub" ${DEMO ? '' : 'hidden'}>Stage 3</div>
@@ -63,7 +63,7 @@ function marks() {
 }
 el.querySelector('#demoGfx')!.addEventListener('click', e => {
   const q = (e.target as HTMLElement).dataset.q;
-  if (q === 'low' || q === 'high') { choose(q); marks(); }
+  if (q === 'potato' || q === 'low' || q === 'high') { choose(q); marks(); }
 });
 
 /** Starts over in stage 3's cellar with `beaten` of its bosses beaten, as won or with all of it bought. */

@@ -7,6 +7,7 @@
 // as you're beside them.
 import { buyButton, isTouch } from './hint';
 import { buyHeld, holdBuyButton } from './input';
+import { viewSize } from './viewSize';
 import { wallet } from './wallet';
 
 const btn = document.getElementById('buy')!, reminder = document.getElementById('buyHint')!;
@@ -19,9 +20,10 @@ export const buyButtonShown = () => touch || buyButton.on;
 /** What the reminder says: how to buy, or that there's no cash to buy with. */
 const HOW = { keys: 'Hold <kbd>E</kbd> to buy this', both: 'Hold <kbd>E</kbd> or <b>Buy</b> to buy this', touch: 'Hold <b>Buy</b> to buy this' };
 const TALK = { keys: 'Press <kbd>E</kbd> to talk', both: 'Press <kbd>E</kbd> or <b>Talk</b> to talk', touch: 'Tap <b>Talk</b> to talk' };
-/** Whether there's someone beside the player waiting to be spoken to (club.ts says, every frame). */
-let talk = false;
-export const offerTalk = (on: boolean) => { talk = on; };
+/** Whether there's someone beside the player waiting to be spoken to, by where (club.ts and votingBoat.ts say, every
+ *  frame). */
+const talk = new Map<string, boolean>();
+export const offerTalk = (on: boolean, where = 'club') => { talk.set(where, on); };
 /** What the button says: Buy, or Talk. */
 let label = '';
 function labelled(talking: boolean) {
@@ -56,12 +58,12 @@ const REMIND = 2;
 
 /** Call every frame with whether the player is standing on a tile that's for sale. */
 export function updBuy(onTile: boolean, dt: number) {
-  const talking = talk && !onTile;
+  const talking = [...talk.values()].some(Boolean) && !onTile;
   labelled(talking);
   btn.hidden = !(buyButtonShown() && (onTile || talking));
   if (!btn.hidden) {
     // the button (and its reminder) sit above the tip, however tall the tip's description makes it
-    const bottom = Math.max(100, innerHeight - prompts.getBoundingClientRect().top + 12);
+    const bottom = Math.max(100, viewSize.h - prompts.getBoundingClientRect().top + 12);
     btn.style.bottom = bottom + 'px';
     reminder.style.bottom = bottom + 96 + 'px';
   }
