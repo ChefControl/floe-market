@@ -6,7 +6,8 @@ import {
   MeshLambertMaterial, type Object3D, PlaneGeometry, PointLight, Quaternion, ReplaceStencilOp, RepeatWrapping, ShaderMaterial,
   SphereGeometry, SpotLight, TorusGeometry, Vector3,
 } from 'three';
-import { canvasTex, G, mesh } from './render';
+import { dice, quietly } from './kit';
+import { bakePainted, canvasTex, G, mesh, painted } from './render';
 
 const COAT = 0xC49A5A, COAT_DARK = 0x9C7840, TROUSERS = 0x2C3A47;
 const FISH = 0xEBD38E, BELLY = 0xFFF6E0, SPOT = 0x8A6A3A, SPINE = 0xF6E7B4, FIN = 0xD9B866, LIPS = 0xF08A7E;
@@ -26,6 +27,18 @@ const lensGeo = new BoxGeometry(0.13, 0.075, 0.03);
 const brimGeo = new CylinderGeometry(0.37, 0.37, 0.025, 16);
 const crownGeo = new CylinderGeometry(0.2, 0.23, 0.2, 14);
 const bandGeo = new CylinderGeometry(0.233, 0.233, 0.05, 14);
+/** An arm, rounded like everyone else's (characters.ts): a ball of a shoulder, an eight-sided sleeve that tapers to
+ *  the wrist, a turned-back cuff and a low-poly ball of a fist, baked into one mesh. (Made with dice of its own, so
+ *  it draws nothing from the game's luck or the scenery's.) */
+const armGeo = quietly(() => {
+  const ball = new SphereGeometry(1, 7, 5);
+  return bakePainted([
+    { geo: ball, c: COAT, at: [0, -0.005, 0], scale: [0.072, 0.066, 0.072] },
+    { geo: new CylinderGeometry(0.062, 0.055, 0.3, 8), c: COAT, at: [0, -0.15, 0] },
+    { geo: new CylinderGeometry(0.064, 0.064, 0.045, 8), c: COAT_DARK, at: [0, -0.3, 0] },
+    { geo: ball, c: FISH, at: [0, -0.345, 0.005], scale: [0.055, 0.06, 0.055] },
+  ]);
+}, dice(0xF0A2));
 
 
 /** The light on his shades: a little all over, and a streak across the glass (it sweeps over them when they glint). */
@@ -90,9 +103,9 @@ export class Fugu extends Group {
     for (const s of [-1, 1]) {
       const l = new Group(); l.position.set(s * 0.1, 0.3, 0);
       l.add(mesh(G.leg, TROUSERS, 0, -0.15, 0, true)); this.add(l); this.legs.push(l);
-      // hands in his coat pockets
+      // hands in his coat pockets (a fist on the end of each sleeve, its turned-back cuff over the wrist)
       const a = new Group(); a.position.set(s * 0.3, 0.82, 0.02); a.rotation.set(0.25, 0, s * 0.12);
-      a.add(mesh(G.arm, COAT, 0, -0.15, 0, true)); this.add(a); this.arms.push(a);
+      a.add(mesh(armGeo, painted, 0, 0, 0, true)); this.add(a); this.arms.push(a);
     }
     // the trench coat: down to the knees, belted, collar up, lapels and a gold chain
     this.add(mesh(G.body, COAT, 0, 0.6, 0, true));
