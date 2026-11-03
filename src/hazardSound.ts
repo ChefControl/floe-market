@@ -8,14 +8,16 @@
 //   a sour splash, a dull bitter thunk, a mushroom's squish. A crit adds a crunch on top.
 // - The salt shell clattering down, a dish's blast, and the rush's slow whoosh.
 //
-// Each has two styles to audition (a and b, on the audition page); `STYLE` is the one the game plays.
+// Each has two styles to audition (a and b, on the audition page); `STYLE` is the one the game plays: the owner's
+// picks (3 November 2026), the pop gun, the shotgun's rattle, the softer hiss, the squelch, the crunch, the plastic
+// ticks, the wetter blast and the rising whoosh.
 import { ac, between, noise, tone } from './audio';
 import type { GunId, Taste } from './hazard';
 
 export type Style = 'a' | 'b';
 /** The style each sound plays in. */
 export const STYLE: Record<'spud' | 'salt' | 'chili' | 'hit' | 'crit' | 'shell' | 'blast' | 'rush', Style> = {
-  spud: 'a', salt: 'a', chili: 'a', hit: 'a', crit: 'a', shell: 'a', blast: 'a', rush: 'a',
+  spud: 'b', salt: 'a', chili: 'b', hit: 'a', crit: 'a', shell: 'a', blast: 'b', rush: 'a',
 };
 
 const last: Record<string, number> = {};
