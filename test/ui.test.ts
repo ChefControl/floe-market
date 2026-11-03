@@ -1,5 +1,8 @@
 // DOM overlay and controls.
-import { describe, expect, it, vi } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import indexHtml from '../index.html?raw';
+import { withoutKofi } from '../vite.config';
 import { loadGame } from './helpers';
 
 const $ = (id: string) => document.getElementById(id)!;
@@ -328,23 +331,89 @@ describe('settings', () => {
     expect([card.hidden, row.getAttribute('aria-expanded')]).toEqual([true, 'false']);
     row.click();
     expect([card.hidden, row.getAttribute('aria-expanded')]).toEqual([false, 'true']);
-    expect(card.textContent).toContain('Dirk-Jan Hanegraaff');
-    expect(card.querySelector('a[href="https://creativecommons.org/licenses/by/3.0"]')).not.toBeNull();
-    expect(card.textContent).toContain('Ofer Levy');
-    // the songs played from YouTube link to their videos, the same ones the game plays
-    const { SONG } = await import('../src/rain');
-    expect(card.querySelector(`a[href="https://www.youtube.com/watch?v=${SONG.id}"]`)).not.toBeNull();
-    expect(card.querySelector('a[href="https://www.youtube.com/watch?v=jcutNFPwXPE"]')).not.toBeNull();
+    // the slot machines' recording, which asks for a credit
+    expect(card.textContent).toContain('“WOF_slots6” by fugacious');
+    expect(card.querySelector('a[href="https://freesound.org/s/145539/"]')).not.toBeNull();
+    // the songs at her house and Korki's statue are the game's own now: nothing from YouTube
+    expect(card.textContent).toContain("the songs at her house and at Korki's statue too");
+    expect(card.querySelector('a[href*="youtube"]')).toBeNull();
+    // and the game's own copyright, last
+    expect(card.lastElementChild!.textContent).toBe('Floe Market © 2026 ChefControl. All rights reserved.');
     row.click();
     expect([card.hidden, row.getAttribute('aria-expanded')]).toEqual([true, 'false']);
-    expect($('soundPanel').textContent).not.toContain('Hanegraaff');
+    expect($('soundPanel').textContent).not.toContain('fugacious');
+  });
+
+  it("opens Privacy into the notice's short version, and the whole notice over the game: in every build", async () => {
+    await loadGame();
+    await import('../src/settings');
+    const { paused } = await import('../src/uiKit');
+    const row = $('privacyBtn'), card = $('privacyCard'), dialog = $('privacyDialog'), frame = $('privacyFrame') as HTMLIFrameElement;
+    // in About, before Credits & Copyrights, which opens at the menu's foot; nothing in the menu leaves the game
+    expect(row.compareDocumentPosition($('reportCat')) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
+    expect(row.compareDocumentPosition($('creditsBtn')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect($('settings').querySelector('a[href="privacy.html"]')).toBeNull();
+    expect(withoutKofi(indexHtml)).toContain('id="privacyBtn"');
+    // the short version, word for word as the notice has it
+    const page = readFileSync('public/privacy.html', 'utf8');
+    const notice = new DOMParser().parseFromString(page, 'text/html');
+    const short = (root: ParentNode) => [...root.querySelectorAll('li')].map(li => li.innerHTML.trim());
+    expect(short(card)).toEqual(short(notice.querySelector('.short')!));
+    expect(card.hidden).toBe(true);
+    $('gear').click();
+    row.click();
+    expect([card.hidden, row.getAttribute('aria-expanded')]).toEqual([false, 'true']);
+    // the whole notice, fetched only once it's asked for; the game waits behind it
+    expect(frame.getAttribute('src')).toBeNull();
+    $('privacyFull').click();
+    expect([dialog.hidden, frame.getAttribute('src'), paused()]).toEqual([false, 'privacy.html', true]);
+    expect(document.activeElement).toBe($('privacyClose'));
+    // a tap on it leaves the menu open behind; Escape closes just the notice, and the ✕ too
+    dialog.querySelector('.k-sheet')!.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', cancelable: true }));
+    expect([dialog.hidden, $('settings').hidden, paused()]).toEqual([true, false, false]);
+    expect(document.activeElement).toBe($('privacyFull'));
+    $('privacyFull').click();
+    $('privacyClose').click();
+    expect(dialog.hidden).toBe(true);
+    // the page itself, published with the site from public/: who to ask, and both versions
+    expect(page).toContain('oran.dan@outlook.com');
+    expect(page).toContain('<h2>The web game</h2>');
+    expect(page).toContain('<h2>The Steam version</h2>');
   });
 });
 
 describe('Ko-fi', () => {
+  // on only where the game's built with it on, as the live web game is (flags.ts)
+  beforeEach(() => { vi.stubEnv('VITE_KOFI', 'on'); });
+  afterEach(() => { vi.unstubAllEnvs(); });
+
+  it('is off unless the build says on (the Steam build): no row or link in the page, and no nudge', async () => {
+    const page = withoutKofi(indexHtml);
+    expect(page).not.toMatch(/ko-?fi|coffee/i);
+    expect(indexHtml.length - page.length).toBeLessThan(600); // only the row and its CSS
+    expect(page).toContain('<button id="creditsBtn"');
+    expect(() => withoutKofi(page)).toThrow(/no Ko-fi row/); // the markup moved: the build stops, not ships the link
+    for (const env of [undefined, 'off']) {
+      vi.unstubAllEnvs();
+      if (env) vi.stubEnv('VITE_KOFI', env);
+      await loadGame();
+      $('kofi').remove(); // as the page is built
+      const kofi = await import('../src/kofi');
+      expect((await import('../src/flags')).kofiOn()).toBe(false);
+      vi.useFakeTimers();
+      kofi.updKofi(kofi.NUDGE_AFTER + 1);
+      expect($('toast').classList.contains('on')).toBe(false);
+      expect($('gear').classList.contains('ping')).toBe(false);
+      expect(localStorage.getItem('floe-market-kofi')).toBeNull();
+      vi.useRealTimers();
+    }
+  });
+
   it('opens Ko-fi from the settings in a pop-up window of its own, leaving the game where it is', async () => {
     await loadGame();
     await import('../src/kofi');
+    expect((await import('../src/flags')).kofiOn()).toBe(true);
     const win = { opener: {} as unknown };
     const open = vi.spyOn(window, 'open').mockReturnValue(win as Window);
     $('gear').click();

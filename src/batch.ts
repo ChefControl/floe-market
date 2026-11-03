@@ -10,7 +10,7 @@ import {
   type ShaderMaterial, Vector3,
 } from 'three';
 import { quietly } from './kit';
-import { painted } from './render';
+import { painted, type Placed as PlaceRecord, placePass, scene as drawnScene } from './render';
 
 /** Metres across a patch of the map: merged meshes are still left out where they're off screen, a patch at a time. */
 const CELL = 12;
@@ -23,25 +23,35 @@ const RESTLESS = 2;
 /** What isn't merged is looked at in turns, one frame in this many (its own frame, a few frames apart from the rest):
  *  thousands of things stand about unmerged (the world up top, hidden while the player's in the cellar; what moves),
  *  and all that's lost is a few frames before something that's stood still a second is merged. What's merged is
- *  looked at every frame: it has to drop out the moment it moves or hides. */
+ *  looked at every frame: it has to drop out the moment it moves or hides. That's cheap for what render.ts `place`
+ *  walked: it shows, and it can only have moved if `place` worked out its world matrix since it was last looked at
+ *  (`placed.movedAt`); only then are its 16 numbers compared. Anything `place` didn't walk is looked at the long way. */
 const TURNS = 8;
 
 type State = 'out' | 'joining' | 'in';
 interface Member {
-  o: Mesh; geo: BufferGeometry; mat: Material; cast: boolean; recv: boolean; ver: number; at: number[]; colour: number;
+  o: Mesh; geo: BufferGeometry; mat: Material; cast: boolean; recv: boolean; ver: number; at: number[];
+  /** Its material's colour, if it has one: as a hex, and the three numbers it was last seen as. */
+  colour: number; r: number; g: number; b: number;
   still: number; moves: number; strikes: number; state: State; batch: Batch | null; mask: number;
   /** Its turn (of TURNS), and the seconds since it was last looked at. */
   turn: number; since: number;
+  /** The `placePass` it was last looked at in, and `place`'s record of it (kept here once it's made: it's never
+   *  replaced, and reading it off the mesh, of many kinds, is slow). */
+  pass: number; placed: PlaceRecord | undefined;
 }
 interface Batch { key: string; mat: Material; cast: boolean; recv: boolean; members: Set<Member>; mesh: Mesh | null; now: boolean }
 
 const members = new Set<Member>(), known = new WeakSet<Object3D>(), batches = new Map<string, Batch>(), dirty = new Set<Batch>();
 const plain = Mesh.prototype, centre = new Vector3(), tint = new Color();
-let root: Object3D, drawn: Group, last = 0, scan = 0, rebuilds = 0, frame = 0, turns = 0;
+let root: Object3D, drawn: Group, last = 0, scan = 0, rebuilds = 0, frame = 0, turns = 0, looks = 0, lastPass = -1;
+/** Whether it merges what render.ts `place` walks (in the game it does), so `place`'s marks hold. */
+let walked = false;
 
 /** Starts merging what stands still in `scene`, before each time it's drawn. */
 export function batchStill(scene: Object3D) {
   root = scene;
+  walked = scene === drawnScene;
   drawn = quietly(() => new Group());
   drawn.name = 'batches';
   drawn.userData.noBatch = true;
@@ -94,25 +104,44 @@ function discover() {
     known.add(o);
     if (!fits(o)) return;
     const m: Member = {
-      o, geo: o.geometry, mat: o.material as Material, cast: o.castShadow, recv: o.receiveShadow, ver: -1, at: [], colour: 0,
-      still: 0, moves: 0, strikes: 0, state: 'out', batch: null, mask: o.layers.mask, turn: turns++ % TURNS, since: 0,
+      o, geo: o.geometry, mat: o.material as Material, cast: o.castShadow, recv: o.receiveShadow, ver: -1, at: [], colour: 0, r: 0, g: 0, b: 0,
+      still: 0, moves: 0, strikes: 0, state: 'out', batch: null, mask: o.layers.mask, turn: turns++ % TURNS, since: 0, pass: -1, placed: undefined,
     };
     snap(m);
     members.add(m);
   });
 }
-const version = (g: BufferGeometry) =>
-  (g.attributes.position as BufferAttribute).version + ((g.attributes.normal as BufferAttribute | undefined)?.version ?? 0) + (g.index?.version ?? 0);
+declare module 'three' {
+  interface BufferGeometry {
+    /** Its `version`, worked out once a look however many things share it: the look it was (`looks`), and what. */
+    verAt?: number; verNow?: number;
+  }
+}
+function version(g: BufferGeometry) {
+  if (g.verAt === looks) return g.verNow!;
+  g.verAt = looks;
+  return g.verNow = (g.attributes.position as BufferAttribute).version
+    + ((g.attributes.normal as BufferAttribute | undefined)?.version ?? 0) + (g.index?.version ?? 0);
+}
 function snap(m: Member) {
-  const o = m.o;
+  const o = m.o, c = (o.material as MeshLambertMaterial).color;
   m.geo = o.geometry; m.mat = o.material as Material; m.cast = o.castShadow; m.recv = o.receiveShadow;
   m.ver = version(m.geo); m.at = [...o.matrixWorld.elements]; m.colour = colourOf(m.mat);
+  if (c) { m.r = c.r; m.g = c.g; m.b = c.b; }
 }
+/** Whether its shape, material or colour has changed (its colour as a hex: a change too small to show isn't one). */
+function changed(m: Member) {
+  const o = m.o, c = (m.mat as MeshLambertMaterial).color;
+  if (o.geometry !== m.geo || o.material !== m.mat || version(m.geo) !== m.ver) return true;
+  if (!c || (c.r === m.r && c.g === m.g && c.b === m.b)) return false;
+  if (c.getHex() !== m.colour) return true;
+  m.r = c.r; m.g = c.g; m.b = c.b;
+  return false;
+}
+/** Whether it's been moved (its world matrix isn't what it was). */
 function moved(m: Member) {
-  const o = m.o, e = o.matrixWorld.elements;
-  if (o.geometry !== m.geo || o.material !== m.mat) return true;
-  if (version(m.geo) !== m.ver || colourOf(m.mat) !== m.colour) return true;
-  for (let i = 0; i < 16; i++) if (e[i] !== m.at[i]) return true;
+  const e = m.o.matrixWorld.elements, at = m.at;
+  for (let i = 0; i < 16; i++) if (e[i] !== at[i]) return true;
   return false;
 }
 /** Whether it's in the scene and showing: null when it's been taken out of the scene. */
@@ -218,17 +247,30 @@ function rebuild(b: Batch) {
 function sync() {
   const now = performance.now(), dt = Math.min(0.1, (now - last) / 1000);
   last = now;
+  looks++;
   if ((scan -= dt) <= 0) { scan = 0.5; discover(); }
   frame = (frame + 1) % TURNS;
+  // (`place`'s marks hold only if the scene's just been placed, as it always is before it's drawn, and is showing)
+  const fast = walked && placePass !== lastPass && root.visible;
+  lastPass = placePass;
   quietly(() => {
     for (const m of members) {
       if (m.state === 'out' && m.turn !== frame) { m.since += dt; continue; }
-      const step = dt + m.since;
+      const step = dt + m.since, o = m.o;
       m.since = 0;
       m.strikes = Math.max(0, m.strikes - step / 30);
-      const seen = shown(m.o);
-      if (seen === null) { leave(m); members.delete(m); known.delete(m.o); continue; }
-      const move = moved(m);
+      // walked by `place` just now: it shows, and it's moved only if its world matrix was worked out since it was last
+      // looked at (and comes out different: a false alarm costs the compare, never a merge). Not walked: it's hidden,
+      // taken away, or in something that places itself its own way, so it's looked at the long way.
+      let seen: boolean | null = true, move: boolean;
+      const r = fast ? m.placed ??= o.placed : undefined;
+      if (r && r.walkedAt === placePass) move = changed(m) || (r.movedAt > m.pass && moved(m));
+      else {
+        seen = shown(o);
+        if (seen === null) { leave(m); members.delete(m); known.delete(o); continue; }
+        move = changed(m) || moved(m);
+      }
+      m.pass = placePass;
       // (its shadow put out or back, as Low does the small things' in the cellar: into a batch that casts or doesn't,
       // as soon as it's looked at again, with no strike against it: it hasn't moved)
       if (!move && seen && (m.o.castShadow !== m.cast || m.o.receiveShadow !== m.recv)) {

@@ -15,6 +15,7 @@ import { clack } from './sfx';
 import { besideView, tableRoom, topOfView } from './ui';
 import { panel as kitPanel, state, usable, type State } from './uiKit';
 import { d2xz, FY, type XZ } from './util';
+import { viewSize } from './viewSize';
 import { wallet } from './wallet';
 
 /** How far from a pad's centre the player can stand and still be playing. */
@@ -375,7 +376,7 @@ export function tableView(dt: number) {
   out.k = 0;
   tableRoom.on = !!seated;
   if (!lastSeat || seatK < 0.001) return out;
-  const s = lastSeat, w = window.innerWidth, h = window.innerHeight;
+  const s = lastSeat, w = viewSize.w, h = viewSize.h;
   if (!s.panel.hidden) {
     const r = s.panel.getBoundingClientRect(), side = besideView(r, w), top = topOfView(h);
     if (roomFor !== `${w}x${h}`) { roomFor = `${w}x${h}`; room = 0; }

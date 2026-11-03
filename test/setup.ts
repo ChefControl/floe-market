@@ -26,6 +26,11 @@ vi.mock('three', async importOriginal => {
     setPixelRatio() {}
     setSize() {}
     render() {}
+    /** (only for what the chip's called, render.ts `gpu`) */
+    getContext() {
+      const RENDERER = 0x1F01;
+      return { RENDERER, getParameter: (p: number) => (p === RENDERER ? 'Test GPU' : null), getExtension: () => null };
+    }
   }
   return { ...three, WebGLRenderer };
 });
@@ -64,6 +69,9 @@ for (const k of ['setTimeout', 'setInterval'] as const) {
 beforeEach(() => {
   vi.spyOn(Math, 'random').mockImplementation(seeded(1));
   localStorage.clear();
+  // Every test runs on an ordinary day (the clock moving on from it as ever), so what comes by the calendar (flags.ts:
+  // election day's voting boat and beach) turns up only in the tests that say which day it is.
+  vi.useFakeTimers({ toFake: ['Date'], now: new Date(2026, 0, 15, 12), shouldAdvanceTime: true });
 });
 
 afterEach(() => {

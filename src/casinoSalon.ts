@@ -18,10 +18,11 @@ import {
 } from 'three';
 import { atTable, CHIPS, easeInOut, leaveSeat, onCheer, speaker, takeSeat, tipsy } from './casinoKit';
 import { clink } from './sfx';
-import { animPerson, Person, SUITS } from './characters';
+import { allYear, animPerson, Person, SUITS } from './characters';
 import { byTheStall, STALL } from './casinoRestroom';
 import { arcadeOn } from './flags';
 import { atTheWall } from './wallOfShame';
+import { K } from './kit';
 import { DECKS, inSalon, pushOutOfBox, SALON, SHIP, stage, UPPER } from './layout';
 import { player } from './player';
 import { bake, bakePainted, canvasTex, FONT, G, mesh, scene, type Part } from './render';
@@ -173,7 +174,8 @@ const SIGN_TEX = canvasTex(512, 160, (c, w, h) => {
   c.lineJoin = 'round'; c.lineWidth = 14; c.strokeStyle = '#2A0F16'; c.strokeText('CASINO', w / 2, h / 2 + 6);
   c.fillStyle = '#FFD24A'; c.fillText('CASINO', w / 2, h / 2 + 6);
 });
-/** The marquee's bulbs, in two sets that take turns to light: the chase round the CASINO sign. */
+/** The marquee's bulbs, in two sets that take turns to light: the chase round the CASINO sign. Flat colours, so a
+ *  bulb a few pixels across is a dot whatever its shape: the kit's small ball (56 triangles, not 252). */
 const bulbsOn = new MeshBasicMaterial({ color: 0xFFE08A }), bulbsOff = new MeshBasicMaterial({ color: 0xB07A2A });
 /** The top of the jackstaff at the bow (casino.ts), which the strings of lights run down to from the mast. */
 export const JACK = { x: SHIP.bow - 0.55, y: FY + 3.0 };
@@ -280,7 +282,7 @@ function buildRoof() {
   for (const s of [-1, 1]) {
     for (let k = 1; k < 18; k++) {
       const t = k / 18, tx = MAST.x + 0.07, ty = mastTop - 0.4;
-      strings.push({ geo: G.sphere, at: [JACK.x + (tx - JACK.x) * t, JACK.y + (ty - JACK.y) * t - Math.sin(Math.PI * t) * 0.1, s * MAST.spread * t], scale: [0.06, 0.06, 0.06] });
+      strings.push({ geo: K.ball, at: [JACK.x + (tx - JACK.x) * t, JACK.y + (ty - JACK.y) * t - Math.sin(Math.PI * t) * 0.1, s * MAST.spread * t], scale: [0.06, 0.06, 0.06] });
     }
   }
   const lights = mesh(bake(strings), bulbsOn);
@@ -300,7 +302,7 @@ function buildSigns(g: Group) {
     face.position.set(SIGN.x, SIGN.y, z + side * 0.015); if (side < 0) face.rotation.y = Math.PI;
     g.add(face);
     let i = 0;
-    const bulb = (x: number, y: number) => sets[i++ % 2].push({ geo: G.sphere, at: [x, y, z + side * 0.02], scale: [0.04, 0.04, 0.04] });
+    const bulb = (x: number, y: number) => sets[i++ % 2].push({ geo: K.ball, at: [x, y, z + side * 0.02], scale: [0.04, 0.04, 0.04] });
     for (let x = -SIGN.w / 2; x <= SIGN.w / 2 + 0.01; x += SIGN.w / 14) { bulb(SIGN.x + x, SIGN.y + SIGN.h / 2 + 0.06); bulb(SIGN.x + x, SIGN.y - SIGN.h / 2 - 0.06); }
     for (const e of [-1, 1]) for (let y = -SIGN.h / 2 + 0.14; y < SIGN.h / 2 - 0.08; y += 0.2) bulb(SIGN.x + e * (SIGN.w / 2 + 0.06), SIGN.y + y);
   }
@@ -358,13 +360,22 @@ function buildBar(g: Group) {
 function guest(i: number, hatless = false) {
   const who = crowd();
   if (hatless) who.hat = 'bare';
-  return new Person(who.woman ? DRESSES[i % DRESSES.length] : SUITS[i % SUITS.length], 'fancy', who);
+  // (they all stay where they're put: the gamblers at the machines, the drinkers on their stools, the fan by the tables)
+  return allYear(new Person(who.woman ? DRESSES[i % DRESSES.length] : SUITS[i % SUITS.length], 'fancy', who)).standStill();
 }
 
-/** One of the salon's slot machines, its reels spinning when a guest plays it. */
-interface Machine { lever: Group; ctx: CanvasRenderingContext2D; tex: CanvasTexture; from: number[]; to: number[]; spin: number }
-/** How long a guest's spin takes, and when each reel stops. */
-const SPIN = 1.6, STOPS = [0.9, 1.25, 1.6];
+/** One of the salon's slot machines (`i` along the row), its reels spinning when a guest plays it: for `len` seconds,
+ *  and which of the recording's spins it plays next. */
+interface Machine { i: number; lever: Group; ctx: CanvasRenderingContext2D; tex: CanvasTexture; from: number[]; to: number[]; spin: number; len: number; next: number }
+/**
+ * The guests' spins, as recorded (src/sounds/slots.mp3, which roomTone.ts plays from the machine as its lever's pulled):
+ * where each starts in the recording, at the chime as the lever comes down, and how long till its sound ends, which is
+ * when the last reel stops. The reels stop left to right, at these shares of that.
+ */
+export const SPINS = [{ at: 0.35, len: 3.8 }, { at: 5.35, len: 3.55 }, { at: 9.75, len: 3.7 }];
+const STOPS = [0.56, 0.78, 1];
+/** Called as a guest pulls a lever, with the machine along the row and the spin it plays (roomTone.ts plays it). */
+export const onGuestPull: ((machine: number, spin: number) => void)[] = [];
 /** A guest at a slot machine: pulls the lever every few seconds, the reels spin, and now and then they win. */
 interface Gambler { p: Person; m: Machine; wait: number; t: number; joy: number; say: ReturnType<typeof speaker> }
 
@@ -379,7 +390,7 @@ function buildCrowd(g: Group) {
   const row = slotRow(ROW.zs, screens.map(s => new MeshBasicMaterial({ map: s.tex })));
   row.g.position.set(ROW.x, UPPER, 0); row.g.rotation.y = -Math.PI / 2;
   g.add(row.g);
-  const machines: Machine[] = screens.map((s, i) => ({ lever: row.levers[i], ctx: s.ctx, tex: s.tex, from: s.pos, to: s.pos, spin: 0 }));
+  const machines: Machine[] = screens.map((s, i) => ({ i, lever: row.levers[i], ctx: s.ctx, tex: s.tex, from: s.pos, to: s.pos, spin: 0, len: SPINS[0].len, next: i % SPINS.length }));
   const gamblers: Gambler[] = ROW.zs.map((_, m) => m).map((m, i) => {
     const p = guest(i);
     p.position.set(ROW.x - 0.75, UPPER, ROW.zs[m]); p.rotation.y = Math.PI / 2;
@@ -391,7 +402,7 @@ function buildCrowd(g: Group) {
   if (ROW.zs.length < 2) guest(1);
   // the bar: two bartenders behind it, one polishing a glass and one shaking a cocktail, and guests on three stools
   const bartenders = [-1.1, 1.3].map(z => {
-    const b = new Person(0x1F1F1F, 'waiter');
+    const b = allYear(new Person(0x1F1F1F, 'waiter')).standStill();
     b.position.set(BAR.x - 0.5, UPPER, z); b.rotation.y = Math.PI / 2;
     g.add(b);
     return b;
@@ -403,7 +414,7 @@ function buildCrowd(g: Group) {
     return { p, t: 2 + i * 2.5 };
   });
   // a waiter carrying a tray of champagne up and down along the windows, who stops to serve the player a glass
-  const waiter = new Person(0x24476B, 'waiter');
+  const waiter = allYear(new Person(0x24476B, 'waiter'));
   waiter.position.set(WAITER.x0, UPPER, WAITER.z);
   // the tray sits flat on the palm of the hand held out in front (the arm's turned to level, so the tray's turned back)
   const tray = new Group(); tray.position.set(0, -0.33, 0.07); tray.rotation.x = TRAY_ARM; waiter.arms[0].add(tray);
@@ -673,7 +684,11 @@ function updCrowd(c: ReturnType<typeof buildCrowd>, dt: number, clock: number) {
     gm.wait -= dt;
     if (gm.wait <= 0 && m.spin <= 0) {
       gm.wait = 3 + dice() * 5;
-      m.spin = SPIN; gm.t = 0;
+      // the machine plays its next spin from the recording, and the reels go round for as long as it sounds
+      const k = m.next;
+      m.next = (k + 1) % SPINS.length;
+      m.spin = m.len = SPINS[k].len; gm.t = 0;
+      onGuestPull.forEach(f => f(m.i, k));
       // where the reels will stop: now and then three of a kind, a win
       const win = dice() < 0.18, same = Math.floor(dice() * 20);
       m.from = m.to.map(Math.round);
@@ -685,7 +700,7 @@ function updCrowd(c: ReturnType<typeof buildCrowd>, dt: number, clock: number) {
       m.spin -= dt;
       m.lever.rotation.x = Math.sin(Math.min(1, gm.t / 0.4) * Math.PI) * 1.1;
       // each reel slows to a stop, left to right
-      const shown = m.from.map((f, i) => f + (m.to[i] - f) * (1 - Math.pow(1 - Math.min(1, gm.t / STOPS[i]), 3)));
+      const shown = m.from.map((f, i) => f + (m.to[i] - f) * (1 - Math.pow(1 - Math.min(1, gm.t / (STOPS[i] * m.len)), 3)));
       if (Math.floor(clock * 20) % 2 === 0 || m.spin <= 0) { drawReels(m.ctx, shown); m.tex.needsUpdate = true; }
       if (m.spin <= 0 && gm.joy < 0) { gm.joy = 1.4; gm.say.say(dice() < 0.25 ? 'Jackpot!' : 'Yes!'); }
     }

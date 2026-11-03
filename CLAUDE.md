@@ -14,6 +14,10 @@ Default vocabulary: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-
 
 Single-context: one `CONTEXT.md` and `docs/adr/` at the repo root. See `docs/agents/domain.md`.
 
+### Legal checks
+
+Run `/legals-update` on each new feature before its PR merges: it checks the privacy notice, the Steam content survey and the licences and credits, in three subagents. Each check also runs on its own: `legals-privacy`, `legals-steam`, `legals-licenses`. See `.claude/skills/legals-update/SKILL.md`.
+
 ## Design system
 
 Every UI, UX and art decision follows the Floe Market design system: https://claude.ai/artifact/JqnFttxGKAxxnd86gnFtgC

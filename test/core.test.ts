@@ -1,5 +1,5 @@
 // Building blocks: math helpers, item stacks/flights, walking characters.
-import { Mesh, type Object3D } from 'three';
+import { Mesh, type Object3D, SkinnedMesh } from 'three';
 import { describe, expect, it, vi } from 'vitest';
 import { animPerson, makeSled, moveEnt, Person } from '../src/characters';
 import { carrySlot, fly, Holder, updFlights } from '../src/holder';
@@ -119,46 +119,95 @@ describe('characters', () => {
     expect(p.arms[0].rotation.x).toBe(-1.25);
   });
 
-  it('draws a person in six meshes, shared with anyone dressed the same, and redresses them with the season', async () => {
+  /** The meshes drawn of `o` (what shows, and everything it's in, within it). */
+  const drawn = (o: Object3D, skip: (o: Object3D) => boolean = () => false) => {
+    const out: Mesh[] = [];
+    o.traverseVisible(c => { if (c instanceof Mesh && !skip(c)) out.push(c); });
+    return out;
+  };
+
+  it('draws someone who moves in one mesh, shared with anyone dressed the same, and redresses them with the season', async () => {
     const { setSeason } = await import('../src/season');
     const a = new Person(0x123456), b = new Person(0x123456, 'fancy');
     scene.add(a, b);
-    const drawn = (p: Person) => {
-      const out: Mesh[] = [];
-      p.traverse(o => { if (o instanceof Mesh && o.visible) out.push(o); });
-      return out;
-    };
-    expect(drawn(a)).toHaveLength(6);
-    expect(drawn(a).every(m => m.material === painted)).toBe(true);
-    // the body casts a shadow; the head and eyes never have
-    const [shell, trim] = drawn(a).filter(m => m.parent === a.body);
-    expect([shell.castShadow, trim.castShadow]).toEqual([true, false]);
-    expect(new Person(0x123456).body.children.filter(c => c instanceof Mesh).map(m => (m as Mesh).geometry))
-      .toEqual([shell.geometry, trim.geometry]);
-    const winter = shell.geometry;
+    expect(drawn(a)).toHaveLength(1);
+    const [one] = drawn(a);
+    expect(one).toBeInstanceOf(SkinnedMesh);
+    expect(one.parent).toBe(a.body);
+    expect([one.material, one.castShadow]).toEqual([painted, true]);
+    const twin = () => drawn(new Person(0x123456, 'parka', a.style))[0].geometry;
+    expect(twin()).toBe(twin());
+    const winter = one.geometry;
     setSeason(2);
-    expect(shell.geometry).not.toBe(winter);
+    expect(one.geometry).not.toBe(winter);
     expect(a.worn().some(w => w.seasons?.includes('summer'))).toBe(true);
-    expect(drawn(b)).toHaveLength(6); // a suit has nothing seasonal in summer, but still a body
+    expect(drawn(b)).toHaveLength(1); // a suit has nothing seasonal in summer, but still a body
     setSeason(0);
-    expect(shell.geometry).toBe(winter);
+    expect(one.geometry).toBe(winter);
     scene.remove(a, b);
   });
 
-  it('draws each stacked item in one call, and shares a sled\'s geometry with every other', async () => {
+  it('draws someone who stands still for good in six meshes, for the batcher to merge with the scenery round them', () => {
+    const p = new Person(0x123456, 'fancy').standStill();
+    expect(drawn(p)).toHaveLength(6);
+    expect(drawn(p).every(m => !(m instanceof SkinnedMesh) && m.material === painted)).toBe(true);
+    // the body casts a shadow; the head and eyes never have
+    const [shell, trim] = drawn(p).filter(m => m.parent === p.body);
+    expect([shell.castShadow, trim.castShadow]).toEqual([true, false]);
+    expect([...p.arms, ...p.legs].every(l => drawn(l).length === 1)).toBe(true);
+  });
+
+  it('draws each stacked item in one call', async () => {
     const { newBill, newRice, newFillet } = await import('../src/items');
     for (const m of [newBill(1), newRice(), newFillet()]) {
       expect(Array.isArray(m.material)).toBe(false);
       expect(m.geometry.groups).toHaveLength(0);
     }
-    /** The sled's own geometry (its driver's is shared by whoever dresses alike). */
-    const geos = (g: Object3D) => {
-      const s = new Set();
-      for (const c of g.children) if (!(c instanceof Person)) c.traverse(o => { if (o instanceof Mesh) s.add(o.geometry); });
-      return s;
-    };
-    const one = geos(makeSled(1, 2)), two = geos(makeSled(3, 4));
-    expect([...two].every(g => one.has(g))).toBe(true);
+  });
+
+  /** A sled's own meshes (not its driver's, shared by whoever dresses alike). */
+  const ofSled = (g: Object3D) => drawn(g, o => { for (let p: Object3D | null = o; p; p = p.parent) if (p instanceof Person) return true; return false; });
+
+  it('draws a sled in one mesh and its windscreen, shared with every sled of its colour, on either setting', async () => {
+    const { choose } = await import('../src/graphics');
+    for (const q of ['high', 'low'] as const) {
+      choose(q);
+      const one = makeSled(1, 2), two = makeSled(1, 4), other = makeSled(3, 4);
+      expect(ofSled(one)).toHaveLength(2);
+      expect(ofSled(two).map(m => m.geometry)).toEqual(ofSled(one).map(m => m.geometry));
+      // (another colour's body is its own; the windscreen's shared by all)
+      expect(ofSled(other).map(m => m.geometry).filter(g => ofSled(one).some(m => m.geometry === g))).toHaveLength(1);
+    }
+    choose('high');
+  });
+
+  it('casts a sled\'s shadow as it did: on Low its hull, nose and tyres, after the rest; on High all of it', async () => {
+    const { choose } = await import('../src/graphics');
+    const { setSeason } = await import('../src/season');
+    const body = (g: Object3D) => ofSled(g).find(m => m.material === painted)!;
+    choose('low');
+    let low = body(makeSled(0xff0000, 0x00ff00));
+    // winter: the hull and the nose cast, the skis and the seat don't
+    const own = low.geometry.drawRange.count;
+    expect(low.userData.shadowFrom).toBe(own);
+    expect(low.geometry.index!.count).toBe(own + 2 * 36);
+    low.onBeforeShadow(null!, null!, null!, null!, low.geometry, null!, null!);
+    expect([low.geometry.drawRange.start, low.geometry.drawRange.count]).toEqual([own, Infinity]);
+    low.onAfterShadow(null!, null!, null!, null!, low.geometry, null!, null!);
+    expect([low.geometry.drawRange.start, low.geometry.drawRange.count]).toEqual([0, own]);
+    setSeason(2);
+    low = body(makeSled(0xff0000, 0x00ff00));
+    // the rest of the year: the four tyres cast too
+    expect(low.geometry.index!.count - low.userData.shadowFrom).toBeGreaterThan(2 * 36 + 4 * 100);
+    setSeason(0);
+    choose('high');
+    const high = body(makeSled(0xff0000, 0x00ff00));
+    expect([high.castShadow, high.userData.shadowFrom, high.geometry.drawRange.count]).toEqual([true, undefined, Infinity]);
+    // its bodywork painted the sled's colour (white paint, in red)
+    const col = high.geometry.attributes.color.array;
+    let red = 0;
+    for (let i = 0; i < col.length; i += 3) if (col[i] === 255 && col[i + 1] === 0 && col[i + 2] === 0) red++;
+    expect(red).toBeGreaterThan(50);
   });
 
   it('builds a sled with a driver', () => {
@@ -172,15 +221,17 @@ describe('characters', () => {
     const { setSeason } = await import('../src/season');
     const sled = makeSled(0xff0000, 0x00ff00);
     scene.add(sled);
-    /** What's worn in season `s`: Low's separate skis and wheels, and High's baked pair of skis and set of wheels. */
-    const parts = (s: string) => { const r: Object3D[] = []; sled.traverse(c => { if (c.userData.seasons?.includes(s)) r.push(c); }); return r; };
-    const skis = parts('winter'), wheels = parts('summer');
-    expect([skis.length, wheels.length]).toEqual([2 + 1, 4 + 1]);
-    expect(skis.every(s => s.visible) && wheels.every(w => !w.visible)).toBe(true);
+    /** Low's body and High's. */
+    const bodies = () => { const r: Mesh[] = []; sled.traverse(c => { if (c instanceof Mesh && c.userData.bySeason) r.push(c); }); return r; };
+    expect(bodies()).toHaveLength(2);
+    const winter = bodies().map(m => m.geometry), sizes = () => bodies().map(m => m.geometry.attributes.position.count);
+    const onSkis = sizes();
     setSeason(2);
-    expect(skis.every(s => !s.visible) && wheels.every(w => w.visible)).toBe(true);
+    expect(bodies().map(m => m.geometry).some(g => winter.includes(g))).toBe(false);
+    // four wheels with their hubs are more than two skis
+    expect(sizes().every((n, i) => n > onSkis[i])).toBe(true);
     setSeason(0);
-    expect(skis.every(s => s.visible) && wheels.every(w => !w.visible)).toBe(true);
+    expect(bodies().map(m => m.geometry)).toEqual(winter);
     scene.remove(sled);
   });
 

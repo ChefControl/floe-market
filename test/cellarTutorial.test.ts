@@ -4,6 +4,8 @@
 // won, the cooking game, the gong, what wins it; then its prize at the shop counter), never what stage 1 taught; each
 // idea explained as it happens. A save from before it counts what it has done down there.
 import { describe, expect, it } from 'vitest';
+import { PRACTICE } from '../src/fight';
+import { FACE } from '../src/icons/bosses';
 import { bought, FLOE_SUSHI, loadGame, MARKET, type SaveFixture } from './helpers';
 
 const $ = (id: string) => document.getElementById(id)!;
@@ -241,7 +243,7 @@ describe("the cellar's tutorial", () => {
     g.run(0.1);
     expect(tut.learntLessons()).toContain('bench');
     expect($('banner').textContent).toContain('Tutorial complete');
-    expect($('banner').textContent).toContain('Now take on Hakkaku 🐙');
+    expect($('banner').textContent).toContain(`Now take on Hakkaku ${FACE.octopus}`);
   }, 60_000); // 22.7 s of 30 on CI under coverage
 
   it('while the doors are shut, the champion trains by the teppo post, and the gong opens them too', async () => {
@@ -276,12 +278,13 @@ describe("the cellar's tutorial", () => {
     // the gong calls him in, not Hakkaku, and the bubble keeps out of its panel's way
     expect($('gong').hidden).toBe(false);
     expect($('gongBoss').textContent).toBe('Sparring partner');
-    expect([...$('gongCrowd').children].map(c => c.textContent)).toEqual(['🤼 Practice', '👥 40', '💪 21', '🔔 30 s', '🐡 35']);
+    expect([...$('gongCrowd').children].map(c => c.textContent)).toEqual([`${PRACTICE.face} Practice`, '👥 40', '💪 21', '🔔 30 s', '🐡 35']);
     expect($('coach').hidden).toBe(true);
     expect(fight.ringGong()).toBe(true);
     expect(F().rush!.n).toBe(40);
     g.run(0.1);
     expect(ring.partner.visible).toBe(false); // (in the ring, not at the teppo post)
+    expect($('fightBanner').textContent).toBe(`入場${PRACTICE.face}PRACTICESparring partner · 40\u00a0fans💪 21 TO WIN`);
     // 21 of his 40, by the bell
     g.runUntil(() => { while (F().rush!.turned + F().stall.length < 21 && fight.toStall(false)); return F().rush!.done; }, 31 + fight.WALK_IN);
     expect(F().rush!.win).toBe(true);
@@ -292,7 +295,7 @@ describe("the cellar's tutorial", () => {
     expect(fight.nextBoss()!.name).toBe('Hakkaku');
     expect(g.wallet.money - money).toBeGreaterThanOrEqual(35 * fight.CHIP);
     expect($('fightCard').textContent).toContain('PRACTICE WON');
-    expect($('fightCard').textContent).toContain('Next: Hakkaku 🐙 · hire a washer and salter');
+    expect($('fightCard').textContent).toContain(`Next: Hakkaku ${FACE.octopus} · hire a washer and salter`);
     g.run(0.1);
     expect(tut.learntLessons()).not.toContain('gong');
     $('fightCard').click();
@@ -300,7 +303,7 @@ describe("the cellar's tutorial", () => {
     expect(tut.learntLessons()).toContain('gong');
     expect($('banner').textContent).toContain('Well done');
     expect($('banner').textContent).toContain('Tutorial complete');
-    expect($('banner').textContent).toContain('Now take on Hakkaku 🐙');
+    expect($('banner').textContent).toContain(`Now take on Hakkaku ${FACE.octopus}`);
     // and the practice is over for good, saved
     g.saveMod.save();
     expect(JSON.parse(localStorage.getItem('floe-market-v1')!).ring.practice).toBe(false);

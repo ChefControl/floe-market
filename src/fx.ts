@@ -7,7 +7,7 @@ import {
   Color, CylinderGeometry, DoubleSide, type BufferGeometry, InstancedMesh, type Material, Matrix4, Mesh,
   MeshBasicMaterial, MeshLambertMaterial, OctahedronGeometry, Quaternion, RingGeometry, Euler, Vector3,
 } from 'three';
-import { isHigh, onQuality } from './graphics';
+import { highBuilt, isHigh, onQuality } from './graphics';
 import { jitter, K, quietly } from './kit';
 import { scene } from './render';
 import type { XZ } from './util';
@@ -31,7 +31,10 @@ class Pool {
   readonly mesh: InstancedMesh;
   private bits: Bit[] = [];
   private free: Bit[] = [];
-  constructor(geo: BufferGeometry, material: Material, readonly cap: number, readonly kind: Kind) {
+  readonly cap: number;
+  constructor(geo: BufferGeometry, material: Material, cap: number, readonly kind: Kind) {
+    // (on Potato, which never shows them, no room for any bits: graphics.ts)
+    this.cap = cap = highBuilt ? cap : 0;
     this.mesh = new InstancedMesh(geo, material, cap);
     this.mesh.count = 0;
     this.mesh.visible = false;

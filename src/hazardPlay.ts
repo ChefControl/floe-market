@@ -66,7 +66,7 @@ root.innerHTML = `
         <div class="k-row"><button type="button" class="k-btn k-plain hz-quit">Leave</button><button type="button" class="k-btn k-main hz-stay">Keep going</button></div>
       </div>
     </div>
-    <div class="hz-turn"><span>📱↻</span><p class="k-title">Turn your phone sideways</p></div>
+    <div class="hz-turn"><span class="hz-phone"></span><p class="k-title">Turn your phone sideways</p></div>
   </div>
   <div class="hz-over" hidden>
     <h2 class="k-title hz-verdict"></h2>

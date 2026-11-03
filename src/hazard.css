@@ -17,7 +17,7 @@ body.hz-on > :not(#game):not(#hazard){ visibility:hidden !important; }
 
 #hazard .hz-hud{
   position:absolute; left:12px; top:12px; display:flex; flex-direction:column; align-items:flex-start; gap:8px;
-  pointer-events:none; font-family:"Baloo 2","Trebuchet MS",system-ui,sans-serif;
+  pointer-events:none; font-family:"Floe Emoji","Baloo 2","Trebuchet MS",system-ui,sans-serif;
 }
 #hazard .hz-hud .pill{ font-size:15px; padding:4px 14px 4px 4px; }
 /* on touch (sideways, so short): one row along the top, smaller */
@@ -51,7 +51,7 @@ body.hz-on > :not(#game):not(#hazard){ visibility:hidden !important; }
 #hazard[data-touch="1"] .hz-slot.locked{ display:none; }
 #hazard .hz-slot{
   position:relative; width:84px; height:84px; border-radius:50%; display:flex; flex-direction:column; align-items:center;
-  justify-content:center; line-height:1.05; font:800 18px/1.05 "Baloo 2","Trebuchet MS",system-ui,sans-serif;
+  justify-content:center; line-height:1.05; font:800 18px/1.05 "Floe Emoji","Baloo 2","Trebuchet MS",system-ui,sans-serif;
   background:var(--c); color:var(--c-ink, var(--ink)); box-shadow:0 4px 0 rgba(0,0,0,.35); cursor:pointer; touch-action:none;
 }
 #hazard .hz-slot > span{ font-size:26px; }
@@ -83,7 +83,7 @@ body.hz-on > :not(#game):not(#hazard){ visibility:hidden !important; }
 #hazard .hz-tags{ position:absolute; inset:0; pointer-events:none; overflow:hidden; }
 #hazard .hz-tag{
   position:absolute; left:0; top:0; translate:-50% -100%; will-change:transform;
-  font:800 16px/1 "Baloo 2","Trebuchet MS",system-ui,sans-serif;
+  font:800 16px/1 "Floe Emoji","Baloo 2","Trebuchet MS",system-ui,sans-serif;
 }
 #hazard .hz-coat{ font-size:22px; filter:drop-shadow(0 2px 0 rgba(0,0,0,.45)); }
 #hazard .hz-ticket, #hazard .hz-serve{
@@ -138,5 +138,8 @@ body.hz-on > :not(#game):not(#hazard){ visibility:hidden !important; }
   position:absolute; inset:0; z-index:3; display:none; flex-direction:column; align-items:center; justify-content:center; gap:12px;
   background:rgba(20,27,34,.92); color:#fff8ec;
 }
-#hazard .hz-turn > span{ font-size:56px; }
+/* (a phone drawn as a rounded frame, turning on its side over and over) */
+#hazard .hz-phone{ width:40px; height:68px; border:5px solid #fff8ec; border-radius:10px; animation:hz-turn 1.6s ease-in-out infinite; }
+@keyframes hz-turn{ 0%,25%{ transform:rotate(0); } 60%,100%{ transform:rotate(-90deg); } }
+@media (prefers-reduced-motion: reduce){ #hazard .hz-phone{ animation:none; transform:rotate(-90deg); } }
 #hazard[data-upright="true"] .hz-turn{ display:flex; }

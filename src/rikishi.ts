@@ -8,7 +8,7 @@
 import { Group, type Mesh, type Object3D, SphereGeometry } from 'three';
 import { type Beast, BEASTS, type Kit, type Look } from './creatures';
 import { isHigh, onQuality } from './graphics';
-import { Build, dice, K, quietly, shade } from './kit';
+import { Build, dice, K, letGo, quietly, shade } from './kit';
 
 const SKIN = 0xF3C9A4, HAIR = 0x15130F;
 /** The champion's name, and his belt: the player's colour. */
@@ -232,7 +232,7 @@ export class RikishiModel extends Group {
         if (p.m) { p.at.remove(p.m); p.m.geometry.dispose(); p.m = undefined; }
         const b = new Build();
         p.make(b, this.skin, this.belt, this.f);
-        if (!b.empty) { p.m = add(p.at, b.mesh(false)); p.m.visible = isHigh(); }
+        if (!b.empty) { p.m = add(p.at, b.mesh(false)); p.m.visible = isHigh(); letGo(p.m); }
       }
     }, fineDice);
   }

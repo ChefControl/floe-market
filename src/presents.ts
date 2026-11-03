@@ -3,7 +3,7 @@
 // into the yard.
 import { BoxGeometry, Group, type Mesh } from 'three';
 import { decal, drawTile } from './decals';
-import { isHigh, onQuality } from './graphics';
+import { highBuilt, isHigh, onQuality } from './graphics';
 import { at, Build, quietly } from './kit';
 import { HOUSE_PATH_Z, pushOutOfBox } from './layout';
 import { popIn } from './pop';
@@ -98,7 +98,8 @@ scene.add(pile);
 let newest: Group | null = null;
 /**
  * High: the same presents with rounded edges and proper bows (propsWorld.ts), the whole pile one mesh. The newest has
- * its own High version in its group, beside its Low one.
+ * its own High version in its group, beside its Low one. On a load that didn't build High (Potato) they're still baked,
+ * to keep the scenery's dice in step, but not kept.
  */
 const pileHi = quietly(() => new Group());
 scene.add(pileHi);
@@ -131,7 +132,9 @@ function rebuild(upTo: number) {
   for (const [colour, ps] of byColour) pile.add(mesh(bake(ps), colour, 0, 0, 0, true));
   pileHi.children.forEach(m => (m as Mesh).geometry.dispose());
   pileHi.clear();
-  if (upTo) quietly(() => pileHi.add(bakeHigh(gifts.slice(0, upTo), [0, 0, 0])));
+  if (!upTo) return;
+  const hi = quietly(() => bakeHigh(gifts.slice(0, upTo), [0, 0, 0]));
+  if (highBuilt) pileHi.add(hi);
 }
 
 /** Snubs, in turn, for every present after the first. */
@@ -157,7 +160,7 @@ export function givePresents(n = 1, silent = false) {
   if (newest) {
     scene.remove(newest);
     newestLo!.children.forEach(m => (m as Mesh).geometry.dispose());
-    newestHi!.geometry.dispose();
+    newestHi?.geometry.dispose();
     newest = newestLo = newestHi = null;
   }
   // a full pile only needs baking again to fold the last one to pop in back into it
@@ -171,8 +174,10 @@ export function givePresents(n = 1, silent = false) {
     const lo: Mesh[] = [];
     for (const [colour, p] of parts(g, [0, 0, 0])) lo.push(mesh(bake([p]), colour, 0, 0, 0, true));
     [newestLo, newestHi] = quietly(() => [new Group(), bakeHigh([g], [g.x, g.y, g.z])]);
+    if (!highBuilt) newestHi = null;
     newestLo.add(...lo);
-    newest.add(newestLo, newestHi);
+    newest.add(newestLo);
+    if (newestHi) newest.add(newestHi);
     showPile();
     scene.add(newest);
     popIn(newest);
