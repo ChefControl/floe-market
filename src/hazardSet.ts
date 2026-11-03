@@ -876,6 +876,9 @@ export function drawSet(run: Run | null, dt: number, view: ChefView) {
   kick *= Math.exp(-dt * 14);
   c.p.arms[0].rotation.x = -1.45 - 0.45 * kick;
   c.p.body.position.z = -0.08 * kick;
+  // where the gun's tip is, against where the rules fire from (the chef's middle): shots are drawn leaving the tip
+  c.p.updateMatrixWorld();
+  c.p.arms[0].localToWorld(muzzle.set(0, -0.72, 0.02)).sub(sv.set(cx, SHOT_Y, cz));
   // what the rules say happened this step: shots, hits, blasts (once each, however many frames show it)
   if (run.steps !== fxSeen) { fxSeen = run.steps; c.p.updateMatrixWorld(); for (const f of run.fx) happened(run, f); }
   const holding = !!run.serving;
@@ -904,6 +907,9 @@ export function drawSet(run: Run | null, dt: number, view: ChefView) {
 }
 
 const tip = new Vector3();
+/** How high shots fly, and how far the gun's tip is from where the rules fire them (the chef's middle, that high):
+ *  each shot is drawn leaving the tip, easing onto its own way over its first 1.5 m (a flame, over all of it). */
+const SHOT_Y = 0.78, muzzle = new Vector3(), OFF_EASE = 1.5;
 /** Something the rules say happened (Fx): a shot's kick, puff and shells; a hit's flash, flinch, food and splat; a blast. */
 function happened(run: Run, f: Fx) {
   const c = chef!;
@@ -1106,7 +1112,8 @@ function drawFlame(run: Run, m: InstancedMesh) {
     for (let j = 0; j < per; j++) {
       const back = j * gap, kk = Math.max(0, k - back / (gun.range * M)), side = Math.sin(run.t * 37 + i * 3.1 + j * 1.7) * 0.06 * (1 + 4 * kk);
       const size = (0.1 + 0.42 * kk) * (0.85 + 0.25 * Math.abs(Math.sin(run.t * 29 + i + j * 2.3)));
-      m4.compose(pv.set(wx(s.x) - dx * back - dz * side, 0.78 + 0.35 * kk * kk, wz(s.y) - dz * back + dx * side), q.identity(), sv.setScalar(size));
+      pv.set(wx(s.x) - dx * back - dz * side, SHOT_Y + 0.35 * kk * kk, wz(s.y) - dz * back + dx * side).addScaledVector(muzzle, 1 - kk);
+      m4.compose(pv, q.identity(), sv.setScalar(size));
       m.setMatrixAt(n, m4);
       m.setColorAt(n, flameColor(kk + 0.1 * j, fc));
       n++;
@@ -1125,13 +1132,14 @@ function drawShots(run: Run) {
     if (id === 'chili') { st.count = 0; drawFlame(run, m); continue; }
     const n = Math.min(MAX_SHOTS, run.shots.length), gun = GUNS[id];
     for (let i = 0; i < n; i++) {
-      const s = run.shots[i], a = Math.atan2(s.vx, s.vy);
+      const s = run.shots[i], a = Math.atan2(s.vx, s.vy), went = (gun.range / gun.speed - s.life) * gun.speed * M;
+      const off = Math.max(0, 1 - went / OFF_EASE);
       q.setFromAxisAngle(yAxis, a + i);
-      m4.compose(pv.set(wx(s.x), 0.78, wz(s.y)), q, sv.set(1, id === 'spud' ? 0.85 : 1, id === 'spud' ? 1.3 : 1));
+      m4.compose(pv.set(wx(s.x), SHOT_Y, wz(s.y)).addScaledVector(muzzle, off), q, sv.set(1, id === 'spud' ? 0.85 : 1, id === 'spud' ? 1.3 : 1));
       m.setMatrixAt(i, m4);
-      const len = Math.min(STREAK[id].len, (gun.range / gun.speed - s.life) * gun.speed * M);
+      const len = Math.min(STREAK[id].len, went);
       q.setFromAxisAngle(yAxis, a);
-      m4.compose(pv.set(wx(s.x) - Math.sin(a) * len / 2, 0.78, wz(s.y) - Math.cos(a) * len / 2), q, sv.set(1, 1, Math.max(0.001, len)));
+      m4.compose(pv.set(wx(s.x) - Math.sin(a) * len / 2, SHOT_Y, wz(s.y) - Math.cos(a) * len / 2).addScaledVector(muzzle, off), q, sv.set(1, 1, Math.max(0.001, len)));
       st.setMatrixAt(i, m4);
     }
     m.count = st.count = n;
