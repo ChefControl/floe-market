@@ -85,10 +85,14 @@ const CMD = {
   tape: C.amber, leather: C.plank, strap: C.bark, glove: C.slate, legs: C.ink, pad: C.tin, boot: C.frame, steel: C.stone,
   copper: C.log, bandana: C.red, lens: C.ice,
 } as const;
-// and its hazard tape round a short sleeve, the cuff of a fingerless glove, and the strap round a knee pad
+// and its hazard tape round a short sleeve, the cuff of a fingerless glove, and the strap round a knee pad; the
+// bandana, snug on the head (0.2 round) and deeper than a cap (82° down from its top), and the rolled hem round its edge
 const tapeGeo = tube(0.072, 0.069, 0.05);
 const wristGeo = new TorusGeometry(0.05, 0.015, 5, 10);
 const kneeStrapGeo = new TorusGeometry(0.065, 0.01, 4, 10);
+const BANDANA_R = 0.209, BANDANA_DOWN = 82 * Math.PI / 180;
+const bandanaGeo = new SphereGeometry(BANDANA_R, 16, 9, 0, Math.PI * 2, 0, BANDANA_DOWN);
+const hemGeo = new TorusGeometry(BANDANA_R * Math.sin(BANDANA_DOWN), 0.01, 4, 22);
 /** How far forward the body's front is at height `y`, `x` across from the middle: on its ten flat sides, not a circle. */
 function bodyZ(x: number, y: number, slim = 1) {
   const r = (0.3 - (y - 0.3) * 0.08 / 0.6) * slim, seg = Math.PI / 5;
@@ -859,11 +863,16 @@ export class Person extends Group {
     this.piece(G.box, CMD.steel, -0.3, 0.28, 0.17, true).scale.set(0.012, 0.11, 0.075);
     this.piece(G.cyl, CMD.steel, 0.3, 0.33, 0.14, true).scale.set(0.009, 0.2, 0.009);
     const bowl = this.piece(domeGeo, CMD.steel, 0.3, 0.235, 0.14, true); bowl.scale.setScalar(0.25); bowl.rotation.x = Math.PI;
-    // the bandana: over the top of the head down to the brow, knotted at the back with two short tails
-    const band = this.piece(capGeo, CMD.bandana, 0, 1.045, 0.045, true); band.scale.setScalar(1.03); band.rotation.x = -0.25;
-    this.piece(G.sphere, CMD.bandana, 0, 1.07, -0.165, true).scale.set(0.055, 0.045, 0.04);
+    // the bandana: over the whole top of the head, tipped back so it comes down to the brow just over the glasses in
+    // front and to the nape behind, with a rolled hem round its edge (a shade darker), knotted at the back on the hem
+    // with two short tails hanging
+    const tip = -0.28, hem = BANDANA_R * Math.cos(BANDANA_DOWN);
+    this.piece(bandanaGeo, CMD.bandana, 0, 1.03, 0.05, true).rotation.x = tip;
+    this.piece(hemGeo, shade(CMD.bandana, 0.82), 0, 1.03 + hem * Math.cos(tip), 0.05 + hem * Math.sin(tip), true)
+      .rotation.x = -(Math.PI / 2 - tip);
+    this.piece(G.sphere, CMD.bandana, 0, 1.0, -0.17, true).scale.set(0.05, 0.042, 0.036);
     for (const s of [-1, 1]) {
-      const tail = this.piece(G.box, CMD.bandana, s * 0.035, 0.995, -0.175, true);
+      const tail = this.piece(G.box, CMD.bandana, s * 0.035, 0.93, -0.178, true);
       tail.scale.set(0.045, 0.1, 0.014); tail.rotation.set(0.25, 0, s * 0.35);
     }
     // square black glasses, in front of the eyes: frames, pale lenses, the bridge, and the arms back to the ears
