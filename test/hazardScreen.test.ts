@@ -624,6 +624,13 @@ describe('the safe house', () => {
     expect(btn(root, '.hz-hint').hidden).toBe(false);
     play.advance(0.016);
     expect(room.roomView().sheets).toBe(2);
+    // (the rack has the guns the player has, each at its look)
+    expect(room.roomView()).toMatchObject({ rack: ['spud 1'], pack: 0 });
+    house.guns.push('chili'); house.damage.chili = 2; house.damage.spud = 1;
+    play.advance(0.016);
+    expect(room.roomView()).toMatchObject({ rack: ['spud 2', 'chili 3'], pack: 3 });
+    Object.assign(house, freshHouse());
+    play.advance(0.016);
     btn(root, '[data-station="stove"]').click();
     expect(play.houseView().station).toBe('stove');
     expect(room.roomView().focus).toBe('stove');

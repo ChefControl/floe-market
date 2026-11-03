@@ -1,7 +1,7 @@
 // Cooking Hazard's safe house in 3D: the room between runs (hazardPlay.ts opens its panels, hazardHouse.ts keeps what's
 // in it). A scene and a camera of their own, drawn by the game's renderer like the street (render.ts takeover): a
 // lamplit back room with its stations in a row along the back wall, each under its sign. The Stove, the Oven, the Pantry
-// shelves, the armory's gun rack, the recipe book on its stand, and the van, nosed in through the roller door on the
+// shelves, the armory's gun rack (the guns the player has, at their looks), the recipe book on its stand, and the van, nosed in through the roller door on the
 // right. A kitchen that's still shut (no cookware for it yet) stands under a dust sheet. The camera looks over the whole
 // room, and comes in on a station when it's picked, keeping it clear of the panel on the right.
 import {
@@ -9,7 +9,9 @@ import {
   type Object3D, PerspectiveCamera, PlaneGeometry, PointLight, Raycaster, Scene, Vector2, Vector3,
 } from 'three';
 import { isHigh } from './graphics';
-import { COUNTERS, counterOpen, type CounterId } from './hazardHouse';
+import type { GunId } from './hazard';
+import { rackMeshes, lookFor } from './hazardGuns';
+import { COUNTERS, counterOpen, DAMAGE, house, type CounterId } from './hazardHouse';
 import { dice, quietly } from './kit';
 import { bakePainted, canvasTex, FONT, mesh, painted, renderer, type Part } from './render';
 import { V } from './util';
@@ -89,8 +91,6 @@ const LOOKS: Record<StationId, () => P[]> = {
   armory: () => [
     at(box, 0x4E555C, 0, 1.1, -0.1, 1.9, 2.2, 0.08),
     ...[0.6, 1.2, 1.8].map(y => at(box, 0x2A2E33, 0, y, 0.02, 1.8, 0.05, 0.12)),
-    at(box, 0x8A6A44, -0.5, 1.28, 0.1, 0.6, 0.1, 0.12), at(box, 0xD9C27A, -0.86, 1.28, 0.1, 0.1, 0.07, 0.08),
-    at(box, 0x7A848C, 0.2, 1.88, 0.1, 0.7, 0.12, 0.13), at(box, 0xC0392B, 0.45, 0.68, 0.1, 0.6, 0.14, 0.13),
     at(box, 0x5B6B3A, -0.2, 0.22, 0.3, 0.9, 0.44, 0.5), at(box, 0xF2C14E, -0.2, 0.3, 0.56, 0.5, 0.08, 0.02),
   ],
   book: () => [
@@ -109,6 +109,8 @@ const LOOKS: Record<StationId, () => P[]> = {
 
 /** The stations as built: their meshes (to pick with the mouse) and the dust sheets over the kitchens still shut. */
 const built: Partial<Record<StationId, { g: Group; sheet: Mesh | null; signMesh: Mesh }>> = {};
+/** The guns on the armory's rack (hazardGuns.ts), each at its looks. */
+let rack: ReturnType<typeof rackMeshes> | null = null;
 let made = false;
 function build() {
   if (made) return;
@@ -127,6 +129,7 @@ function build() {
     for (const id of STATION_IDS) {
       const s = STATIONS[id], g = new Group();
       g.add(baked(LOOKS[id](), 0, 0));
+      if (id === 'armory') { rack = rackMeshes(); g.add(...Object.values(rack.guns).flat(), ...rack.pack, rack.hose); }
       if (id === 'van') g.rotation.y = Math.PI / 2;
       g.position.set(s.x, 0, s.z);
       g.userData.station = id;
@@ -148,6 +151,15 @@ function dressKitchens() {
     const b = built[c]!;
     b.sheet!.visible = !counterOpen(c);
     b.g.visible = counterOpen(c);
+  }
+}
+
+/** Hangs the guns the player has on the rack, each at its look for its damage level (the empty pegs wait for the rest). */
+function dressRack() {
+  for (const [id, list] of Object.entries(rack!.guns) as [GunId, Mesh[]][]) {
+    const look = lookFor(DAMAGE[house.damage[id] ?? 0]), have = house.guns.includes(id);
+    list.forEach((m, i) => { m.visible = have && i === look - 1; });
+    if (id === 'chili') { rack!.pack.forEach((m, i) => { m.visible = have && i === look - 1; }); rack!.hose.visible = have; }
   }
 }
 
@@ -182,6 +194,7 @@ function aim(dt: number) {
 export function drawRoom(dt: number) {
   build();
   dressKitchens();
+  dressRack();
   key.castShadow = isHigh();
   aim(dt);
 }
@@ -218,4 +231,6 @@ export function stationOnScreen(id: StationId) {
 /** For tests: what the room shows. */
 export const roomView = () => ({
   focus, sheets: (['oven', 'pantry'] as const).filter(c => built[c]?.sheet?.visible).length, shadows: key.castShadow,
+  rack: rack ? (Object.entries(rack.guns) as [GunId, Mesh[]][]).flatMap(([id, list]) => list.map((m, i) => (m.visible ? `${id} ${i + 1}` : ''))).filter(Boolean) : [],
+  pack: rack ? rack.pack.findIndex(m => m.visible) + 1 : 0,
 });

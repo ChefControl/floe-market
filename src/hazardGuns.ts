@@ -130,8 +130,12 @@ export function gunMesh(gun: GunId, level: number) {
 /** The Backpack Burner's pack, in the chef's body's space (its back is -z): two chili-oil tanks with cream bands, a
  *  pressure tank between and behind them, the frame and its shoulder straps, the manifold under the tanks and the hose
  *  from it round the right side to the shoulder; a gauge and brass fittings; riveted armour plates. `shoulder` is where
- *  the right arm hangs from. */
-export function packMesh(level: number, shoulder: Vector3) {
+ *  the right arm hangs from (null: it's off, standing on the floor, with no straps or hose). */
+export function packMesh(level: number, shoulder: Vector3 | null) {
+  return mesh(bakePainted(packParts(level, shoulder)), painted, 0, 0, 0, true) as Mesh;
+}
+
+function packParts(level: number, shoulder: Vector3 | null) {
   const p: P[] = [], z0 = -0.36, y0 = 0.62;
   for (const x of [-0.095, 0.095]) {
     can(p, C.tomato, x, y0, z0, 0.078, 0.3); sphere(p, C.tomato, x, y0 + 0.15, z0, 0.078, 1, 0.8, 1); sphere(p, C.tomato, x, y0 - 0.15, z0, 0.078, 1, 0.8, 1);
@@ -149,13 +153,13 @@ export function packMesh(level: number, shoulder: Vector3) {
     B(p, C.steel, x, y0, z0, 0.014, 0.33, 0.15);
     for (const y of [y0 - 0.13, y0 + 0.13]) for (const z of [z0 - 0.05, z0 + 0.05]) sphere(p, C.brass, x + Math.sign(x) * 0.008, y, z, 0.008);
   }
+  if (!shoulder) return p;
   // the straps over the shoulders, and the hose from the manifold round the right side up to the shoulder
   const tubes: [number, number[][], number][] = [
     ...[-0.1, 0.1].map(x => [C.dark, [[x, y0 + 0.2, -0.26], [x * 1.2, 1.0, -0.12], [x * 1.3, 0.98, 0.12], [x * 1.2, 0.72, 0.24]], 0.016] as [number, number[][], number]),
     [C.ink, [[0.12, y0 - 0.25, z0], [shoulder.x * 0.6, y0 - 0.2, -0.3], [shoulder.x * 1.1, 0.6, -0.16], [shoulder.x, shoulder.y - 0.06, -0.09]], 0.02],
   ];
-  const geo = bakePainted([...p, ...tubes.map(([c, pts, r]) => ({ geo: hoseGeo(pts, r), c, at: [0, 0, 0] as [number, number, number] }))]);
-  return mesh(geo, painted, 0, 0, 0, true) as Mesh;
+  return [...p, ...tubes.map(([c, pts, r]) => ({ geo: hoseGeo(pts, r), c, at: [0, 0, 0] as [number, number, number] }))];
 }
 
 /** The hose's last stretch, in the arm's space: from the shoulder, along under the arm, into the back of the wand. */
@@ -166,3 +170,29 @@ export function armHoseMesh() {
 
 /** A hose along `pts`, `r` thick. */
 const hoseGeo = (pts: number[][], r: number): BufferGeometry => new TubeGeometry(new CatmullRomCurve3(pts.map(([x, y, z]) => new Vector3(x, y, z))), 24, r, 8);
+
+// ---------- on the armory's rack ----------
+/** Where each gun hangs on the safe house's armory rack (hazardRoom.ts), in the rack's space: its grip, and its barrel's
+ *  height on the pegs above a shelf (the Spud Cannon on the middle shelf, the Grinder Double on the top one, the
+ *  Backpack Burner's wand on the bottom one, its pack standing on the floor under it, the gauge to the room). */
+const RACK: Record<GunId, [number, number]> = { spud: [-0.38, 1.4], salt: [0.12, 2.0], chili: [0.5, 0.78] };
+/** How far the guns on the rack lean their tops out to the room (so both the Grinder Double's barrels show). */
+const RACK_TILT = 0.55, sv = new Vector3();
+const PACK_AT = new Matrix4().makeRotationY(Math.PI).setPosition(0.6, -0.34, -0.11);
+
+/** The rack's guns, each at its three looks, and the pack at its three with the hose up to the wand: all hidden, for
+ *  the room to show the ones the player has, at their looks. Side on to the room, leaning out a little, the size they
+ *  are in the hand. */
+export function rackMeshes() {
+  const guns = Object.fromEntries((Object.keys(MODELS) as GunId[]).map(id => {
+    const [x, y] = RACK[id], m = MODELS[id];
+    const to = new Matrix4().makeRotationX(RACK_TILT).scale(sv.set(GUN_K, GUN_K, GUN_K)).setPosition(x - m.grip * GUN_K, y - m.bore * GUN_K, 0.1);
+    return [id, [1, 2, 3].map(l => mesh(bakePainted(m.parts(l)).applyMatrix4(to), painted, 0, 0, 0, true) as Mesh)];
+  })) as Record<GunId, Mesh[]>;
+  const pack = [1, 2, 3].map(l => mesh(bakePainted(packParts(l, null)).applyMatrix4(PACK_AT), painted, 0, 0, 0, true) as Mesh);
+  // (from the manifold's end, round in front of the bottom shelf, into the back of the wand)
+  const [wx, wy] = RACK.chili, back = [wx + (-0.13 - MODELS.chili.grip) * GUN_K, wy - 0.03 * GUN_K, 0.1];
+  const hose = mesh(bakePainted([{ geo: hoseGeo([[0.48, 0.03, 0.25], [0.33, 0.1, 0.42], [0.3, 0.5, 0.32], [back[0] - 0.05, back[1] - 0.02, 0.14], back], 0.02), c: C.ink, at: [0, 0, 0] }]), painted, 0, 0, 0, true) as Mesh;
+  for (const m of [...Object.values(guns).flat(), ...pack, hose]) m.visible = false;
+  return { guns, pack, hose };
+}
