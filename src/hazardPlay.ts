@@ -54,7 +54,7 @@ const FEEL = { ...feel };
 /** The firing range's row: four zombies across the street ahead of the chef, and a special behind them. */
 const RANGE = {
   at: { x: 20 * U, y: 20 * U },
-  posts: [...[17.6, 19.2, 20.8, 22.4].map(y => ({ x: 27 * U, y: y * U, special: false })), { x: 30 * U, y: 20 * U, special: true }],
+  posts: [...[17.6, 19.2, 20.8, 22.4].map(y => ({ x: 25.5 * U, y: y * U, special: false })), { x: 28 * U, y: 20 * U, special: true }],
 };
 const DISH_IDS = Object.keys(DISHES) as DishId[];
 const SLOTS = 4;
