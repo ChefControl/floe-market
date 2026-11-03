@@ -143,6 +143,7 @@ From a study of shooters that feel good: animation on every shot, damage that sh
 - **Settings:** everything that changes the rules is the same on every setting. High has all of it; Low has half the casings, splats that fade slowly and no confetti; Potato has no casings, a quarter of the splats and no lost blocks. Reduced motion turns off the camera nudge and the rush's push-in.
 - **The firing range:** `?arcade=range`, in dev and demo builds only: a row of zombies that don't attack, and a panel of switches for each layer, one of which paints each crit area on the ground and counts the crits. Nothing is saved.
 - **Not in this step:** a dodge or dash, crits on tastes, flung bodies knocking others over.
+- **As built** (stand-in numbers, for step 7): pushes are speeds that die away (about a twelfth of a second's worth carries on): the Spud Rifle 96 units a second (a nudge of about 20 cm), each shotgun pellet 110, a bomb dish 360 times its quality; the Chili Sprayer takes 4% off a zombie's speed a drop. The hit-stop is 40 ms, a point-blank shotgun kill is within 2.5 m, and the touch aim pulls 60% of the way onto a zombie within about 9° of it. The mess is a canvas over the street (16 pixels a metre), sent to the graphics chip at most five times a second; on Low and Potato 4% of it fades each second. Each sound has two styles on the audition page (https://claude.ai/artifact/KyvhVbXmEkV1vmvXvHxhzL); `STYLE` in `src/hazardSound.ts` holds the picks, style a until the owner picks.
 
 ## Not decided yet
 
@@ -159,6 +160,6 @@ Later, not in v1: survivors who move into the safe house, an online scoreboard (
 3. ✅ The fight in 3D on the main renderer (`src/hazardSet.ts`, a set of its own and a camera), poly zombies and chef, and touch controls, as grilled under "The fight in 3D" above.
 4. ✅ A whole run: the van, crates and loot, the safe zone hold-out and extraction, dying, as grilled under "A whole run" above.
 5. ✅ The safe house (`src/hazardHouse.ts`, its room `src/hazardRoom.ts`): the three counters and their timing tap, the recipe book, the armory and the van, all kept in the save, as grilled under "The safe house" above.
-   - Gun feel: centre hits and crits, the shot and hit animations, pushes, the mess, the flung kill, the rush, hit-stop, the guns' sounds and the firing range, as grilled under "Gun feel" above.
+   - ✅ Gun feel: centre hits and crits, the shot and hit animations, pushes, the mess, the flung kill, the rush, hit-stop, the guns' sounds (`src/hazardSound.ts`) and the firing range, as grilled under "Gun feel" above.
 6. Content: cookware and dishes (after grilling the open questions above), special zombies and their tickets, destinations, bosses.
 7. Sound and music (through audition pages, checked for pops), the balance numbers (a headless run like the stage sims), trophies.
