@@ -13,7 +13,8 @@ function zombie(run: Run, x: number, y: number, more: Partial<Zombie> = {}): Zom
   const z: Zombie = {
     id: run.nextId++, x, y, r: 16, hp: 100, maxHp: 100, speed: 0,
     coat: null, coatT: 0, meter: 0, burnT: 0, burnSpreads: false, poison: 0, poisonT: 0, poisonFast: 0,
-    meltT: 0, freezeT: 0, twitchT: 0, lureT: 0, marinateT: 0, immuneT: 0, hasteT: 0, ticket: null, step: 0, dead: false,
+    meltT: 0, freezeT: 0, twitchT: 0, lureT: 0, marinateT: 0, immuneT: 0, hasteT: 0, ticket: null, step: 0,
+    kx: 0, ky: 0, stunT: 0, slow: 0, slowT: 0, dead: false, death: null,
     ...more,
   };
   run.zombies.push(z);
@@ -427,7 +428,7 @@ describe('the set', () => {
     for (let i = 0; i < 20; i++) play.advance(0.05);
     expect(set.setView().van).toBe('leave');
     // (a splat for every shot that hit, but never more than a few dozen)
-    const shots = Array.from({ length: 60 }, (_, i) => ({ x: W / 2 + i, y: H / 2, vx: 0, vy: 0, life: 1, dmg: 0, taste: null }));
+    const shots = Array.from({ length: 60 }, (_, i) => ({ x: W / 2 + i, y: H / 2, vx: 0, vy: 0, life: 1, dmg: 0, taste: null, gun: 'spud' as const }));
     run.shots = shots;
     play.advance(0);
     for (const s of shots) s.life = 0;

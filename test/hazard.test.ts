@@ -1,9 +1,9 @@
 // Cooking Hazard: the fight's rules (hazard.ts). The screen that plays them is in hazardScreen.test.ts.
 import { describe, expect, it } from 'vitest';
 import {
-  COAT_TIME, DISHES, GUNS, H, LEVEL_TIME, TASTE_LIST, TECHNIQUES, W, hit, hordeHp, letGo, level, newRun, pair, press,
-  reload, ringNeed, shove, startServe, step, stripPos, technique, throwDish,
-  type Input, type Loadout, type Run, type Taste, type Zombie,
+  COAT_TIME, CRIT_K, DISHES, GUNS, H, LEVEL_TIME, RUSH_GAP, RUSH_K, TASTE_LIST, TECHNIQUES, W, centre, feel, hit, hordeHp,
+  letGo, level, lineUp, newRun, pair, press, pullAim, reload, ringNeed, shove, startServe, step, stripPos, technique,
+  throwDish, type Input, type Loadout, type Run, type Taste, type Zombie,
 } from '../src/hazard';
 import { OPEN } from '../src/hazardMap';
 
@@ -19,7 +19,8 @@ function zombie(run: Run, x: number, y: number, more: Partial<Zombie> = {}): Zom
   const z: Zombie = {
     id: run.nextId++, x, y, r: 16, hp: 100, maxHp: 100, speed: 0,
     coat: null, coatT: 0, meter: 0, burnT: 0, burnSpreads: false, poison: 0, poisonT: 0, poisonFast: 0,
-    meltT: 0, freezeT: 0, twitchT: 0, lureT: 0, marinateT: 0, immuneT: 0, hasteT: 0, ticket: null, step: 0, dead: false,
+    meltT: 0, freezeT: 0, twitchT: 0, lureT: 0, marinateT: 0, immuneT: 0, hasteT: 0, ticket: null, step: 0,
+    kx: 0, ky: 0, stunT: 0, slow: 0, slowT: 0, dead: false, death: null,
     ...more,
   };
   run.zombies.push(z);
@@ -301,5 +302,166 @@ describe('the gun, the shove and the run', () => {
     expect(n.burnSpreads).toBe(false);
     for (let i = 0; i < 10; i++) step(run, 0.1, still);
     expect(run.zombies).not.toContain(z);
+  });
+});
+
+describe('gun feel', () => {
+  /** Fires one trigger pull at `z` (its middle, or `off` units to one side) and lets the shots land. */
+  function shoot(run: Run, z: Zombie, off = 0) {
+    // (aimed `off` to one side, square to the way to it)
+    const p = run.player, d = Math.hypot(z.x - p.x, z.y - p.y) || 1;
+    run.cooldown = 0;
+    step(run, 0.001, { ...still, aim: { x: z.x - (z.y - p.y) / d * off, y: z.y + (z.x - p.x) / d * off }, fire: true });
+    const fx = [...run.fx];
+    for (let i = 0; i < 40 && run.shots.length; i++) { step(run, 0.01, still); fx.push(...run.fx); }
+    return fx;
+  }
+
+  it('hits harder nearer the middle: a crit in its middle third, half at the edge of where a shot counts', () => {
+    expect(centre(0, 16)).toEqual({ k: CRIT_K, crit: true });
+    expect(centre(5, 16).crit).toBe(true);
+    expect(centre(6, 16)).toEqual({ k: 1, crit: false });
+    expect(centre(13, 16).k).toBe(1);
+    expect(centre(20, 16).k).toBeCloseTo(0.5);
+    expect(centre(16.5, 16).k).toBeGreaterThan(0.5);
+    expect(centre(16.5, 16).k).toBeLessThan(1);
+  });
+
+  it('crits a zombie shot in the middle, does less to one grazed, and the Chili Sprayer does the same wherever it lands', () => {
+    const run = quiet(), z = zombie(run, W / 2 + 200, H / 2);
+    const fx = shoot(run, z);
+    expect(z.hp).toBeCloseTo(100 - GUNS.spud.dmg * CRIT_K);
+    expect(fx.some(f => f.kind === 'hit' && f.crit)).toBe(true);
+    const g = zombie(run, W / 2 + 200, H / 2 + 300);
+    shoot(run, g, 18);
+    expect(g.hp).toBeGreaterThan(100 - GUNS.spud.dmg);
+    expect(g.hp).toBeLessThan(100 - GUNS.spud.dmg / 2);
+    const chili = quiet({ gun: 'chili', dishes: [] }), c = zombie(chili, W / 2 + 100, H / 2), e = zombie(chili, W / 2 + 100, H / 2 + 200);
+    for (const [z, off] of [[c, 0], [e, 18]] as const) {
+      expect(shoot(chili, z, off).find(f => f.kind === 'hit')).toMatchObject({ k: 1, crit: false });
+    }
+  });
+
+  it('judges each shotgun pellet on its own, and fills a taste\'s ring by the shot\'s own damage, crit or not', () => {
+    const run = quiet({ gun: 'salt', dishes: [] }), z = zombie(run, W / 2 + 80, H / 2, { hp: 1000, maxHp: 1000 });
+    shoot(run, z);
+    const p = GUNS.salt;
+    expect(z.hp).toBeCloseTo(1000 - p.pellets * p.dmg * CRIT_K);
+    expect(z.meter).toBeCloseTo(p.pellets * p.dmg / ringNeed(z));
+  });
+
+  it('can switch the middle off (the firing range)', () => {
+    const run = quiet(), z = zombie(run, W / 2 + 200, H / 2);
+    feel.centre = false;
+    try { shoot(run, z); } finally { feel.centre = true; }
+    expect(z.hp).toBeCloseTo(100 - GUNS.spud.dmg);
+  });
+
+  it('nudges with the Spud Rifle, knocks back and stops with the shotgun, slows with the Chili Sprayer; specials half', () => {
+    const spud = quiet(), a = zombie(spud, W / 2 + 200, H / 2, { hp: 1000, maxHp: 1000 });
+    shoot(spud, a);
+    for (let i = 0; i < 30; i++) step(spud, 0.02, still);
+    const nudge = a.x - (W / 2 + 200);
+    expect(nudge).toBeGreaterThan(5);
+    expect(nudge).toBeLessThan(20);
+
+    const salt = quiet({ gun: 'salt', dishes: [] }), b = zombie(salt, W / 2 + 80, H / 2, { hp: 1000, maxHp: 1000, speed: 50 });
+    shoot(salt, b);
+    expect(b.stunT).toBeGreaterThan(0.2);
+    for (let i = 0; i < 10; i++) step(salt, 0.02, still);
+    expect(b.x - (W / 2 + 80)).toBeGreaterThan(nudge * 3);
+    const s = zombie(salt, W / 2 + 80, H / 2 + 200, { hp: 1000, maxHp: 1000, ticket: ['sweet', 'sour'] });
+    shoot(salt, s);
+    expect(s.stunT).toBeLessThan(0.16);
+
+    const chili = quiet({ gun: 'chili', dishes: [] }), c = zombie(chili, W / 2 + 100, H / 2, { hp: 1000, maxHp: 1000 });
+    for (let i = 0; i < 20; i++) shoot(chili, c);
+    expect(c.slow).toBeCloseTo(0.4);
+    expect(c.kx).toBe(0);
+    step(chili, 0.6, still);
+    expect(c.slow).toBe(0);
+    const t = zombie(chili, W / 2 + 100, H / 2 + 200, { hp: 1000, maxHp: 1000, ticket: ['sweet', 'sour'] });
+    for (let i = 0; i < 20; i++) shoot(chili, t);
+    expect(t.slow).toBeCloseTo(0.2);
+  });
+
+  it('keeps how each was killed: flung by the shot, further by a crit, furthest by a dish; a burn just drops them', () => {
+    const run = quiet(), a = zombie(run, W / 2 + 200, H / 2, { hp: 5 });
+    shoot(run, a, 10);
+    expect(a.death).toMatchObject({ fling: GUNS.spud.fling, crit: false });
+    expect(a.death!.dx).toBeCloseTo(1);
+    const b = zombie(run, W / 2 + 200, H / 2, { hp: 5 });
+    shoot(run, b);
+    expect(b.death).toMatchObject({ crit: true });
+    expect(b.death!.fling).toBeGreaterThan(GUNS.spud.fling);
+    expect(b.death!.over).toBeCloseTo(15);
+    const c = zombie(run, W / 2 - 300, H / 2, { hp: 1 });
+    run.serving = { slot: 0, typed: 4, ready: true, smudge: 0 };
+    throwDish(run, c);
+    step(run, 0.6, still);
+    expect(c.death!.fling).toBeGreaterThan(b.death!.fling);
+    expect(run.fx.some(f => f.kind === 'blast') && run.fx.some(f => f.kind === 'stop')).toBe(true);
+    const d = zombie(run, 300, 500, { hp: 0.1, burnT: 1 });
+    step(run, 0.1, still);
+    expect(d.dead).toBe(true);
+    expect(d.death).toBeNull();
+  });
+
+  it('stops for a big hit: a point-blank shotgun kill, a crit that kills a special', () => {
+    const salt = quiet({ gun: 'salt', dishes: [] }), z = zombie(salt, W / 2 + 50, H / 2, { hp: 5 });
+    expect(shoot(salt, z).some(f => f.kind === 'stop')).toBe(true);
+    const spud = quiet(), a = zombie(spud, W / 2 + 200, H / 2, { hp: 5 });
+    expect(shoot(spud, a).some(f => f.kind === 'stop')).toBe(false);
+    const s = zombie(spud, W / 2 + 200, H / 2, { hp: 5, ticket: ['sweet', 'sour'] });
+    expect(shoot(spud, s).some(f => f.kind === 'stop')).toBe(true);
+  });
+
+  it('rushes when four go down in a second: the world slow, the chef not, and not again for a while', () => {
+    const run = quiet(), zs = [0, 1, 2, 3].map(i => zombie(run, 400 + i * 100, 200, { hp: 1 }));
+    for (const z of zs.slice(0, 3)) hit(run, z, 5, null);
+    expect(run.rushT).toBe(0);
+    hit(run, zs[3], 5, null);
+    expect(run.rushT).toBeGreaterThan(0);
+    const w = zombie(run, 100, 100, { speed: 100 }), x0 = w.x, p0 = run.player.x;
+    step(run, 0.1, { ...still, move: { x: 1, y: 0 } });
+    const crawled = Math.hypot(w.x - x0, w.y - 100);
+    expect(crawled).toBeCloseTo(100 * 0.1 * RUSH_K, 0);
+    expect(run.player.x - p0).toBeGreaterThan(20);
+    for (let i = 0; i < 10; i++) step(run, 0.1, still);
+    expect(run.rushT).toBe(0);
+    const more = [0, 1, 2, 3].map(i => zombie(run, 400 + i * 100, 400, { hp: 1 }));
+    for (const z of more) hit(run, z, 5, null);
+    expect(run.rushT).toBe(0);
+    for (let i = 0; i < RUSH_GAP * 10; i++) step(run, 0.1, still);
+    const again = zombie(run, 700, 600, { coat: 'spicy', coatT: 4 });
+    hit(run, again, 1, 'sweet');
+    expect(run.rushT).toBeGreaterThan(0);
+  });
+
+  it('lines up the first zombie a shot would meet, and pulls a thumb\'s aim onto the nearest in a narrow cone', () => {
+    const run = quiet(), a = zombie(run, W / 2 + 300, H / 2), b = zombie(run, W / 2 + 150, H / 2 + 10);
+    expect(lineUp(run, { x: W, y: H / 2 })).toEqual({ z: b, crit: false });
+    expect(lineUp(run, b)).toEqual({ z: b, crit: true });
+    expect(lineUp(run, { x: W / 2, y: 0 })).toBeNull();
+    void a;
+    const toB = Math.atan2(10, 150);
+    expect(Math.abs(pullAim(run, 0.1) - toB)).toBeLessThan(Math.abs(0.1 - toB));
+    expect(pullAim(run, 1.2)).toBe(1.2);
+  });
+
+  it('keeps a row of zombies at the firing range\'s posts, standing still, and puts them back when they go down', () => {
+    const posts = [{ x: 800, y: 300, special: false }, { x: 900, y: 360, special: true }];
+    const run = newRun({ gun: 'spud', dishes: [] }, () => 0.5, { town: OPEN, at: { x: 400, y: 300 }, range: posts });
+    step(run, 0.01, still);
+    expect(run.zombies).toHaveLength(2);
+    expect(run.zombies[1].ticket).not.toBeNull();
+    for (let i = 0; i < 50; i++) step(run, 0.1, still);
+    expect(run.zombies[0].x).toBe(800);
+    expect(run.player.hp).toBe(100);
+    hit(run, run.zombies[0], 1000, null);
+    step(run, 0.5, still);
+    expect(run.zombies).toHaveLength(1);
+    step(run, 1, still);
+    expect(run.zombies).toHaveLength(2);
   });
 });
