@@ -4,6 +4,7 @@ import {
 } from 'three';
 import { highBuilt, isHigh, onQuality } from './graphics';
 import { pack, type Piece as KitPiece } from './kit';
+import { C } from './palette';
 import { detailMarked, sledParts, sledQuietly } from './propsMachines';
 import { G, mat, mesh, painted, scene } from './render';
 import { current, onSeason, type Season } from './season';
@@ -14,8 +15,9 @@ export const PARKAS = [0xF2B33D, 0x7A6FF0, 0x3FA37C, 0xE85D75, 0x5B8DEF, 0xF08A4
 /** Suit colours for the sushi bar's well-dressed diners (the women wear DRESSES, wardrobe.ts). */
 export const SUITS = [0x22303C, 0x3B3F6B, 0x5A2E3A, 0x2F4A44, 0x4A4F57];
 
-/** Everyday clothes (a parka in winter), a diner's evening clothes, a sushi chef's whites, a farmer's straw hat, or a server's indigo. */
-export type Look = 'parka' | 'fancy' | 'chef' | 'farmer' | 'waiter' | 'yakuza' | 'hooligan';
+/** Everyday clothes (a parka in winter), a diner's evening clothes, a sushi chef's whites, a farmer's straw hat, a
+ *  server's indigo, the fight crowd's suits and tracksuits, or Cooking Hazard's kitchen commando. */
+export type Look = 'parka' | 'fancy' | 'chef' | 'farmer' | 'waiter' | 'yakuza' | 'hooligan' | 'commando';
 
 // ---------- seasonal clothes ----------
 const ALL: Season[] = ['winter', 'spring', 'summer', 'fall'];
@@ -78,6 +80,15 @@ const ringGeo = new CylinderGeometry(1, 1, 1, 10, 1, true);
 /** The body tapers in from 0.3 across at the hem (0.3 up) to 0.22 at the shoulders (0.9 up); this leans its front back. */
 const SLOPE = Math.atan2(0.08, 0.6);
 const DENIM = 0x3D5A80;
+/** The kitchen commando's (Cooking Hazard's chef) colours, besides the jacket, which is the person's. */
+const CMD = {
+  tape: C.amber, leather: C.plank, strap: C.bark, glove: C.slate, legs: C.ink, pad: C.tin, boot: C.frame, steel: C.stone,
+  copper: C.log, bandana: C.red, lens: C.ice,
+} as const;
+// and its hazard tape round a short sleeve, the cuff of a fingerless glove, and the strap round a knee pad
+const tapeGeo = tube(0.072, 0.069, 0.05);
+const wristGeo = new TorusGeometry(0.05, 0.015, 5, 10);
+const kneeStrapGeo = new TorusGeometry(0.065, 0.01, 4, 10);
 /** How far forward the body's front is at height `y`, `x` across from the middle: on its ten flat sides, not a circle. */
 function bodyZ(x: number, y: number, slim = 1) {
   const r = (0.3 - (y - 0.3) * 0.08 / 0.6) * slim, seg = Math.PI / 5;
@@ -453,7 +464,7 @@ export class Person extends Group {
     } else {
       // Low: blocks for arms and legs, in the shirt's colour and the trousers'
       for (const a of this.arms) this.piece(G.arm, color, 0, -0.15, 0, true, a);
-      for (const l of this.legs) this.piece(G.leg, look === 'yakuza' ? SUIT_LEGS : st.legs, 0, -0.15, 0, true, l);
+      for (const l of this.legs) this.piece(G.leg, look === 'yakuza' ? SUIT_LEGS : look === 'commando' ? CMD.legs : st.legs, 0, -0.15, 0, true, l);
     }
     this.face(st);
     if (look === 'fancy') this.dressUp(st, color, this.mixed);
@@ -463,7 +474,9 @@ export class Person extends Group {
     if (look === 'parka') this.everyday(st, color);
     if (look === 'yakuza') this.yakuza(st);
     if (look === 'hooligan') this.hooligan(st, color);
-    if (this.mixed) this.features(st, look === 'parka' && st.summer === 'shades', look === 'yakuza' && st.summer !== 'sunhat');
+    if (look === 'commando') this.commando(color, slim);
+    // (the commando's own square glasses stand in for the style's)
+    if (this.mixed) this.features(look === 'commando' ? { ...st, glasses: null } : st, look === 'parka' && st.summer === 'shades', look === 'yakuza' && st.summer !== 'sunhat');
     // a scarf for the cold, over the suit or the farmer's shirt
     if (look === 'fancy' || look === 'farmer') this.scarf(['winter', 'fall'], look === 'fancy' ? 0xF4EBDD : KNITS[n % KNITS.length]);
     if (this.bandColor !== null) this.tied(this.bandColor);
@@ -520,11 +533,11 @@ export class Person extends Group {
    * (farmers wear green wellies all year). What's always on a leg stays on under a disguise, which has its own arms.
    */
   private limbsFor(st: Style, color: number) {
-    const everyday = this.look === 'parka', farmer = this.look === 'farmer';
-    const shoes = farmer ? 0x3F6B3A : this.look === 'chef' ? 0x2E3338 : this.look === 'waiter' ? 0x1F1F1F : st.shoes;
+    const everyday = this.look === 'parka', farmer = this.look === 'farmer', commando = this.look === 'commando';
+    const shoes = farmer ? 0x3F6B3A : this.look === 'chef' ? 0x2E3338 : this.look === 'waiter' ? 0x1F1F1F : commando ? CMD.boot : st.shoes;
     const hand = (a: Group, c: number, k: number, seasons?: Season[]) =>
       this.piece(ballGeo, c, 0, -0.315, 0.004, true, a, seasons).scale.set(0.05 * k, 0.056 * k, 0.05 * k);
-    for (const a of this.arms) {
+    for (const [i, a] of this.arms.entries()) {
       // the top of the arm, rounded into the shoulder
       this.piece(ballGeo, color, 0, -0.005, 0, true, a).scale.set(0.064, 0.06, 0.064);
       if (everyday) {
@@ -533,15 +546,39 @@ export class Person extends Group {
         this.piece(bareArmGeo, st.skin, 0, -0.15, 0, true, a, ['summer']);
         hand(a, st.scarfC, 1.18, ['winter']);
         hand(a, st.skin, 1, ['spring', 'summer', 'fall']);
+      } else if (commando) {
+        // a short sleeve banded in hazard tape, with black stripes slanting across its outside; a bare forearm; a
+        // fingerless glove with a cuff, the fingers showing under it
+        const out = i ? 1 : -1;
+        this.piece(shortSleeveGeo, color, 0, -0.045, 0, true, a);
+        this.piece(tapeGeo, CMD.tape, 0, -0.075, 0, true, a);
+        for (const f of [-0.55, 0, 0.55]) {
+          const s = this.piece(G.box, C.ink, out * 0.072 * Math.cos(f), -0.075, 0.072 * Math.sin(f), false, a);
+          s.scale.set(0.008, 0.05, 0.016); s.rotation.order = 'YXZ'; s.rotation.set(0.6, -out * f, 0);
+        }
+        this.piece(bareArmGeo, st.skin, 0, -0.15, 0, true, a);
+        hand(a, CMD.glove, 1.08);
+        this.piece(wristGeo, CMD.glove, 0, -0.27, 0.004, true, a).rotation.x = Math.PI / 2;
+        this.piece(dotGeo, st.skin, 0, -0.36, 0.014, false, a).scale.set(0.045, 0.028, 0.04);
       } else {
         this.piece(sleeveGeo, color, 0, -0.14, 0, true, a);
         hand(a, st.skin, 1);
       }
     }
     for (const l of this.legs) {
-      this.piece(trouserGeo, farmer ? DENIM : this.look === 'yakuza' ? SUIT_LEGS : st.legs, 0, -0.135, 0, true, l);
+      this.piece(trouserGeo, farmer ? DENIM : this.look === 'yakuza' ? SUIT_LEGS : commando ? CMD.legs : st.legs, 0, -0.135, 0, true, l);
       this.piece(shoeGeo, shoes, 0, -0.3, 0.025, true, l).scale.set(0.068, 0.072, 0.1);
       if (everyday) this.piece(shinGeo, st.skin, 0, -0.19, 0, true, l, ['summer']);
+      if (commando) {
+        // boots with a strap round the top, and a knee pad on a strap, riveted at its corners
+        this.piece(bootGeo, shoes, 0, -0.235, 0.004, true, l);
+        this.piece(bootCuffGeo, CMD.strap, 0, -0.185, 0.004, true, l).rotation.x = Math.PI / 2;
+        this.piece(G.box, CMD.pad, 0, -0.11, 0.055, true, l).scale.set(0.09, 0.085, 0.035);
+        this.piece(kneeStrapGeo, CMD.strap, 0, -0.11, 0, true, l).rotation.x = Math.PI / 2;
+        for (const x of [-0.024, 0.024]) for (const y of [-0.086, -0.134]) {
+          this.piece(dotGeo, CMD.steel, x, y, 0.074, false, l).scale.setScalar(0.008);
+        }
+      }
       if (everyday || farmer) {
         const boots = farmer ? undefined : ['winter'] as Season[];
         this.piece(bootGeo, shoes, 0, -0.235, 0.004, true, l, boots);
@@ -771,6 +808,68 @@ export class Person extends Group {
       this.piece(capGeo, 0x1E2A3A, 0, 1.045, 0.04, true).rotation.x = -0.15;
       this.piece(brimGeo, 0x1E2A3A, 0, 1.14, 0.265, true).rotation.x = -0.4;
     } else if (st.cut !== 'bald') this.hairdo(st, ALL, ALL);
+  }
+
+  /**
+   * Cooking Hazard's chef, the kitchen commando: a charcoal double-breasted jacket (the person's colour) with a stand
+   * collar and copper buttons; a quilted leather apron on straps, which wraps round the sides; a belt with a cleaver on
+   * the right hip and a ladle on the left; a red bandana knotted at the back, no hair showing; square black glasses.
+   * The banded sleeves, gloves, knee pads and boots are limbsFor's. All year.
+   */
+  private commando(color: number, slim: number) {
+    const high = this.high, r = (y: number) => (0.3 - (y - 0.3) * 0.08 / 0.6) * slim;
+    const collar = this.piece(ringGeo, shade(color, 0.8), 0, 0.9, 0.015, true); collar.scale.set(0.2, 0.05, 0.2);
+    if (high) for (const x of [-0.065, 0.065]) for (const y of [0.85, 0.79]) {
+      this.piece(dotGeo, CMD.copper, x, y, bodyZ(x, y, slim) + 0.004, true).scale.set(0.018, 0.018, 0.01);
+    }
+    // the bib: a leather panel down the front to just under the hem, leaning back with the body; on High, quilted, in
+    // pads with darker seams between (`on` places a thing on its face, `u` up it and `out` off it)
+    const S = Math.sin(SLOPE), K = Math.cos(SLOPE), cy = 0.515, h = 0.49, w = 0.36 * slim, d = 0.02;
+    const cz = r(cy) + 0.012 + d / 2;
+    const on = (c: number, u: number, x: number, out: number) => {
+      const o = this.piece(G.box, c, x, cy + u * K + out * S, cz - u * S + out * K, true); o.rotation.x = -SLOPE;
+      return o;
+    };
+    on(high ? shade(CMD.leather, 0.72) : CMD.leather, 0, 0, 0).scale.set(w, h, d);
+    if (high) for (let col = 0; col < 4; col++) for (let row = 0; row < 5; row++) {
+      on(CMD.leather, (row - 2) * h / 5, (col - 1.5) * w / 4, d / 2 + 0.006).scale.set(w / 4 - 0.012, h / 5 - 0.012, 0.012);
+    }
+    // its straps up to the shoulders
+    for (const s of [-1, 1]) {
+      const strap = this.piece(G.box, CMD.strap, s * 0.12, 0.83, bodyZ(s * 0.12, 0.83, slim) + 0.008, true);
+      strap.scale.set(0.045, 0.15, 0.014); strap.rotation.x = -SLOPE;
+    }
+    // padding down each side, leaning in with the body (three pads on High)
+    for (const s of [-1, 1]) {
+      const sx = s * (r(0.48) * Math.cos(Math.PI / 10) + 0.024), side = (c: number, u: number, out: number) => {
+        const o = this.piece(G.box, c, sx + s * out * K - s * u * S, 0.48 + u * K + out * S, 0.02, true);
+        o.rotation.z = s * SLOPE;
+        return o;
+      };
+      side(high ? shade(CMD.leather, 0.72) : CMD.leather, 0, 0).scale.set(0.024, 0.38, 0.17);
+      if (high) for (const u of [-0.125, 0, 0.125]) side(CMD.leather, u, 0.014).scale.set(0.012, 0.11, 0.15);
+    }
+    // the belt, over the apron, a steel buckle; a cleaver hung on the right hip, a ladle on the left
+    const belt = this.piece(ringGeo, CMD.strap, 0, 0.42, 0, true); belt.scale.set(0.34 * slim, 0.05, 0.34 * slim);
+    this.piece(G.box, CMD.steel, 0, 0.42, 0.345 * slim, true).scale.set(0.075, 0.05, 0.016);
+    this.piece(G.cyl, CMD.strap, -0.3, 0.37, 0.15, true).scale.set(0.016, 0.08, 0.016);
+    this.piece(G.box, CMD.steel, -0.3, 0.28, 0.17, true).scale.set(0.012, 0.11, 0.075);
+    this.piece(G.cyl, CMD.steel, 0.3, 0.33, 0.14, true).scale.set(0.009, 0.2, 0.009);
+    const bowl = this.piece(domeGeo, CMD.steel, 0.3, 0.235, 0.14, true); bowl.scale.setScalar(0.25); bowl.rotation.x = Math.PI;
+    // the bandana: over the top of the head down to the brow, knotted at the back with two short tails
+    const band = this.piece(capGeo, CMD.bandana, 0, 1.045, 0.045, true); band.scale.setScalar(1.03); band.rotation.x = -0.25;
+    this.piece(G.sphere, CMD.bandana, 0, 1.07, -0.165, true).scale.set(0.055, 0.045, 0.04);
+    for (const s of [-1, 1]) {
+      const tail = this.piece(G.box, CMD.bandana, s * 0.035, 0.995, -0.175, true);
+      tail.scale.set(0.045, 0.1, 0.014); tail.rotation.set(0.25, 0, s * 0.35);
+    }
+    // square black glasses: frames, pale lenses, the bridge, and the arms back to the ears
+    for (const s of [-1, 1]) {
+      const frame = this.piece(G.box, C.ink, s * 0.075, 1.07, 0.245); frame.scale.set(0.1, 0.068, 0.014); frame.rotation.y = s * 0.3;
+      const lens = this.piece(G.box, CMD.lens, s * 0.077, 1.07, 0.252); lens.scale.set(0.078, 0.048, 0.01); lens.rotation.y = s * 0.3;
+      this.piece(G.box, C.ink, s * 0.18, 1.075, 0.15).scale.set(0.008, 0.012, 0.15);
+    }
+    this.piece(G.box, C.ink, 0, 1.08, 0.255).scale.set(0.05, 0.014, 0.014);
   }
 
   /** A knitted scarf round the neck, one end hanging down the front. */
