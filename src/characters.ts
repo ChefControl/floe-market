@@ -849,9 +849,12 @@ export class Person extends Group {
       side(high ? shade(CMD.leather, 0.72) : CMD.leather, 0, 0).scale.set(0.024, 0.38, 0.17);
       if (high) for (const u of [-0.125, 0, 0.125]) side(CMD.leather, u, 0.014).scale.set(0.012, 0.11, 0.15);
     }
-    // the belt, over the apron, a steel buckle; a cleaver hung on the right hip, a ladle on the left
-    const belt = this.piece(ringGeo, CMD.strap, 0, 0.42, 0, true); belt.scale.set(0.34 * slim, 0.05, 0.34 * slim);
-    this.piece(G.box, CMD.steel, 0, 0.42, 0.345 * slim, true).scale.set(0.075, 0.05, 0.016);
+    // the belt: round the jacket (under the side padding) and across the apron's front, a steel buckle on it; a
+    // cleaver hung on the right hip, a ladle on the left
+    const belt = this.piece(ringGeo, CMD.strap, 0, 0.42, 0, true), rb = r(0.42) + 0.012; belt.scale.set(rb, 0.05, rb);
+    const ub = (0.42 - cy) / K;
+    on(CMD.strap, ub, 0, d / 2 + 0.016).scale.set(w + 0.03, 0.05, 0.014);
+    on(CMD.steel, ub, 0, d / 2 + 0.026).scale.set(0.075, 0.056, 0.012);
     this.piece(G.cyl, CMD.strap, -0.3, 0.37, 0.15, true).scale.set(0.016, 0.08, 0.016);
     this.piece(G.box, CMD.steel, -0.3, 0.28, 0.17, true).scale.set(0.012, 0.11, 0.075);
     this.piece(G.cyl, CMD.steel, 0.3, 0.33, 0.14, true).scale.set(0.009, 0.2, 0.009);
@@ -863,13 +866,13 @@ export class Person extends Group {
       const tail = this.piece(G.box, CMD.bandana, s * 0.035, 0.995, -0.175, true);
       tail.scale.set(0.045, 0.1, 0.014); tail.rotation.set(0.25, 0, s * 0.35);
     }
-    // square black glasses: frames, pale lenses, the bridge, and the arms back to the ears
+    // square black glasses, in front of the eyes: frames, pale lenses, the bridge, and the arms back to the ears
     for (const s of [-1, 1]) {
-      const frame = this.piece(G.box, C.ink, s * 0.075, 1.07, 0.245); frame.scale.set(0.1, 0.068, 0.014); frame.rotation.y = s * 0.3;
-      const lens = this.piece(G.box, CMD.lens, s * 0.077, 1.07, 0.252); lens.scale.set(0.078, 0.048, 0.01); lens.rotation.y = s * 0.3;
-      this.piece(G.box, C.ink, s * 0.18, 1.075, 0.15).scale.set(0.008, 0.012, 0.15);
+      const frame = this.piece(G.box, C.ink, s * 0.075, 1.065, 0.272); frame.scale.set(0.1, 0.068, 0.014); frame.rotation.y = s * 0.3;
+      const lens = this.piece(G.box, CMD.lens, s * 0.077, 1.065, 0.28); lens.scale.set(0.078, 0.048, 0.008); lens.rotation.y = s * 0.3;
+      this.piece(G.box, C.ink, s * 0.168, 1.07, 0.17).scale.set(0.008, 0.01, 0.17);
     }
-    this.piece(G.box, C.ink, 0, 1.08, 0.255).scale.set(0.05, 0.014, 0.014);
+    this.piece(G.box, C.ink, 0, 1.075, 0.282).scale.set(0.05, 0.014, 0.014);
   }
 
   /** A knitted scarf round the neck, one end hanging down the front. */
