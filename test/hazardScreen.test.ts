@@ -14,7 +14,7 @@ function zombie(run: Run, x: number, y: number, more: Partial<Zombie> = {}): Zom
     id: run.nextId++, x, y, r: 16, hp: 100, maxHp: 100, speed: 0,
     coat: null, coatT: 0, meter: 0, burnT: 0, burnSpreads: false, poison: 0, poisonT: 0, poisonFast: 0,
     meltT: 0, freezeT: 0, twitchT: 0, lureT: 0, marinateT: 0, immuneT: 0, hasteT: 0, ticket: null, step: 0,
-    kx: 0, ky: 0, stunT: 0, slow: 0, slowT: 0, dead: false, death: null,
+    kx: 0, ky: 0, stunT: 0, slow: 0, slowT: 0, heat: 0, dead: false, death: null,
     ...more,
   };
   run.zombies.push(z);
@@ -827,6 +827,27 @@ describe("the guns' feel", () => {
     play.advance(0.01);
     expect(dotEl.hidden).toBe(true);
     key('keyup', 'Digit1');
+    play.closeHazard();
+  });
+
+  it('draws the Chili Sprayer as a flame, sets what it licks burning, and scorches the street', async () => {
+    const { gfx } = await import('../src/graphics');
+    const { play, set, root, area } = await open();
+    const run = start(play, root, 'chili');
+    const z = zombie(run, run.player.x + 120, run.player.y, { hp: 1000, maxHp: 1000 });
+    gfx.quality = 'high';
+    const at = set.toScreen(z.x, z.y, 0);
+    pointer(area, 'pointermove', at.x, at.y);
+    pointer(area, 'pointerdown', at.x, at.y);
+    for (let i = 0; i < 4; i++) play.advance(0.05);
+    const v = set.setView();
+    expect(v.shots).toBeGreaterThan(run.shots.length);
+    expect(v.streaks).toBe(0);
+    expect(z.heat).toBeGreaterThan(0);
+    expect(v.burning).toBe(1);
+    expect(v.mess).toBeGreaterThan(0);
+    expect(v.stuck).toBe(0);
+    window.dispatchEvent(new MouseEvent('pointerup'));
     play.closeHazard();
   });
 

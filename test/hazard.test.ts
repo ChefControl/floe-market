@@ -1,7 +1,7 @@
 // Cooking Hazard: the fight's rules (hazard.ts). The screen that plays them is in hazardScreen.test.ts.
 import { describe, expect, it } from 'vitest';
 import {
-  COAT_TIME, CRIT_K, DISHES, GUNS, H, LEVEL_TIME, RUSH_GAP, RUSH_K, TASTE_LIST, TECHNIQUES, W, centre, feel, hit, hordeHp,
+  COAT_TIME, CRIT_K, DISHES, GUNS, H, HEAT_DPS, HEAT_MOST, HEAT_TIME, LEVEL_TIME, RUSH_GAP, RUSH_K, TASTE_LIST, TECHNIQUES, W, centre, feel, hit, hordeHp,
   letGo, level, lineUp, newRun, pair, press, pullAim, reload, ringNeed, shove, spawnGap, startServe, step, stripPos, technique,
   throwDish, type Input, type Loadout, type Run, type Taste, type Zombie,
 } from '../src/hazard';
@@ -20,7 +20,7 @@ function zombie(run: Run, x: number, y: number, more: Partial<Zombie> = {}): Zom
     id: run.nextId++, x, y, r: 16, hp: 100, maxHp: 100, speed: 0,
     coat: null, coatT: 0, meter: 0, burnT: 0, burnSpreads: false, poison: 0, poisonT: 0, poisonFast: 0,
     meltT: 0, freezeT: 0, twitchT: 0, lureT: 0, marinateT: 0, immuneT: 0, hasteT: 0, ticket: null, step: 0,
-    kx: 0, ky: 0, stunT: 0, slow: 0, slowT: 0, dead: false, death: null,
+    kx: 0, ky: 0, stunT: 0, slow: 0, slowT: 0, heat: 0, dead: false, death: null,
     ...more,
   };
   run.zombies.push(z);
@@ -457,6 +457,53 @@ describe('gun feel', () => {
     const toB = Math.atan2(10, 150);
     expect(Math.abs(pullAim(run, 0.1) - toB)).toBeLessThan(Math.abs(0.1 - toB));
     expect(pullAim(run, 1.2)).toBe(1.2);
+  });
+
+  it('sprays a flame through every zombie in its way, each once, widening as it goes; walls stop it', () => {
+    const run = quiet({ gun: 'chili', dishes: [] }), p = run.player;
+    const line = [60, 110, 160].map(d => zombie(run, p.x + d, p.y, { hp: 1000, maxHp: 1000 }));
+    const wide = zombie(run, p.x + 185, p.y + 40, { hp: 1000, maxHp: 1000 }), near = zombie(run, p.x + 40, p.y + 34, { hp: 1000, maxHp: 1000 });
+    const fx = shoot(run, line[0]);
+    const hits = fx.filter(f => f.kind === 'hit').map(f => f.kind === 'hit' && f.id);
+    expect(hits.sort()).toEqual([...line.map(z => z.id), wide.id].sort());
+    expect(near.heat).toBe(0);
+    expect(run.shots).toHaveLength(0);
+    for (const z of line) expect(z.heat).toBe(1);
+    // (nothing past a wall)
+    const walled = quiet({ gun: 'chili', dishes: [] });
+    walled.town = { ...walled.town, blocks: [{ kind: 'wall', x0: walled.player.x + 30, x1: walled.player.x + 40, y0: 0, y1: H, h: 2 }] as typeof walled.town.blocks };
+    const behind = zombie(walled, walled.player.x + 80, walled.player.y, { hp: 1000, maxHp: 1000 });
+    shoot(walled, behind);
+    expect(behind.heat).toBe(0);
+  });
+
+  it('burns with the flame\'s heat: a little a hit, then up to five stacks burning on after it\'s gone', () => {
+    const run = quiet({ gun: 'chili', dishes: [] }), z = zombie(run, run.player.x + 80, run.player.y, { hp: 1000, maxHp: 1000 });
+    for (let i = 0; i < 8; i++) shoot(run, z);
+    expect(z.heat).toBe(HEAT_MOST);
+    expect(1000 - z.hp).toBeLessThan(8 * GUNS.chili.dmg + 30);
+    const hp = z.hp;
+    step(run, 1, still);
+    expect(hp - z.hp).toBeCloseTo(HEAT_MOST * HEAT_DPS, 0);
+    for (let i = 0; i < 30; i++) step(run, 0.1, still);
+    expect(z.burnT).toBeLessThanOrEqual(0);
+    expect(z.heat).toBe(0);
+    expect(HEAT_TIME).toBe(3);
+    // a fresh zombie caught for a moment is done for within a few seconds
+    const f = zombie(run, run.player.x + 80, run.player.y + 100);
+    f.hp = f.maxHp = hordeHp(0);
+    for (let i = 0; i < 8; i++) shoot(run, f);
+    for (let i = 0; i < 30 && !f.dead; i++) step(run, 0.1, still);
+    expect(f.dead).toBe(true);
+  });
+
+  it('passes a small burn on to whoever a burning zombie touches, without its heat', () => {
+    const run = quiet({ gun: 'chili', dishes: [] }), z = zombie(run, run.player.x + 80, run.player.y, { hp: 1000, maxHp: 1000 });
+    for (let i = 0; i < 8; i++) shoot(run, z);
+    const o = zombie(run, z.x, z.y + 33, { hp: 1000, maxHp: 1000 });
+    step(run, 0.05, still);
+    expect(o.burnT).toBeGreaterThan(0);
+    expect(o.heat).toBe(0);
   });
 
   it('keeps a row of zombies at the firing range\'s posts, standing still, and puts them back when they go down', () => {

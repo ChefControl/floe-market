@@ -99,14 +99,17 @@ export interface Gun {
    *  in it; how hard a pellet pushes (a speed, in units a second, that dies away); how long it stops one; how much
    *  each drop slows one; and how far a kill with it flings the body. */
   aimed: boolean; push: number; stun: number; slow: number; fling: number;
+  /** A flame (the Chili Sprayer): through every zombie in its way, widening to `cone` either side by the end of its
+   *  reach, each hit adding heat to the zombie's burn. */
+  flame?: { cone: number };
 }
 export const GUNS: Record<GunId, Gun> = {
   spud: { name: 'Spud Rifle', emoji: '🥔', taste: null, rate: 5, dmg: 10, pellets: 1, spread: 0.015, speed: 1440, range: 700, mag: 24, reload: 1.2,
     aimed: true, push: 96, stun: 0, slow: 0, fling: 1 * U },
   salt: { name: 'Rock Salt Shotgun', emoji: '🧂', taste: 'salty', rate: 1.5, dmg: 7, pellets: 6, spread: 0.35, speed: 1280, range: 320, mag: 8, reload: 1.6,
     aimed: true, push: 110, stun: 0.3, slow: 0, fling: 3 * U },
-  chili: { name: 'Chili Sprayer', emoji: '🌶️', taste: 'spicy', rate: 14, dmg: 2.5, pellets: 1, spread: 0.18, speed: 832, range: 260, mag: 60, reload: 1.8,
-    aimed: false, push: 0, stun: 0, slow: 0.04, fling: 0 },
+  chili: { name: 'Chili Sprayer', emoji: '🌶️', taste: 'spicy', rate: 14, dmg: 0.5, pellets: 1, spread: 0.18, speed: 832, range: 5 * U, mag: 60, reload: 1.8,
+    aimed: false, push: 0, stun: 0, slow: 0.04, fling: 0, flame: { cone: 0.75 * U } },
 };
 
 // ---------- gun feel ----------
@@ -123,6 +126,12 @@ const SLOW_MOST = 0.4, SLOW_TIME = 0.5;
 export const RUSH_K = 0.35, RUSH_TIME = 0.8, RUSH_GAP = 10, RUSH_KILLS = 4;
 /** How near a shotgun kill is point-blank. */
 const POINT_BLANK = 2.5 * U;
+/** The flame's burn: how much heat a zombie can take on (a stack a hit), what each stack burns a second, how long it
+ *  burns on after the flame's left it; and how wide the flame starts, either side, at the nozzle. */
+export const HEAT_MOST = 5, HEAT_DPS = 3, HEAT_TIME = 3;
+const FLAME_START = 0.15 * U;
+/** A burn without heat (a spicy coat's, or one caught off a burning zombie) does this much a second. */
+const BURN_DPS = 4;
 
 /** The feel's layers, each switched off and on in the firing range (?arcade=range) to try it without; all on in the game. */
 export const feel = {
@@ -185,6 +194,8 @@ export interface Zombie {
   ticket: Taste[] | null; step: number;
   /** Pushed: how fast it's going that way (units a second, dying away); stopped by a shotgun; slowed by the Chili Sprayer. */
   kx: number; ky: number; stunT: number; slow: number; slowT: number;
+  /** The flame's heat on it (stacks, burning while it burns). */
+  heat: number;
   dead: boolean;
   /** How it died, for the set: a blow from a shot or a dish (null for a burn, a poison, a technique). */
   death: Blow | null;
@@ -197,6 +208,8 @@ export interface Shot {
   x: number; y: number; vx: number; vy: number; life: number; dmg: number; taste: Taste | null;
   /** The gun it's from. */
   gun: GunId;
+  /** A flame's: the zombies it's already been through (it hits each once). */
+  through?: number[];
 }
 
 /** What happened this step, for the set and the screen to show and sound: a trigger pulled, a pellet's hit, a dish's
@@ -362,7 +375,7 @@ function spawn(run: Run, special: boolean, at?: { x: number; y: number }) {
     coat: null, coatT: 0, meter: 0,
     burnT: 0, burnSpreads: false, poison: 0, poisonT: 0, poisonFast: 0,
     meltT: 0, freezeT: 0, twitchT: 0, lureT: 0, marinateT: 0, immuneT: 0, hasteT: 0,
-    ticket, step: 0, kx: 0, ky: 0, stunT: 0, slow: 0, slowT: 0, dead: false, death: null,
+    ticket, step: 0, kx: 0, ky: 0, stunT: 0, slow: 0, slowT: 0, heat: 0, dead: false, death: null,
   };
   run.zombies.push(z);
   return z;
@@ -609,6 +622,8 @@ function shotHit(run: Run, s: Shot, z: Zombie, x0: number, y0: number) {
   push(z, dx, dy, gun.push * c.k);
   if (feel.push && gun.stun) z.stunT = Math.max(z.stunT, gun.stun * (z.ticket ? 0.5 : 1));
   if (feel.push && gun.slow) { z.slow = Math.min(SLOW_MOST * (z.ticket ? 0.5 : 1), z.slow + gun.slow); z.slowT = SLOW_TIME; }
+  // (the flame's real damage: heat, burning on after it's gone)
+  if (gun.flame && !z.dead) { z.heat = Math.min(HEAT_MOST, z.heat + 1); z.burnT = Math.max(z.burnT, HEAT_TIME); }
   const ticket = z.ticket && z.step > was ? z.ticket[z.step - 1] : null;
   run.fx.push({ kind: 'hit', id: z.id, x: z.x, y: z.y, dx, dy, gun: s.gun, crit: c.crit, k: c.k, taste: s.taste, ticket, killed: z.dead });
   // a big hit: a shotgun kill point-blank, a crit that kills a special
@@ -646,6 +661,7 @@ function fire(run: Run, aim: { x: number; y: number }) {
     run.shots.push({
       x: p.x, y: p.y, vx: Math.cos(ang) * gun.speed, vy: Math.sin(ang) * gun.speed,
       life: gun.range / gun.speed, dmg: gun.dmg * run.dmgK * (boosted ? GARNISH_K : 1), taste: gun.taste, gun: run.loadout.gun,
+      ...(gun.flame ? { through: [] } : {}),
     });
   }
   run.fx.push({ kind: 'shot', gun: run.loadout.gun, dx: Math.cos(a), dy: Math.sin(a) });
@@ -820,6 +836,18 @@ export function step(run: Run, dt: number, input: Input) {
     // (a wall stops it where it meets it)
     const wall = wallAlong(x0, y0, s.x, s.y, blocks);
     if (wall !== null) { s.x = x0 + (s.x - x0) * wall; s.y = y0 + (s.y - y0) * wall; }
+    const flame = GUNS[s.gun].flame;
+    if (flame && s.through) {
+      // a flame goes through everyone in its way, widening as it goes, each of them once
+      const k = 1 - Math.max(0, s.life) / (GUNS[s.gun].range / GUNS[s.gun].speed), wide = FLAME_START + (flame.cone - FLAME_START) * k;
+      for (const o of run.zombies) {
+        if (o.dead || s.through.includes(o.id) || toSegment(o, x0, y0, s.x, s.y) > o.r + wide) continue;
+        s.through.push(o.id);
+        shotHit(run, s, o, x0, y0);
+      }
+      if (wall !== null) s.life = 0;
+      continue;
+    }
     const z = run.zombies.find(o => !o.dead && toSegment(o, x0, y0, s.x, s.y) <= o.r + SHOT_SLACK);
     if (z) { s.life = 0; shotHit(run, s, z, x0, y0); } else if (wall !== null) s.life = 0;
   }
@@ -859,7 +887,9 @@ export function step(run: Run, dt: number, input: Input) {
       if (Math.abs(z.kx) + Math.abs(z.ky) < 1) z.kx = z.ky = 0;
     }
     if (z.burnT > 0) {
-      z.burnT -= dt; hurt(run, z, 4 * dt);
+      // (the flame's heat burns hotter; a coat's or a caught burn, the same as ever)
+      z.burnT -= dt; hurt(run, z, (z.heat ? HEAT_DPS * z.heat : BURN_DPS) * dt);
+      if (z.burnT <= 0) z.heat = 0;
       // a burn from a hit catches on whoever it touches (theirs doesn't spread further)
       if (z.burnSpreads) for (const o of near(run, z, z.r + 2, z)) if (o.burnT <= 0) { o.burnT = 1; o.burnSpreads = false; }
     }

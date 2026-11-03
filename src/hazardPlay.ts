@@ -36,7 +36,7 @@ import {
 import { STATIONS, STATION_IDS, drawRoom, focusOn, renderRoom, stationAt, type StationId } from './hazardRoom';
 import { U } from './hazardMap';
 import { drawSet, dressChef, headOf, renderSet, resetView, toArena, toScreen } from './hazardSet';
-import { blastSound, critSound, gunSound, hitSound, rushSound, shellSound } from './hazardSound';
+import { blastSound, crackle, critSound, flameSound, gunSound, hitSound, rushSound, shellSound } from './hazardSound';
 import { dice } from './kit';
 import { takeover } from './render';
 import { chime, clack, lose, pop, throwSound } from './sfx';
@@ -359,6 +359,7 @@ export function closeHazard() {
   document.body.classList.remove('hz-on');
   run = null;
   ranging = false;
+  flameSound(false);
   $('.hz-range').hidden = true;
   Object.assign(feel, FEEL);
   cooking = null;
@@ -668,11 +669,14 @@ export function advance(dt: number) {
   stopT = Math.max(0, stopT - dt);
   const still = !playing || holding() || stopped;
   if (playing && !still) {
+    flameT = Math.max(0, flameT - dt);
     step(run!, dt, input(run!));
     if (run!.cooked > seen.cooked) pop();
     seen.cooked = run!.cooked;
-    felt(run!);
+    felt(run!, dt);
   }
+  // the flame's sound, held while it fires (through a hit-stop too), let go when it stops or the run holds still
+  if (!stopped) flameSound(playing && !still && feel.sound && flameT > 0);
   drawSet(run, still ? 0 : dt, { aim: playing ? aimNow() : null });
   if (playing) {
     tags(run!);
@@ -684,11 +688,22 @@ export function advance(dt: number) {
   renderSet();
 }
 
-/** What the rules say happened this step, heard and felt: the guns' sounds, a big hit's hit-stop and buzz. */
-function felt(r: Run) {
+/** The flame's sound is held while its drops keep coming (fourteen a second), till this long after the last; and the
+ *  next crackle of whatever's burning. */
+let flameT = 0, crackleT = 0;
+const FLAME_HOLD = 0.12;
+const jig = dice(0xC4AC);
+
+/** What the rules say happened this step, heard and felt: the guns' sounds, a big hit's hit-stop and buzz; and
+ *  whatever's burning, crackling. */
+function felt(r: Run, dt: number) {
   for (const f of r.fx) {
-    if (f.kind === 'shot') { if (feel.sound) { gunSound(f.gun); if (f.gun === 'salt') shellSound(); } }
-    else if (f.kind === 'hit') { if (feel.sound) { hitSound(f.taste, f.gun); if (f.crit) critSound(); } }
+    if (f.kind === 'shot') {
+      if (f.gun === 'chili') flameT = FLAME_HOLD;
+      else if (feel.sound) { gunSound(f.gun); if (f.gun === 'salt') shellSound(); }
+    }
+    // (the flame's hits are its roar and the crackle)
+    else if (f.kind === 'hit') { if (feel.sound && f.gun !== 'chili') { hitSound(f.taste, f.gun); if (f.crit) critSound(); } }
     else if (f.kind === 'blast') { if (feel.sound) blastSound(); }
     else if (f.kind === 'rush') { if (feel.sound) rushSound(); }
     else if (f.kind === 'stop') {
@@ -697,6 +712,8 @@ function felt(r: Run) {
       if (feel.buzz && coarse()) navigator.vibrate?.(30);
     }
   }
+  crackleT -= dt;
+  if (crackleT <= 0 && feel.sound && r.zombies.some(z => z.burnT > 0)) { crackle(); crackleT = 0.2 + jig() * 0.13; }
 }
 
 /** The aim dot: at the mouse, or ahead of the aiming thumb (on the zombie it's lined up on); gold over a crit area. */
