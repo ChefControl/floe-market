@@ -17,10 +17,16 @@
 // button on the right; the gun reloads by itself when it's empty, and a tap on the ammo reloads early.
 // Esc or ✕ mid-run holds it still and asks first: Keep going, or Leave (losing what's carried). In the safe house Esc
 // steps back: out of a cook, off a station, then out of the game.
+//
+// The guns' feel (docs/cooking-hazard.md, "Gun feel"; the set shows most of it): a dot where the gun points, lit gold
+// when a shot would go through a zombie's crit area (the mouse's pointer, or ahead of the aiming thumb, whose aim is
+// pulled a little onto the nearest zombie); the world held still for a blink on a big hit, and an Android phone's buzz;
+// the guns' sounds (hazardSound.ts). The firing range (?arcade=range in dev and demo builds) is a row of zombies that
+// stand there, a gun to pick and a switch for each layer of the feel, to try it with and without; nothing's kept.
 import './hazard.css';
 import {
-  DISHES, GRADES, GUNS, INGREDIENTS, LEVELS, MOVES, TASTES, TECHNIQUES, ZONE_R, bestIn, crateAt, letGo, level,
-  newRun, press, reload, shove, startServe, step, stripPos, take, throwDish, worstInBag, wouldTake,
+  DISHES, GRADES, GUNS, INGREDIENTS, LEVELS, MOVES, TASTES, TECHNIQUES, ZONE_R, bestIn, crateAt, feel, letGo, level,
+  lineUp, newRun, press, pullAim, reload, shove, startServe, step, stripPos, take, throwDish, worstInBag, wouldTake,
   type Crate, type Dir, type DishId, type GunId, type Input, type Item, type Run, type Stamp, type Zombie,
 } from './hazard';
 import {
@@ -28,13 +34,28 @@ import {
   pack, pressCook, price, rollNext, startCooking, starsFor, stepCooking, type Buy, type Cooking, type CounterId,
 } from './hazardHouse';
 import { STATIONS, STATION_IDS, drawRoom, focusOn, renderRoom, stationAt, type StationId } from './hazardRoom';
+import { U } from './hazardMap';
 import { drawSet, dressChef, headOf, renderSet, resetView, toArena, toScreen } from './hazardSet';
+import { blastSound, critSound, gunSound, hitSound, rushSound, shellSound } from './hazardSound';
 import { dice } from './kit';
 import { takeover } from './render';
 import { chime, clack, lose, pop, throwSound } from './sfx';
 import { panel, state, usable } from './uiKit';
 
 const GUN_IDS = Object.keys(GUNS) as GunId[];
+/** The feel's layers, as the firing range's switches name them. */
+const LAYERS: [keyof typeof feel, string][] = [
+  ['centre', 'Centre hits'], ['push', 'Push'], ['rush', 'Rush'], ['stop', 'Hit-stop'], ['nudge', 'Camera nudge'],
+  ['buzz', 'Buzz'], ['pull', 'Aim pull'], ['sound', 'Sound'], ['kick', 'Kick'], ['casings', 'Shells'], ['flash', 'Flash'],
+  ['wear', 'Wear'], ['mess', 'Mess'], ['fling', 'Fling'], ['areas', 'Crit areas'],
+];
+/** The feel as the game has it (the firing range's switches are put back to these). */
+const FEEL = { ...feel };
+/** The firing range's row: four zombies across the street ahead of the chef, and a special behind them. */
+const RANGE = {
+  at: { x: 20 * U, y: 20 * U },
+  posts: [...[17.6, 19.2, 20.8, 22.4].map(y => ({ x: 27 * U, y: y * U, special: false })), { x: 30 * U, y: 20 * U, special: true }],
+};
 const DISH_IDS = Object.keys(DISHES) as DishId[];
 const SLOTS = 4;
 const PADS: Dir[] = ['left', 'up', 'down', 'right'];
@@ -81,6 +102,13 @@ root.innerHTML = `
     <button type="button" class="k-btn hz-use" hidden>📣 Radio</button>
     <div class="hz-stick hz-move"><i></i></div>
     <div class="hz-stick hz-aim"><i></i></div>
+    <i class="hz-dot" hidden></i>
+    <div class="hz-range k-sheet" hidden>
+      <h2 class="k-title">🎯 Firing range</h2>
+      <p class="k-cap">Switch a layer off to feel it</p>
+      <div class="k-row">${GUN_IDS.map(g => `<button type="button" class="k-btn k-choice" data-range-gun="${g}">${GUNS[g].emoji} ${GUNS[g].name}</button>`).join('')}</div>
+      <div class="k-row">${LAYERS.map(([k, label]) => `<button type="button" class="k-btn k-choice" data-layer="${k}">${label}</button>`).join('')}</div>
+    </div>
     <div class="hz-leave" hidden>
       <div class="hz-card">
         <h2 class="k-title">Leave the run?</h2>
@@ -269,7 +297,9 @@ root.addEventListener('click', e => {
   if (b.classList.contains('hz-home')) toHouse();
   if (b.classList.contains('hz-x')) escape();
   if (b.classList.contains('hz-stay')) leaving(false);
-  if (b.classList.contains('hz-quit')) { if (run && !run.over) homecoming(run); closeHazard(); }
+  if (b.classList.contains('hz-quit')) { if (run && !run.over && !ranging) homecoming(run); closeHazard(); }
+  if (b.dataset.rangeGun) startRange(b.dataset.rangeGun as GunId);
+  if (b.dataset.layer) { const k = b.dataset.layer as keyof typeof feel; feel[k] = !feel[k]; rangePanel(); }
 });
 // a station picked in the room itself
 home.addEventListener('pointerdown', e => {
@@ -307,13 +337,15 @@ const upright = () => coarse() && window.innerHeight > window.innerWidth;
 /** The run holds still: the player's been asked whether to leave, or the phone's upright. */
 const holding = () => !leave.hidden || upright();
 
-export function openHazard() {
+/** Opens the game in the safe house; or, with `range`, straight onto the firing range (dev and demo builds). */
+export function openHazard(opts: { range?: boolean } = {}) {
   root.hidden = false;
   root.dataset.touch = coarse() ? '1' : '0';
   takeover.on = true;
   document.body.classList.add('hz-on');
   cooking = null;
-  toHouse();
+  Object.assign(feel, FEEL);
+  if (opts.range) startRange('spud'); else toHouse();
   leaving(false);
   if (coarse()) void sideways();
   last = performance.now();
@@ -326,6 +358,9 @@ export function closeHazard() {
   takeover.on = false;
   document.body.classList.remove('hz-on');
   run = null;
+  ranging = false;
+  $('.hz-range').hidden = true;
+  Object.assign(feel, FEEL);
   cooking = null;
   letGoAll();
   clearTags();
@@ -350,17 +385,38 @@ function leaving(on: boolean) {
 
 function startRun() {
   const { loadout, opts } = depart();
+  ranging = false;
   run = newRun(loadout, dice(Date.now() >>> 0), opts);
-  seen = { cooked: 0, servings: run.servings.join() };
-  lastAim = { x: run.player.x + 100, y: run.player.y };
+  begin();
+}
+/** The firing range, with `gun`: a row of zombies that stand there, two dishes to throw that never run out, nothing kept. */
+let ranging = false;
+function startRange(gun: GunId) {
+  ranging = true;
+  run = newRun({ gun, dishes: ['chiliPot', 'lemon'], servings: [99, 99] }, dice(1), { at: RANGE.at, range: RANGE.posts });
+  begin();
+  rangePanel();
+}
+function rangePanel() {
+  $('.hz-range').hidden = !ranging;
+  for (const b of root.querySelectorAll<HTMLButtonElement>('[data-range-gun]')) b.setAttribute('aria-pressed', String(b.dataset.rangeGun === run?.loadout.gun));
+  for (const b of root.querySelectorAll<HTMLButtonElement>('[data-layer]')) b.setAttribute('aria-pressed', String(feel[b.dataset.layer as keyof typeof feel]));
+}
+function begin() {
+  const r = run!;
+  seen = { cooked: 0, servings: r.servings.join() };
+  stopT = 0;
+  $('.hz-range').hidden = !ranging;
+  lastAim = { x: r.player.x + 100, y: r.player.y };
   dressChef();
-  resetView(run);
+  resetView(r);
   mode('play');
   leaving(false);
   dishBar();
 }
 
 function finish(r: Run) {
+  if (ranging) { startRange(r.loadout.gun); return; }
   if (r.extracted) chime(); else lose();
   const h = homecoming(r), time = Math.floor(r.t);
   $('.hz-verdict').textContent = r.extracted ? 'You got out!' : 'The horde got you';
@@ -560,7 +616,11 @@ window.addEventListener('pointercancel', fingerUp);
 /** Where the chef aims now, in the rules' units: the aiming stick, else the mouse, else where they aimed last. */
 function aimNow() {
   if (!run) return null;
-  if (aimStick.id !== null && aimStick.k > 0.2) lastAim = { x: run.player.x + aimStick.x * 400, y: run.player.y + aimStick.y * 400 };
+  if (aimStick.id !== null && aimStick.k > 0.2) {
+    // (pulled a little onto the nearest zombie in a narrow cone round it)
+    const a = pullAim(run, Math.atan2(aimStick.y, aimStick.x));
+    lastAim = { x: run.player.x + Math.cos(a) * 400, y: run.player.y + Math.sin(a) * 400 };
+  }
   else if (mouse) lastAim = toArena(mouse.x, mouse.y) ?? lastAim;
   return lastAim;
 }
@@ -576,6 +636,9 @@ function input(r: Run): Input {
 // ---------- the loop ----------
 let raf = 0, last = 0;
 let seen = { cooked: 0, servings: '' };
+/** The hit-stop: how much longer the world holds still for a big hit. */
+let stopT = 0;
+const STOP_TIME = 0.04;
 
 function frame(now: number) {
   if (root.hidden) return;
@@ -599,20 +662,57 @@ export function advance(dt: number) {
     renderRoom();
     return;
   }
-  const playing = !!run && root.dataset.mode === 'play', still = !playing || holding();
+  const playing = !!run && root.dataset.mode === 'play';
+  // (a big hit holds everything still for a blink)
+  const stopped = stopT > 0;
+  stopT = Math.max(0, stopT - dt);
+  const still = !playing || holding() || stopped;
   if (playing && !still) {
     step(run!, dt, input(run!));
     if (run!.cooked > seen.cooked) pop();
     seen.cooked = run!.cooked;
+    felt(run!);
   }
   drawSet(run, still ? 0 : dt, { aim: playing ? aimNow() : null });
   if (playing) {
     tags(run!);
     hud(run!);
+    dot(run!);
     if (seen.servings !== run!.servings.join() || run!.serving) dishBar();
     if (run!.over) finish(run!);
   }
   renderSet();
+}
+
+/** What the rules say happened this step, heard and felt: the guns' sounds, a big hit's hit-stop and buzz. */
+function felt(r: Run) {
+  for (const f of r.fx) {
+    if (f.kind === 'shot') { if (feel.sound) { gunSound(f.gun); if (f.gun === 'salt') shellSound(); } }
+    else if (f.kind === 'hit') { if (feel.sound) { hitSound(f.taste, f.gun); if (f.crit) critSound(); } }
+    else if (f.kind === 'blast') { if (feel.sound) blastSound(); }
+    else if (f.kind === 'rush') { if (feel.sound) rushSound(); }
+    else if (f.kind === 'stop') {
+      if (feel.stop) stopT = STOP_TIME;
+      // (phones that can: Android's; never iPhones, which can't, nor a computer)
+      if (feel.buzz && coarse()) navigator.vibrate?.(30);
+    }
+  }
+}
+
+/** The aim dot: at the mouse, or ahead of the aiming thumb (on the zombie it's lined up on); gold over a crit area. */
+function dot(r: Run) {
+  const el = $('.hz-dot'), touch = root.dataset.touch === '1';
+  const aim = aimNow(), aiming = touch ? aimStick.id !== null && aimStick.k > 0.2 : !!mouse;
+  el.hidden = !aiming || !aim || !!r.serving || r.dropT > 0;
+  if (el.hidden || !aim) return;
+  const line = lineUp(r, aim);
+  let at = mouse && !touch ? mouse : null;
+  if (!at) {
+    const p = r.player, d = Math.hypot(aim.x - p.x, aim.y - p.y) || 1, far = 5 * U;
+    at = line ? toScreen(line.z.x, line.z.y, 0.8) : toScreen(p.x + (aim.x - p.x) / d * far, p.y + (aim.y - p.y) / d * far, 0.8);
+  }
+  el.style.transform = `translate(${at.x.toFixed(1)}px,${at.y.toFixed(1)}px)`;
+  el.classList.toggle('crit', !!line?.crit);
 }
 
 // ---------- the HUD ----------
