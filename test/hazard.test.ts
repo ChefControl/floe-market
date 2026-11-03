@@ -401,6 +401,14 @@ describe('gun feel', () => {
     step(run, 0.6, still);
     expect(c.death!.fling).toBeGreaterThan(b.death!.fling);
     expect(run.fx.some(f => f.kind === 'blast') && run.fx.some(f => f.kind === 'stop')).toBe(true);
+    // (a technique the shot sets off drops the others it kills; only the one shot is flung)
+    const e = zombie(run, W / 2 + 200, H / 2, { hp: 30, coat: 'sour', coatT: 4 }), o = zombie(run, W / 2 + 230, H / 2 + 40, { hp: 1 });
+    run.loadout.gun = 'chili';
+    shoot(run, e);
+    run.loadout.gun = 'spud';
+    expect(e.death).not.toBeNull();
+    expect(o.dead).toBe(true);
+    expect(o.death).toBeNull();
     const d = zombie(run, 300, 500, { hp: 0.1, burnT: 1 });
     step(run, 0.1, still);
     expect(d.dead).toBe(true);

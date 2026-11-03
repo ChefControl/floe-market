@@ -389,8 +389,9 @@ function pushOff(p: { x: number; y: number }, r: number, c: Crate) {
   else { p.x += (p.x - c.x) / d * overlap; p.y += (p.y - c.y) / d * overlap; }
 }
 
-/** The shot or dish landing now, if it's one: what it does to a zombie it kills. */
-let blow: Omit<Blow, 'over'> | null = null;
+/** The shot or dish landing now, if it's one: the zombie it lands on, and what it does to it if it kills it (others
+ *  it kills on the way, with a technique, just drop). */
+let blow: { z: Zombie; does: Omit<Blow, 'over'> } | null = null;
 
 /** Takes `dmg` off `z`: half again with its armour melted (Acid). Down at 0. */
 function hurt(run: Run, z: Zombie, dmg: number) {
@@ -402,7 +403,7 @@ function hurt(run: Run, z: Zombie, dmg: number) {
 /** `z` is down: how (for the set), and a kill counted towards the rush (four in a second set it off). */
 function died(run: Run, z: Zombie) {
   z.dead = true; run.kills++;
-  z.death = blow ? { ...blow, over: Math.max(0, -z.hp) } : null;
+  z.death = blow?.z === z ? { ...blow.does, over: Math.max(0, -z.hp) } : null;
   run.killTimes = run.killTimes.filter(t => t > run.t - 1);
   run.killTimes.push(run.t);
   if (run.killTimes.length >= RUSH_KILLS) rush(run);
@@ -583,7 +584,7 @@ function land(run: Run, th: Thrown) {
   for (const z of near(run, th, r)) {
     // (a bomb throws them out from where it lands)
     const d = dist(z, th) || 1, dx = (z.x - th.x) / d, dy = (z.y - th.y) / d;
-    blow = bomb ? { dx, dy, fling: BLAST_FLING, crit: false } : null;
+    blow = bomb ? { z, does: { dx, dy, fling: BLAST_FLING, crit: false } } : null;
     hit(run, z, dish.dmg * th.q, dish.taste, 1);
     blow = null;
     if (bomb) push(z, dx, dy, BLAST_PUSH * th.q);
@@ -600,7 +601,7 @@ function shotHit(run: Run, s: Shot, z: Zombie, x0: number, y0: number) {
   const miss = Math.abs((z.x - x0) * dy - (z.y - y0) * dx);
   const c = gun.aimed && feel.centre ? centre(miss, z.r) : { k: 1, crit: false };
   const was = z.step;
-  blow = { dx, dy, fling: c.crit ? Math.max(gun.fling, CRIT_FLING) : gun.fling, crit: c.crit };
+  blow = { z, does: { dx, dy, fling: c.crit ? Math.max(gun.fling, CRIT_FLING) : gun.fling, crit: c.crit } };
   hit(run, z, s.dmg * c.k, s.taste, s.dmg / ringNeed(z));
   blow = null;
   push(z, dx, dy, gun.push * c.k);

@@ -875,11 +875,9 @@ const tip = new Vector3();
 function happened(run: Run, f: Fx) {
   const c = chef!;
   if (f.kind === 'shot') {
-    if (!feel.kick) return;
-    kick = Math.max(kick, KICK[f.gun]);
     nudgeBy(f.dx, f.dy, NUDGE[f.gun]);
     c.p.arms[0].localToWorld(tip.set(0, -0.72, 0.02));
-    puff(tip, f.gun);
+    if (feel.kick) { kick = Math.max(kick, KICK[f.gun]); puff(tip, f.gun); }
     // shells out to the right and back: two flecks of peel, or a salt shell (the Chili Sprayer just hisses)
     const rx = -f.dy, rz = f.dx;
     if (f.gun === 'spud') for (let i = 0; i < 2; i++) throwBit('peel', tip.x, tip.y, tip.z, rx * (1.4 + i) - f.dx, 2 + i * 0.6, rz * (1.4 + i) - f.dy, [0.07, 0.012, 0.045], i ? '#c9a15e' : '#e8d9a8');
