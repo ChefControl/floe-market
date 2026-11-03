@@ -1110,7 +1110,10 @@ function drawFlame(run: Run, m: InstancedMesh) {
   for (let i = 0; i < run.shots.length && n + per <= MAX_SHOTS * FLAME_BLOBS; i++) {
     const s = run.shots[i], k = 1 - Math.max(0, s.life) / life, sp = Math.hypot(s.vx, s.vy) || 1, dx = s.vx / sp, dz = s.vy / sp;
     for (let j = 0; j < per; j++) {
-      const back = j * gap, kk = Math.max(0, k - back / (gun.range * M)), side = Math.sin(run.t * 37 + i * 3.1 + j * 1.7) * 0.06 * (1 + 4 * kk);
+      // (none drawn behind the gun's tip: the flame starts there)
+      const back = j * gap, d = k * gun.range * M - back;
+      if (d < 0) continue;
+      const kk = d / (gun.range * M), side = Math.sin(run.t * 37 + i * 3.1 + j * 1.7) * 0.06 * (1 + 4 * kk);
       const size = (0.1 + 0.42 * kk) * (0.85 + 0.25 * Math.abs(Math.sin(run.t * 29 + i + j * 2.3)));
       pv.set(wx(s.x) - dx * back - dz * side, SHOT_Y + 0.35 * kk * kk, wz(s.y) - dz * back + dx * side).addScaledVector(muzzle, 1 - kk);
       m4.compose(pv, q.identity(), sv.setScalar(size));
