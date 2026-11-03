@@ -9,6 +9,7 @@ import { BoxGeometry, CylinderGeometry, Group, Mesh, MeshBasicMaterial, PlaneGeo
 import { atTable, leaveSeat, takeSeat, type Seat } from './casinoKit';
 import { decal, drawPad } from './decals';
 import { TASTES, TASTE_LIST } from './hazard';
+import { house } from './hazardHouse';
 import { dice, quietly } from './kit';
 import { inSalon, pushOutOfBox, SALON, SHIP, UPPER } from './layout';
 import { player } from './player';
@@ -21,8 +22,6 @@ export const CABINET = { x: SALON.x1 - 0.42, z: -1.7 };
 const PAD = { x: CABINET.x - 0.93, z: CABINET.z };
 /** How close to the pad's middle the card opens. */
 const REACH = 0.6;
-/** The best haul so far (the most loot brought home in one run), kept on this device by the game (hazardPlay.ts). */
-const BEST = 'floe-market-hazard-haul';
 const NAVY = 0x14203A, BLUE = 0x1E8FC0, INK = 0x1B2430, STEEL = 0x9AA4AC, GOLD = 0xE3B23C;
 /** How often the screen's picture moves on: a cabinet's attract loop doesn't need more. */
 const FRAME = 1 / 12;
@@ -55,9 +54,9 @@ function attract(c: CanvasRenderingContext2D, w: number, h: number, t: number, b
   c.fillText(best ? `BEST HAUL ${best}` : 'NO BEST YET', w / 2, h - 34);
   if (Math.floor(t * 2) % 2 === 0) { c.fillStyle = '#FFF8EC'; c.fillText('PRESS E', w / 2, h - 14); }
 }
-/** The best haul on this device (0 for none yet). */
+/** The best haul so far (the most loot brought home in one run, kept in the safe house: hazardHouse.ts), 0 for none yet. */
 function best() {
-  try { return Number(localStorage.getItem(BEST)) || 0; } catch { return 0; }
+  return house.best.haul;
 }
 
 /** The cabinet, standing on the floor facing +z: its body and trim baked into one mesh, the marquee and the screen apart. */

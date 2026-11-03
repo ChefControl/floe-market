@@ -6,6 +6,7 @@ import { choice, readLook, setLook, type Choice } from './customize';
 import { MODS, mods, type ModId } from './economy';
 import { keepStage3 } from './flags';
 import { front } from './front';
+import { forgetOldHouse, houseSave, loadHouse } from './hazardHouse';
 import { loadOffer, offer } from './offer';
 import { filletsInProgress } from './fishing';
 import { waiterPlates } from './garden';
@@ -93,6 +94,8 @@ export interface SaveData {
   learnt: string[] | null;
   /** The best rally of matkot on the beach (beach.ts); none in a save from before it. */
   matkot?: number;
+  /** Cooking Hazard's safe house, the arcade game's progress (hazardHouse.ts); none in a save from before it. */
+  hazard?: unknown;
 }
 export type Hands = Record<'rice' | 'fish' | 'rrice' | 'cfish' | 'mush' | 'bowl' | 'mbowl', number>;
 const HANDS: (keyof Hands)[] = ['rice', 'fish', 'rrice', 'cfish', 'mush', 'bowl', 'mbowl'];
@@ -161,6 +164,7 @@ export function migrate(raw: unknown): SaveData {
     look: readLook(s.look) ?? undefined,
     learnt: Array.isArray(s.learnt) ? s.learnt.map(String) : null,
     matkot: num(s.matkot),
+    hazard: s.hazard,
     till: s.till == null ? null : num(s.till),
   };
   if (num(s.v) >= 4) {
@@ -276,6 +280,7 @@ export function save() {
     look: { ...choice },
     learnt: learntLessons(),
     matkot: beach.best,
+    hazard: houseSave(),
   };
   const raw = JSON.stringify(data);
   if (deviceStore.write(raw)) lastSeen = raw;
@@ -307,7 +312,7 @@ export function load() {
   if (raw !== null) {
     try { s = migrate(JSON.parse(raw)); } catch { deviceStore.write(raw, BACKUP_KEY); }
   }
-  if (!s) { tiles.forEach(redrawTile); return false; }
+  if (!s) { tiles.forEach(redrawTile); loadHouse(null); return false; }
   wallet.money = s.money;
   wallet.best = s.best;
   if (s.look) setLook(s.look);
@@ -360,6 +365,7 @@ export function load() {
   // the tutorial: this player's lessons, or for a save from before it, what it has done (now it's all in place)
   loadLessons(s.learnt);
   beach.best = s.matkot ?? 0;
+  loadHouse(s.hazard);
   return true;
 }
 
@@ -418,4 +424,5 @@ export function replaceSave(raw: string) {
 export function wipeSave() {
   stale = true;
   deviceStore.remove();
+  forgetOldHouse();
 }

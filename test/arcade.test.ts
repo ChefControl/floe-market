@@ -24,7 +24,7 @@ describe('the arcade cabinet', () => {
     // Play opens the game over the whole screen, and the game waits behind it
     await arcade.playArcade();
     expect($('hazard').hidden).toBe(false);
-    expect($('hazard').dataset.mode).toBe('pick');
+    expect($('hazard').dataset.mode).toBe('house');
     const was = g.player.g.position.clone();
     g.run(1);
     expect(g.player.g.position.distanceTo(was)).toBeLessThan(0.001);
@@ -34,7 +34,7 @@ describe('the arcade cabinet', () => {
     g.placePlayer(-15.7, -4.4); g.run(0.1);
     expect($('arcade').hidden).toBe(true);
     expect(kit.atTable()).toBe(false);
-    localStorage.setItem('floe-market-hazard-haul', '14');
+    (await import('../src/hazardHouse')).house.best.haul = 14;
     g.placePlayer(pad.x, pad.z); g.run(0.1);
     expect($('arcadeBest').textContent).toBe('🏆 Best haul 14');
   });
