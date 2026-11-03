@@ -1,0 +1,27 @@
+{
+  "name": "chefcontrol",
+  "owner": {
+    "name": "ChefControl"
+  },
+  "metadata": {
+    "description": "Claude Code plugins from the makers of Floe Market."
+  },
+  "plugins": [
+    {
+      "name": "in-engine-promo-clips",
+      "source": "./plugins/in-engine-promo-clips",
+      "description": "Make short promo clips, trailers and comedy sketches out of a game's own engine: scripted acting, frame-by-frame renders with the game's sound, voices, synthesised effects, crash-in captions and an end card.",
+      "version": "1.0.0",
+      "category": "media",
+      "license": "MIT"
+    },
+    {
+      "name": "licence-check",
+      "source": "./plugins/licence-check",
+      "description": "Check that every package and asset a change brings in may ship the way your project ships and is credited: copyleft and non-commercial licences, fonts, emoji, sounds and music (with songs hiding in recordings), images, models, AI assets, people, brands and SDKs.",
+      "version": "1.0.0",
+      "license": "MIT",
+      "category": "productivity"
+    }
+  ]
+}

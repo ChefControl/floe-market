@@ -1,0 +1,21 @@
+{
+  "name": "in-engine-promo-clips",
+  "version": "1.0.0",
+  "description": "Make short promo clips, trailers and comedy sketches out of a game's own engine: scripted acting, frame-by-frame renders with the game's sound, voices, synthesised effects, crash-in captions and an end card.",
+  "author": {
+    "name": "ChefControl"
+  },
+  "homepage": "https://github.com/ChefControl/floe-market/tree/main/plugins/in-engine-promo-clips",
+  "repository": "https://github.com/ChefControl/floe-market",
+  "keywords": [
+    "trailer",
+    "teaser",
+    "promo",
+    "video",
+    "game",
+    "three.js",
+    "playwright",
+    "ffmpeg"
+  ],
+  "license": "MIT"
+}

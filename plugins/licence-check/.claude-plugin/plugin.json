@@ -1,0 +1,10 @@
+{
+  "name": "licence-check",
+  "version": "1.0.0",
+  "description": "Check that every package and asset a change brings in may ship the way your project ships (closed, on a store, or open source) and is credited: copyleft and non-commercial licences, fonts, emoji and icon sets, sounds and music (with songs hiding in recordings), images, models, AI assets, people, brands and platform SDKs.",
+  "author": { "name": "ChefControl" },
+  "homepage": "https://github.com/ChefControl/floe-market/tree/main/plugins/licence-check",
+  "repository": "https://github.com/ChefControl/floe-market",
+  "license": "MIT",
+  "keywords": ["licence", "license", "credits", "copyleft", "gpl", "assets", "music", "fonts", "compliance"]
+}
