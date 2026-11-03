@@ -16,8 +16,8 @@
 //   rush's slow whoosh. The two guns have a heavier style c to audition.
 //
 // Each has two styles to audition (a and b, on the audition page); `STYLE` is the one the game plays: the owner's
-// picks (3 November 2026), the pop gun, the shotgun's rattle, the deeper, darker flame, the squelch, the crunch, the
-// plastic ticks, the wetter blast and the rising whoosh.
+// picks (3 and 4 November 2026): the heavier pop gun and shotgun boom, the deeper, darker flame, the squelch, the
+// crunch, the plastic ticks, the wetter blast, the rising whoosh, and a pump's two clunks for the grinders' crank.
 import { ac, between, buses, noise, tone } from './audio';
 import type { GunId, Taste } from './hazard';
 
@@ -25,7 +25,7 @@ import type { GunId, Taste } from './hazard';
 export type Style = 'a' | 'b' | 'c';
 /** The style each sound plays in. */
 export const STYLE: Record<'spud' | 'salt' | 'flame' | 'hit' | 'crit' | 'shell' | 'blast' | 'rush' | 'crank', Style> = {
-  spud: 'b', salt: 'a', flame: 'b', hit: 'a', crit: 'a', shell: 'a', blast: 'b', rush: 'a', crank: 'a',
+  spud: 'c', salt: 'c', flame: 'b', hit: 'a', crit: 'a', shell: 'a', blast: 'b', rush: 'a', crank: 'b',
 };
 
 const last: Record<string, number> = {};
