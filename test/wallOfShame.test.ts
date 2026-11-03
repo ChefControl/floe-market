@@ -76,10 +76,10 @@ describe('the wall of shame', () => {
     const { scoreBet } = await import('../src/worstBet');
     scoreBet('blackjack', 95_000, 0);
     const e = wall.entries();
-    expect(e.filter(x => x.mine)).toEqual([expect.objectContaining({ name: 'Pat Smith', lost: 95_000, game: 'blackjack' })]);
+    expect(e.filter(x => x.mine)).toEqual([expect.objectContaining({ name: 'Pat S.', lost: 95_000, game: 'blackjack' })]);
     expect(e.map(x => x.lost)).toEqual([100_000, 95_000, 90_000, 80_000, 70_000, 50_000, 40_000, 30_000, 20_000, 10_000]);
     toPad();
     $('shameOpen').click();
-    await vi.waitFor(() => expect(rows()[1]).toMatch(/^2Pat Smith \(you\)\$95k/));
+    await vi.waitFor(() => expect(rows()[1]).toMatch(/^2Pat S\. \(you\)\$95k/));
   });
 });

@@ -33,14 +33,14 @@ describe('new upgrades', () => {
     g.unlocks.visibleTiles();
     expect($('toast').textContent).toBe('Bigger arms unlocked');
     vi.advanceTimersByTime(2000); // its turn
-    expect($('toast').textContent).toBe('New upgrade: Casino boat');
+    expect($('toast').textContent).toBe('New upgrade: Casino boat ticket');
 
     const roulette = tile(g, 'roulette');
     look(roulette.x + 30, roulette.z); // it's off to the left
     upd(0.1);
     const [a] = arrows();
     expect(a.hidden).toBe(false);
-    expect(a.textContent).toBe('🛳️');
+    expect(a.textContent).toBe('🎟️');
     const [x] = a.style.transform.match(/-?[\d.]+/g)!.map(Number);
     expect(x).toBe(34); // on the left edge
     expect(Math.abs(Number((a.firstChild as HTMLElement).style.transform.match(/-?[\d.]+/)![0]))).toBeGreaterThan(2); // pointing left
@@ -81,7 +81,7 @@ describe('new upgrades', () => {
     look(100, 100);
     upd(0.1);
     expect(arrows()).toHaveLength(1);
-    g.unlocks.applyUnlock('roulette');
+    g.unlocks.applyUnlock('roulette', true); // (moored at once: its games are on its deck)
     g.unlocks.visibleTiles();
     upd(0.1);
     expect(arrows().map(a => a.textContent)).toEqual(['🏃', '🎰', '🃏']); // the next one's, and the boat's games

@@ -22,6 +22,14 @@ it('boots from a save, renders, autosaves and restarts', async () => {
   expect($('cashN').textContent).toBe('7');
   expect(g.render.camera.position.y).toBeGreaterThan(10);
 
+  // on Potato, 30 frames a second at most: a frame that comes too soon after the last is skipped
+  const { choose } = await import('../src/graphics');
+  choose('potato');
+  render.mockClear();
+  for (let t = 48; t <= 176; t += 16) g.frame()!(t);
+  expect(render).toHaveBeenCalledTimes(4); // at 64, 96, 128 and 160
+  choose('auto');
+
   // errors surface on screen
   window.dispatchEvent(new ErrorEvent('error', { message: 'boom' }));
   expect($('errMsg').textContent).toBe('Something broke: boom');

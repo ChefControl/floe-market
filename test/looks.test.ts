@@ -1,11 +1,11 @@
 // What the repeatable upgrades look like: every level bought shows somewhere in the world.
-import { Box3, Mesh, MeshBasicMaterial, type MeshLambertMaterial, type Object3D, Vector3 } from 'three';
+import { Box3, Mesh, MeshBasicMaterial, type Object3D, Vector3 } from 'three';
 import { describe, expect, it } from 'vitest';
 import { bought, loadGame, MARKET } from './helpers';
 
 type Game = Awaited<ReturnType<typeof loadGame>>;
 const shown = (os: { visible: boolean }[]) => os.filter(o => o.visible).length;
-const beltColor = (g: Game) => ((g.player.g.band!.children[0] as Mesh).material as MeshLambertMaterial).color.getHex();
+const beltColor = (g: Game) => g.player.g.bandOn;
 const hatTop = (g: Game) => new Box3().setFromObject(g.restaurant.sushi.chefs[0].g).max.y;
 /** How far the camera's spotlight is from the middle of `os`. */
 const offFrom = (g: Game, os: Object3D[]) => {

@@ -9,17 +9,18 @@
 // reports came is told once, a few seconds into their game, that they can report from the menu now.
 import { prefs } from './audio';
 import { cloud, cloudEnabled, onCloud, sendReport, type Report, type Sent } from './cloud';
-import { recentErrors } from './errors';
+import { recentErrors, view3d } from './errors';
 import { frameRate, gfx } from './graphics';
 import { level, stage } from './layout';
 import { player } from './player';
-import { camera, renderer, scene } from './render';
+import { camera, gpu, renderer, scene } from './render';
 import { deviceStore, save, SAVE_KEY } from './save';
 import { current } from './season';
 import { openSettings } from './settings';
 import { celebrate } from './sendFx';
 import { INK, paint, sketch, type Stroke } from './sketch';
 import { toast } from './ui';
+import { viewSize } from './viewSize';
 
 /** Longest note (firestore.rules checks it too). */
 export const TEXT_MAX = 1000;
@@ -47,8 +48,8 @@ export const UI_WAIT = 4000;
 const NOT_SHOWN = new Set(['report', 'draw', 'sendFx', 'game']);
 /** The panels that can be open over the game, for the report's `live` state. */
 const PANELS = ['shop', 'look', 'rouletteAsk', 'roulette', 'blackjackAsk', 'blackjack', 'slotsAsk', 'slots', 'bubbly',
-  'arcade', 'tears', 'shameCard', 'shame', 'korki', 'scores', 'cloudPick', 'stale', 'hint', 'gong', 'coin', 'fightCard',
-  'offer', 'eddie', 'monteAsk', 'monte', 'loans', 'denBar', 'denGus'];
+  'arcade', 'tears', 'shameCard', 'shame', 'korki', 'scores', 'cloudPick', 'stale', 'glLost', 'hint', 'gong', 'coin',
+  'fightCard', 'offer', 'eddie', 'monteAsk', 'monte', 'loans', 'denBar', 'denGus'];
 
 const $ = (id: string) => document.getElementById(id)!;
 
@@ -113,10 +114,10 @@ export async function takeUi(world: HTMLCanvasElement) {
     const { default: html2canvas } = await (pageKit ??= import('html2canvas').catch(e => { pageKit = undefined; throw e; }));
     const r = renderer.domElement.getBoundingClientRect();
     const layer = await html2canvas(document.body, {
-      backgroundColor: null, logging: false, scale: world.width / (r.width || innerWidth),
-      x: r.left + scrollX, y: r.top + scrollY, width: r.width || innerWidth, height: r.height || innerHeight,
-      windowWidth: innerWidth, windowHeight: innerHeight,
-      // the songs' YouTube players are out of sight, and can't be drawn anyway
+      backgroundColor: null, logging: false, scale: world.width / (r.width || viewSize.w),
+      x: r.left + scrollX, y: r.top + scrollY, width: r.width || viewSize.w, height: r.height || viewSize.h,
+      windowWidth: viewSize.w, windowHeight: viewSize.h,
+      // (another site's frame, put in the page by the browser or an extension, can't be drawn anyway)
       ignoreElements: el => NOT_SHOWN.has(el.id) || el.tagName === 'IFRAME',
       onclone: doc => {
         // the page's own colour is behind the game, not over it
@@ -192,12 +193,20 @@ function live() {
   });
 }
 
-/** The device, briefly: enough to tell a phone from a computer, and how well it's running the game. */
+/** The device, briefly: enough to tell a phone from a computer, and how well it's running the game: its graphics chip,
+ *  its memory (Chrome rounds it to a few sizes, and only browsers built on Chrome say), and how many times this visit
+ *  the browser took the 3D view away (errors.ts `view3d`): on screen, which is what a black screen behind the HUD is,
+ *  and with the tab put away. */
 function device() {
+  const memory = (navigator as Navigator & { deviceMemory?: number }).deviceMemory;
   return JSON.stringify({
     graphics: gfx.picked ? gfx.quality : 'auto ' + gfx.quality,
     fps: Math.round(frameRate.fps),
-    screen: `${innerWidth}x${innerHeight}@${Math.round(devicePixelRatio * 100) / 100}`,
+    lost3d: view3d.lost,
+    lost3dHidden: view3d.lostHidden,
+    gpu,
+    memory: memory ? `${memory} GB` : null,
+    screen: `${viewSize.w}x${viewSize.h}@${Math.round(devicePixelRatio * 100) / 100}`,
     touch: window.matchMedia?.('(pointer: coarse)').matches ?? false,
     browser: navigator.userAgent.slice(0, 200),
   });

@@ -241,7 +241,7 @@ function fit() {
 }
 
 const emoji = (e: string, x: number, y: number, size: number) => {
-  ctx.font = `${size}px system-ui, "Apple Color Emoji", "Segoe UI Emoji", sans-serif`;
+  ctx.font = `${size}px "Floe Emoji", system-ui, "Apple Color Emoji", "Segoe UI Emoji", sans-serif`;
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.fillText(e, x, y);
 };
@@ -326,7 +326,7 @@ function draw(r: Run) {
     ctx.save();
     ctx.globalAlpha = Math.min(1, st.t * 2);
     ctx.translate(st.x, st.y); ctx.rotate(-0.15);
-    ctx.font = '800 26px "Baloo 2", "Trebuchet MS", system-ui, sans-serif';
+    ctx.font = '800 26px "Floe Emoji", "Baloo 2", "Trebuchet MS", system-ui, sans-serif';
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     const w = ctx.measureText(st.text).width + 20;
     ctx.fillStyle = '#fff8ec'; ctx.fillRect(-w / 2, -18, w, 36);

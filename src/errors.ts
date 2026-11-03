@@ -12,6 +12,8 @@ function note(m: string) {
 }
 
 export function showErr(m: string) {
+  // (with the 3D view gone, its dialog says what's wrong: what breaks without it is no news)
+  if (view3d.down) return;
   errBox.style.display = 'block';
   errMsg.textContent = m;
 }
@@ -19,7 +21,7 @@ export function showErr(m: string) {
 window.addEventListener('error', e => {
   const m = 'Something broke: ' + (e.message || e);
   note(m + (e.filename ? ` (${e.filename.split('/').pop()}:${e.lineno})` : ''));
-  // another site's script failing (YouTube's player, or one the browser puts in the page itself): the browser hides
+  // another site's script failing (one the browser or an extension puts in the page): the browser hides
   // what went wrong and the game carries on, so a report keeps it, but there's no box (reports#8)
   if (e.message === 'Script error.' && !e.filename) return;
   showErr(m);
@@ -44,3 +46,32 @@ export function reloadOnce() {
 // A deploy removes the last one's files, so a tab open from before it can't fetch Firebase (loaded on demand) any more.
 // Reloading gets the new page; the game saves on the way out. Otherwise cloud saves just show as offline.
 window.addEventListener('vite:preloadError', e => { if (reloadOnce()) e.preventDefault(); });
+
+// ---------- the 3D view ----------
+// A phone can refuse the game its 3D view, or take it back mid-game: it's low on memory, or its graphics chip has
+// restarted, and after that Chrome may keep 3D off for the site until it's restarted itself. The world would just be
+// blank behind the HUD; a dialog says so instead, with a way to reload (the game saves on the way out).
+const glDialog = document.getElementById('glLost')!, glWhy = document.getElementById('glLostWhy')!;
+/** What the dialog says: the 3D view couldn't start, or it stopped and didn't come back. */
+export const GL_SAYS = { start: 'Restart your browser to bring back the 3D', lost: 'The 3D view stopped. Your game is saved.' };
+/** Whether the 3D view's gone, and the dialog's up; and how many times this visit the browser's taken it back (render.ts),
+ *  whether it gave it back or not, for bug reports: while the game was on screen (a black screen behind the HUD), and
+ *  while the tab was put away (Android does that to a tab in the background; it's back before the player is). */
+export const view3d = { down: false, lost: 0, lostHidden: 0 };
+glDialog.querySelector('button')!.addEventListener('click', () => page.reload());
+
+/** The 3D view's gone: it couldn't start (`start`), or the browser took it back and hasn't given it back (`lost`). */
+export function glGone(why: keyof typeof GL_SAYS, detail = '') {
+  note(`3D view ${why === 'start' ? "didn't start" : 'lost'}${detail ? ': ' + detail : ''}`);
+  view3d.down = true;
+  errBox.style.display = 'none';
+  glWhy.textContent = GL_SAYS[why];
+  glDialog.hidden = false;
+  glDialog.querySelector('button')!.focus(); // it's a dialog: keyboards and screen readers go there
+}
+
+/** The browser gave the 3D view back after all: the game carries on. */
+export function glBack() {
+  view3d.down = false;
+  glDialog.hidden = true;
+}

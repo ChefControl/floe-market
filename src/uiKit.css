@@ -5,7 +5,7 @@
 /* ---------- skins ---------- */
 .k-panel{
   /* base: the game's white pills, green to go */
-  --k-font:"Baloo 2","Trebuchet MS",system-ui,sans-serif;
+  --k-font:"Floe Emoji","Baloo 2","Trebuchet MS",system-ui,sans-serif;
   --k-bg:var(--pill); --k-ink:var(--pill-ink); --k-edge:transparent;
   --k-main:var(--go); --k-main-ink:#fff; --k-main-drop:rgba(20,90,40,.45);
   --k-plain:var(--chip); --k-plain-ink:var(--pill-ink); --k-plain-drop:var(--shade);

@@ -10,7 +10,7 @@
 
 #hazard .hz-hud{
   position:absolute; left:12px; top:12px; display:flex; flex-direction:column; align-items:flex-start; gap:8px;
-  pointer-events:none; font-family:"Baloo 2","Trebuchet MS",system-ui,sans-serif;
+  pointer-events:none; font-family:"Floe Emoji","Baloo 2","Trebuchet MS",system-ui,sans-serif;
 }
 #hazard .hz-hud .pill{ font-size:15px; padding:4px 14px 4px 4px; }
 #hazard .hz-ic{
@@ -33,7 +33,7 @@
 #hazard .hz-dishes{ position:absolute; right:24px; bottom:24px; display:flex; gap:12px; pointer-events:none; }
 #hazard .hz-slot{
   position:relative; width:84px; height:84px; border-radius:50%; display:flex; flex-direction:column; align-items:center;
-  justify-content:center; line-height:1.05; font:800 18px/1.05 "Baloo 2","Trebuchet MS",system-ui,sans-serif;
+  justify-content:center; line-height:1.05; font:800 18px/1.05 "Floe Emoji","Baloo 2","Trebuchet MS",system-ui,sans-serif;
   background:var(--c); color:var(--c-ink, var(--ink)); box-shadow:0 4px 0 rgba(0,0,0,.35);
 }
 #hazard .hz-slot > span{ font-size:26px; }

@@ -28,7 +28,7 @@ import { apart, Build, detail, dice, K, quietly, rbox, tube } from './kit';
 import { ARENA, CRAFT, DOORS, KITCHEN, PREP, stage } from './layout';
 import { player } from './player';
 import { popIn } from './pop';
-import { canvasTex, type CanvasTex, type Draw, FONT, G, mesh } from './render';
+import { canvasTex, type CanvasTex, type Draw, FONT, G, MINCHO, mesh } from './render';
 import { dressCrew } from './ringKitchen';
 import { spotlight } from './spotlight';
 import { staging } from './stage';
@@ -39,7 +39,6 @@ export const cellarLooks = apart(() => new Group(), dice(0x100C4));
 cellar.add(cellarLooks);
 
 const V = (x: number, y: number, z: number) => new Vector3(x, y, z);
-const MINCHO = '"Hiragino Mincho ProN","Yu Mincho","Noto Serif JP",serif';
 const glow = (color: number, emissive: number) => new MeshLambertMaterial({ color, emissive, emissiveIntensity: 1 });
 /** A texture drawn once, repeating every `w` by `h` metres where it's laid. */
 function tiles(px: number, draw: Draw) {
@@ -684,9 +683,10 @@ const RAGS: Record<Role, [number, number]> = {
   washer: [0x7A6650, 0x9A8A6A], salter: [0x6B6F5E, 0xA8977A], picker: [0x857257, 0x8A7A62],
   cook: [0x6E5E52, 0x9C8A6A], attendant: [0x7C6A5C, 0xA8977A],
 };
-/** Something worn on a hire's body (it moves with them): a mesh of `geo` in `c`. */
+/** Something worn on a hire's body (it moves with them): a mesh of `geo` in `c`, sewn on (baked in with the rest of
+ *  them; made as a mesh still, so the luck it's made on draws as it did). */
 const wear = (p: Person, geo: BufferGeometry, c: number, x: number, y: number, z: number, s: [number, number, number], rx = 0) => {
-  const m = mesh(geo, c, x, y, z); m.scale.set(...s); m.rotation.x = rx; p.body.add(m); return m;
+  const m = mesh(geo, c, x, y, z); m.scale.set(...s); m.rotation.x = rx; p.sew(m); return m;
 };
 let collarGeo: TorusGeometry | null = null;
 const COLLAR = () => (collarGeo ??= new TorusGeometry(0.19, 0.035, 5, 14));

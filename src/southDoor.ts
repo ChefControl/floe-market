@@ -33,12 +33,13 @@ import { club } from './noir';
 import { DESK_PAD } from './office';
 import { player } from './player';
 import { pointAt } from './pointers';
-import { camera, camK, canvasTex, G, mesh } from './render';
+import { camera, camK, canvasTex, EMOJI, G, mesh } from './render';
 import { save } from './save';
 import { chime } from './sfx';
 import { staging } from './stage';
 import { shot } from './swarm';
 import { d2xz, V } from './util';
+import { viewSize } from './viewSize';
 
 /** The door: the out-of-order stall's back, in the restroom's west wall, from `Z0` (its hinge, north) `W` along it,
  *  a little higher than the stall's sides; its middle, `MID`. Built in a frame of its own (`root`), as if it stood along x facing -z:
@@ -138,7 +139,7 @@ function bookModel() {
     c.lineWidth = 2; c.strokeRect(24, 24, w - 48, h - 48);
     c.fillStyle = '#E8C46A'; c.textAlign = 'center'; c.textBaseline = 'middle';
     c.font = '700 30px Georgia,"Times New Roman",serif'; c.fillText('THE', w / 2, 70); c.fillText('UNDERTOW', w / 2, 104);
-    c.font = '96px serif'; c.fillText('🐡', w / 2, 196);
+    c.font = `96px ${EMOJI}`; c.fillText('🐡', w / 2, 196);
     c.font = '700 15px Georgia,serif'; c.fillText('MEMBERS ONLY', w / 2, 268);
     // (the flap's fold, low down, where the cover tucks in)
     c.fillStyle = 'rgba(0,0,0,.35)'; c.fillRect(24, h - 52, w - 48, 4);
@@ -323,7 +324,7 @@ lookEl.addEventListener('pointermove', e => {
   const dx = e.clientX - look.drag.x, dy = e.clientY - look.drag.y, secs = Math.max(1 / 120, (e.timeStamp - look.drag.at) / 1000);
   look.drag = { x: e.clientX, y: e.clientY, at: e.timeStamp };
   // (a full turn for a drag across about half a phone's width)
-  const k = 6 / Math.max(320, Math.min(window.innerWidth, window.innerHeight));
+  const k = 6 / Math.max(320, Math.min(viewSize.w, viewSize.h));
   look.yaw += dx * k; look.pitch = Math.max(-1.3, Math.min(1.3, look.pitch + dy * k));
   // (how fast it's going as it's let go, for a flick: never more than a couple of turns a second)
   const most = 12;
@@ -561,12 +562,12 @@ export function drawWay() {
   if (target) {
     const a = target.project(camera);
     alertEl.style.visibility = a.z > 1 ? 'hidden' : '';
-    alertEl.style.left = (a.x + 1) / 2 * window.innerWidth + 'px'; alertEl.style.top = (1 - a.y) / 2 * window.innerHeight + 'px';
+    alertEl.style.left = (a.x + 1) / 2 * viewSize.w + 'px'; alertEl.style.top = (1 - a.y) / 2 * viewSize.h + 'px';
   }
   if (!scene || !sayLine) return;
-  const v = sayAt.clone().project(camera), hx = (v.x + 1) / 2 * window.innerWidth, hy = (1 - v.y) / 2 * window.innerHeight;
+  const v = sayAt.clone().project(camera), hx = (v.x + 1) / 2 * viewSize.w, hy = (1 - v.y) / 2 * viewSize.h;
   // over his head, its tail pointing down at him (kept on the screen)
-  const w = sayEl.offsetWidth, x = Math.max(12, Math.min(hx - w / 2, window.innerWidth - w - 12));
+  const w = sayEl.offsetWidth, x = Math.max(12, Math.min(hx - w / 2, viewSize.w - w - 12));
   sayEl.style.left = x + 'px'; sayEl.style.top = Math.max(sayEl.offsetHeight + 16, hy) + 'px';
   sayEl.style.setProperty('--tail', Math.max(22, Math.min(w - 22, hx - x)) + 'px');
   root.style.setProperty('--fx', hx + 'px'); root.style.setProperty('--fy', hy + 'px');

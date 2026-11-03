@@ -21,10 +21,11 @@ import {
   BASINS, MAMA_COUNTER, STALL_DOOR, STALLS, STOOLS, TABLE_SEAT, TABLES,
 } from './cellarPlan';
 import { Fugu } from './fugu';
-import { isHigh, onQuality } from './graphics';
+import { isHigh, isPotato, onQuality } from './graphics';
 import { apart, Build, dice, K, quietly, rbox, shade, shadowsOf, tube } from './kit';
 import { ARENA, CARDS, CELLAR_Y, type CellarRoom, CRAFT, DEN, DOORS, found, GROW, keepOnFloor, KITCHEN, LANDING, LIFT_ROOM, LOANS, LOO, OFFICE_ROOM, PREP, pushOutOfBox, RESTO, ROOMS, VIP, walkable, WING } from './layout';
-import { type CanvasTex, canvasTex, copyGeo, type Draw, FONT, G, mat, mesh, OFF, paint, rr, scene, sun } from './render';
+import { FACE } from './icons/bosses';
+import { type CanvasTex, canvasTex, copyGeo, type Draw, FONT, G, mat, mesh, MINCHO, OFF, paint, rr, scene, sun } from './render';
 import { eachDrawing } from './levelCull';
 import type { XZ } from './util';
 
@@ -959,7 +960,6 @@ later(() => {
 // chain over the middle (the cellar's lamp over the ring, lights[0]), its light falling in a cone; a chain on steel pipes
 // round its foot keeps the crowd back, open east and west, and a sign leans on it. Salt in a tin bucket and water in
 // another, on the corners. (Built with the scenery's own dice: kit.ts.)
-const MINCHO = '"Hiragino Mincho ProN","Yu Mincho","Noto Serif JP",serif';
 /** A point every 1/`n` of the way along a string hung from `a` to `b`, sagging `drop` in the middle. */
 const sag = (a: Vector3, b: Vector3, drop: number, n: number) => Array.from({ length: n + 1 }, (_, i) => {
   const t = i / n, p = a.clone().lerp(b, t); p.y -= drop * 4 * t * (1 - t); return p;
@@ -1554,7 +1554,7 @@ function inkBoard(parent: Object3D, ch: string, y: number, z: number) {
     // the grain, down the board
     c.strokeStyle = 'rgba(140,96,56,.3)'; c.lineWidth = 2;
     for (const gx of [12, 30, 49, 67, 84]) { c.beginPath(); c.moveTo(gx, 0); c.bezierCurveTo(gx + 5, h * 0.35, gx - 5, h * 0.65, gx + 2, h); c.stroke(); }
-    c.fillStyle = '#1B1612'; c.font = '900 72px serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.fillStyle = '#1B1612'; c.font = `900 72px ${MINCHO}`; c.textAlign = 'center'; c.textBaseline = 'middle';
     c.fillText(ch, w / 2, h / 2 - 8);
     c.fillStyle = '#B23A2E'; c.fillRect(w - 28, h - 30, 16, 16);
   });
@@ -2205,7 +2205,7 @@ later(() => {
     c.fillStyle = '#1F2A24'; c.fillRect(7, 7, w - 14, h - 14);
     c.fillStyle = '#E8E4D8'; c.font = `800 17px ${FONT}`; c.textAlign = 'center'; c.fillText('THE CARD', w / 2, 26);
     c.font = `600 14px ${FONT}`;
-    ['🐙 2-1', '🦀 3-1', '🐀 4-1', '🦈 6-1', '🐡 10-1'].forEach((t, i) => { c.textAlign = 'left'; c.fillText(t, 22 + (i % 2) * 82, 50 + Math.floor(i / 2) * 24); });
+    [`${FACE.octopus} 2-1`, `${FACE.crab} 3-1`, `${FACE.catfish} 4-1`, `${FACE.shark} 6-1`, `${FACE.puffer} 10-1`].forEach((t, i) => { c.textAlign = 'left'; c.fillText(t, 22 + (i % 2) * 82, 50 + Math.floor(i / 2) * 24); });
     c.strokeStyle = 'rgba(232,228,216,.5)'; c.lineWidth = 2; c.beginPath(); c.moveTo(20, 33); c.lineTo(w - 20, 33); c.stroke();
   });
   /** Harry's board: cork, with IOUs pinned all over it. */
@@ -2983,6 +2983,8 @@ export function cellarLights(on: boolean) { lit = on; showLamps(); }
 // the next one, which fades in, so nothing pops as the player goes from room to room. (Switching between them
 // recompiles the materials once, as the lights' count changes.)
 const STAND_INS = 4, SWAP = 0.3;
+/** How many stand-ins light the cellar: two on Potato. */
+const standing = () => (isPotato() ? 2 : STAND_INS);
 /** The stand-ins (on dice of their own, as the Undertow's lamps are). */
 export const standIns = apart(() => Array.from({ length: STAND_INS }, () => new PointLight(0xFFFFFF, 0)), dice(0x1A4B5));
 /** Which lamp each stands in for (-1: none), and how far faded in. */
@@ -2992,10 +2994,10 @@ let lit = false;
 function showLamps() {
   const low = !isHigh();
   lights.forEach(l => { l.visible = lit && !low; });
-  standIns.forEach(l => { l.visible = lit && low; });
+  standIns.forEach((l, n) => { l.visible = lit && low && n < standing(); });
 }
 onQuality(showLamps);
-/** On Low, the four lit lamps nearest `at` (where the camera looks), every frame the player's down there. */
+/** On Low, the four lit lamps nearest `at` (where the camera looks; two on Potato), every frame the player's down there. */
 export function updLamps(at: XZ, dt: number) {
   sweepNowAndThen(dt);
   if (isHigh() || !lit) return;
@@ -3008,10 +3010,12 @@ export function updLamps(at: XZ, dt: number) {
     const d = Math.hypot(l.position.x - at.x, l.position.z - at.z), k = Math.max(0, 1 - d / (l.distance || 20));
     return (l.intensity * k * k + 0.01 / (1 + d)) * (held.has(i) ? 1.2 : 1);
   });
-  const want = lit_.map((_, i) => i).filter(i => lit_[i] >= 0).sort((a, b) => lit_[b] - lit_[a]).slice(0, STAND_INS);
+  const want = lit_.map((_, i) => i).filter(i => lit_[i] >= 0).sort((a, b) => lit_[b] - lit_[a]).slice(0, standing());
   // (all of them at once the first time: just come down, or just switched to Low)
   const first = holds.every(h => h.i < 0);
   for (const [n, h] of holds.entries()) {
+    // (a stand-in not shown, on Potato, holds nothing: it'd take the lamp the one shown is waiting for)
+    if (n >= standing()) { h.i = -1; h.k = 0; standIns[n].intensity = 0; continue; }
     if (h.i >= 0 && want.includes(h.i)) h.k = Math.min(1, h.k + dt / SWAP);
     else if ((h.k = Math.max(0, h.k - dt / SWAP)) === 0) {
       h.i = want.find(i => !holds.some(o => o.i === i)) ?? -1;
@@ -3045,6 +3049,9 @@ function sweepShadows() {
   const low = !isHigh();
   cellar.updateMatrixWorld();
   cellar.traverse(o => {
+    // (someone drawn as one, characters.ts: their arms and legs are as slight as ever, so they cast with the body's alone;
+    // asked by name, as importing people here would make their shapes as the cellar loads, on its luck)
+    if ('limbShadows' in o) (o as { limbShadows: boolean }).limbShadows = !low;
     const m = o as Mesh;
     if (!m.isMesh || (m as unknown as InstancedMesh).isInstancedMesh || m.onBeforeShadow !== Mesh.prototype.onBeforeShadow) return;
     if (low && m.castShadow && slight(m)) { m.castShadow = false; m.userData.slight = true; }
@@ -3052,9 +3059,10 @@ function sweepShadows() {
   });
 }
 onQuality(sweepShadows);
-/** On Low, now and then, for what's come into the cellar since (bowls, the machines bought). */
+/** On Low, now and then, for what's come into the cellar since (bowls, the machines bought). Not on Potato, which casts
+ *  no shadows: the sweep when it changes to Low catches up. */
 function sweepNowAndThen(dt: number) {
-  if (isHigh() || (sweepT -= dt) > 0) return;
+  if (isHigh() || isPotato() || (sweepT -= dt) > 0) return;
   sweepT = 2;
   sweepShadows();
 }

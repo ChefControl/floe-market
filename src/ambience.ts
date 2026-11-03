@@ -96,7 +96,8 @@ export function updAmbience() {
   const wind = WIND[s] * dry * (0.3 + 0.7 * g);
   glide(beds.wind.g.gain, wind * Math.cos(g * Math.PI / 2), 0.8);
   glide(beds.gust.g.gain, wind * Math.sin(g * Math.PI / 2), 0.8);
-  glide(beds.rain.g.gain, 0.5 * rainK * out, 0.5);
+  // (softer than it was, about 8 dB down, so the song at her house comes through it)
+  glide(beds.rain.g.gain, 0.2 * rainK * out, 0.5);
   // the diners: louder with more of them, and closer
   const near = Math.max(0, 1 - Math.hypot(ear.x - BAR.x, ear.z - BAR.z) / 20);
   glide(beds.crowd.g.gain, dusk ? 0.19 * Math.min(1, sushi.diners.length / 14) * near * out : 0, 0.6);

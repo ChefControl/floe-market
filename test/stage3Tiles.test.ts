@@ -1,6 +1,7 @@
 // Stage 3: what the cellar buys with Fugu Chips: its tiles (machines again and again, hires, tiers), the cookware
 // shop's tree, and the workshop's crafting bench.
 import { describe, expect, it } from 'vitest';
+import { FACE } from '../src/icons/bosses';
 import indexHtml from '../index.html?raw';
 import { $, offered, ring } from './stage3Ring';
 
@@ -53,7 +54,7 @@ describe("the cellar's tiles", () => {
     // a gate a column: the start, the practice fight (won: the fixture's sparred), then the bosses, Hakkaku next
     const gates = () => [...$('shopRows').querySelectorAll<HTMLElement>('.gate')].map(h => h.className.replace('gate ', ''));
     expect(gates()).toEqual(['start', 'won', 'next', 'later', 'later', 'later', 'later']);
-    expect($('shopRows').querySelector('.gate.next')!.textContent).toBe('🐙Next: Hakkaku');
+    expect($('shopRows').querySelector('.gate.next')!.textContent).toBe(`${FACE.octopus}Next: Hakkaku`);
     const node = (id: string) => $('shopRows').querySelector<HTMLElement>(`[data-tile="${id}"]`)!;
     const price = (id: string) => node(id).querySelector<HTMLButtonElement>('button.cost')!;
     // (a line's machines as dots)
@@ -64,11 +65,11 @@ describe("the cellar's tiles", () => {
     expect(node('rack').classList.contains('can')).toBe(true);
     // the steam baskets wait on the second boss, dark, and the line under the board says so for the one under the mouse
     expect(node('steam').classList.contains('boss')).toBe(true);
-    expect(price('steam').textContent).toBe('🔒 🦀');
+    expect(price('steam').textContent).toBe(`🔒 ${FACE.crab}`);
     expect(price('steam').disabled).toBe(true);
     node('steam').dispatchEvent(new Event('pointerover', { bubbles: true }));
     g.run(0.1);
-    expect($('shopPick').textContent).toContain('Beat Yokobashiri 🦀 first');
+    expect($('shopPick').textContent).toContain(`Beat Yokobashiri ${FACE.crab} first`);
     // one click on its price buys it, or on the node
     price('rack').click();
     g.run(0.1);
@@ -86,7 +87,7 @@ describe("the cellar's tiles", () => {
     F().beaten = 1;
     g.run(0.1);
     expect(gates()).toEqual(['start', 'won', 'won', 'next', 'later', 'later', 'later']);
-    expect(price('tier1').textContent).toBe('🔒 🦀');
+    expect(price('tier1').textContent).toBe(`🔒 ${FACE.crab}`);
     F().beaten = 2;
     g.run(0.1);
     price('tier1').click();
@@ -480,7 +481,7 @@ describe("the workshop's crafting bench", () => {
     // a column a room along the top, a bar a gate: the practice fight's won, Hakkaku's next
     expect([...$('shopRows').querySelectorAll('.treeHead .laneName')].map(l => l.textContent)).toEqual(['🍚Rice', '🐟Fish', '🍄Grow', '🍲Hearth', '🏮Venue']);
     expect([...$('shopRows').querySelectorAll<HTMLElement>('.bar')].map(b => b.className.replace('bar ', ''))).toEqual(['won', 'next', 'later', 'later', 'later', 'later']);
-    expect($('shopRows').querySelector('.bar.next')!.textContent).toBe('🔒 Beat Hakkaku 🐙');
+    expect($('shopRows').querySelector('.bar.next')!.textContent).toBe(`🔒 Beat Hakkaku ${FACE.octopus}`);
     const node = (id: string) => $('shopRows').querySelector<HTMLButtonElement>(`[data-tile="${id}"]`)!;
     const buy = () => $('shopPick').querySelector<HTMLButtonElement>('.buy')!;
     // (it starts on the first thing there are the chips for: a drying rack, since the ring's levels wait for Hakkaku)
@@ -489,7 +490,7 @@ describe("the workshop's crafting bench", () => {
     node('steam').click();
     g.run(0.1);
     expect(node('steam').getAttribute('aria-pressed')).toBe('true');
-    expect($('shopPick').textContent).toContain('Beat Yokobashiri 🦀 first');
+    expect($('shopPick').textContent).toContain(`Beat Yokobashiri ${FACE.crab} first`);
     expect(buy().disabled).toBe(true);
     // pick, then buy
     node('rack').click();

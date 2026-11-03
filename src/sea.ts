@@ -23,15 +23,17 @@ float swell(vec2 p, float t) {
 
 /**
  * The sea's surface: a plane cut into small triangles, nudged off the grid so they don't line up, that rolls with the
- * swell. Its edges stay straight, so it meets the shore and the dock where the flat sea did.
+ * swell. Its edges stay straight, so it meets the shore and the dock where the flat sea did, and the points along them
+ * stay on the grid, so another piece of sea cut the same size meets it point to point (world.ts: the bay's in pieces).
  */
 export function seaGeometry(w: number, d: number) {
   const g = new PlaneGeometry(w, d, Math.round(w / 0.9), Math.round(d / 0.9));
   const p = g.attributes.position, sx = w / Math.round(w / 0.9), sy = d / Math.round(d / 0.9);
   for (let i = 0; i < p.count; i++) {
-    const x = p.getX(i), y = p.getY(i);
-    if (Math.abs(Math.abs(x) - w / 2) > 1e-3) p.setX(i, x + jitter(-0.3, 0.3) * sx);
-    if (Math.abs(Math.abs(y) - d / 2) > 1e-3) p.setY(i, y + jitter(-0.3, 0.3) * sy);
+    const x = p.getX(i), y = p.getY(i), edgeX = Math.abs(Math.abs(x) - w / 2) <= 1e-3, edgeY = Math.abs(Math.abs(y) - d / 2) <= 1e-3;
+    // (the dice are thrown for a point on an edge all the same, so the scenery after it comes out as it always has)
+    if (!edgeX) { const n = jitter(-0.3, 0.3) * sx; if (!edgeY) p.setX(i, x + n); }
+    if (!edgeY) { const n = jitter(-0.3, 0.3) * sy; if (!edgeX) p.setY(i, y + n); }
   }
   return g;
 }
@@ -137,7 +139,7 @@ const sheets: Mesh[] = [];
  * The clouds' shadows, laid over the ground at height `y`: a sheet that darkens what's under it where the clouds are,
  * sliding with the wind. It follows the camera (updSea), so it only has to cover what's on screen.
  */
-export function cloudShadows(y: number) {
+export function cloudShadows(y: number, size?: { w: number; d: number }) {
   const m = new ShaderMaterial({
     uniforms: { map: { value: cloudTex.tex }, focus, drift, strength },
     vertexShader: /* glsl */`
@@ -154,12 +156,12 @@ export function cloudShadows(y: number) {
     transparent: true, depthWrite: false,
     blending: CustomBlending, blendSrc: ZeroFactor, blendDst: SrcColorFactor,
   });
-  const sheet = new Mesh(new PlaneGeometry(70, 70), m);
+  const sheet = new Mesh(new PlaneGeometry(size?.w ?? 70, size?.d ?? 70), m);
   sheet.rotation.x = -Math.PI / 2;
   sheet.position.y = y;
   sheet.renderOrder = 5;
   sheet.frustumCulled = false;
-  sheets.push(sheet);
+  if (!size) sheets.push(sheet); // the big one follows the camera; one `size` across stays over what it's laid on
   return sheet;
 }
 

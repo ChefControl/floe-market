@@ -12,7 +12,9 @@ it('swaps the parka for the singer and back, arms set wider for his build', () =
   const wear = singerLook(p);
   /** Their own body, head and hood (baked into the person, so read from what they're wearing). */
   const own = () => p.worn().filter(w => ([G.body, G.hood, G.hoodBack, G.head] as BufferGeometry[]).includes(w.geo));
-  const sleeves = p.arms.map(a => a.children[0]);
+  /** Their own arms (baked into them too). */
+  const sleeves = () => p.worn().filter(w => w.bone === 1 || w.bone === 2);
+  const ownArms = sleeves().length;
   const all = [...p.body.children.slice(before), ...p.arms.flatMap(a => a.children.slice(1))];
   /** His High look is baked the new way (kit.ts), a byte per normal; the Low one is separate meshes, as it always was. */
   const baked = (o: Object3D) => o instanceof Mesh && o.geometry.attributes.normal?.array instanceof Int8Array;
@@ -25,7 +27,7 @@ it('swaps the parka for the singer and back, arms set wider for his build', () =
   wear(true);
   expect(p.arms.map(a => a.position.x)).toEqual([-0.3 * 1.1, 0.3 * 1.1]);
   expect(own()).toHaveLength(0);
-  expect(sleeves.some(o => o.visible)).toBe(false);
+  expect(sleeves()).toHaveLength(0);
   expect(look.every(o => o.visible)).toBe(true);
   expect(high.some(o => o.visible)).toBe(false);
   // and on High, the rounder, more detailed look in his place, even while he's worn
@@ -35,6 +37,7 @@ it('swaps the parka for the singer and back, arms set wider for his build', () =
   wear(false);
   expect(p.arms.map(a => a.position.x)).toEqual([-0.3, 0.3]);
   expect(own()).toHaveLength(4);
-  expect(sleeves.every(o => o.visible)).toBe(true);
+  expect(sleeves()).toHaveLength(ownArms);
+  expect(ownArms).toBeGreaterThan(4);
   expect(all.some(o => o.visible)).toBe(false);
 });
