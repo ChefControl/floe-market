@@ -21,7 +21,7 @@ function zombie(run: Run, x: number, y: number, more: Partial<Zombie> = {}): Zom
     id: run.nextId++, x, y, r: 16, hp: 100, maxHp: 100, speed: 100,
     coat: null, coatT: 0, meter: 0, burnT: 0, burnSpreads: false, poison: 0, poisonT: 0, poisonFast: 0,
     meltT: 0, freezeT: 0, twitchT: 0, lureT: 0, marinateT: 0, immuneT: 0, hasteT: 0, ticket: null, step: 0,
-    kx: 0, ky: 0, stunT: 0, slow: 0, slowT: 0, heat: 0, stumbleT: 0, stumbleX: 0, stumbleY: 0, stumbleCool: 0, dead: false, death: null,
+    kx: 0, ky: 0, stunT: 0, slow: 0, slowT: 0, heat: 0, stumbleT: 0, stumbleX: 0, stumbleY: 0, stumbleCool: 0, downT: 0, dead: false, death: null,
     ...more,
   };
   run.zombies.push(z);

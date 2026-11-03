@@ -4,7 +4,7 @@
 // hazardHouse.test.ts.
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
-  DISHES, GUNS, H, LEVEL_TIME, VAN_WAIT, W, ZONE_R, hit, press, throwDish, type Crate, type Dir, type DishId, type GunId, type Run, type Zombie,
+  DISHES, GUNS, H, LEVEL_TIME, VAN_WAIT, W, ZONE_R, hit, press, reload, throwDish, type Crate, type Dir, type DishId, type GunId, type Run, type Zombie,
 } from '../src/hazard';
 import { freshHouse, house } from '../src/hazardHouse';
 
@@ -14,7 +14,7 @@ function zombie(run: Run, x: number, y: number, more: Partial<Zombie> = {}): Zom
     id: run.nextId++, x, y, r: 16, hp: 100, maxHp: 100, speed: 0,
     coat: null, coatT: 0, meter: 0, burnT: 0, burnSpreads: false, poison: 0, poisonT: 0, poisonFast: 0,
     meltT: 0, freezeT: 0, twitchT: 0, lureT: 0, marinateT: 0, immuneT: 0, hasteT: 0, ticket: null, step: 0,
-    kx: 0, ky: 0, stunT: 0, slow: 0, slowT: 0, heat: 0, stumbleT: 0, stumbleX: 0, stumbleY: 0, stumbleCool: 0, dead: false, death: null,
+    kx: 0, ky: 0, stunT: 0, slow: 0, slowT: 0, heat: 0, stumbleT: 0, stumbleX: 0, stumbleY: 0, stumbleCool: 0, downT: 0, dead: false, death: null,
     ...more,
   };
   run.zombies.push(z);
@@ -803,7 +803,7 @@ describe("the guns' feel", () => {
     expect(set.setView().chunks).toBe(1);
     expect(set.setView().bits).toEqual(expect.arrayContaining(['limb', 'chunk']));
     // killed by a crit: flung along the shot, further than a Spud Rifle's plain kill
-    z.dead = true; z.death = { dx: 1, dy: 0, fling: 120, crit: true, over: 0 };
+    z.dead = true; z.death = { dx: 1, dy: 0, fling: 120, crit: true, over: 0, head: false };
     run.zombies = [];
     play.advance(0.2);
     const [f] = set.setView().falling;
@@ -899,6 +899,57 @@ describe("the guns' feel", () => {
     play.advance(0.05);
     expect(set.setView().glows).toBe(0);
     gfx.quality = 'high';
+    play.closeHazard();
+  });
+
+  it('knocks a zombie down with a close blast, twists the grinders, bursts salt dust, and loads a charge at a time', async () => {
+    const { gfx } = await import('../src/graphics');
+    const { play, set, root, area } = await open();
+    const run = start(play, root, 'salt');
+    gfx.quality = 'high';
+    const z = zombie(run, run.player.x + 40, run.player.y, { hp: 1000, maxHp: 1000 });
+    const at = set.toScreen(z.x, z.y, 0);
+    pointer(area, 'pointermove', at.x, at.y);
+    pointer(area, 'pointerdown', at.x, at.y);
+    play.advance(0.016);
+    window.dispatchEvent(new MouseEvent('pointerup'));
+    play.advance(0.016);
+    expect(z.downT).toBeGreaterThan(0);
+    expect(set.setView().down).toBe(1);
+    expect(set.setView().dust).toBeGreaterThan(5);
+    for (let i = 0; i < 6; i++) play.advance(0.05);
+    expect(Math.abs(set.setView().crank)).toBeGreaterThan(0.1);
+    for (let i = 0; i < 12; i++) play.advance(0.05);
+    expect(set.setView().down).toBe(0);
+    // (reloading, the count goes up a charge at a time)
+    run.ammo = 0;
+    reload(run);
+    play.advance(0.016);
+    expect(root.querySelector('.hz-ammo')!.textContent).toBe(`0 / ${GUNS.salt.mag} · ×${run.spare}`);
+    for (let i = 0; i < 3; i++) play.advance(GUNS.salt.reload / GUNS.salt.mag);
+    expect(run.ammo).toBeGreaterThanOrEqual(2);
+    expect(root.querySelector('.hz-ammo')!.textContent).toContain(`${run.ammo} / ${GUNS.salt.mag}`);
+    play.closeHazard();
+  });
+
+  it('breaks spuds into chunks, and knocks a zombie\'s head off with a crit kill', async () => {
+    const { gfx } = await import('../src/graphics');
+    const { play, set, root, area } = await open();
+    const run = start(play, root, 'spud');
+    gfx.quality = 'high';
+    const z = zombie(run, run.player.x + 200, run.player.y, { hp: 1000, maxHp: 1000 });
+    const at = set.toScreen(z.x, z.y, 0);
+    pointer(area, 'pointermove', at.x, at.y);
+    pointer(area, 'pointerdown', at.x, at.y);
+    for (let i = 0; i < 4; i++) play.advance(0.05);
+    window.dispatchEvent(new MouseEvent('pointerup'));
+    expect(set.setView().spuds).toBeGreaterThanOrEqual(3);
+    z.hp = 1;
+    pointer(area, 'pointerdown', at.x, at.y);
+    for (let i = 0; i < 4; i++) play.advance(0.05);
+    window.dispatchEvent(new MouseEvent('pointerup'));
+    expect(z.death).toMatchObject({ head: true });
+    expect(set.setView().heads).toBe(1);
     play.closeHazard();
   });
 

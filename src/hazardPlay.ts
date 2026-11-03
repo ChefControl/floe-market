@@ -36,7 +36,10 @@ import {
 import { STATIONS, STATION_IDS, drawRoom, focusOn, renderRoom, stationAt, type StationId } from './hazardRoom';
 import { U } from './hazardMap';
 import { drawSet, dressChef, headOf, renderSet, resetView, toArena, toScreen } from './hazardSet';
-import { blastSound, crackle, critSound, flameSound, groanSound, gunSound, hitSound, igniteSound, rushSound, shellSound, sizzleSound } from './hazardSound';
+import {
+  blastSound, crackle, crankSound, critSound, downSound, flameSound, groanSound, gunSound, hitSound, hopperSound, igniteSound, loadSound, lowAmmoSound,
+  popTopSound, rushSound, shellSound, sizzleSound,
+} from './hazardSound';
 import { dice } from './kit';
 import { takeover } from './render';
 import { chime, clack, lose, pop, throwSound } from './sfx';
@@ -700,10 +703,20 @@ function felt(r: Run, dt: number) {
   for (const f of r.fx) {
     if (f.kind === 'shot') {
       if (f.gun === 'chili') flameT = FLAME_HOLD;
-      else if (feel.sound) { gunSound(f.gun); if (f.gun === 'salt') shellSound(); }
+      else if (feel.sound) {
+        gunSound(f.gun);
+        if (f.gun === 'salt') { shellSound(); crankSound(0.3); }
+        // (the last few in the magazine click dry on top)
+        if (r.ammo < 3) lowAmmoSound();
+      }
     }
     // (the flame's hits are its roar and the crackle)
-    else if (f.kind === 'hit') { if (feel.sound && f.gun !== 'chili') { hitSound(f.taste, f.gun); if (f.crit) critSound(); } }
+    else if (f.kind === 'hit') {
+      if (feel.sound && f.gun !== 'chili') { hitSound(f.taste, f.gun); if (f.crit) critSound(); if (f.crit && f.killed && f.gun === 'spud') popTopSound(); }
+    }
+    else if (f.kind === 'down') { if (feel.sound) downSound(); }
+    else if (f.kind === 'reload') { if (feel.sound && f.gun === 'spud') hopperSound(); }
+    else if (f.kind === 'load') { if (feel.sound) loadSound(); }
     else if (f.kind === 'blast') { if (feel.sound) blastSound(); }
     else if (f.kind === 'rush') { if (feel.sound) rushSound(); }
     else if (f.kind === 'ignite') { if (feel.sound) { igniteSound(); groanSound(); } }
@@ -745,7 +758,8 @@ function hud(r: Run) {
   const ic = $('.hz-gun');
   ic.textContent = g.emoji;
   ic.style.background = g.taste ? TASTES[g.taste].color : '';
-  $('.hz-ammo').textContent = r.reloadT > 0 ? 'Reloading' : r.ammo + r.spare === 0 ? 'Empty' : `${r.ammo} / ${g.mag} · ×${r.spare}`;
+  // (the shotgun loads a charge at a time: its count goes up as it does)
+  $('.hz-ammo').textContent = r.reloadT > 0 && !g.shells ? 'Reloading' : r.ammo + r.spare + r.loose === 0 ? 'Empty' : `${r.ammo} / ${g.mag} · ×${r.spare}`;
   $('.hz-score').textContent = `${r.kills} · 🍳 ${r.cooked}`;
   $('.hz-bag').textContent = `${r.bag.length} / ${r.bagMax}${r.cookware.length ? ` · ${r.cookware.map(c => c.emoji).join('')}` : ''}`;
   // the safe zone: calling the van, holding the ring, hopping in

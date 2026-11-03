@@ -20,7 +20,7 @@ function zombie(run: Run, x: number, y: number, more: Partial<Zombie> = {}): Zom
     id: run.nextId++, x, y, r: 16, hp: 100, maxHp: 100, speed: 0,
     coat: null, coatT: 0, meter: 0, burnT: 0, burnSpreads: false, poison: 0, poisonT: 0, poisonFast: 0,
     meltT: 0, freezeT: 0, twitchT: 0, lureT: 0, marinateT: 0, immuneT: 0, hasteT: 0, ticket: null, step: 0,
-    kx: 0, ky: 0, stunT: 0, slow: 0, slowT: 0, heat: 0, stumbleT: 0, stumbleX: 0, stumbleY: 0, stumbleCool: 0, dead: false, death: null,
+    kx: 0, ky: 0, stunT: 0, slow: 0, slowT: 0, heat: 0, stumbleT: 0, stumbleX: 0, stumbleY: 0, stumbleCool: 0, downT: 0, dead: false, death: null,
     ...more,
   };
   run.zombies.push(z);
@@ -345,7 +345,8 @@ describe('gun feel', () => {
   });
 
   it('judges each shotgun pellet on its own, and fills a taste\'s ring by the shot\'s own damage, crit or not', () => {
-    const run = quiet({ gun: 'salt', dishes: [] }), z = zombie(run, W / 2 + 80, H / 2, { hp: 1000, maxHp: 1000 });
+    // (point-blank, the whole even fan lands in its middle)
+    const run = quiet({ gun: 'salt', dishes: [] }), z = zombie(run, W / 2 + 25, H / 2, { hp: 1000, maxHp: 1000 });
     shoot(run, z);
     const p = GUNS.salt;
     expect(z.hp).toBeCloseTo(1000 - p.pellets * p.dmg * CRIT_K);
@@ -538,6 +539,84 @@ describe('gun feel', () => {
     z.hp = 1;
     step(run, 0.1, still);
     expect(run.fx.find(e => e.kind === 'charred')).toMatchObject({ id: z.id });
+  });
+
+  it('fans the shotgun\'s pellets out evenly, and knocks down whoever takes four of them (a special only stumbles)', () => {
+    const run = quiet({ gun: 'salt', dishes: [] }), p = run.player;
+    run.cooldown = 0;
+    step(run, 0.001, { ...still, aim: { x: p.x + 100, y: p.y }, fire: true });
+    const angs = run.shots.map(s => Math.atan2(s.vy, s.vx)).sort((a, b) => a - b);
+    for (let i = 1; i < angs.length; i++) expect(angs[i] - angs[i - 1]).toBeGreaterThan(GUNS.salt.spread / 5 - 0.03 - 1e-6);
+    expect(angs[angs.length - 1] - angs[0]).toBeGreaterThan(GUNS.salt.spread - 0.03 - 1e-6);
+    const near = quiet({ gun: 'salt', dishes: [] }), z = zombie(near, near.player.x + 40, near.player.y, { hp: 1000, maxHp: 1000 });
+    const fx = shoot(near, z);
+    expect(fx.filter(f => f.kind === 'down')).toHaveLength(1);
+    expect(z.downT).toBeGreaterThan(0);
+    const x = z.x;
+    step(near, 0.2, still);
+    expect(z.downT).toBeGreaterThan(0);
+    for (let i = 0; i < 10; i++) step(near, 0.1, still);
+    expect(z.downT).toBe(0);
+    expect(x).toBeGreaterThan(near.player.x + 40);
+    const sp = quiet({ gun: 'salt', dishes: [] }), boss = zombie(sp, sp.player.x + 40, sp.player.y, { hp: 4000, maxHp: 4000, ticket: ['sweet', 'sour'] });
+    expect(shoot(sp, boss).some(f => f.kind === 'down')).toBe(false);
+    expect(boss.downT).toBe(0);
+  });
+
+  it('carries a killing shot on into whoever\'s behind, with what it had left (a spud two more, a pellet one)', () => {
+    const run = quiet(), p = run.player;
+    const row = [100, 140, 180, 220].map(d => zombie(run, p.x + d, p.y, { hp: 1, maxHp: 1000 }));
+    shoot(run, row[0]);
+    expect(row.map(z => z.dead)).toEqual([true, true, true, false]);
+    // (with nothing much left over, it stops)
+    const tough = quiet(), a = zombie(tough, tough.player.x + 100, tough.player.y, { hp: GUNS.spud.dmg * CRIT_K - 0.5, maxHp: 1000 }), b = zombie(tough, tough.player.x + 140, tough.player.y, { hp: 1, maxHp: 1000 });
+    shoot(tough, a);
+    expect([a.dead, b.dead]).toEqual([true, false]);
+  });
+
+  it('staggers a zombie a moment with each spud, and knocks its head off with a crit kill', () => {
+    const run = quiet(), z = zombie(run, run.player.x + 150, run.player.y, { hp: 1000, maxHp: 1000 });
+    shoot(run, z, 12);
+    expect(z.stunT).toBeGreaterThan(0);
+    expect(GUNS.spud.stun).toBeCloseTo(0.08);
+    const k = zombie(run, run.player.x + 150, run.player.y + 200, { hp: 5, maxHp: 1000 });
+    shoot(run, k);
+    expect(k.death).toMatchObject({ crit: true, head: true });
+    const salt = quiet({ gun: 'salt', dishes: [] }), s = zombie(salt, salt.player.x + 25, salt.player.y, { hp: 5, maxHp: 1000 });
+    shoot(salt, s);
+    expect(s.death?.head).toBe(false);
+  });
+
+  it('loads the shotgun a charge at a time, and fires what\'s in, stopping the reload', () => {
+    const run = quiet({ gun: 'salt', dishes: [] }), g = GUNS.salt, spare = run.spare;
+    run.ammo = 0; run.dropT = 0;
+    reload(run);
+    expect(run.fx.some(f => f.kind === 'reload')).toBe(true);
+    let loads = 0;
+    for (let i = 0; i < 3; i++) { step(run, g.reload / g.mag + 0.001, still); loads += run.fx.filter(f => f.kind === 'load').length; }
+    expect(run.ammo).toBe(3);
+    expect(loads).toBe(3);
+    expect(run.spare).toBe(spare - 1);
+    expect(run.reloadT).toBeGreaterThan(0);
+    run.cooldown = 0;
+    step(run, 0.001, { ...still, aim: { x: run.player.x + 100, y: run.player.y }, fire: true });
+    expect(run.ammo).toBe(2);
+    expect(run.reloadT).toBe(0);
+    // (the rest of that magazine's charges wait for the next reload: its last five, then one from the next)
+    expect(run.loose).toBe(g.mag - 3);
+    reload(run);
+    for (let i = 0; i < 6; i++) step(run, g.reload / g.mag + 0.001, still);
+    expect(run.ammo).toBe(g.mag);
+    expect(run.spare).toBe(spare - 2);
+    expect(run.loose).toBe(g.mag - 1);
+    // the Spud Rifle still reloads its magazine all at once
+    const spud = quiet();
+    spud.ammo = 3; spud.dropT = 0;
+    reload(spud);
+    step(spud, GUNS.spud.reload / 2, still);
+    expect(spud.ammo).toBe(3);
+    step(spud, GUNS.spud.reload / 2 + 0.01, still);
+    expect(spud.ammo).toBe(GUNS.spud.mag);
   });
 
   it('passes a small burn on to whoever a burning zombie touches, without its heat', () => {

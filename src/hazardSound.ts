@@ -11,7 +11,9 @@
 //   Sound, fire; flame-noise and jet-noise studies), kept here under about 4 kHz.
 // - A hit, in its taste: a plain potato's thud, chili sauce's wet sizzle, salt crystals cracking, a sticky sweet plop,
 //   a sour splash, a dull bitter thunk, a mushroom's squish. A crit adds a crunch on top.
-// - The salt shell clattering down, a dish's blast, and the rush's slow whoosh.
+// - The salt shell clattering down, the grinders cranked after a blast, a charge loading, potatoes tumbling into the
+//   hopper, the last shots' dry click, a head knocked off (a cork's thwop), a body knocked down, a dish's blast, and the
+//   rush's slow whoosh. The two guns have a heavier style c to audition.
 //
 // Each has two styles to audition (a and b, on the audition page); `STYLE` is the one the game plays: the owner's
 // picks (3 November 2026), the pop gun, the shotgun's rattle, the deeper, darker flame, the squelch, the crunch, the
@@ -19,10 +21,11 @@
 import { ac, between, buses, noise, tone } from './audio';
 import type { GunId, Taste } from './hazard';
 
-export type Style = 'a' | 'b';
+/** A sound's style: a and b for each; the two guns have a heavier c too (more low end, a longer tail). */
+export type Style = 'a' | 'b' | 'c';
 /** The style each sound plays in. */
-export const STYLE: Record<'spud' | 'salt' | 'flame' | 'hit' | 'crit' | 'shell' | 'blast' | 'rush', Style> = {
-  spud: 'b', salt: 'a', flame: 'b', hit: 'a', crit: 'a', shell: 'a', blast: 'b', rush: 'a',
+export const STYLE: Record<'spud' | 'salt' | 'flame' | 'hit' | 'crit' | 'shell' | 'blast' | 'rush' | 'crank', Style> = {
+  spud: 'b', salt: 'a', flame: 'b', hit: 'a', crit: 'a', shell: 'a', blast: 'b', rush: 'a', crank: 'a',
 };
 
 const last: Record<string, number> = {};
@@ -41,6 +44,12 @@ export function gunSound(gun: Exclude<GunId, 'chili'>, style: Style = STYLE[gun]
       // a puff of air out of the barrel, and the thump of it
       noise({ f: 900, f2: 320, kind: 'lowpass', q: 0.7, a: 0.008, d: 0.09, v: 0.12 });
       tone({ f: between(118, 128), f2: 72, type: 'triangle', a: 0.01, d: 0.13, v: 0.2 });
+    } else if (style === 'c') {
+      // heavier: a deeper pop, a low thump under it, and the air rolling on after
+      tone({ f: between(150, 160), f2: 80, type: 'triangle', a: 0.01, d: 0.14, v: 0.22 });
+      tone({ f: 70, f2: 45, a: 0.012, d: 0.2, v: 0.16 });
+      noise({ f: 1200, f2: 300, kind: 'lowpass', q: 0.7, a: 0.008, d: 0.12, v: 0.08 });
+      noise({ t: 0.02, f: 600, f2: 150, kind: 'lowpass', q: 0.7, a: 0.02, d: 0.3, v: 0.05 });
     } else {
       // a pop gun: a rounder pop, a little air
       tone({ f: between(200, 215), f2: 120, a: 0.01, d: 0.08, v: 0.16 });
@@ -52,6 +61,12 @@ export function gunSound(gun: Exclude<GunId, 'chili'>, style: Style = STYLE[gun]
       tone({ f: 96, f2: 48, type: 'triangle', a: 0.012, d: 0.24, v: 0.3 });
       noise({ f: 1300, f2: 260, kind: 'lowpass', q: 0.7, a: 0.008, d: 0.2, v: 0.2 });
       noise({ t: 0.02, f: 2600, q: 2, a: 0.01, d: 0.08, v: 0.04 });
+    } else if (style === 'c') {
+      // heavier: a deep boom, the salt rattling, and a long rumble rolling away
+      tone({ f: 70, f2: 36, a: 0.012, d: 0.4, v: 0.34 });
+      noise({ f: 1500, f2: 180, kind: 'lowpass', q: 0.7, a: 0.008, d: 0.3, v: 0.26 });
+      noise({ t: 0.03, f: 2600, q: 2, a: 0.01, d: 0.1, v: 0.05 });
+      noise({ t: 0.05, f: 400, f2: 120, kind: 'lowpass', q: 0.7, a: 0.03, d: 0.5, v: 0.08 });
     } else {
       // a deeper, rounder boom
       tone({ f: 84, f2: 44, a: 0.012, d: 0.32, v: 0.32 });
@@ -92,7 +107,7 @@ function holdAt(p: AudioParam, t: number) {
 
 /** Each style's flame: the hiss's level, the roar's middle, how bright it's let through, and its two flickers (Hz).
  *  a: the recipe as researched; b: a deeper, darker roar with less hiss and a slower flicker. */
-const FLAMES: Record<Style, { hiss: number; mid: number; top: number; flick: [number, number]; whoomp: number }> = {
+const FLAMES: Record<'a' | 'b', { hiss: number; mid: number; top: number; flick: [number, number]; whoomp: number }> = {
   a: { hiss: 0.15, mid: 450, top: 1400, flick: [11.3, 13.7], whoomp: 1800 },
   b: { hiss: 0.08, mid: 330, top: 1000, flick: [8.1, 10.4], whoomp: 1200 },
 };
@@ -115,7 +130,7 @@ export function flameSound(on: boolean, style: Style = STYLE.flame) {
 function light(style: Style) {
   const c = ac;
   if (!c || c.state !== 'running') return;
-  const f = FLAMES[style], t = c.currentTime + 0.01, wob = () => between(0.95, 1.05);
+  const f = FLAMES[style === 'a' ? 'a' : 'b'], t = c.currentTime + 0.01, wob = () => between(0.95, 1.05);
   const nodes: AudioNode[] = [], sources: AudioScheduledSourceNode[] = [];
   const out = c.createGain();
   out.gain.value = FLAME_V * between(0.9, 1.1);
@@ -183,6 +198,52 @@ function letGo() {
 /** Something burning: a soft crackle, `t` seconds from now (kept low: no sharp ticks). */
 export function crackle(t = 0) {
   noise({ t, f: between(1500, 2500), q: 1.5, a: 0.008, d: between(0.02, 0.04), v: between(0.15, 0.25) });
+}
+
+/** The shotgun's grinders twisted after a blast, `t` seconds from now: a ratcheting crank (a), or a pump's two clunks (b). */
+export function crankSound(t = 0, style: Style = STYLE.crank) {
+  if (style === 'a') {
+    for (let i = 0; i < 3; i++) noise({ t: t + i * 0.055, f: between(1700, 1900), q: 3, a: 0.008, d: 0.03, v: 0.09 });
+    tone({ t: t + 0.17, f: 260, f2: 180, type: 'triangle', a: 0.008, d: 0.06, v: 0.09 });
+  } else {
+    for (const [dt, f] of [[0, 300], [0.13, 240]] as const) {
+      noise({ t: t + dt, f: 900, kind: 'lowpass', q: 1, a: 0.008, d: 0.05, v: 0.12 });
+      tone({ t: t + dt, f, f2: f * 0.7, type: 'triangle', a: 0.008, d: 0.06, v: 0.08 });
+    }
+  }
+}
+
+/** The shotgun loading a charge: a crunchy click of the grinder. */
+export function loadSound() {
+  noise({ f: between(1900, 2200), q: 3, a: 0.008, d: 0.03, v: 0.08 });
+  tone({ f: 620, f2: 460, type: 'triangle', a: 0.008, d: 0.04, v: 0.05 });
+}
+
+/** The Spud Rifle reloading: potatoes tumbling into the hopper, and the lid clunking shut. */
+export function hopperSound() {
+  for (let i = 0; i < 5; i++) tone({ t: i * 0.07 + between(0, 0.02), f: between(170, 230), f2: 120, type: 'triangle', a: 0.008, d: 0.06, v: 0.07 });
+  noise({ t: 0.42, f: 700, kind: 'lowpass', q: 1, a: 0.008, d: 0.06, v: 0.1 });
+  tone({ t: 0.42, f: 150, f2: 100, type: 'triangle', a: 0.008, d: 0.08, v: 0.1 });
+}
+
+/** One of the last shots in the magazine: a small dry click on top of it. */
+export function lowAmmoSound() {
+  noise({ t: 0.03, f: 2800, q: 4, a: 0.008, d: 0.02, v: 0.06 });
+  tone({ t: 0.03, f: 1150, type: 'triangle', a: 0.008, d: 0.025, v: 0.03 });
+}
+
+/** A crit knocking a zombie's head off: a cork's thwop. */
+export function popTopSound() {
+  if (!spaced('pop', 0.08)) return;
+  tone({ f: 420, f2: 170, a: 0.008, d: 0.08, v: 0.16 });
+  noise({ f: 1200, q: 1.5, a: 0.008, d: 0.04, v: 0.08 });
+}
+
+/** A zombie knocked down by a blast, hitting the street. */
+export function downSound() {
+  if (!spaced('down', 0.1)) return;
+  tone({ t: 0.08, f: 95, f2: 55, type: 'triangle', a: 0.01, d: 0.16, v: 0.14 });
+  noise({ t: 0.08, f: 420, kind: 'lowpass', q: 0.8, a: 0.01, d: 0.12, v: 0.08 });
 }
 
 /** A zombie catching fire: a soft whoomp (at most four a second, however many catch). */
