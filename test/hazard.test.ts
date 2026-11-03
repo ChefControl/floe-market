@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   COAT_TIME, CRIT_K, DISHES, GUNS, H, LEVEL_TIME, RUSH_GAP, RUSH_K, TASTE_LIST, TECHNIQUES, W, centre, feel, hit, hordeHp,
-  letGo, level, lineUp, newRun, pair, press, pullAim, reload, ringNeed, shove, startServe, step, stripPos, technique,
+  letGo, level, lineUp, newRun, pair, press, pullAim, reload, ringNeed, shove, spawnGap, startServe, step, stripPos, technique,
   throwDish, type Input, type Loadout, type Run, type Taste, type Zombie,
 } from '../src/hazard';
 import { OPEN } from '../src/hazardMap';
@@ -275,8 +275,10 @@ describe('the gun, the shove and the run', () => {
     expect(z.x).toBeGreaterThan(W / 2 + 100);
   });
 
-  it('gets harder by the clock: tougher zombies, four words, stuck on BIOHAZARD', () => {
+  it('gets harder by the clock: tougher zombies, coming more often, four words, stuck on BIOHAZARD', () => {
     expect(hordeHp(LEVEL_TIME * 2)).toBeGreaterThan(hordeHp(0));
+    expect([0, 1, 2, 3].map(w => spawnGap(w * LEVEL_TIME))).toEqual([3, expect.closeTo(1.8), expect.closeTo(1.08), expect.closeTo(0.648)]);
+    expect(spawnGap(LEVEL_TIME * 9)).toBe(0.5);
     expect([0, LEVEL_TIME, LEVEL_TIME * 2, LEVEL_TIME * 3, LEVEL_TIME * 9].map(level)).toEqual([0, 1, 2, 3, 3]);
     expect(stripPos(LEVEL_TIME * 1.5)).toBe(1.5);
     expect(stripPos(LEVEL_TIME * 9)).toBe(3);

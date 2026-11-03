@@ -326,7 +326,9 @@ export const stripPos = (t: number) => Math.min(LEVELS.length - 1, t / LEVEL_TIM
 /** A horde zombie's HP, `t` seconds in: it only gets tougher. */
 export const hordeHp = (t: number) => Math.round(30 * (1 + 0.6 * t / LEVEL_TIME));
 const hordeSpeed = (t: number) => Math.min(120, 55 + 0.25 * t);
-const spawnGap = (t: number) => Math.max(0.35, 1.6 - 0.008 * t);
+/** How long till the next of the horde, `t` seconds in: one every 3 seconds at Fresh, 1.8 at Stale, about 1.1 at
+ *  Expired and 0.65 at BIOHAZARD, easing from one to the next, and never more often than every half second. */
+export const spawnGap = (t: number) => Math.max(0.5, 3 * 0.6 ** (t / LEVEL_TIME));
 
 /** Where a zombie turns up: somewhere open just off the screen around the chef, that walks to them. */
 function spawnAt(run: Run) {
