@@ -274,7 +274,7 @@ describe('getting out', () => {
   it('brings everything carried home in the van; dying loses it all', () => {
     const out = quarter();
     out.bag = [food('sour', 2), food('sweet', 0)];
-    out.cookware = [{ kind: 'cookware', name: 'Wok', emoji: '🥘' }];
+    out.cookware = [{ kind: 'cookware', name: 'Stockpot', emoji: '🍲' }];
     out.stage = 'van'; out.vanT = VAN_WAIT;
     Object.assign(out.player, { x: out.zone.x, y: out.zone.y });
     step(out, 0.01, still);

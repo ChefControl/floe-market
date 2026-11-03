@@ -48,7 +48,7 @@ export const INGREDIENTS: Record<Taste, string> = {
   spicy: 'Chili', bitter: 'Coffee beans', sour: 'Lemon', salty: 'Sea salt', sweet: 'Sugar', umami: 'Mushroom',
 };
 /** The gold crate's jackpot (stand-ins, till the cookware's decided). */
-export const COOKWARE = [{ name: 'Cast-iron pan', emoji: '🍳' }, { name: 'Wok', emoji: '🥘' }, { name: 'Stockpot', emoji: '🫕' }];
+export const COOKWARE = [{ name: 'Cast-iron pan', emoji: '🍳' }, { name: 'Stockpot', emoji: '🍲' }];
 export interface Food { kind: 'food'; taste: Taste; grade: Grade; got: number }
 export interface Cookware { kind: 'cookware'; name: string; emoji: string }
 export interface Ammo { kind: 'ammo'; mags: number }

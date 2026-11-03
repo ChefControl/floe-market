@@ -80,8 +80,8 @@ const mid = (b: Block) => ({ x: wx((b.x0 + b.x1) / 2), z: wz((b.y0 + b.y1) / 2),
 const SHOPS: Record<Shop, { name: string; wall: number; stripe: number; spilt: number[] }> = {
   grocery: { name: 'GROCERY 🍋', wall: 0x6E8B5A, stripe: 0x49C25B, spilt: [0xF2D23C, 0xE0392B, 0x6FA83A] },
   cafe: { name: 'CAFÉ ☕', wall: 0x8A6A52, stripe: 0xE8A33D, spilt: [0x4A2E1E, 0xF4EFE6] },
-  butcher: { name: 'BUTCHER 🥩', wall: 0x9A4A44, stripe: 0xC0392B, spilt: [0xD96A6A, 0xF4EFE6] },
-  bakery: { name: 'BAKERY 🥖', wall: 0xC9A66B, stripe: 0xF08BB0, spilt: [0xE0B070, 0xF4EFE6] },
+  butcher: { name: 'BUTCHER 🔪', wall: 0x9A4A44, stripe: 0xC0392B, spilt: [0xD96A6A, 0xF4EFE6] },
+  bakery: { name: 'BAKERY 🌾', wall: 0xC9A66B, stripe: 0xF08BB0, spilt: [0xE0B070, 0xF4EFE6] },
   market: { name: 'SUPERMARKET 🛒', wall: 0x5A6E8A, stripe: 0x1E8FC0, spilt: [0xF2D23C, 0xE0392B, 0xB0724A, 0x7FC4E0] },
   any: { name: '', wall: 0x75695E, stripe: 0x8A939B, spilt: [] },
 };

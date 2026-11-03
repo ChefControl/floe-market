@@ -1,7 +1,7 @@
 // Cooking Hazard's screen (hazardPlay.ts) and its street in 3D (hazardSet.ts): the loadout, a run on the keys and mouse
 // or by touch, what floats over the zombies, leaving mid-run, and the phone held upright. The rules are in hazard.test.ts.
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { DISHES, H, LEVEL_TIME, VAN_WAIT, W, ZONE_R, hit, press, type Crate, type Dir, type Run, type Zombie } from '../src/hazard';
+import { DISHES, GUNS, H, LEVEL_TIME, VAN_WAIT, W, ZONE_R, hit, press, type Crate, type Dir, type Run, type Zombie } from '../src/hazard';
 
 /** A zombie of the horde standing at (x, y). */
 function zombie(run: Run, x: number, y: number, more: Partial<Zombie> = {}): Zombie {
@@ -484,7 +484,7 @@ describe('a whole run, on the screen', () => {
     const card = () => root.querySelector<HTMLElement>('.hz-loot');
     expect(card()!.querySelectorAll('button')).toHaveLength(3);
     expect(card()!.textContent).toContain('🍋 Lemon');
-    expect(card()!.textContent).toContain('📦 +2 magazines');
+    expect(card()!.textContent).toContain(`${GUNS[run.loadout.gun].emoji} +2 magazines`);
     // a click takes that one
     pointer(card()!.querySelector('[data-item="0"]')!, 'pointerdown', 0, 0);
     expect(run.bag).toHaveLength(1);
@@ -543,24 +543,24 @@ describe('a whole run, on the screen', () => {
     run.holdT = 0.01;
     play.advance(0.05);
     expect(run.stage).toBe('van');
-    expect(root.querySelector('.hz-zone')!.textContent).toMatch(/^🚐 Hop in!/);
+    expect(root.querySelector('.hz-zone')!.textContent).toMatch(/^🚗 Hop in!/);
     // (off the screen, an arrow points to it)
     Object.assign(run.player, { x: run.zone.x > W / 2 ? 2 * 40 : W - 2 * 40 });
     play.advance(0);
     expect(root.querySelector('.hz-edge')!.textContent).toContain('Van');
     run.vanT = VAN_WAIT;
     run.bag = [{ kind: 'food', taste: 'sour', grade: 2, got: 0 }];
-    run.cookware = [{ kind: 'cookware', name: 'Wok', emoji: '🥘' }];
+    run.cookware = [{ kind: 'cookware', name: 'Stockpot', emoji: '🍲' }];
     Object.assign(run.player, { x: run.zone.x, y: run.zone.y });
     play.advance(0.05);
     expect(run.extracted).toBe(true);
     expect(root.dataset.mode).toBe('over');
     expect(root.querySelector('.hz-verdict')!.textContent).toBe('You got out!');
-    expect(root.querySelector('.hz-haul')!.textContent).toBe('🥘 🍋');
+    expect(root.querySelector('.hz-haul')!.textContent).toBe('🍲 🍋');
     expect(root.querySelector('.hz-stats')!.textContent).toContain('🧺 Haul 13');
     expect(root.querySelector('.hz-stats')!.textContent).toContain('🏆 New best haul');
     expect(localStorage.getItem('floe-market-hazard-haul')).toBe('13');
-    expect(JSON.parse(localStorage.getItem('floe-market-hazard-pantry')!)).toEqual({ food: { 'sour:2': 1 }, cookware: { Wok: 1 } });
+    expect(JSON.parse(localStorage.getItem('floe-market-hazard-pantry')!)).toEqual({ food: { 'sour:2': 1 }, cookware: { Stockpot: 1 } });
     // a second time: the pantry adds up, and the best stands
     root.querySelector<HTMLButtonElement>('.hz-again')!.click();
     const again = play.hazardRun()!;

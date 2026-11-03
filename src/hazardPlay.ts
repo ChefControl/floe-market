@@ -52,12 +52,12 @@ root.innerHTML = `
       <div class="pill hz-ammo-pill"><span class="hz-ic hz-gun"></span><span class="hz-ammo"></span></div>
       <div class="pill"><span class="hz-ic" style="background:#49c25b">🧟</span><span class="hz-score"></span></div>
       <div class="pill hz-bag-pill"><span class="hz-ic" style="background:#c9a66b">🎒</span><span class="hz-bag"></span></div>
-      <div class="pill hz-zone-pill" hidden><span class="hz-ic" style="background:#1e8fc0">📻</span><span class="hz-zone"></span></div>
+      <div class="pill hz-zone-pill" hidden><span class="hz-ic" style="background:#1e8fc0">📣</span><span class="hz-zone"></span></div>
       <div class="pill hz-boost" hidden><span class="hz-ic" style="background:#49c25b">🌿</span><span class="hz-boostn"></span></div>
     </div>
     <div class="hz-dishes"></div>
     <button type="button" class="k-btn hz-shove">💪 Shove</button>
-    <button type="button" class="k-btn hz-use" hidden>📻 Radio</button>
+    <button type="button" class="k-btn hz-use" hidden>📣 Radio</button>
     <div class="hz-stick hz-move"><i></i></div>
     <div class="hz-stick hz-aim"><i></i></div>
     <div class="hz-leave" hidden>
@@ -446,7 +446,7 @@ function hud(r: Run) {
   // the safe zone: calling the van, holding the ring, hopping in
   const inZone = Math.hypot(r.player.x - r.zone.x, r.player.y - r.zone.y) <= ZONE_R;
   const zone = r.stage === 'hold' ? (inZone ? `Hold on ${clock(Math.ceil(r.holdT))}` : 'Get back in the ring!')
-    : r.stage === 'van' ? `🚐 Hop in! ${clock(Math.ceil(r.vanT))}`
+    : r.stage === 'van' ? `🚗 Hop in! ${clock(Math.ceil(r.vanT))}`
     : inZone ? (r.radioT > 0 ? 'Calling the van…' : root.dataset.touch === '1' ? 'Hold Radio to call the van' : 'Hold E to call the van') : '';
   $('.hz-zone-pill').hidden = !zone;
   $('.hz-zone').textContent = zone;
@@ -513,15 +513,16 @@ function edge(key: object, at: ReturnType<typeof toScreen>, html: string) {
 /** The arrows' keys for the safe zone and the van. */
 const ZONE = {}, VAN = {}, LOOT = {};
 
-const itemName = (it: Item) => (it.kind === 'food' ? `${TASTES[it.taste].food} ${INGREDIENTS[it.taste]}`
-  : it.kind === 'cookware' ? `${it.emoji} ${it.name}` : `📦 +${it.mags} magazines`);
+/** A thing in a crate, as its button names it (magazines with the gun's own icon). */
+const itemName = (r: Run, it: Item) => (it.kind === 'food' ? `${TASTES[it.taste].food} ${INGREDIENTS[it.taste]}`
+  : it.kind === 'cookware' ? `${it.emoji} ${it.name}` : `${GUNS[r.loadout.gun].emoji} +${it.mags} magazines`);
 /** An open crate's card: a button for each thing in it; with the bag full, what it would swap (or that it's full). */
 function lootHtml(r: Run, c: Crate) {
   return c.items.map((it, i) => {
     const how = wouldTake(r, c, i), worst = how === 'swap' ? r.bag[worstInBag(r)] : null;
     const label = worst && it.kind === 'food'
       ? `Swap ${TASTES[worst.taste].food} ${GRADES[worst.grade]} → ${TASTES[it.taste].food} ${GRADES[it.grade]}`
-      : `${itemName(it)}${it.kind === 'food' ? ` <small class="g${it.grade}">${GRADES[it.grade]}</small>` : ''}`;
+      : `${itemName(r, it)}${it.kind === 'food' ? ` <small class="g${it.grade}">${GRADES[it.grade]}</small>` : ''}`;
     return `<button type="button" class="k-btn${how === 'full' ? ' full' : ''}" data-crate="${c.id}" data-item="${i}">${label}${how === 'full' ? '<small>Bag full</small>' : ''}</button>`;
   }).join('');
 }
@@ -547,8 +548,8 @@ function tags(r: Run) {
   if (c) { const at = toScreen(c.x, c.y, 1); tag(LOOT, 'hz-tag hz-loot', lootHtml(r, c), at.x, at.y); }
   // the safe zone (from Stale on, or once the van's called) and the van, when they're off the screen
   const z = toScreen(r.zone.x, r.zone.y, 0.5);
-  if ((level(r.t) >= 1 || r.stage === 'hold') && r.stage !== 'van' && offScreen(z)) edge(ZONE, z, `<span class="hz-ticket">📻 ${r.stage === 'hold' ? clock(Math.ceil(r.holdT)) : 'Safe zone'}</span>`);
-  if (r.stage === 'van' && offScreen(z)) edge(VAN, z, '<span class="hz-ticket">🚐 Van</span>');
+  if ((level(r.t) >= 1 || r.stage === 'hold') && r.stage !== 'van' && offScreen(z)) edge(ZONE, z, `<span class="hz-ticket">📣 ${r.stage === 'hold' ? clock(Math.ceil(r.holdT)) : 'Safe zone'}</span>`);
+  if (r.stage === 'van' && offScreen(z)) edge(VAN, z, '<span class="hz-ticket">🚗 Van</span>');
   if (r.serving) {
     const s = r.serving, code = DISHES[r.loadout.dishes[s.slot]].code, at = toScreen(r.player.x, r.player.y, 2.2);
     tag(SERVING, `hz-tag hz-serve${s.smudge > 0 ? ' smudged' : ''}`,
