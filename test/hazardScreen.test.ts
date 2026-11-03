@@ -117,7 +117,7 @@ describe('the screen, on the keys and mouse', () => {
     expect(set.setView().shots).toBeGreaterThan(0);
     for (let i = 0; i < 10; i++) play.advance(0.05);
     expect(z.hp).toBeLessThan(1000);
-    expect(set.setView().splats).toBeGreaterThan(0);
+    expect(set.setView().mess).toBeGreaterThan(0);
     window.dispatchEvent(new MouseEvent('pointerup'));
     // (the right button doesn't fire)
     pointer(area, 'pointerdown', at.x, at.y, undefined, { button: 2 });
@@ -223,10 +223,10 @@ describe('the screen, on the keys and mouse', () => {
     // (nothing aimed while the dish is still going in)
     expect(v.target).toBe(false);
 
-    // a zombie gone swells up, then pops: into confetti on High, nothing on Low (where there's no smoke either)
+    // a zombie gone drops, swells up, then pops: into confetti on High, nothing on Low (where there's no smoke either)
     gfx.quality = 'high';
     z.hp = 1; hit(run, z, 5, null);
-    for (let i = 0; i < 6; i++) play.advance(0.05);
+    for (let i = 0; i < 14; i++) play.advance(0.05);
     expect(set.setView().confetti).toBeGreaterThan(0);
     expect(set.setView().shadows).toBe(true);
     for (let i = 0; i < 40; i++) play.advance(0.05);
@@ -235,7 +235,7 @@ describe('the screen, on the keys and mouse', () => {
     const y = zombieMid(run, 400, 300, { hp: 1, maxHp: 100 });
     play.advance(0.05);
     hit(run, y, 5, null);
-    for (let i = 0; i < 6; i++) play.advance(0.05);
+    for (let i = 0; i < 14; i++) play.advance(0.05);
     expect(set.setView().confetti).toBe(0);
     expect(set.setView().shadows).toBe(false);
     expect(set.setView().puffs).toBe(0);
@@ -396,7 +396,7 @@ describe('the screen, by touch', () => {
 });
 
 describe('the set', () => {
-  it('drives the van in and off, fades buildings in the way, takes crates’ lids off, and keeps its splats to a few', async () => {
+  it('drives the van in and off, fades buildings in the way, takes crates’ lids off', async () => {
     const { play, set, root } = await open();
     go(root);
     const run = play.hazardRun()!;
@@ -427,14 +427,6 @@ describe('the set', () => {
     play.advance(0.05);
     for (let i = 0; i < 20; i++) play.advance(0.05);
     expect(set.setView().van).toBe('leave');
-    // (a splat for every shot that hit, but never more than a few dozen)
-    const shots = Array.from({ length: 60 }, (_, i) => ({ x: W / 2 + i, y: H / 2, vx: 0, vy: 0, life: 1, dmg: 0, taste: null, gun: 'spud' as const }));
-    run.shots = shots;
-    play.advance(0);
-    for (const s of shots) s.life = 0;
-    run.shots = [];
-    play.advance(0);
-    expect(set.setView().splats).toBe(48);
     play.closeHazard();
   });
 
