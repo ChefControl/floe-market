@@ -845,6 +845,9 @@ describe("the guns' feel", () => {
     expect(v.streaks).toBe(0);
     expect(z.heat).toBeGreaterThan(0);
     expect(v.burning).toBe(1);
+    // (its flames blown along the stream, which goes to the right)
+    expect(v.blown).toHaveLength(1);
+    expect(v.blown[0].x).toBeGreaterThan(0.5);
     expect(v.mess).toBeGreaterThan(0);
     expect(v.stuck).toBe(0);
     window.dispatchEvent(new MouseEvent('pointerup'));

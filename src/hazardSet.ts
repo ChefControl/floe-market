@@ -265,8 +265,9 @@ interface Body {
   /** Food stuck on it (the first `stuck` shown), whether its arm's off, the chunk out of its head, and its crit area on
    *  the ground (in the firing range). */
   food: Mesh[]; stuck: number; armOff: boolean; chunk: Mesh; area: Mesh;
-  /** How big the flames on it are while it burns (0: not burning), and when its next ember rises. */
-  fire: number; ember: number;
+  /** How big the flames on it are while it burns (0: not burning), and when its next ember rises; and the way the
+   *  flamethrower's stream blows them (the street's x and z, as long as it's blowing hard: dying away once it's gone). */
+  fire: number; ember: number; blowX: number; blowZ: number;
   /** Its fall: how long, from where, which way and how far it's flung (none: it drops where it stands), the way it
    *  faced, and its overkill (0 to 1). */
   fall: number; from: { x: number; z: number }; way: { x: number; z: number }; far: number; yaw: number; over: number;
@@ -303,7 +304,7 @@ function newBody(): Body {
     scene.add(p, ring, meter, area);
     return {
       p, bib, z: null, look: '', dying: 0, ring, meter,
-      flash: 0, flashLook: '', squash: 0, fx: 0, fz: 0, food, stuck: 0, armOff: false, chunk, area, fire: 0, ember: 0,
+      flash: 0, flashLook: '', squash: 0, fx: 0, fz: 0, food, stuck: 0, armOff: false, chunk, area, fire: 0, ember: 0, blowX: 0, blowZ: 0,
       fall: 0, from: { x: 0, z: 0 }, way: { x: 0, z: 0 }, far: 0, yaw: 0, over: 0,
     };
   }, dice(0x2B1E5 + made));
@@ -926,6 +927,8 @@ function happened(run: Run, f: Fx) {
     }
     const b = bodies.find(o => o.z?.id === f.id);
     if (!b) return;
+    // (the flamethrower's stream blows the flames on it its way)
+    if (f.gun === 'chili') { b.blowX = f.dx; b.blowZ = f.dy; }
     if (feel.flash) {
       b.flash = f.crit ? 0.1 : f.gun === 'chili' ? 0.035 : 0.07;
       b.flashLook = f.ticket ? `tk:${f.ticket}` : f.crit ? 'crit' : 'flash';
@@ -986,7 +989,7 @@ function drawZombies(run: Run, dt: number) {
       b.stuck = 0; b.armOff = false;
       for (const m of b.food) m.visible = false;
       b.chunk.visible = false;
-      b.fire = 0;
+      b.fire = 0; b.blowX = b.blowZ = 0;
       b.p.arms[1].scale.setScalar(1);
     }
     drawZombie(b, z, run, dt);
@@ -1114,7 +1117,7 @@ function buildFires() {
     return m;
   });
 }
-const local = new Matrix4(), eul = new Quaternion();
+const local = new Matrix4(), eul = new Quaternion(), blowQ = new Quaternion(), bodyQ = new Quaternion(), up = new Vector3(), way = new Vector3();
 /** Every zombie on fire's flames, licking and flickering, and its embers rising. */
 function drawFires(run: Run, dt: number) {
   if (!fires) return;
@@ -1124,16 +1127,26 @@ function drawFires(run: Run, dt: number) {
     if (!b.z || !b.fire || !b.p.visible) continue;
     b.p.body.updateWorldMatrix(true, false);
     const id = b.z.id;
+    // blown along the stream while it's on it, standing back up as it's gone: the street's up and the blow's way, in
+    // the body's own space (it may be leaning, or flung)
+    const blow = Math.hypot(b.blowX, b.blowZ);
+    if (dt > 0) { const k = Math.exp(-dt * 4); b.blowX *= k; b.blowZ *= k; }
+    b.p.body.getWorldQuaternion(bodyQ).invert();
+    up.set(0, 1, 0).applyQuaternion(bodyQ);
+    way.set(b.blowX, 0, b.blowZ).applyQuaternion(bodyQ);
+    blowQ.setFromAxisAngle(sv.crossVectors(up, way).normalize(), 1.15 * Math.min(1, blow));
     for (let i = 0; i < most && n < FIRES; i++) {
       const [x, y, z, size] = TONGUES[i], t = run.t + id * 0.37;
       const lick = 0.6 + 0.5 * Math.abs(Math.sin(t * (8.5 + i * 1.3) + i)) * (0.8 + 0.2 * Math.sin(t * 23 + i * 2.1));
       // (flared out from the body, so they lick past its edges in the camera's view, and swaying)
-      const k = b.fire * size, out = Math.hypot(x, z), sway = Math.sin(t * 5 + i * 1.7) * 0.22;
-      eul.setFromAxisAngle(out ? sv.set(z / out, 0, -x / out) : sv.set(1, 0, 0), (out ? 0.45 : 0) + sway);
-      local.compose(pv.set(x, y, z), eul, tip.set(0.15 * k, 0.6 * k * lick, 0.15 * k));
+      // (blown, they stretch out along the stream, flaring less)
+      const k = b.fire * size, out = Math.hypot(x, z), sway = Math.sin(t * 5 + i * 1.7) * 0.22, blown = Math.min(1, blow);
+      eul.setFromAxisAngle(out ? sv.set(z / out, 0, -x / out) : sv.set(1, 0, 0), ((out ? 0.45 : 0) + sway) * (1 - 0.7 * blown));
+      if (blown > 0.01) eul.premultiply(blowQ);
+      local.compose(pv.set(x, y, z), eul, tip.set(0.15 * k, 0.6 * k * lick * (1 + 0.5 * blown), 0.15 * k));
       m4.multiplyMatrices(b.p.body.matrixWorld, local);
       outer.setMatrixAt(n, m4);
-      local.compose(pv.set(x * 1.05, y, z * 1.05), eul, tip.set(0.085 * k, 0.38 * k * lick, 0.085 * k));
+      local.compose(pv.set(x * 1.05, y, z * 1.05), eul, tip.set(0.085 * k, 0.38 * k * lick * (1 + 0.5 * blown), 0.085 * k));
       m4.multiplyMatrices(b.p.body.matrixWorld, local);
       core.setMatrixAt(n, m4);
       n++;
@@ -1348,6 +1361,7 @@ export const setView = () => ({
   falling: bodies.filter(b => b.z && b.dying > 0 && b.dying < b.fall).map(b => ({ far: b.far, at: b.p.position.clone() })),
   areas: bodies.filter(b => b.area.visible).length,
   burning: bodies.filter(b => b.z && b.fire > 0).length,
+  blown: bodies.filter(b => b.z && Math.hypot(b.blowX, b.blowZ) > 0.5).map(b => ({ x: b.blowX, z: b.blowZ })),
   embers: embers.length,
   confetti: bits.filter(b => b.t > 0).length,
   plates: plates.filter(p => p.visible).length, zones: zones.filter(z => z.visible).length,
