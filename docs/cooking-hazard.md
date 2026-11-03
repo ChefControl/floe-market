@@ -125,6 +125,25 @@ The rules learnt from Path of Exile 2's elements: rings that show their "nearly 
 - **Kept in the save** (and its cloud copy), wiped by Restart with the rest: pantry, cookware, batches, tickets, upgrades, the book, bests. What step 4 kept on the device moves into the save the first time.
 - **As built** (stand-in numbers, for step 7's balance pass): a run pays a ticket for every four zombies, one for each technique, and 15 for getting out. The Rock Salt Shotgun costs 🎟️ 40 and the Chili Sprayer 60, damage levels 30, 60 and 90 (×1.15, ×1.3, ×1.5), dish slots 50 and 100, cargo and armour 40 and 80. A new player has 🎟️ 20. A cook's score (perfect counts whole, good half) gives ★★★ from 85% and ★★ from 50%. A batch cooked goes in the van by itself while there's a free slot. Leaving mid-run counts as dying.
 
+### Gun feel (grilled 3 November 2026)
+
+From a study of shooters that feel good: animation on every shot, damage that shows on the body, pushes, a mess that stays, a slow-motion moment, and one clear thing to aim for. The centre rule is a mechanic only; nothing the player sees names or looks like another game. The numbers are tuned in step 7.
+
+- **Aim for the middle:** a shot does more the closer it passes to a zombie's middle: half at the very edge of where it counts, rising evenly to full damage a third of the way in. The middle third of the body is a **crit**, ×2 for now. Each shotgun pellet is judged on its own, so a point-blank blast crits a lot. The Spud Rifle and the shotgun crit; the Chili Sprayer, dishes, the cleaver, burns, poison and techniques don't, and the Chili Sprayer does its full damage wherever it hits. Specials go by the same rule (a bigger body, so a bigger crit area), and a crit never changes a ticket's order.
+- **Tastes are left out of it for now:** a ring fills by the shot's full damage, crit or graze, and every hit coats.
+- **Aiming:** the Spud Rifle's spread is tighter (0.04 → 0.015). A small dot shows where the gun points and lights up over a crit area. On touch the aim pulls gently towards the middle of the nearest zombie, in a narrow cone.
+- **Every shot:** the chef's arm jerks back and the muzzle puffs. The camera nudges lightly, more for the shotgun and blasts. Android phones buzz on big hits only. Shots fly about 1.6× faster, with a short streak. Casings: potato-peel flecks from the Spud Rifle and an empty salt shell from the shotgun, which clatters; the Chili Sprayer just hisses. They lie a few seconds.
+- **Every hit:** a white flash, a little squash and a flinch away from the shot. A crit flashes white-gold, its splat is twice as big and bursts out like a star, and it flinches harder. A hit that moves a special's ticket on flashes the ticket's colour instead.
+- **Push:** the Spud Rifle nudges. The shotgun knocks back and stops them about 0.3 s. The Chili Sprayer slows them a little more with each drop, down to 60% while the stream stays on (specials 80%), wearing off about half a second after; with Sweet's syrup on too, only the stronger slow counts. Dishes knock back from the blast. Push grows with damage (a crit pushes twice as far), and specials take half.
+- **The mess:** food, never blood: mash and sauce in the taste colours. Food sticks on where they're hit, and they lose blocks as their HP drops (an arm at half, a chunk of head near the end). Splats stay painted on the street for the whole run.
+- **The kill:** the body is flung along the shot, tumbling loose for about 0.4 s: about 1 m from the Spud Rifle, 3 m from the shotgun or a crit, 5 m out from a dish blast's middle; the Chili Sprayer crumples them where they stand. Then it swells and pops where it lands (about 0.25 s), the bits carrying on the way it flew, further with overkill. A flung body is a look only: it passes through other zombies.
+- **The rush:** when a technique pops, a special's ticket is finished, or 4 die within a second, the world runs at 35% for about 0.8 s, with a whoosh and a slight push-in of the camera. The chef and the chef's shots stay at full speed. At most once every 10 seconds. No words on screen ("ORDER UP!" is the Chef's Special's).
+- **Hit-stop:** a freeze of about 40 ms on a point-blank shotgun kill, a dish blast and a crit kill on a special; never on an ordinary crit.
+- **Sound:** a shot for each gun, an impact for each taste, the shell clatter, the whoosh and a crit crunch, picked on an audition page and checked for clicks. Music stays in step 7.
+- **Settings:** everything that changes the rules is the same on every setting. High has all of it; Low has half the casings, splats that fade slowly and no confetti; Potato has no casings, a quarter of the splats and no lost blocks. Reduced motion turns off the camera nudge and the rush's push-in.
+- **The firing range:** `?arcade=range`, in dev and demo builds only: a row of zombies that don't attack, and a panel of switches for each layer, one of which paints each crit area on the ground and counts the crits. Nothing is saved.
+- **Not in this step:** a dodge or dash, crits on tastes, flung bodies knocking others over.
+
 ## Not decided yet
 
 - What each piece of cookware unlocks (the cooking methods), and the dish roster.
@@ -140,5 +159,6 @@ Later, not in v1: survivors who move into the safe house, an online scoreboard (
 3. ✅ The fight in 3D on the main renderer (`src/hazardSet.ts`, a set of its own and a camera), poly zombies and chef, and touch controls, as grilled under "The fight in 3D" above.
 4. ✅ A whole run: the van, crates and loot, the safe zone hold-out and extraction, dying, as grilled under "A whole run" above.
 5. ✅ The safe house (`src/hazardHouse.ts`, its room `src/hazardRoom.ts`): the three counters and their timing tap, the recipe book, the armory and the van, all kept in the save, as grilled under "The safe house" above.
+   - Gun feel: centre hits and crits, the shot and hit animations, pushes, the mess, the flung kill, the rush, hit-stop, the guns' sounds and the firing range, as grilled under "Gun feel" above.
 6. Content: cookware and dishes (after grilling the open questions above), special zombies and their tickets, destinations, bosses.
 7. Sound and music (through audition pages, checked for pops), the balance numbers (a headless run like the stage sims), trophies.
