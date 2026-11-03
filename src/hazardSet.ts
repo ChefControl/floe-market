@@ -8,13 +8,13 @@
 // looks down at the main game's tilt, square to the street (so up on the keys is up the screen), and follows the chef.
 // Zombies are the game's own blocky people, grey-green, arms out, tinted by the taste they wear; specials are bigger,
 // in a stained chef's bib. Dying, a zombie swells up like an allergic reaction and pops (into confetti, on High). The
-// chef is the player's own, in a hazmat apron and goggles, the gun in one hand. Shots are food (potatoes, rock salt,
+// chef is the player's own face in the kitchen commando outfit (characters.ts), the gun in one hand. Shots are food (potatoes, rock salt,
 // chili), splatting in their taste's colour; the build-up rings are painted on the ground at the zombies' feet. High
 // graphics add the shadows, the confetti and the smoke clouds; Low leaves them out, and plays the same.
 import {
   BoxGeometry, type BufferGeometry, CircleGeometry, Color, ConeGeometry, CylinderGeometry, DirectionalLight, DoubleSide, Fog, Group,
   HemisphereLight, IcosahedronGeometry, InstancedMesh, Matrix4, Mesh, MeshBasicMaterial, MeshLambertMaterial,
-  type Material, type Object3D, PerspectiveCamera, PlaneGeometry, Plane, Quaternion, Raycaster, RingGeometry, Scene, SphereGeometry, TorusGeometry,
+  type Material, type Object3D, PerspectiveCamera, PlaneGeometry, Plane, Quaternion, Raycaster, RingGeometry, Scene, SphereGeometry,
   Vector2, Vector3,
 } from 'three';
 import { animPerson, Person } from './characters';
@@ -22,6 +22,7 @@ import { isHigh } from './graphics';
 import { DISHES, H, HOLD_TIME, TASTES, W, ZONE_R, type Crate, type GunId, type Run, type Shot, type Taste, type Zombie } from './hazard';
 import { QUARTER, U, type Block, type Shop, type Town } from './hazardMap';
 import { dice, quietly } from './kit';
+import { C } from './palette';
 import { player } from './player';
 import { bakePainted, canvasTex, FONT, G, mesh, painted, renderer, type Part } from './render';
 import { V } from './util';
@@ -278,20 +279,11 @@ function flat(geo: RingGeometry | CircleGeometry, color = 0xFFFFFF) {
   return m;
 }
 
-/** The chef: the player's own, in a hazmat apron and goggles, a gun in the right hand and a plate in the left. */
+/** The chef: the player's own face in the kitchen commando outfit, a gun in the right hand and a plate in the left. */
 let chef: { p: Person; guns: Record<GunId, Mesh>; plate: Group } | null = null;
 function newChef() {
   return quietly(() => {
-    const p = new Person(player.g.color, 'parka', player.g.style);
-    p.body.add(gear([
-      at(box, 0xE8C93A, 0, 0.55, 0.268, 0.42, 0.52, 0.025, [-0.13, 0, 0]),
-      at(box, 0x1B2430, 0, 0.82, 0.24, 0.3, 0.035, 0.02, [-0.13, 0, 0]),
-      at(new TorusGeometry(0.205, 0.022, 6, 20), 0x1B2430, 0, 1.08, 0.05, 1, 1, 1, [Math.PI / 2, 0, 0]),
-      at(box, 0x1B2430, 0.075, 1.08, 0.24, 0.11, 0.085, 0.04),
-      at(box, 0x1B2430, -0.075, 1.08, 0.24, 0.11, 0.085, 0.04),
-      at(box, 0x9FD8E8, 0.075, 1.08, 0.262, 0.085, 0.06, 0.01),
-      at(box, 0x9FD8E8, -0.075, 1.08, 0.262, 0.085, 0.06, 0.01),
-    ]));
+    const p = new Person(C.iron, 'commando', player.g.style);
     // the guns, along the right arm (it points them when it's held out ahead)
     const gun = (c: number, tip: number) => gear([
       at(box, c, 0, -0.42, 0.02, 0.09, 0.4, 0.11), at(box, tip, 0, -0.64, 0.02, 0.06, 0.08, 0.06), at(box, 0x2A2E33, 0, -0.34, 0.09, 0.05, 0.08, 0.1),
@@ -535,13 +527,11 @@ export function buildSet() {
   }, dice(0xA4CADE));
 }
 
-/** Dresses the chef as the player is now (their look may have changed since the last run). */
+/** Dresses the chef as the player is now (their face may have changed since the last run; the outfit's the same all year). */
 export function dressChef() {
   buildSet();
   if (!chef) chef = newChef();
-  else quietly(() => chef!.p.restyle(player.g.color, player.g.style), dice(0xC4EF));
-  chef.p.season = player.g.season;
-  quietly(() => chef!.p.redress(), dice(0xC4EF));
+  else quietly(() => chef!.p.restyle(C.iron, player.g.style), dice(0xC4EF));
 }
 
 // ---------- drawing a run ----------
