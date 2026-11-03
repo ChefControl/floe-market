@@ -32,3 +32,7 @@ Node 18+, ffmpeg, and Playwright's Chromium (`npx -y playwright@latest install c
 
 The skill's `assets/demo-game.html` is a stand-in game. Ask Claude to "run the in-engine-promo-clips demo", or follow
 "Setup and a two-minute try" in `skills/in-engine-promo-clips/SKILL.md`.
+
+## Licence
+
+MIT (see `LICENSE` in this folder). The rest of the Floe Market repository stays all rights reserved.
