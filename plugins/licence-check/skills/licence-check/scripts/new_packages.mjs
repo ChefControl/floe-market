@@ -1,19 +1,24 @@
 // Lists the npm packages a change adds or upgrades, with each one's licence and whether it ships or is dev-only.
 //
 //   node new_packages.mjs [base ref, default main] [lockfile, default package-lock.json]
+//   node new_packages.mjs <base>..<head> [lockfile]     e.g. abc123^1..abc123 for a merged PR
 //
 // Compares the lockfile at <base> (git show <base>:<lockfile>) with the one in the working tree, so it sees committed
-// and uncommitted changes. Licences come from the lockfile (npm 7+ records them) or, failing that, the installed
-// package.json. Each package is sorted into: permissive, weak copyleft, strong copyleft, non-commercial/source-available,
+// and uncommitted changes; with <base>..<head> it compares the two commits instead and never reads the working tree.
+// Licences come from the lockfile (npm 7+ records them) or, failing that, the installed package.json. Each package is sorted into: permissive, weak copyleft, strong copyleft, non-commercial/source-available,
 // or unknown. "dev" packages are tools that don't ship (unless what they generate does).
 import { execSync } from 'child_process';
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 
-const [base = 'main', lockfile = 'package-lock.json'] = process.argv.slice(2);
-const now = JSON.parse(readFileSync(lockfile, 'utf8'));
+const [range = 'main', lockfile = 'package-lock.json'] = process.argv.slice(2);
+const [base, head] = range.split('..');
+const show = ref => JSON.parse(execSync(`git show ${ref}:${lockfile}`, { encoding: 'utf8', maxBuffer: 1 << 28, stdio: ['ignore', 'pipe', 'ignore'] }));
+let now = { packages: {} };
+try { now = head ? show(head) : JSON.parse(readFileSync(lockfile, 'utf8')); }
+catch { console.log(`(no ${lockfile} at ${head ?? 'the working tree'}: nothing to compare)`); process.exit(0); }
 let before = { packages: {} };
-try { before = JSON.parse(execSync(`git show ${base}:${lockfile}`, { encoding: 'utf8', maxBuffer: 1 << 28, stdio: ['ignore', 'pipe', 'ignore'] })); }
+try { before = show(base); }
 catch { console.log(`(no ${lockfile} at ${base}: every package counts as new)`); }
 
 const PERMISSIVE = /^(MIT|MIT-0|ISC|BSD-[0-9]-Clause.*|0BSD|Apache-2\.0|Zlib|Unlicense|CC0-1\.0|BlueOak-1\.0\.0|Python-2\.0|WTFPL|CC-BY-[34]\.0|Artistic-2\.0)$/i;
@@ -35,7 +40,7 @@ for (const [path, p] of Object.entries(now.packages ?? {})) {
   const old = before.packages?.[path];
   if (old && old.version === p.version) continue;
   let lic = p.license;
-  if (!lic && existsSync(join(path, 'package.json'))) { try { const j = JSON.parse(readFileSync(join(path, 'package.json'), 'utf8')); lic = j.license ?? j.licenses?.map?.(l => l.type ?? l).join(' OR '); } catch {} }
+  if (!lic && !head && existsSync(join(path, 'package.json'))) { try { const j = JSON.parse(readFileSync(join(path, 'package.json'), 'utf8')); lic = j.license ?? j.licenses?.map?.(l => l.type ?? l).join(' OR '); } catch {} }
   rows.push({ pkg: name(path), from: old?.version ?? null, to: p.version, license: lic ?? '?', kind: kind(lic), ships: !(p.dev || p.devOptional) });
 }
 const order = ['strong copyleft', 'non-commercial / source-available', 'unknown', 'weak copyleft', 'permissive'];

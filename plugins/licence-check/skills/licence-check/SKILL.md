@@ -14,7 +14,8 @@ advice: say so once, and say when something needs a lawyer or the rights holder'
 ## 1. How the project ships
 
 The verdicts depend on it, so settle it first. Look for it (README, LICENSE, store pages, build scripts, CLAUDE.md or
-memory) and ask only what you can't find, in one question:
+memory) and ask only what you can't find, in one question. When you can't ask (running as a subagent or in CI),
+say what you assumed in the report's "Ships as" line instead.
 
 - **Closed and commercial** (a paid or free-with-purchases app or game, source not shared): copyleft that would force
   the source open is out; anything "non-commercial" is out.
@@ -24,22 +25,33 @@ memory) and ask only what you can't find, in one question:
   MIT project's distributed build without the whole becoming GPL; Apache-2.0 into GPL-2.0-only is a known clash).
 - **Internal only** (never distributed): most licences allow it; non-commercial terms may still bite in a company.
 
+A project that ships more than one way (a free web build now, a store release next) is judged by the strictest. Judge
+by how it ships now or next, not how it shipped when an older change landed: an old asset still ships today.
+
 Also find **where credits live**: a credits or "about" screen, a `CREDITS`, `NOTICE`, `THIRD_PARTY_NOTICES` or
 `licenses.txt`, a build step that writes one, tests that check it. Note each so the report can say exactly where a
-credit goes.
+credit goes. Read the project's own `LICENSE` and README licence section too: when they claim "all rights reserved"
+over the whole repo, every third-party file needs a carve-out there ("the fonts in `fonts/` are under the OFL").
 
 ## 2. The change
 
 Work out what to read:
-- A PR number: `gh pr view <n> --json state,files,mergeCommit` and `gh pr diff <n>`; for a merged PR, `git show <mergeCommit>`.
+- A PR number: `gh pr view <n> --json state,files,mergeCommit` and `gh pr diff <n>`. For a merged PR, read it as of
+  its merge commit `M`: `git diff "${M}^1" "${M}"` (right for squash and true merge commits alike; `git show` on a true
+  merge prints a combined diff that hides most of it), and files as they were with `git show "${M}:<path>"`. Brace the
+  variable: in zsh `$M:s…` or `$M:h…` is a history modifier and silently breaks the path.
 - A branch: `git diff main...<branch>` (use the repo's default branch).
 - Nothing named: the current branch, `git diff main...HEAD` plus `git diff HEAD` for what isn't committed.
 
 List what it brings in:
 - **Dependencies:** lockfile and manifest changes. For npm, `node <skill>/scripts/new_packages.mjs <base>` lists added
-  and upgraded packages with licence, kind and whether they ship. Others: `pip-licenses` (Python), `cargo license`
+  and upgraded packages with licence, kind and whether they ship (`<base>..<head>`, e.g. `M^1..M`, compares two
+  commits without touching the working tree). Others: `pip-licenses` (Python), `cargo license`
   (Rust), `go-licenses` (Go), `license_finder` (many), the Asset Store / Fab / addon page for Unity, Unreal and Godot
   assets. Include new *transitive* dependencies: they ship too.
+- **Tools no manifest lists:** read new or changed build scripts, CI files and Dockerfiles for `pip install`, `npx`,
+  `curl`/`wget` downloads and pinned upstream files. A font or icon pipeline that fetches its sources and installs its
+  own tools brings in both, and what it outputs ships.
 - **Files:** every added or replaced font, image, texture, model, sound, music file, video, icon or emoji set, and
   anything vendored (copied-in code, `vendor/`, `third_party/`, minified libraries).
 - What the project generates itself (code that draws, synthesises or procedurally builds things) is its own: check only
@@ -82,6 +94,11 @@ fine). Note which a change uses.
   a music-recognition scan: cut it into 10 s windows (`ffmpeg -ss <t> -t 10`) and run each through a recognizer (a
   Shazam-style CLI such as `songrec`, or a library such as `shazamio`). Count a song only when several windows agree;
   single hits are often false positives. Say which file and how long it is.
+  - A recognizer sends the audio to its service (Shazam's servers). Fine for recordings that are public anyway; for
+    unreleased material, ask first.
+  - macOS has a `/usr/bin/shazam` command: it only makes signatures for custom catalogs and can't name songs.
+  - With no recognizer installed, don't install one unasked: leave the verdict at "Needs a listen" and say which tool
+    would do it. A person listening through on headphones is the fallback, and catches faint music a scan misses.
 - AI-generated music and voices: check the tool's terms for commercial use and whether the plan used allows it.
 
 **Images, textures, 3D models**: anything not made in-house needs its source and licence (CC0, CC BY with credit, a
@@ -94,7 +111,8 @@ the project's own; no real song's melody or lyrics, even hummed or re-recorded.
 
 ## 4. Report
 
-One line per thing brought in, each with one verdict, most serious first:
+One line per thing brought in, each with one verdict, most serious first. "N to look at" counts every line that isn't
+OK.
 
 ```
 ## Licences: no change | N to look at
@@ -106,8 +124,13 @@ Target: <PR #n / branch / current branch at <sha>>
   "<the credit line, matching the existing ones' wording>"
 - Needs a listen: <file> (<seconds>): a recording of <what>, not yet checked for music
 - OK: <thing> (<licence>, <source>), credited in <where> | credited by the build
+Also seen: <problems outside this change that it shows up, e.g. old entries in a credits screen it adds>
 Checked: <what you looked at, one line>. Not legal advice.
 ```
+
+When reviewing an older, merged change, give each line the verdict it had at the time, then add "(fixed since in
+<PR or commit>)" when later history settles it, so the report shows whether the check would have caught it. Leave out
+"Also seen" when there's nothing.
 
 A change that brings in nothing new (code only, or assets the project generates itself) is "no change". Match the
 existing credits' wording: title in quotes, author, linked licence, then what was changed ("trimmed, levelled and made
