@@ -11,15 +11,38 @@
 // chef is the player's own face in the kitchen commando outfit (characters.ts), the gun in one hand. Shots are food (potatoes, rock salt,
 // chili), splatting in their taste's colour; the build-up rings are painted on the ground at the zombies' feet. High
 // graphics add the shadows, the confetti and the smoke clouds; Low leaves them out, and plays the same.
+//
+// The guns' feel (docs/cooking-hazard.md, "Gun feel"; the rules hand it over as the run's `fx`): the chef's arm kicks
+// and the muzzle puffs with every shot, the camera nudges back (more for the shotgun and a dish's blast), and shells
+// fly out and lie a few seconds (potato peel, salt shells). Shots streak. A hit flashes the zombie white (a crit
+// white-gold, a hit that ticks a special's ticket its taste's colour), squashes it and makes it flinch; the food sticks
+// on, and it loses an arm at half its health and a chunk of its head near the end. The mess, mash and sauce in the
+// tastes' colours, is painted on the street for the whole run (a crit's in a star, its drops flying out). A kill flings
+// the body along the shot, tumbling, further for a crit or a dish's blast and with overkill (the Chili Sprayer drops
+// them where they stand), and it swells and pops where it lands, the bits carrying on its way. The Chili Sprayer is a
+// flame: blobs of fire swelling as they go, white-gold at the nozzle, orange, then smoke, and scorch marks where it
+// licks the street. A burning zombie is on fire: tongues of flame lick up its body and head, orange round a yellow
+// core, flickering and swaying, bigger with the flame's heat, and embers rise off it (fewer flames and embers on Low;
+// on Potato a few flames and none). Its blobs stretch along their way near the nozzle and die ragged, and it throws
+// sparks that land in a wisp of smoke; the oil it drips burns on the street in small flames; a warm glow lies under
+// all of it (not on Potato). A burning zombie flails, and cooks as its heat builds, golden, browned, charred; killed
+// in the heat it slumps, crumbles into a smoking heap and goes in a puff of ash. A shotgun blast that knocks one down
+// throws it on its back to lie a moment and get up; the shotgun bursts salt dust and twists its grinders after each
+// blast; spuds break into chunks; a Spud Rifle crit kill knocks the head off, spinning away, the rest bursting at once.
+// The rush pushes the camera in a little. Low has half the shells, no confetti, and the mess fading slowly; Potato no shells, a quarter
+// of the mess, and no blocks lost. Reduced motion keeps the camera still.
 import {
-  BoxGeometry, type BufferGeometry, CircleGeometry, Color, ConeGeometry, CylinderGeometry, DirectionalLight, DoubleSide, Fog, Group,
+  AdditiveBlending, BoxGeometry, type BufferGeometry, type CanvasTexture, CircleGeometry, Color, ConeGeometry, CylinderGeometry, DirectionalLight, DoubleSide, Fog, Group,
   HemisphereLight, IcosahedronGeometry, InstancedMesh, Matrix4, Mesh, MeshBasicMaterial, MeshLambertMaterial,
   type Material, type Object3D, PerspectiveCamera, PlaneGeometry, Plane, Quaternion, Raycaster, RingGeometry, Scene, SphereGeometry,
   Vector2, Vector3,
 } from 'three';
 import { animPerson, Person } from './characters';
-import { isHigh } from './graphics';
-import { DISHES, H, HOLD_TIME, TASTES, W, ZONE_R, type Crate, type GunId, type Run, type Shot, type Taste, type Zombie } from './hazard';
+import { isHigh, isPotato } from './graphics';
+import {
+  CRIT_IN, DISHES, DOWN_TIME, GUNS, H, HOLD_TIME, TASTES, W, ZONE_R, feel, type Crate, type Fx, type GunId, type Run, type Taste, type Zombie,
+} from './hazard';
+import { MODELS, armHoseMesh, gunMesh, lookFor, onArm, packMesh } from './hazardGuns';
 import { QUARTER, U, type Block, type Shop, type Town } from './hazardMap';
 import { dice, quietly } from './kit';
 import { C } from './palette';
@@ -241,9 +264,25 @@ interface Body {
   /** The zombie it plays, and the look it's in now (a tint's key). */
   z: Zombie | null;
   look: string;
-  /** Seconds into its pop, once its zombie's gone (it swells, then goes). */
+  /** Seconds into its fall and pop, once its zombie's gone (flung or dropped, then it swells, then goes). */
   dying: number;
   ring: Mesh; meter: Mesh;
+  /** A hit: its flash (seconds left, and the look it flashes in), its squash, and its flinch away from the shot (metres). */
+  flash: number; flashLook: string; squash: number; fx: number; fz: number;
+  /** Food stuck on it (the first `stuck` shown), whether its arm's off, the chunk out of its head, and its crit area on
+   *  the ground (in the firing range). */
+  food: Mesh[]; stuck: number; armOff: boolean; chunk: Mesh; area: Mesh;
+  /** How big the flames on it are while it burns (0: not burning), and when its next ember rises; and the way the
+   *  flamethrower's stream blows them (the street's x and z, as long as it's blowing hard: dying away once it's gone). */
+  fire: number; ember: number; blowX: number; blowZ: number;
+  /** How cooked it looks (the flame's heat it's had, cooling slowly), and whether it died charred (in the heat). */
+  cook: number; charred: boolean;
+  /** Knocked down (by a shotgun blast): whether it's down, and the way it faced as it went. Its skin's colour (for its
+   *  head, knocked off). */
+  down: boolean; downYaw: number; skin: number;
+  /** Its fall: how long, from where, which way and how far it's flung (none: it drops where it stands), the way it
+   *  faced, and its overkill (0 to 1). */
+  fall: number; from: { x: number; z: number }; way: { x: number; z: number }; far: number; yaw: number; over: number;
 }
 const bodies: Body[] = [];
 let made = 0;
@@ -262,10 +301,35 @@ function newBody(): Body {
       at(box, 0x8A3B24, -0.08, 0.52, 0.29, 0.07, 0.06, 0.01, [-0.13, 0, -0.3]),
     ]);
     p.body.add(bib);
-    const ring = flat(new RingGeometry(1.12, 1.26, 32)), meter = flat(ARCS[0]);
-    scene.add(p, ring, meter);
-    return { p, bib, z: null, look: '', dying: 0, ring, meter };
+    const ring = flat(new RingGeometry(1.12, 1.26, 32)), meter = flat(ARCS[0]), area = flat(new CircleGeometry(1, 20), 0xFFC34A);
+    // (food stuck on, and the chunk out of its head: kept out of the tints, like its gear)
+    const food = Array.from({ length: FOOD }, () => {
+      const m = new Mesh(BLOB, blobMat('#d9c27a'));
+      m.userData.gear = true; m.visible = false;
+      p.body.add(m);
+      return m;
+    });
+    const chunk = new Mesh(box, blobMat('#4a3f38'));
+    chunk.userData.gear = true; chunk.visible = false;
+    chunk.position.set(0.09, 1.13, 0.07); chunk.scale.setScalar(0.12); chunk.rotation.set(0.3, 0.5, 0.2);
+    p.body.add(chunk);
+    scene.add(p, ring, meter, area);
+    return {
+      p, bib, z: null, look: '', dying: 0, ring, meter,
+      flash: 0, flashLook: '', squash: 0, fx: 0, fz: 0, food, stuck: 0, armOff: false, chunk, area, fire: 0, ember: 0, blowX: 0, blowZ: 0, cook: 0, charred: false, down: false, downYaw: 0, skin: style.skin,
+      fall: 0, from: { x: 0, z: 0 }, way: { x: 0, z: 0 }, far: 0, yaw: 0, over: 0,
+    };
   }, dice(0x2B1E5 + made));
+}
+
+/** How much food sticks on a zombie at most, and a blob of it. */
+const FOOD = 6, BLOB = new SphereGeometry(0.055, 7, 5);
+const blobs = new Map<string, MeshLambertMaterial>();
+/** A blob's material in `c` (one each colour, shared). */
+function blobMat(c: string) {
+  let m = blobs.get(c);
+  if (!m) { m = new MeshLambertMaterial({ color: c }); blobs.set(c, m); }
+  return m;
 }
 
 /** The build-up ring's arc, in 24 steps round, from twelve o'clock. */
@@ -280,22 +344,31 @@ function flat(geo: RingGeometry | CircleGeometry, color = 0xFFFFFF) {
 }
 
 /** The chef: the player's own face in the kitchen commando outfit, a gun in the right hand and a plate in the left. */
-let chef: { p: Person; guns: Record<GunId, Mesh>; plate: Group } | null = null;
+let chef: { p: Person; guns: Record<GunId, Mesh[]>; pack: Mesh[]; hose: Mesh; plate: Group } | null = null;
+/** The last shot's kick, 1 as it fires, dying away (the arm jerks up and the chef back), and how hard each gun's is. */
+let kick = 0;
+const KICK: Record<GunId, number> = { spud: 0.55, salt: 1, chili: 0.2 };
+/** The shotgun's grinders twisted after each blast (the way a pump's worked): starting this long after, for this long. */
+const CRANK_AT = 0.3, CRANK_TIME = 0.25;
+let crankT = 0;
 function newChef() {
   return quietly(() => {
     const p = new Person(C.iron, 'commando', player.g.style);
-    // the guns, along the right arm (it points them when it's held out ahead)
-    const gun = (c: number, tip: number) => gear([
-      at(box, c, 0, -0.42, 0.02, 0.09, 0.4, 0.11), at(box, tip, 0, -0.64, 0.02, 0.06, 0.08, 0.06), at(box, 0x2A2E33, 0, -0.34, 0.09, 0.05, 0.08, 0.1),
-    ]);
-    const guns = { spud: gun(0x8A6A44, 0xD9C27A), salt: gun(0x7A848C, 0xF4F4F0), chili: gun(0xC0392B, 0xE8742A) };
-    for (const g of Object.values(guns)) p.arms[0].add(g);
+    // the guns in the right hand (it points them when it's held out ahead), each at its three looks (hazardGuns.ts);
+    // the flamethrower's tanks on the back, and its hose round to the shoulder and down the arm into the wand
+    const worn = (m: Mesh) => { m.userData.gear = true; m.visible = false; return m; };
+    const guns = Object.fromEntries((Object.keys(MODELS) as GunId[]).map(id => [id, [1, 2, 3].map(l => worn(gunMesh(id, l)))])) as Record<GunId, Mesh[]>;
+    for (const list of Object.values(guns)) for (const g of list) p.arms[0].add(g);
+    const pack = [1, 2, 3].map(l => worn(packMesh(l, p.arms[0].position)));
+    for (const m of pack) p.body.add(m);
+    const hose = worn(armHoseMesh());
+    p.arms[0].add(hose);
     const plate = new Group();
     plate.add(mesh(new CylinderGeometry(0.2, 0.16, 0.04, 14), 0xF4F4F0, 0, -0.42, 0), mesh(new SphereGeometry(0.12, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2), new MeshLambertMaterial(), 0, -0.4, 0));
     plate.visible = false;
     p.arms[1].add(plate);
     scene.add(p);
-    return { p, guns, plate };
+    return { p, guns, pack, hose, plate };
   }, dice(0xC4EF));
 }
 
@@ -303,34 +376,191 @@ function newChef() {
 const MAX_SHOTS = 256;
 /** A gun's shots as one instanced mesh: potatoes, rock salt or chili. */
 function shotMesh(gun: GunId) {
-  const geo = gun === 'spud' ? new SphereGeometry(0.14, 8, 6) : gun === 'salt' ? new IcosahedronGeometry(0.09, 0) : new SphereGeometry(0.11, 6, 4);
+  // (the flame: unlit, so it glows, and several blobs a shot)
+  if (gun === 'chili') {
+    const f = new InstancedMesh(new IcosahedronGeometry(1, 1), new MeshBasicMaterial({ color: 0xFFFFFF }), MAX_SHOTS * FLAME_BLOBS);
+    f.setColorAt(0, new Color(0xFFFFFF));
+    f.count = 0;
+    f.frustumCulled = false;
+    scene.add(f);
+    return f;
+  }
+  const geo = gun === 'spud' ? new SphereGeometry(0.14, 8, 6) : new IcosahedronGeometry(0.09, 0);
   const m = new InstancedMesh(geo, new MeshLambertMaterial({ color: 0xFFFFFF }), MAX_SHOTS);
   const c = new Color();
-  for (let i = 0; i < MAX_SHOTS; i++) m.setColorAt(i, c.setHex(gun === 'spud' ? 0xC9A15E : gun === 'salt' ? 0xF4F4F0 : i % 3 ? 0xE0392B : 0xF08A24));
+  for (let i = 0; i < MAX_SHOTS; i++) m.setColorAt(i, c.setHex(gun === 'spud' ? 0xC9A15E : 0xF4F4F0));
   m.count = 0;
   m.frustumCulled = false;
   scene.add(m);
   return m;
 }
 let shots: Record<GunId, InstancedMesh> | null = null;
-/** Where each shot was last frame, to tell which hit something (the rules zero a shot's life when it hits). */
-let flying = new Set<Shot>();
+/** How many blobs of fire each of the flame's shots is drawn as (High; Low half, Potato one), and its colours as it
+ *  goes: white-gold at the nozzle, orange, chili red, then smoke. */
+const FLAME_BLOBS = 4;
+const FLAME = [new Color(0xFFF1B0), new Color(0xFFC34A), new Color(0xF08A24), new Color(0xE0392B), new Color(0x3A2E2A)];
+const flameColor = (k: number, out: Color) => {
+  const at = Math.min(FLAME.length - 1.001, Math.max(0, k) * (FLAME.length - 1)), i = Math.floor(at);
+  return out.copy(FLAME[i]).lerp(FLAME[i + 1], at - i);
+};
+/** Ashes, where the flame licks the street. */
+const SCORCH = '#2b2420';
+/** A short streak behind each shot, as one instanced mesh a gun: how long, and in what colour. */
+const STREAK: Record<GunId, { len: number; c: number }> = { spud: { len: 0.55, c: 0xF4E7C4 }, salt: { len: 0.4, c: 0xFFFFFF }, chili: { len: 0.3, c: 0xF08A24 } };
+let streaks: Record<GunId, InstancedMesh> | null = null;
+function streakMesh(gun: GunId) {
+  const m = new InstancedMesh(new BoxGeometry(0.035, 0.035, 1), new MeshBasicMaterial({ color: STREAK[gun].c, transparent: true, opacity: 0.45, depthWrite: false }), MAX_SHOTS);
+  m.count = 0;
+  m.frustumCulled = false;
+  scene.add(m);
+  return m;
+}
 
-interface Fading { m: Mesh; t: number; life: number }
-const splats: Fading[] = [];
-const SPLAT_LIFE = 1.6;
-function splat(x: number, y: number, taste: Taste | null) {
-  let s = splats.find(f => f.t <= 0);
-  if (!s) {
-    if (splats.length >= 48) s = splats.reduce((a, b) => (a.t < b.t ? a : b));
-    else { s = { m: quietly(() => flat(new CircleGeometry(1, 9)), dice(splats.length)), t: 0, life: SPLAT_LIFE }; scene.add(s.m); splats.push(s); }
+/** The set's own luck, for where shells and food land (off the game's). */
+const jig = dice(0xF00D);
+
+/** What a mash of a plain potato looks like, on the street or stuck on. */
+const MASH = '#d9c27a';
+const tasteColor = (t: Taste | null) => (t ? TASTES[t].color : MASH);
+
+// The mess: painted on one canvas laid over the whole street, kept the whole run (on Low and Potato, fading slowly).
+// The canvas goes up to the graphics chip at most a few times a second, not with every splat.
+const MESS_PX = 16;
+let mess: { c: CanvasRenderingContext2D; tex: CanvasTexture; plane: Mesh; dirty: boolean; up: number; fade: number; n: number } | null = null;
+function buildMess(town: Town) {
+  const ct = canvasTex(Math.round(town.w * M * MESS_PX), Math.round(town.h * M * MESS_PX), () => {});
+  ct.tex.anisotropy = 1;
+  const plane = new Mesh(new PlaneGeometry(town.w * M, town.h * M), new MeshBasicMaterial({ map: ct.tex, transparent: true, depthWrite: false }));
+  plane.rotation.x = -Math.PI / 2;
+  plane.position.y = 0.012;
+  plane.renderOrder = 1;
+  scene.add(plane);
+  mess = { c: ct.ctx, tex: ct.tex, plane, dirty: false, up: 0, fade: 0, n: 0 };
+}
+/** A splat of mash or sauce at the rules' (x, y), `r` metres across, in `color`: thrown on along (dx, dy), its drops
+ *  ahead of it; a crit's is a star. Potato keeps a quarter of them. */
+function splat(x: number, y: number, r: number, color: string, dx = 0, dy = 0, star = false) {
+  if (!mess || !feel.mess) return;
+  mess.n++;
+  if (isPotato() && mess.n % 4) return;
+  const c = mess.c, k = MESS_PX * M, px = x * k, py = y * k, rp = r * MESS_PX;
+  c.globalAlpha = 0.85;
+  c.fillStyle = color;
+  c.beginPath();
+  if (star) {
+    for (let i = 0; i < 16; i++) {
+      const a = (i / 16) * Math.PI * 2 + x, rr2 = i % 2 ? rp * 0.45 : rp;
+      c.lineTo(px + Math.cos(a) * rr2, py + Math.sin(a) * rr2);
+    }
+  } else c.arc(px, py, rp * (0.8 + 0.3 * Math.abs(Math.sin(x * 7 + y))), 0, Math.PI * 2);
+  c.fill();
+  for (let i = 0; i < 3; i++) {
+    const a = Math.atan2(dy, dx) + (i - 1) * 0.5, d = rp * (1.3 + i * 0.4);
+    c.beginPath();
+    c.arc(px + Math.cos(a) * d, py + Math.sin(a) * d, Math.max(0.6, rp * 0.28), 0, Math.PI * 2);
+    c.fill();
   }
-  const m = s.m.material as MeshBasicMaterial;
-  m.color.set(taste ? TASTES[taste].color : '#d9c27a');
-  s.m.position.set(wx(x), 0.02, wz(y));
-  s.m.scale.setScalar(0.18 + 0.1 * Math.abs(Math.sin(x + y)));
-  s.m.rotation.z = x * 0.1;
-  s.t = SPLAT_LIFE;
+  c.globalAlpha = 1;
+  mess.dirty = true;
+}
+/** The mess up to the graphics chip when it's changed (at most five times a second), and fading slowly on Low and Potato. */
+function drawMess(dt: number) {
+  if (!mess) return;
+  mess.up -= dt;
+  if (!isHigh()) {
+    mess.fade += dt;
+    if (mess.fade >= 1) {
+      mess.fade = 0;
+      const c = mess.c;
+      c.globalCompositeOperation = 'destination-out';
+      c.fillStyle = 'rgba(0,0,0,0.04)';
+      c.fillRect(0, 0, c.canvas.width, c.canvas.height);
+      c.globalCompositeOperation = 'source-over';
+      mess.dirty = true;
+    }
+  }
+  if (mess.dirty && mess.up <= 0) { mess.tex.needsUpdate = true; mess.dirty = false; mess.up = 0.2; }
+}
+
+// Bits that fly off and lie a while, as one instanced mesh of boxes: the guns' shells (potato peel, salt shells), the
+// drops of a crit's splat (painting the street where they land), the arm and the chunk of head a zombie loses.
+type DebrisKind = 'peel' | 'shell' | 'drop' | 'limb' | 'chunk' | 'spud' | 'head';
+interface Debris { kind: DebrisKind; x: number; y: number; z: number; vx: number; vy: number; vz: number; t: number; sx: number; sy: number; sz: number; spin: number; color: string; bounced: boolean }
+const DEBRIS = 160;
+let debris: InstancedMesh | null = null;
+const flying: Debris[] = [];
+/** How long each lies once it's down. */
+const LIES: Record<DebrisKind, number> = { peel: 2.5, shell: 3, drop: 0, limb: 4, chunk: 4, spud: 3, head: 4 };
+/** How many shells can lie about at once (on Potato, none). */
+const shellsMost = () => (isPotato() || !feel.casings ? 0 : isHigh() ? 60 : 30);
+function throwBit(kind: DebrisKind, x: number, y: number, z: number, vx: number, vy: number, vz: number, size: [number, number, number], color: string) {
+  if (!debris) return;
+  if (kind === 'peel' || kind === 'shell') {
+    const most = shellsMost(), lying = flying.filter(d => d.kind === 'peel' || d.kind === 'shell');
+    if (!most) return;
+    if (lying.length >= most) lying[0].t = Math.min(lying[0].t, 0.2);
+  }
+  if (flying.length >= DEBRIS) flying.shift();
+  flying.push({ kind, x, y, z, vx, vy, vz, t: 9, sx: size[0], sy: size[1], sz: size[2], spin: jig() * 6, color, bounced: false });
+}
+function drawDebris(dt: number) {
+  if (!debris) return;
+  const c = new Color();
+  for (let i = flying.length - 1; i >= 0; i--) {
+    const d = flying[i];
+    const floor = d.sy / 2;
+    if (d.y > floor || d.vy > 0) {
+      d.vy -= 9.8 * dt;
+      d.x += d.vx * dt; d.y += d.vy * dt; d.z += d.vz * dt; d.spin += dt * 14;
+      if (d.y <= floor) {
+        d.y = floor;
+        if (d.kind === 'drop') { splat(d.x / M + W / 2, d.z / M + H / 2, 0.07, d.color); flying.splice(i, 1); continue; }
+        // (one bounce, then it lies there)
+        if (!d.bounced && d.vy < -1.2) { d.vy *= -0.3; d.vx *= 0.5; d.vz *= 0.5; d.bounced = true; } else { d.vy = 0; d.t = LIES[d.kind]; }
+      }
+    } else {
+      d.t -= dt;
+      if (d.t <= 0) { flying.splice(i, 1); continue; }
+    }
+  }
+  flying.forEach((d, i) => {
+    const lie = d.y <= d.sy / 2 + 1e-3 && d.vy === 0;
+    q.setFromAxisAngle(sv.set(0.3, 1, 0.2).normalize(), d.spin);
+    if (lie) q.setFromAxisAngle(yAxis, d.spin);
+    m4.compose(pv.set(d.x, d.y, d.z), q, sv.set(d.sx, d.sy, d.sz).multiplyScalar(lie ? Math.min(1, d.t * 3) : 1));
+    debris!.setMatrixAt(i, m4);
+    debris!.setColorAt(i, c.set(d.color));
+  });
+  debris.count = flying.length;
+  debris.instanceMatrix.needsUpdate = true;
+  if (debris.instanceColor) debris.instanceColor.needsUpdate = true;
+}
+
+/** A puff at the muzzle with each shot, growing and fading. */
+interface Puff { m: Mesh; t: number }
+const muzzles: Puff[] = [];
+const PUFF: Record<GunId, number> = { spud: 0xE8DCC0, salt: 0xF4F4F0, chili: 0xF08A24 };
+function puff(at: Vector3, gun: GunId) {
+  let p = muzzles.find(o => o.t <= 0);
+  if (!p) {
+    if (muzzles.length >= 8) p = muzzles[0];
+    else {
+      p = { m: new Mesh(new SphereGeometry(1, 8, 6), new MeshBasicMaterial({ transparent: true, depthWrite: false })), t: 0 };
+      scene.add(p.m); muzzles.push(p);
+    }
+  }
+  (p.m.material as MeshBasicMaterial).color.setHex(PUFF[gun]);
+  p.m.position.copy(at);
+  p.t = gun === 'salt' ? 0.16 : 0.1;
+}
+function drawPuffs(dt: number) {
+  for (const p of muzzles) {
+    p.t = Math.max(0, p.t - dt);
+    p.m.visible = p.t > 0;
+    const k = 1 - p.t / 0.16;
+    p.m.scale.setScalar(0.08 + 0.2 * k);
+    (p.m.material as MeshBasicMaterial).opacity = 0.75 * Math.min(1, p.t * 10);
+  }
 }
 
 /** Dishes in the air, the target ring while one's in hand, zones on the ground, garnishes, smoke puffs. */
@@ -350,13 +580,14 @@ let confetti: InstancedMesh | null = null;
 interface Bit { x: number; y: number; z: number; vx: number; vy: number; vz: number; t: number; spin: number }
 const bits: Bit[] = [];
 const BITS_A_POP = 34;
-function pop(x: number, y: number, z: number, colors: number[]) {
+function pop(x: number, y: number, z: number, colors: number[], way = { x: 0, z: 0 }, carry = 0) {
   if (!isHigh() || !confetti) return;
   const c = new Color();
   for (let i = 0; i < BITS_A_POP; i++) {
     const n = bits.length < CONFETTI ? bits.length : (bitAt++ % CONFETTI);
-    const a = (i / BITS_A_POP) * Math.PI * 2, up = 2.5 + (i % 5) * 0.6, out = 1.4 + (i % 3) * 0.7;
-    bits[n] = { x, y, z, vx: Math.cos(a) * out, vy: up, vz: Math.sin(a) * out, t: 1.3, spin: i };
+    // (all round, and carried on the way the body flew)
+    const a = (i / BITS_A_POP) * Math.PI * 2, up = 2.5 + (i % 5) * 0.6, out = 1.4 + (i % 3) * 0.7, on = carry * (0.6 + (i % 4) * 0.25);
+    bits[n] = { x, y, z, vx: Math.cos(a) * out + way.x * on, vy: up, vz: Math.sin(a) * out + way.z * on, t: 1.3, spin: i };
     confetti.setColorAt(n, c.setHex(colors[i % colors.length]));
   }
   confetti.instanceColor!.needsUpdate = true;
@@ -514,9 +745,17 @@ export function buildSet() {
   built = true;
   quietly(() => {
     buildTown(QUARTER);
+    buildMess(QUARTER);
     buildZone();
     buildVan();
     shots = { spud: shotMesh('spud'), salt: shotMesh('salt'), chili: shotMesh('chili') };
+    streaks = { spud: streakMesh('spud'), salt: streakMesh('salt'), chili: streakMesh('chili') };
+    buildFires();
+    debris = new InstancedMesh(box, new MeshLambertMaterial({ color: 0xFFFFFF }), DEBRIS);
+    debris.setColorAt(0, new Color(0xFFFFFF));
+    debris.count = 0;
+    debris.frustumCulled = false;
+    scene.add(debris);
     target = flat(new RingGeometry(0.9, 1, 40), 0xFFC34A);
     scene.add(target);
     confetti = new InstancedMesh(new BoxGeometry(0.14, 0.025, 0.09), new MeshLambertMaterial({ color: 0xFFFFFF }), CONFETTI);
@@ -537,18 +776,32 @@ export function dressChef() {
 // ---------- drawing a run ----------
 const m4 = new Matrix4(), q = new Quaternion(), sv = new Vector3(), pv = new Vector3(), yAxis = V(0, 1, 0);
 
+/** Reduced motion (the device's setting): the camera neither nudges nor pushes in. */
+const lessMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)') ?? { matches: false };
+/** The camera's nudge back from a shot or a blast (metres, dying away), and how far it's pushed in for the rush (0 to 1). */
+const nudge = V(0, 0, 0);
+let pushIn = 0;
+/** How far each gun's shot nudges the camera back, and a dish's blast. */
+const NUDGE: Record<GunId, number> = { spud: 0.04, salt: 0.14, chili: 0.012 }, BLAST_NUDGE = 0.2;
+function nudgeBy(dx: number, dz: number, d: number) {
+  if (!feel.nudge || lessMotion.matches) return;
+  nudge.x -= dx * d; nudge.z -= dz * d;
+}
+
 /** Points the camera at the chef (or the street's middle), at the screen's shape now. */
 function aimCamera(dt: number, x: number, z: number) {
   const aspect = window.innerWidth / Math.max(1, window.innerHeight), portrait = aspect < 0.8;
-  // (in on a wide screen, a phone held sideways above all, where everyone would be small; out on a tall one)
-  const fov = portrait ? 46 : 40, k = portrait ? 1.3 : aspect > 1.6 ? 0.82 : 1;
+  // (in on a wide screen, a phone held sideways above all, where everyone would be small; out on a tall one; a little
+  // further in for the rush)
+  const fov = portrait ? 46 : 40, k = (portrait ? 1.3 : aspect > 1.6 ? 0.82 : 1) * (1 - 0.08 * pushIn);
   if (camera.aspect !== aspect || camera.fov !== fov) { camera.aspect = aspect; camera.fov = fov; camera.updateProjectionMatrix(); }
   // (it keeps a little in from the street's ends and pavements, but never so far that the chef's ticket goes off it)
   const tx = Math.max(-HW + 4, Math.min(HW - 4, x)), tz = Math.max(-HD + 2.5, Math.min(HD - 2.5, z));
   if (dt <= 0) follow.set(tx, 0, tz);
   else follow.lerp(sv.set(tx, 0, tz), Math.min(1, dt * 6));
-  camera.position.copy(follow).addScaledVector(OFF, k);
-  camera.lookAt(follow.x, 0.4, follow.z);
+  camera.position.copy(follow).addScaledVector(OFF, k).add(nudge);
+  camera.lookAt(follow.x + nudge.x, 0.4, follow.z + nudge.z);
+  nudge.multiplyScalar(Math.exp(-dt * 18));
   camera.updateMatrixWorld();
   // (the sun's shadows only need to cover what's in view)
   sun.position.set(follow.x - 9, 20, follow.z + 9);
@@ -573,15 +826,21 @@ const faceTo = (o: Object3D, dx: number, dz: number, dt: number) => {
 /** What the chef's doing this frame: where they aim (in the rules' units), and whether a dish is in hand to aim. */
 export interface ChefView { aim: { x: number; y: number } | null }
 
-/** The run the set shows now. */
+/** The run the set shows now, and the step whose `fx` it's shown. */
 let drawn: Run | null = null;
+let fxSeen = -1;
 /** Clears the street of the last run: its zombies, shots, splats, dishes, zones, garnishes, confetti and the chef. */
 function clearSet() {
-  for (const b of bodies) { b.z = null; b.dying = 0; b.p.visible = b.ring.visible = b.meter.visible = false; }
-  for (const s of splats) { s.t = 0; s.m.visible = false; }
+  for (const b of bodies) { b.z = null; b.dying = 0; b.p.visible = b.ring.visible = b.meter.visible = b.area.visible = false; }
+  if (mess) { mess.c.clearRect(0, 0, mess.c.canvas.width, mess.c.canvas.height); mess.tex.needsUpdate = true; mess.dirty = false; mess.n = 0; }
   bits.length = 0;
-  flying = new Set();
-  for (const m of Object.values(shots!)) m.count = 0;
+  flying.length = 0;
+  embers.length = 0;
+  if (fires) fires[0].count = fires[1].count = 0;
+  for (const p of muzzles) { p.t = 0; p.m.visible = false; }
+  kick = 0; pushIn = 0; nudge.set(0, 0, 0); fxSeen = -1;
+  for (const m of [...Object.values(shots!), ...Object.values(streaks!)]) m.count = 0;
+  debris!.count = 0;
   confetti!.count = 0;
   for (const l of [plates, zones, herbs, puffs]) hideFrom(l, 0);
   target!.visible = false;
@@ -607,27 +866,47 @@ export function drawSet(run: Run | null, dt: number, view: ChefView) {
     const k = 1 - run.dropT, door = { x: wx(run.drop.x) - run.drop.dir.x * 2.4, z: wz(run.drop.y) - run.drop.dir.y * 2.4 };
     cx = door.x + (cx - door.x) * k; cz = door.z + (cz - door.z) * k;
   }
+  pushIn += ((run.rushT > 0 && !lessMotion.matches ? 1 : 0) - pushIn) * Math.min(1, dt * 8);
   aimCamera(dt, cx, cz);
   sun.castShadow = isHigh();
 
-  // the chef: walks, turns to aim, holds the gun out ahead; a dish in hand goes up over the head
+  // the chef: walks, turns to aim, holds the gun out ahead (kicking up with each shot); a dish in hand goes up overhead
   const moved = Math.hypot(cx - c.p.position.x, cz - c.p.position.z);
   c.p.position.set(cx, 0, cz);
   const aim = view.aim;
   if (aim) faceTo(c.p, wx(aim.x) - cx, wz(aim.y) - cz, dt);
   animPerson(c.p, moved > 0.001, dt, false);
-  c.p.arms[0].rotation.x = -1.45;
+  kick *= Math.exp(-dt * 14);
+  c.p.arms[0].rotation.x = -1.45 - 0.45 * kick;
+  c.p.body.position.z = -0.08 * kick;
+  // where the gun's tip is, against where the rules fire from (the chef's middle): shots are drawn leaving the tip
+  c.p.updateMatrixWorld();
+  c.p.arms[0].localToWorld(muzzle.copy(onArm(run.loadout.gun, MODELS[run.loadout.gun].muzzle))).sub(sv.set(cx, SHOT_Y, cz));
+  // what the rules say happened this step: shots, hits, blasts (once each, however many frames show it)
+  if (run.steps !== fxSeen) { fxSeen = run.steps; c.p.updateMatrixWorld(); for (const f of run.fx) happened(run, f); }
   const holding = !!run.serving;
   c.plate.visible = holding;
   if (holding) c.p.arms[1].rotation.x = run.serving!.ready ? -2.8 : -1.1;
-  for (const [id, g] of Object.entries(c.guns)) g.visible = id === run.loadout.gun;
+  // the gun at its look for the armory's damage level (the flamethrower's pack and hose with it)
+  const look = lookFor(run.dmgK), chili = run.loadout.gun === 'chili';
+  for (const [id, list] of Object.entries(c.guns)) list.forEach((g, i) => { g.visible = id === run.loadout.gun && i === look - 1; });
+  // (the grinders twisted a turn about the barrels, a moment after the blast)
+  crankT = Math.max(0, crankT - dt);
+  const crank = crankT > 0 && crankT < CRANK_TIME ? Math.sin((1 - crankT / CRANK_TIME) * Math.PI) : 0;
+  for (const g of c.guns.salt) g.rotation.y = crank * 0.9;
+  c.pack.forEach((m, i) => { m.visible = chili && i === look - 1; });
+  c.hose.visible = chili;
   if (holding) ((c.plate.children[1] as Mesh).material as MeshLambertMaterial).color.set(TASTES[DISHES[run.loadout.dishes[run.serving!.slot]].taste].color);
 
   // (over the barricade)
   if (run.dropT > 0) c.p.position.y = Math.sin(Math.min(1, 1 - run.dropT) * Math.PI) * 1.2;
   drawZombies(run, dt);
+  drawFires(run, dt);
   drawShots(run);
   drawThings(run, dt, view);
+  drawDebris(dt);
+  drawPuffs(dt);
+  drawMess(dt);
   drawZone(run);
   drawVan(run, dt);
   fadeBuildings(run, dt);
@@ -639,22 +918,101 @@ export function drawSet(run: Run | null, dt: number, view: ChefView) {
   }
 }
 
+const tip = new Vector3();
+/** How high shots fly, and how far the gun's tip is from where the rules fire them (the chef's middle, that high):
+ *  each shot is drawn leaving the tip, easing onto its own way over its first 1.5 m (a flame, over all of it). */
+const SHOT_Y = 0.78, muzzle = new Vector3(), OFF_EASE = 1.5;
+/** Something the rules say happened (Fx): a shot's kick, puff and shells; a hit's flash, flinch, food and splat; a blast. */
+function happened(run: Run, f: Fx) {
+  const c = chef!;
+  if (f.kind === 'shot') {
+    nudgeBy(f.dx, f.dy, NUDGE[f.gun]);
+    c.p.arms[0].localToWorld(tip.copy(onArm(f.gun, MODELS[f.gun].muzzle)));
+    if (feel.kick) { kick = Math.max(kick, KICK[f.gun]); puff(tip, f.gun); }
+    // shells out to the right and back: two flecks of peel, or a salt shell (the Chili Sprayer just hisses)
+    const rx = -f.dy, rz = f.dx;
+    if (f.gun === 'spud') for (let i = 0; i < 2; i++) throwBit('peel', tip.x, tip.y, tip.z, rx * (1.4 + i) - f.dx, 2 + i * 0.6, rz * (1.4 + i) - f.dy, [0.07, 0.012, 0.045], i ? '#c9a15e' : '#e8d9a8');
+    // (the flame throws sparks ahead, landing on the street in a wisp of smoke; none on Potato)
+    if (f.gun === 'chili' && !isPotato() && (isHigh() || run.steps % 2)) {
+      const a = Math.atan2(f.dy, f.dx) + (jig() - 0.5) * 0.5, sp = 7 + jig() * 4;
+      if (embers.length >= EMBERS) embers.shift();
+      embers.push({ x: tip.x, y: tip.y, z: tip.z, vx: Math.cos(a) * sp, vy: 1 + jig() * 1.5, vz: Math.sin(a) * sp, t: 1.2, kind: 'spark' });
+    }
+    // (the shotgun: a cone of salt dust bursting out, and the grinders' twist a moment after; dust on High and Low)
+    if (f.gun === 'salt') {
+      crankT = CRANK_AT + CRANK_TIME;
+      if (feel.kick && !isPotato()) for (let i = 0, n = isHigh() ? 12 : 6; i < n; i++) {
+        const a = Math.atan2(f.dy, f.dx) + ((i + jig()) / n - 0.5) * GUNS.salt.spread * 1.3, sp = 4 + jig() * 4;
+        if (embers.length >= EMBERS) embers.shift();
+        embers.push({ x: tip.x, y: tip.y, z: tip.z, vx: Math.cos(a) * sp, vy: (jig() - 0.3) * 0.8, vz: Math.sin(a) * sp, t: 0.35 + jig() * 0.15, kind: 'dust' });
+      }
+    }
+    if (f.gun === 'salt') throwBit('shell', tip.x, tip.y, tip.z, rx * 2.2 - f.dx * 0.8, 2.6, rz * 2.2 - f.dy * 0.8, [0.06, 0.06, 0.13], '#c0392b');
+  } else if (f.kind === 'hit') {
+    const color = f.gun === 'chili' ? SCORCH : tasteColor(f.taste);
+    splat(f.x + f.dx * 10, f.y + f.dy * 10, (f.gun === 'chili' ? 0.13 : f.gun === 'salt' ? 0.12 : 0.18) * (f.crit ? 2 : 1), color, f.dx, f.dy, f.crit);
+    if (f.crit && feel.mess && !isPotato()) for (let i = 0; i < 6; i++) {
+      const a = Math.atan2(f.dy, f.dx) + (i - 2.5) * 0.45, sp = 2 + (i % 3);
+      throwBit('drop', wx(f.x), 0.8, wz(f.y), Math.cos(a) * sp, 1.5 + (i % 2), Math.sin(a) * sp, [0.06, 0.06, 0.06], color);
+    }
+    const b = bodies.find(o => o.z?.id === f.id);
+    if (!b) return;
+    // (the flamethrower's stream blows the flames on it its way)
+    if (f.gun === 'chili') { b.blowX = f.dx; b.blowZ = f.dy; }
+    if (feel.flash) {
+      b.flash = f.crit ? 0.1 : f.gun === 'chili' ? 0.035 : 0.07;
+      b.flashLook = f.ticket ? `tk:${f.ticket}` : f.crit ? 'crit' : 'flash';
+      b.squash = Math.max(b.squash, f.crit ? 1 : f.gun === 'chili' ? 0.3 : 0.6);
+      const fl = f.crit ? 0.16 : f.gun === 'chili' ? 0.03 : 0.08;
+      b.fx += f.dx * fl; b.fz += f.dy * fl;
+    }
+    // a spud breaks into chunks, bouncing off and lying a few seconds (High and Low)
+    if (f.gun === 'spud' && feel.mess && !isPotato()) for (let i = 0; i < 3; i++) {
+      const a = Math.atan2(-f.dy, -f.dx) + (i - 1) * 0.9 + (jig() - 0.5) * 0.4, sp = 1.2 + jig() * 1.4;
+      throwBit('spud', wx(f.x), 0.8, wz(f.y), Math.cos(a) * sp, 1.6 + jig(), Math.sin(a) * sp, [0.06 + jig() * 0.03, 0.05, 0.06 + jig() * 0.03], i ? '#c9a15e' : '#e8d9a8');
+    }
+    // food sticks on, where it was hit (the flame's doesn't: it burns)
+    if (feel.wear && b.stuck < FOOD && f.gun !== 'chili') {
+      const m = b.food[b.stuck++], side = (b.stuck % 3) - 1;
+      m.visible = true;
+      m.material = blobMat(color);
+      m.position.set(side * 0.13 + (jig() - 0.5) * 0.08, b.stuck === 4 ? 1.08 : 0.4 + jig() * 0.5, b.stuck === 4 ? 0.2 : 0.27);
+      m.scale.set(1 + jig() * 0.5, 0.8 + jig() * 0.4, 0.6);
+    }
+  } else if (f.kind === 'ignite') {
+    // catching fire: it jerks
+    const b = bodies.find(o => o.z?.id === f.id);
+    if (b && feel.flash) b.squash = Math.max(b.squash, 0.9);
+  } else if (f.kind === 'blast') {
+    splat(f.x, f.y, f.r * M * 0.9, TASTES[f.taste].color);
+    const p = run.player, d = Math.hypot(f.x - p.x, f.y - p.y) || 1;
+    nudgeBy((f.x - p.x) / d, (f.y - p.y) / d, BLAST_NUDGE);
+  }
+}
+
+/** How long a dead zombie's body flies (or drops) before it pops, and how long it swells. */
+const FALL_TIME = 0.4, POP_TIME = 0.25;
+const tq = new Quaternion(), yq = new Quaternion();
+
 /** The zombies' bodies: each living zombie has one (the pool grows as it needs), the dead swell and pop. */
 function drawZombies(run: Run, dt: number) {
   const playing = new Map<Zombie, Body>();
   for (const b of bodies) if (b.z) playing.set(b.z, b);
   const alive = new Set(run.zombies);
-  // the gone: they swell and pop
+  // the gone: flung along the shot that killed them (or dropped where they stand), then they swell and pop
   for (const b of bodies) {
     if (!b.z || alive.has(b.z)) continue;
-    if (b.dying === 0) b.dying = 1e-6;
+    const z = b.z, size = z.ticket ? BIG : 1;
+    if (b.dying === 0) fallFrom(b, z);
     b.dying += dt;
-    const k = Math.min(1, b.dying / 0.22), s = (b.z.ticket ? BIG : 1) * (1 + 0.5 * k);
+    b.ring.visible = b.meter.visible = b.area.visible = false;
+    if (b.dying < b.fall) { falling(b, size); continue; }
+    if (b.charred) { charring(b, z, size, dt); continue; }
+    const k = Math.min(1, (b.dying - b.fall) / POP_TIME), s = size * (1 + 0.5 * k);
     b.p.scale.set(s, s * (1 - 0.15 * k), s);
-    b.ring.visible = b.meter.visible = false;
-    if (b.dying >= 0.22) {
-      const z = b.z;
-      pop(b.p.position.x, 0.8 * s, b.p.position.z, [z.coat ? Number.parseInt(TASTES[z.coat].color.slice(1), 16) : 0x9DB08A, 0xFFC34A, 0xF4F4F0, 0xE0392B, 0x6FA83A]);
+    if (b.dying >= b.fall + POP_TIME) {
+      pop(b.p.position.x, (b.fall ? 0.35 : 0.8) * s, b.p.position.z, [z.coat ? Number.parseInt(TASTES[z.coat].color.slice(1), 16) : 0x9DB08A, 0xFFC34A, 0xF4F4F0, 0xE0392B, 0x6FA83A],
+        b.way, b.far ? 2 + 4 * b.over : 0);
       b.z = null; b.dying = 0; b.p.visible = false;
     }
   }
@@ -665,30 +1023,178 @@ function drawZombies(run: Run, dt: number) {
       b.z = z; b.dying = 0; b.look = '';
       b.p.visible = true;
       b.p.position.set(wx(z.x), 0, wz(z.y));
-      b.p.rotation.y = Math.atan2(wx(run.player.x) - wx(z.x), wz(run.player.y) - wz(z.y));
+      b.p.rotation.set(0, Math.atan2(wx(run.player.x) - wx(z.x), wz(run.player.y) - wz(z.y)), 0);
+      // (whole again: no food on it, both arms, its head)
+      b.flash = b.squash = b.fx = b.fz = 0;
+      b.stuck = 0; b.armOff = false;
+      for (const m of b.food) m.visible = false;
+      b.chunk.visible = false;
+      b.fire = 0; b.blowX = b.blowZ = 0; b.cook = 0; b.charred = false; b.down = false;
+      b.p.arms[1].scale.setScalar(1);
     }
     drawZombie(b, z, run, dt);
   }
 }
 
+/** A zombie's down: how its body goes, from how it was killed (Blow). */
+function fallFrom(b: Body, z: Zombie) {
+  b.dying = 1e-6;
+  const d = z.death;
+  b.over = d ? Math.min(1, d.over / z.maxHp) : 0;
+  b.fall = feel.fling ? FALL_TIME : 0;
+  b.far = feel.fling && d ? d.fling * M * (1 + b.over) : 0;
+  b.from = { x: b.p.position.x, z: b.p.position.z };
+  b.yaw = b.p.rotation.y;
+  // (dead in the flame's heat: charred black, it slumps where it stands and crumbles)
+  b.charred = z.heat > 0;
+  if (b.charred) {
+    b.far = 0;
+    b.look = 'char';
+    const m = lookMat('char');
+    b.p.traverse(o => { if (o instanceof Mesh && !o.userData.gear) o.material = m; });
+  }
+  // (dropped where it stands, it slumps forward)
+  b.way = b.far ? { x: d!.dx, z: d!.dy } : { x: Math.sin(b.yaw), z: Math.cos(b.yaw) };
+  // (a Spud Rifle crit knocks its head clean off, spinning up and away, and the rest of it bursts at once)
+  if (d?.head && feel.fling) {
+    const s = z.ticket ? BIG : 1;
+    b.p.body.localToWorld(tip.set(0, 1.03, 0.05));
+    throwBit('head', tip.x, tip.y, tip.z, d.dx * 2.2, 4.5, d.dy * 2.2, [0.36 * s, 0.34 * s, 0.36 * s], `#${b.skin.toString(16).padStart(6, '0')}`);
+    b.fall = 0; b.far = 0; b.dying = POP_TIME * 0.6;
+  }
+}
+/** How long a charred body takes to crumble into a heap, smoking, before it goes in a puff of ash. */
+const CHAR_TIME = 0.7;
+const ASH = [0x2A2420, 0x4A3F38, 0x6E625A, 0x1B1714, 0xF08A24];
+/** A charred body, slumped where it stood, crumbling down into a smoking heap, then gone in a puff of ash (a scorch left). */
+function charring(b: Body, z: Zombie, size: number, dt: number) {
+  const k = Math.min(1, (b.dying - b.fall) / CHAR_TIME), p = b.p;
+  p.scale.set(size * (1 + 0.2 * k), size * 0.7 * (1 - 0.6 * k * k), size * (1 + 0.2 * k));
+  p.position.y = 0;
+  // (smoke wisps off it, and sparks of the last of the fire)
+  b.ember -= dt;
+  if (b.ember <= 0 && !isPotato()) {
+    b.ember = isHigh() ? 0.07 : 0.16;
+    if (embers.length >= EMBERS) embers.shift();
+    embers.push({ x: p.position.x + (jig() - 0.5) * 0.4, y: 0.3 + 0.4 * (1 - k), z: p.position.z + (jig() - 0.5) * 0.4, vx: (jig() - 0.5) * 0.3, vy: 0.6, vz: (jig() - 0.5) * 0.3, t: 0.8, kind: 'wisp' });
+  }
+  if (k >= 1) {
+    pop(p.position.x, 0.25 * size, p.position.z, ASH, b.way, 0);
+    splat(z.x, z.y, 0.38 * size, SCORCH);
+    b.z = null; b.dying = 0; p.visible = false;
+  }
+}
+/** A body on its way down: flung along `way`, tumbling, arms and legs loose; or slumping where it stood. */
+function falling(b: Body, size: number) {
+  const t = b.dying / b.fall, e = 1 - (1 - t) ** 2, p = b.p;
+  p.position.set(b.from.x + b.way.x * b.far * e, Math.sin(Math.PI * e) * Math.min(0.6, 0.12 * b.far), b.from.z + b.way.z * b.far * e);
+  // (tipped over towards the way it goes: back, flung; forward onto its knees, dropped)
+  tq.setFromAxisAngle(sv.set(b.way.z, 0, -b.way.x).normalize(), e * (b.far ? 1.45 : 0.7));
+  yq.setFromAxisAngle(yAxis, b.yaw + (b.far ? e * b.over * 2 : 0));
+  p.quaternion.multiplyQuaternions(tq, yq);
+  const loose = Math.sin(b.dying * 30);
+  p.arms[0].rotation.x = -2.2 * e + loose * 0.4; p.arms[1].rotation.x = -1.6 * e - loose * 0.4;
+  p.legs[0].rotation.x = loose * 0.5 * e; p.legs[1].rotation.x = -loose * 0.5 * e;
+  p.scale.set(size, size * (b.far ? 1 : 1 - 0.3 * e), size);
+}
+
+/** The flame cooks it as its heat builds: golden, browned, then charred black (the heap it dies in, darker still): its
+ *  own colours darkened (times), and a glow. */
+const COOKED: Record<string, [number, number, number, string, number]> = {
+  cook1: [1, 0.86, 0.62, '#f08a24', 0.12], cook2: [0.72, 0.5, 0.34, '#b8561e', 0.08], cook3: [0.3, 0.24, 0.21, '#e0392b', 0.07],
+  char: [0.2, 0.17, 0.15, '#e0392b', 0.04],
+};
+function cooked(look: string) {
+  let m = tints.get(look);
+  if (!m) {
+    const [r, g, bl, glow, k] = COOKED[look];
+    m = painted.clone();
+    m.color.setRGB(r, g, bl);
+    m.emissive.set(glow).multiplyScalar(k);
+    tints.set(look, m);
+  }
+  return m;
+}
+/** How cooked a zombie looks at heat `h` (none under a stack). */
+const cookLook = (h: number) => (h >= 4.5 ? 'cook3' : h >= 2.5 ? 'cook2' : 'cook1');
+/** How fast its cooked look cools back towards raw once the heat's gone (stacks a second). */
+const COOK_FADE = 0.25;
+
+/** The material for a body's look: its own, candied, the taste it wears, or a hit's flash (white, a crit's white-gold, a
+ *  ticked ticket's taste). */
+function lookMat(look: string) {
+  if (look === 'plain') return painted;
+  if (look in COOKED) return cooked(look);
+  if (look === 'candy') return tint('candy', '#f08bb0', 0.75);
+  if (look === 'flash') return tint('flash', '#ffffff', 0.85);
+  if (look === 'crit') return tint('crit', '#ffe08a', 1);
+  if (look.startsWith('tk:')) return tint(look, TASTES[look.slice(3) as Taste].color, 0.9);
+  return tint(look, TASTES[look as Taste].color, 0.4);
+}
+
 function drawZombie(b: Body, z: Zombie, run: Run, dt: number) {
   const x = wx(z.x), zz = wz(z.y), p = b.p;
-  const dx = x - p.position.x, dz = zz - p.position.z, moving = Math.hypot(dx, dz) > 0.002;
+  // (where it is, without its flinch)
+  const dx = x - (p.position.x - b.fx), dz = zz - (p.position.z - b.fz), moving = Math.hypot(dx, dz) > 0.002;
   const size = z.ticket ? BIG : 1;
-  p.scale.setScalar(size);
+  // a hit squashes it and it flinches away from the shot, springing back
+  b.flash = Math.max(0, b.flash - dt);
+  b.squash *= Math.exp(-dt * 16);
+  const back = Math.exp(-dt * 12);
+  b.fx *= back; b.fz *= back;
+  p.scale.set(size * (1 + 0.08 * b.squash), size * (1 - 0.14 * b.squash), size * (1 + 0.08 * b.squash));
   b.bib.visible = !!z.ticket;
   // twitching: shaken on the spot; candied: stock still
   const shake = z.twitchT > 0 ? Math.sin(run.t * 90) * 0.05 : 0;
-  p.position.set(x + shake, 0, zz);
-  if (moving) faceTo(p, dx, dz, dt);
-  if (z.freezeT <= 0) animPerson(p, moving, dt, true);
-  // its tint: candied, or the taste it wears
-  const look = z.freezeT > 0 ? 'candy' : z.coat ?? 'plain';
+  p.position.set(x + shake + b.fx, 0, zz + b.fz);
+  // knocked down: thrown on its back, lying there, then getting up (facing the way it was)
+  if (z.downT > 0) {
+    if (!b.down) { b.down = true; b.downYaw = p.rotation.y; }
+    const t = 1 - z.downT / DOWN_TIME, e = t < 0.2 ? t / 0.2 : t > 0.7 ? 1 - (t - 0.7) / 0.3 : 1;
+    yq.setFromAxisAngle(yAxis, b.downYaw);
+    tq.setFromAxisAngle(sv.set(-Math.cos(b.downYaw), 0, Math.sin(b.downYaw)), 1.35 * Math.sin(e * Math.PI / 2));
+    p.quaternion.multiplyQuaternions(tq, yq);
+  } else {
+    if (b.down) { b.down = false; p.rotation.set(0, b.downYaw, 0); }
+    if (moving) faceTo(p, dx, dz, dt);
+  }
+  if (z.freezeT <= 0 && z.downT <= 0) animPerson(p, moving, dt, true);
+  // burning, it flails its arms (out and up, each its own way: never one held straight out)
+  if (z.burnT > 0 && z.freezeT <= 0 && z.twitchT <= 0) {
+    for (let i = 0; i < 2; i++) {
+      const t = run.t * (11 + i * 2.3) + z.id + i * 2.1;
+      p.arms[i].rotation.x = -1.3 + 0.65 * Math.sin(t);
+      p.arms[i].rotation.z = (i ? 1 : -1) * (0.35 + 0.3 * Math.abs(Math.sin(t * 0.7 + 1)));
+    }
+  }
+  // its tint: a hit's flash, candied, cooked by the flame, or the taste it wears
+  b.cook = Math.max(z.heat, b.cook - COOK_FADE * dt);
+  const look = b.flash > 0 ? b.flashLook : z.freezeT > 0 ? 'candy' : b.cook >= 1 ? cookLook(b.cook) : z.coat ?? 'plain';
   if (look !== b.look) {
     b.look = look;
-    const m = look === 'candy' ? tint('candy', '#f08bb0', 0.75) : look === 'plain' ? painted : tint(look, TASTES[look as Taste].color, 0.4);
+    const m = lookMat(look);
     p.traverse(o => { if (o instanceof Mesh && !o.userData.gear) o.material = m; });
   }
+  // worn down: an arm off at half its health, a chunk out of its head near the end (each falling to the street)
+  const hp = z.hp / z.maxHp;
+  if (feel.wear && !isPotato()) {
+    if (hp < 0.5 && !b.armOff) {
+      b.armOff = true;
+      p.arms[1].getWorldPosition(tip);
+      p.arms[1].scale.setScalar(0.001);
+      throwBit('limb', tip.x, tip.y - 0.2, tip.z, (jig() - 0.5) * 2, 1.5, (jig() - 0.5) * 2, [0.11 * size, 0.36 * size, 0.11 * size], '#8fa27c');
+    }
+    if (hp < 0.2 && !b.chunk.visible) {
+      b.chunk.visible = true;
+      b.chunk.getWorldPosition(tip);
+      throwBit('chunk', tip.x, tip.y, tip.z, (jig() - 0.5) * 2, 2, (jig() - 0.5) * 2, [0.12 * size, 0.1 * size, 0.12 * size], '#9db08a');
+    }
+  }
+  // on fire while it burns, the flames bigger with the flame's heat (drawn with the rest, drawFires)
+  b.fire = z.burnT > 0 ? 0.75 + 0.13 * z.heat : 0;
+  // its crit area, painted at its feet (in the firing range)
+  b.area.visible = feel.areas;
+  if (feel.areas) { b.area.position.set(x, 0.045, zz); b.area.scale.setScalar(z.r * CRIT_IN * M); (b.area.material as MeshBasicMaterial).opacity = 0.7; }
   // the coat's ring at its feet, and how full a building taste's ring is
   const coat = z.coat;
   b.ring.visible = !!coat;
@@ -706,33 +1212,244 @@ function drawZombie(b: Body, z: Zombie, run: Run, dt: number) {
   }
 }
 
-/** The shots in the air, and a splat where each one that hit landed. */
-function drawShots(run: Run) {
-  const now = new Set(run.shots);
-  for (const s of flying) if (!now.has(s) && s.life === 0) splat(s.x, s.y, s.taste);
-  flying = now;
-  for (const [id, m] of Object.entries(shots!)) {
-    if (id !== run.loadout.gun) { m.count = 0; continue; }
-    const n = Math.min(MAX_SHOTS, run.shots.length);
-    for (let i = 0; i < n; i++) {
-      const s = run.shots[i];
-      q.setFromAxisAngle(yAxis, Math.atan2(s.vx, s.vy) + i);
-      m4.compose(pv.set(wx(s.x), 0.78, wz(s.y)), q, sv.set(1, id === 'spud' ? 0.85 : 1, id === 'spud' ? 1.3 : 1));
-      m.setMatrixAt(i, m4);
+// ---------- zombies on fire ----------
+/** A tongue of flame, its base at the bottom (so it licks upwards from where it's put). */
+const TONGUE = new ConeGeometry(1, 1, 7).translate(0, 0.5, 0);
+/** Where the tongues lick up a zombie (its body's own space: its middle at 0.35–0.95 m, its head at 1.03 m, its face
+ *  +z), and how big each is; Low draws the first six, Potato the first three. */
+const TONGUES: [number, number, number, number][] = [
+  [0, 0.62, 0.2, 1.15], [0.17, 0.5, 0.08, 1], [-0.16, 0.55, 0.06, 0.95], [0, 1.12, 0.02, 1], [0.12, 0.8, -0.14, 1],
+  [-0.13, 0.78, -0.12, 0.95], [0.23, 0.92, 0.02, 0.75], [-0.23, 0.9, 0.02, 0.75], [0, 0.42, -0.2, 0.9],
+];
+/** And the oil burning on the street: a few tongues a patch (High three, Low two, Potato one). */
+const FIRES = 64 * TONGUES.length + 3 * 160;
+/** The flames, as two instanced meshes, unlit: the orange outside, and the yellow core glowing over it. */
+let fires: InstancedMesh[] | null = null;
+function buildFires() {
+  fires = [0xE8501F, 0xFFC34A].map(c => {
+    const core = c === 0xFFC34A;
+    const m = new InstancedMesh(TONGUE, new MeshBasicMaterial({ color: c, transparent: true, opacity: core ? 0.95 : 0.9, depthWrite: false, ...(core ? { blending: AdditiveBlending } : {}) }), FIRES);
+    m.count = 0;
+    m.frustumCulled = false;
+    m.renderOrder = 2;
+    scene.add(m);
+    return m;
+  });
+}
+const local = new Matrix4(), eul = new Quaternion(), blowQ = new Quaternion(), bodyQ = new Quaternion(), up = new Vector3(), way = new Vector3();
+/** Every zombie on fire's flames, licking and flickering, and its embers rising. */
+function drawFires(run: Run, dt: number) {
+  if (!fires) return;
+  const [outer, core] = fires, most = isHigh() ? TONGUES.length : isPotato() ? 3 : 6, emberGap = isHigh() ? 0.25 : isPotato() ? 0 : 0.7;
+  let n = 0;
+  for (const b of bodies) {
+    if (!b.z || !b.fire || !b.p.visible) continue;
+    b.p.body.updateWorldMatrix(true, false);
+    const id = b.z.id;
+    // blown along the stream while it's on it, standing back up as it's gone: the street's up and the blow's way, in
+    // the body's own space (it may be leaning, or flung)
+    const blow = Math.hypot(b.blowX, b.blowZ);
+    if (dt > 0) { const k = Math.exp(-dt * 4); b.blowX *= k; b.blowZ *= k; }
+    b.p.body.getWorldQuaternion(bodyQ).invert();
+    up.set(0, 1, 0).applyQuaternion(bodyQ);
+    way.set(b.blowX, 0, b.blowZ).applyQuaternion(bodyQ);
+    blowQ.setFromAxisAngle(sv.crossVectors(up, way).normalize(), 1.15 * Math.min(1, blow));
+    for (let i = 0; i < most && n < FIRES; i++) {
+      const [x, y, z, size] = TONGUES[i], t = run.t + id * 0.37;
+      const lick = 0.6 + 0.5 * Math.abs(Math.sin(t * (8.5 + i * 1.3) + i)) * (0.8 + 0.2 * Math.sin(t * 23 + i * 2.1));
+      // (flared out from the body, so they lick past its edges in the camera's view, and swaying)
+      // (blown, they stretch out along the stream, flaring less)
+      const k = b.fire * size, out = Math.hypot(x, z), sway = Math.sin(t * 5 + i * 1.7) * 0.22, blown = Math.min(1, blow);
+      eul.setFromAxisAngle(out ? sv.set(z / out, 0, -x / out) : sv.set(1, 0, 0), ((out ? 0.45 : 0) + sway) * (1 - 0.7 * blown));
+      if (blown > 0.01) eul.premultiply(blowQ);
+      local.compose(pv.set(x, y, z), eul, tip.set(0.15 * k, 0.6 * k * lick * (1 + 0.5 * blown), 0.15 * k));
+      m4.multiplyMatrices(b.p.body.matrixWorld, local);
+      outer.setMatrixAt(n, m4);
+      local.compose(pv.set(x * 1.05, y, z * 1.05), eul, tip.set(0.085 * k, 0.38 * k * lick * (1 + 0.5 * blown), 0.085 * k));
+      m4.multiplyMatrices(b.p.body.matrixWorld, local);
+      core.setMatrixAt(n, m4);
+      n++;
     }
-    m.count = n;
-    m.instanceMatrix.needsUpdate = true;
+    // embers rising off it
+    if (emberGap && dt > 0) {
+      b.ember -= dt;
+      if (b.ember <= 0) {
+        b.ember = emberGap * (0.6 + 0.8 * jig());
+        b.p.body.localToWorld(tip.set((jig() - 0.5) * 0.4, 0.6 + jig() * 0.6, (jig() - 0.5) * 0.3));
+        if (embers.length >= EMBERS) embers.shift();
+        embers.push({ x: tip.x, y: tip.y, z: tip.z, vx: (jig() - 0.5) * 0.5, vy: 1.3, vz: (jig() - 0.5) * 0.5, t: 0.9 + jig() * 0.4, kind: 'ember' });
+      }
+    }
+  }
+  // the oil burning on the street: a few small tongues flickering, dying down as it burns out
+  const per = isHigh() ? 3 : isPotato() ? 1 : 2;
+  run.patches.forEach((f, j) => {
+    const fade = Math.min(1, f.t / 0.5);
+    for (let i = 0; i < per && n < FIRES; i++) {
+      const a = j * 2.4 + i * 2.1, t = run.t * (9 + i * 1.7) + j, r = per > 1 ? 0.12 : 0;
+      const k = 0.65 * fade * (0.7 + 0.4 * Math.abs(Math.sin(t))) * (i ? 0.75 : 1);
+      eul.setFromAxisAngle(sv.set(Math.cos(a), 0, Math.sin(a)), Math.sin(t * 0.6) * 0.2);
+      pv.set(wx(f.x) + Math.cos(a) * r, 0, wz(f.y) + Math.sin(a) * r);
+      m4.compose(pv, eul, tip.set(0.13 * k, 0.6 * k, 0.13 * k));
+      outer.setMatrixAt(n, m4);
+      m4.compose(pv, eul, tip.set(0.075 * k, 0.38 * k, 0.075 * k));
+      core.setMatrixAt(n, m4);
+      n++;
+    }
+  });
+  outer.count = core.count = n;
+  outer.instanceMatrix.needsUpdate = core.instanceMatrix.needsUpdate = true;
+  drawGlow(run);
+  drawEmbers(dt);
+}
+
+/** A warm glow on the street under the fire (the flame, the burning, the oil), painted on, not a light: soft orange
+ *  discs, added over what's there (none on Potato). */
+const GLOWS = 256;
+let glow: InstancedMesh | null = null;
+const gc = new Color();
+function drawGlow(run: Run) {
+  if (!glow) {
+    const ct = canvasTex(64, 64, (c, w, h) => {
+      const g = c.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, w / 2);
+      g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.45, 'rgba(255,255,255,0.45)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+      c.fillStyle = g; c.fillRect(0, 0, w, h);
+    });
+    glow = new InstancedMesh(new PlaneGeometry(2, 2).rotateX(-Math.PI / 2), new MeshBasicMaterial({ map: ct.tex, transparent: true, depthWrite: false, blending: AdditiveBlending }), GLOWS);
+    glow.setColorAt(0, gc.set(0xFFFFFF));
+    glow.frustumCulled = false;
+    glow.renderOrder = 1;
+    scene.add(glow);
+  }
+  let n = 0;
+  const put = (x: number, z: number, r: number, k: number) => {
+    if (n >= GLOWS) return;
+    m4.compose(pv.set(x, 0.04, z), q.identity(), sv.setScalar(r));
+    glow!.setMatrixAt(n, m4);
+    glow!.setColorAt(n++, gc.set(0xF08A24).multiplyScalar(k));
+  };
+  if (!isPotato()) {
+    for (const f of run.patches) put(wx(f.x), wz(f.y), 0.7, 0.55 * Math.min(1, f.t / 0.5));
+    for (const b of bodies) if (b.z && b.fire && b.p.visible) put(b.p.position.x, b.p.position.z, 0.45 + 0.1 * b.z.heat, 0.45);
+    if (run.loadout.gun === 'chili') {
+      const gun = GUNS.chili, life = gun.range / gun.speed;
+      run.shots.forEach((s, i) => {
+        if (i % 2) return;
+        const k = 1 - Math.max(0, s.life) / life;
+        put(wx(s.x) + muzzle.x * (1 - k), wz(s.y) + muzzle.z * (1 - k), 0.3 + 0.6 * k, 0.35 * (1 - k * 0.6));
+      });
+    }
+  }
+  glow.count = n;
+  glow.instanceMatrix.needsUpdate = true;
+  if (glow.instanceColor) glow.instanceColor.needsUpdate = true;
+}
+
+/** Embers off what's burning: rising, drifting, cooling from gold to red, gone; the flame's sparks, flying ahead
+ *  stretched along their way, falling, and landing in a wisp of smoke; and the smoke off a charred heap. */
+const EMBERS = 200;
+let emberMesh: InstancedMesh | null = null;
+interface Ember { x: number; y: number; z: number; vx: number; vy: number; vz: number; t: number; kind: 'ember' | 'spark' | 'wisp' | 'dust' }
+const embers: Ember[] = [];
+const WISP = new Color(0x5A504A), DUST = new Color(0xF4F4F0), zAxis = new Vector3(0, 0, 1);
+const ec = new Color();
+function drawEmbers(dt: number) {
+  if (!emberMesh) {
+    emberMesh = new InstancedMesh(new BoxGeometry(0.035, 0.035, 0.035), new MeshBasicMaterial({ color: 0xFFFFFF }), EMBERS);
+    emberMesh.setColorAt(0, ec.set(0xFFFFFF));
+    emberMesh.frustumCulled = false;
+    scene.add(emberMesh);
+  }
+  for (let i = embers.length - 1; i >= 0; i--) {
+    const e = embers[i];
+    e.t -= dt;
+    if (e.t <= 0) { embers.splice(i, 1); continue; }
+    if (e.kind === 'spark') e.vy -= 9.8 * dt;
+    // (the shotgun's salt dust bursts out and stops short)
+    if (e.kind === 'dust') { const k = Math.exp(-dt * 7); e.vx *= k; e.vz *= k; e.vy *= k; }
+    e.x += e.vx * dt; e.z += e.vz * dt; e.y += e.vy * dt;
+    // (a spark landing goes out in a wisp of smoke)
+    if (e.kind === 'spark' && e.y <= 0.03) { e.kind = 'wisp'; e.y = 0.03; e.vx *= 0.08; e.vz *= 0.08; e.vy = 0.45; e.t = 0.6; }
+  }
+  embers.forEach((e, i) => {
+    if (e.kind === 'spark') {
+      m4.compose(pv.set(e.x, e.y, e.z), q.setFromUnitVectors(zAxis, sv.set(e.vx, e.vy, e.vz).normalize()), sv.set(0.7, 0.7, 4.5));
+      emberMesh!.setColorAt(i, flameColor(0.12, ec));
+    } else if (e.kind === 'dust') {
+      m4.compose(pv.set(e.x, e.y, e.z), q.setFromAxisAngle(yAxis, e.t * 11), sv.setScalar(1.2 + 3 * (0.5 - Math.min(0.5, e.t))));
+      emberMesh!.setColorAt(i, ec.copy(DUST));
+    } else if (e.kind === 'wisp') {
+      m4.compose(pv.set(e.x, e.y, e.z), q.setFromAxisAngle(yAxis, e.t * 3), sv.setScalar(1.5 + 2.5 * (1 - Math.min(1, e.t / 0.8))));
+      emberMesh!.setColorAt(i, ec.copy(WISP));
+    } else {
+      m4.compose(pv.set(e.x, e.y, e.z), q.setFromAxisAngle(yAxis, e.t * 9), sv.setScalar(Math.min(1, e.t * 2)));
+      emberMesh!.setColorAt(i, flameColor(1 - Math.min(1, e.t) * 0.85 - 0.1, ec));
+    }
+    emberMesh!.setMatrixAt(i, m4);
+  });
+  emberMesh.count = embers.length;
+  emberMesh.instanceMatrix.needsUpdate = true;
+  if (emberMesh.instanceColor) emberMesh.instanceColor.needsUpdate = true;
+}
+
+const fc = new Color();
+/** The flame: each shot a few blobs of fire along the way it's going, swelling and cooling to smoke as it goes, and
+ *  flickering. */
+function drawFlame(run: Run, m: InstancedMesh) {
+  const gun = GUNS.chili, per = isHigh() ? FLAME_BLOBS : isPotato() ? 1 : 2, life = gun.range / gun.speed, sharp = !isPotato();
+  // (a shot's blobs spread back over the gap to the one before it, so the flame's one stream)
+  const gap = gun.speed / gun.rate * M / per;
+  let n = 0;
+  for (let i = 0; i < run.shots.length && n + per <= MAX_SHOTS * FLAME_BLOBS; i++) {
+    const s = run.shots[i], k = 1 - Math.max(0, s.life) / life, sp = Math.hypot(s.vx, s.vy) || 1, dx = s.vx / sp, dz = s.vy / sp;
+    for (let j = 0; j < per; j++) {
+      // (none drawn behind the gun's tip: the flame starts there)
+      const back = j * gap, d = k * gun.range * M - back;
+      if (d < 0) continue;
+      const kk = d / (gun.range * M), side = Math.sin(run.t * 37 + i * 3.1 + j * 1.7) * 0.06 * (1 + 4 * kk);
+      const size = (0.1 + 0.42 * kk) * (0.85 + 0.25 * Math.abs(Math.sin(run.t * 29 + i + j * 2.3)));
+      pv.set(wx(s.x) - dx * back - dz * side, SHOT_Y + 0.35 * kk * kk, wz(s.y) - dz * back + dx * side).addScaledVector(muzzle, 1 - kk);
+      if (sharp) {
+        // (fast near the nozzle, stretched out along its way; dying, ragged, its edges eaten away rather than faded)
+        const die = Math.max(0, (kk - 0.7) / 0.3), rag = (o: number) => 1 - die * (0.3 + 0.35 * Math.abs(Math.sin(run.t * 17 + i * 1.3 + j + o)));
+        const gone = kk > 0.93 ? Math.max(0, 1 - (kk - 0.93) / 0.07) : 1;
+        q.setFromUnitVectors(zAxis, sv.set(dx, 0, dz));
+        m4.compose(pv, q, sv.set(size * rag(0) * gone, size * rag(2) * gone, size * (1 + 1.1 * (1 - kk) ** 2) * rag(4) * gone));
+      } else m4.compose(pv, q.identity(), sv.setScalar(size));
+      m.setMatrixAt(n, m4);
+      m.setColorAt(n, flameColor(kk + 0.1 * j, fc));
+      n++;
+    }
+  }
+  m.count = n;
+  m.instanceMatrix.needsUpdate = true;
+  if (m.instanceColor) m.instanceColor.needsUpdate = true;
+}
+
+/** The shots in the air, each with a short streak behind it (no longer than the way it's come). */
+function drawShots(run: Run) {
+  for (const [id, m] of Object.entries(shots!) as [GunId, InstancedMesh][]) {
+    const st = streaks![id];
+    if (id !== run.loadout.gun) { m.count = st.count = 0; continue; }
+    if (id === 'chili') { st.count = 0; drawFlame(run, m); continue; }
+    const n = Math.min(MAX_SHOTS, run.shots.length), gun = GUNS[id];
+    for (let i = 0; i < n; i++) {
+      const s = run.shots[i], a = Math.atan2(s.vx, s.vy), went = (gun.range / gun.speed - s.life) * gun.speed * M;
+      const off = Math.max(0, 1 - went / OFF_EASE);
+      q.setFromAxisAngle(yAxis, a + i);
+      m4.compose(pv.set(wx(s.x), SHOT_Y, wz(s.y)).addScaledVector(muzzle, off), q, sv.set(1, id === 'spud' ? 0.85 : 1, id === 'spud' ? 1.3 : 1));
+      m.setMatrixAt(i, m4);
+      const len = Math.min(STREAK[id].len, went);
+      q.setFromAxisAngle(yAxis, a);
+      m4.compose(pv.set(wx(s.x) - Math.sin(a) * len / 2, SHOT_Y, wz(s.y) - Math.cos(a) * len / 2).addScaledVector(muzzle, off), q, sv.set(1, 1, Math.max(0.001, len)));
+      st.setMatrixAt(i, m4);
+    }
+    m.count = st.count = n;
+    m.instanceMatrix.needsUpdate = st.instanceMatrix.needsUpdate = true;
   }
 }
 
 function drawThings(run: Run, dt: number, view: ChefView) {
-  // splats fade
-  for (const s of splats) {
-    if (s.t <= 0) continue;
-    s.t -= dt;
-    s.m.visible = s.t > 0;
-    (s.m.material as MeshBasicMaterial).opacity = Math.min(0.85, s.t / s.life * 1.4);
-  }
   // dishes in the air: up in an arc from the chef to where they land
   run.thrown.forEach((th, i) => {
     const g = pool(plates, i, () => {
@@ -835,11 +1552,33 @@ export const headOf = (z: Zombie) => HEAD * (z.ticket ? BIG : 1) + 0.15;
 export const setView = () => ({
   bodies: bodies.filter(b => b.z).length, made: bodies.length,
   looks: bodies.filter(b => b.z).map(b => b.look),
-  splats: splats.filter(s => s.t > 0).length,
+  mess: mess?.n ?? 0,
+  shells: flying.filter(d => d.kind === 'peel' || d.kind === 'shell').length,
+  bits: flying.map(d => d.kind),
+  kick, nudge: nudge.length(), pushIn,
+  muzzle: muzzles.filter(p => p.t > 0).length,
+  streaks: streaks ? Object.values(streaks).reduce((n, m) => n + m.count, 0) : 0,
+  flashes: bodies.filter(b => b.z && b.flash > 0).map(b => b.flashLook),
+  stuck: bodies.filter(b => b.z).reduce((n, b) => n + b.stuck, 0),
+  armsOff: bodies.filter(b => b.z && b.armOff).length, chunks: bodies.filter(b => b.z && b.chunk.visible).length,
+  falling: bodies.filter(b => b.z && b.dying > 0 && b.dying < b.fall).map(b => ({ far: b.far, at: b.p.position.clone() })),
+  areas: bodies.filter(b => b.area.visible).length,
+  burning: bodies.filter(b => b.z && b.fire > 0).length,
+  blown: bodies.filter(b => b.z && Math.hypot(b.blowX, b.blowZ) > 0.5).map(b => ({ x: b.blowX, z: b.blowZ })),
+  embers: embers.length,
+  sparks: embers.filter(e => e.kind === 'spark').length, wisps: embers.filter(e => e.kind === 'wisp').length,
+  glows: glow?.count ?? 0, fires: fires?.[0].count ?? 0,
+  cooked: bodies.filter(b => b.z && b.p.visible).map(b => b.look).filter(l => l in COOKED),
+  charring: bodies.filter(b => b.z && b.charred && b.dying > 0).length,
+  down: bodies.filter(b => b.z && b.down).length, heads: flying.filter(d => d.kind === 'head').length,
+  spuds: flying.filter(d => d.kind === 'spud').length, dust: embers.filter(e => e.kind === 'dust').length, crank: chef?.guns.salt[0].rotation.y ?? 0,
+  flailing: bodies.filter(b => b.z && b.fire > 0 && Math.abs(b.p.arms[0].rotation.z) > 0.3).length,
   confetti: bits.filter(b => b.t > 0).length,
   plates: plates.filter(p => p.visible).length, zones: zones.filter(z => z.visible).length,
   herbs: herbs.filter(h => h.visible).length, puffs: puffs.filter(p => p.visible).length,
   target: !!target?.visible, chef: chef?.p.position.clone() ?? null, shadows: sun.castShadow,
+  held: chef ? (Object.entries(chef.guns) as [GunId, Mesh[]][]).flatMap(([id, list]) => list.map((g, i) => (g.visible ? `${id} ${i + 1}` : ''))).filter(Boolean) : [],
+  pack: chef ? chef.pack.findIndex(m => m.visible) + 1 : 0,
   van: van?.mode, faded: buildings.filter(b => b.k < 0.9).length, lids: crateLooks.filter(l => l.opened).length,
   shots: shots ? Object.values(shots).reduce((n, m) => n + m.count, 0) : 0,
 });

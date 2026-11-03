@@ -4,7 +4,7 @@
 // hazardHouse.test.ts.
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
-  DISHES, GUNS, H, LEVEL_TIME, VAN_WAIT, W, ZONE_R, hit, press, type Crate, type Dir, type DishId, type GunId, type Run, type Zombie,
+  DISHES, GUNS, H, LEVEL_TIME, VAN_WAIT, W, ZONE_R, hit, press, reload, throwDish, type Crate, type Dir, type DishId, type GunId, type Run, type Zombie,
 } from '../src/hazard';
 import { freshHouse, house } from '../src/hazardHouse';
 
@@ -13,7 +13,8 @@ function zombie(run: Run, x: number, y: number, more: Partial<Zombie> = {}): Zom
   const z: Zombie = {
     id: run.nextId++, x, y, r: 16, hp: 100, maxHp: 100, speed: 0,
     coat: null, coatT: 0, meter: 0, burnT: 0, burnSpreads: false, poison: 0, poisonT: 0, poisonFast: 0,
-    meltT: 0, freezeT: 0, twitchT: 0, lureT: 0, marinateT: 0, immuneT: 0, hasteT: 0, ticket: null, step: 0, dead: false,
+    meltT: 0, freezeT: 0, twitchT: 0, lureT: 0, marinateT: 0, immuneT: 0, hasteT: 0, ticket: null, step: 0,
+    kx: 0, ky: 0, stunT: 0, slow: 0, slowT: 0, heat: 0, stumbleT: 0, stumbleX: 0, stumbleY: 0, stumbleCool: 0, downT: 0, dead: false, death: null,
     ...more,
   };
   run.zombies.push(z);
@@ -116,7 +117,7 @@ describe('the screen, on the keys and mouse', () => {
     expect(set.setView().shots).toBeGreaterThan(0);
     for (let i = 0; i < 10; i++) play.advance(0.05);
     expect(z.hp).toBeLessThan(1000);
-    expect(set.setView().splats).toBeGreaterThan(0);
+    expect(set.setView().mess).toBeGreaterThan(0);
     window.dispatchEvent(new MouseEvent('pointerup'));
     // (the right button doesn't fire)
     pointer(area, 'pointerdown', at.x, at.y, undefined, { button: 2 });
@@ -222,10 +223,10 @@ describe('the screen, on the keys and mouse', () => {
     // (nothing aimed while the dish is still going in)
     expect(v.target).toBe(false);
 
-    // a zombie gone swells up, then pops: into confetti on High, nothing on Low (where there's no smoke either)
+    // a zombie gone drops, swells up, then pops: into confetti on High, nothing on Low (where there's no smoke either)
     gfx.quality = 'high';
     z.hp = 1; hit(run, z, 5, null);
-    for (let i = 0; i < 6; i++) play.advance(0.05);
+    for (let i = 0; i < 14; i++) play.advance(0.05);
     expect(set.setView().confetti).toBeGreaterThan(0);
     expect(set.setView().shadows).toBe(true);
     for (let i = 0; i < 40; i++) play.advance(0.05);
@@ -234,7 +235,7 @@ describe('the screen, on the keys and mouse', () => {
     const y = zombieMid(run, 400, 300, { hp: 1, maxHp: 100 });
     play.advance(0.05);
     hit(run, y, 5, null);
-    for (let i = 0; i < 6; i++) play.advance(0.05);
+    for (let i = 0; i < 14; i++) play.advance(0.05);
     expect(set.setView().confetti).toBe(0);
     expect(set.setView().shadows).toBe(false);
     expect(set.setView().puffs).toBe(0);
@@ -395,7 +396,7 @@ describe('the screen, by touch', () => {
 });
 
 describe('the set', () => {
-  it('drives the van in and off, fades buildings in the way, takes crates’ lids off, and keeps its splats to a few', async () => {
+  it('drives the van in and off, fades buildings in the way, takes crates’ lids off', async () => {
     const { play, set, root } = await open();
     go(root);
     const run = play.hazardRun()!;
@@ -426,14 +427,6 @@ describe('the set', () => {
     play.advance(0.05);
     for (let i = 0; i < 20; i++) play.advance(0.05);
     expect(set.setView().van).toBe('leave');
-    // (a splat for every shot that hit, but never more than a few dozen)
-    const shots = Array.from({ length: 60 }, (_, i) => ({ x: W / 2 + i, y: H / 2, vx: 0, vy: 0, life: 1, dmg: 0, taste: null }));
-    run.shots = shots;
-    play.advance(0);
-    for (const s of shots) s.life = 0;
-    run.shots = [];
-    play.advance(0);
-    expect(set.setView().splats).toBe(48);
     play.closeHazard();
   });
 
@@ -631,6 +624,13 @@ describe('the safe house', () => {
     expect(btn(root, '.hz-hint').hidden).toBe(false);
     play.advance(0.016);
     expect(room.roomView().sheets).toBe(2);
+    // (the rack has the guns the player has, each at its look)
+    expect(room.roomView()).toMatchObject({ rack: ['spud 1'], pack: 0 });
+    house.guns.push('chili'); house.damage.chili = 2; house.damage.spud = 1;
+    play.advance(0.016);
+    expect(room.roomView()).toMatchObject({ rack: ['spud 2', 'chili 3'], pack: 3 });
+    Object.assign(house, freshHouse());
+    play.advance(0.016);
     btn(root, '[data-station="stove"]').click();
     expect(play.houseView().station).toBe('stove');
     expect(room.roomView().focus).toBe('stove');
@@ -730,6 +730,278 @@ describe('the safe house', () => {
     expect(lines()).toHaveLength(15);
     expect(lines()[0]).toBe('🔥☠️ Smoked');
     expect(lines().filter(l => l!.endsWith('???'))).toHaveLength(14);
+    play.closeHazard();
+  });
+});
+
+describe("the guns' feel", () => {
+  it("holds the picked gun at its armory look, and wears the flamethrower's tanks only with it", async () => {
+    const { play, set, root } = await open();
+    let run = start(play, root, 'spud');
+    play.advance(0);
+    expect(set.setView().held).toEqual(['spud 1']);
+    expect(set.setView().pack).toBe(0);
+    play.closeHazard();
+    run = start(play, root, 'chili');
+    run.dmgK = 1.3;
+    play.advance(0);
+    expect(set.setView().held).toEqual(['chili 3']);
+    expect(set.setView().pack).toBe(3);
+    play.closeHazard();
+  });
+
+  it('kicks, puffs and throws shells with each shot (fewer on Low, none on Potato), and streaks the shots', async () => {
+    const { gfx } = await import('../src/graphics');
+    const { play, set, root, area } = await open();
+    const run = start(play, root, 'spud');
+    const z = zombie(run, run.player.x + 300, run.player.y, { hp: 1000, maxHp: 1000 });
+    const at = set.toScreen(z.x, z.y, 0);
+    gfx.quality = 'high';
+    pointer(area, 'pointermove', at.x, at.y);
+    pointer(area, 'pointerdown', at.x, at.y);
+    play.advance(0.016);
+    let v = set.setView();
+    expect(v.kick).toBeGreaterThan(0.3);
+    expect(v.muzzle).toBe(1);
+    expect(v.nudge).toBeGreaterThan(0);
+    expect(v.streaks).toBeGreaterThan(0);
+    expect(v.bits.filter(b => b === 'peel')).toHaveLength(2);
+    // (a crit right in the middle: white-gold, food stuck on, and the street's mess)
+    for (let i = 0; i < 6; i++) play.advance(0.05);
+    v = set.setView();
+    expect(z.hp).toBeLessThan(1000 - GUNS.spud.dmg);
+    expect(v.stuck).toBeGreaterThan(0);
+    expect(v.mess).toBeGreaterThan(0);
+    for (let i = 0; i < 60; i++) play.advance(0.05);
+    expect(set.setView().shells).toBeLessThanOrEqual(60);
+    gfx.quality = 'low';
+    for (let i = 0; i < 60; i++) play.advance(0.05);
+    expect(set.setView().shells).toBeLessThanOrEqual(30);
+    gfx.quality = 'potato';
+    for (let i = 0; i < 80; i++) play.advance(0.05);
+    expect(set.setView().shells).toBe(0);
+    window.dispatchEvent(new MouseEvent('pointerup'));
+    gfx.quality = 'high';
+    play.closeHazard();
+  });
+
+  it('flashes a crit white-gold, wears a zombie down to an arm and a chunk of its head, and flings it when it dies', async () => {
+    const { play, set, root } = await open();
+    const run = start(play, root, 'spud');
+    const z = zombie(run, run.player.x + 300, run.player.y, { hp: 1000, maxHp: 1000 });
+    play.advance(0);
+    // (as the rules hand a crit over)
+    run.fx = [{ kind: 'hit', id: z.id, x: z.x, y: z.y, dx: 1, dy: 0, gun: 'spud', crit: true, k: 2, taste: null, ticket: null, killed: false }];
+    run.steps++;
+    set.drawSet(run, 0, { aim: null });
+    expect(set.setView().flashes).toEqual(['crit']);
+    z.hp = 400;
+    play.advance(0.01);
+    expect(set.setView().armsOff).toBe(1);
+    z.hp = 100;
+    play.advance(0.01);
+    expect(set.setView().chunks).toBe(1);
+    expect(set.setView().bits).toEqual(expect.arrayContaining(['limb', 'chunk']));
+    // killed by a crit: flung along the shot, further than a Spud Rifle's plain kill
+    z.dead = true; z.death = { dx: 1, dy: 0, fling: 120, crit: true, over: 0, head: false };
+    run.zombies = [];
+    play.advance(0.2);
+    const [f] = set.setView().falling;
+    expect(f.far).toBeCloseTo(3);
+    expect(f.at.x).toBeGreaterThan(set.setView().chef!.x + 7.5);
+    play.closeHazard();
+  });
+
+  it('holds the world still for a blink on a big hit, and buzzes a phone that can', async () => {
+    phone();
+    const buzz = vi.fn();
+    vi.stubGlobal('navigator', { ...navigator, vibrate: buzz });
+    const { play, root } = await open();
+    const run = start(play, root, 'salt');
+    // (a dish's blast is a big hit)
+    run.serving = { slot: 0, typed: 4, ready: true, smudge: 0 };
+    throwDish(run, { x: run.player.x + 200, y: run.player.y });
+    for (let i = 0; i < 20 && !buzz.mock.calls.length; i++) play.advance(0.05);
+    expect(buzz).toHaveBeenCalledWith(30);
+    const ran = run.steps;
+    for (let i = 0; i < 3; i++) play.advance(0.016);
+    expect(run.steps).toBe(ran);
+    play.advance(0.016);
+    expect(run.steps).toBe(ran + 1);
+    play.closeHazard();
+  });
+
+  it('shows the aim dot at the pointer, gold over a crit area, and hides it with a dish in hand', async () => {
+    const { play, set, root, area } = await open();
+    const run = start(play, root, 'spud');
+    const z = zombie(run, run.player.x + 300, run.player.y, { hp: 1000, maxHp: 1000 });
+    const dotEl = root.querySelector<HTMLElement>('.hz-dot')!;
+    let at = set.toScreen(z.x, z.y, 0);
+    pointer(area, 'pointermove', at.x, at.y);
+    play.advance(0.01);
+    expect(dotEl.hidden).toBe(false);
+    expect(dotEl.classList.contains('crit')).toBe(true);
+    at = set.toScreen(z.x, z.y + 150, 0);
+    pointer(area, 'pointermove', at.x, at.y);
+    play.advance(0.01);
+    expect(dotEl.classList.contains('crit')).toBe(false);
+    key('keydown', 'Digit1');
+    play.advance(0.01);
+    expect(dotEl.hidden).toBe(true);
+    key('keyup', 'Digit1');
+    play.closeHazard();
+  });
+
+  it('draws the Chili Sprayer as a flame, sets what it licks burning, and scorches the street', async () => {
+    const { gfx } = await import('../src/graphics');
+    const { play, set, root, area } = await open();
+    const run = start(play, root, 'chili');
+    const z = zombie(run, run.player.x + 120, run.player.y, { hp: 1000, maxHp: 1000 });
+    gfx.quality = 'high';
+    const at = set.toScreen(z.x, z.y, 0);
+    pointer(area, 'pointermove', at.x, at.y);
+    pointer(area, 'pointerdown', at.x, at.y);
+    for (let i = 0; i < 4; i++) play.advance(0.05);
+    const v = set.setView();
+    expect(v.shots).toBeGreaterThan(run.shots.length);
+    expect(v.streaks).toBe(0);
+    expect(z.heat).toBeGreaterThan(0);
+    expect(v.burning).toBe(1);
+    // (its flames blown along the stream, which goes to the right)
+    expect(v.blown).toHaveLength(1);
+    expect(v.blown[0].x).toBeGreaterThan(0.5);
+    expect(v.mess).toBeGreaterThan(0);
+    expect(v.stuck).toBe(0);
+    // (it flails, cooks golden, glows on the street; the flame throws sparks)
+    expect(v.flailing).toBe(1);
+    expect(v.cooked).toEqual(['cook1']);
+    expect(v.glows).toBeGreaterThan(1);
+    expect(v.sparks).toBeGreaterThan(0);
+    // held on it, it browns, then chars; the oil it drips burns on the street
+    for (let i = 0; i < 12; i++) play.advance(0.05);
+    expect(z.heat).toBe(5);
+    expect(set.setView().cooked).toEqual(['cook3']);
+    window.dispatchEvent(new MouseEvent('pointerup'));
+    run.patches.push({ x: run.player.x - 200, y: run.player.y, t: 2 });
+    play.advance(0.05);
+    expect(set.setView().fires).toBeGreaterThan(9 + 2);
+    // dead in the heat: a charred heap, crumbling, then gone in ash
+    z.hp = 0.01;
+    play.advance(0.05);
+    for (let i = 0; i < 10; i++) play.advance(0.05);
+    expect(set.setView().charring).toBe(1);
+    for (let i = 0; i < 14; i++) play.advance(0.05);
+    expect(set.setView().charring).toBe(0);
+    expect(set.setView().bodies).toBe(0);
+    // Potato: no glow, no sparks
+    gfx.quality = 'potato';
+    run.patches.push({ x: run.player.x - 200, y: run.player.y, t: 2 });
+    play.advance(0.05);
+    expect(set.setView().glows).toBe(0);
+    gfx.quality = 'high';
+    play.closeHazard();
+  });
+
+  it('knocks a zombie down with a close blast, twists the grinders, bursts salt dust, and loads a charge at a time', async () => {
+    const { gfx } = await import('../src/graphics');
+    const { play, set, root, area } = await open();
+    const run = start(play, root, 'salt');
+    gfx.quality = 'high';
+    const z = zombie(run, run.player.x + 40, run.player.y, { hp: 1000, maxHp: 1000 });
+    const at = set.toScreen(z.x, z.y, 0);
+    pointer(area, 'pointermove', at.x, at.y);
+    pointer(area, 'pointerdown', at.x, at.y);
+    play.advance(0.016);
+    window.dispatchEvent(new MouseEvent('pointerup'));
+    play.advance(0.016);
+    expect(z.downT).toBeGreaterThan(0);
+    expect(set.setView().down).toBe(1);
+    expect(set.setView().dust).toBeGreaterThan(5);
+    for (let i = 0; i < 6; i++) play.advance(0.05);
+    expect(Math.abs(set.setView().crank)).toBeGreaterThan(0.1);
+    for (let i = 0; i < 12; i++) play.advance(0.05);
+    expect(set.setView().down).toBe(0);
+    // (reloading, the count goes up a charge at a time)
+    run.ammo = 0;
+    reload(run);
+    play.advance(0.016);
+    expect(root.querySelector('.hz-ammo')!.textContent).toBe(`0 / ${GUNS.salt.mag} · ×${run.spare}`);
+    for (let i = 0; i < 3; i++) play.advance(GUNS.salt.reload / GUNS.salt.mag);
+    expect(run.ammo).toBeGreaterThanOrEqual(2);
+    expect(root.querySelector('.hz-ammo')!.textContent).toContain(`${run.ammo} / ${GUNS.salt.mag}`);
+    play.closeHazard();
+  });
+
+  it('breaks spuds into chunks, and knocks a zombie\'s head off with a crit kill', async () => {
+    const { gfx } = await import('../src/graphics');
+    const { play, set, root, area } = await open();
+    const run = start(play, root, 'spud');
+    gfx.quality = 'high';
+    const z = zombie(run, run.player.x + 200, run.player.y, { hp: 1000, maxHp: 1000 });
+    const at = set.toScreen(z.x, z.y, 0);
+    pointer(area, 'pointermove', at.x, at.y);
+    pointer(area, 'pointerdown', at.x, at.y);
+    for (let i = 0; i < 4; i++) play.advance(0.05);
+    window.dispatchEvent(new MouseEvent('pointerup'));
+    expect(set.setView().spuds).toBeGreaterThanOrEqual(3);
+    z.hp = 1;
+    pointer(area, 'pointerdown', at.x, at.y);
+    for (let i = 0; i < 4; i++) play.advance(0.05);
+    window.dispatchEvent(new MouseEvent('pointerup'));
+    expect(z.death).toMatchObject({ head: true });
+    expect(set.setView().heads).toBe(1);
+    play.closeHazard();
+  });
+
+  it('pushes the camera in for the rush', async () => {
+    const { play, set, root } = await open();
+    const run = start(play, root, 'spud');
+    run.rushT = 0.8;
+    for (let i = 0; i < 5; i++) play.advance(0.05);
+    expect(set.setView().pushIn).toBeGreaterThan(0.5);
+    play.closeHazard();
+  });
+
+  it('opens the firing range: a row that stands there and comes back, a gun to pick, a switch for each layer, nothing kept', async () => {
+    const play = await import('../src/hazardPlay');
+    const set = await import('../src/hazardSet');
+    const { feel } = await import('../src/hazard');
+    Object.assign(house, freshHouse());
+    const tickets = house.tickets;
+    play.openHazard({ range: true });
+    const root = document.getElementById('hazard')!;
+    expect(root.dataset.mode).toBe('play');
+    const panelEl = root.querySelector<HTMLElement>('.hz-range')!;
+    expect(panelEl.hidden).toBe(false);
+    let run = play.hazardRun()!;
+    run.dropT = 0;
+    play.advance(0.05);
+    expect(run.zombies).toHaveLength(5);
+    expect(run.zombies.filter(z => z.ticket)).toHaveLength(1);
+    root.querySelector<HTMLButtonElement>('[data-range-gun="salt"]')!.click();
+    run = play.hazardRun()!;
+    expect(run.loadout.gun).toBe('salt');
+    expect(root.querySelector('[data-range-gun="salt"]')!.getAttribute('aria-pressed')).toBe('true');
+    const areas = root.querySelector<HTMLButtonElement>('[data-layer="areas"]')!;
+    expect(areas.getAttribute('aria-pressed')).toBe('false');
+    areas.click();
+    expect(feel.areas).toBe(true);
+    expect(areas.getAttribute('aria-pressed')).toBe('true');
+    run.dropT = 0;
+    play.advance(0.05);
+    play.advance(0.05);
+    expect(set.setView().areas).toBe(5);
+    root.querySelector<HTMLButtonElement>('[data-layer="centre"]')!.click();
+    expect(feel.centre).toBe(false);
+    root.querySelector<HTMLButtonElement>('.hz-x')!.click();
+    root.querySelector<HTMLButtonElement>('.hz-quit')!.click();
+    expect(root.hidden).toBe(true);
+    expect(feel.centre).toBe(true);
+    expect(feel.areas).toBe(false);
+    expect(house.tickets).toBe(tickets);
+    // (the game itself never shows the range's panel)
+    play.openHazard();
+    expect(root.querySelector<HTMLElement>('.hz-range')!.hidden).toBe(true);
     play.closeHazard();
   });
 });

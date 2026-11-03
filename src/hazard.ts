@@ -95,12 +95,83 @@ export interface Gun {
   /** Shots a second, damage a pellet, pellets a shot, spread (radians), pellet speed, how far a pellet flies. */
   rate: number; dmg: number; pellets: number; spread: number; speed: number; range: number;
   mag: number; reload: number;
+  /** How it feels (docs/cooking-hazard.md, "Gun feel"): whether a pellet hits harder nearer a zombie's middle and crits
+   *  in it; how hard a pellet pushes (a speed, in units a second, that dies away); how long it stops one; how much
+   *  each drop slows one; and how far a kill with it flings the body. */
+  aimed: boolean; push: number; stun: number; slow: number; fling: number;
+  /** How many more zombies a pellet that kills carries on into, with what it had left over; and whether it's loaded
+   *  a charge at a time (the shotgun: firing stops the reload with what's in). */
+  pierce: number; shells: boolean;
+  /** A flame (the Chili Sprayer): through every zombie in its way, widening to `cone` either side by the end of its
+   *  reach, each hit adding heat to the zombie's burn. */
+  flame?: { cone: number };
 }
 export const GUNS: Record<GunId, Gun> = {
-  spud: { name: 'Spud Rifle', emoji: '🥔', taste: null, rate: 5, dmg: 10, pellets: 1, spread: 0.04, speed: 900, range: 700, mag: 24, reload: 1.2 },
-  salt: { name: 'Rock Salt Shotgun', emoji: '🧂', taste: 'salty', rate: 1.5, dmg: 7, pellets: 6, spread: 0.35, speed: 800, range: 320, mag: 8, reload: 1.6 },
-  chili: { name: 'Chili Sprayer', emoji: '🌶️', taste: 'spicy', rate: 14, dmg: 2.5, pellets: 1, spread: 0.18, speed: 520, range: 260, mag: 60, reload: 1.8 },
+  spud: { name: 'Spud Rifle', emoji: '🥔', taste: null, rate: 5, dmg: 10, pellets: 1, spread: 0.015, speed: 1440, range: 700, mag: 24, reload: 1.2,
+    aimed: true, push: 96, stun: 0.08, slow: 0, fling: 1 * U, pierce: 2, shells: false },
+  salt: { name: 'Rock Salt Shotgun', emoji: '🧂', taste: 'salty', rate: 1.5, dmg: 7, pellets: 6, spread: 0.35, speed: 1280, range: 320, mag: 8, reload: 1.6,
+    aimed: true, push: 110, stun: 0.3, slow: 0, fling: 3 * U, pierce: 1, shells: true },
+  chili: { name: 'Chili Sprayer', emoji: '🌶️', taste: 'spicy', rate: 14, dmg: 0.5, pellets: 1, spread: 0.18, speed: 832, range: 6.5 * U, mag: 60, reload: 1.8,
+    aimed: false, push: 0, stun: 0, slow: 0.04, fling: 0, pierce: 0, shells: false, flame: { cone: 0.75 * U } },
 };
+
+// ---------- gun feel ----------
+/** A crit's damage (times); the middle of a zombie's body that crits (of its radius); how far past its body a shot still
+ *  counts; what a shot at the very edge of that does (times). */
+export const CRIT_K = 2, CRIT_IN = 1 / 3, SHOT_SLACK = 4, EDGE_K = 0.5;
+/** How far a crit, and a dish's blast, fling the body they kill. */
+const CRIT_FLING = 3 * U, BLAST_FLING = 5 * U;
+/** How hard a bomb dish pushes what it hits; how fast a push dies away (a second's worth of it is gone at this rate). */
+const BLAST_PUSH = 360, PUSH_DRAG = 12;
+/** The Chili Sprayer's slow: at most this much off a zombie's speed (a special's, half), wearing off this long after. */
+const SLOW_MOST = 0.4, SLOW_TIME = 0.5;
+/** The rush: the world at this speed, for this long, at most once in this long; set off by this many kills in a second. */
+export const RUSH_K = 0.35, RUSH_TIME = 0.8, RUSH_GAP = 10, RUSH_KILLS = 4;
+/** A shotgun blast landing this many pellets on one zombie knocks it down (a special only stumbles), for this long,
+ *  sliding it back this hard; a pellet's way off the even fan, at most (radians). */
+export const KNOCK_PELLETS = 4, DOWN_TIME = 0.6;
+const DOWN_PUSH = 160, FAN_JITTER = 0.03;
+/** How near a shotgun kill is point-blank. */
+const POINT_BLANK = 2.5 * U;
+/** The flame's burn: how much heat a zombie can take on (a stack a hit), what each stack burns a second, how long it
+ *  burns on after the flame's left it; and how wide the flame starts, either side, at the nozzle. */
+export const HEAT_MOST = 5, HEAT_DPS = 3, HEAT_TIME = 3;
+const FLAME_START = 0.15 * U;
+/** The chili oil the flame leaves burning on the street (each drop drips between these parts of the way along): how
+ *  wide, how long, how much heat a second a zombie standing in it takes (a fresh one catches at a stack), and how
+ *  much it slows one. A drop landing where one's burning feeds it instead. */
+export const PATCH_R = 0.35 * U, PATCH_TIME = 2, PATCH_HEAT = 1, PATCH_SLOW = 0.1;
+const DRIP_NEAR = 0.45, DRIP_FAR = 0.9;
+/** At full heat a zombie stumbles off its way for a moment (never towards the chef), and not again for a while. */
+const STUMBLE_TIME = 0.5, STUMBLE_GAP = 2.5;
+/** A burn without heat (a spicy coat's, or one caught off a burning zombie) does this much a second. */
+const BURN_DPS = 4;
+
+/** The feel's layers, each switched off and on in the firing range (?arcade=range) to try it without; all on in the game. */
+export const feel = {
+  /** Shots harder nearer the middle, and crits. */
+  centre: true,
+  /** Pushes, stops and the Chili Sprayer's slow. */
+  push: true,
+  /** The rush's slow motion. */
+  rush: true,
+  /** The screen's (hazardPlay.ts): the hit-stop, the camera's nudge, the phone's buzz, the touch aim's pull, sound. */
+  stop: true, nudge: true, buzz: true, pull: true, sound: true,
+  /** The set's (hazardSet.ts): the arm's kick and the muzzle's puff, casings, flashes and flinches, food stuck on and
+   *  blocks lost, the street's mess, the fling before the pop, each zombie's crit area painted on the ground. */
+  kick: true, casings: true, flash: true, wear: true, mess: true, fling: true, areas: false,
+};
+
+/**
+ * How hard a shot hits that passes `miss` from the middle of a zombie of radius `r`: a crit in the middle third of its
+ * body; full damage from there out to a third of the way in from the edge of where a shot counts; half at that edge.
+ */
+export function centre(miss: number, r: number) {
+  const reach = r + SHOT_SLACK, full = reach * 2 / 3;
+  if (miss <= r * CRIT_IN) return { k: CRIT_K, crit: true };
+  if (miss <= full) return { k: 1, crit: false };
+  return { k: 1 - (1 - EDGE_K) * Math.min(1, (miss - full) / (reach - full)), crit: false };
+}
 
 /** A step of a recipe code: an arrow, shown as a cooking move (← chop, → stir, ↑ flip, ↓ press). */
 export type Dir = 'left' | 'right' | 'up' | 'down';
@@ -135,10 +206,51 @@ export interface Zombie {
   immuneT: number; hasteT: number;
   /** A special zombie's order ticket, and how much of it's done. */
   ticket: Taste[] | null; step: number;
+  /** Pushed: how fast it's going that way (units a second, dying away); stopped by a shotgun; slowed by the Chili Sprayer. */
+  kx: number; ky: number; stunT: number; slow: number; slowT: number;
+  /** The flame's heat on it (stacks, burning while it burns). */
+  heat: number;
+  /** At full heat, stumbling off its way: for how long, which way, and how long till it can again. */
+  stumbleT: number; stumbleX: number; stumbleY: number; stumbleCool: number;
+  /** Knocked down by a shotgun blast: how long till it's up. */
+  downT: number;
   dead: boolean;
+  /** How it died, for the set: a blow from a shot or a dish (null for a burn, a poison, a technique). */
+  death: Blow | null;
+}
+/** What a shot or a dish did to a zombie it killed: the way it was going, how far it flings the body, whether it was a
+ *  crit, how much more it did than it took (the overkill), and whether it knocked its head off (a Spud Rifle crit). */
+export interface Blow { dx: number; dy: number; fling: number; crit: boolean; over: number; head: boolean }
+
+export interface Shot {
+  x: number; y: number; vx: number; vy: number; life: number; dmg: number; taste: Taste | null;
+  /** The gun it's from. */
+  gun: GunId;
+  /** A flame's: the zombies it's already been through (it hits each once), and when it drips its oil on the street
+   *  (the `life` it has left then; it's dripped once it's 0). */
+  through?: number[]; drip?: number;
+  /** How many more zombies it carries on into if it kills one; and the blast it's one pellet of (how many of its
+   *  pellets have hit each zombie, by id). */
+  pierce?: number; volley?: Record<number, number>;
 }
 
-export interface Shot { x: number; y: number; vx: number; vy: number; life: number; dmg: number; taste: Taste | null }
+/** What happened this step, for the set and the screen to show and sound: a trigger pulled, a pellet's hit, a dish's
+ *  blast, a big hit (a stop and a buzz), the rush setting off. */
+export type Fx =
+  | { kind: 'shot'; gun: GunId; dx: number; dy: number }
+  | { kind: 'hit'; id: number; x: number; y: number; dx: number; dy: number; gun: GunId; crit: boolean; k: number; taste: Taste | null; ticket: Taste | null; killed: boolean }
+  | { kind: 'blast'; x: number; y: number; r: number; taste: Taste }
+  | { kind: 'stop' }
+  | { kind: 'rush' }
+  /** A zombie catching fire (from the flame or the oil it left), and one dying in the flame's heat (it's charred). */
+  | { kind: 'ignite'; id: number; x: number; y: number }
+  | { kind: 'charred'; id: number; x: number; y: number }
+  /** A zombie knocked down by a blast; a reload starting, and the shotgun loading a charge. */
+  | { kind: 'down'; id: number }
+  | { kind: 'reload'; gun: GunId }
+  | { kind: 'load'; gun: GunId };
+/** Chili oil burning on the street, from the flame: where, and how long it's got left. */
+export interface Patch { x: number; y: number; t: number }
 export interface Zone { x: number; y: number; r: number; t: number; kind: 'smoke' | 'caramel' | 'battery' | 'syrup'; acc: number }
 /** A dish in the air: where it lands, where from, how long till it does, and its quality (damage and size). */
 export interface Thrown { x: number; y: number; fromX: number; fromY: number; t: number; dish: DishId; q: number }
@@ -175,12 +287,22 @@ export interface Run {
   found: string[]; tickets: Taste[][];
   player: { x: number; y: number; hp: number };
   ammo: number; reloadT: number; cooldown: number;
+  /** Charges out of a magazine opened for the shotgun, not loaded yet. */
+  loose: number;
   servings: number[];
   serving: Serving | null;
   boost: number;
   zombies: Zombie[]; shots: Shot[]; zones: Zone[]; thrown: Thrown[]; stamps: Stamp[]; garnishes: Garnish[];
+  /** The flame's oil burning on the street, and how many drops it's sprayed (where each drips goes round by it). */
+  patches: Patch[]; drops: number;
   spawnT: number; specialT: number; nextId: number;
   kills: number; cooked: number;
+  /** What happened in the last step (Fx), and how many steps there have been (so nothing's shown twice). */
+  fx: Fx[]; steps: number;
+  /** The rush: how long it's got left, how long till it can come again, and when the last few kills were. */
+  rushT: number; rushCool: number; killTimes: number[];
+  /** The firing range's row (?arcade=range): its posts, each with a zombie that stands there or comes back. */
+  range: { x: number; y: number; special: boolean; id: number; t: number }[] | null;
   rng: () => number;
 }
 
@@ -203,6 +325,8 @@ export interface RunOptions {
   bag?: number; hp?: number; dmg?: number;
   /** The specials' tickets, rolled ahead for the van's map; specials past these get new ones. */
   tickets?: Taste[][];
+  /** The firing range: no horde, just a row of zombies that stand there, and come back when they're down. */
+  range?: { x: number; y: number; special: boolean }[];
 }
 
 const pick = <T>(rng: () => number, list: readonly T[]) => list[Math.floor(rng() * list.length)];
@@ -230,12 +354,14 @@ export function newRun(loadout: Loadout, rng: () => number = Math.random, opts: 
     bagMax: opts.bag ?? BAG, dmgK: opts.dmg ?? 1, quality: loadout.dishes.map((_, i) => loadout.quality?.[i] ?? 1),
     found: [], tickets: (opts.tickets ?? []).map(t => [...t]),
     player: { x: at.x, y: at.y, hp: opts.hp ?? PLAYER_HP },
-    ammo: GUNS[loadout.gun].mag, reloadT: 0, cooldown: 0,
+    ammo: GUNS[loadout.gun].mag, reloadT: 0, cooldown: 0, loose: 0,
     servings: loadout.dishes.map((d, i) => loadout.servings?.[i] ?? DISHES[d].servings),
     serving: null, boost: 0,
-    zombies: [], shots: [], zones: [], thrown: [], stamps: [], garnishes: [],
+    zombies: [], shots: [], zones: [], thrown: [], stamps: [], garnishes: [], patches: [], drops: 0,
     spawnT: 1, specialT: 20, nextId: 1,
     kills: 0, cooked: 0,
+    fx: [], steps: 0, rushT: 0, rushCool: 0, killTimes: [],
+    range: opts.range?.map(p => ({ ...p, id: 0, t: 0 })) ?? null,
     rng,
   };
 }
@@ -248,7 +374,9 @@ export const stripPos = (t: number) => Math.min(LEVELS.length - 1, t / LEVEL_TIM
 /** A horde zombie's HP, `t` seconds in: it only gets tougher. */
 export const hordeHp = (t: number) => Math.round(30 * (1 + 0.6 * t / LEVEL_TIME));
 const hordeSpeed = (t: number) => Math.min(120, 55 + 0.25 * t);
-const spawnGap = (t: number) => Math.max(0.35, 1.6 - 0.008 * t);
+/** How long till the next of the horde, `t` seconds in: one every 3 seconds at Fresh, 1.8 at Stale, about 1.1 at
+ *  Expired and 0.65 at BIOHAZARD, easing from one to the next, and never more often than every half second. */
+export const spawnGap = (t: number) => Math.max(0.5, 3 * 0.6 ** (t / LEVEL_TIME));
 
 /** Where a zombie turns up: somewhere open just off the screen around the chef, that walks to them. */
 function spawnAt(run: Run) {
@@ -266,8 +394,8 @@ function spawnAt(run: Run) {
   return nav.middle(far);
 }
 
-function spawn(run: Run, special: boolean) {
-  const { x, y } = spawnAt(run);
+function spawn(run: Run, special: boolean, at?: { x: number; y: number }) {
+  const { x, y } = at ?? spawnAt(run);
   const hp = special ? hordeHp(run.t) * 4 : hordeHp(run.t);
   let ticket: Taste[] | null = null;
   if (special) {
@@ -282,7 +410,7 @@ function spawn(run: Run, special: boolean) {
     coat: null, coatT: 0, meter: 0,
     burnT: 0, burnSpreads: false, poison: 0, poisonT: 0, poisonFast: 0,
     meltT: 0, freezeT: 0, twitchT: 0, lureT: 0, marinateT: 0, immuneT: 0, hasteT: 0,
-    ticket, step: 0, dead: false,
+    ticket, step: 0, kx: 0, ky: 0, stunT: 0, slow: 0, slowT: 0, heat: 0, stumbleT: 0, stumbleX: 0, stumbleY: 0, stumbleCool: 0, downT: 0, dead: false, death: null,
   };
   run.zombies.push(z);
   return z;
@@ -311,12 +439,39 @@ function pushOff(p: { x: number; y: number }, r: number, c: Crate) {
   else { p.x += (p.x - c.x) / d * overlap; p.y += (p.y - c.y) / d * overlap; }
 }
 
+/** The shot or dish landing now, if it's one: the zombie it lands on, and what it does to it if it kills it (others
+ *  it kills on the way, with a technique, just drop). */
+let blow: { z: Zombie; does: Omit<Blow, 'over'> } | null = null;
+
 /** Takes `dmg` off `z`: half again with its armour melted (Acid). Down at 0. */
 function hurt(run: Run, z: Zombie, dmg: number) {
   if (z.dead) return;
   if (z.meltT > 0) dmg *= 1.35;
   z.hp -= dmg;
-  if (z.hp <= 0) { z.dead = true; run.kills++; }
+  if (z.hp <= 0) died(run, z);
+}
+/** `z` is down: how (for the set), and a kill counted towards the rush (four in a second set it off). */
+function died(run: Run, z: Zombie) {
+  z.dead = true; run.kills++;
+  z.death = blow?.z === z ? { ...blow.does, over: Math.max(0, -z.hp) } : null;
+  if (z.heat > 0) run.fx.push({ kind: 'charred', id: z.id, x: z.x, y: z.y });
+  run.killTimes = run.killTimes.filter(t => t > run.t - 1);
+  run.killTimes.push(run.t);
+  if (run.killTimes.length >= RUSH_KILLS) rush(run);
+}
+
+/** The rush: the world slows for a moment (the chef and the chef's shots don't), unless it's been too soon. */
+function rush(run: Run) {
+  if (!feel.rush || run.rushCool > 0) return;
+  run.rushT = RUSH_TIME; run.rushCool = RUSH_GAP;
+  run.fx.push({ kind: 'rush' });
+}
+
+/** Pushes `z` along (dx, dy), at `v` units a second (dying away): a special, half as much. */
+function push(z: Zombie, dx: number, dy: number, v: number) {
+  if (!feel.push) return;
+  const k = z.ticket ? 0.5 : 1;
+  z.kx += dx * v * k; z.ky += dy * v * k;
 }
 
 /** How much damage fills a zombie's ring: tougher zombies take more. One good gun shot is about half of a fresh one's. */
@@ -370,7 +525,7 @@ function ticketHit(run: Run, z: Zombie, dmg: number, taste: Taste | null) {
   z.step++;
   if (z.step < ticket.length) return null;
   const name = cook(run, z, ticket[0], ticket[1], true);
-  if (!z.dead) { z.dead = true; run.kills++; }
+  if (!z.dead) died(run, z);
   return name;
 }
 
@@ -426,6 +581,7 @@ function cook(run: Run, z: Zombie, a: Taste, b: Taste, spreads: boolean): string
   run.cooked++;
   if (!run.found.includes(pair(a, b))) run.found.push(pair(a, b));
   if (spreads) {
+    rush(run);
     run.stamps.push({ text: tech.name, x: z.x, y: z.y - 40, t: 1.2, color: TASTES[b].color });
     run.garnishes.push({ x: z.x, y: z.y, t: 8 });
     for (const o of near(run, z, SPREAD_R, z)) if (o.coat === a && o.immuneT <= 0 && !o.ticket) cook(run, o, a, b, false);
@@ -475,7 +631,61 @@ function land(run: Run, th: Thrown) {
   // (a better batch hits harder, and wider)
   const r = dish.r * th.q;
   if (dish.kind === 'zone') { run.zones.push({ x: th.x, y: th.y, r, t: 5, kind: 'syrup', acc: 0 }); return; }
-  for (const z of near(run, th, r)) hit(run, z, dish.dmg * th.q, dish.taste, 1);
+  const bomb = dish.kind === 'bomb';
+  for (const z of near(run, th, r)) {
+    // (a bomb throws them out from where it lands)
+    const d = dist(z, th) || 1, dx = (z.x - th.x) / d, dy = (z.y - th.y) / d;
+    blow = bomb ? { z, does: { dx, dy, fling: BLAST_FLING, crit: false, head: false } } : null;
+    hit(run, z, dish.dmg * th.q, dish.taste, 1);
+    blow = null;
+    if (bomb) push(z, dx, dy, BLAST_PUSH * th.q);
+  }
+  if (bomb) run.fx.push({ kind: 'blast', x: th.x, y: th.y, r, taste: dish.taste }, { kind: 'stop' });
+}
+
+/**
+ * Shot `s` hits `z`, coming from (x0, y0): harder nearer its middle, a crit in it (the guns that aim), its taste full
+ * strength whatever (a crit or a graze fills a ring no faster or slower); then pushed, stopped or slowed, by the gun.
+ */
+function shotHit(run: Run, s: Shot, z: Zombie, x0: number, y0: number) {
+  const gun = GUNS[s.gun], sp = Math.hypot(s.vx, s.vy) || 1, dx = s.vx / sp, dy = s.vy / sp;
+  const miss = Math.abs((z.x - x0) * dy - (z.y - y0) * dx);
+  const c = gun.aimed && feel.centre ? centre(miss, z.r) : { k: 1, crit: false };
+  const was = z.step;
+  blow = { z, does: { dx, dy, fling: c.crit ? Math.max(gun.fling, CRIT_FLING) : gun.fling, crit: c.crit, head: c.crit && s.gun === 'spud' } };
+  hit(run, z, s.dmg * c.k, s.taste, s.dmg / ringNeed(z));
+  blow = null;
+  push(z, dx, dy, gun.push * c.k);
+  // (enough of a blast's pellets on it knock it off its feet, sliding back; a special only stumbles)
+  if (s.volley && !z.dead) {
+    const n = s.volley[z.id] = (s.volley[z.id] ?? 0) + 1;
+    if (n === KNOCK_PELLETS && feel.push) {
+      if (z.ticket) z.stunT = Math.max(z.stunT, gun.stun);
+      else { z.downT = DOWN_TIME; push(z, dx, dy, DOWN_PUSH); run.fx.push({ kind: 'down', id: z.id }); }
+    }
+  }
+  if (feel.push && gun.stun) z.stunT = Math.max(z.stunT, gun.stun * (z.ticket ? 0.5 : 1));
+  if (feel.push && gun.slow) { z.slow = Math.min(SLOW_MOST * (z.ticket ? 0.5 : 1), z.slow + gun.slow); z.slowT = SLOW_TIME; }
+  // (the flame's real damage: heat, burning on after it's gone)
+  if (gun.flame && !z.dead) heatUp(run, z, 1, HEAT_TIME);
+  const ticket = z.ticket && z.step > was ? z.ticket[z.step - 1] : null;
+  run.fx.push({ kind: 'hit', id: z.id, x: z.x, y: z.y, dx, dy, gun: s.gun, crit: c.crit, k: c.k, taste: s.taste, ticket, killed: z.dead });
+  // a big hit: a shotgun kill point-blank, a crit that kills a special
+  if (z.dead && ((s.gun === 'salt' && dist(z, run.player) <= POINT_BLANK) || (c.crit && z.ticket))) run.fx.push({ kind: 'stop' });
+}
+
+/** Adds `heat` to `z` (to the most it takes), burning on at least `burn` seconds; catching fire if it wasn't. */
+function heatUp(run: Run, z: Zombie, heat: number, burn: number) {
+  if (z.burnT <= 0) run.fx.push({ kind: 'ignite', id: z.id, x: z.x, y: z.y });
+  z.heat = Math.min(HEAT_MOST, z.heat + heat);
+  z.burnT = Math.max(z.burnT, burn);
+}
+
+/** A flame's drop drips its oil at (x, y): burning there, or feeding a patch already burning close by. */
+function drip(run: Run, x: number, y: number) {
+  const near = run.patches.find(f => Math.hypot(f.x - x, f.y - y) < PATCH_R * 1.2);
+  if (near) near.t = PATCH_TIME;
+  else run.patches.push({ x, y, t: PATCH_TIME });
 }
 
 // ---------- a step of the run ----------
@@ -489,28 +699,49 @@ export function shove(run: Run) {
   }
 }
 
-/** Reload (R), unless the magazine's full, it's already reloading, or there's no spare magazine left. */
+/** Reload (R), unless the magazine's full, it's already reloading, or there's nothing left to load (the shotgun loads
+ *  a charge at a time, its whole magazine in the same time). */
 export function reload(run: Run) {
-  if (run.reloadT > 0 || run.ammo === GUNS[run.loadout.gun].mag || run.spare <= 0) return;
-  run.reloadT = GUNS[run.loadout.gun].reload;
+  const gun = GUNS[run.loadout.gun];
+  if (run.reloadT > 0 || run.ammo === gun.mag || (run.spare <= 0 && run.loose <= 0)) return;
+  run.reloadT = gun.shells ? gun.reload / gun.mag : gun.reload;
+  run.fx.push({ kind: 'reload', gun: run.loadout.gun });
+}
+/** The reload's done (a charge, for the shotgun: and on to the next, till it's full or there's none left). */
+function reloaded(run: Run) {
+  const gun = GUNS[run.loadout.gun];
+  run.reloadT = 0;
+  if (!gun.shells) { run.ammo = gun.mag; run.spare--; return; }
+  if (run.loose <= 0) { run.spare--; run.loose = gun.mag; }
+  run.ammo++; run.loose--;
+  run.fx.push({ kind: 'load', gun: run.loadout.gun });
+  if (run.ammo < gun.mag && (run.loose > 0 || run.spare > 0)) run.reloadT = gun.reload / gun.mag;
 }
 
 function fire(run: Run, aim: { x: number; y: number }) {
   const gun = GUNS[run.loadout.gun], p = run.player;
-  if (run.cooldown > 0 || run.reloadT > 0) return;
+  if (run.cooldown > 0) return;
+  // (the shotgun fires what's loaded, stopping the reload; the rest wait till it's done)
+  if (run.reloadT > 0) { if (gun.shells && run.ammo > 0) run.reloadT = 0; else return; }
   if (run.ammo <= 0) { reload(run); return; }
   run.ammo--;
   run.cooldown = 1 / gun.rate;
   const boosted = run.boost > 0;
   if (boosted) run.boost--;
   const a = Math.atan2(aim.y - p.y, aim.x - p.x);
+  // (a blast's pellets go out in an even fan, a little off it each; a single shot anywhere in its spread)
+  const volley = gun.pellets > 1 ? {} : undefined;
   for (let i = 0; i < gun.pellets; i++) {
-    const ang = a + (run.rng() - 0.5) * gun.spread;
+    const ang = a + (gun.pellets > 1 ? (i / (gun.pellets - 1) - 0.5) * gun.spread + (run.rng() - 0.5) * FAN_JITTER : (run.rng() - 0.5) * gun.spread);
     run.shots.push({
+      ...(gun.pierce ? { pierce: gun.pierce } : {}), ...(volley ? { volley } : {}),
       x: p.x, y: p.y, vx: Math.cos(ang) * gun.speed, vy: Math.sin(ang) * gun.speed,
-      life: gun.range / gun.speed, dmg: gun.dmg * run.dmgK * (boosted ? GARNISH_K : 1), taste: gun.taste,
+      life: gun.range / gun.speed, dmg: gun.dmg * run.dmgK * (boosted ? GARNISH_K : 1), taste: gun.taste, gun: run.loadout.gun,
+      // (each drop drips somewhere along the far half of its way, going round so a sweep leaves a line of them)
+      ...(gun.flame ? { through: [], drip: gun.range / gun.speed * (1 - DRIP_NEAR - (DRIP_FAR - DRIP_NEAR) * ((run.drops++ * 0.618034) % 1)) } : {}),
     });
   }
+  run.fx.push({ kind: 'shot', gun: run.loadout.gun, dx: Math.cos(a), dy: Math.sin(a) });
   if (run.ammo === 0) reload(run);
 }
 
@@ -575,16 +806,56 @@ export function take(run: Run, c: Crate, i: number): 'took' | 'swapped' | 'full'
   return 'took';
 }
 
+// ---------- aiming ----------
+/**
+ * The first zombie a shot from the chef towards `aim` would meet, within the gun's reach (walls aside, and its spread):
+ * and whether it'd pass through its crit area. Null when it meets none.
+ */
+export function lineUp(run: Run, aim: { x: number; y: number }) {
+  const p = run.player, gun = GUNS[run.loadout.gun], a = Math.atan2(aim.y - p.y, aim.x - p.x), dx = Math.cos(a), dy = Math.sin(a);
+  let best: Zombie | null = null, bestT = gun.range, crit = false;
+  for (const z of run.zombies) {
+    if (z.dead) continue;
+    const t = (z.x - p.x) * dx + (z.y - p.y) * dy, miss = Math.abs((z.x - p.x) * dy - (z.y - p.y) * dx);
+    if (t < 0 || t >= bestT || miss > z.r + SHOT_SLACK) continue;
+    best = z; bestT = t; crit = gun.aimed && miss <= z.r * CRIT_IN;
+  }
+  return best ? { z: best, crit } : null;
+}
+
+/** How wide the touch aim's pull reaches either side (radians), and how much of the way it pulls. */
+const PULL_CONE = 0.16, PULL_K = 0.6;
+/**
+ * A thumb's aim, `a` (radians), pulled part of the way towards the middle of the nearest zombie in a narrow cone round
+ * it, within the gun's reach: a thumb can't aim as finely as a mouse.
+ */
+export function pullAim(run: Run, a: number) {
+  if (!feel.pull) return a;
+  const p = run.player, gun = GUNS[run.loadout.gun];
+  let best: number | null = null, bestD = gun.range;
+  for (const z of run.zombies) {
+    if (z.dead) continue;
+    const d = dist(z, p), off = Math.atan2(Math.sin(Math.atan2(z.y - p.y, z.x - p.x) - a), Math.cos(Math.atan2(z.y - p.y, z.x - p.x) - a));
+    if (d < bestD && Math.abs(off) <= PULL_CONE) { best = off; bestD = d; }
+  }
+  return best === null ? a : a + best * PULL_K;
+}
+
 /** What a run brought home: a point for each grade of each ingredient (wilted 1, premium 3), ten for cookware. None if
  *  the chef didn't get out. */
 export const haul = (run: Run) => (run.extracted ? run.bag.reduce((n, f) => n + f.grade + 1, 0) + run.cookware.length * 10 : 0);
 
 export function step(run: Run, dt: number, input: Input) {
   if (run.over) return;
+  run.fx = [];
+  run.steps++;
   // (the van's dropping the chef off: the clock waits)
   if (run.dropT > 0) { run.dropT = Math.max(0, run.dropT - dt); return; }
   run.t += dt;
-  const p = run.player, gun = GUNS[run.loadout.gun], blocks = run.town.blocks;
+  const p = run.player, blocks = run.town.blocks;
+  // the rush: the world goes slow (the chef, the chef's shots and dishes, and the clocks they go by, don't)
+  const wdt = run.rushT > 0 ? dt * RUSH_K : dt;
+  run.rushT = Math.max(0, run.rushT - dt); run.rushCool = Math.max(0, run.rushCool - dt);
 
   // the chef: stands still while a code goes in, otherwise walks and fires (a dish in hand is thrown instead)
   if (!run.serving || run.serving.ready) {
@@ -598,7 +869,7 @@ export function step(run: Run, dt: number, input: Input) {
   for (const c of run.crates) if (!c.open && dist(c, p) <= OPEN_R) { c.open = true; fill(run, c); }
   if (run.serving) run.serving.smudge = Math.max(0, run.serving.smudge - dt);
   run.cooldown = Math.max(0, run.cooldown - dt);
-  if (run.reloadT > 0) { run.reloadT -= dt; if (run.reloadT <= 0) { run.reloadT = 0; run.ammo = gun.mag; run.spare--; } }
+  if (run.reloadT > 0) { run.reloadT -= dt; if (run.reloadT <= 0) reloaded(run); }
   if (input.fire && !run.serving) fire(run, input.aim);
 
   // the safe zone: radio the van, hold the ring till it comes, get in before it leaves
@@ -617,10 +888,22 @@ export function step(run: Run, dt: number, input: Input) {
 
   // the horde keeps coming, faster and tougher (and three times as fast while the zone's held); now and then a special
   run.nav.towards(p.x, p.y);
-  run.spawnT -= dt;
-  if (run.spawnT <= 0) { spawn(run, false); run.spawnT = spawnGap(run.t) / (run.stage === 'hold' ? 3 : 1); }
-  run.specialT -= dt;
-  if (run.specialT <= 0) { spawn(run, true); run.specialT = 40; }
+  if (run.range) {
+    // (the firing range: no horde, its row's zombies back at their posts a moment after they're down, and standing still)
+    for (const post of run.range) {
+      if (run.zombies.some(z => z.id === post.id && !z.dead)) continue;
+      post.t -= wdt;
+      if (post.t > 0) continue;
+      const z = spawn(run, post.special, post);
+      z.speed = 0; z.hp = z.maxHp = hordeHp(0) * (post.special ? 4 : 1);
+      post.id = z.id; post.t = 1.2;
+    }
+  } else {
+    run.spawnT -= wdt;
+    if (run.spawnT <= 0) { spawn(run, false); run.spawnT = spawnGap(run.t) / (run.stage === 'hold' ? 3 : 1); }
+    run.specialT -= wdt;
+    if (run.specialT <= 0) { spawn(run, true); run.specialT = 40; }
+  }
 
   // shots fly till they hit something or run out of range (checked along the whole way they went this step, so a fast
   // one can't skip over a zombie between frames)
@@ -630,8 +913,27 @@ export function step(run: Run, dt: number, input: Input) {
     // (a wall stops it where it meets it)
     const wall = wallAlong(x0, y0, s.x, s.y, blocks);
     if (wall !== null) { s.x = x0 + (s.x - x0) * wall; s.y = y0 + (s.y - y0) * wall; }
-    const z = run.zombies.find(o => !o.dead && toSegment(o, x0, y0, s.x, s.y) <= o.r + 4);
-    if (z) { s.life = 0; hit(run, z, s.dmg, s.taste); } else if (wall !== null) s.life = 0;
+    const flame = GUNS[s.gun].flame;
+    if (flame && s.through) {
+      // a flame goes through everyone in its way, widening as it goes, each of them once
+      const k = 1 - Math.max(0, s.life) / (GUNS[s.gun].range / GUNS[s.gun].speed), wide = FLAME_START + (flame.cone - FLAME_START) * k;
+      for (const o of run.zombies) {
+        if (o.dead || s.through.includes(o.id) || toSegment(o, x0, y0, s.x, s.y) > o.r + wide) continue;
+        s.through.push(o.id);
+        shotHit(run, s, o, x0, y0);
+      }
+      // (dripping on the street on its way, or where a wall stops it, if it hasn't yet)
+      if (s.drip && (s.life <= s.drip || wall !== null)) { drip(run, s.x, s.y); s.drip = 0; }
+      if (wall !== null) s.life = 0;
+      continue;
+    }
+    const z = run.zombies.find(o => !o.dead && toSegment(o, x0, y0, s.x, s.y) <= o.r + SHOT_SLACK);
+    if (z) {
+      shotHit(run, s, z, x0, y0);
+      // (a kill with some to spare carries on, with what it had left, into whoever's next)
+      if (z.dead && s.pierce && -z.hp >= 1) { s.dmg = -z.hp; s.pierce--; } else s.life = 0;
+    }
+    if (wall !== null) s.life = 0;
   }
   run.shots = run.shots.filter(s => s.life > 0);
 
@@ -641,7 +943,7 @@ export function step(run: Run, dt: number, input: Input) {
 
   // zones linger: a smoke cloud poisons, the burnt caramel burns, the pickle battery zaps, the syrup candies
   for (const zn of run.zones) {
-    zn.t -= dt; zn.acc += dt;
+    zn.t -= wdt; zn.acc += wdt;
     if (zn.acc < 0.5) continue;
     zn.acc -= 0.5;
     const inside = near(run, zn, zn.r);
@@ -652,15 +954,35 @@ export function step(run: Run, dt: number, input: Input) {
   }
   run.zones = run.zones.filter(zn => zn.t > 0);
 
+  // the oil burns down; whoever stands in it heats up and slows (once a step, however many patches it's in)
+  for (const f of run.patches) f.t -= wdt;
+  run.patches = run.patches.filter(f => f.t > 0);
+  if (run.patches.length) for (const z of run.zombies) {
+    if (z.dead || !run.patches.some(f => Math.hypot(f.x - z.x, f.y - z.y) <= PATCH_R + z.r)) continue;
+    heatUp(run, z, z.heat > 0 ? PATCH_HEAT * wdt : 1, 1);
+    z.slow = Math.max(z.slow, PATCH_SLOW); z.slowT = Math.max(z.slowT, 0.2);
+  }
+
   // the zombies: their tastes wear off and their burns and poisons tick; then they shamble at the chef, or at the bait
   const baits = run.zombies.filter(z => !z.dead && z.lureT > 0);
   for (const z of run.zombies) {
     if (z.dead) continue;
+    const dt = wdt;
     z.coatT -= dt;
     if (z.coatT <= 0 && z.coat) { z.coat = null; z.meter = 0; }
-    for (const k of ['immuneT', 'hasteT', 'meltT', 'freezeT', 'twitchT', 'lureT', 'marinateT', 'poisonFast'] as const) z[k] = Math.max(0, z[k] - dt);
+    for (const k of ['immuneT', 'hasteT', 'meltT', 'freezeT', 'twitchT', 'lureT', 'marinateT', 'poisonFast', 'stunT', 'stumbleT', 'stumbleCool', 'downT'] as const) z[k] = Math.max(0, z[k] - dt);
+    if (z.slowT > 0) { z.slowT -= dt; if (z.slowT <= 0) z.slow = 0; }
+    // (a push carries it on, dying away)
+    if (z.kx || z.ky) {
+      z.x += z.kx * dt; z.y += z.ky * dt;
+      const k = Math.exp(-PUSH_DRAG * dt);
+      z.kx *= k; z.ky *= k;
+      if (Math.abs(z.kx) + Math.abs(z.ky) < 1) z.kx = z.ky = 0;
+    }
     if (z.burnT > 0) {
-      z.burnT -= dt; hurt(run, z, 4 * dt);
+      // (the flame's heat burns hotter; a coat's or a caught burn, the same as ever)
+      z.burnT -= dt; hurt(run, z, (z.heat ? HEAT_DPS * z.heat : BURN_DPS) * dt);
+      if (z.burnT <= 0) z.heat = 0;
       // a burn from a hit catches on whoever it touches (theirs doesn't spread further)
       if (z.burnSpreads) for (const o of near(run, z, z.r + 2, z)) if (o.burnT <= 0) { o.burnT = 1; o.burnSpreads = false; }
     }
@@ -669,11 +991,19 @@ export function step(run: Run, dt: number, input: Input) {
 
     const bait = z.lureT > 0 ? null : baits.find(b => !b.dead && b !== z && dist(b, z) < LURE_R);
     const target = bait ?? p;
-    let speed = z.speed * (z.hasteT > 0 ? 1.6 : 1) * (z.coat === 'sweet' ? 1 - 0.5 * z.meter : 1);
-    if (z.freezeT > 0 || z.twitchT > 0) speed = 0;
+    // (syrup and the Chili Sprayer both slow it: the stronger counts)
+    let speed = z.speed * (z.hasteT > 0 ? 1.6 : 1) * Math.min(z.coat === 'sweet' ? 1 - 0.5 * z.meter : 1, 1 - z.slow);
+    if (z.freezeT > 0 || z.twitchT > 0 || z.stunT > 0 || z.downT > 0) speed = 0;
     // (a little past touching: they don't stand in each other, so they'd never quite get there)
     const d = dist(z, target), reach = z.r + (bait ? bait.r : 18) + 2;
-    if (d > reach) {
+    // at full heat it stumbles off its way for a moment: aside, and a little back from where it was going
+    if (z.heat >= HEAT_MOST && z.stumbleCool <= 0 && d > 0) {
+      const side = z.id % 2 ? 1 : -1, ux = (target.x - z.x) / d, uy = (target.y - z.y) / d;
+      z.stumbleX = -uy * side * 0.9 - ux * 0.44; z.stumbleY = ux * side * 0.9 - uy * 0.44;
+      z.stumbleT = STUMBLE_TIME; z.stumbleCool = STUMBLE_GAP;
+    }
+    if (z.stumbleT > 0) { z.x += z.stumbleX * speed * dt; z.y += z.stumbleY * speed * dt; }
+    else if (d > reach) {
       // straight at it when nothing's in the way; otherwise the shortest way round
       const way = bait || run.nav.clear(z, target) ? target : run.nav.next(z.x, z.y) ?? target, wd = dist(z, way) || 1;
       z.x += (way.x - z.x) / wd * speed * dt; z.y += (way.y - z.y) / wd * speed * dt;
@@ -696,7 +1026,7 @@ export function step(run: Run, dt: number, input: Input) {
   }
   run.zombies = run.zombies.filter(z => !z.dead);
 
-  // garnishes wait to be picked up; stamps fade
+  // garnishes wait to be picked up; stamps fade (on the chef's clock)
   for (const g of run.garnishes) { g.t -= dt; if (dist(g, p) < 30) { g.t = 0; run.boost = GARNISH_SHOTS; } }
   run.garnishes = run.garnishes.filter(g => g.t > 0);
   for (const s of run.stamps) s.t -= dt;

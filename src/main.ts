@@ -51,9 +51,10 @@ drawPooled(scene);
 if (import.meta.env.MODE === 'demo') void import('./demo');
 // the UI kit's showcase, ?ui=kit (uiShowcase.ts): in dev and demo builds only
 if ((import.meta.env.DEV || import.meta.env.MODE === 'demo') && new URLSearchParams(location.search).get('ui') === 'kit') void import('./uiShowcase');
-// Cooking Hazard straight away, ?arcade=play (hazardPlay.ts), without walking to its cabinet on the yacht: in dev and demo
-// builds only (?arcade=on puts the cabinet itself on the yacht: flags.ts)
-if ((import.meta.env.DEV || import.meta.env.MODE === 'demo') && new URLSearchParams(location.search).get('arcade') === 'play') void import('./hazardPlay').then(m => m.openHazard());
+// Cooking Hazard straight away, ?arcade=play (hazardPlay.ts), without walking to its cabinet on the yacht, or its firing
+// range, ?arcade=range: in dev and demo builds only (?arcade=on puts the cabinet itself on the yacht: flags.ts)
+const arcadeAsk = new URLSearchParams(location.search).get('arcade');
+if ((import.meta.env.DEV || import.meta.env.MODE === 'demo') && (arcadeAsk === 'play' || arcadeAsk === 'range')) void import('./hazardPlay').then(m => m.openHazard({ range: arcadeAsk === 'range' }));
 
 const restartBtn = document.getElementById('restart')!, restartText = document.getElementById('restartText')!;
 let armT: ReturnType<typeof setTimeout> | undefined;
