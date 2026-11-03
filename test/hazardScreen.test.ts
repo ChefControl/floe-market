@@ -1,7 +1,12 @@
-// Cooking Hazard's screen (hazardPlay.ts) and its street in 3D (hazardSet.ts): the loadout, a run on the keys and mouse
-// or by touch, what floats over the zombies, leaving mid-run, and the phone held upright. The rules are in hazard.test.ts.
+// Cooking Hazard's screen (hazardPlay.ts), its street in 3D (hazardSet.ts) and its safe house (hazardRoom.ts): the
+// stations, cooking with the timing tap, the armory, the van and the recipe book; a run on the keys and mouse or by
+// touch, what floats over the zombies, leaving mid-run, and the phone held upright. The rules are in hazard.test.ts and
+// hazardHouse.test.ts.
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { DISHES, GUNS, H, LEVEL_TIME, VAN_WAIT, W, ZONE_R, hit, press, type Crate, type Dir, type Run, type Zombie } from '../src/hazard';
+import {
+  DISHES, GUNS, H, LEVEL_TIME, VAN_WAIT, W, ZONE_R, hit, press, type Crate, type Dir, type DishId, type GunId, type Run, type Zombie,
+} from '../src/hazard';
+import { freshHouse, house } from '../src/hazardHouse';
 
 /** A zombie of the horde standing at (x, y). */
 function zombie(run: Run, x: number, y: number, more: Partial<Zombie> = {}): Zombie {
@@ -41,9 +46,17 @@ async function open() {
   play.openHazard();
   return { play, set, root, area: root.querySelector<HTMLElement>('.hz-play')! };
 }
+/** Leaves the safe house for a run (🚗 Go), with `gun` and a full batch of each of `dishes` packed in the van. */
+function go(root: HTMLElement, gun: GunId = 'spud', dishes: DishId[] = ['chiliPot', 'syrup']) {
+  Object.assign(house, freshHouse(), {
+    gun, guns: ['spud', gun], slots: Math.max(2, dishes.length),
+    batches: dishes.map(dish => ({ dish, servings: 3, quality: 1 })), packed: dishes.map((_, i) => i),
+  });
+  root.querySelector<HTMLButtonElement>('.hz-room .hz-go')!.click();
+}
 /** Starts a run with the horde held off, past the drop-off, the chef at the crossroads in the middle of the map. */
-function start(play: typeof import('../src/hazardPlay'), root: HTMLElement) {
-  root.querySelector<HTMLButtonElement>('.hz-start')!.click();
+function start(play: typeof import('../src/hazardPlay'), root: HTMLElement, gun?: GunId, dishes?: DishId[]) {
+  go(root, gun, dishes);
   const run = play.hazardRun()!;
   run.spawnT = 1e9; run.specialT = 1e9; run.dropT = 0;
   Object.assign(run.player, { x: W / 2, y: H / 2 });
@@ -56,23 +69,18 @@ function start(play: typeof import('../src/hazardPlay'), root: HTMLElement) {
 afterEach(() => { vi.unstubAllGlobals(); });
 
 describe('the screen, on the keys and mouse', () => {
-  it('picks a loadout, plays a run, ends it, and takes the screen from the game while it plays', async () => {
+  it('leaves the safe house with what the van has packed, plays a run, ends it, and takes the screen from the game', async () => {
     const { play, set, root, area } = await open();
     const { takeover } = await import('../src/render');
     expect(root.hidden).toBe(false);
     expect(takeover.on).toBe(true);
     expect(document.body.classList.contains('hz-on')).toBe(true);
-    expect(root.dataset.mode).toBe('pick');
-    // a third dish replaces the older pick; the gun's choice is its own
-    root.querySelector<HTMLButtonElement>('[data-dish="lemon"]')!.click();
-    root.querySelector<HTMLButtonElement>('[data-gun="salt"]')!.click();
-    expect(root.querySelector('[data-dish="chiliPot"]')!.getAttribute('aria-pressed')).toBe('false');
-    root.querySelector<HTMLButtonElement>('[data-dish="lemon"]')!.click();
-    expect(root.querySelector<HTMLButtonElement>('.hz-start')!.disabled).toBe(true);
-    root.querySelector<HTMLButtonElement>('[data-dish="bait"]')!.click();
-    const run = start(play, root);
+    expect(root.dataset.mode).toBe('house');
+    const run = start(play, root, 'salt', ['syrup', 'bait']);
     expect(root.dataset.mode).toBe('play');
-    expect(run.loadout).toEqual({ gun: 'salt', dishes: ['syrup', 'bait'] });
+    expect(run.loadout).toEqual({ gun: 'salt', dishes: ['syrup', 'bait'], servings: [3, 3], quality: [1, 1] });
+    // (the batches went with the van)
+    expect(house.batches).toEqual([]);
     // the chef stands in the street's middle, in the set's metres
     play.advance(0.016);
     expect(set.setView().chef!.x).toBeCloseTo(0);
@@ -123,17 +131,19 @@ describe('the screen, on the keys and mouse', () => {
     zombie(run, run.player.x, run.player.y, { speed: 50 });
     play.advance(0.05);
     expect(root.dataset.mode).toBe('over');
-    expect(localStorage.getItem('floe-market-hazard-best')).not.toBeNull();
-    // the street's cleared for the next run, and the loadout screen shows it empty
-    root.querySelector<HTMLButtonElement>('.hz-again')!.click();
-    expect(root.dataset.mode).toBe('play');
+    expect(house.best.time).toBe(Math.floor(run.t));
+    // back in the safe house; the next run's street starts empty
+    root.querySelector<HTMLButtonElement>('.hz-home')!.click();
+    expect(root.dataset.mode).toBe('house');
+    play.advance(0.016);
+    go(root);
     play.advance(0.016);
     expect(set.setView().bodies).toBe(0);
-    root.querySelector<HTMLButtonElement>('.hz-change')!.click();
-    expect(root.dataset.mode).toBe('pick');
-    play.advance(0.016);
+    root.querySelector<HTMLButtonElement>('.hz-x')!.click();
+    root.querySelector<HTMLButtonElement>('.hz-quit')!.click();
+    play.openHazard();
 
-    // ✕ on the loadout screen leaves, and gives the game its screen back
+    // ✕ in the safe house leaves, and gives the game its screen back
     root.querySelector<HTMLButtonElement>('.hz-x')!.click();
     expect(root.hidden).toBe(true);
     expect(takeover.on).toBe(false);
@@ -185,7 +195,7 @@ describe('the screen, on the keys and mouse', () => {
     zombieMid(run, 560, 250, { freezeT: 5, hp: 1000, maxHp: 1000 });
     zombieMid(run, 600, 520, { twitchT: 5, hp: 1000, maxHp: 1000 });
     for (const kind of ['smoke', 'battery', 'syrup'] as const) run.zones.push({ ...mid(600, 600), r: 50, t: 5, kind, acc: 0 });
-    run.thrown.push({ ...mid(700, 300), fromX: W / 2, fromY: H / 2, t: 0.3, dish: 'chiliPot' });
+    run.thrown.push({ ...mid(700, 300), fromX: W / 2, fromY: H / 2, t: 0.3, dish: 'chiliPot', q: 1 });
     // a code half in, smudged by a slip
     key('keydown', 'Digit2');
     key('keydown', 'Digit2', { repeat: true });
@@ -242,7 +252,7 @@ describe('the screen, on the keys and mouse', () => {
     vi.stubGlobal('requestAnimationFrame', (f: FrameRequestCallback) => { frames.push(f); return frames.length; });
     vi.stubGlobal('cancelAnimationFrame', () => {});
     const { play, root } = await open();
-    // (nothing to move on the loadout screen)
+    // (nothing to move in the safe house)
     play.advance(0.1);
     expect(play.hazardRun()).toBeNull();
     const run = start(play, root);
@@ -387,7 +397,7 @@ describe('the screen, by touch', () => {
 describe('the set', () => {
   it('drives the van in and off, fades buildings in the way, takes crates’ lids off, and keeps its splats to a few', async () => {
     const { play, set, root } = await open();
-    root.querySelector<HTMLButtonElement>('.hz-start')!.click();
+    go(root);
     const run = play.hazardRun()!;
     run.spawnT = 1e9; run.specialT = 1e9;
     play.advance(0.5);
@@ -455,7 +465,7 @@ describe('a whole run, on the screen', () => {
 
   it('starts with the drop-off, which a key or a tap skips', async () => {
     const { play, root, area } = await open();
-    root.querySelector<HTMLButtonElement>('.hz-start')!.click();
+    go(root);
     let run = play.hazardRun()!;
     expect(run.dropT).toBeGreaterThan(0);
     play.advance(0.5);
@@ -465,7 +475,7 @@ describe('a whole run, on the screen', () => {
     root.querySelector<HTMLButtonElement>('.hz-x')!.click();
     root.querySelector<HTMLButtonElement>('.hz-quit')!.click();
     play.openHazard();
-    root.querySelector<HTMLButtonElement>('.hz-start')!.click();
+    go(root);
     run = play.hazardRun()!;
     pointer(area, 'pointerdown', 300, 300);
     expect(run.dropT).toBe(0);
@@ -509,8 +519,6 @@ describe('a whole run, on the screen', () => {
   });
 
   it('points the way to the safe zone from Stale, radios the van, holds out, and gets out with the haul', async () => {
-    localStorage.removeItem('floe-market-hazard-haul');
-    localStorage.removeItem('floe-market-hazard-pantry');
     const { play, root } = await open();
     const run = start(play, root);
     const zonePill = () => root.querySelector<HTMLElement>('.hz-zone-pill')!;
@@ -559,15 +567,21 @@ describe('a whole run, on the screen', () => {
     expect(root.querySelector('.hz-haul')!.textContent).toBe('🍲 🍋');
     expect(root.querySelector('.hz-stats')!.textContent).toContain('🧺 Haul 13');
     expect(root.querySelector('.hz-stats')!.textContent).toContain('🏆 New best haul');
-    expect(localStorage.getItem('floe-market-hazard-haul')).toBe('13');
-    expect(JSON.parse(localStorage.getItem('floe-market-hazard-pantry')!)).toEqual({ food: { 'sour:2': 1 }, cookware: { Stockpot: 1 } });
+    expect(house.best.haul).toBe(13);
+    expect(house.pantry['sour:2']).toBe(1);
+    expect(house.cookware).toEqual({ Stockpot: 1 });
+    // the dishes not thrown come home on the shelf, and the run's tickets with them
+    expect(house.batches.map(b => b.dish)).toEqual(['chiliPot', 'syrup']);
+    expect(root.querySelector('.hz-stats')!.textContent).toContain('🎟️ +15');
+    expect(house.tickets).toBe(20 + 15);
     // a second time: the pantry adds up, and the best stands
-    root.querySelector<HTMLButtonElement>('.hz-again')!.click();
+    root.querySelector<HTMLButtonElement>('.hz-home')!.click();
+    root.querySelector<HTMLButtonElement>('.hz-room .hz-go')!.click();
     const again = play.hazardRun()!;
     Object.assign(again, { dropT: 0, stage: 'van', vanT: VAN_WAIT, bag: [{ kind: 'food', taste: 'sour', grade: 2, got: 0 }] });
     Object.assign(again.player, { x: again.zone.x, y: again.zone.y });
     play.advance(0.05);
-    expect(JSON.parse(localStorage.getItem('floe-market-hazard-pantry')!).food['sour:2']).toBe(2);
+    expect(house.pantry['sour:2']).toBe(2);
     expect(root.querySelector('.hz-stats')!.textContent).toContain('🏆 Best haul 13');
     play.closeHazard();
   });
@@ -599,6 +613,123 @@ describe('a whole run, on the screen', () => {
     expect(root.querySelector('.hz-verdict')!.textContent).toBe('The horde got you');
     expect(root.querySelector('.hz-haul .lost')!.textContent).toBe('🍬');
     expect(root.querySelector('.hz-stats')!.textContent).toContain('🧺 Haul 0');
+    play.closeHazard();
+  });
+});
+
+describe('the safe house', () => {
+  const btn = (root: HTMLElement, sel: string) => root.querySelector<HTMLButtonElement>(sel)!;
+
+  it('opens on the room: a station by its button, Esc back out of it, then out of the game', async () => {
+    Object.assign(house, freshHouse());
+    const { play, root } = await open();
+    const room = await import('../src/hazardRoom');
+    expect(root.dataset.mode).toBe('house');
+    expect([...root.querySelectorAll('.hz-stations > .k-btn')].map(b => b.textContent))
+      .toEqual(['♨️ Stove', '🔥 Oven', '🍶 Pantry', '🛡️ Armory', '🍽️ Recipe book', '🚗 Van']);
+    expect(root.querySelector('.hz-tickets')!.textContent).toBe('20');
+    expect(btn(root, '.hz-hint').hidden).toBe(false);
+    play.advance(0.016);
+    expect(room.roomView().sheets).toBe(2);
+    btn(root, '[data-station="stove"]').click();
+    expect(play.houseView().station).toBe('stove');
+    expect(room.roomView().focus).toBe('stove');
+    expect(btn(root, '.hz-room').closest<HTMLElement>('.hz-room')!.hidden).toBe(true);
+    expect(root.querySelector('.hz-st-title')!.textContent).toBe('♨️ Stove');
+    expect(root.querySelector('.hz-st-body')!.textContent).toContain('🌶️ Chili 4');
+    expect(btn(root, '[data-cook="chiliPot"]').dataset.state).toBeUndefined();
+    // the Oven's under its dust sheet: its dish is locked, and says what opens it
+    btn(root, '.hz-back').click();
+    btn(root, '[data-station="oven"]').click();
+    expect(root.querySelector('.hz-st-cap')!.textContent).toBe('Find a baking tray first');
+    expect(btn(root, '[data-cook="syrup"]').dataset.state).toBe('locked');
+    btn(root, '[data-cook="syrup"]').click();
+    expect(play.houseView().cooking).toBeNull();
+    key('keydown', 'Escape');
+    expect(play.houseView().station).toBeNull();
+    // a click on a station in the room opens it too
+    play.advance(0);
+    const at = room.stationOnScreen('armory');
+    pointer(root.querySelector('.hz-house')!, 'pointerdown', at.x, at.y);
+    expect(play.houseView().station).toBe('armory');
+    key('keydown', 'Escape');
+    key('keydown', 'Escape');
+    expect(root.hidden).toBe(true);
+  });
+
+  it('cooks at a counter with the timing tap, and the batch goes on the shelf and in the van', async () => {
+    Object.assign(house, freshHouse());
+    const { play, root } = await open();
+    btn(root, '[data-station="stove"]').click();
+    btn(root, '[data-cook="chiliPot"]').click();
+    const c = play.houseView().cooking!;
+    expect(btn(root, '.hz-cook').hidden).toBe(false);
+    expect(root.querySelectorAll('.hz-notes > i')).toHaveLength(DISHES.chiliPot.code.length * 2);
+    // each move pressed as it crosses the line (the last on the touch pad)
+    c.notes.forEach((n, i) => {
+      play.advance(n.at - c.t);
+      if (i < c.notes.length - 1) key('keydown', ARROW[n.dir]);
+      else btn(root, `[data-move="${n.dir}"]`).click();
+    });
+    expect(root.querySelector('.hz-call')!.textContent).toBe('Perfect!');
+    play.advance(0.5);
+    expect(play.houseView().cooking).toBeNull();
+    expect(house.batches).toEqual([{ dish: 'chiliPot', servings: 3, quality: 1 }]);
+    expect(house.packed).toEqual([0]);
+    expect(root.querySelector('.hz-st-cap')!.textContent).toBe('★★★ Chili Pot · 3 servings');
+    expect(btn(root, '.hz-hint').hidden).toBe(true);
+    // a cook let go by makes one serving; Esc mid-cook uses nothing
+    btn(root, '[data-cook="chiliPot"]').click();
+    key('keydown', 'Escape');
+    expect(play.houseView()).toEqual({ station: 'stove', cooking: null });
+    expect(house.pantry['spicy:1']).toBe(2);
+    btn(root, '[data-cook="chiliPot"]').click();
+    play.advance(10);
+    expect(house.batches[1].servings).toBe(1);
+    // the pantry's out of chili now
+    expect(btn(root, '[data-cook="chiliPot"]').dataset.state).toBe('broke');
+    play.closeHazard();
+  });
+
+  it('buys guns and upgrades at the armory, packs the van, and Go leaves with it', async () => {
+    Object.assign(house, freshHouse(), { tickets: 45, batches: [{ dish: 'bait', servings: 2, quality: 1 }, { dish: 'chiliPot', servings: 3, quality: 1 }] });
+    const { play, root } = await open();
+    btn(root, '[data-station="armory"]').click();
+    const salt = () => [...root.querySelectorAll<HTMLButtonElement>('[data-buy]')].find(b => b.textContent!.includes('Rock Salt'))!;
+    expect(salt().textContent).toBe('🧂 Rock Salt Shotgun · 🎟️ 40');
+    const chili = [...root.querySelectorAll<HTMLButtonElement>('[data-buy]')].find(b => b.textContent!.includes('Chili Sprayer'))!;
+    expect(chili.dataset.state).toBe('broke');
+    salt().click();
+    expect([house.gun, house.tickets]).toEqual(['salt', 5]);
+    expect(btn(root, '[data-gun="salt"]').getAttribute('aria-pressed')).toBe('true');
+    btn(root, '[data-gun="spud"]').click();
+    expect(house.gun).toBe('spud');
+    btn(root, '.hz-back').click();
+    // the van: the map of the next specials, the shelf to pack from
+    btn(root, '[data-station="van"]').click();
+    expect(root.querySelectorAll('.hz-map .hz-ticket')).toHaveLength(3);
+    btn(root, '[data-pack="1"]').click();
+    expect(btn(root, '[data-pack="1"]').getAttribute('aria-pressed')).toBe('true');
+    expect(btn(root, '.hz-van-go').textContent).toBe('🚗 Go · 1 dish');
+    // E goes
+    key('keydown', 'KeyE', { key: 'e' });
+    expect(root.dataset.mode).toBe('play');
+    expect(play.hazardRun()!.loadout).toEqual({ gun: 'spud', dishes: ['chiliPot'], servings: [3], quality: [1] });
+    expect([...root.querySelectorAll('.hz-slot')].map(s => s.classList.contains('locked'))).toEqual([false, false, true, true]);
+    play.closeHazard();
+  });
+
+  it('reads the recipe book: the dishes of the kitchens open, and the techniques found', async () => {
+    Object.assign(house, freshHouse(), { found: ['spicy+bitter'] });
+    const { play, root } = await open();
+    btn(root, '[data-station="book"]').click();
+    expect(root.querySelector('.hz-st-cap')!.textContent).toBe('1 of 15 techniques found');
+    const lines = () => [...root.querySelectorAll('.hz-page li')].map(l => l.textContent);
+    expect(lines().filter(l => l!.startsWith('???'))).toHaveLength(2);
+    btn(root, '[data-page="techniques"]').click();
+    expect(lines()).toHaveLength(15);
+    expect(lines()[0]).toBe('🔥☠️ Smoked');
+    expect(lines().filter(l => l!.endsWith('???'))).toHaveLength(14);
     play.closeHazard();
   });
 });

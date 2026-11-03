@@ -111,6 +111,20 @@ The rules learnt from Path of Exile 2's elements: rings that show their "nearly 
 - **Coming home:** everything carried comes home, kept on this device (the pantry) until the safe house keeps it in the save. Dying loses it all, cookware too.
 - **Bests:** the most loot brought home (wilted 1, fresh 2, premium 3, cookware 10), shown on the cabinet, and the longest survived. No minimap.
 
+### The safe house (grilled 26 October 2026)
+
+- **The room:** Play opens the safe house: a small 3D room you look into, with stations to choose (click, tap or 1–6): the Stove, the Oven, the Pantry, the armory rack, the recipe book on its table, and the van at the garage door. Choosing one brings the camera in on it and opens its panel; Esc goes back to the room. 🚗 Go (E) leaves in the van.
+- **Cooking (the timing tap):** a counter cooks a dish by its own recipe code. The code's moves (🔪 chop, 🥄 stir, 🍳 flip, ✋ press) slide past a line, twice through, and each is pressed (an arrow, or a swipe on touch) as it crosses: perfect, good or missed. Stars by how well: ★ 1, ★★ 2, ★★★ 3 servings. It practises the code typed in runs.
+- **A batch** costs two ingredients of the dish's taste (the best in the pantry). Their average grade sets its quality: wilted ×0.8, fresh ×1, premium ×1.25 to the dish's damage and size. Real recipes come with the content.
+- **Counters:** the Stove (open from the start) cooks the Chili Pot and the Mushroom Bait; the Oven the Syrup Spill; the Pantry (the cold kitchen) the Lemon Splash. The Oven opens with a baking tray and the Pantry with a pickling crock, from gold crates (stand-ins, with the cast-iron pan, till the content: icons 🍱 and 🍶 until they're drawn).
+- **Arcade tickets 🎟️** pay for upgrades, won every run: some for kills and techniques, a big bonus for getting out. They stay in the arcade; Floe Market's money is never touched.
+- **The armory:** unlock the Rock Salt Shotgun and the Chili Sprayer, dish slots 3 and 4, and three levels of each gun's damage; pick the gun for the next run.
+- **The van:** cargo (a bag of 8, 10, then 12) and armour (the hazmat suit: 100, 125, then 150 health); its map shows the food quarter with the next run's specials' tickets, rolled ahead, to cook for; and packing: cooked batches into the dish slots. Getting out brings back the servings not used; dying loses them.
+- **The recipe book:** a page of dishes (code, counter, what it needs; ??? while its counter's shut) and a page of the 15 techniques (??? till first popped in a run).
+- **A new player** starts with 4 fresh chili and 4 fresh mushroom, the Spud Rifle and a few tickets, and a first-time hint at the Stove: "Cook something before you go".
+- **Kept in the save** (and its cloud copy), wiped by Restart with the rest: pantry, cookware, batches, tickets, upgrades, the book, bests. What step 4 kept on the device moves into the save the first time.
+- **As built** (stand-in numbers, for step 7's balance pass): a run pays a ticket for every four zombies, one for each technique, and 15 for getting out. The Rock Salt Shotgun costs 🎟️ 40 and the Chili Sprayer 60, damage levels 30, 60 and 90 (×1.15, ×1.3, ×1.5), dish slots 50 and 100, cargo and armour 40 and 80. A new player has 🎟️ 20. A cook's score (perfect counts whole, good half) gives ★★★ from 85% and ★★ from 50%. A batch cooked goes in the van by itself while there's a free slot. Leaving mid-run counts as dying.
+
 ## Not decided yet
 
 - What each piece of cookware unlocks (the cooking methods), and the dish roster.
@@ -125,6 +139,6 @@ Later, not in v1: survivors who move into the safe house, an online scoreboard (
 2. ✅ The cabinet on the casino yacht, behind the arcade flag (`src/flags.ts`): against the bow wall beside the door, where the guests' second slot machine stood (the only spot in the salon a player can reach that's off the way from the door to the games), its attract screen, the camera coming onto its face from its pad (it faces away from the game's camera), and its card with the best run and Play. Trophies come with step 7.
 3. ✅ The fight in 3D on the main renderer (`src/hazardSet.ts`, a set of its own and a camera), poly zombies and chef, and touch controls, as grilled under "The fight in 3D" above.
 4. ✅ A whole run: the van, crates and loot, the safe zone hold-out and extraction, dying, as grilled under "A whole run" above.
-5. The safe house: the three counters and their timing tap, the recipe book, the armory and the van, all kept in the save.
+5. ✅ The safe house (`src/hazardHouse.ts`, its room `src/hazardRoom.ts`): the three counters and their timing tap, the recipe book, the armory and the van, all kept in the save, as grilled under "The safe house" above.
 6. Content: cookware and dishes (after grilling the open questions above), special zombies and their tickets, destinations, bosses.
 7. Sound and music (through audition pages, checked for pops), the balance numbers (a headless run like the stage sims), trophies.
