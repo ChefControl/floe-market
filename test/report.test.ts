@@ -185,7 +185,7 @@ describe('reporting a bug or an idea', () => {
     const casino = [...document.querySelectorAll<HTMLElement>('.casino')];
     expect(casino.map(p => p.id)).toEqual([
       'rouletteAsk', 'roulette', 'blackjackAsk', 'blackjack', 'slotsAsk', 'slots', 'eddie', 'monteAsk', 'monte', 'denBar', 'loans',
-      'denGus', 'bubbly', 'shameCard', 'shame', 'tears',
+      'denGus', 'bubbly', 'arcade', 'shameCard', 'shame', 'tears',
     ]);
     casino.forEach(p => { p.hidden = false; });
     $('reportCat').click();
