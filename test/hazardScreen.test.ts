@@ -728,6 +728,21 @@ describe('the safe house', () => {
 });
 
 describe("the guns' feel", () => {
+  it("holds the picked gun at its armory look, and wears the flamethrower's tanks only with it", async () => {
+    const { play, set, root } = await open();
+    let run = start(play, root, 'spud');
+    play.advance(0);
+    expect(set.setView().held).toEqual(['spud 1']);
+    expect(set.setView().pack).toBe(0);
+    play.closeHazard();
+    run = start(play, root, 'chili');
+    run.dmgK = 1.3;
+    play.advance(0);
+    expect(set.setView().held).toEqual(['chili 3']);
+    expect(set.setView().pack).toBe(3);
+    play.closeHazard();
+  });
+
   it('kicks, puffs and throws shells with each shot (fewer on Low, none on Potato), and streaks the shots', async () => {
     const { gfx } = await import('../src/graphics');
     const { play, set, root, area } = await open();

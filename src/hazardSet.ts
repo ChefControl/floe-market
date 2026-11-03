@@ -37,6 +37,7 @@ import { isHigh, isPotato } from './graphics';
 import {
   CRIT_IN, DISHES, GUNS, H, HOLD_TIME, TASTES, W, ZONE_R, feel, type Crate, type Fx, type GunId, type Run, type Taste, type Zombie,
 } from './hazard';
+import { MODELS, armHoseMesh, gunMesh, lookFor, onArm, packMesh } from './hazardGuns';
 import { QUARTER, U, type Block, type Shop, type Town } from './hazardMap';
 import { dice, quietly } from './kit';
 import { player } from './player';
@@ -332,7 +333,7 @@ function flat(geo: RingGeometry | CircleGeometry, color = 0xFFFFFF) {
 }
 
 /** The chef: the player's own, in a hazmat apron and goggles, a gun in the right hand and a plate in the left. */
-let chef: { p: Person; guns: Record<GunId, Mesh>; plate: Group } | null = null;
+let chef: { p: Person; guns: Record<GunId, Mesh[]>; pack: Mesh[]; hose: Mesh; plate: Group } | null = null;
 /** The last shot's kick, 1 as it fires, dying away (the arm jerks up and the chef back), and how hard each gun's is. */
 let kick = 0;
 const KICK: Record<GunId, number> = { spud: 0.55, salt: 1, chili: 0.2 };
@@ -348,18 +349,21 @@ function newChef() {
       at(box, 0x9FD8E8, 0.075, 1.08, 0.262, 0.085, 0.06, 0.01),
       at(box, 0x9FD8E8, -0.075, 1.08, 0.262, 0.085, 0.06, 0.01),
     ]));
-    // the guns, along the right arm (it points them when it's held out ahead)
-    const gun = (c: number, tip: number) => gear([
-      at(box, c, 0, -0.42, 0.02, 0.09, 0.4, 0.11), at(box, tip, 0, -0.64, 0.02, 0.06, 0.08, 0.06), at(box, 0x2A2E33, 0, -0.34, 0.09, 0.05, 0.08, 0.1),
-    ]);
-    const guns = { spud: gun(0x8A6A44, 0xD9C27A), salt: gun(0x7A848C, 0xF4F4F0), chili: gun(0xC0392B, 0xE8742A) };
-    for (const g of Object.values(guns)) p.arms[0].add(g);
+    // the guns in the right hand (it points them when it's held out ahead), each at its three looks (hazardGuns.ts);
+    // the flamethrower's tanks on the back, and its hose round to the shoulder and down the arm into the wand
+    const worn = (m: Mesh) => { m.userData.gear = true; m.visible = false; return m; };
+    const guns = Object.fromEntries((Object.keys(MODELS) as GunId[]).map(id => [id, [1, 2, 3].map(l => worn(gunMesh(id, l)))])) as Record<GunId, Mesh[]>;
+    for (const list of Object.values(guns)) for (const g of list) p.arms[0].add(g);
+    const pack = [1, 2, 3].map(l => worn(packMesh(l, p.arms[0].position)));
+    for (const m of pack) p.body.add(m);
+    const hose = worn(armHoseMesh());
+    p.arms[0].add(hose);
     const plate = new Group();
     plate.add(mesh(new CylinderGeometry(0.2, 0.16, 0.04, 14), 0xF4F4F0, 0, -0.42, 0), mesh(new SphereGeometry(0.12, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2), new MeshLambertMaterial(), 0, -0.4, 0));
     plate.visible = false;
     p.arms[1].add(plate);
     scene.add(p);
-    return { p, guns, plate };
+    return { p, guns, pack, hose, plate };
   }, dice(0xC4EF));
 }
 
@@ -874,13 +878,17 @@ export function drawSet(run: Run | null, dt: number, view: ChefView) {
   c.p.body.position.z = -0.08 * kick;
   // where the gun's tip is, against where the rules fire from (the chef's middle): shots are drawn leaving the tip
   c.p.updateMatrixWorld();
-  c.p.arms[0].localToWorld(muzzle.set(0, -0.72, 0.02)).sub(sv.set(cx, SHOT_Y, cz));
+  c.p.arms[0].localToWorld(muzzle.copy(onArm(run.loadout.gun, MODELS[run.loadout.gun].muzzle))).sub(sv.set(cx, SHOT_Y, cz));
   // what the rules say happened this step: shots, hits, blasts (once each, however many frames show it)
   if (run.steps !== fxSeen) { fxSeen = run.steps; c.p.updateMatrixWorld(); for (const f of run.fx) happened(run, f); }
   const holding = !!run.serving;
   c.plate.visible = holding;
   if (holding) c.p.arms[1].rotation.x = run.serving!.ready ? -2.8 : -1.1;
-  for (const [id, g] of Object.entries(c.guns)) g.visible = id === run.loadout.gun;
+  // the gun at its look for the armory's damage level (the flamethrower's pack and hose with it)
+  const look = lookFor(run.dmgK), chili = run.loadout.gun === 'chili';
+  for (const [id, list] of Object.entries(c.guns)) list.forEach((g, i) => { g.visible = id === run.loadout.gun && i === look - 1; });
+  c.pack.forEach((m, i) => { m.visible = chili && i === look - 1; });
+  c.hose.visible = chili;
   if (holding) ((c.plate.children[1] as Mesh).material as MeshLambertMaterial).color.set(TASTES[DISHES[run.loadout.dishes[run.serving!.slot]].taste].color);
 
   // (over the barricade)
@@ -912,7 +920,7 @@ function happened(run: Run, f: Fx) {
   const c = chef!;
   if (f.kind === 'shot') {
     nudgeBy(f.dx, f.dy, NUDGE[f.gun]);
-    c.p.arms[0].localToWorld(tip.set(0, -0.72, 0.02));
+    c.p.arms[0].localToWorld(tip.copy(onArm(f.gun, MODELS[f.gun].muzzle)));
     if (feel.kick) { kick = Math.max(kick, KICK[f.gun]); puff(tip, f.gun); }
     // shells out to the right and back: two flecks of peel, or a salt shell (the Chili Sprayer just hisses)
     const rx = -f.dy, rz = f.dx;
@@ -1367,6 +1375,8 @@ export const setView = () => ({
   plates: plates.filter(p => p.visible).length, zones: zones.filter(z => z.visible).length,
   herbs: herbs.filter(h => h.visible).length, puffs: puffs.filter(p => p.visible).length,
   target: !!target?.visible, chef: chef?.p.position.clone() ?? null, shadows: sun.castShadow,
+  held: chef ? (Object.entries(chef.guns) as [GunId, Mesh[]][]).flatMap(([id, list]) => list.map((g, i) => (g.visible ? `${id} ${i + 1}` : ''))).filter(Boolean) : [],
+  pack: chef ? chef.pack.findIndex(m => m.visible) + 1 : 0,
   van: van?.mode, faded: buildings.filter(b => b.k < 0.9).length, lids: crateLooks.filter(l => l.opened).length,
   shots: shots ? Object.values(shots).reduce((n, m) => n + m.count, 0) : 0,
 });
