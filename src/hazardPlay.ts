@@ -36,7 +36,7 @@ import {
 import { STATIONS, STATION_IDS, drawRoom, focusOn, renderRoom, stationAt, type StationId } from './hazardRoom';
 import { U } from './hazardMap';
 import { drawSet, dressChef, headOf, renderSet, resetView, toArena, toScreen } from './hazardSet';
-import { blastSound, crackle, critSound, flameSound, gunSound, hitSound, rushSound, shellSound } from './hazardSound';
+import { blastSound, crackle, critSound, flameSound, groanSound, gunSound, hitSound, igniteSound, rushSound, shellSound, sizzleSound } from './hazardSound';
 import { dice } from './kit';
 import { takeover } from './render';
 import { chime, clack, lose, pop, throwSound } from './sfx';
@@ -706,6 +706,8 @@ function felt(r: Run, dt: number) {
     else if (f.kind === 'hit') { if (feel.sound && f.gun !== 'chili') { hitSound(f.taste, f.gun); if (f.crit) critSound(); } }
     else if (f.kind === 'blast') { if (feel.sound) blastSound(); }
     else if (f.kind === 'rush') { if (feel.sound) rushSound(); }
+    else if (f.kind === 'ignite') { if (feel.sound) { igniteSound(); groanSound(); } }
+    else if (f.kind === 'charred') { if (feel.sound) sizzleSound(); }
     else if (f.kind === 'stop') {
       if (feel.stop) stopT = STOP_TIME;
       // (phones that can: Android's; never iPhones, which can't, nor a computer)

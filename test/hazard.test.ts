@@ -1,7 +1,7 @@
 // Cooking Hazard: the fight's rules (hazard.ts). The screen that plays them is in hazardScreen.test.ts.
 import { describe, expect, it } from 'vitest';
 import {
-  COAT_TIME, CRIT_K, DISHES, GUNS, H, HEAT_DPS, HEAT_MOST, HEAT_TIME, LEVEL_TIME, RUSH_GAP, RUSH_K, TASTE_LIST, TECHNIQUES, W, centre, feel, hit, hordeHp,
+  COAT_TIME, CRIT_K, DISHES, GUNS, H, HEAT_DPS, HEAT_MOST, HEAT_TIME, PATCH_HEAT, PATCH_SLOW, PATCH_TIME, LEVEL_TIME, RUSH_GAP, RUSH_K, TASTE_LIST, TECHNIQUES, W, centre, feel, hit, hordeHp,
   letGo, level, lineUp, newRun, pair, press, pullAim, reload, ringNeed, shove, spawnGap, startServe, step, stripPos, technique,
   throwDish, type Input, type Loadout, type Run, type Taste, type Zombie,
 } from '../src/hazard';
@@ -20,7 +20,7 @@ function zombie(run: Run, x: number, y: number, more: Partial<Zombie> = {}): Zom
     id: run.nextId++, x, y, r: 16, hp: 100, maxHp: 100, speed: 0,
     coat: null, coatT: 0, meter: 0, burnT: 0, burnSpreads: false, poison: 0, poisonT: 0, poisonFast: 0,
     meltT: 0, freezeT: 0, twitchT: 0, lureT: 0, marinateT: 0, immuneT: 0, hasteT: 0, ticket: null, step: 0,
-    kx: 0, ky: 0, stunT: 0, slow: 0, slowT: 0, heat: 0, dead: false, death: null,
+    kx: 0, ky: 0, stunT: 0, slow: 0, slowT: 0, heat: 0, stumbleT: 0, stumbleX: 0, stumbleY: 0, stumbleCool: 0, dead: false, death: null,
     ...more,
   };
   run.zombies.push(z);
@@ -462,13 +462,14 @@ describe('gun feel', () => {
   it('sprays a flame through every zombie in its way, each once, widening as it goes; walls stop it', () => {
     const run = quiet({ gun: 'chili', dishes: [] }), p = run.player;
     const line = [60, 110, 160].map(d => zombie(run, p.x + d, p.y, { hp: 1000, maxHp: 1000 }));
-    const wide = zombie(run, p.x + 185, p.y + 40, { hp: 1000, maxHp: 1000 }), near = zombie(run, p.x + 40, p.y + 34, { hp: 1000, maxHp: 1000 });
+    const wide = zombie(run, p.x + 245, p.y + 40, { hp: 1000, maxHp: 1000 }), near = zombie(run, p.x + 40, p.y + 34, { hp: 1000, maxHp: 1000 });
     const fx = shoot(run, line[0]);
     const hits = fx.filter(f => f.kind === 'hit').map(f => f.kind === 'hit' && f.id);
     expect(hits.sort()).toEqual([...line.map(z => z.id), wide.id].sort());
     expect(near.heat).toBe(0);
     expect(run.shots).toHaveLength(0);
-    for (const z of line) expect(z.heat).toBe(1);
+    // (a hit's stack each, and maybe more from the oil it drips)
+    for (const z of line) expect(z.heat).toBeGreaterThanOrEqual(1);
     // (nothing past a wall)
     const walled = quiet({ gun: 'chili', dishes: [] });
     walled.town = { ...walled.town, blocks: [{ kind: 'wall', x0: walled.player.x + 30, x1: walled.player.x + 40, y0: 0, y1: H, h: 2 }] as typeof walled.town.blocks };
@@ -495,6 +496,48 @@ describe('gun feel', () => {
     for (let i = 0; i < 8; i++) shoot(run, f);
     for (let i = 0; i < 30 && !f.dead; i++) step(run, 0.1, still);
     expect(f.dead).toBe(true);
+  });
+
+  it('leaves its oil burning on the street: whoever stands in it catches, heats up and slows, till it burns down', () => {
+    const run = quiet({ gun: 'chili', dishes: [] }), p = run.player;
+    // (a sweep drips a line of patches along the far half of the flame's reach)
+    for (let i = 0; i < 6; i++) shoot(run, { x: p.x + 200, y: p.y } as Zombie);
+    expect(run.patches.length).toBeGreaterThan(0);
+    for (const f of run.patches) {
+      const d = Math.hypot(f.x - p.x, f.y - p.y);
+      expect(d).toBeGreaterThan(GUNS.chili.range * 0.4);
+      expect(d).toBeLessThan(GUNS.chili.range * 0.95);
+    }
+    const f = run.patches[0], z = zombie(run, f.x, f.y, { hp: 1000, maxHp: 1000 });
+    step(run, 0.05, still);
+    expect(run.fx.filter(e => e.kind === 'ignite').map(e => e.kind === 'ignite' && e.id)).toEqual([z.id]);
+    expect(z.heat).toBeGreaterThanOrEqual(1);
+    expect(z.slow).toBeGreaterThanOrEqual(PATCH_SLOW);
+    const heat = z.heat;
+    step(run, 0.5, still);
+    expect(z.heat).toBeCloseTo(heat + PATCH_HEAT * 0.5, 5);
+    expect(run.fx.some(e => e.kind === 'ignite')).toBe(false);
+    for (let i = 0; i < PATCH_TIME * 10; i++) step(run, 0.1, still);
+    expect(run.patches).toHaveLength(0);
+  });
+
+  it('stumbles off its way at full heat, never towards the chef, and dies charred', () => {
+    const run = quiet({ gun: 'chili', dishes: [] }), p = run.player, z = zombie(run, p.x + 150, p.y, { hp: 1000, maxHp: 1000, speed: 60 });
+    z.heat = HEAT_MOST; z.burnT = HEAT_TIME;
+    const d0 = Math.hypot(z.x - p.x, z.y - p.y), y0 = z.y;
+    step(run, 0.1, still);
+    expect(z.stumbleT).toBeGreaterThan(0);
+    expect(Math.hypot(z.x - p.x, z.y - p.y)).toBeGreaterThanOrEqual(d0);
+    expect(Math.abs(z.y - y0)).toBeGreaterThan(2);
+    // (not again for a while)
+    for (let i = 0; i < 6; i++) step(run, 0.1, still);
+    expect(z.stumbleT).toBe(0);
+    z.heat = HEAT_MOST; z.burnT = HEAT_TIME;
+    step(run, 0.1, still);
+    expect(z.stumbleT).toBe(0);
+    z.hp = 1;
+    step(run, 0.1, still);
+    expect(run.fx.find(e => e.kind === 'charred')).toMatchObject({ id: z.id });
   });
 
   it('passes a small burn on to whoever a burning zombie touches, without its heat', () => {

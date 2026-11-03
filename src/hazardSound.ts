@@ -5,7 +5,8 @@
 // - The Spud Rifle: a potato cannon's puff of air and a soft thump. The Rock Salt Shotgun: a boom with the salt
 //   rattling out. The Chili Sprayer, a flamethrower, held for as long as it fires (flameSound): the gas hiss, the
 //   whoomp as it lights and blooms, the roar of the burn, fluttering and surging, then the hiss cut, the roar
-//   guttering out and a puff as it's let go; burning zombies crackle. Built from how real ones sound: combustion roar
+//   guttering out and a puff as it's let go; burning zombies crackle. A zombie catching fire: a soft whoomp, and its
+//   groan; one dying in the heat sizzles as it crumbles. Built from how real ones sound: combustion roar
 //   humps around 200–800 Hz and flickers 10–20 times a second, a jet's hiss sits a few kHz up (Farnell's Designing
 //   Sound, fire; flame-noise and jet-noise studies), kept here under about 4 kHz.
 // - A hit, in its taste: a plain potato's thud, chili sauce's wet sizzle, salt crystals cracking, a sticky sweet plop,
@@ -182,6 +183,28 @@ function letGo() {
 /** Something burning: a soft crackle, `t` seconds from now (kept low: no sharp ticks). */
 export function crackle(t = 0) {
   noise({ t, f: between(1500, 2500), q: 1.5, a: 0.008, d: between(0.02, 0.04), v: between(0.15, 0.25) });
+}
+
+/** A zombie catching fire: a soft whoomp (at most four a second, however many catch). */
+export function igniteSound() {
+  if (!spaced('ignite', 0.25)) return;
+  noise({ f: 260, f2: 900, kind: 'lowpass', q: 0.8, a: 0.03, d: 0.22, v: 0.16 });
+  tone({ f: between(90, 100), f2: 60, a: 0.025, d: 0.2, v: 0.12 });
+}
+
+/** Its groan as it catches: a rough low voice sliding down (at most one a second). */
+export function groanSound() {
+  if (!spaced('groan', 1)) return;
+  tone({ f: between(130, 150), f2: 85, type: 'sawtooth', lp: 700, lp2: 380, q: 1.5, a: 0.06, d: 0.55, v: 0.07, vib: [6, 4] });
+  noise({ f: 500, f2: 300, q: 2, a: 0.06, d: 0.45, v: 0.03 });
+}
+
+/** A zombie dying in the flame's heat: a sizzle as it crumbles, crackling, and the soft fall of the heap. */
+export function sizzleSound() {
+  if (!spaced('sizzle', 0.15)) return;
+  noise({ f: 3200, f2: 2200, q: 0.8, a: 0.02, d: 0.6, v: 0.05 });
+  for (let i = 0; i < 4; i++) crackle(0.05 + i * 0.13);
+  noise({ t: 0.25, f: 500, f2: 180, kind: 'lowpass', q: 0.7, a: 0.03, d: 0.35, v: 0.12 });
 }
 
 /** A hit in `taste` (none: a plain potato). Style b leans on the thump, a on the squelch. */

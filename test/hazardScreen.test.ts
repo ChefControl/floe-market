@@ -14,7 +14,7 @@ function zombie(run: Run, x: number, y: number, more: Partial<Zombie> = {}): Zom
     id: run.nextId++, x, y, r: 16, hp: 100, maxHp: 100, speed: 0,
     coat: null, coatT: 0, meter: 0, burnT: 0, burnSpreads: false, poison: 0, poisonT: 0, poisonFast: 0,
     meltT: 0, freezeT: 0, twitchT: 0, lureT: 0, marinateT: 0, immuneT: 0, hasteT: 0, ticket: null, step: 0,
-    kx: 0, ky: 0, stunT: 0, slow: 0, slowT: 0, heat: 0, dead: false, death: null,
+    kx: 0, ky: 0, stunT: 0, slow: 0, slowT: 0, heat: 0, stumbleT: 0, stumbleX: 0, stumbleY: 0, stumbleCool: 0, dead: false, death: null,
     ...more,
   };
   run.zombies.push(z);
@@ -872,7 +872,33 @@ describe("the guns' feel", () => {
     expect(v.blown[0].x).toBeGreaterThan(0.5);
     expect(v.mess).toBeGreaterThan(0);
     expect(v.stuck).toBe(0);
+    // (it flails, cooks golden, glows on the street; the flame throws sparks)
+    expect(v.flailing).toBe(1);
+    expect(v.cooked).toEqual(['cook1']);
+    expect(v.glows).toBeGreaterThan(1);
+    expect(v.sparks).toBeGreaterThan(0);
+    // held on it, it browns, then chars; the oil it drips burns on the street
+    for (let i = 0; i < 12; i++) play.advance(0.05);
+    expect(z.heat).toBe(5);
+    expect(set.setView().cooked).toEqual(['cook3']);
     window.dispatchEvent(new MouseEvent('pointerup'));
+    run.patches.push({ x: run.player.x - 200, y: run.player.y, t: 2 });
+    play.advance(0.05);
+    expect(set.setView().fires).toBeGreaterThan(9 + 2);
+    // dead in the heat: a charred heap, crumbling, then gone in ash
+    z.hp = 0.01;
+    play.advance(0.05);
+    for (let i = 0; i < 10; i++) play.advance(0.05);
+    expect(set.setView().charring).toBe(1);
+    for (let i = 0; i < 14; i++) play.advance(0.05);
+    expect(set.setView().charring).toBe(0);
+    expect(set.setView().bodies).toBe(0);
+    // Potato: no glow, no sparks
+    gfx.quality = 'potato';
+    run.patches.push({ x: run.player.x - 200, y: run.player.y, t: 2 });
+    play.advance(0.05);
+    expect(set.setView().glows).toBe(0);
+    gfx.quality = 'high';
     play.closeHazard();
   });
 
