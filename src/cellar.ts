@@ -3186,23 +3186,28 @@ export function cellarBoxes(machines: Record<'rice' | 'fish' | 'mush', number> =
   return boxes;
 }
 /** Keeps the player out of everything in the cellar they can't walk through: out by the nearest side that's clear of
- *  every box and still on the floor. (Pushed out of each box in turn, two that touch, or one against a wall, would
- *  bounce them back and forth between, a frame each.) */
+ *  every box and still on the floor, or the nearest corner where two boxes' sides meet. (Pushed out of each box in
+ *  turn, two that touch, or one against a wall, would bounce them back and forth between, a frame each; and in a pocket
+ *  where three meet, every way straight out can be shut, but its corner, so it's tried too: report 29, where the way
+ *  out from between the bandstand and Velvet's stage was its far end, 4 m off.) */
 export function collideCellar(p: XZ, machines?: Record<'rice' | 'fish' | 'mush', number>) {
   const boxes = cellarBoxes(machines, true), floors = walkable();
   const inside = (x: number, z: number, [cx, cz, hx, hz]: (typeof boxes)[number], e = 1e-6) => Math.abs(x - cx) < hx - e && Math.abs(z - cz) < hz - e;
   const blocked = (x: number, z: number) => boxes.some(b => inside(x, z, b));
   if (!blocked(p.x, p.z)) return;
+  const hits = boxes.filter(b => inside(p.x, p.z, b, 0));
   let bx = 0, bz = 0, bd = Infinity;
-  for (const b of boxes) {
-    if (!inside(p.x, p.z, b, 0)) continue;
-    const [cx, cz, hx, hz] = b;
-    for (const [x, z] of [[cx - hx, p.z], [cx + hx, p.z], [p.x, cz - hz], [p.x, cz + hz]]) {
-      const q = { x, z }; keepOnFloor(q, floors);
-      const d = (x - p.x) ** 2 + (z - p.z) ** 2;
-      if (q.x === x && q.z === z && d < bd && !blocked(x, z)) { bd = d; bx = x; bz = z; }
-    }
-  }
+  /** Takes (x, z) if it's nearer than the best so far, clear of every box and on the floor. */
+  const tryAt = (x: number, z: number) => {
+    const d = (x - p.x) ** 2 + (z - p.z) ** 2;
+    if (d >= bd || blocked(x, z)) return;
+    const q = { x, z }; keepOnFloor(q, floors);
+    if (q.x === x && q.z === z) { bd = d; bx = x; bz = z; }
+  };
+  // (straight out of each box it's in, by each side; then each corner of one box's side and another's front or back,
+  // always further than either side alone, so only taken when they're both shut)
+  for (const [cx, cz, hx, hz] of hits) { tryAt(cx - hx, p.z); tryAt(cx + hx, p.z); tryAt(p.x, cz - hz); tryAt(p.x, cz + hz); }
+  for (const a of hits) for (const b of hits) for (let s = -1; s <= 1; s += 2) for (let t = -1; t <= 1; t += 2) tryAt(a[0] + s * a[2], b[1] + t * b[3]);
   if (bd < Infinity) { p.x = bx; p.z = bz; return; }
   for (const [cx, cz, hx, hz] of boxes) pushOutOfBox(p, cx, cz, hx, hz);
 }
