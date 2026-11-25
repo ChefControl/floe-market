@@ -13,12 +13,12 @@ import { openSled, openTakeout } from './counters';
 import { decal, drawTile, type Decal } from './decals';
 import { boost } from './economy';
 import { addMachine, BOSSES, BUYOUT, buyFastSlide, buyHall, buyMama, buySlide, CHIP, FAST_BEAT, FAST_COST, FAST_SLIDE, F, HALL_COST, HALL_SHARE, hire, HIRES, type Ing, MACH, MACH_COST, machineCost, MAMA_BEAT, MAMA_COST, on, practiceDue, RESTO_SHARE, setTier, SLIDE, SLIDE_BEAT, SLIDE_COST, TIER_BEAT, TIER_COST, TIERS, upgradeLine, UPS } from './fight';
-import { tryCatch } from './fishing';
+import { nearestFish, pileHasRoom, tryCatch } from './fishing';
 import { addTables } from './garden';
 import { enableKorki, KORKI } from './korki';
 import { unlockFx } from './fx';
 import { casinoBoat, GAMES, HATCH_AT, stage, TERRACES, type StageN } from './layout';
-import { buildNet, buildTurret } from './machines';
+import { buildNet, buildTurret, type Turret } from './machines';
 import { player } from './player';
 import { offer } from './offer';
 import { pointAt } from './pointers';
@@ -318,7 +318,9 @@ export function updStars(silent = false) {
 }
 
 // ---------- machines ----------
-let turret: { g: Group; head: Group; t: number } | null = null;
+let turret: Turret & { t: number } | null = null;
+/** Seconds before it fires that the harpoon draws back. */
+const WIND = 0.2;
 let net: { g: Group; t: number; src: Vector3 } | null = null;
 
 /** Korki's tile follows the statue's spot to the garden in stage 2, if it's still for sale. */
@@ -444,10 +446,13 @@ export function updAuto(dt: number) {
     tr.t -= dt;
     if (tr.t <= 0) {
       const src = V(tr.g.position.x, FY + 0.6, tr.g.position.z);
-      const f = tryCatch(() => src, 'turret');
+      const f = tryCatch(() => src, 'turret', tr.line);
       tr.t = (f ? 2.0 : 0.5) / boost('training');
-      if (f) tr.head.rotation.y = Math.atan2(f.g.position.x - src.x, f.g.position.z - src.z);
+      if (f) tr.fired(f.g.position, tr.t);
     }
+    // as it waits it turns to the fish it'll go for next, and draws back just before it fires (if there's room for one)
+    const next = pileHasRoom() ? nearestFish(tr.g.position) : null;
+    tr.ready(dt, next ? next.g.position : null, next ? 1 - tr.t / WIND : 0);
   }
   if (net) {
     const n = net;

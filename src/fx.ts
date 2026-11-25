@@ -134,6 +134,14 @@ export function splashFx(at: XZ, y = 0.08) {
   }
   ripple(at, y + 0.04, 1.1);
 }
+/** A wet fish slapping down at `at`: a few drops flung out low. */
+export function dripFx(at: Vector3) {
+  if (!on()) return;
+  for (let i = 0; i < 7; i++) {
+    const a = jitter(0, Math.PI * 2), out = jitter(0.7, 1.5);
+    P.drops.emit(at, Math.cos(a) * out, jitter(0.8, 1.6), Math.sin(a) * out, jitter(0.3, 0.45), jitter(0.03, 0.05), i % 3 ? 0xFFFFFF : 0xBDEFF8);
+  }
+}
 function ripple(at: XZ, y: number, r: number) {
   const free = P.ripples.find(x => !x.m.visible) ?? P.ripples[0];
   free.m.position.set(at.x, y, at.z); free.t = 0; free.max = 0.9; free.r = r; free.m.visible = true;
