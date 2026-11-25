@@ -69,6 +69,7 @@ window.Acting = async () => {
    *  place of the summer's sunglasses (his eyes have to show), seaweed on a shoulder. (Tried first and turned down by
    *  the owner: a life vest, then the parka itself stained and torn.) */
   function castaway(P, { color = 0xD0623F } = {}) {
+    const was = { season: P.season, style: P.style, color: P.color };
     P.season = 'summer'; P.style = { ...P.style, summer: 'straw', summerC: 0x8A5A3A }; P.color = color; P.redress();
     const g = new Group(), cloth = lam(color), dark = lam(0x9A4A30), grime = lam(0x8A5A44), hole = lam(0x2B1A14), skin = lam(P.style.skin);
     const add = (geo, m, x, y, z, s, r) => { const o = new Mesh(geo, m); o.position.set(x, y, z); if (s) o.scale.set(...s); if (r) o.rotation.set(...r); g.add(o); return o; };
@@ -101,6 +102,8 @@ window.Acting = async () => {
     // one trouser leg torn off at the knee
     const t = new Mesh(new CylinderGeometry(0.078, 0.082, 0.025, 8, 1, true), hole); t.position.y = -0.12; P.legs[1].add(t);
     const shin = new Mesh(new CylinderGeometry(0.068, 0.062, 0.13, 8), skin); shin.position.y = -0.19; P.legs[1].add(shin);
+    /** Back into what they had on before. */
+    g.userData.restore = () => { P.body.remove(g); P.legs[1].remove(t, shin); Object.assign(P, was); P.redress(); };
     return g;
   }
   return { face, pose, soles, castaway, INK };

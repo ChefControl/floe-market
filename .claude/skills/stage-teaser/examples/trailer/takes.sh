@@ -16,6 +16,14 @@ r C "$X/kit.js,$X/acting.js,$X/campfire.js,$X/c.js" "$S/C" --landscape --url "$U
 r G "$X/kit.js,$X/acting.js,$X/campfire.js,$X/g.js" "$S/G" --landscape --url "$U?stage=1&pile=14&sound=on" --mute music --init "$X/newgame.js" --wait 6000 --keep hud,toast,prompts &
 r M0 "$X/bed.js" "$S/M0" --landscape --url "$U?stage=1&sound=on#8" --mute sfx,amb --sound-only --init "$X/newgame.js" &
 wait
+# the spin (the dock builds itself; the game's music left on), Floe Sushi at play, three thuds, the logo on black;
+# with K below these make version 2: python3 cut.py "$S" trailer-v2.mp4 --phone phone.mp4 --edl edl-full.json
+r T "$X/kit.js,$X/acting.js,$X/t.js" "$S/T" --landscape --url "$U?stage=1&pile=14&sound=on" --init "$X/newgame.js" --wait 6000 &
+r U "$X/kit.js,$X/u.js" "$S/U" --landscape --url "$U?upto=porter&sound=on" --mute music --wait 6000 --keep hud,toast,prompts,buy,banner,confetti &
+r H "$X/kit.js,$X/h.js" "$S/H" --landscape --url "$U?upto=porter&sound=on" --mute music --wait 5000 &
+r L "$X/kit.js,$X/l.js" "$S/L" --landscape --url "$U?sound=on" --mute music &
+wait
+# version 1's takes (K, the knock, is used by version 2 as well)
 # act 1: the ice market, then Floe Sushi and the knocking hatch (music laid in from the beds)
 r S1 "$X/kit.js,$X/s1.js" "$S/S1" --landscape --url "$U?stage=1&sound=on" --mute music &
 r S2 "$X/kit.js,$X/s2.js" "$S/S2" --landscape --url "$U?sound=on" --keep toast,offer --mute music &

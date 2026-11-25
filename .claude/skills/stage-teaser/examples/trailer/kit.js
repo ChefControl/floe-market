@@ -13,7 +13,7 @@
   const lerp = (a, b, k) => a + (b - a) * k;
   const cam = R.camera, lookAt = cam.lookAt.bind(cam);
   /** The shot's camera this frame: { pos, look, fov } or null for the game's own. */
-  let shot = null, after = null, pose = null;
+  let shot = null, after = null, pose = null, blur = null;
   // (the game aims its camera with lookAt once a frame, main.ts, before it places its bubbles and draws: taking over
   // there keeps the bubbles on the people)
   cam.lookAt = (...a) => {
@@ -35,8 +35,27 @@
   const { restaurantAds } = await window.__mod('ads.ts');
   const flagString = restaurantAds.at(-1).g;
   const draw = R.renderer.render.bind(R.renderer);
+  // Motion blur for a camera that's really moving (a whip round the dock): the frame is drawn `n` times with the camera
+  // at as many moments across it, and the draws are averaged on a canvas laid over the game's.
+  const acc = document.createElement('canvas'); acc.width = R.canvas.width; acc.height = R.canvas.height;
+  Object.assign(acc.style, { position: 'fixed', inset: '0', width: '100%', height: '100%', zIndex: 18, pointerEvents: 'none', display: 'none' });
+  const accX = acc.getContext('2d');
   R.renderer.render = (s, c) => {
     flagString.visible = false;
+    if (blur && c === cam && blur.n > 1) {
+      if (acc.width !== R.canvas.width) { acc.width = R.canvas.width; acc.height = R.canvas.height; }
+      for (let i = 0; i < blur.n; i++) {
+        const sh = blur.at((i + 0.5) / blur.n);
+        cam.position.copy(sh.pos); lookAt(sh.look); cam.updateMatrixWorld();
+        R.sun.position.copy(sh.look).add(R.sunOff); R.sun.target.position.copy(sh.look);
+        if (sh.fogNear) { R.fog.near = sh.fogNear; R.fog.far = sh.fogFar; }
+        draw(s, c);
+        accX.globalAlpha = 1 / (i + 1); accX.drawImage(R.canvas, 0, 0, acc.width, acc.height);
+      }
+      acc.style.display = 'block';
+      return;
+    }
+    acc.style.display = 'none';
     if (shot && c === cam) {
       // the sun (and its shadows) over what the camera's on, not over the chef
       const at = shot.sun ?? shot.look;
@@ -75,6 +94,7 @@
   document.body.append(cap);
   const bars = document.createElement('div'); bars.id = 'teaser'; bars.innerHTML = '<div id="teaserBars"></div><div id="teaserFade"></div>';
   document.body.append(bars);
+  bars.prepend(acc);
   const barsEl = bars.firstChild, fadeEl = bars.lastChild;
   /** The caption at time t: [from, to, text, kicker?] — pops in with the banner's overshoot, out with a quick fade. */
   function caption(list, t) {
@@ -96,6 +116,8 @@
 
   window.K = { R, T3, V, clamp, ease, easeIO, easeOut, lerp, path, caption, letterbox, fade,
     set cam(s) { shot = s; }, get cam() { return shot; },
+    /** Motion blur this frame: { n: draws, at(k 0..1): the camera { pos, look } across the frame } or null. */
+    set blur(b) { blur = b; },
     /** Called each frame after the game's tick and before the camera's set: pose things and set K.cam here. */
     set pose(f) { pose = f; },
     /** Called each frame once the camera's set (before the draw): place page things over the world here. */

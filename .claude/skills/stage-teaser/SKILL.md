@@ -88,6 +88,14 @@ with `applyUnlock`, a dawn sky dome, the game's toast and tip pill shown as over
 - **Real play in a trailer** is its own take on the game's camera with the HUD kept (`--keep hud,toast,prompts`,
   `K.cam = null`), the chef walked with the game's joystick (pointer events on the canvas: `g.js` `walkTo`).
   `window.cineType.marks` records when each part starts, for the cut.
+- **Motion blur** for a camera that really moves (`K.blur = { n, at(k) }`, kit.js): the frame is drawn `n` times
+  with the camera at as many moments across it and the draws averaged on a canvas over the game's. A draw every half
+  degree of turn (up to 28) smears a whip round the dock cleanly (`t.js`).
+- **A time-lapse** is the game's own `applyUnlock(id)` on the beats (not silent: the upgrade pops in, the yacht
+  sails in, its sound plays) and `setSeason`; the jump to stage 2 goes in the smear, silently. Leave the game's music
+  on for it: the market tune gains its parts as the market grows and the café band takes over, in step with the picture.
+- **Leave one upgrade unbought** and the play clip that follows can buy it for real: the Hold ring, "… unlocked",
+  and, after the last of stage 2, the game's own "Something is knocking under the dock" (`u.js`, the demo's `?upto=`).
 - **A different starting state**: `--init file.js` runs a script before the game loads. `examples/trailer/newgame.js`
   rewrites the demo's `?stage=1` save into a brand new game (a bare dock, no yacht, no auto harpoon).
 - **"Nothing but sea"**: the bay's rolling water stops 60 m out and a flat sheet carries on; from high up the edge
