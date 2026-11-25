@@ -6,7 +6,7 @@ A cozy 3D idle/tycoon game for the browser, in three stages. Stage 1 is a fish m
 
 ## Play
 
-Play it at https://chefcontrol.github.io/floe-market/, or run it locally:
+The browser version at chefcontrol.github.io/floe-market closed in November 2026; the game is going to Steam, and that address now serves only a coming-to-Steam page and the privacy notice (`site/`, `.github/workflows/deploy.yml`). Run it locally:
 
 ```bash
 npm install
