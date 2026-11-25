@@ -1,7 +1,7 @@
 // The land, sea and sky past the playable area, for the wide shots (the store's screenshots and trailer, the stage-up's
 // overview): rolling hills all round the land side, pines on them in groves, a dip where each road runs off between
 // them, two rows of far mountains behind, a village east past her house (village.ts), and out at sea icebergs (melting
-// with the floes) and a few far boats; overhead a sky that deepens from the horizon up, with flat-bottomed clouds low
+// with the floes) and, in summer, a few far sailboats; overhead a sky that deepens from the horizon up, with flat-bottomed clouds low
 // in it. All of it sits well past where anyone walks or the game's camera looks, and the fog turns the land to haze
 // with the distance. It's built once on dice of its own (`apart`), at fixed places, so it looks the same every visit
 // and never moves the game's luck or the rest of the scenery's dice. Few draw calls: each part is one merged mesh
@@ -11,11 +11,11 @@ import {
   BackSide, BufferGeometry, Color, ConeGeometry, Float32BufferAttribute, Group, IcosahedronGeometry, InstancedMesh,
   Matrix4, Mesh, MeshBasicMaterial, MeshLambertMaterial, Quaternion, SphereGeometry, Vector3,
 } from 'three';
-import { apart, dice } from './kit';
+import { apart, dice, seasonLayer } from './kit';
 import { BAY } from './layout';
 import { C } from './palette';
 import { scene, sky } from './render';
-import { amount, FLOE_SIZE, onBlend, PAL, seasonal } from './season';
+import { amount, FLOE_SIZE, onBlend, PAL, seasonal, type Swatch } from './season';
 import { village } from './village';
 
 /** Where the hills ring is centred, and the angles (degrees, atan2(z, x) from it: 0 east, 90 south, 180 west) the land
@@ -23,13 +23,16 @@ import { village } from './village';
 const MID = { x: 0, z: 8 }, FROM = -92, TO = 202;
 /** The roads (world.ts ROAD1_X, ROAD2_X) run north and south between the hills: the land dips to nothing round them. */
 const ROADS_X = 12, ROAD_GAP = 5;
+/** The sailboats are out in summer only. */
+const SUMMER: Swatch = [0, 0, 1, 0];
 /** How high over the world the sky's dome and the clouds are kept (they're drawn round the camera). */
 const PARKED = 400;
 
-/** Each part in a group of its own, so each can be shown or hidden. (The far boats and the road behind the hills are
- *  in the mountains' mesh.) */
+/** Each part in a group of its own, so each can be shown or hidden. (The road behind the hills is in the mountains'
+ *  mesh.) */
 export const backdrop = apart(() => ({
-  sky: new Group(), hills: new Group(), pines: new Group(), peaks: new Group(), town: new Group(), bergs: new Group(), clouds: new Group(),
+  sky: new Group(), hills: new Group(), pines: new Group(), peaks: new Group(), town: new Group(), bergs: new Group(), boats: new Group(),
+  clouds: new Group(),
 }), dice(0xBAC4C));
 
 const smooth = (a: number, b: number, x: number) => { const k = Math.max(0, Math.min(1, (x - a) / (b - a))); return k * k * (3 - 2 * k); };
@@ -275,9 +278,9 @@ apart(() => {
   // (the pines' own seasonal colours, as world.ts' trees: their needles turn red and orange in autumn)
   [PAL.pine, PAL.pine2].forEach((c, i) => backdrop.pines.add(new Mesh(merge(parts[i]), seasonal(c))));
 
-  // ---------- far mountains, and the far boats ----------
+  // ---------- far mountains ----------
   // two rows, the far one taller and paler with the distance, snow on their tops down to a ragged line; the road
-  // behind the hills and the boats out at sea are painted into the same mesh (one draw for all three)
+  // behind the hills is painted into the same mesh (one draw for both)
   {
     const pos: number[] = [], col: number[] = [];
     const snow = new Color(C.ice), near = new Color(C.steel), far = new Color(C.steel).lerp(snow, 0.45);
@@ -289,7 +292,13 @@ apart(() => {
     const ring: [number, number][] = [];
     for (let a = -JOIN; a <= JOIN + 0.01; a += 0.62) ring.push(ringAt(a));
     pave(pos, col, ring);
+    backdrop.peaks.add(new Mesh(facets(pos, col), new MeshLambertMaterial({ vertexColors: true })));
+  }
 
+  // ---------- far sailboats ----------
+  // out on the bay in summer only (when the icebergs have melted): a mesh of their own, there for the season
+  {
+    const pos: number[] = [], col: number[] = [];
     const tri = (a: number[], b: number[], c: number[], cc: Color) => { pos.push(...a, ...b, ...c); for (let i = 0; i < 3; i++) col.push(cc.r, cc.g, cc.b); };
     const paper = new Color(C.paper), wood = new Color(C.timber);
     /** A sailboat at (x, z), its bow turned `turn`, `k` its size, `hc` its hull's colour; `gaff` a second, smaller mast. */
@@ -318,7 +327,7 @@ apart(() => {
     const hulls = [new Color(C.navy), new Color(C.red), new Color(C.paper), new Color(C.slate)];
     boat(-27, -44, 0.4, 1.0, hulls[0]); boat(-62, -24, 2.6, 1.15, hulls[1], true); boat(-6, -58, -0.3, 1.0, hulls[2]);
     boat(-46, -56, 3.4, 0.9, hulls[3]); boat(-80, -44, 0.9, 1.2, hulls[0], true); boat(-12, -34, 2.2, 0.7, hulls[1]);
-    backdrop.peaks.add(new Mesh(facets(pos, col), new MeshLambertMaterial({ vertexColors: true })));
+    backdrop.boats.add(seasonLayer(new Mesh(facets(pos, col), new MeshLambertMaterial({ vertexColors: true })), SUMMER));
   }
 
   // ---------- icebergs ----------
