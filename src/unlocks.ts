@@ -143,25 +143,26 @@ const UNLOCKS: Unlock[] = [
   // restaurant and its eaves hide it from the camera)
   { id: 'dohyo', cost: 1_000_000, x: HATCH_AT.x, z: HATCH_AT.z + 1.65, size: 2.0, icon: '🐡', art: 'mrFugu', name: 'Buy into the ring', desc: "Stage 3: Mr. Fugu's sumo ring under the dock. Your cash stays in the till", stage: 2, gold: true },
   // down in the cellar, priced in chips (all but the buyout sold at the cookware shop: these spots are only where their
-  // tiles were), and the buyout in Mr. Fugu's office
+  // tiles were), and the buyout in Mr. Fugu's office; what each does in 8 words or fewer, so the line under the shop's
+  // tree never runs out of room on a phone (report 30)
   ...ring('rack', 13.2, 3.9, '🌾', 'Another drying rack', 'More room on the rice line', 0, MACH_COST.rice, 'rice'),
-  ...ring('washer', 14.8, 3.9, '🧺', HIRES.washer.name, 'Runs the rice line: fills the racks and carries rice to the pot', HIRES.washer.beat, HIRES.washer.cost),
-  ...ring('steam', 16.4, 3.9, '♨️', MACH.rice[1].name, `Swaps every drying rack for steam baskets: ${MACH.rice[1].cap} rice every ${MACH.rice[1].time} s`, UPS.rice.beat, UPS.rice.cost),
+  ...ring('washer', 14.8, 3.9, '🧺', HIRES.washer.name, 'Fills the racks, carries rice to the pot', HIRES.washer.beat, HIRES.washer.cost),
+  ...ring('steam', 16.4, 3.9, '♨️', MACH.rice[1].name, `Racks steam: ${MACH.rice[1].cap} rice every ${MACH.rice[1].time} s`, UPS.rice.beat, UPS.rice.cost),
   ...ring('barrel', 13.2, 5.9, '🛢️', 'Another salt barrel', 'More room on the fish line', 0, MACH_COST.fish, 'fish'),
-  ...ring('salter', 14.8, 5.9, '🧂', HIRES.salter.name, 'Runs the fish line: fills the barrels and carries fish to the pot', HIRES.salter.beat, HIRES.salter.cost),
-  ...ring('smoke', 16.4, 5.9, '🏚️', MACH.fish[1].name, `Swaps every salt barrel for a smokehouse: ${MACH.fish[1].cap} fish every ${MACH.fish[1].time} s`, UPS.fish.beat, UPS.fish.cost),
+  ...ring('salter', 14.8, 5.9, '🧂', HIRES.salter.name, 'Fills the barrels, carries fish to the pot', HIRES.salter.beat, HIRES.salter.cost),
+  ...ring('smoke', 16.4, 5.9, '🏚️', MACH.fish[1].name, `Barrels smoke: ${MACH.fish[1].cap} fish every ${MACH.fish[1].time} s`, UPS.fish.beat, UPS.fish.cost),
   ...ring('bed', 13.3, -3.95, '🍄', 'Another mushroom bed', 'More room on the mushroom line', 1, MACH_COST.mush, 'mush'),
-  ...ring('picker', 14.7, -3.95, '🧑‍🌾', HIRES.picker.name, 'Runs the mushroom line: picks the beds and carries mushrooms to the pot', HIRES.picker.beat, HIRES.picker.cost),
-  ...ring('shelves', 16.1, -3.95, '✨', 'Glowing grow shelves', `Swaps every bed for glowing shelves: ${MACH.mush[1].cap} mushrooms, one every ${MACH.mush[1].time} s`, UPS.mush.beat, UPS.mush.cost),
-  ...ring('attendant', 9.6, 5.9, '🍲', HIRES.attendant.name, 'Carries bowls from the counter to the soup bar', HIRES.attendant.beat, HIRES.attendant.cost),
-  ...ring('slide', 8.6, 5.9, '🛝', 'Bowl slide', `A belt from the pot to the soup bar, ${SLIDE} bowls a second, the attendant at its motor`, SLIDE_BEAT, SLIDE_COST),
-  ...ring('cook', 7.6, 5.9, '👨‍🍳', HIRES.cook.name, 'Cooks while you\'re away, full batches, and ladles twice as fast', HIRES.cook.beat, HIRES.cook.cost),
-  ...ring('fastslide', 6.6, 5.9, '⏩', 'Faster belt', `The bowl slide runs at ${FAST_SLIDE} bowls a second, not ${SLIDE}`, FAST_BEAT, FAST_COST),
-  ...ring('mama', 5.6, 5.9, '🍜', "Mama Moray's", `Opens her chanko place out front: what the pot can't hold goes there, ${RESTO_SHARE * 100}% of a bowl to you`, MAMA_BEAT, MAMA_COST),
-  ...ring('hall', 4.6, 5.9, '🍽️', "Mama's dining hall", `Mama Moray pays ${HALL_SHARE * 100}% of a bowl, not ${RESTO_SHARE * 100}%`, BOSSES.length, HALL_COST),
+  ...ring('picker', 14.7, -3.95, '🧑‍🌾', HIRES.picker.name, 'Picks the beds, carries mushrooms to the pot', HIRES.picker.beat, HIRES.picker.cost),
+  ...ring('shelves', 16.1, -3.95, '✨', 'Glowing grow shelves', `Beds glow: ${MACH.mush[1].cap} mushrooms, one every ${MACH.mush[1].time} s`, UPS.mush.beat, UPS.mush.cost),
+  ...ring('attendant', 9.6, 5.9, '🍲', HIRES.attendant.name, 'Carries counter bowls to the soup bar', HIRES.attendant.beat, HIRES.attendant.cost),
+  ...ring('slide', 8.6, 5.9, '🛝', 'Bowl slide', `${SLIDE} bowls a second to the soup bar`, SLIDE_BEAT, SLIDE_COST),
+  ...ring('cook', 7.6, 5.9, '👨‍🍳', HIRES.cook.name, "Cooks while you're away, ladles twice as fast", HIRES.cook.beat, HIRES.cook.cost),
+  ...ring('fastslide', 6.6, 5.9, '⏩', 'Faster belt', `Slide runs ${FAST_SLIDE} bowls a second, not ${SLIDE}`, FAST_BEAT, FAST_COST),
+  ...ring('mama', 5.6, 5.9, '🍜', "Mama Moray's", `Sells spare bowls out front, ${RESTO_SHARE * 100}% to you`, MAMA_BEAT, MAMA_COST),
+  ...ring('hall', 4.6, 5.9, '🍽️', "Mama's dining hall", `Mama pays ${HALL_SHARE * 100}% a bowl, not ${RESTO_SHARE * 100}%`, BOSSES.length, HALL_COST),
   ...[1, 2, 3].flatMap(i => ring(`tier${i}` as UnlockId, 1.6, 1.9, ['', '🏮', '🥁', '⛩️'][i], TIERS[i].name,
-    `The venue grows to ${TIERS[i].seats} seats${i === 2 ? ', with taiko drummers' : ''}`, TIER_BEAT[i], TIER_COST[i], undefined, i > 1 ? `tier${i - 1}` as UnlockId : undefined)),
-  { id: 'buyout', cost: BUYOUT * CHIP, ...below(7.55, -5.25), icon: '🐡', name: 'Buy back all his chips', desc: "The ring is yours: Mr. Fugu's 30% ends, the till comes back", stage: 3, gold: true, beat: BOSSES.length },
+    `The venue seats ${TIERS[i].seats}${i === 2 ? ', with taiko drummers' : ''}`, TIER_BEAT[i], TIER_COST[i], undefined, i > 1 ? `tier${i - 1}` as UnlockId : undefined)),
+  { id: 'buyout', cost: BUYOUT * CHIP, ...below(7.55, -5.25), icon: '🐡', name: 'Buy back all his chips', desc: 'His 30% ends, and the till comes back', stage: 3, gold: true, beat: BOSSES.length },
   { id: 'korki', cost: 10, x: KORKI.x, z: KORKI.z, icon: '🛴', name: "Korki's golden statue", desc: 'In memory of a good scooter', stage: 1, always: true, everywhere: true },
   // the casino boat's other games, on its deck: fun extras, for sale from when the boat's moored; passes, as the boat
   // isn't yours (the staff open the table for you)
