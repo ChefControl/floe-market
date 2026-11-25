@@ -13,16 +13,20 @@
   const lerp = (a, b, k) => a + (b - a) * k;
   const cam = R.camera, lookAt = cam.lookAt.bind(cam);
   /** The shot's camera this frame: { pos, look, fov } or null for the game's own. */
-  let shot = null;
+  let shot = null, after = null, pose = null;
   // (the game aims its camera with lookAt once a frame, main.ts, before it places its bubbles and draws: taking over
   // there keeps the bubbles on the people)
   cam.lookAt = (...a) => {
+    // (the game's tick has posed everyone by now: a shot poses the chef and its props here, and picks its camera)
+    pose?.();
     if (!shot) return lookAt(...a);
     cam.position.copy(shot.pos);
     lookAt(shot.look);
     if (shot.roll) cam.rotateZ(shot.roll);
     const f = shot.fov ?? 40;
     if (cam.fov !== f) { cam.fov = f; cam.updateProjectionMatrix(); }
+    cam.updateMatrixWorld();
+    after?.(cam);
   };
   // Marketing leaves out elections, voting and Israel (owner, 2026-10-27): Floe Sushi's "World famous" string of world
   // flags has Israel's in the middle, so it's taken down for every shot (ads.ts restaurantAds, the last campaign).
@@ -89,6 +93,10 @@
   const fade = k => { fadeEl.style.opacity = clamp(k); };
 
   window.K = { R, T3, V, clamp, ease, easeIO, easeOut, lerp, path, caption, letterbox, fade,
-    set cam(s) { shot = s; }, get cam() { return shot; } };
+    set cam(s) { shot = s; }, get cam() { return shot; },
+    /** Called each frame after the game's tick and before the camera's set: pose things and set K.cam here. */
+    set pose(f) { pose = f; },
+    /** Called each frame once the camera's set (before the draw): place page things over the world here. */
+    set after(f) { after = f; } };
   window.__kitReady = true;
 })();

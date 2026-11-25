@@ -6,7 +6,7 @@
 //
 //   node render-play.mjs <cine.js>[,more.js] <out> [--landscape | --size WxH] [--url URL] [--frames a,b] [--fps 30]
 //                        [--keep id,id] [--wait ms] [--ui 1.5] [--gfx high] [--skip seconds]
-//                        [--mute music | --mute sfx,amb] [--sound-only]
+//                        [--mute music | --mute sfx,amb] [--sound-only] [--init file.js]
 //
 // The cine script runs in the page after it has loaded (window.__mod is there) and defines
 //   window.cine = { len: <seconds>, async setup?(), frame(i, fps) { ...nudge the game for frame i... } }
@@ -44,6 +44,8 @@ page.on('pageerror', e => console.log('pageerror', e.message));
 page.on('console', m => { if (m.type() === 'error' || m.text().startsWith('[cine]')) console.log(m.text()); });
 await page.addInitScript({ content: readFileSync(join(here, 'clock.js'), 'utf8') });
 await page.addInitScript(q => { try { localStorage.setItem('floe-market-graphics', q); } catch {} }, gfx);
+// (--init file.js: a script of the take's own, run before the game loads: to rewrite the state the demo build starts in)
+if (opt('init')) await page.addInitScript({ content: readFileSync(resolve(opt('init')), 'utf8') });
 await page.addInitScript(() => {
   const SR = 48000, LEN = 200, B = OfflineAudioContext; // (seconds of room: the longest act)
   class AC extends B {

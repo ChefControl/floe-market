@@ -69,6 +69,16 @@ with `applyUnlock`, a dawn sky dome, the game's toast and tip pill shown as over
   and drops to Low part-way through a take.
 - **`--skip s`** to get through a wait (a fight's prep is 45–60 s) on the same clock, without saving those frames;
   their sound is cut from `game.wav`. Stepping without screenshots runs at ~100 frames a second.
+- **Moves the game doesn't have** (the chef lying down, a lasso, riding a tuna: `examples/trailer/o.js`) are posed in
+  the take's script from the game's own models, in `K.pose` (after the game's tick, so its walk cycle doesn't undo
+  them; `K.after` runs once the camera's set, to pin page things over the world). The chef has no elbows or knees:
+  whole-body tips, hops and arm swings read best. Keep his own automation off while he's in a scene
+  (`player.held`, and `tPick`/`tDrop`/`tCatch` kept high), or he fishes and picks fillets up wherever the shot puts him.
+- **A different starting state**: `--init file.js` runs a script before the game loads. `examples/trailer/newgame.js`
+  rewrites the demo's `?stage=1` save into a brand new game (a bare dock, no yacht, no auto harpoon).
+- **"Nothing but sea"**: the bay's rolling water stops 60 m out and a flat sheet carries on; from high up the edge
+  shows, and islands sit in the bay. o.js lays its own sea (the game's `seaGeometry` and sea material) and hides the
+  islands for those shots.
 - **One take per place, several shots per take.** A take is one address and one clock; hard cuts inside it are just
   a new `K.cam` path from a given time. Cut takes together in assembly.
 - **Music as beds**: render the game's own music for a place with `--mute sfx,amb --sound-only` and a do-nothing script
