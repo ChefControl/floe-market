@@ -11,6 +11,7 @@
 // (sfx.ts), the ambient bed (ambience.ts) and the music (music.ts) each have their own bus, with its own volume and
 // mute in the settings menu, per device. Each bus (and a scene's own sound, see Out) goes on through a guard that lets
 // only real samples through (see guard), so a filter that blows up can't silence the whole game.
+import { testSilent } from './flags';
 import { CELLAR_Y } from './layout';
 import { CAM_YAW } from './render';
 import type { XZ } from './util';
@@ -119,7 +120,14 @@ function wake() {
   const comp = ac.createDynamicsCompressor();
   comp.threshold.value = -12; comp.knee.value = 10; comp.ratio.value = 4;
   comp.connect(ac.destination);
-  master = ac.createGain(); master.connect(comp);
+  master = ac.createGain();
+  // a game being tested is silent from the start, its mix at nothing before a sound is made, so not even a click gets
+  // out (flags.ts); the player's own sound settings are left as they are
+  if (testSilent()) {
+    master.gain.value = 0;
+    console.info('Sound is off for testing: add ?sound=on to the address to hear it.');
+  }
+  master.connect(comp);
   musicVol = ac.createGain(); musicVol.connect(master);
   for (const b of BUSES) {
     const g = buses[b] = ac.createGain();
