@@ -1,13 +1,14 @@
 // Where the matkot beach (beach.ts) meets the land. Its sand is a rectangle, a step short of the road's kerb: left
 // alone, its edge along the road is one straight line, and its north end another. Here the sand's own edge is cut to a
 // line that wanders (the grass reaching into it by up to a metre, never as far as the court, the tower or the
-// umbrellas), sand thins out softly over that line, and north of the beach it runs on up the coast as a strip that
+// umbrellas), sand thins out softly over that line, the wet sand by the water laps in and out instead of lying in a
+// straight strip, and north of the beach the sand runs on up the coast as a strip that
 // narrows as it goes, in the beach's own grains and ripples, so the beach is the widest part of a sandy shore rather
 // than a rectangle laid on the grass. Tufts of beach grass stand where the sand gives out. All flat, at the sand's own
-// level, in nobody's way; one mesh for the soft sand and one for the grass, built on dice of its own, and gone under the
+// level, in nobody's way; a mesh each for the soft sand, the wet sand and the grass, built on dice of its own, and gone under the
 // snow in winter.
 import {
-  BufferGeometry, Color, Float32BufferAttribute, Group, Mesh, MeshLambertMaterial, NoColorSpace, RepeatWrapping,
+  BufferGeometry, Float32BufferAttribute, Group, Mesh, MeshLambertMaterial, NoColorSpace, PlaneGeometry, RepeatWrapping,
 } from 'three';
 import { isHigh, onQuality } from './graphics';
 import { dice } from './kit';
@@ -28,10 +29,11 @@ const CUT = 0.92;
 const smooth = (a: number, b: number, x: number) => { const k = Math.max(0, Math.min(1, (x - a) / (b - a))); return k * k * (3 - 2 * k); };
 
 /**
- * Cuts the beach's sand (`lo` and `hi`, beach.ts `sand`, lying in place) to its wandering edge, and returns the soft
- * sand round it and up the coast with the grass tufts along it: a group for the beach's own.
+ * Cuts the beach's sand (`lo` and `hi`, beach.ts `sand`, lying in place) to its wandering edge, takes the place of its
+ * straight strip of wet sand (`wetStrip`) with one that laps in and out, and returns that with the soft sand round the
+ * beach and up the coast and the grass tufts along it: a group for the beach's own.
  */
-export function sandEdge(lo: Mesh, hi: Mesh) {
+export function sandEdge(lo: Mesh, hi: Mesh, wetStrip: Mesh) {
   const roll = dice(0x5A4DE);
   // a line that wanders: offsets a couple of metres apart, smoothed between (-0.5 to 0.5)
   const wob = Array.from({ length: 96 }, () => roll() - 0.5);
@@ -78,14 +80,9 @@ export function sandEdge(lo: Mesh, hi: Mesh) {
 
   // ---- the soft sand: a grid of little squares, each corner as sandy as the place says, wet by the water ----
   const pos: number[] = [], col: number[] = [], uv: number[] = [];
-  // (the corners' colours only darken it by the water: the wet sand's share of the dry)
-  const dry = new Color(0xFFFFFF), wet = new Color(C.wetSand), sandC = new Color(C.sand), c = new Color();
-  wet.setRGB(wet.r / sandC.r, wet.g / sandC.g, wet.b / sandC.b);
   const inBeach = (x: number, z: number) => x > BEACH.x0 && x < BEACH.x1 && z > BEACH.z0 && z < BEACH.z1;
   const corner = (x: number, z: number) => {
-    // (north of the beach the water's edge is wet, as the beach's own strip is)
-    c.copy(dry).lerp(wet, z < BEACH.z0 ? 1 - smooth(0.45, 0.75, x - BAY.x1) : 0);
-    pos.push(x, 0, z); col.push(c.r, c.g, c.b, sand(x, z)); uv.push((x - BEACH.x0) / w, 1 - (z - BEACH.z0) / d);
+    pos.push(x, 0, z); col.push(1, 1, 1, sand(x, z)); uv.push((x - BEACH.x0) / w, 1 - (z - BEACH.z0) / d);
   };
   for (let z = NORTH; z < BEACH.z1; z += STEP) {
     for (let x = BAY.x1; x < KERB; x += STEP) {
@@ -118,6 +115,34 @@ export function sandEdge(lo: Mesh, hi: Mesh) {
   look();
   onQuality(look);
 
+  // ---- the wet sand by the water: not a straight strip but the mark the last waves left, lapping further up the sand
+  // here than there and drying out softly into it, along the beach and on up the coast ----
+  const WET_W = 2.0, wetLen = BEACH.shore - NORTH;
+  /** How far up the sand it's wet at `z`: scallops a couple of metres long, each a little different. */
+  const lap = (z: number) => 1.0 + wander(z, 1.9, 60) * 0.6 + Math.abs(Math.sin(z * 0.9 + wander(z, 4.3, 10) * 3)) * 0.3;
+  const css = `${C.wetSand >> 16},${C.wetSand >> 8 & 255},${C.wetSand & 255}`;
+  const wetTex = canvasTex(32, 1024, (g, cw, ch) => {
+    const img = g.createImageData(cw, ch), [r, gr, b] = css.split(',').map(Number);
+    for (let py = 0; py < ch; py++) {
+      const z = NORTH + (py + 0.5) / ch * wetLen, reach = lap(z);
+      for (let px = 0; px < cw; px++) {
+        const out = (px + 0.5) / cw * WET_W, i = (py * cw + px) * 4;
+        // wet through by the water, drying out over the last stretch of its reach; and only where there's sand
+        const a = (1 - smooth(reach * 0.55, reach, out)) * sand(BAY.x1 + out, z) * smooth(NORTH, NORTH + 4, z);
+        img.data[i] = r; img.data[i + 1] = gr; img.data[i + 2] = b; img.data[i + 3] = Math.round(a * 255);
+      }
+    }
+    g.putImageData(img, 0, 0);
+  });
+  const wetMat = new MeshLambertMaterial({ map: wetTex.tex, transparent: true, depthWrite: false });
+  const wet = new Mesh(new PlaneGeometry(WET_W, wetLen), wetMat);
+  wet.rotation.x = -Math.PI / 2;
+  wet.position.set(BAY.x1 + WET_W / 2, wetStrip.position.y, NORTH + wetLen / 2);
+  // (after the soft sand, before anything else see-through)
+  wet.renderOrder = -0.5;
+  wet.receiveShadow = true;
+  wetStrip.visible = false;
+
   // ---- beach grass: tufts of blades where the sand gives out ----
   const blades: number[] = [];
   for (let i = 0; i < 420; i++) {
@@ -139,13 +164,13 @@ export function sandEdge(lo: Mesh, hi: Mesh) {
 
   const g = new Group();
   g.name = 'beachEdge';
-  g.add(soft, grass);
-  for (const m of [soft, grass]) m.raycast = () => {};
+  g.add(soft, wet, grass);
+  for (const m of [soft, wet, grass]) m.raycast = () => {};
   // under the snow in winter, like the rest of the ground
   const thaw = () => {
     const k = 1 - amount(SNOWY);
-    mat.opacity = k;
-    soft.visible = k > 0.01;
+    mat.opacity = wetMat.opacity = k;
+    soft.visible = wet.visible = k > 0.01;
   };
   thaw();
   onBlend(thaw);

@@ -221,7 +221,7 @@ function build(): Built {
   fair.add(pad);
   // where the sand meets the land: its edge cut to a wandering line, soft sand over that, and the coast's sand running
   // on north (beachEdge.ts)
-  g.add(apart(() => sandEdge(sandy[0], sandy[1]), dice(0x5A4DF)));
+  g.add(apart(() => sandEdge(sandy[0], sandy[1], wet), dice(0x5A4DF)));
   const says = bubble(scene, 2.0);
   return { g, fair, flags, snow, him, his, yours, ball, shadow, shadowMat, pad, says };
 }
