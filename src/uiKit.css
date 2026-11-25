@@ -156,16 +156,17 @@
 @media (hover: hover) and (pointer: fine){ .k-info:hover > span{ opacity:1; } }
 /* (the panel's first line keeps clear of it, still centred) */
 .k-has-info > :is(.k-title, .k-msg, .k-cap):first-child{ padding-inline:30px; }
-/* its lines: a small box over the panel's buttons, under its first line, with the one ✕ (on a narrow phone, where
-   they wrap, it grows up over the first line rather than scroll; the "i" stays on top) */
+/* its lines: a box over the whole panel, with the one ✕ and the "i" still on top (over its buttons only, it grew up
+   over half the first line on a narrow phone, where they wrap) */
 .k-info-box{
-  position:absolute; left:6px; right:6px; bottom:6px; z-index:2; box-sizing:border-box; overflow-y:auto;
-  min-height:calc(100% - 46px); max-height:calc(100% - 12px);
+  position:absolute; inset:6px; z-index:2; box-sizing:border-box; overflow-y:auto;
   display:flex; flex-direction:column; justify-content:center; gap:4px; padding:8px 54px 8px 14px;
   background:var(--k-bg); color:var(--k-ink); border-radius:16px; box-shadow:0 0 0 2px var(--k-info);
   animation:k-info-in .14s ease-out;
 }
 .k-info-box p{ margin:0; font-size:15px; font-weight:700; line-height:1.3; }
+/* (its ✕ at the bottom corner, clear of the "i" over the top one) */
+.k-info-box .k-x{ top:auto; bottom:8px; right:8px; }
 @keyframes k-info-in{ from{ opacity:0; transform:translateY(4px); } }
 /* in the cash, a tap on something the player can't afford */
 #cash.nope{ animation:broke .45s ease-in-out 1; }
