@@ -22,8 +22,7 @@ export const buyButtonShown = () => touch || buyButton.on;
 /** What the reminder says: how to buy, or that there's no cash to buy with. */
 const HOW = { keys: 'Hold <kbd>E</kbd> to buy this', both: 'Hold <kbd>E</kbd> or 🛒 to buy this', touch: 'Hold 🛒 to buy this' };
 const TALK = { keys: 'Press <kbd>E</kbd> to talk', both: 'Press <kbd>E</kbd> or <b>Talk</b> to talk', touch: 'Tap <b>Talk</b> to talk' };
-/** Whether there's someone beside the player waiting to be spoken to, by where (club.ts and votingBoat.ts say, every
- *  frame). */
+/** Whether there's someone beside the player waiting to be spoken to, by where (club.ts says, every frame). */
 const talk = new Map<string, boolean>();
 export const offerTalk = (on: boolean, where = 'club') => { talk.set(where, on); };
 /** What the button says: Hold (to buy), or Talk (with no ring). */
