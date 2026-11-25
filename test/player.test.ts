@@ -218,7 +218,7 @@ describe('buying', () => {
     expect($('buyHint').hidden).toBe(true);
     g.run(0.2);
     expect($('buyHint').hidden).toBe(false);
-    expect($('buyHint').textContent).toBe('Hold E or Buy to buy this'); // a computer has E, and the Buy button too
+    expect($('buyHint').textContent).toBe('Hold E or 🛒 to buy this'); // a computer has E, and the Buy button too
     expect($('buy').hidden).toBe(false);
     g.press('e');
     g.run(0.05);
@@ -228,6 +228,57 @@ describe('buying', () => {
     g.run(5);
     expect($('buyHint').hidden).toBe(true);
     expect($('buy').hidden).toBe(true); // off the tile
+  });
+
+  it('says Hold on the button, and its ring fills with what the tile under you has been paid', async () => {
+    const g = await loadGame({ money: 35 });
+    const buy = $('buy'), ring = () => Number(buy.style.getPropertyValue('--paid'));
+    g.placePlayer(PACK.x, PACK.z);
+    g.run(0.1);
+    const t = g.player.onTile!;
+    expect(buy.textContent).toBe('🛒Hold');
+    expect(buy.getAttribute('aria-label')).toBe('Hold to buy');
+    expect(buy.style.getPropertyValue('--paid')).toBe('0'); // nothing paid yet: an empty ring
+    // a short tap pays a little, and the ring shows it
+    buy.dispatchEvent(Object.assign(new Event('pointerdown'), { pointerType: 'mouse' }));
+    g.run(0.1);
+    buy.dispatchEvent(new Event('pointerup'));
+    g.run(0.1);
+    expect(t.paid).toBeGreaterThan(0);
+    expect(ring()).toBeGreaterThan(0);
+    expect(ring()).toBeLessThan(1);
+    expect(ring()).toBeCloseTo(t.paid / t.cost, 2);
+    // walking off and back, the ring still shows what was paid
+    const part = ring();
+    g.placePlayer(0, -3);
+    g.run(0.1);
+    expect(buy.hidden).toBe(true);
+    g.placePlayer(PACK.x, PACK.z);
+    g.run(0.1);
+    expect(ring()).toBe(part);
+  });
+
+  it('says Talk with no ring beside someone to speak to', async () => {
+    const g = await loadGame({ money: 35 });
+    const buy = $('buy');
+    g.placePlayer(PACK.x, PACK.z);
+    g.press('e');
+    g.run(0.1); // (a little paid in, so there's a ring to hide)
+    g.press('e', 'keyup');
+    (await import('../src/buy')).offerTalk(true, 'test');
+    g.placePlayer(0, -3);
+    g.run(0.1);
+    expect(buy.hidden).toBe(false);
+    expect(buy.textContent).toBe('💬Talk');
+    expect(buy.hasAttribute('aria-label')).toBe(false);
+    expect(buy.classList.contains('talk')).toBe(true); // (the ring's hidden)
+    expect(buy.style.getPropertyValue('--paid')).toBe('0');
+    // back on the tile it's for buying again, ring and all
+    g.placePlayer(PACK.x, PACK.z);
+    g.run(0.1);
+    expect(buy.textContent).toBe('🛒Hold');
+    expect(buy.classList.contains('talk')).toBe(false);
+    expect(Number(buy.style.getPropertyValue('--paid'))).toBeGreaterThan(0);
   });
 
   it('leaves the Buy button out on a computer when it is turned off under Controls, and E alone buys', async () => {
@@ -244,7 +295,7 @@ describe('buying', () => {
     $('buyBtnToggle').click(); // back on: the button comes up, and stays on for the next visit
     g.run(0.1);
     expect($('buy').hidden).toBe(false);
-    expect($('buyHint').textContent).toBe('Hold E or Buy to buy this');
+    expect($('buyHint').textContent).toBe('Hold E or 🛒 to buy this');
     expect(localStorage.getItem('floe-market-buy-button')).toBe('1');
     // clicked with the mouse, it buys like holding E
     $('buy').dispatchEvent(Object.assign(new Event('pointerdown'), { pointerType: 'mouse' }));
@@ -313,7 +364,7 @@ describe('buying', () => {
     g.run(0.1);
     expect($('buy').hidden).toBe(false);
     g.run(2.1);
-    expect($('buyHint').textContent).toBe('Hold Buy to buy this');
+    expect($('buyHint').textContent).toBe('Hold 🛒 to buy this');
   });
 
   it('gives a touch screen a Buy button to hold while on a tile', async () => {
@@ -324,7 +375,7 @@ describe('buying', () => {
     g.placePlayer(PACK.x, PACK.z);
     g.run(0.1);
     expect(buy.hidden).toBe(false);
-    expect($('buyHint').textContent).toBe('Hold Buy to buy this');
+    expect($('buyHint').textContent).toBe('Hold 🛒 to buy this');
     buy.dispatchEvent(new Event('pointerdown'));
     expect(buy.classList.contains('down')).toBe(true);
     g.run(0.3);

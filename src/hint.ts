@@ -1,6 +1,6 @@
 // The controls, shown once on a device: a small card below the player, with a finger dragging the joystick round on a
 // phone or tablet, or W A S D being pressed on a computer (which it is comes from the browser's user agent), and how
-// to buy (stand on a tile and hold E, or the Buy button) and to throw things away (at a bin, press E or tap Toss). Once the player has walked a little it shrinks away into the
+// to buy (stand on a tile and hold E, or the Buy button, which says Hold under its 🛒) and to throw things away (at a bin, press E or tap Toss). Once the player has walked a little it shrinks away into the
 // settings gear, which is where "Controls" brings it back.
 const SEEN = 'floe-market-hint';
 
@@ -48,12 +48,12 @@ function overGear() {
 export function showHint(fromGear = false) {
   if (isTouch()) {
     art.innerHTML = '<span class="ring"></span><span class="stick"></span>';
-    text.innerHTML = '<b>Drag anywhere to walk</b><small class="buyline">To buy, stand on a tile and hold Buy</small>' +
+    text.innerHTML = '<b>Drag anywhere to walk</b><small class="buyline">On a tile, hold 🛒 to buy</small>' +
       '<small class="buyline binline">To throw away what you carry, stand at a bin and tap Toss</small>';
   } else {
     art.innerHTML = '<span class="keys"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></span>';
-    text.innerHTML = '<b>Walk with WASD</b><small>or the arrow keys, or drag with the mouse</small><small class="buyline">To buy, stand on a tile and hold <kbd>E</kbd>'
-      + (buyButton.on ? ' or Buy' : '') + '</small>'
+    text.innerHTML = '<b>Walk with WASD</b><small>or the arrow keys, or drag with the mouse</small><small class="buyline">On a tile, hold <kbd>E</kbd>'
+      + (buyButton.on ? ' or 🛒' : '') + ' to buy</small>'
       + '<small class="buyline binline">To throw away what you carry, stand at a bin and press <kbd>E</kbd></small>';
   }
   state = 'on'; walked = 0; upFor = 0; again = fromGear;
