@@ -1,7 +1,7 @@
 // ?ui=kit (dev and demo builds only, main.ts): every piece of the UI kit (uiKit.ts) in each of its four skins, over the
 // game, so the standard can be seen at a glance rather than read about. The cards here sit still in the page; the
 // "Open a dialog" button opens a real one of the kit, which pauses the game behind it.
-import { panel, state, type Skin } from './uiKit';
+import { info, panel, state, type Skin } from './uiKit';
 
 const SKINS: { skin: Skin; name: string; main: string; choices: string[]; plain: string[] }[] = [
   { skin: 'base', name: 'Base', main: 'Buy · $120', choices: ['Body', 'Face', 'Hair'], plain: ['Undo', 'Later'] },
@@ -22,6 +22,7 @@ const RULES = [
   'Dims the screen? The game pauses',
   'Captions ≤8 words; numbers go on buttons',
   'Touch: every button at least 44px',
+  'A small i says what it does, in short lines',
 ];
 
 const el = <K extends keyof HTMLElementTagNameMap>(tag: K, cls = '', text = '') => {
@@ -64,6 +65,8 @@ function card(s: (typeof SKINS)[number]) {
   });
   const main = btn('k-main', s.main);
   c.append(pick, plain, el('p', 'k-cap', 'Busy · broke · locked'), states, danger, main);
+  // the "i" in its corner: what the panel's for (the Family's, in the Undertow)
+  info(c, 'What this card does', ['Up to three lines, 8 words each.', 'Tap i again or ✕ to close it.', 'Shut with the panel. Nothing pauses.']);
   return c;
 }
 

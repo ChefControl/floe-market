@@ -89,6 +89,13 @@ export function pickCut(c: number) { cut = Math.max(1, Math.min(5, Math.round(c)
 /** What he's saying in the panel now, and on its button, for tests. */
 export const eddieMsg = () => `${msg.textContent} ${odds.textContent} ${shake.textContent}`;
 
+/** What his "i" says he does, for anyone who's forgotten since he introduced himself (report 33). */
+export const ABOUT = [
+  "Pay him: fewer of the boss's fans come.",
+  "Bigger fix, bigger chance he's caught.",
+  'Caught? No fix, boss fans arrive as usual.',
+];
+
 // (on dice of its own: three.js names what it makes from Math.random, and made at load off the game's luck, it would
 // change every throw after it)
 const pad = apart(() => gamePad(BOOTH_PADS.eddie, '🤝', panel, {
@@ -98,6 +105,7 @@ const pad = apart(() => gamePad(BOOTH_PADS.eddie, '🤝', panel, {
   live: () => false,
   say: text => say(text),
   away: '',
+  info: { who: 'Slick Eddie', lines: ABOUT },
 }, {
   at: V(BOOTHS.eddie.x + 0.45, CY + 0.95, BOOTHS.eddie.z), from: V(0.8, 0.75, 0.25).normalize(), wide: 1.5, tall: 1.2,
 }, () => level.down && found.den && met('eddie')), dice(0xED1E));

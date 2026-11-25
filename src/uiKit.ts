@@ -9,6 +9,7 @@
 // - E presses its main button; 1–9 the row buttons; Enter and Space whatever's focused (the browser's own). Holding
 //   Shift shows each button's key on it.
 // - A dialog or the whole screen pauses the game (`paused`), and says so.
+// A panel may have a small "i" in its corner (`info`): a tap shows a few short lines on what it's for.
 // Buttons the player can't afford are greyed (`state(b, 'broke')`): a tap on one only shakes the cash.
 import './uiKit.css';
 
@@ -127,6 +128,50 @@ for (const type of ['pointerdown', 'click'] as const) {
   }, true);
 }
 
+// ---------- the i ----------
+/** A panel's "i": a tap shows (or hides) a few short lines on what it's for. */
+export interface Info {
+  readonly button: HTMLButtonElement;
+  readonly box: HTMLElement;
+  /** Whether its lines show. */
+  readonly open: boolean;
+  show(on: boolean): void;
+}
+/** Each panel's "i", by the panel (Esc shuts its box before the panel). */
+const infos = new Map<HTMLElement, Info>();
+
+/**
+ * Puts a small "i" in the top corner of panel `el` (a quiet circle in the skin's colours, its tap area the kit's 44px):
+ * a tap on it shows `lines` (each ≤8 words) in a small box over the panel's buttons, and a second tap, the box's ✕ or
+ * Esc hides them. It's no dialog: nothing pauses, and the panel's keys still work. `about` names it for screen readers
+ * ("What Slick Eddie does"). Whoever opens and closes the panel shuts the box with it (casinoKit's `gamePad` does).
+ */
+export function info(el: HTMLElement, about: string, lines: readonly string[]): Info {
+  const box = document.createElement('div');
+  box.className = 'k-info-box'; box.id = `${el.id || `k${infos.size}`}Info`; box.hidden = true;
+  box.setAttribute('role', 'note'); box.setAttribute('aria-label', about);
+  const x = document.createElement('button');
+  x.type = 'button'; x.className = 'k-btn k-plain k-x'; x.setAttribute('aria-label', 'Close');
+  x.innerHTML = '<span aria-hidden="true">✕</span>';
+  box.append(x, ...lines.map(l => Object.assign(document.createElement('p'), { textContent: l })));
+  const button = document.createElement('button');
+  button.type = 'button'; button.className = 'k-info';
+  button.setAttribute('aria-label', about); button.setAttribute('aria-controls', box.id); button.setAttribute('aria-expanded', 'false');
+  button.innerHTML = '<span aria-hidden="true">i</span>';
+  // (after everything else in the panel, so its first line stays its first)
+  el.append(box, button);
+  el.classList.add('k-has-info');
+  const i: Info = {
+    button, box,
+    get open() { return !box.hidden; },
+    show(on) { box.hidden = !on; button.setAttribute('aria-expanded', String(on)); },
+  };
+  button.addEventListener('click', () => i.show(!i.open));
+  x.addEventListener('click', () => { i.show(false); button.focus(); });
+  infos.set(el, i);
+  return i;
+}
+
 // ---------- keys ----------
 /** Keys typed into a text box are for it. */
 const typing = (e: KeyboardEvent) => !!(e.target as Element | null)?.closest?.('textarea, input:not([type="range"]), select');
@@ -143,6 +188,9 @@ window.addEventListener('keydown', e => {
   if (e.defaultPrevented || typing(e) || e.metaKey || e.ctrlKey || e.altKey) return;
   const p = topPanel();
   if (e.key === 'Escape') {
+    // (an "i"'s lines showing go first, and the panel stays)
+    const i = p && infos.get(p.el);
+    if (i?.open) { i.show(false); e.preventDefault(); return; }
     if (p && shut(p)) e.preventDefault();
     return;
   }

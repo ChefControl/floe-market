@@ -15,6 +15,7 @@
   --k-focus:var(--coral);
   --k-radius:999px; --k-panel-radius:22px;
   --k-key:rgba(23,48,66,.78); --k-key-ink:#fff;
+  --k-info:var(--k-ink);
   font-family:var(--k-font); color:var(--k-ink);
   counter-reset:k;
 }
@@ -32,6 +33,8 @@
   --k-grey:#6B5A5E; --k-grey-ink:#EADFE0;
   --k-radius:14px;
   --k-key:#FFF8EC; --k-key-ink:#3E0E18;
+  /* (the "i" in the gold of the panel's edge) */
+  --k-info:var(--k-edge);
 }
 /* fight night (gong.ts): a TV sumo broadcast */
 .k-panel[data-skin="fight"]{
@@ -136,10 +139,39 @@
   .k-btn{ min-width:44px; }
   .k-x{ width:44px; height:44px; line-height:44px; }
 }
+/* the "i" in a panel's top corner (uiKit.ts `info`): a small quiet circle, its tap area the full 44px */
+.k-info{
+  position:absolute; top:0; right:0; z-index:3; width:44px; height:44px; margin:0; padding:0; border:0;
+  display:grid; place-items:center; background:none; color:var(--k-info); cursor:pointer;
+  touch-action:manipulation; -webkit-tap-highlight-color:transparent;
+}
+.k-info > span{
+  box-sizing:border-box; width:20px; height:20px; border-radius:50%; box-shadow:inset 0 0 0 2px currentColor;
+  font:800 13px/20px var(--k-font); text-align:center; opacity:.7;
+}
+.k-info:focus-visible{ outline:none; }
+.k-info:focus-visible > span{ outline:3px solid var(--k-info); outline-offset:2px; opacity:1; }
+/* (open: filled) */
+.k-info[aria-expanded="true"] > span{ background:var(--k-info); color:var(--k-bg); box-shadow:none; opacity:1; }
+@media (hover: hover) and (pointer: fine){ .k-info:hover > span{ opacity:1; } }
+/* (the panel's first line keeps clear of it, still centred) */
+.k-has-info > :is(.k-title, .k-msg, .k-cap):first-child{ padding-inline:30px; }
+/* its lines: a box over the whole panel, with the one ✕ and the "i" still on top (over its buttons only, it grew up
+   over half the first line on a narrow phone, where they wrap) */
+.k-info-box{
+  position:absolute; inset:6px; z-index:2; box-sizing:border-box; overflow-y:auto;
+  display:flex; flex-direction:column; justify-content:center; gap:4px; padding:8px 54px 8px 14px;
+  background:var(--k-bg); color:var(--k-ink); border-radius:16px; box-shadow:0 0 0 2px var(--k-info);
+  animation:k-info-in .14s ease-out;
+}
+.k-info-box p{ margin:0; font-size:15px; font-weight:700; line-height:1.3; }
+/* (its ✕ at the bottom corner, clear of the "i" over the top one) */
+.k-info-box .k-x{ top:auto; bottom:8px; right:8px; }
+@keyframes k-info-in{ from{ opacity:0; transform:translateY(4px); } }
 /* in the cash, a tap on something the player can't afford */
 #cash.nope{ animation:broke .45s ease-in-out 1; }
 #cash.nope .ic{ background:var(--hot); }
-@media (prefers-reduced-motion: reduce){ .k-btn{ transition:none; } #cash.nope{ animation:none; } }
+@media (prefers-reduced-motion: reduce){ .k-btn{ transition:none; } #cash.nope{ animation:none; } .k-info-box{ animation:none; } }
 
 /* ---------- the keys, while Shift's held (on a mouse and keyboard): E on the main button, 1–9 along the rows ---------- */
 .k-keys > .k-btn{ counter-increment:k; }
