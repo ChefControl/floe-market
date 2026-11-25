@@ -122,7 +122,7 @@ export function road(len: number, half: number, gaps: number[]) {
 }
 
 // ---------- her house ----------
-const WALL = 0xE7B3AC, TRIM = 0xF6EEEA, FASCIA = 0x8E4B45, TILE = 0xB0574F, DOOR = 0x8E2B2B, SHUTTER = 0x9C5A50;
+export const WALL = 0xE7B3AC, TRIM = 0xF6EEEA, FASCIA = 0x8E4B45, TILE = 0xB0574F, DOOR = 0x8E2B2B, SHUTTER = 0x9C5A50;
 const IRON = 0x2C3A47;
 
 /** What a High prop of the house is made of: the shapes that cast shadows, small trims that don't, the lit glass and winter's snow. */

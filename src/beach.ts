@@ -13,6 +13,7 @@ import {
   ConeGeometry, CylinderGeometry, Group, type Mesh, MeshBasicMaterial, MeshLambertMaterial, PlaneGeometry, Vector3,
 } from 'three';
 import { crowdModel, type Person } from './characters';
+import { sandEdge } from './beachEdge';
 import { decal, drawPad } from './decals';
 import { apart, Build, detail, dice, jitter, K, seasonLayer } from './kit';
 import { BEACH, beach, level, pushOutOfBox, stage } from './layout';
@@ -217,6 +218,8 @@ function build(): Built {
   const pad = decal(1.9, (c, cw, ch) => drawPad(c, cw, ch, '🏓')).mesh;
   pad.position.set(PAD.x, 0.012, PAD.z);
   fair.add(pad);
+  // where the sand meets the land: a soft border, and the coast's sand running on north (beachEdge.ts)
+  g.add(apart(sandEdge, dice(0x5A4DF)));
   const says = bubble(scene, 2.0);
   return { g, fair, flags, snow, him, his, yours, ball, shadow, shadowMat, pad, says };
 }

@@ -14,6 +14,7 @@ import { apart, dice } from './kit';
 import { C } from './palette';
 import { scene, sky } from './render';
 import { amount, FLOE_SIZE, onBlend, PAL, seasonal } from './season';
+import { village } from './village';
 
 /** Where the hills ring is centred, and the angles (degrees, atan2(z, x) from it: 0 east, 90 south, 180 west) the land
  *  side spans, from the north-east coast round to the west shore, where the ring runs down into the sea. */
@@ -92,6 +93,14 @@ apart(() => {
   const tiers = [new ConeGeometry(1, 1, 6, 1), new ConeGeometry(1, 1, 6, 1)];
   const parts: BufferGeometry[][] = [[], []];
   const m = new Matrix4(), q = new Quaternion(), up = new Vector3(0, 1, 0), p = new Vector3(), s = new Vector3();
+  /** A pine at (x, y, z) on the hills or among the village's houses, `size` its scale; `turn` (0 to 1) which way. */
+  const pine = (x: number, y: number, z: number, size: number, turn: number, shadeOf: number) => {
+    for (let t = 0; t < 2; t++) {
+      q.setFromAxisAngle(up, turn * 6 + t);
+      m.compose(p.set(x, y + size * (0.75 + t * 0.8), z), q, s.set(size * (0.95 - t * 0.3), size * 1.5, size * (0.95 - t * 0.3)));
+      parts[(shadeOf + t) % 2].push(tiers[t].clone().applyMatrix4(m));
+    }
+  };
   for (let a = FROM + 10; a < TO - 10; a += 0.7) {
     const H = nearH(a), R = nearR(a), crestX = MID.x + Math.cos(rad(a)) * R;
     if (Math.abs(crestX - ROADS_X) < ROAD_GAP + 8) continue;
@@ -100,15 +109,13 @@ apart(() => {
       // somewhere on the front slope, from part way up to the crest
       const k = 0.25 + roll() * 0.7, d = R - NEAR_DEPTH * (1 - k) * 0.9, y = H * (k < 0.55 ? k / 0.55 * 0.72 : 0.72 + (k - 0.55) / 0.45 * 0.28);
       const aa = a + (roll() - 0.5) * 0.9, x = MID.x + Math.cos(rad(aa)) * d, z = MID.z + Math.sin(rad(aa)) * d;
-      const size = 0.75 + roll() * 0.5;
-      for (let t = 0; t < 2; t++) {
-        const g = tiers[t].clone();
-        q.setFromAxisAngle(up, roll() * 6);
-        m.compose(p.set(x, y + size * (0.75 + t * 0.8), z), q, s.set(size * (0.95 - t * 0.3), size * 1.5, size * (0.95 - t * 0.3)));
-        parts[(n + t) % 2].push(g.applyMatrix4(m));
-      }
+      pine(x, y, z, 0.75 + roll() * 0.5, roll(), n);
     }
   }
+
+  // ---------- the village, east past her house (village.ts) ----------
+  let nth = 0;
+  backdrop.town.add(village((x, z, size) => pine(x, 0, z, size, (nth * 0.37) % 1, nth++)));
   // (the pines' own seasonal colours, as world.ts' trees: their needles turn red and orange in autumn)
   [PAL.pine, PAL.pine2].forEach((c, i) => backdrop.pines.add(new Mesh(merge(parts[i]), seasonal(c))));
 
@@ -117,42 +124,6 @@ apart(() => {
   const peaks = ridge(110, a => 104 + waves(a, [[5, 4, 2.2]]), a => 19 + waves(a, [[6, 6, 0.9], [3.5, 13, 3.3], [2, 23, 1.7]]), 22,
     (y, top) => tmp.copy(rock).lerp(snow, smooth(0.62, 0.8, y / Math.max(top, 18))));
   backdrop.peaks.add(new Mesh(peaks, new MeshLambertMaterial({ vertexColors: true })));
-
-  // ---------- the village, east past her house ----------
-  {
-    const pos: number[] = [], col: number[] = [];
-    const roll2 = dice(0x7A1E5);
-    const wall = [new Color(C.paper), new Color(C.enamel), new Color(C.endGrain)], roofs = [new Color(C.red), new Color(C.navy), new Color(C.log), new Color(C.slate)];
-    const box = (x0: number, x1: number, y0: number, y1: number, z0: number, z1: number, c: Color) => {
-      const v = [[x0, y0, z0], [x1, y0, z0], [x1, y1, z0], [x0, y1, z0], [x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1]];
-      for (const [a, b, cc, d] of [[0, 3, 2, 1], [4, 5, 6, 7], [0, 4, 7, 3], [1, 2, 6, 5], [3, 7, 6, 2]]) {
-        pos.push(...v[a], ...v[b], ...v[cc], ...v[a], ...v[cc], ...v[d]);
-        for (let i = 0; i < 6; i++) col.push(c.r, c.g, c.b);
-      }
-    };
-    const roof = (x0: number, x1: number, y: number, h: number, z0: number, z1: number, c: Color) => {
-      // a gable roof, its ridge north to south, overhanging the walls a little
-      const o = 0.25, xm = (x0 + x1) / 2;
-      const A = [x0 - o, y, z0 - o], B = [x1 + o, y, z0 - o], Cc = [x1 + o, y, z1 + o], D = [x0 - o, y, z1 + o], E = [xm, y + h, z0 - o], F = [xm, y + h, z1 + o];
-      for (const t of [[A, D, F], [A, F, E], [B, E, F], [B, F, Cc], [A, E, B], [D, Cc, F]]) {
-        pos.push(...t.flat());
-        for (let i = 0; i < 3; i++) col.push(c.r, c.g, c.b);
-      }
-    };
-    // in rows along a lane, between the pines (they stop at x 34) and the hills' foot
-    const spots: [number, number][] = [];
-    for (let z = -16; z <= 30; z += 4.6) for (const x of [40, 45.5]) if (Math.abs(z - 6) > 2.5 || x > 42) spots.push([x + (roll2() - 0.5) * 1.6, z + (roll2() - 0.5) * 1.2]);
-    for (const [x, z] of spots) {
-      if (roll2() < 0.18) continue;
-      const w = 2.4 + roll2() * 1.2, d = 2.6 + roll2() * 1.4, h = 1.8 + roll2() * 0.9;
-      box(x - w / 2, x + w / 2, 0, h, z - d / 2, z + d / 2, wall[Math.floor(roll2() * wall.length)]);
-      roof(x - w / 2, x + w / 2, h, 1.1 + roll2() * 0.5, z - d / 2, z + d / 2, roofs[Math.floor(roll2() * roofs.length)]);
-    }
-    // and a white chapel with its little tower, at the end of the lane
-    box(48.5, 51.5, 0, 3.2, 8, 13, wall[0]); roof(48.5, 51.5, 3.2, 1.6, 8, 13, roofs[0]);
-    box(49.2, 50.8, 0, 6.2, 13, 14.6, wall[0]); roof(49.2, 50.8, 6.2, 1.8, 13, 14.6, roofs[0]);
-    backdrop.town.add(new Mesh(facets(pos, col), new MeshLambertMaterial({ vertexColors: true })));
-  }
 
   // ---------- icebergs ----------
   // out past the boats' way in (the casino yacht's from the north-west, casino.ts; the voting boat's from due north),
@@ -223,7 +194,8 @@ apart(() => {
   const all = new Group();
   all.name = 'backdrop';
   all.add(...Object.values(backdrop));
-  all.traverse(o => { if (o instanceof Mesh) { o.castShadow = false; o.receiveShadow = false; o.matrixAutoUpdate = false; o.updateMatrix(); } });
+  // (and never in a ray's way: the wardrobe's camera looks for what's between it and the player, customize.ts)
+  all.traverse(o => { if (o instanceof Mesh) { o.castShadow = false; o.receiveShadow = false; o.raycast = () => {}; o.matrixAutoUpdate = false; o.updateMatrix(); } });
   scene.add(all);
 }, dice(0xBAC4D));
 
