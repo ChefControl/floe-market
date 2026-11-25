@@ -83,7 +83,8 @@ export const cloud = {
   reload: () => location.reload(),
 };
 
-export const cloudEnabled = () => !!firebaseConfig.apiKey;
+/** Whether cloud saves are set up: never in the Steam build (flags.ts), which doesn't carry Firebase at all. */
+export const cloudEnabled = () => import.meta.env.VITE_STEAM !== 'on' && !!firebaseConfig.apiKey;
 
 const readLink = (): Link | null => {
   try { return JSON.parse(deviceStore.read(LINK_KEY) ?? 'null') as Link | null; } catch { return null; }
@@ -128,7 +129,8 @@ let backend: CloudBackend | null = null;
 let loading: Promise<CloudBackend> | null = null;
 /** Fetches Firebase (once), for syncing and the scoreboard. */
 export function connect() {
-  loading ??= import('./firebase').then(m => {
+  // (the Steam build leaves Firebase out: flags.ts)
+  loading ??= (import.meta.env.VITE_STEAM === 'on' ? Promise.reject(new Error('no cloud in the Steam build')) : import('./firebase')).then(m => {
     const b = m.createBackend();
     b.onUser(u => { void onUser(u); });
     return (backend = b);

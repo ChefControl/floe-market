@@ -48,6 +48,28 @@ function kofiToggle(): Plugin {
   };
 }
 
+/** The page without its web-only parts, for the Steam build: everything from each `<!-- web only: -->` to the
+ *  `<!-- :web only -->` after it (the card a shared link shows, the home-screen icons and the reload-after-deploy
+ *  script). */
+export function withoutWeb(page: string) {
+  const parts = /[ \t]*<!-- web only:[\s\S]*?<!-- :web only -->\n/g;
+  if (!parts.test(page)) throw new Error('index.html: no web-only parts to leave out');
+  return page.replace(parts, '');
+}
+
+/** The Steam build (VITE_STEAM=on, flags.ts) leaves the page's web-only parts out, and can't have Ko-fi. */
+function steamToggle(): Plugin {
+  let on = false;
+  return {
+    name: 'floe-steam-toggle',
+    configResolved(c) {
+      on = c.env.VITE_STEAM === 'on';
+      if (on && c.env.VITE_KOFI === 'on') throw new Error('The Steam build must not have Ko-fi (VITE_KOFI=on): Steam allows no payment links outside it');
+    },
+    transformIndexHtml: { order: 'pre', handler: page => on ? withoutWeb(page) : page },
+  };
+}
+
 export default defineConfig({
   // Relative base so the build works from any path (e.g. GitHub Pages' /floe-market/).
   base: './',
@@ -58,7 +80,7 @@ export default defineConfig({
     chunkSizeWarningLimit: 1000,
     rolldownOptions: { output: { codeSplitting: { groups: [{ name: 'three', test: /node_modules[\\/]three[\\/]/ }] } } },
   },
-  plugins: [kofiToggle(), licences(), preloadManifest()],
+  plugins: [kofiToggle(), steamToggle(), licences(), preloadManifest()],
   // the commit the game was built from (GitHub Actions sets it), which bug reports carry (report.ts)
   define: { __BUILD__: JSON.stringify(process.env.GITHUB_SHA ?? 'dev') },
   test: {

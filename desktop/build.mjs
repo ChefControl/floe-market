@@ -5,9 +5,9 @@
 //   node build.mjs --platform=win32     for Windows (x64); --platform=linux for Linux and the Steam Deck (x64)
 //   node build.mjs --game-only          just the game into app/ (then `npm start` plays it)
 //
-// The game is built with stage 3 on (VITE_STAGE3=on); everything else about the Steam build is the build's own default.
+// The game is the Steam build (VITE_STEAM=on: no Firebase, no Ko-fi, src/flags.ts) with stage 3 on (VITE_STAGE3=on).
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -31,9 +31,11 @@ const APP = join(here, 'app');
 console.log(`[build] the game into ${APP}`);
 execFileSync('npx', ['vite', 'build', '--outDir', APP, '--emptyOutDir'], {
   cwd: root, stdio: 'inherit', shell: process.platform === 'win32',
-  env: { ...process.env, VITE_STAGE3: 'on' },
+  env: { ...process.env, VITE_STEAM: 'on', VITE_STAGE3: 'on', VITE_KOFI: 'off' },
 });
 mkdirSync(APP, { recursive: true });
+// (the web's own files: the home-screen icons and their list, and the picture a shared link shows)
+for (const f of ['manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'social-preview.jpg']) rmSync(join(APP, f), { force: true });
 writeFileSync(join(APP, 'build.json'), JSON.stringify({ version, commit }, null, 2) + '\n');
 if (args.has('game-only')) process.exit(0);
 

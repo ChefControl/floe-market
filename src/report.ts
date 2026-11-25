@@ -111,7 +111,9 @@ let pageKit: Promise<typeof import('html2canvas')> | undefined;
 export async function takeUi(world: HTMLCanvasElement) {
   try {
     // loaded once, or again next time if it couldn't be
-    const { default: html2canvas } = await (pageKit ??= import('html2canvas').catch(e => { pageKit = undefined; throw e; }));
+    // (the Steam build has no reports, and leaves html2canvas out: flags.ts)
+    const kit = import.meta.env.VITE_STEAM === 'on' ? Promise.reject(new Error('no reports in the Steam build')) : import('html2canvas');
+    const { default: html2canvas } = await (pageKit ??= kit.catch(e => { pageKit = undefined; throw e; }));
     const r = renderer.domElement.getBoundingClientRect();
     const layer = await html2canvas(document.body, {
       backgroundColor: null, logging: false, scale: world.width / (r.width || viewSize.w),
