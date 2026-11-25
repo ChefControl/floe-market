@@ -201,6 +201,15 @@ function done(walked = false) {
 let say: (text: string) => void = () => {};
 export function tommySays(f: (text: string) => void) { say = f; }
 
+/** What his "i" says he does, for anyone who's forgotten since he introduced himself (report 33): his numbers from
+ *  monte.ts, so they can't drift. (It's on his game, not on the card that asks first: Play costs nothing, and the stake
+ *  is where it matters.) */
+export const ABOUT = [
+  'Find the queen after he swaps the cards.',
+  `Find her: you win ${WIN}× your stake.`,
+  `Bigger stakes, faster hands. ${ROUNDS} rounds a fight.`,
+];
+
 const pad = gamePad(BOOTH_PADS.tommy, '🃏', panel, {
   opened() { msg.textContent = idleLine(); drawCards(); refresh(); },
   closed() {
@@ -212,6 +221,7 @@ const pad = gamePad(BOOTH_PADS.tommy, '🃏', panel, {
   say: text => say(text),
   away: "Hey! The lady's still on the table.",
   ask: $('monteAsk'),
+  info: { who: 'Three-Card Tommy', lines: ABOUT },
 }, {
   at: V(TOP.x, TOP.y, TOP.z), from: V(Math.sin(FACE) * 0.75, 0.95, Math.cos(FACE) * 0.75).normalize(), wide: 0.8, tall: 0.55,
 }, () => level.down && found.den && met('tommy'));

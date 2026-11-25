@@ -70,6 +70,14 @@ his table limit, `StakeRules.hideOver`).
   always that one ✕.
 - Forced choices (the cloud save pick, the stale-tab notice) have no Esc and no ✕ (`forced: true`).
 
+**The "i".** A panel whose rules players forget may carry a small "i" in its top corner (uiKit.ts `info`; casinoKit's
+`gamePad` takes `info: { who, lines }`). The Family's three panels in the Undertow have one (report 33). It's a quiet
+20px circle in the skin's colours (`--k-info`: the gold edge in casino), with a 44px tap area. A tap shows up to three
+lines, each ≤8 words, in a small box over the panel's buttons, under its first line. A second tap, the box's own ✕
+(the kit's one ✕, the only one on a walk-up card) or Esc hides it; Esc shuts the box before the panel. It closes with
+the panel. It's not a dialog: nothing pauses, and E and 1–9 still work. Put numbers in its lines only when they're
+fixed rules, built from the code's constants. It's not a replay of anyone's introduction.
+
 **Keys.**
 - **E** presses the panel's main button. The round on-screen action button does the same as E.
 - **1–9** press the buttons in the panel's `k-keys` rows, in order. A panel has at most 9 of them showing at once.

@@ -13,7 +13,7 @@ import { camera, canvasTex, FONT, mesh, rr } from './render';
 import type { Moves } from './round';
 import { clack } from './sfx';
 import { besideView, tableRoom, topOfView } from './ui';
-import { panel as kitPanel, state, usable, type State } from './uiKit';
+import { info, panel as kitPanel, state, usable, type State } from './uiKit';
 import { d2xz, FY, type XZ } from './util';
 import { viewSize } from './viewSize';
 import { wallet } from './wallet';
@@ -56,10 +56,16 @@ export const GRACE = 10;
  * A game's pad asks first (`ask`, a card with the game's name and a Play button): stepping on it doesn't sit the player
  * down at the table till they press Play (or E). Back on the pad before a round they walked off from is played out,
  * they go straight back to it.
+ *
+ * A pad with `info` (the Family's, down in the Undertow) has a small "i" on its panel: a tap says what he does, in a
+ * few short lines (uiKit.ts `info`), shut again as the panel closes.
  */
 export function gamePad(
   at: XZ & { y?: number }, icon: string, panel: HTMLElement,
-  h: { opened(): void; closed(): void; greet(): void; live(): boolean; say(text: string): void; away: string; ask?: HTMLElement },
+  h: {
+    opened(): void; closed(): void; greet(): void; live(): boolean; say(text: string): void; away: string; ask?: HTMLElement;
+    info?: { who: string; lines: readonly string[] };
+  },
   view: Seat, here: () => boolean = () => !level.down, reach = REACH,
 ) {
   const d = decal(1.9, (c, w, ht) => drawPad(c, w, ht, icon));
@@ -67,6 +73,7 @@ export function gamePad(
   d.mesh.visible = false;
   const card = kitPanel(panel, { place: 'card', skin: 'casino' });
   const ask = h.ask ? kitPanel(h.ask, { place: 'card', skin: 'casino' }) : null;
+  const about = h.info ? info(panel, `What ${h.info.who} does`, h.info.lines) : null;
   // wait: seconds left for a player who stepped off mid-round (0 when nobody's being waited for); playing: they've
   // pressed Play since they stepped on (always, for a pad that doesn't ask)
   let enabled = false, open = false, greeted = -1, wait = 0, playing = !ask;
@@ -91,6 +98,7 @@ export function gamePad(
       if (near !== open) {
         open = near;
         panel.hidden = !open;
+        if (!open) about?.show(false);
         if (open) seated = { ...view, panel };
         else if (seated?.panel === panel) seated = null;
         if (open) {

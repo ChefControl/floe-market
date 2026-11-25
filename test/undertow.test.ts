@@ -752,6 +752,76 @@ describe('the Undertow', () => {
     }
   });
 
+  it("each of the Family has a small i on his panel: a tap says what he does, in three short lines (report 33)", async () => {
+    const { g, plan, at } = await ring({ money: 100 * 1000, ring: { beaten: 2, lines: { mush: { n: 1 } } } });
+    const esc = () => window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Escape', key: 'Escape', cancelable: true }));
+    const vendors = [
+      { id: 'eddie', pad: plan.BOOTH_PADS.eddie, lines: [
+        "Pay him: fewer of the boss's fans come.",
+        "Bigger fix, bigger chance he's caught.",
+        "Caught? The boss's fans come, yours stay away.",
+      ] },
+      { id: 'loans', pad: plan.BOOTH_PADS.harry, lines: [
+        'Borrow chips, pay back 25% more.',
+        'He takes 30% of your sales till paid.',
+        'No deadline. Pay it off any time.',
+      ] },
+      { id: 'monte', pad: plan.BOOTH_PADS.tommy, lines: [
+        'Find the queen after he swaps the cards.',
+        'Find her: you win 1.5× your stake.',
+        'Bigger stakes, faster hands. 3 rounds a fight.',
+      ] },
+    ];
+    for (const v of vendors) {
+      at(v.pad);
+      g.run(0.2);
+      g.play();
+      const panel = $(v.id);
+      expect(panel.hidden, v.id).toBe(false);
+      // the i, in the panel's corner, its box shut till it's tapped
+      const i = panel.querySelector<HTMLButtonElement>('.k-info')!, box = panel.querySelector<HTMLElement>('.k-info-box')!;
+      expect(i, v.id).not.toBeNull();
+      expect(i.closest('[hidden]')).toBeNull();
+      expect(box.hidden).toBe(true);
+      expect(i.getAttribute('aria-expanded')).toBe('false');
+      // a tap: his three lines, each 8 words or fewer, plain words
+      i.click();
+      expect(box.hidden).toBe(false);
+      expect(i.getAttribute('aria-expanded')).toBe('true');
+      const said = [...box.querySelectorAll('p')].map(p => p.textContent!);
+      expect(said).toEqual(v.lines);
+      for (const l of said) {
+        expect(l.split(/\s+/).length, l).toBeLessThanOrEqual(8);
+        expect(l).not.toMatch(/\bbout/i);
+      }
+      // the i again shuts it; so does its ✕
+      i.click();
+      expect(box.hidden).toBe(true);
+      i.click();
+      box.querySelector<HTMLButtonElement>('.k-x')!.click();
+      expect(box.hidden).toBe(true);
+      expect(i.getAttribute('aria-expanded')).toBe('false');
+      // Esc shuts the box first, and leaves the panel open
+      i.click();
+      esc(); g.run(0.05);
+      expect(box.hidden).toBe(true);
+      expect(panel.hidden).toBe(false);
+      // and it's shut with the panel: walking off, and back on, it's not still open
+      i.click();
+      at({ x: v.pad.x + 1.5, z: v.pad.z });
+      g.run(0.2);
+      expect(panel.hidden).toBe(true);
+      expect(box.hidden).toBe(true);
+      at(v.pad);
+      g.run(0.2);
+      g.play();
+      expect(panel.hidden).toBe(false);
+      expect(box.hidden).toBe(true);
+      at({ x: v.pad.x + 1.5, z: v.pad.z });
+      g.run(0.2);
+    }
+  });
+
   it("Mr. Fugu, once you've met the Family, wants you to know who he pays", async () => {
     const { office, F } = await ring({ ring: { beaten: 1, lines: { mush: { n: 1 } } } });
     expect(office.fuguLines().join(' ')).not.toContain('the Family');

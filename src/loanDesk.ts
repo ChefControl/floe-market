@@ -1,8 +1,9 @@
 // Hammerhead Harry's desk in the Undertow (stage 3): his loans (loan.ts) made across it. Standing on his pad brings the
 // camera in over the desk and opens the controls: slide to how much you want (the slider's end is his limit, worked out
 // as you walked in), the button saying what's borrowed and what's returned; with a loan out, the one button is to pay
-// off what's left. Under either, the one rule the numbers can't show: his share of your sales. Whatever's owed shows in the HUD beside
-// the stage chip (🦈), filling up as he takes his share of the stall's sales (ring.ts) till it's paid.
+// off what's left. Over either, the one rule the numbers can't show (his share of your sales), beside his "i".
+// Whatever's owed shows in the HUD beside the stage chip (🦈), filling up as he takes his share of the stall's sales
+// (ring.ts) till it's paid.
 import { gamePad } from './casinoKit';
 import { CY } from './cellar';
 import { BOOTH_PADS, DESKS } from './cellarPlan';
@@ -10,7 +11,7 @@ import { apart, dice } from './kit';
 import { CHIP } from './fight';
 import { found, inUndertow, level, stage } from './layout';
 import { met } from './meet';
-import { borrow, canBorrow, freezeLimit, LOAN_FLOOR, LOAN_STEP, maxLoan, owed, owedAtFirst, payBack, repay, SHARE } from './loan';
+import { borrow, canBorrow, freezeLimit, INTEREST, LOAN_FLOOR, LOAN_STEP, maxLoan, owed, owedAtFirst, payBack, repay, SHARE } from './loan';
 import { player } from './player';
 import { coin } from './sfx';
 import { popText } from './ui';
@@ -72,6 +73,14 @@ repayBtn.addEventListener('click', () => payLoan());
 let say: (text: string) => void = () => {};
 export function harrySays(f: (text: string) => void) { say = f; }
 
+/** What his "i" says he does, for anyone who's forgotten since he introduced himself (report 33): his numbers from
+ *  loan.ts, so they can't drift. */
+export const ABOUT = [
+  `Borrow chips, pay back ${Math.round((INTEREST - 1) * 100)}% more.`,
+  `He takes ${CUT} of your sales till paid.`,
+  'No deadline. Pay it off any time.',
+];
+
 const D = DESKS.harry;
 // (built with dice of its own, so the game's luck, which three.js draws on to name what it makes, is where it was)
 const pad = apart(() => gamePad(BOOTH_PADS.harry, '💰', panel, {
@@ -81,6 +90,7 @@ const pad = apart(() => gamePad(BOOTH_PADS.harry, '💰', panel, {
   live: () => false,
   say: text => say(text),
   away: '',
+  info: { who: 'Hammerhead Harry', lines: ABOUT },
 }, {
   at: V(D.x - 0.35, CY + 1.05, D.z), from: V(0.75, 0.6, 0).normalize(), wide: 1.7, tall: 1.2,
 }, () => level.down && found.den && met('harry')), dice(0x4A221));
