@@ -1,7 +1,9 @@
 // Buying an upgrade: stand on its tile and hold E, or the Buy button that comes up while the player is on a tile. A
 // computer has the button too unless it's turned off under Controls in the settings (hint.ts); a touch screen has no
 // E, so there it's always up: on a phone or tablet from the start, and on a laptop with a touch screen from its first
-// touch. Stood on a tile for a few seconds without buying, a reminder says how. Holding buy with no cash
+// touch. The button says Hold (under its 🛒), and a gold ring round it fills with how much of the tile is paid, so even
+// a short tap shows a little going in (report 31: taps on an iPhone each paid a little, with nothing to say so). Stood
+// on a tile for a few seconds without buying, a reminder says how. Holding buy with no cash
 // at all shakes the cash in the HUD, and the reminder says so straight away. The same button, as Talk, is how you speak to
 // one of the Undertow's regulars who waits to be spoken to (club.ts), with E on a computer: the reminder says so as soon
 // as you're beside them.
@@ -11,24 +13,34 @@ import { viewSize } from './viewSize';
 import { wallet } from './wallet';
 
 const btn = document.getElementById('buy')!, reminder = document.getElementById('buyHint')!;
-const prompts = document.getElementById('prompts')!, cash = document.getElementById('cash')!;
+const tip = document.getElementById('tip')!, cash = document.getElementById('cash')!;
 let touch = false;
 /** Whether buying is by holding the Buy button (a touch screen), or E: what instructions should say. */
 export const touchBuy = () => touch;
 /** Whether the Buy button comes up on a tile: always on a touch screen, and on a computer unless it's turned off. */
 export const buyButtonShown = () => touch || buyButton.on;
 /** What the reminder says: how to buy, or that there's no cash to buy with. */
-const HOW = { keys: 'Hold <kbd>E</kbd> to buy this', both: 'Hold <kbd>E</kbd> or <b>Buy</b> to buy this', touch: 'Hold <b>Buy</b> to buy this' };
+const HOW = { keys: 'Hold <kbd>E</kbd> to buy this', both: 'Hold <kbd>E</kbd> or 🛒 to buy this', touch: 'Hold 🛒 to buy this' };
 const TALK = { keys: 'Press <kbd>E</kbd> to talk', both: 'Press <kbd>E</kbd> or <b>Talk</b> to talk', touch: 'Tap <b>Talk</b> to talk' };
 /** Whether there's someone beside the player waiting to be spoken to, by where (club.ts and votingBoat.ts say, every
  *  frame). */
 const talk = new Map<string, boolean>();
 export const offerTalk = (on: boolean, where = 'club') => { talk.set(where, on); };
-/** What the button says: Buy, or Talk. */
+/** What the button says: Hold (to buy), or Talk (with no ring). */
 let label = '';
 function labelled(talking: boolean) {
-  const want = talking ? '<span aria-hidden="true">💬</span>Talk' : '<span aria-hidden="true">🛒</span>Buy';
-  if (want !== label) btn.innerHTML = label = want;
+  const want = talking ? '<span aria-hidden="true">💬</span>Talk' : '<span aria-hidden="true">🛒</span>Hold';
+  if (want === label) return;
+  btn.innerHTML = label = want;
+  if (talking) btn.removeAttribute('aria-label');
+  else btn.setAttribute('aria-label', 'Hold to buy');
+  btn.classList.toggle('talk', talking);
+}
+/** How full the ring is (0 to 1), set only when it changes. */
+let ring = -1;
+function filled(part: number) {
+  const want = Math.round(part * 1000) / 1000;
+  if (want !== ring) btn.style.setProperty('--paid', String(ring = want));
 }
 const BROKE = 'Out of cash: earn some first';
 let says = '';
@@ -56,14 +68,17 @@ btn.addEventListener('contextmenu', e => e.preventDefault());
 let stood = 0;
 const REMIND = 2;
 
-/** Call every frame with whether the player is standing on a tile that's for sale. */
-export function updBuy(onTile: boolean, dt: number) {
+/** Call every frame with whether the player is standing on a tile that's for sale, and how much of it is paid (0 to
+ *  1). */
+export function updBuy(onTile: boolean, dt: number, paid = 0) {
   const talking = [...talk.values()].some(Boolean) && !onTile;
   labelled(talking);
+  filled(onTile ? paid : 0);
   btn.hidden = !(buyButtonShown() && (onTile || talking));
   if (!btn.hidden) {
-    // the button (and its reminder) sit above the tip, however tall the tip's description makes it
-    const bottom = Math.max(100, viewSize.h - prompts.getBoundingClientRect().top + 12);
+    // the button (and its reminder) sit above the tip, however tall the tip's description makes it: the tip alone, not
+    // the reminder over it on a computer, or the button jumped up each time the reminder came (report 31's playtest)
+    const bottom = Math.max(100, viewSize.h - tip.getBoundingClientRect().top + 12);
     btn.style.bottom = bottom + 'px';
     reminder.style.bottom = bottom + 96 + 'px';
   }

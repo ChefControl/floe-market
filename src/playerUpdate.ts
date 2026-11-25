@@ -156,11 +156,11 @@ export function updPlayer(dt: number) {
   }
   player.onTile = on;
   // The present tile at her house is never done, and needs no holding: standing on it, each $100 leaves another
-  // present at her door.
+  // present at her door (so no Buy button comes up there, and no ring).
   const gift = !on && !level.down && onPresentTile(p);
   setTip(on ? on.tip : gift ? PRESENT.tip : binTip(p) ?? stationTip(p));
   const forSale = !!on && !locked(on) && !on.done;
-  updBuy(forSale, dt);
+  updBuy(forSale, dt, forSale ? on!.paid / on!.cost : 0);
   updBins(dt);
   if (gift) payInto(PRESENT, dt, redrawPresentTile, () => { PRESENT.paid = 0; givePresents(); save(); });
   else if (forSale && buyHeld()) {

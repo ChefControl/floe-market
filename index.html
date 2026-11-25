@@ -711,7 +711,7 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
   position:fixed; left:50%; bottom:calc(env(safe-area-inset-bottom,0px) + 26px); transform:translateX(-50%); z-index:3; pointer-events:none;
   display:flex; flex-direction:column; align-items:center; gap:10px; width:max-content; max-width:min(86vw,420px);
 }
-/* buying: the reminder after standing on a tile a while, and the Buy button on touch screens (moved up above the tip) */
+/* buying: the reminder after standing on a tile a while, and the Buy button (it says Hold) on touch screens (moved up above the tip) */
 #buyHint{ padding:8px 16px; font-size:17px; font-weight:700; gap:8px; white-space:nowrap; pointer-events:none; }
 #buyHint[hidden]{ display:none; }
 #buyHint.touch{ position:fixed; z-index:3; right:max(16px, env(safe-area-inset-right,0px)); bottom:calc(env(safe-area-inset-bottom,0px) + 196px); }
@@ -738,7 +738,16 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
 #toss{ background:#4E5A66; box-shadow:0 4px 0 rgba(20,28,36,.45); }
 #toss:active{ transform:translateY(3px); box-shadow:0 1px 0 rgba(20,28,36,.45); }
 #buy.down{ transform:translateY(3px); box-shadow:0 1px 0 rgba(150,45,25,.45); }
-#buy:focus-visible{ outline:3px solid var(--pill-ink); outline-offset:3px; }
+#buy:focus-visible{ outline:3px solid var(--pill-ink); outline-offset:9px; }
+/* the Buy button's ring: tutorial gold (the beacon) filling round from the top with how much of the tile under the
+   player is paid (--paid, 0 to 1, set by buy.ts), on a faint track, so a short tap shows a little going in; none on Talk */
+#buy::after{
+  content:""; position:absolute; inset:-7px; border-radius:50%; pointer-events:none;
+  background:conic-gradient(#FFC34A calc(var(--paid, 0) * 100%), var(--shade) 0);
+  -webkit-mask:radial-gradient(farthest-side, transparent calc(100% - 5px), #000 calc(100% - 5px));
+  mask:radial-gradient(farthest-side, transparent calc(100% - 5px), #000 calc(100% - 5px));
+}
+#buy.talk::after{ display:none; }
 @media (prefers-reduced-motion: reduce){ #buyHint kbd{ animation:none; } }
 #hint small.buyline{ margin-top:6px; }
 #hint small kbd{ display:inline-grid; place-items:center; min-width:20px; height:20px; padding:0 4px; border-radius:5px; background:var(--chip); box-shadow:0 2px 0 var(--shade); font:800 13px "Floe Emoji","Baloo 2","Trebuchet MS",system-ui,sans-serif; }
@@ -1235,7 +1244,8 @@ body.offer #game, body.way #game, body.meet #game{ filter:saturate(.8); }
 #hud, #corner, #pointers{ transition:opacity .3s; }
 body.offer #hud, body.offer #corner, body.offer #pointers, body.offer #tip, body.offer .pop,
 body.way #hud, body.way #corner, body.way #pointers, body.way #tip, body.way .pop,
-body.meet #hud, body.meet #corner, body.meet #pointers, body.meet #tip, body.meet .pop{ opacity:0; visibility:hidden; }
+body.meet #hud, body.meet #corner, body.meet #pointers, body.meet #tip, body.meet .pop,
+body.offer #buy, body.offer #buyHint, body.way #buy, body.way #buyHint, body.meet #buy, body.meet #buyHint{ opacity:0; visibility:hidden; }
 #offerBlink{ position:fixed; inset:0; z-index:7; background:#0F2230; opacity:0; pointer-events:none; }
 #offerBlink.on{ opacity:1; }
 #offerBlink.slow{ transition:opacity .45s; }
@@ -1636,7 +1646,7 @@ body.show #toss, body.show #cook, body.show #coach, body.show #hint, body.show #
   <div id="buyHint" class="pill" role="status" hidden></div>
   <div id="tip" class="pill" aria-live="polite"></div>
 </div>
-<button id="buy" type="button" hidden><span aria-hidden="true">🛒</span>Buy</button>
+<button id="buy" type="button" aria-label="Hold to buy" hidden><span aria-hidden="true">🛒</span>Hold</button>
 <button id="craft" type="button" hidden><span aria-hidden="true">🍳</span>Shop<b id="craftN"></b></button>
 <button id="toss" type="button" hidden><span aria-hidden="true">🗑️</span>Toss</button>
 <button id="cook" type="button" hidden><span aria-hidden="true">🍲</span><b>Cook</b></button>
