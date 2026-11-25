@@ -213,7 +213,10 @@ const at = (dt: number, run: () => void) => { scene?.cues.push({ t: scene.t + dt
 /** True while a scene plays: the cellar holds still (ring.ts), and the world's sounds go quiet (game.ts). */
 export const wayPlaying = () => !!scene;
 /** The door's state and what's being said, for tests. */
-export const wayState = () => ({ open, scene: scene?.kind ?? null, says: doorman.says.text || sayLine?.text || '', calling });
+export const wayState = () => ({
+  open, scene: scene?.kind ?? null, says: doorman.says.text || sayLine?.text || '', calling,
+  dim: built?.dim.visible ? (built.dim.material as MeshBasicMaterial).opacity : 0,
+});
 
 /** Puts the door as things stand, for a game loading or the ring opening: Mr. Fugu calling if the matchbook's due. */
 export function dressDoor() {
@@ -340,6 +343,9 @@ lookEl.addEventListener('pointerup', letGo);
 lookEl.addEventListener('pointercancel', letGo);
 pocketEl.addEventListener('click', pocket);
 const view = { fwd: V(0, 0, 0), q: new Quaternion(), turn: new Quaternion(), tilt: new Quaternion(), up: new Quaternion() };
+/** How dark the view goes behind the matchbook up close (it was 0.7: too dark, the owner said twice; and the scene's
+ *  dark round the edges is halved while it's up, index.html's #wayShade). */
+export const LOOK_DIM = 0.2;
 const AX = { x: V(1, 0, 0), y: V(0, 1, 0) };
 /** The matchbook, up close, every frame: flying up from the desk, turned as the player turns it, into the pocket. */
 function updLook(dt: number, b: Built) {
@@ -380,7 +386,7 @@ function updLook(dt: number, b: Built) {
   b.dim.position.copy(camera.position).addScaledVector(view.fwd, back);
   b.dim.quaternion.copy(camera.quaternion);
   b.dim.scale.set(back * half * 2 * camera.aspect * 1.2, back * half * 2 * 1.2, 1);
-  (b.dim.material as MeshBasicMaterial).opacity = 0.7 * Math.min(1, l.t / 0.4) * (l.out >= 0 ? 1 - Math.min(1, l.out / 0.35) : 1);
+  (b.dim.material as MeshBasicMaterial).opacity = LOOK_DIM * Math.min(1, l.t / 0.4) * (l.out >= 0 ? 1 - Math.min(1, l.out / 0.35) : 1);
 }
 
 /** The doorman says `text` over his door, in blips, his voice low behind it (on the scene's bus, `cue`, or heard from the
