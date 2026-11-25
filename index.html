@@ -1229,6 +1229,8 @@ body.cine #hud, body.cine #rush{ visibility:hidden; }
 body.offer #offerShade, body.way #wayShade, body.meet #meetShade{ opacity:1; }
 /* (the club's dark already: a lighter dark round the edges) */
 body.meet #meetShade{ opacity:.6; }
+/* (and with Mr. Fugu's matchbook up close, half the dark round the edges, so the room behind it still shows) */
+body.way:has(#wayLook:not([hidden])) #wayShade{ opacity:.5; }
 body.offer #game, body.way #game, body.meet #game{ filter:saturate(.8); }
 #hud, #corner, #pointers{ transition:opacity .3s; }
 body.offer #hud, body.offer #corner, body.offer #pointers, body.offer #tip, body.offer .pop,

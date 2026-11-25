@@ -343,8 +343,9 @@ lookEl.addEventListener('pointerup', letGo);
 lookEl.addEventListener('pointercancel', letGo);
 pocketEl.addEventListener('click', pocket);
 const view = { fwd: V(0, 0, 0), q: new Quaternion(), turn: new Quaternion(), tilt: new Quaternion(), up: new Quaternion() };
-/** How dark the view goes behind the matchbook up close (it was 0.7: too dark, the owner said, so half that). */
-export const LOOK_DIM = 0.35;
+/** How dark the view goes behind the matchbook up close (it was 0.7: too dark, the owner said twice; and the scene's
+ *  dark round the edges is halved while it's up, index.html's #wayShade). */
+export const LOOK_DIM = 0.2;
 const AX = { x: V(1, 0, 0), y: V(0, 1, 0) };
 /** The matchbook, up close, every frame: flying up from the desk, turned as the player turns it, into the pocket. */
 function updLook(dt: number, b: Built) {
