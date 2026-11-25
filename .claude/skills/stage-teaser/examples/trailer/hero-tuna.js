@@ -30,7 +30,8 @@ window.HeroTuna = T3 => {
   body.setAttribute('color', new Float32BufferAttribute(col, 3));
   body.computeVertexNormals();
   const base = Float32Array.from(P.array);
-  const bodyMesh = new Mesh(body, new MeshPhongMaterial({ vertexColors: true, shininess: 60, specular: 0x4A6A90 }));
+  // (matt, as everything in the game is: a shine on it read as plastic)
+  const bodyMesh = new Mesh(body, new MeshLambertMaterial({ vertexColors: true }));
   bodyMesh.castShadow = true; bodyMesh.frustumCulled = false;
   g.add(bodyMesh);
 
@@ -63,7 +64,7 @@ window.HeroTuna = T3 => {
   });
 
   // ---------- the face ----------
-  const basic = (c0, t = false) => new MeshLambertMaterial({ color: c0, emissive: c0, emissiveIntensity: 0.25, transparent: t });
+  const basic = c0 => new MeshLambertMaterial({ color: c0 });
   const ball = new SphereGeometry(1, 18, 12), box = new BoxGeometry(1, 1, 1);
   const INK = 0x16202C, EX = 0.5, EY = 0.05;
   const eyes = [1, -1].map(s => {
@@ -95,19 +96,19 @@ window.HeroTuna = T3 => {
     tail.position.z = bend(-L / 2); tail.rotation.y = -Math.cos(st.swim - L / 2 * 3.4) * st.amp * 5.5;
     for (const j of pects) j.rotation.set(0, j.userData.s * (-0.25 - st.flare * 1.0), -0.15 + st.flare * 0.5);
     for (const { s, white, pupil, glint, brow, lid, x1, x2 } of eyes) {
-      const w = 1 + st.wide * 0.45, dead = st.dead;
-      white.scale.set(0.058 * w, 0.062 * w, 0.02); white.position.set(0, 0, 0);
+      const w = 1 + st.wide * 0.22, dead = st.dead;
+      white.scale.set(0.047 * w, 0.05 * w, 0.016); white.position.set(0, 0, 0);
       // (looking: forward is +x for both; on the far side that's the other way across the eye)
-      const lx = st.look[0] * 0.02 * s, ly = st.look[1] * 0.02, p = 1 - st.wide * 0.35;
+      const lx = st.look[0] * 0.012 * s, ly = st.look[1] * 0.012, p = 1 - st.wide * 0.18;
       pupil.visible = glint.visible = !dead;
-      pupil.scale.set(0.034 * p, 0.038 * p, 0.012); pupil.position.set(lx, ly, 0.014);
-      glint.scale.setScalar(0.01); glint.position.set(lx + 0.012, ly + 0.014, 0.024);
+      pupil.scale.set(0.031 * p, 0.034 * p, 0.01); pupil.position.set(lx, ly, 0.011);
+      glint.scale.setScalar(0.009); glint.position.set(lx + 0.011, ly + 0.013, 0.02);
       brow.visible = Math.abs(st.brow) > 0.02 && !dead;
-      brow.scale.set(0.1, 0.022, 0.02); brow.position.set(0, 0.07 * w + (st.brow < 0 ? 0.012 : -0.004 * st.brow), 0.016); brow.rotation.z = s * st.brow * 0.55;
+      brow.scale.set(0.085, 0.02, 0.018); brow.position.set(0, 0.06 * w + (st.brow < 0 ? 0.012 : -0.004 * st.brow), 0.016); brow.rotation.z = s * st.brow * 0.55;
       lid.visible = st.lid > 0.02 && !dead;
-      lid.scale.set(0.064 * w, 0.066 * w * st.lid, 0.024); lid.position.set(0, 0.062 * w * (1 - st.lid), 0.004);
+      lid.scale.set(0.052 * w, 0.054 * w * st.lid, 0.02); lid.position.set(0, 0.05 * w * (1 - st.lid), 0.003);
       x1.visible = x2.visible = dead;
-      for (const [x, r] of [[x1, 0.78], [x2, -0.78]]) { x.scale.set(0.085, 0.017, 0.012); x.position.set(0, 0, 0.022); x.rotation.z = r; }
+      for (const [x, r] of [[x1, 0.78], [x2, -0.78]]) { x.scale.set(0.07, 0.015, 0.01); x.position.set(0, 0, 0.018); x.rotation.z = r; }
     }
     const open = st.mouth;
     for (const { s, line, inside } of mouths) {

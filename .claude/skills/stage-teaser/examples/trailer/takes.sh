@@ -10,7 +10,12 @@ U=http://localhost:5177/; U3="http://localhost:5177/?cellar&full&beaten=4&sound=
 FK=rush,fightBanner,finish,finBlink,ringFlash,epic,banner,fade,toast,confetti
 r() { name=$1; shift; node "$P/render-play.mjs" "$@" > "$S/log-$name.txt" 2>&1; echo "$name: $(tail -1 "$S/log-$name.txt")"; }
 # the opening (the owner's script: the floe, the tuna, the cleaver), on a new game
-r O "$X/kit.js,$X/hero-tuna.js,$X/o.js" "$S/O" --landscape --url "$U?stage=1&sound=on" --mute music --init "$X/newgame.js" &
+r O "$X/kit.js,$X/hero-tuna.js,$X/acting.js,$X/o.js" "$S/O" --landscape --url "$U?stage=1&sound=on" --mute music --init "$X/newgame.js" &
+# the campfire (that night: the bell, the idea) and the first sale (real play, HUD on); then cut.py with edl-open.json
+r C "$X/kit.js,$X/acting.js,$X/campfire.js,$X/c.js" "$S/C" --landscape --url "$U?stage=1&pile=14&sound=on" --mute music --init "$X/newgame.js" --wait 9000 &
+r G "$X/kit.js,$X/acting.js,$X/campfire.js,$X/g.js" "$S/G" --landscape --url "$U?stage=1&pile=14&sound=on" --mute music --init "$X/newgame.js" --wait 6000 --keep hud,toast,prompts &
+r M0 "$X/bed.js" "$S/M0" --landscape --url "$U?stage=1&sound=on#8" --mute sfx,amb --sound-only --init "$X/newgame.js" &
+wait
 # act 1: the ice market, then Floe Sushi and the knocking hatch (music laid in from the beds)
 r S1 "$X/kit.js,$X/s1.js" "$S/S1" --landscape --url "$U?stage=1&sound=on" --mute music &
 r S2 "$X/kit.js,$X/s2.js" "$S/S2" --landscape --url "$U?sound=on" --keep toast,offer --mute music &

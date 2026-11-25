@@ -81,6 +81,13 @@ with `applyUnlock`, a dawn sky dome, the game's toast and tip pill shown as over
   model (`hero-tuna.js`: a smooth bending body, fins, eyes, brows, a mouth), a waterline (the game's `foamRing`) and
   to ride high: the game's pale-bellied fish, half sunk with no foam, read as see-through. A lathe's faces look
   outward only when its profile climbs: built the other way the body is inside-out and the far eye shows through.
+- **What the owner rejected in the acting** (so don't try them again): round eyes with whites and pupils on the
+  chef ("creepy": grow his own dots instead, `eyes: 'big'`); a glossy fish (matt, as the game is); a jump onto the
+  fish in under a second ("too fast and jerky": drag, haul, climb, about two seconds); a life vest ("looks bad":
+  the parka itself faded, stained and torn, `Acting().castaway`); open boot soles when he lies down (`soles`).
+- **Real play in a trailer** is its own take on the game's camera with the HUD kept (`--keep hud,toast,prompts`,
+  `K.cam = null`), the chef walked with the game's joystick (pointer events on the canvas: `g.js` `walkTo`).
+  `window.cineType.marks` records when each part starts, for the cut.
 - **A different starting state**: `--init file.js` runs a script before the game loads. `examples/trailer/newgame.js`
   rewrites the demo's `?stage=1` save into a brand new game (a bare dock, no yacht, no auto harpoon).
 - **"Nothing but sea"**: the bay's rolling water stops 60 m out and a flat sheet carries on; from high up the edge

@@ -9,7 +9,9 @@
       done = true;
       try {
         const s = JSON.parse(v);
-        Object.assign(s, { tiles: [], mods: {}, money: 0, best: 0, reviews: [], pile: 0, back: 0, c1: 0, c1c: 0, c2: 0, c2c: 0, fish: 0, cash: 0, tcash: 0, presents: 0 });
+        // (?pile=N in the address: N fillets already cut and on the pile)
+        const pile = Number(new URLSearchParams(location.search).get('pile')) || 0;
+        Object.assign(s, { tiles: [], mods: {}, money: 0, best: 0, reviews: [], pile, back: 0, c1: 0, c1c: 0, c2: 0, c2c: 0, fish: 0, cash: 0, tcash: 0, presents: 0 });
         v = JSON.stringify(s);
       } catch { /* not the save: leave it */ }
     }

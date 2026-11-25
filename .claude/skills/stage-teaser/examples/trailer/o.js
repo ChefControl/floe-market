@@ -5,10 +5,11 @@
 // None of these moves are in the game: the chef is posed here, with a face made of the game's own face parts
 // (characters.ts: round eyes, brows, the "o", the grin), and the tuna is the clip's own (hero-tuna.js).
 (async () => {
-  while (!window.K || !window.HeroTuna) await new Promise(r => setTimeout(r, 50));
+  while (!window.K || !window.HeroTuna || !window.Acting) await new Promise(r => setTimeout(r, 50));
   const { V, clamp, ease, easeOut, easeIO, lerp, T3 } = K;
   const { Group, Mesh, MeshLambertMaterial, TorusGeometry, TubeGeometry, CatmullRomCurve3, SphereGeometry, BoxGeometry, CircleGeometry, DoubleSide } = T3;
   const { scene } = K.R;
+  const ACT = await Acting();
   const { player } = await window.__mod('player.ts');
   const { FLOES } = await window.__mod('props.ts');
   const { foamRing, seaGeometry } = await window.__mod('sea.ts');
@@ -19,8 +20,8 @@
   const back = k => { k = clamp(k); const c = 2.2; return 1 + (c + 1) * Math.pow(k - 1, 3) + c * Math.pow(k - 1, 2); };
 
   const BEAT = 60 / 92, at = n => n * BEAT;
-  const T = { sit: 1.0, peek: at(2.5), up: at(3.6), bang: at(5), hit1: at(6), hit2: at(7), hit3: at(8), pov: at(10), react: at(12), idea: at(12.7),
-    over: at(13.5), thrown: at(14), caught: at(14.5), taut: at(15), ride2: at(17), chop: at(19), end: at(21.5) };
+  const T = { sit: 1.0, peek: at(2.5), up: at(3.6), bang: at(5), hit1: at(6), hit2: at(7), hit3: at(8), pov: at(12), react: at(14), idea: at(14.7),
+    over: at(15.5), thrown: at(16), caught: at(16.5), taut: at(17), ride2: at(21), end: at(23) };
 
   // ---------- the set ----------
   /** The floe, far out: no shore or island in any shot from here. */
@@ -53,6 +54,17 @@
   const ring = foamRing(2.3); ring.position.y = 0.03;
   floe.add(ice, ring); floe.position.copy(F); floe.position.y = 0.105; floe.rotation.y = 0.6;
   scene.add(floe);
+  {
+    let seed = 99; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    for (let i = 0; i < 70; i++) {
+      const a = rnd() * Math.PI * 2, d = 26 + rnd() * rnd() * 190, x = F.x + Math.cos(a) * d, z = F.z + Math.sin(a) * d;
+      // (clear of the way the tuna takes him: south-east of the floe)
+      if (x > F.x && z > F.z - 6 && Math.abs((x - F.x) * 0.8 - (z - F.z) * 0.6) < 9) continue;
+      const m = FLOES[i % 3].mesh(false), s = 0.5 + rnd() * 1.9;
+      m.scale.set(s, 1.1, s * (0.7 + rnd() * 0.5)); m.position.set(x, 0.1, z); m.rotation.y = rnd() * 6;
+      scene.add(m);
+    }
+  }
   const ICE_Y = 0.23; // the top of the floe, where he lies and stands
 
   // ---------- the tuna ----------
@@ -96,56 +108,9 @@
 
   // ---------- the chef ----------
   const P = player.g;
-  // His face: the game's own face parts (characters.ts `face`), laid over his dot eyes and worn only here.
-  const INK = 0x1B2733, INSIDE = 0x5A1E24, lam = c => new MeshLambertMaterial({ color: c, side: DoubleSide });
-  const ball = new SphereGeometry(1, 14, 10), box = new BoxGeometry(1, 1, 1), arch = new TorusGeometry(1, 0.24, 6, 14, Math.PI), halfDisc = new CircleGeometry(1, 16, Math.PI, Math.PI);
-  const part = (geo, c) => { const m = new Mesh(geo, lam(c)); m.visible = false; P.body.add(m); return m; };
-  const FACE = {
-    brows: [-1, 1].map(() => part(box, P.style.hair)), whites: [-1, 1].map(() => part(ball, 0xFFFFFF)), pupils: [-1, 1].map(() => part(ball, INK)),
-    covers: [-1, 1].map(() => part(ball, P.style.skin)), arcs: [-1, 1].map(() => part(arch, INK)),
-    o: part(ball, INSIDE), smile: part(arch, INK), grin: part(halfDisc, INSIDE), teeth: part(box, 0xFFFFFF),
-  };
-  /** His face now. eyes: 'dot' (his own), 'wide', 'shut' (asleep), 'happy'; brow: null or [how high 0..1, tilt: + scowl, - worry];
-   *  mouth: 'none' | 'o' | 'smile' | 'frown' | 'grin'; open: how big the "o" or the grin is; look: where wide eyes look. */
-  function face({ eyes = 'dot', brow = null, mouth = 'none', open = 1, look = [0, 0] } = {}) {
-    [-1, 1].forEach((s, i) => {
-      const x = s * 0.07, b = FACE.brows[i], w = FACE.whites[i], p = FACE.pupils[i], c = FACE.covers[i], a = FACE.arcs[i];
-      b.visible = !!brow;
-      if (brow) { b.scale.set(0.075, 0.017, 0.014); b.position.set(x, 1.1 + brow[0] * 0.03, 0.238); b.rotation.set(-0.35, 0, s * brow[1] * 0.45); }
-      w.visible = p.visible = eyes === 'wide';
-      if (eyes === 'wide') {
-        w.scale.set(0.046, 0.052, 0.022); w.position.set(x, 1.062, 0.234);
-        p.scale.set(0.022, 0.026, 0.012); p.position.set(x + look[0] * 0.016, 1.058 + look[1] * 0.016, 0.252);
-      }
-      c.visible = a.visible = eyes === 'shut' || eyes === 'happy';
-      if (c.visible) {
-        c.scale.set(0.04, 0.04, 0.016); c.position.set(x, 1.064, 0.243);
-        a.scale.setScalar(0.026); a.position.set(x, eyes === 'happy' ? 1.05 : 1.066, 0.262); a.rotation.z = eyes === 'happy' ? 0 : Math.PI;
-      }
-    });
-    const y = 0.965, z = 0.246;
-    FACE.o.visible = mouth === 'o';
-    FACE.o.scale.set(0.02 * (0.8 + 0.3 * open), 0.026 * open, 0.012); FACE.o.position.set(0, y, z); FACE.o.rotation.x = 0.33;
-    FACE.smile.visible = mouth === 'smile' || mouth === 'frown';
-    FACE.smile.scale.set(0.04, 0.03, 0.03); FACE.smile.position.set(0, y + (mouth === 'smile' ? 0.02 : -0.022), z); FACE.smile.rotation.set(0.33, 0, mouth === 'smile' ? Math.PI : 0);
-    FACE.grin.visible = FACE.teeth.visible = mouth === 'grin';
-    FACE.grin.scale.set(0.05, 0.046 * open, 1); FACE.grin.position.set(0, y + 0.014, z + 0.002); FACE.grin.rotation.x = 0.33;
-    FACE.teeth.scale.set(0.072, 0.012, 0.004); FACE.teeth.position.set(0, y + 0.008, z + 0.008); FACE.teeth.rotation.x = 0.33;
-  }
-  /** Poses him: his hips at `hip` (or his feet at `feet`), facing `yaw`, tipped back by `back` (π/2: flat on his back)
-   *  or forward by `lean`, legs swung from straight down, arms [forward swing, out to the side] each, `sq` his squash
-   *  (under 1) or stretch. Set after the game's own animation, which this replaces for the shot. */
-  function chef({ hip, feet, yaw, back: tip = 0, legs = [0, 0], arms = [[0, 0.08], [0, 0.08]], lean = 0, roll = 0, sq = 1, f = {} }) {
-    P.rotation.order = 'YXZ';
-    P.rotation.set(-tip + lean, yaw, roll);
-    if (feet) P.position.copy(feet);
-    else P.position.copy(hip).sub(V(0, 0.3, 0).applyEuler(P.rotation)); // (his hips are 0.3 up his body)
-    P.body.position.y = 0; P.body.rotation.set(0, 0, 0); P.body.scale.set(1 / Math.sqrt(sq), sq, 1 / Math.sqrt(sq));
-    P.legs[0].rotation.x = legs[0]; P.legs[1].rotation.x = legs[1];
-    P.arms[0].rotation.set(arms[0][0], 0, -arms[0][1]); P.arms[1].rotation.set(arms[1][0], 0, arms[1][1]);
-    P.visible = true;
-    face(f);
-  }
+  // his face, his pose, soles under his boots, and a castaway's coat, faded, filthy and torn (acting.js)
+  const setFace = ACT.face(P), chef = o => ACT.pose(P, o, setFace);
+  ACT.soles(P); ACT.castaway(P);
   /** His hand, in the world (the end of his arm, 0.42 down it). */
   const hand = i => P.arms[i].localToWorld(V(0, -0.42, 0));
   const headAt = () => P.body.localToWorld(V(0, 1.03, 0.05));
@@ -205,16 +170,15 @@
     once('throw', T.thrown, t, () => whoosh(0.4, 0.3)); once('s3', T.thrown - 0.2, t, () => SFX.splash(P.position));
     once('gotcha', T.caught + 0.16, t, () => { blip(1100, 1500, 0.4, 0, 0.1); A.tone({ f: 230, f2: 170, d: 0.16, type: 'triangle', v: 0.35 }); });
     once('taut', T.taut - 0.04, t, () => { A.tone({ f: 250, f2: 150, d: 0.2, type: 'triangle', v: 0.45 }); whoosh(2.7, 0.3, 700, 1500); SFX.splash(P.position); });
-    once('mount', T.taut + 0.7, t, () => thud(0.1));
-    once('chop', T.chop + 2 / 30, t, () => { SFX.chop(ST.chopTop, 0); thud(0.6); FX.chipsFx(ST.chopTop); });
+    once('mount', T.taut + 1.9, t, () => thud(0.1));
+    once('wind', T.hit3 + 0.3, t, () => { A.noise({ f: 380, f2: 760, q: 0.5, d: T.pov - T.hit3 - 0.3, a: 1.3, v: 0.09 }); A.tone({ f: 52, f2: 46, d: T.pov - T.hit3 - 0.4, a: 1.2, v: 0.1 }); });
 
     // ---------- the picture ----------
     let shot;
     // (he's in a scene: he doesn't fish from the pad, pick fillets up or drop them, wherever it puts him)
     player.tPick = player.tDrop = player.tCatch = player.tCash = 9;
     rope.visible = false; loop.visible = false; wash.visible = false;
-    for (const h of hills) h.visible = t >= T.chop;
-    openSea.visible = t < T.chop;
+    for (const h of hills) h.visible = false;
     K.fade(0); K.letterbox(0);
     pills[0].at = pills[1].at = null;
     tuna.g.scale.setScalar(2.3);
@@ -234,9 +198,9 @@
         const gasp = t >= T.bang, gk = (t - T.bang), jump = gasp ? Math.sin(clamp(gk / 0.3) * Math.PI) * 0.2 : 0;
         const f = t < 0.55 ? { eyes: 'shut' } : t < 0.62 ? { eyes: 'dot' } : t < 0.72 ? { eyes: 'shut' } : t < 0.82 ? { eyes: 'dot' } : t < 0.9 ? { eyes: 'shut' }
           : t < T.sit + 0.5 ? { eyes: 'dot', brow: [0.6, -0.3], mouth: t > T.sit + 0.1 ? 'o' : 'none', open: 0.7 }
-            : t < T.up ? { eyes: 'wide', look: [eyeX, 0.1], brow: [0.8, -0.8], mouth: lookT > 0.4 ? 'frown' : 'none' }
-              : !gasp ? { eyes: 'wide', look: [Math.sign(spin) * 0.8, 0], brow: [0.9, -0.9], mouth: 'frown' }
-                : { eyes: 'wide', look: [0, 0.2], brow: [1.6, -0.4], mouth: 'o', open: 1.9 };
+            : t < T.up ? { eyes: 'big', look: [eyeX, 0.1], brow: [0.8, -0.8], mouth: lookT > 0.4 ? 'frown' : 'none' }
+              : !gasp ? { eyes: 'big', look: [Math.sign(spin) * 0.8, 0], brow: [0.9, -0.9], mouth: 'frown' }
+                : { eyes: 'big', look: [0, 0.2], brow: [1.6, -0.4], mouth: 'o', open: 1.9 };
         chef({
           hip: F.clone().add(V(shiver * (t > T.sit ? 1 : 0), 0, 0)).setY(ICE_Y + mix(mix(0.2, 0.13, sit), 0.3, stand) + hop + jump),
           yaw: mix(1.45, mix(0.3, yaw0, stand), easeIO((t - 0.95) / 0.6)) + bodyLook * (1 - stand) + spin,
@@ -255,12 +219,13 @@
       } else {
         // ----- three thuds: further, further, nothing but sea. He runs out of ideas a size at a time. -----
         const a = t - T.hit1, b = t - T.hit2, c = t - T.hit3;
-        if (t < T.hit2) chef({ hip: F.clone().setY(ICE_Y + 0.3 + Math.abs(Math.sin(a * 16)) * 0.05), yaw: yaw0 + a * 9.6, arms: [[0, 1.2 + Math.sin(a * 30) * 0.3], [0, 1.2 - Math.sin(a * 30) * 0.3]], f: { eyes: 'wide', brow: [1.2, -0.8], mouth: 'o', open: 1.5 } });
-        else if (t < T.hit3) chef({ hip: F.clone().setY(ICE_Y + 0.3 + Math.abs(Math.sin(b * 15)) * 0.3), yaw: yaw0, arms: [[0, 2.5 + Math.sin(b * 22) * 0.35], [0, 2.5 - Math.sin(b * 22) * 0.35]], f: { eyes: 'wide', mouth: 'o', open: 1.6 } });
-        else chef({ hip: F.clone().setY(ICE_Y + 0.3), yaw: yaw0, lean: 0.2 * ease(c / 0.6), arms: [[0, mix(1.6, 0.06, ease(c / 0.5))], [0, mix(1.6, 0.06, ease(c / 0.5))]], f: { eyes: 'dot', brow: [0.4, -1], mouth: 'frown' } });
+        if (t < T.hit2) chef({ hip: F.clone().setY(ICE_Y + 0.3 + Math.abs(Math.sin(a * 16)) * 0.05), yaw: yaw0 + a * 9.6, arms: [[0, 1.2 + Math.sin(a * 30) * 0.3], [0, 1.2 - Math.sin(a * 30) * 0.3]], f: { eyes: 'big', brow: [1.2, -0.8], mouth: 'o', open: 1.5 } });
+        else if (t < T.hit3) chef({ hip: F.clone().setY(ICE_Y + 0.3 + Math.abs(Math.sin(b * 15)) * 0.3), yaw: yaw0, arms: [[0, 2.5 + Math.sin(b * 22) * 0.35], [0, 2.5 - Math.sin(b * 22) * 0.35]], f: { eyes: 'big', mouth: 'o', open: 1.6 } });
+        else { const down = ease((c - 0.9) / 0.5); chef({ hip: F.clone().setY(ICE_Y + mix(0.3, 0.13, down)), yaw: yaw0, lean: 0.2 * ease(c / 0.6), legs: [-(Math.PI / 2) * down, -(Math.PI / 2) * down * 0.92],
+          arms: [[0.4 * down, mix(1.6, 0.1, ease(c / 0.5))], [0.4 * down, mix(1.6, 0.1, ease(c / 0.5))]], f: { eyes: 'dot', brow: [0.4, -1], mouth: 'frown' } }); }
         if (t < T.hit2) shot = { ...hit(t, T.hit1, wide(8, 0.3), F.clone().setY(0.6)), fogNear: 40, fogFar: 120 };
         else if (t < T.hit3) shot = { ...hit(t, T.hit2, wide(30, 0.75), F.clone()), fogNear: 80, fogFar: 200 };
-        else shot = { ...hit(t, T.hit3, wide(115, 1.36), F.clone()), fogNear: 200, fogFar: 500 };
+        else { const pull = ease((t - T.hit3 - 0.25) / (T.pov - T.hit3 - 0.25)); shot = { ...hit(t, T.hit3, wide(mix(115, 185, pull), mix(1.36, 1.44, pull)), F.clone()), fogNear: 400, fogFar: 1200, far: 700 }; }
       }
     } else if (t < T.react) {
       // ----- through his eyes: a blink, the empty water, breathing... and a tuna going over, happy as anything -----
@@ -288,7 +253,7 @@
       const twirlT = t - T.idea - 0.3, twirling = twirlT > 0, spin = Math.max(0, twirlT) * 20, thrown = clamp((t - T.thrown) / 0.3), sw = ease(thrown);
       const seaward = Math.atan2(LEAP2.x - F.x, LEAP2.z - F.z), idea = t >= T.idea, ik = t - T.idea;
       // his face: wide-eyed after the fish, then the idea lands and he narrows them
-      const f = !idea ? { eyes: 'wide', look: [mix(-0.6, 0.9, ease((t - T.react) / 0.4)), mix(0.5, -0.4, ease((t - T.react) / 0.4))], brow: [1.2, -0.3], mouth: 'o', open: 1.2 }
+      const f = !idea ? { eyes: 'big', look: [mix(-0.6, 0.9, ease((t - T.react) / 0.4)), mix(0.5, -0.4, ease((t - T.react) / 0.4))], brow: [1.2, -0.3], mouth: 'o', open: 1.2 }
         : thrown > 0 ? { eyes: 'dot', brow: [0, 1.2], mouth: 'o', open: 1.4 } : { eyes: 'dot', brow: [-0.2, 1.1], mouth: ik > 0.12 ? 'grin' : 'smile', open: 0.9 };
       const crouch = idea && ik < 0.3 ? 1 - 0.16 * Math.sin(clamp(ik / 0.3) * Math.PI) : 1;
       chef({ hip: F.clone().setY(ICE_Y + 0.3 + (twirling && !thrown ? Math.abs(Math.sin(spin * 0.5)) * 0.04 : 0)), yaw: seaward + (twirling ? Math.sin(spin) * 0.07 : 0),
@@ -334,26 +299,28 @@
         P.visible = false;
       }
     } else if (t < T.ride2) {
-      // ----- the ride, alongside: dragged off his feet, then up on its back, terror turning into the time of his life -----
-      const TO = R1, a = t - T.taut, joy = clamp((a - 0.95) / 0.2);
-      const { c, pitch, knot } = swimming(t, RIDE1, TO, 22, T.taut, { brow: 1, smile: -1, look: [-1, 0.5], flare: 0.8, wide: 0.25 });
-      const up = ease((a - 0.4) / 0.32), yawTo = Math.atan2(TO.x, TO.z);
-      const feet = deck(), drag = c.clone().sub(TO.clone().multiplyScalar(3.4)).setY(0.75 + Math.sin(a * 26) * 0.08);
-      const arc = Math.sin(up * Math.PI) * 0.7, land = a > 0.72 && a < 0.9 ? 1 - 0.16 * Math.sin((a - 0.72) / 0.18 * Math.PI) : 1;
-      const wave = joy * (2.5 + Math.sin(a * 16) * 0.3);
-      chef({ feet: drag.lerp(feet, up).add(V(0, arc, 0)), yaw: yawTo, lean: mix(1.35, -0.3 + pitch * 0.6, up), roll: Math.sin(t * 5.2) * 0.09 * up,
-        legs: up < 1 ? [0.5 + Math.sin(a * 30) * 0.5, 0.5 - Math.sin(a * 30) * 0.5] : [0.38 + pitch, 0.18 + pitch], sq: land,
-        arms: [[mix(-2.9, -0.95, up), 0.05], [mix(-2.9, -0.95, up) * (1 - joy), 0.05 + wave]],
-        f: joy > 0.5 ? { eyes: 'happy', brow: [0.8, 0], mouth: 'grin', open: 1.3 } : { eyes: 'wide', look: [0, 0.3], brow: [1.5, -0.9], mouth: 'o', open: 2.0 } });
+      // ----- the ride, alongside: dragged along behind, he hauls himself up the rope and onto its back; then the time of his life -----
+      const TO = R1, a = t - T.taut, joy = ease((a - 2.0) / 0.3);
+      const { c, pitch, knot } = swimming(t, RIDE1, TO, 20, T.taut, { brow: 1, smile: -1, look: [-1, 0.5], flare: 0.8, wide: 0.2 });
+      // (skimming 1.6 m behind its tail; up the rope to it by 1.2 s; onto its back by 1.9 s, in one arc)
+      const haul = easeIO((a - 0.45) / 0.75), up = easeIO((a - 1.15) / 0.75), yawTo = Math.atan2(TO.x, TO.z);
+      const feet = deck(), tailAt = c.clone().sub(TO.clone().multiplyScalar(1.9));
+      const drag = tailAt.clone().sub(TO.clone().multiplyScalar(mix(1.6, 0.1, haul))).setY(0.5 + Math.sin(a * 11) * 0.06 * (1 - up));
+      const arc = Math.sin(up * Math.PI) * 0.35, land = a > 1.9 && a < 2.15 ? 1 - 0.1 * Math.sin((a - 1.9) / 0.25 * Math.PI) : 1;
+      const wave = joy * (2.5 + Math.sin(a * 12) * 0.3), kick = Math.sin(a * 13) * 0.3 * (1 - up);
+      chef({ feet: drag.lerp(feet, up).add(V(0, arc, 0)), yaw: yawTo, lean: mix(1.3, -0.28 + pitch * 0.6, up), roll: Math.sin(t * 5.2) * 0.08 * up,
+        legs: [mix(0.3 + kick, 0.38 + pitch, up), mix(0.3 - kick, 0.18 + pitch, up)], sq: land,
+        arms: [[mix(-2.85, -0.95, up), 0.05], [mix(-2.85, -0.95, up) * (1 - joy), 0.05 + wave]],
+        f: joy > 0.5 ? { eyes: 'happy', brow: [0.8, 0], mouth: 'grin', open: 1.3 } : up > 0.5 ? { eyes: 'big', brow: [1.2, -0.6], mouth: 'o', open: 1.2 } : { eyes: 'big', brow: [1.5, -0.9], mouth: 'o', open: 2.0 } });
       P.updateMatrixWorld(true);
       const h = joy > 0.5 ? hand(0) : hand(0).lerp(hand(1), 0.5);
       lay([h, h.clone().lerp(knot, 0.5).add(V(0, -0.06, 0)), knot]);
-      const camAt = c.clone().add(TO.clone().multiplyScalar(3.0)).add(sideOf(TO).multiplyScalar(2.7)).setY(1.0 + Math.sin(t * 23) * 0.03);
-      shot = { pos: camAt, look: c.clone().sub(TO.clone().multiplyScalar(0.5 * (1 - up) + 0.25)).setY(1.15), fov: 42, fogNear: 30, fogFar: 95 };
-      sprayT -= 1 / fps; if (sprayT <= 0) { sprayT = 0.07; FX.splashFx(c.clone().add(TO.clone().multiplyScalar(1.0)), 0.1); FX.splashFx(c.clone().sub(TO.clone().multiplyScalar(1.6)), 0.1); }
-      once('sp1', T.taut + 0.5, t, () => SFX.splash(P.position)); once('sp2', T.taut + 1.0, t, () => SFX.splash(P.position));
-      once('whee', T.taut + 0.95, t, () => { blip(520, 1040, 0.25, 0, 0.25); });
-    } else if (t < T.chop) {
+      const camAt = c.clone().add(TO.clone().multiplyScalar(3.0)).add(sideOf(TO).multiplyScalar(2.9)).setY(1.0 + Math.sin(t * 23) * 0.03);
+      shot = { pos: camAt, look: c.clone().sub(TO.clone().multiplyScalar(0.9 * (1 - up) + 0.25)).setY(1.1), fov: mix(52, 42, up), fogNear: 30, fogFar: 95 };
+      sprayT -= 1 / fps; if (sprayT <= 0) { sprayT = 0.07; FX.splashFx(c.clone().add(TO.clone().multiplyScalar(1.0)), 0.1); FX.splashFx(c.clone().sub(TO.clone().multiplyScalar(1.6)), 0.1); if (up < 0.5) FX.splashFx(drag, 0.1); }
+      once('sp1', T.taut + 0.5, t, () => SFX.splash(P.position)); once('sp2', T.taut + 1.2, t, () => SFX.splash(P.position));
+      once('whee', T.taut + 2.0, t, () => { blip(520, 1040, 0.25, 0, 0.25); });
+    } else {
       // ----- from behind: the market comes into sight, small and far off across the water, and the picture fades on it -----
       const TO = R2, a = t - T.ride2;
       const { c, pitch, knot } = swimming(t, RIDE2, TO, 13, T.ride2, { brow: 1, smile: -1 });
@@ -367,17 +334,7 @@
       sprayT -= 1 / fps; if (sprayT <= 0) { sprayT = 0.1; FX.splashFx(c.clone().sub(TO.clone().multiplyScalar(1.4)), 0.1); }
       once('sp3', T.ride2 + 0.3, t, () => SFX.splash(P.position));
       K.fade(ease((a - at(0.85)) / at(0.9)));
-    } else {
-      // ----- out of the black: the tuna on the board has just time to see the cleaver -----
-      const B = ST.chopTop, a = t - T.chop, k = clamp(a / (2 / 30)), down = k * k, done = a >= 2 / 30;
-      tuna.g.visible = true; tuna.g.scale.setScalar(0.92); tuna.g.position.set(B.x - 0.05, B.y + 0.2, B.z + 0.05); tuna.g.rotation.set(-1.0, 0, 0);
-      fish(done ? { dead: true, mouth: 0.5, amp: 0, swim: 0, flare: 0.9 } : { wide: 1, look: [0.6, 0.3], mouth: 1, brow: -1, amp: 0.05, swim: t * 40, flare: 1 });
-      ST.blade.position.set(B.x + 0.22, B.y + mix(1.0, 0.22, down), B.z + 0.05); ST.blade.rotation.set(0, 0, mix(-0.5, 0, down));
-      const proud = clamp((a - 0.55) / 0.25);
-      chef({ hip: V(B.x + 0.3, 0.15 + 0.3 + Math.sin(proud * Math.PI) * 0.06, B.z - 0.85), yaw: 0.25 * ease(proud), lean: 0.12 * down * (1 - proud),
-        arms: [[0, 0.1], [mix(-2.3, -1.0, down), 0.1]], f: proud > 0.4 ? { eyes: 'happy', mouth: 'grin', open: 1.1 } : { eyes: 'dot', brow: [0, 1.2], mouth: 'smile' } });
-      const sh = Math.max(0, 1 - (a - 2 / 30) / 0.22) * (done ? 0.035 : 0);
-      shot = { pos: V(B.x + 0.9 + Math.sin(t * 90) * sh, B.y + 1.25 + Math.cos(t * 70) * sh, B.z + 2.5), look: V(B.x + 0.05, B.y + 0.22, B.z - 0.25), fov: 38 };
+
     }
     K.cam = shot;
   }

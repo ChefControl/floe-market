@@ -24,7 +24,9 @@
     lookAt(shot.look);
     if (shot.roll) cam.rotateZ(shot.roll);
     const f = shot.fov ?? 40;
-    if (cam.fov !== f) { cam.fov = f; cam.updateProjectionMatrix(); }
+    // (the game's camera sees 200 m: a shot from higher up says how far it needs)
+    const far = shot.far ?? 200;
+    if (cam.fov !== f || cam.far !== far) { cam.fov = f; cam.far = far; cam.updateProjectionMatrix(); }
     cam.updateMatrixWorld();
     after?.(cam);
   };
@@ -41,7 +43,7 @@
       R.sun.position.copy(at).add(R.sunOff); R.sun.target.position.copy(at);
       if (shot.fogNear) { R.fog.near = shot.fogNear; R.fog.far = shot.fogFar; }
     }
-    if (!shot && cam.fov !== 40) { cam.fov = 40; cam.updateProjectionMatrix(); }
+    if (!shot && (cam.fov !== 40 || cam.far !== 200)) { cam.fov = 40; cam.far = 200; cam.updateProjectionMatrix(); }
     draw(s, c);
   };
   /** A camera path: keys [{t, pos:[x,y,z], look:[x,y,z], fov}] eased between, held after the last. */
