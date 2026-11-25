@@ -109,15 +109,18 @@ export function buyMod(id: ModId) {
 // ---------- the cookware shop's tree ----------
 /** How a node stands: bought (or its line full), on sale, waiting on another bought first, or behind a fight not won. */
 type NodeState = 'done' | 'open' | 'needs' | 'boss';
-/** What's still to win before a band opens. */
+/** What's still to win before a band opens: on its nodes, and on the Buy button under the tree (so the line beside it
+ *  is left for what the thing does, all of it: report 30). */
 function gateWhy(g: number) {
-  const { face, name } = GATES[g];
-  return { tag: `🔒 ${face}`, why: g === 1 ? 'Win the practice fight first' : `Beat ${name} ${face} first` };
+  const { face } = GATES[g];
+  return { tag: `🔒 ${face}`, lock: g === 1 ? '🔒 Practice fight' : `🔒 Beat ${face}` };
 }
 /** One thing the shop sells, as its node and the line under the tree show it: the ring's next level of an upgrade, or
  *  a room's upgrade (or the buyout, sold at Mr. Fugu's office, at the end of the tree). */
 interface Item {
   key: string; icon: string; name: string; desc: string; tag: string; sale: boolean; done?: boolean; cost: number | null; buy: () => boolean;
+  /** Behind a fight not won: what the Buy button says instead. */
+  lock?: string;
   state: NodeState;
   /** Its name on its node: a ring level's effect, a tile's short name. */
   label: string;
@@ -136,8 +139,9 @@ function modItem(m: (typeof MODS)[number]): Item {
   const next = `${m.levels ? levelName(m.id, lv + 1) + ': ' : ''}${what} ${pct(now)} → ${pct(then)}`;
   return {
     key: 'mod:' + m.id, icon: m.icon, name: cost === null ? `${m.name} · ${levelName(m.id, lv)}` : `${m.name} ${lv + 1}`, label: what, level: lv,
-    desc: cost === null ? `${what} ${pct(now)} · fully upgraded` : shut ? `${gateWhy(gate).why}: ${next}` : next,
-    tag: cost === null ? 'Max' : shut ? gateWhy(gate).tag : chips(cost, true), sale: cost !== null && !shut, done: cost === null, cost, buy: () => buyMod(m.id),
+    desc: cost === null ? `${what} ${pct(now)} · fully upgraded` : next,
+    tag: cost === null ? 'Max' : shut ? gateWhy(gate).tag : chips(cost, true), lock: shut ? gateWhy(gate).lock : undefined,
+    sale: cost !== null && !shut, done: cost === null, cost, buy: () => buyMod(m.id),
     state: cost === null ? 'done' : shut ? 'boss' : 'open',
   };
 }
@@ -148,9 +152,10 @@ function tileItem(t: Tile): Item {
   const lower = (s: string) => s.charAt(0).toLowerCase() + s.slice(1);
   return {
     key: 'tile:' + t.id, icon: t.icon, name: t.line ? `${label} ${n}/${MAX_MACHINES}` : label, label, tile: t, place, gate, state,
-    desc: state === 'done' ? (t.line ? `The ${NAME[t.line]} line is full` : t.desc) : state === 'boss' ? `${gateWhy(gate).why}: ${lower(t.desc)}`
-      : state === 'needs' ? `Buy the ${lower(needName)} first` : t.gold ? "At Mr. Fugu's office" : t.desc,
+    desc: state === 'done' ? (t.line ? `The ${NAME[t.line]} line is full` : t.desc) : state === 'needs' ? `Buy the ${lower(needName)} first`
+      : state === 'open' && t.gold ? "At Mr. Fugu's office" : t.desc,
     tag: state === 'done' ? (t.line ? 'Max' : '✓') : state === 'boss' ? gateWhy(gate).tag : chips(t.cost, true),
+    lock: state === 'boss' ? gateWhy(gate).lock : undefined,
     sale: state === 'open' && !t.gold, done: state === 'done', cost: t.cost,
     buy: () => { if (t.gold) return false; const ok = buyFromMenu(t); if (ok) save(); return ok; },
     pips: t.line ? [n, MAX_MACHINES] : undefined,
@@ -370,12 +375,12 @@ function syncBench(q: Square) {
   const purse = chips(wallet.money);
   if (purseEl.textContent !== purse) purseEl.textContent = purse;
   const it = pickedItem(items), buy = pickEl.querySelector<HTMLButtonElement>('.buy');
-  const key = it ? `${it.key}|${it.name}|${it.desc}|${it.tag}|${it.state}` : '';
+  const key = it ? `${it.key}|${it.name}|${it.desc}|${it.tag}|${it.lock}|${it.state}` : '';
   if (key !== shownPick && buy) {
     shownPick = key;
     const what = pickEl.querySelector('.what')!;
     what.children[0].textContent = it?.name ?? ''; what.children[1].textContent = it?.desc ?? '';
-    buy.textContent = !it ? '' : it.state === 'done' ? (it.pips || it.level !== undefined ? 'Max' : 'Done ✓') : it.tile?.gold && it.state === 'open' ? 'At his office' : it.sale ? `Buy · ${it.tag}` : it.state === 'needs' ? '🔒' : it.tag;
+    buy.textContent = !it ? '' : it.state === 'done' ? (it.pips || it.level !== undefined ? 'Max' : 'Done ✓') : it.tile?.gold && it.state === 'open' ? 'At his office' : it.sale ? `Buy · ${it.tag}` : it.state === 'needs' ? '🔒' : it.lock ?? it.tag;
     buy.hidden = !it;
   }
   if (buy) { const off = !it || !canBuy(it); if (buy.disabled !== off) buy.disabled = off; }

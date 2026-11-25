@@ -464,6 +464,28 @@ describe('the Undertow', () => {
     }
   });
 
+  it("lets you walk along the bandstand's front past Velvet's stage, never thrown to its far end (report 29)", async () => {
+    const { g, cellar } = await ring({ ring: { beaten: 2, lines: { mush: { n: 1 } } } });
+    const L = g.layout;
+    // (walking west from the corner where the bandstand, her half-round and the east dancers meet, drifting a little
+    // into the bandstand, then away from it into the dancers, a step a frame as the player's update takes it)
+    for (const dz of [-0.1, 0.3]) {
+      const p = { x: -5.1, z: 12.9 }, n = Math.hypot(1, dz);
+      L.keepOnFloor(p, L.walkable());
+      cellar.collideCellar(p);
+      let jump = 0;
+      for (let i = 0; i < 20; i++) {
+        const was = { ...p };
+        p.x -= 0.06 / n; p.z += 0.06 * dz / n;
+        L.keepOnFloor(p, L.walkable());
+        cellar.collideCellar(p);
+        jump = Math.max(jump, Math.hypot(p.x - was.x, p.z - was.z));
+      }
+      expect(jump, `drifting ${dz}`).toBeLessThanOrEqual(0.2);
+      expect(p.x, `drifting ${dz}`).toBeGreaterThan(-6);
+    }
+  });
+
   it('has a band on the bandstand playing along with the music: the sax up for the last A, two of the drummer\'s arms on the vibes for the bridge', async () => {
     const { g, plan } = await ring({ ring: { beaten: 2, lines: { mush: { n: 1 } } } });
     const { band, bandState } = await import('../src/band'), { eighth } = await import('../src/noir');

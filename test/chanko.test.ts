@@ -371,6 +371,23 @@ describe('the cooking show at the pot', () => {
     expect(him.visible).toBe(true);
   }, 60_000);
 
+  it('what the player carries is put away with them while it\'s on, and comes back in their arms after', async () => {
+    const { g, run } = await atPot();
+    // (twelve bowls in the player's arms, as with the bigger pack)
+    const back = g.player.back;
+    back.cap = 14;
+    for (let i = 0; i < 12; i++) back.put(g.items.newBowl(true));
+    const held = back.all();
+    expect(held).toHaveLength(12);
+    $('cook').click();
+    run(0.6);
+    expect(held.every(m => !m.visible)).toBe(true);
+    $('showShut').click();
+    run(0.6);
+    expect(held.every(m => m.visible)).toBe(true);
+    expect(back.all()).toEqual(held);
+  }, 60_000);
+
   it('Cook at the pot starts the show: the game holds still, and ✕ ends it with nothing', async () => {
     const { g, show, run, F } = await atPot();
     expect($('cook').hidden).toBe(false);

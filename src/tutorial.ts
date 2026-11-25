@@ -114,8 +114,8 @@ const harpoon = () => tiles.find(t => t.id === 'turret')!;
 /** A goal's spot, once there's the cash for it. */
 const reached = (g: Goal | null) => (g && wallet.money >= g.need ? g.spot : null);
 const firstLocked = () => onOffer().find(locked) ?? null;
-/** How to buy, on this device: the Buy button on a touch screen, or E. */
-const hold = () => touchBuy() ? 'Stand on it and hold Buy' : buyButtonShown() ? 'Stand on it and hold E or Buy' : 'Stand on it and hold E';
+/** How to buy, on this device: the Buy button (🛒 Hold) on a touch screen, or E. */
+const hold = () => touchBuy() ? 'Stand on it and hold 🛒' : buyButtonShown() ? 'Stand on it and hold E or 🛒' : 'Stand on it and hold E';
 /** Cash at the start of the cash lesson, to see it go up; and where the player stood as the lesson showing came up. */
 let cash0 = 0;
 const from = { x: 0, z: 0 };

@@ -218,7 +218,7 @@ describe('how to walk', () => {
     vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue(IPHONE);
     await loadGame();
     (await import('../src/hint')).initHint();
-    expect($('hint').textContent).toBe('Drag anywhere to walkTo buy, stand on a tile and hold BuyTo throw away what you carry, stand at a bin and tap Toss');
+    expect($('hint').textContent).toBe('Drag anywhere to walkOn a tile, hold 🛒 to buyTo throw away what you carry, stand at a bin and tap Toss');
     expect($('hint').querySelector('.stick')).not.toBeNull();
   });
 

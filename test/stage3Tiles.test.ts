@@ -69,7 +69,7 @@ describe("the cellar's tiles", () => {
     expect(price('steam').disabled).toBe(true);
     node('steam').dispatchEvent(new Event('pointerover', { bubbles: true }));
     g.run(0.1);
-    expect($('shopPick').textContent).toContain(`Beat Yokobashiri ${FACE.crab} first`);
+    expect($('shopPick').querySelector('.buy')!.textContent).toBe(`🔒 Beat ${FACE.crab}`);
     // one click on its price buys it, or on the node
     price('rack').click();
     g.run(0.1);
@@ -490,7 +490,7 @@ describe("the workshop's crafting bench", () => {
     node('steam').click();
     g.run(0.1);
     expect(node('steam').getAttribute('aria-pressed')).toBe('true');
-    expect($('shopPick').textContent).toContain(`Beat Yokobashiri ${FACE.crab} first`);
+    expect(buy().textContent).toBe(`🔒 Beat ${FACE.crab}`);
     expect(buy().disabled).toBe(true);
     // pick, then buy
     node('rack').click();
@@ -511,6 +511,25 @@ describe("the workshop's crafting bench", () => {
     g.run(0.1);
     expect($('shop').hidden).toBe(true);
     expect($('craft').hidden).toBe(false);
+  });
+
+  it('says what each thing does whole, in 8 words or fewer, and a fight still to win on its button (report 30)', async () => {
+    const { g, plan, at } = await ring({ money: 10_000_000 });
+    at(plan.BENCH_PAD);
+    g.run(0.1);
+    const words = (s: string) => s.trim().split(/\s+/).length;
+    const keys = [...$('shopRows').querySelectorAll<HTMLElement>('.node[data-key]')].map(n => n.dataset.key!);
+    expect(keys.length).toBeGreaterThan(20);
+    for (const key of keys) {
+      $('shopRows').querySelector<HTMLElement>(`.node[data-key="${key}"]`)!.dispatchEvent(new Event('pointerover', { bubbles: true }));
+      g.run(0.05);
+      const line = $('shopPick').querySelector('.what')!.children[1].textContent!, buy = $('shopPick').querySelector('.buy')!.textContent!;
+      expect(words(line), `${key}: ${line}`).toBeLessThanOrEqual(8);
+      // (no fight in the line: that's on the button, the boss's face)
+      expect(line, key).not.toMatch(/first:|Beat /);
+      if (key === 'tile:steam') expect(buy).toBe(`🔒 Beat ${FACE.crab}`);
+      if (key === 'tile:mama') expect(line).toBe('Sells spare bowls out front, 12% to you');
+    }
   });
 
   it("opens the ring's levels two at a time, a boss beaten each, all eight before Fukure; a save past that keeps its levels", async () => {
