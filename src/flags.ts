@@ -57,3 +57,22 @@ export function votingBoatOn(now = new Date()) {
   const v = voteParam();
   return v === 'on' || v === 'bye' || electionDay(now);
 }
+
+// ---------- sound while testing ----------
+// A game being tested starts silent: one a browser automation drives (Playwright, the Chrome DevTools MCP:
+// navigator.webdriver), and a demo build (VITE_FUGU_DEMO=1 or `--mode demo`) opened at localhost, as the agents'
+// previews on localhost:5177 and the mobile-test skill's emulators are. The owner's playtests of the demo build on a
+// phone, at the computer's Wi-Fi address, keep their sound. ?sound=on in the address plays it anyway, and
+// ?sound=off silences any game, for that visit only. It's the mix that's silenced (audio.ts), never the player's sound
+// settings, so nothing of it is kept.
+const HERE = new Set(['localhost', '127.0.0.1', '[::1]', '::1']);
+
+/** Whether the game's sound starts silent, for testing (see above), at the address `at`, `driven` by an automation. */
+export function testSilent(at: Pick<Location, 'search' | 'hostname'> | undefined = globalThis.location,
+  driven = !!globalThis.navigator?.webdriver) {
+  const asked = at ? new URLSearchParams(at.search).get('sound') : null;
+  if (asked === 'on') return false;
+  if (asked === 'off' || driven) return true;
+  const demo = import.meta.env.VITE_FUGU_DEMO === '1' || import.meta.env.MODE === 'demo';
+  return demo && HERE.has(at?.hostname ?? '');
+}

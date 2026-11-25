@@ -15,8 +15,8 @@ phone-sized device on the Mac and gives Claude Code its screen and its console. 
   Start it with `preview_start` on a launch config running `VITE_FUGU_DEMO=1 npm run dev -- --port 5177 --strictPort`
   (`floe-market-demo`; `.claude/launch.json` isn't in git, so add it if it's missing). Never test on 5175: it's signed
   in to the owner's real cloud save.
-- **What players get**: the live game, `https://chefcontrol.github.io/floe-market/`. Look, don't play far: the
-  devices aren't signed in, so it's a fresh local game, but don't press sign-in or sync buttons.
+- **What players get**: there's no live web game any more (it closed in November 2026, for Steam); test the demo
+  build.
 
 ## Android (Chrome on a Pixel 9 emulator)
 
