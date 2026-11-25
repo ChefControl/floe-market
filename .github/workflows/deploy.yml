@@ -80,8 +80,7 @@ jobs:
       # links to.
       - run: |
           mkdir -p _site/fonts
-          cp site/index.html public/privacy.html public/favicon.svg public/apple-touch-icon.png _site/
-          cp docs/images/sushi.jpg _site/art.jpg
+          cp site/index.html site/art.jpg public/privacy.html public/favicon.svg public/apple-touch-icon.png _site/
           cp public/fonts/baloo2-800.woff2 public/fonts/OFL-Baloo2.txt _site/fonts/
       - if: github.event_name != 'pull_request'
         uses: actions/configure-pages@v6
