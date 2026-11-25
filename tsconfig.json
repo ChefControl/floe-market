@@ -25,6 +25,7 @@
     "scripts/fonts/used.ts",
     "intake/src/issue.ts",
     "intake/src/run.ts",
-    "desktop/links.mjs"
+    "desktop/links.mjs",
+    "desktop/saves.mjs"
   ]
 }
