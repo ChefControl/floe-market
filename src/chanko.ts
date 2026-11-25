@@ -950,6 +950,8 @@ export function startShow() {
   // (and what would hang frozen in the air while the game holds still: bowls on their way to the counter, the steam)
   cellar.children.forEach(o => { if (o.name === 'potFlight' || o.name === 'potSteam') o.visible = false; });
   player.g.visible = false;
+  // (what's in their arms too: it stands in the scene, not on them, right in front of the board)
+  for (const m of player.back.all()) if (m.visible) { m.visible = false; cleared.push(m); }
   // (the hearth's fire light hangs right over the prep board: up and back it goes, as the show's key light)
   keyWas.copy(lights[3].position);
   lights[3].position.set(POT.x + 0.7, CY + 2.7, POT.z + 2.9);
