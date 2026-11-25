@@ -13,9 +13,9 @@ describe('what app://floe/ serves', () => {
     expect(fileFor('app://floe/fonts/baloo%202.woff2', GAME, NOTICES)).toBe(join(GAME, 'fonts', 'baloo 2.woff2'));
   });
 
-  it("reads Electron's licence notices from beside the program", () => {
+  it("reads Chromium's notices from beside the program", () => {
     expect(fileFor('app://floe/LICENSES.chromium.html', GAME, NOTICES)).toBe(join(NOTICES, 'LICENSES.chromium.html'));
-    expect(fileFor('app://floe/LICENSE.electron.txt', GAME, NOTICES)).toBe(join(NOTICES, 'LICENSE.electron.txt'));
+    expect(fileFor('app://floe/LICENSE', GAME, NOTICES)).toBe(join(GAME, 'LICENSE')); // (Electron's is in licences.txt)
   });
 
   it('never anything outside them', () => {
@@ -40,5 +40,26 @@ describe('where links go', () => {
     expect(linkKind('file:///etc/passwd')).toBe('none');
     expect(linkKind('javascript:alert(1)')).toBe('none');
     expect(linkKind('nonsense')).toBe('none');
+  });
+});
+
+describe('the Steam upload script (desktop/steam/upload.mjs)', async () => {
+  const { appBuild, steamId } = await import('../desktop/steam/upload.mjs');
+
+  it("takes the ids from the environment, and never Valve's test app", () => {
+    expect(steamId({ STEAM_APP_ID: ' 1234567 ' }, 'STEAM_APP_ID')).toBe('1234567');
+    expect(() => steamId({}, 'STEAM_APP_ID')).toThrow(/isn't set/);
+    expect(() => steamId({ STEAM_APP_ID: 'abc' }, 'STEAM_APP_ID')).toThrow(/isn't a Steam id/);
+    expect(() => steamId({ STEAM_APP_ID: '480' }, 'STEAM_APP_ID')).toThrow(/test app/);
+  });
+
+  it('builds both depots onto a branch of their own', () => {
+    const vdf = appBuild({ appId: '100', depots: { '101': 'windows', '102': 'linux' }, content: 'C:\\ci\\steam', output: '/o', desc: 'Floe Market abc1234', branch: 'beta' });
+    expect(vdf).toContain('"AppID" "100"');
+    expect(vdf).toContain('"SetLive" "beta"');
+    expect(vdf).toContain('"ContentRoot" "C:/ci/steam"');
+    expect(vdf).toMatch(/"101"\s*\{\s*"FileMapping"\s*\{\s*"LocalPath" "windows\/\*"/);
+    expect(vdf).toMatch(/"102"\s*\{\s*"FileMapping"\s*\{\s*"LocalPath" "linux\/\*"/);
+    expect(() => appBuild({ appId: '100', depots: {}, content: '/c', output: '/o', desc: '', branch: 'default' })).toThrow(/never the default/);
   });
 });

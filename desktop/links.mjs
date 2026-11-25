@@ -7,8 +7,9 @@ import { join, normalize, sep } from 'node:path';
  *  (file:// would block the module scripts). */
 export const ORIGIN = 'app://floe';
 
-/** Files served beside the game that aren't in its build: the licence notices Electron ships next to the program. */
-export const NOTICES = ['LICENSE.electron.txt', 'LICENSES.chromium.html'];
+/** Files served beside the game that aren't in its build: Chromium's notices, which Electron ships next to the program
+ *  (Electron's own licence is in the game's licences.txt). */
+export const NOTICES = ['LICENSES.chromium.html'];
 
 /**
  * The file an app://floe/ address reads, under `game` (the game's build) or, for the notices, `notices` (the program's

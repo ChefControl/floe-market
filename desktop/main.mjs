@@ -139,6 +139,12 @@ async function start() {
     });
   }
   win.webContents.on('render-process-gone', (_e, d) => console.error('[floe] renderer gone', JSON.stringify(d)));
+  // On Linux, the game has started with Chromium's sandbox: floe-market.sh need never try without it (build.mjs).
+  if (process.platform === 'linux' && !app.commandLine.hasSwitch('no-sandbox')) {
+    win.webContents.once('did-finish-load', () => {
+      try { writeFileSync(join(app.getPath('userData'), 'sandbox-ok'), 'Chromium\'s sandbox works here.\n'); } catch { /* next time */ }
+    });
+  }
   // a test run can open the game with a query, as the web build's address would (--query=stage=1&sound=off)
   const query = DEV ? process.argv.find(a => a.startsWith('--query='))?.slice(8) : undefined;
   await win.loadURL(`${ORIGIN}/index.html${query ? '?' + query : ''}`);

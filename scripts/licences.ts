@@ -25,8 +25,8 @@ export interface Notice {
 }
 
 /** Copyleft or unreadable licences the owner has agreed to ship, by package name, with the licence they agreed to (a
- *  new version under another licence is checked again). For example, once Valve agrees to Electron's ffmpeg:
- *  `ffmpeg: { licence: 'LGPL-2.1-or-later', why: 'Valve agreed by email, 2026-11-02' }` */
+ *  new version under another licence is checked again). For example, once Valve agrees to Electron's FFmpeg
+ *  (desktop/notices.mjs): `FFmpeg: { licence: 'LGPL-2.1-or-later', why: 'Valve agreed by email, 2026-11-02' }` */
 export const APPROVED: Record<string, { licence: string; why: string }> = {};
 
 /** Licences that ask only that their notice ships with the code. */
@@ -140,8 +140,8 @@ export function licencesList(notices: Notice[]) {
 const MARK = '<!-- licences: listed by the build (scripts/licences.ts) -->';
 
 /** The build's licences: what's in the bundle, plus `extra` notices; checked, written to licences.txt and listed in the
- *  credits. The dev server lists none, as it bundles nothing. */
-export function licences({ extra = [] as Notice[], approved = APPROVED } = {}): Plugin {
+ *  credits. The dev server lists none, as it bundles nothing. `pending`: names that only warn, for a test build. */
+export function licences({ extra = [] as Notice[], approved = APPROVED, pending = [] as string[] } = {}): Plugin {
   let root = '';
   return {
     name: 'floe-licences',
@@ -163,7 +163,10 @@ export function licences({ extra = [] as Notice[], approved = APPROVED } = {}): 
       }
       if (strays.length) this.error(`can't tell which package this code comes from, to credit it:\n  ${strays.join('\n  ')}`);
       const notices = [...[...dirs].map(readPackage), ...extra];
-      const refused = refusals(notices, approved);
+      // (a test build of the desktop app only warns about what's waiting for the owner's approval: `pending`, by name)
+      const waiting = new Set(pending), wait = notices.filter(n => waiting.has(n.name));
+      for (const r of refusals(wait, approved)) this.warn(`waiting for the owner's approval, so this build can't be released: ${r}`);
+      const refused = refusals(notices.filter(n => !waiting.has(n.name)), approved);
       if (refused.length) this.error(`these can't ship until the owner approves them (APPROVED in scripts/licences.ts):\n  ${refused.join('\n  ')}`);
       this.emitFile({ type: 'asset', fileName: 'licences.txt', source: licencesText(notices) });
       const html = bundle['index.html'];

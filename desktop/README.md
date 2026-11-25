@@ -15,7 +15,15 @@ straight into the game, fullscreen at the screen's own size. About 100 MB to dow
   `save.json` is ever unreadable, the newest good backup stands in. The page reads the save once as it starts, writes
   it in the background, and there and then as the window closes (Alt+F4 too). Settings stay in the page's own storage,
   per device.
-- `build.mjs`: builds the game into `app/`, then packages the program into `out/`.
+- `build.mjs`: builds the game into `app/`, then packages the program into `out/`. On Linux it adds `floe-market.sh`,
+  Steam's launch option there: it starts the game with Chromium's sandbox, and if the game stops with an error before it
+  has ever started with it (inside Steam's Linux runtime the sandbox's user namespaces may not be allowed), it notes that
+  in the player's settings folder and starts without it from then on. The page only ever shows the game's own files.
+- `notices.mjs`: what the app adds to the open-source licences in the credits: Electron, Chromium (its notices for
+  everything it includes open from the list) and FFmpeg (LGPL, a separate library a player can swap). A test build only
+  warns that FFmpeg waits for Valve's OK; `--release` stops on it.
+- `steam/upload.mjs`: the build script for Steam's uploader. CI builds both apps on every pull request and merge, and
+  uploads them to Steam's beta branch once it's set up: [docs/steam-upload.md](../docs/steam-upload.md).
 
 ## Build and run
 

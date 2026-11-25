@@ -1,7 +1,8 @@
 import type { Plugin } from 'vite';
 import { configDefaults, defineConfig } from 'vitest/config';
 import { ShardSequencer } from './test/shards.ts';
-import { licences } from './scripts/licences.ts';
+import { readFileSync } from 'node:fs';
+import { licences, type Notice } from './scripts/licences.ts';
 
 /**
  * The loading screen (index.html) counts the game's scripts in as they download, so it needs their names and sizes
@@ -70,6 +71,16 @@ function steamToggle(): Plugin {
   };
 }
 
+/** What the desktop app adds to the licences (desktop/notices.mjs): desktop/build.mjs hands it in as a JSON file
+ *  (FLOE_NOTICES), with the names a test build may ship while they wait for approval (FLOE_LICENCES_PENDING). */
+function desktopNotices() {
+  const file = process.env.FLOE_NOTICES;
+  return {
+    extra: file ? JSON.parse(readFileSync(file, 'utf8')) as Notice[] : [],
+    pending: process.env.FLOE_LICENCES_PENDING?.split(',').filter(Boolean) ?? [],
+  };
+}
+
 export default defineConfig({
   // Relative base so the build works from any path (e.g. GitHub Pages' /floe-market/).
   base: './',
@@ -80,7 +91,7 @@ export default defineConfig({
     chunkSizeWarningLimit: 1000,
     rolldownOptions: { output: { codeSplitting: { groups: [{ name: 'three', test: /node_modules[\\/]three[\\/]/ }] } } },
   },
-  plugins: [kofiToggle(), steamToggle(), licences(), preloadManifest()],
+  plugins: [kofiToggle(), steamToggle(), licences(desktopNotices()), preloadManifest()],
   // the commit the game was built from (GitHub Actions sets it), which bug reports carry (report.ts)
   define: { __BUILD__: JSON.stringify(process.env.GITHUB_SHA ?? 'dev') },
   test: {
