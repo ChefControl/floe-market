@@ -9,7 +9,6 @@ Android emulator (a Pixel 9 with Chrome) and the iPhone simulator (Safari). Clau
 ```bash
 .claude/skills/mobile-test/android.sh            # the demo build in Chrome on the Pixel 9
 .claude/skills/mobile-test/ios.sh                # the demo build in Safari on the iPhone 17
-.claude/skills/mobile-test/ios.sh https://chefcontrol.github.io/floe-market/   # the live game
 ```
 
 The default page is the demo build on `localhost:5177`: it never touches the cloud, so tests can save freely. Start it
