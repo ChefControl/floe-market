@@ -781,7 +781,7 @@ describe('the Undertow', () => {
       { id: 'eddie', pad: plan.BOOTH_PADS.eddie, lines: [
         "Pay him: fewer of the boss's fans come.",
         "Bigger fix, bigger chance he's caught.",
-        "Caught? The boss's fans come, yours stay away.",
+        'Caught? No fix, and you lose fans too.',
       ] },
       { id: 'loans', pad: plan.BOOTH_PADS.harry, lines: [
         'Borrow chips, pay back 25% more.',
@@ -791,7 +791,7 @@ describe('the Undertow', () => {
       { id: 'monte', pad: plan.BOOTH_PADS.tommy, lines: [
         'Find the queen after he swaps the cards.',
         'Find her: you win 1.5× your stake.',
-        'Bigger stakes, faster hands. 3 rounds a fight.',
+        '3 rounds, then wait for the next fight.',
       ] },
     ];
     for (const v of vendors) {

@@ -207,7 +207,7 @@ export function tommySays(f: (text: string) => void) { say = f; }
 export const ABOUT = [
   'Find the queen after he swaps the cards.',
   `Find her: you win ${WIN}× your stake.`,
-  `Bigger stakes, faster hands. ${ROUNDS} rounds a fight.`,
+  `${ROUNDS} rounds, then wait for the next fight.`,
 ];
 
 const pad = gamePad(BOOTH_PADS.tommy, '🃏', panel, {

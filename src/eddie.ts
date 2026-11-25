@@ -93,7 +93,7 @@ export const eddieMsg = () => `${msg.textContent} ${odds.textContent} ${shake.te
 export const ABOUT = [
   "Pay him: fewer of the boss's fans come.",
   "Bigger fix, bigger chance he's caught.",
-  "Caught? The boss's fans come, yours stay away.",
+  'Caught? No fix, and you lose fans too.',
 ];
 
 // (on dice of its own: three.js names what it makes from Math.random, and made at load off the game's luck, it would
