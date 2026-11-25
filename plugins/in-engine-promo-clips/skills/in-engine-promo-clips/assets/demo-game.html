@@ -1,0 +1,28 @@
+<!doctype html><meta charset="utf-8"><style>html,body{margin:0;background:#9fd3ea}#hud{position:fixed;top:8px;left:8px;background:#fff;padding:6px 12px;border-radius:99px;font:700 20px system-ui}</style>
+<!-- A stand-in "game" for trying the kit: a character with a head, a floor, a wall, a loop that beeps once a second, and window.GAME as cine-template.js expects. -->
+<div id="hud">$ 1,000</div>
+<script type="importmap">{"imports":{"three":"https://unpkg.com/three@0.170.0/build/three.module.js"}}</script>
+<script type="module">
+import * as THREE from 'three';
+const renderer = new THREE.WebGLRenderer({ antialias: true }); renderer.setSize(innerWidth, innerHeight); document.body.append(renderer.domElement);
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0x9fd3ea);
+scene.add(new THREE.HemisphereLight(0xffffff, 0x445566, 1.4)); const sun = new THREE.DirectionalLight(0xffffff, 1.6); sun.position.set(3, 6, 4); scene.add(sun);
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(20, 20), new THREE.MeshLambertMaterial({ color: 0xc8956a })); floor.rotation.x = -Math.PI / 2; scene.add(floor);
+const wall = new THREE.Mesh(new THREE.PlaneGeometry(8, 4), new THREE.MeshLambertMaterial({ color: 0xb98a5a })); wall.position.set(0, 2, -0.8); scene.add(wall);
+const hero = new THREE.Group(), body = new THREE.Group(); hero.add(body); scene.add(hero);
+const lam = c => new THREE.MeshLambertMaterial({ color: c });
+const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.3, 0.75, 20), lam(0xffffff)); torso.position.y = 0.45; body.add(torso);
+const head = new THREE.Mesh(new THREE.SphereGeometry(0.2, 24, 16), lam(0xe0a97f)); head.position.set(0, 1.03, 0.05); body.add(head);
+for (const s of [-1, 1]) { const e = new THREE.Mesh(new THREE.SphereGeometry(0.03, 8, 6), lam(0x1b2733)); e.position.set(s * 0.07, 1.06, 0.24); body.add(e); }
+const hat = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.19, 0.22, 20), lam(0xffffff)); hat.position.set(0, 1.3, 0.03); body.add(hat);
+const cam = new THREE.PerspectiveCamera(40, innerWidth / innerHeight, 0.1, 100); cam.position.set(0, 3, 6); cam.lookAt(0, 0.5, 0);
+let ac = null, beepT = 0, running = true, time = 0;
+addEventListener('keydown', () => { ac ??= new AudioContext(); });
+function tick(dt) {
+  time += dt; body.scale.y = 1 + 0.01 * Math.sin(time * 2.4);
+  beepT -= dt; if (beepT <= 0 && ac) { beepT = 1; const o = ac.createOscillator(), g = ac.createGain(); o.frequency.value = 660; g.gain.setValueAtTime(0, ac.currentTime); g.gain.linearRampToValueAtTime(0.2, ac.currentTime + 0.01); g.gain.linearRampToValueAtTime(0, ac.currentTime + 0.12); o.connect(g).connect(ac.destination); o.start(); o.stop(ac.currentTime + 0.13); }
+}
+function loop() { if (!running) return; tick(1 / 60); renderer.render(scene, cam); requestAnimationFrame(loop); }
+loop();
+window.GAME = { THREE, scene, renderer, tick, stop: () => { running = false; }, hero };
+</script>
