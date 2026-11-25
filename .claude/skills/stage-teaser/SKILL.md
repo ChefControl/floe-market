@@ -83,8 +83,8 @@ with `applyUnlock`, a dawn sky dome, the game's toast and tip pill shown as over
   outward only when its profile climbs: built the other way the body is inside-out and the far eye shows through.
 - **What the owner rejected in the acting** (so don't try them again): round eyes with whites and pupils on the
   chef ("creepy": grow his own dots instead, `eyes: 'big'`); a glossy fish (matt, as the game is); a jump onto the
-  fish in under a second ("too fast and jerky": drag, haul, climb, about two seconds); a life vest ("looks bad":
-  the parka itself faded, stained and torn, `Acting().castaway`); open boot soles when he lies down (`soles`).
+  fish in under a second ("too fast and jerky": drag, haul, climb, about two seconds); a life vest ("looks bad"), then the parka itself stained and torn ("replace the parka"): what stuck is the
+  game's own summer clothes gone to rags, a rope belt and a straw hat (`Acting().castaway`, picked from three options); open boot soles when he lies down (`soles`).
 - **Real play in a trailer** is its own take on the game's camera with the HUD kept (`--keep hud,toast,prompts`,
   `K.cam = null`), the chef walked with the game's joystick (pointer events on the canvas: `g.js` `walkTo`).
   `window.cineType.marks` records when each part starts, for the cut.

@@ -9,7 +9,7 @@
   const { wallet } = await window.__mod('wallet.ts');
   const gl = K.R.canvas, OFF = K.R.OFF;
   const fire = Campfire(T3, K.R.scene, 0.95, 0.15, -3.55);
-  // (still in the coat he washed up in: his first day's trade)
+  // (still in the rags he washed up in: his first day's trade)
   const ACT = await Acting(); ACT.castaway(player.g); ACT.soles(player.g);
   // the game's joystick: a drag on the canvas, read against the camera (input.ts)
   const camF = V(-OFF.x, 0, -OFF.z).normalize(), camR = V(-camF.z, 0, camF.x), CX = innerWidth / 2, CY = innerHeight / 2;

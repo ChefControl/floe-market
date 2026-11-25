@@ -108,7 +108,7 @@
 
   // ---------- the chef ----------
   const P = player.g;
-  // his face, his pose, soles under his boots, and a castaway's coat, faded, filthy and torn (acting.js)
+  // his face, his pose, soles under his boots, and the game's summer clothes gone to rags: a castaway (acting.js)
   const setFace = ACT.face(P), chef = o => ACT.pose(P, o, setFace);
   ACT.soles(P); ACT.castaway(P);
   /** His hand, in the world (the end of his arm, 0.42 down it). */
@@ -195,19 +195,20 @@
         const bodyLook = lookT < 0 ? 0 : lookT < 0.36 ? 0.45 * ease((lookT - 0.06) / 0.2) : mix(0.45, -0.5, ease((lookT - 0.42) / 0.22));
         // on his feet: a turn right round, looking for anything at all
         const upT = t - T.up - 0.3, spin = upT > 0 && t < T.bang ? Math.sin(clamp(upT / (T.bang - T.up - 0.3)) * Math.PI * 2) * 1.5 : 0;
+        const hug = ease((t - T.sit - 0.45) / 0.25) * (1 - ease((t - T.up + 0.05) / 0.2));
         const gasp = t >= T.bang, gk = (t - T.bang), jump = gasp ? Math.sin(clamp(gk / 0.3) * Math.PI) * 0.2 : 0;
         const f = t < 0.55 ? { eyes: 'shut' } : t < 0.62 ? { eyes: 'dot' } : t < 0.72 ? { eyes: 'shut' } : t < 0.82 ? { eyes: 'dot' } : t < 0.9 ? { eyes: 'shut' }
           : t < T.sit + 0.5 ? { eyes: 'dot', brow: [0.6, -0.3], mouth: t > T.sit + 0.1 ? 'o' : 'none', open: 0.7 }
-            : t < T.up ? { eyes: 'big', look: [eyeX, 0.1], brow: [0.8, -0.8], mouth: lookT > 0.4 ? 'frown' : 'none' }
+            : t < T.up ? { eyes: 'big', brow: [0.8, -0.8], mouth: 'grin', open: 0.55 + 0.35 * Math.sin(t * 45) }
               : !gasp ? { eyes: 'big', look: [Math.sign(spin) * 0.8, 0], brow: [0.9, -0.9], mouth: 'frown' }
                 : { eyes: 'big', look: [0, 0.2], brow: [1.6, -0.4], mouth: 'o', open: 1.9 };
         chef({
-          hip: F.clone().add(V(shiver * (t > T.sit ? 1 : 0), 0, 0)).setY(ICE_Y + mix(mix(0.2, 0.13, sit), 0.3, stand) + hop + jump),
+          hip: F.clone().add(V(shiver * (t > T.sit ? 1 + hug * 1.5 : 0), 0, 0)).setY(ICE_Y + mix(mix(0.2, 0.13, sit), 0.3, stand) + hop + jump),
           yaw: mix(1.45, mix(0.3, yaw0, stand), easeIO((t - 0.95) / 0.6)) + bodyLook * (1 - stand) + spin,
           back: (1 - sitK) * (Math.PI / 2) + (t < T.sit ? Math.sin(t * 2.2) * 0.02 : 0),
           legs: [-(Math.PI / 2) * sit * (1 - stand), -(Math.PI / 2) * sit * (1 - stand) * 0.92],
           arms: gasp ? [[0, 0.95 - 0.25 * clamp(gk / 0.5)], [0, 0.95 - 0.25 * clamp(gk / 0.5)]]
-            : [[mix(0, 0.55, sit) * (1 - stand), mix(1.15, 0.22, sit) + Math.abs(spin) * 0.25], [mix(0, 0.55, sit) * (1 - stand), mix(1.0, 0.22, sit) + Math.abs(spin) * 0.25]],
+            : [[mix(mix(0, 0.55, sit) * (1 - stand), -0.85, hug), mix(mix(1.15, 0.22, sit) + Math.abs(spin) * 0.25, -0.5, hug)], [mix(mix(0, 0.55, sit) * (1 - stand), -0.85, hug), mix(mix(1.0, 0.22, sit) + Math.abs(spin) * 0.25, -0.5, hug)]],
           sq: breath * land * (gasp ? 1 + 0.12 * Math.sin(clamp(gk / 0.3) * Math.PI) : 1), f,
         });
         P.updateMatrixWorld(true);
@@ -222,7 +223,7 @@
         if (t < T.hit2) chef({ hip: F.clone().setY(ICE_Y + 0.3 + Math.abs(Math.sin(a * 16)) * 0.05), yaw: yaw0 + a * 9.6, arms: [[0, 1.2 + Math.sin(a * 30) * 0.3], [0, 1.2 - Math.sin(a * 30) * 0.3]], f: { eyes: 'big', brow: [1.2, -0.8], mouth: 'o', open: 1.5 } });
         else if (t < T.hit3) chef({ hip: F.clone().setY(ICE_Y + 0.3 + Math.abs(Math.sin(b * 15)) * 0.3), yaw: yaw0, arms: [[0, 2.5 + Math.sin(b * 22) * 0.35], [0, 2.5 - Math.sin(b * 22) * 0.35]], f: { eyes: 'big', mouth: 'o', open: 1.6 } });
         else { const down = ease((c - 0.9) / 0.5); chef({ hip: F.clone().setY(ICE_Y + mix(0.3, 0.13, down)), yaw: yaw0, lean: 0.2 * ease(c / 0.6), legs: [-(Math.PI / 2) * down, -(Math.PI / 2) * down * 0.92],
-          arms: [[0.4 * down, mix(1.6, 0.1, ease(c / 0.5))], [0.4 * down, mix(1.6, 0.1, ease(c / 0.5))]], f: { eyes: 'dot', brow: [0.4, -1], mouth: 'frown' } }); }
+          arms: [[mix(0, -0.85, down), mix(mix(1.6, 0.1, ease(c / 0.5)), -0.5, down)], [mix(0, -0.85, down), mix(mix(1.6, 0.1, ease(c / 0.5)), -0.5, down)]], f: { eyes: 'dot', brow: [0.4, -1], mouth: 'frown' } }); }
         if (t < T.hit2) shot = { ...hit(t, T.hit1, wide(8, 0.3), F.clone().setY(0.6)), fogNear: 40, fogFar: 120 };
         else if (t < T.hit3) shot = { ...hit(t, T.hit2, wide(30, 0.75), F.clone()), fogNear: 80, fogFar: 200 };
         else { const pull = ease((t - T.hit3 - 0.25) / (T.pov - T.hit3 - 0.25)); shot = { ...hit(t, T.hit3, wide(mix(115, 185, pull), mix(1.36, 1.44, pull)), F.clone()), fogNear: 400, fogFar: 1200, far: 700 }; }
