@@ -11,4 +11,12 @@ contextBridge.exposeInMainWorld('floeDesktop', {
     writeNow: (key, data) => ipcRenderer.sendSync('save:write-now', key, data),
     remove: key => ipcRenderer.sendSync('save:remove', key),
   },
+  // the window: fullscreen or not (F11 and Alt+Enter switch it too, and `onChange` hears of it)
+  display: {
+    get: () => ipcRenderer.sendSync('display:get'),
+    fullscreen: on => ipcRenderer.send('display:fullscreen', !!on),
+    onChange: f => { ipcRenderer.on('display:changed', (_e, d) => f(d)); },
+  },
+  /** Quits the program (the page saves first). */
+  quit: () => ipcRenderer.send('app:quit'),
 });

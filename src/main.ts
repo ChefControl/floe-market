@@ -4,6 +4,7 @@ import { batchStill } from './batch';
 import { tableView, tipsy, tipsyK } from './casinoKit';
 import { initCloud } from './cloud';
 import { CLOSE, CLOSE_AIM, closeUp } from './customize';
+import { frameGap } from './display';
 import { DEMO, startDemo } from './fuguDemo';
 import { tick } from './game';
 import { frameDrawn, isPotato } from './graphics';
@@ -24,6 +25,7 @@ import { initScores } from './scores';
 import { drawMeet, meetCam } from './meet';
 import { drawWay, wayCam } from './southDoor';
 import './settings';
+import './pause';
 import { view } from './stage';
 import { newBubbleFrame } from './speech';
 import { drawTutorial } from './tutorial';
@@ -84,7 +86,9 @@ const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)') ?? 
 const POTATO_MS = 1000 / 30 - 2;
 
 function frame(now: number) {
-  if (isPotato() && now - last < POTATO_MS) { requestAnimationFrame(frame); return; }
+  // (and the desktop app's cap on frames a second, display.ts)
+  const gap = Math.max(isPotato() ? POTATO_MS : 0, frameGap());
+  if (gap && now - last < gap) { requestAnimationFrame(frame); return; }
   frameDrawn((now - last) / 1000);
   const dt = Math.max(0, Math.min(0.05, (now - last) / 1000)); // a first frame can be stamped before boot
   last = now;

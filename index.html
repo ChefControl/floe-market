@@ -626,6 +626,14 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
 #gfx .seg button[aria-pressed="true"]{ background:var(--coral); color:#fff; box-shadow:0 2px 0 var(--shade); }
 #gfxNow{ font-size:12px; font-weight:700; opacity:.6; text-align:center; }
 #gfxNow[hidden]{ display:none; }
+/* the desktop app's display settings, under the graphics (display.ts) */
+#display{ display:flex; flex-direction:column; gap:10px; margin-top:4px; }
+#display[hidden]{ display:none; }
+#display .dispRow{ display:flex; flex-direction:column; gap:4px; }
+#display .dispRow > span:first-child{ padding-left:4px; font-size:14px; font-weight:800; }
+#display small{ padding-left:4px; font-size:12px; font-weight:700; opacity:.6; }
+/* the pause menu: its numbered buttons one under another */
+#pause .k-keys{ grid-auto-flow:row; }
 #gfxReload{ align-self:center; min-height:38px; padding:0 16px; border:0; border-radius:999px; background:var(--go); color:#fff; font:800 15px "Floe Emoji","Baloo 2","Trebuchet MS",system-ui,sans-serif; box-shadow:0 2px 0 rgba(20,90,40,.4); cursor:pointer; }
 #gfxReload:active{ transform:translateY(2px); box-shadow:none; }
 @media (hover: hover) and (pointer: fine){ #gfxReload:hover:not(:active){ transform:translateY(-1px); } }
@@ -1532,7 +1540,13 @@ body.show #toss, body.show #cook, body.show #coach, body.show #hint, body.show #
   <button id="lookOpen" type="button"><span class="ic" aria-hidden="true">👕</span>Your look</button>
   <h2 class="sgroup">Graphics &amp; sound</h2>
   <button id="gfxCat" class="cat" type="button" aria-expanded="false" aria-controls="gfx"><span class="ic" aria-hidden="true">✨</span><span id="gfxName">Graphics</span><small id="gfxPick"></small><i class="chev" aria-hidden="true"></i></button>
-  <div id="gfx" class="catPanel" role="group" aria-labelledby="gfxName" hidden><span class="seg"><button type="button" data-q="auto" aria-pressed="true">Auto</button><button type="button" data-q="potato" aria-pressed="false">🥔 Potato</button><button type="button" data-q="low" aria-pressed="false">Low</button><button type="button" data-q="high" aria-pressed="false">High</button></span><small id="gfxNow" aria-live="polite"></small><button id="gfxReload" type="button" hidden>Reload to apply</button></div>
+  <div id="gfx" class="catPanel" role="group" aria-labelledby="gfxName" hidden><span class="seg"><button type="button" data-q="auto" aria-pressed="true">Auto</button><button type="button" data-q="potato" aria-pressed="false">🥔 Potato</button><button type="button" data-q="low" aria-pressed="false">Low</button><button type="button" data-q="high" aria-pressed="false">High</button></span><small id="gfxNow" aria-live="polite"></small><button id="gfxReload" type="button" hidden>Reload to apply</button>
+    <!-- the desktop app's display settings (display.ts): shown only there -->
+    <div id="display" hidden>
+      <div class="dispRow"><span id="screenName">Screen</span><span class="seg" role="group" aria-labelledby="screenName"><button type="button" data-screen="full" aria-pressed="true">Fullscreen</button><button type="button" data-screen="window" aria-pressed="false">Window</button></span><small>F11 or Alt+Enter switches it too</small></div>
+      <div class="dispRow"><span id="scaleName">Resolution</span><span class="seg" role="group" aria-labelledby="scaleName"><button type="button" data-scale="1" aria-pressed="true">100%</button><button type="button" data-scale="0.75" aria-pressed="false">75%</button><button type="button" data-scale="0.5" aria-pressed="false">50%</button></span></div>
+      <div class="dispRow"><span id="capName">Frame rate</span><span class="seg" role="group" aria-labelledby="capName"><button type="button" data-cap="0" aria-pressed="true">Max</button><button type="button" data-cap="60" aria-pressed="false">60</button><button type="button" data-cap="30" aria-pressed="false">30</button></span></div>
+    </div></div>
   <button id="soundCat" class="cat" type="button" aria-expanded="false" aria-controls="soundPanel"><span class="ic" aria-hidden="true">🔊</span>Sound<i class="chev" aria-hidden="true"></i></button>
   <div id="soundPanel" class="catPanel" role="group" aria-label="Sound" hidden>
     <div class="vol"><button type="button" class="mute" id="muteSfx" aria-pressed="false" aria-label="Mute effects"></button><label for="volSfx">Effects</label><output id="volSfxN" for="volSfx">7</output><input type="range" id="volSfx" min="0" max="10" step="1" value="7"></div>
@@ -1594,6 +1608,16 @@ body.show #toss, body.show #cook, body.show #coach, body.show #hint, body.show #
     <p class="copy">Floe Market © 2026 ChefControl. All rights reserved.</p>
   </div>
 </section>
+<!-- the pause menu (pause.ts): Esc with nothing else open -->
+<div id="pause" role="dialog" aria-modal="true" aria-labelledby="pauseTitle" hidden><div class="k-sheet">
+  <h2 id="pauseTitle" class="k-title">Floe Market</h2>
+  <button type="button" id="pauseResume" class="k-btn k-main">Resume</button>
+  <div class="k-row k-keys">
+    <button type="button" id="pauseSettings" class="k-btn k-plain">⚙️ Settings</button>
+    <button type="button" id="pauseHow" class="k-btn k-plain">🕹️ How to play</button>
+    <button type="button" id="pauseQuit" class="k-btn k-plain">Quit to desktop</button>
+  </div>
+</div></div>
 <div id="privacyDialog" role="dialog" aria-modal="true" aria-labelledby="privacyTitle" hidden><div class="k-sheet">
   <button type="button" id="privacyClose" class="k-btn k-plain k-x" aria-label="Close the privacy notice"><span aria-hidden="true">✕</span></button>
   <h2 id="privacyTitle" class="k-title">🛡️ Privacy notice</h2>

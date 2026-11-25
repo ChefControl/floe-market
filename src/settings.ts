@@ -107,7 +107,7 @@ soundRow('music', 'Music');
 // Graphics: Auto, Potato, Low or High, shown on the row while it's closed. On Auto, which one the game is using shows
 // under the choices. A pick into or out of Potato offers a reload to finish it (graphics.ts), and when Auto drops to
 // Potato by itself, a toast says so, once.
-const gfxButtons = [...$('gfx').querySelectorAll<HTMLButtonElement>('.seg button')], gfxNow = $('gfxNow'), gfxPick = $('gfxPick');
+const gfxButtons = [...$('gfx').querySelectorAll<HTMLButtonElement>('.seg button[data-q]')], gfxNow = $('gfxNow'), gfxPick = $('gfxPick');
 const gfxReload = $('gfxReload') as HTMLButtonElement;
 const GFX_NAMES: Record<Choice, string> = { auto: 'Auto', potato: 'Potato', low: 'Low', high: 'High' };
 let gfxWas = gfx.quality;

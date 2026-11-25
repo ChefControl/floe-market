@@ -14,6 +14,14 @@ export interface DesktopApi {
     writeNow(key: string, data: string): Answer<unknown>;
     remove(key: string): Answer<unknown>;
   };
+  /** The window: fullscreen or not. F11 and Alt+Enter switch it too, and `onChange` hears of every change. */
+  display: {
+    get(): { fullscreen: boolean };
+    fullscreen(on: boolean): void;
+    onChange(f: (d: { fullscreen: boolean }) => void): void;
+  };
+  /** Quits the program: save first. */
+  quit(): void;
 }
 
 /** The desktop app's program, when the game's running in it. */

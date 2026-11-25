@@ -5,6 +5,7 @@ import {
   TorusGeometry, Vector3, WebGLRenderer,
 } from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { display, onDisplay } from './display';
 import { glBack, glGone, view3d } from './errors';
 import { highBuilt, isHigh, isPotato, lowAfterLoss, onQuality } from './graphics';
 import { V } from './util';
@@ -196,7 +197,8 @@ export const shadowSize = { px: 1024 };
  */
 export function fitRenderer() {
   const high = isHigh(), potato = isPotato(), px = high ? shadowSize.px : shadowSize.px / 2;
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, high ? 2 : potato ? 1 : 1.5));
+  // (the desktop app's resolution setting draws at less than that: display.ts)
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, high ? 2 : potato ? 1 : 1.5) * display.scale);
   sun.shadow.radius = high ? 3 : 1;
   sun.castShadow = !potato;
   if (sun.shadow.mapSize.x !== px || potato) {
@@ -207,6 +209,7 @@ export function fitRenderer() {
 }
 fitRenderer();
 onQuality(fitRenderer);
+onDisplay(fitRenderer);
 
 // ---------- materials / meshes ----------
 const matCache = new Map<number, MeshLambertMaterial>();

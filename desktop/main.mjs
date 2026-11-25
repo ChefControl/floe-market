@@ -7,7 +7,7 @@
 // Steam (steam:// addresses) or to a window of the app's own (the licence notices); the game's window itself never
 // leaves the game.
 import { app, BrowserWindow, ipcMain, Menu, net, protocol, shell } from 'electron';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { fileFor, linkKind, ORIGIN } from './links.mjs';
@@ -74,6 +74,41 @@ function serveSaves() {
   ipcMain.on('save:remove', (e, key) => { e.returnValue = safely(() => saves.remove(key)); });
 }
 
+// ---------- the window: fullscreen or not (#163) ----------
+/** How the window was left, kept on this computer only (beside the saves, never in them: Steam Cloud syncs only those). */
+const DISPLAY = () => join(app.getPath('userData'), 'display.json');
+/** @returns {{ fullscreen?: boolean }} */
+function readDisplay() {
+  try { return JSON.parse(readFileSync(DISPLAY(), 'utf8')); } catch { return {}; }
+}
+/** @param {{ fullscreen: boolean }} d */
+function writeDisplay(d) {
+  try { writeFileSync(DISPLAY(), JSON.stringify(d) + '\n'); } catch (e) { console.error('[floe] display', e); }
+}
+
+/**
+ * Fullscreen or a window: as the player left it, or fullscreen at the screen's own size the first time (a window in the
+ * owner's test runs on the Mac). F11 and Alt+Enter switch, and so does the setting (src/display.ts); the page hears of
+ * every change, whoever made it.
+ * @param {BrowserWindow} win
+ */
+function serveDisplay(win) {
+  const tell = () => win.webContents.send('display:changed', { fullscreen: win.isFullScreen() });
+  win.on('enter-full-screen', () => { writeDisplay({ fullscreen: true }); tell(); });
+  win.on('leave-full-screen', () => { writeDisplay({ fullscreen: false }); tell(); });
+  win.webContents.on('before-input-event', (e, input) => {
+    if (input.type !== 'keyDown') return;
+    if (input.key === 'F11' || (input.key === 'Enter' && input.alt)) {
+      win.setFullScreen(!win.isFullScreen());
+      e.preventDefault();
+    }
+  });
+  ipcMain.on('display:get', e => { e.returnValue = { fullscreen: win.isFullScreen() }; });
+  ipcMain.on('display:fullscreen', (_e, on) => win.setFullScreen(!!on));
+  // Quit to desktop (src/pause.ts): the page has saved there and then before it asks
+  ipcMain.on('app:quit', () => app.quit());
+}
+
 async function start() {
   serveSaves();
   protocol.handle('app', async req => {
@@ -86,8 +121,8 @@ async function start() {
 
   const win = new BrowserWindow({
     width: 1280, height: 800, minWidth: 960, minHeight: 600, useContentSize: true,
-    // fullscreen at the screen's own size, as a game starts, except in the owner's test runs on the Mac
-    fullscreen: app.isPackaged && process.platform !== 'darwin',
+    // fullscreen at the screen's own size, as a game starts (except in the owner's test runs on the Mac), or as left
+    fullscreen: readDisplay().fullscreen ?? (app.isPackaged && process.platform !== 'darwin'),
     backgroundColor: '#CFEAF5', title: 'Floe Market', show: false, icon: join(GAME, 'apple-touch-icon.png'),
     webPreferences: {
       preload: join(here, 'preload.cjs'),
@@ -97,6 +132,7 @@ async function start() {
   });
   win.once('ready-to-show', () => win.show());
   guard(win);
+  serveDisplay(win);
   if (DEV) {
     win.webContents.on('before-input-event', (e, input) => {
       if (input.type === 'keyDown' && input.key === 'F12') { win.webContents.toggleDevTools(); e.preventDefault(); }
