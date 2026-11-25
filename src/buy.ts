@@ -13,7 +13,7 @@ import { viewSize } from './viewSize';
 import { wallet } from './wallet';
 
 const btn = document.getElementById('buy')!, reminder = document.getElementById('buyHint')!;
-const prompts = document.getElementById('prompts')!, cash = document.getElementById('cash')!;
+const tip = document.getElementById('tip')!, cash = document.getElementById('cash')!;
 let touch = false;
 /** Whether buying is by holding the Buy button (a touch screen), or E: what instructions should say. */
 export const touchBuy = () => touch;
@@ -76,8 +76,9 @@ export function updBuy(onTile: boolean, dt: number, paid = 0) {
   filled(onTile ? paid : 0);
   btn.hidden = !(buyButtonShown() && (onTile || talking));
   if (!btn.hidden) {
-    // the button (and its reminder) sit above the tip, however tall the tip's description makes it
-    const bottom = Math.max(100, viewSize.h - prompts.getBoundingClientRect().top + 12);
+    // the button (and its reminder) sit above the tip, however tall the tip's description makes it: the tip alone, not
+    // the reminder over it on a computer, or the button jumped up each time the reminder came (report 31's playtest)
+    const bottom = Math.max(100, viewSize.h - tip.getBoundingClientRect().top + 12);
     btn.style.bottom = bottom + 'px';
     reminder.style.bottom = bottom + 96 + 'px';
   }
