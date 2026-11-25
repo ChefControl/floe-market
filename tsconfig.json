@@ -16,13 +16,15 @@
     "skipLibCheck": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
-    "noFallthroughCasesInSwitch": true
+    "noFallthroughCasesInSwitch": true,
+    "allowJs": true
   },
   "include": [
     "src",
     "test",
     "scripts/fonts/used.ts",
     "intake/src/issue.ts",
-    "intake/src/run.ts"
+    "intake/src/run.ts",
+    "desktop/links.mjs"
   ]
 }
