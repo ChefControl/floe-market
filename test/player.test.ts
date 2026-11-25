@@ -206,6 +206,21 @@ describe('buying', () => {
   const $ = (id: string) => document.getElementById(id)!;
   const PACK = { x: -1.5, z: 6.4 };
 
+  it("keeps the Buy button still when the reminder comes up over the tip (report 31's playtest)", async () => {
+    const g = await loadGame({ money: 35 });
+    // (jsdom lays nothing out: the tip stands where it stands, and the prompts grow up by the reminder once it shows)
+    const box = (top: number) => ({ top, bottom: top + 40, left: 0, right: 0, width: 0, height: 40, x: 0, y: top, toJSON() {} }) as DOMRect;
+    $('tip').getBoundingClientRect = () => box(500);
+    $('prompts').getBoundingClientRect = () => box($('buyHint').hidden ? 500 : 444);
+    g.placePlayer(PACK.x, PACK.z);
+    g.run(0.5);
+    const before = $('buy').style.bottom;
+    expect($('buyHint').hidden).toBe(true);
+    g.run(2);
+    expect($('buyHint').hidden).toBe(false);
+    expect($('buy').style.bottom).toBe(before);
+  });
+
   it('lays the tiles square with the world, not turned to the camera', async () => {
     const g = await loadGame();
     expect(g.unlocks.tiles.every(t => t.d.mesh.rotation.z === 0 && t.d.mesh.rotation.x === -Math.PI / 2)).toBe(true);
