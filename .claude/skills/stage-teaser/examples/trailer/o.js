@@ -113,7 +113,7 @@
     tuna.g.visible = k > 0 && k < 1;
   }
   /** The ride: how far along the way home, by time. */
-  const RIDE1 = F.clone().add(V(8, 0, 5)), RIDE2 = DOCK.clone().sub(R2.clone().multiplyScalar(46));
+  const RIDE1 = F.clone().add(V(8, 0, 5)), RIDE2 = DOCK.clone().sub(R2.clone().multiplyScalar(80));
   function riding(t, from, TO, speed, t0, lift = 0) {
     const s = (t - t0) * speed, c = from.clone().add(TO.clone().multiplyScalar(s));
     const bob = Math.sin(t * 9) * 0.1, pitch = Math.cos(t * 9) * 0.12;
@@ -152,8 +152,9 @@
     player.tPick = player.tDrop = player.tCatch = player.tCash = 9;
     bang.style.transform = 'scale(0)';
     rope.visible = false; loop.visible = false;
-    for (const h of hills) h.visible = t >= T.ride2;
-    openSea.visible = t < T.ride2;
+    for (const h of hills) h.visible = t >= T.chop;
+    openSea.visible = t < T.chop;
+    K.fade(0);
     if (t < T.hit1) {
       // close on him: flat on his back, he stirs, sits up, hops to his feet; "!"
       shot = K.path([{ t: 0, pos: [F.x + 1.5, 0.75, F.z + 2.5], look: [F.x - 0.1, 0.42, F.z - 0.25], fov: 36 },
@@ -215,13 +216,14 @@
       sprayT -= 1 / fps; if (sprayT <= 0) { sprayT = 0.07; FX.splashFx(c.clone().add(TO.clone().multiplyScalar(1.0)), 0.1); FX.splashFx(c.clone().sub(TO.clone().multiplyScalar(1.6)), 0.1); }
       once('sp1', T.taut + 0.5, t, () => SFX.splash(P.position)); once('sp2', T.taut + 1.0, t, () => SFX.splash(P.position));
     } else if (t < T.chop) {
-      // the ride, from behind: the dock coming up fast, and the tuna leaving the water for it
-      const k = (t - T.ride2) / (T.chop - T.ride2), up = Math.pow(clamp((k - 0.62) / 0.38), 1.6) * 3.2;
-      const TO = R2, c = riding(t, RIDE2, TO, 46 / (T.chop - T.ride2), T.ride2, up);
-      const camAt = c.clone().sub(TO.clone().multiplyScalar(5.2)).add(sideOf(TO).multiplyScalar(-1.3)).setY(2.3 + up * 0.55);
-      shot = { pos: camAt, look: c.clone().add(TO.clone().multiplyScalar(6)).setY(0.9 + up * 0.8), fov: 50, roll: Math.sin(t * 5.2) * 0.02, fogNear: 34, fogFar: 80 };
-      sprayT -= 1 / fps; if (sprayT <= 0 && up < 0.3) { sprayT = 0.1; FX.splashFx(c.clone().sub(TO.clone().multiplyScalar(1.4)), 0.1); }
-      once('sp3', T.ride2 + 0.3, t, () => SFX.splash(P.position)); once('sp4', T.ride2 + 0.8, t, () => whoosh(0.5, 0.35, 500, 2600));
+      // the ride, from behind: the market comes into sight, small and far off across the water, and the picture
+      // fades to black on it (the owner's cut: no swim all the way in)
+      const TO = R2, c = riding(t, RIDE2, TO, 13, T.ride2);
+      const camAt = c.clone().sub(TO.clone().multiplyScalar(6.2)).add(sideOf(TO).multiplyScalar(-1.7)).setY(2.9 + Math.sin(t * 5.2) * 0.04);
+      shot = { pos: camAt, look: c.clone().add(TO.clone().multiplyScalar(30)).setY(0.6), fov: 36, roll: Math.sin(t * 5.2) * 0.012, fogNear: 55, fogFar: 150 };
+      sprayT -= 1 / fps; if (sprayT <= 0) { sprayT = 0.1; FX.splashFx(c.clone().sub(TO.clone().multiplyScalar(1.4)), 0.1); }
+      once('sp3', T.ride2 + 0.3, t, () => SFX.splash(P.position));
+      K.fade(ease((t - at(14.85)) / (at(15.75) - at(14.85))));
     } else {
       // the cleaver: the tuna on the board, the blade down on the beat
       const B = ST.chopTop, k = clamp((t - T.chop) / (2 / 30)), down = k * k;
