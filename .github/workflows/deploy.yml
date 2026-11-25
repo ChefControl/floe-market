@@ -75,12 +75,20 @@ jobs:
         env:
           VITE_STAGE3: 'on'
           VITE_KOFI: 'on'
+      # The browser game closed in November 2026 (it goes to Steam instead), so the build above only proves the game
+      # still builds. GitHub Pages serves just the coming-to-Steam page (site/) and the privacy notice the store page
+      # links to.
+      - run: |
+          mkdir -p _site/fonts
+          cp site/index.html public/privacy.html public/favicon.svg public/apple-touch-icon.png _site/
+          cp docs/images/sushi.jpg _site/art.jpg
+          cp public/fonts/baloo2-800.woff2 public/fonts/OFL-Baloo2.txt _site/fonts/
       - if: github.event_name != 'pull_request'
         uses: actions/configure-pages@v6
       - if: github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@v5
         with:
-          path: dist
+          path: _site
 
   # firestore.rules against the Firestore emulator (test/rules/), which needs Java. Rules are pasted into the Firebase
   # console by hand, so this doesn't gate the deploy, but a pull request that breaks them shows red.

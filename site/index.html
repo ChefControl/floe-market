@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<title>Floe Market</title>
+<meta name="description" content="A cozy 3D idle tycoon, coming soon to Steam.">
+<meta property="og:title" content="Floe Market">
+<meta property="og:description" content="A cozy 3D idle tycoon, coming soon to Steam.">
+<meta property="og:image" content="https://chefcontrol.github.io/floe-market/art.jpg">
+<style>
+/* The game's Pages site since the browser version closed (November 2026): this page and the privacy notice.
+   Same look as privacy.html: a white pill card on the game's sky (design system: pill, chip, ink, go). */
+@font-face{ font-family:"Baloo 2"; font-weight:800; font-display:swap; src:url(fonts/baloo2-800.woff2) format("woff2"); }
+:root{
+  --bg:#CFEAF5; --pill:#FFFFFF; --ink:#173042; --soft:#3D5566; --chip:rgba(23,48,66,.07);
+  --shade:rgba(23,48,66,.22); --go:#23803A;
+  --sans:"Baloo 2","Trebuchet MS",system-ui,sans-serif; --body:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#0F2230; --pill:#102432; --ink:#EAF6FB; --soft:#B5CAD6; --chip:rgba(255,255,255,.07);
+  --shade:rgba(0,0,0,.4); --go:#5BD27A; color-scheme:dark; } }
+:root[data-theme="dark"]{
+  --bg:#0F2230; --pill:#102432; --ink:#EAF6FB; --soft:#B5CAD6; --chip:rgba(255,255,255,.07);
+  --shade:rgba(0,0,0,.4); --go:#5BD27A; color-scheme:dark; }
+body{ margin:0; background:var(--bg); color:var(--ink); font:400 17px/1.55 var(--body);
+  padding-left:max(16px, env(safe-area-inset-left, 0px)); padding-right:max(16px, env(safe-area-inset-right, 0px)); padding-block:24px 48px; }
+main{ max-width:720px; margin:0 auto; background:var(--pill); border-radius:20px; box-shadow:0 4px 0 var(--shade); overflow:hidden; }
+.art{ display:block; width:100%; height:auto; aspect-ratio:16/9; object-fit:cover; background:var(--chip); }
+.text{ padding-block:24px 28px; padding-inline:clamp(18px, 5vw, 40px); }
+h1{ font-family:var(--sans); font-weight:800; line-height:1.1; font-size:clamp(32px, 7vw, 44px); margin:0; text-wrap:balance; }
+.soon{ display:inline-block; margin-top:10px; font:800 18px/1 var(--sans); background:var(--chip); border-radius:999px; padding:10px 16px; }
+p{ margin:14px 0 0; max-width:60ch; }
+.meta{ color:var(--soft); font-size:15px; }
+a{ color:var(--go); font-weight:600; text-underline-offset:2px; }
+a:focus-visible{ outline:3px solid var(--go); outline-offset:2px; border-radius:4px; }
+footer{ max-width:720px; margin:14px auto 0; color:var(--soft); font-size:14px; text-align:center; }
+</style>
+</head>
+<body>
+<main>
+  <img class="art" src="art.jpg" width="1280" height="720" alt="Floe Sushi, the conveyor-belt restaurant on the dock">
+  <div class="text">
+    <h1>Floe Market</h1>
+    <span class="soon">Coming soon to Steam</span>
+    <p>A cozy 3D idle tycoon. Start with a fish stall on the ice, grow it into a conveyor-belt sushi restaurant, then answer the knock under the dock.</p>
+    <p class="meta">The browser version has closed. Thanks for playing!</p>
+    <p class="meta"><a href="privacy.html">Privacy notice</a></p>
+  </div>
+</main>
+<footer>© 2026 ChefControl. All rights reserved.</footer>
+</body>
+</html>
