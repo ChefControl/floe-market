@@ -5,8 +5,8 @@
 //   node build.mjs --platform=win32     for Windows (x64); --platform=linux for Linux and the Steam Deck (x64)
 //   node build.mjs --game-only          just the game into app/ (then `npm start` plays it)
 //   node build.mjs --demo               the Steam demo (#183), an app of its own: src/steamDemo.ts
-//   node build.mjs --release            a build to upload: stops on any licence still waiting for approval (FFmpeg's,
-//                                       until Valve agrees: desktop/notices.mjs), where a test build only warns
+//   node build.mjs --release            a build to upload: stops on any licence still waiting for approval (Blink's and
+//                                       FFmpeg's, until Valve agrees: desktop/notices.mjs), where a test build only warns
 //
 // The game is the Steam build (VITE_STEAM=on: no Firebase, no Ko-fi, src/flags.ts) with stage 3 on (VITE_STAGE3=on).
 import { execFileSync } from 'node:child_process';
@@ -14,7 +14,7 @@ import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync 
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { electronNotices } from './notices.mjs';
+import { electronNotices, PENDING } from './notices.mjs';
 import { steamId } from './steam/upload.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url)), root = join(here, '..');
@@ -48,7 +48,7 @@ execFileSync('npx', ['vite', 'build', '--outDir', APP, '--emptyOutDir'], {
   env: {
     ...process.env, VITE_STEAM: 'on', VITE_STAGE3: 'on', VITE_KOFI: 'off',
     VITE_STEAM_DEMO: demo ? 'on' : 'off', VITE_STEAM_STORE_ID: storeId,
-    FLOE_NOTICES: notices, FLOE_LICENCES_PENDING: release ? '' : 'FFmpeg',
+    FLOE_NOTICES: notices, FLOE_LICENCES_PENDING: release ? '' : PENDING.join(','),
   },
 });
 mkdirSync(APP, { recursive: true });
@@ -71,8 +71,10 @@ const [out] = await packager({
   asar: true,
   prune: true,
   overwrite: true,
-  ignore: [/^\/out($|\/)/, /^\/build\.mjs$/, /^\/notices\.mjs$/, /^\/steam\//, /^\/README\.md$/],
+  ignore: [/^\/out($|\/)/, /^\/build\.mjs$/, /^\/notices\.mjs$/, /^\/steam\//, /^\/README\.md$/, /^\/icon\.ico$/],
   win32metadata: { CompanyName: 'ChefControl', ProductName: NAME, FileDescription: NAME, InternalName: 'FloeMarket' },
+  // the game's own icon on FloeMarket.exe, never Electron's logo (Linux takes Steam's; the Mac builds are only tests)
+  ...platform === 'win32' ? { icon: join(here, 'icon.ico') } : {},
 });
 if (platform === 'linux') linuxLauncher(out);
 console.log(`[build] ${out}`);

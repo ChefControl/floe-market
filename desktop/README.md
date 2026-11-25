@@ -20,8 +20,9 @@ straight into the game, fullscreen at the screen's own size. About 100 MB to dow
   has ever started with it (inside Steam's Linux runtime the sandbox's user namespaces may not be allowed), it notes that
   in the player's settings folder and starts without it from then on. The page only ever shows the game's own files.
 - `notices.mjs`: what the app adds to the open-source licences in the credits: Electron, Chromium (its notices for
-  everything it includes open from the list) and FFmpeg (LGPL, a separate library a player can swap). A test build only
-  warns that FFmpeg waits for Valve's OK; `--release` stops on it.
+  everything it includes open from the list), Blink (Chromium's page engine, partly LGPL, in the program) and FFmpeg
+  (LGPL, a separate library a player can swap). A test build only warns that those two wait for Valve's OK;
+  `--release` stops on them. `icon.ico` (from `public/icon-512.png`) is the Windows program's icon.
 - `steam/upload.mjs`: the build script for Steam's uploader. CI builds both apps on every pull request and merge, and
   uploads them to Steam's beta branch once it's set up: [docs/steam-upload.md](../docs/steam-upload.md).
 

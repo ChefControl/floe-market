@@ -35,6 +35,7 @@ describe('where links go', () => {
     expect(linkKind('https://threejs.org/')).toBe('browser');
     expect(linkKind('http://example.com/')).toBe('browser');
     expect(linkKind('steam://store/480')).toBe('steam');
+    expect(linkKind('mailto:someone@example.com')).toBe('mail');
     expect(linkKind('app://floe/licences.txt')).toBe('game');
     expect(linkKind('app://elsewhere/x')).toBe('none');
     expect(linkKind('file:///etc/passwd')).toBe('none');

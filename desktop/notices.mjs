@@ -1,13 +1,17 @@
 // @ts-check
 // What the desktop app ships on top of the game's bundle, for the open-source licences list (#149, scripts/licences.ts):
 // Electron's own licence, Chromium's (whose notices for everything it includes are in LICENSES.chromium.html, beside
-// the program, opened from the list), and FFmpeg's. Chromium plays the game's recordings through FFmpeg, which Electron
+// the program, opened from the list), Blink's (Chromium's page engine, from WebKit, partly LGPL, built into the
+// program, which a player can swap for another Electron 45 build), and FFmpeg's. Chromium plays the game's recordings through FFmpeg, which Electron
 // ships as a library of its own (ffmpeg.dll, libffmpeg.so) that a player can swap, as its licence, the LGPL, asks.
-// Steam needs Valve's agreement before a game ships LGPL code: until FFmpeg is in APPROVED, a test build only warns,
-// and a release build stops (build.mjs).
+// Steam needs Valve's agreement before a game ships LGPL code: until Blink and FFmpeg are in APPROVED, a test build
+// only warns, and a release build stops (build.mjs, PENDING).
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+
+/** What waits for the owner's approval (Valve's agreement), by name: a test build only warns about these. */
+export const PENDING = ['Blink', 'FFmpeg'];
 
 /** Chromium's notices, as the page reads them (desktop/links.mjs serves them from beside the program). */
 export const CHROMIUM_NOTICES = 'LICENSES.chromium.html';
@@ -46,6 +50,11 @@ export function electronNotices(dir) {
       name: 'Chromium', version: chrome, licence: 'BSD-3-Clause',
       text: `${noticeOf(page, 'The Chromium Project')}\n\nChromium includes code from many other projects. Their notices are in ${CHROMIUM_NOTICES}, beside the program.`,
       url: CHROMIUM_NOTICES,
+    },
+    {
+      name: 'Blink', version: `in Chromium ${chrome}`, licence: 'LGPL-2.1-or-later',
+      text: `${noticeOf(page, 'WebKit')}\n\nBlink, Chromium's page engine, comes from WebKit; parts of it are under the LGPL. Floe Market uses it as Electron builds it, unchanged, inside the program (FloeMarket.exe on Windows, floe-market on Linux), which can be replaced with another build of Electron ${pkg.version}; the game itself is apart, in resources/app.asar. Its source: https://chromium.googlesource.com/chromium/src/+/refs/tags/${chrome}/third_party/blink`,
+      url: 'https://www.chromium.org/blink/',
     },
     {
       name: 'FFmpeg', version: `in Chromium ${chrome}`, licence: 'LGPL-2.1-or-later',

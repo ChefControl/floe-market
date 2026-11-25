@@ -34,9 +34,10 @@ export function fileFor(url, game, notices) {
 /**
  * Where a link the game opens (target="_blank", window.open) goes: `game` for the game's own text files (the licences
  * list, the notices), opened in a window of the app's own; `browser` for a web page, in the player's browser; `steam`
- * for a steam:// address (the store page), handed to Steam; `none` for anything else.
+ * for a steam:// address (the store page), handed to Steam; `mail` for an email address (the privacy notice's), to
+ * the player's mail program; `none` for anything else.
  * @param {string} url
- * @returns {'game' | 'browser' | 'steam' | 'none'}
+ * @returns {'game' | 'browser' | 'steam' | 'mail' | 'none'}
  */
 export function linkKind(url) {
   let u;
@@ -44,5 +45,6 @@ export function linkKind(url) {
   if (u.protocol === 'app:') return u.host === 'floe' ? 'game' : 'none';
   if (u.protocol === 'https:' || u.protocol === 'http:') return 'browser';
   if (u.protocol === 'steam:') return 'steam';
+  if (u.protocol === 'mailto:') return 'mail';
   return 'none';
 }
