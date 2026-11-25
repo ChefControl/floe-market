@@ -100,8 +100,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { os: windows-latest, platform: win32, name: windows }
-          - { os: ubuntu-latest, platform: linux, name: linux }
+          - { os: windows-latest, platform: win32, name: windows, demo: '' }
+          - { os: ubuntu-latest, platform: linux, name: linux, demo: '' }
+          # the Steam demo (#183), an app of its own
+          - { os: windows-latest, platform: win32, name: demo-windows, demo: --demo }
+          - { os: ubuntu-latest, platform: linux, name: demo-linux, demo: --demo }
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
@@ -118,17 +121,21 @@ jobs:
       # (Electron's own program, for its licence notices; npm may skip its install script)
       - run: node node_modules/electron/install.js
         working-directory: desktop
-      - run: node build.mjs --platform=${{ matrix.platform }} $RELEASE
+      # (a release build of the demo takes the full game's id for its Wishlist button: only then, from a secret)
+      - run: node build.mjs --platform=${{ matrix.platform }} ${{ matrix.demo }} $RELEASE
         shell: bash
         working-directory: desktop
         env:
           RELEASE: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.STEAM_UPLOAD == 'on' && '--release' || '' }}
+          STEAM_APP_ID: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.STEAM_UPLOAD == 'on' && secrets.STEAM_APP_ID || '' }}
+      - run: mv desktop/out/Floe\ Market*-${{ matrix.platform }}-x64 desktop/out/app
+        shell: bash
       - if: matrix.platform == 'linux'
-        run: tar -czf floe-market-linux.tar.gz -C "desktop/out/Floe Market-linux-x64" .
+        run: tar -czf floe-market-${{ matrix.name }}.tar.gz -C desktop/out/app .
       - uses: actions/upload-artifact@v7
         with:
           name: floe-market-${{ matrix.name }}
-          path: ${{ matrix.platform == 'linux' && 'floe-market-linux.tar.gz' || 'desktop/out/Floe Market-win32-x64' }}
+          path: ${{ matrix.platform == 'linux' && format('floe-market-{0}.tar.gz', matrix.name) || 'desktop/out/app' }}
           retention-days: 14
 
   # Each merge to main goes up to Steam, both depots onto the app's beta branch; the owner sets builds live in
@@ -147,15 +154,22 @@ jobs:
           pattern: floe-market-*
           path: artifacts
       - run: |
-          mkdir -p steam/content/linux
-          mv artifacts/floe-market-windows steam/content/windows
-          tar -xzf artifacts/floe-market-linux/floe-market-linux.tar.gz -C steam/content/linux
-      - id: script
-        run: node desktop/steam/upload.mjs steam/content steam/build
+          for app in game demo; do
+            from=floe-market-; [ $app = demo ] && from=floe-market-demo-
+            mkdir -p steam/$app/linux
+            mv artifacts/${from}windows steam/$app/windows
+            tar -xzf artifacts/${from}linux/${from}linux.tar.gz -C steam/$app/linux
+          done
+      - run: |
+          node desktop/steam/upload.mjs steam/game steam/build-game
+          node desktop/steam/upload.mjs steam/demo steam/build-demo --demo
         env:
           STEAM_APP_ID: ${{ secrets.STEAM_APP_ID }}
           STEAM_DEPOT_WINDOWS: ${{ secrets.STEAM_DEPOT_WINDOWS }}
           STEAM_DEPOT_LINUX: ${{ secrets.STEAM_DEPOT_LINUX }}
+          STEAM_DEMO_APP_ID: ${{ secrets.STEAM_DEMO_APP_ID }}
+          STEAM_DEMO_DEPOT_WINDOWS: ${{ secrets.STEAM_DEMO_DEPOT_WINDOWS }}
+          STEAM_DEMO_DEPOT_LINUX: ${{ secrets.STEAM_DEMO_DEPOT_LINUX }}
       # Valve's uploader, from Valve, and the build-upload account's saved login (Steam Guard), so it needs no password
       # or code here
       - run: |
@@ -164,11 +178,13 @@ jobs:
           mkdir -p config ~/Steam/config
           echo "$STEAM_CONFIG_VDF" | base64 -d > config/config.vdf
           cp config/config.vdf ~/Steam/config/config.vdf
-          ./steamcmd.sh +login "$STEAM_USERNAME" +run_app_build "$VDF" +quit
+          # (the game, and the demo once its ids are set: upload.mjs writes a script for each that's set up)
+          builds=""
+          for vdf in "$GITHUB_WORKSPACE"/steam/build-*/app_build.vdf; do [ -e "$vdf" ] && builds="$builds +run_app_build $vdf"; done
+          ./steamcmd.sh +login "$STEAM_USERNAME" $builds +quit
         env:
           STEAM_USERNAME: ${{ secrets.STEAM_USERNAME }}
           STEAM_CONFIG_VDF: ${{ secrets.STEAM_CONFIG_VDF }}
-          VDF: ${{ steps.script.outputs.vdf }}
 
   # firestore.rules against the Firestore emulator (test/rules/), which needs Java. Rules are pasted into the Firebase
   # console by hand, so this doesn't gate the deploy, but a pull request that breaks them shows red.

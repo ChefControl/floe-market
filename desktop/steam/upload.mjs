@@ -4,8 +4,9 @@
 // builds live there in Steamworks). The ids come from GitHub Actions secrets, never the repo, and an id that isn't a
 // number, or is still Valve's test app (480, Spacewar), stops it.
 //
-//   node upload.mjs <content folder> <out folder>
-//   env: STEAM_APP_ID, STEAM_DEPOT_WINDOWS, STEAM_DEPOT_LINUX; STEAM_BRANCH (default beta); GITHUB_SHA
+//   node upload.mjs <content folder> <out folder> [--demo]
+//   env: STEAM_APP_ID, STEAM_DEPOT_WINDOWS, STEAM_DEPOT_LINUX (with --demo, STEAM_DEMO_APP_ID and so on: the demo is an
+//   app of its own, and is skipped until its ids are set); STEAM_BRANCH (default beta); GITHUB_SHA
 //   <content folder>/windows and <content folder>/linux hold the two apps, as the build made them.
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
@@ -62,20 +63,23 @@ ${depots}
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
-  const [content, out] = process.argv.slice(2).map(p => resolve(p));
-  if (!content || !out) throw new Error('usage: node upload.mjs <content folder> <out folder>');
-  const env = process.env;
-  const appId = steamId(env, 'STEAM_APP_ID');
-  const file = join(out, `app_build_${appId}.vdf`);
+  const demo = process.argv.includes('--demo');
+  const [content, out] = process.argv.slice(2).filter(a => !a.startsWith('--')).map(p => resolve(p));
+  if (!content || !out) throw new Error('usage: node upload.mjs <content folder> <out folder> [--demo]');
+  const env = process.env, P = demo ? 'STEAM_DEMO_' : 'STEAM_';
+  if (demo && !env.STEAM_DEMO_APP_ID) {
+    console.log('The demo has no app id yet (STEAM_DEMO_APP_ID): not uploaded');
+    process.exit(0);
+  }
+  const appId = steamId(env, `${P}APP_ID`);
+  const file = join(out, 'app_build.vdf');
   mkdirSync(join(out, 'output'), { recursive: true });
   writeFileSync(file, appBuild({
     appId,
-    depots: { [steamId(env, 'STEAM_DEPOT_WINDOWS')]: 'windows', [steamId(env, 'STEAM_DEPOT_LINUX')]: 'linux' },
+    depots: { [steamId(env, `${P}DEPOT_WINDOWS`)]: 'windows', [steamId(env, `${P}DEPOT_LINUX`)]: 'linux' },
     content, output: join(out, 'output'),
-    desc: `Floe Market ${(env.GITHUB_SHA ?? 'local').slice(0, 7)}`,
+    desc: `Floe Market${demo ? ' Demo' : ''} ${(env.GITHUB_SHA ?? 'local').slice(0, 7)}`,
     branch: env.STEAM_BRANCH || 'beta',
   }));
-  // (the path only: the ids stay out of the log)
-  console.log(file.replace(appId, '<app>'));
-  if (env.GITHUB_OUTPUT) writeFileSync(env.GITHUB_OUTPUT, `vdf=${file}\n`, { flag: 'a' });
+  console.log(file);
 }

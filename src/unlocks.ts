@@ -36,6 +36,7 @@ import { enterStage2, enterStage3, finishStage3, staging } from './stage';
 import { showStage, toast, type TipContent } from './ui';
 import { chips, FY, price, V } from './util';
 import { MAX_MACHINES, type MenuRoom, ROOM_MENUS } from './cellarPlan';
+import { inBuild, steamDemo } from './steamDemo';
 import { wallet } from './wallet';
 
 export type UnlockId =
@@ -214,13 +215,15 @@ if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => tile
 
 /** Whether an upgrade tile has been bought. */
 export const isDone = (id: UnlockId) => tiles.some(t => t.id === id && t.done);
-/** A stage's own upgrades: what its progress chip counts. */
-const goal = (n: StageN) => tiles.filter(t => t.stage === n && !t.always && !t.gold);
+/** A stage's own upgrades: what its progress chip counts (in the Steam demo, only the demo's: steamDemo.ts). */
+const goal = (n: StageN) => tiles.filter(t => t.stage === n && !t.always && !t.gold && inBuild(t));
 const built = (n: StageN) => goal(n).every(t => t.done);
 /** All of a stage's own upgrades are built. */
 export const stageBuilt = built;
 
 export function offered(t: Tile) {
+  // (the Steam demo stops at the second chef: steamDemo.ts)
+  if (!inBuild(t)) return false;
   // down in the cellar, once the bosses that reveal them are beaten (the buyout too)
   if (t.stage === 3) return stage.n === 3 && !staging() && F.beaten >= (t.beat ?? 0) && (!t.spar || !practiceDue()) && (!t.needs || isDone(t.needs));
   // the gold tiles, once their stage is built: stage 2's only once Mr. Fugu's offer has been taken
@@ -376,7 +379,8 @@ export function applyUnlock(id: UnlockId, silent = false) {
   // a moment on camera for what it built, or for the player with nothing new to see (boots, bigger arms); the casino
   // boat has its own, following the ship as it sails in, and the cellar's have theirs (ring.ts's on.built)
   if (id !== 'roulette' && t.stage !== 3) spotlight(shown.length ? shown : [player.g]);
-  if (t.always || !goal(t.stage).every(x => x.done)) return;
+  // (the demo's end has its own news: someone knocks under the dock, offer.ts)
+  if (t.always || !goal(t.stage).every(x => x.done) || (steamDemo() && t.stage === 2)) return;
   toast(t.stage === 1 ? 'Floe Sushi is ready to open' : 'Floe Sushi is fully built');
 }
 
