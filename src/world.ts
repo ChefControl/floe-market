@@ -4,6 +4,7 @@ import {
   BoxGeometry, Float32BufferAttribute, Group, type Material, Mesh, MeshBasicMaterial, MeshLambertMaterial, type Object3D, PlaneGeometry,
   RepeatWrapping, type Vector3,
 } from 'three';
+import { roadOn } from './backdrop';
 import { apart, at as atXZ, Build, detail, dice, jitter, quietly, seasonLayer } from './kit';
 import { BAY, HOUSE_PATH_Z, PIER, QUAY } from './layout';
 import {
@@ -385,6 +386,9 @@ export const ROAD_HALF = 1.3;
 const road1 = road(ROAD1_X);
 const road2 = road(ROAD2_X);
 road2.visible = false;
+// past its two ends, each carries on, bends east and joins the road behind the hills (backdrop.ts)
+road1.add(roadOn(ROAD1_X));
+road2.add(roadOn(ROAD2_X));
 
 // ---------- trees and snow ----------
 // Trees are baked into a few big meshes per stage (one per material), which is far cheaper to draw than

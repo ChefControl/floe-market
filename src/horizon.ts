@@ -68,7 +68,7 @@ function flatPlane(w: number, d: number) {
 // ---------- the lighthouse ----------
 // on a rock of its own off the biggest island: white with red bands, and at night its lamp sweeps round (a glow that
 // swells and fades)
-const LIGHTHOUSE = { x: 12, z: -64, y: 0.9 };
+const LIGHTHOUSE = { x: -3, z: -63.8, y: 0.9 };
 const glowTex = canvasTex(64, 64, (c, w, h) => {
   const gr = c.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, w / 2);
   gr.addColorStop(0, 'rgba(255,248,220,1)'); gr.addColorStop(0.25, 'rgba(255,224,150,.7)'); gr.addColorStop(1, 'rgba(255,200,120,0)');

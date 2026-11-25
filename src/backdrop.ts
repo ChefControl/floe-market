@@ -12,6 +12,7 @@ import {
   Matrix4, Mesh, MeshBasicMaterial, MeshLambertMaterial, Quaternion, SphereGeometry, Vector3,
 } from 'three';
 import { apart, dice } from './kit';
+import { BAY } from './layout';
 import { C } from './palette';
 import { scene, sky } from './render';
 import { amount, FLOE_SIZE, onBlend, PAL, seasonal } from './season';
@@ -25,7 +26,8 @@ const ROADS_X = 12, ROAD_GAP = 5;
 /** How high over the world the sky's dome and the clouds are kept (they're drawn round the camera). */
 const PARKED = 400;
 
-/** Each part in a group of its own, so each can be shown or hidden. (The far boats are in the mountains' mesh.) */
+/** Each part in a group of its own, so each can be shown or hidden. (The far boats and the road behind the hills are
+ *  in the mountains' mesh.) */
 export const backdrop = apart(() => ({
   sky: new Group(), hills: new Group(), pines: new Group(), peaks: new Group(), town: new Group(), bergs: new Group(), clouds: new Group(),
 }), dice(0xBAC4C));
@@ -35,9 +37,12 @@ const rad = (deg: number) => deg * Math.PI / 180;
 /** Some waves summed: a smooth line that rises and falls round the ring, the same every time. */
 const waves = (a: number, list: [amp: number, freq: number, phase: number][]) =>
   list.reduce((s, [amp, f, ph]) => s + amp * Math.sin(rad(a) * f + ph), 0);
-/** How much of the land's height is left at `x` along the angle `a`: none at the ring's ends or where a road runs through. */
+/** How much of the land's height is left along the angle `a`: none at the ring's ends, where it runs down into the sea. */
+const ends = (a: number) => smooth(FROM, FROM + 14, a) * smooth(TO, TO - 14, a);
+/** And at `x` along it: none where a road runs through the hills, north and south, nor out in the bay at the hills'
+ *  north-east end (the coast there runs straight north, world.ts: the hills stop at it). */
 const stands = (a: number, x: number) =>
-  smooth(FROM, FROM + 14, a) * smooth(TO, TO - 14, a) * smooth(ROAD_GAP, ROAD_GAP + 9, Math.abs(x - ROADS_X));
+  ends(a) * smooth(ROAD_GAP, ROAD_GAP + 9, Math.abs(x - ROADS_X)) * (a < -60 ? smooth(BAY.x1 - 0.5, BAY.x1 + 3.5, x) : 1);
 
 /** Triangles with flat facets (the islands' low-poly look), from a list of corners and, optionally, a colour each. */
 function facets(pos: number[], col?: number[]) {
@@ -80,7 +85,7 @@ function onHills(a: number, t: number): [number, number, number] {
  */
 function ridge(pos: number[], col: number[], seg: number, r: (a: number) => number, h: (a: number) => number, depth: number, tint: (k: number, n: number) => Color) {
   const rows = (a: number, i: number) => {
-    const R = r(a), cos = Math.cos(rad(a)), sin = Math.sin(rad(a)), H = h(a) * stands(a, MID.x + cos * R);
+    const R = r(a), cos = Math.cos(rad(a)), sin = Math.sin(rad(a)), H = h(a) * ends(a);
     // (foot, lower and upper shoulder, crest, back), each [distance out, height], the shoulders in and out by turns
     const w = (n: number) => Math.sin(i * 1.7 + n * 2.3);
     return [[R - depth, -0.05], [R - depth * (0.62 + 0.08 * w(1)), H * (0.34 + 0.1 * w(2))], [R - depth * (0.28 + 0.07 * w(3)), H * (0.7 + 0.08 * w(4))], [R, H],
@@ -100,6 +105,92 @@ function ridge(pos: number[], col: number[], seg: number, r: (a: number) => numb
     }
     prev = cur;
   }
+}
+
+// ---------- the roads, carried on ----------
+// Both roads (world.ts) stop 65 m out, north and south, in the dips between the hills. From there each carries on,
+// bends east and joins one road that runs behind the hills, in the valley between them and the mountains, from the
+// north dip round to the south one: so the road out one way is the road back the other, and it ends nowhere. Flat, like
+// the roads on Low: asphalt, a kerb's pale strip and a white line along each edge, dashes down the middle.
+/** How far out from MID the road behind the hills runs: just past their far side, short of the mountains' foot. */
+const ringR = (a: number) => footR(a) + HILL_DEPTH + 2.3;
+const ringAt = (a: number): [number, number] => [MID.x + Math.cos(rad(a)) * ringR(a), MID.z + Math.sin(rad(a)) * ringR(a)];
+/** Where a road's own end joins the road behind the hills (degrees either side of east), how far out the roads stop,
+ *  how tight they bend, and how wide they are either side of the middle (world.ts ROAD_HALF). */
+const JOIN = 62, ROAD_END = 65, BEND = 6, ROAD_HALF = 1.3;
+/** A line through `pts`, its corners cut round `rounds` times (its two ends stay where they are). */
+function rounded(pts: [number, number][], rounds: number) {
+  for (let n = 0; n < rounds; n++) {
+    const out: [number, number][] = [pts[0]];
+    for (let i = 0; i < pts.length - 1; i++) {
+      const [ax, az] = pts[i], [bx, bz] = pts[i + 1];
+      out.push([ax * 0.75 + bx * 0.25, az * 0.75 + bz * 0.25], [ax * 0.25 + bx * 0.75, az * 0.25 + bz * 0.75]);
+    }
+    out.push(pts[pts.length - 1]);
+    pts = out;
+  }
+  return pts;
+}
+/** Paints a road along `line` into `pos` and `col`, `dx` off in x (for a mesh that hangs on a road's own group). */
+function pave(pos: number[], col: number[], line: [number, number][], dx = 0) {
+  const tar = new Color(0x6B7785), kerb = new Color(0xB4BEC8), white = new Color(0xE8EEF2);
+  // each point's left-hand side, across the road
+  const side = line.map((_, i) => {
+    const [ax, az] = line[Math.max(0, i - 1)], [bx, bz] = line[Math.min(line.length - 1, i + 1)], l = Math.hypot(bx - ax, bz - az) || 1;
+    return [(bz - az) / l, -(bx - ax) / l];
+  });
+  /** A strip from `a` to `b` across the road (metres from its middle), `y` up, between points `i` and `j`. */
+  const strip = (i: number, j: number, a: number, b: number, y: number, c: Color) => {
+    const at = (k: number, o: number) => [line[k][0] + side[k][0] * o - dx, y, line[k][1] + side[k][1] * o];
+    const p0 = at(i, a), p1 = at(i, b), p2 = at(j, a), p3 = at(j, b);
+    // (wound to face up, whichever way the line runs)
+    const up = (p2[2] - p0[2]) * (p1[0] - p0[0]) - (p2[0] - p0[0]) * (p1[2] - p0[2]) > 0;
+    for (const v of up ? [p0, p2, p1, p1, p2, p3] : [p0, p1, p2, p1, p3, p2]) { pos.push(...v); col.push(c.r, c.g, c.b); }
+  };
+  let run = 0;
+  for (let i = 0; i < line.length - 1; i++) {
+    strip(i, i + 1, -ROAD_HALF, ROAD_HALF, 0, tar);
+    for (const sd of [-1, 1]) {
+      strip(i, i + 1, sd * (ROAD_HALF - 0.14), sd * ROAD_HALF, 0.006, kerb);
+      strip(i, i + 1, sd * (ROAD_HALF - 0.29), sd * (ROAD_HALF - 0.23), 0.006, white);
+    }
+    // a dash every 2.2 m, as the roads' own
+    const len = Math.hypot(line[i + 1][0] - line[i][0], line[i + 1][1] - line[i][1]);
+    if (Math.floor((run + len) / 2.2) > Math.floor(run / 2.2) || len > 2.2) strip(i, i + 1, -0.06, 0.06, 0.01, white);
+    run += len;
+  }
+}
+/** The line a road at `x` carries on along from its end, north (`s` -1) or south (1): straight on to where the road
+ *  behind the hills is, round a bend to the east onto it, and along it to where the two roads' ends join it. */
+function roadOnLine(x: number, s: -1 | 1) {
+  const end = (zc: number, t: number): [number, number] => [x + BEND * (1 - Math.cos(t)), s * (zc + BEND * Math.sin(t))];
+  // how far straight on before the bend, so the bend comes out on the road behind the hills
+  let zc = ROAD_END, best = Infinity;
+  for (let z = ROAD_END; z < ROAD_END + 40; z += 0.1) {
+    const [ex, ez] = end(z, rad(70)), off = Math.abs(Math.hypot(ex - MID.x, ez - MID.z) - ringR(Math.atan2(ez - MID.z, ex - MID.x) * 180 / Math.PI));
+    if (off < best) { best = off; zc = z; }
+  }
+  const pts: [number, number][] = [];
+  for (let z = ROAD_END; z < zc; z += 2) pts.push([x, s * z]);
+  for (let t = 0; t <= 70; t += 14) pts.push(end(zc, rad(t)));
+  const [lx, lz] = pts[pts.length - 1], from = Math.abs(Math.atan2(lz - MID.z, lx - MID.x) * 180 / Math.PI) - 4;
+  for (let a = from; a > JOIN; a -= 3) pts.push(ringAt(s * a));
+  pts.push(ringAt(s * JOIN));
+  return rounded(pts, 2);
+}
+/**
+ * What a road at `x` carries on as past its two ends, to hang on the road's own group (world.ts `road`: it's shown,
+ * hidden and popped in with its road): one mesh, on dice of its own.
+ */
+export function roadOn(x: number) {
+  return apart(() => {
+    const pos: number[] = [], col: number[] = [];
+    for (const s of [-1, 1] as const) pave(pos, col, roadOnLine(x, s), x);
+    const mesh = new Mesh(facets(pos, col), new MeshLambertMaterial({ vertexColors: true }));
+    mesh.name = 'roadOn';
+    mesh.raycast = () => {};
+    return mesh;
+  }, dice(0x40AD0 + Math.round(x * 100)));
 }
 
 apart(() => {
@@ -185,14 +276,19 @@ apart(() => {
   [PAL.pine, PAL.pine2].forEach((c, i) => backdrop.pines.add(new Mesh(merge(parts[i]), seasonal(c))));
 
   // ---------- far mountains, and the far boats ----------
-  // two rows, the far one taller and paler with the distance, snow on their tops down to a ragged line; the boats out
-  // at sea are painted into the same mesh (one draw for both)
+  // two rows, the far one taller and paler with the distance, snow on their tops down to a ragged line; the road
+  // behind the hills and the boats out at sea are painted into the same mesh (one draw for all three)
   {
     const pos: number[] = [], col: number[] = [];
     const snow = new Color(C.ice), near = new Color(C.steel), far = new Color(C.steel).lerp(snow, 0.45);
     const tintOf = (rock: Color) => (k: number, n: number) => tmp.copy(rock).lerp(snow, smooth(0.58, 0.74, k + 0.07 * Math.sin(n * 0.011)));
     ridge(pos, col, 150, a => 127 + waves(a, [[5, 3, 0.4]]), a => 30 + waves(a, [[8, 4, 2.6], [5, 9, 0.2], [3, 21, 4.0], [2, 37, 1.1]]), 24, tintOf(far));
-    ridge(pos, col, 170, a => 103 + waves(a, [[5, 4, 2.2]]), a => 18 + waves(a, [[6, 6, 0.9], [3.5, 13, 3.3], [2.5, 27, 1.7], [1.5, 43, 0.3]]), 20, tintOf(near));
+    // (the near row stands back from the hills by the width of the valley the road runs in)
+    ridge(pos, col, 170, a => footR(a) + HILL_DEPTH + 4.8 + 20, a => 18 + waves(a, [[6, 6, 0.9], [3.5, 13, 3.3], [2.5, 27, 1.7], [1.5, 43, 0.3]]), 20, tintOf(near));
+    // the road behind the hills, from where the roads' north ends join it round to where their south ends do
+    const ring: [number, number][] = [];
+    for (let a = -JOIN; a <= JOIN + 0.01; a += 0.62) ring.push(ringAt(a));
+    pave(pos, col, ring);
 
     const tri = (a: number[], b: number[], c: number[], cc: Color) => { pos.push(...a, ...b, ...c); for (let i = 0; i < 3; i++) col.push(cc.r, cc.g, cc.b); };
     const paper = new Color(C.paper), wood = new Color(C.timber);
