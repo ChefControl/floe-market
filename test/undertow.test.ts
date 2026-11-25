@@ -105,6 +105,8 @@ describe('the Undertow', () => {
     g.run(0.8);
     expect($('wayLook').hidden).toBe(false);
     expect(F().den.book).toBe(false);
+    // (the room behind it dimmed, but only half as dark as it was)
+    expect(S.wayState().dim).toBeCloseTo(0.35, 2);
     g.press('ArrowLeft');
     g.run(0.5);
     g.press('ArrowLeft', 'keyup');
