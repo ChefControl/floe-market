@@ -72,6 +72,8 @@
   const barsEl = bars.firstChild, fadeEl = bars.lastChild;
   /** The caption at time t: [from, to, text, kicker?] — pops in with the banner's overshoot, out with a quick fade. */
   function caption(list, t) {
+    // (?nocap in the address: clean plates, no captions, for loops cut from the takes)
+    if (location.search.includes('nocap')) { cap.style.opacity = 0; return; }
     const c = list.find(([a, b]) => t >= a && t < b);
     if (!c) { cap.style.opacity = 0; return; }
     const [a, b, text, kicker] = c;
