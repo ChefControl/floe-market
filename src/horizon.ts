@@ -40,7 +40,8 @@ quietly(() => {
   const ROCK = 0x3F5A58, PINE = 0x2F4A40;
   const islands: [number, number, number, number][] = [
     // x, z, width, height
-    [-26, -62, 11, 2.0], [-14, -66, 6, 1.2], [-44, -58, 8, 1.6], [4, -68, 13, 2.6], [-60, -50, 9, 1.8],
+    // (the biggest stands clear of the coast, which runs north at BAY.x1: the coast road bends there, backdrop.ts)
+    [-26, -62, 11, 2.0], [-14, -66, 6, 1.2], [-44, -58, 8, 1.6], [-3.5, -68, 13, 2.6], [-60, -50, 9, 1.8],
   ];
   const r = rng(0xB1A5);
   for (const [x, z, w, h] of islands) {

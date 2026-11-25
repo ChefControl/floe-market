@@ -121,6 +121,9 @@ const ringAt = (a: number): [number, number] => [MID.x + Math.cos(rad(a)) * ring
 /** Where a road's own end joins the road behind the hills (degrees either side of east), how far out the roads stop,
  *  how tight they bend, and how wide they are either side of the middle (world.ts ROAD_HALF). */
 const JOIN = 62, ROAD_END = 65, BEND = 6, ROAD_HALF = 1.3;
+/** How far round a road's end bends (degrees) before it's on the road behind the hills: a little past a quarter turn,
+ *  as that road runs slightly back towards the market there. */
+const SWEEP = 98;
 /** A line through `pts`, its corners cut round `rounds` times (its two ends stay where they are). */
 function rounded(pts: [number, number][], rounds: number) {
   for (let n = 0; n < rounds; n++) {
@@ -134,34 +137,63 @@ function rounded(pts: [number, number][], rounds: number) {
   }
   return pts;
 }
-/** Paints a road along `line` into `pos` and `col`, `dx` off in x (for a mesh that hangs on a road's own group). */
-function pave(pos: number[], col: number[], line: [number, number][], dx = 0) {
-  const tar = new Color(0x6B7785), kerb = new Color(0xB4BEC8), white = new Color(0xE8EEF2);
+/** `pts` again as points `step` apart along the same line (its two ends stay where they are). */
+function evenly(pts: [number, number][], step: number) {
+  const out: [number, number][] = [pts[0]];
+  let need = step;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const [ax, az] = pts[i], [bx, bz] = pts[i + 1], len = Math.hypot(bx - ax, bz - az);
+    let at = need;
+    for (; at <= len; at += step) out.push([ax + (bx - ax) * at / len, az + (bz - az) * at / len]);
+    need = at - len;
+  }
+  const [lx, lz] = out[out.length - 1], [ex, ez] = pts[pts.length - 1];
+  // (the last stretch may come out short: the end itself takes the place of a point that falls just before it)
+  if (Math.hypot(ex - lx, ez - lz) < step * 0.4 && out.length > 1) out.pop();
+  out.push([ex, ez]);
+  return out;
+}
+/** A dash's length: a third of the 2.2 m from one of the roads' dashes to the next, so every third stretch is a dash. */
+const DASH = 2.2 / 3;
+/**
+ * Paints a road along `line` (its points a dash apart, `evenly`) into `pos` and `col`, `dx` off in x (for a mesh that
+ * hangs on a road's own group). `startDir` and `endDir`: which way the road runs at its two ends, where it meets
+ * another piece, so the two pieces' ends are cut along the same line.
+ */
+function pave(pos: number[], col: number[], line: [number, number][], dx = 0, startDir?: [number, number], endDir?: [number, number]) {
+  const tar = new Color(0x6B7785), kerb = new Color(0xB4BEC8), white = new Color(0xE8EEF2), last = line.length - 1;
   // each point's left-hand side, across the road
   const side = line.map((_, i) => {
-    const [ax, az] = line[Math.max(0, i - 1)], [bx, bz] = line[Math.min(line.length - 1, i + 1)], l = Math.hypot(bx - ax, bz - az) || 1;
-    return [(bz - az) / l, -(bx - ax) / l];
+    const [ax, az] = line[Math.max(0, i - 1)], [bx, bz] = line[Math.min(last, i + 1)];
+    let tx = bx - ax, tz = bz - az;
+    if (i === 0 && startDir) [tx, tz] = startDir;
+    if (i === last && endDir) [tx, tz] = endDir;
+    const l = Math.hypot(tx, tz) || 1;
+    return [tz / l, -tx / l];
   });
   /** A strip from `a` to `b` across the road (metres from its middle), `y` up, between points `i` and `j`. */
   const strip = (i: number, j: number, a: number, b: number, y: number, c: Color) => {
     const at = (k: number, o: number) => [line[k][0] + side[k][0] * o - dx, y, line[k][1] + side[k][1] * o];
     const p0 = at(i, a), p1 = at(i, b), p2 = at(j, a), p3 = at(j, b);
-    // (wound to face up, whichever way the line runs)
-    const up = (p2[2] - p0[2]) * (p1[0] - p0[0]) - (p2[0] - p0[0]) * (p1[2] - p0[2]) > 0;
-    for (const v of up ? [p0, p2, p1, p1, p2, p3] : [p0, p1, p2, p1, p3, p2]) { pos.push(...v); col.push(c.r, c.g, c.b); }
+    // (each triangle wound to face up, whichever way the line runs or bends)
+    for (const [u, v, w] of [[p0, p2, p1], [p1, p2, p3]]) {
+      const up = (v[2] - u[2]) * (w[0] - u[0]) - (v[0] - u[0]) * (w[2] - u[2]) > 0;
+      for (const q of up ? [u, v, w] : [u, w, v]) { pos.push(...q); col.push(c.r, c.g, c.b); }
+    }
   };
-  let run = 0;
-  for (let i = 0; i < line.length - 1; i++) {
+  for (let i = 0; i < last; i++) {
     strip(i, i + 1, -ROAD_HALF, ROAD_HALF, 0, tar);
     for (const sd of [-1, 1]) {
       strip(i, i + 1, sd * (ROAD_HALF - 0.14), sd * ROAD_HALF, 0.006, kerb);
       strip(i, i + 1, sd * (ROAD_HALF - 0.29), sd * (ROAD_HALF - 0.23), 0.006, white);
     }
-    // a dash every 2.2 m, as the roads' own
-    const len = Math.hypot(line[i + 1][0] - line[i][0], line[i + 1][1] - line[i][1]);
-    if (Math.floor((run + len) / 2.2) > Math.floor(run / 2.2) || len > 2.2) strip(i, i + 1, -0.06, 0.06, 0.01, white);
-    run += len;
+    if (i % 3 === 1) strip(i, i + 1, -0.06, 0.06, 0.01, white);
   }
+}
+/** Which way the road behind the hills runs at the angle `a`, towards greater angles. */
+function ringDir(a: number): [number, number] {
+  const [ax, az] = ringAt(a - 0.2), [bx, bz] = ringAt(a + 0.2);
+  return [bx - ax, bz - az];
 }
 /** The line a road at `x` carries on along from its end, north (`s` -1) or south (1): straight on to where the road
  *  behind the hills is, round a bend to the east onto it, and along it to where the two roads' ends join it. */
@@ -170,16 +202,16 @@ function roadOnLine(x: number, s: -1 | 1) {
   // how far straight on before the bend, so the bend comes out on the road behind the hills
   let zc = ROAD_END, best = Infinity;
   for (let z = ROAD_END; z < ROAD_END + 40; z += 0.1) {
-    const [ex, ez] = end(z, rad(70)), off = Math.abs(Math.hypot(ex - MID.x, ez - MID.z) - ringR(Math.atan2(ez - MID.z, ex - MID.x) * 180 / Math.PI));
+    const [ex, ez] = end(z, rad(SWEEP)), off = Math.abs(Math.hypot(ex - MID.x, ez - MID.z) - ringR(Math.atan2(ez - MID.z, ex - MID.x) * 180 / Math.PI));
     if (off < best) { best = off; zc = z; }
   }
   const pts: [number, number][] = [];
   for (let z = ROAD_END; z < zc; z += 2) pts.push([x, s * z]);
-  for (let t = 0; t <= 70; t += 14) pts.push(end(zc, rad(t)));
+  for (let n = 0; n <= 6; n++) pts.push(end(zc, rad(SWEEP * n / 6)));
   const [lx, lz] = pts[pts.length - 1], from = Math.abs(Math.atan2(lz - MID.z, lx - MID.x) * 180 / Math.PI) - 4;
   for (let a = from; a > JOIN; a -= 3) pts.push(ringAt(s * a));
   pts.push(ringAt(s * JOIN));
-  return rounded(pts, 2);
+  return evenly(rounded(pts, 3), DASH);
 }
 /**
  * What a road at `x` carries on as past its two ends, to hang on the road's own group (world.ts `road`: it's shown,
@@ -188,7 +220,12 @@ function roadOnLine(x: number, s: -1 | 1) {
 export function roadOn(x: number) {
   return apart(() => {
     const pos: number[] = [], col: number[] = [];
-    for (const s of [-1, 1] as const) pave(pos, col, roadOnLine(x, s), x);
+    for (const s of [-1, 1] as const) {
+      // (it leaves its road heading straight on, and meets the road behind the hills running the way that does there:
+      // the north one towards greater angles, the south one towards lesser)
+      const [dx, dz] = ringDir(s * JOIN);
+      pave(pos, col, roadOnLine(x, s), x, [0, s], [-s * dx, -s * dz]);
+    }
     const mesh = new Mesh(facets(pos, col), new MeshLambertMaterial({ vertexColors: true }));
     mesh.name = 'roadOn';
     mesh.raycast = () => {};
@@ -290,8 +327,9 @@ apart(() => {
     ridge(pos, col, 170, a => footR(a) + HILL_DEPTH + 4.8 + 20, a => 18 + waves(a, [[6, 6, 0.9], [3.5, 13, 3.3], [2.5, 27, 1.7], [1.5, 43, 0.3]]), 20, tintOf(near));
     // the road behind the hills, from where the roads' north ends join it round to where their south ends do
     const ring: [number, number][] = [];
-    for (let a = -JOIN; a <= JOIN + 0.01; a += 0.62) ring.push(ringAt(a));
-    pave(pos, col, ring);
+    for (let a = -JOIN; a < JOIN; a += 0.5) ring.push(ringAt(a));
+    ring.push(ringAt(JOIN));
+    pave(pos, col, evenly(ring, DASH), 0, ringDir(-JOIN), ringDir(JOIN));
     backdrop.peaks.add(new Mesh(facets(pos, col), new MeshLambertMaterial({ vertexColors: true })));
   }
 
