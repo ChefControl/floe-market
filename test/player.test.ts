@@ -1,4 +1,5 @@
 // Player movement and every station interaction.
+import indexHtml from '../index.html?raw';
 import { describe, expect, it, vi } from 'vitest';
 import { bought, loadGame } from './helpers';
 
@@ -219,6 +220,17 @@ describe('buying', () => {
     g.run(2);
     expect($('buyHint').hidden).toBe(false);
     expect($('buy').style.bottom).toBe(before);
+  });
+
+  it('puts the Hold button and its reminder away while a scene is on, as the tip is', () => {
+    // (jsdom doesn't apply the page's CSS, so the rule itself: each scene's body class hides both, as it hides the tip)
+    const css = indexHtml.split('<style>')[1].split('</style>')[0];
+    const hide = [...css.matchAll(/([^{}]+)\{\s*opacity:0;\s*visibility:hidden;\s*\}/g)].map(m => m[1]).join(',');
+    for (const scene of ['offer', 'way', 'meet']) {
+      expect(hide, scene).toContain(`body.${scene} #tip`);
+      expect(hide, scene).toContain(`body.${scene} #buy,`);
+      expect(hide, scene).toContain(`body.${scene} #buyHint`);
+    }
   });
 
   it('lays the tiles square with the world, not turned to the camera', async () => {

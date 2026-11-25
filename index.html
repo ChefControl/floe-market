@@ -1242,7 +1242,8 @@ body.offer #game, body.way #game, body.meet #game{ filter:saturate(.8); }
 #hud, #corner, #pointers{ transition:opacity .3s; }
 body.offer #hud, body.offer #corner, body.offer #pointers, body.offer #tip, body.offer .pop,
 body.way #hud, body.way #corner, body.way #pointers, body.way #tip, body.way .pop,
-body.meet #hud, body.meet #corner, body.meet #pointers, body.meet #tip, body.meet .pop{ opacity:0; visibility:hidden; }
+body.meet #hud, body.meet #corner, body.meet #pointers, body.meet #tip, body.meet .pop,
+body.offer #buy, body.offer #buyHint, body.way #buy, body.way #buyHint, body.meet #buy, body.meet #buyHint{ opacity:0; visibility:hidden; }
 #offerBlink{ position:fixed; inset:0; z-index:7; background:#0F2230; opacity:0; pointer-events:none; }
 #offerBlink.on{ opacity:1; }
 #offerBlink.slow{ transition:opacity .45s; }
