@@ -1,40 +1,50 @@
-// Take O, the opening (?stage=1): the chef wakes on an ice floe in the middle of the sea, stands, "!"; three zoom-outs
-// on three thuds show nothing but water; through his eyes, a tuna jumps; he ropes it and rides it to the pier; the
-// cleaver comes down. Everything on a 92 BPM grid (the market tune's tempo), a cut or a hit on a beat.
-// The chef's moves here (lying, sitting up, the lasso, the ride) aren't in the game: they're posed in this script only,
-// from the game's own chef, tuna, floe, splashes and sounds.
+// Take O, the opening (?stage=1 as a new game, --init newgame.js; hero-tuna.js before this): the chef wakes on an ice
+// floe in the middle of the sea, looks about, "!"; three zoom-outs on three thuds show nothing but water; through his
+// eyes, a tuna jumps; he ropes it and rides it; the market comes into sight far off and the picture fades; the cleaver
+// comes down. Everything on a 92 BPM grid (the market tune's tempo), a cut or a hit on a beat.
+// None of these moves are in the game: the chef is posed here, with a face made of the game's own face parts
+// (characters.ts: round eyes, brows, the "o", the grin), and the tuna is the clip's own (hero-tuna.js).
 (async () => {
-  while (!window.K) await new Promise(r => setTimeout(r, 50));
+  while (!window.K || !window.HeroTuna) await new Promise(r => setTimeout(r, 50));
   const { V, clamp, ease, easeOut, easeIO, lerp, T3 } = K;
-  const { Group, Mesh, MeshLambertMaterial, TorusGeometry, TubeGeometry, CatmullRomCurve3, Vector3 } = T3;
+  const { Group, Mesh, MeshLambertMaterial, TorusGeometry, TubeGeometry, CatmullRomCurve3, SphereGeometry, BoxGeometry, CircleGeometry, DoubleSide } = T3;
   const { scene } = K.R;
   const { player } = await window.__mod('player.ts');
-  const { newFish } = await window.__mod('fishModel.ts');
   const { FLOES } = await window.__mod('props.ts');
   const { foamRing, seaGeometry } = await window.__mod('sea.ts');
   const FX = await window.__mod('fx.ts'), SFX = await window.__mod('sfx.ts'), A = await window.__mod('audio.ts');
   const ST = await window.__mod('stations.ts');
+  const mix = (a, b, k) => a + (b - a) * k;
+  /** 0 → a little past 1 → 1: things that land with a bounce. */
+  const back = k => { k = clamp(k); const c = 2.2; return 1 + (c + 1) * Math.pow(k - 1, 3) + c * Math.pow(k - 1, 2); };
 
   const BEAT = 60 / 92, at = n => n * BEAT;
-  // the beats: wake 0, "!" 3, thuds 4 5 6, his eyes 8, the rope 10, taut 12, ride 12–16, chop 16
-  const T = { bang: at(3), hit1: at(4), hit2: at(5), hit3: at(6), pov: at(8), rope: at(10), thrown: at(11), taut: at(12), ride2: at(14), chop: at(16), end: at(18.5) };
+  const T = { sit: 1.0, peek: at(2.5), up: at(3.6), bang: at(5), hit1: at(6), hit2: at(7), hit3: at(8), pov: at(10), react: at(12), idea: at(12.7),
+    over: at(13.5), thrown: at(14), caught: at(14.5), taut: at(15), ride2: at(17), chop: at(19), end: at(21.5) };
 
   // ---------- the set ----------
-  /** The floe, far out: the dock is behind every camera here. */
+  /** The floe, far out: no shore or island in any shot from here. */
   const F = V(-90, 0, -110);
-  /** The ride: across open water (R1), then in to the dock between the yacht and the pier (R2), and across each. */
+  /** The ride: across open water (R1), then toward the dock, far off (R2), and across each. */
   const DOCK = V(-3.4, 0, -8.6), R1 = V(0.6, 0, 0.8), R2 = V(0.2, 0, 0.98).normalize();
   const sideOf = d => V(-d.z, 0, d.x);
-  // "nothing but water": the islands out in the bay (horizon.ts) are put away until he's on his way in
+  // "nothing but water": the islands out in the bay (horizon.ts) are put away
   const hills = scene.getObjectByName('horizon').children.filter(c => c.geometry?.type === 'ConeGeometry');
   // The bay's rolling sea stops 60 m out and a flat sheet carries on (horizon.ts): from high up its edge shows. So the
   // opening has a sea of its own over both, the game's own water (its material, its swell) in the deep colour all over.
   let seaMat = null;
   scene.traverse(m => { if (!seaMat && m.isMesh && m.material?.customProgramCacheKey?.() === 'sea') seaMat = m.material; });
   const openSea = (() => {
-    const g = seaGeometry(420, 200), uv = g.attributes.uv;
-    for (let i = 0; i < uv.count; i++) uv.setXY(i, 0.5, 0.99);
-    const m = new Mesh(g, seaMat); m.rotation.x = -Math.PI / 2; m.position.set(F.x, 0.075, F.z); m.receiveShadow = true;
+    const g = seaGeometry(460, 300), uv = g.attributes.uv, p = g.attributes.position;
+    // From high up the game's sea shows its making: facets on a square grid, tilted by three regular swells, so the
+    // shading and the glints line up in rows. Here every point is pushed about again, across and up and down (a
+    // different tilt for every facet, under the same swell), and the sheet is turned off the swells' axes.
+    let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    for (let i = 0; i < uv.count; i++) {
+      uv.setXY(i, 0.5, 0.99);
+      p.setXYZ(i, p.getX(i) + (rnd() - 0.5) * 0.36, p.getY(i) + (rnd() - 0.5) * 0.36, (rnd() - 0.5) * 0.026 + Math.sin(p.getX(i) * 0.11 + p.getY(i) * 0.07) * 0.02);
+    }
+    const m = new Mesh(g, seaMat); m.rotation.set(-Math.PI / 2, 0, 0.47); m.position.set(F.x, 0.085, F.z); m.receiveShadow = true;
     return m;
   })();
   scene.add(openSea);
@@ -45,9 +55,15 @@
   scene.add(floe);
   const ICE_Y = 0.23; // the top of the floe, where he lies and stands
 
-  const tuna = newFish(); tuna.g.rotation.order = 'YZX'; tuna.g.scale.setScalar(2.3); tuna.g.visible = false;
+  // ---------- the tuna ----------
+  const tuna = HeroTuna(T3); tuna.g.rotation.order = 'YZX'; tuna.g.scale.setScalar(2.3); tuna.g.visible = false;
   scene.add(tuna.g);
   const heading = d => Math.atan2(-d.z, d.x);
+  const CALM = { wide: 0, look: [0, 0], brow: 0, lid: 0, mouth: 0, smile: 0.6, flare: 0.1, dead: false, amp: 0.06 };
+  const fish = o => tuna.set({ ...CALM, ...o });
+  const wash = foamRing(1); wash.visible = false; scene.add(wash);
+  /** The foam round the tuna where it sits in the water (the game's foam, as round its floes), drawn out along it. */
+  function waterline(c, dir) { wash.visible = true; wash.position.copy(c).setY(0.14); wash.rotation.y = heading(dir); wash.scale.set(1.75, 1, 0.62); }
   const ropeMat = new MeshLambertMaterial({ color: 0xC9A66B });
   const rope = new Mesh(new TubeGeometry(new CatmullRomCurve3([V(0, 0, 0), V(0, 1, 0)]), 2, 0.02, 5), ropeMat); rope.visible = false; rope.frustumCulled = false;
   const loop = new Mesh(new TorusGeometry(1, 0.045, 6, 22), ropeMat); loop.visible = false; loop.rotation.order = 'YXZ';
@@ -57,39 +73,89 @@
     rope.geometry = new TubeGeometry(new CatmullRomCurve3(points), 18, r, 5);
     rope.visible = true;
   }
+  /** The loop round the tuna, behind its head, and where the rope leaves it. */
+  function collar(dir) {
+    tuna.g.updateMatrixWorld(true);
+    const c = tuna.g.localToWorld(V(0.3, 0, 0)), k = tuna.g.scale.x;
+    loop.visible = true; loop.position.copy(c); loop.scale.set(0.2 * k, 0.27 * k, 0.4); loop.rotation.set(0, heading(dir) + Math.PI / 2, 0);
+    return tuna.g.localToWorld(V(0.3, 0.27, 0));
+  }
 
-  // the "!" over his head: the game's own alert pill (index.html #offerAlert)
-  const bang = document.createElement('div');
-  Object.assign(bang.style, { position: 'fixed', left: 0, top: 0, zIndex: 21, width: '46px', height: '46px', margin: '-23px 0 0 -23px', borderRadius: '50%',
-    display: 'grid', placeItems: 'center', background: '#fff', color: '#C93F25', font: '800 32px/1 "Baloo 2",system-ui,sans-serif',
-    boxShadow: '0 3px 0 rgba(23,48,66,.25), 0 0 0 3px #FFC34A', pointerEvents: 'none', transform: 'scale(0)' });
-  bang.textContent = '!';
-  document.getElementById('teaser').append(bang);
+  // "!" pills: the game's own alert (index.html #offerAlert), over whoever's startled
+  const pill = () => {
+    const e = document.createElement('div');
+    Object.assign(e.style, { position: 'fixed', left: 0, top: 0, zIndex: 21, width: '46px', height: '46px', margin: '-23px 0 0 -23px', borderRadius: '50%',
+      display: 'grid', placeItems: 'center', background: '#fff', color: '#C93F25', font: '800 32px/1 "Baloo 2",system-ui,sans-serif',
+      boxShadow: '0 3px 0 rgba(23,48,66,.25), 0 0 0 3px #FFC34A', pointerEvents: 'none', transform: 'scale(0)' });
+    e.textContent = '!';
+    document.getElementById('teaser').append(e);
+    return e;
+  };
+  /** Each: its pill, when it's up, and where in the world it floats. */
+  const pills = [{ el: pill(), t0: T.bang, t1: T.hit1, at: null }, { el: pill(), t0: T.caught + 0.16, t1: T.taut, at: null }];
 
   // ---------- the chef ----------
   const P = player.g;
-  /** Poses him: hips at `hip` (world), facing `yaw`, tipped back by `back` (π/2: flat on his back), legs swung `legs`
-   *  from straight down, arms [x, z] each. Set after the game's own animation, which this replaces for the shot. */
-  function chef({ hip, yaw, back = 0, legs = [0, 0], arms = [[0, 0.08], [0, 0.08]], lean = 0, roll = 0 }) {
+  // His face: the game's own face parts (characters.ts `face`), laid over his dot eyes and worn only here.
+  const INK = 0x1B2733, INSIDE = 0x5A1E24, lam = c => new MeshLambertMaterial({ color: c, side: DoubleSide });
+  const ball = new SphereGeometry(1, 14, 10), box = new BoxGeometry(1, 1, 1), arch = new TorusGeometry(1, 0.24, 6, 14, Math.PI), halfDisc = new CircleGeometry(1, 16, Math.PI, Math.PI);
+  const part = (geo, c) => { const m = new Mesh(geo, lam(c)); m.visible = false; P.body.add(m); return m; };
+  const FACE = {
+    brows: [-1, 1].map(() => part(box, P.style.hair)), whites: [-1, 1].map(() => part(ball, 0xFFFFFF)), pupils: [-1, 1].map(() => part(ball, INK)),
+    covers: [-1, 1].map(() => part(ball, P.style.skin)), arcs: [-1, 1].map(() => part(arch, INK)),
+    o: part(ball, INSIDE), smile: part(arch, INK), grin: part(halfDisc, INSIDE), teeth: part(box, 0xFFFFFF),
+  };
+  /** His face now. eyes: 'dot' (his own), 'wide', 'shut' (asleep), 'happy'; brow: null or [how high 0..1, tilt: + scowl, - worry];
+   *  mouth: 'none' | 'o' | 'smile' | 'frown' | 'grin'; open: how big the "o" or the grin is; look: where wide eyes look. */
+  function face({ eyes = 'dot', brow = null, mouth = 'none', open = 1, look = [0, 0] } = {}) {
+    [-1, 1].forEach((s, i) => {
+      const x = s * 0.07, b = FACE.brows[i], w = FACE.whites[i], p = FACE.pupils[i], c = FACE.covers[i], a = FACE.arcs[i];
+      b.visible = !!brow;
+      if (brow) { b.scale.set(0.075, 0.017, 0.014); b.position.set(x, 1.1 + brow[0] * 0.03, 0.238); b.rotation.set(-0.35, 0, s * brow[1] * 0.45); }
+      w.visible = p.visible = eyes === 'wide';
+      if (eyes === 'wide') {
+        w.scale.set(0.046, 0.052, 0.022); w.position.set(x, 1.062, 0.234);
+        p.scale.set(0.022, 0.026, 0.012); p.position.set(x + look[0] * 0.016, 1.058 + look[1] * 0.016, 0.252);
+      }
+      c.visible = a.visible = eyes === 'shut' || eyes === 'happy';
+      if (c.visible) {
+        c.scale.set(0.04, 0.04, 0.016); c.position.set(x, 1.064, 0.243);
+        a.scale.setScalar(0.026); a.position.set(x, eyes === 'happy' ? 1.05 : 1.066, 0.262); a.rotation.z = eyes === 'happy' ? 0 : Math.PI;
+      }
+    });
+    const y = 0.965, z = 0.246;
+    FACE.o.visible = mouth === 'o';
+    FACE.o.scale.set(0.02 * (0.8 + 0.3 * open), 0.026 * open, 0.012); FACE.o.position.set(0, y, z); FACE.o.rotation.x = 0.33;
+    FACE.smile.visible = mouth === 'smile' || mouth === 'frown';
+    FACE.smile.scale.set(0.04, 0.03, 0.03); FACE.smile.position.set(0, y + (mouth === 'smile' ? 0.02 : -0.022), z); FACE.smile.rotation.set(0.33, 0, mouth === 'smile' ? Math.PI : 0);
+    FACE.grin.visible = FACE.teeth.visible = mouth === 'grin';
+    FACE.grin.scale.set(0.05, 0.046 * open, 1); FACE.grin.position.set(0, y + 0.014, z + 0.002); FACE.grin.rotation.x = 0.33;
+    FACE.teeth.scale.set(0.072, 0.012, 0.004); FACE.teeth.position.set(0, y + 0.008, z + 0.008); FACE.teeth.rotation.x = 0.33;
+  }
+  /** Poses him: his hips at `hip` (or his feet at `feet`), facing `yaw`, tipped back by `back` (π/2: flat on his back)
+   *  or forward by `lean`, legs swung from straight down, arms [forward swing, out to the side] each, `sq` his squash
+   *  (under 1) or stretch. Set after the game's own animation, which this replaces for the shot. */
+  function chef({ hip, feet, yaw, back: tip = 0, legs = [0, 0], arms = [[0, 0.08], [0, 0.08]], lean = 0, roll = 0, sq = 1, f = {} }) {
     P.rotation.order = 'YXZ';
-    P.rotation.set(-back + lean, yaw, roll);
-    // (his hips are 0.3 up his body: his feet's place follows from where they are and how he's tipped)
-    const up = V(0, 0.3, 0).applyEuler(P.rotation);
-    P.position.copy(hip).sub(up);
-    P.body.position.y = 0; P.body.rotation.set(0, 0, 0); P.body.scale.y = 1;
+    P.rotation.set(-tip + lean, yaw, roll);
+    if (feet) P.position.copy(feet);
+    else P.position.copy(hip).sub(V(0, 0.3, 0).applyEuler(P.rotation)); // (his hips are 0.3 up his body)
+    P.body.position.y = 0; P.body.rotation.set(0, 0, 0); P.body.scale.set(1 / Math.sqrt(sq), sq, 1 / Math.sqrt(sq));
     P.legs[0].rotation.x = legs[0]; P.legs[1].rotation.x = legs[1];
     P.arms[0].rotation.set(arms[0][0], 0, -arms[0][1]); P.arms[1].rotation.set(arms[1][0], 0, arms[1][1]);
     P.visible = true;
+    face(f);
   }
-  const mix = (a, b, k) => a + (b - a) * k;
-  /** His right hand, in the world (the end of his arm, 0.42 down it). */
+  /** His hand, in the world (the end of his arm, 0.42 down it). */
   const hand = i => P.arms[i].localToWorld(V(0, -0.42, 0));
+  const headAt = () => P.body.localToWorld(V(0, 1.03, 0.05));
 
   // ---------- sound: through the game's own engine, so it lands on the frame ----------
   const said = new Set();
   const once = (k, t, now, f) => { if (now >= t && !said.has(k)) { said.add(k); f(); } };
   const thud = big => { A.tone({ f: 95, f2: 34, d: 0.55, v: 0.75 + big * 0.25 }); A.noise({ f: 170, kind: 'lowpass', d: 0.16, v: 0.5 + big * 0.2 }); };
   const whoosh = (d, v = 0.3, f = 500, f2 = 2200) => A.noise({ f, f2, q: 0.9, d, a: d * 0.35, v });
+  const blip = (f, f2, v = 0.4, t = 0, d = 0.12) => A.tone({ f, f2, d, t, type: 'triangle', v });
 
   // ---------- the shots ----------
   const yaw0 = 0.45; // he faces the cameras, three quarters on
@@ -103,135 +169,215 @@
     return { pos: p, look, fov };
   }
   // the leap he sees, and the one he ropes: where the tuna breaks the water, and its arc
-  const LEAP1 = F.clone().add(V(-7.5, 0, -6)), LEAP2 = F.clone().add(V(1.2, 0, -6.5));
+  const LEAP1 = F.clone().add(V(-7.5, 0, -6)), LEAP2 = F.clone().add(V(1.2, 0, -6.5)), DIR1 = V(0.86, 0, -0.5).normalize(), DIR2 = V(-0.98, 0, 0.2).normalize();
   function leap(c, dir, k, len = 4.2, high = 2.3) {
     // k 0..1 along the arc; under the water before and after
-    const x = (k - 0.5) * len, y = high * 4 * k * (1 - k) - 0.25;
+    const x = (k - 0.5) * len, y = high * 4 * k * (1 - k) - 0.3;
     tuna.g.position.copy(c).add(dir.clone().multiplyScalar(x)).setY(y);
     tuna.g.rotation.set(0, heading(dir), Math.atan2(high * 4 * (1 - 2 * k), len) * 0.9);
-    tuna.tail.rotation.y = Math.sin(k * 40) * 0.5;
     tuna.g.visible = k > 0 && k < 1;
   }
-  /** The ride: how far along the way home, by time. */
+  /** The ride: the tuna going `TO` from `from`, and the loop round it. Returns where it is, and where the rope ties on. */
   const RIDE1 = F.clone().add(V(8, 0, 5)), RIDE2 = DOCK.clone().sub(R2.clone().multiplyScalar(80));
-  function riding(t, from, TO, speed, t0, lift = 0) {
+  function swimming(t, from, TO, speed, t0, mood) {
     const s = (t - t0) * speed, c = from.clone().add(TO.clone().multiplyScalar(s));
-    const bob = Math.sin(t * 9) * 0.1, pitch = Math.cos(t * 9) * 0.12;
-    tuna.g.visible = true;
-    tuna.g.position.copy(c).setY(0.12 + bob + lift);
-    tuna.g.rotation.set(0, heading(TO), pitch + lift * 0.12);
-    tuna.tail.rotation.y = Math.sin(t * 34) * 0.55;
-    // he stands on its back, a little behind its fin, leaning back on the rope, knees riding the bumps
-    const back = c.clone().sub(TO.clone().multiplyScalar(0.35));
-    chef({ hip: back.setY(0.12 + bob + lift + 0.34 + 0.3), yaw: Math.atan2(TO.x, TO.z), lean: -0.32 + pitch * 0.5, roll: Math.sin(t * 5.2) * 0.08,
-      legs: [0.35 + pitch, 0.2 + pitch], arms: [[-0.95, 0.05], [-0.95, 0.05]] });
-    P.updateMatrixWorld(true);
-    // the rope: from his hands to the loop behind its head
-    const neck = tuna.g.localToWorld(V(0.3, 0.06, 0));
-    loop.visible = true; loop.position.copy(neck); loop.scale.setScalar(0.42); loop.rotation.set(0, heading(TO) + Math.PI / 2, 0);
-    const h = hand(0).lerp(hand(1), 0.5);
-    lay([h, h.clone().lerp(neck, 0.5).add(V(0, -0.06, 0)), neck.clone().add(V(0, 0.42, 0))]);
-    return c;
+    const bob = Math.sin(t * 9) * 0.1, pitch = Math.cos(t * 9) * 0.1;
+    tuna.g.visible = true; tuna.g.scale.setScalar(2.3);
+    tuna.g.position.copy(c).setY(0.34 + bob);
+    tuna.g.rotation.set(0, heading(TO), pitch);
+    fish({ swim: t * 30, amp: 0.11, ...mood });
+    waterline(c, TO);
+    return { c, pitch, knot: collar(TO) };
   }
+  /** Where his feet go on its back. */
+  const deck = () => tuna.g.localToWorld(V(-0.2, tuna.radAt(-0.2) * 0.96, 0));
   let sprayT = 0;
 
   function frame(i, fps) {
     const t = i / fps;
     // ---------- sound cues ----------
-    once('bang', T.bang, t, () => { A.tone({ f: 880, f2: 1320, d: 0.12, type: 'triangle', v: 0.45 }); A.tone({ f: 1320, d: 0.22, t: 0.1, type: 'triangle', v: 0.4 }); });
+    once('blinkA', 0.62, t, () => blip(700, 760, 0.08, 0, 0.05)); once('sitUp', T.sit, t, () => whoosh(0.3, 0.12, 300, 900));
+    once('bang', T.bang, t, () => { blip(880, 1320, 0.45); blip(1320, 1320, 0.4, 0.1, 0.22); });
     once('h1', T.hit1, t, () => thud(0)); once('h2', T.hit2, t, () => thud(0.5)); once('h3', T.hit3, t, () => thud(1));
-    once('s1', T.pov + 0.2, t, () => SFX.splash(P.position)); once('s2', T.pov + 1.05, t, () => SFX.splash(P.position));
-    for (let n = 0; n < 4; n++) once('w' + n, T.rope + n * 0.16, t, () => whoosh(0.15, 0.16, 380, 900));
-    once('throw', T.thrown, t, () => whoosh(0.4, 0.3)); once('s3', T.thrown + 0.15, t, () => SFX.splash(P.position));
-    once('taut', T.taut - 0.06, t, () => { A.tone({ f: 230, f2: 170, d: 0.16, type: 'triangle', v: 0.4 }); whoosh(2.7, 0.3, 700, 1500); });
+    once('s1', T.pov + 0.35, t, () => SFX.splash(P.position)); once('s2', T.pov + 1.2, t, () => SFX.splash(P.position));
+    once('idea', T.idea, t, () => { blip(660, 660, 0.3, 0, 0.09); blip(990, 990, 0.35, 0.09, 0.2); });
+    for (let n = 0; n < 6; n++) once('w' + n, T.idea + 0.4 + n * 0.16, t, () => whoosh(0.15, 0.16, 380, 900));
+    once('throw', T.thrown, t, () => whoosh(0.4, 0.3)); once('s3', T.thrown - 0.2, t, () => SFX.splash(P.position));
+    once('gotcha', T.caught + 0.16, t, () => { blip(1100, 1500, 0.4, 0, 0.1); A.tone({ f: 230, f2: 170, d: 0.16, type: 'triangle', v: 0.35 }); });
+    once('taut', T.taut - 0.04, t, () => { A.tone({ f: 250, f2: 150, d: 0.2, type: 'triangle', v: 0.45 }); whoosh(2.7, 0.3, 700, 1500); SFX.splash(P.position); });
+    once('mount', T.taut + 0.7, t, () => thud(0.1));
     once('chop', T.chop + 2 / 30, t, () => { SFX.chop(ST.chopTop, 0); thud(0.6); FX.chipsFx(ST.chopTop); });
 
     // ---------- the picture ----------
     let shot;
     // (he's in a scene: he doesn't fish from the pad, pick fillets up or drop them, wherever it puts him)
     player.tPick = player.tDrop = player.tCatch = player.tCash = 9;
-    bang.style.transform = 'scale(0)';
-    rope.visible = false; loop.visible = false;
+    rope.visible = false; loop.visible = false; wash.visible = false;
     for (const h of hills) h.visible = t >= T.chop;
     openSea.visible = t < T.chop;
-    K.fade(0);
-    if (t < T.hit1) {
-      // close on him: flat on his back, he stirs, sits up, hops to his feet; "!"
-      shot = K.path([{ t: 0, pos: [F.x + 1.5, 0.75, F.z + 2.5], look: [F.x - 0.1, 0.42, F.z - 0.25], fov: 36 },
-        { t: 1.3, pos: [F.x + 1.5, 0.8, F.z + 2.6], look: [F.x - 0.05, 0.5, F.z - 0.15], fov: 36 },
-        { t: T.bang, pos: [F.x + 1.75, 1.2, F.z + 3.3], look: [F.x, 1.05, F.z], fov: 36 },
-        { t: T.hit1, pos: [F.x + 1.7, 1.2, F.z + 3.2], look: [F.x, 1.05, F.z], fov: 36 }], t, ease);
-    } else if (t < T.hit2) shot = { ...hit(t, T.hit1, wide(8, 0.3), F.clone().setY(0.6)), fogNear: 40, fogFar: 120 };
-    else if (t < T.hit3) shot = { ...hit(t, T.hit2, wide(30, 0.75), F.clone()), fogNear: 80, fogFar: 200 };
-    else if (t < T.pov) shot = { ...hit(t, T.hit3, wide(115, 1.36), F.clone()), fogNear: 200, fogFar: 500 };
+    K.fade(0); K.letterbox(0);
+    pills[0].at = pills[1].at = null;
+    tuna.g.scale.setScalar(2.3);
+
     if (t < T.pov) {
-      const sit = ease((t - 0.7) / 0.55), stand = ease((t - 1.35) / 0.35), hop = Math.sin(clamp((t - 1.35) / 0.5) * Math.PI) * 0.22;
-      const stir = t < 0.7 ? Math.sin(t * 9) * 0.05 * clamp(t / 0.3) : 0;
-      const jump = Math.sin(clamp((t - T.bang) / 0.28) * Math.PI) * 0.16, startle = clamp((t - T.bang) / 0.1) * clamp(1 - (t - T.bang - 0.45) / 0.3);
-      const look = t > T.bang + 0.3 ? Math.sin((t - T.bang - 0.3) * 3.1) * 0.75 * clamp((t - T.bang - 0.3) / 0.3) : 0;
-      chef({
-        hip: F.clone().setY(ICE_Y + mix(mix(0.2, 0.13, sit), 0.3, stand) + hop + jump), yaw: mix(1.45, yaw0, easeIO((t - 0.9) / 0.8)) + look,
-        back: (1 - sit) * (Math.PI / 2) + stir, legs: [-(Math.PI / 2) * sit * (1 - stand), -(Math.PI / 2) * sit * (1 - stand) * 0.92],
-        arms: [[mix(0, 0.5, sit) * (1 - stand), mix(1.15, 0.25, sit) + startle * 0.55], [mix(0, 0.5, sit) * (1 - stand), mix(1.0, 0.25, sit) + startle * 0.55]],
-      });
-    } else if (t < T.rope) {
-      // through his eyes: the empty water, breathing, and a tuna going over
-      const k = (t - T.pov - 0.2) / 0.85;
-      leap(LEAP1, V(0.86, 0, -0.5).normalize(), k);
-      once('f1', T.pov + 0.2, t, () => FX.splashFx(LEAP1.clone().add(V(-1.8, 0, 1.05)))); once('f2', T.pov + 1.05, t, () => FX.splashFx(LEAP1.clone().add(V(1.8, 0, -1.05))));
-      const eye = F.clone().setY(ICE_Y + 1.12), follow = clamp((t - T.pov - 0.25) / 0.35);
-      const aim = F.clone().add(V(-9, 0.4, -4)).lerp(tuna.g.visible ? tuna.g.position.clone() : LEAP1.clone().add(V(1.8, 0.2, -1.05)), follow * 0.85);
+      // ----- waking: asleep, a flutter of the eyes, up on his elbows... where is this? -----
+      const shiver = Math.sin(t * 70) * 0.006;
+      if (t < T.hit1) {
+        const sitK = back((t - T.sit) / 0.5), sit = clamp(sitK), stand = ease((t - T.up) / 0.3), hop = Math.sin(clamp((t - T.up) / 0.42) * Math.PI) * 0.26;
+        const landed = clamp((t - T.up - 0.42) / 0.16), land = t > T.up + 0.42 ? 1 - 0.14 * Math.sin(landed * Math.PI) : 1;
+        const breath = t < 0.55 ? 1 + Math.sin(t * 5.5) * 0.04 : 1;
+        // looking about, sitting: left, right (his eyes get there first)
+        const lookT = t - T.peek, eyeX = lookT < 0 ? 0 : lookT < 0.36 ? -ease(lookT / 0.12) : mix(-1, 1, ease((lookT - 0.36) / 0.12));
+        const bodyLook = lookT < 0 ? 0 : lookT < 0.36 ? 0.45 * ease((lookT - 0.06) / 0.2) : mix(0.45, -0.5, ease((lookT - 0.42) / 0.22));
+        // on his feet: a turn right round, looking for anything at all
+        const upT = t - T.up - 0.3, spin = upT > 0 && t < T.bang ? Math.sin(clamp(upT / (T.bang - T.up - 0.3)) * Math.PI * 2) * 1.5 : 0;
+        const gasp = t >= T.bang, gk = (t - T.bang), jump = gasp ? Math.sin(clamp(gk / 0.3) * Math.PI) * 0.2 : 0;
+        const f = t < 0.55 ? { eyes: 'shut' } : t < 0.62 ? { eyes: 'dot' } : t < 0.72 ? { eyes: 'shut' } : t < 0.82 ? { eyes: 'dot' } : t < 0.9 ? { eyes: 'shut' }
+          : t < T.sit + 0.5 ? { eyes: 'dot', brow: [0.6, -0.3], mouth: t > T.sit + 0.1 ? 'o' : 'none', open: 0.7 }
+            : t < T.up ? { eyes: 'wide', look: [eyeX, 0.1], brow: [0.8, -0.8], mouth: lookT > 0.4 ? 'frown' : 'none' }
+              : !gasp ? { eyes: 'wide', look: [Math.sign(spin) * 0.8, 0], brow: [0.9, -0.9], mouth: 'frown' }
+                : { eyes: 'wide', look: [0, 0.2], brow: [1.6, -0.4], mouth: 'o', open: 1.9 };
+        chef({
+          hip: F.clone().add(V(shiver * (t > T.sit ? 1 : 0), 0, 0)).setY(ICE_Y + mix(mix(0.2, 0.13, sit), 0.3, stand) + hop + jump),
+          yaw: mix(1.45, mix(0.3, yaw0, stand), easeIO((t - 0.95) / 0.6)) + bodyLook * (1 - stand) + spin,
+          back: (1 - sitK) * (Math.PI / 2) + (t < T.sit ? Math.sin(t * 2.2) * 0.02 : 0),
+          legs: [-(Math.PI / 2) * sit * (1 - stand), -(Math.PI / 2) * sit * (1 - stand) * 0.92],
+          arms: gasp ? [[0, 0.95 - 0.25 * clamp(gk / 0.5)], [0, 0.95 - 0.25 * clamp(gk / 0.5)]]
+            : [[mix(0, 0.55, sit) * (1 - stand), mix(1.15, 0.22, sit) + Math.abs(spin) * 0.25], [mix(0, 0.55, sit) * (1 - stand), mix(1.0, 0.22, sit) + Math.abs(spin) * 0.25]],
+          sq: breath * land * (gasp ? 1 + 0.12 * Math.sin(clamp(gk / 0.3) * Math.PI) : 1), f,
+        });
+        P.updateMatrixWorld(true);
+        if (t < T.peek) shot = K.path([{ t: 0, pos: [F.x + 1.5, 0.75, F.z + 2.5], look: [F.x - 0.1, 0.42, F.z - 0.25], fov: 36 },
+          { t: T.peek, pos: [F.x + 1.45, 0.85, F.z + 2.4], look: [F.x - 0.05, 0.6, F.z - 0.1], fov: 36 }], t, ease);
+        else if (t < T.up) { const h = headAt(); shot = { pos: V(F.x + 0.5, h.y + 0.02, F.z + 1.55 - (t - T.peek) * 0.12), look: V(F.x, h.y - 0.02, F.z + 0.05), fov: 30 }; }
+        else shot = K.path([{ t: T.up, pos: [F.x + 1.75, 1.2, F.z + 3.4], look: [F.x, 1.0, F.z], fov: 36 }, { t: T.hit1, pos: [F.x + 1.6, 1.2, F.z + 3.1], look: [F.x, 1.05, F.z], fov: 36 }], t, ease);
+        if (gasp) pills[0].at = P.position.clone().add(V(0, 1.68, 0));
+      } else {
+        // ----- three thuds: further, further, nothing but sea. He runs out of ideas a size at a time. -----
+        const a = t - T.hit1, b = t - T.hit2, c = t - T.hit3;
+        if (t < T.hit2) chef({ hip: F.clone().setY(ICE_Y + 0.3 + Math.abs(Math.sin(a * 16)) * 0.05), yaw: yaw0 + a * 9.6, arms: [[0, 1.2 + Math.sin(a * 30) * 0.3], [0, 1.2 - Math.sin(a * 30) * 0.3]], f: { eyes: 'wide', brow: [1.2, -0.8], mouth: 'o', open: 1.5 } });
+        else if (t < T.hit3) chef({ hip: F.clone().setY(ICE_Y + 0.3 + Math.abs(Math.sin(b * 15)) * 0.3), yaw: yaw0, arms: [[0, 2.5 + Math.sin(b * 22) * 0.35], [0, 2.5 - Math.sin(b * 22) * 0.35]], f: { eyes: 'wide', mouth: 'o', open: 1.6 } });
+        else chef({ hip: F.clone().setY(ICE_Y + 0.3), yaw: yaw0, lean: 0.2 * ease(c / 0.6), arms: [[0, mix(1.6, 0.06, ease(c / 0.5))], [0, mix(1.6, 0.06, ease(c / 0.5))]], f: { eyes: 'dot', brow: [0.4, -1], mouth: 'frown' } });
+        if (t < T.hit2) shot = { ...hit(t, T.hit1, wide(8, 0.3), F.clone().setY(0.6)), fogNear: 40, fogFar: 120 };
+        else if (t < T.hit3) shot = { ...hit(t, T.hit2, wide(30, 0.75), F.clone()), fogNear: 80, fogFar: 200 };
+        else shot = { ...hit(t, T.hit3, wide(115, 1.36), F.clone()), fogNear: 200, fogFar: 500 };
+      }
+    } else if (t < T.react) {
+      // ----- through his eyes: a blink, the empty water, breathing... and a tuna going over, happy as anything -----
+      const k = (t - T.pov - 0.35) / 0.85;
+      leap(LEAP1, DIR1, k);
+      fish({ swim: t * 22, amp: 0.09, smile: 1, flare: 0.5 + 0.4 * Math.sin(k * Math.PI), lid: 0.25 });
+      once('f1', T.pov + 0.35, t, () => FX.splashFx(LEAP1.clone().sub(DIR1.clone().multiplyScalar(2.1)))); once('f2', T.pov + 1.2, t, () => FX.splashFx(LEAP1.clone().add(DIR1.clone().multiplyScalar(2.1))));
+      const eye = F.clone().setY(ICE_Y + 1.12), seen = clamp((t - T.pov - 0.42) / 0.14), follow = ease((t - T.pov - 0.4) / 0.3);
+      const aim = F.clone().add(V(-9, 0.4, -4)).lerp(tuna.g.visible ? tuna.g.position.clone() : LEAP1.clone().add(DIR1.clone().multiplyScalar(2.1)).setY(0.2), follow * 0.9);
       aim.add(V(Math.sin(t * 13) * 0.16 + Math.sin(t * 31) * 0.07, Math.sin(t * 17) * 0.12, Math.cos(t * 11) * 0.14));
       eye.add(V(0, Math.sin(t * 6) * 0.025, 0));
-      shot = { pos: eye, look: aim, fov: 52, roll: Math.sin(t * 7) * 0.012, fogNear: 22, fogFar: 85 };
+      // (his eyes open on it, and jump in on the fish when he sees it)
+      shot = { pos: eye, look: aim, fov: mix(54, 40, back(seen)), roll: Math.sin(t * 7) * 0.012, fogNear: 22, fogFar: 85 };
+      const bk = (t - T.pov) / 0.3, lidK = bk < 1 ? 1 - ease(bk) : 0;
+      K.letterbox(innerHeight / 2 * lidK);
       P.visible = false;
     } else if (t < T.taut) {
-      // over his shoulder: the loop spun overhead, thrown, and round the tuna as it jumps again
-      const dirL = V(-0.98, 0, 0.2).normalize();
-      const k = (t - T.thrown + 0.25) / 0.95;
-      leap(LEAP2, dirL, k, 3.6, 2.0);
-      once('f3', T.thrown - 0.25, t, () => FX.splashFx(LEAP2.clone().sub(dirL.clone().multiplyScalar(1.6))));
-      const spin = (t - T.rope) * 20, thrown = clamp((t - T.thrown) / 0.3), sw = ease(thrown);
-      const face = Math.atan2(LEAP2.x - F.x, LEAP2.z - F.z);
-      chef({ hip: F.clone().setY(ICE_Y + 0.3), yaw: face, lean: mix(-0.12, 0.3, sw), legs: [0.25, -0.25],
-        arms: [[0, 0.1], [mix(0, -1.0, sw), mix(2.75 + Math.sin(spin) * 0.12, 0.25, sw)]] });
+      // ----- an idea: his face, then the rope spun overhead, thrown, and round the tuna as it jumps again -----
+      const k = (t - T.thrown + 0.33) / 0.95, hang = t >= T.caught;
+      leap(LEAP2, DIR2, hang ? mix(0.47, 0.56, (t - T.caught) / (T.taut - T.caught)) : k, 3.6, 2.0);
+      const got = clamp((t - T.caught - 0.14) / 0.08);
+      fish({ swim: t * (hang ? 44 : 22), amp: hang ? 0.05 + 0.08 * got : 0.09, smile: mix(1, -0.6, got), lid: 0.25 * (1 - got), wide: back(got), mouth: got * 0.9,
+        flare: mix(0.5, 1, got), look: [mix(0, -0.9, got), 0.3 * got], brow: -got });
+      once('f3', T.thrown - 0.33, t, () => FX.splashFx(LEAP2.clone().sub(DIR2.clone().multiplyScalar(1.6))));
+      const twirlT = t - T.idea - 0.3, twirling = twirlT > 0, spin = Math.max(0, twirlT) * 20, thrown = clamp((t - T.thrown) / 0.3), sw = ease(thrown);
+      const seaward = Math.atan2(LEAP2.x - F.x, LEAP2.z - F.z), idea = t >= T.idea, ik = t - T.idea;
+      // his face: wide-eyed after the fish, then the idea lands and he narrows them
+      const f = !idea ? { eyes: 'wide', look: [mix(-0.6, 0.9, ease((t - T.react) / 0.4)), mix(0.5, -0.4, ease((t - T.react) / 0.4))], brow: [1.2, -0.3], mouth: 'o', open: 1.2 }
+        : thrown > 0 ? { eyes: 'dot', brow: [0, 1.2], mouth: 'o', open: 1.4 } : { eyes: 'dot', brow: [-0.2, 1.1], mouth: ik > 0.12 ? 'grin' : 'smile', open: 0.9 };
+      const crouch = idea && ik < 0.3 ? 1 - 0.16 * Math.sin(clamp(ik / 0.3) * Math.PI) : 1;
+      chef({ hip: F.clone().setY(ICE_Y + 0.3 + (twirling && !thrown ? Math.abs(Math.sin(spin * 0.5)) * 0.04 : 0)), yaw: seaward + (twirling ? Math.sin(spin) * 0.07 : 0),
+        lean: mix(twirling ? -0.14 : 0, 0.36, sw), roll: twirling && !thrown ? Math.sin(spin) * 0.06 : 0, legs: twirling ? [0.28, -0.28] : [0, 0], sq: crouch,
+        arms: [[0, twirling ? 0.5 : 0.1], [mix(0, -1.0, sw), mix(twirling ? 2.75 + Math.sin(spin) * 0.14 : 0.1, 0.3, sw)]], f });
       P.updateMatrixWorld(true);
       const h = hand(1);
       const over = h.clone().add(V(Math.cos(spin) * 0.2, 0.5, Math.sin(spin) * 0.2));
-      const tunaAt = tuna.g.visible ? tuna.g.localToWorld(V(0.3, 0, 0)) : LEAP2.clone().setY(1.6);
+      tuna.g.updateMatrixWorld(true);
+      const tunaAt = tuna.g.localToWorld(V(0.3, 0, 0));
       const fly = over.clone().lerp(tunaAt, easeOut(thrown)).add(V(0, Math.sin(thrown * Math.PI) * 1.2, 0));
-      loop.visible = true; loop.position.copy(thrown > 0 ? fly : over);
-      loop.scale.setScalar(mix(0.5, 0.42, thrown));
-      loop.rotation.set(mix(Math.PI / 2 - 0.5 + 0.15 * Math.sin(spin), 0, ease(thrown)), mix(0, heading(dirL) + Math.PI / 2, ease(thrown)), mix(spin, 0, ease(thrown)));
-      lay([h, h.clone().lerp(loop.position, 0.5).add(V(0, 0.25 - 0.5 * thrown, 0)), loop.position.clone()]);
-      const back = F.clone().add(V(-1.5, 0, 3.0));
-      shot = K.path([{ t: T.rope, pos: [back.x, 2.5, back.z + 0.3], look: [F.x + 0.5, 1.5, F.z - 2.5], fov: 44 },
-        { t: T.taut, pos: [back.x + 0.1, 2.35, back.z - 0.2], look: [F.x + 0.8, 1.35, F.z - 4], fov: 44 }], t, ease);
-      shot.fogNear = 26; shot.fogFar = 90;
+      let knot = null;
+      if (twirling) {
+        const on = t >= T.caught + 0.14;
+        if (on) knot = collar(DIR2);
+        else {
+          loop.visible = true; loop.position.copy(thrown > 0 ? fly : over);
+          const drop = clamp((t - T.caught) / 0.14);
+          loop.scale.setScalar(mix(0.5, 0.62, thrown));
+          if (hang) loop.position.copy(tunaAt).add(V(0, mix(1.3, 0, drop * drop), 0));
+          loop.rotation.set(mix(Math.PI / 2 - 0.5 + 0.15 * Math.sin(spin), hang ? Math.PI / 2 : 0, ease(thrown)), mix(0, heading(DIR2) + Math.PI / 2, ease(thrown)), mix(spin, 0, ease(thrown)));
+        }
+        const end = knot ?? loop.position.clone();
+        lay([h, h.clone().lerp(end, 0.5).add(V(0, 0.25 - 0.5 * thrown, 0)), end]);
+      }
+      if (t < T.over) {
+        // from in front of him, the sea he's looking at behind the camera
+        const d = V(Math.sin(seaward), 0, Math.cos(seaward)), camAt = F.clone().add(d.clone().multiplyScalar(2.9)).add(sideOf(d).multiplyScalar(-1.1));
+        shot = K.path([{ t: T.react, pos: [camAt.x, 1.25, camAt.z], look: [F.x, 1.12, F.z], fov: 30 }, { t: T.idea, pos: [camAt.x, 1.25, camAt.z], look: [F.x, 1.12, F.z], fov: 28 },
+          { t: T.over, pos: [camAt.x - d.x * 0.3, 1.45, camAt.z - d.z * 0.3], look: [F.x, 1.5, F.z], fov: 40 }], t, ease);
+        shot.fogNear = 30; shot.fogFar = 110;
+      } else if (!hang) {
+        // over his shoulder: the throw
+        const backAt = F.clone().add(V(-1.5, 0, 3.0));
+        shot = K.path([{ t: T.over, pos: [backAt.x, 2.5, backAt.z + 0.3], look: [F.x + 0.5, 1.5, F.z - 2.5], fov: 44 },
+          { t: T.caught, pos: [backAt.x + 0.1, 2.35, backAt.z - 0.2], look: [F.x + 0.8, 1.45, F.z - 4], fov: 44 }], t, ease);
+        shot.fogNear = 26; shot.fogFar = 90;
+      } else {
+        // the tuna, hung in the air at the top of its jump as the loop drops over its nose: "!"
+        const c = tuna.g.position.clone(), sh = got > 0 && got < 1 ? 0.03 : 0;
+        shot = { pos: c.clone().add(V(-1.9 + Math.sin(t * 80) * sh, 0.35, 3.7)), look: c.clone().add(V(-0.25, 0.1, 0)), fov: 40, fogNear: 26, fogFar: 90 };
+        if (got > 0) pills[1].at = tuna.g.localToWorld(V(0.45, 0.52, 0));
+        P.visible = false;
+      }
     } else if (t < T.ride2) {
-      // the ride, alongside: open water going by
-      const TO = R1, c = riding(t, RIDE1, TO, 22, T.taut);
-      const camAt = c.clone().add(TO.clone().multiplyScalar(3.3)).add(sideOf(TO).multiplyScalar(3.3)).setY(0.95 + Math.sin(t * 23) * 0.03);
-      shot = { pos: camAt, look: c.clone().add(TO.clone().multiplyScalar(0.2)).setY(1.0), fov: 42, fogNear: 30, fogFar: 95 };
+      // ----- the ride, alongside: dragged off his feet, then up on its back, terror turning into the time of his life -----
+      const TO = R1, a = t - T.taut, joy = clamp((a - 0.95) / 0.2);
+      const { c, pitch, knot } = swimming(t, RIDE1, TO, 22, T.taut, { brow: 1, smile: -1, look: [-1, 0.5], flare: 0.8, wide: 0.25 });
+      const up = ease((a - 0.4) / 0.32), yawTo = Math.atan2(TO.x, TO.z);
+      const feet = deck(), drag = c.clone().sub(TO.clone().multiplyScalar(3.4)).setY(0.75 + Math.sin(a * 26) * 0.08);
+      const arc = Math.sin(up * Math.PI) * 0.7, land = a > 0.72 && a < 0.9 ? 1 - 0.16 * Math.sin((a - 0.72) / 0.18 * Math.PI) : 1;
+      const wave = joy * (2.5 + Math.sin(a * 16) * 0.3);
+      chef({ feet: drag.lerp(feet, up).add(V(0, arc, 0)), yaw: yawTo, lean: mix(1.35, -0.3 + pitch * 0.6, up), roll: Math.sin(t * 5.2) * 0.09 * up,
+        legs: up < 1 ? [0.5 + Math.sin(a * 30) * 0.5, 0.5 - Math.sin(a * 30) * 0.5] : [0.38 + pitch, 0.18 + pitch], sq: land,
+        arms: [[mix(-2.9, -0.95, up), 0.05], [mix(-2.9, -0.95, up) * (1 - joy), 0.05 + wave]],
+        f: joy > 0.5 ? { eyes: 'happy', brow: [0.8, 0], mouth: 'grin', open: 1.3 } : { eyes: 'wide', look: [0, 0.3], brow: [1.5, -0.9], mouth: 'o', open: 2.0 } });
+      P.updateMatrixWorld(true);
+      const h = joy > 0.5 ? hand(0) : hand(0).lerp(hand(1), 0.5);
+      lay([h, h.clone().lerp(knot, 0.5).add(V(0, -0.06, 0)), knot]);
+      const camAt = c.clone().add(TO.clone().multiplyScalar(3.0)).add(sideOf(TO).multiplyScalar(2.7)).setY(1.0 + Math.sin(t * 23) * 0.03);
+      shot = { pos: camAt, look: c.clone().sub(TO.clone().multiplyScalar(0.5 * (1 - up) + 0.25)).setY(1.15), fov: 42, fogNear: 30, fogFar: 95 };
       sprayT -= 1 / fps; if (sprayT <= 0) { sprayT = 0.07; FX.splashFx(c.clone().add(TO.clone().multiplyScalar(1.0)), 0.1); FX.splashFx(c.clone().sub(TO.clone().multiplyScalar(1.6)), 0.1); }
       once('sp1', T.taut + 0.5, t, () => SFX.splash(P.position)); once('sp2', T.taut + 1.0, t, () => SFX.splash(P.position));
+      once('whee', T.taut + 0.95, t, () => { blip(520, 1040, 0.25, 0, 0.25); });
     } else if (t < T.chop) {
-      // the ride, from behind: the market comes into sight, small and far off across the water, and the picture
-      // fades to black on it (the owner's cut: no swim all the way in)
-      const TO = R2, c = riding(t, RIDE2, TO, 13, T.ride2);
+      // ----- from behind: the market comes into sight, small and far off across the water, and the picture fades on it -----
+      const TO = R2, a = t - T.ride2;
+      const { c, pitch, knot } = swimming(t, RIDE2, TO, 13, T.ride2, { brow: 1, smile: -1 });
+      chef({ feet: deck(), yaw: Math.atan2(TO.x, TO.z), lean: -0.28 + pitch * 0.6, roll: Math.sin(t * 5.2) * 0.1, legs: [0.38 + pitch, 0.18 + pitch],
+        arms: [[-0.95, 0.05], [0, 2.5 + Math.sin(a * 16) * 0.35]], f: { eyes: 'happy', mouth: 'grin' } });
+      P.updateMatrixWorld(true);
+      const h = hand(0);
+      lay([h, h.clone().lerp(knot, 0.5).add(V(0, -0.06, 0)), knot]);
       const camAt = c.clone().sub(TO.clone().multiplyScalar(6.2)).add(sideOf(TO).multiplyScalar(-1.7)).setY(2.9 + Math.sin(t * 5.2) * 0.04);
       shot = { pos: camAt, look: c.clone().add(TO.clone().multiplyScalar(30)).setY(0.6), fov: 36, roll: Math.sin(t * 5.2) * 0.012, fogNear: 55, fogFar: 150 };
       sprayT -= 1 / fps; if (sprayT <= 0) { sprayT = 0.1; FX.splashFx(c.clone().sub(TO.clone().multiplyScalar(1.4)), 0.1); }
       once('sp3', T.ride2 + 0.3, t, () => SFX.splash(P.position));
-      K.fade(ease((t - at(14.85)) / (at(15.75) - at(14.85))));
+      K.fade(ease((a - at(0.85)) / at(0.9)));
     } else {
-      // the cleaver: the tuna on the board, the blade down on the beat
-      const B = ST.chopTop, k = clamp((t - T.chop) / (2 / 30)), down = k * k;
-      tuna.g.visible = true; tuna.g.scale.setScalar(0.92); tuna.g.position.set(B.x - 0.05, B.y + 0.1, B.z); tuna.g.rotation.set(0, 0, 0); tuna.tail.rotation.y = t < T.chop + 0.5 ? Math.sin(t * 30) * 0.35 * clamp(1 - (t - T.chop) / 0.5) : 0;
-      ST.blade.position.set(B.x + 0.3, B.y + mix(0.95, 0.2, down), B.z); ST.blade.rotation.set(0, 0, mix(-0.5, 0, down));
-      chef({ hip: V(B.x + 0.35, 0.15 + 0.3, B.z - 0.95), yaw: 0, lean: 0.12 * down, arms: [[0, 0.1], [mix(-2.3, -1.0, down), 0.1]] });
-      const sh = Math.max(0, 1 - (t - T.chop - 2 / 30) / 0.22) * (t >= T.chop + 2 / 30 ? 0.035 : 0);
-      shot = { pos: V(B.x + 1.0 + Math.sin(t * 90) * sh, B.y + 1.0 + Math.cos(t * 70) * sh, B.z + 2.7), look: V(B.x + 0.05, B.y + 0.3, B.z - 0.2), fov: 38 };
+      // ----- out of the black: the tuna on the board has just time to see the cleaver -----
+      const B = ST.chopTop, a = t - T.chop, k = clamp(a / (2 / 30)), down = k * k, done = a >= 2 / 30;
+      tuna.g.visible = true; tuna.g.scale.setScalar(0.92); tuna.g.position.set(B.x - 0.05, B.y + 0.2, B.z + 0.05); tuna.g.rotation.set(-1.0, 0, 0);
+      fish(done ? { dead: true, mouth: 0.5, amp: 0, swim: 0, flare: 0.9 } : { wide: 1, look: [0.6, 0.3], mouth: 1, brow: -1, amp: 0.05, swim: t * 40, flare: 1 });
+      ST.blade.position.set(B.x + 0.22, B.y + mix(1.0, 0.22, down), B.z + 0.05); ST.blade.rotation.set(0, 0, mix(-0.5, 0, down));
+      const proud = clamp((a - 0.55) / 0.25);
+      chef({ hip: V(B.x + 0.3, 0.15 + 0.3 + Math.sin(proud * Math.PI) * 0.06, B.z - 0.85), yaw: 0.25 * ease(proud), lean: 0.12 * down * (1 - proud),
+        arms: [[0, 0.1], [mix(-2.3, -1.0, down), 0.1]], f: proud > 0.4 ? { eyes: 'happy', mouth: 'grin', open: 1.1 } : { eyes: 'dot', brow: [0, 1.2], mouth: 'smile' } });
+      const sh = Math.max(0, 1 - (a - 2 / 30) / 0.22) * (done ? 0.035 : 0);
+      shot = { pos: V(B.x + 0.9 + Math.sin(t * 90) * sh, B.y + 1.25 + Math.cos(t * 70) * sh, B.z + 2.5), look: V(B.x + 0.05, B.y + 0.22, B.z - 0.25), fov: 38 };
     }
     K.cam = shot;
   }
@@ -239,11 +385,12 @@
   let now = { i: 0, fps: 30 };
   K.pose = () => frame(now.i, now.fps);
   K.after = cam => {
-    const t = now.i / now.fps;
-    if (t < T.bang || t >= T.hit1) return;
-    const head = P.position.clone().add(V(0, 1.68, 0)).project(cam), w = innerWidth, h = innerHeight;
-    const k = clamp((t - T.bang) / 0.14), s = (k + 0.5 * Math.sin(k * Math.PI)) * 1.5;
-    bang.style.transform = `translate(${(head.x + 1) / 2 * w}px, ${(1 - head.y) / 2 * h}px) scale(${s})`;
+    const t = now.i / now.fps, w = innerWidth, h = innerHeight;
+    for (const p of pills) {
+      if (!p.at || t < p.t0 || t >= p.t1) { p.el.style.transform = 'scale(0)'; continue; }
+      const s = p.at.clone().project(cam), k = clamp((t - p.t0) / 0.14);
+      p.el.style.transform = `translate(${(s.x + 1) / 2 * w}px, ${(1 - s.y) / 2 * h}px) scale(${(k + 0.5 * Math.sin(k * Math.PI)) * 1.5})`;
+    }
   };
   window.cine = {
     len: T.end,

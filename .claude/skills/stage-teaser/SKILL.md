@@ -74,11 +74,20 @@ with `applyUnlock`, a dawn sky dome, the game's toast and tip pill shown as over
   them; `K.after` runs once the camera's set, to pin page things over the world). The chef has no elbows or knees:
   whole-body tips, hops and arm swings read best. Keep his own automation off while he's in a scene
   (`player.held`, and `tPick`/`tDrop`/`tCatch` kept high), or he fishes and picks fillets up wherever the shot puts him.
+- **Acting, or it reads as robots**: the owner's note on the first pass. Give every beat a face and a reason. The
+  chef's face for a clip is the game's own face parts (characters.ts `face`: round eyes with pupils that look, brows,
+  the "o", the grin, shut and happy eyes) laid over his dot eyes: o.js `face()`. Eyes move before the body; a hop
+  lands with a squash; a startle stretches; cut to a close-up for the look. A fish the camera stays on needs its own
+  model (`hero-tuna.js`: a smooth bending body, fins, eyes, brows, a mouth), a waterline (the game's `foamRing`) and
+  to ride high: the game's pale-bellied fish, half sunk with no foam, read as see-through. A lathe's faces look
+  outward only when its profile climbs: built the other way the body is inside-out and the far eye shows through.
 - **A different starting state**: `--init file.js` runs a script before the game loads. `examples/trailer/newgame.js`
   rewrites the demo's `?stage=1` save into a brand new game (a bare dock, no yacht, no auto harpoon).
 - **"Nothing but sea"**: the bay's rolling water stops 60 m out and a flat sheet carries on; from high up the edge
   shows, and islands sit in the bay. o.js lays its own sea (the game's `seaGeometry` and sea material) and hides the
-  islands for those shots.
+  islands for those shots. From high up the game's sea also lines up in rows (a square grid under three regular
+  swells): o.js pushes every point about and turns the sheet off the swells' axes. Keep the push small (a few
+  centimetres up and down) or the water turns to crumpled foil.
 - **One take per place, several shots per take.** A take is one address and one clock; hard cuts inside it are just
   a new `K.cam` path from a given time. Cut takes together in assembly.
 - **Music as beds**: render the game's own music for a place with `--mute sfx,amb --sound-only` and a do-nothing script

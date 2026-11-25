@@ -9,6 +9,8 @@ S=$(mkdir -p "${OUT:-out/trailer}" && cd "${OUT:-out/trailer}" && pwd)
 U=http://localhost:5177/; U3="http://localhost:5177/?cellar&full&beaten=4&sound=on"
 FK=rush,fightBanner,finish,finBlink,ringFlash,epic,banner,fade,toast,confetti
 r() { name=$1; shift; node "$P/render-play.mjs" "$@" > "$S/log-$name.txt" 2>&1; echo "$name: $(tail -1 "$S/log-$name.txt")"; }
+# the opening (the owner's script: the floe, the tuna, the cleaver), on a new game
+r O "$X/kit.js,$X/hero-tuna.js,$X/o.js" "$S/O" --landscape --url "$U?stage=1&sound=on" --mute music --init "$X/newgame.js" &
 # act 1: the ice market, then Floe Sushi and the knocking hatch (music laid in from the beds)
 r S1 "$X/kit.js,$X/s1.js" "$S/S1" --landscape --url "$U?stage=1&sound=on" --mute music &
 r S2 "$X/kit.js,$X/s2.js" "$S/S2" --landscape --url "$U?sound=on" --keep toast,offer --mute music &
