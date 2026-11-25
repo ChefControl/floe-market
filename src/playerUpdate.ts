@@ -33,7 +33,6 @@ import { CHOP, PAD, PILE, pile } from './stations';
 import { setTip, type TipContent } from './ui';
 import { applyUnlock, locked, redrawTile, visibleTiles, type Tile } from './unlocks';
 import { d2xz, FY, V, type XZ } from './util';
-import { collideVoting } from './votingBoat';
 import { collideBeach } from './beach';
 import { addMoney, wallet } from './wallet';
 
@@ -103,12 +102,11 @@ export function updPlayer(dt: number) {
     collide(p);
     collideGarden(p);
     collidePresents(p);
-    collideVoting(p);
     collideBeach(p);
     collideBins(p);
     collideCasino(p);
     if (stage.n >= 2 && korkiStatue()) pushOutOfBox(p, STATUE.x, STATUE.z, 1.25, 0.8);
-    // chopper block collision (to the dock's edge behind it: not out on the pier or the voting boat)
+    // chopper block collision (to the dock's edge behind it: not out on the pier)
     if (p.x > CHOP.x - 1.0 && p.x < CHOP.x + 1.0 && p.z < CHOP.z + 0.8 && p.z > CHOP.z - 0.8) {
       const ex = p.x < CHOP.x ? CHOP.x - 1.0 : CHOP.x + 1.0;
       if (Math.abs(p.x - ex) < Math.abs(p.z - (CHOP.z + 0.8))) p.x = ex; else p.z = CHOP.z + 0.8;

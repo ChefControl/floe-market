@@ -1,7 +1,7 @@
 // A boat's course over the sea: a smooth curve from the first of four points to the last, the middle two pulling it
 // round (a cubic Bézier), measured along its length, so a boat goes along it at the pace it's eased to, not faster
-// where the curve's points are spread out. The voting boat sails in and out on these (votingBoat.ts), and the casino
-// yacht sails in on one (casino.ts).
+// where the curve's points are spread out. The casino yacht sails in on
+// one (casino.ts).
 import type { Vector3 } from 'three';
 
 /** Points measured along a curve. */

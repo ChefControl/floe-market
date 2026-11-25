@@ -188,8 +188,7 @@ high(scene, () => {
 
 // ---------- the pier ----------
 // An upside-down L of the dock's own boards, the same size, out over the water a step up from the dock (layout.ts
-// PIER): its stem north from the dock's edge, its first two rows a ramp, and its arm west along the water, where the
-// voting boat moors on election day. Low: boxes with the dock's planks painted on, on round posts. High: the dock's boards, with leaves
+// PIER): its stem north from the dock's edge, its first two rows a ramp, and its arm west along the water. Low: boxes with the dock's planks painted on, on round posts. High: the dock's boards, with leaves
 // in autumn and petals in spring; rounded pilings lashed with rope, snow-capped in winter, in rings of foam; and two
 // bollards along the arm's far edge.
 {
@@ -436,7 +435,7 @@ function treeOK2(x: number, z: number) {
 }
 
 const both = newBatch(), only1 = newBatch(), only2 = newBatch();
-/** Where the trees stand, and in which stages (the matkot beach, beach.ts, keeps the player out of those on its sand). */
+/** Where the trees stand, and in which stages (the paddle beach, beach.ts, keeps the player out of those on its sand). */
 export const treeSpots: { x: number; z: number; one: boolean; two: boolean }[] = [];
 for (let i = 0, placed = 0; i < 900 && placed < 96; i++) {
   const x = rand(-44, 34), z = rand(-8, 40);
