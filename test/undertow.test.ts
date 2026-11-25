@@ -781,7 +781,7 @@ describe('the Undertow', () => {
       { id: 'eddie', pad: plan.BOOTH_PADS.eddie, lines: [
         "Pay him: fewer of the boss's fans come.",
         "Bigger fix, bigger chance he's caught.",
-        'Caught? No fix, and you lose fans too.',
+        'Caught? No fix, boss fans arrive as usual.',
       ] },
       { id: 'loans', pad: plan.BOOTH_PADS.harry, lines: [
         'Borrow chips, pay back 25% more.',
