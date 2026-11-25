@@ -188,7 +188,7 @@ export const eighth = () => 60 / RAIN_TUNE.bpm / 2;
 /** The 33 bars of eight eighths. */
 export const RAIN_STEPS = HARMONY.length * 8;
 
-/** At full: 3 dB over the rest of the music (rendered offline through the game's audio, against Hatikvah at its full),
+/** At full: 3 dB over the rest of the music (rendered offline through the game's audio, against another place's tune at its full),
  *  so the rain doesn't cover it. */
 const FULL = 0.87;
 /** Fades the mix to `k` (0 to 1). Nothing's made until it's first heard. */

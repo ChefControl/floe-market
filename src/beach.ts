@@ -1,31 +1,28 @@
-// The matkot beach, from stage 2 (layout.ts BEACH: in stage 1 the road runs a step from the water): a strip of sand
+// The paddle beach, from stage 2 (layout.ts BEACH: in stage 1 the road runs a step from the water): a strip of sand
 // between the sea and the road, along the water north of the dock and east of its fence, through the old drive-up
 // window's gap in it, with a lifeguard's tower at the north end; snow lies on it in winter. In spring and summer
-// there are umbrellas by the water with towels under them and two beachgoers sitting it out, and a cool box. On
-// Israel's election day (with the voting boat, votingBoat.ts) the umbrellas and the tower's roof are blue and white
-// and flags fly on poles and on the tower; on any other day they're canvas and straw and there are no flags. By the
-// water a beach regular, tanned, in a sun hat, bounces a ball on his paddle: step on the pad in front of him and Play,
-// and the two of you knock it back and forth, matkot as on every Israeli beach, the camera in from the side. Press
-// Hit (E) as the ball reaches you: each one counts and the ball comes back faster, and a miss (too soon or too late)
-// ends the rally. In autumn and winter he's gone, and the umbrellas and everyone with him (a rally under way plays out
+// there are umbrellas by the water with towels under them and two beachgoers sitting it out, and a cool box; the
+// umbrellas and the tower's roof are canvas and straw. By the water a beach regular, tanned, in a sun hat, bounces a
+// ball on his paddle: step on the pad in front of him and Play, and the two of you knock it back and forth, the
+// camera in from the side. Press Hit (E) as the ball reaches you: each one counts and the ball comes back faster, and
+// a miss (too soon or too late) ends the rally. In autumn and winter he's gone, and the umbrellas and everyone with him (a rally under way plays out
 // first). The best rally is saved (layout.ts beach.best); nothing else of it is.
 import {
-  ConeGeometry, CylinderGeometry, Group, type Mesh, MeshBasicMaterial, MeshLambertMaterial, PlaneGeometry, Vector3,
+  BoxGeometry, ConeGeometry, CylinderGeometry, Group, type Mesh, MeshBasicMaterial, MeshLambertMaterial, PlaneGeometry, Vector3,
 } from 'three';
 import { crowdModel, type Person } from './characters';
 import { decal, drawPad } from './decals';
-import { apart, Build, detail, dice, jitter, K, seasonLayer } from './kit';
+import { apart, Build, detail, dice, jitter, K, rbox, seasonLayer } from './kit';
 import { BEACH, beach, level, pushOutOfBox, stage } from './layout';
 import { C } from './palette';
 import { player } from './player';
-import { camK, canvasTex, mesh, scene } from './render';
+import { bakePainted, camK, canvasTex, mesh, painted, scene } from './render';
 import { save } from './save';
 import { current, type Swatch } from './season';
 import { thud, tock } from './sfx';
 import { bubble } from './speech';
 import { panel as kitPanel, state } from './uiKit';
 import { d2xz, V, type XZ } from './util';
-import { type Add, BLUE, blocks, boat, flag, twin } from './votingBoat';
 import { crowdStyle } from './wardrobe';
 import { gapLogs, treeSpots } from './world';
 
@@ -37,9 +34,10 @@ export const HIM = { x: COURT_X, z: -15.3 }, PAD = { x: COURT_X, z: -11.3 };
 const REACH = 0.95;
 /** The umbrellas, by the water (their towels before them, to the east), and who's sitting under them. */
 const UMBRELLAS: XZ[] = [{ x: 8.75, z: -9.3 }, { x: 8.65, z: -16.7 }];
-/** The lifeguard's tower at the north end, the cool box by the court, and the flags' poles. */
+/** The lifeguard's tower at the north end, and the cool box by the court. */
 const TOWER = { x: 11.0, z: -18.1 }, COOL = { x: 9.35, z: -15.9 };
-const POLES: XZ[] = [{ x: 8.6, z: -5.7 }, { x: 12.1, z: -18.4 }];
+/** The regular's sun hat and the cool box: a bright blue. */
+const BLUE = 0x0038B8;
 /** The paddle's angle in the arm at its ready pose, so it stands upright there (a paddle held up in front). */
 const READY = -0.9;
 /** How much snow lies on the sand in each season. */
@@ -64,12 +62,10 @@ export const early = (T = rally.T) => EARLY[1] + (EARLY[0] - EARLY[1]) * (T - T_
 
 // ---------- the beach ----------
 interface Built {
-  /** All year: the sand and the tower (and its flags on election day). */
+  /** All year: the sand and the tower. */
   g: Group;
   /** In spring and summer: the umbrellas, the towels, the cool box, the beachgoers, the regular and his pad. */
   fair: Group;
-  /** Whether the flags are up (on election day). */
-  flags: boolean;
   /** The snow on the sand, in winter. */
   snow: Mesh;
   him: Person;
@@ -79,7 +75,7 @@ interface Built {
   says: ReturnType<typeof bubble>;
 }
 
-/** A matkot paddle for a right hand: a wooden blade on a taped handle, at the hand, standing upright at `READY`, its
+/** A beach paddle for a right hand: a wooden blade on a taped handle, at the hand, standing upright at `READY`, its
  *  face turned `turn` from straight ahead (towards the road, where the camera watches from). */
 function paddle(blade: number, turn: number) {
   const g = new Group();
@@ -126,8 +122,35 @@ function sand(w: number, d: number) {
   return [lo, hi];
 }
 
+// ---------- building it: blocks drawn plain on Low and bevelled on High ----------
+/** A block, `w` by `h` by `d`, painted `c`, its middle at (x, y, z) (y from the ground), turned `ry` about the vertical
+ *  and `rz` across. */
+interface Block { w: number; h: number; d: number; c: number; x: number; y: number; z: number; ry: number; rz: number }
+type Add = (w: number, h: number, d: number, c: number, x: number, y: number, z: number, ry?: number, rz?: number) => void;
+function blocks(f: (s: Add) => void) {
+  const out: Block[] = [];
+  f((w, h, d, c, x, y, z, ry = 0, rz = 0) => out.push({ w, h, d, c, x, y, z, ry, rz }));
+  return out;
+}
+/** The unit box every block is drawn with, made with the beach. */
+let BOX: BoxGeometry;
+/** `bs` as a Low mesh (plain boxes, `painted`) and a High one (the kit's bevelled boxes, the thin ones plain), shown by
+ *  the setting, in `g`. */
+function twin(g: Group, bs: Block[]) {
+  if (!BOX) BOX = new BoxGeometry(1, 1, 1);
+  const lo = mesh(bakePainted(bs.map(b => ({ geo: BOX, c: b.c, at: [b.x, b.y, b.z], rot: [0, b.ry, b.rz], scale: [b.w, b.h, b.d] }))), painted, 0, 0, 0, true);
+  const hi = new Build();
+  for (const b of bs) {
+    const t = Math.min(b.w, b.h, b.d), small = t < 0.02;
+    hi.add(small ? BOX : rbox(b.w, b.h, b.d, Math.min(0.015, t / 3)), b.c, b.x, b.y, b.z, [0, b.ry, b.rz], small ? [b.w, b.h, b.d] : undefined);
+  }
+  const high = hi.mesh(true, painted);
+  g.add(lo, high);
+  detail(lo, high);
+}
+
 function build(): Built {
-  const g = new Group(), fair = new Group(), flags = boat !== null;
+  const g = new Group(), fair = new Group();
   g.visible = false;
   g.add(fair);
   scene.add(g);
@@ -141,9 +164,9 @@ function build(): Built {
   snow.rotation.x = -Math.PI / 2; snow.position.set(BEACH.x0 + w / 2, 0.008, BEACH.z0 + d / 2);
   g.add(snow);
 
-  // ---- what stands on it: umbrellas and towels and the cool box, in season; the tower, and the flags ----
+  // ---- what stands on it: umbrellas and towels and the cool box, in season; and the tower ----
   const props = new Build();
-  for (const u of UMBRELLAS) umbrella(props, u.x, u.z, flags ? BLUE : C.paper, flags ? C.snow : C.rope);
+  for (const u of UMBRELLAS) umbrella(props, u.x, u.z, C.paper, C.rope);
   fair.add(props.mesh());
   twin(fair, blocks((s: Add) => {
     for (const [i, u] of UMBRELLAS.entries()) {
@@ -157,9 +180,9 @@ function build(): Built {
     s(0.57, 0.08, 0.4, C.snow, COOL.x, 0.39, COOL.z);
   }));
   twin(g, blocks((s: Add) => {
-    // the lifeguard's tower: four legs, a deck, a hut with its window to the sea and a roof (blue on election day, straw
-    // like the umbrellas any other), a ladder up its south side
-    const { x, z } = TOWER, top = 1.5, roof = flags ? BLUE : C.rope;
+    // the lifeguard's tower: four legs, a deck, a hut with its window to the sea and a roof (straw, like the
+    // umbrellas), a ladder up its south side
+    const { x, z } = TOWER, top = 1.5, roof = C.rope;
     for (const [dx, dz] of [[-0.55, -0.55], [0.55, -0.55], [-0.55, 0.55], [0.55, 0.55]]) s(0.1, top, 0.1, C.post, x + dx, top / 2, z + dz);
     s(1.4, 0.08, 1.4, C.plank, x, top, z);
     s(1.2, 0.95, 0.06, C.snow, x, top + 0.5, z - 0.6);
@@ -170,14 +193,6 @@ function build(): Built {
     s(0.9, 0.12, 0.1, roof, x + 0.05, top + 0.85, z + 0.64);
     for (let r = 0; r < 5; r++) s(0.5, 0.04, 0.06, C.post, x, 0.25 + r * 0.3, z + 0.95 - r * 0.03);
     for (const k of [-1, 1]) s(0.05, top + 0.1, 0.05, C.post, x + k * 0.26, (top + 0.1) / 2, z + 0.92, 0, 0);
-    // on election day, the flags, on their poles, and one on the tower's roof
-    if (!flags) return;
-    for (const p of POLES) {
-      s(0.05, 2.6, 0.05, C.snow, p.x, 1.3, p.z);
-      flag(s, 0.6, p.x + 0.33, 2.32, p.z);
-    }
-    s(0.04, 0.7, 0.04, C.snow, x - 0.6, top + 1.4, z - 0.6);
-    flag(s, 0.4, x - 0.38, top + 1.6, z - 0.6);
   }));
 
   // ---- the beachgoers, sitting it out under the umbrellas ----
@@ -218,7 +233,7 @@ function build(): Built {
   pad.position.set(PAD.x, 0.012, PAD.z);
   fair.add(pad);
   const says = bubble(scene, 2.0);
-  return { g, fair, flags, snow, him, his, yours, ball, shadow, shadowMat, pad, says };
+  return { g, fair, snow, him, his, yours, ball, shadow, shadowMat, pad, says };
 }
 
 /** The beach, built the first time it's up (from stage 2, up top: a game that never gets there never pays for it),
@@ -230,8 +245,7 @@ export let sands: Built | null = null;
 function card() {
   const el = document.createElement('div');
   el.id = 'matkot'; el.hidden = true;
-  // matkot on election day, with the voting boat; plain paddle ball any other
-  const title = document.createElement('p'); title.className = 'k-title'; title.textContent = boat ? '🏓 Matkot' : '🏓 Paddle';
+  const title = document.createElement('p'); title.className = 'k-title'; title.textContent = '🏓 Paddle';
   const msg = document.createElement('p'); msg.className = 'k-msg';
   const row = document.createElement('div'); row.className = 'k-row';
   const button = (label: string) => {
@@ -393,7 +407,7 @@ export function drawBeach() {
   beachCam.look.set(mx - 0.3, 1.2, mz - 0.1);
 }
 
-/** Keeps the player out of the tower, the flags' poles and any trees standing on the sand, and in season the
+/** Keeps the player out of the tower and any trees standing on the sand, and in season the
  *  regular, the umbrellas' poles, the cool box and the beachgoers. */
 export function collideBeach(p: XZ) {
   if (!sands || stage.n < 2 || level.down || p.x < BEACH.x0) return;
@@ -403,6 +417,5 @@ export function collideBeach(p: XZ) {
     pushOutOfBox(p, COOL.x, COOL.z, 0.5, 0.42);
   }
   pushOutOfBox(p, TOWER.x, TOWER.z, 0.95, 1.2);
-  if (sands.flags) for (const q of POLES) pushOutOfBox(p, q.x, q.z, 0.25, 0.25);
   for (const t of treeSpots) if (t.two && t.x > BEACH.x0 && t.z < BEACH.z1) pushOutOfBox(p, t.x, t.z, 0.45, 0.45);
 }
