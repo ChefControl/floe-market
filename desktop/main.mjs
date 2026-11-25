@@ -156,13 +156,21 @@ async function start() {
  * @param {BrowserWindow} win
  */
 function guard(win) {
+  /** What goes out of the app, to the player's browser, Steam or mail program. */
+  const OUT = new Set(['browser', 'steam', 'mail']);
   win.webContents.on('will-navigate', (e, url) => {
     // (a reload, the Restart button's, keeps to the game)
     if (!url.startsWith(`${ORIGIN}/index.html`)) e.preventDefault();
   });
+  // (a link inside a frame, the privacy notice's: the web and email go out of the app, the frame stays on the game's)
+  win.webContents.on('will-frame-navigate', e => {
+    if (e.isMainFrame || e.url.startsWith(`${ORIGIN}/`)) return;
+    e.preventDefault();
+    if (OUT.has(linkKind(e.url))) void shell.openExternal(e.url);
+  });
   win.webContents.setWindowOpenHandler(({ url }) => {
     const kind = linkKind(url);
-    if (kind === 'browser' || kind === 'steam') void shell.openExternal(url);
+    if (OUT.has(kind)) void shell.openExternal(url);
     if (kind !== 'game') return { action: 'deny' };
     return {
       action: 'allow',
@@ -177,10 +185,10 @@ function guard(win) {
     child.webContents.on('will-navigate', (e, url) => {
       // a link inside a notice: to the browser, never in the app
       e.preventDefault();
-      if (linkKind(url) === 'browser') void shell.openExternal(url);
+      if (OUT.has(linkKind(url))) void shell.openExternal(url);
     });
     child.webContents.setWindowOpenHandler(({ url }) => {
-      if (linkKind(url) === 'browser') void shell.openExternal(url);
+      if (OUT.has(linkKind(url))) void shell.openExternal(url);
       return { action: 'deny' };
     });
   });

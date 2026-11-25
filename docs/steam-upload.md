@@ -80,15 +80,17 @@ Under **Installation → Linux Runtime** (it may be called **Compatibility**), p
 Under **SteamPipe → Builds**, make a branch called `beta`, with a password so only testers get it. Set builds live on
 the default branch yourself.
 
-## 5. Valve's OK for FFmpeg (#149)
+## 5. Valve's OK for Blink and FFmpeg (#149)
 
-Chromium plays the game's recordings through FFmpeg, which is LGPL. Steam asks for Valve's agreement before a game
-ships GPL or LGPL code. Electron ships FFmpeg as a separate library that a player can swap, as the LGPL asks. Ask Valve
-through Steamworks support:
+Two parts of Chromium are under the LGPL: Blink, its page engine (from WebKit), built into the program, and FFmpeg,
+which plays the game's recordings, a library of its own. Steam asks for Valve's agreement before a game ships GPL or
+LGPL code. Both ship unchanged, as Electron builds them, and a player can swap either (another `ffmpeg.dll` /
+`libffmpeg.so`, or another build of Electron 45, since the game sits apart in `resources/app.asar`), as the LGPL asks.
+Ask Valve through Steamworks support:
 
-> Floe Market is built on Electron 45, which ships Chromium's FFmpeg build (LGPL-2.1-or-later) unchanged, as a
-> separate dynamic library (ffmpeg.dll / libffmpeg.so), with its licence and a link to its source in the game's
-> credits. May we ship it?
+> Floe Market is built on Electron 45 (Chromium 156). Chromium includes two LGPL-2.1-or-later parts, unchanged: Blink
+> (from WebKit), in the program, and FFmpeg, as a separate dynamic library (ffmpeg.dll / libffmpeg.so). Their licences
+> and links to their source are in the game's credits, and players can replace either. May we ship them?
 
-Once they agree, add FFmpeg to `APPROVED` in `scripts/licences.ts`, with the date and how they agreed. Until then, test
-builds warn about it and release builds stop.
+Once they agree, add both to `APPROVED` in `scripts/licences.ts`, with the date and how they agreed. Until then, test
+builds warn about them and release builds stop.
