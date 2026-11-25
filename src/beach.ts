@@ -134,7 +134,8 @@ function build(): Built {
   scene.add(g);
   // ---- the sand, the wet strip along the water, and the snow on them in winter ----
   const w = BEACH.x1 - BEACH.x0, d = BEACH.z1 - BEACH.z0;
-  for (const m of sand(w, d)) { m.position.set(BEACH.x0 + w / 2, 0.004, BEACH.z0 + d / 2); g.add(m); }
+  const sandy = sand(w, d);
+  for (const m of sandy) { m.position.set(BEACH.x0 + w / 2, 0.004, BEACH.z0 + d / 2); g.add(m); }
   const wet = mesh(new PlaneGeometry(0.6, BEACH.shore - BEACH.z0), C.wetSand);
   wet.rotation.x = -Math.PI / 2; wet.position.set(BEACH.x0 + 0.3, 0.006, (BEACH.z0 + BEACH.shore) / 2);
   g.add(wet);
@@ -218,8 +219,9 @@ function build(): Built {
   const pad = decal(1.9, (c, cw, ch) => drawPad(c, cw, ch, '🏓')).mesh;
   pad.position.set(PAD.x, 0.012, PAD.z);
   fair.add(pad);
-  // where the sand meets the land: a soft border, and the coast's sand running on north (beachEdge.ts)
-  g.add(apart(sandEdge, dice(0x5A4DF)));
+  // where the sand meets the land: its edge cut to a wandering line, soft sand over that, and the coast's sand running
+  // on north (beachEdge.ts)
+  g.add(apart(() => sandEdge(sandy[0], sandy[1]), dice(0x5A4DF)));
   const says = bubble(scene, 2.0);
   return { g, fair, flags, snow, him, his, yours, ball, shadow, shadowMat, pad, says };
 }
