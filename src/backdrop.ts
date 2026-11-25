@@ -8,13 +8,14 @@
 // (vertex colours where it has several), with no shadows, and nothing moves but the sky and the clouds keeping round
 // the camera, the clouds' fade at night and the icebergs' size with the seasons.
 import {
-  BackSide, BufferGeometry, Color, ConeGeometry, Float32BufferAttribute, Group, IcosahedronGeometry, InstancedMesh,
-  Matrix4, Mesh, MeshBasicMaterial, MeshLambertMaterial, Quaternion, SphereGeometry, Vector3,
+  BackSide, BufferGeometry, Color, ConeGeometry, DoubleSide, Euler, Float32BufferAttribute, Group, IcosahedronGeometry,
+  InstancedMesh, Matrix4, Mesh, MeshBasicMaterial, MeshLambertMaterial, Quaternion, RepeatWrapping, SphereGeometry, Vector3,
 } from 'three';
-import { apart, dice, seasonLayer } from './kit';
+import { highBuilt, isPotato, onQuality } from './graphics';
+import { apart, dice, seasonLayer, shade } from './kit';
 import { BAY } from './layout';
 import { C } from './palette';
-import { scene, sky } from './render';
+import { canvasTex, scene, sky } from './render';
 import { amount, FLOE_SIZE, onBlend, PAL, seasonal, type Swatch } from './season';
 import { village } from './village';
 
@@ -23,6 +24,12 @@ import { village } from './village';
 const MID = { x: 0, z: 8 }, FROM = -92, TO = 202;
 /** The roads (world.ts ROAD1_X, ROAD2_X) run north and south between the hills: the land dips to nothing round them. */
 const ROADS_X = 12, ROAD_GAP = 5;
+/** Where each gull wheels: the middle of its circle, how wide it is and how high, how fast it goes round (a turn in
+ *  so many seconds, the sign which way) and where in the turn it starts. */
+const GULLS = [
+  { x: -10, z: -25, r: 7, y: 9.5, turn: 19, at: 0 }, { x: -25, z: -35, r: 9, y: 11.5, turn: -24, at: 2.1 },
+  { x: 1, z: -37, r: 6, y: 8.5, turn: 16, at: 4.0 }, { x: -41, z: -23, r: 8, y: 10.5, turn: -21, at: 5.2 },
+];
 /** The sailboats are out in summer only. */
 const SUMMER: Swatch = [0, 0, 1, 0];
 /** How high over the world the sky's dome and the clouds are kept (they're drawn round the camera). */
@@ -32,7 +39,7 @@ const PARKED = 400;
  *  mesh.) */
 export const backdrop = apart(() => ({
   sky: new Group(), hills: new Group(), pines: new Group(), peaks: new Group(), town: new Group(), bergs: new Group(), boats: new Group(),
-  clouds: new Group(),
+  clouds: new Group(), gulls: new Group(),
 }), dice(0xBAC4C));
 
 const smooth = (a: number, b: number, x: number) => { const k = Math.max(0, Math.min(1, (x - a) / (b - a))); return k * k * (3 - 2 * k); };
@@ -214,8 +221,38 @@ function roadOnLine(x: number, s: -1 | 1) {
   return evenly(rounded(pts, 3), DASH);
 }
 /**
+ * The wear on a road's own length (between its two ends, about its middle at x 0), into `pos` and `col`: patches where
+ * it's been mended, darker or paler than the rest, and cracks across a lane, at fixed places, off the crossing to her
+ * house (layout.ts HOUSE_PATH_Z), clear of the dashes down the middle and the lines along the edges.
+ */
+function wear(pos: number[], col: number[], roll: () => number) {
+  const tar = 0x6B7785, y = 0.0075, c = new Color();
+  const quad = (x0: number, z0: number, x1: number, z1: number, x2: number, z2: number, x3: number, z3: number, colour: number) => {
+    c.setHex(colour);
+    // (corners round the patch; wound to face up)
+    for (const [px, pz] of [[x0, z0], [x3, z3], [x1, z1], [x1, z1], [x3, z3], [x2, z2]]) { pos.push(px, y, pz); col.push(c.r, c.g, c.b); }
+  };
+  for (let z = -ROAD_END + 6; z < ROAD_END - 6; z += 9 + roll() * 7) {
+    const lane = roll() < 0.5 ? -1 : 1, kind = roll(), from = z + roll() * 3;
+    if (from > 2.5 && from < 10.5) continue;
+    if (kind < 0.55) {
+      // a mended patch: a rectangle in one lane, not quite square to the road
+      const x0 = lane * (0.2 + roll() * 0.15), x1 = lane * (0.78 + roll() * 0.17), len = 1.2 + roll() * 1.8, skew = (roll() - 0.5) * 0.25;
+      quad(x0, from, x1, from + skew, x1, from + len + skew, x0, from + len, shade(tar, roll() < 0.6 ? 0.83 : 1.1));
+    } else {
+      // a crack: a thin dark line wandering across the lane
+      let px = lane * 0.16, pz = from;
+      for (let k = 0; k < 4; k++) {
+        const nx = lane * (0.16 + (k + 1) * 0.2), nz = pz + (roll() - 0.5) * 0.7;
+        quad(px, pz - 0.018, nx, nz - 0.018, nx, nz + 0.018, px, pz + 0.018, shade(tar, 0.6));
+        px = nx; pz = nz;
+      }
+    }
+  }
+}
+/**
  * What a road at `x` carries on as past its two ends, to hang on the road's own group (world.ts `road`: it's shown,
- * hidden and popped in with its road): one mesh, on dice of its own.
+ * hidden and popped in with its road), with the wear on the road's own length: one mesh, on dice of its own.
  */
 export function roadOn(x: number) {
   return apart(() => {
@@ -226,7 +263,9 @@ export function roadOn(x: number) {
       const [dx, dz] = ringDir(s * JOIN);
       pave(pos, col, roadOnLine(x, s), x, [0, s], [-s * dx, -s * dz]);
     }
-    const mesh = new Mesh(facets(pos, col), new MeshLambertMaterial({ vertexColors: true }));
+    wear(pos, col, dice(0x3EA20 + Math.round(x * 100)));
+    // (a hair nearer the eye than it lies, so the wear shows on the road's own surface, a few millimetres under it)
+    const mesh = new Mesh(facets(pos, col), new MeshLambertMaterial({ vertexColors: true, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 }));
     mesh.name = 'roadOn';
     mesh.raycast = () => {};
     return mesh;
@@ -291,6 +330,8 @@ apart(() => {
   const parts: BufferGeometry[][] = [[], []];
   /** A pine at (x, y, z), `size` its scale; `turn` (0 to 1) which way it's turned, `shadeOf` which shade leads. */
   const pine = (x: number, y: number, z: number, size: number, turn: number, shadeOf: number) => {
+    // (none on a load that starts on Potato, which leaves the far pines out: below)
+    if (!highBuilt) return;
     for (let t = 0; t < 2; t++) {
       q.setFromAxisAngle(up, turn * 6 + t);
       m.compose(p.set(x, y + size * (0.75 + t * 0.8), z), q, s.set(size * (0.95 - t * 0.3), size * 1.5, size * (0.95 - t * 0.3)));
@@ -313,7 +354,7 @@ apart(() => {
   let nth = 0;
   backdrop.town.add(village((x, z, size) => pine(x, 0, z, size, (nth * 0.37) % 1, nth++)));
   // (the pines' own seasonal colours, as world.ts' trees: their needles turn red and orange in autumn)
-  [PAL.pine, PAL.pine2].forEach((c, i) => backdrop.pines.add(new Mesh(merge(parts[i]), seasonal(c))));
+  [PAL.pine, PAL.pine2].forEach((c, i) => { if (parts[i].length) backdrop.pines.add(new Mesh(merge(parts[i]), seasonal(c))); });
 
   // ---------- far mountains ----------
   // two rows, the far one taller and paler with the distance, snow on their tops down to a ragged line; the road
@@ -398,7 +439,7 @@ apart(() => {
   // low in the sky all round, keeping round the camera like the sky itself (they're far off: they don't slide by as it
   // moves): flat underneath, heaped on top, big banks and small wisps at different heights; they keep their own white
   // (a little of the sky's in it), and fade out as night falls
-  {
+  if (highBuilt) {
     const roll4 = dice(0xC10D5);
     const list: BufferGeometry[] = [];
     const puff = (x: number, y: number, z: number, w: number, h: number, d: number, yaw: number) => {
@@ -425,6 +466,28 @@ apart(() => {
     backdrop.clouds.add(clouds);
   }
 
+  // ---------- gulls ----------
+  // four of them wheeling over the bay, high over anything that sails on it: one shape drawn four times, its wings
+  // raised and lowered by how tall it's drawn (updBackdrop)
+  {
+    const span = 0.6, lift = 0.2;
+    // two wings up from the body to their tips, swept back a little, and a stub of a tail
+    const wings = [[0, 0, 0.18], [0, 0, -0.14], [span, lift, -0.02], [0, 0, 0.18], [-span, lift, -0.02], [0, 0, -0.14], [0, 0, -0.14], [0.06, 0, -0.34], [-0.06, 0, -0.34]];
+    const geo = new BufferGeometry();
+    geo.setAttribute('position', new Float32BufferAttribute(wings.flat(), 3));
+    geo.computeVertexNormals();
+    const gulls = new InstancedMesh(geo, new MeshBasicMaterial({ color: C.paper, side: DoubleSide }), GULLS.length);
+    gulls.frustumCulled = false;
+    backdrop.gulls.add(gulls);
+  }
+
+  // ---------- Potato ----------
+  // the far pines, the clouds (and the beach's grass, beachEdge.ts) are left out on Potato: most of the backdrop's
+  // triangles. Never built on a load that starts there (`highBuilt`), hidden on one that goes there
+  const lean = () => { backdrop.pines.visible = backdrop.clouds.visible = !isPotato(); };
+  lean();
+  onQuality(lean);
+
   const all = new Group();
   all.name = 'backdrop';
   all.add(...Object.values(backdrop));
@@ -448,6 +511,25 @@ function merge(list: BufferGeometry[]) {
   return out;
 }
 
+/** How far the open sea's ripples run before they repeat (metres). */
+export const RIPPLE_TILE = 18;
+/** Ripples for the open sea past the bay (horizon.ts' flat sheets): long faint streaks, darker than the water, on white
+ *  (the sea's own colour does the rest), the same every visit. */
+export const seaRipples = apart(() => {
+  const roll = dice(0x51AEA);
+  const t = canvasTex(256, 256, (c, w, h) => {
+    c.fillStyle = '#fff'; c.fillRect(0, 0, w, h);
+    for (let i = 0; i < 46; i++) {
+      const x = roll() * w, y = roll() * h, len = 26 + roll() * 60, thick = 1.2 + roll() * 2.2;
+      c.fillStyle = `rgba(8,44,74,${0.07 + roll() * 0.1})`;
+      // (drawn again across the edges it runs over, so the tile meets itself)
+      for (const dx of [-w, 0, w]) for (const dy of [-h, 0, h]) { c.beginPath(); c.ellipse(x + dx, y + dy, len, thick, 0, 0, Math.PI * 2); c.fill(); }
+    }
+  });
+  t.tex.wrapS = t.tex.wrapT = RepeatWrapping;
+  return t.tex;
+}, dice(0x51AEB));
+
 /** Sizes the icebergs for the season: they melt away with the floes in spring and come back in autumn. */
 function placeBergs() {
   const k = amount(FLOE_SIZE), bergs = backdrop.bergs.children[0] as InstancedMesh;
@@ -466,10 +548,29 @@ onBlend(placeBergs);
 /** The clouds take on a little of the sky's colour (stage 2's dusk, the rain's grey), and fade out as night falls
  *  (horizon.ts nightSky, whenever the light changes). */
 export function backdropNight(k: number) {
-  const mat = (backdrop.clouds.children[0] as Mesh | undefined)?.material as MeshLambertMaterial | undefined;
-  if (!mat) return;
+  backdrop.gulls.visible = k < 0.5;
+  const clouds = backdrop.clouds.children[0] as Mesh | undefined;
+  if (!clouds) return;
+  const mat = clouds.material as MeshLambertMaterial;
   mat.color.setHex(C.snow).lerp(sky.bg, 0.3);
   mat.emissive.copy(mat.color);
   mat.opacity = 0.9 * (1 - k);
-  backdrop.clouds.visible = k < 0.99;
+  clouds.visible = k < 0.99;
+}
+
+const e2 = new Euler();
+/** The gulls on their rounds, `time` seconds in (horizon.ts updHorizon, every frame the world above is live): each
+ *  banks into its turn, flaps for a few beats and glides for a few. */
+export function updBackdrop(time: number) {
+  const gulls = backdrop.gulls.children[0] as InstancedMesh;
+  GULLS.forEach((g, i) => {
+    const a = g.at + time * Math.PI * 2 / g.turn, way = Math.sign(g.turn);
+    // flapping while this slow wave's up, gliding (wings a little raised) while it's down
+    const flapping = Math.max(0, Math.sin(time * 0.6 + g.at * 2)), beat = Math.sin(time * 9 + g.at * 5);
+    // (its nose along the way it's going, the wing on the inside of the turn down)
+    q2.setFromEuler(e2.set(0, way > 0 ? -a : Math.PI - a, way * 0.35, 'YXZ'));
+    gulls.setMatrixAt(i, m2.compose(
+      p2.set(g.x + Math.cos(a) * g.r, g.y + Math.sin(time * 0.4 + g.at) * 0.6, g.z + Math.sin(a) * g.r), q2, s2.set(1, 0.6 + flapping * beat * 1.6, 1)));
+  });
+  gulls.instanceMatrix.needsUpdate = true;
 }

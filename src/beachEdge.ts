@@ -8,13 +8,13 @@
 // level, in nobody's way; a mesh each for the soft sand, the wet sand and the grass, built on dice of its own, and gone under the
 // snow in winter.
 import {
-  BufferGeometry, Float32BufferAttribute, Group, Mesh, MeshLambertMaterial, NoColorSpace, PlaneGeometry, RepeatWrapping,
+  BufferGeometry, DataTexture, Float32BufferAttribute, Group, LinearFilter, Mesh, MeshLambertMaterial, PlaneGeometry, RepeatWrapping,
+  RGBAFormat, SRGBColorSpace,
 } from 'three';
-import { isHigh, onQuality } from './graphics';
+import { highBuilt, isHigh, isPotato, onQuality } from './graphics';
 import { dice } from './kit';
 import { BAY, BEACH } from './layout';
 import { C } from './palette';
-import { canvasTex } from './render';
 import { amount, onBlend, PAL, seasonal, type Swatch } from './season';
 
 /** How much snow lies on the sand in each season (as on the beach itself). */
@@ -26,6 +26,12 @@ const KERB = 14.2 - 1.3 - 0.15;
 /** How much sand the beach's own keeps: it's cut away where there's less than this, and the soft sand takes over. */
 const CUT = 0.92;
 
+/** A picture made of numbers, read smoothly between its spots. */
+function smoothed(t: DataTexture) {
+  t.magFilter = t.minFilter = LinearFilter;
+  t.needsUpdate = true;
+  return t;
+}
 const smooth = (a: number, b: number, x: number) => { const k = Math.max(0, Math.min(1, (x - a) / (b - a))); return k * k * (3 - 2 * k); };
 
 /**
@@ -54,23 +60,20 @@ export function sandEdge(lo: Mesh, hi: Mesh, wetStrip: Mesh) {
 
   // ---- the beach's own sand, cut to that line: where there's less than CUT of it, it's not drawn ----
   const w = BEACH.x1 - BEACH.x0, d = BEACH.z1 - BEACH.z0;
-  const cut = canvasTex(64, 256, (c, cw, ch) => {
-    const img = c.createImageData(cw, ch);
-    for (let py = 0; py < ch; py++) {
-      for (let px = 0; px < cw; px++) {
-        // (the sand's picture runs from its north-west corner: across to the east, down to the south)
-        const a = Math.round(sand(BEACH.x0 + (px + 0.5) / cw * w, BEACH.z0 + (py + 0.5) / ch * d) * 255), i = (py * cw + px) * 4;
-        img.data[i] = img.data[i + 1] = img.data[i + 2] = a; img.data[i + 3] = 255;
-      }
+  // (a picture made of plain numbers, not drawn on a canvas: how sandy each spot is. Its rows run from the south up,
+  // as the sand's own picture is laid: the north end is its top)
+  const CW = 64, CH = 256, cutData = new Uint8Array(CW * CH * 4);
+  for (let row = 0; row < CH; row++) {
+    for (let px = 0; px < CW; px++) {
+      const a = Math.round(sand(BEACH.x0 + (px + 0.5) / CW * w, BEACH.z1 - (row + 0.5) / CH * d) * 255), i = (row * CW + px) * 4;
+      cutData[i] = cutData[i + 1] = cutData[i + 2] = a; cutData[i + 3] = 255;
     }
-    c.putImageData(img, 0, 0);
-  });
-  // (read as plain numbers, not as a colour)
-  cut.tex.colorSpace = NoColorSpace;
+  }
+  const cut = smoothed(new DataTexture(cutData, CW, CH, RGBAFormat));
   for (const m of [lo, hi]) {
     // (a copy: Low's sand is the palette's shared colour)
     const mat = (m.material as MeshLambertMaterial).clone();
-    mat.alphaMap = cut.tex; mat.alphaTest = CUT;
+    mat.alphaMap = cut; mat.alphaTest = CUT;
     m.material = mat;
   }
   // the beach's High picture carries on north in the soft sand (its ripples and grains at the same size)
@@ -120,21 +123,20 @@ export function sandEdge(lo: Mesh, hi: Mesh, wetStrip: Mesh) {
   const WET_W = 2.0, wetLen = BEACH.shore - NORTH;
   /** How far up the sand it's wet at `z`: scallops a couple of metres long, each a little different. */
   const lap = (z: number) => 1.0 + wander(z, 1.9, 60) * 0.6 + Math.abs(Math.sin(z * 0.9 + wander(z, 4.3, 10) * 3)) * 0.3;
-  const css = `${C.wetSand >> 16},${C.wetSand >> 8 & 255},${C.wetSand & 255}`;
-  const wetTex = canvasTex(32, 1024, (g, cw, ch) => {
-    const img = g.createImageData(cw, ch), [r, gr, b] = css.split(',').map(Number);
-    for (let py = 0; py < ch; py++) {
-      const z = NORTH + (py + 0.5) / ch * wetLen, reach = lap(z);
-      for (let px = 0; px < cw; px++) {
-        const out = (px + 0.5) / cw * WET_W, i = (py * cw + px) * 4;
-        // wet through by the water, drying out over the last stretch of its reach; and only where there's sand
-        const a = (1 - smooth(reach * 0.55, reach, out)) * sand(BAY.x1 + out, z) * smooth(NORTH, NORTH + 4, z);
-        img.data[i] = r; img.data[i + 1] = gr; img.data[i + 2] = b; img.data[i + 3] = Math.round(a * 255);
-      }
+  const WW = 32, WH = 1024, wetData = new Uint8Array(WW * WH * 4);
+  for (let row = 0; row < WH; row++) {
+    // (rows from the south end up, as above)
+    const z = BEACH.shore - (row + 0.5) / WH * wetLen, reach = lap(z);
+    for (let px = 0; px < WW; px++) {
+      const out = (px + 0.5) / WW * WET_W, i = (row * WW + px) * 4;
+      // wet through by the water, drying out over the last stretch of its reach; and only where there's sand
+      const a = (1 - smooth(reach * 0.55, reach, out)) * sand(BAY.x1 + out, z) * smooth(NORTH, NORTH + 4, z);
+      wetData[i] = C.wetSand >> 16; wetData[i + 1] = C.wetSand >> 8 & 255; wetData[i + 2] = C.wetSand & 255; wetData[i + 3] = Math.round(a * 255);
     }
-    g.putImageData(img, 0, 0);
-  });
-  const wetMat = new MeshLambertMaterial({ map: wetTex.tex, transparent: true, depthWrite: false });
+  }
+  const wetTex = smoothed(new DataTexture(wetData, WW, WH, RGBAFormat));
+  wetTex.colorSpace = SRGBColorSpace;
+  const wetMat = new MeshLambertMaterial({ map: wetTex, transparent: true, depthWrite: false });
   const wet = new Mesh(new PlaneGeometry(WET_W, wetLen), wetMat);
   wet.rotation.x = -Math.PI / 2;
   wet.position.set(BAY.x1 + WET_W / 2, wetStrip.position.y, NORTH + wetLen / 2);
@@ -144,8 +146,9 @@ export function sandEdge(lo: Mesh, hi: Mesh, wetStrip: Mesh) {
   wetStrip.visible = false;
 
   // ---- beach grass: tufts of blades where the sand gives out ----
+  // (left out on Potato: never built on a load that starts there, hidden on one that goes there)
   const blades: number[] = [];
-  for (let i = 0; i < 420; i++) {
+  for (let i = 0; highBuilt && i < 420; i++) {
     const z = NORTH + 4 + roll() * (BEACH.z1 - NORTH - 5), x = edgeX(z) + (roll() - 0.3) * 1.1, s = sand(x, z);
     if (x < BAY.x1 + 0.7 || x > KERB - 0.1 || s < 0.1 || s > 0.75) continue;
     for (let b = 0; b < 6; b++) {
@@ -166,6 +169,9 @@ export function sandEdge(lo: Mesh, hi: Mesh, wetStrip: Mesh) {
   g.name = 'beachEdge';
   g.add(soft, wet, grass);
   for (const m of [soft, wet, grass]) m.raycast = () => {};
+  const lean = () => { grass.visible = !isPotato(); };
+  lean();
+  onQuality(lean);
   // under the snow in winter, like the rest of the ground
   const thaw = () => {
     const k = 1 - amount(SNOWY);

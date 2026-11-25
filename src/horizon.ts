@@ -6,7 +6,7 @@ import {
   AdditiveBlending, BufferGeometry, ConeGeometry, CylinderGeometry, Float32BufferAttribute, Group, Mesh,
   MeshLambertMaterial, Points, PointsMaterial, Sprite, SpriteMaterial,
 } from 'three';
-import { backdropNight } from './backdrop';
+import { backdropNight, RIPPLE_TILE, seaRipples, updBackdrop } from './backdrop';
 import { quietly } from './kit';
 import { BAY } from './layout';
 import { canvasTex, scene } from './render';
@@ -25,6 +25,8 @@ quietly(() => {
   // ---------- the open sea ----------
   // two sheets round the bay's sea, just under it: north of it, and west of it, both out to the haze
   const sea = new MeshLambertMaterial({ color: DEEP });
+  // (faint ripples on it, backdrop.ts, so it isn't one flat colour out to the haze)
+  sea.map = seaRipples;
   const sheet = (x0: number, x1: number, z0: number, z1: number) => {
     const m = new Mesh(flatPlane(x1 - x0, z1 - z0), sea);
     m.position.set((x0 + x1) / 2, 0.006, (z0 + z1) / 2);
@@ -62,6 +64,8 @@ function flatPlane(w: number, d: number) {
   const x = w / 2, z = d / 2;
   geo.setAttribute('position', new Float32BufferAttribute([-x, 0, -z, -x, 0, z, x, 0, z, x, 0, -z], 3));
   geo.setAttribute('normal', new Float32BufferAttribute([0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0], 3));
+  // (the open sea's ripples, at their own size whatever the sheet's)
+  geo.setAttribute('uv', new Float32BufferAttribute([-x, -z, -x, z, x, z, x, -z].map(v => v / RIPPLE_TILE), 2));
   geo.setIndex([0, 1, 2, 0, 2, 3]);
   return geo;
 }
@@ -139,6 +143,7 @@ export function nightSky(k: number) {
 /** Turns the lighthouse's lamp: call every frame. */
 export function updHorizon(dt: number) {
   clock += dt;
+  updBackdrop(clock);
   // a beam sweeping round once every six seconds: bright as it faces this way, faint the rest of the turn
   const turn = (clock / 6) % 1, face = Math.pow(Math.max(0, Math.cos(turn * Math.PI * 2)), 6);
   (lamp.material as SpriteMaterial).opacity = nightAt * (0.25 + 0.75 * face);
