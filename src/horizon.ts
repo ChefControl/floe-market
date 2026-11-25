@@ -6,6 +6,7 @@ import {
   AdditiveBlending, BufferGeometry, ConeGeometry, CylinderGeometry, Float32BufferAttribute, Group, Mesh,
   MeshLambertMaterial, Points, PointsMaterial, Sprite, SpriteMaterial,
 } from 'three';
+import { backdropNight } from './backdrop';
 import { quietly } from './kit';
 import { BAY } from './layout';
 import { canvasTex, scene } from './render';
@@ -132,6 +133,7 @@ export function nightSky(k: number) {
   nightAt = k;
   (moon.material as SpriteMaterial).opacity = k;
   (stars.material as PointsMaterial).opacity = 0.85 * k;
+  backdropNight(k);
 }
 /** Turns the lighthouse's lamp: call every frame. */
 export function updHorizon(dt: number) {
