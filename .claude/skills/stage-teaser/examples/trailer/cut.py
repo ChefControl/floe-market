@@ -11,7 +11,7 @@ import json, os, subprocess, sys
 
 FPS = 30
 args = sys.argv[1:]
-root, out = args[0], args[1]
+root, out = os.path.abspath(args[0]), args[1]  # (the frame list holds full paths: ffmpeg reads them against the list's own folder)
 opt = lambda k, d=None: args[args.index(k) + 1] if k in args else d
 edl = json.load(open(opt('--edl', os.path.join(root, 'edl.json'))))
 cuts, beds = edl['cuts'], edl['beds']
