@@ -2,13 +2,18 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import indexHtml from '../index.html?raw';
 import { steamPage } from '../vite.config';
+import { fake, type FakeNode, type FakeParam, installFakeAudio } from './fakeAudio';
 
 const intro = () => document.getElementById('intro');
 const html = document.documentElement;
+/** The intro module last loaded: each test ends what it left playing, so its keys don't reach the next test's. */
+let last: typeof import('../src/intro') | undefined;
+afterEach(() => { last?.endIntro(); last = undefined; });
 async function play(steam = true) {
+  last?.endIntro();
   vi.resetModules();
   if (steam) vi.stubEnv('VITE_STEAM', 'on');
-  const m = await import('../src/intro');
+  const m = last = await import('../src/intro');
   return { m, played: m.playIntro() };
 }
 
@@ -60,5 +65,54 @@ describe('the studio intro', () => {
     expect(steamPage(indexHtml)).toContain('<html lang="en" data-steam>');
     expect(indexHtml).toContain("document.documentElement.hasAttribute('data-steam') && sessionStorage.getItem('floe-intro') !== '1'");
     expect(() => steamPage('<html>')).toThrow(/no <html lang="en">/);
+  });
+});
+
+describe("the studio intro's sound", () => {
+  beforeEach(() => {
+    sessionStorage.clear();
+    localStorage.clear();
+    document.body.innerHTML = '';
+    html.className = '';
+    vi.useFakeTimers();
+    installFakeAudio();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllEnvs();
+    delete (navigator as { webdriver?: boolean }).webdriver;
+  });
+  /** The intro's own mix: the gain every sound goes through on its way out, after its envelope. */
+  const master = () => (fake.played[0].src.outs[0].outs[0] as FakeNode & { gain: FakeParam }).gain;
+
+  it('plays with it, every sound rising from silence, at the effects\' volume', async () => {
+    localStorage.setItem('floe-market-sound', JSON.stringify({ level: { sfx: 10 } }));
+    await play();
+    expect(fake.made).toBe(1);
+    // (besides the wind's flutter, a slow wobble of its level)
+    const tones = fake.played.filter(p => p.kind === 'tone' && p.f > 20), hiss = fake.played.filter(p => p.kind === 'noise');
+    expect([tones.length, hiss.length]).toEqual([16, 3]);
+    // (nothing starts at full: each envelope sets off from 0, so nothing clicks)
+    expect([...tones, ...hiss].every(p => p.from === 0)).toBe(true);
+    // the effects slider at 10: twice the mix's level
+    expect(master().value).toBeCloseTo(0.48);
+    // nothing shrill
+    expect(Math.max(...tones.map(p => p.f))).toBeLessThan(4000);
+  });
+
+  it('is silent with the effects muted, or while the game is being tested', async () => {
+    localStorage.setItem('floe-market-sound', JSON.stringify({ mute: { sfx: true } }));
+    await play();
+    expect(fake.made).toBe(0);
+    localStorage.clear(); sessionStorage.clear();
+    Object.defineProperty(navigator, 'webdriver', { value: true, configurable: true });
+    await play();
+    expect([fake.made, intro() !== null]).toEqual([0, true]);
+  });
+
+  it('fades away when the intro is skipped', async () => {
+    await play();
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', cancelable: true }));
+    expect(master().value).toBe(0);
   });
 });
