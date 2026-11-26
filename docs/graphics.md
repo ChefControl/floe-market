@@ -89,7 +89,7 @@ three.js gives every object, geometry and material an id drawn with `Math.random
 - **Seasons:** `seasonLayer(mesh, swatch)` fades a mesh in and out with the seasons. A swatch is `[winter, spring, summer, autumn]`: `[1, 0, 0, 0]` is snow, `[0, 1, 0, 0]` petals, `[0, 0, 0, 1]` fallen leaves. Layers with the same material and swatch share one material, so they merge.
 - **Colour names:** `src/palette.ts` (`C`) names the colours that recur.
 
-High props live in `src/props*.ts`, one file per area: `props.ts` (the dock), `propsWorld.ts`, `propsHall.ts`, `propsKitchen.ts`, `propsFarm.ts`, `propsMachines.ts` and `propsAds.ts`. Each function returns a `Build`, built about its own origin; the scene file places it.
+High props live in `src/props*.ts`, one file per area: `props.ts` (the dock), `propsWorld.ts`, `propsHall.ts`, `propsKitchen.ts`, `propsFarm.ts`, `propsSpring.ts` (the hot spring and its hillside, which Low shares), `propsMachines.ts` and `propsAds.ts`. Each function returns a `Build`, built about its own origin; the scene file places it.
 
 ### Wiring the two versions into a scene
 
