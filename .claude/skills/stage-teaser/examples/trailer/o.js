@@ -18,7 +18,7 @@
   const { player } = await window.__mod('player.ts');
   const { FLOES } = await window.__mod('props.ts');
   const { foamRing, seaGeometry } = await window.__mod('sea.ts');
-  const FX = await window.__mod('fx.ts'), SFX = await window.__mod('sfx.ts'), A0 = await window.__mod('audio.ts');
+  const FX = await window.__mod('fx.ts'), SFX = await window.__mod('sfx.ts'), A0 = await window.__mod('audio.ts'), CT = await window.__mod('counters.ts');
   // The cut gives this take a gain; the game's own winter wind plays under everything at that gain too, a steady wash
   // louder than it ever is in the game. So the take's own cues are HOT (4 dB up) and the cut's gain 4 dB down (edl-v5).
   const HOT = 1.585, A = {}; for (const k of Object.keys(A0)) Object.defineProperty(A, k, k === 'tone' || k === 'noise' ? { value: o => A0[k]({ ...o, v: (o.v ?? 0.3) * HOT }) } : { get: () => A0[k], enumerable: true });
@@ -612,7 +612,7 @@
     tuna.g.scale.setScalar(2.3); tuna.g.children[2].scale.y = 1;
     const f = faceAt(t);
     // (his belt, till he takes it off for a rope: it draws in under his hand over four frames, and is gone)
-    { const k = clamp((t - T.off + 0.12) / 0.14), [band, knob, tail] = rags.userData.belt; band.visible = knob.visible = tail.visible = k < 1; band.scale.set(1 - 0.16 * k, 1 - 0.16 * k, 1); knob.scale.set(0.035 * (1 - k), 0.035 * (1 - k), 0.03 * (1 - k)); tail.scale.setScalar(1 - k); }
+    { const k = clamp((t - T.off + 0.2) / 0.3), [band, knob, tail] = rags.userData.belt; band.visible = knob.visible = tail.visible = k < 1; band.scale.set(1 - 0.16 * k, 1 - 0.16 * k, 1); knob.scale.set(0.035 * (1 - k), 0.035 * (1 - k), 0.03 * (1 - k)); tail.scale.setScalar(1 - k); }
     // the floe: its bob and tip
     { const fl = floeAt(t); floe.position.y = 0.105 + fl.y; floe.rotation.set(fl.rx, 0, fl.rz); }
 
@@ -780,9 +780,9 @@
         shot = operate({ pos: V(F.x + 2.0 - 0.1 * k, mix(2.3, 2.2, k), F.z - 2.4 + 0.2 * k), look: V(F.x - mix(3.0, 3.5, k), mix(1.45, 1.55, k), F.z + mix(0.6, 0.95, k)), fov: 44, fogNear: 26, fogFar: 90 }, t, 1.1, 9);
       } else {
         // the tuna, hung in the air at the top of its jump as the loop drops over its nose: "!"
-        const c = tuna.g.position.clone(), sh = got > 0 && got < 1 ? 0.03 : 0;
+        const c = tuna.g.position.clone(), sh = got > 0 && got < 1 ? 0.03 : 0; c.y = Math.max(c.y, 0.85); // (it follows the fish down to the water and no further: under the sea there's no sea)
         shot = operate({ pos: c.clone().add(V(3.0 + Math.sin(t * 80) * sh, 0.45, -2.9)), look: c.clone().add(V(0, 0.1, -0.25)), fov: 40, fogNear: 26, fogFar: 90 }, t, 0.8, 10); // (it heads right, as it will pull him; the rope runs back to him off the left)
-        if (got > 0 && t < T.caught + 0.46) pills[1].at = tuna.g.localToWorld(V(0.45, 0.52, 0));
+        /* (no "!" here: beside a fish on its way down it belonged to nobody) */
         P.visible = false;
       }
     } else if (t < T.drag) {
@@ -848,7 +848,7 @@
       if (gather < 0.5) { wash2.visible = true; wash2.position.copy(inWater).setY(0.14).sub(TO.clone().multiplyScalar(0.25)); wash2.rotation.y = heading(TO); wash2.scale.set(0.95, 1, 0.42); }
       // the camera: first behind its tail and to one side, on HIM (he's the one doing something); as he goes up onto its
       // back it travels forward along the fish to a three-quarter view from ahead, where its face and his joy both are
-      const fwd = ease((a - 1.3) / 0.95), side = sideOf(TO);
+      const fwd = ease((a - 1.15) / 1.7), side = sideOf(TO); // (round to its front slowly: quick, the horizon whipped)
       const tailCam = inWater.clone().sub(TO.clone().multiplyScalar(0.9)).add(side.clone().multiplyScalar(3.3)).setY(0.85), frontCam = c.clone().add(TO.clone().multiplyScalar(3.0)).add(side.clone().multiplyScalar(3.1)).setY(1.55); // (high enough to see his feet on its back)
       const tailLook = inWater.clone().add(TO.clone().multiplyScalar(1.3)).setY(0.45), frontLook = c.clone().sub(TO.clone().multiplyScalar(0.5)).setY(1.15);
       shot = operate({ pos: tailCam.lerp(frontCam, fwd), look: tailLook.lerp(frontLook, fwd).add(V(0, 0.4 * bump(jump * 1.1), 0)), fov: mix(40, 42, fwd) + 3 * bump(jump), fogNear: 30, fogFar: 95 }, t, 1.8, 13); // (up and a touch wider for the jump: his hat stays in the picture)
@@ -873,7 +873,8 @@
       P.updateMatrixWorld(true);
       const h = hand(0);
       lay([h, h.clone().lerp(knot, 0.5).add(V(0, -0.06, 0)), knot]);
-      for (const hl of hills) hl.visible = Math.hypot(hl.position.x - LH.x, hl.position.z - LH.z) < 14; // (the island it stands off, and no other)
+      for (const hl of hills) hl.visible = Math.hypot(hl.position.x - LH.x, hl.position.z - LH.z) < 14;
+      for (const q of CT.C1.queue) { q.g.visible = false; q.bubble.visible = false; q.mood.visible = false; } // (the game's first customers, waiting where the market will be: five specks on the horizon) // (the island it stands off, and no other)
       const camAt = c.clone().sub(TO.clone().multiplyScalar(13)).add(sideOf(TO).multiplyScalar(-0.35)).setY(3.8);
       shot = operate({ pos: camAt, look: c.clone().add(TO.clone().multiplyScalar(30)).setY(-0.9), fov: 24, fogNear: 80, fogFar: 330, far: 700 }, t, 1.2, 14);
       sprayT -= 1 / fps; if (sprayT <= 0) { sprayT = 0.06; FX.splashFx(c.clone().sub(TO.clone().multiplyScalar(1.9)), 0.16); FX.splashFx(c.clone().add(TO.clone().multiplyScalar(1.3)).add(sideOf(TO).multiplyScalar(0.34 * (Math.round(t * 16) % 2 ? 1 : -1))), 0.3); }

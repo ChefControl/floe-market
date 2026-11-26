@@ -12,19 +12,26 @@
   const ACT = await Acting();
   const { player } = await window.__mod('player.ts');
   const CT = await window.__mod('counters.ts'), STG = await window.__mod('stage.ts'), IT = await window.__mod('items.ts'), ST = await window.__mod('stations.ts');
+  const W = await window.__mod('world.ts');
   const A = await window.__mod('audio.ts'), SFX = await window.__mod('sfx.ts'), BB = await window.__mod('bubble.ts'), RD = await window.__mod('render.ts');
   const mix = (a, b, k) => a + (b - a) * k, bump = k => Math.sin(clamp(k) * Math.PI), HP = Math.PI / 2;
   ACT.EASE.settle = k => { k = clamp(k); return k < 0.7 ? 1.06 * ease(k / 0.7) : 1.06 - 0.06 * ease((k - 0.7) / 0.3); };
   // The times. Slow in: the place, the fire, him. Then his looks, each one answered by the camera.
-  const T = { cu: 2.6, hear: 3.25, seeC: 3.95, backR: 5.6, seeF: 6.35, backL: 7.7, seeC2: 8.2, backR2: 9.3, seeF2: 9.75, idea: 10.6, got: 11.05, up: 12.0, end: 13.1 };
+  const T = { cu: 2.6, hear: 3.25, seeC: 3.95, backR: 5.6, seeF: 6.35, backL: 7.7, seeC2: 8.2, backR2: 9.3, seeF2: 9.75, idea: 10.6, got: 11.05, up: 12.3, end: 13.4 }; // (the idea's bubble holds a second and a quarter before he's up)
 
   // ---------- the set: the open shore west of where the dock will be. Every camera looks west, north or south. ----------
-  const FY = 0.16, FIRE = V(-15.5, FY, -1.8), // (clear ground, read off a picture from straight above: the pines are drawn in one batch and a ray doesn't find them)
+  // The forest is planted afresh at random every time the game loads: the spot is FOUND each time (K.openGround), with
+  // room for the fire and its people, the tuna, the customers, and a clear line to every camera.
+  const FY = 0.16, SPOT = K.openGround(W, -31, -15.5, -3.5, 9, [[0, 0, 3.4], [-1.2, 3.3, 1.9], [-1.0, -2.2, 2.1], [5.3, 3.7, 1.7], [3.6, 2.5, 1.6], [2.0, 1.2, 1.5], [0.9, 0.3, 1.5], [2.4, 0.2, 1.4]]);
+  console.log('[cine] open ground at ' + SPOT.x + ', ' + SPOT.z + ' with ' + SPOT.slack.toFixed(1) + ' m to spare');
+  if (SPOT.slack < 0) console.log('[cine] WARNING: no clear spot this load; clearing ' + K.clearTrees(W, SPOT.x - 14, SPOT.x + 10, SPOT.z - 14, SPOT.z + 14) + ' tree meshes round it (stumps will show)');
+  const FIRE = V(SPOT.x, FY, SPOT.z),
     SEAT = FIRE.clone().add(V(-0.95, 0.13, 0.1)), CUST = FIRE.clone().add(V(-0.7, 0, 3.1)), CUST2 = FIRE.clone().add(V(-1.75, 0, 3.6)), TUNA = FIRE.clone().add(V(-1.0, 0, -2.15)), SLAB = FIRE.clone().add(V(0.45, 0, -1.45));
   const fire = Campfire(T3, scene, FIRE.x, FIRE.y, FIRE.z);
   // his catch: the tuna, on its side on the snow, and a few fillets cut from it, laid flat on a slab of ice
   const tuna = HeroTuna(T3); tuna.g.rotation.order = 'YZX'; tuna.g.scale.setScalar(2.1); scene.add(tuna.g);
   tuna.set({ wide: 0, look: [0, 0], brow: 0, lid: 0, mouth: 0, smile: 0, flare: 0, dead: true, amp: 0, swim: 0 });
+  { const moon = new T3.PointLight(0x9FC4FF, 1.5, 7, 1.4); moon.position.copy(TUNA).add(V(0.4, 1.6, -0.9)); scene.add(moon); } // (a cold light on its back, off the sea: by firelight alone it's a black lump)
   tuna.g.position.copy(TUNA).setY(FY + 0.3); tuna.g.rotation.set(HP * 0.9, 0.8, 0.04); // (on its side, its head to the fire: its eye and its fins are what say 'a fish')
   const slab = new Mesh(new CylinderGeometry(0.62, 0.68, 0.12, 7), new MeshLambertMaterial({ color: 0xD5ECF5 })); slab.position.copy(SLAB).setY(FY + 0.06); slab.rotation.y = 0.4; slab.castShadow = true; scene.add(slab);
   [[-0.24, 0.1, 0.3], [0.12, -0.14, -0.5], [0.26, 0.2, 1.3], [-0.08, -0.3, 2.2]].forEach(([x, z, r]) => { const f = IT.newFillet(); f.scale.setScalar(0.95); f.position.set(SLAB.x + x, FY + 0.13, SLAB.z + z); f.rotation.y = r; scene.add(f); });
@@ -39,6 +46,9 @@
   const popAt = (s, at, t, t0, size = 0.62) => { const k = clamp((t - t0) / 0.16); s.visible = t >= t0; if (!s.visible) return; s.position.copy(at); s.scale.setScalar(size * (k + 0.42 * Math.sin(k * Math.PI)) * (1 + 0.025 * Math.sin(t * 3.1))); };
 
   let who = null, who2 = null, face1 = null, face2 = null;
+  // (a soft shade where each customer stands: the game's moon shadow lies off to one side, and without something dark under
+  // their boots they look as if they hang over it)
+  const under = [0, 1].map(() => { const m = new Mesh(new T3.CircleGeometry(0.24, 16), new T3.MeshBasicMaterial({ color: 0x0B1620, transparent: true, opacity: 0.4, depthWrite: false })); m.rotation.x = -HP; m.visible = false; m.renderOrder = 2; scene.add(m); return m; });
   const yawTo = (from, to) => Math.atan2(to.x - from.x, to.z - from.z);
   const toFire = yawTo(SEAT, FIRE), toCust = yawTo(SEAT, CUST), toFish = yawTo(SEAT, SLAB), toUs = toFire + 0.42;
 
@@ -74,7 +84,7 @@
     const stride = here ? 0 : Math.sin(k * walk * 9.5) * 0.6, bob = here ? 0 : Math.abs(Math.sin(k * walk * 9.5)) * 0.03;
     // (arrived: a rock onto his toes, a sniff of the air (his head back, twice), and the note comes up, held out in both hands' way)
     const sniff = here ? bump((w - 0.15) / 0.3) + bump((w - 0.5) / 0.26) : 0, give = here ? ACT.EASE.settle((t - offer) / 0.35) : 0, wag = give * Math.sin(t * 5.2 + seed) * 0.09;
-    ACT.pose(g, { hip: V(pos.x + n1(t * 0.7, seed) * 0.012, FY + 0.62 + bob + 0.02 * sniff, pos.z), yaw: yawTo(pos, FIRE) + n1(t * 0.9, seed + 1) * 0.05, lean: mix(0.14, 0.03, on) - 0.1 * sniff + 0.07 * give, roll: n1(t * 1.1, seed + 2) * 0.03,
+    ACT.pose(g, { hip: V(pos.x + n1(t * 0.7, seed) * 0.012, FY + 0.3 + bob + 0.02 * sniff, pos.z), /* (their feet are 0.3 under their hips: at +0.62, right for the old stand's step, they hung in the air here) */ yaw: yawTo(pos, FIRE) + n1(t * 0.9, seed + 1) * 0.05, lean: mix(0.14, 0.03, on) - 0.1 * sniff + 0.07 * give, roll: n1(t * 1.1, seed + 2) * 0.03,
       legs: [stride, -stride], arms: [[-stride * 0.5 * (1 - give) - 1.25 * give + wag, 0.1 + 0.12 * give], [stride * 0.5, 0.12 + 0.2 * sniff]], sq: 1 + 0.03 * sniff,
       f: give > 0.3 ? { brow: [0.9, -0.5], mouth: 'smile' } : sniff > 0.2 ? { eyes: 'shut', brow: [0.8, -0.2], mouth: 'o', open: 0.7 } : { brow: [0.6, -0.4], mouth: 'none' } }, setF);
     g.visible = t > t0 - 0.05;
@@ -106,6 +116,7 @@
     // ---------- the customers ----------
     customer(who, face1, CUST, CUST.clone().add(V(-0.5, 0, 2.6)), t, T.hear - 0.2, T.seeC + 0.8 - T.hear + 0.2, T.seeC + 1.15, 21);
     customer(who2, face2, CUST2, CUST2.clone().add(V(-0.9, 0, 2.8)), t, T.backL - 0.1, T.seeC2 + 0.3 - T.backL + 0.1, T.seeC2 + 0.75, 31);
+    [who, who2].forEach((g, n) => { under[n].visible = !!g && g.visible; if (g) under[n].position.set(g.position.x, FY + 0.012, g.position.z); });
     if (who) popAt(order1, who.position.clone().add(V(0, 1.72, 0)), t, T.seeC + 1.0); if (who2) popAt(order2, who2.position.clone().add(V(0, 1.72, 0)), t, T.seeC2 + 0.4);
 
     // ---------- the chef ----------
@@ -135,7 +146,7 @@
     else if ((t >= T.seeC && t < T.backR) || (t >= T.seeC2 && t < T.backR2)) {
       // LEFT, what he sees: someone at the edge of the firelight (the second time, two of them)
       const two = t >= T.seeC2, t0 = two ? T.seeC2 : T.seeC, k = (t - t0) / ((two ? T.backR2 : T.backR) - t0), c = two ? CUST.clone().lerp(CUST2, 0.5) : CUST;
-      shot = K.held({ pos: V(FIRE.x + 0.75 - 0.12 * k, 1.3, FIRE.z + 0.2 - 0.1 * k), look: V(c.x + 0.05 - 0.12 * k, 1.38, c.z), fov: two ? 44 : 40 }, t, 1.2, two ? 34 : 33); // (room over their heads for what they want)
+      shot = K.held({ pos: V(FIRE.x + 0.75 - 0.12 * k, 1.3, FIRE.z + 0.2 - 0.1 * k), look: V(c.x + 0.05 - 0.12 * k, 1.12, c.z), fov: two ? 44 : 40 }, t, 1.2, two ? 34 : 33); // (room over their heads for what they want)
     } else if ((t >= T.seeF && t < T.backL) || (t >= T.seeF2 && t < T.idea)) {
       // RIGHT, what he sees: the tuna in the firelight, and what he's cut from it (closer the second time: the fillets)
       const near = t >= T.seeF2, t0 = near ? T.seeF2 : T.seeF, k = (t - t0) / ((near ? T.idea : T.backL) - t0);

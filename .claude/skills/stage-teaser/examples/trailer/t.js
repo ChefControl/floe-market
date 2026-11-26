@@ -33,7 +33,7 @@
 
   // ---------- what's built, and when ----------
   const done = new Set(), once = (k, t, now, f) => { if (now >= t && !done.has(k)) { done.add(k); f(); } };
-  const pop = id => { const tile = U.tiles.find(x => x.id === id); U.applyUnlock(id, false); FX.unlockFx({ x: tile.x, z: tile.z }, 2.2); FX.coinsFx(V(tile.x, 0.6, tile.z), 6); };
+  const pop = id => { const tile = U.tiles.find(x => x.id === id); U.applyUnlock(id, PRE > 0); if (PRE > 0) return; FX.unlockFx({ x: tile.x, z: tile.z }, 2.2); FX.coinsFx(V(tile.x, 0.6, tile.z), 6); }; // (for the music stem, silently: a shown unlock is spotlit and the music hushes under the spotlight, which left the spin's tune in pieces)
   const STAGE1 = [['turret', 1], ['runner', 1.5], ['roulette', 2], ['pack', 2.5], ['boots', 3], ['sled', 3.5], ['runner2', 4], ['net', 4.5]];
   const STAGE2 = ['paddy', 'farmer', 'seats', 'chef', 'tables', 'plot2', 'runner3', 'chef3', 'tables2', 'plot3', 'kiosk', 'porter']; // (all but the premium menu: the next clip buys it)
 

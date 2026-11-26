@@ -233,6 +233,15 @@ with `applyUnlock`, a dawn sky dome, the game's toast and tip pill shown as over
   - **Game sounds belong to real play.** A montage is music and its own effect; one stem of the game's music laid
     under several takes (a lead-in rendered with `?pre=8`) has no cut-over. Under the logo: the game's own
     stage-complete flourish.
+- **Look at the render that ships. Every time.** The game plants its forest AT RANDOM on each load: a campsite that
+  was clear in the frames I checked had a pine on the camera in the re-render I published without looking (an outside
+  reviewer found a dark slab across the shot and a tree in front of the customers). Anything random in a scene makes
+  a re-render a different scene. `K.openGround(W, x0, x1, z0, z1, discs)` in kit.js finds clear ground for this
+  load's trees (the needles' vertices say where they are; `discs` are the set, its people, every camera and the line
+  to it). `K.clearTrees` hides tree patches instead, but trunks are merged into the scenery's one mesh and stay as stumps.
+  Also from that review: a camera that follows something into the sea ends up under it (clamp its height); a person's
+  feet are 0.3 under the `hip` a pose is given; the game hushes its music under each upgrade's spotlight, so a music
+  stem wants its unlocks applied silently; customers waiting at the real stand show as specks in a far shot.
 - **Every frame once.** `cut.py` used to hand ffmpeg a list of single JPEGs: each was read at the image reader's
   25 fps, and the 30 fps film showed one frame twice and skipped the next, every sixth frame, through four
   versions. No still shows it and no contact sheet either. `cut.py` now links the frames into one numbered

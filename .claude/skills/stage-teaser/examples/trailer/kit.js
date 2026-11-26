@@ -198,7 +198,32 @@
    *  two lengths out of step, calm between, 0.2 to 1. */
   const wave = p => (p < 0.3 ? ease(p / 0.3) : (1 - (p - 0.3) / 0.7) ** 2);
   const swell = (t, a = 3.4, b = 5.3) => 0.2 + 0.8 * Math.max(wave((t / a + 0.1) % 1), 0.7 * wave((t / b + 0.45) % 1));
-  window.K = { R, T3, V, clamp, ease, easeIO, easeOut, lerp, path, caption, letterbox, lids, fade, vignette, sky, n1, held, jolt, bed, soft, wave, swell,
+  /** The forest is planted afresh, at random, every time the game loads (world.ts), and baked into one mesh per 14 m
+   *  patch and material: a ray doesn't find a pine and a clear spot in one load has a tree on it in the next (a camera
+   *  INSIDE a pine shows as a dark slab across the picture). So a scene on open ground clears its ground: every tree
+   *  mesh (world.ts TREE_MATS) whose middle is inside the rectangle is hidden. Returns how many. */
+  const clearTrees = (W, x0, x1, z0, z1) => { let n = 0; const mats = new Set(W.TREE_MATS);
+    R.scene.traverse(o => { if (!o.isMesh || !mats.has(o.material)) return; o.geometry.computeBoundingBox(); const b = o.geometry.boundingBox, cx = (b.min.x + b.max.x) / 2 + o.position.x, cz = (b.min.z + b.max.z) / 2 + o.position.z;
+      // (the trunks are one mesh for the whole forest: it goes too, or the cleared ground is a field of stumps; under their
+      // needles the other trees' trunks are hardly seen)
+      const whole = b.max.x - b.min.x > 30 || b.max.z - b.min.z > 30, over = b.max.x > x0 && b.min.x < x1 && b.max.z > z0 && b.min.z < z1;
+      if ((cx > x0 && cx < x1 && cz > z0 && cz < z1) || (whole && over)) { o.visible = false; n++; } });
+    return n; };
+  /** Better than clearing trees (their trunks are merged into the scenery's one mesh and stay behind as stumps): FIND
+   *  open ground for this load's forest. The needles' own vertices say where the trees are; `discs` are what must be
+   *  clear, each [dx, dz, radius] from the spot (the set, its people, each camera and the line to it). Returns the spot in
+   *  the rectangle with the most room, { x, z, slack } (slack under 0: something's still in the way). */
+  const openGround = (W, x0, x1, z0, z1, discs) => {
+    const cell = 0.5, occ = new Set(), mats = new Set([W.TREE_MATS[1], W.TREE_MATS[2]]);
+    R.scene.traverse(o => { if (!o.isMesh || !mats.has(o.material)) return; for (let v = o; v; v = v.parent) if (!v.visible) return;
+      const p = o.geometry.attributes.position; for (let i = 0; i < p.count; i += 2) occ.add(Math.round((p.getX(i) + o.position.x) / cell) + ',' + Math.round((p.getZ(i) + o.position.z) / cell)); });
+    const cells = [...occ].map(s => s.split(',').map(n => n * cell)).filter(([x, z]) => x > x0 - 12 && x < x1 + 12 && z > z0 - 12 && z < z1 + 12);
+    let best = null;
+    for (let x = x0; x <= x1; x += 0.5) for (let z = z0; z <= z1; z += 0.5) {
+      let slack = 99; for (const [dx, dz, r] of discs) { let d = 99; for (const [cx, cz] of cells) { const q = Math.hypot(cx - x - dx, cz - z - dz); if (q < d) d = q; } slack = Math.min(slack, d - r); if (best && slack <= best.slack) break; }
+      if (!best || slack > best.slack) best = { x, z, slack }; }
+    return best; };
+  window.K = { R, T3, V, clamp, ease, easeIO, easeOut, lerp, path, caption, letterbox, lids, fade, vignette, sky, n1, held, jolt, bed, soft, wave, swell, clearTrees, openGround,
     set cam(s) { shot = s; }, get cam() { return shot; },
     /** Motion blur this frame: { n: draws, at(k 0..1): the camera { pos, look } across the frame } or null. */
     set blur(b) { blur = b; },
