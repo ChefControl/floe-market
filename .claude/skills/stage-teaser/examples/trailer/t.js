@@ -10,12 +10,14 @@
   const U = await window.__mod('unlocks.ts'), SE = await window.__mod('season.ts'), FX = await window.__mod('fx.ts'), CT = await window.__mod('counters.ts'), A = await window.__mod('audio.ts');
   const mix = (a, b, k) => a + (b - a) * k;
   const BEAT = 60 / 92, at = n => n * BEAT, FPS = 30;
-  const T = { fast: at(2), peak: at(8), slow: at(10), there: at(13.5), end: at(16.5), tail: at(16.5) + 9 };
+  // (five and a half beats of a slow turn, the dock building itself in plain sight; then the wind-up, a second and a
+  // half of smear, and down onto the restaurant: a smear longer than that and nobody sees the market grow)
+  const T = { fast: at(5.5), peak: at(7.5), slow: at(9), there: at(12), end: at(15), tail: at(15) + 9 };
 
   const P = player.g, rags = ACT.castaway(P); ACT.soles(P);
   // ---------- the orbit: how fast it turns, by time, and so where it is ----------
-  const W0 = 0.32, W1 = 14;
-  const rate = t => t < T.fast ? W0 : t < T.peak ? W0 * Math.pow(W1 / W0, ease((t - T.fast) / (T.peak - T.fast))) : t < T.slow ? W1 : mix(W1, 0.035, Math.pow(easeIO(clamp((t - T.slow) / (T.there - T.slow))), 0.55));
+  const W0 = 0.32, WA = 0.8, W1 = 14;
+  const rate = t => t < T.fast ? mix(W0, WA, ease(t / T.fast)) : t < T.peak ? WA * Math.pow(W1 / WA, ease((t - T.fast) / (T.peak - T.fast))) : t < T.slow ? W1 : mix(W1, 0.035, Math.pow(easeIO(clamp((t - T.slow) / (T.there - T.slow))), 0.55));
   const TH0 = 0.42, TH1 = 0.1 + Math.PI * 2 * 9; // from the game's own angle, to square on to the restaurant's front (some turns later)
   const N = Math.round(T.tail * FPS * 8), dt = T.tail / N, th = new Float64Array(N + 1);
   for (let i = 0; i < N; i++) th[i + 1] = th[i] + rate(i * dt) * dt;
@@ -23,7 +25,7 @@
   const reach = th[Math.round(T.there / dt)], extra = (((TH1 - TH0 - reach) % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
   const angle = t => { const i = clamp(t / dt, 0, N), a = Math.floor(i), k = i - a; return TH0 + mix(th[a], th[Math.min(N, a + 1)], k) + extra * ease((t - T.peak) / (T.slow - T.peak)); };
   function camAt(t) {
-    const a = angle(t), late = ease((t - T.slow) / (T.there - T.slow)), push = ease((t - T.there + 0.4) / 4), r = mix(19.5, 27, late) - 2.6 * push, h = mix(11.5, 12.5, late) - 0.9 * push; // (and once it's there, a slow push in: a held shot that's alive)
+    const a = angle(t), late = ease((t - T.slow) / (T.there - T.slow)), push = ease((t - T.there + 0.5) / 4.5), r = mix(19.5, 27, late) - 4.2 * push, h = mix(11.5, 14.6, late) - 1.3 * push; // (and once it's there, a slow push in: a held shot that's alive)
     const c = V(mix(-0.5, 0, late), 0, mix(0.5, 6, late));
     return { pos: V(c.x + Math.sin(a) * r, h, c.z + Math.cos(a) * r), look: V(c.x, mix(0.5, 1.2, late), c.z), fov: 40, fogNear: 70, fogFar: 190 };
   }
@@ -31,7 +33,7 @@
   // ---------- what's built, and when ----------
   const done = new Set(), once = (k, t, now, f) => { if (now >= t && !done.has(k)) { done.add(k); f(); } };
   const pop = id => { const tile = U.tiles.find(x => x.id === id); U.applyUnlock(id, false); FX.unlockFx({ x: tile.x, z: tile.z }, 2.2); FX.coinsFx(V(tile.x, 0.6, tile.z), 6); };
-  const STAGE1 = [['turret', 1], ['runner', 2], ['roulette', 3], ['pack', 3.5], ['boots', 4], ['sled', 4.5], ['runner2', 5.5], ['net', 6.5]];
+  const STAGE1 = [['turret', 1], ['runner', 1.5], ['roulette', 2], ['pack', 2.5], ['boots', 3], ['sled', 3.5], ['runner2', 4], ['net', 4.5]];
   const STAGE2 = ['paddy', 'farmer', 'seats', 'chef', 'tables', 'plot2', 'runner3', 'chef3', 'tables2', 'plot3', 'kiosk', 'porter']; // (all but the premium menu: the next clip buys it)
 
   window.cine = {
@@ -41,18 +43,19 @@
       const t = i / fps;
       STAGE1.forEach(([id, b]) => once(id, at(b), t, () => pop(id)));
       // out of his rags and into his parka as the money comes in
-      once('coat', at(2.5), t, () => { rags.userData.restore(); FX.unlockFx({ x: P.position.x, z: P.position.z }, 0.9); });
+      once('coat', at(2.75), t, () => { rags.userData.restore(); FX.unlockFx({ x: P.position.x, z: P.position.z }, 0.9); });
       // the seasons turn: spring and summer blend in, autumn arrives in the smear with the restaurant
-      once('spring', at(4), t, () => SE.setSeason(1, 0)); once('summer', at(6.5), t, () => SE.setSeason(2, 0));
-      once('sushi', at(9), t, () => { SE.setSeason(3, 30, true); U.applyUnlock('sushi', true); STAGE2.forEach(id => U.applyUnlock(id, true)); U.tiles.forEach(U.redrawTile); });
+      once('spring', at(3), t, () => SE.setSeason(1, 0)); once('summer', at(5), t, () => SE.setSeason(2, 0));
+      once('sushi', at(8.25), t, () => { SE.setSeason(3, 30, true); U.applyUnlock('sushi', true); STAGE2.forEach(id => U.applyUnlock(id, true)); U.tiles.forEach(U.redrawTile); });
       // the wind-up: a rising rush of air under the spin, and a soft landing as it comes to rest on the restaurant
       once('riser', T.fast, t, () => { A.noise({ f: 220, f2: 5200, q: 1.1, d: T.slow - T.fast + 0.5, a: T.peak - T.fast, v: 0.2 }); A.noise({ f: 90, f2: 260, kind: 'lowpass', d: T.slow - T.fast + 0.3, a: T.peak - T.fast, v: 0.3 }); });
       once('land', T.there - 0.25, t, () => { A.tone({ f: 82, f2: 40, d: 1.0, v: 0.6 }); [1318.5, 1760, 2637].forEach((f, n) => A.tone({ f, d: 1.3, t: n * 0.07, type: 'triangle', v: 0.1 })); });
       K.cam = camAt(t);
       // the smear: as many draws across the frame as the turn needs (one every 0.003 rad, about 3 px at the picture's
       // edge: further apart and a fence or a tree line shows as a row of stepped copies)
-      const turn = (angle(t + 1 / fps) - angle(t)), n = Math.min(160, Math.round(turn / 0.003));
-      K.blur = n > 1 ? { n, at: k => camAt(t + k / fps) } : null;
+      // (a half-open shutter while it's slow, so what's being built stays sharp; wide open once it's a whip)
+      const sh = mix(0.45, 1, clamp((rate(t) - 2) / 4)), turn = (angle(t + sh / fps) - angle(t)), n = Math.min(160, Math.round(turn / 0.003));
+      K.blur = n > 1 ? { n, at: k => camAt(t + sh * k / fps) } : null;
       if (i % 30 === 0) console.log('[cine]', t.toFixed(1), 'rate', rate(t).toFixed(2), 'draws', n, 'queue', CT.C1.queue.length);
     },
   };

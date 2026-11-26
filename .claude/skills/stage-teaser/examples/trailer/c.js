@@ -21,7 +21,7 @@
   // a brass dome on a dark foot with a button on top, and three strokes that jump off it when it's struck.
   const bell = new Group(); bell.position.copy(BELL); scene.add(bell);
   // a lantern under the stand's roof: the customers are in its light, as warm as the fire's
-  const lamp = new T3.PointLight(0xFFB868, 3.0, 9, 1.5); lamp.position.set(2.65, 1.62, 7.95); scene.add(lamp);
+  const lamp = new T3.PointLight(0xFFB868, 1.9, 9, 1.5); lamp.position.set(2.65, 1.62, 7.95); scene.add(lamp);
   { const cv = document.createElement('canvas'); cv.width = cv.height = 128; const x = cv.getContext('2d'), gr = x.createRadialGradient(64, 64, 0, 64, 64, 64);
     gr.addColorStop(0, 'rgba(255,214,140,0.9)'); gr.addColorStop(0.35, 'rgba(255,170,80,0.35)'); gr.addColorStop(1, 'rgba(255,150,60,0)'); x.fillStyle = gr; x.fillRect(0, 0, 128, 128);
     const halo = new T3.Sprite(new T3.SpriteMaterial({ map: new T3.CanvasTexture(cv), blending: T3.AdditiveBlending, depthWrite: false, fog: false })); halo.position.set(3.45, 1.9, 7.95); halo.scale.setScalar(1.1); scene.add(halo); }
@@ -64,7 +64,8 @@
     const t = i / fps;
     player.tPick = player.tDrop = player.tCatch = player.tCash = 9;
     STG.setNight(0.78);
-    fire.set(t, 1, 0.72);
+    // (burning lower once the shots are close on him: its tip poked up into the bottom of the picture)
+    { const low = ease((t - T.ding) / 0.3); fire.set(t, mix(1, 0.78, low), mix(0.72, 0.92, low)); }
     if (ST.blade) ST.blade.visible = false; // (the chopping blade hangs in the air over its board: a floating box, from here)
     if (i % 5 === 0 && Math.sin(i * 12.9898) > 0.2) crackle();
     strokes.forEach((s, n) => once('d' + n, s, t, () => ding(t < T.chef ? 0.55 : t >= T.stand && t < T.idea ? 0.4 : 0.2)));
@@ -107,7 +108,7 @@
     // ----- the shots -----
     let shot;
     if (t < T.ding) shot = K.path([{ t: 0, pos: [4.3, 1.5, -0.3], look: [0.8, 0.6, -4.0], fov: 38 }, { t: T.ding, pos: [4.0, 1.4, -0.7], look: [0.75, 0.6, -4.0], fov: 38 }], t, k => k);
-    else if (t < T.chef) shot = K.path([{ t: T.ding, pos: [2.0, 2.1, 6.5], look: [2.2, 1.52, 8.72], fov: 34 }, { t: T.chef, pos: [2.05, 2.05, 6.9], look: [2.2, 1.52, 8.72], fov: 31 }], t, k => k);
+    else if (t < T.chef) shot = K.path([{ t: T.ding, pos: [2.3, 2.1, 6.3], look: [2.16, 1.52, 8.72], fov: 34 }, { t: T.chef, pos: [2.3, 2.05, 6.65], look: [2.16, 1.52, 8.72], fov: 32 }], t, k => k);
     else if (t < T.fish) shot = { pos: V(2.0, 1.28, -2.3), look: V(0.05, 1.14, -3.75), fov: 22 }; // (tight on his face, the fire just under the picture: its light and sparks are enough)
     // (what he looks at: the tuna, cut up, in the firelight)
     else if (t < T.stand) shot = K.path([{ t: T.fish, pos: [1.15, 0.95, -3.75], look: [2.1, 0.22, -5.0], fov: 30 }, { t: T.stand, pos: [1.25, 0.9, -3.9], look: [2.1, 0.22, -5.0], fov: 27 }], t, k => k);

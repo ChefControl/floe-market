@@ -120,6 +120,14 @@ with `applyUnlock`, a dawn sky dome, the game's toast and tip pill shown as over
     cut: run them as one piece, or change the angle for the second (`u.js` goes closer for the game's next toast).
   - **Eyelids, not bars**, for a look through someone's eyes (`K.lids`): black bars read as a film format.
     And bars for a film ending go on at a cut and stay (`k2.js`), never slide in mid-shot.
+  - **A smear hides what it passes.** Five seconds of spin blur and nobody saw the market grow: the dock builds in a
+    slow, sharp turn (a half-open shutter), then the wind-up and under two seconds of smear (`t.js`).
+  - **The game's night is for play.** For a film it needs moonlight (a cool directional and a little ambient, gone at
+    the blast) so people and props separate from the deck, and the game's small grey "That night…" becomes the
+    clip's own caption (`K.caption`), held long enough to read. Where the game brings a character out of the dark
+    slowly, light him as the camera reaches his face (`fugu.shade` in `K.pose`).
+  - **Parts of one play take** joined with a 6-frame dissolve read as time passing; a straight cut reads as a
+    jump (`Gx` in takes.sh; keep the dissolved frames in the takes' own pixel format, or the cut stalls).
   - **A foreground prop from the game seen close** (a flame cone, a hat brim, a chopping blade hung in the air)
     reads as an error: frame it out or hide it for the shot.
 - **The mix, by numbers** (`check-audio.mjs` on the master, per second): the three thuds and the blast are the

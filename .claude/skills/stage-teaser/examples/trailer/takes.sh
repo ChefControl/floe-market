@@ -28,6 +28,11 @@ wait
 r K2 "$X/kit.js,$X/k2.js" "$S/K2" --landscape --url "$U?sound=on" --keep offer,toast
 rm -rf "$S/K2g" && mkdir -p "$S/K2g/frames" && cp "$S/K2/game.wav" "$S/K2g/" &&
   ffmpeg -v error -y -start_number 0 -i "$S/K2/frames/%04d.jpg" -vf "eq=gamma=1.28:contrast=1.1:saturation=1.15" -q:v 2 -start_number 0 "$S/K2g/frames/%04d.jpg" < /dev/null
+# the first sale as one piece: three parts of take G (pick up, sell, collect) with a 6-frame dissolve between them
+# (straight cuts between parts of one play take on one angle read as jump cuts)
+rm -rf "$S/Gx" && mkdir -p "$S/Gx/frames" && ffmpeg -v error -y -framerate 30 -start_number 0 -i "$S/G/frames/%04d.jpg" -i "$S/G/game.wav" -filter_complex \
+  "[0]trim=start_frame=0:end_frame=39,setpts=PTS-STARTPTS[a];[0]trim=start_frame=88:end_frame=147,setpts=PTS-STARTPTS[b];[0]trim=start_frame=166:end_frame=225,setpts=PTS-STARTPTS[c];[a][b]xfade=transition=fade:duration=0.2:offset=1.1[ab];[ab][c]xfade=transition=fade:duration=0.2:offset=2.8667,format=yuvj420p[v];[1]atrim=0:1.3,asetpts=PTS-STARTPTS[x];[1]atrim=2.9333:4.9,asetpts=PTS-STARTPTS[y];[1]atrim=5.5333:7.5,asetpts=PTS-STARTPTS[z];[x][y]acrossfade=d=0.2:c1=tri:c2=tri[xy];[xy][z]acrossfade=d=0.2:c1=tri:c2=tri[au]" \
+  -map "[v]" -q:v 2 -start_number 0 "$S/Gx/frames/%04d.jpg" -map "[au]" "$S/Gx/game.wav" < /dev/null
 mkdir -p "$S/DRONE2" && ffmpeg -v error -y -f lavfi -i "sine=f=55:d=12.2:r=48000" -f lavfi -i "sine=f=82.4:d=12.2:r=48000" \
   -f lavfi -i "sine=f=110.3:d=12.2:r=48000" -f lavfi -i "sine=f=164.6:d=12.2:r=48000" -f lavfi -i "anoisesrc=c=brown:d=12.2:a=0.6:r=48000" \
   -filter_complex "[0]volume=0.5[a];[1]volume=0.28[b];[2]volume=0.13[c];[3]volume=0.06[d];[4]lowpass=f=180,volume=0.5[e];[a][b][c][d][e]amix=inputs=5:normalize=0,tremolo=f=0.31:d=0.35,volume=10dB,aformat=channel_layouts=stereo" \

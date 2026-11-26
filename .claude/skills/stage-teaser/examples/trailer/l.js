@@ -13,7 +13,7 @@
     #endCard .t,#endCard .s{--ink:#173042;text-shadow:var(--o) 0 0 var(--ink),calc(-1*var(--o)) 0 0 var(--ink),0 var(--o) 0 var(--ink),0 calc(-1*var(--o)) 0 var(--ink),
       var(--o) var(--o) 0 var(--ink),calc(-1*var(--o)) var(--o) 0 var(--ink),var(--o) calc(-1*var(--o)) 0 var(--ink),calc(-1*var(--o)) calc(-1*var(--o)) 0 var(--ink),0 calc(var(--o) + 5px) 0 rgba(20,30,40,.45);}
     #endCard .t{--o:4px;font-size:118px;line-height:.95;color:#FFC34A;}
-    #endCard .s{--o:3px;font-size:40px;color:#fff;margin-top:10px;}
+    #endCard .s{--o:3px;font-size:56px;color:#fff;margin-top:14px;}
     #endShade{position:fixed;inset:0;z-index:24;pointer-events:none;background:radial-gradient(ellipse at 50% 50%, #0B1620, #05090D);}`;
   document.head.append(css);
   const shade = document.createElement('div'); shade.id = 'endShade';

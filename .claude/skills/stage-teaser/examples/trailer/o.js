@@ -247,8 +247,9 @@
         });
         P.updateMatrixWorld(true);
         if (t < T.peek) shot = K.path([{ t: 0, pos: [F.x + 0.75, 0.5, F.z + 2.05], look: [F.x - 0.45, 0.36, F.z - 0.1], fov: 34 },
-          { t: T.sit - 0.05, pos: [F.x + 0.85, 0.52, F.z + 1.95], look: [F.x - 0.4, 0.38, F.z - 0.1], fov: 34 },
-          { t: T.sit + 0.4, pos: [F.x + 1.3, 0.92, F.z + 2.55], look: [F.x - 0.05, 0.8, F.z], fov: 34 },
+          { t: T.sit - 0.3, pos: [F.x + 0.85, 0.52, F.z + 1.95], look: [F.x - 0.4, 0.38, F.z - 0.1], fov: 34 },
+          // (the camera's up before he is: it leads him, or his head leaves the top of the picture as he sits up)
+          { t: T.sit + 0.1, pos: [F.x + 1.3, 0.95, F.z + 2.6], look: [F.x - 0.05, 0.82, F.z], fov: 34 },
           { t: T.peek, pos: [F.x + 1.25, 0.9, F.z + 2.45], look: [F.x - 0.05, 0.8, F.z], fov: 34 }], t, ease);
         else if (t < T.up) { const h = headAt(); shot = { pos: V(F.x + 0.5, h.y + 0.02, F.z + 1.55 - (t - T.peek) * 0.12), look: V(F.x, h.y - 0.02, F.z + 0.05), fov: 30 }; }
         else shot = K.path([{ t: T.up, pos: [F.x + 1.75, 1.2, F.z + 3.4], look: [F.x, 1.0, F.z], fov: 36 }, { t: T.hit1, pos: [F.x + 1.6, 1.2, F.z + 3.1], look: [F.x, 1.05, F.z], fov: 36 }], t, ease);
@@ -256,7 +257,7 @@
       } else {
         // ----- three thuds: further, further, nothing but sea. He runs out of ideas a size at a time. -----
         const a = t - T.hit1, b = t - T.hit2, c = t - T.hit3;
-        if (t < T.hit2) chef({ hip: F.clone().setY(ICE_Y + 0.3 + Math.abs(Math.sin(a * 16)) * 0.05), yaw: yaw0 + a * 9.6, arms: [[0, 1.2 + Math.sin(a * 30) * 0.3], [0, 1.2 - Math.sin(a * 30) * 0.3]], f: { eyes: 'big', brow: [1.2, -0.8], mouth: 'o', open: 1.5 } });
+        if (t < T.hit2) chef({ hip: F.clone().setY(ICE_Y + 0.3 + Math.abs(Math.sin(a * 16)) * 0.05), yaw: yaw0 + a * 9.6, arms: [[0.4, 0.8 + Math.sin(a * 30) * 0.35], [-0.35, 0.5 - Math.sin(a * 30) * 0.35]], f: { eyes: 'big', brow: [1.2, -0.8], mouth: 'o', open: 1.5 } }); // (arms at odds: both straight out is a scarecrow)
         else if (t < T.hit3) chef({ hip: F.clone().setY(ICE_Y + 0.3 + Math.abs(Math.sin(b * 15)) * 0.3), yaw: yaw0, arms: [[0, 2.5 + Math.sin(b * 22) * 0.35], [0, 2.5 - Math.sin(b * 22) * 0.35]], f: { eyes: 'big', mouth: 'o', open: 1.6 } });
         else { const down = ease((c - 0.9) / 0.5); chef({ hip: F.clone().setY(ICE_Y + mix(0.3, 0.13, down)), yaw: yaw0, lean: 0.2 * ease(c / 0.6), legs: [-(Math.PI / 2) * down, -(Math.PI / 2) * down * 0.92],
           arms: [[mix(0, -0.85, down), mix(mix(1.6, 0.1, ease(c / 0.5)), -0.5, down)], [mix(0, -0.85, down), mix(mix(1.6, 0.1, ease(c / 0.5)), -0.5, down)]], f: { eyes: 'dot', brow: [0.4, -1], mouth: 'frown' } }); }
@@ -345,9 +346,10 @@
       const haul = easeIO((a - CUT) / 0.5), up = easeIO((a - 1.3) / 0.65), yawTo = Math.atan2(TO.x, TO.z);
       const feet = deck(), tailAt = c.clone().sub(TO.clone().multiplyScalar(1.9));
       const skim = Math.abs(Math.sin(a * 11)) * 0.13, drag = tailAt.clone().sub(TO.clone().multiplyScalar(mix(2.4, 0.1, haul))).setY(0.13 + skim * (1 - up) + 0.3 * haul * (1 - up)); // (ploughing through the water on his front, bouncing off it)
-      const arc = Math.sin(up * Math.PI) * 0.35, land = a > 1.95 && a < 2.2 ? 1 - 0.1 * Math.sin((a - 1.95) / 0.25 * Math.PI) : 1;
+      const upL = easeIO((up - 0.72) / 0.28), arc = Math.sin(up * Math.PI) * 0.62, // (a real leap: flat out through the air, and upright only as his feet come down)
+        land = a > 1.95 && a < 2.2 ? 1 - 0.1 * Math.sin((a - 1.95) / 0.25 * Math.PI) : 1;
       const wave = joy * (2.5 + Math.sin(a * 12) * 0.3), kick = Math.sin(a * 19) * 0.75 * (1 - up);
-      chef({ feet: drag.clone().lerp(feet, up).add(V(0, arc, 0)), yaw: yawTo, lean: mix(1.25 - skim * 0.6, -0.28 + pitch * 0.6, up), roll: Math.sin(t * 5.2) * 0.08 * up + Math.sin(a * 9) * 0.26 * (1 - up),
+      chef({ feet: drag.clone().lerp(feet, up).add(V(0, arc, 0)), yaw: yawTo, lean: mix(1.25 - skim * 0.6, -0.28 + pitch * 0.6, upL), roll: Math.sin(t * 5.2) * 0.08 * up + Math.sin(a * 9) * 0.26 * (1 - up),
         legs: [mix(0.3 + kick, 0.38 + pitch, up), mix(0.3 - kick, 0.18 + pitch, up)], sq: land,
         arms: [[mix(-2.85, -0.95, up), 0.05], [mix(-2.85, -0.95, up) * (1 - joy), 0.05 + wave]],
         f: joy > 0.5 ? { eyes: 'happy', brow: [0.8, 0], mouth: 'grin', open: 1.3 } : up > 0.5 ? { eyes: 'big', brow: [1.2, -0.6], mouth: 'o', open: 1.2 } : { eyes: 'big', brow: [1.5, -0.9], mouth: 'o', open: 2.0 } });
