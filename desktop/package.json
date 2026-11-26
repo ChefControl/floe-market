@@ -1,0 +1,17 @@
+{
+  "name": "floe-market-desktop",
+  "productName": "Floe Market",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Floe Market's desktop app for Steam: the game in Electron 45 (Chromium 156)",
+  "type": "module",
+  "main": "main.mjs",
+  "scripts": {
+    "start": "electron .",
+    "build": "node build.mjs"
+  },
+  "devDependencies": {
+    "@electron/packager": "20.3.0",
+    "electron": "45.3.0"
+  }
+}
