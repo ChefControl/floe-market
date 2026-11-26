@@ -57,6 +57,22 @@ One use of a dish; the stars at the counter set how many.
 The arrows typed to serve a dish, shown as a recipe ticket of cooking moves.
 _Avoid_: Combo, input
 
+**Safe house**:
+The room between runs: its stations are the Stove, the Oven, the Pantry, the armory, the recipe book and the van.
+_Avoid_: Hub, base, menu
+
+**Batch**:
+A dish cooked at a counter: its servings (from the timing tap's stars) and its strength (from its ingredients' grades), kept on the shelf till the van takes it.
+_Avoid_: Craft, stack
+
+**Timing tap**:
+Cooking at a counter: the dish's recipe code slides past a line twice, each move pressed as it crosses.
+_Avoid_: Rhythm game, QTE
+
+**Arcade tickets**:
+What runs pay (🎟️), spent in the safe house; never Floe Market's money.
+_Avoid_: Coins, credits, tokens
+
 **Order ticket**:
 A special zombie's two or three tastes, in order; hitting them all cooks it on the spot.
 _Avoid_: Weakness, allergy (the allergy is the theme, the ticket is the rule)

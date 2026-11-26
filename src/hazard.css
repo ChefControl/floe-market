@@ -1,18 +1,19 @@
-/* Cooking Hazard (hazardPlay.ts): the loadout pick and the result as cards over the street, dimmed; the run over the
+/* Cooking Hazard (hazardPlay.ts): the safe house over its room (hazardRoom.ts, in the game's canvas), its stations' bar
+   along the bottom and a station's panel on the right; the result as a card over the street, dimmed; the run over the
    street itself (hazardSet.ts, drawn in the game's canvas, so this screen is see-through while it plays), under the
    game's own HUD pills, with what floats over the zombies, the dish slots as round action buttons, and on touch the
    sticks, the shove button and the turn-your-phone screen. */
 /* the game's own HUD and the rest of the page stay out of sight under the street */
 body.hz-on > :not(#game):not(#hazard){ visibility:hidden !important; }
 #hazard{ background:rgba(20,27,34,.62); }
-#hazard[data-mode="play"]{ background:transparent; }
-#hazard .hz-pick, #hazard .hz-over{
+#hazard[data-mode="play"], #hazard[data-mode="house"]{ background:transparent; }
+#hazard .hz-over, #hazard .hz-room, #hazard .hz-station, #hazard .hz-cook{
   margin:auto; width:min(560px, calc(100% - 32px)); box-sizing:border-box; display:flex; flex-direction:column; gap:12px; padding:18px;
   background:var(--k-bg); border-radius:24px; box-shadow:0 0 0 2px var(--k-edge), 0 6px 0 rgba(0,0,0,.3);
 }
 #hazard .hz-stats{ display:flex; gap:8px; justify-content:center; flex-wrap:wrap; }
 #hazard .hz-play{ position:absolute; inset:0; overflow:hidden; cursor:crosshair; touch-action:none; user-select:none; -webkit-user-select:none; }
-#hazard[data-mode="play"] .k-paused{ display:none; }
+#hazard[data-mode="play"] .k-paused, #hazard[data-mode="house"] .k-paused{ display:none; }
 #hazard .hz-x{ z-index:4; }
 
 #hazard .hz-hud{
@@ -143,3 +144,46 @@ body.hz-on > :not(#game):not(#hazard){ visibility:hidden !important; }
 @keyframes hz-turn{ 0%,25%{ transform:rotate(0); } 60%,100%{ transform:rotate(-90deg); } }
 @media (prefers-reduced-motion: reduce){ #hazard .hz-phone{ animation:none; transform:rotate(-90deg); } }
 #hazard[data-upright="true"] .hz-turn{ display:flex; }
+
+/* the safe house: the tickets top left, the stations' bar along the bottom, a station's panel on the right (under the
+   room on a tall screen), the timing tap along the bottom */
+#hazard .hz-house{ position:absolute; inset:0; overflow:hidden; user-select:none; -webkit-user-select:none; }
+#hazard .hz-house-hud{
+  position:absolute; left:12px; top:12px; display:flex; flex-direction:column; align-items:flex-start; gap:8px; pointer-events:none;
+  font-family:"Floe Emoji","Baloo 2","Trebuchet MS",system-ui,sans-serif;
+}
+#hazard .hz-house-hud .pill{ font-size:15px; padding:4px 14px 4px 4px; }
+#hazard .hz-room{ position:absolute; left:50%; bottom:16px; translate:-50% 0; width:min(760px, calc(100% - 32px)); margin:0; align-items:center; }
+#hazard .hz-room .k-row{ justify-content:center; flex-wrap:wrap; }
+#hazard .hz-station{
+  position:absolute; right:16px; top:72px; max-height:calc(100% - 88px); width:min(440px, calc(100% - 32px)); margin:0; overflow-y:auto;
+}
+@media (max-aspect-ratio: 4/5){ #hazard .hz-station{ top:auto; bottom:16px; max-height:55%; left:16px; width:auto; } }
+#hazard .hz-station .k-row{ flex-wrap:wrap; }
+#hazard .hz-st-foot{ justify-content:space-between; }
+#hazard .hz-chips{ display:flex; gap:6px; flex-wrap:wrap; }
+#hazard .hz-chips .pill{ font-size:15px; padding:4px 12px; }
+#hazard .hz-map .hz-ticket{ position:relative; padding:5px 8px 6px; font-size:16px; }
+#hazard .hz-page{ list-style:none; margin:0; padding:0; display:grid; grid-template-columns:1fr; gap:4px; font-size:15px; }
+#hazard .hz-page li{ padding:6px 10px; border-radius:10px; background:var(--chip); display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
+#hazard .hz-page li > i{ font-style:normal; }
+#hazard .hz-page li > b{ letter-spacing:2px; }
+#hazard .hz-page li > small{ margin-left:auto; opacity:.7; }
+#hazard .hz-page li.unknown{ opacity:.55; }
+#hazard [data-station="book"] .hz-page{ grid-template-columns:1fr 1fr; }
+#hazard .hz-cook{ position:absolute; left:50%; bottom:16px; translate:-50% 0; width:min(640px, calc(100% - 32px)); margin:0; }
+/* the timing tap: the code slides left; each move is pressed as it crosses the line */
+#hazard .hz-lane{ position:relative; height:72px; border-radius:16px; background:var(--chip); overflow:hidden; }
+#hazard .hz-line{ position:absolute; left:62px; top:8px; bottom:8px; width:4px; border-radius:2px; background:var(--hot); }
+#hazard .hz-notes > i{
+  position:absolute; left:40px; top:12px; width:48px; height:48px; border-radius:50%; display:flex; align-items:center;
+  justify-content:center; font:24px/1 "Floe Emoji","Baloo 2","Trebuchet MS",system-ui,sans-serif; background:#fff8ec; box-shadow:0 3px 0 rgba(0,0,0,.3);
+  will-change:transform;
+}
+#hazard .hz-notes > i.perfect{ background:#49c25b; }
+#hazard .hz-notes > i.good{ background:#ffc34a; }
+#hazard .hz-notes > i.miss{ opacity:.3; }
+#hazard .hz-call{ position:absolute; right:14px; top:50%; translate:0 -50%; font-size:20px; }
+#hazard .hz-pads{ justify-content:center; }
+#hazard .hz-pads .k-btn{ min-width:72px; min-height:56px; font-size:26px; }
+#hazard .hz-slot.none{ opacity:.6; }

@@ -121,7 +121,8 @@ export const DISHES: Record<DishId, Dish> = {
   bait: { name: 'Mushroom Bait', emoji: '🍄', taste: 'umami', kind: 'bait', code: ['down', 'down', 'right'], servings: 3, r: 90, dmg: 8 },
 };
 
-export interface Loadout { gun: GunId; dishes: DishId[] }
+/** The gun, and the dishes in the slots: with the servings and quality of what was cooked (the dish's own, without). */
+export interface Loadout { gun: GunId; dishes: DishId[]; servings?: number[]; quality?: number[] }
 
 // ---------- a run ----------
 export interface Zombie {
@@ -139,7 +140,8 @@ export interface Zombie {
 
 export interface Shot { x: number; y: number; vx: number; vy: number; life: number; dmg: number; taste: Taste | null }
 export interface Zone { x: number; y: number; r: number; t: number; kind: 'smoke' | 'caramel' | 'battery' | 'syrup'; acc: number }
-export interface Thrown { x: number; y: number; fromX: number; fromY: number; t: number; dish: DishId }
+/** A dish in the air: where it lands, where from, how long till it does, and its quality (damage and size). */
+export interface Thrown { x: number; y: number; fromX: number; fromY: number; t: number; dish: DishId; q: number }
 export interface Stamp { text: string; x: number; y: number; t: number; color: string }
 export interface Garnish { x: number; y: number; t: number }
 
@@ -167,6 +169,10 @@ export interface Run {
   spare: number;
   /** Things taken so far (an ingredient's `got` is its place in that order). */
   got: number;
+  /** The bag's size, the gun's damage (times), and each slot's dish quality, from the safe house. */
+  bagMax: number; dmgK: number; quality: number[];
+  /** The techniques popped, by their pair (TECHNIQUES' keys), the first time each; and the specials' tickets to come. */
+  found: string[]; tickets: Taste[][];
   player: { x: number; y: number; hp: number };
   ammo: number; reloadT: number; cooldown: number;
   servings: number[];
@@ -193,6 +199,10 @@ export interface RunOptions {
   at?: { x: number; y: number };
   /** With the van's drop-off first. */
   intro?: boolean;
+  /** From the safe house's upgrades: the bag's size, the chef's health, the gun's damage (times). */
+  bag?: number; hp?: number; dmg?: number;
+  /** The specials' tickets, rolled ahead for the van's map; specials past these get new ones. */
+  tickets?: Taste[][];
 }
 
 const pick = <T>(rng: () => number, list: readonly T[]) => list[Math.floor(rng() * list.length)];
@@ -217,9 +227,11 @@ export function newRun(loadout: Loadout, rng: () => number = Math.random, opts: 
     zone, drop, radioT: 0, holdT: 0, vanT: 0, extracted: false,
     crates: [...crates('food', town.crates, CRATES.food), ...crates('ammo', town.ammo, CRATES.ammo), ...crates('gold', town.gold, CRATES.gold)],
     bag: [], cookware: [], spare: SPARE_MAGS, got: 0,
-    player: { x: at.x, y: at.y, hp: PLAYER_HP },
+    bagMax: opts.bag ?? BAG, dmgK: opts.dmg ?? 1, quality: loadout.dishes.map((_, i) => loadout.quality?.[i] ?? 1),
+    found: [], tickets: (opts.tickets ?? []).map(t => [...t]),
+    player: { x: at.x, y: at.y, hp: opts.hp ?? PLAYER_HP },
     ammo: GUNS[loadout.gun].mag, reloadT: 0, cooldown: 0,
-    servings: loadout.dishes.map(d => DISHES[d].servings),
+    servings: loadout.dishes.map((d, i) => loadout.servings?.[i] ?? DISHES[d].servings),
     serving: null, boost: 0,
     zombies: [], shots: [], zones: [], thrown: [], stamps: [], garnishes: [],
     spawnT: 1, specialT: 20, nextId: 1,
@@ -259,9 +271,10 @@ function spawn(run: Run, special: boolean) {
   const hp = special ? hordeHp(run.t) * 4 : hordeHp(run.t);
   let ticket: Taste[] | null = null;
   if (special) {
+    // (the next of those rolled ahead for the van's map, then new ones)
     const a = TASTE_LIST[Math.floor(run.rng() * 6)];
     const rest = TASTE_LIST.filter(t => t !== a);
-    ticket = [a, rest[Math.floor(run.rng() * rest.length)]];
+    ticket = run.tickets.shift() ?? [a, rest[Math.floor(run.rng() * rest.length)]];
   }
   const z: Zombie = {
     id: run.nextId++, x, y, r: special ? 26 : 16, hp, maxHp: hp,
@@ -411,6 +424,7 @@ function cook(run: Run, z: Zombie, a: Taste, b: Taste, spreads: boolean): string
   tech.does(run, z);
   z.coat = null; z.coatT = 0; z.meter = 0; z.immuneT = IMMUNE_TIME;
   run.cooked++;
+  if (!run.found.includes(pair(a, b))) run.found.push(pair(a, b));
   if (spreads) {
     run.stamps.push({ text: tech.name, x: z.x, y: z.y - 40, t: 1.2, color: TASTES[b].color });
     run.garnishes.push({ x: z.x, y: z.y, t: 8 });
@@ -450,7 +464,7 @@ export function throwDish(run: Run, at: { x: number; y: number }) {
   const s = run.serving;
   if (!s?.ready) return false;
   const p = run.player, d = Math.hypot(at.x - p.x, at.y - p.y), k = d > 420 ? 420 / d : 1;
-  run.thrown.push({ x: p.x + (at.x - p.x) * k, y: p.y + (at.y - p.y) * k, fromX: p.x, fromY: p.y, t: 0.5, dish: run.loadout.dishes[s.slot] });
+  run.thrown.push({ x: p.x + (at.x - p.x) * k, y: p.y + (at.y - p.y) * k, fromX: p.x, fromY: p.y, t: 0.5, dish: run.loadout.dishes[s.slot], q: run.quality[s.slot] });
   run.servings[s.slot]--;
   run.serving = null;
   return true;
@@ -458,8 +472,10 @@ export function throwDish(run: Run, at: { x: number; y: number }) {
 
 function land(run: Run, th: Thrown) {
   const dish = DISHES[th.dish];
-  if (dish.kind === 'zone') { run.zones.push({ x: th.x, y: th.y, r: dish.r, t: 5, kind: 'syrup', acc: 0 }); return; }
-  for (const z of near(run, th, dish.r)) hit(run, z, dish.dmg, dish.taste, 1);
+  // (a better batch hits harder, and wider)
+  const r = dish.r * th.q;
+  if (dish.kind === 'zone') { run.zones.push({ x: th.x, y: th.y, r, t: 5, kind: 'syrup', acc: 0 }); return; }
+  for (const z of near(run, th, r)) hit(run, z, dish.dmg * th.q, dish.taste, 1);
 }
 
 // ---------- a step of the run ----------
@@ -492,7 +508,7 @@ function fire(run: Run, aim: { x: number; y: number }) {
     const ang = a + (run.rng() - 0.5) * gun.spread;
     run.shots.push({
       x: p.x, y: p.y, vx: Math.cos(ang) * gun.speed, vy: Math.sin(ang) * gun.speed,
-      life: gun.range / gun.speed, dmg: gun.dmg * (boosted ? GARNISH_K : 1), taste: gun.taste,
+      life: gun.range / gun.speed, dmg: gun.dmg * run.dmgK * (boosted ? GARNISH_K : 1), taste: gun.taste,
     });
   }
   if (run.ammo === 0) reload(run);
@@ -521,7 +537,7 @@ export function worstInBag(run: Run) {
 /** What taking item `i` of `c` would do: take it, swap the bag's worst for it, or nothing (the bag's full of better). */
 export function wouldTake(run: Run, c: Crate, i: number): 'take' | 'swap' | 'full' {
   const it = c.items[i];
-  if (it.kind !== 'food' || run.bag.length < BAG) return 'take';
+  if (it.kind !== 'food' || run.bag.length < run.bagMax) return 'take';
   return run.bag[worstInBag(run)].grade < it.grade ? 'swap' : 'full';
 }
 
