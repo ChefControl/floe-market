@@ -634,6 +634,30 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
 #display small{ padding-left:4px; font-size:12px; font-weight:700; opacity:.6; }
 /* the pause menu: its numbered buttons one under another */
 #pause .k-keys{ grid-auto-flow:row; }
+/* the main menu (title.ts): the game's name and its buttons down the left, over the world, which drifts behind */
+#title{
+  z-index:7; justify-content:center; padding:24px max(6vw, env(safe-area-inset-left,0px)); box-sizing:border-box;
+  background:linear-gradient(90deg, rgba(23,48,66,.5), rgba(23,48,66,.18) 42%, rgba(23,48,66,0) 68%);
+}
+#title > .k-paused{ display:none; }
+#title .titleCol{ width:min(100%,340px); display:flex; flex-direction:column; gap:20px; }
+#title h1{
+  --o:3px; margin:0; font-size:clamp(64px,8.5vw,108px); font-weight:800; line-height:.9; color:#FFC34A;
+  /* (the banner's outline: a dark edge round every letter, so it reads over snow and sea alike) */
+  text-shadow:var(--o) 0 0 var(--ink), calc(-1 * var(--o)) 0 0 var(--ink), 0 var(--o) 0 var(--ink), 0 calc(-1 * var(--o)) 0 var(--ink),
+    var(--o) var(--o) 0 var(--ink), calc(-1 * var(--o)) var(--o) 0 var(--ink), var(--o) calc(-1 * var(--o)) 0 var(--ink),
+    calc(-1 * var(--o)) calc(-1 * var(--o)) 0 var(--ink), 0 calc(var(--o) + 5px) 0 rgba(20,30,40,.45);
+}
+#title .k-sheet{
+  display:flex; flex-direction:column; gap:10px; padding:16px; background:var(--k-bg); color:var(--k-ink);
+  border-radius:24px; box-shadow:0 0 0 2px var(--k-edge), 0 6px 0 rgba(0,0,0,.3);
+}
+#title .k-keys{ grid-auto-flow:row; }
+/* behind it, nothing of the game's screen but the gear (its Settings drop down over the menu) */
+body.title #hud, body.title #pointers, body.title #prompts, body.title .pop, body.title #buy, body.title #buyHint,
+body.title #craft, body.title #toss, body.title #cook, body.title #coach, body.title #hint, body.title #toast,
+body.title #rush, body.title #board{ visibility:hidden; }
+body.title #corner, body.title #settings{ z-index:7; }
 #gfxReload{ align-self:center; min-height:38px; padding:0 16px; border:0; border-radius:999px; background:var(--go); color:#fff; font:800 15px "Floe Emoji","Baloo 2","Trebuchet MS",system-ui,sans-serif; box-shadow:0 2px 0 rgba(20,90,40,.4); cursor:pointer; }
 #gfxReload:active{ transform:translateY(2px); box-shadow:none; }
 @media (hover: hover) and (pointer: fine){ #gfxReload:hover:not(:active){ transform:translateY(-1px); } }
@@ -1511,6 +1535,18 @@ body.show #toss, body.show #cook, body.show #coach, body.show #hint, body.show #
   </div>
 </div>
 <canvas id="game" aria-label="Floe Market game. Drag or use arrow keys to walk."></canvas>
+<!-- the main menu (title.ts): the Steam build starts here -->
+<div id="title" role="dialog" aria-modal="true" aria-labelledby="titleName" hidden><div class="titleCol">
+  <h1 id="titleName">Floe<br>Market</h1>
+  <div class="k-sheet">
+    <button type="button" id="titlePlay" class="k-btn k-main">Continue</button>
+    <div class="k-row k-keys">
+      <button type="button" id="titleNew" class="k-btn k-danger">New game</button>
+      <button type="button" id="titleSettings" class="k-btn k-plain">⚙️ Settings</button>
+      <button type="button" id="titleQuit" class="k-btn k-plain">Quit to desktop</button>
+    </div>
+  </div>
+</div></div>
 
 <div id="hud">
   <div class="hrow">
@@ -1620,6 +1656,7 @@ body.show #toss, body.show #cook, body.show #coach, body.show #hint, body.show #
   <div class="k-row k-keys">
     <button type="button" id="pauseSettings" class="k-btn k-plain">⚙️ Settings</button>
     <button type="button" id="pauseHow" class="k-btn k-plain">🕹️ How to play</button>
+    <button type="button" id="pauseMenu" class="k-btn k-plain" hidden>Main menu</button>
     <button type="button" id="pauseQuit" class="k-btn k-plain">Quit to desktop</button>
   </div>
 </div></div>
