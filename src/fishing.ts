@@ -4,7 +4,7 @@ import { boost } from './economy';
 import { bodyMat, newFish } from './fishModel';
 import { newFillet } from './items';
 import { chipsFx, splashFx } from './fx';
-import { PIER, VOTE_BOAT, voteBoat } from './layout';
+import { PIER } from './layout';
 import { G, mesh, scene } from './render';
 import { cast, chop, flop, splash } from './sfx';
 import { BLADE_HOME, BLADE_Y, blade, CHOP, chopTop, pile } from './stations';
@@ -19,20 +19,20 @@ export interface Fish {
   state: 'swim' | 'hooked' | 'gone';
   /** Respawn countdown while gone. */
   re: number;
-  /** How far it's dipped down to pass under the pier or the voting boat, 0 to 1. */
+  /** How far it's dipped down to pass under the pier, 0 to 1. */
   dive: number;
 }
 
 const FISH_BOX = { x0: -15, x1: 6, z0: -16, z1: -7.6 };
 /** How high they swim, their backs and fins out of the water, bobbing by SWIM_BOB; and how deep they dip to pass under
- *  the pier (layout.ts PIER) or the voting boat, their dorsal fins clear under the boards, starting DIP_NEAR before. */
+ *  the pier (layout.ts PIER), their dorsal fins clear under the boards, starting DIP_NEAR before. */
 const SWIM_Y = 0.04, SWIM_BOB = 0.03, DIP_Y = -0.16, DIP_NEAR = 1.0;
-/** Whether `p` is under (or near) the pier, or the voting boat while it's moored. */
+/** Whether `p` is under (or near) the pier. */
 function underDeck(p: Vector3) {
   const near = (x0: number, x1: number, z0: number, z1: number) =>
     p.x > x0 - DIP_NEAR && p.x < x1 + DIP_NEAR && p.z > z0 - DIP_NEAR && p.z < z1 + DIP_NEAR;
-  const { x0, x1, edge, arm } = PIER, hull = VOTE_BOAT.hull;
-  return near(x0, x1, arm.z0, edge) || near(arm.x0, x1, arm.z0, arm.z1) || (voteBoat.open && near(hull.x0, hull.x1, hull.z0, hull.z1));
+  const { x0, x1, edge, arm } = PIER;
+  return near(x0, x1, arm.z0, edge) || near(arm.x0, x1, arm.z0, arm.z1);
 }
 const fish: Fish[] = [];
 
