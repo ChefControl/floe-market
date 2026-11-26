@@ -316,7 +316,7 @@ It also starts a game that's being tested silent: one driven by a browser automa
 
 [docs/graphics.md](graphics.md) is the guide to drawing anything new: the Graphics setting and its menu row, building High and Low versions, keeping the game's luck intact, staying fast on phones, and checking the result. Agents get it through the `graphics` skill (`.claude/skills/graphics`).
 
-`.github/workflows/deploy.yml` runs the tests on every pull request and push. On `main`, it builds and deploys to GitHub Pages only if they pass.
+`.github/workflows/deploy.yml` runs the tests on every pull request and push. A push to `main` runs every test file, and builds and deploys to GitHub Pages only if they all pass. A pull request runs only the test files its change can reach (see Tests below), so a test it skipped can still fail after the merge: then `main`'s run is red and nothing deploys until a fix or a revert lands.
 
 Each deploy removes the last one's files, and GitHub Pages lets browsers keep the page for 10 minutes. A page kept from before a deploy, or a tab left open across one, would ask for files that are gone: the game wouldn't start, or Firebase wouldn't load. So the page reloads once to fetch the new version (an inline script in `index.html` for the game's script, which the loading screen adds even when its own fetch fails, so it's still seen to fail; `src/errors.ts` for Firebase), at most once a minute in case the site is actually down.
 
@@ -325,6 +325,16 @@ Each deploy removes the last one's files, and GitHub Pages lets browsers keep th
 ### Tests
 
 [Vitest](https://vitest.dev/) in jsdom. `test/setup.ts` stubs the two things jsdom lacks (the WebGL renderer and 2D canvas drawing) and seeds `Math.random`; everything else, three.js included, runs for real. `loadGame()` in `test/helpers.ts` loads a fresh copy of the whole game, optionally from a save, and steps it with `tick()`, so most tests read as "set up a situation, run a few seconds, check the outcome".
+
+Most test files load the whole game, so CI runs them in up to four shards side by side, split by how long each file took last time (`test/shards.ts`, `test/times.json`). Don't run the whole suite on your own computer: run the files you touched, and let CI run the rest.
+
+**Which tests a pull request runs.** Every run of all the tests on `main` also notes, for each test file, which lines it ran inside functions (`test/touched.ts`), and keeps that as the run's `test-map` artifact. A pull request's first job (`pick`, `test/pick.ts`) fetches the map from `main`'s last good run, compares the pull request's code with the commit the map was made on, and runs:
+
+- every test file that ran a function the change touched,
+- for a constant whose value changed (worked out without doing anything, like a number, some text or a list), every test file that ran a function that reads it, in its own file or a file that imports it,
+- every test file the change adds or edits, and any the map has no note of.
+
+It runs them all, and says why at the top of its log, when it can't tell what a change reaches: the tests' own helpers (`test/*.ts` that aren't tests), `package.json` or the lockfile, `vite.config.ts`, the workflow, `index.html`'s `<body>`, a data file in `src/`, a change at a file's top level that does something as the game loads (makes a mesh, calls a function), files that do something as they load now loading in a different order, no map, or the pull request's `full-tests` label (add it to run everything). Changes to docs, `site/`, `public/` and the like run no tests unless a test names the file. The log lists the files it chose, why, and the ones it skipped.
 
 ### Source layout
 

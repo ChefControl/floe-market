@@ -29,7 +29,8 @@ export interface FileCoverageData {
   fnMap: Record<string, { decl: Loc; loc: Loc }>; f: Record<string, number>;
 }
 
-const at = (p: { line: number; column: number | null }) => p.line * 1e6 + (p.column ?? 999_999);
+// (a column to the end of the line comes as null, or as Infinity)
+const at = (p: { line: number; column: number | null }) => p.line * 1e6 + (Number.isFinite(p.column) ? p.column! : 999_999);
 /** For one source file, which statements sit inside a function (the rest run as the file loads, for every test that
  *  loads it, so they say nothing about a test). The same for every test file, so worked out once. */
 export function insideFunctions(cov: FileCoverageData) {

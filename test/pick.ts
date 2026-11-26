@@ -23,7 +23,7 @@ export const ALL_TESTS: [RegExp, string][] = [
   [/^src\/(?!.*\.(ts|css)$)/, "a file in src/ that isn't code (data, sounds)"],
 ];
 /** Changes no unit test can see. */
-const NO_TESTS = /^(docs\/|site\/|plugins\/|public\/|\.claude\/|\.claude-plugin\/|test\/rules\/|desktop\/|firestore\.rules$|firebase\.json$|vitest\.rules\.config\.ts$|LICENSE$|CLAUDE\.md$|CONTEXT\.md$|\.gitignore$|test\/times\.json$|[^/]*\.md$)/;
+const NO_TESTS = /^(docs\/|site\/|plugins\/|public\/|\.claude\/|\.claude-plugin\/|\.github\/(?!workflows\/)|test\/rules\/|desktop\/|firestore\.rules$|firebase\.json$|vitest\.rules\.config\.ts$|LICENSE$|CLAUDE\.md$|CONTEXT\.md$|\.gitignore$|test\/times\.json$|[^/]*\.md$)/;
 
 /** One changed file, from `git diff`: what it was called at the map's commit and what it's called now (null: added, or
  *  deleted), and its hunks: lines [start, count] on each side. */
@@ -52,16 +52,21 @@ export interface Sources {
 
 // ─── The code's shape ──────────────────────────────────────────────────────────────────────────────────────────────
 type Node = { type: string; start: number; end: number; [k: string]: any };
-interface Fn { name: string; from: number; to: number }
+/** A function: what it's called, its lines, and the names it reads (or writes), its inner functions' too. */
+interface Fn { name: string; from: number; to: number; refs: Set<string> }
+interface Top { from: number; to: number; node: Node; key: string; refs: Set<string> }
 interface Shape {
-  /** Each function: its name and its lines. */
   fns: Fn[];
-  /** Each top-level statement: its lines, and the statement. */
-  top: { from: number; to: number; node: Node; key: string }[];
+  /** Each top-level statement: its lines, the statement, and the names it reads outside its functions. */
+  top: Top[];
   /** The other files it loads, in order. */
   imports: Set<string>;
   /** The names it declares at the top level. */
   names: Set<string>;
+  /** What it imports: each name here, with the file and the name there ('*' for the whole file). */
+  bindings: Map<string, { from: string; name: string }>;
+  /** What it exports: each name here, with the names other files know it by. */
+  exports: Map<string, string[]>;
 }
 
 const FUNCTION = new Set(['FunctionDeclaration', 'FunctionExpression', 'ArrowFunctionExpression']);
@@ -80,27 +85,49 @@ export function shapeOf(code: string): Shape {
     return lo + 1;
   };
   const fns: Fn[] = [];
-  const walk = (n: unknown, name: string) => {
+  let refs = new Set<string>();
+  const walk = (n: unknown, name: string, inFn: Fn | null) => {
     if (!n || typeof n !== 'object') return;
-    if (Array.isArray(n)) { for (const c of n) walk(c, name); return; }
+    if (Array.isArray(n)) { for (const c of n) walk(c, name, inFn); return; }
     const node = n as Node;
     if (typeof node.type !== 'string') return;
+    if (node.type === 'Identifier') (inFn?.refs ?? refs).add(node.name);
     // what a function is called, from where it sits: `function f`, `const f = () =>`, `f() {}`, `f: () =>`
     let here = name;
     if (node.type === 'VariableDeclarator' || node.type === 'PropertyDefinition') here = node.id?.name ?? node.key?.name ?? name;
     else if (node.type === 'MethodDefinition' || node.type === 'Property') here = node.key?.name ?? node.key?.value ?? name;
     else if (node.type === 'ClassDeclaration' || node.type === 'FunctionDeclaration') here = node.id?.name ?? name;
-    if (FUNCTION.has(node.type)) fns.push({ name: here || 'a function', from: line(node.start), to: line(Math.max(node.start, node.end - 1)) });
-    for (const k in node) if (k !== 'type') walk(node[k], here);
+    let fn = inFn;
+    if (FUNCTION.has(node.type)) {
+      fns.push(fn = { name: here || 'a function', from: line(node.start), to: line(Math.max(node.start, node.end - 1)), refs: new Set() });
+    }
+    for (const k in node) if (k !== 'type') walk(node[k], here, fn);
+    // (an inner function's names count for the one round it too)
+    if (fn && fn !== inFn && inFn) for (const r of fn.refs) inFn.refs.add(r);
   };
   const imports = new Set<string>(), names = new Set<string>();
+  const bindings: Shape['bindings'] = new Map(), exports: Shape['exports'] = new Map();
+  const exportAs = (local: string, as: string) => exports.set(local, [...exports.get(local) ?? [], as]);
   const top = ast.body.map(node => {
-    walk(node, '');
+    refs = new Set();
+    walk(node, '', null);
     if (isImport(node)) imports.add(node.source.value);
     for (const id of declared(node)) names.add(id);
-    return { from: line(node.start), to: line(Math.max(node.start, node.end - 1)), node, key: keyOf(node) };
+    if (node.type === 'ImportDeclaration' && node.importKind !== 'type') {
+      for (const sp of node.specifiers) {
+        if (sp.importKind === 'type') continue;
+        const name = sp.type === 'ImportNamespaceSpecifier' ? '*' : sp.type === 'ImportDefaultSpecifier' ? 'default' : sp.imported.name ?? sp.imported.value;
+        bindings.set(sp.local.name, { from: node.source.value, name });
+      }
+    }
+    if (node.type === 'ExportNamedDeclaration' && !node.source) {
+      for (const id of declared(node)) exportAs(id, id);
+      for (const sp of node.specifiers ?? []) exportAs(sp.local.name ?? sp.local.value, sp.exported.name ?? sp.exported.value);
+    }
+    if (node.type === 'ExportDefaultDeclaration' && unwrap(node.declaration).type === 'Identifier') exportAs(unwrap(node.declaration).name, 'default');
+    return { from: line(node.start), to: line(Math.max(node.start, node.end - 1)), node, key: keyOf(node), refs };
   });
-  return { fns, top, imports, names };
+  return { fns, top, imports, names, bindings, exports };
 }
 
 /** A statement that loads another file (not just its types). */
@@ -118,11 +145,31 @@ function declared(n: Node): string[] {
 const unwrap = (n: Node): Node =>
   (n && (n.type === 'TSAsExpression' || n.type === 'TSSatisfiesExpression' || n.type === 'TSNonNullExpression' || n.type === 'ParenthesizedExpression') ? unwrap(n.expression) : n);
 const isFunction = (n: Node | null) => !!n && (FUNCTION.has(unwrap(n).type));
-/** Whether working it out can't do anything: no calls, no `new`, nothing assigned. (Reading a name is fine.) */
+/** Things made without drawing from the luck or touching anything else. (three.js's meshes, materials and the like
+ *  each draw from it for an id, so they aren't.) */
+const MADE = new Set(['Map', 'Set', 'WeakMap', 'WeakSet', 'Array', 'Color', 'Vector2', 'Vector3', 'Vector4', 'Quaternion', 'Euler', 'Matrix3', 'Matrix4', 'Box3', 'Sphere']);
+/** Calls that only look things up or work something out. */
+const LOOKUPS: Record<string, Set<string>> = {
+  Math: new Set(['abs', 'min', 'max', 'round', 'floor', 'ceil', 'sqrt', 'pow', 'sin', 'cos', 'tan', 'atan2', 'hypot', 'sign', 'trunc', 'log', 'exp']),
+  document: new Set(['getElementById', 'querySelector', 'querySelectorAll']),
+  Object: new Set(['freeze', 'keys', 'values', 'entries', 'fromEntries']),
+  Array: new Set(['from', 'of', 'isArray']),
+  JSON: new Set(['parse', 'stringify']),
+};
+const CASTS = new Set(['String', 'Number', 'Boolean', 'parseInt', 'parseFloat']);
+/** Whether working it out can't do anything: no calls but lookups, nothing made but plain things, nothing assigned.
+ *  (Reading a name is fine.) */
 function pure(n: Node | null | undefined): boolean {
   if (!n) return true;
   n = unwrap(n);
   switch (n.type) {
+    case 'NewExpression': return n.callee.type === 'Identifier' && MADE.has(n.callee.name) && n.arguments.every(pure);
+    case 'CallExpression': {
+      const c = unwrap(n.callee);
+      const ok = c.type === 'Identifier' ? CASTS.has(c.name)
+        : c.type === 'MemberExpression' && !c.computed && c.object.type === 'Identifier' && !!LOOKUPS[c.object.name]?.has(c.property.name);
+      return ok && n.arguments.every(pure);
+    }
     case 'Literal': case 'Identifier': case 'FunctionExpression': case 'ArrowFunctionExpression': return true;
     case 'TemplateLiteral': return n.expressions.every(pure);
     case 'ArrayExpression': return n.elements.every(pure);
@@ -154,6 +201,13 @@ function harmless(node: Node, other: Shape): string | null {
   return null;
 }
 
+/** A constant (or a `let`) worked out without doing anything: its names, or null if it's something else. */
+function constant(node: Node): string[] | null {
+  const d = node.type === 'ExportNamedDeclaration' ? node.declaration : node;
+  if (d?.type !== 'VariableDeclaration' || d.declare) return null;
+  return d.declarations.every((v: Node) => v.id.type === 'Identifier' && pure(v.init)) ? declared(node) : null;
+}
+
 // ─── Changed lines to tests ────────────────────────────────────────────────────────────────────────────────────────
 /** The innermost function holding all these lines, if any. */
 function innermost(fns: Fn[], from: number, to: number) {
@@ -165,13 +219,19 @@ const topAt = (s: Shape, line: number) => s.top.find(t => t.from <= line && line
 
 /** What a change to one source file reaches: the functions it touched (lines on the map's side) or, when it touched a
  *  file's top level in a way that may matter, why everything must run. */
-export function touched(before: Shape, after: Shape, hunks: Change['hunks']): { fns: Fn[]; all: string | null } {
-  const fns = new Map<string, Fn>();
+export function touched(before: Shape, after: Shape, hunks: Change['hunks']): { fns: Fn[]; consts: Set<string>; all: string | null } {
+  const fns = new Map<string, Fn>(), consts = new Set<string>();
   const keysBefore = new Set(before.top.map(t => t.key)), keysAfter = new Set(after.top.map(t => t.key));
   const add = (f: Fn | null) => { if (f) fns.set(`${f.from}:${f.to}`, f); };
   const topLevel = (s: Shape, line: number, twins: Set<string>, other: Shape) => {
     const t = topAt(s, line);
     if (!t || twins.has(t.key) || harmless(t.node, other)) return null;
+    // a constant whose value changed, worked out without doing anything both before and after: whatever reads it
+    const names = constant(t.node);
+    if (names && other.top.filter(o => declared(o.node).some(n => names.includes(n))).every(o => constant(o.node))) {
+      names.forEach(n => consts.add(n));
+      return null;
+    }
     return `line ${line} is at the file's top level, which runs as the game loads`;
   };
   for (const { old: [o, on], new: [n, nn] } of hunks) {
@@ -179,7 +239,7 @@ export function touched(before: Shape, after: Shape, hunks: Change['hunks']): { 
     for (let l = o; l < o + on; l++) {
       const f = innermost(before.fns, l, l);
       if (f) add(f);
-      else { const why = topLevel(before, l, keysAfter, after); if (why) return { fns: [], all: why }; }
+      else { const why = topLevel(before, l, keysAfter, after); if (why) return { fns: [], consts, all: why }; }
     }
     // lines put in: where they went on the map's side (between line o and the next, when nothing was taken out)
     const [from, to] = on ? [o, o + on - 1] : [o, o + 1];
@@ -190,10 +250,71 @@ export function touched(before: Shape, after: Shape, hunks: Change['hunks']): { 
       if (!t || keysBefore.has(t.key)) continue;
       if (into.length && innermost(after.fns, l, l)) { into.forEach(add); continue; }
       const why = topLevel(after, l, keysBefore, before);
-      if (why) return { fns: [], all: why.replace(`line ${l}`, `new line ${l}`) };
+      if (why) return { fns: [], consts, all: why.replace(`line ${l}`, `new line ${l}`) };
     }
   }
-  return { fns: [...fns.values()], all: null };
+  return { fns: [...fns.values()], consts, all: null };
+}
+
+/** The source files' shapes, then and now (null: not there, or not code). */
+function shapes(src: Sources) {
+  return Object.fromEntries((['before', 'after'] as const).map(side => {
+    const files = new Set(src.sources(side)), cache = new Map<string, Shape | null>();
+    const shape = (f: string) => {
+      if (!cache.has(f)) {
+        const code = f.endsWith('.ts') && files.has(f) ? src[side](f) : null;
+        try { cache.set(f, code === null ? null : shapeOf(code)); } catch { cache.set(f, null); }
+      }
+      return cache.get(f)!;
+    };
+    return [side, { files, shape }];
+  })) as Record<'before' | 'after', { files: Set<string>; shape: (f: string) => Shape | null }>;
+}
+type Shapes = ReturnType<typeof shapes>;
+
+/** What reads constants that changed, as it was at the map's commit: the functions that read them, in their own file
+ *  and in the files that import them, and constants worked out from them in turn. A reason instead, when code that
+ *  runs as the game loads reads one. */
+function readers(path: string, names: Set<string>, all: Shapes): { fns: [string, Fn, string][]; all: string | null } {
+  const { files, shape } = all.before;
+  const found: [string, Fn, string][] = [], seen = new Set<string>(), todo: [string, string][] = [...names].map(n => [path, n]);
+  const stop = (why: string) => ({ fns: [], all: `${[...names].join(', ')} (${path}) changed, and ${why}` });
+  while (todo.length) {
+    const [file, name] = todo.pop()!;
+    if (seen.has(`${file}:${name}`)) continue;
+    seen.add(`${file}:${name}`);
+    const s = shape(file);
+    if (!s) return stop(`${file} can't be read`);
+    for (const f of s.fns) if (f.refs.has(name)) found.push([file, f, names.has(name) ? name : `${name} (worked out from ${[...names].join(', ')})`]);
+    for (const t of s.top) {
+      if (!t.refs.has(name) || declared(t.node).includes(name)) continue;
+      // (naming it to import or export it reads nothing)
+      if (t.node.type === 'ImportDeclaration' || (t.node.type === 'ExportNamedDeclaration' && !t.node.declaration)) continue;
+      if (t.node.type === 'ExportDefaultDeclaration' && unwrap(t.node.declaration).type === 'Identifier') continue;
+      const more = constant(t.node);
+      if (!more) return stop(`${file} line ${t.from} reads ${name} as the game loads`);
+      for (const m of more) todo.push([file, m]);
+    }
+    // the files that import it
+    for (const as of s.exports.get(name) ?? []) {
+      for (const other of files) {
+        const o = shape(other);
+        if (!o) continue;
+        for (const [local, b] of o.bindings) {
+          if (resolve(other, b.from, files) !== file) continue;
+          if (b.name === '*') return stop(`${other} loads all of ${file} as one`);
+          if (b.name === as) todo.push([other, local]);
+        }
+        for (const t of o.top) {
+          const n = t.node;
+          if ((n.type === 'ExportNamedDeclaration' || n.type === 'ExportAllDeclaration') && n.source && resolve(other, n.source.value, files) === file) {
+            return stop(`${other} passes ${file}'s exports on`);
+          }
+        }
+      }
+    }
+  }
+  return { fns: found, all: null };
 }
 
 const ranAny = (runs: number[], from: number, to: number) => {
@@ -213,6 +334,7 @@ export function pick(changes: Change[], map: TestMap | null, src: Sources, label
   if (map.version !== MAP_VERSION) return result('the test map from main is from an older version of the picker');
   for (const t of src.tests) if (!map.tests.includes(t)) choose(t, 'not in the test map (new, or it failed on main)');
   let reordered = false;
+  const all = shapes(src);
 
   for (const c of changes) {
     const paths = [...new Set([c.old, c.path].filter((p): p is string => !!p))];
@@ -247,10 +369,17 @@ export function pick(changes: Change[], map: TestMap | null, src: Sources, label
       let a: Shape, b: Shape;
       try { a = shapeOf(before); b = shapeOf(after); } catch { return result(`${path} doesn't parse`); }
       if ([...a.imports].join() !== [...b.imports].join()) reordered = true;
-      const { fns, all } = touched(a, b, c.hunks);
-      if (all) return result(`${path}: ${all}`);
-      const ran = map.files[path] ?? {};
-      for (const f of fns) for (const [test, runs] of Object.entries(ran)) if (ranAny(runs, f.from, f.to)) choose(test, `runs ${path.slice(4)} ${f.name} (line ${f.from})`);
+      const t = touched(a, b, c.hunks);
+      if (t.all) return result(`${path}: ${t.all}`);
+      const fns: [string, Fn, string][] = t.fns.map(f => [path, f, '']);
+      if (t.consts.size) {
+        const r = readers(path, t.consts, all);
+        if (r.all) return result(r.all);
+        for (const [file, f, name] of r.fns) fns.push([file, f, `, which reads ${name}`]);
+      }
+      for (const [file, f, also] of fns) {
+        for (const [test, runs] of Object.entries(map.files[file] ?? {})) if (ranAny(runs, f.from, f.to)) choose(test, `runs ${file.slice(4)} ${f.name} (line ${f.from})${also}`);
+      }
       // tests that read the code as text (the fonts' list of what's on screen, scripts/fonts/used.ts)
       for (const t of src.tests) if (/scripts\/fonts\/used/.test(src.after(t) ?? '')) choose(t, 'reads the source files as text');
       continue;
@@ -267,7 +396,7 @@ export function pick(changes: Change[], map: TestMap | null, src: Sources, label
   // a file that loads other files now: fine as long as the files that do something as they load still load in the
   // same order (some draw from the luck as they load)
   if (reordered) {
-    const why = orderChanged(src);
+    const why = orderChanged(all);
     if (why) return result(why);
   }
   return result(null);
@@ -300,17 +429,10 @@ export function loadOrder(root: string, deps: (file: string) => string[]) {
 
 /** Why the files that do something as they load (not just define functions, constants and types) load in a different
  *  order now, from any of them, or null if they don't. */
-export function orderChanged(src: Sources): string | null {
-  const EMPTY: Shape = { fns: [], top: [], imports: new Set(), names: new Set() };
+function orderChanged(all: Shapes): string | null {
+  const EMPTY: Shape = { fns: [], top: [], imports: new Set(), names: new Set(), bindings: new Map(), exports: new Map() };
   const sides = (['before', 'after'] as const).map(side => {
-    const files = new Set(src.sources(side)), shapes = new Map<string, Shape | null>();
-    const shape = (f: string) => {
-      if (!shapes.has(f)) {
-        const code = f.endsWith('.ts') && files.has(f) ? src[side](f) : null;
-        try { shapes.set(f, code === null ? null : shapeOf(code)); } catch { shapes.set(f, null); }
-      }
-      return shapes.get(f)!;
-    };
+    const { files, shape } = all[side];
     const deps = (f: string) => [...shape(f)?.imports ?? []].map(i => resolve(f, i, files)).filter((d): d is string => !!d);
     // (a file that isn't code, CSS say, counts as doing something)
     const acts = (f: string) => { const s = shape(f); return !s || s.top.some(t => !harmless(t.node, EMPTY)); };

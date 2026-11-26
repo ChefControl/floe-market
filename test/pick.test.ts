@@ -66,6 +66,20 @@ function sources(before: string, after: string, others = OTHERS): Sources {
     sources: side => Object.keys(side === 'before' ? then : now).filter(f => (side === 'before' ? then : now)[f] !== undefined),
   };
 }
+/** sled.ts reads game.ts's SPEED in a function, and in a constant its function `top` reads. */
+const SLED = "import { SPEED } from './game';\nexport function far(t: number) {\n  return SPEED * t;\n}\nexport const TOP = SPEED * 2;\nexport function top() { return TOP; }\n";
+const BOOT = "import { LOUD } from './audio';\ndocument.title = String(LOUD);\n";
+/** Picks for edits to any source files ([before, after] each), with `more` files in the game too. */
+function edit(files: Record<string, [string, string]>, more: Record<string, string> = {}) {
+  const then: Record<string, string> = { ...OTHERS, 'src/game.ts': GAME, 'src/sled.ts': SLED, ...more }, now = { ...then };
+  const changes: Change[] = [];
+  for (const [path, [a, b]] of Object.entries(files)) { then[path] = a; now[path] = b; changes.push(...diffOf(a, b, path)); }
+  const map = { ...MAP, files: { ...MAP.files, 'src/sled.ts': { 'test/c.test.ts': [3, 3], 'test/ui.test.ts': [6, 6] } } };
+  return pick(changes, map, {
+    tests: TESTS, before: p => then[p] ?? null, after: p => now[p] ?? TEXTS[p] ?? (TESTS.includes(p) ? '' : null),
+    sources: side => Object.keys(side === 'before' ? then : now),
+  });
+}
 function picked(before: string, after: string, map: TestMap | null = MAP, extra: Change[] = [], labels: string[] = []) {
   const p = pick([...diffOf(before, after), ...extra], map, sources(before, after), labels);
   return { all: p.all, chosen: [...p.chosen.keys()].filter(t => t !== 'test/fonts.test.ts'), why: p.chosen, skipped: p.skipped };
@@ -111,11 +125,32 @@ describe("a change at a file's top level", () => {
     expect(picked(GAME, GAME + '\nclass Raft { size = 1 }\n').chosen).toEqual([]);
   });
 
-  it('runs everything for a changed constant, or new code that runs as the game loads', () => {
-    expect(picked(GAME, GAME.replace('SPEED = 3', 'SPEED = 4')).all).toBe("src/game.ts: line 3 is at the file's top level, which runs as the game loads");
-    expect(picked(GAME, GAME + '\nexport const LUCK = rand(0, 1);\n').all).toMatch(/new line 23 is at the file's top level/);
+  it('runs everything for new code that runs as the game loads, or a changed constant made by doing something', () => {
+    expect(picked(GAME, GAME + '\nexport const LUCK = rand(0, 1);\n').all).toBe("src/game.ts: new line 23 is at the file's top level, which runs as the game loads");
+    expect(picked(GAME + 'const mat = new MeshBasicMaterial();\n', GAME + 'const mat = new MeshBasicMaterial({ color: 1 });\n').all).toMatch(/line 22 is at the file's top level/);
     expect(picked(GAME, GAME + '\nstop({ x: 1 });\n').all).toMatch(/top level/);
     expect(picked(GAME, GAME.replace('speed = 2;', 'speed = 3;')).all).toMatch(/line 17 .* top level/);
+  });
+
+  it("runs a changed constant's readers: functions here and where it's imported, and constants worked out from it", () => {
+    const p = edit({ 'src/game.ts': [GAME, GAME.replace('SPEED = 3', 'SPEED = 4')] });
+    expect(p.all).toBeNull();
+    expect([...p.chosen]).toEqual([
+      ['test/a.test.ts', ['runs game.ts move (line 6), which reads SPEED']],
+      ['test/c.test.ts', ['runs sled.ts far (line 2), which reads SPEED']],
+      ['test/ui.test.ts', ['runs sled.ts top (line 6), which reads TOP (worked out from SPEED)']],
+      ['test/fonts.test.ts', ['reads the source files as text']],
+    ]);
+    // made by looking things up, then and now: still a constant
+    expect(edit({ 'src/game.ts': [GAME, GAME.replace('SPEED = 3', "SPEED = Math.max(3, document.querySelectorAll('p').length)")] }).all).toBeNull();
+    expect(edit({ 'src/game.ts': [GAME, GAME.replace('SPEED = 3', 'SPEED = rand(3, 4)')] }).all).toMatch(/top level/);
+  });
+
+  it("runs everything when code that runs as the game loads reads a changed constant, or a file takes another's all as one", () => {
+    expect(edit({ 'src/audio.ts': [OTHERS['src/audio.ts'], OTHERS['src/audio.ts'].replace('LOUD = 1', 'LOUD = 2')] }, { 'src/boot.ts': BOOT }).all)
+      .toBe('LOUD (src/audio.ts) changed, and src/boot.ts line 2 reads LOUD as the game loads');
+    expect(edit({ 'src/audio.ts': [OTHERS['src/audio.ts'], OTHERS['src/audio.ts'].replace('LOUD = 1', 'LOUD = 2')] }, { 'src/boot.ts': "import * as audio from './audio';\nexport const f = () => audio.beep();\n" }).all)
+      .toBe('LOUD (src/audio.ts) changed, and src/boot.ts loads all of src/audio.ts as one');
   });
 
   it('runs nothing more when a file loads other files, as long as the ones that do something still load in the same order', () => {
@@ -249,6 +284,11 @@ describe('the test map', () => {
     expect(inside).toEqual(['1', '2', '4']);
     expect(linesRan(cov, inside)).toEqual([2, 3]);
     expect(linesRan({ ...cov, s: { ...cov.s, 2: 3, 4: 1 }, f: { 0: 1, 1: 1 } }, inside)).toEqual([2, 4, 6, 6]);
+  });
+
+  it('reads a column to the end of the line as just that, however it comes', () => {
+    const endless = { ...cov, fnMap: { ...cov.fnMap, 1: { decl: loc(6, 6, 6, 7), loc: loc(6, 10, 6, Infinity) } } };
+    expect(insideFunctions(endless)).toEqual(['1', '2', '4']);
   });
 
   it('keeps lines as runs', () => {
