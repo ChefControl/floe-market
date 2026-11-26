@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
 <title>Floe Market</title>
+<!-- web only: (the Steam build leaves out everything to its end marker: vite.config.ts) -->
 <!-- (the card a shared link shows: Discord, X, Slack, iMessage. Full addresses, since the build's paths are relative) -->
 <meta name="description" content="A cozy 3D idle tycoon in your browser. Stage 3 is out: answer the knock under the dock.">
 <meta property="og:type" content="website">
@@ -16,7 +17,9 @@
 <meta property="og:image:height" content="640">
 <meta property="og:image:alt" content="The chef, Mr. Fugu and Chunkos the sumo champion, with Fukure looming behind: The Dohyo Below">
 <meta name="twitter:card" content="summary_large_image">
+<!-- :web only -->
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<!-- web only: -->
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="manifest" href="/manifest.webmanifest">
 <meta name="theme-color" content="#CFEAF5">
@@ -41,6 +44,7 @@ addEventListener('error', function (e) {
 }, true);
 </script>
 <meta name="apple-mobile-web-app-title" content="Floe Market">
+<!-- :web only -->
 <!-- The game's fonts come with it (public/fonts, scripts/fonts/build.py): it never fetches one from the web. Fetched at
      once, alongside the game's scripts; fonts.ts adds the emoji (the game's own icons), and waits for them all before
      the game draws. -->

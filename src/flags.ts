@@ -25,6 +25,15 @@ export function keepStage3() {
   try { localStorage.setItem(KEY, '1'); } catch { /* on for this visit */ }
 }
 
+// ---------- the Steam build ----------
+// The Steam build (VITE_STEAM=on, desktop/build.mjs) stands alone: no Firebase (sign-in, cloud saves, the scoreboard,
+// bug reports), no Ko-fi and none of the web page's own tags. The places that fetch Firebase and html2canvas test
+// import.meta.env.VITE_STEAM themselves, right where they import, so the build leaves both out entirely.
+const steam = import.meta.env.VITE_STEAM === 'on';
+
+/** Whether this is the Steam build (the desktop app's). */
+export const steamOn = () => steam;
+
 // ---------- Ko-fi ----------
 // "Buy me a coffee" in the settings and its one-time nudge (kofi.ts) are only in a game built (or served) with
 // VITE_KOFI=on, as the live web game is (deploy.yml). Anything else, the default included, leaves the settings row, and
