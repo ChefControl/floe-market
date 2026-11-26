@@ -91,7 +91,7 @@ describe("the studio intro's sound", () => {
     expect(fake.made).toBe(1);
     // (besides the wind's flutter, a slow wobble of its level)
     const tones = fake.played.filter(p => p.kind === 'tone' && p.f > 20), hiss = fake.played.filter(p => p.kind === 'noise');
-    expect([tones.length, hiss.length]).toEqual([16, 3]);
+    expect([tones.length, hiss.length]).toEqual([14, 3]);
     // (nothing starts at full: each envelope sets off from 0, so nothing clicks)
     expect([...tones, ...hiss].every(p => p.from === 0)).toBe(true);
     // the effects slider at 10: twice the mix's level

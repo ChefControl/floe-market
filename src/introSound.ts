@@ -48,9 +48,6 @@ const TONES: Tone[] = [
   { t: 2.79, f: FS4, a: 0.012, d: 1.45, v: 0.05, harm: [0.3, 0.1] },
   { t: 2.82, f: A4, a: 0.012, d: 1.4, v: 0.05, harm: [0.3, 0.1] },
   { t: 2.85, f: D5, a: 0.012, d: 1.35, v: 0.045, harm: [0.3, 0.1] },
-  // STUDIO: a soft shimmer on top
-  { t: 3.02, f: A5, a: 0.04, d: 1.1, v: 0.022 },
-  { t: 3.08, f: D6, a: 0.04, d: 1.0, v: 0.016 },
 ];
 const HISSES: Hiss[] = [
   // the rice ball landing: a soft squish under the plop
