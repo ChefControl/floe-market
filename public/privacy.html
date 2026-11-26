@@ -56,14 +56,14 @@ a:focus-visible{ outline:3px solid var(--go); outline-offset:2px; border-radius:
 <p class="back"><a href="./">Floe Market ›</a></p>
 <main>
 <h1>Floe Market privacy notice</h1>
-<p class="meta">Last changed 25 November 2026. This covers the Steam version, and what the web game kept: the web game closed in November 2026.</p>
+<p class="meta">Last changed 27 November 2026. This covers the Steam version, and what the web game kept: the web game closed in November 2026.</p>
 
 <section class="short" aria-labelledby="short">
   <h2 id="short">The short version</h2>
   <ul>
     <li><b>Web game (closed in November 2026), not signed in:</b> your game stayed on your device.</li>
     <li><b>Web game, signed in with Google:</b> your save, your first name and initial on the scoreboards, and any report you sent are still kept with Google Firebase until you ask me to delete them.</li>
-    <li><b>Steam version:</b> the game sends nothing to me. Steam keeps your saves and scores.</li>
+    <li><b>Steam version:</b> your game stays on this computer. Floe Market sends nothing anywhere.</li>
     <li>No ads, no analytics, no tracking. I don't sell your data.</li>
     <li>To see or delete your data, email <a href="mailto:oran.dan@outlook.com">oran.dan@outlook.com</a>.</li>
   </ul>
@@ -80,6 +80,7 @@ a:focus-visible{ outline:3px solid var(--go); outline-offset:2px; border-radius:
 <ul>
   <li><b>Your game stays on your device.</b> The save, a backup, your settings and a few small notes (like which tips you've seen) are kept in your browser's storage. They never leave your device. Clearing the site's data in your browser deletes them.</li>
   <li><b>The website is hosted by GitHub Pages.</b> When your browser loads the game, GitHub sees your IP address and browser, like any website. GitHub may keep these in its logs for security. I don't get them.</li>
+  <li><b>Your save can come with you.</b> The page at chefcontrol.github.io/floe-market can download a copy of a save the web game left in your browser, to bring into the Steam version. The copy goes straight to your downloads. Nothing is sent.</li>
   <li><b>The game connects to Google Firebase</b> a few seconds after it starts, so sign-in opens fast, and when you open the scoreboard or the wall of shame. Google sees your IP address and browser when it does. Nothing about you is stored there until you sign in.</li>
 </ul>
 
@@ -128,12 +129,15 @@ a:focus-visible{ outline:3px solid var(--go); outline-offset:2px; border-radius:
 
 <h2>The Steam version</h2>
 <ul>
-  <li><b>The game sends nothing to me.</b> There's no Firebase, no Google sign-in and no server of mine.</li>
-  <li><b>Saves</b> are kept on your computer. If Steam Cloud is on, Steam copies them to your Steam account.</li>
-  <li><b>Leaderboards and achievements</b> are kept by Steam with your Steam account. Other players see your Steam name and score on the leaderboards.</li>
-  <li><b>Reports</b> are written to a file on your computer, with recent crash logs. The file only reaches me if you post it on the game's Steam forum or email it to me. Forum posts are public. I delete the pictures and game state in emailed reports after 30 days.</li>
-  <li><b>What Steam tells me:</b> sales and play totals, like how many people bought the game and in which countries, and the leaderboard entries everyone can see. Steam doesn't tell me who you are.</li>
+  <li><b>Your game stays on this computer. Floe Market sends nothing anywhere.</b> There's no Firebase, no Google sign-in and no server of mine.</li>
+  <li><b>What's kept:</b> your save, three backups of it, and your settings (sound, graphics and the window), in the game's own folder: <code>%APPDATA%\Floe Market</code> on Windows, <code>~/.config/Floe Market</code> on Linux and the Steam Deck. Uninstalling the game leaves that folder. Delete it to remove them.</li>
+  <li><b>Steam Cloud:</b> if it's on, Steam copies your saves (only the <code>saves</code> folder) to your Steam account.</li>
+  <li><b>The demo</b> keeps its own save, in its own folder (<code>Floe Market Demo</code>). The first time the full game starts, it carries on from the demo's save, if there is one. It only reads it.</li>
+  <li><b>Bringing in your web game:</b> a save you downloaded from the web game's page (above) and choose in Settings is read on your computer and becomes your save there. It's never sent anywhere.</li>
+  <li><b>Links</b> in the game, like the credits and <i>Wishlist on Steam</i>, open in your web browser or in Steam. The game itself never goes online.</li>
+  <li><b>What Steam tells me:</b> sales and play totals, like how many people bought the game and in which countries. Steam doesn't tell me who you are.</li>
 </ul>
+<p>Leaderboards, achievements and bug reports may come to the Steam version later. This notice will say what they keep before they do.</p>
 <p>Steam is run by Valve. What Steam keeps is covered by <a href="https://store.steampowered.com/privacy_agreement/">Valve's privacy policy</a>.</p>
 
 <h2>Why I'm allowed to use it</h2>

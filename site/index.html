@@ -37,6 +37,13 @@ p{ margin:14px 0 0; max-width:60ch; }
 .meta{ color:var(--soft); font-size:15px; }
 a{ color:var(--go); font-weight:600; text-underline-offset:2px; }
 a:focus-visible{ outline:3px solid var(--go); outline-offset:2px; border-radius:4px; }
+/* a web save left in this browser: a copy to bring into the Steam version (index.html's script) */
+.keep{ margin-top:18px; padding:16px 18px; border-radius:16px; background:var(--chip); }
+.keep p:first-child{ margin-top:0; }
+.keep button{ margin-top:12px; font:800 17px/1 var(--sans); color:#fff; background:var(--go); border:0; border-radius:999px; padding:12px 20px; cursor:pointer; box-shadow:0 3px 0 var(--shade); }
+.keep button:active{ transform:translateY(3px); box-shadow:none; }
+.keep button:focus-visible{ outline:3px solid var(--go); outline-offset:3px; }
+.keep[hidden], .keep [hidden]{ display:none; }
 footer{ max-width:720px; margin:14px auto 0; color:var(--soft); font-size:14px; text-align:center; }
 </style>
 </head>
@@ -48,9 +55,34 @@ footer{ max-width:720px; margin:14px auto 0; color:var(--soft); font-size:14px; 
     <span class="soon">Coming soon to Steam</span>
     <p>A cozy 3D idle tycoon. Start with a fish stall on the ice, grow it into a conveyor-belt sushi restaurant, then answer the knock under the dock.</p>
     <p class="meta">The browser version has closed. Thanks for playing!</p>
+    <div class="keep" id="keep" hidden>
+      <p>Your web game is still saved in this browser. Download a copy to carry on in the Steam version.</p>
+      <button type="button" id="keepSave">Download your web save</button>
+      <p class="meta" id="keepDone" hidden>Saved as floe-market-save.json. In the Steam version, open Settings, then Bring in your web game.</p>
+    </div>
     <p class="meta"><a href="privacy.html">Privacy notice</a></p>
   </div>
 </main>
 <footer>© 2026 ChefControl. All rights reserved.</footer>
+<script>
+// A web game left in this browser (its save, under the key the game kept it in): a button downloads a copy, which the
+// Steam version's settings can bring in (src/webSave.ts). Nothing is sent anywhere: the file goes straight to the
+// player's downloads.
+(function () {
+  var save = null;
+  try { save = localStorage.getItem('floe-market-v1'); } catch (e) { /* storage blocked: nothing to offer */ }
+  if (!save) return;
+  try { if (!JSON.parse(save) || typeof JSON.parse(save) !== 'object') return; } catch (e) { return; }
+  document.getElementById('keep').hidden = false;
+  document.getElementById('keepSave').addEventListener('click', function () {
+    var url = URL.createObjectURL(new Blob([save], { type: 'application/json' }));
+    var a = document.createElement('a');
+    a.href = url; a.download = 'floe-market-save.json';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+    document.getElementById('keepDone').hidden = false;
+  });
+})();
+</script>
 </body>
 </html>
