@@ -187,3 +187,20 @@ body.hz-on > :not(#game):not(#hazard){ visibility:hidden !important; }
 #hazard .hz-pads{ justify-content:center; }
 #hazard .hz-pads .k-btn{ min-width:72px; min-height:56px; font-size:26px; }
 #hazard .hz-slot.none{ opacity:.6; }
+
+/* the guns' feel: the aim dot (where the gun points; gold over a zombie's crit area), and the firing range's switches */
+#hazard[data-touch="0"] .hz-play{ cursor:none; }
+#hazard[data-touch="0"] .hz-play button, #hazard[data-touch="0"] .hz-play .hz-slot, #hazard[data-touch="0"] .hz-play .hz-range{ cursor:pointer; }
+#hazard .hz-dot{
+  position:absolute; left:0; top:0; width:12px; height:12px; margin:-6px 0 0 -6px; border-radius:50%; pointer-events:none;
+  background:#fff; box-shadow:0 0 0 2px var(--ink), 0 2px 0 2px rgba(0,0,0,.35); will-change:transform;
+}
+#hazard .hz-dot.crit{ background:#ffc34a; scale:1.35; }
+#hazard .hz-range{
+  position:absolute; right:calc(12px + env(safe-area-inset-right)); top:calc(12px + env(safe-area-inset-top)); width:min(380px, 42vw);
+  max-height:calc(100% - 24px); overflow:auto; padding:12px; border-radius:18px; background:var(--k-bg, #fff);
+  box-shadow:0 6px 0 rgba(0,0,0,.25);
+}
+#hazard .hz-range .k-row{ display:flex; flex-wrap:wrap; justify-content:flex-start; }
+#hazard .hz-range .k-btn{ font-size:14px; }
+#hazard[data-touch="0"] .hz-range .k-btn{ min-height:34px; padding:6px 10px; }

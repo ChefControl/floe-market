@@ -80,5 +80,17 @@ _Avoid_: Weakness, allergy (the allergy is the theme, the ticket is the rule)
 **Garnish**:
 What a technique drops: picked up, it boosts the gun's next shots.
 
+**Crit**:
+A shot through the middle third of a zombie's body: double damage. A shot nearer its edge does less.
+_Avoid_: Headshot, weak spot, critical hit (on screen it shows, it's never written)
+
+**Rush**:
+The moment of slow motion when a technique pops, a ticket's finished or four go down in a second; the chef stays at full speed.
+_Avoid_: Zed time, bullet time, slow-mo
+
+**Firing range**:
+The dev and demo builds' row of zombies that stand still (?arcade=range), with a switch for each layer of the guns' feel.
+_Avoid_: Test level, sandbox
+
 **Horde**:
 The ordinary zombies: HP only, growing with the clock.
