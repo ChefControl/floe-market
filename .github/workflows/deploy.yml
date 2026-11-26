@@ -20,8 +20,10 @@ concurrency:
 jobs:
   # Which test files run. A push to main runs every one, and notes what each ran (the test map, test/touched.ts; any run
   # of them all does). A pull request runs only the ones its change can reach, picked with the map from main's last good
-  # run (test/pick.ts): the log here says which and why. It runs them all when it can't tell (the tests' helpers, the packages or this file
-  # changed, a file's top level changed, no map...), or when the pull request has the full-tests label.
+  # run (test/pick.ts): the log here says which and why. It runs them all when it can't tell (the tests' helpers, the
+  # packages or this file changed, code that runs as the game loads changed, no map...), or when the pull request has
+  # the full-tests label. If a test it skipped fails after the merge, main's run is red and nothing deploys till it's
+  # fixed or reverted.
   pick:
     runs-on: ubuntu-latest
     outputs:
@@ -111,7 +113,7 @@ jobs:
           merge-multiple: true
       # Unit tests gate the deploy: a failing test (in any shard) or, running them all, coverage below the thresholds
       # (over all of them, merged) stops here. Running them all, it also writes how long each file took, for the shards'
-      # split (test/shards.ts), and on main joins what each ran into the test map pull requests pick with.
+      # split (test/shards.ts), and joins what each ran into the test map (pull requests pick with main's).
       - if: needs.pick.outputs.all == 'true'
         run: npx vitest run --merge-reports=.vitest/blob --coverage --reporter=default --reporter=./test/shards.ts
       - if: needs.pick.outputs.all != 'true' && needs.test.result == 'success'

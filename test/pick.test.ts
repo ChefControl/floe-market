@@ -47,7 +47,8 @@ const MAP: TestMap = {
 };
 const TEXTS: Record<string, string> = {
   'test/ui.test.ts': "readFileSync('public/privacy.html', 'utf8')",
-  'test/fonts.test.ts': "import { sources } from '../scripts/fonts/used';",
+  // (put together, so the picker doesn't find these words in this file itself)
+  'test/fonts.test.ts': "import { sources } from '../scr" + "ipts/fonts/used';",
 };
 /** The rest of the game: util.ts draws from the luck as it loads; audio.ts and look.ts only define things. */
 const OTHERS: Record<string, string> = {
@@ -211,14 +212,14 @@ describe('files elsewhere', () => {
     const page = (style: string, body: string) => `<html><head><style>${style}</style></head><body>${body}<script>go()</script></body></html>`;
     const run = (before: string, after: string, path = 'index.html') => pick([only(path)], MAP, {
       ...sources(GAME, GAME), before: p => (p === path ? before : null),
-      after: p => (p === path ? after : { ...TEXTS, 'test/b.test.ts': "import page from '../index.html?raw';" }[p] ?? ''),
+      after: p => (p === path ? after : { ...TEXTS, 'test/b.test.ts': "import page from '../index.html" + "?raw';" }[p] ?? ''),
     });
     const css = run(page('a{}', '<p>'), page('a{b:1}', '<p>'));
     expect(css.all).toBeNull();
     expect([...css.chosen.keys()]).toEqual(['test/b.test.ts']);
     expect(run(page('', '<p>'), page('', '<p><script>stop()</script>')).all).toBeNull();
     expect(run(page('', '<p>'), page('', '<p id="x">')).all).toBe("index.html's <body> changed: every test's page");
-    expect([...run('a{}', 'a{b:1}', 'src/uiKit.css').chosen.keys()]).toEqual(['test/fonts.test.ts']);
+    expect([...run('a{}', 'a{b:1}', 'src/uiKit' + '.css').chosen.keys()]).toEqual(['test/fonts.test.ts']);
   });
 
   it('runs the tests that load scripts/ or name a file, and nothing for docs', () => {

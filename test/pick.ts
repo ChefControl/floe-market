@@ -348,12 +348,12 @@ export function pick(changes: Change[], map: TestMap | null, src: Sources, label
     if (c.path === 'index.html' && c.old === 'index.html') {
       const body = (page: string | null) => page?.slice(page.indexOf('<body>'), page.indexOf('</body>')).replace(/<script[\s\S]*?<\/script>/g, '');
       if (body(src.before(c.path)) !== body(src.after(c.path))) return result("index.html's <body> changed: every test's page");
-      for (const t of src.tests) if ((src.after(t) ?? '').includes('index.html')) choose(t, "reads index.html, whose <head> changed");
+      for (const t of src.tests) if (/index\.html\?raw|readFileSync\('index\.html'/.test(src.after(t) ?? '')) choose(t, "reads index.html, whose <head> changed");
       continue;
     }
     // CSS in src/: Vitest loads it as nothing, so only the tests that read it as text (the fonts' list)
     if (/^src\/.*\.css$/.test(paths[0])) {
-      for (const t of src.tests) if (/\.css\b|scripts\/fonts\/used/.test(src.after(t) ?? '')) choose(t, `reads src/'s CSS, where ${paths[0]} changed`);
+      for (const t of src.tests) if (/readdirSync\('src'\)|from '\.\.\/scripts\/fonts\/used/.test(src.after(t) ?? '')) choose(t, `reads src/'s CSS, where ${paths[0]} changed`);
       continue;
     }
     if (paths.some(p => /^src\/.*\.ts$/.test(p))) {
@@ -381,7 +381,7 @@ export function pick(changes: Change[], map: TestMap | null, src: Sources, label
         for (const [test, runs] of Object.entries(map.files[file] ?? {})) if (ranAny(runs, f.from, f.to)) choose(test, `runs ${file.slice(4)} ${f.name} (line ${f.from})${also}`);
       }
       // tests that read the code as text (the fonts' list of what's on screen, scripts/fonts/used.ts)
-      for (const t of src.tests) if (/scripts\/fonts\/used/.test(src.after(t) ?? '')) choose(t, 'reads the source files as text');
+      for (const t of src.tests) if (/from '\.\.\/scripts\/fonts\/used/.test(src.after(t) ?? '')) choose(t, 'reads the source files as text');
       continue;
     }
     // elsewhere: the tests that load or read it (scripts/ and intake/ aren't in the map: their tests import them)
