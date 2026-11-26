@@ -5,11 +5,12 @@ import {
   reload, ringNeed, shove, startServe, step, stripPos, technique, throwDish,
   type Input, type Loadout, type Run, type Taste, type Zombie,
 } from '../src/hazard';
+import { OPEN } from '../src/hazardMap';
 
 const still: Input = { move: { x: 0, y: 0 }, aim: { x: W, y: H / 2 }, fire: false };
 /** A run with nothing coming for a while: the horde and the specials are held off. */
 function quiet(loadout: Loadout = { gun: 'spud', dishes: ['chiliPot', 'syrup'] }) {
-  const run = newRun(loadout, () => 0.5);
+  const run = newRun(loadout, () => 0.5, { town: OPEN, at: { x: W / 2, y: H / 2 } });
   run.spawnT = 1e9; run.specialT = 1e9;
   return run;
 }
@@ -232,7 +233,7 @@ describe('serving a dish', () => {
 
   it('lures the horde onto the bait, which they bite', () => {
     const run = quiet({ gun: 'spud', dishes: ['bait', 'lemon'] });
-    const bait = zombie(run, 300, 300), hungry = zombie(run, 400, 300, { speed: 100 });
+    const bait = zombie(run, W / 2 - 340, H / 2 - 60), hungry = zombie(run, W / 2 - 240, H / 2 - 60, { speed: 100 });
     startServe(run, 0);
     for (const d of DISHES.bait.code) press(run, d);
     throwDish(run, bait);

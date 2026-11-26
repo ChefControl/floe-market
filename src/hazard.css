@@ -109,6 +109,23 @@ body.hz-on > :not(#game):not(#hazard){ visibility:hidden !important; }
 }
 #hazard .hz-serve > i.done{ background:#c93f25; }
 
+/* an open crate's card: a button for each thing in it (a grade's colour on it), greyed when the bag's full of better */
+#hazard .hz-loot{ display:flex; flex-direction:column; gap:6px; pointer-events:auto; }
+#hazard .hz-loot .k-btn{ min-height:40px; font-size:15px; white-space:nowrap; display:flex; align-items:center; gap:6px; }
+#hazard .hz-loot .k-btn.full{ opacity:.55; }
+#hazard .hz-loot small{ padding:1px 6px; border-radius:6px; font-size:12px; background:rgba(23,48,66,.12); }
+#hazard .hz-loot small.g0{ background:#c3cad0; }
+#hazard .hz-loot small.g1{ background:#49c25b; color:#fff; }
+#hazard .hz-loot small.g2{ background:#ffc34a; }
+/* touch: the use button (radioing the van), shown in the safe zone */
+#hazard .hz-use{
+  --k-fill:var(--k-main); --k-text:var(--k-main-ink); --k-drop:var(--k-main-drop);
+  position:absolute; right:max(16px, env(safe-area-inset-right,0px)); bottom:calc(max(104px, 30vh) + 68px); min-height:56px;
+}
+/* the result: what came home (struck through when it didn't) */
+#hazard .hz-haul{ text-align:center; font-size:26px; letter-spacing:2px; }
+#hazard .hz-haul .lost{ opacity:.45; text-decoration:line-through; }
+
 /* mid-run Esc or ✕: held still, asked first */
 #hazard .hz-leave{ position:absolute; inset:0; z-index:3; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,.45); }
 #hazard .hz-leave[hidden]{ display:none; }

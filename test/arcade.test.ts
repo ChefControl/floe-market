@@ -34,9 +34,9 @@ describe('the arcade cabinet', () => {
     g.placePlayer(-15.7, -4.4); g.run(0.1);
     expect($('arcade').hidden).toBe(true);
     expect(kit.atTable()).toBe(false);
-    localStorage.setItem('floe-market-hazard-best', '95');
+    localStorage.setItem('floe-market-hazard-haul', '14');
     g.placePlayer(pad.x, pad.z); g.run(0.1);
-    expect($('arcadeBest').textContent).toBe('🏆 Best 1:35');
+    expect($('arcadeBest').textContent).toBe('🏆 Best haul 14');
   });
 
   it("is in the player's way like any machine, but not on the way from the door to the games", async () => {
