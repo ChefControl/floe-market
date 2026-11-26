@@ -10,20 +10,57 @@ permissions:
   contents: read
   pages: write
   id-token: write
+  # (to fetch the test map from main's last run)
+  actions: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  # The unit tests, in four shards side by side, each on a runner of its own: most of them load the whole game, some
-  # hundreds of times, which on one runner took over ten minutes. The shards split the files by how long each takes
-  # (test/shards.ts). Each shard keeps its results and coverage in a blob for build to merge.
+  # Which test files run. A push to main runs every one, and notes what each ran (the test map, test/touched.ts; any run
+  # of them all does). A pull request runs only the ones its change can reach, picked with the map from main's last good
+  # run (test/pick.ts): the log here says which and why. It runs them all when it can't tell (the tests' helpers, the packages or this file
+  # changed, a file's top level changed, no map...), or when the pull request has the full-tests label.
+  pick:
+    runs-on: ubuntu-latest
+    outputs:
+      all: ${{ steps.pick.outputs.all }}
+      count: ${{ steps.pick.outputs.count }}
+      files: ${{ steps.pick.outputs.files }}
+      shards: ${{ steps.pick.outputs.shards }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # (the whole history, to compare with the commit the map was made on)
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Fetch the test map from main
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          run=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow deploy.yml --branch main --event push --status success --limit 1 --json databaseId --jq '.[0].databaseId // empty')
+          if [ -n "$run" ]; then gh run download "$run" --repo "$GITHUB_REPOSITORY" --name test-map --dir .vitest || true; fi
+      - id: pick
+        run: node test/pick.ts .vitest/test-map.json
+        env:
+          PR_LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
+
+  # The unit tests, in up to four shards side by side, each on a runner of its own: most of them load the whole game,
+  # some hundreds of times, which on one runner took over ten minutes. The shards split the files by how long each takes
+  # (test/shards.ts). Each shard keeps its results (and, running everything, its coverage) in a blob for build to merge.
   test:
+    needs: pick
+    if: needs.pick.outputs.count != '0'
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        shard: [1, 2, 3, 4]
+        shard: ${{ fromJSON(needs.pick.outputs.shards) }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -33,40 +70,68 @@ jobs:
       - run: npm ci
       # (Vitest's own count of workers, three on the runner's four cores: a fourth made a slow runner slower still, and
       # tests that load the game twice ran past their 15 s)
-      - run: npx vitest run --coverage --shard=${{ matrix.shard }}/${{ strategy.job-total }} --reporter=default --reporter=blob
+      - run: >-
+          npx vitest run $FILES --shard=${{ matrix.shard }}/${{ strategy.job-total }} --reporter=default --reporter=blob
+          ${{ needs.pick.outputs.all == 'true' && '--coverage' || '' }}
+          ${{ needs.pick.outputs.all == 'true' && '--reporter=./test/touched.ts' || '' }}
         env:
           VITEST_SHARD: ${{ matrix.shard }}
+          FILES: ${{ needs.pick.outputs.files }}
       - uses: actions/upload-artifact@v7
         with:
           name: blob-${{ matrix.shard }}
-          path: .vitest/blob/
+          path: |
+            .vitest/blob/
+            .vitest/touched/
           include-hidden-files: true
           retention-days: 1
 
   build:
-    needs: test
+    needs: [pick, test]
+    # (runs when the tests were skipped too, as a pull request that changes no code picks none; it's the check main
+    # requires, so it fails itself rather than be skipped when anything before it failed)
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     steps:
+      - if: needs.pick.result != 'success' || (needs.test.result != 'success' && needs.test.result != 'skipped')
+        run: |
+          echo "The tests didn't pass (pick: ${{ needs.pick.result }}, test: ${{ needs.test.result }})."
+          exit 1
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
       - run: npm ci
-      - uses: actions/download-artifact@v8
+      - if: needs.test.result == 'success'
+        uses: actions/download-artifact@v8
         with:
           pattern: blob-*
-          path: .vitest/blob/
+          path: .vitest/
           merge-multiple: true
-      # Unit tests gate the deploy: a failing test (in any shard) or coverage below the thresholds (over all of them,
-      # merged) stops here. It also writes how long each file took, for the shards' split (test/shards.ts).
-      - run: npx vitest run --merge-reports=.vitest/blob --coverage --reporter=default --reporter=./test/shards.ts
-      - uses: actions/upload-artifact@v7
+      # Unit tests gate the deploy: a failing test (in any shard) or, running them all, coverage below the thresholds
+      # (over all of them, merged) stops here. Running them all, it also writes how long each file took, for the shards'
+      # split (test/shards.ts), and on main joins what each ran into the test map pull requests pick with.
+      - if: needs.pick.outputs.all == 'true'
+        run: npx vitest run --merge-reports=.vitest/blob --coverage --reporter=default --reporter=./test/shards.ts
+      - if: needs.pick.outputs.all != 'true' && needs.test.result == 'success'
+        run: npx vitest run --merge-reports=.vitest/blob --reporter=default
+      - if: needs.pick.outputs.all == 'true'
+        uses: actions/upload-artifact@v7
         with:
           name: test-times
           path: .vitest/times.json
           include-hidden-files: true
           retention-days: 30
+      - if: needs.pick.outputs.all == 'true'
+        run: node test/touched.ts
+      - if: needs.pick.outputs.all == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-map
+          path: .vitest/test-map.json
+          include-hidden-files: true
+          retention-days: 90
       # Stage 3 is open to players (src/flags.ts). To take it back, set 'off' and push: saves that have met Mr. Fugu
       # keep it on. The web game has Buy me a coffee (Ko-fi, src/flags.ts); it's off in any build that doesn't say so,
       # the Steam build's included. The build also lists the open-source licences of what it bundled, and stops on a GPL,
