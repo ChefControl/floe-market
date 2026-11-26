@@ -7,7 +7,7 @@ import { testSilent } from './flags';
 import { sfxVolume } from './soundPrefs';
 
 /** The notes, as frequencies: D major pentatonic. */
-const D3 = 146.83, D4 = 293.66, FS4 = 369.99, A4 = 440, D5 = 587.33, A5 = 880, D6 = 1174.66, FS6 = 1479.98, B6 = 1975.53;
+const A4 = 440, D5 = 587.33, A5 = 880, D6 = 1174.66, FS6 = 1479.98, B6 = 1975.53;
 
 interface Tone {
   /** When, in seconds from the start, and the frequency, gliding (exponentially) to `f2` over its decay. */
@@ -42,12 +42,7 @@ const TONES: Tone[] = [
   { t: 2.41, f: D6 * 2, a: 0.008, d: 0.55, v: 0.025 },
   // the wink: a little blip
   { t: 2.62, f: FS6, f2: FS6 * 1.19, a: 0.008, d: 0.07, v: 0.028 },
-  // ChefControl: a warm chord, strummed up, over a low D
-  { t: 2.76, f: D3, a: 0.02, d: 1.6, v: 0.08 },
-  { t: 2.76, f: D4, a: 0.012, d: 1.5, v: 0.06, harm: [0.3, 0.1] },
-  { t: 2.79, f: FS4, a: 0.012, d: 1.45, v: 0.05, harm: [0.3, 0.1] },
-  { t: 2.82, f: A4, a: 0.012, d: 1.4, v: 0.05, harm: [0.3, 0.1] },
-  { t: 2.85, f: D5, a: 0.012, d: 1.35, v: 0.045, harm: [0.3, 0.1] },
+  // (and the name comes up quiet: the owner picked no end note, 26 Nov, over a chord, a bell and five others)
 ];
 const HISSES: Hiss[] = [
   // the rice ball landing: a soft squish under the plop
