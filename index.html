@@ -1679,6 +1679,9 @@ body.show #toss, body.show #cook, body.show #coach, body.show #hint, body.show #
     <div class="toggle"><span><span id="buyBtnName">Buy button on screen</span><small id="buyBtnNote"></small></span><button id="buyBtnToggle" class="switch" type="button" role="switch" aria-checked="true" aria-labelledby="buyBtnName" aria-describedby="buyBtnNote"></button></div>
   </div>
   <button id="restart" type="button"><span class="ic" aria-hidden="true">↺</span><span id="restartText">Restart</span></button>
+  <!-- the Steam build's (webSave.ts) -->
+  <button id="webSave" type="button" hidden><span class="ic" aria-hidden="true">🎒</span>Bring in your web game<i aria-hidden="true">›</i></button>
+  <input type="file" id="webSaveFile" accept=".json,application/json" hidden>
   <h2 class="sgroup">About</h2>
   <button id="reportCat" type="button" aria-haspopup="dialog" hidden><span class="ic" aria-hidden="true">🐞</span><span id="reportName">Report a bug or idea</span><i aria-hidden="true">›</i></button>
   <a id="kofi" href="https://ko-fi.com/chefcontrol" target="_blank" rel="noopener"><span class="ic" aria-hidden="true">☕</span>Buy me a coffee<i aria-hidden="true">↗</i></a>
@@ -1733,6 +1736,15 @@ body.show #toss, body.show #cook, body.show #coach, body.show #hint, body.show #
   <p class="k-cap">Mr. Fugu's ring under the dock, five bosses</p>
   <button type="button" id="demoWish" class="k-btn k-main">Wishlist on Steam</button>
   <div class="k-row k-keys"><button type="button" id="demoKeep" class="k-btn k-plain">Keep playing</button></div>
+</div></div>
+<!-- a web game to bring in (webSave.ts): what it is, and the go-ahead -->
+<div id="webSaveAsk" role="dialog" aria-modal="true" aria-labelledby="webSaveTitle" hidden><div class="k-sheet">
+  <button type="button" id="webSaveX" class="k-btn k-plain k-x" aria-label="Keep this game"><span aria-hidden="true">✕</span></button>
+  <h2 id="webSaveTitle" class="k-title">🎒 Bring in your web game?</h2>
+  <p class="k-msg" id="webSaveWhat"></p>
+  <p class="k-cap">It replaces the game on this computer</p>
+  <button type="button" id="webSaveYes" class="k-btn k-main">Bring it in</button>
+  <div class="k-row k-keys"><button type="button" id="webSaveNo" class="k-btn k-plain">Keep this game</button></div>
 </div></div>
 <!-- the pause menu (pause.ts): Esc with nothing else open -->
 <div id="pause" role="dialog" aria-modal="true" aria-labelledby="pauseTitle" hidden><div class="k-sheet">
