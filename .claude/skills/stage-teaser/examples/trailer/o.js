@@ -35,9 +35,9 @@
 
   // The times, in seconds. Slow where the audience is finding out where they are (the sea, the floe, him waking),
   // and each cut-out held a full second. Only the thuds keep an even beat (there's no music under this take).
-  const T = { close: 1.8, spray: 2.5, open: 3.2, plant: 3.85, elbows: 4.35, sit: 5.15, face: 5.5, wide: 6.2, rise: 6.9, lookL: 7.7, lookR: 8.35, bang: 8.8, land: 9.12,
-    hit1: 9.6, hit2: 10.6, hit3: 11.6, glum: 12.8, sat: 13.45, thud: 14.3, peer: 14.8, shadow: 14.95, side: 16.2, breach: 16.6, splash2: 17.75, sitUp: 17.95, idea: 19.2,
-    twirl: 19.55, over: 19.9, wind: 20.2, thrown: 20.4, caught: 20.7, taut: 21.15, yank: 21.77, drag: 22.24, far: 25.57, end: 27.4 };
+  const T = { close: 1.8, spray: 2.3, open: 3.0, plant: 3.6, elbows: 4.1, sit: 4.7, face: 5.05, wide: 5.7, rise: 6.4, lookL: 7.15, lookR: 7.65, bang: 8.0, land: 8.32,
+    hit1: 8.75, hit2: 9.68, hit3: 10.61, glum: 11.45, sat: 12.05, thud: 12.8, peer: 13.3, shadow: 13.42, side: 14.7, breach: 15.1, splash2: 16.25, sitUp: 16.45, idea: 17.6,
+    twirl: 17.95, over: 18.3, wind: 18.6, thrown: 18.8, caught: 19.1, taut: 19.75, yank: 20.37, drag: 20.84, far: 23.77, end: 25.37 };
 
   // ---------- the set ----------
   /** The floe, far out: no shore or island in any shot from here. */
@@ -195,8 +195,20 @@
   // ---------- sound: through the game's own engine, so it lands on the frame ----------
   const said = new Set();
   const once = (k, t, now, f) => { if (now >= t && !said.has(k)) { said.add(k); f(); } };
-  const thud = big => { A.tone({ f: 95, f2: 34, d: 0.55, v: 0.75 + big * 0.25 }); A.noise({ f: 170, kind: 'lowpass', d: 0.16, v: 0.5 + big * 0.2 }); };
+  const thud = big => { const amp = 0.5 * Math.pow(2, big); // (big 0 / 0.5 / 1: -6 / -3 / 0 dB)
+    // The low tone is the weight; but a laptop plays nothing under 180 Hz and a phone nothing under 350, so the knock
+    // itself is a triangle an octave and more up and a short band of noise: that's what small speakers play of it.
+    A.tone({ f: 95, f2: 34, d: 0.55, v: 0.092 * amp }); A.tone({ f: 240, f2: 150, d: 0.3, a: 0.002, type: 'triangle', v: 0.149 * amp }); A.tone({ f: 440, f2: 230, d: 0.2, a: 0.002, type: 'triangle', v: 0.085 * amp });
+    A.noise({ f: 700, f2: 300, q: 1.5, d: 0.15, a: 0.001, v: 0.134 * amp }); A.noise({ f: 170, kind: 'lowpass', d: 0.16, v: 0.106 * amp });
+    A.noise({ f: 900, f2: 480, q: 1.4, d: 0.1, a: 0.001, v: 0.1 * amp }); }; // (the knock a phone has: 400-900 Hz)
+  /** A splash with its top end on (the game's own is all low: dull on its own in a picture this wet). */
+  const spl = (v = 0.2, d = 0.35) => { SFX.splash(P.position); A.noise({ f: 5200, f2: 2300, kind: 'highpass', d, a: 0.008, v }); };
+  /** The water of a big hit, without the game's own splash: that one is all peak, and under a thud the two stack into the limiter. */
+  const water = (v = 0.2, d = 0.5) => { A.noise({ f: 5200, f2: 2300, kind: 'highpass', d, a: 0.008, v }); A.noise({ f: 1100, f2: 420, q: 0.8, d: d * 0.8, a: 0.01, v: v * 0.6 }); };
   const whoosh = (d, v = 0.3, f = 500, f2 = 2200) => A.noise({ f, f2, q: 0.9, d, a: d * 0.35, v });
+  /** A bed: noise HELD at its level for `len` seconds (the engine's own envelope dies away from the start: a long
+   *  `d` is a long fade, and a 'wind' made that way is gone in a second or two), in over `a`, out over `r`. */
+  const bed = (f, f2, q, len, v, a = 0.5, r = 0.6, kind) => A.noise({ f, f2, q, kind, a, hold: Math.max(0, len - a - r), d: r, v });
   const blip = (f, f2, v = 0.4, t = 0, d = 0.12) => A.tone({ f, f2, d, t, type: 'triangle', v });
 
   // ---------- his moves: pose to pose (acting.js track) ----------
@@ -268,9 +280,9 @@
     { t: T.peer + 0.3, mv: 0.26, yaw: -HP, tip: 0.5, a00: -1.2, a10: -1.2, a01: 0.2, a11: 0.2 },
     { t: T.peer + 0.55, mv: 0.24, e: 'in', tip: 1.48, flat: 0, h: 0.13, px: -0.5, a00: -2.6, a10: -2.2, sq: 1 },
     { t: T.peer + 0.62, mv: 0.07, e: 'out', sq: 0.9 }, { t: T.peer + 0.82, mv: 0.2, sq: 1 },
-    { t: T.peer + 1.02, mv: 0.2, e: 'out', px: -0.85, a00: -2.0, a10: -2.7 },
-    { t: T.peer + 1.36, mv: 0.2, e: 'out', px: -1.15, a00: -2.6, a10: -2.1 },
-    { t: T.side - 0.1, mv: 0.5, px: -1.25, tip: 1.36 },
+    { t: T.peer + 0.96, mv: 0.18, e: 'out', px: -0.85, a00: -2.0, a10: -2.7 },
+    { t: T.peer + 1.2, mv: 0.18, e: 'out', px: -1.18, a00: -2.6, a10: -2.1 },
+    { t: T.side - 0.02, mv: 0.2, px: -1.25, tip: 1.36 },
     // it comes out of the water in his face: his head and arms jerk up, he's thrown back off his front with his legs in
     // the air, lands on his back, and props himself on his hands to watch it go over
     { t: T.breach - 0.12, mv: 0.16, tip: 1.22, a00: -1.5, a10: -1.4, a01: 0.7, a11: 0.9 }, // (his head comes up: the water's doing something)
@@ -294,7 +306,8 @@
     { t: T.idea + 0.04, mv: 0.14, sq: 1, a01: 0.25, a11: 0.25 },
     // the idea: a little drop as it lands, then his hand goes to the rope at his belt
     { t: T.idea + 0.1, mv: 0.1, sq: 0.9 },
-    { t: T.idea + 0.2, mv: 0.12, e: 'over', sq: 1, a10: -0.72, a11: -0.28 },
+    { t: T.idea + 0.1, mv: 0.1, a10: -0.2, a11: 0.75 },
+    { t: T.idea + 0.24, mv: 0.12, e: 'out', sq: 1, a10: -0.72, a11: -0.28 },
     { t: T.idea + 0.44, mv: 0.08, e: 'out', a10: -0.3, a11: 0.5, sq: 1.06 },
     // the rope up over his head and round; back onto his heels (the wind-up); the throw, right through, and a settle
     { t: T.twirl + 0.12, mv: 0.24, e: 'settle', a10: 0, a11: 2.75, a00: 0, a01: 0.5, l0: 0.28, l1: -0.28, tip: -0.12 },
@@ -438,7 +451,7 @@
   const hung = (a, b2, sag, side = 0, r) => lay([a, a.clone().lerp(b2, 0.3).add(V(side * 0.6, -sag * 0.8, side * 0.3)), a.clone().lerp(b2, 0.68).add(V(-side * 0.5, -sag, -side * 0.4)), b2], r);
 
   // ---------- what's in the air and on the water, every frame ----------
-  const BREATHS = [[2.05, 1], [3.45, 0.8], [4.6, 1], [5.3, 1.1], [5.65, 0.6], [5.83, 0.6], [6.02, 0.6], [7.2, 1], [7.95, 0.9], [8.55, 0.8], [8.92, 1.5], [T.sat + 0.6, 1.8], [T.thud + 0.75, 0.8], [T.sitUp + 0.85, 1.2], [T.idea + 0.5, 0.9]];
+  const BREATHS = [[T.close + 0.2, 1], [T.open + 0.25, 0.8], [T.elbows + 0.2, 1], [T.sit + 0.15, 1.1], [T.face + 0.15, 0.6], [T.face + 0.33, 0.6], [T.face + 0.52, 0.6], [T.rise + 0.3, 1], [T.lookL + 0.25, 0.9], [T.lookR + 0.2, 0.8], [T.bang + 0.12, 1.5], [T.sat + 0.6, 1.8], [T.thud + 0.75, 0.8], [T.sitUp + 0.85, 1.2], [T.idea + 0.5, 0.9]];
   function air(t, low) {
     // the floe: its bob and tip
     chunks.forEach(m => { const i = m.userData.i; m.position.y = 0.09 + Math.sin(t * (1.1 + i * 0.13) + i * 2) * 0.018; m.rotation.z = Math.sin(t * (0.9 + i * 0.1) + i) * 0.05; });
@@ -458,10 +471,10 @@
   function faceAt(t) {
     const blink = (a, d = 0.09) => t >= a && t < a + d;
     if (t < T.spray + 0.05) return { eyes: 'shut' };
-    if (t < 2.95) return { eyes: 'shut', brow: [0.1, 1], mouth: 'frown' };
-    if (t < T.open) return { eyes: (t < 3.02 || (t >= 3.1 && t < 3.16)) ? 'dot' : 'shut' };
-    if (t < T.elbows - 0.25) return { eyes: blink(3.55) ? 'shut' : 'dot', brow: [0.5, -0.3] };
-    if (t < T.sit - 0.2) return { eyes: blink(4.6) ? 'shut' : 'dot', brow: [0.7, -0.5], mouth: 'o', open: 0.6 };
+    if (t < T.spray + 0.45) return { eyes: 'shut', brow: [0.1, 1], mouth: 'frown' };
+    if (t < T.open) return { eyes: ((t >= T.open - 0.24 && t < T.open - 0.17) || (t >= T.open - 0.1 && t < T.open - 0.04)) ? 'dot' : 'shut' };
+    if (t < T.elbows - 0.25) return { eyes: blink(T.open + 0.32) ? 'shut' : 'dot', brow: [0.5, -0.3] };
+    if (t < T.sit - 0.2) return { eyes: blink(T.elbows + 0.18) ? 'shut' : 'dot', brow: [0.7, -0.5], mouth: 'o', open: 0.6 };
     if (t < T.face) return { eyes: 'big', brow: [0.8, -0.8], mouth: 'o', open: 0.8 };
     if (t < T.wide) return { eyes: 'big', brow: [0.8, -0.8], mouth: 'chatter', open: 0.5 + 0.5 * Math.sign(n1(t * 27, 7)) };
     if (t < T.lookL - 0.14) return { eyes: blink(T.rise + 0.5) ? 'shut' : 'dot', brow: [0.6, -0.6], mouth: 'frown' };
@@ -483,54 +496,59 @@
   function frame(i, fps) {
     const t = i / fps;
     // ---------- sound cues ----------
+    const WIND = 0.083, RUSH = 0.119, LEAD = 0.034; // (how loud the held beds are: set by measuring the take, see SKILL.md "The mix, by numbers")
     // wind all through, with a hole in it before the tuna comes up; water on the ice
-    once('wind0', 0, t, () => { A.noise({ f: 420, f2: 560, q: 0.4, d: T.hit1 + 0.4, a: 0.5, v: 0.13 }); A.noise({ f: 1400, f2: 900, q: 0.3, d: T.hit1, a: 1.2, v: 0.035 }); });
-    for (let n = 0; n < 9; n++) once('lap' + n, 0.3 + n * 1.05 + (n % 3) * 0.12, t, () => A.noise({ f: 700, f2: 300, kind: 'lowpass', d: 0.7, a: 0.3, v: 0.09 }));
+    once('wind0', 0.12, t, () => { bed(420, 560, 0.4, T.hit1 + 0.18, WIND, 0.4, 0.5); bed(1400, 2600, 0.3, T.hit1, WIND * 0.4, 1.0, 0.6); });
+    // (gusts over it, at the bed's own level, never evenly spaced)
+    [0.4, 3.1, 5.9].forEach((at, n) => once('gust' + n, at, t, () => A.noise({ f: 400, f2: 1400, q: 2, a: 1.2, d: 1.4, v: WIND * 4 })));
+    for (let n = 0; n < 8; n++) once('lap' + n, 0.3 + n * 1.05 + (n % 3) * 0.12, t, () => A.noise({ f: 700, f2: 300, kind: 'lowpass', d: 0.7, a: 0.3, v: 0.12 }));
     once('spray', T.spray - 0.05, t, () => A.noise({ f: 2200, f2: 700, kind: 'lowpass', d: 0.3, a: 0.02, v: 0.13 }));
     once('blinkA', T.open, t, () => blip(700, 760, 0.07, 0, 0.05));
-    once('elb', T.elbows - 0.36, t, () => whoosh(0.3, 0.07, 260, 600)); once('sitUp', T.sit - 0.3, t, () => whoosh(0.34, 0.11, 300, 900));
-    for (let n = 0; n < 3; n++) once('teeth' + n, T.face + 0.1 + n * 0.22, t, () => { for (let j = 0; j < 4; j++) A.tone({ f: 1500, f2: 1300, d: 0.018, t: j * 0.045, type: 'triangle', v: 0.05 }); });
+    once('elb', T.elbows - 0.36, t, () => whoosh(0.3, 0.17, 260, 600)); once('sitUp', T.sit - 0.3, t, () => whoosh(0.34, 0.27, 300, 900));
+    for (let n = 0; n < 3; n++) once('teeth' + n, T.face + 0.1 + n * 0.22, t, () => { for (let j = 0; j < 4; j++) A.tone({ f: 1500, f2: 1300, d: 0.018, t: j * 0.045, type: 'triangle', v: 0.125 }); });
     const step = (k, at, v = 0.3) => once(k, at, t, () => { A.tone({ f: 150, f2: 70, d: 0.09, v }); A.noise({ f: 900, kind: 'lowpass', d: 0.06, v: v * 0.5 }); });
     step('up1', T.rise - 0.1, 0.2); step('up2', T.rise + 0.3, 0.14); step('up3', T.rise + 0.54, 0.1);
-    once('lk1', T.lookL - 0.1, t, () => whoosh(0.2, 0.06, 300, 700)); once('lk2', T.lookR - 0.16, t, () => whoosh(0.28, 0.08, 300, 800));
-    once('bang', T.bang, t, () => { blip(880, 1320, 0.45); blip(1320, 1320, 0.4, 0.1, 0.22); });
-    step('land', T.land, 0.38); once('slosh', T.land + 0.05, t, () => A.noise({ f: 600, f2: 250, kind: 'lowpass', d: 0.5, a: 0.05, v: 0.12 }));
-    once('h1', T.hit1, t, () => thud(0)); once('h2', T.hit2, t, () => thud(0.5)); once('h3', T.hit3, t, () => thud(1));
+    once('lk1', T.lookL - 0.1, t, () => whoosh(0.2, 0.15, 300, 700)); once('lk2', T.lookR - 0.16, t, () => whoosh(0.28, 0.2, 300, 800));
+    once('bang', T.bang, t, () => { blip(880, 1320, 0.2); blip(1320, 1320, 0.18, 0.1, 0.22); }); // (blips are all peak: at full level they hit the limiter harder than the thuds)
+    step('land', T.land, 0.15); once('slosh', T.land + 0.05, t, () => A.noise({ f: 600, f2: 250, kind: 'lowpass', d: 0.5, a: 0.05, v: 0.12 }));
+    once('h1', T.hit1 - LEAD, t, () => thud(0.1)); once('h2', T.hit2 - LEAD, t, () => thud(0.5)); once('h3', T.hit3 - LEAD, t, () => thud(0.8)); // (each bigger, the first over his own landing just before it, the third under the THUD to come)
     for (let n = 0; n < 4; n++) step('run' + n, T.hit1 + 0.3 + n * 0.1, 0.16);
     once('skid', T.hit1 + 0.64, t, () => A.noise({ f: 2000, f2: 900, q: 0.8, d: 0.18, v: 0.09 }));
     step('j1', T.hit2 + 0.55, 0.14); step('j2', T.hit2 + 1.0, 0.14);
-    once('wind', T.hit3 + 0.3, t, () => { A.noise({ f: 380, f2: 760, q: 0.5, d: T.glum - T.hit3 - 0.3, a: 1.3, v: 0.09 }); A.tone({ f: 52, f2: 46, d: T.glum - T.hit3 - 0.4, a: 1.2, v: 0.1 }); });
-    once('wind2', T.glum, t, () => A.noise({ f: 420, f2: 520, q: 0.4, d: T.side - 0.35 - T.glum, a: 0.25, v: 0.055 }));
-    step('sat', T.sat, 0.26); once('sigh', T.sat + 0.5, t, () => A.noise({ f: 900, f2: 450, q: 0.6, d: 0.45, a: 0.2, v: 0.05 }));
-    once('under', T.thud, t, () => { thud(1); A.tone({ f: 380, f2: 240, d: 0.32, t: 0.1, type: 'triangle', v: 0.07 }); A.noise({ f: 500, f2: 200, kind: 'lowpass', d: 0.7, a: 0.05, v: 0.14, t: 0.12 }); });
+    once('wind', T.hit3 + 0.1, t, () => { bed(380, 760, 0.5, T.glum - T.hit3 - 0.1, WIND * 1.5, 0.25, 0.2); A.tone({ f: 52, f2: 46, a: 0.25, hold: T.glum - T.hit3 - 0.6, d: 0.3, v: 0.056 }); });
+    once('wind2', T.glum, t, () => bed(420, 520, 0.4, T.side - 0.62 - T.glum, WIND * 0.8, 0.25, 0.08)); // (off, quickly, half a second before the water moves: a real hole)
+    once('wind3', T.sitUp, t, () => bed(420, 560, 0.4, T.drag - T.sitUp, WIND * 0.8, 0.5, 0.3));
+    step('sat', T.sat, 0.165); once('sigh', T.sat + 0.5, t, () => A.noise({ f: 900, f2: 450, q: 0.6, d: 0.45, a: 0.2, v: 0.125 }));
+    once('under', T.thud - LEAD, t, () => { thud(1); A.tone({ f: 380, f2: 240, d: 0.32, t: 0.1, type: 'triangle', v: 0.07 }); A.noise({ f: 500, f2: 200, kind: 'lowpass', d: 0.7, a: 0.05, v: 0.14, t: 0.12 }); });
     step('seat', T.thud + 0.3, 0.2);
-    once('flop', T.peer + 0.55, t, () => { A.tone({ f: 120, f2: 60, d: 0.1, v: 0.22 }); }); once('crawl1', T.peer + 0.84, t, () => A.noise({ f: 1500, f2: 800, q: 0.7, d: 0.18, v: 0.05 })); once('crawl2', T.peer + 1.18, t, () => A.noise({ f: 1500, f2: 800, q: 0.7, d: 0.18, v: 0.05 }));
-    once('deep', T.shadow, t, () => { A.tone({ f: 62, f2: 46, d: 1.25, a: 0.45, v: 0.2 }); A.noise({ f: 260, f2: 140, kind: 'lowpass', d: 1.2, a: 0.5, v: 0.1 }); });
-    once('swell', T.side + 0.04, t, () => { A.noise({ f: 180, f2: 420, kind: 'lowpass', d: 0.44, a: 0.36, v: 0.22 }); A.tone({ f: 46, f2: 72, d: 0.42, a: 0.34, v: 0.18 }); });
-    once('burst', T.breach - 0.03, t, () => { thud(0.7); SFX.splash(P.position); A.noise({ f: 500, f2: 2600, q: 0.6, d: 0.55, a: 0.03, v: 0.4 }); A.noise({ f: 900, f2: 300, kind: 'lowpass', d: 0.9, a: 0.02, v: 0.3 }); });
-    once('burst2', T.breach + 0.08, t, () => SFX.splash(P.position));
-    once('rain', T.breach + 0.4, t, () => A.noise({ f: 3000, f2: 1800, q: 0.5, d: 0.6, a: 0.1, v: 0.07 }));
-    step('back', T.breach + 0.57, 0.3); step('back2', T.breach + 0.87, 0.13);
-    once('in', T.breach + 0.9, t, () => { SFX.splash(P.position); thud(0.5); A.noise({ f: 400, f2: 2400, q: 0.6, d: 0.5, a: 0.03, v: 0.34 }); A.noise({ f: 700, f2: 250, kind: 'lowpass', d: 0.8, a: 0.02, v: 0.26 }); });
+    once('flop', T.peer + 0.55, t, () => { A.tone({ f: 120, f2: 60, d: 0.1, v: 0.22 }); }); once('crawl1', T.peer + 0.8, t, () => A.noise({ f: 1500, f2: 800, q: 0.7, d: 0.18, v: 0.13 })); once('crawl2', T.peer + 0.98, t, () => A.noise({ f: 1500, f2: 800, q: 0.7, d: 0.14, v: 0.13 }));
+    once('deep', T.shadow, t, () => { A.tone({ f: 62, f2: 46, d: 0.35, a: 0.4, v: 0.1 }); A.tone({ f: 186, f2: 138, d: 0.35, a: 0.4, type: 'triangle', v: 0.04 }); A.noise({ f: 260, f2: 140, kind: 'lowpass', d: 0.35, a: 0.4, v: 0.05 }); });
+    once('swell', T.side + 0.08, t, () => { A.noise({ f: 180, f2: 420, kind: 'lowpass', d: 0.1, a: 0.3, v: 0.14 }); A.tone({ f: 46, f2: 72, d: 0.1, a: 0.3, v: 0.114 }); A.noise({ f: 250, f2: 900, q: 1.5, d: 0.05, a: 0.3, v: 0.2 }); });
+    // (the biggest thing in the scene by how LONG its water lasts, not by a peak: a peak only meets the limiter and comes out smaller)
+    once('burst', T.breach - 0.03 - LEAD, t, () => { thud(0.05); A.noise({ f: 500, f2: 2600, q: 0.6, d: 0.8, a: 0.03, v: 0.09 }); A.noise({ f: 900, f2: 300, kind: 'lowpass', d: 1.3, a: 0.02, v: 0.068 }); A.noise({ f: 6000, f2: 2000, kind: 'highpass', d: 0.7, a: 0.005, v: 0.1 }); A.noise({ f: 1300, f2: 420, q: 0.8, d: 0.55, a: 0.012, v: 0.095 }); }); // (a body of water under the hiss: 0.4-1.3 kHz for half a second, or the burst is a 'tss')
+    once('burst2', T.breach + 0.08, t, () => water(0.16, 0.5));
+    once('rain', T.breach + 0.4, t, () => A.noise({ f: 5000, f2: 2500, kind: 'highpass', d: 0.64, a: 0.06, v: 0.155 }));
+    step('back', T.breach + 0.57 - LEAD, 0.18); step('back2', T.breach + 0.87, 0.13);
+    once('in', T.breach + 0.9, t, () => { water(0.17, 0.6); thud(0.1); A.noise({ f: 400, f2: 2400, q: 0.6, d: 0.7, a: 0.03, v: 0.135 }); A.noise({ f: 700, f2: 250, kind: 'lowpass', d: 0.8, a: 0.02, v: 0.22 }); });
     for (let n = 0; n < 3; n++) once('shake' + n, T.sitUp + 0.48 + n * 0.1, t, () => A.noise({ f: 2600, f2: 1600, q: 0.8, d: 0.07, v: 0.06 }));
     once('far', T.idea - 0.56, t, () => SFX.splash(P.position));
-    once('idea', T.idea, t, () => { blip(660, 660, 0.3, 0, 0.09); blip(990, 990, 0.35, 0.09, 0.2); });
-    once('belt', T.idea + 0.3, t, () => A.tone({ f: 170, f2: 120, d: 0.06, v: 0.14 })); once('belt2', T.idea + 0.42, t, () => whoosh(0.16, 0.1, 500, 900));
-    for (let n = 0; n < 5; n++) once('w' + n, T.twirl + 0.2 + n * 0.17 - n * n * 0.008, t, () => whoosh(0.15, 0.13 + n * 0.02, 380, 900));
+    once('idea', T.idea - LEAD, t, () => { blip(660, 660, 0.15, 0, 0.09); blip(990, 990, 0.17, 0.09, 0.2); });
+    once('belt', T.idea + 0.3, t, () => A.tone({ f: 170, f2: 120, d: 0.06, v: 0.14 })); once('belt2', T.idea + 0.42, t, () => whoosh(0.16, 0.25, 500, 900));
+    for (let n = 0; n < 5; n++) once('w' + n, T.twirl + 0.2 + n * 0.17 - n * n * 0.008, t, () => whoosh(0.15, 0.3 + n * 0.03, 380, 900));
     once('throw', T.thrown, t, () => whoosh(0.35, 0.3)); once('s3', T.caught - 0.42, t, () => { SFX.splash(P.position); A.noise({ f: 500, f2: 2200, q: 0.6, d: 0.4, a: 0.03, v: 0.2 }); });
-    once('gotcha', T.caught + 0.16, t, () => { blip(1100, 1500, 0.4, 0, 0.1); A.tone({ f: 230, f2: 170, d: 0.16, type: 'triangle', v: 0.35 }); });
-    once('taut', T.taut + 0.12, t, () => { A.tone({ f: 250, f2: 150, d: 0.2, type: 'triangle', v: 0.45 }); A.tone({ f: 500, f2: 480, d: 0.12, type: 'triangle', v: 0.12 }); });
+    once('gotcha', T.caught + 0.16, t, () => { blip(1100, 1500, 0.17, 0, 0.1); A.tone({ f: 230, f2: 170, d: 0.16, type: 'triangle', v: 0.15 }); });
+    once('taut', T.taut + 0.12 - LEAD, t, () => { A.tone({ f: 250, f2: 150, d: 0.2, type: 'triangle', v: 0.18 }); A.tone({ f: 500, f2: 480, d: 0.12, type: 'triangle', v: 0.06 }); });
     once('slip1', T.taut + 0.3, t, () => A.noise({ f: 2100, f2: 1300, q: 0.8, d: 0.07, v: 0.1 })); once('slip2', T.taut + 0.48, t, () => A.noise({ f: 2100, f2: 1300, q: 0.8, d: 0.07, v: 0.12 }));
     once('creak', T.taut + 0.2, t, () => A.tone({ f: 190, f2: 230, d: 0.4, a: 0.1, type: 'triangle', v: 0.1 }));
-    once('yank', T.yank, t, () => { A.tone({ f: 210, f2: 120, d: 0.16, type: 'triangle', v: 0.4 }); blip(900, 520, 0.2, 0.05, 0.24); });
+    once('yank', T.yank - LEAD, t, () => { A.tone({ f: 210, f2: 120, d: 0.16, type: 'triangle', v: 0.18 }); blip(900, 520, 0.12, 0.05, 0.24); });
     once('scrape', T.yank + 0.07, t, () => A.noise({ f: 2100, f2: 1100, q: 0.8, d: 0.12, a: 0.02, v: 0.14 })); once('gone', T.yank + 0.14, t, () => whoosh(0.4, 0.34, 500, 1900));
     once('rock', T.yank + 0.34, t, () => { A.noise({ f: 600, f2: 250, kind: 'lowpass', d: 0.6, a: 0.05, v: 0.14 }); SFX.splash(P.position); });
-    once('dragw', T.drag, t, () => { whoosh(2.6, 0.3, 700, 1500); SFX.splash(P.position); });
+    once('dragw', T.drag, t, () => { bed(700, 1500, 0.9, T.far - T.drag, RUSH, 0.3, 0.3); spl(0.2); });
     once('sp1', T.drag + 0.2, t, () => SFX.splash(P.position)); once('sp2', T.drag + 1.0, t, () => SFX.splash(P.position));
-    [0.4, 0.78, 1.16].forEach((at, n) => once('hv' + n, T.drag + at, t, () => whoosh(n === 2 ? 0.3 : 0.16, 0.1 + n * 0.02, 300, 520)));
-    once('heave', T.drag + 1.58, t, () => { whoosh(0.4, 0.2, 400, 1300); SFX.splash(P.position); }); once('mount', T.drag + 2.06, t, () => { thud(0.3); SFX.splash(P.position); });
-    once('whee', T.drag + 2.85, t, () => { blip(520, 1040, 0.25, 0, 0.25); });
-    once('sp3', T.far + 0.3, t, () => SFX.splash(P.position)); once('rideBed', T.far, t, () => { whoosh(1.7, 0.2, 600, 1100); A.noise({ f: 500, f2: 300, kind: 'lowpass', d: 1.7, a: 0.1, v: 0.1 }); });
+    [0.4, 0.72, 1.14].forEach((at, n) => once('hv' + n, T.drag + at, t, () => whoosh(n === 2 ? 0.3 : 0.16, [0.25, 0.27, 0.38][n], 300, 520)));
+    once('heave', T.drag + 1.58, t, () => { whoosh(0.4, 0.2, 400, 1300); spl(0.2); }); once('mount', T.drag + 1.8 - LEAD, t, () => { thud(0.12); water(0.13, 0.5); });
+    once('whee', T.drag + 2.6, t, () => { blip(520, 1040, 0.15, 0, 0.25); });
+    once('sp3', T.far + 0.3, t, () => SFX.splash(P.position)); once('rideBed', T.far - 0.28, t, () => { bed(600, 1100, 0.9, T.end - T.far + 0.18, RUSH * 0.8, 0.3, 0.7); bed(500, 300, 1, T.end - T.far + 0.18, RUSH * 0.5, 0.3, 0.7, 'lowpass'); }); // (in under the drag bed's tail: started on the cut, there was a hole)
 
     // ---------- the picture ----------
     let shot, low = true;
@@ -544,7 +562,7 @@
     farSea.visible = t >= T.hit3 && t < T.glum; openSea.visible = !farSea.visible;
     for (const o of bay) if (o !== P) { if (farSea.visible) { if (o.visible) { o.visible = false; o.userData.put = 1; } } else if (o.userData.put) { o.visible = true; o.userData.put = 0; } }
     pills[0].at = pills[1].at = null;
-    tuna.g.scale.setScalar(2.3);
+    tuna.g.scale.setScalar(2.3); tuna.g.children[2].scale.y = 1;
     const f = faceAt(t);
     // (his belt, till he takes it off for a rope: it draws in under his hand over four frames, and is gone)
     { const k = clamp((t - T.idea - 0.3) / 0.13), [band, knob, tail] = rags.userData.belt; band.visible = knob.visible = tail.visible = k < 1; band.scale.set(1 - 0.16 * k, 1 - 0.16 * k, 1); knob.scale.set(0.035 * (1 - k), 0.035 * (1 - k), 0.03 * (1 - k)); tail.scale.setScalar(1 - k); }
@@ -591,7 +609,7 @@
       else if (t < T.hit3) shot = { ...hit(t, T.hit2, wide(15, 0.55), F.clone().setY(0.5)), fogNear: 80, fogFar: 200 };
       else { const c = t - T.hit3, pull = ease((c - 0.2) / (T.glum - T.hit3 - 0.2)); K.vignette(0.38 + 0.4 * pull);
         // (one ripple going out from his floe, soft and broken: where he is, without drawing a target on him)
-        { const r = rings[0], k = clamp(c / 1.5); r.visible = true; r.scale.setScalar(mix(3, 9, easeOut(k))); r.userData.mat.opacity = 0.32 * Math.sin(k * Math.PI); r.rotation.z = 0.7; }
+        { const r = rings[0], k = clamp(c / 1.2); r.visible = true; r.scale.setScalar(mix(3, 9, easeOut(k))); r.userData.mat.opacity = 0.32 * Math.sin(k * Math.PI); r.rotation.z = 0.7; }
         shot = { ...hit(t, T.hit3, wide(mix(56, 80, pull), mix(1.18, 1.27, pull)), F.clone()), fogNear: 300, fogFar: 900, far: 500, roll: c * 0.012 }; }
     } else if (t < T.peer) {
       // ----- beaten. A sigh. And THUD: something under the ice -----
@@ -604,7 +622,7 @@
     } else if (t < T.side) {
       // ----- over his shoulder, down at the water: he crawls to the edge, and a long dark shape goes by under it -----
       act(t, f);
-      const k = (t - T.peer) / (T.side - T.peer), sk = clamp((t - T.shadow) / 1.22);
+      const k = (t - T.peer) / (T.side - T.peer), sk = clamp((t - T.shadow) / 0.98);
       dark.visible = sk > 0 && sk < 1;
       dark.position.set(F.x - 3.45 + Math.sin(sk * Math.PI) * 0.45, 0.19, F.z + mix(-5.2, 5.6, EASE.io(sk) * 0.6 + sk * 0.4));
       dark.rotation.y = -HP + Math.cos(sk * Math.PI) * 0.12 + Math.sin(t * 9) * 0.05; dark.material.opacity = 0.5 * bump(sk);
@@ -714,22 +732,24 @@
       // rope (short, short, and a long heave: never a steady beat), its tail flicking at each; at its tail he sinks
       // (the wind-up), comes up out of the water turning upright as he goes, and lands on its back on his feet in a
       // deep squat: it sinks under him and kicks; he rocks forward, back, arms going, and finds his feet; then joy -----
-      const TO = R1, a = t - T.drag, PULLS = [[0.4, 0.14, 0.28], [0.78, 0.14, 0.28], [1.16, 0.28, 0.44]], J0 = 1.58, J1 = 2.06; // (three tugs with a rest between, the last a long heave)
+      const TO = R1, a = t - T.drag, PULLS = [[0.4, 0.14, 0.26], [0.72, 0.13, 0.24], [1.14, 0.3, 0.5]], J0 = 1.58, J1 = 1.8; // (three tugs with a rest between, the last a long heave)
       let haul = 0, surge = 0, reach = 0; for (const [at, d, share] of PULLS) { haul += share * EASE.out((a - at) / d); surge += bump((a - at) / d); reach += bump((a - at + 0.1) / 0.11); } // (each pull: a reach held a moment, then the surge)
       const jump = clamp((a - J0) / (J1 - J0)), on = ease(jump), dunk = bump((a - J0 + 0.14) / 0.16), landed = a - J1, joy = ease((landed - 0.7) / 0.3);
       // (the tuna under his weight: down as he lands on it, its tail going hard; a flick at each pull)
       const dip = 0.24 * sway(landed, 8.5, 3.4) + 0.06 * sway(a - J0 + 0.14, 10, 5), kickT = bump(landed / 0.5) + 0.5 * surge + 0.6 * bump((a - J0 + 0.2) / 0.3);
       const { c, pitch, knot } = swimming(t, RIDE1, TO, 20, T.drag, { brow: 1, smile: -1, look: [-1, 0.5], flare: 0.8, wide: 0.2 + 0.7 * bump(landed / 0.35), amp: 0.11 + 0.12 * kickT }, dip);
       const yawTo = Math.atan2(TO.x, TO.z), tailAt = c.clone().sub(TO.clone().multiplyScalar(1.9));
+      // (its second back fin lies down as he comes aboard, as a tuna's does into its groove: he lands and stands where it was)
+      tuna.g.children[2].scale.y = 1 - 0.96 * ease((a - J0 + 0.3) / 0.25);
       // dragged: on his front in the water, a third of him under, bouncing off it, never the same bounce twice
       const skim = Math.abs(Math.sin(a * 10 + n1(a * 3, 4) * 1.2)) * (0.1 + 0.05 * n1(a * 2, 5)), behind = mix(2.5, 0.3, haul);
       // (up the rope he comes out to its near side: a body's width clear of its tail, which would go through him, and of its flank)
       const inWater = tailAt.clone().sub(TO.clone().multiplyScalar(Math.max(behind, 0.55))).add(sideOf(TO).multiplyScalar(1.05 * ease(haul * 1.15))).setY(-0.02 + skim * (1 - 0.6 * haul) + 0.12 * haul - 0.05 * surge);
       // (something to push off: he gets his boots up onto its tail stalk, in front of the fin, and gathers there)
-      const gather = ease((a - J0 + 0.24) / 0.16), stalk = tuna.g.localToWorld(V(-0.64, tuna.radAt(-0.64) * 0.96, 0.02)), drag = inWater.clone().lerp(stalk, gather);
+      const gather = ease((a - J0 + 0.24) / 0.16), stalk = tuna.g.localToWorld(V(-0.6, tuna.radAt(-0.6) * 0.96, 0.03)), drag = inWater.clone().lerp(stalk, gather);
       // onto its back: where his feet come down, and the arc there. He turns upright all the way through the air.
       // (he lands at the back of it, behind its fin, and steps up to where he rides as he finds his feet)
-      const step = ease((landed - 0.14) / 0.45), feetUp = tuna.g.localToWorld(V(mix(-0.42, -0.2, step), tuna.radAt(mix(-0.42, -0.2, step)) * 0.96, 0)), arc = Math.sin(jump * Math.PI) * 0.2, tuck = bump(jump);
+      const step = ease((landed - 0.14) / 0.45), feetUp = tuna.g.localToWorld(V(mix(-0.5, -0.2, step), tuna.radAt(mix(-0.5, -0.2, step)) * 0.96, 0)), arc = Math.sin(jump * Math.PI) * 0.26, tuck = bump(jump);
       const feet = drag.clone().lerp(feetUp, on).add(V(0, arc, 0));
       // (the landing: a deep squat for two frames, up out of it, and a rock forward, back, and still)
       const squat = landed < 0 ? 1 : landed < 0.07 ? mix(1.1, 0.7, landed / 0.07) : landed < 0.14 ? 0.7 : mix(0.7, 1, EASE.settle((landed - 0.14) / 0.34));
@@ -760,6 +780,7 @@
       // ----- from behind: the market comes into sight, small and far off across the water, and the picture fades on it -----
       const TO = R2, a = t - T.far;
       const { c, pitch, knot } = swimming(t, DOCKR, TO, 13, T.far, { brow: 1, smile: -1 });
+      tuna.g.children[2].scale.y = 0.04;
       chef({ feet: deck(), yaw: Math.atan2(TO.x, TO.z), lean: -0.28 + pitch * 0.6, roll: Math.sin(t * 5.2) * 0.1, legs: [0.38 + pitch, 0.18 + pitch],
         arms: [[-0.95, 0.05], [0, 2.5 + Math.sin(a * 16) * 0.35]], f: { eyes: 'happy', mouth: 'grin' } });
       P.updateMatrixWorld(true);
@@ -768,7 +789,7 @@
       const toDock = DOCK.clone().sub(c).setY(0).normalize(), camAt = c.clone().sub(toDock.clone().multiplyScalar(11.5)).add(sideOf(toDock).multiplyScalar(-0.35)).setY(3.4);
       shot = operate({ pos: camAt, look: c.clone().add(toDock.multiplyScalar(18)).setY(-0.1), fov: 27, fogNear: 55, fogFar: 150 }, t, 1.2, 14);
       sprayT -= 1 / fps; if (sprayT <= 0) { sprayT = 0.1; FX.splashFx(c.clone().sub(TO.clone().multiplyScalar(1.4)), 0.1); }
-      K.fade(ease((a - 1.25) / 0.55));
+      K.fade(ease((a - 1.02) / 0.55));
       low = false;
     }
     air(t, low);
@@ -782,7 +803,7 @@
     for (const p of pills) {
       if (!p.at || t < p.t0 || t >= p.t1) { p.el.style.transform = 'scale(0)'; continue; }
       const s = p.at.clone().project(cam), k = clamp((t - p.t0) / 0.14);
-      p.el.style.transform = `translate(${(s.x + 1) / 2 * w}px, ${(1 - s.y) / 2 * h}px) scale(${(k + 0.5 * Math.sin(k * Math.PI)) * 1.5})`;
+      p.el.style.transform = `translate(${(s.x + 1) / 2 * w}px, ${Math.max(52, (1 - s.y) / 2 * h)}px) scale(${(k + 0.5 * Math.sin(k * Math.PI)) * 1.5})`;
     }
   };
   window.cine = {

@@ -163,7 +163,30 @@
   /** Black over everything, 0 to 1. */
   const fade = k => { fadeEl.style.opacity = clamp(k); };
 
-  window.K = { R, T3, V, clamp, ease, easeIO, easeOut, lerp, path, caption, letterbox, lids, fade, vignette, sky,
+  // ---------- a held camera, and noise (SKILL.md "Weight, and not looking machine-made") ----------
+  /** Smooth noise, -1..1, never repeating: for whatever's held (a camera, a breath, a flame's lean). A sine is a machine. */
+  const n1 = (x, s = 0) => { const h = q => { const v = Math.sin(q * 127.1 + s * 311.7) * 43758.5453; return v - Math.floor(v); };
+    const i = Math.floor(x), f = x - i, u = f * f * (3 - 2 * f); return (h(i) + (h(i + 1) - h(i)) * u) * 2 - 1; };
+  /** A hand on the camera: the shot `s` drifts a little about what it's looking at, never the same way twice (`amt` 1 is a
+   *  steady hand, 2 a long lens or a nervous one; `seed` a number of its own per shot). Returns a new shot. */
+  function held(s, t, amt = 1, seed = 0) {
+    const d = s.pos.distanceTo(s.look), w = d * Math.tan((s.fov ?? 40) * Math.PI / 360);
+    const nx = n1(t * 1.3, seed) * 0.55 + n1(t * 3.1, seed + 1) * 0.3 + n1(t * 6.3, seed + 2) * 0.15, ny = n1(t * 1.1, seed + 3) * 0.55 + n1(t * 2.9, seed + 4) * 0.3 + n1(t * 5.7, seed + 5) * 0.15;
+    const fw = s.look.clone().sub(s.pos).normalize(), rt = fw.clone().cross(V(0, 1, 0)).normalize(), up = rt.clone().cross(fw);
+    return { ...s, look: s.look.clone().add(rt.multiplyScalar(nx * w * 0.055 * amt)).add(up.multiplyScalar(ny * w * 0.046 * amt)), roll: (s.roll ?? 0) + n1(t * 0.7, seed + 6) * 0.011 * amt };
+  }
+  /** Something heavy happened at `t0`: the picture's knocked (by `amp` of its height), and takes most of a second to steady. */
+  function jolt(s, t, t0, amp = 0.04, f = 34) {
+    const dt = t - t0; if (dt < 0 || dt > 0.9) return s;
+    const w = s.pos.distanceTo(s.look) * Math.tan((s.fov ?? 40) * Math.PI / 360), q = Math.exp(-5.5 * dt);
+    s.look = s.look.clone().add(V(Math.sin(dt * f * 0.7 + 1) * 0.4, -Math.cos(dt * f), 0).multiplyScalar(amp * w * q)); s.roll = (s.roll ?? 0) + Math.sin(dt * f * 0.6) * amp * 0.25 * q;
+    return s;
+  }
+  /** A bed of noise through the game's audio (`A` = audio.ts): HELD at `v` for `len` seconds, in over `a`, out over `r`.
+   *  (The engine's own envelope fades from the start, so a long `d` is a long fade: a 'wind' made that way is gone in a
+   *  second. And nothing sounds on a take's first frames: start a bed at 0.12 s, not 0.) */
+  const bed = (A, f, f2, q, len, v, a = 0.5, r = 0.6, kind) => A.noise({ f, f2, q, kind, a, hold: Math.max(0, len - a - r), d: r, v });
+  window.K = { R, T3, V, clamp, ease, easeIO, easeOut, lerp, path, caption, letterbox, lids, fade, vignette, sky, n1, held, jolt, bed,
     set cam(s) { shot = s; }, get cam() { return shot; },
     /** Motion blur this frame: { n: draws, at(k 0..1): the camera { pos, look } across the frame } or null. */
     set blur(b) { blur = b; },

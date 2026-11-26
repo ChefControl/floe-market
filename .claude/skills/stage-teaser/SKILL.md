@@ -45,8 +45,9 @@ his shades with a glint, "Hello, Chef." as a subtitle in the game's toast, a sma
 Examples: `examples/trailer/` (the 16:9 store trailer for #156, 72 s: `kit.js` — the camera override, captions in the
 game's banner lettering, letterbox, fades, the flag string taken down — then one script per take (`s1.js` the ice
 market, `s2.js` Floe Sushi and the knocking hatch, `k.js` the knock, `fa.js`/`fb.js`/`fc.js` fight night, `e.js` the
-end card, `bed.js` a music bed), `takes.sh` to render them all, `edl.json` the edit (version 1; `edl-v4.json` is the current cut: the owner's
-script after the polish pass, with `k2.js` its ending and the 27 s opening; `edl-v3.json` goes with the older 15 s opening), `cut.py` to assemble the Steam
+end card, `bed.js` a music bed), `takes.sh` to render them all, `edl.json` the edit (version 1; `edl-v5.json` is the current cut: the owner's
+script, the 25 s opening, no night scene, ending on the hatch (`h.js`); `edl-v4.json` is the same with the night scene
+`k2.js`; `edl-v3.json` goes with the older 15 s opening in git history), `cut.py` to assemble the Steam
 master and a phone copy, `camprobe*.js` to try cameras).
 `examples/hello-chef-cine.js` (the whole cinematic: night lighting, a real hole, smoke, silhouette, crash
 zoom, movie bars, subtitle), `examples/hello-chef-sound.js` (its score), `examples/fight-night-director.js` (a
@@ -158,6 +159,50 @@ with `applyUnlock`, a dawn sky dome, the game's toast and tip pill shown as over
   - **Review on consecutive frames**, not just every tenth: ask the outside reviewer to tile 30 frames in a row for
     each action and read the spacing. Give them the rig's limits (a rigid toy: no knees, elbows or neck) and the
     length budget, or half the notes will ask for a different rig and more time.
+- **Sound a laptop and a phone can play** (found by a sound review done from measurements, `examples/trailer/sound-report.py`
+  and `bands.py`; nobody in the loop can listen, so measure):
+  - **A thud made of a low sine is silence on small speakers** (nothing under 180 Hz on a laptop, 350 on a phone).
+    Keep the sine for weight but turn it down, and make the knock itself from a triangle an octave or two up
+    (240→150 Hz, 440→230 Hz) and a short band of noise (700→300 Hz). Measure every hit through `highpass=f=180`
+    and `f=350` over its first 300 ms: about -18 to -20 dBFS above 180 Hz for the big ones.
+  - **A bed must HOLD.** The engine's envelope is attack then an exponential fade over `d`: a "wind" with a long `d`
+    is gone in a second. Use `hold` (`K.bed(A, f, f2, q, len, v)` in kit.js). And nothing sounds on a take's first
+    frames (the audio isn't running yet): start beds at 0.12 s, not 0.
+  - **The game's own sounds keep going under your quiet.** A busy state of the game (the restaurant) ticks along;
+    with the music cut that is all there is in a "silence", and under a logo card. For a take that should be
+    quiet call `A.dimWorld(0, 0.03)` on its first frames (not `hushWorld`: game.ts sets that afresh every tick)
+    and send the take's own cues out with `bus: 'cue'`, which it leaves alone.
+  - **Hits a frame early.** A low tone takes 40-50 ms to reach a quarter of its peak: started on the frame it is
+    heard late. Start impacts one frame (34 ms) before their picture.
+  - **Don't feed the limiter.** With +17 to +20 dB on a take, a thud at full level takes 7-15 dB of limiting and
+    every hit comes out the same size. Step the hits in the script (-6 / -3 / 0 dB), keep only the biggest near the
+    ceiling, and check them after the cut. AAC adds about 0.5-1 dB of true peak over the limiter's ceiling:
+    `cut.py` limits at 0.74 and adds 1 dB after it, to deliver about -16.4 LUFS at -1 dBTP.
+    `examples/trailer/prelimit.py <takes> <edl>` prints each section's peaks BEFORE the limiter against its
+    ceiling: get every hit within a decibel of it. When a take is over, lower its gain in the EDL and raise its
+    beds in the script by as much; short blips are all peak (2-4 dB down costs nothing); and the game's own
+    `SFX.splash` is the peakiest thing there is (for a big hit use filtered noise, `water()` in o.js).
+  - **A whoosh lasts as long as its blur.** An attack-then-fade riser is gone a second before the smear is: hold a
+    rush under the whole of it (`hold`), and leave a third of a second of air before the landing.
+  - **Quiet is not a dead track.** Digital silence in a "stillness" or under a logo card reads as the sound
+    failing: keep a breath of the bed (about -42 dBFS) under one, a short tail of room under the other.
+  - **A quiet before a hit has to be made**: stop the bed half a second early with a short release, move any small
+    cue out of the gap, and start the swell after it. Then measure the gap, full band and above 350 Hz.
+  - **Buried cues**: anything under about +8 dB over the bed at its moment (cloth, a sigh, a look) isn't heard.
+  - **Splashes need a top end** (a high-passed noise 5→2 kHz with the game's own low splash): `spl()` in o.js.
+  - **A rung bell isn't a clock**: jitter each stroke's time and strength.
+- **An ending without a reveal** (the owner cut the night scene, the blast and "Hello, Chef."): end on not knowing.
+  `h.js`: three thuds that get harder and are NOT evenly spaced, the lid rattling down, about a second of real
+  stillness, then the lid lifts onto dark and two glints appear, blink (12 frames on, 3 off, 12 on: any less and
+  the blink is a glitch), a held look, and it cuts to black. From this state on the game has a hatch of its own lying
+  shut on the same spot: under a lifted lid it shows as a second lid, ring and all. Find it (`instanceof FG.Hatch`)
+  and hide it every frame; a black leaf hinged with the lid and lifting half as far keeps the crack dark.
+  A card that fades in after black needs a black layer behind it, or it fades in over the live game (l.js).
+- **Every frame once.** `cut.py` used to hand ffmpeg a list of single JPEGs: each was read at the image reader's
+  25 fps, and the 30 fps film showed one frame twice and skipped the next, every sixth frame, through four
+  versions. No still shows it and no contact sheet either. `cut.py` now links the frames into one numbered
+  sequence, counts the frames in the master, and `examples/trailer/repeats.py <film> [still ranges]` measures
+  frame-to-frame change: run it on every master. (Found by two outside reviewers who measured rather than looked.)
 - **The mix, by numbers** (`check-audio.mjs` on the master, per second): the three thuds and the blast are the
   loudest things (about -11 dB mean for their second), music sections sit at -14 to -18, a suspense hold at -25 to
   -28, and the whole at about -16 LUFS. A music entrance 10 dB under the hit before it reads as "the music is
@@ -170,6 +215,9 @@ with `applyUnlock`, a dawn sky dome, the game's toast and tip pill shown as over
   centimetres up and down) or the water turns to crumpled foil.
 - **One take per place, several shots per take.** A take is one address and one clock; hard cuts inside it are just
   a new `K.cam` path from a given time. Cut takes together in assembly.
+- **One beat grid across a music join.** A bed laid to the picture's cut and a take whose own tune enters a moment
+  later can be a fraction of a beat apart (0.17 s here: a stumble). Find both tunes' onsets (an energy envelope's
+  rises), then move the bed's start so its beats run into the next tune's first beat, and lengthen it to meet it.
 - **Music as beds**: render the game's own music for a place with `--mute sfx,amb --sound-only` and a do-nothing script
   (`examples/trailer/bed.js`), and the takes with `--mute music`; lay the beds under the cut with crossfades at the act
   changes. A scene with its own score (the knock's bass) keeps its music in the take.

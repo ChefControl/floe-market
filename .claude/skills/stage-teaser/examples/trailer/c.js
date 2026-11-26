@@ -1,18 +1,21 @@
 // Take C, the campfire (?stage=1&pile=14 as a new game; acting.js and campfire.js before this). That night: the chef
 // sits by a fire next to his cut-up tuna, about to roast a piece, when a customer at the lone stand starts hammering
 // its bell and waving money. He looks at the fish. He looks at the customer. "$".
+// Acting keyed pose to pose (acting.js track), cameras held (kit.js held/jolt), nothing on a fixed wobble: the lessons of
+// the opening (SKILL.md "Weight, and not looking machine-made") applied here.
 (async () => {
   while (!window.K || !window.Acting || !window.Campfire) await new Promise(r => setTimeout(r, 50));
-  const { V, clamp, ease, easeOut, easeIO, T3 } = K;
+  const { V, clamp, ease, easeOut, easeIO, T3, n1 } = K;
   const { Group, Mesh, MeshLambertMaterial, MeshBasicMaterial, CylinderGeometry, SphereGeometry, BoxGeometry } = T3;
   const { scene } = K.R;
   const ACT = await Acting();
   const { player } = await window.__mod('player.ts');
   const CT = await window.__mod('counters.ts'), STG = await window.__mod('stage.ts'), IT = await window.__mod('items.ts');
   const FX = await window.__mod('fx.ts'), A = await window.__mod('audio.ts'), ST = await window.__mod('stations.ts');
-  const mix = (a, b, k) => a + (b - a) * k;
+  const mix = (a, b, k) => a + (b - a) * k, bump = k => Math.sin(clamp(k) * Math.PI);
+  ACT.EASE.settle = k => { k = clamp(k); return k < 0.7 ? 1.06 * ease(k / 0.7) : 1.06 - 0.06 * ease((k - 0.7) / 0.3); };
   const BEAT = 60 / 92, at = n => n * BEAT;
-  const T = { ding: at(2), chef: at(4), fish: at(4.6), stand: at(6), idea: at(8), up: at(10.4), end: at(12) };
+  const T = { ding: at(2), chef: at(4), fish: at(5.2), stand: at(6), idea: at(8), up: at(10.4), end: at(12) }; // (his startle gets a landing and a held look before the cut to the fish)
 
   // ---------- the set: a fire by the pile of fillets, at the dock's sea end; the stand is 12 m off to the south ----------
   const FY = 0.15, FIRE = V(0.95, FY, -3.55), SEAT = V(0.0, FY + 0.13, -3.75), PILE = V(2.1, FY, -5.0), BELL = V(2.05, 1.1, 8.3);
@@ -45,6 +48,31 @@
   const yawTo = (from, to) => Math.atan2(to.x - from.x, to.z - from.z);
   const toFire = yawTo(SEAT, FIRE), toPile = yawTo(SEAT, PILE), toStand = yawTo(SEAT, BELL);
 
+  // The chef, pose to pose. h: his hips over where he sits; up: 0 sitting, legs out, to 1 on his feet; arms [swing, out].
+  // He's seen in three shots: the wide (till the bell), his face (the startle), and from the idea on.
+  const S = ACT.track([
+    { t: 0, h: 0, yaw: toFire, tip: 0.12, roll: 0, up: 0, a00: 0.3, a01: 0.15, a10: -1.15, a11: 0.1, sq: 1 },
+    // (turning his supper over the fire: a lean in, and back)
+    { t: 0.75, mv: 0.4, tip: 0.2, a10: -1.25 }, { t: T.ding + 0.2, mv: 0.5, tip: 0.1, a10: -1.1 },
+    // the bell: he starts (up off his seat, his arms going different ways), comes down, and holds, wide-eyed
+    // (six calm frames on his face first, so the start is seen to happen, not cut into)
+    { t: T.chef + 0.3, mv: 0.09, e: 'out', h: 0.13, sq: 1.1, a00: -0.2, a01: 0.85, a10: -0.9, a11: 0.5, tip: 0 },
+    { t: T.chef + 0.46, mv: 0.14, e: 'in', h: 0, sq: 1.02 }, { t: T.chef + 0.52, mv: 0.06, e: 'out', sq: 0.9 },
+    { t: T.chef + 0.72, mv: 0.2, e: 'settle', sq: 1, a00: 0.2, a01: 0.3, a10: -0.9, a11: 0.2, tip: 0.06 },
+    // (out of shot: he looks at his fish, then at the stand; when the shot comes back he's still looking at it)
+    { t: T.fish + 0.3, mv: 0.3, yaw: toPile }, { t: T.stand + 0.35, mv: 0.35, yaw: toStand, a10: 0 },
+    // the idea: one more look at the fish (a glance: quick there, a hold, back), then round to us, a drop as it lands
+    { t: T.idea + 0.42, mv: 0.16, e: 'settle', yaw: mix(toStand, toPile, 0.55), tip: 0.1 },
+    { t: T.idea + 0.72, mv: 0.14, yaw: toStand },
+    { t: T.idea + 0.86, mv: 0.1, sq: 0.9, tip: 0.14 },
+    { t: T.idea + 1.06, mv: 0.2, e: 'settle', yaw: 0.9, sq: 1.04, tip: 0 }, { t: T.idea + 1.24, mv: 0.16, sq: 1 },
+    // up: forward over his knees (the wind-up), a spring, arms up one after the other, down and a settle
+    { t: T.up - 0.02, mv: 0.16, tip: 0.36, sq: 0.9, a00: 0.5, a10: 0.4 },
+    { t: T.up + 0.2, mv: 0.2, e: 'out', h: 0.5, up: 1, tip: 0.02, sq: 1.1, a00: 0, a01: 2.5, a10: 0, a11: 2.25 }, // (both arms thrown UP in a V, one ahead of the other: out level they read as a rig at rest)
+    { t: T.up + 0.38, mv: 0.18, e: 'in', h: 0.17, sq: 1.04, a11: 2.45, a01: 2.2 }, { t: T.up + 0.44, mv: 0.06, e: 'out', sq: 0.85 },
+    { t: T.up + 0.72, mv: 0.26, e: 'settle', sq: 1, a00: -0.25, a01: 1.15, a10: 0.1, a11: 0.75 }, // (both coming down, one ahead: never both out level, never one out straight alone)
+  ]);
+
   const pill = document.createElement('div');
   Object.assign(pill.style, { position: 'fixed', left: 0, top: 0, zIndex: 21, width: '46px', height: '46px', margin: '-23px 0 0 -23px', borderRadius: '50%',
     display: 'grid', placeItems: 'center', background: '#23803A', color: '#fff', font: '800 30px/1 "Baloo 2",system-ui,sans-serif',
@@ -57,8 +85,10 @@
   const once = (k, t, now, f) => { if (now >= t && !said.has(k)) { said.add(k); f(); } };
   const ding = (v = 0.5) => { A.tone({ f: 2093, d: 0.5, v, at: BELL }); A.tone({ f: 3136, d: 0.3, v: v * 0.5, at: BELL }); A.tone({ f: 4186, d: 0.12, v: v * 0.3, at: BELL }); };
   const crackle = () => A.noise({ f: 2600, q: 3, d: 0.03, v: 0.12, at: FIRE });
+  /** How hard the customer's fist is coming down at `t`, 0..1 (up before each stroke, down on it), and how long since the last. */
   /** The bell's strokes: two a beat from the first ding to the idea, each a moment before it sounds. */
-  const strokes = []; for (let b = 2; b < 10.4; b += 0.5) strokes.push(at(b));
+  // (rung by a fist, not a clock: each a few hundredths early or late, and harder or softer than the last)
+  const strokes = [], hard = []; for (let b = 2, n = 0; b < 10.4; b += 0.5, n++) { strokes.push(at(b) + (n ? K.n1(n * 1.7, 41) * 0.035 : 0)); hard.push([1, 0.62, 0.86, 0.55][n % 4] * (1 + K.n1(n * 2.3, 42) * 0.12)); }
 
   function frame(i, fps) {
     const t = i / fps;
@@ -68,52 +98,55 @@
     { const low = ease((t - T.ding) / 0.3); fire.set(t, mix(1, 0.78, low), mix(0.72, 0.92, low)); }
     if (ST.blade) ST.blade.visible = false; // (the chopping blade hangs in the air over its board: a floating box, from here)
     if (i % 5 === 0 && Math.sin(i * 12.9898) > 0.2) crackle();
-    strokes.forEach((s, n) => once('d' + n, s, t, () => ding(t < T.chef ? 0.55 : t >= T.stand && t < T.idea ? 0.4 : 0.2)));
+    // (the fire's own low roar and the night air, held under it all: beds, not fades)
+    once('fireBed', 0.12, t, () => { K.bed(A, 240, 320, 0.7, T.end - 0.3, 0.05, 0.4, 0.5, 'lowpass'); K.bed(A, 500, 620, 0.4, T.end - 0.3, 0.016, 0.6, 0.5); });
+    strokes.forEach((s, n) => once('d' + n, s, t, () => ding((t < T.chef ? 0.2 : t >= T.stand && t < T.idea ? 0.18 : 0.115) * hard[n])));
     // the bell dips under his fist, and its strokes jump
     { const last = strokes.filter(s => s <= t).at(-1) ?? -9, k = clamp((t - last) / 0.2);
       bell.scale.y = 1 - 0.2 * Math.sin(Math.min(1, k * 2) * Math.PI);
       for (const m of dings) { const a = m.userData.a, r = 0.16 + 0.1 * k; m.visible = k < 1 && last > 0; m.position.set(BELL.x + Math.sin(a) * r, BELL.y + 0.1 + Math.cos(a) * r, BELL.z); m.rotation.z = -a; m.scale.setScalar(Math.sin(k * Math.PI)); } }
-    once('idea', T.idea + 0.35, t, () => { A.tone({ f: 660, d: 0.09, type: 'triangle', v: 0.3 }); A.tone({ f: 990, d: 0.2, t: 0.09, type: 'triangle', v: 0.35 }); A.tone({ f: 1320, d: 0.3, t: 0.2, type: 'triangle', v: 0.3 }); });
-    K.fade(Math.max(1 - ease(t / 0.6), ease((t - T.up - 0.35) / 0.45))); K.vignette(0.6);
+    once('idea', T.idea + 0.88, t, () => { A.tone({ f: 660, d: 0.09, type: 'triangle', v: 0.075 }); A.tone({ f: 990, d: 0.2, t: 0.09, type: 'triangle', v: 0.087 }); A.tone({ f: 1320, d: 0.3, t: 0.2, type: 'triangle', v: 0.075 }); });
+    K.fade(Math.max(1 - ease(t / 0.3), ease((t - T.up - 0.56) / 0.45))); K.vignette(0.6);
     pillAt = null;
 
     // ----- the customer: both fists going, one on the bell, one full of money -----
     if (who) {
-      const next = strokes.find(s => s >= t - 0.06) ?? 1e9, k = clamp(1 - (next - t) / 0.16), hitK = t > next ? 1 - clamp((t - next) / 0.06) : k * k;
-      const hop = Math.abs(Math.sin(t * Math.PI / BEAT * 2)) * 0.04;
-      ACT.pose(who, { hip: V(2.32, FY + 0.62 + hop * 2, 8.72), yaw: Math.PI + Math.sin(t * 9) * 0.05, lean: 0.2 + 0.08 * hitK, arms: [[0, 2.45 + Math.sin(t * 17) * 0.4], [mix(-2.8, -2.02, hitK), 0.02]],
-        f: { brow: [0.1, 1.4], mouth: 'o', open: 1.2 + 0.6 * Math.abs(Math.sin(t * 9)) } }, whoFace);
+      const next = strokes.find(s => s >= t - 0.06) ?? 1e9, last = strokes.filter(s => s <= t).at(-1) ?? -9, k = clamp(1 - (next - t) / 0.16), hitK = t > next ? 1 - clamp((t - next) / 0.06) : k * k;
+      // (his whole body goes into each stroke: up on his toes before it, down with it; the money hand has a temper of
+      // its own, faster and slower, never in step with the bell)
+      const since = t - last, drop = last > 0 ? Math.exp(-since * 9) : 0, wave = Math.sin(t * 15 + n1(t * 1.7, 4) * 2.2) * (0.3 + 0.14 * n1(t * 0.9, 5));
+      ACT.pose(who, { hip: V(2.32 + n1(t * 0.8, 6) * 0.015, FY + 0.62 + 0.05 * k - 0.045 * drop, 8.72), yaw: Math.PI + n1(t * 1.1, 7) * 0.09, lean: 0.2 + 0.1 * hitK + 0.05 * drop, roll: n1(t * 1.3, 8) * 0.05,
+        arms: [[0.15 * n1(t * 2.1, 9), 2.4 + wave], [mix(-2.85, -2.0, hitK), 0.02]], sq: 1 + 0.05 * k - 0.07 * drop,
+        f: { brow: [0.1, 1.4], mouth: 'o', open: 1.25 + 0.5 * drop + 0.25 * n1(t * 3, 10) } }, whoFace);
     }
     // ----- the chef -----
-    const startle = clamp((t - T.chef) / 0.12) * clamp(1 - (t - T.chef - 0.3) / 0.25), jump = Math.sin(clamp((t - T.chef) / 0.3) * Math.PI) * 0.12;
-    const lookPile = easeIO((t - T.fish) / 0.3), lookStand = easeIO((t - T.stand) / 0.35);
-    const ik = t - T.idea, again = ik > 0 ? (ik < 0.3 ? easeIO(ik / 0.25) : ik < 0.6 ? 1 - easeIO((ik - 0.3) / 0.25) * 2.0 : -1 + easeIO((ik - 0.6) / 0.25) * 1.0) : 0;
-    // (at the idea: one more look at the fish, one more at the stand, then straight ahead, grinning)
-    let yaw = mix(mix(toFire, toPile, lookPile), toStand, lookStand);
-    // (still looking at the stand as the shot comes back to him; then round to the camera as it lands)
-    if (ik > 0) yaw = ik < 0.5 ? toStand + Math.sin(ik * 12) * 0.05 : mix(toStand, 0.9, easeIO((ik - 0.5) / 0.3));
-    const got = ik > 0.85, rise = ease((t - T.up) / 0.35), hop2 = Math.sin(clamp((t - T.up) / 0.45) * Math.PI) * 0.3;
-    const f = t < T.chef ? { eyes: 'happy', mouth: 'smile' } : t < T.fish ? { eyes: 'big', brow: [1.3, -0.3], mouth: 'o', open: 1.1 }
+    const p = S(t), pa = S(t - 0.05), pb = S(t - 0.1), ik = t - T.idea, got = ik > 0.9;
+    const f = t < T.chef + 0.2 ? { eyes: 'happy', mouth: 'smile' } : t < T.fish ? { eyes: 'big', brow: [1.3, -0.3], mouth: 'o', open: 1.1 }
       : t < T.stand ? { eyes: 'dot', brow: [0.7, -0.5], mouth: 'none' } : t < T.idea ? { eyes: 'dot', brow: [0.5, -0.9], mouth: 'frown' }
-        : !got ? { eyes: 'dot', brow: [0.9, 0], mouth: 'none' } : { eyes: 'dot', brow: [0.6, 0.45], mouth: 'grin', open: 1.2 };
-    const sway = t < T.chef ? Math.sin(t * 2.4) * 0.05 : 0;
-    chef({ hip: SEAT.clone().setY(SEAT.y + jump + rise * 0.17 + hop2), yaw, lean: mix(0.12, 0, rise), roll: sway,
-      legs: [-(Math.PI / 2) * (1 - rise) + 0.25 * (1 - rise), -(Math.PI / 2) * (1 - rise) * 0.9],
-      arms: [[0.3 * (1 - rise), 0.15 + startle * 0.6 + rise * 0.9], [mix(-1.15, 0, lookStand), 0.1 + startle * 0.3 + rise * 0.9]], sq: 1 + startle * 0.08, f });
-    stick.visible = rise < 0.5 && !(t >= T.fish && t < T.stand); // (out of the way of the look at the tray)
-    stick.rotation.x = mix(-0.55, 0.6, lookStand);
+        : !got ? { eyes: t >= T.idea + 0.5 && t < T.idea + 0.58 ? 'shut' : 'dot', brow: [0.9, 0], mouth: 'none' } : { eyes: 'dot', brow: [0.6, 0.45], mouth: 'grin', open: 0.7 + 0.5 * clamp((ik - 0.9) / 0.15) };
+    // (held poses breathe and drift: never on a count)
+    const breath = 1 + Math.sin(t * 2.5) * 0.014, lookStand = clamp((t - T.stand) / 0.35);
+    chef({ hip: SEAT.clone().setY(SEAT.y + p.h), yaw: p.yaw + n1(t * 0.5, 2) * 0.03, lean: p.tip + n1(t * 0.6, 1) * 0.015, roll: n1(t * 0.45, 3) * 0.035 * (1 - p.up),
+      legs: [(-(Math.PI / 2) + 0.25) * (1 - p.up), -(Math.PI / 2) * 0.9 * (1 - p.up)],
+      arms: [[pa.a00, pa.a01 + n1(t * 0.8, 4) * 0.03], [pb.a10 + n1(t * 0.9, 5) * 0.05 * (1 - lookStand), pb.a11 + n1(t * 0.7, 6) * 0.03]], sq: p.sq * breath, f });
+    stick.visible = p.up < 0.5 && !(t >= T.fish && t < T.stand); // (out of the way of the look at the tray)
+    stick.rotation.x = mix(-0.55 + n1(t * 0.7, 7) * 0.08, 0.6, lookStand);
     P.updateMatrixWorld(true);
-    if (got && t < T.up + 0.25) pillAt = P.position.clone().add(V(0, 1.5, 0));
+    if (got && t < T.up + 0.04) pillAt = P.position.clone().add(V(0, 1.5, 0));
 
     // ----- the shots -----
     let shot;
-    if (t < T.ding) shot = K.path([{ t: 0, pos: [4.3, 1.5, -0.3], look: [0.8, 0.6, -4.0], fov: 38 }, { t: T.ding, pos: [4.0, 1.4, -0.7], look: [0.75, 0.6, -4.0], fov: 38 }], t, k => k);
-    else if (t < T.chef) shot = K.path([{ t: T.ding, pos: [2.3, 2.1, 6.3], look: [2.16, 1.52, 8.72], fov: 34 }, { t: T.chef, pos: [2.3, 2.05, 6.65], look: [2.16, 1.52, 8.72], fov: 32 }], t, k => k);
-    else if (t < T.fish) shot = { pos: V(2.0, 1.28, -2.3), look: V(0.05, 1.14, -3.75), fov: 22 }; // (tight on his face, the fire just under the picture: its light and sparks are enough)
+    if (t < T.ding) shot = K.held(K.path([{ t: 0, pos: [4.3, 1.5, -0.3], look: [0.8, 0.6, -4.0], fov: 38 }, { t: T.ding, pos: [4.0, 1.4, -0.7], look: [0.75, 0.6, -4.0], fov: 38 }], t, ease), t, 0.8, 31);
+    else if (t < T.chef) shot = K.held(K.path([{ t: T.ding, pos: [2.3, 2.1, 6.3], look: [2.16, 1.42, 8.72], fov: 34 }, { t: T.chef, pos: [2.3, 2.05, 6.65], look: [2.16, 1.42, 8.72], fov: 32 }], t, ease), t, 1.3, 32);
+    // (tight on his face, the fire just under the picture: its light and sparks are enough. Knocked as he starts.)
+    else if (t < T.fish) shot = K.jolt(K.held({ pos: V(2.0, 1.28, -2.3), look: V(0.05, 1.14 + S(t - 0.1).h * 0.5, -3.75), fov: 22 }, t, 1.6, 33), t, T.chef + 0.22, 0.03);
     // (what he looks at: the tuna, cut up, in the firelight)
-    else if (t < T.stand) shot = K.path([{ t: T.fish, pos: [1.15, 0.95, -3.75], look: [2.1, 0.22, -5.0], fov: 30 }, { t: T.stand, pos: [1.25, 0.9, -3.9], look: [2.1, 0.22, -5.0], fov: 27 }], t, k => k);
-    else if (t < T.idea) shot = K.path([{ t: T.stand, pos: [-0.2, 1.75, -4.0], look: [2.35, 1.3, 8.5], fov: 13 }, { t: T.idea, pos: [-0.2, 1.75, -4.0], look: [2.35, 1.3, 8.5], fov: 10 }], t, ease); // (through his eyes, on a long lens)
-    else shot = K.path([{ t: T.idea, pos: [1.95, 1.3, -2.25], look: [0.05, 1.08, -3.76], fov: 27 }, { t: T.up, pos: [1.9, 1.3, -2.3], look: [0.05, 1.09, -3.76], fov: 26 }, { t: T.up + 0.4, pos: [2.0, 1.42, -2.15], look: [0.05, 1.3, -3.76], fov: 28 }], t, ease);
+    else if (t < T.stand) shot = K.held(K.path([{ t: T.fish, pos: [1.15, 0.95, -3.75], look: [2.1, 0.22, -5.0], fov: 30 }, { t: T.stand, pos: [1.25, 0.9, -3.9], look: [2.1, 0.22, -5.0], fov: 27 }], t, ease), t, 1.1, 34);
+    // (through his eyes, on a long lens: it wanders as a long lens does)
+    else if (t < T.idea) shot = K.held(K.path([{ t: T.stand, pos: [-0.2, 1.75, -4.0], look: [2.35, 1.3, 8.5], fov: 13 }, { t: T.idea, pos: [-0.2, 1.75, -4.0], look: [2.35, 1.3, 8.5], fov: 10 }], t, ease), t, 1.5, 35);
+    else { const hy = 0.17 * ease(S(t - 0.08).up); // (up with him as he gets to his feet, a little late; it doesn't chase the hop: he jumps IN the picture)
+      shot = K.held({ ...K.path([{ t: T.idea, pos: [1.95, 1.3, -2.25], look: [0.05, 1.08, -3.76], fov: 27 }, { t: T.up, pos: [1.9, 1.3, -2.3], look: [0.05, 1.09, -3.76], fov: 26 }, { t: T.up + 0.22, pos: [2.05, 1.4, -2.05], look: [0.05, 1.22, -3.76], fov: 33 }], t, ease) }, t, 1.2, 36);
+      shot.look.y += hy * 0.72; shot.pos.y += hy * 0.5; shot.fov += hy * 30; }
     shot.sun = FIRE;
     K.cam = shot;
   }
@@ -122,8 +155,8 @@
   K.after = cam => {
     const t = now.i / now.fps;
     if (!pillAt) { pill.style.transform = 'scale(0)'; return; }
-    const s = pillAt.clone().project(cam), k = clamp((t - T.idea - 0.85) / 0.14);
-    pill.style.transform = `translate(${(s.x + 1) / 2 * innerWidth}px, ${(1 - s.y) / 2 * innerHeight}px) scale(${(k + 0.5 * Math.sin(k * Math.PI)) * 1.5})`;
+    const s = pillAt.clone().project(cam), k = clamp((t - T.idea - 0.9) / 0.14);
+    pill.style.transform = `translate(${(s.x + 1) / 2 * innerWidth}px, ${Math.max(52, (1 - s.y) / 2 * innerHeight)}px) scale(${(k + 0.5 * Math.sin(k * Math.PI)) * 1.5})`;
   };
   window.cine = {
     len: T.end,

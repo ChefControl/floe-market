@@ -9,8 +9,14 @@ S=$(mkdir -p "${OUT:-out/trailer}" && cd "${OUT:-out/trailer}" && pwd)
 U=http://localhost:5177/; U3="http://localhost:5177/?cellar&full&beaten=4&sound=on"
 FK=rush,fightBanner,finish,finBlink,ringFlash,epic,banner,fade,toast,confetti
 r() { name=$1; shift; node "$P/render-play.mjs" "$@" > "$S/log-$name.txt" 2>&1; echo "$name: $(tail -1 "$S/log-$name.txt")"; }
-# the opening (the owner's script: the floe, the tuna), on a new game. Version 4 of it (27 s: slower, keyed pose to
-# pose, the floe answering him, 'something under the ice') goes with edl-v4.json; versions 1-3 used a 15 s o.js (git history).
+# THE CURRENT CUT is version 5: python3 cut.py "$S" trailer-v5.mp4 --phone phone.mp4 --edl edl-v5.json
+# (takes O, C, G/Gx, M0, T, U, H, L below; K2, K2g and DRONE2 are version 3-4's night scene, which the owner cut).
+# Then measure the master: repeats.py (no frame shown twice), prelimit.py (hits under the limiter), bands.py (what a
+# laptop and a phone play of each hit); they need numpy (python3 -m venv venv && venv/bin/pip install numpy).
+# After a change to a take's SOUND only, re-render just its game.wav: the same line with --sound-only into another
+# folder, and copy that game.wav over the take's.
+# the opening (the owner's script: the floe, the tuna), on a new game: 25 s, keyed pose to pose, the floe answering
+# him, 'something under the ice'. (edl-v4.json was cut with a 27 s o.js, versions 1-3 with a 15 s one: git history.)
 r O "$X/kit.js,$X/hero-tuna.js,$X/acting.js,$X/o.js" "$S/O" --landscape --url "$U?stage=1&sound=on" --mute music --init "$X/newgame.js" &
 # the campfire (that night: the bell, the idea) and the first sale (real play, HUD on); then cut.py with edl-open.json
 r C "$X/kit.js,$X/acting.js,$X/campfire.js,$X/c.js" "$S/C" --landscape --url "$U?stage=1&pile=14&sound=on" --mute music --init "$X/newgame.js" --wait 9000 &
