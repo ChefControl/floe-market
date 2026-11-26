@@ -89,3 +89,24 @@ describe('the main menu', () => {
     expect(d.calls.slice(-2)).toEqual(['writeNow floe-market-v1', 'quit']);
   });
 });
+
+describe("the demo's main menu", () => {
+  beforeEach(() => { sessionStorage.clear(); vi.stubEnv('VITE_STEAM', 'on'); vi.stubEnv('VITE_STEAM_DEMO', 'on'); vi.stubEnv('VITE_STEAM_STORE_ID', '1234567'); });
+  afterEach(() => { vi.unstubAllEnvs(); });
+
+  it('says Demo, and 3 opens the full game in Steam to wishlist it', async () => {
+    await loadGame({ money: 7 }, { main: true });
+    fakeDesktop(); // (after the game's loaded from its save: the program's own files are empty)
+    const open = vi.spyOn(window, 'open').mockImplementation(() => null);
+    expect([shows('titleDemo'), shows('titleWish')]).toEqual([true, true]);
+    key('3', 'Digit3');
+    expect(open).toHaveBeenCalledWith('steam://store/1234567', '_blank');
+    expect(shows('title')).toBe(true);
+  });
+
+  it('is only in the demo', async () => {
+    vi.stubEnv('VITE_STEAM_DEMO', 'off');
+    await loadGame({ money: 7 }, { main: true });
+    expect([shows('title'), shows('titleDemo'), shows('titleWish')]).toEqual([true, false, false]);
+  });
+});

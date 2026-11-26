@@ -13,12 +13,14 @@ export function openDemoEnd(open = true) {
   if (open) $('demoWish').focus();
 }
 panel(card, { place: 'dialog', skin: 'base', close: () => openDemoEnd(false) });
-$('demoWish').addEventListener('click', () => {
+/** Opens the full game's store page in Steam, to wishlist it; false where there's nowhere to go (a test build
+ *  without the game's id, or a browser), which says so instead. */
+export function wishlist() {
   const link = storeLink();
-  // (a test build without the game's id has nowhere to go)
-  if (!link || !desktop()) { toast('Wishlist Floe Market on Steam'); return; }
+  if (!link || !desktop()) { toast('Wishlist Floe Market on Steam'); return false; }
   window.open(link, '_blank');
-  openDemoEnd(false);
-});
+  return true;
+}
+$('demoWish').addEventListener('click', () => { if (wishlist()) openDemoEnd(false); });
 $('demoKeep').addEventListener('click', () => openDemoEnd(false));
 card.addEventListener('click', e => { if (e.target === card) openDemoEnd(false); });

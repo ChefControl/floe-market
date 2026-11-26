@@ -3,10 +3,13 @@
 // no save yet), then New game (two presses: it erases the save), ⚙️ Settings and, in the desktop app, Quit to desktop
 // (1–3). Esc does nothing here. The pause menu's Main menu comes back to it. It's for starting the app: once the
 // player's been in, a reload in the same run (Restart, the graphics' Reload) goes straight back into the game.
+// The demo's (steamDemo.ts) says Demo under the name and adds Wishlist on Steam before Quit (1–4).
+import { wishlist } from './demoEnd';
 import { desktop } from './desktop';
 import { steamOn } from './flags';
 import { save, wipeSave } from './save';
 import { openSettings } from './settings';
+import { steamDemo } from './steamDemo';
 import { panel } from './uiKit';
 
 const $ = (id: string) => document.getElementById(id)!;
@@ -67,6 +70,8 @@ panel(menu, { place: 'full', skin: 'base', forced: true });
 // (the camera leaves the player where they are: the menu takes no room of theirs, ui.ts keepInSight)
 menu.dataset.still = '1';
 quit.hidden = !desktop();
+$('titleDemo').hidden = $('titleWish').hidden = !steamDemo();
+$('titleWish').addEventListener('click', () => wishlist());
 play.addEventListener('click', () => { saved = true; openTitle(false); });
 fresh.addEventListener('click', () => {
   // The first press arms it; a second, deliberate one within 2.5 s erases the save and starts over.

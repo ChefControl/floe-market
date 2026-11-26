@@ -648,6 +648,12 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
     var(--o) var(--o) 0 var(--ink), calc(-1 * var(--o)) var(--o) 0 var(--ink), var(--o) calc(-1 * var(--o)) 0 var(--ink),
     calc(-1 * var(--o)) calc(-1 * var(--o)) 0 var(--ink), 0 calc(var(--o) + 5px) 0 rgba(20,30,40,.45);
 }
+/* (the demo's) */
+#titleDemo{
+  align-self:flex-start; margin:-10px 0 0 6px; padding:2px 14px; border-radius:999px;
+  background:var(--pill); color:var(--pill-ink); font-size:18px; font-weight:800; box-shadow:0 3px 0 var(--shade);
+}
+#titleDemo[hidden]{ display:none; }
 #title .k-sheet{
   display:flex; flex-direction:column; gap:10px; padding:16px; background:var(--k-bg); color:var(--k-ink);
   border-radius:24px; box-shadow:0 0 0 2px var(--k-edge), 0 6px 0 rgba(0,0,0,.3);
@@ -1538,11 +1544,13 @@ body.show #toss, body.show #cook, body.show #coach, body.show #hint, body.show #
 <!-- the main menu (title.ts): the Steam build starts here -->
 <div id="title" role="dialog" aria-modal="true" aria-labelledby="titleName" hidden><div class="titleCol">
   <h1 id="titleName">Floe<br>Market</h1>
+  <p id="titleDemo" hidden>Demo</p>
   <div class="k-sheet">
     <button type="button" id="titlePlay" class="k-btn k-main">Continue</button>
     <div class="k-row k-keys">
       <button type="button" id="titleNew" class="k-btn k-danger">New game</button>
       <button type="button" id="titleSettings" class="k-btn k-plain">⚙️ Settings</button>
+      <button type="button" id="titleWish" class="k-btn k-plain" hidden>Wishlist on Steam</button>
       <button type="button" id="titleQuit" class="k-btn k-plain">Quit to desktop</button>
     </div>
   </div>
