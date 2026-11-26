@@ -117,6 +117,7 @@ export class FakeAudioContext {
   get currentTime() { return fake.now; }
   resume() { this.state = 'running'; return Promise.resolve(); }
   suspend() { this.state = 'suspended'; return Promise.resolve(); }
+  close() { this.state = 'closed'; return Promise.resolve(); }
   createGain() { return Object.assign(new FakeNode(), { gain: new FakeParam(1) }); }
   createOscillator() { return new Osc(); }
   createPeriodicWave() { return {}; }

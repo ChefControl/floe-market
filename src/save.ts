@@ -459,11 +459,11 @@ export function startAutosave() {
   save();
 }
 
-/** Puts another save in this one's place (a game loaded from the cloud), to be played after a reload. Blocks saves so
- * nothing on the way out writes over it. */
-export function replaceSave(raw: string) {
+/** Puts another save in this one's place (a game loaded from the cloud, or a web game brought in: webSave.ts), to be
+ * played after a reload. Blocks saves so nothing on the way out writes over it. `now`: written there and then. */
+export function replaceSave(raw: string, now = false) {
   stale = true;
-  deviceStore.write(raw);
+  deviceStore.write(raw, SAVE_KEY, now);
 }
 
 /** Erases progress for good (the Restart button). Blocks saves so nothing on the way out writes it back. */

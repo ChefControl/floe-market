@@ -4,6 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
 <title>Floe Market</title>
+<script>
+// The Steam build's studio intro (src/intro.ts), once a run: from the first paint, the loading screen waits under it.
+try { if (document.documentElement.hasAttribute('data-steam') && sessionStorage.getItem('floe-intro') !== '1') document.documentElement.classList.add('intro'); } catch (e) {}
+</script>
 <!-- web only: (the Steam build leaves out everything to its end marker: vite.config.ts) -->
 <!-- (the card a shared link shows: Discord, X, Slack, iMessage. Full addresses, since the build's paths are relative) -->
 <meta name="description" content="A cozy 3D idle tycoon in your browser. Stage 3 is out: answer the knock under the dock.">
@@ -626,6 +630,38 @@ body:has(#look:not([hidden])) #hint{ visibility:hidden; }
 #gfx .seg button[aria-pressed="true"]{ background:var(--coral); color:#fff; box-shadow:0 2px 0 var(--shade); }
 #gfxNow{ font-size:12px; font-weight:700; opacity:.6; text-align:center; }
 #gfxNow[hidden]{ display:none; }
+/* the desktop app's display settings, under the graphics (display.ts) */
+#display{ display:flex; flex-direction:column; gap:10px; margin-top:4px; }
+#display[hidden]{ display:none; }
+#display .dispRow{ display:flex; flex-direction:column; gap:4px; }
+#display .dispRow > span:first-child{ padding-left:4px; font-size:14px; font-weight:800; }
+#display small{ padding-left:4px; font-size:12px; font-weight:700; opacity:.6; }
+/* the pause menu: its numbered buttons one under another */
+#pause .k-keys{ grid-auto-flow:row; }
+/* the main menu (title.ts): the game's name and its buttons down the left, over the world, which drifts behind */
+#title{
+  z-index:7; justify-content:center; padding:24px max(6vw, env(safe-area-inset-left,0px)); box-sizing:border-box;
+  background:linear-gradient(90deg, rgba(23,48,66,.5), rgba(23,48,66,.18) 42%, rgba(23,48,66,0) 68%);
+}
+#title > .k-paused{ display:none; }
+#title .titleCol{ width:min(100%,340px); display:flex; flex-direction:column; gap:20px; }
+#title h1{
+  --o:3px; margin:0; font-size:clamp(64px,8.5vw,108px); font-weight:800; line-height:.9; color:#FFC34A;
+  /* (the banner's outline: a dark edge round every letter, so it reads over snow and sea alike) */
+  text-shadow:var(--o) 0 0 var(--ink), calc(-1 * var(--o)) 0 0 var(--ink), 0 var(--o) 0 var(--ink), 0 calc(-1 * var(--o)) 0 var(--ink),
+    var(--o) var(--o) 0 var(--ink), calc(-1 * var(--o)) var(--o) 0 var(--ink), var(--o) calc(-1 * var(--o)) 0 var(--ink),
+    calc(-1 * var(--o)) calc(-1 * var(--o)) 0 var(--ink), 0 calc(var(--o) + 5px) 0 rgba(20,30,40,.45);
+}
+#title .k-sheet{
+  display:flex; flex-direction:column; gap:10px; padding:16px; background:var(--k-bg); color:var(--k-ink);
+  border-radius:24px; box-shadow:0 0 0 2px var(--k-edge), 0 6px 0 rgba(0,0,0,.3);
+}
+#title .k-keys{ grid-auto-flow:row; }
+/* behind it, nothing of the game's screen but the gear (its Settings drop down over the menu) */
+body.title #hud, body.title #pointers, body.title #prompts, body.title .pop, body.title #buy, body.title #buyHint,
+body.title #craft, body.title #toss, body.title #cook, body.title #coach, body.title #hint, body.title #toast,
+body.title #rush, body.title #board{ visibility:hidden; }
+body.title #corner, body.title #settings{ z-index:7; }
 #gfxReload{ align-self:center; min-height:38px; padding:0 16px; border:0; border-radius:999px; background:var(--go); color:#fff; font:800 15px "Floe Emoji","Baloo 2","Trebuchet MS",system-ui,sans-serif; box-shadow:0 2px 0 rgba(20,90,40,.4); cursor:pointer; }
 #gfxReload:active{ transform:translateY(2px); box-shadow:none; }
 @media (hover: hover) and (pointer: fine){ #gfxReload:hover:not(:active){ transform:translateY(-1px); } }
@@ -1221,6 +1257,79 @@ body.cine #hud, body.cine #rush{ visibility:hidden; }
 /* The loading screen: the game's scripts coming in, counted in bytes, then the world being built. Gone on the first frame. */
 #loading{ position:fixed; inset:0; z-index:8; display:grid; place-items:center; align-content:center; gap:22px; background:var(--bg); color:var(--pill-ink); transition:opacity .4s; }
 #loading.done{ opacity:0; pointer-events:none; }
+/* ---------- the studio intro (intro.ts): ChefControl's mascot comes together on its plate, then the studio's name ----------
+   (its colours are the studio logo's own, brand/chefcontrol.svg, not the game's) */
+html.intro, html.intro body{ background:#5BACDD; }
+html.intro #loading{ visibility:hidden; }
+#intro{
+  position:fixed; inset:0; z-index:11; display:flex; flex-direction:column; align-items:center; justify-content:center;
+  background:radial-gradient(ellipse 80% 70% at 50% 40%, #86CFEE, #4A9DD2); overflow:hidden; cursor:default;
+  transition:opacity .5s ease;
+}
+#intro.out{ opacity:0; pointer-events:none; }
+#intro.fast{ transition-duration:.25s; }
+#intro svg{ width:min(62vh,80vw); height:auto; margin-top:-6vh; overflow:visible; }
+#intro #cc-bg rect{ display:none; }
+#intro :is(#cc-plate, #cc-ball, #cc-top, #cc-armL, #cc-mag, #cc-tail1, #cc-tail2, #cc-eyeR, #cc-bg circle, .spark){ transform-box:view-box; }
+/* the plate, alone at first */
+#intro #cc-plate{ transform-origin:480px 712px; animation:ccPlate .45s .15s cubic-bezier(.2,1.5,.4,1) both; }
+@keyframes ccPlate{ from{ transform:scale(.2,.1); opacity:0; } to{ transform:none; opacity:1; } }
+/* the rice ball falls onto it, magnifier in hand, arms down, and squashes as it lands */
+#intro #cc-ball{ transform-origin:482px 700px; animation:ccFall 1.15s .55s both; }
+@keyframes ccFall{
+  0%{ transform:translateY(-1000px) scale(.94,1.08); animation-timing-function:cubic-bezier(.5,0,1,.6); }
+  38%{ transform:translateY(0) scale(.94,1.08); animation-timing-function:ease-out; }
+  50%{ transform:scale(1.14,.84); animation-timing-function:ease-in-out; }
+  64%{ transform:scale(.97,1.04); }
+  74%{ transform:scale(1.04,.97); }
+  82%{ transform:none; }
+  /* (and gives a little as the salmon lands on it) */
+  88%{ transform:scale(1.05,.95); }
+  100%{ transform:none; }
+}
+#intro #cc-armL{ transform-origin:254px 557px; animation:ccArmL .55s 1.75s cubic-bezier(.3,1.6,.5,1) both; }
+@keyframes ccArmL{ from{ transform:rotate(-62deg); } to{ transform:none; } }
+#intro #cc-mag{ transform-origin:712px 556px; animation:ccMag .6s 1.7s cubic-bezier(.3,1.5,.5,1) both; }
+@keyframes ccMag{ from{ transform:rotate(84deg); } to{ transform:none; } }
+/* the salmon drops onto its head, its band's ends blowing in the wind */
+#intro #cc-top{ transform-origin:482px 440px; animation:ccTop .7s 1.1s both; }
+@keyframes ccTop{
+  0%{ transform:translateY(-1000px) rotate(-8deg); animation-timing-function:cubic-bezier(.5,0,1,.6); }
+  58%{ transform:translateY(0) rotate(0); animation-timing-function:ease-out; }
+  72%{ transform:scale(1.08,.9); }
+  86%{ transform:scale(.98,1.03); }
+  100%{ transform:none; }
+}
+#intro #cc-tail1{ transform-origin:214px 370px; animation:ccWind .34s 1.1s ease-in-out infinite alternate; }
+#intro #cc-tail2{ transform-origin:206px 392px; animation:ccWind .3s 1.16s ease-in-out infinite alternate-reverse; }
+@keyframes ccWind{ from{ transform:rotate(-9deg) skewY(5deg); } to{ transform:rotate(7deg) skewY(-6deg); } }
+/* the lens glints, and he winks */
+#intro #cc-shine{ animation:ccShine .5s 2.3s ease-out both; }
+@keyframes ccShine{ 0%{ opacity:.3; } 40%{ opacity:1; stroke-width:16px; } 100%{ opacity:1; } }
+#intro .spark{ transform-origin:938px 252px; animation:ccSpark .6s 2.3s ease-out both; }
+@keyframes ccSpark{ 0%{ transform:scale(0) rotate(0); opacity:1; } 45%{ transform:scale(1.2) rotate(45deg); opacity:1; } 100%{ transform:scale(0) rotate(90deg); opacity:0; } }
+#intro #cc-eyeR{ opacity:1; transform-origin:561px 523px; animation:ccShut .12s 2.55s ease-in forwards; }
+@keyframes ccShut{ to{ transform:scaleY(.1); opacity:0; } }
+#intro #cc-wink{ opacity:0; animation:ccOn .08s 2.64s forwards; }
+@keyframes ccOn{ to{ opacity:1; } }
+#intro #cc-bg circle{ transform-origin:512px 512px; animation:ccRing .9s 2.4s ease-out both; }
+@keyframes ccRing{ from{ transform:scale(.6); opacity:0; } to{ transform:none; opacity:1; } }
+/* then the studio's name: outlined like the logo's own lines (its colour, a stroke that follows every letter, sized with
+   the text), with a soft drop straight down, like the plate's */
+#intro p{
+  margin:0; color:#fff; font-weight:800; text-align:center;
+  -webkit-text-stroke:.16em #1F2D3A; paint-order:stroke fill; text-shadow:0 .09em 0 rgba(23,48,66,.35);
+}
+#intro .name{ margin-top:-5vh; font-size:clamp(40px,8vh,92px); line-height:1; animation:ccName .5s 2.75s cubic-bezier(.2,1.4,.4,1) both; }
+#intro .kind{ -webkit-text-stroke-width:.2em; text-shadow:0 .14em 0 rgba(23,48,66,.35); margin-top:1vh; padding-left:.45em; font-size:clamp(15px,2.6vh,30px); letter-spacing:.45em; text-transform:uppercase; animation:ccKind .6s 3s ease-out both; }
+@keyframes ccName{ from{ transform:scale(.5); opacity:0; } to{ transform:none; opacity:1; } }
+@keyframes ccKind{ from{ letter-spacing:.1em; opacity:0; } to{ letter-spacing:.45em; opacity:1; } }
+/* less motion: the logo as it is, faded in and out */
+@media (prefers-reduced-motion: reduce){
+  #intro *{ animation:none !important; }
+  #intro #cc-eyeR, #intro .spark{ opacity:0; }
+  #intro #cc-wink{ opacity:1; }
+}
 #loading .title{ font-size:clamp(44px,12vw,84px); font-weight:800; line-height:.95; color:#FFC34A; text-shadow:0 4px 0 rgba(20,30,40,.35); text-align:center; }
 #loading .card{ width:min(78vw,340px); background:var(--pill); border-radius:24px; padding:16px 20px 12px; box-shadow:0 4px 0 var(--shade); display:grid; gap:8px; }
 #loading .track{ height:14px; border-radius:999px; background:var(--chip); overflow:hidden; }
@@ -1503,6 +1612,18 @@ body.show #toss, body.show #cook, body.show #coach, body.show #hint, body.show #
   </div>
 </div>
 <canvas id="game" aria-label="Floe Market game. Drag or use arrow keys to walk."></canvas>
+<!-- the main menu (title.ts): the Steam build starts here -->
+<div id="title" role="dialog" aria-modal="true" aria-labelledby="titleName" hidden><div class="titleCol">
+  <h1 id="titleName">Floe<br>Market</h1>
+  <div class="k-sheet">
+    <button type="button" id="titlePlay" class="k-btn k-main">Continue</button>
+    <div class="k-row k-keys">
+      <button type="button" id="titleNew" class="k-btn k-danger">New game</button>
+      <button type="button" id="titleSettings" class="k-btn k-plain">⚙️ Settings</button>
+      <button type="button" id="titleQuit" class="k-btn k-plain">Quit to desktop</button>
+    </div>
+  </div>
+</div></div>
 
 <div id="hud">
   <div class="hrow">
@@ -1530,7 +1651,13 @@ body.show #toss, body.show #cook, body.show #coach, body.show #hint, body.show #
   <button id="lookOpen" type="button"><span class="ic" aria-hidden="true">👕</span>Your look</button>
   <h2 class="sgroup">Graphics &amp; sound</h2>
   <button id="gfxCat" class="cat" type="button" aria-expanded="false" aria-controls="gfx"><span class="ic" aria-hidden="true">✨</span><span id="gfxName">Graphics</span><small id="gfxPick"></small><i class="chev" aria-hidden="true"></i></button>
-  <div id="gfx" class="catPanel" role="group" aria-labelledby="gfxName" hidden><span class="seg"><button type="button" data-q="auto" aria-pressed="true">Auto</button><button type="button" data-q="potato" aria-pressed="false">🥔 Potato</button><button type="button" data-q="low" aria-pressed="false">Low</button><button type="button" data-q="high" aria-pressed="false">High</button></span><small id="gfxNow" aria-live="polite"></small><button id="gfxReload" type="button" hidden>Reload to apply</button></div>
+  <div id="gfx" class="catPanel" role="group" aria-labelledby="gfxName" hidden><span class="seg"><button type="button" data-q="auto" aria-pressed="true">Auto</button><button type="button" data-q="potato" aria-pressed="false">🥔 Potato</button><button type="button" data-q="low" aria-pressed="false">Low</button><button type="button" data-q="high" aria-pressed="false">High</button></span><small id="gfxNow" aria-live="polite"></small><button id="gfxReload" type="button" hidden>Reload to apply</button>
+    <!-- the desktop app's display settings (display.ts): shown only there -->
+    <div id="display" hidden>
+      <div class="dispRow"><span id="screenName">Screen</span><span class="seg" role="group" aria-labelledby="screenName"><button type="button" data-screen="full" aria-pressed="true">Fullscreen</button><button type="button" data-screen="window" aria-pressed="false">Window</button></span><small>F11 or Alt+Enter switches it too</small></div>
+      <div class="dispRow"><span id="scaleName">Resolution</span><span class="seg" role="group" aria-labelledby="scaleName"><button type="button" data-scale="1" aria-pressed="true">100%</button><button type="button" data-scale="0.75" aria-pressed="false">75%</button><button type="button" data-scale="0.5" aria-pressed="false">50%</button></span></div>
+      <div class="dispRow"><span id="capName">Frame rate</span><span class="seg" role="group" aria-labelledby="capName"><button type="button" data-cap="0" aria-pressed="true">Max</button><button type="button" data-cap="60" aria-pressed="false">60</button><button type="button" data-cap="30" aria-pressed="false">30</button></span></div>
+    </div></div>
   <button id="soundCat" class="cat" type="button" aria-expanded="false" aria-controls="soundPanel"><span class="ic" aria-hidden="true">🔊</span>Sound<i class="chev" aria-hidden="true"></i></button>
   <div id="soundPanel" class="catPanel" role="group" aria-label="Sound" hidden>
     <div class="vol"><button type="button" class="mute" id="muteSfx" aria-pressed="false" aria-label="Mute effects"></button><label for="volSfx">Effects</label><output id="volSfxN" for="volSfx">7</output><input type="range" id="volSfx" min="0" max="10" step="1" value="7"></div>
@@ -1544,6 +1671,9 @@ body.show #toss, body.show #cook, body.show #coach, body.show #hint, body.show #
     <div class="toggle"><span><span id="buyBtnName">Buy button on screen</span><small id="buyBtnNote"></small></span><button id="buyBtnToggle" class="switch" type="button" role="switch" aria-checked="true" aria-labelledby="buyBtnName" aria-describedby="buyBtnNote"></button></div>
   </div>
   <button id="restart" type="button"><span class="ic" aria-hidden="true">↺</span><span id="restartText">Restart</span></button>
+  <!-- the Steam build's (webSave.ts) -->
+  <button id="webSave" type="button" hidden><span class="ic" aria-hidden="true">🎒</span>Bring in your web game<i aria-hidden="true">›</i></button>
+  <input type="file" id="webSaveFile" accept=".json,application/json" hidden>
   <h2 class="sgroup">About</h2>
   <button id="reportCat" type="button" aria-haspopup="dialog" hidden><span class="ic" aria-hidden="true">🐞</span><span id="reportName">Report a bug or idea</span><i aria-hidden="true">›</i></button>
   <a id="kofi" href="https://ko-fi.com/chefcontrol" target="_blank" rel="noopener"><span class="ic" aria-hidden="true">☕</span>Buy me a coffee<i aria-hidden="true">↗</i></a>
@@ -1592,6 +1722,26 @@ body.show #toss, body.show #cook, body.show #coach, body.show #hint, body.show #
     <p class="copy">Floe Market © 2026 ChefControl. All rights reserved.</p>
   </div>
 </section>
+<!-- a web game to bring in (webSave.ts): what it is, and the go-ahead -->
+<div id="webSaveAsk" role="dialog" aria-modal="true" aria-labelledby="webSaveTitle" hidden><div class="k-sheet">
+  <button type="button" id="webSaveX" class="k-btn k-plain k-x" aria-label="Keep this game"><span aria-hidden="true">✕</span></button>
+  <h2 id="webSaveTitle" class="k-title">🎒 Bring in your web game?</h2>
+  <p class="k-msg" id="webSaveWhat"></p>
+  <p class="k-cap">It replaces the game on this computer</p>
+  <button type="button" id="webSaveYes" class="k-btn k-main">Bring it in</button>
+  <div class="k-row k-keys"><button type="button" id="webSaveNo" class="k-btn k-plain">Keep this game</button></div>
+</div></div>
+<!-- the pause menu (pause.ts): Esc with nothing else open -->
+<div id="pause" role="dialog" aria-modal="true" aria-labelledby="pauseTitle" hidden><div class="k-sheet">
+  <h2 id="pauseTitle" class="k-title">Floe Market</h2>
+  <button type="button" id="pauseResume" class="k-btn k-main">Resume</button>
+  <div class="k-row k-keys">
+    <button type="button" id="pauseSettings" class="k-btn k-plain">⚙️ Settings</button>
+    <button type="button" id="pauseHow" class="k-btn k-plain">🕹️ How to play</button>
+    <button type="button" id="pauseMenu" class="k-btn k-plain" hidden>Main menu</button>
+    <button type="button" id="pauseQuit" class="k-btn k-plain">Quit to desktop</button>
+  </div>
+</div></div>
 <div id="privacyDialog" role="dialog" aria-modal="true" aria-labelledby="privacyTitle" hidden><div class="k-sheet">
   <button type="button" id="privacyClose" class="k-btn k-plain k-x" aria-label="Close the privacy notice"><span aria-hidden="true">✕</span></button>
   <h2 id="privacyTitle" class="k-title">🛡️ Privacy notice</h2>

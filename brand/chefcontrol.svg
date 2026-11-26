@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <title>ChefControl</title>
+  <defs>
+    <radialGradient id="ccSky" cx="50%" cy="34%" r="75%">
+      <stop offset="0" stop-color="#86CFEE"/>
+      <stop offset="1" stop-color="#4A9DD2"/>
+    </radialGradient>
+    <radialGradient id="ccGlass" cx="40%" cy="35%" r="70%">
+      <stop offset="0" stop-color="#EAF6FC"/>
+      <stop offset="1" stop-color="#A9D4EC"/>
+    </radialGradient>
+  </defs>
+  <g id="cc-bg">
+    <rect width="1024" height="1024" fill="url(#ccSky)"/>
+    <circle cx="512" cy="512" r="428" fill="none" stroke="#fff" stroke-opacity=".18" stroke-width="38"/>
+  </g>
+  <g fill="none" stroke="#1F2D3A" stroke-linecap="round" stroke-linejoin="round">
+    <g id="cc-plate">
+      <ellipse cx="480" cy="712" rx="368" ry="70" fill="#fff" stroke-width="14"/>
+      <ellipse cx="480" cy="703" rx="276" ry="38" stroke="#C9D5DE" stroke-width="10"/>
+    </g>
+    <g id="cc-sushi">
+      <g id="cc-ball">
+        <g id="cc-armL">
+        <path d="M254 557 L182 560" stroke-width="14"/>
+        <circle cx="160" cy="559" r="22" fill="#FFF7EA" stroke-width="12"/>
+      </g>
+      <g id="cc-mag">
+        <path d="M712 556 L776 510" stroke-width="14"/>
+        <path d="M790 498 L840 412" stroke-width="30"/>
+        <path d="M790 498 L840 412" stroke="#9A5B2E" stroke-width="14"/>
+        <circle cx="866" cy="336" r="92" fill="#DCE4EA" stroke-width="14"/>
+        <circle cx="866" cy="336" r="64" fill="url(#ccGlass)" stroke-width="10"/>
+        <path id="cc-shine" d="M820 318 Q828 290 856 280" stroke="#fff" stroke-width="11" stroke-opacity=".95"/>
+        <circle cx="784" cy="506" r="22" fill="#FFF7EA" stroke-width="12"/>
+      </g>
+      <path id="cc-rice" d="M254 458 C250 420 300 404 360 404 L606 404 C666 404 716 420 712 458 C722 520 724 584 706 634 C688 684 648 700 598 700 L368 700 C318 700 278 684 260 634 C242 584 244 520 254 458 Z" fill="#FFF7EA" stroke-width="14"/>
+      <g fill="#EAD9B8" stroke="none">
+        <ellipse cx="318" cy="442" rx="16" ry="8" transform="rotate(-20 318 442)"/>
+        <ellipse cx="640" cy="440" rx="15" ry="8" transform="rotate(25 640 440)"/>
+        <ellipse cx="292" cy="592" rx="15" ry="8" transform="rotate(-10 292 592)"/>
+        <ellipse cx="378" cy="648" rx="15" ry="8" transform="rotate(30 378 648)"/>
+        <ellipse cx="482" cy="680" rx="16" ry="8"/>
+        <ellipse cx="588" cy="658" rx="15" ry="8" transform="rotate(-25 588 658)"/>
+        <ellipse cx="676" cy="602" rx="15" ry="8" transform="rotate(20 676 602)"/>
+      </g>
+      <g id="cc-face">
+        <circle cx="362" cy="583" r="26" fill="#FFB9AA" fill-opacity=".9" stroke="none"/>
+        <circle cx="626" cy="581" r="26" fill="#FFB9AA" fill-opacity=".9" stroke="none"/>
+        <circle cx="402" cy="523" r="22" fill="#1F2D3A" stroke="none"/>
+        <circle cx="410" cy="515" r="7" fill="#fff" stroke="none"/>
+        <g id="cc-eyeR" opacity="0"><circle cx="561" cy="523" r="22" fill="#1F2D3A" stroke="none"/><circle cx="569" cy="515" r="7" fill="#fff" stroke="none"/></g>
+        <path id="cc-wink" d="M535 532 Q561 504 588 532" stroke-width="13"/>
+        <path d="M442 578 Q481 606 520 578" stroke-width="13"/>
+      </g>
+      </g>
+      <g id="cc-top">
+      <path id="cc-salmon" d="M205 418 C205 305 330 238 482 238 C640 238 755 300 762 418 C764 448 735 455 705 440 C665 420 615 418 560 430 C520 438 450 438 410 430 C350 418 300 425 265 445 C235 460 205 450 205 418 Z" fill="#FF8A5B" stroke-width="14"/>
+      <g stroke="#FFB394" stroke-width="13">
+        <path d="M302 300 Q338 282 378 274"/>
+        <path d="M570 264 Q616 270 652 288"/>
+        <path d="M566 410 Q604 400 644 406"/>
+      </g>
+      <path id="cc-band" d="M215 392 Q482 310 748 388 L742 350 Q482 237 226 348 Z" fill="#fff" stroke-width="13"/>
+      <circle cx="484" cy="322" r="19" fill="#E2362B" stroke="none"/>
+      <g id="cc-tails" fill="#fff" stroke-width="12">
+        <path id="cc-tail1" d="M214 370 C186 338 150 326 104 316 L122 334 L108 350 C150 352 178 366 198 392 Z"/>
+        <path id="cc-tail2" d="M206 380 C168 360 128 394 64 370 L84 388 L66 404 C128 426 172 394 204 406 Z"/>
+      </g>
+      <circle cx="226" cy="390" r="26" fill="#fff" stroke-width="13"/>
+      </g>
+    </g>
+  </g>
+</svg>

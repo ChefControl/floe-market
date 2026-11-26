@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import { BACKUPS, saveFiles } from '../desktop/saves.mjs';
-import type { Answer, DesktopApi } from '../src/desktop';
+import { fakeDesktop } from './desktopFake';
 import { loadGame } from './helpers';
 
 const KEY = 'floe-market-v1', game = (money: number) => JSON.stringify({ v: 7, money });
@@ -62,23 +62,6 @@ describe('the save files', () => {
     expect(() => s.read('../../etc/passwd')).toThrow(/not a save key/);
   });
 });
-
-/** The desktop app's program, as the page sees it, keeping the files in a Map; `fail` makes each kind of call fail. */
-function fakeDesktop(files: Record<string, string> = {}, fail: Partial<Record<'read' | 'write' | 'remove', string>> = {}) {
-  const kept = new Map(Object.entries(files)), calls: string[] = [];
-  const answer = <T>(what: 'read' | 'write' | 'remove', value: T): Answer<T> => fail[what] ? { ok: false, error: fail[what]! } : { ok: true, value };
-  const api: DesktopApi = {
-    platform: 'win32',
-    saves: {
-      read: key => { calls.push(`read ${key}`); return answer('read', kept.get(key) ?? null); },
-      write: async (key, data) => { calls.push(`write ${key}`); if (!fail.write) kept.set(key, data); return answer('write', null); },
-      writeNow: (key, data) => { calls.push(`writeNow ${key}`); if (!fail.write) kept.set(key, data); return answer('write', null); },
-      remove: key => { calls.push(`remove ${key}`); kept.delete(key); return answer('remove', null); },
-    },
-  };
-  vi.stubGlobal('floeDesktop', api);
-  return { kept, calls };
-}
 
 describe('the game, saving in the desktop app', () => {
   it('loads from the file, saves to it in the background, and there and then as the window closes', async () => {

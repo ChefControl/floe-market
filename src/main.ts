@@ -4,6 +4,7 @@ import { batchStill } from './batch';
 import { tableView, tipsy, tipsyK } from './casinoKit';
 import { initCloud } from './cloud';
 import { CLOSE, CLOSE_AIM, closeUp } from './customize';
+import { frameGap } from './display';
 import { DEMO, startDemo } from './fuguDemo';
 import { tick } from './game';
 import { frameDrawn, isPotato } from './graphics';
@@ -24,6 +25,9 @@ import { initScores } from './scores';
 import { drawMeet, meetCam } from './meet';
 import { drawWay, wayCam } from './southDoor';
 import './settings';
+import './pause';
+import { initTitle, titleCam, titleOpen } from './title';
+import './webSave';
 import { view } from './stage';
 import { newBubbleFrame } from './speech';
 import { drawTutorial } from './tutorial';
@@ -36,12 +40,14 @@ import { beachCam, drawBeach } from './beach';
 // The Mr. Fugu demo build (VITE_FUGU_DEMO=1) starts from a game that's one bill short of meeting him, and keeps nothing.
 if (DEMO) startDemo();
 else {
-  load();
+  const had = load();
   startAutosave();
   initCloud();
   initReports();
   initHint();
   initScores();
+  // the Steam build opens on its main menu (title.ts)
+  initTitle(had);
 }
 batchStill(scene);
 // (the items, chips and fish: a call for each kind, pooled.ts)
@@ -74,6 +80,7 @@ restartBtn.addEventListener('click', () => {
 
 // ---------- loop ----------
 const camTarget = player.g.position.clone(), look = camTarget.clone(), camOff = OFF.clone(), aim = look.clone();
+const UP = V(0, 1, 0), aside = V(0, 0, 0);
 const smooth = (k: number) => k * k * (3 - 2 * k);
 let last = performance.now();
 const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)') ?? { matches: false };
@@ -83,7 +90,9 @@ const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)') ?? 
 const POTATO_MS = 1000 / 30 - 2;
 
 function frame(now: number) {
-  if (isPotato() && now - last < POTATO_MS) { requestAnimationFrame(frame); return; }
+  // (and the desktop app's cap on frames a second, display.ts)
+  const gap = Math.max(isPotato() ? POTATO_MS : 0, frameGap());
+  if (gap && now - last < gap) { requestAnimationFrame(frame); return; }
   frameDrawn((now - last) / 1000);
   const dt = Math.max(0, Math.min(0.05, (now - last) / 1000)); // a first frame can be stamped before boot
   last = now;
@@ -99,9 +108,19 @@ function frame(now: number) {
   look.copy(camTarget).lerp(view.focus, view.k);
   const k = camK * view.zoom * view.close, near = closeUp(dt);
   camOff.copy(OFF).multiplyScalar(k).lerp(CLOSE, near);
+  // Behind the main menu (title.ts), the camera swings slowly to and fro round the player, a little further out, with
+  // them off to the right of the menu; it eases back as the game starts (and holds still for less motion).
+  titleCam.k = Math.max(0, Math.min(1, titleCam.k + (titleOpen() ? dt : -dt) * 1.5));
+  const menuK = smooth(titleCam.k);
+  if (menuK > 0) {
+    if (titleOpen() && !reduceMotion.matches) titleCam.t += dt;
+    camOff.applyAxisAngle(UP, (Math.sin(titleCam.t * 0.12) * 0.45 - 0.2) * menuK).multiplyScalar(1 + 0.3 * menuK);
+    aside.crossVectors(UP, camOff).setY(0).normalize().multiplyScalar(-4.5 * menuK);
+  }
   camera.position.copy(look).add(camOff);
   // a little over the player's feet; something else in view, at its middle
   aim.set(look.x, look.y + 0.4 * (1 - view.k) + (CLOSE_AIM - 0.4) * near, look.z);
+  if (menuK > 0) { camera.position.add(aside); aim.add(aside); }
   const table = tableView(dt);
   if (table.k > 0) { camera.position.lerp(table.eye, table.k); aim.lerp(table.at, table.k); }
   // Mr. Fugu's offer cuts to its own view of the hatch, and eases back to the player afterwards.
@@ -140,7 +159,7 @@ function frame(now: number) {
   sun.target.position.copy(look);
 
   keepInSight(dt, view.k);
-  updHint(dt, !!inputVec());
+  updHint(dt, !!inputVec() && !titleOpen());
   updPointers(dt);
   drawTutorial(dt);
   hud(dt);
