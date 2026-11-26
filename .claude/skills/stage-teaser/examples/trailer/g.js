@@ -9,6 +9,9 @@
   const { wallet } = await window.__mod('wallet.ts');
   const gl = K.R.canvas, OFF = K.R.OFF;
   const fire = Campfire(T3, K.R.scene, 0.95, 0.15, -3.55);
+  // The game's camera sits where a whole laptop screen of dock fits; in a trailer the chef is a dot from there. This
+  // is the same view from 0.58 of the way: its own angle, following him as the game does.
+  const NEAR = 0.58, tgt = V(0, 0, 0); let tgtSet = false;
   // (still in the rags he washed up in: his first day's trade)
   const ACT = await Acting(); ACT.castaway(player.g); ACT.soles(player.g);
   // the game's joystick: a drag on the canvas, read against the camera (input.ts)
@@ -36,7 +39,12 @@
       for (let n = 0; n < 150 && CT.C1.queue.filter(c => c.queued).length < 3; n++) await new Promise(r => setTimeout(r, 100));
     },
     frame(i, fps) {
-      K.cam = null; // the game's own camera
+      // (near the stand the picture is the sale, not him: it settles between him and the queue, the whole stand in it)
+      const pp = player.g.position, near = K.clamp(1 - (Math.hypot(pp.x - CT.C1.dropPos.x, pp.z - CT.C1.dropPos.z) - 1) / 4.5), bias = near * near * (3 - 2 * near);
+      const focus = pp.clone().lerp(V(2.55, pp.y, 8.5), 0.62 * bias);
+      if (!tgtSet) { tgt.copy(focus); tgtSet = true; } else tgt.lerp(focus, Math.min(1, 5 / fps));
+      K.fade(1 - K.ease(i / fps / 0.4)); // (out of the campfire's black)
+      K.cam = { pos: tgt.clone().add(OFF.clone().multiplyScalar(NEAR)), look: tgt.clone().add(V(0, 0.4, 0)), fov: 40 };
       fire.set(i / fps, 0);
       const carrying = player.back.items?.length ?? 0, C = CT.C1;
       if (i === 0) marks.pile = 0;

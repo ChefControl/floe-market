@@ -21,16 +21,17 @@
     player.g.visible = false;
     STG.setNight(0.3);
     hatch.update(1 / now.fps);
-    HITS.forEach((h, n) => once('h' + n, h, t, () => { hatch.knock(); thud(n / 2); FX.dustFx(AT.clone().add(V(0, 0.08, 0.5)), 5 + n * 3, 0.8 + n * 0.3); }));
+    HITS.forEach((h, n) => once('h' + n, h, t, () => { hatch.knock(); thud(n / 2); FX.dustFx(AT.clone().add(V(0, 0.08, 0.5)), 5 + n * 2, 0.45 + n * 0.15); }));
     const last = HITS.filter(h => h <= t).at(-1) ?? -9, sh = Math.max(0, 1 - (t - last) / 0.18) * 0.03;
-    const p = K.path([{ t: 0, pos: [6.95, 1.55, -0.9], look: [6.0, 0.5, -5.1], fov: 40 }, { t: at(5), pos: [6.5, 1.2, -2.5], look: [6.0, 0.45, -5.1], fov: 40 }], t, k => k);
+    K.vignette(0.75);
+    const p = K.path([{ t: 0, pos: [6.75, 3.0, -2.9], look: [6.0, 0.15, -5.15], fov: 36 }, { t: at(5), pos: [6.5, 2.5, -3.5], look: [6.0, 0.15, -5.15], fov: 36 }], t, k => k);
     p.pos.add(V(Math.sin(t * 90) * sh, Math.cos(t * 70) * sh, 0));
     K.cam = p;
   };
   K.after = cam => {
     const t = now.i / now.fps, k = clamp((t - HITS[0]) / 0.14);
     if (t < HITS[0]) { pill.style.transform = 'scale(0)'; return; }
-    const s = AT.clone().add(V(0, 1.15, 0)).project(cam);
+    const s = AT.clone().add(V(0, 0.55, -0.55)).project(cam);
     pill.style.transform = `translate(${(s.x + 1) / 2 * innerWidth}px, ${(1 - s.y) / 2 * innerHeight}px) scale(${(k + 0.5 * Math.sin(k * Math.PI)) * 1.5})`;
   };
   window.cine = { len: at(5), frame(i, fps) { now = { i, fps }; if (!K.cam) K.cam = { pos: V(6.95, 1.55, -0.9), look: AT, fov: 40 }; } };

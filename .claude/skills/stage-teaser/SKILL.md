@@ -45,7 +45,8 @@ his shades with a glint, "Hello, Chef." as a subtitle in the game's toast, a sma
 Examples: `examples/trailer/` (the 16:9 store trailer for #156, 72 s: `kit.js` — the camera override, captions in the
 game's banner lettering, letterbox, fades, the flag string taken down — then one script per take (`s1.js` the ice
 market, `s2.js` Floe Sushi and the knocking hatch, `k.js` the knock, `fa.js`/`fb.js`/`fc.js` fight night, `e.js` the
-end card, `bed.js` a music bed), `takes.sh` to render them all, `edl.json` the edit, `cut.py` to assemble the Steam
+end card, `bed.js` a music bed), `takes.sh` to render them all, `edl.json` the edit (version 1; `edl-v3.json` is the current cut, the owner's
+script after the polish pass, with `k2.js` its ending), `cut.py` to assemble the Steam
 master and a phone copy, `camprobe*.js` to try cameras).
 `examples/hello-chef-cine.js` (the whole cinematic: night lighting, a real hole, smoke, silhouette, crash
 zoom, movie bars, subtitle), `examples/hello-chef-sound.js` (its score), `examples/fight-night-director.js` (a
@@ -90,7 +91,7 @@ with `applyUnlock`, a dawn sky dome, the game's toast and tip pill shown as over
   `window.cineType.marks` records when each part starts, for the cut.
 - **Motion blur** for a camera that really moves (`K.blur = { n, at(k) }`, kit.js): the frame is drawn `n` times
   with the camera at as many moments across it and the draws averaged on a canvas over the game's. A draw every half
-  degree of turn (up to 28) smears a whip round the dock cleanly (`t.js`).
+  degree of turn (up to 56: fewer shows as stepped ghost copies on hard edges) smears a whip round the dock cleanly (`t.js`).
 - **A time-lapse** is the game's own `applyUnlock(id)` on the beats (not silent: the upgrade pops in, the yacht
   sails in, its sound plays) and `setSeason`; the jump to stage 2 goes in the smear, silently. Leave the game's music
   on for it: the market tune gains its parts as the market grows and the café band takes over, in step with the picture.
@@ -98,6 +99,34 @@ with `applyUnlock`, a dawn sky dome, the game's toast and tip pill shown as over
   and, after the last of stage 2, the game's own "Something is knocking under the dock" (`u.js`, the demo's `?upto=`).
 - **A different starting state**: `--init file.js` runs a script before the game loads. `examples/trailer/newgame.js`
   rewrites the demo's `?stage=1` save into a brand new game (a bare dock, no yacht, no auto harpoon).
+- **Polish: slice it and look.** Tile every take into a contact sheet (`ffmpeg -vf "select='not(mod(n,10))',scale=640:-1,tile=6x8"`)
+  and read the sheets one by one; then hand the same sheets to a fresh subagent with no opinion of yours in the brief
+  ("what still looks less than professional, ranked, with the cell") and fix what it finds. It caught what the maker's
+  eye had stopped seeing: a customer's mouth hidden behind the counter, a face bleached by the fire, the stand off
+  in a corner of the play shot, a same-angle jump cut. What the passes on the store trailer settled:
+  - **A sky** (`K.sky`, kit.js): the game's flat sky colour is fine from its own camera and dead in a low wide shot.
+    A dome round the camera, the fog colour at the horizon, a pale sun, thin cloud as a flat layer seen from below
+    (never `atan` round the dome: its seam shows as a hard edge).
+  - **The sea from high up** is cut for its own distance: facets a pixel or two across shimmer like cloth, so the look
+    down gets a second sheet with 3.5 m facets (`farSea` in o.js). And a lone floe among thirty needs something to
+    find it by (slow rings going out from it).
+  - **Light the faces.** A night scene needs a motivated key on whoever the shot is about: the fire's light dimmed
+    for close-ups (`fire.set(t, 1, 0.72)`), a lantern under the stand's roof for the customers, a warm light from
+    the hatch under Mr. Fugu. A silhouette is a choice for a second, not a state.
+  - **Show what he looks at.** "He looks at the fish, then at the customer" is two inserts (the tray in firelight;
+    the stand on a long lens), not his head turning with the thing off screen.
+  - **The play shots frame the action**, not the chef: near the stand the camera's target slides to between him and
+    the queue (`g.js`), from 0.58 of the game's distance. Two pieces of one play take on the same angle are a jump
+    cut: run them as one piece, or change the angle for the second (`u.js` goes closer for the game's next toast).
+  - **Eyelids, not bars**, for a look through someone's eyes (`K.lids`): black bars read as a film format.
+    And bars for a film ending go on at a cut and stay (`k2.js`), never slide in mid-shot.
+  - **A foreground prop from the game seen close** (a flame cone, a hat brim, a chopping blade hung in the air)
+    reads as an error: frame it out or hide it for the shot.
+- **The mix, by numbers** (`check-audio.mjs` on the master, per second): the three thuds and the blast are the
+  loudest things (about -11 dB mean for their second), music sections sit at -14 to -18, a suspense hold at -25 to
+  -28, and the whole at about -16 LUFS. A music entrance 10 dB under the hit before it reads as "the music is
+  disconnected": bring the bed up, not the hit down. The click counter fires on any loud transient once a take has
+  +20 dB on it: check the take's own `game.wav` at unity (0 clicks) before chasing one.
 - **"Nothing but sea"**: the bay's rolling water stops 60 m out and a flat sheet carries on; from high up the edge
   shows, and islands sit in the bay. o.js lays its own sea (the game's `seaGeometry` and sea material) and hides the
   islands for those shots. From high up the game's sea also lines up in rows (a square grid under three regular

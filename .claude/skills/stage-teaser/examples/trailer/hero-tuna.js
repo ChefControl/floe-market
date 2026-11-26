@@ -77,13 +77,13 @@ window.HeroTuna = T3 => {
   });
   // the mouth: drawn on each side of the head as the eyes are (a cartoon fish is looked at side on): a line that
   // tips into a smile or a scowl, and the inside of it when it opens
-  const MX = 0.61, MY = -0.06;
+  const MX = 0.64, MY = -0.075;
   const mouths = [1, -1].map(s => {
     const e = new Group(); e.position.set(MX, MY, s * (skin(MX, MY) - 0.004));
     e.rotation.y = (s > 0 ? 0 : Math.PI) + s * Math.atan((skin(MX - 0.05, MY) - skin(MX + 0.05, MY)) / 0.1); g.add(e);
-    const line = new Mesh(box, basic(INK)), inside = new Mesh(ball, basic(0x5A1E24));
-    e.add(line, inside);
-    return { s, line, inside };
+    const line = new Mesh(box, basic(INK)), lip = new Mesh(ball, basic(INK)), inside = new Mesh(ball, basic(0x3A1218));
+    e.add(line, lip, inside);
+    return { s, line, lip, inside };
   });
   const st = { swim: 0, amp: 0.05, wide: 0, look: [0, 0], brow: 0, lid: 0, mouth: 0, smile: 0.5, flare: 0, dead: false };
   function set(o = {}) {
@@ -111,11 +111,14 @@ window.HeroTuna = T3 => {
       for (const [x, r] of [[x1, 0.78], [x2, -0.78]]) { x.scale.set(0.07, 0.015, 0.01); x.position.set(0, 0, 0.018); x.rotation.z = r; }
     }
     const open = st.mouth;
-    for (const { s, line, inside } of mouths) {
+    for (const { s, line, lip, inside } of mouths) {
       line.visible = open < 0.5;
-      line.scale.set(0.12, 0.013, 0.01); line.position.set(0, 0, 0.006); line.rotation.z = -s * st.smile * 0.35;
-      inside.visible = open > 0.05;
-      inside.scale.set(0.04 + open * 0.02, 0.008 + open * 0.045, 0.008); inside.position.set(s * 0.02, -open * 0.01, 0.008);
+      line.scale.set(0.1, 0.012, 0.01); line.position.set(0, 0, 0.006); line.rotation.z = -s * st.smile * 0.35;
+      // open: a dark oval ringed by its lip, gaping more the more it's open
+      inside.visible = lip.visible = open > 0.05;
+      const w = 0.03 + open * 0.022, h = 0.006 + open * 0.04;
+      lip.scale.set(w + 0.008, h + 0.008, 0.006); lip.position.set(s * 0.012, -open * 0.012, 0.006);
+      inside.scale.set(w, h, 0.007); inside.position.set(s * 0.012, -open * 0.012, 0.008);
     }
   }
   set();

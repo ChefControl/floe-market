@@ -9,7 +9,7 @@ S=$(mkdir -p "${OUT:-out/trailer}" && cd "${OUT:-out/trailer}" && pwd)
 U=http://localhost:5177/; U3="http://localhost:5177/?cellar&full&beaten=4&sound=on"
 FK=rush,fightBanner,finish,finBlink,ringFlash,epic,banner,fade,toast,confetti
 r() { name=$1; shift; node "$P/render-play.mjs" "$@" > "$S/log-$name.txt" 2>&1; echo "$name: $(tail -1 "$S/log-$name.txt")"; }
-# the opening (the owner's script: the floe, the tuna, the cleaver), on a new game
+# the opening (the owner's script: the floe, the tuna), on a new game
 r O "$X/kit.js,$X/hero-tuna.js,$X/acting.js,$X/o.js" "$S/O" --landscape --url "$U?stage=1&sound=on" --mute music --init "$X/newgame.js" &
 # the campfire (that night: the bell, the idea) and the first sale (real play, HUD on); then cut.py with edl-open.json
 r C "$X/kit.js,$X/acting.js,$X/campfire.js,$X/c.js" "$S/C" --landscape --url "$U?stage=1&pile=14&sound=on" --mute music --init "$X/newgame.js" --wait 9000 &
@@ -23,6 +23,15 @@ r U "$X/kit.js,$X/u.js" "$S/U" --landscape --url "$U?upto=porter&sound=on" --mut
 r H "$X/kit.js,$X/h.js" "$S/H" --landscape --url "$U?upto=porter&sound=on" --mute music --wait 5000 &
 r L "$X/kit.js,$X/l.js" "$S/L" --landscape --url "$U?sound=on" --mute music &
 wait
+# version 3's ending: the knock on the clip's own cameras (k2.js), lifted a little for a night that reads on a phone
+# (K2g), and a low drone to lay under it. python3 cut.py "$S" trailer-v3.mp4 --phone phone.mp4 --edl edl-v3.json
+r K2 "$X/kit.js,$X/k2.js" "$S/K2" --landscape --url "$U?sound=on" --keep offer,toast
+rm -rf "$S/K2g" && mkdir -p "$S/K2g/frames" && cp "$S/K2/game.wav" "$S/K2g/" &&
+  ffmpeg -v error -y -start_number 0 -i "$S/K2/frames/%04d.jpg" -vf "eq=gamma=1.28:contrast=1.1:saturation=1.15" -q:v 2 -start_number 0 "$S/K2g/frames/%04d.jpg" < /dev/null
+mkdir -p "$S/DRONE2" && ffmpeg -v error -y -f lavfi -i "sine=f=55:d=12.2:r=48000" -f lavfi -i "sine=f=82.4:d=12.2:r=48000" \
+  -f lavfi -i "sine=f=110.3:d=12.2:r=48000" -f lavfi -i "sine=f=164.6:d=12.2:r=48000" -f lavfi -i "anoisesrc=c=brown:d=12.2:a=0.6:r=48000" \
+  -filter_complex "[0]volume=0.5[a];[1]volume=0.28[b];[2]volume=0.13[c];[3]volume=0.06[d];[4]lowpass=f=180,volume=0.5[e];[a][b][c][d][e]amix=inputs=5:normalize=0,tremolo=f=0.31:d=0.35,volume=10dB,aformat=channel_layouts=stereo" \
+  -ar 48000 "$S/DRONE2/game.wav" < /dev/null
 # version 1's takes (K, the knock, is used by version 2 as well)
 # act 1: the ice market, then Floe Sushi and the knocking hatch (music laid in from the beds)
 r S1 "$X/kit.js,$X/s1.js" "$S/S1" --landscape --url "$U?stage=1&sound=on" --mute music &

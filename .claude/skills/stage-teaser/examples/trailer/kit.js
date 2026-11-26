@@ -42,6 +42,7 @@
   const accX = acc.getContext('2d');
   R.renderer.render = (s, c) => {
     flagString.visible = false;
+    if (dome.visible && c === cam) { dome.position.copy(cam.position); dome.scale.setScalar(Math.max(1, (cam.far * 0.8) / 150)); skyMat.uniforms.uLow.value.copy(R.fog.color); skyMat.uniforms.uT.value = (skyT += 1 / 30); }
     if (blur && c === cam && blur.n > 1) {
       if (acc.width !== R.canvas.width) { acc.width = R.canvas.width; acc.height = R.canvas.height; }
       for (let i = 0; i < blur.n; i++) {
@@ -89,13 +90,57 @@
     #teaserBars{position:fixed;inset:0;z-index:19;pointer-events:none;}
     #teaserBars::before,#teaserBars::after{content:"";position:absolute;left:0;right:0;height:var(--bar,0px);background:#000;}
     #teaserBars::before{top:0} #teaserBars::after{bottom:0}
-    #teaserFade{position:fixed;inset:0;z-index:30;pointer-events:none;background:#000;opacity:0;}`;
+    #teaserLids{position:fixed;inset:0;z-index:19;pointer-events:none;overflow:hidden;display:none;}
+    #teaserLids i{position:absolute;left:-18%;width:136%;height:62%;background:#000;filter:blur(18px);}
+    #teaserLids i:first-child{top:0;border-radius:0 0 50% 50%/0 0 38% 38%;} #teaserLids i:last-child{bottom:0;border-radius:50% 50% 0 0/38% 38% 0 0;}
+    #teaserFade{position:fixed;inset:0;z-index:30;pointer-events:none;background:#000;opacity:0;}
+    #teaserVig{position:fixed;inset:0;z-index:17;pointer-events:none;opacity:0;background:radial-gradient(ellipse 78% 78% at 50% 50%, rgba(8,16,26,0) 52%, rgba(8,16,26,.55) 100%);}`;
   document.head.append(css);
   document.body.append(cap);
-  const bars = document.createElement('div'); bars.id = 'teaser'; bars.innerHTML = '<div id="teaserBars"></div><div id="teaserFade"></div>';
+  const bars = document.createElement('div'); bars.id = 'teaser'; bars.innerHTML = '<div id="teaserVig"></div><div id="teaserBars"></div><div id="teaserLids"><i></i><i></i></div><div id="teaserFade"></div>';
   document.body.append(bars);
   bars.prepend(acc);
-  const barsEl = bars.firstChild, fadeEl = bars.lastChild;
+  const barsEl = bars.querySelector('#teaserBars'), fadeEl = bars.querySelector('#teaserFade'), vigEl = bars.querySelector('#teaserVig');
+  /** A soft darkening of the corners, 0 to 1: for the story shots (never over play, where the HUD lives). */
+  const vignette = k => { vigEl.style.opacity = clamp(k); };
+
+  // ---------- a sky: the game's is one flat colour, fine from its own camera and flat in a low, wide shot ----------
+  // A dome round the camera: the game's own sky colour at the horizon (so the fog still meets it), deepening
+  // overhead, a pale sun with a wide glow, and thin cloud near the horizon. K.sky({ top, sun: [x, y, z], glow }) or null.
+  const { Mesh, SphereGeometry, ShaderMaterial, BackSide, Color } = T3;
+  const skyMat = new ShaderMaterial({
+    side: BackSide, depthWrite: false, depthTest: false, fog: false,
+    uniforms: { uTop: { value: new Color(0x86BDE6) }, uLow: { value: new Color(0xCFEAF5) }, uSun: { value: V(-0.5, 0.3, -0.8).normalize() }, uGlow: { value: new Color(0xFFF4D6) }, uK: { value: 1 }, uT: { value: 0 } },
+    vertexShader: 'varying vec3 vD; void main(){ vD = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+    fragmentShader: `uniform vec3 uTop; uniform vec3 uLow; uniform vec3 uSun; uniform vec3 uGlow; uniform float uK; uniform float uT; varying vec3 vD;
+      float h(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+      float n(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f); return mix(mix(h(i), h(i + vec2(1.0, 0.0)), f.x), mix(h(i + vec2(0.0, 1.0)), h(i + vec2(1.0, 1.0)), f.x), f.y); }
+      void main(){
+        vec3 d = normalize(vD); float up = clamp(d.y, 0.0, 1.0);
+        vec3 c = mix(uLow, uTop, pow(smoothstep(0.0, 0.75, up), 0.8));
+        float s = max(0.0, dot(d, uSun));
+        c += uGlow * (pow(s, 6.0) * 0.07 + pow(s, 60.0) * 0.16 + smoothstep(0.9994, 0.9998, s) * 0.45) * uK;
+        // thin cloud: long streaks low in the sky, drifting
+        // (a flat layer overhead, seen from below: no seam anywhere round the sky, and the streaks lie along the horizon)
+        vec2 pl = d.xz / (up + 0.2);
+        vec2 q = vec2(pl.x * 0.55 + uT * 0.004, pl.y * 2.1 + 3.0);
+        float cl = smoothstep(0.52, 0.8, n(q) * 0.6 + n(q * 2.3 + 7.0) * 0.4) * smoothstep(0.03, 0.12, up) * (1.0 - smoothstep(0.25, 0.55, up));
+        c = mix(c, vec3(1.0), cl * 0.5 * uK);
+        gl_FragColor = vec4(c, 1.0);
+      }`,
+  });
+  const dome = new Mesh(new SphereGeometry(150, 32, 16), skyMat); dome.renderOrder = -100; dome.frustumCulled = false; dome.visible = false;
+  R.scene.add(dome);
+  let skyT = 0;
+  /** The sky dome on (with its colours) or off. Its horizon follows the game's own fog colour every frame. */
+  function sky(o) {
+    dome.visible = !!o;
+    if (!o) return;
+    if (o.top !== undefined) skyMat.uniforms.uTop.value.setHex(o.top);
+    if (o.sun) skyMat.uniforms.uSun.value.set(...o.sun).normalize();
+    if (o.glow !== undefined) skyMat.uniforms.uGlow.value.setHex(o.glow);
+    skyMat.uniforms.uK.value = o.k ?? 1;
+  }
   /** The caption at time t: [from, to, text, kicker?] — pops in with the banner's overshoot, out with a quick fade. */
   function caption(list, t) {
     // (?nocap in the address: clean plates, no captions, for loops cut from the takes)
@@ -111,10 +156,14 @@
   }
   /** Black bars top and bottom, `px` tall each. */
   const letterbox = px => barsEl.style.setProperty('--bar', `${px}px`);
+  /** Eyelids, for a look through someone's eyes: 0 open, 1 shut. Soft and curved, where letterbox bars read as a film format. */
+  const lidsEl = bars.querySelector('#teaserLids');
+  const lids = k => { k = clamp(k); lidsEl.style.display = k > 0.001 ? 'block' : 'none'; const y = (1 - k) * 100;
+    lidsEl.firstChild.style.transform = `translateY(${-y}%)`; lidsEl.lastChild.style.transform = `translateY(${y}%)`; };
   /** Black over everything, 0 to 1. */
   const fade = k => { fadeEl.style.opacity = clamp(k); };
 
-  window.K = { R, T3, V, clamp, ease, easeIO, easeOut, lerp, path, caption, letterbox, fade,
+  window.K = { R, T3, V, clamp, ease, easeIO, easeOut, lerp, path, caption, letterbox, lids, fade, vignette, sky,
     set cam(s) { shot = s; }, get cam() { return shot; },
     /** Motion blur this frame: { n: draws, at(k 0..1): the camera { pos, look } across the frame } or null. */
     set blur(b) { blur = b; },

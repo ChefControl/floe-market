@@ -10,14 +10,14 @@ window.Acting = async () => {
 
   /** A face for `P`, from the game's own face parts (characters.ts `face`), laid over their dot eyes. Returns
    *  set({ eyes, brow, mouth, open }): eyes 'dot' (their own), 'big' (the dots grown: startled), 'shut', 'happy';
-   *  brow null or [how high 0..1, tilt: + a scowl, - worry]; mouth 'none' | 'o' | 'smile' | 'frown' | 'grin'.
+   *  brow null or [how high 0..1, tilt: + a scowl, - worry]; mouth 'none' | 'o' | 'smile' | 'frown' | 'grin' | 'chatter'.
    *  (No whites to the eyes: on these faces round eyes with pupils stare.) */
   function face(P) {
     const part = (geo, c) => { const m = new Mesh(geo, lam(c)); m.visible = false; P.body.add(m); return m; };
     const F = {
       brows: [-1, 1].map(() => part(box, INK)), bigs: [-1, 1].map(() => part(ball, INK)), glints: [-1, 1].map(() => part(ball, 0xFFFFFF)),
       covers: [-1, 1].map(() => part(ball, P.style.skin)), arcs: [-1, 1].map(() => part(arch, INK)),
-      o: part(ball, INSIDE), smile: part(arch, INK), grin: part(halfDisc, INSIDE), teeth: part(box, 0xFFFFFF),
+      o: part(ball, INSIDE), smile: part(arch, INK), grin: part(halfDisc, INSIDE), teeth: part(box, 0xFFFFFF), gum: part(box, INK),
     };
     return ({ eyes = 'dot', brow = null, mouth = 'none', open = 1 } = {}) => {
       [-1, 1].forEach((s, i) => {
@@ -38,9 +38,14 @@ window.Acting = async () => {
       F.o.scale.set(0.02 * (0.8 + 0.3 * open), 0.026 * open, 0.012); F.o.position.set(0, y, z); F.o.rotation.x = 0.33;
       F.smile.visible = mouth === 'smile' || mouth === 'frown';
       F.smile.scale.set(0.04, 0.03, 0.03); F.smile.position.set(0, y + (mouth === 'smile' ? 0.02 : -0.022), z); F.smile.rotation.set(0.33, 0, mouth === 'smile' ? Math.PI : 0);
-      F.grin.visible = F.teeth.visible = mouth === 'grin';
+      F.grin.visible = mouth === 'grin'; F.teeth.visible = mouth === 'grin' || mouth === 'chatter'; F.gum.visible = mouth === 'chatter';
       F.grin.scale.set(0.05, 0.046 * open, 1); F.grin.position.set(0, y + 0.014, z + 0.002); F.grin.rotation.x = 0.33;
       F.teeth.scale.set(0.072, 0.012, 0.004); F.teeth.position.set(0, y + 0.008, z + 0.008); F.teeth.rotation.x = 0.33;
+      // chattering: a flat strip of teeth in a dark line, no curve to it (a curve reads as a smile), jumping with `open`
+      if (mouth === 'chatter') {
+        F.gum.scale.set(0.066, 0.03, 0.004); F.gum.position.set(0, y + 0.002, z + 0.004); F.gum.rotation.x = 0.33;
+        F.teeth.scale.set(0.056, 0.014, 0.004); F.teeth.position.set(0, y + 0.002 + (open - 0.5) * 0.008, z + 0.008);
+      }
     };
   }
 
