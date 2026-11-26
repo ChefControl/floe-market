@@ -6,6 +6,7 @@ import {
   AdditiveBlending, BufferGeometry, ConeGeometry, CylinderGeometry, Float32BufferAttribute, Group, Mesh,
   MeshLambertMaterial, Points, PointsMaterial, Sprite, SpriteMaterial,
 } from 'three';
+import { backdropNight, RIPPLE_TILE, seaRipples, updBackdrop } from './backdrop';
 import { quietly } from './kit';
 import { BAY } from './layout';
 import { canvasTex, scene } from './render';
@@ -24,6 +25,8 @@ quietly(() => {
   // ---------- the open sea ----------
   // two sheets round the bay's sea, just under it: north of it, and west of it, both out to the haze
   const sea = new MeshLambertMaterial({ color: DEEP });
+  // (faint ripples on it, backdrop.ts, so it isn't one flat colour out to the haze)
+  sea.map = seaRipples;
   const sheet = (x0: number, x1: number, z0: number, z1: number) => {
     const m = new Mesh(flatPlane(x1 - x0, z1 - z0), sea);
     m.position.set((x0 + x1) / 2, 0.006, (z0 + z1) / 2);
@@ -39,7 +42,8 @@ quietly(() => {
   const ROCK = 0x3F5A58, PINE = 0x2F4A40;
   const islands: [number, number, number, number][] = [
     // x, z, width, height
-    [-26, -62, 11, 2.0], [-14, -66, 6, 1.2], [-44, -58, 8, 1.6], [4, -68, 13, 2.6], [-60, -50, 9, 1.8],
+    // (the biggest stands clear of the coast, which runs north at BAY.x1: the coast road bends there, backdrop.ts)
+    [-26, -62, 11, 2.0], [-14, -66, 6, 1.2], [-44, -58, 8, 1.6], [-3.5, -68, 13, 2.6], [-60, -50, 9, 1.8],
   ];
   const r = rng(0xB1A5);
   for (const [x, z, w, h] of islands) {
@@ -60,6 +64,8 @@ function flatPlane(w: number, d: number) {
   const x = w / 2, z = d / 2;
   geo.setAttribute('position', new Float32BufferAttribute([-x, 0, -z, -x, 0, z, x, 0, z, x, 0, -z], 3));
   geo.setAttribute('normal', new Float32BufferAttribute([0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0], 3));
+  // (the open sea's ripples, at their own size whatever the sheet's)
+  geo.setAttribute('uv', new Float32BufferAttribute([-x, -z, -x, z, x, z, x, -z].map(v => v / RIPPLE_TILE), 2));
   geo.setIndex([0, 1, 2, 0, 2, 3]);
   return geo;
 }
@@ -67,7 +73,7 @@ function flatPlane(w: number, d: number) {
 // ---------- the lighthouse ----------
 // on a rock of its own off the biggest island: white with red bands, and at night its lamp sweeps round (a glow that
 // swells and fades)
-const LIGHTHOUSE = { x: 12, z: -64, y: 0.9 };
+const LIGHTHOUSE = { x: -3, z: -63.8, y: 0.9 };
 const glowTex = canvasTex(64, 64, (c, w, h) => {
   const gr = c.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, w / 2);
   gr.addColorStop(0, 'rgba(255,248,220,1)'); gr.addColorStop(0.25, 'rgba(255,224,150,.7)'); gr.addColorStop(1, 'rgba(255,200,120,0)');
@@ -132,10 +138,12 @@ export function nightSky(k: number) {
   nightAt = k;
   (moon.material as SpriteMaterial).opacity = k;
   (stars.material as PointsMaterial).opacity = 0.85 * k;
+  backdropNight(k);
 }
 /** Turns the lighthouse's lamp: call every frame. */
 export function updHorizon(dt: number) {
   clock += dt;
+  updBackdrop(clock);
   // a beam sweeping round once every six seconds: bright as it faces this way, faint the rest of the turn
   const turn = (clock / 6) % 1, face = Math.pow(Math.max(0, Math.cos(turn * Math.PI * 2)), 6);
   (lamp.material as SpriteMaterial).opacity = nightAt * (0.25 + 0.75 * face);

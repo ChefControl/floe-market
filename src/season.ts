@@ -44,6 +44,10 @@ export const PAL = {
   pine2: [0x3B8270, 0x5AAA62, 0x46A04A, 0xE08A2E],
 } satisfies Record<string, Swatch>;
 
+/** How big the ice floes are through the year (world.ts, and the icebergs out at sea, backdrop.ts): they melt away by
+ *  summer and start to form again in autumn. */
+export const FLOE_SIZE: Swatch = [1, 0.5, 0, 0.3];
+
 const ease = (k: number) => k < .5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
 /** How far the scenery is from the last season's colours to this one's (eased). */
 export const blendK = () => ease(season.k);

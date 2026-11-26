@@ -565,7 +565,7 @@ function worldFlags(): Ad {
     },
     c => { c.fillStyle = '#D63A2A'; c.fillRect(0, 0, W, H); c.fillStyle = '#FFFFFF'; c.fillRect(W / 4, 0, W / 2, H); c.fillStyle = '#D63A2A'; c.fillRect(W / 2 - 6, H / 2 - 8, 12, 16); },
     c => { c.fillStyle = '#1F5FA8'; c.fillRect(0, 0, W, H); c.fillStyle = '#F2C14E'; c.fillRect(W * 0.3, 0, 9, H); c.fillRect(0, H / 2 - 4, W, 9); },
-    // Israel's: two blue stripes and the Star of David between them, two triangles (as votingBoat.ts flag draws it)
+    // Israel's: two blue stripes and the Star of David between them, two triangles
     c => {
       c.fillStyle = '#FFFFFF'; c.fillRect(0, 0, W, H); c.fillStyle = c.strokeStyle = '#0038B8';
       for (const k of [-1, 1]) c.fillRect(0, H / 2 + k * H * 0.335 - H * 0.075, W, H * 0.15);

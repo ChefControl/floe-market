@@ -1,7 +1,8 @@
 // Cooking at the pot (stage 3): standing at the pot, the player presses Cook; the game holds still (game.ts) and the
 // camera comes in close on the real pot, framed by a hinoki cutting board (the scoreboard of the four steps along its top,
 // what to do along its foot). The four steps are played on a little set built at the hearth from the game's own things,
-// over a stew of its own that answers everything done to it: a napa cabbage, a carrot, a block of tofu and a block of
+// over a stew of its own that answers everything done to it (drawn by hand, as the rest of the game is: a flat matte
+// top with a line of foam round it, never a smooth shine): a napa cabbage, a carrot, a block of tofu and a block of
 // tuna slide along a long prep board under the knife (tap as each gold line lights up under it: one through each
 // vegetable, two through the tuna), the cut pieces hopping into a basket; a piece off each is thrown in one by one,
 // then a mushroom and a handful of dried rice (drag up and let go: the nearer the pot's middle the better), and sink
@@ -16,16 +17,17 @@
 // member or anything else standing between the camera and the set is put away until it's over. (In the code it's "the
 // show".)
 import {
-  Box3, BufferAttribute, BufferGeometry, Color, CylinderGeometry, DoubleSide, Group, type Material, Mesh, MeshBasicMaterial, MeshLambertMaterial,
-  MeshPhongMaterial, type Object3D, Plane, Ray, Raycaster, SphereGeometry, TorusGeometry, Vector2, Vector3,
+  Box3, BufferAttribute, BufferGeometry, Color, CylinderGeometry, DoubleSide, Group, IcosahedronGeometry, type Material, Mesh, MeshBasicMaterial,
+  MeshLambertMaterial, type Object3D, Plane, Ray, Raycaster, SphereGeometry, TorusGeometry, Vector2, Vector3,
 } from 'three';
 import { cellar, CY, lights, POT_TOP, potMesh } from './cellar';
 import { POT, POT_PAD } from './cellarPlan';
 import { batchBowls, BONUS_S, BONUS_TIERS, canShow, F, growOpen, showResult, type ShowRun } from './fight';
 import { chipsFx, pourFx, splashFx, steamFx, updFx } from './fx';
+import { isHigh } from './graphics';
 import { keyHeld } from './input';
 import { newMushroom } from './items';
-import { rbox } from './kit';
+import { apart, dice, rbox } from './kit';
 import { level, stage } from './layout';
 import { player } from './player';
 import { potMusic } from './potMusic';
@@ -181,16 +183,31 @@ const pieceX = (got: number[], i: number) =>
   PIECES[i].x - 0.03 * LINES.filter((l, j) => got[j] > 0 && l.i >= i && PIECES[l.i].item === PIECES[i].item).length;
 
 // ---------- the stew, as the show has it ----------
-/** The show's stew is its own: a fine round top in the pot's place, which moves (rings where things land and where
- *  seasonings pour, a whirl and a dip in the middle as it's stirred, a simmer that bubbles harder the harder it
- *  boils), takes the seasonings' colour as they spread out from where they're poured, and swallows what's thrown in:
- *  it sinks, and the stir brings it back up, round and round with it. */
-const BROTH_R = 0.8, RINGS = 14, SECTORS = 44;
+/** The show's stew is its own: a round top in the pot's place, which moves (it heaves where things land and where
+ *  seasonings pour, whirls and dips in the middle as it's stirred, simmers and bubbles harder the harder it boils),
+ *  takes the seasonings' colour as they spread out from where they're poured, and swallows what's thrown in: it
+ *  sinks, and the stir brings it back up, round and round with it.
+ *  It's drawn as the game's things are, by hand: a flat, matte top in one colour (the pot's own in the cellar is the
+ *  same), cut into uneven triangles so a seasoning spreads a piece at a time, with a paler line of foam where it
+ *  meets the iron; and what moves it is drawn on it: a ring where something goes under, streaks that go round with
+ *  the ladle. No shine anywhere, chunky bubbles, and the fat on it in flat, uneven patches. The same on every
+ *  graphics setting, and lighter than a smooth top would be (under 300 triangles, lit as one face). */
+const BROTH_R = 0.8;
+/** The top's cut: rings of points out from the middle (6, 12, 18… a ring), each nudged off its place, as far as the
+ *  foam's inner edge, which wanders; then the rim, even. */
+const CUT_RINGS = 5, FOAM_N = 36, FOAM_W = 0.05, FOAM_WOB = 0.018;
+/** The foam, the rings and the streaks are this pale: salt's own colour (TINTS), the stew's mixed towards it. */
+const CREAM = 0xFBF3E2, FOAM_K = 0.45;
+/** A ring's drawn where something makes a wave at least this high (a piece going under, a landing: not a bubble, a
+ *  drip or the ladle's wake); eight at once at most. */
+const RING_MIN = 0.0115, RING_N = 8;
 /** Plain dashi, before it's seasoned; what each seasoning turns it towards, and how far a good pour of it does. */
 const DASHI = 0xE3BC72;
 const TINTS: [number, number][] = [[0xFBF3E2, 0.3], [0x5A2610, 0.72], [0xB8692A, 0.78]];
 /** How fast a seasoning's colour spreads through the stew (metres a second). */
 const DYE_V = 0.45;
+/** How far the stew's middle dips at a full whirl (metres). */
+const WHIRL_DIP = 0.05;
 const B = {
   t: 0, whirl: 0, swirl: 0, boil: 0.15, rise: 0, puff: 0,
   /** Its colour: what it was, and what it's being turned by the seasoning being poured, spreading from `dye`. */
@@ -200,15 +217,18 @@ const waves: { x: number; z: number; t: number; a: number }[] = [];
 /** What's gone into the stew: sinking from `t` where it went in, then going round with it (and back up as it's stirred,
  *  `up`: the rice stays down). */
 const bits: { o: Object3D; a: number; r: number; t: number; tip: number; up: boolean; gloop: boolean; placed?: boolean }[] = [];
-const tint = new Color(), shadeC = new Color();
+const tint = new Color(), shadeC = new Color(), cream = new Color(CREAM);
 /** The stew's colour for seasonings poured to `levels` (salt, soy, miso: 0 to 1, none yet: 0). */
 function seasoned(levels: number[], out = new Color()) {
   out.setHex(DASHI);
   TINTS.forEach(([c, w], j) => { if (levels[j] > 0) out.lerp(tint.setHex(c), w * Math.min(1, levels[j] / 0.5)); });
   return out;
 }
-/** Rings out from `x, z` on the stew, `a` high. */
-const wave = (x: number, z: number, a: number) => { waves.push({ x, z, t: B.t, a }); if (waves.length > 24) waves.shift(); };
+/** Rings out from `x, z` on the stew, `a` high (and a ring drawn on it, for a big one, unless `ring` says not). */
+const wave = (x: number, z: number, a: number, ring = true) => {
+  waves.push({ x, z, t: B.t, a }); if (waves.length > 24) waves.shift();
+  if (ring && a >= RING_MIN) ringAt(x, z, a);
+};
 /** How far the stew's top is above or below its rest at `x, z` now. */
 function stewH(x: number, z: number) {
   const dx = x - POT.x, dz = z - POT.z, r = Math.hypot(dx, dz) / BROTH_R;
@@ -219,30 +239,132 @@ function stewH(x: number, z: number) {
     if (behind > 0) h += w.a * Math.exp(-age * 1.6 - behind * 3) * Math.sin(behind * 32);
   }
   const th = Math.atan2(dz, dx);
-  h += B.whirl * (-0.05 * (1 - r * r) + 0.012 * r * Math.sin(3 * th - B.swirl * 2 + r * 9));
+  h += B.whirl * (-WHIRL_DIP * (1 - r * r) + 0.012 * r * Math.sin(3 * th - B.swirl * 2 + r * 9));
   h += B.boil * 0.012 * Math.sin(dx * 21 + B.t * 6.3) * Math.sin(dz * 17 - B.t * 5.1);
   return h * (1 - r ** 6);
 }
-/** The stew's top: a disc of rings, its heights and colours moved every frame. */
+/** How the top's cut: its points (x, z from the pot's middle), the triangles between them, each triangle's middle,
+ *  and from which triangle on they're the foam. Worked out once, on dice of its own. */
+interface TopCut { pts: Float32Array; tri: Uint16Array; mid: Float32Array; foamFrom: number; h: Float32Array }
+let topCut: TopCut | null = null;
+function cutTop(): TopCut {
+  const d = dice(0x50B9), jit = (a: number) => (d() * 2 - 1) * a;
+  const shore = BROTH_R - FOAM_W, pts: number[] = [0, 0], first = [0];
+  for (let r = 1; r <= CUT_RINGS; r++) {
+    first.push(pts.length / 2);
+    for (let k = 0, n = r * 6; k < n; k++) {
+      const a = (k + jit(0.32)) / n * Math.PI * 2, rad = (r + jit(0.3)) / (CUT_RINGS + 1) * shore;
+      pts.push(Math.cos(a) * rad, Math.sin(a) * rad);
+    }
+  }
+  // (the foam's inner edge, wandering, and the rim, point for point outside it)
+  for (const rim of [false, true]) {
+    first.push(pts.length / 2);
+    for (let k = 0; k < FOAM_N; k++) {
+      const a = k / FOAM_N * Math.PI * 2, rad = rim ? BROTH_R : shore + jit(FOAM_WOB);
+      pts.push(Math.cos(a) * rad, Math.sin(a) * rad);
+    }
+  }
+  const tri: number[] = [];
+  for (let k = 0; k < 6; k++) tri.push(0, 1 + (k + 1) % 6, 1 + k);
+  // (between two rings of different counts: round both together, a triangle for each step along either)
+  const join = (a0: number, m: number, b0: number, n: number) => {
+    for (let i = 0, j = 0; i < m || j < n;) {
+      if (j < n && (i >= m || (j + 0.5) / n <= (i + 0.5) / m)) { tri.push(a0 + i % m, b0 + (j + 1) % n, b0 + j % n); j++; }
+      else { tri.push(a0 + i % m, a0 + (i + 1) % m, b0 + j % n); i++; }
+    }
+  };
+  for (let r = 1; r < CUT_RINGS; r++) join(first[r], r * 6, first[r + 1], r * 6 + 6);
+  join(first[CUT_RINGS], CUT_RINGS * 6, first[CUT_RINGS + 1], FOAM_N);
+  const foamFrom = tri.length / 3;
+  join(first[CUT_RINGS + 1], FOAM_N, first[CUT_RINGS + 2], FOAM_N);
+  const mid = new Float32Array(tri.length / 3 * 2);
+  for (let t = 0; t < tri.length / 3; t++) {
+    const [a, b, c] = [tri[t * 3], tri[t * 3 + 1], tri[t * 3 + 2]];
+    mid[t * 2] = (pts[a * 2] + pts[b * 2] + pts[c * 2]) / 3; mid[t * 2 + 1] = (pts[a * 2 + 1] + pts[b * 2 + 1] + pts[c * 2 + 1]) / 3;
+  }
+  return { pts: new Float32Array(pts), tri: new Uint16Array(tri), mid, foamFrom, h: new Float32Array(pts.length / 2) };
+}
+/** The stew's top: its triangles each a flat colour, their heights and colours moved every frame, all lit as one level
+ *  face (so it's matte and even, however it heaves). */
 function brothMesh() {
-  const n = 1 + RINGS * SECTORS, pos = new Float32Array(n * 3), idx: number[] = [];
-  for (let r = 1; r <= RINGS; r++) for (let k = 0; k < SECTORS; k++) {
-    const v = 1 + (r - 1) * SECTORS + k, a = k / SECTORS * Math.PI * 2;
-    pos[v * 3] = Math.cos(a) * r / RINGS * BROTH_R; pos[v * 3 + 2] = Math.sin(a) * r / RINGS * BROTH_R;
-  }
-  for (let k = 0; k < SECTORS; k++) idx.push(0, 1 + (k + 1) % SECTORS, 1 + k);
-  for (let r = 1; r < RINGS; r++) for (let k = 0; k < SECTORS; k++) {
-    const a = 1 + (r - 1) * SECTORS + k, b = 1 + (r - 1) * SECTORS + (k + 1) % SECTORS;
-    idx.push(a, b, a + SECTORS, b, b + SECTORS, a + SECTORS);
-  }
+  const cut = topCut ??= cutTop();
+  const n = cut.tri.length, pos = new Float32Array(n * 3), up = new Float32Array(n * 3);
+  for (let v = 0; v < n; v++) { pos[v * 3] = cut.pts[cut.tri[v] * 2]; pos[v * 3 + 2] = cut.pts[cut.tri[v] * 2 + 1]; up[v * 3 + 1] = 1; }
   const geo = new BufferGeometry();
   geo.setAttribute('position', new BufferAttribute(pos, 3));
+  geo.setAttribute('normal', new BufferAttribute(up, 3));
   geo.setAttribute('color', new BufferAttribute(new Float32Array(n * 3), 3));
-  geo.setIndex(idx);
-  const m = new Mesh(geo, new MeshPhongMaterial({ vertexColors: true, shininess: 90, specular: 0x2C2216 }));
+  const m = new Mesh(geo, new MeshLambertMaterial({ vertexColors: true }));
   m.position.set(POT.x, STEW_Y, POT.z);
   m.receiveShadow = true;
+  // (its shape changes every frame: never merged with what stands still, batch.ts)
+  m.userData.noBatch = true;
   return m;
+}
+/** What's drawn on the stew: rings that spread where something went under, and streaks that go round with the ladle. */
+const drawn = { rings: [] as Mesh[], next: 0, streaks: null as Mesh | null };
+/** A flat band between two circles, `r0` and `r1` out, from angle `a0` round to `a1` in `n` pieces: its edges wander
+ *  by `wob` (on `d`), and `taper` thins it to nothing at both ends. `dip`: how far each point is sunk, by how far out
+ *  it is. */
+function band(d: () => number, r0: number, r1: number, wob: number, n: number, a0 = 0, a1 = Math.PI * 2, taper = false, dip = (_r: number) => 0) {
+  const pos: number[] = [], idx: number[] = [], whole = a1 - a0 >= Math.PI * 2 - 1e-6, m = whole ? n : n + 1;
+  for (let k = 0; k < m; k++) {
+    const a = a0 + (a1 - a0) * k / n, e = taper ? Math.sin(Math.PI * k / n) : 1, w = (d() * 2 - 1) * wob;
+    const c = (r0 + r1) / 2, half = (r1 - r0) / 2 * e, i = c - half + w * e, o = whole ? r1 : c + half + w * e;
+    pos.push(Math.cos(a) * i, dip(i), Math.sin(a) * i, Math.cos(a) * o, dip(o), Math.sin(a) * o);
+  }
+  for (let k = 0; k < n; k++) { const a = k * 2, b = ((k + 1) % m) * 2; idx.push(a, b, a + 1, b, b + 1, a + 1); }
+  return { pos, idx };
+}
+const shape = (pos: number[], idx: number[]) => {
+  const g = new BufferGeometry();
+  g.setAttribute('position', new BufferAttribute(new Float32Array(pos), 3));
+  g.setIndex(idx); g.computeVertexNormals();
+  return g;
+};
+/** Makes them (off the luck, on dice of their own): eight rings of one uneven shape, and three streaks as one. */
+function drawnParts(g: Group) {
+  apart(() => {
+    const d = dice(0xF0A3), pale = () => new MeshBasicMaterial({ color: CREAM, transparent: true, opacity: 0, depthWrite: false });
+    const r = band(d, 0.86, 1, 0.03, 11), ring = shape(r.pos, r.idx);
+    drawn.rings = Array.from({ length: RING_N }, () => { const o = add(g, new Mesh(ring, pale())); o.visible = false; o.renderOrder = 1; return o; });
+    // (the streaks lie in the dip the whirl makes: sunk by how near the middle they are, the more the harder it whirls)
+    const pos: number[] = [], idx: number[] = [];
+    for (const [rad, a, len] of [[0.24, 0.3, 2.0], [0.42, 2.5, 1.7], [0.6, 4.6, 1.5]]) {
+      const s = band(d, rad - 0.016, rad + 0.016, 0.006, 9, a, a + len, true, x => -WHIRL_DIP * (1 - (x / BROTH_R) ** 2));
+      idx.push(...s.idx.map(i => i + pos.length / 3)); pos.push(...s.pos);
+    }
+    drawn.streaks = add(g, new Mesh(shape(pos, idx), pale()));
+    drawn.streaks.position.set(POT.x, STEW_Y + 0.006, POT.z); drawn.streaks.renderOrder = 1; drawn.streaks.visible = false;
+  }, dice(0xF0A3));
+}
+/** A ring on the stew from `x, z`, the bigger and longer the harder it was hit (`a`): the oldest one's taken. */
+function ringAt(x: number, z: number, a: number) {
+  // (never out over the foam)
+  const room = BROTH_R - FOAM_W - FOAM_WOB - Math.hypot(x - POT.x, z - POT.z);
+  if (!drawn.rings.length || room < 0.06) return;
+  const r = drawn.rings[drawn.next++ % RING_N];
+  r.visible = true; r.position.set(x, STEW_Y, z); r.rotation.y = drawn.next * 2.4; r.scale.setScalar(0.03);
+  r.userData = { t: 0, a, max: Math.min(room, 0.1 + a * 6), life: 0.5 + a * 8 };
+}
+function updDrawn(dt: number) {
+  for (const r of drawn.rings) {
+    if (!r.visible) continue;
+    const u = r.userData as { t: number; a: number; max: number; life: number };
+    u.t += dt / u.life;
+    if (u.t >= 1) { r.visible = false; continue; }
+    // (it rides the front of its own wave, and the top's cut too coarsely to follow that: it's kept above the wave's
+    // crest, as high as that still is)
+    r.position.y = STEW_Y + 0.008 + u.a * Math.exp(-1.6 * u.t * u.life);
+    r.scale.setScalar(0.03 + (1 - (1 - u.t) ** 2) * u.max);
+    (r.material as MeshBasicMaterial).opacity = 0.7 * (1 - u.t);
+  }
+  const s = drawn.streaks;
+  if (!s) return;
+  s.visible = B.whirl > 0.03;
+  s.rotation.y = -B.swirl * 2; s.scale.y = B.whirl;
+  (s.material as MeshBasicMaterial).opacity = Math.min(0.55, B.whirl * 0.9);
 }
 /** Into the stew at `x, z` goes `o` (already sunk, `under`): it sinks, then goes round with it. */
 function drown(o: Object3D, x: number, z: number, up = true, under = false) {
@@ -257,21 +379,27 @@ function updStew(dt: number) {
   B.t += dt;
   while (waves.length && B.t - waves[0].t > 3) waves.shift();
   if (B.dye && (B.t - B.dye.t) * DYE_V > 2 * BROTH_R + 0.4) { B.was.copy(B.now); B.dye = null; }
+  // its top: each point's height, and each triangle's colour (a seasoning spreads out in a ragged ring from where it
+  // went in, a triangle at a time; the foam's the same, paler)
   const geo = s.broth.geometry, pos = geo.attributes.position.array as Float32Array, col = geo.attributes.color.array as Float32Array;
-  for (let v = 0; v < pos.length / 3; v++) {
-    const x = POT.x + pos[v * 3], z = POT.z + pos[v * 3 + 2], r = Math.hypot(pos[v * 3], pos[v * 3 + 2]) / BROTH_R;
-    pos[v * 3 + 1] = stewH(x, z);
-    // (a seasoning spreads out in a ragged ring from where it went in, and it's darker round the edge, in the pot's shade)
+  const { pts, tri, mid, foamFrom, h } = topCut!;
+  for (let p = 0; p < h.length; p++) h[p] = stewH(POT.x + pts[p * 2], POT.z + pts[p * 2 + 1]);
+  for (let t = 0; t < tri.length / 3; t++) {
     let k = 1;
     if (B.dye) {
+      const x = POT.x + mid[t * 2], z = POT.z + mid[t * 2 + 1];
       const d = Math.hypot(x - B.dye.x, z - B.dye.z), th = Math.atan2(z - B.dye.z, x - B.dye.x);
       k = clamp(((B.t - B.dye.t) * DYE_V * (1 + 0.3 * Math.sin(3 * th + B.dye.t * 7 + B.swirl)) - d) / 0.25, 0, 1);
     }
-    shadeC.copy(B.was).lerp(B.now, k).multiplyScalar(1 - 0.16 * r * r - 0.22 * r ** 8);
-    col[v * 3] = shadeC.r; col[v * 3 + 1] = shadeC.g; col[v * 3 + 2] = shadeC.b;
+    shadeC.copy(B.was).lerp(B.now, k);
+    if (t >= foamFrom) shadeC.lerp(cream, FOAM_K);
+    for (let v = t * 3; v < t * 3 + 3; v++) {
+      pos[v * 3 + 1] = h[tri[v]];
+      col[v * 3] = shadeC.r; col[v * 3 + 1] = shadeC.g; col[v * 3 + 2] = shadeC.b;
+    }
   }
   geo.attributes.position.needsUpdate = true; geo.attributes.color.needsUpdate = true;
-  geo.computeVertexNormals();
+  updDrawn(dt);
   // what's in it: sinking for a second and more after it goes in (with a last gloop), round with the stew, and as
   // it's stirred, back up to show at the top
   bits.forEach((b, j) => {
@@ -285,12 +413,12 @@ function updStew(dt: number) {
     b.o.position.set(x, STEW_Y + stewH(x, z) + y, z);
     b.o.rotation.set(b.tip * 0.5 * k * (1 - B.rise), b.a * 0.6, b.tip * 0.3 * k * (1 - B.rise));
   });
-  // drops of fat on top, drifting, and going round with the stew
+  // patches of fat on top, drifting, and going round with the stew
   for (const d of s.fat) {
     const u = d.userData as { a: number; r: number; v: number };
     u.a += (B.whirl * 1.7 * (1.3 - u.r / BROTH_R) + u.v) * dt;
     const x = POT.x + Math.cos(u.a) * u.r, z = POT.z + Math.sin(u.a) * u.r;
-    d.position.set(x, STEW_Y + stewH(x, z) + 0.003, z);
+    d.position.set(x, STEW_Y + stewH(x, z) + 0.004, z);
   }
   // bubbles, more and quicker the harder it boils, and steam
   const lv = B.boil;
@@ -300,7 +428,9 @@ function updStew(dt: number) {
     const x = POT.x + Math.cos(a) * r, z = POT.z + Math.sin(a) * r;
     b.visible = j < 2 + lv * 10;
     b.position.set(x, STEW_Y + stewH(x, z) + 0.01, z);
-    b.scale.setScalar(0.035 * Math.sin(k * Math.PI));
+    // (each its own size, squat)
+    const w = (0.028 + (j * 0.61 % 1) * 0.026) * Math.sin(k * Math.PI);
+    b.scale.set(w, w * 0.7, w);
     // (and each one that bursts sends out a little ring)
     if (b.visible && k < (b.userData.k ?? 1)) wave(x, z, 0.003 + lv * 0.004);
     b.userData.k = k;
@@ -455,15 +585,23 @@ function build(): Set {
   const ladle = add(g, new Group());
   add(ladle, mesh(G.sphere, 0x9AA4AC, 0, 0, 0)).scale.set(0.13, 0.06, 0.13);
   const handle = add(ladle, mesh(G.rope, 0x8A5A3B, 0, 0.45, 0)); handle.scale.set(1.3, 0.95, 1.3);
-  // the stew's top, and bubbles on it
+  // the stew's top and what's drawn on it, and bubbles: chunky ones, of twenty flat faces
   const broth = add(g, brothMesh());
-  const bubbles = Array.from({ length: 12 }, () => { const b = add(g, mesh(G.sphere, 0xF6E2BE, 0, 0, 0)); b.visible = false; b.userData.t = Math.random(); return b; });
-  // (and drops of golden fat floating on it, the same scatter every time)
-  const fatMat = new MeshPhongMaterial({ color: 0xF5C858, specular: 0x6A5638, shininess: 90, transparent: true, opacity: 0.6, depthWrite: false });
-  const disc = new CylinderGeometry(1, 1, 0.002, 14);
+  drawnParts(g);
+  const bubble = apart(() => new IcosahedronGeometry(1, 0), dice(0xB0B));
+  const bubbles = Array.from({ length: 12 }, (_, j) => { const b = add(g, mesh(bubble, 0xF6E2BE, 0, 0, 0)); b.visible = false; b.rotation.y = j * 1.3; b.userData.t = Math.random(); return b; });
+  // (and patches of golden fat floating on it, the same scatter every time: one flat, uneven six-sided shape, each
+  // turned and stretched its own way)
+  const fatMat = new MeshLambertMaterial({ color: 0xF5C858 });
+  const edge = dice(0xFA7), patch: number[] = [0, 0, 0], fan: number[] = [];
+  for (let k = 0; k < 6; k++) {
+    const a = (k + (edge() - 0.5) * 0.5) / 6 * Math.PI * 2, r = 0.7 + edge() * 0.5;
+    patch.push(Math.cos(a) * r, 0, Math.sin(a) * r); fan.push(0, 1 + (k + 1) % 6, 1 + k);
+  }
+  const disc = shape(patch, fan);
   const fat = Array.from({ length: 16 }, (_, j) => {
-    const d = add(g, mesh(disc, fatMat, 0, 0, 0)), w = 0.012 + ((j * 0.37) % 1) * 0.03;
-    d.scale.set(w, 1, w * 0.85);
+    const d = add(g, mesh(disc, fatMat, 0, 0, 0)), w = 0.016 + ((j * 0.37) % 1) * 0.03;
+    d.scale.set(w, 1, w * 0.85); d.rotation.y = j * 1.9; d.receiveShadow = false;
     d.userData = { a: j * 2.4, r: 0.1 + ((j * 0.61) % 1) * 0.6, v: (j % 2 ? 1 : -1) * (0.02 + (j % 5) * 0.01) };
     return d;
   });
@@ -650,7 +788,7 @@ function throwStep(s: Set, cut: number[], got: number[]): Step {
       const [x, z] = tipAt(k);
       hop(o, V(x, STEW_Y + 0.02, z), 0.55, {
         dur: 0.5, wait: k * 0.14,
-        then: () => { wave(x, z, 0.03); splashFx({ x, z }, STEW_Y); drown(o, x, z); },
+        then: () => { wave(x, z, 0.03, !isHigh()); splashFx({ x, z }, STEW_Y); drown(o, x, z); },
       });
     });
   }
@@ -676,8 +814,9 @@ function throwStep(s: Set, cut: number[], got: number[]): Step {
     got.push(sc);
     callout(sc === 1 ? 'Bullseye!' : sc ? 'In!' : 'Splash!', fly.b.clone().setY(STEW_Y + 0.25), sc, sc === 1);
     if (inPot) {
+      // (on High the splash draws its own ring: fx.ts)
       splashFx({ x: fly.b.x, z: fly.b.z }, STEW_Y);
-      wave(fly.b.x, fly.b.z, 0.045);
+      wave(fly.b.x, fly.b.z, 0.045, !isHigh());
       // (a joined run lands a little apart)
       h.parts.forEach((o, k) => drown(o, fly!.b.x + h.offs[k].x * 0.7 + rnd(-0.05, 0.05), fly!.b.z + rnd(-0.08, 0.08), h.up));
     } else h.parts.forEach(o => { s.g.add(o); o.visible = false; });
@@ -932,6 +1071,7 @@ export function startShow() {
   s.pieces.forEach((p, i) => { s.row.add(p); p.visible = true; p.position.set(PIECES[i].x, p.userData.y, 0); p.rotation.set(0, 0, 0); });
   for (const o of [s.mush, s.rice]) { o.visible = false; o.rotation.set(0, o.userData.ry, 0); o.scale.copy(o.userData.sc); }
   bits.length = 0; waves.length = 0; hops.length = 0;
+  drawn.rings.forEach(r => { r.visible = false; });
   const was = F.show, run = was ?? freshRun(), g = run.got;
   Object.assign(B, { whirl: 0, swirl: 0, boil: 0.15, dye: null, rise: run.step > 3 ? 1 : clamp((g[3]?.[0] ?? 0) / (STIR_GRACE + STIR_S) * 1.4, 0, 1) });
   seasoned([0, 1, 2].map(j => (j < g[2].length ? run.lines[j] : 0)), B.was); B.now.copy(B.was);
@@ -1136,4 +1276,6 @@ export const showState = () => (S ? {
   /** The stew: its colour, and how far below its top each thing in it is (metres; less than 0, under). */
   stew: { colour: B.now.getHex(), was: B.was.getHex(), in: bits.map(b => b.o.position.y - STEW_Y), rise: B.rise },
 } : null);
+/** For tests: the stew as it's drawn (once the show's been on): its top, its bubbles and fat, and what's drawn on it. */
+export const stewParts = () => (set ? { top: set.broth, foamFrom: topCut!.foamFrom, bubbles: set.bubbles, fat: set.fat, rings: drawn.rings, streaks: drawn.streaks! } : null);
 export { BONUS_TIERS };

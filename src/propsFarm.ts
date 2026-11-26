@@ -5,8 +5,7 @@
 // the module that owns it puts it in place beside its Low version. Call these inside `quietly` (kit.ts), so building
 // them never touches the game's luck.
 import {
-  type BufferGeometry, CylinderGeometry, MeshPhongMaterial, type MeshPhongMaterialParameters, PlaneGeometry,
-  RingGeometry, TorusGeometry,
+  type BufferGeometry, CylinderGeometry, MeshPhongMaterial, type MeshPhongMaterialParameters, PlaneGeometry, TorusGeometry,
 } from 'three';
 import { at, Build, jitter, K, pack, quietly, rbox, shade, tube } from './kit';
 
@@ -60,13 +59,6 @@ export function rippleSheet(w: number, d: number, cell = 0.4) {
   return g;
 }
 
-/** A round pool of water `r` across, squashed to `k` of that the other way, in rings of small triangles. */
-export function rippleDisc(r: number, k: number) {
-  const g = new RingGeometry(0, r, 24, 6);
-  g.scale(1, k, 1);
-  return g;
-}
-
 let clock = 0;
 /** Moves the farm's water on (farm.ts' updFarm, every frame). */
 export function updRipples(dt: number) {
@@ -95,19 +87,6 @@ export function stoneWall(h: number, d: number, color: number, size = 0.62) {
   b.add(rbox(0.26, 0.07, d, 0.03), shade(color, 1.08), -0.04, h - 0.035, 0);
   return b;
 }
-
-/** One of the rocks round the hot spring, its long side along x: a lumpy rounded stone with moss on top. */
-export function springRock() {
-  const b = new Build(), stone = 0x8A949C, moss = 0x5E7F3A;
-  b.add(K.ball, stone, 0, 0.1, 0, null, [0.44, 0.27, 0.38]);
-  b.add(K.ball, shade(stone, 0.92), 0.16, 0.05, 0.1, [0, 0.6, 0], [0.26, 0.18, 0.22]);
-  b.add(K.ball, shade(stone, 1.06), -0.2, 0.04, -0.08, [0, -0.4, 0], [0.22, 0.16, 0.2]);
-  b.add(K.ball, moss, -0.04, 0.31, 0.02, null, [0.26, 0.08, 0.21]);
-  b.add(K.ball, shade(moss, 1.1), 0.1, 0.33, -0.02, null, [0.12, 0.06, 0.1]);
-  return b;
-}
-/** Snow on a spring rock's moss, for winter. */
-export const rockSnow = () => new Build().add(K.ball, SNOW, -0.01, 0.31, 0, null, [0.36, 0.115, 0.3]);
 
 /** A flat stepping stone `sx` by `sz` across, its top 0.105 up: a smooth, rounded slab. */
 export function steppingStone(sx: number, sz: number) {
