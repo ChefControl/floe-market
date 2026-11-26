@@ -63,7 +63,7 @@ export function endIntro(skipped = false) {
   window.removeEventListener('keydown', skip, true);
   window.removeEventListener('pointerdown', skip, true);
   el.classList.add('out');
-  // (skipped, its sound goes too; otherwise the last chord rings out over the fade)
+  // (skipped, its sound goes too)
   if (skipped) { el.classList.add('fast'); sound?.fade(); }
   sound = null;
   document.documentElement.classList.remove('intro');
