@@ -73,11 +73,12 @@ export function turretBase() {
 }
 /**
  * The harpoon's head, which turns to aim (its barrel along +z, about the head's pivot as on Low): the yoke with its
- * pivot bolts, the barrel with coral bands, a sight and a muzzle, the loaded harpoon, a reel of rope with a crank, and
- * rubber grips at the back.
+ * pivot bolts, the barrel with coral bands, a sight and a muzzle, a reel of rope with a crank, the rope's end led
+ * forward along the barrel to an eye at the muzzle, and rubber grips at the back. And apart from it, in the same
+ * frame, the harpoon it's loaded with (`dart`), which leaves it on the rope when it fires (machines.ts).
  */
 export function turretHead() {
-  const b = new Build(), X = Math.PI / 2;
+  const b = new Build(), dart = new Build(), X = Math.PI / 2;
   // the yoke: two arms on a plate, the barrel pivoting between them on bolts
   for (const s of [-1, 1]) {
     b.add(rbox(0.05, 0.28, 0.22, 0.018), DARK, s * 0.13, -0.04, 0);
@@ -98,10 +99,10 @@ export function turretHead() {
   b.add(K.dot, 0xF2C14E, 0, 0.162, 0.66, null, 0.011);
   for (const s of [-1, 1]) b.add(rbox(0.016, 0.045, 0.025, 0.006), DARK, s * 0.022, 0.13, -0.12);
   // the harpoon, loaded: a wooden shaft out of the muzzle, a steel collar, the point and two barbs
-  b.add(tube(0.022, 0.022, 0.42, 8), WOOD, 0, 0.04, 0.98, [X, 0, 0]);
-  b.add(tube(0.03, 0.026, 0.05, 8), TIP, 0, 0.04, 1.19, [X, 0, 0]);
-  b.add(new ConeGeometry(0.05, 0.18, 10), TIP, 0, 0.04, 1.27, [X, 0, 0]);
-  for (const s of [-1, 1]) b.add(new ConeGeometry(0.02, 0.1, 6), TIP, s * 0.05, 0.04, 1.17, [-X, 0, s * 0.6]);
+  dart.add(tube(0.022, 0.022, 0.42, 8), WOOD, 0, 0.04, 0.98, [X, 0, 0]);
+  dart.add(tube(0.03, 0.026, 0.05, 8), TIP, 0, 0.04, 1.19, [X, 0, 0]);
+  dart.add(new ConeGeometry(0.05, 0.18, 10), TIP, 0, 0.04, 1.27, [X, 0, 0]);
+  for (const s of [-1, 1]) dart.add(new ConeGeometry(0.02, 0.1, 6), TIP, s * 0.05, 0.04, 1.17, [-X, 0, s * 0.6]);
   // a reel of rope on the side: a drum between two flanges, the rope wound round it, and a crank
   for (const x of [0.17, 0.27]) b.add(tube(0.135, 0.135, 0.018, 16), DARK, x, 0.02, -0.05, [0, 0, X]);
   b.add(tube(0.1, 0.1, 0.085, 14), ROPE, 0.22, 0.02, -0.05, [0, 0, X]);
@@ -111,6 +112,12 @@ export function turretHead() {
   b.add(tube(0.025, 0.025, 0.16, 8), STEEL, 0.23, 0.02, -0.05, [0, 0, X]);
   b.add(rbox(0.018, 0.12, 0.024, 0.008), STEEL, 0.305, -0.03, -0.05);
   b.add(tube(0.016, 0.016, 0.06, 8), 0x1E262E, 0.335, -0.08, -0.05, [0, 0, X]);
+  // the rope's end, off the top of the reel and forward along the barrel to an eye beside the muzzle (the kit's own
+  // shapes, sized: nothing new is made for them)
+  const lead = [0.2, 0.125, -0.04], eye = [0.1, 0.085, 0.76], run = Math.hypot(eye[0] - lead[0], eye[1] - lead[1], eye[2] - lead[2]);
+  addTurned(b, K.post, ROPE, [(lead[0] + eye[0]) / 2, (lead[1] + eye[1]) / 2, (lead[2] + eye[2]) / 2],
+    [Math.acos((eye[1] - lead[1]) / run), Math.atan2(eye[0] - lead[0], eye[2] - lead[2]), 0], 'YXZ', [0.011, run, 0.011]);
+  b.add(K.ring, STEEL, eye[0], eye[1], eye[2] + 0.01, null, [0.022, 0.022, 0.06]);
   // rubber grips on steel handles at the back
   for (const s of [-1, 1]) {
     const r: V3 = [0.5, 0, 0], up = [0, Math.cos(0.5), Math.sin(0.5)];
@@ -119,7 +126,7 @@ export function turretHead() {
     for (const k of [-1, 1]) b.add(K.dome, STEEL, s * 0.09, 0.04 + up[1] * k * 0.08, -0.38 + up[2] * k * 0.08, [0.5 + (k < 0 ? Math.PI : 0), 0, 0], [0.03, 0.015, 0.03]);
     b.add(rbox(0.02, 0.02, 0.1, 0.006), STEEL, s * 0.06, 0.04, -0.31, [0, -s * 0.5, 0]);
   }
-  return b;
+  return { head: b, dart };
 }
 
 // ---------- the ice net ----------
