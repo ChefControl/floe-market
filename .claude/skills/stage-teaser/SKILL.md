@@ -172,7 +172,7 @@ with `applyUnlock`, a dawn sky dome, the game's toast and tip pill shown as over
     steady hiss, even quiet, wears on the ear. Make air as the game does: `K.soft(A, { kind, f, q, smooth })` (brown
     noise, a low filter, a second low-pass on top), its level set EVERY frame from `K.swell(t)` (waves with calm
     between) or a slow noise (gusts, a fire's flicker), about 12 dB under the effects. Splashes: a band round
-    1-3 kHz, not high-passed white noise. Check with `examples/trailer`'s band compare (2-9 kHz per second): a bed
+    1-3 kHz, not high-passed white noise. Check with `examples/trailer/hiss.py <film> [older film]` (2-9 kHz per second): a bed
     should leave that band near silence. And nothing here replaces a listen: ask for one before trusting any bed.
     (`K.bed`, the held white band, stays in kit.js for a short whoosh only. Nothing sounds on a take's first frames:
     start air at 0.12 s. A take with a big gain in the EDL plays the game's OWN wind that much louder: lower the
