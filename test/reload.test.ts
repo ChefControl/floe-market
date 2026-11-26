@@ -9,7 +9,8 @@ beforeEach(() => { sessionStorage.clear(); vi.resetModules(); });
 afterEach(() => { $('err').style.display = ''; $('err').textContent = ''; });
 
 describe("index.html, when the game's script is missing", () => {
-  const src = /<script>([\s\S]*?)<\/script>/.exec(indexHtml)![1];
+  // (the page's inline script that reloads, not the studio intro's line above it in the head)
+  const src = [...indexHtml.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]).find(s => s.includes('floe-market-reload'))!;
   /** Runs the inline script with its listener and the reload caught, and returns a way to fail a file. */
   function boot() {
     let onError: (e: Event) => void = () => {};
