@@ -1,9 +1,10 @@
 // Static scenery: ground, water, the dock, fences, roads, trees. Some of it belongs to one stage only: stage 2
 // shrinks the dock to its north half, takes down the south fence and moves the road east of the restaurant.
 import {
-  BoxGeometry, Group, type Material, Mesh, MeshBasicMaterial, MeshLambertMaterial, type Object3D, PlaneGeometry,
+  BoxGeometry, Float32BufferAttribute, Group, type Material, Mesh, MeshBasicMaterial, MeshLambertMaterial, type Object3D, PlaneGeometry,
   RepeatWrapping, type Vector3,
 } from 'three';
+import { roadOn } from './backdrop';
 import { apart, at as atXZ, Build, detail, dice, jitter, quietly, seasonLayer } from './kit';
 import { BAY, HOUSE_PATH_Z, PIER, QUAY } from './layout';
 import {
@@ -12,7 +13,8 @@ import {
 import { bake, canvasTex, G, mat, mesh, scene, type Part } from './render';
 import { bush, pineTier, pineTrunk, road as roadProp } from './propsWorld';
 import { cloudShadows, foamRing, foamStrip, seaGeometry, seaMaterial, updSea } from './sea';
-import { amount, onBlend, PAL, seasonal, type Swatch } from './season';
+import { amount, FLOE_SIZE, onBlend, PAL, seasonal, type Swatch } from './season';
+export { FLOE_SIZE };
 import { FY, rand } from './util';
 
 /** Snow caps show in winter and melt away in spring; leaves lie in autumn, petals in spring. */
@@ -46,9 +48,56 @@ const waterTex = canvasTex(4, 256, (c, w, h) => {
 });
 
 // ---------- ground and water ----------
-// Snow in winter, grass the rest of the year (season.ts).
-const ground = mesh(new PlaneGeometry(220, 220), seasonal(PAL.ground));
+// Snow in winter, grass the rest of the year (season.ts), never quite even: worn patches and tufts in a tile that
+// repeats every GROUND_TILE metres, and over that, broad drifts of lighter and darker ground (a few metres across, the
+// same every visit) so the tile's repeat doesn't show from afar.
+const ground = mesh(new PlaneGeometry(220, 220, 55, 55), seasonal(PAL.ground));
 ground.rotation.x = -Math.PI / 2; ground.position.y = -0.02; scene.add(ground);
+/** How far the ground's tile of patches and tufts runs before it repeats (metres). */
+const GROUND_TILE = 11;
+apart(() => {
+  const roll = dice(0x6A0D);
+  const t = canvasTex(256, 256, (c, w, h) => {
+    c.fillStyle = '#fff'; c.fillRect(0, 0, w, h);
+    // (each mark drawn again across the edges it runs over, so the tile meets itself)
+    const wrap = (x: number, y: number, r: number, f: (x: number, y: number) => void) => {
+      for (const dx of [-w, 0, w]) for (const dy of [-h, 0, h]) if (x + dx > -r && x + dx < w + r && y + dy > -r && y + dy < h + r) f(x + dx, y + dy);
+    };
+    for (let i = 0; i < 70; i++) {
+      const x = roll() * w, y = roll() * h, r = 8 + roll() * 26, a = 0.025 + roll() * 0.04;
+      wrap(x, y, r, (px, py) => {
+        const g = c.createRadialGradient(px, py, 0, px, py, r);
+        g.addColorStop(0, `rgba(70,62,40,${a})`); g.addColorStop(1, 'rgba(70,62,40,0)');
+        c.fillStyle = g; c.beginPath(); c.arc(px, py, r, 0, Math.PI * 2); c.fill();
+      });
+    }
+    // tufts: short strokes leaning this way and that
+    c.lineCap = 'round';
+    for (let i = 0; i < 420; i++) {
+      const x = roll() * w, y = roll() * h, l = 2 + roll() * 4, lean = (roll() - 0.5) * 1.2;
+      c.strokeStyle = `rgba(40,58,30,${0.05 + roll() * 0.08})`; c.lineWidth = 1 + roll();
+      wrap(x, y, 6, (px, py) => { c.beginPath(); c.moveTo(px, py); c.lineTo(px + Math.sin(lean) * l, py - Math.cos(lean) * l); c.stroke(); });
+    }
+  });
+  t.tex.wrapS = t.tex.wrapT = RepeatWrapping;
+  t.tex.repeat.set(220 / GROUND_TILE, 220 / GROUND_TILE);
+  t.tex.anisotropy = 4;
+  const m = ground.material as MeshLambertMaterial;
+  m.map = t.tex;
+  m.vertexColors = true;
+  // the broad drifts: a coarse grid of heights, smoothed, as how light or dark the ground is at each corner
+  const geo = ground.geometry, pos = geo.attributes.position, n = 12, grid = Array.from({ length: (n + 1) ** 2 }, () => roll());
+  const at = (i: number, j: number) => grid[Math.min(n, i) * (n + 1) + Math.min(n, j)];
+  const col: number[] = [];
+  for (let v = 0; v < pos.count; v++) {
+    const u = (pos.getX(v) / 220 + 0.5) * n, w = (pos.getY(v) / 220 + 0.5) * n, i = Math.floor(u), j = Math.floor(w);
+    const fu = u - i, fw = w - j, su = fu * fu * (3 - 2 * fu), sw = fw * fw * (3 - 2 * fw);
+    const k = (at(i, j) * (1 - su) + at(i + 1, j) * su) * (1 - sw) + (at(i, j + 1) * (1 - su) + at(i + 1, j + 1) * su) * sw;
+    const b = 0.93 + k * 0.07;
+    col.push(b, b, b * 0.985);
+  }
+  geo.setAttribute('color', new Float32BufferAttribute(col, 3));
+}, dice(0x6A0E));
 
 // The bay runs from far west of the farm to just past the dock's east edge; the roads stay on land. It goes on west and
 // out to sea well past what the game's camera sees (layout.ts BAY), so the casino yacht sailing in from out at sea
@@ -120,8 +169,7 @@ for (let i = 0; i < 9; i++) {
   }, m);
   floes.push(f);
 }
-/** How big the ice floes are through the year: they melt away by summer and start to form again in autumn. */
-export const FLOE_SIZE: [number, number, number, number] = [1, 0.5, 0, 0.3];
+// the floes melt away by summer and start to form again in autumn (season.ts FLOE_SIZE)
 onBlend(() => {
   const k = amount(FLOE_SIZE);
   for (const f of floes) {
@@ -337,6 +385,9 @@ export const ROAD_HALF = 1.3;
 const road1 = road(ROAD1_X);
 const road2 = road(ROAD2_X);
 road2.visible = false;
+// past its two ends, each carries on, bends east and joins the road behind the hills (backdrop.ts)
+road1.add(roadOn(ROAD1_X));
+road2.add(roadOn(ROAD2_X));
 
 // ---------- trees and snow ----------
 // Trees are baked into a few big meshes per stage (one per material), which is far cheaper to draw than
