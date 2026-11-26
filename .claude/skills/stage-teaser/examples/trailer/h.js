@@ -44,6 +44,7 @@
     tone({ f: 95, f2: 34, d: 0.55, v: 0.092 * amp }); tone({ f: 240, f2: 150, d: 0.3, a: 0.002, type: 'triangle', v: 0.149 * amp }); tone({ f: 440, f2: 230, d: 0.2, a: 0.002, type: 'triangle', v: 0.085 * amp });
     noise({ f: 700, f2: 300, q: 1.5, d: 0.15, a: 0.001, v: 0.134 * amp }); noise({ f: 170, kind: 'lowpass', d: 0.16, v: 0.106 * amp });
     noise({ f: 900, f2: 480, q: 1.4, d: 0.1, a: 0.001, v: 0.1 * amp }); }; // (the knock a phone has: 400-900 Hz)
+  let air0 = null;
   let now = { i: 0, fps: 30 };
   K.pose = () => {
     const t = now.i / now.fps;
@@ -51,8 +52,9 @@
     STG.setNight(0.3);
     if (now.i < 12) A.dimWorld(0, 0.03); // (dimWorld, not hushWorld: the game sets its hush afresh every tick, and would undo it)
     // dusk on the dock: a low bed that HOLDS (so the cut from the music isn't into a dead track), thinning before the crack
-    once('bed', 0.12, t, () => { K.bed(CUE, 380, 520, 0.4, PEEK - 0.3, 0.06, 0.07, 0.5); K.bed(CUE, 260, 200, 1, PEEK - 0.3, 0.055, 0.09, 0.5, 'lowpass');
-      K.bed(CUE, 380, 520, 0.4, LEN - 0.3, 0.017, 0.25, 0.15); }); // (and a breath of it right through: the stillness is quiet, not a dead track)
+    if (t >= 0.12 && !air0) air0 = K.soft(A, { kind: 'lowpass', f: 420, q: 0.5, smooth: 800 }, 'cue'); // (brown noise that moves: the sea under the dock; on the cue bus, as the world's dimmed)
+    if (air0) { const still = ease((t - HITS[2] - 0.4) / 0.3); // (thinner in the stillness and from there on: quiet, not a dead track)
+      air0.to(0.024 * (0.55 + 0.45 * K.swell(t + 0.9, 2.9, 4.3)) * (1 - 0.6 * still) * (1 - ease((t - LEN + 0.35) / 0.3)), t < 0.5 ? 0.03 : 0.12); }
     // each knock: the lid jumps (the game's knock), harder each time (its shove on top), dust out of the cracks round it
     HITS.forEach((h, n) => once('h' + n, h - 0.034, t, () => { hatch.knock(); thud(n / 2);
       FX.dustFx(AT.clone().add(V(0, 0.08, 0.5)), 5 + n * 3, 0.45 + n * 0.18); if (n) FX.dustFx(AT.clone().add(V(n === 2 ? -0.55 : 0.5, 0.08, 0.1)), 3 + n * 2, 0.4 + n * 0.1); }));

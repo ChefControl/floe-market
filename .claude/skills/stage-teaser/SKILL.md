@@ -165,9 +165,18 @@ with `applyUnlock`, a dawn sky dome, the game's toast and tip pill shown as over
     Keep the sine for weight but turn it down, and make the knock itself from a triangle an octave or two up
     (240→150 Hz, 440→230 Hz) and a short band of noise (700→300 Hz). Measure every hit through `highpass=f=180`
     and `f=350` over its first 300 ms: about -18 to -20 dBFS above 180 Hz for the big ones.
-  - **A bed must HOLD.** The engine's envelope is attack then an exponential fade over `d`: a "wind" with a long `d`
-    is gone in a second. Use `hold` (`K.bed(A, f, f2, q, len, v)` in kit.js). And nothing sounds on a take's first
-    frames (the audio isn't running yet): start beds at 0.12 s, not 0.
+  - **Air is brown noise that moves, and it is quiet. Never a held band of white noise.** The owner's first listen
+    to a mix that six measured reviews had signed off: "a heavy constant static on the opening... like white
+    noise... very harsh on the ear". The wind and sea were two held bands of white noise, raised to about -26 dBFS
+    because a review said the bed must "hold". The game's own ambience (`src/ambience.ts`) says why that is wrong:
+    steady hiss, even quiet, wears on the ear. Make air as the game does: `K.soft(A, { kind, f, q, smooth })` (brown
+    noise, a low filter, a second low-pass on top), its level set EVERY frame from `K.swell(t)` (waves with calm
+    between) or a slow noise (gusts, a fire's flicker), about 12 dB under the effects. Splashes: a band round
+    1-3 kHz, not high-passed white noise. Check with `examples/trailer`'s band compare (2-9 kHz per second): a bed
+    should leave that band near silence. And nothing here replaces a listen: ask for one before trusting any bed.
+    (`K.bed`, the held white band, stays in kit.js for a short whoosh only. Nothing sounds on a take's first frames:
+    start air at 0.12 s. A take with a big gain in the EDL plays the game's OWN wind that much louder: lower the
+    gain and raise the take's cues instead.)
   - **The game's own sounds keep going under your quiet.** A busy state of the game (the restaurant) ticks along;
     with the music cut that is all there is in a "silence", and under a logo card. For a take that should be
     quiet call `A.dimWorld(0, 0.03)` on its first frames (not `hushWorld`: game.ts sets that afresh every tick)
@@ -182,14 +191,16 @@ with `applyUnlock`, a dawn sky dome, the game's toast and tip pill shown as over
     ceiling: get every hit within a decibel of it. When a take is over, lower its gain in the EDL and raise its
     beds in the script by as much; short blips are all peak (2-4 dB down costs nothing); and the game's own
     `SFX.splash` is the peakiest thing there is (for a big hit use filtered noise, `water()` in o.js).
-  - **A whoosh lasts as long as its blur.** An attack-then-fade riser is gone a second before the smear is: hold a
-    rush under the whole of it (`hold`), and leave a third of a second of air before the landing.
+  - **A whoosh lasts as long as its blur.** An attack-then-fade riser is gone a second before the smear is: keep a
+    rush under the whole of it (brown noise that flutters, `K.soft`), and leave a third of a second of air before
+    the landing.
   - **Quiet is not a dead track.** Digital silence in a "stillness" or under a logo card reads as the sound
-    failing: keep a breath of the bed (about -42 dBFS) under one, a short tail of room under the other.
+    failing: keep a breath of the air (brown, about -40 dBFS) under one, a short tail of room under the other.
   - **A quiet before a hit has to be made**: stop the bed half a second early with a short release, move any small
     cue out of the gap, and start the swell after it. Then measure the gap, full band and above 350 Hz.
   - **Buried cues**: anything under about +8 dB over the bed at its moment (cloth, a sigh, a look) isn't heard.
-  - **Splashes need a top end** (a high-passed noise 5→2 kHz with the game's own low splash): `spl()` in o.js.
+  - **Splashes need a top** (a band of noise falling 2.6→1.1 kHz over the game's own low splash, `spl()` in o.js):
+    not a high-passed hiss.
   - **A rung bell isn't a clock**: jitter each stroke's time and strength.
 - **An ending without a reveal** (the owner cut the night scene, the blast and "Hello, Chef."): end on not knowing.
   `h.js`: three thuds that get harder and are NOT evenly spaced, the lid rattling down, about a second of real

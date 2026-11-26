@@ -36,6 +36,7 @@
   const STAGE1 = [['turret', 1], ['runner', 1.5], ['roulette', 2], ['pack', 2.5], ['boots', 3], ['sled', 3.5], ['runner2', 4], ['net', 4.5]];
   const STAGE2 = ['paddy', 'farmer', 'seats', 'chef', 'tables', 'plot2', 'runner3', 'chef3', 'tables2', 'plot3', 'kiosk', 'porter']; // (all but the premium menu: the next clip buys it)
 
+  let rush0 = null;
   window.cine = {
     len: T.tail,
     setup() { player.g.position.set(4.6, 0.15, 6.3); player.h = 2.6; },
@@ -48,9 +49,10 @@
       once('spring', at(3), t, () => SE.setSeason(1, 0)); once('summer', at(5), t, () => SE.setSeason(2, 0));
       once('sushi', at(8.25), t, () => { SE.setSeason(3, 30, true); U.applyUnlock('sushi', true); STAGE2.forEach(id => U.applyUnlock(id, true)); U.tiles.forEach(U.redrawTile); });
       // the wind-up: a rising rush of air under the spin, and a soft landing as it comes to rest on the restaurant
-      once('riser', T.fast, t, () => { A.noise({ f: 220, f2: 5200, q: 1.1, d: T.slow - T.fast + 0.5, a: T.peak - T.fast, v: 0.43 }); A.noise({ f: 90, f2: 260, kind: 'lowpass', d: T.slow - T.fast + 0.3, a: T.peak - T.fast, v: 0.6 }); });
+      once('riser', T.fast, t, () => { A.noise({ f: 220, f2: 3000, q: 1.1, d: T.slow - T.fast + 0.5, a: T.peak - T.fast, v: 0.3 }); /* (not up into the hiss) */ A.noise({ f: 90, f2: 260, kind: 'lowpass', d: T.slow - T.fast + 0.3, a: T.peak - T.fast, v: 0.6 }); });
       // (the rush HELD under the whole smear, to a breath before the landing: the riser alone is gone a second before the blur is)
-      once('rush', T.peak, t, () => { A.noise({ f: 1500, f2: 800, q: 0.6, a: 0.55, hold: T.there - 0.72 - T.peak - 0.55, d: 0.18, v: 0.2 }); A.noise({ f: 420, f2: 300, q: 0.7, a: 0.55, hold: T.there - 0.72 - T.peak - 0.55, d: 0.18, v: 0.12 }); });
+      if (t >= T.peak - 0.2 && !rush0) rush0 = { a: K.soft(A, { kind: 'bandpass', f: 800, q: 0.5, smooth: 1600 }), b: K.soft(A, { kind: 'bandpass', f: 650, q: 0.8, smooth: 1200, from: 1.5 }) }; // (brown noise, moving: a held band of white noise is static)
+      if (rush0) { const k = ease((t - T.peak) / 0.5) * (1 - ease((t - T.there + 0.92) / 0.2)), m = 0.75 + 0.25 * K.n1(t * 3.1, 7); rush0.a.to(0.62 * k * m, 0.06); rush0.b.to(0.35 * k * (1.5 - m), 0.06); }
       once('land', T.there - 0.25, t, () => { A.tone({ f: 82, f2: 40, d: 1.0, v: 0.143 }); A.tone({ f: 240, f2: 150, d: 0.3, a: 0.002, type: 'triangle', v: 0.18 }); A.noise({ f: 900, f2: 480, q: 1.4, d: 0.1, a: 0.001, v: 0.09 }); /* (less sub, which only fed the limiter; a body small speakers play) */ [1318.5, 1760, 2637].forEach((f, n) => A.tone({ f, d: 1.3, t: n * 0.07, type: 'triangle', v: 0.1 })); });
       K.cam = camAt(t);
       // the smear: as many draws across the frame as the turn needs (one every 0.003 rad, about 3 px at the picture's

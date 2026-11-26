@@ -10,7 +10,7 @@ frames. Music beds: [bed, at (s), from (s in the bed), length (s), fade in (s), 
 import json, os, shutil, subprocess, sys
 
 FPS = 30
-MASTER = 1.0  # dB after the limiter: with the hits kept under its ceiling the cut measures about -17.4 LUFS / -2.1 dBTP; this delivers -16.4 / -1.1
+MASTER = 1.4  # dB after the limiter: with the hits kept under its ceiling the cut peaks about -2.5 dBTP; this delivers about -1.1
 args = sys.argv[1:]
 root, out = os.path.abspath(args[0]), args[1]  # (the frame list holds full paths: ffmpeg reads them against the list's own folder)
 opt = lambda k, d=None: args[args.index(k) + 1] if k in args else d

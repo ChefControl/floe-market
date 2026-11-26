@@ -186,7 +186,19 @@
    *  (The engine's own envelope fades from the start, so a long `d` is a long fade: a 'wind' made that way is gone in a
    *  second. And nothing sounds on a take's first frames: start a bed at 0.12 s, not 0.) */
   const bed = (A, f, f2, q, len, v, a = 0.5, r = 0.6, kind) => A.noise({ f, f2, q, kind, a, hold: Math.max(0, len - a - r), d: r, v });
-  window.K = { R, T3, V, clamp, ease, easeIO, easeOut, lerp, path, caption, letterbox, lids, fade, vignette, sky, n1, held, jolt, bed,
+  /** AIR: sea, wind, a rush of water, a fire's roar, a room. Made as the game makes its own (ambience.ts): BROWN noise
+   *  through a low filter with a second low-pass on top, its level MOVING all the time (waves with calm between, gusts),
+   *  and quiet. A steady band of white noise, however it measures, is static to the ear: the owner's first listen said
+   *  "heavy constant static... very harsh". `soft(A, { kind, f, q, smooth }, bus)` starts one, silent (after the take's
+   *  first frames: the audio must be running); set its level every frame with `.to(v)`. It plays on the game's ambience
+   *  bus unless `bus` says 'cue' (for a take that dims the world: the cue bus is about four times as loud). */
+  const soft = (A, o, bus) => { const b = A.bed({ soft: true, ...o }); if (bus) { b.g.disconnect(); b.g.connect(A.buses[bus]); }
+    b.to = (v, secs = 0.12) => A.glide(b.g.gain, Math.max(0, v), secs); return b; };
+  /** A wave, `p` (0 to 1) of the way through: it rises, breaks, runs back out (the game's own). And a sea of them at `t`:
+   *  two lengths out of step, calm between, 0.2 to 1. */
+  const wave = p => (p < 0.3 ? ease(p / 0.3) : (1 - (p - 0.3) / 0.7) ** 2);
+  const swell = (t, a = 3.4, b = 5.3) => 0.2 + 0.8 * Math.max(wave((t / a + 0.1) % 1), 0.7 * wave((t / b + 0.45) % 1));
+  window.K = { R, T3, V, clamp, ease, easeIO, easeOut, lerp, path, caption, letterbox, lids, fade, vignette, sky, n1, held, jolt, bed, soft, wave, swell,
     set cam(s) { shot = s; }, get cam() { return shot; },
     /** Motion blur this frame: { n: draws, at(k 0..1): the camera { pos, look } across the frame } or null. */
     set blur(b) { blur = b; },
