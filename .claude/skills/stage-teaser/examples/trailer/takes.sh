@@ -9,7 +9,15 @@ S=$(mkdir -p "${OUT:-out/trailer}" && cd "${OUT:-out/trailer}" && pwd)
 U=http://localhost:5177/; U3="http://localhost:5177/?cellar&full&beaten=4&sound=on"
 FK=rush,fightBanner,finish,finBlink,ringFlash,epic,banner,fade,toast,confetti
 r() { name=$1; shift; node "$P/render-play.mjs" "$@" > "$S/log-$name.txt" 2>&1; echo "$name: $(tail -1 "$S/log-$name.txt")"; }
-# THE CURRENT CUT is version 5: python3 cut.py "$S" trailer-v5.mp4 --phone phone.mp4 --edl edl-v5.json
+# THE CURRENT CUT is version 6 (the owner's 23 timestamped notes): python3 cut.py "$S" trailer-v6.mp4 --phone phone.mp4 --edl edl-v6.json
+# It needs, beside the lines below: C with hero-tuna.js in its list (the tuna lies by the fire):
+#   r C "$X/kit.js,$X/hero-tuna.js,$X/acting.js,$X/campfire.js,$X/c.js" "$S/C" --landscape --url "$U?stage=1&pile=14&sound=on" --mute music --init "$X/newgame.js" --wait 9000
+# T with --mute music (its picture take carries only the spin's own rush and landing), and the MUSIC as one stem from the
+# first sale through the spin and on under Floe Sushi (eight beats of lead-in, ?pre=8, effects and ambience muted):
+#   r TM "$X/kit.js,$X/acting.js,$X/t.js" "$S/TM" --landscape --url "$U?stage=1&pile=14&sound=on&pre=8" --init "$X/newgame.js" --wait 6000 --mute sfx,amb --sound-only
+# and Ux, Floe Sushi as one clip on the game's own camera (frames 0-157 and 244-304 of U, a 6-frame dissolve between):
+#   ffmpeg -framerate 30 -start_number 0 -i "$S/U/frames/%04d.jpg" -i "$S/U/game.wav" -filter_complex "[0]trim=start_frame=0:end_frame=157,setpts=PTS-STARTPTS[a];[0]trim=start_frame=244:end_frame=304,setpts=PTS-STARTPTS[b];[a][b]xfade=transition=fade:duration=0.2:offset=5.0333,format=yuvj420p[v];[1]atrim=0:5.2333,asetpts=PTS-STARTPTS[x];[1]atrim=8.1333:10.1333,asetpts=PTS-STARTPTS[y];[x][y]acrossfade=d=0.2[au]" -map "[v]" -q:v 2 -start_number 0 "$S/Ux/frames/%04d.jpg" -map "[au]" "$S/Ux/game.wav"
+# (edl-v5.json was the cut before those notes: the 25 s opening, the campfire on the dock with a bell.)
 # (takes O, C, G/Gx, M0, T, U, H, L below; K2, K2g and DRONE2 are version 3-4's night scene, which the owner cut).
 # Then measure the master: repeats.py (no frame shown twice), prelimit.py (hits under the limiter), bands.py (what a
 # laptop and a phone play of each hit); they need numpy (python3 -m venv venv && venv/bin/pip install numpy).

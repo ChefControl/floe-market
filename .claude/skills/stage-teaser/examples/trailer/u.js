@@ -52,7 +52,7 @@
       // once it's bought and the first toast has gone: closer on him for the game's next line, "Something is knocking under
       // the dock" (the cut skips the seconds between: a new angle makes it a cut and not a jump). Turned 1.7 rad
       // round him from the game's angle: from there no gate post or lantern hangs between the camera and him.
-      close = phase === 'bought' && i - since > 70;
+      close = false;
       if (close) { const k = K.ease((i - since - 70) / 200); const A = -1.7, o = OFF.clone().multiplyScalar(0.46 - 0.04 * k), ca = Math.cos(A), sa = Math.sin(A); K.cam = { pos: p.clone().add(V(o.x * ca - o.z * sa, o.y * 0.8, o.x * sa + o.z * ca)), look: p.clone().add(V(0, 0.6, 0)), fov: 40 }; }
       if (phase === 'till') { if (walkTo(RS.REGISTER.x, RS.REGISTER.z, 0.2) && i - since > 30) go('walk', i); else if (i - since > 90) go('walk', i); }
       else if (phase === 'walk') { if (walkTo(tile.x, tile.z, 0.25) || i - since > 150) go('buy', i); }

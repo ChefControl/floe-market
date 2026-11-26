@@ -27,6 +27,11 @@
   const leaf = new K.T3.Group(); leaf.position.copy(hatch.lid.position); hatch.add(leaf);
   { const g = new PlaneGeometry(1.16, 1.14); g.rotateX(-Math.PI / 2); g.translate(0, 0, -0.57); const m = new Mesh(g, new MeshBasicMaterial({ color: 0x05070A, side: K.T3.DoubleSide })); leaf.add(m, ...glints); }
   leaf.visible = false;
+  // (and the whole of the shaft under it dark: the leaf alone left the ladder and the far wall showing past its edges,
+  // a black square on a lit hole, the owner's note. A floor of dark across the top of the shaft, and its sides.)
+  const pit = new K.T3.Group(); pit.visible = false; hatch.add(pit);
+  { const mat = new MeshBasicMaterial({ color: 0x05070A, side: K.T3.DoubleSide }), lp = hatch.lid.position;
+    const floor = new Mesh(new PlaneGeometry(1.1, 1.1), mat); /* (inside the frame: wider, and it showed past it on the deck) */ floor.rotation.x = -Math.PI / 2; floor.position.set(lp.x, lp.y - 0.035, lp.z - 0.57); pit.add(floor); }
   const pill = document.createElement('div');
   Object.assign(pill.style, { position: 'fixed', left: 0, top: 0, zIndex: 21, width: '46px', height: '46px', margin: '-23px 0 0 -23px', borderRadius: '50%',
     display: 'grid', placeItems: 'center', background: '#fff', color: '#C93F25', font: '800 32px/1 "Baloo 2",system-ui,sans-serif',
@@ -69,7 +74,7 @@
     hatch.jolt = HITS.reduce((s, h, n) => { const dt = t - h; return s + (dt > 0 ? [0, 0.1, 0.24][n] * Math.exp(-dt * 8) * Math.abs(Math.cos(dt * 20)) : 0); }, 0) + 0.16 * ease((t - PEEK) / 0.9) * (1 + n1(t * 6, 5) * 0.06);
     hatch.light.intensity = 2.4 * ease((t - PEEK - 0.1) / 0.6) * (1 + n1(t * 9, 3) * 0.12);
     hatch.update(1 / now.fps);
-    leaf.visible = t > PEEK + 0.03; leaf.rotation.x = hatch.lid.rotation.x * 0.5;
+    leaf.visible = pit.visible = t > PEEK + 0.03; leaf.rotation.x = hatch.lid.rotation.x * 0.5;
     // (the glints: on, a blink, on; the last thing in the picture)
     // (twelve frames on, three off, and on again for as long before the black: long enough that the blink is a blink)
     // (and a blink has lids: a frame squashed flat going shut and another coming open, not a light switched off and on)

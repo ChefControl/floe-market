@@ -45,7 +45,7 @@ his shades with a glint, "Hello, Chef." as a subtitle in the game's toast, a sma
 Examples: `examples/trailer/` (the 16:9 store trailer for #156, 72 s: `kit.js` — the camera override, captions in the
 game's banner lettering, letterbox, fades, the flag string taken down — then one script per take (`s1.js` the ice
 market, `s2.js` Floe Sushi and the knocking hatch, `k.js` the knock, `fa.js`/`fb.js`/`fc.js` fight night, `e.js` the
-end card, `bed.js` a music bed), `takes.sh` to render them all, `edl.json` the edit (version 1; `edl-v5.json` is the current cut: the owner's
+end card, `bed.js` a music bed), `takes.sh` to render them all, `edl.json` the edit (version 1; `edl-v6.json` is the current cut, after the owner's 23 notes; `edl-v5.json` the one before: the owner's
 script, the 25 s opening, no night scene, ending on the hatch (`h.js`); `edl-v4.json` is the same with the night scene
 `k2.js`; `edl-v3.json` goes with the older 15 s opening in git history), `cut.py` to assemble the Steam
 master and a phone copy, `camprobe*.js` to try cameras).
@@ -214,6 +214,25 @@ with `applyUnlock`, a dawn sky dome, the game's toast and tip pill shown as over
   shut on the same spot: under a lifted lid it shows as a second lid, ring and all. Find it (`instanceof FG.Hatch`)
   and hide it every frame; a black leaf hinged with the lid and lifting half as far keeps the crack dark.
   A card that fades in after black needs a black layer behind it, or it fades in over the live game (l.js).
+- **What the owner's frame-by-frame notes taught (round six, 23 of them on a timestamped notes page):**
+  - **Slower than you think, and show what he sees.** A look is two shots: him looking, then the camera going where he
+    looks (over his shoulder, his hat in the corner), even when what's there is nothing. Each step of a job its own
+    beat: untie the belt; hold it up; tie the loop; pull it tight; then throw.
+  - **One pair of eyes.** The game bakes a person's eyes into one mesh; discs laid over them were two pairs at once
+    ("creepy"). acting.js takes the eye pieces out of `P.pieces`, re-bakes (`P.wear()`) and re-adds them as meshes a
+    face can size and hide.
+  - **A thing in the water is a fin, not a shadow.** The real fish sunk until only its back fin and tail tip cut the
+    surface, a wake behind; given two seconds; THEN still water and a burst with a quarter second of warning.
+  - **Thrown things are thrown.** A jump is a parabola with the nose along the path, visible until the tail is under.
+    A loop catches when the fish goes through it. A rope under load is a straight bar that rings and sheds water.
+    A fish being ridden is two thirds under, with a bow wave and a wake.
+  - **Don't show what the story hasn't built.** The scene where he thinks of a market can't have one in it: a bare
+    shore (pick the ground from a picture taken straight above: the pines are batched and a ray doesn't find them).
+    Soften an entrance: someone walks up and waits; nobody hammers a bell.
+  - **The game's own language for ideas and wants**: its order bubble and its white balloon (`bubble.ts`), not a badge.
+  - **Game sounds belong to real play.** A montage is music and its own effect; one stem of the game's music laid
+    under several takes (a lead-in rendered with `?pre=8`) has no cut-over. Under the logo: the game's own
+    stage-complete flourish.
 - **Every frame once.** `cut.py` used to hand ffmpeg a list of single JPEGs: each was read at the image reader's
   25 fps, and the 30 fps film showed one frame twice and skipped the next, every sixth frame, through four
   versions. No still shows it and no contact sheet either. `cut.py` now links the frames into one numbered

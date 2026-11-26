@@ -19,17 +19,36 @@ window.Acting = async () => {
       covers: [-1, 1].map(() => part(ball, P.style.skin)), arcs: [-1, 1].map(() => part(arch, INK)),
       o: part(ball, INSIDE), smile: part(arch, INK), grin: part(halfDisc, INSIDE), teeth: part(box, 0xFFFFFF), gum: part(box, INK),
     };
+    // THEIR OWN EYES are the eyes: the game's dots, with the glint the game gives them. Wide is those same dots a third
+    // bigger; shut and happy put them away and draw a lid line. (Ink discs laid over them, twice their size and with a
+    // glint of their own beside the game's, were two pairs of eyes at once: the owner called it creepy.)
+    // (The game bakes all a person wears, eyes included, into one mesh (characters.ts `pieces`, `wear()`). So their eye
+    // pieces are taken out of that list and the mesh baked again without them, and the same shapes, in the same places,
+    // are put back as meshes of their own that a face can size and hide. Done again whenever the game re-dresses them.)
+    const own = { dots: [], glints: [] };
+    const near = (p, x, y, z) => Math.abs(Math.abs(p.x) - x) < 0.02 && Math.abs(p.y - y) < 0.004 && Math.abs(p.z - z) < 0.004;
+    const theirs = () => {
+      const eyeish = p => p.o && (near(p.o.position, 0.07, 1.06, 0.24) || near(p.o.position, 0.075, 1.071, 0.264));
+      if (!P.pieces || !P.pieces.some(eyeish)) return own;
+      const took = P.pieces.filter(eyeish); P.pieces = P.pieces.filter(p => !eyeish(p)); P.wear();
+      if (!own.dots.length) for (const p of took) { const m = new Mesh(p.geo, lam(p.c)); m.position.copy(p.o.position); m.scale.copy(p.o.scale); m.rotation.copy(p.o.rotation); m.userData.s0 = m.scale.clone(); P.body.add(m);
+        (near(p.o.position, 0.07, 1.06, 0.24) ? own.dots : own.glints).push(m); }
+      console.log('[cine] face: their own eyes taken over: ' + own.dots.length + ' dots, ' + own.glints.length + ' glints');
+      return own;
+    };
     return ({ eyes = 'dot', brow = null, mouth = 'none', open = 1 } = {}) => {
+      { const { dots, glints } = theirs(), open2 = eyes === 'dot' || eyes === 'big', k = eyes === 'big' ? 1.32 : 1;
+        for (const o of dots) { o.visible = open2; o.scale.copy(o.userData.s0).multiplyScalar(k); }
+        for (const o of glints) { o.visible = open2; o.scale.copy(o.userData.s0).multiplyScalar(eyes === 'big' ? 1.2 : 1); } }
       [-1, 1].forEach((s, i) => {
         const x = s * 0.07, b = F.brows[i], g = F.bigs[i], gl = F.glints[i], c = F.covers[i], a = F.arcs[i];
         b.visible = !!brow;
         // (in ink and proud of the face, so they show over a fringe or under a hat's brim)
         if (brow) { b.scale.set(0.072, 0.017, 0.014); b.position.set(x, 1.106 + brow[0] * 0.024, 0.252); b.rotation.set(-0.35, 0, s * brow[1] * 0.45); }
-        g.visible = gl.visible = eyes === 'big';
-        if (eyes === 'big') { g.scale.set(0.04, 0.043, 0.006); g.position.set(x, 1.06, 0.237); gl.scale.set(0.011, 0.011, 0.004); gl.position.set(x + 0.013, 1.074, 0.243); } // (flat to his face: as balls they stood out of it like goggles whenever he turned side on)
-        c.visible = a.visible = eyes === 'shut' || eyes === 'happy';
-        if (c.visible) {
-          c.scale.set(0.04, 0.04, 0.016); c.position.set(x, 1.064, 0.243);
+        g.visible = gl.visible = false;
+        if (false) { g.scale.set(0.04, 0.043, 0.006); g.position.set(x, 1.06, 0.237); gl.scale.set(0.011, 0.011, 0.004); gl.position.set(x + 0.013, 1.074, 0.243); } // (flat to his face: as balls they stood out of it like goggles whenever he turned side on)
+        a.visible = eyes === 'shut' || eyes === 'happy'; c.visible = false; // (no skin patch needed: their dots are put away)
+        if (a.visible) {
           a.scale.setScalar(0.026); a.position.set(x, eyes === 'happy' ? 1.05 : 1.066, 0.262); a.rotation.z = eyes === 'happy' ? 0 : Math.PI;
         }
       });
@@ -66,7 +85,12 @@ window.Acting = async () => {
 
   /** Soles under their boots: the game's legs are open tubes, seen from below when someone lies down. */
   function soles(P) {
-    for (const l of P.legs) { const s = new Mesh(new CircleGeometry(0.078, 12), lam(0x2A1D14)); s.rotation.x = Math.PI / 2; s.position.y = -0.298; l.add(s); }
+    // (the shoe is half a ball, open underneath, longer than it's wide: the sole is that shape, a leather colour and not a
+    // black round, which read as a hole; a darker heel so it's plainly the bottom of a shoe)
+    for (const l of P.legs) {
+      const s = new Mesh(new CircleGeometry(1, 14), new MeshLambertMaterial({ color: 0x9C6644, side: 2 })); s.rotation.x = Math.PI / 2; s.position.set(0, -0.2995, 0.025); s.scale.set(0.069, 0.101, 1); l.add(s);
+      const h = new Mesh(new CircleGeometry(1, 10, 0, Math.PI), new MeshLambertMaterial({ color: 0x6B4A35, side: 2 })); h.rotation.set(Math.PI / 2, 0, Math.PI); h.position.set(0, -0.3005, 0.012); h.scale.set(0.058, 0.05, 1); l.add(h);
+    }
   }
 
   /** A castaway: out of the parka and into the game's own summer clothes (characters.ts dresses anyone for a season),

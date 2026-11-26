@@ -1,181 +1,166 @@
-// Take C, the campfire (?stage=1&pile=14 as a new game; acting.js and campfire.js before this). That night: the chef
-// sits by a fire next to his cut-up tuna, about to roast a piece, when a customer at the lone stand starts hammering
-// its bell and waving money. He looks at the fish. He looks at the customer. "$".
-// Acting keyed pose to pose (acting.js track), cameras held (kit.js held/jolt), nothing on a fixed wobble: the lessons of
-// the opening (SKILL.md "Weight, and not looking machine-made") applied here.
+// Take C, the idea (?stage=1&pile=14 as a new game, night; kit.js, hero-tuna.js, acting.js and campfire.js before this).
+// Round six, the owner's notes: there is NO market yet (this is where he thinks of one), so it's a bare shore: snow,
+// pines, the sea, a small fire, the tuna he rode in on lying beside it. The fish he's cooking is OVER the fire. The
+// first customer isn't hammering a bell (too rough): someone walks up out of the dark, stops at the edge of the
+// firelight and holds out a banknote. And the camera goes where the chef looks: left, the customer; right, the fish;
+// left, now two of them; right, the fillets; then him, and the idea, in the game's own bubble (not a "$" badge).
 (async () => {
-  while (!window.K || !window.Acting || !window.Campfire) await new Promise(r => setTimeout(r, 50));
-  const { V, clamp, ease, easeOut, easeIO, T3, n1 } = K;
-  const { Group, Mesh, MeshLambertMaterial, MeshBasicMaterial, CylinderGeometry, SphereGeometry, BoxGeometry } = T3;
+  while (!window.K || !window.Acting || !window.Campfire || !window.HeroTuna) await new Promise(r => setTimeout(r, 50));
+  const { V, clamp, ease, T3, n1 } = K;
+  const { Mesh, MeshLambertMaterial, CylinderGeometry, BoxGeometry, Sprite, SpriteMaterial } = T3;
   const { scene } = K.R;
   const ACT = await Acting();
   const { player } = await window.__mod('player.ts');
-  const CT = await window.__mod('counters.ts'), STG = await window.__mod('stage.ts'), IT = await window.__mod('items.ts');
-  const FX = await window.__mod('fx.ts'), A = await window.__mod('audio.ts'), ST = await window.__mod('stations.ts');
-  const mix = (a, b, k) => a + (b - a) * k, bump = k => Math.sin(clamp(k) * Math.PI);
+  const CT = await window.__mod('counters.ts'), STG = await window.__mod('stage.ts'), IT = await window.__mod('items.ts'), ST = await window.__mod('stations.ts');
+  const A = await window.__mod('audio.ts'), SFX = await window.__mod('sfx.ts'), BB = await window.__mod('bubble.ts'), RD = await window.__mod('render.ts');
+  const mix = (a, b, k) => a + (b - a) * k, bump = k => Math.sin(clamp(k) * Math.PI), HP = Math.PI / 2;
   ACT.EASE.settle = k => { k = clamp(k); return k < 0.7 ? 1.06 * ease(k / 0.7) : 1.06 - 0.06 * ease((k - 0.7) / 0.3); };
-  const BEAT = 60 / 92, at = n => n * BEAT;
-  const T = { ding: at(2), chef: at(4), fish: at(5.2), stand: at(6), idea: at(8), up: at(10.4), end: at(12) }; // (his startle gets a landing and a held look before the cut to the fish)
+  // The times. Slow in: the place, the fire, him. Then his looks, each one answered by the camera.
+  const T = { cu: 2.6, hear: 3.25, seeC: 3.95, backR: 5.6, seeF: 6.35, backL: 7.7, seeC2: 8.2, backR2: 9.3, seeF2: 9.75, idea: 10.6, got: 11.05, up: 12.0, end: 13.1 };
 
-  // ---------- the set: a fire by the pile of fillets, at the dock's sea end; the stand is 12 m off to the south ----------
-  const FY = 0.15, FIRE = V(0.95, FY, -3.55), SEAT = V(0.0, FY + 0.13, -3.75), PILE = V(2.1, FY, -5.0), BELL = V(2.05, 1.1, 8.3);
+  // ---------- the set: the open shore west of where the dock will be. Every camera looks west, north or south. ----------
+  const FY = 0.16, FIRE = V(-15.5, FY, -1.8), // (clear ground, read off a picture from straight above: the pines are drawn in one batch and a ray doesn't find them)
+    SEAT = FIRE.clone().add(V(-0.95, 0.13, 0.1)), CUST = FIRE.clone().add(V(-0.7, 0, 3.1)), CUST2 = FIRE.clone().add(V(-1.75, 0, 3.6)), TUNA = FIRE.clone().add(V(-1.0, 0, -2.15)), SLAB = FIRE.clone().add(V(0.45, 0, -1.45));
   const fire = Campfire(T3, scene, FIRE.x, FIRE.y, FIRE.z);
-  // The stall's own bell is the size of a thimble. For this scene a proper counter bell stands on the other corner:
-  // a brass dome on a dark foot with a button on top, and three strokes that jump off it when it's struck.
-  const bell = new Group(); bell.position.copy(BELL); scene.add(bell);
-  // a lantern under the stand's roof: the customers are in its light, as warm as the fire's
-  const lamp = new T3.PointLight(0xFFB868, 1.9, 9, 1.5); lamp.position.set(2.65, 1.62, 7.95); scene.add(lamp);
-  { const cv = document.createElement('canvas'); cv.width = cv.height = 128; const x = cv.getContext('2d'), gr = x.createRadialGradient(64, 64, 0, 64, 64, 64);
-    gr.addColorStop(0, 'rgba(255,214,140,0.9)'); gr.addColorStop(0.35, 'rgba(255,170,80,0.35)'); gr.addColorStop(1, 'rgba(255,150,60,0)'); x.fillStyle = gr; x.fillRect(0, 0, 128, 128);
-    const halo = new T3.Sprite(new T3.SpriteMaterial({ map: new T3.CanvasTexture(cv), blending: T3.AdditiveBlending, depthWrite: false, fog: false })); halo.position.set(3.45, 1.9, 7.95); halo.scale.setScalar(1.1); scene.add(halo); }
-  const lantern = new Mesh(new BoxGeometry(0.13, 0.17, 0.13), new MeshBasicMaterial({ color: 0xFFD98A, fog: false })); lantern.position.set(3.45, 1.9, 7.95); scene.add(lantern);
-  const lanternTop = new Mesh(new BoxGeometry(0.17, 0.035, 0.17), new MeshLambertMaterial({ color: 0x2A2320 })); lanternTop.position.set(3.45, 2.0, 7.95); scene.add(lanternTop);
-  {
-    const brass = new MeshLambertMaterial({ color: 0xF2C14E }), foot = new MeshLambertMaterial({ color: 0x4A3A22 });
-    const f = new Mesh(new CylinderGeometry(0.1, 0.11, 0.025, 14), foot); f.position.y = 0.012; bell.add(f);
-    const dome = new Mesh(new SphereGeometry(0.095, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2), brass); dome.position.y = 0.02; dome.castShadow = true; bell.add(dome);
-    const btn = new Mesh(new CylinderGeometry(0.018, 0.018, 0.03, 8), foot); btn.position.y = 0.125; bell.add(btn);
-  }
-  const dings = [-0.7, 0, 0.7].map(a => { const m = new Mesh(new BoxGeometry(0.018, 0.09, 0.018), new MeshBasicMaterial({ color: 0xFFC34A })); m.userData.a = a; scene.add(m); return m; });
+  // his catch: the tuna, on its side on the snow, and a few fillets cut from it, laid flat on a slab of ice
+  const tuna = HeroTuna(T3); tuna.g.rotation.order = 'YZX'; tuna.g.scale.setScalar(2.1); scene.add(tuna.g);
+  tuna.set({ wide: 0, look: [0, 0], brow: 0, lid: 0, mouth: 0, smile: 0, flare: 0, dead: true, amp: 0, swim: 0 });
+  tuna.g.position.copy(TUNA).setY(FY + 0.3); tuna.g.rotation.set(HP * 0.9, 0.8, 0.04); // (on its side, its head to the fire: its eye and its fins are what say 'a fish')
+  const slab = new Mesh(new CylinderGeometry(0.62, 0.68, 0.12, 7), new MeshLambertMaterial({ color: 0xD5ECF5 })); slab.position.copy(SLAB).setY(FY + 0.06); slab.rotation.y = 0.4; slab.castShadow = true; scene.add(slab);
+  [[-0.24, 0.1, 0.3], [0.12, -0.14, -0.5], [0.26, 0.2, 1.3], [-0.08, -0.3, 2.2]].forEach(([x, z, r]) => { const f = IT.newFillet(); f.scale.setScalar(0.95); f.position.set(SLAB.x + x, FY + 0.13, SLAB.z + z); f.rotation.y = r; scene.add(f); });
   const P = player.g, setFace = ACT.face(P), chef = o => ACT.pose(P, o, setFace);
   ACT.soles(P); ACT.castaway(P);
-  // a stick with a piece of the tuna on it
-  const stick = new Mesh(new CylinderGeometry(0.012, 0.016, 0.9, 5), new MeshLambertMaterial({ color: 0x7A5236 })); stick.geometry.translate(0, -0.45, 0);
-  const morsel = IT.newFillet(); morsel.scale.setScalar(0.55); morsel.position.set(0, -0.9, 0); stick.add(morsel);
-  P.arms[1].add(stick); stick.position.set(0, -0.4, 0); stick.rotation.set(-0.5, 0, 0);
-  // the customer: the game's own first in the queue, with a face for the occasion and a bill to wave
-  let who = null, whoFace = null, bill = null;
+  // a stick with a piece of the tuna on it, from his hand to the flames: the fish is IN the fire's heat, wherever his hand goes
+  const stick = new Mesh(new CylinderGeometry(0.012, 0.016, 1, 5), new MeshLambertMaterial({ color: 0x7A5236 })); stick.geometry.translate(0, 0.5, 0); scene.add(stick);
+  const morsel = IT.newFillet(); morsel.scale.setScalar(0.5); scene.add(morsel);
+  // the game's own bubbles: an order over a customer's head (fish, one), and the idea over his: fish = $
+  const bubble = draw => { const t = RD.canvasTex(128, 128, draw), s = new Sprite(new SpriteMaterial({ map: t.tex, depthTest: false })); s.visible = false; s.renderOrder = 9; scene.add(s); return s; };
+  const order1 = bubble((c, w, h) => BB.drawBubble(c, w, h, 1, 1, 'fish')), order2 = bubble((c, w, h) => BB.drawBubble(c, w, h, 2, 1, 'fish')), thought = bubble((c, w, h) => BB.drawNeed(c, w, h, 'fish', '= $'));
+  const popAt = (s, at, t, t0, size = 0.62) => { const k = clamp((t - t0) / 0.16); s.visible = t >= t0; if (!s.visible) return; s.position.copy(at); s.scale.setScalar(size * (k + 0.42 * Math.sin(k * Math.PI)) * (1 + 0.025 * Math.sin(t * 3.1))); };
+
+  let who = null, who2 = null, face1 = null, face2 = null;
   const yawTo = (from, to) => Math.atan2(to.x - from.x, to.z - from.z);
-  const toFire = yawTo(SEAT, FIRE), toPile = yawTo(SEAT, PILE), toStand = yawTo(SEAT, BELL);
+  const toFire = yawTo(SEAT, FIRE), toCust = yawTo(SEAT, CUST), toFish = yawTo(SEAT, SLAB), toUs = toFire + 0.42;
 
   // The chef, pose to pose. h: his hips over where he sits; up: 0 sitting, legs out, to 1 on his feet; arms [swing, out].
-  // He's seen in three shots: the wide (till the bell), his face (the startle), and from the idea on.
   const S = ACT.track([
-    { t: 0, h: 0, yaw: toFire, tip: 0.12, roll: 0, up: 0, a00: 0.3, a01: 0.15, a10: -1.15, a11: 0.1, sq: 1 },
-    // (turning his supper over the fire: a lean in, and back)
-    { t: 0.75, mv: 0.4, tip: 0.2, a10: -1.25 }, { t: T.ding + 0.2, mv: 0.5, tip: 0.1, a10: -1.1 },
-    // the bell: he starts (up off his seat, his arms going different ways), comes down, and holds, wide-eyed
-    // (six calm frames on his face first, so the start is seen to happen, not cut into)
-    { t: T.chef + 0.3, mv: 0.09, e: 'out', h: 0.13, sq: 1.1, a00: -0.2, a01: 0.85, a10: -0.9, a11: 0.5, tip: 0 },
-    { t: T.chef + 0.46, mv: 0.14, e: 'in', h: 0, sq: 1.02 }, { t: T.chef + 0.52, mv: 0.06, e: 'out', sq: 0.9 },
-    { t: T.chef + 0.72, mv: 0.2, e: 'settle', sq: 1, a00: 0.2, a01: 0.3, a10: -0.9, a11: 0.2, tip: 0.06 },
-    // (out of shot: he looks at his fish, then at the stand; when the shot comes back he's still looking at it)
-    { t: T.fish + 0.3, mv: 0.3, yaw: toPile }, { t: T.stand + 0.35, mv: 0.35, yaw: toStand, a10: 0 },
-    // the idea: one more look at the fish (a glance: quick there, a hold, back), then round to us, a drop as it lands
-    { t: T.idea + 0.42, mv: 0.16, e: 'settle', yaw: mix(toStand, toPile, 0.55), tip: 0.1 },
-    { t: T.idea + 0.72, mv: 0.14, yaw: toStand },
-    { t: T.idea + 0.86, mv: 0.1, sq: 0.9, tip: 0.14 },
-    { t: T.idea + 1.06, mv: 0.2, e: 'settle', yaw: 0.9, sq: 1.04, tip: 0 }, { t: T.idea + 1.24, mv: 0.16, sq: 1 },
-    // up: forward over his knees (the wind-up), a spring, arms up one after the other, down and a settle
-    { t: T.up - 0.02, mv: 0.16, tip: 0.36, sq: 0.9, a00: 0.5, a10: 0.4 },
-    { t: T.up + 0.2, mv: 0.2, e: 'out', h: 0.5, up: 1, tip: 0.02, sq: 1.1, a00: 0, a01: 2.5, a10: 0, a11: 2.25 }, // (both arms thrown UP in a V, one ahead of the other: out level they read as a rig at rest)
+    { t: 0, h: 0, yaw: toFire, tip: 0.14, roll: 0, up: 0, a00: 0.3, a01: 0.15, a10: -1.1, a11: 0.12, sq: 1 },
+    // (turning his supper in the heat: a lean in, and back; again)
+    { t: 1.1, mv: 0.5, tip: 0.22, a10: -1.2 }, { t: 1.9, mv: 0.6, tip: 0.12, a10: -1.08 }, { t: 2.9, mv: 0.5, tip: 0.2, a10: -1.18 },
+    // a step in the snow, behind him. He stops; and looks round (a little the other way first)
+    { t: T.hear + 0.1, mv: 0.1, sq: 0.97, tip: 0.1 },
+    { t: T.hear + 0.3, mv: 0.1, yaw: toFire - 0.12 }, { t: T.hear + 0.62, mv: 0.3, e: 'settle', yaw: toCust, tip: 0.04, sq: 1 },
+    // ...round to his fish (out of shot he's still looking at them; when the shot's back he turns)
+    { t: T.backR + 0.14, mv: 0.12, yaw: toCust + 0.1 }, { t: T.backR + 0.56, mv: 0.4, e: 'settle', yaw: toFish, tip: 0.1 },
+    // ...and back: more of them? Quicker now
+    { t: T.backL + 0.38, mv: 0.3, e: 'settle', yaw: toCust, tip: 0.02, sq: 1.03 },
+    { t: T.backR2 + 0.36, mv: 0.28, e: 'settle', yaw: toFish, tip: 0.12, sq: 1 },
+    // the idea: he's still on the fish; a blink; a little drop as it lands; and round to us, grinning
+    { t: T.idea + 0.3, mv: 0.2, sq: 0.94, tip: 0.16 },
+    { t: T.got + 0.2, mv: 0.24, e: 'settle', yaw: toUs, sq: 1.05, tip: 0, a00: 0.1, a01: 0.35 }, { t: T.got + 0.42, mv: 0.2, sq: 1 },
+    // up: forward over his knees (the wind-up), a spring, both arms thrown up one after the other, down and a settle
+    { t: T.up - 0.02, mv: 0.16, tip: 0.36, sq: 0.9, a00: 0.5, a10: 0.4, a11: 0.3 },
+    { t: T.up + 0.2, mv: 0.2, e: 'out', h: 0.5, up: 1, tip: 0.02, sq: 1.1, a00: 0, a01: 2.5, a10: 0, a11: 2.25 },
     { t: T.up + 0.38, mv: 0.18, e: 'in', h: 0.17, sq: 1.04, a11: 2.45, a01: 2.2 }, { t: T.up + 0.44, mv: 0.06, e: 'out', sq: 0.85 },
-    { t: T.up + 0.72, mv: 0.26, e: 'settle', sq: 1, a00: -0.25, a01: 1.15, a10: 0.1, a11: 0.75 }, // (both coming down, one ahead: never both out level, never one out straight alone)
+    { t: T.up + 0.72, mv: 0.26, e: 'settle', sq: 1, a00: -0.25, a01: 1.15, a10: 0.1, a11: 0.75 },
   ]);
 
-  const pill = document.createElement('div');
-  Object.assign(pill.style, { position: 'fixed', left: 0, top: 0, zIndex: 21, width: '46px', height: '46px', margin: '-23px 0 0 -23px', borderRadius: '50%',
-    display: 'grid', placeItems: 'center', background: '#23803A', color: '#fff', font: '800 30px/1 "Baloo 2",system-ui,sans-serif',
-    boxShadow: '0 3px 0 rgba(23,48,66,.25), 0 0 0 3px #FFC34A', pointerEvents: 'none', transform: 'scale(0)' });
-  pill.textContent = '$';
-  document.getElementById('teaser').append(pill);
-  let pillAt = null;
+  const said = new Set(), once = (k, t, now, f) => { if (now >= t && !said.has(k)) { said.add(k); f(); } };
+  const crackle = (k = 1) => A.noise({ f: 1700 + 1400 * k, q: 3, d: 0.03, v: 0.21 * k, at: FIRE });
+  /** A customer walking up and standing there: in from `from` over `walk` seconds from `t0`, then waiting, shy and hopeful. */
+  function customer(g, setF, at, from, t, t0, walk, offer, seed) {
+    if (!g) return;
+    const k = clamp((t - t0) / walk), on = ease(k), pos = from.clone().lerp(at, on), here = k >= 1, w = t - t0 - walk;
+    const stride = here ? 0 : Math.sin(k * walk * 9.5) * 0.6, bob = here ? 0 : Math.abs(Math.sin(k * walk * 9.5)) * 0.03;
+    // (arrived: a rock onto his toes, a sniff of the air (his head back, twice), and the note comes up, held out in both hands' way)
+    const sniff = here ? bump((w - 0.15) / 0.3) + bump((w - 0.5) / 0.26) : 0, give = here ? ACT.EASE.settle((t - offer) / 0.35) : 0, wag = give * Math.sin(t * 5.2 + seed) * 0.09;
+    ACT.pose(g, { hip: V(pos.x + n1(t * 0.7, seed) * 0.012, FY + 0.62 + bob + 0.02 * sniff, pos.z), yaw: yawTo(pos, FIRE) + n1(t * 0.9, seed + 1) * 0.05, lean: mix(0.14, 0.03, on) - 0.1 * sniff + 0.07 * give, roll: n1(t * 1.1, seed + 2) * 0.03,
+      legs: [stride, -stride], arms: [[-stride * 0.5 * (1 - give) - 1.25 * give + wag, 0.1 + 0.12 * give], [stride * 0.5, 0.12 + 0.2 * sniff]], sq: 1 + 0.03 * sniff,
+      f: give > 0.3 ? { brow: [0.9, -0.5], mouth: 'smile' } : sniff > 0.2 ? { eyes: 'shut', brow: [0.8, -0.2], mouth: 'o', open: 0.7 } : { brow: [0.6, -0.4], mouth: 'none' } }, setF);
+    g.visible = t > t0 - 0.05;
+  }
 
-  const said = new Set();
-  const once = (k, t, now, f) => { if (now >= t && !said.has(k)) { said.add(k); f(); } };
-  const ding = (v = 0.5) => { A.tone({ f: 2093, d: 0.5, v, at: BELL }); A.tone({ f: 3136, d: 0.3, v: v * 0.5, at: BELL }); A.tone({ f: 4186, d: 0.12, v: v * 0.3, at: BELL }); };
-  const crackle = (k = 1) => A.noise({ f: 1700 + 1400 * k, q: 3, d: 0.03, v: 0.21 * k, at: FIRE }); // (each its own size and pitch)
-  /** How hard the customer's fist is coming down at `t`, 0..1 (up before each stroke, down on it), and how long since the last. */
-  /** The bell's strokes: two a beat from the first ding to the idea, each a moment before it sounds. */
-  // (rung by a fist, not a clock: each a few hundredths early or late, and harder or softer than the last)
-  const strokes = [], hard = []; for (let b = 2, n = 0; b < 10.4; b += 0.5, n++) { strokes.push(at(b) + (n ? K.n1(n * 1.7, 41) * 0.035 : 0)); hard.push([1, 0.62, 0.86, 0.55][n % 4] * (1 + K.n1(n * 2.3, 42) * 0.12)); }
-
-  let air0 = null;
+  let air0 = null, now = { i: 0, fps: 30 };
   function frame(i, fps) {
     const t = i / fps;
     player.tPick = player.tDrop = player.tCatch = player.tCash = 9;
-    STG.setNight(0.78);
-    // (burning lower once the shots are close on him: its tip poked up into the bottom of the picture)
-    { const low = ease((t - T.ding) / 0.3); fire.set(t, mix(1, 0.78, low), mix(0.72, 0.92, low)); }
-    if (ST.blade) ST.blade.visible = false; // (the chopping blade hangs in the air over its board: a floating box, from here)
-    // (a fire spits when it likes: on any frame, about three a second, never on a grid. Every fifth frame, it was a clock
-    // once the hiss that hid it had gone.)
-    { const r = (n1(i * 7.31, 11) + 1) / 2, r2 = (n1(i * 3.17 + 40, 23) + 1) / 2; if (r > 0.88) crackle(0.63 + 0.95 * r2); } // (n1 runs -1 to 1)
-    // (the fire's own low roar and the night air, held under it all: beds, not fades)
-    // (brown noise that MOVES, as the game's own ambience is made: a held band of white noise is static to the ear.
-    // The take's own cues are 5 dB hotter than they were and the cut's gain 5 dB lower: the game's winter wind, which
-    // plays under all of this at the cut's gain, was a rumble at -21 dBFS.)
+    STG.setNight(0.8);
+    { const fishy = (t >= T.seeF && t < T.backL) || (t >= T.seeF2 && t < T.idea); fire.set(t, fishy ? 0.62 : 0.9, 0.95); } // (lower while the camera's beside it: its glow bleaches the lens)
+    if (ST.blade) ST.blade.visible = false;
+    // ---------- sound: the fire, the sea a way off, snow underfoot; nothing loud ----------
     if (t >= 0.12 && !air0) air0 = { fire: K.soft(A, { kind: 'lowpass', f: 300, q: 0.5, smooth: 600 }), sea: K.soft(A, { kind: 'lowpass', f: 420, q: 0.5, smooth: 800 }) };
-    if (air0) { const on = ease((t - 0.12) / 0.4) * (1 - ease((t - T.end + 0.55) / 0.45));
-      air0.fire.to(0.1 * Math.max(0.2, 0.6 + 0.3 * K.n1(t * 1.9, 3) + 0.2 * K.n1(t * 5.3, 8)) * on, 0.08); air0.sea.to(0.06 * K.swell(t + 1.5, 2.9, 4.4) * on); }
-    strokes.forEach((s, n) => once('d' + n, s, t, () => ding((t < T.chef ? 0.5 : t >= T.stand && t < T.idea ? 0.45 : 0.29) * hard[n])));
-    // the bell dips under his fist, and its strokes jump
-    { const last = strokes.filter(s => s <= t).at(-1) ?? -9, k = clamp((t - last) / 0.2);
-      bell.scale.y = 1 - 0.2 * Math.sin(Math.min(1, k * 2) * Math.PI);
-      for (const m of dings) { const a = m.userData.a, r = 0.16 + 0.1 * k; m.visible = k < 1 && last > 0; m.position.set(BELL.x + Math.sin(a) * r, BELL.y + 0.1 + Math.cos(a) * r, BELL.z); m.rotation.z = -a; m.scale.setScalar(Math.sin(k * Math.PI)); } }
-    once('idea', T.idea + 0.88, t, () => { A.tone({ f: 660, d: 0.09, type: 'triangle', v: 0.189 }); A.tone({ f: 990, d: 0.2, t: 0.09, type: 'triangle', v: 0.219 }); A.tone({ f: 1320, d: 0.3, t: 0.2, type: 'triangle', v: 0.189 }); });
-    K.fade(Math.max(1 - ease(t / 0.3), ease((t - T.up - 0.56) / 0.45))); K.vignette(0.6);
-    pillAt = null;
+    if (air0) { const on = ease((t - 0.12) / 0.6) * (1 - ease((t - T.end + 0.6) / 0.5));
+      air0.fire.to(0.1 * Math.max(0.2, 0.6 + 0.3 * n1(t * 1.9, 3) + 0.2 * n1(t * 5.3, 8)) * on, 0.08); air0.sea.to(0.06 * K.swell(t + 1.5, 2.9, 4.4) * on); }
+    { const r = (n1(i * 7.31, 11) + 1) / 2, r2 = (n1(i * 3.17 + 40, 23) + 1) / 2; if (r > 0.88) crackle(0.63 + 0.95 * r2); }
+    // (his first steps, heard before he's seen; then each one in the snow as he comes into the light)
+    for (const [k, at2, v] of [['st0', T.hear - 0.1, 0.5], ['st1', T.hear + 0.42, 0.6], ['st2', T.seeC + 0.12, 0.8], ['st3', T.seeC + 0.45, 0.8], ['st4', T.seeC + 0.76, 0.7], ['st5', T.backL + 0.1, 0.5], ['st6', T.backL + 0.42, 0.6], ['st7', T.seeC2 + 0.2, 0.7]])
+      once(k, at2, t, () => { A.noise({ f: 900, f2: 420, q: 0.9, d: 0.11, a: 0.012, v: 0.11 * v }); A.tone({ f: 120, f2: 80, d: 0.07, v: 0.09 * v }); });
+    once('huh', T.hear + 0.5, t, () => { A.tone({ f: 520, f2: 620, d: 0.1, type: 'triangle', v: 0.1 }); });
+    once('ord1', T.seeC + 1.02, t, () => SFX.pop()); once('ord2', T.seeC2 + 0.42, t, () => SFX.pop());
+    once('note', T.seeC + 1.22, t, () => A.noise({ f: 2400, f2: 1500, q: 1.2, d: 0.08, v: 0.06 }));
+    once('idea', T.got - 0.03, t, () => { A.tone({ f: 660, d: 0.09, type: 'triangle', v: 0.189 }); A.tone({ f: 990, d: 0.2, t: 0.09, type: 'triangle', v: 0.219 }); A.tone({ f: 1320, d: 0.3, t: 0.2, type: 'triangle', v: 0.189 }); });
+    once('hop', T.up + 0.4, t, () => { A.tone({ f: 150, f2: 70, d: 0.09, v: 0.2 }); A.noise({ f: 900, kind: 'lowpass', d: 0.06, v: 0.1 }); });
+    // (in softly: a slow fade up; out after he's landed)
+    K.fade(Math.max(1 - ease(t / 0.9), ease((t - T.up - 0.6) / 0.45))); K.vignette(0.62);
 
-    // ----- the customer: both fists going, one on the bell, one full of money -----
-    if (who) {
-      const next = strokes.find(s => s >= t - 0.06) ?? 1e9, last = strokes.filter(s => s <= t).at(-1) ?? -9, k = clamp(1 - (next - t) / 0.16), hitK = t > next ? 1 - clamp((t - next) / 0.06) : k * k;
-      // (his whole body goes into each stroke: up on his toes before it, down with it; the money hand has a temper of
-      // its own, faster and slower, never in step with the bell)
-      const since = t - last, drop = last > 0 ? Math.exp(-since * 9) : 0, wave = Math.sin(t * 15 + n1(t * 1.7, 4) * 2.2) * (0.3 + 0.14 * n1(t * 0.9, 5));
-      ACT.pose(who, { hip: V(2.32 + n1(t * 0.8, 6) * 0.015, FY + 0.62 + 0.05 * k - 0.045 * drop, 8.72), yaw: Math.PI + n1(t * 1.1, 7) * 0.09, lean: 0.2 + 0.1 * hitK + 0.05 * drop, roll: n1(t * 1.3, 8) * 0.05,
-        arms: [[0.15 * n1(t * 2.1, 9), 2.4 + wave], [mix(-2.85, -2.0, hitK), 0.02]], sq: 1 + 0.05 * k - 0.07 * drop,
-        f: { brow: [0.1, 1.4], mouth: 'o', open: 1.25 + 0.5 * drop + 0.25 * n1(t * 3, 10) } }, whoFace);
-    }
-    // ----- the chef -----
-    const p = S(t), pa = S(t - 0.05), pb = S(t - 0.1), ik = t - T.idea, got = ik > 0.9;
-    const f = t < T.chef + 0.2 ? { eyes: 'happy', mouth: 'smile' } : t < T.fish ? { eyes: 'big', brow: [1.3, -0.3], mouth: 'o', open: 1.1 }
-      : t < T.stand ? { eyes: 'dot', brow: [0.7, -0.5], mouth: 'none' } : t < T.idea ? { eyes: 'dot', brow: [0.5, -0.9], mouth: 'frown' }
-        : !got ? { eyes: t >= T.idea + 0.5 && t < T.idea + 0.58 ? 'shut' : 'dot', brow: [0.9, 0], mouth: 'none' } : { eyes: 'dot', brow: [0.6, 0.45], mouth: 'grin', open: 0.7 + 0.5 * clamp((ik - 0.9) / 0.15) };
-    // (held poses breathe and drift: never on a count)
-    const breath = 1 + Math.sin(t * 2.5) * 0.014, lookStand = clamp((t - T.stand) / 0.35);
+    // ---------- the customers ----------
+    customer(who, face1, CUST, CUST.clone().add(V(-0.5, 0, 2.6)), t, T.hear - 0.2, T.seeC + 0.8 - T.hear + 0.2, T.seeC + 1.15, 21);
+    customer(who2, face2, CUST2, CUST2.clone().add(V(-0.9, 0, 2.8)), t, T.backL - 0.1, T.seeC2 + 0.3 - T.backL + 0.1, T.seeC2 + 0.75, 31);
+    if (who) popAt(order1, who.position.clone().add(V(0, 1.72, 0)), t, T.seeC + 1.0); if (who2) popAt(order2, who2.position.clone().add(V(0, 1.72, 0)), t, T.seeC2 + 0.4);
+
+    // ---------- the chef ----------
+    const p = S(t), pa = S(t - 0.05), pb = S(t - 0.1), got = t > T.got;
+    const blink = (a, d = 0.09) => t >= a && t < a + d;
+    const f = t < T.hear + 0.2 ? { eyes: 'happy', mouth: 'smile' } : t < T.backR ? { eyes: blink(T.hear + 0.9) ? 'shut' : 'big', brow: [1.2, -0.3], mouth: 'o', open: 0.9 }
+      : t < T.idea ? { eyes: blink(T.backL + 0.1) ? 'shut' : 'dot', brow: [0.8, -0.5], mouth: 'none' }
+        : !got ? { eyes: blink(T.idea + 0.25, 0.1) ? 'shut' : 'dot', brow: [0.9, 0], mouth: 'none' } : { eyes: t > T.up - 0.1 ? 'happy' : 'dot', brow: [0.6, 0.45], mouth: 'grin', open: 0.7 + 0.5 * clamp((t - T.got) / 0.15) };
+    const breath = 1 + Math.sin(t * 2.5) * 0.014;
     chef({ hip: SEAT.clone().setY(SEAT.y + p.h), yaw: p.yaw + n1(t * 0.5, 2) * 0.03, lean: p.tip + n1(t * 0.6, 1) * 0.015, roll: n1(t * 0.45, 3) * 0.035 * (1 - p.up),
-      legs: [(-(Math.PI / 2) + 0.25) * (1 - p.up), -(Math.PI / 2) * 0.9 * (1 - p.up)],
-      arms: [[pa.a00, pa.a01 + n1(t * 0.8, 4) * 0.03], [pb.a10 + n1(t * 0.9, 5) * 0.05 * (1 - lookStand), pb.a11 + n1(t * 0.7, 6) * 0.03]], sq: p.sq * breath, f });
-    stick.visible = p.up < 0.5 && !(t >= T.fish && t < T.stand); // (out of the way of the look at the tray)
-    stick.rotation.x = mix(-0.55 + n1(t * 0.7, 7) * 0.08, 0.6, lookStand);
+      legs: [(-HP + 0.25) * (1 - p.up), -HP * 0.9 * (1 - p.up)],
+      arms: [[pa.a00, pa.a01 + n1(t * 0.8, 4) * 0.03], [pb.a10 + n1(t * 0.9, 5) * 0.04, pb.a11 + n1(t * 0.7, 6) * 0.03]], sq: p.sq * breath, f });
     P.updateMatrixWorld(true);
-    if (got && t < T.up + 0.04) pillAt = P.position.clone().add(V(0, 1.5, 0));
+    // the stick: from his hand to a spot in the flames (it turns, slowly, and his hand drifts: the spot wanders a little)
+    { const hand = P.arms[1].localToWorld(V(0, -0.42, 0)), tip = FIRE.clone().add(V(-0.02 + n1(t * 0.6, 7) * 0.03, 0.5 + n1(t * 0.8, 8) * 0.02, 0.02)), d = tip.clone().sub(hand), len = d.length();
+      stick.visible = morsel.visible = p.up < 0.4; stick.position.copy(hand); stick.scale.set(1, len, 1); stick.quaternion.setFromUnitVectors(V(0, 1, 0), d.normalize());
+      morsel.position.copy(tip).add(V(0, 0.01, 0)); morsel.rotation.set(Math.sin(t * 0.9) * 0.25, t * 0.5, 0.1); }
+    popAt(thought, P.position.clone().add(V(0, 1.72 + p.h, 0)), t, T.got, 0.7); if (t > T.up + 0.02) thought.visible = false;
 
-    // ----- the shots -----
+    // ---------- the shots: all held, each with a little move of its own ----------
     let shot;
-    if (t < T.ding) shot = K.held(K.path([{ t: 0, pos: [4.3, 1.5, -0.3], look: [0.8, 0.6, -4.0], fov: 38 }, { t: T.ding, pos: [4.0, 1.4, -0.7], look: [0.75, 0.6, -4.0], fov: 38 }], t, ease), t, 0.8, 31);
-    else if (t < T.chef) shot = K.held(K.path([{ t: T.ding, pos: [2.3, 2.1, 6.3], look: [2.16, 1.42, 8.72], fov: 34 }, { t: T.chef, pos: [2.3, 2.05, 6.65], look: [2.16, 1.42, 8.72], fov: 32 }], t, ease), t, 1.3, 32);
-    // (tight on his face, the fire just under the picture: its light and sparks are enough. Knocked as he starts.)
-    else if (t < T.fish) shot = K.jolt(K.held({ pos: V(2.0, 1.28, -2.3), look: V(0.05, 1.14 + S(t - 0.1).h * 0.5, -3.75), fov: 22 }, t, 1.6, 33), t, T.chef + 0.22, 0.03);
-    // (what he looks at: the tuna, cut up, in the firelight)
-    else if (t < T.stand) shot = K.held(K.path([{ t: T.fish, pos: [1.15, 0.95, -3.75], look: [2.1, 0.22, -5.0], fov: 30 }, { t: T.stand, pos: [1.25, 0.9, -3.9], look: [2.1, 0.22, -5.0], fov: 27 }], t, ease), t, 1.1, 34);
-    // (through his eyes, on a long lens: it wanders as a long lens does)
-    else if (t < T.idea) shot = K.held(K.path([{ t: T.stand, pos: [-0.2, 1.75, -4.0], look: [2.35, 1.3, 8.5], fov: 13 }, { t: T.idea, pos: [-0.2, 1.75, -4.0], look: [2.35, 1.3, 8.5], fov: 10 }], t, ease), t, 1.5, 35);
-    else { const hy = 0.17 * ease(S(t - 0.08).up); // (up with him as he gets to his feet, a little late; it doesn't chase the hop: he jumps IN the picture)
-      shot = K.held({ ...K.path([{ t: T.idea, pos: [1.95, 1.3, -2.25], look: [0.05, 1.08, -3.76], fov: 27 }, { t: T.up, pos: [1.9, 1.3, -2.3], look: [0.05, 1.09, -3.76], fov: 26 }, { t: T.up + 0.22, pos: [2.05, 1.4, -2.05], look: [0.05, 1.22, -3.76], fov: 33 }], t, ease) }, t, 1.2, 36);
-      shot.look.y += hy * 0.72; shot.pos.y += hy * 0.5; shot.fov += hy * 30; }
+    const hd = SEAT.clone().add(V(0.05, 0.95 + 0.6 * p.h, 0));
+    if (t < T.cu) shot = K.held(K.path([{ t: 0, pos: [FIRE.x + 5.6, 2.15, FIRE.z + 3.9], look: [FIRE.x - 0.9, 0.62, FIRE.z - 0.5], fov: 36 }, { t: T.cu, pos: [FIRE.x + 5.0, 2.0, FIRE.z + 3.5], look: [FIRE.x - 0.9, 0.64, FIRE.z - 0.45], fov: 35 }], t, ease), t, 0.8, 31);
+    else if (t < T.seeC || (t >= T.backR && t < T.seeF) || (t >= T.backL && t < T.seeC2) || (t >= T.backR2 && t < T.seeF2))
+      // on him, over the fire: its light on his face, the dark behind. It goes a little the way he turns.
+      shot = K.held({ pos: V(FIRE.x + 1.75, 1.2, FIRE.z + 1.15), look: hd.clone().add(V(0, 0, Math.sin(p.yaw - toFire) * -0.22)), fov: 27 }, t, 1.3, 32);
+    else if ((t >= T.seeC && t < T.backR) || (t >= T.seeC2 && t < T.backR2)) {
+      // LEFT, what he sees: someone at the edge of the firelight (the second time, two of them)
+      const two = t >= T.seeC2, t0 = two ? T.seeC2 : T.seeC, k = (t - t0) / ((two ? T.backR2 : T.backR) - t0), c = two ? CUST.clone().lerp(CUST2, 0.5) : CUST;
+      shot = K.held({ pos: V(FIRE.x + 0.75 - 0.12 * k, 1.3, FIRE.z + 0.2 - 0.1 * k), look: V(c.x + 0.05 - 0.12 * k, 1.38, c.z), fov: two ? 44 : 40 }, t, 1.2, two ? 34 : 33); // (room over their heads for what they want)
+    } else if ((t >= T.seeF && t < T.backL) || (t >= T.seeF2 && t < T.idea)) {
+      // RIGHT, what he sees: the tuna in the firelight, and what he's cut from it (closer the second time: the fillets)
+      const near = t >= T.seeF2, t0 = near ? T.seeF2 : T.seeF, k = (t - t0) / ((near ? T.idea : T.backL) - t0);
+      shot = near ? K.held({ pos: V(FIRE.x + 1.25 - 0.08 * k, 1.05, FIRE.z - 0.35), look: V(SLAB.x - 0.05, FY + 0.16, SLAB.z - 0.05), fov: 30 - 2 * k }, t, 1.1, 36)
+        : K.held({ pos: V(FIRE.x + 2.45 - 0.15 * k, 1.4, FIRE.z + 0.15), look: V(mix(SLAB.x, TUNA.x, 0.55) + 0.12 * k, FY + 0.3, mix(SLAB.z, TUNA.z, 0.55)), fov: 38 }, t, 1.2, 35);
+    } else { const hy = 0.17 * ease(S(t - 0.08).up), kI = ACT.EASE.settle((t - T.got) / 0.3);
+      // on him: the idea; and up with him as he gets to his feet (it doesn't chase the hop: he jumps IN the picture)
+      shot = K.held({ pos: V(FIRE.x + 1.8, 1.26, FIRE.z + 1.0), look: hd.clone().add(V(0, 0.12, 0)), fov: 30 - 1.5 * kI }, t, 1.2, 37);
+      shot.look.y += hy * 0.9; shot.pos.y += hy * 0.5; shot.fov += hy * 34; }
     shot.sun = FIRE;
     K.cam = shot;
   }
-  let now = { i: 0, fps: 30 };
   K.pose = () => frame(now.i, now.fps);
-  K.after = cam => {
-    const t = now.i / now.fps;
-    if (!pillAt) { pill.style.transform = 'scale(0)'; return; }
-    const s = pillAt.clone().project(cam), k = clamp((t - T.idea - 0.9) / 0.14);
-    pill.style.transform = `translate(${(s.x + 1) / 2 * innerWidth}px, ${Math.max(52, (1 - s.y) / 2 * innerHeight)}px) scale(${(k + 0.5 * Math.sin(k * Math.PI)) * 1.5})`;
-  };
   window.cine = {
     len: T.end,
     async setup() {
       player.held = true;
-      // (wait for the game's first customer to reach the stand: that's our bell ringer)
-      for (let n = 0; n < 200 && !CT.C1.queue[0]?.queued; n++) await new Promise(r => setTimeout(r, 100));
-      who = CT.C1.queue[0]?.g ?? null;
-      if (who) { whoFace = ACT.face(who); bill = IT.newBill(5); bill.scale.setScalar(1.3); bill.position.set(0, -0.45, 0); bill.rotation.set(Math.PI / 2, 0, 0); who.arms[0].add(bill); }
-      console.log('[cine] bell ringer', !!who, CT.C1.queue.length);
+      // (the game's own first customers: borrowed from the queue at the stand that isn't in this scene)
+      for (let n = 0; n < 260 && !(CT.C1.queue[0]?.queued && CT.C1.queue[1]); n++) await new Promise(r => setTimeout(r, 100));
+      who = CT.C1.queue[0]?.g ?? null; who2 = CT.C1.queue[1]?.g ?? null;
+      for (const c of CT.C1.queue) { c.bubble.visible = false; c.mood.visible = false; }
+      if (who) { face1 = ACT.face(who); const b = IT.newBill(5); b.scale.setScalar(1.3); b.position.set(0, -0.45, 0); b.rotation.set(HP, 0, 0); who.arms[0].add(b); }
+      if (who2) { face2 = ACT.face(who2); const b = IT.newBill(5); b.scale.setScalar(1.3); b.position.set(0, -0.45, 0); b.rotation.set(HP, 0, 0); who2.arms[0].add(b); }
+      console.log('[cine] customers', !!who, !!who2, CT.C1.queue.length);
     },
-    frame(i, fps) { now = { i, fps }; if (!K.cam) K.cam = { pos: V(4.3, 1.5, -0.3), look: V(0.8, 0.6, -4.0), fov: 38 }; },
+    frame(i, fps) { now = { i, fps }; for (const c of CT.C1.queue) { c.bubble.visible = false; c.mood.visible = false; c.wait = 0; c.held = 0; } /* (and their patience never runs out: a customer who gives up is taken off by the game) */ if (!K.cam) K.cam = { pos: V(FIRE.x + 5.6, 2.15, FIRE.z + 3.9), look: V(FIRE.x - 0.9, 0.62, FIRE.z - 0.5), fov: 36 }; },
   };
 })();

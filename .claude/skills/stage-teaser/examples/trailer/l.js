@@ -2,7 +2,7 @@
 // app icon and the one thing to do (the design system's Banner lettering: gold title, ink outline).
 (async () => {
   while (!window.K) await new Promise(r => setTimeout(r, 50));
-  const LEN = 5.2; const A = await window.__mod('audio.ts'); let hit = false;
+  const LEN = 5.2; const A = await window.__mod('audio.ts'), SFX = await window.__mod('sfx.ts'); let hit = false, sung = false;
   const card = document.createElement('div'); card.id = 'endCard';
   card.innerHTML = '<img src="/icon-512.png" alt=""><div class="t">Floe Market</div><div class="s">Wishlist on Steam</div>';
   const css = document.createElement('style');
@@ -35,6 +35,9 @@
         const tone = o => A.tone({ bus: 'cue', ...o }), noise = o => A.noise({ bus: 'cue', ...o });
         tone({ f: 95, f2: 34, d: 0.6, v: 0.092 }); tone({ f: 240, f2: 150, d: 0.3, a: 0.002, type: 'triangle', v: 0.149 }); tone({ f: 440, f2: 230, d: 0.2, a: 0.002, type: 'triangle', v: 0.085 }); noise({ f: 700, f2: 300, q: 1.5, d: 0.15, a: 0.001, v: 0.134 }); noise({ f: 170, kind: 'lowpass', d: 0.16, v: 0.106 }); noise({ f: 900, f2: 480, q: 1.4, d: 0.1, a: 0.001, v: 0.1 });
         noise({ f: 300, f2: 180, kind: 'lowpass', a: 0.2, hold: 0.3, d: 6.5, v: 0.08 }); } // (the knock a phone has; and a tail of room under the card, gone by its last second: not a dead track)
+      // ("some stage sound at the end", the owner's note: the game's own flourish for a stage done, as the name lands. The
+      // world's turned down for this take, so for the length of the call the effects bus IS the cue bus.)
+      if (t0 >= 0.62 && !sung) { sung = true; const was = A.buses.sfx, soft = A.ac.createGain(); soft.gain.value = 0.42; soft.connect(A.buses.cue); A.buses.sfx = soft; try { SFX.fanfare(1); } finally { A.buses.sfx = was; } } // (under the thud, not over it)
       pop(img, (t0 - 0.35) / 0.45); pop(t, (t0 - 0.5) / 0.5); pop(s, (t0 - 1.4) / 0.45);
     },
   };

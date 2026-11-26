@@ -14,9 +14,10 @@
   // half of smear, and down onto the restaurant: a smear longer than that and nobody sees the market grow)
   const T = { fast: at(5.5), peak: at(7.5), slow: at(9), there: at(12), end: at(15), tail: at(15) + 9 };
 
+  const PRE = at(Number(new URLSearchParams(location.search).get('pre') || 0));
   const P = player.g, rags = ACT.castaway(P); ACT.soles(P);
   // ---------- the orbit: how fast it turns, by time, and so where it is ----------
-  const W0 = 0.32, WA = 0.8, W1 = 14;
+  const W0 = 0.32, WA = 0.8, W1 = 9.4; // (was 14: one turn fewer in the smear, the owner's note)
   const rate = t => t < T.fast ? mix(W0, WA, ease(t / T.fast)) : t < T.peak ? WA * Math.pow(W1 / WA, ease((t - T.fast) / (T.peak - T.fast))) : t < T.slow ? W1 : mix(W1, 0.035, Math.pow(easeIO(clamp((t - T.slow) / (T.there - T.slow))), 0.55));
   const TH0 = 0.42, TH1 = 0.1 + Math.PI * 2 * 9; // from the game's own angle, to square on to the restaurant's front (some turns later)
   const N = Math.round(T.tail * FPS * 8), dt = T.tail / N, th = new Float64Array(N + 1);
@@ -38,10 +39,14 @@
 
   let rush0 = null;
   window.cine = {
-    len: T.tail,
+    len: T.tail + PRE,
     setup() { player.g.position.set(4.6, 0.15, 6.3); player.h = 2.6; },
     frame(i, fps) {
-      const t = i / fps;
+      const t = i / fps - PRE;
+      // (the spin has no game sounds of its own, the owner's note: the buying and the coins belong to real play. The world is
+      // turned right down; the spin's own rush and landing go out on the cue bus; the music comes from the stem.)
+      if (i < 12) A.dimWorld(0, 0.03);
+      if (t < 0) { K.cam = camAt(0); return; }
       STAGE1.forEach(([id, b]) => once(id, at(b), t, () => pop(id)));
       // out of his rags and into his parka as the money comes in
       once('coat', at(2.75), t, () => { rags.userData.restore(); FX.unlockFx({ x: P.position.x, z: P.position.z }, 0.9); });
@@ -49,11 +54,11 @@
       once('spring', at(3), t, () => SE.setSeason(1, 0)); once('summer', at(5), t, () => SE.setSeason(2, 0));
       once('sushi', at(8.25), t, () => { SE.setSeason(3, 30, true); U.applyUnlock('sushi', true); STAGE2.forEach(id => U.applyUnlock(id, true)); U.tiles.forEach(U.redrawTile); });
       // the wind-up: a rising rush of air under the spin, and a soft landing as it comes to rest on the restaurant
-      once('riser', T.fast, t, () => { A.noise({ f: 220, f2: 3000, q: 1.1, d: T.slow - T.fast + 0.5, a: T.peak - T.fast, v: 0.3 }); /* (not up into the hiss) */ A.noise({ f: 90, f2: 260, kind: 'lowpass', d: T.slow - T.fast + 0.3, a: T.peak - T.fast, v: 0.6 }); });
+      once('riser', T.fast, t, () => { A.noise({ bus: 'cue', f: 220, f2: 3000, q: 1.1, d: T.slow - T.fast + 0.5, a: T.peak - T.fast, v: 0.3 }); /* (not up into the hiss) */ A.noise({ bus: 'cue', f: 90, f2: 260, kind: 'lowpass', d: T.slow - T.fast + 0.3, a: T.peak - T.fast, v: 0.6 }); });
       // (the rush HELD under the whole smear, to a breath before the landing: the riser alone is gone a second before the blur is)
-      if (t >= T.peak - 0.2 && !rush0) rush0 = { a: K.soft(A, { kind: 'bandpass', f: 800, q: 0.5, smooth: 1600 }), b: K.soft(A, { kind: 'bandpass', f: 650, q: 0.8, smooth: 1200, from: 1.5 }) }; // (brown noise, moving: a held band of white noise is static)
-      if (rush0) { const k = ease((t - T.peak) / 0.5) * (1 - ease((t - T.there + 0.92) / 0.2)), m = 0.75 + 0.25 * K.n1(t * 3.1, 7); rush0.a.to(0.62 * k * m, 0.06); rush0.b.to(0.35 * k * (1.5 - m), 0.06); }
-      once('land', T.there - 0.25, t, () => { A.tone({ f: 82, f2: 40, d: 1.0, v: 0.143 }); A.tone({ f: 240, f2: 150, d: 0.3, a: 0.002, type: 'triangle', v: 0.18 }); A.noise({ f: 900, f2: 480, q: 1.4, d: 0.1, a: 0.001, v: 0.09 }); /* (less sub, which only fed the limiter; a body small speakers play) */ [1318.5, 1760, 2637].forEach((f, n) => A.tone({ f, d: 1.3, t: n * 0.07, type: 'triangle', v: 0.1 })); });
+      if (t >= T.peak - 0.2 && !rush0) rush0 = { a: K.soft(A, { kind: 'bandpass', f: 800, q: 0.5, smooth: 1600 }, 'cue'), b: K.soft(A, { kind: 'bandpass', f: 650, q: 0.8, smooth: 1200, from: 1.5 }, 'cue') }; // (brown noise, moving: a held band of white noise is static)
+      if (rush0) { const k = ease((t - T.peak) / 0.5) * (1 - ease((t - T.there + 0.92) / 0.2)), m = 0.75 + 0.25 * K.n1(t * 3.1, 7); rush0.a.to(0.165 * k * m, 0.06); rush0.b.to(0.092 * k * (1.5 - m), 0.06); /* (the cue bus is about 3.8 times the ambience bus) */ }
+      once('land', T.there - 0.25, t, () => { A.tone({ bus: 'cue', f: 82, f2: 40, d: 1.0, v: 0.143 }); A.tone({ bus: 'cue', f: 240, f2: 150, d: 0.3, a: 0.002, type: 'triangle', v: 0.18 }); A.noise({ bus: 'cue', f: 900, f2: 480, q: 1.4, d: 0.1, a: 0.001, v: 0.09 }); /* (less sub, which only fed the limiter; a body small speakers play) */ [1318.5, 1760, 2637].forEach((f, n) => A.tone({ bus: 'cue', f, d: 1.3, t: n * 0.07, type: 'triangle', v: 0.1 })); });
       K.cam = camAt(t);
       // the smear: as many draws across the frame as the turn needs (one every 0.003 rad, about 3 px at the picture's
       // edge: further apart and a fence or a tree line shows as a row of stepped copies)
