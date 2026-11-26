@@ -1320,15 +1320,14 @@ html.intro #loading{ visibility:hidden; }
 @keyframes ccOn{ to{ opacity:1; } }
 #intro #cc-bg circle{ transform-origin:512px 512px; animation:ccRing .9s 2.4s ease-out both; }
 @keyframes ccRing{ from{ transform:scale(.6); opacity:0; } to{ transform:none; opacity:1; } }
-/* then the studio's name, in the banner's outline */
+/* then the studio's name: outlined like the logo's own lines (its colour, a stroke that follows every letter, sized with
+   the text), with a soft drop straight down, like the plate's */
 #intro p{
-  --o:3px; margin:0; color:#fff; font-weight:800; text-align:center;
-  text-shadow:var(--o) 0 0 var(--ink), calc(-1 * var(--o)) 0 0 var(--ink), 0 var(--o) 0 var(--ink), 0 calc(-1 * var(--o)) 0 var(--ink),
-    var(--o) var(--o) 0 var(--ink), calc(-1 * var(--o)) var(--o) 0 var(--ink), var(--o) calc(-1 * var(--o)) 0 var(--ink),
-    calc(-1 * var(--o)) calc(-1 * var(--o)) 0 var(--ink), 0 calc(var(--o) + 4px) 0 rgba(20,30,40,.4);
+  margin:0; color:#fff; font-weight:800; text-align:center;
+  -webkit-text-stroke:.16em #1F2D3A; paint-order:stroke fill; text-shadow:0 .09em 0 rgba(23,48,66,.35);
 }
 #intro .name{ margin-top:-5vh; font-size:clamp(40px,8vh,92px); line-height:1; animation:ccName .5s 2.75s cubic-bezier(.2,1.4,.4,1) both; }
-#intro .kind{ --o:2px; margin-top:1vh; padding-left:.45em; font-size:clamp(15px,2.6vh,30px); letter-spacing:.45em; text-transform:uppercase; animation:ccKind .6s 3s ease-out both; }
+#intro .kind{ -webkit-text-stroke-width:.2em; text-shadow:0 .14em 0 rgba(23,48,66,.35); margin-top:1vh; padding-left:.45em; font-size:clamp(15px,2.6vh,30px); letter-spacing:.45em; text-transform:uppercase; animation:ccKind .6s 3s ease-out both; }
 @keyframes ccName{ from{ transform:scale(.5); opacity:0; } to{ transform:none; opacity:1; } }
 @keyframes ccKind{ from{ letter-spacing:.1em; opacity:0; } to{ letter-spacing:.45em; opacity:1; } }
 /* less motion: the logo as it is, faded in and out */
