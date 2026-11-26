@@ -26,7 +26,7 @@ window.Acting = async () => {
         // (in ink and proud of the face, so they show over a fringe or under a hat's brim)
         if (brow) { b.scale.set(0.072, 0.017, 0.014); b.position.set(x, 1.106 + brow[0] * 0.024, 0.252); b.rotation.set(-0.35, 0, s * brow[1] * 0.45); }
         g.visible = gl.visible = eyes === 'big';
-        if (eyes === 'big') { g.scale.set(0.04, 0.043, 0.016); g.position.set(x, 1.06, 0.238); gl.scale.setScalar(0.011); gl.position.set(x + 0.013, 1.074, 0.254); }
+        if (eyes === 'big') { g.scale.set(0.04, 0.043, 0.006); g.position.set(x, 1.06, 0.237); gl.scale.set(0.011, 0.011, 0.004); gl.position.set(x + 0.013, 1.074, 0.243); } // (flat to his face: as balls they stood out of it like goggles whenever he turned side on)
         c.visible = a.visible = eyes === 'shut' || eyes === 'happy';
         if (c.visible) {
           c.scale.set(0.04, 0.04, 0.016); c.position.set(x, 1.064, 0.243);
@@ -97,9 +97,9 @@ window.Acting = async () => {
     for (const [dx, dy] of [[-0.03, 0.03], [0.03, 0.03], [-0.03, -0.03], [0.03, -0.03]]) add(box, hole, ...on(-0.3 + dx * 3.6, 0.6 + dy, 0.008), [0.016, 0.005, 0.004], [0, -0.3, 0.8]);
     // a rope for a belt, knotted at the front with an end hanging (it's what he ropes the tuna with)
     const rope = lam(0xC9A66B);
-    add(new TorusGeometry(R(0.5) + 0.006, 0.02, 6, 20), rope, 0, 0.5, 0, null, [Math.PI / 2, 0, 0]);
-    add(ball, rope, ...on(0.25, 0.5, 0.02), [0.035, 0.035, 0.03]);
-    add(new CylinderGeometry(0.014, 0.014, 0.14, 5), rope, ...on(0.3, 0.42, 0.02), null, [0, 0, 0.25]);
+    g.userData.belt = [add(new TorusGeometry(R(0.5) + 0.006, 0.02, 6, 20), rope, 0, 0.5, 0, null, [Math.PI / 2, 0, 0]),
+      add(ball, rope, ...on(0.25, 0.5, 0.02), [0.035, 0.035, 0.03]),
+      add(new CylinderGeometry(0.014, 0.014, 0.14, 5), rope, ...on(0.3, 0.42, 0.02), null, [0, 0, 0.25])]; // (so a shot can have him take it off)
     // seaweed over a shoulder, down his back
     const weed = lam(0x3F7D4A);
     for (let k = 0; k < 5; k++) add(box, weed, ...on(2.2 - k * 0.05, 0.86 - k * 0.075, 0.012), [0.035 - k * 0.003, 0.085, 0.008], [0.1, 2.2, 0.25 * Math.sin(k * 1.7)]);
@@ -111,5 +111,32 @@ window.Acting = async () => {
     g.userData.restore = () => { P.body.remove(g); P.legs[1].remove(t, shin); Object.assign(P, was); P.redress(); };
     return g;
   }
-  return { face, pose, soles, castaway, INK };
+  // ---------- weight: what makes a posed move read as done by a body, not a formula ----------
+  /** Smooth noise, -1..1, never repeating: for a shiver, a breath, a held camera (a sine there reads as a machine). */
+  const n1 = (x, s = 0) => { const h = k => { const v = Math.sin(k * 127.1 + s * 311.7) * 43758.5453; return v - Math.floor(v); };
+    const i = Math.floor(x), f = x - i, u = f * f * (3 - 2 * f); return (h(i) + (h(i + 1) - h(i)) * u) * 2 - 1; };
+  const c01 = k => Math.min(1, Math.max(0, k));
+  /** How a move gets to its pose: 'io' gently off and on, 'out' fast off and soft on (arriving), 'in' slow off and
+   *  hard on (falling, thrown), 'over' past it and back (a body settling), 'lin'. */
+  const EASE = { lin: c01, io: k => { k = c01(k); return k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2; }, out: k => 1 - Math.pow(1 - c01(k), 3), in: k => Math.pow(c01(k), 2.4),
+    over: k => { k = c01(k); return k >= 1 ? 1 : 1 - Math.exp(-5.5 * k) * Math.cos(8.5 * k); } };
+  /** Pose to pose, as an animator keys it: each key is the pose he's in AT `t`, got to over the `mv` seconds before
+   *  (so between keys he HOLDS: the holds are the acting, the moves are quick), by ease `e`. A key names only what
+   *  changes. Anticipation and settle are keys of their own, never left to the easing. Returns pose(t): the numbers. */
+  function track(keys) {
+    const ks = keys.map(k => ({ mv: 0.25, e: 'io', ...k }));
+    const chan = c => c !== 't' && c !== 'mv' && c !== 'e';
+    return t => {
+      const p = {};
+      for (const c in ks[0]) if (chan(c)) p[c] = ks[0][c];
+      for (let i = 1; i < ks.length; i++) {
+        const k = ks[i], t0 = k.t - k.mv;
+        if (t <= t0) continue;
+        const w = EASE[k.e]((t - t0) / k.mv);
+        for (const c in k) if (chan(c) && c in p) p[c] += (k[c] - p[c]) * w;
+      }
+      return p;
+    };
+  }
+  return { face, pose, soles, castaway, INK, n1, EASE, track };
 };

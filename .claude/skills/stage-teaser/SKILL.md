@@ -45,8 +45,8 @@ his shades with a glint, "Hello, Chef." as a subtitle in the game's toast, a sma
 Examples: `examples/trailer/` (the 16:9 store trailer for #156, 72 s: `kit.js` — the camera override, captions in the
 game's banner lettering, letterbox, fades, the flag string taken down — then one script per take (`s1.js` the ice
 market, `s2.js` Floe Sushi and the knocking hatch, `k.js` the knock, `fa.js`/`fb.js`/`fc.js` fight night, `e.js` the
-end card, `bed.js` a music bed), `takes.sh` to render them all, `edl.json` the edit (version 1; `edl-v3.json` is the current cut, the owner's
-script after the polish pass, with `k2.js` its ending), `cut.py` to assemble the Steam
+end card, `bed.js` a music bed), `takes.sh` to render them all, `edl.json` the edit (version 1; `edl-v4.json` is the current cut: the owner's
+script after the polish pass, with `k2.js` its ending and the 27 s opening; `edl-v3.json` goes with the older 15 s opening), `cut.py` to assemble the Steam
 master and a phone copy, `camprobe*.js` to try cameras).
 `examples/hello-chef-cine.js` (the whole cinematic: night lighting, a real hole, smoke, silhouette, crash
 zoom, movie bars, subtitle), `examples/hello-chef-sound.js` (its score), `examples/fight-night-director.js` (a
@@ -130,6 +130,34 @@ with `applyUnlock`, a dawn sky dome, the game's toast and tip pill shown as over
     jump (`Gx` in takes.sh; keep the dissolved frames in the takes' own pixel format, or the cut stalls).
   - **A foreground prop from the game seen close** (a flame cone, a hat brim, a chopping blade hung in the air)
     reads as an error: frame it out or hide it for the shot.
+- **Weight, and not looking machine-made** (the owner on the stranded scene: "pace is off, too fast... it looks AI
+  generated... missing weight of each action"; `examples/trailer/o.js` is the answer, four review rounds deep). A move
+  written as one eased formula reads as a machine however good the easing. What fixed it:
+  - **Key it pose to pose** (`Acting().track(keys)`, acting.js): each key is the pose he's in AT a time and how long
+    the move into it took, so between keys he HOLDS. A wind-up, the move, a settle and a hold are four keys, never
+    left to an easing curve. Heavy things use a slow ease with a little overshoot (`settle`), light things snap (`over`).
+  - **Nothing arrives together**: sample his arms a few frames behind his body and each other; never both arms out
+    level (a T reads as a default pose); legs stride by distance covered, so feet don't slide.
+  - **Nothing happens in one frame.** A turn, a stand, a prop appearing, a fish breaking the surface: each gets 4 to 8
+    frames and a reason (his hand goes to the knot before the belt comes off; the water domes before the tuna comes
+    through it; the fish starts under the surface, not on it). Reviewers found every one-frame pop.
+  - **The world answers him**: the floe dips when he lands, tips toward where he stands, is kicked up by the burst and
+    rocks when he's pulled off; the tuna sinks under him; splashes are timed to the contact, not to a round number.
+  - **Put him ON the ground.** Measure the surface (rays down onto the mesh, once) and stand him on that; he had been
+    14 cm inside the snow for three versions. Lay a soft shade under him that thins as he leaves the ground: the game's
+    own shadow doesn't show on snow at full white.
+  - **Noise, not sines**, for anything held: breath, shiver in bursts, bobbing ice. A fixed rhythm is the tell.
+  - **A held camera** (`operate`, `jolt`, `lag` in o.js): it drifts a little and never the same way, follows where he
+    WAS a moment ago, is knocked by a thud and takes half a second to steady. And it must not ride up with a hop.
+  - **One screen direction** from the moment two things face each other till the scene ends: after the burst the tuna
+    stays on the right in the throw, the close-up, the pull and the ride.
+  - **Keep bodies apart.** Check every frame where two bodies meet (he came up the rope through the tuna's tail):
+    bring him up the camera's side of it, a body's width clear.
+  - **Pace**: open on the place before the person; give the first actions real time (he wakes over four seconds);
+    hold each cut-out a full second; pay for added beats by trimming holds elsewhere, and tell the owner the length.
+  - **Review on consecutive frames**, not just every tenth: ask the outside reviewer to tile 30 frames in a row for
+    each action and read the spacing. Give them the rig's limits (a rigid toy: no knees, elbows or neck) and the
+    length budget, or half the notes will ask for a different rig and more time.
 - **The mix, by numbers** (`check-audio.mjs` on the master, per second): the three thuds and the blast are the
   loudest things (about -11 dB mean for their second), music sections sit at -14 to -18, a suspense hold at -25 to
   -28, and the whole at about -16 LUFS. A music entrance 10 dB under the hit before it reads as "the music is

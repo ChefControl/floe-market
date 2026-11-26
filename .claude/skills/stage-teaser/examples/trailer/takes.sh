@@ -9,7 +9,8 @@ S=$(mkdir -p "${OUT:-out/trailer}" && cd "${OUT:-out/trailer}" && pwd)
 U=http://localhost:5177/; U3="http://localhost:5177/?cellar&full&beaten=4&sound=on"
 FK=rush,fightBanner,finish,finBlink,ringFlash,epic,banner,fade,toast,confetti
 r() { name=$1; shift; node "$P/render-play.mjs" "$@" > "$S/log-$name.txt" 2>&1; echo "$name: $(tail -1 "$S/log-$name.txt")"; }
-# the opening (the owner's script: the floe, the tuna), on a new game
+# the opening (the owner's script: the floe, the tuna), on a new game. Version 4 of it (27 s: slower, keyed pose to
+# pose, the floe answering him, 'something under the ice') goes with edl-v4.json; versions 1-3 used a 15 s o.js (git history).
 r O "$X/kit.js,$X/hero-tuna.js,$X/acting.js,$X/o.js" "$S/O" --landscape --url "$U?stage=1&sound=on" --mute music --init "$X/newgame.js" &
 # the campfire (that night: the bell, the idea) and the first sale (real play, HUD on); then cut.py with edl-open.json
 r C "$X/kit.js,$X/acting.js,$X/campfire.js,$X/c.js" "$S/C" --landscape --url "$U?stage=1&pile=14&sound=on" --mute music --init "$X/newgame.js" --wait 9000 &
