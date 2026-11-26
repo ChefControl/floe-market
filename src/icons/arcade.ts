@@ -10,7 +10,7 @@ const LIME = '#A3D94A', DEEP_LIME = '#6FA83A';
 /** The reef fish's yellow and orange. */
 const YELLOW = '#F7D038', ORANGE = '#F08A24';
 const SHINE = 'rgba(255,255,255,.4)';
-/** A matkot paddle's light wood (the beach's paddles, C.endGrain). */
+/** A beach paddle's light wood (the beach's paddles, C.endGrain). */
 const BLADE = '#D9A877', GRAIN = '#B9875A';
 
 /** ☠ Poison: a friendly cartoon skull, big round eyes with a glint, over two crossed bones. */

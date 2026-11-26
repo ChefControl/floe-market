@@ -166,7 +166,7 @@ export const eighth = () => 60 / KORKI_TUNE.bpm / 2;
 export const KORKI_STEPS = TUNE.length * 8;
 
 /** At full: a little under the rest of the music (rendered offline through the game's audio: at 0.5 it came out level
- *  with Hatikvah at its full), as his song was kept low, background to his story. */
+ *  with another place's tune at its full), as his song was kept low, background to his story. */
 const FULL = 0.35;
 /** Fades the mix to `k` (0 to 1). Nothing's made until it's first heard. */
 export function korkiLevel(k: number) {

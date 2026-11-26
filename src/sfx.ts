@@ -262,7 +262,7 @@ export function swish(at: XZ) {
   noise({ at, f: 1400, f2: 500, q: 1.2, a: 0.02, d: 0.12, v: 0.05 });
 }
 
-/** A matkot paddle hitting the ball (beach.ts): a hollow wooden tock, the player's a little higher than his. */
+/** A beach paddle hitting the ball (beach.ts): a hollow wooden tock, the player's a little higher than his. */
 export function tock(at: XZ, yours: boolean) {
   tone({ at, f: yours ? 540 : 450, f2: yours ? 380 : 320, type: 'triangle', a: 0.003, d: 0.07, v: 0.2 });
   noise({ at, f: 1500, q: 2, a: 0.002, d: 0.03, v: 0.07 });
@@ -282,7 +282,7 @@ export function honk(at: XZ, cross = false) {
   else { beep(0, 0.07); beep(0.16, 0.07); }
 }
 
-/** A ship's horn (the voting boat's, votingBoat.ts), like a harbour ferry's: two notes a minor third apart in a brassy
+/** A ship's horn (the casino yacht's, casino.ts), like a harbour ferry's: two notes a minor third apart in a brassy
  *  buzz (a soft sawtooth's first 14 harmonics) that scoops up onto its pitch, swells, holds and dies away, echoing off
  *  the water; a prolonged blast, or a short one. */
 export function shipHorn(at: XZ, long = true) {

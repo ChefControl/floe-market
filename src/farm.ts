@@ -4,18 +4,21 @@
 // Every walking surface here is either raised off the ground or kept clear of its neighbours, so no two of them
 // share a plane (overlapping flat surfaces at the same height flicker).
 import {
-  BoxGeometry, BufferGeometry, CylinderGeometry, DodecahedronGeometry, Float32BufferAttribute, Group, Mesh,
-  MeshLambertMaterial, MeshPhongMaterial, PlaneGeometry, PointLight, Sprite, SpriteMaterial, TorusGeometry, type Object3D,
+  BoxGeometry, BufferGeometry, CatmullRomCurve3, Color, CylinderGeometry, DodecahedronGeometry, Float32BufferAttribute, Group,
+  Matrix4, Mesh, MeshLambertMaterial, MeshPhongMaterial, PlaneGeometry, PointLight, Sprite, SpriteMaterial, TorusGeometry,
+  TubeGeometry, type Object3D,
 } from 'three';
-import { at, Build, detail, dice, quietly, seasonLayer } from './kit';
+import { apart, at, Build, detail, dice, mix, quietly, seasonLayer, shade, tube } from './kit';
+import { C } from './palette';
 import { casinoBoat, CHANNEL_X, FARM_DOOR, HALL_BOX, PATH_X, QUAY, TERRACE_Z, TERRACES } from './layout';
 import {
-  bambooPipe, bridge, dryingRack, farmhouse, farmhouseSnow, kerb, pebbles, rippleDisc, rippleMaterial, rippleSheet,
-  rockSnow, springRock, steppingStone, stoneWall, terraceStep, updRipples, waterWheel, wheelStand,
+  bambooPipe, bridge, dryingRack, farmhouse, farmhouseSnow, kerb, pebbles, rippleMaterial, rippleSheet, steppingStone, terraceStep,
+  updRipples, waterWheel, wheelStand,
 } from './propsFarm';
-import { bake, canvasTex, G, mesh, scene, type Part } from './render';
-import { PAL, seasonal, shelter, type Swatch } from './season';
-import { FY, rand } from './util';
+import { dryWall, foam, hillHeight, hillside, poolDamp, poolRocks, poolWater, rocks, shore, stoneLantern, tuft, wallSlab } from './propsSpring';
+import { bake, canvasTex, G, mesh, scene, sky, type Part } from './render';
+import { amount, PAL, seasonal, shelter, type Swatch } from './season';
+import { FY, rand, V } from './util';
 import { treeGroup } from './world';
 
 const ZC = (TERRACE_Z.z0 + TERRACE_Z.z1) / 2, DEPTH = TERRACE_Z.z1 - TERRACE_Z.z0;
@@ -43,6 +46,9 @@ function high(to: Object3D, build: () => Object3D, low: Object3D | null) {
   return g;
 }
 const SNOWY: Swatch = [1, 0, 0, 0];
+/** How thick the spring's steam is through the year: thickest in the cold. */
+const STEAMY: Swatch = [1.5, 1, 0.75, 1.1];
+const WHITE = new Color(0xFFFFFF);
 
 const pondMat = new MeshPhongMaterial({ color: 0x5FB1B4, specular: 0xFFFFFF, shininess: 80, transparent: true, opacity: .92 });
 const fallMat = new MeshLambertMaterial({ color: 0xBFEFFF, transparent: true, opacity: .7, emissive: 0x204050 });
@@ -90,62 +96,121 @@ const terracePieces = TERRACES.map((t, i) => {
 // ---------- hillside and hot spring ----------
 const HILL = { x0: -37, x1: TERRACES[2].x0 - 0.05, z0: -6.0, z1: 12.0, y: 2.4 };
 const SPRING = { x: -29.6, z: 0.8 };
+/** How far the spring's pool reaches each way (before its shore wanders, propsSpring.ts). */
+const POOL = { rx: 1.85, rz: 1.5 };
+/** The stone lantern by the pool, north-west of it: where the glow at dusk comes from. */
+const LANTERN = { x: SPRING.x + Math.cos(2.3) * (POOL.rx + 0.8), z: SPRING.z + Math.sin(2.3) * (POOL.rz + 0.75) };
 const hill = piece((HILL.x0 + HILL.x1) / 2, (HILL.z0 + HILL.z1) / 2), hillLo = lowOf(hill);
-/** Steam puffs rising off the spring. */
-const steam: { s: Sprite; t: number }[] = [];
-/** A warm glow over the spring at dusk. */
-export const springLamp = new PointLight(0xFFB46A, 0, 12, 1.4);
-springLamp.position.set(SPRING.x, HILL.y + 1.6, SPRING.z);
+/** Wisps of steam rising off the spring: each from its own place on the water (`a` round it, `r` out). */
+const steam: { s: Sprite; t: number; a: number; r: number }[] = [];
+const STEAM_LIFE = 4.2;
+/** A warm glow over the spring at dusk: from over its lantern, high enough to lie soft on the rocks and the water. */
+export const springLamp = new PointLight(0xFFB46A, 0, 12, 1.7);
+springLamp.position.set(LANTERN.x, HILL.y + 2.4, LANTERN.z);
+/** The lantern's paper panes, which light up with the glow (updFarm). */
+const lanternGlow = apart(() => new MeshLambertMaterial({ color: 0xFFD9A0, emissive: 0xFFB46A, emissiveIntensity: 0.12 }), dice(0x5910));
 {
-  const cx = hill.position.x, cz = hill.position.z;
-  put(hill, mesh(new BoxGeometry(HILL.x1 - HILL.x0, HILL.y, HILL.z1 - HILL.z0), seasonal(PAL.lawn), 0, 0, 0, true), cx, HILL.y / 2, cz);
-  put(hill, mesh(new BoxGeometry(0.25, HILL.y + 0.1, HILL.z1 - HILL.z0 + 0.2), 0xA9B3BA, 0, 0, 0, true), HILL.x1, (HILL.y + 0.1) / 2, cz, hillLo);
-  // the spring: a steaming pool in a ring of rocks
-  const rocks: Part[] = [];
-  const rock = new DodecahedronGeometry(0.42);
+  const cx = hill.position.x, cz = hill.position.z, H = HILL, sx = SPRING.x - cx, sz = SPRING.z - cz, { rx: RX, rz: RZ } = POOL;
+  /** How high the wall over the top terrace stands at `z` (as high as the hill behind it), and where its ends are. */
+  const wallH = (z: number) => hillHeight(H, H.x1, z), ZA = H.z0 - 0.4, ZB = H.z1 + 0.95;
+  const d = dice(0x5912);
+  // The hill was a box once, with a ring of rocks on it. What's made here on the game's luck is what that made, one
+  // for one (a ground, a wall, fourteen rocks, a pool, a pipe, falling water, the pines, the steam), so the luck's
+  // where it was afterwards. Everything else is built apart, further down.
+
+  // the hillside itself: banks that slope and wander, a top that's never quite flat or one colour
+  const lawn = seasonal(PAL.lawn);
+  lawn.vertexColors = true;
+  hill.add(mesh(hillside(H, cx, cz, { x: SPRING.x, z: SPRING.z, r: 2.6 }), lawn));
+  // Low: a plain wall as high as the hill, running down with its banks at both ends
+  hillLo.add(mesh(wallSlab(ZA, ZB, cz, 0.25, wallH), 0xA9B3BA, H.x1 - cx, 0, 0, true));
+  // Low: fourteen plain rocks along the pool's shore, big and small
+  const plain: Part[] = [], rock = new DodecahedronGeometry(0.42), ld = dice(0x5913);
   for (let i = 0; i < 14; i++) {
-    const a = i / 14 * Math.PI * 2;
-    rocks.push({ geo: rock, at: [SPRING.x - cx + Math.cos(a) * 2.1, HILL.y + 0.12, SPRING.z - cz + Math.sin(a) * 1.7], rot: [0, a, 0], scale: [1, 0.6, 1] });
+    const a = 0.32 + (i + ld() * 0.5) / 14 * (Math.PI * 2 - 0.6), k = 0.65 + ld() * 0.85, r = shore(a) + 0.07 * k;
+    plain.push({ geo: rock, at: [sx + Math.cos(a) * RX * r, H.y + 0.1 * k, sz + Math.sin(a) * RZ * r], rot: [0, ld() * 6, 0], scale: [k, 0.6 * k, k * (0.8 + ld() * 0.3)] });
   }
-  hillLo.add(mesh(bake(rocks), 0x8A949C, 0, 0, 0, true));
-  const pool = mesh(new CylinderGeometry(2.0, 2.0, 0.08, 28), new MeshPhongMaterial({ color: 0x7FD6D2, emissive: 0x1E4D4C, shininess: 90 }));
-  pool.scale.z = 0.82; put(hill, pool, SPRING.x, HILL.y + 0.06, SPRING.z, hillLo);
-  // a bamboo pipe from the spring down to the top terrace
-  const pipe = mesh(G.cyl, 0x7FA650, 0, 0, 0, true); pipe.scale.set(0.09, 2.2, 0.09); pipe.rotation.z = Math.PI / 2;
-  put(hill, pipe, HILL.x1 - 1.0, HILL.y + 0.15, SPRING.z, hillLo);
-  put(hill, mesh(new BoxGeometry(0.08, HILL.y + 0.1 - TERRACES[2].top, 0.5), fallMat), HILL.x1 + 0.2, (HILL.y + TERRACES[2].top) / 2 + 0.1, SPRING.z);
+  hillLo.add(mesh(bake(plain), 0x8A949C, 0, 0, 0, true));
+  // the pool: an uneven shore, deep in the middle and pale in the shallows
+  const WY = H.y + 0.04, water = poolWater(RX, RZ, mix(0x5FB1B4, C.sea, 0.4), 0x5FB1B4, mix(0x7FD6D2, 0xFFFFFF, 0.3), dice(0x591B));
+  const still = mesh(water, new MeshPhongMaterial({ vertexColors: true, specular: mix(0x203038, 0xFFFFFF, 0.24), shininess: 24 }));
+  still.rotation.x = -Math.PI / 2; still.position.set(sx, WY, sz);
+  hillLo.add(still);
+  // a bamboo pipe from the pool's edge out over the wall, tipped down a little toward the top terrace
+  const PIPE = { x0: SPRING.x + RX * 0.9, x1: H.x1 + 0.5, y: H.y + 0.3, r: 0.085 }, len = PIPE.x1 - PIPE.x0, tilt = Math.atan2(0.14, len);
+  const pipe = mesh(G.cyl, 0x7FA650, 0, 0, 0, true); pipe.scale.set(PIPE.r, len, PIPE.r); pipe.rotation.z = Math.PI / 2 - tilt;
+  put(hill, pipe, (PIPE.x0 + PIPE.x1) / 2, PIPE.y, SPRING.z, hillLo);
+  // and a thread of water falling from its mouth to the paddy
+  const paddy = TERRACES[2].top + 0.07, mouth = V(PIPE.x1 - cx, PIPE.y - 0.08, sz);
+  const drop = Array.from({ length: 7 }, (_, i) => V(mouth.x + 0.34 * i / 6, mouth.y - (mouth.y - paddy) * (i / 6) ** 2, sz));
+  hill.add(mesh(new TubeGeometry(new CatmullRomCurve3(drop), 10, 0.035, 5), fallMat));
+  // the pines, at the back of the hill and by the shore
   const sp: [number, number, number][] = [];
   for (let i = 0; i < 9; i++) sp.push([rand(HILL.x0 + 1, HILL.x0 + 4.5) - cx, rand(HILL.z0 + 1, HILL.z1 - 1) - cz, rand(.8, 1.2)]);
   for (let i = 0; i < 4; i++) sp.push([rand(-33.5, -32) - cx, rand(HILL.z0 + 1, HILL.z0 + 3) - cz, rand(.8, 1.1)]);
   const pines = treeGroup(sp); pines.position.y = HILL.y; hill.add(pines);
+  // the steam: soft puffs, from all over the water
   const puff = canvasTex(64, 64, (c, w, h) => {
     const gr = c.createRadialGradient(32, 32, 2, 32, 32, 30);
-    gr.addColorStop(0, 'rgba(255,255,255,.9)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+    gr.addColorStop(0, 'rgba(255,255,255,.9)'); gr.addColorStop(0.5, 'rgba(255,255,255,.35)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
     c.fillStyle = gr; c.fillRect(0, 0, w, h);
   });
   for (let i = 0; i < 14; i++) {
     const s = new Sprite(new SpriteMaterial({ map: puff.tex, transparent: true, depthWrite: false, opacity: 0 }));
     put(hill, s, SPRING.x, HILL.y, SPRING.z);
-    steam.push({ s, t: i / 14 * 3.2 });
+    steam.push({ s, t: i / 14 * STEAM_LIFE, a: d() * Math.PI * 2, r: Math.sqrt(d()) * 0.8 });
   }
-  // High: the hillside's face walled with rounded stones; mossy rocks round the spring (snow on them in winter); its
-  // water rippling; and a jointed bamboo pipe on a stake
-  high(hill, () => {
-    const hi = new Group(), b = new Build(), snow = new Build(), sx = SPRING.x - cx, sz = SPRING.z - cz;
-    b.addAll(stoneWall(HILL.y + 0.1, HILL.z1 - HILL.z0 + 0.2, 0xA9B3BA, 0.9), at(HILL.x1 + 0.055 - cx, 0, 0));
-    for (let i = 0; i < 14; i++) {
-      const a = i / 14 * Math.PI * 2, m = at(sx + Math.cos(a) * 2.1, HILL.y - 0.02, sz + Math.sin(a) * 1.7, -a - Math.PI / 2);
-      b.addAll(springRock(), m);
-      snow.addAll(rockSnow(), m);
+  // (the scenery's dice, as many as the old hill's High took, so what's built after looks the same)
+  quietly(() => { for (let i = 0; i < 76; i++) Math.random(); });
+
+  apart(() => {
+    const lamp = at(LANTERN.x - cx, H.y - 0.02, LANTERN.z - cz, 0.5);
+    // Low: the lantern in one piece, its panes painted on
+    const lowLamp = new Build();
+    stoneLantern(lowLamp, lowLamp, lamp, new Build());
+    hillLo.add(lowLamp.mesh());
+
+    // High: damp ground round the pool
+    const hi = new Group(), b = new Build(), green = new Build(), glow = new Build(), snow = new Build(), pool = rocks();
+    const wet = new Mesh(poolDamp(RX, RZ), new MeshLambertMaterial({ vertexColors: true, transparent: true, depthWrite: false }));
+    wet.position.set(sx, H.y + 0.014, sz); wet.receiveShadow = true;
+    // boulders of all sizes along its shore, mossy (snow on them in winter), but for where the pipe leaves it
+    poolRocks(pool, RX, RZ, H.y, dice(0x5915), { a: 0, w: 0.16 });
+    b.addAll(pool.rock, at(sx, 0, sz)); snow.addAll(pool.snow, at(sx, 0, sz));
+    // a dry-stone wall holding the hill up over the top terrace, long grass on its cap and in its joints
+    const face = at(H.x1 + 0.055 - cx, 0, -cz), wall = new Build(), wallGreen = new Build();
+    /** How much of the wall's foot the top terrace stands in front of, at `z`. */
+    const behind = (z: number) => z > TERRACE_Z.z0 + 0.25 && z < TERRACE_Z.z1 - 0.25 ? TERRACES[2].top - 0.05 : 0;
+    dryWall(wall, wallGreen, ZA, ZB, wallH, dice(0x5916), behind);
+    b.addAll(wall, face); green.addAll(wallGreen, face);
+    // tufts of long grass here and there on top, and round the pool
+    for (let i = 0; i < 26; i++) {
+      const x = H.x0 + 0.6 + d() * (H.x1 - H.x0 - 1.2), z = H.z0 + 0.8 + d() * (H.z1 - H.z0 - 1.4);
+      if (Math.hypot(x - SPRING.x, z - SPRING.z) < 2.6) continue;
+      tuft(green, x - cx, hillHeight(H, x, z) - 0.02, z - cz, 0.24 + d() * 0.2, d);
     }
-    b.addAll(bambooPipe(2.2, 0.09, 0.15), at(HILL.x1 - 1.0 - cx, HILL.y + 0.15, sz));
-    const water = new Mesh(rippleDisc(2.0, 0.82), rippleMaterial({ color: 0x7FD6D2, emissive: 0x1E4D4C, shininess: 90 }, 0.01));
-    water.rotation.x = -Math.PI / 2; water.receiveShadow = true;
-    water.position.set(sx, HILL.y + 0.1, sz);
-    hi.add(b.mesh(), seasonLayer(snow.mesh(false), SNOWY), water);
-    return hi;
-  }, hillLo);
+    for (let i = 0; i < 9; i++) {
+      const a = 0.5 + d() * 5.3, k = shore(a) + 0.32 + d() * 0.35;
+      tuft(green, sx + Math.cos(a) * RX * k, H.y - 0.02, sz + Math.sin(a) * RZ * k, 0.3 + d() * 0.3, d);
+    }
+    // the water rippling
+    const rippling = new Mesh(water, rippleMaterial({ vertexColors: true, specular: mix(0x203038, 0xFFFFFF, 0.24), shininess: 24 }, 0.008));
+    rippling.rotation.x = -Math.PI / 2; rippling.position.set(sx, WY, sz); rippling.receiveShadow = true;
+    // the pipe jointed, on crossed stakes at the wall; foam where its water lands
+    b.addAll(bambooPipe(len, PIPE.r, 0.32), new Matrix4().makeRotationZ(-tilt).setPosition((PIPE.x0 + PIPE.x1) / 2 - cx, PIPE.y, sz));
+    for (const s of [-1, 1]) b.add(tube(0.025, 0.03, 0.5, 6), 0x8A6A3A, H.x1 - 0.45 - cx, H.y + 0.13, sz + s * 0.06, [s * 0.35, 0, 0]);
+    const fm = new Build(); foam(fm, d, 0.2);
+    b.addAll(fm, at(mouth.x + 0.36, paddy, sz));
+    // the lantern, its paper panes lit by the glow
+    stoneLantern(b, glow, lamp, snow);
+    // (the grass is the lawn's colour through the year, a little darker out of winter)
+    const grass = seasonal([PAL.lawn[0], shade(PAL.lawn[1], 0.9), shade(PAL.lawn[2], 0.9), shade(PAL.lawn[3], 0.9)]);
+    hi.add(wet, rippling, b.mesh(), glow.mesh(false, lanternGlow), seasonLayer(snow.mesh(false), SNOWY), green.mesh(false, grass));
+    hill.add(hi);
+    detail(hillLo, hi);
+  }, dice(0x5911));
 }
+
 
 // ---------- farmhouse, water wheel, drying racks ----------
 const HOUSE = { x: -18.6, z: 9.8 };
@@ -330,12 +395,18 @@ export function updFarm(dt: number) {
   culvert.visible = casinoBoat.open;
   updRipples(dt);
   wheel.rotation.z += dt * 0.8; // its bottom moves east, with the stream
+  // wisps that rise from all over the water, thin as they leave it, then spread, drift east and fade; thicker in the cold
+  const thick = amount(STEAMY), lit = springLamp.intensity / 9;
   for (const p of steam) {
-    p.t = (p.t + dt) % 3.2;
-    const k = p.t / 3.2, s = p.s;
-    s.position.set(SPRING.x - hill.position.x + Math.sin(p.t * 2 + s.id) * 0.8, HILL.y + 0.2 + k * 3.2, SPRING.z - hill.position.z + Math.cos(p.t * 1.7 + s.id) * 0.6);
-    s.scale.setScalar(0.8 + k * 2.2);
-    s.material.opacity = 0.55 * (1 - k);
+    p.t = (p.t + dt) % STEAM_LIFE;
+    const k = p.t / STEAM_LIFE, s = p.s;
+    s.position.set(SPRING.x - hill.position.x + Math.cos(p.a) * p.r * 1.7 + Math.sin(p.t * 0.9 + p.a) * 0.25 + k * k * 0.9,
+      HILL.y + 0.25 + k * 3.4, SPRING.z - hill.position.z + Math.sin(p.a) * p.r * 1.35 + Math.cos(p.t * 0.7 + p.a) * 0.2);
+    s.scale.setScalar(0.9 + k * 2.4);
+    s.material.opacity = 0.34 * thick * Math.sin(Math.min(1, k * 4) * Math.PI / 2) * (1 - k) ** 1.3;
+    // (it takes the dusk's light, rather than standing out white against it)
+    s.material.color.copy(sky.bg).lerp(WHITE, 0.55 - 0.2 * lit);
   }
+  lanternGlow.emissiveIntensity = 0.12 + 0.88 * lit;
 }
 
