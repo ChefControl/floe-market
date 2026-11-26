@@ -27,6 +27,7 @@ import { drawWay, wayCam } from './southDoor';
 import './settings';
 import './pause';
 import { initTitle, titleCam, titleOpen } from './title';
+import './webSave';
 import { view } from './stage';
 import { newBubbleFrame } from './speech';
 import { drawTutorial } from './tutorial';
