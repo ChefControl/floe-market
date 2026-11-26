@@ -64,6 +64,13 @@ describe('the build', () => {
     expect(licences).toContain('ffmpeg 7.1 (LGPL-2.1-or-later)\n\nGNU LESSER');
   });
 
+  it("a test build of the desktop app ships what's waiting for approval (pending), and only that", async () => {
+    const ffmpeg = { name: 'FFmpeg', version: '7.1', licence: 'LGPL-2.1-or-later', text: 'GNU LESSER GENERAL PUBLIC LICENSE…' };
+    const { page } = await buildWith({}, { extra: [ffmpeg], pending: ['FFmpeg'] });
+    expect(page).toContain('<li>FFmpeg 7.1, LGPL-2.1-or-later.</li>');
+    await expect(buildWith({ 'gpl-thing': 'GPL-3.0-only' }, { extra: [ffmpeg], pending: ['FFmpeg'] })).rejects.toThrow(/gpl-thing/);
+  });
+
   it("has the game's credits ready for the list, and the Apache licence's text for Firebase, which ships none", () => {
     expect(readFileSync('index.html', 'utf8')).toContain('<!-- licences: listed by the build (scripts/licences.ts) -->');
     expect(readFileSync('scripts/licences/Apache-2.0.txt', 'utf8')).toContain('Apache License');

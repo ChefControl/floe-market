@@ -139,6 +139,12 @@ async function start() {
     });
   }
   win.webContents.on('render-process-gone', (_e, d) => console.error('[floe] renderer gone', JSON.stringify(d)));
+  // On Linux, the game has started with Chromium's sandbox: floe-market.sh need never try without it (build.mjs).
+  if (process.platform === 'linux' && !app.commandLine.hasSwitch('no-sandbox')) {
+    win.webContents.once('did-finish-load', () => {
+      try { writeFileSync(join(app.getPath('userData'), 'sandbox-ok'), 'Chromium\'s sandbox works here.\n'); } catch { /* next time */ }
+    });
+  }
   // a test run can open the game with a query, as the web build's address would (--query=stage=1&sound=off)
   const query = DEV ? process.argv.find(a => a.startsWith('--query='))?.slice(8) : undefined;
   await win.loadURL(`${ORIGIN}/index.html${query ? '?' + query : ''}`);
@@ -150,13 +156,21 @@ async function start() {
  * @param {BrowserWindow} win
  */
 function guard(win) {
+  /** What goes out of the app, to the player's browser, Steam or mail program. */
+  const OUT = new Set(['browser', 'steam', 'mail']);
   win.webContents.on('will-navigate', (e, url) => {
     // (a reload, the Restart button's, keeps to the game)
     if (!url.startsWith(`${ORIGIN}/index.html`)) e.preventDefault();
   });
+  // (a link inside a frame, the privacy notice's: the web and email go out of the app, the frame stays on the game's)
+  win.webContents.on('will-frame-navigate', e => {
+    if (e.isMainFrame || e.url.startsWith(`${ORIGIN}/`)) return;
+    e.preventDefault();
+    if (OUT.has(linkKind(e.url))) void shell.openExternal(e.url);
+  });
   win.webContents.setWindowOpenHandler(({ url }) => {
     const kind = linkKind(url);
-    if (kind === 'browser' || kind === 'steam') void shell.openExternal(url);
+    if (OUT.has(kind)) void shell.openExternal(url);
     if (kind !== 'game') return { action: 'deny' };
     return {
       action: 'allow',
@@ -171,10 +185,10 @@ function guard(win) {
     child.webContents.on('will-navigate', (e, url) => {
       // a link inside a notice: to the browser, never in the app
       e.preventDefault();
-      if (linkKind(url) === 'browser') void shell.openExternal(url);
+      if (OUT.has(linkKind(url))) void shell.openExternal(url);
     });
     child.webContents.setWindowOpenHandler(({ url }) => {
-      if (linkKind(url) === 'browser') void shell.openExternal(url);
+      if (OUT.has(linkKind(url))) void shell.openExternal(url);
       return { action: 'deny' };
     });
   });

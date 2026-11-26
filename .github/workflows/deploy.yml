@@ -89,6 +89,87 @@ jobs:
         with:
           path: _site
 
+  # The desktop app for Steam (desktop/, #166): Windows and Linux (the Steam Deck runs the Linux one) from the same
+  # commit, on every pull request and merge, as artifacts to try. Each is built on its own system, so Windows gets its
+  # program's details (rcedit) and Linux keeps its files' run permissions (packed in a tarball, as an artifact zip would
+  # drop them). A test build only warns about a licence still waiting for approval (FFmpeg's, until Valve agrees:
+  # desktop/notices.mjs); once uploads are on (the STEAM_UPLOAD variable), main's builds are release builds, which stop
+  # on it instead.
+  desktop:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: windows-latest, platform: win32, name: windows }
+          - { os: ubuntu-latest, platform: linux, name: linux }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            desktop/package-lock.json
+      - run: npm ci
+      - run: npm ci
+        working-directory: desktop
+      # (Electron's own program, for its licence notices; npm may skip its install script)
+      - run: node node_modules/electron/install.js
+        working-directory: desktop
+      - run: node build.mjs --platform=${{ matrix.platform }} $RELEASE
+        shell: bash
+        working-directory: desktop
+        env:
+          RELEASE: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.STEAM_UPLOAD == 'on' && '--release' || '' }}
+      - if: matrix.platform == 'linux'
+        run: tar -czf floe-market-linux.tar.gz -C "desktop/out/Floe Market-linux-x64" .
+      - uses: actions/upload-artifact@v7
+        with:
+          name: floe-market-${{ matrix.name }}
+          path: ${{ matrix.platform == 'linux' && 'floe-market-linux.tar.gz' || 'desktop/out/Floe Market-win32-x64' }}
+          retention-days: 14
+
+  # Each merge to main goes up to Steam, both depots onto the app's beta branch; the owner sets builds live in
+  # Steamworks. Only once the tests have passed (build) and the owner has turned uploads on (the STEAM_UPLOAD variable,
+  # after the build-upload account, #143: docs/steam-upload.md). The ids and the account are secrets of the "steam"
+  # environment, never in the repo.
+  steam:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.STEAM_UPLOAD == 'on'
+    needs: [build, desktop]
+    runs-on: ubuntu-latest
+    environment: steam
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: floe-market-*
+          path: artifacts
+      - run: |
+          mkdir -p steam/content/linux
+          mv artifacts/floe-market-windows steam/content/windows
+          tar -xzf artifacts/floe-market-linux/floe-market-linux.tar.gz -C steam/content/linux
+      - id: script
+        run: node desktop/steam/upload.mjs steam/content steam/build
+        env:
+          STEAM_APP_ID: ${{ secrets.STEAM_APP_ID }}
+          STEAM_DEPOT_WINDOWS: ${{ secrets.STEAM_DEPOT_WINDOWS }}
+          STEAM_DEPOT_LINUX: ${{ secrets.STEAM_DEPOT_LINUX }}
+      # Valve's uploader, from Valve, and the build-upload account's saved login (Steam Guard), so it needs no password
+      # or code here
+      - run: |
+          mkdir -p ~/steamcmd && cd ~/steamcmd
+          curl -fsSL https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz | tar -xz
+          mkdir -p config ~/Steam/config
+          echo "$STEAM_CONFIG_VDF" | base64 -d > config/config.vdf
+          cp config/config.vdf ~/Steam/config/config.vdf
+          ./steamcmd.sh +login "$STEAM_USERNAME" +run_app_build "$VDF" +quit
+        env:
+          STEAM_USERNAME: ${{ secrets.STEAM_USERNAME }}
+          STEAM_CONFIG_VDF: ${{ secrets.STEAM_CONFIG_VDF }}
+          VDF: ${{ steps.script.outputs.vdf }}
+
   # firestore.rules against the Firestore emulator (test/rules/), which needs Java. Rules are pasted into the Firebase
   # console by hand, so this doesn't gate the deploy, but a pull request that breaks them shows red.
   rules:

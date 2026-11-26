@@ -7,8 +7,9 @@ import { join, normalize, sep } from 'node:path';
  *  (file:// would block the module scripts). */
 export const ORIGIN = 'app://floe';
 
-/** Files served beside the game that aren't in its build: the licence notices Electron ships next to the program. */
-export const NOTICES = ['LICENSE.electron.txt', 'LICENSES.chromium.html'];
+/** Files served beside the game that aren't in its build: Chromium's notices, which Electron ships next to the program
+ *  (Electron's own licence is in the game's licences.txt). */
+export const NOTICES = ['LICENSES.chromium.html'];
 
 /**
  * The file an app://floe/ address reads, under `game` (the game's build) or, for the notices, `notices` (the program's
@@ -33,9 +34,10 @@ export function fileFor(url, game, notices) {
 /**
  * Where a link the game opens (target="_blank", window.open) goes: `game` for the game's own text files (the licences
  * list, the notices), opened in a window of the app's own; `browser` for a web page, in the player's browser; `steam`
- * for a steam:// address (the store page), handed to Steam; `none` for anything else.
+ * for a steam:// address (the store page), handed to Steam; `mail` for an email address (the privacy notice's), to
+ * the player's mail program; `none` for anything else.
  * @param {string} url
- * @returns {'game' | 'browser' | 'steam' | 'none'}
+ * @returns {'game' | 'browser' | 'steam' | 'mail' | 'none'}
  */
 export function linkKind(url) {
   let u;
@@ -43,5 +45,6 @@ export function linkKind(url) {
   if (u.protocol === 'app:') return u.host === 'floe' ? 'game' : 'none';
   if (u.protocol === 'https:' || u.protocol === 'http:') return 'browser';
   if (u.protocol === 'steam:') return 'steam';
+  if (u.protocol === 'mailto:') return 'mail';
   return 'none';
 }

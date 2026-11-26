@@ -26,6 +26,7 @@
     "intake/src/issue.ts",
     "intake/src/run.ts",
     "desktop/links.mjs",
-    "desktop/saves.mjs"
+    "desktop/saves.mjs",
+    "desktop/steam/upload.mjs"
   ]
 }
