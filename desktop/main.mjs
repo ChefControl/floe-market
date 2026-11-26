@@ -62,7 +62,9 @@ const ROLL_EVERY = 10;
  * game starts and every ten minutes.
  */
 function serveSaves() {
-  const saves = saveFiles(join(app.getPath('userData'), 'saves'));
+  // (the full game, with no save of its own yet, starts from the demo's, if the player has played it: #183)
+  const demoSaves = build.demo ? undefined : join(app.getPath('appData'), 'Floe Market Demo', 'saves');
+  const saves = saveFiles(join(app.getPath('userData'), 'saves'), demoSaves);
   const safely = (/** @type {() => unknown} */ f) => {
     try { return { ok: true, value: f() }; } catch (e) { console.error('[floe] save', e); return { ok: false, error: String(e) }; }
   };

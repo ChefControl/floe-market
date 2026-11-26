@@ -9,6 +9,7 @@
 // it to hear him out again (that night). Either way, the night lifts after.
 import { Vector3 } from 'three';
 import { ac, between, noise, onAudio, onTick, tone } from './audio';
+import { openDemoEnd } from './demoEnd';
 import { stage3On } from './flags';
 import { Fugu, Hatch } from './fugu';
 import { HatchFx } from './hatchFx';
@@ -20,6 +21,7 @@ import { camera, camK, scene } from './render';
 import { save } from './save';
 import { nightK, setNight, staging } from './stage';
 import { toast } from './ui';
+import { steamDemo } from './steamDemo';
 import { stageBuilt, tiles } from './unlocks';
 import { d2xz, FY, money, V, type XZ } from './util';
 import { viewSize } from './viewSize';
@@ -155,6 +157,9 @@ let standT = 0;
  *  once a visit (after any answer, the player has to walk off and come back: before he's met, out of `CLEAR`; after
  *  "Not today", off the hatch, which is where he's called up from then). */
 let waiting = false, armed = true;
+/** The Steam demo (steamDemo.ts): he knocks once its part of stage 2 is built, and once he's whispered, the end card
+ *  shows; standing on the hatch brings it back. */
+let demoMet = false;
 let knockT = 0;
 /** How close the player has to come to the hatch for him to come out, and how far off to walk before he'll come out
  *  again (past where the scene leaves the player standing); after "Not today", standing on the hatch (`ON`) calls him. */
@@ -268,6 +273,15 @@ function peek() {
     fugu!.rotation.y = Math.atan2(1.7, 2.8) - 0.25;
     hatch!.peekTo = 1; sfx.creak();
     // (the one glint, as he says it)
+    // (the demo ends here: he ducks back down, and the end card says the rest is in the full game)
+    if (steamDemo()) {
+      at(1.0, () => say([{ f: 'Psst. Chef.', fx: ['glint'] }, { f: 'Want real money? Come back tonight.' }], () => {
+        mode = 'watch';
+        duck(0.5);
+        at(1.0, () => { demoMet = true; leave('Mr. Fugu waits in the full game'); openDemoEnd(); });
+      }));
+      return;
+    }
     at(1.0, () => say([{ f: 'Psst. Chef.', fx: ['glint'] }, { f: 'Want real money? Come back tonight.' }], () => ask([
       { icon: '🌙', label: 'Wait for nightfall', main: true, go: () => nightfall(false) },
       {
@@ -518,7 +532,11 @@ export function updOffer(dt: number) {
     const d = d2xz(player.g.position, HATCH);
     const clear = offer.answer === 0 ? CLEAR : ON + 0.4;
     if (d > clear * clear) armed = true;
-    if (offer.answer === 0) {
+    if (demoMet) {
+      // (the demo: standing on the hatch brings the end card back)
+      if (armed && free() && d < ON * ON) { standT += dt; if (standT > 0.8) { armed = false; standT = 0; openDemoEnd(); } }
+      else standT = 0;
+    } else if (offer.answer === 0) {
       if (!waiting && stage.n === 2 && !staging() && stageBuilt(2)) summon();
       if (waiting) {
         knock(dt);

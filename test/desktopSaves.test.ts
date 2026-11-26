@@ -109,3 +109,17 @@ describe('the game, saving in the desktop app', () => {
     expect(d.kept.has(KEY)).toBe(false); // nothing on the way out writes it back
   });
 });
+
+describe("the full game, starting from the demo's save (#183)", () => {
+  it("reads the demo's save while it has never had one of its own, and never writes there", () => {
+    const demo = saveFiles(folder()), full = saveFiles(folder(), demo.dir);
+    expect(full.read(KEY)).toBeNull(); // no demo played
+    demo.write(KEY, game(7));
+    expect(full.read(KEY)).toBe(game(7));
+    full.write(KEY, game(8));
+    expect([full.read(KEY), demo.read(KEY)]).toEqual([game(8), game(7)]);
+    // after a Restart, it starts over: the demo's save doesn't come back
+    full.remove(KEY);
+    expect(full.read(KEY)).toBeNull();
+  });
+});

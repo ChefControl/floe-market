@@ -4,6 +4,7 @@
 //   node build.mjs                      the game, and the app for this computer
 //   node build.mjs --platform=win32     for Windows (x64); --platform=linux for Linux and the Steam Deck (x64)
 //   node build.mjs --game-only          just the game into app/ (then `npm start` plays it)
+//   node build.mjs --demo               the Steam demo (#183), an app of its own: src/steamDemo.ts
 //   node build.mjs --release            a build to upload: stops on any licence still waiting for approval (Blink's and
 //                                       FFmpeg's, until Valve agrees: desktop/notices.mjs), where a test build only warns
 //
@@ -14,6 +15,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { electronNotices, PENDING } from './notices.mjs';
+import { steamId } from './steam/upload.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url)), root = join(here, '..');
 const args = new Map(process.argv.slice(2).map(a => {
@@ -32,7 +34,11 @@ function git(...a) {
 
 // ---------- the game ----------
 const APP = join(here, 'app');
-const release = args.has('release');
+const release = args.has('release'), demo = args.has('demo');
+const NAME = demo ? 'Floe Market Demo' : 'Floe Market';
+// The demo's Wishlist button opens the full game's store page (src/steamDemo.ts): its id comes from the environment
+// (a GitHub Actions secret), never the repo. A release needs it; a test build without it says so on the button.
+const storeId = demo && (release || process.env.STEAM_APP_ID) ? steamId(process.env, 'STEAM_APP_ID') : '';
 // what the program adds to the open-source licences (scripts/licences.ts), handed to the game's build
 const notices = join(mkdtempSync(join(tmpdir(), 'floe-notices-')), 'notices.json');
 writeFileSync(notices, JSON.stringify(electronNotices(join(here, 'node_modules', 'electron'))));
@@ -41,18 +47,18 @@ execFileSync('npx', ['vite', 'build', '--outDir', APP, '--emptyOutDir'], {
   cwd: root, stdio: 'inherit', shell: process.platform === 'win32',
   env: {
     ...process.env, VITE_STEAM: 'on', VITE_STAGE3: 'on', VITE_KOFI: 'off',
+    VITE_STEAM_DEMO: demo ? 'on' : 'off', VITE_STEAM_STORE_ID: storeId,
     FLOE_NOTICES: notices, FLOE_LICENCES_PENDING: release ? '' : PENDING.join(','),
   },
 });
 mkdirSync(APP, { recursive: true });
 // (the web's own files: the home-screen icons and their list, and the picture a shared link shows)
 for (const f of ['manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'social-preview.jpg']) rmSync(join(APP, f), { force: true });
-writeFileSync(join(APP, 'build.json'), JSON.stringify({ version, commit }, null, 2) + '\n');
+writeFileSync(join(APP, 'build.json'), JSON.stringify({ version, commit, demo }, null, 2) + '\n');
 if (args.has('game-only')) process.exit(0);
 
 // ---------- the program ----------
 const { packager } = await import('@electron/packager');
-const NAME = 'Floe Market';
 const [out] = await packager({
   dir: here,
   out: join(here, 'out'),

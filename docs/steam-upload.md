@@ -42,16 +42,29 @@ login, repeat this step and replace the secret.
 ## 3. GitHub
 
 In the repo: **Settings → Environments → New environment**, named `steam`. Under **Deployment branches**, allow only
-`main`. Then add these **environment secrets**:
+`main`. Then add the login as **environment secrets**, so only the upload job on main can read it:
 
-| Secret | What |
+| Environment secret | What |
 | --- | --- |
 | `STEAM_USERNAME` | the build account's name |
 | `STEAM_CONFIG_VDF` | the clipboard from step 2 |
+
+Add the ids as **repository secrets** (**Settings → Secrets and variables → Actions → New repository secret**). The
+demo's release build needs the game's id too, for its Wishlist button:
+
+| Repository secret | What |
+| --- | --- |
 | `STEAM_APP_ID` | Floe Market's app id |
 | `STEAM_DEPOT_WINDOWS` | its Windows depot's id |
 | `STEAM_DEPOT_LINUX` | its Linux depot's id |
-| `STEAM_DEMO_APP_ID`, `STEAM_DEMO_DEPOT_WINDOWS`, `STEAM_DEMO_DEPOT_LINUX` | the same for the demo, once it exists |
+| `STEAM_DEMO_APP_ID`, `STEAM_DEMO_DEPOT_WINDOWS`, `STEAM_DEMO_DEPOT_LINUX` | the same for the demo, once it exists: until then the upload skips it |
+
+The demo is an app of its own: in Steamworks, open Floe Market's app and use **Create a demo** (#183). It gets its own
+depots, launch options (as step 4) and store page, and its own review.
+
+Release builds put the game's id into the demo, and anyone signed in to GitHub can download a public repo's build
+artifacts. That's fine once the store page is public, since its address carries the id; until then, keep
+`STEAM_UPLOAD` off.
 
 Turn uploads on last: **Settings → Secrets and variables → Actions → Variables → New repository variable**,
 `STEAM_UPLOAD` = `on`. From then on, main's builds are release builds, which stop on a licence that still waits for

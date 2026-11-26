@@ -7,6 +7,7 @@
 //   ten minutes of play, so there's always one from before this session.
 // - save.unreadable.json: a save the game couldn't read, kept before it starts over (save.ts's BACKUP_KEY).
 //
+// A game that's never had a save can start from another's (the full game from the demo's), read and never written.
 // If save.json is there but can't be read, the newest backup that can stands in. Restart rolls the game into the
 // backups and takes save.json away: the old game can still be got back by hand, but the backups don't stand in for it.
 // Kept apart from Electron so the tests can load it (test/desktopSaves.test.ts).
@@ -35,8 +36,12 @@ const readable = text => {
   try { const v = JSON.parse(text); return typeof v === 'object' && v !== null && !Array.isArray(v); } catch { return false; }
 };
 
-/** @param {string} dir */
-export function saveFiles(dir) {
+/**
+ * @param {string} dir
+ * @param {string} [from] another game's save folder to start from while this one has no save (the full game, from the
+ *   demo's): only ever read, never written
+ */
+export function saveFiles(dir, from) {
   const main = join(dir, FILES['floe-market-v1']);
   const backups = Array.from({ length: BACKUPS }, (_, i) => join(dir, `save.${i + 1}.json`));
   /** @param {string} key */
@@ -66,6 +71,11 @@ export function saveFiles(dir) {
     /** What's kept under a key: for the game, save.json, or if that's unreadable, the newest backup that isn't. */
     read(/** @type {string} */ key) {
       const file = fileOf(key), text = read(file);
+      // (only while this game has never had a save: not after a Restart, which leaves its backups)
+      if (file === main && text === null && from && !existsSync(backups[0])) {
+        const theirs = read(join(from, FILES['floe-market-v1']));
+        return theirs !== null && readable(theirs) ? theirs : null;
+      }
       if (file !== main || text === null || readable(text)) return text;
       for (const b of backups) {
         const t = read(b);
