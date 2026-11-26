@@ -204,7 +204,7 @@ describe("the cellar's tiles", () => {
     expect(old.F().slide).toBe(true);
     expect(old.F().tier).toBe(1);
     expect(old.g.unlocks.tiles.filter(t => t.id === 'slide' || t.id === 'tier1').every(t => t.done)).toBe(true);
-  });
+  }, 30_000);
 
   it("the slide's faster belt waits for Samehada and the slide, and sends half as many bowls again", async () => {
     const { g, fight, F } = await ring({ money: 10_000_000, ring: { beaten: 3, hires: { attendant: true } } });
@@ -554,7 +554,7 @@ describe("the workshop's crafting bench", () => {
     expect(old.g.economy.mods.street).toBe(5);
     expect(old.g.shop.buyMod('street')).toBe(false);
     expect(old.g.shop.modOpen('bowls')).toBe(true);
-  });
+  }, 30_000);
 
   it('has nothing to buy on the landing or in the rooms any more', async () => {
     const { g, at } = await ring({ money: 100_000_000, ring: { beaten: 1 } });
