@@ -10,7 +10,7 @@ The player picks **Auto**, **🥔 Potato**, **Low** or **High** in the ✨ row o
 
 - **High** draws the world the way the people are drawn: low poly but rounded, with small details, a rolling sea, cloud shadows, seasonal snow, petals and leaves, and the effects.
 - **Low** draws everything exactly as it was before the rework, with a lighter renderer (a half-size shadow map with hard edges, at most 1.5 pixels a point). It's for phones that can't keep up. On a load that starts on Low or Potato, the floor markings (decals.ts, 80-odd of them) are drawn on 128-pixel canvases instead of 256, scaled so the same drawing fits: 5 MB instead of 22.
-- **Potato** draws exactly what Low draws, for the least the renderer can do, on very low-end phones: no shadows (the sun casts none and no shadow map is held), one pixel a point, no smoothing of edges (`antialias`, only set when the 3D view is made), at most 30 frames a second (main.ts), and two stand-in lamps in the cellar instead of four. **High isn't kept on a load that starts on Potato** (`highBuilt` in graphics.ts): it's still made, to keep the luck in step (below), but the kit's baked meshes under a High version give up their shapes as they're made (`letGo`, kit.ts, called by `detail` and `detailMarked`), and the effect pools get no room. So going from Potato to Low or High takes a reload, and so does going into it if the memory's to be freed: a pick into or out of Potato shows a "Reload to apply" button under the choices (`gfx.reload`). Until then, a pick of High on a Potato load draws Low.
+- **Potato** draws exactly what Low draws (but for the far pines, the clouds and the beach's grass: see The backdrop, below), for the least the renderer can do, on very low-end phones: no shadows (the sun casts none and no shadow map is held), one pixel a point, no smoothing of edges (`antialias`, only set when the 3D view is made), at most 30 frames a second (main.ts), and two stand-in lamps in the cellar instead of four. **High isn't kept on a load that starts on Potato** (`highBuilt` in graphics.ts): it's still made, to keep the luck in step (below), but the kit's baked meshes under a High version give up their shapes as they're made (`letGo`, kit.ts, called by `detail` and `detailMarked`), and the effect pools get no room. So going from Potato to Low or High takes a reload, and so does going into it if the memory's to be freed: a pick into or out of Potato shows a "Reload to apply" button under the choices (`gfx.reload`). Until then, a pick of High on a Potato load draws Low.
 - **Auto**, the default, starts on High and watches the frames in two-second looks. A look is bad if it ran under 50 fps, or it stuttered: its p95 frame slower than 25 ms or its p99 slower than 50 ms. When four of the last five looks are bad it drops to Low, and it starts on Low on that device from then on (`localStorage` key `floe-market-graphics-auto`). A hitch counts as a slow frame; only a gap of over a second (the tab hidden, the phone locked) makes it settle and start watching again. On Low it keeps watching, by a lower bar kept for a phone that's still struggling: a look is bad if it ran under 25 fps or its p95 frame was slower than 50 ms (under 20 fps the game itself slows down, main.ts). Four of five drop it to Potato, for good on that device too (the same key, `potato`), and a toast says "🥔 Switched to Potato graphics", once. It never switches back up by itself; choosing Auto in the settings starts it on High again. It also drops a step for good each time the browser takes the 3D view away while the game's on screen (a WebGL context loss: a phone short of graphics memory, or its graphics chip restarting): High to Low, which needs about half the memory, and Low to Potato (`lowAfterLoss`, called by render.ts). If the view isn't back within 3 seconds, or the browser won't make one at all, a dialog (`#glLost`, errors.ts) says so and offers a reload.
 
 The choice is kept on the device (`localStorage` key `floe-market-graphics`), never in the save or the cloud.
@@ -89,7 +89,7 @@ three.js gives every object, geometry and material an id drawn with `Math.random
 - **Seasons:** `seasonLayer(mesh, swatch)` fades a mesh in and out with the seasons. A swatch is `[winter, spring, summer, autumn]`: `[1, 0, 0, 0]` is snow, `[0, 1, 0, 0]` petals, `[0, 0, 0, 1]` fallen leaves. Layers with the same material and swatch share one material, so they merge.
 - **Colour names:** `src/palette.ts` (`C`) names the colours that recur.
 
-High props live in `src/props*.ts`, one file per area: `props.ts` (the dock), `propsWorld.ts`, `propsHall.ts`, `propsKitchen.ts`, `propsFarm.ts`, `propsMachines.ts` and `propsAds.ts`. Each function returns a `Build`, built about its own origin; the scene file places it.
+High props live in `src/props*.ts`, one file per area: `props.ts` (the dock), `propsWorld.ts`, `propsHall.ts`, `propsKitchen.ts`, `propsFarm.ts`, `propsSpring.ts` (the hot spring and its hillside, which Low shares), `propsMachines.ts` and `propsAds.ts`. Each function returns a `Build`, built about its own origin; the scene file places it.
 
 ### Wiring the two versions into a scene
 
@@ -125,6 +125,27 @@ high(scene, () => { const m = crate(w).mesh(); m.position.set(x, FY, z); return 
 ### Effects
 
 The effects (src/fx.ts) show on High only and are visual only: they never change the game. Each kind is one `InstancedMesh` pool, named `'fx'`, made up front. Nothing is created while playing, and an empty pool isn't drawn. To add a kind, add a pool to `P` with a gravity, drag and `sizeAt(k)` curve, and a function that `emit`s into it. Check `on()` (High) before emitting. Each new effect is shown to the owner for review (a clip they can watch on their phone), and kept, changed or dropped on their word.
+
+### The backdrop: past the playable area
+
+For wide shots (the store's screenshots and trailer, the stage-up's overview) the world carries on past where anyone walks. It's the same on Low and High, built once, at fixed places, on dice of its own (`apart`), with no shadows:
+
+| Where | What |
+|---|---|
+| `src/backdrop.ts` | A sky that deepens overhead (a dome round the camera, in the game's own sky colour), rolling hills round the land side with pines in groves, two rows of far mountains, icebergs (they melt with the floes), sailboats (summer only), clouds (round the camera, gone at night), four gulls over the bay, the wear on the roads, and the roads carried on: each bends east past its end and joins one road behind the hills |
+| `src/village.ts` | The village east past her house: houses like hers along a lane, and a chapel |
+| `src/beachEdge.ts` | The beach's edges: its sand cut to a wandering line (an `alphaMap`), soft sand and lapping wet sand over that, sand on up the coast, beach grass |
+| `src/horizon.ts` | The open sea (with ripples), the islands, the lighthouse on the biggest, the moon and stars |
+| `src/world.ts` | The ground's worn patches and tufts (a tile that repeats every 11 m) and its broad light and dark drifts (vertex colours) |
+
+Rules for adding to it:
+
+- **Keep it cheap.** It costs about 15 draw calls and 35,000 triangles in all. Each part is one merged mesh, with vertex colours where it has several; paint a new far thing into a mesh that's already there if it never needs hiding on its own.
+- **Keep it out of the way.** Nothing over the dock, the restaurant's plot, the terraces, the beach or the quay (test/backdrop.test.ts walks every corner), and clear of the casino yacht's way in. Every mesh's `raycast` is switched off.
+- **The cellar.** Down there the world above is hidden by its bounds (levelCull.ts). The sky and the clouds are drawn round the camera (`onBeforeRender`), so where they're kept is 400 m up: anything else that follows the camera must be parked the same way, or the whole backdrop is drawn in the cellar. The game doesn't call `updHorizon` down there either.
+- **The seasons.** Things take the ground's or the trees' seasonal colours (`seasonal`), and what belongs to one season shows in it only (`seasonLayer`): sailboats in summer, snow on the village's roofs in winter.
+- **Potato** leaves out the far pines, the clouds and the beach's grass, most of the backdrop's triangles: never built on a load that starts there (`highBuilt`), hidden on one that goes there. test/eyecandy.test.ts names them as the one exception to "Potato draws what Low draws".
+- **The game's own fog** (34 to 70 m, 41 to 84 m in stage 2) hides most of it in normal play. A wide shot pushes the fog out (the stage-teaser kit's `fogNear` and `fogFar`).
 
 ### Not in scope of the rework
 
