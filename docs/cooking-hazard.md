@@ -1,6 +1,6 @@
 # Cooking Hazard
 
-The design of the arcade cabinet's game: a top-down roguelite in a zombie apocalypse, where the zombies are allergic to tastes and the chef cooks them. It was grilled with the owner on 24 October 2026, from a whiteboard sketch, and this is what was decided. The fight's greybox (`src/hazard.ts`, `src/hazardPlay.ts`, `?arcade=on` in dev and demo builds) follows it; what's built and what isn't is at the end.
+The design of the arcade cabinet's game: a top-down roguelite in a zombie apocalypse, where the zombies are allergic to tastes and the chef cooks them. It was grilled with the owner on 24 October 2026, from a whiteboard sketch, and this is what was decided. The fight (`src/hazard.ts`, `src/hazardPlay.ts`, `src/hazardSet.ts`, on the cabinet behind the arcade flag, or `?arcade=play` in dev and demo builds) follows it; what's built and what isn't is at the end.
 
 ## Where it lives
 
@@ -85,6 +85,18 @@ The rules learnt from Path of Exile 2's elements: rings that show their "nearly 
 - Every screen follows the design system (https://claude.ai/artifact/JqnFttxGKAxxnd86gnFtgC): HUD pills top-left, the casino skin on the cabinet's card, the cooking skin at the counters, dish slots drawn like the round action buttons, keys shown only while Shift is held, eight words or fewer on screen.
 - The screens mocked up: https://claude.ai/artifact/WCKvQ5XaK1L91XBdbMigeS
 
+### The fight in 3D (grilled 26 October 2026)
+
+- Play opens a 3D set and camera of its own, drawn by the game's renderer, which take over the screen; the yacht waits behind, paused. It replaces the 2D greybox screen and plays by the same rules (`src/hazard.ts`).
+- The camera is angled top-down at the main game's tilt and follows the chef.
+- The arena, until step 4's maps: the greybox's open street, dressed as a wrecked one (cracked road, burnt-out cars, crates and bins along the edges). Nothing blocks anyone yet; step 4 makes the props cover.
+- Zombies are the game's own blocky people, grey-green, arms out, tinted by their coat; they swell up and pop into confetti. Specials are bigger, with a stained chef's bib. The chef is the player's own, in a hazmat apron and goggles.
+- Taste emojis, order tickets and technique stamps float over the zombies as labels, like the speech bubbles; build-up rings are painted on the ground at their feet. A special off the screen shows as an arrow at its edge, with its ticket. Shots are food: potatoes, salt crystals, a chili stream, splatting in their taste's colour.
+- It follows the game's graphics: High adds shadows, confetti and the techniques' smoke; Low leaves them out. Zombies and chef look the same on both.
+- Phones play it sideways: Play goes full screen and locks the screen sideways where the phone allows, and shows a "turn your phone" screen where it doesn't (iPhones), carrying on once it's turned.
+- Touch: twin sticks where the thumbs land, the left half to walk and the right half to aim and fire. The dish buttons are on the left: hold one (the chef stops), swipe its code with the right thumb, one swipe a move, then tap where it lands. Shove is a button on the right. The gun reloads by itself when empty, and tapping the ammo reloads early.
+- Leaving: ✕ (or Esc) pauses and asks "Leave the run?", Keep going or Leave.
+
 ## Not decided yet
 
 - What each piece of cookware unlocks (the cooking methods), and the dish roster.
@@ -97,7 +109,7 @@ Later, not in v1: survivors who move into the safe house, an online scoreboard (
 
 1. ✅ The fight's greybox (PR #137), and this doc.
 2. ✅ The cabinet on the casino yacht, behind the arcade flag (`src/flags.ts`): against the bow wall beside the door, where the guests' second slot machine stood (the only spot in the salon a player can reach that's off the way from the door to the games), its attract screen, the camera coming onto its face from its pad (it faces away from the game's camera), and its card with the best run and Play. Trophies come with step 7.
-3. The fight in 3D on the main renderer (a set of its own and a camera, as the pot's cooking game has), poly zombies and chef, and touch controls.
+3. ✅ The fight in 3D on the main renderer (`src/hazardSet.ts`, a set of its own and a camera), poly zombies and chef, and touch controls, as grilled under "The fight in 3D" above.
 4. A whole run: the van, crates and loot, the safe zone hold-out and extraction, dying.
 5. The safe house: the three counters and their timing tap, the recipe book, the armory and the van, all kept in the save.
 6. Content: cookware and dishes (after grilling the open questions above), special zombies and their tickets, destinations, bosses.
