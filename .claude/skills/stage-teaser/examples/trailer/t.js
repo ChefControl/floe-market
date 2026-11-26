@@ -26,9 +26,9 @@
   const reach = th[Math.round(T.there / dt)], extra = (((TH1 - TH0 - reach) % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
   const angle = t => { const i = clamp(t / dt, 0, N), a = Math.floor(i), k = i - a; return TH0 + mix(th[a], th[Math.min(N, a + 1)], k) + extra * ease((t - T.peak) / (T.slow - T.peak)); };
   function camAt(t) {
-    const a = angle(t), late = ease((t - T.slow) / (T.there - T.slow)), push = ease((t - T.there + 0.5) / 4.5), r = mix(19.5, 27, late) - 4.2 * push, h = mix(11.5, 14.6, late) - 1.3 * push; // (and once it's there, a slow push in: a held shot that's alive)
+    const a = angle(t), late = ease((t - T.slow) / (T.there - T.slow)), push = ease((t - T.there + 0.5) / 4.5), r = mix(19.5, 27, late) - 4.2 * push, h = mix(11.5, 10.8, late) - 0.9 * push; // (lower over the restaurant than it was, 14.6: from up there its front roof beam lay across the sign) // (and once it's there, a slow push in: a held shot that's alive)
     const c = V(mix(-0.5, 0, late), 0, mix(0.5, 6, late));
-    return { pos: V(c.x + Math.sin(a) * r, h, c.z + Math.cos(a) * r), look: V(c.x, mix(0.5, 1.2, late), c.z), fov: 40, fogNear: 70, fogFar: 190 };
+    return { pos: V(c.x + Math.sin(a) * r, h, c.z + Math.cos(a) * r), look: V(c.x + Math.sin(a) * 4.2 * late, mix(0.5, 0.4, late), c.z + Math.cos(a) * 4.2 * late), fov: 40, fogNear: 70, fogFar: 190 }; // (aimed at the ground before its gate once it's there: looking at its middle from this low, the world's edge and the flat sky came into the top of the picture)
   }
 
   // ---------- what's built, and when ----------
@@ -38,6 +38,10 @@
   const STAGE2 = ['paddy', 'farmer', 'seats', 'chef', 'tables', 'plot2', 'runner3', 'chef3', 'tables2', 'plot3', 'kiosk', 'porter']; // (all but the premium menu: the next clip buys it)
 
   let rush0 = null;
+  // The season's change is the game's own: the whole world swaps in one frame (snow to grass, every tree). In play the
+  // eye is on the stall; here it's the whole picture. A white bloom over it, up in five frames and off in eight: the
+  // snow goes to white, and it's spring when the white clears.
+  const bloom = document.createElement('div'); Object.assign(bloom.style, { position: 'fixed', inset: '0', background: '#FFFFFF', opacity: '0', pointerEvents: 'none', zIndex: '19' }); (document.getElementById('teaser') ?? document.body).appendChild(bloom); // (inside #teaser: the renderer hides everything else on the page)
   window.cine = {
     len: T.tail + PRE,
     setup() { player.g.position.set(4.6, 0.15, 6.3); player.h = 2.6; },
@@ -54,16 +58,22 @@
       once('spring', at(3), t, () => SE.setSeason(1, 0)); once('summer', at(5), t, () => SE.setSeason(2, 0));
       once('sushi', at(8.25), t, () => { SE.setSeason(3, 30, true); U.applyUnlock('sushi', true); STAGE2.forEach(id => U.applyUnlock(id, true)); U.tiles.forEach(U.redrawTile); });
       // the wind-up: a rising rush of air under the spin, and a soft landing as it comes to rest on the restaurant
-      once('riser', T.fast, t, () => { A.noise({ bus: 'cue', f: 220, f2: 3000, q: 1.1, d: T.slow - T.fast + 0.5, a: T.peak - T.fast, v: 0.3 }); /* (not up into the hiss) */ A.noise({ bus: 'cue', f: 90, f2: 260, kind: 'lowpass', d: T.slow - T.fast + 0.3, a: T.peak - T.fast, v: 0.6 }); });
+      once('riser', T.fast, t, () => { A.noise({ bus: 'cue', f: 90, f2: 260, kind: 'lowpass', d: T.slow - T.fast + 0.3, a: T.peak - T.fast, v: 0.6 }); }); // (the low half only: the half that swept up to 3 kHz was WHITE noise, and measured as hiss to 20 kHz for three seconds; the rise is the brown beds below now)
       // (the rush HELD under the whole smear, to a breath before the landing: the riser alone is gone a second before the blur is)
-      if (t >= T.peak - 0.2 && !rush0) rush0 = { a: K.soft(A, { kind: 'bandpass', f: 800, q: 0.5, smooth: 1600 }, 'cue'), b: K.soft(A, { kind: 'bandpass', f: 650, q: 0.8, smooth: 1200, from: 1.5 }, 'cue') }; // (brown noise, moving: a held band of white noise is static)
-      if (rush0) { const k = ease((t - T.peak) / 0.5) * (1 - ease((t - T.there + 0.92) / 0.2)), m = 0.75 + 0.25 * K.n1(t * 3.1, 7); rush0.a.to(0.165 * k * m, 0.06); rush0.b.to(0.092 * k * (1.5 - m), 0.06); /* (the cue bus is about 3.8 times the ambience bus) */ }
+      if (t >= 0.08 && !rush0) rush0 = { a: K.soft(A, { kind: 'bandpass', f: 800, q: 0.5, smooth: 1600 }, 'cue'), b: K.soft(A, { kind: 'bandpass', f: 650, q: 0.8, smooth: 1200, from: 1.5 }, 'cue'),
+        air: K.soft(A, { kind: 'lowpass', f: 380, q: 0.5, smooth: 700, from: 2.2 }, 'cue'), up: K.soft(A, { kind: 'bandpass', f: 1300, q: 0.7, smooth: 2400, from: 3.1 }, 'cue') }; // (brown noise, moving: a held band of white noise is static)
+      if (rush0) { const k = ease((t - T.peak) / 0.5) * (1 - ease((t - T.there + 0.92) / 0.2)), m = 0.75 + 0.25 * K.n1(t * 3.1, 7);
+        // (air under the turning world from its first frame, a breeze that moves: the game's sound stopped dead at the cut and
+        // left the tune's plucks over nothing. And the rise into the smear: a higher band of the same brown noise, growing.)
+        const rise = clamp((t - T.fast) / (T.peak - T.fast)); rush0.air.to(0.03 * ease((t - 0.08) / 0.5) * (0.7 + 0.3 * K.n1(t * 0.9, 21)) * (1 - 0.6 * ease((t - T.peak) / 0.5)) * (1 - ease((t - T.there + 0.92) / 0.2)), 0.1);
+        rush0.up.to(0.085 * rise * rise * (1 - ease((t - T.slow) / 0.6)) * (0.8 + 0.2 * K.n1(t * 2.3, 23)), 0.06); rush0.a.to(0.165 * k * m, 0.06); rush0.b.to(0.092 * k * (1.5 - m), 0.06); /* (the cue bus is about 3.8 times the ambience bus) */ }
       once('land', T.there - 0.25, t, () => { A.tone({ bus: 'cue', f: 82, f2: 40, d: 1.0, v: 0.143 }); A.tone({ bus: 'cue', f: 240, f2: 150, d: 0.3, a: 0.002, type: 'triangle', v: 0.18 }); A.noise({ bus: 'cue', f: 900, f2: 480, q: 1.4, d: 0.1, a: 0.001, v: 0.09 }); /* (less sub, which only fed the limiter; a body small speakers play) */ [1318.5, 1760, 2637].forEach((f, n) => A.tone({ bus: 'cue', f, d: 1.3, t: n * 0.07, type: 'triangle', v: 0.1 })); });
       K.cam = camAt(t);
+      { const d = t - (at(5) - 0.012), k = d < 0 ? clamp(1 + d / 0.17) : clamp(1 - d / 0.27); bloom.style.opacity = String(0.93 * k * k * (3 - 2 * k)); }
       // the smear: as many draws across the frame as the turn needs (one every 0.003 rad, about 3 px at the picture's
       // edge: further apart and a fence or a tree line shows as a row of stepped copies)
       // (a half-open shutter while it's slow, so what's being built stays sharp; wide open once it's a whip)
-      const sh = mix(0.45, 1, clamp((rate(t) - 2) / 4)), turn = (angle(t + sh / fps) - angle(t)), n = Math.min(160, Math.round(turn / 0.003));
+      const sh = mix(0.45, 1, clamp((rate(t) - 2) / 4)), turn = (angle(t + sh / fps) - angle(t)), n = Math.min(240, Math.round(turn / 0.0016)); // (twice as close together as they were: at 0.003 the copies still showed as steps)
       K.blur = n > 1 ? { n, at: k => camAt(t + sh * k / fps) } : null;
       if (i % 30 === 0) console.log('[cine]', t.toFixed(1), 'rate', rate(t).toFixed(2), 'draws', n, 'queue', CT.C1.queue.length);
     },

@@ -284,6 +284,50 @@ with `applyUnlock`, a dawn sky dome, the game's toast and tip pill shown as over
 - **Encode from JPEG frames as TV range**: frames come in full range (`yuvj420p`); convert with
   `scale=in_range=pc:out_range=tv,format=yuv420p` and tag bt709, or players and Steam show it washed out or crushed.
 
+### What an outside frame-by-frame review found in a cut I had called finished (27 Nov 2026)
+
+Six of my own passes and one review had gone over version 6. A fresh reviewer, told only what the film is, sliced
+every frame (4 a second on sheets, then the consecutive frames round every cut and fast move) and found three plain
+faults in hero shots. Each is a trap of the tooling, so each is here:
+
+- **A jittered sea makes black slits.** The game's sea (`seaGeometry`) already throws each point up to 0.3 of a cell
+  off its grid. Pushing them again (the opening's own sea did, by half as much more) folds some facets over and makes
+  slivers, and the sea's shader multiplies a facet's colour by its tilt with no floor: a steep sliver goes BLACK. Thin
+  dark dashes on the water, in the first shot of the film. Keep any extra jitter small (a sixth of a cell), draw it
+  double-sided, and floor the tilt shading (`max(..., 0.66)`), as `o.js` does now.
+- **`FX.splashFx(at, y)` puts its ripple ring at `y`.** Right for a splash on the water; for spray thrown off a fish
+  in the air it hangs rings in the sky, one over another, and there are only eight rings, so they pop. `o.js` wraps
+  it: a ring always lies on the water, and spray from over a third of a metre up has none.
+- **The game's shadow lies half a metre off its caster.** It is set up for a camera high overhead. From a low camera
+  a figure and its shadow apart read as the figure hanging in the air. For anything seen from low down, turn its
+  `castShadow` off EVERY frame (the game dresses people again as it goes) and put a soft dark disc right under it
+  (`shadeAt` in `c.js`). Measure the ground with a ray before blaming a height: here it was where I thought (0.163).
+- **A light that flickers on fast sines strobes.** 2.5 with 0.45 at 13 rad/s and 0.3 at 29 rad/s is a change every two
+  to four frames at 30 fps, and its top bleached a face to lemon yellow. A fire breathes: a seventh up and down, at 5
+  and 9 rad/s.
+- **A thing roped is roped on the side the rope comes from.** The loop's knot was on the fish's back whatever way the
+  fish was turned; nose down in a dive, the rope ran through its body and out the far side. `collar(dir, to)` now
+  squares the loop to the fish and puts the knot nearest the hand. And a thrown rope is never a rod: it keeps a sag.
+- **Where the NOSE goes in is where the water breaks.** The re-entry splash was timed to the fish's middle: nine
+  frames of a head sliding into flat water. Time it to the nose (`NOSE` in `o.js`).
+- **A change the game makes in one frame needs covering.** The season swaps the whole world at once (snow to grass,
+  every tree). In play nobody watches the whole world; in a wide slow shot it is a jump. A white bloom over it (five
+  frames up, eight off) reads as the snow going. Overlays of your own go inside `#teaser`: the renderer hides
+  everything else on the page.
+- **White noise hides in a "riser".** The spin's rise was a band of WHITE noise swept to 3 kHz: hiss to 20 kHz for
+  three seconds, the same thing the owner had called static in the sea. Build a rise from brown beds (`K.soft`), a
+  higher band growing over a lower one. And no held sub tone "for weight": a hum on headphones, nothing on a laptop.
+- **Check the end of a set-piece's path, not only its middle.** His own floe lay ahead of him in the far shot (the
+  shot starts further out than the floe); the flame's tip came and went at the frame's edge (put a thing in the
+  picture or out of it, never on the line); the restaurant's sign was under its roof beam from the landing's height.
+
+- **Falling snow and a low camera: give the shot a `near`.** A flake a hand from the lens is a white disc a tenth of
+  the picture wide. `shot.near = 1.2` (kit.js) draws nothing closer than that.
+- **Look again after each fix.** A fill light added to show the tuna sat half a metre from the ice slab and bleached
+  it white: found only because the re-cut film went back on sheets before it was published.
+
+Budget for this: after you think a cut is done, one outside review that looks at every frame, then a round of fixes.
+
 ## Workflow
 
 1. **Agree the beats** in a few lines (what happens, roughly when). Ask only what changes the plan.

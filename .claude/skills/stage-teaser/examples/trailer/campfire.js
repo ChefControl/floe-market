@@ -50,6 +50,6 @@ window.Campfire = (T3, scene, x, y, z) => {
         s.scale.setScalar(0.35 + life * 0.9); s.material.opacity = (on ? 0.5 : 0.3) * Math.sin(life * Math.PI) * 0.55;
       }
       embers.material.color.setHex(on ? 0xE2571C : 0x3A2A22);
-      light.intensity = lit * bright * (2.5 + 0.45 * Math.sin(t * 13) + 0.3 * Math.sin(t * 29.3));
+      light.intensity = lit * bright * (2.15 + 0.16 * Math.sin(t * 5.3) + 0.1 * Math.sin(t * 8.9 + 1)); // (a slow breathing, a seventh up and down: at 2.5 +/- 0.75 and five times a second it strobed, and bleached his face lemon at its top)
     } };
 };

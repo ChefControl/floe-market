@@ -45,7 +45,7 @@ for wav, start, dur, at, gain in audio:
     inputs += ['-i', wav]
     ms = int(round(at * 1000))
     filt.append(f'[{k}:a]aresample=48000,aformat=channel_layouts=stereo,atrim={start:.4f}:{start + dur:.4f},asetpts=PTS-STARTPTS,highpass=f=25,'
-                f'volume={gain}dB,afade=t=in:d=0.03,afade=t=out:st={max(0, dur - 0.06):.4f}:d=0.06,adelay={ms}|{ms}[g{k}]')
+                f'volume={gain}dB,afade=t=in:d=0.012,afade=t=out:st={max(0, dur - 0.025):.4f}:d=0.025,adelay={ms}|{ms}[g{k}]')
     mix.append(f'[g{k}]'); k += 1
 for bed, at, frm, dur, fin, fout, gain in beds:
     inputs += ['-i', os.path.join(root, bed, 'game.wav')]

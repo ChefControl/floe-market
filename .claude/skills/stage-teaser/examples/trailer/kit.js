@@ -14,6 +14,7 @@
   const cam = R.camera, lookAt = cam.lookAt.bind(cam);
   /** The shot's camera this frame: { pos, look, fov } or null for the game's own. */
   let shot = null, after = null, pose = null, blur = null;
+  let NEAR0 = null;
   // (the game aims its camera with lookAt once a frame, main.ts, before it places its bubbles and draws: taking over
   // there keeps the bubbles on the people)
   cam.lookAt = (...a) => {
@@ -26,7 +27,11 @@
     const f = shot.fov ?? 40;
     // (the game's camera sees 200 m: a shot from higher up says how far it needs)
     const far = shot.far ?? 200;
-    if (cam.fov !== f || cam.far !== far) { cam.fov = f; cam.far = far; cam.updateProjectionMatrix(); }
+    // (`near`: how close a thing may come to the lens. A snowflake a hand from it is a white disc a tenth of the picture
+    // wide: a night scene in falling snow asks for 1.2 m, and nothing nearer is drawn.)
+    if (NEAR0 === null) NEAR0 = cam.near;
+    const near = shot.near ?? NEAR0;
+    if (cam.fov !== f || cam.far !== far || cam.near !== near) { cam.fov = f; cam.far = far; cam.near = near; cam.updateProjectionMatrix(); }
     cam.updateMatrixWorld();
     after?.(cam);
   };
@@ -63,7 +68,7 @@
       R.sun.position.copy(at).add(R.sunOff); R.sun.target.position.copy(at);
       if (shot.fogNear) { R.fog.near = shot.fogNear; R.fog.far = shot.fogFar; }
     }
-    if (!shot && (cam.fov !== 40 || cam.far !== 200)) { cam.fov = 40; cam.far = 200; cam.updateProjectionMatrix(); }
+    if (!shot && (cam.fov !== 40 || cam.far !== 200 || (NEAR0 !== null && cam.near !== NEAR0))) { cam.fov = 40; cam.far = 200; if (NEAR0 !== null) cam.near = NEAR0; cam.updateProjectionMatrix(); }
     draw(s, c);
   };
   /** A camera path: keys [{t, pos:[x,y,z], look:[x,y,z], fov}] eased between, held after the last. */

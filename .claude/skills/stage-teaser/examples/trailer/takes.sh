@@ -9,7 +9,9 @@ S=$(mkdir -p "${OUT:-out/trailer}" && cd "${OUT:-out/trailer}" && pwd)
 U=http://localhost:5177/; U3="http://localhost:5177/?cellar&full&beaten=4&sound=on"
 FK=rush,fightBanner,finish,finBlink,ringFlash,epic,banner,fade,toast,confetti
 r() { name=$1; shift; node "$P/render-play.mjs" "$@" > "$S/log-$name.txt" 2>&1; echo "$name: $(tail -1 "$S/log-$name.txt")"; }
-# THE CURRENT CUT is version 6 (the owner's 23 timestamped notes): python3 cut.py "$S" trailer-v6.mp4 --phone phone.mp4 --edl edl-v6.json
+# THE CURRENT CUT is version 7 (version 6 after an outside frame-by-frame review): python3 cut.py "$S" trailer-v7.mp4 --phone phone.mp4 --edl edl-v7.json
+# (edl-v7.json names its takes O8, C5 and T3: the same O, C and T as below, rendered from these scripts. The campfire's site is found
+# afresh each load: render C again if its log says "WARNING: no clear spot". edl-v6.json is the cut before the review.)
 # It needs, beside the lines below: C with hero-tuna.js in its list (the tuna lies by the fire):
 #   r C "$X/kit.js,$X/hero-tuna.js,$X/acting.js,$X/campfire.js,$X/c.js" "$S/C" --landscape --url "$U?stage=1&pile=14&sound=on" --mute music --init "$X/newgame.js" --wait 9000
 # T with --mute music (its picture take carries only the spin's own rush and landing), and the MUSIC as one stem from the

@@ -26,12 +26,17 @@
   console.log('[cine] open ground at ' + SPOT.x + ', ' + SPOT.z + ' with ' + SPOT.slack.toFixed(1) + ' m to spare');
   if (SPOT.slack < 0) console.log('[cine] WARNING: no clear spot this load; clearing ' + K.clearTrees(W, SPOT.x - 14, SPOT.x + 10, SPOT.z - 14, SPOT.z + 14) + ' tree meshes round it (stumps will show)');
   const FIRE = V(SPOT.x, FY, SPOT.z),
-    SEAT = FIRE.clone().add(V(-0.95, 0.13, 0.1)), CUST = FIRE.clone().add(V(-0.7, 0, 3.1)), CUST2 = FIRE.clone().add(V(-1.75, 0, 3.6)), TUNA = FIRE.clone().add(V(-1.0, 0, -2.15)), SLAB = FIRE.clone().add(V(0.45, 0, -1.45));
+    SEAT = FIRE.clone().add(V(-0.95, 0.09, 0.1)), CUST = FIRE.clone().add(V(-0.7, 0, 3.1)), CUST2 = FIRE.clone().add(V(-1.75, 0, 3.6)), TUNA = FIRE.clone().add(V(-1.0, 0, -2.15)), SLAB = FIRE.clone().add(V(0.45, 0, -1.45));
+  { // (what is the ground here, really? Everything stands at FY: measure it)
+    const rc = new T3.Raycaster(), out = [], solid = []; scene.traverse(o => { if (o.isMesh && !o.isSprite) solid.push(o); });
+    for (const [dx, dz] of [[0, 0], [-0.95, 0.1], [-0.7, 3.1], [0.45, -1.45], [-1.0, -2.15]]) { rc.set(V(SPOT.x + dx, 6, SPOT.z + dz), V(0, -1, 0)); const hits = rc.intersectObjects(solid, false).filter(h => h.object.visible && h.point.y < 1.2).slice(0, 3);
+      out.push(hits.map(h => h.point.y.toFixed(3) + ' ' + (h.object.name || h.object.geometry?.type || '?')).join(' / ')); }
+    console.log('[cine] GROUND under fire, seat, customer, slab, tuna: ' + out.join(' || ')); }
   const fire = Campfire(T3, scene, FIRE.x, FIRE.y, FIRE.z);
   // his catch: the tuna, on its side on the snow, and a few fillets cut from it, laid flat on a slab of ice
   const tuna = HeroTuna(T3); tuna.g.rotation.order = 'YZX'; tuna.g.scale.setScalar(2.1); scene.add(tuna.g);
   tuna.set({ wide: 0, look: [0, 0], brow: 0, lid: 0, mouth: 0, smile: 0, flare: 0, dead: true, amp: 0, swim: 0 });
-  { const moon = new T3.PointLight(0x9FC4FF, 1.5, 7, 1.4); moon.position.copy(TUNA).add(V(0.4, 1.6, -0.9)); scene.add(moon); } // (a cold light on its back, off the sea: by firelight alone it's a black lump)
+  { const moon = new T3.PointLight(0x9FC4FF, 2.6, 8, 1.3); moon.position.copy(TUNA).add(V(0.9, 1.7, 0.5)); scene.add(moon); } // (no warm fill beside it: half a metre from the ice slab, it bleached the slab white) // (a cold light on its back, off the sea: by firelight alone it's a black lump)
   tuna.g.position.copy(TUNA).setY(FY + 0.3); tuna.g.rotation.set(HP * 0.9, 0.8, 0.04); // (on its side, its head to the fire: its eye and its fins are what say 'a fish')
   const slab = new Mesh(new CylinderGeometry(0.62, 0.68, 0.12, 7), new MeshLambertMaterial({ color: 0xD5ECF5 })); slab.position.copy(SLAB).setY(FY + 0.06); slab.rotation.y = 0.4; slab.castShadow = true; scene.add(slab);
   [[-0.24, 0.1, 0.3], [0.12, -0.14, -0.5], [0.26, 0.2, 1.3], [-0.08, -0.3, 2.2]].forEach(([x, z, r]) => { const f = IT.newFillet(); f.scale.setScalar(0.95); f.position.set(SLAB.x + x, FY + 0.13, SLAB.z + z); f.rotation.y = r; scene.add(f); });
@@ -49,6 +54,12 @@
   // (a soft shade where each customer stands: the game's moon shadow lies off to one side, and without something dark under
   // their boots they look as if they hang over it)
   const under = [0, 1].map(() => { const m = new Mesh(new T3.CircleGeometry(0.24, 16), new T3.MeshBasicMaterial({ color: 0x0B1620, transparent: true, opacity: 0.4, depthWrite: false })); m.rotation.x = -HP; m.visible = false; m.renderOrder = 2; scene.add(m); return m; });
+  // The game's moon shadow lies a good half metre off whatever casts it (it's set up for a camera high overhead): from
+  // down here a thing and its shadow apart read as the thing hanging in the air. So nothing in this scene casts one,
+  // and each has a soft shade right under it, as the customers do.
+  const shadeAt = (x, z, rx, rz, yaw = 0, o = 0.4) => { const m = new Mesh(new T3.CircleGeometry(1, 20), new T3.MeshBasicMaterial({ color: 0x0B1620, transparent: true, opacity: o, depthWrite: false })); m.rotation.set(-HP, 0, yaw); m.scale.set(rx, rz, 1); m.position.set(x, FY + 0.012, z); m.renderOrder = 2; scene.add(m); return m; };
+  const seatShade = shadeAt(SEAT.x + 0.12, SEAT.z, 0.5, 0.36, 0, 0.42); shadeAt(SLAB.x, SLAB.z, 0.8, 0.8, 0, 0.36); shadeAt(TUNA.x, TUNA.z, 1.75, 0.62, 0.8, 0.4);
+  for (const o of [P, slab, tuna.g]) o.traverse(m => { m.castShadow = false; });
   const yawTo = (from, to) => Math.atan2(to.x - from.x, to.z - from.z);
   const toFire = yawTo(SEAT, FIRE), toCust = yawTo(SEAT, CUST), toFish = yawTo(SEAT, SLAB), toUs = toFire + 0.42;
 
@@ -98,8 +109,8 @@
     { const fishy = (t >= T.seeF && t < T.backL) || (t >= T.seeF2 && t < T.idea); fire.set(t, fishy ? 0.62 : 0.9, 0.95); } // (lower while the camera's beside it: its glow bleaches the lens)
     if (ST.blade) ST.blade.visible = false;
     // ---------- sound: the fire, the sea a way off, snow underfoot; nothing loud ----------
-    if (t >= 0.12 && !air0) air0 = { fire: K.soft(A, { kind: 'lowpass', f: 300, q: 0.5, smooth: 600 }), sea: K.soft(A, { kind: 'lowpass', f: 420, q: 0.5, smooth: 800 }) };
-    if (air0) { const on = ease((t - 0.12) / 0.6) * (1 - ease((t - T.end + 0.6) / 0.5));
+    if (t >= 0.03 && !air0) air0 = { fire: K.soft(A, { kind: 'lowpass', f: 300, q: 0.5, smooth: 600 }), sea: K.soft(A, { kind: 'lowpass', f: 420, q: 0.5, smooth: 800 }) };
+    if (air0) { const on = (0.3 + 0.7 * ease((t - 0.03) / 0.7)) * (1 - ease((t - T.end + 0.6) / 0.5)); // (it comes in already there: the sea from the scene before, carried through the black)
       air0.fire.to(0.1 * Math.max(0.2, 0.6 + 0.3 * n1(t * 1.9, 3) + 0.2 * n1(t * 5.3, 8)) * on, 0.08); air0.sea.to(0.06 * K.swell(t + 1.5, 2.9, 4.4) * on); }
     { const r = (n1(i * 7.31, 11) + 1) / 2, r2 = (n1(i * 3.17 + 40, 23) + 1) / 2; if (r > 0.88) crackle(0.63 + 0.95 * r2); }
     // (his first steps, heard before he's seen; then each one in the snow as he comes into the light)
@@ -108,7 +119,7 @@
     once('huh', T.hear + 0.5, t, () => { A.tone({ f: 520, f2: 620, d: 0.1, type: 'triangle', v: 0.1 }); });
     once('ord1', T.seeC + 1.02, t, () => SFX.pop()); once('ord2', T.seeC2 + 0.42, t, () => SFX.pop());
     once('note', T.seeC + 1.22, t, () => A.noise({ f: 2400, f2: 1500, q: 1.2, d: 0.08, v: 0.06 }));
-    once('idea', T.got - 0.03, t, () => { A.tone({ f: 660, d: 0.09, type: 'triangle', v: 0.189 }); A.tone({ f: 990, d: 0.2, t: 0.09, type: 'triangle', v: 0.219 }); A.tone({ f: 1320, d: 0.3, t: 0.2, type: 'triangle', v: 0.189 }); });
+    once('idea', T.got - 0.03, t, () => { A.tone({ f: 660, d: 0.09, type: 'triangle', v: 0.14 }); A.tone({ f: 990, d: 0.2, t: 0.09, type: 'triangle', v: 0.162 }); A.tone({ f: 1320, d: 0.3, t: 0.2, type: 'triangle', v: 0.14 }); /* (2.6 dB down: it stood 13 LU over the quietest scene in the film) */ });
     once('hop', T.up + 0.4, t, () => { A.tone({ f: 150, f2: 70, d: 0.09, v: 0.2 }); A.noise({ f: 900, kind: 'lowpass', d: 0.06, v: 0.1 }); });
     // (in softly: a slow fade up; out after he's landed)
     K.fade(Math.max(1 - ease(t / 0.9), ease((t - T.up - 0.6) / 0.45))); K.vignette(0.62);
@@ -119,6 +130,7 @@
     [who, who2].forEach((g, n) => { under[n].visible = !!g && g.visible; if (g) under[n].position.set(g.position.x, FY + 0.012, g.position.z); });
     if (who) popAt(order1, who.position.clone().add(V(0, 1.72, 0)), t, T.seeC + 1.0); if (who2) popAt(order2, who2.position.clone().add(V(0, 1.72, 0)), t, T.seeC2 + 0.4);
 
+    for (const g of [P, who, who2]) g?.traverse(m => { if (m.castShadow) m.castShadow = false; }); // (every frame: the game dresses them again as it goes, shadows and all)
     // ---------- the chef ----------
     const p = S(t), pa = S(t - 0.05), pb = S(t - 0.1), got = t > T.got;
     const blink = (a, d = 0.09) => t >= a && t < a + d;
@@ -142,7 +154,8 @@
     if (t < T.cu) shot = K.held(K.path([{ t: 0, pos: [FIRE.x + 5.6, 2.15, FIRE.z + 3.9], look: [FIRE.x - 0.9, 0.62, FIRE.z - 0.5], fov: 36 }, { t: T.cu, pos: [FIRE.x + 5.0, 2.0, FIRE.z + 3.5], look: [FIRE.x - 0.9, 0.64, FIRE.z - 0.45], fov: 35 }], t, ease), t, 0.8, 31);
     else if (t < T.seeC || (t >= T.backR && t < T.seeF) || (t >= T.backL && t < T.seeC2) || (t >= T.backR2 && t < T.seeF2))
       // on him, over the fire: its light on his face, the dark behind. It goes a little the way he turns.
-      shot = K.held({ pos: V(FIRE.x + 1.75, 1.2, FIRE.z + 1.15), look: hd.clone().add(V(0, 0, Math.sin(p.yaw - toFire) * -0.22)), fov: 27 }, t, 1.3, 32);
+      { const yl = (S(t - 0.1).yaw + S(t - 0.25).yaw + S(t - 0.4).yaw + S(t - 0.55).yaw) / 4; // (it follows his turn late and slowly: on his own yaw it lurched across in three frames)
+        shot = K.held({ pos: V(FIRE.x + 1.75, 1.2, FIRE.z + 1.15), look: V(hd.x, SEAT.y + 0.74, hd.z + Math.sin(yl - toFire) * -0.16), fov: 27 }, t, 1.3, 32); } // (his face in the middle, and the fire in the corner under it, his supper in it: aimed over his hat, the flame's tip came and went at the bottom edge)
     else if ((t >= T.seeC && t < T.backR) || (t >= T.seeC2 && t < T.backR2)) {
       // LEFT, what he sees: someone at the edge of the firelight (the second time, two of them)
       const two = t >= T.seeC2, t0 = two ? T.seeC2 : T.seeC, k = (t - t0) / ((two ? T.backR2 : T.backR) - t0), c = two ? CUST.clone().lerp(CUST2, 0.5) : CUST;
@@ -150,13 +163,13 @@
     } else if ((t >= T.seeF && t < T.backL) || (t >= T.seeF2 && t < T.idea)) {
       // RIGHT, what he sees: the tuna in the firelight, and what he's cut from it (closer the second time: the fillets)
       const near = t >= T.seeF2, t0 = near ? T.seeF2 : T.seeF, k = (t - t0) / ((near ? T.idea : T.backL) - t0);
-      shot = near ? K.held({ pos: V(FIRE.x + 1.25 - 0.08 * k, 1.05, FIRE.z - 0.35), look: V(SLAB.x - 0.05, FY + 0.16, SLAB.z - 0.05), fov: 30 - 2 * k }, t, 1.1, 36)
-        : K.held({ pos: V(FIRE.x + 2.45 - 0.15 * k, 1.4, FIRE.z + 0.15), look: V(mix(SLAB.x, TUNA.x, 0.55) + 0.12 * k, FY + 0.3, mix(SLAB.z, TUNA.z, 0.55)), fov: 38 }, t, 1.2, 35);
+      shot = near ? K.held({ pos: V(FIRE.x + 1.05 - 0.06 * k, 1.55, FIRE.z - 0.55), look: V(SLAB.x - 0.05, FY + 0.16, SLAB.z - 0.05), fov: 30 - 2 * k }, t, 1.1, 36) // (down on them: from lower the tuna's dark belly filled the top third)
+        : K.held({ pos: V(FIRE.x + 1.9 - 0.15 * k, 1.4, FIRE.z - 0.5), look: V(mix(SLAB.x, TUNA.x, 0.4) + 0.12 * k, FY + 0.3, mix(SLAB.z, TUNA.z, 0.4)), fov: 36 }, t, 1.2, 35); // (past him: what he sees is the fish, and his own face was cut in half by the frame's edge)
     } else { const hy = 0.17 * ease(S(t - 0.08).up), kI = ACT.EASE.settle((t - T.got) / 0.3);
       // on him: the idea; and up with him as he gets to his feet (it doesn't chase the hop: he jumps IN the picture)
-      shot = K.held({ pos: V(FIRE.x + 1.8, 1.26, FIRE.z + 1.0), look: hd.clone().add(V(0, 0.12, 0)), fov: 30 - 1.5 * kI }, t, 1.2, 37);
+      shot = K.held({ pos: V(FIRE.x + 1.8, 1.26, FIRE.z + 1.0), look: hd.clone().add(V(0, 0.08, 0)), fov: 30 - 1.5 * kI }, t, 1.2, 37);
       shot.look.y += hy * 0.9; shot.pos.y += hy * 0.5; shot.fov += hy * 34; }
-    shot.sun = FIRE;
+    shot.sun = FIRE; shot.near = 1.2; // (no snowflake on the lens)
     K.cam = shot;
   }
   K.pose = () => frame(now.i, now.fps);
@@ -166,7 +179,7 @@
       player.held = true;
       // (the game's own first customers: borrowed from the queue at the stand that isn't in this scene)
       for (let n = 0; n < 260 && !(CT.C1.queue[0]?.queued && CT.C1.queue[1]); n++) await new Promise(r => setTimeout(r, 100));
-      who = CT.C1.queue[0]?.g ?? null; who2 = CT.C1.queue[1]?.g ?? null;
+      who = CT.C1.queue[0]?.g ?? null; who2 = CT.C1.queue[1]?.g ?? null; for (const g of [who, who2]) g?.traverse(m => { m.castShadow = false; });
       for (const c of CT.C1.queue) { c.bubble.visible = false; c.mood.visible = false; }
       if (who) { face1 = ACT.face(who); const b = IT.newBill(5); b.scale.setScalar(1.3); b.position.set(0, -0.45, 0); b.rotation.set(HP, 0, 0); who.arms[0].add(b); }
       if (who2) { face2 = ACT.face(who2); const b = IT.newBill(5); b.scale.setScalar(1.3); b.position.set(0, -0.45, 0); b.rotation.set(HP, 0, 0); who2.arms[0].add(b); }
