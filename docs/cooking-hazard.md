@@ -4,7 +4,7 @@ The design of the arcade cabinet's game: a top-down roguelite in a zombie apocal
 
 ## Where it lives
 
-- An arcade cabinet on the casino yacht, next to the slot row by the door, in every stage. It's played for fun: a best score and trophies, no money in or out, so it can't touch the game's balance.
+- An arcade cabinet on the casino yacht, against the bow wall beside the door, next to the guests' slot machine, in every stage. It's played for fun: a best score and trophies, no money in or out, so it can't touch the game's balance.
 - Playing opens it on the UI kit's full screen, which pauses the game, like the cooking game at the pot. Esc leaves.
 - Solo in v1. Rooms and zombies are made so a second player fits later; co-op came out of the game in PR #34 and would come back from there.
 
@@ -95,8 +95,8 @@ Later, not in v1: survivors who move into the safe house, an online scoreboard (
 
 ## Building it, step by step
 
-1. ✅ The fight's greybox behind `?arcade=on` (PR #137), and this doc.
-2. The cabinet on the casino yacht: the prop from the yacht's own materials, its walk-up card (Play, best, trophies), opening the game.
+1. ✅ The fight's greybox (PR #137), and this doc.
+2. ✅ The cabinet on the casino yacht, behind the arcade flag (`src/flags.ts`): against the bow wall beside the door, where the guests' second slot machine stood (the only spot in the salon a player can reach that's off the way from the door to the games), its attract screen, the camera coming onto its face from its pad (it faces away from the game's camera), and its card with the best run and Play. Trophies come with step 7.
 3. The fight in 3D on the main renderer (a set of its own and a camera, as the pot's cooking game has), poly zombies and chef, and touch controls.
 4. A whole run: the van, crates and loot, the safe zone hold-out and extraction, dying.
 5. The safe house: the three counters and their timing tap, the recipe book, the armory and the van, all kept in the save.
