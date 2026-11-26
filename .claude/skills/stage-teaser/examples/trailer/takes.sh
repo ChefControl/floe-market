@@ -17,6 +17,9 @@ r() { name=$1; shift; node "$P/render-play.mjs" "$@" > "$S/log-$name.txt" 2>&1; 
 #   r TM "$X/kit.js,$X/acting.js,$X/t.js" "$S/TM" --landscape --url "$U?stage=1&pile=14&sound=on&pre=8" --init "$X/newgame.js" --wait 6000 --mute sfx,amb --sound-only
 # and Ux, Floe Sushi as one clip on the game's own camera (frames 0-157 and 244-304 of U, a 6-frame dissolve between):
 #   ffmpeg -framerate 30 -start_number 0 -i "$S/U/frames/%04d.jpg" -i "$S/U/game.wav" -filter_complex "[0]trim=start_frame=0:end_frame=157,setpts=PTS-STARTPTS[a];[0]trim=start_frame=244:end_frame=304,setpts=PTS-STARTPTS[b];[a][b]xfade=transition=fade:duration=0.2:offset=5.0333,format=yuvj420p[v];[1]atrim=0:5.2333,asetpts=PTS-STARTPTS[x];[1]atrim=8.1333:10.1333,asetpts=PTS-STARTPTS[y];[x][y]acrossfade=d=0.2[au]" -map "[v]" -q:v 2 -start_number 0 "$S/Ux/frames/%04d.jpg" -map "[au]" "$S/Ux/game.wav"
+# and I, the ChefControl studio intro in front (the game's own, PR #258: src/intro.ts, index.html's #intro styles,
+# src/introSound.ts, brand/chefcontrol.svg). Put chefcontrol.svg, introSound.ts and the #intro block of index.html (as
+# css.txt) from that branch in a folder, then:  node "$X/intro-render.mjs" <that folder> public/fonts "$S/I"
 # (edl-v5.json was the cut before those notes: the 25 s opening, the campfire on the dock with a bell.)
 # (takes O, C, G/Gx, M0, T, U, H, L below; K2, K2g and DRONE2 are version 3-4's night scene, which the owner cut).
 # Then measure the master: repeats.py (no frame shown twice), prelimit.py (hits under the limiter), bands.py (what a
