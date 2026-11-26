@@ -59,6 +59,14 @@ export function withoutWeb(page: string) {
 }
 
 /** The Steam build (VITE_STEAM=on, flags.ts) leaves the page's web-only parts out, and can't have Ko-fi. */
+/** Marks the Steam build's page as such (`<html data-steam>`), so its head can hide the loading screen under the
+ *  studio intro before any script loads. */
+export function steamPage(page: string) {
+  const tag = '<html lang="en">';
+  if (!page.includes(tag)) throw new Error(`index.html: no ${tag} to mark as the Steam build's`);
+  return page.replace(tag, '<html lang="en" data-steam>');
+}
+
 function steamToggle(): Plugin {
   let on = false;
   return {
@@ -67,7 +75,8 @@ function steamToggle(): Plugin {
       on = c.env.VITE_STEAM === 'on';
       if (on && c.env.VITE_KOFI === 'on') throw new Error('The Steam build must not have Ko-fi (VITE_KOFI=on): Steam allows no payment links outside it');
     },
-    transformIndexHtml: { order: 'pre', handler: page => on ? withoutWeb(page) : page },
+    // (and the page says it's the Steam build from its first line, for the studio intro: src/intro.ts)
+    transformIndexHtml: { order: 'pre', handler: page => on ? steamPage(withoutWeb(page)) : page },
   };
 }
 
