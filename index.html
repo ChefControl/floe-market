@@ -4,6 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
 <title>Floe Market</title>
+<script>
+// The Steam build's studio intro (src/intro.ts), once a run: from the first paint, the loading screen waits under it.
+try { if (document.documentElement.hasAttribute('data-steam') && sessionStorage.getItem('floe-intro') !== '1') document.documentElement.classList.add('intro'); } catch (e) {}
+</script>
 <!-- web only: (the Steam build leaves out everything to its end marker: vite.config.ts) -->
 <!-- (the card a shared link shows: Discord, X, Slack, iMessage. Full addresses, since the build's paths are relative) -->
 <meta name="description" content="A cozy 3D idle tycoon in your browser. Stage 3 is out: answer the knock under the dock.">
@@ -1253,6 +1257,80 @@ body.cine #hud, body.cine #rush{ visibility:hidden; }
 /* The loading screen: the game's scripts coming in, counted in bytes, then the world being built. Gone on the first frame. */
 #loading{ position:fixed; inset:0; z-index:8; display:grid; place-items:center; align-content:center; gap:22px; background:var(--bg); color:var(--pill-ink); transition:opacity .4s; }
 #loading.done{ opacity:0; pointer-events:none; }
+/* ---------- the studio intro (intro.ts): ChefControl's mascot comes together on its plate, then the studio's name ----------
+   (its colours are the studio logo's own, brand/chefcontrol.svg, not the game's) */
+html.intro, html.intro body{ background:#5BACDD; }
+html.intro #loading{ visibility:hidden; }
+#intro{
+  position:fixed; inset:0; z-index:11; display:flex; flex-direction:column; align-items:center; justify-content:center;
+  background:radial-gradient(ellipse 80% 70% at 50% 40%, #86CFEE, #4A9DD2); overflow:hidden; cursor:default;
+  transition:opacity .5s ease;
+}
+#intro.out{ opacity:0; pointer-events:none; }
+#intro.fast{ transition-duration:.25s; }
+#intro svg{ width:min(62vh,80vw); height:auto; margin-top:-6vh; overflow:visible; }
+#intro #cc-bg rect{ display:none; }
+#intro :is(#cc-plate, #cc-ball, #cc-top, #cc-armL, #cc-mag, #cc-tail1, #cc-tail2, #cc-eyeR, #cc-bg circle, .spark){ transform-box:view-box; }
+/* the plate, alone at first */
+#intro #cc-plate{ transform-origin:480px 712px; animation:ccPlate .45s .15s cubic-bezier(.2,1.5,.4,1) both; }
+@keyframes ccPlate{ from{ transform:scale(.2,.1); opacity:0; } to{ transform:none; opacity:1; } }
+/* the rice ball falls onto it, magnifier in hand, arms down, and squashes as it lands */
+#intro #cc-ball{ transform-origin:482px 700px; animation:ccFall 1.15s .55s both; }
+@keyframes ccFall{
+  0%{ transform:translateY(-1000px) scale(.94,1.08); animation-timing-function:cubic-bezier(.5,0,1,.6); }
+  38%{ transform:translateY(0) scale(.94,1.08); animation-timing-function:ease-out; }
+  50%{ transform:scale(1.14,.84); animation-timing-function:ease-in-out; }
+  64%{ transform:scale(.97,1.04); }
+  74%{ transform:scale(1.04,.97); }
+  82%{ transform:none; }
+  /* (and gives a little as the salmon lands on it) */
+  88%{ transform:scale(1.05,.95); }
+  100%{ transform:none; }
+}
+#intro #cc-armL{ transform-origin:254px 557px; animation:ccArmL .55s 1.75s cubic-bezier(.3,1.6,.5,1) both; }
+@keyframes ccArmL{ from{ transform:rotate(-62deg); } to{ transform:none; } }
+#intro #cc-mag{ transform-origin:712px 556px; animation:ccMag .6s 1.7s cubic-bezier(.3,1.5,.5,1) both; }
+@keyframes ccMag{ from{ transform:rotate(84deg); } to{ transform:none; } }
+/* the salmon drops onto its head, its band's ends blowing in the wind */
+#intro #cc-top{ transform-origin:482px 440px; animation:ccTop .7s 1.1s both; }
+@keyframes ccTop{
+  0%{ transform:translateY(-1000px) rotate(-8deg); animation-timing-function:cubic-bezier(.5,0,1,.6); }
+  58%{ transform:translateY(0) rotate(0); animation-timing-function:ease-out; }
+  72%{ transform:scale(1.08,.9); }
+  86%{ transform:scale(.98,1.03); }
+  100%{ transform:none; }
+}
+#intro #cc-tail1{ transform-origin:214px 370px; animation:ccWind .34s 1.1s ease-in-out infinite alternate; }
+#intro #cc-tail2{ transform-origin:206px 392px; animation:ccWind .3s 1.16s ease-in-out infinite alternate-reverse; }
+@keyframes ccWind{ from{ transform:rotate(-9deg) skewY(5deg); } to{ transform:rotate(7deg) skewY(-6deg); } }
+/* the lens glints, and he winks */
+#intro #cc-shine{ animation:ccShine .5s 2.3s ease-out both; }
+@keyframes ccShine{ 0%{ opacity:.3; } 40%{ opacity:1; stroke-width:16px; } 100%{ opacity:1; } }
+#intro .spark{ transform-origin:938px 252px; animation:ccSpark .6s 2.3s ease-out both; }
+@keyframes ccSpark{ 0%{ transform:scale(0) rotate(0); opacity:1; } 45%{ transform:scale(1.2) rotate(45deg); opacity:1; } 100%{ transform:scale(0) rotate(90deg); opacity:0; } }
+#intro #cc-eyeR{ opacity:1; transform-origin:561px 523px; animation:ccShut .12s 2.55s ease-in forwards; }
+@keyframes ccShut{ to{ transform:scaleY(.1); opacity:0; } }
+#intro #cc-wink{ opacity:0; animation:ccOn .08s 2.64s forwards; }
+@keyframes ccOn{ to{ opacity:1; } }
+#intro #cc-bg circle{ transform-origin:512px 512px; animation:ccRing .9s 2.4s ease-out both; }
+@keyframes ccRing{ from{ transform:scale(.6); opacity:0; } to{ transform:none; opacity:1; } }
+/* then the studio's name, in the banner's outline */
+#intro p{
+  --o:3px; margin:0; color:#fff; font-weight:800; text-align:center;
+  text-shadow:var(--o) 0 0 var(--ink), calc(-1 * var(--o)) 0 0 var(--ink), 0 var(--o) 0 var(--ink), 0 calc(-1 * var(--o)) 0 var(--ink),
+    var(--o) var(--o) 0 var(--ink), calc(-1 * var(--o)) var(--o) 0 var(--ink), var(--o) calc(-1 * var(--o)) 0 var(--ink),
+    calc(-1 * var(--o)) calc(-1 * var(--o)) 0 var(--ink), 0 calc(var(--o) + 4px) 0 rgba(20,30,40,.4);
+}
+#intro .name{ margin-top:-5vh; font-size:clamp(40px,8vh,92px); line-height:1; animation:ccName .5s 2.75s cubic-bezier(.2,1.4,.4,1) both; }
+#intro .kind{ --o:2px; margin-top:1vh; padding-left:.45em; font-size:clamp(15px,2.6vh,30px); letter-spacing:.45em; text-transform:uppercase; animation:ccKind .6s 3s ease-out both; }
+@keyframes ccName{ from{ transform:scale(.5); opacity:0; } to{ transform:none; opacity:1; } }
+@keyframes ccKind{ from{ letter-spacing:.1em; opacity:0; } to{ letter-spacing:.45em; opacity:1; } }
+/* less motion: the logo as it is, faded in and out */
+@media (prefers-reduced-motion: reduce){
+  #intro *{ animation:none !important; }
+  #intro #cc-eyeR, #intro .spark{ opacity:0; }
+  #intro #cc-wink{ opacity:1; }
+}
 #loading .title{ font-size:clamp(44px,12vw,84px); font-weight:800; line-height:.95; color:#FFC34A; text-shadow:0 4px 0 rgba(20,30,40,.35); text-align:center; }
 #loading .card{ width:min(78vw,340px); background:var(--pill); border-radius:24px; padding:16px 20px 12px; box-shadow:0 4px 0 var(--shade); display:grid; gap:8px; }
 #loading .track{ height:14px; border-radius:999px; background:var(--chip); overflow:hidden; }
