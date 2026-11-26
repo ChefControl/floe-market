@@ -3,9 +3,11 @@
 // the logo's pose, the lens glints, it winks, and "ChefControl Studio" comes up under it. It plays over the loading
 // screen while the game loads (index.html's head hides that from the first paint), then fades to whatever's ready: the
 // loading screen or the main menu (title.ts). Once a run of the app: a reload skips it. Any key or click skips it, and
-// goes no further. The drawing is brand/chefcontrol.svg; its moves are index.html's #intro styles.
+// goes no further. The drawing is brand/chefcontrol.svg; its moves are index.html's #intro styles; its sound is
+// introSound.ts.
 import logo from '../brand/chefcontrol.svg?raw';
 import { steamOn } from './flags';
+import { type IntroSound, playIntroSound } from './introSound';
 
 /** This run of the app has had its intro (sessionStorage: kept through a reload, gone when the app closes). */
 const PLAYED = 'floe-intro';
@@ -16,7 +18,7 @@ const FADE = 0.5, SKIP_FADE = 0.25;
 /** The lens's glint: a four-pointed sparkle, drawn over the logo for the intro only. */
 const SPARK = '<path class="spark" d="M938 222 L946 244 L968 252 L946 260 L938 282 L930 260 L908 252 L930 244 Z" fill="#fff"/>';
 
-let shown: HTMLElement | null = null;
+let shown: HTMLElement | null = null, sound: IntroSound | null = null;
 let timer: ReturnType<typeof setTimeout> | undefined;
 
 /** Plays the intro, if this is the Steam build and this run hasn't had it yet; says whether it did. */
@@ -36,6 +38,8 @@ export function playIntro() {
   el.innerHTML = logo.replace('</svg>', `${SPARK}</svg>`) + '<p class="name">ChefControl</p><p class="kind">Studio</p>';
   document.body.append(el);
   shown = el;
+  // (and its sound, in step with it: introSound.ts)
+  sound = playIntroSound();
   timer = setTimeout(() => endIntro(), LENGTH * 1000);
   window.addEventListener('keydown', skip, true);
   window.addEventListener('pointerdown', skip, true);
@@ -59,7 +63,9 @@ export function endIntro(skipped = false) {
   window.removeEventListener('keydown', skip, true);
   window.removeEventListener('pointerdown', skip, true);
   el.classList.add('out');
-  if (skipped) el.classList.add('fast');
+  // (skipped, its sound goes too; otherwise the last chord rings out over the fade)
+  if (skipped) { el.classList.add('fast'); sound?.fade(); }
+  sound = null;
   document.documentElement.classList.remove('intro');
   setTimeout(() => el.remove(), (skipped ? SKIP_FADE : FADE) * 1000);
 }
