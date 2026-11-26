@@ -69,8 +69,8 @@ for (const k of ['setTimeout', 'setInterval'] as const) {
 beforeEach(() => {
   vi.spyOn(Math, 'random').mockImplementation(seeded(1));
   localStorage.clear();
-  // Every test runs on an ordinary day (the clock moving on from it as ever), so what comes by the calendar (flags.ts:
-  // election day's voting boat and beach) turns up only in the tests that say which day it is.
+  // Every test runs on the same ordinary day (the clock moving on from it as ever), so nothing turns on the day the
+  // suite happens to run.
   vi.useFakeTimers({ toFake: ['Date'], now: new Date(2026, 0, 15, 12), shouldAdvanceTime: true });
 });
 

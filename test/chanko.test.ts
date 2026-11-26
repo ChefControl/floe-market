@@ -229,6 +229,95 @@ describe('the cooking show at the pot', () => {
     expect(show.showState()!.stew.colour).not.toBe(soy);
   }, 60_000);
 
+  it('the stew\'s drawn by hand: a flat matte top with a paler line of foam, chunky bubbles and flat fat, a ring where a piece goes under, streaks as it\'s stirred', async () => {
+    const { show, run, key, ptr, onScreen, open, cut, stir, until, plan, cellar } = await atPot();
+    const graphics = await import('../src/graphics');
+    open(); cut();
+    until('Throw');
+    const S = show.stewParts()!, P = plan.POT, CY = cellar.CY;
+    // no shine on any of it
+    for (const o of [S.top, ...S.bubbles, ...S.fat]) expect('shininess' in (o.material as object)).toBe(false);
+    // the top: under 300 triangles, lit as one level face, out to the pot's own circle
+    const geo = S.top.geometry, pos = geo.attributes.position, nor = geo.attributes.normal, col = geo.attributes.color;
+    const tris = pos.count / 3;
+    expect(geo.index).toBeNull();
+    expect(tris).toBeLessThan(300);
+    let far = 0;
+    for (let v = 0; v < pos.count; v++) {
+      expect([nor.getX(v), nor.getY(v), nor.getZ(v)]).toEqual([0, 1, 0]);
+      far = Math.max(far, Math.hypot(pos.getX(v), pos.getZ(v)));
+    }
+    expect(far).toBeCloseTo(0.8, 5);
+    // cut unevenly: its triangles are of many sizes
+    const area = (t: number) => {
+      const [a, b, c] = [0, 1, 2].map(k => [pos.getX(t * 3 + k), pos.getZ(t * 3 + k)]);
+      return Math.abs((b[0] - a[0]) * (c[1] - a[1]) - (c[0] - a[0]) * (b[1] - a[1])) / 2;
+    };
+    const areas = Array.from({ length: S.foamFrom }, (_, t) => area(t));
+    expect(Math.max(...areas) / Math.min(...areas)).toBeGreaterThan(2);
+    // each triangle one flat colour: the stew's all one, and the foam round its rim paler
+    const lum = (t: number) => col.getX(t * 3) * 0.3 + col.getY(t * 3) * 0.59 + col.getZ(t * 3) * 0.11;
+    const flat = () => { for (let t = 0; t < tris; t++) for (const k of [1, 2]) expect(col.getX(t * 3 + k)).toBe(col.getX(t * 3)); };
+    const shades = (from: number, to: number) => new Set(Array.from({ length: to - from }, (_, t) => lum(from + t).toFixed(4))).size;
+    flat();
+    expect(shades(0, S.foamFrom)).toBe(1);
+    expect(shades(S.foamFrom, tris)).toBe(1);
+    expect(lum(S.foamFrom)).toBeGreaterThan(lum(0) + 0.02);
+    // chunky bubbles of twenty flat faces, and the fat in flat patches
+    expect(S.bubbles[0].geometry.attributes.position.count).toBe(60);
+    const patch = S.fat[0].geometry.attributes.position;
+    for (let v = 0; v < patch.count; v++) expect(patch.getY(v)).toBe(0);
+    // a throw, let go at the pot's middle, and `s` seconds on (it lands 0.55 s after it's let go)
+    const toss = (s: number) => {
+      run(0.45);
+      const from = onScreen(P.x, CY + 0.99, P.z + 1.38), to = onScreen(P.x, CY + 1.37, P.z);
+      ptr('pointerdown', from.x, from.y);
+      ptr('pointermove', from.x + (to.x - from.x) / 2.7, from.y + (to.y - from.y) / 2.7);
+      ptr('pointerup', from.x + (to.x - from.x) / 2.7, from.y + (to.y - from.y) / 2.7);
+      run(s);
+    };
+    const rings = () => S.rings.filter(r => r.visible);
+    // on High the landing has its splash, and the ring's drawn as the piece goes under, a moment later: it spreads, then goes
+    expect(graphics.isHigh()).toBe(true);
+    toss(0.7);
+    expect(rings()).toHaveLength(0);
+    run(0.5);
+    expect(rings()).toHaveLength(1);
+    const ring = rings()[0], was = ring.scale.x;
+    expect(Math.hypot(ring.position.x - P.x, ring.position.z - P.z)).toBeLessThan(0.7);
+    run(0.2);
+    expect(ring.scale.x).toBeGreaterThan(was);
+    run(1.5);
+    expect(rings()).toHaveLength(0);
+    // on Low nothing splashes: the landing draws the ring itself
+    graphics.choose('low');
+    toss(0.7);
+    expect(rings()).toHaveLength(1);
+    graphics.choose('high');
+    run(2);
+    for (let n = 0; n < 16 && show.showState()?.step === 'Throw' && show.showState()?.phase === 'play'; n++) toss(1.1);
+    // a seasoning spreads a triangle at a time: half way, some have turned and some haven't, each still one flat colour
+    until('Season');
+    run(0.1); key('keydown'); run(0.7); key('keyup'); run(0.8);
+    run(0.1); key('keydown'); run(0.9);
+    flat();
+    expect(shades(0, S.foamFrom)).toBeGreaterThan(3);
+    key('keyup'); run(4);
+    expect(shades(0, S.foamFrom)).toBe(1);
+    run(0.1); key('keydown'); run(0.7); key('keyup'); run(0.8);
+    // the streaks show only while it's stirred, and go round with it
+    until('Stir');
+    expect(S.streaks.visible).toBe(false);
+    stir(2);
+    expect(S.streaks.visible).toBe(true);
+    const turned = S.streaks.rotation.y;
+    stir(1);
+    expect(S.streaks.rotation.y).not.toBe(turned);
+    stir(4);
+    run(4);
+    expect(S.streaks.visible).toBe(false);
+  }, 60_000);
+
   it('the stir starts with the first press on the soup, not anywhere on the screen', async () => {
     const { show, run, until, open, cut, throwAll, season, stir } = await atPot();
     open(); cut(); throwAll(); season();

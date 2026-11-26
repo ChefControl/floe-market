@@ -65,18 +65,23 @@ describe('eye candy', () => {
     expect([Math.random(), Math.random()]).toEqual(high);
   });
 
-  it('draws on Potato exactly what Low draws', async () => {
-    /** Each showing mesh's shape: its corners and where it is. */
-    const drawn = (scene: Object3D) => {
+  it('draws on Potato exactly what Low draws, but for the far pines and the clouds', async () => {
+    /** Each showing mesh's shape: its corners and where it is (but for what's under one of `less`). */
+    const drawn = (scene: Object3D, less: Object3D[] = []) => {
       const out: string[] = [];
       scene.updateMatrixWorld(true);
       scene.traverse(o => {
-        if (o instanceof Mesh && shown(o)) out.push(`${o.geometry.attributes.position?.count} ${o.matrixWorld.elements.map(e => e.toFixed(3))}`);
+        if (!(o instanceof Mesh) || !shown(o)) return;
+        for (let up: Object3D | null = o; up; up = up.parent) if (less.includes(up)) return;
+        out.push(`${o.geometry.attributes.position?.count} ${o.matrixWorld.elements.map(e => e.toFixed(3))}`);
       });
       return out.sort();
     };
     vi.spyOn(Math, 'random').mockImplementation(seeded(1));
-    const low = drawn((await loadWith('low')).render.scene);
+    const lowGame = await loadWith('low'), far = (await import('../src/backdrop')).backdrop;
+    // (Potato leaves these out, backdrop.ts: three meshes, most of the backdrop's triangles)
+    const low = drawn(lowGame.render.scene, [far.pines, far.clouds]);
+    expect(drawn(lowGame.render.scene).length - low.length).toBe(3);
     vi.spyOn(Math, 'random').mockImplementation(seeded(1));
     const potato = drawn((await loadWith('potato')).render.scene);
     expect(potato.length).toBeGreaterThan(100);
