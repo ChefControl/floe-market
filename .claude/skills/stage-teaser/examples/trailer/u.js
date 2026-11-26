@@ -25,6 +25,18 @@
   const marks = {}; window.cineType = { marks };
   let phase = 'till', since = 0, holding = false;
   const go = (p, i) => { phase = p; since = i; marks[p] = i; };
+  // In the close shot a customer's order bubble (a sprite over his head, bubble.ts) can sit half out of the picture or
+  // under the HUD pills: a clipped ring in the corner. For that shot, a bubble whose middle is at the picture's edge or
+  // behind the HUD's column isn't drawn. (The wide play before it is the game's own camera, and is left as it is.)
+  let close = false; const hid = [];
+  K.after = cam => {
+    while (hid.length) hid.pop().visible = true;
+    if (!close) return;
+    K.R.scene.traverse(o => { if (!o.isSprite || !o.visible) return; const im = o.material && o.material.map && o.material.map.image;
+      if (!im || im.width !== im.height || im.width % 128) return; // (the bubbles' own square canvases)
+      const s = o.getWorldPosition(V(0, 0, 0)).project(cam);
+      if (Math.abs(s.x) > 0.88 || Math.abs(s.y) > 0.8 || (s.x < -0.52 && s.y > 0.2)) { o.visible = false; hid.push(o); } });
+  };
   window.cine = {
     len: 11,
     async setup() {
@@ -40,7 +52,8 @@
       // once it's bought and the first toast has gone: closer on him for the game's next line, "Something is knocking under
       // the dock" (the cut skips the seconds between: a new angle makes it a cut and not a jump). Turned 1.7 rad
       // round him from the game's angle: from there no gate post or lantern hangs between the camera and him.
-      if (phase === 'bought' && i - since > 70) { const k = K.ease((i - since - 70) / 200); const A = -1.7, o = OFF.clone().multiplyScalar(0.46 - 0.04 * k), ca = Math.cos(A), sa = Math.sin(A); K.cam = { pos: p.clone().add(V(o.x * ca - o.z * sa, o.y * 0.8, o.x * sa + o.z * ca)), look: p.clone().add(V(0, 0.6, 0)), fov: 40 }; }
+      close = phase === 'bought' && i - since > 70;
+      if (close) { const k = K.ease((i - since - 70) / 200); const A = -1.7, o = OFF.clone().multiplyScalar(0.46 - 0.04 * k), ca = Math.cos(A), sa = Math.sin(A); K.cam = { pos: p.clone().add(V(o.x * ca - o.z * sa, o.y * 0.8, o.x * sa + o.z * ca)), look: p.clone().add(V(0, 0.6, 0)), fov: 40 }; }
       if (phase === 'till') { if (walkTo(RS.REGISTER.x, RS.REGISTER.z, 0.2) && i - since > 30) go('walk', i); else if (i - since > 90) go('walk', i); }
       else if (phase === 'walk') { if (walkTo(tile.x, tile.z, 0.25) || i - since > 150) go('buy', i); }
       else if (phase === 'buy') { letGo(); if (!holding) { key('keydown'); holding = true; } if (tile.done) { key('keyup'); go('bought', i); } }
