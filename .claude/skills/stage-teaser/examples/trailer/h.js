@@ -44,7 +44,7 @@
     tone({ f: 95, f2: 34, d: 0.55, v: 0.092 * amp }); tone({ f: 240, f2: 150, d: 0.3, a: 0.002, type: 'triangle', v: 0.149 * amp }); tone({ f: 440, f2: 230, d: 0.2, a: 0.002, type: 'triangle', v: 0.085 * amp });
     noise({ f: 700, f2: 300, q: 1.5, d: 0.15, a: 0.001, v: 0.134 * amp }); noise({ f: 170, kind: 'lowpass', d: 0.16, v: 0.106 * amp });
     noise({ f: 900, f2: 480, q: 1.4, d: 0.1, a: 0.001, v: 0.1 * amp }); }; // (the knock a phone has: 400-900 Hz)
-  let air0 = null;
+  let air0 = null; const GLINTS = !/[?&]noglints/.test(location.search); // (?noglints: the ending on the dark crack alone, for the owner to compare)
   let now = { i: 0, fps: 30 };
   K.pose = () => {
     const t = now.i / now.fps;
@@ -74,8 +74,8 @@
     // (twelve frames on, three off, and on again for as long before the black: long enough that the blink is a blink)
     // (and a blink has lids: a frame squashed flat going shut and another coming open, not a light switched off and on)
     { const g = t - GLINT, on = g > 0 && !(g > 0.4 && g < 0.5) ? Math.min(1, g / 0.08) : 0, lid = (g > 0.36 && g <= 0.4) || (g >= 0.5 && g < 0.54) ? 0.3 : 1;
-      for (const s of glints) { s.material.opacity = on * (0.85 + n1(t * 14, 6) * 0.1); s.scale.set(0.12, 0.12 * lid, 1); } }
-    once('glint', GLINT - 0.034, t, () => tone({ f: 2400, f2: 2600, d: 0.45, a: 0.01, type: 'triangle', v: 0.1 }));
+      for (const s of glints) { s.material.opacity = (GLINTS ? on : 0) * (0.85 + n1(t * 14, 6) * 0.1); s.scale.set(0.12, 0.12 * lid, 1); } }
+    if (GLINTS) once('glint', GLINT - 0.034, t, () => tone({ f: 2400, f2: 2600, d: 0.45, a: 0.01, type: 'triangle', v: 0.1 }));
     K.vignette(0.75 + 0.15 * ease((t - PEEK) / 0.8));
     // The camera: over the hatch, held; knocked by each thud, harder each time; and it creeps in once the lid starts to lift
     const push = ease((t - PEEK) / (LEN - PEEK)), k = t / LEN;

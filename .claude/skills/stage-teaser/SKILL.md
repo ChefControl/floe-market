@@ -175,8 +175,13 @@ with `applyUnlock`, a dawn sky dome, the game's toast and tip pill shown as over
     1-3 kHz, not high-passed white noise. Check with `examples/trailer/hiss.py <film> [older film]` (2-9 kHz per second): a bed
     should leave that band near silence. And nothing here replaces a listen: ask for one before trusting any bed.
     (`K.bed`, the held white band, stays in kit.js for a short whoosh only. Nothing sounds on a take's first frames:
-    start air at 0.12 s. A take with a big gain in the EDL plays the game's OWN wind that much louder: lower the
-    gain and raise the take's cues instead.)
+    start air at 0.12 s.)
+  - **The game's own wind plays under every take, at the cut's gain.** It is steady (it gusts over half a minute),
+    so with +18 dB on a take it is a held wash louder than it ever is in the game, and it buries any swell you add.
+    Lower the take's gain in the EDL and make the take's own cues hotter by as much (o.js wraps the audio module:
+    `HOT`), then let your own sea lead. Measure the bed in quarter seconds: it should swing 5 dB or more.
+  - **A fire doesn't spit on a grid.** A crackle on every fifth frame is a clock; the hiss was hiding it. Any frame,
+    a few a second, each its own size and pitch (c.js).
   - **The game's own sounds keep going under your quiet.** A busy state of the game (the restaurant) ticks along;
     with the music cut that is all there is in a "silence", and under a logo card. For a take that should be
     quiet call `A.dimWorld(0, 0.03)` on its first frames (not `hushWorld`: game.ts sets that afresh every tick)

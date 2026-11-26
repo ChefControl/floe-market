@@ -84,7 +84,7 @@
   const said = new Set();
   const once = (k, t, now, f) => { if (now >= t && !said.has(k)) { said.add(k); f(); } };
   const ding = (v = 0.5) => { A.tone({ f: 2093, d: 0.5, v, at: BELL }); A.tone({ f: 3136, d: 0.3, v: v * 0.5, at: BELL }); A.tone({ f: 4186, d: 0.12, v: v * 0.3, at: BELL }); };
-  const crackle = () => A.noise({ f: 2600, q: 3, d: 0.03, v: 0.21, at: FIRE });
+  const crackle = (k = 1) => A.noise({ f: 1700 + 1400 * k, q: 3, d: 0.03, v: 0.21 * k, at: FIRE }); // (each its own size and pitch)
   /** How hard the customer's fist is coming down at `t`, 0..1 (up before each stroke, down on it), and how long since the last. */
   /** The bell's strokes: two a beat from the first ding to the idea, each a moment before it sounds. */
   // (rung by a fist, not a clock: each a few hundredths early or late, and harder or softer than the last)
@@ -98,20 +98,22 @@
     // (burning lower once the shots are close on him: its tip poked up into the bottom of the picture)
     { const low = ease((t - T.ding) / 0.3); fire.set(t, mix(1, 0.78, low), mix(0.72, 0.92, low)); }
     if (ST.blade) ST.blade.visible = false; // (the chopping blade hangs in the air over its board: a floating box, from here)
-    if (i % 5 === 0 && Math.sin(i * 12.9898) > 0.2) crackle();
+    // (a fire spits when it likes: on any frame, about three a second, never on a grid. Every fifth frame, it was a clock
+    // once the hiss that hid it had gone.)
+    { const r = (n1(i * 7.31, 11) + 1) / 2, r2 = (n1(i * 3.17 + 40, 23) + 1) / 2; if (r > 0.88) crackle(0.63 + 0.95 * r2); } // (n1 runs -1 to 1)
     // (the fire's own low roar and the night air, held under it all: beds, not fades)
     // (brown noise that MOVES, as the game's own ambience is made: a held band of white noise is static to the ear.
     // The take's own cues are 5 dB hotter than they were and the cut's gain 5 dB lower: the game's winter wind, which
     // plays under all of this at the cut's gain, was a rumble at -21 dBFS.)
     if (t >= 0.12 && !air0) air0 = { fire: K.soft(A, { kind: 'lowpass', f: 300, q: 0.5, smooth: 600 }), sea: K.soft(A, { kind: 'lowpass', f: 420, q: 0.5, smooth: 800 }) };
     if (air0) { const on = ease((t - 0.12) / 0.4) * (1 - ease((t - T.end + 0.55) / 0.45));
-      air0.fire.to(0.07 * (0.7 + 0.3 * K.n1(t * 2.3, 3)) * on); air0.sea.to(0.03 * K.swell(t + 1.5) * on); }
-    strokes.forEach((s, n) => once('d' + n, s, t, () => ding((t < T.chef ? 0.356 : t >= T.stand && t < T.idea ? 0.32 : 0.205) * hard[n])));
+      air0.fire.to(0.1 * Math.max(0.2, 0.6 + 0.3 * K.n1(t * 1.9, 3) + 0.2 * K.n1(t * 5.3, 8)) * on, 0.08); air0.sea.to(0.06 * K.swell(t + 1.5, 2.9, 4.4) * on); }
+    strokes.forEach((s, n) => once('d' + n, s, t, () => ding((t < T.chef ? 0.5 : t >= T.stand && t < T.idea ? 0.45 : 0.29) * hard[n])));
     // the bell dips under his fist, and its strokes jump
     { const last = strokes.filter(s => s <= t).at(-1) ?? -9, k = clamp((t - last) / 0.2);
       bell.scale.y = 1 - 0.2 * Math.sin(Math.min(1, k * 2) * Math.PI);
       for (const m of dings) { const a = m.userData.a, r = 0.16 + 0.1 * k; m.visible = k < 1 && last > 0; m.position.set(BELL.x + Math.sin(a) * r, BELL.y + 0.1 + Math.cos(a) * r, BELL.z); m.rotation.z = -a; m.scale.setScalar(Math.sin(k * Math.PI)); } }
-    once('idea', T.idea + 0.88, t, () => { A.tone({ f: 660, d: 0.09, type: 'triangle', v: 0.134 }); A.tone({ f: 990, d: 0.2, t: 0.09, type: 'triangle', v: 0.155 }); A.tone({ f: 1320, d: 0.3, t: 0.2, type: 'triangle', v: 0.134 }); });
+    once('idea', T.idea + 0.88, t, () => { A.tone({ f: 660, d: 0.09, type: 'triangle', v: 0.189 }); A.tone({ f: 990, d: 0.2, t: 0.09, type: 'triangle', v: 0.219 }); A.tone({ f: 1320, d: 0.3, t: 0.2, type: 'triangle', v: 0.189 }); });
     K.fade(Math.max(1 - ease(t / 0.3), ease((t - T.up - 0.56) / 0.45))); K.vignette(0.6);
     pillAt = null;
 

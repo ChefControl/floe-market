@@ -18,7 +18,10 @@
   const { player } = await window.__mod('player.ts');
   const { FLOES } = await window.__mod('props.ts');
   const { foamRing, seaGeometry } = await window.__mod('sea.ts');
-  const FX = await window.__mod('fx.ts'), SFX = await window.__mod('sfx.ts'), A = await window.__mod('audio.ts');
+  const FX = await window.__mod('fx.ts'), SFX = await window.__mod('sfx.ts'), A0 = await window.__mod('audio.ts');
+  // The cut gives this take a gain; the game's own winter wind plays under everything at that gain too, a steady wash
+  // louder than it ever is in the game. So the take's own cues are HOT (4 dB up) and the cut's gain 4 dB down (edl-v5).
+  const HOT = 1.585, A = {}; for (const k of Object.keys(A0)) Object.defineProperty(A, k, k === 'tone' || k === 'noise' ? { value: o => A0[k]({ ...o, v: (o.v ?? 0.3) * HOT }) } : { get: () => A0[k], enumerable: true });
   const ST = await window.__mod('stations.ts');
   const mix = (a, b, k) => a + (b - a) * k;
   /** 0 → a little past 1 → 1: things that land with a bounce. */
@@ -493,7 +496,7 @@
     return { eyes: 'big', brow: [1.7, -0.6], mouth: 'o', open: 2.1 };
   }
 
-  let air0 = null; const SEA = 0.16, SEAWIND = 0.14, RUSHK = 0.22; // (the air's levels, on the game's ambience bus: set by measuring, then by the owner's ear)
+  let air0 = null; const SEA = 0.34, SEAWIND = 0.16, RUSHK = 0.4; // (the air's levels, on the game's ambience bus: set by measuring, then by the owner's ear)
   function frame(i, fps) {
     const t = i / fps;
     // ---------- sound cues ----------
@@ -501,14 +504,15 @@
     // THE AIR: the sea and the wind, the game's own way (ambience.ts): brown noise, low, its level moving all the time,
     // waves with calm between and wind in gusts. (It was two held bands of white noise: the owner heard "a heavy
     // constant static... very harsh on the ear".) A hole in it before the tuna comes up; a rush of water for the ride.
-    if (t >= 0.12 && !air0) air0 = { sea: K.soft(A, { kind: 'lowpass', f: 420, q: 0.5, smooth: 800 }), wash: K.soft(A, { kind: 'bandpass', f: 800, q: 0.5, smooth: 1600 }),
+    if (t >= 0.12 && !air0) air0 = { sea: K.soft(A, { kind: 'lowpass', f: 420, q: 0.5, smooth: 800 }), wash: K.soft(A, { kind: 'bandpass', f: 800, q: 0.5, smooth: 1600 }), rush: K.soft(A, { kind: 'bandpass', f: 600, q: 0.5, smooth: 900, from: 0.7 }),
       wind: K.soft(A, { kind: 'bandpass', f: 330, q: 0.8, smooth: 1200 }), gust: K.soft(A, { kind: 'bandpass', f: 650, q: 0.8, smooth: 1200, from: 1.5 }) };
-    if (air0) { const w = K.swell(t), g = (0.5 + 0.5 * K.n1(t * 0.33, 17)) ** 2;
+    if (air0) { const w = (K.swell(t + 1.1, 2.7, 4.3) - 0.2) / 0.8 * 0.92 + 0.08, g = (0.5 + 0.5 * K.n1(t * 0.55, 17)) ** 2; // (waves every three or four seconds, right down to calm between: a swell a listener can hear as one)
       const hole = 1 - ease((t - T.side + 1.0) / 0.4) * (1 - ease((t - T.breach + 0.05) / 0.25)); // (still, before the water moves)
       const farK = ease((t - T.hit3) / 0.3) * (1 - ease((t - T.glum) / 0.3)); // (from high up: more wind, less water)
       const ride = ease((t - T.drag) / 0.5), out = 1 - ease((t - T.end + 0.75) / 0.7), on = ease((t - 0.12) / 0.8) * out;
-      const blow = SEAWIND * (0.35 + 0.65 * g) * (1 + 0.8 * farK) * hole * on * (1 - 0.5 * ride);
-      air0.sea.to(SEA * w * (1 - 0.6 * farK) * hole * on * (1 - 0.4 * ride)); air0.wash.to((SEA * 1.3 * Math.max(0, w - 0.75) * (1 - farK) * hole + RUSHK * ride * (0.75 + 0.25 * K.n1(t * 1.7, 5))) * on);
+      const blow = SEAWIND * (0.2 + 0.8 * g) * (1 + 0.8 * farK) * hole * on * (1 - 0.5 * ride);
+      air0.sea.to(SEA * w * (1 - 0.6 * farK) * hole * on * (1 - 0.4 * ride)); air0.wash.to(SEA * 1.3 * Math.max(0, w - 0.75) * (1 - farK) * hole * on);
+      air0.rush.to(RUSHK * 1.25 * ride * Math.max(0.2, 0.62 + 0.3 * K.n1(t * 1.3, 5) + 0.14 * K.n1(t * 4.1, 9)) * on, 0.08); // (the ride's water: darker than the wash, and surging)
       air0.wind.to(blow * Math.cos(g * Math.PI / 2), 0.3); air0.gust.to(blow * Math.sin(g * Math.PI / 2), 0.3); }
     once('spray', T.spray - 0.05, t, () => A.noise({ f: 2200, f2: 700, kind: 'lowpass', d: 0.3, a: 0.02, v: 0.13 }));
     once('blinkA', T.open, t, () => blip(700, 760, 0.07, 0, 0.05));
