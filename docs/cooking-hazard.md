@@ -81,7 +81,7 @@ The rules learnt from Path of Exile 2's elements: rings that show their "nearly 
 ## Look and sound
 
 - Poly 3D like Floe Market, angled top-down, with vibrant food colours against a grey apocalypse. No blood: zombies swell up like an allergic reaction and pop into confetti.
-- The chef is the Floe Market chef in a hazmat apron and goggles.
+- The chef is the player's own face in the **kitchen commando** outfit (picked 3 November 2026 from four outfit mocks; character reference: https://claude.ai/artifact/SYKcMBEU8M49MhSTxe6GuS): a charcoal double-breasted jacket with copper buttons and short sleeves banded in hazard tape, a quilted leather apron that wraps round the sides, a belt with a cleaver on the right hip and a ladle on the left, a red bandana knotted at the back, square black glasses, fingerless gloves, dark trousers, knee pads and boots. The same all year (no season's clothes); High adds the apron's quilting, the buttons, the tape's stripes and the pads' rivets. It's the `commando` look in `src/characters.ts`.
 - Every screen follows the design system (https://claude.ai/artifact/JqnFttxGKAxxnd86gnFtgC): HUD pills top-left, the casino skin on the cabinet's card, the cooking skin at the counters, dish slots drawn like the round action buttons, keys shown only while Shift is held, eight words or fewer on screen.
 - The screens mocked up: https://claude.ai/artifact/WCKvQ5XaK1L91XBdbMigeS
 
@@ -90,7 +90,7 @@ The rules learnt from Path of Exile 2's elements: rings that show their "nearly 
 - Play opens a 3D set and camera of its own, drawn by the game's renderer, which take over the screen; the yacht waits behind, paused. It replaces the 2D greybox screen and plays by the same rules (`src/hazard.ts`).
 - The camera is angled top-down at the main game's tilt and follows the chef.
 - The arena, until step 4's maps: the greybox's open street, dressed as a wrecked one (cracked road, burnt-out cars, crates and bins along the edges). Nothing blocks anyone yet; step 4 makes the props cover.
-- Zombies are the game's own blocky people, grey-green, arms out, tinted by their coat; they swell up and pop into confetti. Specials are bigger, with a stained chef's bib. The chef is the player's own, in a hazmat apron and goggles.
+- Zombies are the game's own blocky people, grey-green, arms out, tinted by their coat; they swell up and pop into confetti. Specials are bigger, with a stained chef's bib. The chef is the player's own face in the kitchen commando outfit.
 - Taste emojis, order tickets and technique stamps float over the zombies as labels, like the speech bubbles; build-up rings are painted on the ground at their feet. A special off the screen shows as an arrow at its edge, with its ticket. Shots are food: potatoes, salt crystals, a chili stream, splatting in their taste's colour.
 - It follows the game's graphics: High adds shadows, confetti and the techniques' smoke; Low leaves them out. Zombies and chef look the same on both.
 - Phones play it sideways: Play goes full screen and locks the screen sideways where the phone allows, and shows a "turn your phone" screen where it doesn't (iPhones), carrying on once it's turned.

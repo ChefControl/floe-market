@@ -39,6 +39,38 @@ describe('people', () => {
     expect(suit.worn().filter(w => w.c === shade(0x22303C, 0.72))).toHaveLength(2); // lapels
   });
 
+  it("dresses Cooking Hazard's kitchen commando the same all year, in the player's face, and plainer on Low", async () => {
+    await loadGame();
+    const { Person, LIMBS } = await characters();
+    const { C } = await import('../src/palette');
+    const { plain } = await import('../src/wardrobe');
+    const { choose } = await import('../src/graphics');
+    const st = { ...plain(3), glasses: 0x8B5A2B };
+    const p = new Person(C.iron, 'commando', st);
+    const of = (c: number) => p.worn().filter(w => w.c === c);
+    // fingerless gloves (the fingers in the player's skin), boots, dark trousers, hazard tape round both sleeves
+    expect(pieces(p, LIMBS.hand).filter(h => h.c !== C.iron).map(h => h.c)).toEqual([C.slate, C.slate]); // (the jacket's are the arms' tops)
+    expect(pieces(p, LIMBS.boot)).toHaveLength(2);
+    expect(pieces(p, LIMBS.trouser).every(t => t.c === C.ink)).toBe(true);
+    expect(of(C.amber)).toHaveLength(2);
+    // a quilted apron (twenty pads on the front, three down each side), a bandana knotted with two tails, and its own
+    // pale-lensed glasses in place of the player's
+    expect(of(C.plank)).toHaveLength(26);
+    expect(of(C.red)).toHaveLength(4);
+    expect(of(C.ice)).toHaveLength(2);
+    expect(of(st.glasses)).toHaveLength(0);
+    expect(p.worn().filter(w => w.o.userData.own && w.c === st.skin).length).toBeGreaterThan(0);
+    const all = p.worn().length;
+    for (const s of ['winter', 'spring', 'summer', 'fall'] as const) { p.season = s; expect(p.worn()).toHaveLength(all); }
+    // Low: no quilting or buttons, but the same apron, belt, bandana and glasses
+    choose('low');
+    p.redress();
+    expect(of(C.plank)).toHaveLength(3);
+    expect(of(C.red)).toHaveLength(4);
+    expect(of(C.ice)).toHaveLength(2);
+    choose('high');
+  });
+
   it('walks with both feet on the ground, the body dipping and leaning into the stride', async () => {
     const g = await loadGame();
     const { Person, animPerson } = await characters();
