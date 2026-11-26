@@ -8,6 +8,13 @@ straight into the game, fullscreen at the screen's own size. About 100 MB to dow
   runs at a time.
 - `preload.cjs`: the only things the game's page can ask of the program, as `window.floeDesktop`. The page stays
   sandboxed, with no Node.
+- `saves.mjs`: the game's save, as files in `<userData>/saves/` (on Windows `%APPDATA%\Floe Market\saves`, on Linux
+  `~/.config/Floe Market/saves`), the folder Steam Cloud will sync. Each save is written to a temporary file, flushed to
+  the disk and renamed over `save.json`, so a crash mid-save leaves the old save or the new one, never half. It rolls
+  into three backups (`save.1.json`, newest, to `save.3.json`) when the game starts and every ten minutes; if
+  `save.json` is ever unreadable, the newest good backup stands in. The page reads the save once as it starts, writes
+  it in the background, and there and then as the window closes (Alt+F4 too). Settings stay in the page's own storage,
+  per device.
 - `build.mjs`: builds the game into `app/`, then packages the program into `out/`.
 
 ## Build and run

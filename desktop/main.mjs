@@ -6,11 +6,12 @@
 // The game is served from app://floe/ (links.mjs). Links the game opens go to the player's browser (web pages), to
 // Steam (steam:// addresses) or to a window of the app's own (the licence notices); the game's window itself never
 // leaves the game.
-import { app, BrowserWindow, Menu, net, protocol, shell } from 'electron';
+import { app, BrowserWindow, ipcMain, Menu, net, protocol, shell } from 'electron';
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { fileFor, linkKind, ORIGIN } from './links.mjs';
+import { saveFiles } from './saves.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const GAME = join(here, 'app');
@@ -51,7 +52,30 @@ else {
   app.whenReady().then(start);
 }
 
+/** Minutes between rolls of the save into its backups, while playing (saves.mjs). */
+const ROLL_EVERY = 10;
+
+/**
+ * The game's save, in files (saves.mjs) rather than the page's storage, so a crash mid-save can't spoil it and Steam
+ * Cloud can sync it. The page reads it once as it starts, writes it in the background as it plays, and writes it
+ * there and then (sync) on its way out, so closing the window never loses anything. Rolls into the backups as the
+ * game starts and every ten minutes.
+ */
+function serveSaves() {
+  const saves = saveFiles(join(app.getPath('userData'), 'saves'));
+  const safely = (/** @type {() => unknown} */ f) => {
+    try { return { ok: true, value: f() }; } catch (e) { console.error('[floe] save', e); return { ok: false, error: String(e) }; }
+  };
+  safely(() => saves.roll());
+  setInterval(() => safely(() => saves.roll()), ROLL_EVERY * 60_000);
+  ipcMain.on('save:read', (e, key) => { e.returnValue = safely(() => saves.read(key)); });
+  ipcMain.handle('save:write', (_e, key, data) => safely(() => saves.write(key, String(data))));
+  ipcMain.on('save:write-now', (e, key, data) => { e.returnValue = safely(() => saves.write(key, String(data))); });
+  ipcMain.on('save:remove', (e, key) => { e.returnValue = safely(() => saves.remove(key)); });
+}
+
 async function start() {
+  serveSaves();
   protocol.handle('app', async req => {
     const file = fileFor(req.url, GAME, NOTICES);
     if (!file || !existsSync(file)) return new Response('Not found', { status: 404 });

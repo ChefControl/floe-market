@@ -1,9 +1,12 @@
 // Progress persistence on the device (cloud.ts syncs it with an account, for players who sign in). Saves are
 // versioned so game updates never reset progress, and a second tab can't overwrite newer progress with an older
-// copy of the game.
+// copy of the game. In the desktop app (desktop.ts) the save is a file, written whole or not at all, with backups
+// (desktop/saves.mjs).
 import { C1, repriceFish, SLED, TAKEOUT, type Counter } from './counters';
 import { choice, readLook, setLook, type Choice } from './customize';
 import { MODS, mods, type ModId } from './economy';
+import { desktop } from './desktop';
+import { showErr } from './errors';
 import { keepStage3 } from './flags';
 import { front } from './front';
 import { loadOffer, offer } from './offer';
@@ -102,15 +105,61 @@ function handsFrom(raw: unknown): Hands {
   return Object.fromEntries(HANDS.map(k => [k, num(h[k])])) as Hands;
 }
 
-/** The one place that touches device storage. */
+// ---------- the desktop app's save files ----------
+/** The keys the desktop app keeps in files (desktop/saves.mjs); anything else stays in the page's storage. */
+const FILED = new Set([SAVE_KEY, BACKUP_KEY]);
+/** What each file holds, as last read or written: the page reads a file once, then keeps its own copy. */
+const filed = new Map<string, string | null>();
+/** Set when the save file can't be read: nothing's written over it, so a fresh game can't take its place. */
+let unreadable = false;
+let told = false;
+function fileTrouble(what: string, error: string) {
+  console.error(`[save] ${what}: ${error}`);
+  if (told) return;
+  told = true;
+  showErr(`${what}. ${error}`);
+}
+const fileStore = (key: string) => FILED.has(key) ? desktop()?.saves : undefined;
+
+/** The one place that touches device storage. `now`: written there and then, as the page goes away (the desktop app's
+ *  files are otherwise written in the background). */
 export const deviceStore = {
   read(key = SAVE_KEY) {
+    const files = fileStore(key);
+    if (files) {
+      if (!filed.has(key)) {
+        const a = files.read(key);
+        if (!a.ok) { unreadable = true; fileTrouble("Couldn't read your save, so this game won't be saved", a.error); }
+        filed.set(key, a.ok ? a.value : null);
+      }
+      return filed.get(key) ?? null;
+    }
     try { return localStorage.getItem(key); } catch { return null; }
   },
-  write(data: string, key = SAVE_KEY) {
+  write(data: string, key = SAVE_KEY, now = false) {
+    const files = fileStore(key);
+    if (files) {
+      if (unreadable) return false;
+      filed.set(key, data);
+      const failed = (e: string) => fileTrouble("Couldn't save the game", e);
+      if (now) {
+        const a = files.writeNow(key, data);
+        if (!a.ok) failed(a.error);
+        return a.ok;
+      }
+      files.write(key, data).then(a => { if (!a.ok) failed(a.error); }, (e: unknown) => failed(String(e)));
+      return true;
+    }
     try { localStorage.setItem(key, data); return true; } catch { return false; }
   },
   remove(key = SAVE_KEY) {
+    const files = fileStore(key);
+    if (files) {
+      filed.set(key, null);
+      const a = files.remove(key);
+      if (!a.ok) fileTrouble("Couldn't erase the save", a.error);
+      return;
+    }
     try { localStorage.removeItem(key); } catch { /* storage unavailable */ }
   },
 };
@@ -224,7 +273,8 @@ const cashSum = (cash: Holder) => cash.all().reduce((s, b) => s + billValue(b), 
 /** Fillets on an open counter, counting what its customers are holding but haven't paid for yet. */
 const onCounter = (C: Counter) => C.enabled ? C.stock.n + C.queue.reduce((n, c) => n + c.hands.n, 0) : 0;
 
-export function save() {
+/** Saves the game. `now`: as the page goes away, written there and then. */
+export function save(now = false) {
   if (stale) return;
   if (deviceStore.read() !== lastSeen) { markStale(); return; }
   // Count everything mid-air too (flying bills and slices, fish being reeled in, workers' loads, what the chefs
@@ -278,7 +328,7 @@ export function save() {
     matkot: beach.best,
   };
   const raw = JSON.stringify(data);
-  if (deviceStore.write(raw)) lastSeen = raw;
+  if (deviceStore.write(raw, SAVE_KEY, now)) lastSeen = raw;
   if (!askedPersist && (tiles.some(t => t.paid > 0) || presents.n > 0)) requestPersistentStorage();
 }
 
@@ -393,11 +443,13 @@ function loadRing(s: SaveData) {
 
 /** Saves on a timer and whenever the page may be going away, and watches for other tabs taking over. */
 export function startAutosave() {
-  setInterval(save, 2500);
-  document.addEventListener('visibilitychange', () => { if (document.hidden) save(); });
-  // pagehide is the reliable "leaving" signal on iOS; beforeunload covers older desktop browsers.
-  window.addEventListener('pagehide', save);
-  window.addEventListener('beforeunload', save);
+  setInterval(() => save(), 2500);
+  const final = () => save(true);
+  document.addEventListener('visibilitychange', () => { if (document.hidden) final(); });
+  // pagehide is the reliable "leaving" signal on iOS; beforeunload covers older desktop browsers, and the desktop
+  // app's window closing (Alt+F4 too).
+  window.addEventListener('pagehide', final);
+  window.addEventListener('beforeunload', final);
   window.addEventListener('storage', e => {
     if ((e.key === SAVE_KEY || e.key === null) && e.newValue !== lastSeen) markStale();
   });
