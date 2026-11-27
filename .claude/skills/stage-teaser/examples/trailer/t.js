@@ -53,7 +53,8 @@
       if (t < 0) { K.cam = camAt(0); return; }
       STAGE1.forEach(([id, b]) => once(id, at(b), t, () => pop(id)));
       // out of his rags and into his parka as the money comes in
-      once('coat', at(2.75), t, () => { rags.userData.restore(); FX.unlockFx({ x: P.position.x, z: P.position.z }, 0.9); });
+      once('coatFx', at(2.75) - 0.034, t, () => FX.unlockFx({ x: P.position.x, z: P.position.z }, 0.9)); /* (the sparkle a frame ahead of the change it covers, the change two frames into it: it was a bare one-frame swap with the sparkle after) */
+      once('coat', at(2.75) + 0.05, t, () => { rags.userData.restore(); });
       // the seasons turn: spring and summer blend in, autumn arrives in the smear with the restaurant
       once('spring', at(3), t, () => SE.setSeason(1, 0)); once('summer', at(5), t, () => SE.setSeason(2, 0));
       once('sushi', at(8.25), t, () => { SE.setSeason(3, 30, true); U.applyUnlock('sushi', true); STAGE2.forEach(id => U.applyUnlock(id, true)); U.tiles.forEach(U.redrawTile); });

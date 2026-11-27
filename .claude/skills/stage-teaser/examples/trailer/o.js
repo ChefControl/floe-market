@@ -651,7 +651,7 @@
     tuna.g.scale.setScalar(2.3); tuna.g.children[2].scale.y = 1;
     const f = faceAt(t);
     // (his belt, till he takes it off for a rope: it draws in under his hand over four frames, and is gone)
-    { const k = clamp((t - T.off + 0.1) / 0.34), [band, knob, tail] = rags.userData.belt; band.userData.full ??= band.geometry;
+    { const k = ease((t - T.off + 0.1) / 0.22) /* (as the rope comes out into his hand, no slower: there were two ropes for five frames) */, [band, knob, tail] = rags.userData.belt; band.userData.full ??= band.geometry;
       band.visible = k < 0.88; knob.visible = tail.visible = t < T.off - 0.1; // (the knot's in his hand from the moment he pulls)
       if (band.userData.k !== k) { band.userData.k = k; if (band.geometry !== band.userData.full) band.geometry.dispose();
         // (what's left of it runs from the knot round him: the far end comes round his back to his hand)
@@ -793,7 +793,7 @@
       const h = hand(1), pre0 = t > T.off - 0.1 ? 1 : 0, drawn = ease((t - T.off + 0.1) / 0.22), pre = drawn, knotAt = P.body.localToWorld(V(0.07, 0.5, 0.27));
       const tieK = ease((t - T.tie) / 0.24) * (1 - ease((t - T.tied + 0.02) / 0.16)), loopK = ease((t - T.tie - 0.18) / (T.tied - T.tie - 0.3));
       const hangEnd = knotAt.clone().lerp(h.clone().add(V(0.03 + Math.sin(t * 5.5) * 0.04 * pre, -0.62 * pre, 0.02)), drawn).lerp(hand(0).add(V(0, -0.03, 0.03)), tieK), lift = ease(twT / 0.24);
-      const grown = ease(twT / 0.45), rad = 0.2 + 0.1 * grown, over = hangEnd.clone().lerp(h.clone().add(V(Math.cos(spin) * rad, 0.28 + 0.24 * grown, Math.sin(spin) * rad)), lift);
+      const grown = ease(twT / 0.45), rad = 0.2 + 0.1 * grown, over = hangEnd.clone().lerp(h.clone().add(V(Math.cos(spin) * rad, 0.42 + 0.27 * grown /* (clear of a tall chef's hat: the loop cut through its top) */, Math.sin(spin) * rad)), lift);
       tuna.g.updateMatrixWorld(true);
       const tunaAt = tuna.g.localToWorld(V(0.3, 0, 0)), fk = flown, fly = over.clone().lerp(tuna.g.localToWorld(V(1.3, 0.02, 0)), fk).add(V(0, Math.sin(fk * Math.PI) * 0.55, 0)), sw = ease(clamp((t - T.thrown) / 0.22));
       let knot = null;

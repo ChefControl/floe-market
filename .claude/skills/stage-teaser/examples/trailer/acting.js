@@ -97,7 +97,7 @@ window.Acting = async () => {
    *  on the ice: a faded T-shirt gone ragged at the hem, torn and stained, a rope for a belt, a battered straw hat in
    *  place of the summer's sunglasses (his eyes have to show), seaweed on a shoulder. (Tried first and turned down by
    *  the owner: a life vest, then the parka itself stained and torn.) */
-  function castaway(P, { color = 0xF4F1EA } = {}) {
+  function castaway(P, { color = 0xE4E0D8 /* (the palette's paper, 0xF4F1EA, taken down 7%: at full paper its sunlit faces clipped to flat white) */ } = {}) {
     // THE SHIPWRECKED CHEF (the owner's pick, 27 Nov 2026, from five concepts): the game's own chef's whites, toque and red
     // neckerchief (characters.ts chefWhites), gone through a shipwreck: sea-stained, the hem in tatters, one sleeve torn
     // short, a trouser leg gone at the knee, the toque knocked sideways, and the rope for a belt. (Before it: a ragged
@@ -117,21 +117,22 @@ window.Acting = async () => {
     const R = y => 0.275 - (y - 0.3) * 0.085, on = (a, y, out = 0.004) => [Math.sin(a) * (R(y) + out), y, Math.cos(a) * (R(y) + out)];
     let seed = 5; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
     // sea stains: wet sand and sand (palette.ts), soaked in from the hem up
-    for (const [a, y, w, h, m] of [[0.5, 0.4, 0.12, 0.05, stain], [-0.85, 0.62, 0.05, 0.08, stain2], [2.5, 0.58, 0.13, 0.05, stain], [-2.5, 0.43, 0.1, 0.045, stain], [-0.25, 0.37, 0.07, 0.035, stain2],
-      [1.4, 0.42, 0.04, 0.06, stain], [-1.5, 0.72, 0.07, 0.03, stain2], [3.1, 0.38, 0.09, 0.04, stain2]]) add(ball, m, ...on(a, y, -0.004), [w, h, 0.012], [0, a, rnd() * 3]);
+    // (small and thin: wide thick ones stood off the cone as fins at his outline)
+    for (const [a, y, w, h, m] of [[0.5, 0.4, 0.075, 0.05, stain], [-0.85, 0.62, 0.045, 0.07, stain2], [2.5, 0.58, 0.075, 0.05, stain], [-2.5, 0.43, 0.07, 0.045, stain], [-0.25, 0.37, 0.06, 0.035, stain2],
+      [1.4, 0.42, 0.04, 0.06, stain], [-1.5, 0.72, 0.06, 0.03, stain2], [3.1, 0.38, 0.07, 0.04, stain2], [0.75, 0.52, 0.04, 0.03, stain2], [-2.0, 0.6, 0.05, 0.035, stain]]) add(ball, m, ...on(a, y, -0.007), [w, h, 0.006], [0, a, rnd() * 3]);
     // the hem in tatters: ragged tongues of cloth hanging off it all the way round, no two the same
     for (let i = 0; i < 15; i++) {
       const a = i / 15 * Math.PI * 2 + rnd() * 0.2, len = 0.035 + rnd() * 0.075, w = 0.03 + rnd() * 0.03;
       add(new CylinderGeometry(w, 0.004, len, 3, 1), i % 4 ? cloth : stain, ...on(a, 0.3 - len / 2 + 0.012, -0.006), [1, 1, 0.25], [0, a, (rnd() - 0.5) * 0.5]);
     }
-    // a hole at the side, skin showing through a dark, frayed edge
-    for (const [a, y, w, h, r] of [[-1.1, 0.5, 0.032, 0.045, -0.3]]) {
-      add(ball, hole, ...on(a, y, 0.001), [w, h, 0.008], [0, a, r]); add(ball, skin, ...on(a, y, 0.004), [w * 0.72, h * 0.68, 0.008], [0, a, r]);
-    }
+    // (no hole in it: one by the belt read as a button, or a porthole)
     // the neckerchief's knot and its two ends, and his hair showing under the toque at the back and sides
     { const red = lam(0xE5484D); add(ball, red, 0.02, 0.845, 0.203, [0.036, 0.03, 0.024]);
       add(new CylinderGeometry(0.042, 0.005, 0.14, 3, 1), red, -0.03, 0.775, 0.222, [1, 1, 0.3], [0.15, 0, -0.35]); add(new CylinderGeometry(0.038, 0.005, 0.115, 3, 1), red, 0.065, 0.785, 0.216, [1, 1, 0.3], [0.15, 0, 0.45]);
-      const hair = new Mesh(new CylinderGeometry(0.199, 0.203, 0.1, 14, 1, true, 1.0, Math.PI * 2 - 2.0), new MeshLambertMaterial({ color: 0x5E3B24, side: 2 })); hair.position.set(0, 1.112, 0.03); g.add(hair); }
+      // (it was one band of even height from temple to temple: a hat band from behind, a visor in profile)
+      const hm = new MeshLambertMaterial({ color: 0x8A5A3B, side: 2 });
+      const back = new Mesh(new CylinderGeometry(0.2, 0.186, 0.2, 12, 1, true, 2.0, Math.PI * 2 - 4.0), hm); back.position.set(0, 1.062, 0.03); g.add(back);
+      for (const sg of [1, -1]) { const side = new Mesh(new CylinderGeometry(0.2, 0.198, 0.075, 5, 1, true, sg > 0 ? 1.55 : Math.PI * 2 - 2.0, 0.45), hm); side.position.set(0, 1.124, 0.03); g.add(side); } }
     // a rope for a belt, knotted at the front with an end hanging (it's what he ropes the tuna with)
     const rope = lam(0xC9A66B);
     g.userData.belt = [add(new TorusGeometry(R(0.5) + 0.006, 0.02, 6, 20), rope, 0, 0.5, 0, null, [Math.PI / 2, 0, 0]),
@@ -139,7 +140,10 @@ window.Acting = async () => {
       add(new CylinderGeometry(0.014, 0.014, 0.14, 5), rope, ...on(0.3, 0.42, 0.02), null, [0, 0, 0.25])]; // (so a shot can have him take it off)
     P.body.add(g);
     // one sleeve torn off above the elbow, and one trouser leg at the knee
-    const cuff = new Mesh(new CylinderGeometry(0.066, 0.07, 0.022, 8, 1, true), hole); cuff.position.y = -0.17; P.arms[0].add(cuff);
+    // (its end in tatters, as the hem is: a clean dark ring read as a wristband)
+    const cuff = new Group(); cuff.position.y = -0.165; P.arms[0].add(cuff);
+    for (let i = 0; i < 7; i++) { const a = i / 7 * Math.PI * 2 + rnd() * 0.3, len = 0.03 + rnd() * 0.05, m = new Mesh(new CylinderGeometry(0.024, 0.003, len, 3, 1), i % 3 ? cloth : stain);
+      m.position.set(Math.sin(a) * 0.058, -len / 2 + 0.01, Math.cos(a) * 0.058); m.scale.set(1, 1, 0.3); m.rotation.set(0, a, (rnd() - 0.5) * 0.4); cuff.add(m); }
     const fore = new Mesh(new CylinderGeometry(0.057, 0.05, 0.2, 8), skin); fore.position.y = -0.275; P.arms[0].add(fore);
     const t = new Mesh(new CylinderGeometry(0.078, 0.082, 0.025, 8, 1, true), hole); t.position.y = -0.12; P.legs[1].add(t);
     const shin = new Mesh(new CylinderGeometry(0.068, 0.062, 0.13, 8), skin); shin.position.y = -0.19; P.legs[1].add(shin);
