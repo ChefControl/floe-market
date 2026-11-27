@@ -9,7 +9,13 @@ S=$(mkdir -p "${OUT:-out/trailer}" && cd "${OUT:-out/trailer}" && pwd)
 U=http://localhost:5177/; U3="http://localhost:5177/?cellar&full&beaten=4&sound=on"
 FK=rush,fightBanner,finish,finBlink,ringFlash,epic,banner,fade,toast,confetti
 r() { name=$1; shift; node "$P/render-play.mjs" "$@" > "$S/log-$name.txt" 2>&1; echo "$name: $(tail -1 "$S/log-$name.txt")"; }
-# THE CURRENT CUT is version 9 (version 8 with the castaway as the shipwrecked chef, acting.js castaway()): python3 cut.py "$S" trailer-v9.mp4 --phone phone.mp4 --edl edl-v9.json
+# THE CURRENT CUT is version 10, the short one (the owner: only 0:57 to 1:16 of version 9 is good, keep only that for now, and the
+# cafe band's WINTER tune under Floe Sushi): the first sale, the spin and Floe Sushi, 21 s. python3 cut.py "$S" trailer-v10.mp4 --phone phone.mp4 --edl edl-v10.json
+# It needs two more takes. TMW, the music stem with the band in winter (t.js ?band=0; the same stem as TM to the sample until the band comes in):
+#   r TMW "$X/kit.js,$X/acting.js,$X/t.js" "$S/TMW" --landscape --url "$U?stage=1&pile=14&sound=on&pre=8&band=0" --init "$X/newgame.js" --wait 6000 --mute sfx,amb --sound-only
+# and Uy, Floe Sushi from take U as far as "Premium menu unlocked", faded out (Ux dissolved on to the knocking message, which is cut):
+#   ffmpeg -framerate 30 -start_number 0 -i "$S/U/frames/%04d.jpg" -i "$S/U/game.wav" -filter_complex "[0]trim=start_frame=0:end_frame=170,setpts=PTS-STARTPTS,fade=t=out:start_frame=157:nb_frames=13,format=yuvj420p[v];[1]atrim=0:5.6667,asetpts=PTS-STARTPTS,afade=t=out:st=5.05:d=0.6[au]" -map "[v]" -q:v 2 -start_number 0 "$S/Uy/frames/%04d.jpg" -map "[au]" "$S/Uy/game.wav"
+# Version 9 (the whole film, 1:29) was: (version 8 with the castaway as the shipwrecked chef, acting.js castaway()): python3 cut.py "$S" trailer-v9.mp4 --phone phone.mp4 --edl edl-v9.json
 # (edl-v9.json names its takes O14, C11, Gx4 and T8: O, C, G/Gx and T rendered again with the new costume. edl-v8.json is the same cut in the old one.)
 # Version 8 was:  python3 cut.py "$S" trailer-v8.mp4 --phone phone.mp4 --edl edl-v8.json
 # (edl-v8.json names its takes O12, C9, T6 and H4, lifts the mix 2 dB into the limiter ("pre") and lays grain over the night ("grain"): the same O, C, T and H as below, rendered from these scripts, and Gx2: the

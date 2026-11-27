@@ -15,6 +15,8 @@
   const T = { fast: at(5.5), peak: at(7.5), slow: at(9), there: at(12), end: at(15), tail: at(15) + 9 };
 
   const PRE = at(Number(new URLSearchParams(location.search).get('pre') || 0));
+  /* (?band=0..3: the season the cafe band plays in on the MUSIC stem, winter to autumn; the owner asked for winter's under Floe Sushi. The picture stays autumn.) */
+  const BAND = Number(new URLSearchParams(location.search).get('band') ?? 3);
   const P = player.g, rags = ACT.castaway(P); ACT.soles(P);
   // ---------- the orbit: how fast it turns, by time, and so where it is ----------
   const W0 = 0.32, WA = 0.8, W1 = 9.4; // (was 14: one turn fewer in the smear, the owner's note)
@@ -57,7 +59,7 @@
       once('coat', at(2.75) + 0.05, t, () => { rags.userData.restore(); });
       // the seasons turn: spring and summer blend in, autumn arrives in the smear with the restaurant
       once('spring', at(3), t, () => SE.setSeason(1, 0)); once('summer', at(5), t, () => SE.setSeason(2, 0));
-      once('sushi', at(8.25), t, () => { SE.setSeason(3, 30, true); U.applyUnlock('sushi', true); STAGE2.forEach(id => U.applyUnlock(id, true)); U.tiles.forEach(U.redrawTile); });
+      once('sushi', at(8.25), t, () => { SE.setSeason(PRE > 0 ? BAND : 3, 30, true); U.applyUnlock('sushi', true); STAGE2.forEach(id => U.applyUnlock(id, true)); U.tiles.forEach(U.redrawTile); });
       // the wind-up: a rising rush of air under the spin, and a soft landing as it comes to rest on the restaurant
       once('riser', T.fast, t, () => { A.noise({ bus: 'cue', f: 90, f2: 260, kind: 'lowpass', d: T.slow - T.fast + 0.3, a: T.peak - T.fast, v: 0.6 }); }); // (the low half only: the half that swept up to 3 kHz was WHITE noise, and measured as hiss to 20 kHz for three seconds; the rise is the brown beds below now)
       // (the rush HELD under the whole smear, to a breath before the landing: the riser alone is gone a second before the blur is)
