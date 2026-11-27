@@ -20,6 +20,9 @@ r() { name=$1; shift; node "$P/render-play.mjs" "$@" > "$S/log-$name.txt" 2>&1; 
 # Uz, Floe Sushi from take U as far as "Premium menu unlocked", faded out before "Floe Sushi is fully built" comes up
 # (Ux dissolved on to the knocking message, which is cut):
 #   ffmpeg -framerate 30 -start_number 0 -i "$S/U/frames/%04d.jpg" -i "$S/U/game.wav" -filter_complex "[0]trim=start_frame=0:end_frame=187,setpts=PTS-STARTPTS,fade=t=out:start_frame=174:nb_frames=13,format=yuvj420p[v];[1]atrim=0:6.2333,asetpts=PTS-STARTPTS,afade=t=out:st=5.8:d=0.43[au]" -map "[v]" -q:v 2 -start_number 0 "$S/Uz/frames/%04d.jpg" -map "[au]" "$S/Uz/game.wav"
+# AN ALTERNATIVE for the owner to choose, edl-v10-alt.json: the same cut with Floe Sushi filmed from the game's camera raised
+# (u.js ?lift=1.45: the chef's head clears the porch beam and the price clears the lantern), take Uw, made from it as Uz is from U:
+#   r Ul "$X/kit.js,$X/u.js" "$S/Ul" --landscape --url "$U?upto=porter&sound=on&lift=1.45" --mute music --wait 6000 --keep hud,toast,prompts,buy,banner,confetti
 # The ending is timed to the winter band: its bars start 0.72 s into the edl's last bed and every 2.857 s after (a beat is
 # 0.714 s). The spin's landing is held to frame 291 so the unlock (U frame 131) falls on a bar's first beat; the fade
 # starts two beats later and the bed is out before the next pick-up note.

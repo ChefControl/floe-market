@@ -20,6 +20,14 @@
     ptr('pointermove', CX + (ux * camR.x + uz * camR.z) * 48 * m, CY - (ux * camF.x + uz * camF.z) * 48 * m);
     return false;
   }
+  /* ?lift=1.3: the game's own camera, raised: the same direction and distance, its height times `lift`. From the game's
+     angle the porch's roof beam and a hanging lantern cross the chef on the Premium menu's tile (an outside review: "you
+     cannot see who is buying"); 1.3 looks over the beam, and he and the price are in the clear. (The game aims its camera
+     with lookAt once a frame; the kit takes a shot from K.cam there, so this sets K.cam from the game's own aim first.) */
+  const LIFT = Number(new URLSearchParams(location.search).get('lift') || 1);
+  if (LIFT !== 1) { const cam = K.R.camera, kitLook = cam.lookAt, FOV = cam.fov;
+    cam.lookAt = (...a) => { const aim = a[0] && a[0].isVector3 ? a[0].clone() : V(a[0], a[1], a[2]), o = cam.position.clone().sub(aim), L = o.length();
+      o.y *= LIFT; o.setLength(L); K.cam = { pos: aim.clone().add(o), look: aim, fov: FOV }; return kitLook(...a); }; }
   const key = (type) => window.dispatchEvent(new KeyboardEvent(type, { key: 'e', code: 'KeyE', bubbles: true }));
   const tile = U.tiles.find(t => t.id === 'premium');
   const marks = {}; window.cineType = { marks };
@@ -46,7 +54,7 @@
       console.log('[cine] register', RS.register.items.length, 'tile', tile.x, tile.z, tile.open, tile.done, '$', wallet.money);
     },
     frame(i, fps) {
-      K.cam = null;
+      if (LIFT === 1) K.cam = null;
       if (i === 0) marks.till = 0;
       const p = player.g.position;
       // once it's bought and the first toast has gone: closer on him for the game's next line, "Something is knocking under
