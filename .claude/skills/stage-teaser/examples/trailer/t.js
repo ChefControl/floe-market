@@ -76,7 +76,7 @@
       K.cam = camAt(t);
       { const veil = (at0, top) => { const d = t - (at0 - 0.012), k = d < 0 ? clamp(1 + d / 0.17) : clamp(1 - d / 0.27); return top * k * k * (3 - 2 * k); };
         // (and over the swap to autumn inside the smear: the blur hid its shapes, not its brightness, which fell by a third in one frame)
-        bloom.style.opacity = String(Math.max(veil(at(5), 0.93), veil(at(8.25), 0.7))); }
+        bloom.style.opacity = String(Math.max(veil(at(5), 0.93), veil(at(8.25), 0.93))); /* (the second as white as the first: at 0.7 the market deck and then a close view of the restaurant showed through it on the two frames of the swap, an outside review) */ }
       // the smear: as many draws across the frame as the turn needs (one every 0.003 rad, about 3 px at the picture's
       // edge: further apart and a fence or a tree line shows as a row of stepped copies)
       // (a half-open shutter while it's slow, so what's being built stays sharp; wide open once it's a whip)
