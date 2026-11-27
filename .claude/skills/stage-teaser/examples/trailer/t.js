@@ -17,7 +17,9 @@
   const PRE = at(Number(new URLSearchParams(location.search).get('pre') || 0));
   /* (?band=0..3: the season the cafe band plays in on the MUSIC stem, winter to autumn; the owner asked for winter's under Floe Sushi. The picture stays autumn.) */
   const BAND = Number(new URLSearchParams(location.search).get('band') ?? 3);
-  const P = player.g, rags = ACT.castaway(P); ACT.soles(P);
+  /* (?plain=1: the chef in the game's own clothes from the first frame, no change out of the castaway's whites) */
+  const PLAIN = new URLSearchParams(location.search).get('plain') === '1';
+  const P = player.g, rags = PLAIN ? null : ACT.castaway(P); ACT.soles(P);
   // ---------- the orbit: how fast it turns, by time, and so where it is ----------
   const W0 = 0.32, WA = 0.8, W1 = 9.4; // (was 14: one turn fewer in the smear, the owner's note)
   const rate = t => t < T.fast ? mix(W0, WA, ease(t / T.fast)) : t < T.peak ? WA * Math.pow(W1 / WA, ease((t - T.fast) / (T.peak - T.fast))) : t < T.slow ? W1 : mix(W1, 0.035, Math.pow(easeIO(clamp((t - T.slow) / (T.there - T.slow))), 0.55));
@@ -55,8 +57,8 @@
       if (t < 0) { K.cam = camAt(0); return; }
       STAGE1.forEach(([id, b]) => once(id, at(b), t, () => pop(id)));
       // out of his rags and into his parka as the money comes in
-      once('coatFx', at(2.75) - 0.034, t, () => FX.unlockFx({ x: P.position.x, z: P.position.z }, 0.9)); /* (the sparkle a frame ahead of the change it covers, the change two frames into it: it was a bare one-frame swap with the sparkle after) */
-      once('coat', at(2.75) + 0.05, t, () => { rags.userData.restore(); });
+      if (rags) once('coatFx', at(2.75) - 0.034, t, () => FX.unlockFx({ x: P.position.x, z: P.position.z }, 0.9)); /* (the sparkle a frame ahead of the change it covers, the change two frames into it: it was a bare one-frame swap with the sparkle after) */
+      if (rags) once('coat', at(2.75) + 0.05, t, () => { rags.userData.restore(); });
       // the seasons turn: spring and summer blend in, autumn arrives in the smear with the restaurant
       once('spring', at(3), t, () => SE.setSeason(1, 0)); once('summer', at(5), t, () => SE.setSeason(2, 0));
       once('sushi', at(8.25), t, () => { SE.setSeason(PRE > 0 ? BAND : 3, 30, true); U.applyUnlock('sushi', true); STAGE2.forEach(id => U.applyUnlock(id, true)); U.tiles.forEach(U.redrawTile); });

@@ -8,12 +8,14 @@
   const CT = await window.__mod('counters.ts'), ST = await window.__mod('stations.ts');
   const { wallet } = await window.__mod('wallet.ts');
   const gl = K.R.canvas, OFF = K.R.OFF;
-  const fire = Campfire(T3, K.R.scene, 0.95, 0.15, -3.55);
+  /* (?plain=1: the first sale on its own, with no castaway story before it: the chef in the game's own winter parka, and no burnt-out campfire on the dock) */
+  const PLAIN = new URLSearchParams(location.search).get('plain') === '1';
+  const fire = Campfire(T3, K.R.scene, 0.95, 0.15, -3.55); if (PLAIN) fire.g.visible = false;
   // The game's camera sits where a whole laptop screen of dock fits; in a trailer the chef is a dot from there. This
   // is the same view from 0.58 of the way: its own angle, following him as the game does.
   const NEAR = 0.58, tgt = V(0, 0, 0); let tgtSet = false;
   // (still in the rags he washed up in: his first day's trade)
-  const ACT = await Acting(); ACT.castaway(player.g); ACT.soles(player.g);
+  const ACT = await Acting(); if (!PLAIN) ACT.castaway(player.g); ACT.soles(player.g);
   // the game's joystick: a drag on the canvas, read against the camera (input.ts)
   const camF = V(-OFF.x, 0, -OFF.z).normalize(), camR = V(-camF.z, 0, camF.x), CX = innerWidth / 2, CY = innerHeight / 2;
   const ptr = (type, x, y) => gl.dispatchEvent(new PointerEvent(type, { pointerId: 7, clientX: x, clientY: y, bubbles: true }));
@@ -44,7 +46,7 @@
       const focus = pp.clone().lerp(V(2.55, pp.y, 8.5), 0.62 * bias);
       if (!tgtSet) { tgt.copy(focus); tgtSet = true; } else tgt.lerp(focus, Math.min(1, 5 / fps));
       K.fade(1 - K.ease(i / fps / 0.4)); // (out of the campfire's black)
-      K.cam = { pos: tgt.clone().add(OFF.clone().multiplyScalar(NEAR)), look: tgt.clone().add(V(0, 0.4, 0)), fov: 40 };
+      K.cam = { pos: tgt.clone().add(OFF.clone().multiplyScalar(NEAR)), look: tgt.clone().add(V(0, 0.4, 0)), fov: 40, near: 1.5 }; /* (near 1.5 m: a snowflake drifting a hand from the lens was a pale disc a tenth of the picture wide for four frames; the chef is over 9 m away) */
       fire.set(i / fps, 0);
       const carrying = player.back.items?.length ?? 0, C = CT.C1;
       if (i === 0) marks.pile = 0;

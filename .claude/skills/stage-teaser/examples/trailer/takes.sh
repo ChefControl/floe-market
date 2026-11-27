@@ -23,6 +23,11 @@ r() { name=$1; shift; node "$P/render-play.mjs" "$@" > "$S/log-$name.txt" 2>&1; 
 # AN ALTERNATIVE for the owner to choose, edl-v10-alt.json: the same cut with Floe Sushi filmed from the game's camera raised
 # (u.js ?lift=1.45: the chef's head clears the porch beam and the price clears the lantern), take Uw, made from it as Uz is from U:
 #   r Ul "$X/kit.js,$X/u.js" "$S/Ul" --landscape --url "$U?upto=porter&sound=on&lift=1.45" --mute music --wait 6000 --keep hud,toast,prompts,buy,banner,confetti
+# A SECOND ALTERNATIVE, edl-v10-alt2.json: that, and the chef in the game's own parka from the first frame (g.js and t.js
+# ?plain=1: no castaway costume, no change of clothes in the spin, no burnt-out campfire on the dock). Takes Gxp (from Gp,
+# trimmed as Gx is from G) and Tq (Tp with the landing's six frames eased as T9):
+#   r Gp "$X/kit.js,$X/acting.js,$X/campfire.js,$X/g.js" "$S/Gp" --landscape --url "$U?stage=1&pile=14&sound=on&plain=1" --mute music --init "$X/newgame.js" --wait 6000 --keep hud,toast,prompts
+#   r Tp "$X/kit.js,$X/acting.js,$X/t.js" "$S/Tp" --landscape --url "$U?stage=1&pile=14&sound=on&plain=1" --init "$X/newgame.js" --wait 6000 --mute music
 # The ending is timed to the winter band: its bars start 0.72 s into the edl's last bed and every 2.857 s after (a beat is
 # 0.714 s). The spin's landing is held to frame 291 so the unlock (U frame 131) falls on a bar's first beat; the fade
 # starts two beats later and the bed is out before the next pick-up note.
