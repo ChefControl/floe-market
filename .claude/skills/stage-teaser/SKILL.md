@@ -378,6 +378,17 @@ Budget for this: after you think a cut is done, one outside review that looks at
 then a second review of the result. The second found as much as the first; the third and fourth said ship, each with
 a short list worth doing.
 
+### A costume from a picked concept: start from the game's own look
+
+The owner picked "shipwrecked chef" from five Gemini concepts. The game already dresses people as chefs
+(`characters.ts`: `look` 'chef', `chefWhites()`, `toque(level)`), so `acting.js` `castaway()` sets that look on the
+player and distresses it: the toque's two bones tipped and slumped, stains in the palette's sand colours, a tattered
+hem, a sleeve and a trouser leg replaced by skin, hair added under the hat (the chef look has none), the rope belt.
+A piece the game bakes in can still be reshaped: find it in `P.pieces` by its colour, change its `o.scale`, call
+`P.wear()` (the neckerchief, a thick collar that read as a life ring on a man at sea, is flattened that way).
+Every take that shows the costume has to be rendered again: here the opening, the campfire, the first sale (G) and
+the spin (he changes out of it there).
+
 ## Workflow
 
 1. **Agree the beats** in a few lines (what happens, roughly when). Ask only what changes the plan.

@@ -9,7 +9,9 @@ S=$(mkdir -p "${OUT:-out/trailer}" && cd "${OUT:-out/trailer}" && pwd)
 U=http://localhost:5177/; U3="http://localhost:5177/?cellar&full&beaten=4&sound=on"
 FK=rush,fightBanner,finish,finBlink,ringFlash,epic,banner,fade,toast,confetti
 r() { name=$1; shift; node "$P/render-play.mjs" "$@" > "$S/log-$name.txt" 2>&1; echo "$name: $(tail -1 "$S/log-$name.txt")"; }
-# THE CURRENT CUT is version 8 (two rounds of outside frame-by-frame review): python3 cut.py "$S" trailer-v8.mp4 --phone phone.mp4 --edl edl-v8.json
+# THE CURRENT CUT is version 9 (version 8 with the castaway as the shipwrecked chef, acting.js castaway()): python3 cut.py "$S" trailer-v9.mp4 --phone phone.mp4 --edl edl-v9.json
+# (edl-v9.json names its takes O13, C10, Gx3 and T7: O, C, G/Gx and T rendered again with the new costume. edl-v8.json is the same cut in the old one.)
+# Version 8 was:  python3 cut.py "$S" trailer-v8.mp4 --phone phone.mp4 --edl edl-v8.json
 # (edl-v8.json names its takes O12, C9, T6 and H4, lifts the mix 2 dB into the limiter ("pre") and lays grain over the night ("grain"): the same O, C, T and H as below, rendered from these scripts, and Gx2: the
 # first sale with ONE dissolve, from the fish crate to the stand, and then unbroken (a dissolve between two moments at the
 # same stand left ghost customers for five frames):

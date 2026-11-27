@@ -97,42 +97,55 @@ window.Acting = async () => {
    *  on the ice: a faded T-shirt gone ragged at the hem, torn and stained, a rope for a belt, a battered straw hat in
    *  place of the summer's sunglasses (his eyes have to show), seaweed on a shoulder. (Tried first and turned down by
    *  the owner: a life vest, then the parka itself stained and torn.) */
-  function castaway(P, { color = 0xD0623F } = {}) {
-    const was = { season: P.season, style: P.style, color: P.color };
-    P.season = 'summer'; P.style = { ...P.style, summer: 'straw', summerC: 0x8A5A3A }; P.color = color; P.redress();
-    const g = new Group(), cloth = lam(color), dark = lam(0x9A4A30), grime = lam(0x8A5A44), hole = lam(0x2B1A14), skin = lam(P.style.skin);
+  function castaway(P, { color = 0xF4F1EA } = {}) {
+    // THE SHIPWRECKED CHEF (the owner's pick, 27 Nov 2026, from five concepts): the game's own chef's whites, toque and red
+    // neckerchief (characters.ts chefWhites), gone through a shipwreck: sea-stained, the hem in tatters, one sleeve torn
+    // short, a trouser leg gone at the knee, the toque knocked sideways, and the rope for a belt. (Before it: a ragged
+    // orange T-shirt and a straw hat, which they didn't like; before that a life vest, and the parka torn.)
+    const was = { season: P.season, style: P.style, color: P.color, look: P.look };
+    P.look = 'chef'; P.color = color; P.redress(); P.toque(1, true);
+    // (the toque: its band tipped, its puff slumped over to one side)
+    const hat = P.body.children.filter(o => !o.isMesh && Math.abs(o.position.z - 0.03) < 1e-6), band = hat.find(o => Math.abs(o.scale.x - 0.19) < 1e-6), puff = hat.find(o => o !== band);
+    if (band && puff) { band.rotation.z = -0.1; puff.position.x += 0.075; puff.position.y -= 0.035; puff.rotation.z = -0.5; }
+    else console.log('[cine] WARNING: no toque found to knock sideways');
+    // (the game's neckerchief is a thick red collar: on a man adrift at sea it read as a life ring, which the owner ruled
+    // out. Flattened to a band of cloth here, with a knot and two ends at his throat below.)
+    { const scarf = (P.pieces ?? []).find(q => q.c === 0xE5484D); if (scarf) { scarf.o.scale.set(1.04, 1.04, 0.42); scarf.o.position.y = 0.865; P.wear(); } else console.log('[cine] WARNING: no neckerchief found to flatten'); }
+    const g = new Group(), cloth = lam(color), stain = lam(0xC9AE7C), stain2 = lam(0xE8D3A2), hole = lam(0x2B1A14), skin = lam(P.style.skin);
     const add = (geo, m, x, y, z, s, r) => { const o = new Mesh(geo, m); o.position.set(x, y, z); if (s) o.scale.set(...s); if (r) o.rotation.set(...r); g.add(o); return o; };
-    /** On the shirt at angle `a` round him (0 his front) and height `y`: it hangs as a cone, wider at the hem. */
+    /** On the jacket at angle `a` round him (0 his front) and height `y`: it hangs as a cone, wider at the hem. */
     const R = y => 0.275 - (y - 0.3) * 0.085, on = (a, y, out = 0.004) => [Math.sin(a) * (R(y) + out), y, Math.cos(a) * (R(y) + out)];
     let seed = 5; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
-    for (const [a, y, w, h, m] of [[0.4, 0.42, 0.12, 0.04, grime], [-0.8, 0.66, 0.05, 0.09, dark], [2.5, 0.6, 0.13, 0.05, grime], [-2.5, 0.45, 0.1, 0.04, dark], [0.15, 0.8, 0.025, 0.02, grime],
-      [1.4, 0.44, 0.03, 0.05, dark], [-1.4, 0.74, 0.07, 0.025, grime]]) add(ball, m, ...on(a, y, -0.004), [w, h, 0.012], [0, a, rnd() * 3]);
+    // sea stains: wet sand and sand (palette.ts), soaked in from the hem up
+    for (const [a, y, w, h, m] of [[0.5, 0.4, 0.12, 0.05, stain], [-0.85, 0.62, 0.05, 0.08, stain2], [2.5, 0.58, 0.13, 0.05, stain], [-2.5, 0.43, 0.1, 0.045, stain], [-0.25, 0.37, 0.07, 0.035, stain2],
+      [1.4, 0.42, 0.04, 0.06, stain], [-1.5, 0.72, 0.07, 0.03, stain2], [3.1, 0.38, 0.09, 0.04, stain2]]) add(ball, m, ...on(a, y, -0.004), [w, h, 0.012], [0, a, rnd() * 3]);
     // the hem in tatters: ragged tongues of cloth hanging off it all the way round, no two the same
     for (let i = 0; i < 15; i++) {
       const a = i / 15 * Math.PI * 2 + rnd() * 0.2, len = 0.035 + rnd() * 0.075, w = 0.03 + rnd() * 0.03;
-      add(new CylinderGeometry(w, 0.004, len, 3, 1), i % 4 ? cloth : dark, ...on(a, 0.3 - len / 2 + 0.012, -0.006), [1, 1, 0.25], [0, a, (rnd() - 0.5) * 0.5]);
+      add(new CylinderGeometry(w, 0.004, len, 3, 1), i % 4 ? cloth : stain, ...on(a, 0.3 - len / 2 + 0.012, -0.006), [1, 1, 0.25], [0, a, (rnd() - 0.5) * 0.5]);
     }
-    // holes: one at the shoulder and one at the side, skin showing through a dark, frayed edge
-    for (const [a, y, w, h, r] of [[0.85, 0.78, 0.034, 0.022, 0.5], [-1.1, 0.5, 0.032, 0.045, -0.3]]) {
+    // a hole at the side, skin showing through a dark, frayed edge
+    for (const [a, y, w, h, r] of [[-1.1, 0.5, 0.032, 0.045, -0.3]]) {
       add(ball, hole, ...on(a, y, 0.001), [w, h, 0.008], [0, a, r]); add(ball, skin, ...on(a, y, 0.004), [w * 0.72, h * 0.68, 0.008], [0, a, r]);
     }
-    // a patch on the front, sewn on in a hurry
-    add(box, lam(0x8E9AA3), ...on(-0.3, 0.6, 0.003), [0.085, 0.075, 0.008], [0, -0.3, 0.12]);
-    for (const [dx, dy] of [[-0.03, 0.03], [0.03, 0.03], [-0.03, -0.03], [0.03, -0.03]]) add(box, hole, ...on(-0.3 + dx * 3.6, 0.6 + dy, 0.008), [0.016, 0.005, 0.004], [0, -0.3, 0.8]);
+    // the neckerchief's knot and its two ends, and his hair showing under the toque at the back and sides
+    { const red = lam(0xE5484D); add(ball, red, 0.02, 0.845, 0.203, [0.036, 0.03, 0.024]);
+      add(new CylinderGeometry(0.042, 0.005, 0.14, 3, 1), red, -0.03, 0.775, 0.222, [1, 1, 0.3], [0.15, 0, -0.35]); add(new CylinderGeometry(0.038, 0.005, 0.115, 3, 1), red, 0.065, 0.785, 0.216, [1, 1, 0.3], [0.15, 0, 0.45]);
+      const hair = new Mesh(new CylinderGeometry(0.199, 0.203, 0.1, 14, 1, true, 1.0, Math.PI * 2 - 2.0), new MeshLambertMaterial({ color: 0x5E3B24, side: 2 })); hair.position.set(0, 1.112, 0.03); g.add(hair); }
     // a rope for a belt, knotted at the front with an end hanging (it's what he ropes the tuna with)
     const rope = lam(0xC9A66B);
     g.userData.belt = [add(new TorusGeometry(R(0.5) + 0.006, 0.02, 6, 20), rope, 0, 0.5, 0, null, [Math.PI / 2, 0, 0]),
       add(ball, rope, ...on(0.25, 0.5, 0.02), [0.035, 0.035, 0.03]),
       add(new CylinderGeometry(0.014, 0.014, 0.14, 5), rope, ...on(0.3, 0.42, 0.02), null, [0, 0, 0.25])]; // (so a shot can have him take it off)
-    // seaweed over a shoulder, down his back
-    const weed = lam(0x3F7D4A);
-    for (let k = 0; k < 5; k++) add(box, weed, ...on(2.2 - k * 0.05, 0.86 - k * 0.075, 0.012), [0.035 - k * 0.003, 0.085, 0.008], [0.1, 2.2, 0.25 * Math.sin(k * 1.7)]);
     P.body.add(g);
-    // one trouser leg torn off at the knee
+    // one sleeve torn off above the elbow, and one trouser leg at the knee
+    const cuff = new Mesh(new CylinderGeometry(0.066, 0.07, 0.022, 8, 1, true), hole); cuff.position.y = -0.17; P.arms[0].add(cuff);
+    const fore = new Mesh(new CylinderGeometry(0.057, 0.05, 0.2, 8), skin); fore.position.y = -0.275; P.arms[0].add(fore);
     const t = new Mesh(new CylinderGeometry(0.078, 0.082, 0.025, 8, 1, true), hole); t.position.y = -0.12; P.legs[1].add(t);
     const shin = new Mesh(new CylinderGeometry(0.068, 0.062, 0.13, 8), skin); shin.position.y = -0.19; P.legs[1].add(shin);
     /** Back into what they had on before. */
-    g.userData.restore = () => { P.body.remove(g); P.legs[1].remove(t, shin); Object.assign(P, was); P.redress(); };
+    g.userData.restore = () => { P.body.remove(g); P.arms[0].remove(cuff, fore); P.legs[1].remove(t, shin); if (band && puff) { band.rotation.z = 0; puff.rotation.z = 0; }
+      P.season = was.season; P.style = was.style; P.color = was.color; P.look = was.look; P.toque(0, true); P.redress(); };
     return g;
   }
   // ---------- weight: what makes a posed move read as done by a body, not a formula ----------
