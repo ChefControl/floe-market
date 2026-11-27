@@ -30,9 +30,9 @@
   const reach = th[Math.round(T.there / dt)], extra = (((TH1 - TH0 - reach) % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
   const angle = t => { const i = clamp(t / dt, 0, N), a = Math.floor(i), k = i - a; return TH0 + mix(th[a], th[Math.min(N, a + 1)], k) + extra * ease((t - T.peak) / (T.slow - T.peak)); };
   function camAt(t) {
-    const a = angle(t), late = ease((t - T.slow) / (T.there - T.slow)), push = ease((t - T.there + 0.5) / 4.5), r = mix(19.5, 27, late) - 4.2 * push, h = mix(11.5, 10.8, late) - 0.9 * push; // (lower over the restaurant than it was, 14.6: from up there its front roof beam lay across the sign) // (and once it's there, a slow push in: a held shot that's alive)
+    const a = angle(t), late = ease((t - T.slow) / (T.there - T.slow)), out = Math.max(late, ease((t - at(8.25) + 0.15) / 0.5)), push = ease((t - T.there + 0.5) / 4.5), r = mix(19.5, 27, out) - 4.2 * push, /* (out to the landing's distance inside the smear, as the market becomes the restaurant: from 19.5 m the restaurant's front roof passed right under the camera, a flat dark slab across a fifth of the picture, twice, before the spin slowed. An outside review.) */ h = mix(11.5, 10.8, late) - 0.9 * push; // (lower over the restaurant than it was, 14.6: from up there its front roof beam lay across the sign) // (and once it's there, a slow push in: a held shot that's alive)
     const c = V(mix(-0.5, 0, late), 0, mix(0.5, 6, late));
-    return { pos: V(c.x + Math.sin(a) * r, h, c.z + Math.cos(a) * r), look: V(c.x + Math.sin(a) * 4.2 * late, mix(0.5, 0.4, late), c.z + Math.cos(a) * 4.2 * late), fov: 40, fogNear: 70, fogFar: 190 }; // (aimed at the ground before its gate once it's there: looking at its middle from this low, the world's edge and the flat sky came into the top of the picture)
+    return { pos: V(c.x + Math.sin(a) * r, h, c.z + Math.cos(a) * r), look: V(c.x + Math.sin(a) * 4.2 * out, mix(0.5, 0.4, late), c.z + Math.cos(a) * 4.2 * out) /* (aimed nearer with the pull-out, or the sky came into the top of the smear as a pale band) */, fov: 40, fogNear: 70, fogFar: 190 }; // (aimed at the ground before its gate once it's there: looking at its middle from this low, the world's edge and the flat sky came into the top of the picture)
   }
 
   // ---------- what's built, and when ----------

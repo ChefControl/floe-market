@@ -402,6 +402,9 @@ had faults of its own; two outside frame-by-frame reviews found them (examples/t
   angles on stills first (a test script with one camera a frame and `--frames`).
 - **A costume belongs to its story.** With the castaway scenes cut, his whites and the change into a parka meant
   nothing; `?plain=1` leaves the costume off. Offer it beside the cut the owner called good, don't replace it.
+- **A whip-pan past something tall.** Orbiting the dock at 19.5 m, the camera passed right over the restaurant's front
+  roof once the market had turned into it: a flat dark slab across a fifth of the picture, twice. Pull out to the
+  landing's distance inside the smear, at the swap (and aim nearer with it, or the sky comes into the top as a band).
 - **Snow at the lens.** A close camera in falling snow needs `near` (1.5 m here) or a flake is a pale disc for four frames.
 
 ## A costume from a picked concept: start from the game's own look
