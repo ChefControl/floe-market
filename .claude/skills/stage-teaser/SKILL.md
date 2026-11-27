@@ -378,7 +378,33 @@ Budget for this: after you think a cut is done, one outside review that looks at
 then a second review of the result. The second found as much as the first; the third and fourth said ship, each with
 a short list worth doing.
 
-### A costume from a picked concept: start from the game's own look
+### Cutting a film down to a stretch: what two more outside reviews found
+
+The owner kept 20 seconds of a 90-second film (real play and the spin). Cut loose from the story round it, the stretch
+had faults of its own; two outside frame-by-frame reviews found them (examples/trailer, edl-v10*.json):
+
+- **A season's clothes change in one frame, the ground doesn't.** `setSeason(i, 0)` swaps every hat and coat at once
+  while the snow blends away over the season. Set in plain view, every head popped. Change seasons under a cover (the
+  white bloom), and for a ground that changes with them set the season before whole (`setSeason(i - 1, 0, true)`) and
+  then the new one, in the same frame.
+- **Blur that switches off pops.** Motion blur stopped below two draws: five pixels of blur gone in one frame, on the
+  sign the spin lands on. Keep at least twelve draws until the turn is under half a pixel.
+- **Carry the outgoing take's air across a cut.** A play take's ambience stopped at the cut and the next take's bed
+  faded in from nothing: a tenth of a second's dip before the downbeat. Lay the outgoing take's own sound 0.3 s on as
+  a bed (its game.wav runs past where the picture is cut), fading under the new shot.
+- **Time the ending to the music you can measure.** List the stem's note onsets, find the bar (the band restarts from
+  step 0 when the stage changes), and put the payoff on a bar's first beat by lengthening a held shot before it; fade
+  picture and music together from a beat, and end the bed before the next pick-up note.
+- **A message needs a second and a half.** The game's toast was up 0.8 s before the fade; the next toast replaces it,
+  so the fade must be done before that one comes up.
+- **The game's camera can hide the player.** A roof beam and a lantern crossed the chef on a tile. `u.js ?lift=1.45`
+  raises the game's own camera (same direction and distance) by setting K.cam from the game's own aim; try a grid of
+  angles on stills first (a test script with one camera a frame and `--frames`).
+- **A costume belongs to its story.** With the castaway scenes cut, his whites and the change into a parka meant
+  nothing; `?plain=1` leaves the costume off. Offer it beside the cut the owner called good, don't replace it.
+- **Snow at the lens.** A close camera in falling snow needs `near` (1.5 m here) or a flake is a pale disc for four frames.
+
+## A costume from a picked concept: start from the game's own look
 
 The owner picked "shipwrecked chef" from five Gemini concepts. The game already dresses people as chefs
 (`characters.ts`: `look` 'chef', `chefWhites()`, `toque(level)`), so `acting.js` `castaway()` sets that look on the

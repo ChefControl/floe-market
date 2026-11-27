@@ -60,7 +60,7 @@
       if (rags) once('coatFx', at(2.75) - 0.034, t, () => FX.unlockFx({ x: P.position.x, z: P.position.z }, 0.9)); /* (the sparkle a frame ahead of the change it covers, the change two frames into it: it was a bare one-frame swap with the sparkle after) */
       if (rags) once('coat', at(2.75) + 0.05, t, () => { rags.userData.restore(); });
       // the seasons turn: spring and summer blend in, autumn arrives in the smear with the restaurant
-      once('spring', at(3), t, () => SE.setSeason(1, 0)); once('summer', at(5), t, () => SE.setSeason(2, 0));
+      once('summer', at(5), t, () => { SE.setSeason(1, 0, true); SE.setSeason(2, 0); }); /* (spring and then summer in the same frame, under the white bloom: the world blends on from the season before, so from winter the snow stayed; from spring, set whole, it clears to green. Spring used to be set at beat 3 with nothing over it: the ground stays snow at a season's start, but everyone's clothes change at once, so every hood and hat popped in one frame in plain view, an outside review) */
       once('sushi', at(8.25), t, () => { SE.setSeason(PRE > 0 ? BAND : 3, 30, true); U.applyUnlock('sushi', true); STAGE2.forEach(id => U.applyUnlock(id, true)); U.tiles.forEach(U.redrawTile); });
       // the wind-up: a rising rush of air under the spin, and a soft landing as it comes to rest on the restaurant
       once('riser', T.fast, t, () => { A.noise({ bus: 'cue', f: 90, f2: 260, kind: 'lowpass', d: T.slow - T.fast + 0.3, a: T.peak - T.fast, v: 0.6 }); }); // (the low half only: the half that swept up to 3 kHz was WHITE noise, and measured as hiss to 20 kHz for three seconds; the rise is the brown beds below now)
@@ -81,7 +81,7 @@
       // edge: further apart and a fence or a tree line shows as a row of stepped copies)
       // (a half-open shutter while it's slow, so what's being built stays sharp; wide open once it's a whip)
       const sh = mix(0.45, 1, clamp((rate(t) - 2) / 4)), turn = (angle(t + sh / fps) - angle(t)), n = Math.min(204, Math.round(turn / 0.0022)); // (the steps an outside review saw were the average losing its late draws, kit.js, not their spacing)
-      K.blur = n > 1 ? { n, at: k => camAt(t + sh * k / fps) } : null;
+      K.blur = turn > 0.0004 ? { n: Math.max(12, n), at: k => camAt(t + sh * k / fps) } : null; /* (blurred until the turn is under half a pixel: it used to switch off below two draws, about five pixels of blur gone in one frame as the spin lands, on the sign) */
       if (i % 30 === 0) console.log('[cine]', t.toFixed(1), 'rate', rate(t).toFixed(2), 'draws', n, 'queue', CT.C1.queue.length);
     },
   };

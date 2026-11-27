@@ -15,8 +15,9 @@ r() { name=$1; shift; node "$P/render-play.mjs" "$@" > "$S/log-$name.txt" 2>&1; 
 # It needs three more takes beside I, G/Gx and T below:
 # TMW, the music stem with the band in winter (t.js ?band=0; the same stem as TM to the sample until the band comes in):
 #   r TMW "$X/kit.js,$X/acting.js,$X/t.js" "$S/TMW" --landscape --url "$U?stage=1&pile=14&sound=on&pre=8&band=0" --init "$X/newgame.js" --wait 6000 --mute sfx,amb --sound-only
-# T9, take T with the one-frame jump in sharpness where the blur stops (frame 222 to 223) eased over six frames: frames
-# 223-228 through gblur, sigma 0.59, 0.50, 0.40, 0.31, 0.23, 0.14 (ffmpeg -i T/frames/0223.jpg -vf gblur=sigma=0.59 ...).
+# (T is rendered from t.js as it now is: the clothes change with the snow under the white bloom, and the blur eases out as
+# the spin lands. The edl's last bed is the first sale's own sound carried 0.3 s on under the cut into the spin, from G's
+# game.wav past where Gx ends: the dock's air stopped dead there and left a tenth of a second's dip before the downbeat.)
 # Uz, Floe Sushi from take U as far as "Premium menu unlocked", faded out before "Floe Sushi is fully built" comes up
 # (Ux dissolved on to the knocking message, which is cut):
 #   ffmpeg -framerate 30 -start_number 0 -i "$S/U/frames/%04d.jpg" -i "$S/U/game.wav" -filter_complex "[0]trim=start_frame=0:end_frame=187,setpts=PTS-STARTPTS,fade=t=out:start_frame=174:nb_frames=13,format=yuvj420p[v];[1]atrim=0:6.2333,asetpts=PTS-STARTPTS,afade=t=out:st=5.8:d=0.43[au]" -map "[v]" -q:v 2 -start_number 0 "$S/Uz/frames/%04d.jpg" -map "[au]" "$S/Uz/game.wav"
@@ -25,7 +26,7 @@ r() { name=$1; shift; node "$P/render-play.mjs" "$@" > "$S/log-$name.txt" 2>&1; 
 #   r Ul "$X/kit.js,$X/u.js" "$S/Ul" --landscape --url "$U?upto=porter&sound=on&lift=1.45" --mute music --wait 6000 --keep hud,toast,prompts,buy,banner,confetti
 # A SECOND ALTERNATIVE, edl-v10-alt2.json: that, and the chef in the game's own parka from the first frame (g.js and t.js
 # ?plain=1: no castaway costume, no change of clothes in the spin, no burnt-out campfire on the dock). Takes Gxp (from Gp,
-# trimmed as Gx is from G) and Tq (Tp with the landing's six frames eased as T9):
+# trimmed as Gx is from G) and Tp:
 #   r Gp "$X/kit.js,$X/acting.js,$X/campfire.js,$X/g.js" "$S/Gp" --landscape --url "$U?stage=1&pile=14&sound=on&plain=1" --mute music --init "$X/newgame.js" --wait 6000 --keep hud,toast,prompts
 #   r Tp "$X/kit.js,$X/acting.js,$X/t.js" "$S/Tp" --landscape --url "$U?stage=1&pile=14&sound=on&plain=1" --init "$X/newgame.js" --wait 6000 --mute music
 # The ending is timed to the winter band: its bars start 0.72 s into the edl's last bed and every 2.857 s after (a beat is
