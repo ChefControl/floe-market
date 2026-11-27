@@ -265,14 +265,11 @@
     // anyone? A look one way (his body winds back a hair first) and he holds it while the camera goes to see: nothing.
     // Right round the other way, held again: nothing. Back to the front, and his shoulders drop
     { t: T.lookL - 0.14, mv: 0.1, yaw: 0.3 },
-    { t: T.lookL + 0.14, mv: 0.28, e: 'settle', yaw: LOOKL, a01: 0.42, a11: 0.2 },
+    { t: T.lookL + 0.3, mv: 0.42, yaw: LOOKL, a01: 0.42, a11: 0.2 },
     { t: T.seeL + 0.5, mv: 0.4, tip: 0.1, a00: 0.25, a01: 0.5 }, // (leaning into it: is that...? No)
     { t: T.lookR + 0.08, mv: 0.1, yaw: LOOKL + 0.14, tip: 0, sq: 0.95, roll: -0.05 },
-    // (round the other way: not a turntable. He drops into it, leans the way he's going, his arms are thrown out by it and
-    // come in late; he goes past where he means to look and comes back)
-    { t: T.lookR + 0.25, mv: 0.17, e: 'in', yaw: mix(LOOKL, LOOKR, 0.45), roll: 0.13, sq: 1.04, a01: 0.75, a11: 0.8, a00: 0.15, a10: -0.15 },
-    { t: T.lookR + 0.39, mv: 0.14, e: 'out', yaw: LOOKR - 0.16, roll: -0.06, sq: 0.97, a00: 0, a10: 0 },
-    { t: T.lookR + 0.5, mv: 0.11, yaw: LOOKR, roll: 0, sq: 1, a01: 0.2, a11: 0.45 },
+    // (round the other way in ONE smooth move, gently off and on, his arms out with it: in two fast halves it was a flip)
+    { t: T.lookR + 0.56, mv: 0.46, yaw: LOOKR, roll: 0, sq: 1, a00: 0, a01: 0.34, a11: 0.5 },
     { t: T.seeR + 0.5, mv: 0.4, tip: 0.1, a10: 0.25, a11: 0.6 },
     { t: T.back + 0.12, mv: 0.12, e: 'in', yaw: mix(LOOKR, 0.45, 0.4), roll: -0.1, tip: 0, a10: 0, a01: 0.55, a11: 0.6 },
     { t: T.back + 0.26, mv: 0.14, e: 'out', yaw: 0.56, roll: 0.04 },
@@ -645,7 +642,7 @@
     for (const cr of crowns) for (const m of cr) m.visible = false; for (const m of vwake) m.visible = false;
     rope.visible = false; loop.visible = false; wash.visible = false; wash2.visible = false; wake.visible = false; swell.visible = false; coil.visible = false; dark.visible = false; dark.scale.setScalar(1); tuna.g.visible = false; shade.visible = false;
     for (const h of hills) h.visible = false;
-    K.fade(0); K.letterbox(0); K.lids(0); K.vignette(0.38);
+    K.fade(1 - ease(t / 0.45)); K.letterbox(0); K.lids(0); K.vignette(0.38); // (up from the studio card's black: it came in full bright in one frame)
     for (const b of banks) b.visible = false;
     for (const r of rings) r.visible = false;
     farSea.visible = t >= T.hit3 && t < T.glum; openSea.visible = !farSea.visible;

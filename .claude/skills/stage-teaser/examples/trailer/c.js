@@ -70,19 +70,15 @@
     { t: 1.1, mv: 0.5, tip: 0.22, a10: -1.2 }, { t: 1.9, mv: 0.6, tip: 0.12, a10: -1.08 }, { t: 2.9, mv: 0.5, tip: 0.2, a10: -1.18 },
     // a step in the snow, behind him. He stops; and looks round (a little the other way first)
     { t: T.hear + 0.1, mv: 0.1, sq: 0.97, tip: 0.1 },
-    { t: T.hear + 0.3, mv: 0.1, yaw: toFire - 0.12 }, { t: T.hear + 0.62, mv: 0.3, e: 'settle', yaw: toCust, tip: 0.04, sq: 1 },
+    { t: T.hear + 0.22, mv: 0.1, yaw: toFire - 0.1, roll: 0.05 }, { t: T.hear + 0.66, mv: 0.44, yaw: CUSTY, tip: 0.04, sq: 1, roll: 0 }, // (every turn here is ONE smooth move of 0.45 s, gently off and on: on 'settle' or in two fast halves it was over in three to five frames, a flip)
     // ...round to his fish (out of shot he's still looking at them; when the shot's back he turns)
-    { t: T.backR + 0.14, mv: 0.12, yaw: toCust + 0.1 }, { t: T.backR + 0.56, mv: 0.4, e: 'settle', yaw: toFish, tip: 0.1 },
+    { t: T.backR + 0.14, mv: 0.12, yaw: CUSTY - 0.08, roll: -0.05 }, { t: T.backR + 0.62, mv: 0.46, yaw: FISHY, tip: 0.1, roll: 0 },
     // ...and back: more of them? Quicker now
     // (a turn, not a flip: back a hair, into it leaning, past the mark and home. On 'settle' in 0.3 s it was over in three frames)
-    { t: T.backL + 0.16, mv: 0.14, yaw: toFish + 0.08, sq: 0.97 },
-    { t: T.backL + 0.36, mv: 0.2, e: 'in', yaw: mix(toFish, CUSTY, 0.5), roll: 0.08, tip: 0.06 },
-    { t: T.backL + 0.54, mv: 0.18, e: 'out', yaw: CUSTY - 0.1, roll: -0.03 },
-    { t: T.backL + 0.68, mv: 0.14, yaw: CUSTY, roll: 0, tip: 0.02, sq: 1.03 },
-    { t: T.backR2 + 0.16, mv: 0.14, yaw: CUSTY - 0.08, sq: 0.98 },
-    { t: T.backR2 + 0.36, mv: 0.2, e: 'in', yaw: mix(CUSTY, FISHY, 0.5), roll: -0.08 },
-    { t: T.backR2 + 0.54, mv: 0.18, e: 'out', yaw: FISHY + 0.1, roll: 0.03 },
-    { t: T.backR2 + 0.68, mv: 0.14, yaw: FISHY, roll: 0, tip: 0.12, sq: 1 },
+    { t: T.backL + 0.16, mv: 0.14, yaw: FISHY + 0.08, sq: 0.97, roll: 0.05 },
+    { t: T.backL + 0.66, mv: 0.48, yaw: CUSTY, roll: 0, tip: 0.02, sq: 1.03 },
+    { t: T.backR2 + 0.16, mv: 0.14, yaw: CUSTY - 0.08, sq: 0.98, roll: -0.05 },
+    { t: T.backR2 + 0.66, mv: 0.48, yaw: FISHY, roll: 0, tip: 0.12, sq: 1 },
     // the idea: he's still on the fish; a blink; a little drop as it lands; and round to us, grinning
     { t: T.idea + 0.3, mv: 0.2, sq: 0.94, tip: 0.16 },
     { t: T.got + 0.2, mv: 0.24, e: 'settle', yaw: toUs, sq: 1.05, tip: 0, a00: 0.1, a01: 0.35 }, { t: T.got + 0.42, mv: 0.2, sq: 1 },
@@ -143,7 +139,7 @@
     const p = S(t), pa = S(t - 0.05), pb = S(t - 0.1), got = t > T.got;
     const blink = (a, d = 0.09) => t >= a && t < a + d;
     const f = t < T.hear + 0.2 ? { eyes: 'happy', mouth: 'smile' } : t < T.backR ? { eyes: blink(T.hear + 0.9) ? 'shut' : 'big', brow: [1.2, -0.3], mouth: 'o', open: 0.9 }
-      : t < T.idea ? { eyes: blink(T.backL + 0.32) ? 'shut' : 'dot', brow: [0.8, -0.5], mouth: 'none' }
+      : t < T.idea ? { eyes: blink(T.backL + 0.4) ? 'shut' : 'dot', brow: [0.8, -0.5], mouth: 'none' }
         : !got ? { eyes: blink(T.idea + 0.25, 0.1) ? 'shut' : 'dot', brow: [0.9, 0], mouth: 'none' } : { eyes: t > T.up - 0.1 ? 'happy' : 'dot', brow: [0.6, 0.45], mouth: 'grin', open: 0.7 + 0.5 * clamp((t - T.got) / 0.15) };
     const breath = 1 + Math.sin(t * 2.5) * 0.014;
     chef({ hip: SEAT.clone().setY(SEAT.y + p.h), yaw: p.yaw + n1(t * 0.5, 2) * 0.03, lean: p.tip + n1(t * 0.6, 1) * 0.015, roll: (p.roll ?? 0) + n1(t * 0.45, 3) * 0.035 * (1 - p.up),
@@ -183,7 +179,7 @@
     } else { const hy = 0.17 * ease(S(t - 0.08).up), kI = ACT.EASE.settle((t - T.got) / 0.3);
       // on him: the idea; and up with him as he gets to his feet (it doesn't chase the hop: he jumps IN the picture)
       shot = K.held({ pos: V(FIRE.x + 1.8, 1.26, FIRE.z + 1.0), look: hd.clone().add(V(0, 0.08, 0)), fov: 30 - 1.5 * kI }, t, 1.2, 37);
-      shot.look.y += hy * 0.9; shot.pos.y += hy * 0.5; shot.fov += hy * 34; }
+      shot.look.y += hy * 0.9 - 0.3 * ease((t - T.up + 0.3) / 0.45); shot.pos.y += hy * 0.5; shot.fov += hy * 34; } // (down onto him once the bubble's gone: he was cut at the chest under two thirds of empty sky)
     shot.sun = FIRE; shot.near = 1.2; // (no snowflake on the lens)
     K.cam = shot;
   }

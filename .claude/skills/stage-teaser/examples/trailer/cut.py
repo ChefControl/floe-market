@@ -15,6 +15,7 @@ args = sys.argv[1:]
 root, out = os.path.abspath(args[0]), args[1]  # (the frame list holds full paths: ffmpeg reads them against the list's own folder)
 opt = lambda k, d=None: args[args.index(k) + 1] if k in args else d
 edl = json.load(open(opt('--edl', os.path.join(root, 'edl.json'))))
+PRE = edl.get('pre', 0)  # dB into the limiter: the whole mix up, its peaks held ("pre" in the EDL)
 cuts, beds = edl['cuts'], edl['beds']
 
 # ---- picture: every frame, in order, linked into one numbered sequence ----
@@ -58,8 +59,11 @@ for bed, at, frm, dur, fin, fout, gain in beds:
                 f'volume={gain}dB,afade=t=in:d={max(0.02, fin)},afade=t=out:st={dur - fout:.4f}:d={fout},adelay={ms}|{ms}[m{k}]')
     mix.append(f'[m{k}]'); k += 1
 filt.append(f'{"".join(mix)}amix=inputs={len(mix)}:normalize=0:duration=longest,apad,atrim=0:{total:.4f},'
-            f'alimiter=limit=0.74:level=false:attack=3:release=60,volume={MASTER}dB,afade=t=out:st={total - 0.5:.4f}:d=0.5[a]')
-filt.append('[0:v]scale=in_range=pc:out_range=tv,format=yuv420p,setsar=1[v]')
+            f'volume={PRE}dB,alimiter=limit=0.74:level=false:attack=3:release=60,volume={MASTER}dB,afade=t=out:st={total - 0.5:.4f}:d=0.5[a]')
+# ("grain": [[from s, to s, strength]] in the EDL: a little moving noise over a dark, smooth stretch. A night sky under a
+# vignette is a few grey levels wide, and without it shows as rings.)
+grain = ''.join(f"noise=alls={g[2]}:allf=t+u:enable='between(t,{g[0]},{g[1]})'," for g in edl.get('grain', []))
+filt.append(f'[0:v]{grain}scale=in_range=pc:out_range=tv,format=yuv420p,setsar=1[v]')
 fc = ';'.join(filt)
 master = ['-c:v', 'libx264', '-profile:v', 'high', '-preset', 'slow', '-crf', '16', '-maxrate', '20M', '-bufsize', '30M',
           '-r', '30', '-color_range', 'tv', '-colorspace', 'bt709', '-color_primaries', 'bt709', '-color_trc', 'bt709', '-c:a', 'aac', '-b:a', '192k', '-ar', '48000', '-movflags', '+faststart']

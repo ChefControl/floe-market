@@ -29,7 +29,7 @@ window.Campfire = (T3, scene, x, y, z) => {
   const sparks = [...Array(14)].map((_, i) => { const s = new Sprite(new SpriteMaterial({ map: sparkTex, blending: AdditiveBlending, depthWrite: false, fog: false })); s.userData = { ph: i * 0.618, sp: 0.55 + (i * 37 % 10) * 0.05, a: i * 2.4 }; g.add(s); return s; });
   const smokeTex = soft('rgba(90,96,108,.5)', 'rgba(90,96,108,0)');
   const smoke = [...Array(5)].map((_, i) => { const s = new Sprite(new SpriteMaterial({ map: smokeTex, depthWrite: false })); s.userData = { ph: i / 5 }; g.add(s); return s; });
-  const light = new PointLight(0xFF9A3C, 0, 9, 1.2); light.position.set(0, 0.7, 0); g.add(light); /* (falling off more gently than 1.6: an arm held near it was flat yellow beside a dim face) */
+  const light = new PointLight(0xFF9A3C, 0, 9, 1.2); light.position.set(0, 1.0, 0); g.add(light); /* (falling off more gently than 1.6: an arm held near it was flat yellow beside a dim face) */
   return { g, at: g.position,
     set(t, lit = 1, bright = 1) {
       const on = lit > 0.05;

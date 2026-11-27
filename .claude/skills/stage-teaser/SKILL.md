@@ -366,8 +366,17 @@ faults in hero shots. Each is a trap of the tooling, so each is here:
 - **A take's sound can be a frame shorter than its picture.** `cut.py` fades each take out where its SOUND ends: faded
   where the picture ends, the campfire's bed was cut off mid-wave, a step and 15 ms of nothing at the join.
 
+- **A fourth look, at the finished file, still had a list**: turns that were over in five frames even after the
+  second pass (ONE smooth key of 0.45 s, gently off and on, is what reads as a look; two fast halves is a flip); a
+  forearm clipped to flat yellow by a point light a hand away (raise the light above the flames and soften its
+  falloff); a last shot framed for a bubble that had already gone; a night sky under a vignette banding into rings
+  (`"grain"` in the EDL, a little moving noise over that stretch); a first shot that came in full bright the frame
+  after a card's fade to black; and a mix 4 to 6 dB under what trailers sit at (`"pre"` in the EDL: gain into the
+  limiter).
+
 Budget for this: after you think a cut is done, one outside review that looks at every frame, then a round of fixes,
-then a second review of the result. The second found as much as the first; the third said ship.
+then a second review of the result. The second found as much as the first; the third and fourth said ship, each with
+a short list worth doing.
 
 ## Workflow
 
