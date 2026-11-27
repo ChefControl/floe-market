@@ -30,7 +30,11 @@ for take, a, b, gain in cuts:
         f = black if take == 'black' else os.path.join(root, take, 'frames', f'{i:04d}.jpg')
         lst.append(f)
     if take != 'black' and gain is not None:
-        audio.append((os.path.join(root, take, 'game.wav'), a / FPS, n / FPS, t / FPS, gain))
+        wav = os.path.join(root, take, 'game.wav')
+        # (a take's sound can be a frame shorter than its picture: fade out where the SOUND ends, or it's cut off
+        # mid-wave a few milliseconds into the fade, a step and a hole at the join)
+        have = float(subprocess.run(['ffprobe', '-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', wav], capture_output=True, text=True).stdout.strip() or 0)
+        audio.append((wav, a / FPS, max(0.05, min(n / FPS, have - a / FPS)), t / FPS, gain))
     t += n
 total = t / FPS
 seq = os.path.join(root, 'cut-seq')

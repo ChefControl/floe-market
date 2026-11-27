@@ -9,8 +9,12 @@ S=$(mkdir -p "${OUT:-out/trailer}" && cd "${OUT:-out/trailer}" && pwd)
 U=http://localhost:5177/; U3="http://localhost:5177/?cellar&full&beaten=4&sound=on"
 FK=rush,fightBanner,finish,finBlink,ringFlash,epic,banner,fade,toast,confetti
 r() { name=$1; shift; node "$P/render-play.mjs" "$@" > "$S/log-$name.txt" 2>&1; echo "$name: $(tail -1 "$S/log-$name.txt")"; }
-# THE CURRENT CUT is version 7 (version 6 after an outside frame-by-frame review): python3 cut.py "$S" trailer-v7.mp4 --phone phone.mp4 --edl edl-v7.json
-# (edl-v7.json names its takes O8, C5 and T3: the same O, C and T as below, rendered from these scripts. The campfire's site is found
+# THE CURRENT CUT is version 8 (two rounds of outside frame-by-frame review): python3 cut.py "$S" trailer-v8.mp4 --phone phone.mp4 --edl edl-v8.json
+# (edl-v8.json names its takes O11, C8, T6 and H4: the same O, C, T and H as below, rendered from these scripts, and Gx2: the
+# first sale with ONE dissolve, from the fish crate to the stand, and then unbroken (a dissolve between two moments at the
+# same stand left ghost customers for five frames):
+#   ffmpeg -framerate 30 -start_number 0 -i "$S/G/frames/%04d.jpg" -i "$S/G/game.wav" -filter_complex "[0]trim=start_frame=0:end_frame=39,setpts=PTS-STARTPTS[a];[0]trim=start_frame=88:end_frame=225,setpts=PTS-STARTPTS[b];[a][b]xfade=transition=fade:duration=0.2:offset=1.1,format=yuvj420p[v];[1]atrim=0:1.3,asetpts=PTS-STARTPTS[x];[1]atrim=2.9333:7.5,asetpts=PTS-STARTPTS[y];[x][y]acrossfade=d=0.2:c1=tri:c2=tri[au]" -map "[v]" -q:v 2 -start_number 0 "$S/Gx2/frames/%04d.jpg" -map "[au]" "$S/Gx2/game.wav"
+# edl-v7.json was the cut after the first review round, with takes O8, C5 and T3: the same O, C and T as below, rendered from these scripts. The campfire's site is found
 # afresh each load: render C again if its log says "WARNING: no clear spot". edl-v6.json is the cut before the review.)
 # It needs, beside the lines below: C with hero-tuna.js in its list (the tuna lies by the fire):
 #   r C "$X/kit.js,$X/hero-tuna.js,$X/acting.js,$X/campfire.js,$X/c.js" "$S/C" --landscape --url "$U?stage=1&pile=14&sound=on" --mute music --init "$X/newgame.js" --wait 9000

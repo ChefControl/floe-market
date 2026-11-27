@@ -45,18 +45,27 @@
   const acc = document.createElement('canvas'); acc.width = R.canvas.width; acc.height = R.canvas.height;
   Object.assign(acc.style, { position: 'fixed', inset: '0', width: '100%', height: '100%', zIndex: 18, pointerEvents: 'none', display: 'none' });
   const accX = acc.getContext('2d');
+  const grp = document.createElement('canvas'), grpX = grp.getContext('2d'); grp.width = R.canvas.width; grp.height = R.canvas.height;
   R.renderer.render = (s, c) => {
     flagString.visible = false;
     if (dome.visible && c === cam) { dome.position.copy(cam.position); dome.scale.setScalar(Math.max(1, (cam.far * 0.8) / 150)); skyMat.uniforms.uLow.value.copy(R.fog.color); skyMat.uniforms.uT.value = (skyT += 1 / 30); }
     if (blur && c === cam && blur.n > 1) {
       if (acc.width !== R.canvas.width) { acc.width = R.canvas.width; acc.height = R.canvas.height; }
-      for (let i = 0; i < blur.n; i++) {
-        const sh = blur.at((i + 0.5) / blur.n);
-        cam.position.copy(sh.pos); lookAt(sh.look); cam.updateMatrixWorld();
-        R.sun.position.copy(sh.look).add(R.sunOff); R.sun.target.position.copy(sh.look);
-        if (sh.fogNear) { R.fog.near = sh.fogNear; R.fog.far = sh.fogFar; }
-        draw(s, c);
-        accX.globalAlpha = 1 / (i + 1); accX.drawImage(R.canvas, 0, 0, acc.width, acc.height);
+      // (averaged in two steps, twelve draws to a group and then the groups: a running average of 200 draws on an 8-bit
+      // canvas gives the late ones a weight under half a grey level each, so they were lost and the smear was the first
+      // few dozen copies, stepped. An outside review counted about twelve echoes of a deck edge.)
+      if (grp.width !== R.canvas.width) { grp.width = R.canvas.width; grp.height = R.canvas.height; }
+      const G = 12, groups = Math.max(1, Math.round(blur.n / G)), n = groups * G;
+      for (let g = 0, i = 0; g < groups; g++) {
+        for (let j = 0; j < G; j++, i++) {
+          const sh = blur.at((i + 0.5) / n);
+          cam.position.copy(sh.pos); lookAt(sh.look); cam.updateMatrixWorld();
+          R.sun.position.copy(sh.look).add(R.sunOff); R.sun.target.position.copy(sh.look);
+          if (sh.fogNear) { R.fog.near = sh.fogNear; R.fog.far = sh.fogFar; }
+          draw(s, c);
+          grpX.globalAlpha = 1 / (j + 1); grpX.drawImage(R.canvas, 0, 0, grp.width, grp.height);
+        }
+        accX.globalAlpha = 1 / (g + 1); accX.drawImage(grp, 0, 0);
       }
       acc.style.display = 'block';
       return;
@@ -197,8 +206,13 @@
    *  "heavy constant static... very harsh". `soft(A, { kind, f, q, smooth }, bus)` starts one, silent (after the take's
    *  first frames: the audio must be running); set its level every frame with `.to(v)`. It plays on the game's ambience
    *  bus unless `bus` says 'cue' (for a take that dims the world: the cue bus is about four times as loud). */
-  const soft = (A, o, bus) => { const b = A.bed({ soft: true, ...o }); if (bus) { b.g.disconnect(); b.g.connect(A.buses[bus]); }
-    b.to = (v, secs = 0.12) => A.glide(b.g.gain, Math.max(0, v), secs); return b; };
+  // (Air is all round you: each bed is TWO, cut from different parts of the same noise and set left and right. One bed in
+  // the middle made the whole film mono, which an outside review measured. Two that don't match add up to the same
+  // loudness at 0.71 each, and to the same sound on one speaker.)
+  const soft = (A, o, bus) => { const dest = A.buses[bus ?? 'amb'], from = o.from ?? 0.6;
+    const side = (fr, pan) => { const b = A.bed({ soft: true, ...o, from: fr % 3 }), p = A.ac.createStereoPanner(); p.pan.value = pan; b.g.disconnect(); b.g.connect(p); p.connect(dest); return b; };
+    const l = side(from, -0.72), r = side(from + 1.37, 0.72);
+    return { g: l.g, to: (v, secs = 0.12) => { const x = Math.max(0, v) * 0.7071; A.glide(l.g.gain, x, secs); A.glide(r.g.gain, x, secs); }, stop: () => { l.stop(); r.stop(); } }; };
   /** A wave, `p` (0 to 1) of the way through: it rises, breaks, runs back out (the game's own). And a sea of them at `t`:
    *  two lengths out of step, calm between, 0.2 to 1. */
   const wave = p => (p < 0.3 ? ease(p / 0.3) : (1 - (p - 0.3) / 0.7) ** 2);
@@ -219,7 +233,7 @@
    *  clear, each [dx, dz, radius] from the spot (the set, its people, each camera and the line to it). Returns the spot in
    *  the rectangle with the most room, { x, z, slack } (slack under 0: something's still in the way). */
   const openGround = (W, x0, x1, z0, z1, discs) => {
-    const cell = 0.5, occ = new Set(), mats = new Set([W.TREE_MATS[1], W.TREE_MATS[2]]);
+    const cell = 0.5, occ = new Set(), mats = new Set([W.TREE_MATS[1], W.TREE_MATS[2], W.TREE_MATS[4]]); // (needles, and the snow mounds: a load put a mound on the campfire's ice slab, the fillets half buried in it)
     R.scene.traverse(o => { if (!o.isMesh || !mats.has(o.material)) return; for (let v = o; v; v = v.parent) if (!v.visible) return;
       const p = o.geometry.attributes.position; for (let i = 0; i < p.count; i += 2) occ.add(Math.round((p.getX(i) + o.position.x) / cell) + ',' + Math.round((p.getZ(i) + o.position.z) / cell)); });
     const cells = [...occ].map(s => s.split(',').map(n => n * cell)).filter(([x, z]) => x > x0 - 12 && x < x1 + 12 && z > z0 - 12 && z < z1 + 12);

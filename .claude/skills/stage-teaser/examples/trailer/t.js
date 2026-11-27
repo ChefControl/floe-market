@@ -65,15 +65,17 @@
       if (rush0) { const k = ease((t - T.peak) / 0.5) * (1 - ease((t - T.there + 0.92) / 0.2)), m = 0.75 + 0.25 * K.n1(t * 3.1, 7);
         // (air under the turning world from its first frame, a breeze that moves: the game's sound stopped dead at the cut and
         // left the tune's plucks over nothing. And the rise into the smear: a higher band of the same brown noise, growing.)
-        const rise = clamp((t - T.fast) / (T.peak - T.fast)); rush0.air.to(0.03 * ease((t - 0.08) / 0.5) * (0.7 + 0.3 * K.n1(t * 0.9, 21)) * (1 - 0.6 * ease((t - T.peak) / 0.5)) * (1 - ease((t - T.there + 0.92) / 0.2)), 0.1);
+        const rise = clamp((t - T.fast) / (T.peak - T.fast)); rush0.air.to(0.03 * ease((t - 0.08) / 0.5) * (0.7 + 0.3 * K.n1(t * 0.9, 21)) * mix(1 - 0.6 * ease((t - T.peak) / 0.5), 1.6, ease((t - T.there + 0.92) / 0.5)), 0.1); // (and it stays, a little up, under the landing: the hits there stood in dead air, digital silence between them, over a busy restaurant)
         rush0.up.to(0.085 * rise * rise * (1 - ease((t - T.slow) / 0.6)) * (0.8 + 0.2 * K.n1(t * 2.3, 23)), 0.06); rush0.a.to(0.165 * k * m, 0.06); rush0.b.to(0.092 * k * (1.5 - m), 0.06); /* (the cue bus is about 3.8 times the ambience bus) */ }
       once('land', T.there - 0.25, t, () => { A.tone({ bus: 'cue', f: 82, f2: 40, d: 1.0, v: 0.143 }); A.tone({ bus: 'cue', f: 240, f2: 150, d: 0.3, a: 0.002, type: 'triangle', v: 0.18 }); A.noise({ bus: 'cue', f: 900, f2: 480, q: 1.4, d: 0.1, a: 0.001, v: 0.09 }); /* (less sub, which only fed the limiter; a body small speakers play) */ [1318.5, 1760, 2637].forEach((f, n) => A.tone({ bus: 'cue', f, d: 1.3, t: n * 0.07, type: 'triangle', v: 0.1 })); });
       K.cam = camAt(t);
-      { const d = t - (at(5) - 0.012), k = d < 0 ? clamp(1 + d / 0.17) : clamp(1 - d / 0.27); bloom.style.opacity = String(0.93 * k * k * (3 - 2 * k)); }
+      { const veil = (at0, top) => { const d = t - (at0 - 0.012), k = d < 0 ? clamp(1 + d / 0.17) : clamp(1 - d / 0.27); return top * k * k * (3 - 2 * k); };
+        // (and over the swap to autumn inside the smear: the blur hid its shapes, not its brightness, which fell by a third in one frame)
+        bloom.style.opacity = String(Math.max(veil(at(5), 0.93), veil(at(8.25), 0.7))); }
       // the smear: as many draws across the frame as the turn needs (one every 0.003 rad, about 3 px at the picture's
       // edge: further apart and a fence or a tree line shows as a row of stepped copies)
       // (a half-open shutter while it's slow, so what's being built stays sharp; wide open once it's a whip)
-      const sh = mix(0.45, 1, clamp((rate(t) - 2) / 4)), turn = (angle(t + sh / fps) - angle(t)), n = Math.min(240, Math.round(turn / 0.0016)); // (twice as close together as they were: at 0.003 the copies still showed as steps)
+      const sh = mix(0.45, 1, clamp((rate(t) - 2) / 4)), turn = (angle(t + sh / fps) - angle(t)), n = Math.min(204, Math.round(turn / 0.0022)); // (the steps an outside review saw were the average losing its late draws, kit.js, not their spacing)
       K.blur = n > 1 ? { n, at: k => camAt(t + sh * k / fps) } : null;
       if (i % 30 === 0) console.log('[cine]', t.toFixed(1), 'rate', rate(t).toFixed(2), 'draws', n, 'queue', CT.C1.queue.length);
     },

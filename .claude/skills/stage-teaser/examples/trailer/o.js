@@ -48,10 +48,10 @@
   // (Round six, the owner's notes on the frame: slower. A look each way with the camera going to see what's there
   // (nothing); the last pull-back held; a long sit; a fin in the water given its time, THEN the burst; a longer jump;
   // the belt off, a loop tied, and thrown, each its own beat; a longer ride.)
-  const T = { close: 1.8, spray: 2.3, open: 3.0, plant: 3.6, elbows: 4.1, sit: 4.7, face: 5.05, wide: 5.95, rise: 6.65,
-    lookL: 7.4, seeL: 7.85, lookR: 8.95, seeR: 9.45, back: 10.55, bang: 10.95, land: 11.27,
-    hit1: 11.7, hit2: 12.63, hit3: 13.56, glum: 14.9, sat: 15.75, thud: 17.35, peer: 17.85, shadow: 18.3, side: 21.2, breach: 22.0, splash2: 23.5, sitUp: 23.75, idea: 25.3,
-    untie: 25.6, off: 26.3, tie: 26.65, tied: 27.55, twirl: 27.85, over: 28.35, wind: 29.0, thrown: 29.2, caught: 29.65, taut: 30.35, yank: 31.05, drag: 31.52, far: 35.87, end: 37.77 };
+  const T = { close: 1.8, spray: 2.3, open: 3, plant: 3.6, elbows: 4.1, sit: 4.7, face: 5.05, wide: 5.95, rise: 6.65,
+    lookL: 7.4, seeL: 7.85, lookR: 8.95, seeR: 9.75, back: 10.85, bang: 11.25, land: 11.57,
+    hit1: 12, hit2: 12.93, hit3: 13.86, glum: 15.2, sat: 16.05, thud: 17.65, peer: 18.15, shadow: 18.6, side: 21.5, breach: 22.3, splash2: 23.8, sitUp: 24.05, idea: 25.6,
+    untie: 25.9, off: 26.6, tie: 26.95, tied: 27.85, twirl: 28.15, over: 28.65, wind: 29.3, thrown: 29.5, caught: 29.95, taut: 30.65, yank: 31.35, drag: 31.82, far: 36.17, end: 38.07 };
 
   // ---------- the set ----------
   /** The floe, far out: no shore or island in any shot from here. */
@@ -267,11 +267,16 @@
     { t: T.lookL - 0.14, mv: 0.1, yaw: 0.3 },
     { t: T.lookL + 0.14, mv: 0.28, e: 'settle', yaw: LOOKL, a01: 0.42, a11: 0.2 },
     { t: T.seeL + 0.5, mv: 0.4, tip: 0.1, a00: 0.25, a01: 0.5 }, // (leaning into it: is that...? No)
-    { t: T.lookR + 0.08, mv: 0.1, yaw: LOOKL + 0.12, tip: 0 },
-    { t: T.lookR + 0.42, mv: 0.34, e: 'settle', yaw: LOOKR, a00: 0, a01: 0.2, a11: 0.45 },
+    { t: T.lookR + 0.08, mv: 0.1, yaw: LOOKL + 0.14, tip: 0, sq: 0.95, roll: -0.05 },
+    // (round the other way: not a turntable. He drops into it, leans the way he's going, his arms are thrown out by it and
+    // come in late; he goes past where he means to look and comes back)
+    { t: T.lookR + 0.25, mv: 0.17, e: 'in', yaw: mix(LOOKL, LOOKR, 0.45), roll: 0.13, sq: 1.04, a01: 0.75, a11: 0.8, a00: 0.15, a10: -0.15 },
+    { t: T.lookR + 0.39, mv: 0.14, e: 'out', yaw: LOOKR - 0.16, roll: -0.06, sq: 0.97, a00: 0, a10: 0 },
+    { t: T.lookR + 0.5, mv: 0.11, yaw: LOOKR, roll: 0, sq: 1, a01: 0.2, a11: 0.45 },
     { t: T.seeR + 0.5, mv: 0.4, tip: 0.1, a10: 0.25, a11: 0.6 },
-    { t: T.back + 0.22, mv: 0.2, yaw: 0.45, tip: 0, a10: 0, a01: 0.2, a11: 0.25 },
-    { t: T.back + 0.36, mv: 0.14, sq: 0.96, a01: 0.1, a11: 0.12 },
+    { t: T.back + 0.12, mv: 0.12, e: 'in', yaw: mix(LOOKR, 0.45, 0.4), roll: -0.1, tip: 0, a10: 0, a01: 0.55, a11: 0.6 },
+    { t: T.back + 0.26, mv: 0.14, e: 'out', yaw: 0.56, roll: 0.04 },
+    { t: T.back + 0.38, mv: 0.12, yaw: 0.45, roll: 0, sq: 0.96, a01: 0.1, a11: 0.12 }, // (and his shoulders drop)
     // "!": a crouch, a hop, the fall, the squash where he lands, and up out of it
     { t: T.bang - 0.02, mv: 0.14, sq: 0.84, a00: 0.3, a10: 0.3, a01: 0.12, a11: 0.12 },
     { t: T.bang + 0.15, mv: 0.15, e: 'out', sq: 1.14, h: 0.58, a00: -0.5, a01: 1.35, a10: 0.25, a11: 0.75 },
@@ -292,7 +297,7 @@
     { t: T.glum + 0.6, mv: 0.9, px: 0.1, yaw: -0.05 }, // (the walk back is seen now: slow, small steps)
     // beaten: his knees go (a bend first), he drops onto his seat, the floe takes it; a breath in, and a long sigh out
     { t: T.sat - 0.22, mv: 0.2, tip: 0.32, sq: 0.93 },
-    { t: T.sat, mv: 0.22, e: 'in', h: 0.09, flat: 1, tip: 0.2, px: 0, a00: -0.85, a01: -0.3, a10: -0.85, a11: -0.28, sq: 1.04 },
+    { t: T.sat, mv: 0.26, e: 'in', h: 0.09, flat: 1, tip: 0.2, /* (he sits where he stands: a step toward px 0 in the same move had his legs striding till the frame they folded) */ a00: -0.85, a01: -0.3, a10: -0.85, a11: -0.28, sq: 1.04 },
     { t: T.sat + 0.07, mv: 0.07, e: 'out', sq: 0.85 },
     { t: T.sat + 0.36, mv: 0.28, e: 'settle', sq: 1, tip: 0.24 },
     { t: T.sat + 0.52, mv: 0.16, sq: 1.04, tip: 0.18 },
@@ -501,6 +506,18 @@
   const wake = foamRing(1); wake.visible = false; scene.add(wake); // (the tuna's, drawn out behind its tail)
   // (the water doming up over something coming: the game's shallow-water colour, where the sea thins over its back)
   const coil = new Mesh(new TorusGeometry(0.075, 0.02, 6, 16), ropeMat); coil.visible = false; scene.add(coil); // (the rope in his hand before it's a loop: as thick as the belt it was)
+  const vwake = [0, 1].map(() => { const g = new T3.PlaneGeometry(1, 1); g.translate(0.5, 0, 0); const m = new Mesh(g, new T3.MeshBasicMaterial({ color: 0xFFFFFF, transparent: true, opacity: 0.5, depthWrite: false, side: T3.DoubleSide })); m.rotation.order = 'YXZ'; m.visible = false; scene.add(m); return m; });
+  // A CROWN of water where something big goes in: lumps of it thrown up and out, and falling back. (The game's own drops
+  // are a few centimetres across: from ten metres a fish three metres long went in through a thin ring and nothing else.)
+  const crownMat = [new MeshLambertMaterial({ color: 0xFFFFFF }), new MeshLambertMaterial({ color: 0xBDEFF8 })];
+  const crowns = [0, 1, 2].map(() => Array.from({ length: 18 }, (_, n) => { const m = new Mesh(new T3.IcosahedronGeometry(1, 0), crownMat[n % 2]); m.visible = false; scene.add(m); return m; }));
+  function crown(ci, t, t0, at, power = 1, dx = 0, dz = 0) {
+    const u = t - t0; if (u < 0 || u > 1.3) return;
+    crowns[ci].forEach((m, n) => { const d = u - (n % 3) * 0.035, a = n * 2.399 + ci, out = (0.7 + (n % 5) * 0.22) * power, up = (3.3 + (n % 4) * 0.7) * Math.sqrt(power), y = up * d - 7.6 * d * d;
+      if (d < 0 || y < -0.06) return;
+      m.visible = true; m.position.set(at.x + (Math.cos(a) * out + dx * 0.9) * d, 0.1 + y, at.z + (Math.sin(a) * out + dz * 0.9) * d);
+      const sz = (0.075 + (n % 3) * 0.04) * power * (1 - 0.45 * clamp(d / 0.8)); m.scale.set(sz, sz * 1.3, sz); m.rotation.set(n, d * 6, n * 2); });
+  }
   const swell = (() => { // (cut in facets and shaded like the sea round it: a smooth bright dome read as a plastic plate)
     const g = new T3.SphereGeometry(1, 11, 5, 0, Math.PI * 2, 0, Math.PI / 2).toNonIndexed(), p = g.attributes.position; let seed = 5; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647, moved = new Map();
     for (let i = 0; i < p.count; i++) { const key = p.getX(i).toFixed(3) + ',' + p.getY(i).toFixed(3) + ',' + p.getZ(i).toFixed(3); if (!moved.has(key)) moved.set(key, p.getY(i) > 0.02 && p.getY(i) < 0.98 ? [(rnd() - 0.5) * 0.14, (rnd() - 0.5) * 0.1, (rnd() - 0.5) * 0.14] : [0, 0, 0]); const d = moved.get(key); p.setXYZ(i, p.getX(i) + d[0], p.getY(i) + d[1], p.getZ(i) + d[2]); }
@@ -625,6 +642,7 @@
     let shot, low = true;
     // (he's in a scene: he doesn't fish from the pad, pick fillets up or drop them, wherever it puts him)
     player.tPick = player.tDrop = player.tCatch = player.tCash = 9;
+    for (const cr of crowns) for (const m of cr) m.visible = false; for (const m of vwake) m.visible = false;
     rope.visible = false; loop.visible = false; wash.visible = false; wash2.visible = false; wake.visible = false; swell.visible = false; coil.visible = false; dark.visible = false; dark.scale.setScalar(1); tuna.g.visible = false; shade.visible = false;
     for (const h of hills) h.visible = false;
     K.fade(0); K.letterbox(0); K.lids(0); K.vignette(0.38);
@@ -636,7 +654,11 @@
     tuna.g.scale.setScalar(2.3); tuna.g.children[2].scale.y = 1;
     const f = faceAt(t);
     // (his belt, till he takes it off for a rope: it draws in under his hand over four frames, and is gone)
-    { const k = clamp((t - T.off + 0.2) / 0.3), [band, knob, tail] = rags.userData.belt; band.visible = knob.visible = tail.visible = k < 1; band.scale.set(1 - 0.16 * k, 1 - 0.16 * k, 1); knob.scale.set(0.035 * (1 - k), 0.035 * (1 - k), 0.03 * (1 - k)); tail.scale.setScalar(1 - k); }
+    { const k = clamp((t - T.off + 0.1) / 0.34), [band, knob, tail] = rags.userData.belt; band.userData.full ??= band.geometry;
+      band.visible = k < 0.88; knob.visible = tail.visible = t < T.off - 0.1; // (the knot's in his hand from the moment he pulls)
+      if (band.userData.k !== k) { band.userData.k = k; if (band.geometry !== band.userData.full) band.geometry.dispose();
+        // (what's left of it runs from the knot round him: the far end comes round his back to his hand)
+        if (k > 0 && k < 0.88) { band.geometry = new TorusGeometry(band.userData.full.parameters.radius, 0.02, 6, 20, Math.PI * 2 * (1 - k)); band.rotation.z = Math.PI / 2 - 0.25; } else { band.geometry = band.userData.full; band.rotation.z = 0; } } }
     // the floe: its bob and tip
     { const fl = floeAt(t); floe.position.y = 0.105 + fl.y; floe.rotation.set(fl.rx, 0, fl.rz); }
     floe.visible = t < T.far; for (const m of chunks) m.visible = t < T.far; // (the far shot starts out past it: the floe he was dragged off lay AHEAD of him)
@@ -675,7 +697,7 @@
         jolt(shot, t, T.land, 0.03);
       }
       once('landFx', T.land + 0.03, t, () => FX.splashFx(F.clone().add(V(0.9, 0, -1.75)), 0.1)); // (the floe's far edge slaps the water as it takes him)
-      if (t >= T.bang) pills[0].at = headW(t).add(V(0, 0.62, 0));
+      if (t >= T.bang) pills[0].at = P.localToWorld(V(0, 1.42, 0)).add(V(0, 0.34, 0)); // (over his hat wherever the hop has put it: on the track's head height it sat ON his hat at the top and a head too high after)
     } else if (t < T.glum) {
       // ----- three thuds: further, further, nothing but sea. He runs out of ideas a size at a time. -----
       const b = t - T.hit2 - 0.1, jumping = b > 0 && b < 0.9, u = jumping ? (b / 0.45) % 1 : 0;
@@ -728,6 +750,7 @@
       // the swell: the water domes up in front of him, foam widening round it, and breaks as it comes through
       if (kb < 0.16) { const up = ease(sw) * (1 - clamp(kb / 0.16)); swell.visible = up > 0.01; swell.position.copy(STARTA).setY(0.02); swell.scale.set(0.9 + 0.8 * ease(sw), 0.62 * up, 0.8 + 0.7 * ease(sw)); }
       const into = t - NOSE.t;
+      crown(0, t, NOSE.t, NOSE.at, 0.9, DIRA.x, DIRA.z); crown(1, t, TIN - 0.04, ENTRY, 1.3, DIRA.x * 0.5, DIRA.z * 0.5);
       if (t < T.breach + 0.3) { wash.visible = true; wash.position.copy(STARTA).setY(0.14); wash.rotation.y = 0; wash.scale.setScalar(mix(0.5, 2.0, ease(sw * 0.55 + clamp(kb / 0.25) * 0.45))); }
       else if (into > 0) { wash.visible = true; wash.position.copy(NOSE.at).lerp(ENTRY, clamp(into / 0.3)).setY(0.14); wash.rotation.y = 0; wash.scale.setScalar(mix(0.5, 3.0, easeOut(into / 0.9))); }
       for (let n = 0; n < 3; n++) once('pre' + n, T.breach - 0.2 + n * 0.05, t, () => FX.splashFx(STARTA.clone().add(V(n * 0.3 - 0.3, 0, 0.2 - n * 0.2)), 0.03));
@@ -749,6 +772,10 @@
       const work = t > T.tie + 0.22 && t < T.tied - 0.1 ? 1 : 0; // (his hands at the knot: small, quick, never the same)
       act(t, f, { yaw: Math.sin(spin) * 0.07 * tw + Math.sin(t * 40) * 0.2 * shk, roll: Math.sin(spin) * 0.06 * tw, dy: Math.abs(Math.sin(spin * 0.5)) * 0.03 * tw, a11: Math.sin(spin) * 0.14 * tw + n1(t * 9, 31) * 0.07 * work,
         a00: n1(t * 11, 32) * 0.09 * work, a10: -n1(t * 11, 32) * 0.09 * work, a01: n1(t * 8, 33) * 0.06 * work });
+      { const wk = ease((t - T.untie) / 0.24) * (1 - ease((t - T.off + 0.1) / 0.1)); // (the keys only bring his arm near it: this puts his hand on it, and tugs)
+        if (wk > 0.001) { const arm = P.arms[1], kn = P.body.localToWorld(V(0.075, 0.5, 0.3)), l = arm.parent.worldToLocal(kn).sub(arm.position).normalize();
+          const z = Math.asin(Math.max(-1, Math.min(1, l.x))), sw = Math.atan2(-l.z, -l.y), tug = bump((t - T.untie - 0.3) / 0.16) + bump((t - T.untie - 0.52) / 0.16);
+          arm.rotation.x = mix(arm.rotation.x, sw - 0.1 * tug, wk); arm.rotation.z = mix(arm.rotation.z, z + 0.16 * tug, wk); P.updateMatrixWorld(true); } }
       // (water coming off him)
       if (t < T.idea + 0.6 && (dripT -= 1 / fps) <= 0) { dripT = shk > 0.1 ? 0.03 : 0.11; const hd = headW(t); FX.pourFx(hd.add(V(n1(t * 31, 1) * 0.22, -0.1 - Math.abs(n1(t * 17, 2)) * 0.4, n1(t * 23, 3) * 0.22)), 0xBDEFF8, shk > 0.1 ? 3 : 1, 0.022); }
       // the one he ropes: it's out of the water as he winds up, and at the top of its jump when the loop gets there
@@ -756,6 +783,7 @@
       leap(LEAP2, DIR2, 0.5 + (t - T.caught) / 1.3, 3.6, 2.75);
       { const out = LEAP2.clone().sub(DIR2.clone().multiplyScalar(1.75)), u = (t - T.caught + 0.84) / 0.3; if (u > 0 && u < 1.25) { swell.visible = true; swell.position.copy(out).setY(0.02); swell.scale.set(0.8 + 0.7 * ease(u), 0.55 * ease(u) * (1 - clamp((u - 0.9) / 0.35)), 0.7 + 0.6 * ease(u)); } }
       const got = clamp((t - T.caught - 0.16) / 0.08);
+      crown(2, t, T.caught + 0.5, LEAP2.clone().add(DIR2.clone().multiplyScalar(1.35)), 1.2, DIR2.x * 0.5, DIR2.z * 0.5);
       fish({ swim: t * (hang ? 44 : 22), amp: hang ? 0.05 + 0.08 * got : 0.09, smile: mix(1, -0.6, got), lid: 0.25 * (1 - got), wide: EASE.over(got * 0.6), mouth: got * 0.9,
         flare: mix(0.5, 1, got), look: [mix(0, -0.9, got), 0.3 * got], brow: -got });
       for (let n = 0; n < 10; n++) once('e3' + n, T.caught + 0.55 + n * 0.016, t, () => FX.splashFx(LEAP2.clone().add(DIR2.clone().multiplyScalar(1.5)).add(V(Math.cos(n * 2.4) * (0.15 + n * 0.05), 0, Math.sin(n * 2.4) * (0.15 + n * 0.05))), 0.1 + (n % 4) * 0.25)); // (and back in, the rope going down with it)
@@ -876,8 +904,8 @@
       // back it travels forward along the fish to a three-quarter view from ahead, where its face and his joy both are
       const fwd = ease((a - 1.15) / 1.7), side = sideOf(TO); // (round to its front slowly: quick, the horizon whipped)
       const tailCam = inWater.clone().sub(TO.clone().multiplyScalar(0.9)).add(side.clone().multiplyScalar(3.3)).setY(0.85), frontCam = c.clone().add(TO.clone().multiplyScalar(3.0)).add(side.clone().multiplyScalar(3.1)).setY(1.55); // (high enough to see his feet on its back)
-      const tailLook = inWater.clone().add(TO.clone().multiplyScalar(1.3)).setY(0.45), frontLook = c.clone().sub(TO.clone().multiplyScalar(0.5)).setY(1.15);
-      shot = operate({ pos: tailCam.lerp(frontCam, fwd), look: tailLook.lerp(frontLook, fwd).add(V(0, 0.4 * bump(jump * 1.1), 0)), fov: mix(40, 42, fwd) + 3 * bump(jump), fogNear: 30, fogFar: 95 }, t, 1.8, 13); // (up and a touch wider for the jump: his hat stays in the picture)
+      const tailLook = inWater.clone().add(TO.clone().multiplyScalar(1.3)).setY(0.45), frontLook = c.clone().sub(TO.clone().multiplyScalar(0.3)).setY(0.92); // (lower: its face was cut by the bottom edge on and off)
+      shot = operate({ pos: tailCam.lerp(frontCam, fwd), look: tailLook.lerp(frontLook, fwd).add(V(0, 0.4 * bump(jump * 1.1), 0)), fov: mix(40, 44, fwd) + 3 * bump(jump), fogNear: 30, fogFar: 95 }, t, 1.8, 13); // (up and a touch wider for the jump: his hat stays in the picture)
       jolt(shot, t, T.drag + J1, 0.06);
       // (the water answers it: a bow wave thrown up each side of its nose, spray off its back fin, a churned wake behind its tail)
       sprayT -= 1 / fps; if (sprayT <= 0) { sprayT = 0.045; const sd = sideOf(TO), nose = c.clone().add(TO.clone().multiplyScalar(1.3)), odd = Math.round(t * 22) % 2 ? 1 : -1;
@@ -902,7 +930,8 @@
       for (const hl of hills) hl.visible = Math.hypot(hl.position.x - LH.x, hl.position.z - LH.z) < 14;
       for (const q of CT.C1.queue) { q.g.visible = false; q.bubble.visible = false; q.mood.visible = false; } // (the game's first customers, waiting where the market will be: five specks on the horizon) // (the island it stands off, and no other)
       const camAt = c.clone().sub(TO.clone().multiplyScalar(15)).add(sideOf(TO).multiplyScalar(-0.35)).setY(4.2);
-      shot = operate({ pos: camAt, look: c.clone().add(TO.clone().multiplyScalar(30)).setY(-2.4), fov: 24, fogNear: 80, fogFar: 330, far: 700 }, t, 1.2, 14);
+      shot = operate({ pos: camAt, look: c.clone().add(TO.clone().multiplyScalar(30)).setY(-2.4), fov: 24, fogNear: 40, fogFar: 250, far: 700 }, t, 1.2, 14); // (haze from nearer: with almost none the sea went a shade darker at the cut)
+      { const back = TO.clone().multiplyScalar(-1), o = c.clone().sub(TO.clone().multiplyScalar(1.5)); vwake.forEach((m, n) => { const sg = n ? -1 : 1; m.visible = true; m.position.copy(o).setY(0.21); m.rotation.set(-HP, heading(back) + sg * 0.27, 0); m.scale.set(7.5 + Math.sin(t * 3 + n) * 0.5, 0.2 + 0.05 * Math.sin(t * 7 + n * 2), 1); }); } // (seen from behind it stood still: the V it cuts in the water says it's moving)
       sprayT -= 1 / fps; if (sprayT <= 0) { sprayT = 0.06; FX.splashFx(c.clone().sub(TO.clone().multiplyScalar(1.9)), 0.16); FX.splashFx(c.clone().add(TO.clone().multiplyScalar(1.3)).add(sideOf(TO).multiplyScalar(0.34 * (Math.round(t * 16) % 2 ? 1 : -1))), 0.3); }
       wake.visible = true; wake.position.copy(c).sub(TO.clone().multiplyScalar(3.1)).setY(0.14); wake.rotation.y = heading(TO); wake.scale.set(2.6, 1, 0.5);
       K.fade(ease((a - (T.end - T.far) + 0.6) / 0.55));

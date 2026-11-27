@@ -326,7 +326,48 @@ faults in hero shots. Each is a trap of the tooling, so each is here:
 - **Look again after each fix.** A fill light added to show the tuna sat half a metre from the ice slab and bleached
   it white: found only because the re-cut film went back on sheets before it was published.
 
-Budget for this: after you think a cut is done, one outside review that looks at every frame, then a round of fixes.
+- **Mono is a fault a meter finds and a laptop hides.** Every bed was one source in the middle: left and right were
+  the same signal. `K.soft` now makes each bed as TWO, cut from different parts of the game's noise and set left and
+  right (0.71 each: the same loudness, and nothing lost on one speaker). `examples/trailer/stereo.py FILM a-b ...`
+  prints the left/right correlation and the side level per stretch. Effects stay in the middle.
+- **A hand that does a thing must be ON the thing.** Keyed arm angles brought his hand near his belt's knot; near is
+  not on. `o.js` solves the arm's two angles for the knot's place each frame (the shoulder to the target, in the arm's
+  parent's space) while he works at it. And a belt that comes off unwinds from round him (a torus with a shrinking
+  arc, ending at the knot): shrunk in place it sank into his shirt and broke into dashes.
+- **A rigid figure's turn needs what a turntable hasn't got:** a drop into it, a lean the way it's going, arms thrown
+  out and coming in late, past the mark and back. Four keys where there was one.
+- **Dissolve between two places, never between two moments in one place.** The second leaves ghosts of everyone who
+  moved. Play the stretch unbroken instead.
+
+- **The smear was losing most of its draws.** `kit.js` averaged a blurred frame's draws as a running mean on an 8-bit
+  canvas (`globalAlpha = 1 / (i + 1)`): past a few dozen, a draw's weight is under half a grey level and it is lost.
+  Two hundred draws looked like twelve stepped copies, whatever their spacing. It averages in two steps now (twelve
+  to a group, then the groups). A second review counted the copies; I had answered the first by halving the spacing.
+- **A "look" for a figure with no neck is a whole-body turn: give it time.** Half-second shots with the turn in three
+  frames of them read as a flip. A turn is 0.5 s (back a hair, into it leaning, past the mark, home), he turns three
+  quarters of the way and the cut shows the rest, and the shot it happens in is 0.85 s.
+- **A thing held has one length.** The skewer ran from his hand to the flames wherever his hand went: four times as
+  long when he turned away. It is a stick of one length along his arm; facing the fire the arm is aimed at the flames.
+- **What leaves the picture leaves before the next thing moves.** The idea's bubble vanished on the frame he sprang
+  up: bubble, pose and height all changed at once, one pop. It shrinks away first; the spring has a frame off the
+  ground between the crouch and the top.
+- **Water for a big fish is lumps, not drops.** The game's splash drops are centimetres across; from ten metres a
+  three-metre fish went in through a ring. `crown()` in `o.js` throws up eighteen lumps where it goes in.
+- **Seen from dead behind, a thing in motion needs a wake.** Two white lines in a V (`vwake`).
+- **Dead air between hits.** Where a take dims the world for a set-piece and its sound is single cues, lay a quiet bed
+  under them to the last frame: the landing on the restaurant had digital silence between its hits.
+
+- **Random scenery: check for everything that can land on the set, and look at the render that ships.** The site
+  finder knew trees; one load put a snow mound on the ice slab, the fillets half buried. `K.openGround` counts the
+  mounds (`TREE_MATS[4]`) too now. It was caught only because the re-cut film went back on a sheet.
+- **Never add a `//` comment in the middle of a one-line statement list.** Twice in this work it swallowed the rest of
+  the line: the last time it was `g.add(light)`, and the campfire rendered with no firelight at all. Use `/* */`, and
+  compare one frame against the last good render after any edit to a light.
+- **A take's sound can be a frame shorter than its picture.** `cut.py` fades each take out where its SOUND ends: faded
+  where the picture ends, the campfire's bed was cut off mid-wave, a step and 15 ms of nothing at the join.
+
+Budget for this: after you think a cut is done, one outside review that looks at every frame, then a round of fixes,
+then a second review of the result. The second found as much as the first; the third said ship.
 
 ## Workflow
 

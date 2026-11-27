@@ -74,7 +74,7 @@
     hatch.jolt = HITS.reduce((s, h, n) => { const dt = t - h; return s + (dt > 0 ? [0, 0.1, 0.24][n] * Math.exp(-dt * 8) * Math.abs(Math.cos(dt * 20)) : 0); }, 0) + 0.16 * ease((t - PEEK) / 0.9) * (1 + n1(t * 6, 5) * 0.06);
     hatch.light.intensity = 2.4 * ease((t - PEEK - 0.1) / 0.6) * (1 + n1(t * 9, 3) * 0.12);
     hatch.update(1 / now.fps);
-    leaf.visible = pit.visible = t > PEEK + 0.03; leaf.rotation.x = hatch.lid.rotation.x * 0.5;
+    pit.visible = leaf.visible = true; leaf.rotation.x = hatch.lid.rotation.x * 0.5; // (dark under the lid from the first thud: it jumped and showed a lit shaft and a ladder, and a second later the same hole was black)
     // (the glints: on, a blink, on; the last thing in the picture)
     // (twelve frames on, three off, and on again for as long before the black: long enough that the blink is a blink)
     // (and a blink has lids: a frame squashed flat going shut and another coming open, not a light switched off and on)
