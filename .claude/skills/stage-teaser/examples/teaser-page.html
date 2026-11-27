@@ -1,0 +1,56 @@
+<title>Hello, Chef</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&display=swap" rel="stylesheet">
+<style>
+/* One dark column, night on the dock: the clip is the page. */
+:root {
+  --bg: #07090F; --panel: #121520; --fg: #FFF1D2; --muted: #A9A4B4; --ember: #FF8A4A;
+  --display: "Baloo 2", "Trebuchet MS", system-ui, sans-serif;
+  --body: system-ui, -apple-system, "Segoe UI", sans-serif;
+  color-scheme: dark;
+}
+body { background: var(--bg); color: var(--fg); font-family: var(--body); }
+main { max-width: 30rem; margin: 0 auto; padding-inline: 16px; padding-block: 20px 40px; display: grid; gap: 18px; }
+.eyebrow { font: 800 0.8rem/1 var(--display); letter-spacing: 0.18em; text-transform: uppercase; color: var(--ember); margin: 0; }
+h1 { font: 800 clamp(2.2rem, 11vw, 3.2rem)/0.95 var(--display); margin: 6px 0 0; text-wrap: balance; }
+.clip { border-radius: 14px; overflow: hidden; background: #000; box-shadow: 0 0 0 1px #20263A, 0 18px 40px #000a; }
+video { display: block; width: 100%; height: auto; aspect-ratio: 9 / 16; max-width: 100%; }
+.note { color: var(--muted); font-size: 0.85rem; margin: 0; }
+h2 { font: 800 1.1rem/1.2 var(--display); margin: 0 0 6px; color: var(--ember); }
+dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 8px 12px; font-size: 0.95rem; line-height: 1.4; }
+dt { font-variant-numeric: tabular-nums; color: var(--muted); }
+dd { margin: 0; min-width: 0; }
+section { background: var(--panel); border-radius: 12px; padding: 14px 16px; }
+footer { color: var(--muted); font-size: 0.78rem; line-height: 1.5; }
+</style>
+<main>
+  <header>
+    <p class="eyebrow">Floe Market · Stage 3 teaser</p>
+    <h1>Hello, Chef</h1>
+  </header>
+  <div class="clip">
+    <video id="clip" src="fugu-hatch.mp4" poster="cine-poster.jpg" controls playsinline preload="metadata"></video>
+  </div>
+  <p class="note">24 seconds. Headphones help: most of it is sound.</p>
+  <section>
+    <h2>Beat by beat</h2>
+    <dl>
+      <dt>0:00</dt><dd>Night on the dock. Water under the planks, the trapdoor shut</dd>
+      <dt>0:02</dt><dd>First shove: the lid jumps, ember light through the gap, a small push in</dd>
+      <dt>0:04</dt><dd>Second shove, harder: dust from the cracks, another push in</dd>
+      <dt>0:05</dt><dd>A breath in, then the third: the trapdoor blasts open into smoke</dd>
+      <dt>0:07</dt><dd>Light streams up out of the hole; his silhouette rises through it on the lift</dd>
+      <dt>0:09</dt><dd>The smoke thins and a light from above finds his face; his legs stay in shadow</dd>
+      <dt>0:12</dt><dd>Silence. Then an anime crash zoom onto his eyes: movie bars close in, everything behind him sinks into black, speed lines, and a sparkle off his shades</dd>
+      <dt>0:13</dt><dd>The camera stays on his glaring shades, creeping in. A heartbeat quickens and a drone swells; "Hello," then "Chef." appear as a subtitle in the game's toast, in the bottom bar</dd>
+      <dt>0:15</dt><dd>Smash cut to black on a low hit, then the banner: The Dohyo Below, coming soon, over the More energy version of the cellar theme (0:31.19 to 0:38.38, layer 4), ending on the taiko roll</dd>
+    </dl>
+  </section>
+  <section>
+    <h2>The version you liked</h2>
+    <p class="note" style="margin:0 0 10px">The previous cut, kept as it was: a looser low angle, more light on him, and a quieter build under the line.</p>
+    <div class="clip"><video id="prev" src="fugu-hatch-v7.mp4" controls playsinline preload="metadata"></video></div>
+  </section>
+  <footer>Rendered in the game's engine with its own models, at night, with smoke, lighting and sound design added for the clip. His line is text, not a voice. Crowd recordings by Gregor Quendel (CC BY 4.0) and BigSoundBank (CC0).</footer>
+</main>
