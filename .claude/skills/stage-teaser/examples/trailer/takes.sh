@@ -10,7 +10,7 @@ U=http://localhost:5177/; U3="http://localhost:5177/?cellar&full&beaten=4&sound=
 FK=rush,fightBanner,finish,finBlink,ringFlash,epic,banner,fade,toast,confetti
 r() { name=$1; shift; node "$P/render-play.mjs" "$@" > "$S/log-$name.txt" 2>&1; echo "$name: $(tail -1 "$S/log-$name.txt")"; }
 # THE CURRENT CUT is version 10, the short one (the owner: only 0:57 to 1:16 of version 9 is good, keep only that for now, and the
-# cafe band's WINTER tune under Floe Sushi): the first sale, the spin and Floe Sushi, 21 s. python3 cut.py "$S" trailer-v10.mp4 --phone phone.mp4 --edl edl-v10.json
+# cafe band's WINTER tune under Floe Sushi): the studio intro, the first sale, the spin and Floe Sushi, 26 s. python3 cut.py "$S" trailer-v10.mp4 --phone phone.mp4 --edl edl-v10.json
 # It needs two more takes. TMW, the music stem with the band in winter (t.js ?band=0; the same stem as TM to the sample until the band comes in):
 #   r TMW "$X/kit.js,$X/acting.js,$X/t.js" "$S/TMW" --landscape --url "$U?stage=1&pile=14&sound=on&pre=8&band=0" --init "$X/newgame.js" --wait 6000 --mute sfx,amb --sound-only
 # and Uy, Floe Sushi from take U as far as "Premium menu unlocked", faded out (Ux dissolved on to the knocking message, which is cut):
