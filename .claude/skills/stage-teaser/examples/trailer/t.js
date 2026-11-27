@@ -20,6 +20,23 @@
   /* (?plain=1: the chef in the game's own clothes from the first frame, no change out of the castaway's whites) */
   const PLAIN = new URLSearchParams(location.search).get('plain') === '1';
   const P = player.g, rags = PLAIN ? null : ACT.castaway(P); ACT.soles(P);
+  /* He works while his market builds: off to the pile for fillets and back to stock the stall, walked with the game's own
+     joystick as in the first sale (g.js). He used to stand at the stall for five seconds with a customer waiting, an
+     outside review. Not for the music stem. */
+  const ST = await window.__mod('stations.ts'), gl = K.R.canvas, OFF0 = K.R.OFF;
+  const camF = V(-OFF0.x, 0, -OFF0.z).normalize(), camR = V(-camF.z, 0, camF.x), CX = innerWidth / 2, CY = innerHeight / 2;
+  const ptr = (type, x, y) => gl.dispatchEvent(new PointerEvent(type, { pointerId: 7, clientX: x, clientY: y, bubbles: true }));
+  let down = false, job = 'fetch', jobAt = 0;
+  const letGo = () => { if (down) { ptr('pointerup', CX, CY); down = false; } };
+  function walkTo(x, z, near = 0.12) {
+    const p = P.position, dx = x - p.x, dz = z - p.z, d = Math.hypot(dx, dz);
+    if (d < near) { letGo(); return true; }
+    if (!down) { ptr('pointerdown', CX, CY); down = true; }
+    const m = Math.min(1, Math.max(0.3, d * 2)), ux = dx / d, uz = dz / d;
+    ptr('pointermove', CX + (ux * camR.x + uz * camR.z) * 48 * m, CY - (ux * camF.x + uz * camF.z) * 48 * m);
+    return false;
+  }
+
   // ---------- the orbit: how fast it turns, by time, and so where it is ----------
   const W0 = 0.32, WA = 0.8, W1 = 9.4; // (was 14: one turn fewer in the smear, the owner's note)
   const rate = t => t < T.fast ? mix(W0, WA, ease(t / T.fast)) : t < T.peak ? WA * Math.pow(W1 / WA, ease((t - T.fast) / (T.peak - T.fast))) : t < T.slow ? W1 : mix(W1, 0.035, Math.pow(easeIO(clamp((t - T.slow) / (T.there - T.slow))), 0.55));
@@ -56,6 +73,13 @@
       if (i < 12) A.dimWorld(0, 0.03);
       if (t < 0) { K.cam = camAt(0); return; }
       STAGE1.forEach(([id, b]) => once(id, at(b), t, () => pop(id)));
+      if (PRE === 0) { const carrying = player.back.items?.length ?? 0, C = CT.C1;
+        if (t > at(8.25) - 0.2) { letGo(); job = 'over'; }
+        else if (job === 'fetch') { walkTo(ST.PILE_STAND.x, ST.PILE_STAND.z); if (i - jobAt > 110 || (carrying >= 6 && i - jobAt > 30)) { job = 'back'; jobAt = i; } }
+        else if (job === 'back') { if (walkTo(C.dropPos.x, C.dropPos.z - 0.25, 0.2)) { job = 'stand'; jobAt = i; } }
+        else if (job === 'stand') { letGo(); if (i - jobAt > 45) { job = 'till'; jobAt = i; } }
+        else if (job === 'till') walkTo(C.cashPos.x, C.cashPos.z, 0.15);
+        if (i % 30 === 0) console.log('[cine] job', job, 'carry', carrying, P.position.x.toFixed(1), P.position.z.toFixed(1)); }
       // out of his rags and into his parka as the money comes in
       if (rags) once('coatFx', at(2.75) - 0.034, t, () => FX.unlockFx({ x: P.position.x, z: P.position.z }, 0.9)); /* (the sparkle a frame ahead of the change it covers, the change two frames into it: it was a bare one-frame swap with the sparkle after) */
       if (rags) once('coat', at(2.75) + 0.05, t, () => { rags.userData.restore(); });
